@@ -49,7 +49,8 @@ namespace drmemtrace {
 
 /**
  * Creates an analysis tool which counts the number and type of context switches
- * in a core-sharded trace schedule.
+ * in a core-sharded trace schedule.  The tool fails if run in any mode besides
+ * core-sharded.
  */
 analysis_tool_t *
 schedule_stats_tool_create(uint64_t print_every, unsigned int verbose = 0);

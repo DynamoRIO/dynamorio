@@ -429,7 +429,7 @@ analyzer_multi_t::create_analysis_tool_from_options(const std::string &simulator
     } else if (simulator_type == INVARIANT_CHECKER) {
         return create_invariant_checker();
     } else if (simulator_type == SCHEDULE_STATS) {
-        return schedule_stats_tool_create(op_print_every.get_value(),
+        return schedule_stats_tool_create(op_schedule_stats_print_every.get_value(),
                                           op_verbose.get_value());
     } else {
         auto tool = create_external_tool(simulator_type);

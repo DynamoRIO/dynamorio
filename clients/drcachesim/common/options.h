@@ -35,6 +35,7 @@
 #ifndef _OPTIONS_H_
 #define _OPTIONS_H_ 1
 
+// Tool names (for -simulator_type option).
 #define MISS_ANALYZER "miss_analyzer"
 #define TLB "TLB"
 #define HISTOGRAM "histogram"
@@ -48,6 +49,7 @@
 #define INVARIANT_CHECKER "invariant_checker"
 #define SCHEDULE_STATS "schedule_stats"
 
+// Constants used by specific tools.
 #define REPLACE_POLICY_NON_SPECIFIED ""
 #define REPLACE_POLICY_LRU "LRU"
 #define REPLACE_POLICY_LFU "LFU"
@@ -194,7 +196,7 @@ extern dynamorio::droption::droption_t<std::string> op_record_file;
 extern dynamorio::droption::droption_t<std::string> op_replay_file;
 extern dynamorio::droption::droption_t<std::string> op_cpu_schedule_file;
 #endif
-extern dynamorio::droption::droption_t<uint64_t> op_print_every;
+extern dynamorio::droption::droption_t<uint64_t> op_schedule_stats_print_every;
 
 } // namespace drmemtrace
 } // namespace dynamorio

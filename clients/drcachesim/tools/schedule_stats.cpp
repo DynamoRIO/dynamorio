@@ -136,6 +136,9 @@ schedule_stats_t::parallel_shard_error(void *shard_data)
 bool
 schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 {
+    static constexpr char THREAD_LETTER_START = 'A';
+    static constexpr char THREAD_SEPARATOR = ',';
+    static constexpr char WAIT_SYMBOL = '-';
     per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
     if (knob_verbose_ >= 4) {
         std::ostringstream line;
@@ -166,12 +169,11 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
         } else {
             ++shard->cur_segment_instrs;
             if (shard->cur_segment_instrs == knob_print_every_) {
-                shard->thread_sequence += '-';
+                shard->thread_sequence += WAIT_SYMBOL;
             }
         }
         return true;
-    } else
-        shard->prev_was_wait = false;
+    }
     int64_t input = shard->stream->get_input_id();
     if (input != shard->prev_input) {
         // We convert to letters which only works well for <=26 inputs.
@@ -181,9 +183,12 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
                 ++shard->counters.voluntary_switches;
             if (shard->direct_switch_target == memref.marker.tid)
                 ++shard->counters.direct_switches;
-            shard->thread_sequence += ',';
+            // A comma separating each sequence makes it a little easier to
+            // read, and helps distinguish a switch from two threads with the
+            // same %26 letter.  (We could remove this though to compact it.)
+            shard->thread_sequence += THREAD_SEPARATOR;
         }
-        shard->thread_sequence += 'A' + static_cast<char>(input % 26);
+        shard->thread_sequence += THREAD_LETTER_START + static_cast<char>(input % 26);
         shard->cur_segment_instrs = 0;
         if (knob_verbose_ >= 2) {
             std::ostringstream line;
@@ -206,12 +211,11 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
     }
     if (type_is_instr(memref.instr.type)) {
         ++shard->counters.instrs;
-        // Print a single letter for any partial sequence.
-        if (shard->cur_segment_instrs == 0)
-            shard->thread_sequence += 'A' + static_cast<char>(input % 26);
         ++shard->cur_segment_instrs;
-        if (shard->cur_segment_instrs == knob_print_every_)
+        if (shard->cur_segment_instrs == knob_print_every_) {
+            shard->thread_sequence += THREAD_LETTER_START + static_cast<char>(input % 26);
             shard->cur_segment_instrs = 0;
+        }
         shard->direct_switch_target = INVALID_THREAD_ID;
         shard->saw_maybe_blocking = false;
         shard->saw_exit = false;
@@ -231,6 +235,7 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
         }
     } else if (memref.exit.type == TRACE_TYPE_THREAD_EXIT)
         shard->saw_exit = true;
+    shard->prev_was_wait = false;
     return true;
 }
 

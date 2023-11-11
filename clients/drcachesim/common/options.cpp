@@ -856,9 +856,10 @@ droption_t<std::string>
 #endif
 
 // Schedule_stats options.
-droption_t<uint64_t> op_print_every(DROPTION_SCOPE_ALL, "print_every", 5000,
-                                    "A letter is printed every N instrs",
-                                    "A letter is printed every N instrs or N waits");
+droption_t<uint64_t>
+    op_schedule_stats_print_every(DROPTION_SCOPE_ALL, "schedule_stats_print_every", 5000,
+                                  "A letter is printed every N instrs",
+                                  "A letter is printed every N instrs or N waits");
 
 } // namespace drmemtrace
 } // namespace dynamorio
