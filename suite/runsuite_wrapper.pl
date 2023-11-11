@@ -265,7 +265,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|tool.drcacheoff.burst_static' => 1, # i#4486
                 'code_api|tool.drcacheoff.burst_replace' => 1, # i#4486
                 'code_api|tool.drcacheoff.burst_replaceall' => 1, # i#
-                'code_api|tool.drcacheoff.burst_traceopts' => 1, #i#6423
+                # 'code_api|tool.drcacheoff.burst_traceopts' => 1, #i#6423
                 # i#4617: These need build-and-test to build
                 # the 32-bit test app in our separate 64-bit job.
                 'code_api|win32.mixedmode_late' => 1, # i#4617
