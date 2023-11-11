@@ -554,7 +554,7 @@ endif ()
 
 if (ARCH_IS_X86 AND UNIX)
   set(orig_extra_ctest_args ${extra_ctest_args})
-  if (cross_aarchxx_linux_only)
+  if (cross_riscv64_linux_only)
     set(extra_ctest_args ${extra_ctest_args} INCLUDE_LABEL RUNS_ON_QEMU)
   endif ()
   set(prev_optional_cross_compile ${optional_cross_compile})
