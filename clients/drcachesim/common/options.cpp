@@ -34,6 +34,7 @@
 
 #include "options.h"
 
+#include <cstdint>
 #include <string>
 
 #include "dr_api.h" // For IF_X86_ELSE.
@@ -460,7 +461,7 @@ droption_t<std::string>
                       "Specifies the types of simulators, separated by a colon (\":\").",
                       "Predefined types: " CPU_CACHE ", " MISS_ANALYZER ", " TLB
                       ", " REUSE_DIST ", " REUSE_TIME ", " HISTOGRAM ", " BASIC_COUNTS
-                      ", or " INVARIANT_CHECKER
+                      ", " INVARIANT_CHECKER ", or " SCHEDULE_STATS
                       ". The external types: name of a tool identified by a "
                       "name.drcachesim config file in the DR tools directory.");
 
@@ -853,6 +854,12 @@ droption_t<std::string>
                          "Applies to -core_sharded and -core_serial. "
                          "Path with stored as-traced schedule for replay.");
 #endif
+
+// Schedule_stats options.
+droption_t<uint64_t>
+    op_schedule_stats_print_every(DROPTION_SCOPE_ALL, "schedule_stats_print_every", 5000,
+                                  "A letter is printed every N instrs",
+                                  "A letter is printed every N instrs or N waits");
 
 } // namespace drmemtrace
 } // namespace dynamorio
