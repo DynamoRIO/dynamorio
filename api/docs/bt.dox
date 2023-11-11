@@ -382,7 +382,7 @@ execution time that affects efficiency.
 Through the basic block creation event, registered via
 dr_register_bb_event(), the client has the ability to inspect and transform
 any piece of code prior to its execution.  The client's hook receives
-three parameters:
+five parameters:
 
 \code
 dr_emit_flags_t new_block(void *drcontext, void *tag, instrlist_t *bb,
@@ -545,7 +545,7 @@ dr_emit_flags_t new_trace(void *drcontext, void *tag, instrlist_t *trace,
 
  - \c tag is a unique identifier for the trace fragment.
 
- - \c bb is a pointer to the list of instructions that comprise the
+ - \c trace is a pointer to the list of instructions that comprise the
    trace.  Clients can examine, manipulate, or completely replace the
    instructions in the list.
 

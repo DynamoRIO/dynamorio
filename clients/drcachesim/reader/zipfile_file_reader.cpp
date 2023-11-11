@@ -66,7 +66,7 @@ file_reader_t<zipfile_reader_t>::open_single_file(const std::string &path)
     unzFile file = unzOpen(path.c_str());
     if (file == nullptr)
         return false;
-    input_file_ = zipfile_reader_t(file);
+    input_file_ = zipfile_reader_t(file, path);
     if (unzGoToFirstFile(file) != UNZ_OK || unzOpenCurrentFile(file) != UNZ_OK)
         return false;
     VPRINT(this, 1, "Opened input file %s\n", path.c_str());
@@ -87,20 +87,23 @@ file_reader_t<zipfile_reader_t>::read_next_entry()
         if (num_read == 0) {
 #ifdef DEBUG
             if (verbosity_ >= 3) {
-                char name[128];
-                name[0] = '\0'; /* Just in case. */
+                zipfile->name[0] = '\0'; /* Just in case. */
                 // This call is expensive if we do it every time.
-                unzGetCurrentFileInfo64(zipfile->file, nullptr, name, sizeof(name),
-                                        nullptr, 0, nullptr, 0);
-                VPRINT(this, 3, "Hit end of component %s; opening next component\n",
-                       name);
+                unzGetCurrentFileInfo64(zipfile->file, nullptr, zipfile->name,
+                                        sizeof(zipfile->name), nullptr, 0, nullptr, 0);
+                VPRINT(this, 3, "Hit end of component %s; opening next component in %s\n",
+                       zipfile->name, zipfile->path.c_str());
             }
 #endif
             // read_next_entry() stored the last-read entry into entry_copy_.
             if ((entry_copy_.type != TRACE_TYPE_MARKER ||
                  entry_copy_.size != TRACE_MARKER_TYPE_CHUNK_FOOTER) &&
                 entry_copy_.type != TRACE_TYPE_FOOTER) {
-                VPRINT(this, 1, "Chunk is missing footer: truncation detected\n");
+                zipfile->name[0] = '\0'; /* Just in case. */
+                unzGetCurrentFileInfo64(zipfile->file, nullptr, zipfile->name,
+                                        sizeof(zipfile->name), nullptr, 0, nullptr, 0);
+                VPRINT(this, 1, "Chunk is missing footer: truncation detected in %s %s\n",
+                       zipfile->path.c_str(), zipfile->name);
                 return nullptr;
             }
             if (unzCloseCurrentFile(zipfile->file) != UNZ_OK)
@@ -108,7 +111,7 @@ file_reader_t<zipfile_reader_t>::read_next_entry()
             int res = unzGoToNextFile(zipfile->file);
             if (res != UNZ_OK) {
                 if (res == UNZ_END_OF_LIST_OF_FILE) {
-                    VPRINT(this, 2, "Hit EOF\n");
+                    VPRINT(this, 2, "Hit EOF in %s\n", zipfile->path.c_str());
                     at_eof_ = true;
                 }
                 return nullptr;
@@ -119,7 +122,8 @@ file_reader_t<zipfile_reader_t>::read_next_entry()
                 unzReadCurrentFile(zipfile->file, zipfile->buf, sizeof(zipfile->buf));
         }
         if (num_read < static_cast<int>(sizeof(entry_copy_))) {
-            VPRINT(this, 1, "Failed to read: returned %d\n", num_read);
+            VPRINT(this, 1, "Failed to read: returned %d in %s\n", num_read,
+                   zipfile->path.c_str());
             return nullptr;
         }
         zipfile->cur_buf = zipfile->buf;
@@ -127,7 +131,7 @@ file_reader_t<zipfile_reader_t>::read_next_entry()
     }
     entry_copy_ = *zipfile->cur_buf;
     ++zipfile->cur_buf;
-    VPRINT(this, 5, "Read: type=%s (%d), size=%d, addr=%zu\n",
+    VPRINT(this, 5, "Read %s: type=%s (%d), size=%d, addr=%zu\n", zipfile->path.c_str(),
            trace_type_names[entry_copy_.type], entry_copy_.type, entry_copy_.size,
            entry_copy_.addr);
     return &entry_copy_;
@@ -139,7 +143,8 @@ file_reader_t<zipfile_reader_t>::skip_instructions(uint64_t instruction_count)
 {
     if (instruction_count == 0)
         return *this;
-    VPRINT(this, 2, "Skipping %" PRIi64 " instrs\n", instruction_count);
+    VPRINT(this, 2, "Skipping %" PRIi64 " instrs in %s\n", instruction_count,
+           input_file_.path.c_str());
     if (!pre_skip_instructions())
         return *this;
     if (chunk_instr_count_ == 0) {

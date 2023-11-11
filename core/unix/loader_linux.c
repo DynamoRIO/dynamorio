@@ -134,7 +134,7 @@ static size_t client_tls_size = 2 * 4096;
  * good way to guess how big this allocation was.  Instead we use this estimate.
  */
 /* On A32, the pthread is put before tcbhead instead tcbhead being part of pthread */
-static size_t tcb_size = IF_X86_ELSE(IF_X64_ELSE(0x900, 0x490), 0x40);
+static size_t tcb_size = IF_X64_ELSE(0x900, 0x490);
 
 /* thread contol block header type from
  * - sysdeps/x86_64/nptl/tls.h
@@ -220,7 +220,6 @@ typedef struct _dr_pthread_t {
  */
 #    define APP_LIBC_TLS_SIZE 0
 #elif defined(RISCV64)
-/* FIXME i#3544: Not implemented */
 #    define APP_LIBC_TLS_SIZE 0
 #endif
 
@@ -235,8 +234,9 @@ privload_mod_tls_init(privmod_t *mod)
 {
     os_privmod_data_t *opd;
     size_t offset;
+#    ifndef RISCV64
     int first_byte;
-
+#    endif
     IF_X86(ASSERT(TLS_APP_SELF_OFFSET_ASM == offsetof(tcb_head_t, self)));
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
     opd = (os_privmod_data_t *)mod->os_privmod_data;
@@ -249,6 +249,7 @@ privload_mod_tls_init(privmod_t *mod)
     tls_info.mods[tls_info.num_mods] = mod;
     opd->tls_modid = tls_info.num_mods;
     offset = (opd->tls_modid == 0) ? APP_LIBC_TLS_SIZE : tls_info.offset;
+#    ifndef RISCV64
     /* decide the offset of each module in the TLS segment from
      * thread pointer.
      * Because the tls memory is located before thread pointer, we use
@@ -260,12 +261,17 @@ privload_mod_tls_init(privmod_t *mod)
     /* increase offset size by adding current mod's tls size:
      * 1. increase the tls_block_size with the right alignment
      *    using ALIGN_FORWARD()
-     * 2. add first_byte to make the first byte with right alighment.
+     * 2. add first_byte to make the first byte with right alignment.
      */
     offset = first_byte +
         ALIGN_FORWARD(offset + opd->tls_block_size + first_byte, opd->tls_align);
     opd->tls_offset = offset;
     tls_info.offs[tls_info.num_mods] = offset;
+#    else /* RISCV64 */
+    opd->tls_offset = offset;
+    tls_info.offs[tls_info.num_mods] = offset;
+    offset = ALIGN_FORWARD(offset + opd->tls_block_size, opd->tls_align);
+#    endif
     tls_info.offset = offset;
     LOG(GLOBAL, LOG_LOADER, 2, "%s for #%d %s: offset %zu\n", __FUNCTION__,
         opd->tls_modid, mod->name, offset);
@@ -282,7 +288,8 @@ privload_copy_tls_block(app_pc priv_tls_base, uint mod_idx)
     os_privmod_data_t *opd = tls_info.mods[mod_idx]->os_privmod_data;
     void *dest;
     /* now copy the tls memory from the image */
-    dest = priv_tls_base - tls_info.offs[mod_idx];
+    dest =
+        priv_tls_base + IF_RISCV64_ELSE(tls_info.offs[mod_idx], -tls_info.offs[mod_idx]);
     LOG(GLOBAL, LOG_LOADER, 2,
         "%s: copying ELF TLS from " PFX " to " PFX " block %zu image %zu\n", __FUNCTION__,
         opd->tls_image, dest, opd->tls_block_size, opd->tls_image_size);
@@ -331,7 +338,7 @@ privload_tls_init(void *app_tp)
     dr_tp = heap_mmap(client_tls_alloc_size, MEMPROT_READ | MEMPROT_WRITE,
                       VMM_SPECIAL_MMAP | VMM_PER_THREAD);
     ASSERT(APP_LIBC_TLS_SIZE + TLS_PRE_TCB_SIZE + tcb_size <= client_tls_alloc_size);
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
     /* GDB reads some pthread members (e.g., pid, tid), so we must make sure
      * the size and member locations match to avoid gdb crash.
      */
@@ -340,24 +347,33 @@ privload_tls_init(void *app_tp)
 #endif
     LOG(GLOBAL, LOG_LOADER, 2, "%s: allocated %d at " PFX "\n", __FUNCTION__,
         client_tls_alloc_size, dr_tp);
+#ifdef RISCV64
+    dr_tp = dr_tp + TLS_PRE_TCB_SIZE + sizeof(tcb_head_t);
+    dr_tcb = (tcb_head_t *)(dr_tp - sizeof(tcb_head_t));
+#else
     dr_tp = dr_tp + client_tls_alloc_size - tcb_size;
     dr_tcb = (tcb_head_t *)dr_tp;
+#endif
     LOG(GLOBAL, LOG_LOADER, 2, "%s: adjust thread pointer to " PFX "\n", __FUNCTION__,
         dr_tp);
     /* We copy the whole tcb to avoid initializing it by ourselves.
      * and update some fields accordingly.
      */
     if (app_tp != NULL &&
-        !safe_read_ex(app_tp - APP_LIBC_TLS_SIZE - TLS_PRE_TCB_SIZE,
-                      APP_LIBC_TLS_SIZE + TLS_PRE_TCB_SIZE + tcb_size,
-                      dr_tp - APP_LIBC_TLS_SIZE - TLS_PRE_TCB_SIZE, &tls_bytes_read)) {
+        !safe_read_ex(
+            app_tp - APP_LIBC_TLS_SIZE - TLS_PRE_TCB_SIZE IF_RISCV64(-sizeof(tcb_head_t)),
+            APP_LIBC_TLS_SIZE + TLS_PRE_TCB_SIZE + tcb_size,
+            dr_tp - APP_LIBC_TLS_SIZE - TLS_PRE_TCB_SIZE IF_RISCV64(-sizeof(tcb_head_t)),
+            &tls_bytes_read)) {
         LOG(GLOBAL, LOG_LOADER, 2,
             "%s: read failed, tcb was 0x%lx bytes "
             "instead of 0x%lx\n",
             __FUNCTION__, tls_bytes_read - APP_LIBC_TLS_SIZE, tcb_size);
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
     } else {
-        dr_pthread_t *dp = (dr_pthread_t *)(dr_tp - APP_LIBC_TLS_SIZE - TLS_PRE_TCB_SIZE);
+        dr_pthread_t *dp =
+            (dr_pthread_t *)(dr_tp - APP_LIBC_TLS_SIZE -
+                             TLS_PRE_TCB_SIZE IF_RISCV64(-sizeof(tcb_head_t)));
         dp->pid = get_process_id();
         dp->tid = get_sys_thread_id();
 #endif
@@ -373,7 +389,7 @@ privload_tls_init(void *app_tp)
     dr_tcb->self = dr_tcb;
     /* i#555: replace app's vsyscall with DR's int0x80 syscall */
     dr_tcb->sysinfo = (ptr_uint_t)client_int_syscall;
-#elif defined(AARCHXX)
+#elif defined(AARCHXX) || defined(RISCV64)
     dr_tcb->dtv = NULL;
     dr_tcb->private = NULL;
 #endif
@@ -397,7 +413,11 @@ privload_tls_exit(void *dr_tp)
     size_t client_tls_alloc_size = ALIGN_FORWARD(client_tls_size, PAGE_SIZE);
     if (dr_tp == NULL)
         return;
+#ifdef RISCV64
+    dr_tp = dr_tp - TLS_PRE_TCB_SIZE - sizeof(tcb_head_t);
+#else
     dr_tp = dr_tp + tcb_size - client_tls_alloc_size;
+#endif
     heap_munmap(dr_tp, client_tls_alloc_size, VMM_SPECIAL_MMAP | VMM_PER_THREAD);
 }
 
@@ -417,8 +437,15 @@ redirect___tls_get_addr(tls_index_t *ti)
     LOG(GLOBAL, LOG_LOADER, 4, "__tls_get_addr: module: %d, offset: %d\n", ti->ti_module,
         ti->ti_offset);
     ASSERT(ti->ti_module < tls_info.num_mods);
+#ifndef RISCV64
     return (os_get_priv_tls_base(NULL, TLS_REG_LIB) - tls_info.offs[ti->ti_module] +
             ti->ti_offset);
+#else
+#    define TLS_DTV_OFFSET 0x800
+    return (os_get_priv_tls_base(NULL, TLS_REG_LIB) + tls_info.offs[ti->ti_module] +
+            ti->ti_offset + TLS_DTV_OFFSET);
+#    undef TLS_DTV_OFFSET
+#endif
 }
 
 void *
@@ -444,6 +471,7 @@ redirect____tls_get_addr()
 #elif defined(RISCV64)
     /* FIXME i#3544: Check if ti is in a0. */
     asm("sd a0, %0" : "=m"((ti)) : : "a0");
+    ASSERT_NOT_REACHED();
 #endif /* X86/ARM/RISCV64 */
     LOG(GLOBAL, LOG_LOADER, 4, "__tls_get_addr: module: %d, offset: %d\n", ti->ti_module,
         ti->ti_offset);
