@@ -57,30 +57,35 @@ save_fpstate(dcontext_t *dcontext, sigframe_rt_t *frame)
 void
 dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    LOG(THREAD, LOG_ASYNCH, 1, "FIXME i#3544: NYI on RISCV64");
 }
 #endif /* DEBUG */
 
 void
 sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    struct __riscv_d_ext_state *fpc =
+        (struct __riscv_d_ext_state *)sc_full->fp_simd_state;
+    if (fpc == NULL)
+        return;
+    mc->fcsr = fpc->fcsr;
+    memcpy(&mc->f0, &fpc->f, sizeof(fpc->f));
 }
 
 void
 mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    struct __riscv_d_ext_state *fpc =
+        (struct __riscv_d_ext_state *)sc_full->fp_simd_state;
+    if (fpc == NULL)
+        return;
+    fpc->fcsr = mc->fcsr;
+    memcpy(&fpc->f, &mc->f0, sizeof(fpc->f));
 }
 
 size_t
 signal_frame_extra_size(bool include_alignment)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return 0;
 }
 

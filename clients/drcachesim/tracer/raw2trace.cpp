@@ -47,7 +47,7 @@
 #include "utils.h"
 #ifdef LINUX
 // XXX: We should have the core export this to an include dir.
-#    include "../../core/unix/include/syscall.h"
+#    include "../../core/unix/include/syscall_target.h"
 #endif
 #ifdef BUILD_PT_POST_PROCESSOR
 #    include <unistd.h>

@@ -51,6 +51,11 @@ struct zipfile_reader_t {
         : file(file)
     {
     }
+    zipfile_reader_t(unzFile file, const std::string &path)
+        : file(file)
+        , path(path)
+    {
+    }
     unzFile file;
     // Without our own buffering, reading one trace_entry_t record at a time
     // is 60% slower.  This buffer size was picked through experimentation to
@@ -58,6 +63,9 @@ struct zipfile_reader_t {
     trace_entry_t buf[4096];
     trace_entry_t *cur_buf = buf;
     trace_entry_t *max_buf = buf;
+    // Store the path and component names for debug messages.
+    std::string path;
+    char name[128];
 };
 
 typedef file_reader_t<zipfile_reader_t> zipfile_file_reader_t;
