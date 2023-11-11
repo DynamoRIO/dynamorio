@@ -157,6 +157,8 @@ typedef struct _spill_state_t {
     reg_t reg_stolen; /* slot for the stolen register */
 #elif defined(RISCV64)
     reg_t a0, a1, a2, a3;
+    /* These are needed for LR/SC mangling. */
+    reg_t a4, a5;
     /* Slots for the stolen register. Similar to AArch64, we use reg_stolen slot to hold
      * the app's stolen reg value.
      */
@@ -239,13 +241,15 @@ typedef struct _local_state_extended_t {
 #    define TLS_REG2_SLOT ((ushort)offsetof(spill_state_t, a2))
 #    define TLS_REG3_SLOT ((ushort)offsetof(spill_state_t, a3))
 #    define TLS_REG4_SLOT ((ushort)offsetof(spill_state_t, a4))
+#    define TLS_REG5_SLOT ((ushort)offsetof(spill_state_t, a5))
 #    define TLS_REG_STOLEN_SLOT ((ushort)offsetof(spill_state_t, reg_stolen))
 #    define SCRATCH_REG0 DR_REG_A0
 #    define SCRATCH_REG1 DR_REG_A1
 #    define SCRATCH_REG2 DR_REG_A2
 #    define SCRATCH_REG3 DR_REG_A3
 #    define SCRATCH_REG4 DR_REG_A4
-#    define SCRATCH_REG_LAST DR_REG_A4
+#    define SCRATCH_REG5 DR_REG_A5
+#    define SCRATCH_REG_LAST DR_REG_A5
 #endif /* X86/ARM */
 #define IBL_TARGET_REG SCRATCH_REG2
 #define IBL_TARGET_SLOT TLS_REG2_SLOT

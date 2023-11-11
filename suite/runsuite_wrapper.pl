@@ -50,6 +50,7 @@ my $mydir = dirname(abs_path($0));
 my $is_CI = 0;
 my $is_aarchxx = $Config{archname} =~ /(aarch64)|(arm)/;
 my $is_x86_64 = $Config{archname} =~ /x86_64/;
+my $is_riscv64 = $Config(archname) =~ /riscv64/;
 my $is_long = $ENV{'CI_TRIGGER'} eq 'push' && $ENV{'CI_BRANCH'} eq 'refs/heads/master';
 
 # Forward args to runsuite.cmake:
@@ -131,9 +132,9 @@ if ($child) {
         $args .= ";copy_docs";
     }
     # Include Dr. Memory.
-    if (($is_aarchxx || $ENV{'DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY'} eq 'yes') &&
+    if (($is_riscv64 || $is_aarchxx || $ENV{'DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY'} eq 'yes') &&
         $args =~ /64_only/) {
-        # Dr. Memory is not ported to AArch64 yet.
+        # Dr. Memory is not ported to AArch64/RISC-V yet.
     } else {
         $args .= ";invoke=${osdir}/../drmemory/package.cmake;drmem_only";
     }
@@ -367,6 +368,8 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                                    'code_api|client.exception' => 1, # i#3127
                                    'code_api|client.timer' => 1, # i#3127
                                    'code_api|sample.signal' => 1); # i#3127
+        } elsif ($is_riscv64) {
+            %ignore_failures_64 = ();
         } else {
             %ignore_failures_32 = (
                 'code_api|pthreads.ptsig' => 1, # i#2921
