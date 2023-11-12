@@ -484,7 +484,7 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
     int usecount[NUM_REGPARM] = { 0 };
     ptr_int_t stack_inc = 0;
     uint i, j;
-    int reg_lr = IF_RISCV64_ELSE(DR_REG_RA, DR_REG_LR);
+    int link_reg = IF_RISCV64_ELSE(DR_REG_RA, DR_REG_LR);
 
     /* We expect every arg to be an immediate integer, a full-size register,
      * or a simple memory reference (NYI).
@@ -687,14 +687,14 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
             break;
         first = i;
         PRE(ilist, instr,
-            XINST_CREATE_move(dcontext, opnd_create_reg(reg_lr),
+            XINST_CREATE_move(dcontext, opnd_create_reg(link_reg),
                               opnd_create_reg(d_r_regparms[i])));
         do {
             tmp = regs[i];
             ASSERT(0 <= tmp && tmp < num_regs);
             PRE(ilist, instr,
                 XINST_CREATE_move(dcontext, opnd_create_reg(d_r_regparms[i]),
-                                  tmp == first ? opnd_create_reg(reg_lr)
+                                  tmp == first ? opnd_create_reg(link_reg)
                                                : opnd_create_reg(d_r_regparms[tmp])));
             regs[i] = i;
             i = tmp;
@@ -708,20 +708,21 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
         if (!opnd_is_reglike(arg)) {
             if (opnd_is_reg(arg)) {
                 ASSERT(opnd_get_reg(arg) == DR_REG_XSP);
-                insert_get_mcontext_base(dcontext, ilist, instr, reg_lr);
+                insert_get_mcontext_base(dcontext, ilist, instr, link_reg);
                 PRE(ilist, instr,
-                    instr_create_restore_from_dc_via_reg(dcontext, reg_lr, reg_lr,
+                    instr_create_restore_from_dc_via_reg(dcontext, link_reg, link_reg,
                                                          XSP_OFFSET));
             } else {
                 ASSERT(opnd_is_immed_int(arg));
                 insert_mov_immed_ptrsz(dcontext, opnd_get_immed_int(arg),
-                                       opnd_create_reg(reg_lr), ilist, instr, NULL, NULL);
+                                       opnd_create_reg(link_reg), ilist, instr, NULL,
+                                       NULL);
             }
             PRE(ilist, instr,
                 XINST_CREATE_store(
                     dcontext,
                     opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, off, OPSZ_PTR),
-                    opnd_create_reg(reg_lr)));
+                    opnd_create_reg(link_reg)));
         }
     }
 
@@ -744,32 +745,32 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     bool direct;
     uint stack_for_params = insert_parameter_preparation(
         dcontext, ilist, instr, TEST(META_CALL_CLEAN, flags), num_args, args);
-    int reg_lr = IF_RISCV64_ELSE(DR_REG_RA, DR_REG_LR);
     ASSERT(ALIGNED(stack_for_params, get_ABI_stack_alignment()));
 
     if (TEST(META_CALL_CLEAN, flags) && should_track_where_am_i()) {
         if (SCRATCH_ALWAYS_TLS()) {
 #if defined(AARCHXX) || defined(RISCV64)
+            int link_reg = IF_RISCV64_ELSE(DR_REG_RA, DR_REG_LR);
             /* DR_REG_LR is dead here */
-            insert_get_mcontext_base(dcontext, ilist, instr, reg_lr);
+            insert_get_mcontext_base(dcontext, ilist, instr, link_reg);
             /* TLS_REG0_SLOT is not safe since it may be used by clients.
              * We save it to dcontext.mcontext.x0.
              */
             PRE(ilist, instr,
-                XINST_CREATE_store(dcontext, OPND_CREATE_MEMPTR(reg_lr, 0),
+                XINST_CREATE_store(dcontext, OPND_CREATE_MEMPTR(link_reg, 0),
                                    opnd_create_reg(SCRATCH_REG0)));
             instrlist_insert_mov_immed_ptrsz(dcontext, (ptr_int_t)DR_WHERE_CLEAN_CALLEE,
                                              opnd_create_reg(SCRATCH_REG0), ilist, instr,
                                              NULL, NULL);
             PRE(ilist, instr,
                 instr_create_save_to_dc_via_reg(
-                    dcontext, reg_lr,
+                    dcontext, link_reg,
                     IF_X64_ELSE(reg_64_to_32(SCRATCH_REG0), SCRATCH_REG0),
                     WHEREAMI_OFFSET));
             /* Restore scratch_reg from dcontext.mcontext.x0. */
             PRE(ilist, instr,
                 XINST_CREATE_load(dcontext, opnd_create_reg(SCRATCH_REG0),
-                                  OPND_CREATE_MEMPTR(reg_lr, 0)));
+                                  OPND_CREATE_MEMPTR(link_reg, 0)));
 #else
             /* SCRATCH_REG0 is dead here, because clean calls only support "cdecl",
              * which specifies that the caller must save xax (and xcx and xdx).
