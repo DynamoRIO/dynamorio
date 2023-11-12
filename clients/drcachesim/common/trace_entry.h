@@ -561,10 +561,14 @@ typedef enum {
     TRACE_MARKER_TYPE_SYSCALL_FAILED,
 
     /**
-     * This marker is emitted prior to a system call that causes an immediate switch to
-     * another thread on the same core (with the current thread entering an unscheduled
-     * state), bypassing the kernel scheduler's normal dynamic switch code based on run
-     * queues.  The marker value holds the thread id of the target thread.
+     * This marker is emitted prior to a system call (but after the system call's
+     * #TRACE_MARKER_TYPE_SYSCALL and #TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL markers)
+     * that causes an immediate switch to another thread on the same core (with the
+     * current thread entering an unscheduled state), bypassing the kernel scheduler's
+     * normal dynamic switch code based on run queues.  The marker value holds the
+     * thread id of the target thread.  This should generally always be after a
+     * #TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL marker as such a switch always
+     * has a chance of blocking if the target needs to be migrated.
      */
     TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH,
 
