@@ -1788,10 +1788,10 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                         // here until the input is available.
                         // For now we print a message so we can notice when this
                         // happens, but we ignore the direct switch request.
-                        fprintf(stderr,
-                                "Direct switch target input #%d is running elsewhere and "
-                                "forced migration is NYI\n",
-                                target->index);
+                        VPRINT(this, 1,
+                               "Direct switch target input #%d is running elsewhere and "
+                               "forced migration is NYI\n",
+                               target->index);
                     }
                 }
                 if (index != INVALID_INPUT_ORDINAL) {
