@@ -355,10 +355,14 @@ public:
         MAP_AS_PREVIOUSLY,
     };
 
-    /** Flags specifying how inter-input-stream dependencies are handled. */
+    /**
+     * Flags specifying how inter-input-stream dependencies are handled.  The _BITFIELD
+     * values can be combined.  Typical combinations are provided so the enum type can be
+     * used directly.
+     */
     enum inter_input_dependency_t {
         /** Ignores all inter-input dependencies. */
-        DEPENDENCY_IGNORE,
+        DEPENDENCY_IGNORE = 0x00,
         /**
          * Ensures timestamps in the inputs arrive at the outputs in timestamp order.
          * For #MAP_TO_ANY_OUTPUT, enforcing asked-for context switch rates is more
@@ -367,7 +371,23 @@ public:
          * points for picking the next input, but timestamps will not preempt an input.
          * To precisely follow the recorded timestamps, use #MAP_TO_RECORDED_OUTPUT.
          */
-        DEPENDENCY_TIMESTAMPS,
+        DEPENDENCY_TIMESTAMPS_BITFIELD = 0x01,
+        /**
+         * Ensures timestamps in the inputs arrive at the outputs in timestamp order.
+         * For #MAP_TO_ANY_OUTPUT, enforcing asked-for context switch rates is more
+         * important that honoring precise trace-buffer-based timestamp inter-input
+         * dependencies: thus, timestamp ordering will be followed at context switch
+         * points for picking the next input, but timestamps will not preempt an input.
+         * To precisely follow the recorded timestamps, use #MAP_TO_RECORDED_OUTPUT.
+         */
+        DEPENDENCY_DIRECT_SWITCH_BITFIELD = 0x02,
+        /**
+         * Combines #DEPENDENCY_TIMESTAMPS_BITFIELD and
+         * #DEPENDENCY_DIRECT_SWITCH_BITFIELD.  This is the recommended setting for most
+         * schedules.
+         */
+        DEPENDENCY_TIMESTAMPS =
+            (DEPENDENCY_TIMESTAMPS_BITFIELD | DEPENDENCY_DIRECT_SWITCH_BITFIELD),
         // TODO i#5843: Add inferred data dependencies.
     };
 
@@ -947,6 +967,8 @@ protected:
         uint64_t queue_counter = 0;
         // Used to switch on the instruction *after* a blocking syscall.
         bool processing_blocking_syscall = false;
+        // Use for special kernel features where one thread specifies a target
+        // thread to replace it.
         input_ordinal_t switch_to_input = INVALID_INPUT_ORDINAL;
         // Used to switch before we've read the next instruction.
         bool switching_pre_instruction = false;

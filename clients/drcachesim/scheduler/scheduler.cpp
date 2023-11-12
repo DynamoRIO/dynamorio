@@ -1774,6 +1774,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                     // the sleeping queue and wake up the target.
                     // We should probably implement the "Merge tracking..." proposal
                     // from the comment at the top of set_cur_input() too.
+                    // XXX i#5843: Add an invariant check that the next timestamp of the
+                    // target is later than the pre-switch-syscall timestamp?
                     if (ready_priority_.find(target)) {
                         VPRINT(this, 2, "next_record[%d]: direct switch to input %d\n",
                                output, target->index);
