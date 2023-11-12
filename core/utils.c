@@ -1973,7 +1973,7 @@ d_r_notify(syslog_event_type_t priority, bool internal, bool synch,
  * instead of MAXIMUM_PATH since it has different length on Linux and makes this buffer
  * too long. */
 #ifdef X64
-#    define REPORT_MSG_MAX (271 + 17 * 8 + 8 * 23 + 2) /* wider, + more regs */
+#    define REPORT_MSG_MAX (271 + 32 * 23) /* wider, + more regs */
 #elif defined(ARM)
 #    define REPORT_MSG_MAX (271 + 17 * 8) /* more regs */
 #else

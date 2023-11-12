@@ -219,7 +219,7 @@ os_get_priv_tls_base(dcontext_t *dcontext, reg_id_t seg);
 void
 os_tls_thread_exit(local_state_t *local_state);
 
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
 bool
 os_set_app_tls_base(dcontext_t *dcontext, reg_id_t reg, void *base);
 #endif
