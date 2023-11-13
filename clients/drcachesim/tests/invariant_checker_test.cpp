@@ -151,21 +151,23 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
                                    serial_schedule_file);
         void *shardA = nullptr, *shardB = nullptr, *shardC = nullptr;
         for (const auto &memref : memrefs) {
-            if (memref.instr.tid == TID_A) {
+            switch (memref.instr.tid) {
+            case TID_A:
                 if (shardA == nullptr)
                     shardA = checker.parallel_shard_init(TID_A, NULL);
                 checker.parallel_shard_memref(shardA, memref);
-            } else if (memref.instr.tid == TID_B) {
+                break;
+            case TID_B:
                 if (shardB == nullptr)
                     shardB = checker.parallel_shard_init(TID_B, NULL);
                 checker.parallel_shard_memref(shardB, memref);
-            } else if (memref.instr.tid == TID_C) {
+                break;
+            case TID_C:
                 if (shardC == nullptr)
                     shardC = checker.parallel_shard_init(TID_C, NULL);
                 checker.parallel_shard_memref(shardC, memref);
-            } else {
-                std::cerr << "Internal test error: unknown tid\n";
-                return false;
+                break;
+            default: std::cerr << "Internal test error: unknown tid\n"; return false;
             }
         }
         if (shardA != nullptr)
