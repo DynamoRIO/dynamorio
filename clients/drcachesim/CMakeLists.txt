@@ -166,6 +166,7 @@ add_exported_library(drmemtrace_syscall_mix STATIC tools/syscall_mix.cpp)
 add_exported_library(drmemtrace_view STATIC tools/view.cpp)
 add_exported_library(drmemtrace_func_view STATIC tools/func_view.cpp)
 add_exported_library(drmemtrace_invariant_checker STATIC tools/invariant_checker.cpp)
+add_exported_library(drmemtrace_schedule_stats STATIC tools/schedule_stats.cpp)
 
 target_link_libraries(drmemtrace_invariant_checker drdecode)
 
@@ -208,6 +209,7 @@ endif (BUILD_PT_POST_PROCESSOR)
 
 set(raw2trace_srcs
   tracer/raw2trace.cpp
+  tracer/raw2trace_shared.cpp
   tracer/raw2trace_directory.cpp
   tracer/instru.cpp
   tracer/instru_online.cpp
@@ -272,7 +274,8 @@ configure_DynamoRIO_standalone(drcachesim)
 target_link_libraries(drcachesim drmemtrace_simulator drmemtrace_reuse_distance
   drmemtrace_histogram drmemtrace_reuse_time drmemtrace_basic_counts
   drmemtrace_opcode_mix drmemtrace_syscall_mix drmemtrace_view drmemtrace_func_view
-  drmemtrace_raw2trace directory_iterator drmemtrace_invariant_checker)
+  drmemtrace_raw2trace directory_iterator drmemtrace_invariant_checker
+  drmemtrace_schedule_stats)
 if (UNIX)
     target_link_libraries(drcachesim dl)
 endif ()
@@ -292,6 +295,11 @@ use_DynamoRIO_extension(drcachesim drutil_static)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/simulator)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/common)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/reader)
+# TODO i#6412: raw2trace.h and related headers that are used only in raw2trace
+# conversion are also a part of this directory. Ideally we'd like for tracer
+# code to not be able to include those headers so that we can keep tracer
+# separate from raw2trace. Create a separate directory for non-tracer headers
+# so that we can more cleanly separate tracer and raw2trace code.
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/tracer)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/scheduler)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
@@ -340,14 +348,19 @@ install_client_nonDR_header(drmemtrace tools/histogram_create.h)
 install_client_nonDR_header(drmemtrace tools/reuse_time_create.h)
 install_client_nonDR_header(drmemtrace tools/basic_counts_create.h)
 install_client_nonDR_header(drmemtrace tools/opcode_mix_create.h)
+install_client_nonDR_header(drmemtrace tools/schedule_stats_create.h)
 install_client_nonDR_header(drmemtrace tools/syscall_mix_create.h)
 install_client_nonDR_header(drmemtrace simulator/cache_simulator.h)
 install_client_nonDR_header(drmemtrace simulator/cache_simulator_create.h)
 install_client_nonDR_header(drmemtrace simulator/tlb_simulator_create.h)
 install_client_nonDR_header(drmemtrace tools/view_create.h)
 install_client_nonDR_header(drmemtrace tools/func_view_create.h)
+# TODO i#6412: Create a separate directory for non-tracer headers so that
+# we can more cleanly separate tracer and raw2trace code.
 install_client_nonDR_header(drmemtrace tracer/raw2trace.h)
+install_client_nonDR_header(drmemtrace tracer/raw2trace_shared.h)
 install_client_nonDR_header(drmemtrace scheduler/scheduler.h)
+install_client_nonDR_header(drmemtrace scheduler/flexible_queue.h)
 install_client_nonDR_header(drmemtrace scheduler/speculator.h)
 
 add_library(test_helpers STATIC tests/test_helpers.cpp)
@@ -445,6 +458,7 @@ macro(add_drmemtrace name type)
     tracer/instru_online.cpp
     tracer/physaddr.cpp
     tracer/func_trace.cpp
+    tracer/raw2trace_shared.cpp
     ${client_and_sim_srcs}
     )
   if (BUILD_PT_TRACER)
@@ -461,6 +475,19 @@ macro(add_drmemtrace name type)
       common/crc32c.cpp
       )
   endif ()
+
+  # i#6412: All implementation shared between the tracer and raw2trace should
+  # be in the separate raw2trace_shared files. This is so we can keep the
+  # tracer library smaller. The following is a non-exhaustive condition that
+  # flags when raw2trace implementation is accidentally added. Including
+  # raw2trace.cpp would necessitate inclusion of various other implementations
+  # (like for the trace reader_t), which should all be avoided here.
+  list (FIND drmemtrace_srcs "tracer/raw2trace.cpp" _raw2trace_index)
+  if (${_raw2trace_index} GREATER -1)
+    message(FATAL_ERROR
+            "drmemtrace should use raw2trace_shared for shared implementation.")
+  endif()
+
   add_library(${name} ${type} ${drmemtrace_srcs})
   configure_DynamoRIO_client(${name})
   use_DynamoRIO_extension(${name} drmgr${ext_sfx})
@@ -549,6 +576,7 @@ restore_nonclient_flags(drmemtrace_func_view)
 restore_nonclient_flags(drmemtrace_record_filter)
 restore_nonclient_flags(drmemtrace_analyzer)
 restore_nonclient_flags(drmemtrace_invariant_checker)
+restore_nonclient_flags(drmemtrace_schedule_stats)
 
 # We need to pass /EHsc and we pull in libcmtd into drcachesim from a dep lib.
 # Thus we need to override the /MT with /MTd.
@@ -614,6 +642,7 @@ add_win32_flags(drmemtrace_func_view)
 add_win32_flags(drmemtrace_record_filter)
 add_win32_flags(drmemtrace_analyzer)
 add_win32_flags(drmemtrace_invariant_checker)
+add_win32_flags(drmemtrace_schedule_stats)
 add_win32_flags(directory_iterator)
 add_win32_flags(test_helpers)
 if (WIN32 AND DEBUG)
@@ -768,6 +797,14 @@ if (BUILD_TESTS)
     ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests)
   set_tests_properties(tool.scheduler.unit_tests PROPERTIES TIMEOUT ${test_seconds})
 
+  add_executable(tool.drcacheoff.flexible_queue_tests tests/flexible_queue_tests.cpp)
+  add_win32_flags(tool.drcacheoff.flexible_queue_tests)
+  target_link_libraries(tool.drcacheoff.flexible_queue_tests test_helpers)
+  add_test(NAME tool.drcacheoff.flexible_queue_tests
+    COMMAND tool.drcacheoff.flexible_queue_tests)
+  set_tests_properties(tool.drcacheoff.flexible_queue_tests PROPERTIES TIMEOUT
+    ${test_seconds})
+
   add_executable(tool.drcachesim.core_sharded tests/core_sharded_test.cpp
     # XXX: Better to put these into libraries but that requires a bigger cleanup:
     analyzer_multi.cpp ${client_and_sim_srcs} reader/ipc_reader.cpp
@@ -777,7 +814,7 @@ if (BUILD_TESTS)
     drmemtrace_histogram drmemtrace_reuse_time drmemtrace_basic_counts
     drmemtrace_opcode_mix drmemtrace_syscall_mix drmemtrace_view drmemtrace_func_view
     drmemtrace_raw2trace directory_iterator drmemtrace_invariant_checker
-    drmemtrace_analyzer)
+    drmemtrace_schedule_stats drmemtrace_analyzer)
   if (UNIX)
     target_link_libraries(tool.drcachesim.core_sharded dl)
   endif ()
@@ -1079,6 +1116,19 @@ if (BUILD_TESTS)
     set_tests_properties(tool.drcacheoff.skip_unit_tests PROPERTIES
       TIMEOUT ${test_seconds})
   endif ()
+
+  add_executable(drmemtrace_shared_raw2trace_tests
+                 tests/drmemtrace_shared_raw2trace_tests.cpp)
+  configure_DynamoRIO_standalone(drmemtrace_shared_raw2trace_tests)
+  # This should not include raw2trace code. We have a check in add_drmemtrace
+  # that would fail if drmemtrace_static includes raw2trace.cpp.
+  target_link_libraries(drmemtrace_shared_raw2trace_tests drmemtrace_static
+                        test_helpers)
+  add_win32_flags(drmemtrace_shared_raw2trace_tests)
+  add_test(NAME drmemtrace_shared_raw2trace_tests
+           COMMAND drmemtrace_shared_raw2trace_tests)
+  set_tests_properties(drmemtrace_shared_raw2trace_tests PROPERTIES
+    TIMEOUT ${test_seconds})
 endif ()
 
 ##################################################

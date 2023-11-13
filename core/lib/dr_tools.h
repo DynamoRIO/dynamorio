@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2022, Inc.  All rights reserved.
+ * Copyright (c) 2010-2023, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -295,7 +295,7 @@ DR_API
  * \note Calling this from \p dr_client_main or from the primary thread's
  * initialization event is not guaranteed to always work, as DR may
  * invoke a thread exit event where a thread init event was never
- * called.  We recommend using dr_abort_ex() or waiting for full
+ * called.  We recommend using dr_abort_with_code() or waiting for full
  * initialization prior to use of this routine.
  */
 void

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,54 +30,56 @@
  * DAMAGE.
  */
 
-/* zipfile_file_reader: reads zipfile files containing memory traces. */
+/* Functions and structs extracted from raw2trace.h for sharing with the tracer.
+ */
 
-#ifndef _ZIPFILE_FILE_READER_H_
-#define _ZIPFILE_FILE_READER_H_ 1
+#ifndef _RAW2TRACE_SHARED_H_
+#define _RAW2TRACE_SHARED_H_ 1
 
-#include <zlib.h>
-#include "minizip/unzip.h"
-#include "file_reader.h"
+/**
+ * @file drmemtrace/raw2trace_shared.h
+ * @brief DrMemtrace routines and structs shared between raw2trace and tracer.
+ */
+
+#include "dr_api.h"
+#include "drmemtrace.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {
 
-struct zipfile_reader_t {
-    zipfile_reader_t()
-        : file(nullptr)
-    {
-    }
-    explicit zipfile_reader_t(unzFile file)
-        : file(file)
-    {
-    }
-    zipfile_reader_t(unzFile file, const std::string &path)
-        : file(file)
-        , path(path)
-    {
-    }
-    unzFile file;
-    // Without our own buffering, reading one trace_entry_t record at a time
-    // is 60% slower.  This buffer size was picked through experimentation to
-    // perform well without taking up too much memory.
-    trace_entry_t buf[4096];
-    trace_entry_t *cur_buf = buf;
-    trace_entry_t *max_buf = buf;
-    // Store the path and component names for debug messages.
-    std::string path;
-    char name[128];
-};
+#define OUTFILE_SUFFIX "raw"
+#ifdef BUILD_PT_POST_PROCESSOR
+#    define OUTFILE_SUFFIX_PT "raw.pt"
+#endif
+#ifdef HAS_ZLIB
+#    define OUTFILE_SUFFIX_GZ "raw.gz"
+#    define OUTFILE_SUFFIX_ZLIB "raw.zlib"
+#endif
+#ifdef HAS_SNAPPY
+#    define OUTFILE_SUFFIX_SZ "raw.sz"
+#endif
+#ifdef HAS_LZ4
+#    define OUTFILE_SUFFIX_LZ4 "raw.lz4"
+#endif
+#define OUTFILE_SUBDIR "raw"
+#define WINDOW_SUBDIR_PREFIX "window"
+#define WINDOW_SUBDIR_FORMAT "window.%04zd" /* ptr_int_t is the window number type. */
+#define WINDOW_SUBDIR_FIRST "window.0000"
+#define TRACE_SUBDIR "trace"
 
-typedef file_reader_t<zipfile_reader_t> zipfile_file_reader_t;
-
-/* Declare this so the compiler knows not to use the default implementation in the
- * class declaration.
+/**
+ * Functions for decoding and verifying raw memtrace data headers.
  */
-template <>
-reader_t &
-file_reader_t<zipfile_reader_t>::skip_instructions(uint64_t instruction_count);
+struct trace_metadata_reader_t {
+    static bool
+    is_thread_start(const offline_entry_t *entry, OUT std::string *error,
+                    OUT int *version, OUT offline_file_type_t *file_type);
+    static std::string
+    check_entry_thread_start(const offline_entry_t *entry);
+};
 
 } // namespace drmemtrace
 } // namespace dynamorio
 
-#endif /* _ZIPFILE_FILE_READER_H_ */
+#endif /* _RAW2TRACE_SHARED_H_ */

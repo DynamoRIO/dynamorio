@@ -1189,11 +1189,11 @@ bitmap_check_consistency(bitmap_t b, uint bitmap_size, uint expect_free);
 #    define MAX_LOG_LENGTH_MINUS_ONE IF_X64_ELSE(1279, 767)
 #else
 /* need more space for printing out longer option strings */
-/* For client we have a larger stack and 2048 option length so go bigger
+/* For client we have a larger stack and 2560 option length so go bigger
  * so clients don't have dr_printf truncated as often.
  */
-#    define MAX_LOG_LENGTH 2048
-#    define MAX_LOG_LENGTH_MINUS_ONE 2047
+#    define MAX_LOG_LENGTH 2560
+#    define MAX_LOG_LENGTH_MINUS_ONE 2559
 #endif
 
 #if defined(DEBUG) && !defined(STANDALONE_DECODER)

@@ -49,6 +49,10 @@
 
 #define RAW_JR_A1_INST 0x58067
 
+/* TODO i#3544: Think of a better way to represent CSR in the IR, maybe as registers? */
+/* Number of the fcsr register. */
+#define FCSR 0x003
+
 /***************************************************************************/
 /*                               EXIT STUB                                 */
 /***************************************************************************/
@@ -616,7 +620,7 @@ append_restore_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
     APP(ilist,
         INSTR_CREATE_csrrw(dcontext, opnd_create_reg(DR_REG_X0),
                            opnd_create_reg(DR_REG_A0),
-                           opnd_create_immed_int(/*fcsr=*/0x003, OPSZ_12b)));
+                           opnd_create_immed_int(FCSR, OPSZ_12b)));
 }
 
 /* dcontext is in REG_DCXT; other registers can be used as scratch.
@@ -724,7 +728,7 @@ append_save_clear_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute
     APP(ilist,
         INSTR_CREATE_csrrs(dcontext, opnd_create_reg(DR_REG_A1),
                            opnd_create_reg(DR_REG_X0),
-                           opnd_create_immed_int(/*fcsr=*/0x003, OPSZ_12b)));
+                           opnd_create_immed_int(FCSR, OPSZ_12b)));
     APP(ilist, SAVE_TO_DC(dcontext, DR_REG_A1, XFLAGS_OFFSET));
 }
 

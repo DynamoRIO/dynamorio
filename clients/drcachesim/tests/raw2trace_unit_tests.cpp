@@ -139,6 +139,13 @@ public:
             std::unique_ptr<module_mapper_t>(new test_multi_module_mapper_t(modules));
         set_modmap_(module_mapper_.get());
     }
+    // The public function to access the raw2trace_t protected function
+    // is_maybe_blocking_syscall.
+    bool
+    is_maybe_blocking_syscall(uintptr_t number) override
+    {
+        return raw2trace_t::is_maybe_blocking_syscall(number);
+    }
 };
 
 class archive_ostream_test_t : public archive_ostream_t {
@@ -2599,6 +2606,51 @@ test_stats_timestamp_instr_count(void *drcontext)
         stats[RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP] == 789;
 }
 
+bool
+test_is_maybe_blocking_syscall(void *drcontext)
+{
+    std::cerr
+        << "\n===============\nTesting raw2trace maybe blocking syscall function.\n";
+#ifdef LINUX
+#    ifdef X86
+#        ifdef X64
+    const uintptr_t syscall_futex = 202;
+    const uintptr_t syscall_sendmsg = 46;
+    const uintptr_t syscall_write = 1;
+#        else
+    const uintptr_t syscall_futex = 240;
+    const uintptr_t syscall_sendmsg = 370;
+    const uintptr_t syscall_write = 4;
+#        endif
+#    elif defined(ARM)
+    const uintptr_t syscall_futex = 240;
+    const uintptr_t syscall_sendmsg = 296;
+    const uintptr_t syscall_write = 4;
+#    elif defined(AARCH64) || defined(RISCV64)
+    const uintptr_t syscall_futex = 98;
+    const uintptr_t syscall_sendmsg = 211;
+    const uintptr_t syscall_write = 64;
+#    else
+#        error Unsupported architecture.
+#    endif
+    std::vector<std::istream *> input;
+    std::vector<std::ostream *> output;
+    const std::vector<test_multi_module_mapper_t::bounds_t> modules;
+
+    raw2trace_test_t raw2trace(input, output, modules, drcontext);
+
+    for (const uintptr_t &syscall : { syscall_futex, syscall_sendmsg, syscall_write }) {
+        if (!raw2trace.is_maybe_blocking_syscall(syscall)) {
+            std::cerr << "Syscall " << syscall
+                      << " should be marked as maybe blocking.\n";
+            return false;
+        }
+    }
+    return true;
+#endif
+    return true;
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -2616,7 +2668,8 @@ test_main(int argc, const char *argv[])
         !test_rseq_side_exit_inverted_with_timestamp(drcontext) ||
         !test_xfer_modoffs(drcontext) || !test_xfer_absolute(drcontext) ||
         !test_branch_decoration(drcontext) ||
-        !test_stats_timestamp_instr_count(drcontext))
+        !test_stats_timestamp_instr_count(drcontext) ||
+        !test_is_maybe_blocking_syscall(drcontext))
         return 1;
     return 0;
 }

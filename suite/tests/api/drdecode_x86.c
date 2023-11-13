@@ -185,6 +185,47 @@ test_categories(void)
     CHECK_CATEGORY(GD, instr, buf, DR_INSTR_CATEGORY_BRANCH);
 }
 
+static void
+test_store_source(void)
+{
+    instr_t *in = XINST_CREATE_store(GD, OPND_CREATE_MEMPTR(DR_REG_XAX, 42),
+                                     opnd_create_reg(DR_REG_XDX));
+    ASSERT(!instr_is_opnd_store_source(in, -1)); /* Out of bounds. */
+    ASSERT(instr_is_opnd_store_source(in, 0));   /* xdx. */
+    ASSERT(!instr_is_opnd_store_source(in, 1));  /* Out of bounds. */
+    instr_destroy(GD, in);
+
+    in = INSTR_CREATE_add(GD, OPND_CREATE_MEMPTR(DR_REG_XAX, 42),
+                          opnd_create_reg(DR_REG_XDX));
+    ASSERT(!instr_is_opnd_store_source(in, -1)); /* Out of bounds. */
+    ASSERT(instr_is_opnd_store_source(in, 0));   /* xdx. */
+    ASSERT(instr_is_opnd_store_source(in, 1));   /* memop. */
+    ASSERT(!instr_is_opnd_store_source(in, 2));  /* Out of bounds. */
+    instr_destroy(GD, in);
+
+    in = INSTR_CREATE_cmpxchg8b(
+        GD, opnd_create_base_disp(DR_REG_XAX, DR_REG_NULL, 0, 42, OPSZ_8));
+    ASSERT(!instr_is_opnd_store_source(in, 0)); /* Memop. */
+    ASSERT(!instr_is_opnd_store_source(in, 1)); /* xax. */
+    ASSERT(!instr_is_opnd_store_source(in, 2)); /* xdx. */
+    ASSERT(instr_is_opnd_store_source(in, 3));  /* xcx. */
+    ASSERT(instr_is_opnd_store_source(in, 4));  /* xbx. */
+    instr_destroy(GD, in);
+
+#ifndef X64
+    in = INSTR_CREATE_pusha(GD);
+    ASSERT(instr_is_opnd_store_source(in, 0)); /* xsp. */
+    ASSERT(instr_is_opnd_store_source(in, 1)); /* xax. */
+    ASSERT(instr_is_opnd_store_source(in, 2)); /* xbx. */
+    ASSERT(instr_is_opnd_store_source(in, 3)); /* xcx. */
+    ASSERT(instr_is_opnd_store_source(in, 4)); /* xdx. */
+    ASSERT(instr_is_opnd_store_source(in, 5)); /* xbp. */
+    ASSERT(instr_is_opnd_store_source(in, 6)); /* xsi. */
+    ASSERT(instr_is_opnd_store_source(in, 7)); /* xdi. */
+    instr_destroy(GD, in);
+#endif
+}
+
 int
 main()
 {
@@ -197,6 +238,8 @@ main()
     test_noalloc();
 
     test_categories();
+
+    test_store_source();
 
     printf("done\n");
 

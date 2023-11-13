@@ -342,3 +342,28 @@ function (check_sve_processor_and_compiler_support out)
   endif ()
   set(${out} ${proc_found_sve} PARENT_SCOPE)
 endfunction (check_sve_processor_and_compiler_support)
+
+function (get_processor_vendor out)
+  set(cpu_vendor "<unknown>")
+  if (APPLE)
+    find_program(SYSCTL NAMES sysctl PATHS /usr/sbin)
+    if (SYSCTL)
+      execute_process(COMMAND ${SYSCTL} -n machdep.cpu.vendor
+        OUTPUT_VARIABLE cpu_vendor OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_VARIABLE err)
+      if ("${cpu_vendor}" STREQUAL "")
+        execute_process(COMMAND ${SYSCTL} -n machdep.cpu.brand_string
+          OUTPUT_VARIABLE cpu_vendor OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_VARIABLE err)
+      endif ()
+    endif ()
+  elseif (WIN32)
+    get_filename_component(cpu_vendor
+      "[HKEY_LOCAL_MACHINE\\Hardware\\Description\\System\\CentralProcessor\\0;VendorIdentifier]"
+      NAME)
+  elseif (EXISTS "/proc/cpuinfo")
+    file(READ "/proc/cpuinfo" contents)
+    string(REGEX REPLACE ".*vendor_id[ \t]*:[ \t]+([a-zA-Z0-9_-]+).*" "\\1"
+      cpu_vendor "${contents}")
+  endif ()
+  message(STATUS "Processor vendor is ${cpu_vendor}")
+  set(${out} ${cpu_vendor} PARENT_SCOPE)
+endfunction ()

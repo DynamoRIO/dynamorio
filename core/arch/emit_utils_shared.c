@@ -3262,6 +3262,8 @@ append_ibl_found(dcontext_t *dcontext, instrlist_t *ilist, ibl_code_t *ibl_code,
             ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569: NYI on AArch64 */
 #elif defined(ARM)
             ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1551: NYI on ARM */
+#elif defined(RISCV64)
+            ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#3544: NYI on RISCV64 */
 #endif
         } else {
             APP(ilist, SAVE_TO_TLS(dcontext, SCRATCH_REG2, INDIRECT_STUB_SPILL_SLOT));
@@ -5554,11 +5556,13 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code, ui
     instrlist_t ilist;
     patch_list_t patch;
     instr_t *in;
-    /* For AArch64 the linkstub has to be in X0 and the app's X0 has to be
-     * spilled in TLS_REG0_SLOT before calling the ibl routine.
+    /* For AArch64/RISCV64 the linkstub has to be in SCRATCH_REG0 and the app's
+     * SCRATCH_REG0 has to be spilled in TLS_REG0_SLOT before calling the ibl routine.
      */
-    reg_id_t stub_reg = IF_AARCH64_ELSE(SCRATCH_REG0, SCRATCH_REG1);
-    ushort stub_slot = IF_AARCH64_ELSE(TLS_REG0_SLOT, TLS_REG1_SLOT);
+    reg_id_t stub_reg =
+        IF_AARCH64_ELSE(SCRATCH_REG0, IF_RISCV64_ELSE(SCRATCH_REG0, SCRATCH_REG1));
+    ushort stub_slot =
+        IF_AARCH64_ELSE(TLS_REG0_SLOT, IF_RISCV64_ELSE(TLS_REG0_SLOT, TLS_REG1_SLOT));
     IF_X86(size_t len;)
     byte *ibl_linked_tgt = special_ibl_xfer_tgt(dcontext, code, IBL_LINKED, ibl_type);
     byte *ibl_unlinked_tgt = special_ibl_xfer_tgt(dcontext, code, IBL_UNLINKED, ibl_type);
@@ -5628,12 +5632,6 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code, ui
                           opnd_create_reg(DR_REG_XCX)));
     insert_shared_restore_dcontext_reg(dcontext, &ilist, NULL);
     APP(&ilist, XINST_CREATE_jump(dcontext, opnd_create_pc(ibl_unlinked_tgt)));
-#    elif defined(RISCV64)
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    /* Marking as unused to silence -Wunused-variable. */
-    (void)ibl_unlinked_tgt;
-    (void)ibl_linked_tgt;
 #    elif defined(AARCHXX)
     /* Reuse SCRATCH_REG5 which contains dcontext currently. */
     APP(&ilist,
@@ -5658,7 +5656,21 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code, ui
             dcontext, opnd_create_reg(DR_REG_PC),
             OPND_TLS_FIELD(get_ibl_entry_tls_offs(dcontext, ibl_unlinked_tgt))));
 #        endif /* AARCH64/ARM */
-#    endif     /* X86/AARCHXX */
+#    elif defined(RISCV64)
+    /* Reuse SCRATCH_REG5 which contains dcontext currently. */
+    APP(&ilist,
+        INSTR_CREATE_lb(dcontext, opnd_create_reg(SCRATCH_REG5),
+                        OPND_DC_FIELD(false, dcontext, OPSZ_1, SIGPENDING_OFFSET)));
+    APP(&ilist,
+        INSTR_CREATE_beq(dcontext, opnd_create_instr(skip_unlinked_tgt_jump),
+                         opnd_create_reg(SCRATCH_REG5), opnd_create_reg(DR_REG_X0)));
+    insert_shared_restore_dcontext_reg(dcontext, &ilist, NULL);
+    APP(&ilist,
+        INSTR_CREATE_ld(
+            dcontext, opnd_create_reg(SCRATCH_REG1),
+            OPND_TLS_FIELD(get_ibl_entry_tls_offs(dcontext, ibl_unlinked_tgt))));
+    APP(&ilist, XINST_CREATE_jump_reg(dcontext, opnd_create_reg(SCRATCH_REG1)));
+#    endif /* X86/AARCHXX/RISCV64 */
     APP(&ilist, skip_unlinked_tgt_jump);
 #    ifdef X86
     APP(&ilist,
@@ -5716,10 +5728,22 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code, ui
         INSTR_CREATE_ldr(
             dcontext, opnd_create_reg(DR_REG_PC),
             OPND_TLS_FIELD(get_ibl_entry_tls_offs(dcontext, ibl_linked_tgt))));
+#elif defined(RISCV64)
+    /* Unlike X86 and ARM which use 1 instruction for an indirect jump,
+     * RISCV64, same as Aarch64, requires 2 instructions: LD+JR. This requires adjusting
+     * special_ibl_unlink_offs to point to the LD when relinking by
+     * relink_special_ibl_xfer(). See adjustment below, to offs_instr passed to
+     * add_patch_marker().
+     */
+    APP(&ilist,
+        INSTR_CREATE_ld(
+            dcontext, opnd_create_reg(SCRATCH_REG1),
+            OPND_TLS_FIELD(get_ibl_entry_tls_offs(dcontext, ibl_linked_tgt))));
+    APP(&ilist, XINST_CREATE_jump_reg(dcontext, opnd_create_reg(SCRATCH_REG1)));
 #endif
 
     instr_t *offs_instr = instrlist_last(&ilist);
-#if defined(AARCH64)
+#if defined(AARCH64) || defined(RISCV64)
     offs_instr = instr_get_prev(offs_instr);
 #endif
     add_patch_marker(&patch, offs_instr, PATCH_UINT_SIZED /* pc relative */,
@@ -5814,6 +5838,10 @@ emit_clean_call_save(dcontext_t *dcontext, byte *pc, generated_code_t *code)
     /* save all registers */
     insert_push_all_registers(dcontext, NULL, &ilist, NULL, (uint)PAGE_SIZE,
                               OPND_CREATE_INT32(0), REG_NULL, true);
+#elif defined(RISCV64)
+    /* save all registers */
+    insert_push_all_registers(dcontext, NULL, &ilist, NULL, (uint)PAGE_SIZE,
+                              OPND_CREATE_INT32(0), REG_NULL);
 #endif
 
 #ifdef WINDOWS
@@ -5852,6 +5880,8 @@ emit_clean_call_save(dcontext_t *dcontext, byte *pc, generated_code_t *code)
                              OPND_CREATE_INT16(get_clean_call_temp_stack_size())));
 #elif defined(AARCH64)
     APP(&ilist, INSTR_CREATE_br(dcontext, opnd_create_reg(DR_REG_X30)));
+#elif defined(RISCV64)
+    APP(&ilist, XINST_CREATE_jump_reg(dcontext, opnd_create_reg(DR_REG_RA)));
 #else
     /* FIXME i#1621: NYI on AArch32 */
     ASSERT_NOT_IMPLEMENTED(false);
@@ -5915,6 +5945,10 @@ emit_clean_call_restore(dcontext_t *dcontext, byte *pc, generated_code_t *code)
     insert_pop_all_registers(dcontext, NULL, &ilist, NULL, (uint)PAGE_SIZE, true);
 
     APP(&ilist, INSTR_CREATE_br(dcontext, opnd_create_reg(DR_REG_X30)));
+#elif defined(RISCV64)
+    insert_pop_all_registers(dcontext, NULL, &ilist, NULL, (uint)PAGE_SIZE);
+
+    APP(&ilist, XINST_CREATE_jump_reg(dcontext, opnd_create_reg(DR_REG_RA)));
 #else
     /* FIXME i#1621: NYI on AArch32 */
     ASSERT_NOT_IMPLEMENTED(false);

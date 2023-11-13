@@ -136,6 +136,10 @@ changes:
    calls changed to contain the actual return value, rather than just whether
    successful.  A new marker #dynamorio::drmemtrace::TRACE_MARKER_TYPE_SYSCALL_FAILED
    was added to indicate failure.
+ - Changed the enum value of #dynamorio::drmemtrace::scheduler_t::DEPENDENCY_TIMESTAMPS
+   to include direct switch dependencies.  This is not a binary compatibility change
+   as the old value still refers purely to timestamps, but on a recompile it
+   refers to timestamps and direct switches, which is what most users should want.
 
 Further non-compatibility-affecting changes include:
  - Fixed a bug in the AArch64 codec with the way that SVE scalar+immediate predicated
@@ -174,6 +178,7 @@ Further non-compatibility-affecting changes include:
  - Added -record_syscall to drmemtrace for recording syscall parameters.
  - Added opportunity to run multiple drcachesim analysis tools simultaneously.
  - Added support of loading separately-built analysis tools to drcachesim dynamically.
+ - Added instr_is_opnd_store_source().
 
 **************************************************
 <hr>
