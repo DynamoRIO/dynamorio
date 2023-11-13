@@ -132,6 +132,13 @@ bool
 invariant_checker_t::parallel_shard_exit(void *shard_data)
 {
     per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
+    report_if_false(shard,
+                    shard->saw_thread_exit_
+                        // XXX i#6444: For online on some Windows tests we see threads
+                        // exiting w/o the tracer inserting an exit.  Until we figure
+                        // that out we disable this error for Windows online.
+                        IF_WINDOWS(|| !knob_offline_),
+                    "Thread is missing exit");
     if (!TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_DFILTERED,
                  shard->file_type_)) {
         report_if_false(shard, shard->expected_read_records_ == 0,
@@ -448,6 +455,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     }
 
     if (memref.exit.type == TRACE_TYPE_THREAD_EXIT) {
+        shard->saw_thread_exit_ = true;
         report_if_false(shard,
                         !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
                                  shard->file_type_) ||
@@ -1062,6 +1070,11 @@ invariant_checker_t::check_schedule_data(per_shard_t *global)
 bool
 invariant_checker_t::print_results()
 {
+    if (serial_stream_ != nullptr) {
+        for (const auto &keyval : shard_map_) {
+            parallel_shard_exit(keyval.second.get());
+        }
+    }
     per_shard_t global;
     check_schedule_data(&global);
     std::cerr << "Trace invariant checks passed\n";
