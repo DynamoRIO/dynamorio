@@ -1205,7 +1205,7 @@ recreate_selfmod_ilist(dcontext_t *dcontext, fragment_t *f)
 static void
 restore_stolen_register(dcontext_t *dcontext, priv_mcontext_t *mcontext)
 {
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
     /* dr_reg_stolen is holding DR's TLS on receiving a signal,
      * so we need put app's reg value into mcontext instead
      */

@@ -573,6 +573,11 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                 tdata->error = "Missing thread id";
                 return false;
             }
+            if (tdata->rseq_buffering_enabled_ &&
+                // Deliberately pass 0 as the PC so it's treated as an instru
+                // exit and we just dump the buffer as-is.
+                !adjust_and_emit_rseq_buffer(tdata, 0, 0))
+                return false;
             log(2, "Thread %d exit\n", (uint)tid);
             buf += trace_metadata_writer_t::write_thread_exit(buf, tid);
             *end_of_record = true;
@@ -2321,7 +2326,8 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
 {
     if (!tdata->rseq_want_rollback_)
         return true;
-    log(4, "--- Rseq region exited at %p ---\n", next_pc);
+    log(4, "--- Rseq region %p-%p exited at %p ---\n", tdata->rseq_start_pc_,
+        tdata->rseq_end_pc_, next_pc);
     if (verbosity_ >= 4) {
         log(4, "Rseq buffer contents:\n");
         for (int i = 0; i < static_cast<int>(tdata->rseq_buffer_.size()); i++) {

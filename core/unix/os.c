@@ -2011,7 +2011,7 @@ get_os_tls_from_dc(dcontext_t *dcontext)
     return (os_local_state_t *)(local_state - offsetof(os_local_state_t, state));
 }
 
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
 bool
 os_set_app_tls_base(dcontext_t *dcontext, reg_id_t reg, void *base)
 {
@@ -4125,7 +4125,7 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
      * to the app's.
      */
     os_clone_pre(dcontext);
-#    ifdef AARCHXX
+#    if defined(AARCHXX) || defined(RISCV64)
     /* We need to invalidate DR's TLS to avoid get_thread_private_dcontext() finding one
      * and hitting asserts in dynamo_thread_init lock calls -- yet we don't want to for
      * app threads, so we're doing this here and not in os_clone_pre().
@@ -4137,7 +4137,7 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
     thread_id_t newpid = dynamorio_clone(flags, xsp, NULL, NULL, NULL, client_thread_run);
     /* i#3526 switch DR's tls back to the original one before cloning. */
     os_clone_post(dcontext);
-#    ifdef AARCHXX
+#    if defined(AARCHXX) || defined(RISCV64)
     write_thread_register(tls);
 #    endif
     /* i#501 the app's tls was switched in os_clone_pre. */
@@ -6804,7 +6804,7 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
         base = os_get_priv_tls_base(dcontext, seg);
     }
     return os_switch_seg_to_base(dcontext, os_tls, seg, to_app, base);
-#elif defined(AARCHXX)
+#elif defined(AARCHXX) || defined(RISCV64)
     bool res = false;
     os_thread_data_t *ostd = (os_thread_data_t *)dcontext->os_field;
     ASSERT(INTERNAL_OPTION(private_loader));
@@ -6890,12 +6890,6 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
     LOG(THREAD, LOG_LOADER, 2, "%s %s: set_tls swap success=%d for thread " TIDFMT "\n",
         __FUNCTION__, to_app ? "to app" : "to DR", res, d_r_get_thread_id());
     return res;
-#elif defined(RISCV64)
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    /* Marking as unused to silence -Wunused-variable. */
-    (void)os_tls;
-    return false;
 #endif /* X86/AARCHXX/RISCV64 */
 }
 

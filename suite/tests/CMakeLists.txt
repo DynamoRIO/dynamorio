@@ -3776,6 +3776,11 @@ if (BUILD_CLIENTS)
           "-indir ${thread_trace_dir} -simulator_type basic_counts -only_thread 1257604"
           "")
         set(tool.counts_only_thread_rawtemp ON) # no preprocessor
+
+        torunonly_simtool(schedule_stats_nopreempt ${ci_shared_app}
+          "-indir ${thread_trace_dir} -simulator_type schedule_stats -core_sharded -sched_quantum 10000000"
+          "")
+        set(tool.schedule_stats_nopreempt_rawtemp ON) # no preprocessor
       endif ()
     endif ()
 
