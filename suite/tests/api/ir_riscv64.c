@@ -365,17 +365,21 @@ test_atomic(void *dc)
     /* LR/SC */
     instr = INSTR_CREATE_lr_w(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
                               opnd_create_immed_int(0b00, OPSZ_2b));
+    ASSERT(instr_is_exclusive_load(instr));
     test_instr_encoding(dc, OP_lr_w, instr);
     instr = INSTR_CREATE_lr_d(dc, opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_X31),
                               opnd_create_immed_int(0b10, OPSZ_2b));
+    ASSERT(instr_is_exclusive_load(instr));
     test_instr_encoding(dc, OP_lr_d, instr);
     instr = INSTR_CREATE_sc_w(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
                               opnd_create_reg(DR_REG_A2),
                               opnd_create_immed_int(0b01, OPSZ_2b));
+    ASSERT(instr_is_exclusive_store(instr));
     test_instr_encoding(dc, OP_sc_w, instr);
     instr = INSTR_CREATE_sc_d(dc, opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_X31),
                               opnd_create_reg(DR_REG_A1),
                               opnd_create_immed_int(0b11, OPSZ_2b));
+    ASSERT(instr_is_exclusive_store(instr));
     test_instr_encoding(dc, OP_sc_d, instr);
 
     /* AMO */

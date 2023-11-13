@@ -184,7 +184,6 @@ mixed_mode_enabled(void)
 #    define SCRATCH_REG4_OFFS REG4_OFFSET
 #    define SCRATCH_REG5_OFFS REG5_OFFSET
 #    define REG_OFFSET(reg) (X0_OFFSET + ((reg)-DR_REG_X0) * sizeof(reg_t))
-/* FIXME i#3544: Check is T6 safe to use */
 #    define CALL_SCRATCH_REG DR_REG_T6
 #    define MC_IBL_REG a2
 #    define MC_RETVAL_REG a0
@@ -596,11 +595,16 @@ instr_t *
 mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 instr_t *next_instr);
 #endif
-#ifdef AARCHXX
-/* mangle instructions that use pc or dr_reg_stolen */
+#if defined(AARCHXX) || defined(RISCV64)
+/* For ARM, mangle app instr accessing registers pc and dr_reg_stolen;
+ * for AArch64, mangle app instr accessing register dr_reg_stolen;
+ * for RISC-V, mangle app instr accessing registers tp and dr_reg_stolen.
+ */
 instr_t *
 mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                          instr_t *next_instr);
+#endif
+#if defined(AARCHXX) || defined(RISCV64)
 instr_t *
 mangle_exclusive_monitor_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                             instr_t *next_instr);
@@ -628,7 +632,7 @@ mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist,
 #elif defined(ARM)
 #    define ABI_STACK_ALIGNMENT 8
 #elif defined(RISCV64)
-#    define ABI_STACK_ALIGNMENT 8
+#    define ABI_STACK_ALIGNMENT 16
 #endif
 
 /* Returns the number of bytes the stack pointer has to be aligned to. */

@@ -1210,6 +1210,7 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
 
     /* XXX i#5062 In the future this call should be placed inside mangle_trace() */
     IF_AARCH64(md->emitted_size += fixup_indirect_trace_exit(dcontext, trace));
+    IF_RISCV64(ASSERT_NOT_IMPLEMENTED(false));
 
     if (DYNAMO_OPTION(speculate_last_exit)
 #ifdef HASHTABLE_STATISTICS
