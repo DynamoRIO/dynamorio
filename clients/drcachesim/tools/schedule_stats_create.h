@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,54 +30,32 @@
  * DAMAGE.
  */
 
-/* zipfile_file_reader: reads zipfile files containing memory traces. */
+/* Schedule stats tool creation. */
 
-#ifndef _ZIPFILE_FILE_READER_H_
-#define _ZIPFILE_FILE_READER_H_ 1
+#ifndef _SCHEDULE_STATS_CREATE_H_
+#define _SCHEDULE_STATS_CREATE_H_ 1
 
-#include <zlib.h>
-#include "minizip/unzip.h"
-#include "file_reader.h"
+#include "analysis_tool.h"
+
+#include <cstdint>
 
 namespace dynamorio {
 namespace drmemtrace {
 
-struct zipfile_reader_t {
-    zipfile_reader_t()
-        : file(nullptr)
-    {
-    }
-    explicit zipfile_reader_t(unzFile file)
-        : file(file)
-    {
-    }
-    zipfile_reader_t(unzFile file, const std::string &path)
-        : file(file)
-        , path(path)
-    {
-    }
-    unzFile file;
-    // Without our own buffering, reading one trace_entry_t record at a time
-    // is 60% slower.  This buffer size was picked through experimentation to
-    // perform well without taking up too much memory.
-    trace_entry_t buf[4096];
-    trace_entry_t *cur_buf = buf;
-    trace_entry_t *max_buf = buf;
-    // Store the path and component names for debug messages.
-    std::string path;
-    char name[128];
-};
-
-typedef file_reader_t<zipfile_reader_t> zipfile_file_reader_t;
-
-/* Declare this so the compiler knows not to use the default implementation in the
- * class declaration.
+/**
+ * @file drmemtrace/schedule_stats_create.h
+ * @brief DrMemtrace schedule statistics analysis tool creation.
  */
-template <>
-reader_t &
-file_reader_t<zipfile_reader_t>::skip_instructions(uint64_t instruction_count);
+
+/**
+ * Creates an analysis tool which counts the number and type of context switches
+ * in a core-sharded trace schedule.  The tool fails if run in any mode besides
+ * core-sharded.
+ */
+analysis_tool_t *
+schedule_stats_tool_create(uint64_t print_every, unsigned int verbose = 0);
 
 } // namespace drmemtrace
 } // namespace dynamorio
 
-#endif /* _ZIPFILE_FILE_READER_H_ */
+#endif /* _SCHEDULE_STATS_CREATE_H_ */

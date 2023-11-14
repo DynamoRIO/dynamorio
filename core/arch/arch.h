@@ -595,11 +595,16 @@ instr_t *
 mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 instr_t *next_instr);
 #endif
-#ifdef AARCHXX
-/* mangle instructions that use pc or dr_reg_stolen */
+#if defined(AARCHXX) || defined(RISCV64)
+/* For ARM, mangle app instr accessing registers pc and dr_reg_stolen;
+ * for AArch64, mangle app instr accessing register dr_reg_stolen;
+ * for RISC-V, mangle app instr accessing registers tp and dr_reg_stolen.
+ */
 instr_t *
 mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                          instr_t *next_instr);
+#endif
+#if defined(AARCHXX) || defined(RISCV64)
 instr_t *
 mangle_exclusive_monitor_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                             instr_t *next_instr);
@@ -627,7 +632,7 @@ mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist,
 #elif defined(ARM)
 #    define ABI_STACK_ALIGNMENT 8
 #elif defined(RISCV64)
-#    define ABI_STACK_ALIGNMENT 8
+#    define ABI_STACK_ALIGNMENT 16
 #endif
 
 /* Returns the number of bytes the stack pointer has to be aligned to. */

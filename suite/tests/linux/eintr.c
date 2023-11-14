@@ -127,7 +127,8 @@ main(int argc, char **argv)
     child_ready = false;
     pthread_mutex_unlock(&lock);
 
-    write(pipefd[1], "ab", 2);
+    if (write(pipefd[1], "ab", 2) == -1)
+        perror("Failed to write to pipe\n");
 
     if (pthread_join(thread, &retval) != 0)
         perror("failed to join thread");
