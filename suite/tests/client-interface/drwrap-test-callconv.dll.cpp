@@ -112,7 +112,7 @@ check_fastcall(void *wrapcxt)
 #endif
 
 static void
-wrap_pre(void *wrapcxt, OUT void **user_data)
+wrap_pre(void *wrapcxt, DR_PARAM_OUT void **user_data)
 {
     CHECK(wrapcxt != NULL && user_data != NULL, "invalid arg");
     CHECK(drwrap_get_arg(wrapcxt, 0) != NULL, "\"this\" pointer is NULL");

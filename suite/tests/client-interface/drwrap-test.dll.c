@@ -43,17 +43,17 @@
 static void
 event_exit(void);
 static void
-wrap_pre(void *wrapcxt, OUT void **user_data);
+wrap_pre(void *wrapcxt, DR_PARAM_OUT void **user_data);
 static void
 wrap_post(void *wrapcxt, void *user_data);
 static void
 wrap_post_might_miss(void *wrapcxt, void *user_data);
 static void
-wrap_unwindtest_pre(void *wrapcxt, OUT void **user_data);
+wrap_unwindtest_pre(void *wrapcxt, DR_PARAM_OUT void **user_data);
 static void
 wrap_unwindtest_post(void *wrapcxt, void *user_data);
 static void
-wrap_unwindtest_seh_pre(void *wrapcxt, OUT void **user_data);
+wrap_unwindtest_seh_pre(void *wrapcxt, DR_PARAM_OUT void **user_data);
 static void
 wrap_unwindtest_seh_post(void *wrapcxt, void *user_data);
 static int
@@ -104,7 +104,7 @@ static app_pc addr_tailcall_test2;
 static app_pc addr_tailcall_tail;
 
 static void
-wrap_addr(INOUT app_pc *addr, const char *name, const module_data_t *mod,
+wrap_addr(DR_PARAM_OUT app_pc *addr, const char *name, const module_data_t *mod,
           void (*pre_cb)(void *, void **), void (*post_cb)(void *, void *), uint flags)
 {
     bool ok;
@@ -131,7 +131,8 @@ unwrap_addr(app_pc addr, const char *name, const module_data_t *mod,
 }
 
 static void
-wrap_unwindtest_addr(OUT app_pc *addr, const char *name, const module_data_t *mod)
+wrap_unwindtest_addr(DR_PARAM_OUT app_pc *addr, const char *name,
+                     const module_data_t *mod)
 {
     bool ok;
     *addr = (app_pc)dr_get_proc_address(mod->handle, name);
@@ -429,7 +430,7 @@ replace_callsite(int *x)
 }
 
 static void
-wrap_pre(void *wrapcxt, OUT void **user_data)
+wrap_pre(void *wrapcxt, DR_PARAM_OUT void **user_data)
 {
     bool ok;
     CHECK(wrapcxt != NULL && user_data != NULL, "invalid arg");
@@ -572,7 +573,7 @@ wrap_post_might_miss(void *wrapcxt, void *user_data)
 }
 
 static void
-wrap_unwindtest_pre(void *wrapcxt, OUT void **user_data)
+wrap_unwindtest_pre(void *wrapcxt, DR_PARAM_OUT void **user_data)
 {
     if (drwrap_get_func(wrapcxt) != addr_longdone) {
         void *drcontext = dr_get_current_drcontext();
@@ -602,7 +603,7 @@ wrap_unwindtest_post(void *wrapcxt, void *user_data)
 }
 
 static void
-wrap_unwindtest_seh_pre(void *wrapcxt, OUT void **user_data)
+wrap_unwindtest_seh_pre(void *wrapcxt, DR_PARAM_OUT void **user_data)
 {
     wrap_unwindtest_pre(wrapcxt, user_data);
 }

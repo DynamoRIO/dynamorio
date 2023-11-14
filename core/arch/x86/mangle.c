@@ -2320,7 +2320,7 @@ float_pc_update(dcontext_t *dcontext)
 
 void
 mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                instr_t *next_instr, uint *flags INOUT)
+                instr_t *next_instr, uint *flags DR_PARAM_OUT)
 {
     /* XXX i#2267: AMD processors don't provide the last PC when there was no
      * exception.  Recent processors seem to zero it out.  Should we do the same,

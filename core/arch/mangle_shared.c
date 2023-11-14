@@ -1209,8 +1209,8 @@ mangle_rseq_write_exit_reason(dcontext_t *dcontext, instrlist_t *ilist,
 /* May modify next_instr. */
 static void
 mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
-                                   instr_t *instr, INOUT instr_t **next_instr,
-                                   uint *flags INOUT, app_pc start, app_pc end,
+                                   instr_t *instr, DR_PARAM_INOUT instr_t **next_instr,
+                                   uint *flags DR_PARAM_INOUT, app_pc start, app_pc end,
                                    app_pc handler, reg_id_t scratch_reg,
                                    bool *reg_written, int reg_written_count)
 {
@@ -1593,7 +1593,7 @@ mangle_rseq_nop_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
 /* Returns whether it destroyed "instr".  May modify next_instr. */
 static bool
 mangle_rseq(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-            INOUT instr_t **next_instr, uint *flags INOUT)
+            DR_PARAM_INOUT instr_t **next_instr, uint *flags DR_PARAM_OUT)
 {
     int i;
     app_pc pc = get_app_instr_xl8(instr);
@@ -1818,8 +1818,8 @@ mangle_rseq_finalize(dcontext_t *dcontext, instrlist_t *ilist, fragment_t *f)
  * inserted instr -- but this slows down encoding in current implementation
  */
 void
-d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT, bool mangle_calls,
-           bool record_translation)
+d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags DR_PARAM_INOUT,
+           bool mangle_calls, bool record_translation)
 {
     instr_t *instr, *next_instr;
 #ifdef WINDOWS

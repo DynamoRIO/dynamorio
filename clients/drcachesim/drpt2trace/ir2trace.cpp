@@ -55,8 +55,9 @@ namespace drmemtrace {
 #define ERRMSG_HEADER "[drpt2ir] "
 
 ir2trace_convert_status_t
-ir2trace_t::convert(IN drir_t &drir, INOUT std::vector<trace_entry_t> &trace,
-                    IN int verbosity)
+ir2trace_t::convert(DR_PARAM_IN drir_t &drir,
+                    DR_PARAM_INOUT std::vector<trace_entry_t> &trace,
+                    DR_PARAM_IN int verbosity)
 {
     if (drir.get_ilist() == NULL) {
         return IR2TRACE_CONV_ERROR_INVALID_PARAMETER;

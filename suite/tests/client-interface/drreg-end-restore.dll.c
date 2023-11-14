@@ -54,7 +54,7 @@ static void
 event_exit(void);
 static dr_emit_flags_t
 event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                 bool translating, OUT void **user_data);
+                 bool translating, DR_PARAM_OUT void **user_data);
 static dr_emit_flags_t
 event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                   bool translating, void *user_data);
@@ -101,7 +101,7 @@ event_exit(void)
 
 static dr_emit_flags_t
 event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                 bool translating, OUT void **user_data)
+                 bool translating, DR_PARAM_OUT void **user_data)
 {
     drreg_status_t res =
         drreg_set_bb_properties(drcontext, DRREG_USER_RESTORES_AT_BB_END);

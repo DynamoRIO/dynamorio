@@ -172,7 +172,8 @@ module_segment_prot_to_osprot(ELF_PROGRAM_HEADER_TYPE *prog_hdr)
  */
 app_pc
 module_vaddr_from_prog_header(app_pc prog_header, uint num_segments,
-                              OUT app_pc *out_first_end, OUT app_pc *out_max_end)
+                              DR_PARAM_OUT app_pc *out_first_end,
+                              DR_PARAM_OUT app_pc *out_max_end)
 {
     uint i;
     app_pc min_vaddr = (app_pc)POINTER_MAX;

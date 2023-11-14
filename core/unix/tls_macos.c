@@ -364,14 +364,15 @@ tls_set_fs_gs_segment_base(tls_type_t tls_type, uint seg,
 #endif
 
 void
-tls_init_descriptor(our_modify_ldt_t *desc OUT, void *base, size_t size, uint index)
+tls_init_descriptor(our_modify_ldt_t *desc DR_PARAM_OUT, void *base, size_t size,
+                    uint index)
 {
     /* XXX: we may want to refactor os.c + tls.h to not use our_modify_ldt_t on MacOS */
     ASSERT_NOT_IMPLEMENTED(false);
 }
 
 bool
-tls_get_descriptor(int index, our_modify_ldt_t *desc OUT)
+tls_get_descriptor(int index, our_modify_ldt_t *desc DR_PARAM_OUT)
 {
     /* XXX: we may want to refactor os.c and tls.h to not use our_modify_ldt_t
      * on MacOS.  For now we implement the handful of such interactions we

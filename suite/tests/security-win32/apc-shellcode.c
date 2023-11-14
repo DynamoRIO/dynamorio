@@ -56,8 +56,9 @@ send_apc(PAPCFUNC func, ULONG_PTR depth);
 static void WINAPI
 apc_func(ULONG_PTR arg);
 
-typedef VOID(NTAPI *PKNORMAL_ROUTINE)(IN PVOID NormalContext, IN PVOID SystemArgument1,
-                                      IN PVOID SystemArgument2);
+typedef VOID(NTAPI *PKNORMAL_ROUTINE)(DR_PARAM_IN PVOID NormalContext,
+                                      DR_PARAM_IN PVOID SystemArgument1,
+                                      DR_PARAM_IN PVOID SystemArgument2);
 
 /* In asm code. */
 void
@@ -81,9 +82,10 @@ native_queue_apc(HANDLE thread, PKNORMAL_ROUTINE apc_dispatch, PAPCFUNC func,
 {
     NTSTATUS status;
     GET_NTDLL(NtQueueApcThread,
-              (IN HANDLE ThreadHandle, IN PKNORMAL_ROUTINE ApcRoutine,
-               IN PVOID ApcContext OPTIONAL, IN PVOID Argument1 OPTIONAL,
-               IN PVOID Argument2 OPTIONAL));
+              (DR_PARAM_IN HANDLE ThreadHandle, DR_PARAM_IN PKNORMAL_ROUTINE ApcRoutine,
+               DR_PARAM_IN PVOID ApcContext OPTIONAL,
+               DR_PARAM_IN PVOID Argument1 OPTIONAL,
+               DR_PARAM_IN PVOID Argument2 OPTIONAL));
 
     /*
      *   This is what I see in QueueUserAPC just before calling NtQueueApcThread

@@ -59,7 +59,8 @@ pre(instrlist_t *ilist, instr_t *where, instr_t *inst)
 
 /* replaces old with new, destroys old inst, and lets old point to new */
 static void
-replace(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **old, instr_t *new)
+replace(dcontext_t *dcontext, instrlist_t *ilist, DR_PARAM_INOUT instr_t **old,
+        instr_t *new)
 {
     instr_set_translation(new, instr_get_translation(*old));
     instrlist_replace(ilist, *old, new);
@@ -157,7 +158,8 @@ instr_change_base_reg_to_64(instr_t *instr)
 }
 
 static void
-translate_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
+translate_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist,
+                        DR_PARAM_INOUT instr_t **instr)
 {
     /* translate: jmp target  => movzx/mov target -> r8d
      *                           jmp r8
@@ -177,7 +179,8 @@ translate_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t 
 }
 
 static void
-translate_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
+translate_indirect_call(dcontext_t *dcontext, instrlist_t *ilist,
+                        DR_PARAM_INOUT instr_t **instr)
 {
     /* translate: call target => movzx/mov target -> r8d
      *                           push retaddr as 32-bit
@@ -200,7 +203,7 @@ translate_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t 
 }
 
 static void
-translate_push(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
+translate_push(dcontext_t *dcontext, instrlist_t *ilist, DR_PARAM_INOUT instr_t **instr)
 {
     opnd_t mem = instr_get_dst(*instr, 1);
     opnd_t src;
@@ -272,7 +275,8 @@ translate_push(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
 }
 
 static void
-translate_push_imm(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
+translate_push_imm(dcontext_t *dcontext, instrlist_t *ilist,
+                   DR_PARAM_INOUT instr_t **instr)
 {
     opnd_t mem = instr_get_dst(*instr, 1);
     opnd_t src;
@@ -316,7 +320,7 @@ translate_push_imm(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **ins
 }
 
 static void
-translate_pop(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
+translate_pop(dcontext_t *dcontext, instrlist_t *ilist, DR_PARAM_INOUT instr_t **instr)
 {
     opnd_t mem = instr_get_src(*instr, 1);
     opnd_t dst;
@@ -375,7 +379,7 @@ translate_pop(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
 }
 
 static void
-translate_pusha(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
+translate_pusha(dcontext_t *dcontext, instrlist_t *ilist, DR_PARAM_INOUT instr_t **instr)
 {
     /* translate: pusha/pushad => mov rsp -> r8
      *                            lea -16(rsp)/-32(rsp) -> rsp
@@ -412,7 +416,7 @@ translate_pusha(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
 }
 
 static void
-translate_popa(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
+translate_popa(dcontext_t *dcontext, instrlist_t *ilist, DR_PARAM_INOUT instr_t **instr)
 {
     /* touch high and low memory up front to make sure no faults.
      * translate: popa/popad => mov 14(rsp)/28(rsp) -> r8w/r8d
@@ -449,7 +453,7 @@ translate_popa(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
 }
 
 static void
-translate_into(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
+translate_into(dcontext_t *dcontext, instrlist_t *ilist, DR_PARAM_INOUT instr_t **instr)
 {
     /* translate: into => jno_short next_instr
      *                    int 4
@@ -463,7 +467,7 @@ translate_into(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
 
 static void
 translate_load_far_pointer(dcontext_t *dcontext, instrlist_t *ilist,
-                           INOUT instr_t **instr)
+                           DR_PARAM_INOUT instr_t **instr)
 {
     /* translate: les (src) -> dst, sreg => mov (src) -> r8w/r8d
      *                                      mov 2(src)/4(src) -> sreg
@@ -493,7 +497,7 @@ translate_load_far_pointer(dcontext_t *dcontext, instrlist_t *ilist,
 }
 
 static void
-translate_leave(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
+translate_leave(dcontext_t *dcontext, instrlist_t *ilist, DR_PARAM_INOUT instr_t **instr)
 {
     opnd_t dst = instr_get_dst(*instr, 0);
     if (opnd_get_size(dst) == OPSZ_4) {
@@ -515,7 +519,7 @@ translate_leave(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
 }
 
 static void
-translate_pushf(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
+translate_pushf(dcontext_t *dcontext, instrlist_t *ilist, DR_PARAM_INOUT instr_t **instr)
 {
     opnd_t src = instr_get_src(*instr, 0);
     if (opnd_get_size(src) == OPSZ_4) {
@@ -543,7 +547,7 @@ translate_pushf(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
 }
 
 static void
-translate_popf(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
+translate_popf(dcontext_t *dcontext, instrlist_t *ilist, DR_PARAM_INOUT instr_t **instr)
 {
     opnd_t dst = instr_get_dst(*instr, 0);
     if (opnd_get_size(dst) == OPSZ_4) {
@@ -563,7 +567,8 @@ translate_popf(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
 }
 
 void
-translate_x86_to_x64(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
+translate_x86_to_x64(dcontext_t *dcontext, instrlist_t *ilist,
+                     DR_PARAM_INOUT instr_t **instr)
 {
     int opc = instr_get_opcode(*instr);
     ASSERT(instrlist_get_our_mangling(ilist));

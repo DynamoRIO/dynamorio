@@ -98,11 +98,11 @@ void
 drsym_unix_unload(void *p);
 
 drsym_error_t
-drsym_unix_lookup_address(void *moddata, size_t modoffs, drsym_info_t *out INOUT,
+drsym_unix_lookup_address(void *moddata, size_t modoffs, drsym_info_t *out DR_PARAM_INOUT,
                           uint flags);
 
 drsym_error_t
-drsym_unix_lookup_symbol(void *moddata, const char *symbol, size_t *modoffs OUT,
+drsym_unix_lookup_symbol(void *moddata, const char *symbol, size_t *modoffs DR_PARAM_OUT,
                          uint flags);
 
 drsym_error_t
@@ -111,22 +111,24 @@ drsym_unix_enumerate_symbols(void *moddata, drsym_enumerate_cb callback,
                              void *data, uint flags);
 
 size_t
-drsym_unix_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled, uint flags);
+drsym_unix_demangle_symbol(char *dst DR_PARAM_OUT, size_t dst_sz, const char *mangled,
+                           uint flags);
 
 drsym_error_t
 drsym_unix_get_type(void *mod_in, size_t modoffs, uint levels_to_expand, char *buf,
-                    size_t buf_sz, drsym_type_t **type OUT);
+                    size_t buf_sz, drsym_type_t **type DR_PARAM_OUT);
 
 drsym_error_t
 drsym_unix_get_func_type(void *moddata, size_t modoffs, char *buf, size_t buf_sz,
-                         drsym_func_type_t **func_type OUT);
+                         drsym_func_type_t **func_type DR_PARAM_OUT);
 
 drsym_error_t
 drsym_unix_expand_type(const char *modpath, uint type_id, uint levels_to_expand,
-                       char *buf, size_t buf_sz, drsym_type_t **expanded_type OUT);
+                       char *buf, size_t buf_sz,
+                       drsym_type_t **expanded_type DR_PARAM_OUT);
 
 drsym_error_t
-drsym_unix_get_module_debug_kind(void *moddata, drsym_debug_kind_t *kind OUT);
+drsym_unix_get_module_debug_kind(void *moddata, drsym_debug_kind_t *kind DR_PARAM_OUT);
 
 drsym_error_t
 drsym_unix_enumerate_lines(void *mod_in, drsym_enumerate_lines_cb callback, void *data);

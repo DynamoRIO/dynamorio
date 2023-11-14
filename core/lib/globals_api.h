@@ -389,14 +389,14 @@ struct _instr_t;
 typedef struct _instr_t instr_t;
 #endif
 
-#ifndef IN
-#    define IN /* marks input param */
+#ifndef DR_PARAM_IN
+#    define DR_PARAM_IN /* marks input param */
 #endif
-#ifndef OUT
-#    define OUT /* marks output param */
+#ifndef DR_PARAM_OUT
+#    define DR_PARAM_OUT /* marks output param */
 #endif
-#ifndef INOUT
-#    define INOUT /* marks input+output param */
+#ifndef DR_PARAM_INOUT
+#    define DR_PARAM_INOUT /* marks input+output param */
 #endif
 
 #ifdef X86

@@ -48,13 +48,12 @@ typedef struct {
     bool (*memquery_iterator_next)(memquery_iter_t *iter);
     void (*memquery_iterator_stop)(memquery_iter_t *iter);
     bool (*module_is_header)(app_pc base, size_t size);
-    bool (*module_walk_program_headers)(app_pc base, size_t view_size, bool at_map,
-                                        bool dyn_reloc,
-                                        OUT app_pc *out_base /* relative pc */,
-                                        OUT app_pc *out_first_end /* relative pc */,
-                                        OUT app_pc *out_max_end /* relative pc */,
-                                        OUT char **out_soname,
-                                        OUT os_module_data_t *out_data);
+    bool (*module_walk_program_headers)(
+        app_pc base, size_t view_size, bool at_map, bool dyn_reloc,
+        DR_PARAM_OUT app_pc *out_base /* relative pc */,
+        DR_PARAM_OUT app_pc *out_first_end /* relative pc */,
+        DR_PARAM_OUT app_pc *out_max_end /* relative pc */,
+        DR_PARAM_OUT char **out_soname, DR_PARAM_OUT os_module_data_t *out_data);
 } memquery_library_bounds_funcs;
 
 /* real_memquery_library_bounds_funcs is the collection of "real" dependencies

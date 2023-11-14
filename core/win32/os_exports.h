@@ -70,9 +70,10 @@
 int
 get_os_version(void);
 void
-get_os_version_ex(int *version OUT, uint *service_pack_major OUT,
-                  uint *service_pack_minor OUT, uint *build_number OUT,
-                  const char **release_id OUT, const char **edition OUT);
+get_os_version_ex(int *version DR_PARAM_OUT, uint *service_pack_major DR_PARAM_OUT,
+                  uint *service_pack_minor DR_PARAM_OUT, uint *build_number DR_PARAM_OUT,
+                  const char **release_id DR_PARAM_OUT,
+                  const char **edition DR_PARAM_OUT);
 
 /* TEB offsets
  * we'd like to use offsetof(TEB, field) but that would require
@@ -218,7 +219,7 @@ thread_set_context(thread_record_t *tr, CONTEXT *context);
 extern byte *thread_attach_takeover;
 
 void
-thread_attach_translate(dcontext_t *dcontext, priv_mcontext_t *mc INOUT,
+thread_attach_translate(dcontext_t *dcontext, priv_mcontext_t *mc DR_PARAM_INOUT,
                         bool restore_memory);
 
 /* Should be passed the full current context, including pc, of a thread
@@ -237,7 +238,7 @@ thread_attach_exit(dcontext_t *dcontext, priv_mcontext_t *mc);
  */
 /* Use special C99 operator _Pragma to generate a pragma from a macro */
 #if _MSC_VER <= 1200 /* FIXME: __pragma may work w/ vc6: then don't need #if */
-#    define ACTUAL_PRAGMA(p) _Pragma(#    p)
+#    define ACTUAL_PRAGMA(p) _Pragma(#p)
 #else
 #    define ACTUAL_PRAGMA(p) __pragma(p)
 #endif
@@ -262,7 +263,7 @@ bool
 unmark_page_as_guard(byte *pc, uint prot);
 
 bool
-os_find_free_code_space_in_libs(void **start OUT, void **end OUT);
+os_find_free_code_space_in_libs(void **start DR_PARAM_OUT, void **end DR_PARAM_OUT);
 
 void
 merge_writecopy_pages(app_pc start, app_pc end);
@@ -473,7 +474,7 @@ void
 os_take_over_unmark_thread(thread_id_t tid);
 
 bool
-os_dump_core_live(const char *msg, char *path OUT, size_t path_sz);
+os_dump_core_live(const char *msg, char *path DR_PARAM_OUT, size_t path_sz);
 
 /* in module.c */
 app_pc

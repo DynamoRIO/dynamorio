@@ -58,96 +58,96 @@
 #    ifdef __AVX512F__
 void
 test_avx512_vpscatterdd(uint32_t *xmm_ymm_zmm, uint32_t *test_idx32_vec,
-                        uint32_t *output_sparse_test_buf OUT);
+                        uint32_t *output_sparse_test_buf DR_PARAM_OUT);
 void
 test_avx512_vpscatterdq(uint32_t *xmm_ymm_zmm, uint32_t *test_idx32_vec,
-                        uint32_t *output_sparse_test_buf OUT);
+                        uint32_t *output_sparse_test_buf DR_PARAM_OUT);
 void
 test_avx512_vpscatterqd(uint32_t *xmm_ymm_zmm, uint32_t *test_idx32_vec,
-                        uint32_t *output_sparse_test_buf OUT);
+                        uint32_t *output_sparse_test_buf DR_PARAM_OUT);
 void
 test_avx512_vpscatterqq(uint32_t *xmm_ymm_zmm, uint32_t *test_idx32_vec,
-                        uint32_t *output_sparse_test_buf OUT);
+                        uint32_t *output_sparse_test_buf DR_PARAM_OUT);
 /* Even though this is a floating point instruction, we implictly cast and treat the
  * result vector as a vector of integers and compare the results this way.
  */
 void
 test_avx512_vscatterdps(uint32_t *xmm_ymm_zmm, uint32_t *test_idx32_vec,
-                        uint32_t *output_sparse_test_buf OUT);
+                        uint32_t *output_sparse_test_buf DR_PARAM_OUT);
 /* See comment above. */
 void
 test_avx512_vscatterdpd(uint32_t *xmm_ymm_zmm, uint32_t *test_idx32_vec,
-                        uint32_t *output_sparse_test_buf OUT);
+                        uint32_t *output_sparse_test_buf DR_PARAM_OUT);
 /* See comment above. */
 void
 test_avx512_vscatterqpd(uint32_t *xmm_ymm_zmm, uint32_t *test_idx32_vec,
-                        uint32_t *output_sparse_test_buf OUT);
+                        uint32_t *output_sparse_test_buf DR_PARAM_OUT);
 /* See comment above. */
 void
 test_avx512_vscatterqps(uint32_t *xmm_ymm_zmm, uint32_t *test_idx32_vec,
-                        uint32_t *output_sparse_test_buf OUT);
+                        uint32_t *output_sparse_test_buf DR_PARAM_OUT);
 void
 test_avx512_vpgatherdd(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
-                       uint32_t *output_xmm_ymm_zmm OUT);
+                       uint32_t *output_xmm_ymm_zmm DR_PARAM_OUT);
 void
 test_avx512_vpgatherdq(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
-                       uint32_t *output_xmm_ymm_zmm OUT);
+                       uint32_t *output_xmm_ymm_zmm DR_PARAM_OUT);
 void
 test_avx512_vpgatherqd(uint32_t *ref_sparse_test_buf, uint32_t *test_idx64_vec,
-                       uint32_t *output_xmm_ymm_zmm OUT);
+                       uint32_t *output_xmm_ymm_zmm DR_PARAM_OUT);
 void
 test_avx512_vpgatherqq(uint32_t *ref_sparse_test_buf, uint32_t *test_idx64_vec,
-                       uint32_t *output_xmm_ymm_zmm OUT);
+                       uint32_t *output_xmm_ymm_zmm DR_PARAM_OUT);
 void
 /* Even though this is a floating point instruction, we implictly cast and treat the
  * result vector as a vector of integers and compare the results this way.
  */
 test_avx512_vgatherdps(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
-                       uint32_t *output_xmm_ymm_zmm OUT);
+                       uint32_t *output_xmm_ymm_zmm DR_PARAM_OUT);
 /* See comment above. */
 void
 test_avx512_vgatherdpd(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
-                       uint32_t *output_xmm_ymm_zmm OUT);
+                       uint32_t *output_xmm_ymm_zmm DR_PARAM_OUT);
 /* See comment above. */
 void
 test_avx512_vgatherqps(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
-                       uint32_t *output_xmm_ymm_zmm OUT);
+                       uint32_t *output_xmm_ymm_zmm DR_PARAM_OUT);
 /* See comment above. */
 void
 test_avx512_vgatherqpd(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
-                       uint32_t *output_xmm_ymm_zmm OUT);
+                       uint32_t *output_xmm_ymm_zmm DR_PARAM_OUT);
 #    endif
 #    ifdef __AVX__
 void
 test_avx2_vpgatherdd(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
-                     uint32_t *output_xmm_ymm_zmm OUT);
+                     uint32_t *output_xmm_ymm_zmm DR_PARAM_OUT);
 void
 test_avx2_vpgatherdq(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
-                     uint32_t *output_xmm_ymm_zmm OUT);
+                     uint32_t *output_xmm_ymm_zmm DR_PARAM_OUT);
 void
 test_avx2_vpgatherqd(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
-                     uint32_t *output_xmm_ymm_zmm OUT);
+                     uint32_t *output_xmm_ymm_zmm DR_PARAM_OUT);
 void
 test_avx2_vpgatherqq(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
-                     uint32_t *output_xmm_ymm_zmm OUT);
+                     uint32_t *output_xmm_ymm_zmm DR_PARAM_OUT);
 /* Even though this is a floating point instruction, we implictly cast and treat the
  * result vector as a vector of integers and compare the results this way.
  */
 void
 test_avx2_vgatherdps(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
-                     uint32_t *output_xmm_ymm_zmm OUT);
+                     uint32_t *output_xmm_ymm_zmm DR_PARAM_OUT);
 /* See comment above. */
 void
 test_avx2_vgatherdpd(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
-                     uint32_t *output_xmm_ymm_zmm OUT);
+                     uint32_t *output_xmm_ymm_zmm DR_PARAM_OUT);
 /* See comment above. */
 void
 test_avx2_vgatherqps(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
-                     uint32_t *output_xmm_ymm_zmm OUT);
+                     uint32_t *output_xmm_ymm_zmm DR_PARAM_OUT);
 /* See comment above. */
 void
 test_avx2_vgatherqpd(uint32_t *ref_sparse_test_buf, uint32_t *test_idx32_vec,
-                     uint32_t *output_xmm_ymm_zmm OUT);
+                     uint32_t *output_xmm_ymm_zmm DR_PARAM_OUT);
 #    endif
 #    ifdef __AVX512F__
 /* See comment above. */
@@ -170,21 +170,21 @@ test_avx512_restore_gather_mask_update(uint32_t *ref_sparse_test_buf,
 /* See comment above. */
 void
 test_avx512_restore_scatter_mask_fault(uint32_t *xmm_ymm_zmm, uint32_t *test_idx32_vec,
-                                       uint32_t *output_sparse_test_buf OUT);
+                                       uint32_t *output_sparse_test_buf DR_PARAM_OUT);
 /* See comment above. */
 void
 test_avx512_restore_scatter_scratch_xmm_fault(uint32_t *xmm_ymm_zmm,
                                               uint32_t *test_idx32_vec,
-                                              uint32_t *output_sparse_test_buf OUT,
+                                              uint32_t *output_sparse_test_buf DR_PARAM_OUT,
                                               uint32_t *scratch_xmm_fault);
 /* See comment above. */
 void
 test_avx512_restore_scatter_mask_clobber(uint32_t *xmm_ymm_zmm, uint32_t *test_idx32_vec,
-                                         uint32_t *output_sparse_test_buf OUT);
+                                         uint32_t *output_sparse_test_buf DR_PARAM_OUT);
 /* See comment above. */
 void
 test_avx512_restore_scatter_mask_update(uint32_t *xmm_ymm_zmm, uint32_t *test_idx32_vec,
-                                        uint32_t *output_sparse_test_buf OUT);
+                                        uint32_t *output_sparse_test_buf DR_PARAM_OUT);
 #    endif
 #    ifdef __AVX__
 /* See comment above. */
@@ -329,7 +329,7 @@ test_avx512_mask_all_zero(void)
 static bool
 test_avx512_gather(void (*test_func)(uint32_t *, uint32_t *, uint32_t *),
                    uint32_t *ref_sparse_test_buf, uint32_t *ref_xmm_ymm_zmm,
-                   uint32_t *test_idx_vec, uint32_t *output_xmm_ymm_zmm OUT)
+                   uint32_t *test_idx_vec, uint32_t *output_xmm_ymm_zmm DR_PARAM_OUT)
 {
     memset(output_xmm_ymm_zmm, 0, CONCAT_XMM_YMM_ZMM_U32 * sizeof(uint32_t));
     test_func(ref_sparse_test_buf, test_idx_vec, output_xmm_ymm_zmm);
@@ -349,7 +349,7 @@ test_avx512_gather(void (*test_func)(uint32_t *, uint32_t *, uint32_t *),
 static bool
 test_avx2_gather(void (*test_func)(uint32_t *, uint32_t *, uint32_t *),
                  uint32_t *ref_sparse_test_buf, uint32_t *ref_xmm_ymm,
-                 uint32_t *test_idx_vec, uint32_t *output_xmm_ymm OUT)
+                 uint32_t *test_idx_vec, uint32_t *output_xmm_ymm DR_PARAM_OUT)
 {
     memset(output_xmm_ymm, 0, CONCAT_XMM_YMM_U32 * sizeof(uint32_t));
 #    ifdef UNIX
@@ -375,7 +375,7 @@ static bool
 test_avx512_scatter(void (*test_func)(uint32_t *, uint32_t *, uint32_t *),
                     uint32_t *ref_sparse_test_buf, uint32_t *ref_xmm_ymm_zmm,
                     uint32_t *test_idx_vec, bool check_half, bool check_64bit_values,
-                    uint32_t *output_sparse_test_buf OUT)
+                    uint32_t *output_sparse_test_buf DR_PARAM_OUT)
 {
     /* For scatters with maximal 8 indices, only half the sparse array is scattered. */
     int check_size = check_half ? SPARSE_TEST_BUF_SIZE_U32 / 2 : SPARSE_TEST_BUF_SIZE_U32;

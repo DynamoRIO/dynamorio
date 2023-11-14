@@ -498,14 +498,14 @@ redirect_VirtualProtect(__in LPVOID lpAddress, __in SIZE_T dwSize,
 SIZE_T
 WINAPI
 redirect_VirtualQuery(__in_opt LPCVOID lpAddress,
-                      __out_bcount_part(dwLength, return )
+                      __out_bcount_part(dwLength, return)
                           PMEMORY_BASIC_INFORMATION lpBuffer,
                       __in SIZE_T dwLength);
 
 SIZE_T
 WINAPI
 redirect_VirtualQueryEx(__in HANDLE hProcess, __in_opt LPCVOID lpAddress,
-                        __out_bcount_part(dwLength, return )
+                        __out_bcount_part(dwLength, return)
                             PMEMORY_BASIC_INFORMATION lpBuffer,
                         __in SIZE_T dwLength);
 
@@ -759,8 +759,9 @@ redirect_LockFile(__in HANDLE hFile, __in DWORD dwFileOffsetLow,
                   __in DWORD nNumberOfBytesToLockHigh);
 
 BOOL WINAPI
-redirect_PeekConsoleInputA(IN HANDLE hConsoleInput, OUT PINPUT_RECORD lpBuffer,
-                           IN DWORD nLength, OUT LPDWORD lpNumberOfEventsRead);
+redirect_PeekConsoleInputA(DR_PARAM_IN HANDLE hConsoleInput,
+                           DR_PARAM_OUT PINPUT_RECORD lpBuffer, DR_PARAM_IN DWORD nLength,
+                           DR_PARAM_OUT LPDWORD lpNumberOfEventsRead);
 
 BOOL WINAPI
 redirect_PeekNamedPipe(__in HANDLE hNamedPipe,
@@ -770,12 +771,14 @@ redirect_PeekNamedPipe(__in HANDLE hNamedPipe,
                        __out_opt LPDWORD lpBytesLeftThisMessage);
 
 BOOL WINAPI
-redirect_ReadConsoleInputA(IN HANDLE hConsoleInput, OUT PINPUT_RECORD lpBuffer,
-                           IN DWORD nLength, OUT LPDWORD lpNumberOfEventsRead);
+redirect_ReadConsoleInputA(DR_PARAM_IN HANDLE hConsoleInput,
+                           DR_PARAM_OUT PINPUT_RECORD lpBuffer, DR_PARAM_IN DWORD nLength,
+                           DR_PARAM_OUT LPDWORD lpNumberOfEventsRead);
 
 BOOL WINAPI
-redirect_ReadConsoleInputW(IN HANDLE hConsoleInput, OUT PINPUT_RECORD lpBuffer,
-                           IN DWORD nLength, OUT LPDWORD lpNumberOfEventsRead);
+redirect_ReadConsoleInputW(DR_PARAM_IN HANDLE hConsoleInput,
+                           DR_PARAM_OUT PINPUT_RECORD lpBuffer, DR_PARAM_IN DWORD nLength,
+                           DR_PARAM_OUT LPDWORD lpNumberOfEventsRead);
 
 BOOL WINAPI
 redirect_ReadConsoleW(__in HANDLE hConsoleInput,
@@ -814,14 +817,18 @@ redirect_UnlockFile(__in HANDLE hFile, __in DWORD dwFileOffsetLow,
                     __in DWORD nNumberOfBytesToUnlockHigh);
 
 BOOL WINAPI
-redirect_WriteConsoleA(IN HANDLE hConsoleOutput, IN CONST VOID *lpBuffer,
-                       IN DWORD nNumberOfCharsToWrite, OUT LPDWORD lpNumberOfCharsWritten,
-                       IN LPVOID lpReserved);
+redirect_WriteConsoleA(DR_PARAM_IN HANDLE hConsoleOutput,
+                       DR_PARAM_IN CONST VOID *lpBuffer,
+                       DR_PARAM_IN DWORD nNumberOfCharsToWrite,
+                       DR_PARAM_OUT LPDWORD lpNumberOfCharsWritten,
+                       DR_PARAM_IN LPVOID lpReserved);
 
 BOOL WINAPI
-redirect_WriteConsoleW(IN HANDLE hConsoleOutput, IN CONST VOID *lpBuffer,
-                       IN DWORD nNumberOfCharsToWrite, OUT LPDWORD lpNumberOfCharsWritten,
-                       IN LPVOID lpReserved);
+redirect_WriteConsoleW(DR_PARAM_IN HANDLE hConsoleOutput,
+                       DR_PARAM_IN CONST VOID *lpBuffer,
+                       DR_PARAM_IN DWORD nNumberOfCharsToWrite,
+                       DR_PARAM_OUT LPDWORD lpNumberOfCharsWritten,
+                       DR_PARAM_IN LPVOID lpReserved);
 
 /***************************************************************************
  * Synchronization
@@ -910,10 +917,10 @@ redirect_GetACP(void);
 UINT WINAPI redirect_GetConsoleCP(VOID);
 
 BOOL WINAPI
-redirect_SetConsoleCP(IN UINT wCodePageID);
+redirect_SetConsoleCP(DR_PARAM_IN UINT wCodePageID);
 
 BOOL WINAPI
-redirect_GetConsoleMode(IN HANDLE hConsoleHandle, OUT LPDWORD lpMode);
+redirect_GetConsoleMode(DR_PARAM_IN HANDLE hConsoleHandle, DR_PARAM_OUT LPDWORD lpMode);
 
 UINT WINAPI redirect_GetConsoleOutputCP(VOID);
 
@@ -946,8 +953,8 @@ VOID WINAPI
 redirect_GetLocalTime(__out LPSYSTEMTIME lpSystemTime);
 
 BOOL WINAPI
-redirect_GetNumberOfConsoleInputEvents(IN HANDLE hConsoleInput,
-                                       OUT LPDWORD lpNumberOfEvents);
+redirect_GetNumberOfConsoleInputEvents(DR_PARAM_IN HANDLE hConsoleInput,
+                                       DR_PARAM_OUT LPDWORD lpNumberOfEvents);
 
 UINT WINAPI
 redirect_GetOEMCP(void);
@@ -1069,10 +1076,11 @@ redirect_RtlVirtualUnwind(__in DWORD HandlerType, __in DWORD64 ImageBase,
 #endif
 
 BOOL WINAPI
-redirect_SetConsoleCtrlHandler(IN PHANDLER_ROUTINE HandlerRoutine, IN BOOL Add);
+redirect_SetConsoleCtrlHandler(DR_PARAM_IN PHANDLER_ROUTINE HandlerRoutine,
+                               DR_PARAM_IN BOOL Add);
 
 BOOL WINAPI
-redirect_SetConsoleMode(IN HANDLE hConsoleHandle, IN DWORD dwMode);
+redirect_SetConsoleMode(DR_PARAM_IN HANDLE hConsoleHandle, DR_PARAM_IN DWORD dwMode);
 
 BOOL WINAPI
 redirect_SetEnvironmentVariableA(__in LPCSTR lpName, __in_opt LPCSTR lpValue);

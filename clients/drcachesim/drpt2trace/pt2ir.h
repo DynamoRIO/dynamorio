@@ -53,14 +53,14 @@
 #include "drir.h"
 #include "elf_loader.h"
 
-#ifndef IN
-#    define IN // nothing
+#ifndef DR_PARAM_IN
+#    define DR_PARAM_IN // nothing
 #endif
-#ifndef OUT
-#    define OUT // nothing
+#ifndef DR_PARAM_OUT
+#    define DR_PARAM_OUT // nothing
 #endif
-#ifndef INOUT
-#    define INOUT // nothing
+#ifndef DR_PARAM_INOUT
+#    define DR_PARAM_INOUT // nothing
 #endif
 
 // libipt global types.
@@ -305,7 +305,7 @@ public:
      * This function is used to parse the metadata of the PT raw trace.
      */
     bool
-    init_with_metadata(IN const void *metadata_buffer)
+    init_with_metadata(DR_PARAM_IN const void *metadata_buffer)
     {
         if (metadata_buffer == NULL)
             return false;
@@ -350,7 +350,7 @@ public:
      * @return true if the instance is successfully initialized.
      */
     bool
-    init(IN pt2ir_config_t &pt2ir_config, IN int verbosity = 0);
+    init(DR_PARAM_IN pt2ir_config_t &pt2ir_config, DR_PARAM_IN int verbosity = 0);
 
     /**
      * The convert function performs two processes: (1) decode the PT raw trace into
@@ -364,14 +364,16 @@ public:
      * error code.
      */
     pt2ir_convert_status_t
-    convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t &drir);
+    convert(DR_PARAM_IN const uint8_t *pt_data, DR_PARAM_IN size_t pt_data_size,
+            DR_PARAM_INOUT drir_t &drir);
 
 private:
     /* Diagnose converting errors and output diagnostic results.
      * It will used to generate the error message during the decoding process.
      */
     void
-    dx_decoding_error(IN int errcode, IN const char *errtype, IN uint64_t ip);
+    dx_decoding_error(DR_PARAM_IN int errcode, DR_PARAM_IN const char *errtype,
+                      DR_PARAM_IN uint64_t ip);
 
     /* It indicate if the instance of pt2ir_t has been initialized, signifying the
      * readiness of the conversion process from PT data to DR's IR.

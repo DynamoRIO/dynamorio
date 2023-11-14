@@ -279,14 +279,17 @@ d_r_get_proc_address(module_base_t lib, const char *name);
  * and use it here
  */
 generic_func_t
-get_proc_address_ex(module_base_t lib, const char *name, bool *is_indirect_code OUT);
+get_proc_address_ex(module_base_t lib, const char *name,
+                    bool *is_indirect_code DR_PARAM_OUT);
 #else /* WINDOWS */
 
 generic_func_t
-get_proc_address_ex(module_base_t lib, const char *name, const char **forwarder OUT);
+get_proc_address_ex(module_base_t lib, const char *name,
+                    const char **forwarder DR_PARAM_OUT);
 
 generic_func_t
-get_proc_address_by_ordinal(module_base_t lib, uint ordinal, const char **forwarder OUT);
+get_proc_address_by_ordinal(module_base_t lib, uint ordinal,
+                            const char **forwarder DR_PARAM_OUT);
 
 generic_func_t
 get_proc_address_resolve_forward(module_base_t lib, const char *name);
@@ -295,7 +298,7 @@ get_proc_address_resolve_forward(module_base_t lib, const char *name);
 
 #ifdef WINDOWS
 uint64
-get_remote_process_entry(HANDLE process_handle, OUT bool *x86_code);
+get_remote_process_entry(HANDLE process_handle, DR_PARAM_OUT bool *x86_code);
 #endif
 
 void
@@ -468,7 +471,8 @@ typedef enum {
 
 /* This function is used for loading non-private libs as well as private. */
 app_pc
-privload_map_and_relocate(const char *filename, size_t *size OUT, modload_flags_t flags);
+privload_map_and_relocate(const char *filename, size_t *size DR_PARAM_OUT,
+                          modload_flags_t flags);
 
 /* returns whether they all fit */
 bool
@@ -544,9 +548,10 @@ privmod_t *
 privload_first_module(void);
 
 bool
-privload_fill_os_module_info(app_pc base, OUT app_pc *out_base /* relative pc */,
-                             OUT app_pc *out_max_end /* relative pc */,
-                             OUT char **out_soname, OUT os_module_data_t *out_data);
+privload_fill_os_module_info(app_pc base, DR_PARAM_OUT app_pc *out_base /* relative pc */,
+                             DR_PARAM_OUT app_pc *out_max_end /* relative pc */,
+                             DR_PARAM_OUT char **out_soname,
+                             DR_PARAM_OUT os_module_data_t *out_data);
 
 /* os specific loader initialization prologue before finalize the load,
  * will also acquire privload_lock.

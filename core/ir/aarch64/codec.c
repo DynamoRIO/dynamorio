@@ -48,6 +48,17 @@
 
 #include "codec.h"
 
+/* XXX: The make/aarch64_check_codec_order.py script assumes function
+ * signatures occupy a single line!  We thus locally use shorter markers
+ * here.
+ */
+#ifndef IN
+#    define IN
+#endif
+#ifndef OUT
+#    define OUT
+#endif
+
 /* Tag granule scaling */
 const uint log2_tag_granule = 4;
 
@@ -579,7 +590,7 @@ decode_vreg(aarch64_reg_offset scale, uint n)
 
 /* Encode SIMD/FP register. */
 static inline bool
-encode_vreg(INOUT opnd_size_t *x, OUT uint *r, reg_id_t reg)
+encode_vreg(OUT opnd_size_t *x, OUT uint *r, reg_id_t reg)
 {
     opnd_size_t sz;
     uint n;
@@ -615,7 +626,7 @@ encode_vreg(INOUT opnd_size_t *x, OUT uint *r, reg_id_t reg)
 }
 
 static inline bool
-is_vreg(INOUT opnd_size_t *x, OUT uint *r, opnd_t opnd)
+is_vreg(OUT opnd_size_t *x, OUT uint *r, opnd_t opnd)
 {
     return opnd_is_reg(opnd) && encode_vreg(x, r, opnd_get_reg(opnd));
 }
@@ -1885,7 +1896,8 @@ decode_opnd_h_const_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 }
 
 static inline bool
-encode_opnd_h_const_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+encode_opnd_h_const_sz(uint enc, int opcode, byte *pc, opnd_t opnd,
+                       OUT uint *enc_out)
 {
     if (!opnd_is_immed_int(opnd))
         return false;
@@ -5659,7 +5671,8 @@ decode_opnd_hsd_immh_reg0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 }
 
 static inline bool
-encode_opnd_hsd_immh_reg0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+encode_opnd_hsd_immh_reg0(uint enc, int opcode, byte *pc, opnd_t opnd,
+                          OUT uint *enc_out)
 {
     return encode_hsd_immh_regx(0, enc, opcode, pc, opnd, enc_out);
 }
@@ -7138,7 +7151,8 @@ decode_opnd_hsd_size_reg0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 }
 
 static inline bool
-encode_opnd_hsd_size_reg0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+encode_opnd_hsd_size_reg0(uint enc, int opcode, byte *pc, opnd_t opnd,
+                          OUT uint *enc_out)
 {
     return encode_hsd_size_regx(0, enc, opcode, pc, opnd, enc_out);
 }
@@ -7250,7 +7264,8 @@ decode_opnd_hsd_size_reg5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 }
 
 static inline bool
-encode_opnd_hsd_size_reg5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+encode_opnd_hsd_size_reg5(uint enc, int opcode, byte *pc, opnd_t opnd,
+                          OUT uint *enc_out)
 {
     return encode_hsd_size_regx(5, enc, opcode, pc, opnd, enc_out);
 }
@@ -7538,7 +7553,8 @@ decode_opnd_hsd_size_reg16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 }
 
 static inline bool
-encode_opnd_hsd_size_reg16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+encode_opnd_hsd_size_reg16(uint enc, int opcode, byte *pc, opnd_t opnd,
+                           OUT uint *enc_out)
 {
     return encode_hsd_size_regx(16, enc, opcode, pc, opnd, enc_out);
 }
@@ -8687,7 +8703,8 @@ decode_opnd_sd16_h_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 }
 
 static inline bool
-encode_opnd_sd16_h_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+encode_opnd_sd16_h_sz(uint enc, int opcode, byte *pc, opnd_t opnd,
+                      OUT uint *enc_out)
 {
     uint num;
     bool d;
