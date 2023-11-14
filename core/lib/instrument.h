@@ -113,11 +113,11 @@ instrument_restore_state(dcontext_t *dcontext, bool restore_memory,
                          dr_restore_state_info_t *info);
 bool
 instrument_restore_nonfcache_state(dcontext_t *dcontext, bool restore_memory,
-                                   INOUT priv_mcontext_t *mcontext);
+                                   DR_PARAM_INOUT priv_mcontext_t *mcontext);
 bool
 instrument_restore_nonfcache_state_prealloc(dcontext_t *dcontext, bool restore_memory,
-                                            INOUT priv_mcontext_t *mcontext,
-                                            OUT dr_mcontext_t *client_mcontext);
+                                            DR_PARAM_INOUT priv_mcontext_t *mcontext,
+                                            DR_PARAM_OUT dr_mcontext_t *client_mcontext);
 
 module_data_t *
 copy_module_area_to_module_data(const module_area_t *area);

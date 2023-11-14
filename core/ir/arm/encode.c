@@ -865,8 +865,8 @@ reg_simd_start(reg_id_t reg)
 }
 
 static bool
-encode_shift_values(dr_shift_type_t shift, uint amount, ptr_int_t *sh2 OUT,
-                    ptr_int_t *val OUT)
+encode_shift_values(dr_shift_type_t shift, uint amount, ptr_int_t *sh2 DR_PARAM_OUT,
+                    ptr_int_t *val DR_PARAM_OUT)
 {
     if (shift == DR_SHIFT_NONE) {
         *sh2 = 0;
@@ -899,7 +899,7 @@ encode_shift_values(dr_shift_type_t shift, uint amount, ptr_int_t *sh2 OUT,
 /* 0 stride means no stride */
 static bool
 encode_reglist_ok(decode_info_t *di, opnd_size_t size_temp, instr_t *in, bool is_dst,
-                  uint *counter INOUT, uint min_num, uint max_num, bool is_simd,
+                  uint *counter DR_PARAM_INOUT, uint min_num, uint max_num, bool is_simd,
                   uint stride, uint prior, reg_id_t excludeA, reg_id_t excludeB,
                   reg_id_t base_reg)
 {
@@ -1404,7 +1404,7 @@ opnd_get_signed_disp(opnd_t opnd)
 
 static bool
 encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *in,
-               bool is_dst, uint *counter INOUT)
+               bool is_dst, uint *counter DR_PARAM_OUT)
 {
     uint opnum = (*counter)++;
     opnd_t opnd;
@@ -2324,7 +2324,7 @@ encode_index_shift(decode_info_t *di, opnd_t opnd, bool encode_type)
 
 static void
 encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *in,
-               bool is_dst, uint *counter INOUT)
+               bool is_dst, uint *counter DR_PARAM_OUT)
 {
     uint opnum = (*counter)++;
     opnd_size_t size_temp_up = resolve_size_upward(size_temp);

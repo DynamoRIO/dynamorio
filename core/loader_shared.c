@@ -974,7 +974,7 @@ redirect_malloc(size_t size)
  * wrapped-malloc-layer pointer from a client/privlib.
  */
 static inline size_t
-redirect_malloc_size_and_start(void *mem, OUT void **start_out)
+redirect_malloc_size_and_start(void *mem, DR_PARAM_OUT void **start_out)
 {
     size_t *size_ptr = (size_t *)((ptr_uint_t)mem - sizeof(size_t));
     size_t size = *((size_t *)size_ptr);

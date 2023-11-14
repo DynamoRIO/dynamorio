@@ -64,7 +64,7 @@ print_cb(void *data, char *dst, size_t max_len)
 }
 
 static const char *
-parse_cb(const char *src, OUT void **data)
+parse_cb(const char *src, DR_PARAM_OUT void **data)
 {
     const char *res;
     if (dr_sscanf(src, PIFX ",", data) != 1)
@@ -98,7 +98,7 @@ my_free(void *ptr)
 }
 
 static const char *
-parse_alloc_cb(const char *src, OUT void **data)
+parse_alloc_cb(const char *src, DR_PARAM_OUT void **data)
 {
     const char *res;
     app_pc module_start;
@@ -113,7 +113,7 @@ parse_alloc_cb(const char *src, OUT void **data)
 }
 
 static const char *
-parse_alloc_error_cb(const char *src, OUT void **data)
+parse_alloc_error_cb(const char *src, DR_PARAM_OUT void **data)
 {
     static int count_calls;
     if (++count_calls == 4)
@@ -138,7 +138,7 @@ free_alloc_cb(void *data)
 
 dr_emit_flags_t
 bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating,
-            OUT void **user_data)
+            DR_PARAM_OUT void **user_data)
 {
     app_pc pc = dr_fragment_app_pc(tag);
     app_pc modbase;

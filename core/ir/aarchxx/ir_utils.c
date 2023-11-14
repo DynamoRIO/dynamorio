@@ -166,7 +166,7 @@ convert_to_near_rel_arch(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
 void
 insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                       ptr_int_t val, opnd_t dst, instrlist_t *ilist, instr_t *instr,
-                      OUT instr_t **first, OUT instr_t **last)
+                      DR_PARAM_OUT instr_t **first, DR_PARAM_OUT instr_t **last)
 {
 #ifdef AARCH64
     instr_t *mov;
@@ -255,7 +255,7 @@ insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_esti
 void
 insert_push_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                        ptr_int_t val, instrlist_t *ilist, instr_t *instr,
-                       OUT instr_t **first, OUT instr_t **last)
+                       DR_PARAM_OUT instr_t **first, DR_PARAM_OUT instr_t **last)
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1551, i#1569 */
 }

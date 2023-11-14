@@ -1659,7 +1659,7 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 static reg_id_t
 pick_scratch_reg(dcontext_t *dcontext, instr_t *instr, reg_id_t do_not_pick_a,
                  reg_id_t do_not_pick_b, reg_id_t do_not_pick_c, bool dead_reg_ok,
-                 ushort *scratch_slot OUT, bool *should_restore OUT)
+                 ushort *scratch_slot DR_PARAM_OUT, bool *should_restore DR_PARAM_OUT)
 {
     reg_id_t reg;
     ushort slot = 0;
@@ -2930,7 +2930,8 @@ create_ld_from_ldex(dcontext_t *dcontext, instr_t *ldex)
 }
 
 static instr_t *
-create_ldax_from_stex(dcontext_t *dcontext, instr_t *strex, reg_id_t *dest_reg INOUT,
+create_ldax_from_stex(dcontext_t *dcontext, instr_t *strex,
+                      reg_id_t *dest_reg DR_PARAM_INOUT,
                       /* For a pair, we need a caller-set-up scratch reg for the 2nd. */
                       reg_id_t dest_reg2,
                       /* Whether to merge a pair of 4-bytes into one 8-byte. */

@@ -131,7 +131,7 @@ static void
 event_post_sys_B_user_data(void *drcontext, int sysnum, void *user_data);
 static dr_emit_flags_t
 event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                  bool translating, OUT void **user_data);
+                  bool translating, DR_PARAM_OUT void **user_data);
 static dr_emit_flags_t
 event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                 bool for_trace, bool translating, void *user_data);
@@ -148,7 +148,7 @@ event_opcode_add_insert_C(void *drcontext, void *tag, instrlist_t *bb, instr_t *
 
 static dr_emit_flags_t
 event_bb4_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                  bool translating, OUT void **user_data);
+                  bool translating, DR_PARAM_OUT void **user_data);
 static dr_emit_flags_t
 event_bb4_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                    bool translating, void *user_data);
@@ -160,7 +160,7 @@ event_bb4_instru2instru(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
                         bool translating, void *user_data);
 static dr_emit_flags_t
 event_bb5_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                  bool translating, OUT void **user_data);
+                  bool translating, DR_PARAM_OUT void **user_data);
 static dr_emit_flags_t
 event_bb5_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                    bool translating, void *user_data);
@@ -605,7 +605,7 @@ event_thread_context_exit(void *drcontext, bool thread_exit)
 
 static dr_emit_flags_t
 event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                  bool translating, OUT void **user_data)
+                  bool translating, DR_PARAM_OUT void **user_data)
 {
     /* point at first non-label instr */
     *user_data = (void *)instrlist_first_nonlabel(bb);
@@ -763,7 +763,7 @@ event_opcode_add_insert_C(void *drcontext, void *tag, instrlist_t *bb, instr_t *
 /* test data passed among four first phases */
 static dr_emit_flags_t
 event_bb4_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                  bool translating, OUT void **user_data)
+                  bool translating, DR_PARAM_OUT void **user_data)
 {
     *user_data = (void *)((ptr_uint_t)tag + 1);
     return DR_EMIT_DEFAULT;
@@ -804,7 +804,7 @@ event_bb4_instru2instru(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
 /* test data passed among all five phases */
 static dr_emit_flags_t
 event_bb5_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                  bool translating, OUT void **user_data)
+                  bool translating, DR_PARAM_OUT void **user_data)
 {
     int *phase_cnt = (int *)dr_thread_alloc(drcontext, sizeof(int));
     *phase_cnt = 1;

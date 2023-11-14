@@ -624,7 +624,8 @@ restore_state_ex_event2(void *drcontext, bool restore_memory,
 }
 
 static size_t
-event_persist_size(void *drcontext, void *perscxt, size_t file_offs, void **user_data OUT)
+event_persist_size(void *drcontext, void *perscxt, size_t file_offs,
+                   void **user_data DR_PARAM_OUT)
 {
     return 0;
 }
@@ -643,7 +644,7 @@ event_persist(void *drcontext, void *perscxt, file_t fd, void *user_data)
 }
 
 static bool
-event_resurrect(void *drcontext, void *perscxt, byte **map INOUT)
+event_resurrect(void *drcontext, void *perscxt, byte **map DR_PARAM_OUT)
 {
     return true;
 }

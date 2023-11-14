@@ -50,8 +50,8 @@
 
 /* shared with tools/nudgeunix.c */
 bool
-create_nudge_signal_payload(kernel_siginfo_t *info OUT, uint action_mask, uint flags,
-                            client_id_t client_id, uint64 client_arg)
+create_nudge_signal_payload(kernel_siginfo_t *info DR_PARAM_OUT, uint action_mask,
+                            uint flags, client_id_t client_id, uint64 client_arg)
 {
     nudge_arg_t *arg;
 

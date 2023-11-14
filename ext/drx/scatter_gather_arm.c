@@ -48,7 +48,7 @@
  * 32-bit Arm does not have any scatter or gather instructions to expand.
  */
 bool
-drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
+drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, DR_PARAM_OUT bool *expanded)
 {
     if (expanded != NULL)
         *expanded = false;

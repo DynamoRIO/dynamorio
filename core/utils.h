@@ -1248,7 +1248,8 @@ print_file(file_t f, const char *fmt, ...);
  * to 0 by the caller before the first call to print_to_buffer.
  */
 bool
-print_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, const char *fmt, ...);
+print_to_buffer(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT, const char *fmt,
+                ...);
 
 const char *
 memprot_string(uint prot);
@@ -2286,10 +2287,10 @@ uint
 d_r_get_random_seed(void);
 
 void
-convert_millis_to_date(uint64 millis, dr_time_t *time OUT);
+convert_millis_to_date(uint64 millis, dr_time_t *time DR_PARAM_OUT);
 
 void
-convert_date_to_millis(const dr_time_t *dr_time, uint64 *millis OUT);
+convert_date_to_millis(const dr_time_t *dr_time, uint64 *millis DR_PARAM_OUT);
 
 uint
 d_r_crc32(const char *buf, const uint len);

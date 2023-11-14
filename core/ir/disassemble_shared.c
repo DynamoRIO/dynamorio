@@ -82,33 +82,34 @@
  */
 
 int
-print_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, byte *pc,
+print_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT, byte *pc,
                       byte *next_pc, instr_t *instr);
 
 void
-print_extra_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, byte *pc,
-                            byte *next_pc, int extra_sz, const char *extra_bytes_prefix);
+print_extra_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
+                            byte *pc, byte *next_pc, int extra_sz,
+                            const char *extra_bytes_prefix);
 
 void
-opnd_base_disp_scale_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
+opnd_base_disp_scale_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
                                  opnd_t opnd);
 
 bool
-opnd_disassemble_arch(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t opnd);
+opnd_disassemble_arch(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT, opnd_t opnd);
 
 bool
-opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
+opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
                             dcontext_t *dcontext, instr_t *instr, byte optype,
                             opnd_t opnd, bool prev, bool multiple_encodings, bool dst,
-                            int *idx INOUT);
+                            int *idx DR_PARAM_OUT);
 
 void
 print_instr_prefixes(dcontext_t *dcontext, instr_t *instr, char *buf, size_t bufsz,
-                     size_t *sofar INOUT);
+                     size_t *sofar DR_PARAM_OUT);
 
 void
 print_opcode_name(instr_t *instr, const char *name, char *buf, size_t bufsz,
-                  size_t *sofar INOUT);
+                  size_t *sofar DR_PARAM_OUT);
 
 /****************************************************************************
  * Printing of instructions
@@ -168,7 +169,7 @@ opmask_with_dsts(void)
 }
 
 static void
-internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
+internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
                            dcontext_t *dcontext, instr_t *instr);
 
 static inline const char *
@@ -180,7 +181,7 @@ immed_prefix(void)
 }
 
 void
-reg_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT, reg_id_t reg,
+reg_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT, reg_id_t reg,
                 dr_opnd_flags_t flags, const char *prefix, const char *suffix)
 {
     print_to_buffer(buf, bufsz, sofar,
@@ -323,7 +324,8 @@ aarch64_predicate_constraint_string(ptr_int_t value)
 #endif
 
 static void
-opnd_mem_disassemble_prefix(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t opnd)
+opnd_mem_disassemble_prefix(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
+                            opnd_t opnd)
 {
     if (TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask))) {
         const char *size_str = opnd_size_suffix_intel(opnd);
@@ -337,7 +339,8 @@ opnd_mem_disassemble_prefix(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t
 }
 
 static void
-opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t opnd)
+opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
+                           opnd_t opnd)
 {
     reg_id_t seg = opnd_get_segment(opnd);
     reg_id_t base = opnd_get_base(opnd);
@@ -436,8 +439,8 @@ opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t 
 }
 
 static bool
-print_known_pc_target(char *buf, size_t bufsz, size_t *sofar INOUT, dcontext_t *dcontext,
-                      byte *target)
+print_known_pc_target(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
+                      dcontext_t *dcontext, byte *target)
 {
     bool printed = false;
 #ifndef STANDALONE_DECODER
@@ -612,7 +615,7 @@ print_known_pc_target(char *buf, size_t bufsz, size_t *sofar INOUT, dcontext_t *
 }
 
 void
-internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
+internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
                           dcontext_t *dcontext, opnd_t opnd, bool use_size_sfx)
 {
     if (opnd_disassemble_arch(buf, bufsz, sofar, opnd))
@@ -811,9 +814,9 @@ print_extra_bytes_to_file(file_t outfile, byte *pc, byte *next_pc, int extra_sz,
  * Returns NULL if the instruction at pc is invalid.
  */
 static byte *
-internal_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT, dcontext_t *dcontext,
-                     byte *pc, byte *orig_pc, bool with_pc, bool with_bytes,
-                     const char *extra_bytes_prefix)
+internal_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
+                     dcontext_t *dcontext, byte *pc, byte *orig_pc, bool with_pc,
+                     bool with_bytes, const char *extra_bytes_prefix)
 {
     int extra_sz = 0;
     byte *next_pc;
@@ -954,7 +957,7 @@ disassemble_from_copy(void *drcontext, byte *copy_pc, byte *orig_pc, file_t outf
 
 byte *
 disassemble_to_buffer(void *drcontext, byte *pc, byte *orig_pc, bool show_pc,
-                      bool show_bytes, char *buf, size_t bufsz, int *printed OUT)
+                      bool show_bytes, char *buf, size_t bufsz, int *printed DR_PARAM_OUT)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     size_t sofar = 0;
@@ -966,7 +969,7 @@ disassemble_to_buffer(void *drcontext, byte *pc, byte *orig_pc, bool show_pc,
 }
 
 static void
-instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
+instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
                                    dcontext_t *dcontext, instr_t *instr)
 {
     /* We need to find the non-implicit operands */
@@ -1168,7 +1171,7 @@ sign_extend_immed(instr_t *instr, int srcnum, opnd_t *src)
  * Prints each operand with leading zeros indicating the size.
  */
 static void
-internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
+internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
                            dcontext_t *dcontext, instr_t *instr)
 {
     int i;

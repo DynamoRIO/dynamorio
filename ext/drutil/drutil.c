@@ -161,17 +161,17 @@ drutil_exit(void)
 static bool
 drutil_insert_get_mem_addr_x86(void *drcontext, instrlist_t *bb, instr_t *where,
                                opnd_t memref, reg_id_t dst, reg_id_t scratch,
-                               OUT bool *scratch_used);
+                               DR_PARAM_OUT bool *scratch_used);
 #elif defined(AARCHXX)
 static bool
 drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
                                opnd_t memref, reg_id_t dst, reg_id_t scratch,
-                               OUT bool *scratch_used);
+                               DR_PARAM_OUT bool *scratch_used);
 #elif defined(RISCV64)
 static bool
 drutil_insert_get_mem_addr_riscv64(void *drcontext, instrlist_t *bb, instr_t *where,
                                    opnd_t memref, reg_id_t dst, reg_id_t scratch,
-                                   OUT bool *scratch_used);
+                                   DR_PARAM_OUT bool *scratch_used);
 #endif /* X86/ARM/RISCV64 */
 
 /* Could be optimized to have scratch==dst for many common cases, but
@@ -188,7 +188,7 @@ DR_EXPORT
 bool
 drutil_insert_get_mem_addr_ex(void *drcontext, instrlist_t *bb, instr_t *where,
                               opnd_t memref, reg_id_t dst, reg_id_t scratch,
-                              OUT bool *scratch_used)
+                              DR_PARAM_OUT bool *scratch_used)
 {
     if (scratch_used != NULL)
         *scratch_used = false;
@@ -225,7 +225,7 @@ drutil_insert_get_mem_addr(void *drcontext, instrlist_t *bb, instr_t *where,
 static bool
 drutil_insert_get_mem_addr_x86(void *drcontext, instrlist_t *bb, instr_t *where,
                                opnd_t memref, reg_id_t dst, reg_id_t scratch,
-                               OUT bool *scratch_used)
+                               DR_PARAM_OUT bool *scratch_used)
 {
     if (opnd_is_far_base_disp(memref) &&
         /* We assume that far memory references via %ds and %es are flat,
@@ -382,7 +382,7 @@ instrlist_find_app_instr(instrlist_t *ilist, instr_t *where, opnd_t opnd)
 
 static reg_id_t
 replace_stolen_reg(void *drcontext, instrlist_t *bb, instr_t *where, opnd_t memref,
-                   reg_id_t dst, reg_id_t scratch, OUT bool *scratch_used)
+                   reg_id_t dst, reg_id_t scratch, DR_PARAM_OUT bool *scratch_used)
 {
     reg_id_t reg;
     reg = opnd_uses_reg(memref, dst) ? scratch : dst;
@@ -396,7 +396,7 @@ replace_stolen_reg(void *drcontext, instrlist_t *bb, instr_t *where, opnd_t memr
 static bool
 drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
                                opnd_t memref, reg_id_t dst, reg_id_t scratch,
-                               OUT bool *scratch_used)
+                               DR_PARAM_OUT bool *scratch_used)
 {
     if (!opnd_is_base_disp(memref) IF_AARCH64(&&!opnd_is_rel_addr(memref)))
         return false;
@@ -525,7 +525,7 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
 static bool
 drutil_insert_get_mem_addr_riscv64(void *drcontext, instrlist_t *bb, instr_t *where,
                                    opnd_t memref, reg_id_t dst, reg_id_t scratch,
-                                   OUT bool *scratch_used)
+                                   DR_PARAM_OUT bool *scratch_used)
 {
     /* FIXME i#3544: Not implemented */
     ASSERT(false, "Not implemented");
@@ -646,8 +646,8 @@ drutil_instr_is_stringop_loop(instr_t *inst)
 
 DR_EXPORT
 bool
-drutil_expand_rep_string_ex(void *drcontext, instrlist_t *bb, bool *expanded OUT,
-                            instr_t **stringop OUT)
+drutil_expand_rep_string_ex(void *drcontext, instrlist_t *bb, bool *expanded DR_PARAM_OUT,
+                            instr_t **stringop DR_PARAM_OUT)
 {
 #ifdef X86
     instr_t *inst, *next_inst, *first_app = NULL;

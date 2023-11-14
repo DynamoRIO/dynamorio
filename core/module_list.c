@@ -642,7 +642,7 @@ module_calculate_digest_helper(struct MD5Context *md5_full_cxt /* OPTIONAL */,
  */
 static bool
 ensure_section_readable(app_pc module_base, app_pc seg_start, size_t seg_len,
-                        uint seg_chars, OUT uint *old_prot, app_pc view_start,
+                        uint seg_chars, DR_PARAM_OUT uint *old_prot, app_pc view_start,
                         size_t view_len)
 {
     app_pc intersection_start;
@@ -739,7 +739,7 @@ restore_unreadable_section(app_pc module_base, app_pc seg_start, size_t seg_len,
  * larger than the mapped view size.
  */
 void
-module_calculate_digest(OUT module_digest_t *digest, app_pc module_base,
+module_calculate_digest(DR_PARAM_OUT module_digest_t *digest, app_pc module_base,
                         size_t module_size, bool full_digest, bool short_digest,
                         size_t short_digest_size, uint sec_char_include,
                         uint sec_char_exclude)

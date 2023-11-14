@@ -55,7 +55,9 @@
 namespace dynamorio {
 namespace drmemtrace {
 
-#define OUT /* just a marker */
+#ifndef DR_PARAM_OUT
+#    define DR_PARAM_OUT /* just a marker */
+#endif
 
 #ifdef DEBUG
 #    define VPRINT(reader, level, ...)                            \

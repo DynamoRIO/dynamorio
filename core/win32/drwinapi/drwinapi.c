@@ -115,7 +115,8 @@ drwinapi_redirect_imports(privmod_t *impmod, const char *name, privmod_t *import
 }
 
 bool
-drwinapi_redirect_getprocaddr(app_pc modbase, const char *name, app_pc *res_out OUT)
+drwinapi_redirect_getprocaddr(app_pc modbase, const char *name,
+                              app_pc *res_out DR_PARAM_OUT)
 {
     privmod_t *mod;
     app_pc res = NULL;

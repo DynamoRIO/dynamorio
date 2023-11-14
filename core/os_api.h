@@ -193,7 +193,7 @@ DR_API
  * \note An error code may be obtained via dr_get_error_code() when this routine fails.
  */
 int
-dr_get_app_args(OUT dr_app_arg_t *args_array, int args_count);
+dr_get_app_args(DR_PARAM_OUT dr_app_arg_t *args_array, int args_count);
 
 DR_API
 /**
@@ -224,7 +224,7 @@ DR_API
  * \note An error code may be obtained via dr_get_error_code() when this routine fails.
  */
 const char *
-dr_app_arg_as_cstring(IN dr_app_arg_t *app_arg, char *buf, int buf_size);
+dr_app_arg_as_cstring(DR_PARAM_IN dr_app_arg_t *app_arg, char *buf, int buf_size);
 
 DR_API
 /** Returns the image name (without path) of the current application. */
@@ -669,7 +669,7 @@ DR_API
  * and #DR_MEMPROT_PRETEND_WRITE in \p info->prot.
  */
 bool
-dr_query_memory_ex(const byte *pc, OUT dr_mem_info_t *info);
+dr_query_memory_ex(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info);
 
 #ifdef WINDOWS
 DR_API
