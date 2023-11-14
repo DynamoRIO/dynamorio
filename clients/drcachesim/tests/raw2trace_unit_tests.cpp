@@ -1984,6 +1984,82 @@ test_rseq_side_exit_inverted_with_timestamp(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
 }
 
+/* Tests a trace ending mid-rseq (i#6444). */
+bool
+test_midrseq_end(void *drcontext)
+{
+    std::cerr << "\n===============\nTesting mid-rseq trace end\n";
+    instrlist_t *ilist = instrlist_create(drcontext);
+    instr_t *nop = XINST_CREATE_nop(drcontext);
+    instr_t *move1 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *move2 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *jcc =
+        XINST_CREATE_jump_cond(drcontext, DR_PRED_EQ, opnd_create_instr(move2));
+    instr_t *store =
+        XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(REG2, 0), opnd_create_reg(REG1));
+    instr_t *move3 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instrlist_append(ilist, nop);
+    instrlist_append(ilist, move1);
+    instrlist_append(ilist, jcc);
+    instrlist_append(ilist, store);
+    instrlist_append(ilist, move2);
+    instrlist_append(ilist, move3);
+    size_t offs_nop = 0;
+    size_t offs_move1 = offs_nop + instr_length(drcontext, nop);
+    size_t offs_jcc = offs_move1 + instr_length(drcontext, move1);
+    size_t offs_store = offs_jcc + instr_length(drcontext, jcc);
+    size_t offs_move2 = offs_store + instr_length(drcontext, store);
+    size_t offs_move3 = offs_move2 + instr_length(drcontext, move2);
+
+    std::vector<offline_entry_t> raw;
+    raw.push_back(make_header());
+    raw.push_back(make_tid());
+    raw.push_back(make_pid());
+    raw.push_back(make_line_size());
+    raw.push_back(make_timestamp());
+    raw.push_back(make_core());
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_RSEQ_ENTRY, offs_move3));
+    raw.push_back(make_block(offs_move1, 2));
+    raw.push_back(make_block(offs_store, 1));
+    raw.push_back(make_memref(42));
+    raw.push_back(make_exit());
+
+    std::vector<uint64_t> stats;
+    std::vector<trace_entry_t> entries;
+    if (!run_raw2trace(drcontext, raw, ilist, entries, &stats))
+        return false;
+    int idx = 0;
+    return (
+        check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RSEQ_ENTRY) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move1) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#ifdef X86_32
+        // An extra encoding entry is needed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#endif
+        check_entry(entries, idx, TRACE_TYPE_INSTR_UNTAKEN_JUMP, -1, offs_jcc) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_store) &&
+        check_entry(entries, idx, TRACE_TYPE_WRITE, -1) &&
+        // The trace exits before it reaches the rseq endpoint.
+        check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+}
+
 /* Tests pre-OFFLINE_FILE_VERSION_XFER_ABS_PC (module offset) handling. */
 bool
 test_xfer_modoffs(void *drcontext)
@@ -2666,8 +2742,8 @@ test_main(int argc, const char *argv[])
         !test_rseq_side_exit_signal(drcontext) ||
         !test_rseq_side_exit_inverted(drcontext) ||
         !test_rseq_side_exit_inverted_with_timestamp(drcontext) ||
-        !test_xfer_modoffs(drcontext) || !test_xfer_absolute(drcontext) ||
-        !test_branch_decoration(drcontext) ||
+        !test_midrseq_end(drcontext) || !test_xfer_modoffs(drcontext) ||
+        !test_xfer_absolute(drcontext) || !test_branch_decoration(drcontext) ||
         !test_stats_timestamp_instr_count(drcontext) ||
         !test_is_maybe_blocking_syscall(drcontext))
         return 1;
