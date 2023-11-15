@@ -180,7 +180,7 @@ snappy_reader_t::read_new_chunk()
 }
 
 int
-snappy_reader_t::read(size_t size, OUT void *to)
+snappy_reader_t::read(size_t size, DR_PARAM_OUT void *to)
 {
     char *to_buf = (char *)to;
     size_t to_read = size;

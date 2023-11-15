@@ -40,7 +40,8 @@ extern int drx_scatter_gather_tls_idx;
 /* Make each scatter or gather instruction be in their own basic block.
  */
 bool
-scatter_gather_split_bb(void *drcontext, instrlist_t *bb, OUT instr_t **sg_instr);
+scatter_gather_split_bb(void *drcontext, instrlist_t *bb,
+                        DR_PARAM_OUT instr_t **sg_instr);
 
 /* Tell drx_event_restore_state() that an expansion has occurred. */
 void

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -63,14 +63,14 @@ extern "C" {
 #if !defined(WINDOWS) && (defined(_WIN32) || defined(_WIN64))
 #    define WINDOWS 1
 #endif
-#ifndef IN
-#    define IN /* marks input param */
+#ifndef DR_PARAM_IN
+#    define DR_PARAM_IN /* marks input param */
 #endif
-#ifndef OUT
-#    define OUT /* marks output param */
+#ifndef DR_PARAM_OUT
+#    define DR_PARAM_OUT /* marks output param */
 #endif
-#ifndef INOUT
-#    define INOUT /* marks input+output param */
+#ifndef DR_PARAM_INOUT
+#    define DR_PARAM_INOUT /* marks input+output param */
 #endif
 #ifndef WINDOWS
 #    include <unistd.h> /* for ssize_t */
@@ -149,7 +149,7 @@ typedef enum {
  * @param[out] ret      True iff \p fname has the permission specified by \p mode.
  */
 drfront_status_t
-drfront_access(const char *fname, drfront_access_mode_t mode, OUT bool *ret);
+drfront_access(const char *fname, drfront_access_mode_t mode, DR_PARAM_OUT bool *ret);
 
 /**
  * Implements a normal path search for \p fname on the paths in \p env_var.
@@ -164,8 +164,8 @@ drfront_access(const char *fname, drfront_access_mode_t mode, OUT bool *ret);
  * @param[out] ret               True iff \p fname is found.
  */
 drfront_status_t
-drfront_searchenv(const char *fname, const char *env_var, OUT char *full_path,
-                  const size_t full_path_size, OUT bool *ret);
+drfront_searchenv(const char *fname, const char *env_var, DR_PARAM_OUT char *full_path,
+                  const size_t full_path_size, DR_PARAM_OUT bool *ret);
 
 /**
  * Concatenate onto a buffer. The buffer is not resized if the content does not fit.
@@ -178,8 +178,8 @@ drfront_searchenv(const char *fname, const char *env_var, OUT char *full_path,
  * @param[in]     ...      Any data needed for the format string.
  */
 drfront_status_t
-drfront_bufprint(INOUT char *buf, size_t bufsz, INOUT size_t *sofar, OUT ssize_t *len,
-                 const char *fmt, ...);
+drfront_bufprint(DR_PARAM_INOUT char *buf, size_t bufsz, DR_PARAM_INOUT size_t *sofar,
+                 DR_PARAM_OUT ssize_t *len, const char *fmt, ...);
 
 /**
  * Converts from UTF-16 to UTF-8.
@@ -193,7 +193,8 @@ drfront_bufprint(INOUT char *buf, size_t bufsz, INOUT size_t *sofar, OUT ssize_t
  * @param[in]  buflen    The allocated size of \p buf in elements.
  */
 drfront_status_t
-drfront_tchar_to_char(const TCHAR *wstr, OUT char *buf, size_t buflen /*# elements*/);
+drfront_tchar_to_char(const TCHAR *wstr, DR_PARAM_OUT char *buf,
+                      size_t buflen /*# elements*/);
 
 /**
  * Gets the necessary size of a UTF-8 buffer to hold the content in \p wstr.
@@ -204,7 +205,7 @@ drfront_tchar_to_char(const TCHAR *wstr, OUT char *buf, size_t buflen /*# elemen
  * @param[out] needed    The size a buffer has to be to hold \p wstr in UTF-8.
  */
 drfront_status_t
-drfront_tchar_to_char_size_needed(const TCHAR *wstr, OUT size_t *needed);
+drfront_tchar_to_char_size_needed(const TCHAR *wstr, DR_PARAM_OUT size_t *needed);
 
 /**
  * Converts from UTF-8 to UTF-16.
@@ -218,7 +219,8 @@ drfront_tchar_to_char_size_needed(const TCHAR *wstr, OUT size_t *needed);
  * @param[in]  wbuflen    The allocated size of \p wbuf in elements.
  */
 drfront_status_t
-drfront_char_to_tchar(const char *str, OUT TCHAR *wbuf, size_t wbuflen /*# elements*/);
+drfront_char_to_tchar(const char *str, DR_PARAM_OUT TCHAR *wbuf,
+                      size_t wbuflen /*# elements*/);
 
 /**
  * Stores the contents of the environment variable \p name in \p buf.
@@ -228,7 +230,8 @@ drfront_char_to_tchar(const char *str, OUT TCHAR *wbuf, size_t wbuflen /*# eleme
  * @param[in]  buflen    The allocated size of \p buf in elements.
  */
 drfront_status_t
-drfront_get_env_var(const char *name, OUT char *buf, size_t buflen /*# elements*/);
+drfront_get_env_var(const char *name, DR_PARAM_OUT char *buf,
+                    size_t buflen /*# elements*/);
 
 /**
  * Gets the absolute path of \p src.
@@ -238,7 +241,8 @@ drfront_get_env_var(const char *name, OUT char *buf, size_t buflen /*# elements*
  * @param[in]  buflen    The allocated size of \p buf in elements.
  */
 drfront_status_t
-drfront_get_absolute_path(const char *src, OUT char *buf, size_t buflen /*# elements*/);
+drfront_get_absolute_path(const char *src, DR_PARAM_OUT char *buf,
+                          size_t buflen /*# elements*/);
 
 /**
  * Gets the full path of \p app, which is located by searching the PATH if necessary.
@@ -248,7 +252,8 @@ drfront_get_absolute_path(const char *src, OUT char *buf, size_t buflen /*# elem
  * @param[in]  buflen    The allocated size of \p buf in elements.
  */
 drfront_status_t
-drfront_get_app_full_path(const char *app, OUT char *buf, size_t buflen /*# elements*/);
+drfront_get_app_full_path(const char *app, DR_PARAM_OUT char *buf,
+                          size_t buflen /*# elements*/);
 
 /**
  * Reads the file header to determine if \p exe is a 64-bit application.
@@ -259,7 +264,8 @@ drfront_get_app_full_path(const char *app, OUT char *buf, size_t buflen /*# elem
  *                      a 32-bit application.
  */
 drfront_status_t
-drfront_is_64bit_app(const char *exe, OUT bool *is_64, OUT bool *also_32);
+drfront_is_64bit_app(const char *exe, DR_PARAM_OUT bool *is_64,
+                     DR_PARAM_OUT bool *also_32);
 
 /**
  * Reads the PE header to determine if \p exe has a GUI.
@@ -270,7 +276,7 @@ drfront_is_64bit_app(const char *exe, OUT bool *is_64, OUT bool *also_32);
  * @param[out] is_graphical    True if \p exe's subsystem is graphical.
  */
 drfront_status_t
-drfront_is_graphical_app(const char *exe, OUT bool *is_graphical);
+drfront_is_graphical_app(const char *exe, DR_PARAM_OUT bool *is_graphical);
 
 /**
  * Converts the command-line arguments to UTF-8.
@@ -285,7 +291,7 @@ drfront_is_graphical_app(const char *exe, OUT bool *is_graphical);
  * @param[in]  argc     The number of command-line arguments.
  */
 drfront_status_t
-drfront_convert_args(const TCHAR **targv, OUT char ***argv, int argc);
+drfront_convert_args(const TCHAR **targv, DR_PARAM_OUT char ***argv, int argc);
 
 /**
  * Frees the UTF-8 array of command-line arguments.
@@ -321,8 +327,8 @@ drfront_cleanup_args(char **argv, int argc);
  * @param[in]  buflen    The maximum capacity of \p buf, in elements.
  */
 drfront_status_t
-drfront_appdata_logdir(const char *root, const char *subdir, OUT bool *use_root,
-                       OUT char *buf, size_t buflen /*# elements*/);
+drfront_appdata_logdir(const char *root, const char *subdir, DR_PARAM_OUT bool *use_root,
+                       DR_PARAM_OUT char *buf, size_t buflen /*# elements*/);
 
 /**
  * Replace occurences of \p old_char with \p new_char in \p str.  Typically used to
@@ -333,7 +339,7 @@ drfront_appdata_logdir(const char *root, const char *subdir, OUT bool *use_root,
  * @param[in]  new_char  New character to use.
  */
 void
-drfront_string_replace_character(OUT char *str, char old_char, char new_char);
+drfront_string_replace_character(DR_PARAM_OUT char *str, char old_char, char new_char);
 
 /**
  * Replace occurences of \p old_char with \p new_char in TCHAR \p str.
@@ -344,7 +350,8 @@ drfront_string_replace_character(OUT char *str, char old_char, char new_char);
  * @param[in]  new_char  New character to use.
  */
 void
-drfront_string_replace_character_wide(OUT TCHAR *str, TCHAR old_char, TCHAR new_char);
+drfront_string_replace_character_wide(DR_PARAM_OUT TCHAR *str, TCHAR old_char,
+                                      TCHAR new_char);
 
 /**
  * Sets the environment variable _NT_SYMBOL_PATH and the dbghelp
@@ -377,7 +384,8 @@ drfront_string_replace_character_wide(OUT TCHAR *str, TCHAR old_char, TCHAR new_
  */
 drfront_status_t
 drfront_set_client_symbol_search_path(const char *symdir, bool ignore_env,
-                                      OUT char *symsrv_path, size_t symsrv_path_sz);
+                                      DR_PARAM_OUT char *symsrv_path,
+                                      size_t symsrv_path_sz);
 
 /**
  * Sets the symbol search path for this frontend process to the specified value.
@@ -451,7 +459,7 @@ drfront_sym_exit(void);
  * @param[in] symbol_path_sz  Size of \p symbol_path argument in characters.
  */
 drfront_status_t
-drfront_fetch_module_symbols(const char *modpath, OUT char *symbol_path,
+drfront_fetch_module_symbols(const char *modpath, DR_PARAM_OUT char *symbol_path,
                              size_t symbol_path_sz);
 
 /**
@@ -477,7 +485,7 @@ drfront_remove_dir(const char *dir);
  * @param[out] is_dir    Returns whether \p path is a valid directory.
  */
 drfront_status_t
-drfront_dir_exists(const char *path, OUT bool *is_dir);
+drfront_dir_exists(const char *path, DR_PARAM_OUT bool *is_dir);
 
 /**
  * This routine checks whether a file can be created inside the
@@ -487,7 +495,7 @@ drfront_dir_exists(const char *path, OUT bool *is_dir);
  * @param[out] is_writable  Returns whether files can be created in \p path.
  */
 drfront_status_t
-drfront_dir_try_writable(const char *path, OUT bool *is_writable);
+drfront_dir_try_writable(const char *path, DR_PARAM_OUT bool *is_writable);
 
 /**
  * Sets the verbosity level for additional diagnostics from the drfrontendlib

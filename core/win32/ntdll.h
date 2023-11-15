@@ -313,8 +313,8 @@ typedef struct _PEB {                 /* offset: 32bit / 64bit */
     DWORD                        SpareUlong;                      /* 0x034 / 0x064 */
 #else
     /* xpsp2 and earlier */
-    DWORD EvengLogSection;     /* 0x030 / 0x060 */
-    DWORD EventLog;            /* 0x034 / 0x064 */
+    DWORD EvengLogSection; /* 0x030 / 0x060 */
+    DWORD EventLog;        /* 0x034 / 0x064 */
 #endif
     PPEB_FREE_BLOCK FreeList;                  /* 0x038 / 0x068 */
     DWORD TlsExpansionCounter;                 /* 0x03c / 0x070 */
@@ -604,7 +604,7 @@ typedef struct _TEB { /* offset: 32bit / 64bit */
 #ifdef X64
     byte SpareBytes1[24]; /* 0x1ac / 0x2d0 */
 #else
-    byte SpareBytes1[36];      /* 0x1ac / 0x2d0 */
+    byte SpareBytes1[36]; /* 0x1ac / 0x2d0 */
 #endif
     DWORD TxFsContext;                  /* 0x1d0 / 0x2e8 */
     GDI_TEB_BATCH GdiTebBatch;          /* 0x1d4 / 0x2f0 */
@@ -699,8 +699,8 @@ typedef struct _TEB { /* offset: 32bit / 64bit */
     PVOID ReservedForCrt;                  /* 0xfe8 / 0x1820 */
     PVOID /* GUID */ EffectiveContainerId; /* 0xff0 / 0x1828 */
 #else                                      /* pre-Vista: */
-    byte SafeThunkCall;        /* 0xfb8 / 0x17d0 */
-    byte BooleanSpare[3];      /* 0xfb9 / 0x17d1 */
+    byte SafeThunkCall;   /* 0xfb8 / 0x17d0 */
+    byte BooleanSpare[3]; /* 0xfb9 / 0x17d1 */
 #endif
 } TEB;
 
@@ -963,8 +963,8 @@ typedef struct _thread_info_element_t { /* NOTE - this is speculative */
     ptr_uint_t unknown; /* [ observed always 0 ] */
 } thread_info_elm_t;
 
-typedef struct _exe_stuff_t {      /* NOTE - this is speculative */
-    OUT void *exe_entrypoint_addr; /* Entry point to the exe being started. */
+typedef struct _exe_stuff_t {               /* NOTE - this is speculative */
+    DR_PARAM_OUT void *exe_entrypoint_addr; /* Entry point to the exe being started. */
     // ratio of uint32 to ptr_uint_t assumes no larger changes between 32 and 64-bit
     ptr_uint_t unknown1[3]; // possibly intermixed with uint32s below IN? OUT?
     uint32 unknown2[8];     // possible intermixed with ptr_uint_ts above IN? OUT?
@@ -1535,7 +1535,7 @@ bool
 is_32bit_process(HANDLE h);
 
 NTSTATUS
-nt_get_drive_map(HANDLE process, PROCESS_DEVICEMAP_INFORMATION *map OUT);
+nt_get_drive_map(HANDLE process, PROCESS_DEVICEMAP_INFORMATION *map DR_PARAM_OUT);
 
 void *
 get_section_address(HANDLE h);
@@ -1558,9 +1558,9 @@ get_section_attributes(HANDLE h, uint *section_attributes /* OUT */,
 
 /* This is a low-level interface.  Use the reg_* routines below if possible. */
 NTSTATUS
-nt_query_value_key(IN HANDLE key, IN PUNICODE_STRING value_name,
-                   IN KEY_VALUE_INFORMATION_CLASS class, OUT PVOID info,
-                   IN ULONG info_length, OUT PULONG res_length);
+nt_query_value_key(DR_PARAM_IN HANDLE key, DR_PARAM_IN PUNICODE_STRING value_name,
+                   DR_PARAM_IN KEY_VALUE_INFORMATION_CLASS class, DR_PARAM_OUT PVOID info,
+                   DR_PARAM_IN ULONG info_length, DR_PARAM_OUT PULONG res_length);
 
 HANDLE
 reg_create_key(HANDLE parent, PCWSTR keyname, ACCESS_MASK rights);
@@ -1636,7 +1636,7 @@ bool
 set_owner_sd(PISECURITY_DESCRIPTOR SecurityDescriptor, PSID Owner);
 
 bool
-equal_sid(IN PSID Sid1, IN PSID Sid2);
+equal_sid(DR_PARAM_IN PSID Sid1, DR_PARAM_IN PSID Sid2);
 void
 initialize_known_SID(PSID_IDENTIFIER_AUTHORITY IdentifierAuthority, ULONG SubAuthority0,
                      SID *pSid);
@@ -1954,7 +1954,7 @@ query_full_attributes_file(PCWSTR filename, PFILE_NETWORK_OPEN_INFORMATION info)
 #endif
 
 NTSTATUS
-nt_create_file(OUT HANDLE *file_handle, const wchar_t *filename,
+nt_create_file(DR_PARAM_OUT HANDLE *file_handle, const wchar_t *filename,
                HANDLE dir_handle OPTIONAL, size_t alloc_size, ACCESS_MASK rights,
                uint attributes, uint sharing, uint create_disposition,
                uint create_options);
@@ -1968,8 +1968,8 @@ create_file(PCWSTR filename, bool is_dir, ACCESS_MASK rights, uint sharing,
 
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
 NTSTATUS
-nt_open_file(HANDLE *handle OUT, PCWSTR filename, ACCESS_MASK rights, uint sharing,
-             uint options);
+nt_open_file(HANDLE *handle DR_PARAM_OUT, PCWSTR filename, ACCESS_MASK rights,
+             uint sharing, uint options);
 #endif
 
 NTSTATUS
@@ -1980,10 +1980,11 @@ nt_flush_file_buffers(HANDLE file_handle);
 
 bool
 read_file(HANDLE file_handle, void *buffer, uint num_bytes_to_read,
-          IN uint64 *file_byte_offset OPTIONAL, OUT size_t *num_bytes_read);
+          DR_PARAM_IN uint64 *file_byte_offset OPTIONAL,
+          DR_PARAM_OUT size_t *num_bytes_read);
 bool
 write_file(HANDLE file_handle, const void *buffer, uint num_bytes_to_write,
-           OPTIONAL uint64 *file_byte_offset, OUT size_t *num_bytes_written);
+           OPTIONAL uint64 *file_byte_offset, DR_PARAM_OUT size_t *num_bytes_written);
 
 bool
 close_file(HANDLE hfile);
@@ -2079,16 +2080,16 @@ get_process_param_buf(RTL_USER_PROCESS_PARAMETERS *params, wchar_t *buf);
 /* uint64 query_time_millis() declared in os_shared.h */
 
 void
-convert_100ns_to_system_time(uint64 time_in_100ns, SYSTEMTIME *st OUT);
+convert_100ns_to_system_time(uint64 time_in_100ns, SYSTEMTIME *st DR_PARAM_OUT);
 
 void
-convert_system_time_to_100ns(const SYSTEMTIME *st, uint64 *time_in_100ns OUT);
+convert_system_time_to_100ns(const SYSTEMTIME *st, uint64 *time_in_100ns DR_PARAM_OUT);
 
 LONGLONG
 query_time_100ns(void);
 
 void
-query_system_time(SYSTEMTIME *st OUT);
+query_system_time(SYSTEMTIME *st DR_PARAM_OUT);
 
 void
 nt_query_performance_counter(PLARGE_INTEGER counter, PLARGE_INTEGER frequency);
@@ -2228,8 +2229,8 @@ uint64
 get_remote_proc_address(HANDLE process, uint64 remote_base, const char *name);
 
 bool
-get_remote_dll_short_name(HANDLE process, uint64 remote_base, OUT char *name,
-                          size_t name_len, OUT bool *is_64);
+get_remote_dll_short_name(HANDLE process, uint64 remote_base, DR_PARAM_OUT char *name,
+                          size_t name_len, DR_PARAM_OUT bool *is_64);
 
 bool
 remote_protect_virtual_memory_maybe64(HANDLE process, uint64 base, size_t size, uint prot,
@@ -2361,8 +2362,10 @@ void
 nt_close_object_directory(HANDLE hobjdir);
 
 NTSTATUS
-nt_get_symlink_target(IN HANDLE directory_handle, IN PCWSTR symlink_name,
-                      IN OUT UNICODE_STRING *target_name, OUT uint *returned_byte_length);
+nt_get_symlink_target(DR_PARAM_IN HANDLE directory_handle,
+                      DR_PARAM_IN PCWSTR symlink_name,
+                      DR_PARAM_INOUT UNICODE_STRING *target_name,
+                      DR_PARAM_OUT uint *returned_byte_length);
 
 #define MAX_OBJECT_NAME_LENGTH MAX_PATH
 typedef struct _OBJECT_NAME_INFORMATION {
@@ -2380,42 +2383,45 @@ nt_get_object_name(HANDLE handle, OBJECT_NAME_INFORMATION *object_name /* OUT */
                    uint byte_length, uint *returned_byte_length);
 
 NTSTATUS
-nt_create_section(OUT PHANDLE SectionHandle, IN ACCESS_MASK DesiredAccess,
-                  IN PLARGE_INTEGER SectionSize OPTIONAL, IN ULONG Protect,
-                  IN ULONG section_creation_attributes, IN HANDLE FileHandle,
-                  /* object name attributes */
-                  IN PCWSTR new_section_name, IN ULONG object_name_attributes,
-                  IN HANDLE object_directory, IN PSECURITY_DESCRIPTOR dacl);
+nt_create_section(
+    DR_PARAM_OUT PHANDLE SectionHandle, DR_PARAM_IN ACCESS_MASK DesiredAccess,
+    DR_PARAM_IN PLARGE_INTEGER SectionSize OPTIONAL, DR_PARAM_IN ULONG Protect,
+    DR_PARAM_IN ULONG section_creation_attributes, DR_PARAM_IN HANDLE FileHandle,
+    /* object name attributes */
+    DR_PARAM_IN PCWSTR new_section_name, DR_PARAM_IN ULONG object_name_attributes,
+    DR_PARAM_IN HANDLE object_directory, DR_PARAM_IN PSECURITY_DESCRIPTOR dacl);
 NTSTATUS
-nt_open_section(OUT PHANDLE SectionHandle, IN ACCESS_MASK DesiredAccess,
+nt_open_section(DR_PARAM_OUT PHANDLE SectionHandle, DR_PARAM_IN ACCESS_MASK DesiredAccess,
                 /* object name attributes */
-                IN PCWSTR section_name, IN ULONG object_name_attributes,
-                IN HANDLE object_directory);
+                DR_PARAM_IN PCWSTR section_name, DR_PARAM_IN ULONG object_name_attributes,
+                DR_PARAM_IN HANDLE object_directory);
 
 NTSTATUS
-nt_create_module_file(OUT HANDLE *file_handle, const wchar_t *file_path,
-                      IN HANDLE root_directory_handle OPTIONAL,
+nt_create_module_file(DR_PARAM_OUT HANDLE *file_handle, const wchar_t *file_path,
+                      DR_PARAM_IN HANDLE root_directory_handle OPTIONAL,
                       ACCESS_MASK desired_access_rights, uint file_special_attributes,
                       uint file_sharing_flags, uint create_disposition,
                       size_t allocation_size);
 
 NTSTATUS
-nt_query_file_info(IN HANDLE FileHandle, OUT PVOID FileInformation,
-                   IN ULONG FileInformationLength,
-                   IN FILE_INFORMATION_CLASS FileInformationClass);
+nt_query_file_info(DR_PARAM_IN HANDLE FileHandle, DR_PARAM_OUT PVOID FileInformation,
+                   DR_PARAM_IN ULONG FileInformationLength,
+                   DR_PARAM_IN FILE_INFORMATION_CLASS FileInformationClass);
 NTSTATUS
-nt_set_file_info(IN HANDLE FileHandle, IN PVOID FileInformation,
-                 IN ULONG FileInformationLength,
-                 IN FILE_INFORMATION_CLASS FileInformationClass);
+nt_set_file_info(DR_PARAM_IN HANDLE FileHandle, DR_PARAM_IN PVOID FileInformation,
+                 DR_PARAM_IN ULONG FileInformationLength,
+                 DR_PARAM_IN FILE_INFORMATION_CLASS FileInformationClass);
 
 NTSTATUS
-nt_query_volume_info(IN HANDLE FileHandle, OUT PVOID FsInformation,
-                     IN ULONG FsInformationLength,
-                     IN FS_INFORMATION_CLASS FsInformationClass);
+nt_query_volume_info(DR_PARAM_IN HANDLE FileHandle, DR_PARAM_OUT PVOID FsInformation,
+                     DR_PARAM_IN ULONG FsInformationLength,
+                     DR_PARAM_IN FS_INFORMATION_CLASS FsInformationClass);
 NTSTATUS
-nt_query_security_object(IN HANDLE Handle, IN SECURITY_INFORMATION RequestedInformation,
-                         OUT PSECURITY_DESCRIPTOR SecurityDescriptor,
-                         IN ULONG SecurityDescriptorLength, OUT PULONG ReturnLength);
+nt_query_security_object(DR_PARAM_IN HANDLE Handle,
+                         DR_PARAM_IN SECURITY_INFORMATION RequestedInformation,
+                         DR_PARAM_OUT PSECURITY_DESCRIPTOR SecurityDescriptor,
+                         DR_PARAM_IN ULONG SecurityDescriptorLength,
+                         DR_PARAM_OUT PULONG ReturnLength);
 
 /***************************************************************************
  * SHARED NON-RAW NTDLL WRAPPERS
@@ -2425,32 +2431,38 @@ nt_query_security_object(IN HANDLE Handle, IN SECURITY_INFORMATION RequestedInfo
  * ntdll.c and drwinapi/).
  */
 
-GET_NTDLL(RtlEnterCriticalSection, (IN OUT RTL_CRITICAL_SECTION * crit));
-GET_NTDLL(RtlLeaveCriticalSection, (IN OUT RTL_CRITICAL_SECTION * crit));
+GET_NTDLL(RtlEnterCriticalSection, (DR_PARAM_INOUT RTL_CRITICAL_SECTION * crit));
+GET_NTDLL(RtlLeaveCriticalSection, (DR_PARAM_INOUT RTL_CRITICAL_SECTION * crit));
 
 GET_NTDLL(NtWaitForSingleObject,
-          (IN HANDLE ObjectHandle, IN BOOLEAN Alertable, IN PLARGE_INTEGER TimeOut));
+          (DR_PARAM_IN HANDLE ObjectHandle, DR_PARAM_IN BOOLEAN Alertable,
+           DR_PARAM_IN PLARGE_INTEGER TimeOut));
 
 GET_NTDLL(NtFsControlFile,
-          (IN HANDLE FileHandle, IN HANDLE Event OPTIONAL,
-           IN PIO_APC_ROUTINE ApcRoutine OPTIONAL, IN PVOID ApcContext OPTIONAL,
-           OUT PIO_STATUS_BLOCK IoStatusBlock, IN ULONG FsControlCode,
-           IN PVOID InputBuffer OPTIONAL, IN ULONG InputBufferLength,
-           OUT PVOID OutputBuffer OPTIONAL, IN ULONG OutputBufferLength));
+          (DR_PARAM_IN HANDLE FileHandle, DR_PARAM_IN HANDLE Event OPTIONAL,
+           DR_PARAM_IN PIO_APC_ROUTINE ApcRoutine OPTIONAL,
+           DR_PARAM_IN PVOID ApcContext OPTIONAL,
+           DR_PARAM_OUT PIO_STATUS_BLOCK IoStatusBlock, DR_PARAM_IN ULONG FsControlCode,
+           DR_PARAM_IN PVOID InputBuffer OPTIONAL, DR_PARAM_IN ULONG InputBufferLength,
+           DR_PARAM_OUT PVOID OutputBuffer OPTIONAL,
+           DR_PARAM_IN ULONG OutputBufferLength));
 
 GET_NTDLL(NtReadFile,
-          (IN HANDLE FileHandle, IN HANDLE Event OPTIONAL,
-           IN PIO_APC_ROUTINE ApcRoutine OPTIONAL, IN PVOID ApcContext OPTIONAL,
-           OUT PIO_STATUS_BLOCK IoStatusBlock, OUT PVOID Buffer, IN ULONG Length,
-           IN PLARGE_INTEGER ByteOffset OPTIONAL, IN PULONG Key OPTIONAL));
+          (DR_PARAM_IN HANDLE FileHandle, DR_PARAM_IN HANDLE Event OPTIONAL,
+           DR_PARAM_IN PIO_APC_ROUTINE ApcRoutine OPTIONAL,
+           DR_PARAM_IN PVOID ApcContext OPTIONAL,
+           DR_PARAM_OUT PIO_STATUS_BLOCK IoStatusBlock, DR_PARAM_OUT PVOID Buffer,
+           DR_PARAM_IN ULONG Length, DR_PARAM_IN PLARGE_INTEGER ByteOffset OPTIONAL,
+           DR_PARAM_IN PULONG Key OPTIONAL));
 
 GET_NTDLL(NtWriteFile,
-          (IN HANDLE FileHandle, IN HANDLE Event OPTIONAL,
-           IN PIO_APC_ROUTINE ApcRoutine OPTIONAL, IN PVOID ApcContext OPTIONAL,
-           OUT PIO_STATUS_BLOCK IoStatusBlock,
-           IN const void *Buffer, /* PVOID, but need const */
-           IN ULONG Length, IN PLARGE_INTEGER ByteOffset OPTIONAL,
-           IN PULONG Key OPTIONAL));
+          (DR_PARAM_IN HANDLE FileHandle, DR_PARAM_IN HANDLE Event OPTIONAL,
+           DR_PARAM_IN PIO_APC_ROUTINE ApcRoutine OPTIONAL,
+           DR_PARAM_IN PVOID ApcContext OPTIONAL,
+           DR_PARAM_OUT PIO_STATUS_BLOCK IoStatusBlock,
+           DR_PARAM_IN const void *Buffer, /* PVOID, but need const */
+           DR_PARAM_IN ULONG Length, DR_PARAM_IN PLARGE_INTEGER ByteOffset OPTIONAL,
+           DR_PARAM_IN PULONG Key OPTIONAL));
 
 /***************************************************************************
  * RAW WRAPPERS

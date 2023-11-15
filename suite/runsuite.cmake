@@ -81,7 +81,7 @@ foreach (arg ${CTEST_SCRIPT_ARG})
   endif ()
 endforeach (arg)
 
-if (UNIX AND NOT APPLE AND NOT ANDROID)
+if (UNIX AND NOT APPLE AND NOT ANDROID AND NOT cross_riscv64_linux_only)
   execute_process(COMMAND ldd --version
     RESULT_VARIABLE ldd_result ERROR_VARIABLE ldd_err OUTPUT_VARIABLE ldd_out)
   if (ldd_result OR ldd_err)
@@ -553,10 +553,10 @@ if (ARCH_IS_X86 AND UNIX AND (a64_on_x86_only OR NOT arg_automated_ci))
 endif ()
 
 if (ARCH_IS_X86 AND UNIX)
-  # TODO i#3544: Run tests under QEMU
   set(orig_extra_ctest_args ${extra_ctest_args})
-  # TODO i#3544: Get all the tests working.
-  set(extra_ctest_args INCLUDE_LABEL RISCV64)
+  if (cross_riscv64_linux_only)
+    set(extra_ctest_args ${extra_ctest_args} INCLUDE_LABEL RUNS_ON_QEMU)
+  endif ()
   set(prev_optional_cross_compile ${optional_cross_compile})
   set(prev_run_tests ${run_tests})
   set(run_tests ON)
@@ -564,9 +564,6 @@ if (ARCH_IS_X86 AND UNIX)
     set(optional_cross_compile ON)
   endif ()
   set(ARCH_IS_X86 OFF)
-  # TODO i#3544: Port tests to RISCV and build them in the workflow.
-  set(build_tests "BUILD_TESTS:BOOL=ON")
-
   testbuild_ex("riscv64-debug-internal" ON "
     DEBUG:BOOL=ON
     INTERNAL:BOOL=ON
@@ -582,7 +579,7 @@ if (ARCH_IS_X86 AND UNIX)
   set(run_tests ${prev_run_tests})
   set(extra_ctest_args ${orig_extra_ctest_args})
   set(optional_cross_compile ${prev_optional_cross_compile})
-
+  set(ARCH_IS_X86 ON)
 endif ()
 
 # XXX: do we still care about these builds?

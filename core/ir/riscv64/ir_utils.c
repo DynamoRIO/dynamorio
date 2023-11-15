@@ -76,7 +76,8 @@ trailing_zeros_64(uint64 x)
 
 static void
 mov32(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, opnd_t dst, int32_t val,
-      OUT instr_t **first, OUT instr_t **last, OUT bool *first_set)
+      DR_PARAM_OUT instr_t **first, DR_PARAM_OUT instr_t **last,
+      DR_PARAM_OUT bool *first_set)
 {
 
     /* `ADDIW rd, rs, imm12` encodes a 12-bit signed extended number;
@@ -125,7 +126,8 @@ mov32(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, opnd_t dst, int3
 
 static void
 mov64(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, opnd_t dst, ptr_int_t val,
-      OUT instr_t **first, OUT instr_t **last, OUT bool *first_set)
+      DR_PARAM_OUT instr_t **first, DR_PARAM_OUT instr_t **last,
+      DR_PARAM_OUT bool *first_set)
 {
     instr_t *tmp;
     if (((val << 32) >> 32) == val) {
@@ -172,7 +174,7 @@ mov64(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, opnd_t dst, ptr_
 void
 insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                       ptr_int_t val, opnd_t dst, instrlist_t *ilist, instr_t *instr,
-                      OUT instr_t **first, OUT instr_t **last)
+                      DR_PARAM_OUT instr_t **first, DR_PARAM_OUT instr_t **last)
 {
     /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(src_inst == NULL && encode_estimate == NULL);
@@ -199,7 +201,7 @@ insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_esti
 void
 insert_push_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                        ptr_int_t val, instrlist_t *ilist, instr_t *instr,
-                       OUT instr_t **first, OUT instr_t **last)
+                       DR_PARAM_OUT instr_t **first, DR_PARAM_OUT instr_t **last)
 {
     /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);

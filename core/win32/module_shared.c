@@ -160,7 +160,7 @@ is_readable_without_exception(const byte *pc, size_t size)
  * Handles both 32-bit and 64-bit remote processes.
  */
 uint64
-get_remote_process_entry(HANDLE process_handle, OUT bool *x86_code)
+get_remote_process_entry(HANDLE process_handle, DR_PARAM_OUT bool *x86_code)
 {
     uint64 peb_base;
     /* Handle the two possible widths of peb.ImageBaseAddress: */
@@ -339,7 +339,8 @@ get_module_exports_directory_check_common(app_pc base_addr,
  */
 static generic_func_t
 get_proc_address_common(module_base_t lib, const char *name,
-                        uint ordinal _IF_NOT_X64(bool ldr64), const char **forwarder OUT)
+                        uint ordinal _IF_NOT_X64(bool ldr64),
+                        const char **forwarder DR_PARAM_OUT)
 {
     app_pc module_base;
     size_t exports_size;
@@ -548,14 +549,16 @@ d_r_get_proc_address(module_base_t lib, const char *name)
 
 /* could be linked w/ non-core but only used by loader.c so far */
 generic_func_t
-get_proc_address_ex(module_base_t lib, const char *name, const char **forwarder OUT)
+get_proc_address_ex(module_base_t lib, const char *name,
+                    const char **forwarder DR_PARAM_OUT)
 {
     return get_proc_address_common(lib, name, UINT_MAX _IF_NOT_X64(false), forwarder);
 }
 
 /* could be linked w/ non-core but only used by loader.c so far */
 generic_func_t
-get_proc_address_by_ordinal(module_base_t lib, uint ordinal, const char **forwarder OUT)
+get_proc_address_by_ordinal(module_base_t lib, uint ordinal,
+                            const char **forwarder DR_PARAM_OUT)
 {
     return get_proc_address_common(lib, NULL, ordinal _IF_NOT_X64(false), forwarder);
 }
@@ -1466,8 +1469,8 @@ get_remote_proc_address(HANDLE process, uint64 remote_base, const char *name)
 
 /* Handles 32-bit or 64-bit remote processes. */
 bool
-get_remote_dll_short_name(HANDLE process, uint64 remote_base, OUT char *name,
-                          size_t name_len, OUT bool *is_64)
+get_remote_dll_short_name(HANDLE process, uint64 remote_base, DR_PARAM_OUT char *name,
+                          size_t name_len, DR_PARAM_OUT bool *is_64)
 {
     uint64 lib = remote_base;
     size_t exports_size;

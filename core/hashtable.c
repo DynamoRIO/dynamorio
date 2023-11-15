@@ -197,7 +197,7 @@ generic_hash_range_remove(dcontext_t *dcontext, generic_table_t *htable, ptr_uin
 /* pass 0 to start.  returns -1 when there are no more entries. */
 int
 generic_hash_iterate_next(dcontext_t *dcontext, generic_table_t *htable, int iter,
-                          OUT ptr_uint_t *key, OUT void **payload)
+                          DR_PARAM_OUT ptr_uint_t *key, DR_PARAM_OUT void **payload)
 {
     int i;
     generic_entry_t *e = NULL;

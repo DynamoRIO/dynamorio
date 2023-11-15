@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -3659,11 +3659,12 @@ pcache_dir_check_permissions(dcontext_t *dcontext, const char *filename)
 #endif
 
 static file_t
-persist_get_name_and_open(dcontext_t *dcontext, app_pc modbase, char *filename OUT,
-                          uint filename_sz, char *option_buf OUT, uint option_buf_sz,
-                          const char **option_string OUT, op_pcache_t *option_level OUT,
-                          persisted_module_info_t *modinfo OUT _IF_DEBUG(app_pc start)
-                              _IF_DEBUG(app_pc end))
+persist_get_name_and_open(
+    dcontext_t *dcontext, app_pc modbase, char *filename DR_PARAM_OUT, uint filename_sz,
+    char *option_buf DR_PARAM_OUT, uint option_buf_sz,
+    const char **option_string DR_PARAM_OUT, op_pcache_t *option_level DR_PARAM_OUT,
+    persisted_module_info_t *modinfo DR_PARAM_OUT _IF_DEBUG(app_pc start)
+        _IF_DEBUG(app_pc end))
 {
     file_t fd = INVALID_FILE;
 

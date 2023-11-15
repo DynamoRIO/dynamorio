@@ -89,11 +89,11 @@ drsym_obj_symbol_name(void *mod_in, uint idx);
  * and 0 for *offs_start.
  */
 drsym_error_t
-drsym_obj_symbol_offs(void *mod_in, uint idx, size_t *offs_start OUT,
-                      size_t *offs_end OUT);
+drsym_obj_symbol_offs(void *mod_in, uint idx, size_t *offs_start DR_PARAM_OUT,
+                      size_t *offs_end DR_PARAM_OUT);
 
 drsym_error_t
-drsym_obj_addrsearch_symtab(void *mod_in, size_t modoffs, uint *idx OUT);
+drsym_obj_addrsearch_symtab(void *mod_in, size_t modoffs, uint *idx DR_PARAM_OUT);
 
 bool
 drsym_obj_same_file(const char *path1, const char *path2);
@@ -121,7 +121,8 @@ void
 drsym_dwarf_set_load_base(void *mod_in, byte *load_base);
 
 bool
-drsym_dwarf_search_addr2line(void *mod_in, Dwarf_Addr pc, drsym_info_t *sym_info INOUT);
+drsym_dwarf_search_addr2line(void *mod_in, Dwarf_Addr pc,
+                             drsym_info_t *sym_info DR_PARAM_OUT);
 
 drsym_error_t
 drsym_dwarf_enumerate_lines(void *mod_in, drsym_enumerate_lines_cb callback, void *data);

@@ -257,7 +257,7 @@ instru_t::instr_to_flush_type(instr_t *instr)
 void
 instru_t::insert_obtain_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
                              reg_id_t reg_addr, reg_id_t reg_scratch, opnd_t ref,
-                             OUT bool *scratch_used)
+                             DR_PARAM_OUT bool *scratch_used)
 {
     bool ok;
     bool we_used_scratch = false;

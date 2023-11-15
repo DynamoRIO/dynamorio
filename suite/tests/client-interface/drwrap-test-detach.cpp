@@ -96,7 +96,7 @@ sideline_func(void *arg)
 }
 
 static void
-wrap_pre(void *wrapcxt, OUT void **user_data)
+wrap_pre(void *wrapcxt, DR_PARAM_OUT void **user_data)
 {
     ++pre_count;
 }

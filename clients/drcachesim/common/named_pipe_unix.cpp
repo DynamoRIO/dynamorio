@@ -192,7 +192,7 @@ named_pipe_t::set_fd(int fd)
 }
 
 ssize_t
-named_pipe_t::read(void *buf OUT, size_t sz)
+named_pipe_t::read(void *buf DR_PARAM_OUT, size_t sz)
 {
     int res = -1;
     while (true) {
@@ -211,7 +211,7 @@ named_pipe_t::read(void *buf OUT, size_t sz)
 }
 
 ssize_t
-named_pipe_t::write(const void *buf IN, size_t sz)
+named_pipe_t::write(const void *buf DR_PARAM_IN, size_t sz)
 {
     int res = -1;
     while (true) {

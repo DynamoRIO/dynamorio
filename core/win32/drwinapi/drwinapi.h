@@ -53,7 +53,8 @@ app_pc
 drwinapi_redirect_imports(privmod_t *impmod, const char *name, privmod_t *importer);
 
 bool
-drwinapi_redirect_getprocaddr(app_pc modbase, const char *name, app_pc *res_out OUT);
+drwinapi_redirect_getprocaddr(app_pc modbase, const char *name,
+                              app_pc *res_out DR_PARAM_OUT);
 
 void
 ntdll_redir_fls_init(PEB *app_peb, PEB *private_peb);

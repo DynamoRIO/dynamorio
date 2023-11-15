@@ -188,8 +188,8 @@ physaddr_t::init()
 }
 
 bool
-physaddr_t::virtual2physical(void *drcontext, addr_t virt, OUT addr_t *phys,
-                             OUT bool *from_cache)
+physaddr_t::virtual2physical(void *drcontext, addr_t virt, DR_PARAM_OUT addr_t *phys,
+                             DR_PARAM_OUT bool *from_cache)
 {
 #ifdef LINUX
     if (phys == nullptr)

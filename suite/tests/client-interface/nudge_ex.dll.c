@@ -217,7 +217,7 @@ event_thread_context_exit(void *drcontext, bool thread_exit)
 
 static dr_emit_flags_t
 event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                  bool translating, OUT void **user_data)
+                  bool translating, DR_PARAM_OUT void **user_data)
 {
     instr_t *instr, *next_instr, *next_next_instr;
     /* Look for 3 nops in parent code to know child is live and avoid flakiness (i#953) */

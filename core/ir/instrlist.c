@@ -620,8 +620,9 @@ DR_API
  */
 void
 instrlist_insert_mov_immed_ptrsz(void *drcontext, ptr_int_t val, opnd_t dst,
-                                 instrlist_t *ilist, instr_t *where, OUT instr_t **first,
-                                 OUT instr_t **last)
+                                 instrlist_t *ilist, instr_t *where,
+                                 DR_PARAM_OUT instr_t **first,
+                                 DR_PARAM_OUT instr_t **last)
 {
     CLIENT_ASSERT(opnd_get_size(dst) == OPSZ_PTR, "wrong dst size");
     insert_mov_immed_ptrsz((dcontext_t *)drcontext, val, dst, ilist, where, first, last);
@@ -634,7 +635,8 @@ DR_API
  */
 void
 instrlist_insert_push_immed_ptrsz(void *drcontext, ptr_int_t val, instrlist_t *ilist,
-                                  instr_t *where, OUT instr_t **first, OUT instr_t **last)
+                                  instr_t *where, DR_PARAM_OUT instr_t **first,
+                                  DR_PARAM_OUT instr_t **last)
 {
     insert_push_immed_ptrsz((dcontext_t *)drcontext, val, ilist, where, first, last);
 }
@@ -643,7 +645,7 @@ DR_API
 void
 instrlist_insert_mov_instr_addr(void *drcontext, instr_t *src_inst, byte *encode_pc,
                                 opnd_t dst, instrlist_t *ilist, instr_t *where,
-                                OUT instr_t **first, OUT instr_t **last)
+                                DR_PARAM_OUT instr_t **first, DR_PARAM_OUT instr_t **last)
 {
     CLIENT_ASSERT(opnd_get_size(dst) == OPSZ_PTR, "wrong dst size");
     if (encode_pc == NULL) {
@@ -664,8 +666,9 @@ instrlist_insert_mov_instr_addr(void *drcontext, instr_t *src_inst, byte *encode
 DR_API
 void
 instrlist_insert_push_instr_addr(void *drcontext, instr_t *src_inst, byte *encode_pc,
-                                 instrlist_t *ilist, instr_t *where, OUT instr_t **first,
-                                 OUT instr_t **last)
+                                 instrlist_t *ilist, instr_t *where,
+                                 DR_PARAM_OUT instr_t **first,
+                                 DR_PARAM_OUT instr_t **last)
 {
     if (encode_pc == NULL) {
 #ifdef STANDALONE_DECODER

@@ -5221,9 +5221,9 @@ build_basic_block_fragment_done:
  */
 instrlist_t *
 recreate_bb_ilist(dcontext_t *dcontext, byte *pc, byte *pretend_pc, app_pc stop_pc,
-                  uint flags, uint *res_flags OUT, uint *res_exit_type OUT,
-                  bool check_vm_area, bool mangle, void **vmlist_out OUT,
-                  bool call_client, bool for_trace)
+                  uint flags, uint *res_flags DR_PARAM_OUT,
+                  uint *res_exit_type DR_PARAM_OUT, bool check_vm_area, bool mangle,
+                  void **vmlist_out DR_PARAM_OUT, bool call_client, bool for_trace)
 {
     build_bb_t bb;
 

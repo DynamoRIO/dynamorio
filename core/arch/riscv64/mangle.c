@@ -218,15 +218,6 @@ shrink_reg_for_param(reg_id_t regular, opnd_t arg)
     return regular;
 }
 
-uint
-insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                             bool clean_call, uint num_args, opnd_t *args)
-{
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return 0;
-}
-
 bool
 insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
                      byte *encode_pc, byte *target, bool jmp, bool returns, bool precise,
@@ -286,20 +277,35 @@ instr_check_xsp_mangling(dcontext_t *dcontext, instr_t *inst, int *xsp_adjust)
     return false;
 }
 
-void
-mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags, instr_t *instr,
-                    instr_t *next_instr)
-{
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-}
-
 #ifdef UNIX
+/* Inserts code to handle clone into ilist.
+ * instr is the syscall instr itself.
+ * Assumes that instructions exist beyond instr in ilist.
+ *
+ * After the clone syscall, check if a0 is 0, if not, jump to new_thread_dynamo_start() to
+ * maintain control of the child.
+ */
 void
 mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    /*    ecall
+     *    bnez a0, parent
+     *    jmp new_thread_dynamo_start
+     *  parent:
+     *    <post system call, etc.>
+     */
+    instr_t *in = instr_get_next(instr);
+    instr_t *parent = INSTR_CREATE_label(dcontext);
+    ASSERT(in != NULL);
+    PRE(ilist, in,
+        INSTR_CREATE_bne(dcontext, opnd_create_instr(parent), opnd_create_reg(DR_REG_A0),
+                         opnd_create_reg(DR_REG_X0)));
+    insert_reachable_cti(dcontext, ilist, in, vmcode_get_start(),
+                         (byte *)get_new_thread_start(dcontext), true /*jmp*/,
+                         false /*!returns*/, false /*!precise*/, DR_REG_A0 /*scratch*/,
+                         NULL);
+    instr_set_meta(instr_get_prev(in));
+    PRE(ilist, in, parent);
 }
 #endif /* UNIX */
 
@@ -414,7 +420,7 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 
 static reg_id_t
 pick_scratch_reg(dcontext_t *dcontext, instr_t *instr, reg_id_t do_not_pick,
-                 ushort *scratch_slot OUT)
+                 ushort *scratch_slot DR_PARAM_OUT)
 {
     reg_id_t reg = REG_NULL;
     ushort slot = 0;
@@ -908,6 +914,7 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
  *      sd          a0, lrsc_addr_slot(t3)  # invalidate reservation
  *      ld          a0, a0_slot(t3)         # restore scratch register 1
  *      ld          a4, a4_slot(t3)         # restore scratch register 2
+ *      bnez        a1, 1b
  */
 instr_t *
 mangle_exclusive_monitor_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,

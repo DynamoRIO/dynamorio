@@ -173,7 +173,8 @@ clear_icache(void *beg, void *end)
  * to the host's value, but not for all e.g. num_simd_registers.
  */
 bool
-get_cache_line_size(OUT size_t *dcache_line_size, OUT size_t *icache_line_size)
+get_cache_line_size(DR_PARAM_OUT size_t *dcache_line_size,
+                    DR_PARAM_OUT size_t *icache_line_size)
 {
 #    ifndef DR_HOST_NOT_TARGET
     static size_t cache_info = 0;
@@ -223,7 +224,7 @@ get_cache_line_size(OUT size_t *dcache_line_size, OUT size_t *icache_line_size)
  * spaces, but leading and trailing spaces are removed.
  */
 static bool
-is_shebang(INOUT char *str, OUT char **interp, OUT char **arg)
+is_shebang(DR_PARAM_OUT char *str, DR_PARAM_OUT char **interp, DR_PARAM_OUT char **arg)
 {
     char *p, *arg_end;
 
@@ -263,7 +264,8 @@ is_shebang(INOUT char *str, OUT char **interp, OUT char **arg)
 }
 
 bool
-find_script_interpreter(OUT script_interpreter_t *result, IN const char *fname,
+find_script_interpreter(DR_PARAM_OUT script_interpreter_t *result,
+                        DR_PARAM_IN const char *fname,
                         ssize_t (*reader)(const char *pathname, void *buf, size_t count))
 {
     const int max_line_len = SCRIPT_LINE_MAX;

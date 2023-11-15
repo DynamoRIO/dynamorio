@@ -5853,10 +5853,39 @@ if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64) # TODO i#3544: Port tests to RI
     PROPERTIES LABELS UBUNTU_22)
 endif ()
 
-# XXX i#3544: Enable passed tests on riscv64.
+# XXX i#3544: Support for running RISC-V Linux tests under QEMU.
+# Currently about 1/6 of the compiled tests pass.
 if (RISCV64)
   set_tests_properties(
     code_api|api.ir
     code_api|api.ir-static
-    PROPERTIES LABELS RISCV64)
+    code_api|client.app_args
+    code_api|client.blackbox
+    code_api|client.crashmsg
+    code_api|client.execfault
+    code_api|client.mangle_suspend
+    code_api|client.null_instrument
+    code_api|client.option_parse
+    code_api|client.partial_module_map
+    code_api|client.stack-overflow
+    code_api|client.truncate
+    code_api|common.broadfun
+    code_api|libutil.drconfig_test
+    code_api|libutil.frontend_test
+    code_api|linux.exit
+    code_api|linux.infinite
+    code_api|linux.longjmp
+    code_api|linux.prctl
+    code_api|linux.sigaction_nosignals
+    code_api|linux.signalfd
+    code_api|pthreads.pthreads
+    code_api|pthreads.pthreads_exit
+    code_api|security-linux.trampoline
+    no_code_api,no_intercept_all_signals|linux.sigaction
+    PROPERTIES LABELS RUNS_ON_QEMU)
+  if (DEBUG)
+    set_tests_properties(
+      code_api|common.logstderr
+      PROPERTIES LABELS RUNS_ON_QEMU)
+  endif ()
 endif ()

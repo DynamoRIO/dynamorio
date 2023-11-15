@@ -932,7 +932,7 @@ expand_gather_load_scalar_value(void *drcontext, instrlist_t *bb, instr_t *sg_in
  * https://dynamorio.org/page_scatter_gather_emulation.html
  */
 bool
-drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
+drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, DR_PARAM_OUT bool *expanded)
 {
     if (expanded != NULL)
         *expanded = false;

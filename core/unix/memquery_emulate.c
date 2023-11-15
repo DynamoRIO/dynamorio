@@ -308,7 +308,7 @@ dl_iterate_get_areas_cb(struct dl_phdr_info *info, size_t size, void *data)
  * if the probe was successful, returns in prot the results.
  */
 static app_pc
-probe_address(dcontext_t *dcontext, app_pc pc_in, OUT uint *prot)
+probe_address(dcontext_t *dcontext, app_pc pc_in, DR_PARAM_OUT uint *prot)
 {
     app_pc base;
     size_t size;
@@ -488,7 +488,8 @@ find_vm_areas_via_probe(void)
  */
 
 bool
-memquery_from_os(const byte *pc, OUT dr_mem_info_t *info, OUT bool *have_type)
+memquery_from_os(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info,
+                 DR_PARAM_OUT bool *have_type)
 {
     app_pc probe_pc, next_pc;
     app_pc start_pc = (app_pc)pc, end_pc = (app_pc)pc + PAGE_SIZE;
