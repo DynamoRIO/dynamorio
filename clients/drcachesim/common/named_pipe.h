@@ -56,11 +56,11 @@ typedef int ssize_t;
 #    endif
 #endif
 
-#ifndef OUT
-#    define OUT // nothing
+#ifndef DR_PARAM_OUT
+#    define DR_PARAM_OUT // nothing
 #endif
-#ifndef IN
-#    define IN // nothing
+#ifndef DR_PARAM_IN
+#    define DR_PARAM_IN // nothing
 #endif
 
 // Usage is as follows:
@@ -98,12 +98,12 @@ public:
     // Returns < 0 on EOF or an error.
     // On success (or partial read) returns number of bytes read.
     ssize_t
-    read(void *buf OUT, size_t sz);
+    read(void *buf DR_PARAM_OUT, size_t sz);
 
     // Returns < 0 on an error.
     // On success (or partial write) returns number of bytes written.
     ssize_t
-    write(const void *buf IN, size_t sz);
+    write(const void *buf DR_PARAM_IN, size_t sz);
 
 #ifdef UNIX
     // On UNIX, rather than calling open_for_{read,write}, The caller

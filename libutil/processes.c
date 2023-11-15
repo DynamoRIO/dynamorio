@@ -640,9 +640,11 @@ get_process_peb(HANDLE process_handle, PEB *peb)
     SIZE_T got;
     DWORD res;
     GET_NTDLL(NtQueryInformationProcess,
-              (IN HANDLE ProcessHandle, IN PROCESSINFOCLASS ProcessInformationClass,
-               IN PVOID ProcessInformation, IN ULONG ProcessInformationLength,
-               OUT PULONG ReturnLength OPTIONAL));
+              (DR_PARAM_IN HANDLE ProcessHandle,
+               DR_PARAM_IN PROCESSINFOCLASS ProcessInformationClass,
+               DR_PARAM_IN PVOID ProcessInformation,
+               DR_PARAM_IN ULONG ProcessInformationLength,
+               DR_PARAM_OUT PULONG ReturnLength OPTIONAL));
 
     if (NtQueryInformationProcess == NULL) {
         return GetLastError();
@@ -794,9 +796,10 @@ process_walk(processwalk_callback pwcb, void **param)
     unsigned long got, proc_bytes = 4096 /* is doubled till large enough */;
     DWORD res;
     GET_NTDLL(NtQuerySystemInformation,
-              (IN SYSTEM_INFORMATION_CLASS SystemInformationClass,
-               IN OUT PVOID SystemInformation, IN ULONG SystemInformationLength,
-               OUT PULONG ReturnLength OPTIONAL));
+              (DR_PARAM_IN SYSTEM_INFORMATION_CLASS SystemInformationClass,
+               DR_PARAM_INOUT PVOID SystemInformation,
+               DR_PARAM_IN ULONG SystemInformationLength,
+               DR_PARAM_OUT PULONG ReturnLength OPTIONAL));
 
     if (NtQuerySystemInformation == NULL) {
         return GetLastError();

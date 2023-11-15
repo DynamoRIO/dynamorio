@@ -2582,8 +2582,9 @@ instr_set_translation_mangling_epilogue(dcontext_t *dcontext, instrlist_t *ilist
  */
 static bool
 instr_compute_address_helper(instr_t *instr, priv_mcontext_t *mc, size_t mc_size,
-                             dr_mcontext_flags_t mc_flags, uint index, OUT app_pc *addr,
-                             OUT bool *is_write, OUT uint *pos)
+                             dr_mcontext_flags_t mc_flags, uint index,
+                             DR_PARAM_OUT app_pc *addr, DR_PARAM_OUT bool *is_write,
+                             DR_PARAM_OUT uint *pos)
 {
     /* for string instr, even w/ rep prefix, assume want value at point of
      * register snapshot passed in
@@ -2661,7 +2662,8 @@ instr_compute_address_helper(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
 
 bool
 instr_compute_address_ex_priv(instr_t *instr, priv_mcontext_t *mc, uint index,
-                              OUT app_pc *addr, OUT bool *is_write, OUT uint *pos)
+                              DR_PARAM_OUT app_pc *addr, DR_PARAM_OUT bool *is_write,
+                              DR_PARAM_OUT uint *pos)
 {
     return instr_compute_address_helper(instr, mc, sizeof(*mc), DR_MC_ALL, index, addr,
                                         is_write, pos);
@@ -2669,8 +2671,8 @@ instr_compute_address_ex_priv(instr_t *instr, priv_mcontext_t *mc, uint index,
 
 DR_API
 bool
-instr_compute_address_ex(instr_t *instr, dr_mcontext_t *mc, uint index, OUT app_pc *addr,
-                         OUT bool *is_write)
+instr_compute_address_ex(instr_t *instr, dr_mcontext_t *mc, uint index,
+                         DR_PARAM_OUT app_pc *addr, DR_PARAM_OUT bool *is_write)
 {
     return instr_compute_address_helper(instr, dr_mcontext_as_priv_mcontext(mc), mc->size,
                                         mc->flags, index, addr, is_write, NULL);
@@ -2680,7 +2682,8 @@ instr_compute_address_ex(instr_t *instr, dr_mcontext_t *mc, uint index, OUT app_
 DR_API
 bool
 instr_compute_address_ex_pos(instr_t *instr, dr_mcontext_t *mc, uint index,
-                             OUT app_pc *addr, OUT bool *is_write, OUT uint *pos)
+                             DR_PARAM_OUT app_pc *addr, DR_PARAM_OUT bool *is_write,
+                             DR_PARAM_OUT uint *pos)
 {
     return instr_compute_address_helper(instr, dr_mcontext_as_priv_mcontext(mc), mc->size,
                                         mc->flags, index, addr, is_write, pos);
@@ -4021,7 +4024,7 @@ instr_is_reg_spill_or_restore_ex(void *drcontext, instr_t *instr, bool DR_only, 
               check_disp == os_tls_offset((ushort)TLS_REG1_SLOT) ||
               check_disp == os_tls_offset((ushort)TLS_REG2_SLOT) ||
               check_disp == os_tls_offset((ushort)TLS_REG3_SLOT)
-#    ifdef AARCHXX
+#    if defined(AARCHXX) || defined(RISCV64)
               || check_disp == os_tls_offset((ushort)TLS_REG4_SLOT) ||
               check_disp == os_tls_offset((ushort)TLS_REG5_SLOT)
 #    endif

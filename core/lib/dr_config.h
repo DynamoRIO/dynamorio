@@ -792,7 +792,7 @@ DR_EXPORT
  */
 dr_config_status_t
 dr_register_client_ex(const char *process_name, process_id_t pid, bool global,
-                      dr_platform_t dr_platform, IN dr_config_client_t *client);
+                      dr_platform_t dr_platform, DR_PARAM_IN dr_config_client_t *client);
 
 DR_EXPORT
 /**

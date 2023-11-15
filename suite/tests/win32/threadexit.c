@@ -144,8 +144,9 @@ main()
     int round;
     int t;
 
-    GET_NTDLL(NtTerminateProcess,
-              (IN HANDLE ProcessHandle OPTIONAL, IN NTSTATUS ExitStatus));
+    GET_NTDLL(
+        NtTerminateProcess,
+        (DR_PARAM_IN HANDLE ProcessHandle OPTIONAL, DR_PARAM_IN NTSTATUS ExitStatus));
 
     INIT();
 

@@ -1220,7 +1220,7 @@ get_application_short_name(void)
  * by get_app_args().
  */
 void
-set_app_args(IN int *app_argc_in, IN char **app_argv_in)
+set_app_args(DR_PARAM_IN int *app_argc_in, DR_PARAM_IN char **app_argv_in)
 {
     app_argc = app_argc_in;
     app_argv = app_argv_in;
@@ -1240,7 +1240,7 @@ num_app_args()
 
 /* Returns the application's command-line arguments. */
 int
-get_app_args(OUT dr_app_arg_t *args_array, int args_count)
+get_app_args(DR_PARAM_OUT dr_app_arg_t *args_array, int args_count)
 {
     if (args_array == NULL || args_count < 0) {
         set_client_error_code(NULL, DR_ERROR_INVALID_PARAMETER);
@@ -2011,7 +2011,7 @@ get_os_tls_from_dc(dcontext_t *dcontext)
     return (os_local_state_t *)(local_state - offsetof(os_local_state_t, state));
 }
 
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
 bool
 os_set_app_tls_base(dcontext_t *dcontext, reg_id_t reg, void *base)
 {
@@ -2504,7 +2504,7 @@ os_tls_pre_init(int gdt_index)
 
 /* Allocates num_slots tls slots aligned with alignment align */
 bool
-os_tls_calloc(OUT uint *offset, uint num_slots, uint alignment)
+os_tls_calloc(DR_PARAM_OUT uint *offset, uint num_slots, uint alignment)
 {
     bool res = false;
     uint i, count = 0;
@@ -3512,8 +3512,8 @@ os_heap_reserve(void *preferred, size_t size, heap_error_code_t *error_code,
 }
 
 static bool
-find_free_memory_in_region(byte *start, byte *end, size_t size, byte **found_start OUT,
-                           byte **found_end OUT)
+find_free_memory_in_region(byte *start, byte *end, size_t size,
+                           byte **found_start DR_PARAM_OUT, byte **found_end DR_PARAM_OUT)
 {
     memquery_iter_t iter;
     /* XXX: despite /proc/sys/vm/mmap_min_addr == PAGE_SIZE, mmap won't
@@ -4125,7 +4125,7 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
      * to the app's.
      */
     os_clone_pre(dcontext);
-#    ifdef AARCHXX
+#    if defined(AARCHXX) || defined(RISCV64)
     /* We need to invalidate DR's TLS to avoid get_thread_private_dcontext() finding one
      * and hitting asserts in dynamo_thread_init lock calls -- yet we don't want to for
      * app threads, so we're doing this here and not in os_clone_pre().
@@ -4137,7 +4137,7 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
     thread_id_t newpid = dynamorio_clone(flags, xsp, NULL, NULL, NULL, client_thread_run);
     /* i#3526 switch DR's tls back to the original one before cloning. */
     os_clone_post(dcontext);
-#    ifdef AARCHXX
+#    if defined(AARCHXX) || defined(RISCV64)
     write_thread_register(tls);
 #    endif
     /* i#501 the app's tls was switched in os_clone_pre. */
@@ -4283,8 +4283,9 @@ shared_library_error(char *buf, int maxlen)
  * for linux, one of addr or name is needed; for windows, neither is needed.
  */
 bool
-shared_library_bounds(IN shlib_handle_t lib, IN byte *addr, IN const char *name,
-                      OUT byte **start, OUT byte **end)
+shared_library_bounds(DR_PARAM_IN shlib_handle_t lib, DR_PARAM_IN byte *addr,
+                      DR_PARAM_IN const char *name, DR_PARAM_OUT byte **start,
+                      DR_PARAM_OUT byte **end)
 {
     ASSERT(start != NULL && end != NULL);
     /* PR 366195: dlopen() handle truly is opaque, so we have to use either
@@ -4492,7 +4493,7 @@ os_write(file_t f, const void *buf, size_t count)
  * it here.  We use a loop to ensure reachability for the core.
  */
 byte *
-os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
+os_map_file(file_t f, size_t *size DR_PARAM_INOUT, uint64 offs, app_pc addr, uint prot,
             map_flags_t map_flags)
 {
     int flags;
@@ -4610,7 +4611,7 @@ os_unmap_file(byte *map, size_t size)
 
 #ifdef LINUX
 static void
-os_get_memory_file_shm_path(const char *name, OUT char *buf, size_t bufsz)
+os_get_memory_file_shm_path(const char *name, DR_PARAM_OUT char *buf, size_t bufsz)
 {
     snprintf(buf, bufsz, "/dev/shm/%s.%d", name, get_process_id());
     buf[bufsz - 1] = '\0';
@@ -5526,7 +5527,7 @@ dr_syscall_get_result(void *drcontext)
 
 DR_API
 bool
-dr_syscall_get_result_ex(void *drcontext, dr_syscall_result_info_t *info INOUT)
+dr_syscall_get_result_ex(void *drcontext, dr_syscall_result_info_t *info DR_PARAM_OUT)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     priv_mcontext_t *mc = get_mcontext(dcontext);
@@ -6804,7 +6805,7 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
         base = os_get_priv_tls_base(dcontext, seg);
     }
     return os_switch_seg_to_base(dcontext, os_tls, seg, to_app, base);
-#elif defined(AARCHXX)
+#elif defined(AARCHXX) || defined(RISCV64)
     bool res = false;
     os_thread_data_t *ostd = (os_thread_data_t *)dcontext->os_field;
     ASSERT(INTERNAL_OPTION(private_loader));
@@ -6890,12 +6891,6 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
     LOG(THREAD, LOG_LOADER, 2, "%s %s: set_tls swap success=%d for thread " TIDFMT "\n",
         __FUNCTION__, to_app ? "to app" : "to DR", res, d_r_get_thread_id());
     return res;
-#elif defined(RISCV64)
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    /* Marking as unused to silence -Wunused-variable. */
-    (void)os_tls;
-    return false;
 #endif /* X86/AARCHXX/RISCV64 */
 }
 
@@ -9786,7 +9781,7 @@ get_dynamorio_dll_preferred_base()
 }
 
 static void
-found_vsyscall_page(memquery_iter_t *iter _IF_DEBUG(OUT const char **map_type))
+found_vsyscall_page(memquery_iter_t *iter _IF_DEBUG(DR_PARAM_OUT const char **map_type))
 {
 #ifndef X64
     /* We assume no vsyscall page for x64; thus, checking the
@@ -10201,7 +10196,7 @@ at_initial_stack_bottom(dcontext_t *dcontext, app_pc target_pc)
 
 /* Uses our cached data structures (if in use, else raw query) to retrieve memory info */
 bool
-query_memory_ex(const byte *pc, OUT dr_mem_info_t *out_info)
+query_memory_ex(const byte *pc, DR_PARAM_OUT dr_mem_info_t *out_info)
 {
 #ifdef HAVE_MEMINFO_QUERY
     return query_memory_ex_from_os(pc, out_info);
@@ -10211,7 +10206,7 @@ query_memory_ex(const byte *pc, OUT dr_mem_info_t *out_info)
 }
 
 bool
-query_memory_cur_base(const byte *pc, OUT dr_mem_info_t *info)
+query_memory_cur_base(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info)
 {
     return query_memory_ex(pc, info);
 }
@@ -10243,7 +10238,7 @@ get_memory_info(const byte *pc, byte **base_pc, size_t *size,
  * we try to do the same here.
  */
 bool
-query_memory_ex_from_os(const byte *pc, OUT dr_mem_info_t *info)
+query_memory_ex_from_os(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info)
 {
     bool have_type = false;
     bool res = memquery_from_os(pc, info, &have_type);

@@ -1638,8 +1638,8 @@ DR_API
  * instruction's source operand, to be memory references.
  */
 bool
-instr_compute_address_ex(instr_t *instr, dr_mcontext_t *mc, uint index, OUT app_pc *addr,
-                         OUT bool *write);
+instr_compute_address_ex(instr_t *instr, dr_mcontext_t *mc, uint index,
+                         DR_PARAM_OUT app_pc *addr, DR_PARAM_OUT bool *write);
 
 DR_API
 /**
@@ -1655,7 +1655,8 @@ DR_API
  */
 bool
 instr_compute_address_ex_pos(instr_t *instr, dr_mcontext_t *mc, uint index,
-                             OUT app_pc *addr, OUT bool *is_write, OUT uint *pos);
+                             DR_PARAM_OUT app_pc *addr, DR_PARAM_OUT bool *is_write,
+                             DR_PARAM_OUT uint *pos);
 
 DR_API
 /**
@@ -2524,8 +2525,9 @@ DR_API
  * the stolen register base, or the thread-private context area.
  */
 bool
-instr_is_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls OUT,
-                              bool *spill OUT, reg_id_t *reg OUT, uint *offs OUT);
+instr_is_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls DR_PARAM_OUT,
+                              bool *spill DR_PARAM_OUT, reg_id_t *reg DR_PARAM_OUT,
+                              uint *offs DR_PARAM_OUT);
 
 /****************************************************************************
  * EFLAGS/CONDITION CODES

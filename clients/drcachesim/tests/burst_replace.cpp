@@ -158,7 +158,7 @@ print_cb(void *data, char *dst, size_t max_len)
 }
 
 static const char *
-parse_cb(const char *src, OUT void **data)
+parse_cb(const char *src, DR_PARAM_OUT void **data)
 {
     const char *res;
     if (dr_sscanf(src, PIFX ",", data) != 1)

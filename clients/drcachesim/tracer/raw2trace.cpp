@@ -47,7 +47,7 @@
 #include "utils.h"
 #ifdef LINUX
 // XXX: We should have the core export this to an include dir.
-#    include "../../core/unix/include/syscall.h"
+#    include "../../core/unix/include/syscall_target.h"
 #endif
 #ifdef BUILD_PT_POST_PROCESSOR
 #    include <unistd.h>
@@ -135,13 +135,15 @@ trace_metadata_writer_t::write_timestamp(byte *buffer, uint64 timestamp)
  * Module list
  */
 
-const char *(*module_mapper_t::user_parse_)(const char *src, OUT void **data) = nullptr;
+const char *(*module_mapper_t::user_parse_)(const char *src,
+                                            DR_PARAM_OUT void **data) = nullptr;
 void (*module_mapper_t::user_free_)(void *data) = nullptr;
 int (*module_mapper_t::user_print_)(void *data, char *dst, size_t max_len) = nullptr;
 bool module_mapper_t::has_custom_data_global_ = true;
 
 module_mapper_t::module_mapper_t(
-    const char *module_map, const char *(*parse_cb)(const char *src, OUT void **data),
+    const char *module_map,
+    const char *(*parse_cb)(const char *src, DR_PARAM_OUT void **data),
     std::string (*process_cb)(drmodtrack_info_t *info, void *data, void *user_data),
     void *process_cb_user_data, void (*free_cb)(void *data), uint verbosity,
     const std::string &alt_module_dir, file_t encoding_file)
@@ -202,7 +204,8 @@ module_mapper_t::~module_mapper_t()
 }
 
 std::string
-raw2trace_t::handle_custom_data(const char *(*parse_cb)(const char *src, OUT void **data),
+raw2trace_t::handle_custom_data(const char *(*parse_cb)(const char *src,
+                                                        DR_PARAM_OUT void **data),
                                 std::string (*process_cb)(drmodtrack_info_t *info,
                                                           void *data, void *user_data),
                                 void *process_cb_user_data, void (*free_cb)(void *data))
@@ -215,7 +218,7 @@ raw2trace_t::handle_custom_data(const char *(*parse_cb)(const char *src, OUT voi
 }
 
 const char *
-module_mapper_t::parse_custom_module_data(const char *src, OUT void **data)
+module_mapper_t::parse_custom_module_data(const char *src, DR_PARAM_OUT void **data)
 {
     const char *buf = src;
     const char *skip_comma = strchr(buf, ',');
@@ -488,7 +491,8 @@ raw2trace_t::do_module_parsing_and_mapping()
 }
 
 std::string
-raw2trace_t::find_mapped_trace_address(app_pc trace_address, OUT app_pc *mapped_address)
+raw2trace_t::find_mapped_trace_address(app_pc trace_address,
+                                       DR_PARAM_OUT app_pc *mapped_address)
 {
     *mapped_address = module_mapper_->find_mapped_trace_address(trace_address);
     return module_mapper_->get_last_error();
@@ -496,8 +500,9 @@ raw2trace_t::find_mapped_trace_address(app_pc trace_address, OUT app_pc *mapped_
 
 // The output range is really a segment and not the whole module.
 app_pc
-module_mapper_t::find_mapped_trace_bounds(app_pc trace_address, OUT app_pc *module_start,
-                                          OUT size_t *module_size)
+module_mapper_t::find_mapped_trace_bounds(app_pc trace_address,
+                                          DR_PARAM_OUT app_pc *module_start,
+                                          DR_PARAM_OUT size_t *module_size)
 {
     if (modvec_.empty()) {
         last_error_ = "Failed to call get_loaded_modules() first";
@@ -542,7 +547,7 @@ module_mapper_t::find_mapped_trace_address(app_pc trace_address)
 drcovlib_status_t
 module_mapper_t::write_module_data(char *buf, size_t buf_size,
                                    int (*print_cb)(void *data, char *dst, size_t max_len),
-                                   OUT size_t *wrote)
+                                   DR_PARAM_OUT size_t *wrote)
 {
     user_print_ = print_cb;
     drcovlib_status_t res =
@@ -562,8 +567,9 @@ module_mapper_t::write_module_data(char *buf, size_t buf_size,
 bool
 raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                                    const offline_entry_t *in_entry, thread_id_t tid,
-                                   OUT bool *end_of_record, OUT bool *last_bb_handled,
-                                   OUT bool *flush_decode_cache)
+                                   DR_PARAM_OUT bool *end_of_record,
+                                   DR_PARAM_OUT bool *last_bb_handled,
+                                   DR_PARAM_OUT bool *flush_decode_cache)
 {
     trace_entry_t *buf_base = get_write_buffer(tdata);
     byte *buf = reinterpret_cast<byte *>(buf_base);
@@ -572,6 +578,21 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
             if (tid == INVALID_THREAD_ID) {
                 tdata->error = "Missing thread id";
                 return false;
+            }
+            if (tdata->rseq_buffering_enabled_) {
+                // Finish off the rseq buffer.
+                addr_t next_pc;
+                if (tdata->rseq_past_end_) {
+                    // The thread exited right as we hit the lst instr.
+                    next_pc = tdata->rseq_end_pc_;
+                } else {
+                    // We exited mid-sequence.
+                    // Deliberately pass 0 as the PC so it's treated as an instru
+                    // exit and we just dump the buffer as-is.
+                    next_pc = 0;
+                }
+                if (!adjust_and_emit_rseq_buffer(tdata, next_pc, 0))
+                    return false;
             }
             log(2, "Thread %d exit\n", (uint)tid);
             buf += trace_metadata_writer_t::write_thread_exit(buf, tid);
@@ -671,7 +692,7 @@ bool
 raw2trace_t::process_marker_additionally(raw2trace_thread_data_t *tdata,
                                          trace_marker_type_t marker_type,
                                          uintptr_t marker_val, byte *&buf,
-                                         OUT bool *flush_decode_cache)
+                                         DR_PARAM_OUT bool *flush_decode_cache)
 {
     if (marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
         log(4, "Signal/exception between bbs\n");
@@ -730,7 +751,8 @@ raw2trace_t::process_marker_additionally(raw2trace_thread_data_t *tdata,
 }
 
 bool
-raw2trace_t::read_header(raw2trace_thread_data_t *tdata, OUT trace_header_t *header)
+raw2trace_t::read_header(raw2trace_thread_data_t *tdata,
+                         DR_PARAM_OUT trace_header_t *header)
 {
     const offline_entry_t *in_entry = get_next_entry(tdata);
     if (in_entry == nullptr) {
@@ -1031,7 +1053,7 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
 
 bool
 raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
-                                        OUT bool *end_of_record)
+                                        DR_PARAM_OUT bool *end_of_record)
 {
     // We now convert each offline entry into a trace_entry_t.
     // We fill in instr entries and memref type and size.
@@ -1529,7 +1551,8 @@ raw2trace_t::process_memref(raw2trace_thread_data_t *tdata, trace_entry_t **buf_
                             instr_summary_t::memref_summary_t memref, bool write,
                             std::unordered_map<reg_id_t, addr_t> &reg_vals,
                             uint64_t cur_pc, uint64_t cur_offs, bool instrs_are_separate,
-                            OUT bool *reached_end_of_memrefs, OUT bool *interrupted)
+                            DR_PARAM_OUT bool *reached_end_of_memrefs,
+                            DR_PARAM_OUT bool *interrupted)
 {
     if (!append_memref(tdata, buf_in, instr, memref, write, reg_vals,
                        reached_end_of_memrefs))
@@ -1541,7 +1564,8 @@ raw2trace_t::process_memref(raw2trace_thread_data_t *tdata, trace_entry_t **buf_
 
 bool
 raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
-                               const offline_entry_t *in_entry, OUT bool *handled)
+                               const offline_entry_t *in_entry,
+                               DR_PARAM_OUT bool *handled)
 {
     uint instr_count = in_entry->pc.instr_count;
     const instr_summary_t *instr = nullptr;
@@ -1872,9 +1896,12 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
 // handled at a higher level (process_offline_entry()) and are never
 // inserted here.
 bool
-raw2trace_t::handle_kernel_interrupt_and_markers(
-    raw2trace_thread_data_t *tdata, INOUT trace_entry_t **buf_in, uint64_t cur_pc,
-    uint64_t cur_offs, int instr_length, bool instrs_are_separate, OUT bool *interrupted)
+raw2trace_t::handle_kernel_interrupt_and_markers(raw2trace_thread_data_t *tdata,
+                                                 DR_PARAM_INOUT trace_entry_t **buf_in,
+                                                 uint64_t cur_pc, uint64_t cur_offs,
+                                                 int instr_length,
+                                                 bool instrs_are_separate,
+                                                 DR_PARAM_OUT bool *interrupted)
 {
     // To avoid having to backtrack later, we read ahead to ensure we insert
     // an interrupt at the right place between memrefs or between instructions.
@@ -2062,7 +2089,8 @@ raw2trace_t::should_omit_syscall(raw2trace_thread_data_t *tdata)
 
 bool
 raw2trace_t::get_marker_value(raw2trace_thread_data_t *tdata,
-                              INOUT const offline_entry_t **entry, OUT uintptr_t *value)
+                              DR_PARAM_INOUT const offline_entry_t **entry,
+                              DR_PARAM_OUT uintptr_t *value)
 {
     uintptr_t marker_val = static_cast<uintptr_t>((*entry)->extended.valueA);
     if ((*entry)->extended.valueB == TRACE_MARKER_TYPE_SPLIT_VALUE) {
@@ -2107,11 +2135,12 @@ raw2trace_t::get_marker_value(raw2trace_thread_data_t *tdata,
 }
 
 bool
-raw2trace_t::append_memref(raw2trace_thread_data_t *tdata, INOUT trace_entry_t **buf_in,
+raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
+                           DR_PARAM_INOUT trace_entry_t **buf_in,
                            const instr_summary_t *instr,
                            instr_summary_t::memref_summary_t memref, bool write,
                            std::unordered_map<reg_id_t, addr_t> &reg_vals,
-                           OUT bool *reached_end_of_memrefs)
+                           DR_PARAM_OUT bool *reached_end_of_memrefs)
 {
     DR_ASSERT(!TESTANY(OFFLINE_FILE_TYPE_INSTRUCTION_ONLY, get_file_type(tdata)));
     trace_entry_t *buf = *buf_in;
@@ -2321,7 +2350,8 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
 {
     if (!tdata->rseq_want_rollback_)
         return true;
-    log(4, "--- Rseq region exited at %p ---\n", next_pc);
+    log(4, "--- Rseq region %p-%p exited at %p ---\n", tdata->rseq_start_pc_,
+        tdata->rseq_end_pc_, next_pc);
     if (verbosity_ >= 4) {
         log(4, "Rseq buffer contents:\n");
         for (int i = 0; i < static_cast<int>(tdata->rseq_buffer_.size()); i++) {
@@ -2517,7 +2547,7 @@ raw2trace_t::lookup_block_summary(raw2trace_thread_data_t *tdata, uint64 modidx,
 instr_summary_t *
 raw2trace_t::lookup_instr_summary(raw2trace_thread_data_t *tdata, uint64 modidx,
                                   uint64 modoffs, app_pc block_start, int index,
-                                  app_pc pc, OUT block_summary_t **block_summary)
+                                  app_pc pc, DR_PARAM_OUT block_summary_t **block_summary)
 {
     block_summary_t *block = lookup_block_summary(tdata, modidx, modoffs, block_start);
     if (block_summary != nullptr)
@@ -2544,7 +2574,7 @@ instr_summary_t *
 raw2trace_t::create_instr_summary(raw2trace_thread_data_t *tdata, uint64 modidx,
                                   uint64 modoffs, block_summary_t *block,
                                   app_pc block_start, int instr_count, int index,
-                                  INOUT app_pc *pc, app_pc orig)
+                                  DR_PARAM_INOUT app_pc *pc, app_pc orig)
 {
     if (block == nullptr) {
         block = new block_summary_t(block_start, instr_count);
@@ -2574,7 +2604,7 @@ raw2trace_t::create_instr_summary(raw2trace_thread_data_t *tdata, uint64 modidx,
 const instr_summary_t *
 raw2trace_t::get_instr_summary(raw2trace_thread_data_t *tdata, uint64 modidx,
                                uint64 modoffs, app_pc block_start, int instr_count,
-                               int index, INOUT app_pc *pc, app_pc orig)
+                               int index, DR_PARAM_INOUT app_pc *pc, app_pc orig)
 {
     block_summary_t *block;
     const instr_summary_t *ret =
@@ -2615,8 +2645,9 @@ raw2trace_t::set_instr_summary_flags(raw2trace_thread_data_t *tdata, uint64 modi
 }
 
 bool
-instr_summary_t::construct(void *dcontext, app_pc block_start, INOUT app_pc *pc,
-                           app_pc orig_pc, OUT instr_summary_t *desc, uint verbosity)
+instr_summary_t::construct(void *dcontext, app_pc block_start, DR_PARAM_INOUT app_pc *pc,
+                           app_pc orig_pc, DR_PARAM_OUT instr_summary_t *desc,
+                           uint verbosity)
 {
     struct instr_destroy_t {
         instr_destroy_t(void *dcontext, instr_t *instr)

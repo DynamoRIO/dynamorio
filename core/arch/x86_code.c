@@ -294,13 +294,11 @@ new_thread_setup(priv_mcontext_t *mc)
     mc->IF_X86_ELSE(xax, IF_RISCV64_ELSE(a0, r0)) = 0;
     /* clear pc */
     mc->pc = 0;
-#    ifdef AARCHXX
+#    if defined(AARCHXX) || defined(RISCV64)
     /* set the stolen register's app value */
     set_stolen_reg_val(mc, get_clone_record_stolen_value(crec));
     /* set the thread register if necessary */
     set_thread_register_from_clone_record(crec);
-#    elif defined(RISCV64)
-    ASSERT_NOT_IMPLEMENTED(false);
 #    endif
 
     DEBUG_DECLARE(int rc =)

@@ -73,8 +73,9 @@ namespace drmemtrace {
  */
 struct trace_metadata_reader_t {
     static bool
-    is_thread_start(const offline_entry_t *entry, OUT std::string *error,
-                    OUT int *version, OUT offline_file_type_t *file_type);
+    is_thread_start(const offline_entry_t *entry, DR_PARAM_OUT std::string *error,
+                    DR_PARAM_OUT int *version,
+                    DR_PARAM_OUT offline_file_type_t *file_type);
     static std::string
     check_entry_thread_start(const offline_entry_t *entry);
 };

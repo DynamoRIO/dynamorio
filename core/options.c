@@ -2654,7 +2654,7 @@ is_string_type(enum option_type_t type)
 /* i#771: Allow the client to query all DR runtime options. */
 DR_API
 bool
-dr_get_string_option(const char *option_name, char *buf OUT, size_t len)
+dr_get_string_option(const char *option_name, char *buf DR_PARAM_OUT, size_t len)
 {
     bool found = false;
     CLIENT_ASSERT(buf != NULL, "invalid parameter");
@@ -2679,7 +2679,7 @@ dr_get_string_option(const char *option_name, char *buf OUT, size_t len)
 
 DR_API
 bool
-dr_get_integer_option(const char *option_name, uint64 *val OUT)
+dr_get_integer_option(const char *option_name, uint64 *val DR_PARAM_OUT)
 {
     CLIENT_ASSERT(val != NULL, "invalid parameter");
     *val = 0;

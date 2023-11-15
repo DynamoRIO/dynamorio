@@ -123,7 +123,7 @@ redirect_RegOpenKeyExA(__in HKEY hKey, __in_opt LPCSTR lpSubKey, __in_opt DWORD 
 }
 
 static NTSTATUS
-open_key_common(HKEY parent_key, LPCWSTR subkey, DWORD access, PHKEY key OUT)
+open_key_common(HKEY parent_key, LPCWSTR subkey, DWORD access, PHKEY key DR_PARAM_OUT)
 {
     OBJECT_ATTRIBUTES oa;
     UNICODE_STRING us;
@@ -144,7 +144,7 @@ key_is_special(HKEY key)
 
 /* Caller needs to close the key if key_is_special(key) */
 static NTSTATUS
-special_to_handle(HKEY key, HKEY *special_key OUT)
+special_to_handle(HKEY key, HKEY *special_key DR_PARAM_OUT)
 {
     wchar_t entry[MAX_REG_KEY_NAME_LEN];
     int len;

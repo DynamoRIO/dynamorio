@@ -86,7 +86,7 @@ print_qualified_function_name(app_pc pc)
 }
 
 static void
-wrap_pre(void *wrapcxt, OUT void **user_data)
+wrap_pre(void *wrapcxt, DR_PARAM_OUT void **user_data)
 {
     dr_fprintf(STDERR, "%s called from:\n", trace_function.get_value().c_str());
     // Get the context.  The pc field is set by drwrap to the wrapped function

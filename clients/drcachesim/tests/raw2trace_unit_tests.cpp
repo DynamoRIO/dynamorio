@@ -139,6 +139,13 @@ public:
             std::unique_ptr<module_mapper_t>(new test_multi_module_mapper_t(modules));
         set_modmap_(module_mapper_.get());
     }
+    // The public function to access the raw2trace_t protected function
+    // is_maybe_blocking_syscall.
+    bool
+    is_maybe_blocking_syscall(uintptr_t number) override
+    {
+        return raw2trace_t::is_maybe_blocking_syscall(number);
+    }
 };
 
 class archive_ostream_test_t : public archive_ostream_t {
@@ -1977,6 +1984,93 @@ test_rseq_side_exit_inverted_with_timestamp(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
 }
 
+/* Tests a trace ending mid-rseq (i#6444).
+ * If at_end is true, tests the endpoint just being reached but not pased;
+ * else tests the endpoint not being reached.
+ */
+bool
+test_midrseq_end_helper(void *drcontext, bool at_end)
+{
+    std::cerr << "\n===============\nTesting mid-rseq trace end\n";
+    instrlist_t *ilist = instrlist_create(drcontext);
+    instr_t *nop = XINST_CREATE_nop(drcontext);
+    instr_t *move1 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *move2 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *jcc =
+        XINST_CREATE_jump_cond(drcontext, DR_PRED_EQ, opnd_create_instr(move2));
+    instr_t *store =
+        XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(REG2, 0), opnd_create_reg(REG1));
+    instr_t *move3 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instrlist_append(ilist, nop);
+    instrlist_append(ilist, move1);
+    instrlist_append(ilist, jcc);
+    instrlist_append(ilist, store);
+    instrlist_append(ilist, move2);
+    instrlist_append(ilist, move3);
+    size_t offs_nop = 0;
+    size_t offs_move1 = offs_nop + instr_length(drcontext, nop);
+    size_t offs_jcc = offs_move1 + instr_length(drcontext, move1);
+    size_t offs_store = offs_jcc + instr_length(drcontext, jcc);
+    size_t offs_move2 = offs_store + instr_length(drcontext, store);
+    size_t offs_move3 = offs_move2 + instr_length(drcontext, move2);
+
+    std::vector<offline_entry_t> raw;
+    raw.push_back(make_header());
+    raw.push_back(make_tid());
+    raw.push_back(make_pid());
+    raw.push_back(make_line_size());
+    raw.push_back(make_timestamp());
+    raw.push_back(make_core());
+    raw.push_back(
+        make_marker(TRACE_MARKER_TYPE_RSEQ_ENTRY, at_end ? offs_move2 : offs_move3));
+    raw.push_back(make_block(offs_move1, 2));
+    raw.push_back(make_block(offs_store, 1));
+    raw.push_back(make_memref(42));
+    raw.push_back(make_exit());
+
+    std::vector<uint64_t> stats;
+    std::vector<trace_entry_t> entries;
+    if (!run_raw2trace(drcontext, raw, ilist, entries, &stats))
+        return false;
+    int idx = 0;
+    return (
+        check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RSEQ_ENTRY) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move1) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#ifdef X86_32
+        // An extra encoding entry is needed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#endif
+        check_entry(entries, idx, TRACE_TYPE_INSTR_UNTAKEN_JUMP, -1, offs_jcc) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_store) &&
+        check_entry(entries, idx, TRACE_TYPE_WRITE, -1) &&
+        // The trace exits before it reaches the rseq endpoint.
+        check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+}
+
+bool
+test_midrseq_end(void *drcontext)
+{
+    return test_midrseq_end_helper(drcontext, /*at_end=*/false) &&
+        test_midrseq_end_helper(drcontext, /*at_end=*/true);
+}
+
 /* Tests pre-OFFLINE_FILE_VERSION_XFER_ABS_PC (module offset) handling. */
 bool
 test_xfer_modoffs(void *drcontext)
@@ -2599,6 +2693,51 @@ test_stats_timestamp_instr_count(void *drcontext)
         stats[RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP] == 789;
 }
 
+bool
+test_is_maybe_blocking_syscall(void *drcontext)
+{
+    std::cerr
+        << "\n===============\nTesting raw2trace maybe blocking syscall function.\n";
+#ifdef LINUX
+#    ifdef X86
+#        ifdef X64
+    const uintptr_t syscall_futex = 202;
+    const uintptr_t syscall_sendmsg = 46;
+    const uintptr_t syscall_write = 1;
+#        else
+    const uintptr_t syscall_futex = 240;
+    const uintptr_t syscall_sendmsg = 370;
+    const uintptr_t syscall_write = 4;
+#        endif
+#    elif defined(ARM)
+    const uintptr_t syscall_futex = 240;
+    const uintptr_t syscall_sendmsg = 296;
+    const uintptr_t syscall_write = 4;
+#    elif defined(AARCH64) || defined(RISCV64)
+    const uintptr_t syscall_futex = 98;
+    const uintptr_t syscall_sendmsg = 211;
+    const uintptr_t syscall_write = 64;
+#    else
+#        error Unsupported architecture.
+#    endif
+    std::vector<std::istream *> input;
+    std::vector<std::ostream *> output;
+    const std::vector<test_multi_module_mapper_t::bounds_t> modules;
+
+    raw2trace_test_t raw2trace(input, output, modules, drcontext);
+
+    for (const uintptr_t &syscall : { syscall_futex, syscall_sendmsg, syscall_write }) {
+        if (!raw2trace.is_maybe_blocking_syscall(syscall)) {
+            std::cerr << "Syscall " << syscall
+                      << " should be marked as maybe blocking.\n";
+            return false;
+        }
+    }
+    return true;
+#endif
+    return true;
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -2614,9 +2753,10 @@ test_main(int argc, const char *argv[])
         !test_rseq_side_exit_signal(drcontext) ||
         !test_rseq_side_exit_inverted(drcontext) ||
         !test_rseq_side_exit_inverted_with_timestamp(drcontext) ||
-        !test_xfer_modoffs(drcontext) || !test_xfer_absolute(drcontext) ||
-        !test_branch_decoration(drcontext) ||
-        !test_stats_timestamp_instr_count(drcontext))
+        !test_midrseq_end(drcontext) || !test_xfer_modoffs(drcontext) ||
+        !test_xfer_absolute(drcontext) || !test_branch_decoration(drcontext) ||
+        !test_stats_timestamp_instr_count(drcontext) ||
+        !test_is_maybe_blocking_syscall(drcontext))
         return 1;
     return 0;
 }

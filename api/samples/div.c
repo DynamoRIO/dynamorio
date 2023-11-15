@@ -106,7 +106,7 @@ callback(app_pc addr, uint divisor)
 
 /* If instr is unsigned division, return true and set *opnd to divisor. */
 static bool
-instr_is_div(instr_t *instr, OUT opnd_t *opnd)
+instr_is_div(instr_t *instr, DR_PARAM_OUT opnd_t *opnd)
 {
     int opc = instr_get_opcode(instr);
 #if defined(X86)

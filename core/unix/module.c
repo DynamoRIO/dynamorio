@@ -467,9 +467,9 @@ os_module_get_rct_htable(app_pc pc, rct_type_t which)
 
 /* Adds an entry for a segment to the out_data->segments array */
 void
-module_add_segment_data(OUT os_module_data_t *out_data, uint num_segments /*hint only*/,
-                        app_pc segment_start, size_t segment_size,
-                        uint segment_prot, /* MEMPROT_ */
+module_add_segment_data(DR_PARAM_OUT os_module_data_t *out_data,
+                        uint num_segments /*hint only*/, app_pc segment_start,
+                        size_t segment_size, uint segment_prot, /* MEMPROT_ */
                         size_t alignment, bool shared, uint64 offset)
 {
     uint seg, i;
@@ -665,7 +665,7 @@ at_dl_runtime_resolve_ret(dcontext_t *dcontext, app_pc source_fragment, int *ret
 }
 
 bool
-module_file_is_module64(file_t f, bool *is64 OUT, bool *also32 OUT)
+module_file_is_module64(file_t f, bool *is64 DR_PARAM_OUT, bool *also32 DR_PARAM_OUT)
 {
     dr_platform_t platform, alt_platform;
     if (module_get_platform(f, &platform, &alt_platform)) {

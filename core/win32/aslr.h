@@ -504,18 +504,20 @@ aslr_pre_process_free_virtual_memory(dcontext_t *dcontext, app_pc base, size_t s
 
 /* FIXME: wrap in aslr_post_process_create_or_open_section */
 bool
-aslr_post_process_create_section(IN HANDLE old_app_section_handle, IN HANDLE file_handle,
-                                 OUT HANDLE *new_relocated_handle);
+aslr_post_process_create_section(DR_PARAM_IN HANDLE old_app_section_handle,
+                                 DR_PARAM_IN HANDLE file_handle,
+                                 DR_PARAM_OUT HANDLE *new_relocated_handle);
 
 bool
 aslr_post_process_create_or_open_section(dcontext_t *dcontext, bool is_create,
-                                         IN HANDLE file_handle /* OPTIONAL */,
-                                         OUT HANDLE *sysarg_section_handle);
+                                         DR_PARAM_IN HANDLE file_handle /* OPTIONAL */,
+                                         DR_PARAM_OUT HANDLE *sysarg_section_handle);
 bool
 aslr_is_handle_KnownDlls(HANDLE directory_handle);
 
 bool
-aslr_recreate_known_dll_file(OBJECT_ATTRIBUTES *obj_attr, OUT HANDLE *recreated_file);
+aslr_recreate_known_dll_file(OBJECT_ATTRIBUTES *obj_attr,
+                             DR_PARAM_OUT HANDLE *recreated_file);
 
 void
 aslr_maybe_pad_stack(dcontext_t *dcontext, HANDLE process_handle);
