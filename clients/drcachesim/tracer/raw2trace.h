@@ -188,8 +188,8 @@ struct instr_summary_t final {
      * (using orig_pc and verbosity).
      */
     static bool
-    construct(void *dcontext, app_pc block_pc, INOUT app_pc *pc, app_pc orig_pc,
-              OUT instr_summary_t *desc, uint verbosity = 0);
+    construct(void *dcontext, app_pc block_pc, DR_PARAM_INOUT app_pc *pc, app_pc orig_pc,
+              DR_PARAM_OUT instr_summary_t *desc, uint verbosity = 0);
 
     /**
      * Get the pc after the instruction that was used to produce this instr_summary_t.
@@ -413,7 +413,7 @@ public:
      */
     static std::unique_ptr<module_mapper_t>
     create(const char *module_map,
-           const char *(*parse_cb)(const char *src, OUT void **data) = nullptr,
+           const char *(*parse_cb)(const char *src, DR_PARAM_OUT void **data) = nullptr,
            std::string (*process_cb)(drmodtrack_info_t *info, void *data,
                                      void *user_data) = nullptr,
            void *process_cb_user_data = nullptr, void (*free_cb)(void *data) = nullptr,
@@ -525,8 +525,8 @@ public:
      * mapping for any address that is also within those bounds.
      */
     app_pc
-    find_mapped_trace_bounds(app_pc trace_address, OUT app_pc *module_start,
-                             OUT size_t *module_size);
+    find_mapped_trace_bounds(app_pc trace_address, DR_PARAM_OUT app_pc *module_start,
+                             DR_PARAM_OUT size_t *module_size);
 
     /**
      * Unload modules loaded with read_and_map_modules(), freeing associated resources.
@@ -543,11 +543,12 @@ public:
     drcovlib_status_t
     write_module_data(char *buf, size_t buf_size,
                       int (*print_cb)(void *data, char *dst, size_t max_len),
-                      OUT size_t *wrote);
+                      DR_PARAM_OUT size_t *wrote);
 
 protected:
     module_mapper_t(const char *module_map,
-                    const char *(*parse_cb)(const char *src, OUT void **data) = nullptr,
+                    const char *(*parse_cb)(const char *src,
+                                            DR_PARAM_OUT void **data) = nullptr,
                     std::string (*process_cb)(drmodtrack_info_t *info, void *data,
                                               void *user_data) = nullptr,
                     void *process_cb_user_data = nullptr,
@@ -586,11 +587,11 @@ protected:
     void (*const cached_user_free_)(void *data) = nullptr;
 
     // Custom module fields that use drmodtrack are global.
-    static const char *(*user_parse_)(const char *src, OUT void **data);
+    static const char *(*user_parse_)(const char *src, DR_PARAM_OUT void **data);
     static void (*user_free_)(void *data);
     static int (*user_print_)(void *data, char *dst, size_t max_len);
     static const char *
-    parse_custom_module_data(const char *src, OUT void **data);
+    parse_custom_module_data(const char *src, DR_PARAM_OUT void **data);
     static int
     print_custom_module_data(void *data, char *dst, size_t max_len);
     static void
@@ -849,7 +850,7 @@ public:
      * Returns a non-empty error message on failure.
      */
     std::string
-    handle_custom_data(const char *(*parse_cb)(const char *src, OUT void **data),
+    handle_custom_data(const char *(*parse_cb)(const char *src, DR_PARAM_OUT void **data),
                        std::string (*process_cb)(drmodtrack_info_t *info, void *data,
                                                  void *user_data),
                        void *process_cb_user_data, void (*free_cb)(void *data));
@@ -898,7 +899,7 @@ public:
      * should be used instead.
      */
     std::string
-    find_mapped_trace_address(app_pc trace_address, OUT app_pc *mapped_address);
+    find_mapped_trace_address(app_pc trace_address, DR_PARAM_OUT app_pc *mapped_address);
 
     /**
      * Performs the conversion from raw data to finished trace files.
@@ -921,7 +922,7 @@ public:
      *  Return the tid of the given kernel PT file.
      */
     static std::string
-    get_kthread_file_tid(std::istream *f, OUT thread_id_t *tid);
+    get_kthread_file_tid(std::istream *f, DR_PARAM_OUT thread_id_t *tid);
 #endif
 
     uint64
@@ -1099,8 +1100,9 @@ protected:
      */
     bool
     process_offline_entry(raw2trace_thread_data_t *tdata, const offline_entry_t *in_entry,
-                          thread_id_t tid, OUT bool *end_of_record,
-                          OUT bool *last_bb_handled, OUT bool *flush_decode_cache);
+                          thread_id_t tid, DR_PARAM_OUT bool *end_of_record,
+                          DR_PARAM_OUT bool *last_bb_handled,
+                          DR_PARAM_OUT bool *flush_decode_cache);
 
     /**
      * Performs any additional actions for the marker "marker_type" with value
@@ -1110,14 +1112,14 @@ protected:
     virtual bool
     process_marker_additionally(raw2trace_thread_data_t *tdata,
                                 trace_marker_type_t marker_type, uintptr_t marker_val,
-                                byte *&buf, OUT bool *flush_decode_cache);
+                                byte *&buf, DR_PARAM_OUT bool *flush_decode_cache);
     /**
      * Read the header of a thread, by calling get_next_entry() successively to
      * populate the header values. The timestamp field is populated only
      * for legacy traces.
      */
     bool
-    read_header(raw2trace_thread_data_t *tdata, OUT trace_header_t *header);
+    read_header(raw2trace_thread_data_t *tdata, DR_PARAM_OUT trace_header_t *header);
 
     /**
      * Point to the next offline entry_t.  Will not attempt to dereference past the
@@ -1182,7 +1184,8 @@ protected:
      * thread, both for correct ordering and correct synchronization.
      */
     bool
-    process_next_thread_buffer(raw2trace_thread_data_t *tdata, OUT bool *end_of_record);
+    process_next_thread_buffer(raw2trace_thread_data_t *tdata,
+                               DR_PARAM_OUT bool *end_of_record);
 
     std::string
     aggregate_and_write_schedule_files();
@@ -1351,11 +1354,11 @@ private:
     instr_summary_t *
     lookup_instr_summary(raw2trace_thread_data_t *tdata, uint64 modidx, uint64 modoffs,
                          app_pc block_start, int index, app_pc pc,
-                         OUT block_summary_t **block_summary);
+                         DR_PARAM_OUT block_summary_t **block_summary);
     instr_summary_t *
     create_instr_summary(raw2trace_thread_data_t *tdata, uint64 modidx, uint64 modoffs,
                          block_summary_t *block, app_pc block_start, int instr_count,
-                         int index, INOUT app_pc *pc, app_pc orig);
+                         int index, DR_PARAM_INOUT app_pc *pc, app_pc orig);
 
     // Return the #instr_summary_t representation of the index-th instruction (at *pc)
     // inside the block that begins at block_start_pc and contains instr_count
@@ -1365,8 +1368,8 @@ private:
     // mapper. This API provides an opportunity to cache decoded instructions.
     const instr_summary_t *
     get_instr_summary(raw2trace_thread_data_t *tdata, uint64 modidx, uint64 modoffs,
-                      app_pc block_start, int instr_count, int index, INOUT app_pc *pc,
-                      app_pc orig);
+                      app_pc block_start, int instr_count, int index,
+                      DR_PARAM_INOUT app_pc *pc, app_pc orig);
 
     // Sets two flags stored in the memref_summary_t inside the instr_summary_t for the
     // index-th instruction (at pc) inside the block that begins at block_start_pc and
@@ -1442,11 +1445,12 @@ private:
                    const instr_summary_t *instr, instr_summary_t::memref_summary_t memref,
                    bool write, std::unordered_map<reg_id_t, addr_t> &reg_vals,
                    uint64_t cur_pc, uint64_t cur_offs, bool instrs_are_separate,
-                   OUT bool *reached_end_of_memrefs, OUT bool *interrupted);
+                   DR_PARAM_OUT bool *reached_end_of_memrefs,
+                   DR_PARAM_OUT bool *interrupted);
 
     bool
     append_bb_entries(raw2trace_thread_data_t *tdata, const offline_entry_t *in_entry,
-                      OUT bool *handled);
+                      DR_PARAM_OUT bool *handled);
 
     // Returns true if a kernel interrupt happened at cur_pc.
     // Outputs a kernel interrupt if this is the right location.
@@ -1458,19 +1462,21 @@ private:
     // inserted here.
     bool
     handle_kernel_interrupt_and_markers(raw2trace_thread_data_t *tdata,
-                                        INOUT trace_entry_t **buf_in, uint64_t cur_pc,
-                                        uint64_t cur_offs, int instr_length,
-                                        bool instrs_are_separate, OUT bool *interrupted);
+                                        DR_PARAM_INOUT trace_entry_t **buf_in,
+                                        uint64_t cur_pc, uint64_t cur_offs,
+                                        int instr_length, bool instrs_are_separate,
+                                        DR_PARAM_OUT bool *interrupted);
 
     bool
-    get_marker_value(raw2trace_thread_data_t *tdata, INOUT const offline_entry_t **entry,
-                     OUT uintptr_t *value);
+    get_marker_value(raw2trace_thread_data_t *tdata,
+                     DR_PARAM_INOUT const offline_entry_t **entry,
+                     DR_PARAM_OUT uintptr_t *value);
 
     bool
-    append_memref(raw2trace_thread_data_t *tdata, INOUT trace_entry_t **buf_in,
+    append_memref(raw2trace_thread_data_t *tdata, DR_PARAM_INOUT trace_entry_t **buf_in,
                   const instr_summary_t *instr, instr_summary_t::memref_summary_t memref,
                   bool write, std::unordered_map<reg_id_t, addr_t> &reg_vals,
-                  OUT bool *reached_end_of_memrefs);
+                  DR_PARAM_OUT bool *reached_end_of_memrefs);
 
     bool
     should_omit_syscall(raw2trace_thread_data_t *tdata);
@@ -1576,7 +1582,7 @@ private:
     std::vector<block_hashtable_t> decode_cache_;
 
     // Store optional parameters for the module_mapper_t until we need to construct it.
-    const char *(*user_parse_)(const char *src, OUT void **data) = nullptr;
+    const char *(*user_parse_)(const char *src, DR_PARAM_OUT void **data) = nullptr;
     void (*user_free_)(void *data) = nullptr;
     std::string (*user_process_)(drmodtrack_info_t *info, void *data,
                                  void *user_data) = nullptr;

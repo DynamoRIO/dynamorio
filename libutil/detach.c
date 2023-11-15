@@ -51,17 +51,18 @@
 #define MIN_ALLOCATION_SIZE 0x10000
 
 typedef NTSTATUS(NTAPI *NtCreateThreadType)(
-    OUT PHANDLE ThreadHandle, IN ACCESS_MASK DesiredAccess,
-    IN POBJECT_ATTRIBUTES ObjectAttributes, IN HANDLE ProcessHandle,
-    OUT PCLIENT_ID ClientId, IN PCONTEXT ThreadContext, IN PUSER_STACK UserStack,
-    IN BOOLEAN CreateSuspended);
+    DR_PARAM_OUT PHANDLE ThreadHandle, DR_PARAM_IN ACCESS_MASK DesiredAccess,
+    DR_PARAM_IN POBJECT_ATTRIBUTES ObjectAttributes, DR_PARAM_IN HANDLE ProcessHandle,
+    DR_PARAM_OUT PCLIENT_ID ClientId, DR_PARAM_IN PCONTEXT ThreadContext,
+    DR_PARAM_IN PUSER_STACK UserStack, DR_PARAM_IN BOOLEAN CreateSuspended);
 NtCreateThreadType NtCreateThread = NULL;
 typedef NTSTATUS(NTAPI *NtCreateThreadExType)(
-    OUT PHANDLE ThreadHandle, IN ACCESS_MASK DesiredAccess,
-    IN POBJECT_ATTRIBUTES ObjectAttributes, IN HANDLE ProcessHandle,
-    IN LPTHREAD_START_ROUTINE StartAddress, IN LPVOID StartParameter,
-    IN BOOL CreateSuspended, IN uint StackZeroBits, IN SIZE_T StackCommitSize,
-    IN SIZE_T StackReserveSize, INOUT create_thread_info_t *thread_info);
+    DR_PARAM_OUT PHANDLE ThreadHandle, DR_PARAM_IN ACCESS_MASK DesiredAccess,
+    DR_PARAM_IN POBJECT_ATTRIBUTES ObjectAttributes, DR_PARAM_IN HANDLE ProcessHandle,
+    DR_PARAM_IN LPTHREAD_START_ROUTINE StartAddress, DR_PARAM_IN LPVOID StartParameter,
+    DR_PARAM_IN BOOL CreateSuspended, DR_PARAM_IN uint StackZeroBits,
+    DR_PARAM_IN SIZE_T StackCommitSize, DR_PARAM_IN SIZE_T StackReserveSize,
+    DR_PARAM_INOUT create_thread_info_t *thread_info);
 NtCreateThreadExType NtCreateThreadEx = NULL;
 
 #ifdef X64
@@ -100,7 +101,7 @@ typedef uint ptr_uint_t;
  */
 #    define FXSAVE_XMM0_OFFSET 160
 #    define CXT_XMM(cxt, idx) \
-        ((dr_xmm_t *)&((cxt)->ExtendedRegisters[FXSAVE_XMM0_OFFSET + (idx)*16]))
+        ((dr_xmm_t *)&((cxt)->ExtendedRegisters[FXSAVE_XMM0_OFFSET + (idx) * 16]))
 #endif
 
 #define THREAD_START_ADDR IF_X64_ELSE(CXT_XCX, CXT_XAX)

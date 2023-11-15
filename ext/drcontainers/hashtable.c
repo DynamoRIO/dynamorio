@@ -679,7 +679,7 @@ hashtable_persist(void *drcontext, hashtable_t *table, size_t entry_size, file_t
  * freeing and can avoid freeing a payload in the mmap.
  */
 bool
-hashtable_resurrect(void *drcontext, byte **map INOUT, hashtable_t *table,
+hashtable_resurrect(void *drcontext, byte **map DR_PARAM_INOUT, hashtable_t *table,
                     size_t entry_size, void *perscxt, hasthable_persist_flags_t flags,
                     bool (*process_payload)(void *key, void *payload, ptr_int_t shift))
 {

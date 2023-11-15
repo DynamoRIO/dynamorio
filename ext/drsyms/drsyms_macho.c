@@ -540,8 +540,8 @@ drsym_obj_symbol_name(void *mod_in, uint idx)
 }
 
 drsym_error_t
-drsym_obj_symbol_offs(void *mod_in, uint idx, size_t *offs_start OUT,
-                      size_t *offs_end OUT)
+drsym_obj_symbol_offs(void *mod_in, uint idx, size_t *offs_start DR_PARAM_OUT,
+                      size_t *offs_end DR_PARAM_OUT)
 {
     macho_info_t *mod = (macho_info_t *)mod_in;
     nlist_t *sym;
@@ -566,7 +566,7 @@ drsym_obj_symbol_offs(void *mod_in, uint idx, size_t *offs_start OUT,
 }
 
 drsym_error_t
-drsym_obj_addrsearch_symtab(void *mod_in, size_t modoffs, uint *idx OUT)
+drsym_obj_addrsearch_symtab(void *mod_in, size_t modoffs, uint *idx DR_PARAM_OUT)
 {
     macho_info_t *mod = (macho_info_t *)mod_in;
     uint min = 0;

@@ -45,7 +45,7 @@
  * scalar operations.
  */
 bool
-drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
+drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, DR_PARAM_OUT bool *expanded)
 {
     if (expanded != NULL)
         *expanded = false;

@@ -334,7 +334,7 @@ event_pre_syscall(void *drcontext, int sysnum)
  */
 static dr_emit_flags_t
 event_basic_block_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                           bool translating, OUT void **user_data)
+                           bool translating, DR_PARAM_OUT void **user_data)
 {
     per_thread_t *data;
     instr_t *instr;
@@ -463,7 +463,7 @@ event_fork(void *drcontext)
 #endif
 
 drcovlib_status_t
-drcovlib_logfile(void *drcontext, OUT const char **path)
+drcovlib_logfile(void *drcontext, DR_PARAM_OUT const char **path)
 {
     if (path == NULL)
         return DRCOVLIB_ERROR_INVALID_PARAMETER;

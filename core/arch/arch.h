@@ -529,8 +529,8 @@ void
 clean_call_info_init(clean_call_info_t *cci, void *callee, bool save_fpstate,
                      uint num_args);
 void
-d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT, bool mangle_calls,
-           bool record_translation);
+d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags DR_PARAM_INOUT,
+           bool mangle_calls, bool record_translation);
 bool
 parameters_stack_padded(void);
 /* Inserts a complete call to callee with the passed-in arguments */
@@ -729,7 +729,7 @@ mangle_mov_seg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                instr_t *next_instr);
 void
 mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                instr_t *next_instr, uint *flags INOUT);
+                instr_t *next_instr, uint *flags DR_PARAM_OUT);
 void
 mangle_exit_cti_prefixes(dcontext_t *dcontext, instr_t *instr);
 void
@@ -1565,7 +1565,8 @@ get_app_instr_xl8(instr_t *instr);
 #ifdef X64
 /* in x86_to_x64.c */
 void
-translate_x86_to_x64(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr);
+translate_x86_to_x64(dcontext_t *dcontext, instrlist_t *ilist,
+                     DR_PARAM_INOUT instr_t **instr);
 #endif
 
 #ifdef AARCHXX

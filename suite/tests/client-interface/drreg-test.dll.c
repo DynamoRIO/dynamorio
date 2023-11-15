@@ -154,7 +154,7 @@ aflags_ensure_live(void *drcontext, instrlist_t *bb, instr_t *inst)
 }
 static dr_emit_flags_t
 event_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-              bool translating, OUT void **user_data)
+              bool translating, DR_PARAM_OUT void **user_data)
 {
     instr_t *inst;
     bool prev_was_mov_const = false;
@@ -407,7 +407,7 @@ event_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
 
 static dr_emit_flags_t
 event_app_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                   bool translating, OUT void *user_data)
+                   bool translating, DR_PARAM_OUT void *user_data)
 {
     for (instr_t *instr = instrlist_first(bb); instr != NULL;
          instr = instr_get_next(instr)) {

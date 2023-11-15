@@ -329,9 +329,9 @@ intercept_signal(int sig, handler_3_t handler, bool sigstack);
 #    define NOP_NOP_NOP asm("nop\n nop\n nop\n")
 #    ifdef X86
 #        ifdef MACOS
-#            define NOP_NOP_CALL(tgt) asm("nop\n nop\n call _" #            tgt)
+#            define NOP_NOP_CALL(tgt) asm("nop\n nop\n call _" #tgt)
 #        else
-#            define NOP_NOP_CALL(tgt) asm("nop\n nop\n call " #            tgt)
+#            define NOP_NOP_CALL(tgt) asm("nop\n nop\n call " #tgt)
 #        endif
 #    elif defined(AARCHXX)
 /* Make sure to mark LR/X30 as clobbered to avoid functions like
@@ -572,9 +572,9 @@ static int
 NTFlush(char *buf, size_t len)
 {
     NTSTATUS status;
-    GET_NTDLL(
-        NtFlushInstructionCache,
-        (IN HANDLE ProcessHandle, IN PVOID BaseAddress OPTIONAL, IN SIZE_T FlushSize));
+    GET_NTDLL(NtFlushInstructionCache,
+              (DR_PARAM_IN HANDLE ProcessHandle, DR_PARAM_IN PVOID BaseAddress OPTIONAL,
+               DR_PARAM_IN SIZE_T FlushSize));
     status = NtFlushInstructionCache(GetCurrentProcess(), buf, len);
     if (!NT_SUCCESS(status)) {
         print("Error using NTFlush method\n");
@@ -637,9 +637,11 @@ get_process_mem_stats(HANDLE h, VM_COUNTERS *info)
     ULONG len = 0;
     /* could share w/ other process info routines... */
     GET_NTDLL(NtQueryInformationProcess,
-              (IN HANDLE ProcessHandle, IN PROCESSINFOCLASS ProcessInformationClass,
-               OUT PVOID ProcessInformation, IN ULONG ProcessInformationLength,
-               OUT PULONG ReturnLength OPTIONAL));
+              (DR_PARAM_IN HANDLE ProcessHandle,
+               DR_PARAM_IN PROCESSINFOCLASS ProcessInformationClass,
+               DR_PARAM_OUT PVOID ProcessInformation,
+               DR_PARAM_IN ULONG ProcessInformationLength,
+               DR_PARAM_OUT PULONG ReturnLength OPTIONAL));
     i = NtQueryInformationProcess((HANDLE)h, ProcessVmCounters, info, sizeof(VM_COUNTERS),
                                   &len);
     if (i != 0) {

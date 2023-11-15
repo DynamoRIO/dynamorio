@@ -196,7 +196,7 @@ DR_EXPORT
  * @return whether successful or an error code on failure.
  */
 drcovlib_status_t
-drcovlib_logfile(void *drcontext, OUT const char **path);
+drcovlib_logfile(void *drcontext, DR_PARAM_OUT const char **path);
 
 DR_EXPORT
 /**
@@ -300,7 +300,8 @@ DR_EXPORT
  * base address.
  */
 drcovlib_status_t
-drmodtrack_lookup(void *drcontext, app_pc pc, OUT uint *mod_index, OUT app_pc *mod_base);
+drmodtrack_lookup(void *drcontext, app_pc pc, DR_PARAM_OUT uint *mod_index,
+                  DR_PARAM_OUT app_pc *mod_base);
 
 DR_EXPORT
 /**
@@ -310,8 +311,8 @@ DR_EXPORT
  * DRCOVLIB_ERROR_NOT_FOUND.
  */
 drcovlib_status_t
-drmodtrack_lookup_segment(void *drcontext, app_pc pc, OUT uint *segment_index,
-                          OUT app_pc *segment_base);
+drmodtrack_lookup_segment(void *drcontext, app_pc pc, DR_PARAM_OUT uint *segment_index,
+                          DR_PARAM_OUT app_pc *segment_base);
 
 DR_EXPORT
 /**
@@ -319,7 +320,8 @@ DR_EXPORT
  * mod_index that was previously returned by drmodtrack_lookup().
  */
 drcovlib_status_t
-drmodtrack_lookup_pc_from_index(void *drcontext, uint mod_index, OUT app_pc *mod_base);
+drmodtrack_lookup_pc_from_index(void *drcontext, uint mod_index,
+                                DR_PARAM_OUT app_pc *mod_base);
 
 DR_EXPORT
 /**
@@ -337,7 +339,7 @@ DR_EXPORT
  * If the buffer is too small, returns DRCOVLIB_ERROR_BUF_TOO_SMALL.
  */
 drcovlib_status_t
-drmodtrack_dump_buf(char *buf, size_t size, OUT size_t *wrote);
+drmodtrack_dump_buf(char *buf, size_t size, DR_PARAM_OUT size_t *wrote);
 
 DR_EXPORT
 /**
@@ -366,8 +368,8 @@ DR_EXPORT
  * from 0 to the number of modules minus one as the \p index.
  */
 drcovlib_status_t
-drmodtrack_offline_read(file_t file, const char *map, OUT const char **next_line,
-                        OUT void **handle, OUT uint *num_mods);
+drmodtrack_offline_read(file_t file, const char *map, DR_PARAM_OUT const char **next_line,
+                        DR_PARAM_OUT void **handle, DR_PARAM_OUT uint *num_mods);
 
 DR_EXPORT
 /**
@@ -379,7 +381,7 @@ DR_EXPORT
  * path's containing buffer size is limited to MAXIMUM_PATH.
  */
 drcovlib_status_t
-drmodtrack_offline_lookup(void *handle, uint index, OUT drmodtrack_info_t *info);
+drmodtrack_offline_lookup(void *handle, uint index, DR_PARAM_OUT drmodtrack_info_t *info);
 
 DR_EXPORT
 /**
@@ -392,7 +394,8 @@ DR_EXPORT
  * set \p wrote).
  */
 drcovlib_status_t
-drmodtrack_offline_write(void *handle, char *buf, size_t buf_size, OUT size_t *wrote);
+drmodtrack_offline_write(void *handle, char *buf, size_t buf_size,
+                         DR_PARAM_OUT size_t *wrote);
 
 DR_EXPORT
 /**
@@ -425,7 +428,8 @@ DR_EXPORT
 drcovlib_status_t
 drmodtrack_add_custom_data(void *(*load_cb)(module_data_t *module, int seg_idx),
                            int (*print_cb)(void *data, char *dst, size_t max_len),
-                           const char *(*parse_cb)(const char *src, OUT void **data),
+                           const char *(*parse_cb)(const char *src,
+                                                   DR_PARAM_OUT void **data),
                            void (*free_cb)(void *data));
 
 /**@}*/ /* end doxygen group */

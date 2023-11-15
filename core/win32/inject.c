@@ -576,16 +576,19 @@ inject_gencode_at_ldr(HANDLE phandle, char *dynamo_path, uint inject_location,
     uint old_prot;
 
     GET_NTDLL(LdrLoadDll,
-              (IN PCWSTR PathToFile OPTIONAL, IN PULONG Flags OPTIONAL,
-               IN PUNICODE_STRING ModuleFileName, OUT PHANDLE ModuleHandle));
-    GET_NTDLL(LdrGetProcedureAddress,
-              (IN HANDLE ModuleHandle, IN PANSI_STRING ProcedureName OPTIONAL,
-               IN ULONG Ordinal OPTIONAL, OUT FARPROC * ProcedureAddress));
+              (DR_PARAM_IN PCWSTR PathToFile OPTIONAL, DR_PARAM_IN PULONG Flags OPTIONAL,
+               DR_PARAM_IN PUNICODE_STRING ModuleFileName,
+               DR_PARAM_OUT PHANDLE ModuleHandle));
+    GET_NTDLL(
+        LdrGetProcedureAddress,
+        (DR_PARAM_IN HANDLE ModuleHandle, DR_PARAM_IN PANSI_STRING ProcedureName OPTIONAL,
+         DR_PARAM_IN ULONG Ordinal OPTIONAL, DR_PARAM_OUT FARPROC * ProcedureAddress));
 #define GET_PROC_ADDR_BAD_ADDR 0xffbadd11
     GET_NTDLL(NtProtectVirtualMemory,
-              (IN HANDLE ProcessHandle, IN OUT PVOID * BaseAddress,
-               IN OUT PULONG ProtectSize, IN ULONG NewProtect, OUT PULONG OldProtect));
-    GET_NTDLL(NtContinue, (IN PCONTEXT Context, IN BOOLEAN TestAlert));
+              (DR_PARAM_IN HANDLE ProcessHandle, DR_PARAM_INOUT PVOID * BaseAddress,
+               DR_PARAM_INOUT PULONG ProtectSize, DR_PARAM_IN ULONG NewProtect,
+               DR_PARAM_OUT PULONG OldProtect));
+    GET_NTDLL(NtContinue, (DR_PARAM_IN PCONTEXT Context, DR_PARAM_IN BOOLEAN TestAlert));
 
     /* get buffer for emitted code and data */
     remote_code_buffer = allocate_remote_code_buffer(phandle, 2 * PAGE_SIZE, must_reach);
@@ -1464,9 +1467,11 @@ inject_into_new_process(HANDLE phandle, HANDLE thandle, char *dynamo_path, bool 
 
     /* Possible child hook points */
     GET_NTDLL(KiUserApcDispatcher,
-              (IN PVOID Unknown1, IN PVOID Unknown2, IN PVOID Unknown3,
-               IN PVOID ContextStart, IN PVOID ContextBody));
-    GET_NTDLL(KiUserExceptionDispatcher, (IN PVOID Unknown1, IN PVOID Unknown2));
+              (DR_PARAM_IN PVOID Unknown1, DR_PARAM_IN PVOID Unknown2,
+               DR_PARAM_IN PVOID Unknown3, DR_PARAM_IN PVOID ContextStart,
+               DR_PARAM_IN PVOID ContextBody));
+    GET_NTDLL(KiUserExceptionDispatcher,
+              (DR_PARAM_IN PVOID Unknown1, DR_PARAM_IN PVOID Unknown2));
 
     switch (inject_location) {
     case INJECT_LOCATION_LdrLoadDll:

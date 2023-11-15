@@ -462,7 +462,7 @@ offline_instru_t::insert_save_entry(void *drcontext, instrlist_t *ilist, instr_t
 }
 
 uint64_t
-offline_instru_t::get_modoffs(void *drcontext, app_pc pc, OUT uint *modidx)
+offline_instru_t::get_modoffs(void *drcontext, app_pc pc, DR_PARAM_OUT uint *modidx)
 {
     app_pc modbase;
     if (drmodtrack_lookup(drcontext, pc, modidx, &modbase) != DRCOVLIB_SUCCESS)
@@ -856,7 +856,7 @@ offline_instru_t::bb_analysis_cleanup(void *drcontext, void *bb_field)
 }
 
 bool
-offline_instru_t::opnd_is_elidable(opnd_t memop, OUT reg_id_t &base, int version)
+offline_instru_t::opnd_is_elidable(opnd_t memop, DR_PARAM_OUT reg_id_t &base, int version)
 {
     if (version <= OFFLINE_FILE_VERSION_NO_ELISION)
         return false;
@@ -912,9 +912,10 @@ offline_instru_t::opnd_check_elidable(void *drcontext, instrlist_t *ilist, instr
 }
 
 bool
-offline_instru_t::label_marks_elidable(instr_t *instr, OUT int *opnd_index,
-                                       OUT int *memopnd_index, OUT bool *is_write,
-                                       OUT bool *needs_base)
+offline_instru_t::label_marks_elidable(instr_t *instr, DR_PARAM_OUT int *opnd_index,
+                                       DR_PARAM_OUT int *memopnd_index,
+                                       DR_PARAM_OUT bool *is_write,
+                                       DR_PARAM_OUT bool *needs_base)
 {
     if (!instr_is_label(instr))
         return false;

@@ -420,7 +420,7 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 
 static reg_id_t
 pick_scratch_reg(dcontext_t *dcontext, instr_t *instr, reg_id_t do_not_pick,
-                 ushort *scratch_slot OUT)
+                 ushort *scratch_slot DR_PARAM_OUT)
 {
     reg_id_t reg = REG_NULL;
     ushort slot = 0;

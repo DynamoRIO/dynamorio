@@ -140,7 +140,7 @@ bool
 module_file_has_module_header(const char *filename);
 
 bool
-module_file_is_module64(file_t f, bool *is64 OUT, bool *also32 OUT);
+module_file_is_module64(file_t f, bool *is64 DR_PARAM_OUT, bool *also32 DR_PARAM_OUT);
 
 /* A Mach-O universal binary may have many bitwidths.  The one used on execve will be
  * returned in "platform" and the 2nd one in "alt_platform".
@@ -149,9 +149,10 @@ bool
 module_get_platform(file_t f, dr_platform_t *platform, dr_platform_t *alt_platform);
 
 void
-module_add_segment_data(OUT os_module_data_t *out_data, uint num_segments /*hint only*/,
-                        app_pc segment_start, size_t segment_size, uint segment_prot,
-                        size_t alignment, bool shared, uint64 offset);
+module_add_segment_data(DR_PARAM_OUT os_module_data_t *out_data,
+                        uint num_segments /*hint only*/, app_pc segment_start,
+                        size_t segment_size, uint segment_prot, size_t alignment,
+                        bool shared, uint64 offset);
 
 #if defined(MACOS) || defined(ANDROID)
 typedef FILE stdfile_t;
@@ -171,7 +172,8 @@ app_pc
 get_private_library_address(app_pc modbase, const char *name);
 
 bool
-get_private_library_bounds(IN app_pc modbase, OUT byte **start, OUT byte **end);
+get_private_library_bounds(DR_PARAM_IN app_pc modbase, DR_PARAM_OUT byte **start,
+                           DR_PARAM_OUT byte **end);
 
 #ifdef MACOS
 /* module_macho.c */
@@ -179,7 +181,7 @@ byte *
 module_dynamorio_lib_base(void);
 
 bool
-module_dyld_shared_region(app_pc *start OUT, app_pc *end OUT);
+module_dyld_shared_region(app_pc *start DR_PARAM_OUT, app_pc *end DR_PARAM_OUT);
 
 void
 module_walk_dyld_list(app_pc dyld_base);

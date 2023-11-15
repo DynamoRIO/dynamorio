@@ -1984,9 +1984,12 @@ test_rseq_side_exit_inverted_with_timestamp(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
 }
 
-/* Tests a trace ending mid-rseq (i#6444). */
+/* Tests a trace ending mid-rseq (i#6444).
+ * If at_end is true, tests the endpoint just being reached but not pased;
+ * else tests the endpoint not being reached.
+ */
 bool
-test_midrseq_end(void *drcontext)
+test_midrseq_end_helper(void *drcontext, bool at_end)
 {
     std::cerr << "\n===============\nTesting mid-rseq trace end\n";
     instrlist_t *ilist = instrlist_create(drcontext);
@@ -2021,7 +2024,8 @@ test_midrseq_end(void *drcontext)
     raw.push_back(make_line_size());
     raw.push_back(make_timestamp());
     raw.push_back(make_core());
-    raw.push_back(make_marker(TRACE_MARKER_TYPE_RSEQ_ENTRY, offs_move3));
+    raw.push_back(
+        make_marker(TRACE_MARKER_TYPE_RSEQ_ENTRY, at_end ? offs_move2 : offs_move3));
     raw.push_back(make_block(offs_move1, 2));
     raw.push_back(make_block(offs_store, 1));
     raw.push_back(make_memref(42));
@@ -2058,6 +2062,13 @@ test_midrseq_end(void *drcontext)
         // The trace exits before it reaches the rseq endpoint.
         check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
         check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+}
+
+bool
+test_midrseq_end(void *drcontext)
+{
+    return test_midrseq_end_helper(drcontext, /*at_end=*/false) &&
+        test_midrseq_end_helper(drcontext, /*at_end=*/true);
 }
 
 /* Tests pre-OFFLINE_FILE_VERSION_XFER_ABS_PC (module offset) handling. */

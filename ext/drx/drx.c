@@ -736,9 +736,10 @@ typedef LONG NTSTATUS;
 #    define GET_NTDLL(NtFunction, signature) NTSYSAPI NTSTATUS NTAPI NtFunction signature
 
 GET_NTDLL(NtQueryInformationJobObject,
-          (IN HANDLE JobHandle, IN JOBOBJECTINFOCLASS JobInformationClass,
-           OUT PVOID JobInformation, IN ULONG JobInformationLength,
-           OUT PULONG ReturnLength OPTIONAL));
+          (DR_PARAM_IN HANDLE JobHandle,
+           DR_PARAM_IN JOBOBJECTINFOCLASS JobInformationClass,
+           DR_PARAM_OUT PVOID JobInformation, DR_PARAM_IN ULONG JobInformationLength,
+           DR_PARAM_OUT PULONG ReturnLength OPTIONAL));
 
 #    define STATUS_BUFFER_OVERFLOW ((NTSTATUS)0x80000005L)
 
@@ -761,10 +762,13 @@ typedef struct _PROCESS_BASIC_INFORMATION {
 typedef PROCESS_BASIC_INFORMATION *PPROCESS_BASIC_INFORMATION;
 
 GET_NTDLL(NtQueryInformationProcess,
-          (IN HANDLE ProcessHandle, IN PROCESSINFOCLASS ProcessInformationClass,
-           OUT PVOID ProcessInformation, IN ULONG ProcessInformationLength,
-           OUT PULONG ReturnLength OPTIONAL));
-GET_NTDLL(NtTerminateProcess, (IN HANDLE ProcessHandle, IN NTSTATUS ExitStatus));
+          (DR_PARAM_IN HANDLE ProcessHandle,
+           DR_PARAM_IN PROCESSINFOCLASS ProcessInformationClass,
+           DR_PARAM_OUT PVOID ProcessInformation,
+           DR_PARAM_IN ULONG ProcessInformationLength,
+           DR_PARAM_OUT PULONG ReturnLength OPTIONAL));
+GET_NTDLL(NtTerminateProcess,
+          (DR_PARAM_IN HANDLE ProcessHandle, DR_PARAM_IN NTSTATUS ExitStatus));
 
 static ssize_t
 num_job_object_pids(HANDLE job)
@@ -1406,7 +1410,7 @@ drx_instrlist_app_size(instrlist_t *ilist)
 
 file_t
 drx_open_unique_file(const char *dir, const char *prefix, const char *suffix,
-                     uint extra_flags, char *result OUT, size_t result_len)
+                     uint extra_flags, char *result DR_PARAM_OUT, size_t result_len)
 {
     char buf[MAXIMUM_PATH];
     file_t f = INVALID_FILE;
@@ -1432,8 +1436,8 @@ drx_open_unique_file(const char *dir, const char *prefix, const char *suffix,
 
 file_t
 drx_open_unique_appid_file(const char *dir, ptr_int_t id, const char *prefix,
-                           const char *suffix, uint extra_flags, char *result OUT,
-                           size_t result_len)
+                           const char *suffix, uint extra_flags,
+                           char *result DR_PARAM_OUT, size_t result_len)
 {
     int len;
     char appid[MAXIMUM_PATH];
@@ -1451,7 +1455,8 @@ drx_open_unique_appid_file(const char *dir, ptr_int_t id, const char *prefix,
 
 bool
 drx_open_unique_appid_dir(const char *dir, ptr_int_t id, const char *prefix,
-                          const char *suffix, char *result OUT, size_t result_len)
+                          const char *suffix, char *result DR_PARAM_OUT,
+                          size_t result_len)
 {
     char buf[MAXIMUM_PATH];
     int i;

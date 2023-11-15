@@ -232,7 +232,8 @@ static dr_isa_mode_t initexit_isa_mode = DEFAULT_ISA_MODE_STATIC;
  * mis-interpreting application code.
  */
 bool
-dr_set_isa_mode(void *drcontext, dr_isa_mode_t new_mode, dr_isa_mode_t *old_mode_out OUT)
+dr_set_isa_mode(void *drcontext, dr_isa_mode_t new_mode,
+                dr_isa_mode_t *old_mode_out DR_PARAM_OUT)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     dr_isa_mode_t old_mode;

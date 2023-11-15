@@ -762,7 +762,7 @@ drbbdup_next_end_initial(instr_t *instr)
  */
 static instrlist_t *
 drbbdup_extract_bb_copy(void *drcontext, instrlist_t *bb, instr_t *start,
-                        OUT instr_t **prev, OUT instr_t **post)
+                        DR_PARAM_OUT instr_t **prev, DR_PARAM_OUT instr_t **post)
 {
     instrlist_t *case_bb = instrlist_create(drcontext);
 
@@ -848,8 +848,8 @@ static void *
 drbbdup_do_case_analysis(drbbdup_manager_t *manager, void *drcontext, void *tag,
                          instrlist_t *bb, instr_t *start, bool for_trace,
                          bool translating, const drbbdup_case_t *case_info,
-                         void *orig_analysis_data, OUT instr_t **next,
-                         INOUT dr_emit_flags_t *emit_flags)
+                         void *orig_analysis_data, DR_PARAM_OUT instr_t **next,
+                         DR_PARAM_INOUT dr_emit_flags_t *emit_flags)
 {
     if (opts.analyze_case == NULL && opts.analyze_case_ex == NULL)
         return NULL;
@@ -2046,7 +2046,7 @@ drbbdup_is_last_instr(void *drcontext, instr_t *instr, bool *is_last)
 }
 
 drbbdup_status_t
-drbbdup_get_stats(OUT drbbdup_stats_t *stats_in)
+drbbdup_get_stats(DR_PARAM_OUT drbbdup_stats_t *stats_in)
 {
     if (!opts.is_stat_enabled)
         return DRBBDUP_ERROR_UNSET_FEATURE;
@@ -2146,8 +2146,9 @@ drbbdup_thread_exit(void *drcontext)
  */
 
 static bool
-is_our_spill_or_restore(void *drcontext, instr_t *instr, bool *spill OUT,
-                        reg_id_t *reg_out OUT, uint *slot_out OUT, uint *offs_out OUT)
+is_our_spill_or_restore(void *drcontext, instr_t *instr, bool *spill DR_PARAM_OUT,
+                        reg_id_t *reg_out DR_PARAM_OUT, uint *slot_out DR_PARAM_OUT,
+                        uint *offs_out DR_PARAM_OUT)
 {
     bool tls;
     uint offs;

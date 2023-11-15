@@ -199,7 +199,8 @@ bbdup_duplication_enabled()
 // If we have both BBDUP_MODE_TRACE and BBDUP_MODE_L0_FILTER, then L0 filter is active
 // only when mode is BBDUP_MODE_L0_FILTER
 void
-get_L0_filters_enabled(uintptr_t mode, OUT bool *l0i_enabled, OUT bool *l0d_enabled)
+get_L0_filters_enabled(uintptr_t mode, DR_PARAM_OUT bool *l0i_enabled,
+                       DR_PARAM_OUT bool *l0d_enabled)
 {
     if (op_L0_filter_until_instrs.get_value()) {
         if (mode != BBDUP_MODE_L0_FILTER) {
@@ -615,7 +616,7 @@ instrument_delay_instrs(void *drcontext, void *tag, instrlist_t *ilist, user_dat
  */
 static void
 insert_conditional_skip(void *drcontext, instrlist_t *ilist, instr_t *where,
-                        reg_id_t reg_skip_if_zero, reg_id_t *reg_tmp INOUT,
+                        reg_id_t reg_skip_if_zero, reg_id_t *reg_tmp DR_PARAM_INOUT,
                         instr_t *skip_label, bool short_reaches,
                         reg_id_set_t &app_regs_at_skip)
 {
@@ -2142,7 +2143,7 @@ drmemtrace_buffer_handoff(drmemtrace_handoff_func_t handoff_func,
 }
 
 drmemtrace_status_t
-drmemtrace_get_output_path(OUT const char **path)
+drmemtrace_get_output_path(DR_PARAM_OUT const char **path)
 {
     if (path == NULL)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
@@ -2152,7 +2153,7 @@ drmemtrace_get_output_path(OUT const char **path)
 
 #ifdef BUILD_PT_TRACER
 drmemtrace_status_t
-drmemtrace_get_kcore_path(OUT const char **path)
+drmemtrace_get_kcore_path(DR_PARAM_OUT const char **path)
 {
     if (path == NULL)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
@@ -2161,7 +2162,7 @@ drmemtrace_get_kcore_path(OUT const char **path)
 }
 
 drmemtrace_status_t
-drmemtrace_get_kallsyms_path(OUT const char **path)
+drmemtrace_get_kallsyms_path(DR_PARAM_OUT const char **path)
 {
     if (path == NULL)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
@@ -2170,7 +2171,7 @@ drmemtrace_get_kallsyms_path(OUT const char **path)
 }
 
 drmemtrace_status_t
-drmemtrace_get_kernel_trace_output_path(OUT const char **path)
+drmemtrace_get_kernel_trace_output_path(DR_PARAM_OUT const char **path)
 {
     if (path == NULL)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
@@ -2180,7 +2181,7 @@ drmemtrace_get_kernel_trace_output_path(OUT const char **path)
 #endif
 
 drmemtrace_status_t
-drmemtrace_get_modlist_path(OUT const char **path)
+drmemtrace_get_modlist_path(DR_PARAM_OUT const char **path)
 {
     if (path == NULL)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
@@ -2189,7 +2190,7 @@ drmemtrace_get_modlist_path(OUT const char **path)
 }
 
 drmemtrace_status_t
-drmemtrace_get_funclist_path(OUT const char **path)
+drmemtrace_get_funclist_path(DR_PARAM_OUT const char **path)
 {
     if (path == NULL)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
@@ -2198,7 +2199,7 @@ drmemtrace_get_funclist_path(OUT const char **path)
 }
 
 drmemtrace_status_t
-drmemtrace_get_encoding_path(OUT const char **path)
+drmemtrace_get_encoding_path(DR_PARAM_OUT const char **path)
 {
     if (path == NULL)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;

@@ -49,14 +49,14 @@
 namespace dynamorio {
 namespace drmemtrace {
 
-#ifndef IN
-#    define IN // nothing
+#ifndef DR_PARAM_IN
+#    define DR_PARAM_IN // nothing
 #endif
-#ifndef OUT
-#    define OUT // nothing
+#ifndef DR_PARAM_OUT
+#    define DR_PARAM_OUT // nothing
 #endif
-#ifndef INOUT
-#    define INOUT // nothing
+#ifndef DR_PARAM_INOUT
+#    define DR_PARAM_INOUT // nothing
 #endif
 
 /**
@@ -92,8 +92,8 @@ public:
      * error code.
      */
     static ir2trace_convert_status_t
-    convert(IN drir_t &drir, INOUT std::vector<trace_entry_t> &trace,
-            IN int verbosity = 0);
+    convert(DR_PARAM_IN drir_t &drir, DR_PARAM_INOUT std::vector<trace_entry_t> &trace,
+            DR_PARAM_IN int verbosity = 0);
 };
 
 } // namespace drmemtrace
