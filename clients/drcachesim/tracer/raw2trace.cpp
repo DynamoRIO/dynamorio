@@ -579,11 +579,21 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                 tdata->error = "Missing thread id";
                 return false;
             }
-            if (tdata->rseq_buffering_enabled_ &&
-                // Deliberately pass 0 as the PC so it's treated as an instru
-                // exit and we just dump the buffer as-is.
-                !adjust_and_emit_rseq_buffer(tdata, 0, 0))
-                return false;
+            if (tdata->rseq_buffering_enabled_) {
+                // Finish off the rseq buffer.
+                addr_t next_pc;
+                if (tdata->rseq_past_end_) {
+                    // The thread exited right as we hit the lst instr.
+                    next_pc = tdata->rseq_end_pc_;
+                } else {
+                    // We exited mid-sequence.
+                    // Deliberately pass 0 as the PC so it's treated as an instru
+                    // exit and we just dump the buffer as-is.
+                    next_pc = 0;
+                }
+                if (!adjust_and_emit_rseq_buffer(tdata, next_pc, 0))
+                    return false;
+            }
             log(2, "Thread %d exit\n", (uint)tid);
             buf += trace_metadata_writer_t::write_thread_exit(buf, tid);
             *end_of_record = true;
