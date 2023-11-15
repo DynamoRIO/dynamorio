@@ -360,9 +360,11 @@ function (get_processor_vendor out)
       "[HKEY_LOCAL_MACHINE\\Hardware\\Description\\System\\CentralProcessor\\0;VendorIdentifier]"
       NAME)
   elseif (EXISTS "/proc/cpuinfo")
+    set (regex ".*vendor_id[ \t]*:[ \t]+([a-zA-Z0-9_-]+).*")
     file(READ "/proc/cpuinfo" contents)
-    string(REGEX REPLACE ".*vendor_id[ \t]*:[ \t]+([a-zA-Z0-9_-]+).*" "\\1"
-      cpu_vendor "${contents}")
+    if (contents MATCHES ${regex})
+      string(REGEX REPLACE ${regex} "\\1" cpu_vendor "${contents}")
+    endif ()
   endif ()
   message(STATUS "Processor vendor is ${cpu_vendor}")
   set(${out} ${cpu_vendor} PARENT_SCOPE)
