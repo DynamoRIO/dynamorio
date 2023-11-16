@@ -273,7 +273,7 @@ config_reader_t::configure_cache(cache_params_t &cache)
             // Is the cache inclusive of its children.
             std::string bool_val;
             if (!(*fin_ >> bool_val)) {
-                ERRMSG("Error reading cache inclusion policy from "
+                ERRMSG("Error reading inclusive cache policy from "
                        "the configuration file\n");
                 return false;
             }
@@ -290,7 +290,7 @@ config_reader_t::configure_cache(cache_params_t &cache)
             // Is the cache exclusive of its children.
             std::string bool_val;
             if (!(*fin_ >> bool_val)) {
-                ERRMSG("Error reading cache inclusion policy from "
+                ERRMSG("Error reading exclusive cache policy from "
                        "the configuration file\n");
                 return false;
             }

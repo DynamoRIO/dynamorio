@@ -225,7 +225,7 @@ caching_device_t::request(const memref_t &memref_in)
             record_access_stats(memref, false /*miss*/, cache_block);
             missed = true;
             // If no parent we assume we get the data from main memory.
-            if (parent_ != NULL) {
+            if (parent_ != nullptr) {
                 parent_->request(memref);
             }
             // Exclusive caches only insert lines that have been evicted
@@ -449,7 +449,7 @@ void
 caching_device_t::insert_tag(addr_t tag, bool is_write, int way, int block_idx)
 {
     caching_device_block_t *cache_block = &get_caching_device_block(block_idx, way);
-    if (snoop_filter_ != NULL) {
+    if (snoop_filter_ != nullptr) {
         // Update snoop filter to mark tag as present in this cache.
         snoop_filter_->snoop(tag, id_, is_write);
     }
@@ -467,7 +467,7 @@ caching_device_t::insert_tag(addr_t tag, bool is_write, int way, int block_idx)
             }
         }
         // Handle parental notifications for coherence and exclusivity.
-        bool push_victim_to_parent = parent_ != NULL && parent_->is_exclusive();
+        bool push_victim_to_parent = parent_ != nullptr && parent_->is_exclusive();
         if (coherent_cache_ || push_victim_to_parent) {
             bool child_holds_tag = false;
             if (!children_.empty()) {
@@ -502,12 +502,12 @@ caching_device_t::insert_tag(addr_t tag, bool is_write, int way, int block_idx)
             if (!child_holds_tag) {
                 bool notify_parent_for_snoop = false;
                 if (coherent_cache_) {
-                    if (snoop_filter_ != NULL) {
+                    if (snoop_filter_ != nullptr) {
                         // Inform snoop filter of evicted line.
                         snoop_filter_->snoop_eviction(victim_tag, id_);
                     } else {
                         // If there's a parent, keep forwarding the eviction.
-                        notify_parent_for_snoop = parent_ != NULL;
+                        notify_parent_for_snoop = parent_ != nullptr;
                     }
                 }
                 if (notify_parent_for_snoop || push_victim_to_parent) {

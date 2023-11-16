@@ -87,7 +87,7 @@ public:
                      cache_split_t split = cache_split_t::DATA) const;
 
     // Access snoop filter stats for coherent caches.
-    // These are not per-cache metrics so it doesn't make sense access them
+    // These are not per-cache metrics so it doesn't make sense to access them
     // through get_cache_metric().
     int64_t
     get_num_snooped_caches(void);

@@ -336,6 +336,21 @@ LLC {
            num_accesses - 1);
 }
 
+// cache_simulator_t wrapper to make cache objects accessible by name.
+class test_cache_simulator_t : public cache_simulator_t {
+public:
+    test_cache_simulator_t(const cache_simulator_knobs_t &knobs)
+        : cache_simulator_t(knobs) {};
+    test_cache_simulator_t(std::istream *config_file)
+        : cache_simulator_t(config_file) {};
+    // Returns cache_t* for named cache if it exists, else faults.
+    cache_t *
+    get_named_cache(std::string name)
+    {
+        return all_caches_.at(name);
+    }
+};
+
 void
 unit_test_exclusive_cache()
 {
@@ -377,7 +392,7 @@ LLC {
 }
 )MYCONFIG";
     std::istringstream config_in(config);
-    cache_simulator_t cache_sim(&config_in);
+    test_cache_simulator_t cache_sim(&config_in);
 
     // The cache config specified coherence, and the only level with
     // multiple caches is L1.  So there should be 2 snooped caches.
@@ -396,7 +411,7 @@ LLC {
     const int LLC_SIZE = 64 * 1024;
     const int ADDR_STRIDE = LLC_SIZE; // Maximize conflicts.
     const int CONFLICTING_ADDRESSES = 4;
-    for (int n = 0; n < NUM_LOOPS; n++) {
+    for (int n = 0; n < NUM_LOOPS; ++n) {
         for (int i = 0; i < CONFLICTING_ADDRESSES; ++i) {
             if (!cache_sim.process_memref(make_memref(ADDR_STRIDE * i))) {
                 std::cerr << "drcachesim failed: " << cache_sim.get_error_string()
@@ -405,6 +420,10 @@ LLC {
             }
         }
     }
+
+    TEST_EQ(cache_sim.get_named_cache("L2")->get_associativity(), L2_ASSOC);
+    TEST_EQ(cache_sim.get_named_cache("LLC")->get_associativity(), LLC_ASSOC);
+    TEST_EQ(cache_sim.get_named_cache("LLC")->get_size_bytes(), LLC_SIZE);
 
     // Define stats helper functions that are specific to this test config.
     auto get_l2_metric = [&](metric_name_t metric) {
@@ -431,7 +450,7 @@ LLC {
     // L2's conflict evictions:  we expect 4 hits (from prior test) and the rest
     // misses in L2, but 4 (new) misses and the rest hits in LLC.
     const int MORE_CONFLICTING_ADDRESSES = 8;
-    for (int n = 0; n < NUM_LOOPS; n++) {
+    for (int n = 0; n < NUM_LOOPS; ++n) {
         for (int i = 0; i < MORE_CONFLICTING_ADDRESSES; ++i) {
             if (!cache_sim.process_memref(make_memref(ADDR_STRIDE * i))) {
                 std::cerr << "drcachesim unit_test_child_hits failed: "
@@ -440,9 +459,6 @@ LLC {
             }
         }
     }
-
-    std::cerr << "Results from second exclusive-cache sequence.\n";
-    cache_sim.print_results();
 
     int new_l2_misses = get_l2_metric(metric_name_t::MISSES);
     int new_l2_hits = get_l2_metric(metric_name_t::HITS);

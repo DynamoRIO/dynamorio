@@ -692,25 +692,25 @@ cache_simulator_t::create_cache(const std::string &name, const std::string &poli
 int64_t
 cache_simulator_t::get_num_snooped_caches(void)
 {
-    return (snoop_filter_ == NULL) ? 0 : snoop_filter_->get_num_snooped_caches();
+    return (snoop_filter_ == nullptr) ? 0 : snoop_filter_->get_num_snooped_caches();
 }
 
 int64_t
 cache_simulator_t::get_num_snoop_writes(void)
 {
-    return (snoop_filter_ == NULL) ? 0 : snoop_filter_->get_num_writes();
+    return (snoop_filter_ == nullptr) ? 0 : snoop_filter_->get_num_writes();
 }
 
 int64_t
 cache_simulator_t::get_num_snoop_writebacks(void)
 {
-    return (snoop_filter_ == NULL) ? 0 : snoop_filter_->get_num_writebacks();
+    return (snoop_filter_ == nullptr) ? 0 : snoop_filter_->get_num_writebacks();
 }
 
 int64_t
 cache_simulator_t::get_num_snoop_invalidates(void)
 {
-    return (snoop_filter_ == NULL) ? 0 : snoop_filter_->get_num_invalidates();
+    return (snoop_filter_ == nullptr) ? 0 : snoop_filter_->get_num_invalidates();
 }
 
 } // namespace drmemtrace
