@@ -734,7 +734,7 @@ unit_test_cache_accessors()
                 cache_inclusion_policy_t policy = inclusive
                     ? cache_inclusion_policy_t::INCLUSIVE
                     : exclusive ? cache_inclusion_policy_t::EXCLUSIVE
-                                : cache_inclusion_policy_t::NINE;
+                                : cache_inclusion_policy_t::NON_INC_NON_EXC;
                 ++loop_count;
 
                 int total_size = associativity * set_count * line_size;

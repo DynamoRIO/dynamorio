@@ -61,8 +61,8 @@ namespace drmemtrace {
 class snoop_filter_t;
 class prefetcher_t;
 
-// NINE = Non-Inclusive Non-Exclusive.
-enum class cache_inclusion_policy_t { NINE, INCLUSIVE, EXCLUSIVE };
+// NON_INC_NON_EXC = Non-Inclusive Non-Exclusive, aka NINE.
+enum class cache_inclusion_policy_t { NON_INC_NON_EXC, INCLUSIVE, EXCLUSIVE };
 
 class caching_device_t {
 public:
@@ -70,7 +70,7 @@ public:
     virtual bool
     init(int associativity, int block_size, int num_blocks, caching_device_t *parent,
          caching_device_stats_t *stats, prefetcher_t *prefetcher = nullptr,
-         cache_inclusion_policy_t inclusion_policy = cache_inclusion_policy_t::NINE,
+         cache_inclusion_policy_t inclusion_policy = cache_inclusion_policy_t::NON_INC_NON_EXC,
          bool coherent_cache = false, int id_ = -1,
          snoop_filter_t *snoop_filter_ = nullptr,
          const std::vector<caching_device_t *> &children = {});
