@@ -433,14 +433,15 @@ expand_scatter_gather(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
         (opnd_size_in_bytes(sg_info->scatter_gather_size) / sg_info->reg_count) /
         opnd_size_in_bytes(sg_info->scalar_value_size);
 
-    for (uint reg_index = 0; reg_index < sg_info->reg_count; reg_index++) {
-        const reg_id_t vector_dst = (((sg_info->gather_dst_reg - DR_REG_Z0) + reg_index) %
-                                     DR_NUM_SIMD_VECTOR_REGS) +
-            DR_REG_Z0;
-        if (sg_info->is_load) {
-            /* First we deal with the inactive elements. Gather loads are always zeroing
-             * so we need to set all inactive elements to 0.
-             */
+    if (sg_info->is_load) {
+        /* First we deal with the inactive elements. Gather loads are always zeroing
+         * so we need to set all inactive elements to 0.
+         */
+        for (uint reg_index = 0; reg_index < sg_info->reg_count; reg_index++) {
+            const reg_id_t vector_dst =
+                (((sg_info->gather_dst_reg - DR_REG_Z0) + reg_index) %
+                 DR_NUM_SIMD_VECTOR_REGS) +
+                DR_REG_Z0;
             if ((sg_info->base_reg == vector_dst) || (sg_info->index_reg == vector_dst)) {
                 /* The dst register is also the base/index register so we need to preserve
                  * the value of the active elements so we can use them in the address
