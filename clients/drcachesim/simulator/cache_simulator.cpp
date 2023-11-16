@@ -168,8 +168,8 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs)
                 knobs_.data_prefetcher == PREFETCH_POLICY_NEXTLINE
                     ? new prefetcher_t((int)knobs_.line_size)
                     : nullptr,
-                cache_inclusion_policy_t::NON_INC_NON_EXC, knobs_.model_coherence, (2 * i) + 1,
-                snoop_filter_)) {
+                cache_inclusion_policy_t::NON_INC_NON_EXC, knobs_.model_coherence,
+                (2 * i) + 1, snoop_filter_)) {
             error_string_ = "Usage error: failed to initialize L1 caches.  Ensure sizes "
                             "divided by associativities are powers of 2 "
                             "and that the total sizes are multiples of the line size.";
