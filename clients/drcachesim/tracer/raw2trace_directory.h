@@ -86,7 +86,7 @@ public:
     // On success, pushes the parsed entries from the file into "entries".
     std::string
     initialize_funclist_file(const std::string &funclist_file_path,
-                             OUT std::vector<std::vector<std::string>> *entries);
+                             DR_PARAM_OUT std::vector<std::vector<std::string>> *entries);
 
     static std::string
     tracedir_from_rawdir(const std::string &rawdir);

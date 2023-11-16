@@ -117,7 +117,7 @@ DR_EXPORT
  * \note Currently callstack walking is only available for Linux.
  */
 drcallstack_status_t
-drcallstack_init_walk(dr_mcontext_t *mc, OUT drcallstack_walk_t **walk);
+drcallstack_init_walk(dr_mcontext_t *mc, DR_PARAM_OUT drcallstack_walk_t **walk);
 
 DR_EXPORT
 /**
@@ -137,7 +137,7 @@ DR_EXPORT
  * \note Currently callstack walking is only available for Linux.
  */
 drcallstack_status_t
-drcallstack_next_frame(drcallstack_walk_t *walk, OUT drcallstack_frame_t *frame);
+drcallstack_next_frame(drcallstack_walk_t *walk, DR_PARAM_OUT drcallstack_frame_t *frame);
 
 /**@}*/ /* end doxygen group */
 

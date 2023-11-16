@@ -67,7 +67,8 @@ ThreadProc1(LPVOID parm)
     NTSTATUS res;
     HANDLE e;
     GET_NTDLL(NtWaitForSingleObject,
-              (IN HANDLE ObjectHandle, IN BOOLEAN Alertable, IN PLARGE_INTEGER TimeOut));
+              (DR_PARAM_IN HANDLE ObjectHandle, DR_PARAM_IN BOOLEAN Alertable,
+               DR_PARAM_IN PLARGE_INTEGER TimeOut));
     print("starting thread...\n");
 
     e = CreateEvent(NULL, FALSE, FALSE, "foo");

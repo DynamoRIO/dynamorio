@@ -73,7 +73,7 @@ typedef enum {
 
 static search_result_t
 search_addr2line_in_cu(dwarf_module_t *mod, Dwarf_Addr pc, Dwarf_Die cu_die,
-                       drsym_info_t *sym_info INOUT);
+                       drsym_info_t *sym_info DR_PARAM_OUT);
 
 /******************************************************************************
  * DWARF parsing code.
@@ -185,7 +185,8 @@ compare_lines(const void *a_in, const void *b_in)
 /* Given a function DIE and a PC, fill out sym_info with line information.
  */
 bool
-drsym_dwarf_search_addr2line(void *mod_in, Dwarf_Addr pc, drsym_info_t *sym_info INOUT)
+drsym_dwarf_search_addr2line(void *mod_in, Dwarf_Addr pc,
+                             drsym_info_t *sym_info DR_PARAM_OUT)
 {
     dwarf_module_t *mod = (dwarf_module_t *)mod_in;
     Dwarf_Error de; /* expensive to init (DrM#1770) */
@@ -246,7 +247,8 @@ drsym_dwarf_search_addr2line(void *mod_in, Dwarf_Addr pc, drsym_info_t *sym_info
 }
 
 static Dwarf_Signed
-get_lines_from_cu(dwarf_module_t *mod, Dwarf_Die cu_die, Dwarf_Line **lines_out OUT)
+get_lines_from_cu(dwarf_module_t *mod, Dwarf_Die cu_die,
+                  Dwarf_Line **lines_out DR_PARAM_OUT)
 {
     if (mod->lines_cu != cu_die) {
         Dwarf_Line *lines;
@@ -272,7 +274,7 @@ get_lines_from_cu(dwarf_module_t *mod, Dwarf_Die cu_die, Dwarf_Line **lines_out 
 
 static search_result_t
 search_addr2line_in_cu(dwarf_module_t *mod, Dwarf_Addr pc, Dwarf_Die cu_die,
-                       drsym_info_t *sym_info INOUT)
+                       drsym_info_t *sym_info DR_PARAM_OUT)
 {
     Dwarf_Line *lines;
     Dwarf_Signed num_lines;

@@ -660,7 +660,7 @@ read_modrm(byte *pc, decode_info_t *di)
  */
 static byte *
 read_vex(byte *pc, decode_info_t *di, byte instr_byte,
-         const instr_info_t **ret_info INOUT, bool *is_vex /*or xop*/)
+         const instr_info_t **ret_info DR_PARAM_INOUT, bool *is_vex /*or xop*/)
 {
     int idx = 0;
     const instr_info_t *info;
@@ -787,7 +787,7 @@ read_vex(byte *pc, decode_info_t *di, byte instr_byte,
  */
 static byte *
 read_evex(byte *pc, decode_info_t *di, byte instr_byte,
-          const instr_info_t **ret_info INOUT, bool *is_evex)
+          const instr_info_t **ret_info DR_PARAM_INOUT, bool *is_evex)
 {
     const instr_info_t *info;
     byte prefix_byte = 0, evex_pp = 0;

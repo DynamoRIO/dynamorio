@@ -56,7 +56,7 @@ extern "C" {
  */
 typedef bool (*drmgr_bbdup_duplicate_bb_cb_t)(void *drcontext, void *tag, instrlist_t *bb,
                                               bool for_trace, bool translating,
-                                              OUT void **local_info);
+                                              DR_PARAM_OUT void **local_info);
 
 /* Extracts and returns a pending basic block copy from the main basic block. Returns
  * NULL, if no further copies are pending.

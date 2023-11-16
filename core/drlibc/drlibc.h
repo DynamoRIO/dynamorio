@@ -80,7 +80,8 @@ void
 clear_icache(void *beg, void *end);
 
 bool
-get_cache_line_size(OUT size_t *dcache_line_size, OUT size_t *icache_line_size);
+get_cache_line_size(DR_PARAM_OUT size_t *dcache_line_size,
+                    DR_PARAM_OUT size_t *icache_line_size);
 #endif
 
 void
@@ -89,7 +90,7 @@ dr_fpu_exception_init(void);
 #ifdef X86
 /* returns the value of mmx register #index in val */
 void
-get_mmx_val(OUT uint64 *val, uint index);
+get_mmx_val(DR_PARAM_OUT uint64 *val, uint index);
 #endif
 
 #ifdef WINDOWS
@@ -134,7 +135,8 @@ typedef struct _script_interpreter_t {
  * executable.
  */
 bool
-find_script_interpreter(OUT script_interpreter_t *result, IN const char *fname,
+find_script_interpreter(DR_PARAM_OUT script_interpreter_t *result,
+                        DR_PARAM_IN const char *fname,
                         ssize_t (*reader)(const char *pathname, void *buf, size_t count));
 
 ptr_int_t

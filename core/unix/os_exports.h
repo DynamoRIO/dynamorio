@@ -601,8 +601,9 @@ at_dl_runtime_resolve_ret(dcontext_t *dcontext, app_pc source_fragment, int *ret
 extern vm_area_vector_t *d_r_rseq_areas;
 
 bool
-rseq_get_region_info(app_pc pc, app_pc *start OUT, app_pc *end OUT, app_pc *handler OUT,
-                     bool **reg_written OUT, int *reg_written_size OUT);
+rseq_get_region_info(app_pc pc, app_pc *start DR_PARAM_OUT, app_pc *end DR_PARAM_OUT,
+                     app_pc *handler DR_PARAM_OUT, bool **reg_written DR_PARAM_OUT,
+                     int *reg_written_size DR_PARAM_OUT);
 
 bool
 rseq_set_final_instr_pc(app_pc start, app_pc final_instr_pc);
@@ -617,7 +618,7 @@ int
 rseq_get_rseq_cs_alignment(void);
 
 byte *
-rseq_get_rseq_cs_alloc(byte **rseq_cs_aligned OUT);
+rseq_get_rseq_cs_alloc(byte **rseq_cs_aligned DR_PARAM_OUT);
 
 /* The first parameter is the value returned by rseq_get_rseq_cs_alloc(). */
 void

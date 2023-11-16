@@ -202,7 +202,7 @@ HandlerRoutine(DWORD dwCtrlType //  control signal type
 
 /* Always null-terminates */
 static bool
-char_to_tchar(const char *str, OUT TCHAR *wbuf, size_t wbuflen /*# elements*/)
+char_to_tchar(const char *str, DR_PARAM_OUT TCHAR *wbuf, size_t wbuflen /*# elements*/)
 {
     int res = MultiByteToWideChar(CP_UTF8, 0 /*=>MB_PRECOMPOSED*/, str, -1 /*null-term*/,
                                   wbuf, (int)wbuflen);
@@ -214,7 +214,7 @@ char_to_tchar(const char *str, OUT TCHAR *wbuf, size_t wbuflen /*# elements*/)
 
 /* Always null-terminates */
 static bool
-tchar_to_char(const TCHAR *wstr, OUT char *buf, size_t buflen /*# elements*/)
+tchar_to_char(const TCHAR *wstr, DR_PARAM_OUT char *buf, size_t buflen /*# elements*/)
 {
     int res = WideCharToMultiByte(CP_UTF8, 0, wstr, -1 /*null-term*/, buf, (int)buflen,
                                   NULL, NULL);
@@ -756,7 +756,8 @@ append_app_arg_and_space(char *buf, size_t bufsz, size_t *sofar, const char *arg
  */
 DYNAMORIO_EXPORT
 int
-dr_inject_process_create(const char *app_name, const char **argv, void **data OUT)
+dr_inject_process_create(const char *app_name, const char **argv,
+                         void **data DR_PARAM_OUT)
 {
     dr_inject_info_t *info = HeapAlloc(GetProcessHeap(), 0, sizeof(*info));
     STARTUPINFO si;
@@ -845,7 +846,8 @@ dr_inject_process_create(const char *app_name, const char **argv, void **data OU
 }
 
 static int
-create_attach_thread(HANDLE process_handle IN, PHANDLE thread_handle OUT, PDWORD tid OUT)
+create_attach_thread(HANDLE process_handle DR_PARAM_IN,
+                     PHANDLE thread_handle DR_PARAM_OUT, PDWORD tid DR_PARAM_OUT)
 {
     uint64 kernel32;
     uint64 sleep_address;
@@ -877,7 +879,8 @@ create_attach_thread(HANDLE process_handle IN, PHANDLE thread_handle OUT, PDWORD
 
 DYNAMORIO_EXPORT
 int
-dr_inject_process_attach(process_id_t pid, void **data OUT, char **app_name OUT)
+dr_inject_process_attach(process_id_t pid, void **data DR_PARAM_OUT,
+                         char **app_name DR_PARAM_OUT)
 {
     dr_inject_info_t *info = HeapAlloc(GetProcessHeap(), 0, sizeof(*info));
     memset(info, 0, sizeof(*info));

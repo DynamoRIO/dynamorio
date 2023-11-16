@@ -438,7 +438,7 @@ instr_is_rep_string_op(instr_t *instr)
 }
 
 bool
-instr_is_floating_type(instr_t *instr, dr_instr_category_t *type OUT)
+instr_is_floating_type(instr_t *instr, dr_instr_category_t *type DR_PARAM_OUT)
 {
     /* FIXME i#1551: NYI */
     CLIENT_ASSERT(false, "NYI");
@@ -446,7 +446,7 @@ instr_is_floating_type(instr_t *instr, dr_instr_category_t *type OUT)
 }
 
 bool
-instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type OUT)
+instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type DR_PARAM_OUT)
 {
     /* FIXME i#1551: NYI */
     CLIENT_ASSERT(false, "NYI");

@@ -111,25 +111,14 @@ bool
 syscall_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 {
     shard_data_t *shard = reinterpret_cast<shard_data_t *>(shard_data);
-    if (memref.marker.type != TRACE_TYPE_MARKER)
+    if (memref.marker.type != TRACE_TYPE_MARKER ||
+        memref.marker.marker_type != TRACE_MARKER_TYPE_SYSCALL)
         return true;
-    switch (memref.marker.marker_type) {
-    case TRACE_MARKER_TYPE_FILETYPE:
-        if (!TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, memref.marker.marker_value)) {
-            shard->error = "Trace does not have TRACE_MARKER_TYPE_SYSCALL markers.";
-            return false;
-        }
-        break;
-    case TRACE_MARKER_TYPE_SYSCALL: {
-        int syscall_num = static_cast<int>(memref.marker.marker_value);
+    int syscall_num = static_cast<int>(memref.marker.marker_value);
 #ifdef X64
-        assert(static_cast<uintptr_t>(syscall_num) == memref.marker.marker_value);
+    assert(static_cast<uintptr_t>(syscall_num) == memref.marker.marker_value);
 #endif
-        ++shard->syscall_counts[syscall_num];
-        break;
-    }
-    default: break;
-    }
+    ++shard->syscall_counts[syscall_num];
     return true;
 }
 

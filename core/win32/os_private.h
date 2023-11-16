@@ -134,7 +134,7 @@ void
 client_thread_target(void *param);
 
 bool
-is_new_thread_client_thread(CONTEXT *cxt, OUT byte **dstack);
+is_new_thread_client_thread(CONTEXT *cxt, DR_PARAM_OUT byte **dstack);
 
 bool
 os_delete_file_w(const wchar_t *file_name, file_t directory_handle);
@@ -150,7 +150,7 @@ void
 thread_attach_setup(priv_mcontext_t *mc);
 
 void
-thread_attach_context_revert(CONTEXT *cxt INOUT);
+thread_attach_context_revert(CONTEXT *cxt DR_PARAM_OUT);
 
 /* in syscall.c *********************************************************/
 
@@ -324,13 +324,13 @@ void
 exit_syscall_trampolines(void);
 
 bool
-os_get_file_size_by_handle(IN HANDLE file_handle, uint64 *end_of_file);
+os_get_file_size_by_handle(DR_PARAM_IN HANDLE file_handle, uint64 *end_of_file);
 bool
-os_set_file_size(IN HANDLE file_handle, uint64 end_of_file);
+os_set_file_size(DR_PARAM_IN HANDLE file_handle, uint64 end_of_file);
 
 /* use os_rename_file() for cross-platform uses */
 bool
-os_rename_file_in_directory(IN HANDLE rootdir, const wchar_t *orig_name,
+os_rename_file_in_directory(DR_PARAM_IN HANDLE rootdir, const wchar_t *orig_name,
                             const wchar_t *new_name, bool replace);
 
 /* in callback.c ***************************************************/
@@ -892,12 +892,14 @@ bool
 section_to_file_remove(HANDLE section_handle);
 
 bool
-module_get_tls_info(app_pc module_base, OUT void ***callbacks, OUT int **index,
-                    OUT byte **data_start, OUT byte **data_end);
+module_get_tls_info(app_pc module_base, DR_PARAM_OUT void ***callbacks,
+                    DR_PARAM_OUT int **index, DR_PARAM_OUT byte **data_start,
+                    DR_PARAM_OUT byte **data_end);
 
 /* in aslr.c */
 const wchar_t *
-get_file_short_name(IN HANDLE file_handle, IN OUT FILE_NAME_INFORMATION *name_info);
+get_file_short_name(DR_PARAM_IN HANDLE file_handle,
+                    DR_PARAM_INOUT FILE_NAME_INFORMATION *name_info);
 
 void
 aslr_set_last_section_file_name(dcontext_t *dcontext, const wchar_t *short_name);
@@ -924,8 +926,8 @@ const PSID
 get_process_primary_SID(void);
 
 bool
-convert_NT_to_Dos_path(OUT wchar_t *buf, IN const wchar_t *fname,
-                       IN size_t buf_len /*# elements*/);
+convert_NT_to_Dos_path(DR_PARAM_OUT wchar_t *buf, DR_PARAM_IN const wchar_t *fname,
+                       DR_PARAM_IN size_t buf_len /*# elements*/);
 
 size_t
 nt_get_context_size(DWORD flags);
@@ -942,18 +944,20 @@ context_ymmh_saved_area(CONTEXT *cxt);
 #ifndef NOT_DYNAMORIO_CORE_PROPER /* b/c of global_heap_* */
 /* always null-terminates when it returns non-NULL */
 wchar_t *
-convert_to_NT_file_path_wide(OUT wchar_t *fixedbuf, IN const wchar_t *fname,
-                             IN size_t fixedbuf_len /*# elements*/,
-                             OUT size_t *allocbuf_sz /*#bytes*/);
+convert_to_NT_file_path_wide(DR_PARAM_OUT wchar_t *fixedbuf,
+                             DR_PARAM_IN const wchar_t *fname,
+                             DR_PARAM_IN size_t fixedbuf_len /*# elements*/,
+                             DR_PARAM_OUT size_t *allocbuf_sz /*#bytes*/);
 
 void
-convert_to_NT_file_path_wide_free(IN wchar_t *alloc, IN size_t alloc_buf_sz /*#bytes*/);
+convert_to_NT_file_path_wide_free(DR_PARAM_IN wchar_t *alloc,
+                                  DR_PARAM_IN size_t alloc_buf_sz /*#bytes*/);
 #endif
 
 /* always null-terminates when it returns true */
 bool
-convert_to_NT_file_path(OUT wchar_t *buf, IN const char *fname,
-                        IN size_t buf_len /*# elements*/);
+convert_to_NT_file_path(DR_PARAM_OUT wchar_t *buf, DR_PARAM_IN const char *fname,
+                        DR_PARAM_IN size_t buf_len /*# elements*/);
 
 /* in loader.c */
 
@@ -970,6 +974,6 @@ set_ntdll_base(app_pc base);
 
 /* in diagnost.c */
 byte *
-get_system_processes(OUT uint *info_bytes_needed);
+get_system_processes(DR_PARAM_OUT uint *info_bytes_needed);
 
 #endif /* _OS_PRIVATE_H_ */

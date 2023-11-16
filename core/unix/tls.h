@@ -357,10 +357,11 @@ tls_set_fs_gs_segment_base(tls_type_t tls_type, uint seg,
                            byte *base, our_modify_ldt_t *desc);
 
 void
-tls_init_descriptor(our_modify_ldt_t *desc OUT, void *base, size_t size, uint index);
+tls_init_descriptor(our_modify_ldt_t *desc DR_PARAM_OUT, void *base, size_t size,
+                    uint index);
 
 bool
-tls_get_descriptor(int index, our_modify_ldt_t *desc OUT);
+tls_get_descriptor(int index, our_modify_ldt_t *desc DR_PARAM_OUT);
 
 bool
 tls_clear_descriptor(int index);

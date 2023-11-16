@@ -51,9 +51,9 @@
 
 /* OpenSSL and GnuTLS - shared wrappers */
 static void
-wrap_pre_SSL_write(void *wrapcxt, OUT void **user_data);
+wrap_pre_SSL_write(void *wrapcxt, DR_PARAM_OUT void **user_data);
 static void
-wrap_pre_SSL_read(void *wrapcxt, OUT void **user_data);
+wrap_pre_SSL_read(void *wrapcxt, DR_PARAM_OUT void **user_data);
 static void
 wrap_post_SSL_read(void *wrapcxt, void *user_data);
 
@@ -128,7 +128,7 @@ dr_init(client_id_t id)
 }
 
 static void
-wrap_pre_SSL_write(void *wrapcxt, OUT void **user_data)
+wrap_pre_SSL_write(void *wrapcxt, DR_PARAM_OUT void **user_data)
 {
     /* int SSL_write(SSL *ssl, const void *buf, int num);
      *
@@ -161,7 +161,7 @@ wrap_pre_SSL_write(void *wrapcxt, OUT void **user_data)
 }
 
 static void
-wrap_pre_SSL_read(void *wrapcxt, OUT void **user_data)
+wrap_pre_SSL_read(void *wrapcxt, DR_PARAM_OUT void **user_data)
 {
     struct SSL_read_data *sd;
 

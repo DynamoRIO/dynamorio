@@ -200,13 +200,13 @@
 #    define ELF_R_TYPE ELF64_R_TYPE
 #    define ELF_R_SYM ELF64_R_SYM
 /* relocation type */
-#    define ELF_R_NONE R_RISCV_NONE               /* No relocation. */
-#    define ELF_R_DIRECT R_RISCV_64               /* Direct 64 bit. */
-#    define ELF_R_COPY R_RISCV_COPY               /* Copy symbol at runtime. */
+#    define ELF_R_NONE R_RISCV_NONE           /* No relocation. */
+#    define ELF_R_DIRECT R_RISCV_64           /* Direct 64 bit. */
+#    define ELF_R_COPY R_RISCV_COPY           /* Copy symbol at runtime. */
 /* FIXME i#3544: GOT and direct 64 bit both use R_RISCV_64. */
-#    define ELF_R_GLOB_DAT R_RISCV_64             /* Create GOT entry. */
-#    define ELF_R_JUMP_SLOT R_RISCV_JUMP_SLOT     /* Create PLT entry. */
-#    define ELF_R_RELATIVE R_RISCV_RELATIVE       /* Adjust by program base. */
+#    define ELF_R_GLOB_DAT R_RISCV_64         /* Create GOT entry. */
+#    define ELF_R_JUMP_SLOT R_RISCV_JUMP_SLOT /* Create PLT entry. */
+#    define ELF_R_RELATIVE R_RISCV_RELATIVE   /* Adjust by program base. */
 /* FIXME i#3544: R_RISCV_IRELATIVE was added after libc 2.31 and some distros
  * don't have it yet (i.e. Ubuntu 20.04). The official number has been defined
  * here: https://github.com/riscv/riscv-elf-psabi-doc/commit/d21ca40a.
@@ -240,13 +240,15 @@ is_elf_partial_map(app_pc base, size_t size, uint memprot);
 
 app_pc
 module_vaddr_from_prog_header(app_pc prog_header, uint num_segments,
-                              OUT app_pc *first_end, /* first segment's end */
-                              OUT app_pc *max_end);
+                              DR_PARAM_OUT app_pc *first_end, /* first segment's end */
+                              DR_PARAM_OUT app_pc *max_end);
 
 bool
-module_read_program_header(app_pc base, uint segment_num, OUT app_pc *segment_base,
-                           OUT app_pc *segment_end, OUT uint *segment_prot,
-                           OUT size_t *segment_align);
+module_read_program_header(app_pc base, uint segment_num,
+                           DR_PARAM_OUT app_pc *segment_base,
+                           DR_PARAM_OUT app_pc *segment_end,
+                           DR_PARAM_OUT uint *segment_prot,
+                           DR_PARAM_OUT size_t *segment_align);
 
 ELF_ADDR
 module_get_section_with_name(app_pc image, size_t img_size, const char *sec_name);
@@ -264,11 +266,12 @@ module_relocate_relr(app_pc modbase, os_privmod_data_t *pd, const ELF_WORD *relr
                      size_t size);
 
 bool
-module_get_relro(app_pc base, OUT app_pc *relro_base, OUT size_t *relro_size);
+module_get_relro(app_pc base, DR_PARAM_OUT app_pc *relro_base,
+                 DR_PARAM_OUT size_t *relro_size);
 
 bool
-module_read_os_data(app_pc base, bool dyn_reloc, OUT ptr_int_t *delta,
-                    OUT os_module_data_t *os_data, OUT char **soname);
+module_read_os_data(app_pc base, bool dyn_reloc, DR_PARAM_OUT ptr_int_t *delta,
+                    DR_PARAM_OUT os_module_data_t *os_data, DR_PARAM_OUT char **soname);
 
 uint
 module_segment_prot_to_osprot(ELF_PROGRAM_HEADER_TYPE *prog_hdr);
@@ -295,7 +298,7 @@ typedef struct elf_loader_t {
     byte buf[sizeof(ELF_HEADER_TYPE) + sizeof(ELF_PROGRAM_HEADER_TYPE) * 12];
 } elf_loader_t;
 
-typedef byte *(*map_fn_t)(file_t f, size_t *size INOUT, uint64 offs, app_pc addr,
+typedef byte *(*map_fn_t)(file_t f, size_t *size DR_PARAM_INOUT, uint64 offs, app_pc addr,
                           uint prot /*MEMPROT_*/, map_flags_t map_flags);
 typedef bool (*unmap_fn_t)(byte *map, size_t size);
 typedef bool (*prot_fn_t)(byte *map, size_t size, uint prot /*MEMPROT_*/);

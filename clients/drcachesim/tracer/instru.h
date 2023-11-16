@@ -304,7 +304,7 @@ public:
     virtual void
     insert_obtain_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
                        reg_id_t reg_addr, reg_id_t reg_scratch, opnd_t ref,
-                       OUT bool *scratch_used = NULL);
+                       DR_PARAM_OUT bool *scratch_used = NULL);
 
 protected:
     void (*insert_load_buf_ptr_)(void *, instrlist_t *, instr_t *, reg_id_t);
@@ -433,7 +433,7 @@ public:
     set_entry_addr(byte *buf_ptr, addr_t addr) override;
 
     uint64_t
-    get_modoffs(void *drcontext, app_pc pc, OUT uint *modidx);
+    get_modoffs(void *drcontext, app_pc pc, DR_PARAM_OUT uint *modidx);
 
     int
     append_pid(byte *buf_ptr, process_id_t pid) override;
@@ -492,15 +492,16 @@ public:
     opnd_disp_is_elidable(opnd_t memop);
     // "version" is an OFFLINE_FILE_VERSION* constant.
     bool
-    opnd_is_elidable(opnd_t memop, OUT reg_id_t &base, int version);
+    opnd_is_elidable(opnd_t memop, DR_PARAM_OUT reg_id_t &base, int version);
     // Inserts labels marking elidable addresses. label_marks_elidable() identifies them.
     // "version" is an OFFLINE_FILE_VERSION* constant.
     void
     identify_elidable_addresses(void *drcontext, instrlist_t *ilist, int version,
                                 bool memref_needs_full_info);
     bool
-    label_marks_elidable(instr_t *instr, OUT int *opnd_index, OUT int *memopnd_index,
-                         OUT bool *is_write, OUT bool *needs_base);
+    label_marks_elidable(instr_t *instr, DR_PARAM_OUT int *opnd_index,
+                         DR_PARAM_OUT int *memopnd_index, DR_PARAM_OUT bool *is_write,
+                         DR_PARAM_OUT bool *needs_base);
     static int
     print_module_data_fields(char *dst, size_t max_len, const void *custom_data,
                              size_t custom_size,

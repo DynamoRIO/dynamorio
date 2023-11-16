@@ -1984,7 +1984,7 @@ handle_clone(dcontext_t *dcontext, uint64 flags)
  */
 bool
 handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
-                 prev_sigaction_t *oact, size_t sigsetsize, OUT uint *result)
+                 prev_sigaction_t *oact, size_t sigsetsize, DR_PARAM_OUT uint *result)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     kernel_sigaction_t *save;
@@ -2224,7 +2224,7 @@ convert_kernel_sigaction_to_old(dcontext_t *dcontext, old_sigaction_t *os,
 /* Returns false (and "result") if should NOT issue syscall. */
 bool
 handle_old_sigaction(dcontext_t *dcontext, int sig, const old_sigaction_t *act,
-                     old_sigaction_t *oact, OUT uint *result)
+                     old_sigaction_t *oact, DR_PARAM_OUT uint *result)
 {
     kernel_sigaction_t kact;
     kernel_sigaction_t okact;
@@ -2278,7 +2278,7 @@ handle_post_old_sigaction(dcontext_t *dcontext, bool success, int sig,
  */
 bool
 handle_sigaltstack(dcontext_t *dcontext, const stack_t *stack, stack_t *old_stack,
-                   reg_t cur_xsp, OUT uint *result)
+                   reg_t cur_xsp, DR_PARAM_OUT uint *result)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     stack_t local_stack;
@@ -7415,9 +7415,9 @@ is_signal_restorer_code(byte *pc, size_t *len)
     /* optimized we only need two uint reads, but we have to do
      * some little-endian byte-order reverses to get the right result
      */
-#define reverse(x)                                                      \
-    ((((x)&0xff) << 24) | (((x)&0xff00) << 8) | (((x)&0xff0000) >> 8) | \
-     (((x)&0xff000000) >> 24))
+#define reverse(x)                                                            \
+    ((((x) & 0xff) << 24) | (((x) & 0xff00) << 8) | (((x) & 0xff0000) >> 8) | \
+     (((x) & 0xff000000) >> 24))
 #ifdef MACOS
 #    define SYS_RT_SIGRET SYS_sigreturn
 #else

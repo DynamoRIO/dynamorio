@@ -379,7 +379,8 @@ DR_EXPORT
  * \return whether successful.
  */
 bool
-drwrap_wrap(app_pc func, void (*pre_func_cb)(void *wrapcxt, OUT void **user_data),
+drwrap_wrap(app_pc func,
+            void (*pre_func_cb)(void *wrapcxt, DR_PARAM_OUT void **user_data),
             void (*post_func_cb)(void *wrapcxt, void *user_data));
 
 /**
@@ -501,7 +502,8 @@ DR_EXPORT
  * processing a registered event callback or cache callout.
  */
 bool
-drwrap_wrap_ex(app_pc func, void (*pre_func_cb)(void *wrapcxt, INOUT void **user_data),
+drwrap_wrap_ex(app_pc func,
+               void (*pre_func_cb)(void *wrapcxt, DR_PARAM_INOUT void **user_data),
                void (*post_func_cb)(void *wrapcxt, void *user_data), void *user_data,
                uint flags);
 
@@ -516,7 +518,8 @@ DR_EXPORT
  * \return whether successful.
  */
 bool
-drwrap_unwrap(app_pc func, void (*pre_func_cb)(void *wrapcxt, OUT void **user_data),
+drwrap_unwrap(app_pc func,
+              void (*pre_func_cb)(void *wrapcxt, DR_PARAM_OUT void **user_data),
               void (*post_func_cb)(void *wrapcxt, void *user_data));
 
 DR_EXPORT
@@ -850,7 +853,8 @@ DR_EXPORT
  * and \p post_func_cb.
  */
 bool
-drwrap_is_wrapped(app_pc func, void (*pre_func_cb)(void *wrapcxt, OUT void **user_data),
+drwrap_is_wrapped(app_pc func,
+                  void (*pre_func_cb)(void *wrapcxt, DR_PARAM_OUT void **user_data),
                   void (*post_func_cb)(void *wrapcxt, void *user_data));
 
 DR_EXPORT
@@ -887,7 +891,7 @@ DR_EXPORT
  * Returns false if stats are not enabled.
  */
 bool
-drwrap_get_stats(INOUT drwrap_stats_t *stats);
+drwrap_get_stats(DR_PARAM_OUT drwrap_stats_t *stats);
 
 DR_EXPORT
 /**
@@ -899,7 +903,7 @@ DR_EXPORT
  * address sentinel.
  */
 void
-drwrap_get_retaddr_if_sentinel(void *drcontext, INOUT app_pc *possibly_sentinel);
+drwrap_get_retaddr_if_sentinel(void *drcontext, DR_PARAM_INOUT app_pc *possibly_sentinel);
 
 /**@}*/ /* end doxygen group */
 

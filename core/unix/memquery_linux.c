@@ -332,7 +332,8 @@ memquery_library_bounds(const char *name, app_pc *start /*IN/OUT*/, app_pc *end 
  */
 
 bool
-memquery_from_os(const byte *pc, OUT dr_mem_info_t *info, OUT bool *have_type)
+memquery_from_os(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info,
+                 DR_PARAM_OUT bool *have_type)
 {
     memquery_iter_t iter;
     app_pc last_end = NULL;

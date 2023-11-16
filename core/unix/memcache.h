@@ -60,7 +60,7 @@ bool
 memcache_remove(app_pc start, app_pc end);
 
 bool
-memcache_query_memory(const byte *pc, OUT dr_mem_info_t *out_info);
+memcache_query_memory(const byte *pc, DR_PARAM_OUT dr_mem_info_t *out_info);
 
 #if defined(DEBUG) && defined(INTERNAL)
 void

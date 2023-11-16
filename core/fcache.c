@@ -1203,7 +1203,7 @@ fcache_fragment_pclookup(dcontext_t *dcontext, cache_pc lookup_pc, fragment_t *w
 /* This is safe to call from a signal handler. */
 dr_where_am_i_t
 fcache_refine_whereami(dcontext_t *dcontext, dr_where_am_i_t whereami, app_pc pc,
-                       OUT fragment_t **containing_fragment)
+                       DR_PARAM_OUT fragment_t **containing_fragment)
 {
     if (whereami != DR_WHERE_FCACHE) {
         if (containing_fragment != NULL)

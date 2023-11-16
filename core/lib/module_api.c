@@ -458,8 +458,8 @@ dr_get_proc_address(module_handle_t lib, const char *name)
 
 DR_API
 bool
-dr_get_proc_address_ex(module_handle_t lib, const char *name, dr_export_info_t *info OUT,
-                       size_t info_len)
+dr_get_proc_address_ex(module_handle_t lib, const char *name,
+                       dr_export_info_t *info DR_PARAM_OUT, size_t info_len)
 {
     /* If we add new fields we'll check various values of info_len */
     if (info == NULL || info_len < sizeof(*info))

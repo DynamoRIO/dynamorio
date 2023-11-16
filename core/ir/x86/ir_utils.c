@@ -60,7 +60,7 @@
 void
 insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                       ptr_int_t val, opnd_t dst, instrlist_t *ilist, instr_t *instr,
-                      OUT instr_t **first, OUT instr_t **last)
+                      DR_PARAM_OUT instr_t **first, DR_PARAM_OUT instr_t **last)
 {
     instr_t *mov1, *mov2;
     if (src_inst != NULL)
@@ -132,7 +132,7 @@ insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_esti
 void
 insert_push_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                        ptr_int_t val, instrlist_t *ilist, instr_t *instr,
-                       OUT instr_t **first, OUT instr_t **last)
+                       DR_PARAM_OUT instr_t **first, DR_PARAM_OUT instr_t **last)
 {
     instr_t *push, *mov;
     if (src_inst != NULL)

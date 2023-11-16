@@ -402,8 +402,8 @@ drsym_obj_symbol_name(void *mod_in, uint idx)
 }
 
 drsym_error_t
-drsym_obj_symbol_offs(void *mod_in, uint idx, size_t *offs_start OUT,
-                      size_t *offs_end OUT)
+drsym_obj_symbol_offs(void *mod_in, uint idx, size_t *offs_start DR_PARAM_OUT,
+                      size_t *offs_end DR_PARAM_OUT)
 {
     elf_info_t *mod = (elf_info_t *)mod_in;
     if (offs_start == NULL || mod == NULL || idx >= mod->num_syms || mod->syms == NULL)
@@ -433,7 +433,7 @@ drsym_obj_symbol_offs(void *mod_in, uint idx, size_t *offs_start OUT,
 }
 
 drsym_error_t
-drsym_obj_addrsearch_symtab(void *mod_in, size_t modoffs, uint *idx OUT)
+drsym_obj_addrsearch_symtab(void *mod_in, size_t modoffs, uint *idx DR_PARAM_OUT)
 {
     elf_info_t *mod = (elf_info_t *)mod_in;
     int i;

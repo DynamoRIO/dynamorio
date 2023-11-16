@@ -2048,9 +2048,9 @@ vmvector_lookup_data(vm_area_vector_t *v, app_pc pc, app_pc *start /* OUT */,
  * should this routine do both to avoid an extra binary search?
  */
 bool
-vmvector_lookup_prev_next(vm_area_vector_t *v, app_pc pc, OUT app_pc *prev_start,
-                          OUT app_pc *prev_end, OUT app_pc *next_start,
-                          OUT app_pc *next_end)
+vmvector_lookup_prev_next(vm_area_vector_t *v, app_pc pc, DR_PARAM_OUT app_pc *prev_start,
+                          DR_PARAM_OUT app_pc *prev_end, DR_PARAM_OUT app_pc *next_start,
+                          DR_PARAM_OUT app_pc *next_end)
 {
     bool success;
     int index;
@@ -2630,8 +2630,9 @@ add_executable_vm_area_helper(app_pc start, app_pc end, uint vm_flags, uint frag
 }
 
 static coarse_info_t *
-vm_area_load_coarse_unit(app_pc *start INOUT, app_pc *end INOUT, uint vm_flags,
-                         uint frag_flags, bool delayed _IF_DEBUG(const char *comment))
+vm_area_load_coarse_unit(app_pc *start DR_PARAM_INOUT, app_pc *end DR_PARAM_INOUT,
+                         uint vm_flags, uint frag_flags,
+                         bool delayed _IF_DEBUG(const char *comment))
 {
     coarse_info_t *info;
     /* We load persisted cache files at mmap time primarily for RCT
