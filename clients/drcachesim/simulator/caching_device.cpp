@@ -355,7 +355,7 @@ caching_device_t::contains_tag(addr_t tag)
 //      * the miss request gets propagated to parent as normal.
 //      * if cache is snooped, update snoop filter for the new line.
 //      * if the new line evicts an old line:
-//        * if cache in inclusive, invalidate evicted line from all children.
+//        * if cache is inclusive, invalidate evicted line from all children.
 //        * if coherent and no children have a copy of the evicted line:
 //          * propagate eviction upstream to snoop filter via
 //            propagate_eviction().

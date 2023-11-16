@@ -247,8 +247,6 @@ protected:
 
     int64_t num_inclusive_invalidates_;
     int64_t num_coherence_invalidates_;
-    // TODO: Hmm, maybe ought to combine inclusive and exclusive invalidation
-    // counters since they're exclusive.
     int64_t num_exclusive_invalidates_;
 
     // Stats saved when the last reset was called. This helps us get insight
