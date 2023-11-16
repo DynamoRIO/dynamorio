@@ -748,6 +748,9 @@ add_subdirectory(tools/external)
 # We build larger executables here.  All tests are added in suite/tests/ except unit tests.
 # Be sure to give the targets qualified test names ("tool.drcache*...").
 
+# XXX: Try to add a macro add_drcachesim_test() to share common pieces
+# of these executables.
+
 if (BUILD_TESTS)
   add_executable(tool.reuse_distance.unit_tests tests/reuse_distance_test.cpp)
   target_link_libraries(tool.reuse_distance.unit_tests drmemtrace_reuse_distance

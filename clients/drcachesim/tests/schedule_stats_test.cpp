@@ -79,6 +79,11 @@ run_schedule_stats(const std::vector<std::vector<memref_t>> &memrefs,
         {
             return input_id_;
         }
+        memtrace_stream_t *
+        get_input_interface() const override
+        {
+            return const_cast<mock_stream_t *>(this);
+        }
 
     private:
         int64_t input_id_ = 0;

@@ -140,7 +140,7 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
     static constexpr char THREAD_SEPARATOR = ',';
     static constexpr char WAIT_SYMBOL = '-';
     per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
-    if (knob_verbose_ >= 4 && shard->stream->get_input_interface() != nullptr) {
+    if (knob_verbose_ >= 4) {
         std::ostringstream line;
         line << "Core #" << std::setw(2) << shard->core << " @" << std::setw(9)
              << shard->stream->get_record_ordinal() << " refs, " << std::setw(9)
@@ -179,7 +179,7 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
         // We convert to letters which only works well for <=26 inputs.
         if (!shard->thread_sequence.empty()) {
             ++shard->counters.total_switches;
-            if (shard->saw_maybe_blocking || shard->saw_exit)
+            if (shard->saw_syscall || shard->saw_exit)
                 ++shard->counters.voluntary_switches;
             if (shard->direct_switch_target == memref.marker.tid)
                 ++shard->counters.direct_switches;
@@ -190,7 +190,7 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
         }
         shard->thread_sequence += THREAD_LETTER_START + static_cast<char>(input % 26);
         shard->cur_segment_instrs = 0;
-        if (knob_verbose_ >= 2 && shard->stream->get_input_interface() != nullptr) {
+        if (knob_verbose_ >= 2) {
             std::ostringstream line;
             line << "Core #" << std::setw(2) << shard->core << " @" << std::setw(9)
                  << shard->stream->get_record_ordinal() << " refs, " << std::setw(9)
@@ -217,7 +217,7 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
             shard->cur_segment_instrs = 0;
         }
         shard->direct_switch_target = INVALID_THREAD_ID;
-        shard->saw_maybe_blocking = false;
+        shard->saw_syscall = false;
         shard->saw_exit = false;
     }
     if (memref.instr.tid != INVALID_THREAD_ID)
@@ -225,15 +225,12 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
     if (memref.marker.type == TRACE_TYPE_MARKER) {
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL) {
             ++shard->counters.syscalls;
-            // The scheduler will block on a long-enough-latency non-marked
-            // syscall, so we label all to get the right % voluntary.
-            shard->saw_maybe_blocking = true;
-        }
-        if (memref.marker.marker_type == TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL) {
+            shard->saw_syscall = true;
+        } else if (memref.marker.marker_type ==
+                   TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL) {
             ++shard->counters.maybe_blocking_syscalls;
-            shard->saw_maybe_blocking = true;
-        }
-        if (memref.marker.marker_type == TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH) {
+            shard->saw_syscall = true;
+        } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH) {
             ++shard->counters.direct_switch_requests;
             shard->direct_switch_target = memref.marker.marker_value;
         }

@@ -981,7 +981,7 @@ protected:
         uint64_t queue_counter = 0;
         // Used to switch on the instruction *after* a long-latency syscall.
         bool processing_syscall = false;
-        bool processing_blocking_syscall = false;
+        bool processing_maybe_blocking_syscall = false;
         uint64_t pre_syscall_timestamp = 0;
         // Use for special kernel features where one thread specifies a target
         // thread to replace it.
@@ -1293,7 +1293,7 @@ protected:
 
     // The input's lock must be held by the caller.
     bool
-    treat_syscall_as_blocking(input_info_t *input);
+    syscall_incurs_switch(input_info_t *input);
 
     // sched_lock_ must be held by the caller.
     // "for_output" is which output stream is looking for a new input; only an
