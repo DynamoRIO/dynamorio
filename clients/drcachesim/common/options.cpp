@@ -838,6 +838,18 @@ droption_t<bool> op_sched_order_time(DROPTION_SCOPE_ALL, "sched_order_time", tru
                                      "Applies to -core_sharded and -core_serial. "
                                      "Whether to honor recorded timestamps for ordering");
 
+droption_t<uint64_t> op_sched_syscall_switch_us(
+    DROPTION_SCOPE_ALL, "sched_syscall_switch_us", 500,
+    "Minimum latency to consider any syscall blocking.",
+    "Minimum latency in timestamp units (us) to consider any syscall blocking. "
+    "Applies to -core_sharded and -core_serial. ");
+
+droption_t<uint64_t> op_sched_blocking_switch_us(
+    DROPTION_SCOPE_ALL, "sched_blocking_switch_us", 100,
+    "Minimum latency to consider a maybe-blocking syscall blocking.",
+    "Minimum latency in timestamp units (us) to consider any syscall that is marked as "
+    "maybe-blocking to be blocking. Applies to -core_sharded and -core_serial. ");
+
 #ifdef HAS_ZIP
 droption_t<std::string> op_record_file(DROPTION_SCOPE_FRONTEND, "record_file", "",
                                        "Path for storing record of schedule",

@@ -1565,6 +1565,21 @@ scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue(
 }
 
 template <typename RecordType, typename ReaderType>
+bool
+scheduler_tmpl_t<RecordType, ReaderType>::treat_syscall_as_blocking(input_info_t *input)
+{
+    uint64_t post_time = input->reader->get_last_timestamp();
+    assert(input->processing_syscall);
+    assert(input->pre_syscall_timestamp > 0);
+    assert(input->pre_syscall_timestamp < post_time);
+    uint64_t latency = post_time - input->pre_syscall_timestamp;
+    VPRINT(this, 3, "input %d syscall latency: %" PRIu64 "\n", input->index, latency);
+    return (input->processing_blocking_syscall &&
+            latency >= options_.blocking_switch_threshold) ||
+        latency >= options_.syscall_switch_threshold;
+}
+
+template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::set_cur_input(output_ordinal_t output,
                                                         input_ordinal_t input)
@@ -2006,7 +2021,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
         } else if (options_.mapping == MAP_TO_ANY_OUTPUT) {
             trace_marker_type_t marker_type;
             uintptr_t marker_value;
-            if (input->processing_blocking_syscall) {
+            if (input->processing_syscall) {
                 // Wait until we're past all the markers associated with the syscall.
                 // XXX: We may prefer to stop before the return value marker for futex,
                 // or a kernel xfer marker, but our recorded format is on instr
@@ -2025,16 +2040,28 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                         input->switch_to_input = it->second;
                     }
                 } else if (record_type_is_instr(record)) {
-                    // Assume it will block and we should switch to a different input.
-                    need_new_input = true;
-                    in_wait_state = true;
+                    if (treat_syscall_as_blocking(input)) {
+                        // Model as blocking and should switch to a different input.
+                        need_new_input = true;
+                        in_wait_state = true;
+                        VPRINT(this, 3,
+                               "next_record[%d]: hit blocking syscall in input %d\n",
+                               output, input->index);
+                    }
+                    input->processing_syscall = false;
                     input->processing_blocking_syscall = false;
-                    VPRINT(this, 3, "next_record[%d]: hit blocking syscall in input %d\n",
-                           output, input->index);
+                    input->pre_syscall_timestamp = 0;
                 }
+            } else if (record_type_is_marker(record, marker_type, marker_value) &&
+                       marker_type == TRACE_MARKER_TYPE_SYSCALL) {
+                input->processing_syscall = true;
+                input->pre_syscall_timestamp = input->reader->get_last_timestamp();
             } else if (record_type_is_marker(record, marker_type, marker_value) &&
                        marker_type == TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL) {
                 input->processing_blocking_syscall = true;
+                // We should have just seen a syscall marker.
+                assert(input->pre_syscall_timestamp ==
+                       input->reader->get_last_timestamp());
             } else if (options_.quantum_unit == QUANTUM_INSTRUCTIONS &&
                        record_type_is_instr(record)) {
                 ++input->instrs_in_quantum;

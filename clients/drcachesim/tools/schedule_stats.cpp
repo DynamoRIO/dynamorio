@@ -140,7 +140,7 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
     static constexpr char THREAD_SEPARATOR = ',';
     static constexpr char WAIT_SYMBOL = '-';
     per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
-    if (knob_verbose_ >= 4) {
+    if (knob_verbose_ >= 4 && shard->stream->get_input_interface() != nullptr) {
         std::ostringstream line;
         line << "Core #" << std::setw(2) << shard->core << " @" << std::setw(9)
              << shard->stream->get_record_ordinal() << " refs, " << std::setw(9)
@@ -190,7 +190,7 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
         }
         shard->thread_sequence += THREAD_LETTER_START + static_cast<char>(input % 26);
         shard->cur_segment_instrs = 0;
-        if (knob_verbose_ >= 2) {
+        if (knob_verbose_ >= 2 && shard->stream->get_input_interface() != nullptr) {
             std::ostringstream line;
             line << "Core #" << std::setw(2) << shard->core << " @" << std::setw(9)
                  << shard->stream->get_record_ordinal() << " refs, " << std::setw(9)
@@ -223,8 +223,12 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
     if (memref.instr.tid != INVALID_THREAD_ID)
         shard->counters.threads.insert(memref.instr.tid);
     if (memref.marker.type == TRACE_TYPE_MARKER) {
-        if (memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL)
+        if (memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL) {
             ++shard->counters.syscalls;
+            // The scheduler will block on a long-enough-latency non-marked
+            // syscall, so we label all to get the right % voluntary.
+            shard->saw_maybe_blocking = true;
+        }
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL) {
             ++shard->counters.maybe_blocking_syscalls;
             shard->saw_maybe_blocking = true;
@@ -294,6 +298,16 @@ schedule_stats_t::print_results()
                   << " schedule: " << shard.second->thread_sequence << "\n";
     }
     return true;
+}
+
+schedule_stats_t::counters_t
+schedule_stats_t::get_total_counts()
+{
+    counters_t total;
+    for (const auto &shard : shard_map_) {
+        total += shard.second->counters;
+    }
+    return total;
 }
 
 } // namespace drmemtrace

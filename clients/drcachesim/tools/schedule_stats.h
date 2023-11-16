@@ -51,7 +51,7 @@ namespace drmemtrace {
 
 class schedule_stats_t : public analysis_tool_t {
 public:
-    schedule_stats_t(uint64_t print_every, unsigned int verbose);
+    schedule_stats_t(uint64_t print_every, unsigned int verbose = 0);
     ~schedule_stats_t() override;
     std::string
     initialize_stream(memtrace_stream_t *serial_stream) override;
