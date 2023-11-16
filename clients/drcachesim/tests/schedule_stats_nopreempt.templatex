@@ -29,7 +29,7 @@ Core #0 counts:
            0 direct switch requests
            0 waits
 Core #1 counts:
-           2 threads
+           . threads
       *[0-9]* instructions
            . total context switches
    0.0[0-9.]* CSPKI \(context switches per 1000 instructions\)
@@ -38,35 +38,35 @@ Core #1 counts:
            0 direct context switches
       100.00% voluntary switches
         0.00% direct switches
-          .. system calls
+         *[0-9]* system calls
            . maybe-blocking system calls
            0 direct switch requests
            0 waits
 Core #2 counts:
-           2 threads
+           . threads
       *[0-9]* instructions
-           1 total context switches
+           . total context switches
    0.0[0-9.]* CSPKI \(context switches per 1000 instructions\)
       *[0-9]* instructions per context switch
-           1 voluntary context switches
+           . voluntary context switches
            0 direct context switches
       100.00% voluntary switches
         0.00% direct switches
-          .. system calls
+         *[0-9]* system calls
            . maybe-blocking system calls
            0 direct switch requests
            0 waits
 Core #3 counts:
-           2 threads
+           . threads
       *[0-9]* instructions
-           1 total context switches
+           . total context switches
    0.0[0-9.]* CSPKI \(context switches per 1000 instructions\)
       *[0-9]* instructions per context switch
-           1 voluntary context switches
+           . voluntary context switches
            0 direct context switches
       100.00% voluntary switches
         0.00% direct switches
-          .. system calls
+         *[0-9]* system calls
            . maybe-blocking system calls
            0 direct switch requests
            0 waits

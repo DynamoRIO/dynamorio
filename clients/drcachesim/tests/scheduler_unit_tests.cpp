@@ -1577,11 +1577,12 @@ test_synthetic_with_syscalls_precise()
         make_version(TRACE_ENTRY_VERSION),
         make_timestamp(20),
         make_instr(10),
+        make_timestamp(120),
         make_marker(TRACE_MARKER_TYPE_SYSCALL, SYSNUM),
         make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
         make_marker(TRACE_MARKER_TYPE_FUNC_ID, 100),
         make_marker(TRACE_MARKER_TYPE_FUNC_ARG, 42),
-        make_timestamp(50),
+        make_timestamp(250),
         make_marker(TRACE_MARKER_TYPE_CPU_ID, 1),
         make_marker(TRACE_MARKER_TYPE_FUNC_ID, 100),
         make_marker(TRACE_MARKER_TYPE_FUNC_RETVAL, 0),
@@ -1631,6 +1632,7 @@ test_synthetic_with_syscalls_precise()
         check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
         check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
         check_ref(refs, idx, TID_A, TRACE_TYPE_INSTR) &&
+        check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
         check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL) &&
         check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER,
                   TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL) &&
