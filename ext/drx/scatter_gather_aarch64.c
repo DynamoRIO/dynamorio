@@ -434,8 +434,9 @@ expand_scatter_gather(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
         opnd_size_in_bytes(sg_info->scalar_value_size);
 
     for (uint reg_index = 0; reg_index < sg_info->reg_count; reg_index++) {
-        const reg_id_t vector_dst =
-            (((sg_info->gather_dst_reg - DR_REG_Z0) + reg_index) % 32) + DR_REG_Z0;
+        const reg_id_t vector_dst = (((sg_info->gather_dst_reg - DR_REG_Z0) + reg_index) %
+                                     DR_NUM_SIMD_VECTOR_REGS) +
+            DR_REG_Z0;
         if (sg_info->is_load) {
             /* First we deal with the inactive elements. Gather loads are always zeroing
              * so we need to set all inactive elements to 0.
@@ -513,7 +514,8 @@ expand_scatter_gather(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
             if (sg_info->is_load) {
                 const reg_id_t scalar_dst = scalar_src_or_dst;
                 const reg_id_t vector_dst =
-                    (((sg_info->gather_dst_reg - DR_REG_Z0) + reg_index) % 32) +
+                    (((sg_info->gather_dst_reg - DR_REG_Z0) + reg_index) %
+                     DR_NUM_SIMD_VECTOR_REGS) +
                     DR_REG_Z0;
 
                 /* ldr[bh]  scalar_dst, [mem] */
@@ -532,7 +534,8 @@ expand_scatter_gather(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
             } else {
                 const reg_id_t scalar_src = scalar_src_or_dst;
                 const reg_id_t vector_src =
-                    (((sg_info->scatter_src_reg - DR_REG_Z0) + reg_index) % 32) +
+                    (((sg_info->scatter_src_reg - DR_REG_Z0) + reg_index) %
+                     DR_NUM_SIMD_VECTOR_REGS) +
                     DR_REG_Z0;
 
                 /* lastb    scalar_src, scratch_pred, vector_src.element_size */
