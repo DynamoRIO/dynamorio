@@ -1569,11 +1569,17 @@ bool
 scheduler_tmpl_t<RecordType, ReaderType>::treat_syscall_as_blocking(input_info_t *input)
 {
     uint64_t post_time = input->reader->get_last_timestamp();
-    assert(input->processing_syscall);
+    assert(input->processing_syscall || input->processing_blocking_syscall);
+    if (input->reader->get_version() < TRACE_ENTRY_VERSION_FREQUENT_TIMESTAMPS) {
+        // This is a legacy trace that does not have timestamps bracketing syscalls.
+        // We switch on every maybe-blocking syscall in this case.
+        return input->processing_blocking_syscall;
+    }
     assert(input->pre_syscall_timestamp > 0);
     assert(input->pre_syscall_timestamp < post_time);
     uint64_t latency = post_time - input->pre_syscall_timestamp;
-    VPRINT(this, 3, "input %d syscall latency: %" PRIu64 "\n", input->index, latency);
+    VPRINT(this, 3, "input %d %ssyscall latency: %" PRIu64 "\n", input->index,
+           input->processing_blocking_syscall ? "blocking " : "", latency);
     return (input->processing_blocking_syscall &&
             latency >= options_.blocking_switch_threshold) ||
         latency >= options_.syscall_switch_threshold;
@@ -2021,7 +2027,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
         } else if (options_.mapping == MAP_TO_ANY_OUTPUT) {
             trace_marker_type_t marker_type;
             uintptr_t marker_value;
-            if (input->processing_syscall) {
+            if (input->processing_syscall || input->processing_blocking_syscall) {
                 // Wait until we're past all the markers associated with the syscall.
                 // XXX: We may prefer to stop before the return value marker for futex,
                 // or a kernel xfer marker, but our recorded format is on instr
@@ -2052,18 +2058,22 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                     input->processing_blocking_syscall = false;
                     input->pre_syscall_timestamp = 0;
                 }
-            } else if (record_type_is_marker(record, marker_type, marker_value) &&
-                       marker_type == TRACE_MARKER_TYPE_SYSCALL) {
+            }
+            if (record_type_is_marker(record, marker_type, marker_value) &&
+                marker_type == TRACE_MARKER_TYPE_SYSCALL) {
                 input->processing_syscall = true;
                 input->pre_syscall_timestamp = input->reader->get_last_timestamp();
-            } else if (record_type_is_marker(record, marker_type, marker_value) &&
-                       marker_type == TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL) {
+            }
+            if (record_type_is_marker(record, marker_type, marker_value) &&
+                marker_type == TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL) {
                 input->processing_blocking_syscall = true;
-                // We should have just seen a syscall marker.
-                assert(input->pre_syscall_timestamp ==
-                       input->reader->get_last_timestamp());
-            } else if (options_.quantum_unit == QUANTUM_INSTRUCTIONS &&
-                       record_type_is_instr(record)) {
+                // Generally we should already have the timestamp from a just-prior
+                // syscall marker, but we support tests and other synthetic sequences
+                // with just a maybe-blocking.
+                input->pre_syscall_timestamp = input->reader->get_last_timestamp();
+            }
+            if (options_.quantum_unit == QUANTUM_INSTRUCTIONS &&
+                record_type_is_instr(record)) {
                 ++input->instrs_in_quantum;
                 if (input->instrs_in_quantum > options_.quantum_duration) {
                     // We again prefer to switch to another input even if the current
@@ -2071,10 +2081,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                     // over timestamp ordering.
                     need_new_input = true;
                 }
-            } else if (options_.quantum_unit == QUANTUM_TIME) {
-                // The above if-else cases are all either for non-instrs or
-                // QUANTUM_INSTRUCTIONS, except the blocking syscall next instr which is
-                // already switching: so an else{} works here.
+            }
+            if (options_.quantum_unit == QUANTUM_TIME) {
                 if (cur_time == 0 || cur_time < input->start_time_in_quantum) {
                     VPRINT(this, 1,
                            "next_record[%d]: invalid time %" PRIu64 " vs start %" PRIu64

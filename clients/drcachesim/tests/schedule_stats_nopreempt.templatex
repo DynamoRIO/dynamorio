@@ -3,10 +3,10 @@ Total counts:
            4 cores
            8 threads
       638938 instructions
-           [78] total context switches
-   0.01[0-9]* CSPKI \(context switches per 1000 instructions\)
-       ..... instructions per context switch
-           [78] voluntary context switches
+           5 total context switches
+   0.0078255 CSPKI \(context switches per 1000 instructions\)
+      127788 instructions per context switch
+           5 voluntary context switches
            0 direct context switches
       100.00% voluntary switches
         0.00% direct switches

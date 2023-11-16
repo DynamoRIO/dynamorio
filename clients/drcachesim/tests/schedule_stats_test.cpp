@@ -91,14 +91,14 @@ run_schedule_stats(const std::vector<std::vector<memref_t>> &memrefs,
         size_t memref_idx = 0;
     };
     std::vector<per_core_t> per_core(memrefs.size());
-    for (size_t cpu = 0; cpu < memrefs.size(); ++cpu) {
+    for (int cpu = 0; cpu < static_cast<int>(memrefs.size()); ++cpu) {
         per_core[cpu].worker_data = tool.parallel_worker_init(cpu);
         per_core[cpu].shard_data = tool.parallel_shard_init_stream(
             cpu, per_core[cpu].worker_data, &per_core[cpu].stream);
     }
     // Walk in lockstep until all are empty.
-    size_t num_finished = 0;
-    while (num_finished < memrefs.size()) {
+    int num_finished = 0;
+    while (num_finished < static_cast<int>(memrefs.size())) {
         for (size_t cpu = 0; cpu < memrefs.size(); ++cpu) {
             if (per_core[cpu].finished)
                 continue;
@@ -113,7 +113,7 @@ run_schedule_stats(const std::vector<std::vector<memref_t>> &memrefs,
             }
         }
     }
-    for (size_t cpu = 0; cpu < memrefs.size(); ++cpu) {
+    for (int cpu = 0; cpu < static_cast<int>(memrefs.size()); ++cpu) {
         tool.parallel_shard_exit(per_core[cpu].shard_data);
         tool.parallel_worker_exit(per_core[cpu].worker_data);
     }
