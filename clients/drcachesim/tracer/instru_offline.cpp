@@ -59,6 +59,7 @@ static const uint MAX_INSTR_COUNT = 64 * 1024;
 void *(*offline_instru_t::user_load_)(module_data_t *module, int seg_idx);
 int (*offline_instru_t::user_print_)(void *data, char *dst, size_t max_len);
 void (*offline_instru_t::user_free_)(void *data);
+std::atomic<uintptr_t> offline_instru_t::vdso_modbase_;
 
 // This constructor is for use in post-processing when we just need the
 // elision utility functions.
@@ -153,26 +154,18 @@ offline_instru_t::load_custom_module_data(module_data_t *module, int seg_idx)
     if (user_load_ != nullptr)
         user_data = (*user_load_)(module, seg_idx);
     const char *name = dr_module_preferred_name(module);
-    // For vdso we include the entire contents so we can decode it during
-    // post-processing.
-    // We use placement new for better isolation, esp w/ static linkage into the app.
+    // We used to store the vdso contents, but we now use separate block encodings
+    // for vdso code.  So we just find the vdso here, and pass through the user's data
+    // for all modules.
     if ((name != nullptr &&
          (strstr(name, "linux-gate.so") == name ||
           strstr(name, "linux-vdso.so") == name)) ||
         (module->names.file_name != NULL && strcmp(name, "[vdso]") == 0)) {
-        void *alloc = dr_global_alloc(sizeof(custom_module_data_t));
-#ifdef WINDOWS
-        byte *start = module->start;
-        byte *end = module->end;
-#else
-        byte *start =
-            (module->num_segments > 0) ? module->segments[seg_idx].start : module->start;
-        byte *end =
-            (module->num_segments > 0) ? module->segments[seg_idx].end : module->end;
-#endif
-        return new (alloc)
-            custom_module_data_t((const char *)start, end - start, user_data);
-    } else if (user_data != nullptr) {
+        DR_ASSERT(vdso_modbase_.load(std::memory_order_acquire) == 0);
+        vdso_modbase_.store(reinterpret_cast<uintptr_t>(module->start),
+                            std::memory_order_release);
+    }
+    if (user_data != nullptr) {
         void *alloc = dr_global_alloc(sizeof(custom_module_data_t));
         return new (alloc) custom_module_data_t(nullptr, 0, user_data);
     }
@@ -461,15 +454,6 @@ offline_instru_t::insert_save_entry(void *drcontext, instrlist_t *ilist, instr_t
     return sizeof(offline_entry_t);
 }
 
-uint64_t
-offline_instru_t::get_modoffs(void *drcontext, app_pc pc, DR_PARAM_OUT uint *modidx)
-{
-    app_pc modbase;
-    if (drmodtrack_lookup(drcontext, pc, modidx, &modbase) != DRCOVLIB_SUCCESS)
-        return 0;
-    return pc - modbase;
-}
-
 // Caller must hold the encoding_lock.
 void
 offline_instru_t::flush_instr_encodings()
@@ -490,6 +474,8 @@ offline_instru_t::record_instr_encodings(void *drcontext, app_pc tag_pc,
                                          per_block_t *per_block, instrlist_t *ilist)
 {
     dr_mutex_lock(encoding_lock_);
+    log_(3, "%s: new block id " UINT64_FORMAT_STRING " for %p\n", __FUNCTION__,
+         encoding_id_, tag_pc);
     per_block->id = encoding_id_++;
 
     if (encoding_buf_ptr_ + max_block_encoding_size_ >=
@@ -542,6 +528,23 @@ offline_instru_t::record_instr_encodings(void *drcontext, app_pc tag_pc,
     dr_mutex_unlock(encoding_lock_);
 }
 
+bool
+offline_instru_t::does_pc_require_encoding(void *drcontext, app_pc pc, uint *modidx_out,
+                                           app_pc *modbase_out)
+{
+    uint modidx;
+    app_pc modbase;
+    bool res = drmodtrack_lookup(drcontext, pc, &modidx, &modbase) != DRCOVLIB_SUCCESS ||
+        // We treat the VDSO as generated code, storing its encodings.
+        reinterpret_cast<uintptr_t>(modbase) ==
+            vdso_modbase_.load(std::memory_order_acquire);
+    if (modidx_out != nullptr)
+        *modidx_out = modidx;
+    if (modbase_out != nullptr)
+        *modbase_out = modbase;
+    return res;
+}
+
 int
 offline_instru_t::insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *where,
                                  reg_id_t reg_ptr, reg_id_t scratch, int adjust,
@@ -552,7 +555,7 @@ offline_instru_t::insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *w
     app_pc modbase;
     uint modidx;
     uint64_t modoffs;
-    if (drmodtrack_lookup(drcontext, pc, &modidx, &modbase) == DRCOVLIB_SUCCESS) {
+    if (!does_pc_require_encoding(drcontext, pc, &modidx, &modbase)) {
         // TODO i#2062: We need to also identify modified library code and record
         // its encodings.  The plan is to augment drmodtrack to track this for us;
         // for now we will incorrectly use the original bits in the trace.
@@ -838,7 +841,7 @@ offline_instru_t::bb_analysis(void *drcontext, void *tag, void **bb_field,
                                 memref_needs_full_info);
 
     app_pc tag_pc = dr_fragment_app_pc(tag);
-    if (drmodtrack_lookup(drcontext, tag_pc, nullptr, nullptr) != DRCOVLIB_SUCCESS) {
+    if (does_pc_require_encoding(drcontext, tag_pc, nullptr, nullptr)) {
         // For (unmodified) library code we do not need to record encodings as we
         // rely on access to the binary during post-processing.
         //
