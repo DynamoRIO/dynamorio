@@ -1569,7 +1569,7 @@ translate_x86_to_x64(dcontext_t *dcontext, instrlist_t *ilist,
                      DR_PARAM_INOUT instr_t **instr);
 #endif
 
-#ifdef AARCHXX
+#if defined( AARCHXX) || defined(RISCV64)
 bool
 instr_is_ldstex_mangling(dcontext_t *dcontext, instr_t *inst);
 #endif

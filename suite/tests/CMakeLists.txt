@@ -5870,6 +5870,7 @@ if (RISCV64)
     code_api|client.stack-overflow
     code_api|client.truncate
     code_api|common.broadfun
+    code_api|common.fib
     code_api|libutil.drconfig_test
     code_api|libutil.frontend_test
     code_api|linux.exit
@@ -5879,6 +5880,7 @@ if (RISCV64)
     code_api|linux.sigaction_nosignals
     code_api|linux.signalfd
     code_api|pthreads.pthreads
+    code_api|pthreads.pthreads_exit
     code_api|pthreads.pthreads_exit
     code_api|security-linux.trampoline
     no_code_api,no_intercept_all_signals|linux.sigaction

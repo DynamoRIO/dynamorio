@@ -648,6 +648,47 @@ mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
     return next_instr;
 }
 
+/***************************************************************************
+ * LR/SC sequence mangling.
+ */
+
+bool
+instr_is_ldstex_mangling(dcontext_t *dcontext, instr_t *instr)
+{
+    /* This should be kept in sync with mangle_exclusive_monitor_op(). */
+    if (!instr_is_our_mangling(instr))
+        return false;
+
+    opnd_t memop = opnd_create_null();
+    if (instr_get_opcode(instr) == OP_sd)
+        memop = instr_get_src(instr, 0);
+    else if (instr_get_opcode(instr) == OP_ld)
+        memop = instr_get_dst(instr, 0);
+    if (opnd_is_base_disp(memop)) {
+        ASSERT(opnd_get_index(memop) == DR_REG_NULL && opnd_get_scale(memop) == 0);
+        uint offs = opnd_get_disp(memop);
+        if (opnd_get_base(memop) == dr_reg_stolen && offs >= TLS_LRSC_ADDR_SLOT &&
+            offs <= TLS_LRSC_SIZE_SLOT)
+            return true;
+    }
+
+    ptr_int_t val;
+    if (instr_get_opcode(instr) == OP_fence || instr_get_opcode(instr) == OP_bne ||
+        instr_get_opcode(instr) == OP_bne ||
+        /* Check for sc.w/d+bne+jal pattern.  */
+        (instr_get_opcode(instr) == OP_jal && instr_get_prev(instr) != NULL &&
+         instr_get_opcode(instr_get_prev(instr)) == OP_bne &&
+         instr_get_prev(instr_get_prev(instr)) != NULL &&
+         instr_is_exclusive_store(instr_get_prev(instr_get_prev(instr)))) ||
+        instr_is_exclusive_load(instr) || instr_is_exclusive_store(instr) ||
+        (instr_is_mov_constant(instr, &val) &&
+         (val == 1 /* cas fail */ || val == -1 /* reservation invalidation */ ||
+          val == 4 /* lr.w/sc.w size */ || val == 8 /* lr.d/sc.d size */)))
+        return true;
+
+    return false;
+}
+
 static instr_t *
 mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                       instr_t *next_instr)
