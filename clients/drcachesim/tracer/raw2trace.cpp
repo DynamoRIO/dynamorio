@@ -395,8 +395,9 @@ module_mapper_t::read_and_map_modules()
         drmodtrack_info_t &info = *it;
         custom_module_data_t *custom_data = (custom_module_data_t *)info.custom;
         if (custom_data != nullptr && custom_data->contents_size > 0) {
-            // XXX i#2062: We could eliminate this raw bytes in the module data in
-            // favor of the new encoding file used for generated code.
+            // These raw bytes for vdso is only present for legacy traces; we
+            // use encoding entries for new traces.
+            // XXX i#2062: Delete this code once we stop supporting legacy traces.
             VPRINT(1, "Using module %d %s stored %zd-byte contents @" PFX "\n",
                    (int)modvec_.size(), info.path, custom_data->contents_size,
                    custom_data->contents);
@@ -461,7 +462,10 @@ module_mapper_t::read_and_map_modules()
                 // We expect to fail to map dynamorio.dll for x64 Windows as it
                 // is built /fixed.  (We could try to have the map succeed w/o relocs,
                 // but we expect to not care enough about code in DR).
-                if (strstr(info.path, "dynamorio") != NULL)
+                // We also expect to fail for vdso, for which we have encoding entries.
+                if (strstr(info.path, "dynamorio") != nullptr ||
+                    strstr(info.path, "linux-gate") != nullptr ||
+                    strstr(info.path, "vdso") != nullptr)
                     modvec_.push_back(module_t(info.path, info.start, NULL, 0, 0, 0));
                 else {
                     last_error_ = "Failed to map module " + std::string(info.path);

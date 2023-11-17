@@ -432,9 +432,6 @@ public:
     void
     set_entry_addr(byte *buf_ptr, addr_t addr) override;
 
-    uint64_t
-    get_modoffs(void *drcontext, app_pc pc, DR_PARAM_OUT uint *modidx);
-
     int
     append_pid(byte *buf_ptr, process_id_t pid) override;
     int
@@ -555,6 +552,10 @@ private:
     void
     flush_instr_encodings();
 
+    bool
+    does_pc_require_encoding(void *drcontext, app_pc pc, uint *modidx_out,
+                             app_pc *modbase_out);
+
     // Custom module fields are global (since drmodtrack's support is global, we don't
     // try to pass void* user data params through).
     static void *(*user_load_)(module_data_t *module, int seg_idx);
@@ -566,6 +567,8 @@ private:
     print_custom_module_data(void *data, char *dst, size_t max_len);
     static void
     free_custom_module_data(void *data);
+    // Unfortunately this cached vdso base must be global as well.
+    static std::atomic<uintptr_t> vdso_modbase_;
 
     // These identify the 4 fields we store in the label data area array.
     static constexpr int LABEL_DATA_ELIDED_INDEX = 0;       // Index among all operands.
