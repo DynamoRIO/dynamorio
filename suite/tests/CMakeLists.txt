@@ -5881,7 +5881,6 @@ if (RISCV64)
     code_api|linux.signalfd
     code_api|pthreads.pthreads
     code_api|pthreads.pthreads_exit
-    code_api|pthreads.pthreads_exit
     code_api|security-linux.trampoline
     no_code_api,no_intercept_all_signals|linux.sigaction
     PROPERTIES LABELS RUNS_ON_QEMU)
