@@ -63,6 +63,26 @@ public:
     snoop_eviction(addr_t tag, int id);
     void
     print_stats(void);
+    int64_t
+    get_num_snooped_caches(void)
+    {
+        return num_snooped_caches_;
+    }
+    int64_t
+    get_num_writes(void)
+    {
+        return num_writes_;
+    }
+    int64_t
+    get_num_writebacks(void)
+    {
+        return num_writebacks_;
+    }
+    int64_t
+    get_num_invalidates(void)
+    {
+        return num_invalidates_;
+    }
 
 protected:
     // XXX: This initial coherence implementation uses a perfect snoop filter.

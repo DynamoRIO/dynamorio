@@ -58,6 +58,7 @@ namespace drmemtrace {
 enum invalidation_type_t {
     INVALIDATION_INCLUSIVE,
     INVALIDATION_COHERENCE,
+    INVALIDATION_EXCLUSIVE,
 };
 
 enum class metric_name_t {
@@ -70,6 +71,7 @@ enum class metric_name_t {
     CHILD_HITS_AT_RESET,
     INCLUSIVE_INVALIDATES,
     COHERENCE_INVALIDATES,
+    EXCLUSIVE_INVALIDATES,
     PREFETCH_HITS,
     PREFETCH_MISSES,
     FLUSHES
@@ -245,6 +247,7 @@ protected:
 
     int64_t num_inclusive_invalidates_;
     int64_t num_coherence_invalidates_;
+    int64_t num_exclusive_invalidates_;
 
     // Stats saved when the last reset was called. This helps us get insight
     // into what the stats were when the cache was warmed up.
