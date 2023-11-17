@@ -5870,7 +5870,6 @@ if (RISCV64)
     code_api|client.stack-overflow
     code_api|client.truncate
     code_api|common.broadfun
-    code_api|common.fib
     code_api|libutil.drconfig_test
     code_api|libutil.frontend_test
     code_api|linux.exit
