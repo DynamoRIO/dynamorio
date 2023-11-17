@@ -1576,7 +1576,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::syscall_incurs_switch(input_info_t *in
         return input->processing_maybe_blocking_syscall;
     }
     assert(input->pre_syscall_timestamp > 0);
-    assert(input->pre_syscall_timestamp < post_time);
+    assert(input->pre_syscall_timestamp <= post_time);
     uint64_t latency = post_time - input->pre_syscall_timestamp;
     VPRINT(this, 3, "input %d %ssyscall latency: %" PRIu64 "\n", input->index,
            input->processing_maybe_blocking_syscall ? "maybe-blocking " : "", latency);
