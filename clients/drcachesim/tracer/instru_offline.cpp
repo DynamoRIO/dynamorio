@@ -157,11 +157,14 @@ offline_instru_t::load_custom_module_data(module_data_t *module, int seg_idx)
     // We used to store the vdso contents, but we now use separate block encodings
     // for vdso code.  So we just find the vdso here, and pass through the user's data
     // for all modules.
-    if ((name != nullptr &&
-         (strstr(name, "linux-gate.so") == name ||
-          strstr(name, "linux-vdso.so") == name)) ||
-        (module->names.file_name != NULL && strcmp(name, "[vdso]") == 0)) {
-        DR_ASSERT(vdso_modbase_.load(std::memory_order_acquire) == 0);
+    if (seg_idx == 0 &&
+        ((name != nullptr &&
+          (strstr(name, "linux-gate.so") == name ||
+           strstr(name, "linux-vdso.so") == name)) ||
+         (module->names.file_name != NULL && strcmp(name, "[vdso]") == 0))) {
+        DR_ASSERT(vdso_modbase_.load(std::memory_order_acquire) == 0 ||
+                  vdso_modbase_.load(std::memory_order_acquire) ==
+                      reinterpret_cast<uintptr_t>(module->start));
         vdso_modbase_.store(reinterpret_cast<uintptr_t>(module->start),
                             std::memory_order_release);
     }
