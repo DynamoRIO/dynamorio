@@ -2741,6 +2741,7 @@ test_is_maybe_blocking_syscall(void *drcontext)
 bool
 test_ifiltered(void *drcontext)
 {
+#ifdef X86
     std::cerr << "\n===============\nTesting ifiltered trace\n";
     // Our synthetic test first constructs a list of instructions to be encoded into
     // a buffer for decoding by raw2trace.
@@ -2827,10 +2828,10 @@ test_ifiltered(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_READ, -1) &&
         // jcc
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-#ifdef X86_32
+#    ifdef X86_32
         // An extra encoding entry is needed.
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-#endif
+#    endif
         // Since we cannot infer branch targets accurately for i-filtered traces, this
         // has the generic conditional jump type (instead of the more specific
         // TRACE_TYPE_INSTR_TAKEN_JUMP type).
@@ -2865,6 +2866,12 @@ test_ifiltered(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
         check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
         check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+#else
+    // This test requires a CTI (so that it gets accumulated as a delayed branch) that
+    // also reads from memory (so that it's possible to have a case with a zero-sized PC
+    // entry in the raw trace). AArchXX does not have such an instr.
+    return true;
+#endif
 }
 
 int
