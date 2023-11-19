@@ -2766,7 +2766,7 @@ test_ifiltered(void *drcontext)
     size_t offs_nop = 0;
     size_t offs_move1 = offs_nop + instr_length(drcontext, nop);
     size_t offs_jmp = offs_move1 + instr_length(drcontext, move1);
-    size_t jmp_length = instr_length(drcontext, jmp);
+    int jmp_length = instr_length(drcontext, jmp);
     size_t offs_jcc = offs_jmp + jmp_length;
     size_t offs_move2 = offs_jcc + instr_length(drcontext, jcc);
     size_t offs_move3 = offs_move2 + instr_length(drcontext, move2);
@@ -2842,10 +2842,6 @@ test_ifiltered(void *drcontext)
         // This has an encoding because the previous dynamic instance was actually
         // i-filtered.
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-#ifdef X86_32
-        // An extra encoding entry is needed.
-        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-#endif
         // i-filtered instrs have separate pc entries: one for the instr itself which
         // has the instr length, and another for the memref which has a zero size.
         check_entry(entries, idx, TRACE_TYPE_INSTR_INDIRECT_JUMP, jmp_length) &&
