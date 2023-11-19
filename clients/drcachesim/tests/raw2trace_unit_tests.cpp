@@ -288,7 +288,7 @@ check_entry(std::vector<trace_entry_t> &entries, int &idx, unsigned short expect
             int expected_size, addr_t expected_addr = 0)
 {
     if (expected_type != entries[idx].type ||
-        (expected_size > 0 &&
+        (expected_size >= 0 &&
          static_cast<unsigned short>(expected_size) != entries[idx].size) ||
         (expected_addr > 0 && expected_addr != entries[idx].addr)) {
         std::cerr << "Entry " << idx << " has type " << entries[idx].type << " and size "
@@ -2741,7 +2741,7 @@ test_is_maybe_blocking_syscall(void *drcontext)
 bool
 test_ifiltered(void *drcontext)
 {
-#ifdef X86
+#if defined(X86) || defined(ARM)
     std::cerr << "\n===============\nTesting ifiltered trace\n";
     // Our synthetic test first constructs a list of instructions to be encoded into
     // a buffer for decoding by raw2trace.
@@ -2755,7 +2755,8 @@ test_ifiltered(void *drcontext)
     instr_t *jcc =
         XINST_CREATE_jump_cond(drcontext, DR_PRED_EQ, opnd_create_instr(move1));
     // Control flow in the test assumes that memaddr stores address to jcc.
-    instr_t *jmp = XINST_CREATE_jump_reg(drcontext, OPND_CREATE_MEMPTR(REG1, 0));
+    instr_t *jmp =
+        XINST_CREATE_jump_mem(drcontext, opnd_create_mem_instr(jcc, 0, OPSZ_PTR));
     instr_t *move3 =
         XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
     instrlist_append(ilist, nop);
@@ -2843,8 +2844,10 @@ test_ifiltered(void *drcontext)
         // This has an encoding because the previous dynamic instance was actually
         // i-filtered.
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-        // i-filtered instrs have separate pc entries: one for the instr itself which
-        // has the instr length, and another for the memref which has a zero length.
+        // In filtered traces, we have one pc entry for the instr itself (if the
+        // instruction is not i-filtered out) which has the instr length, and another
+        // zero-length pc entry before each of the instr's memrefs (if the memref
+        // is not d-filtered out).
         check_entry(entries, idx, TRACE_TYPE_INSTR_INDIRECT_JUMP, jmp_length) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR_INDIRECT_JUMP, 0) &&
         check_entry(entries, idx, TRACE_TYPE_READ, -1) &&
@@ -2869,7 +2872,7 @@ test_ifiltered(void *drcontext)
 #else
     // This test requires a CTI (so that it gets accumulated as a delayed branch) that
     // also reads from memory (so that it's possible to have a case with a zero-sized PC
-    // entry in the raw trace). AArchXX does not have such an instr.
+    // entry in the raw trace). AArch64 does not have such an instr.
     return true;
 #endif
 }

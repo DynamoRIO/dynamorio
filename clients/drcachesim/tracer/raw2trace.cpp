@@ -3199,6 +3199,9 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                     // Check whether this instr's encoding has already been emitted
                     // due to multiple instances of the same delayed branch (the encoding
                     // cache was cleared in open_new_chunk()).
+                    // XXX: Do we need to delay PC-only (i-filtered) instrs (the ones
+                    // with it->size == 0)? We're anyway skipping over those entries here
+                    // so maybe we could avoid adding them to decode_pcs.
                     (record_encoding_emitted(tdata, *(decode_pcs + instr_ordinal))) {
                     // Write any data we were waiting until post-loop to write.
                     if (it > start &&
