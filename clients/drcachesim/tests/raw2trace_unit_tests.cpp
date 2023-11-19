@@ -2789,16 +2789,16 @@ test_ifiltered(void *drcontext)
     // At this point, the jmp and jcc are accumulated as delayed branches.
     // When writing the delayed branches, we want to make sure we correctly track
     // the index into decode_pcs. If we don't increment the index at ifiltered
-    // instrs, the decode pc of jmp will be accidentally used when writing out the
-    // encoding for jcc. This will cause the encoding of jmp to not be emitted
-    // in the next entry because raw2trace will incorrectly track that it had
+    // instrs, the decode pc of jmp will be accidentally used when recording the
+    // encoding emitted for jcc. This will cause the jmp encoding to not be emitted
+    // in the next entry because raw2trace incorrectly tracked that it had
     // already emitted it.
     raw.push_back(make_block(offs_move1, 1));
     // Second instance of the jmp instr is not filtered out. Its encoding must be
     // emitted by raw2trace, or else the reader (in memref_counter_t) will
     // complain about a missing encoding.
     raw.push_back(make_block(offs_jmp, 1));
-    // The memref is also not filtered out. We will have a separate pc entry with
+    // The memref is also not filtered out. We have a separate pc entry with
     // zero instr count just before the memref.
     raw.push_back(make_block(offs_jmp, 0));
     raw.push_back(make_memref(42));
@@ -2844,7 +2844,7 @@ test_ifiltered(void *drcontext)
         // i-filtered.
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         // i-filtered instrs have separate pc entries: one for the instr itself which
-        // has the instr length, and another for the memref which has a zero size.
+        // has the instr length, and another for the memref which has a zero length.
         check_entry(entries, idx, TRACE_TYPE_INSTR_INDIRECT_JUMP, jmp_length) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR_INDIRECT_JUMP, 0) &&
         check_entry(entries, idx, TRACE_TYPE_READ, -1) &&
