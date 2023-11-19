@@ -2826,11 +2826,11 @@ test_ifiltered(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_INSTR_INDIRECT_JUMP, 0) &&
         check_entry(entries, idx, TRACE_TYPE_READ, -1) &&
         // jcc
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
 #ifdef X86_32
         // An extra encoding entry is needed.
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
 #endif
-        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         // Since we cannot infer branch targets accurately for i-filtered traces, this
         // has the generic conditional jump type (instead of the more specific
         // TRACE_TYPE_INSTR_TAKEN_JUMP type).
@@ -2841,11 +2841,11 @@ test_ifiltered(void *drcontext)
         // jmp
         // This has an encoding because the previous dynamic instance was actually
         // i-filtered.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
 #ifdef X86_32
         // An extra encoding entry is needed.
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
 #endif
-        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         // i-filtered instrs have separate pc entries: one for the instr itself which
         // has the instr length, and another for the memref which has a zero size.
         check_entry(entries, idx, TRACE_TYPE_INSTR_INDIRECT_JUMP, jmp_length) &&
