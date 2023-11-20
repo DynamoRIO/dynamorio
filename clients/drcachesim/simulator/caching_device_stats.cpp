@@ -63,6 +63,7 @@ caching_device_stats_t::caching_device_stats_t(const std::string &miss_file,
     , num_child_hits_(0)
     , num_inclusive_invalidates_(0)
     , num_coherence_invalidates_(0)
+    , num_exclusive_invalidates_(0)
     , num_hits_at_reset_(0)
     , num_misses_at_reset_(0)
     , num_child_hits_at_reset_(0)
@@ -96,6 +97,7 @@ caching_device_stats_t::caching_device_stats_t(const std::string &miss_file,
     stats_map_.emplace(metric_name_t::CHILD_HITS, num_child_hits_);
     stats_map_.emplace(metric_name_t::INCLUSIVE_INVALIDATES, num_inclusive_invalidates_);
     stats_map_.emplace(metric_name_t::COHERENCE_INVALIDATES, num_coherence_invalidates_);
+    stats_map_.emplace(metric_name_t::EXCLUSIVE_INVALIDATES, num_exclusive_invalidates_);
 }
 
 caching_device_stats_t::~caching_device_stats_t()
@@ -190,14 +192,14 @@ caching_device_stats_t::print_counts(std::string prefix)
     if (is_coherent_) {
         std::cerr << prefix << std::setw(21) << std::left
                   << "Parent invalidations:" << std::setw(17) << std::right
-                  << num_inclusive_invalidates_ << std::endl;
+                  << num_inclusive_invalidates_ + num_exclusive_invalidates_ << std::endl;
         std::cerr << prefix << std::setw(20) << std::left
                   << "Write invalidations:" << std::setw(18) << std::right
                   << num_coherence_invalidates_ << std::endl;
     } else {
         std::cerr << prefix << std::setw(18) << std::left
                   << "Invalidations:" << std::setw(20) << std::right
-                  << num_inclusive_invalidates_ << std::endl;
+                  << num_inclusive_invalidates_ + num_exclusive_invalidates_ << std::endl;
     }
 }
 
@@ -256,6 +258,7 @@ caching_device_stats_t::reset()
     num_child_hits_ = 0;
     num_inclusive_invalidates_ = 0;
     num_coherence_invalidates_ = 0;
+    num_exclusive_invalidates_ = 0;
 }
 
 void
@@ -265,6 +268,8 @@ caching_device_stats_t::invalidate(invalidation_type_t invalidation_type)
         num_inclusive_invalidates_++;
     } else if (invalidation_type == INVALIDATION_COHERENCE) {
         num_coherence_invalidates_++;
+    } else if (invalidation_type == INVALIDATION_EXCLUSIVE) {
+        num_exclusive_invalidates_++;
     }
 }
 

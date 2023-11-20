@@ -496,6 +496,20 @@ public:
          * of traced cores).
          */
         archive_istream_t *replay_as_traced_istream = nullptr;
+        /**
+         * Determines the minimum latency in the unit of the trace's timestamps
+         * (microseconds) for which a non-maybe-blocking system call (one without
+         * a #TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL marker) will be treated as
+         * blocking and trigger a context switch.
+         */
+        uint64_t syscall_switch_threshold = 500;
+        /**
+         * Determines the minimum latency in the unit of the trace's timestamps
+         * (microseconds) for which a maybe-blocking system call (one with
+         * a #TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL marker) will be treated as
+         * blocking and trigger a context switch.
+         */
+        uint64_t blocking_switch_threshold = 100;
     };
 
     /**
@@ -965,8 +979,10 @@ protected:
         bool order_by_timestamp = false;
         // Global ready queue counter used to provide FIFO for same-priority inputs.
         uint64_t queue_counter = 0;
-        // Used to switch on the instruction *after* a blocking syscall.
-        bool processing_blocking_syscall = false;
+        // Used to switch on the instruction *after* a long-latency syscall.
+        bool processing_syscall = false;
+        bool processing_maybe_blocking_syscall = false;
+        uint64_t pre_syscall_timestamp = 0;
         // Use for special kernel features where one thread specifies a target
         // thread to replace it.
         input_ordinal_t switch_to_input = INVALID_INPUT_ORDINAL;
@@ -1274,6 +1290,10 @@ protected:
     // sched_lock_ must be held by the caller.
     void
     add_to_ready_queue(input_info_t *input);
+
+    // The input's lock must be held by the caller.
+    bool
+    syscall_incurs_switch(input_info_t *input);
 
     // sched_lock_ must be held by the caller.
     // "for_output" is which output stream is looking for a new input; only an
