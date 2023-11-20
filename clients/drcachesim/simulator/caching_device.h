@@ -61,13 +61,18 @@ namespace drmemtrace {
 class snoop_filter_t;
 class prefetcher_t;
 
+// NON_INC_NON_EXC = Non-Inclusive Non-Exclusive, aka NINE.
+enum class cache_inclusion_policy_t { NON_INC_NON_EXC, INCLUSIVE, EXCLUSIVE };
+
 class caching_device_t {
 public:
     explicit caching_device_t(const std::string &name = "caching_device");
     virtual bool
     init(int associativity, int block_size, int num_blocks, caching_device_t *parent,
          caching_device_stats_t *stats, prefetcher_t *prefetcher = nullptr,
-         bool inclusive = false, bool coherent_cache = false, int id_ = -1,
+         cache_inclusion_policy_t inclusion_policy =
+             cache_inclusion_policy_t::NON_INC_NON_EXC,
+         bool coherent_cache = false, int id_ = -1,
          snoop_filter_t *snoop_filter_ = nullptr,
          const std::vector<caching_device_t *> &children = {});
     virtual ~caching_device_t();
@@ -151,7 +156,12 @@ public:
     virtual bool
     is_inclusive() const
     {
-        return inclusive_;
+        return inclusion_policy_ == cache_inclusion_policy_t::INCLUSIVE;
+    }
+    virtual bool
+    is_exclusive() const
+    {
+        return inclusion_policy_ == cache_inclusion_policy_t::EXCLUSIVE;
     }
     virtual bool
     is_coherent() const
@@ -187,6 +197,8 @@ protected:
     virtual void
     record_access_stats(const memref_t &memref, bool hit,
                         caching_device_block_t *cache_block);
+    virtual void
+    insert_tag(addr_t tag, bool is_write, int way, int block_idx);
 
     inline addr_t
     compute_tag(addr_t addr) const
@@ -248,8 +260,8 @@ protected:
 
     snoop_filter_t *snoop_filter_;
 
-    // If true, this device is inclusive of its children.
-    bool inclusive_;
+    // Cache inclusion policy for multi-level caches.
+    cache_inclusion_policy_t inclusion_policy_;
 
     // This should be an array of caching_device_block_t pointers, otherwise
     // an extended block class which has its own member variables cannot be indexed
@@ -263,7 +275,8 @@ protected:
     caching_device_stats_t *stats_;
     prefetcher_t *prefetcher_;
 
-    // Optimization: remember last tag
+    // Optimization: remember last tag and its location in the cache, to
+    // fast-path request processing for repeated accesses.
     addr_t last_tag_;
     int last_way_;
     int last_block_idx_;

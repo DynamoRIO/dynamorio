@@ -76,7 +76,7 @@ typedef struct _spill_slot_state_t {
 } spill_slot_state_t;
 
 void
-init_spill_slot_state(OUT spill_slot_state_t *spill_slot_state)
+init_spill_slot_state(DR_PARAM_OUT spill_slot_state_t *spill_slot_state)
 {
     for (size_t i = 0; i < NUM_PRED_SLOTS; i++)
         spill_slot_state->pred_slots[i] = DR_REG_NULL;
@@ -138,7 +138,7 @@ drx_scatter_gather_thread_exit(void *drcontext)
 }
 
 static void
-get_scatter_gather_info(instr_t *instr, OUT scatter_gather_info_t *sg_info)
+get_scatter_gather_info(instr_t *instr, DR_PARAM_OUT scatter_gather_info_t *sg_info)
 {
     DR_ASSERT_MSG(instr_is_scatter(instr) || instr_is_gather(instr),
                   "Instruction must be scatter or gather.");
@@ -866,7 +866,7 @@ unreserve_vector_register(void *drcontext, instrlist_t *bb, instr_t *where,
  * scalar operations.
  */
 bool
-drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
+drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, DR_PARAM_OUT bool *expanded)
 {
     if (expanded != NULL)
         *expanded = false;

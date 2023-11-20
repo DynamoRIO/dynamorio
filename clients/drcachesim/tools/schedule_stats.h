@@ -51,7 +51,7 @@ namespace drmemtrace {
 
 class schedule_stats_t : public analysis_tool_t {
 public:
-    schedule_stats_t(uint64_t print_every, unsigned int verbose);
+    schedule_stats_t(uint64_t print_every, unsigned int verbose = 0);
     ~schedule_stats_t() override;
     std::string
     initialize_stream(memtrace_stream_t *serial_stream) override;
@@ -114,7 +114,7 @@ protected:
         counters_t counters;
         int64_t prev_input = -1;
         // These are cleared when an instruction is seen.
-        bool saw_maybe_blocking = false;
+        bool saw_syscall = false;
         memref_tid_t direct_switch_target = INVALID_THREAD_ID;
         bool saw_exit = false;
         // A representation of the thread interleavings.

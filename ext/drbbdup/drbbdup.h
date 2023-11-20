@@ -94,8 +94,8 @@ typedef enum {
  */
 typedef uintptr_t (*drbbdup_set_up_bb_dups_t)(void *drbbdup_ctx, void *drcontext,
                                               void *tag, instrlist_t *bb,
-                                              IN bool *enable_dups,
-                                              IN bool *enable_dynamic_handling,
+                                              DR_PARAM_IN bool *enable_dups,
+                                              DR_PARAM_IN bool *enable_dynamic_handling,
                                               void *user_data);
 
 /**
@@ -129,7 +129,8 @@ typedef bool (*drbbdup_allow_gen_t)(void *drcontext, void *tag, instrlist_t *ili
  * @return whether successful or an error code on failure.
  */
 typedef void (*drbbdup_analyze_orig_t)(void *drcontext, void *tag, instrlist_t *bb,
-                                       void *user_data, IN void **orig_analysis_data);
+                                       void *user_data,
+                                       DR_PARAM_IN void **orig_analysis_data);
 
 /**
  * Destroys analysis data \p orig_analysis_data.
@@ -155,7 +156,7 @@ typedef void (*drbbdup_destroy_orig_analysis_t)(void *drcontext, void *user_data
 typedef void (*drbbdup_analyze_case_t)(void *drcontext, void *tag, instrlist_t *bb,
                                        uintptr_t encoding, void *user_data,
                                        void *orig_analysis_data,
-                                       IN void **case_analysis_data);
+                                       DR_PARAM_IN void **case_analysis_data);
 
 /**
  * Identical to #drbbdup_analyze_case_t except for two extra parameters, "for_trace"
@@ -164,12 +165,10 @@ typedef void (*drbbdup_analyze_case_t)(void *drcontext, void *tag, instrlist_t *
  * The returned flags will be merged in the same manner as for #drmgr_analysis_cb_t.
  *
  */
-typedef dr_emit_flags_t (*drbbdup_analyze_case_ex_t)(void *drcontext, void *tag,
-                                                     instrlist_t *bb, bool for_trace,
-                                                     bool translating, uintptr_t encoding,
-                                                     void *user_data,
-                                                     void *orig_analysis_data,
-                                                     IN void **case_analysis_data);
+typedef dr_emit_flags_t (*drbbdup_analyze_case_ex_t)(
+    void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating,
+    uintptr_t encoding, void *user_data, void *orig_analysis_data,
+    DR_PARAM_IN void **case_analysis_data);
 
 /**
  * Destroys analysis data \p case_analysis_data for the case with encoding \p encoding.
@@ -449,7 +448,7 @@ DR_EXPORT
  * @note when using drbbdup, do not rely on drmgr_is_first_instr().
  */
 drbbdup_status_t
-drbbdup_is_first_instr(void *drcontext, instr_t *instr, OUT bool *is_start);
+drbbdup_is_first_instr(void *drcontext, instr_t *instr, DR_PARAM_OUT bool *is_start);
 
 DR_EXPORT
 /**
@@ -475,7 +474,7 @@ DR_EXPORT
  * @note when using drbbdup, do not rely on drmgr_is_last_instr().
  */
 drbbdup_status_t
-drbbdup_is_last_instr(void *drcontext, instr_t *instr, OUT bool *is_last);
+drbbdup_is_last_instr(void *drcontext, instr_t *instr, DR_PARAM_OUT bool *is_last);
 
 DR_EXPORT
 /**
@@ -488,7 +487,7 @@ DR_EXPORT
  * Internally, a lock is used while gathering the statistics.
  */
 drbbdup_status_t
-drbbdup_get_stats(OUT drbbdup_stats_t *stats);
+drbbdup_get_stats(DR_PARAM_OUT drbbdup_stats_t *stats);
 
 /**@}*/ /* end doxygen group */
 

@@ -498,7 +498,7 @@ exe_is_right_bitwidth(const char *exe, int *errcode)
  */
 DR_EXPORT
 int
-dr_inject_process_create(const char *exe, const char **argv, void **data OUT)
+dr_inject_process_create(const char *exe, const char **argv, void **data DR_PARAM_OUT)
 {
     int r;
     int fds[2];
@@ -550,7 +550,7 @@ error:
 
 DR_EXPORT
 int
-dr_inject_prepare_to_exec(const char *exe, const char **argv, void **data OUT)
+dr_inject_prepare_to_exec(const char *exe, const char **argv, void **data DR_PARAM_OUT)
 {
     dr_inject_info_t *info = create_inject_info(exe, argv);
     int errcode = 0;
@@ -572,7 +572,7 @@ dr_inject_prepare_to_exec(const char *exe, const char **argv, void **data OUT)
 DR_EXPORT
 int
 dr_inject_prepare_to_attach(process_id_t pid, const char *appname, bool wait_syscall,
-                            void **data OUT)
+                            void **data DR_PARAM_OUT)
 {
     dr_inject_info_t *info = create_inject_info(appname, NULL);
     int errcode = 0;
@@ -1399,8 +1399,8 @@ injectee_mmap(dr_inject_info_t *info, void *addr, size_t sz, int prot, int flags
  * injector_dr_fd to injectee_dr_fd to map the former to the latter.
  */
 static byte *
-injectee_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
-                  map_flags_t map_flags)
+injectee_map_file(file_t f, size_t *size DR_PARAM_INOUT, uint64 offs, app_pc addr,
+                  uint prot, map_flags_t map_flags)
 {
     int fd;
     int flags = 0;

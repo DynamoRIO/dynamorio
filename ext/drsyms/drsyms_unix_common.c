@@ -429,7 +429,8 @@ symsearch_symtab(dbg_module_t *mod, drsym_enumerate_cb callback,
 }
 
 static drsym_error_t
-addrsearch_symtab(dbg_module_t *mod, size_t modoffs, drsym_info_t *info INOUT, uint flags)
+addrsearch_symtab(dbg_module_t *mod, size_t modoffs, drsym_info_t *info DR_PARAM_INOUT,
+                  uint flags)
 {
     const char *symbol;
     size_t name_len = 0;
@@ -530,7 +531,7 @@ drsym_add_hash_entry(dbg_module_t *mod, const char *copy, size_t modoffs)
 /* Symbol enumeration callback for doing a single lookup.
  */
 static bool
-drsym_fill_symtable_cb(const char *sym, size_t modoffs, void *data INOUT)
+drsym_fill_symtable_cb(const char *sym, size_t modoffs, void *data DR_PARAM_OUT)
 {
     dbg_module_t *mod = (dbg_module_t *)data;
     size_t len = strlen(sym);
@@ -616,7 +617,7 @@ drsym_unix_enumerate_symbols(void *mod_in, drsym_enumerate_cb callback,
 }
 
 drsym_error_t
-drsym_unix_lookup_symbol(void *mod_in, const char *symbol, size_t *modoffs OUT,
+drsym_unix_lookup_symbol(void *mod_in, const char *symbol, size_t *modoffs DR_PARAM_OUT,
                          uint flags)
 {
     dbg_module_t *mod = (dbg_module_t *)mod_in;
@@ -664,7 +665,7 @@ drsym_unix_lookup_symbol(void *mod_in, const char *symbol, size_t *modoffs OUT,
 }
 
 drsym_error_t
-drsym_unix_lookup_address(void *mod_in, size_t modoffs, drsym_info_t *out INOUT,
+drsym_unix_lookup_address(void *mod_in, size_t modoffs, drsym_info_t *out DR_PARAM_INOUT,
                           uint flags)
 {
     dbg_module_t *mod = (dbg_module_t *)mod_in;
@@ -714,27 +715,29 @@ drsym_unix_enumerate_lines(void *mod_in, drsym_enumerate_lines_cb callback, void
 
 drsym_error_t
 drsym_unix_get_type(void *mod_in, size_t modoffs, uint levels_to_expand, char *buf,
-                    size_t buf_sz, drsym_type_t **type OUT)
+                    size_t buf_sz, drsym_type_t **type DR_PARAM_OUT)
 {
     return DRSYM_ERROR_NOT_IMPLEMENTED;
 }
 
 drsym_error_t
 drsym_unix_get_func_type(void *mod_in, size_t modoffs, char *buf, size_t buf_sz,
-                         drsym_func_type_t **func_type OUT)
+                         drsym_func_type_t **func_type DR_PARAM_OUT)
 {
     return DRSYM_ERROR_NOT_IMPLEMENTED;
 }
 
 drsym_error_t
 drsym_unix_expand_type(const char *modpath, uint type_id, uint levels_to_expand,
-                       char *buf, size_t buf_sz, drsym_type_t **expanded_type OUT)
+                       char *buf, size_t buf_sz,
+                       drsym_type_t **expanded_type DR_PARAM_OUT)
 {
     return DRSYM_ERROR_NOT_IMPLEMENTED;
 }
 
 size_t
-drsym_unix_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled, uint flags)
+drsym_unix_demangle_symbol(char *dst DR_PARAM_OUT, size_t dst_sz, const char *mangled,
+                           uint flags)
 {
     if (!TEST(DRSYM_DEMANGLE_FULL, flags)) {
         /* The demangle.cc implementation is fast and replaces template args
@@ -797,7 +800,7 @@ drsym_unix_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled, ui
 }
 
 drsym_error_t
-drsym_unix_get_module_debug_kind(void *mod_in, drsym_debug_kind_t *kind OUT)
+drsym_unix_get_module_debug_kind(void *mod_in, drsym_debug_kind_t *kind DR_PARAM_OUT)
 {
     dbg_module_t *mod = (dbg_module_t *)mod_in;
     if (mod != NULL) {

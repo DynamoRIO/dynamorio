@@ -1783,7 +1783,7 @@ print_file(file_t f, const char *fmt, ...)
  * Could we move this into io.c to share it with decodelib?
  */
 static bool
-vprint_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, const char *fmt,
+vprint_to_buffer(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT, const char *fmt,
                  va_list ap)
 {
     /* in io.c */
@@ -1812,7 +1812,8 @@ vprint_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, const char *fmt,
  * but still prints the maximum that will fit plus a null.
  */
 bool
-print_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, const char *fmt, ...)
+print_to_buffer(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT, const char *fmt,
+                ...)
 {
     va_list ap;
     bool ok;
@@ -3506,7 +3507,7 @@ d_r_get_random_seed(void)
  * the current UTC time).
  */
 void
-convert_millis_to_date(uint64 millis, dr_time_t *dr_time OUT)
+convert_millis_to_date(uint64 millis, dr_time_t *dr_time DR_PARAM_OUT)
 {
     uint64 time = millis;
     uint days, year, month, q;
@@ -3578,7 +3579,7 @@ convert_millis_to_date(uint64 millis, dr_time_t *dr_time OUT)
  * the current UTC time).
  */
 void
-convert_date_to_millis(const dr_time_t *dr_time, uint64 *millis OUT)
+convert_date_to_millis(const dr_time_t *dr_time, uint64 *millis DR_PARAM_OUT)
 {
     /* Formula adapted from http://en.wikipedia.org/wiki/Julian_day.
      * We rebase the input year from -4800 to +1600, and we rebase

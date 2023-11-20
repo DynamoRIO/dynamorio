@@ -122,10 +122,19 @@ typedef struct _PROCESS_BASIC_INFORMATION {
     ULONG_PTR InheritedFromUniqueProcessId;
 } PROCESS_BASIC_INFORMATION;
 
+#    ifndef DR_PARAM_IN
+#        define DR_PARAM_IN
+#    endif
+#    ifndef DR_PARAM_OUT
+#        define DR_PARAM_OUT
+#    endif
+
 NTSYSAPI NTSTATUS NTAPI
-NtQueryInformationProcess(IN HANDLE ProcessHandle, IN ULONG ProcessInformationClass,
-                          OUT PVOID ProcessInformation, IN ULONG ProcessInformationLength,
-                          OUT PULONG ReturnLength OPTIONAL);
+NtQueryInformationProcess(DR_PARAM_IN HANDLE ProcessHandle,
+                          DR_PARAM_IN ULONG ProcessInformationClass,
+                          DR_PARAM_OUT PVOID ProcessInformation,
+                          DR_PARAM_IN ULONG ProcessInformationLength,
+                          DR_PARAM_OUT PULONG ReturnLength OPTIONAL);
 
 static int
 process_id_from_handle(HANDLE h)

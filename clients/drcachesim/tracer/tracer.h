@@ -282,7 +282,8 @@ is_in_tracing_mode(uintptr_t mode)
 }
 
 void
-get_L0_filters_enabled(uintptr_t mode, OUT bool *l0i_enabled, OUT bool *l0d_enabled);
+get_L0_filters_enabled(uintptr_t mode, DR_PARAM_OUT bool *l0i_enabled,
+                       DR_PARAM_OUT bool *l0d_enabled);
 
 } // namespace drmemtrace
 } // namespace dynamorio

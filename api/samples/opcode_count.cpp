@@ -111,7 +111,7 @@ event_opcode_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *i
 
 static dr_emit_flags_t
 event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                  bool translating, OUT void **user_data)
+                  bool translating, DR_PARAM_OUT void **user_data)
 {
     intptr_t bb_size = (intptr_t)drx_instrlist_app_size(bb);
     *user_data = (void *)bb_size;

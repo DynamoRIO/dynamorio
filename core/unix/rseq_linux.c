@@ -213,8 +213,9 @@ rseq_thread_attach(dcontext_t *dcontext)
 }
 
 bool
-rseq_get_region_info(app_pc pc, app_pc *start OUT, app_pc *end OUT, app_pc *handler OUT,
-                     bool **reg_written OUT, int *reg_written_size OUT)
+rseq_get_region_info(app_pc pc, app_pc *start DR_PARAM_OUT, app_pc *end DR_PARAM_OUT,
+                     app_pc *handler DR_PARAM_OUT, bool **reg_written DR_PARAM_OUT,
+                     int *reg_written_size DR_PARAM_OUT)
 {
     rseq_region_t *info;
     if (!vmvector_lookup_data(d_r_rseq_areas, pc, start, end, (void **)&info))
@@ -270,7 +271,7 @@ rseq_get_signature(void)
 }
 
 byte *
-rseq_get_rseq_cs_alloc(byte **rseq_cs_aligned OUT)
+rseq_get_rseq_cs_alloc(byte **rseq_cs_aligned DR_PARAM_OUT)
 {
     byte *rseq_cs_alloc = global_heap_alloc(rseq_cs_alloc_size() HEAPACCT(ACCT_OTHER));
     *rseq_cs_aligned = (byte *)ALIGN_FORWARD(rseq_cs_alloc, __alignof(struct rseq_cs));

@@ -123,7 +123,7 @@ free_func_entry(void *entry)
 // NOTE: try to avoid invoking any code that could be traced by func_pre_hook
 //       (e.g., STL, libc, etc.)
 static void
-func_pre_hook(void *wrapcxt, INOUT void **user_data)
+func_pre_hook(void *wrapcxt, DR_PARAM_INOUT void **user_data)
 {
     void *drcontext = drwrap_get_drcontext(wrapcxt);
     if (drcontext == NULL)

@@ -748,6 +748,9 @@ add_subdirectory(tools/external)
 # We build larger executables here.  All tests are added in suite/tests/ except unit tests.
 # Be sure to give the targets qualified test names ("tool.drcache*...").
 
+# XXX: Try to add a macro add_drcachesim_test() to share common pieces
+# of these executables.
+
 if (BUILD_TESTS)
   add_executable(tool.reuse_distance.unit_tests tests/reuse_distance_test.cpp)
   target_link_libraries(tool.reuse_distance.unit_tests drmemtrace_reuse_distance
@@ -905,6 +908,16 @@ if (BUILD_TESTS)
     add_test(NAME tool.drcachesim.invariant_checker_test
              COMMAND tool.drcachesim.invariant_checker_test)
     set_tests_properties(tool.drcachesim.invariant_checker_test PROPERTIES
+      TIMEOUT ${test_seconds})
+
+    add_executable(tool.drcachesim.schedule_stats_test tests/schedule_stats_test.cpp)
+    configure_DynamoRIO_standalone(tool.drcachesim.schedule_stats_test)
+    add_win32_flags(tool.drcachesim.schedule_stats_test)
+    target_link_libraries(tool.drcachesim.schedule_stats_test drmemtrace_schedule_stats
+        drmemtrace_static drmemtrace_analyzer test_helpers)
+    add_test(NAME tool.drcachesim.schedule_stats_test
+             COMMAND tool.drcachesim.schedule_stats_test)
+    set_tests_properties(tool.drcachesim.schedule_stats_test PROPERTIES
       TIMEOUT ${test_seconds})
 
     add_executable(tool.drcacheoff.view_test tests/view_test.cpp reader/file_reader.cpp)

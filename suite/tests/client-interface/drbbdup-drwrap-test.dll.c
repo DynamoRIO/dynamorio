@@ -103,7 +103,7 @@ event_instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
 }
 
 static void
-wrap_pre(void *wrapcxt, OUT void **user_data)
+wrap_pre(void *wrapcxt, DR_PARAM_OUT void **user_data)
 {
     dr_fprintf(STDERR, "in wrap_pre\n");
     CHECK(wrapcxt != NULL && user_data != NULL, "invalid arg");

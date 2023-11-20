@@ -161,7 +161,8 @@ DR_API
  */
 byte *
 disassemble_to_buffer(void *drcontext, byte *pc, byte *orig_pc, bool show_pc,
-                      bool show_bytes, char *buf, size_t bufsz, int *printed OUT);
+                      bool show_bytes, char *buf, size_t bufsz,
+                      int *printed DR_PARAM_OUT);
 
 DR_API
 /**

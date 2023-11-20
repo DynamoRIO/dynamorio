@@ -445,7 +445,7 @@ os_delete_mapped_file(const char *filename)
 
 /* We mark as weak so the core can override with its more complex version. */
 WEAK byte *
-os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
+os_map_file(file_t f, size_t *size DR_PARAM_INOUT, uint64 offs, app_pc addr, uint prot,
             map_flags_t map_flags)
 {
     int flags;

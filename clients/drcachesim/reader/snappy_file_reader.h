@@ -58,7 +58,7 @@ public:
 
     // Read 'size' bytes into the 'to'.
     int
-    read(size_t size, OUT void *to);
+    read(size_t size, DR_PARAM_OUT void *to);
 
     bool
     eof()

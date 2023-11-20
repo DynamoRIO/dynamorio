@@ -102,7 +102,7 @@ pt2ir_t::~pt2ir_t()
 }
 
 bool
-pt2ir_t::init(IN pt2ir_config_t &pt2ir_config, IN int verbosity)
+pt2ir_t::init(DR_PARAM_IN pt2ir_config_t &pt2ir_config, DR_PARAM_IN int verbosity)
 {
     verbosity_ = verbosity;
     if (pt2ir_initialized_) {
@@ -256,7 +256,8 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config, IN int verbosity)
 }
 
 pt2ir_convert_status_t
-pt2ir_t::convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t &drir)
+pt2ir_t::convert(DR_PARAM_IN const uint8_t *pt_data, DR_PARAM_IN size_t pt_data_size,
+                 DR_PARAM_INOUT drir_t &drir)
 {
     if (!pt2ir_initialized_) {
         return PT2IR_CONV_ERROR_NOT_INITIALIZED;
@@ -418,7 +419,8 @@ pt2ir_t::convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t
 }
 
 void
-pt2ir_t::dx_decoding_error(IN int errcode, IN const char *errtype, IN uint64_t ip)
+pt2ir_t::dx_decoding_error(DR_PARAM_IN int errcode, DR_PARAM_IN const char *errtype,
+                           DR_PARAM_IN uint64_t ip)
 {
     int err = -pte_internal;
     uint64_t pos = 0;

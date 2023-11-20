@@ -235,7 +235,7 @@ static droption_t<unsigned long long> op_sb_kernel_start(
  */
 
 static void
-print_results(IN drir_t &drir, IN std::vector<trace_entry_t> &entries)
+print_results(DR_PARAM_IN drir_t &drir, DR_PARAM_IN std::vector<trace_entry_t> &entries)
 {
     if (drir.get_ilist() == nullptr) {
         std::cerr << "The list to store decoded instructions is not initialized."
@@ -353,7 +353,7 @@ option_init(int argc, const char *argv[])
 
 /* Load binary data from file into a vector. */
 static bool
-load_file(IN const std::string &path, OUT std::vector<uint8_t> &buffer)
+load_file(DR_PARAM_IN const std::string &path, DR_PARAM_OUT std::vector<uint8_t> &buffer)
 {
     /* Under C++11, there is no good solution to get the file size after using ifstream to
      * open a file. Because we will not change the PT raw trace file during converting, we

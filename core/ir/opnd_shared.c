@@ -892,7 +892,7 @@ opnd_get_segment(opnd_t opnd)
 
 #ifdef ARM
 dr_shift_type_t
-opnd_get_index_shift(opnd_t opnd, uint *amount OUT)
+opnd_get_index_shift(opnd_t opnd, uint *amount DR_PARAM_OUT)
 {
     if (amount != NULL)
         *amount = 0;
@@ -976,7 +976,7 @@ opnd_size_to_shift_amount(opnd_size_t size)
 }
 
 dr_extend_type_t
-opnd_get_index_extend(opnd_t opnd, OUT bool *scaled, OUT uint *amount)
+opnd_get_index_extend(opnd_t opnd, DR_PARAM_OUT bool *scaled, DR_PARAM_OUT uint *amount)
 {
     dr_extend_type_t extend = DR_EXTEND_UXTX;
     bool scaled_out = false;
@@ -2185,7 +2185,7 @@ reg_get_value(reg_id_t reg, dr_mcontext_t *mc)
 DR_API
 /* Supports all but floating-point */
 bool
-reg_get_value_ex(reg_id_t reg, dr_mcontext_t *mc, OUT byte *val)
+reg_get_value_ex(reg_id_t reg, dr_mcontext_t *mc, DR_PARAM_OUT byte *val)
 {
 #ifdef X86
     if (reg >= DR_REG_START_MMX && reg <= DR_REG_STOP_MMX) {
@@ -2270,7 +2270,7 @@ reg_set_value(reg_id_t reg, dr_mcontext_t *mc, reg_t value)
 
 DR_API
 bool
-reg_set_value_ex(reg_id_t reg, dr_mcontext_t *mc, IN byte *val_buf)
+reg_set_value_ex(reg_id_t reg, dr_mcontext_t *mc, DR_PARAM_IN byte *val_buf)
 {
     return reg_set_value_ex_priv(reg, dr_mcontext_as_priv_mcontext(mc), val_buf);
 }

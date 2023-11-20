@@ -188,7 +188,7 @@ drstatecmp_aflags_must_be_dead(instrlist_t *bb)
 
 static dr_emit_flags_t
 drstatecmp_app2app_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                         bool translating, OUT void **user_data)
+                         bool translating, DR_PARAM_OUT void **user_data)
 {
     /* Allocate space for user_data. */
     drstatecmp_user_data_t *data = (drstatecmp_user_data_t *)dr_thread_alloc(

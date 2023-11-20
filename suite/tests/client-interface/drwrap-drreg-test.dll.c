@@ -45,7 +45,7 @@ static int load_count;
 static app_pc addr_two_args;
 
 static void
-wrap_pre(void *wrapcxt, OUT void **user_data)
+wrap_pre(void *wrapcxt, DR_PARAM_OUT void **user_data)
 {
     bool ok;
     CHECK(wrapcxt != NULL && user_data != NULL, "invalid arg");
@@ -149,7 +149,7 @@ clean_call_multipath(void)
 
 static dr_emit_flags_t
 event_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-               bool translating, OUT void **user_data)
+               bool translating, DR_PARAM_OUT void **user_data)
 {
     int *nop_count = (int *)dr_thread_alloc(drcontext, sizeof(*nop_count));
     *user_data = nop_count;

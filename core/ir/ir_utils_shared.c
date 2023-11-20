@@ -45,16 +45,16 @@
 
 void
 insert_mov_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, opnd_t dst,
-                       instrlist_t *ilist, instr_t *instr, OUT instr_t **first,
-                       OUT instr_t **last)
+                       instrlist_t *ilist, instr_t *instr, DR_PARAM_OUT instr_t **first,
+                       DR_PARAM_OUT instr_t **last)
 {
     insert_mov_immed_arch(dcontext, NULL, NULL, val, dst, ilist, instr, first, last);
 }
 
 void
 insert_mov_instr_addr(dcontext_t *dcontext, instr_t *src, byte *encode_estimate,
-                      opnd_t dst, instrlist_t *ilist, instr_t *instr, OUT instr_t **first,
-                      OUT instr_t **last)
+                      opnd_t dst, instrlist_t *ilist, instr_t *instr,
+                      DR_PARAM_OUT instr_t **first, DR_PARAM_OUT instr_t **last)
 {
     insert_mov_immed_arch(dcontext, src, encode_estimate, 0, dst, ilist, instr, first,
                           last);
@@ -62,15 +62,16 @@ insert_mov_instr_addr(dcontext_t *dcontext, instr_t *src, byte *encode_estimate,
 
 void
 insert_push_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, instrlist_t *ilist,
-                        instr_t *instr, OUT instr_t **first, OUT instr_t **last)
+                        instr_t *instr, DR_PARAM_OUT instr_t **first,
+                        DR_PARAM_OUT instr_t **last)
 {
     insert_push_immed_arch(dcontext, NULL, NULL, val, ilist, instr, first, last);
 }
 
 void
 insert_push_instr_addr(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
-                       instrlist_t *ilist, instr_t *instr, OUT instr_t **first,
-                       OUT instr_t **last)
+                       instrlist_t *ilist, instr_t *instr, DR_PARAM_OUT instr_t **first,
+                       DR_PARAM_OUT instr_t **last)
 {
     insert_push_immed_arch(dcontext, src_inst, encode_estimate, 0, ilist, instr, first,
                            last);

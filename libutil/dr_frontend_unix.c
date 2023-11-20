@@ -70,7 +70,7 @@ module_get_platform(file_t f, dr_platform_t *platform, dr_platform_t *alt_platfo
 /* Semi-compatibility with the Windows CRT _access function.
  */
 drfront_status_t
-drfront_access(const char *fname, drfront_access_mode_t mode, OUT bool *ret)
+drfront_access(const char *fname, drfront_access_mode_t mode, DR_PARAM_OUT bool *ret)
 {
     int r;
     struct stat64 st;
@@ -128,8 +128,8 @@ drfront_access(const char *fname, drfront_access_mode_t mode, OUT bool *ret)
  * Resolves symlinks, which is needed to get the right config filename (i#1062).
  */
 drfront_status_t
-drfront_searchenv(const char *fname, const char *env_var, OUT char *full_path,
-                  const size_t full_path_size, OUT bool *ret)
+drfront_searchenv(const char *fname, const char *env_var, DR_PARAM_OUT char *full_path,
+                  const size_t full_path_size, DR_PARAM_OUT bool *ret)
 {
     const char *paths = getenv(env_var);
     const char *cur;
@@ -199,7 +199,8 @@ drfront_searchenv(const char *fname, const char *env_var, OUT char *full_path,
  * No conversion on UNIX, just copy the data.
  */
 drfront_status_t
-drfront_tchar_to_char(const char *wstr, OUT char *buf, size_t buflen /*# elements*/)
+drfront_tchar_to_char(const char *wstr, DR_PARAM_OUT char *buf,
+                      size_t buflen /*# elements*/)
 {
     strncpy(buf, wstr, buflen);
     buf[buflen - 1] = '\0';
@@ -208,7 +209,7 @@ drfront_tchar_to_char(const char *wstr, OUT char *buf, size_t buflen /*# element
 
 /* includes the terminating null */
 drfront_status_t
-drfront_tchar_to_char_size_needed(const char *wstr, OUT size_t *needed)
+drfront_tchar_to_char_size_needed(const char *wstr, DR_PARAM_OUT size_t *needed)
 {
     if (needed == NULL)
         return DRFRONT_ERROR_INVALID_PARAMETER;
@@ -220,7 +221,8 @@ drfront_tchar_to_char_size_needed(const char *wstr, OUT size_t *needed)
  * No conversion on UNIX, just copy the data.
  */
 drfront_status_t
-drfront_char_to_tchar(const char *str, OUT char *wbuf, size_t wbuflen /*# elements*/)
+drfront_char_to_tchar(const char *str, DR_PARAM_OUT char *wbuf,
+                      size_t wbuflen /*# elements*/)
 {
     strncpy(wbuf, str, wbuflen);
     wbuf[wbuflen - 1] = '\0';
@@ -228,7 +230,8 @@ drfront_char_to_tchar(const char *str, OUT char *wbuf, size_t wbuflen /*# elemen
 }
 
 drfront_status_t
-drfront_is_64bit_app(const char *exe, OUT bool *is_64, OUT bool *also_32)
+drfront_is_64bit_app(const char *exe, DR_PARAM_OUT bool *is_64,
+                     DR_PARAM_OUT bool *also_32)
 {
     FILE *target_file;
     drfront_status_t res = DRFRONT_ERROR;
@@ -255,7 +258,7 @@ drfront_is_64bit_app(const char *exe, OUT bool *is_64, OUT bool *also_32)
 
 /* This function is only relevant on Windows, so we return false. */
 drfront_status_t
-drfront_is_graphical_app(const char *exe, OUT bool *is_graphical)
+drfront_is_graphical_app(const char *exe, DR_PARAM_OUT bool *is_graphical)
 {
     if (is_graphical == NULL)
         return DRFRONT_ERROR_INVALID_PARAMETER;
@@ -264,7 +267,8 @@ drfront_is_graphical_app(const char *exe, OUT bool *is_graphical)
 }
 
 drfront_status_t
-drfront_get_env_var(const char *name, OUT char *buf, size_t buflen /*# elements*/)
+drfront_get_env_var(const char *name, DR_PARAM_OUT char *buf,
+                    size_t buflen /*# elements*/)
 {
     const char *tmp_buf = getenv(name);
     size_t len_var = 0;
@@ -287,7 +291,8 @@ drfront_get_env_var(const char *name, OUT char *buf, size_t buflen /*# elements*
  * which is inconsistent with Windows GetFullPathName().
  */
 drfront_status_t
-drfront_get_absolute_path(const char *rel, OUT char *buf, size_t buflen /*# elements*/)
+drfront_get_absolute_path(const char *rel, DR_PARAM_OUT char *buf,
+                          size_t buflen /*# elements*/)
 {
     size_t len = 0;
     char *err = NULL;
@@ -313,7 +318,8 @@ drfront_get_absolute_path(const char *rel, OUT char *buf, size_t buflen /*# elem
 }
 
 drfront_status_t
-drfront_get_app_full_path(const char *app, OUT char *buf, size_t buflen /*# elements*/)
+drfront_get_app_full_path(const char *app, DR_PARAM_OUT char *buf,
+                          size_t buflen /*# elements*/)
 {
     bool res = false;
     drfront_status_t status_check = DRFRONT_ERROR;
@@ -334,7 +340,7 @@ drfront_get_app_full_path(const char *app, OUT char *buf, size_t buflen /*# elem
 }
 
 drfront_status_t
-drfront_dir_exists(const char *path, OUT bool *is_dir)
+drfront_dir_exists(const char *path, DR_PARAM_OUT bool *is_dir)
 {
     struct stat64 st_buf;
     if (is_dir == NULL)
@@ -355,7 +361,7 @@ drfront_dir_exists(const char *path, OUT bool *is_dir)
 }
 
 drfront_status_t
-drfront_dir_try_writable(const char *path, OUT bool *is_writable)
+drfront_dir_try_writable(const char *path, DR_PARAM_OUT bool *is_writable)
 {
     /* It would be convenient to use O_TMPFILE but not all filesystems support it */
     int fd;

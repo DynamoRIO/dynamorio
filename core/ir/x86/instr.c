@@ -191,8 +191,9 @@ opc_is_not_a_real_memory_load(int opc)
  * to support faults of VSIB accesses.
  */
 static bool
-instr_compute_VSIB_index(bool *selected OUT, app_pc *result OUT, bool *is_write OUT,
-                         instr_t *instr, int ordinal, priv_mcontext_t *mc, size_t mc_size,
+instr_compute_VSIB_index(bool *selected DR_PARAM_OUT, app_pc *result DR_PARAM_OUT,
+                         bool *is_write DR_PARAM_OUT, instr_t *instr, int ordinal,
+                         priv_mcontext_t *mc, size_t mc_size,
                          dr_mcontext_flags_t mc_flags)
 {
     CLIENT_ASSERT(selected != NULL && result != NULL && mc != NULL,
@@ -418,7 +419,8 @@ instr_compute_VSIB_index(bool *selected OUT, app_pc *result OUT, bool *is_write 
 bool
 instr_compute_address_VSIB(instr_t *instr, priv_mcontext_t *mc, size_t mc_size,
                            dr_mcontext_flags_t mc_flags, opnd_t curop, uint index,
-                           OUT bool *have_addr, OUT app_pc *addr, OUT bool *write)
+                           DR_PARAM_OUT bool *have_addr, DR_PARAM_OUT app_pc *addr,
+                           DR_PARAM_OUT bool *write)
 {
     /* We assume that any instr w/ a VSIB opnd has no other
      * memory reference (and the VSIB is a source)!  Else we'll
@@ -908,7 +910,7 @@ instr_is_rep_string_op(instr_t *instr)
 }
 
 bool
-instr_is_floating_type(instr_t *instr, dr_instr_category_t *type OUT)
+instr_is_floating_type(instr_t *instr, dr_instr_category_t *type DR_PARAM_OUT)
 {
     uint cat = instr_get_category(instr);
     if (!TEST(DR_INSTR_CATEGORY_FP, cat))
@@ -919,7 +921,7 @@ instr_is_floating_type(instr_t *instr, dr_instr_category_t *type OUT)
 }
 
 bool
-instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type OUT)
+instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type DR_PARAM_OUT)
 {
     uint cat = instr_get_category(instr);
 

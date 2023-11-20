@@ -57,16 +57,16 @@
 
 /* in disassemble_shared.c */
 void
-internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
+internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
                           dcontext_t *dcontext, opnd_t opnd, bool use_size_sfx);
 void
-reg_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT, reg_id_t reg,
+reg_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT, reg_id_t reg,
                 dr_opnd_flags_t flags, const char *prefix, const char *suffix);
 
 #define BYTES_PER_LINE 7
 
 int
-print_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, byte *pc,
+print_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT, byte *pc,
                       byte *next_pc, instr_t *instr)
 {
     int sz = (int)(next_pc - pc);
@@ -89,8 +89,9 @@ print_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, byte *pc,
 }
 
 void
-print_extra_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, byte *pc,
-                            byte *next_pc, int extra_sz, const char *extra_bytes_prefix)
+print_extra_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
+                            byte *pc, byte *next_pc, int extra_sz,
+                            const char *extra_bytes_prefix)
 {
     int i;
     if (extra_sz > 0) {
@@ -102,7 +103,7 @@ print_extra_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, byte *
 }
 
 void
-opnd_base_disp_scale_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
+opnd_base_disp_scale_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
                                  opnd_t opnd)
 {
     int scale = opnd_get_scale(opnd);
@@ -115,7 +116,7 @@ opnd_base_disp_scale_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
 }
 
 bool
-opnd_disassemble_arch(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t opnd)
+opnd_disassemble_arch(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT, opnd_t opnd)
 {
     /* nothing */
     return false;
@@ -147,10 +148,10 @@ instr_implicit_reg(instr_t *instr)
 }
 
 bool
-opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
+opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
                             dcontext_t *dcontext, instr_t *instr, byte optype,
                             opnd_t opnd, bool prev, bool multiple_encodings, bool dst,
-                            int *idx INOUT)
+                            int *idx DR_PARAM_OUT)
 {
     switch (optype) {
     case TYPE_REG:
@@ -350,7 +351,7 @@ instr_opcode_name_suffix(instr_t *instr)
 
 void
 print_opcode_name(instr_t *instr, const char *name, char *buf, size_t bufsz,
-                  size_t *sofar INOUT)
+                  size_t *sofar DR_PARAM_OUT)
 {
     const char *subst_name = instr_opcode_name(instr);
     print_to_buffer(buf, bufsz, sofar, "%s%s", subst_name == NULL ? name : subst_name,
@@ -359,7 +360,7 @@ print_opcode_name(instr_t *instr, const char *name, char *buf, size_t bufsz,
 
 void
 print_instr_prefixes(dcontext_t *dcontext, instr_t *instr, char *buf, size_t bufsz,
-                     size_t *sofar INOUT)
+                     size_t *sofar DR_PARAM_OUT)
 {
     if (TEST(PREFIX_XACQUIRE, instr->prefixes))
         print_to_buffer(buf, bufsz, sofar, "xacquire ");
@@ -391,7 +392,7 @@ print_instr_prefixes(dcontext_t *dcontext, instr_t *instr, char *buf, size_t buf
 }
 
 int
-print_opcode_suffix(instr_t *instr, char *buf, size_t bufsz, size_t *sofar INOUT)
+print_opcode_suffix(instr_t *instr, char *buf, size_t bufsz, size_t *sofar DR_PARAM_OUT)
 {
     if (TEST(PREFIX_JCC_TAKEN, instr->prefixes)) {
         print_to_buffer(buf, bufsz, sofar, ",pt");

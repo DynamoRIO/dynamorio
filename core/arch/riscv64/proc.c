@@ -80,7 +80,8 @@ read_cache_line(const char *fname)
  * - This code assumes that all harts have the same L1 cache-line size.
  */
 static bool
-get_cache_line_size(OUT size_t *dcache_line_size, OUT size_t *icache_line_size)
+get_cache_line_size(DR_PARAM_OUT size_t *dcache_line_size,
+                    DR_PARAM_OUT size_t *icache_line_size)
 {
 #if !defined(DR_HOST_NOT_TARGET) && defined(LINUX)
     static const char *d_cache_fname =

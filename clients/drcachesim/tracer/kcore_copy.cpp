@@ -125,7 +125,7 @@ public:
     }
 
     bool
-    write(IN const void *buf, IN size_t count)
+    write(DR_PARAM_IN const void *buf, DR_PARAM_IN size_t count)
     {
         if (fd_ == INVALID_FILE || write_file_func_ == NULL) {
             return false;
@@ -135,7 +135,7 @@ public:
     }
 
     ssize_t
-    read(INOUT void *buf, IN size_t count)
+    read(DR_PARAM_OUT void *buf, DR_PARAM_IN size_t count)
     {
         if (fd_ == INVALID_FILE || read_file_func_ == NULL) {
             return -1;
@@ -144,7 +144,7 @@ public:
     }
 
     bool
-    seek(IN int64 offset, IN int origin)
+    seek(DR_PARAM_IN int64 offset, DR_PARAM_IN int origin)
     {
         if (fd_ == INVALID_FILE || seek_file_func_ == NULL) {
             return false;

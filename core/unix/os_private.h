@@ -326,7 +326,7 @@ handle_clone(dcontext_t *dcontext, uint64 flags);
 /* If returns false to skip the syscall, the result is in "result". */
 bool
 handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
-                 prev_sigaction_t *oact, size_t sigsetsize, OUT uint *result);
+                 prev_sigaction_t *oact, size_t sigsetsize, DR_PARAM_OUT uint *result);
 /* Returns the desired app return value (caller will negate if nec) */
 uint
 handle_post_sigaction(dcontext_t *dcontext, bool success, int sig,
@@ -336,7 +336,7 @@ handle_post_sigaction(dcontext_t *dcontext, bool success, int sig,
 /* If returns false to skip the syscall, the result is in "result". */
 bool
 handle_old_sigaction(dcontext_t *dcontext, int sig, const old_sigaction_t *act,
-                     old_sigaction_t *oact, OUT uint *result);
+                     old_sigaction_t *oact, DR_PARAM_OUT uint *result);
 /* Returns the desired app return value (caller will negate if nec) */
 uint
 handle_post_old_sigaction(dcontext_t *dcontext, bool success, int sig,
@@ -359,7 +359,7 @@ handle_post_extended_syscall_sigmasks(dcontext_t *dcontext, bool success);
 
 bool
 handle_sigaltstack(dcontext_t *dcontext, const stack_t *stack, stack_t *old_stack,
-                   reg_t cur_xsp, OUT uint *result);
+                   reg_t cur_xsp, DR_PARAM_OUT uint *result);
 
 bool
 handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *set,
@@ -465,15 +465,16 @@ void
 privload_tls_exit(void *dr_tp);
 #ifdef ANDROID
 bool
-get_kernel_args(int *argc OUT, char ***argv OUT, char ***envp OUT);
+get_kernel_args(int *argc DR_PARAM_OUT, char ***argv DR_PARAM_OUT,
+                char ***envp DR_PARAM_OUT);
 void
 init_android_version(void);
 #endif
 
 /* in nudgesig.c */
 bool
-create_nudge_signal_payload(kernel_siginfo_t *info OUT, uint action_mask, uint flags,
-                            client_id_t client_id, uint64 client_arg);
+create_nudge_signal_payload(kernel_siginfo_t *info DR_PARAM_OUT, uint action_mask,
+                            uint flags, client_id_t client_id, uint64 client_arg);
 
 #ifdef X86
 /* In x86.asm */

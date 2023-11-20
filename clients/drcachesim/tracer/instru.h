@@ -304,7 +304,7 @@ public:
     virtual void
     insert_obtain_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
                        reg_id_t reg_addr, reg_id_t reg_scratch, opnd_t ref,
-                       OUT bool *scratch_used = NULL);
+                       DR_PARAM_OUT bool *scratch_used = NULL);
 
 protected:
     void (*insert_load_buf_ptr_)(void *, instrlist_t *, instr_t *, reg_id_t);
@@ -432,9 +432,6 @@ public:
     void
     set_entry_addr(byte *buf_ptr, addr_t addr) override;
 
-    uint64_t
-    get_modoffs(void *drcontext, app_pc pc, OUT uint *modidx);
-
     int
     append_pid(byte *buf_ptr, process_id_t pid) override;
     int
@@ -492,15 +489,16 @@ public:
     opnd_disp_is_elidable(opnd_t memop);
     // "version" is an OFFLINE_FILE_VERSION* constant.
     bool
-    opnd_is_elidable(opnd_t memop, OUT reg_id_t &base, int version);
+    opnd_is_elidable(opnd_t memop, DR_PARAM_OUT reg_id_t &base, int version);
     // Inserts labels marking elidable addresses. label_marks_elidable() identifies them.
     // "version" is an OFFLINE_FILE_VERSION* constant.
     void
     identify_elidable_addresses(void *drcontext, instrlist_t *ilist, int version,
                                 bool memref_needs_full_info);
     bool
-    label_marks_elidable(instr_t *instr, OUT int *opnd_index, OUT int *memopnd_index,
-                         OUT bool *is_write, OUT bool *needs_base);
+    label_marks_elidable(instr_t *instr, DR_PARAM_OUT int *opnd_index,
+                         DR_PARAM_OUT int *memopnd_index, DR_PARAM_OUT bool *is_write,
+                         DR_PARAM_OUT bool *needs_base);
     static int
     print_module_data_fields(char *dst, size_t max_len, const void *custom_data,
                              size_t custom_size,
@@ -554,6 +552,10 @@ private:
     void
     flush_instr_encodings();
 
+    bool
+    does_pc_require_encoding(void *drcontext, app_pc pc, uint *modidx_out,
+                             app_pc *modbase_out);
+
     // Custom module fields are global (since drmodtrack's support is global, we don't
     // try to pass void* user data params through).
     static void *(*user_load_)(module_data_t *module, int seg_idx);
@@ -565,6 +567,8 @@ private:
     print_custom_module_data(void *data, char *dst, size_t max_len);
     static void
     free_custom_module_data(void *data);
+    // Unfortunately this cached vdso base must be global as well.
+    static std::atomic<uintptr_t> vdso_modbase_;
 
     // These identify the 4 fields we store in the label data area array.
     static constexpr int LABEL_DATA_ELIDED_INDEX = 0;       // Index among all operands.

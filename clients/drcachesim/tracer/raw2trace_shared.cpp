@@ -46,8 +46,9 @@ namespace drmemtrace {
 
 bool
 trace_metadata_reader_t::is_thread_start(const offline_entry_t *entry,
-                                         OUT std::string *error, OUT int *version,
-                                         OUT offline_file_type_t *file_type)
+                                         DR_PARAM_OUT std::string *error,
+                                         DR_PARAM_OUT int *version,
+                                         DR_PARAM_OUT offline_file_type_t *file_type)
 {
     *error = "";
     if (entry->extended.type != OFFLINE_TYPE_EXTENDED ||
@@ -107,7 +108,7 @@ trace_metadata_reader_t::check_entry_thread_start(const offline_entry_t *entry)
 
 drmemtrace_status_t
 drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size,
-                                            OUT uint64 *timestamp)
+                                            DR_PARAM_OUT uint64 *timestamp)
 {
     if (trace == nullptr || timestamp == nullptr)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;

@@ -576,7 +576,7 @@ raw2trace_directory_t::initialize_module_file(const std::string &module_file_pat
 std::string
 raw2trace_directory_t::initialize_funclist_file(
     const std::string &funclist_file_path,
-    OUT std::vector<std::vector<std::string>> *entries)
+    DR_PARAM_OUT std::vector<std::vector<std::string>> *entries)
 {
     std::ifstream stream(funclist_file_path);
     if (!stream.good())

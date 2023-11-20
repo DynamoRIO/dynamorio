@@ -90,8 +90,8 @@ int
 d_r_snprintf_wide(wchar_t *s, size_t max, const wchar_t *fmt, ...);
 
 extern bool
-create_nudge_signal_payload(siginfo_t *info OUT, uint action_mask, client_id_t client_id,
-                            uint flags, uint64 client_arg);
+create_nudge_signal_payload(siginfo_t *info DR_PARAM_OUT, uint action_mask,
+                            client_id_t client_id, uint flags, uint64 client_arg);
 #endif
 
 /* The minimum option size is 3, e.g., "-x ".  Note that we need the
