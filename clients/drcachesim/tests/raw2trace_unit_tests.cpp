@@ -2844,6 +2844,10 @@ test_ifiltered(void *drcontext)
         // This has an encoding because the previous dynamic instance was actually
         // i-filtered.
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#    ifdef X86_32
+        // An extra encoding entry is needed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#    endif
         // In filtered traces, we have one pc entry for the instr itself (if the
         // instruction is not i-filtered out) which has the instr length, and another
         // zero-length pc entry before each of the instr's memrefs (if the memref
