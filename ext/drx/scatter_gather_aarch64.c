@@ -497,6 +497,12 @@ expand_scatter_gather(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
 
         for (uint reg_index = 0; reg_index < sg_info->reg_count; reg_index++) {
             if (reg_index == 0) {
+                /* Extract the current element from the vector base/index register so we
+                 * can use it in the scalar load/store instruction.
+                 *
+                 * For multi-register loads/stores this contains the index for the first
+                 * register dst/src register.
+                 */
                 const reg_id_t reg_to_extract =
                     reg_is_z(sg_info->base_reg) ? sg_info->base_reg : sg_info->index_reg;
 
@@ -507,7 +513,9 @@ expand_scatter_gather(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
                      opnd_create_reg_element_vector(reg_to_extract,
                                                     sg_info->element_size));
             } else {
-                // Increment index
+                /* Increment the index value so the memory operand for the scalar
+                 * load/store we emit below points to the value for the next register.
+                 */
                 EMIT(add, opnd_create_reg(scalar_index_or_base),
                      opnd_create_reg(scalar_index_or_base), OPND_CREATE_INT(1));
             }
@@ -653,8 +661,9 @@ expand_contiguous(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
              OPND_CREATE_INT(sg_info->extend_amount));
     }
 
-    /* Populate the new vector index register, starting at 0 and incrementing by 1 every
-     * time.
+    /* Populate the new vector index register, starting at 0 and incrementing by the
+     * number of values which are accessed per-index. This is one value per register
+     * accessed so the increment is the same as sg_info->regcount.
      */
 
     /* index    scratch_vec.element_size, #0, #reg_count */
