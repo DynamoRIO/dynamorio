@@ -273,7 +273,11 @@ is_at_do_syscall(dcontext_t *dcontext, app_pc pc, byte *esp)
 #else
         return is_after_or_restarted_do_syscall(dcontext, pc, false /*!vsys*/);
 #endif
-    } else if (get_syscall_method() == SYSCALL_METHOD_SYSENTER) {
+    } else if (get_syscall_method() ==
+               SYSCALL_METHOD_SYSENTER IF_X86_32(
+                   ||
+                   (get_syscall_method() == SYSCALL_METHOD_SYSCALL &&
+                    cpu_info.vendor == VENDOR_AMD))) {
 #ifdef WINDOWS
         if (pc == vsyscall_after_syscall) {
             if (DYNAMO_OPTION(sygate_sysenter))

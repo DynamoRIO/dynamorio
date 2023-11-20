@@ -3161,19 +3161,19 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                 start = it;
                 DEBUG_ASSERT(tdata->cur_chunk_instr_count == 0);
             }
-            if (type_is_instr(static_cast<trace_type_t>(it->type)) &&
-                // Do not count PC-only i-filtered instrs.
-                it->size > 0) {
-                accumulate_to_statistic(tdata,
-                                        RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT, 1);
-                ++tdata->cur_chunk_instr_count;
+            if (type_is_instr(static_cast<trace_type_t>(it->type))) {
                 ++instr_ordinal;
-                if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, tdata->file_type) &&
-                    // We don't want encodings for the PC-only i-filtered entries.
-                    it->size > 0 && instr_ordinal >= static_cast<int>(decode_pcs_size)) {
-                    tdata->error = "decode_pcs is missing entries for written "
-                                   "instructions";
-                    return false;
+                // Do not count PC-only i-filtered instrs.
+                if (it->size > 0) {
+                    accumulate_to_statistic(
+                        tdata, RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT, 1);
+                    ++tdata->cur_chunk_instr_count;
+                    if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, tdata->file_type) &&
+                        instr_ordinal >= static_cast<int>(decode_pcs_size)) {
+                        tdata->error = "decode_pcs is missing entries for written "
+                                       "instructions";
+                        return false;
+                    }
                 }
             }
             // Check for missing encodings after possibly opening a new chunk.
@@ -3199,6 +3199,9 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                     // Check whether this instr's encoding has already been emitted
                     // due to multiple instances of the same delayed branch (the encoding
                     // cache was cleared in open_new_chunk()).
+                    // XXX: Do we need to delay PC-only (i-filtered) instrs (the ones
+                    // with it->size == 0)? We're anyway skipping over those entries here
+                    // so maybe we could avoid adding them to decode_pcs.
                     (record_encoding_emitted(tdata, *(decode_pcs + instr_ordinal))) {
                     // Write any data we were waiting until post-loop to write.
                     if (it > start &&
