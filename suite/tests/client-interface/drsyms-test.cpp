@@ -77,7 +77,7 @@ Foo::Bar(int a)
     return dll_export(a + 1);
 }
 
-extern "C" EXPORT int
+extern "C" EXPORT int NOINLINE
 exe_export(int a)
 {
     Foo f;
