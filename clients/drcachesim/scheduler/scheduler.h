@@ -522,6 +522,17 @@ public:
          * blocking and trigger a context switch.
          */
         uint64_t blocking_switch_threshold = 100;
+        /**
+         * Controls the amount of time inputs are considered blocked at a syscall whose
+         * latency exceeds #syscall_switch_threshold or #blocking_switch_threshold.  A
+         * "block time factor" is computed from the syscall latency divided by either
+         * #syscall_switch_threshold or #blocking_switch_threshold.  This factor is
+         * multiplied by this field #block_time_scale.  For #QUANTUM_TIME, that amount of
+         * time, as reported by the time parameter to next_record(), must pass before the
+         * input is no longer considered blocked.  For instruction quanta, that count of
+         * scheduler selections must occur before the input is actually selected.
+         */
+        double block_time_scale = 1.;
     };
 
     /**
@@ -956,6 +967,8 @@ protected:
         // While the scheduler only hands an input to one output at a time, during
         // scheduling decisions one thread may need to access another's fields.
         // We use a unique_ptr to make this moveable for vector storage.
+        // For inputs not actively assigned to a core but sitting in the ready_queue,
+        // sched_lock_ suffices to synchronize access.
         std::unique_ptr<std::mutex> lock;
         // A tid can be duplicated across workloads so we need the pair of
         // workload index + tid to identify the original input.
@@ -1002,6 +1015,9 @@ protected:
         bool switching_pre_instruction = false;
         // Used for time-based quanta.
         uint64_t start_time_in_quantum = 0;
+        // These fields model waiting at a blocking syscall.
+        double block_time_factor = 0.;
+        uint64_t blocked_start_time = 0; // For QUANTUM_TIME only.
     };
 
     // Format for recording a schedule to disk.  A separate sequence of these records
@@ -1019,6 +1035,9 @@ protected:
             FOOTER,        // The final entry in the component.  Other fields are ignored.
             SKIP,          // Skip ahead to the next region of interest.
             SYNTHETIC_END, // A synthetic thread exit record must be supplied.
+            // Indicates that the output is idle.  The value.idle_duration field holds
+            // a duration in microseconds.
+            IDLE,
         };
         static constexpr int VERSION_CURRENT = 0;
         schedule_record_t() = default;
@@ -1026,7 +1045,7 @@ protected:
                           uint64_t stop, uint64_t time)
             : type(type)
             , key(input)
-            , start_instruction(start)
+            , value(start)
             , stop_instruction(stop)
             , timestamp(time)
         {
@@ -1045,8 +1064,18 @@ protected:
             input_ordinal_t input = -1;
             int version; // For record_type_t::VERSION.
         } END_PACKED_STRUCTURE key;
-        // Input stream ordinal of starting point.
-        uint64_t start_instruction = 0;
+        START_PACKED_STRUCTURE
+        union value {
+            value() = default;
+            value(uint64_t start)
+                : start_instruction(start)
+            {
+            }
+            // For record_type_t::IDLE, the duration in microseconds of the idling.
+            uint64_t idle_duration;
+            // Input stream ordinal of starting point, for non-IDLE types.
+            uint64_t start_instruction = 0;
+        } END_PACKED_STRUCTURE value;
         // Input stream ordinal, exclusive.  Max numeric value means continue until EOF.
         uint64_t stop_instruction = 0;
         // Timestamp in microseconds to keep context switches ordered.
@@ -1096,6 +1125,8 @@ protected:
         int64_t as_traced_cpuid = -1;
         // Used for MAP_AS_PREVIOUSLY with live_replay_output_count_.
         bool at_eof = false;
+        // Used for replaying wait periods.
+        uint64_t wait_start_time = 0;
     };
 
     // Called just once at initialization time to set the initial input-to-output
@@ -1168,6 +1199,12 @@ protected:
     scheduler_status_t
     read_recorded_schedule();
 
+    uint64_t
+    get_time_micros();
+
+    uint64_t
+    get_output_time(output_ordinal_t output);
+
     // The caller must hold the lock for the input.
     stream_status_t
     record_schedule_segment(
@@ -1193,7 +1230,7 @@ protected:
     // Finds the next input stream for the 'output_ordinal'-th output stream.
     // No input_info_t lock can be held on entry.
     stream_status_t
-    pick_next_input(output_ordinal_t output, bool in_wait_state);
+    pick_next_input(output_ordinal_t output, double block_time_factor);
 
     // Helper for pick_next_input() for MAP_AS_PREVIOUSLY.
     // No input_info_t lock can be held on entry.
@@ -1313,14 +1350,19 @@ protected:
     add_to_ready_queue(input_info_t *input);
 
     // The input's lock must be held by the caller.
+    // Returns a multiplier for how long the input should be considered blocked.
     bool
-    syscall_incurs_switch(input_info_t *input);
+    syscall_incurs_switch(input_info_t *input, double &block_time_factor);
 
     // sched_lock_ must be held by the caller.
     // "for_output" is which output stream is looking for a new input; only an
     // input which is able to run on that output will be selected.
-    input_info_t *
-    pop_from_ready_queue(output_ordinal_t for_output);
+    stream_status_t
+    pop_from_ready_queue(output_ordinal_t for_output, input_info_t *&new_input);
+
+    // sched_lock_ must be held by the caller.
+    void
+    print_ready_queue_stats();
     ///
     ///////////////////////////////////////////////////////////////////////////
 
