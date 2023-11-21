@@ -7951,7 +7951,8 @@ memory_transfer_size_from_dtype(uint enc)
 }
 
 static inline bool
-decode_svemem_vec_sd_gpr16(uint size_bit, uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+decode_svemem_vec_sd_gpr16(uint size_bit, uint enc, int opcode, byte *pc,
+                           OUT opnd_t *opnd)
 {
     const aarch64_reg_offset msz = BITS(enc, 24, 23);
     const uint scale = 1 << msz;
@@ -7981,7 +7982,7 @@ decode_svemem_vec_sd_gpr16(uint size_bit, uint enc, int opcode, byte *pc, OUT op
 
 static inline bool
 encode_svemem_vec_sd_gpr16(uint size_bit, uint enc, int opcode, byte *pc, opnd_t opnd,
-                                OUT uint *enc_out)
+                           OUT uint *enc_out)
 {
 
     uint single_bit_value = 0;
@@ -8024,7 +8025,6 @@ encode_svemem_vec_sd_gpr16(uint size_bit, uint enc, int opcode, byte *pc, opnd_t
     return true;
 }
 
-
 /*
  * svemem_vec_sssd_gpr16: SVE memory address with GPR offset [<Zn>.S/D{, <Xm>}],
  * size determined by bit 22
@@ -8038,7 +8038,7 @@ decode_opnd_svemem_vec_22sd_gpr16(uint enc, int opcode, byte *pc, OUT opnd_t *op
 
 static inline bool
 encode_opnd_svemem_vec_22sd_gpr16(uint enc, int opcode, byte *pc, opnd_t opnd,
-                                OUT uint *enc_out)
+                                  OUT uint *enc_out)
 {
     return encode_svemem_vec_sd_gpr16(22, enc, opcode, pc, opnd, enc_out);
 }
@@ -8449,7 +8449,7 @@ decode_opnd_svemem_vec_30sd_gpr16(uint enc, int opcode, byte *pc, OUT opnd_t *op
 
 static inline bool
 encode_opnd_svemem_vec_30sd_gpr16(uint enc, int opcode, byte *pc, opnd_t opnd,
-                                OUT uint *enc_out)
+                                  OUT uint *enc_out)
 {
     return encode_svemem_vec_sd_gpr16(30, enc, opcode, pc, opnd, enc_out);
 }
