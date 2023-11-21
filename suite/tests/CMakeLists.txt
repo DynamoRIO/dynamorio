@@ -5889,3 +5889,6 @@ if (RISCV64)
       PROPERTIES LABELS RUNS_ON_QEMU)
   endif ()
 endif ()
+
+set_tests_properties(code_api|tool.drcacheoff.burst_traceopts PROPERTIES LABELS TMATE_DEBUG)#NOCHECK
+set_tests_properties(code_api|tool.drcacheoff.burst_replaceall PROPERTIES LABELS TMATE_DEBUG)#NOCHECK
