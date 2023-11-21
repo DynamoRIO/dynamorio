@@ -12913,7 +12913,8 @@
  *             DR_EXTEND_UXTX, 0, 0, 0,
  *             opnd_size_from_bytes(proc_get_vector_length_bytes() / 2), 0)
  *             For the [\<Zn\>.S{, \<Xm\>}] variant:
- *             opnd_create_vector_base_disp_aarch64(Zn, Xm, OPSZ_4, DR_EXTEND_UXTX, 0, 0, 0, opnd_size_from_bytes(proc_get_vector_length_bytes()), 0)
+ *             opnd_create_vector_base_disp_aarch64(Zn, Xm, OPSZ_4, DR_EXTEND_UXTX, 0, 0,
+ *             0, opnd_size_from_bytes(proc_get_vector_length_bytes()), 0)
  */
 #define INSTR_CREATE_ldnt1w_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_ldnt1w, Zt, Rn, Pg)
