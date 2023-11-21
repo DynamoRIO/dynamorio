@@ -151,6 +151,23 @@ private:
                          XINST_CREATE_store(dc, OPND_CREATE_MEMPTR(base, -ptrsz),
                                             opnd_create_reg(base)));
 
+        // Test raw2trace for filtered traces.
+        instr_t *nop1 = XINST_CREATE_nop(dc);
+        // Start new basic block.
+        instrlist_append(ilist, XINST_CREATE_jump(dc, opnd_create_instr(nop1)));
+        // First instr is one without a memref.
+        instrlist_append(ilist, nop1);
+        // Second instr has a memref. If raw2trace always picks the first bb instr for
+        // gencode bb instrs, this will result in a "memref entry found outside of bb"
+        // error.
+        instrlist_append(ilist,
+                         XINST_CREATE_load_int(dc, opnd_create_reg(base4imm),
+                                               OPND_CREATE_INT32(kGencodeMagic2)));
+        instr_t *nop2 = XINST_CREATE_nop(dc);
+        instrlist_append(ilist, XINST_CREATE_jump(dc, opnd_create_instr(nop2)));
+        // End basic block.
+        instrlist_append(ilist, nop2);
+
 #ifdef LINUX
         // Test a signal in non-module code.
 #    ifdef X86
@@ -287,38 +304,40 @@ post_process()
 }
 
 static std::string
-gather_trace()
+gather_trace(const std::string &add_env)
 {
 #ifdef LINUX
     intercept_signal(SIGILL, handle_signal, false);
 #endif
 
-    if (!my_setenv("DYNAMORIO_OPTIONS",
+    std::string env =
 #if defined(LINUX) && defined(X64)
-                   // We pass -satisfy_w_xor_x to further stress that option
-                   // interacting with standalone mode (xref i#5621).
-                   "-satisfy_w_xor_x "
+        // We pass -satisfy_w_xor_x to further stress that option
+        // interacting with standalone mode (xref i#5621).
+        "-satisfy_w_xor_x "
 #endif
-                   "-stderr_mask 0xc -client_lib ';;-offline"))
+        "-stderr_mask 0xc -client_lib ';;-offline";
+    env += add_env;
+    if (!my_setenv("DYNAMORIO_OPTIONS", env.c_str()))
         std::cerr << "failed to set env var!\n";
     code_generator_t gen(false);
-    std::cerr << "pre-DR init\n";
+    std::cerr << "pre-DR init\n" << std::flush;
     dr_app_setup();
     assert(!dr_app_running_under_dynamorio());
     drmemtrace_status_t res = drmemtrace_buffer_handoff(nullptr, exit_cb, nullptr);
     assert(res == DRMEMTRACE_SUCCESS);
-    std::cerr << "pre-DR start\n";
+    std::cerr << "pre-DR start\n" << std::flush;
     dr_app_start();
     if (do_some_work(gen) < 0)
         std::cerr << "error in computation\n";
-    std::cerr << "pre-DR detach\n";
+    std::cerr << "pre-DR detach\n" << std::flush;
     dr_app_stop_and_cleanup();
-    std::cerr << "all done\n";
+    std::cerr << "all done\n" << std::flush;
     return post_process();
 }
 
 static int
-look_for_gencode(std::string trace_dir)
+look_for_gencode(std::string trace_dir, bool look_for_magic)
 {
     void *dr_context = dr_standalone_init();
     scheduler_t scheduler;
@@ -372,15 +391,23 @@ look_for_gencode(std::string trace_dir)
         instr_free(dr_context, &instr);
     }
     dr_standalone_exit();
-    assert(found_magic2);
+    assert(!look_for_magic || found_magic2);
     return 0;
 }
 
 int
 test_main(int argc, const char *argv[])
 {
-    std::string trace_dir = gather_trace();
-    return look_for_gencode(trace_dir);
+    std::string extra_client_opts = "";
+    for (int i = 1; i < argc; ++i) {
+        extra_client_opts += " ";
+        extra_client_opts += argv[i];
+    }
+    std::string trace_dir = gather_trace(extra_client_opts);
+    bool look_for_magic = true;
+    if (extra_client_opts.find("-L0_filter") != std::string::npos)
+        look_for_magic = false;
+    return look_for_gencode(trace_dir, look_for_magic);
 }
 
 } // namespace drmemtrace

@@ -521,6 +521,7 @@ private:
     struct per_block_t {
         uint64_t id = 0;
         uint instr_count = 0;
+        app_pc start_pc = 0;
     };
 
     bool

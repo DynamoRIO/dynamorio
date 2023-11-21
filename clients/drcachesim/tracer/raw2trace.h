@@ -454,7 +454,8 @@ public:
     get_orig_pc_from_map_pc(app_pc map_pc, uint64 modidx, uint64 modoffs) const
     {
         if (modidx == PC_MODIDX_INVALID) {
-            auto const it = encodings_.find(modoffs);
+            uint64 blockidx = (modoffs >> PC_BLOCKOFFS_BITS);
+            auto const it = encodings_.find(blockidx);
             if (it == encodings_.end())
                 return nullptr;
             encoding_entry_t *entry = it->second;
@@ -476,11 +477,13 @@ public:
     get_orig_pc(uint64 modidx, uint64 modoffs) const
     {
         if (modidx == PC_MODIDX_INVALID) {
-            auto const it = encodings_.find(modoffs);
+            uint64 blockidx = (modoffs >> PC_BLOCKOFFS_BITS);
+            uint64 blockoffs = (modoffs & ((uint64_t(1) << PC_BLOCKOFFS_BITS) - 1));
+            auto const it = encodings_.find(blockidx);
             if (it == encodings_.end())
                 return nullptr;
             encoding_entry_t *entry = it->second;
-            return reinterpret_cast<app_pc>(entry->start_pc);
+            return reinterpret_cast<app_pc>(entry->start_pc + blockoffs);
         } else {
             size_t idx = static_cast<size_t>(modidx); // Avoid win32 warnings.
             // Cast to unsigned pointer-sized int first to avoid sign-extending.
@@ -494,11 +497,13 @@ public:
     get_map_pc(uint64 modidx, uint64 modoffs) const
     {
         if (modidx == PC_MODIDX_INVALID) {
-            auto const it = encodings_.find(modoffs);
+            uint64 blockidx = (modoffs >> PC_BLOCKOFFS_BITS);
+            uint64 blockoffs = (modoffs & ((uint64_t(1) << PC_BLOCKOFFS_BITS) - 1));
+            auto const it = encodings_.find(blockidx);
             if (it == encodings_.end())
                 return nullptr;
             encoding_entry_t *entry = it->second;
-            return entry->encodings;
+            return &entry->encodings[blockoffs];
         } else {
             size_t idx = static_cast<size_t>(modidx); // Avoid win32 warnings.
             return modvec_[idx].map_seg_base + (modoffs - modvec_[idx].seg_offs);

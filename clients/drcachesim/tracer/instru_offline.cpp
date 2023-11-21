@@ -570,7 +570,11 @@ offline_instru_t::insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *w
         modidx = PC_MODIDX_INVALID;
         // For generated code we store the id for matching with the encodings recorded
         // into the encoding file.
-        modoffs = per_block->id;
+        uint64 blockoffs = pc - per_block->start_pc;
+        uint64 blockidx = per_block->id;
+        DR_ASSERT(blockoffs < uint64_t(1) << PC_BLOCKOFFS_BITS);
+        DR_ASSERT(blockidx < uint64_t(1) << PC_BLOCKIDX_BITS);
+        modoffs = (blockidx << PC_BLOCKOFFS_BITS) | blockoffs;
     }
     // Check that the values we want to assign to the bitfields in offline_entry_t do not
     // overflow. In i#2956 we observed an overflow for the modidx field.
@@ -840,10 +844,12 @@ offline_instru_t::bb_analysis(void *drcontext, void *tag, void **bb_field,
 
     per_block->instr_count = instru_t::count_app_instrs(ilist);
 
+    app_pc tag_pc = dr_fragment_app_pc(tag);
+    per_block->start_pc = tag_pc;
+
     identify_elidable_addresses(drcontext, ilist, OFFLINE_FILE_VERSION,
                                 memref_needs_full_info);
 
-    app_pc tag_pc = dr_fragment_app_pc(tag);
     if (does_pc_require_encoding(drcontext, tag_pc, nullptr, nullptr)) {
         // For (unmodified) library code we do not need to record encodings as we
         // rely on access to the binary during post-processing.
