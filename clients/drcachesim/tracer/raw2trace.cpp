@@ -1660,7 +1660,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             return false;
         }
         if (instr->is_cti() && i != instr_count - 1) {
-            tdata->error = "invalid cti";
+            tdata->error = "invalid cti (testing 123 ...)";
             return false;
         }
         if (instr->is_syscall() && should_omit_syscall(tdata)) {
