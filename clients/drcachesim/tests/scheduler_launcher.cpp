@@ -155,6 +155,11 @@ simulate_core(int ordinal, scheduler_t::stream_t *stream, const scheduler_t &sch
     memref_t record;
     uint64_t micros = op_sched_time.get_value() ? get_current_microseconds() : 0;
     uint64_t cur_segment_instrs = 0;
+    // XXX: Should we remove this tool as the schedule_stats analysis tool has
+    // superceded it?  We're basically duplicating new features in both.
+    bool prev_was_wait = false, prev_was_idle = false;
+    // Measure cpu usage by counting each next_record() as one cycle.
+    uint64_t cycles_total = 0, cycles_busy = 0;
     // Thread ids can be duplicated, so use the input ordinals to distinguish.
     scheduler_t::input_ordinal_t prev_input = scheduler_t::INVALID_INPUT_ORDINAL;
     for (scheduler_t::stream_status_t status = stream->next_record(record, micros);
@@ -162,13 +167,28 @@ simulate_core(int ordinal, scheduler_t::stream_t *stream, const scheduler_t &sch
          status = stream->next_record(record, micros)) {
         if (op_sched_time.get_value())
             micros = get_current_microseconds();
+        ++cycles_total;
         if (status == scheduler_t::STATUS_WAIT) {
-            thread_sequence += '-';
+            if (!prev_was_wait || cur_segment_instrs == op_print_every.get_value())
+                thread_sequence += '-';
+            ++cur_segment_instrs;
+            if (cur_segment_instrs == op_print_every.get_value())
+                cur_segment_instrs = 0;
+            prev_was_wait = true;
             std::this_thread::yield();
             continue;
-        }
-        if (status != scheduler_t::STATUS_OK)
+        } else if (status == scheduler_t::STATUS_IDLE) {
+            if (!prev_was_idle || cur_segment_instrs == op_print_every.get_value())
+                thread_sequence += '_';
+            ++cur_segment_instrs;
+            if (cur_segment_instrs == op_print_every.get_value())
+                cur_segment_instrs = 0;
+            prev_was_idle = true;
+            std::this_thread::yield();
+            continue;
+        } else if (status != scheduler_t::STATUS_OK)
             FATAL_ERROR("scheduler failed to advance: %d", status);
+        ++cycles_busy;
         if (op_verbose.get_value() >= 4) {
             std::ostringstream line;
             line << "Core #" << std::setw(2) << ordinal << " @" << std::setw(9)
@@ -249,6 +269,11 @@ simulate_core(int ordinal, scheduler_t::stream_t *stream, const scheduler_t &sch
         }
 #endif
     }
+    float usage = 0;
+    if (cycles_total > 0)
+        usage = 100.f * cycles_busy / static_cast<float>(cycles_total);
+    std::cerr << "Core #" << std::setw(2) << ordinal << " usage: " << std::setw(9)
+              << usage << "%\n";
 }
 
 } // namespace

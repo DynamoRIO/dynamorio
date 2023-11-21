@@ -583,6 +583,17 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_CORE_WAIT,
 
+    /**
+     * This marker is used for core-sharded analyses to indicate that the current
+     * core has no available inputs to run (all inputs are on other cores or are
+     * blocked waiting for kernel resources).  A new marker is emitted each
+     * time the tool analysis framework requests a new record from the scheduler and
+     * is given a wait status.  There are no units of time here but each repetition
+     * is roughly the time where a regular record could have been read and passed
+     * along.
+     */
+    TRACE_MARKER_TYPE_CORE_IDLE,
+
     // ...
     // These values are reserved for future built-in marker types.
     // ...

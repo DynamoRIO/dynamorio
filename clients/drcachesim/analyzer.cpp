@@ -133,6 +133,17 @@ analyzer_t::create_wait_marker()
     return record;
 }
 
+template <>
+memref_t
+analyzer_t::create_idle_marker()
+{
+    memref_t record = {}; // Zero the other fields.
+    record.marker.type = TRACE_TYPE_MARKER;
+    record.marker.marker_type = TRACE_MARKER_TYPE_CORE_IDLE;
+    record.marker.tid = INVALID_THREAD_ID;
+    return record;
+}
+
 /******************************************************************************
  * Specializations for analyzer_tmpl_t<record_reader_t>, aka record_analyzer_t.
  */
@@ -178,6 +189,17 @@ record_analyzer_t::create_wait_marker()
     trace_entry_t record;
     record.type = TRACE_TYPE_MARKER;
     record.size = TRACE_MARKER_TYPE_CORE_WAIT;
+    record.addr = 0; // Marker value has no meaning so we zero it.
+    return record;
+}
+
+template <>
+trace_entry_t
+record_analyzer_t::create_idle_marker()
+{
+    trace_entry_t record;
+    record.type = TRACE_TYPE_MARKER;
+    record.size = TRACE_MARKER_TYPE_CORE_IDLE;
     record.addr = 0; // Marker value has no meaning so we zero it.
     return record;
 }
@@ -537,6 +559,11 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
             // We synthesize a record here.  If we wanted this to count toward output
             // stream ordinals we would need to add a scheduler API to inject it.
             record = create_wait_marker();
+        } else if (status == sched_type_t::STATUS_IDLE) {
+            // We let tools know about idle time so they can analyze cpu usage.
+            // We synthesize a record here.  If we wanted this to count toward output
+            // stream ordinals we would need to add a scheduler API to inject it.
+            record = create_idle_marker();
         } else if (status != sched_type_t::STATUS_OK) {
             if (status == sched_type_t::STATUS_REGION_INVALID) {
                 worker->error =
@@ -596,8 +623,10 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
         }
     }
     if (shard_type_ == SHARD_BY_CORE) {
-        if (!process_shard_exit(worker, worker->index))
-            return;
+        if (worker->shard_data.find(worker->index) != worker->shard_data.end()) {
+            if (!process_shard_exit(worker, worker->index))
+                return;
+        }
     }
     for (const auto &keyval : worker->shard_data) {
         if (!keyval.second.exited) {
