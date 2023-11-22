@@ -539,8 +539,11 @@ offline_instru_t::record_instr_encodings(void *drcontext, app_pc tag_pc,
         dr_app_pc_as_jump_target(instr_get_isa_mode(instrlist_first(ilist)), tag_pc));
     log_(2, "%s: Recorded %zu bytes for id " UINT64_FORMAT_STRING " @ %p\n", __FUNCTION__,
          enc->length, enc->id, tag_pc);
-    DR_ASSERT(enc->length > sizeof(encoding_entry_t));
-    encoding_length_ += (enc->length - sizeof(encoding_entry_t));
+    // TODO i#2062: If the ilist does not have any app instr, we still somehow need to
+    // write an entry to the encoding file. For now we keep this behavior. This
+    // reproduces on the tool.drcacheoff.getretaddr_record_replace_retaddr test.
+    DR_ASSERT(enc->length >= sizeof(encoding_entry_t));
+    encoding_length_ += enc->length;
     encoding_buf_ptr_ += enc->length;
     dr_mutex_unlock(encoding_lock_);
 }

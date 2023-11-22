@@ -364,12 +364,12 @@ module_mapper_t::do_encoding_parsing()
     uint64_t cumulative_encoding_length = 0;
     while (map_at < map_end) {
         encoding_entry_t *entry = reinterpret_cast<encoding_entry_t *>(map_at);
-        if (entry->length <= sizeof(encoding_entry_t))
+        if (entry->length < sizeof(encoding_entry_t))
             return "Encoding file is corrupted";
         if (map_at + entry->length > map_end)
             return "Encoding file is truncated";
         cum_block_enc_len_to_encoding_id_[cumulative_encoding_length] = entry->id;
-        cumulative_encoding_length += (entry->length - sizeof(encoding_entry_t));
+        cumulative_encoding_length += entry->length;
         encodings_[entry->id] = entry;
         map_at += entry->length;
     }
