@@ -806,6 +806,12 @@ typedef enum {
 #define PC_MODOFFS_BITS 33
 #define PC_MODIDX_BITS 16
 // We reserve the top value to indicate non-module generated code.
+// TODO i#2062: Filtered traces use a different scheme for modoffs (see
+// ENCODING_FILE_TYPE_SEPARATE_NON_MOD_INSTRS) where the total non-module
+// code is limited to 8GB (33 bytes worth of addressing). We can potentially
+// allow more gencode by using multiple modidx (and not just
+// PC_MODIDX_INVALID) for pointing to non-module code, growing downward from
+// PC_MODIDX_INVALID.
 #define PC_MODIDX_INVALID ((1 << PC_MODIDX_BITS) - 1)
 #define PC_INSTR_COUNT_BITS 12
 #define PC_TYPE_BITS 3
