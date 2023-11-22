@@ -395,8 +395,9 @@ module_mapper_t::read_and_map_modules()
         drmodtrack_info_t &info = *it;
         custom_module_data_t *custom_data = (custom_module_data_t *)info.custom;
         if (custom_data != nullptr && custom_data->contents_size > 0) {
-            // XXX i#2062: We could eliminate this raw bytes in the module data in
-            // favor of the new encoding file used for generated code.
+            // These raw bytes for vdso is only present for legacy traces; we
+            // use encoding entries for new traces.
+            // XXX i#2062: Delete this code once we stop supporting legacy traces.
             VPRINT(1, "Using module %d %s stored %zd-byte contents @" PFX "\n",
                    (int)modvec_.size(), info.path, custom_data->contents_size,
                    custom_data->contents);
@@ -461,7 +462,10 @@ module_mapper_t::read_and_map_modules()
                 // We expect to fail to map dynamorio.dll for x64 Windows as it
                 // is built /fixed.  (We could try to have the map succeed w/o relocs,
                 // but we expect to not care enough about code in DR).
-                if (strstr(info.path, "dynamorio") != NULL)
+                // We also expect to fail for vdso, for which we have encoding entries.
+                if (strstr(info.path, "dynamorio") != nullptr ||
+                    strstr(info.path, "linux-gate") != nullptr ||
+                    strstr(info.path, "vdso") != nullptr)
                     modvec_.push_back(module_t(info.path, info.start, NULL, 0, 0, 0));
                 else {
                     last_error_ = "Failed to map module " + std::string(info.path);
@@ -3157,19 +3161,19 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                 start = it;
                 DEBUG_ASSERT(tdata->cur_chunk_instr_count == 0);
             }
-            if (type_is_instr(static_cast<trace_type_t>(it->type)) &&
-                // Do not count PC-only i-filtered instrs.
-                it->size > 0) {
-                accumulate_to_statistic(tdata,
-                                        RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT, 1);
-                ++tdata->cur_chunk_instr_count;
+            if (type_is_instr(static_cast<trace_type_t>(it->type))) {
                 ++instr_ordinal;
-                if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, tdata->file_type) &&
-                    // We don't want encodings for the PC-only i-filtered entries.
-                    it->size > 0 && instr_ordinal >= static_cast<int>(decode_pcs_size)) {
-                    tdata->error = "decode_pcs is missing entries for written "
-                                   "instructions";
-                    return false;
+                // Do not count PC-only i-filtered instrs.
+                if (it->size > 0) {
+                    accumulate_to_statistic(
+                        tdata, RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT, 1);
+                    ++tdata->cur_chunk_instr_count;
+                    if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, tdata->file_type) &&
+                        instr_ordinal >= static_cast<int>(decode_pcs_size)) {
+                        tdata->error = "decode_pcs is missing entries for written "
+                                       "instructions";
+                        return false;
+                    }
                 }
             }
             // Check for missing encodings after possibly opening a new chunk.
@@ -3195,6 +3199,9 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                     // Check whether this instr's encoding has already been emitted
                     // due to multiple instances of the same delayed branch (the encoding
                     // cache was cleared in open_new_chunk()).
+                    // XXX: Do we need to delay PC-only (i-filtered) instrs (the ones
+                    // with it->size == 0)? We're anyway skipping over those entries here
+                    // so maybe we could avoid adding them to decode_pcs.
                     (record_encoding_emitted(tdata, *(decode_pcs + instr_ordinal))) {
                     // Write any data we were waiting until post-loop to write.
                     if (it > start &&

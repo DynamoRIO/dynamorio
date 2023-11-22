@@ -2925,13 +2925,21 @@ if (X86 OR AARCH64)
     # XXX i#2985: The test's asm doesn't build with MacOS's clang.
     set(client.drx-scattergather_client_source "client-interface/drx-scattergather.dll.c")
     if (X86)
-        tobuild_ci(client.drx-scattergather "client-interface/drx-scattergather-x86.c"
-          "" "" "")
-        set_avx_flags(client.drx-scattergather)
+      tobuild_ci(client.drx-scattergather "client-interface/drx-scattergather-x86.c"
+        "" "" "")
+      set_avx_flags(client.drx-scattergather)
     elseif (AARCH64)
-        tobuild_ci(client.drx-scattergather "client-interface/drx-scattergather-aarch64.cpp"
-          "" "" "")
-        set_sve_flags(client.drx-scattergather)
+      tobuild_ci(client.drx-scattergather "client-interface/drx-scattergather-aarch64.cpp"
+        "" "" "")
+      set_sve_flags(client.drx-scattergather)
+
+      if (proc_supports_sve)
+        # Run the tests natively as well to confirm the test reference data is correct.
+        set(client.drx-scattergather-native_runsve 1)
+        set(client.drx-scattergather-native_test_sample_client 1)
+        torunonly_native(client.drx-scattergather-native client.drx-scattergather
+          drx-scattergather-aarch64 "client-interface/drx-scattergather-aarch64.cpp" "")
+      endif()
     endif()
     target_include_directories(client.drx-scattergather PRIVATE
       ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
