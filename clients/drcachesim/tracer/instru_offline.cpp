@@ -582,6 +582,7 @@ offline_instru_t::insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *w
         // For generated code we store the id for matching with the encodings recorded
         // into the encoding file.
         if (instrs_are_separate_) {
+            DR_ASSERT(pc >= per_block->start_pc);
             uint64 blockoffs = pc - per_block->start_pc;
             uint64 blockidx = per_block->id;
             DR_ASSERT(blockoffs < uint64_t(1) << PC_BLOCKOFFS_BITS);
