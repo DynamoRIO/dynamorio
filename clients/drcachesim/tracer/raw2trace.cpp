@@ -62,7 +62,6 @@
 #include <cstring>
 #include <deque>
 #include <iomanip>
-#include <iostream>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -351,7 +350,7 @@ module_mapper_t::do_encoding_parsing()
     if (map_start == nullptr || map_size < file_size)
         return "Failed to map encoding file";
     byte *map_at = map_start;
-    byte *map_end = map_start + map_size;
+    byte *map_end = map_start + file_size;
     uint64_t encoding_file_version = *reinterpret_cast<uint64_t *>(map_at);
     map_at += sizeof(uint64_t);
     if (encoding_file_version > ENCODING_FILE_VERSION)
@@ -365,11 +364,8 @@ module_mapper_t::do_encoding_parsing()
     uint64_t cumulative_encoding_length = 0;
     while (map_at < map_end) {
         encoding_entry_t *entry = reinterpret_cast<encoding_entry_t *>(map_at);
-        if (entry->length < sizeof(encoding_entry_t)) {
-            std::cerr << "AAA entry->length: " << entry->length << " sizeof "
-                      << sizeof(encoding_entry_t) << "\n";
+        if (entry->length < sizeof(encoding_entry_t))
             return "Encoding file is corrupted";
-        }
         if (map_at + entry->length > map_end)
             return "Encoding file is truncated";
         cum_block_enc_len_to_encoding_id_[cumulative_encoding_length] = entry->id;
