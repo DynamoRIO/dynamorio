@@ -681,6 +681,8 @@ instr_is_ldstex_mangling(dcontext_t *dcontext, instr_t *instr)
          instr_is_exclusive_store(instr_get_prev(instr_get_prev(instr)))) ||
         instr_is_exclusive_load(instr) || instr_is_exclusive_store(instr) ||
         (instr_is_mov_constant(instr, &val) &&
+         /* XXX: These are fragile, should we look backward a bit to check for more
+            specific patterns? */
          (val == 1 /* cas fail */ || val == -1 /* reservation invalidation */ ||
           val == 4 /* lr.w/sc.w size */ || val == 8 /* lr.d/sc.d size */)))
         return true;
