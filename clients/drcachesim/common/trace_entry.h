@@ -809,8 +809,9 @@ typedef enum {
 #define PC_MODIDX_INVALID ((1 << PC_MODIDX_BITS) - 1)
 #define PC_INSTR_COUNT_BITS 12
 #define PC_TYPE_BITS 3
-// Block idx and block offset are stored in the slot of module offset for
-// generated code.
+// For encoding files with type ENCODING_FILE_TYPE_SEPARATE_NON_MOD_INSTRS,
+// the block idx and block offset are stored in the slot of module offset for
+// generated code PC entries.
 // We let PC_BLOCKOFFS_BITS be large enough to accommodate roughly the
 // max instr count we can store in a PC trace entry.
 #define PC_BLOCKOFFS_BITS (PC_INSTR_COUNT_BITS + 2)
