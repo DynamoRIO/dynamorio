@@ -491,6 +491,7 @@ offline_instru_t::record_instr_encodings(void *drcontext, app_pc tag_pc,
     log_(3, "%s: new block id " UINT64_FORMAT_STRING " for %p\n", __FUNCTION__,
          encoding_id_, tag_pc);
     per_block->id = encoding_id_++;
+    per_block->encoding_length_start = encoding_length_;
 
     if (encoding_buf_ptr_ + max_block_encoding_size_ >=
         encoding_buf_start_ + encoding_buf_sz_) {
@@ -537,7 +538,7 @@ offline_instru_t::record_instr_encodings(void *drcontext, app_pc tag_pc,
         dr_app_pc_as_jump_target(instr_get_isa_mode(instrlist_first(ilist)), tag_pc));
     log_(2, "%s: Recorded %zu bytes for id " UINT64_FORMAT_STRING " @ %p\n", __FUNCTION__,
          enc->length, enc->id, tag_pc);
-
+    encoding_length_ += enc->length;
     encoding_buf_ptr_ += enc->length;
     dr_mutex_unlock(encoding_lock_);
 }
@@ -583,11 +584,7 @@ offline_instru_t::insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *w
         // into the encoding file.
         if (instrs_are_separate_) {
             DR_ASSERT(pc >= per_block->start_pc);
-            uint64 blockoffs = pc - per_block->start_pc;
-            uint64 blockidx = per_block->id;
-            DR_ASSERT(blockoffs < uint64_t(1) << PC_BLOCKOFFS_BITS);
-            DR_ASSERT(blockidx < uint64_t(1) << PC_BLOCKIDX_BITS);
-            modoffs = (blockidx << PC_BLOCKOFFS_BITS) | blockoffs;
+            modoffs = pc - per_block->start_pc + per_block->encoding_length_start;
         } else {
             modoffs = per_block->id;
         }

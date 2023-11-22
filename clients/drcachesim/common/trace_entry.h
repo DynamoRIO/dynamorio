@@ -809,17 +809,6 @@ typedef enum {
 #define PC_MODIDX_INVALID ((1 << PC_MODIDX_BITS) - 1)
 #define PC_INSTR_COUNT_BITS 12
 #define PC_TYPE_BITS 3
-// For encoding files with type ENCODING_FILE_TYPE_SEPARATE_NON_MOD_INSTRS,
-// the block idx and block offset are stored in the slot of module offset for
-// generated code PC entries.
-// We let PC_BLOCKOFFS_BITS be large enough to accommodate roughly the
-// max instr count we can store in a PC trace entry.
-#define PC_BLOCKOFFS_BITS (PC_INSTR_COUNT_BITS + 2)
-// TODO i#2062: We can have only 2^19 gencode blocks with this configuration.
-// Allow more gencode blocks by using multiple modidx (and not just
-// PC_MODIDX_INVALID) for pointing to non-module code, growing downward from
-// PC_MODIDX_INVALID.
-#define PC_BLOCKIDX_BITS (PC_MODOFFS_BITS - PC_BLOCKOFFS_BITS)
 
 #define OFFLINE_FILE_VERSION_NO_ELISION 2
 #define OFFLINE_FILE_VERSION_OLDEST_SUPPORTED OFFLINE_FILE_VERSION_NO_ELISION
@@ -995,10 +984,10 @@ typedef enum {
     ENCODING_FILE_TYPE_DEFAULT = 0x0,
     /**
      * This encoding file type tells the module_mapper_t that the non-module PC
-     * entries in the trace are separate for each instr and should be interpreted
-     * as ((non_mod_block_idx << PC_BLOCKOFFS_BITS) | block_offset_for_instr).
-     * If this file type is not set, then non-module PC entries are interpreted
-     * as only the non_mod_block_idx.
+     * entries in the trace correspond to an individual instr. The modoffs field is
+     * interpreted as the cumulative encoding length of all instrs written to the
+     * encoding file before the recorded instr. If this file type is not set, then
+     * non-module PC entries are interpreted as the non-mod block's idx.
      */
     ENCODING_FILE_TYPE_SEPARATE_NON_MOD_INSTRS = 0x1,
 } encoding_file_type_t;

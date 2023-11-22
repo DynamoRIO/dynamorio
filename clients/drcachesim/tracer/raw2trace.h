@@ -52,6 +52,7 @@
 #include <fstream>
 #include <limits>
 #include <list>
+#include <map>
 #include <memory>
 #include <queue>
 #include <set>
@@ -454,9 +455,10 @@ public:
     get_orig_pc_from_map_pc(app_pc map_pc, uint64 modidx, uint64 modoffs) const
     {
         if (modidx == PC_MODIDX_INVALID) {
-            uint64 blockidx;
+            uint64 blockidx = 0;
             if (separate_non_mod_instrs_) {
-                blockidx = (modoffs >> PC_BLOCKOFFS_BITS);
+                uint64 blockoffs = 0;
+                convert_modoffs_to_non_mod_block(modoffs, blockidx, blockoffs);
             } else {
                 blockidx = modoffs;
             }
@@ -482,11 +484,10 @@ public:
     get_orig_pc(uint64 modidx, uint64 modoffs) const
     {
         if (modidx == PC_MODIDX_INVALID) {
-            uint64 blockidx;
-            uint64 blockoffs;
+            uint64 blockidx = 0;
+            uint64 blockoffs = 0;
             if (separate_non_mod_instrs_) {
-                blockidx = (modoffs >> PC_BLOCKOFFS_BITS);
-                blockoffs = (modoffs & ((uint64_t(1) << PC_BLOCKOFFS_BITS) - 1));
+                convert_modoffs_to_non_mod_block(modoffs, blockidx, blockoffs);
             } else {
                 blockidx = modoffs;
                 blockoffs = 0;
@@ -509,11 +510,10 @@ public:
     get_map_pc(uint64 modidx, uint64 modoffs) const
     {
         if (modidx == PC_MODIDX_INVALID) {
-            uint64 blockidx;
-            uint64 blockoffs;
+            uint64 blockidx = 0;
+            uint64 blockoffs = 0;
             if (separate_non_mod_instrs_) {
-                blockidx = (modoffs >> PC_BLOCKOFFS_BITS);
-                blockoffs = (modoffs & ((uint64_t(1) << PC_BLOCKOFFS_BITS) - 1));
+                convert_modoffs_to_non_mod_block(modoffs, blockidx, blockoffs);
             } else {
                 blockidx = modoffs;
                 blockoffs = 0;
@@ -596,6 +596,19 @@ protected:
         void *user_data;
     };
 
+    void
+    convert_modoffs_to_non_mod_block(uint64 modoffs, uint64 &blockidx,
+                                     uint64 &blockoffs) const
+    {
+        auto it = cum_block_enc_len_to_encoding_id_.upper_bound(modoffs);
+        auto it_prev = it;
+        it_prev--;
+        DR_ASSERT(it_prev->first <= modoffs &&
+                  (it == cum_block_enc_len_to_encoding_id_.end() || it->first > modoffs));
+        blockidx = it_prev->second;
+        blockoffs = modoffs - it_prev->first;
+    }
+
     virtual void
     read_and_map_modules(void);
 
@@ -633,6 +646,7 @@ protected:
     size_t last_map_size_ = 0;
     byte *last_map_base_ = nullptr;
     bool separate_non_mod_instrs_ = false;
+    std::map<uint64_t, uint64_t> cum_block_enc_len_to_encoding_id_;
 
     uint verbosity_ = 0;
     std::string alt_module_dir_;

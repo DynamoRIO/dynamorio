@@ -357,16 +357,19 @@ module_mapper_t::do_encoding_parsing()
         return "Encoding file has invalid version";
     if (encoding_file_version >= ENCODING_FILE_VERSION_HAS_FILE_TYPE) {
         uint64_t encoding_file_type = *reinterpret_cast<uint64_t *>(map_at);
+        map_at += sizeof(uint64_t);
         separate_non_mod_instrs_ =
             TESTANY(ENCODING_FILE_TYPE_SEPARATE_NON_MOD_INSTRS, encoding_file_type);
-        map_at += sizeof(uint64_t);
     }
+    uint64_t cumulative_encoding_length = 0;
     while (map_at < map_end) {
         encoding_entry_t *entry = reinterpret_cast<encoding_entry_t *>(map_at);
         if (entry->length < sizeof(encoding_entry_t))
             return "Encoding file is corrupted";
         if (map_at + entry->length > map_end)
             return "Encoding file is truncated";
+        cum_block_enc_len_to_encoding_id_[cumulative_encoding_length] = entry->id;
+        cumulative_encoding_length += entry->length;
         encodings_[entry->id] = entry;
         map_at += entry->length;
     }
