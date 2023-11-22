@@ -632,7 +632,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
         }
     }
     VPRINT(this, 1, "%zu inputs\n", inputs_.size());
-    live_input_count_.store(inputs_.size(), std::memory_order_release);
+    live_input_count_.store(static_cast<int>(inputs_.size()), std::memory_order_release);
     return set_initial_schedule(workload2inputs);
 }
 
