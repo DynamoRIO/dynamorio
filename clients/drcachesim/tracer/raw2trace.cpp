@@ -62,6 +62,7 @@
 #include <cstring>
 #include <deque>
 #include <iomanip>
+#include <iostream>
 #include <memory>
 #include <sstream>
 #include <string>
