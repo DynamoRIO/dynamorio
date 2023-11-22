@@ -979,7 +979,28 @@ typedef union {
 // The encoding file begins with a 64-bit integer holding a version number,
 // followed by a series of records of type encoding_entry_t.
 #define ENCODING_FILE_INITIAL_VERSION 0
-#define ENCODING_FILE_VERSION ENCODING_FILE_INITIAL_VERSION
+// Encoding files have a file type as the second uint64_t in their header.
+#define ENCODING_FILE_VERSION_HAS_FILE_TYPE 1
+#define ENCODING_FILE_VERSION ENCODING_FILE_VERSION_HAS_FILE_TYPE
+
+/**
+ * Bitfields used to describe the type of the encoding file. This is stored as the
+ * second uint64_t after the encoding file version.
+ */
+typedef enum {
+    /**
+     * Default encoding file type.
+     */
+    ENCODING_FILE_TYPE_DEFAULT = 0x0,
+    /**
+     * This encoding file type tells the module_mapper_t that the non-module PC
+     * entries in the trace are separate for each instr and should be interpreted
+     * as ((non_mod_block_idx << PC_BLOCKOFFS_BITS) | block_offset_for_instr).
+     * If this file type is not set, then non-module PC entries are interpreted
+     * as only the non_mod_block_idx.
+     */
+    ENCODING_FILE_TYPE_SEPARATE_NON_MOD_INSTRS = 0x1,
+} encoding_file_type_t;
 
 // All fields are little-endian.
 START_PACKED_STRUCTURE

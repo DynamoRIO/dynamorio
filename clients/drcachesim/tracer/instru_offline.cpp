@@ -78,13 +78,14 @@ offline_instru_t::offline_instru_t(
     drvector_t *reg_vector,
     ssize_t (*write_file)(file_t file, const void *data, size_t count),
     file_t module_file, file_t encoding_file, bool disable_optimizations,
-    void (*log)(uint level, const char *fmt, ...))
+    bool instrs_are_separate, void (*log)(uint level, const char *fmt, ...))
     : instru_t(insert_load_buf, reg_vector, sizeof(offline_entry_t),
                disable_optimizations)
     , write_file_func_(write_file)
     , modfile_(module_file)
     , log_(log)
     , encoding_file_(encoding_file)
+    , instrs_are_separate_(instrs_are_separate)
 {
     drcovlib_status_t res = drmodtrack_init();
     DR_ASSERT(res == DRCOVLIB_SUCCESS);
@@ -110,8 +111,18 @@ offline_instru_t::offline_instru_t(
     encoding_buf_start_ = reinterpret_cast<byte *>(
         dr_raw_mem_alloc(encoding_buf_sz_, DR_MEMPROT_READ | DR_MEMPROT_WRITE, nullptr));
     encoding_buf_ptr_ = encoding_buf_start_;
-    // Write out the header which is just a 64-bit version.
+    // Write out the encoding file header.
+    // 64-bit version.
     *reinterpret_cast<uint64_t *>(encoding_buf_ptr_) = ENCODING_FILE_VERSION;
+    encoding_buf_ptr_ += sizeof(uint64_t);
+    // 64-bit file type.
+    uint64_t encoding_file_type =
+        static_cast<uint64_t>(encoding_file_type_t::ENCODING_FILE_TYPE_DEFAULT);
+    if (instrs_are_separate_) {
+        encoding_file_type |= static_cast<uint64_t>(
+            encoding_file_type_t::ENCODING_FILE_TYPE_SEPARATE_NON_MOD_INSTRS);
+    }
+    *reinterpret_cast<uint64_t *>(encoding_buf_ptr_) = encoding_file_type;
     encoding_buf_ptr_ += sizeof(uint64_t);
 }
 
@@ -570,11 +581,15 @@ offline_instru_t::insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *w
         modidx = PC_MODIDX_INVALID;
         // For generated code we store the id for matching with the encodings recorded
         // into the encoding file.
-        uint64 blockoffs = pc - per_block->start_pc;
-        uint64 blockidx = per_block->id;
-        DR_ASSERT(blockoffs < uint64_t(1) << PC_BLOCKOFFS_BITS);
-        DR_ASSERT(blockidx < uint64_t(1) << PC_BLOCKIDX_BITS);
-        modoffs = (blockidx << PC_BLOCKOFFS_BITS) | blockoffs;
+        if (instrs_are_separate_) {
+            uint64 blockoffs = pc - per_block->start_pc;
+            uint64 blockidx = per_block->id;
+            DR_ASSERT(blockoffs < uint64_t(1) << PC_BLOCKOFFS_BITS);
+            DR_ASSERT(blockidx < uint64_t(1) << PC_BLOCKIDX_BITS);
+            modoffs = (blockidx << PC_BLOCKOFFS_BITS) | blockoffs;
+        } else {
+            modoffs = per_block->id;
+        }
     }
     // Check that the values we want to assign to the bitfields in offline_entry_t do not
     // overflow. In i#2956 we observed an overflow for the modidx field.

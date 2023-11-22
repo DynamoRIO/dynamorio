@@ -454,7 +454,12 @@ public:
     get_orig_pc_from_map_pc(app_pc map_pc, uint64 modidx, uint64 modoffs) const
     {
         if (modidx == PC_MODIDX_INVALID) {
-            uint64 blockidx = (modoffs >> PC_BLOCKOFFS_BITS);
+            uint64 blockidx;
+            if (separate_non_mod_instrs_) {
+                blockidx = (modoffs >> PC_BLOCKOFFS_BITS);
+            } else {
+                blockidx = modoffs;
+            }
             auto const it = encodings_.find(blockidx);
             if (it == encodings_.end())
                 return nullptr;
@@ -477,8 +482,15 @@ public:
     get_orig_pc(uint64 modidx, uint64 modoffs) const
     {
         if (modidx == PC_MODIDX_INVALID) {
-            uint64 blockidx = (modoffs >> PC_BLOCKOFFS_BITS);
-            uint64 blockoffs = (modoffs & ((uint64_t(1) << PC_BLOCKOFFS_BITS) - 1));
+            uint64 blockidx;
+            uint64 blockoffs;
+            if (separate_non_mod_instrs_) {
+                blockidx = (modoffs >> PC_BLOCKOFFS_BITS);
+                blockoffs = (modoffs & ((uint64_t(1) << PC_BLOCKOFFS_BITS) - 1));
+            } else {
+                blockidx = modoffs;
+                blockoffs = 0;
+            }
             auto const it = encodings_.find(blockidx);
             if (it == encodings_.end())
                 return nullptr;
@@ -497,8 +509,15 @@ public:
     get_map_pc(uint64 modidx, uint64 modoffs) const
     {
         if (modidx == PC_MODIDX_INVALID) {
-            uint64 blockidx = (modoffs >> PC_BLOCKOFFS_BITS);
-            uint64 blockoffs = (modoffs & ((uint64_t(1) << PC_BLOCKOFFS_BITS) - 1));
+            uint64 blockidx;
+            uint64 blockoffs;
+            if (separate_non_mod_instrs_) {
+                blockidx = (modoffs >> PC_BLOCKOFFS_BITS);
+                blockoffs = (modoffs & ((uint64_t(1) << PC_BLOCKOFFS_BITS) - 1));
+            } else {
+                blockidx = modoffs;
+                blockoffs = 0;
+            }
             auto const it = encodings_.find(blockidx);
             if (it == encodings_.end())
                 return nullptr;
@@ -613,6 +632,7 @@ protected:
     app_pc last_orig_base_ = 0;
     size_t last_map_size_ = 0;
     byte *last_map_base_ = nullptr;
+    bool separate_non_mod_instrs_ = false;
 
     uint verbosity_ = 0;
     std::string alt_module_dir_;

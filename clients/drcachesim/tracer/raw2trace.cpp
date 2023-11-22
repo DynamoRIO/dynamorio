@@ -349,17 +349,26 @@ module_mapper_t::do_encoding_parsing()
         dr_map_file(encoding_file_, &map_size, 0, NULL, DR_MEMPROT_READ, 0));
     if (map_start == nullptr || map_size < file_size)
         return "Failed to map encoding file";
-    if (*reinterpret_cast<uint64_t *>(map_start) != ENCODING_FILE_VERSION)
+    byte *map_at = map_start;
+    byte *map_end = map_start + map_size;
+    uint64_t encoding_file_version = *reinterpret_cast<uint64_t *>(map_at);
+    map_at += sizeof(uint64_t);
+    if (encoding_file_version > ENCODING_FILE_VERSION)
         return "Encoding file has invalid version";
-    size_t offs = sizeof(uint64_t);
-    while (offs < file_size) {
-        encoding_entry_t *entry = reinterpret_cast<encoding_entry_t *>(map_start + offs);
+    if (encoding_file_version >= ENCODING_FILE_VERSION_HAS_FILE_TYPE) {
+        uint64_t encoding_file_type = *reinterpret_cast<uint64_t *>(map_at);
+        separate_non_mod_instrs_ =
+            TESTANY(ENCODING_FILE_TYPE_SEPARATE_NON_MOD_INSTRS, encoding_file_type);
+        map_at += sizeof(uint64_t);
+    }
+    while (map_at < map_end) {
+        encoding_entry_t *entry = reinterpret_cast<encoding_entry_t *>(map_at);
         if (entry->length < sizeof(encoding_entry_t))
             return "Encoding file is corrupted";
-        if (offs + entry->length > file_size)
+        if (map_at + entry->length > map_end)
             return "Encoding file is truncated";
         encodings_[entry->id] = entry;
-        offs += entry->length;
+        map_at += entry->length;
     }
     return "";
 }
