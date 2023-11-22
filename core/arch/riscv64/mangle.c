@@ -674,7 +674,6 @@ instr_is_ldstex_mangling(dcontext_t *dcontext, instr_t *instr)
 
     ptr_int_t val;
     if (instr_get_opcode(instr) == OP_fence || instr_get_opcode(instr) == OP_bne ||
-        instr_get_opcode(instr) == OP_bne ||
         /* Check for sc.w/d+bne+jal pattern.  */
         (instr_get_opcode(instr) == OP_jal && instr_get_prev(instr) != NULL &&
          instr_get_opcode(instr_get_prev(instr)) == OP_bne &&
