@@ -560,6 +560,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
             // stream ordinals we would need to add a scheduler API to inject it.
             record = create_wait_marker();
         } else if (status == sched_type_t::STATUS_IDLE) {
+            assert(shard_type_ == SHARD_BY_CORE);
             // We let tools know about idle time so they can analyze cpu usage.
             // We synthesize a record here.  If we wanted this to count toward output
             // stream ordinals we would need to add a scheduler API to inject it.

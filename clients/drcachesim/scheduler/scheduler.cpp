@@ -2280,7 +2280,8 @@ template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::eof_or_idle(output_ordinal_t output)
 {
-    if (live_input_count_.load(std::memory_order_acquire) == 0) {
+    if (options_.mapping == MAP_TO_CONSISTENT_OUTPUT ||
+        live_input_count_.load(std::memory_order_acquire) == 0) {
         return sched_type_t::STATUS_EOF;
     } else {
         outputs_[output].waiting = true;
