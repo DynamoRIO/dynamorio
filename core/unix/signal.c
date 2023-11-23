@@ -2826,6 +2826,7 @@ sigcontext_to_mcontext(priv_mcontext_t *mc, sig_full_cxt_t *sc_full,
     if (TEST(DR_MC_INTEGER, flags)) {
         mc->ra = sc->SC_FIELD(sc_regs.ra);
         mc->gp = sc->SC_FIELD(sc_regs.gp);
+        mc->tp = sc->SC_FIELD(sc_regs.tp);
         mc->t0 = sc->SC_FIELD(sc_regs.t0);
         mc->t1 = sc->SC_FIELD(sc_regs.t1);
         mc->t2 = sc->SC_FIELD(sc_regs.t2);
@@ -2920,13 +2921,6 @@ sigcontext_to_mcontext(priv_mcontext_t *mc, sig_full_cxt_t *sc_full,
  * thread_get_mcontext() sets the dcontext isa_mode from cpsr, and thread_set_mcontext()
  * sets it.
  */
-/* XXX: on RISC-V, the tp register is a general-purpose register, but as its name
- * suggests, it is conventionally used as the thread register.
- * We save DR's tls by keeping tp's value unchanged, regardless in DR or in application.
- * Therefore, when converting between sigcontext and mcontext, we should keep tp
- * unchanged, otherwise for example when we sigreturn to app tp will change, causing an
- * error.
- */
 void
 mcontext_to_sigcontext(sig_full_cxt_t *sc_full, priv_mcontext_t *mc,
                        dr_mcontext_flags_t flags)
@@ -2962,6 +2956,7 @@ mcontext_to_sigcontext(sig_full_cxt_t *sc_full, priv_mcontext_t *mc,
     if (TEST(DR_MC_INTEGER, flags)) {
         sc->SC_FIELD(sc_regs.ra) = mc->ra;
         sc->SC_FIELD(sc_regs.gp) = mc->gp;
+        sc->SC_FIELD(sc_regs.tp) = mc->tp;
         sc->SC_FIELD(sc_regs.t0) = mc->t0;
         sc->SC_FIELD(sc_regs.t1) = mc->t1;
         sc->SC_FIELD(sc_regs.t2) = mc->t2;
@@ -3070,6 +3065,20 @@ get_sigcxt_stolen_reg(sigcontext_t *sc)
     return *(&sc->IF_AARCHXX_ELSE(SC_R0, SC_A0) +
              (dr_reg_stolen - IF_AARCHXX_ELSE(DR_REG_R0, DR_REG_A0)));
 }
+
+#    ifdef RISCV64
+static void
+set_sigcxt_tp_reg(sigcontext_t *sc, reg_t val)
+{
+    sc->SC_TP = val;
+}
+
+static reg_t
+get_sigcxt_tp_reg(sigcontext_t *sc)
+{
+    return sc->SC_TP;
+}
+#    endif
 
 #    ifdef ARM
 static dr_isa_mode_t
@@ -4058,7 +4067,7 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, kernel_ucontext
      * still go to the private fcache_return for simplicity.
      */
     sc->SC_XIP = (ptr_uint_t)fcache_return_routine(dcontext);
-#if defined(AARCHXX)
+#if defined(AARCHXX) || defined(RISCV64)
     /* We do not have to set dr_reg_stolen in dcontext's mcontext here
      * because dcontext's mcontext is stale and we used the mcontext
      * created from recreate_app_state_internal with the original sigcontext.
@@ -4072,12 +4081,14 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, kernel_ucontext
     dcontext->local_state->spill_space.reg_stolen = get_sigcxt_stolen_reg(sc);
     /* Now put DR's base in the sigcontext. */
     set_sigcxt_stolen_reg(sc, (reg_t)*get_dr_tls_base_addr());
-#    ifndef AARCH64
+#    ifdef RISCV64
+    set_sigcxt_tp_reg(sc, (reg_t)read_thread_register(TLS_REG_LIB));
+#    endif
+
+#    ifdef ARM
     /* We're going to our fcache_return gencode which uses DEFAULT_ISA_MODE */
     set_pc_mode_in_cpsr(sc, DEFAULT_ISA_MODE);
 #    endif
-#elif defined(RISCV64)
-    ASSERT_NOT_IMPLEMENTED(false);
 #endif
 
 #if defined(X64) || defined(ARM)
@@ -7391,6 +7402,12 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
     set_stolen_reg_val(get_mcontext(dcontext), get_sigcxt_stolen_reg(sc));
     /* The linkstub expects DR's TLS to be in the actual register. */
     set_sigcxt_stolen_reg(sc, (reg_t)*get_dr_tls_base_addr());
+
+#        ifdef RISCV64
+    set_tp_reg_val(get_mcontext(dcontext), get_sigcxt_tp_reg(sc));
+    set_sigcxt_tp_reg(sc, (reg_t)read_thread_register(TLS_REG_LIB));
+#        endif
+
 #        if defined(AARCH64)
     /* On entry to the do_syscall gencode, we save X1 into TLS_REG1_SLOT.
      * Then the sigreturn would redirect the flow to the fcache_return gencode.

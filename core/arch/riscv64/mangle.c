@@ -272,8 +272,7 @@ patch_mov_immed_arch(dcontext_t *dcontext, ptr_int_t val, byte *pc, instr_t *fir
 bool
 instr_check_xsp_mangling(dcontext_t *dcontext, instr_t *inst, int *xsp_adjust)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    /* Not apply to RISC-V. */
     return false;
 }
 
