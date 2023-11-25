@@ -992,8 +992,12 @@ typedef enum {
      * This encoding file type tells the module_mapper_t that the non-module PC
      * entries in the trace correspond to an individual instr. The modoffs field is
      * interpreted as the cumulative encoding length of all instrs written to the
-     * encoding file before the recorded instr. If this file type is not set, then
-     * the PC entries' modoffs fields are interpreted as the non-mod block's idx.
+     * encoding file before the recorded instr. Note that the encoding file itself
+     * is still written one mon-module block at a time because it is too inefficient
+     * to write one encoding_entry_t for just one non-module instr.
+     *
+     * If this file type is not set, then the PC entries' modoffs fields are
+     * interpreted as the non-mod block's idx.
      */
     ENCODING_FILE_TYPE_SEPARATE_NON_MOD_INSTRS = 0x1,
 } encoding_file_type_t;
