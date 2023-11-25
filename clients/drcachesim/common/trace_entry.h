@@ -993,7 +993,7 @@ typedef enum {
      * entries in the trace correspond to an individual instr. The modoffs field is
      * interpreted as the cumulative encoding length of all instrs written to the
      * encoding file before the recorded instr. If this file type is not set, then
-     * non-module PC entries are interpreted as the non-mod block's idx.
+     * the PC entries' modoffs fields are interpreted as the non-mod block's idx.
      */
     ENCODING_FILE_TYPE_SEPARATE_NON_MOD_INSTRS = 0x1,
 } encoding_file_type_t;

@@ -2319,6 +2319,8 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         /* we use placement new for better isolation */
         DR_ASSERT(MAX_INSTRU_SIZE >= sizeof(offline_instru_t));
         placement = dr_global_alloc(MAX_INSTRU_SIZE);
+        // TODO i#6474, i#2062: Also handle op_L0_filter_until_instrs here when
+        // i#6474 is resolved.
         instru = new (placement) offline_instru_t(
             insert_load_buf_ptr, &scratch_reserve_vec, file_ops_func.write_file,
             module_file, encoding_file, op_disable_optimizations.get_value(),

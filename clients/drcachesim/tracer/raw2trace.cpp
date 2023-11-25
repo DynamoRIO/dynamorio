@@ -356,6 +356,8 @@ module_mapper_t::do_encoding_parsing()
     if (encoding_file_version > ENCODING_FILE_VERSION)
         return "Encoding file has invalid version";
     if (encoding_file_version >= ENCODING_FILE_VERSION_HAS_FILE_TYPE) {
+        if (map_at + sizeof(uint64_t) > map_end)
+            return "Encoding file header is truncated";
         uint64_t encoding_file_type = *reinterpret_cast<uint64_t *>(map_at);
         map_at += sizeof(uint64_t);
         separate_non_mod_instrs_ =
