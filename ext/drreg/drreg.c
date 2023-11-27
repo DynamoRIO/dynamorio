@@ -385,14 +385,20 @@ drreg_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
             /* DRi#1849: COND_SRCS here includes addressing regs in dsts */
             if (instr_reads_from_reg(inst, reg, DR_QUERY_INCLUDE_COND_SRCS))
                 value = REG_LIVE;
-            /* make sure we don't consider writes to sub-regs */
-            else if (instr_writes_to_exact_reg(inst, reg, DR_QUERY_INCLUDE_COND_SRCS)
-                     /* A write to a 32-bit reg zeroes the top 32 bits for x86_64 and
-                      * aarch64.
-                      */
-                     IF_X64(||
-                            instr_writes_to_exact_reg(inst, reg_64_to_32(reg),
-                                                      DR_QUERY_INCLUDE_COND_SRCS)))
+            /* Make sure we don't consider writes to sub-regs. i#6417: in case
+             * of a syscall, restore the value of the output register since it
+             * might be used as an input parameter for the kernel. For example,
+             * ECX is used as an input parameter for mmap2 for length, as well
+             * as the output parameter.
+             */
+            else if (!instr_is_syscall(inst) &&
+                     (instr_writes_to_exact_reg(inst, reg, DR_QUERY_INCLUDE_COND_SRCS)
+                      /* A write to a 32-bit reg zeroes the top 32 bits for x86_64 and
+                       * aarch64.
+                       */
+                      IF_X64(||
+                             instr_writes_to_exact_reg(inst, reg_64_to_32(reg),
+                                                       DR_QUERY_INCLUDE_COND_SRCS))))
                 value = REG_DEAD;
             else if (xfer)
                 value = REG_LIVE;
