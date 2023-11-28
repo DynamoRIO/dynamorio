@@ -1,0 +1,35 @@
+diff --git a/libelf/elf_compress.c b/libelf/elf_compress.c
+index 0ad6a32a..4903620f 100644
+--- a/libelf/elf_compress.c
++++ b/libelf/elf_compress.c
+@@ -71,8 +71,10 @@ __libelf_compress_zlib (Elf_Scn *scn, size_t hsize, int ei_data,
+   size_t used = hsize;
+ 
+   z_stream z;
+-  z.zalloc = Z_NULL;
+-  z.zfree = Z_NULL;
++  extern void *drsym_redirect_malloc(void *, uint, uint);
++  extern void drsym_redirect_free(void *, void *);
++  z.zalloc = drsym_redirect_malloc;
++  z.zfree = drsym_redirect_free;
+   z.opaque = Z_NULL;
+   int zrc = deflateInit (&z, Z_BEST_COMPRESSION);
+   if (zrc != Z_OK)
+@@ -375,12 +377,16 @@ __libelf_decompress_zlib (void *buf_in, size_t size_in, size_t size_out)
+       return NULL;
+     }
+ 
++  extern void *drsym_redirect_malloc(void *, uint, uint);
++  extern void drsym_redirect_free(void *, void *);
+   z_stream z =
+     {
+       .next_in = buf_in,
+       .avail_in = size_in,
+       .next_out = buf_out,
+-      .avail_out = size_out
++      .avail_out = size_out,
++      .zalloc = drsym_redirect_malloc,
++      .zfree = drsym_redirect_free
+     };
+   int zrc = inflateInit (&z);
+   while (z.avail_in > 0 && likely (zrc == Z_OK))

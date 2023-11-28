@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,9 +39,6 @@
 #include "drsyms_private.h"
 #include "drsyms_obj.h"
 #include "hashtable.h"
-
-#include "dwarf.h"
-#include "libdwarf.h"
 
 #include <string.h> /* strlen */
 #include <errno.h>
@@ -191,7 +188,7 @@ load_module(const char *modpath)
         }     /* else stick with mod */
     }
     if (newmod == NULL) {
-        Dwarf_Debug dbg;
+        dwarf_lib_handle_t dbg;
         /* If there is no .gnu_debuglink, initialize parsing. */
 #ifdef WINDOWS
         /* i#1395: support switching to expots-only for MinGW, for which we
