@@ -54,6 +54,7 @@ namespace drmemtrace {
 using ::dynamorio::drmemtrace::default_memtrace_stream_t;
 using ::dynamorio::drmemtrace::memref_t;
 using ::dynamorio::drmemtrace::memref_tid_t;
+using ::dynamorio::drmemtrace::TRACE_MARKER_TYPE_CORE_IDLE;
 using ::dynamorio::drmemtrace::TRACE_MARKER_TYPE_CORE_WAIT;
 using ::dynamorio::drmemtrace::TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH;
 using ::dynamorio::drmemtrace::TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL;
@@ -198,10 +199,65 @@ test_basic_stats()
     return true;
 }
 
+static bool
+test_idle()
+{
+    static constexpr int64_t TID_A = 42;
+    static constexpr int64_t TID_B = 142;
+    static constexpr int64_t TID_C = 242;
+    std::unordered_map<memref_tid_t, int64_t> tid2ord;
+    tid2ord[TID_A] = 0;
+    tid2ord[TID_B] = 1;
+    tid2ord[TID_C] = 2;
+    std::vector<std::vector<memref_t>> memrefs = {
+        {
+            gen_instr(TID_B),
+            gen_instr(TID_B),
+            gen_marker(TID_B, TRACE_MARKER_TYPE_CORE_IDLE, 0),
+            gen_marker(TID_B, TRACE_MARKER_TYPE_CORE_IDLE, 0),
+            gen_marker(TID_B, TRACE_MARKER_TYPE_CORE_IDLE, 0),
+            gen_instr(TID_B),
+            gen_instr(TID_B),
+            gen_instr(TID_B),
+        },
+        {
+            gen_instr(TID_C),
+            // Involuntary switch.
+            gen_instr(TID_A),
+            // Involuntary switch.
+            gen_instr(TID_C),
+            gen_marker(TID_C, TRACE_MARKER_TYPE_CORE_IDLE, 0),
+            gen_marker(TID_C, TRACE_MARKER_TYPE_CORE_IDLE, 0),
+            gen_marker(TID_C, TRACE_MARKER_TYPE_CORE_IDLE, 0),
+            gen_instr(TID_C),
+            gen_instr(TID_C),
+            // Wait.
+            gen_marker(TID_C, TRACE_MARKER_TYPE_CORE_WAIT, 0),
+            gen_marker(TID_C, TRACE_MARKER_TYPE_CORE_WAIT, 0),
+            gen_marker(TID_C, TRACE_MARKER_TYPE_CORE_WAIT, 0),
+            // Involuntary switch.
+            gen_instr(TID_A),
+            gen_instr(TID_A),
+            gen_instr(TID_A),
+        },
+    };
+    auto result = run_schedule_stats(memrefs, tid2ord);
+    assert(result.instrs == 13);
+    assert(result.total_switches == 3);
+    assert(result.voluntary_switches == 0);
+    assert(result.direct_switches == 0);
+    assert(result.syscalls == 0);
+    assert(result.maybe_blocking_syscalls == 0);
+    assert(result.direct_switch_requests == 0);
+    assert(result.waits == 3);
+    assert(result.idles == 6);
+    return true;
+}
+
 int
 test_main(int argc, const char *argv[])
 {
-    if (test_basic_stats()) {
+    if (test_basic_stats() && test_idle()) {
         std::cerr << "schedule_stats_test passed\n";
         return 0;
     }
