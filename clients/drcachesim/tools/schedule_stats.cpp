@@ -160,13 +160,18 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
         line << "\n";
         std::cerr << line.str();
     }
+    // Cache and reset here to ensure we reset on early return paths.
+    bool was_wait = shard->prev_was_wait;
+    bool was_idle = shard->prev_was_idle;
+    shard->prev_was_wait = false;
+    shard->prev_was_idle = false;
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_WAIT) {
         ++shard->counters.waits;
-        if (!shard->prev_was_wait) {
+        shard->prev_was_wait = true;
+        if (!was_wait) {
             shard->thread_sequence += WAIT_SYMBOL;
             shard->cur_segment_instrs = 0;
-            shard->prev_was_wait = true;
         } else {
             ++shard->cur_segment_instrs;
             if (shard->cur_segment_instrs == knob_print_every_) {
@@ -178,10 +183,10 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
     } else if (memref.marker.type == TRACE_TYPE_MARKER &&
                memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_IDLE) {
         ++shard->counters.idles;
-        if (!shard->prev_was_idle) {
+        shard->prev_was_idle = true;
+        if (!was_idle) {
             shard->thread_sequence += IDLE_SYMBOL;
             shard->cur_segment_instrs = 0;
-            shard->prev_was_idle = true;
         } else {
             ++shard->cur_segment_instrs;
             if (shard->cur_segment_instrs == knob_print_every_) {
@@ -251,8 +256,6 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
         }
     } else if (memref.exit.type == TRACE_TYPE_THREAD_EXIT)
         shard->saw_exit = true;
-    shard->prev_was_wait = false;
-    shard->prev_was_idle = false;
     return true;
 }
 

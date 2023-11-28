@@ -110,12 +110,12 @@ public:
          * For dynamic scheduling with cross-stream dependencies, the scheduler may pause
          * a stream if it gets ahead of another stream it should have a dependence on.
          * This value is also used for schedules following the recorded timestamps
-         * (#DEPENDENCY_TIMESTAMPS) to avoid one stream getting ahead of another.  For
-         * replaying a schedule as it was traced with #MAP_TO_RECORDED_OUTPUT this can
-         * indicate an idle period on a core where the traced workload was not currently
-         * scheduled, but generally #STATUS_WAIT should be treated as artificial.
+         * (#DEPENDENCY_TIMESTAMPS) to avoid one stream getting ahead of another.
+         * #STATUS_WAIT should be treated as artificial, an artifact of enforcing a
+         * recorded schedule on concurrent differently-timed output streams.
          * Simulators are suggested to not advance simulated time for #STATUS_WAIT while
-         * they should advance time for #STATUS_IDLE.
+         * they should advance time for #STATUS_IDLE as the latter indicates a true
+         * lack of work.
          */
         STATUS_WAIT,
         STATUS_INVALID,         /**< Error condition. */

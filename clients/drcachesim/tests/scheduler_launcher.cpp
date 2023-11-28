@@ -152,11 +152,15 @@ void
 simulate_core(int ordinal, scheduler_t::stream_t *stream, const scheduler_t &scheduler,
               std::string &thread_sequence)
 {
+    // XXX: Could we share some code with the schedule_stats analysis tool?
+    // Some features are now duplicated in both.
+    static constexpr char THREAD_LETTER_INITIAL_START = 'A';
+    static constexpr char THREAD_LETTER_SUBSEQUENT_START = 'a';
+    static constexpr char WAIT_SYMBOL = '-';
+    static constexpr char IDLE_SYMBOL = '_';
     memref_t record;
     uint64_t micros = op_sched_time.get_value() ? get_current_microseconds() : 0;
     uint64_t cur_segment_instrs = 0;
-    // XXX: Should we remove this tool as the schedule_stats analysis tool has
-    // superceded it?  We're basically duplicating new features in both.
     bool prev_was_wait = false, prev_was_idle = false;
     // Measure cpu usage by counting each next_record() as one cycle.
     uint64_t cycles_total = 0, cycles_busy = 0;
@@ -168,9 +172,14 @@ simulate_core(int ordinal, scheduler_t::stream_t *stream, const scheduler_t &sch
         if (op_sched_time.get_value())
             micros = get_current_microseconds();
         ++cycles_total;
+        // Cache and reset here to ensure we reset on early return paths.
+        bool was_wait = prev_was_wait;
+        bool was_idle = prev_was_idle;
+        prev_was_wait = false;
+        prev_was_idle = false;
         if (status == scheduler_t::STATUS_WAIT) {
-            if (!prev_was_wait || cur_segment_instrs == op_print_every.get_value())
-                thread_sequence += '-';
+            if (!was_wait || cur_segment_instrs == op_print_every.get_value())
+                thread_sequence += WAIT_SYMBOL;
             ++cur_segment_instrs;
             if (cur_segment_instrs == op_print_every.get_value())
                 cur_segment_instrs = 0;
@@ -178,8 +187,8 @@ simulate_core(int ordinal, scheduler_t::stream_t *stream, const scheduler_t &sch
             std::this_thread::yield();
             continue;
         } else if (status == scheduler_t::STATUS_IDLE) {
-            if (!prev_was_idle || cur_segment_instrs == op_print_every.get_value())
-                thread_sequence += '_';
+            if (!was_idle || cur_segment_instrs == op_print_every.get_value())
+                thread_sequence += IDLE_SYMBOL;
             ++cur_segment_instrs;
             if (cur_segment_instrs == op_print_every.get_value())
                 cur_segment_instrs = 0;
@@ -215,9 +224,8 @@ simulate_core(int ordinal, scheduler_t::stream_t *stream, const scheduler_t &sch
         scheduler_t::input_ordinal_t input = stream->get_input_stream_ordinal();
         if (input != prev_input) {
             // We convert to letters which only works well for <=26 inputs.
-            if (!thread_sequence.empty())
-                thread_sequence += ',';
-            thread_sequence += 'A' + static_cast<char>(input % 26);
+            thread_sequence +=
+                THREAD_LETTER_INITIAL_START + static_cast<char>(input % 26);
             cur_segment_instrs = 0;
             if (op_verbose.get_value() >= 2) {
                 std::ostringstream line;
@@ -248,7 +256,8 @@ simulate_core(int ordinal, scheduler_t::stream_t *stream, const scheduler_t &sch
         if (type_is_instr(record.instr.type)) {
             ++cur_segment_instrs;
             if (cur_segment_instrs == op_print_every.get_value()) {
-                thread_sequence += 'A' + static_cast<char>(input % 26);
+                thread_sequence +=
+                    THREAD_LETTER_SUBSEQUENT_START + static_cast<char>(input % 26);
                 cur_segment_instrs = 0;
             }
         }
@@ -272,8 +281,10 @@ simulate_core(int ordinal, scheduler_t::stream_t *stream, const scheduler_t &sch
     float usage = 0;
     if (cycles_total > 0)
         usage = 100.f * cycles_busy / static_cast<float>(cycles_total);
-    std::cerr << "Core #" << std::setw(2) << ordinal << " usage: " << std::setw(9)
-              << usage << "%\n";
+    std::ostringstream line;
+    line << "Core #" << std::setw(2) << ordinal << " usage: " << std::setw(9) << usage
+         << "%\n";
+    std::cerr << line.str();
 }
 
 } // namespace

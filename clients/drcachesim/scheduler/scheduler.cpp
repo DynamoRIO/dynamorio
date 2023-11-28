@@ -1683,6 +1683,11 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input_as_previously(
             // XXX i#5843: We may want to provide a kernel-mediated wait
             // feature so a multi-threaded simulator doesn't have to do a
             // spinning poll loop.
+            // XXX i#5843: For replaying a schedule as it was traced with
+            // MAP_TO_RECORDED_OUTPUT there may have been true idle periods during
+            // tracing where some other process than the traced workload was
+            // scheduled on a core.  If we could identify those, we should return
+            // STATUS_IDLE rather than STATUS_WAIT.
             VPRINT(this, 3, "next_record[%d]: waiting for input %d instr #%" PRId64 "\n",
                    output, index, segment.start_instruction);
             // Give up this input and go into a wait state.
