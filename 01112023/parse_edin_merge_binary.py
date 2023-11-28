@@ -3,88 +3,42 @@ import csv
 import pandas as pd
 from typing import List
 
-def merge_binary_csvs(path_to_csv: str, cache_sizes_in_k: List[int], matrix_sizes: List[int], percentage_list:List[int]) -> None:
-    
-    
+
+def merge_binary_csvs(
+    path_to_csvs_folder: str,
+    cache_sizes_in_k: List[int],
+    matrix_sizes: List[int],
+    percentage_list: List[int],
+) -> pd.DataFrame:
     # Create empty dataframe
-    df = pd.DataFrame()
+    df_total = pd.DataFrame()
+
+    for cache_size in cache_sizes_in_k:
+        for matrix_size in matrix_sizes:
+            path_to_csv = f"{path_to_csvs_folder}/{cache_size}k_l1d_matmult_{matrix_size}_parsed_total.csv"
+            df_temp = pd.read_csv(path_to_csv)
+            df_indices = [
+                percentage / 100.0 * len(df_temp) for percentage in percentage_list
+            ]
+            if df_indices[0] != 0:  # add zero just in case it has been forgotten
+                df_indices.insert(0, 0)
+            if df_indices[-1] != 100:  # add hundred just in case it has been forgotten
+                df_indices.insert(-1, len(df_temp))
+
+            for i in range(0, len(df_indices)-1, 2):
+                df_total.append(df_temp.loc[df_indices[i]:df_indices[i+1]])
+            
+    # Save dataframe as CSV
+    df_total.to_csv(f"{path_to_csvs_folder}/merged_binary_all.csv")
     
-    if len(cache_sizes_in_k) != len(matrix_sizes):
-        except 
+    # Return it if it is needed later
+    return df_total
     
-    # Read the input text file
-    with open(path, "r") as file:
-        text = file.read()
-
-    # Define regular expressions for pattern matching
-    pattern = re.compile(
-        r"\[(\d+)\](\w+)\s+(\d+)\s+byte\(s\)\s+@"
-        r"\s+0x([\da-fA-F]+)\s+(.*?)\n|(.*?) MISS\n|(.*?) MISS\n"
-    )
-
-    # Create a CSV file for writing
-    with open(
-        f"./parsed_traces/{cache_size_in_k}k_l1d_matmult_{matrix_size}_parsed_total.csv",
-        "w",
-        newline="",
-    ) as csv_file:
-        fieldnames = [
-            "Line",
-            "Operation",
-            "ByteCount",
-            "Address",
-            "Instruction",
-            "CacheSize",
-            "MatrixSize",
-            "DATA_MISS",
-            "INST_MISS",
-        ]
-        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-        writer.writeheader()
-
-        lines = pattern.findall(text)
-        data_miss = False
-        inst_miss = False
-
-        for i in range(len(lines) - 1):
-            (
-                line,
-                operation,
-                byte_count,
-                address,
-                instruction,
-                miss_type,
-                miss_type_2,
-            ) = lines[i]
-            _, _, _, _, _, miss_type_next, _ = lines[i + 1]
-
-            data_miss = 1 if miss_type_next == "DATA" else 0
-            inst_miss = 1 if miss_type_next == "INST" else 0
-
-            if miss_type == "":
-                line = float(int(line)) / len(lines)
-                writer.writerow(
-                    {
-                        "Line": line,
-                        "Operation": operation,
-                        "ByteCount": byte_count,
-                        "Address": address,
-                        "Instruction": instruction,
-                        "CacheSize": cache_size_in_k,
-                        "MatrixSize": matrix_size,
-                        "DATA_MISS": data_miss,
-                        "INST_MISS": inst_miss,
-                    }
-                )
-
-    print(f"CSV file {csv_file.name} has been created.")
 
 
 cache_sizes = [1, 2, 8, 128, 256, 512]
 matrix_sizes = [10, 20, 50, 80, 100]
 
+csv_folder_path = "./parsed-traces"
 
-for cache in cache_sizes:
-    for matrix_size in matrix_sizes:
-        filename = f"./{cache}k_l1d_matmult_{matrix_size}.txt"
-        parse_write_out_csv_file(filename, cache, matrix_size)
+merge_binary_csvs(csv_folder_path, cache_sizes, matrix_sizes, [0,10, 30,40, 60,70, 90, 100])
