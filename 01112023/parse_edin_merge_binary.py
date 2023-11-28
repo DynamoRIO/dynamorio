@@ -1,8 +1,17 @@
 import re
 import csv
+import pandas as pd
+from typing import List
 
-
-def parse_write_out_csv_file(path: str, cache_size_in_k: int, matrix_size: int) -> None:
+def merge_binary_csvs(path_to_csv: str, cache_sizes_in_k: List[int], matrix_sizes: List[int], percentage_list:List[int]) -> None:
+    
+    
+    # Create empty dataframe
+    df = pd.DataFrame()
+    
+    if len(cache_sizes_in_k) != len(matrix_sizes):
+        except 
+    
     # Read the input text file
     with open(path, "r") as file:
         text = file.read()
