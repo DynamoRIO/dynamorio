@@ -38,7 +38,7 @@
 #include "analysis_tool.h"
 #include <unordered_map>
 #include <bits/stdc++.h>
-
+#include <cstddef>
 
 using dynamorio::drmemtrace::analysis_tool_t;
 using dynamorio::drmemtrace::memref_t;
@@ -70,7 +70,9 @@ public:
     parallel_shard_memref(void *shard_data, const memref_t &memref) override;
     std::string
     parallel_shard_error(void *shard_data) override;
-    std::map<unsigned int, std::unordered_map<IoType, std::unordered_map<addr_t, uint64_t>>> ios;
+    //std::map<unsigned int, std::unordered_map<IoType, std::unordered_map<addr_t, uint64_t>>> ios;
+	typedef std::unordered_map<addr_t, size_t> addr_size_map_t;
+    std::map<unsigned int, addr_size_map_t> ios;
     unsigned int last_timestamp = 0;
     unsigned int line_size;
     unsigned int line_size_bits_;
