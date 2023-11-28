@@ -88,6 +88,7 @@ public:
             maybe_blocking_syscalls += rhs.maybe_blocking_syscalls;
             direct_switch_requests += rhs.direct_switch_requests;
             waits += rhs.waits;
+            idles += rhs.idles;
             for (const memref_tid_t tid : rhs.threads) {
                 threads.insert(tid);
             }
@@ -101,6 +102,7 @@ public:
         int64_t maybe_blocking_syscalls = 0;
         int64_t direct_switch_requests = 0;
         int64_t waits = 0;
+        int64_t idles = 0;
         std::unordered_set<memref_tid_t> threads;
     };
     counters_t
@@ -121,6 +123,7 @@ protected:
         std::string thread_sequence;
         uint64_t cur_segment_instrs = 0;
         bool prev_was_wait = false;
+        bool prev_was_idle = false;
     };
 
     void

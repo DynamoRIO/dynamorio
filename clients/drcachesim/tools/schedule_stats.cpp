@@ -136,9 +136,10 @@ schedule_stats_t::parallel_shard_error(void *shard_data)
 bool
 schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 {
-    static constexpr char THREAD_LETTER_START = 'A';
-    static constexpr char THREAD_SEPARATOR = ',';
+    static constexpr char THREAD_LETTER_INITIAL_START = 'A';
+    static constexpr char THREAD_LETTER_SUBSEQUENT_START = 'a';
     static constexpr char WAIT_SYMBOL = '-';
+    static constexpr char IDLE_SYMBOL = '_';
     per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
     if (knob_verbose_ >= 4) {
         std::ostringstream line;
@@ -159,17 +160,38 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
         line << "\n";
         std::cerr << line.str();
     }
+    // Cache and reset here to ensure we reset on early return paths.
+    bool was_wait = shard->prev_was_wait;
+    bool was_idle = shard->prev_was_idle;
+    shard->prev_was_wait = false;
+    shard->prev_was_idle = false;
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_WAIT) {
         ++shard->counters.waits;
-        if (!shard->prev_was_wait) {
-            shard->thread_sequence += '-';
+        shard->prev_was_wait = true;
+        if (!was_wait) {
+            shard->thread_sequence += WAIT_SYMBOL;
             shard->cur_segment_instrs = 0;
-            shard->prev_was_wait = true;
         } else {
             ++shard->cur_segment_instrs;
             if (shard->cur_segment_instrs == knob_print_every_) {
                 shard->thread_sequence += WAIT_SYMBOL;
+                shard->cur_segment_instrs = 0;
+            }
+        }
+        return true;
+    } else if (memref.marker.type == TRACE_TYPE_MARKER &&
+               memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_IDLE) {
+        ++shard->counters.idles;
+        shard->prev_was_idle = true;
+        if (!was_idle) {
+            shard->thread_sequence += IDLE_SYMBOL;
+            shard->cur_segment_instrs = 0;
+        } else {
+            ++shard->cur_segment_instrs;
+            if (shard->cur_segment_instrs == knob_print_every_) {
+                shard->thread_sequence += IDLE_SYMBOL;
+                shard->cur_segment_instrs = 0;
             }
         }
         return true;
@@ -183,12 +205,9 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
                 ++shard->counters.voluntary_switches;
             if (shard->direct_switch_target == memref.marker.tid)
                 ++shard->counters.direct_switches;
-            // A comma separating each sequence makes it a little easier to
-            // read, and helps distinguish a switch from two threads with the
-            // same %26 letter.  (We could remove this though to compact it.)
-            shard->thread_sequence += THREAD_SEPARATOR;
         }
-        shard->thread_sequence += THREAD_LETTER_START + static_cast<char>(input % 26);
+        shard->thread_sequence +=
+            THREAD_LETTER_INITIAL_START + static_cast<char>(input % 26);
         shard->cur_segment_instrs = 0;
         if (knob_verbose_ >= 2) {
             std::ostringstream line;
@@ -213,7 +232,8 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
         ++shard->counters.instrs;
         ++shard->cur_segment_instrs;
         if (shard->cur_segment_instrs == knob_print_every_) {
-            shard->thread_sequence += THREAD_LETTER_START + static_cast<char>(input % 26);
+            shard->thread_sequence +=
+                THREAD_LETTER_SUBSEQUENT_START + static_cast<char>(input % 26);
             shard->cur_segment_instrs = 0;
         }
         shard->direct_switch_target = INVALID_THREAD_ID;
@@ -236,7 +256,6 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
         }
     } else if (memref.exit.type == TRACE_TYPE_THREAD_EXIT)
         shard->saw_exit = true;
-    shard->prev_was_wait = false;
     return true;
 }
 
@@ -246,11 +265,15 @@ schedule_stats_t::print_counters(const counters_t &counters)
     std::cerr << std::setw(12) << counters.threads.size() << " threads\n";
     std::cerr << std::setw(12) << counters.instrs << " instructions\n";
     std::cerr << std::setw(12) << counters.total_switches << " total context switches\n";
-    std::cerr << std::setw(12) << std::fixed << std::setprecision(7)
-              << (1000 * counters.total_switches / static_cast<double>(counters.instrs))
+    double cspki = 0.;
+    if (counters.instrs > 0)
+        cspki = 1000 * counters.total_switches / static_cast<double>(counters.instrs);
+    std::cerr << std::setw(12) << std::fixed << std::setprecision(7) << cspki
               << " CSPKI (context switches per 1000 instructions)\n";
-    std::cerr << std::setw(12) << std::fixed << std::setprecision(0)
-              << (counters.instrs / static_cast<double>(counters.total_switches))
+    double ipcs = 0.;
+    if (counters.total_switches > 0)
+        ipcs = counters.instrs / static_cast<double>(counters.total_switches);
+    std::cerr << std::setw(12) << std::fixed << std::setprecision(0) << ipcs
               << " instructions per context switch\n";
     std::cerr << std::setw(12) << std::fixed << std::setprecision(7)
               << counters.voluntary_switches << " voluntary context switches\n";
@@ -273,6 +296,11 @@ schedule_stats_t::print_counters(const counters_t &counters)
     std::cerr << std::setw(12) << counters.direct_switch_requests
               << " direct switch requests\n";
     std::cerr << std::setw(12) << counters.waits << " waits\n";
+    std::cerr << std::setw(12) << counters.idles << " idles\n";
+    std::cerr << std::setw(12) << std::setprecision(2)
+              << 100 *
+            (counters.instrs / static_cast<double>(counters.instrs + counters.idles))
+              << "% cpu busy\n";
 }
 
 bool
