@@ -1071,6 +1071,11 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
         *buf = entry;
         ++buf;
     }
+    if (buf != entries_with_encodings) {
+        if (!write(tdata, entries_with_encodings, buf, &saved_decode_pc, 1)) {
+            return false;
+        }
+    }
     return true;
 }
 
