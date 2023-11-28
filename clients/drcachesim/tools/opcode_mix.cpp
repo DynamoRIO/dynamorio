@@ -64,19 +64,22 @@ namespace dynamorio {
 namespace drmemtrace {
 
 const std::string opcode_mix_t::TOOL_NAME = "Opcode mix tool";
+constexpr int kInvalidOpcode = -1;
 
 analysis_tool_t *
 opcode_mix_tool_create(const std::string &module_file_path, unsigned int verbose,
-                       const std::string &alt_module_dir)
+                       const std::string &alt_module_dir, bool ignore_decode_failure)
 {
-    return new opcode_mix_t(module_file_path, verbose, alt_module_dir);
+    return new opcode_mix_t(module_file_path, verbose, alt_module_dir,
+                            ignore_decode_failure);
 }
 
 opcode_mix_t::opcode_mix_t(const std::string &module_file_path, unsigned int verbose,
-                           const std::string &alt_module_dir)
+                           const std::string &alt_module_dir, bool ignore_decode_failure)
     : module_file_path_(module_file_path)
     , knob_verbose_(verbose)
     , knob_alt_module_dir_(alt_module_dir)
+    , knob_ignore_decode_failure_(ignore_decode_failure)
 {
 }
 
@@ -219,12 +222,16 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         app_pc next_pc =
             decode_from_copy(dcontext_.dcontext, decode_pc, trace_pc, &instr);
         if (next_pc == NULL || !instr_valid(&instr)) {
-            instr_free(dcontext_.dcontext, &instr);
-            shard->error =
-                "Failed to decode instruction " + to_hex_string(memref.instr.addr);
-            return false;
+            if (!knob_ignore_decode_failure_) {
+                instr_free(dcontext_.dcontext, &instr);
+                shard->error =
+                    "Failed to decode instruction " + to_hex_string(memref.instr.addr);
+                return false;
+            }
+            opcode = kInvalidOpcode;
+        } else {
+            opcode = instr_get_opcode(&instr);
         }
-        opcode = instr_get_opcode(&instr);
         shard->worker->opcode_cache[trace_pc] = opcode;
         instr_free(dcontext_.dcontext, &instr);
     }
@@ -276,7 +283,9 @@ opcode_mix_t::print_results()
     std::sort(sorted.begin(), sorted.end(), cmp_val);
     for (const auto &keyvals : sorted) {
         std::cerr << std::setw(15) << keyvals.second << " : " << std::setw(9)
-                  << decode_opcode_name(keyvals.first) << "\n";
+                  << (keyvals.first == kInvalidOpcode ? "<INVALID>"
+                                                      : decode_opcode_name(keyvals.first))
+                  << "\n";
     }
     return true;
 }

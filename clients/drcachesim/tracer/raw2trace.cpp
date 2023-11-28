@@ -1016,12 +1016,16 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
             std::to_string(pt2ir_convert_status) + "]";
         return false;
     }
-
+    if (!track_syscall_pt_encodings(tdata, drir.get_ilist())) {
+        return false;
+    }
     /* Convert the DR IR to trace entries. */
+    addr_t sysnum =
+        pt_data->header[dynamorio::drmemtrace::PDB_HEADER_SYSNUM_IDX].sysnum.sysnum;
     std::vector<trace_entry_t> entries;
     trace_entry_t start_entry = { .type = TRACE_TYPE_MARKER,
                                   .size = TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
-                                  .addr = 0 };
+                                  .addr = sysnum };
     entries.push_back(start_entry);
     ir2trace_convert_status_t ir2trace_convert_status =
         ir2trace_t::convert(drir, entries);
@@ -1032,7 +1036,7 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
     }
     trace_entry_t end_entry = { .type = TRACE_TYPE_MARKER,
                                 .size = TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
-                                .addr = 0 };
+                                .addr = sysnum };
     entries.push_back(end_entry);
     if (entries.size() == 2) {
         tdata->error = "No trace entries generated from PT data";
@@ -1040,17 +1044,68 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
     }
 
     accumulate_to_statistic(tdata, RAW2TRACE_STAT_SYSCALL_TRACES_DECODED, 1);
+    std::vector<app_pc> decode_pcs;
     for (const auto &entry : entries) {
-        if (type_is_instr(static_cast<trace_type_t>(entry.type)))
+        if (type_is_instr(static_cast<trace_type_t>(entry.type))) {
+            app_pc instr_pc = reinterpret_cast<app_pc>(entry.addr);
             accumulate_to_statistic(tdata, RAW2TRACE_STAT_KERNEL_INSTR_COUNT, 1);
+            if (tdata->syscall_pc_to_decode_pc_.find(instr_pc) ==
+                tdata->syscall_pc_to_decode_pc_.end()) {
+                tdata->error =
+                    "Unknown pc after ir2trace: did ir2trace insert new instr?";
+                return false;
+            }
+            decode_pcs.push_back(tdata->syscall_pc_to_decode_pc_[instr_pc].first);
+        }
     }
-
-    if (!tdata->out_file->write(reinterpret_cast<const char *>(entries.data()),
-                                sizeof(trace_entry_t) * entries.size())) {
-        tdata->error = "Failed to write to output file";
+    if (!write(tdata, entries.data(), entries.data() + entries.size(), decode_pcs.data(),
+               decode_pcs.size())) {
         return false;
     }
 
+    return true;
+}
+
+bool
+raw2trace_t::track_syscall_pt_encodings(raw2trace_thread_data_t *tdata,
+                                        instrlist_t *ilist)
+{
+    instr_t *instr = instrlist_first(ilist);
+    while (instr != NULL) {
+        app_pc orig_pc = instr_get_app_pc(instr);
+        int instr_len = instr_length(dcontext_, instr);
+        if (tdata->syscall_instr_encodings_.empty() ||
+            tdata->syscall_next_encoding_offset_ + instr_len >=
+                SYSCALL_PT_ENCODING_BUF_SIZE) {
+            // We allocate new memory to store kernel instruction encodings in
+            // increments of SYSCALL_PT_ENCODING_BUF_SIZE. Note that we cannot
+            // treat this like a cache and clear previously stored encodings
+            // because any re-use in the decode address will confuse our write()
+            // logic (remember that we key encodings using the decode pc).
+            tdata->syscall_instr_encodings_.emplace_back(
+                new uint8_t[SYSCALL_PT_ENCODING_BUF_SIZE]);
+            tdata->syscall_next_encoding_offset_ = 0;
+        }
+        app_pc encode_pc =
+            &tdata->syscall_instr_encodings_.back()[tdata->syscall_next_encoding_offset_];
+        byte *ret = instr_encode_to_copy(dcontext_, instr, encode_pc, orig_pc);
+        if (ret == NULL) {
+            tdata->error = "Failed to encode a system call kernel instruction.";
+            return false;
+        }
+        DR_ASSERT(ret - encode_pc == instr_len);
+        auto it = tdata->syscall_pc_to_decode_pc_.find(orig_pc);
+        if (it == tdata->syscall_pc_to_decode_pc_.end() ||
+            // We confirm that the instruction encoding has not changed. Just in case
+            // the kernel is doing JIT.
+            it->second.second != instr_len ||
+            memcmp(it->second.first, encode_pc, it->second.second) != 0) {
+            tdata->syscall_next_encoding_offset_ += instr_len;
+            tdata->syscall_pc_to_decode_pc_[orig_pc] =
+                std::make_pair(encode_pc, instr_len);
+        }
+        instr = instr_get_next(instr);
+    }
     return true;
 }
 #endif

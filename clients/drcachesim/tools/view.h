@@ -60,7 +60,7 @@ public:
     // std::optional here.
     view_t(const std::string &module_file_path, uint64_t skip_refs, uint64_t sim_refs,
            const std::string &syntax, unsigned int verbose,
-           const std::string &alt_module_dir = "");
+           const std::string &alt_module_dir = "", bool ignore_decode_failure = false);
     std::string
     initialize_stream(memtrace_stream_t *serial_stream) override;
     bool
@@ -161,6 +161,7 @@ protected:
     int64_t filetype_record_ord_ = -1;
     bool has_modules_;
     memtrace_stream_t *serial_stream_ = nullptr;
+    bool knob_ignore_decode_failure_;
 
 private:
     static constexpr int RECORD_COLUMN_WIDTH = 12;

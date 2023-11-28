@@ -1,0 +1,7 @@
+Hello, world!
+Opcode mix tool results:
+.*: total executed instructions
+.*:.*
+.*
+.*: .*syscall
+.*

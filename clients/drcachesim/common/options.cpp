@@ -117,6 +117,14 @@ droption_t<std::string> op_alt_module_dir(
     "analysis tools, or in the raw modules file for post-prcoessing of offline "
     "raw trace files.  This directory takes precedence over the recorded path.");
 
+droption_t<bool> op_ignore_decode_failure(
+    DROPTION_SCOPE_FRONTEND, "ignore_decode_failure", false,
+    "Whether instruction decode failures should be ignored",
+    "Specifies whether failures to decode the instruction encodings should be ignored by "
+    "the analysis tools. This is useful especially when decoding kernel traces collected "
+    "by Intel-PT where decode failures may not indicate a critical issue and can be "
+    "moved past.");
+
 droption_t<bytesize_t> op_chunk_instr_count(
     DROPTION_SCOPE_FRONTEND, "chunk_instr_count", bytesize_t(10 * 1000 * 1000U),
     // We do not support tiny chunks.  We do not support disabling chunks with a 0

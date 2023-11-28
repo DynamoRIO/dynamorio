@@ -92,6 +92,7 @@ extern dynamorio::droption::droption_t<std::string> op_infile;
 extern dynamorio::droption::droption_t<std::string> op_indir;
 extern dynamorio::droption::droption_t<std::string> op_module_file;
 extern dynamorio::droption::droption_t<std::string> op_alt_module_dir;
+extern dynamorio::droption::droption_t<bool> op_ignore_decode_failure;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t>
     op_chunk_instr_count;
 extern dynamorio::droption::droption_t<bool> op_instr_encodings;

@@ -1080,6 +1080,11 @@ protected:
         std::vector<app_pc> rseq_decode_pcs_;
 
 #ifdef BUILD_PT_POST_PROCESSOR
+#    define SYSCALL_PT_ENCODING_BUF_SIZE (1024 * 1024 * 10)
+        std::unordered_map<app_pc, std::pair<app_pc, int>> syscall_pc_to_decode_pc_;
+        std::vector<std::unique_ptr<uint8_t[]>> syscall_instr_encodings_;
+        size_t syscall_next_encoding_offset_ = 0;
+
         std::istream *kthread_file;
         bool pt_metadata_processed = false;
         pt2ir_t pt2ir;
@@ -1182,6 +1187,14 @@ protected:
      */
     bool
     process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall_idx);
+
+    /**
+     * Records the encodings for all instructions in the given ilist. Note that
+     * kernel system call traces gathered using Intel-PT are decoded using libipt
+     * which also provides the instr encodings.
+     */
+    bool
+    track_syscall_pt_encodings(raw2trace_thread_data_t *tdata, instrlist_t *ilist);
 #endif
 
     /**

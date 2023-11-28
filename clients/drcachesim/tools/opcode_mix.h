@@ -58,7 +58,8 @@ public:
     // XXX: Once we update our toolchains to guarantee C++17 support we could use
     // std::optional here.
     opcode_mix_t(const std::string &module_file_path, unsigned int verbose,
-                 const std::string &alt_module_dir = "");
+                 const std::string &alt_module_dir = "",
+                 bool ignore_decode_failure = false);
     virtual ~opcode_mix_t();
     std::string
     initialize() override;
@@ -141,6 +142,7 @@ protected:
     std::mutex shard_map_mutex_;
     unsigned int knob_verbose_;
     std::string knob_alt_module_dir_;
+    bool knob_ignore_decode_failure_;
     static const std::string TOOL_NAME;
     // For serial operation.
     worker_data_t serial_worker_;

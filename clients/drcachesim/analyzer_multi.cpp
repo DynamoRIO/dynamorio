@@ -410,7 +410,8 @@ analyzer_multi_t::create_analysis_tool_from_options(const std::string &simulator
             return nullptr;
         }
         return opcode_mix_tool_create(module_file_path, op_verbose.get_value(),
-                                      op_alt_module_dir.get_value());
+                                      op_alt_module_dir.get_value(),
+                                      op_ignore_decode_failure.get_value());
     } else if (simulator_type == SYSCALL_MIX) {
         return syscall_mix_tool_create(op_verbose.get_value());
     } else if (simulator_type == VIEW) {
@@ -418,7 +419,8 @@ analyzer_multi_t::create_analysis_tool_from_options(const std::string &simulator
         // The module file is optional so we don't check for emptiness.
         return view_tool_create(module_file_path, op_skip_refs.get_value(),
                                 op_sim_refs.get_value(), op_view_syntax.get_value(),
-                                op_verbose.get_value(), op_alt_module_dir.get_value());
+                                op_verbose.get_value(), op_alt_module_dir.get_value(),
+                                op_ignore_decode_failure.get_value());
     } else if (simulator_type == FUNC_VIEW) {
         std::string funclist_file_path = get_aux_file_path(
             op_funclist_file.get_value(), DRMEMTRACE_FUNCTION_LIST_FILENAME);

@@ -54,7 +54,8 @@ namespace drmemtrace {
  */
 analysis_tool_t *
 opcode_mix_tool_create(const std::string &module_file_path, unsigned int verbose = 0,
-                       const std::string &alt_module_dir = "");
+                       const std::string &alt_module_dir = "",
+                       bool ignore_decode_failure = false);
 
 } // namespace drmemtrace
 } // namespace dynamorio
