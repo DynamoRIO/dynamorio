@@ -4564,8 +4564,10 @@ if (BUILD_CLIENTS)
       # tracing flow.
       torunonly_drcacheoff_kernel(simple ${ci_shared_app} "-raw_compress none" ""
                                   "@-simulator_type@basic_counts@-ignore_decode_failure")
-      torunonly_drcacheoff_kernel(opcode_mix ${ci_shared_app} "-raw_compress none" ""
+      torunonly_drcacheoff_kernel(opcode-mix ${ci_shared_app} "-raw_compress none" ""
                                   "@-simulator_type@opcode_mix@-ignore_decode_failure")
+      torunonly_drcacheoff_kernel(syscall-mix ${ci_shared_app} "-raw_compress none" ""
+                                  "@-simulator_type@syscall_mix")
     endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
   endif (proc_supports_pt)
 

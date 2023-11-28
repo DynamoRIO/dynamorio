@@ -1044,9 +1044,17 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
     }
 
     accumulate_to_statistic(tdata, RAW2TRACE_STAT_SYSCALL_TRACES_DECODED, 1);
-    std::vector<app_pc> decode_pcs;
+    app_pc saved_decode_pc;
+    trace_entry_t entries_with_encodings[WRITE_BUFFER_SIZE];
+    trace_entry_t *buf = entries_with_encodings;
     for (const auto &entry : entries) {
         if (type_is_instr(static_cast<trace_type_t>(entry.type))) {
+            if (buf != entries_with_encodings) {
+                if (!write(tdata, entries_with_encodings, buf, &saved_decode_pc, 1)) {
+                    return false;
+                }
+                buf = entries_with_encodings;
+            }
             app_pc instr_pc = reinterpret_cast<app_pc>(entry.addr);
             accumulate_to_statistic(tdata, RAW2TRACE_STAT_KERNEL_INSTR_COUNT, 1);
             if (tdata->syscall_pc_to_decode_pc_.find(instr_pc) ==
@@ -1055,14 +1063,14 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
                     "Unknown pc after ir2trace: did ir2trace insert new instr?";
                 return false;
             }
-            decode_pcs.push_back(tdata->syscall_pc_to_decode_pc_[instr_pc].first);
+            saved_decode_pc = tdata->syscall_pc_to_decode_pc_[instr_pc].first;
+            if (!append_encoding(tdata, saved_decode_pc, entry.size, buf,
+                                 entries_with_encodings))
+                return false;
         }
+        *buf = entry;
+        ++buf;
     }
-    if (!write(tdata, entries.data(), entries.data() + entries.size(), decode_pcs.data(),
-               decode_pcs.size())) {
-        return false;
-    }
-
     return true;
 }
 

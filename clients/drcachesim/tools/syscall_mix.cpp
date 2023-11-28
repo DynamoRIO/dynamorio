@@ -183,7 +183,7 @@ syscall_mix_t::print_results()
                   << keyvals.first << "\n";
     }
     if (!total.syscall_trace_counts.empty()) {
-        std::cerr << std::setw(15) << "syscall trace count"
+        std::cerr << std::setw(20) << "syscall trace count"
                   << " : " << std::setw(9) << "syscall_num\n";
         std::vector<std::pair<int, int64_t>> sorted_trace(
             total.syscall_trace_counts.begin(), total.syscall_trace_counts.end());
@@ -191,7 +191,7 @@ syscall_mix_t::print_results()
         for (const auto &keyvals : sorted_trace) {
             // XXX: It would be nicer to print the system call name string instead
             // of its number.
-            std::cerr << std::setw(15) << keyvals.second << " : " << std::setw(9)
+            std::cerr << std::setw(20) << keyvals.second << " : " << std::setw(9)
                       << keyvals.first << "\n";
         }
     }
