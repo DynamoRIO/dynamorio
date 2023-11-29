@@ -1453,7 +1453,7 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, DR_PARAM_OUT bool *e
                                       governing_pred, scratch_vec);
         }
     } else {
-        /* scalar+vector or vector+immediate scatter/gather */
+        /* scalar+vector, vector+immediate, or vector+scalar scatter/gather */
         reg_id_t scalar_base;
         reg_id_t scalar_index;
         if (reg_is_z(sg_info.index_reg)) {
