@@ -1094,6 +1094,8 @@ protected:
         uint64_t cur_time = 0;
         // Used for MAP_TO_RECORDED_OUTPUT get_output_cpuid().
         int64_t as_traced_cpuid = -1;
+        // Used for MAP_AS_PREVIOUSLY with live_replay_output_count_.
+        bool at_eof = false;
     };
 
     // Called just once at initialization time to set the initial input-to-output
@@ -1346,6 +1348,8 @@ protected:
     uint64_t ready_counter_ = 0;
     // Count of inputs not yet at eof.
     std::atomic<int> live_input_count_;
+    // In replay mode, count of outputs not yet at the end of the replay sequence.
+    std::atomic<int> live_replay_output_count_;
     // Map from workload,tid pair to input.
     struct workload_tid_t {
         workload_tid_t(int wl, memref_tid_t tid)

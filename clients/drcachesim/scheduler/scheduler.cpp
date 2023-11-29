@@ -642,6 +642,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
     std::unordered_map<int, std::vector<int>> &workload2inputs)
 {
     if (options_.mapping == MAP_AS_PREVIOUSLY) {
+        live_replay_output_count_.store(static_cast<int>(outputs_.size()),
+                                        std::memory_order_release);
         if (options_.schedule_replay_istream == nullptr ||
             options_.schedule_record_ostream != nullptr)
             return STATUS_ERROR_INVALID_PARAMETER;
@@ -1646,8 +1648,13 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input_as_previously(
     output_ordinal_t output, input_ordinal_t &index)
 {
     if (outputs_[output].record_index + 1 >=
-        static_cast<int>(outputs_[output].record.size()))
+        static_cast<int>(outputs_[output].record.size())) {
+        if (!outputs_[output].at_eof) {
+            outputs_[output].at_eof = true;
+            live_replay_output_count_.fetch_add(-1, std::memory_order_release);
+        }
         return eof_or_idle(output);
+    }
     const schedule_record_t &segment =
         outputs_[output].record[outputs_[output].record_index + 1];
     index = segment.key.input;
@@ -1895,14 +1902,10 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
         if (inputs_[index].at_eof ||
             *inputs_[index].reader == *inputs_[index].reader_end) {
             VPRINT(this, 2, "next_record[%d]: input #%d at eof\n", output, index);
-            if (options_.schedule_record_ostream != nullptr &&
-                prev_index != INVALID_INPUT_ORDINAL)
-                close_schedule_segment(output, inputs_[prev_index]);
             if (!inputs_[index].at_eof)
                 mark_input_eof(inputs_[index]);
             index = INVALID_INPUT_ORDINAL;
             // Loop and pick next thread.
-            prev_index = INVALID_INPUT_ORDINAL;
             continue;
         }
         break;
@@ -2276,9 +2279,13 @@ template <typename RecordType, typename ReaderType>
 void
 scheduler_tmpl_t<RecordType, ReaderType>::mark_input_eof(input_info_t &input)
 {
+    if (input.at_eof)
+        return;
     input.at_eof = true;
     assert(live_input_count_.load(std::memory_order_acquire) > 0);
     live_input_count_.fetch_add(-1, std::memory_order_release);
+    VPRINT(this, 2, "input %d at eof; %d live inputs left\n", input.index,
+           live_input_count_.load(std::memory_order_acquire));
 }
 
 template <typename RecordType, typename ReaderType>
@@ -2286,7 +2293,13 @@ typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::eof_or_idle(output_ordinal_t output)
 {
     if (options_.mapping == MAP_TO_CONSISTENT_OUTPUT ||
-        live_input_count_.load(std::memory_order_acquire) == 0) {
+        live_input_count_.load(std::memory_order_acquire) == 0 ||
+        // While a full schedule recorded should have each input hit either its
+        // EOF or ROI end, we have a fallback to avoid hangs for possible recorded
+        // schedules that end an input early deliberately without an ROI.
+        (options_.mapping == MAP_AS_PREVIOUSLY &&
+         live_replay_output_count_.load(std::memory_order_acquire) == 0)) {
+        assert(options_.mapping != MAP_AS_PREVIOUSLY || outputs_[output].at_eof);
         return sched_type_t::STATUS_EOF;
     } else {
         outputs_[output].waiting = true;
