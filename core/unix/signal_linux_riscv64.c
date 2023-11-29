@@ -57,7 +57,39 @@ save_fpstate(dcontext_t *dcontext, sigframe_rt_t *frame)
 void
 dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
 {
-    LOG(THREAD, LOG_ASYNCH, 1, "FIXME i#3544: NYI on RISCV64");
+
+    LOG(THREAD, LOG_ASYNCH, 1, "\tpc  = " PFX "\n", sc->sc_regs.pc);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tra  = " PFX "\n", sc->sc_regs.ra);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tsp  = " PFX "\n", sc->sc_regs.sp);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tgp  = " PFX "\n", sc->sc_regs.gp);
+    LOG(THREAD, LOG_ASYNCH, 1, "\ttp  = " PFX "\n", sc->sc_regs.tp);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tt0  = " PFX "\n", sc->sc_regs.t0);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tt1  = " PFX "\n", sc->sc_regs.t1);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tt2  = " PFX "\n", sc->sc_regs.t2);
+    LOG(THREAD, LOG_ASYNCH, 1, "\ts0  = " PFX "\n", sc->sc_regs.s0);
+    LOG(THREAD, LOG_ASYNCH, 1, "\ts1  = " PFX "\n", sc->sc_regs.s1);
+    LOG(THREAD, LOG_ASYNCH, 1, "\ta0  = " PFX "\n", sc->sc_regs.a0);
+    LOG(THREAD, LOG_ASYNCH, 1, "\ta1  = " PFX "\n", sc->sc_regs.a1);
+    LOG(THREAD, LOG_ASYNCH, 1, "\ta2  = " PFX "\n", sc->sc_regs.a2);
+    LOG(THREAD, LOG_ASYNCH, 1, "\ta3  = " PFX "\n", sc->sc_regs.a3);
+    LOG(THREAD, LOG_ASYNCH, 1, "\ta4  = " PFX "\n", sc->sc_regs.a4);
+    LOG(THREAD, LOG_ASYNCH, 1, "\ta5  = " PFX "\n", sc->sc_regs.a5);
+    LOG(THREAD, LOG_ASYNCH, 1, "\ta6  = " PFX "\n", sc->sc_regs.a6);
+    LOG(THREAD, LOG_ASYNCH, 1, "\ta7  = " PFX "\n", sc->sc_regs.a7);
+    LOG(THREAD, LOG_ASYNCH, 1, "\ts2  = " PFX "\n", sc->sc_regs.s2);
+    LOG(THREAD, LOG_ASYNCH, 1, "\ts3  = " PFX "\n", sc->sc_regs.s3);
+    LOG(THREAD, LOG_ASYNCH, 1, "\ts4  = " PFX "\n", sc->sc_regs.s4);
+    LOG(THREAD, LOG_ASYNCH, 1, "\ts5  = " PFX "\n", sc->sc_regs.s5);
+    LOG(THREAD, LOG_ASYNCH, 1, "\ts6  = " PFX "\n", sc->sc_regs.s6);
+    LOG(THREAD, LOG_ASYNCH, 1, "\ts7  = " PFX "\n", sc->sc_regs.s7);
+    LOG(THREAD, LOG_ASYNCH, 1, "\ts8  = " PFX "\n", sc->sc_regs.s8);
+    LOG(THREAD, LOG_ASYNCH, 1, "\ts9  = " PFX "\n", sc->sc_regs.s9);
+    LOG(THREAD, LOG_ASYNCH, 1, "\ts10 = " PFX "\n", sc->sc_regs.s10);
+    LOG(THREAD, LOG_ASYNCH, 1, "\ts11 = " PFX "\n", sc->sc_regs.s11);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tt3  = " PFX "\n", sc->sc_regs.t3);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tt4  = " PFX "\n", sc->sc_regs.t4);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tt5  = " PFX "\n", sc->sc_regs.t5);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tt6  = " PFX "\n", sc->sc_regs.t6);
 }
 #endif /* DEBUG */
 
