@@ -1904,8 +1904,6 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
             VPRINT(this, 2, "next_record[%d]: input #%d at eof\n", output, index);
             if (!inputs_[index].at_eof)
                 mark_input_eof(inputs_[index]);
-            if (options_.schedule_record_ostream != nullptr)
-                close_schedule_segment(output, inputs_[index]);
             index = INVALID_INPUT_ORDINAL;
             // Loop and pick next thread.
             continue;
