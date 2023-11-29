@@ -1623,6 +1623,10 @@ const instr_info_t * const op_instr[] =
     /* AVX512 VPOPCNTDQ */
     /* OP_vpopcntd, */ &evex_Wb_extensions[274][0],
     /* OP_vpopcntq, */ &evex_Wb_extensions[274][2],
+
+    /* Privileged (newer) */
+    /* OP_clac */ &rm_extensions[1][2],
+    /* OP_stac */ &rm_extensions[1][3]
 };
 
 
@@ -2079,6 +2083,7 @@ const instr_info_t * const op_instr[] =
 #define fRO   EFLAGS_READ_OF
 #define fRN   EFLAGS_READ_NT
 #define fRR   EFLAGS_READ_RF
+#define fRAC   EFLAGS_READ_AC
 #define fRX   EFLAGS_READ_ALL
 #define fR6   EFLAGS_READ_6
 #define fWC   EFLAGS_WRITE_CF
@@ -2092,6 +2097,7 @@ const instr_info_t * const op_instr[] =
 #define fWO   EFLAGS_WRITE_OF
 #define fWN   EFLAGS_WRITE_NT
 #define fWR   EFLAGS_WRITE_RF
+#define fWAC   EFLAGS_WRITE_AC
 #define fWX   EFLAGS_WRITE_ALL
 #define fW6   EFLAGS_WRITE_6
 /* flags affected by OP_int*
@@ -7019,8 +7025,8 @@ const instr_info_t rm_extensions[][8] = {
     /* XXX i#4013: Treat address in xax as IR memref? */
     {OP_monitor, 0xc80f0171, catUncategorized, "monitor",  xx, xx, axAX, ecx, edx, mrm, x, END_LIST},
     {OP_mwait,   0xc90f0171, catUncategorized, "mwait",  xx, xx, eax, ecx, xx, mrm, x, END_LIST},
-    {INVALID,   0x0f0131, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,   0x0f0131, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_clac,   0xca0f0171, catUncategorized, "clac", xx, xx, xx, xx, xx, no, fWAC, NA},
+    {OP_stac,   0xcb0f0171, catUncategorized, "stac", xx, xx, xx, xx, xx, no, fWAC, NA},
     {INVALID,   0x0f0131, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f0131, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f0131, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},

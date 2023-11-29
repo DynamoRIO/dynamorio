@@ -2550,26 +2550,31 @@ instr_is_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls DR_PARA
 #    define EFLAGS_READ_OF 0x00000100  /**< Reads OF (Overflow Flag). */
 #    define EFLAGS_READ_NT 0x00000200  /**< Reads NT (Nested Task). */
 #    define EFLAGS_READ_RF 0x00000400  /**< Reads RF (Resume Flag). */
-#    define EFLAGS_WRITE_CF 0x00000800 /**< Writes CF (Carry Flag). */
-#    define EFLAGS_WRITE_PF 0x00001000 /**< Writes PF (Parity Flag). */
-#    define EFLAGS_WRITE_AF 0x00002000 /**< Writes AF (Auxiliary Carry Flag). */
-#    define EFLAGS_WRITE_ZF 0x00004000 /**< Writes ZF (Zero Flag). */
-#    define EFLAGS_WRITE_SF 0x00008000 /**< Writes SF (Sign Flag). */
-#    define EFLAGS_WRITE_TF 0x00010000 /**< Writes TF (Trap Flag). */
-#    define EFLAGS_WRITE_IF 0x00020000 /**< Writes IF (Interrupt Enable Flag). */
-#    define EFLAGS_WRITE_DF 0x00040000 /**< Writes DF (Direction Flag). */
-#    define EFLAGS_WRITE_OF 0x00080000 /**< Writes OF (Overflow Flag). */
-#    define EFLAGS_WRITE_NT 0x00100000 /**< Writes NT (Nested Task). */
-#    define EFLAGS_WRITE_RF 0x00200000 /**< Writes RF (Resume Flag). */
+/* OP_clac and OP_stac both write the AC flag. Even though we do not have an
+ * opcode that reads it, we still add EFLAGS_READ_AC for parity.
+ */
+#    define EFLAGS_READ_AC 0x00000800  /**< Reads AC (Alignment Check Flag). */
+#    define EFLAGS_WRITE_CF 0x00001000 /**< Writes CF (Carry Flag). */
+#    define EFLAGS_WRITE_PF 0x00002000 /**< Writes PF (Parity Flag). */
+#    define EFLAGS_WRITE_AF 0x00004000 /**< Writes AF (Auxiliary Carry Flag). */
+#    define EFLAGS_WRITE_ZF 0x00008000 /**< Writes ZF (Zero Flag). */
+#    define EFLAGS_WRITE_SF 0x00010000 /**< Writes SF (Sign Flag). */
+#    define EFLAGS_WRITE_TF 0x00020000 /**< Writes TF (Trap Flag). */
+#    define EFLAGS_WRITE_IF 0x00040000 /**< Writes IF (Interrupt Enable Flag). */
+#    define EFLAGS_WRITE_DF 0x00080000 /**< Writes DF (Direction Flag). */
+#    define EFLAGS_WRITE_OF 0x00100000 /**< Writes OF (Overflow Flag). */
+#    define EFLAGS_WRITE_NT 0x00200000 /**< Writes NT (Nested Task). */
+#    define EFLAGS_WRITE_RF 0x00400000 /**< Writes RF (Resume Flag). */
+#    define EFLAGS_WRITE_AC 0x00800000  /**< Writes AC (Alignment Check Flag). */
 
-#    define EFLAGS_READ_ALL 0x000007ff           /**< Reads all flags. */
+#    define EFLAGS_READ_ALL 0x00000fff           /**< Reads all flags. */
 #    define EFLAGS_READ_NON_PRED EFLAGS_READ_ALL /**< Flags not read by predicates. */
-#    define EFLAGS_WRITE_ALL 0x003ff800          /**< Writes all flags. */
+#    define EFLAGS_WRITE_ALL 0x00fff000          /**< Writes all flags. */
 /* 6 most common flags ("arithmetic flags"): CF, PF, AF, ZF, SF, OF */
 /** Reads all 6 arithmetic flags (CF, PF, AF, ZF, SF, OF). */
 #    define EFLAGS_READ_6 0x0000011f
 /** Writes all 6 arithmetic flags (CF, PF, AF, ZF, SF, OF). */
-#    define EFLAGS_WRITE_6 0x0008f800
+#    define EFLAGS_WRITE_6 0x0011f000
 
 /** Platform-independent macro for reads all arithmetic flags. */
 #    define EFLAGS_READ_ARITH EFLAGS_READ_6
