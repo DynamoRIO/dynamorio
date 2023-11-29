@@ -2328,6 +2328,116 @@ test_replay_timestamps()
 #endif // HAS_ZIP
 }
 
+#ifdef HAS_ZIP
+// We subclass scheduler_t to access its record struct and functions.
+class test_noeof_scheduler_t : public scheduler_t {
+public:
+    void
+    write_test_schedule(std::string record_fname)
+    {
+        // We duplicate test_scheduler_t but we have one input ending early before
+        // eof.
+        scheduler_t scheduler;
+        std::vector<schedule_record_t> sched0;
+        sched0.emplace_back(scheduler_t::schedule_record_t::VERSION, 0, 0, 0, 0);
+        sched0.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 0, 0, 4, 11);
+        // There is a huge time gap here.
+        sched0.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 2, 7,
+                            0xffffffffffffffffUL, 91);
+        sched0.emplace_back(scheduler_t::schedule_record_t::FOOTER, 0, 0, 0, 0);
+        std::vector<schedule_record_t> sched1;
+        sched1.emplace_back(scheduler_t::schedule_record_t::VERSION, 0, 0, 0, 0);
+        sched1.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 1, 0, 4, 10);
+        sched1.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 2, 0, 4, 20);
+        // Input 2 advances early so core 0 is no longer waiting on it but only
+        // the timestamp.
+        sched1.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 2, 4, 7, 60);
+        sched1.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 3, 0, 4, 30);
+        sched1.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 0, 4, 7, 40);
+        sched1.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 1, 4, 7, 50);
+        sched1.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 3, 4, 7, 70);
+        sched1.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 0, 7,
+                            0xffffffffffffffffUL, 80);
+        sched1.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 1, 7,
+                            0xffffffffffffffffUL, 90);
+        // Input 3 never reaches EOF (end is exclusive).
+        sched1.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 3, 7, 9, 110);
+        sched1.emplace_back(scheduler_t::schedule_record_t::FOOTER, 0, 0, 0, 0);
+        zipfile_ostream_t outfile(record_fname);
+        std::string err = outfile.open_new_component(recorded_schedule_component_name(0));
+        assert(err.empty());
+        if (!outfile.write(reinterpret_cast<char *>(sched0.data()),
+                           sched0.size() * sizeof(sched0[0])))
+            assert(false);
+        err = outfile.open_new_component(recorded_schedule_component_name(1));
+        assert(err.empty());
+        if (!outfile.write(reinterpret_cast<char *>(sched1.data()),
+                           sched1.size() * sizeof(sched1[0])))
+            assert(false);
+    }
+};
+#endif
+
+static void
+test_replay_noeof()
+{
+#ifdef HAS_ZIP
+    std::cerr << "\n----------------\nTesting replay with no eof\n";
+    static constexpr int NUM_INPUTS = 4;
+    static constexpr int NUM_OUTPUTS = 2;
+    static constexpr int NUM_INSTRS = 9;
+    static constexpr memref_tid_t TID_BASE = 100;
+    std::vector<trace_entry_t> inputs[NUM_INPUTS];
+    for (int i = 0; i < NUM_INPUTS; i++) {
+        memref_tid_t tid = TID_BASE + i;
+        inputs[i].push_back(make_thread(tid));
+        inputs[i].push_back(make_pid(1));
+        // We need a timestamp so the scheduler will find one for initial
+        // input processing.  We do not try to duplicate the timestamp
+        // sequences in the stored file and just use a dummy timestamp here.
+        inputs[i].push_back(make_timestamp(10 + i));
+        for (int j = 0; j < NUM_INSTRS; j++)
+            inputs[i].push_back(make_instr(42 + j * 4));
+        inputs[i].push_back(make_exit(tid));
+    }
+
+    // Create a record file with timestamps requiring waiting.
+    // We cooperate with the test_noeof_scheduler_t class which constructs this schedule:
+    static const char *const CORE0_SCHED_STRING = ".AAA-------------------------CCC.__";
+    static const char *const CORE1_SCHED_STRING = ".BBB.CCCCCC.DDDAAABBBDDDAAA.BBB.DD";
+    std::string record_fname = "tmp_test_replay_noeof_timestamp.zip";
+    test_noeof_scheduler_t test_scheduler;
+    test_scheduler.write_test_schedule(record_fname);
+
+    // Replay the recorded schedule.
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    for (int i = 0; i < NUM_INPUTS; i++) {
+        memref_tid_t tid = TID_BASE + i;
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+        sched_inputs.emplace_back(std::move(readers));
+    }
+    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_AS_PREVIOUSLY,
+                                               scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                               scheduler_t::SCHEDULER_DEFAULTS,
+                                               /*verbosity=*/4);
+    zipfile_istream_t infile(record_fname);
+    sched_ops.schedule_replay_istream = &infile;
+    scheduler_t scheduler;
+    if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    std::vector<std::string> sched_as_string =
+        run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE);
+    for (int i = 0; i < NUM_OUTPUTS; i++) {
+        std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+    }
+    assert(sched_as_string[0] == CORE0_SCHED_STRING);
+    assert(sched_as_string[1] == CORE1_SCHED_STRING);
+#endif // HAS_ZIP
+}
+
 static void
 test_replay_skip()
 {
@@ -3200,6 +3310,7 @@ test_main(int argc, const char *argv[])
     test_replay();
     test_replay_multi_threaded(argv[1]);
     test_replay_timestamps();
+    test_replay_noeof();
     test_replay_skip();
     test_replay_limit();
     test_replay_as_traced_from_file(argv[1]);
