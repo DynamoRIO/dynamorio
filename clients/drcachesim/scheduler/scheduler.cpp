@@ -2299,6 +2299,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::eof_or_idle(output_ordinal_t output)
         // schedules that end an input early deliberately without an ROI.
         (options_.mapping == MAP_AS_PREVIOUSLY &&
          live_replay_output_count_.load(std::memory_order_acquire) == 0)) {
+        assert(options_.mapping != MAP_AS_PREVIOUSLY || outputs_[output].at_eof);
         return sched_type_t::STATUS_EOF;
     } else {
         outputs_[output].waiting = true;

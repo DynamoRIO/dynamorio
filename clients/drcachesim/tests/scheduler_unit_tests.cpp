@@ -2342,6 +2342,7 @@ public:
         sched0.emplace_back(scheduler_t::schedule_record_t::VERSION, 0, 0, 0, 0);
         sched0.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 0, 0, 4, 11);
         // There is a huge time gap here.
+        // Max numeric value means continue until EOF.
         sched0.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 2, 7,
                             0xffffffffffffffffUL, 91);
         sched0.emplace_back(scheduler_t::schedule_record_t::FOOTER, 0, 0, 0, 0);
@@ -2360,7 +2361,8 @@ public:
                             0xffffffffffffffffUL, 80);
         sched1.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 1, 7,
                             0xffffffffffffffffUL, 90);
-        // Input 3 never reaches EOF (end is exclusive).
+        // Input 3 never reaches EOF (end is exclusive: so it stops at 8 with the
+        // real end at 9).
         sched1.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 3, 7, 9, 110);
         sched1.emplace_back(scheduler_t::schedule_record_t::FOOTER, 0, 0, 0, 0);
         zipfile_ostream_t outfile(record_fname);
