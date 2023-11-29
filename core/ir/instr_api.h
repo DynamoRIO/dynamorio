@@ -2539,17 +2539,17 @@ instr_is_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls DR_PARA
 /* we only care about these 11 flags, and mostly only about the first 6
  * we consider an undefined effect on a flag to be a write
  */
-#    define EFLAGS_READ_CF 0x00000001  /**< Reads CF (Carry Flag). */
-#    define EFLAGS_READ_PF 0x00000002  /**< Reads PF (Parity Flag). */
-#    define EFLAGS_READ_AF 0x00000004  /**< Reads AF (Auxiliary Carry Flag). */
-#    define EFLAGS_READ_ZF 0x00000008  /**< Reads ZF (Zero Flag). */
-#    define EFLAGS_READ_SF 0x00000010  /**< Reads SF (Sign Flag). */
-#    define EFLAGS_READ_TF 0x00000020  /**< Reads TF (Trap Flag). */
-#    define EFLAGS_READ_IF 0x00000040  /**< Reads IF (Interrupt Enable Flag). */
-#    define EFLAGS_READ_DF 0x00000080  /**< Reads DF (Direction Flag). */
-#    define EFLAGS_READ_OF 0x00000100  /**< Reads OF (Overflow Flag). */
-#    define EFLAGS_READ_NT 0x00000200  /**< Reads NT (Nested Task). */
-#    define EFLAGS_READ_RF 0x00000400  /**< Reads RF (Resume Flag). */
+#    define EFLAGS_READ_CF 0x00000001 /**< Reads CF (Carry Flag). */
+#    define EFLAGS_READ_PF 0x00000002 /**< Reads PF (Parity Flag). */
+#    define EFLAGS_READ_AF 0x00000004 /**< Reads AF (Auxiliary Carry Flag). */
+#    define EFLAGS_READ_ZF 0x00000008 /**< Reads ZF (Zero Flag). */
+#    define EFLAGS_READ_SF 0x00000010 /**< Reads SF (Sign Flag). */
+#    define EFLAGS_READ_TF 0x00000020 /**< Reads TF (Trap Flag). */
+#    define EFLAGS_READ_IF 0x00000040 /**< Reads IF (Interrupt Enable Flag). */
+#    define EFLAGS_READ_DF 0x00000080 /**< Reads DF (Direction Flag). */
+#    define EFLAGS_READ_OF 0x00000100 /**< Reads OF (Overflow Flag). */
+#    define EFLAGS_READ_NT 0x00000200 /**< Reads NT (Nested Task). */
+#    define EFLAGS_READ_RF 0x00000400 /**< Reads RF (Resume Flag). */
 /* OP_clac and OP_stac both write the AC flag. Even though we do not have an
  * opcode that reads it, we still add EFLAGS_READ_AC for parity.
  */
@@ -2565,7 +2565,7 @@ instr_is_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls DR_PARA
 #    define EFLAGS_WRITE_OF 0x00100000 /**< Writes OF (Overflow Flag). */
 #    define EFLAGS_WRITE_NT 0x00200000 /**< Writes NT (Nested Task). */
 #    define EFLAGS_WRITE_RF 0x00400000 /**< Writes RF (Resume Flag). */
-#    define EFLAGS_WRITE_AC 0x00800000  /**< Writes AC (Alignment Check Flag). */
+#    define EFLAGS_WRITE_AC 0x00800000 /**< Writes AC (Alignment Check Flag). */
 
 #    define EFLAGS_READ_ALL 0x00000fff           /**< Reads all flags. */
 #    define EFLAGS_READ_NON_PRED EFLAGS_READ_ALL /**< Flags not read by predicates. */
