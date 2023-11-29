@@ -16,3 +16,5 @@ cscope.out
 01112023/*.csv
 01112023/parsed_traces/*.csv
 01112023/parsed_traces/deprecated/*.csv
+./01112023/parsed_traces/deprecated/merged-file.csv
+./01112023/parsed_traces/merged_binary_all.csv
