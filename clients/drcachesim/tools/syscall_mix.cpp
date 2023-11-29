@@ -149,9 +149,9 @@ syscall_mix_t::process_memref(const memref_t &memref)
 static bool
 cmp_second_val(const std::pair<int, int64_t> &l, const std::pair<int, int64_t> &r)
 {
-    if (l.second > r.second)
-        return true;
-    return l.first > r.first;
+    if (l.second == r.second)
+        return l.first > r.first;
+    return l.second > r.second;
 }
 
 bool
