@@ -114,8 +114,11 @@ is_elf_so_header_common(app_pc base, size_t size, bool memory)
             (memory && elf_header.e_ehsize != sizeof(ELF_HEADER_TYPE)) ||
             (memory &&
 #ifdef X64
-             elf_header.e_machine != EM_X86_64 && elf_header.e_machine != EM_AARCH64 &&
-             elf_header.e_machine != EM_RISCV
+             elf_header.e_machine != EM_X86_64 && elf_header.e_machine != EM_AARCH64
+        /* XXX: The test for defined(EM_RISCV) was still needed in 2023 on RHE7. */
+#    if defined(EM_RISCV) || !defined(EM_386)
+             && elf_header.e_machine != EM_RISCV
+#    endif
 #else
              elf_header.e_machine != EM_386 && elf_header.e_machine != EM_ARM
 #endif
@@ -130,8 +133,11 @@ is_elf_so_header_common(app_pc base, size_t size, bool memory)
         ASSERT_CURIOSITY(!memory ||
 #ifdef X64
                          elf_header.e_machine == EM_X86_64 ||
-                         elf_header.e_machine == EM_AARCH64 ||
-                         elf_header.e_machine == EM_RISCV
+                         elf_header.e_machine == EM_AARCH64
+        /* XXX: The test for defined(EM_RISCV) was still needed in 2023 on RHE7. */
+#    if defined(EM_RISCV) || !defined(EM_386)
+                         || elf_header.e_machine == EM_RISCV
+#    endif
 #else
                          elf_header.e_machine == EM_386 || elf_header.e_machine == EM_ARM
 #endif
