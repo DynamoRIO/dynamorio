@@ -4,73 +4,83 @@ Total counts:
            8 threads
       638938 instructions
            5 total context switches
-   0.0078255 CSPKI \(context switches per 1000 instructions\)
+   0\.0078255 CSPKI \(context switches per 1000 instructions\)
       127788 instructions per context switch
            5 voluntary context switches
            0 direct context switches
-      100.00% voluntary switches
-        0.00% direct switches
+      100\.00% voluntary switches
+        0\.00% direct switches
          161 system calls
            2 maybe-blocking system calls
            0 direct switch requests
            0 waits
+    *[0-9]* idles
+      *[0-9\.]*% cpu busy
 Core #0 counts:
            . threads
       *[0-9]* instructions
            . total context switches
-   0.0[0-9.]* CSPKI \(context switches per 1000 instructions\)
+   0\.0[0-9\.]* CSPKI \(context switches per 1000 instructions\)
       *[0-9]* instructions per context switch
            . voluntary context switches
            0 direct context switches
-      100.00% voluntary switches
-        0.00% direct switches
+      100\.00% voluntary switches
+        0\.00% direct switches
          *[0-9]* system calls
            . maybe-blocking system calls
            0 direct switch requests
            0 waits
+    *[0-9]* idles
+      *[0-9\.]*% cpu busy
 Core #1 counts:
            . threads
       *[0-9]* instructions
            . total context switches
-   0.0[0-9.]* CSPKI \(context switches per 1000 instructions\)
+   0\.0[0-9\.]* CSPKI \(context switches per 1000 instructions\)
       *[0-9]* instructions per context switch
            . voluntary context switches
            0 direct context switches
-      100.00% voluntary switches
-        0.00% direct switches
+      100\.00% voluntary switches
+        0\.00% direct switches
          *[0-9]* system calls
            . maybe-blocking system calls
            0 direct switch requests
            0 waits
+    *[0-9]* idles
+      *[0-9\.]*% cpu busy
 Core #2 counts:
            . threads
       *[0-9]* instructions
            . total context switches
-   0.0[0-9.]* CSPKI \(context switches per 1000 instructions\)
+   0\.0[0-9\.]* CSPKI \(context switches per 1000 instructions\)
       *[0-9]* instructions per context switch
            . voluntary context switches
            0 direct context switches
-      100.00% voluntary switches
-        0.00% direct switches
+      100\.00% voluntary switches
+        0\.00% direct switches
          *[0-9]* system calls
            . maybe-blocking system calls
            0 direct switch requests
            0 waits
+    *[0-9]* idles
+      *[0-9\.]*% cpu busy
 Core #3 counts:
            . threads
       *[0-9]* instructions
            . total context switches
-   0.0[0-9.]* CSPKI \(context switches per 1000 instructions\)
+   0\.0[0-9\.]* CSPKI \(context switches per 1000 instructions\)
       *[0-9]* instructions per context switch
            . voluntary context switches
            0 direct context switches
-      100.00% voluntary switches
-        0.00% direct switches
+      100\.00% voluntary switches
+        0\.00% direct switches
          *[0-9]* system calls
            . maybe-blocking system calls
            0 direct switch requests
            0 waits
-Core #0 schedule: [A-H,]*
-Core #1 schedule: [A-H,]*
-Core #2 schedule: [A-H,]*
-Core #3 schedule: [A-H,]*
+    *[0-9]* idles
+      *[0-9\.]*% cpu busy
+Core #0 schedule: [A-Ha-h_]*
+Core #1 schedule: [A-Ha-h_]*
+Core #2 schedule: [A-Ha-h_]*
+Core #3 schedule: [A-Ha-h_]*

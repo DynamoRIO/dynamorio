@@ -4996,14 +4996,12 @@ if (UNIX)
     target_link_libraries(linux.signal_pre_syscall rt)
   endif ()
 
-  if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
-    tobuild(linux.bad-signal-stack linux/bad-signal-stack.c)
+  tobuild(linux.bad-signal-stack linux/bad-signal-stack.c)
 
-    # i#1145: test re-starting syscalls, both inlined and from dispatch
-    tobuild(linux.eintr linux/eintr.c)
-    link_with_pthread(linux.eintr)
-    torunonly(linux.eintr-noinline linux.eintr linux/eintr.c "-no_ignore_syscalls" "")
-  endif (NOT RISCV64)
+  # i#1145: test re-starting syscalls, both inlined and from dispatch
+  tobuild(linux.eintr linux/eintr.c)
+  link_with_pthread(linux.eintr)
+  torunonly(linux.eintr-noinline linux.eintr linux/eintr.c "-no_ignore_syscalls" "")
 
   if (NOT ANDROID AND NOT RISCV64) # XXX i#1874: get working on Android
     # TODO i#3544: Port tests to RISC-V 64

@@ -45,6 +45,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <atomic>
 #include <deque>
 #include <limits>
 #include <memory>
@@ -109,10 +110,12 @@ public:
          * For dynamic scheduling with cross-stream dependencies, the scheduler may pause
          * a stream if it gets ahead of another stream it should have a dependence on.
          * This value is also used for schedules following the recorded timestamps
-         * (#DEPENDENCY_TIMESTAMPS) to avoid one stream getting ahead of another.  For
-         * replaying a schedule as it was traced with #MAP_TO_RECORDED_OUTPUT this can
-         * indicate an idle period on a core where the traced workload was not currently
-         * scheduled.
+         * (#DEPENDENCY_TIMESTAMPS) to avoid one stream getting ahead of another.
+         * #STATUS_WAIT should be treated as artificial, an artifact of enforcing a
+         * recorded schedule on concurrent differently-timed output streams.
+         * Simulators are suggested to not advance simulated time for #STATUS_WAIT while
+         * they should advance time for #STATUS_IDLE as the latter indicates a true
+         * lack of work.
          */
         STATUS_WAIT,
         STATUS_INVALID,         /**< Error condition. */
@@ -120,6 +123,15 @@ public:
         STATUS_NOT_IMPLEMENTED, /**< Feature not implemented. */
         STATUS_SKIPPED,         /**< Used for internal scheduler purposes. */
         STATUS_RECORD_FAILED,   /**< Failed to record schedule for future replay. */
+        /**
+         * This code indicates that all inputs are blocked waiting for kernel resources
+         * (such as i/o).  This is similar to #STATUS_WAIT, but #STATUS_WAIT indicates an
+         * artificial pause due to imposing the original ordering while #STATUS_IDLE
+         * indicates actual idle time in the application.  Simulators are suggested
+         * to not advance simulated time for #STATUS_WAIT while they should advance
+         * time for #STATUS_IDLE.
+         */
+        STATUS_IDLE,
     };
 
     /** Identifies an input stream by its index. */
@@ -629,7 +641,7 @@ public:
         /**
          * Disables or re-enables this output stream.  If "active" is false, this
          * stream becomes inactive and its currently assigned input is moved to the
-         * ready queue to be scheduled on other outputs.  The #STATUS_WAIT code is
+         * ready queue to be scheduled on other outputs.  The #STATUS_IDLE code is
          * returned to next_record() for inactive streams.  If "active" is true,
          * this stream becomes active again.
          * This is only supported for #MAP_TO_ANY_OUTPUT.
@@ -1076,7 +1088,7 @@ protected:
         // sched_lock_.
         std::vector<schedule_record_t> record;
         int record_index = 0;
-        bool waiting = false;
+        bool waiting = false; // Waiting or idling.
         bool active = true;
         // Used for time-based quanta.
         uint64_t cur_time = 0;
@@ -1259,6 +1271,13 @@ protected:
     stream_status_t
     set_output_active(output_ordinal_t output, bool active);
 
+    // Caller must hold the input's lock.
+    void
+    mark_input_eof(input_info_t &input);
+
+    stream_status_t
+    eof_or_idle(output_ordinal_t output);
+
     ///////////////////////////////////////////////////////////////////////////
     // Support for ready queues for who to schedule next:
 
@@ -1325,6 +1344,8 @@ protected:
     flexible_queue_t<input_info_t *, InputTimestampComparator> ready_priority_;
     // Global ready queue counter used to provide FIFO for same-priority inputs.
     uint64_t ready_counter_ = 0;
+    // Count of inputs not yet at eof.
+    std::atomic<int> live_input_count_;
     // Map from workload,tid pair to input.
     struct workload_tid_t {
         workload_tid_t(int wl, memref_tid_t tid)

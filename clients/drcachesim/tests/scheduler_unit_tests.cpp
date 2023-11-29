@@ -842,6 +842,10 @@ run_lockstep_simulation(scheduler_t &scheduler, int num_outputs, memref_tid_t ti
                 sched_as_string[i] += '-';
                 continue;
             }
+            if (status == scheduler_t::STATUS_IDLE) {
+                sched_as_string[i] += '_';
+                continue;
+            }
             assert(status == scheduler_t::STATUS_OK);
             if (type_is_instr(memref.instr.type)) {
                 sched_as_string[i] +=
@@ -895,7 +899,7 @@ test_synthetic()
     // core alternates; with an odd number the 2nd core finishes early.
     // The dots are thread exits.
     static const char *const CORE0_SCHED_STRING = "AAACCCEEEGGGBBBDDDFFFAAA.CCC.EEE.GGG.";
-    static const char *const CORE1_SCHED_STRING = "BBBDDDFFFAAACCCEEEGGGBBB.DDD.FFF.";
+    static const char *const CORE1_SCHED_STRING = "BBBDDDFFFAAACCCEEEGGGBBB.DDD.FFF.____";
     {
         // Test instruction quanta.
         std::vector<scheduler_t::input_workload_t> sched_inputs;
@@ -1048,7 +1052,7 @@ test_synthetic_time_quanta()
         check_next(cpu0, ++time, scheduler_t::STATUS_OK, TID_C, TRACE_TYPE_INSTR);
         check_next(cpu0, ++time, scheduler_t::STATUS_OK, TID_C, TRACE_TYPE_INSTR);
         check_next(cpu0, time, scheduler_t::STATUS_OK, TID_C, TRACE_TYPE_THREAD_EXIT);
-        check_next(cpu0, time, scheduler_t::STATUS_EOF);
+        check_next(cpu0, time, scheduler_t::STATUS_IDLE);
         check_next(cpu1, time, scheduler_t::STATUS_OK, TID_B, TRACE_TYPE_THREAD_EXIT);
         check_next(cpu1, time, scheduler_t::STATUS_EOF);
         if (scheduler.write_recorded_schedule() != scheduler_t::STATUS_SUCCESS)
@@ -1079,7 +1083,7 @@ test_synthetic_time_quanta()
         for (int i = 0; i < NUM_OUTPUTS; i++) {
             std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
         }
-        assert(sched_as_string[0] == "..A..CCC.");
+        assert(sched_as_string[0] == "..A..CCC._");
         assert(sched_as_string[1] == "..BAA.BB.");
     }
 #endif
@@ -1158,8 +1162,9 @@ test_synthetic_with_timestamps()
     // workloads we should start with {C,F,I,J} and then move on to {B,E,H} and finish
     // with {A,D,G}.  We should interleave within each group -- except once we reach J
     // we should completely finish it.
-    assert(sched_as_string[0] ==
-           ".CC.C.II.IC.CC.F.FF.I.II.FF.F..BB.B.HH.HE.EE.BB.B.HH.H..DD.DA.AA.G.GG.DD.D.");
+    assert(
+        sched_as_string[0] ==
+        ".CC.C.II.IC.CC.F.FF.I.II.FF.F..BB.B.HH.HE.EE.BB.B.HH.H..DD.DA.AA.G.GG.DD.D._");
     assert(sched_as_string[1] ==
            ".FF.F.JJ.JJ.JJ.JJ.J.CC.C.II.I..EE.EB.BB.H.HH.EE.E..AA.A.GG.GD.DD.AA.A.GG.G.");
 }
@@ -1241,8 +1246,9 @@ test_synthetic_with_priorities()
     // See the test_synthetic_with_timestamps() test which has our base sequence.
     // We've elevated B, E, and H to higher priorities so they go
     // first.  J remains uninterrupted due to lower timestamps.
-    assert(sched_as_string[0] ==
-           ".BB.B.HH.HE.EE.BB.B.HH.H..FF.F.JJ.JJ.JJ.JJ.J.CC.C.II.I..DD.DA.AA.G.GG.DD.D.");
+    assert(
+        sched_as_string[0] ==
+        ".BB.B.HH.HE.EE.BB.B.HH.H..FF.F.JJ.JJ.JJ.JJ.J.CC.C.II.I..DD.DA.AA.G.GG.DD.D._");
     assert(sched_as_string[1] ==
            ".EE.EB.BB.H.HH.EE.E..CC.C.II.IC.CC.F.FF.I.II.FF.F..AA.A.GG.GD.DD.AA.A.GG.G.");
 }
@@ -1308,11 +1314,11 @@ test_synthetic_with_bindings()
         std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
     }
     // We have {A,B,C} on {2,4}, {D,E,F} on {0,1}, and {G,H,I} on {1,2,3}:
-    assert(sched_as_string[0] == ".DD.D.FF.FD.DD.F.FF.DD.D.FF.F.");
-    assert(sched_as_string[1] == ".EE.E.HH.HE.EE.I.II.EE.E.");
+    assert(sched_as_string[0] == ".DD.D.FF.FD.DD.F.FF.DD.D.FF.F._");
+    assert(sched_as_string[1] == ".EE.E.HH.HE.EE.I.II.EE.E.______");
     assert(sched_as_string[2] == ".AA.A.CC.CG.GG.C.CC.HH.H.CC.C.");
-    assert(sched_as_string[3] == ".GG.G.II.IH.HH.GG.G.II.I.");
-    assert(sched_as_string[4] == ".BB.BA.AA.B.BB.AA.A.BB.B.");
+    assert(sched_as_string[3] == ".GG.G.II.IH.HH.GG.G.II.I._____");
+    assert(sched_as_string[4] == ".BB.BA.AA.B.BB.AA.A.BB.B._____");
 }
 
 static void
@@ -1379,11 +1385,11 @@ test_synthetic_with_bindings_weighted()
         std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
     }
     // We have {A,B,C} on {2,4}, {D,E,F} on {0,1}, and {G,H,I} on {1,2,3}:
-    assert(sched_as_string[0] == ".FF.FF.FF.FF.F..EE.EE.EE.EE.E.");
-    assert(sched_as_string[1] == ".II.II.II.II.I..DD.DD.DD.DD.D.");
-    assert(sched_as_string[2] == ".CC.CC.CC.CC.C..AA.AA.AA.AA.A.");
+    assert(sched_as_string[0] == ".FF.FF.FF.FF.F..EE.EE.EE.EE.E._");
+    assert(sched_as_string[1] == ".II.II.II.II.I..DD.DD.DD.DD.D._");
+    assert(sched_as_string[2] == ".CC.CC.CC.CC.C..AA.AA.AA.AA.A._");
     assert(sched_as_string[3] == ".HH.HH.HH.HH.H..GG.GG.GG.GG.G.");
-    assert(sched_as_string[4] == ".BB.BB.BB.BB.B.");
+    assert(sched_as_string[4] == ".BB.BB.BB.BB.B._______________");
 }
 
 static void
@@ -1472,7 +1478,7 @@ test_synthetic_with_syscalls_multiple()
     // blocking syscall.
     assert(sched_as_string[0] ==
            ".B..HH.H.B.H.HH..B.HH.H..B.E.B...II.I.JJ.JJ.JJ.JJ.J.CC.C.II.I..DD.DA.AA.G.GG."
-           "DD.D.");
+           "DD.D.___");
     assert(sched_as_string[1] ==
            ".EE..B..EE..B..EE..B..EE...CC.C.FF.FB..C.CC.F.FF.I.II.FF.F..AA.A.GG.GD.DD.AA."
            "A.GG.G.");
@@ -1538,7 +1544,7 @@ test_synthetic_with_syscalls_single()
         std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
     }
     assert(sched_as_string[0] == ".AA..AA.A.A.AA..A.");
-    assert(sched_as_string[1] == "");
+    assert(sched_as_string[1] == "__________________");
 }
 
 static bool
@@ -1778,7 +1784,7 @@ simulate_core(scheduler_t::stream_t *stream)
     memref_t record;
     for (scheduler_t::stream_status_t status = stream->next_record(record);
          status != scheduler_t::STATUS_EOF; status = stream->next_record(record)) {
-        if (status == scheduler_t::STATUS_WAIT) {
+        if (status == scheduler_t::STATUS_WAIT || status == scheduler_t::STATUS_IDLE) {
             std::this_thread::yield();
             continue;
         }
@@ -1998,7 +2004,7 @@ test_replay()
     // We expect 3 letter sequences (our quantum) alternating every-other as each
     // core alternates; with an odd number the 2nd core finishes early.
     static const char *const CORE0_SCHED_STRING = "AAACCCEEEGGGBBBDDDFFFAAA.CCC.EEE.GGG.";
-    static const char *const CORE1_SCHED_STRING = "BBBDDDFFFAAACCCEEEGGGBBB.DDD.FFF.";
+    static const char *const CORE1_SCHED_STRING = "BBBDDDFFFAAACCCEEEGGGBBB.DDD.FFF.____";
 
     static constexpr memref_tid_t TID_BASE = 100;
     std::vector<trace_entry_t> inputs[NUM_INPUTS];
@@ -2090,7 +2096,7 @@ simulate_core_and_record_schedule(scheduler_t::stream_t *stream,
     memtrace_stream_t *prev_stream = nullptr;
     for (scheduler_t::stream_status_t status = stream->next_record(record);
          status != scheduler_t::STATUS_EOF; status = stream->next_record(record)) {
-        if (status == scheduler_t::STATUS_WAIT) {
+        if (status == scheduler_t::STATUS_WAIT || status == scheduler_t::STATUS_IDLE) {
             std::this_thread::yield();
             continue;
         }
@@ -2287,7 +2293,7 @@ test_replay_timestamps()
 
     // Create a record file with timestamps requiring waiting.
     // We cooperate with the test_scheduler_t class which constructs this schedule:
-    static const char *const CORE0_SCHED_STRING = ".AAA-------------------------CCC.";
+    static const char *const CORE0_SCHED_STRING = ".AAA-------------------------CCC.____";
     static const char *const CORE1_SCHED_STRING = ".BBB.CCCCCC.DDDAAABBBDDDAAA.BBB.DDD.";
     std::string record_fname = "tmp_test_replay_timestamp.zip";
     test_scheduler_t test_scheduler;
@@ -2515,7 +2521,8 @@ test_replay_limit()
         memref_t memref;
         for (scheduler_t::stream_status_t status = stream->next_record(memref);
              status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
-            if (status == scheduler_t::STATUS_WAIT) {
+            if (status == scheduler_t::STATUS_WAIT ||
+                status == scheduler_t::STATUS_IDLE) {
                 std::this_thread::yield();
                 continue;
             }
@@ -2696,7 +2703,7 @@ test_replay_as_traced()
 
     // Synthesize a cpu-schedule file.
     std::string cpu_fname = "tmp_test_cpu_as_traced.zip";
-    static const char *const CORE0_SCHED_STRING = "EEE-AAA-CCCAAACCCBBB.DDD.";
+    static const char *const CORE0_SCHED_STRING = "EEE-AAA-CCCAAACCCBBB.DDD.___";
     static const char *const CORE1_SCHED_STRING = "---EEE.BBBDDDBBBDDDAAA.CCC.";
     {
         std::vector<schedule_entry_t> sched0;
@@ -3018,11 +3025,11 @@ test_inactive()
         // Make cpu1 inactive.
         status = stream1->set_active(false);
         assert(status == scheduler_t::STATUS_OK);
-        check_next(stream1, scheduler_t::STATUS_WAIT);
+        check_next(stream1, scheduler_t::STATUS_IDLE);
         // Test making cpu1 inactive while it's already inactive.
         status = stream1->set_active(false);
         assert(status == scheduler_t::STATUS_OK);
-        check_next(stream1, scheduler_t::STATUS_WAIT);
+        check_next(stream1, scheduler_t::STATUS_IDLE);
         // Advance cpu0 to its quantum end.
         check_next(stream0, scheduler_t::STATUS_OK, TID_A, TRACE_TYPE_INSTR);
         // Ensure cpu0 now picks up the input that was on cpu1.
@@ -3034,7 +3041,7 @@ test_inactive()
         // Make cpu0 inactive and cpu1 active.
         status = stream0->set_active(false);
         assert(status == scheduler_t::STATUS_OK);
-        check_next(stream0, scheduler_t::STATUS_WAIT);
+        check_next(stream0, scheduler_t::STATUS_IDLE);
         status = stream1->set_active(true);
         assert(status == scheduler_t::STATUS_OK);
         // Now cpu1 should finish things.
@@ -3070,7 +3077,7 @@ test_inactive()
         for (int i = 0; i < NUM_OUTPUTS; i++) {
             std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
         }
-        assert(sched_as_string[0] == "..AABBA.");
+        assert(sched_as_string[0] == "..AABBA._");
         assert(sched_as_string[1] == "..B---B.");
     }
 #endif // HAS_ZIP

@@ -252,6 +252,9 @@ protected:
     RecordType
     create_wait_marker();
 
+    RecordType
+    create_idle_marker();
+
     // Invoked when the given interval finishes during serial or parallel
     // analysis of the trace. For parallel analysis, the shard_id
     // parameter should be set to the shard_id for which the interval
