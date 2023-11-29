@@ -2,7 +2,9 @@
 # Version 1.0
 # https://github.com/T-head-Semi/thead-extension-spec
 
-# Only list instructions that are valid in usermode.
+# TODO i#3544: Only list instructions that are valid in usermode for now, but we
+# would like to cover privileged instructions as well for something like standalone
+# drdecode library to work for arbitrary bits.
 
 # Ensures that all preceding instructions retire earlier than this instruction
 # and all subsequent instructions retire later than this instruction.
