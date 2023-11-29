@@ -322,4 +322,13 @@ addi   a0 0xffffffd6 -> a0
 jalr   a0 0x0 -> ra
 test_xinst complete
 test_decode_bad_data complete
+th.icache.iva a0
+th.dcache.civa a0
+th.dcache.cval1 a0
+test_decode_xtheadcmo complete
+th.sync
+th.sync.s
+th.sync.i
+th.sync.is
+test_decode_xtheadsync complete
 All tests complete
