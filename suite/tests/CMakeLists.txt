@@ -1120,6 +1120,7 @@ function(template2expect outexpect template runops key)
     set(rundefs "${rundefs} -D__AVX__")
   elseif (DEFINED ${key}_runsve)
     set(rundefs "${rundefs} -D__ARM_FEATURE_SVE")
+    set(rundefs "${rundefs} -D__ARM_FEATURE_SVE_BITS=${proc_sve_vl}")
   endif ()
   if (CPU_AMD)
     set(rundefs "${rundefs} -DCPU_AMD")
@@ -2981,19 +2982,24 @@ if (X86 OR AARCH64)
       set(client.drx-scattergather-instrumentation-fault_test_sample_client 1)
     endif ()
 
-    if (X86 AND X64 AND UNIX)
-      if (proc_supports_avx)
-        add_exe(allasm_scattergather
-          ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_scattergather.asm
-          "-early_inject" "")
-        append_pure_asm_app_link_flags(allasm_scattergather)
+    if (UNIX AND ((X86 AND X64 AND proc_supports_avx) OR (AARCH64 AND proc_supports_sve)))
+      add_exe(allasm_scattergather
+        ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_scattergather_${ARCH_NAME}.asm
+        "-early_inject" "")
+      append_pure_asm_app_link_flags(allasm_scattergather)
+      if (X86)
         set_avx_flags(allasm_scattergather)
-      endif (proc_supports_avx)
+      elseif (AARCH64)
+        set_sve_flags(allasm_scattergather)
+      endif ()
+    endif ()
+
+    if (X86 AND X64 AND UNIX)
       add_exe(allasm_repstr
         ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_repstr.asm
         "-early_inject" "")
       append_pure_asm_app_link_flags(allasm_repstr)
-    endif (X86 AND X64 AND UNIX)
+    endif ()
   endif()
 endif ()
 
@@ -4364,22 +4370,31 @@ if (BUILD_CLIENTS)
       endif ()
     endif ()
 
-    if (UNIX AND X86 AND X64)
-      if (proc_supports_avx)
-        torunonly_drcacheoff(allasm-scattergather-basic-counts allasm_scattergather
-          "" "@-simulator_type@basic_counts" "")
-        unset(tool.drcacheoff.allasm-scattergather-basic-counts_rawtemp) # use preprocessor
-        if (proc_supports_avx512)
-          set(tool.drcacheoff.allasm-scattergather-basic-counts_runavx512 1)
-        endif (proc_supports_avx512)
-        torunonly_drcachesim(allasm-scattergather-basic-counts allasm_scattergather
-          "-simulator_type basic_counts" "")
-        unset(tool.drcachesim.allasm-scattergather-basic-counts_rawtemp) # use preprocessor
-        if (proc_supports_avx512)
-          set(tool.drcachesim.allasm-scattergather-basic-counts_runavx512 1)
-        endif (proc_supports_avx512)
-      endif (proc_supports_avx)
+    if (UNIX AND ((X86 AND X64 AND proc_supports_avx) OR (AARCH64 AND proc_supports_sve)))
+      torunonly_drcacheoff(allasm-scattergather-basic-counts allasm_scattergather
+        "" "@-simulator_type@basic_counts" "")
+      unset(tool.drcacheoff.allasm-scattergather-basic-counts_rawtemp) # use preprocessor
+      if (X86 AND proc_supports_avx512)
+        set(tool.drcacheoff.allasm-scattergather-basic-counts_runavx512 1)
+      elseif (AARCH64)
+        set(tool.drcacheoff.allasm-scattergather-basic-counts_runsve 1)
+      endif ()
+      set(tool.drcacheoff.allasm-scattergather-basic-counts_expectbase
+        "offline-allasm-scattergather-basic-counts-${ARCH_NAME}")
 
+      torunonly_drcachesim(allasm-scattergather-basic-counts allasm_scattergather
+        "-simulator_type basic_counts" "")
+      unset(tool.drcachesim.allasm-scattergather-basic-counts_rawtemp) # use preprocessor
+      if (X86 AND proc_supports_avx512)
+        set(tool.drcachesim.allasm-scattergather-basic-counts_runavx512 1)
+      elseif (AARCH64)
+        set(tool.drcachesim.allasm-scattergather-basic-counts_runsve 1)
+      endif ()
+      set(tool.drcachesim.allasm-scattergather-basic-counts_expectbase
+            "allasm-scattergather-basic-counts-${ARCH_NAME}")
+    endif ()
+
+    if (UNIX AND X86 AND X64)
       torunonly_drcacheoff(allasm-repstr-basic-counts allasm_repstr
         "" "@-simulator_type@basic_counts" "")
       unset(tool.drcacheoff.allasm-repstr-basic-counts_rawtemp) # use preprocessor
