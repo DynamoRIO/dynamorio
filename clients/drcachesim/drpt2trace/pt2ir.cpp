@@ -388,9 +388,6 @@ pt2ir_t::convert(DR_PARAM_IN const uint8_t *pt_data, DR_PARAM_IN size_t pt_data_
                 instr_valid = true;
             instr_set_translation(instr, (app_pc)insn.ip);
             instr_allocate_raw_bits(drir.get_drcontext(), instr, insn.size);
-            /* TODO i#2103: Currently, the PT raw data may contain 'STAC' and 'CLAC'
-             * instructions that are not supported by Dynamorio.
-             */
             if (!instr_valid) {
                 /* The decode() function will not correctly identify the raw bits for
                  * invalid instruction. So we need to set the raw bits of instr manually.
