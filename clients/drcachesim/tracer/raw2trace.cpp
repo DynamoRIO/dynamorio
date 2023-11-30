@@ -1057,6 +1057,9 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
                 buf = entries_with_encodings;
             }
             accumulate_to_statistic(tdata, RAW2TRACE_STAT_KERNEL_INSTR_COUNT, 1);
+            // The per-thread drir_t object (pt_decode_state_) keeps instr encoding
+            // state across system calls. So different dynamic instances of the same
+            // instruction in system calls will have the same decode_pc.
             saved_decode_pc = tdata->pt_decode_state_->get_decode_pc(
                 reinterpret_cast<app_pc>(entry.addr));
             if (saved_decode_pc == nullptr) {
