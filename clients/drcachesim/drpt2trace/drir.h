@@ -66,6 +66,8 @@ public:
         }
     }
 
+    // Appends the given instr to the internal ilist, and records (replaces if
+    // one already exists) the given encoding for the orig_pc.
     void
     append(instr_t *instr, app_pc orig_pc, int instr_length, uint8_t *encoding)
     {
@@ -79,24 +81,33 @@ public:
         record_encoding(orig_pc, instr_length, encoding);
     }
 
+    // Returns the opaque pointer to the dcontext_t used to construct this
+    // object.
     void *
     get_drcontext()
     {
         return drcontext_;
     }
 
+    // Returns the instrlist_t of instrs accumulated so far.
     instrlist_t *
     get_ilist()
     {
         return ilist_;
     }
 
+    // Clears the instrs accumulated in the ilist. Note that this does
+    // not clear the encodings accumulated.
     void
     clear_ilist()
     {
         instrlist_clear(drcontext_, ilist_);
     }
 
+    // Returns the address of the encoding recorded for the given orig_pc.
+    // Encodings are persisted across clear_ilist() calls, so we will
+    // return the same decode_pc for the same orig_pc unless a new encoding
+    // is added for the same orig_pc.
     app_pc
     get_decode_pc(app_pc orig_pc)
     {
