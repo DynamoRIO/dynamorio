@@ -383,7 +383,8 @@ pt2ir_t::convert(DR_PARAM_IN const uint8_t *pt_data, DR_PARAM_IN size_t pt_data_
             instr_init(drir->get_drcontext(), instr);
             instr_set_isa_mode(instr,
                                insn.mode == ptem_32bit ? DR_ISA_IA32 : DR_ISA_AMD64);
-            if (decode(drir->get_drcontext(), insn.raw, instr) == nullptr) {
+            if (decode_from_copy(drir->get_drcontext(), insn.raw, (app_pc)insn.ip,
+                                 instr) == nullptr) {
 #ifdef DEBUG
                 /* Print the invalid instruction‘s PC and raw bytes in DEBUG builds. */
                 if (verbosity_ >= 1) {
@@ -397,7 +398,6 @@ pt2ir_t::convert(DR_PARAM_IN const uint8_t *pt_data, DR_PARAM_IN size_t pt_data_
                 }
 #endif
             }
-            instr_set_translation(instr, (app_pc)insn.ip);
             drir->append(instr, (app_pc)insn.ip, insn.size, insn.raw);
         }
     }
