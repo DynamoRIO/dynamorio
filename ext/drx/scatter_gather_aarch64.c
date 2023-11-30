@@ -1014,7 +1014,7 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, DR_PARAM_OUT bool *e
     }
 
     reg_id_t governing_pred = sg_info.mask_reg;
-    if (sg_info.is_replicating) {
+    if (sg_info.is_replicating && proc_get_vector_length_bytes() > 16) {
         governing_pred = reserve_pred_register(drcontext, bb, sg_instr, scratch_gpr,
                                                &spill_slot_state);
     }
