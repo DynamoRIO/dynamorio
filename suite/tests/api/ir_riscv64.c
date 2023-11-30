@@ -1895,6 +1895,32 @@ test_decode_bad_data(void *dc)
     test_instr_decoding_failure(dc, 0xb);
 }
 
+static void
+test_decode_xtheadcmo(void *dc)
+{
+    instr_t *instr;
+    instr = INSTR_CREATE_th_icache_iva(dc, opnd_create_reg(DR_REG_A0));
+    test_instr_encoding(dc, OP_th_icache_iva, instr);
+    instr = INSTR_CREATE_th_dcache_civa(dc, opnd_create_reg(DR_REG_A0));
+    test_instr_encoding(dc, OP_th_dcache_civa, instr);
+    instr = INSTR_CREATE_th_dcache_cval1(dc, opnd_create_reg(DR_REG_A0));
+    test_instr_encoding(dc, OP_th_dcache_cval1, instr);
+}
+
+static void
+test_decode_xtheadsync(void *dc)
+{
+    instr_t *instr;
+    instr = INSTR_CREATE_th_sync(dc);
+    test_instr_encoding(dc, OP_th_sync, instr);
+    instr = INSTR_CREATE_th_sync_s(dc);
+    test_instr_encoding(dc, OP_th_sync_s, instr);
+    instr = INSTR_CREATE_th_sync_i(dc);
+    test_instr_encoding(dc, OP_th_sync_i, instr);
+    instr = INSTR_CREATE_th_sync_is(dc);
+    test_instr_encoding(dc, OP_th_sync_is, instr);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -1955,6 +1981,12 @@ main(int argc, char *argv[])
 
     test_decode_bad_data(dcontext);
     print("test_decode_bad_data complete\n");
+
+    test_decode_xtheadcmo(dcontext);
+    print("test_decode_xtheadcmo complete\n");
+
+    test_decode_xtheadsync(dcontext);
+    print("test_decode_xtheadsync complete\n");
 
     print("All tests complete\n");
     return 0;
