@@ -81,6 +81,8 @@ typedef enum {
     RISCV64_ISA_EXT_ZICBOZ,
     RISCV64_ISA_EXT_ZICSR,
     RISCV64_ISA_EXT_ZIFENCEI,
+    RISCV64_ISA_EXT_XTHEADCMO,
+    RISCV64_ISA_EXT_XTHEADSYNC,
     RISCV64_ISA_EXT_CNT, /* Keep this last */
 } riscv64_isa_ext_t;
 
