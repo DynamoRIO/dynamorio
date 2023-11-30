@@ -2587,13 +2587,13 @@ instr_is_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls DR_PARA
 #    define EFLAGS_WRITE_ARITH EFLAGS_WRITE_6
 
 /** Converts an EFLAGS_WRITE_* value to the corresponding EFLAGS_READ_* value. */
-#    define EFLAGS_WRITE_TO_READ(x)                              \
+#    define EFLAGS_WRITE_TO_READ(x)                                  \
         ((((x) & ((EFLAGS_WRITE_ALL) & ~(EFLAGS_WRITE_AC))) >> 11) | \
-         (((x)&(EFLAGS_WRITE_AC)) >> 1))
+         (((x) & (EFLAGS_WRITE_AC)) >> 1))
 /** Converts an EFLAGS_READ_* value to the corresponding EFLAGS_WRITE_* value. */
-#    define EFLAGS_READ_TO_WRITE(x)                            \
+#    define EFLAGS_READ_TO_WRITE(x)                                \
         ((((x) & ((EFLAGS_READ_ALL) & ~(EFLAGS_READ_AC))) << 11) | \
-         (((x)&(EFLAGS_READ_AC)) << 1))
+         (((x) & (EFLAGS_READ_AC)) << 1))
 
 /**
  * The actual bits in the eflags register that we care about:\n<pre>
