@@ -1,0 +1,16 @@
+# XTheadCmo (Cache Management Operations)
+# Version 1.0
+# https://github.com/T-head-Semi/thead-extension-spec
+
+# TODO i#3544: Only list instructions that are valid in usermode for now, but we
+# would like to cover privileged instructions as well for something like standalone
+# drdecode library to work for arbitrary bits.
+
+# Clean and invalidate D-cache at virtual address
+th.dcache.civa  | i | rs1 | 000000100111.....000000000001011
+
+# Clean L1 D-cache at virtual address
+th.dcache.cval1 | i | rs1 | 000000100100.....000000000001011
+
+# Invalidate I-cache at virtual address
+th.icache.iva   | i | rs1 | 000000110000.....000000000001011
