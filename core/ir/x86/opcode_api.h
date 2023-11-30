@@ -1,6 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1615,7 +1614,7 @@ enum {
     /* 1433 */ OP_vpopcntd, /**< IA-32/AMD64 vpopcntd opcode. */
     /* 1434 */ OP_vpopcntq, /**< IA-32/AMD64 vpopcntd opcode. */
 
-    /* Privileged (newer) */
+    /* Supervisor Mode Access Prevention (SMAP) */
     /* 1435 */ OP_clac,
     /* 1436 */ OP_stac,
     OP_AFTER_LAST,

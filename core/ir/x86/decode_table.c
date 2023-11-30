@@ -1624,7 +1624,7 @@ const instr_info_t * const op_instr[] =
     /* OP_vpopcntd, */ &evex_Wb_extensions[274][0],
     /* OP_vpopcntq, */ &evex_Wb_extensions[274][2],
 
-    /* Privileged (newer) */
+    /* Supervisor Mode Access Prevention (SMAP) */
     /* OP_clac */ &rm_extensions[1][2],
     /* OP_stac */ &rm_extensions[1][3]
 };

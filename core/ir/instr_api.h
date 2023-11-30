@@ -2539,42 +2539,47 @@ instr_is_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls DR_PARA
 /* we only care about these 11 flags, and mostly only about the first 6
  * we consider an undefined effect on a flag to be a write
  */
-#    define EFLAGS_READ_CF 0x00000001 /**< Reads CF (Carry Flag). */
-#    define EFLAGS_READ_PF 0x00000002 /**< Reads PF (Parity Flag). */
-#    define EFLAGS_READ_AF 0x00000004 /**< Reads AF (Auxiliary Carry Flag). */
-#    define EFLAGS_READ_ZF 0x00000008 /**< Reads ZF (Zero Flag). */
-#    define EFLAGS_READ_SF 0x00000010 /**< Reads SF (Sign Flag). */
-#    define EFLAGS_READ_TF 0x00000020 /**< Reads TF (Trap Flag). */
-#    define EFLAGS_READ_IF 0x00000040 /**< Reads IF (Interrupt Enable Flag). */
-#    define EFLAGS_READ_DF 0x00000080 /**< Reads DF (Direction Flag). */
-#    define EFLAGS_READ_OF 0x00000100 /**< Reads OF (Overflow Flag). */
-#    define EFLAGS_READ_NT 0x00000200 /**< Reads NT (Nested Task). */
-#    define EFLAGS_READ_RF 0x00000400 /**< Reads RF (Resume Flag). */
+#    define EFLAGS_READ_CF 0x00000001  /**< Reads CF (Carry Flag). */
+#    define EFLAGS_READ_PF 0x00000002  /**< Reads PF (Parity Flag). */
+#    define EFLAGS_READ_AF 0x00000004  /**< Reads AF (Auxiliary Carry Flag). */
+#    define EFLAGS_READ_ZF 0x00000008  /**< Reads ZF (Zero Flag). */
+#    define EFLAGS_READ_SF 0x00000010  /**< Reads SF (Sign Flag). */
+#    define EFLAGS_READ_TF 0x00000020  /**< Reads TF (Trap Flag). */
+#    define EFLAGS_READ_IF 0x00000040  /**< Reads IF (Interrupt Enable Flag). */
+#    define EFLAGS_READ_DF 0x00000080  /**< Reads DF (Direction Flag). */
+#    define EFLAGS_READ_OF 0x00000100  /**< Reads OF (Overflow Flag). */
+#    define EFLAGS_READ_NT 0x00000200  /**< Reads NT (Nested Task). */
+#    define EFLAGS_READ_RF 0x00000400  /**< Reads RF (Resume Flag). */
+
+#    define EFLAGS_WRITE_CF 0x00000800 /**< Writes CF (Carry Flag). */
+#    define EFLAGS_WRITE_PF 0x00001000 /**< Writes PF (Parity Flag). */
+#    define EFLAGS_WRITE_AF 0x00002000 /**< Writes AF (Auxiliary Carry Flag). */
+#    define EFLAGS_WRITE_ZF 0x00004000 /**< Writes ZF (Zero Flag). */
+#    define EFLAGS_WRITE_SF 0x00008000 /**< Writes SF (Sign Flag). */
+#    define EFLAGS_WRITE_TF 0x00010000 /**< Writes TF (Trap Flag). */
+#    define EFLAGS_WRITE_IF 0x00020000 /**< Writes IF (Interrupt Enable Flag). */
+#    define EFLAGS_WRITE_DF 0x00040000 /**< Writes DF (Direction Flag). */
+#    define EFLAGS_WRITE_OF 0x00080000 /**< Writes OF (Overflow Flag). */
+#    define EFLAGS_WRITE_NT 0x00100000 /**< Writes NT (Nested Task). */
+#    define EFLAGS_WRITE_RF 0x00200000 /**< Writes RF (Resume Flag). */
+
+/* TODO i#6485: Re-number the following when a major binary compatibility break
+ * is more convenient.
+ */
 /* OP_clac and OP_stac both write the AC flag. Even though we do not have an
  * opcode that reads it, we still add EFLAGS_READ_AC for parity.
  */
-#    define EFLAGS_READ_AC 0x00000800  /**< Reads AC (Alignment Check Flag). */
-#    define EFLAGS_WRITE_CF 0x00001000 /**< Writes CF (Carry Flag). */
-#    define EFLAGS_WRITE_PF 0x00002000 /**< Writes PF (Parity Flag). */
-#    define EFLAGS_WRITE_AF 0x00004000 /**< Writes AF (Auxiliary Carry Flag). */
-#    define EFLAGS_WRITE_ZF 0x00008000 /**< Writes ZF (Zero Flag). */
-#    define EFLAGS_WRITE_SF 0x00010000 /**< Writes SF (Sign Flag). */
-#    define EFLAGS_WRITE_TF 0x00020000 /**< Writes TF (Trap Flag). */
-#    define EFLAGS_WRITE_IF 0x00040000 /**< Writes IF (Interrupt Enable Flag). */
-#    define EFLAGS_WRITE_DF 0x00080000 /**< Writes DF (Direction Flag). */
-#    define EFLAGS_WRITE_OF 0x00100000 /**< Writes OF (Overflow Flag). */
-#    define EFLAGS_WRITE_NT 0x00200000 /**< Writes NT (Nested Task). */
-#    define EFLAGS_WRITE_RF 0x00400000 /**< Writes RF (Resume Flag). */
+#    define EFLAGS_READ_AC 0x00400000  /**< Reads AC (Alignment Check Flag). */
 #    define EFLAGS_WRITE_AC 0x00800000 /**< Writes AC (Alignment Check Flag). */
 
-#    define EFLAGS_READ_ALL 0x00000fff           /**< Reads all flags. */
+#    define EFLAGS_READ_ALL 0x004007ff           /**< Reads all flags. */
 #    define EFLAGS_READ_NON_PRED EFLAGS_READ_ALL /**< Flags not read by predicates. */
-#    define EFLAGS_WRITE_ALL 0x00fff000          /**< Writes all flags. */
+#    define EFLAGS_WRITE_ALL 0x00bff800          /**< Writes all flags. */
 /* 6 most common flags ("arithmetic flags"): CF, PF, AF, ZF, SF, OF */
 /** Reads all 6 arithmetic flags (CF, PF, AF, ZF, SF, OF). */
 #    define EFLAGS_READ_6 0x0000011f
 /** Writes all 6 arithmetic flags (CF, PF, AF, ZF, SF, OF). */
-#    define EFLAGS_WRITE_6 0x0011f000
+#    define EFLAGS_WRITE_6 0x0008f800
 
 /** Platform-independent macro for reads all arithmetic flags. */
 #    define EFLAGS_READ_ARITH EFLAGS_READ_6
@@ -2582,9 +2587,13 @@ instr_is_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls DR_PARA
 #    define EFLAGS_WRITE_ARITH EFLAGS_WRITE_6
 
 /** Converts an EFLAGS_WRITE_* value to the corresponding EFLAGS_READ_* value. */
-#    define EFLAGS_WRITE_TO_READ(x) ((x) >> 12)
+#    define EFLAGS_WRITE_TO_READ(x)                              \
+        ((((x) & (EFLAGS_WRITE_ALL & ~EFLAGS_WRITE_AC)) >> 11) | \
+         (((x) & EFLAGS_WRITE_AC) >> 1))
 /** Converts an EFLAGS_READ_* value to the corresponding EFLAGS_WRITE_* value. */
-#    define EFLAGS_READ_TO_WRITE(x) ((x) << 12)
+#    define EFLAGS_READ_TO_WRITE(x)                            \
+        ((((x) & (EFLAGS_READ_ALL & ~EFLAGS_READ_AC)) << 11) | \
+         (((x) & EFLAGS_READ_AC) << 1))
 
 /**
  * The actual bits in the eflags register that we care about:\n<pre>
