@@ -72,6 +72,8 @@ add_custom_command(
           ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/isl/rvc.txt
           ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/isl/svinval.txt
           ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/isl/system.txt
+          ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/isl/xtheadcmo.txt
+          ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/isl/xtheadsync.txt
           ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/isl/zicbom.txt
           ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/isl/zicbop.txt
           ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/isl/zicboz.txt
