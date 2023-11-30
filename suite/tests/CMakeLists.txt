@@ -4694,7 +4694,7 @@ if (BUILD_CLIENTS)
       "-sb_sysroot"
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw")
     torunonly_api(tool.drpt2trace.sideband drpt2trace
-      "../../clients/drcachesim/drpt2trace/test_simple.expect"
+      "../../clients/drcachesim/drpt2trace/test_simple.templatex"
       "" "${drpt2trace_sideband_args}" ON OFF)
     set(drpt2trace_elf_args ${drpt2trace_commong}
       "-mode" "ELF"
@@ -4702,7 +4702,7 @@ if (BUILD_CLIENTS)
       "-elf"
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/hello")
     torunonly_api(tool.drpt2trace.elf drpt2trace
-      "../../clients/drcachesim/drpt2trace/test_simple.expect"
+      "../../clients/drcachesim/drpt2trace/test_simple.templatex"
       "" "${drpt2trace_elf_args}" ON OFF)
   endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
 endif (BUILD_CLIENTS)
