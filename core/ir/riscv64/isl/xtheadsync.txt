@@ -1,0 +1,18 @@
+# XTheadSync (Multi-core synchronization instructions)
+# Version 1.0
+# https://github.com/T-head-Semi/thead-extension-spec
+
+# TODO i#3544: Only list instructions that are valid in usermode for now, but we
+# would like to cover privileged instructions as well for something like standalone
+# drdecode library to work for arbitrary bits.
+
+# Ensures that all preceding instructions retire earlier than this instruction
+# and all subsequent instructions retire later than this instruction.
+th.sync    | i | | 00000001100000000000000000001011
+th.sync.s  | i | | 00000001100100000000000000001011
+
+# Ensures that all preceding instructions retire earlier than this instruction
+# and all subsequent instructions retire later than this instruction and clears
+# the pipeline when this instruction retires.
+th.sync.i  | i | | 00000001101000000000000000001011
+th.sync.is | i | | 00000001101100000000000000001011
