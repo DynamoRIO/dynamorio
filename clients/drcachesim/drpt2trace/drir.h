@@ -126,16 +126,18 @@ private:
             instr_encodings_.emplace_back(new uint8_t[SYSCALL_PT_ENCODING_BUF_SIZE]);
             next_encoding_offset_ = 0;
         }
-        app_pc encode_pc = &instr_encodings_.back()[next_encoding_offset_];
-        memcpy(encode_pc, encoding, instr_len);
         auto it = decode_pc_.find(orig_pc);
+        // We record the encoding only if we don't already have the same encoding for
+        // the given orig_pc.
         if (it == decode_pc_.end() ||
             // We confirm that the instruction encoding has not changed. Just in case
             // the kernel is doing JIT.
             it->second.second != instr_len ||
-            memcmp(it->second.first, encode_pc, it->second.second) != 0) {
-            next_encoding_offset_ += instr_len;
+            memcmp(it->second.first, encoding, it->second.second) != 0) {
+            app_pc encode_pc = &instr_encodings_.back()[next_encoding_offset_];
+            memcpy(encode_pc, encoding, instr_len);
             decode_pc_[orig_pc] = std::make_pair(encode_pc, instr_len);
+            next_encoding_offset_ += instr_len;
         }
     }
 };

@@ -1183,14 +1183,6 @@ protected:
      */
     bool
     process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall_idx);
-
-    /**
-     * Records the encodings for all instructions in the given ilist. Note that
-     * kernel system call traces gathered using Intel-PT are decoded using libipt
-     * which also provides the instr encodings.
-     */
-    bool
-    track_syscall_pt_encodings(raw2trace_thread_data_t *tdata, instrlist_t *ilist);
 #endif
 
     /**
