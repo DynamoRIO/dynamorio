@@ -65,15 +65,15 @@ const std::string view_t::TOOL_NAME = "View tool";
 analysis_tool_t *
 view_tool_create(const std::string &module_file_path, uint64_t skip_refs,
                  uint64_t sim_refs, const std::string &syntax, unsigned int verbose,
-                 const std::string &alt_module_dir, bool ignore_decode_failure)
+                 const std::string &alt_module_dir)
 {
     return new view_t(module_file_path, skip_refs, sim_refs, syntax, verbose,
-                      alt_module_dir, ignore_decode_failure);
+                      alt_module_dir);
 }
 
 view_t::view_t(const std::string &module_file_path, uint64_t skip_refs, uint64_t sim_refs,
                const std::string &syntax, unsigned int verbose,
-               const std::string &alt_module_dir, bool ignore_decode_failure)
+               const std::string &alt_module_dir)
     : module_file_path_(module_file_path)
     , knob_verbose_(verbose)
     , trace_version_(-1)
@@ -88,7 +88,6 @@ view_t::view_t(const std::string &module_file_path, uint64_t skip_refs, uint64_t
     , filetype_(-1)
     , timestamp_(0)
     , has_modules_(true)
-    , knob_ignore_decode_failure_(ignore_decode_failure)
 {
 }
 
@@ -554,17 +553,10 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             /*show_bytes=*/true, buf, BUFFER_SIZE_ELEMENTS(buf),
             /*printed=*/nullptr);
         if (next_pc == nullptr) {
-            if (!knob_ignore_decode_failure_) {
-                error_string_ =
-                    "Failed to disassemble " + to_hex_string(memref.instr.addr);
-                return false;
-            }
-            // We still print the limited bytes output and a string saying
-            // "<INVALID>".
-            disasm = buf;
-        } else {
-            disasm = buf;
+            error_string_ = "Failed to disassemble " + to_hex_string(memref.instr.addr);
+            return false;
         }
+        disasm = buf;
         disasm_cache_.insert({ orig_pc, disasm });
     }
     // Add branch decoration, which varies and so can't be cached purely by PC.
