@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -527,6 +527,8 @@
 #define INSTR_CREATE_vzeroupper(dc) instr_create_0dst_0src((dc), OP_vzeroupper)
 #define INSTR_CREATE_vzeroall(dc) instr_create_0dst_0src((dc), OP_vzeroall)
 #define INSTR_CREATE_xtest(dc) instr_create_0dst_0src((dc), OP_xtest)
+#define INSTR_CREATE_clac(dc) instr_create_0dst_0src((dc), OP_clac)
+#define INSTR_CREATE_stac(dc) instr_create_0dst_0src((dc), OP_stac)
 /** @} */ /* end doxygen group */
 
 /* no destination, 1 source */

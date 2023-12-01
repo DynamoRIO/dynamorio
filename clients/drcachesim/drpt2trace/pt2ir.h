@@ -365,7 +365,7 @@ public:
      */
     pt2ir_convert_status_t
     convert(DR_PARAM_IN const uint8_t *pt_data, DR_PARAM_IN size_t pt_data_size,
-            DR_PARAM_INOUT drir_t &drir);
+            DR_PARAM_INOUT drir_t *drir);
 
 private:
     /* Diagnose converting errors and output diagnostic results.
