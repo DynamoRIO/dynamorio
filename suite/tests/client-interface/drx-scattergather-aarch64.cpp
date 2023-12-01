@@ -2851,6 +2851,55 @@ test_ld1_scalar_plus_scalar()
             INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
             /*index=*/2,
         },
+        // Load and replicate instructions
+        {
+            "ld1rqb scalar+scalar",
+            TEST_FUNC("ld1rqb z21.b, p1/z, [%[base], %[index]]"),
+            { /*zt=*/ { 21 }, /*pg=*/1 },
+            std::array<std::array<uint8_t, 64>, 1> {
+                { 0x06, 0x07, 0x08, 0x09, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16,
+                  0x17, 0x18, 0x19, 0x20, 0x21, 0x06, 0x07, 0x08, 0x09, 0x10, 0x11,
+                  0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21, 0x06,
+                  0x07, 0x08, 0x09, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+                  0x18, 0x19, 0x20, 0x21, 0x06, 0x07, 0x08, 0x09, 0x10, 0x11, 0x12,
+                  0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21 } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            /*index=*/6,
+        },
+        {
+            "ld1rqh scalar+scalar",
+            TEST_FUNC("ld1rqh z25.h, p0/z, [%[base], %[index], lsl #1]"),
+            { /*zt=*/ { 25 }, /*pg=*/0 },
+            std::array<std::array<uint16_t, 32>, 1> {
+                { 0x0012, 0x0013, 0x0014, 0x0015, 0x0016, 0x0017, 0x0018, 0x0019,
+                  0x0012, 0x0013, 0x0014, 0x0015, 0x0016, 0x0017, 0x0018, 0x0019,
+                  0x0012, 0x0013, 0x0014, 0x0015, 0x0016, 0x0017, 0x0018, 0x0019,
+                  0x0012, 0x0013, 0x0014, 0x0015, 0x0016, 0x0017, 0x0018, 0x0019 } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            /*index=*/12,
+        },
+        {
+            "ld1rqw scalar+scalar",
+            TEST_FUNC("ld1rqw z29.s, p1/z, [%[base], %[index], lsl #2]"),
+            { /*zt=*/ { 29 }, /*pg=*/1 },
+            std::array<std::array<uint32_t, 16>, 1> {
+                { 0x00000020, 0x00000021, 0x00000022, 0x00000023, 0x00000020, 0x00000021,
+                  0x00000022, 0x00000023, 0x00000020, 0x00000021, 0x00000022, 0x00000023,
+                  0x00000020, 0x00000021, 0x00000022, 0x00000023 } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+            /*index=*/-12,
+        },
+        {
+            "ld1rqd scalar+scalar",
+            TEST_FUNC("ld1rqd z31.d, p2/z, [%[base], %[index], lsl #3]"),
+            { /*zt=*/ { 31 }, /*pg=*/2 },
+            std::array<std::array<uint64_t, 8>, 1> {
+                { 0xfffffffffffffff6, 0xfffffffffffffff5, 0xfffffffffffffff6,
+                  0xfffffffffffffff5, 0xfffffffffffffff6, 0xfffffffffffffff5,
+                  0xfffffffffffffff6, 0xfffffffffffffff5 } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+            /*index=*/-6,
+        },
     });
 #    undef TEST_FUNC
 }
@@ -4377,6 +4426,104 @@ test_ld1_scalar_plus_immediate()
                 { 0x0000000000000016, 0x0000000000000017, 0x0000000000000018,
                   0x0000000000000019, 0x0000000000000020, 0x0000000000000021,
                   0x0000000000000022, 0x0000000000000023 } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+        },
+        // Load and replicate instructions
+        {
+            "ld1rqb scalar+immediate",
+            TEST_FUNC("ld1rqb z26.b, p5/z, [%[base], #80]"),
+            { /*zt=*/26, /*pg=*/5 },
+            std::array<std::array<uint8_t, 16>, 1> { { 0x16, 0x17, 0x18, 0x19, 0x20, 0x21,
+                                                       0x22, 0x23, 0xf8, 0xf7, 0xf6, 0xf5,
+                                                       0xf4, 0xf3, 0xf2, 0xf1 } },
+            std::array<std::array<uint8_t, 32>, 1> {
+                { 0x16, 0x17, 0x18, 0x19, 0x20, 0x21, 0x22, 0x23, 0xf8, 0xf7, 0xf6,
+                  0xf5, 0xf4, 0xf3, 0xf2, 0xf1, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21,
+                  0x22, 0x23, 0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1 } },
+            std::array<std::array<uint8_t, 64>, 1> {
+                { 0x16, 0x17, 0x18, 0x19, 0x20, 0x21, 0x22, 0x23, 0xf8, 0xf7, 0xf6,
+                  0xf5, 0xf4, 0xf3, 0xf2, 0xf1, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21,
+                  0x22, 0x23, 0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1, 0x16,
+                  0x17, 0x18, 0x19, 0x20, 0x21, 0x22, 0x23, 0xf8, 0xf7, 0xf6, 0xf5,
+                  0xf4, 0xf3, 0xf2, 0xf1, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21, 0x22,
+                  0x23, 0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1 } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+        },
+        {
+            "ld1rqh scalar+immediate",
+            TEST_FUNC("ld1rqh z27.h, p4/z, [%[base], #48]"),
+            { /*zt=*/27, /*pg=*/4 },
+            std::array<std::array<uint16_t, 8>, 1> {
+                { 0xfff8, 0xfff7, 0xfff6, 0xfff5, 0xfff4, 0xfff3, 0xfff2, 0xfff1 } },
+            std::array<std::array<uint16_t, 16>, 1> { {
+
+                0xfff8, 0xfff7, 0xfff6, 0xfff5, 0xfff4, 0xfff3, 0xfff2, 0xfff1, 0xfff8,
+                0xfff7, 0xfff6, 0xfff5, 0xfff4, 0xfff3, 0xfff2, 0xfff1 } },
+            std::array<std::array<uint16_t, 32>, 1> {
+                { 0xfff8, 0xfff7, 0xfff6, 0xfff5, 0xfff4, 0xfff3, 0xfff2, 0xfff1,
+                  0xfff8, 0xfff7, 0xfff6, 0xfff5, 0xfff4, 0xfff3, 0xfff2, 0xfff1,
+                  0xfff8, 0xfff7, 0xfff6, 0xfff5, 0xfff4, 0xfff3, 0xfff2, 0xfff1,
+                  0xfff8, 0xfff7, 0xfff6, 0xfff5, 0xfff4, 0xfff3, 0xfff2, 0xfff1 } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+        },
+        {
+            "ld1rqw scalar+immediate",
+            TEST_FUNC("ld1rqw z28.s, p3/z, [%[base], #-16]"),
+            { /*zt=*/28, /*pg=*/3 },
+            std::array<std::array<uint32_t, 4>, 1> {
+                { 0xfffffff4, 0xfffffff3, 0xfffffff2, 0xfffffff1 } },
+            std::array<std::array<uint32_t, 8>, 1> { { 0xfffffff4, 0xfffffff3, 0xfffffff2,
+                                                       0xfffffff1, 0xfffffff4, 0xfffffff3,
+                                                       0xfffffff2, 0xfffffff1 } },
+            std::array<std::array<uint32_t, 16>, 1> {
+                { 0xfffffff4, 0xfffffff3, 0xfffffff2, 0xfffffff1, 0xfffffff4, 0xfffffff3,
+                  0xfffffff2, 0xfffffff1, 0xfffffff4, 0xfffffff3, 0xfffffff2, 0xfffffff1,
+                  0xfffffff4, 0xfffffff3, 0xfffffff2, 0xfffffff1 } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+        },
+        {
+            "ld1rqd scalar+immediate",
+            TEST_FUNC("ld1rqd z29.d, p2/z, [%[base], #-32]"),
+            { /*zt=*/29, /*pg=*/2 },
+            std::array<std::array<uint64_t, 2>, 1> {
+                { 0xfffffffffffffff4, 0xfffffffffffffff3 } },
+            std::array<std::array<uint64_t, 4>, 1> {
+                { 0xfffffffffffffff4, 0xfffffffffffffff3, 0xfffffffffffffff4,
+                  0xfffffffffffffff3 } },
+            std::array<std::array<uint64_t, 8>, 1> {
+                { 0xfffffffffffffff4, 0xfffffffffffffff3, 0xfffffffffffffff4,
+                  0xfffffffffffffff3, 0xfffffffffffffff4, 0xfffffffffffffff3,
+                  0xfffffffffffffff4, 0xfffffffffffffff3 } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+        },
+        {
+            "ld1rqd scalar+immediate (min index)",
+            TEST_FUNC("ld1rqd z30.d, p1/z, [%[base], #-128]"),
+            { /*zt=*/30, /*pg=*/1 },
+            std::array<std::array<uint64_t, 2>, 1> {
+                { 0x0000000000000016, 0x0000000000000017 } },
+            std::array<std::array<uint64_t, 4>, 1> {
+                { 0x0000000000000016, 0x0000000000000017, 0x0000000000000016,
+                  0x0000000000000017 } },
+            std::array<std::array<uint64_t, 8>, 1> {
+                { 0x0000000000000016, 0x0000000000000017, 0x0000000000000016,
+                  0x0000000000000017, 0x0000000000000016, 0x0000000000000017,
+                  0x0000000000000016, 0x0000000000000017 } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+        },
+        {
+            "ld1rqd scalar+immediate (max index)",
+            TEST_FUNC("ld1rqd z31.d, p0/z, [%[base], #112]"),
+            { /*zt=*/31, /*pg=*/0 },
+            std::array<std::array<uint64_t, 2>, 1> {
+                { 0x0000000000000014, 0x0000000000000015 } },
+            std::array<std::array<uint64_t, 4>, 1> {
+                { 0x0000000000000014, 0x0000000000000015, 0x0000000000000014,
+                  0x0000000000000015 } },
+            std::array<std::array<uint64_t, 8>, 1> {
+                { 0x0000000000000014, 0x0000000000000015, 0x0000000000000014,
+                  0x0000000000000015, 0x0000000000000014, 0x0000000000000015,
+                  0x0000000000000014, 0x0000000000000015 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
         },
     });

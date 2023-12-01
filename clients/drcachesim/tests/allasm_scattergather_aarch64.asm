@@ -366,6 +366,21 @@ test_scalar_plus_immediate:
 
         ret
 
+test_replicating_loads:
+        ld1rqb  DEST_REG1.b, B_MASK_REG/z, [BUFFER_REG, X_INDEX_REG]         // 16
+        ld1rqh  DEST_REG1.h, H_MASK_REG/z, [BUFFER_REG, X_INDEX_REG, lsl #1] // 8
+        ld1rqw  DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, X_INDEX_REG, lsl #2] // 4
+        ld1rqd  DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, X_INDEX_REG, lsl #3] // 2
+                                                                             // Total: 30
+
+        ld1rqb  DEST_REG1.b, B_MASK_REG/z, [BUFFER_REG, #0] // 16
+        ld1rqh  DEST_REG1.h, H_MASK_REG/z, [BUFFER_REG, #0] // 8
+        ld1rqw  DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, #0] // 4
+        ld1rqd  DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, #0] // 2
+                                                            // Total: 30
+
+        ret
+
 _start:
 #ifdef __APPLE__
         adrp     BUFFER_REG, buffer@PAGE
@@ -407,8 +422,10 @@ _start:
 
         bl      test_scalar_plus_immediate // +(374 * vl_bytes/16) loads
                                            // +(322 * vl_bytes/16) stores
+        bl      test_replicating_loads     // +60 loads
+                                           // +0 stores
         // Running total:
-        // Loads: (136 + 14 + 374 + 374) * vl_bytes/16 = 898 * vl_bytes/16
+        // Loads: (136 + 14 + 374 + 374) * vl_bytes/16 + 60 = 898 * vl_bytes/16 + 60
         // Stores: (82 + 8 + 322 + 322) * vl_bytes/16 = 734 * vl_bytes/16
 
         /* Run all the instructions with no active elements */
@@ -422,9 +439,10 @@ _start:
         bl      test_vector_plus_immediate // +0 loads, +0 stores
         bl      test_scalar_plus_scalar    // +0 loads, +0 stores
         bl      test_scalar_plus_immediate // +0 loads, +0 stores
+        bl      test_replicating_loads     // +0 loads, +0 stores
 
         // Running total (unchanged from above):
-        // Loads:  898 * vl_bytes/16
+        // Loads:  (898 * vl_bytes/16) + 60
         // Stores: 734 * vl_bytes/16
 
         /* Run all instructions with one active element */
@@ -437,26 +455,28 @@ _start:
         bl      test_vector_plus_immediate // +7 loads,  +4 stores
         bl      test_scalar_plus_scalar    // +56 loads, +46 stores
         bl      test_scalar_plus_immediate // +56 loads, +46 stores
+        bl      test_replicating_loads     // +8 loads, +0 stores
 
         // Running total:
-        // Loads:  (898 * vl_bytes/16) + 52 + 7 + 56 + 56 = (898 * vl_bytes/16) + 171
+        // Loads:  (898 * vl_bytes/16) + 60 + 52 + 7 + 56 + 56 + 8 = (898 * vl_bytes/16) + 239
         // Stores: (734 * vl_bytes/16) + 41 + 4 + 46 + 46 = (734 * vl_bytes/16) + 127
 
         // The functions in this file have the following instructions counts:
-        //     _start                       37
+        //     _start                       40
         //     test_scalar_plus_vector      84
         //     test_vector_plus_immediate   12
         //     test_scalar_plus_scalar      55
         //     test_scalar_plus_immediate   55
-        // So there are 37 + 84 + 12 + 55 + 55 = 243 unique instructions
-        // We run the test_* functions 3 times each so the totoal instruction executed is
-        //     ((84 + 12 + 55 + 55) * 3) + 37 = (206 * 3) + 37 = 655
+        //     test_replicating_loads       9
+        // So there are 40 + 84 + 12 + 55 + 55 + 9 = 255 unique instructions
+        // We run the test_* functions 3 times each so the total instruction executed is
+        //     ((84 + 12 + 55 + 55 + 9) * 3) + 40 = (215 * 3) + 37 = 685
 
         // Totals:
-        // Loads:  (898 * vl_bytes/16) + 171
+        // Loads:  (898 * vl_bytes/16) + 239
         // Stores: (734 * vl_bytes/16) + 127
-        // Instructions: 703
-        // Unique instructions: 259
+        // Instructions: 685
+        // Unique instructions: 255
 
 // Exit.
         mov      w0, #1            // stdout
