@@ -2053,6 +2053,8 @@ if (BUILD_CLIENTS)
     set(drdisas_args "-vl" "256" "00000000" "f94017a0" "a9be7bfd" "e58057a1" "85865e6b" "88")
   elseif (ARM)
     set(drdisas_args "6813" "f243" "42c8" "b2db" "88")
+  elseif (RISCV64)
+    set(drdisas_args "853e" "4581" "1d27b783" "00f55733" "9d89" "88")
   else ()
     set(drdisas_args "-syntax" "dr" "66" "90" "c4" "e2" "65" "90" "14" "80" "88")
   endif ()
@@ -5907,6 +5909,7 @@ if (RISCV64)
     code_api|pthreads.pthreads
     code_api|pthreads.pthreads_exit
     code_api|security-linux.trampoline
+    code_api|tool.drdisas
     no_code_api,no_intercept_all_signals|linux.sigaction
     PROPERTIES LABELS RUNS_ON_QEMU)
   if (DEBUG)
