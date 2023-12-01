@@ -92,7 +92,7 @@ public:
      * error code.
      */
     static ir2trace_convert_status_t
-    convert(DR_PARAM_IN drir_t &drir, DR_PARAM_INOUT std::vector<trace_entry_t> &trace,
+    convert(DR_PARAM_IN drir_t *drir, DR_PARAM_INOUT std::vector<trace_entry_t> &trace,
             DR_PARAM_IN int verbosity = 0);
 };
 
