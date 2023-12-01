@@ -470,6 +470,10 @@ reg_t
 get_stolen_reg_val(priv_mcontext_t *context);
 void
 set_stolen_reg_val(priv_mcontext_t *mc, reg_t newval);
+#    ifdef RISCV64
+void
+set_tp_reg_val(priv_mcontext_t *mc, reg_t newval);
+#    endif
 #endif
 const char *
 get_branch_type_name(ibl_branch_type_t branch_type);

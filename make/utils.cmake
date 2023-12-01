@@ -314,13 +314,14 @@ if (UNIX)
 
 endif (UNIX)
 
-function (check_sve_processor_and_compiler_support out)
+function (check_sve_processor_and_compiler_support out vl_out)
   include(CheckCSourceRuns)
   set(sve_prog "#include <stdint.h>
+                #include <stdio.h>
                 int main() {
                     uint64_t vl = 0;
                     asm(\"rdvl %[dest], 1\" : [dest] \"=r\" (vl) : :);
-                    (void) vl;
+                    printf(\"%lu\", vl * 8);
                     return 0;
                  }")
   set(CMAKE_REQUIRED_FLAGS ${CFLAGS_SVE})
@@ -332,15 +333,26 @@ function (check_sve_processor_and_compiler_support out)
         "Set to 0 if target processor/emulator supports SVE to enable SVE tests"
         FORCE)
   else ()
-    check_c_source_runs("${sve_prog}" proc_found_sve)
+    file(WRITE "${PROJECT_BINARY_DIR}/sve_check.c" "${sve_prog}\n")
+    try_run(proc_found_sve_EXITCODE proc_found_sve_COMPILED
+        ${PROJECT_BINARY_DIR}
+        ${PROJECT_BINARY_DIR}/sve_check.c
+        CMAKE_FLAGS -DCOMPILE_DEFINITIONS:STRING=${CFLAGS_SVE}
+        RUN_OUTPUT_VARIABLE sve_vl
+    )
+    if (NOT proc_found_sve_COMPILED)
+      set(proc_found_sve_EXITCODE 1)
+    endif()
   endif ()
-  if (proc_found_sve)
-    message(STATUS "Compiler and processor support SVE.")
+  if (${proc_found_sve_EXITCODE} EQUAL 0)
+    message(STATUS "Compiler and processor support SVE (VL=${sve_vl}).")
+    set(${out} 1 PARENT_SCOPE)
+    set(${vl_out} ${sve_vl} PARENT_SCOPE)
   else ()
     message(STATUS "WARNING: Compiler or processor do not support SVE. "
                    "Skipping tests")
+    set(${out} 0 PARENT_SCOPE)
   endif ()
-  set(${out} ${proc_found_sve} PARENT_SCOPE)
 endfunction (check_sve_processor_and_compiler_support)
 
 function (get_processor_vendor out)
