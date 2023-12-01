@@ -461,7 +461,8 @@ main(int argc, const char *argv[])
 
         uint8_t *pt_data = pt_raw_buffer.data();
         size_t pt_data_size = pt_raw_buffer.size();
-        pt2ir_convert_status_t status = ptconverter->convert(pt_data, pt_data_size, drir);
+        pt2ir_convert_status_t status =
+            ptconverter->convert(pt_data, pt_data_size, &drir);
         if (status != PT2IR_CONV_SUCCESS) {
             std::cerr << CLIENT_NAME << ": failed to convert PT raw trace to DR IR."
                       << "[error status: " << status << "]" << std::endl;
@@ -521,7 +522,7 @@ main(int argc, const char *argv[])
 
             /* Convert the PT Data to DR IR. */
             pt2ir_convert_status_t status =
-                ptconverter->convert(pt_data, pt_data_size, drir);
+                ptconverter->convert(pt_data, pt_data_size, &drir);
             if (status != PT2IR_CONV_SUCCESS) {
                 std::cerr << CLIENT_NAME << ": failed to convert PT raw trace to DR IR."
                           << "[error status: " << status << "]" << std::endl;
@@ -542,7 +543,7 @@ main(int argc, const char *argv[])
     /* Convert the DR IR to trace entries. */
     std::vector<trace_entry_t> entries;
     ir2trace_convert_status_t ir2trace_convert_status =
-        ir2trace_t::convert(drir, entries);
+        ir2trace_t::convert(&drir, entries);
     if (ir2trace_convert_status != IR2TRACE_CONV_SUCCESS) {
         std::cerr << CLIENT_NAME << ": failed to convert DR IR to trace entries."
                   << "[error status: " << ir2trace_convert_status << "]" << std::endl;
