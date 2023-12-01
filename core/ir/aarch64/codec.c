@@ -6806,35 +6806,37 @@ encode_opnd_svemem_vec_vec_idx(uint enc, int opcode, byte *pc, opnd_t opnd,
     return true;
 }
 
-/* fpimm13: floating-point immediate for scalar fmov */
+/* fpimm8_13: floating-point immediate for scalar fmov */
 
 static inline bool
 decode_opnd_fpimm8_13(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    uint a = extract_uint(enc, 20, 1);
-    uint b = extract_uint(enc, 19, 1);
-    uint c = extract_uint(enc, 18, 1);
-    uint defgh = extract_uint(enc, 13, 5);
-
-    if (extract_uint(enc, 22, 1) == 0) { /* 32 bits */
-        return decode_fpimm8_single(a, b, c, defgh, opnd);
-    } else { /* 64 bits */
-        return decode_fpimm8_double(a, b, c, defgh, opnd);
+    const uint size = extract_uint(enc, 22, 2);
+    const uint a = extract_uint(enc, 20, 1);
+    const uint b = extract_uint(enc, 19, 1);
+    const uint c = extract_uint(enc, 18, 1);
+    const uint defgh = extract_uint(enc, 13, 5);
+    switch (size) {
+    case 0b00: return decode_fpimm8_single(a, b, c, defgh, opnd);
+    case 0b01: return decode_fpimm8_double(a, b, c, defgh, opnd);
+    case 0b11: return decode_fpimm8_half(a, b, c, defgh, opnd);
+    default: ASSERT_NOT_REACHED();
     }
+
+    return false;
 }
 
 static inline bool
 encode_opnd_fpimm8_13(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    if (opnd_is_immed_float(opnd)) {
-        ASSERT(extract_uint(enc, 22, 1) == 0); /* 32 bit floating point */
-        return encode_fpimm8_single(opnd, 18, 13, enc_out);
-    } else if (opnd_is_immed_double(opnd)) {
-        ASSERT(extract_uint(enc, 22, 1) == 1); /* 64 bit floating point */
-        return encode_fpimm8_double(opnd, 18, 13, enc_out);
-    } else {
-        return false;
+    const uint size = extract_uint(enc, 22, 2);
+    switch (size) {
+    case 0b00: return encode_fpimm8_single(opnd, 18, 13, enc_out);
+    case 0b01: return encode_fpimm8_double(opnd, 18, 13, enc_out);
+    case 0b11: return encode_fpimm8_half(opnd, 18, 13, enc_out);
     }
+
+    return false;
 }
 
 static inline bool
