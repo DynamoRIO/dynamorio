@@ -4554,7 +4554,7 @@ if (BUILD_CLIENTS)
   if (proc_supports_pt)
     if (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
       get_target_path_for_execution(drpt2trace_path drpt2trace "${location_suffix}")
-      macro (torunonly_drcacheoff_kernel testname exetgt extra_ops app_args)
+      macro (torunonly_drcacheoff_kernel testname exetgt extra_ops app_args sim_atops)
         set(testname_full "tool.drcacheoff.kernel.${testname}_SUDO")
         torunonly_ci(${testname_full} ${exetgt} drcachesim
           "offline-kernel-${testname}.c" # for templatex basename
@@ -4571,13 +4571,18 @@ if (BUILD_CLIENTS)
         set(${testname_full}_precmd
           "foreach@${cmd_pfx}${CMAKE_COMMAND}@-E@remove_directory@${testname_full}.*.dir")
         set(${testname_full}_postcmd
-          "firstglob@${cmd_pfx}${drcachesim_path}@-simulator_type@basic_counts@-indir@${testname_full}.*.dir${sim_atops}")
+          "firstglob@${cmd_pfx}${drcachesim_path}@-indir@${testname_full}.*.dir${sim_atops}")
       endmacro ()
       # We use '-raw_compress none' because when snappy or lz4 is used for raw traces,
       # the check that complains about malloc use in the client is disabled by invoking
       # dr_allow_unsafe_static_behavior. We want to perform this check on the kernel
       # tracing flow.
-      torunonly_drcacheoff_kernel(simple ${ci_shared_app} "-raw_compress none" "")
+      torunonly_drcacheoff_kernel(simple ${ci_shared_app} "-raw_compress none" ""
+                                  "@-simulator_type@basic_counts")
+      torunonly_drcacheoff_kernel(opcode-mix ${ci_shared_app} "-raw_compress none" ""
+                                  "@-simulator_type@opcode_mix")
+      torunonly_drcacheoff_kernel(syscall-mix ${ci_shared_app} "-raw_compress none" ""
+                                  "@-simulator_type@syscall_mix")
     endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
   endif (proc_supports_pt)
 
@@ -4704,7 +4709,7 @@ if (BUILD_CLIENTS)
       "-sb_sysroot"
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw")
     torunonly_api(tool.drpt2trace.sideband drpt2trace
-      "../../clients/drcachesim/drpt2trace/test_simple.expect"
+      "../../clients/drcachesim/drpt2trace/test_simple.templatex"
       "" "${drpt2trace_sideband_args}" ON OFF)
     set(drpt2trace_elf_args ${drpt2trace_commong}
       "-mode" "ELF"
@@ -4712,7 +4717,7 @@ if (BUILD_CLIENTS)
       "-elf"
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/hello")
     torunonly_api(tool.drpt2trace.elf drpt2trace
-      "../../clients/drcachesim/drpt2trace/test_simple.expect"
+      "../../clients/drcachesim/drpt2trace/test_simple.templatex"
       "" "${drpt2trace_elf_args}" ON OFF)
   endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
 endif (BUILD_CLIENTS)
