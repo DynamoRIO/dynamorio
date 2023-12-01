@@ -531,12 +531,14 @@ typedef enum {
     TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL,
 
     /**
-     * Indicates a point in the trace where a syscall's kernel trace starts.
+     * Indicates a point in the trace where a syscall's kernel trace starts. The value
+     * of the marker is set to the syscall number.
      */
     TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
 
     /**
-     * Indicates a point in the trace where a syscall's trace end.
+     * Indicates a point in the trace where a syscall's trace ends. The value of the
+     * marker is set to the syscall number.
      */
     TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
 
