@@ -121,35 +121,44 @@ private:
     void *drcontext_;
     instrlist_t *ilist_;
 #define SYSCALL_PT_ENCODING_BUF_SIZE (1024 * 1024)
+    // For each original app pc key, this stores a pair value: the first
+    // element is the address where the encoding is stored for the instruction
+    // at that app pc, the second element is the length of the encoding.
     std::unordered_map<app_pc, std::pair<app_pc, int>> decode_pc_;
+    // A vector of buffers of size SYSCALL_PT_ENCODING_BUF_SIZE. Each buffer
+    // stores some encoded instructions back-to-back. Note that each element
+    // in the buffer is a single byte, so one instr's encoding occupies possibly
+    // multiple consecutive elements.
+    // We allocate new memory to store kernel instruction encodings in
+    // increments of SYSCALL_PT_ENCODING_BUF_SIZE. We do not treat this like a
+    // cache and clear previously stored encodings because we want to ensure
+    // decode_pc uniqueness to callers of get_decode_pc.
     std::vector<std::unique_ptr<uint8_t[]>> instr_encodings_;
+    // Next available offset into instr_encodings_.back().
     size_t next_encoding_offset_ = 0;
 
     void
     record_encoding(app_pc orig_pc, int instr_len, uint8_t *encoding)
     {
-        if (instr_encodings_.empty() ||
-            next_encoding_offset_ + instr_len >= SYSCALL_PT_ENCODING_BUF_SIZE) {
-            // We allocate new memory to store kernel instruction encodings in
-            // increments of SYSCALL_PT_ENCODING_BUF_SIZE. We do not treat this
-            // like a cache and clear previously stored encodings because we want to
-            // ensure decode_pc uniqueness to callers.
-            instr_encodings_.emplace_back(new uint8_t[SYSCALL_PT_ENCODING_BUF_SIZE]);
-            next_encoding_offset_ = 0;
-        }
         auto it = decode_pc_.find(orig_pc);
         // We record the encoding only if we don't already have the same encoding for
         // the given orig_pc.
-        if (it == decode_pc_.end() ||
+        if (it != decode_pc_.end() &&
             // We confirm that the instruction encoding has not changed. Just in case
             // the kernel is doing JIT.
-            it->second.second != instr_len ||
-            memcmp(it->second.first, encoding, it->second.second) != 0) {
-            app_pc encode_pc = &instr_encodings_.back()[next_encoding_offset_];
-            memcpy(encode_pc, encoding, instr_len);
-            decode_pc_[orig_pc] = std::make_pair(encode_pc, instr_len);
-            next_encoding_offset_ += instr_len;
+            it->second.second == instr_len &&
+            memcmp(it->second.first, encoding, it->second.second) == 0) {
+            return;
         }
+        if (instr_encodings_.empty() ||
+            next_encoding_offset_ + instr_len >= SYSCALL_PT_ENCODING_BUF_SIZE) {
+            instr_encodings_.emplace_back(new uint8_t[SYSCALL_PT_ENCODING_BUF_SIZE]);
+            next_encoding_offset_ = 0;
+        }
+        app_pc encode_pc = &instr_encodings_.back()[next_encoding_offset_];
+        memcpy(encode_pc, encoding, instr_len);
+        decode_pc_[orig_pc] = std::make_pair(encode_pc, instr_len);
+        next_encoding_offset_ += instr_len;
     }
 };
 

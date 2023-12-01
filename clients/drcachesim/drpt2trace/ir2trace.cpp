@@ -67,7 +67,7 @@ ir2trace_t::convert(DR_PARAM_IN drir_t *drir,
     while (instr != NULL) {
         trace_entry_t entry = {};
         entry.size = instr_length(GLOBAL_DCONTEXT, instr);
-        entry.addr = (uintptr_t)instr_get_app_pc(instr);
+        entry.addr = reinterpret_cast<uintptr_t>(instr_get_app_pc(instr));
 
         if (!trace.empty() && trace.back().type == TRACE_TYPE_INSTR_CONDITIONAL_JUMP) {
             if (instr_get_prev(instr) == nullptr ||
