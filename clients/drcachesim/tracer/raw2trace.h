@@ -456,12 +456,8 @@ public:
     {
         if (modidx == PC_MODIDX_INVALID) {
             uint64 blockidx = 0;
-            if (separate_non_mod_instrs_) {
-                uint64 blockoffs = 0;
-                convert_modoffs_to_non_mod_block(modoffs, blockidx, blockoffs);
-            } else {
-                blockidx = modoffs;
-            }
+            uint64 blockoffs = 0;
+            convert_modoffs_to_non_mod_block(modoffs, blockidx, blockoffs);
             auto const it = encodings_.find(blockidx);
             if (it == encodings_.end())
                 return nullptr;
@@ -486,12 +482,7 @@ public:
         if (modidx == PC_MODIDX_INVALID) {
             uint64 blockidx = 0;
             uint64 blockoffs = 0;
-            if (separate_non_mod_instrs_) {
-                convert_modoffs_to_non_mod_block(modoffs, blockidx, blockoffs);
-            } else {
-                blockidx = modoffs;
-                blockoffs = 0;
-            }
+            convert_modoffs_to_non_mod_block(modoffs, blockidx, blockoffs);
             auto const it = encodings_.find(blockidx);
             if (it == encodings_.end())
                 return nullptr;
@@ -512,12 +503,7 @@ public:
         if (modidx == PC_MODIDX_INVALID) {
             uint64 blockidx = 0;
             uint64 blockoffs = 0;
-            if (separate_non_mod_instrs_) {
-                convert_modoffs_to_non_mod_block(modoffs, blockidx, blockoffs);
-            } else {
-                blockidx = modoffs;
-                blockoffs = 0;
-            }
+            convert_modoffs_to_non_mod_block(modoffs, blockidx, blockoffs);
             auto const it = encodings_.find(blockidx);
             if (it == encodings_.end())
                 return nullptr;
@@ -600,7 +586,15 @@ protected:
     convert_modoffs_to_non_mod_block(uint64 modoffs, uint64 &blockidx,
                                      uint64 &blockoffs) const
     {
+        if (!separate_non_mod_instrs_) {
+            blockidx = modoffs;
+            blockoffs = 0;
+            return;
+        }
         auto it = cum_block_enc_len_to_encoding_id_.upper_bound(modoffs);
+        // Since modoffs >= 0 and the smallest key in cum_block_enc_len_to_encoding_id_ is
+        // always zero, `it` should never be the first element of the map.
+        DR_ASSERT(it != cum_block_enc_len_to_encoding_id_.begin());
         auto it_prev = it;
         it_prev--;
         DR_ASSERT(it_prev->first <= modoffs &&
