@@ -2550,6 +2550,7 @@ instr_is_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls DR_PARA
 #    define EFLAGS_READ_OF 0x00000100  /**< Reads OF (Overflow Flag). */
 #    define EFLAGS_READ_NT 0x00000200  /**< Reads NT (Nested Task). */
 #    define EFLAGS_READ_RF 0x00000400  /**< Reads RF (Resume Flag). */
+
 #    define EFLAGS_WRITE_CF 0x00000800 /**< Writes CF (Carry Flag). */
 #    define EFLAGS_WRITE_PF 0x00001000 /**< Writes PF (Parity Flag). */
 #    define EFLAGS_WRITE_AF 0x00002000 /**< Writes AF (Auxiliary Carry Flag). */
@@ -2562,9 +2563,18 @@ instr_is_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls DR_PARA
 #    define EFLAGS_WRITE_NT 0x00100000 /**< Writes NT (Nested Task). */
 #    define EFLAGS_WRITE_RF 0x00200000 /**< Writes RF (Resume Flag). */
 
-#    define EFLAGS_READ_ALL 0x000007ff           /**< Reads all flags. */
+/* TODO i#6485: Re-number the following when a major binary compatibility break
+ * is more convenient.
+ */
+/* OP_clac and OP_stac both write the AC flag. Even though we do not have an
+ * opcode that reads it, we still add EFLAGS_READ_AC for parity.
+ */
+#    define EFLAGS_READ_AC 0x00400000  /**< Reads AC (Alignment Check Flag). */
+#    define EFLAGS_WRITE_AC 0x00800000 /**< Writes AC (Alignment Check Flag). */
+
+#    define EFLAGS_READ_ALL 0x004007ff           /**< Reads all flags. */
 #    define EFLAGS_READ_NON_PRED EFLAGS_READ_ALL /**< Flags not read by predicates. */
-#    define EFLAGS_WRITE_ALL 0x003ff800          /**< Writes all flags. */
+#    define EFLAGS_WRITE_ALL 0x00bff800          /**< Writes all flags. */
 /* 6 most common flags ("arithmetic flags"): CF, PF, AF, ZF, SF, OF */
 /** Reads all 6 arithmetic flags (CF, PF, AF, ZF, SF, OF). */
 #    define EFLAGS_READ_6 0x0000011f
@@ -2577,9 +2587,13 @@ instr_is_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls DR_PARA
 #    define EFLAGS_WRITE_ARITH EFLAGS_WRITE_6
 
 /** Converts an EFLAGS_WRITE_* value to the corresponding EFLAGS_READ_* value. */
-#    define EFLAGS_WRITE_TO_READ(x) ((x) >> 11)
+#    define EFLAGS_WRITE_TO_READ(x)                                  \
+        ((((x) & ((EFLAGS_WRITE_ALL) & ~(EFLAGS_WRITE_AC))) >> 11) | \
+         (((x) & (EFLAGS_WRITE_AC)) >> 1))
 /** Converts an EFLAGS_READ_* value to the corresponding EFLAGS_WRITE_* value. */
-#    define EFLAGS_READ_TO_WRITE(x) ((x) << 11)
+#    define EFLAGS_READ_TO_WRITE(x)                                \
+        ((((x) & ((EFLAGS_READ_ALL) & ~(EFLAGS_READ_AC))) << 11) | \
+         (((x) & (EFLAGS_READ_AC)) << 1))
 
 /**
  * The actual bits in the eflags register that we care about:\n<pre>

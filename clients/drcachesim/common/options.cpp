@@ -809,7 +809,7 @@ droption_t<bool> op_core_sharded(
     "software threads.  This option instead schedules those threads onto virtual cores "
     "and analyzes each core in parallel.  Thus, each shard consists of pieces from "
     "many software threads.  How the scheduling is performed is controlled by a set "
-    "of options with the prefix \"sched_\" along with -num_cores.");
+    "of options with the prefix \"sched_\" along with -cores.");
 
 droption_t<bool> op_core_serial(
     DROPTION_SCOPE_ALL, "core_serial", false, "Analyze per-core in serial.",
@@ -817,7 +817,7 @@ droption_t<bool> op_core_serial(
     "However, the resulting schedule is acted upon by a single analysis thread"
     "which walks the N cores in lockstep in round robin fashion. "
     "How the scheduling is performed is controlled by a set "
-    "of options with the prefix \"sched_\" along with -num_cores.");
+    "of options with the prefix \"sched_\" along with -cores.");
 
 droption_t<int64_t>
     op_sched_quantum(DROPTION_SCOPE_ALL, "sched_quantum", 1 * 1000 * 1000,

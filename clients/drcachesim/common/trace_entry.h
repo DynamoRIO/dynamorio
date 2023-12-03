@@ -531,12 +531,14 @@ typedef enum {
     TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL,
 
     /**
-     * Indicates a point in the trace where a syscall's kernel trace starts.
+     * Indicates a point in the trace where a syscall's kernel trace starts. The value
+     * of the marker is set to the syscall number.
      */
     TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
 
     /**
-     * Indicates a point in the trace where a syscall's trace end.
+     * Indicates a point in the trace where a syscall's trace ends. The value of the
+     * marker is set to the syscall number.
      */
     TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
 
@@ -582,6 +584,19 @@ typedef enum {
      * along.
      */
     TRACE_MARKER_TYPE_CORE_WAIT,
+
+    /**
+     * This marker is used for core-sharded analyses to indicate that the current
+     * core has no available inputs to run (all inputs are on other cores or are
+     * blocked waiting for kernel resources).  A new marker is emitted each
+     * time the tool analysis framework requests a new record from the scheduler and
+     * is given an idle status.  There are no units of time here but each repetition
+     * is roughly the time where a regular record could have been read and passed
+     * along.  This idle marker indicates that a core actually had no work to do,
+     * as opposed to #TRACE_MARKER_TYPE_CORE_WAIT which is an artifact of an
+     * imposed re-created schedule.
+     */
+    TRACE_MARKER_TYPE_CORE_IDLE,
 
     // ...
     // These values are reserved for future built-in marker types.

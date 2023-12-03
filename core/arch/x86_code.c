@@ -306,7 +306,7 @@ new_thread_setup(priv_mcontext_t *mc)
     ASSERT(rc != -1); /* this better be a new thread */
     dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL);
-#    ifdef AARCHXX
+#    if defined(AARCHXX) || defined(RISCV64)
     set_app_lib_tls_base_from_clone_record(dcontext, crec);
 #    endif
 #    ifdef ARM

@@ -1,0 +1,14 @@
+TAG  0x0000000000000000
+ \+0    L3 .* mov    \$0x00000001 -> %eax
+ \+5    L3 .* mov    \$0x00000001 -> %edi
+ \+10   L3 .* \$0x0000000000402000 -> %rsi
+          .*
+ \+20   L3 .* mov    \$0x0000000e -> %edx
+ \+25   L3 .* syscall  -> %rcx %r11
+ \+27   L3 .* mov    \$0x0000003c -> %eax
+ \+32   L3 .* mov    \$0x00000000 -> %edi
+ \+37   L3 .* syscall  -> %rcx %r11
+END 0x0000000000000000
+.*
+Number of Instructions: 8
+Number of Trace Entries: 8

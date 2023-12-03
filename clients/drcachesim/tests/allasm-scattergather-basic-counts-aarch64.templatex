@@ -1,0 +1,42 @@
+Hello, world!
+---- <application exited with code 0> ----
+Basic counts tool results:
+Total counts:
+         685 total \(fetched\) instructions
+         255 total unique \(fetched\) instructions
+           0 total non-fetched instructions
+           0 total prefetches
+#if (__ARM_FEATURE_SVE_BITS == 128)
+        1137 total data loads
+         861 total data stores
+#elif (__ARM_FEATURE_SVE_BITS == 256)
+        2035 total data loads
+        1595 total data stores
+#elif (__ARM_FEATURE_SVE_BITS == 512)
+        3831 total data loads
+        3063 total data stores
+#endif
+           0 total icache flushes
+           0 total dcache flushes
+           1 total threads
+     .* total scheduling markers
+.*
+Thread .* counts:
+         685 \(fetched\) instructions
+         255 unique \(fetched\) instructions
+           0 non-fetched instructions
+           0 prefetches
+#if (__ARM_FEATURE_SVE_BITS == 128)
+        1137 data loads
+         861 data stores
+#elif (__ARM_FEATURE_SVE_BITS == 256)
+        2035 data loads
+        1595 data stores
+#elif (__ARM_FEATURE_SVE_BITS == 512)
+        3831 data loads
+        3063 data stores
+#endif
+           0 icache flushes
+           0 dcache flushes
+     .* scheduling markers
+.*

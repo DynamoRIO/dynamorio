@@ -1119,6 +1119,7 @@ protected:
         std::vector<app_pc> rseq_decode_pcs_;
 
 #ifdef BUILD_PT_POST_PROCESSOR
+        std::unique_ptr<drir_t> pt_decode_state_ = nullptr;
         std::istream *kthread_file;
         bool pt_metadata_processed = false;
         pt2ir_t pt2ir;
