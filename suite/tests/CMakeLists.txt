@@ -4263,6 +4263,14 @@ if (BUILD_CLIENTS)
       torunonly_drcacheoff(gencode tool.drcacheoff.gencode
         "" "@-simulator_type@opcode_mix" "")
       unset(tool.drcacheoff.gencode_rawtemp) # Use preprocessor on template.
+
+      set(tool.drcacheoff.gencode_filtered_nodr ON)
+      torunonly_drcacheoff(gencode_filtered tool.drcacheoff.gencode
+        "" "@-simulator_type@opcode_mix"
+        "-L0_filter -subdir_prefix drmemtrace.tool.drcacheoff.gencode_filtered")
+
+      # TODO i#6474, i#2062: Add a similar gencode test with
+      # -L0_filter_until_instrs when i#6474 is fixed.
     endif ()
 
     # XXX i#1551: startstop API is NYI on ARM

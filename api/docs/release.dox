@@ -142,6 +142,10 @@ changes:
    refers to timestamps and direct switches, which is what most users should want.
 
 Further non-compatibility-affecting changes include:
+ - Added a new scheme for the modoffs field in the PC trace entry which allows L0
+   filtering of non-module code; see
+   #dynamorio::drmemtrace::ENCODING_FILE_TYPE_SEPARATE_NON_MOD_INSTRS. Also added
+   file type entry to the header of encoding files.
  - Fixed a bug in the AArch64 codec with the way that SVE scalar+immediate predicated
    contiguous load and store instructions represented the immediate offset in the IR.
    In 10.0.0 the memory operand in these instruction used the immediate value from the
