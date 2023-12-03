@@ -321,18 +321,18 @@ gather_trace(const std::string &add_env)
     if (!my_setenv("DYNAMORIO_OPTIONS", env.c_str()))
         std::cerr << "failed to set env var!\n";
     code_generator_t gen(false);
-    std::cerr << "pre-DR init\n" << std::flush;
+    std::cerr << "pre-DR init\n";
     dr_app_setup();
     assert(!dr_app_running_under_dynamorio());
     drmemtrace_status_t res = drmemtrace_buffer_handoff(nullptr, exit_cb, nullptr);
     assert(res == DRMEMTRACE_SUCCESS);
-    std::cerr << "pre-DR start\n" << std::flush;
+    std::cerr << "pre-DR start\n";
     dr_app_start();
     if (do_some_work(gen) < 0)
         std::cerr << "error in computation\n";
-    std::cerr << "pre-DR detach\n" << std::flush;
+    std::cerr << "pre-DR detach\n";
     dr_app_stop_and_cleanup();
-    std::cerr << "all done\n" << std::flush;
+    std::cerr << "all done\n";
     return post_process();
 }
 
