@@ -5911,9 +5911,7 @@ if (RISCV64)
     code_api|linux.infinite
     code_api|linux.longjmp
     code_api|linux.prctl
-    code_api|linux.sigaction_nosignals
     code_api|linux.signalfd
-    code_api|pthreads.pthreads
     code_api|pthreads.pthreads_exit
     code_api|sample.bbbuf
     code_api|security-linux.trampoline
