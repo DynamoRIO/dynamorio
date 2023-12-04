@@ -1284,11 +1284,11 @@ enum {
     DR_REG_LAST_VALID_ENUM = DR_REG_FCSR, /**< Last valid register enum. */
     DR_REG_LAST_ENUM = DR_REG_FCSR,       /**< Last value of register enums. */
 
-    DR_REG_START_64 = DR_REG_X0,  /**< Start of 64-bit register enum values. */
+    DR_REG_START_64 = DR_REG_X1,  /**< Start of 64-bit register enum values. */
     DR_REG_STOP_64 = DR_REG_F31,  /**< End of 64-bit register enum values. */
-    DR_REG_START_32 = DR_REG_X0,  /**< Start of 32-bit register enum values. */
+    DR_REG_START_32 = DR_REG_X1,  /**< Start of 32-bit register enum values. */
     DR_REG_STOP_32 = DR_REG_F31,  /**< End of 32-bit register enum values. */
-    DR_REG_START_GPR = DR_REG_X0, /**< Start of general registers. */
+    DR_REG_START_GPR = DR_REG_X1, /**< Start of general registers. */
     DR_REG_STOP_GPR = DR_REG_X31, /**< End of general registers. */
     DR_REG_START_FPR = DR_REG_F0, /**< Start of floating-point registers. */
     DR_REG_STOP_FPR = DR_REG_F31, /**< End of floating-point registers. */
