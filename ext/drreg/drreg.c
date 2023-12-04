@@ -997,7 +997,8 @@ drreg_reserve_reg_internal(void *drcontext, instrlist_t *ilist, instr_t *where,
             if (pt->reg[idx].in_use)
                 continue;
             if (reg ==
-                dr_get_stolen_reg() IF_ARM(|| reg == DR_REG_PC) IF_RISCV64(|| reg == DR_REG_TP)
+                dr_get_stolen_reg() IF_ARM(|| reg == DR_REG_PC)
+                    IF_RISCV64(|| reg == DR_REG_TP)
                 /* Avoid xsp, even if it appears dead in things like OP_sysenter.
                  * On AArch64 use of SP is very restricted.
                  */
