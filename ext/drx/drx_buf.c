@@ -598,7 +598,7 @@ drx_buf_insert_buf_store_ptrsz(void *drcontext, drx_buf_t *buf, instrlist_t *ili
             if (last == NULL || first == last)
                 break;
         }
-#elif defined(AARCHXX)
+#elif defined(AARCHXX) || defined(RISCV64)
         instr_t *instr;
         instrlist_insert_mov_immed_ptrsz(drcontext, immed, opnd_create_reg(scratch),
                                          ilist, where, &first, &last);
@@ -606,14 +606,6 @@ drx_buf_insert_buf_store_ptrsz(void *drcontext, drx_buf_t *buf, instrlist_t *ili
                                    opnd_create_reg(scratch));
         INSTR_XL8(instr, instr_get_app_pc(where));
         MINSERT(ilist, where, instr);
-#elif defined(RISCV64)
-        /* FIXME i#3544: Not implemented */
-        DR_ASSERT_MSG(false, "Not implemented");
-        /* Marking as unused to silence -Wunused-variable. */
-        (void)first;
-        (void)last;
-        (void)immed;
-        return false;
 #else
 #    error NYI
 #endif
