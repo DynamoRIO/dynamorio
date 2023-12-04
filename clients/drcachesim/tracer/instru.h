@@ -417,7 +417,7 @@ public:
                      drvector_t *reg_vector,
                      ssize_t (*write_file)(file_t file, const void *data, size_t count),
                      file_t module_file, file_t encoding_file,
-                     bool disable_optimizations = false,
+                     bool disable_optimizations = false, bool instrs_are_separate = false,
                      void (*log)(uint level, const char *fmt, ...) = nullptr);
     virtual ~offline_instru_t();
 
@@ -521,6 +521,8 @@ private:
     struct per_block_t {
         uint64_t id = 0;
         uint instr_count = 0;
+        app_pc start_pc = 0;
+        uint64_t encoding_length_start = 0;
     };
 
     bool
@@ -587,7 +589,9 @@ private:
     size_t encoding_buf_sz_ = 0;
     byte *encoding_buf_ptr_ = nullptr;
     uint64_t encoding_id_ = 0;
+    uint64_t encoding_length_ = 0;
     uint64_t encoding_bytes_written_ = 0;
+    bool instrs_are_separate_ = false;
 };
 
 } // namespace drmemtrace
