@@ -38,7 +38,7 @@ main()
 {
     void *p;
     const size_t size = 0x00008765;
-    printf("Calling mmap(0, 0x%x, 0x%x, 0x%x, -1, 0)\n", size,
+    printf("Calling mmap(0, 0x%x, 0x%x, 0x%x, -1, 0)\n", (unsigned int)size,
            PROT_EXEC | PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE);
     p = mmap(0, size, PROT_EXEC | PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
     if (p == MAP_FAILED) {

@@ -491,7 +491,7 @@ endfunction(append_link_flags)
 set(sve_tests
       simple_app api.ir api.ir_negative api.ir_v81 api.ir_v82 api.ir_v83 api.ir_v84
       api.ir_v86 api.ir_sve api.ir_sve2 api.ir-static api.drdecode common.broadfun
-      common.fib common.nzcv common.getretaddr common.segfault common/syscall-mmap
+      common.fib common.nzcv common.getretaddr common.segfault
       common.allasm_aarch64_isa common.allasm_aarch64_cache allasm_aarch64_prefetch
       allasm_aarch64_flush libutil.frontend_test libutil.drconfig_test
       client.call-retarget client.modules client.annotation-concurrency
@@ -2145,7 +2145,10 @@ if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   torunonly(common.floatpc_xl8all common.floatpc common/floatpc.c "-translate_fpu_pc" "")
 endif (X86)
 tobuild(common.getretaddr common/getretaddr.c)
-tobuild(common.syscall-mmap common/syscall-mmap.c)
+
+if (UNIX)
+  tobuild(common.syscall-mmap common/syscall-mmap.c)
+endif ()
 
 if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   # XXX i#1287: implement for MacOS
@@ -4601,21 +4604,23 @@ if (BUILD_CLIENTS)
             "@-simulator_type@invariant_checker" "")
   endif ()
 
-  if (X86)
-    if (X64)
-       torunonly_drcacheoff(syscall-mmap-x86-x64 common.syscall-mmap
-            "-record_replace_retaddr -record_syscall 9|6"
-            "@-simulator_type@view" "")
-    else ()
-       torunonly_drcacheoff(syscall-mmap-x86-x32 common.syscall-mmap
-            "-record_replace_retaddr -record_syscall 192|6"
-            "@-simulator_type@view" "")
+  if (UNIX)
+    if (X86)
+      if (X64)
+         torunonly_drcacheoff(syscall-mmap-x86-x64 common.syscall-mmap
+                              "-record_replace_retaddr -record_syscall 9|6"
+                              "@-simulator_type@view" "")
+      else ()
+         torunonly_drcacheoff(syscall-mmap-x86-x32 common.syscall-mmap
+                              "-record_replace_retaddr -record_syscall 192|6"
+                              "@-simulator_type@view" "")
+      endif ()
+    elseif (AARCH64)
+       torunonly_drcacheoff(syscall-mmap-aarch64 common.syscall-mmap
+                            "-record_replace_retaddr -record_syscall 90|6"
+                            "@-simulator_type@view" "")
     endif ()
-  elseif (AARCH64)
-     torunonly_drcacheoff(syscall-mmap-aarch64 common.syscall-mmap
-            "-record_replace_retaddr -record_syscall 90|6"
-            "@-simulator_type@view" "")
-  endif()
+  endif ()
 
   ###########################################################################
   # drcpusim tests
