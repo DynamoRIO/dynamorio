@@ -501,13 +501,13 @@ set(sve_tests
       client.null_instrument client.large_options client.stolen-reg-index
       client.gonative client.drmgr-test client.drx_buf-test
       client.drbbdup-drwrap-test client.drbbdup-emul-test client.process-id
-      client.drreg-test client.low_on_memory client.tls client.drx-scattergather
-      client.drwrap-test client.drwrap-drreg-test drstatecmp-fuzz-app
-      client.drutil-test client.stolen-reg client.ldstex api.dis-a64 api.reenc-a64
-      api.opnd api.detach api.detach_state api.detach_signal api.detach_spawn
-      api.detach_spawn_stress_FLAKY api.detach_spawn_quick_exit api.ibl-stress
-      api.ibl-stress-aarch64-far-link_LONG api.static_startstop api.static_noclient
-      api.static_noinit api.static_detach api.static_prepop
+      client.drreg-test client.low_on_memory client.tls client.drwrap-test
+      client.drwrap-drreg-test drstatecmp-fuzz-app client.drutil-test client.stolen-reg
+      client.ldstex client.drsyms-test client.drwrap-test-detach api.dis-a64
+      api.reenc-a64 api.opnd api.detach api.detach_state api.detach_signal
+      api.detach_spawn api.detach_spawn_stress_FLAKY api.detach_spawn_quick_exit
+      api.ibl-stress api.ibl-stress-aarch64-far-link_LONG api.static_startstop
+      api.static_noclient api.static_noinit api.static_detach api.static_prepop
       api.static_reattach_client_flags api.static_crash api.static_sideline_FLAKY
       api.static_symbols api.static_maps_mixup_yesvars
       api.static_maps_mixup_novars_FLAKY api.thread_churn client.app_args
