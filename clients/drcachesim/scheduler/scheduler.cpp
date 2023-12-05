@@ -2089,11 +2089,11 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
             uint64_t duration = outputs_[output]
                                     .record[outputs_[output].record_index]
                                     .value.idle_duration;
-            uint64_t cur_time = get_output_time(output);
-            if (cur_time - outputs_[output].wait_start_time < duration) {
+            uint64_t now = get_output_time(output);
+            if (now - outputs_[output].wait_start_time < duration) {
                 VPRINT(this, 4,
                        "next_record[%d]: elapsed %" PRIu64 " < duration %" PRIu64 "\n",
-                       output, cur_time - outputs_[output].wait_start_time, duration);
+                       output, now - outputs_[output].wait_start_time, duration);
                 return sched_type_t::STATUS_WAIT;
             } else
                 outputs_[output].wait_start_time = 0;
