@@ -71,6 +71,7 @@ public:
 protected:
     struct shard_data_t {
         std::unordered_map<int, int64_t> syscall_counts;
+        std::unordered_map<int, int64_t> syscall_trace_counts;
         std::string error;
     };
 

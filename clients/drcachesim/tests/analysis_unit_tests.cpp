@@ -156,6 +156,10 @@ test_queries()
         parallel_shard_memref(void *shard_data, const memref_t &memref) override
         {
             per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
+            if (memref.marker.type == TRACE_TYPE_MARKER &&
+                (memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_WAIT ||
+                 memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_IDLE))
+                return true;
             // These are our testing goals: these queries.
             // We have one thread for each of our NUM_INPUTS workloads.
             assert(shard->stream->get_output_cpuid() == shard->index);

@@ -349,17 +349,31 @@ module_mapper_t::do_encoding_parsing()
         dr_map_file(encoding_file_, &map_size, 0, NULL, DR_MEMPROT_READ, 0));
     if (map_start == nullptr || map_size < file_size)
         return "Failed to map encoding file";
-    if (*reinterpret_cast<uint64_t *>(map_start) != ENCODING_FILE_VERSION)
+    byte *map_at = map_start;
+    byte *map_end = map_start + file_size;
+    uint64_t encoding_file_version = *reinterpret_cast<uint64_t *>(map_at);
+    map_at += sizeof(uint64_t);
+    if (encoding_file_version > ENCODING_FILE_VERSION)
         return "Encoding file has invalid version";
-    size_t offs = sizeof(uint64_t);
-    while (offs < file_size) {
-        encoding_entry_t *entry = reinterpret_cast<encoding_entry_t *>(map_start + offs);
-        if (entry->length < sizeof(encoding_entry_t))
+    if (encoding_file_version >= ENCODING_FILE_VERSION_HAS_FILE_TYPE) {
+        if (map_at + sizeof(uint64_t) > map_end)
+            return "Encoding file header is truncated";
+        uint64_t encoding_file_type = *reinterpret_cast<uint64_t *>(map_at);
+        map_at += sizeof(uint64_t);
+        separate_non_mod_instrs_ =
+            TESTANY(ENCODING_FILE_TYPE_SEPARATE_NON_MOD_INSTRS, encoding_file_type);
+    }
+    uint64_t cumulative_encoding_length = 0;
+    while (map_at < map_end) {
+        encoding_entry_t *entry = reinterpret_cast<encoding_entry_t *>(map_at);
+        if (entry->length <= sizeof(encoding_entry_t))
             return "Encoding file is corrupted";
-        if (offs + entry->length > file_size)
+        if (map_at + entry->length > map_end)
             return "Encoding file is truncated";
+        cum_block_enc_len_to_encoding_id_[cumulative_encoding_length] = entry->id;
+        cumulative_encoding_length += (entry->length - sizeof(encoding_entry_t));
         encodings_[entry->id] = entry;
-        offs += entry->length;
+        map_at += entry->length;
     }
     return "";
 }
@@ -1008,9 +1022,12 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
     }
 
     /* Convert the PT Data to DR IR. */
-    drir_t drir(GLOBAL_DCONTEXT);
-    pt2ir_convert_status_t pt2ir_convert_status =
-        tdata->pt2ir.convert(pt_data->data.get(), pt_data_size, drir);
+    if (tdata->pt_decode_state_ == nullptr) {
+        tdata->pt_decode_state_ = std::unique_ptr<drir_t>(new drir_t(GLOBAL_DCONTEXT));
+    }
+    tdata->pt_decode_state_->clear_ilist();
+    pt2ir_convert_status_t pt2ir_convert_status = tdata->pt2ir.convert(
+        pt_data->data.get(), pt_data_size, tdata->pt_decode_state_.get());
     if (pt2ir_convert_status != PT2IR_CONV_SUCCESS) {
         tdata->error = "Failed to convert PT raw trace to DR IR [error status: " +
             std::to_string(pt2ir_convert_status) + "]";
@@ -1018,13 +1035,15 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
     }
 
     /* Convert the DR IR to trace entries. */
+    addr_t sysnum =
+        pt_data->header[dynamorio::drmemtrace::PDB_HEADER_SYSNUM_IDX].sysnum.sysnum;
     std::vector<trace_entry_t> entries;
     trace_entry_t start_entry = { .type = TRACE_TYPE_MARKER,
                                   .size = TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
-                                  .addr = 0 };
+                                  .addr = sysnum };
     entries.push_back(start_entry);
     ir2trace_convert_status_t ir2trace_convert_status =
-        ir2trace_t::convert(drir, entries);
+        ir2trace_t::convert(tdata->pt_decode_state_.get(), entries);
     if (ir2trace_convert_status != IR2TRACE_CONV_SUCCESS) {
         tdata->error = "Failed to convert DR IR to trace entries [error status: " +
             std::to_string(ir2trace_convert_status) + "]";
@@ -1032,7 +1051,7 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
     }
     trace_entry_t end_entry = { .type = TRACE_TYPE_MARKER,
                                 .size = TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
-                                .addr = 0 };
+                                .addr = sysnum };
     entries.push_back(end_entry);
     if (entries.size() == 2) {
         tdata->error = "No trace entries generated from PT data";
@@ -1040,17 +1059,40 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
     }
 
     accumulate_to_statistic(tdata, RAW2TRACE_STAT_SYSCALL_TRACES_DECODED, 1);
+    app_pc saved_decode_pc;
+    trace_entry_t entries_with_encodings[WRITE_BUFFER_SIZE];
+    trace_entry_t *buf = entries_with_encodings;
     for (const auto &entry : entries) {
-        if (type_is_instr(static_cast<trace_type_t>(entry.type)))
+        if (type_is_instr(static_cast<trace_type_t>(entry.type))) {
+            if (buf != entries_with_encodings) {
+                if (!write(tdata, entries_with_encodings, buf, &saved_decode_pc, 1)) {
+                    return false;
+                }
+                buf = entries_with_encodings;
+            }
             accumulate_to_statistic(tdata, RAW2TRACE_STAT_KERNEL_INSTR_COUNT, 1);
+            // The per-thread drir_t object (pt_decode_state_) keeps instr encoding
+            // state across system calls. So different dynamic instances of the same
+            // instruction in system calls will have the same decode_pc.
+            saved_decode_pc = tdata->pt_decode_state_->get_decode_pc(
+                reinterpret_cast<app_pc>(entry.addr));
+            if (saved_decode_pc == nullptr) {
+                tdata->error =
+                    "Unknown pc after ir2trace: did ir2trace insert new instr?";
+                return false;
+            }
+            if (!append_encoding(tdata, saved_decode_pc, entry.size, buf,
+                                 entries_with_encodings))
+                return false;
+        }
+        *buf = entry;
+        ++buf;
     }
-
-    if (!tdata->out_file->write(reinterpret_cast<const char *>(entries.data()),
-                                sizeof(trace_entry_t) * entries.size())) {
-        tdata->error = "Failed to write to output file";
-        return false;
+    if (buf != entries_with_encodings) {
+        if (!write(tdata, entries_with_encodings, buf, &saved_decode_pc, 1)) {
+            return false;
+        }
     }
-
     return true;
 }
 #endif

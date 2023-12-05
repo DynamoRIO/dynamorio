@@ -52,6 +52,7 @@
 #include <fstream>
 #include <limits>
 #include <list>
+#include <map>
 #include <memory>
 #include <queue>
 #include <set>
@@ -454,7 +455,10 @@ public:
     get_orig_pc_from_map_pc(app_pc map_pc, uint64 modidx, uint64 modoffs) const
     {
         if (modidx == PC_MODIDX_INVALID) {
-            auto const it = encodings_.find(modoffs);
+            uint64 blockidx = 0;
+            uint64 blockoffs = 0;
+            convert_modoffs_to_non_mod_block(modoffs, blockidx, blockoffs);
+            auto const it = encodings_.find(blockidx);
             if (it == encodings_.end())
                 return nullptr;
             encoding_entry_t *entry = it->second;
@@ -476,11 +480,14 @@ public:
     get_orig_pc(uint64 modidx, uint64 modoffs) const
     {
         if (modidx == PC_MODIDX_INVALID) {
-            auto const it = encodings_.find(modoffs);
+            uint64 blockidx = 0;
+            uint64 blockoffs = 0;
+            convert_modoffs_to_non_mod_block(modoffs, blockidx, blockoffs);
+            auto const it = encodings_.find(blockidx);
             if (it == encodings_.end())
                 return nullptr;
             encoding_entry_t *entry = it->second;
-            return reinterpret_cast<app_pc>(entry->start_pc);
+            return reinterpret_cast<app_pc>(entry->start_pc + blockoffs);
         } else {
             size_t idx = static_cast<size_t>(modidx); // Avoid win32 warnings.
             // Cast to unsigned pointer-sized int first to avoid sign-extending.
@@ -494,11 +501,14 @@ public:
     get_map_pc(uint64 modidx, uint64 modoffs) const
     {
         if (modidx == PC_MODIDX_INVALID) {
-            auto const it = encodings_.find(modoffs);
+            uint64 blockidx = 0;
+            uint64 blockoffs = 0;
+            convert_modoffs_to_non_mod_block(modoffs, blockidx, blockoffs);
+            auto const it = encodings_.find(blockidx);
             if (it == encodings_.end())
                 return nullptr;
             encoding_entry_t *entry = it->second;
-            return entry->encodings;
+            return &entry->encodings[blockoffs];
         } else {
             size_t idx = static_cast<size_t>(modidx); // Avoid win32 warnings.
             return modvec_[idx].map_seg_base + (modoffs - modvec_[idx].seg_offs);
@@ -572,6 +582,27 @@ protected:
         void *user_data;
     };
 
+    void
+    convert_modoffs_to_non_mod_block(uint64 modoffs, uint64 &blockidx,
+                                     uint64 &blockoffs) const
+    {
+        if (!separate_non_mod_instrs_) {
+            blockidx = modoffs;
+            blockoffs = 0;
+            return;
+        }
+        auto it = cum_block_enc_len_to_encoding_id_.upper_bound(modoffs);
+        // Since modoffs >= 0 and the smallest key in cum_block_enc_len_to_encoding_id_ is
+        // always zero, `it` should never be the first element of the map.
+        DR_ASSERT(it != cum_block_enc_len_to_encoding_id_.begin());
+        auto it_prev = it;
+        it_prev--;
+        DR_ASSERT(it_prev->first <= modoffs &&
+                  (it == cum_block_enc_len_to_encoding_id_.end() || it->first > modoffs));
+        blockidx = it_prev->second;
+        blockoffs = modoffs - it_prev->first;
+    }
+
     virtual void
     read_and_map_modules(void);
 
@@ -608,6 +639,8 @@ protected:
     app_pc last_orig_base_ = 0;
     size_t last_map_size_ = 0;
     byte *last_map_base_ = nullptr;
+    bool separate_non_mod_instrs_ = false;
+    std::map<uint64_t, uint64_t> cum_block_enc_len_to_encoding_id_;
 
     uint verbosity_ = 0;
     std::string alt_module_dir_;
@@ -1080,6 +1113,7 @@ protected:
         std::vector<app_pc> rseq_decode_pcs_;
 
 #ifdef BUILD_PT_POST_PROCESSOR
+        std::unique_ptr<drir_t> pt_decode_state_ = nullptr;
         std::istream *kthread_file;
         bool pt_metadata_processed = false;
         pt2ir_t pt2ir;

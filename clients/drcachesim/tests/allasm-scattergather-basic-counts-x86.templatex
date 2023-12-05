@@ -1,0 +1,27 @@
+Correct
+Hello world!
+---- <application exited with code 0> ----
+Basic counts tool results:
+Total counts:
+          96 total \(fetched\) instructions
+          96 total unique \(fetched\) instructions
+           0 total non-fetched instructions
+           0 total prefetches
+           6 total data loads
+           5 total data stores
+           0 total icache flushes
+           0 total dcache flushes
+           1 total threads
+     .* total scheduling markers
+.*
+Thread .* counts:
+          96 \(fetched\) instructions
+          96 unique \(fetched\) instructions
+           0 non-fetched instructions
+           0 prefetches
+           6 data loads
+           5 data stores
+           0 icache flushes
+           0 dcache flushes
+     .* scheduling markers
+.*

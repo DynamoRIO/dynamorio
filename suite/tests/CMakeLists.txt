@@ -501,13 +501,13 @@ set(sve_tests
       client.null_instrument client.large_options client.stolen-reg-index
       client.gonative client.drmgr-test client.drx_buf-test
       client.drbbdup-drwrap-test client.drbbdup-emul-test client.process-id
-      client.drreg-test client.low_on_memory client.tls client.drx-scattergather
-      client.drwrap-test client.drwrap-drreg-test drstatecmp-fuzz-app
-      client.drutil-test client.stolen-reg client.ldstex api.dis-a64 api.reenc-a64
-      api.opnd api.detach api.detach_state api.detach_signal api.detach_spawn
-      api.detach_spawn_stress_FLAKY api.detach_spawn_quick_exit api.ibl-stress
-      api.ibl-stress-aarch64-far-link_LONG api.static_startstop api.static_noclient
-      api.static_noinit api.static_detach api.static_prepop
+      client.drreg-test client.low_on_memory client.tls client.drwrap-test
+      client.drwrap-drreg-test drstatecmp-fuzz-app client.drutil-test client.stolen-reg
+      client.ldstex client.drsyms-test client.drwrap-test-detach api.dis-a64
+      api.reenc-a64 api.opnd api.detach api.detach_state api.detach_signal
+      api.detach_spawn api.detach_spawn_stress_FLAKY api.detach_spawn_quick_exit
+      api.ibl-stress api.ibl-stress-aarch64-far-link_LONG api.static_startstop
+      api.static_noclient api.static_noinit api.static_detach api.static_prepop
       api.static_reattach_client_flags api.static_crash api.static_sideline_FLAKY
       api.static_symbols api.static_maps_mixup_yesvars
       api.static_maps_mixup_novars_FLAKY api.thread_churn client.app_args
@@ -1120,6 +1120,7 @@ function(template2expect outexpect template runops key)
     set(rundefs "${rundefs} -D__AVX__")
   elseif (DEFINED ${key}_runsve)
     set(rundefs "${rundefs} -D__ARM_FEATURE_SVE")
+    set(rundefs "${rundefs} -D__ARM_FEATURE_SVE_BITS=${proc_sve_vl}")
   endif ()
   if (CPU_AMD)
     set(rundefs "${rundefs} -DCPU_AMD")
@@ -2981,19 +2982,24 @@ if (X86 OR AARCH64)
       set(client.drx-scattergather-instrumentation-fault_test_sample_client 1)
     endif ()
 
-    if (X86 AND X64 AND UNIX)
-      if (proc_supports_avx)
-        add_exe(allasm_scattergather
-          ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_scattergather.asm
-          "-early_inject" "")
-        append_pure_asm_app_link_flags(allasm_scattergather)
+    if (UNIX AND ((X86 AND X64 AND proc_supports_avx) OR (AARCH64 AND proc_supports_sve)))
+      add_exe(allasm_scattergather
+        ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_scattergather_${ARCH_NAME}.asm
+        "-early_inject" "")
+      append_pure_asm_app_link_flags(allasm_scattergather)
+      if (X86)
         set_avx_flags(allasm_scattergather)
-      endif (proc_supports_avx)
+      elseif (AARCH64)
+        set_sve_flags(allasm_scattergather)
+      endif ()
+    endif ()
+
+    if (X86 AND X64 AND UNIX)
       add_exe(allasm_repstr
         ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_repstr.asm
         "-early_inject" "")
       append_pure_asm_app_link_flags(allasm_repstr)
-    endif (X86 AND X64 AND UNIX)
+    endif ()
   endif()
 endif ()
 
@@ -4257,6 +4263,14 @@ if (BUILD_CLIENTS)
       torunonly_drcacheoff(gencode tool.drcacheoff.gencode
         "" "@-simulator_type@opcode_mix" "")
       unset(tool.drcacheoff.gencode_rawtemp) # Use preprocessor on template.
+
+      set(tool.drcacheoff.gencode_filtered_nodr ON)
+      torunonly_drcacheoff(gencode_filtered tool.drcacheoff.gencode
+        "" "@-simulator_type@opcode_mix"
+        "-L0_filter -subdir_prefix drmemtrace.tool.drcacheoff.gencode_filtered")
+
+      # TODO i#6474, i#2062: Add a similar gencode test with
+      # -L0_filter_until_instrs when i#6474 is fixed.
     endif ()
 
     # XXX i#1551: startstop API is NYI on ARM
@@ -4364,22 +4378,31 @@ if (BUILD_CLIENTS)
       endif ()
     endif ()
 
-    if (UNIX AND X86 AND X64)
-      if (proc_supports_avx)
-        torunonly_drcacheoff(allasm-scattergather-basic-counts allasm_scattergather
-          "" "@-simulator_type@basic_counts" "")
-        unset(tool.drcacheoff.allasm-scattergather-basic-counts_rawtemp) # use preprocessor
-        if (proc_supports_avx512)
-          set(tool.drcacheoff.allasm-scattergather-basic-counts_runavx512 1)
-        endif (proc_supports_avx512)
-        torunonly_drcachesim(allasm-scattergather-basic-counts allasm_scattergather
-          "-simulator_type basic_counts" "")
-        unset(tool.drcachesim.allasm-scattergather-basic-counts_rawtemp) # use preprocessor
-        if (proc_supports_avx512)
-          set(tool.drcachesim.allasm-scattergather-basic-counts_runavx512 1)
-        endif (proc_supports_avx512)
-      endif (proc_supports_avx)
+    if (UNIX AND ((X86 AND X64 AND proc_supports_avx) OR (AARCH64 AND proc_supports_sve)))
+      torunonly_drcacheoff(allasm-scattergather-basic-counts allasm_scattergather
+        "" "@-simulator_type@basic_counts" "")
+      unset(tool.drcacheoff.allasm-scattergather-basic-counts_rawtemp) # use preprocessor
+      if (X86 AND proc_supports_avx512)
+        set(tool.drcacheoff.allasm-scattergather-basic-counts_runavx512 1)
+      elseif (AARCH64)
+        set(tool.drcacheoff.allasm-scattergather-basic-counts_runsve 1)
+      endif ()
+      set(tool.drcacheoff.allasm-scattergather-basic-counts_expectbase
+        "offline-allasm-scattergather-basic-counts-${ARCH_NAME}")
 
+      torunonly_drcachesim(allasm-scattergather-basic-counts allasm_scattergather
+        "-simulator_type basic_counts" "")
+      unset(tool.drcachesim.allasm-scattergather-basic-counts_rawtemp) # use preprocessor
+      if (X86 AND proc_supports_avx512)
+        set(tool.drcachesim.allasm-scattergather-basic-counts_runavx512 1)
+      elseif (AARCH64)
+        set(tool.drcachesim.allasm-scattergather-basic-counts_runsve 1)
+      endif ()
+      set(tool.drcachesim.allasm-scattergather-basic-counts_expectbase
+            "allasm-scattergather-basic-counts-${ARCH_NAME}")
+    endif ()
+
+    if (UNIX AND X86 AND X64)
       torunonly_drcacheoff(allasm-repstr-basic-counts allasm_repstr
         "" "@-simulator_type@basic_counts" "")
       unset(tool.drcacheoff.allasm-repstr-basic-counts_rawtemp) # use preprocessor
@@ -4539,7 +4562,7 @@ if (BUILD_CLIENTS)
   if (proc_supports_pt)
     if (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
       get_target_path_for_execution(drpt2trace_path drpt2trace "${location_suffix}")
-      macro (torunonly_drcacheoff_kernel testname exetgt extra_ops app_args)
+      macro (torunonly_drcacheoff_kernel testname exetgt extra_ops app_args sim_atops)
         set(testname_full "tool.drcacheoff.kernel.${testname}_SUDO")
         torunonly_ci(${testname_full} ${exetgt} drcachesim
           "offline-kernel-${testname}.c" # for templatex basename
@@ -4556,13 +4579,18 @@ if (BUILD_CLIENTS)
         set(${testname_full}_precmd
           "foreach@${cmd_pfx}${CMAKE_COMMAND}@-E@remove_directory@${testname_full}.*.dir")
         set(${testname_full}_postcmd
-          "firstglob@${cmd_pfx}${drcachesim_path}@-simulator_type@basic_counts@-indir@${testname_full}.*.dir${sim_atops}")
+          "firstglob@${cmd_pfx}${drcachesim_path}@-indir@${testname_full}.*.dir${sim_atops}")
       endmacro ()
       # We use '-raw_compress none' because when snappy or lz4 is used for raw traces,
       # the check that complains about malloc use in the client is disabled by invoking
       # dr_allow_unsafe_static_behavior. We want to perform this check on the kernel
       # tracing flow.
-      torunonly_drcacheoff_kernel(simple ${ci_shared_app} "-raw_compress none" "")
+      torunonly_drcacheoff_kernel(simple ${ci_shared_app} "-raw_compress none" ""
+                                  "@-simulator_type@basic_counts")
+      torunonly_drcacheoff_kernel(opcode-mix ${ci_shared_app} "-raw_compress none" ""
+                                  "@-simulator_type@opcode_mix")
+      torunonly_drcacheoff_kernel(syscall-mix ${ci_shared_app} "-raw_compress none" ""
+                                  "@-simulator_type@syscall_mix")
     endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
   endif (proc_supports_pt)
 
@@ -4689,7 +4717,7 @@ if (BUILD_CLIENTS)
       "-sb_sysroot"
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw")
     torunonly_api(tool.drpt2trace.sideband drpt2trace
-      "../../clients/drcachesim/drpt2trace/test_simple.expect"
+      "../../clients/drcachesim/drpt2trace/test_simple.templatex"
       "" "${drpt2trace_sideband_args}" ON OFF)
     set(drpt2trace_elf_args ${drpt2trace_commong}
       "-mode" "ELF"
@@ -4697,7 +4725,7 @@ if (BUILD_CLIENTS)
       "-elf"
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/hello")
     torunonly_api(tool.drpt2trace.elf drpt2trace
-      "../../clients/drcachesim/drpt2trace/test_simple.expect"
+      "../../clients/drcachesim/drpt2trace/test_simple.templatex"
       "" "${drpt2trace_elf_args}" ON OFF)
   endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
 endif (BUILD_CLIENTS)
@@ -4996,14 +5024,12 @@ if (UNIX)
     target_link_libraries(linux.signal_pre_syscall rt)
   endif ()
 
-  if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
-    tobuild(linux.bad-signal-stack linux/bad-signal-stack.c)
+  tobuild(linux.bad-signal-stack linux/bad-signal-stack.c)
 
-    # i#1145: test re-starting syscalls, both inlined and from dispatch
-    tobuild(linux.eintr linux/eintr.c)
-    link_with_pthread(linux.eintr)
-    torunonly(linux.eintr-noinline linux.eintr linux/eintr.c "-no_ignore_syscalls" "")
-  endif (NOT RISCV64)
+  # i#1145: test re-starting syscalls, both inlined and from dispatch
+  tobuild(linux.eintr linux/eintr.c)
+  link_with_pthread(linux.eintr)
+  torunonly(linux.eintr-noinline linux.eintr linux/eintr.c "-no_ignore_syscalls" "")
 
   if (NOT ANDROID AND NOT RISCV64) # XXX i#1874: get working on Android
     # TODO i#3544: Port tests to RISC-V 64

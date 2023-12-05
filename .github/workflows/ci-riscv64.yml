@@ -85,7 +85,9 @@ jobs:
         for i in *.deb; do dpkg-deb -x $i ../extract; done
         for i in include lib; do sudo rsync -av ../extract/usr/${i}/riscv64-linux-gnu/ /usr/riscv64-linux-gnu/${i}/; done
         sudo rsync -av ../extract/usr/include/ /usr/riscv64-linux-gnu/include/
-        sudo rsync -av ../extract/lib/riscv64-linux-gnu/ /usr/riscv64-linux-gnu/lib/
+        if test -e "../extract/lib/riscv64-linux-gnu/"; then \
+          sudo rsync -av ../extract/lib/riscv64-linux-gnu/ /usr/riscv64-linux-gnu/lib/; \
+        fi
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}

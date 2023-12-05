@@ -418,10 +418,12 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             // Handled above.
             break;
         case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
-            std::cerr << "<marker: system call trace start>\n";
+            std::cerr << "<marker: trace start for system call number "
+                      << memref.marker.marker_value << ">\n";
             break;
         case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
-            std::cerr << "<marker: system call trace end>\n";
+            std::cerr << "<marker: trace end for system call number "
+                      << memref.marker.marker_value << ">\n";
             break;
         case TRACE_MARKER_TYPE_BRANCH_TARGET:
             // These are not expected to be visible (since the reader adds them
@@ -432,6 +434,7 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         case TRACE_MARKER_TYPE_CORE_WAIT:
             std::cerr << "<marker: wait for another core>\n";
             break;
+        case TRACE_MARKER_TYPE_CORE_IDLE: std::cerr << "<marker: core is idle>\n"; break;
         default:
             std::cerr << "<marker: type " << memref.marker.marker_type << "; value "
                       << memref.marker.marker_value << ">\n";

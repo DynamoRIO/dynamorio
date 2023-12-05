@@ -1,0 +1,6 @@
+Hello, world!
+Syscall mix tool results:
+  syscall count : syscall_num
+.*
+ syscall trace count : syscall_num
+.*

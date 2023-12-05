@@ -3866,6 +3866,14 @@ set_stolen_reg_val(priv_mcontext_t *mc, reg_t newval)
 {
     *(reg_t *)(((byte *)mc) + opnd_get_reg_dcontext_offs(dr_reg_stolen)) = newval;
 }
+
+#    ifdef RISCV64
+void
+set_tp_reg_val(priv_mcontext_t *mc, reg_t newval)
+{
+    *(reg_t *)(((byte *)mc) + opnd_get_reg_dcontext_offs(DR_REG_TP)) = newval;
+}
+#    endif
 #endif
 
 #ifdef PROFILE_RDTSC
