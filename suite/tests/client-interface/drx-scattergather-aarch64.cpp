@@ -612,12 +612,24 @@ template <typename TEST_PTRS_T> struct test_case_base_t {
 
     virtual void
     check_output(predicate_reg_value128_t pred, const test_register_data_t &register_data,
-                 bool expected_fault) = 0;
+                 bool expected_fault, size_t faulting_element) = 0;
 
     virtual size_t
     num_values_accessed() const
     {
         return get_vl_bytes() / static_cast<size_t>(element_size_);
+    }
+
+    virtual void
+    check_fault(bool expected_fault, bool signal_handler_called)
+    {
+        if (!expected_fault && signal_handler_called) {
+            test_failed();
+            print("Unexpected fault\n");
+        } else if (expected_fault && !signal_handler_called) {
+            test_failed();
+            print("Expected fault but signal handler not called\n");
+        }
     }
 
     test_result_t
@@ -670,13 +682,7 @@ template <typename TEST_PTRS_T> struct test_case_base_t {
                 }
             }
 
-            if (!expected_fault && signal_handler_called) {
-                test_failed();
-                print("Unexpected fault\n");
-            } else if (expected_fault && !signal_handler_called) {
-                test_failed();
-                print("Expected fault but signal handler not called\n");
-            }
+            check_fault(expected_fault, signal_handler_called);
 
             // Validate the output if:
             //  - This is not a fault test (check the expanded instruction behaved
@@ -685,7 +691,7 @@ template <typename TEST_PTRS_T> struct test_case_base_t {
             //    (Check the scratch register state was correctly restored and none of
             //     the registers are corrupted).
             if (!force_fault || expected_fault) {
-                check_output(pred, register_data, expected_fault);
+                check_output(pred, register_data, expected_fault, faulting_element);
             }
         };
 
@@ -1015,7 +1021,7 @@ struct scalar_plus_vector_load_test_case_t : public scalar_plus_vector_test_case
 
     void
     check_output(predicate_reg_value128_t pred, const test_register_data_t &register_data,
-                 bool expected_fault) override
+                 bool expected_fault, size_t faulting_element) override
     {
         const auto vl_bytes = get_vl_bytes();
 
@@ -1766,7 +1772,7 @@ struct scalar_plus_vector_store_test_case_t : public scalar_plus_vector_test_cas
 
     void
     check_output(predicate_reg_value128_t pred, const test_register_data_t &register_data,
-                 bool expected_fault) override
+                 bool expected_fault, size_t faulting_element) override
     {
         // Check that the values of the other Z registers have been preserved.
         for (size_t i = 0; i < NUM_Z_REGS; i++) {
@@ -2227,7 +2233,7 @@ struct vector_plus_immediate_load_test_case_t
 
     void
     check_output(predicate_reg_value128_t pred, const test_register_data_t &register_data,
-                 bool expected_fault) override
+                 bool expected_fault, size_t faulting_element) override
     {
         const auto vl_bytes = get_vl_bytes();
 
@@ -2546,7 +2552,7 @@ struct vector_plus_immediate_store_test_case_t
 
     void
     check_output(predicate_reg_value128_t pred, const test_register_data_t &register_data,
-                 bool expected_fault) override
+                 bool expected_fault, size_t faulting_element) override
     {
         // Check that the values of the Z registers have been preserved.
         for (size_t i = 0; i < NUM_Z_REGS; i++) {
@@ -2801,7 +2807,7 @@ struct scalar_plus_scalar_load_test_case_t
 
     void
     check_output(predicate_reg_value128_t pred, const test_register_data_t &register_data,
-                 bool expected_fault) override
+                 bool expected_fault, size_t faulting_element) override
     {
         if (!expected_fault) {
             for (size_t i = 0; i < NUM_ZT; i++) {
@@ -3670,7 +3676,7 @@ struct scalar_plus_scalar_store_test_case_t
 
     void
     check_output(predicate_reg_value128_t pred, const test_register_data_t &register_data,
-                 bool expected_fault) override
+                 bool expected_fault, size_t faulting_element) override
     {
         // Check that the values of the Z registers have been preserved.
         for (size_t i = 0; i < NUM_Z_REGS; i++) {
@@ -4146,7 +4152,7 @@ struct scalar_plus_immediate_load_test_case_t
 
     void
     check_output(predicate_reg_value128_t pred, const test_register_data_t &register_data,
-                 bool expected_fault) override
+                 bool expected_fault, size_t faulting_element) override
     {
         if (!expected_fault) {
             for (size_t zt = 0; zt < NUM_ZT; zt++) {
@@ -5636,6 +5642,583 @@ test_ld4_scalar_plus_immediate()
 #    undef TEST_FUNC
 }
 
+struct scalar_plus_immediate_non_fault_load_test_case_t
+    : public scalar_plus_immediate_load_test_case_t<1> {
+
+    std::vector<uint8_t> reference_data_fault_;
+
+    template <typename ELEMENT_T>
+    scalar_plus_immediate_non_fault_load_test_case_t(
+        std::string name, test_func_t func, registers_used_t registers_used,
+        std::array<std::array<ELEMENT_T, 16 / sizeof(ELEMENT_T)>, 1>
+            reference_data_128_no_fault,
+        std::array<std::array<ELEMENT_T, 32 / sizeof(ELEMENT_T)>, 1>
+            reference_data_256_no_fault,
+        std::array<std::array<ELEMENT_T, 64 / sizeof(ELEMENT_T)>, 1>
+            reference_data_512_no_fault,
+        std::array<ELEMENT_T, 16 / sizeof(ELEMENT_T)> reference_data_128_fault,
+        std::array<ELEMENT_T, 32 / sizeof(ELEMENT_T)> reference_data_256_fault,
+        std::array<ELEMENT_T, 64 / sizeof(ELEMENT_T)> reference_data_512_fault,
+
+        element_size_t data_size, std::ptrdiff_t offset)
+        : scalar_plus_immediate_load_test_case_t<1>(
+              name, func, registers_used, reference_data_128_no_fault,
+              reference_data_256_no_fault, reference_data_512_no_fault, data_size, offset)
+    {
+        const auto vl_bytes = get_vl_bytes();
+        reference_data_fault_.resize(vl_bytes);
+        switch (vl_bytes) {
+        case 16:
+            assert(reference_data_128_fault.size() * sizeof(ELEMENT_T) == vl_bytes);
+            memcpy(reference_data_fault_.data(), reference_data_128_fault.data(),
+                   vl_bytes);
+            break;
+        case 32:
+            assert(reference_data_256_fault.size() * sizeof(ELEMENT_T) == vl_bytes);
+            memcpy(reference_data_fault_.data(), reference_data_256_fault.data(),
+                   vl_bytes);
+            break;
+        case 64:
+            assert(reference_data_512_fault.size() * sizeof(ELEMENT_T) == vl_bytes);
+            memcpy(reference_data_fault_.data(), reference_data_512_fault.data(),
+                   vl_bytes);
+            break;
+        default: print("Unsupported vector length: %lu\n", vl_bytes); exit(1);
+        }
+    }
+
+    void
+    check_fault(bool expected_fault, bool signal_handler_called) override
+    {
+        // Non-fault instructions should never trigger the signal handler.
+        if (signal_handler_called) {
+            test_failed();
+            print("Unexpected fault\n");
+        }
+    }
+
+    void
+    check_output(predicate_reg_value128_t pred, const test_register_data_t &register_data,
+                 bool expected_fault, size_t faulting_element) override
+    {
+        if (!expected_fault) {
+            // If there is no faulting element then this instruction behaves the same as
+            // a regular scalar+immediate load.
+            scalar_plus_immediate_load_test_case_t<1>::check_output(
+                pred, register_data, expected_fault, faulting_element);
+            return;
+        }
+
+        // Check the FFR value
+        // First we need to find out which element is the first one to actually fault.
+        // `faulting_element` is the first element that is rigged to fall on a faulting
+        // address, but if that element is inactive, the first element to actually fault
+        // will be the next active element.
+        const auto element_size_bytes = static_cast<size_t>(element_size_);
+        const auto num_mask_elements = TEST_VL_BYTES / element_size_bytes;
+        while (
+            !element_is_active(faulting_element % num_mask_elements, pred, element_size_))
+            faulting_element++;
+
+        const auto original_ffr = register_data.before.get_ffr_value();
+        predicate_reg_value128_t ffr_128 = 0;
+        memcpy(&ffr_128, original_ffr.data, sizeof(ffr_128));
+        // All bits from the faulting element onwards are 0 so mask them out.
+        ffr_128 &=
+            (1 << ((faulting_element % num_mask_elements) * element_size_bytes)) - 1;
+
+        std::vector<uint8_t> expected_ffr_data(original_ffr.size, 0);
+        memcpy(expected_ffr_data.data(), original_ffr.data,
+               2 * ((faulting_element * element_size_bytes) / 16));
+        memcpy(&expected_ffr_data[2 * ((faulting_element * element_size_bytes) / 16)],
+               &ffr_128, sizeof(ffr_128));
+        const scalable_reg_value_t expected_ffr {
+            expected_ffr_data.data(),
+            expected_ffr_data.size(),
+        };
+
+        const auto actual_ffr = register_data.after.get_ffr_value();
+
+        if (actual_ffr != expected_ffr) {
+            test_failed();
+            print("predicate:    ");
+            print_predicate(
+                register_data.before.get_p_register_value(registers_used_.governing_p));
+            print("\noriginal ffr: ");
+            print_predicate(register_data.before.get_ffr_value());
+            print("\nexpected ffr: ");
+            print_predicate(expected_ffr);
+            print("\nactual ffr:   ");
+            print_predicate(actual_ffr);
+            print("\n");
+        }
+
+        assert(registers_used_.dest_z.size() == 1);
+        const auto dest_z = registers_used_.dest_z[0];
+
+        // Check destination register value.
+        if (faulting_element > 0) {
+            std::vector<uint8_t> expected_output_data(reference_data_fault_);
+            apply_predicate_mask(expected_output_data, pred, element_size_);
+            const scalable_reg_value_t expected_output {
+                expected_output_data.data(),
+                expected_output_data.size(),
+            };
+
+            const auto output_value = register_data.after.get_z_register_value(dest_z);
+
+            // Compare the output to the reference data up to where we hit the faulting
+            // element.
+            if (memcmp(expected_output.data, output_value.data, faulting_element) != 0) {
+                test_failed();
+                print("predicate: ");
+                print_predicate(register_data.before.get_p_register_value(
+                    registers_used_.governing_p));
+                print("\nexpected:  ");
+                print_vector(expected_output);
+                print("\nactual:    ");
+                print_vector(output_value);
+                print("\n");
+            }
+        }
+
+        // Check that the values of the other Z registers have been preserved.
+        for (size_t i = 0; i < NUM_Z_REGS; i++) {
+            if (i != dest_z)
+                check_z_reg(i, register_data);
+        }
+        // Check that the values of the P registers have been preserved.
+        for (size_t i = 0; i < NUM_P_REGS; i++) {
+            check_p_reg(i, register_data);
+        }
+    }
+};
+
+test_result_t
+test_ldnf1_scalar_plus_immediate()
+{
+#    define TEST_FUNC(ld_instruction)                                               \
+        [](scalar_plus_immediate_non_fault_load_test_case_t::test_ptrs_t &ptrs) {   \
+            asm(/* clang-format off */                                              \
+            RESTORE_FFR(p_restore_base)                                             \
+            RESTORE_Z_REGISTERS(z_restore_base)                                     \
+            RESTORE_P_REGISTERS(p_restore_base)                                     \
+            ld_instruction "\n"                                                     \
+            SAVE_Z_REGISTERS(z_save_base)                                           \
+            SAVE_P_REGISTERS(p_save_base)                                           \
+            SAVE_FFR(p_save_base) /* clang-format on */                     \
+                :                                                                   \
+                : [base] "r"(ptrs.base), [z_restore_base] "r"(ptrs.z_restore_base), \
+                  [z_save_base] "r"(ptrs.z_save_base),                              \
+                  [p_restore_base] "r"(ptrs.p_restore_base),                        \
+                  [p_save_base] "r"(ptrs.p_save_base)                               \
+                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");                         \
+        }
+
+    const auto vl_bytes = static_cast<std::ptrdiff_t>(get_vl_bytes());
+
+    return run_tests<scalar_plus_immediate_non_fault_load_test_case_t>({
+        /* {
+         *     Test name,
+         *     Function that executes the test instruction,
+         *     Registers used {{zt}, pg},
+         *     Expected output data when no faults (128-bit vl),
+         *     Expected output data when no faults (256-bit vl),
+         *     Expected output data when no faults (512-bit vl),
+         *     Expected output data when fault half way through the vector (128-bit vl),
+         *     Expected output data when fault half way through the vector (256-bit vl),
+         *     Expected output data when fault half way through the vector (512-bit vl),
+         *     Data size (used to set the base ptr),
+         *     Offset in bytes (#imm * vl_bytes) / (element_size / data_size)
+         * },
+         */
+        // LDNF1B instructions
+        {
+            "ldnf1b scalar+immediate 8bit element",
+            TEST_FUNC("ldnf1b z28.b, p3/z, [%[base], #-6, mul vl]"),
+            { /*zt=*/28, /*pg=*/3 },
+            std::array<std::array<uint8_t, 16>, 1> { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05,
+                                                     0x06, 0x07, 0x08, 0x09, 0x10, 0x11,
+                                                     0x12, 0x13, 0x14, 0x15 },
+            std::array<std::array<uint8_t, 32>, 1> {
+                0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x10,
+                0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21,
+                0x22, 0x23, 0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1 },
+            std::array<std::array<uint8_t, 64>, 1> {
+                0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x10,
+                0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21,
+                0x22, 0x23, 0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1, 0x00,
+                0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x10, 0x11,
+                0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21, 0x22,
+                0x23, 0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1 },
+
+            std::array<uint8_t, 16> { 0xf1, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+                                      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
+            std::array<uint8_t, 32> { 0xf2, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+                                      0xf1, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+                                      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
+            std::array<uint8_t, 64> {
+                0xf4, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xf3, 0xff, 0xff,
+                0xff, 0xff, 0xff, 0xff, 0xff, 0xf2, 0xff, 0xff, 0xff, 0xff, 0xff,
+                0xff, 0xff, 0xf1, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
+            element_size_t::BYTE,
+            /*offset=*/-6 * vl_bytes,
+        },
+        {
+            "ldnf1b scalar+immediate 16bit element",
+            TEST_FUNC("ldnf1b z31.h, p0/z, [%[base], #-5, mul vl]"),
+            { /*zt=*/31, /*pg=*/0 },
+            std::array<std::array<uint16_t, 8>, 1> { 0x00f8, 0x00f7, 0x00f6, 0x00f5,
+                                                     0x00f4, 0x00f3, 0x00f2, 0x00f1 },
+            std::array<std::array<uint16_t, 16>, 1> {
+                0x0016, 0x0017, 0x0018, 0x0019, 0x0020, 0x0021, 0x0022, 0x0023, 0x00f8,
+                0x00f7, 0x00f6, 0x00f5, 0x00f4, 0x00f3, 0x00f2, 0x00f1 },
+            std::array<std::array<uint16_t, 32>, 1> {
+                0x0000, 0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006, 0x0007,
+                0x0008, 0x0009, 0x0010, 0x0011, 0x0012, 0x0013, 0x0014, 0x0015,
+                0x0016, 0x0017, 0x0018, 0x0019, 0x0020, 0x0021, 0x0022, 0x0023,
+                0x00f8, 0x00f7, 0x00f6, 0x00f5, 0x00f4, 0x00f3, 0x00f2, 0x00f1 },
+            std::array<uint16_t, 8> { 0x00ff, 0x00ff, 0x00ff, 0x00ff, 0x0000, 0x0000,
+                                      0x0000, 0x0000 },
+            std::array<uint16_t, 16> { 0x00f1, 0x00ff, 0x00ff, 0x00ff, 0x00ff, 0x00ff,
+                                       0x00ff, 0x00ff, 0x000, 0x0000, 0x0000, 0x0000,
+                                       0x0000, 0x0000, 0x0000, 0x0000 },
+            std::array<uint16_t, 32> {
+                0x00f2, 0x00ff, 0x00ff, 0x00ff, 0x00ff, 0x00ff, 0x00ff, 0x00ff,
+                0x00f1, 0x00ff, 0x00ff, 0x00ff, 0x00ff, 0x00ff, 0x00ff, 0x00ff,
+                0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
+                0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000 },
+            element_size_t::BYTE,
+            /*offset=*/(-5 * vl_bytes) / 2,
+        },
+        {
+            "ldnf1b scalar+immediate 32bit element",
+            TEST_FUNC("ldnf1b z2.s, p3/z, [%[base], #-4, mul vl]"),
+            { /*zt=*/2, /*pg=*/3 },
+            std::array<std::array<uint32_t, 4>, 1> { 0x00000016, 0x00000017, 0x00000018,
+                                                     0x00000019 },
+            std::array<std::array<uint32_t, 8>, 1> { 0x00000000, 0x00000001, 0x00000002,
+                                                     0x00000003, 0x00000004, 0x00000005,
+                                                     0x00000006, 0x00000007 },
+            std::array<std::array<uint32_t, 16>, 1> {
+                0x00000000, 0x00000001, 0x00000002, 0x00000003, 0x00000004, 0x00000005,
+                0x00000006, 0x00000007, 0x00000008, 0x00000009, 0x00000010, 0x00000011,
+                0x00000012, 0x00000013, 0x00000014, 0x00000015 },
+            std::array<uint32_t, 4> { 0x000000ff, 0x000000ff, 0x00000000, 0x00000000 },
+            std::array<uint32_t, 8> { 0x000000ff, 0x000000ff, 0x000000ff, 0x000000ff,
+                                      0x00000000, 0x00000000, 0x00000000, 0x00000000 },
+            std::array<uint32_t, 16> { 0x000000f1, 0x000000ff, 0x000000ff, 0x000000ff,
+                                       0x000000ff, 0x000000ff, 0x000000ff, 0x000000ff,
+                                       0x00000000, 0x00000000, 0x00000000, 0x00000000,
+                                       0x00000000, 0x00000000, 0x00000000, 0x00000000 },
+            element_size_t::BYTE,
+            /*offset=*/(-4 * vl_bytes) / 4,
+        },
+        {
+            "ldnf1b scalar+immediate 64bit element",
+            TEST_FUNC("ldnf1b z5.d, p6/z, [%[base], #-3, mul vl]"),
+            { /*zt=*/5, /*pg=*/6 },
+            std::array<std::array<uint64_t, 2>, 1> { 0x00000000000000f6,
+                                                     0x00000000000000f5 },
+            std::array<std::array<uint64_t, 4>, 1> {
+                0x0000000000000020, 0x0000000000000021, 0x0000000000000022,
+                0x0000000000000023 },
+            std::array<std::array<uint64_t, 8>, 1> {
+                0x0000000000000008, 0x0000000000000009, 0x0000000000000010,
+                0x0000000000000011, 0x0000000000000012, 0x0000000000000013,
+                0x0000000000000014, 0x0000000000000015 },
+            std::array<uint64_t, 2> { 0x00000000000000ff, 0x0000000000000000 },
+            std::array<uint64_t, 4> { 0x00000000000000ff, 0x00000000000000ff,
+                                      0x0000000000000000, 0x0000000000000000 },
+            std::array<uint64_t, 8> { 0x00000000000000ff, 0x00000000000000ff,
+                                      0x00000000000000ff, 0x00000000000000ff,
+                                      0x0000000000000000, 0x0000000000000000,
+                                      0x0000000000000000, 0x0000000000000000 },
+            element_size_t::BYTE,
+            /*offset=*/(-3 * vl_bytes) / 8,
+        },
+        // LDNF1SB instructions
+        {
+            "ldnf1sb scalar+immediate 16bit element",
+            TEST_FUNC("ldnf1sb z8.h, p5/z, [%[base], #-2, mul vl]"),
+            { /*zt=*/8, /*pg=*/5 },
+            std::array<std::array<int16_t, 8>, 1> { 0x0016, 0x0017, 0x0018, 0x0019,
+                                                    0x0020, 0x0021, 0x0022, 0x0023 },
+            std::array<std::array<int16_t, 16>, 1> {
+                0x0000, 0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006, 0x0007, 0x0008,
+                0x0009, 0x0010, 0x0011, 0x0012, 0x0013, 0x0014, 0x0015 },
+            std::array<std::array<int16_t, 32>, 1> {
+                0x0000, 0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006, 0x0007,
+                0x0008, 0x0009, 0x0010, 0x0011, 0x0012, 0x0013, 0x0014, 0x0015,
+                0x0016, 0x0017, 0x0018, 0x0019, 0x0020, 0x0021, 0x0022, 0x0023,
+                -8,     -9,     -10,    -11,    -12,    -13,    -14,    -15 },
+            std::array<int16_t, 8> { -1, -1, -1, -1, 0, 0, 0, 0 },
+            std::array<int16_t, 16> { -15, -1, -1, -1, -1, -1, -1, -1, 0, 0, 0, 0, 0, 0,
+                                      0, 0 },
+            std::array<int16_t, 32> { -14, -1, -1, -1, -1, -1, -1, -1, -15, -1, -1,
+                                      -1,  -1, -1, -1, -1, 0,  0,  0,  0,   0,  0,
+                                      0,   0,  0,  0,  0,  0,  0,  0,  0,   0 },
+            element_size_t::BYTE,
+            /*offset=*/(-2 * vl_bytes) / 2,
+        },
+        {
+            "ldnf1sb scalar+immediate 32bit element",
+            TEST_FUNC("ldnf1sb z11.s, p2/z, [%[base], #-1, mul vl]"),
+            { /*zt=*/11, /*pg=*/2 },
+            std::array<std::array<int32_t, 4>, 1> { -12, -13, -14, -15 },
+            std::array<std::array<int32_t, 8>, 1> { -8, -9, -10, -11, -12, -13, -14,
+                                                    -15 },
+            std::array<std::array<int32_t, 16>, 1> {
+                0x00000016, 0x00000017, 0x00000018, 0x00000019, 0x00000020, 0x00000021,
+                0x00000022, 0x00000023, -8, -9, -10, -11, -12, -13, -14, -15 },
+
+            std::array<int32_t, 4> { -1, -1, 0, 0 },
+            std::array<int32_t, 8> { -1, -1, -1, -1, 0, 0, 0, 0 },
+            std::array<int32_t, 16> { -15, -1, -1, -1, -1, -1, -1, -1, 0, 0, 0, 0, 0, 0,
+                                      0, 0 },
+            element_size_t::BYTE,
+            /*offset=*/(-1 * vl_bytes) / 4,
+        },
+        {
+            "ldnf1sb scalar+immediate 64bit element",
+            TEST_FUNC("ldnf1sb z14.d, p1/z, [%[base], #0, mul vl]"),
+            { /*zt=*/14, /*pg=*/1 },
+            std::array<std::array<int64_t, 2>, 1> { 0x0000000000000000,
+                                                    0x0000000000000001 },
+            std::array<std::array<int64_t, 4>, 1> {
+                0x0000000000000000, 0x0000000000000001, 0x0000000000000002,
+                0x0000000000000003 },
+            std::array<std::array<int64_t, 8>, 1> {
+                0x0000000000000000, 0x0000000000000001, 0x0000000000000002,
+                0x0000000000000003, 0x0000000000000004, 0x0000000000000005,
+                0x0000000000000006, 0x0000000000000007 },
+
+            std::array<int64_t, 2> { -1, 0 },
+            std::array<int64_t, 4> { -1, -1, 0, 0 },
+            std::array<int64_t, 8> { -1, -1, -1, -1, 0, 0, 0, 0 },
+            element_size_t::BYTE,
+            /*offset=*/(0 * vl_bytes) / 8,
+        },
+        // LDNF1H instructions
+        {
+            "ldnf1h scalar+immediate 16bit element",
+            TEST_FUNC("ldnf1h z17.h, p4/z, [%[base], #1, mul vl]"),
+            { /*zt=*/17, /*pg=*/4 },
+            std::array<std::array<uint16_t, 8>, 1> { 0x0008, 0x0009, 0x0010, 0x0011,
+                                                     0x0012, 0x0013, 0x0014, 0x0015 },
+            std::array<std::array<uint16_t, 16>, 1> {
+                0x0016, 0x0017, 0x0018, 0x0019, 0x0020, 0x0021, 0x0022, 0x0023, 0xfff8,
+                0xfff7, 0xfff6, 0xfff5, 0xfff4, 0xfff3, 0xfff2, 0xfff1 },
+            std::array<std::array<uint16_t, 32>, 1> {
+                0x0000, 0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006, 0x0007,
+                0x0008, 0x0009, 0x0010, 0x0011, 0x0012, 0x0013, 0x0014, 0x0015,
+                0x0016, 0x0017, 0x0018, 0x0019, 0x0020, 0x0021, 0x0022, 0x0023,
+                0xfff8, 0xfff7, 0xfff6, 0xfff5, 0xfff4, 0xfff3, 0xfff2, 0xfff1 },
+
+            std::array<uint16_t, 8> { 0xfff1, 0xffff, 0xffff, 0xffff, 0x0000, 0x0000,
+                                      0x0000, 0x0000 },
+            std::array<uint16_t, 16> { 0xfff2, 0xffff, 0xffff, 0xffff, 0xfff1, 0xffff,
+                                       0xffff, 0xffff, 0x0000, 0x0000, 0x0000, 0x0000,
+                                       0x0000, 0x0000, 0x0000, 0x0000 },
+            std::array<uint16_t, 32> {
+                0xfff4, 0xffff, 0xffff, 0xffff, 0xfff3, 0xffff, 0xffff, 0xffff,
+                0xfff2, 0xffff, 0xffff, 0xffff, 0xfff1, 0xffff, 0xffff, 0xffff,
+                0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
+                0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000 },
+            element_size_t::HALF,
+            /*offset=*/1 * vl_bytes,
+        },
+        {
+            "ldnf1h scalar+immediate 32bit element",
+            TEST_FUNC("ldnf1h z20.s, p7/z, [%[base], #2, mul vl]"),
+            { /*zt=*/20, /*pg=*/7 },
+            std::array<std::array<uint32_t, 4>, 1> { 0x00000008, 0x00000009, 0x00000010,
+                                                     0x00000011 },
+            std::array<std::array<uint32_t, 8>, 1> { 0x00000016, 0x00000017, 0x00000018,
+                                                     0x00000019, 0x00000020, 0x00000021,
+                                                     0x00000022, 0x00000023 },
+            std::array<std::array<uint32_t, 16>, 1> {
+                0x00000000, 0x00000001, 0x00000002, 0x00000003, 0x00000004, 0x00000005,
+                0x00000006, 0x00000007, 0x00000008, 0x00000009, 0x00000010, 0x00000011,
+                0x00000012, 0x00000013, 0x00000014, 0x00000015 },
+
+            std::array<uint32_t, 4> { 0x0000ffff, 0x0000ffff, 0x00000000, 0x00000000 },
+            std::array<uint32_t, 8> { 0x0000fff1, 0x0000ffff, 0x0000ffff, 0x0000ffff,
+                                      0x00000000, 0x00000000, 0x00000000, 0x00000000 },
+            std::array<uint32_t, 16> { 0x0000fff2, 0x0000ffff, 0x0000ffff, 0x0000ffff,
+                                       0x0000ffff, 0x0000ffff, 0x0000ffff, 0x0000ffff,
+                                       0x00000000, 0x00000000, 0x00000000, 0x00000000,
+                                       0x00000000, 0x00000000, 0x00000000, 0x00000000 },
+            element_size_t::HALF,
+            /*offset=*/(2 * vl_bytes) / 2,
+        },
+        {
+            "ldnf1h scalar+immediate 64bit element",
+            TEST_FUNC("ldnf1h z23.d, p4/z, [%[base], #3, mul vl]"),
+            { /*zt=*/23, /*pg=*/4 },
+            std::array<std::array<uint64_t, 2>, 1> { 0x0000000000000006,
+                                                     0x0000000000000007 },
+            std::array<std::array<uint64_t, 4>, 1> {
+                0x0000000000000012, 0x0000000000000013, 0x0000000000000014,
+                0x0000000000000015 },
+            std::array<std::array<uint64_t, 8>, 1> {
+                0x000000000000fff8, 0x000000000000fff7, 0x000000000000fff6,
+                0x000000000000fff5, 0x000000000000fff4, 0x000000000000fff3,
+                0x000000000000fff2, 0x000000000000fff1 },
+
+            std::array<uint64_t, 2> { 0x000000000000ffff, 0x0000000000000000 },
+            std::array<uint64_t, 4> { 0x000000000000ffff, 0x000000000000ffff,
+                                      0x0000000000000000, 0x0000000000000000 },
+            std::array<uint64_t, 8> { 0x000000000000fff1, 0x000000000000ffff,
+                                      0x000000000000ffff, 0x000000000000ffff,
+                                      0x0000000000000000, 0x0000000000000000,
+                                      0x0000000000000000, 0x0000000000000000 },
+            element_size_t::HALF,
+            /*offset=*/(3 * vl_bytes) / 4,
+        },
+        // LDNF1SH instructions
+        {
+            "ldnf1sh scalar+immediate 32bit element",
+            TEST_FUNC("ldnf1sh z26.s, p1/z, [%[base], #4, mul vl]"),
+            { /*zt=*/26, /*pg=*/1 },
+            std::array<std::array<int32_t, 4>, 1> { 0x00000016, 0x00000017, 0x00000018,
+                                                    0x00000019 },
+            std::array<std::array<int32_t, 8>, 1> { 0x00000000, 0x00000001, 0x00000002,
+                                                    0x00000003, 0x00000004, 0x00000005,
+                                                    0x00000006, 0x00000007 },
+            std::array<std::array<int32_t, 16>, 1> {
+                0x00000000, 0x00000001, 0x00000002, 0x00000003, 0x00000004, 0x00000005,
+                0x00000006, 0x00000007, 0x00000008, 0x00000009, 0x00000010, 0x00000011,
+                0x00000012, 0x00000013, 0x00000014, 0x00000015 },
+
+            std::array<int32_t, 4> { -1, -1, 0, 0 },
+            std::array<int32_t, 8> { -15, -1, -1, -1, 0, 0, 0, 0 },
+            std::array<int32_t, 16> { -14, -1, -1, -1, -15, -1, -1, -1, 0, 0, 0, 0, 0, 0,
+                                      0, 0 },
+            element_size_t::HALF,
+            /*offset=*/(4 * vl_bytes) / 2,
+        },
+        {
+            "ldnf1sh scalar+immediate 64bit element",
+            TEST_FUNC("ldnf1sh z29.d, p2/z, [%[base], #5, mul vl]"),
+            { /*zt=*/29, /*pg=*/2 },
+            std::array<std::array<int64_t, 2>, 1> { 0x0000000000000010,
+                                                    0x0000000000000011 },
+            std::array<std::array<int64_t, 4>, 1> {
+                0x0000000000000020, 0x0000000000000021, 0x0000000000000022,
+                0x0000000000000023 },
+            std::array<std::array<int64_t, 8>, 1> {
+                0x0000000000000008, 0x0000000000000009, 0x0000000000000010,
+                0x0000000000000011, 0x0000000000000012, 0x0000000000000013,
+                0x0000000000000014, 0x0000000000000015 },
+
+            std::array<int64_t, 2> { -1, 0 },
+            std::array<int64_t, 4> { -1, -1, 0, 0 },
+            std::array<int64_t, 8> { -15, -1, -1, -1, 0, 0, 0, 0 },
+            element_size_t::HALF,
+            /*offset=*/(5 * vl_bytes) / 4,
+        },
+        // LDNF1W instructions
+        {
+            "ldnf1w scalar+immediate 32bit element",
+            TEST_FUNC("ldnf1w z0.s, p5/z, [%[base], #6, mul vl]"),
+            { /*zt=*/0, /*pg=*/5 },
+            std::array<std::array<uint32_t, 4>, 1> { 0xfffffff8, 0xfffffff7, 0xfffffff6,
+                                                     0xfffffff5 },
+            std::array<std::array<uint32_t, 8>, 1> { 0x00000016, 0x00000017, 0x00000018,
+                                                     0x00000019, 0x00000020, 0x00000021,
+                                                     0x00000022, 0x00000023 },
+            std::array<std::array<uint32_t, 16>, 1> {
+                0x00000000, 0x00000001, 0x00000002, 0x00000003, 0x00000004, 0x00000005,
+                0x00000006, 0x00000007, 0x00000008, 0x00000009, 0x00000010, 0x00000011,
+                0x00000012, 0x00000013, 0x00000014, 0x00000015 },
+
+            std::array<uint32_t, 4> { 0xfffffff1, 0xffffffff, 0x00000000, 0x00000000 },
+            std::array<uint32_t, 8> { 0xfffffff2, 0xffffffff, 0xfffffff2, 0xffffffff,
+                                      0x00000000, 0x00000000, 0x00000000, 0x00000000 },
+            std::array<uint32_t, 16> { 0xfffffff4, 0xffffffff, 0xfffffff3, 0xffffffff,
+                                       0xfffffff2, 0xffffffff, 0xfffffff1, 0xffffffff,
+                                       0x00000000, 0x00000000, 0x00000000, 0x00000000,
+                                       0x00000000, 0x00000000, 0x00000000, 0x00000000 },
+            element_size_t::SINGLE,
+            /*offset=*/6 * vl_bytes,
+        },
+        {
+            "ldnf1w scalar+immediate 64bit element",
+            TEST_FUNC("ldnf1w z3.d, p6/z, [%[base], #-6, mul vl]"),
+            { /*zt=*/3, /*pg=*/6 },
+            std::array<std::array<uint64_t, 2>, 1> { 0x0000000000000020,
+                                                     0x0000000000000021 },
+            std::array<std::array<uint64_t, 4>, 1> {
+                0x0000000000000008, 0x0000000000000009, 0x0000000000000010,
+                0x0000000000000011 },
+            std::array<std::array<uint64_t, 8>, 1> {
+                0x0000000000000016, 0x0000000000000017, 0x0000000000000018,
+                0x0000000000000019, 0x0000000000000020, 0x0000000000000021,
+                0x0000000000000022, 0x0000000000000023 },
+
+            std::array<uint64_t, 2> { 0xffffffffffffffff, 0x0000000000000000 },
+            std::array<uint64_t, 4> { 0xfffffffffffffff1, 0xffffffffffffffff,
+                                      0x0000000000000000, 0x0000000000000000 },
+            std::array<uint64_t, 8> { 0xfffffffffffffff2, 0xffffffffffffffff,
+                                      0xfffffffffffffff1, 0xffffffffffffffff,
+                                      0x0000000000000000, 0x0000000000000000,
+                                      0x0000000000000000, 0x0000000000000000 },
+            element_size_t::SINGLE,
+            /*offset=*/(-6 * vl_bytes) / 2,
+        },
+        // LDNF1SW instructions
+        {
+            "ldnf1sw scalar+immediate 64bit element",
+            TEST_FUNC("ldnf1sw z6.d, p3/z, [%[base], #-5, mul vl]"),
+            { /*zt=*/6, /*pg=*/3 },
+            std::array<std::array<int64_t, 2>, 1> { 0x0000000000000022,
+                                                    0x0000000000000023 },
+            std::array<std::array<int64_t, 4>, 1> {
+                0x0000000000000012, 0x0000000000000013, 0x0000000000000014,
+                0x0000000000000015 },
+            std::array<std::array<int64_t, 8>, 1> { -8, -9, -10, -11, -12, -13, -14,
+                                                    -15 },
+
+            std::array<int64_t, 2> { -1, 0 },
+            std::array<int64_t, 4> { -15, -1, 0, 0 },
+            std::array<int64_t, 8> { -14, -1, -15, -1, 0, 0, 0, 0 },
+            element_size_t::SINGLE,
+            /*offset=*/(-5 * vl_bytes) / 2,
+        },
+        // LDNF1D instructions
+        {
+            "ldnf1d scalar+immediate 64bit element",
+            TEST_FUNC("ldnf1d z9.d, p0/z, [%[base], #-4, mul vl]"),
+            { /*zt=*/9, /*pg=*/0 },
+            std::array<std::array<uint64_t, 2>, 1> { 0xfffffffffffffff8,
+                                                     0xfffffffffffffff7 },
+            std::array<std::array<uint64_t, 4>, 1> {
+                0x0000000000000016, 0x0000000000000017, 0x0000000000000018,
+                0x0000000000000019 },
+            std::array<std::array<uint64_t, 8>, 1> {
+                0x0000000000000000, 0x0000000000000001, 0x0000000000000002,
+                0x0000000000000003, 0x0000000000000004, 0x0000000000000005,
+                0x0000000000000006, 0x0000000000000007 },
+
+            std::array<uint64_t, 2> { 0xfffffffffffffff1, 0x0000000000000000 },
+            std::array<uint64_t, 4> { 0xfffffffffffffff2, 0xfffffffffffffff1,
+                                      0x0000000000000000, 0x0000000000000000 },
+            std::array<uint64_t, 8> { 0xfffffffffffffff4, 0xfffffffffffffff3,
+                                      0xfffffffffffffff2, 0xfffffffffffffff1,
+                                      0x0000000000000000, 0x0000000000000000,
+                                      0x0000000000000000, 0x0000000000000000 },
+            element_size_t::DOUBLE,
+            /*offset=*/-4 * vl_bytes,
+        },
+    });
+#    undef TEST_FUNC
+}
+
 template <size_t NUM_ZT>
 struct scalar_plus_immediate_store_test_case_t
     : public test_case_base_t<test_ptrs_with_base_ptr_t> {
@@ -5727,7 +6310,7 @@ struct scalar_plus_immediate_store_test_case_t
 
     void
     check_output(predicate_reg_value128_t pred, const test_register_data_t &register_data,
-                 bool expected_fault) override
+                 bool expected_fault, size_t faulting_element) override
     {
         // Check that the values of the Z registers have been preserved.
         for (size_t i = 0; i < NUM_Z_REGS; i++) {
@@ -6308,7 +6891,7 @@ struct vector_plus_scalar_load_test_case_t
 
     void
     check_output(predicate_reg_value128_t pred, const test_register_data_t &register_data,
-                 bool expected_fault) override
+                 bool expected_fault, size_t faulting_element) override
     {
         if (!expected_fault) {
             const auto vl_bytes = get_vl_bytes();
@@ -6560,7 +7143,7 @@ struct vector_plus_scalar_store_test_case_t
 
     void
     check_output(predicate_reg_value128_t pred, const test_register_data_t &register_data,
-                 bool expected_fault) override
+                 bool expected_fault, size_t faulting_element) override
     {
         // Check that the values of the Z registers have been preserved.
         for (size_t i = 0; i < NUM_Z_REGS; i++) {
@@ -6731,6 +7314,8 @@ main(int argc, char **argv)
     if (test_st4_scalar_plus_scalar() == FAIL)
         status = FAIL;
     if (test_ld1_scalar_plus_immediate() == FAIL)
+        status = FAIL;
+    if (test_ldnf1_scalar_plus_immediate() == FAIL)
         status = FAIL;
     if (test_ld2_scalar_plus_immediate() == FAIL)
         status = FAIL;
