@@ -4607,18 +4607,15 @@ if (BUILD_CLIENTS)
   if (UNIX)
     if (X86)
       if (X64)
-         torunonly_drcacheoff(syscall-mmap-x86-x64 common.syscall-mmap
-                              "-record_replace_retaddr -record_syscall 9|6"
-                              "@-simulator_type@view" "")
+        torunonly_drcacheoff(syscall-mmap-x86-64 common.syscall-mmap
+                             "-record_syscall 9|6" "@-simulator_type@view" "")
       else ()
-         torunonly_drcacheoff(syscall-mmap-x86-x32 common.syscall-mmap
-                              "-record_replace_retaddr -record_syscall 192|6"
-                              "@-simulator_type@view" "")
+        torunonly_drcacheoff(syscall-mmap-x86-32 common.syscall-mmap
+                             "-record_syscall 192|6" "@-simulator_type@view" "")
       endif ()
     elseif (AARCH64)
-       torunonly_drcacheoff(syscall-mmap-aarch64 common.syscall-mmap
-                            "-record_replace_retaddr -record_syscall 90|6"
-                            "@-simulator_type@view" "")
+      torunonly_drcacheoff(syscall-mmap-aarch64 common.syscall-mmap
+                           "-record_syscall 222|6" "@-simulator_type@view" "")
     endif ()
   endif ()
 
