@@ -1360,9 +1360,6 @@ protected:
     stream_status_t
     pop_from_ready_queue(output_ordinal_t for_output, input_info_t *&new_input);
 
-    // sched_lock_ must be held by the caller.
-    void
-    print_ready_queue_stats();
     ///
     ///////////////////////////////////////////////////////////////////////////
 

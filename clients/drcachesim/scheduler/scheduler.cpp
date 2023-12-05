@@ -1582,20 +1582,6 @@ scheduler_tmpl_t<RecordType, ReaderType>::add_to_ready_queue(input_info_t *input
 }
 
 template <typename RecordType, typename ReaderType>
-void
-scheduler_tmpl_t<RecordType, ReaderType>::print_ready_queue_stats()
-{
-    // NOCHECK want a heartbeat w/ key stats to understand muppet:
-    // # non-eof inputs (== queue size)
-    // # blocked inputs
-    //
-    // schedule_stats: # blocking syscalls (identify from latency or from cxt sw?)
-    //   and then instructions per blocking syscall
-    //
-    // muppet too many cxt sw
-}
-
-template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue(
     output_ordinal_t for_output, input_info_t *&new_input)
