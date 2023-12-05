@@ -2135,10 +2135,11 @@ if (X86)
   set(control_flags "eflags")
 elseif (AARCHXX)
   set(control_flags "nzcv")
+elseif (RISCV64)
+  # XXX: RISC-V does not have control flags, so a dummy test is used.
+  set(control_flags "hello")
 endif ()
-if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
-  tobuild(common.${control_flags} common/${control_flags}.c)
-endif ()
+tobuild(common.${control_flags} common/${control_flags}.c)
 
 if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   tobuild(common.floatpc common/floatpc.c)
@@ -5910,10 +5911,9 @@ if (RISCV64)
     code_api|linux.infinite
     code_api|linux.longjmp
     code_api|linux.prctl
-    code_api|linux.sigaction_nosignals
     code_api|linux.signalfd
-    code_api|pthreads.pthreads
     code_api|pthreads.pthreads_exit
+    code_api|sample.bbbuf
     code_api|security-linux.trampoline
     no_code_api,no_intercept_all_signals|linux.sigaction
     PROPERTIES LABELS RUNS_ON_QEMU)
