@@ -1420,7 +1420,7 @@ raw2trace_t::read_syscall_template_file()
         if (entry.type == TRACE_TYPE_MARKER) {
             switch (entry.size) {
             case TRACE_MARKER_TYPE_SYSCALL:
-                last_syscall_num = entry.addr;
+                last_syscall_num = static_cast<int>(entry.addr);
                 first_entry_for_syscall = true;
                 continue;
             case TRACE_MARKER_TYPE_FILETYPE:
