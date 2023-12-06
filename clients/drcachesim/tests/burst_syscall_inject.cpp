@@ -56,8 +56,8 @@
 namespace dynamorio {
 namespace drmemtrace {
 
-#define PC_SYSCALL_GETPID 0xdeadbeef
-#define PC_SYSCALL_GETTID 0x8badf00d
+#define PC_SYSCALL_GETPID 0xdeadbe00
+#define PC_SYSCALL_GETTID 0x8badf000
 
 #define FATAL_ERROR(msg, ...)                               \
     do {                                                    \
