@@ -596,9 +596,9 @@ raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, int syscall_
     }
     trace_entry_t *buf_base = get_write_buffer(tdata);
     trace_entry_t *buf = buf_base;
-    trace_entry_t start_entry = { .type = TRACE_TYPE_MARKER,
-                                  .size = TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
-                                  .addr = static_cast<addr_t>(syscall_num) };
+    trace_entry_t start_entry = { TRACE_TYPE_MARKER,
+                                  TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
+                                  static_cast<addr_t>(syscall_num) };
     *buf = start_entry;
     ++buf;
     if (!write(tdata, buf_base, buf)) {
@@ -626,7 +626,7 @@ raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, int syscall_
             if (saved_decode_pc == nullptr) {
                 tdata->error =
                     "Missing encoding in system call trace template for app PC " +
-                    entry.addr;
+                    std::to_string(entry.addr);
                 return false;
             } else {
                 record_encoding_emitted(tdata, saved_decode_pc);
@@ -641,9 +641,8 @@ raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, int syscall_
         }
         buf = buf_base;
     }
-    trace_entry_t end_entry = { .type = TRACE_TYPE_MARKER,
-                                .size = TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
-                                .addr = static_cast<addr_t>(syscall_num) };
+    trace_entry_t end_entry = { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
+                                static_cast<addr_t>(syscall_num) };
     *buf = end_entry;
     ++buf;
     if (!write(tdata, buf_base, buf)) {
