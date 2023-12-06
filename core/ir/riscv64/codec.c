@@ -1159,7 +1159,8 @@ decode_iimm_0_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *ori
                    int idx, instr_t *out)
 {
     ASSERT(idx == 1);
-    opnd_t opnd = opnd_create_immed_int(0, op_sz);
+    opnd_t opnd =
+        opnd_add_flags(opnd_create_immed_int(0, op_sz), DR_OPND_IMM_PRINT_DECIMAL);
     instr_set_src(out, idx, opnd);
     return true;
 }

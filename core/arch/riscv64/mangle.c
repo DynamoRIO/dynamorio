@@ -86,8 +86,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     PRE(ilist, instr,
         INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_SP),
                           opnd_create_reg(DR_REG_SP),
-                          opnd_add_flags(opnd_create_immed_int(-max_offs, OPSZ_12b),
-                                         DR_OPND_IMM_PRINT_DECIMAL)));
+                          opnd_create_immed_int(-max_offs, OPSZ_12b)));
 
     /* Skip X0 slot. */
     dstack_offs += XSP_SZ;
@@ -98,12 +97,10 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
             continue;
 
         PRE(ilist, instr,
-            INSTR_CREATE_sd(
-                dcontext,
-                opnd_add_flags(opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
-                                                     dstack_offs + i * XSP_SZ, OPSZ_8),
-                               DR_OPND_IMM_PRINT_DECIMAL),
-                opnd_create_reg(DR_REG_START_GPR + i)));
+            INSTR_CREATE_sd(dcontext,
+                            opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
+                                                  dstack_offs + i * XSP_SZ, OPSZ_8),
+                            opnd_create_reg(DR_REG_START_GPR + i)));
     }
 
     dstack_offs += DR_NUM_GPR_REGS * XSP_SZ;
@@ -127,12 +124,10 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     /* Push FPRs. */
     for (int i = 0; i < DR_NUM_FPR_REGS; i++) {
         PRE(ilist, instr,
-            INSTR_CREATE_fsd(
-                dcontext,
-                opnd_add_flags(opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
-                                                     dstack_offs + i * XSP_SZ, OPSZ_8),
-                               DR_OPND_IMM_PRINT_DECIMAL),
-                opnd_create_reg(DR_REG_F0 + i)));
+            INSTR_CREATE_fsd(dcontext,
+                             opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
+                                                   dstack_offs + i * XSP_SZ, OPSZ_8),
+                             opnd_create_reg(DR_REG_F0 + i)));
     }
 
     dstack_offs += DR_NUM_FPR_REGS * XSP_SZ;
@@ -187,11 +182,9 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
     /* Pop FPRs. */
     for (int i = 0; i < DR_NUM_FPR_REGS; i++) {
         PRE(ilist, instr,
-            INSTR_CREATE_fld(
-                dcontext, opnd_create_reg(DR_REG_F0 + i),
-                opnd_add_flags(opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
-                                                     current_offs + i * XSP_SZ, OPSZ_8),
-                               DR_OPND_IMM_PRINT_DECIMAL)));
+            INSTR_CREATE_fld(dcontext, opnd_create_reg(DR_REG_F0 + i),
+                             opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
+                                                   current_offs + i * XSP_SZ, OPSZ_8)));
     }
 
     /* Skip pc field. */
@@ -205,11 +198,9 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
             continue;
 
         PRE(ilist, instr,
-            INSTR_CREATE_ld(
-                dcontext, opnd_create_reg(DR_REG_START_GPR + i),
-                opnd_add_flags(opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
-                                                     current_offs + i * XSP_SZ, OPSZ_8),
-                               DR_OPND_IMM_PRINT_DECIMAL)));
+            INSTR_CREATE_ld(dcontext, opnd_create_reg(DR_REG_START_GPR + i),
+                            opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
+                                                  current_offs + i * XSP_SZ, OPSZ_8)));
     }
 }
 
@@ -471,12 +462,10 @@ mangle_stolen_reg_and_tp_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
             if (opnd_is_reg(curop) && opnd_get_reg(curop) == DR_REG_TP)
                 instr_set_dst(instr, i, opnd_create_reg(scratch_reg));
             else if (opnd_is_base_disp(curop) && opnd_get_base(curop) == DR_REG_TP) {
-                instr_set_dst(
-                    instr, i,
-                    opnd_add_flags(opnd_create_base_disp(scratch_reg, DR_REG_NULL, 0,
-                                                         opnd_get_disp(curop),
-                                                         opnd_get_size(curop)),
-                                   DR_OPND_IMM_PRINT_DECIMAL));
+                instr_set_dst(instr, i,
+                              opnd_create_base_disp(scratch_reg, DR_REG_NULL, 0,
+                                                    opnd_get_disp(curop),
+                                                    opnd_get_size(curop)));
             }
         }
         for (i = 0; i < instr_num_srcs(instr); i++) {
@@ -484,12 +473,10 @@ mangle_stolen_reg_and_tp_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
             if (opnd_is_reg(curop) && opnd_get_reg(curop) == DR_REG_TP)
                 instr_set_src(instr, i, opnd_create_reg(scratch_reg));
             else if (opnd_is_base_disp(curop) && opnd_get_base(curop) == DR_REG_TP) {
-                instr_set_src(
-                    instr, i,
-                    opnd_add_flags(opnd_create_base_disp(scratch_reg, DR_REG_NULL, 0,
-                                                         opnd_get_disp(curop),
-                                                         opnd_get_size(curop)),
-                                   DR_OPND_IMM_PRINT_DECIMAL));
+                instr_set_src(instr, i,
+                              opnd_create_base_disp(scratch_reg, DR_REG_NULL, 0,
+                                                    opnd_get_disp(curop),
+                                                    opnd_get_size(curop)));
             }
         }
         instr_set_translation(instr, instrlist_get_translation_target(ilist));
@@ -517,12 +504,10 @@ mangle_stolen_reg_and_tp_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
             if (opnd_is_reg(curop) && opnd_get_reg(curop) == dr_reg_stolen)
                 instr_set_dst(instr, i, opnd_create_reg(scratch_reg));
             else if (opnd_is_base_disp(curop) && opnd_get_base(curop) == dr_reg_stolen) {
-                instr_set_dst(
-                    instr, i,
-                    opnd_add_flags(opnd_create_base_disp(scratch_reg, DR_REG_NULL, 0,
-                                                         opnd_get_disp(curop),
-                                                         opnd_get_size(curop)),
-                                   DR_OPND_IMM_PRINT_DECIMAL));
+                instr_set_dst(instr, i,
+                              opnd_create_base_disp(scratch_reg, DR_REG_NULL, 0,
+                                                    opnd_get_disp(curop),
+                                                    opnd_get_size(curop)));
             }
         }
         for (i = 0; i < instr_num_srcs(instr); i++) {
@@ -530,12 +515,10 @@ mangle_stolen_reg_and_tp_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
             if (opnd_is_reg(curop) && opnd_get_reg(curop) == dr_reg_stolen)
                 instr_set_src(instr, i, opnd_create_reg(scratch_reg));
             else if (opnd_is_base_disp(curop) && opnd_get_base(curop) == dr_reg_stolen) {
-                instr_set_src(
-                    instr, i,
-                    opnd_add_flags(opnd_create_base_disp(scratch_reg, DR_REG_NULL, 0,
-                                                         opnd_get_disp(curop),
-                                                         opnd_get_size(curop)),
-                                   DR_OPND_IMM_PRINT_DECIMAL));
+                instr_set_src(instr, i,
+                              opnd_create_base_disp(scratch_reg, DR_REG_NULL, 0,
+                                                    opnd_get_disp(curop),
+                                                    opnd_get_size(curop)));
             }
         }
         instr_set_translation(instr, instrlist_get_translation_target(ilist));
@@ -749,10 +732,8 @@ mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     instr_set_opcode(instr, opcode);
     instr_set_num_opnds(dcontext, instr, 1, 1);
     instr_set_dst(instr, 0, dst);
-    instr_set_src(
-        instr, 0,
-        opnd_add_flags(opnd_create_base_disp(opnd_get_reg(src0), DR_REG_NULL, 0, 0, opsz),
-                       DR_OPND_IMM_PRINT_DECIMAL));
+    instr_set_src(instr, 0,
+                  opnd_create_base_disp(opnd_get_reg(src0), DR_REG_NULL, 0, 0, opsz));
     instr_set_translation(instr, instrlist_get_translation_target(ilist));
 
     /* Keep the acquire semantics if needed. */
@@ -773,9 +754,7 @@ mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     PRE(ilist, next_instr,
         XINST_CREATE_load_int(
             dcontext, opnd_create_reg(scratch_reg1),
-            opnd_add_flags(
-                opnd_create_immed_int(opnd_get_size(instr_get_src(instr, 0)), OPSZ_12b),
-                DR_OPND_IMM_PRINT_DECIMAL)));
+            opnd_create_immed_int(opnd_get_size(instr_get_src(instr, 0)), OPSZ_12b)));
     PRE(ilist, next_instr,
         instr_create_save_to_tls(dcontext, scratch_reg1, TLS_LRSC_SIZE_SLOT));
 
@@ -830,8 +809,7 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         instr_create_restore_from_tls(dcontext, scratch_reg1, TLS_LRSC_SIZE_SLOT));
     PRE(ilist, instr,
         XINST_CREATE_load_int(dcontext, opnd_create_reg(scratch_reg2),
-                              opnd_add_flags(opnd_create_immed_int(opsz, OPSZ_12b),
-                                             DR_OPND_IMM_PRINT_DECIMAL)));
+                              opnd_create_immed_int(opsz, OPSZ_12b)));
     PRE(ilist, instr,
         INSTR_CREATE_bne(dcontext, opnd_create_instr(fail), opnd_create_reg(scratch_reg1),
                          opnd_create_reg(scratch_reg2)));
@@ -863,9 +841,7 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     /* Write a non-zero value to dst on fail. */
     PRE(ilist, next_instr, fail);
     PRE(ilist, next_instr,
-        XINST_CREATE_load_int(dcontext, dst,
-                              opnd_add_flags(opnd_create_immed_int(1, OPSZ_12b),
-                                             DR_OPND_IMM_PRINT_DECIMAL)));
+        XINST_CREATE_load_int(dcontext, dst, opnd_create_immed_int(1, OPSZ_12b)));
 
     PRE(ilist, next_instr, final);
 
@@ -874,8 +850,7 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      */
     PRE(ilist, next_instr,
         XINST_CREATE_load_int(dcontext, opnd_create_reg(scratch_reg1),
-                              opnd_add_flags(opnd_create_immed_int(-1, OPSZ_12b),
-                                             DR_OPND_IMM_PRINT_DECIMAL)));
+                              opnd_create_immed_int(-1, OPSZ_12b)));
     PRE(ilist, next_instr,
         instr_create_save_to_tls(dcontext, scratch_reg1, TLS_LRSC_ADDR_SLOT));
 
