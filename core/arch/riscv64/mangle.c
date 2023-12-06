@@ -88,8 +88,11 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                           opnd_create_reg(DR_REG_SP),
                           opnd_create_immed_int(-max_offs, OPSZ_12b)));
 
+    /* Skip X0 slot. */
+    dstack_offs += XSP_SZ;
+
     /* Push GPRs. */
-    for (int i = 1; i < DR_NUM_GPR_REGS; i++) {
+    for (int i = 0; i < DR_NUM_GPR_REGS; i++) {
         if (cci->reg_skip[i])
             continue;
 
@@ -97,7 +100,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
             INSTR_CREATE_sd(dcontext,
                             opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
                                                   dstack_offs + i * XSP_SZ, OPSZ_8),
-                            opnd_create_reg(DR_REG_ZERO + i)));
+                            opnd_create_reg(DR_REG_START_GPR + i)));
     }
 
     dstack_offs += DR_NUM_GPR_REGS * XSP_SZ;
@@ -190,12 +193,12 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
     current_offs -= DR_NUM_GPR_REGS * XSP_SZ;
 
     /* Pop GPRs. */
-    for (int i = 1; i < DR_NUM_GPR_REGS; i++) {
+    for (int i = 0; i < DR_NUM_GPR_REGS; i++) {
         if (cci->reg_skip[i])
             continue;
 
         PRE(ilist, instr,
-            INSTR_CREATE_ld(dcontext, opnd_create_reg(DR_REG_X0 + i),
+            INSTR_CREATE_ld(dcontext, opnd_create_reg(DR_REG_START_GPR + i),
                             opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
                                                   current_offs + i * XSP_SZ, OPSZ_8)));
     }

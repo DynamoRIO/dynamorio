@@ -966,6 +966,10 @@
 #define INSTR_CREATE_xrstor32(dc, s)                                            \
     instr_create_0dst_3src((dc), OP_xrstor32, (s), opnd_create_reg(DR_REG_EDX), \
                            opnd_create_reg(DR_REG_EAX))
+#define INSTR_CREATE_xrstors32(dc, s)                                            \
+    instr_create_0dst_3src((dc), OP_xrstors32, (s), opnd_create_reg(DR_REG_EDX), \
+                           opnd_create_reg(DR_REG_EAX))
+
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
  * supplying any implicit operands.
@@ -975,6 +979,9 @@
  */
 #define INSTR_CREATE_xrstor64(dc, s)                                            \
     instr_create_0dst_3src((dc), OP_xrstor64, (s), opnd_create_reg(DR_REG_EDX), \
+                           opnd_create_reg(DR_REG_EAX))
+#define INSTR_CREATE_xrstors64(dc, s)                                            \
+    instr_create_0dst_3src((dc), OP_xrstors64, (s), opnd_create_reg(DR_REG_EDX), \
                            opnd_create_reg(DR_REG_EAX))
 /** @} */ /* end doxygen group */
 
@@ -3250,8 +3257,14 @@
 #define INSTR_CREATE_xsave32(dc, d)                                            \
     instr_create_1dst_2src((dc), OP_xsave32, (d), opnd_create_reg(DR_REG_EDX), \
                            opnd_create_reg(DR_REG_EAX))
+#define INSTR_CREATE_xsaves32(dc, d)                                            \
+    instr_create_1dst_2src((dc), OP_xsaves32, (d), opnd_create_reg(DR_REG_EDX), \
+                           opnd_create_reg(DR_REG_EAX))
 #define INSTR_CREATE_xsave64(dc, d)                                            \
     instr_create_1dst_2src((dc), OP_xsave64, (d), opnd_create_reg(DR_REG_EDX), \
+                           opnd_create_reg(DR_REG_EAX))
+#define INSTR_CREATE_xsaves64(dc, d)                                            \
+    instr_create_1dst_2src((dc), OP_xsaves64, (d), opnd_create_reg(DR_REG_EDX), \
                            opnd_create_reg(DR_REG_EAX))
 #define INSTR_CREATE_xsaveopt32(dc, d)                                            \
     instr_create_1dst_2src((dc), OP_xsaveopt32, (d), opnd_create_reg(DR_REG_EDX), \
