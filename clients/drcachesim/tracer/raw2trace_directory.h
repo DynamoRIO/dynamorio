@@ -61,6 +61,7 @@ public:
     raw2trace_directory_t(unsigned int verbosity = 0)
         : modfile_bytes_(nullptr)
         , encoding_file_(INVALID_FILE)
+        , syscall_template_file_(nullptr)
         , modfile_(INVALID_FILE)
         , indir_("")
         , outdir_("")
@@ -75,7 +76,8 @@ public:
     // is used by default.  Returns "" on success or an error message on failure.
     std::string
     initialize(const std::string &indir, const std::string &outdir,
-               const std::string &compress = DEFAULT_TRACE_COMPRESSION_TYPE);
+               const std::string &compress = DEFAULT_TRACE_COMPRESSION_TYPE,
+               const std::string &syscall_template_file = "");
     // Use this instead of initialize() to only fill in modfile_bytes, for
     // constructing a module_mapper_t.  Returns "" on success or an error message on
     // failure.
@@ -107,6 +109,7 @@ public:
     std::unordered_map<thread_id_t, std::istream *> in_kfiles_map_;
     std::string kcoredir_;
     std::string kallsymsdir_;
+    std::istream *syscall_template_file_;
 
 private:
     std::string
@@ -121,6 +124,8 @@ private:
     open_serial_schedule_file();
     std::string
     open_cpu_schedule_file();
+    std::string
+    open_syscall_template_file(const std::string &syscall_template_file);
 #ifdef BUILD_PT_POST_PROCESSOR
     std::string
     open_kthread_files();

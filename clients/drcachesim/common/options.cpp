@@ -874,5 +874,12 @@ droption_t<uint64_t>
                                   "A letter is printed every N instrs",
                                   "A letter is printed every N instrs or N waits");
 
+droption_t<std::string> op_syscall_template_file(
+    DROPTION_SCOPE_FRONTEND, "syscall_template_file", "",
+    "Path to the file that contains system call trace templates.",
+    "Path to the file that contains system call trace templates. "
+    "If set, system call traces will be injected from the file "
+    "into the resulting trace.");
+
 } // namespace drmemtrace
 } // namespace dynamorio

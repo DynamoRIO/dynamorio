@@ -828,6 +828,13 @@ public:
         input_entry_ = const_cast<trace_entry_t *>(entry);
         return process_input_entry() ? 1 : 0;
     }
+    unsigned char *
+    get_decode_pc(addr_t orig_pc)
+    {
+        if (encodings_.find(orig_pc) == encodings_.end())
+            return nullptr;
+        return encodings_[orig_pc].bits;
+    }
 
 private:
     bool saw_pid_ = false;
@@ -860,7 +867,8 @@ public:
         const std::string &alt_module_dir = "",
         uint64_t chunk_instr_count = 10 * 1000 * 1000,
         const std::unordered_map<thread_id_t, std::istream *> &kthread_files_map = {},
-        const std::string &kcore_path = "", const std::string &kallsyms_path = "");
+        const std::string &kcore_path = "", const std::string &kallsyms_path = "",
+        std::istream *syscall_template_file = nullptr);
     // If a nullptr dcontext_in was passed to the constructor, calls dr_standalone_exit().
     virtual ~raw2trace_t();
 
@@ -1236,6 +1244,21 @@ protected:
 
     bool
     open_new_chunk(raw2trace_thread_data_t *tdata);
+
+    /**
+     * Reads entries in the given system call template file. These will be added
+     * to the final trace at the locations of the corresponding system call number
+     * markers.
+     */
+    std::string
+    read_syscall_template_file();
+
+    /**
+     * Writes the system call template (if any was provided in the system call
+     * template file) to the output trace.
+     */
+    bool
+    write_syscall_template(raw2trace_thread_data_t *tdata, int syscall_num);
 
     /**
      * The pointer to the DR context.
@@ -1648,10 +1671,16 @@ private:
     offline_instru_t instru_offline_;
     const std::vector<module_t> *modvec_ptr_ = nullptr;
 
-    /* The following member variables are utilized for decoding kernel PT traces. */
+    // For decoding kernel PT traces.
     const std::unordered_map<thread_id_t, std::istream *> kthread_files_map_;
     const std::string kcore_path_;
     const std::string kallsyms_path_;
+
+    // For inserting system call traces from provided templates.
+    std::istream *syscall_template_file_;
+    std::unordered_map<int, std::vector<trace_entry_t>> syscall_trace_templates_;
+    memref_counter_t syscall_trace_template_encodings_;
+    offline_file_type_t syscall_template_file_type_ = OFFLINE_FILE_TYPE_DEFAULT;
 };
 
 } // namespace drmemtrace

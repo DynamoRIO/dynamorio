@@ -349,6 +349,25 @@ raw2trace_directory_t::open_kthread_files()
 #endif
 
 std::string
+raw2trace_directory_t::open_syscall_template_file(
+    const std::string &syscall_template_file)
+{
+    if (syscall_template_file.empty())
+        return "";
+    // XXX i#6495: Provide support for system call trace templates in zipfile format
+    // with each individual system call template in a separate component, which may be
+    // easier to inspect manually.
+    syscall_template_file_ =
+        new std::ifstream(syscall_template_file, std::ifstream::binary);
+    if (!((std::ifstream *)syscall_template_file_)->is_open()) {
+        delete syscall_template_file_;
+        return "Failed to open syscall template file " +
+            std::string(syscall_template_file);
+    }
+    return "";
+}
+
+std::string
 raw2trace_directory_t::open_serial_schedule_file()
 {
 #ifndef HAS_ZIP
@@ -476,7 +495,8 @@ raw2trace_directory_t::tracedir_from_rawdir(const std::string &rawdir_in)
 
 std::string
 raw2trace_directory_t::initialize(const std::string &indir, const std::string &outdir,
-                                  const std::string &compress)
+                                  const std::string &compress,
+                                  const std::string &syscall_template_file)
 {
     indir_ = indir;
     outdir_ = outdir;
@@ -564,6 +584,10 @@ raw2trace_directory_t::initialize(const std::string &indir, const std::string &o
     kernel_indir_ = "";
 #endif
 
+    err = open_syscall_template_file(syscall_template_file);
+    if (!err.empty())
+        return err;
+
     return open_thread_files();
 }
 
@@ -621,6 +645,8 @@ raw2trace_directory_t::~raw2trace_directory_t()
     for (auto kfi : in_kfiles_map_) {
         delete kfi.second;
     }
+    if (syscall_template_file_ != nullptr)
+        delete syscall_template_file_;
     dr_standalone_exit();
 }
 
