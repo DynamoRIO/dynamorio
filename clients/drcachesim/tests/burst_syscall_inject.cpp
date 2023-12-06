@@ -136,6 +136,7 @@ write_system_call_template(void *dr_context)
     instr_t *getpid_instr = XINST_CREATE_nop(dr_context);
     write_instr_entry(dr_context, writer, getpid_instr,
                       reinterpret_cast<app_pc>(PC_SYSCALL_GETPID));
+    instr_destroy(dr_context, getpid_instr);
 
     // Write the trace template for SYS_gettid.
     trace_entry_t gettid_marker = { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL,
@@ -144,6 +145,7 @@ write_system_call_template(void *dr_context)
     instr_t *gettid_instr = XINST_CREATE_return(dr_context);
     write_instr_entry(dr_context, writer, gettid_instr,
                       reinterpret_cast<app_pc>(PC_SYSCALL_GETTID));
+    instr_destroy(dr_context, gettid_instr);
 
     trace_entry_t footer = { TRACE_TYPE_THREAD_EXIT, 0, { 1 } };
     write_trace_entry(writer, footer);
@@ -228,7 +230,8 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
     sched_inputs.emplace_back(trace_dir);
     if (scheduler.init(sched_inputs, 1, scheduler_t::make_scheduler_serial_options()) !=
         scheduler_t::STATUS_SUCCESS) {
-        FATAL_ERROR("Failed to initialize scheduler: %s\n", scheduler.get_error_string());
+        FATAL_ERROR("Failed to initialize scheduler: %s\n",
+                    scheduler.get_error_string().c_str());
     }
     auto *stream = scheduler.get_stream(0);
     memref_t memref;

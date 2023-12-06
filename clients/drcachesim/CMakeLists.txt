@@ -1021,16 +1021,13 @@ if (BUILD_TESTS)
       use_DynamoRIO_static_client(tool.drcacheoff.burst_maps drmemtrace_static)
       target_link_libraries(tool.drcacheoff.burst_maps test_helpers)
       add_win32_flags(tool.drcacheoff.burst_maps)
-
+    endif ()
+    if (UNIX)
       add_executable(tool.drcacheoff.burst_syscall_inject tests/burst_syscall_inject.cpp)
       configure_DynamoRIO_static(tool.drcacheoff.burst_syscall_inject)
       use_DynamoRIO_static_client(tool.drcacheoff.burst_syscall_inject drmemtrace_static)
       target_link_libraries(tool.drcacheoff.burst_syscall_inject drmemtrace_raw2trace
           drmemtrace_analyzer test_helpers drmemtrace_basic_counts)
-      if (WIN32)
-        # Just like for burst_replace + burst_futex, linking together takes effort.
-        target_link_libraries(tool.drcacheoff.burst_syscall_inject ${static_libc})
-      endif ()
       add_win32_flags(tool.drcacheoff.burst_syscall_inject)
       use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_syscall_inject)
     endif ()

@@ -1254,8 +1254,8 @@ protected:
     read_syscall_template_file();
 
     /**
-     * Writes the system call template (if any was provided in the system call
-     * template file) to the output trace.
+     * Writes the system call template to the output trace, if any was provided in
+     * the system call template file for the given syscall_num.
      */
     bool
     write_syscall_template(raw2trace_thread_data_t *tdata, int syscall_num);

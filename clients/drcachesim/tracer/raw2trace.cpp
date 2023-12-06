@@ -598,7 +598,7 @@ raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, int syscall_
     trace_entry_t *buf = buf_base;
     trace_entry_t start_entry = { TRACE_TYPE_MARKER,
                                   TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
-                                  static_cast<addr_t>(syscall_num) };
+                                  { static_cast<addr_t>(syscall_num) } };
     *buf = start_entry;
     ++buf;
     if (!write(tdata, buf_base, buf)) {
@@ -641,8 +641,9 @@ raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, int syscall_
         }
         buf = buf_base;
     }
-    trace_entry_t end_entry = { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
-                                static_cast<addr_t>(syscall_num) };
+    trace_entry_t end_entry = { TRACE_TYPE_MARKER,
+                                TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
+                                { static_cast<addr_t>(syscall_num) } };
     *buf = end_entry;
     ++buf;
     if (!write(tdata, buf_base, buf)) {
@@ -728,7 +729,7 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                         return false;
                     }
                     buf = reinterpret_cast<byte *>(buf_base);
-                    if (!write_syscall_template(tdata, marker_val))
+                    if (!write_syscall_template(tdata, static_cast<int>(marker_val)))
                         return false;
                 }
             }
@@ -1421,7 +1422,7 @@ raw2trace_t::read_syscall_template_file()
             case TRACE_MARKER_TYPE_SYSCALL:
                 last_syscall_num = entry.addr;
                 first_entry_for_syscall = true;
-                break;
+                continue;
             case TRACE_MARKER_TYPE_FILETYPE:
                 // We cannot at this point verify that the trace being post-processed is
                 // of the same arch. We do that later in write_syscall_template.
@@ -1434,13 +1435,14 @@ raw2trace_t::read_syscall_template_file()
                     return "System call trace templates without encodings are not "
                            "supported.";
                 }
+                continue;
             }
-            continue;
         }
         if (entry.type == TRACE_TYPE_THREAD_EXIT)
             continue;
         if (last_syscall_num == -1)
             continue;
+        // We expect atmost one template per system call for now.
         DR_ASSERT(!first_entry_for_syscall ||
                   syscall_trace_templates_[last_syscall_num].empty());
         syscall_trace_templates_[last_syscall_num].push_back(entry);
