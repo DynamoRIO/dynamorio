@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Arm Limited. All rights reserved.
+ * Copyright (c) 2023-2024 Arm Limited. All rights reserved.
  * **********************************************************/
 
 /*
@@ -225,6 +225,256 @@ print_scalar(uint64_t value)
     print("0x%016" PRIx64, value);
 }
 
+class test_memory_t {
+public:
+    static const size_t CHUNK_SIZE = 64 * 1024;
+    static const size_t DATA_SIZE = 3 * CHUNK_SIZE;
+    static const size_t REGION_SIZE = 16 * 1024;
+
+    test_memory_t()
+        : data(mmap(nullptr, DATA_SIZE, PROT_READ | PROT_WRITE,
+                    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0))
+    {
+        assert(DATA_SIZE % sysconf(_SC_PAGE_SIZE) == 0);
+        reset();
+
+        // Change the permissions of chunks 0 and 2 so that any accesses to them will
+        // fault.
+        mmap(chunk_start_addr(0), CHUNK_SIZE, PROT_NONE,
+             MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+        mmap(chunk_start_addr(2), CHUNK_SIZE, PROT_NONE,
+             MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+    }
+
+    ~test_memory_t()
+    {
+        munmap(data, DATA_SIZE);
+    }
+
+    void
+    reset()
+    {
+        static constexpr uint8_t POISON_VALUE = 0xAB;
+        memset(chunk_start_addr(1), POISON_VALUE, CHUNK_SIZE);
+    }
+
+    const void *
+    chunk_start_addr(size_t chunk_offset) const
+    {
+        return &static_cast<char *>(data)[CHUNK_SIZE * chunk_offset];
+    }
+
+    void *
+    chunk_start_addr(size_t chunk_offset)
+    {
+        return &static_cast<char *>(data)[CHUNK_SIZE * chunk_offset];
+    }
+
+    const char *
+    region_start_addr(size_t region_offset) const
+    {
+        const auto byte_offset = CHUNK_SIZE + (REGION_SIZE * region_offset);
+        return &static_cast<char *>(data)[byte_offset];
+    }
+
+    char *
+    region_start_addr(size_t region_offset)
+    {
+        const auto byte_offset = CHUNK_SIZE + (REGION_SIZE * region_offset);
+        return &static_cast<char *>(data)[byte_offset];
+    }
+
+protected:
+    void *data;
+};
+
+class input_data_t : public test_memory_t {
+public:
+    input_data_t()
+        : test_memory_t()
+    {
+        /*
+         * We set up 3 64KiB chunks of memory to use as input data for load instruction
+         * tests. The first and last chunks are set to fault when accessed, and the middle
+         * chunk contains input data of different sizes.
+         * +=====================================================+
+         * | Chunk  | Byte off | Region off |                    |
+         * +=====================================================+
+         * | 0      |  0x00000 |        n/a | All accesses fault |
+         * |        |          |            |                    |
+         * |        |          |            |                    |
+         * |        |          |            |                    |
+         * |        |          |            |                    |
+         * |        |          |            |                    |
+         * |        |          |            |                    |
+         * +--------+----------+------------+--------------------+
+         * | 1      |  0x10000 |          0 | 8-bit input data   |
+         * |        |----------+------------+--------------------+
+         * |        |  0x14000 |          1 | 16-bit input data  |
+         * |        |----------+------------+--------------------+
+         * |        |  0x18000 |          2 | 32-bit input data  |
+         * |        |----------+------------+--------------------+
+         * |        |  0x1C000 |          3 | 64-bit input data  |
+         * +--------+----------+------------+--------------------+
+         * | 2      |  0x20000 |        n/a | All accesses fault |
+         * |        |          |            |                    |
+         * |        |          |            |                    |
+         * |        |          |            |                    |
+         * |        |          |            |                    |
+         * |        |          |            |                    |
+         * |        |          |            |                    |
+         * +--------+----------+------------+--------------------+
+         */
+
+        write_input_data(0,
+                         std::array<uint8_t, 32> {
+                             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+                             0x08, 0x09, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15,
+                             0x16, 0x17, 0x18, 0x19, 0x20, 0x21, 0x22, 0x23,
+                             0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1,
+                         });
+        write_input_data(1,
+                         std::array<uint16_t, 32> {
+                             0x0000, 0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006,
+                             0x0007, 0x0008, 0x0009, 0x0010, 0x0011, 0x0012, 0x0013,
+                             0x0014, 0x0015, 0x0016, 0x0017, 0x0018, 0x0019, 0x0020,
+                             0x0021, 0x0022, 0x0023, 0xfff8, 0xfff7, 0xfff6, 0xfff5,
+                             0xfff4, 0xfff3, 0xfff2, 0xfff1,
+                         });
+        write_input_data(2,
+                         std::array<uint32_t, 32> {
+                             0x00000000, 0x00000001, 0x00000002, 0x00000003, 0x00000004,
+                             0x00000005, 0x00000006, 0x00000007, 0x00000008, 0x00000009,
+                             0x00000010, 0x00000011, 0x00000012, 0x00000013, 0x00000014,
+                             0x00000015, 0x00000016, 0x00000017, 0x00000018, 0x00000019,
+                             0x00000020, 0x00000021, 0x00000022, 0x00000023, 0xfffffff8,
+                             0xfffffff7, 0xfffffff6, 0xfffffff5, 0xfffffff4, 0xfffffff3,
+                             0xfffffff2, 0xfffffff1,
+                         });
+        write_input_data(3,
+                         std::array<uint64_t, 32> {
+                             0x0000000000000000, 0x0000000000000001, 0x0000000000000002,
+                             0x0000000000000003, 0x0000000000000004, 0x0000000000000005,
+                             0x0000000000000006, 0x0000000000000007, 0x0000000000000008,
+                             0x0000000000000009, 0x0000000000000010, 0x0000000000000011,
+                             0x0000000000000012, 0x0000000000000013, 0x0000000000000014,
+                             0x0000000000000015, 0x0000000000000016, 0x0000000000000017,
+                             0x0000000000000018, 0x0000000000000019, 0x0000000000000020,
+                             0x0000000000000021, 0x0000000000000022, 0x0000000000000023,
+                             0xfffffffffffffff8, 0xfffffffffffffff7, 0xfffffffffffffff6,
+                             0xfffffffffffffff5, 0xfffffffffffffff4, 0xfffffffffffffff3,
+                             0xfffffffffffffff2, 0xfffffffffffffff1,
+                         });
+    }
+
+    const void *
+    base_addr_for_data_size(element_size_t element_size) const
+    {
+        return &static_cast<char *>(data)[base_offset_for_data_size(element_size)];
+    }
+
+    void *
+    base_addr_for_data_size(element_size_t element_size)
+    {
+        return &static_cast<char *>(data)[base_offset_for_data_size(element_size)];
+    }
+
+    size_t
+    faulting_offset_for_data_size(element_size_t element_size) const
+    {
+        switch (element_size) {
+        case element_size_t::BYTE: return CHUNK_SIZE;
+        case element_size_t::HALF: return CHUNK_SIZE >> 1;
+        case element_size_t::SINGLE: return CHUNK_SIZE >> 2;
+        case element_size_t::DOUBLE: return CHUNK_SIZE >> 3;
+        }
+        assert(false && "unreachable");
+    }
+
+    void *
+    faulting_base_addr(ssize_t bytes_until_fault_occurs)
+    {
+        return &static_cast<char *>(data)[(2 * CHUNK_SIZE) - bytes_until_fault_occurs];
+    }
+
+private:
+    template <typename T, size_t N>
+    void
+    write_input_data(size_t offset, const std::array<T, N> &input_data)
+    {
+        // Repeat the supplied pattern through the selected region.
+        const auto data_size = input_data.size() * sizeof(T);
+        const auto num_repetitions = REGION_SIZE / data_size;
+        assert(REGION_SIZE % num_repetitions == 0);
+        for (size_t i = 0; i < num_repetitions; i++) {
+            memcpy(region_start_addr(offset) + (data_size * i), input_data.data(),
+                   data_size);
+        }
+    }
+
+    static size_t
+    base_offset_for_data_size(element_size_t element_size)
+    {
+        size_t offset = 0;
+        switch (element_size) {
+        case element_size_t::BYTE: offset = 0; break;
+        case element_size_t::HALF: offset = 1; break;
+        case element_size_t::SINGLE: offset = 2; break;
+        case element_size_t::DOUBLE: offset = 3; break;
+        }
+        // The base address is set to the middle of the region.
+        return CHUNK_SIZE + (REGION_SIZE * offset) + REGION_SIZE / 2;
+    }
+} INPUT_DATA;
+
+class output_data_t : public test_memory_t {
+public:
+    output_data_t()
+        : test_memory_t()
+    {
+        /*
+         * We set up 3 64KiB chunks of memory to use as output memory for store
+         * instruction tests. The first and last chunks are set to fault when accessed,
+         * and the middle chunk is used for tests to store values to.
+         * The tests use the midpoint (region 2, 0x1800 bytes) as the base pointer and
+         * tests have a +/-32KiB range to store to.
+         * +=====================================================+
+         * | Chunk  | Byte off | Region off |                    |
+         * +=====================================================+
+         * | 0      |  0x00000 |        n/a | All accesses fault |
+         * |        |          |            |                    |
+         * |        |          |            |                    |
+         * +--------+----------+------------+--------------------+
+         * | 1      |  0x10000 |          0 | -ve offset data    |
+         * |        |----------+------------+--------------------+
+         * |        |  0x18000 |          2 | +ve offset data    |
+         * +--------+----------+------------+--------------------+
+         * | 2      |  0x20000 |        n/a | All accesses fault |
+         * |        |          |            |                    |
+         * |        |          |            |                    |
+         * +--------+----------+------------+--------------------+
+         */
+    }
+
+    void *
+    base_addr()
+    {
+        return region_start_addr(2);
+    }
+
+    void *
+    faulting_base_addr()
+    {
+        return faulting_base_addr(0);
+    }
+
+    void *
+    faulting_base_addr(ssize_t bytes_until_fault_occurs)
+    {
+        return &static_cast<char *>(data)[(2 * CHUNK_SIZE) - bytes_until_fault_occurs];
+    }
+} OUTPUT_DATA;
+
 struct sve_register_file_t {
     std::vector<uint8_t> z;
     std::vector<uint8_t> p;
@@ -234,7 +484,7 @@ struct sve_register_file_t {
         const auto vl_bytes = get_vl_bytes();
         const auto pl_bytes = vl_bytes / 8;
         z.resize(NUM_Z_REGS * vl_bytes);
-        p.resize(NUM_P_REGS * pl_bytes);
+        p.resize((NUM_P_REGS + 1) * pl_bytes); // The extra entry is for FFR
     }
 
     scalable_reg_value_t
@@ -256,10 +506,23 @@ struct sve_register_file_t {
         }
     }
 
+    template <typename ELEMENT_T>
+    void
+    set_z_register_element(size_t reg_num, size_t element_num, ELEMENT_T value)
+    {
+        const auto vl_bytes = get_vl_bytes();
+        const auto reg_offset = vl_bytes * reg_num;
+        for (size_t i = 0; i < vl_bytes / TEST_VL_BYTES; i++) {
+            const auto offset =
+                reg_offset + (TEST_VL_BYTES * i) + (sizeof(ELEMENT_T) * element_num);
+            memcpy(&z[offset], &value, sizeof(ELEMENT_T));
+        }
+    }
+
     scalable_reg_value_t
     get_p_register_value(size_t reg_num) const
     {
-        assert(reg_num < NUM_P_REGS);
+        assert(reg_num < (NUM_P_REGS + 1));
         const auto pl_bytes = get_vl_bytes() / 8;
         return { &p[pl_bytes * reg_num], pl_bytes };
     }
@@ -267,6 +530,7 @@ struct sve_register_file_t {
     void
     set_p_register_value(size_t reg_num, predicate_reg_value128_t value)
     {
+        assert(reg_num < (NUM_P_REGS + 1));
         const auto pl_bytes = get_vl_bytes() / 8;
         const auto reg_offset = pl_bytes * reg_num;
         for (size_t i = 0; i < pl_bytes / sizeof(value); i++) {
@@ -274,12 +538,34 @@ struct sve_register_file_t {
             memcpy(&p[slice_offset], &value, sizeof(value));
         }
     }
+
+    scalable_reg_value_t
+    get_ffr_value() const
+    {
+        return get_p_register_value(NUM_P_REGS);
+    }
+
+    void
+    set_ffr_value(predicate_reg_value128_t value)
+    {
+        set_p_register_value(NUM_P_REGS, value);
+    }
 };
 
 struct test_register_data_t {
     sve_register_file_t before; // Values the registers will be set to before the test.
     sve_register_file_t after;  // Values of the registers after the test instruction.
 };
+
+static bool signal_handler_called;
+
+void
+signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
+{
+    signal_handler_called = true;
+    // Skip the faulting instruction
+    ucxt->uc_mcontext.pc += 4;
+}
 
 template <typename TEST_PTRS_T> struct test_case_base_t {
     std::string name_; // Unique name for this test printed when the test is run.
@@ -293,6 +579,12 @@ template <typename TEST_PTRS_T> struct test_case_base_t {
 
     test_result_t test_status_;
 
+    enum instruction_type_t {
+        SCATTER_GATHER_INSTRUCTION,
+        CONTIGUOUS_INSTRUCTION,
+    };
+    instruction_type_t instruction_type_;
+
     void
     test_failed()
     {
@@ -303,25 +595,30 @@ template <typename TEST_PTRS_T> struct test_case_base_t {
     }
 
     test_case_base_t(std::string name, test_func_t func, unsigned governing_p_reg,
-                     element_size_t element_size)
+                     element_size_t element_size, instruction_type_t instruction_type)
         : name_(std::move(name))
         , run_test_(std::move(func))
         , governing_p_reg_(governing_p_reg)
         , element_size_(element_size)
+        , instruction_type_(instruction_type)
     {
         assert(governing_p_reg_ < NUM_P_REGS);
     }
 
     // Set the values of the SVE registers before the test function is run.
-    virtual void
-    setup(sve_register_file_t &register_values) = 0;
-
-    virtual void
-    check_output(predicate_reg_value128_t pred,
-                 const test_register_data_t &register_data) = 0;
-
     virtual test_ptrs_t
-    create_test_ptrs(test_register_data_t &register_data) = 0;
+    setup(test_register_data_t &register_data, bool force_fault,
+          size_t faulting_element) = 0;
+
+    virtual void
+    check_output(predicate_reg_value128_t pred, const test_register_data_t &register_data,
+                 bool expected_fault) = 0;
+
+    virtual size_t
+    num_values_accessed() const
+    {
+        return get_vl_bytes() / static_cast<size_t>(element_size_);
+    }
 
     test_result_t
     run_test_case()
@@ -336,21 +633,84 @@ template <typename TEST_PTRS_T> struct test_case_base_t {
         for (size_t i = 0; i < NUM_P_REGS; i++) {
             register_data.before.set_p_register_value(i, UNINITIALIZED_PREDICATE);
         }
+        register_data.before.set_ffr_value(UNINITIALIZED_PREDICATE);
 
-        test_ptrs_t ptrs = create_test_ptrs(register_data);
+        const size_t num_elements_in_vec128 =
+            TEST_VL_BYTES / static_cast<size_t>(element_size_);
 
-        const size_t num_elements = TEST_VL_BYTES / static_cast<size_t>(element_size_);
-
-        const auto &predicates = ALL_PREDICATES.at(element_size_);
-        for (const auto &pred : predicates) {
-            /* TODO i#5036: Test faulting behavior. */
-
+        auto run_test = [&](predicate_reg_value128_t pred, bool force_fault,
+                            size_t faulting_element) {
             register_data.before.set_p_register_value(governing_p_reg_, pred);
-            setup(register_data.before);
+            test_ptrs_t ptrs = setup(register_data, force_fault, faulting_element);
+
+            signal_handler_called = false;
+            intercept_signal(SIGSEGV, &signal_handler, false);
 
             run_test_(ptrs);
 
-            check_output(pred, register_data);
+            signal(SIGSEGV, SIG_DFL); // Reinstate the default fault handler
+
+            bool expected_fault = false;
+            if (force_fault) {
+                switch (instruction_type_) {
+                case SCATTER_GATHER_INSTRUCTION:
+                    expected_fault =
+                        element_is_active(faulting_element, pred, element_size_);
+                    break;
+                case CONTIGUOUS_INSTRUCTION:
+                    // Contiguous instructions will fault if the faulting element or any
+                    // element above it is active.
+                    for (size_t i = faulting_element;
+                         i < num_values_accessed() && !expected_fault; i++) {
+                        const auto pred_element = i % num_elements_in_vec128;
+                        expected_fault =
+                            element_is_active(pred_element, pred, element_size_);
+                    }
+                    break;
+                }
+            }
+
+            if (!expected_fault && signal_handler_called) {
+                test_failed();
+                print("Unexpected fault\n");
+            } else if (expected_fault && !signal_handler_called) {
+                test_failed();
+                print("Expected fault but signal handler not called\n");
+            }
+
+            // Validate the output if:
+            //  - This is not a fault test (check the expanded instruction behaved
+            //                              correctly).
+            //  - This is a fault test and the instruction was expected to fault
+            //    (Check the scratch register state was correctly restored and none of
+            //     the registers are corrupted).
+            if (!force_fault || expected_fault) {
+                check_output(pred, register_data, expected_fault);
+            }
+        };
+
+        const auto &predicates = ALL_PREDICATES.at(element_size_);
+        const auto max_faulting_element =
+            TEST_VL_BYTES / static_cast<size_t>(element_size_);
+        for (const auto &pred : predicates) {
+            run_test(pred, /*force_fault=*/false, 0);
+
+            switch (instruction_type_) {
+            case SCATTER_GATHER_INSTRUCTION: {
+                for (size_t faulting_element = 0; faulting_element < max_faulting_element;
+                     faulting_element++) {
+                    run_test(pred, /*force_fault=*/true, faulting_element);
+                }
+                break;
+            }
+            case CONTIGUOUS_INSTRUCTION: {
+                run_test(pred, /*force_fault=*/true, /*element=*/0);
+                run_test(pred, /*force_fault=*/true,
+                         /*element=*/num_values_accessed() / 2);
+
+                break;
+            }
+            }
         }
         if (test_status_ == PASS)
             print("PASS\n");
@@ -382,6 +742,22 @@ template <typename TEST_PTRS_T> struct test_case_base_t {
         if (before != after) {
             test_failed();
             print("p%u has been corrupted:\n", reg_num);
+            print("before: ");
+            print_predicate(before);
+            print("\nafter:  ");
+            print_predicate(after);
+            print("\n");
+        }
+    }
+
+    void
+    check_ffr(const test_register_data_t &register_data)
+    {
+        const auto before = register_data.before.get_ffr_value();
+        const auto after = register_data.after.get_ffr_value();
+        if (before != after) {
+            test_failed();
+            print("ffr has been corrupted:\n");
             print("before: ");
             print_predicate(before);
             print("\nafter:  ");
@@ -566,27 +942,15 @@ struct scalar_plus_vector_test_case_base_t
                                         unsigned governing_p_reg,
                                         element_size_t element_size, void *base_ptr)
         : test_case_base_t<test_ptrs_t>(std::move(name), std::move(func), governing_p_reg,
-                                        element_size)
+                                        element_size, SCATTER_GATHER_INSTRUCTION)
         , base_ptr_(base_ptr)
     {
-    }
-
-    test_ptrs_t
-    create_test_ptrs(test_register_data_t &register_data) override
-    {
-        return {
-            base_ptr_,
-            register_data.before.z.data(),
-            register_data.before.p.data(),
-            register_data.after.z.data(),
-            register_data.after.p.data(),
-        };
     }
 };
 
 struct scalar_plus_vector_load_test_case_t : public scalar_plus_vector_test_case_base_t {
     vector_reg_value128_t reference_data_;
-    vector_reg_value128_t offset_data__;
+    vector_reg_value128_t offset_data_;
 
     struct registers_used_t {
         unsigned dest_z;
@@ -595,66 +959,100 @@ struct scalar_plus_vector_load_test_case_t : public scalar_plus_vector_test_case
     };
     registers_used_t registers_used_;
 
+    element_size_t data_size_;
+
     template <typename ELEMENT_T, typename OFFSET_T>
     scalar_plus_vector_load_test_case_t(
         std::string name, test_func_t func, registers_used_t registers_used,
         std::array<ELEMENT_T, TEST_VL_BYTES / sizeof(ELEMENT_T)> reference_data,
-        std::array<OFFSET_T, TEST_VL_BYTES / sizeof(OFFSET_T)> offsets, void *base_ptr)
+        std::array<OFFSET_T, TEST_VL_BYTES / sizeof(OFFSET_T)> offsets,
+        element_size_t data_size)
         : scalar_plus_vector_test_case_base_t(
               std::move(name), std::move(func), registers_used.governing_p,
-              static_cast<element_size_t>(sizeof(ELEMENT_T)), base_ptr)
+              static_cast<element_size_t>(sizeof(ELEMENT_T)),
+              INPUT_DATA.base_addr_for_data_size(data_size))
         , registers_used_(registers_used)
+        , data_size_(data_size)
     {
         std::memcpy(reference_data_.data(), reference_data.data(),
                     reference_data_.size());
-        std::memcpy(offset_data__.data(), offsets.data(), offset_data__.size());
+        std::memcpy(offset_data_.data(), offsets.data(), offset_data_.size());
     }
 
-    virtual void
-    setup(sve_register_file_t &register_values) override
+    virtual test_ptrs_t
+    setup(test_register_data_t &register_data, bool force_fault,
+          size_t faulting_element) override
     {
         // Set the value for the offset register.
-        register_values.set_z_register_value(registers_used_.index_z, offset_data__);
+        register_data.before.set_z_register_value(registers_used_.index_z, offset_data_);
+
+        if (force_fault) {
+            const size_t offset = INPUT_DATA.faulting_offset_for_data_size(data_size_);
+            switch (element_size_) {
+            case element_size_t::SINGLE:
+                register_data.before.set_z_register_element<uint32_t>(
+                    registers_used_.index_z, faulting_element, offset);
+                break;
+            case element_size_t::DOUBLE:
+                register_data.before.set_z_register_element<uint64_t>(
+                    registers_used_.index_z, faulting_element, offset);
+                break;
+            default:
+                assert(false &&
+                       "scalar+vector instruction should have single or double "
+                       "element size");
+            }
+        }
+
+        return {
+            base_ptr_,
+            register_data.before.z.data(),
+            register_data.before.p.data(),
+            register_data.after.z.data(),
+            register_data.after.p.data(),
+        };
     }
 
     void
-    check_output(predicate_reg_value128_t pred,
-                 const test_register_data_t &register_data) override
+    check_output(predicate_reg_value128_t pred, const test_register_data_t &register_data,
+                 bool expected_fault) override
     {
         const auto vl_bytes = get_vl_bytes();
 
-        std::vector<uint8_t> expected_output_data;
-        expected_output_data.resize(vl_bytes);
+        if (!expected_fault) {
+            std::vector<uint8_t> expected_output_data;
+            expected_output_data.resize(vl_bytes);
 
-        assert(reference_data_.size() == TEST_VL_BYTES);
-        for (size_t i = 0; i < vl_bytes / TEST_VL_BYTES; i++) {
-            memcpy(&expected_output_data[TEST_VL_BYTES * i], reference_data_.data(),
-                   TEST_VL_BYTES);
-        }
-        apply_predicate_mask(expected_output_data, pred, element_size_);
-        const scalable_reg_value_t expected_output {
-            expected_output_data.data(),
-            vl_bytes,
-        };
+            assert(reference_data_.size() == TEST_VL_BYTES);
+            for (size_t i = 0; i < vl_bytes / TEST_VL_BYTES; i++) {
+                memcpy(&expected_output_data[TEST_VL_BYTES * i], reference_data_.data(),
+                       TEST_VL_BYTES);
+            }
+            apply_predicate_mask(expected_output_data, pred, element_size_);
+            const scalable_reg_value_t expected_output {
+                expected_output_data.data(),
+                vl_bytes,
+            };
 
-        const auto output_value =
-            register_data.after.get_z_register_value(registers_used_.dest_z);
+            const auto output_value =
+                register_data.after.get_z_register_value(registers_used_.dest_z);
 
-        if (output_value != expected_output) {
-            test_failed();
-            print("predicate: ");
-            print_predicate(
-                register_data.before.get_p_register_value(registers_used_.governing_p));
-            print("\nexpected:  ");
-            print_vector(expected_output);
-            print("\nactual:    ");
-            print_vector(output_value);
-            print("\n");
+            if (output_value != expected_output) {
+                test_failed();
+                print("predicate: ");
+                print_predicate(register_data.before.get_p_register_value(
+                    registers_used_.governing_p));
+                print("\nexpected:  ");
+                print_vector(expected_output);
+                print("\nactual:    ");
+                print_vector(output_value);
+                print("\n");
+            }
         }
 
         // Check that the values of the other Z registers have been preserved.
         for (size_t i = 0; i < NUM_Z_REGS; i++) {
-            if (i == registers_used_.dest_z)
+            if (i == registers_used_.dest_z && !expected_fault)
                 continue;
             check_z_reg(i, register_data);
         }
@@ -662,6 +1060,7 @@ struct scalar_plus_vector_load_test_case_t : public scalar_plus_vector_test_case
         for (size_t i = 0; i < NUM_P_REGS; i++) {
             check_p_reg(i, register_data);
         }
+        check_ffr(register_data);
     }
 };
 
@@ -679,226 +1078,6 @@ run_tests(std::vector<TEST_CASE_T> tests)
 
     return overall_status;
 }
-
-class test_memory_t {
-public:
-    static const size_t CHUNK_SIZE = 64 * 1024;
-    static const size_t DATA_SIZE = 3 * CHUNK_SIZE;
-    static const size_t REGION_SIZE = 16 * 1024;
-
-    test_memory_t()
-        : data(mmap(nullptr, DATA_SIZE, PROT_READ | PROT_WRITE,
-                    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0))
-    {
-        assert(DATA_SIZE % sysconf(_SC_PAGE_SIZE) == 0);
-        reset();
-
-        // Change the permissions of chunks 0 and 2 so that any accesses to them will
-        // fault.
-        mmap(chunk_start_addr(0), CHUNK_SIZE, PROT_NONE,
-             MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
-        mmap(chunk_start_addr(2), CHUNK_SIZE, PROT_NONE,
-             MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
-    }
-
-    ~test_memory_t()
-    {
-        munmap(data, DATA_SIZE);
-    }
-
-    void
-    reset()
-    {
-        static constexpr uint8_t POISON_VALUE = 0xAB;
-        memset(chunk_start_addr(1), POISON_VALUE, CHUNK_SIZE);
-    }
-
-    const void *
-    chunk_start_addr(size_t chunk_offset) const
-    {
-        return &static_cast<char *>(data)[CHUNK_SIZE * chunk_offset];
-    }
-
-    void *
-    chunk_start_addr(size_t chunk_offset)
-    {
-        return &static_cast<char *>(data)[CHUNK_SIZE * chunk_offset];
-    }
-
-    const char *
-    region_start_addr(size_t region_offset) const
-    {
-        const auto byte_offset = CHUNK_SIZE + (REGION_SIZE * region_offset);
-        return &static_cast<char *>(data)[byte_offset];
-    }
-
-    char *
-    region_start_addr(size_t region_offset)
-    {
-        const auto byte_offset = CHUNK_SIZE + (REGION_SIZE * region_offset);
-        return &static_cast<char *>(data)[byte_offset];
-    }
-
-protected:
-    void *data;
-};
-
-class input_data_t : public test_memory_t {
-public:
-    input_data_t()
-        : test_memory_t()
-    {
-        /*
-         * We set up 3 64KiB chunks of memory to use as input data for load instruction
-         * tests. The first and last chunks are set to fault when accessed, and the middle
-         * chunk contains input data of different sizes.
-         * +=====================================================+
-         * | Chunk  | Byte off | Region off |                    |
-         * +=====================================================+
-         * | 0      |  0x00000 |        n/a | All accesses fault |
-         * |        |          |            |                    |
-         * |        |          |            |                    |
-         * |        |          |            |                    |
-         * |        |          |            |                    |
-         * |        |          |            |                    |
-         * |        |          |            |                    |
-         * +--------+----------+------------+--------------------+
-         * | 1      |  0x10000 |          0 | 8-bit input data   |
-         * |        |----------+------------+--------------------+
-         * |        |  0x14000 |          1 | 16-bit input data  |
-         * |        |----------+------------+--------------------+
-         * |        |  0x18000 |          2 | 32-bit input data  |
-         * |        |----------+------------+--------------------+
-         * |        |  0x1C000 |          3 | 64-bit input data  |
-         * +--------+----------+------------+--------------------+
-         * | 2      |  0x20000 |        n/a | All accesses fault |
-         * |        |          |            |                    |
-         * |        |          |            |                    |
-         * |        |          |            |                    |
-         * |        |          |            |                    |
-         * |        |          |            |                    |
-         * |        |          |            |                    |
-         * +--------+----------+------------+--------------------+
-         */
-
-        write_input_data(0,
-                         std::array<uint8_t, 32> {
-                             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-                             0x08, 0x09, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15,
-                             0x16, 0x17, 0x18, 0x19, 0x20, 0x21, 0x22, 0x23,
-                             0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1,
-                         });
-        write_input_data(1,
-                         std::array<uint16_t, 32> {
-                             0x0000, 0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006,
-                             0x0007, 0x0008, 0x0009, 0x0010, 0x0011, 0x0012, 0x0013,
-                             0x0014, 0x0015, 0x0016, 0x0017, 0x0018, 0x0019, 0x0020,
-                             0x0021, 0x0022, 0x0023, 0xfff8, 0xfff7, 0xfff6, 0xfff5,
-                             0xfff4, 0xfff3, 0xfff2, 0xfff1,
-                         });
-        write_input_data(2,
-                         std::array<uint32_t, 32> {
-                             0x00000000, 0x00000001, 0x00000002, 0x00000003, 0x00000004,
-                             0x00000005, 0x00000006, 0x00000007, 0x00000008, 0x00000009,
-                             0x00000010, 0x00000011, 0x00000012, 0x00000013, 0x00000014,
-                             0x00000015, 0x00000016, 0x00000017, 0x00000018, 0x00000019,
-                             0x00000020, 0x00000021, 0x00000022, 0x00000023, 0xfffffff8,
-                             0xfffffff7, 0xfffffff6, 0xfffffff5, 0xfffffff4, 0xfffffff3,
-                             0xfffffff2, 0xfffffff1,
-                         });
-        write_input_data(3,
-                         std::array<uint64_t, 32> {
-                             0x0000000000000000, 0x0000000000000001, 0x0000000000000002,
-                             0x0000000000000003, 0x0000000000000004, 0x0000000000000005,
-                             0x0000000000000006, 0x0000000000000007, 0x0000000000000008,
-                             0x0000000000000009, 0x0000000000000010, 0x0000000000000011,
-                             0x0000000000000012, 0x0000000000000013, 0x0000000000000014,
-                             0x0000000000000015, 0x0000000000000016, 0x0000000000000017,
-                             0x0000000000000018, 0x0000000000000019, 0x0000000000000020,
-                             0x0000000000000021, 0x0000000000000022, 0x0000000000000023,
-                             0xfffffffffffffff8, 0xfffffffffffffff7, 0xfffffffffffffff6,
-                             0xfffffffffffffff5, 0xfffffffffffffff4, 0xfffffffffffffff3,
-                             0xfffffffffffffff2, 0xfffffffffffffff1,
-                         });
-    }
-
-    const void *
-    base_addr_for_data_size(element_size_t element_size) const
-    {
-        return &static_cast<char *>(data)[base_offset_for_data_size(element_size)];
-    }
-
-    void *
-    base_addr_for_data_size(element_size_t element_size)
-    {
-        return &static_cast<char *>(data)[base_offset_for_data_size(element_size)];
-    }
-
-private:
-    template <typename T, size_t N>
-    void
-    write_input_data(size_t offset, const std::array<T, N> &input_data)
-    {
-        // Repeat the supplied pattern through the selected region.
-        const auto data_size = input_data.size() * sizeof(T);
-        const auto num_repetitions = REGION_SIZE / data_size;
-        assert(REGION_SIZE % num_repetitions == 0);
-        for (size_t i = 0; i < num_repetitions; i++) {
-            memcpy(region_start_addr(offset) + (data_size * i), input_data.data(),
-                   data_size);
-        }
-    }
-
-    static size_t
-    base_offset_for_data_size(element_size_t element_size)
-    {
-        size_t offset = 0;
-        switch (element_size) {
-        case element_size_t::BYTE: offset = 0; break;
-        case element_size_t::HALF: offset = 1; break;
-        case element_size_t::SINGLE: offset = 2; break;
-        case element_size_t::DOUBLE: offset = 3; break;
-        }
-        // The base address is set to the middle of the region.
-        return CHUNK_SIZE + (REGION_SIZE * offset) + REGION_SIZE / 2;
-    }
-} INPUT_DATA;
-
-class output_data_t : public test_memory_t {
-public:
-    output_data_t()
-        : test_memory_t()
-    {
-        /*
-         * We set up 3 64KiB chunks of memory to use as output memory for store
-         * instruction tests. The first and last chunks are set to fault when accessed,
-         * and the middle chunk is used for tests to store values to.
-         * The tests use the midpoint (region 2, 0x1800 bytes) as the base pointer and
-         * tests have a +/-32KiB range to store to.
-         * +=====================================================+
-         * | Chunk  | Byte off | Region off |                    |
-         * +=====================================================+
-         * | 0      |  0x00000 |        n/a | All accesses fault |
-         * |        |          |            |                    |
-         * |        |          |            |                    |
-         * +--------+----------+------------+--------------------+
-         * | 1      |  0x10000 |          0 | -ve offset data    |
-         * |        |----------+------------+--------------------+
-         * |        |  0x18000 |          2 | +ve offset data    |
-         * +--------+----------+------------+--------------------+
-         * | 2      |  0x20000 |        n/a | All accesses fault |
-         * |        |          |            |                    |
-         * |        |          |            |                    |
-         * +--------+----------+------------+--------------------+
-         */
-    }
-
-    void *
-    base_addr()
-    {
-        return region_start_addr(2);
-    }
-} OUTPUT_DATA;
 
 #if defined(__ARM_FEATURE_SVE)
 /*
@@ -971,6 +1150,16 @@ public:
 #    define SAVE_P_REGISTERS(base) SAVE_OR_RESTORE_P_REGISTERS(str, base)
 #    define RESTORE_P_REGISTERS(base) SAVE_OR_RESTORE_P_REGISTERS(ldr, base)
 
+// Clobbers p15 so it must come *after* P registers are saved
+#    define SAVE_FFR(base) \
+        "rdffr p15.b\n"    \
+        "str p15, [%[" #base "], #16 , mul vl]\n"
+
+// Clobbers p15 so it must come *before* P registers are restored
+#    define RESTORE_FFR(base)                     \
+        "ldr p15, [%[" #base "], #16 , mul vl]\n" \
+        "wrffr p15.b\n"
+
 // Handy short hand to list all Z registers in an asm {} statment clobber list.
 #    define ALL_Z_REGS                                                                   \
         "z0", "z1", "z2", "z3", "z4", "z5", "z6", "z7", "z8", "z9", "z10", "z11", "z12", \
@@ -987,18 +1176,20 @@ test_ld1_scalar_plus_vector()
 {
 #    define TEST_FUNC(ld_instruction)                                               \
         [](scalar_plus_vector_load_test_case_t::test_ptrs_t &ptrs) {                \
-            asm(/* clang-format off */                                                  \
+            asm(/* clang-format off */                                              \
+            RESTORE_FFR(p_restore_base)                                             \
             RESTORE_Z_REGISTERS(z_restore_base)                                     \
             RESTORE_P_REGISTERS(p_restore_base)                                     \
             ld_instruction "\n"                                                     \
             SAVE_Z_REGISTERS(z_save_base)                                           \
-            SAVE_P_REGISTERS(p_save_base) /* clang-format on */         \
+            SAVE_P_REGISTERS(p_save_base)                                           \
+            SAVE_FFR(p_save_base) /* clang-format on */                     \
                 :                                                                   \
                 : [base] "r"(ptrs.base), [z_restore_base] "r"(ptrs.z_restore_base), \
                   [z_save_base] "r"(ptrs.z_save_base),                              \
                   [p_restore_base] "r"(ptrs.p_restore_base),                        \
                   [p_save_base] "r"(ptrs.p_save_base)                               \
-                : ALL_Z_REGS, ALL_P_REGS, "memory");                                \
+                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");                         \
         }
 
     return run_tests<scalar_plus_vector_load_test_case_t>({
@@ -1018,7 +1209,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/0, /*pg=*/7, /*zm=*/31 },
             std::array<uint32_t, 4> { 0x00, 0x01, 0x07, 0x10 },
             std::array<uint32_t, 4> { 0, 1, 7, 10 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
         },
         {
             "ld1b scalar+vector 32bit unscaled offset sxtw",
@@ -1026,7 +1217,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/1, /*pg=*/6, /*zm=*/30 },
             std::array<uint32_t, 4> { 0x00, 0xF1, 0x18, 0xF5 },
             std::array<int32_t, 4> { 0, -1, 18, 27 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
         },
         {
             "ld1b scalar+vector 32bit unpacked unscaled offset uxtw",
@@ -1034,7 +1225,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/2, /*pg=*/5, /*zm=*/29 },
             std::array<uint64_t, 2> { 0x01, 0x22 },
             std::array<uint64_t, 2> { 1, 22 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
         },
         {
             "ld1b scalar+vector 32bit unpacked unscaled offset sxtw",
@@ -1042,7 +1233,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/3, /*pg=*/4, /*zm=*/28 },
             std::array<uint64_t, 2> { 0xF2, 0xF3 },
             std::array<int64_t, 2> { -2, 29 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
         },
         {
             "ld1b scalar+vector 64bit unscaled offset",
@@ -1050,7 +1241,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/4, /*pg=*/3, /*zm=*/27 },
             std::array<uint64_t, 2> { 0x09, 0xF4 },
             std::array<uint64_t, 2> { 9, 28 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
         },
         {
             "ld1b scalar+vector 64bit unscaled offset Zt==Zm",
@@ -1058,7 +1249,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/30, /*pg=*/3, /*zm=*/30 },
             std::array<uint64_t, 2> { 0x09, 0xF4 },
             std::array<uint64_t, 2> { 9, 28 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
         },
         // LD1SB instructions.
         {
@@ -1067,7 +1258,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/5, /*pg=*/2, /*zm=*/26 },
             std::array<int32_t, 4> { 0x00, -15, 0x23, -14 },
             std::array<uint32_t, 4> { 0, 31, 23, 30 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
         },
         {
             "ld1sb scalar+vector 32bit unscaled offset sxtw",
@@ -1075,7 +1266,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/6, /*pg=*/1, /*zm=*/25 },
             std::array<int32_t, 4> { 0x01, -15, 0x11, -8 },
             std::array<int32_t, 4> { 1, -1, 11, 24 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
         },
         {
             "ld1sb scalar+vector 32bit unpacked unscaled offset uxtw",
@@ -1083,7 +1274,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/7, /*pg=*/0, /*zm=*/24 },
             std::array<int64_t, 2> { 0x01, -15 },
             std::array<uint64_t, 2> { 1, 31 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
         },
         {
             "ld1sb scalar+vector 32bit unpacked unscaled offset sxtw",
@@ -1091,7 +1282,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/8, /*pg=*/1, /*zm=*/23 },
             std::array<int64_t, 2> { -14, -13 },
             std::array<int64_t, 2> { -2, 29 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
         },
         {
             "ld1sb scalar+vector 64bit unscaled offset",
@@ -1099,7 +1290,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/9, /*pg=*/2, /*zm=*/22 },
             std::array<int64_t, 2> { -15, 0x09 },
             std::array<uint64_t, 2> { 31, 9 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
         },
         {
             "ld1sb scalar+vector 64bit unscaled offset",
@@ -1107,7 +1298,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/17, /*pg=*/7, /*zm=*/17 },
             std::array<int64_t, 2> { -15, 0x09 },
             std::array<uint64_t, 2> { 31, 9 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
         },
         // LD1H instructions.
         {
@@ -1116,7 +1307,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/10, /*pg=*/3, /*zm=*/21 },
             std::array<uint32_t, 4> { 0x01, 0x10, 0x23, 0xFFF6 },
             std::array<uint32_t, 4> { 1, 10, 23, 26 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
         },
         {
             "ld1h scalar+vector 32bit scaled offset sxtw",
@@ -1124,7 +1315,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/11, /*pg=*/4, /*zm=*/20 },
             std::array<uint32_t, 4> { 0xFFF3, 0x07, 0x16, 0xFFF2 },
             std::array<int32_t, 4> { -3, 7, 16, 30 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
         },
         {
             "ld1h scalar+vector 32bit unpacked scaled offset uxtw",
@@ -1132,7 +1323,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/12, /*pg=*/5, /*zm=*/19 },
             std::array<uint64_t, 2> { 0x08, 0xFFF4 },
             std::array<uint64_t, 2> { 8, 28 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
         },
         {
             "ld1h scalar+vector 32bit unpacked scaled offset sxtw",
@@ -1140,7 +1331,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/13, /*pg=*/6, /*zm=*/18 },
             std::array<uint64_t, 2> { 0xFFF4, 0xFFF8 },
             std::array<int64_t, 2> { -4, 24 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
         },
         {
             "ld1h scalar+vector 32bit unpacked unscaled offset uxtw",
@@ -1148,7 +1339,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/14, /*pg=*/7, /*zm=*/17 },
             std::array<uint64_t, 2> { 0x0403, 0x2322 },
             std::array<uint64_t, 2> { 3, 22 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
         },
         {
             "ld1h scalar+vector 32bit unpacked unscaled offset sxtw",
@@ -1156,7 +1347,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/15, /*pg=*/6, /*zm=*/16 },
             std::array<uint64_t, 2> { 0x0100, 0xF4F5 },
             std::array<int64_t, 2> { 0, -5 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
         },
         {
             "ld1h scalar+vector 32bit unscaled offset uxtw",
@@ -1164,7 +1355,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/16, /*pg=*/5, /*zm=*/15 },
             std::array<uint32_t, 4> { 0x01, 0x10, 0x23, 0xFFF2 },
             std::array<uint32_t, 4> { 1, 10, 23, 30 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
         },
         {
             "ld1h scalar+vector 32bit unscaled offset sxtw",
@@ -1172,7 +1363,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/17, /*pg=*/4, /*zm=*/14 },
             std::array<uint32_t, 4> { 0x00, 0xFFF6, 0x18, 0xFFF5 },
             std::array<int32_t, 4> { 0, -6, 18, 27 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
         },
         {
             "ld1h scalar+vector 64bit scaled offset",
@@ -1180,7 +1371,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/18, /*pg=*/3, /*zm=*/13 },
             std::array<uint64_t, 2> { 0x03, 0x14 },
             std::array<uint64_t, 2> { 3, 14 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
         },
         {
             "ld1h scalar+vector 64bit unscaled offset",
@@ -1188,7 +1379,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/19, /*pg=*/2, /*zm=*/12 },
             std::array<uint64_t, 2> { 0x1009, 0xF3F4 },
             std::array<uint64_t, 2> { 9, 28 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
         },
         {
             "ld1h scalar+vector 64bit unscaled offset Zt==Zm",
@@ -1196,7 +1387,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/25, /*pg=*/5, /*zm=*/25 },
             std::array<uint64_t, 2> { 0x1009, 0xF3F4 },
             std::array<uint64_t, 2> { 9, 28 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
         },
         // LD1SH instructions.
         {
@@ -1205,7 +1396,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/20, /*pg=*/1, /*zm=*/11 },
             std::array<int32_t, 4> { 0x00, 0x07, 0x16, -15 },
             std::array<uint32_t, 4> { 0, 7, 16, 31 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
         },
         {
             "ld1sh scalar+vector 32bit scaled offset sxtw",
@@ -1213,7 +1404,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/21, /*pg=*/0, /*zm=*/10 },
             std::array<int32_t, 4> { -13, 0x01, 0x10, -14 },
             std::array<int32_t, 4> { -3, 1, 10, 30 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
         },
         {
             "ld1sh scalar+vector 32bit unpacked scaled offset uxtw",
@@ -1221,7 +1412,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/22, /*pg=*/1, /*zm=*/9 },
             std::array<int64_t, 2> { 0x00, -15 },
             std::array<uint64_t, 2> { 0, 31 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
         },
         {
             "ld1sh scalar+vector 32bit unpacked scaled offset sxtw",
@@ -1229,7 +1420,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/23, /*pg=*/2, /*zm=*/8 },
             std::array<int64_t, 2> { -12, 0x14 },
             std::array<int64_t, 2> { -4, 14 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
         },
         {
             "ld1sh scalar+vector 32bit unpacked unscaled offset uxtw",
@@ -1237,7 +1428,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/24, /*pg=*/3, /*zm=*/7 },
             std::array<int64_t, 2> { 0x0201, -3598 },
             std::array<uint64_t, 2> { 1, 30 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
         },
         {
             "ld1sh scalar+vector 32bit unpacked unscaled offset sxtw",
@@ -1245,7 +1436,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/25, /*pg=*/4, /*zm=*/6 },
             std::array<int64_t, 2> { -2827, -3341 },
             std::array<int64_t, 2> { -5, 29 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
         },
         {
             "ld1sh scalar+vector 32bit unscaled offset uxtw",
@@ -1253,7 +1444,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/26, /*pg=*/5, /*zm=*/5 },
             std::array<int32_t, 4> { 0x05, 0x15, -9, -15 },
             std::array<uint32_t, 4> { 5, 15, 25, 31 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
         },
         {
             "ld1sh scalar+vector 32bit unscaled offset sxtw",
@@ -1261,7 +1452,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/27, /*pg=*/6, /*zm=*/4 },
             std::array<int32_t, 4> { 0x06, 0x16, -10, -10 },
             std::array<int32_t, 4> { 6, 16, -6, 26 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
         },
         {
             "ld1sh scalar+vector 64bit scaled offset",
@@ -1269,7 +1460,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/28, /*pg=*/7, /*zm=*/3 },
             std::array<int64_t, 2> { 0x09, -15 },
             std::array<uint64_t, 2> { 9, 31 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
         },
         {
             "ld1sh scalar+vector 64bit unscaled offset",
@@ -1277,7 +1468,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/29, /*pg=*/6, /*zm=*/2 },
             std::array<int64_t, 2> { 0x0403, -3598 },
             std::array<uint64_t, 2> { 3, 30 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
         },
         {
             "ld1sh scalar+vector 64bit unscaled offset Zt==Zm",
@@ -1285,7 +1476,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/0, /*pg=*/0, /*zm=*/0 },
             std::array<int64_t, 2> { 0x0403, -3598 },
             std::array<uint64_t, 2> { 3, 30 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
         },
         // LD1W instructions.
         {
@@ -1294,7 +1485,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/30, /*pg=*/5, /*zm=*/1 },
             std::array<uint32_t, 4> { 0x00, 0x07, 0x17, 0xFFFFFFF5 },
             std::array<uint32_t, 4> { 0, 7, 17, 27 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+            element_size_t::SINGLE,
         },
         {
             "ld1w scalar+vector 32bit scaled offset sxtw",
@@ -1302,7 +1493,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/31, /*pg=*/4, /*zm=*/0 },
             std::array<uint32_t, 4> { 0xFFFFFFF7, 0x07, 0x17, 0xFFFFFFF5 },
             std::array<int32_t, 4> { -7, 7, 17, 27 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+            element_size_t::SINGLE,
         },
         {
             "ld1w scalar+vector 32bit unpacked scaled offset uxtw",
@@ -1310,7 +1501,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/0, /*pg=*/3, /*zm=*/1 },
             std::array<uint64_t, 2> { 0x18, 0xFFFFFFF4 },
             std::array<uint64_t, 2> { 18, 28 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+            element_size_t::SINGLE,
         },
         {
             "ld1w scalar+vector 32bit unpacked scaled offset sxtw",
@@ -1318,7 +1509,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/2, /*pg=*/2, /*zm=*/3 },
             std::array<uint64_t, 2> { 0xFFFFFFF8, 0x08 },
             std::array<int64_t, 2> { -8, 8 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+            element_size_t::SINGLE,
         },
         {
             "ld1w scalar+vector 32bit unpacked unscaled offset uxtw",
@@ -1326,7 +1517,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/4, /*pg=*/1, /*zm=*/5 },
             std::array<uint64_t, 2> { 0x04030201, 0xF7F82322 },
             std::array<uint64_t, 2> { 1, 22 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
         },
         {
             "ld1w scalar+vector 32bit unpacked unscaled offset sxtw",
@@ -1334,7 +1525,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/6, /*pg=*/0, /*zm=*/7 },
             std::array<uint64_t, 2> { 0x020100F1, 0xF2F3F4F5 },
             std::array<int64_t, 2> { -1, 27 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
         },
         {
             "ld1w scalar+vector 32bit unscaled offset uxtw",
@@ -1342,7 +1533,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/8, /*pg=*/1, /*zm=*/9 },
             std::array<uint32_t, 4> { 0x03020100, 0x05040302, 0x15141312, 0xF7F82322 },
             std::array<int32_t, 4> { 0, 2, 12, 22 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
         },
         {
             "ld1w scalar+vector 32bit unscaled offset sxtw",
@@ -1350,7 +1541,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/10, /*pg=*/2, /*zm=*/11 },
             std::array<uint32_t, 4> { 0x0100F1F2, 0x05040302, 0x15141312, 0xF7F82322 },
             std::array<int32_t, 4> { -2, 2, 12, 22 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
         },
         {
             "ld1w scalar+vector 64bit scaled offset",
@@ -1358,7 +1549,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/12, /*pg=*/3, /*zm=*/13 },
             std::array<uint64_t, 2> { 0x03, 0x14 },
             std::array<uint64_t, 2> { 3, 14 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+            element_size_t::SINGLE,
         },
         {
             "ld1w scalar+vector 64bit unscaled offset",
@@ -1366,7 +1557,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/14, /*pg=*/4, /*zm=*/15 },
             std::array<uint64_t, 2> { 0x06050403, 0x17161514 },
             std::array<uint64_t, 2> { 3, 14 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
         },
         {
             "ld1w scalar+vector 64bit unscaled offset Zt==Zm",
@@ -1374,7 +1565,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/5, /*pg=*/5, /*zm=*/5 },
             std::array<uint64_t, 2> { 0x06050403, 0x17161514 },
             std::array<uint64_t, 2> { 3, 14 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
         },
         // LD1SW instructions.
         {
@@ -1383,7 +1574,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/16, /*pg=*/5, /*zm=*/17 },
             std::array<int64_t, 2> { -15, 0x10 },
             std::array<uint64_t, 2> { 31, 10 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+            element_size_t::SINGLE,
         },
         {
             "ld1sw scalar+vector 32bit unpacked scaled offset sxtw",
@@ -1391,7 +1582,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/18, /*pg=*/6, /*zm=*/19 },
             std::array<int64_t, 2> { -8, 0x16 },
             std::array<int64_t, 2> { -8, 16 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+            element_size_t::SINGLE,
         },
         {
             "ld1sw scalar+vector 32bit unpacked unscaled offset uxtw",
@@ -1399,7 +1590,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/20, /*pg=*/7, /*zm=*/21 },
             std::array<int64_t, 2> { 0x04030201, -235736076 },
             std::array<uint64_t, 2> { 1, 28 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
         },
         {
             "ld1sw scalar+vector 32bit unpacked unscaled offset sxtw",
@@ -1407,7 +1598,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/22, /*pg=*/6, /*zm=*/23 },
             std::array<int64_t, 2> { 0x11100908, -168364040 },
             std::array<int64_t, 2> { 8, -8 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
         },
         {
             "ld1sw scalar+vector 64bit scaled offset",
@@ -1415,7 +1606,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/24, /*pg=*/5, /*zm=*/25 },
             std::array<int64_t, 2> { -15, -12 },
             std::array<uint64_t, 2> { 31, 28 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+            element_size_t::SINGLE,
         },
         {
             "ld1sw scalar+vector 64bit unscaled offset",
@@ -1423,7 +1614,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/26, /*pg=*/4, /*zm=*/27 },
             std::array<int64_t, 2> { 0x12111009, -235736076 },
             std::array<uint64_t, 2> { 9, 28 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
         },
         {
             "ld1sw scalar+vector 64bit unscaled offset Zt==Zm",
@@ -1431,7 +1622,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/10, /*pg=*/5, /*zm=*/10 },
             std::array<int64_t, 2> { 0x12111009, -235736076 },
             std::array<uint64_t, 2> { 9, 28 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
         },
         // LD1D
         {
@@ -1440,7 +1631,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/28, /*pg=*/3, /*zm=*/29 },
             std::array<uint64_t, 2> { 0x15, 0xFFFFFFFFFFFFFFF7 },
             std::array<uint64_t, 2> { 15, 25 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+            element_size_t::DOUBLE,
         },
         {
             "ld1d scalar+vector 32bit unpacked scaled offset sxtw",
@@ -1448,7 +1639,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/30, /*pg=*/2, /*zm=*/31 },
             std::array<uint64_t, 2> { 0x08, 0xFFFFFFFFFFFFFFF3 },
             std::array<int64_t, 2> { 8, -3 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+            element_size_t::DOUBLE,
         },
         {
             "ld1d scalar+vector 32bit unpacked unscaled offset uxtw",
@@ -1456,7 +1647,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/31, /*pg=*/1, /*zm=*/30 },
             std::array<uint64_t, 2> { 0x2019181716151413, 0xF2F3F4F5F6F7F823 },
             std::array<uint64_t, 2> { 13, 23 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
         },
         {
             "ld1d scalar+vector 32bit unpacked unscaled offset sxtw",
@@ -1464,7 +1655,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/29, /*pg=*/0, /*zm=*/28 },
             std::array<uint64_t, 2> { 0x2120191817161514, 0x03020100F1F2F3F4 },
             std::array<int64_t, 2> { 14, -4 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
         },
         {
             "ld1d scalar+vector 64bit scaled offset",
@@ -1472,7 +1663,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/27, /*pg=*/1, /*zm=*/26 },
             std::array<uint64_t, 2> { 0x00, 0x10 },
             std::array<uint64_t, 2> { 0, 10 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+            element_size_t::DOUBLE,
         },
         {
             "ld1d scalar+vector 64bit unscaled offset",
@@ -1480,7 +1671,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/25, /*pg=*/2, /*zm=*/24 },
             std::array<uint64_t, 2> { 0x020100F1F2F3F4F5, 0x1716151413121110 },
             std::array<int64_t, 2> { -5, 10 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
         },
         {
             "ld1d scalar+vector 64bit unscaled offset Zt==Zm",
@@ -1488,7 +1679,7 @@ test_ld1_scalar_plus_vector()
             { /*zt=*/15, /*pg=*/5, /*zm=*/15 },
             std::array<uint64_t, 2> { 0x020100F1F2F3F4F5, 0x1716151413121110 },
             std::array<int64_t, 2> { -5, 10 },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
         },
     });
 #    undef TEST_FUNC
@@ -1527,22 +1718,49 @@ struct scalar_plus_vector_store_test_case_t : public scalar_plus_vector_test_cas
         std::memcpy(offset_data_.data(), offsets.data(), offset_data_.size());
     }
 
-    virtual void
-    setup(sve_register_file_t &register_values) override
+    virtual test_ptrs_t
+    setup(test_register_data_t &register_data, bool force_fault,
+          size_t faulting_element) override
     {
         // Set the value for the offset register.
-        register_values.set_z_register_value(registers_used_.index_z, offset_data_);
+        register_data.before.set_z_register_value(registers_used_.index_z, offset_data_);
 
-        register_values.set_z_register_value(registers_used_.src_z,
-                                             { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
-                                               0x07, 0x08, 0x09, 0x10, 0x11, 0x12, 0x13,
-                                               0x14, 0x15 });
+        if (force_fault) {
+            const size_t offset = test_memory_t::CHUNK_SIZE;
+            switch (element_size_) {
+            case element_size_t::SINGLE:
+                register_data.before.set_z_register_element<uint32_t>(
+                    registers_used_.index_z, faulting_element, offset);
+                break;
+            case element_size_t::DOUBLE:
+                register_data.before.set_z_register_element<uint64_t>(
+                    registers_used_.index_z, faulting_element, offset);
+                break;
+            default:
+                assert(false &&
+                       "scalar+vector instruction should have single or double "
+                       "element size");
+            }
+        }
+
+        register_data.before.set_z_register_value(registers_used_.src_z,
+                                                  { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05,
+                                                    0x06, 0x07, 0x08, 0x09, 0x10, 0x11,
+                                                    0x12, 0x13, 0x14, 0x15 });
         OUTPUT_DATA.reset();
+
+        return {
+            base_ptr_,
+            register_data.before.z.data(),
+            register_data.before.p.data(),
+            register_data.after.z.data(),
+            register_data.after.p.data(),
+        };
     }
 
     void
-    check_output(predicate_reg_value128_t pred,
-                 const test_register_data_t &register_data) override
+    check_output(predicate_reg_value128_t pred, const test_register_data_t &register_data,
+                 bool expected_fault) override
     {
         // Check that the values of the other Z registers have been preserved.
         for (size_t i = 0; i < NUM_Z_REGS; i++) {
@@ -1552,40 +1770,50 @@ struct scalar_plus_vector_store_test_case_t : public scalar_plus_vector_test_cas
         for (size_t i = 0; i < NUM_P_REGS; i++) {
             check_p_reg(i, register_data);
         }
+        check_ffr(register_data);
 
-        switch (element_size_) {
-        case element_size_t::SINGLE: {
-            std::array<const void *, 4> base_ptrs { base_ptr_, base_ptr_, base_ptr_,
-                                                    base_ptr_ };
-            switch (stored_value_size_) {
-            case element_size_t::BYTE:
-                check_expected_values(expected_values_.u8x4, pred, base_ptrs, scaled_);
-                break;
-            case element_size_t::HALF:
-                check_expected_values(expected_values_.u16x4, pred, base_ptrs, scaled_);
-                break;
-            case element_size_t::SINGLE:
-                check_expected_values(expected_values_.u32x4, pred, base_ptrs, scaled_);
-                break;
+        if (!expected_fault) {
+            switch (element_size_) {
+            case element_size_t::SINGLE: {
+                std::array<const void *, 4> base_ptrs { base_ptr_, base_ptr_, base_ptr_,
+                                                        base_ptr_ };
+                switch (stored_value_size_) {
+                case element_size_t::BYTE:
+                    check_expected_values(expected_values_.u8x4, pred, base_ptrs,
+                                          scaled_);
+                    break;
+                case element_size_t::HALF:
+                    check_expected_values(expected_values_.u16x4, pred, base_ptrs,
+                                          scaled_);
+                    break;
+                case element_size_t::SINGLE:
+                    check_expected_values(expected_values_.u32x4, pred, base_ptrs,
+                                          scaled_);
+                    break;
+                }
             }
-        }
-        case element_size_t::DOUBLE: {
-            std::array<const void *, 2> base_ptrs { base_ptr_, base_ptr_ };
-            switch (stored_value_size_) {
-            case element_size_t::BYTE:
-                check_expected_values(expected_values_.u8x2, pred, base_ptrs, scaled_);
-                break;
-            case element_size_t::HALF:
-                check_expected_values(expected_values_.u16x2, pred, base_ptrs, scaled_);
-                break;
-            case element_size_t::SINGLE:
-                check_expected_values(expected_values_.u32x2, pred, base_ptrs, scaled_);
-                break;
-            case element_size_t::DOUBLE:
-                check_expected_values(expected_values_.u64x2, pred, base_ptrs, scaled_);
-                break;
+            case element_size_t::DOUBLE: {
+                std::array<const void *, 2> base_ptrs { base_ptr_, base_ptr_ };
+                switch (stored_value_size_) {
+                case element_size_t::BYTE:
+                    check_expected_values(expected_values_.u8x2, pred, base_ptrs,
+                                          scaled_);
+                    break;
+                case element_size_t::HALF:
+                    check_expected_values(expected_values_.u16x2, pred, base_ptrs,
+                                          scaled_);
+                    break;
+                case element_size_t::SINGLE:
+                    check_expected_values(expected_values_.u32x2, pred, base_ptrs,
+                                          scaled_);
+                    break;
+                case element_size_t::DOUBLE:
+                    check_expected_values(expected_values_.u64x2, pred, base_ptrs,
+                                          scaled_);
+                    break;
+                }
             }
-        }
+            }
         }
     }
 };
@@ -1596,17 +1824,19 @@ test_st1_scalar_plus_vector()
 #    define TEST_FUNC(st_instruction)                                               \
         [](scalar_plus_vector_store_test_case_t::test_ptrs_t &ptrs) {               \
             asm(/* clang-format off */                                              \
+            RESTORE_FFR(p_restore_base)                                             \
             RESTORE_Z_REGISTERS(z_restore_base)                                     \
             RESTORE_P_REGISTERS(p_restore_base)                                     \
             st_instruction "\n"                                                     \
             SAVE_Z_REGISTERS(z_save_base)                                           \
-            SAVE_P_REGISTERS(p_save_base) /* clang-format on */         \
+            SAVE_P_REGISTERS(p_save_base)                                           \
+            SAVE_FFR(p_save_base) /* clang-format on */                     \
                 :                                                                   \
                 : [base] "r"(ptrs.base), [z_restore_base] "r"(ptrs.z_restore_base), \
                   [z_save_base] "r"(ptrs.z_save_base),                              \
                   [p_restore_base] "r"(ptrs.p_restore_base),                        \
                   [p_save_base] "r"(ptrs.p_save_base)                               \
-                : ALL_Z_REGS, ALL_P_REGS, "memory");                                \
+                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");                         \
         }
 
     return run_tests<scalar_plus_vector_store_test_case_t>({
@@ -1955,9 +2185,9 @@ struct vector_plus_immediate_load_test_case_t
         std::string name, test_func_t func, registers_used_t registers_used,
         std::array<ELEMENT_T, TEST_VL_BYTES / sizeof(ELEMENT_T)> reference_data,
         std::array<BASE_T, TEST_VL_BYTES / sizeof(BASE_T)> base)
-        : test_case_base_t<test_ptrs_t>(std::move(name), std::move(func),
-                                        registers_used.governing_p,
-                                        static_cast<element_size_t>(sizeof(BASE_T)))
+        : test_case_base_t<test_ptrs_t>(
+              std::move(name), std::move(func), registers_used.governing_p,
+              static_cast<element_size_t>(sizeof(BASE_T)), SCATTER_GATHER_INSTRUCTION)
         , registers_used_(registers_used)
 
     {
@@ -1966,63 +2196,21 @@ struct vector_plus_immediate_load_test_case_t
         std::memcpy(base_data_.data(), base.data(), base_data_.size());
     }
 
-    void
-    setup(sve_register_file_t &register_values) override
+    virtual test_ptrs_t
+    setup(test_register_data_t &register_data, bool force_fault,
+          size_t faulting_element) override
     {
         // Set the value for the base vector register.
-        register_values.set_z_register_value(registers_used_.base_z, base_data_);
-    }
+        register_data.before.set_z_register_value(registers_used_.base_z, base_data_);
 
-    void
-    check_output(predicate_reg_value128_t pred,
-                 const test_register_data_t &register_data) override
-    {
-        const auto vl_bytes = get_vl_bytes();
+        if (force_fault) {
+            assert(element_size_ == element_size_t::DOUBLE);
 
-        std::vector<uint8_t> expected_output_data;
-        expected_output_data.resize(vl_bytes);
-
-        assert(reference_data_.size() == TEST_VL_BYTES);
-        for (size_t i = 0; i < vl_bytes / TEST_VL_BYTES; i++) {
-            memcpy(&expected_output_data[TEST_VL_BYTES * i], reference_data_.data(),
-                   TEST_VL_BYTES);
-        }
-        apply_predicate_mask(expected_output_data, pred, element_size_);
-        const scalable_reg_value_t expected_output {
-            expected_output_data.data(),
-            vl_bytes,
-        };
-
-        const auto output_value =
-            register_data.after.get_z_register_value(registers_used_.dest_z);
-
-        if (output_value != expected_output) {
-            test_failed();
-            print("predicate: ");
-            print_predicate(
-                register_data.before.get_p_register_value(registers_used_.governing_p));
-            print("\nexpected:  ");
-            print_vector(expected_output);
-            print("\nactual:    ");
-            print_vector(output_value);
-            print("\n");
+            register_data.before.set_z_register_element(registers_used_.base_z,
+                                                        faulting_element,
+                                                        INPUT_DATA.faulting_base_addr(0));
         }
 
-        // Check that the values of the other Z registers have been preserved.
-        for (size_t i = 0; i < NUM_Z_REGS; i++) {
-            if (i == registers_used_.dest_z)
-                continue;
-            check_z_reg(i, register_data);
-        }
-        // Check that the values of the P registers have been preserved.
-        for (size_t i = 0; i < NUM_P_REGS; i++) {
-            check_p_reg(i, register_data);
-        }
-    }
-
-    test_ptrs_t
-    create_test_ptrs(test_register_data_t &register_data) override
-    {
         return {
             register_data.before.z.data(),
             register_data.before.p.data(),
@@ -2030,25 +2218,77 @@ struct vector_plus_immediate_load_test_case_t
             register_data.after.p.data(),
         };
     }
+
+    void
+    check_output(predicate_reg_value128_t pred, const test_register_data_t &register_data,
+                 bool expected_fault) override
+    {
+        const auto vl_bytes = get_vl_bytes();
+
+        if (!expected_fault) {
+            std::vector<uint8_t> expected_output_data;
+            expected_output_data.resize(vl_bytes);
+
+            assert(reference_data_.size() == TEST_VL_BYTES);
+            for (size_t i = 0; i < vl_bytes / TEST_VL_BYTES; i++) {
+                memcpy(&expected_output_data[TEST_VL_BYTES * i], reference_data_.data(),
+                       TEST_VL_BYTES);
+            }
+            apply_predicate_mask(expected_output_data, pred, element_size_);
+            const scalable_reg_value_t expected_output {
+                expected_output_data.data(),
+                vl_bytes,
+            };
+
+            const auto output_value =
+                register_data.after.get_z_register_value(registers_used_.dest_z);
+
+            if (output_value != expected_output) {
+                test_failed();
+                print("predicate: ");
+                print_predicate(register_data.before.get_p_register_value(
+                    registers_used_.governing_p));
+                print("\nexpected:  ");
+                print_vector(expected_output);
+                print("\nactual:    ");
+                print_vector(output_value);
+                print("\n");
+            }
+        }
+
+        // Check that the values of the other Z registers have been preserved.
+        for (size_t i = 0; i < NUM_Z_REGS; i++) {
+            if (i == registers_used_.dest_z && !expected_fault)
+                continue;
+            check_z_reg(i, register_data);
+        }
+        // Check that the values of the P registers have been preserved.
+        for (size_t i = 0; i < NUM_P_REGS; i++) {
+            check_p_reg(i, register_data);
+        }
+        check_ffr(register_data);
+    }
 };
 
 test_result_t
 test_ld1_vector_plus_immediate()
 {
-#    define TEST_FUNC(ld_instruction)                                       \
-        [](vector_plus_immediate_load_test_case_t::test_ptrs_t &ptrs) {     \
+#    define TEST_FUNC(ld_instruction)                                   \
+        [](vector_plus_immediate_load_test_case_t::test_ptrs_t &ptrs) { \
             asm(/* clang-format off */                                      \
+            RESTORE_FFR(p_restore_base)                                     \
             RESTORE_Z_REGISTERS(z_restore_base)                             \
             RESTORE_P_REGISTERS(p_restore_base)                             \
             ld_instruction "\n"                                             \
             SAVE_Z_REGISTERS(z_save_base)                                   \
-            SAVE_P_REGISTERS(p_save_base) /* clang-format on */ \
-                :                                                           \
-                : [z_restore_base] "r"(ptrs.z_restore_base),                \
-                  [z_save_base] "r"(ptrs.z_save_base),                      \
-                  [p_restore_base] "r"(ptrs.p_restore_base),                \
-                  [p_save_base] "r"(ptrs.p_save_base)                       \
-                : ALL_Z_REGS, ALL_P_REGS, "memory");                        \
+            SAVE_P_REGISTERS(p_save_base)                                   \
+            SAVE_FFR(p_save_base) /* clang-format on */         \
+                :                                                       \
+                : [z_restore_base] "r"(ptrs.z_restore_base),            \
+                  [z_save_base] "r"(ptrs.z_save_base),                  \
+                  [p_restore_base] "r"(ptrs.p_restore_base),            \
+                  [p_save_base] "r"(ptrs.p_save_base)                   \
+                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");             \
         }
 
     const auto get_base_ptr = [&](element_size_t element_size, size_t offset) {
@@ -2255,9 +2495,9 @@ struct vector_plus_immediate_store_test_case_t
                                             std::array<std::ptrdiff_t, 2> base_offsets,
                                             element_size_t stored_value_size,
                                             std::ptrdiff_t immediate_offset)
-        : test_case_base_t<test_ptrs_t>(std::move(name), std::move(func),
-                                        registers_used.governing_p,
-                                        element_size_t::DOUBLE)
+        : test_case_base_t<test_ptrs_t>(
+              std::move(name), std::move(func), registers_used.governing_p,
+              element_size_t::DOUBLE, SCATTER_GATHER_INSTRUCTION)
         , registers_used_(registers_used)
         , stored_value_size_(stored_value_size)
         , expected_values_(
@@ -2271,22 +2511,36 @@ struct vector_plus_immediate_store_test_case_t
         std::memcpy(base_data_.data(), base_ptrs_.data(), base_data_.size());
     }
 
-    void
-    setup(sve_register_file_t &register_values) override
+    virtual test_ptrs_t
+    setup(test_register_data_t &register_data, bool force_fault,
+          size_t faulting_element) override
     {
         // Set the value for the base register.
-        register_values.set_z_register_value(registers_used_.base_z, base_data_);
+        register_data.before.set_z_register_value(registers_used_.base_z, base_data_);
 
-        register_values.set_z_register_value(registers_used_.src_z,
-                                             { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
-                                               0x07, 0x08, 0x09, 0x10, 0x11, 0x12, 0x13,
-                                               0x14, 0x15 });
+        if (force_fault) {
+            register_data.before.set_z_register_element(registers_used_.base_z,
+                                                        faulting_element,
+                                                        OUTPUT_DATA.faulting_base_addr());
+        }
+
+        register_data.before.set_z_register_value(registers_used_.src_z,
+                                                  { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05,
+                                                    0x06, 0x07, 0x08, 0x09, 0x10, 0x11,
+                                                    0x12, 0x13, 0x14, 0x15 });
         OUTPUT_DATA.reset();
+
+        return {
+            register_data.before.z.data(),
+            register_data.before.p.data(),
+            register_data.after.z.data(),
+            register_data.after.p.data(),
+        };
     }
 
     void
-    check_output(predicate_reg_value128_t pred,
-                 const test_register_data_t &register_data) override
+    check_output(predicate_reg_value128_t pred, const test_register_data_t &register_data,
+                 bool expected_fault) override
     {
         // Check that the values of the Z registers have been preserved.
         for (size_t i = 0; i < NUM_Z_REGS; i++) {
@@ -2296,55 +2550,49 @@ struct vector_plus_immediate_store_test_case_t
         for (size_t i = 0; i < NUM_P_REGS; i++) {
             check_p_reg(i, register_data);
         }
+        check_ffr(register_data);
 
-        const bool scaled = false;
-        assert(element_size_ == element_size_t::DOUBLE);
+        if (!expected_fault) {
+            const bool scaled = false;
+            assert(element_size_ == element_size_t::DOUBLE);
 
-        switch (stored_value_size_) {
-        case element_size_t::BYTE:
-            check_expected_values(expected_values_.u8x2, pred, base_ptrs_, scaled);
-            break;
-        case element_size_t::HALF:
-            check_expected_values(expected_values_.u16x2, pred, base_ptrs_, scaled);
-            break;
-        case element_size_t::SINGLE:
-            check_expected_values(expected_values_.u32x2, pred, base_ptrs_, scaled);
-            break;
-        case element_size_t::DOUBLE:
-            check_expected_values(expected_values_.u64x2, pred, base_ptrs_, scaled);
-            break;
+            switch (stored_value_size_) {
+            case element_size_t::BYTE:
+                check_expected_values(expected_values_.u8x2, pred, base_ptrs_, scaled);
+                break;
+            case element_size_t::HALF:
+                check_expected_values(expected_values_.u16x2, pred, base_ptrs_, scaled);
+                break;
+            case element_size_t::SINGLE:
+                check_expected_values(expected_values_.u32x2, pred, base_ptrs_, scaled);
+                break;
+            case element_size_t::DOUBLE:
+                check_expected_values(expected_values_.u64x2, pred, base_ptrs_, scaled);
+                break;
+            }
         }
-    }
-
-    test_ptrs_t
-    create_test_ptrs(test_register_data_t &register_data) override
-    {
-        return {
-            register_data.before.z.data(),
-            register_data.before.p.data(),
-            register_data.after.z.data(),
-            register_data.after.p.data(),
-        };
     }
 };
 
 test_result_t
 test_st1_vector_plus_immediate()
 {
-#    define TEST_FUNC(st_instruction)                                       \
-        [](vector_plus_immediate_load_test_case_t::test_ptrs_t &ptrs) {     \
+#    define TEST_FUNC(st_instruction)                                   \
+        [](vector_plus_immediate_load_test_case_t::test_ptrs_t &ptrs) { \
             asm(/* clang-format off */                                      \
+            RESTORE_FFR(p_restore_base)                                     \
             RESTORE_Z_REGISTERS(z_restore_base)                             \
             RESTORE_P_REGISTERS(p_restore_base)                             \
             st_instruction "\n"                                             \
             SAVE_Z_REGISTERS(z_save_base)                                   \
-            SAVE_P_REGISTERS(p_save_base) /* clang-format on */ \
-                :                                                           \
-                : [z_restore_base] "r"(ptrs.z_restore_base),                \
-                  [z_save_base] "r"(ptrs.z_save_base),                      \
-                  [p_restore_base] "r"(ptrs.p_restore_base),                \
-                  [p_save_base] "r"(ptrs.p_save_base)                       \
-                : ALL_Z_REGS, ALL_P_REGS, "memory");                        \
+            SAVE_P_REGISTERS(p_save_base)                                   \
+            SAVE_FFR(p_save_base) /* clang-format on */         \
+                :                                                       \
+                : [z_restore_base] "r"(ptrs.z_restore_base),            \
+                  [z_save_base] "r"(ptrs.z_save_base),                  \
+                  [p_restore_base] "r"(ptrs.p_restore_base),            \
+                  [p_save_base] "r"(ptrs.p_save_base)                   \
+                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");             \
         }
 
     return run_tests<vector_plus_immediate_store_test_case_t>({
@@ -2492,19 +2740,26 @@ struct scalar_plus_scalar_load_test_case_t
     void *base_;
     int64_t index_;
 
+    element_size_t data_size_;
+
+    size_t loaded_vector_size_;
+
     template <typename ELEMENT_T>
     scalar_plus_scalar_load_test_case_t(
         std::string name, test_func_t func, registers_used_t registers_used,
         std::array<std::array<ELEMENT_T, MAX_SUPPORTED_VL_BYTES / sizeof(ELEMENT_T)>,
                    NUM_ZT>
             reference_data,
-        void *base, int64_t index)
-        : test_case_base_t<test_ptrs_t>(std::move(name), std::move(func),
-                                        registers_used.governing_p,
-                                        static_cast<element_size_t>(sizeof(ELEMENT_T)))
+        element_size_t data_size, int64_t index,
+        size_t loaded_vector_size = get_vl_bytes())
+        : test_case_base_t<test_ptrs_t>(
+              std::move(name), std::move(func), registers_used.governing_p,
+              static_cast<element_size_t>(sizeof(ELEMENT_T)), CONTIGUOUS_INSTRUCTION)
         , registers_used_(registers_used)
-        , base_(base)
+        , base_(INPUT_DATA.base_addr_for_data_size(data_size))
         , index_(index)
+        , data_size_(data_size)
+        , loaded_vector_size_(loaded_vector_size)
     {
         const auto vl_bytes = get_vl_bytes();
         static constexpr size_t REG_DATA_SIZE =
@@ -2515,60 +2770,21 @@ struct scalar_plus_scalar_load_test_case_t
         }
     }
 
-    void
-    setup(sve_register_file_t &register_values) override
+    virtual test_ptrs_t
+    setup(test_register_data_t &register_data, bool force_fault,
+          size_t faulting_element) override
     {
-        // No Z/P registers to set up. The base and index are passed to the test function
-        // in the scalar_plus_scalar_test_ptrs_t object.
-    }
+        // No Z/P registers to set up.
 
-    void
-    check_output(predicate_reg_value128_t pred,
-                 const test_register_data_t &register_data) override
-    {
-        for (size_t i = 0; i < NUM_ZT; i++) {
-            std::vector<uint8_t> expected_output_data(reference_data_[i]);
-            apply_predicate_mask(expected_output_data, pred, element_size_);
-            const scalable_reg_value_t expected_output {
-                expected_output_data.data(),
-                expected_output_data.size(),
-            };
-
-            const auto output_value =
-                register_data.after.get_z_register_value(registers_used_.dest_z[i]);
-
-            if (output_value != expected_output) {
-                test_failed();
-                if (NUM_ZT > 1)
-                    print("Zt%u:\n", (unsigned)i);
-                print("predicate: ");
-                print_predicate(register_data.before.get_p_register_value(
-                    registers_used_.governing_p));
-                print("\nexpected:  ");
-                print_vector(expected_output);
-                print("\nactual:    ");
-                print_vector(output_value);
-                print("\n");
-            }
+        void *base = base_;
+        if (force_fault) {
+            const auto element_bytes = static_cast<size_t>(data_size_);
+            base = INPUT_DATA.faulting_base_addr((index_ + (NUM_ZT * faulting_element)) *
+                                                 element_bytes);
         }
 
-        // Check that the values of the other Z registers have been preserved.
-        for (size_t i = 0; i < NUM_Z_REGS; i++) {
-            if (std::find(registers_used_.dest_z.begin(), registers_used_.dest_z.end(),
-                          i) == registers_used_.dest_z.end())
-                check_z_reg(i, register_data);
-        }
-        // Check that the values of the P registers have been preserved.
-        for (size_t i = 0; i < NUM_P_REGS; i++) {
-            check_p_reg(i, register_data);
-        }
-    }
-
-    test_ptrs_t
-    create_test_ptrs(test_register_data_t &register_data) override
-    {
         return {
-            base_,
+            base,
             index_,
             register_data.before.z.data(),
             register_data.before.p.data(),
@@ -2576,26 +2792,80 @@ struct scalar_plus_scalar_load_test_case_t
             register_data.after.p.data(),
         };
     }
+
+    void
+    check_output(predicate_reg_value128_t pred, const test_register_data_t &register_data,
+                 bool expected_fault) override
+    {
+        if (!expected_fault) {
+            for (size_t i = 0; i < NUM_ZT; i++) {
+                std::vector<uint8_t> expected_output_data(reference_data_[i]);
+                apply_predicate_mask(expected_output_data, pred, element_size_);
+                const scalable_reg_value_t expected_output {
+                    expected_output_data.data(),
+                    expected_output_data.size(),
+                };
+
+                const auto output_value =
+                    register_data.after.get_z_register_value(registers_used_.dest_z[i]);
+
+                if (output_value != expected_output) {
+                    test_failed();
+                    if (NUM_ZT > 1)
+                        print("Zt%u:\n", (unsigned)i);
+                    print("predicate: ");
+                    print_predicate(register_data.before.get_p_register_value(
+                        registers_used_.governing_p));
+                    print("\nexpected:  ");
+                    print_vector(expected_output);
+                    print("\nactual:    ");
+                    print_vector(output_value);
+                    print("\n");
+                }
+            }
+        }
+
+        // Check that the values of the other Z registers have been preserved.
+        for (size_t i = 0; i < NUM_Z_REGS; i++) {
+            if (expected_fault ||
+                std::find(registers_used_.dest_z.begin(), registers_used_.dest_z.end(),
+                          i) == registers_used_.dest_z.end())
+                check_z_reg(i, register_data);
+        }
+        // Check that the values of the P registers have been preserved.
+        for (size_t i = 0; i < NUM_P_REGS; i++) {
+            check_p_reg(i, register_data);
+        }
+        check_ffr(register_data);
+    }
+
+    size_t
+    num_values_accessed() const override
+    {
+        return loaded_vector_size_ / static_cast<size_t>(element_size_);
+    }
 };
 
 test_result_t
 test_ld1_scalar_plus_scalar()
 {
-#    define TEST_FUNC(ld_instruction)                                       \
-        [](scalar_plus_scalar_load_test_case_t<1>::test_ptrs_t &ptrs) {     \
+#    define TEST_FUNC(ld_instruction)                                   \
+        [](scalar_plus_scalar_load_test_case_t<1>::test_ptrs_t &ptrs) { \
             asm(/* clang-format off */                                      \
+            RESTORE_FFR(p_restore_base)                                     \
             RESTORE_Z_REGISTERS(z_restore_base)                             \
             RESTORE_P_REGISTERS(p_restore_base)                             \
             ld_instruction "\n"                                             \
             SAVE_Z_REGISTERS(z_save_base)                                   \
-            SAVE_P_REGISTERS(p_save_base) /* clang-format on */ \
-                :                                                           \
-                : [base] "r"(ptrs.base), [index] "r"(ptrs.index),           \
-                  [z_restore_base] "r"(ptrs.z_restore_base),                \
-                  [z_save_base] "r"(ptrs.z_save_base),                      \
-                  [p_restore_base] "r"(ptrs.p_restore_base),                \
-                  [p_save_base] "r"(ptrs.p_save_base)                       \
-                : ALL_Z_REGS, ALL_P_REGS, "memory");                        \
+            SAVE_P_REGISTERS(p_save_base)                                   \
+            SAVE_FFR(p_save_base) /* clang-format on */         \
+                :                                                       \
+                : [base] "r"(ptrs.base), [index] "r"(ptrs.index),       \
+                  [z_restore_base] "r"(ptrs.z_restore_base),            \
+                  [z_save_base] "r"(ptrs.z_save_base),                  \
+                  [p_restore_base] "r"(ptrs.p_restore_base),            \
+                  [p_save_base] "r"(ptrs.p_save_base)                   \
+                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");             \
         }
 
     return run_tests<scalar_plus_scalar_load_test_case_t<1>>({
@@ -2621,7 +2891,7 @@ test_ld1_scalar_plus_scalar()
                 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21, 0x22,
                 0x23, 0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1,
             } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
             /*index=*/0,
         },
         {
@@ -2633,7 +2903,7 @@ test_ld1_scalar_plus_scalar()
                   0x0007, 0x0008, 0x0009, 0x0010, 0x0011, 0x0012, 0x0013, 0x0014,
                   0x0015, 0x0016, 0x0017, 0x0018, 0x0019, 0x0020, 0x0021, 0x0022,
                   0x0023, 0x00f8, 0x00f7, 0x00f6, 0x00f5, 0x00f4, 0x00f3, 0x00f2 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
             /*index=*/-1,
         },
         {
@@ -2644,7 +2914,7 @@ test_ld1_scalar_plus_scalar()
                 { 0x000005, 0x000006, 0x000007, 0x000008, 0x000009, 0x000010, 0x000011,
                   0x000012, 0x000013, 0x000014, 0x000015, 0x000016, 0x000017, 0x000018,
                   0x000019, 0x000020 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
             /*index=*/5,
         },
         {
@@ -2655,7 +2925,7 @@ test_ld1_scalar_plus_scalar()
                 { 0x00000000000009, 0x00000000000010, 0x00000000000011, 0x00000000000012,
                   0x00000000000013, 0x00000000000014, 0x00000000000015,
                   0x00000000000016 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
             /*index=*/9,
         },
         {
@@ -2669,7 +2939,7 @@ test_ld1_scalar_plus_scalar()
                   0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x10, 0x11,
                   0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21, 0x22,
                   0x23, 0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
             /*index=*/0,
         },
         // LD1SB
@@ -2682,7 +2952,7 @@ test_ld1_scalar_plus_scalar()
                   0x0005, 0x0006, 0x0007, 0x0008, 0x0009, 0x0010, 0x0011, 0x0012,
                   0x0013, 0x0014, 0x0015, 0x0016, 0x0017, 0x0018, 0x0019, 0x0020,
                   0x0021, 0x0022, 0x0023, 0xfff8, 0xfff7, 0xfff6, 0xfff5, 0xfff4 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
             /*index=*/-3,
         },
         {
@@ -2693,7 +2963,7 @@ test_ld1_scalar_plus_scalar()
                 { 0x000005, 0x000006, 0x000007, 0x000008, 0x000009, 0x000010, 0x000011,
                   0x000012, 0x000013, 0x000014, 0x000015, 0x000016, 0x000017, 0x000018,
                   0x000019, 0x000020 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
             /*index=*/5,
         },
         {
@@ -2701,7 +2971,7 @@ test_ld1_scalar_plus_scalar()
             TEST_FUNC("ld1sb z31.d, p0/z, [%[base], %[index]]"),
             { /*zt=*/ { 31 }, /*pg=*/0 },
             std::array<std::array<int64_t, 8>, 1> { { -12, -13, -14, -15, 0, 1, 2, 3 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
             /*index=*/28,
         },
         // LD1H
@@ -2714,7 +2984,7 @@ test_ld1_scalar_plus_scalar()
                   0x0014, 0x0015, 0x0016, 0x0017, 0x0018, 0x0019, 0x0020, 0x0021,
                   0x0022, 0x0023, 0xfff8, 0xfff7, 0xfff6, 0xfff5, 0xfff4, 0xfff3,
                   0xfff2, 0xfff1, 0x0000, 0x0001, 0x0002, 0x0003, 0x0004, 0x0005 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
             /*index=*/6,
         },
         {
@@ -2725,7 +2995,7 @@ test_ld1_scalar_plus_scalar()
                 { 0x00000009, 0x00000010, 0x00000011, 0x00000012, 0x00000013, 0x00000014,
                   0x00000015, 0x00000016, 0x00000017, 0x00000018, 0x00000019, 0x00000020,
                   0x00000021, 0x00000022, 0x00000023, 0x0000fff8 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
             /*index=*/9,
         },
         {
@@ -2736,7 +3006,7 @@ test_ld1_scalar_plus_scalar()
                 { 0x000000000000fff2, 0x000000000000fff1, 0x0000000000000000,
                   0x0000000000000001, 0x0000000000000002, 0x0000000000000003,
                   0x0000000000000004, 0x0000000000000005 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
             /*index=*/-2,
         },
         {
@@ -2748,7 +3018,7 @@ test_ld1_scalar_plus_scalar()
                   0x0014, 0x0015, 0x0016, 0x0017, 0x0018, 0x0019, 0x0020, 0x0021,
                   0x0022, 0x0023, 0xfff8, 0xfff7, 0xfff6, 0xfff5, 0xfff4, 0xfff3,
                   0xfff2, 0xfff1, 0x0000, 0x0001, 0x0002, 0x0003, 0x0004, 0x0005 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
             /*index=*/6,
         },
         // LD1SH
@@ -2760,7 +3030,7 @@ test_ld1_scalar_plus_scalar()
                 { 0x00000009, 0x00000010, 0x00000011, 0x00000012, 0x00000013, 0x00000014,
                   0x00000015, 0x00000016, 0x00000017, 0x00000018, 0x00000019, 0x00000020,
                   0x00000021, 0x00000022, 0x00000023, 0xfffffff8 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
             /*index=*/9,
         },
         {
@@ -2771,7 +3041,7 @@ test_ld1_scalar_plus_scalar()
                 { 0xfffffffffffffff2, 0xfffffffffffffff1, 0x0000000000000000,
                   0x0000000000000001, 0x0000000000000002, 0x0000000000000003,
                   0x0000000000000004, 0x0000000000000005 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
             /*index=*/-2,
         },
         // LD1W
@@ -2783,7 +3053,7 @@ test_ld1_scalar_plus_scalar()
                 { 0x00000017, 0x00000018, 0x00000019, 0x00000020, 0x00000021, 0x00000022,
                   0x00000023, 0xfffffff8, 0xfffffff7, 0xfffffff6, 0xfffffff5, 0xfffffff4,
                   0xfffffff3, 0xfffffff2, 0xfffffff1, 0x00000000 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+            element_size_t::SINGLE,
             /*index=*/17,
         },
         {
@@ -2794,7 +3064,7 @@ test_ld1_scalar_plus_scalar()
                 { 0x00000000fffffff1, 0x0000000000000000, 0x0000000000000001,
                   0x0000000000000002, 0x0000000000000003, 0x0000000000000004,
                   0x0000000000000005, 0x0000000000000006 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+            element_size_t::SINGLE,
             /*index=*/-1,
         },
         {
@@ -2805,7 +3075,7 @@ test_ld1_scalar_plus_scalar()
                 { 0x00000018, 0x00000019, 0x00000020, 0x00000021, 0x00000022, 0x00000023,
                   0xfffffff8, 0xfffffff7, 0xfffffff6, 0xfffffff5, 0xfffffff4, 0xfffffff3,
                   0xfffffff2, 0xfffffff1, 0x00000000, 0x00000001 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+            element_size_t::SINGLE,
             /*index=*/18,
         },
         // LD1SW
@@ -2817,7 +3087,7 @@ test_ld1_scalar_plus_scalar()
                 { 0xfffffffffffffff1, 0x0000000000000000, 0x0000000000000001,
                   0x0000000000000002, 0x0000000000000003, 0x0000000000000004,
                   0x0000000000000005, 0x0000000000000006 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+            element_size_t::SINGLE,
             /*index=*/-1,
         },
         // LD1D
@@ -2829,7 +3099,7 @@ test_ld1_scalar_plus_scalar()
                 { 0x0000000000000008, 0x0000000000000009, 0x0000000000000010,
                   0x0000000000000011, 0x0000000000000012, 0x0000000000000013,
                   0x0000000000000014, 0x0000000000000015 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+            element_size_t::DOUBLE,
             /*index=*/8,
         },
         {
@@ -2840,7 +3110,7 @@ test_ld1_scalar_plus_scalar()
                 { 0x0000000000000002, 0x0000000000000003, 0x0000000000000004,
                   0x0000000000000005, 0x0000000000000006, 0x0000000000000007,
                   0x0000000000000008, 0x0000000000000009 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+            element_size_t::DOUBLE,
             /*index=*/2,
         },
         // Load and replicate instructions
@@ -2855,8 +3125,9 @@ test_ld1_scalar_plus_scalar()
                   0x07, 0x08, 0x09, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
                   0x18, 0x19, 0x20, 0x21, 0x06, 0x07, 0x08, 0x09, 0x10, 0x11, 0x12,
                   0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
             /*index=*/6,
+            /*loaded_vector_size=*/16,
         },
         {
             "ld1rqh scalar+scalar",
@@ -2867,8 +3138,9 @@ test_ld1_scalar_plus_scalar()
                   0x0012, 0x0013, 0x0014, 0x0015, 0x0016, 0x0017, 0x0018, 0x0019,
                   0x0012, 0x0013, 0x0014, 0x0015, 0x0016, 0x0017, 0x0018, 0x0019,
                   0x0012, 0x0013, 0x0014, 0x0015, 0x0016, 0x0017, 0x0018, 0x0019 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
             /*index=*/12,
+            /*loaded_vector_size=*/16,
         },
         {
             "ld1rqw scalar+scalar",
@@ -2878,8 +3150,9 @@ test_ld1_scalar_plus_scalar()
                 { 0x00000020, 0x00000021, 0x00000022, 0x00000023, 0x00000020, 0x00000021,
                   0x00000022, 0x00000023, 0x00000020, 0x00000021, 0x00000022, 0x00000023,
                   0x00000020, 0x00000021, 0x00000022, 0x00000023 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+            element_size_t::SINGLE,
             /*index=*/-12,
+            /*loaded_vector_size=*/16,
         },
         {
             "ld1rqd scalar+scalar",
@@ -2889,8 +3162,9 @@ test_ld1_scalar_plus_scalar()
                 { 0xfffffffffffffff6, 0xfffffffffffffff5, 0xfffffffffffffff6,
                   0xfffffffffffffff5, 0xfffffffffffffff6, 0xfffffffffffffff5,
                   0xfffffffffffffff6, 0xfffffffffffffff5 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+            element_size_t::DOUBLE,
             /*index=*/-6,
+            /*loaded_vector_size=*/16,
         },
     });
 #    undef TEST_FUNC
@@ -2899,21 +3173,23 @@ test_ld1_scalar_plus_scalar()
 test_result_t
 test_ld2_scalar_plus_scalar()
 {
-#    define TEST_FUNC(ld_instruction)                                       \
-        [](scalar_plus_scalar_load_test_case_t<2>::test_ptrs_t &ptrs) {     \
-            asm(/* clang-format off */                                      \
-            RESTORE_Z_REGISTERS(z_restore_base)                             \
-            RESTORE_P_REGISTERS(p_restore_base)                             \
-            ld_instruction "\n"                                             \
-            SAVE_Z_REGISTERS(z_save_base)                                   \
-            SAVE_P_REGISTERS(p_save_base) /* clang-format on */ \
-                :                                                           \
-                : [base] "r"(ptrs.base), [index] "r"(ptrs.index),           \
-                  [z_restore_base] "r"(ptrs.z_restore_base),                \
-                  [z_save_base] "r"(ptrs.z_save_base),                      \
-                  [p_restore_base] "r"(ptrs.p_restore_base),                \
-                  [p_save_base] "r"(ptrs.p_save_base)                       \
-                : ALL_Z_REGS, ALL_P_REGS, "memory");                        \
+#    define TEST_FUNC(ld_instruction)                                   \
+        [](scalar_plus_scalar_load_test_case_t<2>::test_ptrs_t &ptrs) { \
+            asm(/* clang-format off */                                  \
+            RESTORE_FFR(p_restore_base)                                 \
+            RESTORE_Z_REGISTERS(z_restore_base)                         \
+            RESTORE_P_REGISTERS(p_restore_base)                         \
+            ld_instruction "\n"                                         \
+            SAVE_Z_REGISTERS(z_save_base)                               \
+            SAVE_P_REGISTERS(p_save_base)                               \
+            SAVE_FFR(p_save_base) /* clang-format on */         \
+                :                                                       \
+                : [base] "r"(ptrs.base), [index] "r"(ptrs.index),       \
+                  [z_restore_base] "r"(ptrs.z_restore_base),            \
+                  [z_save_base] "r"(ptrs.z_save_base),                  \
+                  [p_restore_base] "r"(ptrs.p_restore_base),            \
+                  [p_save_base] "r"(ptrs.p_save_base)                   \
+                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");             \
         }
 
     return run_tests<scalar_plus_scalar_load_test_case_t<2>>({
@@ -2945,7 +3221,7 @@ test_ld2_scalar_plus_scalar()
                     0x03, 0x05, 0x07, 0x09, 0x11, 0x13, 0x15, 0x17, 0x19, 0x21, 0x23,
                     0xf7, 0xf5, 0xf3, 0xf1, 0x01, 0x03, 0x05, 0x07, 0x09, 0x11, 0x13,
                     0x15, 0x17, 0x19, 0x21, 0x23, 0xf7, 0xf5, 0xf3, 0xf1 } } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
             /*index=*/0,
         },
         {
@@ -2963,7 +3239,7 @@ test_ld2_scalar_plus_scalar()
                     0x0001, 0x0003, 0x0005, 0x0007, 0x0009, 0x0011, 0x0013, 0x0015,
                     0x0017, 0x0019, 0x0021, 0x0023, 0xfff7, 0xfff5, 0xfff3, 0xfff1,
                     0x0001, 0x0003, 0x0005, 0x0007, 0x0009, 0x0011, 0x0013, 0x0015 } } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
             /*index=*/-16,
         },
         {
@@ -2981,7 +3257,7 @@ test_ld2_scalar_plus_scalar()
                     0x00000019, 0x00000021, 0x00000023, 0xfffffff7, 0xfffffff5,
                     0xfffffff3, 0xfffffff1, 0x00000001, 0x00000003, 0x00000005,
                     0x00000007 } } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+            element_size_t::SINGLE,
             /*index=*/8,
         },
         {
@@ -2997,7 +3273,7 @@ test_ld2_scalar_plus_scalar()
                     0xfffffffffffffff6, 0xfffffffffffffff4, 0xfffffffffffffff2,
                     0x0000000000000000, 0x0000000000000002, 0x0000000000000004,
                     0x0000000000000006, 0x0000000000000008 } } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+            element_size_t::DOUBLE,
             /*index=*/25,
         },
     });
@@ -3007,21 +3283,23 @@ test_ld2_scalar_plus_scalar()
 test_result_t
 test_ld3_scalar_plus_scalar()
 {
-#    define TEST_FUNC(ld_instruction)                                       \
-        [](scalar_plus_scalar_load_test_case_t<3>::test_ptrs_t &ptrs) {     \
-            asm(/* clang-format off */                                      \
-            RESTORE_Z_REGISTERS(z_restore_base)                             \
-            RESTORE_P_REGISTERS(p_restore_base)                             \
-            ld_instruction "\n"                                             \
-            SAVE_Z_REGISTERS(z_save_base)                                   \
-            SAVE_P_REGISTERS(p_save_base) /* clang-format on */ \
-                :                                                           \
-                : [base] "r"(ptrs.base), [index] "r"(ptrs.index),           \
-                  [z_restore_base] "r"(ptrs.z_restore_base),                \
-                  [z_save_base] "r"(ptrs.z_save_base),                      \
-                  [p_restore_base] "r"(ptrs.p_restore_base),                \
-                  [p_save_base] "r"(ptrs.p_save_base)                       \
-                : ALL_Z_REGS, ALL_P_REGS, "memory");                        \
+#    define TEST_FUNC(ld_instruction)                                   \
+        [](scalar_plus_scalar_load_test_case_t<3>::test_ptrs_t &ptrs) { \
+            asm(/* clang-format off */                                  \
+            RESTORE_FFR(p_restore_base)                                 \
+            RESTORE_Z_REGISTERS(z_restore_base)                         \
+            RESTORE_P_REGISTERS(p_restore_base)                         \
+            ld_instruction "\n"                                         \
+            SAVE_Z_REGISTERS(z_save_base)                               \
+            SAVE_P_REGISTERS(p_save_base)                               \
+            SAVE_FFR(p_save_base) /* clang-format on */         \
+                :                                                       \
+                : [base] "r"(ptrs.base), [index] "r"(ptrs.index),       \
+                  [z_restore_base] "r"(ptrs.z_restore_base),            \
+                  [z_save_base] "r"(ptrs.z_save_base),                  \
+                  [p_restore_base] "r"(ptrs.p_restore_base),            \
+                  [p_save_base] "r"(ptrs.p_save_base)                   \
+                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");             \
         }
 
     return run_tests<scalar_plus_scalar_load_test_case_t<3>>({
@@ -3062,7 +3340,7 @@ test_ld3_scalar_plus_scalar()
                     0x07, 0x10, 0x13, 0x16, 0x19, 0x22, 0xf7, 0xf4, 0xf1 }
 
                 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
             /*index=*/0,
         },
         {
@@ -3087,7 +3365,7 @@ test_ld3_scalar_plus_scalar()
                     0xfff6, 0xfff3, 0x0000, 0x0003, 0x0006, 0x0009, 0x0012, 0x0015
 
                   } } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
             /*index=*/-16,
         },
         {
@@ -3111,7 +3389,7 @@ test_ld3_scalar_plus_scalar()
                     0xfffffff7, 0xfffffff4, 0xfffffff1, 0x00000002, 0x00000005,
                     0x00000008, 0x00000011, 0x00000014, 0x00000017, 0x00000020,
                     0x00000023 } } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+            element_size_t::SINGLE,
             /*index=*/8,
         },
         {
@@ -3131,7 +3409,7 @@ test_ld3_scalar_plus_scalar()
                     0xfffffffffffffff5, 0xfffffffffffffff2, 0x0000000000000001,
                     0x0000000000000004, 0x0000000000000007, 0x0000000000000010,
                     0x0000000000000013, 0x0000000000000016 } } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+            element_size_t::DOUBLE,
             /*index=*/25,
         },
     });
@@ -3141,21 +3419,23 @@ test_ld3_scalar_plus_scalar()
 test_result_t
 test_ld4_scalar_plus_scalar()
 {
-#    define TEST_FUNC(ld_instruction)                                       \
-        [](scalar_plus_scalar_load_test_case_t<4>::test_ptrs_t &ptrs) {     \
-            asm(/* clang-format off */                                      \
-            RESTORE_Z_REGISTERS(z_restore_base)                             \
-            RESTORE_P_REGISTERS(p_restore_base)                             \
-            ld_instruction "\n"                                             \
-            SAVE_Z_REGISTERS(z_save_base)                                   \
-            SAVE_P_REGISTERS(p_save_base) /* clang-format on */ \
-                :                                                           \
-                : [base] "r"(ptrs.base), [index] "r"(ptrs.index),           \
-                  [z_restore_base] "r"(ptrs.z_restore_base),                \
-                  [z_save_base] "r"(ptrs.z_save_base),                      \
-                  [p_restore_base] "r"(ptrs.p_restore_base),                \
-                  [p_save_base] "r"(ptrs.p_save_base)                       \
-                : ALL_Z_REGS, ALL_P_REGS, "memory");                        \
+#    define TEST_FUNC(ld_instruction)                                   \
+        [](scalar_plus_scalar_load_test_case_t<4>::test_ptrs_t &ptrs) { \
+            asm(/* clang-format off */                                  \
+            RESTORE_FFR(p_restore_base)                                 \
+            RESTORE_Z_REGISTERS(z_restore_base)                         \
+            RESTORE_P_REGISTERS(p_restore_base)                         \
+            ld_instruction "\n"                                         \
+            SAVE_Z_REGISTERS(z_save_base)                               \
+            SAVE_P_REGISTERS(p_save_base)                               \
+            SAVE_FFR(p_save_base) /* clang-format on */         \
+                :                                                       \
+                : [base] "r"(ptrs.base), [index] "r"(ptrs.index),       \
+                  [z_restore_base] "r"(ptrs.z_restore_base),            \
+                  [z_save_base] "r"(ptrs.z_save_base),                  \
+                  [p_restore_base] "r"(ptrs.p_restore_base),            \
+                  [p_save_base] "r"(ptrs.p_save_base)                   \
+                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");             \
         }
 
     return run_tests<scalar_plus_scalar_load_test_case_t<4>>({
@@ -3203,7 +3483,7 @@ test_ld4_scalar_plus_scalar()
                     0xf1, 0x03, 0x07, 0x11, 0x15, 0x19, 0x23, 0xf5, 0xf1 }
 
                 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
             /*index=*/0,
         },
         {
@@ -3234,7 +3514,7 @@ test_ld4_scalar_plus_scalar()
                     0x0019, 0x0023, 0xfff5, 0xfff1, 0x0003, 0x0007, 0x0011, 0x0015,
                     0x0019, 0x0023, 0xfff5, 0xfff1, 0x0003, 0x0007, 0x0011, 0x0015,
                     0x0019, 0x0023, 0xfff5, 0xfff1, 0x0003, 0x0007, 0x0011, 0x0015 } } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
             /*index=*/-16,
         },
         {
@@ -3264,7 +3544,7 @@ test_ld4_scalar_plus_scalar()
                     0x00000019, 0x00000023, 0xfffffff5, 0xfffffff1, 0x00000003, 0x00000007
 
                   } } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+            element_size_t::SINGLE,
             /*index=*/8,
         },
         {
@@ -3289,7 +3569,7 @@ test_ld4_scalar_plus_scalar()
                     0xfffffffffffffff4, 0x0000000000000000, 0x0000000000000004,
                     0x0000000000000008, 0x0000000000000012, 0x0000000000000016,
                     0x0000000000000020, 0xfffffffffffffff8 } } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+            element_size_t::DOUBLE,
             /*index=*/25,
         },
     });
@@ -3317,7 +3597,8 @@ struct scalar_plus_scalar_store_test_case_t
                                          int64_t index)
         : test_case_base_t<test_ptrs_t>(
               std::move(name), std::move(func), registers_used.governing_p,
-              static_cast<element_size_t>(TEST_VL_BYTES / (NUM_VALUES / NUM_ZT)))
+              static_cast<element_size_t>(TEST_VL_BYTES / (NUM_VALUES / NUM_ZT)),
+              CONTIGUOUS_INSTRUCTION)
         , registers_used_(registers_used)
         , base_(OUTPUT_DATA.base_addr())
         , index_(index)
@@ -3332,8 +3613,9 @@ struct scalar_plus_scalar_store_test_case_t
         }
     }
 
-    void
-    setup(sve_register_file_t &register_values) override
+    virtual test_ptrs_t
+    setup(test_register_data_t &register_data, bool force_fault,
+          size_t faulting_element) override
     {
         static constexpr std::array<vector_reg_value128_t, 4> DATA_TO_WRITE { {
             { // Zt1 data
@@ -3352,22 +3634,37 @@ struct scalar_plus_scalar_store_test_case_t
         assert(NUM_ZT <= DATA_TO_WRITE.size());
 
         for (size_t zt = 0; zt < NUM_ZT; zt++) {
-            register_values.set_z_register_value(registers_used_.src_z[zt],
-                                                 DATA_TO_WRITE[zt]);
+            register_data.before.set_z_register_value(registers_used_.src_z[zt],
+                                                      DATA_TO_WRITE[zt]);
         }
 
+        const auto stored_value_bytes = static_cast<size_t>(stored_value_size_);
         if (test_status_ == test_result_t::PASS) {
-            const auto stored_value_bytes = static_cast<size_t>(stored_value_size_);
             memset(static_cast<uint8_t *>(base_) + (index_ * stored_value_bytes), 0xAB,
                    reference_data_.size());
         } else {
             OUTPUT_DATA.reset();
         }
+
+        void *base = base_;
+        if (force_fault) {
+            base = OUTPUT_DATA.faulting_base_addr((index_ + (NUM_ZT * faulting_element)) *
+                                                  stored_value_bytes);
+        }
+
+        return {
+            base,
+            index_,
+            register_data.before.z.data(),
+            register_data.before.p.data(),
+            register_data.after.z.data(),
+            register_data.after.p.data(),
+        };
     }
 
     void
-    check_output(predicate_reg_value128_t pred,
-                 const test_register_data_t &register_data) override
+    check_output(predicate_reg_value128_t pred, const test_register_data_t &register_data,
+                 bool expected_fault) override
     {
         // Check that the values of the Z registers have been preserved.
         for (size_t i = 0; i < NUM_Z_REGS; i++) {
@@ -3377,79 +3674,71 @@ struct scalar_plus_scalar_store_test_case_t
         for (size_t i = 0; i < NUM_P_REGS; i++) {
             check_p_reg(i, register_data);
         }
+        check_ffr(register_data);
 
-        const auto vl_bytes = get_vl_bytes();
+        if (!expected_fault) {
+            const auto vl_bytes = get_vl_bytes();
 
-        std::vector<uint8_t> expected_output_data(reference_data_);
+            std::vector<uint8_t> expected_output_data(reference_data_);
 
-        const auto stored_value_bytes = static_cast<size_t>(stored_value_size_);
-        const auto element_size_bytes = static_cast<size_t>(element_size_);
+            const auto stored_value_bytes = static_cast<size_t>(stored_value_size_);
+            const auto element_size_bytes = static_cast<size_t>(element_size_);
 
-        const auto num_vector_elements = vl_bytes / element_size_bytes;
-        const auto num_mask_elements = TEST_VL_BYTES / element_size_bytes;
-        for (size_t i = 0; i < num_vector_elements; i++) {
-            if (!element_is_active(i % num_mask_elements, pred, element_size_)) {
-                // Element is inactive, set it to the poison value.
-                memset(&expected_output_data[NUM_ZT * stored_value_bytes * i], 0xAB,
-                       NUM_ZT * stored_value_bytes);
+            const auto num_vector_elements = vl_bytes / element_size_bytes;
+            const auto num_mask_elements = TEST_VL_BYTES / element_size_bytes;
+            for (size_t i = 0; i < num_vector_elements; i++) {
+                if (!element_is_active(i % num_mask_elements, pred, element_size_)) {
+                    // Element is inactive, set it to the poison value.
+                    memset(&expected_output_data[NUM_ZT * stored_value_bytes * i], 0xAB,
+                           NUM_ZT * stored_value_bytes);
+                }
+            }
+
+            const scalable_reg_value_t expected_output {
+                expected_output_data.data(),
+                expected_output_data.size(),
+            };
+
+            const scalable_reg_value_t output_value {
+                static_cast<uint8_t *>(base_) + (index_ * stored_value_bytes),
+                expected_output_data.size(),
+            };
+
+            if (output_value != expected_output) {
+                test_failed();
+                print("predicate: ");
+                print_predicate(register_data.before.get_p_register_value(
+                    registers_used_.governing_p));
+                print("\nexpected:  ");
+                print_vector(expected_output);
+                print("\nactual:    ");
+                print_vector(output_value);
+                print("\n");
             }
         }
-
-        const scalable_reg_value_t expected_output {
-            expected_output_data.data(),
-            expected_output_data.size(),
-        };
-
-        const scalable_reg_value_t output_value {
-            static_cast<uint8_t *>(base_) + (index_ * stored_value_bytes),
-            expected_output_data.size(),
-        };
-
-        if (output_value != expected_output) {
-            test_failed();
-            print("predicate: ");
-            print_predicate(
-                register_data.before.get_p_register_value(registers_used_.governing_p));
-            print("\nexpected:  ");
-            print_vector(expected_output);
-            print("\nactual:    ");
-            print_vector(output_value);
-            print("\n");
-        }
-    }
-
-    test_ptrs_t
-    create_test_ptrs(test_register_data_t &register_data) override
-    {
-        return {
-            base_,
-            index_,
-            register_data.before.z.data(),
-            register_data.before.p.data(),
-            register_data.after.z.data(),
-            register_data.after.p.data(),
-        };
     }
 };
 
 test_result_t
 test_st1_scalar_plus_scalar()
 {
-#    define TEST_FUNC(ld_instruction)                                       \
-        [](scalar_plus_scalar_store_test_case_t<1>::test_ptrs_t &ptrs) {    \
-            asm(/* clang-format off */                                      \
-            RESTORE_Z_REGISTERS(z_restore_base)                             \
-            RESTORE_P_REGISTERS(p_restore_base)                             \
-            ld_instruction "\n"                                             \
-            SAVE_Z_REGISTERS(z_save_base)                                   \
-            SAVE_P_REGISTERS(p_save_base) /* clang-format on */ \
-                :                                                           \
-                : [base] "r"(ptrs.base), [index] "r"(ptrs.index),           \
-                  [z_restore_base] "r"(ptrs.z_restore_base),                \
-                  [z_save_base] "r"(ptrs.z_save_base),                      \
-                  [p_restore_base] "r"(ptrs.p_restore_base),                \
-                  [p_save_base] "r"(ptrs.p_save_base)                       \
-                : ALL_Z_REGS, ALL_P_REGS, "memory");                        \
+#    define TEST_FUNC(st_instruction)                                    \
+        [](scalar_plus_scalar_store_test_case_t<1>::test_ptrs_t &ptrs) { \
+            asm(/* clang-format off */                                   \
+            RESTORE_FFR(p_restore_base)                                  \
+            RESTORE_Z_REGISTERS(z_restore_base)                          \
+            RESTORE_P_REGISTERS(p_restore_base)                          \
+            st_instruction "\n"                                          \
+            SAVE_Z_REGISTERS(z_save_base)                                \
+            SAVE_P_REGISTERS(p_save_base)                                \
+            SAVE_FFR(p_save_base) /* clang-format on */          \
+                :                                                        \
+                : [base] "r"(ptrs.base), [index] "r"(ptrs.index),        \
+                  [z_restore_base] "r"(ptrs.z_restore_base),             \
+                  [z_save_base] "r"(ptrs.z_save_base),                   \
+                  [p_restore_base] "r"(ptrs.p_restore_base),             \
+                  [p_save_base] "r"(ptrs.p_save_base)                    \
+                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");              \
         }
 
     return run_tests<scalar_plus_scalar_store_test_case_t<1>>({
@@ -3544,21 +3833,23 @@ test_st1_scalar_plus_scalar()
 test_result_t
 test_st2_scalar_plus_scalar()
 {
-#    define TEST_FUNC(ld_instruction)                                       \
-        [](scalar_plus_scalar_store_test_case_t<2>::test_ptrs_t &ptrs) {    \
+#    define TEST_FUNC(st_instruction)                                    \
+        [](scalar_plus_scalar_store_test_case_t<2>::test_ptrs_t &ptrs) { \
             asm(/* clang-format off */                                      \
+            RESTORE_FFR(p_restore_base)                                     \
             RESTORE_Z_REGISTERS(z_restore_base)                             \
             RESTORE_P_REGISTERS(p_restore_base)                             \
-            ld_instruction "\n"                                             \
+            st_instruction "\n"                                             \
             SAVE_Z_REGISTERS(z_save_base)                                   \
-            SAVE_P_REGISTERS(p_save_base) /* clang-format on */ \
-                :                                                           \
-                : [base] "r"(ptrs.base), [index] "r"(ptrs.index),           \
-                  [z_restore_base] "r"(ptrs.z_restore_base),                \
-                  [z_save_base] "r"(ptrs.z_save_base),                      \
-                  [p_restore_base] "r"(ptrs.p_restore_base),                \
-                  [p_save_base] "r"(ptrs.p_save_base)                       \
-                : ALL_Z_REGS, ALL_P_REGS, "memory");                        \
+            SAVE_P_REGISTERS(p_save_base)                                   \
+            SAVE_FFR(p_save_base) /* clang-format on */          \
+                :                                                        \
+                : [base] "r"(ptrs.base), [index] "r"(ptrs.index),        \
+                  [z_restore_base] "r"(ptrs.z_restore_base),             \
+                  [z_save_base] "r"(ptrs.z_save_base),                   \
+                  [p_restore_base] "r"(ptrs.p_restore_base),             \
+                  [p_save_base] "r"(ptrs.p_save_base)                    \
+                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");              \
         }
 
     return run_tests<scalar_plus_scalar_store_test_case_t<2>>({
@@ -3612,21 +3903,23 @@ test_st2_scalar_plus_scalar()
 test_result_t
 test_st3_scalar_plus_scalar()
 {
-#    define TEST_FUNC(ld_instruction)                                       \
-        [](scalar_plus_scalar_store_test_case_t<3>::test_ptrs_t &ptrs) {    \
+#    define TEST_FUNC(st_instruction)                                    \
+        [](scalar_plus_scalar_store_test_case_t<3>::test_ptrs_t &ptrs) { \
             asm(/* clang-format off */                                      \
+            RESTORE_FFR(p_restore_base)                                     \
             RESTORE_Z_REGISTERS(z_restore_base)                             \
             RESTORE_P_REGISTERS(p_restore_base)                             \
-            ld_instruction "\n"                                             \
+            st_instruction "\n"                                             \
             SAVE_Z_REGISTERS(z_save_base)                                   \
-            SAVE_P_REGISTERS(p_save_base) /* clang-format on */ \
-                :                                                           \
-                : [base] "r"(ptrs.base), [index] "r"(ptrs.index),           \
-                  [z_restore_base] "r"(ptrs.z_restore_base),                \
-                  [z_save_base] "r"(ptrs.z_save_base),                      \
-                  [p_restore_base] "r"(ptrs.p_restore_base),                \
-                  [p_save_base] "r"(ptrs.p_save_base)                       \
-                : ALL_Z_REGS, ALL_P_REGS, "memory");                        \
+            SAVE_P_REGISTERS(p_save_base)                                   \
+            SAVE_FFR(p_save_base) /* clang-format on */          \
+                :                                                        \
+                : [base] "r"(ptrs.base), [index] "r"(ptrs.index),        \
+                  [z_restore_base] "r"(ptrs.z_restore_base),             \
+                  [z_save_base] "r"(ptrs.z_save_base),                   \
+                  [p_restore_base] "r"(ptrs.p_restore_base),             \
+                  [p_save_base] "r"(ptrs.p_save_base)                    \
+                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");              \
         }
 
     return run_tests<scalar_plus_scalar_store_test_case_t<3>>({
@@ -3684,21 +3977,23 @@ test_st3_scalar_plus_scalar()
 test_result_t
 test_st4_scalar_plus_scalar()
 {
-#    define TEST_FUNC(ld_instruction)                                       \
-        [](scalar_plus_scalar_store_test_case_t<4>::test_ptrs_t &ptrs) {    \
+#    define TEST_FUNC(st_instruction)                                    \
+        [](scalar_plus_scalar_store_test_case_t<4>::test_ptrs_t &ptrs) { \
             asm(/* clang-format off */                                      \
+            RESTORE_FFR(p_restore_base)                                     \
             RESTORE_Z_REGISTERS(z_restore_base)                             \
             RESTORE_P_REGISTERS(p_restore_base)                             \
-            ld_instruction "\n"                                             \
+            st_instruction "\n"                                             \
             SAVE_Z_REGISTERS(z_save_base)                                   \
-            SAVE_P_REGISTERS(p_save_base) /* clang-format on */ \
-                :                                                           \
-                : [base] "r"(ptrs.base), [index] "r"(ptrs.index),           \
-                  [z_restore_base] "r"(ptrs.z_restore_base),                \
-                  [z_save_base] "r"(ptrs.z_save_base),                      \
-                  [p_restore_base] "r"(ptrs.p_restore_base),                \
-                  [p_save_base] "r"(ptrs.p_save_base)                       \
-                : ALL_Z_REGS, ALL_P_REGS, "memory");                        \
+            SAVE_P_REGISTERS(p_save_base)                                   \
+            SAVE_FFR(p_save_base) /* clang-format on */          \
+                :                                                        \
+                : [base] "r"(ptrs.base), [index] "r"(ptrs.index),        \
+                  [z_restore_base] "r"(ptrs.z_restore_base),             \
+                  [z_save_base] "r"(ptrs.z_save_base),                   \
+                  [p_restore_base] "r"(ptrs.p_restore_base),             \
+                  [p_save_base] "r"(ptrs.p_save_base)                    \
+                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");              \
         }
 
     return run_tests<scalar_plus_scalar_store_test_case_t<4>>({
@@ -3771,6 +4066,11 @@ struct scalar_plus_immediate_load_test_case_t
 
     void *base_;
 
+    element_size_t data_size_;
+    std::ptrdiff_t offset_;
+
+    size_t loaded_vector_size_;
+
     template <typename ELEMENT_T>
     scalar_plus_immediate_load_test_case_t(
         std::string name, test_func_t func, registers_used_t registers_used,
@@ -3780,12 +4080,16 @@ struct scalar_plus_immediate_load_test_case_t
             reference_data_256,
         std::array<std::array<ELEMENT_T, 64 / sizeof(ELEMENT_T)>, NUM_ZT>
             reference_data_512,
-        void *base)
-        : test_case_base_t<test_ptrs_t>(std::move(name), std::move(func),
-                                        registers_used.governing_p,
-                                        static_cast<element_size_t>(sizeof(ELEMENT_T)))
+        element_size_t data_size, std::ptrdiff_t offset,
+        size_t loaded_vector_size = get_vl_bytes())
+        : test_case_base_t<test_ptrs_t>(
+              std::move(name), std::move(func), registers_used.governing_p,
+              static_cast<element_size_t>(sizeof(ELEMENT_T)), CONTIGUOUS_INSTRUCTION)
         , registers_used_(registers_used)
-        , base_(base)
+        , base_(INPUT_DATA.base_addr_for_data_size(data_size))
+        , data_size_(data_size)
+        , offset_(offset)
+        , loaded_vector_size_(loaded_vector_size)
     {
         const auto vl_bytes = get_vl_bytes();
 
@@ -3812,46 +4116,64 @@ struct scalar_plus_immediate_load_test_case_t
         }
     }
 
-    void
-    setup(sve_register_file_t &register_values) override
+    virtual test_ptrs_t
+    setup(test_register_data_t &register_data, bool force_fault,
+          size_t faulting_element) override
     {
-        // No Z/P registers to set up. The base is passed to the test function
-        // in the test_ptrs_t object.
+        // No Z/P registers to set up.
+
+        void *base = base_;
+        if (force_fault) {
+            const auto element_bytes = static_cast<size_t>(data_size_);
+            base = INPUT_DATA.faulting_base_addr(
+                offset_ + (NUM_ZT * faulting_element * element_bytes));
+        }
+
+        return {
+            base,
+            register_data.before.z.data(),
+            register_data.before.p.data(),
+            register_data.after.z.data(),
+            register_data.after.p.data(),
+        };
     }
 
     void
-    check_output(predicate_reg_value128_t pred,
-                 const test_register_data_t &register_data) override
+    check_output(predicate_reg_value128_t pred, const test_register_data_t &register_data,
+                 bool expected_fault) override
     {
-        for (size_t zt = 0; zt < NUM_ZT; zt++) {
-            std::vector<uint8_t> expected_output_data(reference_data_.at(zt));
-            apply_predicate_mask(expected_output_data, pred, element_size_);
-            const scalable_reg_value_t expected_output {
-                expected_output_data.data(),
-                expected_output_data.size(),
-            };
+        if (!expected_fault) {
+            for (size_t zt = 0; zt < NUM_ZT; zt++) {
+                std::vector<uint8_t> expected_output_data(reference_data_.at(zt));
+                apply_predicate_mask(expected_output_data, pred, element_size_);
+                const scalable_reg_value_t expected_output {
+                    expected_output_data.data(),
+                    expected_output_data.size(),
+                };
 
-            const auto output_value =
-                register_data.after.get_z_register_value(registers_used_.dest_z.at(zt));
+                const auto output_value = register_data.after.get_z_register_value(
+                    registers_used_.dest_z.at(zt));
 
-            if (output_value != expected_output) {
-                test_failed();
-                if (NUM_ZT > 1)
-                    print("Zt%u:\n", (unsigned)zt);
-                print("predicate: ");
-                print_predicate(register_data.before.get_p_register_value(
-                    registers_used_.governing_p));
-                print("\nexpected:  ");
-                print_vector(expected_output);
-                print("\nactual:    ");
-                print_vector(output_value);
-                print("\n");
+                if (output_value != expected_output) {
+                    test_failed();
+                    if (NUM_ZT > 1)
+                        print("Zt%u:\n", (unsigned)zt);
+                    print("predicate: ");
+                    print_predicate(register_data.before.get_p_register_value(
+                        registers_used_.governing_p));
+                    print("\nexpected:  ");
+                    print_vector(expected_output);
+                    print("\nactual:    ");
+                    print_vector(output_value);
+                    print("\n");
+                }
             }
         }
 
         // Check that the values of the other Z registers have been preserved.
         for (size_t i = 0; i < NUM_Z_REGS; i++) {
-            if (std::find(registers_used_.dest_z.begin(), registers_used_.dest_z.end(),
+            if (expected_fault ||
+                std::find(registers_used_.dest_z.begin(), registers_used_.dest_z.end(),
                           i) == registers_used_.dest_z.end())
                 check_z_reg(i, register_data);
         }
@@ -3859,18 +4181,13 @@ struct scalar_plus_immediate_load_test_case_t
         for (size_t i = 0; i < NUM_P_REGS; i++) {
             check_p_reg(i, register_data);
         }
+        check_ffr(register_data);
     }
 
-    test_ptrs_t
-    create_test_ptrs(test_register_data_t &register_data) override
+    size_t
+    num_values_accessed() const override
     {
-        return {
-            base_,
-            register_data.before.z.data(),
-            register_data.before.p.data(),
-            register_data.after.z.data(),
-            register_data.after.p.data(),
-        };
+        return loaded_vector_size_ / static_cast<size_t>(element_size_);
     }
 };
 
@@ -3880,18 +4197,22 @@ test_ld1_scalar_plus_immediate()
 #    define TEST_FUNC(ld_instruction)                                               \
         [](scalar_plus_immediate_load_test_case_t<1>::test_ptrs_t &ptrs) {          \
             asm(/* clang-format off */                                              \
+            RESTORE_FFR(p_restore_base)                                             \
             RESTORE_Z_REGISTERS(z_restore_base)                                     \
             RESTORE_P_REGISTERS(p_restore_base)                                     \
             ld_instruction "\n"                                                     \
             SAVE_Z_REGISTERS(z_save_base)                                           \
-            SAVE_P_REGISTERS(p_save_base) /* clang-format on */         \
+            SAVE_P_REGISTERS(p_save_base)                                           \
+            SAVE_FFR(p_save_base) /* clang-format on */                     \
                 :                                                                   \
                 : [base] "r"(ptrs.base), [z_restore_base] "r"(ptrs.z_restore_base), \
                   [z_save_base] "r"(ptrs.z_save_base),                              \
                   [p_restore_base] "r"(ptrs.p_restore_base),                        \
                   [p_save_base] "r"(ptrs.p_save_base)                               \
-                : ALL_Z_REGS, ALL_P_REGS, "memory");                                \
+                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");                         \
         }
+
+    const auto vl_bytes = static_cast<std::ptrdiff_t>(get_vl_bytes());
 
     return run_tests<scalar_plus_immediate_load_test_case_t<1>>({
         /* {
@@ -3901,7 +4222,8 @@ test_ld1_scalar_plus_immediate()
          *     Expected output data (128-bit vl),
          *     Expected output data (256-bit vl),
          *     Expected output data (512-bit vl),
-         *     Base pointer (value for Xn),
+         *     Data size (used to set the base ptr),
+         *     Offset in bytes (#imm * vl_bytes) / (element_size / data_size)
          * },
          */
         // LD1B instructions
@@ -3923,7 +4245,8 @@ test_ld1_scalar_plus_immediate()
                   0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x10, 0x11,
                   0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21, 0x22,
                   0x23, 0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
+            /*offset=*/0 * vl_bytes,
         },
         {
             "ld1b scalar+immediate 16bit element",
@@ -3939,7 +4262,8 @@ test_ld1_scalar_plus_immediate()
                   0x0008, 0x0009, 0x0010, 0x0011, 0x0012, 0x0013, 0x0014, 0x0015,
                   0x0016, 0x0017, 0x0018, 0x0019, 0x0020, 0x0021, 0x0022, 0x0023,
                   0x00f8, 0x00f7, 0x00f6, 0x00f5, 0x00f4, 0x00f3, 0x00f2, 0x00f1 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
+            /*offset=*/(1 * vl_bytes) / 2,
         },
         {
             "ld1b scalar+immediate 32bit element",
@@ -3954,7 +4278,8 @@ test_ld1_scalar_plus_immediate()
                 { 0x00000000, 0x00000001, 0x00000002, 0x00000003, 0x00000004, 0x00000005,
                   0x00000006, 0x00000007, 0x00000008, 0x00000009, 0x00000010, 0x00000011,
                   0x00000012, 0x00000013, 0x00000014, 0x00000015 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
+            /*offset=*/(2 * vl_bytes) / 4,
         },
         {
             "ld1b scalar+immediate 64bit element",
@@ -3969,7 +4294,8 @@ test_ld1_scalar_plus_immediate()
                 { 0x00000000000000f8, 0x00000000000000f7, 0x00000000000000f6,
                   0x00000000000000f5, 0x00000000000000f4, 0x00000000000000f3,
                   0x00000000000000f2, 0x00000000000000f1 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
+            /*offset=*/(3 * vl_bytes) / 8,
         },
         {
             "ld1b scalar+immediate 64bit element (min index)",
@@ -3984,7 +4310,8 @@ test_ld1_scalar_plus_immediate()
                 { 0x0000000000000000, 0x0000000000000001, 0x0000000000000002,
                   0x0000000000000003, 0x0000000000000004, 0x0000000000000005,
                   0x0000000000000006, 0x0000000000000007 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
+            /*offset=*/(-8 * vl_bytes) / 8,
         },
         {
             "ld1b scalar+immediate 64bit element (max index)",
@@ -3999,7 +4326,8 @@ test_ld1_scalar_plus_immediate()
                 { 0x00000000000000f8, 0x00000000000000f7, 0x00000000000000f6,
                   0x00000000000000f5, 0x00000000000000f4, 0x00000000000000f3,
                   0x00000000000000f2, 0x00000000000000f1 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
+            /*offset=*/(7 * vl_bytes) / 8,
         },
         {
             "ldnt1b scalar+immediate 8bit element",
@@ -4019,7 +4347,8 @@ test_ld1_scalar_plus_immediate()
                   0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x10, 0x11,
                   0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21, 0x22,
                   0x23, 0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
+            /*offset=*/4 * vl_bytes,
         },
         // LD1SB instructions
         {
@@ -4036,7 +4365,8 @@ test_ld1_scalar_plus_immediate()
                   0x0008, 0x0009, 0x0010, 0x0011, 0x0012, 0x0013, 0x0014, 0x0015,
                   0x0016, 0x0017, 0x0018, 0x0019, 0x0020, 0x0021, 0x0022, 0x0023,
                   -8,     -9,     -10,    -11,    -12,    -13,    -14,    -15 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
+            /*offset=*/(5 * vl_bytes) / 2,
         },
         {
             "ld1sb scalar+immediate 32bit element",
@@ -4050,7 +4380,8 @@ test_ld1_scalar_plus_immediate()
                 { 0x00000000, 0x00000001, 0x00000002, 0x00000003, 0x00000004, 0x00000005,
                   0x00000006, 0x00000007, 0x00000008, 0x00000009, 0x00000010, 0x00000011,
                   0x00000012, 0x00000013, 0x00000014, 0x00000015 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
+            /*offset=*/(6 * vl_bytes) / 4,
         },
         {
             "ld1sb scalar+immediate 64bit element",
@@ -4065,7 +4396,8 @@ test_ld1_scalar_plus_immediate()
                 { 0x0000000000000016, 0x0000000000000017, 0x0000000000000018,
                   0x0000000000000019, 0x0000000000000020, 0x0000000000000021,
                   0x0000000000000022, 0x0000000000000023 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
+            /*offset=*/(-6 * vl_bytes) / 8,
         },
         {
             "ld1sb scalar+immediate 64bit element (min index)",
@@ -4080,7 +4412,8 @@ test_ld1_scalar_plus_immediate()
                 { 0x0000000000000000, 0x0000000000000001, 0x0000000000000002,
                   0x0000000000000003, 0x0000000000000004, 0x0000000000000005,
                   0x0000000000000006, 0x0000000000000007 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
+            /*offset=*/(-8 * vl_bytes) / 8,
         },
         {
             "ld1sb scalar+immediate 64bit element (max index)",
@@ -4091,7 +4424,8 @@ test_ld1_scalar_plus_immediate()
             std::array<std::array<int64_t, 4>, 1> { { -12, -13, -14, -15 } },
             std::array<std::array<int64_t, 8>, 1> {
                 { -8, -9, -10, -11, -12, -13, -14, -15 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
+            /*offset=*/(7 * vl_bytes) / 8,
         },
         // LD1H instructions
         {
@@ -4108,7 +4442,8 @@ test_ld1_scalar_plus_immediate()
                   0x0008, 0x0009, 0x0010, 0x0011, 0x0012, 0x0013, 0x0014, 0x0015,
                   0x0016, 0x0017, 0x0018, 0x0019, 0x0020, 0x0021, 0x0022, 0x0023,
                   0xfff8, 0xfff7, 0xfff6, 0xfff5, 0xfff4, 0xfff3, 0xfff2, 0xfff1 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
+            /*offset=*/-5 * vl_bytes,
         },
         {
             "ld1h scalar+immediate 32bit element",
@@ -4123,7 +4458,8 @@ test_ld1_scalar_plus_immediate()
                 { 0x00000000, 0x00000001, 0x00000002, 0x00000003, 0x00000004, 0x00000005,
                   0x00000006, 0x00000007, 0x00000008, 0x00000009, 0x00000010, 0x00000011,
                   0x00000012, 0x00000013, 0x00000014, 0x00000015 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
+            /*offset=*/(-5 * vl_bytes) / 2,
         },
         {
             "ld1h scalar+immediate 64bit element",
@@ -4138,7 +4474,8 @@ test_ld1_scalar_plus_immediate()
                 { 0x0000000000000008, 0x0000000000000009, 0x0000000000000010,
                   0x0000000000000011, 0x0000000000000012, 0x0000000000000013,
                   0x0000000000000014, 0x0000000000000015 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
+            /*offset=*/(-3 * vl_bytes) / 4,
         },
         {
             "ld1h scalar+immediate 64bit element (min index)",
@@ -4153,7 +4490,8 @@ test_ld1_scalar_plus_immediate()
                 { 0x0000000000000000, 0x0000000000000001, 0x0000000000000002,
                   0x0000000000000003, 0x0000000000000004, 0x0000000000000005,
                   0x0000000000000006, 0x0000000000000007 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
+            /*offset=*/(-8 * vl_bytes) / 4,
         },
         {
             "ld1h scalar+immediate 64bit element (max index)",
@@ -4168,7 +4506,8 @@ test_ld1_scalar_plus_immediate()
                 { 0x000000000000fff8, 0x000000000000fff7, 0x000000000000fff6,
                   0x000000000000fff5, 0x000000000000fff4, 0x000000000000fff3,
                   0x000000000000fff2, 0x000000000000fff1 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
+            /*offset=*/(7 * vl_bytes) / 4,
         },
         {
             "ldnt1h scalar+immediate 16bit element",
@@ -4184,7 +4523,8 @@ test_ld1_scalar_plus_immediate()
                   0x0008, 0x0009, 0x0010, 0x0011, 0x0012, 0x0013, 0x0014, 0x0015,
                   0x0016, 0x0017, 0x0018, 0x0019, 0x0020, 0x0021, 0x0022, 0x0023,
                   0xfff8, 0xfff7, 0xfff6, 0xfff5, 0xfff4, 0xfff3, 0xfff2, 0xfff1 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
+            /*offset=*/-2 * vl_bytes,
         },
         // LD1SH instructions
         {
@@ -4197,7 +4537,8 @@ test_ld1_scalar_plus_immediate()
             std::array<std::array<int32_t, 16>, 1> {
                 { 0x00000016, 0x00000017, 0x00000018, 0x00000019, 0x00000020, 0x00000021,
                   0x00000022, 0x00000023, -8, -9, -10, -11, -12, -13, -14, -15 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
+            /*offset=*/(-1 * vl_bytes) / 2,
         },
         {
             "ld1sh scalar+immediate 64bit element",
@@ -4212,7 +4553,8 @@ test_ld1_scalar_plus_immediate()
                 { 0x0000000000000000, 0x0000000000000001, 0x0000000000000002,
                   0x0000000000000003, 0x0000000000000004, 0x0000000000000005,
                   0x0000000000000006, 0x0000000000000007 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
+            /*offset=*/(0 * vl_bytes) / 4,
         },
         {
             "ld1sh scalar+immediate 64bit element (min index)",
@@ -4227,7 +4569,8 @@ test_ld1_scalar_plus_immediate()
                 { 0x0000000000000000, 0x0000000000000001, 0x0000000000000002,
                   0x0000000000000003, 0x0000000000000004, 0x0000000000000005,
                   0x0000000000000006, 0x0000000000000007 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
+            /*offset=*/(-8 * vl_bytes) / 4,
         },
         {
             "ld1sh scalar+immediate 64bit element (max index)",
@@ -4238,7 +4581,8 @@ test_ld1_scalar_plus_immediate()
             std::array<std::array<int64_t, 4>, 1> { { -12, -13, -14, -15 } },
             std::array<std::array<int64_t, 8>, 1> {
                 { -8, -9, -10, -11, -12, -13, -14, -15 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
+            /*offset=*/(7 * vl_bytes) / 4,
         },
         // LD1W instructions
         {
@@ -4254,7 +4598,8 @@ test_ld1_scalar_plus_immediate()
                 { 0x00000016, 0x00000017, 0x00000018, 0x00000019, 0x00000020, 0x00000021,
                   0x00000022, 0x00000023, 0xfffffff8, 0xfffffff7, 0xfffffff6, 0xfffffff5,
                   0xfffffff4, 0xfffffff3, 0xfffffff2, 0xfffffff1 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+            element_size_t::SINGLE,
+            /*offset=*/1 * vl_bytes,
         },
         {
             "ld1w scalar+immediate 64bit element",
@@ -4269,7 +4614,8 @@ test_ld1_scalar_plus_immediate()
                 { 0x0000000000000016, 0x0000000000000017, 0x0000000000000018,
                   0x0000000000000019, 0x0000000000000020, 0x0000000000000021,
                   0x0000000000000022, 0x0000000000000023 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+            element_size_t::SINGLE,
+            /*offset=*/(2 * vl_bytes) / 2,
         },
         {
             "ld1w scalar+immediate 64bit element (min index)",
@@ -4284,7 +4630,8 @@ test_ld1_scalar_plus_immediate()
                 { 0x0000000000000000, 0x0000000000000001, 0x0000000000000002,
                   0x0000000000000003, 0x0000000000000004, 0x0000000000000005,
                   0x0000000000000006, 0x0000000000000007 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+            element_size_t::SINGLE,
+            /*offset=*/(-8 * vl_bytes) / 2,
         },
         {
             "ld1w scalar+immediate 64bit element (max index)",
@@ -4299,7 +4646,8 @@ test_ld1_scalar_plus_immediate()
                 { 0x00000000fffffff8, 0x00000000fffffff7, 0x00000000fffffff6,
                   0x00000000fffffff5, 0x00000000fffffff4, 0x00000000fffffff3,
                   0x00000000fffffff2, 0x00000000fffffff1 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+            element_size_t::SINGLE,
+            /*offset=*/(7 * vl_bytes) / 2,
         },
         {
             "ldnt1w scalar+immediate 32bit element",
@@ -4314,7 +4662,8 @@ test_ld1_scalar_plus_immediate()
                 { 0x00000016, 0x00000017, 0x00000018, 0x00000019, 0x00000020, 0x00000021,
                   0x00000022, 0x00000023, 0xfffffff8, 0xfffffff7, 0xfffffff6, 0xfffffff5,
                   0xfffffff4, 0xfffffff3, 0xfffffff2, 0xfffffff1 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+            element_size_t::SINGLE,
+            /*offset=*/3 * vl_bytes,
         },
         // LD1SW instructions
         {
@@ -4330,7 +4679,8 @@ test_ld1_scalar_plus_immediate()
                 { 0x0000000000000000, 0x0000000000000001, 0x0000000000000002,
                   0x0000000000000003, 0x0000000000000004, 0x0000000000000005,
                   0x0000000000000006, 0x0000000000000007 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+            element_size_t::SINGLE,
+            /*offset=*/(4 * vl_bytes) / 2,
         },
         {
             "ld1sw scalar+immediate 64bit element (min index)",
@@ -4345,7 +4695,8 @@ test_ld1_scalar_plus_immediate()
                 { 0x0000000000000000, 0x0000000000000001, 0x0000000000000002,
                   0x0000000000000003, 0x0000000000000004, 0x0000000000000005,
                   0x0000000000000006, 0x0000000000000007 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+            element_size_t::SINGLE,
+            /*offset=*/(-8 * vl_bytes) / 2,
         },
         {
             "ld1sw scalar+immediate 64bit element (max index)",
@@ -4356,7 +4707,8 @@ test_ld1_scalar_plus_immediate()
             std::array<std::array<int64_t, 4>, 1> { { -12, -13, -14, -15 } },
             std::array<std::array<int64_t, 8>, 1> {
                 { -8, -9, -10, -11, -12, -13, -14, -15 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+            element_size_t::SINGLE,
+            /*offset=*/(7 * vl_bytes) / 2,
         },
 
         // LD1D instructions
@@ -4373,7 +4725,8 @@ test_ld1_scalar_plus_immediate()
                 { 0x0000000000000008, 0x0000000000000009, 0x0000000000000010,
                   0x0000000000000011, 0x0000000000000012, 0x0000000000000013,
                   0x0000000000000014, 0x0000000000000015 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+            element_size_t::DOUBLE,
+            /*offset=*/5 * vl_bytes,
         },
         {
             "ld1d scalar+immediate 64bit element (min index)",
@@ -4388,7 +4741,8 @@ test_ld1_scalar_plus_immediate()
                 { 0x0000000000000000, 0x0000000000000001, 0x0000000000000002,
                   0x0000000000000003, 0x0000000000000004, 0x0000000000000005,
                   0x0000000000000006, 0x0000000000000007 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+            element_size_t::DOUBLE,
+            /*offset=*/-8 * vl_bytes,
         },
         {
             "ld1d scalar+immediate 64bit element (max index)",
@@ -4403,7 +4757,8 @@ test_ld1_scalar_plus_immediate()
                 { 0xfffffffffffffff8, 0xfffffffffffffff7, 0xfffffffffffffff6,
                   0xfffffffffffffff5, 0xfffffffffffffff4, 0xfffffffffffffff3,
                   0xfffffffffffffff2, 0xfffffffffffffff1 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+            element_size_t::DOUBLE,
+            /*offset=*/7 * vl_bytes,
         },
         {
             "ldnt1d scalar+immediate 64bit element",
@@ -4418,7 +4773,8 @@ test_ld1_scalar_plus_immediate()
                 { 0x0000000000000016, 0x0000000000000017, 0x0000000000000018,
                   0x0000000000000019, 0x0000000000000020, 0x0000000000000021,
                   0x0000000000000022, 0x0000000000000023 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+            element_size_t::DOUBLE,
+            /*offset=*/6 * vl_bytes,
         },
         // Load and replicate instructions
         {
@@ -4439,7 +4795,9 @@ test_ld1_scalar_plus_immediate()
                   0x17, 0x18, 0x19, 0x20, 0x21, 0x22, 0x23, 0xf8, 0xf7, 0xf6, 0xf5,
                   0xf4, 0xf3, 0xf2, 0xf1, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21, 0x22,
                   0x23, 0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
+            /*offset=*/80,
+            /*loaded_vector_size=*/16,
         },
         {
             "ld1rqh scalar+immediate",
@@ -4456,7 +4814,9 @@ test_ld1_scalar_plus_immediate()
                   0xfff8, 0xfff7, 0xfff6, 0xfff5, 0xfff4, 0xfff3, 0xfff2, 0xfff1,
                   0xfff8, 0xfff7, 0xfff6, 0xfff5, 0xfff4, 0xfff3, 0xfff2, 0xfff1,
                   0xfff8, 0xfff7, 0xfff6, 0xfff5, 0xfff4, 0xfff3, 0xfff2, 0xfff1 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
+            /*offset=*/48,
+            /*loaded_vector_size=*/16,
         },
         {
             "ld1rqw scalar+immediate",
@@ -4471,7 +4831,9 @@ test_ld1_scalar_plus_immediate()
                 { 0xfffffff4, 0xfffffff3, 0xfffffff2, 0xfffffff1, 0xfffffff4, 0xfffffff3,
                   0xfffffff2, 0xfffffff1, 0xfffffff4, 0xfffffff3, 0xfffffff2, 0xfffffff1,
                   0xfffffff4, 0xfffffff3, 0xfffffff2, 0xfffffff1 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+            element_size_t::SINGLE,
+            /*offset=*/-16,
+            /*loaded_vector_size=*/16,
         },
         {
             "ld1rqd scalar+immediate",
@@ -4486,7 +4848,9 @@ test_ld1_scalar_plus_immediate()
                 { 0xfffffffffffffff4, 0xfffffffffffffff3, 0xfffffffffffffff4,
                   0xfffffffffffffff3, 0xfffffffffffffff4, 0xfffffffffffffff3,
                   0xfffffffffffffff4, 0xfffffffffffffff3 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+            element_size_t::DOUBLE,
+            /*offset=*/-32,
+            /*loaded_vector_size=*/16,
         },
         {
             "ld1rqd scalar+immediate (min index)",
@@ -4501,7 +4865,9 @@ test_ld1_scalar_plus_immediate()
                 { 0x0000000000000016, 0x0000000000000017, 0x0000000000000016,
                   0x0000000000000017, 0x0000000000000016, 0x0000000000000017,
                   0x0000000000000016, 0x0000000000000017 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+            element_size_t::DOUBLE,
+            /*offset=*/-128,
+            /*loaded_vector_size=*/16,
         },
         {
             "ld1rqd scalar+immediate (max index)",
@@ -4516,7 +4882,9 @@ test_ld1_scalar_plus_immediate()
                 { 0x0000000000000014, 0x0000000000000015, 0x0000000000000014,
                   0x0000000000000015, 0x0000000000000014, 0x0000000000000015,
                   0x0000000000000014, 0x0000000000000015 } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+            element_size_t::DOUBLE,
+            /*offset=*/112,
+            /*loaded_vector_size=*/16,
         },
     });
 #    undef TEST_FUNC
@@ -4528,18 +4896,22 @@ test_ld2_scalar_plus_immediate()
 #    define TEST_FUNC(ld_instruction)                                               \
         [](scalar_plus_immediate_load_test_case_t<2>::test_ptrs_t &ptrs) {          \
             asm(/* clang-format off */                                              \
+            RESTORE_FFR(p_restore_base)                                             \
             RESTORE_Z_REGISTERS(z_restore_base)                                     \
             RESTORE_P_REGISTERS(p_restore_base)                                     \
             ld_instruction "\n"                                                     \
             SAVE_Z_REGISTERS(z_save_base)                                           \
-            SAVE_P_REGISTERS(p_save_base) /* clang-format on */         \
+            SAVE_P_REGISTERS(p_save_base)                                           \
+            SAVE_FFR(p_save_base) /* clang-format on */                     \
                 :                                                                   \
                 : [base] "r"(ptrs.base), [z_restore_base] "r"(ptrs.z_restore_base), \
                   [z_save_base] "r"(ptrs.z_save_base),                              \
                   [p_restore_base] "r"(ptrs.p_restore_base),                        \
                   [p_save_base] "r"(ptrs.p_save_base)                               \
-                : ALL_Z_REGS, ALL_P_REGS, "memory");                                \
+                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");                         \
         }
+
+    const auto vl_bytes = static_cast<std::ptrdiff_t>(get_vl_bytes());
 
     return run_tests<scalar_plus_immediate_load_test_case_t<2>>({
         /* {
@@ -4585,7 +4957,8 @@ test_ld2_scalar_plus_immediate()
                   0xf7, 0xf5, 0xf3, 0xf1, 0x01, 0x03, 0x05, 0x07, 0x09, 0x11, 0x13,
                   0x15, 0x17, 0x19, 0x21, 0x23, 0xf7, 0xf5, 0xf3, 0xf1 },
             } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
+            /*offset=*/0 * vl_bytes,
         },
         // LD2H instructions
         {
@@ -4612,7 +4985,8 @@ test_ld2_scalar_plus_immediate()
                   0x0001, 0x0003, 0x0005, 0x0007, 0x0009, 0x0011, 0x0013, 0x0015,
                   0x0017, 0x0019, 0x0021, 0x0023, 0xfff7, 0xfff5, 0xfff3, 0xfff1 },
             } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
+            /*offset=*/2 * vl_bytes,
         },
         // LD2W instructions
         {
@@ -4637,7 +5011,8 @@ test_ld2_scalar_plus_immediate()
                   0x00000013, 0x00000015, 0x00000017, 0x00000019, 0x00000021, 0x00000023,
                   0xfffffff7, 0xfffffff5, 0xfffffff3, 0xfffffff1 },
             } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+            element_size_t::SINGLE,
+            /*offset=*/4 * vl_bytes,
         },
         // LD2D instructions
         {
@@ -4662,7 +5037,8 @@ test_ld2_scalar_plus_immediate()
                   0x0000000000000023, 0xfffffffffffffff7, 0xfffffffffffffff5,
                   0xfffffffffffffff3, 0xfffffffffffffff1 },
             } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+            element_size_t::DOUBLE,
+            /*offset=*/6 * vl_bytes,
         },
         {
             "ld2d scalar+immediate (min index)",
@@ -4686,7 +5062,8 @@ test_ld2_scalar_plus_immediate()
                   0x0000000000000007, 0x0000000000000009, 0x0000000000000011,
                   0x0000000000000013, 0x0000000000000015 },
             } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+            element_size_t::DOUBLE,
+            /*offset=*/-16 * vl_bytes,
         },
         {
             "ld2d scalar+immediate (max index)",
@@ -4710,7 +5087,8 @@ test_ld2_scalar_plus_immediate()
                   0x0000000000000023, 0xfffffffffffffff7, 0xfffffffffffffff5,
                   0xfffffffffffffff3, 0xfffffffffffffff1 },
             } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+            element_size_t::DOUBLE,
+            /*offset=*/14 * vl_bytes,
         },
     });
 #    undef TEST_FUNC
@@ -4722,18 +5100,22 @@ test_ld3_scalar_plus_immediate()
 #    define TEST_FUNC(ld_instruction)                                               \
         [](scalar_plus_immediate_load_test_case_t<3>::test_ptrs_t &ptrs) {          \
             asm(/* clang-format off */                                              \
+            RESTORE_FFR(p_restore_base)                                             \
             RESTORE_Z_REGISTERS(z_restore_base)                                     \
             RESTORE_P_REGISTERS(p_restore_base)                                     \
             ld_instruction "\n"                                                     \
             SAVE_Z_REGISTERS(z_save_base)                                           \
-            SAVE_P_REGISTERS(p_save_base) /* clang-format on */         \
+            SAVE_P_REGISTERS(p_save_base)                                           \
+            SAVE_FFR(p_save_base) /* clang-format on */                     \
                 :                                                                   \
                 : [base] "r"(ptrs.base), [z_restore_base] "r"(ptrs.z_restore_base), \
                   [z_save_base] "r"(ptrs.z_save_base),                              \
                   [p_restore_base] "r"(ptrs.p_restore_base),                        \
                   [p_save_base] "r"(ptrs.p_save_base)                               \
-                : ALL_Z_REGS, ALL_P_REGS, "memory");                                \
+                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");                         \
         }
+
+    const auto vl_bytes = static_cast<std::ptrdiff_t>(get_vl_bytes());
 
     return run_tests<scalar_plus_immediate_load_test_case_t<3>>({
         /* {
@@ -4790,7 +5172,8 @@ test_ld3_scalar_plus_immediate()
                   0x06, 0x09, 0x12, 0x15, 0x18, 0x21, 0xf8, 0xf5, 0xf2, 0x01, 0x04,
                   0x07, 0x10, 0x13, 0x16, 0x19, 0x22, 0xf7, 0xf4, 0xf1 },
             } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
+            /*offset=*/12 * vl_bytes,
         },
         // LD3H instructions
         {
@@ -4824,7 +5207,8 @@ test_ld3_scalar_plus_immediate()
                   0x0018, 0x0021, 0xfff8, 0xfff5, 0xfff2, 0x0001, 0x0004, 0x0007,
                   0x0010, 0x0013, 0x0016, 0x0019, 0x0022, 0xfff7, 0xfff4, 0xfff1 },
             } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
+            /*offset=*/15 * vl_bytes,
         },
         // LD3W instructions
         {
@@ -4855,7 +5239,8 @@ test_ld3_scalar_plus_immediate()
                   0x00000020, 0x00000023, 0xfffffff6, 0xfffffff3, 0x00000000, 0x00000003,
                   0x00000006, 0x00000009, 0x00000012, 0x00000015 },
             } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+            element_size_t::SINGLE,
+            /*offset=*/18 * vl_bytes,
         },
         // LD3D instructions
         {
@@ -4886,7 +5271,8 @@ test_ld3_scalar_plus_immediate()
                   0xfffffffffffffff5, 0xfffffffffffffff2, 0x0000000000000001,
                   0x0000000000000004, 0x0000000000000007 },
             } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+            element_size_t::DOUBLE,
+            /*offset=*/-18 * vl_bytes,
         },
         {
             "ld3d scalar+immediate (min index)",
@@ -4916,7 +5302,8 @@ test_ld3_scalar_plus_immediate()
                   0x0000000000000011, 0x0000000000000014, 0x0000000000000017,
                   0x0000000000000020, 0x0000000000000023 },
             } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+            element_size_t::DOUBLE,
+            /*offset=*/-24 * vl_bytes,
         },
         {
             "ld3d scalar+immediate (max index)",
@@ -4946,7 +5333,8 @@ test_ld3_scalar_plus_immediate()
                   0x0000000000000019, 0x0000000000000022, 0xfffffffffffffff7,
                   0xfffffffffffffff4, 0xfffffffffffffff1 },
             } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+            element_size_t::DOUBLE,
+            /*offset=*/21 * vl_bytes,
         },
     });
 #    undef TEST_FUNC
@@ -4958,18 +5346,22 @@ test_ld4_scalar_plus_immediate()
 #    define TEST_FUNC(ld_instruction)                                               \
         [](scalar_plus_immediate_load_test_case_t<4>::test_ptrs_t &ptrs) {          \
             asm(/* clang-format off */                                              \
+            RESTORE_FFR(p_restore_base)                                             \
             RESTORE_Z_REGISTERS(z_restore_base)                                     \
             RESTORE_P_REGISTERS(p_restore_base)                                     \
             ld_instruction "\n"                                                     \
             SAVE_Z_REGISTERS(z_save_base)                                           \
-            SAVE_P_REGISTERS(p_save_base) /* clang-format on */         \
+            SAVE_P_REGISTERS(p_save_base)                                           \
+            SAVE_FFR(p_save_base) /* clang-format on */                     \
                 :                                                                   \
                 : [base] "r"(ptrs.base), [z_restore_base] "r"(ptrs.z_restore_base), \
                   [z_save_base] "r"(ptrs.z_save_base),                              \
                   [p_restore_base] "r"(ptrs.p_restore_base),                        \
                   [p_save_base] "r"(ptrs.p_save_base)                               \
-                : ALL_Z_REGS, ALL_P_REGS, "memory");                                \
+                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");                         \
         }
+
+    const auto vl_bytes = static_cast<std::ptrdiff_t>(get_vl_bytes());
 
     return run_tests<scalar_plus_immediate_load_test_case_t<4>>({
         /* {
@@ -5038,7 +5430,8 @@ test_ld4_scalar_plus_immediate()
                   0x19, 0x23, 0xf5, 0xf1, 0x03, 0x07, 0x11, 0x15, 0x19, 0x23, 0xf5,
                   0xf1, 0x03, 0x07, 0x11, 0x15, 0x19, 0x23, 0xf5, 0xf1 },
             } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            element_size_t::BYTE,
+            /*offset=*/-20 * vl_bytes,
         },
         // LD4H instructions
         {
@@ -5080,7 +5473,8 @@ test_ld4_scalar_plus_immediate()
                   0x0003, 0x0007, 0x0011, 0x0015, 0x0019, 0x0023, 0xfff5, 0xfff1,
                   0x0003, 0x0007, 0x0011, 0x0015, 0x0019, 0x0023, 0xfff5, 0xfff1 },
             } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            element_size_t::HALF,
+            /*offset=*/-16 * vl_bytes,
         },
         // LD4W instructions
         {
@@ -5117,7 +5511,8 @@ test_ld4_scalar_plus_immediate()
                   0xfffffff5, 0xfffffff1, 0x00000003, 0x00000007, 0x00000011, 0x00000015,
                   0x00000019, 0x00000023, 0xfffffff5, 0xfffffff1 },
             } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+            element_size_t::SINGLE,
+            /*offset=*/-12 * vl_bytes,
         },
         // LD4D instructions
         {
@@ -5154,7 +5549,8 @@ test_ld4_scalar_plus_immediate()
                   0x0000000000000015, 0x0000000000000019, 0x0000000000000023,
                   0xfffffffffffffff5, 0xfffffffffffffff1 },
             } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+            element_size_t::DOUBLE,
+            /*offset=*/-8 * vl_bytes,
         },
         {
             "ld4d scalar+immediate (min index)",
@@ -5190,7 +5586,8 @@ test_ld4_scalar_plus_immediate()
                   0x0000000000000015, 0x0000000000000019, 0x0000000000000023,
                   0xfffffffffffffff5, 0xfffffffffffffff1 },
             } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+            element_size_t::DOUBLE,
+            /*offset=*/-32 * vl_bytes,
         },
         {
             "ld4d scalar+immediate (max index)",
@@ -5226,7 +5623,8 @@ test_ld4_scalar_plus_immediate()
                   0x0000000000000015, 0x0000000000000019, 0x0000000000000023,
                   0xfffffffffffffff5, 0xfffffffffffffff1 },
             } },
-            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+            element_size_t::DOUBLE,
+            /*offset=*/28 * vl_bytes,
         },
     });
 #    undef TEST_FUNC
@@ -5252,7 +5650,8 @@ struct scalar_plus_immediate_store_test_case_t
         std::array<VALUE_T, NUM_VALUES> reference_data, int64_t index)
         : test_case_base_t<test_ptrs_t>(
               std::move(name), std::move(func), registers_used.governing_p,
-              static_cast<element_size_t>(TEST_VL_BYTES / (NUM_VALUES / NUM_ZT)))
+              static_cast<element_size_t>(TEST_VL_BYTES / (NUM_VALUES / NUM_ZT)),
+              CONTIGUOUS_INSTRUCTION)
         , registers_used_(registers_used)
         , base_(OUTPUT_DATA.base_addr())
         , index_(index)
@@ -5267,8 +5666,9 @@ struct scalar_plus_immediate_store_test_case_t
         }
     }
 
-    void
-    setup(sve_register_file_t &register_values) override
+    virtual test_ptrs_t
+    setup(test_register_data_t &register_data, bool force_fault,
+          size_t faulting_element) override
     {
         static constexpr std::array<vector_reg_value128_t, 4> DATA_TO_WRITE { {
             { // Zt1 data
@@ -5287,26 +5687,41 @@ struct scalar_plus_immediate_store_test_case_t
         assert(NUM_ZT <= DATA_TO_WRITE.size());
 
         for (size_t zt = 0; zt < NUM_ZT; zt++) {
-            register_values.set_z_register_value(registers_used_.src_z[zt],
-                                                 DATA_TO_WRITE[zt]);
+            register_data.before.set_z_register_value(registers_used_.src_z[zt],
+                                                      DATA_TO_WRITE[zt]);
         }
 
+        const auto vl_bytes = get_vl_bytes();
+        const auto stored_value_bytes = static_cast<size_t>(stored_value_size_);
+        const auto element_size_bytes = static_cast<size_t>(element_size_);
+        const auto num_vector_elements = vl_bytes / element_size_bytes;
+
+        const auto offset = index_ * num_vector_elements * stored_value_bytes;
         if (test_status_ == test_result_t::PASS) {
-            const auto vl_bytes = get_vl_bytes();
-            const auto stored_value_bytes = static_cast<size_t>(stored_value_size_);
-            const auto element_size_bytes = static_cast<size_t>(element_size_);
-            const auto num_vector_elements = vl_bytes / element_size_bytes;
-            memset(static_cast<uint8_t *>(base_) +
-                       (index_ * num_vector_elements * stored_value_bytes),
-                   0xAB, reference_data_.size());
+            memset(static_cast<uint8_t *>(base_) + offset, 0xAB, reference_data_.size());
         } else {
             OUTPUT_DATA.reset();
         }
+
+        void *base = base_;
+        if (force_fault) {
+            base = OUTPUT_DATA.faulting_base_addr(
+
+                offset + (faulting_element * NUM_ZT * stored_value_bytes));
+        }
+
+        return {
+            base,
+            register_data.before.z.data(),
+            register_data.before.p.data(),
+            register_data.after.z.data(),
+            register_data.after.p.data(),
+        };
     }
 
     void
-    check_output(predicate_reg_value128_t pred,
-                 const test_register_data_t &register_data) override
+    check_output(predicate_reg_value128_t pred, const test_register_data_t &register_data,
+                 bool expected_fault) override
     {
         // Check that the values of the Z registers have been preserved.
         for (size_t i = 0; i < NUM_Z_REGS; i++) {
@@ -5316,78 +5731,71 @@ struct scalar_plus_immediate_store_test_case_t
         for (size_t i = 0; i < NUM_P_REGS; i++) {
             check_p_reg(i, register_data);
         }
+        check_ffr(register_data);
 
-        const auto vl_bytes = get_vl_bytes();
+        if (!expected_fault) {
+            const auto vl_bytes = get_vl_bytes();
 
-        std::vector<uint8_t> expected_output_data(reference_data_);
+            std::vector<uint8_t> expected_output_data(reference_data_);
 
-        const auto stored_value_bytes = static_cast<size_t>(stored_value_size_);
-        const auto element_size_bytes = static_cast<size_t>(element_size_);
+            const auto stored_value_bytes = static_cast<size_t>(stored_value_size_);
+            const auto element_size_bytes = static_cast<size_t>(element_size_);
 
-        const auto num_vector_elements = vl_bytes / element_size_bytes;
-        const auto num_mask_elements = TEST_VL_BYTES / element_size_bytes;
-        for (size_t i = 0; i < num_vector_elements; i++) {
-            if (!element_is_active(i % num_mask_elements, pred, element_size_)) {
-                // Element is inactive, set it to the poison value.
-                memset(&expected_output_data[NUM_ZT * stored_value_bytes * i], 0xAB,
-                       NUM_ZT * stored_value_bytes);
+            const auto num_vector_elements = vl_bytes / element_size_bytes;
+            const auto num_mask_elements = TEST_VL_BYTES / element_size_bytes;
+            for (size_t i = 0; i < num_vector_elements; i++) {
+                if (!element_is_active(i % num_mask_elements, pred, element_size_)) {
+                    // Element is inactive, set it to the poison value.
+                    memset(&expected_output_data[NUM_ZT * stored_value_bytes * i], 0xAB,
+                           NUM_ZT * stored_value_bytes);
+                }
+            }
+
+            const scalable_reg_value_t expected_output {
+                expected_output_data.data(),
+                expected_output_data.size(),
+            };
+
+            const scalable_reg_value_t output_value {
+                static_cast<uint8_t *>(base_) +
+                    (index_ * num_vector_elements * stored_value_bytes),
+                expected_output_data.size(),
+            };
+
+            if (output_value != expected_output) {
+                test_failed();
+                print("predicate: ");
+                print_predicate(register_data.before.get_p_register_value(
+                    registers_used_.governing_p));
+                print("\nexpected:  ");
+                print_vector(expected_output);
+                print("\nactual:    ");
+                print_vector(output_value);
+                print("\n");
             }
         }
-
-        const scalable_reg_value_t expected_output {
-            expected_output_data.data(),
-            expected_output_data.size(),
-        };
-
-        const scalable_reg_value_t output_value {
-            static_cast<uint8_t *>(base_) +
-                (index_ * num_vector_elements * stored_value_bytes),
-            expected_output_data.size(),
-        };
-
-        if (output_value != expected_output) {
-            test_failed();
-            print("predicate: ");
-            print_predicate(
-                register_data.before.get_p_register_value(registers_used_.governing_p));
-            print("\nexpected:  ");
-            print_vector(expected_output);
-            print("\nactual:    ");
-            print_vector(output_value);
-            print("\n");
-        }
-    }
-
-    test_ptrs_t
-    create_test_ptrs(test_register_data_t &register_data) override
-    {
-        return {
-            base_,
-            register_data.before.z.data(),
-            register_data.before.p.data(),
-            register_data.after.z.data(),
-            register_data.after.p.data(),
-        };
     }
 };
 
 test_result_t
 test_st1_scalar_plus_immediate()
 {
-#    define TEST_FUNC(ld_instruction)                                               \
+#    define TEST_FUNC(st_instruction)                                               \
         [](scalar_plus_immediate_store_test_case_t<1>::test_ptrs_t &ptrs) {         \
             asm(/* clang-format off */                                              \
+            RESTORE_FFR(p_restore_base)                                             \
             RESTORE_Z_REGISTERS(z_restore_base)                                     \
             RESTORE_P_REGISTERS(p_restore_base)                                     \
-            ld_instruction "\n"                                                     \
+            st_instruction "\n"                                                     \
             SAVE_Z_REGISTERS(z_save_base)                                           \
-            SAVE_P_REGISTERS(p_save_base) /* clang-format on */         \
+            SAVE_P_REGISTERS(p_save_base)                                           \
+            SAVE_FFR(p_save_base) /* clang-format on */                     \
                 :                                                                   \
                 : [base] "r"(ptrs.base), [z_restore_base] "r"(ptrs.z_restore_base), \
                   [z_save_base] "r"(ptrs.z_save_base),                              \
                   [p_restore_base] "r"(ptrs.p_restore_base),                        \
                   [p_save_base] "r"(ptrs.p_save_base)                               \
-                : ALL_Z_REGS, ALL_P_REGS, "memory");                                \
+                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");                         \
         }
 
     return run_tests<scalar_plus_immediate_store_test_case_t<1>>({
@@ -5538,20 +5946,22 @@ test_st1_scalar_plus_immediate()
 test_result_t
 test_st2_scalar_plus_immediate()
 {
-#    define TEST_FUNC(ld_instruction)                                               \
+#    define TEST_FUNC(st_instruction)                                               \
         [](scalar_plus_immediate_store_test_case_t<2>::test_ptrs_t &ptrs) {         \
             asm(/* clang-format off */                                              \
+            RESTORE_FFR(p_restore_base)                                             \
             RESTORE_Z_REGISTERS(z_restore_base)                                     \
             RESTORE_P_REGISTERS(p_restore_base)                                     \
-            ld_instruction "\n"                                                     \
+            st_instruction "\n"                                                     \
             SAVE_Z_REGISTERS(z_save_base)                                           \
-            SAVE_P_REGISTERS(p_save_base) /* clang-format on */         \
+            SAVE_P_REGISTERS(p_save_base)                                           \
+            SAVE_FFR(p_save_base) /* clang-format on */                     \
                 :                                                                   \
                 : [base] "r"(ptrs.base), [z_restore_base] "r"(ptrs.z_restore_base), \
                   [z_save_base] "r"(ptrs.z_save_base),                              \
                   [p_restore_base] "r"(ptrs.p_restore_base),                        \
                   [p_save_base] "r"(ptrs.p_save_base)                               \
-                : ALL_Z_REGS, ALL_P_REGS, "memory");                                \
+                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");                         \
         }
 
     return run_tests<scalar_plus_immediate_store_test_case_t<2>>({
@@ -5625,20 +6035,22 @@ test_st2_scalar_plus_immediate()
 test_result_t
 test_st3_scalar_plus_immediate()
 {
-#    define TEST_FUNC(ld_instruction)                                               \
+#    define TEST_FUNC(st_instruction)                                               \
         [](scalar_plus_immediate_store_test_case_t<3>::test_ptrs_t &ptrs) {         \
             asm(/* clang-format off */                                              \
+            RESTORE_FFR(p_restore_base)                                             \
             RESTORE_Z_REGISTERS(z_restore_base)                                     \
             RESTORE_P_REGISTERS(p_restore_base)                                     \
-            ld_instruction "\n"                                                     \
+            st_instruction "\n"                                                     \
             SAVE_Z_REGISTERS(z_save_base)                                           \
-            SAVE_P_REGISTERS(p_save_base) /* clang-format on */         \
+            SAVE_P_REGISTERS(p_save_base)                                           \
+            SAVE_FFR(p_save_base) /* clang-format on */                     \
                 :                                                                   \
                 : [base] "r"(ptrs.base), [z_restore_base] "r"(ptrs.z_restore_base), \
                   [z_save_base] "r"(ptrs.z_save_base),                              \
                   [p_restore_base] "r"(ptrs.p_restore_base),                        \
                   [p_save_base] "r"(ptrs.p_save_base)                               \
-                : ALL_Z_REGS, ALL_P_REGS, "memory");                                \
+                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");                         \
         }
 
     return run_tests<scalar_plus_immediate_store_test_case_t<3>>({
@@ -5718,20 +6130,22 @@ test_st3_scalar_plus_immediate()
 test_result_t
 test_st4_scalar_plus_immediate()
 {
-#    define TEST_FUNC(ld_instruction)                                               \
+#    define TEST_FUNC(st_instruction)                                               \
         [](scalar_plus_immediate_store_test_case_t<4>::test_ptrs_t &ptrs) {         \
             asm(/* clang-format off */                                              \
+            RESTORE_FFR(p_restore_base)                                             \
             RESTORE_Z_REGISTERS(z_restore_base)                                     \
             RESTORE_P_REGISTERS(p_restore_base)                                     \
-            ld_instruction "\n"                                                     \
+            st_instruction "\n"                                                     \
             SAVE_Z_REGISTERS(z_save_base)                                           \
-            SAVE_P_REGISTERS(p_save_base) /* clang-format on */         \
+            SAVE_P_REGISTERS(p_save_base)                                           \
+            SAVE_FFR(p_save_base) /* clang-format on */                     \
                 :                                                                   \
                 : [base] "r"(ptrs.base), [z_restore_base] "r"(ptrs.z_restore_base), \
                   [z_save_base] "r"(ptrs.z_save_base),                              \
                   [p_restore_base] "r"(ptrs.p_restore_base),                        \
                   [p_save_base] "r"(ptrs.p_save_base)                               \
-                : ALL_Z_REGS, ALL_P_REGS, "memory");                                \
+                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");                         \
         }
 
     return run_tests<scalar_plus_immediate_store_test_case_t<4>>({
@@ -5852,9 +6266,9 @@ struct vector_plus_scalar_load_test_case_t
         std::string name, test_func_t func, registers_used_t registers_used,
         std::array<ELEMENT_T, TEST_VL_BYTES / sizeof(ELEMENT_T)> reference_data,
         std::array<BASE_T, TEST_VL_BYTES / sizeof(BASE_T)> base, int64_t index)
-        : test_case_base_t<test_ptrs_t>(std::move(name), std::move(func),
-                                        registers_used.governing_p,
-                                        static_cast<element_size_t>(sizeof(BASE_T)))
+        : test_case_base_t<test_ptrs_t>(
+              std::move(name), std::move(func), registers_used.governing_p,
+              static_cast<element_size_t>(sizeof(BASE_T)), SCATTER_GATHER_INSTRUCTION)
         , registers_used_(registers_used)
         , index_(index)
 
@@ -5864,63 +6278,19 @@ struct vector_plus_scalar_load_test_case_t
         std::memcpy(base_data_.data(), base.data(), base_data_.size());
     }
 
-    void
-    setup(sve_register_file_t &register_values) override
+    virtual test_ptrs_t
+    setup(test_register_data_t &register_data, bool force_fault,
+          size_t faulting_element) override
     {
         // Set the value for the base vector register.
-        register_values.set_z_register_value(registers_used_.base_z, base_data_);
-    }
+        register_data.before.set_z_register_value(registers_used_.base_z, base_data_);
 
-    void
-    check_output(predicate_reg_value128_t pred,
-                 const test_register_data_t &register_data) override
-    {
-        const auto vl_bytes = get_vl_bytes();
-
-        std::vector<uint8_t> expected_output_data;
-        expected_output_data.resize(vl_bytes);
-
-        assert(reference_data_.size() == TEST_VL_BYTES);
-        for (size_t i = 0; i < vl_bytes / TEST_VL_BYTES; i++) {
-            memcpy(&expected_output_data[TEST_VL_BYTES * i], reference_data_.data(),
-                   TEST_VL_BYTES);
-        }
-        apply_predicate_mask(expected_output_data, pred, element_size_);
-        const scalable_reg_value_t expected_output {
-            expected_output_data.data(),
-            vl_bytes,
-        };
-
-        const auto output_value =
-            register_data.after.get_z_register_value(registers_used_.dest_z);
-
-        if (output_value != expected_output) {
-            test_failed();
-            print("predicate: ");
-            print_predicate(
-                register_data.before.get_p_register_value(registers_used_.governing_p));
-            print("\nexpected:  ");
-            print_vector(expected_output);
-            print("\nactual:    ");
-            print_vector(output_value);
-            print("\n");
+        if (force_fault) {
+            register_data.before.set_z_register_element(
+                registers_used_.base_z, faulting_element,
+                INPUT_DATA.faulting_base_addr(index_));
         }
 
-        // Check that the values of the other Z registers have been preserved.
-        for (size_t i = 0; i < NUM_Z_REGS; i++) {
-            if (i == registers_used_.dest_z)
-                continue;
-            check_z_reg(i, register_data);
-        }
-        // Check that the values of the P registers have been preserved.
-        for (size_t i = 0; i < NUM_P_REGS; i++) {
-            check_p_reg(i, register_data);
-        }
-    }
-
-    test_ptrs_t
-    create_test_ptrs(test_register_data_t &register_data) override
-    {
         return {
             register_data.before.z.data(),
             register_data.before.p.data(),
@@ -5929,6 +6299,56 @@ struct vector_plus_scalar_load_test_case_t
             index_,
         };
     }
+
+    void
+    check_output(predicate_reg_value128_t pred, const test_register_data_t &register_data,
+                 bool expected_fault) override
+    {
+        if (!expected_fault) {
+            const auto vl_bytes = get_vl_bytes();
+
+            std::vector<uint8_t> expected_output_data;
+            expected_output_data.resize(vl_bytes);
+
+            assert(reference_data_.size() == TEST_VL_BYTES);
+            for (size_t i = 0; i < vl_bytes / TEST_VL_BYTES; i++) {
+                memcpy(&expected_output_data[TEST_VL_BYTES * i], reference_data_.data(),
+                       TEST_VL_BYTES);
+            }
+            apply_predicate_mask(expected_output_data, pred, element_size_);
+            const scalable_reg_value_t expected_output {
+                expected_output_data.data(),
+                vl_bytes,
+            };
+
+            const auto output_value =
+                register_data.after.get_z_register_value(registers_used_.dest_z);
+
+            if (output_value != expected_output) {
+                test_failed();
+                print("predicate: ");
+                print_predicate(register_data.before.get_p_register_value(
+                    registers_used_.governing_p));
+                print("\nexpected:  ");
+                print_vector(expected_output);
+                print("\nactual:    ");
+                print_vector(output_value);
+                print("\n");
+            }
+        }
+
+        // Check that the values of the other Z registers have been preserved.
+        for (size_t i = 0; i < NUM_Z_REGS; i++) {
+            if (i == registers_used_.dest_z && !expected_fault)
+                continue;
+            check_z_reg(i, register_data);
+        }
+        // Check that the values of the P registers have been preserved.
+        for (size_t i = 0; i < NUM_P_REGS; i++) {
+            check_p_reg(i, register_data);
+        }
+        check_ffr(register_data);
+    }
 };
 
 test_result_t
@@ -5936,18 +6356,20 @@ test_ld1_vector_plus_scalar()
 {
 #    define TEST_FUNC(ld_instruction)                                          \
         [](vector_plus_scalar_load_test_case_t::test_ptrs_t &ptrs) {           \
-            asm(/* clang-format off */                                      \
-            RESTORE_Z_REGISTERS(z_restore_base)                             \
-            RESTORE_P_REGISTERS(p_restore_base)                             \
-            ld_instruction "\n"                                             \
-            SAVE_Z_REGISTERS(z_save_base)                                   \
-            SAVE_P_REGISTERS(p_save_base) /* clang-format on */    \
+            asm(/* clang-format off */                                         \
+            RESTORE_FFR(p_restore_base)                                        \
+            RESTORE_Z_REGISTERS(z_restore_base)                                \
+            RESTORE_P_REGISTERS(p_restore_base)                                \
+            ld_instruction "\n"                                                \
+            SAVE_Z_REGISTERS(z_save_base)                                      \
+            SAVE_P_REGISTERS(p_save_base)                                      \
+            SAVE_FFR(p_save_base) /* clang-format on */                \
                 :                                                              \
                 : [z_restore_base] "r"(ptrs.z_restore_base),                   \
                   [z_save_base] "r"(ptrs.z_save_base),                         \
                   [p_restore_base] "r"(ptrs.p_restore_base),                   \
                   [p_save_base] "r"(ptrs.p_save_base), [index] "r"(ptrs.index) \
-                : ALL_Z_REGS, ALL_P_REGS, "memory");                           \
+                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");                    \
         }
 
     const auto get_base_ptr = [&](element_size_t element_size, size_t offset) {
@@ -6086,9 +6508,9 @@ struct vector_plus_scalar_store_test_case_t
                                          std::array<std::ptrdiff_t, 2> base_offsets,
                                          element_size_t stored_value_size,
                                          std::ptrdiff_t offset)
-        : test_case_base_t<test_ptrs_t>(std::move(name), std::move(func),
-                                        registers_used.governing_p,
-                                        element_size_t::DOUBLE)
+        : test_case_base_t<test_ptrs_t>(
+              std::move(name), std::move(func), registers_used.governing_p,
+              element_size_t::DOUBLE, SCATTER_GATHER_INSTRUCTION)
         , registers_used_(registers_used)
         , stored_value_size_(stored_value_size)
         , expected_values_(std::array<std::ptrdiff_t, 2> { offset, offset },
@@ -6102,22 +6524,37 @@ struct vector_plus_scalar_store_test_case_t
         std::memcpy(base_data_.data(), base_ptrs_.data(), base_data_.size());
     }
 
-    void
-    setup(sve_register_file_t &register_values) override
+    virtual test_ptrs_t
+    setup(test_register_data_t &register_data, bool force_fault,
+          size_t faulting_element) override
     {
         // Set the value for the base register.
-        register_values.set_z_register_value(registers_used_.base_z, base_data_);
+        register_data.before.set_z_register_value(registers_used_.base_z, base_data_);
 
-        register_values.set_z_register_value(registers_used_.src_z,
-                                             { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
-                                               0x07, 0x08, 0x09, 0x10, 0x11, 0x12, 0x13,
-                                               0x14, 0x15 });
+        if (force_fault) {
+            register_data.before.set_z_register_element(
+                registers_used_.base_z, faulting_element,
+                OUTPUT_DATA.faulting_base_addr(index_));
+        }
+
+        register_data.before.set_z_register_value(registers_used_.src_z,
+                                                  { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05,
+                                                    0x06, 0x07, 0x08, 0x09, 0x10, 0x11,
+                                                    0x12, 0x13, 0x14, 0x15 });
         OUTPUT_DATA.reset();
+
+        return {
+            register_data.before.z.data(),
+            register_data.before.p.data(),
+            register_data.after.z.data(),
+            register_data.after.p.data(),
+            index_,
+        };
     }
 
     void
-    check_output(predicate_reg_value128_t pred,
-                 const test_register_data_t &register_data) override
+    check_output(predicate_reg_value128_t pred, const test_register_data_t &register_data,
+                 bool expected_fault) override
     {
         // Check that the values of the Z registers have been preserved.
         for (size_t i = 0; i < NUM_Z_REGS; i++) {
@@ -6127,38 +6564,28 @@ struct vector_plus_scalar_store_test_case_t
         for (size_t i = 0; i < NUM_P_REGS; i++) {
             check_p_reg(i, register_data);
         }
+        check_ffr(register_data);
 
-        const bool scaled = false;
-        assert(element_size_ == element_size_t::DOUBLE);
+        if (!expected_fault) {
+            const bool scaled = false;
+            assert(element_size_ == element_size_t::DOUBLE);
 
-        switch (stored_value_size_) {
-        case element_size_t::BYTE:
-            check_expected_values(expected_values_.u8x2, pred, base_ptrs_, scaled);
-            break;
-        case element_size_t::HALF:
-            check_expected_values(expected_values_.u16x2, pred, base_ptrs_, scaled);
-            break;
-        case element_size_t::SINGLE:
-            check_expected_values(expected_values_.u32x2, pred, base_ptrs_, scaled);
-            break;
-        case element_size_t::DOUBLE:
-            check_expected_values(expected_values_.u64x2, pred, base_ptrs_, scaled);
-            break;
+            switch (stored_value_size_) {
+            case element_size_t::BYTE:
+                check_expected_values(expected_values_.u8x2, pred, base_ptrs_, scaled);
+                break;
+            case element_size_t::HALF:
+                check_expected_values(expected_values_.u16x2, pred, base_ptrs_, scaled);
+                break;
+            case element_size_t::SINGLE:
+                check_expected_values(expected_values_.u32x2, pred, base_ptrs_, scaled);
+                break;
+            case element_size_t::DOUBLE:
+                check_expected_values(expected_values_.u64x2, pred, base_ptrs_, scaled);
+                break;
+            }
         }
     }
-
-    test_ptrs_t
-    create_test_ptrs(test_register_data_t &register_data) override
-    {
-        return {
-            register_data.before.z.data(),
-            register_data.before.p.data(),
-            register_data.after.z.data(),
-            register_data.after.p.data(),
-            index_,
-        };
-    }
-#    undef TEST_FUNC
 };
 
 test_result_t
@@ -6166,18 +6593,20 @@ test_st1_vector_plus_scalar()
 {
 #    define TEST_FUNC(st_instruction)                                          \
         [](vector_plus_scalar_load_test_case_t::test_ptrs_t &ptrs) {           \
-            asm(/* clang-format off */                                      \
-            RESTORE_Z_REGISTERS(z_restore_base)                             \
-            RESTORE_P_REGISTERS(p_restore_base)                             \
-            st_instruction "\n"                                             \
-            SAVE_Z_REGISTERS(z_save_base)                                   \
-            SAVE_P_REGISTERS(p_save_base) /* clang-format on */    \
+            asm(/* clang-format off */                                         \
+            RESTORE_FFR(p_restore_base)                                        \
+            RESTORE_Z_REGISTERS(z_restore_base)                                \
+            RESTORE_P_REGISTERS(p_restore_base)                                \
+            st_instruction "\n"                                                \
+            SAVE_Z_REGISTERS(z_save_base)                                      \
+            SAVE_P_REGISTERS(p_save_base)                                      \
+            SAVE_FFR(p_save_base) /* clang-format on */                \
                 :                                                              \
                 : [z_restore_base] "r"(ptrs.z_restore_base),                   \
                   [z_save_base] "r"(ptrs.z_save_base),                         \
                   [p_restore_base] "r"(ptrs.p_restore_base),                   \
                   [p_save_base] "r"(ptrs.p_save_base), [index] "r"(ptrs.index) \
-                : ALL_Z_REGS, ALL_P_REGS, "memory");                           \
+                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");                    \
         }
 
     return run_tests<vector_plus_scalar_store_test_case_t>({
