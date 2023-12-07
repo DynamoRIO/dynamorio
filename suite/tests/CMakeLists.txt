@@ -5916,6 +5916,7 @@ if (RISCV64)
     code_api|linux.signalfd
     code_api|pthreads.pthreads_exit
     code_api|sample.bbbuf
+    code_api|sample.bbcount
     code_api|security-linux.trampoline
     code_api|tool.drdisas
     no_code_api,no_intercept_all_signals|linux.sigaction

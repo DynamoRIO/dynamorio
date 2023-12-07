@@ -174,8 +174,8 @@ DR_EXPORT
 bool
 drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
                           dr_spill_slot_t slot,
-                          IF_AARCHXX_(dr_spill_slot_t slot2) void *addr, int value,
-                          uint flags);
+                          IF_AARCHXX_OR_RISCV64_(dr_spill_slot_t slot2) void *addr,
+                          int value, uint flags);
 
 /***************************************************************************
  * SOFT KILLS

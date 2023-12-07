@@ -124,7 +124,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                                * here won't be used: drreg's slots will be.
                                */
                               SPILL_SLOT_MAX + 1,
-                              IF_AARCHXX_(SPILL_SLOT_MAX + 1) & global_count, 1, 0);
+                              IF_AARCHXX_OR_RISCV64_(SPILL_SLOT_MAX + 1) & global_count,
+                              1, 0);
 
 #if defined(VERBOSE) && defined(VERBOSE_VERBOSE)
     dr_printf("Finished instrumenting dynamorio_basic_block(tag=" PFX ")\n", tag);
