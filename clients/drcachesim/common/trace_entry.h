@@ -919,7 +919,9 @@ typedef enum {
      * system call template file.
      * TODO i#6495: Add support for reading a zipfile where each trace template is in
      * a separate component. This will make it easier to manually append, update, or
-     * inspect the individual templates.
+     * inspect the individual templates, and also allow streaming the component with the
+     * required template when needed instead of reading the complete file into memory
+     * ahead of time.
      */
     OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES = 0x4000,
 } offline_file_type_t;

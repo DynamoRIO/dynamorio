@@ -1403,6 +1403,9 @@ raw2trace_t::process_tasks(std::vector<raw2trace_thread_data_t *> *tasks)
     }
 }
 
+// XXX i#6495: This assumes that all contents of the file can easily fit into memory.
+// With zipfile support we can potentially stream only the required component (the one
+// with the trace template we want) when needed in write_syscall_template().
 std::string
 raw2trace_t::read_syscall_template_file()
 {
@@ -1411,9 +1414,8 @@ raw2trace_t::read_syscall_template_file()
     int last_syscall_num = -1;
     bool first_entry_for_syscall = false;
     // This object works for the eof check with any type of record_reader_t.
-    auto record_reader_end = std::unique_ptr<dynamorio::drmemtrace::record_reader_t>(
-        new dynamorio::drmemtrace::record_file_reader_t<std::ifstream>());
-    while (*syscall_template_file_reader_ != *record_reader_end) {
+    dynamorio::drmemtrace::record_file_reader_t<std::ifstream> record_reader_end;
+    while (*syscall_template_file_reader_ != record_reader_end) {
         trace_entry_t entry = **syscall_template_file_reader_;
         ++(*syscall_template_file_reader_);
         // Track encodings for system call template instructions. We do not need the

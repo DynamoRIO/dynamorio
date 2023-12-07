@@ -43,6 +43,7 @@
 #include "dr_api.h"
 #include "drmemtrace/drmemtrace.h"
 #include "drmemtrace/raw2trace.h"
+#include "mock_reader.h"
 #include "raw2trace_directory.h"
 #include "scheduler.h"
 
@@ -101,8 +102,9 @@ write_instr_entry(void *dr_context, std::unique_ptr<std::ostream> &writer, instr
     }
     instr_encode_to_copy(dr_context, instr, encoding.encoding, instr_app_pc);
     write_trace_entry(writer, encoding);
-    trace_entry_t pc = { TRACE_TYPE_INSTR, len, reinterpret_cast<addr_t>(instr_app_pc) };
-    write_trace_entry(writer, pc);
+    write_trace_entry(
+        writer,
+        make_instr(reinterpret_cast<addr_t>(instr_app_pc), TRACE_TYPE_INSTR, len));
 }
 
 static std::string
@@ -141,18 +143,14 @@ write_system_call_template(void *dr_context)
     }
 
     // Write the trace template for SYS_getpid.
-    trace_entry_t getpid_marker = { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL,
-                                    SYS_getpid };
-    write_trace_entry(writer, getpid_marker);
+    write_trace_entry(writer, make_marker(TRACE_MARKER_TYPE_SYSCALL, SYS_getpid));
     // Just a random instruction.
     instr_in_getpid = XINST_CREATE_nop(dr_context);
     write_instr_entry(dr_context, writer, instr_in_getpid,
                       reinterpret_cast<app_pc>(PC_SYSCALL_GETPID));
 
     // Write the trace template for SYS_gettid.
-    trace_entry_t gettid_marker = { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL,
-                                    SYS_gettid };
-    write_trace_entry(writer, gettid_marker);
+    write_trace_entry(writer, make_marker(TRACE_MARKER_TYPE_SYSCALL, SYS_gettid));
     // Just a random instruction.
 #ifdef X86
 #    define TEST_REG DR_REG_XDX
@@ -166,14 +164,11 @@ write_system_call_template(void *dr_context)
                           opnd_create_base_disp(TEST_REG, DR_REG_NULL, 0, 0, OPSZ_PTR));
     write_instr_entry(dr_context, writer, instr_in_gettid,
                       reinterpret_cast<app_pc>(PC_SYSCALL_GETTID));
-    trace_entry_t gettid_read_entry = { TRACE_TYPE_READ,
-                                        static_cast<unsigned short>(
-                                            opnd_size_in_bytes(OPSZ_PTR)),
-                                        { READ_MEMADDR_GETTID } };
-    write_trace_entry(writer, gettid_read_entry);
+    write_trace_entry(
+        writer,
+        make_memref(READ_MEMADDR_GETTID, TRACE_TYPE_READ, opnd_size_in_bytes(OPSZ_PTR)));
 
-    trace_entry_t footer = { TRACE_TYPE_FOOTER, 0, { 0 } };
-    write_trace_entry(writer, footer);
+    write_trace_entry(writer, make_footer());
     std::cerr << "Done writing system call trace template\n";
     return syscall_trace_template_file;
 }
