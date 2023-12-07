@@ -745,7 +745,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
             for (int i = 0; i < static_cast<output_ordinal_t>(outputs_.size()); ++i) {
                 if (i < static_cast<input_ordinal_t>(inputs_.size())) {
                     input_info_t *queue_next;
-#ifdef DEBUG
+#ifndef NDEBUG
                     sched_type_t::stream_status_t status =
 #endif
                         pop_from_ready_queue(i, queue_next);
