@@ -954,6 +954,16 @@ public:
     static std::string
     check_thread_file(std::istream *f);
 
+    /**
+     * Writes the essential header entries to the given buffer. This is useful for other
+     * libraries that want to create a trace that works with our tools, like the analyzer
+     * framework.
+     */
+    static void
+    create_essential_header_entries(byte *&buf_ptr, int version,
+                                    offline_file_type_t file_type, thread_id_t tid,
+                                    process_id_t pid);
+
 #ifdef BUILD_PT_POST_PROCESSOR
     /**
      *  Checks whether the given file is a valid kernel PT file.

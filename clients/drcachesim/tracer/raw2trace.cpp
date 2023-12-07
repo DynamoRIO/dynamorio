@@ -905,18 +905,29 @@ raw2trace_t::read_header(raw2trace_thread_data_t *tdata,
     return true;
 }
 
+void
+raw2trace_t::create_essential_header_entries(byte *&buf_ptr, int version,
+                                             offline_file_type_t file_type,
+                                             thread_id_t tid, process_id_t pid)
+{
+
+    trace_entry_t *header = (trace_entry_t *)buf_ptr;
+    buf_ptr += sizeof(trace_entry_t);
+    header->type = TRACE_TYPE_HEADER;
+    header->size = 0;
+    header->addr = static_cast<addr_t>(version);
+    buf_ptr += instru.append_marker(buf_ptr, TRACE_MARKER_TYPE_VERSION, version);
+    buf_ptr += instru.append_marker(buf_ptr, TRACE_MARKER_TYPE_FILETYPE, file_type);
+    buf_ptr += trace_metadata_writer_t::write_tid(buf_ptr, tid);
+    buf_ptr += trace_metadata_writer_t::write_pid(buf_ptr, pid);
+}
+
 bool
 raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
 {
     int version = tdata->version < OFFLINE_FILE_VERSION_KERNEL_INT_PC
         ? TRACE_ENTRY_VERSION_NO_KERNEL_PC
         : TRACE_ENTRY_VERSION;
-    trace_entry_t entry;
-    entry.type = TRACE_TYPE_HEADER;
-    entry.size = 0;
-    entry.addr = version;
-    if (!write(tdata, &entry, &entry + 1))
-        return false;
 
     // First read the tid and pid entries which precede any timestamps.
     trace_header_t header = { static_cast<process_id_t>(INVALID_PROCESS_ID),
@@ -956,22 +967,9 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     byte *buf_base = reinterpret_cast<byte *>(get_write_buffer(tdata));
     byte *buf = buf_base;
     // Write the version, arch, and other type flags.
-    buf += instru.append_marker(buf, TRACE_MARKER_TYPE_VERSION, version);
-    buf += instru.append_marker(buf, TRACE_MARKER_TYPE_FILETYPE, tdata->file_type);
-    buf += trace_metadata_writer_t::write_tid(buf, tid);
-    buf += trace_metadata_writer_t::write_pid(buf, pid);
+    create_essential_header_entries(buf, version, tdata->file_type, tid, pid);
     buf += trace_metadata_writer_t::write_marker(buf, TRACE_MARKER_TYPE_CACHE_LINE_SIZE,
                                                  header.cache_line_size);
-    // The buffer can only hold 5 entries so write it now.
-    if ((uint)(buf - buf_base) >= WRITE_BUFFER_SIZE) {
-        tdata->error = "Too many entries";
-        return false;
-    }
-    if (!write(tdata, reinterpret_cast<trace_entry_t *>(buf_base),
-               reinterpret_cast<trace_entry_t *>(buf)))
-        return false;
-    buf_base = reinterpret_cast<byte *>(get_write_buffer(tdata));
-    buf = buf_base;
     // Write out further markers.
     // Even if tdata->out_archive == nullptr we write out a (0-valued) marker,
     // partly to simplify our test output.

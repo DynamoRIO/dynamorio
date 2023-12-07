@@ -119,22 +119,26 @@ write_system_call_template(void *dr_context)
         std::unique_ptr<std::ostream>(new std::ofstream(syscall_trace_template_file));
 
     // Write a valid header so the trace can be used with the trace analyzer.
-    trace_entry_t header = { TRACE_TYPE_HEADER, 0, { TRACE_ENTRY_VERSION } };
-    write_trace_entry(writer, header);
+#define MAX_HEADER_ENTRIES 10
+    trace_entry_t header_buf[MAX_HEADER_ENTRIES];
+    byte *buf = reinterpret_cast<byte *>(header_buf);
     offline_file_type_t file_type = static_cast<offline_file_type_t>(
         OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES | OFFLINE_FILE_TYPE_ENCODINGS |
         IF_X86_ELSE(
             IF_X64_ELSE(OFFLINE_FILE_TYPE_ARCH_X86_64, OFFLINE_FILE_TYPE_ARCH_X86_32),
             IF_X64_ELSE(OFFLINE_FILE_TYPE_ARCH_AARCH64, OFFLINE_FILE_TYPE_ARCH_ARM32)));
-    trace_entry_t file_type_entry = { TRACE_TYPE_MARKER,
-                                      TRACE_MARKER_TYPE_FILETYPE,
-                                      { file_type } };
-    write_trace_entry(writer, file_type_entry);
     // We just want a sentinel other than zero for tid and pid.
-    trace_entry_t tid = { TRACE_TYPE_THREAD, 0, { 1 } };
-    write_trace_entry(writer, tid);
-    trace_entry_t pid = { TRACE_TYPE_PID, 0, { 1 } };
-    write_trace_entry(writer, pid);
+    raw2trace_t::create_essential_header_entries(buf, TRACE_ENTRY_VERSION, file_type,
+                                                 /*tid=*/1,
+                                                 /*pid=*/1);
+    if (buf >= reinterpret_cast<byte *>(header_buf + MAX_HEADER_ENTRIES)) {
+        FATAL_ERROR("Too many header entries.");
+    }
+    for (byte *buf_at = reinterpret_cast<byte *>(header_buf); buf_at < buf;
+         buf_at += sizeof(trace_entry_t)) {
+        trace_entry_t to_write = *reinterpret_cast<trace_entry_t *>(buf_at);
+        write_trace_entry(writer, to_write);
+    }
 
     // Write the trace template for SYS_getpid.
     trace_entry_t getpid_marker = { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL,
