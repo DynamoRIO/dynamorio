@@ -1443,9 +1443,10 @@ raw2trace_t::read_syscall_template_file()
                 continue;
             }
         }
-        if (entry.type == TRACE_TYPE_FOOTER)
-            continue;
-        if (last_syscall_num == -1)
+        // No further processing if we're before the first system call template or at the
+        // end. All other entries between TRACE_MARKER_TYPE_SYSCALL markers are saved
+        // as-is.
+        if (last_syscall_num == -1 || entry.type == TRACE_TYPE_FOOTER)
             continue;
         // We expect at most one template per system call for now.
         DR_ASSERT(!first_entry_for_syscall ||

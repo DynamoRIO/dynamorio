@@ -56,8 +56,12 @@
 namespace dynamorio {
 namespace drmemtrace {
 
+static instr_t *instr_in_getpid = nullptr;
+static instr_t *instr_in_gettid = nullptr;
+
 #define PC_SYSCALL_GETPID 0xdeadbe00
 #define PC_SYSCALL_GETTID 0x8badf000
+#define READ_MEMADDR_GETTID 0xdecafbad
 
 #define FATAL_ERROR(msg, ...)                               \
     do {                                                    \
@@ -86,6 +90,9 @@ static void
 write_instr_entry(void *dr_context, std::unique_ptr<std::ostream> &writer, instr_t *instr,
                   app_pc instr_app_pc)
 {
+    if (instr == nullptr) {
+        FATAL_ERROR("Cannot write a nullptr instr.");
+    }
     unsigned short len = instr_length(dr_context, instr);
     trace_entry_t encoding = { TRACE_TYPE_ENCODING, len, 0 };
     if (len >= sizeof(encoding.encoding)) {
@@ -134,20 +141,25 @@ write_system_call_template(void *dr_context)
                                     SYS_getpid };
     write_trace_entry(writer, getpid_marker);
     // Just a random instruction.
-    instr_t *getpid_instr = XINST_CREATE_nop(dr_context);
-    write_instr_entry(dr_context, writer, getpid_instr,
+    instr_in_getpid = XINST_CREATE_nop(dr_context);
+    write_instr_entry(dr_context, writer, instr_in_getpid,
                       reinterpret_cast<app_pc>(PC_SYSCALL_GETPID));
-    instr_destroy(dr_context, getpid_instr);
 
     // Write the trace template for SYS_gettid.
     trace_entry_t gettid_marker = { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL,
                                     SYS_gettid };
     write_trace_entry(writer, gettid_marker);
     // Just a random instruction.
-    instr_t *gettid_instr = XINST_CREATE_return(dr_context);
-    write_instr_entry(dr_context, writer, gettid_instr,
+    instr_in_gettid =
+        XINST_CREATE_load(dr_context, opnd_create_reg(DR_REG_XSP),
+                          opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, 0, OPSZ_PTR));
+    write_instr_entry(dr_context, writer, instr_in_gettid,
                       reinterpret_cast<app_pc>(PC_SYSCALL_GETTID));
-    instr_destroy(dr_context, gettid_instr);
+    trace_entry_t gettid_read_entry = { TRACE_TYPE_READ,
+                                        static_cast<unsigned short>(
+                                            opnd_size_in_bytes(OPSZ_PTR)),
+                                        { READ_MEMADDR_GETTID } };
+    write_trace_entry(writer, gettid_read_entry);
 
     trace_entry_t footer = { TRACE_TYPE_FOOTER, 0, { 0 } };
     write_trace_entry(writer, footer);
@@ -225,6 +237,29 @@ gather_trace()
 }
 
 static bool
+check_instr_same(void *dr_context, memref_t &memref, instr_t *expected_instr)
+{
+    assert(type_is_instr(memref.instr.type));
+    instr_t instr;
+    instr_init(dr_context, &instr);
+    app_pc next_pc =
+        decode_from_copy(dr_context, memref.instr.encoding,
+                         reinterpret_cast<byte *>(memref.instr.addr), &instr);
+    assert(next_pc != nullptr && instr_valid(&instr));
+    bool res = true;
+    if (!instr_same(expected_instr, &instr)) {
+        std::cerr << "Unexpected instruction: |";
+        instr_disassemble(dr_context, &instr, STDERR);
+        std::cerr << "| expected: |";
+        instr_disassemble(dr_context, expected_instr, STDERR);
+        std::cerr << "|\n";
+        res = false;
+    }
+    instr_free(dr_context, &instr);
+    return res;
+}
+
+static bool
 look_for_syscall_trace(void *dr_context, std::string trace_dir)
 {
     std::cerr << "Verifying resulting user+kernel trace\n";
@@ -238,14 +273,17 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
     }
     auto *stream = scheduler.get_stream(0);
     memref_t memref;
-    bool found_getpid_trace = false;
-    bool found_gettid_trace = false;
+    bool found_getpid_instr = false;
+    bool found_gettid_instr = false;
+    bool found_gettid_read = false;
     bool have_syscall_trace_type = false;
     int syscall_trace_num = -1;
-    bool success = true;
+    int prev_syscall_num_marker = -1;
     for (scheduler_t::stream_status_t status = stream->next_record(memref);
          status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
         assert(status == scheduler_t::STATUS_OK);
+        int prev_syscall_num_marker_saved = prev_syscall_num_marker;
+        prev_syscall_num_marker = -1;
         if (memref.marker.type == TRACE_TYPE_MARKER) {
             switch (memref.marker.marker_type) {
             case TRACE_MARKER_TYPE_FILETYPE:
@@ -256,65 +294,97 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
                 break;
             case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
                 syscall_trace_num = memref.marker.marker_value;
+                if (!(syscall_trace_num == prev_syscall_num_marker_saved &&
+                      prev_syscall_num_marker_saved != -1)) {
+                    // We assume there would not be a chunk split between the sysnum
+                    // marker and the trace start marker for this short trace.
+                    std::cerr << "Found unexpected trace for system call "
+                              << syscall_trace_num
+                              << " when prev system call number marker was (-1 for not a "
+                                 "sysnum marker) "
+                              << prev_syscall_num_marker_saved << "\n";
+                    return false;
+                }
                 break;
             case TRACE_MARKER_TYPE_SYSCALL_TRACE_END: syscall_trace_num = -1; break;
+            case TRACE_MARKER_TYPE_SYSCALL:
+                prev_syscall_num_marker = memref.marker.marker_value;
+                break;
             }
             continue;
         }
-        if (syscall_trace_num == -1 || !type_is_instr(memref.instr.type)) {
+        if (syscall_trace_num == -1) {
             continue;
         }
-        instr_t instr;
-        instr_init(dr_context, &instr);
-        app_pc next_pc =
-            decode_from_copy(dr_context, memref.instr.encoding,
-                             reinterpret_cast<byte *>(memref.instr.addr), &instr);
-        assert(next_pc != nullptr && instr_valid(&instr));
+        bool is_instr = type_is_instr(memref.instr.type);
+        if (!is_instr && !type_is_data(memref.instr.type)) {
+            std::cerr << "Found unexpected record " << memref.instr.type
+                      << " inside system call template\n";
+            return false;
+        }
         switch (syscall_trace_num) {
         case SYS_gettid:
-            assert(!found_gettid_trace);
-            found_gettid_trace = true;
-            if (memref.instr.addr != PC_SYSCALL_GETTID) {
-                std::cerr << "Found incorrect addr (" << std::hex << memref.instr.addr
-                          << " vs expected " << PC_SYSCALL_GETTID << std::dec
-                          << ") for gettid trace instr.\n";
-                success = false;
-            }
-            if (!instr_is_return(&instr)) {
-                std::cerr << "Found unexpected instruction for gettid trace.\n";
-                success = false;
+            if (is_instr) {
+                assert(!found_gettid_instr);
+                found_gettid_instr = true;
+                if (memref.instr.addr != PC_SYSCALL_GETTID) {
+                    std::cerr << "Found incorrect addr (" << std::hex << memref.instr.addr
+                              << " vs expected " << PC_SYSCALL_GETTID << std::dec
+                              << ") for gettid trace instr.\n";
+                    return false;
+                }
+                if (!check_instr_same(dr_context, memref, instr_in_gettid)) {
+                    return false;
+                }
+            } else {
+                assert(!found_gettid_read);
+                found_gettid_read = true;
+                if (memref.data.type != TRACE_TYPE_READ ||
+                    memref.data.size != opnd_size_in_bytes(OPSZ_PTR) ||
+                    memref.data.addr != READ_MEMADDR_GETTID) {
+                    std::cerr << "Found incorrect entry (" << memref.data.type << ","
+                              << memref.data.size << "," << std::hex << memref.data.addr
+                              << ") vs expected ptr-sized read for "
+                              << READ_MEMADDR_GETTID << std::dec
+                              << ") for gettid trace.\n";
+                    return false;
+                }
             }
             break;
         case SYS_getpid:
-            assert(!found_getpid_trace);
-            found_getpid_trace = true;
-            if (memref.instr.addr != PC_SYSCALL_GETPID) {
-                std::cerr << "Found incorrect addr (" << std::hex << memref.instr.addr
-                          << " vs expected " << PC_SYSCALL_GETPID << std::dec
-                          << ") for getpid instr.\n";
-                success = false;
-            }
-            if (!instr_is_nop(&instr)) {
-                std::cerr << "Found unexpected instruction for getpid trace.\n";
-                success = false;
+            if (is_instr) {
+                assert(!found_getpid_instr);
+                found_getpid_instr = true;
+                if (memref.instr.addr != PC_SYSCALL_GETPID) {
+                    std::cerr << "Found incorrect addr (" << std::hex << memref.instr.addr
+                              << " vs expected " << PC_SYSCALL_GETPID << std::dec
+                              << ") for getpid instr.\n";
+                    return false;
+                }
+                if (!check_instr_same(dr_context, memref, instr_in_getpid)) {
+                    std::cerr << "Found unexpected instruction for getpid trace.\n";
+                    return false;
+                }
+            } else {
+                std::cerr << "Found unexpected data memref in getpid trace\n";
+                return false;
             }
             break;
         }
-        instr_free(dr_context, &instr);
     }
     if (!have_syscall_trace_type) {
-        success = false;
         std::cerr << "Trace did not have the expected file type\n";
-    } else if (!found_gettid_trace) {
-        success = false;
-        std::cerr << "Did not find trace for gettid\n";
-    } else if (!found_getpid_trace) {
-        success = false;
-        std::cerr << "Did not find trace for getpid\n";
-    } else if (success) {
+    } else if (!found_gettid_instr) {
+        std::cerr << "Did not find instr in gettid trace\n";
+    } else if (!found_getpid_instr) {
+        std::cerr << "Did not find instr in getpid trace\n";
+    } else if (!found_gettid_read) {
+        std::cerr << "Did not find read data memref in gettid trace\n";
+    } else {
         std::cerr << "Successfully completed checks\n";
+        return true;
     }
-    return success;
+    return false;
 }
 
 int
@@ -337,6 +407,8 @@ test_main(int argc, const char *argv[])
 
     std::string trace_dir = postprocess(dr_context, syscall_trace_template);
     bool success = look_for_syscall_trace(dr_context, trace_dir);
+    instr_destroy(dr_context, instr_in_getpid);
+    instr_destroy(dr_context, instr_in_gettid);
     dr_standalone_exit();
     return success ? 0 : 1;
 }

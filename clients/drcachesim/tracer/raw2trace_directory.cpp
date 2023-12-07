@@ -368,7 +368,7 @@ raw2trace_directory_t::open_syscall_template_file(
         return "";
     // XXX i#6495: Provide support for system call trace templates in zipfile format
     // with each individual system call template in a separate component, which may be
-    // easier to inspect manually.
+    // easier to inspect or modify manually.
     syscall_template_file_reader_ =
         std::unique_ptr<dynamorio::drmemtrace::record_reader_t>(
             new default_record_file_reader_t(syscall_template_file, /*verbosity=*/0));
