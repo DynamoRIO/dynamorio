@@ -154,9 +154,16 @@ write_system_call_template(void *dr_context)
                                     SYS_gettid };
     write_trace_entry(writer, gettid_marker);
     // Just a random instruction.
+#ifdef X86
+#    define TEST_REG DR_REG_XDX
+#elif defined(ARM)
+#    define TEST_REG DR_REG_R12
+#elif defined(AARCH64)
+#    define TEST_REG DR_REG_X4
+#endif
     instr_in_gettid =
-        XINST_CREATE_load(dr_context, opnd_create_reg(DR_REG_XSP),
-                          opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, 0, OPSZ_PTR));
+        XINST_CREATE_load(dr_context, opnd_create_reg(TEST_REG),
+                          opnd_create_base_disp(TEST_REG, DR_REG_NULL, 0, 0, OPSZ_PTR));
     write_instr_entry(dr_context, writer, instr_in_gettid,
                       reinterpret_cast<app_pc>(PC_SYSCALL_GETTID));
     trace_entry_t gettid_read_entry = { TRACE_TYPE_READ,
