@@ -1071,7 +1071,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::check_and_fix_modulo_problem_in_schedu
         uint64_t add_to_start = 0;
         bool in_order = true;
         for (const schedule_record_t &sched : input_sched[input_idx]) {
-            assert(sched.value.type == schedule_record_t::DEFAULT);
+            assert(sched.type == schedule_record_t::DEFAULT);
             if (sched.value.start_instruction < prev_start) {
                 // If within 50% of the end of the chunk we assume it's i#6107.
                 if (prev_start * 2 > DEFAULT_CHUNK_SIZE) {
@@ -1526,7 +1526,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::close_schedule_segment(output_ordinal_
     }
     if (outputs_[output].record.back().type == schedule_record_t::IDLE) {
         uint64_t end = get_output_time(output);
-        assert(end > outputs_[output].record.back().timestamp);
+        assert(end >= outputs_[output].record.back().timestamp);
         outputs_[output].record.back().value.idle_duration =
             end - outputs_[output].record.back().timestamp;
         VPRINT(this, 3,
@@ -1677,8 +1677,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::syscall_incurs_switch(input_info_t *in
     uint64_t threshold = input->processing_maybe_blocking_syscall
         ? options_.blocking_switch_threshold
         : options_.syscall_switch_threshold;
-    block_time_factor =
-        static_cast<double>(latency) * options_.block_time_scale / threshold;
+    block_time_factor = static_cast<double>(latency) / threshold;
+    if (options_.quantum_unit == QUANTUM_INSTRUCTIONS)
+        block_time_factor *= options_.block_time_scale;
     VPRINT(this, 3, "input %d %ssyscall latency %" PRIu64 " => factor %4.1f\n",
            input->index,
            input->processing_maybe_blocking_syscall ? "maybe-blocking " : "", latency,
