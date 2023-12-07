@@ -279,6 +279,12 @@
  */
 #define OPND_CREATE_ABSMEM(addr, size) opnd_create_rel_addr(addr, size)
 
+/**
+ * Create an immediate integer operand. For RISCV64 the size of an immediate
+ * is ignored when encoding, so there is no need to specify the final size.
+ */
+#define OPND_CREATE_INT(val) OPND_CREATE_INTPTR(val)
+
 /** @} */ /* end doxygen group */
 
 /****************************************************************************

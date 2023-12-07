@@ -100,7 +100,7 @@ event_opcode_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *i
          * here won't be used: drreg's slots will be.
          */
         static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1),
-        IF_AARCHXX_(static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1)) &
+        IF_AARCHXX_OR_RISCV64_(static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1)) &
             global_opcode_count,
         1,
         /* TODO i#4215: DRX_COUNTER_LOCK is not yet supported on ARM. */
@@ -139,7 +139,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
          * here won't be used: drreg's slots will be.
          */
         static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1),
-        IF_AARCHXX_(static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1)) &
+        IF_AARCHXX_OR_RISCV64_(static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1)) &
             global_total_count,
         (int)bb_size,
         /* TODO i#4215: DRX_COUNTER_LOCK is not yet supported on ARM. */
