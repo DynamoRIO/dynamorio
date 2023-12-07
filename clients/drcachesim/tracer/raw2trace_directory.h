@@ -40,6 +40,7 @@
 
 #include "archive_ostream.h"
 #include "dr_api.h"
+#include "record_file_reader.h"
 
 #if !defined DEFAULT_TRACE_COMPRESSION_TYPE
 #    ifdef HAS_ZIP
@@ -61,7 +62,6 @@ public:
     raw2trace_directory_t(unsigned int verbosity = 0)
         : modfile_bytes_(nullptr)
         , encoding_file_(INVALID_FILE)
-        , syscall_template_file_(nullptr)
         , modfile_(INVALID_FILE)
         , indir_("")
         , outdir_("")
@@ -109,7 +109,7 @@ public:
     std::unordered_map<thread_id_t, std::istream *> in_kfiles_map_;
     std::string kcoredir_;
     std::string kallsymsdir_;
-    std::istream *syscall_template_file_;
+    std::unique_ptr<dynamorio::drmemtrace::record_reader_t> syscall_template_file_reader_;
 
 private:
     std::string

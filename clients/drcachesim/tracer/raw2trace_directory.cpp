@@ -57,12 +57,14 @@
 #include "raw2trace_directory.h" // Includes dr_api.h which must be after windows.h.
 #include "reader.h"
 #include "raw2trace.h"
+#include "record_file_reader.h"
 #include "trace_entry.h"
 #include "utils.h"
 #ifdef HAS_ZLIB
 #    include "common/gzip_istream.h"
 #    include "common/gzip_ostream.h"
 #    include "common/zlib_istream.h"
+#    include "compressed_file_reader.h"
 #    ifdef HAS_ZIP
 #        include "common/zipfile_ostream.h"
 #    endif
@@ -77,6 +79,16 @@
 
 namespace dynamorio {
 namespace drmemtrace {
+
+#ifdef HAS_ZLIB
+// Even if the file is uncompressed, zlib's gzip interface is faster than
+// file_reader_t's fstream in our measurements, so we always use it when
+// available.
+typedef compressed_record_file_reader_t default_record_file_reader_t;
+#else
+typedef dynamorio::drmemtrace::record_file_reader_t<std::ifstream>
+    default_record_file_reader_t;
+#endif
 
 #define FATAL_ERROR(msg, ...)                               \
     do {                                                    \
@@ -357,10 +369,10 @@ raw2trace_directory_t::open_syscall_template_file(
     // XXX i#6495: Provide support for system call trace templates in zipfile format
     // with each individual system call template in a separate component, which may be
     // easier to inspect manually.
-    syscall_template_file_ =
-        new std::ifstream(syscall_template_file, std::ifstream::binary);
-    if (!((std::ifstream *)syscall_template_file_)->is_open()) {
-        delete syscall_template_file_;
+    syscall_template_file_reader_ =
+        std::unique_ptr<dynamorio::drmemtrace::record_reader_t>(
+            new default_record_file_reader_t(syscall_template_file, /*verbosity=*/0));
+    if (!syscall_template_file_reader_ || !syscall_template_file_reader_->init()) {
         return "Failed to open syscall template file " +
             std::string(syscall_template_file);
     }
@@ -645,8 +657,6 @@ raw2trace_directory_t::~raw2trace_directory_t()
     for (auto kfi : in_kfiles_map_) {
         delete kfi.second;
     }
-    if (syscall_template_file_ != nullptr)
-        delete syscall_template_file_;
     dr_standalone_exit();
 }
 

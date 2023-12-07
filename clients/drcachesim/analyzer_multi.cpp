@@ -173,7 +173,7 @@ analyzer_multi_t::analyzer_multi_t()
                 nullptr, op_verbose.get_value(), op_jobs.get_value(),
                 op_alt_module_dir.get_value(), op_chunk_instr_count.get_value(),
                 dir.in_kfiles_map_, dir.kcoredir_, dir.kallsymsdir_,
-                dir.syscall_template_file_);
+                std::move(dir.syscall_template_file_reader_));
             std::string error = raw2trace.do_conversion();
             if (!error.empty()) {
                 success_ = false;

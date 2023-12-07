@@ -170,14 +170,15 @@ postprocess(void *dr_context, std::string syscall_trace_template_file)
     std::string dir_err = dir.initialize(raw_dir, outdir, DEFAULT_TRACE_COMPRESSION_TYPE,
                                          syscall_trace_template_file);
     assert(dir_err.empty());
-    raw2trace_t raw2trace(
-        dir.modfile_bytes_, dir.in_files_, dir.out_files_, dir.out_archives_,
-        dir.encoding_file_, dir.serial_schedule_file_, dir.cpu_schedule_file_, dr_context,
-        /*verbosity=*/0, /*worker_count=*/-1,
-        /*alt_module_dir=*/"",
-        /*chunk_instr_count=*/10 * 1000 * 1000,
-        /*kthread_files_map=*/ {},
-        /*kcore_path=*/"", /*kallsyms_path=*/"", dir.syscall_template_file_);
+    raw2trace_t raw2trace(dir.modfile_bytes_, dir.in_files_, dir.out_files_,
+                          dir.out_archives_, dir.encoding_file_,
+                          dir.serial_schedule_file_, dir.cpu_schedule_file_, dr_context,
+                          /*verbosity=*/0, /*worker_count=*/-1,
+                          /*alt_module_dir=*/"",
+                          /*chunk_instr_count=*/10 * 1000 * 1000,
+                          /*kthread_files_map=*/ {},
+                          /*kcore_path=*/"", /*kallsyms_path=*/"",
+                          std::move(dir.syscall_template_file_reader_));
     std::string error = raw2trace.do_conversion();
     if (!error.empty())
         FATAL_ERROR("raw2trace failed: %s\n", error.c_str());

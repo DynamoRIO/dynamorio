@@ -70,6 +70,7 @@
 #include "instru.h"
 #include "raw2trace_shared.h"
 #include "reader.h"
+#include "record_file_reader.h"
 #include "trace_entry.h"
 #include "utils.h"
 #ifdef BUILD_PT_POST_PROCESSOR
@@ -868,7 +869,8 @@ public:
         uint64_t chunk_instr_count = 10 * 1000 * 1000,
         const std::unordered_map<thread_id_t, std::istream *> &kthread_files_map = {},
         const std::string &kcore_path = "", const std::string &kallsyms_path = "",
-        std::istream *syscall_template_file = nullptr);
+        std::unique_ptr<dynamorio::drmemtrace::record_reader_t> syscall_template_file =
+            nullptr);
     // If a nullptr dcontext_in was passed to the constructor, calls dr_standalone_exit().
     virtual ~raw2trace_t();
 
@@ -1677,7 +1679,7 @@ private:
     const std::string kallsyms_path_;
 
     // For inserting system call traces from provided templates.
-    std::istream *syscall_template_file_;
+    std::unique_ptr<dynamorio::drmemtrace::record_reader_t> syscall_template_file_reader_;
     std::unordered_map<int, std::vector<trace_entry_t>> syscall_trace_templates_;
     memref_counter_t syscall_trace_template_encodings_;
     offline_file_type_t syscall_template_file_type_ = OFFLINE_FILE_TYPE_DEFAULT;

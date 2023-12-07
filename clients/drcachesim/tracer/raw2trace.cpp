@@ -39,6 +39,7 @@
 #include "dr_api.h"
 #include "drcovlib.h"
 #include "raw2trace.h"
+#include "record_file_reader.h"
 #include "reader.h"
 #include "memref.h"
 #include "trace_entry.h"
@@ -932,7 +933,7 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
         // We do not support injecting system call trace templates for
         // raw traces that already have traces for the system calls
         // collected using Intel-PT.
-        DR_ASSERT(syscall_template_file_ == nullptr);
+        DR_ASSERT(syscall_template_file_reader_ == nullptr);
         DR_ASSERT(tdata->kthread_file == nullptr);
         auto it = kthread_files_map_.find(tid);
         if (it != kthread_files_map_.end()) {
@@ -940,7 +941,7 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
         }
     }
 #endif
-    if (syscall_template_file_ != nullptr) {
+    if (syscall_template_file_reader_ != nullptr) {
         tdata->file_type = static_cast<offline_file_type_t>(
             tdata->file_type | OFFLINE_FILE_TYPE_KERNEL_SYSCALLS);
     }
@@ -1407,12 +1408,16 @@ raw2trace_t::process_tasks(std::vector<raw2trace_thread_data_t *> *tasks)
 std::string
 raw2trace_t::read_syscall_template_file()
 {
-    if (syscall_template_file_ == nullptr)
+    if (syscall_template_file_reader_ == nullptr)
         return "";
-    trace_entry_t entry;
     int last_syscall_num = -1;
     bool first_entry_for_syscall = false;
-    while (syscall_template_file_->read((char *)&entry, sizeof(entry))) {
+    // This object works for the eof check with any type of record_file_reader_t.
+    auto record_reader_end = std::unique_ptr<dynamorio::drmemtrace::record_reader_t>(
+        new dynamorio::drmemtrace::record_file_reader_t<std::ifstream>());
+    while (*syscall_template_file_reader_ != *record_reader_end) {
+        trace_entry_t entry = **syscall_template_file_reader_;
+        ++(*syscall_template_file_reader_);
         // Track encodings for system call template instructions. We do not need the
         // returned entry memref count, but only the encoding locations that we will
         // query using get_decode_pc later.
@@ -3622,7 +3627,7 @@ raw2trace_t::raw2trace_t(
     const std::string &alt_module_dir, uint64_t chunk_instr_count,
     const std::unordered_map<thread_id_t, std::istream *> &kthread_files_map,
     const std::string &kcore_path, const std::string &kallsyms_path,
-    std::istream *syscall_template_file)
+    std::unique_ptr<dynamorio::drmemtrace::record_reader_t> syscall_template_file_reader)
     : dcontext_(dcontext == nullptr ? dr_standalone_init() : dcontext)
     , passed_dcontext_(dcontext != nullptr)
     , worker_count_(worker_count)
@@ -3638,7 +3643,7 @@ raw2trace_t::raw2trace_t(
     , kthread_files_map_(kthread_files_map)
     , kcore_path_(kcore_path)
     , kallsyms_path_(kallsyms_path)
-    , syscall_template_file_(syscall_template_file)
+    , syscall_template_file_reader_(std::move(syscall_template_file_reader))
 {
     // Exactly one of out_files and out_archives should be non-empty.
     // If thread_files is not empty it must match the input size.
