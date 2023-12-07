@@ -938,6 +938,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_traced_schedule()
         uint64_t timestamp = entry.timestamp;
         // Some entries have no instructions (there is an entry for each timestamp, and
         // a signal can come in after a prior timestamp with no intervening instrs).
+        assert(all_sched[cur_output].empty() ||
+               all_sched[cur_output].back().type == schedule_record_t::DEFAULT);
         if (!all_sched[cur_output].empty() &&
             input == all_sched[cur_output].back().key.input &&
             start == all_sched[cur_output].back().value.start_instruction) {
@@ -1069,6 +1071,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::check_and_fix_modulo_problem_in_schedu
         uint64_t add_to_start = 0;
         bool in_order = true;
         for (const schedule_record_t &sched : input_sched[input_idx]) {
+            assert(sched.value.type == schedule_record_t::DEFAULT);
             if (sched.value.start_instruction < prev_start) {
                 // If within 50% of the end of the chunk we assume it's i#6107.
                 if (prev_start * 2 > DEFAULT_CHUNK_SIZE) {
@@ -1674,7 +1677,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::syscall_incurs_switch(input_info_t *in
     uint64_t threshold = input->processing_maybe_blocking_syscall
         ? options_.blocking_switch_threshold
         : options_.syscall_switch_threshold;
-    block_time_factor = static_cast<double>(latency) / threshold;
+    block_time_factor =
+        static_cast<double>(latency) * options_.block_time_scale / threshold;
     VPRINT(this, 3, "input %d %ssyscall latency %" PRIu64 " => factor %4.1f\n",
            input->index,
            input->processing_maybe_blocking_syscall ? "maybe-blocking " : "", latency,
@@ -1938,7 +1942,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                         ready_priority_.erase(target);
                         index = target->index;
                         // Erase any remaining wait time for the target.
-                        if (target->block_time_factor > 0.) {
+                        if (target->block_time_factor != 0.) {
                             VPRINT(this, 3,
                                    "next_record[%d]: direct switch erasing block time "
                                    "factor "

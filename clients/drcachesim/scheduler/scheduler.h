@@ -527,10 +527,11 @@ public:
          * latency exceeds #syscall_switch_threshold or #blocking_switch_threshold.  A
          * "block time factor" is computed from the syscall latency divided by either
          * #syscall_switch_threshold or #blocking_switch_threshold.  This factor is
-         * multiplied by this field #block_time_scale.  For #QUANTUM_TIME, that amount of
-         * time, as reported by the time parameter to next_record(), must pass before the
-         * input is no longer considered blocked.  For instruction quanta, that count of
-         * scheduler selections must occur before the input is actually selected.
+         * multiplied by this field #block_time_scale to produce a final value.  For
+         * #QUANTUM_TIME, that final value's amount of time, as reported by the time
+         * parameter to next_record(), must pass before the input is no longer considered
+         * blocked.  For instruction quanta, that final value's count of scheduler
+         * selections must occur before the input is actually selected.
          */
         double block_time_scale = 1.;
     };
