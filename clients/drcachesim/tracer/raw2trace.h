@@ -956,7 +956,7 @@ public:
 
     /**
      * Writes the essential header entries to the given buffer. This is useful for other
-     * libraries that want to create a trace that works with our tools, like the analyzer
+     * libraries that want to create a trace that works with our tools like the analyzer
      * framework.
      */
     static void

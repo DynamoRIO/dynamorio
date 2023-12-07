@@ -1410,7 +1410,7 @@ raw2trace_t::read_syscall_template_file()
         return "";
     int last_syscall_num = -1;
     bool first_entry_for_syscall = false;
-    // This object works for the eof check with any type of record_file_reader_t.
+    // This object works for the eof check with any type of record_reader_t.
     auto record_reader_end = std::unique_ptr<dynamorio::drmemtrace::record_reader_t>(
         new dynamorio::drmemtrace::record_file_reader_t<std::ifstream>());
     while (*syscall_template_file_reader_ != *record_reader_end) {
