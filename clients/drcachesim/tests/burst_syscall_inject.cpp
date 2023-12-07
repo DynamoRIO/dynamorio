@@ -133,6 +133,7 @@ write_system_call_template(void *dr_context)
     trace_entry_t getpid_marker = { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL,
                                     SYS_getpid };
     write_trace_entry(writer, getpid_marker);
+    // Just a random instruction.
     instr_t *getpid_instr = XINST_CREATE_nop(dr_context);
     write_instr_entry(dr_context, writer, getpid_instr,
                       reinterpret_cast<app_pc>(PC_SYSCALL_GETPID));
@@ -142,12 +143,13 @@ write_system_call_template(void *dr_context)
     trace_entry_t gettid_marker = { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL,
                                     SYS_gettid };
     write_trace_entry(writer, gettid_marker);
+    // Just a random instruction.
     instr_t *gettid_instr = XINST_CREATE_return(dr_context);
     write_instr_entry(dr_context, writer, gettid_instr,
                       reinterpret_cast<app_pc>(PC_SYSCALL_GETTID));
     instr_destroy(dr_context, gettid_instr);
 
-    trace_entry_t footer = { TRACE_TYPE_THREAD_EXIT, 0, { 1 } };
+    trace_entry_t footer = { TRACE_TYPE_FOOTER, 0, { 0 } };
     write_trace_entry(writer, footer);
     std::cerr << "Done writing system call trace template\n";
     return syscall_trace_template_file;
@@ -239,7 +241,7 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
     bool found_getpid_trace = false;
     bool found_gettid_trace = false;
     bool have_syscall_trace_type = false;
-    int in_syscall_trace = -1;
+    int syscall_trace_num = -1;
     bool success = true;
     for (scheduler_t::stream_status_t status = stream->next_record(memref);
          status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
@@ -253,13 +255,13 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
                 }
                 break;
             case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
-                in_syscall_trace = memref.marker.marker_value;
+                syscall_trace_num = memref.marker.marker_value;
                 break;
-            case TRACE_MARKER_TYPE_SYSCALL_TRACE_END: in_syscall_trace = -1; break;
+            case TRACE_MARKER_TYPE_SYSCALL_TRACE_END: syscall_trace_num = -1; break;
             }
             continue;
         }
-        if (in_syscall_trace == -1 || !type_is_instr(memref.instr.type)) {
+        if (syscall_trace_num == -1 || !type_is_instr(memref.instr.type)) {
             continue;
         }
         instr_t instr;
@@ -268,7 +270,7 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
             decode_from_copy(dr_context, memref.instr.encoding,
                              reinterpret_cast<byte *>(memref.instr.addr), &instr);
         assert(next_pc != nullptr && instr_valid(&instr));
-        switch (in_syscall_trace) {
+        switch (syscall_trace_num) {
         case SYS_gettid:
             assert(!found_gettid_trace);
             found_gettid_trace = true;

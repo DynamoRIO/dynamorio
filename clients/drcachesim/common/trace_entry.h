@@ -917,6 +917,9 @@ typedef enum {
      * #OFFLINE_FILE_TYPE_KERNEL_SYSCALLS trace. See the sample file written by the
      * burst_syscall_inject.cpp test for more details on the expected format for the
      * system call template file.
+     * TODO i#6495: Add support for reading a zipfile where each trace template is in
+     * a separate component. This will make it easier to manually append, update, or
+     * inspect the individual templates.
      */
     OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES = 0x4000,
 } offline_file_type_t;

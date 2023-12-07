@@ -620,7 +620,7 @@ raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, int syscall_
                 }
                 buf = buf_base;
             }
-            inserted_instr_count++;
+            ++inserted_instr_count;
             accumulate_to_statistic(tdata, RAW2TRACE_STAT_KERNEL_INSTR_COUNT, 1);
             saved_decode_pc = syscall_trace_template_encodings_.get_decode_pc(
                 static_cast<addr_t>(entry.addr));
@@ -700,7 +700,6 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
             trace_marker_type_t marker_type =
                 static_cast<trace_marker_type_t>(in_entry->extended.valueB);
             buf += trace_metadata_writer_t::write_marker(buf, marker_type, marker_val);
-
             if (!process_marker_additionally(tdata, marker_type, marker_val, buf,
                                              flush_decode_cache))
                 return false;
@@ -930,10 +929,11 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     tdata->tid = tid;
 #ifdef BUILD_PT_POST_PROCESSOR
     if (TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS, tdata->file_type)) {
-        // We do not support injecting system call trace templates for
-        // raw traces that already have traces for the system calls
-        // collected using Intel-PT.
-        DR_ASSERT(syscall_template_file_reader_ == nullptr);
+        if (syscall_template_file_reader_ == nullptr) {
+            tdata->error = "System call trace template injection not supported for "
+                           "traces already with kernel parts.";
+            return false;
+        }
         DR_ASSERT(tdata->kthread_file == nullptr);
         auto it = kthread_files_map_.find(tid);
         if (it != kthread_files_map_.end()) {
@@ -1443,11 +1443,11 @@ raw2trace_t::read_syscall_template_file()
                 continue;
             }
         }
-        if (entry.type == TRACE_TYPE_THREAD_EXIT)
+        if (entry.type == TRACE_TYPE_FOOTER)
             continue;
         if (last_syscall_num == -1)
             continue;
-        // We expect atmost one template per system call for now.
+        // We expect at most one template per system call for now.
         DR_ASSERT(!first_entry_for_syscall ||
                   syscall_trace_templates_[last_syscall_num].empty());
         syscall_trace_templates_[last_syscall_num].push_back(entry);

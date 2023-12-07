@@ -4297,7 +4297,7 @@ if (BUILD_CLIENTS)
         set(tool.drcacheoff.burst_maps_nodr ON)
         torunonly_drcacheoff(burst_maps tool.drcacheoff.burst_maps "" "" "")
       endif ()
-      if (UNIX)
+      if (LINUX)
         set(tool.drcacheoff.burst_syscall_inject_nodr ON)
         torunonly_drcacheoff(burst_syscall_inject tool.drcacheoff.burst_syscall_inject ""
           "@-simulator_type@basic_counts@-syscall_template_file@drmemtrace.tool.drcacheoff.burst_syscall_inject.*.dir/raw/syscall_trace_template"
