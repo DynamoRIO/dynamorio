@@ -22,4 +22,11 @@ disassembly failed: invalid instruction: not enough bytes: 0x88
  c4 e2 65 90 14 80    vpgatherdd (%eax,%ymm0,4)[4byte] %ymm3 -> %ymm2 %ymm3
 # endif
 disassembly failed: invalid instruction: not enough bytes: 0x88
+#elif defined(RISCV64)
+     853e   c.mv   zero a5 -> a0
+     4581   c.li   zero 0 -> a1
+ 1d27b783   ld     +466(a5)[8byte] -> a5
+ 00f55733   srl    a0 a5 -> a4
+     9d89   c.subw a1 a0 -> a1
+disassembly failed: invalid instruction: not enough bytes: 0x88
 #endif

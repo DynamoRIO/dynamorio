@@ -111,9 +111,7 @@ mov32(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, opnd_t dst, int3
     if (lo12 != 0 || hi20 == 0) {
         src = hi20 != 0 ? dst : opnd_create_reg(DR_REG_X0);
         instr_addiw =
-            INSTR_CREATE_addiw(dcontext, dst, src,
-                               opnd_add_flags(opnd_create_immed_int(lo12, OPSZ_12b),
-                                              DR_OPND_IMM_PRINT_DECIMAL));
+            INSTR_CREATE_addiw(dcontext, dst, src, opnd_create_immed_int(lo12, OPSZ_12b));
         PRE(ilist, instr, instr_addiw);
         if (first != NULL && !*first_set) {
             *first = instr_addiw;
@@ -152,17 +150,14 @@ mov64(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, opnd_t dst, ptr_
     hi52 = ((hi52 >> (shift - 12)) << shift) >> shift;
 
     mov64(dcontext, ilist, instr, dst, hi52, first, last, first_set);
-    tmp = INSTR_CREATE_slli(
-        dcontext, dst, dst,
-        opnd_add_flags(opnd_create_immed_int(shift, OPSZ_6b), DR_OPND_IMM_PRINT_DECIMAL));
+    tmp = INSTR_CREATE_slli(dcontext, dst, dst, opnd_create_immed_int(shift, OPSZ_6b));
     PRE(ilist, instr, tmp);
     if (last != NULL)
         *last = tmp;
 
     if (lo12) {
-        tmp = INSTR_CREATE_addi(dcontext, dst, dst,
-                                opnd_add_flags(opnd_create_immed_int(lo12, OPSZ_12b),
-                                               DR_OPND_IMM_PRINT_DECIMAL));
+        tmp =
+            INSTR_CREATE_addi(dcontext, dst, dst, opnd_create_immed_int(lo12, OPSZ_12b));
         PRE(ilist, instr, tmp);
         if (last != NULL)
             *last = tmp;
