@@ -89,6 +89,9 @@ public:
             direct_switch_requests += rhs.direct_switch_requests;
             waits += rhs.waits;
             idles += rhs.idles;
+            idle_microseconds += rhs.idle_microseconds;
+            idle_micros_at_last_instr += rhs.idle_micros_at_last_instr;
+            cpu_microseconds += rhs.cpu_microseconds;
             for (const memref_tid_t tid : rhs.threads) {
                 threads.insert(tid);
             }
@@ -103,6 +106,9 @@ public:
         int64_t direct_switch_requests = 0;
         int64_t waits = 0;
         int64_t idles = 0;
+        uint64_t idle_microseconds = 0;
+        uint64_t idle_micros_at_last_instr = 0;
+        uint64_t cpu_microseconds = 0;
         std::unordered_set<memref_tid_t> threads;
     };
     counters_t
@@ -124,10 +130,15 @@ protected:
         uint64_t cur_segment_instrs = 0;
         bool prev_was_wait = false;
         bool prev_was_idle = false;
+        // Computing %-idle.
+        uint64_t segment_start_microseconds = 0;
     };
 
     void
     print_counters(const counters_t &counters);
+
+    uint64_t
+    get_current_microseconds();
 
     uint64_t knob_print_every_ = 0;
     unsigned int knob_verbose_ = 0;

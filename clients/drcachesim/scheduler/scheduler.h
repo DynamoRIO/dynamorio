@@ -524,16 +524,27 @@ public:
         uint64_t blocking_switch_threshold = 100;
         /**
          * Controls the amount of time inputs are considered blocked at a syscall whose
-         * latency exceeds #syscall_switch_threshold or #blocking_switch_threshold.  A
-         * "block time factor" is computed from the syscall latency divided by either
-         * #syscall_switch_threshold or #blocking_switch_threshold.  This factor is
-         * multiplied by this field #block_time_scale to produce a final value.  For
-         * #QUANTUM_TIME, that final value's amount of time, as reported by the time
-         * parameter to next_record(), must pass before the input is no longer considered
-         * blocked.  For instruction quanta, that final value's count of scheduler
-         * selections must occur before the input is actually selected.
+         * latency exceeds #syscall_switch_threshold or #blocking_switch_threshold.  The
+         * syscall latency (in microseconds) is multiplied by this field to produce the
+         * blocked time.  For #QUANTUM_TIME, that blocked time in the units reported by
+         * the time parameter to next_record() must pass before the input is no longer
+         * considered blocked.  Since the system call latencies are in microseconds, this
+         * #block_time_scale should be set to the number of next_record() time units in
+         * one simulated microsecond.  For #QUANTUM_INSTRUCTIONS, the blocked time in
+         * wall-clock microseconds must pass before the input is actually selected
+         * (wall-clock time is used as there is no reasonable alternative with no other
+         * uniform notion of time); thus, the #block_time_scale value here should equal
+         * the slowdown of the instruction record processing versus the original
+         * (untraced) application execution.  The blocked time is clamped to a maximum
+         * value controlled by #block_time_max.
          */
-        double block_time_scale = 1.;
+        double block_time_scale = 1000.;
+        /**
+         * The maximum time, in microseconds, for an input to be considered blocked
+         * for any one system call.  This is applied after multiplying by
+         * #block_time_scale.
+         */
+        uint64_t block_time_max = 25000000;
     };
 
     /**
@@ -1018,8 +1029,9 @@ protected:
         uint64_t prev_time_in_quantum = 0;
         uint64_t time_spent_in_quantum = 0;
         // These fields model waiting at a blocking syscall.
-        double block_time_factor = 0.;
-        uint64_t blocked_start_time = 0; // For QUANTUM_TIME only.
+        // The units are us for instr quanta and simuilation time for time quanta.
+        uint64_t blocked_time = 0.;
+        uint64_t blocked_start_time = 0;
     };
 
     // Format for recording a schedule to disk.  A separate sequence of these records
@@ -1232,7 +1244,7 @@ protected:
     // Finds the next input stream for the 'output_ordinal'-th output stream.
     // No input_info_t lock can be held on entry.
     stream_status_t
-    pick_next_input(output_ordinal_t output, double block_time_factor);
+    pick_next_input(output_ordinal_t output, uint64_t blocked_time);
 
     // Helper for pick_next_input() for MAP_AS_PREVIOUSLY.
     // No input_info_t lock can be held on entry.
@@ -1354,7 +1366,7 @@ protected:
     // The input's lock must be held by the caller.
     // Returns a multiplier for how long the input should be considered blocked.
     bool
-    syscall_incurs_switch(input_info_t *input, double &block_time_factor);
+    syscall_incurs_switch(input_info_t *input, uint64_t &blocked_time);
 
     // sched_lock_ must be held by the caller.
     // "for_output" is which output stream is looking for a new input; only an
@@ -1385,6 +1397,8 @@ protected:
     // timestamp in each workload in order to mix inputs from different workloads in the
     // same queue.  FIFO ordering is used for same-priority entries.
     flexible_queue_t<input_info_t *, InputTimestampComparator> ready_priority_;
+    // Trackes the count of blocked inputs.  Protected by sched_lock_.
+    int num_blocked_ = 0;
     // Global ready queue counter used to provide FIFO for same-priority inputs.
     uint64_t ready_counter_ = 0;
     // Count of inputs not yet at eof.

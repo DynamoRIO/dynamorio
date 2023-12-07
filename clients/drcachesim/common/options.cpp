@@ -851,11 +851,18 @@ droption_t<uint64_t> op_sched_blocking_switch_us(
     "maybe-blocking to incur a context switch. Applies to -core_sharded and "
     "-core_serial. ");
 
-droption_t<double>
-    op_sched_block_scale(DROPTION_SCOPE_ALL, "sched_block_scale", 1.,
-                         "Input block time scale factor",
-                         "A higher value here results in blocking syscalls "
-                         "keeping inputs unscheduled for longer.");
+droption_t<double> op_sched_block_scale(
+    DROPTION_SCOPE_ALL, "sched_block_scale", 1000., "Input block time scale factor",
+    "The scale applied to the microsecond latency of blocking system calls.  A higher "
+    "value here results in blocking syscalls keeping inputs unscheduled for longer.  "
+    "This should roughly equal the slowdown of instruction record processing versus the "
+    "original (untraced) application execution.");
+
+droption_t<uint64_t> op_sched_block_max_us(DROPTION_SCOPE_ALL, "sched_block_max_us",
+                                           25000000,
+                                           "Maximum blocked input time, in microseconds",
+                                           "The maximum blocked time, after scaling with "
+                                           "-sched_block_scale.");
 #ifdef HAS_ZIP
 droption_t<std::string> op_record_file(DROPTION_SCOPE_FRONTEND, "record_file", "",
                                        "Path for storing record of schedule",
@@ -875,8 +882,8 @@ droption_t<std::string>
 
 // Schedule_stats options.
 droption_t<uint64_t>
-    op_schedule_stats_print_every(DROPTION_SCOPE_ALL, "schedule_stats_print_every", 5000,
-                                  "A letter is printed every N instrs",
+    op_schedule_stats_print_every(DROPTION_SCOPE_ALL, "schedule_stats_print_every",
+                                  500000, "A letter is printed every N instrs",
                                   "A letter is printed every N instrs or N waits");
 
 droption_t<std::string> op_syscall_template_file(

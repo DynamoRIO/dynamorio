@@ -196,6 +196,8 @@ test_basic_stats()
     assert(result.maybe_blocking_syscalls == 3);
     assert(result.direct_switch_requests == 2);
     assert(result.waits == 3);
+    assert(result.idle_microseconds == 0);
+    assert(result.cpu_microseconds > 0);
     return true;
 }
 
@@ -216,6 +218,7 @@ test_idle()
             gen_marker(TID_B, TRACE_MARKER_TYPE_CORE_IDLE, 0),
             gen_marker(TID_B, TRACE_MARKER_TYPE_CORE_IDLE, 0),
             gen_marker(TID_B, TRACE_MARKER_TYPE_CORE_IDLE, 0),
+            // A switch from idle w/ no syscall is an involuntary switch.
             gen_instr(TID_B),
             gen_instr(TID_B),
             gen_instr(TID_B),
@@ -229,6 +232,7 @@ test_idle()
             gen_marker(TID_C, TRACE_MARKER_TYPE_CORE_IDLE, 0),
             gen_marker(TID_C, TRACE_MARKER_TYPE_CORE_IDLE, 0),
             gen_marker(TID_C, TRACE_MARKER_TYPE_CORE_IDLE, 0),
+            // A switch from idle w/ no syscall is an involuntary switch.
             gen_instr(TID_C),
             gen_instr(TID_C),
             // Wait.
@@ -243,7 +247,7 @@ test_idle()
     };
     auto result = run_schedule_stats(memrefs, tid2ord);
     assert(result.instrs == 13);
-    assert(result.total_switches == 3);
+    assert(result.total_switches == 5);
     assert(result.voluntary_switches == 0);
     assert(result.direct_switches == 0);
     assert(result.syscalls == 0);
@@ -251,6 +255,11 @@ test_idle()
     assert(result.direct_switch_requests == 0);
     assert(result.waits == 3);
     assert(result.idles == 6);
+    // It is hard to test wall-clock time precise values so we have sanity checks.
+    assert(result.idle_microseconds > 0);
+    assert(result.idle_micros_at_last_instr > 0 &&
+           result.idle_micros_at_last_instr <= result.idle_microseconds);
+    assert(result.cpu_microseconds > 0);
     return true;
 }
 
