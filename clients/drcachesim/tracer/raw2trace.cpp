@@ -718,7 +718,8 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                     DR_ASSERT(marker_type != TRACE_MARKER_TYPE_SYSCALL);
                     return write_delayed_branches(tdata, buf_base,
                                                   reinterpret_cast<trace_entry_t *>(buf));
-                } else if (marker_type == TRACE_MARKER_TYPE_SYSCALL) {
+                } else if (syscall_template_file_reader_ != nullptr &&
+                           marker_type == TRACE_MARKER_TYPE_SYSCALL) {
                     size_t size = reinterpret_cast<trace_entry_t *>(buf) - buf_base;
                     if ((uint)size >= WRITE_BUFFER_SIZE) {
                         tdata->error = "Too many entries";
