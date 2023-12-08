@@ -5727,7 +5727,7 @@
  * \param Zdn   The first source and destination vector register, Z (Scalable)
  * \param simm   The signed immediate imm
  */
-#define INSTR_CREATE_mul_sve(dc, Zdn, simm) \
+#define INSTR_CREATE_mul_sve_imm(dc, Zdn, simm) \
     instr_create_1dst_2src(dc, OP_mul, Zdn, Zdn, simm)
 
 /**
@@ -18149,5 +18149,38 @@
     instr_create_1dst_0src(          \
         dc, OP_dc_gzva,              \
         opnd_create_base_disp(opnd_get_reg(Rn), DR_REG_NULL, 0, 0, OPSZ_sys))
+
+/**
+ * Creates a MUL instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      MUL     <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ * \param Zn   The first source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_mul_sve_vector(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_mul, Zd, Zn, Zm)
+
+/**
+ * Creates a MUL instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      MUL     <Zd>.D, <Zn>.D, <Zm>.D[<index>]
+      MUL     <Zd>.H, <Zn>.H, <Zm>.H[<index>]
+      MUL     <Zd>.S, <Zn>.S, <Zm>.S[<index>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z.d.
+ * \param Zn   The first source vector register, Z.d.
+ * \param Zm   The second source vector register, Z.d.
+ * \param index   The immediate index for Zm.
+ */
+#define INSTR_CREATE_mul_sve_idx(dc, Zd, Zn, Zm, index) \
+    instr_create_1dst_3src(dc, OP_mul, Zd, Zn, Zm, index)
 
 #endif /* DR_IR_MACROS_AARCH64_H */
