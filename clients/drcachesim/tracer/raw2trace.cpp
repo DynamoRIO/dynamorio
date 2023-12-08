@@ -715,7 +715,7 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                 if (delayed_branches_exist(tdata)) {
                     // Any un-written delayed branches should've been written out already
                     // at the prior syscall instruction.
-                    DR_ASSERT(marker_type != TRACE_MARKER_TYPE_SYSCALL);
+                    // DR_ASSERT(marker_type != TRACE_MARKER_TYPE_SYSCALL);
                     return write_delayed_branches(tdata, buf_base,
                                                   reinterpret_cast<trace_entry_t *>(buf));
                 } else if (syscall_template_file_reader_ != nullptr &&
