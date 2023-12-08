@@ -5930,4 +5930,4 @@ if (RISCV64)
   endif ()
 endif ()
 
-set_tests_properties(code_api|tool.drcacheoff.simple PROPERTIES LABELS TMATE_DEBUG)#NOCHECK
+set_tests_properties(code_api|tool.drcacheoff.simple PROPERTIES LABELS TMATE_DEBUG) # NOCHECKIN
