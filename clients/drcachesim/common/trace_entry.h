@@ -921,7 +921,8 @@ typedef enum {
      * a separate component. This will make it easier to manually append, update, or
      * inspect the individual templates, and also allow streaming the component with the
      * required template when needed instead of reading the complete file into memory
-     * ahead of time.
+     * ahead of time. Note that we may drop support for non-zipfile template files in
+     * the future.
      */
     OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES = 0x4000,
 } offline_file_type_t;

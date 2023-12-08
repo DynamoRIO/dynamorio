@@ -301,8 +301,6 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
             case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
                 syscall_trace_num = memref.marker.marker_value;
                 if (syscall_trace_num != prev_syscall_num_marker_saved ||
-                    // We assume there would not be a chunk split between the sysnum
-                    // marker and the trace start marker for this short trace.
                     prev_syscall_num_marker_saved == -1) {
                     std::cerr << "Found unexpected trace for system call "
                               << syscall_trace_num
