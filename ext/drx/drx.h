@@ -174,8 +174,8 @@ DR_EXPORT
 bool
 drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
                           dr_spill_slot_t slot,
-                          IF_AARCHXX_(dr_spill_slot_t slot2) void *addr, int value,
-                          uint flags);
+                          IF_AARCHXX_OR_RISCV64_(dr_spill_slot_t slot2) void *addr,
+                          int value, uint flags);
 
 /***************************************************************************
  * SOFT KILLS
@@ -293,7 +293,7 @@ DR_EXPORT
  */
 file_t
 drx_open_unique_file(const char *dir, const char *prefix, const char *suffix,
-                     uint extra_flags, char *result OUT, size_t result_len);
+                     uint extra_flags, char *result DR_PARAM_OUT, size_t result_len);
 
 DR_EXPORT
 /**
@@ -317,8 +317,8 @@ DR_EXPORT
  */
 file_t
 drx_open_unique_appid_file(const char *dir, ptr_int_t id, const char *prefix,
-                           const char *suffix, uint extra_flags, char *result OUT,
-                           size_t result_len);
+                           const char *suffix, uint extra_flags,
+                           char *result DR_PARAM_OUT, size_t result_len);
 
 DR_EXPORT
 /**
@@ -336,7 +336,8 @@ DR_EXPORT
  */
 bool
 drx_open_unique_appid_dir(const char *dir, ptr_int_t id, const char *prefix,
-                          const char *suffix, char *result OUT, size_t result_len);
+                          const char *suffix, char *result DR_PARAM_OUT,
+                          size_t result_len);
 
 /***************************************************************************
  * BUFFER FILLING LIBRARY
@@ -535,7 +536,7 @@ DR_EXPORT
  * \return whether successful.
  */
 bool
-drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded);
+drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, DR_PARAM_OUT bool *expanded);
 
 /**@}*/ /* end doxygen group */
 

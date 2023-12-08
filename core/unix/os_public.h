@@ -205,6 +205,7 @@ typedef kernel_sigcontext_t sigcontext_t;
 #    define SC_SYSNUM_REG SC_R7
 #    define SC_RETURN_REG SC_R0
 #elif defined(RISCV64)
+#    define SC_TP SC_FIELD(sc_regs.tp)
 #    define SC_A0 SC_FIELD(sc_regs.a0)
 #    define SC_A1 SC_FIELD(sc_regs.a1)
 #    define SC_A2 SC_FIELD(sc_regs.a2)

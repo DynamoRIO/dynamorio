@@ -273,7 +273,11 @@ is_at_do_syscall(dcontext_t *dcontext, app_pc pc, byte *esp)
 #else
         return is_after_or_restarted_do_syscall(dcontext, pc, false /*!vsys*/);
 #endif
-    } else if (get_syscall_method() == SYSCALL_METHOD_SYSENTER) {
+    } else if (get_syscall_method() ==
+               SYSCALL_METHOD_SYSENTER IF_X86_32(
+                   ||
+                   (get_syscall_method() == SYSCALL_METHOD_SYSCALL &&
+                    cpu_info.vendor == VENDOR_AMD))) {
 #ifdef WINDOWS
         if (pc == vsyscall_after_syscall) {
             if (DYNAMO_OPTION(sygate_sysenter))
@@ -1801,11 +1805,14 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
          * But the stolen reg was restored to the application value during
          * translate_mcontext.
          */
-        IF_AARCHXX({
-            /* Preserve the translated value from mc before we clobber it. */
-            dcontext->local_state->spill_space.reg_stolen = get_stolen_reg_val(mc);
-            set_stolen_reg_val(mc, (reg_t)os_get_dr_tls_base(dcontext));
-        });
+#ifdef AARCHXX
+        /* Preserve the translated value from mc before we clobber it. */
+        dcontext->local_state->spill_space.reg_stolen = get_stolen_reg_val(mc);
+        set_stolen_reg_val(mc, (reg_t)os_get_dr_tls_base(dcontext));
+#elif defined(RISCV64)
+        ASSERT_NOT_IMPLEMENTED(false);
+#endif
+
 #ifdef WINDOWS
         /* i#25: we could have interrupted thread in DR, where has priv fls data
          * in TEB, and fcache_return blindly copies into app fls: so swap to app

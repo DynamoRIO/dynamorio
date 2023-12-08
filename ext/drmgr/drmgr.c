@@ -764,8 +764,9 @@ drmgr_init_opcode_hashtable(hashtable_t *opcode_instrum_table)
 /* Returns false if opcode instrumentation is not applicable, i.e., no registration.
  */
 static bool
-drmgr_set_up_local_opcode_table(IN instrlist_t *bb, IN cb_list_t *insert_list,
-                                INOUT hashtable_t *local_opcode_instrum_table)
+drmgr_set_up_local_opcode_table(DR_PARAM_IN instrlist_t *bb,
+                                DR_PARAM_IN cb_list_t *insert_list,
+                                DR_PARAM_INOUT hashtable_t *local_opcode_instrum_table)
 {
     instr_t *inst, *next_inst;
     int opcode;
@@ -1099,7 +1100,8 @@ drmgr_bb_event_instrument_dups(void *drcontext, void *tag, instrlist_t *bb,
 }
 
 static void
-drmgr_bb_event_set_local_cb_info(void *drcontext, OUT local_cb_info_t *local_info)
+drmgr_bb_event_set_local_cb_info(void *drcontext,
+                                 DR_PARAM_OUT local_cb_info_t *local_info)
 {
     dr_rwlock_read_lock(bb_cb_lock);
     /* We use arrays to more easily support unregistering while in an event (i#1356).
@@ -1147,7 +1149,8 @@ drmgr_bb_event_set_local_cb_info(void *drcontext, OUT local_cb_info_t *local_inf
 }
 
 static void
-drmgr_bb_event_delete_local_cb_info(void *drcontext, IN local_cb_info_t *local_info)
+drmgr_bb_event_delete_local_cb_info(void *drcontext,
+                                    DR_PARAM_IN local_cb_info_t *local_info)
 {
     cblist_delete_local(drcontext, &local_info->iter_app2app,
                         BUFFER_SIZE_ELEMENTS(local_info->app2app));
@@ -3410,7 +3413,8 @@ drmgr_get_emulated_instr_data(instr_t *instr, emulated_instr_t *emulated)
 
 DR_EXPORT
 bool
-drmgr_in_emulation_region(void *drcontext, OUT const emulated_instr_t **emulation_info)
+drmgr_in_emulation_region(void *drcontext,
+                          DR_PARAM_OUT const emulated_instr_t **emulation_info)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, our_tls_idx);
     if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION)

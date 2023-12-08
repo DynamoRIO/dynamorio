@@ -921,8 +921,8 @@ read_file_header(const char *buf)
 }
 
 static file_t
-open_input_file(const char *fname, const char **map_out OUT, size_t *map_size OUT,
-                uint64 *file_sz OUT)
+open_input_file(const char *fname, const char **map_out DR_PARAM_OUT,
+                size_t *map_size DR_PARAM_OUT, uint64 *file_sz DR_PARAM_OUT)
 {
     uint64 file_size;
     char *map;

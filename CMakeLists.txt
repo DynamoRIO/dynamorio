@@ -320,6 +320,13 @@ if (NOT "${TARGET_ARCH}" STREQUAL "${CMAKE_SYSTEM_PROCESSOR}")
   endif ()
 endif ()
 
+get_processor_vendor(CPU_VENDOR)
+if ("${CPU_VENDOR}" STREQUAL "GenuineIntel")
+  set(CPU_INTEL ON)
+elseif ("${CPU_VENDOR}" STREQUAL "AuthenticAMD")
+  set(CPU_AMD ON)
+endif ()
+
 # Support for running cross-compiled tests under emulation.
 if (CMAKE_CROSSCOMPILING AND DEFINED CMAKE_FIND_ROOT_PATH)
   find_program(QEMU_BINARY qemu-${CMAKE_SYSTEM_PROCESSOR} DOC "QEMU emulation tool")
@@ -624,7 +631,8 @@ endif ()
 set(proc_supports_sve OFF)
 if (AARCH64 AND UNIX)
   set(CFLAGS_SVE "-march=armv8-a+sve")
-  check_sve_processor_and_compiler_support(proc_supports_sve)
+  set(ASMFLAGS_SVE "-march=armv8-a+sve")
+  check_sve_processor_and_compiler_support(proc_supports_sve proc_sve_vl)
 endif ()
 
 # Ensure that _AMD64_ or _X86_ are defined on Microsoft Windows, as otherwise

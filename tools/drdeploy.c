@@ -478,8 +478,8 @@ unregister_proc(const char *process, process_id_t pid, bool global,
  */
 static bool
 expand_dr_root(const char *dr_root, bool debug, dr_platform_t dr_platform, bool preinject,
-               bool report, OUT char *dr_lib_path, size_t dr_lib_path_sz,
-               OUT char *dr_alt_lib_path, size_t dr_alt_lib_path_sz)
+               bool report, DR_PARAM_OUT char *dr_lib_path, size_t dr_lib_path_sz,
+               DR_PARAM_OUT char *dr_alt_lib_path, size_t dr_alt_lib_path_sz)
 {
     int i;
     char buf[MAXIMUM_PATH];
@@ -924,7 +924,8 @@ read_tool_file(const char *toolname, const char *dr_root, const char *dr_toolcon
                dr_platform_t dr_platform, char *client, size_t client_size,
                char *alt_client, size_t alt_size, char *ops, size_t ops_size,
                size_t *ops_sofar, char *tool_ops, size_t tool_ops_size,
-               size_t *tool_ops_sofar, char *native_path OUT, size_t native_path_size)
+               size_t *tool_ops_sofar, char *native_path DR_PARAM_OUT,
+               size_t native_path_size)
 {
     FILE *f;
     char config_file[MAXIMUM_PATH];
@@ -1062,7 +1063,7 @@ read_tool_file(const char *toolname, const char *dr_root, const char *dr_toolcon
  * Caller should continue iterating until *token == NULL.
  */
 static char *
-split_option_token(char *s, char **token OUT, bool split)
+split_option_token(char *s, char **token DR_PARAM_OUT, bool split)
 {
     bool quoted = false;
     char endquote = '\0';

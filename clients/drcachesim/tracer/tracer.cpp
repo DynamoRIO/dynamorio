@@ -176,10 +176,6 @@ static void *trace_thread_cb_user_data;
 static bool thread_filtering_enabled;
 bool attached_midway;
 
-#ifdef AARCH64
-static bool reported_sg_warning = false;
-#endif
-
 // We may be able to safely use std::unordered_map as at runtime we only need
 // to do lookups which shouldn't need heap or locks, but to be safe we use
 // the DR hashtable.
@@ -203,7 +199,8 @@ bbdup_duplication_enabled()
 // If we have both BBDUP_MODE_TRACE and BBDUP_MODE_L0_FILTER, then L0 filter is active
 // only when mode is BBDUP_MODE_L0_FILTER
 void
-get_L0_filters_enabled(uintptr_t mode, OUT bool *l0i_enabled, OUT bool *l0d_enabled)
+get_L0_filters_enabled(uintptr_t mode, DR_PARAM_OUT bool *l0i_enabled,
+                       DR_PARAM_OUT bool *l0d_enabled)
 {
     if (op_L0_filter_until_instrs.get_value()) {
         if (mode != BBDUP_MODE_L0_FILTER) {
@@ -619,7 +616,7 @@ instrument_delay_instrs(void *drcontext, void *tag, instrlist_t *ilist, user_dat
  */
 static void
 insert_conditional_skip(void *drcontext, instrlist_t *ilist, instr_t *where,
-                        reg_id_t reg_skip_if_zero, reg_id_t *reg_tmp INOUT,
+                        reg_id_t reg_skip_if_zero, reg_id_t *reg_tmp DR_PARAM_INOUT,
                         instr_t *skip_label, bool short_reaches,
                         reg_id_set_t &app_regs_at_skip)
 {
@@ -1352,22 +1349,6 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         for (i = 0; i < instr_num_srcs(instr_operands); i++) {
             const opnd_t src = instr_get_src(instr_operands, i);
             if (opnd_is_memory_reference(src)) {
-#ifdef AARCH64
-                /* TODO i#5036: Memory references involving SVE registers are not
-                 * supported yet. To be implemented as part of scatter/gather work.
-                 */
-                if (opnd_is_base_disp(src) &&
-                    (reg_is_z(opnd_get_base(src)) || reg_is_z(opnd_get_index(src)))) {
-                    if (!reported_sg_warning) {
-                        NOTIFY(
-                            0,
-                            "WARNING: Scatter/gather is not supported, results will be "
-                            "inaccurate\n");
-                        reported_sg_warning = true;
-                    }
-                    continue;
-                }
-#endif
                 adjust = instrument_memref(drcontext, ud, bb, where, reg_ptr, adjust,
                                            instr_operands, src, i, false, pred, mode);
             }
@@ -1376,22 +1357,6 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         for (i = 0; i < instr_num_dsts(instr_operands); i++) {
             const opnd_t dst = instr_get_dst(instr_operands, i);
             if (opnd_is_memory_reference(dst)) {
-#ifdef AARCH64
-                /* TODO i#5036: Memory references involving SVE registers are not
-                 * supported yet. To be implemented as part of scatter/gather work.
-                 */
-                if (opnd_is_base_disp(dst) &&
-                    (reg_is_z(opnd_get_base(dst)) || reg_is_z(opnd_get_index(dst)))) {
-                    if (!reported_sg_warning) {
-                        NOTIFY(
-                            0,
-                            "WARNING: Scatter/gather is not supported, results will be "
-                            "inaccurate\n");
-                        reported_sg_warning = true;
-                    }
-                    continue;
-                }
-#endif
                 adjust = instrument_memref(drcontext, ud, bb, where, reg_ptr, adjust,
                                            instr_operands, dst, i, true, pred, mode);
             }
@@ -2179,7 +2144,7 @@ drmemtrace_buffer_handoff(drmemtrace_handoff_func_t handoff_func,
 }
 
 drmemtrace_status_t
-drmemtrace_get_output_path(OUT const char **path)
+drmemtrace_get_output_path(DR_PARAM_OUT const char **path)
 {
     if (path == NULL)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
@@ -2189,7 +2154,7 @@ drmemtrace_get_output_path(OUT const char **path)
 
 #ifdef BUILD_PT_TRACER
 drmemtrace_status_t
-drmemtrace_get_kcore_path(OUT const char **path)
+drmemtrace_get_kcore_path(DR_PARAM_OUT const char **path)
 {
     if (path == NULL)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
@@ -2198,7 +2163,7 @@ drmemtrace_get_kcore_path(OUT const char **path)
 }
 
 drmemtrace_status_t
-drmemtrace_get_kallsyms_path(OUT const char **path)
+drmemtrace_get_kallsyms_path(DR_PARAM_OUT const char **path)
 {
     if (path == NULL)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
@@ -2207,7 +2172,7 @@ drmemtrace_get_kallsyms_path(OUT const char **path)
 }
 
 drmemtrace_status_t
-drmemtrace_get_kernel_trace_output_path(OUT const char **path)
+drmemtrace_get_kernel_trace_output_path(DR_PARAM_OUT const char **path)
 {
     if (path == NULL)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
@@ -2217,7 +2182,7 @@ drmemtrace_get_kernel_trace_output_path(OUT const char **path)
 #endif
 
 drmemtrace_status_t
-drmemtrace_get_modlist_path(OUT const char **path)
+drmemtrace_get_modlist_path(DR_PARAM_OUT const char **path)
 {
     if (path == NULL)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
@@ -2226,7 +2191,7 @@ drmemtrace_get_modlist_path(OUT const char **path)
 }
 
 drmemtrace_status_t
-drmemtrace_get_funclist_path(OUT const char **path)
+drmemtrace_get_funclist_path(DR_PARAM_OUT const char **path)
 {
     if (path == NULL)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
@@ -2235,7 +2200,7 @@ drmemtrace_get_funclist_path(OUT const char **path)
 }
 
 drmemtrace_status_t
-drmemtrace_get_encoding_path(OUT const char **path)
+drmemtrace_get_encoding_path(DR_PARAM_OUT const char **path)
 {
     if (path == NULL)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
@@ -2355,10 +2320,12 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         /* we use placement new for better isolation */
         DR_ASSERT(MAX_INSTRU_SIZE >= sizeof(offline_instru_t));
         placement = dr_global_alloc(MAX_INSTRU_SIZE);
-        instru = new (placement)
-            offline_instru_t(insert_load_buf_ptr, &scratch_reserve_vec,
-                             file_ops_func.write_file, module_file, encoding_file,
-                             op_disable_optimizations.get_value(), instru_notify);
+        // TODO i#6474, i#2062: Also handle op_L0_filter_until_instrs here when
+        // i#6474 is resolved.
+        instru = new (placement) offline_instru_t(
+            insert_load_buf_ptr, &scratch_reserve_vec, file_ops_func.write_file,
+            module_file, encoding_file, op_disable_optimizations.get_value(),
+            op_L0D_filter.get_value() || op_L0I_filter.get_value(), instru_notify);
     } else {
         void *placement;
         /* we use placement new for better isolation */

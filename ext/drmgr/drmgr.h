@@ -129,7 +129,8 @@ typedef dr_emit_flags_t (*drmgr_xform_cb_t)(void *drcontext, void *tag, instrlis
  */
 typedef dr_emit_flags_t (*drmgr_analysis_cb_t)(void *drcontext, void *tag,
                                                instrlist_t *bb, bool for_trace,
-                                               bool translating, OUT void **user_data);
+                                               bool translating,
+                                               DR_PARAM_OUT void **user_data);
 
 /**
  * Callback function for the first stage when using a user data parameter:
@@ -1013,7 +1014,7 @@ drmgr_is_emulation_end(instr_t *instr);
  */
 DR_EXPORT
 bool
-drmgr_get_emulated_instr_data(instr_t *instr, OUT emulated_instr_t *emulated);
+drmgr_get_emulated_instr_data(instr_t *instr, DR_PARAM_OUT emulated_instr_t *emulated);
 
 /**
  * Must be called during drmgr's insertion phase.  Returns whether the current
@@ -1047,7 +1048,8 @@ drmgr_get_emulated_instr_data(instr_t *instr, OUT emulated_instr_t *emulated);
  */
 DR_EXPORT
 bool
-drmgr_in_emulation_region(void *drcontext, OUT const emulated_instr_t **emulation_info);
+drmgr_in_emulation_region(void *drcontext,
+                          DR_PARAM_OUT const emulated_instr_t **emulation_info);
 
 DR_EXPORT
 /**

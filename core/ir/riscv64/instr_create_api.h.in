@@ -121,9 +121,7 @@
  * \param s   The source register opnd.
  */
 #define XINST_CREATE_move(dc, d, s) \
-    INSTR_CREATE_addi(              \
-        dc, d, s,                   \
-        opnd_add_flags(opnd_create_immed_int(0, OPSZ_12b), DR_OPND_IMM_PRINT_DECIMAL))
+    INSTR_CREATE_addi(dc, d, s, opnd_create_immed_int(0, OPSZ_12b))
 /**
  * This platform-independent macro creates an instr_t for a multimedia
  * register load instruction.
@@ -280,6 +278,12 @@
  * reach for the architecture.
  */
 #define OPND_CREATE_ABSMEM(addr, size) opnd_create_rel_addr(addr, size)
+
+/**
+ * Create an immediate integer operand. For RISCV64 the size of an immediate
+ * is ignored when encoding, so there is no need to specify the final size.
+ */
+#define OPND_CREATE_INT(val) OPND_CREATE_INTPTR(val)
 
 /** @} */ /* end doxygen group */
 

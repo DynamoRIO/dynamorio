@@ -99,7 +99,7 @@ test_ten_args(uint a, uint b, uint c, uint d, uint e, uint f, uint g, uint h, ui
 
 static dr_emit_flags_t
 bb_event_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                  bool translating, OUT void **user_data)
+                  bool translating, DR_PARAM_OUT void **user_data)
 {
     *(ptr_uint_t *)user_data = 0;
     for (instr_t *inst = instrlist_first(bb); inst != NULL; inst = instr_get_next(inst)) {

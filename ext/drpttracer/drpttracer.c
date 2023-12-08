@@ -92,7 +92,8 @@ static pt_metadata_t pt_shared_metadata;
  * use dr_global_free() to free the buffer.
  */
 static bool
-read_file_to_buf(IN const char *filename, OUT char **buf, OUT uint64_t *buf_size)
+read_file_to_buf(DR_PARAM_IN const char *filename, DR_PARAM_OUT char **buf,
+                 DR_PARAM_OUT uint64_t *buf_size)
 {
     ASSERT(filename != NULL, "filename is NULL");
     ASSERT(buf != NULL, "buf is NULL");
@@ -147,10 +148,11 @@ typedef enum {
  *   valid data = empty
  */
 static read_ring_buf_status_t
-read_ring_buf_to_buf(IN void *drcontext, IN uint8_t *ring_buf_base,
-                     IN uint64_t ring_buf_size, IN uint64_t head, IN uint64_t tail,
-                     IN uint64_t output_buf_size, OUT void *output_buf,
-                     OUT uint64_t *output_data_size)
+read_ring_buf_to_buf(DR_PARAM_IN void *drcontext, DR_PARAM_IN uint8_t *ring_buf_base,
+                     DR_PARAM_IN uint64_t ring_buf_size, DR_PARAM_IN uint64_t head,
+                     DR_PARAM_IN uint64_t tail, DR_PARAM_IN uint64_t output_buf_size,
+                     DR_PARAM_OUT void *output_buf,
+                     DR_PARAM_OUT uint64_t *output_data_size)
 {
     if (ring_buf_base == NULL) {
         ASSERT(false, "try to read from NULL buffer");
@@ -194,7 +196,7 @@ read_ring_buf_to_buf(IN void *drcontext, IN uint8_t *ring_buf_base,
 
 /* This function is used to get the Intel PT's PMU type. */
 static bool
-parse_pt_pmu_type(OUT uint32_t *pmu_type)
+parse_pt_pmu_type(DR_PARAM_OUT uint32_t *pmu_type)
 {
     ASSERT(pmu_type != NULL, "pmu_type is NULL");
     /* Read type str from /sys/devices/intel_pt/type. */
@@ -224,7 +226,8 @@ parse_pt_pmu_type(OUT uint32_t *pmu_type)
  * sets the 'val' to the corresponding bit.
  */
 static bool
-parse_pt_pmu_event_config(IN const char *name, uint64_t val, OUT uint64_t *config)
+parse_pt_pmu_event_config(DR_PARAM_IN const char *name, uint64_t val,
+                          DR_PARAM_OUT uint64_t *config)
 {
     /* Read config str from /sys/devices/intel_pt/format/name. */
     char *buf = NULL;
@@ -293,7 +296,7 @@ parse_pt_pmu_event_config(IN const char *name, uint64_t val, OUT uint64_t *confi
  * more packets, making the decoding process more reliable.
  */
 static bool
-pt_perf_event_attr_init(bool user, bool kernel, OUT struct perf_event_attr *attr)
+pt_perf_event_attr_init(bool user, bool kernel, DR_PARAM_OUT struct perf_event_attr *attr)
 {
     ASSERT(attr != NULL, "attr is NULL");
     ASSERT(user || kernel, "user and kernel are all false");
@@ -338,8 +341,9 @@ pt_perf_event_attr_init(bool user, bool kernel, OUT struct perf_event_attr *attr
 /* This function is used to open a perf event.
  */
 static int
-perf_event_open(IN struct perf_event_attr *attr, IN pid_t pid, IN int cpu,
-                IN int group_fd, IN unsigned long flags)
+perf_event_open(DR_PARAM_IN struct perf_event_attr *attr, DR_PARAM_IN pid_t pid,
+                DR_PARAM_IN int cpu, DR_PARAM_IN int group_fd,
+                DR_PARAM_IN unsigned long flags)
 {
     errno = 0;
     int fd = syscall(SYS_perf_event_open, attr, pid, cpu, group_fd, flags);
@@ -445,9 +449,11 @@ drpttracer_exit(void)
 
 DR_EXPORT
 drpttracer_status_t
-drpttracer_create_handle(IN void *drcontext, IN drpttracer_tracing_mode_t tracing_mode,
-                         IN uint pt_size_shift, IN uint sideband_size_shift,
-                         OUT void **tracer_handle)
+drpttracer_create_handle(DR_PARAM_IN void *drcontext,
+                         DR_PARAM_IN drpttracer_tracing_mode_t tracing_mode,
+                         DR_PARAM_IN uint pt_size_shift,
+                         DR_PARAM_IN uint sideband_size_shift,
+                         DR_PARAM_OUT void **tracer_handle)
 {
     if (tracer_handle == NULL) {
         ASSERT(false, "tracer_handle is NULL");
@@ -520,7 +526,7 @@ drpttracer_create_handle(IN void *drcontext, IN drpttracer_tracing_mode_t tracin
 
 DR_EXPORT
 drpttracer_status_t
-drpttracer_destroy_handle(IN void *drcontext, INOUT void *tracer_handle)
+drpttracer_destroy_handle(DR_PARAM_IN void *drcontext, DR_PARAM_INOUT void *tracer_handle)
 {
     pttracer_handle_t *handle = (pttracer_handle_t *)tracer_handle;
     if (handle == NULL) {
@@ -552,7 +558,7 @@ drpttracer_destroy_handle(IN void *drcontext, INOUT void *tracer_handle)
 
 DR_EXPORT
 drpttracer_status_t
-drpttracer_start_tracing(IN void *drcontext, IN void *tracer_handle)
+drpttracer_start_tracing(DR_PARAM_IN void *drcontext, DR_PARAM_IN void *tracer_handle)
 {
     pttracer_handle_t *handle = (pttracer_handle_t *)tracer_handle;
     if (handle == NULL || handle->fd < 0) {
@@ -573,8 +579,8 @@ drpttracer_start_tracing(IN void *drcontext, IN void *tracer_handle)
 
 DR_EXPORT
 drpttracer_status_t
-drpttracer_stop_tracing(IN void *drcontext, IN void *tracer_handle,
-                        OUT drpttracer_output_t *output)
+drpttracer_stop_tracing(DR_PARAM_IN void *drcontext, DR_PARAM_IN void *tracer_handle,
+                        DR_PARAM_OUT drpttracer_output_t *output)
 {
     pttracer_handle_t *handle = (pttracer_handle_t *)tracer_handle;
     if (handle == NULL || handle->fd < 0) {
@@ -660,7 +666,8 @@ drpttracer_stop_tracing(IN void *drcontext, IN void *tracer_handle,
 
 DR_EXPORT
 drpttracer_status_t
-drpttracer_get_pt_metadata(IN void *tracer_handle, OUT pt_metadata_t *pt_metadata)
+drpttracer_get_pt_metadata(DR_PARAM_IN void *tracer_handle,
+                           DR_PARAM_OUT pt_metadata_t *pt_metadata)
 {
     pttracer_handle_t *handle = (pttracer_handle_t *)tracer_handle;
     if (handle == NULL || handle->fd < 0) {
@@ -689,8 +696,9 @@ drpttracer_get_pt_metadata(IN void *tracer_handle, OUT pt_metadata_t *pt_metadat
 
 DR_EXPORT
 drpttracer_status_t
-drpttracer_create_output(IN void *drcontext, IN uint pt_buf_size_shift,
-                         IN size_t sd_buf_size_shift, OUT drpttracer_output_t **output)
+drpttracer_create_output(DR_PARAM_IN void *drcontext, DR_PARAM_IN uint pt_buf_size_shift,
+                         DR_PARAM_IN size_t sd_buf_size_shift,
+                         DR_PARAM_OUT drpttracer_output_t **output)
 {
     if (output == NULL) {
         ASSERT(false, "invalid output");
@@ -736,7 +744,8 @@ drpttracer_create_output(IN void *drcontext, IN uint pt_buf_size_shift,
 
 DR_EXPORT
 drpttracer_status_t
-drpttracer_destroy_output(IN void *drcontext, IN drpttracer_output_t *output)
+drpttracer_destroy_output(DR_PARAM_IN void *drcontext,
+                          DR_PARAM_IN drpttracer_output_t *output)
 {
     if (output == NULL) {
         ASSERT(false, "trying to free NULL output buffer");

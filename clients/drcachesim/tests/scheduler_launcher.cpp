@@ -101,6 +101,11 @@ droption_t<bool> op_honor_stamps(DROPTION_SCOPE_ALL, "honor_stamps", true,
                                  "Whether to honor recorded timestamps for ordering",
                                  "Whether to honor recorded timestamps for ordering");
 
+droption_t<double> op_block_time_scale(DROPTION_SCOPE_ALL, "block_time_scale", 1.,
+                                       "Input block time scale factor",
+                                       "A higher value here results in blocking syscalls "
+                                       "keeping inputs unscheduled for longer.");
+
 #ifdef HAS_ZIP
 droption_t<std::string> op_record_file(DROPTION_SCOPE_FRONTEND, "record_file", "",
                                        "Path for storing record of schedule",
@@ -152,9 +157,18 @@ void
 simulate_core(int ordinal, scheduler_t::stream_t *stream, const scheduler_t &scheduler,
               std::string &thread_sequence)
 {
+    // XXX: Could we share some code with the schedule_stats analysis tool?
+    // Some features are now duplicated in both.
+    static constexpr char THREAD_LETTER_INITIAL_START = 'A';
+    static constexpr char THREAD_LETTER_SUBSEQUENT_START = 'a';
+    static constexpr char WAIT_SYMBOL = '-';
+    static constexpr char IDLE_SYMBOL = '_';
     memref_t record;
     uint64_t micros = op_sched_time.get_value() ? get_current_microseconds() : 0;
     uint64_t cur_segment_instrs = 0;
+    bool prev_was_wait = false, prev_was_idle = false;
+    // Measure cpu usage by counting each next_record() as one cycle.
+    uint64_t cycles_total = 0, cycles_busy = 0;
     // Thread ids can be duplicated, so use the input ordinals to distinguish.
     scheduler_t::input_ordinal_t prev_input = scheduler_t::INVALID_INPUT_ORDINAL;
     for (scheduler_t::stream_status_t status = stream->next_record(record, micros);
@@ -162,13 +176,33 @@ simulate_core(int ordinal, scheduler_t::stream_t *stream, const scheduler_t &sch
          status = stream->next_record(record, micros)) {
         if (op_sched_time.get_value())
             micros = get_current_microseconds();
+        ++cycles_total;
+        // Cache and reset here to ensure we reset on early return paths.
+        bool was_wait = prev_was_wait;
+        bool was_idle = prev_was_idle;
+        prev_was_wait = false;
+        prev_was_idle = false;
         if (status == scheduler_t::STATUS_WAIT) {
-            thread_sequence += '-';
+            if (!was_wait || cur_segment_instrs == op_print_every.get_value())
+                thread_sequence += WAIT_SYMBOL;
+            ++cur_segment_instrs;
+            if (cur_segment_instrs == op_print_every.get_value())
+                cur_segment_instrs = 0;
+            prev_was_wait = true;
             std::this_thread::yield();
             continue;
-        }
-        if (status != scheduler_t::STATUS_OK)
+        } else if (status == scheduler_t::STATUS_IDLE) {
+            if (!was_idle || cur_segment_instrs == op_print_every.get_value())
+                thread_sequence += IDLE_SYMBOL;
+            ++cur_segment_instrs;
+            if (cur_segment_instrs == op_print_every.get_value())
+                cur_segment_instrs = 0;
+            prev_was_idle = true;
+            std::this_thread::yield();
+            continue;
+        } else if (status != scheduler_t::STATUS_OK)
             FATAL_ERROR("scheduler failed to advance: %d", status);
+        ++cycles_busy;
         if (op_verbose.get_value() >= 4) {
             std::ostringstream line;
             line << "Core #" << std::setw(2) << ordinal << " @" << std::setw(9)
@@ -195,9 +229,8 @@ simulate_core(int ordinal, scheduler_t::stream_t *stream, const scheduler_t &sch
         scheduler_t::input_ordinal_t input = stream->get_input_stream_ordinal();
         if (input != prev_input) {
             // We convert to letters which only works well for <=26 inputs.
-            if (!thread_sequence.empty())
-                thread_sequence += ',';
-            thread_sequence += 'A' + static_cast<char>(input % 26);
+            thread_sequence +=
+                THREAD_LETTER_INITIAL_START + static_cast<char>(input % 26);
             cur_segment_instrs = 0;
             if (op_verbose.get_value() >= 2) {
                 std::ostringstream line;
@@ -228,7 +261,8 @@ simulate_core(int ordinal, scheduler_t::stream_t *stream, const scheduler_t &sch
         if (type_is_instr(record.instr.type)) {
             ++cur_segment_instrs;
             if (cur_segment_instrs == op_print_every.get_value()) {
-                thread_sequence += 'A' + static_cast<char>(input % 26);
+                thread_sequence +=
+                    THREAD_LETTER_SUBSEQUENT_START + static_cast<char>(input % 26);
                 cur_segment_instrs = 0;
             }
         }
@@ -249,6 +283,13 @@ simulate_core(int ordinal, scheduler_t::stream_t *stream, const scheduler_t &sch
         }
 #endif
     }
+    float usage = 0;
+    if (cycles_total > 0)
+        usage = 100.f * cycles_busy / static_cast<float>(cycles_total);
+    std::ostringstream line;
+    line << "Core #" << std::setw(2) << ordinal << " usage: " << std::setw(9) << usage
+         << "%\n";
+    std::cerr << line.str();
 }
 
 } // namespace
@@ -283,6 +324,7 @@ _tmain(int argc, const TCHAR *targv[])
     sched_ops.quantum_duration = op_sched_quantum.get_value();
     if (op_sched_time.get_value())
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
+    sched_ops.block_time_scale = op_block_time_scale.get_value();
 #ifdef HAS_ZIP
     std::unique_ptr<zipfile_ostream_t> record_zip;
     std::unique_ptr<zipfile_istream_t> replay_zip;

@@ -124,8 +124,8 @@ nt_wow64_read_virtual_memory64(HANDLE process, uint64 base, void *buffer,
 {
     /* This syscall was added in 2003 so we can't statically link. */
     typedef NTSTATUS(NTAPI * NtWow64ReadVirtualMemory64_t)(
-        HANDLE ProcessHandle, IN PVOID64 BaseAddress, OUT PVOID Buffer,
-        IN ULONGLONG BufferSize, OUT PULONGLONG NumberOfBytesRead);
+        HANDLE ProcessHandle, DR_PARAM_IN PVOID64 BaseAddress, DR_PARAM_OUT PVOID Buffer,
+        DR_PARAM_IN ULONGLONG BufferSize, DR_PARAM_OUT PULONGLONG NumberOfBytesRead);
     static NtWow64ReadVirtualMemory64_t ntcall;
     NTSTATUS res;
     INIT_NTWOW64_FUNCPTR(ntcall, NtWow64ReadVirtualMemory64);
@@ -152,8 +152,8 @@ nt_wow64_write_virtual_memory64(HANDLE process, uint64 base, void *buffer,
 {
     /* Just like nt_wow64_read_virtual_memory64, we dynamically acquire. */
     typedef NTSTATUS(NTAPI * NtWow64WriteVirtualMemory64_t)(
-        HANDLE ProcessHandle, IN PVOID64 BaseAddress, IN PVOID Buffer,
-        IN ULONGLONG BufferSize, OUT PULONGLONG NumberOfBytesWritten);
+        HANDLE ProcessHandle, DR_PARAM_IN PVOID64 BaseAddress, DR_PARAM_IN PVOID Buffer,
+        DR_PARAM_IN ULONGLONG BufferSize, DR_PARAM_OUT PULONGLONG NumberOfBytesWritten);
     static NtWow64WriteVirtualMemory64_t ntcall;
     NTSTATUS res;
     INIT_NTWOW64_FUNCPTR(ntcall, NtWow64WriteVirtualMemory64);
@@ -174,8 +174,9 @@ nt_wow64_query_info_process64(HANDLE process, PROCESS_BASIC_INFORMATION64 *info)
 {
     /* Just like nt_wow64_read_virtual_memory64, we dynamically acquire. */
     typedef NTSTATUS(NTAPI * NtWow64QueryInformationProcess64_t)(
-        HANDLE ProcessHandle, IN PROCESSINFOCLASS InfoClass, OUT PVOID Buffer,
-        IN ULONG BufferSize, OUT PULONG NumberOfBytesRead);
+        HANDLE ProcessHandle, DR_PARAM_IN PROCESSINFOCLASS InfoClass,
+        DR_PARAM_OUT PVOID Buffer, DR_PARAM_IN ULONG BufferSize,
+        DR_PARAM_OUT PULONG NumberOfBytesRead);
     static NtWow64QueryInformationProcess64_t ntcall;
     NTSTATUS res;
     INIT_NTWOW64_FUNCPTR(ntcall, NtWow64QueryInformationProcess64);

@@ -45,9 +45,11 @@ am_I_last_thread(void)
     ULONG got;
     BOOL last;
     GET_NTDLL(NtQueryInformationThread,
-              (IN HANDLE ThreadHandle, IN THREADINFOCLASS ThreadInformationClass,
-               OUT PVOID ThreadInformation, IN ULONG ThreadInformationLength,
-               OUT PULONG ReturnLength OPTIONAL));
+              (DR_PARAM_IN HANDLE ThreadHandle,
+               DR_PARAM_IN THREADINFOCLASS ThreadInformationClass,
+               DR_PARAM_OUT PVOID ThreadInformation,
+               DR_PARAM_IN ULONG ThreadInformationLength,
+               DR_PARAM_OUT PULONG ReturnLength OPTIONAL));
     if (NT_SUCCESS(NtQueryInformationThread(GetCurrentThread(), ThreadAmILastThread,
                                             &last, sizeof(last), &got)))
         return last;

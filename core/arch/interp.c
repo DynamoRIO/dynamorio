@@ -5221,9 +5221,9 @@ build_basic_block_fragment_done:
  */
 instrlist_t *
 recreate_bb_ilist(dcontext_t *dcontext, byte *pc, byte *pretend_pc, app_pc stop_pc,
-                  uint flags, uint *res_flags OUT, uint *res_exit_type OUT,
-                  bool check_vm_area, bool mangle, void **vmlist_out OUT,
-                  bool call_client, bool for_trace)
+                  uint flags, uint *res_flags DR_PARAM_OUT,
+                  uint *res_exit_type DR_PARAM_OUT, bool check_vm_area, bool mangle,
+                  void **vmlist_out DR_PARAM_OUT, bool call_client, bool for_trace)
 {
     build_bb_t bb;
 
@@ -5467,6 +5467,7 @@ recreate_fragment_ilist(dcontext_t *dcontext, byte *pc,
 
         /* XXX i#5062 In the future this call should be placed inside mangle_trace() */
         IF_AARCH64(fixup_indirect_trace_exit(dcontext, ilist));
+        IF_RISCV64(ASSERT_NOT_IMPLEMENTED(false));
 
         /* PR 214962: re-apply client changes, this time storing translation
          * info for modified instrs
@@ -6196,6 +6197,7 @@ mangle_indirect_branch_in_trace(dcontext_t *dcontext, instrlist_t *trace,
         }
     }
 #    endif
+/* end of X86 */
 #elif defined(AARCH64)
     instr_t *instr;
     reg_id_t jump_target_reg;
@@ -6277,11 +6279,11 @@ mangle_indirect_branch_in_trace(dcontext_t *dcontext, instrlist_t *trace,
     instrlist_remove(trace, targeter);
     instr_destroy(dcontext, targeter);
     added_size -= AARCH64_INSTR_SIZE;
-
-#elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
+/* end of AARCH64 */
+#else
+    /* FIXME i#1551 i#3544: NYI on ARM/RISCV64 */
     ASSERT_NOT_IMPLEMENTED(false);
-#endif /* X86/ARM */
+#endif /* X86/ARM/RISCV64 */
     return added_size;
 }
 

@@ -114,9 +114,10 @@ class Field(str, Enum):
     opsz_def: dict[str, str] | str
     is_dest: bool
     is_implicit: bool
+    as_decimal: bool
 
     def __new__(cls, value: int, arg_name: str, is_dest: bool, is_implicit: bool,
-                opsz_def: dict[str, str] | str, asm_name: str,
+                as_decimal, opsz_def: dict[str, str] | str, asm_name: str,
                 arg_cmt: str):
         # Take str as a base object because we need a concrete class. It won't
         # be used anyway.
@@ -128,12 +129,14 @@ class Field(str, Enum):
         obj.arg_cmt = arg_cmt
         obj.is_dest = is_dest
         obj.is_implicit = is_implicit
+        obj.as_decimal = as_decimal
         return obj
 
     # Fields in uncompressed instructions.
     RD = (1,
           'rd',
           True,
+          False,
           False,
           'OPSZ_PTR',
           '',
@@ -143,12 +146,14 @@ class Field(str, Enum):
             'rd',
             True,
             False,
+            False,
             'OPSZ_PTR',
             '',
             'The output floating-point register (inst[11:7]).'
             )
     RS1 = (3,
            'rs1',
+           False,
            False,
            False,
            'OPSZ_PTR',
@@ -159,12 +164,14 @@ class Field(str, Enum):
              'rs1',
              False,
              False,
+             False,
              'OPSZ_PTR',
              '',
              'The first input floating-point register (inst[19:15]).'
              )
     BASE = (5,
             'base',
+            False,
             False,
             False,
             'OPSZ_0',
@@ -175,12 +182,14 @@ class Field(str, Enum):
            'rs2',
            False,
            False,
+           False,
            'OPSZ_PTR',
            '',
            'The second input register (inst[24:20]).'
            )
     RS2FP = (7,
              'rs2',
+             False,
              False,
              False,
              'OPSZ_PTR',
@@ -191,12 +200,14 @@ class Field(str, Enum):
            'rs3',
            False,
            False,
+           False,
            'OPSZ_PTR',
            '',
            'The third input register (inst[31:27]).'
            )
     FM = (9,
           'fm',
+          False,
           False,
           False,
           'OPSZ_4b',
@@ -207,12 +218,14 @@ class Field(str, Enum):
             'pred',
             False,
             False,
+            False,
             'OPSZ_4b',
             '',
             'The bitmap with predecessor constraints for FENCE (inst[27:24]).'
             )
     SUCC = (11,
             'succ',
+            False,
             False,
             False,
             'OPSZ_4b',
@@ -223,12 +236,14 @@ class Field(str, Enum):
             'aqrl',
             False,
             False,
+            False,
             'OPSZ_2b',
             '',
             'The acquire-release constraint field (inst[26:25]).'
             )
     CSR = (13,
            'csr',
+           False,
            False,
            False,
            'OPSZ_PTR',
@@ -239,6 +254,7 @@ class Field(str, Enum):
           'rm',
           False,
           False,
+          False,
           'OPSZ_3b',
           '',
           'The rounding-mode (inst[14:12]).'
@@ -247,6 +263,7 @@ class Field(str, Enum):
              'shamt',
              False,
              False,
+             True,
              'OPSZ_5b',
              '',
              'The `shamt` field (bit range is determined by XLEN).'
@@ -255,6 +272,7 @@ class Field(str, Enum):
               'shamt',
               False,
               False,
+              True,
               'OPSZ_6b',
               '',
               'The `shamt` field that uses only 5 bits.'
@@ -263,6 +281,7 @@ class Field(str, Enum):
               'shamt',
               False,
               False,
+              True,
               'OPSZ_7b',
               '',
               'The `shamt` field that uses only 6 bits.'
@@ -271,6 +290,7 @@ class Field(str, Enum):
              'imm',
              False,
              False,
+             True,
              'OPSZ_12b',
              '',
              'The immediate field in the I-type format.'
@@ -279,12 +299,14 @@ class Field(str, Enum):
              'imm',
              False,
              False,
+             True,
              'OPSZ_12b',
              '',
              'The immediate field in the S-type format.'
              )
     B_IMM = (20,
              'pc_rel',
+             False,
              False,
              False,
              'OPSZ_2',
@@ -295,12 +317,14 @@ class Field(str, Enum):
              'imm',
              False,
              False,
+             False,
              'OPSZ_20b',
              '',
              'The 20-bit immediate field in the U-type format.'
              )
     U_IMMPC = (22,
                'imm',
+               False,
                False,
                False,
                'OPSZ_20b',
@@ -311,12 +335,14 @@ class Field(str, Enum):
              'pc_rel',
              False,
              False,
+             False,
              'OPSZ_2',
              '',
              'The immediate field in the J-type format.'
              )
     IMM = (24,  # Used only for parsing ISA files. Concatenated into V_RS1_DISP.
            'imm',
+           False,
            False,
            False,
            'OPSZ_12b',
@@ -327,6 +353,7 @@ class Field(str, Enum):
            'rd',
            True,
            False,
+           False,
            'OPSZ_PTR',
            '',
            'The output register in `CR`, `CI` RVC formats (inst[11:7])'
@@ -335,12 +362,14 @@ class Field(str, Enum):
              'rd',
              True,
              False,
+             False,
              'OPSZ_PTR',
              '',
              'The output floating-point register in `CR`, `CI` RVC formats (inst[11:7])'
              )
     CRS1 = (27,
             'rs1',
+            False,
             False,
             False,
             'OPSZ_PTR',
@@ -351,12 +380,14 @@ class Field(str, Enum):
             'rs2',
             False,
             False,
+            False,
             'OPSZ_PTR',
             '',
             'The second input register in `CR`, `CSS` RVC formats (inst[6:2]).'
             )
     CRS2FP = (29,
               'rs2',
+              False,
               False,
               False,
               'OPSZ_PTR',
@@ -368,6 +399,7 @@ class Field(str, Enum):
             'rd',
             True,
             False,
+            False,
             'OPSZ_PTR',
             '',
             'The output register in `CIW`, `CL` RVC formats (inst[4:2])'
@@ -376,12 +408,14 @@ class Field(str, Enum):
               'rd',
               True,
               False,
+              False,
               'OPSZ_PTR',
               '',
               'The output floating-point register in `CIW`, `CL` RVC formats (inst[4:2])'
               )
     CRS1_ = (32,
              'rs1',
+             False,
              False,
              False,
              'OPSZ_PTR',
@@ -392,12 +426,14 @@ class Field(str, Enum):
              'rs2',
              False,
              False,
+             False,
              'OPSZ_PTR',
              '',
              'The second input register in `CS`, `CA` RVC formats (inst[4:2]).'
              )
     CRS2_FP = (34,
                'rs2',
+               False,
                False,
                False,
                'OPSZ_PTR',
@@ -408,6 +444,7 @@ class Field(str, Enum):
              'rd',
              True,
              False,
+             False,
              'OPSZ_PTR',
              '',
              'The output register in `CA` RVC format (inst[9:7])'
@@ -416,6 +453,7 @@ class Field(str, Enum):
               'shamt',
               False,
               False,
+              True,
               'OPSZ_6b',
               '',
               'The `shamt` field in the RVC format.'
@@ -424,6 +462,7 @@ class Field(str, Enum):
                'imm',
                False,
                False,
+               True,
                'OPSZ_5b',
                '',
                'The immediate field in a CSR instruction.'
@@ -432,6 +471,7 @@ class Field(str, Enum):
                      'imm',
                      False,
                      False,
+                     True,
                      'OPSZ_10b',
                      '',
                      'The immediate field in a C.ADDI16SP instruction.'
@@ -440,6 +480,7 @@ class Field(str, Enum):
                  'sp_offset',
                  False,
                  False,
+                 True,
                  'OPSZ_1',
                  '',
                  'The SP-relative memory location (sp+imm: imm & 0x3 == 0).'
@@ -448,12 +489,14 @@ class Field(str, Enum):
                  'sp_offset',
                  False,
                  False,
+                 True,
                  'OPSZ_9b',
                  '',
                  'The SP-relative memory location (sp+imm: imm & 0x7 == 0).'
                  )
     CLUI_IMM = (41,
                 'imm',
+                False,
                 False,
                 False,
                 'OPSZ_6b',
@@ -464,6 +507,7 @@ class Field(str, Enum):
                  'sp_offset',
                  True,
                  False,
+                 True,
                  'OPSZ_1',
                  '',
                  'The SP-relative memory location (sp+imm: imm & 0x3 == 0).'
@@ -472,6 +516,7 @@ class Field(str, Enum):
                  'sp_offset',
                  True,
                  False,
+                 True,
                  'OPSZ_9b',
                  '',
                  'The SP-relative memory location (sp+imm: imm & 0x7 == 0).'
@@ -480,6 +525,7 @@ class Field(str, Enum):
                'imm',
                False,
                False,
+               True,
                'OPSZ_10b',
                '',
                'The immediate field in a CIW format instruction.'
@@ -488,30 +534,35 @@ class Field(str, Enum):
                'mem',
                False,
                False,
+               True,
                'OPSZ_7b',
-               'im(rs1)', 'The register-relative memory location (reg+imm: imm & 0x3 == 0).')
+               'imm(rs1)', 'The register-relative memory location (reg+imm: imm & 0x3 == 0).')
     CLD_IMM = (46,
                'mem',
                False,
                False,
+               True,
                'OPSZ_1',
-               'im(rs1)', 'The register-relative memory location (reg+imm: imm & 0x7 == 0).')
+               'imm(rs1)', 'The register-relative memory location (reg+imm: imm & 0x7 == 0).')
     CSW_IMM = (47,
                'mem',
                True,
                False,
+               True,
                'OPSZ_7b',
-               'im(rs1)', 'The register-relative memory location (reg+imm: imm & 0x3 == 0).')
+               'imm(rs1)', 'The register-relative memory location (reg+imm: imm & 0x3 == 0).')
     CSD_IMM = (48,
                'mem',
                True,
                False,
+               True,
                'OPSZ_1',
-               'im(rs1)', 'The register-relative memory location (reg+imm: imm & 0x7 == 0).')
+               'imm(rs1)', 'The register-relative memory location (reg+imm: imm & 0x7 == 0).')
     CIMM5 = (49,
              'imm',
              False,
              False,
+             True,
              'OPSZ_6b',
              '',
              'The immediate field in a C.ADDI, C.ADDIW, C.LI, and C.ANDI instruction.'
@@ -520,12 +571,14 @@ class Field(str, Enum):
               'pc_rel',
               False,
               False,
+              False,
               'OPSZ_2',
               '',
               'The immediate field in a a CB format instruction (C.BEQZ and C.BNEZ).'
               )
     CJ_IMM = (51,
               'pc_rel',
+              False,
               False,
               False,
               'OPSZ_2',
@@ -537,6 +590,7 @@ class Field(str, Enum):
                     'mem',
                     False,
                     False,
+                    True,
                     {
                         '': 'OPSZ_0', 'lb': 'OPSZ_1', 'lh': 'OPSZ_2', 'lw': 'OPSZ_4',
                         'ld': 'OPSZ_8', 'lbu': 'OPSZ_1', 'lhu': 'OPSZ_2', 'lwu': 'OPSZ_4',
@@ -544,13 +598,14 @@ class Field(str, Enum):
                         'flw': 'OPSZ_4', 'fld': 'OPSZ_8', 'fsw': 'OPSZ_4', 'fsd': 'OPSZ_8',
                         'flq': 'OPSZ_16', 'fsq': 'OPSZ_16'
                     },
-                    'im(rs1)',
+                    'imm(rs1)',
                     'The register-relative memory source location (reg+imm).'
                     )
     V_S_RS1_DISP = (53,
                     'mem',
                     True,
                     False,
+                    True,
                     {
                         '': 'OPSZ_0', 'lb': 'OPSZ_1', 'lh': 'OPSZ_2', 'lw': 'OPSZ_4',
                         'ld': 'OPSZ_8', 'lbu': 'OPSZ_1', 'lhu': 'OPSZ_2', 'lwu': 'OPSZ_4',
@@ -558,13 +613,14 @@ class Field(str, Enum):
                         'flw': 'OPSZ_4', 'fld': 'OPSZ_8', 'fsw': 'OPSZ_4', 'fsd': 'OPSZ_8',
                         'flq': 'OPSZ_16', 'fsq': 'OPSZ_16'
                     },
-                    'im(rs1)',
+                    'imm(rs1)',
                     'The register-relative memory target location (reg+imm).'
                     )
     IRS1_SP = (54,
                'opnd_create_reg(DR_REG_SP)',
                False,
                True,
+               False,
                'OPSZ_PTR',
                'rs1',
                'Implicit rs1, always be sp.'
@@ -573,6 +629,7 @@ class Field(str, Enum):
                  'opnd_create_reg(DR_REG_ZERO)',
                  False,
                  True,
+                 False,
                  'OPSZ_PTR',
                  'rs1',
                  'Implicit rs1, always be zero.'
@@ -581,6 +638,7 @@ class Field(str, Enum):
                  'opnd_create_reg(DR_REG_ZERO)',
                  False,
                  True,
+                 False,
                  'OPSZ_PTR',
                  'rs2',
                  'Implicit rs2, always be zero.'
@@ -589,6 +647,7 @@ class Field(str, Enum):
                 'opnd_create_reg(DR_REG_ZERO)',
                 True,
                 True,
+                False,
                 'OPSZ_PTR',
                 'rd',
                 'Implicit rd, always be zero.'
@@ -597,6 +656,7 @@ class Field(str, Enum):
               'opnd_create_reg(DR_REG_RA)',
               True,
               True,
+              False,
               'OPSZ_PTR',
               'rd',
               'Implicit rd, always be ra.'
@@ -605,6 +665,7 @@ class Field(str, Enum):
               'opnd_create_reg(DR_REG_SP)',
               True,
               True,
+              False,
               'OPSZ_PTR',
               'rd',
               'Implicit rd, always be sp.'
@@ -612,6 +673,7 @@ class Field(str, Enum):
     IIMM_0 = (60,
               'opnd_create_immed_int(0, OPSZ_1)',
               False,
+              True,
               True,
               'OPSZ_1',
               'imm',
@@ -621,6 +683,7 @@ class Field(str, Enum):
              'Rd',
              False,
              True,
+             False,
              'OPSZ_PTR',
              'rs1',
              'Implicit rs1, same as CRD.'
@@ -629,6 +692,7 @@ class Field(str, Enum):
                'Rd',
                False,
                True,
+               False,
                'OPSZ_PTR',
                'rs1',
                'Implicit rs1, same as CRD__.',
@@ -640,8 +704,12 @@ class Field(str, Enum):
     def asm_name(self) -> str:
         return self._asm_name if self._asm_name != '' else self.arg_name
 
-    def formatted_name(self) -> str:
-        return self.arg_name if self.is_implicit else self.arg_name.capitalize()
+    def formatted_name(self, is_body : bool = False) -> str:
+        name = self.arg_name if self.is_implicit else self.arg_name.capitalize()
+        if is_body and self.as_decimal:
+            return f'opnd_add_flags({ name }, DR_OPND_IMM_PRINT_DECIMAL)'
+        else:
+            return name
 
     def from_str(fld: str):
         return Field[fld.upper().replace("(FP)", "FP")]
@@ -747,9 +815,10 @@ class IslGenerator:
         if (opc == 0b00 or opc == 0b10) and funct3 not in [0, 0b100]:  # LOAD/STORE instructions
             dbg(f'fixup: {inst.name} {[f.name for f in inst.flds]}')
             # Immediate argument will handle the base+disp.
-            if opc == 0b00:
+            if opc == 0b00:  # non-SP LOAD/STORE instructions
                 inst.flds.pop(1)
-            inst.flds.reverse()
+            if funct3 > 0b100:  # only reverse for STORE instructions
+                inst.flds.reverse()
             dbg(f'    -> {" " * len(inst.name)} {[f.name for f in inst.flds]}')
         elif Field.CB_IMM in inst.flds:
             # Compare-and-branch instructions need their branch operand moved
@@ -980,7 +1049,7 @@ class IslGenerator:
                                 [f' * \param {f.formatted_name():6}  {f.arg_cmt}' for f in flds])
                         if len(all_flds) > 0:
                             body_args += ', '
-                            body_args += ', '.join([f.formatted_name()
+                            body_args += ', '.join([f.formatted_name(True)
                                               for f in all_flds])
                         nd = len([f for f in all_flds if f.is_dest])
                         ns = len(all_flds) - nd

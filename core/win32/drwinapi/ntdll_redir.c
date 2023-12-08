@@ -766,8 +766,10 @@ redirect_NtUnmapViewOfSection(HANDLE process_handle, PVOID base_address)
 }
 
 NTSTATUS NTAPI
-redirect_LdrGetProcedureAddress(IN HMODULE modbase, IN PANSI_STRING func OPTIONAL,
-                                IN WORD ordinal OPTIONAL, OUT PVOID *addr)
+redirect_LdrGetProcedureAddress(DR_PARAM_IN HMODULE modbase,
+                                DR_PARAM_IN PANSI_STRING func OPTIONAL,
+                                DR_PARAM_IN WORD ordinal OPTIONAL,
+                                DR_PARAM_OUT PVOID *addr)
 {
     /* We ignore ordinal.  Our target is private kernel32's GetProcAddress
      * invoked dynamically so we didn't redirect it directly, and it
@@ -786,8 +788,9 @@ redirect_LdrGetProcedureAddress(IN HMODULE modbase, IN PANSI_STRING func OPTIONA
 }
 
 NTSTATUS NTAPI
-redirect_LdrLoadDll(IN PWSTR path OPTIONAL, IN PULONG characteristics OPTIONAL,
-                    IN PUNICODE_STRING name, OUT PVOID *handle)
+redirect_LdrLoadDll(DR_PARAM_IN PWSTR path OPTIONAL,
+                    DR_PARAM_IN PULONG characteristics OPTIONAL,
+                    DR_PARAM_IN PUNICODE_STRING name, DR_PARAM_OUT PVOID *handle)
 {
     app_pc res = NULL;
     char buf[MAXIMUM_PATH];
@@ -915,7 +918,7 @@ ntdll_redir_fls_thread_exit(PPVOID fls_data_ptr)
 }
 
 NTSTATUS NTAPI
-redirect_RtlFlsAlloc(IN PFLS_CALLBACK_FUNCTION cb, OUT PDWORD index_out)
+redirect_RtlFlsAlloc(DR_PARAM_IN PFLS_CALLBACK_FUNCTION cb, DR_PARAM_OUT PDWORD index_out)
 {
     PEB *peb = get_private_peb();
     DWORD index;
@@ -952,7 +955,7 @@ redirect_RtlFlsAlloc(IN PFLS_CALLBACK_FUNCTION cb, OUT PDWORD index_out)
 }
 
 NTSTATUS NTAPI
-redirect_RtlFlsFree(IN DWORD index)
+redirect_RtlFlsFree(DR_PARAM_IN DWORD index)
 {
     PEB *peb = get_private_peb();
     TEB *teb = get_own_teb();
@@ -987,7 +990,7 @@ redirect_RtlFlsFree(IN DWORD index)
 }
 
 NTSTATUS NTAPI
-redirect_RtlProcessFlsData(IN PLIST_ENTRY fls_data)
+redirect_RtlProcessFlsData(DR_PARAM_IN PLIST_ENTRY fls_data)
 {
     PEB *peb = get_private_peb();
     TEB *teb = get_own_teb();

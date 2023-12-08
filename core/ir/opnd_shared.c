@@ -892,7 +892,7 @@ opnd_get_segment(opnd_t opnd)
 
 #ifdef ARM
 dr_shift_type_t
-opnd_get_index_shift(opnd_t opnd, uint *amount OUT)
+opnd_get_index_shift(opnd_t opnd, uint *amount DR_PARAM_OUT)
 {
     if (amount != NULL)
         *amount = 0;
@@ -976,7 +976,7 @@ opnd_size_to_shift_amount(opnd_size_t size)
 }
 
 dr_extend_type_t
-opnd_get_index_extend(opnd_t opnd, OUT bool *scaled, OUT uint *amount)
+opnd_get_index_extend(opnd_t opnd, DR_PARAM_OUT bool *scaled, DR_PARAM_OUT uint *amount)
 {
     dr_extend_type_t extend = DR_EXTEND_UXTX;
     bool scaled_out = false;
@@ -1168,7 +1168,7 @@ bool
 opnd_is_memory_reference(opnd_t opnd)
 {
     return (opnd_is_base_disp(opnd) IF_X86_64(|| opnd_is_abs_addr(opnd)) ||
-#if defined(X64) || defined(ARM)
+#if (defined(X64) || defined(ARM)) && !defined(RISCV64)
             opnd_is_rel_addr(opnd) ||
 #endif
             opnd_is_mem_instr(opnd));
@@ -2185,7 +2185,7 @@ reg_get_value(reg_id_t reg, dr_mcontext_t *mc)
 DR_API
 /* Supports all but floating-point */
 bool
-reg_get_value_ex(reg_id_t reg, dr_mcontext_t *mc, OUT byte *val)
+reg_get_value_ex(reg_id_t reg, dr_mcontext_t *mc, DR_PARAM_OUT byte *val)
 {
 #ifdef X86
     if (reg >= DR_REG_START_MMX && reg <= DR_REG_STOP_MMX) {
@@ -2270,7 +2270,7 @@ reg_set_value(reg_id_t reg, dr_mcontext_t *mc, reg_t value)
 
 DR_API
 bool
-reg_set_value_ex(reg_id_t reg, dr_mcontext_t *mc, IN byte *val_buf)
+reg_set_value_ex(reg_id_t reg, dr_mcontext_t *mc, DR_PARAM_IN byte *val_buf)
 {
     return reg_set_value_ex_priv(reg, dr_mcontext_as_priv_mcontext(mc), val_buf);
 }
@@ -2376,11 +2376,8 @@ opnd_compute_address_priv(opnd_t opnd, priv_mcontext_t *mc)
         default: scaled_index = index_val;
         }
 #elif defined(RISCV64)
-        /* FIXME i#3544: Not implemented */
         /* Marking as unused to silence -Wunused-variable. */
-        CLIENT_ASSERT(false, "Not implemented");
         (void)index;
-        return NULL;
 #endif
     }
     return opnd_compute_address_helper(opnd, mc, scaled_index);
@@ -2775,6 +2772,9 @@ reg_get_size(reg_id_t reg)
 #    endif
     if (reg == DR_REG_TPIDRURW || reg == DR_REG_TPIDRURO)
         return OPSZ_PTR;
+#elif defined(RISCV64)
+    if (reg == DR_REG_X0)
+        return OPSZ_8;
 #endif
     LOG(GLOBAL, LOG_ANNOTATIONS, 2, "reg=%d, %s, last reg=%d\n", reg,
         get_register_name(reg), DR_REG_LAST_ENUM);

@@ -58,6 +58,7 @@
 #include "tools/invariant_checker.h"
 #include "tools/invariant_checker_create.h"
 #include "tools/opcode_mix_create.h"
+#include "tools/schedule_stats_create.h"
 #include "tools/syscall_mix_create.h"
 #include "tools/reuse_distance_create.h"
 #include "tools/reuse_time_create.h"
@@ -256,6 +257,9 @@ analyzer_multi_t::init_dynamic_schedule()
     sched_ops.quantum_duration = op_sched_quantum.get_value();
     if (op_sched_time.get_value())
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
+    sched_ops.syscall_switch_threshold = op_sched_syscall_switch_us.get_value();
+    sched_ops.blocking_switch_threshold = op_sched_blocking_switch_us.get_value();
+    sched_ops.block_time_scale = op_sched_block_scale.get_value();
 #ifdef HAS_ZIP
     if (!op_record_file.get_value().empty()) {
         record_schedule_zip_.reset(new zipfile_ostream_t(op_record_file.get_value()));
@@ -427,6 +431,9 @@ analyzer_multi_t::create_analysis_tool_from_options(const std::string &simulator
                                      op_verbose.get_value());
     } else if (simulator_type == INVARIANT_CHECKER) {
         return create_invariant_checker();
+    } else if (simulator_type == SCHEDULE_STATS) {
+        return schedule_stats_tool_create(op_schedule_stats_print_every.get_value(),
+                                          op_verbose.get_value());
     } else {
         auto tool = create_external_tool(simulator_type);
         if (tool == nullptr) {

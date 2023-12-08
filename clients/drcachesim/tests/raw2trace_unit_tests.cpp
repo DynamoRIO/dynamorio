@@ -139,6 +139,13 @@ public:
             std::unique_ptr<module_mapper_t>(new test_multi_module_mapper_t(modules));
         set_modmap_(module_mapper_.get());
     }
+    // The public function to access the raw2trace_t protected function
+    // is_maybe_blocking_syscall.
+    bool
+    is_maybe_blocking_syscall(uintptr_t number) override
+    {
+        return raw2trace_t::is_maybe_blocking_syscall(number);
+    }
 };
 
 class archive_ostream_test_t : public archive_ostream_t {
@@ -162,13 +169,13 @@ public:
 };
 
 offline_entry_t
-make_header(int version = OFFLINE_FILE_VERSION)
+make_header(int version = OFFLINE_FILE_VERSION, uint64_t additional_file_types = 0)
 {
     offline_entry_t entry;
     entry.extended.type = OFFLINE_TYPE_EXTENDED;
     entry.extended.ext = OFFLINE_EXT_TYPE_HEADER;
     entry.extended.valueA = OFFLINE_FILE_TYPE_DEFAULT | OFFLINE_FILE_TYPE_ENCODINGS |
-        OFFLINE_FILE_TYPE_SYSCALL_NUMBERS;
+        OFFLINE_FILE_TYPE_SYSCALL_NUMBERS | additional_file_types;
     entry.extended.valueB = version;
     return entry;
 }
@@ -281,7 +288,7 @@ check_entry(std::vector<trace_entry_t> &entries, int &idx, unsigned short expect
             int expected_size, addr_t expected_addr = 0)
 {
     if (expected_type != entries[idx].type ||
-        (expected_size > 0 &&
+        (expected_size >= 0 &&
          static_cast<unsigned short>(expected_size) != entries[idx].size) ||
         (expected_addr > 0 && expected_addr != entries[idx].addr)) {
         std::cerr << "Entry " << idx << " has type " << entries[idx].type << " and size "
@@ -1977,6 +1984,93 @@ test_rseq_side_exit_inverted_with_timestamp(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
 }
 
+/* Tests a trace ending mid-rseq (i#6444).
+ * If at_end is true, tests the endpoint just being reached but not pased;
+ * else tests the endpoint not being reached.
+ */
+bool
+test_midrseq_end_helper(void *drcontext, bool at_end)
+{
+    std::cerr << "\n===============\nTesting mid-rseq trace end\n";
+    instrlist_t *ilist = instrlist_create(drcontext);
+    instr_t *nop = XINST_CREATE_nop(drcontext);
+    instr_t *move1 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *move2 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *jcc =
+        XINST_CREATE_jump_cond(drcontext, DR_PRED_EQ, opnd_create_instr(move2));
+    instr_t *store =
+        XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(REG2, 0), opnd_create_reg(REG1));
+    instr_t *move3 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instrlist_append(ilist, nop);
+    instrlist_append(ilist, move1);
+    instrlist_append(ilist, jcc);
+    instrlist_append(ilist, store);
+    instrlist_append(ilist, move2);
+    instrlist_append(ilist, move3);
+    size_t offs_nop = 0;
+    size_t offs_move1 = offs_nop + instr_length(drcontext, nop);
+    size_t offs_jcc = offs_move1 + instr_length(drcontext, move1);
+    size_t offs_store = offs_jcc + instr_length(drcontext, jcc);
+    size_t offs_move2 = offs_store + instr_length(drcontext, store);
+    size_t offs_move3 = offs_move2 + instr_length(drcontext, move2);
+
+    std::vector<offline_entry_t> raw;
+    raw.push_back(make_header());
+    raw.push_back(make_tid());
+    raw.push_back(make_pid());
+    raw.push_back(make_line_size());
+    raw.push_back(make_timestamp());
+    raw.push_back(make_core());
+    raw.push_back(
+        make_marker(TRACE_MARKER_TYPE_RSEQ_ENTRY, at_end ? offs_move2 : offs_move3));
+    raw.push_back(make_block(offs_move1, 2));
+    raw.push_back(make_block(offs_store, 1));
+    raw.push_back(make_memref(42));
+    raw.push_back(make_exit());
+
+    std::vector<uint64_t> stats;
+    std::vector<trace_entry_t> entries;
+    if (!run_raw2trace(drcontext, raw, ilist, entries, &stats))
+        return false;
+    int idx = 0;
+    return (
+        check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RSEQ_ENTRY) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move1) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#ifdef X86_32
+        // An extra encoding entry is needed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#endif
+        check_entry(entries, idx, TRACE_TYPE_INSTR_UNTAKEN_JUMP, -1, offs_jcc) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_store) &&
+        check_entry(entries, idx, TRACE_TYPE_WRITE, -1) &&
+        // The trace exits before it reaches the rseq endpoint.
+        check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+}
+
+bool
+test_midrseq_end(void *drcontext)
+{
+    return test_midrseq_end_helper(drcontext, /*at_end=*/false) &&
+        test_midrseq_end_helper(drcontext, /*at_end=*/true);
+}
+
 /* Tests pre-OFFLINE_FILE_VERSION_XFER_ABS_PC (module offset) handling. */
 bool
 test_xfer_modoffs(void *drcontext)
@@ -2599,6 +2693,194 @@ test_stats_timestamp_instr_count(void *drcontext)
         stats[RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP] == 789;
 }
 
+bool
+test_is_maybe_blocking_syscall(void *drcontext)
+{
+    std::cerr
+        << "\n===============\nTesting raw2trace maybe blocking syscall function.\n";
+#ifdef LINUX
+#    ifdef X86
+#        ifdef X64
+    const uintptr_t syscall_futex = 202;
+    const uintptr_t syscall_sendmsg = 46;
+    const uintptr_t syscall_write = 1;
+#        else
+    const uintptr_t syscall_futex = 240;
+    const uintptr_t syscall_sendmsg = 370;
+    const uintptr_t syscall_write = 4;
+#        endif
+#    elif defined(ARM)
+    const uintptr_t syscall_futex = 240;
+    const uintptr_t syscall_sendmsg = 296;
+    const uintptr_t syscall_write = 4;
+#    elif defined(AARCH64) || defined(RISCV64)
+    const uintptr_t syscall_futex = 98;
+    const uintptr_t syscall_sendmsg = 211;
+    const uintptr_t syscall_write = 64;
+#    else
+#        error Unsupported architecture.
+#    endif
+    std::vector<std::istream *> input;
+    std::vector<std::ostream *> output;
+    const std::vector<test_multi_module_mapper_t::bounds_t> modules;
+
+    raw2trace_test_t raw2trace(input, output, modules, drcontext);
+
+    for (const uintptr_t &syscall : { syscall_futex, syscall_sendmsg, syscall_write }) {
+        if (!raw2trace.is_maybe_blocking_syscall(syscall)) {
+            std::cerr << "Syscall " << syscall
+                      << " should be marked as maybe blocking.\n";
+            return false;
+        }
+    }
+    return true;
+#endif
+    return true;
+}
+
+bool
+test_ifiltered(void *drcontext)
+{
+#if defined(X86) || defined(ARM)
+    std::cerr << "\n===============\nTesting ifiltered trace\n";
+    // Our synthetic test first constructs a list of instructions to be encoded into
+    // a buffer for decoding by raw2trace.
+    instrlist_t *ilist = instrlist_create(drcontext);
+    // raw2trace doesn't like offsets of 0 so we shift with a nop.
+    instr_t *nop = XINST_CREATE_nop(drcontext);
+    instr_t *move1 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *move2 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *jcc =
+        XINST_CREATE_jump_cond(drcontext, DR_PRED_EQ, opnd_create_instr(move1));
+    // Control flow in the test assumes that memaddr stores address to jcc.
+    instr_t *jmp =
+        XINST_CREATE_jump_mem(drcontext, opnd_create_mem_instr(jcc, 0, OPSZ_PTR));
+    instr_t *move3 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instrlist_append(ilist, nop);
+    instrlist_append(ilist, move1);
+    instrlist_append(ilist, jmp);
+    instrlist_append(ilist, jcc);
+    instrlist_append(ilist, move2);
+    instrlist_append(ilist, move3);
+    size_t offs_nop = 0;
+    size_t offs_move1 = offs_nop + instr_length(drcontext, nop);
+    size_t offs_jmp = offs_move1 + instr_length(drcontext, move1);
+    int jmp_length = instr_length(drcontext, jmp);
+    size_t offs_jcc = offs_jmp + jmp_length;
+    size_t offs_move2 = offs_jcc + instr_length(drcontext, jcc);
+    size_t offs_move3 = offs_move2 + instr_length(drcontext, move2);
+
+    // Now we synthesize our raw trace itself, including a valid header sequence.
+    std::vector<offline_entry_t> raw;
+    raw.push_back(make_header(OFFLINE_FILE_VERSION, OFFLINE_FILE_TYPE_IFILTERED));
+    raw.push_back(make_tid());
+    raw.push_back(make_pid());
+    raw.push_back(make_line_size());
+    // First instance of the jmp instr is filtered out but its memref is not filtered
+    // out (indicated by the zero sized block), so no encoding will be emitted and
+    // it will not count towards the chunk instr count. But this will still be
+    // accumulated as a delayed branch.
+    raw.push_back(make_block(offs_jmp, 0));
+    raw.push_back(make_memref(42));
+    // Second accumulated delayed branch.
+    raw.push_back(make_block(offs_jcc, 1));
+    // At this point, the jmp and jcc are accumulated as delayed branches.
+    // When writing the delayed branches, we want to make sure we correctly track
+    // the index into decode_pcs. If we don't increment the index at ifiltered
+    // instrs, the decode pc of jmp will be accidentally used when recording the
+    // encoding emitted for jcc. This will cause the jmp encoding to not be emitted
+    // in the next entry because raw2trace incorrectly tracked that it had
+    // already emitted it.
+    raw.push_back(make_block(offs_move1, 1));
+    // Second instance of the jmp instr is not filtered out. Its encoding must be
+    // emitted by raw2trace, or else the reader (in memref_counter_t) will
+    // complain about a missing encoding.
+    raw.push_back(make_block(offs_jmp, 1));
+    // The memref is also not filtered out. We have a separate pc entry with
+    // zero instr count just before the memref.
+    raw.push_back(make_block(offs_jmp, 0));
+    raw.push_back(make_memref(42));
+    raw.push_back(make_block(offs_jcc, 1));
+    raw.push_back(make_block(offs_move2, 1));
+    // End of first chunk.
+    raw.push_back(make_block(offs_move3, 1));
+    raw.push_back(make_exit());
+
+    static const int CHUNK_INSTR_COUNT = 5;
+    std::vector<trace_entry_t> entries;
+    if (!run_raw2trace(drcontext, raw, ilist, entries, nullptr, CHUNK_INSTR_COUNT))
+        return false;
+    int idx = 0;
+    return (
+        check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+        // jmp
+        // No encoding for the i-filtered instr with 0-instr count.
+        check_entry(entries, idx, TRACE_TYPE_INSTR_INDIRECT_JUMP, 0) &&
+        check_entry(entries, idx, TRACE_TYPE_READ, -1) &&
+        // jcc
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#    ifdef X86_32
+        // An extra encoding entry is needed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#    endif
+        // Since we cannot infer branch targets accurately for i-filtered traces, this
+        // has the generic conditional jump type (instead of the more specific
+        // TRACE_TYPE_INSTR_TAKEN_JUMP type).
+        check_entry(entries, idx, TRACE_TYPE_INSTR_CONDITIONAL_JUMP, -1) &&
+        // move1
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        // jmp
+        // This has an encoding because the previous dynamic instance was actually
+        // i-filtered.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#    ifdef X86_32
+        // An extra encoding entry is needed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#    endif
+        // In filtered traces, we have one pc entry for the instr itself (if the
+        // instruction is not i-filtered out) which has the instr length, and another
+        // zero-length pc entry before each of the instr's memrefs (if the memref
+        // is not d-filtered out).
+        check_entry(entries, idx, TRACE_TYPE_INSTR_INDIRECT_JUMP, jmp_length) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR_INDIRECT_JUMP, 0) &&
+        check_entry(entries, idx, TRACE_TYPE_READ, -1) &&
+        // jcc. No encoding because it has already been emitted above.
+        // Since we cannot infer branch targets accurately for i-filtered traces, this
+        // has the generic conditional jump type (instead of the more specific
+        // TRACE_TYPE_INSTR_UNTAKEN_JUMP type).
+        check_entry(entries, idx, TRACE_TYPE_INSTR_CONDITIONAL_JUMP, -1) &&
+        // move2
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        // Chunk ends since we've seen exactly 5 instrs.
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        // move3
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+#else
+    // This test requires a CTI (so that it gets accumulated as a delayed branch) that
+    // also reads from memory (so that it's possible to have a case with a zero-sized PC
+    // entry in the raw trace). AArch64 does not have such an instr.
+    return true;
+#endif
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -2614,9 +2896,10 @@ test_main(int argc, const char *argv[])
         !test_rseq_side_exit_signal(drcontext) ||
         !test_rseq_side_exit_inverted(drcontext) ||
         !test_rseq_side_exit_inverted_with_timestamp(drcontext) ||
-        !test_xfer_modoffs(drcontext) || !test_xfer_absolute(drcontext) ||
-        !test_branch_decoration(drcontext) ||
-        !test_stats_timestamp_instr_count(drcontext))
+        !test_midrseq_end(drcontext) || !test_xfer_modoffs(drcontext) ||
+        !test_xfer_absolute(drcontext) || !test_branch_decoration(drcontext) ||
+        !test_stats_timestamp_instr_count(drcontext) ||
+        !test_is_maybe_blocking_syscall(drcontext) || !test_ifiltered(drcontext))
         return 1;
     return 0;
 }

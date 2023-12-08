@@ -129,7 +129,7 @@ static const wchar_t *const HKCU_entries[] = {
  * string reported), REG_DWORD and REG_BINARY are currently supported.
  */
 static void
-diagnostics_log_data(IN file_t diagnostics_file, IN uint log_mask)
+diagnostics_log_data(DR_PARAM_IN file_t diagnostics_file, DR_PARAM_IN uint log_mask)
 {
     uint i;
 
@@ -179,7 +179,8 @@ diagnostics_log_data(IN file_t diagnostics_file, IN uint log_mask)
  * file name is obtained by opening existing files until one is not found.
  */
 static void
-open_diagnostics_file(IN file_t *file, OUT char *buf, IN uint maxlen)
+open_diagnostics_file(DR_PARAM_IN file_t *file, DR_PARAM_OUT char *buf,
+                      DR_PARAM_IN uint maxlen)
 {
     const char *file_extension = DIAGNOSTICS_FILE_XML_EXTENSION;
     get_unique_logfile(file_extension, buf, maxlen, false, file);
@@ -379,8 +380,8 @@ report_vm_counters(file_t diagnostics_file, VM_COUNTERS *vmc)
  * information that do not need any allocations etc.
  */
 static void
-report_dcontext_info(IN file_t diagnostics_file, IN dcontext_t *dcontext,
-                     IN bool conservative)
+report_dcontext_info(DR_PARAM_IN file_t diagnostics_file,
+                     DR_PARAM_IN dcontext_t *dcontext, DR_PARAM_IN bool conservative)
 {
 
     byte *start_ptr = NULL;
@@ -427,8 +428,8 @@ report_dcontext_info(IN file_t diagnostics_file, IN dcontext_t *dcontext,
  * violation_type of NO_VIOLATION_* is diagnostics; other is forensics.
  */
 static void
-report_internal_data_structures(IN file_t diagnostics_file,
-                                IN security_violation_t violation_type)
+report_internal_data_structures(DR_PARAM_IN file_t diagnostics_file,
+                                DR_PARAM_IN security_violation_t violation_type)
 {
     dcontext_t *dcontext;
 
@@ -524,7 +525,7 @@ report_internal_data_structures(IN file_t diagnostics_file,
  * registry key & adds "System32" to it to find NTDLL.DLL.
  */
 static void
-report_ntdll_info(IN file_t diagnostics_file)
+report_ntdll_info(DR_PARAM_IN file_t diagnostics_file)
 {
 
     reg_query_value_result_t value_result;
@@ -582,8 +583,10 @@ report_thread(file_t diagnostics_file, int num, thread_id_t id, dcontext_t *dcon
  * information that does not need any allocations, etc.
  */
 static void
-report_current_process(IN file_t diagnostics_file, IN PSYSTEM_PROCESSES sp,
-                       IN security_violation_t violation_type, IN bool conservative)
+report_current_process(DR_PARAM_IN file_t diagnostics_file,
+                       DR_PARAM_IN PSYSTEM_PROCESSES sp,
+                       DR_PARAM_IN security_violation_t violation_type,
+                       DR_PARAM_IN bool conservative)
 {
     PEB *peb = get_own_peb();
     thread_record_t **threads;
@@ -794,7 +797,7 @@ report_current_process(IN file_t diagnostics_file, IN PSYSTEM_PROCESSES sp,
  * each process chained by the NextEntryDelta field.
  */
 byte *
-get_system_processes(OUT uint *info_bytes_needed)
+get_system_processes(DR_PARAM_OUT uint *info_bytes_needed)
 {
     NTSTATUS result;
     byte *process_info;
@@ -825,7 +828,8 @@ get_system_processes(OUT uint *info_bytes_needed)
  * names.  Then displays additional information for the current process
  */
 static void
-report_processes(IN file_t diagnostics_file, IN security_violation_t violation_type)
+report_processes(DR_PARAM_IN file_t diagnostics_file,
+                 DR_PARAM_IN security_violation_t violation_type)
 {
     byte *process_info = NULL;
     byte *next_process = NULL;
@@ -896,8 +900,8 @@ report_registry_settings_helper(file_t diagnostics_file, uint log_mask, uint *to
  * DIAGNOSTICS_MAX_REG_KEYS will be investigated in this way.
  */
 static void
-report_registry_settings(IN file_t diagnostics_file, IN wchar_t *keyname,
-                         IN uint log_mask)
+report_registry_settings(DR_PARAM_IN file_t diagnostics_file,
+                         DR_PARAM_IN wchar_t *keyname, DR_PARAM_IN uint log_mask)
 {
     uint recursion_level = 0;
     uint total_keys = 0;
@@ -1042,8 +1046,8 @@ report_autostart_programs(file_t diagnostics_file)
 
 /* Displays diagnostic intro. */
 static void
-report_intro(IN file_t diagnostics_file, IN const char *message,
-             IN const char *name /* NULL if not a violation */)
+report_intro(DR_PARAM_IN file_t diagnostics_file, DR_PARAM_IN const char *message,
+             DR_PARAM_IN const char *name /* NULL if not a violation */)
 {
     static const char *months[] = { "???", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
                                     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
@@ -1114,7 +1118,7 @@ report_processor_info(file_t diagnostics_file)
 
 /* Collects and displays all system diagnostic information. */
 static void
-report_system_diagnostics(IN file_t diagnostics_file)
+report_system_diagnostics(DR_PARAM_IN file_t diagnostics_file)
 {
 
     DIAGNOSTICS_INFORMATION diag_info;
@@ -1350,9 +1354,9 @@ report_diagnostics_common(file_t diagnostics_file, const char *message, const ch
  * violation_type of NO_VIOLATION_* is diagnostics; other is forensics.
  */
 void
-report_diagnostics(IN const char *message,
-                   IN const char *name, /* NULL if not a violation */
-                   IN security_violation_t violation_type)
+report_diagnostics(DR_PARAM_IN const char *message,
+                   DR_PARAM_IN const char *name, /* NULL if not a violation */
+                   DR_PARAM_IN security_violation_t violation_type)
 {
 
     char diagnostics_filename[MAXIMUM_PATH];

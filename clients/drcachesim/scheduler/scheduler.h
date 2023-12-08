@@ -45,6 +45,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <atomic>
 #include <deque>
 #include <limits>
 #include <memory>
@@ -109,10 +110,12 @@ public:
          * For dynamic scheduling with cross-stream dependencies, the scheduler may pause
          * a stream if it gets ahead of another stream it should have a dependence on.
          * This value is also used for schedules following the recorded timestamps
-         * (#DEPENDENCY_TIMESTAMPS) to avoid one stream getting ahead of another.  For
-         * replaying a schedule as it was traced with #MAP_TO_RECORDED_OUTPUT this can
-         * indicate an idle period on a core where the traced workload was not currently
-         * scheduled.
+         * (#DEPENDENCY_TIMESTAMPS) to avoid one stream getting ahead of another.
+         * #STATUS_WAIT should be treated as artificial, an artifact of enforcing a
+         * recorded schedule on concurrent differently-timed output streams.
+         * Simulators are suggested to not advance simulated time for #STATUS_WAIT while
+         * they should advance time for #STATUS_IDLE as the latter indicates a true
+         * lack of work.
          */
         STATUS_WAIT,
         STATUS_INVALID,         /**< Error condition. */
@@ -120,6 +123,15 @@ public:
         STATUS_NOT_IMPLEMENTED, /**< Feature not implemented. */
         STATUS_SKIPPED,         /**< Used for internal scheduler purposes. */
         STATUS_RECORD_FAILED,   /**< Failed to record schedule for future replay. */
+        /**
+         * This code indicates that all inputs are blocked waiting for kernel resources
+         * (such as i/o).  This is similar to #STATUS_WAIT, but #STATUS_WAIT indicates an
+         * artificial pause due to imposing the original ordering while #STATUS_IDLE
+         * indicates actual idle time in the application.  Simulators are suggested
+         * to not advance simulated time for #STATUS_WAIT while they should advance
+         * time for #STATUS_IDLE.
+         */
+        STATUS_IDLE,
     };
 
     /** Identifies an input stream by its index. */
@@ -355,10 +367,14 @@ public:
         MAP_AS_PREVIOUSLY,
     };
 
-    /** Flags specifying how inter-input-stream dependencies are handled. */
+    /**
+     * Flags specifying how inter-input-stream dependencies are handled.  The _BITFIELD
+     * values can be combined.  Typical combinations are provided so the enum type can be
+     * used directly.
+     */
     enum inter_input_dependency_t {
         /** Ignores all inter-input dependencies. */
-        DEPENDENCY_IGNORE,
+        DEPENDENCY_IGNORE = 0x00,
         /**
          * Ensures timestamps in the inputs arrive at the outputs in timestamp order.
          * For #MAP_TO_ANY_OUTPUT, enforcing asked-for context switch rates is more
@@ -367,7 +383,23 @@ public:
          * points for picking the next input, but timestamps will not preempt an input.
          * To precisely follow the recorded timestamps, use #MAP_TO_RECORDED_OUTPUT.
          */
-        DEPENDENCY_TIMESTAMPS,
+        DEPENDENCY_TIMESTAMPS_BITFIELD = 0x01,
+        /**
+         * Ensures timestamps in the inputs arrive at the outputs in timestamp order.
+         * For #MAP_TO_ANY_OUTPUT, enforcing asked-for context switch rates is more
+         * important that honoring precise trace-buffer-based timestamp inter-input
+         * dependencies: thus, timestamp ordering will be followed at context switch
+         * points for picking the next input, but timestamps will not preempt an input.
+         * To precisely follow the recorded timestamps, use #MAP_TO_RECORDED_OUTPUT.
+         */
+        DEPENDENCY_DIRECT_SWITCH_BITFIELD = 0x02,
+        /**
+         * Combines #DEPENDENCY_TIMESTAMPS_BITFIELD and
+         * #DEPENDENCY_DIRECT_SWITCH_BITFIELD.  This is the recommended setting for most
+         * schedules.
+         */
+        DEPENDENCY_TIMESTAMPS =
+            (DEPENDENCY_TIMESTAMPS_BITFIELD | DEPENDENCY_DIRECT_SWITCH_BITFIELD),
         // TODO i#5843: Add inferred data dependencies.
     };
 
@@ -476,6 +508,32 @@ public:
          * of traced cores).
          */
         archive_istream_t *replay_as_traced_istream = nullptr;
+        /**
+         * Determines the minimum latency in the unit of the trace's timestamps
+         * (microseconds) for which a non-maybe-blocking system call (one without
+         * a #TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL marker) will be treated as
+         * blocking and trigger a context switch.
+         */
+        uint64_t syscall_switch_threshold = 500;
+        /**
+         * Determines the minimum latency in the unit of the trace's timestamps
+         * (microseconds) for which a maybe-blocking system call (one with
+         * a #TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL marker) will be treated as
+         * blocking and trigger a context switch.
+         */
+        uint64_t blocking_switch_threshold = 100;
+        /**
+         * Controls the amount of time inputs are considered blocked at a syscall whose
+         * latency exceeds #syscall_switch_threshold or #blocking_switch_threshold.  A
+         * "block time factor" is computed from the syscall latency divided by either
+         * #syscall_switch_threshold or #blocking_switch_threshold.  This factor is
+         * multiplied by this field #block_time_scale to produce a final value.  For
+         * #QUANTUM_TIME, that final value's amount of time, as reported by the time
+         * parameter to next_record(), must pass before the input is no longer considered
+         * blocked.  For instruction quanta, that final value's count of scheduler
+         * selections must occur before the input is actually selected.
+         */
+        double block_time_scale = 1.;
     };
 
     /**
@@ -595,7 +653,7 @@ public:
         /**
          * Disables or re-enables this output stream.  If "active" is false, this
          * stream becomes inactive and its currently assigned input is moved to the
-         * ready queue to be scheduled on other outputs.  The #STATUS_WAIT code is
+         * ready queue to be scheduled on other outputs.  The #STATUS_IDLE code is
          * returned to next_record() for inactive streams.  If "active" is true,
          * this stream becomes active again.
          * This is only supported for #MAP_TO_ANY_OUTPUT.
@@ -910,6 +968,8 @@ protected:
         // While the scheduler only hands an input to one output at a time, during
         // scheduling decisions one thread may need to access another's fields.
         // We use a unique_ptr to make this moveable for vector storage.
+        // For inputs not actively assigned to a core but sitting in the ready_queue,
+        // sched_lock_ suffices to synchronize access.
         std::unique_ptr<std::mutex> lock;
         // A tid can be duplicated across workloads so we need the pair of
         // workload index + tid to identify the original input.
@@ -945,12 +1005,20 @@ protected:
         bool order_by_timestamp = false;
         // Global ready queue counter used to provide FIFO for same-priority inputs.
         uint64_t queue_counter = 0;
-        // Used to switch on the insruction *after* a blocking syscall.
-        bool processing_blocking_syscall = false;
+        // Used to switch on the instruction *after* a long-latency syscall.
+        bool processing_syscall = false;
+        bool processing_maybe_blocking_syscall = false;
+        uint64_t pre_syscall_timestamp = 0;
+        // Use for special kernel features where one thread specifies a target
+        // thread to replace it.
+        input_ordinal_t switch_to_input = INVALID_INPUT_ORDINAL;
         // Used to switch before we've read the next instruction.
         bool switching_pre_instruction = false;
         // Used for time-based quanta.
         uint64_t start_time_in_quantum = 0;
+        // These fields model waiting at a blocking syscall.
+        double block_time_factor = 0.;
+        uint64_t blocked_start_time = 0; // For QUANTUM_TIME only.
     };
 
     // Format for recording a schedule to disk.  A separate sequence of these records
@@ -968,6 +1036,9 @@ protected:
             FOOTER,        // The final entry in the component.  Other fields are ignored.
             SKIP,          // Skip ahead to the next region of interest.
             SYNTHETIC_END, // A synthetic thread exit record must be supplied.
+            // Indicates that the output is idle.  The value.idle_duration field holds
+            // a duration in microseconds.
+            IDLE,
         };
         static constexpr int VERSION_CURRENT = 0;
         schedule_record_t() = default;
@@ -975,7 +1046,7 @@ protected:
                           uint64_t stop, uint64_t time)
             : type(type)
             , key(input)
-            , start_instruction(start)
+            , value(start)
             , stop_instruction(stop)
             , timestamp(time)
         {
@@ -994,8 +1065,18 @@ protected:
             input_ordinal_t input = -1;
             int version; // For record_type_t::VERSION.
         } END_PACKED_STRUCTURE key;
-        // Input stream ordinal of starting point.
-        uint64_t start_instruction = 0;
+        START_PACKED_STRUCTURE
+        union value {
+            value() = default;
+            value(uint64_t start)
+                : start_instruction(start)
+            {
+            }
+            // For record_type_t::IDLE, the duration in microseconds of the idling.
+            uint64_t idle_duration;
+            // Input stream ordinal of starting point, for non-IDLE types.
+            uint64_t start_instruction = 0;
+        } END_PACKED_STRUCTURE value;
         // Input stream ordinal, exclusive.  Max numeric value means continue until EOF.
         uint64_t stop_instruction = 0;
         // Timestamp in microseconds to keep context switches ordered.
@@ -1037,12 +1118,16 @@ protected:
         // sched_lock_.
         std::vector<schedule_record_t> record;
         int record_index = 0;
-        bool waiting = false;
+        bool waiting = false; // Waiting or idling.
         bool active = true;
         // Used for time-based quanta.
         uint64_t cur_time = 0;
         // Used for MAP_TO_RECORDED_OUTPUT get_output_cpuid().
         int64_t as_traced_cpuid = -1;
+        // Used for MAP_AS_PREVIOUSLY with live_replay_output_count_.
+        bool at_eof = false;
+        // Used for replaying wait periods.
+        uint64_t wait_start_time = 0;
     };
 
     // Called just once at initialization time to set the initial input-to-output
@@ -1115,6 +1200,12 @@ protected:
     scheduler_status_t
     read_recorded_schedule();
 
+    uint64_t
+    get_time_micros();
+
+    uint64_t
+    get_output_time(output_ordinal_t output);
+
     // The caller must hold the lock for the input.
     stream_status_t
     record_schedule_segment(
@@ -1140,7 +1231,7 @@ protected:
     // Finds the next input stream for the 'output_ordinal'-th output stream.
     // No input_info_t lock can be held on entry.
     stream_status_t
-    pick_next_input(output_ordinal_t output, bool in_wait_state);
+    pick_next_input(output_ordinal_t output, double block_time_factor);
 
     // Helper for pick_next_input() for MAP_AS_PREVIOUSLY.
     // No input_info_t lock can be held on entry.
@@ -1220,6 +1311,13 @@ protected:
     stream_status_t
     set_output_active(output_ordinal_t output, bool active);
 
+    // Caller must hold the input's lock.
+    void
+    mark_input_eof(input_info_t &input);
+
+    stream_status_t
+    eof_or_idle(output_ordinal_t output);
+
     ///////////////////////////////////////////////////////////////////////////
     // Support for ready queues for who to schedule next:
 
@@ -1252,11 +1350,17 @@ protected:
     void
     add_to_ready_queue(input_info_t *input);
 
+    // The input's lock must be held by the caller.
+    // Returns a multiplier for how long the input should be considered blocked.
+    bool
+    syscall_incurs_switch(input_info_t *input, double &block_time_factor);
+
     // sched_lock_ must be held by the caller.
     // "for_output" is which output stream is looking for a new input; only an
     // input which is able to run on that output will be selected.
-    input_info_t *
-    pop_from_ready_queue(output_ordinal_t for_output);
+    stream_status_t
+    pop_from_ready_queue(output_ordinal_t for_output, input_info_t *&new_input);
+
     ///
     ///////////////////////////////////////////////////////////////////////////
 
@@ -1282,6 +1386,33 @@ protected:
     flexible_queue_t<input_info_t *, InputTimestampComparator> ready_priority_;
     // Global ready queue counter used to provide FIFO for same-priority inputs.
     uint64_t ready_counter_ = 0;
+    // Count of inputs not yet at eof.
+    std::atomic<int> live_input_count_;
+    // In replay mode, count of outputs not yet at the end of the replay sequence.
+    std::atomic<int> live_replay_output_count_;
+    // Map from workload,tid pair to input.
+    struct workload_tid_t {
+        workload_tid_t(int wl, memref_tid_t tid)
+            : workload(wl)
+            , tid(tid)
+        {
+        }
+        bool
+        operator==(const workload_tid_t &rhs) const
+        {
+            return workload == rhs.workload && tid == rhs.tid;
+        }
+        int workload;
+        memref_tid_t tid;
+    };
+    struct workload_tid_hash_t {
+        std::size_t
+        operator()(const workload_tid_t &wt) const
+        {
+            return std::hash<int>()(wt.workload) ^ std::hash<memref_tid_t>()(wt.tid);
+        }
+    };
+    std::unordered_map<workload_tid_t, input_ordinal_t, workload_tid_hash_t> tid2input_;
 };
 
 /** See #dynamorio::drmemtrace::scheduler_tmpl_t. */

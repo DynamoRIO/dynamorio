@@ -55,7 +55,7 @@ int drx_scatter_gather_tls_idx;
  * function will return false.
  */
 bool
-scatter_gather_split_bb(void *drcontext, instrlist_t *bb, OUT instr_t **sg_instr)
+scatter_gather_split_bb(void *drcontext, instrlist_t *bb, DR_PARAM_OUT instr_t **sg_instr)
 {
     instr_t *instr, *next_instr, *first_app = NULL;
     bool delete_rest = false;

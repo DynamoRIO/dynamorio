@@ -124,7 +124,7 @@ public:
 
     /* Start the PT tracing for current syscall and store the sysnum of the syscall. */
     bool
-    start_syscall_pt_trace(IN int sysnum);
+    start_syscall_pt_trace(DR_PARAM_IN int sysnum);
 
     /* Stop the PT tracing for current syscall and dump the output data to one file. */
     bool
@@ -150,7 +150,7 @@ public:
      * supported.
      */
     static bool
-    is_syscall_pt_trace_enabled(IN int sysnum);
+    is_syscall_pt_trace_enabled(DR_PARAM_IN int sysnum);
 
 private:
     /* Dump the metadata to a per-thread file. */

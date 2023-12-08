@@ -221,10 +221,11 @@ c.xor  fp a5 -> fp
 c.sub  fp a5 -> fp
 test_integer_arith complete
 lui    0x2a -> a0
-<Internal Error: Failed to encode instruction: 'auipc  <rel> 0x0000004000018244 -> a0'>
-jalr   a1 0x2a -> a0
+<Internal Error: Failed to encode instruction: 'auipc  <rel> 0x0000004000018254 -> a0'>
+jalr   a1 42 -> a0
+c.jalr a0 0 -> ra
 c.li   zero 31 -> a1
-c.lui  1 -> a1
+c.lui  0x1 -> a1
 c.addi a1 31 -> a1
 c.addi16sp sp 16 -> sp
 c.addi4spn sp 4 -> fp
@@ -311,15 +312,24 @@ sd     a0 -> (a1)[8byte]
 sb     a0 -> (a1)[1byte]
 sh     a0 -> (a1)[2byte]
 addi   a1 0 -> a0
-jalr   a0 0x0 -> zero
-addi   zero 0x2a -> a0
-jalr   ra 0x0 -> zero
+jalr   a0 0 -> zero
+addi   zero 42 -> a0
+jalr   ra 0 -> zero
 add    a0 a1 -> a0
-addi   a0 0x2a -> a0
+addi   a0 42 -> a0
 add    a1 a2 -> a0
 sub    a0 a1 -> a0
-addi   a0 0xffffffd6 -> a0
-jalr   a0 0x0 -> ra
+addi   a0 -42 -> a0
+jalr   a0 0 -> ra
 test_xinst complete
 test_decode_bad_data complete
+th.icache.iva a0
+th.dcache.civa a0
+th.dcache.cval1 a0
+test_decode_xtheadcmo complete
+th.sync
+th.sync.s
+th.sync.i
+th.sync.is
+test_decode_xtheadsync complete
 All tests complete

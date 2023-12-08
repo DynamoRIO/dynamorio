@@ -1272,17 +1272,17 @@ presys_CreateUserProcess(dcontext_t *dcontext, reg_t *param_base)
      * NtCreateUserProcess (11 args, using windows types)
      *
      * NtCreateUserProcess (
-     *   OUT PHANDLE ProcessHandle,
-     *   OUT PHANDLE ThreadHandle,
-     *   IN ACCESS_MASK ProcDesiredAccess,
-     *   IN ACCESS_MASK ThreadDesiredAccess,
-     *   IN POBJECT_ATTRIBUTES ProcObjectAttributes,
-     *   IN POBJECT_ATTRIBUTES ThreadObjectAttributes,
-     *   IN uint? unknown,  [ observed 0x4 ]
-     *   IN BOOL CreateSuspended, [ refers to the thread not the process ]
-     *   IN PRTL_USER_PROCESS_PARAMETERS Params,
-     *   INOUT proc_stuff proc,
-     *   INOUT create_proc_thread_info_t *thread [ see ntdll.h ])
+     *   DR_PARAM_OUT PHANDLE ProcessHandle,
+     *   DR_PARAM_OUT PHANDLE ThreadHandle,
+     *   DR_PARAM_IN ACCESS_MASK ProcDesiredAccess,
+     *   DR_PARAM_IN ACCESS_MASK ThreadDesiredAccess,
+     *   DR_PARAM_IN POBJECT_ATTRIBUTES ProcObjectAttributes,
+     *   DR_PARAM_IN POBJECT_ATTRIBUTES ThreadObjectAttributes,
+     *   DR_PARAM_IN uint? unknown,  [ observed 0x4 ]
+     *   DR_PARAM_IN BOOL CreateSuspended, [ refers to the thread not the process ]
+     *   DR_PARAM_IN PRTL_USER_PROCESS_PARAMETERS Params,
+     *   DR_PARAM_INOUT proc_stuff proc,
+     *   DR_PARAM_INOUT create_proc_thread_info_t *thread [ see ntdll.h ])
      * CreateProcess hardcodes 0x2000000 (== MAXIMUM_ALLOWED) for both
      * ACCESS_MASK arguments.  I've only observed NULL (== default) for the
      * OBJECT_ATTRIBUTES arguments so they are a bit of a guess, but they
@@ -1294,8 +1294,8 @@ presys_CreateUserProcess(dcontext_t *dcontext, reg_t *param_base)
      *   size_t struct_size, [observed 0x48 (0x58 for 64bit)]  \\ prob. sizeof(proc_stuff)
      *   ptr_uint_t unknown_p2,       \\ OUT
      *   ptr_uint_t unknown_p3,       \\ IN/OUT
-     *   OUT HANDLE file_handle, [exe file handle]
-     *   OUT HANDLE section_handle, [exe section handle]
+     *   DR_PARAM_OUT HANDLE file_handle, [exe file handle]
+     *   DR_PARAM_OUT HANDLE section_handle, [exe section handle]
      *   uint32 unknown_p6,           \\ OUT
      *   uint32 unknown_p7,           \\ OUT
      *   uint32 unknown_p8,           \\ OUT
@@ -1303,7 +1303,7 @@ presys_CreateUserProcess(dcontext_t *dcontext, reg_t *param_base)
      * #ifndef X64
      *   uint32 unknown_p10,          \\ OUT
      * #endif
-     *   OUT PEB *new_proc_peb,
+     *   DR_PARAM_OUT PEB *new_proc_peb,
      *   uint32 unknown_p12_p17[6],   \\ OUT
      * #ifndef X64
      *   uint32 unknown_p18,          \\ OUT
@@ -1396,17 +1396,17 @@ presys_CreateThreadEx(dcontext_t *dcontext, reg_t *param_base)
      * (11 args, using windows types)
      *
      * NtCreateThreadEx (
-     *   OUT PHANDLE ThreadHandle,
-     *   IN ACCESS_MASK DesiredAccess,
-     *   IN POBJECT_ATTRIBUTES ObjectAttributes,
-     *   IN HANDLE ProcessHandle,
-     *   IN LPTHREAD_START_ROUTINE Win32StartAddress,
-     *   IN LPVOID StartParameter,
-     *   IN BOOL CreateSuspended,
-     *   IN uint unknown, [ CreateThread hardcodes to 0 ]
-     *   IN SIZE_T StackCommitSize,
-     *   IN SIZE_T StackReserveSize,
-     *   INOUT create_thread_info_t *thread_info [ see ntdll.h ])
+     *   DR_PARAM_OUT PHANDLE ThreadHandle,
+     *   DR_PARAM_IN ACCESS_MASK DesiredAccess,
+     *   DR_PARAM_IN POBJECT_ATTRIBUTES ObjectAttributes,
+     *   DR_PARAM_IN HANDLE ProcessHandle,
+     *   DR_PARAM_IN LPTHREAD_START_ROUTINE Win32StartAddress,
+     *   DR_PARAM_IN LPVOID StartParameter,
+     *   DR_PARAM_IN BOOL CreateSuspended,
+     *   DR_PARAM_IN uint unknown, [ CreateThread hardcodes to 0 ]
+     *   DR_PARAM_IN SIZE_T StackCommitSize,
+     *   DR_PARAM_IN SIZE_T StackReserveSize,
+     *   DR_PARAM_INOUT create_thread_info_t *thread_info [ see ntdll.h ])
      */
     DEBUG_DECLARE(priv_mcontext_t *mc = get_mcontext(dcontext);)
     HANDLE process_handle = (HANDLE)sys_param(dcontext, param_base, 3);
@@ -1948,7 +1948,8 @@ static void
 presys_TerminateThread(dcontext_t *dcontext, reg_t *param_base)
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
-    /* NtTerminateThread(IN HANDLE ThreadHandle OPTIONAL, IN NTSTATUS ExitStatus) */
+    /* NtTerminateThread(DR_PARAM_IN HANDLE ThreadHandle OPTIONAL, DR_PARAM_IN NTSTATUS
+     * ExitStatus) */
     HANDLE thread_handle = (HANDLE)sys_param(dcontext, param_base, 0);
     NTSTATUS exit_status = (NTSTATUS)sys_param(dcontext, param_base, 1);
     /* need to determine which thread is being terminated
@@ -2240,8 +2241,8 @@ static void
 presys_CallbackReturn(dcontext_t *dcontext, reg_t *param_base)
 {
     /* args are:
-     *   IN PVOID Result OPTIONAL, IN ULONG ResultLength, IN NTSTATUS Status
-     * same args go to int 2b (my theory anyway), where they are passed in
+     *   DR_PARAM_IN PVOID Result OPTIONAL, DR_PARAM_IN ULONG ResultLength, DR_PARAM_IN
+     * NTSTATUS Status same args go to int 2b (my theory anyway), where they are passed in
      * eax, ecx, and edx.  if KiUserCallbackDispatcher returns, it leaves
      * eax w/ result value of callback, and zeros out ecx and edx, then int 2b.
      * people doing the int 2b in user32 set ecx and edx to what they want, then
@@ -3480,7 +3481,7 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
     HANDLE thread_handle = (HANDLE)postsys_param(dcontext, param_base, 0);
-    /* ignoring 2nd argument (OUT PULONG PreviousSuspendCount OPTIONAL) */
+    /* ignoring 2nd argument (DR_PARAM_OUT PULONG PreviousSuspendCount OPTIONAL) */
     thread_id_t tid = thread_handle_to_tid(thread_handle);
     process_id_t pid;
 
@@ -4649,7 +4650,7 @@ dr_syscall_get_result(void *drcontext)
 
 DR_API
 bool
-dr_syscall_get_result_ex(void *drcontext, dr_syscall_result_info_t *info INOUT)
+dr_syscall_get_result_ex(void *drcontext, dr_syscall_result_info_t *info DR_PARAM_OUT)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     CLIENT_ASSERT(dcontext->client_data->in_post_syscall,

@@ -1010,6 +1010,7 @@ sets the corresponding option with the same name described in \ref sec_drcachesi
 - cpu_scheduling \<bool\>
 - verbose \<unsigned int\>
 - coherence \<bool\>
+- coherent \<bool\> - (alias for coherence)
 - use_physical \<bool\>
 
 Supported cache parameters and their value types:
@@ -1018,6 +1019,7 @@ Supported cache parameters and their value types:
 - size \<unsigned int, power of 2\>
 - assoc \<unsigned int, power of 2\>
 - inclusive \<bool\>
+- exclusive \<bool\>
 - parent \<string\>
 - replace_policy \<string, one of "LRU", "LFU", or "FIFO"\>
 - prefetcher \<string, one of "nextline" or "none"\>
@@ -1061,7 +1063,7 @@ P0L2 {                         // P0 L2 unified cache
 LLC {                          // LLC
   size            1M
   assoc           16
-  inclusive       true
+  exclusive       true
   parent          memory
   replace_policy  LRU
   miss_file       misses.txt

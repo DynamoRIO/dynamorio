@@ -34,6 +34,7 @@
 
 #include "options.h"
 
+#include <cstdint>
 #include <string>
 
 #include "dr_api.h" // For IF_X86_ELSE.
@@ -460,7 +461,7 @@ droption_t<std::string>
                       "Specifies the types of simulators, separated by a colon (\":\").",
                       "Predefined types: " CPU_CACHE ", " MISS_ANALYZER ", " TLB
                       ", " REUSE_DIST ", " REUSE_TIME ", " HISTOGRAM ", " BASIC_COUNTS
-                      ", or " INVARIANT_CHECKER
+                      ", " INVARIANT_CHECKER ", or " SCHEDULE_STATS
                       ". The external types: name of a tool identified by a "
                       "name.drcachesim config file in the DR tools directory.");
 
@@ -814,7 +815,7 @@ droption_t<bool> op_core_sharded(
     "software threads.  This option instead schedules those threads onto virtual cores "
     "and analyzes each core in parallel.  Thus, each shard consists of pieces from "
     "many software threads.  How the scheduling is performed is controlled by a set "
-    "of options with the prefix \"sched_\" along with -num_cores.");
+    "of options with the prefix \"sched_\" along with -cores.");
 
 droption_t<bool> op_core_serial(
     DROPTION_SCOPE_ALL, "core_serial", false, "Analyze per-core in serial.",
@@ -822,7 +823,7 @@ droption_t<bool> op_core_serial(
     "However, the resulting schedule is acted upon by a single analysis thread"
     "which walks the N cores in lockstep in round robin fashion. "
     "How the scheduling is performed is controlled by a set "
-    "of options with the prefix \"sched_\" along with -num_cores.");
+    "of options with the prefix \"sched_\" along with -cores.");
 
 droption_t<int64_t>
     op_sched_quantum(DROPTION_SCOPE_ALL, "sched_quantum", 1 * 1000 * 1000,
@@ -843,6 +844,24 @@ droption_t<bool> op_sched_order_time(DROPTION_SCOPE_ALL, "sched_order_time", tru
                                      "Applies to -core_sharded and -core_serial. "
                                      "Whether to honor recorded timestamps for ordering");
 
+droption_t<uint64_t> op_sched_syscall_switch_us(
+    DROPTION_SCOPE_ALL, "sched_syscall_switch_us", 500,
+    "Minimum latency to consider any syscall as incurring a context switch.",
+    "Minimum latency in timestamp units (us) to consider any syscall as incurring "
+    "a context switch.  Applies to -core_sharded and -core_serial. ");
+
+droption_t<uint64_t> op_sched_blocking_switch_us(
+    DROPTION_SCOPE_ALL, "sched_blocking_switch_us", 100,
+    "Minimum latency to consider a maybe-blocking syscall as incurring a context switch.",
+    "Minimum latency in timestamp units (us) to consider any syscall that is marked as "
+    "maybe-blocking to incur a context switch. Applies to -core_sharded and "
+    "-core_serial. ");
+
+droption_t<double>
+    op_sched_block_scale(DROPTION_SCOPE_ALL, "sched_block_scale", 1.,
+                         "Input block time scale factor",
+                         "A higher value here results in blocking syscalls "
+                         "keeping inputs unscheduled for longer.");
 #ifdef HAS_ZIP
 droption_t<std::string> op_record_file(DROPTION_SCOPE_FRONTEND, "record_file", "",
                                        "Path for storing record of schedule",
@@ -859,6 +878,12 @@ droption_t<std::string>
                          "Applies to -core_sharded and -core_serial. "
                          "Path with stored as-traced schedule for replay.");
 #endif
+
+// Schedule_stats options.
+droption_t<uint64_t>
+    op_schedule_stats_print_every(DROPTION_SCOPE_ALL, "schedule_stats_print_every", 5000,
+                                  "A letter is printed every N instrs",
+                                  "A letter is printed every N instrs or N waits");
 
 } // namespace drmemtrace
 } // namespace dynamorio

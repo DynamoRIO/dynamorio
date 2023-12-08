@@ -40,7 +40,7 @@ import os
 import re
 import difflib
 
-
+# XXX: This assumes a single line for a function signature!
 def filter_lines(path, regex, ignore_until=''):
     with open(path) as f:
         patterns = []

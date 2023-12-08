@@ -166,11 +166,12 @@ static void
 aslr_get_known_dll_path(wchar_t *w_known_dll_path, /* OUT */
                         uint max_length_characters);
 static bool
-aslr_generate_relocated_section(IN HANDLE unmodified_section,
-                                IN OUT app_pc *new_base, /* presumably random */
-                                bool search_fitting_base, OUT app_pc *mapped_base,
-                                OUT size_t *mapped_size,
-                                OUT module_digest_t *file_digest);
+aslr_generate_relocated_section(DR_PARAM_IN HANDLE unmodified_section,
+                                DR_PARAM_INOUT app_pc *new_base, /* presumably random */
+                                bool search_fitting_base,
+                                DR_PARAM_OUT app_pc *mapped_base,
+                                DR_PARAM_OUT size_t *mapped_size,
+                                DR_PARAM_OUT module_digest_t *file_digest);
 
 void
 aslr_free_dynamorio_loadblock(void);
@@ -2672,8 +2673,9 @@ open_relocated_dlls_filecache_directory(void)
  * successfully made them so.
  */
 static bool
-aslr_module_force_size(IN HANDLE app_file_handle, IN HANDLE randomized_file_handle,
-                       const wchar_t *file_name, OUT uint64 *final_file_size)
+aslr_module_force_size(DR_PARAM_IN HANDLE app_file_handle,
+                       DR_PARAM_IN HANDLE randomized_file_handle,
+                       const wchar_t *file_name, DR_PARAM_OUT uint64 *final_file_size)
 {
     uint64 app_file_size;
     uint64 randomized_file_size;
@@ -2775,7 +2777,7 @@ aslr_module_append_signature(HANDLE produced_file, uint64 *produced_file_pointer
 
 static bool
 aslr_module_read_signature(HANDLE randomized_file, uint64 *randomized_file_pointer,
-                           OUT aslr_persistent_digest_t *persistent_digest)
+                           DR_PARAM_OUT aslr_persistent_digest_t *persistent_digest)
 {
     size_t num_read;
     bool ok;
@@ -2855,7 +2857,7 @@ aslr_module_read_signature(HANDLE randomized_file, uint64 *randomized_file_point
  * is assumed to be private.
  */
 static bool
-aslr_get_section_digest(OUT module_digest_t *digest, HANDLE section_handle,
+aslr_get_section_digest(DR_PARAM_OUT module_digest_t *digest, HANDLE section_handle,
                         bool short_digest_only)
 {
     NTSTATUS res;
@@ -2899,7 +2901,8 @@ aslr_get_section_digest(OUT module_digest_t *digest, HANDLE section_handle,
  * on success callers need to close_handle() after use
  */
 static inline bool
-aslr_create_private_module_section(OUT HANDLE private_section, HANDLE file_handle)
+aslr_create_private_module_section(DR_PARAM_OUT HANDLE private_section,
+                                   HANDLE file_handle)
 {
     NTSTATUS res;
     res = nt_create_section(private_section,
@@ -2929,7 +2932,7 @@ aslr_create_private_module_section(OUT HANDLE private_section, HANDLE file_handl
 }
 
 static bool
-aslr_get_file_digest(OUT module_digest_t *digest, HANDLE relocated_file_handle,
+aslr_get_file_digest(DR_PARAM_OUT module_digest_t *digest, HANDLE relocated_file_handle,
                      bool short_only)
 {
     /* Keep in mind that we have to create a private section mapping
@@ -2973,8 +2976,9 @@ aslr_get_file_digest(OUT module_digest_t *digest, HANDLE relocated_file_handle,
  * CopyOnWrite faults and associated page copies.
  */
 static bool
-aslr_compare_in_place(IN HANDLE original_section, OUT app_pc *original_mapped_base,
-                      OUT size_t *original_mapped_size,
+aslr_compare_in_place(DR_PARAM_IN HANDLE original_section,
+                      DR_PARAM_OUT app_pc *original_mapped_base,
+                      DR_PARAM_OUT size_t *original_mapped_size,
 
                       app_pc suspect_mapped_base, size_t suspect_mapped_size,
                       app_pc suspect_preferred_base, size_t validation_prefix)
@@ -3238,7 +3242,8 @@ aslr_module_verify_relocated_contents(HANDLE original_file_handle,
  * become a publisher.
  */
 static bool
-aslr_verify_file_checksum(IN HANDLE app_file_handle, IN HANDLE randomized_file_handle)
+aslr_verify_file_checksum(DR_PARAM_IN HANDLE app_file_handle,
+                          DR_PARAM_IN HANDLE randomized_file_handle)
 {
     /* we do some basic sanity checking - is the
      * FileStandardInformation.EndOfFile the same for both the
@@ -3409,8 +3414,8 @@ aslr_verify_file_checksum(IN HANDLE app_file_handle, IN HANDLE randomized_file_h
  * close file on success.
  */
 static bool
-aslr_open_relocated_dll_file(OUT HANDLE *relocated_file, IN HANDLE original_file,
-                             const wchar_t *module_name)
+aslr_open_relocated_dll_file(DR_PARAM_OUT HANDLE *relocated_file,
+                             DR_PARAM_IN HANDLE original_file, const wchar_t *module_name)
 {
     HANDLE relocated_dlls_directory = get_relocated_dlls_filecache_directory(false);
     NTSTATUS res;
@@ -3567,7 +3572,7 @@ aslr_check_low_disk_threshold(uint64 new_file_size)
 /* used by file producers for providing our alternative file backing */
 /* callers should close the handle */
 static bool
-aslr_create_relocated_dll_file(OUT HANDLE *new_file, const wchar_t *unique_name,
+aslr_create_relocated_dll_file(DR_PARAM_OUT HANDLE *new_file, const wchar_t *unique_name,
                                uint64 original_file_size, bool persistent
                                /* hint whether file is persistent */)
 {
@@ -3765,7 +3770,8 @@ is_aslr_exempted_file_name(const wchar_t *short_file_name)
  * into name_info
  */
 const wchar_t *
-get_file_short_name(IN HANDLE file_handle, IN OUT FILE_NAME_INFORMATION *name_info)
+get_file_short_name(DR_PARAM_IN HANDLE file_handle,
+                    DR_PARAM_INOUT FILE_NAME_INFORMATION *name_info)
 {
     NTSTATUS res;
     /* note FileName is not NULL-terminated */
@@ -3984,10 +3990,12 @@ aslr_write_header(app_pc mapped_module_base, size_t module_size,
  * to verify a mapping.
  */
 static bool
-aslr_generate_relocated_section(IN HANDLE unmodified_section,
-                                IN OUT app_pc *new_base, /* presumably random */
-                                bool search_fitting_base, OUT app_pc *mapped_base,
-                                OUT size_t *mapped_size, OUT module_digest_t *file_digest)
+aslr_generate_relocated_section(DR_PARAM_IN HANDLE unmodified_section,
+                                DR_PARAM_INOUT app_pc *new_base, /* presumably random */
+                                bool search_fitting_base,
+                                DR_PARAM_OUT app_pc *mapped_base,
+                                DR_PARAM_OUT size_t *mapped_size,
+                                DR_PARAM_OUT module_digest_t *file_digest)
 {
     bool success;
     NTSTATUS res;
@@ -4240,7 +4248,7 @@ unmap_and_exit:
  */
 /* returns true if caller should expect to find a mapped relocated copy */
 bool
-aslr_experiment_with_section_handle(IN HANDLE file_handle,
+aslr_experiment_with_section_handle(DR_PARAM_IN HANDLE file_handle,
                                     const wchar_t *mostly_unique_name)
 {
     /* publish in shared or private view */
@@ -4381,11 +4389,11 @@ aslr_experiment_with_section_handle(IN HANDLE file_handle,
  * unmap the returned private view on success.
  */
 static bool
-aslr_file_relocate_cow(IN HANDLE original_file_handle,
-                       OUT app_pc *relocated_module_mapped_base,
-                       OUT size_t *relocated_module_size,
-                       OUT app_pc *random_preferred_module_base,
-                       OUT module_digest_t *original_digest)
+aslr_file_relocate_cow(DR_PARAM_IN HANDLE original_file_handle,
+                       DR_PARAM_OUT app_pc *relocated_module_mapped_base,
+                       DR_PARAM_OUT size_t *relocated_module_size,
+                       DR_PARAM_OUT app_pc *random_preferred_module_base,
+                       DR_PARAM_OUT module_digest_t *original_digest)
 {
     NTSTATUS res;
     HANDLE relocated_section;
@@ -4573,8 +4581,9 @@ aslr_module_get_times(HANDLE file_handle, uint64 *last_write_time)
  */
 
 static bool
-aslr_produce_randomized_file(IN HANDLE original_file_handle,
-                             const wchar_t *mostly_unique_name, OUT HANDLE *produced_file)
+aslr_produce_randomized_file(DR_PARAM_IN HANDLE original_file_handle,
+                             const wchar_t *mostly_unique_name,
+                             DR_PARAM_OUT HANDLE *produced_file)
 {
     aslr_persistent_digest_t aslr_digest;
     /* FIXME: TOFILE: need to create a file from a properly secured
@@ -4801,7 +4810,7 @@ aslr_get_unique_wide_name(const wchar_t *origname, const wchar_t *key,
 /* produced_temporary_file is closed regardless of success */
 static bool
 aslr_rename_temporary_file(const wchar_t *mostly_unique_name_target,
-                           IN HANDLE produced_temporary_file,
+                           DR_PARAM_IN HANDLE produced_temporary_file,
                            const wchar_t *temporary_unique_name)
 {
     HANDLE our_relocated_dlls_directory = get_relocated_dlls_filecache_directory(true);
@@ -4853,9 +4862,9 @@ aslr_rename_temporary_file(const wchar_t *mostly_unique_name_target,
  * that section handle instead of subscribing
  */
 static bool
-aslr_publish_section_handle(IN HANDLE original_file_handle,
+aslr_publish_section_handle(DR_PARAM_IN HANDLE original_file_handle,
                             const wchar_t *mostly_unique_name, bool anonymous,
-                            OUT HANDLE *new_section_handle)
+                            DR_PARAM_OUT HANDLE *new_section_handle)
 {
     HANDLE object_directory =
         shared_object_directory; /* publish in shared or private view */
@@ -5193,8 +5202,9 @@ aslr_set_randomized_handle(dcontext_t *dcontext, HANDLE relocated_section_handle
 
 static bool
 aslr_get_original_metadata(HANDLE original_app_section_handle,
-                           OUT app_pc *original_preferred_base,
-                           OUT uint *original_checksum, OUT uint *original_timestamp)
+                           DR_PARAM_OUT app_pc *original_preferred_base,
+                           DR_PARAM_OUT uint *original_checksum,
+                           DR_PARAM_OUT uint *original_timestamp)
 {
     /* currently mapping the original section and read all the values
      * that we need */
@@ -5259,8 +5269,8 @@ aslr_get_original_metadata(HANDLE original_app_section_handle,
  * good enoguh for a demo and casual use
  */
 static bool
-aslr_verify_section_backing(IN HANDLE original_app_section_handle,
-                            IN HANDLE new_relocated_handle)
+aslr_verify_section_backing(DR_PARAM_IN HANDLE original_app_section_handle,
+                            DR_PARAM_IN HANDLE new_relocated_handle)
 {
     /* FIXME: on Win2k+ we can count on
      * are_mapped_files_the_same(addr1, addr2) if we have made an
@@ -5280,8 +5290,8 @@ aslr_verify_section_backing(IN HANDLE original_app_section_handle,
 }
 
 static bool
-aslr_replace_section_handle(IN HANDLE original_app_section_handle,
-                            IN HANDLE new_relocated_handle)
+aslr_replace_section_handle(DR_PARAM_IN HANDLE original_app_section_handle,
+                            DR_PARAM_IN HANDLE new_relocated_handle)
 
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
@@ -5357,9 +5367,10 @@ aslr_replace_section_handle(IN HANDLE original_app_section_handle,
  * Returns true if a shared relocated section is found.
  */
 static bool
-aslr_subscribe_section_handle(IN HANDLE original_app_section_handle,
-                              IN HANDLE file_handle, const wchar_t *mostly_unique_name,
-                              OUT HANDLE *new_relocated_handle)
+aslr_subscribe_section_handle(DR_PARAM_IN HANDLE original_app_section_handle,
+                              DR_PARAM_IN HANDLE file_handle,
+                              const wchar_t *mostly_unique_name,
+                              DR_PARAM_OUT HANDLE *new_relocated_handle)
 {
     HANDLE object_directory =
         shared_object_directory; /* publish in shared or private view */
@@ -5464,9 +5475,9 @@ aslr_subscribe_section_handle(IN HANDLE original_app_section_handle,
  * should be used instead of the original handle returned by the OS
  */
 static bool
-aslr_post_process_create_section_internal(IN HANDLE old_app_section_handle,
-                                          IN HANDLE file_handle,
-                                          OUT HANDLE *new_relocated_handle)
+aslr_post_process_create_section_internal(DR_PARAM_IN HANDLE old_app_section_handle,
+                                          DR_PARAM_IN HANDLE file_handle,
+                                          DR_PARAM_OUT HANDLE *new_relocated_handle)
 {
     wchar_t mostly_unique_name[MAX_PUBLISHED_SECTION_NAME];
     bool ok;
@@ -5720,7 +5731,8 @@ aslr_is_handle_KnownDlls(HANDLE directory_handle)
 }
 
 bool
-aslr_recreate_known_dll_file(OBJECT_ATTRIBUTES *obj_attr, OUT HANDLE *recreated_file)
+aslr_recreate_known_dll_file(OBJECT_ATTRIBUTES *obj_attr,
+                             DR_PARAM_OUT HANDLE *recreated_file)
 {
     /* NOTE: we are making the assumption that all KnownDlls and their
      * dependents are all physically located in the KnownDllPath.
@@ -5812,8 +5824,8 @@ aslr_recreate_known_dll_file(OBJECT_ATTRIBUTES *obj_attr, OUT HANDLE *recreated_
  */
 bool
 aslr_post_process_create_or_open_section(dcontext_t *dcontext, bool is_create,
-                                         IN HANDLE file_handle /* OPTIONAL */,
-                                         OUT HANDLE *sysarg_section_handle)
+                                         DR_PARAM_IN HANDLE file_handle /* OPTIONAL */,
+                                         DR_PARAM_OUT HANDLE *sysarg_section_handle)
 {
     /* reading handle is unsafe to race only, since syscall succeeded */
     HANDLE safe_section_handle;
@@ -5918,7 +5930,7 @@ aslr_process_worklist(void)
  *          memory and overwrite it with what they want.
  */
 
-#    define GBOP_DEFINE_HOOK(module, symbol) { module, #    symbol },
+#    define GBOP_DEFINE_HOOK(module, symbol) { module, #symbol },
 #    define GBOP_DEFINE_HOOK_MODULE(module_name, set_name) \
         GBOP_DEFINE_##module_name##_##set_name##_HOOKS(#module_name ".dll")
 

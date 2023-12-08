@@ -49,8 +49,8 @@
 #include "globals_shared.h"
 
 extern bool
-create_nudge_signal_payload(siginfo_t *info OUT, uint action_mask, client_id_t client_id,
-                            uint flags, uint64 client_arg);
+create_nudge_signal_payload(siginfo_t *info DR_PARAM_OUT, uint action_mask,
+                            client_id_t client_id, uint flags, uint64 client_arg);
 
 static const char *usage_str =
     "usage: drnudgeunix [-help] [-v] [-pid <pid>] [-type <type>] [-client <ID> <arg>]\n"

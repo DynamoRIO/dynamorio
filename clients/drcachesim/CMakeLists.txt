@@ -166,6 +166,7 @@ add_exported_library(drmemtrace_syscall_mix STATIC tools/syscall_mix.cpp)
 add_exported_library(drmemtrace_view STATIC tools/view.cpp)
 add_exported_library(drmemtrace_func_view STATIC tools/func_view.cpp)
 add_exported_library(drmemtrace_invariant_checker STATIC tools/invariant_checker.cpp)
+add_exported_library(drmemtrace_schedule_stats STATIC tools/schedule_stats.cpp)
 
 target_link_libraries(drmemtrace_invariant_checker drdecode)
 
@@ -273,7 +274,8 @@ configure_DynamoRIO_standalone(drcachesim)
 target_link_libraries(drcachesim drmemtrace_simulator drmemtrace_reuse_distance
   drmemtrace_histogram drmemtrace_reuse_time drmemtrace_basic_counts
   drmemtrace_opcode_mix drmemtrace_syscall_mix drmemtrace_view drmemtrace_func_view
-  drmemtrace_raw2trace directory_iterator drmemtrace_invariant_checker)
+  drmemtrace_raw2trace directory_iterator drmemtrace_invariant_checker
+  drmemtrace_schedule_stats)
 if (UNIX)
     target_link_libraries(drcachesim dl)
 endif ()
@@ -346,6 +348,7 @@ install_client_nonDR_header(drmemtrace tools/histogram_create.h)
 install_client_nonDR_header(drmemtrace tools/reuse_time_create.h)
 install_client_nonDR_header(drmemtrace tools/basic_counts_create.h)
 install_client_nonDR_header(drmemtrace tools/opcode_mix_create.h)
+install_client_nonDR_header(drmemtrace tools/schedule_stats_create.h)
 install_client_nonDR_header(drmemtrace tools/syscall_mix_create.h)
 install_client_nonDR_header(drmemtrace simulator/cache_simulator.h)
 install_client_nonDR_header(drmemtrace simulator/cache_simulator_create.h)
@@ -573,6 +576,7 @@ restore_nonclient_flags(drmemtrace_func_view)
 restore_nonclient_flags(drmemtrace_record_filter)
 restore_nonclient_flags(drmemtrace_analyzer)
 restore_nonclient_flags(drmemtrace_invariant_checker)
+restore_nonclient_flags(drmemtrace_schedule_stats)
 
 # We need to pass /EHsc and we pull in libcmtd into drcachesim from a dep lib.
 # Thus we need to override the /MT with /MTd.
@@ -638,6 +642,7 @@ add_win32_flags(drmemtrace_func_view)
 add_win32_flags(drmemtrace_record_filter)
 add_win32_flags(drmemtrace_analyzer)
 add_win32_flags(drmemtrace_invariant_checker)
+add_win32_flags(drmemtrace_schedule_stats)
 add_win32_flags(directory_iterator)
 add_win32_flags(test_helpers)
 if (WIN32 AND DEBUG)
@@ -743,6 +748,9 @@ add_subdirectory(tools/external)
 # We build larger executables here.  All tests are added in suite/tests/ except unit tests.
 # Be sure to give the targets qualified test names ("tool.drcache*...").
 
+# XXX: Try to add a macro add_drcachesim_test() to share common pieces
+# of these executables.
+
 if (BUILD_TESTS)
   add_executable(tool.reuse_distance.unit_tests tests/reuse_distance_test.cpp)
   target_link_libraries(tool.reuse_distance.unit_tests drmemtrace_reuse_distance
@@ -809,7 +817,7 @@ if (BUILD_TESTS)
     drmemtrace_histogram drmemtrace_reuse_time drmemtrace_basic_counts
     drmemtrace_opcode_mix drmemtrace_syscall_mix drmemtrace_view drmemtrace_func_view
     drmemtrace_raw2trace directory_iterator drmemtrace_invariant_checker
-    drmemtrace_analyzer)
+    drmemtrace_schedule_stats drmemtrace_analyzer)
   if (UNIX)
     target_link_libraries(tool.drcachesim.core_sharded dl)
   endif ()
@@ -900,6 +908,16 @@ if (BUILD_TESTS)
     add_test(NAME tool.drcachesim.invariant_checker_test
              COMMAND tool.drcachesim.invariant_checker_test)
     set_tests_properties(tool.drcachesim.invariant_checker_test PROPERTIES
+      TIMEOUT ${test_seconds})
+
+    add_executable(tool.drcachesim.schedule_stats_test tests/schedule_stats_test.cpp)
+    configure_DynamoRIO_standalone(tool.drcachesim.schedule_stats_test)
+    add_win32_flags(tool.drcachesim.schedule_stats_test)
+    target_link_libraries(tool.drcachesim.schedule_stats_test drmemtrace_schedule_stats
+        drmemtrace_static drmemtrace_analyzer test_helpers)
+    add_test(NAME tool.drcachesim.schedule_stats_test
+             COMMAND tool.drcachesim.schedule_stats_test)
+    set_tests_properties(tool.drcachesim.schedule_stats_test PROPERTIES
       TIMEOUT ${test_seconds})
 
     add_executable(tool.drcacheoff.view_test tests/view_test.cpp reader/file_reader.cpp)

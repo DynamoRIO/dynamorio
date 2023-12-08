@@ -122,7 +122,7 @@ syscall_pt_trace_t::init(void *drcontext, char *pt_dir_name,
 }
 
 bool
-syscall_pt_trace_t::start_syscall_pt_trace(IN int sysnum)
+syscall_pt_trace_t::start_syscall_pt_trace(DR_PARAM_IN int sysnum)
 {
     if (!is_initialized_) {
         ASSERT(false, "syscall_pt_trace_t is not initialized");
@@ -292,7 +292,7 @@ syscall_pt_trace_t::trace_data_dump(drpttracer_output_autoclean_t &output)
 }
 
 bool
-syscall_pt_trace_t::is_syscall_pt_trace_enabled(IN int sysnum)
+syscall_pt_trace_t::is_syscall_pt_trace_enabled(DR_PARAM_IN int sysnum)
 {
     /* The post syscall callbacks can't be triggered for the following syscalls. So we
      * don't support kernel PT trace recording for them.

@@ -69,7 +69,7 @@ get_system_time()
 {
     int i, len = 0;
     LARGE_INTEGER time;
-    GET_NTDLL(NtQuerySystemTime, (OUT PLARGE_INTEGER time));
+    GET_NTDLL(NtQuerySystemTime, (DR_PARAM_OUT PLARGE_INTEGER time));
     i = NtQuerySystemTime(&time);
     if (i != 0) /* function failed */
         return 0;
@@ -83,8 +83,8 @@ get_uptime()
     LARGE_INTEGER frequency;
     NTSTATUS res;
     GET_NTDLL(NtQueryPerformanceCounter,
-              (OUT PLARGE_INTEGER PerformanceCount,
-               OUT PLARGE_INTEGER PerformanceFrequency OPTIONAL));
+              (DR_PARAM_OUT PLARGE_INTEGER PerformanceCount,
+               DR_PARAM_OUT PLARGE_INTEGER PerformanceFrequency OPTIONAL));
     res = NtQueryPerformanceCounter(&counter, &frequency);
     if (!NT_SUCCESS(res) || frequency.QuadPart == 0)
         return 0;
@@ -100,9 +100,10 @@ get_system_load(bool sampled)
     LONGLONG idle1, idle2;
     int idle_load = 0;
     GET_NTDLL(NtQuerySystemInformation,
-              (IN SYSTEM_INFORMATION_CLASS SystemInformationClass,
-               OUT PVOID SystemInformation, IN ULONG SystemInformationLength,
-               OUT PULONG ReturnLength OPTIONAL));
+              (DR_PARAM_IN SYSTEM_INFORMATION_CLASS SystemInformationClass,
+               DR_PARAM_OUT PVOID SystemInformation,
+               DR_PARAM_IN ULONG SystemInformationLength,
+               DR_PARAM_OUT PULONG ReturnLength OPTIONAL));
     i = NtQuerySystemInformation(SystemProcessorTimes, &times, sizeof(times), &len);
     if (i != 0) /* function failed */
         return -1;
@@ -145,9 +146,10 @@ get_system_performance_info(SYSTEM_PERFORMANCE_INFORMATION *sperf_info)
 {
     int i, len = 0;
     GET_NTDLL(NtQuerySystemInformation,
-              (IN SYSTEM_INFORMATION_CLASS SystemInformationClass,
-               OUT PVOID SystemInformation, IN ULONG SystemInformationLength,
-               OUT PULONG ReturnLength OPTIONAL));
+              (DR_PARAM_IN SYSTEM_INFORMATION_CLASS SystemInformationClass,
+               DR_PARAM_OUT PVOID SystemInformation,
+               DR_PARAM_IN ULONG SystemInformationLength,
+               DR_PARAM_OUT PULONG ReturnLength OPTIONAL));
     i = NtQuerySystemInformation(SystemPerformanceInformation, sperf_info,
                                  sizeof(*sperf_info), &len);
     return (i == 0);
@@ -163,9 +165,11 @@ get_process_load_ex(HANDLE h, int *cpu, int *user)
     int i, len = 0;
     /* could share w/ other process info routines... */
     GET_NTDLL(NtQueryInformationProcess,
-              (IN HANDLE ProcessHandle, IN PROCESSINFOCLASS ProcessInformationClass,
-               OUT PVOID ProcessInformation, IN ULONG ProcessInformationLength,
-               OUT PULONG ReturnLength OPTIONAL));
+              (DR_PARAM_IN HANDLE ProcessHandle,
+               DR_PARAM_IN PROCESSINFOCLASS ProcessInformationClass,
+               DR_PARAM_OUT PVOID ProcessInformation,
+               DR_PARAM_IN ULONG ProcessInformationLength,
+               DR_PARAM_OUT PULONG ReturnLength OPTIONAL));
     i = NtQueryInformationProcess((HANDLE)h, ProcessTimes, &times, sizeof(times), &len);
     if (i != 0) /* function failed */
         return 0;
@@ -195,9 +199,11 @@ get_process_mem_stats(HANDLE h, VM_COUNTERS *info)
     int i, len = 0;
     /* could share w/ other process info routines... */
     GET_NTDLL(NtQueryInformationProcess,
-              (IN HANDLE ProcessHandle, IN PROCESSINFOCLASS ProcessInformationClass,
-               OUT PVOID ProcessInformation, IN ULONG ProcessInformationLength,
-               OUT PULONG ReturnLength OPTIONAL));
+              (DR_PARAM_IN HANDLE ProcessHandle,
+               DR_PARAM_IN PROCESSINFOCLASS ProcessInformationClass,
+               DR_PARAM_OUT PVOID ProcessInformation,
+               DR_PARAM_IN ULONG ProcessInformationLength,
+               DR_PARAM_OUT PULONG ReturnLength OPTIONAL));
     i = NtQueryInformationProcess((HANDLE)h, ProcessVmCounters, info, sizeof(VM_COUNTERS),
                                   &len);
     if (i != 0) {

@@ -229,7 +229,8 @@ memquery_reset_internal_iterator(memquery_iter_t *iter, const byte *new_pc)
 }
 
 bool
-memquery_from_os(const byte *pc, OUT dr_mem_info_t *info, OUT bool *have_type)
+memquery_from_os(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info,
+                 DR_PARAM_OUT bool *have_type)
 {
     memquery_iter_t iter;
     bool res = false;

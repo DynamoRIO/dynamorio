@@ -529,8 +529,8 @@ void
 clean_call_info_init(clean_call_info_t *cci, void *callee, bool save_fpstate,
                      uint num_args);
 void
-d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT, bool mangle_calls,
-           bool record_translation);
+d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags DR_PARAM_INOUT,
+           bool mangle_calls, bool record_translation);
 bool
 parameters_stack_padded(void);
 /* Inserts a complete call to callee with the passed-in arguments */
@@ -595,11 +595,16 @@ instr_t *
 mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 instr_t *next_instr);
 #endif
-#ifdef AARCHXX
-/* mangle instructions that use pc or dr_reg_stolen */
+#if defined(AARCHXX) || defined(RISCV64)
+/* For ARM, mangle app instr accessing registers pc and dr_reg_stolen;
+ * for AArch64, mangle app instr accessing register dr_reg_stolen;
+ * for RISC-V, mangle app instr accessing registers tp and dr_reg_stolen.
+ */
 instr_t *
 mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                          instr_t *next_instr);
+#endif
+#if defined(AARCHXX) || defined(RISCV64)
 instr_t *
 mangle_exclusive_monitor_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                             instr_t *next_instr);
@@ -627,7 +632,7 @@ mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist,
 #elif defined(ARM)
 #    define ABI_STACK_ALIGNMENT 8
 #elif defined(RISCV64)
-#    define ABI_STACK_ALIGNMENT 8
+#    define ABI_STACK_ALIGNMENT 16
 #endif
 
 /* Returns the number of bytes the stack pointer has to be aligned to. */
@@ -724,7 +729,7 @@ mangle_mov_seg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                instr_t *next_instr);
 void
 mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                instr_t *next_instr, uint *flags INOUT);
+                instr_t *next_instr, uint *flags DR_PARAM_OUT);
 void
 mangle_exit_cti_prefixes(dcontext_t *dcontext, instr_t *instr);
 void
@@ -1560,10 +1565,11 @@ get_app_instr_xl8(instr_t *instr);
 #ifdef X64
 /* in x86_to_x64.c */
 void
-translate_x86_to_x64(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr);
+translate_x86_to_x64(dcontext_t *dcontext, instrlist_t *ilist,
+                     DR_PARAM_INOUT instr_t **instr);
 #endif
 
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
 bool
 instr_is_ldstex_mangling(dcontext_t *dcontext, instr_t *inst);
 #endif

@@ -64,8 +64,8 @@ public:
     // Returns in "from_cache" whether the physical address had been queried before
     // and was available in a local cache (which is cleared at -virt2phys_freq).
     bool
-    virtual2physical(void *drcontext, addr_t virt, OUT addr_t *phys,
-                     OUT bool *from_cache = nullptr);
+    virtual2physical(void *drcontext, addr_t virt, DR_PARAM_OUT addr_t *phys,
+                     DR_PARAM_OUT bool *from_cache = nullptr);
 
     // This must be called once prior to any instance variables.
     // (If this class weren't used in a DR client context we could use a C++

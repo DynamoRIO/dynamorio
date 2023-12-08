@@ -184,7 +184,8 @@ double_print(double val, uint precision, uint *top, uint *bottom, const char **s
  * but still prints the maximum that will fit plus a null.
  */
 bool
-print_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, const char *fmt, ...)
+print_to_buffer(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT, const char *fmt,
+                ...)
 {
     /* in io.c */
     extern int d_r_vsnprintf(char *s, size_t max, const char *fmt, va_list ap);

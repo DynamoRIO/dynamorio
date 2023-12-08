@@ -166,7 +166,7 @@ pt2ir_t::~pt2ir_t()
 }
 
 bool
-pt2ir_t::init(IN pt2ir_config_t &pt2ir_config, IN int verbosity)
+pt2ir_t::init(DR_PARAM_IN pt2ir_config_t &pt2ir_config, DR_PARAM_IN int verbosity)
 {
     verbosity_ = verbosity;
     if (pt2ir_initialized_) {
@@ -424,13 +424,14 @@ pt2ir_t::post_decode()
 }
 
 pt2ir_convert_status_t
-pt2ir_t::convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t &drir)
+pt2ir_t::convert(DR_PARAM_IN const uint8_t *pt_data, DR_PARAM_IN size_t pt_data_size,
+                 DR_PARAM_INOUT drir_t *drir)
 {
     if (!pt2ir_initialized_) {
         return PT2IR_CONV_ERROR_NOT_INITIALIZED;
     }
 
-    if (pt_data == nullptr || pt_data_size <= 0) {
+    if (pt_data == nullptr || pt_data_size <= 0 || drir == nullptr) {
         return PT2IR_CONV_ERROR_INVALID_INPUT;
     }
 
@@ -585,26 +586,14 @@ pt2ir_t::convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t
         }
 
         /* Use drdecode to decode insn(pt_insn) to instr_t. */
-        instr_t *instr = instr_create(drir.get_drcontext());
-        instr_init(drir.get_drcontext(), instr);
-        instr_set_isa_mode(instr, insn.mode == ptem_32bit ? DR_ISA_IA32 : DR_ISA_AMD64);
-        bool instr_valid = false;
-        if (decode(drir.get_drcontext(), insn.raw, instr) != nullptr)
-            instr_valid = true;
-        instr_set_translation(instr, (app_pc)insn.ip);
-        instr_allocate_raw_bits(drir.get_drcontext(), instr, insn.size);
-        /* TODO i#2103: Currently, the PT raw data may contain 'STAC' and 'CLAC'
-         * instructions that are not supported by Dynamorio.
-         */
-        if (!instr_valid) {
-            /* The decode() function will not correctly identify the raw bits for
-             * invalid instruction. So we need to set the raw bits of instr manually.
-             */
-            instr_free_raw_bits(drir.get_drcontext(), instr);
-            instr_set_raw_bits(instr, insn.raw, insn.size);
-            instr_allocate_raw_bits(drir.get_drcontext(), instr, insn.size);
+        instr_t *instr = instr_create(drir->get_drcontext());
+        instr_init(drir->get_drcontext(), instr);
+        instr_set_isa_mode(instr,
+                           insn.mode == ptem_32bit ? DR_ISA_IA32 : DR_ISA_AMD64);
+        app_pc instr_ip = reinterpret_cast<app_pc>(insn.ip);
+        if (decode_from_copy(drir->get_drcontext(), insn.raw, instr_ip, instr) ==
+            nullptr) {
 #ifdef DEBUG
-
             /* Print the invalid instruction‘s PC and raw bytes in DEBUG builds. */
             if (verbosity_ >= 1) {
                 fprintf(stderr,
@@ -617,7 +606,7 @@ pt2ir_t::convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t
             }
 #endif
         }
-        drir.append(instr);
+        drir->append(instr, instr_ip, insn.size, insn.raw);
     }
 
     if (pt2ir_stream_mode_) {
@@ -630,7 +619,8 @@ pt2ir_t::convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t
 }
 
 void
-pt2ir_t::dx_decoding_error(IN int errcode, IN const char *errtype, IN uint64_t ip)
+pt2ir_t::dx_decoding_error(DR_PARAM_IN int errcode, DR_PARAM_IN const char *errtype,
+                           DR_PARAM_IN uint64_t ip)
 {
     int err = -pte_internal;
     uint64_t pos = 0;

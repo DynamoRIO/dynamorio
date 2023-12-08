@@ -1011,9 +1011,9 @@ enum {
     DR_REG_SPSR_UND,        /**< The "spsr_und" register. */
     DR_REG_SPSR_FIQ,        /**< The "spsr_fiq" register. */
 #    else
-    DR_REG_CPSR,                              /**< The "cpsr" register. */
-    DR_REG_SPSR,                              /**< The "spsr" register. */
-    DR_REG_FPSCR,                             /**< The "fpscr" register. */
+    DR_REG_CPSR,  /**< The "cpsr" register. */
+    DR_REG_SPSR,  /**< The "spsr" register. */
+    DR_REG_FPSCR, /**< The "fpscr" register. */
 #    endif
 
     /* AArch32 Thread Registers */
@@ -1083,13 +1083,13 @@ enum {
     DR_REG_SP = DR_REG_XSP,  /**< The stack pointer register. */
     DR_REG_LR = DR_REG_X30,  /**< The link register. */
 #    else
-    DR_REG_SP = DR_REG_R13,                   /**< The stack pointer register. */
-    DR_REG_LR = DR_REG_R14,                   /**< The link register. */
-    DR_REG_PC = DR_REG_R15,                   /**< The program counter register. */
+    DR_REG_SP = DR_REG_R13, /**< The stack pointer register. */
+    DR_REG_LR = DR_REG_R14, /**< The link register. */
+    DR_REG_PC = DR_REG_R15, /**< The program counter register. */
 #    endif
-    DR_REG_SL = DR_REG_R10,  /**< Alias for the r10 register. */
-    DR_REG_FP = DR_REG_R11,  /**< Alias for the r11 register. */
-    DR_REG_IP = DR_REG_R12,  /**< Alias for the r12 register. */
+    DR_REG_SL = DR_REG_R10, /**< Alias for the r10 register. */
+    DR_REG_FP = DR_REG_R11, /**< Alias for the r11 register. */
+    DR_REG_IP = DR_REG_R12, /**< Alias for the r12 register. */
 #    ifndef AARCH64
     /** Alias for cpsr register (thus this is the full cpsr, not just the apsr bits). */
     DR_REG_APSR = DR_REG_CPSR,
@@ -1101,8 +1101,8 @@ enum {
     /** Thread Pointer/ID Register, Read-Only, EL0. */
     DR_REG_TPIDRRO_EL0 = DR_REG_TPIDRURO,
     /* ARMv7 Thread Registers */
-    DR_REG_CP15_C13_2 = DR_REG_TPIDRURW,        /**< User Read/Write Thread ID Register */
-    DR_REG_CP15_C13_3 = DR_REG_TPIDRURO,        /**< User Read-Only Thread ID Register */
+    DR_REG_CP15_C13_2 = DR_REG_TPIDRURW, /**< User Read/Write Thread ID Register */
+    DR_REG_CP15_C13_3 = DR_REG_TPIDRURO, /**< User Read-Only Thread ID Register */
 
 #    ifdef AARCH64
     DR_REG_LAST_VALID_ENUM = DR_REG_CNTVCT_EL0, /**< Last valid register enum */
@@ -1128,7 +1128,7 @@ enum {
 
     DR_NUM_GPR_REGS = DR_REG_STOP_GPR - DR_REG_START_GPR + 1, /**< Count of GPR regs. */
 #    ifdef AARCH64
-    DR_NUM_SIMD_VECTOR_REGS = DR_REG_Z31 - DR_REG_Z0 + 1,     /**< Count of SIMD regs. */
+    DR_NUM_SIMD_VECTOR_REGS = DR_REG_Z31 - DR_REG_Z0 + 1, /**< Count of SIMD regs. */
 #    else
     /* XXX: maybe we want more distinct names that provide counts for 64-bit D or 32-bit
      * S registers.
@@ -1284,11 +1284,11 @@ enum {
     DR_REG_LAST_VALID_ENUM = DR_REG_FCSR, /**< Last valid register enum. */
     DR_REG_LAST_ENUM = DR_REG_FCSR,       /**< Last value of register enums. */
 
-    DR_REG_START_64 = DR_REG_X0,  /**< Start of 64-bit register enum values. */
+    DR_REG_START_64 = DR_REG_X1,  /**< Start of 64-bit register enum values. */
     DR_REG_STOP_64 = DR_REG_F31,  /**< End of 64-bit register enum values. */
-    DR_REG_START_32 = DR_REG_X0,  /**< Start of 32-bit register enum values. */
+    DR_REG_START_32 = DR_REG_X1,  /**< Start of 32-bit register enum values. */
     DR_REG_STOP_32 = DR_REG_F31,  /**< End of 32-bit register enum values. */
-    DR_REG_START_GPR = DR_REG_X0, /**< Start of general registers. */
+    DR_REG_START_GPR = DR_REG_X1, /**< Start of general registers. */
     DR_REG_STOP_GPR = DR_REG_X31, /**< End of general registers. */
     DR_REG_START_FPR = DR_REG_F0, /**< Start of floating-point registers. */
     DR_REG_STOP_FPR = DR_REG_F31, /**< End of floating-point registers. */
@@ -2891,7 +2891,7 @@ DR_API
  * \note ARM-only.
  */
 dr_shift_type_t
-opnd_get_index_shift(opnd_t opnd, uint *amount OUT);
+opnd_get_index_shift(opnd_t opnd, uint *amount DR_PARAM_OUT);
 
 DR_API
 /**
@@ -2916,7 +2916,7 @@ DR_API
  * \note AArch64-only.
  */
 dr_extend_type_t
-opnd_get_index_extend(opnd_t opnd, OUT bool *scaled, OUT uint *amount);
+opnd_get_index_extend(opnd_t opnd, DR_PARAM_OUT bool *scaled, DR_PARAM_OUT uint *amount);
 
 DR_API
 /**
@@ -3477,7 +3477,7 @@ DR_API
  * requested register.
  */
 bool
-reg_get_value_ex(reg_id_t reg, dr_mcontext_t *mc, OUT byte *val);
+reg_get_value_ex(reg_id_t reg, dr_mcontext_t *mc, DR_PARAM_OUT byte *val);
 
 DR_API
 /**
@@ -3506,7 +3506,7 @@ DR_API
  * Returns false if the register is not supported.
  */
 bool
-reg_set_value_ex(reg_id_t reg, dr_mcontext_t *mc, IN byte *val_buf);
+reg_set_value_ex(reg_id_t reg, dr_mcontext_t *mc, DR_PARAM_IN byte *val_buf);
 
 DR_API
 /**

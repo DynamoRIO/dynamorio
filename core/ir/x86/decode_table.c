@@ -1623,6 +1623,18 @@ const instr_info_t * const op_instr[] =
     /* AVX512 VPOPCNTDQ */
     /* OP_vpopcntd, */ &evex_Wb_extensions[274][0],
     /* OP_vpopcntq, */ &evex_Wb_extensions[274][2],
+
+    /* Supervisor Mode Access Prevention (SMAP) */
+    /* OP_clac */ &rm_extensions[1][2],
+    /* OP_stac */ &rm_extensions[1][3],
+
+    /* Supervisor versions of save/restore processor extended
+     * state operations.
+     */
+    /* OP_xsaves32 */  &rex_w_extensions[6][0],
+    /* OP_xsaves64 */  &rex_w_extensions[6][1],
+    /* OP_xrstors32 */  &rex_w_extensions[7][0],
+    /* OP_xrstors64 */  &rex_w_extensions[7][1],
 };
 
 
@@ -2079,6 +2091,7 @@ const instr_info_t * const op_instr[] =
 #define fRO   EFLAGS_READ_OF
 #define fRN   EFLAGS_READ_NT
 #define fRR   EFLAGS_READ_RF
+#define fRAC   EFLAGS_READ_AC
 #define fRX   EFLAGS_READ_ALL
 #define fR6   EFLAGS_READ_6
 #define fWC   EFLAGS_WRITE_CF
@@ -2092,6 +2105,7 @@ const instr_info_t * const op_instr[] =
 #define fWO   EFLAGS_WRITE_OF
 #define fWN   EFLAGS_WRITE_NT
 #define fWR   EFLAGS_WRITE_RF
+#define fWAC   EFLAGS_WRITE_AC
 #define fWX   EFLAGS_WRITE_ALL
 #define fW6   EFLAGS_WRITE_6
 /* flags affected by OP_int*
@@ -2943,9 +2957,9 @@ const instr_info_t base_extensions[][8] = {
     {INVALID, 0x0fc730, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_cmpxchg8b, 0x0fc731, catUncategorized, "cmpxchg8b", Mq_dq, eAX, Mq_dq, eAX, eDX, mrm_xop, fWZ, exop[0x07]},/*"cmpxchg16b" w/ rex.w*/
     {INVALID, 0x0fc732, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0x0fc733, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {REX_W_EXT, 0x0fc733, catUncategorized, "(rex.w ext 7)", xx, xx, xx, xx, xx, mrm, x, 7},
     {REX_W_EXT, 0x0fc734, catUncategorized, "(rex.w ext 5)", xx, xx, xx, xx, xx, mrm, x, 5},
-    {INVALID, 0x0fc735, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {REX_W_EXT, 0x0fc735, catUncategorized, "(rex.w ext 6)", xx, xx, xx, xx, xx, mrm, x, 6},
     {MOD_EXT, 0x0fc736, catUncategorized, "(group 9 mod ext 12)", xx, xx, xx, xx, xx, mrm, x, 12},
     {MOD_EXT, 0x0fc737, catUncategorized, "(mod ext 13)", xx, xx, xx, xx, xx, mrm, x, 13},
   },
@@ -7019,8 +7033,8 @@ const instr_info_t rm_extensions[][8] = {
     /* XXX i#4013: Treat address in xax as IR memref? */
     {OP_monitor, 0xc80f0171, catUncategorized, "monitor",  xx, xx, axAX, ecx, edx, mrm, x, END_LIST},
     {OP_mwait,   0xc90f0171, catUncategorized, "mwait",  xx, xx, eax, ecx, xx, mrm, x, END_LIST},
-    {INVALID,   0x0f0131, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,   0x0f0131, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_clac,   0xca0f0171, catUncategorized, "clac", xx, xx, xx, xx, xx, no, fWAC, NA},
+    {OP_stac,   0xcb0f0171, catUncategorized, "stac", xx, xx, xx, xx, xx, no, fWAC, NA},
     {INVALID,   0x0f0131, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f0131, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f0131, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
@@ -7231,6 +7245,14 @@ const instr_info_t rex_w_extensions[][2] = {
   { /* rex.w extension 5 */
     {OP_xsavec32, 0x0fc734, catFP | catState, "xsavec",   Mxsave, xx, edx, eax, xx, mrm, x, END_LIST},
     {OP_xsavec64, 0x0fc734, catFP | catState, "xsavec64", Mxsave, xx, edx, eax, xx, mrm|rex, o64, END_LIST},
+  },
+  { /* rex.w extension 6 */
+    {OP_xsaves32,   0x0fc735, catFP | catState, "xsaves",   Mxsave, xx, edx, eax, xx, mrm, x, END_LIST},
+    {OP_xsaves64,   0x0fc735, catFP | catState, "xsaves64", Mxsave, xx, edx, eax, xx, mrm|rex, o64, END_LIST},
+  },
+  { /* rex.w extension 7 */
+    {OP_xrstors32, 0x0fc733, catFP | catState, "xrstors",   xx, xx, Mxsave, edx, eax, mrm, x, END_LIST},
+    {OP_xrstors64, 0x0fc733, catFP | catState, "xrstors64", xx, xx, Mxsave, edx, eax, mrm|rex, o64, END_LIST},
   },
 };
 

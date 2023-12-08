@@ -86,6 +86,18 @@ public:
     get_cache_metric(metric_name_t metric, unsigned level, unsigned core = 0,
                      cache_split_t split = cache_split_t::DATA) const;
 
+    // Access snoop filter stats for coherent caches.
+    // These are not per-cache metrics so it doesn't make sense to access them
+    // through get_cache_metric().
+    int64_t
+    get_num_snooped_caches(void);
+    int64_t
+    get_num_snoop_writes(void);
+    int64_t
+    get_num_snoop_writebacks(void);
+    int64_t
+    get_num_snoop_invalidates(void);
+
     // Exposed to make it easy to test
     bool
     check_warmed_up();

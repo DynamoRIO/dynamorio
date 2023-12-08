@@ -54,14 +54,14 @@
 #include "elf_loader.h"
 #include "trace_entry.h"
 
-#ifndef IN
-#    define IN // nothing
+#ifndef DR_PARAM_IN
+#    define DR_PARAM_IN // nothing
 #endif
-#ifndef OUT
-#    define OUT // nothing
+#ifndef DR_PARAM_OUT
+#    define DR_PARAM_OUT // nothing
 #endif
-#ifndef INOUT
-#    define INOUT // nothing
+#ifndef DR_PARAM_INOUT
+#    define DR_PARAM_INOUT // nothing
 #endif
 
 // libipt global types.
@@ -338,7 +338,7 @@ public:
      * This function parses the metadata from the syscalls' PT raw trace.
      */
     bool
-    init_with_metadata(IN pt_metadata_t metadata, IN pt_metadata_ext_t metadata_ext)
+    init_with_metadata(DR_PARAM_IN pt_metadata_t metadata, DR_PARAM_IN pt_metadata_ext_t metadata_ext)
     {
         pt_config.cpu.family = metadata.cpu_family;
         pt_config.cpu.model = metadata.cpu_model;
@@ -379,7 +379,7 @@ public:
      * @return true if the instance is successfully initialized.
      */
     bool
-    init(IN pt2ir_config_t &pt2ir_config, IN int verbosity = 0);
+    init(DR_PARAM_IN pt2ir_config_t &pt2ir_config, DR_PARAM_IN int verbosity = 0);
 
     /**
      * The convert function performs two processes:
@@ -394,7 +394,8 @@ public:
      * error code.
      */
     pt2ir_convert_status_t
-    convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t &drir);
+    convert(DR_PARAM_IN const uint8_t *pt_data, DR_PARAM_IN size_t pt_data_size,
+            DR_PARAM_INOUT drir_t *drir);
 
 private:
     /* Pre-decoding involves determining the final data packet's offset for setting a stop
@@ -414,7 +415,8 @@ private:
      * It will used to generate the error message during the decoding process.
      */
     void
-    dx_decoding_error(IN int errcode, IN const char *errtype, IN uint64_t ip);
+    dx_decoding_error(DR_PARAM_IN int errcode, DR_PARAM_IN const char *errtype,
+                      DR_PARAM_IN uint64_t ip);
 
     /* It indicate if the instance of pt2ir_t has been initialized, signifying the
      * readiness of the conversion process from PT data to DR's IR.

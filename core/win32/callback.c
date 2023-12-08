@@ -121,11 +121,14 @@ static byte *syscall_trampolines_end = NULL;
    instead of a stub in our module. The loader does the rest of the magic.
 */
 GET_NTDLL(KiUserApcDispatcher,
-          (IN PVOID Unknown1, IN PVOID Unknown2, IN PVOID Unknown3, IN PVOID ContextStart,
-           IN PVOID ContextBody));
+          (DR_PARAM_IN PVOID Unknown1, DR_PARAM_IN PVOID Unknown2,
+           DR_PARAM_IN PVOID Unknown3, DR_PARAM_IN PVOID ContextStart,
+           DR_PARAM_IN PVOID ContextBody));
 GET_NTDLL(KiUserCallbackDispatcher,
-          (IN PVOID Unknown1, IN PVOID Unknown2, IN PVOID Unknown3));
-GET_NTDLL(KiUserExceptionDispatcher, (IN PVOID Unknown1, IN PVOID Unknown2));
+          (DR_PARAM_IN PVOID Unknown1, DR_PARAM_IN PVOID Unknown2,
+           DR_PARAM_IN PVOID Unknown3));
+GET_NTDLL(KiUserExceptionDispatcher,
+          (DR_PARAM_IN PVOID Unknown1, DR_PARAM_IN PVOID Unknown2));
 GET_NTDLL(KiRaiseUserExceptionDispatcher, (void));
 
 /* generated routine for taking over native threads */
@@ -729,7 +732,7 @@ insert_let_go_cleanup(dcontext_t *dcontext, byte *pc, instrlist_t *ilist,
 #define JMP_SIZE (IF_X64_ELSE(JMP_ABS_IND64_SIZE, JMP_REL32_SIZE))
 static byte *
 emit_landing_pad_code(byte *lpad_buf, const byte *tgt_pc, const byte *after_hook_pc,
-                      size_t displaced_app_size, byte **displaced_app_loc OUT,
+                      size_t displaced_app_size, byte **displaced_app_loc DR_PARAM_OUT,
                       bool *changed_prot)
 {
     byte *lpad_entry = lpad_buf;
@@ -889,7 +892,7 @@ static byte *
 emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
                     void *callee_arg, bool assume_xsp, bool assume_not_on_dstack,
                     after_intercept_action_t action_after, byte *alternate_after,
-                    byte **alt_after_tgt_p OUT)
+                    byte **alt_after_tgt_p DR_PARAM_OUT)
 {
     instrlist_t ilist;
     instr_t *inst, *push_start, *push_start2 = NULL;
@@ -3538,7 +3541,8 @@ cb stack when an exception will abandon that cb frame.
  *
  * ASSUMPTIONS:
  *    1) *(esp+0x0) == PKNORMAL_ROUTINE ApcRoutine
- *       (IN PVOID NormalContext, IN PVOID SystemArgument1, IN PVOID SystemArgument2)
+ *       (DR_PARAM_IN PVOID NormalContext, DR_PARAM_IN PVOID SystemArgument1, DR_PARAM_IN
+PVOID SystemArgument2)
  *      call* native target
  *      The next three arguments on the stack are just passed through
  *      to this function, and are the arguments passed by
@@ -4662,8 +4666,8 @@ exception_frame_chain_depth(dcontext_t *dcontext)
 void
 dump_context_info(CONTEXT *context, file_t file, bool all)
 {
-#    define DUMP(r) LOG(file, LOG_ASYNCH, 2, #    r "=" PFX " ", context->r);
-#    define DUMPNM(r, nm) LOG(file, LOG_ASYNCH, 2, #    nm "=" PFX " ", context->r);
+#    define DUMP(r) LOG(file, LOG_ASYNCH, 2, #r "=" PFX " ", context->r);
+#    define DUMPNM(r, nm) LOG(file, LOG_ASYNCH, 2, #nm "=" PFX " ", context->r);
 #    define NEWLINE LOG(file, LOG_ASYNCH, 2, "\n  ");
     DUMP(ContextFlags);
     NEWLINE;
@@ -6799,8 +6803,9 @@ get_pc_after_call(byte *entry, byte **cbret)
                     }
                 } else if (instr_is_call_direct(&instr)) {
                     GET_NTDLL(NtCallbackReturn,
-                              (IN PVOID Result OPTIONAL, IN ULONG ResultLength,
-                               IN NTSTATUS Status));
+                              (DR_PARAM_IN PVOID Result OPTIONAL,
+                               DR_PARAM_IN ULONG ResultLength,
+                               DR_PARAM_IN NTSTATUS Status));
                     if (opnd_get_pc(instr_get_target(&instr)) ==
                         (app_pc)NtCallbackReturn) {
                         LOG(THREAD_GET, LOG_ASYNCH, 2,
@@ -6828,9 +6833,10 @@ get_pc_after_call(byte *entry, byte **cbret)
  * 3rd-party hooks (i#1663).
  */
 GET_NTDLL(LdrLoadDll,
-          (IN PWSTR DllPath OPTIONAL, IN PULONG DllCharacteristics OPTIONAL,
-           IN PUNICODE_STRING DllName, OUT PVOID *DllHandle));
-GET_NTDLL(LdrUnloadDll, (IN PVOID DllHandle));
+          (DR_PARAM_IN PWSTR DllPath OPTIONAL,
+           DR_PARAM_IN PULONG DllCharacteristics OPTIONAL,
+           DR_PARAM_IN PUNICODE_STRING DllName, DR_PARAM_OUT PVOID *DllHandle));
+GET_NTDLL(LdrUnloadDll, (DR_PARAM_IN PVOID DllHandle));
 
 /* i#1663: since we rarely need these 2 hooks, and they are the most likely
  * of our hooks to conflict with an app's hooks, we avoid placing them

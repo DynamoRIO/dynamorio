@@ -219,10 +219,13 @@ drx_aflags_are_dead(instr_t *where)
  * INSTRUMENTATION
  */
 
-#ifdef AARCHXX
 /* XXX i#1603: add liveness analysis and pick dead regs */
+#if defined(AARCHXX)
 #    define SCRATCH_REG0 DR_REG_R0
 #    define SCRATCH_REG1 DR_REG_R1
+#elif defined(RISCV64)
+#    define SCRATCH_REG0 DR_REG_A0
+#    define SCRATCH_REG1 DR_REG_A1
 #endif
 
 /* insert a label instruction with note */
@@ -419,14 +422,14 @@ DR_EXPORT
 bool
 drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
                           dr_spill_slot_t slot,
-                          IF_AARCHXX_(dr_spill_slot_t slot2) void *addr, int value,
-                          uint flags)
+                          IF_AARCHXX_OR_RISCV64_(dr_spill_slot_t slot2) void *addr,
+                          int value, uint flags)
 {
     instr_t *instr;
     bool use_drreg = false;
 #ifdef X86
     bool save_aflags = true;
-#elif defined(AARCHXX)
+#elif defined(AARCHXX) || defined(RISCV64)
     bool save_regs = true;
     reg_id_t reg1, reg2;
 #endif
@@ -443,7 +446,8 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
     if (drmgr_current_bb_phase(drcontext) == DRMGR_PHASE_INSERTION) {
         use_drreg = true;
         if (drmgr_current_bb_phase(drcontext) == DRMGR_PHASE_INSERTION &&
-            (slot != SPILL_SLOT_MAX + 1 IF_AARCHXX(|| slot2 != SPILL_SLOT_MAX + 1))) {
+            (slot !=
+             SPILL_SLOT_MAX + 1 IF_AARCHXX_OR_RISCV64(|| slot2 != SPILL_SLOT_MAX + 1))) {
             ASSERT(false, "with drmgr, SPILL_SLOT_MAX+1 must be passed");
             return false;
         }
@@ -454,9 +458,9 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
 
     /* check whether we can add lock */
     if (TEST(DRX_COUNTER_LOCK, flags)) {
-#ifdef AARCHXX
-        /* TODO i#1551,i#1569: implement for AArchXX. */
-        ASSERT(false, "DRX_COUNTER_LOCK not implemented for AArchXX");
+#if defined(AARCHXX) || defined(RISCV64)
+        /* TODO i#1551,i#1569,i#3544: implement for AArchXX/RISCV64. */
+        ASSERT(false, "DRX_COUNTER_LOCK not implemented for AArchXX/RISCV64");
         return false;
 #endif
         if (IF_NOT_X64(is_64 ||) /* 64-bit counter in 32-bit mode */
@@ -514,12 +518,12 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
                                     true /* restore oflag */, slot, DR_REG_NULL);
         }
     }
-#elif defined(AARCHXX)
-#    ifdef ARM
+#endif
+#ifdef ARM
     /* FIXME i#1551: implement 64-bit counter support */
     ASSERT(!is_64, "DRX_COUNTER_64BIT is not implemented for ARM_32");
-#    endif /* ARM */
-
+#endif /* ARM */
+#if defined(AARCHXX) || defined(RISCV64)
     if (use_drreg) {
         if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg1) !=
                 DRREG_SUCCESS ||
@@ -567,7 +571,7 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
         MINSERT(ilist, where,
                 INSTR_CREATE_stlr(drcontext, OPND_CREATE_MEMPTR(reg1, 0),
                                   opnd_create_reg(reg2)));
-#    else /* ARM */
+#    elif defined(ARM)
         MINSERT(ilist, where,
                 XINST_CREATE_load(drcontext, opnd_create_reg(reg2),
                                   OPND_CREATE_MEMPTR(reg1, 0)));
@@ -585,11 +589,14 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
         MINSERT(ilist, where,
                 XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg1, 0),
                                    opnd_create_reg(reg2)));
+#    else /* RISCV64 */
+        ASSERT(false, "DRX_COUNTER_REL_ACQ not implemented for RISCV64");
 #    endif
     } else {
         MINSERT(ilist, where,
                 XINST_CREATE_load(drcontext, opnd_create_reg(reg2),
                                   OPND_CREATE_MEMPTR(reg1, 0)));
+#    ifdef AARCHXX
         if (value >= 0) {
             MINSERT(ilist, where,
                     XINST_CREATE_add(drcontext, opnd_create_reg(reg2),
@@ -599,6 +606,11 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
                     XINST_CREATE_sub(drcontext, opnd_create_reg(reg2),
                                      OPND_CREATE_INT(-value)));
         }
+#    else /* RISCV64 */
+        MINSERT(
+            ilist, where,
+            XINST_CREATE_add(drcontext, opnd_create_reg(reg2), OPND_CREATE_INT(value)));
+#    endif
         MINSERT(ilist, where,
                 XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg1, 0),
                                    opnd_create_reg(reg2)));
@@ -615,15 +627,6 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
         ilist_insert_note_label(drcontext, ilist, where,
                                 NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_END));
     }
-#elif defined(RISCV64)
-    /* FIXME i#3544: Not implemented - below to make compiler happy */
-    ASSERT(false, "Not implemented");
-    instr = merge_prev_drx_spill(ilist, where, false);
-    ilist_insert_note_label(drcontext, ilist, where,
-                            NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_BEGIN));
-    ilist_insert_note_label(drcontext, ilist, where,
-                            NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_END));
-    return false;
 #endif
     return true;
 }
@@ -736,9 +739,10 @@ typedef LONG NTSTATUS;
 #    define GET_NTDLL(NtFunction, signature) NTSYSAPI NTSTATUS NTAPI NtFunction signature
 
 GET_NTDLL(NtQueryInformationJobObject,
-          (IN HANDLE JobHandle, IN JOBOBJECTINFOCLASS JobInformationClass,
-           OUT PVOID JobInformation, IN ULONG JobInformationLength,
-           OUT PULONG ReturnLength OPTIONAL));
+          (DR_PARAM_IN HANDLE JobHandle,
+           DR_PARAM_IN JOBOBJECTINFOCLASS JobInformationClass,
+           DR_PARAM_OUT PVOID JobInformation, DR_PARAM_IN ULONG JobInformationLength,
+           DR_PARAM_OUT PULONG ReturnLength OPTIONAL));
 
 #    define STATUS_BUFFER_OVERFLOW ((NTSTATUS)0x80000005L)
 
@@ -761,10 +765,13 @@ typedef struct _PROCESS_BASIC_INFORMATION {
 typedef PROCESS_BASIC_INFORMATION *PPROCESS_BASIC_INFORMATION;
 
 GET_NTDLL(NtQueryInformationProcess,
-          (IN HANDLE ProcessHandle, IN PROCESSINFOCLASS ProcessInformationClass,
-           OUT PVOID ProcessInformation, IN ULONG ProcessInformationLength,
-           OUT PULONG ReturnLength OPTIONAL));
-GET_NTDLL(NtTerminateProcess, (IN HANDLE ProcessHandle, IN NTSTATUS ExitStatus));
+          (DR_PARAM_IN HANDLE ProcessHandle,
+           DR_PARAM_IN PROCESSINFOCLASS ProcessInformationClass,
+           DR_PARAM_OUT PVOID ProcessInformation,
+           DR_PARAM_IN ULONG ProcessInformationLength,
+           DR_PARAM_OUT PULONG ReturnLength OPTIONAL));
+GET_NTDLL(NtTerminateProcess,
+          (DR_PARAM_IN HANDLE ProcessHandle, DR_PARAM_IN NTSTATUS ExitStatus));
 
 static ssize_t
 num_job_object_pids(HANDLE job)
@@ -1406,7 +1413,7 @@ drx_instrlist_app_size(instrlist_t *ilist)
 
 file_t
 drx_open_unique_file(const char *dir, const char *prefix, const char *suffix,
-                     uint extra_flags, char *result OUT, size_t result_len)
+                     uint extra_flags, char *result DR_PARAM_OUT, size_t result_len)
 {
     char buf[MAXIMUM_PATH];
     file_t f = INVALID_FILE;
@@ -1432,8 +1439,8 @@ drx_open_unique_file(const char *dir, const char *prefix, const char *suffix,
 
 file_t
 drx_open_unique_appid_file(const char *dir, ptr_int_t id, const char *prefix,
-                           const char *suffix, uint extra_flags, char *result OUT,
-                           size_t result_len)
+                           const char *suffix, uint extra_flags,
+                           char *result DR_PARAM_OUT, size_t result_len)
 {
     int len;
     char appid[MAXIMUM_PATH];
@@ -1451,7 +1458,8 @@ drx_open_unique_appid_file(const char *dir, ptr_int_t id, const char *prefix,
 
 bool
 drx_open_unique_appid_dir(const char *dir, ptr_int_t id, const char *prefix,
-                          const char *suffix, char *result OUT, size_t result_len)
+                          const char *suffix, char *result DR_PARAM_OUT,
+                          size_t result_len)
 {
     char buf[MAXIMUM_PATH];
     int i;

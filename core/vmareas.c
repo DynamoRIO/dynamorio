@@ -2048,9 +2048,9 @@ vmvector_lookup_data(vm_area_vector_t *v, app_pc pc, app_pc *start /* OUT */,
  * should this routine do both to avoid an extra binary search?
  */
 bool
-vmvector_lookup_prev_next(vm_area_vector_t *v, app_pc pc, OUT app_pc *prev_start,
-                          OUT app_pc *prev_end, OUT app_pc *next_start,
-                          OUT app_pc *next_end)
+vmvector_lookup_prev_next(vm_area_vector_t *v, app_pc pc, DR_PARAM_OUT app_pc *prev_start,
+                          DR_PARAM_OUT app_pc *prev_end, DR_PARAM_OUT app_pc *next_start,
+                          DR_PARAM_OUT app_pc *next_end)
 {
     bool success;
     int index;
@@ -2630,8 +2630,9 @@ add_executable_vm_area_helper(app_pc start, app_pc end, uint vm_flags, uint frag
 }
 
 static coarse_info_t *
-vm_area_load_coarse_unit(app_pc *start INOUT, app_pc *end INOUT, uint vm_flags,
-                         uint frag_flags, bool delayed _IF_DEBUG(const char *comment))
+vm_area_load_coarse_unit(app_pc *start DR_PARAM_INOUT, app_pc *end DR_PARAM_INOUT,
+                         uint vm_flags, uint frag_flags,
+                         bool delayed _IF_DEBUG(const char *comment))
 {
     coarse_info_t *info;
     /* We load persisted cache files at mmap time primarily for RCT
@@ -8309,10 +8310,10 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
     }
 
     /* we are building a real bb, assert consistency checks */
-    /* XXX i#4257: These memqueries are surprisingly slow on Mac64 and AArch64.
+    /* XXX i#4257: These memqueries are surprisingly slow on Mac64, AArch64 and RISC-V.
      * Investigation is needed.  For now we avoid them in default debug runs.
      */
-    DOCHECK(IF_MACOS64_ELSE(3, IF_AARCH64_ELSE(3, 1)), {
+    DOCHECK(IF_MACOS64_ELSE(3, IF_AARCH64_ELSE(3, IF_RISCV64_ELSE(3, 1))), {
         uint prot2;
         ok = get_memory_info(pc, NULL, NULL, &prot2);
         ASSERT(!ok || !TEST(MEMPROT_WRITE, prot2) ||

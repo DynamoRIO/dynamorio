@@ -59,6 +59,7 @@ struct cache_params_t {
         , size(0)
         , assoc(0)
         , inclusive(false)
+        , exclusive(false)
         , parent(CACHE_PARENT_MEMORY)
         , replace_policy(REPLACE_POLICY_LRU)
         , prefetcher(PREFETCH_POLICY_NONE)
@@ -79,6 +80,8 @@ struct cache_params_t {
     unsigned int assoc;
     // Is the cache inclusive of its children.
     bool inclusive;
+    // Is the cache exclusive of its children.
+    bool exclusive;
     // Name of the cache's parent. LLC's parent is main memory
     // (CACHE_PARENT_MEMORY).
     std::string parent;

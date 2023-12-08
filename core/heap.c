@@ -122,7 +122,7 @@ static const uint BLOCK_SIZES[] = {
     sizeof(fragment_t) + sizeof(direct_linkstub_t) +
         sizeof(cbr_fallthrough_linkstub_t), /* 60 dbg / 56 rel */
 #    ifndef DEBUG
-    sizeof(instr_t),                        /* 72 */
+    sizeof(instr_t), /* 72 */
 #    endif
 #endif
     /* we keep this bucket even though only 10% or so of normal bbs
@@ -537,7 +537,8 @@ request_region_be_heap_reachable(byte *start, size_t size)
 }
 
 void
-vmcode_get_reachable_region(byte **region_start OUT, byte **region_end OUT)
+vmcode_get_reachable_region(byte **region_start DR_PARAM_OUT,
+                            byte **region_end DR_PARAM_OUT)
 {
     /* We track sub-page for more accuracy on additional constraints, and
      * align when asked about it.
@@ -1114,8 +1115,8 @@ vmm_is_reserved_unit(vm_heap_t *vmh, vm_addr_t p, size_t size)
 }
 
 static inline bool
-is_vmh_reserved_address(vm_heap_t *vmh, byte *pc, size_t size, OUT byte **region_start,
-                        OUT byte **region_end)
+is_vmh_reserved_address(vm_heap_t *vmh, byte *pc, size_t size,
+                        DR_PARAM_OUT byte **region_start, DR_PARAM_OUT byte **region_end)
 {
     /* Case 10293: we don't call vmm_is_reserved_unit to avoid its
      * assert, which we want to maintain for callers only dealing with
@@ -1138,8 +1139,8 @@ is_vmh_reserved_address(vm_heap_t *vmh, byte *pc, size_t size, OUT byte **region
  * Does not consider memory we allocate once we run out of our original reservations.
  */
 bool
-is_vmm_reserved_address(byte *pc, size_t size, OUT byte **region_start,
-                        OUT byte **region_end)
+is_vmm_reserved_address(byte *pc, size_t size, DR_PARAM_OUT byte **region_start,
+                        DR_PARAM_OUT byte **region_end)
 {
     ASSERT(heapmgt != NULL);
     if (heapmgt->vmheap.start_addr != NULL &&
@@ -1232,7 +1233,7 @@ vmm_get_writable_addr(byte *exec_addr, which_vmm_t which)
 
 /* The caller must first ensure this is a vmcode address.  Returns p_writable. */
 static inline vm_addr_t
-vmm_normalize_addr(vm_heap_t *vmh, INOUT vm_addr_t *p_exec)
+vmm_normalize_addr(vm_heap_t *vmh, DR_PARAM_INOUT vm_addr_t *p_exec)
 {
     vm_addr_t p = *p_exec;
     if (p < vmh->start_addr || p >= vmh->end_addr) {
@@ -3298,7 +3299,7 @@ is_stack_overflow(dcontext_t *dcontext, byte *sp)
 }
 
 byte *
-d_r_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
+d_r_map_file(file_t f, size_t *size DR_PARAM_INOUT, uint64 offs, app_pc addr, uint prot,
              map_flags_t map_flags)
 {
     byte *view;

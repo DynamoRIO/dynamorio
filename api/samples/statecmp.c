@@ -65,7 +65,7 @@ error_callback(const char *msg, void *tag)
 
 static dr_emit_flags_t
 event_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-               bool translating, OUT void **user_data)
+               bool translating, DR_PARAM_OUT void **user_data)
 {
 
     bool *side_effect_free = (bool *)dr_thread_alloc(drcontext, sizeof(bool));
