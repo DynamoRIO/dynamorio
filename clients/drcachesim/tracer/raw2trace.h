@@ -1266,11 +1266,19 @@ protected:
     read_syscall_template_file();
 
     /**
+     * Returns the app pc of the first instruction in the system call template
+     * read for syscall_num. Returns nullptr if it could not find it.
+     */
+    app_pc
+    get_first_app_pc_for_syscall_template(int syscall_num);
+
+    /**
      * Writes the system call template to the output trace, if any was provided in
      * the system call template file for the given syscall_num.
      */
     bool
-    write_syscall_template(raw2trace_thread_data_t *tdata, int syscall_num);
+    write_syscall_template(raw2trace_thread_data_t *tdata, byte *&buf,
+                           trace_entry_t *buf_base, int syscall_num);
 
     /**
      * The pointer to the DR context.

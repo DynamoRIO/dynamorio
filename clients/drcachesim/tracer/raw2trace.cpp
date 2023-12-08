@@ -583,8 +583,22 @@ module_mapper_t::write_module_data(char *buf, size_t buf_size,
  * Top-level
  */
 
+app_pc
+raw2trace_t::get_first_app_pc_for_syscall_template(int syscall_num)
+{
+    auto it = syscall_trace_templates_[syscall_num].begin();
+    while (it != syscall_trace_templates_[syscall_num].end()) {
+        if (type_is_instr(static_cast<trace_type_t>(it->type))) {
+            return reinterpret_cast<app_pc>(it->addr);
+        }
+        ++it;
+    }
+    return nullptr;
+}
+
 bool
-raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, int syscall_num)
+raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, byte *&buf_in,
+                                    trace_entry_t *buf_base, int syscall_num)
 {
     // Check if we have a template for this system call.
     if (syscall_trace_templates_.find(syscall_num) == syscall_trace_templates_.end())
@@ -595,17 +609,38 @@ raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, int syscall_
                        "template.";
         return false;
     }
-    trace_entry_t *buf_base = get_write_buffer(tdata);
-    trace_entry_t *buf = buf_base;
+    // Write out delayed branches if any. When we're at a system call number marker
+    // any delayed branches should already be written out at the prior syscall
+    // instruction. However, on Win32 the WOW64 calls are treated as a system call
+    // (has a corresponding system call number marker) but is also a CTI so is
+    // delayed. We expect delayed branches only in that case.
+    if (delayed_branches_exist(tdata)) {
+        app_pc next_pc = get_first_app_pc_for_syscall_template(syscall_num);
+        if (next_pc == nullptr) {
+            tdata->error = "Could not find first app pc in system call template for " +
+                std::to_string(syscall_num);
+            return false;
+        }
+        if (!append_delayed_branch(tdata, next_pc))
+            return false;
+    }
+    trace_entry_t *buf = reinterpret_cast<trace_entry_t *>(buf_in);
     trace_entry_t start_entry = { TRACE_TYPE_MARKER,
                                   TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
                                   { static_cast<addr_t>(syscall_num) } };
     *buf = start_entry;
     ++buf;
+    // Now write any accumulated entries from before and the start entry.
+    size_t size = buf - buf_base;
+    if ((uint)size >= WRITE_BUFFER_SIZE) {
+        tdata->error = "Too many entries";
+        return false;
+    }
     if (!write(tdata, buf_base, buf)) {
         return false;
     }
     buf = buf_base;
+    buf_in = reinterpret_cast<byte *>(buf_base); // Defensive: update the returned buf.
 
     app_pc saved_decode_pc;
     int inserted_instr_count = 0;
@@ -650,6 +685,7 @@ raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, int syscall_
     if (!write(tdata, buf_base, buf)) {
         return false;
     }
+    buf_in = reinterpret_cast<byte *>(buf_base);
     log(2, "Inserted %s instrs from system call trace template for sysnum %d\n",
         inserted_instr_count, syscall_num);
     return true;
@@ -712,26 +748,16 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
             // process_next_thread_buffer() so there is no need to have a separate
             // check for it here.
             if (marker_type != TRACE_MARKER_TYPE_CPU_ID) {
+                if (syscall_template_file_reader_ != nullptr &&
+                    marker_type == TRACE_MARKER_TYPE_SYSCALL) {
+                    // Also writes out the delayed branches if any.
+                    if (!write_syscall_template(tdata, buf, buf_base,
+                                                static_cast<int>(marker_val)))
+                        return false;
+                }
                 if (delayed_branches_exist(tdata)) {
-                    // Any un-written delayed branches should've been written out already
-                    // at the prior syscall instruction.
-                    // DR_ASSERT(marker_type != TRACE_MARKER_TYPE_SYSCALL);
                     return write_delayed_branches(tdata, buf_base,
                                                   reinterpret_cast<trace_entry_t *>(buf));
-                } else if (syscall_template_file_reader_ != nullptr &&
-                           marker_type == TRACE_MARKER_TYPE_SYSCALL) {
-                    size_t size = reinterpret_cast<trace_entry_t *>(buf) - buf_base;
-                    if ((uint)size >= WRITE_BUFFER_SIZE) {
-                        tdata->error = "Too many entries";
-                        return false;
-                    }
-                    if (size > 0 &&
-                        !write(tdata, buf_base, reinterpret_cast<trace_entry_t *>(buf))) {
-                        return false;
-                    }
-                    buf = reinterpret_cast<byte *>(buf_base);
-                    if (!write_syscall_template(tdata, static_cast<int>(marker_val)))
-                        return false;
                 }
             }
             log(3, "Appended marker type %u value " PIFX "\n", marker_type,
