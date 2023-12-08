@@ -712,14 +712,15 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
             // process_next_thread_buffer() so there is no need to have a separate
             // check for it here.
             if (marker_type != TRACE_MARKER_TYPE_CPU_ID) {
+                bool wrote_delayed_branches = false;
                 if (delayed_branches_exist(tdata)) {
-                    // Any un-written delayed branches should've been written out already
-                    // at the prior syscall instruction.
-                    // DR_ASSERT(marker_type != TRACE_MARKER_TYPE_SYSCALL);
-                    return write_delayed_branches(tdata, buf_base,
-                                                  reinterpret_cast<trace_entry_t *>(buf));
-                } else if (syscall_template_file_reader_ != nullptr &&
-                           marker_type == TRACE_MARKER_TYPE_SYSCALL) {
+                    if (!write_delayed_branches(tdata, buf_base,
+                                                reinterpret_cast<trace_entry_t *>(buf)))
+                        return false;
+                    wrote_delayed_branches = true;
+                }
+                if (syscall_template_file_reader_ != nullptr &&
+                    marker_type == TRACE_MARKER_TYPE_SYSCALL) {
                     size_t size = reinterpret_cast<trace_entry_t *>(buf) - buf_base;
                     if ((uint)size >= WRITE_BUFFER_SIZE) {
                         tdata->error = "Too many entries";
@@ -733,6 +734,8 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                     if (!write_syscall_template(tdata, static_cast<int>(marker_val)))
                         return false;
                 }
+                if (wrote_delayed_branches)
+                    return true;
             }
             log(3, "Appended marker type %u value " PIFX "\n", marker_type,
                 (uintptr_t)in_entry->extended.valueA);
