@@ -139,6 +139,7 @@ If you want to add a new field:
        - `arg_name`: Name to use in instruction creation macros.
        - `is_dest`: True if it is a destination operand.
        - `is_implicit`: True if it is an implicit operand.
+       - `as_decimal`: True if displayed as decimal.
        - `opsz_def`: Operand size (`OPSZ_*` value) or if this field decodes into
          an operand of a different size depending on instruction - dictionary
          indexed by instruction mnemonic with operand size values.

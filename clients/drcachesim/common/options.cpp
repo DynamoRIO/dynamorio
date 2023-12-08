@@ -851,6 +851,11 @@ droption_t<uint64_t> op_sched_blocking_switch_us(
     "maybe-blocking to incur a context switch. Applies to -core_sharded and "
     "-core_serial. ");
 
+droption_t<double>
+    op_sched_block_scale(DROPTION_SCOPE_ALL, "sched_block_scale", 1.,
+                         "Input block time scale factor",
+                         "A higher value here results in blocking syscalls "
+                         "keeping inputs unscheduled for longer.");
 #ifdef HAS_ZIP
 droption_t<std::string> op_record_file(DROPTION_SCOPE_FRONTEND, "record_file", "",
                                        "Path for storing record of schedule",

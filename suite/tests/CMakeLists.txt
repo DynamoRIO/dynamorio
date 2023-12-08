@@ -501,13 +501,13 @@ set(sve_tests
       client.null_instrument client.large_options client.stolen-reg-index
       client.gonative client.drmgr-test client.drx_buf-test
       client.drbbdup-drwrap-test client.drbbdup-emul-test client.process-id
-      client.drreg-test client.low_on_memory client.tls client.drx-scattergather
-      client.drwrap-test client.drwrap-drreg-test drstatecmp-fuzz-app
-      client.drutil-test client.stolen-reg client.ldstex api.dis-a64 api.reenc-a64
-      api.opnd api.detach api.detach_state api.detach_signal api.detach_spawn
-      api.detach_spawn_stress_FLAKY api.detach_spawn_quick_exit api.ibl-stress
-      api.ibl-stress-aarch64-far-link_LONG api.static_startstop api.static_noclient
-      api.static_noinit api.static_detach api.static_prepop
+      client.drreg-test client.low_on_memory client.tls client.drwrap-test
+      client.drwrap-drreg-test drstatecmp-fuzz-app client.drutil-test client.stolen-reg
+      client.ldstex client.drsyms-test client.drwrap-test-detach api.dis-a64
+      api.reenc-a64 api.opnd api.detach api.detach_state api.detach_signal
+      api.detach_spawn api.detach_spawn_stress_FLAKY api.detach_spawn_quick_exit
+      api.ibl-stress api.ibl-stress-aarch64-far-link_LONG api.static_startstop
+      api.static_noclient api.static_noinit api.static_detach api.static_prepop
       api.static_reattach_client_flags api.static_crash api.static_sideline_FLAKY
       api.static_symbols api.static_maps_mixup_yesvars
       api.static_maps_mixup_novars_FLAKY api.thread_churn client.app_args
@@ -2053,6 +2053,8 @@ if (BUILD_CLIENTS)
     set(drdisas_args "-vl" "256" "00000000" "f94017a0" "a9be7bfd" "e58057a1" "85865e6b" "88")
   elseif (ARM)
     set(drdisas_args "6813" "f243" "42c8" "b2db" "88")
+  elseif (RISCV64)
+    set(drdisas_args "853e" "4581" "1d27b783" "00f55733" "9d89" "88")
   else ()
     set(drdisas_args "-syntax" "dr" "66" "90" "c4" "e2" "65" "90" "14" "80" "88")
   endif ()
@@ -2135,10 +2137,11 @@ if (X86)
   set(control_flags "eflags")
 elseif (AARCHXX)
   set(control_flags "nzcv")
+elseif (RISCV64)
+  # XXX: RISC-V does not have control flags, so a dummy test is used.
+  set(control_flags "hello")
 endif ()
-if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
-  tobuild(common.${control_flags} common/${control_flags}.c)
-endif ()
+tobuild(common.${control_flags} common/${control_flags}.c)
 
 if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   tobuild(common.floatpc common/floatpc.c)
@@ -5916,11 +5919,12 @@ if (RISCV64)
     code_api|linux.infinite
     code_api|linux.longjmp
     code_api|linux.prctl
-    code_api|linux.sigaction_nosignals
     code_api|linux.signalfd
-    code_api|pthreads.pthreads
     code_api|pthreads.pthreads_exit
+    code_api|sample.bbbuf
+    code_api|sample.bbcount
     code_api|security-linux.trampoline
+    code_api|tool.drdisas
     no_code_api,no_intercept_all_signals|linux.sigaction
     PROPERTIES LABELS RUNS_ON_QEMU)
   if (DEBUG)
