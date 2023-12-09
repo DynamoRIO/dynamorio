@@ -160,7 +160,8 @@ analyzer_multi_t::analyzer_multi_t()
         if (needs_processing) {
             raw2trace_directory_t dir(op_verbose.get_value());
             std::string dir_err =
-                dir.initialize(op_indir.get_value(), "", op_trace_compress.get_value());
+                dir.initialize(op_indir.get_value(), "", op_trace_compress.get_value(),
+                               op_syscall_template_file.get_value());
             if (!dir_err.empty()) {
                 success_ = false;
                 error_string_ = "Directory setup failed: " + dir_err;
@@ -171,7 +172,8 @@ analyzer_multi_t::analyzer_multi_t()
                 dir.encoding_file_, dir.serial_schedule_file_, dir.cpu_schedule_file_,
                 nullptr, op_verbose.get_value(), op_jobs.get_value(),
                 op_alt_module_dir.get_value(), op_chunk_instr_count.get_value(),
-                dir.in_kfiles_map_, dir.kcoredir_, dir.kallsymsdir_);
+                dir.in_kfiles_map_, dir.kcoredir_, dir.kallsymsdir_,
+                std::move(dir.syscall_template_file_reader_));
             std::string error = raw2trace.do_conversion();
             if (!error.empty()) {
                 success_ = false;
