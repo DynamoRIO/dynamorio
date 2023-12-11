@@ -1015,7 +1015,8 @@ protected:
         // Used to switch before we've read the next instruction.
         bool switching_pre_instruction = false;
         // Used for time-based quanta.
-        uint64_t start_time_in_quantum = 0;
+        uint64_t prev_time_in_quantum = 0;
+        uint64_t time_in_quantum = 0;
         // These fields model waiting at a blocking syscall.
         double block_time_factor = 0.;
         uint64_t blocked_start_time = 0; // For QUANTUM_TIME only.
