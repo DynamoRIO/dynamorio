@@ -236,8 +236,9 @@ DR_API
 size_t
 proc_save_fpstate(byte *buf)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    /* All registers are saved by insert_push_all_registers so nothing extra
+     * needs to be saved here.
+     */
     return DR_FPSTATE_BUF_SIZE;
 }
 
@@ -245,8 +246,7 @@ DR_API
 void
 proc_restore_fpstate(byte *buf)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    /* Nothing to restore. */
 }
 
 void
