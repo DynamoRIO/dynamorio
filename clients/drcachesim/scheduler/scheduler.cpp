@@ -1724,8 +1724,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_cur_input(output_ordinal_t output,
     if (prev_input == input)
         return STATUS_OK;
     std::lock_guard<std::mutex> lock(*inputs_[input].lock);
-    inputs_[input].instrs_in_quantum = 0;
-    inputs_[input].start_time_in_quantum = outputs_[output].cur_time;
+    inputs_[input].prev_time_in_quantum = outputs_[output].cur_time;
     if (options_.schedule_record_ostream != nullptr) {
         uint64_t instr_ord = inputs_[input].reader->get_instruction_ordinal();
         if (!inputs_[input].recorded_in_schedule && instr_ord == 1) {
@@ -2104,8 +2103,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
     auto lock = std::unique_lock<std::mutex>(*input->lock);
     // Since we do not ask for a start time, we have to check for the first record from
     // each input and set the time here.
-    if (input->start_time_in_quantum == 0)
-        input->start_time_in_quantum = cur_time;
+    if (input->prev_time_in_quantum == 0)
+        input->prev_time_in_quantum = cur_time;
     if (!outputs_[output].speculation_stack.empty()) {
         outputs_[output].prev_speculate_pc = outputs_[output].speculate_pc;
         error_string_ = outputs_[output].speculator.next_record(
@@ -2170,7 +2169,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                input->index, input->reader->get_instruction_ordinal());
         VDO(this, 5, print_record(record););
         bool need_new_input = false;
+        bool preempt = false;
         double block_time_factor = 0.;
+        uint64_t prev_time_in_quantum = 0;
         if (options_.mapping == MAP_AS_PREVIOUSLY) {
             assert(outputs_[output].record_index >= 0);
             if (outputs_[output].record_index >=
@@ -2275,28 +2276,32 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                     VPRINT(this, 4,
                            "next_record[%d]: input %d hit end of instr quantum\n", output,
                            input->index);
+                    preempt = !need_new_input;
                     need_new_input = true;
+                    input->instrs_in_quantum = 0;
                 }
             } else if (options_.quantum_unit == QUANTUM_TIME) {
-                if (cur_time == 0 || cur_time < input->start_time_in_quantum) {
+                if (cur_time == 0 || cur_time < input->prev_time_in_quantum) {
                     VPRINT(this, 1,
                            "next_record[%d]: invalid time %" PRIu64 " vs start %" PRIu64
                            "\n",
-                           output, cur_time, input->start_time_in_quantum);
+                           output, cur_time, input->prev_time_in_quantum);
                     return sched_type_t::STATUS_INVALID;
                 }
-                if (cur_time - input->start_time_in_quantum >=
-                        options_.quantum_duration &&
+                input->time_spent_in_quantum += cur_time - input->prev_time_in_quantum;
+                prev_time_in_quantum = input->prev_time_in_quantum;
+                input->prev_time_in_quantum = cur_time;
+                if (input->time_spent_in_quantum >= options_.quantum_duration &&
                     // We only switch on instruction boundaries.  We could possibly switch
                     // in between (e.g., scatter/gather long sequence of reads/writes) by
                     // setting input->switching_pre_instruction.
                     record_type_is_instr(record)) {
                     VPRINT(this, 4,
-                           "next_record[%d]: hit end of time quantum after %" PRIu64
-                           " (%" PRIu64 " - %" PRIu64 ")\n",
-                           output, cur_time - input->start_time_in_quantum, cur_time,
-                           input->start_time_in_quantum);
+                           "next_record[%d]: hit end of time quantum after %" PRIu64 "\n",
+                           output, input->time_spent_in_quantum);
+                    preempt = !need_new_input;
                     need_new_input = true;
+                    input->time_spent_in_quantum = 0;
                 }
             }
         }
@@ -2335,6 +2340,15 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                 lock.lock();
                 VPRINT(this, 5, "next_record_mid[%d]: switching from %d to %d\n", output,
                        prev_input, outputs_[output].cur_input);
+                if (!preempt) {
+                    if (options_.quantum_unit == QUANTUM_INSTRUCTIONS &&
+                        record_type_is_instr(record)) {
+                        --inputs_[prev_input].instrs_in_quantum;
+                    } else if (options_.quantum_unit == QUANTUM_TIME) {
+                        inputs_[prev_input].time_spent_in_quantum -=
+                            (cur_time - prev_time_in_quantum);
+                    }
+                }
                 if (res == sched_type_t::STATUS_WAIT)
                     return res;
                 input = &inputs_[outputs_[output].cur_input];
@@ -2392,6 +2406,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::unread_last_record(output_ordinal_t ou
     record = outinfo.last_record;
     input = &inputs_[outinfo.cur_input];
     std::lock_guard<std::mutex> lock(*input->lock);
+    VPRINT(this, 4, "next_record[%d]: unreading last record, from %d\n", output,
+           input->index);
     input->queue.push_back(outinfo.last_record);
     if (options_.quantum_unit == QUANTUM_INSTRUCTIONS && record_type_is_instr(record))
         --input->instrs_in_quantum;
