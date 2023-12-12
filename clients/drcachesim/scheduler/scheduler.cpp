@@ -2288,20 +2288,20 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                            output, cur_time, input->prev_time_in_quantum);
                     return sched_type_t::STATUS_INVALID;
                 }
-                input->time_in_quantum += cur_time - input->prev_time_in_quantum;
+                input->time_spent_in_quantum += cur_time - input->prev_time_in_quantum;
                 prev_time_in_quantum = input->prev_time_in_quantum;
                 input->prev_time_in_quantum = cur_time;
-                if (input->time_in_quantum >= options_.quantum_duration &&
+                if (input->time_spent_in_quantum >= options_.quantum_duration &&
                     // We only switch on instruction boundaries.  We could possibly switch
                     // in between (e.g., scatter/gather long sequence of reads/writes) by
                     // setting input->switching_pre_instruction.
                     record_type_is_instr(record)) {
                     VPRINT(this, 4,
                            "next_record[%d]: hit end of time quantum after %" PRIu64 "\n",
-                           output, input->time_in_quantum);
+                           output, input->time_spent_in_quantum);
                     preempt = !need_new_input;
                     need_new_input = true;
-                    input->time_in_quantum = 0;
+                    input->time_spent_in_quantum = 0;
                 }
             }
         }
@@ -2345,7 +2345,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                         record_type_is_instr(record)) {
                         --inputs_[prev_input].instrs_in_quantum;
                     } else if (options_.quantum_unit == QUANTUM_TIME) {
-                        inputs_[prev_input].time_in_quantum -=
+                        inputs_[prev_input].time_spent_in_quantum -=
                             (cur_time - prev_time_in_quantum);
                     }
                 }
