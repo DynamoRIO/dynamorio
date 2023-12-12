@@ -686,7 +686,7 @@ raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, byte *&buf_i
         return false;
     }
     buf_in = reinterpret_cast<byte *>(buf_base);
-    log(2, "Inserted %s instrs from system call trace template for sysnum %d\n",
+    log(2, "Inserted %d instrs from system call trace template for sysnum %d\n",
         inserted_instr_count, syscall_num);
     return true;
 }
