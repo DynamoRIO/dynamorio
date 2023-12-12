@@ -895,7 +895,10 @@ typedef enum {
     OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS = 0x800,
     /**
      * Kernel traces of syscalls are included.
-     * The included kernel traces are in the Intel® Processor Trace format.
+     * The included kernel traces are provided either by the -syscall_template_file to
+     * raw2trace (see #OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES), or on x86 using
+     * the -enable_kernel_tracing option that uses Intel® Processor Trace to collect a
+     * trace for system call execution.
      */
     OFFLINE_FILE_TYPE_KERNEL_SYSCALLS = 0x1000,
     /**
@@ -906,6 +909,22 @@ typedef enum {
      * The initial part can be used by a simulator for warmup.
      */
     OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP = 0x2000,
+    /**
+     * Indicates an offline trace that contains trace templates for some system calls.
+     * The individual traces are separated by a #TRACE_MARKER_TYPE_SYSCALL marker which
+     * also specifies what system call the following trace belongs to. This file can be
+     * used with -syscall_template_file to raw2trace to create a
+     * #OFFLINE_FILE_TYPE_KERNEL_SYSCALLS trace. See the sample file written by the
+     * burst_syscall_inject.cpp test for more details on the expected format for the
+     * system call template file.
+     * TODO i#6495: Add support for reading a zipfile where each trace template is in
+     * a separate component. This will make it easier to manually append, update, or
+     * inspect the individual templates, and also allow streaming the component with the
+     * required template when needed instead of reading the complete file into memory
+     * ahead of time. Note that we may drop support for non-zipfile template files in
+     * the future.
+     */
+    OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES = 0x4000,
 } offline_file_type_t;
 
 static inline const char *
