@@ -5895,3 +5895,4 @@ if (RISCV64)
       PROPERTIES LABELS RUNS_ON_QEMU)
   endif ()
 endif ()
+set_tests_properties(code_api|client.flush PROPERTIES LABELS TMATE_DEBUG)#NOCHECK
