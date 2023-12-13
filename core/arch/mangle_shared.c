@@ -264,6 +264,7 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t
             instr_create_restore_from_tls(dcontext, SCRATCH_REG0, TLS_REG0_SLOT));
     } else {
         IF_AARCH64(ASSERT_NOT_REACHED());
+        IF_RISCV64(ASSERT_NOT_REACHED());
         PRE(ilist, instr, instr_create_save_to_dcontext(dcontext, REG_XSP, XSP_OFFSET));
 #ifdef WINDOWS
         if (!cci->out_of_line_swap) {
