@@ -596,7 +596,7 @@ class Field(str, Enum):
                         'ld': 'OPSZ_8', 'lbu': 'OPSZ_1', 'lhu': 'OPSZ_2', 'lwu': 'OPSZ_4',
                         'sb': 'OPSZ_1', 'sh': 'OPSZ_2', 'sw': 'OPSZ_4', 'sd': 'OPSZ_8',
                         'flw': 'OPSZ_4', 'fld': 'OPSZ_8', 'fsw': 'OPSZ_4', 'fsd': 'OPSZ_8',
-                        'flq': 'OPSZ_16', 'fsq': 'OPSZ_16'
+                        'flq': 'OPSZ_16', 'fsq': 'OPSZ_16', 'lr.w': 'OPSZ_4', 'lr.d': 'OPSZ_8'
                     },
                     'imm(rs1)',
                     'The register-relative memory source location (reg+imm).'
@@ -611,7 +611,7 @@ class Field(str, Enum):
                         'ld': 'OPSZ_8', 'lbu': 'OPSZ_1', 'lhu': 'OPSZ_2', 'lwu': 'OPSZ_4',
                         'sb': 'OPSZ_1', 'sh': 'OPSZ_2', 'sw': 'OPSZ_4', 'sd': 'OPSZ_8',
                         'flw': 'OPSZ_4', 'fld': 'OPSZ_8', 'fsw': 'OPSZ_4', 'fsd': 'OPSZ_8',
-                        'flq': 'OPSZ_16', 'fsq': 'OPSZ_16'
+                        'flq': 'OPSZ_16', 'fsq': 'OPSZ_16', 'sc.w': 'OPSZ_4', 'sc.d': 'OPSZ_8'
                     },
                     'imm(rs1)',
                     'The register-relative memory target location (reg+imm).'
@@ -830,6 +830,8 @@ class IslGenerator:
 
     def __fixup_uncompressed_inst(self, inst: Instruction):
         opc = (inst.match & inst.mask) & 0x7F
+        funct3 = ((inst.match & inst.mask) >> 12) & 0x7
+        rs3 = ((inst.match & inst.mask) >> 27) & 0x1f
         if opc in [0b0000011, 0b0000111]:  # LOAD instructions
             dbg(f'fixup: {inst.name} {[f.name for f in inst.flds]}')
             inst.flds[0] = Field.V_L_RS1_DISP
@@ -840,6 +842,15 @@ class IslGenerator:
             inst.flds[2] = Field.V_S_RS1_DISP
             inst.flds.pop(0)
             dbg(f'    -> {" " * len(inst.name)} {[f.name for f in inst.flds]}')
+        elif opc == 0b0101111 and (funct3 == 0b010 or funct3 == 0b011):
+            if rs3 == 0x2: # LR.W/D instructions
+                dbg(f'fixup: {inst.name} {[f.name for f in inst.flds]}')
+                inst.flds[1] = Field.V_L_RS1_DISP
+                dbg(f'    -> {" " * len(inst.name)} {[f.name for f in inst.flds]}')
+            elif rs3 == 0x3: # SC.W/D instructions
+                dbg(f'fixup: {inst.name} {[f.name for f in inst.flds]}')
+                inst.flds[2] = Field.V_S_RS1_DISP
+                dbg(f'    -> {" " * len(inst.name)} {[f.name for f in inst.flds]}')
         elif inst.mask == 0x1f07fff and inst.match in [0x6013, 0x106013, 0x306013]:
             # prefetch.[irw] instructions
             dbg(f'fixup: {inst.name} {[f.name for f in inst.flds]}')
@@ -1211,10 +1222,12 @@ class IslGenerator:
                 asm_args += ' '
                 asm_args += ', '.join([f.asm_name() for f in flds])
                 isrc = 1
+                idst = 0
                 for f in flds:
                     if f.is_dest:
-                        oidx = 0
+                        oidx = idst
                         ndst += 1
+                        idst = 4
                     else:
                         oidx = isrc
                         isrc += 1
@@ -1225,7 +1238,7 @@ class IslGenerator:
             instr_infos.append(f'''[OP_{i.formatted_name()}] = {{ /* {i.name}{asm_args} */
     .info = {{
         .type = OP_{i.formatted_name()},
-        .opcode = 0x{(ndst << 31) | (nsrc << 28):08x}, /* {ndst} dst, {nsrc} src */
+        .opcode = 0x{(ndst << 30) | (nsrc << 27):08x}, /* {ndst} dst, {nsrc} src */
         .name = "{i.name}",{''.join(opnds)}
         .code = (((uint64){hex(i.match)}) << 32) | ({hex(i.mask)}),
     }},
