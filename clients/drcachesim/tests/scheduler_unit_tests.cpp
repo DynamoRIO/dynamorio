@@ -898,22 +898,38 @@ test_synthetic()
     static constexpr int NUM_OUTPUTS = 2;
     static constexpr int NUM_INSTRS = 9;
     static constexpr int QUANTUM_DURATION = 3;
+    static constexpr double BLOCK_SCALE = 0.1;
     static constexpr memref_tid_t TID_BASE = 100;
     std::vector<trace_entry_t> inputs[NUM_INPUTS];
     for (int i = 0; i < NUM_INPUTS; i++) {
         memref_tid_t tid = TID_BASE + i;
         inputs[i].push_back(make_thread(tid));
         inputs[i].push_back(make_pid(1));
-        for (int j = 0; j < NUM_INSTRS; j++)
+        inputs[i].push_back(make_version(TRACE_ENTRY_VERSION));
+        inputs[i].push_back(make_timestamp(10)); // All the same time priority.
+        for (int j = 0; j < NUM_INSTRS; j++) {
             inputs[i].push_back(make_instr(42 + j * 4));
+            // Test accumulation of usage across voluntary switches.
+            if ((i == 0 || i == 1) && j == 1) {
+                inputs[i].push_back(make_timestamp(20));
+                inputs[i].push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, 42));
+                inputs[i].push_back(
+                    make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0));
+                inputs[i].push_back(make_timestamp(120));
+            }
+        }
         inputs[i].push_back(make_exit(tid));
     }
     // Hardcoding here for the 2 outputs and 7 inputs.
     // We expect 3 letter sequences (our quantum) alternating every-other as each
-    // core alternates; with an odd number the 2nd core finishes early.
-    // The dots are thread exits.
-    static const char *const CORE0_SCHED_STRING = "AAACCCEEEGGGBBBDDDFFFAAA.CCC.EEE.GGG.";
-    static const char *const CORE1_SCHED_STRING = "BBBDDDFFFAAACCCEEEGGGBBB.DDD.FFF.____";
+    // core alternates. The dots are markers and thread exits.
+    // A and B have a voluntary switch after their 1st 2 letters, but we expect
+    // the usage to persist to their next scheduling which should only have
+    // a single letter.
+    static const char *const CORE0_SCHED_STRING =
+        "..AA......CCC..EEE..GGGEEEABGGGDDD.AAABBBAAA.___";
+    static const char *const CORE1_SCHED_STRING =
+        "..BB......DDD..FFFCCCDDDFFFCCC.EEE.FFF.GGG.BBB.";
     {
         // Test instruction quanta.
         std::vector<scheduler_t::input_workload_t> sched_inputs;
@@ -929,6 +945,8 @@ test_synthetic()
                                                    scheduler_t::SCHEDULER_DEFAULTS,
                                                    /*verbosity=*/3);
         sched_ops.quantum_duration = QUANTUM_DURATION;
+        // We do not want to block for very long.
+        sched_ops.block_time_scale = BLOCK_SCALE;
         scheduler_t scheduler;
         if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
             scheduler_t::STATUS_SUCCESS)
@@ -957,6 +975,8 @@ test_synthetic()
                                                    /*verbosity=*/3);
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
         sched_ops.quantum_duration = QUANTUM_DURATION;
+        // QUANTUM_INSTRUCTIONS divides by the threshold so to match we multiply.
+        sched_ops.block_time_scale = sched_ops.blocking_switch_threshold * BLOCK_SCALE;
         scheduler_t scheduler;
         if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
             scheduler_t::STATUS_SUCCESS)
@@ -1530,9 +1550,9 @@ test_synthetic_with_syscalls_multiple()
     // with the "." in run_lockstep_simulation().  The omitted "." markers also
     // explains why the two strings are different lengths.
     assert(sched_as_string[0] ==
-           "BHHHFFFJJJJJJJBEEHHHIIIFFFAAAHHHBAAAGGGAAABGGG__B___B___B");
+           "BHHHFFFJJJJJJJBEEHHHIIIBIIIEEDDDBAAAEEGGGBDDD___B___B___B___B");
     assert(sched_as_string[1] ==
-           "EECCCIIICCCJJFFFCCCBIIIEEDDDGGGDDDEEDDD____EB__________________________");
+           "EECCCIIICCCJJFFFCCCFFFAAAHHHGGGDDDAAAGGGE__________________________");
 }
 
 static void
@@ -1900,9 +1920,10 @@ test_synthetic_with_syscalls_idle()
     // The timestamps provide the ABCD ordering, but A's blocking syscall after its
     // 2nd instr makes it delayed for 3 full queue cycles of BCD BCD: A's duration
     // of 2 is decremented after the 1st (to 1) and 2nd (to 0) and A is finally
-    // schedulable after the 3rd.
+    // schedulable after the 3rd, when it just gets 1 instruction in before its
+    // (accumulated) count equals the quantum.
     assert(sched_as_string[0] ==
-           "..AA......BB.B..CC.C..DD.DBBBCCCDDDBBBCCCDDDAAABBB.CCC.DDD.AAAAAAA.");
+           "..AA......BB.B..CC.C..DD.DBBBCCCDDDBBBCCCDDDABBB.CCC.DDD.AAAAAAAAA.");
 }
 
 static void
@@ -3285,7 +3306,6 @@ test_inactive()
         // Ensure cpu0 now picks up the input that was on cpu1.
         // This is also the record we un-read earlier.
         check_next(stream0, scheduler_t::STATUS_OK, TID_B, TRACE_TYPE_INSTR);
-        check_next(stream0, scheduler_t::STATUS_OK, TID_B, TRACE_TYPE_INSTR);
         // End of quantum.
         check_next(stream0, scheduler_t::STATUS_OK, TID_A, TRACE_TYPE_INSTR);
         // Make cpu0 inactive and cpu1 active.
@@ -3295,6 +3315,7 @@ test_inactive()
         status = stream1->set_active(true);
         assert(status == scheduler_t::STATUS_OK);
         // Now cpu1 should finish things.
+        check_next(stream1, scheduler_t::STATUS_OK, TID_B, TRACE_TYPE_INSTR);
         check_next(stream1, scheduler_t::STATUS_OK, TID_B, TRACE_TYPE_INSTR);
         check_next(stream1, scheduler_t::STATUS_OK, TID_B, TRACE_TYPE_THREAD_EXIT);
         check_next(stream1, scheduler_t::STATUS_OK, TID_A, TRACE_TYPE_THREAD_EXIT);
@@ -3326,8 +3347,8 @@ test_inactive()
         for (int i = 0; i < NUM_OUTPUTS; i++) {
             std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
         }
-        assert(sched_as_string[0] == "..AABBA._");
-        assert(sched_as_string[1] == "..B---B.");
+        assert(sched_as_string[0] == "..AABA.__");
+        assert(sched_as_string[1] == "..B--BB.");
     }
 #endif // HAS_ZIP
 }
