@@ -29,10 +29,10 @@ c.fld  +248(a5)[8byte] -> fs0
 c.fsdsp ft11 -> (sp)[8byte]
 c.fsd  fs0 -> +248(a5)[8byte]
 test_float_load_store complete
-lr.w   a1 0x0 -> a0
-lr.d   t6 0x2 -> zero
-sc.w   a1 a2 0x1 -> a0
-sc.d   t6 a1 0x3 -> zero
+lr.w   (a1)[4byte] 0x0 -> a0
+lr.d   (t6)[8byte] 0x2 -> zero
+sc.w   a1 0x1 -> a0 (a2)[4byte]
+sc.d   t6 0x3 -> zero (a1)[8byte]
 amoswap.w ra t6 0x0 -> zero
 amoswap.d ra zero 0x1 -> t6
 amoadd.w t6 a2 0x2 -> zero
@@ -221,7 +221,7 @@ c.xor  fp a5 -> fp
 c.sub  fp a5 -> fp
 test_integer_arith complete
 lui    0x2a -> a0
-<Internal Error: Failed to encode instruction: 'auipc  <rel> 0x0000004000018254 -> a0'>
+<Internal Error: Failed to encode instruction: 'auipc  <rel> 0x000000400001825c -> a0'>
 jalr   a1 42 -> a0
 c.jalr a0 0 -> ra
 c.li   zero 31 -> a1
