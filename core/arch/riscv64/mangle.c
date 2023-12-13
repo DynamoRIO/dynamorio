@@ -164,13 +164,16 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
     if (cci == NULL)
         cci = &default_clean_call_info;
     uint current_offs;
-    current_offs =
-        get_clean_call_switch_stack_size() - proc_num_simd_registers() * XSP_SZ;
+    current_offs = get_clean_call_switch_stack_size() -
+        proc_num_simd_registers() * sizeof(dr_simd_t);
 
+    /* sp is the stack pointer, which should not be poped. */
+    cci->reg_skip[DR_REG_SP - DR_REG_START_GPR] = true;
+
+    current_offs -= XSP_SZ;
     PRE(ilist, instr,
         INSTR_CREATE_ld(dcontext, opnd_create_reg(DR_REG_A0),
                         OPND_CREATE_MEM64(DR_REG_SP, current_offs)));
-
     /* csrw a0, fcsr */
     PRE(ilist, instr,
         INSTR_CREATE_csrrw(dcontext, opnd_create_reg(DR_REG_X0),

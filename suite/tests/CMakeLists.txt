@@ -5923,6 +5923,15 @@ if (RISCV64)
     code_api|pthreads.pthreads_exit
     code_api|sample.bbbuf
     code_api|sample.bbcount
+    code_api|sample.bbsize
+    code_api|sample.div
+    code_api|sample.empty
+    code_api|sample.inline
+    code_api|sample.inscount
+    code_api|sample.opcode_count
+    code_api|sample.signal
+    code_api|sample.stl_test
+    code_api|sample.syscall
     code_api|security-linux.trampoline
     code_api|tool.drdisas
     no_code_api,no_intercept_all_signals|linux.sigaction
