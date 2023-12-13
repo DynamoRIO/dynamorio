@@ -960,13 +960,14 @@ test_synthetic()
         for (int i = 0; i < NUM_OUTPUTS; i++) {
             std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
         }
-#if !(defined(WIN32) && !defined(X64))
-        // XXX: Win32 microseconds on test VMs are very coarse and stay the same
+#ifndef WIN32
+        // XXX: Windows microseconds on test VMs are very coarse and stay the same
         // for long periods.  Instruction quanta use wall-clock idle times, so
         // the result is extreme variations here.  We try to adjust by handling
-        // any schedule with singleton 'A' and 'B', but in some cases on Win32
+        // any schedule with singleton 'A' and 'B', but in some cases on Windows
         // we see the A and B delayed all the way to the very end where they
-        // are adjacent to their own letters.  We just give up on this test on Win32.
+        // are adjacent to their own letters.  We just give up on checking the
+        // precise output for this test on Windows.
         if (sched_as_string[0] != CORE0_SCHED_STRING ||
             sched_as_string[1] != CORE1_SCHED_STRING) {
             bool found_single_A = false, found_single_B = false;
