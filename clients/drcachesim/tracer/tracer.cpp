@@ -1209,7 +1209,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     else if (instr_operands != NULL && instr_is_exclusive_store(instr_operands))
         strex = instr_operands;
     if (ud->strex == NULL && strex != NULL) {
-        opnd_t dst = instr_get_dst(strex, 0);
+        opnd_t dst = instr_get_dst(strex, IF_RISCV64_ELSE(1, 0));
         DR_ASSERT(opnd_is_base_disp(dst));
         if (!instr_writes_to_reg(strex, opnd_get_base(dst), DR_QUERY_INCLUDE_COND_DSTS)) {
             ud->strex = strex;
