@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -79,7 +79,7 @@ find(void *tag)
 }
 
 static void
-increment(app_pc tag)
+increment(void *tag)
 {
     elem_t *elem;
 
@@ -106,7 +106,7 @@ increment(app_pc tag)
 }
 
 static void
-decrement(app_pc tag)
+decrement(void *tag)
 {
     elem_t *elem;
 
@@ -161,14 +161,14 @@ static dr_emit_flags_t
 trace_event(void *drcontext, void *tag, instrlist_t *trace, bool translating)
 {
     if (!translating)
-        increment(dr_fragment_app_pc(tag));
+        increment(tag);
     return DR_EMIT_DEFAULT;
 }
 
 static void
 deleted_event(void *dcontext, void *tag)
 {
-    decrement(dr_fragment_app_pc(tag));
+    decrement(tag);
 }
 
 void
@@ -246,7 +246,7 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 {
     instr_t *instr;
     if (!translating)
-        increment(dr_fragment_app_pc(tag));
+        increment(tag);
 
         /* I'm looking for a specific BB in the test .exe.  I've marked
          * it with a couple nops.
