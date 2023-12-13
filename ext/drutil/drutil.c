@@ -387,7 +387,7 @@ drutil_insert_get_mem_addr_risc(void *drcontext, instrlist_t *bb, instr_t *where
                                 opnd_t memref, reg_id_t dst, reg_id_t scratch,
                                 DR_PARAM_OUT bool *scratch_used)
 {
-    if (!opnd_is_base_disp(memref) IF_AARCH64(&&!opnd_is_rel_addr(memref)))
+    if (!opnd_is_base_disp(memref) IF_AARCHXX_OR_RISCV64(&&!opnd_is_rel_addr(memref)))
         return false;
 #    ifdef ARM
     if (opnd_get_base(memref) == DR_REG_PC) {
