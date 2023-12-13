@@ -2101,7 +2101,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                 outputs_[output].wait_start_time = 0;
         }
         VPRINT(this, 5, "next_record[%d]: need new input (cur=waiting)\n", output);
-        sched_type_t::stream_status_t res = pick_next_input(output, 0.);
+        sched_type_t::stream_status_t res = pick_next_input(output, 0);
         if (res != sched_type_t::STATUS_OK && res != sched_type_t::STATUS_SKIPPED)
             return res;
         outputs_[output].waiting = false;
@@ -2162,7 +2162,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                 lock.unlock();
                 VPRINT(this, 5, "next_record[%d]: need new input (cur=%d eof)\n", output,
                        input->index);
-                sched_type_t::stream_status_t res = pick_next_input(output, false);
+                sched_type_t::stream_status_t res = pick_next_input(output, 0);
                 if (res != sched_type_t::STATUS_OK && res != sched_type_t::STATUS_SKIPPED)
                     return res;
                 input = &inputs_[outputs_[output].cur_input];
