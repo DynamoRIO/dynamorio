@@ -197,7 +197,10 @@ test_basic_stats()
     assert(result.direct_switch_requests == 2);
     assert(result.waits == 3);
     assert(result.idle_microseconds == 0);
+    // XXX: For 32-bit Windows test VMs we see coarse time updates resulting in 0's.
+#if !(defined(WIN32) && !defined(X64))
     assert(result.cpu_microseconds > 0);
+#endif
     return true;
 }
 
@@ -256,10 +259,15 @@ test_idle()
     assert(result.waits == 3);
     assert(result.idles == 6);
     // It is hard to test wall-clock time precise values so we have sanity checks.
+    std::cerr << "got idle " << result.idle_microseconds << "us, cpu "
+              << result.cpu_microseconds << "us\n"; // NOCHECK
+    // XXX: For 32-bit Windows test VMs we see coarse time updates resulting in 0's.
+#if !(defined(WIN32) && !defined(X64))
     assert(result.idle_microseconds > 0);
     assert(result.idle_micros_at_last_instr > 0 &&
            result.idle_micros_at_last_instr <= result.idle_microseconds);
     assert(result.cpu_microseconds > 0);
+#endif
     return true;
 }
 

@@ -135,6 +135,9 @@ protected:
     };
 
     void
+    print_percentage(double numerator, double denominator, const std::string &label);
+
+    void
     print_counters(const counters_t &counters);
 
     uint64_t

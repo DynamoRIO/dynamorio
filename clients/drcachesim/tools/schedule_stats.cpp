@@ -307,6 +307,21 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
 }
 
 void
+schedule_stats_t::print_percentage(double numerator, double denominator,
+                                   const std::string &label)
+{
+    double fraction;
+    if (denominator == 0) {
+        if (numerator == 0)
+            fraction = 0.;
+        else
+            fraction = 1.;
+    } else
+        fraction = numerator / denominator;
+    std::cerr << std::setw(12) << std::setprecision(2) << 100 * fraction << label;
+}
+
+void
 schedule_stats_t::print_counters(const counters_t &counters)
 {
     std::cerr << std::setw(12) << counters.threads.size() << " threads\n";
@@ -326,17 +341,11 @@ schedule_stats_t::print_counters(const counters_t &counters)
               << counters.voluntary_switches << " voluntary context switches\n";
     std::cerr << std::setw(12) << counters.direct_switches
               << " direct context switches\n";
-    if (counters.total_switches > 0) {
-        std::cerr << std::setw(12) << std::setprecision(2)
-                  << 100 *
-                (counters.voluntary_switches /
-                 static_cast<double>(counters.total_switches))
-                  << "% voluntary switches\n";
-        std::cerr << std::setw(12) << std::setprecision(2)
-                  << 100 *
-                (counters.direct_switches / static_cast<double>(counters.total_switches))
-                  << "% direct switches\n";
-    }
+    print_percentage(static_cast<double>(counters.voluntary_switches),
+                     static_cast<double>(counters.total_switches),
+                     "% voluntary switches\n");
+    print_percentage(static_cast<double>(counters.direct_switches),
+                     static_cast<double>(counters.total_switches), "% direct switches\n");
     std::cerr << std::setw(12) << counters.syscalls << " system calls\n";
     std::cerr << std::setw(12) << counters.maybe_blocking_syscalls
               << " maybe-blocking system calls\n";
@@ -344,25 +353,21 @@ schedule_stats_t::print_counters(const counters_t &counters)
               << " direct switch requests\n";
     std::cerr << std::setw(12) << counters.waits << " waits\n";
     std::cerr << std::setw(12) << counters.idles << " idles\n";
-    std::cerr << std::setw(12) << std::setprecision(2)
-              << 100 *
-            (counters.instrs / static_cast<double>(counters.instrs + counters.idles))
-              << "% cpu busy by record count\n";
+    print_percentage(static_cast<double>(counters.instrs),
+                     static_cast<double>(counters.instrs + counters.idles),
+                     "% cpu busy by record count\n");
     std::cerr << std::setw(12) << counters.cpu_microseconds << " cpu microseconds\n";
     std::cerr << std::setw(12) << counters.idle_microseconds << " idle microseconds\n";
     std::cerr << std::setw(12) << counters.idle_micros_at_last_instr
               << " idle microseconds at last instr\n";
-    std::cerr << std::setw(12) << std::setprecision(2)
-              << 100 *
-            (counters.cpu_microseconds /
-             static_cast<double>(counters.cpu_microseconds + counters.idle_microseconds))
-              << "% cpu busy by time\n";
-    std::cerr << std::setw(12) << std::setprecision(2)
-              << 100 *
-            (counters.cpu_microseconds /
-             static_cast<double>(counters.cpu_microseconds +
-                                 counters.idle_micros_at_last_instr))
-              << "% cpu busy by time, ignoring idle past last instr\n";
+    print_percentage(
+        static_cast<double>(counters.cpu_microseconds),
+        static_cast<double>(counters.cpu_microseconds + counters.idle_microseconds),
+        "% cpu busy by time\n");
+    print_percentage(static_cast<double>(counters.cpu_microseconds),
+                     static_cast<double>(counters.cpu_microseconds +
+                                         counters.idle_micros_at_last_instr),
+                     "% cpu busy by time, ignoring idle past last instr\n");
 }
 
 bool
