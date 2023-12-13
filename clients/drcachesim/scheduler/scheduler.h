@@ -1030,7 +1030,7 @@ protected:
         uint64_t time_spent_in_quantum = 0;
         // These fields model waiting at a blocking syscall.
         // The units are us for instr quanta and simuilation time for time quanta.
-        uint64_t blocked_time = 0.;
+        uint64_t blocked_time = 0;
         uint64_t blocked_start_time = 0;
     };
 

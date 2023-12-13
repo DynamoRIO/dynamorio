@@ -1636,6 +1636,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue(
         add_to_ready_queue(save);
     VDO(this, 1, {
         static int heartbeat;
+        // We are ok with races as the cadence is approximate.
         if (++heartbeat % 500 == 0) {
             VPRINT(this, 1, "heartbeat[%d] %zd in queue; %d blocked => %d %d\n",
                    for_output, ready_priority_.size(), num_blocked_,
@@ -2076,9 +2077,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
     // do return an error on a time smaller than an input's current start time when we
     // check for quantum end.
     if (cur_time == 0) {
-        // It's more efficient for QUANTUM_TIME to get the time here instead of
-        // in get_output_time().  This also makes the two more similarly behaved
-        // with respect to blocking system calls.
+        // It's more efficient for QUANTUM_INSTRUCTIONS to get the time here instead of
+        // in get_output_time().  This also makes the two more similarly behaved with
+        // respect to blocking system calls.
         cur_time = get_time_micros();
     }
     outputs_[output].cur_time = cur_time; // Invalid values are checked below.
