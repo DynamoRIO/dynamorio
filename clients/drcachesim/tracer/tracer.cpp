@@ -1304,8 +1304,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         adjust = instrument_instr(drcontext, tag, ud, bb, where, reg_ptr, adjust,
                                   ud->strex, mode);
         adjust = instrument_memref(drcontext, ud, bb, where, reg_ptr, adjust, ud->strex,
-                                   instr_get_dst(ud->strex, 0), 0, true,
-                                   instr_get_predicate(ud->strex), mode);
+                                   instr_get_dst(ud->strex, IF_RISCV64_ELSE(1, 0)), 0,
+                                   true, instr_get_predicate(ud->strex), mode);
         ud->strex = NULL;
     }
 
