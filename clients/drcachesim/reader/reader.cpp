@@ -88,6 +88,12 @@ reader_t::operator++()
             // We've already presented the thread exit entry to the analyzer.
             continue;
         }
+        if (input_entry_->type == TRACE_TYPE_HEADER) {
+            // We support complete traces being packaged in archives and then read
+            // sequentially.  We just keep going past the header.
+            VPRINT(this, 2, "Assuming header is part of concatenated traces\n");
+            continue;
+        }
         VPRINT(this, 5, "RECV: type=%s (%d), size=%d, addr=0x%zx\n",
                trace_type_names[input_entry_->type], input_entry_->type,
                input_entry_->size, input_entry_->addr);

@@ -190,7 +190,6 @@ analyzer_multi_t::analyzer_multi_t()
     }
 
     scheduler_t::scheduler_options_t sched_ops;
-    scheduler_t::scheduler_options_t *sched_ops_ptr = nullptr;
     if (op_core_sharded.get_value() || op_core_serial.get_value()) {
         if (op_core_serial.get_value()) {
             // TODO i#5694: Add serial core-sharded support by having the
@@ -201,14 +200,13 @@ analyzer_multi_t::analyzer_multi_t()
             return;
         }
         sched_ops = init_dynamic_schedule();
-        sched_ops_ptr = &sched_ops;
     }
 
     if (!op_indir.get_value().empty()) {
         std::string tracedir =
             raw2trace_directory_t::tracedir_from_rawdir(op_indir.get_value());
         if (!init_scheduler(tracedir, op_only_thread.get_value(), op_verbose.get_value(),
-                            sched_ops_ptr))
+                            std::move(sched_ops)))
             success_ = false;
     } else if (op_infile.get_value().empty()) {
         // XXX i#3323: Add parallel analysis support for online tools.
@@ -217,13 +215,13 @@ analyzer_multi_t::analyzer_multi_t()
             new ipc_reader_t(op_ipc_name.get_value().c_str(), op_verbose.get_value()));
         auto end = std::unique_ptr<reader_t>(new ipc_reader_t());
         if (!init_scheduler(std::move(reader), std::move(end), op_verbose.get_value(),
-                            sched_ops_ptr)) {
+                            std::move(sched_ops))) {
             success_ = false;
         }
     } else {
         // Legacy file.
         if (!init_scheduler(op_infile.get_value(), INVALID_THREAD_ID /*all threads*/,
-                            op_verbose.get_value(), sched_ops_ptr))
+                            op_verbose.get_value(), std::move(sched_ops)))
             success_ = false;
     }
     if (!init_analysis_tools()) {
@@ -279,6 +277,7 @@ analyzer_multi_t::init_dynamic_schedule()
         sched_ops.replay_as_traced_istream = cpu_schedule_zip_.get();
     }
 #endif
+    sched_ops.kernel_switch_trace_path = op_sched_switch_file.get_value();
     return sched_ops;
 }
 

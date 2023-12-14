@@ -344,7 +344,7 @@ _tmain(int argc, const TCHAR *targv[])
         sched_ops.replay_as_traced_istream = cpu_schedule_zip.get();
     }
 #endif
-    if (scheduler.init(sched_inputs, op_num_cores.get_value(), sched_ops) !=
+    if (scheduler.init(sched_inputs, op_num_cores.get_value(), std::move(sched_ops)) !=
         scheduler_t::STATUS_SUCCESS) {
         FATAL_ERROR("failed to initialize scheduler: %s",
                     scheduler.get_error_string().c_str());
