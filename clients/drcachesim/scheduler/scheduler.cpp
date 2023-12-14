@@ -1527,7 +1527,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::close_schedule_segment(output_ordinal_
         return sched_type_t::STATUS_OK;
     }
     if (outputs_[output].record.back().type == schedule_record_t::IDLE) {
-        uint64_t end = get_output_time(output);
+        // Just like in record_schedule_segment() we use wall-clock time for recording
+        // replay timestamps.
+        uint64_t end = get_time_micros();
         assert(end >= outputs_[output].record.back().timestamp);
         outputs_[output].record.back().value.idle_duration =
             end - outputs_[output].record.back().timestamp;

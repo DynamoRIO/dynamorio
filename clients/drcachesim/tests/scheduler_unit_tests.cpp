@@ -1166,8 +1166,11 @@ test_synthetic_time_quanta()
         for (int i = 0; i < NUM_OUTPUTS; i++) {
             std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
         }
-        assert(sched_as_string[0] == "..A..CCC._________");
-        assert(sched_as_string[1] == "..BA....BB.____A.");
+        // For replay the scheduler has to use wall-clock instead of passed-in time,
+        // so the idle portions at the end here can have variable idle and wait
+        // record counts.  We thus just check the start.
+        assert(sched_as_string[0].substr(0, 10) == "..A..CCC._");
+        assert(sched_as_string[1].substr(0, 12) == "..BA....BB._");
     }
 #endif
 }
