@@ -1503,7 +1503,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::record_schedule_segment(
     output_ordinal_t output, typename schedule_record_t::record_type_t type,
     input_ordinal_t input, uint64_t start_instruction, uint64_t stop_instruction)
 {
-    uint64_t timestamp = get_output_time(output);
+    // We always use the current wall-clock time, as the time stored in the prior
+    // next_record() call can be out of order across outputs and lead to deadlocks.
+    uint64_t timestamp = get_time_micros();
     outputs_[output].record.emplace_back(type, input, start_instruction, stop_instruction,
                                          timestamp);
     // The stop is typically updated later in close_schedule_segment().
@@ -1837,6 +1839,10 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input_as_previously(
                        output, segment.timestamp, i);
                 // Give up this input and go into a wait state.
                 // We'll come back here on the next next_record() call.
+                // XXX: We should add a timeout just in case some timestamps are out of
+                // order due to using prior values, to avoid hanging.  We try to avoid
+                // this by using wall-clock time in record_schedule_segment() rather than
+                // the stored output time.
                 set_cur_input(output, INVALID_INPUT_ORDINAL);
                 outputs_[output].waiting = true;
                 return sched_type_t::STATUS_WAIT;
