@@ -858,6 +858,15 @@ droption_t<double> op_sched_block_scale(
     "This should roughly equal the slowdown of instruction record processing versus the "
     "original (untraced) application execution.");
 
+// We have a max to avoid outlier latencies that are already a second or more from
+// scaling up to tens of minutes.  We assume a cap is representative as the outliers
+// likely were not part of key dependence chains.  Without a cap the other threads all
+// finish and the simulation waits for tens of minutes further for a couple of outliers.
+// The cap remains a flag and not a constant as different length traces and different
+// speed simulators need different idle time ranges, so we need to be able to tune this
+// to achieve desired cpu usage targets.  The default value was selected while tuning
+// a 1-minute-long schedule_stats run on a 112-core 500-thread large application
+// to produce good cpu usage without unduly increasing tool runtime.
 droption_t<uint64_t> op_sched_block_max_us(DROPTION_SCOPE_ALL, "sched_block_max_us",
                                            25000000,
                                            "Maximum blocked input time, in microseconds",
