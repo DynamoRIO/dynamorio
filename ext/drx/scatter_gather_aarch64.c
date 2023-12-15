@@ -267,27 +267,170 @@ get_scatter_gather_info(instr_t *instr, DR_PARAM_OUT scatter_gather_info_t *sg_i
     DR_ASSERT(sg_info->mask_reg >= DR_REG_P0 && sg_info->mask_reg <= DR_REG_P15);
 }
 
-static instr_t *
-create_scalar_load_or_store(void *drcontext, const scatter_gather_info_t *sg_info,
-                            reg_id_t index_or_base_reg, reg_id_t src_or_dst)
+/* Get the number of elements per register in a scatter/gather instruction. */
+static uint
+get_number_of_elements(const scatter_gather_info_t *sg_info)
 {
-    reg_id_t base_reg;
-    reg_id_t index_reg;
-    if (reg_is_z(sg_info->base_reg)) {
-        DR_ASSERT(!reg_is_z(sg_info->index_reg));
-        base_reg = index_or_base_reg;
-        index_reg = sg_info->index_reg;
-    } else {
-        DR_ASSERT(reg_is_z(sg_info->index_reg));
-        base_reg = sg_info->base_reg;
-        index_reg = index_or_base_reg;
-    }
+    const uint bytes_transferred_per_register =
+        opnd_size_in_bytes(sg_info->scatter_gather_size) / sg_info->reg_count;
+    return bytes_transferred_per_register /
+        opnd_size_in_bytes(sg_info->scalar_value_size);
+}
 
+/* Get the nth register in a multi-register range.
+ * For example:
+ *   get_register_at_index(DR_REG_Z0, 0) -> DR_REG_0
+ *   get_register_at_index(DR_REG_Z0, 1) -> DR_REG_1
+ *   get_register_at_index(DR_REG_Z0, 2) -> DR_REG_2
+ *   get_register_at_index(DR_REG_Z0, 3) -> DR_REG_3
+ *   get_register_at_index(DR_REG_Z30, 0) -> DR_REG_30
+ *   get_register_at_index(DR_REG_Z30, 1) -> DR_REG_31
+ *   get_register_at_index(DR_REG_Z30, 2) -> DR_REG_0
+ *   get_register_at_index(DR_REG_Z30, 3) -> DR_REG_1
+ */
+static reg_id_t
+get_register_at_index(reg_id_t start, uint index)
+{
+
+    return (((start - DR_REG_Z0) + index) % DR_NUM_SIMD_VECTOR_REGS) + DR_REG_Z0;
+}
+
+/* Gather together some variables commonly used in the expansion functions to make them
+ * easier to pass around.
+ */
+typedef struct {
+    void *drcontext;
+    instrlist_t *bb;    /* The basic block to write the expanded sequence to. */
+    instr_t *sg_instr;  /* The instruction we are expanding. */
+    app_pc orig_app_pc; /* The PC of instruction being expanded. */
+} sg_emit_context_t;
+
+#define EMIT(sg_context, op, ...)                                                        \
+    instrlist_preinsert(sg_context->bb, sg_context->sg_instr,                            \
+                        INSTR_XL8(INSTR_CREATE_##op(sg_context->drcontext, __VA_ARGS__), \
+                                  sg_context->orig_app_pc))
+
+/* Emit code to clear all inactive elements of a load's destination registers */
+static void
+emit_clear_inactive_dst_elements(const sg_emit_context_t *sg_context,
+                                 const scatter_gather_info_t *sg_info,
+                                 reg_id_t scratch_pred)
+{
+    DR_ASSERT(sg_info->is_load);
+
+    for (uint reg_index = 0; reg_index < sg_info->reg_count; reg_index++) {
+        const reg_id_t vector_dst =
+            get_register_at_index(sg_info->gather_dst_reg, reg_index);
+
+        if ((sg_info->base_reg == vector_dst) || (sg_info->index_reg == vector_dst)) {
+            /* The dst register is also the base/index register so we need to preserve
+             * the value of the active elements so we can use them in the address
+             * calculation. We do this by CPYing a 0 value into the dst register using
+             * the inverse of the mask_reg as the governing predicate.
+             */
+
+            /* ptrue    scratch_pred.b */
+            EMIT(sg_context, ptrue_sve,
+                 opnd_create_reg_element_vector(scratch_pred, OPSZ_1),
+                 opnd_create_immed_pred_constr(DR_PRED_CONSTR_ALL));
+
+            /* not      scratch_pred.b, scratch_pred/z, mask_reg.b */
+            EMIT(sg_context, not_sve_pred_b,
+                 opnd_create_reg_element_vector(scratch_pred, OPSZ_1),
+                 opnd_create_predicate_reg(scratch_pred, false),
+                 opnd_create_reg_element_vector(sg_info->mask_reg, OPSZ_1));
+
+            /* cpy      vector_dst.element_size, scratch_pred/m, #0, lsl #0 */
+            EMIT(sg_context, cpy_sve_shift_pred,
+                 opnd_create_reg_element_vector(vector_dst, sg_info->element_size),
+                 opnd_create_predicate_reg(scratch_pred, true), OPND_CREATE_INT8(0),
+                 opnd_create_immed_uint(0, OPSZ_1b));
+        } else {
+            /* We don't care about any values in the dst register so zero the whole
+             * thing.
+             */
+
+            /* dup      vector_dst.size, #0, lsl #0 */
+            EMIT(sg_context, dup_sve_shift,
+                 opnd_create_reg_element_vector(vector_dst, sg_info->element_size),
+                 OPND_CREATE_INT8(0), opnd_create_immed_uint(0, OPSZ_1b));
+        }
+    }
+}
+
+static void
+emit_init_active_element_loop(const sg_emit_context_t *sg_context,
+                              const scatter_gather_info_t *sg_info, reg_id_t scratch_pred)
+{
+    /* pfalse   scratch_pred.b */
+    EMIT(sg_context, pfalse_sve, opnd_create_reg_element_vector(scratch_pred, OPSZ_1));
+}
+
+static void
+emit_advance_to_next_active_element(const sg_emit_context_t *sg_context,
+                                    const scatter_gather_info_t *sg_info,
+                                    reg_id_t scratch_pred, instr_t *end_label)
+{
+
+    /* pnext scratch_pred.element_size, mask_reg, scratch_pred.element_size */
+    EMIT(sg_context, pnext_sve,
+         opnd_create_reg_element_vector(scratch_pred, sg_info->element_size),
+         opnd_create_reg(sg_info->mask_reg));
+
+    /* b.none   end */
+    instrlist_preinsert(
+        sg_context->bb, sg_context->sg_instr,
+        INSTR_XL8(INSTR_PRED(INSTR_CREATE_bcond(sg_context->drcontext,
+                                                opnd_create_instr(end_label)),
+                             DR_PRED_SVE_NONE),
+                  sg_context->orig_app_pc));
+}
+
+/* Emit code to move the element value from the element active in element_mask from
+ * the vector src_reg to the scalar dst_reg.
+ */
+static void
+emit_extract_current_element(const sg_emit_context_t *sg_context,
+                             const scatter_gather_info_t *sg_info, reg_id_t dst_reg,
+                             reg_id_t element_mask, reg_id_t src_reg)
+{
+    DR_ASSERT(reg_is_z(src_reg));
+    DR_ASSERT(!reg_is_z(dst_reg));
+
+    /* lastb    dst_reg, element_mask, src_reg.element_size */
+    EMIT(sg_context, lastb_sve_scalar, opnd_create_reg(dst_reg),
+         opnd_create_reg(element_mask),
+         opnd_create_reg_element_vector(src_reg, sg_info->element_size));
+}
+
+/* Emit code to move the value from the scalar src_reg to the element of the vector
+ * dst_reg active in element_mask.
+ */
+static void
+emit_insert_current_element(const sg_emit_context_t *sg_context,
+                            const scatter_gather_info_t *sg_info, reg_id_t dst_reg,
+                            reg_id_t element_mask, reg_id_t src_reg)
+{
+    DR_ASSERT(!reg_is_z(src_reg));
+    DR_ASSERT(reg_is_z(dst_reg));
+
+    /* cpy      dst_reg.element_size, element_mask/m, src_reg */
+    EMIT(sg_context, cpy_sve_pred,
+         opnd_create_reg_element_vector(dst_reg, sg_info->element_size),
+         opnd_create_predicate_reg(element_mask, /*merging=*/true),
+         opnd_create_reg(reg_resize_to_opsz(src_reg, sg_info->element_size)));
+}
+
+static void
+emit_scalar_load_or_store(const sg_emit_context_t *sg_context,
+                          const scatter_gather_info_t *sg_info, reg_id_t base_reg,
+                          reg_id_t index_reg, reg_id_t src_or_dst)
+{
     opnd_t mem = opnd_create_base_disp_shift_aarch64(
         base_reg, index_reg, sg_info->extend, sg_info->scaled, sg_info->disp, /*flags=*/0,
         sg_info->scalar_value_size, sg_info->extend_amount);
 
-#define CREATE(op, ...) INSTR_CREATE_##op(drcontext, __VA_ARGS__)
+#define CREATE(op, ...) INSTR_CREATE_##op(sg_context->drcontext, __VA_ARGS__)
 
     instr_t *ld_st_instr = NULL;
     if (sg_info->is_load) {
@@ -330,13 +473,44 @@ create_scalar_load_or_store(void *drcontext, const scatter_gather_info_t *sg_inf
     if (ld_st_instr != NULL)
         scatter_gather_tag_expanded_ld_st(ld_st_instr);
 
-    return ld_st_instr;
+    instrlist_preinsert(sg_context->bb, sg_context->sg_instr,
+                        INSTR_XL8(ld_st_instr, sg_context->orig_app_pc));
+}
+
+static void
+emit_load_store_current_element(const sg_emit_context_t *sg_context,
+                                const scatter_gather_info_t *sg_info,
+                                reg_id_t scratch_pred, reg_id_t base_reg,
+                                reg_id_t index_reg, reg_id_t src_or_dst,
+                                uint vector_reg_index)
+{
+    DR_ASSERT(vector_reg_index < sg_info->reg_count);
+
+    if (!sg_info->is_load) {
+        /* Copy the current active element of the vector src reg to scalar_src_or_dst
+         */
+        emit_extract_current_element(
+            sg_context, sg_info, src_or_dst, scratch_pred,
+            get_register_at_index(sg_info->scatter_src_reg, vector_reg_index));
+    }
+
+    /* Perform the scalar load/store for this element */
+    emit_scalar_load_or_store(sg_context, sg_info, base_reg, index_reg, src_or_dst);
+
+    if (sg_info->is_load) {
+        /* Copy the loaded value into the current element of the vector dst reg */
+        emit_insert_current_element(
+            sg_context, sg_info,
+            get_register_at_index(sg_info->gather_dst_reg, vector_reg_index),
+            scratch_pred, src_or_dst);
+    }
 }
 
 /*
  * Emit code to expand a scatter or gather instruction into a series of equivalent scalar
  * loads or stores.
  *
+ * Scalar+vector:
  * These instructions either have scalar+vector memory operands or the form:
  *     [<Xn|SP>, <Zm>.<Ts>{, <mod>}]
  * where addresses to load/store each element are calculated by adding a base address
@@ -360,15 +534,9 @@ create_scalar_load_or_store(void *drcontext, const scatter_gather_info_t *sg_inf
  *          active_elements_remain();
  *          e = next_active_element()) {
  *         if (is_load) {
- *             if (is_scalar_plus_vector)
- *                 dst[e] = scalar_load(base, offsets[e], mod);
- *             else if (is_vector_plus_immediate)
- *                 dst[e] = scalar_load(base[e], imm);
+ *             dst[e] = scalar_load(base, offsets[e], mod);
  *         } else {
- *             if (is_scalar_plus_vector)
- *                 scalar_store(src[e], base, offsets[e], mod);
- *             else if (is_vector_plus_immediate)
- *                 scalar_store(src[e], base[e], imm);
+ *             scalar_store(src[e], base, offsets[e], mod);
  *         }
  *     }
  * except we unroll the loop. Without unrolling the loop drmemtrace's instrumentation
@@ -402,174 +570,149 @@ create_scalar_load_or_store(void *drcontext, const scatter_gather_info_t *sg_inf
  *       lastb  %p0 %z26.d -> %x1
  *       ldr    (%x0,%x1,lsl #3)[8byte] -> %x1
  *       cpy    %p0/m %x1 -> %z27.d
- *       pnext  %p1 %p0.d -> %p0.d              ; Find the fifth active element (if any)
+ *       pnext  %p1 %p0.d -> %p0.d              ; Find the fourth active element (if any)
  *       b.none end
  *       lastb  %p0 %z26.d -> %x1
  *       ldr    (%x0,%x1,lsl #3)[8byte] -> %x1
  *       cpy    %p0/m %x1 -> %z27.d
  *   end:
  *       ...
+ *
+ * Vector+immediate:
+ *
+ * These instructions either have scalar+vector memory operands or the form:
+ *     [<Zn>.<Ts>{, #<imm>}]
+ * where addresses to load/store each element are calculated by adding an immediate offset
+ * to a base address read from the corresponding element of the vector base register Zn.
+ *
+ * The emitted code roughly implements this algorithm:
+ *     if (is_load)
+ *         clear_inactive_elements(dst);
+ *     for (e=first_active_element();
+ *          active_elements_remain();
+ *          e = next_active_element()) {
+ *         if (is_load) {
+ *             dst[e] = scalar_load(base[e], imm);
+ *         } else {
+ *             scalar_store(src[e], base[e], imm);
+ *         }
+ *     }
+ * except we unroll the loop. Without unrolling the loop drmemtrace's instrumentation
+ * would be repeated every iteration and give incorrect ifetch statistics.
+ * (See i#4948 for more details)
+ *
+ * For example
+ *     st1h   %z7.d %p2 -> +0x3e(%z23.d)[8byte]
+ * with a 256-bit vector length expands to:
+ *
+ *       pfalse  -> %p0.b
+ * handle_active_elements:
+ *       pnext  %p2 %p0.d -> %p0.d              ; p0 = mask indicating first active
+ *                                              ;      element of p1
+ *                                              ; NOTE: This is the first *active*
+ *                                              ; element which may or may not be
+ *                                              ; element 0.
+ *       b.none end                             ; if (no more active elements) goto end
+ *       lastb  %p0 %z23.d -> %x0               ; extract offset for the current element
+ *       lastb  %p0 %z7.d -> %x1                ; extract current element from src reg
+ *       strh   %w1 -> +0x3e(%x0)[2byte]        ; perform the scalar store
+ *       pnext  %p2 %p0.d -> %p0.d              ; Find the second active element (if any)
+ *       b.none end
+ *       lastb  %p0 %z23.d -> %x0
+ *       lastb  %p0 %z7.d -> %x1
+ *       strh   %w1 -> +0x3e(%x0)[2byte]
+ *       pnext  %p2 %p0.d -> %p0.d              ; Find the thrid active element (if any)
+ *       b.none end
+ *       lastb  %p0 %z23.d -> %x0
+ *       lastb  %p0 %z7.d -> %x1
+ *       strh   %w1 -> +0x3e(%x0)[2byte]
+ *       pnext  %p2 %p0.d -> %p0.d              ; Find the fourth active element (if any)
+ *       b.none end
+ *       lastb  %p0 %z23.d -> %x0
+ *       lastb  %p0 %z7.d -> %x1
+ *       strh   %w1 -> +0x3e(%x0)[2byte]
+ *   end:
+ *       ...
+ *
+ * This function is also used in the expansion of predicated contiguous load/stores so it
+ * needs to be able to handle multi-register operations, even though there are not any
+ * multi-register scatter/gather instructions.
  */
 static void
-expand_scatter_gather(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
-                      const scatter_gather_info_t *sg_info, reg_id_t scalar_index_or_base,
-                      reg_id_t scalar_src_or_dst, reg_id_t scratch_pred,
-                      app_pc orig_app_pc)
+expand_scatter_gather(const sg_emit_context_t *sg_context,
+                      const scatter_gather_info_t *sg_info, reg_id_t scalar_base,
+                      reg_id_t scalar_index, reg_id_t scalar_src_or_dst,
+                      reg_id_t scratch_pred)
 {
-#define EMIT(op, ...)    \
-    instrlist_preinsert( \
-        bb, sg_instr, INSTR_XL8(INSTR_CREATE_##op(drcontext, __VA_ARGS__), orig_app_pc))
-
-    DR_ASSERT_MSG(reg_is_z(sg_info->base_reg) || reg_is_z(sg_info->index_reg),
-                  "Base or index must be a Z register");
-
     DR_ASSERT_MSG(
-        (scalar_src_or_dst != scalar_index_or_base) ||
-            (sg_info->is_load && sg_info->reg_count == 1),
-        "Single register loads are the only instructions where it is safe for the scratch"
-        " registers to alias");
+        !reg_is_z(scalar_base),
+        "expand_scatter_gather: scalar_base register must be scalar X register");
+    DR_ASSERT_MSG(
+        !reg_is_z(scalar_index),
+        "expand_scatter_gather: scalar_index register must be scalar X register");
+    DR_ASSERT_MSG(!reg_is_z(scalar_index),
+                  "expand_scatter_gather: scalar_index must be scalar X register");
+    DR_ASSERT_MSG(!reg_is_z(scalar_src_or_dst),
+                  "expand_scatter_gather: scalar_src_or_dst must be scalar X register");
 
-    const uint no_of_elements =
-        (opnd_size_in_bytes(sg_info->scatter_gather_size) / sg_info->reg_count) /
-        opnd_size_in_bytes(sg_info->scalar_value_size);
+    DR_ASSERT_MSG((scalar_src_or_dst != scalar_index) || sg_info->is_load,
+                  "expand_scatter_gather: scalar_src and scalar_index registers must "
+                  "not alias");
+
+    const uint no_of_elements = get_number_of_elements(sg_info);
 
     if (sg_info->is_load) {
         /* First we deal with the inactive elements. Gather loads are always zeroing
          * so we need to set all inactive elements to 0.
          */
-        for (uint reg_index = 0; reg_index < sg_info->reg_count; reg_index++) {
-            const reg_id_t vector_dst =
-                (((sg_info->gather_dst_reg - DR_REG_Z0) + reg_index) %
-                 DR_NUM_SIMD_VECTOR_REGS) +
-                DR_REG_Z0;
-            if ((sg_info->base_reg == vector_dst) || (sg_info->index_reg == vector_dst)) {
-                /* The dst register is also the base/index register so we need to preserve
-                 * the value of the active elements so we can use them in the address
-                 * calculation. We do this by CPYing a 0 value into the dst register using
-                 * the inverse of the mask_reg as the governing predicate.
-                 */
-
-                /* ptrue    scratch_pred.b */
-                EMIT(ptrue_sve, opnd_create_reg_element_vector(scratch_pred, OPSZ_1),
-                     opnd_create_immed_pred_constr(DR_PRED_CONSTR_ALL));
-
-                /* not      scratch_pred.b, scratch_pred/z, mask_reg.b */
-                EMIT(not_sve_pred_b, opnd_create_reg_element_vector(scratch_pred, OPSZ_1),
-                     opnd_create_predicate_reg(scratch_pred, false),
-                     opnd_create_reg_element_vector(sg_info->mask_reg, OPSZ_1));
-
-                /* cpy      vector_dst.element_size, scratch_pred/m, #0, lsl #0 */
-                EMIT(cpy_sve_shift_pred,
-                     opnd_create_reg_element_vector(vector_dst, sg_info->element_size),
-                     opnd_create_predicate_reg(scratch_pred, true), OPND_CREATE_INT8(0),
-                     opnd_create_immed_uint(0, OPSZ_1b));
-            } else {
-                /* We don't care about any values in the dst register so zero the whole
-                 * thing.
-                 */
-
-                /* dup      vector_dst.size, #0, lsl #0 */
-                EMIT(dup_sve_shift,
-                     opnd_create_reg_element_vector(vector_dst, sg_info->element_size),
-                     OPND_CREATE_INT8(0), opnd_create_immed_uint(0, OPSZ_1b));
-            }
-        }
+        emit_clear_inactive_dst_elements(sg_context, sg_info, scratch_pred);
     }
 
-    /* pfalse   scratch_pred.b */
-    EMIT(pfalse_sve, opnd_create_reg_element_vector(scratch_pred, OPSZ_1));
+    emit_init_active_element_loop(sg_context, sg_info, scratch_pred);
 
-    instr_t *end_label = INSTR_CREATE_label(drcontext);
+    instr_t *end_label = INSTR_CREATE_label(sg_context->drcontext);
 
     for (uint i = 0; i < no_of_elements; i++) {
-        /* pnext scratch_pred.element_size, mask_reg, scratch_pred.element_size */
-        EMIT(pnext_sve,
-             opnd_create_reg_element_vector(scratch_pred, sg_info->element_size),
-             opnd_create_reg(sg_info->mask_reg));
 
-        /* b.none   end */
-        instrlist_preinsert(
-            bb, sg_instr,
-            INSTR_XL8(
-                INSTR_PRED(INSTR_CREATE_bcond(drcontext, opnd_create_instr(end_label)),
-                           DR_PRED_SVE_NONE),
-                orig_app_pc));
+        /* Advance scratch_pred to the next active element in sg_info->mask_reg, or branch
+         * to end_label if there are no more active elements.
+         */
+        emit_advance_to_next_active_element(sg_context, sg_info, scratch_pred, end_label);
 
-        for (uint reg_index = 0; reg_index < sg_info->reg_count; reg_index++) {
-            if (reg_index == 0) {
-                /* Extract the current element from the vector base/index register so we
-                 * can use it in the scalar load/store instruction.
-                 *
-                 * For multi-register loads/stores this contains the index for the first
-                 * register dst/src register.
-                 */
-                const reg_id_t reg_to_extract =
-                    reg_is_z(sg_info->base_reg) ? sg_info->base_reg : sg_info->index_reg;
+        if (reg_is_z(sg_info->base_reg)) {
+            /* Copy the current active element of the vector base reg to scalar_base */
+            emit_extract_current_element(sg_context, sg_info, scalar_base, scratch_pred,
+                                         sg_info->base_reg);
+        }
 
-                /* lastb    scalar_index_or_base, scratch_pred,
-                 * reg_to_extract.element_size */
-                EMIT(lastb_sve_scalar, opnd_create_reg(scalar_index_or_base),
-                     opnd_create_reg(scratch_pred),
-                     opnd_create_reg_element_vector(reg_to_extract,
-                                                    sg_info->element_size));
-            } else {
-                /* Increment the index value so the memory operand for the scalar
-                 * load/store we emit below points to the value for the next register.
-                 */
-                EMIT(add, opnd_create_reg(scalar_index_or_base),
-                     opnd_create_reg(scalar_index_or_base), OPND_CREATE_INT(1));
-            }
+        if (reg_is_z(sg_info->index_reg)) {
+            /* Copy the current active element of the vector index reg to scalar_index */
+            emit_extract_current_element(sg_context, sg_info, scalar_index, scratch_pred,
+                                         sg_info->index_reg);
+        }
 
-            if (sg_info->is_load) {
-                const reg_id_t scalar_dst = scalar_src_or_dst;
-                const reg_id_t vector_dst =
-                    (((sg_info->gather_dst_reg - DR_REG_Z0) + reg_index) %
-                     DR_NUM_SIMD_VECTOR_REGS) +
-                    DR_REG_Z0;
+        emit_load_store_current_element(sg_context, sg_info, scratch_pred, scalar_base,
+                                        scalar_index, scalar_src_or_dst, 0);
 
-                /* ldr[bh]  scalar_dst, [mem] */
-                instrlist_preinsert(
-                    bb, sg_instr,
-                    INSTR_XL8(create_scalar_load_or_store(
-                                  drcontext, sg_info, scalar_index_or_base, scalar_dst),
-                              orig_app_pc));
+        for (uint reg_index = 1; reg_index < sg_info->reg_count; reg_index++) {
+            /* Increment the index value so the memory operand for the scalar
+             * load/store we emit below points to the value for the next register.
+             */
+            EMIT(sg_context, add, opnd_create_reg(scalar_index),
+                 opnd_create_reg(scalar_index), OPND_CREATE_INT(1));
 
-                /* cpy      vector_dst.element_size, scratch_pred/m, scalar_dst */
-                EMIT(cpy_sve_pred,
-                     opnd_create_reg_element_vector(vector_dst, sg_info->element_size),
-                     opnd_create_predicate_reg(scratch_pred, true),
-                     opnd_create_reg(
-                         reg_resize_to_opsz(scalar_dst, sg_info->element_size)));
-            } else {
-                const reg_id_t scalar_src = scalar_src_or_dst;
-                const reg_id_t vector_src =
-                    (((sg_info->scatter_src_reg - DR_REG_Z0) + reg_index) %
-                     DR_NUM_SIMD_VECTOR_REGS) +
-                    DR_REG_Z0;
-
-                /* lastb    scalar_src, scratch_pred, vector_src.element_size */
-                EMIT(lastb_sve_scalar, opnd_create_reg(scalar_src),
-                     opnd_create_reg(scratch_pred),
-                     opnd_create_reg_element_vector(vector_src, sg_info->element_size));
-
-                /* str[bh]  scalar_src, [mem] */
-                instrlist_preinsert(
-                    bb, sg_instr,
-                    INSTR_XL8(create_scalar_load_or_store(
-                                  drcontext, sg_info, scalar_index_or_base, scalar_src),
-                              orig_app_pc));
-            }
+            emit_load_store_current_element(sg_context, sg_info, scratch_pred,
+                                            scalar_base, scalar_index, scalar_src_or_dst,
+                                            reg_index);
         }
     }
 
-    instrlist_meta_preinsert(bb, sg_instr, end_label);
-
-#undef EMIT
+    instrlist_meta_preinsert(sg_context->bb, sg_context->sg_instr, end_label);
 }
 
 /*
- * Emit code to expand a predicated contiguous load or store into a series of equivalent
- * scalar loads and stores.
+ * Predicated contiguous loads and stores.
+ *
  * These instructions have memory operands of the form:
  *     [<Xn|SP>, <Xm>{, lsl #amount}] (scalar+scalar)
  * or
@@ -583,8 +726,8 @@ expand_scatter_gather(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
  *
  *     base + index + (e * scalar_value_size)
  *
- * Contiguous accesses are expanded in a similar way to scatter/gather accesses (see
- * expand_scatter_gather() for details) with an extra step at the beginning.
+ * Contiguous accesses are expanded in a similar way to scalar+vector scatter/gather
+ * accesses (see expand_scatter_gather() for details) with an extra step at the beginning.
  *
  * When we expand a scatter/gather instruction we use the pnext instruction to iterate
  * over the active elements in the governing predicate. The loop essentially works like
@@ -598,9 +741,12 @@ expand_scatter_gather(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
  *         ...
  *     }
  *
+ * The key thing here is that our loop variable isn't an index we are incrementing, its
+ * a 1-bit mask we are left-shifting.
+ *
  * This works well for the true scatter/gather instructions because we can use the mask
  * to extract the current element from the vector index or base register to a scalar
- * register which we can use in a scalar load/store.
+ * register which we can use in a scalar load/store using the lastb instruction.
  *
  * Contiguous accesses don't have a vector we can extract from, so we need to create one.
  * Essentially we transform the contiguous operation into a scalar+vector scatter/gather
@@ -617,74 +763,101 @@ expand_scatter_gather(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
  *
  * which can be expanded the same way as a regular scalar+vector scatter/gather operation.
  */
+
+/*
+ * Emit code to expand a scalar+scalar predicated contiguous load or store into a series
+ * of equivalent scalar loads and stores.
+ * These instructions have memory operands of the form:
+ *     [<Xn|SP>, <Xm>{, lsl #amount}]
+ *
+ * The emitted code roughly implements this algorithm:
+ *     new_base = base + (index lsl #amount)
+ *     offsets = [i*reg_count for i in range(reg_count)]
+ *     if (is_load)
+ *         clear_inactive_elements(dst);
+ *     for (e=first_active_element();
+ *          active_elements_remain();
+ *          e = next_active_element()) {
+ *         first_reg_offset = offsets[e]=
+ *         if (is_load) {
+ *             for (i=0; i < reg_count; i++) {
+ *                 dsts[(z1 + i) % 32][e] = scalar_load(new_base, first_reg_offset + i,
+ *                                                      mod);
+ *             }
+ *         } else {
+ *             for (i=0; i < reg_count; i++) {
+ *                 scalar_store(srcs[(z1 + i) % 32][e], new_base, first_reg_offset + i,
+ *                              mod);
+ *             }
+ *         }
+ *     }
+ * except we unroll the loops. Without unrolling the loop drmemtrace's instrumentation
+ * would be repeated every iteration and give incorrect ifetch statistics.
+ * (See i#4948 for more details)
+ *
+ * For example
+ *     ld2h   (%x0,%x1,lsl #1)[64byte] %p6/z -> %z12.h %z13.h
+ * with a 256-bit vector length expands to:
+ *
+ *       add    %x0 %x1 uxtx $0x01 -> %x4       ; Calculate new base
+ *       index  $0x00 $0x02 -> %z0.h            ; Initialize index vector
+ * clear_inactive_elements:
+ *       dup    $0x00 lsl $0x00 -> %z12.h      ; Clear destination registers
+ *       dup    $0x00 lsl $0x00 -> %z13.h
+ *       pfalse  -> %p0.b
+ * handle_active_elements:
+ *       pnext  %p6 %p0.h -> %p0.h              ; p0 = mask indicating first active
+ *                                              ;      element of p1
+ *                                              ; NOTE: This is the first *active*
+ *                                              ; element which may or may not be
+ *                                              ; element 0.
+ *       b.none end                             ; if (no more active elements) goto end
+ *       lastb  %p0 %z0.h -> %x2                ; extract offset for the current element
+ *       ldrh   (%x4,%x2,lsl #1)[2byte] -> %w3  ; scalar load for 1st dst register
+ *       cpy    %p0/m %w3 -> %z12.h             ; cpy loaded value to dst element
+ *       add    %x2 $0x01 lsl $0x0 -> %x2       ; increment index
+ *       ldrh   (%x4,%x2,lsl #1)[2byte] -> %w3  ; scalar load for 2st dst register
+ *       cpy    %p0/m %w3 -> %z13.h             ; cpy loaded value to dst element
+ *       pnext  %p6 %p0.h -> %p0.h              ; Find the second active element (if any)
+ *       b.none end
+ *       lastb  %p0 %z0.h -> %x2
+ *       ldrh   (%x4,%x2,lsl #1)[2byte] -> %w3
+ *       cpy    %p0/m %w3 -> %z12.h
+ *       add    %x2 $0x01 lsl $0x0 -> %x2
+ *       ldrh   (%x4,%x2,lsl #1)[2byte] -> %w3
+ *       cpy    %p0/m %w3 -> %z13.h
+ *       ...                                    ; Repeat for all elements
+ *   end:
+ *       ...
+ */
 static void
-expand_contiguous(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
-                  const scatter_gather_info_t *sg_info, reg_id_t new_base,
-                  reg_id_t scalar_index, reg_id_t scalar_src_or_dst,
-                  reg_id_t scratch_pred, reg_id_t governing_pred, reg_id_t scratch_vec,
-                  app_pc orig_app_pc)
+expand_scalar_plus_scalar(const sg_emit_context_t *sg_context,
+                          const scatter_gather_info_t *sg_info, reg_id_t new_base,
+                          reg_id_t scalar_index, reg_id_t scalar_src_or_dst,
+                          reg_id_t scratch_pred, reg_id_t governing_pred,
+                          reg_id_t scratch_vec)
 {
-#define EMIT(op, ...)    \
-    instrlist_preinsert( \
-        bb, sg_instr, INSTR_XL8(INSTR_CREATE_##op(drcontext, __VA_ARGS__), orig_app_pc))
+    DR_ASSERT_MSG(
+        !reg_is_z(sg_info->base_reg),
+        "expand_scalar_plus_scalar: base_reg register must be scalar X register");
+    DR_ASSERT_MSG(
+        !reg_is_z(sg_info->index_reg),
+        "expand_scalar_plus_scalar: index_reg register must be scalar X register");
+    DR_ASSERT_MSG(!reg_is_z(scalar_index),
+                  "expand_scalar_plus_scalar: scalar_index must be scalar X register");
+    DR_ASSERT_MSG(
+        !reg_is_z(scalar_src_or_dst),
+        "expand_scalar_plus_scalar: scalar_src_or_dst must be scalar X register");
 
-    if (sg_info->is_replicating && proc_get_vector_length_bytes() > 16) {
-        /* This instruction loads a fixed size 16-byte vector which is replicated to
-         * all quadword elements on hardware with a vector length > 16 bytes.
-         * Only the bottom 16 bits of the governing predicate register are used so we
-         * need to mask out any higher bits than that.
-         */
-        DR_ASSERT(sg_info->scatter_gather_size == OPSZ_16);
-
-        /* Set scratch_pred to a value with the first 16 elements active */
-        /* ptrue    scratch_pred.b, vl16 */
-        EMIT(ptrue_sve, opnd_create_reg_element_vector(scratch_pred, OPSZ_1),
-             opnd_create_immed_pred_constr(DR_PRED_CONSTR_VL16));
-
-        /* Create a new governing predicate by applying the mask we created in
-         * scratch_pred to the instruction's mask_reg.
-         */
-
-        /* and      governing_pred.b, mask_reg/z, mask_reg.b, scratch_pred.b */
-        EMIT(and_sve_pred_b, opnd_create_reg_element_vector(governing_pred, OPSZ_1),
-             opnd_create_predicate_reg(sg_info->mask_reg, /*merging=*/false),
-             opnd_create_reg_element_vector(sg_info->mask_reg, OPSZ_1),
-             opnd_create_reg_element_vector(scratch_pred, OPSZ_1));
-    }
-
-    /* Calculate the new base address in scratch_gpr0.
+    /* Calculate the new base address in new_base.
      * Note that we can't use drutil_insert_get_mem_addr() here because we don't want the
      * BSD licensed drx to have a dependency on the LGPL licensed drutil.
      */
 
-    if (sg_info->index_reg == DR_REG_NULL) {
-        /* scalar+immediate */
-        DR_ASSERT(!sg_info->scaled);
-        DR_ASSERT(sg_info->extend_amount == 0);
-
-        if (sg_info->disp == 0) {
-            /* The displacement is 0 so the original base register already contains the
-             * base of the contiguous memory region.
-             */
-            new_base = sg_info->base_reg;
-        } else if (sg_info->disp > 0) {
-            /* add      new_base, base_reg, #disp */
-            EMIT(add, opnd_create_reg(new_base), opnd_create_reg(sg_info->base_reg),
-                 OPND_CREATE_INT(sg_info->disp));
-        } else {
-            /* sub      new_base, base_reg, #-disp */
-            EMIT(sub, opnd_create_reg(new_base), opnd_create_reg(sg_info->base_reg),
-                 OPND_CREATE_INT(-sg_info->disp));
-        }
-    } else {
-        /* scalar+scalar */
-        DR_ASSERT(sg_info->disp == 0);
-
-        /* add      new_base, base_reg, index_reg, extend #extend_amount */
-        EMIT(add_extend, opnd_create_reg(new_base), opnd_create_reg(sg_info->base_reg),
-             opnd_create_reg(sg_info->index_reg), OPND_CREATE_INT(sg_info->extend),
-             OPND_CREATE_INT(sg_info->extend_amount));
-    }
+    /* add      new_base, base_reg, index_reg, extend #extend_amount */
+    EMIT(sg_context, add_extend, opnd_create_reg(new_base),
+         opnd_create_reg(sg_info->base_reg), opnd_create_reg(sg_info->index_reg),
+         OPND_CREATE_INT(sg_info->extend), OPND_CREATE_INT(sg_info->extend_amount));
 
     /* Populate the new vector index register, starting at 0 and incrementing by the
      * number of values which are accessed per-index. This is one value per register
@@ -692,31 +865,22 @@ expand_contiguous(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
      */
 
     /* index    scratch_vec.element_size, #0, #reg_count */
-    EMIT(index_sve, opnd_create_reg_element_vector(scratch_vec, sg_info->element_size),
+    EMIT(sg_context, index_sve,
+         opnd_create_reg_element_vector(scratch_vec, sg_info->element_size),
          /*starting value=*/opnd_create_immed_int(0, OPSZ_5b),
          /*increment=*/opnd_create_immed_int(sg_info->reg_count, OPSZ_5b));
 
     /* Create a new scatter_gather_info_t with the updated registers. */
-    scatter_gather_info_t modified_sg_info = *sg_info;
-    modified_sg_info.base_reg = new_base;
-    modified_sg_info.index_reg = scratch_vec;
-    modified_sg_info.disp = 0;
-    if (sg_info->index_reg == DR_REG_NULL) {
-        /* scalar+immediate */
-        modified_sg_info.scaled = true;
-        modified_sg_info.extend_amount =
-            opnd_size_to_shift_amount(sg_info->scalar_value_size);
-        modified_sg_info.extend = DR_EXTEND_UXTW;
+    scatter_gather_info_t mod_sg_info = *sg_info;
+    mod_sg_info.base_reg = new_base;
+    mod_sg_info.index_reg = scratch_vec;
+    mod_sg_info.disp = 0;
+    mod_sg_info.mask_reg = governing_pred;
 
-    } else {
-        /* scalar+scalar: Keep the original modifier copied from sg_info */
-    }
-    modified_sg_info.mask_reg = governing_pred;
-
-    /* Note that modified_sg_info might not describe a valid SVE instruction.
+    /* Note that mod_sg_info might not describe a valid SVE instruction.
      * For example if we are expanding:
      *     ld1h z31.h, p0/z, [x0, x1, lsl #1]
-     * The modified_sg_info might look like a theoretical instruction:
+     * The mod_sg_info might look like a theoretical instruction:
      *     ld1h z31.h, p0/z, [x2, z0.h, lsl #1]
      * which is not a valid SVE instruction (scatter/gather instructions only support
      * S and D element sizes).
@@ -726,10 +890,246 @@ expand_contiguous(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
      */
 
     /* Expand the instruction as if it were a scalar+vector scatter/gather instruction */
-    expand_scatter_gather(drcontext, bb, sg_instr, &modified_sg_info, scalar_index,
-                          scalar_src_or_dst, scratch_pred, orig_app_pc);
 
-    if (sg_info->is_replicating && proc_get_vector_length_bytes() > 16) {
+    expand_scatter_gather(sg_context, &mod_sg_info, new_base, scalar_index,
+                          scalar_src_or_dst, scratch_pred);
+}
+
+/*
+ * Emit code to expand a scalar+immediate predicated contiguous load or store into a
+ * series of equivalent scalar loads and stores.
+ * These instructions have memory operands of the form:
+ *     [<Xn|SP>{, #imm, mul vl}]
+ *
+ * The emitted code roughly implements this algorithm:
+ *     new_base = base + (imm * vl)
+ *     offsets = [i*reg_count for i in range(reg_count)]
+ *     if (is_load)
+ *         clear_inactive_elements(dst);
+ *     for (e=first_active_element();
+ *          active_elements_remain();
+ *          e = next_active_element()) {
+ *         first_reg_offset = offsets[e]=
+ *         if (is_load) {
+ *             for (i=0; i < reg_count; i++) {
+ *                 dsts[(z1 + i) % 32][e] = scalar_load(new_base, first_reg_offset + i,
+ *                                                      mod);
+ *             }
+ *         } else {
+ *             for (i=0; i < reg_count; i++) {
+ *                 scalar_store(srcs[(z1 + i) % 32][e], new_base, first_reg_offset + i,
+ *                              mod);
+ *             }
+ *         }
+ *     }
+ * except we unroll the loops. Without unrolling the loop drmemtrace's instrumentation
+ * would be repeated every iteration and give incorrect ifetch statistics.
+ * (See i#4948 for more details)
+ *
+ * For example
+ *     st4b   %z24.b %z25.b %z26.b %z27.b %p3 -> -0x0280(%x0)[128byte]
+ * with a 256-bit vector length expands to:
+ *
+ *       sub    %x0 $0x0280 lsl $0x0 -> %x3     : Calculate new base
+ *       index  $0x00 $0x04 -> %z0.b            ; Initialize index vector
+ *       pfalse  -> %p0.b
+ * handle_active_elements:
+ *       pnext  %p3 %p0.b -> %p0.b              ; p0 = mask indicating first active
+ *                                              ;      element of p1
+ *                                              ; NOTE: This is the first *active*
+ *                                              ; element which may or may not be
+ *                                              ; element 0.
+ *       b.none end                             ; if (no more active elements) goto end
+ *       lastb  %p0 %z0.b -> %x1                ; extract offset for the current element
+ *       lastb  %p0 %z24.b -> %x2               ; extract value from the first src reg
+ *       strb   %w2 -> (%x3,%x1,uxtw #0)[1byte] ; scalar store for first value
+ *       add    %x1 $0x01 lsl $0x00 -> %x1      ; increment index
+ *       lastb  %p0 %z25.b -> %x2               ; extract value from the second src reg
+ *       strb   %w2 -> (%x3,%x1,uxtw #0)[1byte] ; scalar store for second value
+ *       add    %x1 $0x01 lsl $0x00 -> %x1      ; increment index
+ *       lastb  %p0 %z26.b -> %x2               ; extract value from the third src reg
+ *       strb   %w2 -> (%x3,%x1,uxtw #0)[1byte] ; scalar store for third value
+ *       add    %x1 $0x01 lsl $0x00 -> %x1      ; increment index
+ *       lastb  %p0 %z27.b -> %x2               ; extract value from the fourth src reg
+ *       strb   %w2 -> (%x3,%x1,uxtw #0)[1byte] ; scalar store for fourth value
+ *       pnext  %p3 %p0.b -> %p0.b              ; Find the second active element (if any)
+ *       b.none end
+ *       lastb  %p0 %z0.b -> %x1
+ *       lastb  %p0 %z24.b -> %x2
+ *       strb   %w2 -> (%x3,%x1,uxtw #0)[1byte]
+ *       add    %x1 $0x01 lsl $0x00 -> %x1
+ *       lastb  %p0 %z25.b -> %x2
+ *       strb   %w2 -> (%x3,%x1,uxtw #0)[1byte]
+ *       add    %x1 $0x01 lsl $0x00 -> %x1
+ *       lastb  %p0 %z26.b -> %x2
+ *       strb   %w2 -> (%x3,%x1,uxtw #0)[1byte]
+ *       add    %x1 $0x01 lsl $0x00 -> %x1
+ *       lastb  %p0 %z27.b -> %x2
+ *       strb   %w2 -> (%x3,%x1,uxtw #0)[1byte]
+ *       ...                                    ; Repeat for all elements
+ *   end:
+ *       ...
+ */
+static void
+expand_scalar_plus_immediate(const sg_emit_context_t *sg_context,
+                             const scatter_gather_info_t *sg_info, reg_id_t new_base,
+                             reg_id_t scalar_index, reg_id_t scalar_src_or_dst,
+                             reg_id_t scratch_pred, reg_id_t governing_pred,
+                             reg_id_t scratch_vec)
+{
+    DR_ASSERT_MSG(
+        !reg_is_z(sg_info->base_reg),
+        "expand_scalar_plus_vector: base_reg register must be scalar X register");
+    DR_ASSERT_MSG(
+        !reg_is_z(sg_info->index_reg),
+        "expand_scalar_plus_vector: index_reg register must be scalar X register");
+    DR_ASSERT_MSG(!reg_is_z(scalar_index),
+                  "expand_scalar_plus_vector: scalar_index must be scalar X register");
+    DR_ASSERT_MSG(
+        !reg_is_z(scalar_src_or_dst),
+        "expand_scalar_plus_vector: scalar_src_or_dst must be scalar X register");
+
+    /* Calculate the new base address in new_base.
+     * Note that we can't use drutil_insert_get_mem_addr() here because we don't want the
+     * BSD licensed drx to have a dependency on the LGPL licensed drutil.
+     */
+
+    DR_ASSERT(!sg_info->scaled);
+    DR_ASSERT(sg_info->extend_amount == 0);
+
+    if (sg_info->disp == 0) {
+        /* The displacement is 0 so the original base register already contains the
+         * base of the contiguous memory region.
+         */
+        new_base = sg_info->base_reg;
+    } else if (sg_info->disp > 0) {
+        /* add      new_base, base_reg, #disp */
+        EMIT(sg_context, add, opnd_create_reg(new_base),
+             opnd_create_reg(sg_info->base_reg), OPND_CREATE_INT(sg_info->disp));
+    } else {
+        /* sub      new_base, base_reg, #-disp */
+        EMIT(sg_context, sub, opnd_create_reg(new_base),
+             opnd_create_reg(sg_info->base_reg), OPND_CREATE_INT(-sg_info->disp));
+    }
+
+    /* Populate the new vector index register, starting at 0 and incrementing by the
+     * number of values which are accessed per-index. This is one value per register
+     * accessed so the increment is the same as sg_info->regcount.
+     */
+
+    /* index    scratch_vec.element_size, #0, #reg_count */
+    EMIT(sg_context, index_sve,
+         opnd_create_reg_element_vector(scratch_vec, sg_info->element_size),
+         /*starting value=*/opnd_create_immed_int(0, OPSZ_5b),
+         /*increment=*/opnd_create_immed_int(sg_info->reg_count, OPSZ_5b));
+
+    /* Create a new scatter_gather_info_t with the updated registers. */
+    scatter_gather_info_t mod_sg_info = *sg_info;
+    mod_sg_info.base_reg = new_base;
+    mod_sg_info.index_reg = scratch_vec;
+    mod_sg_info.disp = 0;
+    mod_sg_info.mask_reg = governing_pred;
+    mod_sg_info.scaled = true;
+    mod_sg_info.extend_amount = opnd_size_to_shift_amount(sg_info->scalar_value_size);
+    mod_sg_info.extend = DR_EXTEND_UXTW;
+
+    /* Note that mod_sg_info might not describe a valid SVE instruction.
+     * For example if we are expanding:
+     *     ld1h z31.h, p0/z, [x0, x1, lsl #1]
+     * The mod_sg_info might look like a theoretical instruction:
+     *     ld1h z31.h, p0/z, [x2, z0.h, lsl #1]
+     * which is not a valid SVE instruction (scatter/gather instructions only support
+     * S and D element sizes).
+     * It doesn't matter that this theoretical instruction does not exist;
+     * expand_scatter_gather() is able to generate a sequence of valid instructions that
+     * carry out the described operation correctly anyway.
+     */
+
+    /* Expand the instruction as if it were a scalar+vector scatter/gather instruction */
+
+    expand_scatter_gather(sg_context, &mod_sg_info, new_base, scalar_index,
+                          scalar_src_or_dst, scratch_pred);
+}
+
+/* This instruction loads a fixed size 16-byte vector which is replicated to
+ * all quadword elements of the destination register.
+ *
+ * If the hardware vector length is also 16-bytes (128-bit) then this is the same as a
+ * regular predicated contiguous ld1[bhsd], but if the vector length is larger we need
+ * to emit code to do the replicating.
+ *
+ * For example
+ *     ld1rqd (%x0,%x1,lsl #3)[16byte] %p2/z -> %z31.d
+ * with a 256-bit vector length expands to:
+ *
+ * setup:
+ *       ptrue  VL16 -> %p0.b                  ; p0 = 0b00000000000000001111111111111111
+ *       and    %p2/z %p2.b %p0.b -> %p1.b     ; Use p0 to mask the governing predicate p2
+ *       add    %x0 %x1 uxtx $0x03 -> %x3      ; Calculate new base address
+ *       index  $0x00 $0x01 -> %z0.d           ; Initialize vector index
+ *       dup    $0x00 lsl $0x00 -> %z31.d      ; Clear destination register
+ * handle_active_elements:
+ *       pfalse  -> %p0.b                      ; Initialize loop variable
+ *       pnext  %p1 %p0.d -> %p0.d             ; p0 = mask indicating first active
+ *                                             ;      element of p1
+ *                                             ; NOTE: This is the first *active*
+ *                                             ; element which may or may not be
+ *                                             ; element 0.
+ *       b.none end                            ; if (no more active elements) goto end
+ *       lastb  %p0 %z0.d -> %x2               ; extract offset for the current element
+ *       ldr    (%x3,%x2,lsl #3)[8byte] -> %x2 ; perform the scalar load
+ *       cpy    %p0/m %x2 -> %z31.d            ; cpy loaded value to dst element
+ *       pnext  %p1 %p0.d -> %p0.d             ; Find the second active element (if any)
+ *       b.eq   end
+ *       lastb  %p0 %z0.d -> %x2
+ *       ldr    (%x3,%x2,lsl #3)[8byte] -> %x2
+ *       cpy    %p0/m %x2 -> %z31.d
+ * end:
+ *       dup    %z31.q $0x00 -> %z31.q         ; Copy quadword (16-byte) element 0 to
+ *                                             ; all elements of dst register.
+ */
+static void
+expand_replicating(const sg_emit_context_t *sg_context,
+                   const scatter_gather_info_t *sg_info, reg_id_t new_base,
+                   reg_id_t scalar_index, reg_id_t scalar_src_or_dst,
+                   reg_id_t scratch_pred, reg_id_t governing_pred, reg_id_t scratch_vec)
+{
+    DR_ASSERT(sg_info->is_replicating);
+    DR_ASSERT(sg_info->is_load);
+    if (proc_get_vector_length_bytes() > 16) {
+        /* Only the bottom 16 bits of the governing predicate register are used so we
+         * need to mask out any higher bits than that.
+         */
+        DR_ASSERT(sg_info->scatter_gather_size == OPSZ_16);
+
+        /* Set scratch_pred to a value with the first 16 elements active */
+        /* ptrue    scratch_pred.b, vl16 */
+        EMIT(sg_context, ptrue_sve, opnd_create_reg_element_vector(scratch_pred, OPSZ_1),
+             opnd_create_immed_pred_constr(DR_PRED_CONSTR_VL16));
+
+        /* Create a new governing predicate by applying the mask we created in
+         * scratch_pred to the instruction's mask_reg.
+         */
+
+        /* and      governing_pred.b, mask_reg/z, mask_reg.b, scratch_pred.b */
+        EMIT(sg_context, and_sve_pred_b,
+             opnd_create_reg_element_vector(governing_pred, OPSZ_1),
+             opnd_create_predicate_reg(sg_info->mask_reg, /*merging=*/false),
+             opnd_create_reg_element_vector(sg_info->mask_reg, OPSZ_1),
+             opnd_create_reg_element_vector(scratch_pred, OPSZ_1));
+    }
+
+    if (sg_info->index_reg == DR_REG_NULL) {
+        expand_scalar_plus_immediate(sg_context, sg_info, new_base, scalar_index,
+                                     scalar_src_or_dst, scratch_pred, governing_pred,
+                                     scratch_vec);
+    } else {
+        expand_scalar_plus_scalar(sg_context, sg_info, new_base, scalar_index,
+                                  scalar_src_or_dst, scratch_pred, governing_pred,
+                                  scratch_vec);
+    }
+
+    if (proc_get_vector_length_bytes() > 16) {
         /* All supported replicating loads load a 16-byte vector. */
         DR_ASSERT(sg_info->scatter_gather_size == OPSZ_16);
 
@@ -738,13 +1138,14 @@ expand_contiguous(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
          */
 
         /* dup gather_dst.q, gather_dst.q[0]*/
-        EMIT(dup_sve_idx,
+        EMIT(sg_context, dup_sve_idx,
              opnd_create_reg_element_vector(sg_info->gather_dst_reg, OPSZ_16),
              opnd_create_reg_element_vector(sg_info->gather_dst_reg, OPSZ_16),
              opnd_create_immed_uint(0, OPSZ_2b));
     }
-#undef EMIT
 }
+
+#undef EMIT
 
 /* Spill a scratch predicate or vector register.
  * TODO i#3844: drreg does not support spilling predicate regs yet, so we do it
@@ -1029,15 +1430,42 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, DR_PARAM_OUT bool *e
     emulated_instr.flags = DR_EMULATE_INSTR_ONLY;
     drmgr_insert_emulation_start(drcontext, bb, sg_instr, &emulated_instr);
 
-    if (is_contiguous) {
+    const sg_emit_context_t sg_context = {
+        drcontext,
+        bb,
+        sg_instr,
+        orig_app_pc,
+    };
+
+    if (sg_info.is_replicating) {
+        expand_replicating(&sg_context, &sg_info, contiguous_new_base, scratch_gpr,
+                           scalar_src_or_dst, scratch_pred, governing_pred, scratch_vec);
+    } else if (is_contiguous) {
         /* scalar+scalar or scalar+immediate predicated contiguous access */
-        expand_contiguous(drcontext, bb, sg_instr, &sg_info, contiguous_new_base,
-                          scratch_gpr, scalar_src_or_dst, scratch_pred, governing_pred,
-                          scratch_vec, orig_app_pc);
+
+        if (sg_info.index_reg == DR_REG_NULL) {
+            expand_scalar_plus_immediate(&sg_context, &sg_info, contiguous_new_base,
+                                         scratch_gpr, scalar_src_or_dst, scratch_pred,
+                                         governing_pred, scratch_vec);
+        } else {
+            expand_scalar_plus_scalar(&sg_context, &sg_info, contiguous_new_base,
+                                      scratch_gpr, scalar_src_or_dst, scratch_pred,
+                                      governing_pred, scratch_vec);
+        }
     } else {
         /* scalar+vector or vector+immediate scatter/gather */
-        expand_scatter_gather(drcontext, bb, sg_instr, &sg_info, scratch_gpr,
-                              scalar_src_or_dst, scratch_pred, orig_app_pc);
+        reg_id_t scalar_base;
+        reg_id_t scalar_index;
+        if (reg_is_z(sg_info.index_reg)) {
+            scalar_base = sg_info.base_reg;
+            scalar_index = scratch_gpr;
+        } else {
+            scalar_base = scratch_gpr;
+            scalar_index = sg_info.index_reg;
+        }
+
+        expand_scatter_gather(&sg_context, &sg_info, scalar_base, scalar_index,
+                              scalar_src_or_dst, scratch_pred);
     }
 
     drmgr_insert_emulation_end(drcontext, bb, sg_instr);

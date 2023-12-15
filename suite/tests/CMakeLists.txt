@@ -2053,6 +2053,8 @@ if (BUILD_CLIENTS)
     set(drdisas_args "-vl" "256" "00000000" "f94017a0" "a9be7bfd" "e58057a1" "85865e6b" "88")
   elseif (ARM)
     set(drdisas_args "6813" "f243" "42c8" "b2db" "88")
+  elseif (RISCV64)
+    set(drdisas_args "853e" "4581" "1d27b783" "00f55733" "9d89" "88")
   else ()
     set(drdisas_args "-syntax" "dr" "66" "90" "c4" "e2" "65" "90" "14" "80" "88")
   endif ()
@@ -4302,6 +4304,12 @@ if (BUILD_CLIENTS)
         set(tool.drcacheoff.burst_maps_nodr ON)
         torunonly_drcacheoff(burst_maps tool.drcacheoff.burst_maps "" "" "")
       endif ()
+      if (LINUX)
+        set(tool.drcacheoff.burst_syscall_inject_nodr ON)
+        torunonly_drcacheoff(burst_syscall_inject tool.drcacheoff.burst_syscall_inject ""
+          "@-simulator_type@basic_counts@-syscall_template_file@drmemtrace.tool.drcacheoff.burst_syscall_inject.*.dir/raw/syscall_trace_template"
+          "")
+      endif ()
 
       set(tool.drcacheoff.burst_traceopts_nodr ON)
       set(tool.drcacheoff.burst_traceopts_nopost ON)
@@ -5933,7 +5941,18 @@ if (RISCV64)
     code_api|linux.signalfd
     code_api|pthreads.pthreads_exit
     code_api|sample.bbbuf
+    code_api|sample.bbcount
+    code_api|sample.bbsize
+    code_api|sample.div
+    code_api|sample.empty
+    code_api|sample.inline
+    code_api|sample.inscount
+    code_api|sample.opcode_count
+    code_api|sample.signal
+    code_api|sample.stl_test
+    code_api|sample.syscall
     code_api|security-linux.trampoline
+    code_api|tool.drdisas
     no_code_api,no_intercept_all_signals|linux.sigaction
     PROPERTIES LABELS RUNS_ON_QEMU)
   if (DEBUG)

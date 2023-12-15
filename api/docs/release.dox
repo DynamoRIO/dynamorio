@@ -140,8 +140,14 @@ changes:
    to include direct switch dependencies.  This is not a binary compatibility change
    as the old value still refers purely to timestamps, but on a recompile it
    refers to timestamps and direct switches, which is what most users should want.
+ - Rename the macro INSTR_CREATE_mul_sve to INSTR_CREATE_mul_sve_imm to
+   differentiate it from the other SVE MUL instructions.
 
 Further non-compatibility-affecting changes include:
+ - Added raw2trace support to inject system call kernel trace templates collected from
+   elsewhere (e.g., QEMU, Gem5) into the user-space drmemtrace traces at the
+   corresponding system call number marker. This is done by specifying the path to the
+   template file via the new -syscall_template_file option.
  - Added a new scheme for the modoffs field in the PC trace entry which allows L0
    filtering of non-module code; see
    #dynamorio::drmemtrace::ENCODING_FILE_TYPE_SEPARATE_NON_MOD_INSTRS. Also added

@@ -33,6 +33,7 @@
 #define NOMINMAX // Avoid windows.h messing up std::min.
 #undef NDEBUG
 #include <assert.h>
+#include <algorithm>
 #include <cstring>
 #include <iostream>
 #include <thread>
@@ -806,7 +807,7 @@ test_real_file_queries_and_filters(const char *testdir)
 // Assumes the input threads are all tid_base plus an offset < 26.
 static std::vector<std::string>
 run_lockstep_simulation(scheduler_t &scheduler, int num_outputs, memref_tid_t tid_base,
-                        bool send_time = false)
+                        bool send_time = false, bool print_markers = true)
 {
     // Walk the outputs in lockstep for crude but deterministic concurrency.
     std::vector<scheduler_t::stream_t *> outputs(num_outputs, nullptr);
@@ -814,8 +815,13 @@ run_lockstep_simulation(scheduler_t &scheduler, int num_outputs, memref_tid_t ti
     for (int i = 0; i < num_outputs; i++)
         outputs[i] = scheduler.get_stream(i);
     int num_eof = 0;
+    int64_t meta_records = 0;
     // Record the threads, one char each.
     std::vector<std::string> sched_as_string(num_outputs);
+    static constexpr char THREAD_LETTER_START = 'A';
+    static constexpr char WAIT_SYMBOL = '-';
+    static constexpr char IDLE_SYMBOL = '_';
+    static constexpr char NON_INSTR_SYMBOL = '.';
     while (num_eof < num_outputs) {
         for (int i = 0; i < num_outputs; i++) {
             if (eof[i])
@@ -828,8 +834,9 @@ run_lockstep_simulation(scheduler_t &scheduler, int num_outputs, memref_tid_t ti
                 // instruction quanta.  This is a per-output time which technically
                 // violates the globally-increasing requirement, so this will not work
                 // perfectly with i/o waits, but should work fine for basic tests.
+                // We add the wait and idle records to make progress with idle time.
                 status = outputs[i]->next_record(
-                    memref, outputs[i]->get_instruction_ordinal() + 1);
+                    memref, outputs[i]->get_instruction_ordinal() + 1 + meta_records);
             } else {
                 status = outputs[i]->next_record(memref);
             }
@@ -839,22 +846,24 @@ run_lockstep_simulation(scheduler_t &scheduler, int num_outputs, memref_tid_t ti
                 continue;
             }
             if (status == scheduler_t::STATUS_WAIT) {
-                sched_as_string[i] += '-';
+                sched_as_string[i] += WAIT_SYMBOL;
+                ++meta_records;
                 continue;
             }
             if (status == scheduler_t::STATUS_IDLE) {
-                sched_as_string[i] += '_';
+                sched_as_string[i] += IDLE_SYMBOL;
+                ++meta_records;
                 continue;
             }
             assert(status == scheduler_t::STATUS_OK);
             if (type_is_instr(memref.instr.type)) {
                 sched_as_string[i] +=
-                    'A' + static_cast<char>(memref.instr.tid - tid_base);
+                    THREAD_LETTER_START + static_cast<char>(memref.instr.tid - tid_base);
             } else {
                 // While this makes the string longer, it is just too confusing
                 // with the same letter seemingly on 2 cores at once without these
                 // fillers to line everything up in time.
-                sched_as_string[i] += '.';
+                sched_as_string[i] += NON_INSTR_SYMBOL;
             }
         }
     }
@@ -873,6 +882,15 @@ run_lockstep_simulation(scheduler_t &scheduler, int num_outputs, memref_tid_t ti
             inputs.insert(sched_as_string[out][step]);
         }
     }
+    if (!print_markers) {
+        // We kept the dots internally for our same-timestep check above.
+        for (int i = 0; i < num_outputs; ++i) {
+            sched_as_string[i].erase(std::remove(sched_as_string[i].begin(),
+                                                 sched_as_string[i].end(),
+                                                 NON_INSTR_SYMBOL),
+                                     sched_as_string[i].end());
+        }
+    }
     return sched_as_string;
 }
 
@@ -884,22 +902,39 @@ test_synthetic()
     static constexpr int NUM_OUTPUTS = 2;
     static constexpr int NUM_INSTRS = 9;
     static constexpr int QUANTUM_DURATION = 3;
+    // We do not want to block for very long.
+    static constexpr double BLOCK_SCALE = 0.01;
     static constexpr memref_tid_t TID_BASE = 100;
     std::vector<trace_entry_t> inputs[NUM_INPUTS];
     for (int i = 0; i < NUM_INPUTS; i++) {
         memref_tid_t tid = TID_BASE + i;
         inputs[i].push_back(make_thread(tid));
         inputs[i].push_back(make_pid(1));
-        for (int j = 0; j < NUM_INSTRS; j++)
+        inputs[i].push_back(make_version(TRACE_ENTRY_VERSION));
+        inputs[i].push_back(make_timestamp(10)); // All the same time priority.
+        for (int j = 0; j < NUM_INSTRS; j++) {
             inputs[i].push_back(make_instr(42 + j * 4));
+            // Test accumulation of usage across voluntary switches.
+            if ((i == 0 || i == 1) && j == 1) {
+                inputs[i].push_back(make_timestamp(20));
+                inputs[i].push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, 42));
+                inputs[i].push_back(
+                    make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0));
+                inputs[i].push_back(make_timestamp(120));
+            }
+        }
         inputs[i].push_back(make_exit(tid));
     }
     // Hardcoding here for the 2 outputs and 7 inputs.
     // We expect 3 letter sequences (our quantum) alternating every-other as each
-    // core alternates; with an odd number the 2nd core finishes early.
-    // The dots are thread exits.
-    static const char *const CORE0_SCHED_STRING = "AAACCCEEEGGGBBBDDDFFFAAA.CCC.EEE.GGG.";
-    static const char *const CORE1_SCHED_STRING = "BBBDDDFFFAAACCCEEEGGGBBB.DDD.FFF.____";
+    // core alternates. The dots are markers and thread exits.
+    // A and B have a voluntary switch after their 1st 2 letters, but we expect
+    // the usage to persist to their next scheduling which should only have
+    // a single letter.
+    static const char *const CORE0_SCHED_STRING =
+        "..AA......CCC..EEE..GGGDDDFFFBBBCCC.EEE.AAA.GGG.";
+    static const char *const CORE1_SCHED_STRING =
+        "..BB......DDD..FFFABCCCEEEAAAGGGDDD.FFF.BBB.____";
     {
         // Test instruction quanta.
         std::vector<scheduler_t::input_workload_t> sched_inputs;
@@ -915,6 +950,7 @@ test_synthetic()
                                                    scheduler_t::SCHEDULER_DEFAULTS,
                                                    /*verbosity=*/3);
         sched_ops.quantum_duration = QUANTUM_DURATION;
+        sched_ops.block_time_scale = BLOCK_SCALE;
         scheduler_t scheduler;
         if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
             scheduler_t::STATUS_SUCCESS)
@@ -924,8 +960,32 @@ test_synthetic()
         for (int i = 0; i < NUM_OUTPUTS; i++) {
             std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
         }
-        assert(sched_as_string[0] == CORE0_SCHED_STRING);
-        assert(sched_as_string[1] == CORE1_SCHED_STRING);
+#ifndef WIN32
+        // XXX: Windows microseconds on test VMs are very coarse and stay the same
+        // for long periods.  Instruction quanta use wall-clock idle times, so
+        // the result is extreme variations here.  We try to adjust by handling
+        // any schedule with singleton 'A' and 'B', but in some cases on Windows
+        // we see the A and B delayed all the way to the very end where they
+        // are adjacent to their own letters.  We just give up on checking the
+        // precise output for this test on Windows.
+        if (sched_as_string[0] != CORE0_SCHED_STRING ||
+            sched_as_string[1] != CORE1_SCHED_STRING) {
+            bool found_single_A = false, found_single_B = false;
+            for (int cpu = 0; cpu < NUM_OUTPUTS; ++cpu) {
+                for (size_t i = 1; i < sched_as_string[cpu].size() - 1; ++i) {
+                    if (sched_as_string[cpu][i] == 'A' &&
+                        sched_as_string[cpu][i - 1] != 'A' &&
+                        sched_as_string[cpu][i + 1] != 'A')
+                        found_single_A = true;
+                    if (sched_as_string[cpu][i] == 'B' &&
+                        sched_as_string[cpu][i - 1] != 'B' &&
+                        sched_as_string[cpu][i + 1] != 'B')
+                        found_single_B = true;
+                }
+            }
+            assert(found_single_A && found_single_B);
+        }
+#endif
     }
     {
         // Test time quanta.
@@ -943,6 +1003,7 @@ test_synthetic()
                                                    /*verbosity=*/3);
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
         sched_ops.quantum_duration = QUANTUM_DURATION;
+        sched_ops.block_time_scale = BLOCK_SCALE;
         scheduler_t scheduler;
         if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
             scheduler_t::STATUS_SUCCESS)
@@ -968,6 +1029,8 @@ test_synthetic_time_quanta()
     static constexpr memref_tid_t TID_C = TID_A + 2;
     static constexpr int NUM_OUTPUTS = 2;
     static constexpr int NUM_INPUTS = 3;
+    static constexpr int PRE_BLOCK_TIME = 20;
+    static constexpr int POST_BLOCK_TIME = 220;
     std::vector<trace_entry_t> refs[NUM_INPUTS];
     for (int i = 0; i < NUM_INPUTS; ++i) {
         refs[i].push_back(make_thread(TID_BASE + i));
@@ -976,6 +1039,12 @@ test_synthetic_time_quanta()
         refs[i].push_back(make_timestamp(10));
         refs[i].push_back(make_instr(10));
         refs[i].push_back(make_instr(30));
+        if (i == 0) {
+            refs[i].push_back(make_timestamp(PRE_BLOCK_TIME));
+            refs[i].push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, 42));
+            refs[i].push_back(make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0));
+            refs[i].push_back(make_timestamp(POST_BLOCK_TIME));
+        }
         refs[i].push_back(make_instr(50));
         refs[i].push_back(make_exit(TID_BASE + i));
     }
@@ -997,6 +1066,8 @@ test_synthetic_time_quanta()
                                                    /*verbosity=*/4);
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
         sched_ops.quantum_duration = 3;
+        // Ensure it waits 10 steps.
+        sched_ops.block_time_scale = 10. / (POST_BLOCK_TIME - PRE_BLOCK_TIME);
         zipfile_ostream_t outfile(record_fname);
         sched_ops.schedule_record_ostream = &outfile;
         if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
@@ -1010,7 +1081,7 @@ test_synthetic_time_quanta()
             scheduler_t::stream_status_t status = stream->next_record(memref, time);
             if (status != expect_status) {
                 std::cerr << "Expected status " << expect_status << " != " << status
-                          << "\n";
+                          << " at time " << time << "\n";
                 assert(false);
             }
             if (status == scheduler_t::STATUS_OK) {
@@ -1043,18 +1114,30 @@ test_synthetic_time_quanta()
         check_next(cpu0, ++time, scheduler_t::STATUS_OK, TID_C, TRACE_TYPE_INSTR);
         // Advance cpu1 which is now at its quantum end at time 6 and should switch.
         check_next(cpu1, ++time, scheduler_t::STATUS_OK, TID_A, TRACE_TYPE_INSTR);
-        check_next(cpu1, ++time, scheduler_t::STATUS_OK, TID_A, TRACE_TYPE_INSTR);
-        check_next(cpu1, time, scheduler_t::STATUS_OK, TID_A, TRACE_TYPE_THREAD_EXIT);
+        check_next(cpu1, time, scheduler_t::STATUS_OK, TID_A, TRACE_TYPE_MARKER);
+        check_next(cpu1, time, scheduler_t::STATUS_OK, TID_A, TRACE_TYPE_MARKER);
+        check_next(cpu1, time, scheduler_t::STATUS_OK, TID_A, TRACE_TYPE_MARKER);
+        check_next(cpu1, time, scheduler_t::STATUS_OK, TID_A, TRACE_TYPE_MARKER);
+        // We just hit a blocking syscall in A so we swap to B.
         check_next(cpu1, ++time, scheduler_t::STATUS_OK, TID_B, TRACE_TYPE_INSTR);
-        // This is another quantum end at 9 but the queue is empty.
+        // This is another quantum end at 9 but no other input is available.
         check_next(cpu1, ++time, scheduler_t::STATUS_OK, TID_B, TRACE_TYPE_INSTR);
-        // Finish off the inputs.
+        check_next(cpu1, time, scheduler_t::STATUS_OK, TID_B, TRACE_TYPE_THREAD_EXIT);
+        check_next(cpu1, ++time, scheduler_t::STATUS_IDLE);
+        // Finish off C on cpu 0.
         check_next(cpu0, ++time, scheduler_t::STATUS_OK, TID_C, TRACE_TYPE_INSTR);
         check_next(cpu0, ++time, scheduler_t::STATUS_OK, TID_C, TRACE_TYPE_INSTR);
         check_next(cpu0, time, scheduler_t::STATUS_OK, TID_C, TRACE_TYPE_THREAD_EXIT);
-        check_next(cpu0, time, scheduler_t::STATUS_IDLE);
-        check_next(cpu1, time, scheduler_t::STATUS_OK, TID_B, TRACE_TYPE_THREAD_EXIT);
-        check_next(cpu1, time, scheduler_t::STATUS_EOF);
+        // Both cpus wait until A is unblocked.
+        check_next(cpu1, ++time, scheduler_t::STATUS_IDLE);
+        check_next(cpu0, ++time, scheduler_t::STATUS_IDLE);
+        check_next(cpu1, ++time, scheduler_t::STATUS_IDLE);
+        check_next(cpu0, ++time, scheduler_t::STATUS_IDLE);
+        check_next(cpu1, ++time, scheduler_t::STATUS_IDLE);
+        check_next(cpu1, ++time, scheduler_t::STATUS_OK, TID_A, TRACE_TYPE_INSTR);
+        check_next(cpu1, time, scheduler_t::STATUS_OK, TID_A, TRACE_TYPE_THREAD_EXIT);
+        check_next(cpu1, ++time, scheduler_t::STATUS_EOF);
+        check_next(cpu0, ++time, scheduler_t::STATUS_EOF);
         if (scheduler.write_recorded_schedule() != scheduler_t::STATUS_SUCCESS)
             assert(false);
     }
@@ -1083,8 +1166,11 @@ test_synthetic_time_quanta()
         for (int i = 0; i < NUM_OUTPUTS; i++) {
             std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
         }
-        assert(sched_as_string[0] == "..A..CCC._");
-        assert(sched_as_string[1] == "..BAA.BB.");
+        // For replay the scheduler has to use wall-clock instead of passed-in time,
+        // so the idle portions at the end here can have variable idle and wait
+        // record counts.  We thus just check the start.
+        assert(sched_as_string[0].substr(0, 10) == "..A..CCC._");
+        assert(sched_as_string[1].substr(0, 12) == "..BA....BB._");
     }
 #endif
 }
@@ -1401,6 +1487,8 @@ test_synthetic_with_syscalls_multiple()
     static constexpr int NUM_OUTPUTS = 2;
     static constexpr int NUM_INSTRS = 9;
     static constexpr memref_tid_t TID_BASE = 100;
+    static constexpr int BLOCK_LATENCY = 100;
+    static constexpr double BLOCK_SCALE = 1. / (BLOCK_LATENCY);
     std::vector<scheduler_t::input_workload_t> sched_inputs;
     auto get_tid = [&](int workload_idx, int input_idx) {
         return TID_BASE + workload_idx * NUM_INPUTS_PER_WORKLOAD + input_idx;
@@ -1412,21 +1500,36 @@ test_synthetic_with_syscalls_multiple()
             std::vector<trace_entry_t> inputs;
             inputs.push_back(make_thread(tid));
             inputs.push_back(make_pid(1));
+            inputs.push_back(make_version(TRACE_ENTRY_VERSION));
+            uint64_t stamp =
+                10000 * workload_idx + 1000 * (NUM_INPUTS_PER_WORKLOAD - input_idx);
             for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
-                // Sprinkle timestamps every other instruction.  We use the
-                // same formula as test_synthetic_with_priorities().
-                if (instr_idx % 2 == 0) {
-                    inputs.push_back(make_timestamp(
-                        1000 * workload_idx +
-                        100 * (NUM_INPUTS_PER_WORKLOAD - input_idx) + 10 * instr_idx));
+                // Sprinkle timestamps every other instruction.  We use a similar
+                // priority scheme as test_synthetic_with_priorities() but we leave
+                // room for blocking syscall timestamp gaps.
+                if (instr_idx % 2 == 0 &&
+                    (inputs.back().type != TRACE_TYPE_MARKER ||
+                     inputs.back().size != TRACE_MARKER_TYPE_TIMESTAMP)) {
+                    inputs.push_back(make_timestamp(stamp));
                 }
                 inputs.push_back(make_instr(42 + instr_idx * 4));
                 // Insert some blocking syscalls in the high-priority (see below)
                 // middle threads.
                 if (input_idx == 1 && instr_idx % (workload_idx + 1) == workload_idx) {
+                    inputs.push_back(make_timestamp(stamp + 10));
+                    inputs.push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, 42));
                     inputs.push_back(
                         make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0));
+                    // Blocked for 10 time units with our BLOCK_SCALE.
+                    inputs.push_back(make_timestamp(stamp + 10 + 10 * BLOCK_LATENCY));
+                } else {
+                    // Insert meta records to keep the locksteps lined up.
+                    inputs.push_back(make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
+                    inputs.push_back(make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
+                    inputs.push_back(make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
+                    inputs.push_back(make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
                 }
+                stamp += 10;
             }
             inputs.push_back(make_exit(tid));
             readers.emplace_back(
@@ -1461,27 +1564,33 @@ test_synthetic_with_syscalls_multiple()
                                                scheduler_t::SCHEDULER_DEFAULTS,
                                                /*verbosity=*/3);
     sched_ops.quantum_duration = 3;
+    // We use our mock's time==instruction count for a deterministic result.
+    sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
+    sched_ops.blocking_switch_threshold = BLOCK_LATENCY;
+    sched_ops.block_time_scale = BLOCK_SCALE;
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
         scheduler_t::STATUS_SUCCESS)
         assert(false);
-    std::vector<std::string> sched_as_string =
-        run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE);
+    // We omit the "." marker chars to keep the strings short enough to be readable.
+    std::vector<std::string> sched_as_string = run_lockstep_simulation(
+        scheduler, NUM_OUTPUTS, TID_BASE, /*send_time=*/true, /*print_markers=*/false);
     for (int i = 0; i < NUM_OUTPUTS; i++) {
         std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
     }
     // See the test_synthetic_with_priorities() test which has our base sequence.
     // But now B hits a syscall every instr, and E every other instr, so neither
     // reaches its 3-instr quantum.  (H's syscalls are every 3rd instr coinciding with its
-    // quantum.)  Furthermore, B isn't finished by the time E and H are done and we see
-    // the lower-priority C and F getting scheduled while B is in a wait state for its
-    // blocking syscall.
+    // quantum.)  Furthermore, B, E, and H are blocked long enough that we see
+    // the lower-priority C and F getting scheduled.  We end up with idle cores
+    // while we wait for B.
+    // We've omitted the "." marker records so these are not precisely simultaneous,
+    // so the view here may show 2 on the same core at once: but we check for that
+    // with the "." in run_lockstep_simulation().  The omitted "." markers also
+    // explains why the two strings are different lengths.
     assert(sched_as_string[0] ==
-           ".B..HH.H.B.H.HH..B.HH.H..B.E.B...II.I.JJ.JJ.JJ.JJ.J.CC.C.II.I..DD.DA.AA.G.GG."
-           "DD.D.___");
-    assert(sched_as_string[1] ==
-           ".EE..B..EE..B..EE..B..EE...CC.C.FF.FB..C.CC.F.FF.I.II.FF.F..AA.A.GG.GD.DD.AA."
-           "A.GG.G.");
+           "BHHHFFFJJJJJJBEEHHHFFFBCCCEEIIIDDDBAAAGGGDDDB________B_______");
+    assert(sched_as_string[1] == "EECCCIIICCCBEEJJJHHHIIIFFFEAAAGGGBDDDAAAGGG________B");
 }
 
 static void
@@ -1496,6 +1605,8 @@ test_synthetic_with_syscalls_single()
     static constexpr int NUM_OUTPUTS = 2;
     static constexpr int NUM_INSTRS = 9;
     static constexpr memref_tid_t TID_BASE = 100;
+    static constexpr int BLOCK_LATENCY = 100;
+    static constexpr double BLOCK_SCALE = 1. / (BLOCK_LATENCY);
     std::vector<scheduler_t::input_workload_t> sched_inputs;
     auto get_tid = [&](int workload_idx, int input_idx) {
         return TID_BASE + workload_idx * NUM_INPUTS_PER_WORKLOAD + input_idx;
@@ -1507,20 +1618,35 @@ test_synthetic_with_syscalls_single()
             std::vector<trace_entry_t> inputs;
             inputs.push_back(make_thread(tid));
             inputs.push_back(make_pid(1));
+            inputs.push_back(make_version(TRACE_ENTRY_VERSION));
+            uint64_t stamp =
+                10000 * workload_idx + 1000 * (NUM_INPUTS_PER_WORKLOAD - input_idx);
             for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
-                // Sprinkle timestamps every other instruction.  We use the
-                // same formula as test_synthetic_with_priorities().
-                if (instr_idx % 2 == 0) {
-                    inputs.push_back(make_timestamp(
-                        1000 * workload_idx +
-                        100 * (NUM_INPUTS_PER_WORKLOAD - input_idx) + 10 * instr_idx));
+                // Sprinkle timestamps every other instruction.  We use a similar
+                // priority scheme as test_synthetic_with_priorities() but we leave
+                // room for blocking syscall timestamp gaps.
+                if (instr_idx % 2 == 0 &&
+                    (inputs.back().type != TRACE_TYPE_MARKER ||
+                     inputs.back().size != TRACE_MARKER_TYPE_TIMESTAMP)) {
+                    inputs.push_back(make_timestamp(stamp));
                 }
                 inputs.push_back(make_instr(42 + instr_idx * 4));
                 // Insert some blocking syscalls.
                 if (instr_idx % 3 == 1) {
+                    inputs.push_back(make_timestamp(stamp + 10));
+                    inputs.push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, 42));
                     inputs.push_back(
                         make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0));
+                    // Blocked for 3 time units.
+                    inputs.push_back(make_timestamp(stamp + 10 + 3 * BLOCK_LATENCY));
+                } else {
+                    // Insert meta records to keep the locksteps lined up.
+                    inputs.push_back(make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
+                    inputs.push_back(make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
+                    inputs.push_back(make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
+                    inputs.push_back(make_marker(TRACE_MARKER_TYPE_CPU_ID, 0));
                 }
+                stamp += 10;
             }
             inputs.push_back(make_exit(tid));
             readers.emplace_back(
@@ -1534,17 +1660,22 @@ test_synthetic_with_syscalls_single()
                                                scheduler_t::SCHEDULER_DEFAULTS,
                                                /*verbosity=*/4);
     sched_ops.quantum_duration = 3;
+    // We use our mock's time==instruction count for a deterministic result.
+    sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
+    sched_ops.blocking_switch_threshold = BLOCK_LATENCY;
+    sched_ops.block_time_scale = BLOCK_SCALE;
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
         scheduler_t::STATUS_SUCCESS)
         assert(false);
     std::vector<std::string> sched_as_string =
-        run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE);
+        run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE, /*send_time=*/true);
     for (int i = 0; i < NUM_OUTPUTS; i++) {
         std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
     }
-    assert(sched_as_string[0] == ".AA..AA.A.A.AA..A.");
-    assert(sched_as_string[1] == "__________________");
+    // We expect an idle CPU every 3 instrs but starting at the 2nd (1-based % 3).
+    assert(sched_as_string[0] == "..A....A....___________________________________A.....");
+    assert(sched_as_string[1] == "____________A....A.....A....__A.....A....A...._______");
 }
 
 static bool
@@ -1626,7 +1757,7 @@ test_synthetic_with_syscalls_precise()
     std::vector<memref_t> refs;
     for (scheduler_t::stream_status_t status = stream->next_record(memref);
          status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
-        if (status == scheduler_t::STATUS_WAIT)
+        if (status == scheduler_t::STATUS_WAIT || status == scheduler_t::STATUS_IDLE)
             continue;
         assert(status == scheduler_t::STATUS_OK);
         refs.push_back(memref);
@@ -1666,6 +1797,8 @@ test_synthetic_with_syscalls_latencies()
     static constexpr memref_tid_t TID_A = 42;
     static constexpr memref_tid_t TID_B = 99;
     static constexpr int SYSNUM = 202;
+    static constexpr int BLOCK_LATENCY = 100;
+    static constexpr double BLOCK_SCALE = 1. / (BLOCK_LATENCY);
     std::vector<trace_entry_t> refs_A = {
         /* clang-format off */
         make_thread(TID_A),
@@ -1689,7 +1822,7 @@ test_synthetic_with_syscalls_latencies()
         make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
         make_marker(TRACE_MARKER_TYPE_FUNC_ID, 100),
         make_marker(TRACE_MARKER_TYPE_FUNC_ARG, 42),
-        make_timestamp(1100),
+        make_timestamp(1000 + BLOCK_LATENCY),
         make_marker(TRACE_MARKER_TYPE_CPU_ID, 1),
         make_marker(TRACE_MARKER_TYPE_FUNC_ID, 100),
         make_marker(TRACE_MARKER_TYPE_FUNC_RETVAL, 0),
@@ -1719,14 +1852,20 @@ test_synthetic_with_syscalls_latencies()
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
                                                /*verbosity=*/4);
+    // We use a mock time for a deterministic result.
+    sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
+    sched_ops.blocking_switch_threshold = BLOCK_LATENCY;
+    sched_ops.block_time_scale = BLOCK_SCALE;
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, 1, sched_ops) != scheduler_t::STATUS_SUCCESS)
         assert(false);
     auto *stream = scheduler.get_stream(0);
     memref_t memref;
     std::vector<memref_t> refs;
-    for (scheduler_t::stream_status_t status = stream->next_record(memref);
-         status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
+    int step = 0;
+    for (scheduler_t::stream_status_t status = stream->next_record(memref, ++step);
+         status != scheduler_t::STATUS_EOF;
+         status = stream->next_record(memref, ++step)) {
         if (status == scheduler_t::STATUS_WAIT)
             continue;
         assert(status == scheduler_t::STATUS_OK);
@@ -1769,12 +1908,89 @@ test_synthetic_with_syscalls_latencies()
 }
 
 static void
+test_synthetic_with_syscalls_idle()
+{
+    std::cerr << "\n----------------\nTesting syscall idle time duration\n";
+    // We test that a blocked input is put to the back of the queue on each retry.
+    static constexpr int NUM_INPUTS = 4;
+    static constexpr int NUM_OUTPUTS = 1;
+    static constexpr int NUM_INSTRS = 12;
+    static constexpr memref_tid_t TID_BASE = 100;
+    static constexpr int BLOCK_LATENCY = 100;
+    static constexpr double BLOCK_SCALE = 1. / (BLOCK_LATENCY);
+    static constexpr int BLOCK_UNITS = 27;
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    std::vector<scheduler_t::input_reader_t> readers;
+    for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
+        memref_tid_t tid = TID_BASE + input_idx;
+        std::vector<trace_entry_t> inputs;
+        inputs.push_back(make_thread(tid));
+        inputs.push_back(make_pid(1));
+        inputs.push_back(make_version(TRACE_ENTRY_VERSION));
+        uint64_t stamp = 10000 * NUM_INPUTS;
+        inputs.push_back(make_timestamp(stamp));
+        for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
+            inputs.push_back(make_instr(42 + instr_idx * 4));
+            if (instr_idx == 1) {
+                // Insert a blocking syscall in one input.
+                if (input_idx == 0) {
+                    inputs.push_back(make_timestamp(stamp + 10));
+                    inputs.push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, 42));
+                    inputs.push_back(
+                        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0));
+                    // Blocked for BLOCK_UNITS time units with BLOCK_SCALE, but
+                    // after each queue rejection it should go to the back of
+                    // the queue and all the other inputs should be selected
+                    // before another retry.
+                    inputs.push_back(
+                        make_timestamp(stamp + 10 + BLOCK_UNITS * BLOCK_LATENCY));
+                } else {
+                    // Insert a timestamp to match the blocked input so the inputs
+                    // are all at equal priority in the queue.
+                    inputs.push_back(
+                        make_timestamp(stamp + 10 + BLOCK_UNITS * BLOCK_LATENCY));
+                }
+            }
+        }
+        inputs.push_back(make_exit(tid));
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+    }
+    sched_inputs.emplace_back(std::move(readers));
+    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                               scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                               scheduler_t::SCHEDULER_DEFAULTS,
+                                               /*verbosity=*/3);
+    sched_ops.quantum_duration = 3;
+    // We use a mock time for a deterministic result.
+    sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
+    sched_ops.blocking_switch_threshold = BLOCK_LATENCY;
+    sched_ops.block_time_scale = BLOCK_SCALE;
+    scheduler_t scheduler;
+    if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    std::vector<std::string> sched_as_string =
+        run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE, /*send_time=*/true);
+    for (int i = 0; i < NUM_OUTPUTS; i++) {
+        std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+    }
+    // The timestamps provide the ABCD ordering, but A's blocking syscall after its
+    // 2nd instr makes it delayed for 3 full queue cycles of BBBCCCDDD (27 instrs,
+    // which is BLOCK_UNITS): A's is finally schedulable after the 3rd, when it just gets
+    // 1 instruction in before its (accumulated) count equals the quantum.
+    assert(sched_as_string[0] ==
+           "..AA......BB.B..CC.C..DD.DBBBCCCDDDBBBCCCDDDABBB.CCC.DDD.AAAAAAAAA.");
+}
+
+static void
 test_synthetic_with_syscalls()
 {
     test_synthetic_with_syscalls_multiple();
     test_synthetic_with_syscalls_single();
     test_synthetic_with_syscalls_precise();
     test_synthetic_with_syscalls_latencies();
+    test_synthetic_with_syscalls_idle();
 }
 
 #if (defined(X86_64) || defined(ARM_64)) && defined(HAS_ZIP)
@@ -2032,7 +2248,7 @@ test_replay()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/2);
+                                                   /*verbosity=*/3);
         sched_ops.quantum_duration = QUANTUM_INSTRS;
 
         zipfile_ostream_t outfile(record_fname);
@@ -3147,7 +3363,6 @@ test_inactive()
         // Ensure cpu0 now picks up the input that was on cpu1.
         // This is also the record we un-read earlier.
         check_next(stream0, scheduler_t::STATUS_OK, TID_B, TRACE_TYPE_INSTR);
-        check_next(stream0, scheduler_t::STATUS_OK, TID_B, TRACE_TYPE_INSTR);
         // End of quantum.
         check_next(stream0, scheduler_t::STATUS_OK, TID_A, TRACE_TYPE_INSTR);
         // Make cpu0 inactive and cpu1 active.
@@ -3158,10 +3373,10 @@ test_inactive()
         assert(status == scheduler_t::STATUS_OK);
         // Now cpu1 should finish things.
         check_next(stream1, scheduler_t::STATUS_OK, TID_B, TRACE_TYPE_INSTR);
+        check_next(stream1, scheduler_t::STATUS_OK, TID_B, TRACE_TYPE_INSTR);
         check_next(stream1, scheduler_t::STATUS_OK, TID_B, TRACE_TYPE_THREAD_EXIT);
         check_next(stream1, scheduler_t::STATUS_OK, TID_A, TRACE_TYPE_THREAD_EXIT);
         check_next(stream1, scheduler_t::STATUS_EOF);
-
         if (scheduler.write_recorded_schedule() != scheduler_t::STATUS_SUCCESS)
             assert(false);
     }
@@ -3189,8 +3404,8 @@ test_inactive()
         for (int i = 0; i < NUM_OUTPUTS; i++) {
             std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
         }
-        assert(sched_as_string[0] == "..AABBA._");
-        assert(sched_as_string[1] == "..B---B.");
+        assert(sched_as_string[0] == "..AABA.__");
+        assert(sched_as_string[1] == "..B--BB.");
     }
 #endif // HAS_ZIP
 }
@@ -3202,6 +3417,8 @@ test_direct_switch()
     // We have just 1 output to better control the order and avoid flakiness.
     static constexpr int NUM_OUTPUTS = 1;
     static constexpr int QUANTUM_DURATION = 100; // Never reached.
+    static constexpr int BLOCK_LATENCY = 100;
+    static constexpr double BLOCK_SCALE = 1. / (BLOCK_LATENCY);
     static constexpr memref_tid_t TID_BASE = 100;
     static constexpr memref_tid_t TID_A = TID_BASE + 0;
     static constexpr memref_tid_t TID_B = TID_BASE + 1;
@@ -3209,6 +3426,7 @@ test_direct_switch()
     std::vector<trace_entry_t> refs_A = {
         make_thread(TID_A),
         make_pid(1),
+        make_version(TRACE_ENTRY_VERSION),
         // A has the earliest timestamp and starts.
         make_timestamp(1001),
         make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
@@ -3226,6 +3444,7 @@ test_direct_switch()
     std::vector<trace_entry_t> refs_B = {
         make_thread(TID_B),
         make_pid(1),
+        make_version(TRACE_ENTRY_VERSION),
         // B would go next by timestamp, so this is a good test of direct switches.
         make_timestamp(2001),
         make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
@@ -3238,6 +3457,7 @@ test_direct_switch()
     std::vector<trace_entry_t> refs_C = {
         make_thread(TID_C),
         make_pid(1),
+        make_version(TRACE_ENTRY_VERSION),
         make_timestamp(3001),
         make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
         make_instr(/*pc=*/301),
@@ -3263,9 +3483,11 @@ test_direct_switch()
                          std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_C);
     // The string constructor writes "." for markers.
     // We expect A's first switch to be to C even though B has an earlier timestamp.
-    // TODO i#5843: Once we have i/o wait times we can make this more interesting
-    // by having C be unschedule-able at switch time.
-    static const char *const CORE0_SCHED_STRING = "..AA........CC......A...BBBB.C...";
+    // We expect C's direct switch to A to proceed immediately even though A still
+    // has significant blocked time left.  But then after B is scheduled and finishes,
+    // we still have to wait for C's block time so we see idle underscores:
+    static const char *const CORE0_SCHED_STRING =
+        "...AA.........CC......A....BBBB.______________C...";
 
     std::vector<scheduler_t::input_workload_t> sched_inputs;
     sched_inputs.emplace_back(std::move(readers));
@@ -3274,12 +3496,16 @@ test_direct_switch()
                                                scheduler_t::SCHEDULER_DEFAULTS,
                                                /*verbosity=*/3);
     sched_ops.quantum_duration = QUANTUM_DURATION;
+    // We use our mock's time==instruction count for a deterministic result.
+    sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
+    sched_ops.blocking_switch_threshold = BLOCK_LATENCY;
+    sched_ops.block_time_scale = BLOCK_SCALE;
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
         scheduler_t::STATUS_SUCCESS)
         assert(false);
     std::vector<std::string> sched_as_string =
-        run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE);
+        run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE, /*send_time=*/true);
     for (int i = 0; i < NUM_OUTPUTS; i++) {
         std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
     }

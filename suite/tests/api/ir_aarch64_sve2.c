@@ -8615,6 +8615,101 @@ TEST_INSTR(stnt1w_sve_pred)
                                                    OPSZ_4, DR_EXTEND_UXTX, 0, 0, 0,
                                                    OPSZ_32, 0));
 }
+
+TEST_INSTR(mul_sve_vector)
+{
+
+    /* Testing MUL     <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Ts> */
+    const char *const expected_0_0[6] = {
+        "mul    %z0.b %z0.b -> %z0.b",    "mul    %z6.b %z7.b -> %z5.b",
+        "mul    %z11.b %z12.b -> %z10.b", "mul    %z17.b %z18.b -> %z16.b",
+        "mul    %z22.b %z23.b -> %z21.b", "mul    %z31.b %z31.b -> %z31.b",
+    };
+    TEST_LOOP(mul, mul_sve_vector, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_1),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_1),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_1));
+
+    const char *const expected_1_0[6] = {
+        "mul    %z0.h %z0.h -> %z0.h",    "mul    %z6.h %z7.h -> %z5.h",
+        "mul    %z11.h %z12.h -> %z10.h", "mul    %z17.h %z18.h -> %z16.h",
+        "mul    %z22.h %z23.h -> %z21.h", "mul    %z31.h %z31.h -> %z31.h",
+    };
+    TEST_LOOP(mul, mul_sve_vector, 6, expected_1_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_2));
+
+    const char *const expected_2_0[6] = {
+        "mul    %z0.s %z0.s -> %z0.s",    "mul    %z6.s %z7.s -> %z5.s",
+        "mul    %z11.s %z12.s -> %z10.s", "mul    %z17.s %z18.s -> %z16.s",
+        "mul    %z22.s %z23.s -> %z21.s", "mul    %z31.s %z31.s -> %z31.s",
+    };
+    TEST_LOOP(mul, mul_sve_vector, 6, expected_2_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_4));
+
+    const char *const expected_3_0[6] = {
+        "mul    %z0.d %z0.d -> %z0.d",    "mul    %z6.d %z7.d -> %z5.d",
+        "mul    %z11.d %z12.d -> %z10.d", "mul    %z17.d %z18.d -> %z16.d",
+        "mul    %z22.d %z23.d -> %z21.d", "mul    %z31.d %z31.d -> %z31.d",
+    };
+    TEST_LOOP(mul, mul_sve_vector, 6, expected_3_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
+}
+
+TEST_INSTR(mul_sve_idx)
+{
+
+    /* Testing MUL     <Zd>.D, <Zn>.D, <Zm>.D[<index>] */
+    static const reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z4,  DR_REG_Z7,
+                                        DR_REG_Z10, DR_REG_Z12, DR_REG_Z15 };
+    static const uint i1_0_0[6] = { 0, 1, 1, 1, 0, 1 };
+    const char *const expected_0_0[6] = {
+        "mul    %z0.d %z0.d $0x00 -> %z0.d",    "mul    %z6.d %z4.d $0x01 -> %z5.d",
+        "mul    %z11.d %z7.d $0x01 -> %z10.d",  "mul    %z17.d %z10.d $0x01 -> %z16.d",
+        "mul    %z22.d %z12.d $0x00 -> %z21.d", "mul    %z31.d %z15.d $0x01 -> %z31.d",
+    };
+    TEST_LOOP(mul, mul_sve_idx, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_8),
+              opnd_create_immed_uint(i1_0_0[i], OPSZ_1b));
+
+    /* Testing MUL     <Zd>.H, <Zn>.H, <Zm>.H[<index>] */
+    static const reg_id_t Zm_1_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i3_0_0[6] = { 0, 4, 5, 7, 0, 7 };
+    const char *const expected_1_0[6] = {
+        "mul    %z0.h %z0.h $0x00 -> %z0.h",   "mul    %z6.h %z3.h $0x04 -> %z5.h",
+        "mul    %z11.h %z4.h $0x05 -> %z10.h", "mul    %z17.h %z6.h $0x07 -> %z16.h",
+        "mul    %z22.h %z7.h $0x00 -> %z21.h", "mul    %z31.h %z7.h $0x07 -> %z31.h",
+    };
+    TEST_LOOP(mul, mul_sve_idx, 6, expected_1_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_1_0[i], OPSZ_2),
+              opnd_create_immed_uint(i3_0_0[i], OPSZ_3b));
+
+    /* Testing MUL     <Zd>.S, <Zn>.S, <Zm>.S[<index>] */
+    static const reg_id_t Zm_2_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i2_0_0[6] = { 0, 3, 0, 1, 1, 3 };
+    const char *const expected_2_0[6] = {
+        "mul    %z0.s %z0.s $0x00 -> %z0.s",   "mul    %z6.s %z3.s $0x03 -> %z5.s",
+        "mul    %z11.s %z4.s $0x00 -> %z10.s", "mul    %z17.s %z6.s $0x01 -> %z16.s",
+        "mul    %z22.s %z7.s $0x01 -> %z21.s", "mul    %z31.s %z7.s $0x03 -> %z31.s",
+    };
+    TEST_LOOP(mul, mul_sve_idx, 6, expected_2_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zm_2_0[i], OPSZ_4),
+              opnd_create_immed_uint(i2_0_0[i], OPSZ_2b));
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -8867,6 +8962,9 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(stnt1d_sve_pred);
     RUN_INSTR_TEST(stnt1h_sve_pred);
     RUN_INSTR_TEST(stnt1w_sve_pred);
+
+    RUN_INSTR_TEST(mul_sve_vector);
+    RUN_INSTR_TEST(mul_sve_idx);
 
     print("All SVE2 tests complete.\n");
 #ifndef STANDALONE_DECODER
