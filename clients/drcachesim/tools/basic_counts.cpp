@@ -136,14 +136,10 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     }
     if (type_is_instr(memref.instr.type)) {
         ++counters->instrs;
-        if (TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS |
-                        OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY,
-                    per_shard->filetype_)) {
-            if (per_shard->is_kernel) {
-                ++counters->kernel_instrs;
-            } else {
-                ++counters->user_instrs;
-            }
+        if (per_shard->is_kernel) {
+            ++counters->kernel_instrs;
+        } else {
+            ++counters->user_instrs;
         }
         counters->unique_pc_addrs.insert(memref.instr.addr);
         // The encoding entries aren't exposed at the memref_t level, but
