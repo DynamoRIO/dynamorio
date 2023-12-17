@@ -360,7 +360,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL) {
         shard->found_syscall_marker_ = true;
         shard->prev_was_syscall_marker_ = true;
-        shard->last_syscall_marker_value_ = memref.marker.marker_value;
+        shard->last_syscall_marker_value_ = static_cast<int>(memref.marker.marker_value);
         ++shard->syscall_count_;
         // TODO i#5949: For WOW64 instr_is_syscall() always returns false here as it
         // tries to check adjacent instrs; we disable this check until that is solved.
