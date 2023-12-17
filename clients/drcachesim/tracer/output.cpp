@@ -219,8 +219,8 @@ get_file_type()
     }
 #ifdef BUILD_PT_TRACER
     if (op_enable_kernel_tracing.get_value()) {
-        file_type = static_cast<offline_file_type_t>(file_type |
-                                                     OFFLINE_FILE_TYPE_KERNEL_SYSCALLS);
+        file_type = static_cast<offline_file_type_t>(
+            file_type | OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY);
     }
 #endif
     file_type = static_cast<offline_file_type_t>(

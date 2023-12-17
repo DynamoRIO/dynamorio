@@ -136,7 +136,9 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     }
     if (type_is_instr(memref.instr.type)) {
         ++counters->instrs;
-        if (TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS, per_shard->filetype_)) {
+        if (TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS |
+                        OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY,
+                    per_shard->filetype_)) {
             if (per_shard->is_kernel) {
                 ++counters->kernel_instrs;
             } else {
@@ -335,7 +337,9 @@ basic_counts_t::print_results()
             total += ctr;
         }
         if (!for_kernel_trace &&
-            TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS, shard.second->filetype_)) {
+            TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS |
+                        OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY,
+                    shard.second->filetype_)) {
             for_kernel_trace = true;
         }
     }

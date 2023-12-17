@@ -874,6 +874,15 @@ public:
             return scheduler_->get_input_stream_interface(get_input_stream_ordinal());
         }
 
+        /**
+         * Returns whether the current record belongs to the kernel part of the trace.
+         */
+        bool
+        is_record_kernel() const override
+        {
+            return scheduler_->is_record_kernel(ordinal_);
+        }
+
     protected:
         scheduler_tmpl_t<RecordType, ReaderType> *scheduler_ = nullptr;
         int ordinal_ = -1;
@@ -1331,6 +1340,10 @@ protected:
     stream_status_t
     eof_or_idle(output_ordinal_t output);
 
+    // Returns whether the current record for the current input stream scheduled on
+    // the 'output_ordinal'-th output stream is from the kernel part of the trace.
+    bool
+    is_record_kernel(output_ordinal_t output);
     ///////////////////////////////////////////////////////////////////////////
     // Support for ready queues for who to schedule next:
 
