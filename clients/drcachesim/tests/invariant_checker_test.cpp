@@ -3053,7 +3053,7 @@ check_kernel_syscall_trace(void)
                            /*tid=*/TID_A,
                            /*ref_ordinal=*/7, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/2 },
-                         "Failed to catch missing trace start marker"))
+                         "Failed to catch missing kernel trace start marker"))
             res = false;
     }
     {

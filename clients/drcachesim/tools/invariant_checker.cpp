@@ -386,8 +386,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL) {
         shard->found_blocking_marker_ = true;
-        // Re-assign the bool to the saved value to allow the intervening maybe_blocking
-        // marker.
+        // Re-assign the saved value to the shard state to allow this intervening
+        // maybe_blocking marker.
         shard->prev_was_syscall_marker_ = prev_was_syscall_marker_saved;
         report_if_false(shard,
                         shard->prev_entry_.marker.type == TRACE_TYPE_MARKER &&
@@ -468,7 +468,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         report_if_false(shard,
                         shard->between_kernel_syscall_trace_markers_ ==
                             shard->stream->is_record_kernel(),
-                        "Stream is_record_kernel inaccurate");
+                        "Stream is_record_kernel() inaccurate");
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         marker_type_is_function_marker(memref.marker.marker_type)) {

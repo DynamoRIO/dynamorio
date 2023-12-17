@@ -171,7 +171,7 @@ public:
                     in_kernel_syscall_trace_ = true;
                     break;
                 case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
-                    in_kernel_syscall_trace_ = true;
+                    in_kernel_syscall_trace_ = false;
                     break;
                 }
             }
