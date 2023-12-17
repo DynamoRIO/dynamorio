@@ -229,6 +229,20 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         instr_free(dcontext_.dcontext, &instr);
     }
     ++shard->opcode_counts[opcode];
+
+    uint category;
+    instr_t instr;
+    instr_init(dcontext_.dcontext, &instr);
+    app_pc next_pc = decode_from_copy(dcontext_.dcontext, decode_pc, trace_pc, &instr);
+    if (next_pc == NULL || !instr_valid(&instr)) {
+        instr_free(dcontext_.dcontext, &instr);
+        shard->error = "Failed to decode instruction " + to_hex_string(memref.instr.addr);
+        return false;
+    }
+    category = instr_get_category(&instr);
+    instr_free(dcontext_.dcontext, &instr);
+    ++shard->category_counts[category];
+
     return true;
 }
 
@@ -267,6 +281,9 @@ opcode_mix_t::print_results()
             for (const auto &keyvals : shard.second->opcode_counts) {
                 total.opcode_counts[keyvals.first] += keyvals.second;
             }
+            for (const auto &keyvals : shard.second->category_counts) {
+                total.category_counts[keyvals.first] += keyvals.second;
+            }
         }
     }
     std::cerr << TOOL_NAME << " results:\n";
@@ -278,6 +295,19 @@ opcode_mix_t::print_results()
         std::cerr << std::setw(15) << keyvals.second << " : " << std::setw(9)
                   << decode_opcode_name(keyvals.first) << "\n";
     }
+    std::cerr << "\n";
+    std::cerr << std::setw(15) << total.category_counts.size()
+              << " : sets of categories\n";
+    std::vector<std::pair<uint, int64_t>> sorted_category_counts(
+        total.category_counts.begin(), total.category_counts.end());
+    std::sort(sorted_category_counts.begin(), sorted_category_counts.end(), cmp_val);
+    char category_names[57];
+    for (const auto &keyvals : sorted_category_counts) {
+        instr_get_category_names(keyvals.first, category_names, sizeof(category_names));
+        std::cerr << std::setw(15) << keyvals.second << " : " << std::setw(9)
+                  << category_names << "\n";
+    }
+
     return true;
 }
 

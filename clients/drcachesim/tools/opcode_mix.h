@@ -103,6 +103,7 @@ protected:
         worker_data_t *worker;
         int64_t instr_count;
         std::unordered_map<int, int64_t> opcode_counts;
+        std::unordered_map<uint, int64_t> category_counts;
         std::string error;
         app_pc last_trace_module_start;
         size_t last_trace_module_size;

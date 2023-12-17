@@ -470,6 +470,84 @@ instr_get_category(instr_t *instr)
 /* in rest of file, directly de-reference for performance (PR 622253) */
 #define instr_get_category inlined_instr_get_category
 
+void
+instr_get_category_names(uint category, char category_names[], size_t category_names_size)
+{
+    memset(category_names, '\0', category_names_size);
+    uint start_index = 0;
+    if (category == DR_INSTR_CATEGORY_UNCATEGORIZED) {
+        const char identified_category[] = "uncategorized";
+        size_t char_to_copy = sizeof(identified_category) - 1;
+        strncpy((category_names + start_index), identified_category, char_to_copy);
+        return;
+    }
+    if (TEST(DR_INSTR_CATEGORY_FP, category)) {
+        const char identified_category[] = "fp,";
+        size_t char_to_copy = sizeof(identified_category) - 1;
+        strncpy((category_names + start_index), identified_category, char_to_copy);
+        start_index += ((uint)char_to_copy);
+    }
+    if (TEST(DR_INSTR_CATEGORY_LOAD, category)) {
+        const char identified_category[] = "load,";
+        size_t char_to_copy = sizeof(identified_category) - 1;
+        strncpy((category_names + start_index), identified_category, char_to_copy);
+        start_index += ((uint)char_to_copy);
+    }
+    if (TEST(DR_INSTR_CATEGORY_STORE, category)) {
+        const char identified_category[] = "store,";
+        size_t char_to_copy = sizeof(identified_category) - 1;
+        strncpy((category_names + start_index), identified_category, char_to_copy);
+        start_index += ((uint)char_to_copy);
+    }
+    if (TEST(DR_INSTR_CATEGORY_BRANCH, category)) {
+        const char identified_category[] = "branch,";
+        size_t char_to_copy = sizeof(identified_category) - 1;
+        strncpy((category_names + start_index), identified_category, char_to_copy);
+        start_index += ((uint)char_to_copy);
+    }
+    if (TEST(DR_INSTR_CATEGORY_SIMD, category)) {
+        const char identified_category[] = "simd,";
+        size_t char_to_copy = sizeof(identified_category) - 1;
+        strncpy((category_names + start_index), identified_category, char_to_copy);
+        start_index += ((uint)char_to_copy);
+    }
+    if (TEST(DR_INSTR_CATEGORY_STATE, category)) {
+        const char identified_category[] = "state,";
+        size_t char_to_copy = sizeof(identified_category) - 1;
+        strncpy((category_names + start_index), identified_category, char_to_copy);
+        start_index += ((uint)char_to_copy);
+    }
+    if (TEST(DR_INSTR_CATEGORY_MOVE, category)) {
+        const char identified_category[] = "move,";
+        size_t char_to_copy = sizeof(identified_category) - 1;
+        strncpy((category_names + start_index), identified_category, char_to_copy);
+        start_index += ((uint)char_to_copy);
+    }
+    if (TEST(DR_INSTR_CATEGORY_CONVERT, category)) {
+        const char identified_category[] = "convert,";
+        size_t char_to_copy = sizeof(identified_category) - 1;
+        strncpy((category_names + start_index), identified_category, char_to_copy);
+        start_index += ((uint)char_to_copy);
+    }
+    if (TEST(DR_INSTR_CATEGORY_MATH, category)) {
+        const char identified_category[] = "math,";
+        size_t char_to_copy = sizeof(identified_category) - 1;
+        strncpy((category_names + start_index), identified_category, char_to_copy);
+        start_index += ((uint)char_to_copy);
+    }
+    if (TEST(DR_INSTR_CATEGORY_OTHER, category)) {
+        const char identified_category[] = "other,";
+        size_t char_to_copy = sizeof(identified_category) - 1;
+        strncpy((category_names + start_index), identified_category, char_to_copy);
+        start_index += ((uint)char_to_copy);
+    }
+    if (start_index > 0) {
+        category_names[start_index - 1] = '\0';
+    }
+
+    return;
+}
+
 static inline void
 instr_being_modified(instr_t *instr, bool raw_bits_valid)
 {
