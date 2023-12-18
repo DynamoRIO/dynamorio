@@ -313,7 +313,6 @@ if ("${orig_nudge}" MATCHES "<detach>")
     endif ()
   endwhile()
 endif()
-
 kill_background_process(OFF)
 
 if (NOT "${fail_msg}" STREQUAL "")
