@@ -65,7 +65,7 @@ main(int argc, const char *argv[])
                 "Infloop pid=%d", GetProcessId(GetCurrentProcess()));
     SetTimer(NULL, 0, 180 * 1000 /*3 mins*/, TimerProc);
 
-    print("starting attachee\n");
+    print("starting\n");
     MessageBoxA(NULL, "DynamoRIO test: will be auto-closed", title, MB_OK);
     if (!for_detach) {
         print("MessageBox closed\n");
