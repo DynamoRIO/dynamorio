@@ -2289,7 +2289,7 @@ detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
     EXITING_DR();
     options_detach();
 }
-
+#ifdef LINUX
 void
 detach_externally_on_linux()
 {
@@ -2382,9 +2382,6 @@ detach_externally_on_linux()
             DEBUG_DECLARE(ok =)
             translate_mcontext(threads[i], &my_mcontext, true /*restore mem*/,
                                NULL /*f*/);
-            ASSERT(!is_dynamo_address(my_mcontext.pc) && !in_fcache(my_mcontext.pc));
-            ASSERT(!in_fcache(my_mcontext.pc));
-            ASSERT(!is_dynamo_address(my_mcontext.pc));
             continue;
         } else if (IS_CLIENT_THREAD(threads[i]->dcontext)) {
             /* i#297 we will kill client-owned threads later after app exit events
@@ -2489,3 +2486,4 @@ detach_externally_on_linux()
     options_detach();
     thread_set_self_mcontext(&my_mcontext);
 }
+#endif

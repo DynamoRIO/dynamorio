@@ -7920,9 +7920,11 @@ alarm_signal_has_DR_only_itimer(dcontext_t *dcontext, int signal)
     int which = signal_to_itimer_type(signal);
     if (which == -1)
         return false;
+#ifdef LINUX
     if (dcontext == GLOBAL_DCONTEXT) {
         return false;
     }
+#endif
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     if (info->shared_itimer)
         acquire_recursive_lock(&(*info->itimer)[which].lock);
@@ -8484,8 +8486,10 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_siginfo_t *siginfo,
     if (is_sigqueue_supported() && SUSPEND_SIGNAL == NUDGESIG_SIGNUM) {
         nudge_arg_t *arg = (nudge_arg_t *)siginfo;
         if (!TEST(NUDGE_IS_SUSPEND, arg->flags)) {
+#ifdef LINUX
             sig_full_initialize(&sc_full, ucxt);
             ostd->nudged_sigcxt = &sc_full;
+#endif
             return handle_nudge_signal(dcontext, siginfo, ucxt);
         }
     }

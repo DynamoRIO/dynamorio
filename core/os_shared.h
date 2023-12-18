@@ -205,8 +205,10 @@ is_thread_currently_native(thread_record_t *tr);
 bool
 thread_get_mcontext(thread_record_t *tr, priv_mcontext_t *mc);
 
+#ifdef LINUX
 bool
 thread_get_nudged_mcontext(thread_record_t *tr, priv_mcontext_t *mc);
+#endif
 
 bool
 thread_set_mcontext(thread_record_t *tr, priv_mcontext_t *mc);

@@ -263,8 +263,10 @@ send_all_other_threads_native(void);
 void
 detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats);
 
+#ifdef LINUX
 void
 detach_externally_on_linux();
+#endif
 
 /*** exported for detach only ***/
 
