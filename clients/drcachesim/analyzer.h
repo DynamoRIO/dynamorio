@@ -213,20 +213,19 @@ protected:
         operator=(const analyzer_worker_data_t &) = delete;
     };
 
+    // Pass INVALID_THREAD_ID for only_thread to include all threads.
     bool
-    init_scheduler(const std::string &trace_path,
-                   memref_tid_t only_thread = INVALID_THREAD_ID, int verbosity = 0,
-                   typename sched_type_t::scheduler_options_t *options = nullptr);
+    init_scheduler(const std::string &trace_path, memref_tid_t only_thread, int verbosity,
+                   typename sched_type_t::scheduler_options_t options);
 
     bool
-    init_scheduler(
-        std::unique_ptr<ReaderType> reader = std::unique_ptr<ReaderType>(nullptr),
-        std::unique_ptr<ReaderType> reader_end = std::unique_ptr<ReaderType>(nullptr),
-        int verbosity = 0, typename sched_type_t::scheduler_options_t *options = nullptr);
+    init_scheduler(std::unique_ptr<ReaderType> reader,
+                   std::unique_ptr<ReaderType> reader_end, int verbosity,
+                   typename sched_type_t::scheduler_options_t options);
 
     bool
     init_scheduler_common(typename sched_type_t::input_workload_t &workload,
-                          typename sched_type_t::scheduler_options_t *options);
+                          typename sched_type_t::scheduler_options_t options);
 
     // Used for std::thread so we need an rvalue (so no &worker).
     void

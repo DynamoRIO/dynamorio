@@ -598,6 +598,20 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_CORE_IDLE,
 
+    /**
+     * Indicates a point in the trace where context switch's kernel trace starts.
+     * The value of the marker is set to the switch type enum value from
+     * #dynamorio::drmemtrace::scheduler_tmpl_t::switch_type_t.
+     */
+    TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
+
+    /**
+     * Indicates a point in the trace where a context switch's kernel trace ends.
+     * The value of the marker is set to the switch type enum value from
+     * #dynamorio::drmemtrace::scheduler_tmpl_t::switch_type_t.
+     */
+    TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
+
     // ...
     // These values are reserved for future built-in marker types.
     // ...

@@ -223,7 +223,7 @@ template <typename RecordType, typename ReaderType>
 bool
 analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(
     const std::string &trace_path, memref_tid_t only_thread, int verbosity,
-    typename sched_type_t::scheduler_options_t *options)
+    typename sched_type_t::scheduler_options_t options)
 {
     verbosity_ = verbosity;
     if (trace_path.empty()) {
@@ -242,14 +242,14 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(
     if (only_thread != INVALID_THREAD_ID) {
         workload.only_threads.insert(only_thread);
     }
-    return init_scheduler_common(workload, options);
+    return init_scheduler_common(workload, std::move(options));
 }
 
 template <typename RecordType, typename ReaderType>
 bool
 analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(
     std::unique_ptr<ReaderType> reader, std::unique_ptr<ReaderType> reader_end,
-    int verbosity, typename sched_type_t::scheduler_options_t *options)
+    int verbosity, typename sched_type_t::scheduler_options_t options)
 {
     verbosity_ = verbosity;
     if (!reader || !reader_end) {
@@ -263,14 +263,14 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(
     if (skip_instrs_ > 0)
         regions.emplace_back(skip_instrs_ + 1, 0);
     typename sched_type_t::input_workload_t workload(std::move(readers), regions);
-    return init_scheduler_common(workload, options);
+    return init_scheduler_common(workload, std::move(options));
 }
 
 template <typename RecordType, typename ReaderType>
 bool
 analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
     typename sched_type_t::input_workload_t &workload,
-    typename sched_type_t::scheduler_options_t *options)
+    typename sched_type_t::scheduler_options_t options)
 {
     for (int i = 0; i < num_tools_; ++i) {
         if (parallel_ && !tools_[i]->parallel_shard_supported()) {
@@ -284,11 +284,11 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
     typename sched_type_t::scheduler_options_t sched_ops;
     if (shard_type_ == SHARD_BY_CORE) {
         // Subclass must pass us options and set worker_count_ to # cores.
-        if (options == nullptr || worker_count_ <= 0) {
+        if (worker_count_ <= 0) {
             error_string_ = "For -core_sharded, core count must be > 0";
             return false;
         }
-        sched_ops = *options;
+        sched_ops = std::move(options);
         if (sched_ops.quantum_unit == sched_type_t::QUANTUM_TIME)
             sched_by_time_ = true;
     } else if (parallel_) {
@@ -300,7 +300,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
         worker_count_ = 1;
     }
     int output_count = worker_count_;
-    if (scheduler_.init(sched_inputs, output_count, sched_ops) !=
+    if (scheduler_.init(sched_inputs, output_count, std::move(sched_ops)) !=
         sched_type_t::STATUS_SUCCESS) {
         ERRMSG("Failed to initialize scheduler: %s\n",
                scheduler_.get_error_string().c_str());
@@ -330,7 +330,8 @@ analyzer_tmpl_t<RecordType, ReaderType>::analyzer_tmpl_t(
 {
     // The scheduler will call reader_t::init() for each input file.  We assume
     // that won't block (analyzer_multi_t separates out IPC readers).
-    if (!init_scheduler(trace_path, INVALID_THREAD_ID, verbosity)) {
+    typename sched_type_t::scheduler_options_t sched_ops;
+    if (!init_scheduler(trace_path, INVALID_THREAD_ID, verbosity, std::move(sched_ops))) {
         success_ = false;
         error_string_ = "Failed to create scheduler";
         return;

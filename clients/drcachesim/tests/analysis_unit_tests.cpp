@@ -67,7 +67,7 @@ public:
         scheduler_t::scheduler_options_t sched_ops;
         if (sched_ops_in != nullptr) {
             shard_type_ = SHARD_BY_CORE;
-            sched_ops = *sched_ops_in;
+            sched_ops = std::move(*sched_ops_in);
             // XXX: We could refactor init_scheduler_common() to share a couple of
             // these lines.
             if (sched_ops.quantum_unit == sched_type_t::QUANTUM_TIME)
@@ -76,7 +76,7 @@ public:
             sched_ops = scheduler_t::make_scheduler_parallel_options(verbosity_);
         else
             sched_ops = scheduler_t::make_scheduler_serial_options(verbosity_);
-        if (scheduler_.init(sched_inputs, worker_count_, sched_ops) !=
+        if (scheduler_.init(sched_inputs, worker_count_, std::move(sched_ops)) !=
             sched_type_t::STATUS_SUCCESS) {
             assert(false);
             success_ = false;
