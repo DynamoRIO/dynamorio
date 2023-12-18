@@ -165,6 +165,9 @@ typedef struct _os_thread_data_t {
     KSYNCH_TYPE resumed;
     sig_full_cxt_t *suspended_sigcxt;
 
+    /* For detachment on Linux*/
+    sig_full_cxt_t *nudged_sigcxt;
+
     /* PR 297902: for thread termination */
     bool terminate;
     /* Any function that sets this flag must also notify possibly waiting

@@ -3980,6 +3980,21 @@ thread_get_mcontext(thread_record_t *tr, priv_mcontext_t *mc)
 }
 
 bool
+thread_get_nudged_mcontext(thread_record_t *tr, priv_mcontext_t *mc)
+{
+    /* PR 212090: only works when target is suspended by us, and
+     * we then take the signal context
+     */
+    os_thread_data_t *ostd = (os_thread_data_t *)tr->dcontext->os_field;
+    ASSERT(ostd != NULL);
+    ASSERT(ostd->nudged_sigcxt != NULL);
+    sigcontext_to_mcontext(mc, ostd->nudged_sigcxt, DR_MC_ALL);
+    IF_ARM(dr_set_isa_mode(tr->dcontext, get_sigcontext_isa_mode(ostd->nudged_sigcxt),
+                           NULL));
+    return true;
+}
+
+bool
 thread_set_mcontext(thread_record_t *tr, priv_mcontext_t *mc)
 {
     /* PR 212090: only works when target is suspended by us, and

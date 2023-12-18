@@ -42,6 +42,10 @@
 #else
 #endif /* WINDOWS */
 
+#ifdef LINUX
+#    include "synch.h"
+#endif
+
 #ifdef HOT_PATCHING_INTERFACE
 #    include "hotpatch.h" /* for hotp_nudge_update() */
 #endif
@@ -436,6 +440,23 @@ handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg)
         dcontext->free_app_stack = false;
         nudge_action_mask &= ~NUDGE_GENERIC(detach);
         detach_helper(DETACH_NORMAL_TYPE);
+    }
+#endif
+#ifdef LINUX
+    /* The detach handler is last since in the common case it doesn't return. */
+    if (TEST(NUDGE_GENERIC(detach), nudge_action_mask)) {
+        nudge_action_mask &= ~NUDGE_GENERIC(detach);
+        heap_error_code_t error_code_reserve, error_code_commit;
+        void *d_r_detachstack =
+            os_heap_reserve(NULL, DYNAMORIO_STACK_SIZE, &error_code_reserve, false);
+        if (!os_heap_commit(d_r_detachstack, DYNAMORIO_STACK_SIZE,
+                            MEMPROT_READ | MEMPROT_WRITE, &error_code_commit)) {
+            ASSERT_NOT_REACHED();
+        }
+        call_switch_stack(dcontext,
+                          (byte *)((ptr_uint_t)d_r_detachstack + DYNAMORIO_STACK_SIZE),
+                          (void (*)(void *))detach_externally_on_linux, NULL, true);
+        ASSERT_NOT_REACHED();
     }
 #endif
 }
