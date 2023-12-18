@@ -1216,9 +1216,9 @@ _tmain(int argc, TCHAR *targv[])
     bool exit0 = false;
 #endif
 #if defined(DRCONFIG)
-#if     defined(WINDOWS) || defined(LINUX)
+#    if defined(WINDOWS) || defined(LINUX)
     process_id_t detach_pid = 0;
-#   endif
+#    endif
 #endif
     char *drlib_path = NULL;
 #if defined(DRCONFIG) || defined(DRRUN)
@@ -1515,7 +1515,7 @@ _tmain(int argc, TCHAR *targv[])
             nudge_arg = _strtoui64(argv[++i], NULL, 16);
         }
 #    endif
-#if     defined(WINDOWS) || defined(LINUX)
+#    if defined(WINDOWS) || defined(LINUX)
         else if (strcmp(argv[i], "-detach") == 0) {
             if (i + 1 >= argc)
                 usage(false, "detach requires a process id");
@@ -1845,13 +1845,14 @@ done_with_options:
             die();
     }
 #    ifndef WINDOWS
-#       ifdef LINUX
+#        ifdef LINUX
     else if (detach_pid != 0) {
         siginfo_t info;
         uint action_mask = 0x04;
         client_id_t client_id = 0;
         uint64 client_arg = 0;
-        bool success = create_nudge_signal_payload(&info, action_mask, 0, client_id, client_arg);
+        bool success =
+            create_nudge_signal_payload(&info, action_mask, 0, client_id, client_arg);
         assert(success); /* failure means kernel's sigqueueinfo has changed */
 
         /* send the nudge */
@@ -1859,7 +1860,7 @@ done_with_options:
         if (i < 0)
             fprintf(stderr, "nudge FAILED with error %d\n", i);
     }
-#       endif
+#        endif
     else {
         usage(false, "no action specified");
     }
@@ -1899,8 +1900,7 @@ done_with_options:
                 list_process(NULL, global, dr_platform, iter);
             dr_registered_process_iterator_stop(iter);
         }
-    }
-    else if (detach_pid != 0) {
+    } else if (detach_pid != 0) {
         dr_config_status_t res = detach(detach_pid, TRUE, detach_timeout);
         if (res != DR_SUCCESS)
             error("unable to detach: check pid and system ptrace permissions");
