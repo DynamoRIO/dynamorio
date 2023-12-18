@@ -351,10 +351,13 @@ delete_thread(pid_t pid, void *stack)
 {
     pid_t result;
     /* do not print out pids to make diff easy */
-    result = waitpid(pid, NULL, 0);
+    int wait_status;
+    result = waitpid(pid, &wait_status, 0);
     print("Child has exited\n");
     if (result == -1 || result != pid)
         perror("delete_thread waitpid");
+    else if (!WIFEXITED(wait_status) || WEXITSTATUS(wait_status) != 0)
+        print("delete_thread bad wait_status: 0x%x\n", wait_status);
     stack_free(stack, THREAD_STACK_SIZE);
 }
 
