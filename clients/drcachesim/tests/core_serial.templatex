@@ -1,0 +1,224 @@
+Schedule stats tool results:
+Total counts:
+           4 cores
+           8 threads
+      638938 instructions
+           6 total context switches
+   0.0093906 CSPKI \(context switches per 1000 instructions\)
+      106490 instructions per context switch
+           6 voluntary context switches
+           0 direct context switches
+      100.00% voluntary switches
+        0.00% direct switches
+         161 system calls
+           2 maybe-blocking system calls
+           0 direct switch requests
+           0 waits
+      345686 idles
+       64.89% cpu busy by record count
+    [0-9 ]* cpu microseconds
+    [0-9 ]* idle microseconds
+    [0-9 ]* idle microseconds at last instr
+    [0-9\. ]*% cpu busy by time
+    [0-9\. ]*% cpu busy by time, ignoring idle past last instr
+Core #0 counts:
+           2 threads
+      117015 instructions
+           3 total context switches
+   0.0256377 CSPKI \(context switches per 1000 instructions\)
+       39005 instructions per context switch
+           3 voluntary context switches
+           0 direct context switches
+      100.00% voluntary switches
+        0.00% direct switches
+         125 system calls
+           2 maybe-blocking system calls
+           0 direct switch requests
+           0 waits
+      323689 idles
+       26.55% cpu busy by record count
+    [0-9 ]* cpu microseconds
+    [0-9 ]* idle microseconds
+    [0-9 ]* idle microseconds at last instr
+    [0-9\. ]*% cpu busy by time
+    [0-9\. ]*% cpu busy by time, ignoring idle past last instr
+Core #1 counts:
+           2 threads
+      170398 instructions
+           1 total context switches
+   0.0058686 CSPKI \(context switches per 1000 instructions\)
+      170398 instructions per context switch
+           1 voluntary context switches
+           0 direct context switches
+      100.00% voluntary switches
+        0.00% direct switches
+          10 system calls
+           0 maybe-blocking system calls
+           0 direct switch requests
+           0 waits
+       21986 idles
+       88.57% cpu busy by record count
+    [0-9 ]* cpu microseconds
+    [0-9 ]* idle microseconds
+    [0-9 ]* idle microseconds at last instr
+    [0-9\. ]*% cpu busy by time
+    [0-9\. ]*% cpu busy by time, ignoring idle past last instr
+Core #2 counts:
+           2 threads
+      175766 instructions
+           1 total context switches
+   0.0056894 CSPKI \(context switches per 1000 instructions\)
+      175766 instructions per context switch
+           1 voluntary context switches
+           0 direct context switches
+      100.00% voluntary switches
+        0.00% direct switches
+          13 system calls
+           0 maybe-blocking system calls
+           0 direct switch requests
+           0 waits
+           0 idles
+      100.00% cpu busy by record count
+    [0-9 ]* cpu microseconds
+    [0-9 ]* idle microseconds
+    [0-9 ]* idle microseconds at last instr
+    [0-9\. ]*% cpu busy by time
+    [0-9\. ]*% cpu busy by time, ignoring idle past last instr
+Core #3 counts:
+           2 threads
+      175759 instructions
+           1 total context switches
+   0.0056896 CSPKI \(context switches per 1000 instructions\)
+      175759 instructions per context switch
+           1 voluntary context switches
+           0 direct context switches
+      100.00% voluntary switches
+        0.00% direct switches
+          13 system calls
+           0 maybe-blocking system calls
+           0 direct switch requests
+           0 waits
+          11 idles
+       99.99% cpu busy by record count
+    [0-9 ]* cpu microseconds
+    [0-9 ]* idle microseconds
+    [0-9 ]* idle microseconds at last instr
+    [0-9\. ]*% cpu busy by time
+    [0-9\. ]*% cpu busy by time, ignoring idle past last instr
+Core #0 schedule: FHF_F_
+Core #1 schedule: DA_
+Core #2 schedule: GC
+Core #3 schedule: BE_
+
+===========================================================================
+Basic counts tool results:
+Total counts:
+      638938 total \(fetched\) instructions
+        5969 total unique \(fetched\) instructions
+      546585 total non-fetched instructions
+           0 total prefetches
+      676963 total data loads
+      725896 total data stores
+           0 total icache flushes
+           0 total dcache flushes
+           8 total threads
+        1574 total scheduling markers
+         168 total transfer markers
+           0 total function id markers
+           0 total function return address markers
+           0 total function argument markers
+           0 total function return value markers
+           0 total physical address \+ virtual address marker pairs
+           0 total physical address unavailable markers
+         161 total system call number markers
+           2 total blocking system call markers
+          40 total other markers
+        8569 total encodings
+Core 2 counts:
+      175766 \(fetched\) instructions
+         445 unique \(fetched\) instructions
+      157499 non-fetched instructions
+           0 prefetches
+      192758 data loads
+      207661 data stores
+           0 icache flushes
+           0 dcache flushes
+           2 threads
+         294 scheduling markers
+           2 transfer markers
+           0 function id markers
+           0 function return address markers
+           0 function argument markers
+           0 function return value markers
+           0 physical address \+ virtual address marker pairs
+           0 physical address unavailable markers
+          13 system call number markers
+           0 blocking system call markers
+          10 other markers
+         875 encodings
+Core 3 counts:
+      175759 \(fetched\) instructions
+         445 unique \(fetched\) instructions
+      157500 non-fetched instructions
+           0 prefetches
+      192758 data loads
+      207658 data stores
+           0 icache flushes
+           0 dcache flushes
+           2 threads
+         292 scheduling markers
+           2 transfer markers
+           0 function id markers
+           0 function return address markers
+           0 function argument markers
+           0 function return value markers
+           0 physical address \+ virtual address marker pairs
+           0 physical address unavailable markers
+          13 system call number markers
+           0 blocking system call markers
+          10 other markers
+         875 encodings
+Core 1 counts:
+      170398 \(fetched\) instructions
+         445 unique \(fetched\) instructions
+      152836 non-fetched instructions
+           0 prefetches
+      187014 data loads
+      201468 data stores
+           0 icache flushes
+           0 dcache flushes
+           2 threads
+         280 scheduling markers
+           2 transfer markers
+           0 function id markers
+           0 function return address markers
+           0 function argument markers
+           0 function return value markers
+           0 physical address \+ virtual address marker pairs
+           0 physical address unavailable markers
+          10 system call number markers
+           0 blocking system call markers
+          10 other markers
+         754 encodings
+Core 0 counts:
+      117015 \(fetched\) instructions
+        5969 unique \(fetched\) instructions
+       78750 non-fetched instructions
+           0 prefetches
+      104433 data loads
+      109109 data stores
+           0 icache flushes
+           0 dcache flushes
+           2 threads
+         708 scheduling markers
+         162 transfer markers
+           0 function id markers
+           0 function return address markers
+           0 function argument markers
+           0 function return value markers
+           0 physical address \+ virtual address marker pairs
+           0 physical address unavailable markers
+         125 system call number markers
+           2 blocking system call markers
+          10 other markers
+        6065 encodings

@@ -31,8 +31,11 @@
  */
 
 // Unit tests for drcachesim
+
 #include <iostream>
 #include <cstdlib>
+#include <regex>
+
 #undef NDEBUG
 #include <assert.h>
 #include "config_reader_unit_test.h"
@@ -763,6 +766,66 @@ unit_test_cache_accessors()
     }
 }
 
+class mock_stream_t : public default_memtrace_stream_t {
+public:
+    void
+    set_cpuid(int64_t cpuid)
+    {
+        cpuid_ = cpuid;
+    }
+    int64_t
+    get_output_cpuid() const override
+    {
+        return cpuid_;
+    }
+
+private:
+    int64_t cpuid_ = 0;
+};
+
+void
+unit_test_core_sharded()
+{
+    {
+        // Test invalid cpu_scheduling + core-sharded combo.
+        cache_simulator_knobs_t knobs = make_test_knobs();
+        knobs.cpu_scheduling = true;
+        cache_simulator_t sim(knobs);
+        std::string error = sim.initialize_shard_type(SHARD_BY_CORE);
+        assert(!error.empty());
+    }
+    {
+        // Test cpu to core mapping by passing larger integers as cpus.
+        cache_simulator_knobs_t knobs = make_test_knobs();
+        knobs.num_cores = 2;
+        cache_simulator_t sim(knobs);
+        mock_stream_t stream;
+        sim.initialize_stream(&stream);
+        std::string error = sim.initialize_shard_type(SHARD_BY_CORE);
+        assert(error.empty());
+        memref_t ref = make_memref(42);
+        stream.set_cpuid(123400);
+        bool res = sim.process_memref(ref);
+        assert(res);
+        stream.set_cpuid(567800);
+        res = sim.process_memref(ref);
+        assert(res);
+        // Capture output.
+        std::stringstream output;
+        std::streambuf *prev_buf = std::cerr.rdbuf(output.rdbuf());
+        res = sim.print_results();
+        assert(res);
+        std::cerr.rdbuf(prev_buf);
+        // Make sure the large cpuids are mapped to core 0 and core 1.
+        assert(std::regex_search(output.str(), std::regex(R"DELIM((.|\n)*
+Core #0 \(traced CPU\(s\): #123400\)
+(.|\n)*
+Core #1 \(traced CPU\(s\): #567800\)
+(.|\n)*
+)DELIM")));
+    }
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -783,6 +846,7 @@ test_main(int argc, const char *argv[])
     unit_test_sim_refs();
     unit_test_child_hits();
     unit_test_cache_replacement_policy();
+    unit_test_core_sharded();
     return 0;
 }
 

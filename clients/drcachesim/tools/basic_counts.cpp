@@ -241,16 +241,14 @@ bool
 basic_counts_t::process_memref(const memref_t &memref)
 {
     per_shard_t *per_shard;
-    const auto &lookup = shard_map_.find(memref.data.tid);
+    int64_t shard_index = shard_type_ == SHARD_BY_THREAD
+        ? memref.data.tid
+        : serial_stream_->get_output_cpuid();
+    const auto &lookup = shard_map_.find(shard_index);
     if (lookup == shard_map_.end()) {
         per_shard = new per_shard_t;
         per_shard->stream = serial_stream_;
-        // TODO i#5694: Once we have -core_serial we can fully test this serial
-        // code for SHARD_BY_CORE and update any other tools doing this same
-        // type of data splitting in serial mode by tid.
-        int64_t shard_index = shard_type_ == SHARD_BY_THREAD
-            ? memref.data.tid
-            : serial_stream_->get_output_cpuid();
+        per_shard->core = serial_stream_->get_output_cpuid();
         shard_map_[shard_index] = per_shard;
     } else
         per_shard = lookup->second;
