@@ -78,10 +78,13 @@ clone(int (*fn)(void *arg), void *child_stack, int flags, void *arg, ...);
 
 /* forward declarations */
 static int
+make_clone_syscall(ptr_uint_t flags, void *stack,
+                   pid_t *parent_tid, pid_t *child_tid, void *tls,
+                   void (*fcn)(void));
+static int
 make_clone3_syscall(void *clone_args, ulong clone_args_size, void (*fcn)(void));
 static pid_t
-create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand,
-              bool clone_vm);
+create_thread(void (*fcn)(void), void **stack, bool share_sighand, bool clone_vm);
 #ifdef SYS_clone3
 static pid_t
 create_thread_clone3(void (*fcn)(void), void **stack, bool share_sighand, bool clone_vm);
@@ -113,13 +116,46 @@ test_thread(bool share_sighand, bool clone_vm, bool use_clone3)
         /* If SYS_clone3 is not defined, we simply use SYS_clone instead, so that
          * the expected output is the same in both cases.
          */
-        child = create_thread(run, NULL, &stack, share_sighand, clone_vm);
+        child = create_thread(run_with_exit, &stack, share_sighand, clone_vm);
 #endif
     } else
-        child = create_thread(run, NULL, &stack, share_sighand, clone_vm);
+        child = create_thread(run_with_exit, &stack, share_sighand, clone_vm);
     assert(child > -1);
     delete_thread(child, stack);
 }
+
+#ifdef X86
+
+/* i#6514: Test passing NULL for the stack pointer to the syscall. */
+void
+test_with_null_stack_pointer(bool clone_vm, bool use_clone3)
+{
+    print("%s(clone_vm %d, use_clone3 %d)\n", __FUNCTION__, clone_vm, use_clone3);
+    int flags = clone_vm ? (CLONE_VFORK | CLONE_VM) : 0;
+    int ret;
+    /* If we don't have SYS_clone3, keep expected output the same and just use SYS_clone. */
+    bool really_use_clone3 = use_clone3;
+#ifndef SYS_clone3
+    really_use_clone3 = false;
+#endif
+    if (really_use_clone3) {
+      struct clone_args cl_args = { 0 };
+      cl_args.flags = flags;
+      cl_args.exit_signal = SIGCHLD;
+      ret = make_clone3_syscall(&cl_args, sizeof(cl_args), run_with_exit);
+    } else {
+      flags = flags | SIGCHLD;
+      ret = make_clone_syscall(flags, /*stack*/NULL, /*parent_tid*/NULL,
+                               /*child_tid*/NULL, /*tls*/NULL, run_with_exit);
+    }
+    if (ret == -1) {
+        perror("Error calling clone");
+        return;
+    }
+    delete_thread(ret, NULL);
+}
+
+#endif
 
 int
 main()
@@ -139,6 +175,14 @@ main()
      */
     test_thread(true /*share_sighand*/, true /*clone_vm*/, false /*use_clone3*/);
     test_thread(true /*share_sighand*/, true /*clone_vm*/, true /*use_clone3*/);
+
+#if defined(X86)
+    /* Test passing NULL for the stack pointer (xref i#6514). */
+    test_with_null_stack_pointer(false /*clone_vm*/, false /*use_clone3*/);
+    test_with_null_stack_pointer(false /*clone_vm*/, true /*use_clone3*/);
+    test_with_null_stack_pointer(true /*clone_vm*/, false /*use_clone3*/);
+    test_with_null_stack_pointer(true /*clone_vm*/, true /*use_clone3*/);
+#endif
 
     /* Try using clone3 when it is possibly not defined. */
     int ret_failure_clone3 = make_clone3_syscall(NULL, 0, NULL);
@@ -185,15 +229,131 @@ run_with_exit(void)
     exit(run(NULL));
 }
 
-void *p_tid, *c_tid;
+/* Wrapper to invoke clone that supports passing stack_ptr == NULL.
+ * While glibc has a C wrapper for clone(), it prohibits passing NULL for the
+ * stack pointer.
+ * For architectures that we don't yet support, this calls clone() instead;
+ * this way create_thread() and create_thread_clone3() are symmetrical.
+ * Currently, this supports a fcn that does not return and calls exit() on
+ * its own.
+ */
+int
+make_clone_syscall(ptr_uint_t flags, void *stack, pid_t *parent_tid,
+                   pid_t *child_tid, void *tls, void (*fcn)(void))
+{
+  /* Everything is done in assembler to safely manage the potential
+   * stack switch or non-switch. */
+  int result;
+#if defined(X86) && defined(X64)
+    /* Note: Syscall preserves all registers except rax, rcx and r11. */
+    /* Syscall args:
+     * rax = syscall#
+     * rdi = flags
+     * rsi = stack
+     * rdx = parent_tid
+     * r10 = child_tid
+     * r8 = tls */
+    asm (
+        "movq %[fcn], %%r15\n\t"
+        "movq %[flags], %%rdi\n\t"
+        "movq %[stack], %%rsi\n\t"
+        "movq %[parent_tid], %%rdx\n\t"
+        "movq %[child_tid], %%r10\n\t"
+        "movq %[tls], %%r8\n\t"
+        "mov %[syscall_num], %%eax\n\t"
+        "syscall\n\t"
+        "testq %%rax, %%rax\n\t"
+        "jnz clone_parent\n\t"
+        "xorq %%rbp, %%rbp\n\t"
+        "call *%%r15\n\t"
+        "clone_parent:\n\t"
+        "mov %%eax, %[result]\n\t"
+        : [ result ] "=r" (result)
+        : [ syscall_num ] "i" (SYS_clone),
+          [ flags ] "rm" (flags), [ stack ] "rm" (stack),
+          [ parent_tid ] "rm" (parent_tid), [ child_tid ] "rm" (child_tid),
+          [ tls ] "rm" (tls), [ fcn ] "rm" (fcn)
+        /* While we clobber %rbp, it's done in the child which doesn't return,
+         * so we elide it here to not complicate the stack frame. */
+        : "rax", "rcx", "rdx", "rsi", "rdi", "r8", "r10", "r11", "r15");
+#elif defined(X86) && !defined(X64)
+    /* Syscall args:
+     * eax = syscall#
+     * ebx = flags
+     * ecx = stack
+     * edx = parent_tid
+     * esi = tls
+     * edi = child_tid */
+   /* Things are more complicated here because we don't have any registers to
+    * save fcn in, and if we modify %esp then the compiler's calculations
+    * of the parameter addresses may be wrong. */
+    asm (
+        "movl %[fcn], %%eax\n\t"
+        "movl %[flags], %%ebx\n\t"
+        "movl %[stack], %%ecx\n\t"
+        "movl %[parent_tid], %%edx\n\t"
+        "movl %[tls], %%esi\n\t"
+        "movl %[child_tid], %%edi\n\t"
+        "subl $16, %%esp\n\t"
+        /* No more fetching of this function's parameters after this point
+         * until %esp is restored. */
+        /* If stack is NULL, we still need a space to store fcn where the child
+         * can get it. Fortunately, in the case of stack==NULL we know %esp in
+         * the child will be %esp in the parent. Unfortunately, we need two
+         * scratch registers.
+         */
+        "movl %%eax, 4(%%esp)\n\t" /* Save fcn on stack were we can get it */
+        "movl %%ebx, 8(%%esp)\n\t" /* Save flags on stack were we can get it */
+        "andl $0xfffffff0, %%ecx\n\t"
+        "movl %%ecx, %%eax\n\t"
+        "jnz stack_not_zero\n\t"
+        "movl %%esp, %%eax\n\t"
+        "stack_not_zero:\n\t"
+        "movl 4(%%esp), %%ebx\n\t" /* Copy fcn to child stack */
+        "movl %%ebx, 0(%%eax)\n\t"
+        "movl 8(%%esp), %%ebx\n\t" /* Restore flags */
+        "movl %[syscall_num], %%eax\n\t"
+        "int $0x80\n\t"
+        "testl %%eax, %%eax\n\t"
+        "jnz clone_parent\n\t"
+        "xorl %%ebp, %%ebp\n\t"
+        "movl 0(%%esp), %%ebx\n\t"
+        "call *%%ebx\n\t"
+        "clone_parent:\n\t"
+        "addl $16, %%esp\n\t"
+        "movl %%eax, %[result]\n\t"
+        : [ result ] "=m" (result)
+        : [ syscall_num ] "i" (SYS_clone),
+          [ flags ] "rm" (flags), [ stack ] "rm" (stack),
+          [ parent_tid ] "rm" (parent_tid), [ child_tid ] "rm" (child_tid),
+          [ tls ] "rm" (tls), [ fcn ] "rm" (fcn)
+        /* While we clobber %ebp, it's done in the child which doesn't return,
+         * so we elide it here to not complicate the stack frame. */
+        : "eax", "ebx", "ecx", "edx", "esi", "edi");
+#else
+    /* Use glibc's clone() instead. */
+    result = clone(fcn, stack, flags, parent_tid, NULL, child_tid);
+#endif
+
+    /* Glibc's clone() sets errno, which we haven't done yet. */
+#ifdef X86
+    if (result < 0) {
+        errno = -result;
+        return -1;
+    }
+#endif
+
+    return result;
+}
+
+pid_t p_tid, c_tid;
 
 /* Create a new thread. It should be passed "fcn", a function which
  * takes two arguments, (the second one is a dummy, always 4). The
  * first argument is passed in "arg". Returns the PID of the new
  * thread */
 static pid_t
-create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand,
-              bool clone_vm)
+create_thread(void (*fcn)(void), void **stack, bool share_sighand, bool clone_vm)
 {
     /* !clone_vm && share_sighand is not supported. */
     assert(clone_vm || !share_sighand);
@@ -211,8 +371,8 @@ create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand,
     flags = (SIGCHLD | CLONE_FS | CLONE_FILES | (share_sighand ? CLONE_SIGHAND : 0) |
              (clone_vm ? CLONE_VM : 0));
     /* The stack arg should point to the stack's highest address (non-inclusive). */
-    newpid = clone(fcn, (void *)((size_t)my_stack + THREAD_STACK_SIZE), flags, arg,
-                   &p_tid, NULL, &c_tid);
+    newpid = make_clone_syscall(flags, (void *)((size_t)my_stack + THREAD_STACK_SIZE),
+                                &p_tid, &c_tid, /*tls*/NULL, fcn);
 
     if (newpid == -1) {
         perror("Error calling clone\n");
@@ -360,7 +520,8 @@ delete_thread(pid_t pid, void *stack)
         perror("delete_thread waitpid");
     else if (!WIFEXITED(wait_status) || WEXITSTATUS(wait_status) != 0)
         print("delete_thread bad wait_status: 0x%x\n", wait_status);
-    stack_free(stack, THREAD_STACK_SIZE);
+    if (stack != NULL)
+        stack_free(stack, THREAD_STACK_SIZE);
 }
 
 /* Allocate stack storage on the app's heap. Returns the lowest address of the
