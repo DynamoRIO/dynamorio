@@ -312,7 +312,7 @@ if ("${orig_nudge}" MATCHES "<detach>")
       message(FATAL_ERROR "Timed out waiting for detach")
     endif ()
   endwhile()
-endif()
+endif ()
 
 kill_background_process(OFF)
 
