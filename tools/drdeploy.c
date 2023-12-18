@@ -59,10 +59,15 @@
 #include <time.h>
 #include <assert.h>
 #include <ctype.h>
+#include <sys/syscall.h>
 #include "globals_shared.h"
 #include "dr_config.h" /* MUST be before share.h (it sets HOT_PATCHING_INTERFACE) */
 #include "dr_inject.h"
 #include "dr_frontend.h"
+
+extern bool
+create_nudge_signal_payload(siginfo_t *info DR_PARAM_OUT, uint action_mask,
+                            client_id_t client_id, uint flags, uint64 client_arg);
 
 typedef enum _action_t {
     action_none,
@@ -1211,9 +1216,9 @@ _tmain(int argc, TCHAR *targv[])
     bool exit0 = false;
 #endif
 #if defined(DRCONFIG)
-#    ifdef WINDOWS
+#if     defined(WINDOWS) || defined(LINUX)
     process_id_t detach_pid = 0;
-#    endif
+#   endif
 #endif
     char *drlib_path = NULL;
 #if defined(DRCONFIG) || defined(DRRUN)
@@ -1508,7 +1513,10 @@ _tmain(int argc, TCHAR *targv[])
                 nudge_all = true;
             nudge_id = strtoul(argv[++i], NULL, 16);
             nudge_arg = _strtoui64(argv[++i], NULL, 16);
-        } else if (strcmp(argv[i], "-detach") == 0) {
+        }
+#    endif
+#if     defined(WINDOWS) || defined(LINUX)
+        else if (strcmp(argv[i], "-detach") == 0) {
             if (i + 1 >= argc)
                 usage(false, "detach requires a process id");
             const char *pid_str = argv[++i];
@@ -1837,11 +1845,25 @@ done_with_options:
             die();
     }
 #    ifndef WINDOWS
+#       ifdef LINUX
+    else if (detach_pid != 0) {
+        siginfo_t info;
+        uint action_mask = 0x04;
+        client_id_t client_id = 0;
+        uint64 client_arg = 0;
+        bool success = create_nudge_signal_payload(&info, action_mask, 0, client_id, client_arg);
+        assert(success); /* failure means kernel's sigqueueinfo has changed */
+
+        /* send the nudge */
+        i = syscall(SYS_rt_sigqueueinfo, detach_pid, NUDGESIG_SIGNUM, &info);
+        if (i < 0)
+            fprintf(stderr, "nudge FAILED with error %d\n", i);
+    }
+#       endif
     else {
         usage(false, "no action specified");
     }
 #    else /* WINDOWS */
-    /* FIXME i#840: Nudge NYI on Linux. */
     else if (action == action_nudge) {
         int count = 1;
         dr_config_status_t res = DR_SUCCESS;
@@ -1878,7 +1900,6 @@ done_with_options:
             dr_registered_process_iterator_stop(iter);
         }
     }
-    /* FIXME i#95: Process detach NYI for UNIX. */
     else if (detach_pid != 0) {
         dr_config_status_t res = detach(detach_pid, TRUE, detach_timeout);
         if (res != DR_SUCCESS)
