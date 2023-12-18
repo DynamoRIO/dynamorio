@@ -2357,13 +2357,13 @@ detach_externally_on_linux()
     ASSERT(!doing_detach);
     doing_detach = true;
     detacher_tid = d_r_get_thread_id();
-#ifdef HOT_PATCHING_INTERFACE
+#    ifdef HOT_PATCHING_INTERFACE
     /* In hotp_only mode, we must remove patches when detaching; we don't want
      * to leave in all our hooks and detach; that will definitely crash the app.
      */
     if (DYNAMO_OPTION(hotp_only))
         hotp_only_detach_helper();
-#endif
+#    endif
     if (!DYNAMO_OPTION(thin_client))
         revert_memory_regions();
     unhook_vsyscall();
