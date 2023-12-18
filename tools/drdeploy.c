@@ -68,9 +68,11 @@
 #include "dr_inject.h"
 #include "dr_frontend.h"
 
+#ifdef LINUX
 extern bool
 create_nudge_signal_payload(siginfo_t *info DR_PARAM_OUT, uint action_mask,
                             client_id_t client_id, uint flags, uint64 client_arg);
+#endif
 
 typedef enum _action_t {
     action_none,
