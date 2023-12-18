@@ -51,6 +51,10 @@
 #    include <sys/mman.h>
 #    include <sys/wait.h>
 #endif
+#ifdef LINUX
+#    include <sys/syscall.h>
+#endif
+
 
 #include <string.h>
 #include <stdarg.h>
@@ -59,7 +63,6 @@
 #include <time.h>
 #include <assert.h>
 #include <ctype.h>
-#include <sys/syscall.h>
 #include "globals_shared.h"
 #include "dr_config.h" /* MUST be before share.h (it sets HOT_PATCHING_INTERFACE) */
 #include "dr_inject.h"
