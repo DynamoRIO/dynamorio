@@ -3766,22 +3766,23 @@ test_kernel_switch_sequences()
         };
         auto bad_switch_reader =
             std::unique_ptr<mock_reader_t>(new mock_reader_t(bad_switch_sequence));
-        auto switch_reader_end = std::unique_ptr<mock_reader_t>(new mock_reader_t());
-        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        auto bad_switch_reader_end = std::unique_ptr<mock_reader_t>(new mock_reader_t());
+        std::vector<scheduler_t::input_workload_t> test_sched_inputs;
         std::vector<scheduler_t::input_reader_t> readers;
         std::vector<trace_entry_t> inputs;
         inputs.push_back(make_header(TRACE_ENTRY_VERSION));
         readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
                              std::unique_ptr<mock_reader_t>(new mock_reader_t()),
                              TID_BASE);
-        sched_inputs.emplace_back(std::move(readers));
-        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
-                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
-                                                   scheduler_t::SCHEDULER_DEFAULTS);
-        sched_ops.kernel_switch_reader = std::move(bad_switch_reader);
-        sched_ops.kernel_switch_reader_end = std::move(switch_reader_end);
-        scheduler_t scheduler;
-        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+        test_sched_inputs.emplace_back(std::move(readers));
+        scheduler_t::scheduler_options_t test_sched_ops(
+            scheduler_t::MAP_TO_ANY_OUTPUT, scheduler_t::DEPENDENCY_TIMESTAMPS,
+            scheduler_t::SCHEDULER_DEFAULTS);
+        test_sched_ops.kernel_switch_reader = std::move(bad_switch_reader);
+        test_sched_ops.kernel_switch_reader_end = std::move(bad_switch_reader_end);
+        scheduler_t test_scheduler;
+        if (test_scheduler.init(test_sched_inputs, NUM_OUTPUTS,
+                                std::move(test_sched_ops)) !=
             scheduler_t::STATUS_ERROR_INVALID_PARAMETER)
             assert(false);
     }
