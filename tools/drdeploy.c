@@ -55,7 +55,6 @@
 #    include <sys/syscall.h>
 #endif
 
-
 #include <string.h>
 #include <stdarg.h>
 #include <stdlib.h>
