@@ -3564,7 +3564,6 @@ test_kernel_switch_sequences()
     auto switch_reader =
         std::unique_ptr<mock_reader_t>(new mock_reader_t(switch_sequence));
     auto switch_reader_end = std::unique_ptr<mock_reader_t>(new mock_reader_t());
-
     static constexpr int NUM_WORKLOADS = 3;
     static constexpr int NUM_INPUTS_PER_WORKLOAD = 3;
     static constexpr int NUM_OUTPUTS = 2;
@@ -3676,7 +3675,7 @@ test_kernel_switch_sequences()
                     else if (memref.marker.marker_value == scheduler_t::SWITCH_THREAD)
                         sched_as_string[i] += 't';
                     else
-                        sched_as_string[i] += '?';
+                        assert(false && "unknown context switch type");
                     break;
                 default: sched_as_string[i] += '?'; break;
                 }
@@ -3742,7 +3741,50 @@ test_kernel_switch_sequences()
         // The 3-instr quantum should not count the 2 switch instrs.
         check_ref(refs[0], idx, TID_BASE + 4, TRACE_TYPE_INSTR) &&
         check_ref(refs[0], idx, TID_BASE + 4, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, TID_BASE + 4, TRACE_TYPE_INSTR) && true;
+        check_ref(refs[0], idx, TID_BASE + 4, TRACE_TYPE_INSTR);
+
+    {
+        // Test a bad input sequence.
+        std::vector<trace_entry_t> bad_switch_sequence = {
+            /* clang-format off */
+        make_header(TRACE_ENTRY_VERSION),
+        make_thread(TID_IN_SWITCHES),
+        make_pid(TID_IN_SWITCHES),
+        make_marker(TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, scheduler_t::SWITCH_PROCESS),
+        make_instr(PROCESS_SWITCH_PC_START),
+        make_marker(TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, scheduler_t::SWITCH_PROCESS),
+        make_footer(),
+        make_header(TRACE_ENTRY_VERSION),
+        make_thread(TID_IN_SWITCHES),
+        make_pid(TID_IN_SWITCHES),
+        // Error: duplicate type.
+        make_marker(TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, scheduler_t::SWITCH_PROCESS),
+        make_instr(PROCESS_SWITCH_PC_START),
+        make_marker(TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, scheduler_t::SWITCH_PROCESS),
+        make_footer(),
+            /* clang-format on */
+        };
+        auto bad_switch_reader =
+            std::unique_ptr<mock_reader_t>(new mock_reader_t(bad_switch_sequence));
+        auto switch_reader_end = std::unique_ptr<mock_reader_t>(new mock_reader_t());
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        std::vector<scheduler_t::input_reader_t> readers;
+        std::vector<trace_entry_t> inputs;
+        inputs.push_back(make_header(TRACE_ENTRY_VERSION));
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()),
+                             TID_BASE);
+        sched_inputs.emplace_back(std::move(readers));
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS);
+        sched_ops.kernel_switch_reader = std::move(bad_switch_reader);
+        sched_ops.kernel_switch_reader_end = std::move(switch_reader_end);
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_ERROR_INVALID_PARAMETER)
+            assert(false);
+    }
 }
 
 int

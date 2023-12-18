@@ -1183,6 +1183,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_switch_sequences()
         }
         reader = std::move(options_.kernel_switch_reader);
         reader_end = std::move(options_.kernel_switch_reader_end);
+        // We own calling init() as it can block.
         if (!reader->init()) {
             error_string_ += "Failed to init kernel switch reader";
             return STATUS_ERROR_INVALID_PARAMETER;
@@ -1201,6 +1202,10 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_switch_sequences()
         if (record_type_is_marker(record, marker_type, marker_value) &&
             marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_START) {
             switch_type = static_cast<sched_type_t::switch_type_t>(marker_value);
+            if (!switch_sequence_[switch_type].empty()) {
+                error_string_ += "Duplicate context switch sequence type found";
+                return STATUS_ERROR_INVALID_PARAMETER;
+            }
         }
         if (switch_type != SWITCH_INVALID)
             switch_sequence_[switch_type].push_back(record);
@@ -1375,7 +1380,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::is_record_synthetic(output_ordinal_t o
     int index = outputs_[output].cur_input;
     if (index < 0)
         return false;
-    if (outputs_[output].in_switch_code)
+    if (outputs_[output].in_context_switch_code)
         return true;
     return inputs_[index].reader->is_record_synthetic();
 }
@@ -2400,8 +2405,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                 }
             }
             if (outputs_[output].hit_switch_code_end) {
-                // We have to delay so the end marker is still in_switch_code.
-                outputs_[output].in_switch_code = false;
+                // We have to delay so the end marker is still in_context_switch_code.
+                outputs_[output].in_context_switch_code = false;
                 outputs_[output].hit_switch_code_end = false;
                 // We're now back "on the clock".
                 if (options_.quantum_unit == QUANTUM_TIME)
@@ -2426,7 +2431,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                         marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_START)) {
                 outputs_[output].in_kernel_code = true;
                 if (marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_START)
-                    outputs_[output].in_switch_code = true;
+                    outputs_[output].in_context_switch_code = true;
             } else if (record_type_is_marker(record, marker_type, marker_value) &&
                        (marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END ||
                         marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_END)) {

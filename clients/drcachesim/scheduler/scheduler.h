@@ -562,8 +562,11 @@ public:
          * #block_time_scale.
          */
         uint64_t block_time_max = 25000000;
+        // XXX: Should we share the file-to-reader code currently in the scheduler
+        // with the analyzer and only then need reader interfaces and not pass paths
+        // to the scheduler?
         /**
-         * Input file containing canned sequences of kernel context switch code.
+         * Input file containing template sequences of kernel context switch code.
          * Each sequence must start with a #TRACE_MARKER_TYPE_CONTEXT_SWITCH_START
          * marker and end with #TRACE_MARKER_TYPE_CONTEXT_SWITCH_END.
          * The values of each marker must hold a #switch_type_t enum value
@@ -1179,7 +1182,7 @@ protected:
         bool waiting = false; // Waiting or idling.
         bool active = true;
         bool in_kernel_code = false;
-        bool in_switch_code = false;
+        bool in_context_switch_code = false;
         bool hit_switch_code_end = false;
         // Used for time-based quanta.
         uint64_t cur_time = 0;
