@@ -1599,8 +1599,7 @@ decode_single_sized(reg_id_t min_reg, reg_id_t max_reg, uint pos_start, uint bit
 
     *opnd = opnd_create_reg_element_vector(reg_id, size);
 
-    if (offset > 0)
-    {
+    if (offset > 0) {
         opnd->aux.flags |= DR_OPND_IMPLICIT;
     }
 
@@ -1642,8 +1641,7 @@ encode_sized_base(uint pos_start, uint size_start, uint min_size, uint max_size,
         return false;
 
     /* DR_OPND_IMPLICIT should be set if using an offset */
-    if ((offset > 0) != ((opnd.aux.flags & DR_OPND_IMPLICIT) ? true : false))
-    {
+    if ((offset > 0) != ((opnd.aux.flags & DR_OPND_IMPLICIT) ? true : false)) {
         return false;
     }
 
@@ -7340,7 +7338,8 @@ decode_opnd_z_size_bhsd_5p1(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 }
 
 static inline bool
-encode_opnd_z_size_bhsd_5p1(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+encode_opnd_z_size_bhsd_5p1(uint enc, int opcode, byte *pc, opnd_t opnd,
+                            OUT uint *enc_out)
 {
     return encode_sized_z(5, 22, BYTE_REG, DOUBLE_REG, 0, 1, opnd, enc_out);
 }
