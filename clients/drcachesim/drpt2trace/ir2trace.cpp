@@ -132,7 +132,8 @@ ir2trace_t::convert(DR_PARAM_IN drir_t *drir,
             instr_t *next_instr = instr_get_next(instr);
             if (next_instr != nullptr) {
                 trace.push_back(
-                    { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_BRANCH_TARGET,
+                    { TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_BRANCH_TARGET,
                       { reinterpret_cast<uintptr_t>(instr_get_app_pc(next_instr)) } });
             }
             // TODO i#5505: Today PT traces have some noise instructions at the end
