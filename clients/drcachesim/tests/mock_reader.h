@@ -113,6 +113,15 @@ make_exit(memref_tid_t tid)
 }
 
 static inline trace_entry_t
+make_header(int version)
+{
+    trace_entry_t entry;
+    entry.type = TRACE_TYPE_HEADER;
+    entry.addr = version;
+    return entry;
+}
+
+static inline trace_entry_t
 make_footer()
 {
     trace_entry_t entry;

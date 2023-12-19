@@ -136,12 +136,10 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     }
     if (type_is_instr(memref.instr.type)) {
         ++counters->instrs;
-        if (TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS, per_shard->filetype_)) {
-            if (per_shard->is_kernel) {
-                ++counters->kernel_instrs;
-            } else {
-                ++counters->user_instrs;
-            }
+        if (per_shard->is_kernel) {
+            ++counters->kernel_instrs;
+        } else {
+            ++counters->user_instrs;
         }
         counters->unique_pc_addrs.insert(memref.instr.addr);
         // The encoding entries aren't exposed at the memref_t level, but
@@ -209,9 +207,13 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
                 ++counters->syscall_blocking_markers;
                 break;
             case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
+            case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START:
                 per_shard->is_kernel = true;
                 break;
-            case TRACE_MARKER_TYPE_SYSCALL_TRACE_END: per_shard->is_kernel = false; break;
+            case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
+            case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END:
+                per_shard->is_kernel = false;
+                break;
             case TRACE_MARKER_TYPE_FILETYPE:
                 if (per_shard->filetype_ == -1) {
                     per_shard->filetype_ =
@@ -339,6 +341,9 @@ basic_counts_t::print_results()
             for_kernel_trace = true;
         }
     }
+    // Print kernel data if context switches were inserted.
+    if (total.kernel_instrs > 0)
+        for_kernel_trace = true;
     total.shard_count = shard_map_.size();
     std::cerr << TOOL_NAME << " results:\n";
     std::cerr << "Total counts:\n";
