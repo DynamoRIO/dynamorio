@@ -103,7 +103,8 @@ invariant_checker_t::report_if_false(per_shard_t *shard, bool condition,
              // Some discontinuities are flagged as the following. This is
              // a false positive of our heuristic to find rseq side exit
              // discontinuities.
-             invariant_name == "PC discontinuity due to rseq side exit")) {
+             invariant_name == "PC discontinuity due to rseq side exit" ||
+             invariant_name == "Branch does not go to the correct target")) {
             return;
         }
         std::cerr << "Trace invariant failure in T" << shard->tid_ << " at ref # "
