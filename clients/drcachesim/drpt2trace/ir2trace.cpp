@@ -88,28 +88,28 @@ ir2trace_t::convert(DR_PARAM_IN drir_t *drir,
          * library to raw2trace, the redundancy should be eliminated by removing the
          * subsequent code.
          */
-        entry.type = TRACE_TYPE_INSTR;
+        trace_type_t entry_type = TRACE_TYPE_INSTR;
         if (instr_opcode_valid(instr)) {
             bool cur_is_repstr = false;
             if (instr_is_call_direct(instr)) {
-                entry.type = TRACE_TYPE_INSTR_DIRECT_CALL;
+                entry_type = TRACE_TYPE_INSTR_DIRECT_CALL;
             } else if (instr_is_call_indirect(instr)) {
-                entry.type = TRACE_TYPE_INSTR_INDIRECT_CALL;
+                entry_type = TRACE_TYPE_INSTR_INDIRECT_CALL;
             } else if (instr_is_return(instr)) {
-                entry.type = TRACE_TYPE_INSTR_RETURN;
+                entry_type = TRACE_TYPE_INSTR_RETURN;
             } else if (instr_is_ubr(instr)) {
-                entry.type = TRACE_TYPE_INSTR_DIRECT_JUMP;
+                entry_type = TRACE_TYPE_INSTR_DIRECT_JUMP;
             } else if (instr_is_mbr(instr)) {
-                entry.type = TRACE_TYPE_INSTR_INDIRECT_JUMP;
+                entry_type = TRACE_TYPE_INSTR_INDIRECT_JUMP;
             } else if (instr_is_cbr(instr)) {
                 // We update this on the next iteration.
-                entry.type = TRACE_TYPE_INSTR_CONDITIONAL_JUMP;
+                entry_type = TRACE_TYPE_INSTR_CONDITIONAL_JUMP;
             } else if (instr_get_opcode(instr) == OP_sysenter) {
-                entry.type = TRACE_TYPE_INSTR_SYSENTER;
+                entry_type = TRACE_TYPE_INSTR_SYSENTER;
             } else if (instr_is_rep_string_op(instr)) {
                 cur_is_repstr = true;
                 if (prev_was_repstr) {
-                    entry.type = TRACE_TYPE_INSTR_MAYBE_FETCH;
+                    entry_type = TRACE_TYPE_INSTR_MAYBE_FETCH;
                 } else {
                     prev_was_repstr = true;
                 }
@@ -120,7 +120,23 @@ ir2trace_t::convert(DR_PARAM_IN drir_t *drir,
         } else {
             VPRINT(1, "Trying to convert an invalid instruction.\n");
         }
-
+        entry.type = entry_type;
+        if (type_is_instr_branch(entry_type) &&
+            !type_is_instr_direct_branch(entry_type)) {
+            instr_t *next_instr = instr_get_next(instr);
+            if (next_instr != nullptr) {
+                trace.push_back(
+                    { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_BRANCH_TARGET,
+                      reinterpret_cast<uintptr_t>(instr_get_app_pc(next_instr)) });
+            }
+            // TODO i#5505: Today PT traces have some noise instructions at the end
+            // from the ioctl call that we make to disable PT tracing in the
+            // post-syscall callback. After we remove those noise instructions, the
+            // last instruction in the syscall's trace will likely be an iret that
+            // returns back to the user-space. We should add a
+            // TRACE_MARKER_TYPE_BRANCH_TARGET marker with a value equal to the next
+            // user-space instr.
+        }
         trace.push_back(entry);
 
         instr = instr_get_next(instr);

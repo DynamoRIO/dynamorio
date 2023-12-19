@@ -202,6 +202,12 @@ postprocess(void *dr_context, std::string syscall_trace_template_file)
     std::string error = raw2trace.do_conversion();
     if (!error.empty())
         FATAL_ERROR("raw2trace failed: %s\n", error.c_str());
+    uint64 injected_syscall_count =
+        raw2trace.get_statistic(RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED);
+    if (injected_syscall_count != 2) {
+        std::cerr << "Incorrect injected syscall count (" << injected_syscall_count
+                  << ")\n";
+    }
     std::cerr << "Done post-processing the raw trace\n";
     return outdir;
 }
@@ -398,14 +404,14 @@ test_main(int argc, const char *argv[])
     void *dr_context = dr_standalone_init();
     std::string syscall_trace_template = write_system_call_template(dr_context);
     std::cerr << "Getting basic counts for system call trace template\n";
-    basic_counts_t::counters_t counts = get_basic_counts(syscall_trace_template);
-    if (!(counts.instrs == 2 && counts.encodings == 2 &&
-          counts.syscall_number_markers == 2)) {
+    basic_counts_t::counters_t template_counts = get_basic_counts(syscall_trace_template);
+    if (!(template_counts.instrs == 2 && template_counts.encodings == 2 &&
+          template_counts.syscall_number_markers == 2)) {
         std::cerr << "Unexpected counts in system call trace template: "
-                  << syscall_trace_template << ": #instrs: " << counts.instrs
-                  << ", #encodings: " << counts.encodings
-                  << ", #syscall_number_markers: " << counts.syscall_number_markers
-                  << "\n";
+                  << syscall_trace_template << ": #instrs: " << template_counts.instrs
+                  << ", #encodings: " << template_counts.encodings
+                  << ", #syscall_number_markers: "
+                  << template_counts.syscall_number_markers << "\n";
         return 1;
     }
 
@@ -414,7 +420,16 @@ test_main(int argc, const char *argv[])
     instr_destroy(dr_context, instr_in_getpid);
     instr_destroy(dr_context, instr_in_gettid);
     dr_standalone_exit();
-    return success ? 0 : 1;
+    if (!success) {
+        return 1;
+    }
+    basic_counts_t::counters_t final_trace_counts = get_basic_counts(trace_dir);
+    if (final_trace_counts.kernel_instrs != 2) {
+        std::cerr << "Unexpected kernel instr count in the final trace ("
+                  << final_trace_counts.kernel_instrs << ")\n";
+        return 1;
+    }
+    return 0;
 }
 
 } // namespace drmemtrace
