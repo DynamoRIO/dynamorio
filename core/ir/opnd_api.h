@@ -1788,6 +1788,12 @@ typedef enum _dr_opnd_flags_t {
      * This is used by RISCV64 for immediates display format.
      */
     DR_OPND_IMM_PRINT_DECIMAL = 0x1000,
+
+    /**
+     * The register number is not in the instruction encoding but is calculated
+     * based on another register
+     */
+    DR_OPND_IMPLICIT = 0x2000,
 } dr_opnd_flags_t;
 
 #ifdef DR_FAST_IR
