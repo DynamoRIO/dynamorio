@@ -32,6 +32,12 @@
 
 #include "ir2trace.h"
 #include "dr_api.h"
+#include "drir.h"
+#include "trace_entry.h"
+
+#include <cstdint>
+#include <cstdio>
+#include <vector>
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -59,12 +65,12 @@ ir2trace_t::convert(DR_PARAM_IN drir_t *drir,
                     DR_PARAM_INOUT std::vector<trace_entry_t> &trace,
                     DR_PARAM_IN int verbosity)
 {
-    if (drir == nullptr || drir->get_ilist() == NULL) {
+    if (drir == nullptr || drir->get_ilist() == nullptr) {
         return IR2TRACE_CONV_ERROR_INVALID_PARAMETER;
     }
     instr_t *instr = instrlist_first(drir->get_ilist());
     bool prev_was_repstr = false;
-    while (instr != NULL) {
+    while (instr != nullptr) {
         trace_entry_t entry = {};
         entry.size = instr_length(GLOBAL_DCONTEXT, instr);
         entry.addr = reinterpret_cast<uintptr_t>(instr_get_app_pc(instr));
@@ -127,7 +133,7 @@ ir2trace_t::convert(DR_PARAM_IN drir_t *drir,
             if (next_instr != nullptr) {
                 trace.push_back(
                     { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_BRANCH_TARGET,
-                      reinterpret_cast<uintptr_t>(instr_get_app_pc(next_instr)) });
+                      { reinterpret_cast<uintptr_t>(instr_get_app_pc(next_instr)) } });
             }
             // TODO i#5505: Today PT traces have some noise instructions at the end
             // from the ioctl call that we make to disable PT tracing in the
