@@ -129,6 +129,13 @@ ir2trace_t::convert(DR_PARAM_IN drir_t *drir,
                     { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_BRANCH_TARGET,
                       reinterpret_cast<uintptr_t>(instr_get_app_pc(next_instr)) });
             }
+            // TODO i#5505: Today PT traces have some noise instructions at the end
+            // from the ioctl call that we make to disable PT tracing in the
+            // post-syscall callback. After we remove those noise instructions, the
+            // last instruction in the syscall's trace will likely be an iret that
+            // returns back to the user-space. We should add a
+            // TRACE_MARKER_TYPE_BRANCH_TARGET marker with a value equal to the next
+            // user-space instr.
         }
         trace.push_back(entry);
 

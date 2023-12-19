@@ -921,7 +921,8 @@ public:
         }
 
         /**
-         * Returns whether the current record belongs to the kernel part of the trace.
+         * Returns whether the current record is from a part of the trace corresponding
+         * to kernel execution.
          */
         bool
         is_record_kernel() const override
@@ -1399,7 +1400,8 @@ protected:
     eof_or_idle(output_ordinal_t output);
 
     // Returns whether the current record for the current input stream scheduled on
-    // the 'output_ordinal'-th output stream is from the kernel part of the trace.
+    // the 'output_ordinal'-th output stream is from a part of the trace corresponding
+    // to kernel execution.
     bool
     is_record_kernel(output_ordinal_t output);
     ///////////////////////////////////////////////////////////////////////////

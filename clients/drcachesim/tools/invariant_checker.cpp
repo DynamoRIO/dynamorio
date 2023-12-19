@@ -460,11 +460,19 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // For future checks, pretend that the previous instr was the instr just
         // before the system call trace start.
         if (shard->pre_syscall_trace_instr_.memref.instr.addr > 0) {
+            // TODO i#5505: Ideally the last instruction in the system call PT trace
+            // trace or the system call trace template would be an indirect CTI with
+            // a TRACE_MARKER_TYPE_BRANCH_TARGET marker pointing to the next
+            // user-space instr. That would obviate the need for this special handling.
+            // For PT traces on x86, also see similar comment in ir2trace.cpp.
             shard->prev_instr_ = shard->pre_syscall_trace_instr_;
             shard->pre_syscall_trace_instr_ = {};
         }
     }
     if (shard->stream != nullptr) {
+        // XXX: between_kernel_syscall_trace_markers_ does not track the
+        // TRACE_MARKER_TYPE_CONTEXT_SWITCH_* markers. If the invariant checker is run
+        // with dynamic injection of context switch sequences this will throw an error.
         report_if_false(shard,
                         shard->between_kernel_syscall_trace_markers_ ==
                             shard->stream->is_record_kernel(),

@@ -218,6 +218,10 @@ get_file_type()
             static_cast<offline_file_type_t>(file_type | OFFLINE_FILE_TYPE_ENCODINGS);
     }
 #ifdef BUILD_PT_TRACER
+    // TODO i#5505: When ir2trace starts adding synthesized read/write memrefs for
+    // the kernel trace, change the trace file type from
+    // OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY to
+    // OFFLINE_FILE_TYPE_KERNEL_SYSCALLS.
     if (op_enable_kernel_tracing.get_value()) {
         file_type = static_cast<offline_file_type_t>(
             file_type | OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY);

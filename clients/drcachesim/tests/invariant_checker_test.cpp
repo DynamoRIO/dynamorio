@@ -2946,14 +2946,17 @@ check_kernel_syscall_trace(void)
 #    else
 #        error Unsupported architecture.
 #    endif
-    instr_t *move1 =
+    instr_t *move =
         XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *load = XINST_CREATE_load(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
+                                      OPND_CREATE_MEMPTR(REG1, /*disp=*/0));
     instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
     instrlist_append(ilist, sys);
-    instrlist_append(ilist, move1);
+    instrlist_append(ilist, move);
+    instrlist_append(ilist, load);
     static constexpr addr_t BASE_ADDR = 0x123450;
     static constexpr uintptr_t FILE_TYPE = OFFLINE_FILE_TYPE_ENCODINGS |
-        OFFLINE_FILE_TYPE_SYSCALL_NUMBERS | OFFLINE_FILE_TYPE_KERNEL_SYSCALLS;
+        OFFLINE_FILE_TYPE_SYSCALL_NUMBERS | OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY;
     bool res = true;
     {
         std::vector<memref_with_IR_t> memref_setup = {
@@ -2963,12 +2966,57 @@ check_kernel_syscall_trace(void)
             { gen_instr(TID_A), sys },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
-            { gen_instr(TID_A), move1 },
+            { gen_instr(TID_A), move },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
             { gen_exit(TID_A), nullptr }
         };
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         if (!run_checker(memrefs, false))
+            res = false;
+    }
+    {
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
+            { gen_instr(TID_A), sys },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
+            { gen_instr(TID_A), move },
+            { gen_instr(TID_A), load },
+            // No data memref for the above load, but it should not be an invariant
+            // violation because the trace type is
+            // OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+            { gen_exit(TID_A), nullptr }
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, false))
+            res = false;
+    }
+    {
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE,
+                         OFFLINE_FILE_TYPE_ENCODINGS | OFFLINE_FILE_TYPE_SYSCALL_NUMBERS |
+                             OFFLINE_FILE_TYPE_KERNEL_SYSCALLS),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
+            { gen_instr(TID_A), sys },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
+            { gen_instr(TID_A), move },
+            { gen_instr(TID_A), load },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+            { gen_exit(TID_A), nullptr }
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, true,
+                         { "Missing read records",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/10, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/3 },
+                         "Failed to catch missing data ref"))
             res = false;
     }
     {
@@ -2981,7 +3029,7 @@ check_kernel_syscall_trace(void)
             { gen_instr(TID_A), sys },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
-            { gen_instr(TID_A), move1 },
+            { gen_instr(TID_A), move },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
             { gen_exit(TID_A), nullptr }
         };
@@ -3002,7 +3050,7 @@ check_kernel_syscall_trace(void)
             { gen_instr(TID_A), sys },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 41), nullptr },
-            { gen_instr(TID_A), move1 },
+            { gen_instr(TID_A), move },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
             { gen_exit(TID_A), nullptr }
         };
@@ -3023,7 +3071,7 @@ check_kernel_syscall_trace(void)
             { gen_instr(TID_A), sys },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
-            { gen_instr(TID_A), move1 },
+            { gen_instr(TID_A), move },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 41), nullptr },
             { gen_exit(TID_A), nullptr }
         };
@@ -3043,7 +3091,7 @@ check_kernel_syscall_trace(void)
             { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
             { gen_instr(TID_A), sys },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
-            { gen_instr(TID_A), move1 },
+            { gen_instr(TID_A), move },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
             { gen_exit(TID_A), nullptr }
         };
@@ -3065,7 +3113,7 @@ check_kernel_syscall_trace(void)
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_CPU_ID, 11), nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
-            { gen_instr(TID_A), move1 },
+            { gen_instr(TID_A), move },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
             { gen_exit(TID_A), nullptr }
         };
@@ -3088,7 +3136,7 @@ check_kernel_syscall_trace(void)
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
-            { gen_instr(TID_A), move1 },
+            { gen_instr(TID_A), move },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
             { gen_exit(TID_A), nullptr }
         };

@@ -168,10 +168,12 @@ public:
                         first_timestamp_ = last_timestamp_;
                     break;
                 case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
-                    in_kernel_syscall_trace_ = true;
+                case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START:
+                    in_kernel_trace_ = true;
                     break;
                 case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
-                    in_kernel_syscall_trace_ = false;
+                case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END:
+                    in_kernel_trace_ = false;
                     break;
                 }
             }
@@ -227,7 +229,7 @@ public:
     bool
     is_record_kernel() const override
     {
-        return in_kernel_syscall_trace_;
+        return in_kernel_trace_;
     }
 
     virtual bool
@@ -278,7 +280,7 @@ private:
     uint64_t cache_line_size_ = 0;
     uint64_t chunk_instr_count_ = 0;
     uint64_t page_size_ = 0;
-    bool in_kernel_syscall_trace_ = false;
+    bool in_kernel_trace_ = false;
 };
 
 /**

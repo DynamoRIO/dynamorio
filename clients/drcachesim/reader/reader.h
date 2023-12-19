@@ -192,7 +192,7 @@ public:
     bool
     is_record_kernel() const override
     {
-        return in_kernel_syscall_trace_;
+        return in_kernel_trace_;
     }
     bool
     is_record_synthetic() const override
@@ -285,7 +285,7 @@ private:
     bool expect_no_encodings_ = true;
     encoding_info_t last_encoding_;
     addr_t last_branch_target_ = 0;
-    bool in_kernel_syscall_trace_ = false;
+    bool in_kernel_trace_ = false;
 };
 
 } // namespace drmemtrace

@@ -338,10 +338,12 @@ reader_t::process_input_entry()
             chunk_instr_count_ = cur_ref_.marker.marker_value;
         else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CHUNK_FOOTER)
             skip_chunk_header_.insert(cur_tid_);
-        else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_START) {
-            in_kernel_syscall_trace_ = true;
-        } else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END) {
-            in_kernel_syscall_trace_ = false;
+        else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_START ||
+                 cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_START) {
+            in_kernel_trace_ = true;
+        } else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END ||
+                   cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_END) {
+            in_kernel_trace_ = false;
         }
         break;
     default:
