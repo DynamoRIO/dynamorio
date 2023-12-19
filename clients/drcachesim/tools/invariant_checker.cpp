@@ -465,7 +465,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             // TRACE_MARKER_TYPE_BRANCH_TARGET marker pointing to the next user-space
             // instr. For PT traces on x86, as also mentioned in the comment in
             // ir2trace.cpp, there are noise instructions at the end of the PT syscall
-            // trace that need to be removed. Also check the user-to-kernel transition
+            // trace that need to be removed. Also check the kernel-to-user transition
             // when that is fixed.
             shard->prev_instr_ = shard->pre_syscall_trace_instr_;
             shard->pre_syscall_trace_instr_ = {};
