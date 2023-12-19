@@ -8782,7 +8782,7 @@
  * \param Pv   The first source predicate register, P (Predicate).
  * \param Zm   The third source vector register, Z (Scalable).
  */
-#define INSTR_CREATE_splice_sve(dc, Zdn, Pv, Zm) \
+#define INSTR_CREATE_splice_sve_des(dc, Zdn, Pv, Zm) \
     instr_create_1dst_3src(dc, OP_splice, Zdn, Pv, Zdn, Zm)
 
 /**
@@ -18183,4 +18183,18 @@
 #define INSTR_CREATE_mul_sve_idx(dc, Zd, Zn, Zm, index) \
     instr_create_1dst_3src(dc, OP_mul, Zd, Zn, Zm, index)
 
+/**
+ * Creates a SPLICE instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SPLICE  <Zd>.<Ts>, <Pv>, { <Zn1>.<Ts>, <Zn2>.<Ts> }
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ * \param Pv   The first source predicate register, P (Predicate).
+ * \param Zn   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_splice_sve_con(dc, Zd, Pv, Zn) \
+    instr_create_1dst_3src(dc, OP_splice, Zd, Pv, Zn, opnd_create_increment_reg(Zn, 1))
 #endif /* DR_IR_MACROS_AARCH64_H */
