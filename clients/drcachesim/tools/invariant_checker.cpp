@@ -461,10 +461,12 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // before the system call trace start.
         if (shard->pre_syscall_trace_instr_.memref.instr.addr > 0) {
             // TODO i#5505: Ideally the last instruction in the system call PT trace
-            // trace or the system call trace template would be an indirect CTI with
-            // a TRACE_MARKER_TYPE_BRANCH_TARGET marker pointing to the next
-            // user-space instr. That would obviate the need for this special handling.
-            // For PT traces on x86, also see similar comment in ir2trace.cpp.
+            // or the system call trace template would be an indirect CTI with a
+            // TRACE_MARKER_TYPE_BRANCH_TARGET marker pointing to the next user-space
+            // instr. For PT traces on x86, as also mentioned in the comment in
+            // ir2trace.cpp, there are noise instructions at the end of the PT syscall
+            // trace that need to be removed. Also check the user-to-kernel transition
+            // when that is fixed.
             shard->prev_instr_ = shard->pre_syscall_trace_instr_;
             shard->pre_syscall_trace_instr_ = {};
         }
