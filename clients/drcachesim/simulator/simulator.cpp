@@ -114,7 +114,7 @@ simulator_t::process_memref(const memref_t &memref)
         return true;
     if (memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID && knob_cpu_scheduling_) {
         assert(shard_type_ == SHARD_BY_THREAD);
-        int cpu = (int)(intptr_t)memref.marker.marker_value;
+        int64_t cpu = static_cast<int64_t>(memref.marker.marker_value);
         if (cpu < 0)
             return true;
         int min_core;
@@ -240,10 +240,14 @@ int
 simulator_t::core_for_thread(memref_tid_t tid)
 {
     if (shard_type_ == SHARD_BY_CORE) {
-        int cpu = serial_stream_->get_output_cpuid();
+        int64_t cpu = serial_stream_->get_output_cpuid();
         // While the scheduler uses a 0-based ordinal for all but replaying as-traced,
-        // to handle as-traced and in case the scheduler changes its cpuids we map
-        // to a 0-based index.
+        // to handle as-traced (and because the docs for get_output_cpuid() do not
+        // guarantee 0-based), we map to a 0-based index just by incrementing an index
+        // as we discover each cpu.
+        // XXX: Should we add a new stream API for get_output_ordinal()?  That would
+        // be a more faithful mapping than our dynamic discovery here -- although the
+        // lockstep ordering by the scheduler should have our ordinals in order.
         if (cpu == last_cpu_)
             return last_core_;
         int core;

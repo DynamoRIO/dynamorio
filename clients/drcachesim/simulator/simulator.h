@@ -114,11 +114,11 @@ protected:
     shard_type_t shard_type_ = SHARD_BY_THREAD;
     memtrace_stream_t *serial_stream_ = nullptr;
     memref_tid_t last_thread_; // Only used for SHARD_BY_THREAD.
-    int last_cpu_ = -1;
+    int64_t last_cpu_ = -1;
     int last_core_;
 
     // For thread mapping to cores:
-    std::unordered_map<int, int> cpu2core_;
+    std::unordered_map<int64_t, int> cpu2core_;
     // The following fields are only used for SHARD_BY_THREAD.
     std::unordered_map<memref_tid_t, int> thread2core_;
     std::vector<int> cpu_counts_;
