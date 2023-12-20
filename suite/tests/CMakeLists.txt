@@ -2948,7 +2948,7 @@ if (X86 OR AARCH64)
 
       if (proc_supports_sve OR proc_supports_sve2)
         # Run the tests natively as well to confirm the test reference data is correct.
-	if (proc_supports_sve2)
+        if (proc_supports_sve2)
           set(client.drx-scattergather-native_runsve2 1)
         else ()
           set(client.drx-scattergather-native_runsve 1)
@@ -3515,7 +3515,7 @@ if (BUILD_SAMPLES)
           torunonly_ci(sample.${sample}_scattergather client.drx-scattergather ${sample}
               client-interface/drx-scattergather-aarch64.cpp "" "" "")
           set(sample.${sample}_scattergather_test_sample_client 1)
-	  if (proc_supports_sve2)
+          if (proc_supports_sve2)
             set(sample.${sample}_scattergather_runsve2 1)
           elseif (proc_supports_sve)
             set(sample.${sample}_scattergather_runsve 1)
