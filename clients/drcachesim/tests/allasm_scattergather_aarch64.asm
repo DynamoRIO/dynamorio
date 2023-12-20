@@ -447,7 +447,7 @@ _start:
 #ifdef __ARM_FEATURE_SVE2
         bl      test_vector_plus_scalar    // +(14 * vl_bytes/16) loads
                                            // +(8 * vl_bytes/16) stores
-#endif 
+#endif
         // Running total:
         // SVE only:
         // Loads: (136 + 14 + 374 + 374) * vl_bytes/16 + 60 = 898 * vl_bytes/16 + 60
