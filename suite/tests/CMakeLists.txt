@@ -2579,7 +2579,7 @@ endif (ANNOTATIONS AND NOT ARM)
 
 if (NOT ANDROID) # TODO i#38: Port test to Android.
   tobuild_ci(client.attach_test client-interface/attach_test.runall "" "" "")
-  if ((LINUX OR WIN32) AND NOT RISCV64) # ((LINUX OR WIN32) AND NOT RISCV64)
+  if ((LINUX OR WIN32) AND NOT RISCV64)
     tobuild_ci(client.detach_test client-interface/detach_test.runall "" "" "")
   endif ()
   if (UNIX)

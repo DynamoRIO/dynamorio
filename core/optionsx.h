@@ -780,13 +780,8 @@ OPTION_DEFAULT(uint, max_pending_signals, 8,
  * mechanism that will set only the GPR's and will assume the target stack
  * is valid and its beyond-TOS slot can be clobbered.  X86-only.
  */
-#    ifdef LINUX
 OPTION_DEFAULT_INTERNAL(bool, use_sigreturn_setcontext, true,
                         "use sigreturn to set a thread's context")
-#    else
-OPTION_DEFAULT_INTERNAL(bool, use_sigreturn_setcontext, true,
-                        "use sigreturn to set a thread's context")
-#    endif
 
 /* i#853: Use our all_memory_areas address space cache when possible.  This
  * avoids expensive reads of /proc/pid/maps, but if the cache becomes stale,
