@@ -253,7 +253,7 @@ simulator_t::core_for_thread(memref_tid_t tid)
         int core;
         auto exists = cpu2core_.find(cpu);
         if (exists == cpu2core_.end()) {
-            core = cpu2core_.size();
+            core = static_cast<int>(cpu2core_.size());
             cpu2core_[cpu] = core;
             if (knob_verbose_ >= 1) {
                 std::cerr << "new cpu " << cpu << " => core " << core << "\n";
