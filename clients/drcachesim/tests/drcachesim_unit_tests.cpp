@@ -817,12 +817,16 @@ unit_test_core_sharded()
         assert(res);
         std::cerr.rdbuf(prev_buf);
         // Make sure the large cpuids are mapped to core 0 and core 1.
-        assert(std::regex_search(output.str(), std::regex(R"DELIM((.|\n)*
+        // XXX: This regex causes a "regex_constants::error_complexity"
+        // exception on Windows; for now we disable this part of the test there.
+#ifndef WINDOWS
+        assert(std::regex_search(output.str(), std::regex(R"DELIM((.|\r?\n)*
 Core #0 \(traced CPU\(s\): #123400\)
-(.|\n)*
+(.|\r?\n)*
 Core #1 \(traced CPU\(s\): #567800\)
-(.|\n)*
+(.|\r?\n)*
 )DELIM")));
+#endif
     }
 }
 
