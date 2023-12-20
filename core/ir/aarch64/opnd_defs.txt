@@ -326,6 +326,7 @@
 --------xx------------xxxxx-----  p_size_bhsd_5    # sve predicate vector reg, elsz depending on size
 --------xx------------xxxxx-----  p_size_hsd_5     # sve predicate vector reg, elsz depending on size
 --------xx------------xxxxx-----  z_size_bhsd_5    # sve vector reg, elsz depending on size
+--------xx------------xxxxx-----  z_size_bhsd_5p1  # sve vector reg, elsz depending on size, plus 1
 --------xx------------xxxxx-----  z_size_bhs_5     # sve vector reg, elsz depending on size
 --------xx------------xxxxx-----  z_size_bh_5      # sve vector reg, elsz depending on size
 --------xx------------xxxxx-----  z_sizep1_bhs_5   # sve vector reg, elsz depending on size, plus 1

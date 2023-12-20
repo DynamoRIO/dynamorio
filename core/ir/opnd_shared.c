@@ -1496,6 +1496,7 @@ opnd_create_increment_reg(opnd_t opnd, uint increment)
         opnd.value.reg_and_element_size.element_size;
     inc_opnd.size = opnd.size; /* indicates full size of reg */
     inc_opnd.aux.flags = opnd.aux.flags;
+    inc_opnd.aux.flags |= DR_OPND_IMPLICIT;
     return inc_opnd;
 }
 
