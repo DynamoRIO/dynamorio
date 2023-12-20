@@ -3166,10 +3166,10 @@ translate_sigcontext(dcontext_t *dcontext, kernel_ucontext_t *uc, bool avoid_fai
 
 /* Takes an os-specific context */
 void
-thread_set_self_context(void *cxt)
+thread_set_self_context(void *cxt, bool is_detach_external)
 {
 #ifdef X86
-    if (!INTERNAL_OPTION(use_sigreturn_setcontext)) {
+    if (!INTERNAL_OPTION(use_sigreturn_setcontext) || is_detach_external) {
         sigcontext_t *sc = (sigcontext_t *)cxt;
         dr_jmp_buf_t buf;
         buf.xbx = sc->SC_XBX;
@@ -3311,7 +3311,7 @@ thread_set_segment_registers(sigcontext_t *sc)
 
 /* Takes a priv_mcontext_t */
 void
-thread_set_self_mcontext(priv_mcontext_t *mc)
+thread_set_self_mcontext(priv_mcontext_t *mc, bool is_detach_external)
 {
     kernel_ucontext_t ucxt;
     sig_full_cxt_t sc_full;
@@ -3325,7 +3325,7 @@ thread_set_self_mcontext(priv_mcontext_t *mc)
     IF_ARM(
         set_pc_mode_in_cpsr(sc_full.sc, dr_get_isa_mode(get_thread_private_dcontext())));
     /* thread_set_self_context will fill in the real fp/simd state for x86 */
-    thread_set_self_context((void *)sc_full.sc);
+    thread_set_self_context((void *)sc_full.sc, is_detach_external);
     ASSERT_NOT_REACHED();
 }
 

@@ -761,9 +761,9 @@ check_wait_at_safe_spot(dcontext_t *dcontext, thread_synch_permission_t cur_stat
          * being at the synch point vs in the cache.
          */
         if (set_mcontext)
-            thread_set_self_mcontext((priv_mcontext_t *)cxt);
+            thread_set_self_mcontext((priv_mcontext_t *)cxt, false);
         else
-            thread_set_self_context((void *)cxt);
+            thread_set_self_context((void *)cxt, false);
         ASSERT_NOT_REACHED();
     }
 }
@@ -2484,6 +2484,6 @@ detach_externally_on_linux()
     dynamo_detaching_flag = LOCK_FREE_STATE;
     EXITING_DR();
     options_detach();
-    thread_set_self_mcontext(&my_mcontext);
+    thread_set_self_mcontext(&my_mcontext, true);
 }
 #endif
