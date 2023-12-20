@@ -8754,6 +8754,51 @@ TEST_INSTR(splice_sve_con)
               opnd_create_reg(Pn_half_six_offset_0[i]),
               opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
 }
+
+TEST_INSTR(tbl_sve_mulvec)
+{
+
+    /* Testing TBL     <Zd>.<Ts>, { <Zn1>.<Ts>, <Zn2>.<Ts> }, <Zm>.<Ts> */
+    const char *const expected_0_0[6] = {
+        "tbl    %z0.b %z1.b %z0.b -> %z0.b",     "tbl    %z6.b %z7.b %z7.b -> %z5.b",
+        "tbl    %z11.b %z12.b %z12.b -> %z10.b", "tbl    %z17.b %z18.b %z18.b -> %z16.b",
+        "tbl    %z22.b %z23.b %z23.b -> %z21.b", "tbl    %z31.b %z0.b %z31.b -> %z31.b",
+    };
+    TEST_LOOP(tbl, tbl_sve_mulvec, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_1),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_1),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_1));
+
+    const char *const expected_0_1[6] = {
+        "tbl    %z0.h %z1.h %z0.h -> %z0.h",     "tbl    %z6.h %z7.h %z7.h -> %z5.h",
+        "tbl    %z11.h %z12.h %z12.h -> %z10.h", "tbl    %z17.h %z18.h %z18.h -> %z16.h",
+        "tbl    %z22.h %z23.h %z23.h -> %z21.h", "tbl    %z31.h %z0.h %z31.h -> %z31.h",
+    };
+    TEST_LOOP(tbl, tbl_sve_mulvec, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_2));
+
+    const char *const expected_0_2[6] = {
+        "tbl    %z0.s %z1.s %z0.s -> %z0.s",     "tbl    %z6.s %z7.s %z7.s -> %z5.s",
+        "tbl    %z11.s %z12.s %z12.s -> %z10.s", "tbl    %z17.s %z18.s %z18.s -> %z16.s",
+        "tbl    %z22.s %z23.s %z23.s -> %z21.s", "tbl    %z31.s %z0.s %z31.s -> %z31.s",
+    };
+    TEST_LOOP(tbl, tbl_sve_mulvec, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_4));
+
+    const char *const expected_0_3[6] = {
+        "tbl    %z0.d %z1.d %z0.d -> %z0.d",     "tbl    %z6.d %z7.d %z7.d -> %z5.d",
+        "tbl    %z11.d %z12.d %z12.d -> %z10.d", "tbl    %z17.d %z18.d %z18.d -> %z16.d",
+        "tbl    %z22.d %z23.d %z23.d -> %z21.d", "tbl    %z31.d %z0.d %z31.d -> %z31.d",
+    };
+    TEST_LOOP(tbl, tbl_sve_mulvec, 6, expected_0_3[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
+}
 int
 main(int argc, char *argv[])
 {
@@ -9011,6 +9056,8 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(mul_sve_idx);
 
     RUN_INSTR_TEST(splice_sve_con);
+
+    RUN_INSTR_TEST(tbl_sve_mulvec);
 
     print("All SVE2 tests complete.\n");
 #ifndef STANDALONE_DECODER
