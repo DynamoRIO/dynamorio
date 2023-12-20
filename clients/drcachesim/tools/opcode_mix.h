@@ -39,6 +39,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <utility>
 #include <unordered_map>
 
 #include "dr_api.h" // Must be before trace_entry.h from analysis_tool.h.
@@ -83,7 +84,7 @@ public:
 
 protected:
     struct worker_data_t {
-        std::unordered_map<app_pc, int> opcode_cache;
+        std::unordered_map<app_pc, std::pair<int, uint>> opcode_category_cache;
     };
 
     struct shard_data_t {

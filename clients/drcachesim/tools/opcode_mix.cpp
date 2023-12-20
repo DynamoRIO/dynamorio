@@ -178,7 +178,7 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         decode_pc = const_cast<app_pc>(memref.instr.encoding);
         if (memref.instr.encoding_is_new) {
             // The code may have changed: invalidate the cache.
-            shard->worker->opcode_cache.erase(trace_pc);
+            shard->worker->opcode_category_cache.erase(trace_pc);
         }
     } else {
         // Legacy trace support where we need the binaries.
@@ -210,9 +210,11 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         }
     }
     int opcode;
-    auto cached_opcode = shard->worker->opcode_cache.find(trace_pc);
-    if (cached_opcode != shard->worker->opcode_cache.end()) {
-        opcode = cached_opcode->second;
+    uint category;
+    auto cached_opcode_category = shard->worker->opcode_category_cache.find(trace_pc);
+    if (cached_opcode_category != shard->worker->opcode_category_cache.end()) {
+        opcode = cached_opcode_category->second.first;
+        category = cached_opcode_category->second.second;
     } else {
         instr_t instr;
         instr_init(dcontext_.dcontext, &instr);
@@ -225,24 +227,12 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             return false;
         }
         opcode = instr_get_opcode(&instr);
-        shard->worker->opcode_cache[trace_pc] = opcode;
+        category = instr_get_category(&instr);
+        shard->worker->opcode_category_cache[trace_pc] = std::make_pair(opcode, category);
         instr_free(dcontext_.dcontext, &instr);
     }
     ++shard->opcode_counts[opcode];
-
-    uint category;
-    instr_t instr;
-    instr_init(dcontext_.dcontext, &instr);
-    app_pc next_pc = decode_from_copy(dcontext_.dcontext, decode_pc, trace_pc, &instr);
-    if (next_pc == NULL || !instr_valid(&instr)) {
-        instr_free(dcontext_.dcontext, &instr);
-        shard->error = "Failed to decode instruction " + to_hex_string(memref.instr.addr);
-        return false;
-    }
-    category = instr_get_category(&instr);
-    instr_free(dcontext_.dcontext, &instr);
     ++shard->category_counts[category];
-
     return true;
 }
 
