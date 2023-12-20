@@ -8664,7 +8664,7 @@
 /**
  * Creates a TBL instruction.
  *
- * This macro is used to encode the forms:
+ * This macro is used to encode the form:
  * \verbatim
  *    TBL     <Zd>.<Ts>, { <Zn>.<Ts> }, <Zm>.<Ts>
  * \endverbatim
@@ -8675,6 +8675,23 @@
  */
 #define INSTR_CREATE_tbl_sve(dc, Zd, Zn, Zm) \
     instr_create_1dst_2src(dc, OP_tbl, Zd, Zn, Zm)
+
+/**
+ * Creates a TBL instruction.
+ *
+ * This macro is used to encode the form:
+   \verbatim
+      TBL     <Zd>.<Ts>, { <Zn1>.<Ts>, <Zn2>.<Ts> }, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ * \param Zn   The first source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ *
+ * The Zn2 parameter is derived from Zn.
+ */
+#define INSTR_CREATE_tbl_sve_mulvec(dc, Zd, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_tbl, Zd, Zn, opnd_create_increment_reg(Zn, 1), Zm)
 
 /**
  * Creates a DUP instruction.
@@ -8773,7 +8790,7 @@
 /**
  * Creates a SPLICE instruction (destructive).
  *
- * This macro is used to encode the forms:
+ * This macro is used to encode the form:
  * \verbatim
  *    SPLICE  <Zdn>.<Ts>, <Pv>, <Zdn>.<Ts>, <Zm>.<Ts>
  * \endverbatim
@@ -8784,6 +8801,23 @@
  */
 #define INSTR_CREATE_splice_sve_des(dc, Zdn, Pv, Zm) \
     instr_create_1dst_3src(dc, OP_splice, Zdn, Pv, Zdn, Zm)
+
+/**
+ * Creates a SPLICE instruction.
+ *
+ * This macro is used to encode the form:
+   \verbatim
+      SPLICE  <Zd>.<Ts>, <Pv>, { <Zn1>.<Ts>, <Zn2>.<Ts> }
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ * \param Pv   The first source predicate register, P (Predicate).
+ * \param Zn   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ *
+ * The Zn2 parameter is derived from Zn.
+ */
+#define INSTR_CREATE_splice_sve_con(dc, Zd, Pv, Zn) \
+    instr_create_1dst_3src(dc, OP_splice, Zd, Pv, Zn, opnd_create_increment_reg(Zn, 1))
 
 /**
  * Creates a REV instruction.
@@ -12065,6 +12099,8 @@
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
  *             opnd_size_from_bytes(2 * (dr_get_sve_vector_length() / 8)))
+ *
+ * The Zt2 parameter is derived from Zt.
  */
 #define INSTR_CREATE_ld2b_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_2dst_2src(dc, OP_ld2b, Zt, opnd_create_increment_reg(Zt, 1), Rn, Pg)
@@ -12088,6 +12124,8 @@
  *             For the [\<Xn|SP\>{, #\<simm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
  *             opnd_size_from_bytes(3 * (dr_get_sve_vector_length() / 8)))
+ *
+ * The Zt2 and Zt3 parameters are derived from Zt.
  */
 #define INSTR_CREATE_ld3b_sve_pred(dc, Zt, Pg, Rn)                            \
     instr_create_3dst_2src(dc, OP_ld3b, Zt, opnd_create_increment_reg(Zt, 1), \
@@ -12112,6 +12150,8 @@
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
  *             opnd_size_from_bytes(4 * (dr_get_sve_vector_length() / 8)))
+ *
+ * The Zt2, Zt3 and Zt4 parameters are derived from Zt.
  */
 #define INSTR_CREATE_ld4b_sve_pred(dc, Zt, Pg, Rn)                            \
     instr_create_4dst_2src(dc, OP_ld4b, Zt, opnd_create_increment_reg(Zt, 1), \
@@ -12137,6 +12177,8 @@
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
  *             opnd_size_from_bytes(2 * (dr_get_sve_vector_length() / 8)))
+ *
+ * The Zt2 parameter is derived from Zt.
  */
 #define INSTR_CREATE_st2b_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_3src(dc, OP_st2b, Rn, Zt, opnd_create_increment_reg(Zt, 1), Pg)
@@ -12160,6 +12202,8 @@
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
  *             opnd_size_from_bytes(3 * (dr_get_sve_vector_length() / 8)))
+ *
+ * The Zt2 and Zt3 parameters are derived from Zt.
  */
 #define INSTR_CREATE_st3b_sve_pred(dc, Zt, Pg, Rn)                                \
     instr_create_1dst_4src(dc, OP_st3b, Rn, Zt, opnd_create_increment_reg(Zt, 1), \
@@ -12184,6 +12228,8 @@
  *             For the [\<Xn|SP\>{, #\<simm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
  *             opnd_size_from_bytes(4 * (dr_get_sve_vector_length() / 8)))
+ *
+ * The Zt2, Zt3 and Zt4 parameters are derived from Zt.
  */
 #define INSTR_CREATE_st4b_sve_pred(dc, Zt, Pg, Rn)                                \
     instr_create_1dst_5src(dc, OP_st4b, Rn, Zt, opnd_create_increment_reg(Zt, 1), \
@@ -12624,6 +12670,8 @@
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
  *             opnd_size_from_bytes(2 * (dr_get_sve_vector_length() / 8)))
+ *
+ * The Zt2 parameter is derived from Zt.
  */
 #define INSTR_CREATE_ld2d_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_2dst_2src(dc, OP_ld2d, Zt, opnd_create_increment_reg(Zt, 1), Rn, Pg)
@@ -12647,6 +12695,8 @@
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
  *             opnd_size_from_bytes(2 * (dr_get_sve_vector_length() / 8)))
+ *
+ * The Zt2 parameter is derived from Zt.
  */
 #define INSTR_CREATE_ld2h_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_2dst_2src(dc, OP_ld2h, Zt, opnd_create_increment_reg(Zt, 1), Rn, Pg)
@@ -12694,6 +12744,8 @@
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
  *             opnd_size_from_bytes(3 * (dr_get_sve_vector_length() / 8)))
+ *
+ * The Zt2 and Zt3 parameters are derived from Zt.
  */
 #define INSTR_CREATE_ld3d_sve_pred(dc, Zt, Pg, Rn)                            \
     instr_create_3dst_2src(dc, OP_ld3d, Zt, opnd_create_increment_reg(Zt, 1), \
@@ -12718,6 +12770,8 @@
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
  *             opnd_size_from_bytes(3 * (dr_get_sve_vector_length() / 8)))
+ *
+ * The Zt2 and Zt3 parameters are derived from Zt.
  */
 #define INSTR_CREATE_ld3h_sve_pred(dc, Zt, Pg, Rn)                            \
     instr_create_3dst_2src(dc, OP_ld3h, Zt, opnd_create_increment_reg(Zt, 1), \
@@ -12742,6 +12796,8 @@
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
  *             opnd_size_from_bytes(3 * (dr_get_sve_vector_length() / 8)))
+ *
+ * The Zt2 and Zt3 parameters are derived from Zt.
  */
 #define INSTR_CREATE_ld3w_sve_pred(dc, Zt, Pg, Rn)                            \
     instr_create_3dst_2src(dc, OP_ld3w, Zt, opnd_create_increment_reg(Zt, 1), \
@@ -12766,6 +12822,8 @@
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
  *             opnd_size_from_bytes(4 * (dr_get_sve_vector_length() / 8)))
+ *
+ * The Zt2, Zt3 and Zt4 parameters are derived from Zt.
  */
 #define INSTR_CREATE_ld4d_sve_pred(dc, Zt, Pg, Rn)                            \
     instr_create_4dst_2src(dc, OP_ld4d, Zt, opnd_create_increment_reg(Zt, 1), \
@@ -12791,6 +12849,8 @@
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
  *             opnd_size_from_bytes(4 * (dr_get_sve_vector_length() / 8)))
+ *
+ * The Zt2, Zt3 and Zt4 parameters are derived from Zt.
  */
 #define INSTR_CREATE_ld4h_sve_pred(dc, Zt, Pg, Rn)                            \
     instr_create_4dst_2src(dc, OP_ld4h, Zt, opnd_create_increment_reg(Zt, 1), \
@@ -12816,6 +12876,8 @@
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
  *             opnd_size_from_bytes(4 * (dr_get_sve_vector_length() / 8)))
+ *
+ * The Zt2, Zt3 and Zt4 parameters are derived from Zt.
  */
 #define INSTR_CREATE_ld4w_sve_pred(dc, Zt, Pg, Rn)                            \
     instr_create_4dst_2src(dc, OP_ld4w, Zt, opnd_create_increment_reg(Zt, 1), \
@@ -12938,6 +13000,8 @@
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
  *             opnd_size_from_bytes(2 * (dr_get_sve_vector_length() / 8)))
+ *
+ * The Zt2 parameter is derived from Zt.
  */
 #define INSTR_CREATE_st2d_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_3src(dc, OP_st2d, Rn, Zt, opnd_create_increment_reg(Zt, 1), Pg)
@@ -12961,6 +13025,8 @@
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
  *             opnd_size_from_bytes(2 * (dr_get_sve_vector_length() / 8)))
+ *
+ * The Zt2 parameter is derived from Zt.
  */
 #define INSTR_CREATE_st2h_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_3src(dc, OP_st2h, Rn, Zt, opnd_create_increment_reg(Zt, 1), Pg)
@@ -12984,6 +13050,8 @@
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
  *             opnd_size_from_bytes(2 * (dr_get_sve_vector_length() / 8)))
+ *
+ * The Zt2 parameter is derived from Zt.
  */
 #define INSTR_CREATE_st2w_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_3src(dc, OP_st2w, Rn, Zt, opnd_create_increment_reg(Zt, 1), Pg)
@@ -13007,6 +13075,8 @@
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
  *             opnd_size_from_bytes(3 * (dr_get_sve_vector_length() / 8)))
+ *
+ * The Zt2 and Zt3 parameters are derived from Zt.
  */
 #define INSTR_CREATE_st3d_sve_pred(dc, Zt, Pg, Rn)                                \
     instr_create_1dst_4src(dc, OP_st3d, Rn, Zt, opnd_create_increment_reg(Zt, 1), \
@@ -13031,6 +13101,8 @@
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
  *             opnd_size_from_bytes(3 * (dr_get_sve_vector_length() / 8)))
+ *
+ * The Zt2 and Zt3 parameters are derived from Zt.
  */
 #define INSTR_CREATE_st3h_sve_pred(dc, Zt, Pg, Rn)                                \
     instr_create_1dst_4src(dc, OP_st3h, Rn, Zt, opnd_create_increment_reg(Zt, 1), \
@@ -13055,6 +13127,8 @@
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
  *             opnd_size_from_bytes(3 * (dr_get_sve_vector_length() / 8)))
+ *
+ * The Zt2 and Zt3 parameters are derived from Zt.
  */
 #define INSTR_CREATE_st3w_sve_pred(dc, Zt, Pg, Rn)                                \
     instr_create_1dst_4src(dc, OP_st3w, Rn, Zt, opnd_create_increment_reg(Zt, 1), \
@@ -13079,6 +13153,8 @@
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
  *             opnd_size_from_bytes(4 * (dr_get_sve_vector_length() / 8)))
+ *
+ * The Zt2, Zt3 and Zt4 parameters are derived from Zt.
  */
 #define INSTR_CREATE_st4d_sve_pred(dc, Zt, Pg, Rn)                                \
     instr_create_1dst_5src(dc, OP_st4d, Rn, Zt, opnd_create_increment_reg(Zt, 1), \
@@ -13104,6 +13180,8 @@
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
  *             opnd_size_from_bytes(4 * (dr_get_sve_vector_length() / 8)))
+ *
+ * The Zt2, Zt3 and Zt4 parameters are derived from Zt.
  */
 #define INSTR_CREATE_st4h_sve_pred(dc, Zt, Pg, Rn)                                \
     instr_create_1dst_5src(dc, OP_st4h, Rn, Zt, opnd_create_increment_reg(Zt, 1), \
@@ -13129,6 +13207,8 @@
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
  *             opnd_size_from_bytes(4 * (dr_get_sve_vector_length() / 8)))
+ *
+ * The Zt2, Zt3 and Zt4 parameters are derived from Zt.
  */
 #define INSTR_CREATE_st4w_sve_pred(dc, Zt, Pg, Rn)                                \
     instr_create_1dst_5src(dc, OP_st4w, Rn, Zt, opnd_create_increment_reg(Zt, 1), \
@@ -18183,18 +18263,4 @@
 #define INSTR_CREATE_mul_sve_idx(dc, Zd, Zn, Zm, index) \
     instr_create_1dst_3src(dc, OP_mul, Zd, Zn, Zm, index)
 
-/**
- * Creates a SPLICE instruction.
- *
- * This macro is used to encode the forms:
-   \verbatim
-      SPLICE  <Zd>.<Ts>, <Pv>, { <Zn1>.<Ts>, <Zn2>.<Ts> }
-   \endverbatim
- * \param dc   The void * dcontext used to allocate memory for the #instr_t.
- * \param Zd   The destination vector register. Can be Z.b, Z.h, Z.s or Z.d.
- * \param Pv   The first source predicate register, P (Predicate).
- * \param Zn   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
- */
-#define INSTR_CREATE_splice_sve_con(dc, Zd, Pv, Zn) \
-    instr_create_1dst_3src(dc, OP_splice, Zd, Pv, Zn, opnd_create_increment_reg(Zn, 1))
 #endif /* DR_IR_MACROS_AARCH64_H */
