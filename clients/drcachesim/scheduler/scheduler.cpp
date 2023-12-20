@@ -2675,6 +2675,16 @@ scheduler_tmpl_t<RecordType, ReaderType>::eof_or_idle(output_ordinal_t output)
 }
 
 template <typename RecordType, typename ReaderType>
+bool
+scheduler_tmpl_t<RecordType, ReaderType>::is_record_kernel(output_ordinal_t output)
+{
+    int index = outputs_[output].cur_input;
+    if (index < 0)
+        return false;
+    return inputs_[index].reader->is_record_kernel();
+}
+
+template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::set_output_active(output_ordinal_t output,
                                                             bool active)
