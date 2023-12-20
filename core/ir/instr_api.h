@@ -139,6 +139,9 @@ typedef enum _dr_pred_type_t {
     DR_PRED_AL, /**< ARM condition: 1110 Always (unconditional)                    */
 #    ifdef AARCH64
     DR_PRED_NV, /**< ARM condition: 1111 Never, meaning always                     */
+    DR_PRED_GOVERNING, /** Used for AArch64 SVE instructions with governing predicate
+                        * registers
+                        */
 #    endif
 #    ifdef ARM
     DR_PRED_OP, /**< ARM condition: 1111 Part of opcode                            */
