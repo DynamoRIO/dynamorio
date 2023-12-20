@@ -183,6 +183,8 @@ protected:
         bool found_instr_count_marker_ = false;
         bool found_page_size_marker_ = false;
         bool found_syscall_marker_ = false;
+        bool prev_was_syscall_marker_ = false;
+        int last_syscall_marker_value_ = 0;
         bool found_blocking_marker_ = false;
         uint64_t syscall_count_ = 0;
         uint64_t last_instr_count_marker_ = 0;
@@ -214,6 +216,8 @@ protected:
         // Counters for expected read and write records.
         int expected_read_records_ = 0;
         int expected_write_records_ = 0;
+        bool between_kernel_syscall_trace_markers_ = false;
+        instr_info_t pre_syscall_trace_instr_;
     };
 
     // We provide this for subclasses to run these invariants with custom

@@ -598,6 +598,20 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_CORE_IDLE,
 
+    /**
+     * Indicates a point in the trace where context switch's kernel trace starts.
+     * The value of the marker is set to the switch type enum value from
+     * #dynamorio::drmemtrace::scheduler_tmpl_t::switch_type_t.
+     */
+    TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
+
+    /**
+     * Indicates a point in the trace where a context switch's kernel trace ends.
+     * The value of the marker is set to the switch type enum value from
+     * #dynamorio::drmemtrace::scheduler_tmpl_t::switch_type_t.
+     */
+    TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
+
     // ...
     // These values are reserved for future built-in marker types.
     // ...
@@ -894,11 +908,11 @@ typedef enum {
      */
     OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS = 0x800,
     /**
-     * Kernel traces of syscalls are included.
-     * The included kernel traces are provided either by the -syscall_template_file to
-     * raw2trace (see #OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES), or on x86 using
-     * the -enable_kernel_tracing option that uses Intel® Processor Trace to collect a
-     * trace for system call execution.
+     * Kernel traces (both instructions and memory addresses) of syscalls are included. If
+     * only kernel instructions are included the file type is
+     * #OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY instead. The included kernel traces
+     * are provided by the -syscall_template_file to raw2trace (see
+     * #OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES).
      */
     OFFLINE_FILE_TYPE_KERNEL_SYSCALLS = 0x1000,
     /**
@@ -925,6 +939,15 @@ typedef enum {
      * the future.
      */
     OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES = 0x4000,
+    /**
+     * Kernel instruction traces of syscalls are included. When memory addresses are
+     * also included for kernel execution, the file type is
+     * #OFFLINE_FILE_TYPE_KERNEL_SYSCALLS instead.
+     * On x86, the kernel trace is enabled by the -enable_kernel_tracing option that
+     * uses Intel® Processor Trace to collect an instruction trace for system call
+     * execution.
+     */
+    OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY = 0x8000,
 } offline_file_type_t;
 
 static inline const char *

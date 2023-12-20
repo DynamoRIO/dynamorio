@@ -29,11 +29,10 @@ A clear and concise description of what you expected to happen.
 
 **Screenshots or Pasted Text**
 If applicable, add screenshots to help explain your problem.  For text, please cut and paste the text here, delimited by lines consisting of three backtics to render it verbatim, like this:
-<pre>
+
 ```
 paste output here
 ```
-</pre>
 
 **Versions**
  - What version of DynamoRIO are you using?

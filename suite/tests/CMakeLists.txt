@@ -3798,6 +3798,13 @@ if (BUILD_CLIENTS)
           "-indir ${thread_trace_dir} -simulator_type schedule_stats -core_sharded -sched_quantum 10000000"
           "")
         set(tool.schedule_stats_nopreempt_rawtemp ON) # no preprocessor
+
+        set(switch_file
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/mock_switch_sequences.x64.zip")
+        torunonly_simtool(switch_insertion ${ci_shared_app}
+          "-indir ${thread_trace_dir} -simulator_type basic_counts -core_sharded -sched_quantum 1000 -sched_switch_file ${switch_file}"
+          "")
+        set(tool.switch_insertion_rawtemp ON) # no preprocessor
       endif ()
     endif ()
 
@@ -4303,7 +4310,7 @@ if (BUILD_CLIENTS)
       if (LINUX)
         set(tool.drcacheoff.burst_syscall_inject_nodr ON)
         torunonly_drcacheoff(burst_syscall_inject tool.drcacheoff.burst_syscall_inject ""
-          "@-simulator_type@basic_counts@-syscall_template_file@drmemtrace.tool.drcacheoff.burst_syscall_inject.*.dir/raw/syscall_trace_template"
+          "@-simulator_type@invariant_checker@-syscall_template_file@drmemtrace.tool.drcacheoff.burst_syscall_inject.*.dir/raw/syscall_trace_template"
           "")
       endif ()
 
@@ -4600,6 +4607,8 @@ if (BUILD_CLIENTS)
                                   "@-simulator_type@opcode_mix")
       torunonly_drcacheoff_kernel(syscall-mix ${ci_shared_app} "-raw_compress none" ""
                                   "@-simulator_type@syscall_mix")
+      torunonly_drcacheoff_kernel(invariant-checker ${ci_shared_app} "-raw_compress none" ""
+                                  "@-simulator_type@invariant_checker@-test_mode_name@kernel_syscall_pt_trace")
     endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
   endif (proc_supports_pt)
 

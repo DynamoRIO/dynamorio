@@ -425,6 +425,14 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             std::cerr << "<marker: trace end for system call number "
                       << memref.marker.marker_value << ">\n";
             break;
+        case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START:
+            std::cerr << "<marker: trace start for context switch type "
+                      << memref.marker.marker_value << ">\n";
+            break;
+        case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END:
+            std::cerr << "<marker: trace end for context switch type "
+                      << memref.marker.marker_value << ">\n";
+            break;
         case TRACE_MARKER_TYPE_BRANCH_TARGET:
             // These are not expected to be visible (since the reader adds them
             // to memref.instr.indirect_branch_target) but we handle nonetheless.

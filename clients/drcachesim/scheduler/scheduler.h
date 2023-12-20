@@ -241,7 +241,7 @@ public:
          * A unique identifier to distinguish from other readers for this workload.
          * Typically this will be the thread id but it does not need to be, so long
          * as it is not 0 (DynamoRIO's INVALID_THREAD_ID sentinel).
-         * This is used to in the 'thread_modifiers' field of 'input_workload_t'
+         * This allows the 'thread_modifiers' field of 'input_workload_t'
          * to refer to this input.
          */
         memref_tid_t tid = INVALID_THREAD_ID;
@@ -449,6 +449,23 @@ public:
     };
 
     /**
+     * Types of context switches for
+     * #dynamorio::drmemtrace::scheduler_tmpl_t::scheduler_options_t::
+     * kernel_switch_trace_path and kernel_switch_reader.
+     * The enum value is the subfile component name in the archive_istream_t.
+     */
+    enum switch_type_t {
+        /** Invalid value. */
+        SWITCH_INVALID = 0,
+        /** Generic thread context switch. */
+        SWITCH_THREAD,
+        /**
+         * Generic process context switch.  A workload is considered a process.
+         */
+        SWITCH_PROCESS,
+    };
+
+    /**
      * Collects the parameters specifying how the scheduler should behave, outside
      * of the workload inputs and the output count.
      */
@@ -545,6 +562,35 @@ public:
          * #block_time_scale.
          */
         uint64_t block_time_max = 25000000;
+        // XXX: Should we share the file-to-reader code currently in the scheduler
+        // with the analyzer and only then need reader interfaces and not pass paths
+        // to the scheduler?
+        /**
+         * Input file containing template sequences of kernel context switch code.
+         * Each sequence must start with a #TRACE_MARKER_TYPE_CONTEXT_SWITCH_START
+         * marker and end with #TRACE_MARKER_TYPE_CONTEXT_SWITCH_END.
+         * The values of each marker must hold a #switch_type_t enum value
+         * indicating which type of switch it corresponds to.
+         * Each sequence can be stored as a separate subfile of an archive file,
+         * or concatenated into a single file.
+         * Each sequence should be in the regular offline drmemtrace format.
+         * The sequence is inserted into the output stream on each context switch
+         * of the indicated type.
+         * The same file (or reader) must be passed when replaying as this kernel
+         * code is not stored when recording.
+         * An alternative to passing the file path is to pass #kernel_switch_reader
+         * and #kernel_switch_reader_end.
+         */
+        std::string kernel_switch_trace_path;
+        /**
+         * An alternative to #kernel_switch_trace_path is to pass a reader and
+         * #kernel_switch_reader_end.  See the description of #kernel_switch_trace_path.
+         * This field is only examined if #kernel_switch_trace_path is empty.
+         * The scheduler will call the init() function for the reader.
+         */
+        std::unique_ptr<ReaderType> kernel_switch_reader;
+        /** The end reader for #kernel_switch_reader. */
+        std::unique_ptr<ReaderType> kernel_switch_reader_end;
     };
 
     /**
@@ -874,6 +920,16 @@ public:
             return scheduler_->get_input_stream_interface(get_input_stream_ordinal());
         }
 
+        /**
+         * Returns whether the current record is from a part of the trace corresponding
+         * to kernel execution.
+         */
+        bool
+        is_record_kernel() const override
+        {
+            return scheduler_->is_record_kernel(ordinal_);
+        }
+
     protected:
         scheduler_tmpl_t<RecordType, ReaderType> *scheduler_ = nullptr;
         int ordinal_ = -1;
@@ -1113,6 +1169,8 @@ protected:
         // This is an index into the inputs_ vector so -1 is an invalid value.
         // This is set to >=0 for all non-empty outputs during init().
         input_ordinal_t cur_input = INVALID_INPUT_ORDINAL;
+        // Holds the prior non-invalid input.
+        input_ordinal_t prev_input = INVALID_INPUT_ORDINAL;
         // For static schedules we can populate this up front and avoid needing a
         // lock for dynamically finding the next input, keeping things parallel.
         std::vector<input_ordinal_t> input_indices;
@@ -1133,6 +1191,9 @@ protected:
         int record_index = 0;
         bool waiting = false; // Waiting or idling.
         bool active = true;
+        bool in_kernel_code = false;
+        bool in_context_switch_code = false;
+        bool hit_switch_code_end = false;
         // Used for time-based quanta.
         uint64_t cur_time = 0;
         // Used for MAP_TO_RECORDED_OUTPUT get_output_cpuid().
@@ -1213,6 +1274,9 @@ protected:
     scheduler_status_t
     read_recorded_schedule();
 
+    scheduler_status_t
+    read_switch_sequences();
+
     uint64_t
     get_time_micros();
 
@@ -1255,6 +1319,10 @@ protected:
     // If the given record has a thread id field, returns true and the value.
     bool
     record_type_has_tid(RecordType record, memref_tid_t &tid);
+
+    // For trace_entry_t, only sets the tid for record types that have it.
+    void
+    record_type_set_tid(RecordType &record, memref_tid_t tid);
 
     // Returns whether the given record is an instruction.
     bool
@@ -1331,6 +1399,11 @@ protected:
     stream_status_t
     eof_or_idle(output_ordinal_t output);
 
+    // Returns whether the current record for the current input stream scheduled on
+    // the 'output_ordinal'-th output stream is from a part of the trace corresponding
+    // to kernel execution.
+    bool
+    is_record_kernel(output_ordinal_t output);
     ///////////////////////////////////////////////////////////////////////////
     // Support for ready queues for who to schedule next:
 
@@ -1428,6 +1501,15 @@ protected:
         }
     };
     std::unordered_map<workload_tid_t, input_ordinal_t, workload_tid_hash_t> tid2input_;
+    struct switch_type_hash_t {
+        std::size_t
+        operator()(const switch_type_t &st) const
+        {
+            return std::hash<int>()(static_cast<int>(st));
+        }
+    };
+    std::unordered_map<switch_type_t, std::vector<RecordType>, switch_type_hash_t>
+        switch_sequence_;
 };
 
 /** See #dynamorio::drmemtrace::scheduler_tmpl_t. */

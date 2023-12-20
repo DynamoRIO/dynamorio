@@ -203,6 +203,16 @@ public:
     {
         return nullptr;
     }
+
+    /**
+     * Returns whether the current record is from a part of the trace corresponding
+     * to kernel execution.
+     */
+    virtual bool
+    is_record_kernel() const
+    {
+        return false;
+    }
 };
 
 /**

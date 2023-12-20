@@ -8710,6 +8710,50 @@ TEST_INSTR(mul_sve_idx)
               opnd_create_immed_uint(i2_0_0[i], OPSZ_2b));
 }
 
+TEST_INSTR(splice_sve_con)
+{
+
+    /* Testing SPLICE  <Zd>.<Ts>, <Pv>, { <Zn1>.<Ts>, <Zn2>.<Ts> } */
+    const char *const expected_0_0[6] = {
+        "splice %p0 %z0.b %z1.b -> %z0.b",    "splice %p2 %z7.b %z8.b -> %z5.b",
+        "splice %p3 %z12.b %z13.b -> %z10.b", "splice %p5 %z18.b %z19.b -> %z16.b",
+        "splice %p6 %z23.b %z24.b -> %z21.b", "splice %p7 %z31.b %z0.b -> %z31.b",
+    };
+    TEST_LOOP(splice, splice_sve_con, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_1),
+              opnd_create_reg(Pn_half_six_offset_0[i]),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_1));
+
+    const char *const expected_0_1[6] = {
+        "splice %p0 %z0.h %z1.h -> %z0.h",    "splice %p2 %z7.h %z8.h -> %z5.h",
+        "splice %p3 %z12.h %z13.h -> %z10.h", "splice %p5 %z18.h %z19.h -> %z16.h",
+        "splice %p6 %z23.h %z24.h -> %z21.h", "splice %p7 %z31.h %z0.h -> %z31.h",
+    };
+    TEST_LOOP(splice, splice_sve_con, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_reg(Pn_half_six_offset_0[i]),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_2));
+
+    const char *const expected_0_2[6] = {
+        "splice %p0 %z0.s %z1.s -> %z0.s",    "splice %p2 %z7.s %z8.s -> %z5.s",
+        "splice %p3 %z12.s %z13.s -> %z10.s", "splice %p5 %z18.s %z19.s -> %z16.s",
+        "splice %p6 %z23.s %z24.s -> %z21.s", "splice %p7 %z31.s %z0.s -> %z31.s",
+    };
+    TEST_LOOP(splice, splice_sve_con, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg(Pn_half_six_offset_0[i]),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_4));
+
+    const char *const expected_0_3[6] = {
+        "splice %p0 %z0.d %z1.d -> %z0.d",    "splice %p2 %z7.d %z8.d -> %z5.d",
+        "splice %p3 %z12.d %z13.d -> %z10.d", "splice %p5 %z18.d %z19.d -> %z16.d",
+        "splice %p6 %z23.d %z24.d -> %z21.d", "splice %p7 %z31.d %z0.d -> %z31.d",
+    };
+    TEST_LOOP(splice, splice_sve_con, 6, expected_0_3[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_reg(Pn_half_six_offset_0[i]),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
+}
 int
 main(int argc, char *argv[])
 {
@@ -8965,6 +9009,8 @@ main(int argc, char *argv[])
 
     RUN_INSTR_TEST(mul_sve_vector);
     RUN_INSTR_TEST(mul_sve_idx);
+
+    RUN_INSTR_TEST(splice_sve_con);
 
     print("All SVE2 tests complete.\n");
 #ifndef STANDALONE_DECODER
