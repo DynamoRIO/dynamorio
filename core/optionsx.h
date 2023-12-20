@@ -781,7 +781,7 @@ OPTION_DEFAULT(uint, max_pending_signals, 8,
  * is valid and its beyond-TOS slot can be clobbered.  X86-only.
  */
 #    ifdef LINUX
-OPTION_DEFAULT_INTERNAL(bool, use_sigreturn_setcontext, false,
+OPTION_DEFAULT_INTERNAL(bool, use_sigreturn_setcontext, true,
                         "use sigreturn to set a thread's context")
 #    else
 OPTION_DEFAULT_INTERNAL(bool, use_sigreturn_setcontext, true,
