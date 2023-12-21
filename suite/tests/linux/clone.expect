@@ -1,3 +1,4 @@
+test_thread(share_sighand 0, clone_vm 0, use_clone3 0)
 Sideline thread started
 i = 2500000
 i = 5000000
@@ -11,6 +12,7 @@ i = 22500000
 i = 25000000
 Sideline thread finished
 Child has exited
+test_thread(share_sighand 0, clone_vm 0, use_clone3 1)
 Sideline thread started
 i = 2500000
 i = 5000000
@@ -24,6 +26,7 @@ i = 22500000
 i = 25000000
 Sideline thread finished
 Child has exited
+test_thread(share_sighand 0, clone_vm 1, use_clone3 0)
 Sideline thread started
 i = 2500000
 i = 5000000
@@ -37,6 +40,7 @@ i = 22500000
 i = 25000000
 Sideline thread finished
 Child has exited
+test_thread(share_sighand 0, clone_vm 1, use_clone3 1)
 Sideline thread started
 i = 2500000
 i = 5000000
@@ -50,6 +54,7 @@ i = 22500000
 i = 25000000
 Sideline thread finished
 Child has exited
+test_thread(share_sighand 1, clone_vm 1, use_clone3 0)
 Sideline thread started
 i = 2500000
 i = 5000000
@@ -63,6 +68,7 @@ i = 22500000
 i = 25000000
 Sideline thread finished
 Child has exited
+test_thread(share_sighand 1, clone_vm 1, use_clone3 1)
 Sideline thread started
 i = 2500000
 i = 5000000
