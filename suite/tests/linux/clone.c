@@ -78,9 +78,8 @@ clone(int (*fn)(void *arg), void *child_stack, int flags, void *arg, ...);
 
 /* forward declarations */
 static int
-make_clone_syscall(ptr_uint_t flags, void *stack,
-                   pid_t *parent_tid, pid_t *child_tid, void *tls,
-                   void (*fcn)(void));
+make_clone_syscall(ptr_uint_t flags, void *stack, pid_t *parent_tid, pid_t *child_tid,
+                   void *tls, void (*fcn)(void));
 static int
 make_clone3_syscall(void *clone_args, ulong clone_args_size, void (*fcn)(void));
 static pid_t
@@ -133,20 +132,21 @@ test_with_null_stack_pointer(bool clone_vm, bool use_clone3)
     print("%s(clone_vm %d, use_clone3 %d)\n", __FUNCTION__, clone_vm, use_clone3);
     int flags = clone_vm ? (CLONE_VFORK | CLONE_VM) : 0;
     int ret;
-    /* If we don't have SYS_clone3, keep expected output the same and just use SYS_clone. */
+    /* If we don't have SYS_clone3, keep expected output the same and just use SYS_clone.
+     */
     bool really_use_clone3 = use_clone3;
-#ifndef SYS_clone3
+#    ifndef SYS_clone3
     really_use_clone3 = false;
-#endif
+#    endif
     if (really_use_clone3) {
-      struct clone_args cl_args = { 0 };
-      cl_args.flags = flags;
-      cl_args.exit_signal = SIGCHLD;
-      ret = make_clone3_syscall(&cl_args, sizeof(cl_args), run_with_exit);
+        struct clone_args cl_args = { 0 };
+        cl_args.flags = flags;
+        cl_args.exit_signal = SIGCHLD;
+        ret = make_clone3_syscall(&cl_args, sizeof(cl_args), run_with_exit);
     } else {
-      flags = flags | SIGCHLD;
-      ret = make_clone_syscall(flags, /*stack*/NULL, /*parent_tid*/NULL,
-                               /*child_tid*/NULL, /*tls*/NULL, run_with_exit);
+        flags = flags | SIGCHLD;
+        ret = make_clone_syscall(flags, /*stack*/ NULL, /*parent_tid*/ NULL,
+                                 /*child_tid*/ NULL, /*tls*/ NULL, run_with_exit);
     }
     if (ret == -1) {
         perror("Error calling clone");
@@ -238,12 +238,12 @@ run_with_exit(void)
  * its own.
  */
 int
-make_clone_syscall(ptr_uint_t flags, void *stack, pid_t *parent_tid,
-                   pid_t *child_tid, void *tls, void (*fcn)(void))
+make_clone_syscall(ptr_uint_t flags, void *stack, pid_t *parent_tid, pid_t *child_tid,
+                   void *tls, void (*fcn)(void))
 {
-  /* Everything is done in assembler to safely manage the potential
-   * stack switch or non-switch. */
-  int result;
+    /* Everything is done in assembler to safely manage the potential
+     * stack switch or non-switch. */
+    int result;
 #if defined(X86) && defined(X64)
     /* Note: Syscall preserves all registers except rax, rcx and r11. */
     /* Syscall args:
@@ -253,8 +253,7 @@ make_clone_syscall(ptr_uint_t flags, void *stack, pid_t *parent_tid,
      * rdx = parent_tid
      * r10 = child_tid
      * r8 = tls */
-    asm (
-        "movq %[fcn], %%r15\n\t"
+    asm("movq %[fcn], %%r15\n\t"
         "movq %[flags], %%rdi\n\t"
         "movq %[stack], %%rsi\n\t"
         "movq %[parent_tid], %%rdx\n\t"
@@ -268,11 +267,10 @@ make_clone_syscall(ptr_uint_t flags, void *stack, pid_t *parent_tid,
         "call *%%r15\n\t"
         "clone_parent:\n\t"
         "mov %%eax, %[result]\n\t"
-        : [ result ] "=r" (result)
-        : [ syscall_num ] "i" (SYS_clone),
-          [ flags ] "rm" (flags), [ stack ] "rm" (stack),
-          [ parent_tid ] "rm" (parent_tid), [ child_tid ] "rm" (child_tid),
-          [ tls ] "rm" (tls), [ fcn ] "rm" (fcn)
+        : [result] "=r"(result)
+        : [syscall_num] "i"(SYS_clone), [flags] "rm"(flags), [stack] "rm"(stack),
+          [parent_tid] "rm"(parent_tid), [child_tid] "rm"(child_tid), [tls] "rm"(tls),
+          [fcn] "rm"(fcn)
         /* While we clobber %rbp, it's done in the child which doesn't return,
          * so we elide it here to not complicate the stack frame. */
         : "rax", "rcx", "rdx", "rsi", "rdi", "r8", "r10", "r11", "r15");
@@ -284,11 +282,10 @@ make_clone_syscall(ptr_uint_t flags, void *stack, pid_t *parent_tid,
      * edx = parent_tid
      * esi = tls
      * edi = child_tid */
-   /* Things are more complicated here because we don't have any registers to
-    * save fcn in, and if we modify %esp then the compiler's calculations
-    * of the parameter addresses may be wrong. */
-    asm (
-        "movl %[fcn], %%eax\n\t"
+    /* Things are more complicated here because we don't have any registers to
+     * save fcn in, and if we modify %esp then the compiler's calculations
+     * of the parameter addresses may be wrong. */
+    asm("movl %[fcn], %%eax\n\t"
         "movl %[flags], %%ebx\n\t"
         "movl %[stack], %%ecx\n\t"
         "movl %[parent_tid], %%edx\n\t"
@@ -322,11 +319,10 @@ make_clone_syscall(ptr_uint_t flags, void *stack, pid_t *parent_tid,
         "clone_parent:\n\t"
         "addl $16, %%esp\n\t"
         "movl %%eax, %[result]\n\t"
-        : [ result ] "=m" (result)
-        : [ syscall_num ] "i" (SYS_clone),
-          [ flags ] "rm" (flags), [ stack ] "rm" (stack),
-          [ parent_tid ] "rm" (parent_tid), [ child_tid ] "rm" (child_tid),
-          [ tls ] "rm" (tls), [ fcn ] "rm" (fcn)
+        : [result] "=m"(result)
+        : [syscall_num] "i"(SYS_clone), [flags] "rm"(flags), [stack] "rm"(stack),
+          [parent_tid] "rm"(parent_tid), [child_tid] "rm"(child_tid), [tls] "rm"(tls),
+          [fcn] "rm"(fcn)
         /* While we clobber %ebp, it's done in the child which doesn't return,
          * so we elide it here to not complicate the stack frame. */
         : "eax", "ebx", "ecx", "edx", "esi", "edi");
@@ -372,7 +368,7 @@ create_thread(void (*fcn)(void), void **stack, bool share_sighand, bool clone_vm
              (clone_vm ? CLONE_VM : 0));
     /* The stack arg should point to the stack's highest address (non-inclusive). */
     newpid = make_clone_syscall(flags, (void *)((size_t)my_stack + THREAD_STACK_SIZE),
-                                &p_tid, &c_tid, /*tls*/NULL, fcn);
+                                &p_tid, &c_tid, /*tls*/ NULL, fcn);
 
     if (newpid == -1) {
         perror("Error calling clone\n");
@@ -411,9 +407,9 @@ make_clone3_syscall(void *clone_args, ulong clone_args_size, void (*fcn)(void))
                  "call *%%rdx\n\t"
                  "parent:\n\t"
                  "mov %%rax, %[result]\n\t"
-                 : [ result ] "=m"(result)
-                 : [ sys_clone3 ] "i"(CLONE3_SYSCALL_NUM), [ clone_args ] "m"(clone_args),
-                   [ clone_args_size ] "m"(clone_args_size), [ fcn ] "m"(fcn)
+                 : [result] "=m"(result)
+                 : [sys_clone3] "i"(CLONE3_SYSCALL_NUM), [clone_args] "m"(clone_args),
+                   [clone_args_size] "m"(clone_args_size), [fcn] "m"(fcn)
                  /* syscall clobbers rcx and r11 */
                  : "rax", "rdi", "rsi", "rdx", "rcx", "r11", "memory");
 #    else
@@ -427,9 +423,9 @@ make_clone3_syscall(void *clone_args, ulong clone_args_size, void (*fcn)(void))
                  "call *%%edx\n\t"
                  "parent:\n\t"
                  "mov %%eax, %[result]\n\t"
-                 : [ result ] "=m"(result)
-                 : [ sys_clone3 ] "i"(CLONE3_SYSCALL_NUM), [ clone_args ] "m"(clone_args),
-                   [ clone_args_size ] "m"(clone_args_size), [ fcn ] "m"(fcn)
+                 : [result] "=m"(result)
+                 : [sys_clone3] "i"(CLONE3_SYSCALL_NUM), [clone_args] "m"(clone_args),
+                   [clone_args_size] "m"(clone_args_size), [fcn] "m"(fcn)
                  : "eax", "ebx", "ecx", "edx", "memory");
 #    endif
 #elif defined(AARCH64)
@@ -442,9 +438,9 @@ make_clone3_syscall(void *clone_args, ulong clone_args_size, void (*fcn)(void))
                  "blr x2\n\t"
                  "parent:\n\t"
                  "str x0, %[result]\n\t"
-                 : [ result ] "=m"(result)
-                 : [ sys_clone3 ] "i"(CLONE3_SYSCALL_NUM), [ clone_args ] "m"(clone_args),
-                   [ clone_args_size ] "m"(clone_args_size), [ fcn ] "m"(fcn)
+                 : [result] "=m"(result)
+                 : [sys_clone3] "i"(CLONE3_SYSCALL_NUM), [clone_args] "m"(clone_args),
+                   [clone_args_size] "m"(clone_args_size), [fcn] "m"(fcn)
                  : "x0", "x1", "x2", "x8", "memory");
 #elif defined(ARM)
     /* XXX: Add asm wrapper for ARM.
