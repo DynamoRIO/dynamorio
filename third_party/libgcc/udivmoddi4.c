@@ -23,26 +23,29 @@ a copy of the GCC Runtime Library Exception along with this program;
 see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 <http://www.gnu.org/licenses/>.  */
 
+#include <stdint.h>
+
 /* This is extracted from gcc's libgcc/libgcc2.c with these typedefs added: */
-typedef short Wtype;
-typedef int DWtype;
-typedef unsigned int UWtype;
-typedef unsigned long long UDWtype;
+typedef int Wtype;
+typedef int32_t SItype;
+typedef uint32_t USItype;
+typedef int64_t DItype;
+typedef uint64_t UDItype;
 #if __BYTE_ORDER__ != __ORDER_LITTLE_ENDIAN__
-struct DWstruct {Wtype high, low;};
+struct DIstruct {SItype high, low;};
 #else
-struct DWstruct {Wtype low, high;};
+struct DIstruct {SItype low, high;};
 #endif
 typedef union {
-  struct DWstruct s;
-  DWtype ll;
-} DWunion;
+  struct DIstruct s;
+  DItype ll;
+} DIunion;
 
-UDWtype
-__udivmoddi4 (UDWtype n, UDWtype d, UDWtype *rp)
+UDItype
+__udivmoddi4 (UDItype n, UDItype d, UDItype *rp)
 {
-  UDWtype q = 0, r = n, y = d;
-  UWtype lz1, lz2, i, k;
+  UDItype q = 0, r = n, y = d;
+  USItype lz1, lz2, i, k;
 
   /* Implements align divisor shift dividend method. This algorithm
      aligns the divisor under the dividend and then perform number of
@@ -100,13 +103,13 @@ __udivmoddi4 (UDWtype n, UDWtype d, UDWtype *rp)
   return q;
 }
 
-DWtype
-__moddi3 (DWtype u, DWtype v)
+DItype
+__moddi3 (DItype u, DItype v)
 {
   Wtype c = 0;
-  DWunion uu = {.ll = u};
-  DWunion vv = {.ll = v};
-  DWtype w;
+  DIunion uu = {.ll = u};
+  DIunion vv = {.ll = v};
+  DItype w;
 
   if (uu.s.high < 0)
     c = ~c,
@@ -114,7 +117,7 @@ __moddi3 (DWtype u, DWtype v)
   if (vv.s.high < 0)
     vv.ll = -vv.ll;
 
-  (void) __udivmoddi4 (uu.ll, vv.ll, (UDWtype*)&w);
+  (void) __udivmoddi4 (uu.ll, vv.ll, (UDItype*)&w);
   if (c)
     w = -w;
 
