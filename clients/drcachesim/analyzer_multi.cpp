@@ -192,12 +192,7 @@ analyzer_multi_t::analyzer_multi_t()
     scheduler_t::scheduler_options_t sched_ops;
     if (op_core_sharded.get_value() || op_core_serial.get_value()) {
         if (op_core_serial.get_value()) {
-            // TODO i#5694: Add serial core-sharded support by having the
-            // analyzer create #cores streams but walk them in lockstep.
-            // Then, update drcachesim to use get_output_cpuid().
-            error_string_ = "-core_serial is not yet implemented";
-            success_ = false;
-            return;
+            parallel_ = false;
         }
         sched_ops = init_dynamic_schedule();
     }
@@ -284,10 +279,6 @@ analyzer_multi_t::init_dynamic_schedule()
 bool
 analyzer_multi_t::create_analysis_tools()
 {
-    /* TODO i#2006: add multiple tool support. */
-    /* TODO i#2006: create a single top-level tool for multi-component
-     * tools.
-     */
     tools_ = new analysis_tool_t *[max_num_tools_];
     if (!op_simulator_type.get_value().empty()) {
         std::stringstream stream(op_simulator_type.get_value());

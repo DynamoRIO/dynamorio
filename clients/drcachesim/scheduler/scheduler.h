@@ -591,6 +591,14 @@ public:
         std::unique_ptr<ReaderType> kernel_switch_reader;
         /** The end reader for #kernel_switch_reader. */
         std::unique_ptr<ReaderType> kernel_switch_reader_end;
+        /**
+         * If true, enables a mode where all outputs are serialized into one global outer
+         * layer output.  The single global output stream alternates in round-robin
+         * lockstep among each core output.  The core outputs operate just like they
+         * would with no serialization, other than timing differences relative to other
+         * core outputs.
+         */
+        bool single_lockstep_output = false;
     };
 
     /**
@@ -628,9 +636,10 @@ public:
     class stream_t : public memtrace_stream_t {
     public:
         stream_t(scheduler_tmpl_t<RecordType, ReaderType> *scheduler, int ordinal,
-                 int verbosity = 0)
+                 int verbosity = 0, int max_ordinal = -1)
             : scheduler_(scheduler)
             , ordinal_(ordinal)
+            , max_ordinal_(max_ordinal)
             , verbosity_(verbosity)
         {
         }
@@ -933,6 +942,9 @@ public:
     protected:
         scheduler_tmpl_t<RecordType, ReaderType> *scheduler_ = nullptr;
         int ordinal_ = -1;
+        // If max_ordinal_ >= 0, ordinal_ is incremented modulo max_ordinal_ at the start
+        // of every next_record() invocation.
+        int max_ordinal_ = -1;
         int verbosity_ = 0;
         uint64_t cur_ref_count_ = 0;
         uint64_t cur_instr_count_ = 0;
@@ -971,7 +983,7 @@ public:
     {
         if (ordinal < 0 || ordinal >= static_cast<output_ordinal_t>(outputs_.size()))
             return nullptr;
-        return &outputs_[ordinal].stream;
+        return outputs_[ordinal].stream;
     }
 
     /** Returns the number of input streams. */
@@ -1160,12 +1172,16 @@ protected:
                       output_ordinal_t ordinal,
                       typename spec_type_t::speculator_flags_t speculator_flags,
                       RecordType last_record_init, int verbosity = 0)
-            : stream(scheduler, ordinal, verbosity)
+            : self_stream(scheduler, ordinal, verbosity)
+            , stream(&self_stream)
             , speculator(speculator_flags, verbosity)
             , last_record(last_record_init)
         {
         }
-        stream_t stream;
+        stream_t self_stream;
+        // Normally stream points to &self_stream, but for single_lockstep_output
+        // it points to a global stream shared among all outputs.
+        stream_t *stream;
         // This is an index into the inputs_ vector so -1 is an invalid value.
         // This is set to >=0 for all non-empty outputs during init().
         input_ordinal_t cur_input = INVALID_INPUT_ORDINAL;
@@ -1510,6 +1526,8 @@ protected:
     };
     std::unordered_map<switch_type_t, std::vector<RecordType>, switch_type_hash_t>
         switch_sequence_;
+    // For single_lockstep_output.
+    std::unique_ptr<stream_t> global_stream_;
 };
 
 /** See #dynamorio::drmemtrace::scheduler_tmpl_t. */

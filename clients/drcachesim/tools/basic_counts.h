@@ -274,7 +274,8 @@ protected:
     void
     compute_shard_interval_result(per_shard_t *shard, uint64_t interval_id);
 
-    // The keys here are int for parallel, tid for serial.
+    // The keys here are int index for parallel, tid for serial, cpu for
+    // core-sharded.
     std::unordered_map<memref_tid_t, per_shard_t *> shard_map_;
     // This mutex is only needed in parallel_shard_init.  In all other accesses to
     // shard_map (process_memref, print_results) we are single-threaded.
