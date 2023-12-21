@@ -594,9 +594,9 @@ public:
         /**
          * If true, enables a mode where all outputs are serialized into one global outer
          * layer output.  The single global output stream alternates in round-robin
-         * lockstep amoung each core output.  The inner outputs operate just like they
+         * lockstep among each core output.  The core outputs operate just like they
          * would with no serialization, other than timing differences relative to other
-         * outputs.
+         * core outputs.
          */
         bool single_lockstep_output = false;
     };
