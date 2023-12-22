@@ -2048,7 +2048,6 @@ detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
     bool detach_stacked_callbacks;
     bool *cleanup_tpc;
 #endif
-    DEBUG_DECLARE(bool ok;)
 
     /* synch-all flags: */
     uint flags = 0;
