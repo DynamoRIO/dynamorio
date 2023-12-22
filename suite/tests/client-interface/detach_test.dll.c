@@ -49,7 +49,7 @@ dr_exit(void)
 #ifdef WINDOWS
     dr_fprintf(STDERR, "done\n");
 #else
-    /* The app prints 'done' for us. */
+        /* The app prints 'done' for us. */
 #endif
 }
 
