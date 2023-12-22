@@ -1970,7 +1970,7 @@ detach_set_mcontext_helper(thread_record_t *thread)
 {
     priv_mcontext_t mc;
     LOG(GLOBAL, LOG_ALL, 2, "Detach: translating " TIDFMT "\n", thread);
-    DEBUG_DECLARE(ok =)
+    DEBUG_DECLARE(bool ok =)
     thread_get_mcontext(thread, &mc);
     ASSERT(ok);
     /* For a thread at a syscall, we use SA_RESTART for our suspend signal,
@@ -2001,7 +2001,7 @@ detach_set_mcontext_helper(thread_record_t *thread)
     }
     detach_finalize_translation(thread, &mc);
     LOG(GLOBAL, LOG_ALL, 1, "Detach: pc=" PFX " for thread " TIDFMT "\n", mc.pc,
-        threads[i]->id);
+        thread->id);
     ASSERT(!is_dynamo_address(mc.pc) && !in_fcache(mc.pc));
     /* XXX case 7457: if the thread is suspended after it received a fault
      * but before the kernel copied the faulting context to the user mode
