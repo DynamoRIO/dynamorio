@@ -1965,7 +1965,8 @@ send_all_other_threads_native(void)
     return;
 }
 
-void detach_set_mcontext_helper(thread_record_t *thread)
+void
+detach_set_mcontext_helper(thread_record_t *thread)
 {
     priv_mcontext_t mc;
     LOG(GLOBAL, LOG_ALL, 2, "Detach: translating " TIDFMT "\n", thread);
@@ -1984,14 +1985,13 @@ void detach_set_mcontext_helper(thread_record_t *thread)
          */
         "Detach: pre-xl8 pc=%p (%02x %02x %02x %02x %02x), xsp=%p "
         "for thread " TIDFMT "\n",
-        mc.pc, *mc.pc, *(mc.pc + 1), *(mc.pc + 2), *(mc.pc + 3), *(mc.pc + 4),
-        mc.xsp, thread->id);
+        mc.pc, *mc.pc, *(mc.pc + 1), *(mc.pc + 2), *(mc.pc + 3), *(mc.pc + 4), mc.xsp,
+        thread->id);
     DEBUG_DECLARE(ok =)
     translate_mcontext(thread, &mc, true /*restore mem*/, NULL /*f*/);
     ASSERT(ok);
     if (!thread->under_dynamo_control) {
-        LOG(GLOBAL, LOG_ALL, 1,
-            "Detach : thread " TIDFMT " already running natively\n",
+        LOG(GLOBAL, LOG_ALL, 1, "Detach : thread " TIDFMT " already running natively\n",
             thread->id);
         /* we do need to restore the app ret addr, for native_exec */
         if (!DYNAMO_OPTION(thin_client) && DYNAMO_OPTION(native_exec) &&
@@ -2015,7 +2015,8 @@ void detach_set_mcontext_helper(thread_record_t *thread)
     IF_WINDOWS(restore_peb_pointer_for_thread(thread->dcontext));
 }
 
-void detach_cleanup_helper(thread_record_t *thread)
+void
+detach_cleanup_helper(thread_record_t *thread)
 {
     DEBUG_DECLARE(int exit_res =)
     dynamo_shared_exit(thread _IF_WINDOWS(detach_stacked_callbacks));
@@ -2295,6 +2296,7 @@ detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
         stats_get_snapshot(drstats);
     detach_cleanup_helper(my_tr);
 }
+
 #ifdef LINUX
 void
 detach_externally_on_new_stack()
