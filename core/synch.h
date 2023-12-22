@@ -261,7 +261,7 @@ void
 send_all_other_threads_native(void);
 
 void
-detach_cleanup_helper(thread_record_t *thread);
+detach_cleanup_helper(thread_record_t *thread _IF_WINDOWS(bool detach_stacked_callbacks));
 
 void
 detach_set_mcontext_helper(thread_record_t *thread);

@@ -2016,7 +2016,7 @@ detach_set_mcontext_helper(thread_record_t *thread)
 }
 
 void
-detach_cleanup_helper(thread_record_t *thread)
+detach_cleanup_helper(thread_record_t *thread _IF_WINDOWS(bool detach_stacked_callbacks))
 {
     DEBUG_DECLARE(int exit_res =)
     dynamo_shared_exit(thread _IF_WINDOWS(detach_stacked_callbacks));
@@ -2294,7 +2294,7 @@ detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
     SYSLOG_INTERNAL_INFO("Detaching from process, entering final cleanup");
     if (drstats != NULL)
         stats_get_snapshot(drstats);
-    detach_cleanup_helper(my_tr);
+    detach_cleanup_helper(my_tr _IF_WINDOWS(detach_stacked_callbacks));
 }
 
 #ifdef LINUX
