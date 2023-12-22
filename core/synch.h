@@ -261,6 +261,12 @@ void
 send_all_other_threads_native(void);
 
 void
+detach_cleanup_helper(thread_record_t *thread);
+
+void
+detach_set_mcontext_helper(thread_record_t *thread);
+
+void
 detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats);
 
 #ifdef LINUX

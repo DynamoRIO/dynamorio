@@ -1965,6 +1965,76 @@ send_all_other_threads_native(void)
     return;
 }
 
+void detach_set_mcontext_helper(thread_record_t *thread)
+{
+    priv_mcontext_t mc;
+    LOG(GLOBAL, LOG_ALL, 2, "Detach: translating " TIDFMT "\n", thread);
+    DEBUG_DECLARE(ok =)
+    thread_get_mcontext(thread, &mc);
+    ASSERT(ok);
+    /* For a thread at a syscall, we use SA_RESTART for our suspend signal,
+     * so the kernel will adjust the restart point back to the syscall for us
+     * where expected.  This is an artifical signal we're introducing, so an
+     * app that assumes no signals and assumes its non-auto-restart syscalls
+     * don't need loops could be broken.
+     */
+    LOG(GLOBAL, LOG_ALL, 3,
+        /* Having the code bytes can help diagnose post-detach where the code
+         * cache is gone.
+         */
+        "Detach: pre-xl8 pc=%p (%02x %02x %02x %02x %02x), xsp=%p "
+        "for thread " TIDFMT "\n",
+        mc.pc, *mc.pc, *(mc.pc + 1), *(mc.pc + 2), *(mc.pc + 3), *(mc.pc + 4),
+        mc.xsp, thread->id);
+    DEBUG_DECLARE(ok =)
+    translate_mcontext(thread, &mc, true /*restore mem*/, NULL /*f*/);
+    ASSERT(ok);
+    if (!thread->under_dynamo_control) {
+        LOG(GLOBAL, LOG_ALL, 1,
+            "Detach : thread " TIDFMT " already running natively\n",
+            thread->id);
+        /* we do need to restore the app ret addr, for native_exec */
+        if (!DYNAMO_OPTION(thin_client) && DYNAMO_OPTION(native_exec) &&
+            !vmvector_empty(native_exec_areas)) {
+            put_back_native_retaddrs(thread->dcontext);
+        }
+    }
+    detach_finalize_translation(thread, &mc);
+    LOG(GLOBAL, LOG_ALL, 1, "Detach: pc=" PFX " for thread " TIDFMT "\n", mc.pc,
+        threads[i]->id);
+    ASSERT(!is_dynamo_address(mc.pc) && !in_fcache(mc.pc));
+    /* XXX case 7457: if the thread is suspended after it received a fault
+     * but before the kernel copied the faulting context to the user mode
+     * structures for the handler, it could result in a codemod exception
+     * that wouldn't happen natively!
+     */
+    DEBUG_DECLARE(ok =)
+    thread_set_mcontext(thread, &mc);
+    ASSERT(ok);
+    /* i#249: restore app's PEB/TEB fields */
+    IF_WINDOWS(restore_peb_pointer_for_thread(thread->dcontext));
+}
+
+void detach_cleanup_helper(thread_record_t *thread)
+{
+    DEBUG_DECLARE(int exit_res =)
+    dynamo_shared_exit(thread _IF_WINDOWS(detach_stacked_callbacks));
+    ASSERT(exit_res == SUCCESS);
+    detach_finalize_cleanup();
+
+    stack_free(d_r_initstack, DYNAMORIO_STACK_SIZE);
+
+    dynamo_exit_post_detach();
+
+    doing_detach = false;
+    started_detach = false;
+
+    SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+    dynamo_detaching_flag = LOCK_FREE_STATE;
+    EXITING_DR();
+    options_detach();
+}
+
 void
 detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
 {
@@ -1978,7 +2048,6 @@ detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
     bool *cleanup_tpc;
 #endif
     DEBUG_DECLARE(bool ok;)
-    DEBUG_DECLARE(int exit_res;)
 
     /* synch-all flags: */
     uint flags = 0;
@@ -2152,7 +2221,6 @@ detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
 
     LOG(GLOBAL, LOG_ALL, 1, "Detach: starting to translate contexts\n");
     for (i = 0; i < num_threads; i++) {
-        priv_mcontext_t mc;
         if (threads[i]->dcontext == my_dcontext) {
             my_idx = i;
             my_tr = threads[i];
@@ -2166,54 +2234,7 @@ detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
             LOG(GLOBAL, LOG_ALL, 2, "Detach: not translating " TIDFMT "\n",
                 threads[i]->id);
         } else {
-            LOG(GLOBAL, LOG_ALL, 2, "Detach: translating " TIDFMT "\n", threads[i]->id);
-            DEBUG_DECLARE(ok =)
-            thread_get_mcontext(threads[i], &mc);
-            ASSERT(ok);
-            /* For a thread at a syscall, we use SA_RESTART for our suspend signal,
-             * so the kernel will adjust the restart point back to the syscall for us
-             * where expected.  This is an artifical signal we're introducing, so an
-             * app that assumes no signals and assumes its non-auto-restart syscalls
-             * don't need loops could be broken.
-             */
-            LOG(GLOBAL, LOG_ALL, 3,
-                /* Having the code bytes can help diagnose post-detach where the code
-                 * cache is gone.
-                 */
-                "Detach: pre-xl8 pc=%p (%02x %02x %02x %02x %02x), xsp=%p "
-                "for thread " TIDFMT "\n",
-                mc.pc, *mc.pc, *(mc.pc + 1), *(mc.pc + 2), *(mc.pc + 3), *(mc.pc + 4),
-                mc.xsp, threads[i]->id);
-            DEBUG_DECLARE(ok =)
-            translate_mcontext(threads[i], &mc, true /*restore mem*/, NULL /*f*/);
-            ASSERT(ok);
-
-            if (!threads[i]->under_dynamo_control) {
-                LOG(GLOBAL, LOG_ALL, 1,
-                    "Detach : thread " TIDFMT " already running natively\n",
-                    threads[i]->id);
-                /* we do need to restore the app ret addr, for native_exec */
-                if (!DYNAMO_OPTION(thin_client) && DYNAMO_OPTION(native_exec) &&
-                    !vmvector_empty(native_exec_areas)) {
-                    put_back_native_retaddrs(threads[i]->dcontext);
-                }
-            }
-            detach_finalize_translation(threads[i], &mc);
-
-            LOG(GLOBAL, LOG_ALL, 1, "Detach: pc=" PFX " for thread " TIDFMT "\n", mc.pc,
-                threads[i]->id);
-            ASSERT(!is_dynamo_address(mc.pc) && !in_fcache(mc.pc));
-            /* XXX case 7457: if the thread is suspended after it received a fault
-             * but before the kernel copied the faulting context to the user mode
-             * structures for the handler, it could result in a codemod exception
-             * that wouldn't happen natively!
-             */
-            DEBUG_DECLARE(ok =)
-            thread_set_mcontext(threads[i], &mc);
-            ASSERT(ok);
-
-            /* i#249: restore app's PEB/TEB fields */
-            IF_WINDOWS(restore_peb_pointer_for_thread(threads[i]->dcontext));
+            detach_set_mcontext_helper(threads[i]);
         }
         /* Resumes the thread, which will do kernel-visible cleanup of
          * signal state. Resume happens within the synch_all region where
@@ -2272,22 +2293,7 @@ detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
     SYSLOG_INTERNAL_INFO("Detaching from process, entering final cleanup");
     if (drstats != NULL)
         stats_get_snapshot(drstats);
-    DEBUG_DECLARE(exit_res =)
-    dynamo_shared_exit(my_tr _IF_WINDOWS(detach_stacked_callbacks));
-    ASSERT(exit_res == SUCCESS);
-    detach_finalize_cleanup();
-
-    stack_free(d_r_initstack, DYNAMORIO_STACK_SIZE);
-
-    dynamo_exit_post_detach();
-
-    doing_detach = false;
-    started_detach = false;
-
-    SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
-    dynamo_detaching_flag = LOCK_FREE_STATE;
-    EXITING_DR();
-    options_detach();
+    detach_cleanup_helper(my_tr);
 }
 #ifdef LINUX
 void
@@ -2300,7 +2306,6 @@ detach_externally_on_new_stack()
     int i, num_threads, my_idx = -1;
     thread_id_t my_id;
     DEBUG_DECLARE(bool ok;)
-    DEBUG_DECLARE(int exit_res;)
     /* synch-all flags: */
     uint flags = 0;
     /* For Unix, such privilege problems are rarer but we would still prefer to
@@ -2373,7 +2378,6 @@ detach_externally_on_new_stack()
     dynamo_process_exit_with_thread_info();
     LOG(GLOBAL, LOG_ALL, 1, "Detach: starting to translate contexts\n");
     for (i = 0; i < num_threads; i++) {
-        priv_mcontext_t mc;
         if (threads[i]->dcontext == my_dcontext) {
             my_idx = i;
             my_tr = threads[i];
@@ -2392,50 +2396,7 @@ detach_externally_on_new_stack()
             LOG(GLOBAL, LOG_ALL, 2, "Detach: not translating " TIDFMT "\n",
                 threads[i]->id);
         } else {
-            LOG(GLOBAL, LOG_ALL, 2, "Detach: translating " TIDFMT "\n", threads[i]->id);
-            DEBUG_DECLARE(ok =)
-            thread_get_mcontext(threads[i], &mc);
-            ASSERT(ok);
-            /* For a thread at a syscall, we use SA_RESTART for our suspend signal,
-             * so the kernel will adjust the restart point back to the syscall for us
-             * where expected.  This is an artifical signal we're introducing, so an
-             * app that assumes no signals and assumes its non-auto-restart syscalls
-             * don't need loops could be broken.
-             */
-            LOG(GLOBAL, LOG_ALL, 3,
-                /* Having the code bytes can help diagnose post-detach where the code
-                 * cache is gone.
-                 */
-                "Detach: pre-xl8 pc=%p (%02x %02x %02x %02x %02x), xsp=%p "
-                "for thread " TIDFMT "\n",
-                mc.pc, *mc.pc, *(mc.pc + 1), *(mc.pc + 2), *(mc.pc + 3), *(mc.pc + 4),
-                mc.xsp, threads[i]->id);
-            DEBUG_DECLARE(ok =)
-            translate_mcontext(threads[i], &mc, true /*restore mem*/, NULL /*f*/);
-            ASSERT(ok);
-            if (!threads[i]->under_dynamo_control) {
-                dr_printf("Detach : thread " TIDFMT " already running natively\n",
-                          threads[i]->id);
-                LOG(GLOBAL, LOG_ALL, 1,
-                    "Detach : thread " TIDFMT " already running natively\n",
-                    threads[i]->id);
-                /* we do need to restore the app ret addr, for native_exec */
-                if (!DYNAMO_OPTION(thin_client) && DYNAMO_OPTION(native_exec) &&
-                    !vmvector_empty(native_exec_areas)) {
-                    put_back_native_retaddrs(threads[i]->dcontext);
-                }
-            }
-            LOG(GLOBAL, LOG_ALL, 1, "Detach: pc=" PFX " for thread " TIDFMT "\n", mc.pc,
-                threads[i]->id);
-            ASSERT(!is_dynamo_address(mc.pc) && !in_fcache(mc.pc));
-            /* XXX case 7457: if the thread is suspended after it received a fault
-             * but before the kernel copied the faulting context to the user mode
-             * structures for the handler, it could result in a codemod exception
-             * that wouldn't happen natively!
-             */
-            DEBUG_DECLARE(ok =)
-            thread_set_mcontext(threads[i], &mc);
-            ASSERT(ok);
+            detach_set_mcontext_helper(threads[i]);
         }
         /* Resumes the thread, which will do kernel-visible cleanup of
          * signal state. Resume happens within the synch_all region where
@@ -2472,18 +2433,7 @@ detach_externally_on_new_stack()
     threads = NULL;
     LOG(GLOBAL, LOG_ALL, 1, "Detach: Entering final cleanup and unload\n");
     SYSLOG_INTERNAL_INFO("Detaching from process, entering final cleanup");
-    DEBUG_DECLARE(exit_res =)
-    dynamo_shared_exit(my_tr _IF_WINDOWS(detach_stacked_callbacks));
-    ASSERT(exit_res == SUCCESS);
-    detach_finalize_cleanup();
-    stack_free(d_r_initstack, DYNAMORIO_STACK_SIZE);
-    dynamo_exit_post_detach();
-    doing_detach = false;
-    started_detach = false;
-    SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
-    dynamo_detaching_flag = LOCK_FREE_STATE;
-    EXITING_DR();
-    options_detach();
+    detach_cleanup_helper(my_tr);
     thread_set_self_mcontext(&my_mcontext, true);
 }
 #endif
