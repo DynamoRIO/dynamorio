@@ -1264,6 +1264,7 @@ opnd_dec_func_t opnd_decoders[] = {
     [RISCV64_FLD_IIMM_0] = decode_iimm_0_opnd,
     [RISCV64_FLD_ICRS1] = decode_icrs1_opnd,
     [RISCV64_FLD_ICRS1__] = decode_icrs1___opnd,
+    [RISCV64_FLD_I_S_RS1_DISP] = decode_v_s_rs1_disp_opnd,
 };
 
 /* Decode RVC quadrant 0.
@@ -2584,6 +2585,7 @@ opnd_enc_func_t opnd_encoders[] = {
     [RISCV64_FLD_IIMM_0] = encode_implicit_opnd,
     [RISCV64_FLD_ICRS1] = encode_implicit_opnd,
     [RISCV64_FLD_ICRS1__] = encode_implicit_opnd,
+    [RISCV64_FLD_I_S_RS1_DISP] = encode_implicit_opnd,
 };
 
 uint

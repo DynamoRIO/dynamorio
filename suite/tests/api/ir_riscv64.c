@@ -332,76 +332,94 @@ test_atomic(void *dc)
 
     /* AMO */
     instr = INSTR_CREATE_amoswap_w(
-        dc, opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_X1),
+        dc, opnd_create_reg(DR_REG_X0),
+        opnd_create_base_disp(DR_REG_X1, DR_REG_NULL, 0, 0, OPSZ_4),
         opnd_create_reg(DR_REG_X31), opnd_create_immed_int(0b00, OPSZ_2b));
     test_instr_encoding(dc, OP_amoswap_w, instr);
-    instr = INSTR_CREATE_amoswap_d(dc, opnd_create_reg(DR_REG_X31),
-                                   opnd_create_reg(DR_REG_X1), opnd_create_reg(DR_REG_X0),
-                                   opnd_create_immed_int(0b01, OPSZ_2b));
+    instr = INSTR_CREATE_amoswap_d(
+        dc, opnd_create_reg(DR_REG_X31),
+        opnd_create_base_disp(DR_REG_X1, DR_REG_NULL, 0, 0, OPSZ_8),
+        opnd_create_reg(DR_REG_X0), opnd_create_immed_int(0b01, OPSZ_2b));
     test_instr_encoding(dc, OP_amoswap_d, instr);
-    instr = INSTR_CREATE_amoadd_w(dc, opnd_create_reg(DR_REG_X0),
-                                  opnd_create_reg(DR_REG_X31), opnd_create_reg(DR_REG_A2),
-                                  opnd_create_immed_int(0b10, OPSZ_2b));
+    instr = INSTR_CREATE_amoadd_w(
+        dc, opnd_create_reg(DR_REG_X0),
+        opnd_create_base_disp(DR_REG_X31, DR_REG_NULL, 0, 0, OPSZ_4),
+        opnd_create_reg(DR_REG_A2), opnd_create_immed_int(0b10, OPSZ_2b));
     test_instr_encoding(dc, OP_amoadd_w, instr);
-    instr = INSTR_CREATE_amoadd_d(dc, opnd_create_reg(DR_REG_A0),
-                                  opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A2),
-                                  opnd_create_immed_int(0b11, OPSZ_2b));
+    instr = INSTR_CREATE_amoadd_d(
+        dc, opnd_create_reg(DR_REG_A0),
+        opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_8),
+        opnd_create_reg(DR_REG_A2), opnd_create_immed_int(0b11, OPSZ_2b));
     test_instr_encoding(dc, OP_amoadd_d, instr);
-    instr = INSTR_CREATE_amoxor_w(dc, opnd_create_reg(DR_REG_A0),
-                                  opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A2),
-                                  opnd_create_immed_int(0b01, OPSZ_2b));
+    instr = INSTR_CREATE_amoxor_w(
+        dc, opnd_create_reg(DR_REG_A0),
+        opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_4),
+        opnd_create_reg(DR_REG_A2), opnd_create_immed_int(0b01, OPSZ_2b));
     test_instr_encoding(dc, OP_amoxor_w, instr);
-    instr = INSTR_CREATE_amoxor_d(dc, opnd_create_reg(DR_REG_A0),
-                                  opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A2),
-                                  opnd_create_immed_int(0b01, OPSZ_2b));
+    instr = INSTR_CREATE_amoxor_d(
+        dc, opnd_create_reg(DR_REG_A0),
+        opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_8),
+        opnd_create_reg(DR_REG_A2), opnd_create_immed_int(0b01, OPSZ_2b));
     test_instr_encoding(dc, OP_amoxor_d, instr);
-    instr = INSTR_CREATE_amoand_w(dc, opnd_create_reg(DR_REG_A0),
-                                  opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A2),
-                                  opnd_create_immed_int(0b01, OPSZ_2b));
+    instr = INSTR_CREATE_amoand_w(
+        dc, opnd_create_reg(DR_REG_A0),
+        opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_4),
+        opnd_create_reg(DR_REG_A2), opnd_create_immed_int(0b01, OPSZ_2b));
     test_instr_encoding(dc, OP_amoand_w, instr);
-    instr = INSTR_CREATE_amoand_d(dc, opnd_create_reg(DR_REG_A0),
-                                  opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A2),
-                                  opnd_create_immed_int(0b01, OPSZ_2b));
+    instr = INSTR_CREATE_amoand_d(
+        dc, opnd_create_reg(DR_REG_A0),
+        opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_8),
+        opnd_create_reg(DR_REG_A2), opnd_create_immed_int(0b01, OPSZ_2b));
     test_instr_encoding(dc, OP_amoand_d, instr);
-    instr = INSTR_CREATE_amoor_w(dc, opnd_create_reg(DR_REG_A0),
-                                 opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A2),
-                                 opnd_create_immed_int(0b01, OPSZ_2b));
+    instr = INSTR_CREATE_amoor_w(
+        dc, opnd_create_reg(DR_REG_A0),
+        opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_4),
+        opnd_create_reg(DR_REG_A2), opnd_create_immed_int(0b01, OPSZ_2b));
     test_instr_encoding(dc, OP_amoor_w, instr);
-    instr = INSTR_CREATE_amoor_d(dc, opnd_create_reg(DR_REG_A0),
-                                 opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A2),
-                                 opnd_create_immed_int(0b01, OPSZ_2b));
+    instr = INSTR_CREATE_amoor_d(
+        dc, opnd_create_reg(DR_REG_A0),
+        opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_8),
+        opnd_create_reg(DR_REG_A2), opnd_create_immed_int(0b01, OPSZ_2b));
     test_instr_encoding(dc, OP_amoor_d, instr);
-    instr = INSTR_CREATE_amomin_w(dc, opnd_create_reg(DR_REG_A0),
-                                  opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A2),
-                                  opnd_create_immed_int(0b01, OPSZ_2b));
+    instr = INSTR_CREATE_amomin_w(
+        dc, opnd_create_reg(DR_REG_A0),
+        opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_4),
+        opnd_create_reg(DR_REG_A2), opnd_create_immed_int(0b01, OPSZ_2b));
     test_instr_encoding(dc, OP_amomin_w, instr);
-    instr = INSTR_CREATE_amomin_d(dc, opnd_create_reg(DR_REG_A0),
-                                  opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A2),
-                                  opnd_create_immed_int(0b01, OPSZ_2b));
+    instr = INSTR_CREATE_amomin_d(
+        dc, opnd_create_reg(DR_REG_A0),
+        opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_8),
+        opnd_create_reg(DR_REG_A2), opnd_create_immed_int(0b01, OPSZ_2b));
     test_instr_encoding(dc, OP_amomin_d, instr);
-    instr = INSTR_CREATE_amomax_w(dc, opnd_create_reg(DR_REG_A0),
-                                  opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A2),
-                                  opnd_create_immed_int(0b01, OPSZ_2b));
+    instr = INSTR_CREATE_amomax_w(
+        dc, opnd_create_reg(DR_REG_A0),
+        opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_4),
+        opnd_create_reg(DR_REG_A2), opnd_create_immed_int(0b01, OPSZ_2b));
     test_instr_encoding(dc, OP_amomax_w, instr);
-    instr = INSTR_CREATE_amomax_d(dc, opnd_create_reg(DR_REG_A0),
-                                  opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A2),
-                                  opnd_create_immed_int(0b01, OPSZ_2b));
+    instr = INSTR_CREATE_amomax_d(
+        dc, opnd_create_reg(DR_REG_A0),
+        opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_8),
+        opnd_create_reg(DR_REG_A2), opnd_create_immed_int(0b01, OPSZ_2b));
     test_instr_encoding(dc, OP_amomax_d, instr);
-    instr = INSTR_CREATE_amominu_w(dc, opnd_create_reg(DR_REG_A0),
-                                   opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A2),
-                                   opnd_create_immed_int(0b01, OPSZ_2b));
+    instr = INSTR_CREATE_amominu_w(
+        dc, opnd_create_reg(DR_REG_A0),
+        opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_4),
+        opnd_create_reg(DR_REG_A2), opnd_create_immed_int(0b01, OPSZ_2b));
     test_instr_encoding(dc, OP_amominu_w, instr);
-    instr = INSTR_CREATE_amominu_d(dc, opnd_create_reg(DR_REG_A0),
-                                   opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A2),
-                                   opnd_create_immed_int(0b01, OPSZ_2b));
+    instr = INSTR_CREATE_amominu_d(
+        dc, opnd_create_reg(DR_REG_A0),
+        opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_8),
+        opnd_create_reg(DR_REG_A2), opnd_create_immed_int(0b01, OPSZ_2b));
     test_instr_encoding(dc, OP_amominu_d, instr);
-    instr = INSTR_CREATE_amomaxu_w(dc, opnd_create_reg(DR_REG_A0),
-                                   opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A2),
-                                   opnd_create_immed_int(0b01, OPSZ_2b));
+    instr = INSTR_CREATE_amomaxu_w(
+        dc, opnd_create_reg(DR_REG_A0),
+        opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_4),
+        opnd_create_reg(DR_REG_A2), opnd_create_immed_int(0b01, OPSZ_2b));
     test_instr_encoding(dc, OP_amomaxu_w, instr);
-    instr = INSTR_CREATE_amomaxu_d(dc, opnd_create_reg(DR_REG_A0),
-                                   opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A2),
-                                   opnd_create_immed_int(0b01, OPSZ_2b));
+    instr = INSTR_CREATE_amomaxu_d(
+        dc, opnd_create_reg(DR_REG_A0),
+        opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_8),
+        opnd_create_reg(DR_REG_A2), opnd_create_immed_int(0b01, OPSZ_2b));
     test_instr_encoding(dc, OP_amomaxu_d, instr);
 }
 
