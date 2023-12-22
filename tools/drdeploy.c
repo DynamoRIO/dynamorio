@@ -69,6 +69,9 @@
 #include "dr_frontend.h"
 
 #ifdef LINUX
+/* XXX: It would be cleaner to have a header for this and have nudgesig.c be in its
+ * own static library instead of compiled separately for the core and drdeploy.
+ */
 extern bool
 create_nudge_signal_payload(siginfo_t *info DR_PARAM_OUT, uint action_mask,
                             client_id_t client_id, uint flags, uint64 client_arg);
@@ -1848,24 +1851,26 @@ done_with_options:
     } else if (action == action_unregister) {
         if (!unregister_proc(process, 0, global, dr_platform))
             die();
-    }
-#    ifndef WINDOWS
-#        ifdef LINUX
-    else if (detach_pid != 0) {
+    } else if (detach_pid != 0) {
+#    ifdef LINUX
         siginfo_t info;
-        uint action_mask = 0x04;
+        uint action_mask = NUDGE_FREE_ARG;
         client_id_t client_id = 0;
         uint64 client_arg = 0;
         bool success =
             create_nudge_signal_payload(&info, action_mask, 0, client_id, client_arg);
         assert(success); /* failure means kernel's sigqueueinfo has changed */
-
         /* send the nudge */
         i = syscall(SYS_rt_sigqueueinfo, detach_pid, NUDGESIG_SIGNUM, &info);
         if (i < 0)
             fprintf(stderr, "nudge FAILED with error %d\n", i);
+#    elif defined(WINDOWS)
+        dr_config_status_t res = detach(detach_pid, TRUE, detach_timeout);
+        if (res != DR_SUCCESS)
+            error("unable to detach: check pid and system ptrace permissions");
+#    endif
     }
-#        endif
+#    ifndef WINDOWS
     else {
         usage(false, "no action specified");
     }
@@ -1905,10 +1910,6 @@ done_with_options:
                 list_process(NULL, global, dr_platform, iter);
             dr_registered_process_iterator_stop(iter);
         }
-    } else if (detach_pid != 0) {
-        dr_config_status_t res = detach(detach_pid, TRUE, detach_timeout);
-        if (res != DR_SUCCESS)
-            error("unable to detach: check pid and system ptrace permissions");
     }
 #        endif
     else if (!syswide_on && !syswide_off) {
