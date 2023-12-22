@@ -1851,8 +1851,14 @@ done_with_options:
     } else if (action == action_unregister) {
         if (!unregister_proc(process, 0, global, dr_platform))
             die();
-    } else if (detach_pid != 0) {
-#    ifdef LINUX
+    }
+#    if defined(WINDOWS) || defined(LINUX)
+    else if (detach_pid != 0) {
+#        ifdef WINDOWS
+        dr_config_status_t res = detach(detach_pid, TRUE, detach_timeout);
+        if (res != DR_SUCCESS)
+            error("unable to detach: check pid and system ptrace permissions");
+#        else
         siginfo_t info;
         uint action_mask = NUDGE_FREE_ARG;
         client_id_t client_id = 0;
@@ -1864,12 +1870,9 @@ done_with_options:
         i = syscall(SYS_rt_sigqueueinfo, detach_pid, NUDGESIG_SIGNUM, &info);
         if (i < 0)
             fprintf(stderr, "nudge FAILED with error %d\n", i);
-#    elif defined(WINDOWS)
-        dr_config_status_t res = detach(detach_pid, TRUE, detach_timeout);
-        if (res != DR_SUCCESS)
-            error("unable to detach: check pid and system ptrace permissions");
-#    endif
+#        endif
     }
+#    endif
 #    ifndef WINDOWS
     else {
         usage(false, "no action specified");
