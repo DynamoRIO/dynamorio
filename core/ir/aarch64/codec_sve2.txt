@@ -158,6 +158,7 @@
 01000101xx0xxxxx011101xxxxxxxxxx  n   1104 SVE2    smullt   z_size_hsd_0 : z_sizep1_bhs_5 z_sizep1_bhs_16
 01000100111xxxxx1100x1xxxxxxxxxx  n   1104 SVE2    smullt          z_d_0 : z_s_5 z4_s_16 i2_index_11
 01000100101xxxxx1100x1xxxxxxxxxx  n   1104 SVE2    smullt          z_s_0 : z_msz_bhsd_5 z3_msz_bhsd_16 i3_index_11
+00000101xx101101100xxxxxxxxxxxxx  n   882  SVE2    splice  z_size_bhsd_0 : p10_lo z_size_bhsd_5 z_size_bhsd_5p1
 01000100xx001000101xxxxxxxxxxxxx  n   402  SVE2     sqabs  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_5
 01000101xx00000111011xxxxxxxxxxx  n   1168 SVE2    sqcadd  z_size_bhsd_0 : z_size_bhsd_0 z_size_bhsd_5 imm1_ew_10
 01000100xx0xxxxx011000xxxxxxxxxx  n   1105 SVE2  sqdmlalb   z_size_hsd_0 : z_size_hsd_0 z_sizep1_bhs_5 z_sizep1_bhs_16
@@ -244,6 +245,7 @@
 01000101xx1xxxxx011100xxxxxxxxxx  n   1119 SVE2    subhnb  z_sizep1_bhs_0 : z_size_hsd_5 z_size_hsd_16
 01000101xx1xxxxx011101xxxxxxxxxx  n   1120 SVE2    subhnt  z_sizep1_bhs_0 : z_sizep1_bhs_0 z_size_hsd_5 z_size_hsd_16
 01000100xx011100100xxxxxxxxxxxxx  n   474  SVE2    suqadd  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_0 z_size_bhsd_5
+00000101xx1xxxxx001010xxxxxxxxxx  n   490  SVE2       tbl  z_size_bhsd_0 : z_size_bhsd_5 z_size_bhsd_5p1 z_size_bhsd_16
 00000101xx1xxxxx001011xxxxxxxxxx  n   492  SVE2       tbx  z_size_bhsd_0 : z_size_bhsd_0 z_size_bhsd_5 z_size_bhsd_16
 01000101xx0xxxxx111111xxxxxxxxxx  n   496  SVE2      uaba  z_size_bhsd_0 : z_size_bhsd_0 z_size_bhsd_5 z_size_bhsd_16
 01000101xx0xxxxx110010xxxxxxxxxx  n   1121 SVE2    uabalb   z_size_hsd_0 : z_size_hsd_0 z_sizep1_bhs_5 z_sizep1_bhs_16
