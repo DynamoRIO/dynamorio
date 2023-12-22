@@ -3983,9 +3983,7 @@ thread_get_mcontext(thread_record_t *tr, priv_mcontext_t *mc)
 bool
 thread_get_nudged_mcontext(thread_record_t *tr, priv_mcontext_t *mc)
 {
-    /* PR 212090: only works when target is suspended by us, and
-     * we then take the signal context
-     */
+    /* This only works for a thread that just received a nduge signal. */
     os_thread_data_t *ostd = (os_thread_data_t *)tr->dcontext->os_field;
     ASSERT(ostd != NULL);
     ASSERT(ostd->nudged_sigcxt != NULL);

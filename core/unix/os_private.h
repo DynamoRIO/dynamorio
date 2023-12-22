@@ -166,7 +166,7 @@ typedef struct _os_thread_data_t {
     sig_full_cxt_t *suspended_sigcxt;
 
 #ifdef LINUX
-    /* For detachment on Linux*/
+    /* For detachment on Linux. */
     sig_full_cxt_t *nudged_sigcxt;
 #endif
 
