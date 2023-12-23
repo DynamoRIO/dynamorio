@@ -282,6 +282,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
     sched_inputs[0] = std::move(workload);
 
     typename sched_type_t::scheduler_options_t sched_ops;
+    int output_count = worker_count_;
     if (shard_type_ == SHARD_BY_CORE) {
         // Subclass must pass us options and set worker_count_ to # cores.
         if (worker_count_ <= 0) {
@@ -291,15 +292,23 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
         sched_ops = std::move(options);
         if (sched_ops.quantum_unit == sched_type_t::QUANTUM_TIME)
             sched_by_time_ = true;
+        if (!parallel_) {
+            // output_count remains the # of virtual cores, but we have just
+            // one worker thread.  The scheduler multiplexes the output_count output
+            // cores onto a single stream for us with this option:
+            sched_ops.single_lockstep_output = true;
+            worker_count_ = 1;
+        }
     } else if (parallel_) {
         sched_ops = sched_type_t::make_scheduler_parallel_options(verbosity_);
         if (worker_count_ <= 0)
             worker_count_ = std::thread::hardware_concurrency();
+        output_count = worker_count_;
     } else {
         sched_ops = sched_type_t::make_scheduler_serial_options(verbosity_);
         worker_count_ = 1;
+        output_count = 1;
     }
-    int output_count = worker_count_;
     if (scheduler_.init(sched_inputs, output_count, std::move(sched_ops)) !=
         sched_type_t::STATUS_SUCCESS) {
         ERRMSG("Failed to initialize scheduler: %s\n",
@@ -470,7 +479,12 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
         uint64_t cur_micros = sched_by_time_ ? get_current_microseconds() : 0;
         typename sched_type_t::stream_status_t status =
             worker.stream->next_record(record, cur_micros);
-        if (status != sched_type_t::STATUS_OK) {
+        if (status == sched_type_t::STATUS_WAIT) {
+            record = create_wait_marker();
+        } else if (status == sched_type_t::STATUS_IDLE) {
+            assert(shard_type_ == SHARD_BY_CORE);
+            record = create_idle_marker();
+        } else if (status != sched_type_t::STATUS_OK) {
             if (status != sched_type_t::STATUS_EOF) {
                 if (status == sched_type_t::STATUS_REGION_INVALID) {
                     worker.error =

@@ -436,6 +436,11 @@ typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::stream_t::next_record(RecordType &record,
                                                                 uint64_t cur_time)
 {
+    if (max_ordinal_ > 0) {
+        ++ordinal_;
+        if (ordinal_ >= max_ordinal_)
+            ordinal_ = 0;
+    }
     input_info_t *input = nullptr;
     sched_type_t::stream_status_t res =
         scheduler_->next_record(ordinal_, record, input, cur_time);
@@ -633,6 +638,10 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
         static_cast<int>(sched_type_t::SCHEDULER_SPECULATE_NOPS));
 
     outputs_.reserve(output_count);
+    if (options_.single_lockstep_output) {
+        global_stream_ = std::unique_ptr<sched_type_t::stream_t>(
+            new sched_type_t::stream_t(this, 0, verbosity_, output_count));
+    }
     for (int i = 0; i < output_count; ++i) {
         outputs_.emplace_back(this, i,
                               TESTANY(SCHEDULER_SPECULATE_NOPS, options_.flags)
@@ -640,6 +649,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
                                   // TODO i#5843: Add more flags for other options.
                                   : spec_type_t::LAST_FROM_TRACE,
                               create_invalid_record(), verbosity_);
+        if (options_.single_lockstep_output)
+            outputs_.back().stream = global_stream_.get();
         if (options_.schedule_record_ostream != nullptr) {
             sched_type_t::stream_status_t status = record_schedule_segment(
                 i, schedule_record_t::VERSION, schedule_record_t::VERSION_CURRENT, 0, 0);
@@ -1523,7 +1534,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::skip_instructions(output_ordinal_t out
         return sched_type_t::STATUS_REGION_INVALID;
     }
     input.in_cur_region = true;
-    auto &stream = outputs_[output].stream;
+    auto *stream = outputs_[output].stream;
 
     // We've documented that an output stream's ordinals ignore skips in its input
     // streams, so we do not need to remember the input's ordinals pre-skip and increase
@@ -1531,14 +1542,14 @@ scheduler_tmpl_t<RecordType, ReaderType>::skip_instructions(output_ordinal_t out
 
     // If we skipped from the start we may not have seen the initial headers:
     // use the input's cached copies.
-    if (stream.version_ == 0) {
-        stream.version_ = input.reader->get_version();
-        stream.last_timestamp_ = input.reader->get_last_timestamp();
-        stream.first_timestamp_ = input.reader->get_first_timestamp();
-        stream.filetype_ = input.reader->get_filetype();
-        stream.cache_line_size_ = input.reader->get_cache_line_size();
-        stream.chunk_instr_count_ = input.reader->get_chunk_instr_count();
-        stream.page_size_ = input.reader->get_page_size();
+    if (stream->version_ == 0) {
+        stream->version_ = input.reader->get_version();
+        stream->last_timestamp_ = input.reader->get_last_timestamp();
+        stream->first_timestamp_ = input.reader->get_first_timestamp();
+        stream->filetype_ = input.reader->get_filetype();
+        stream->cache_line_size_ = input.reader->get_cache_line_size();
+        stream->chunk_instr_count_ = input.reader->get_chunk_instr_count();
+        stream->page_size_ = input.reader->get_page_size();
     }
     // We let the user know we've skipped.  There's no discontinuity for the
     // first one so we do not insert a marker there (if we do want to insert one,
@@ -1837,7 +1848,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_cur_input(output_ordinal_t output,
     std::lock_guard<std::mutex> lock(*inputs_[input].lock);
 
     if (!switch_sequence_.empty() &&
-        outputs_[output].stream.get_instruction_ordinal() > 0) {
+        outputs_[output].stream->get_instruction_ordinal() > 0) {
         sched_type_t::switch_type_t switch_type = SWITCH_INVALID;
         if (prev_workload != inputs_[input].workload)
             switch_type = SWITCH_PROCESS;

@@ -459,13 +459,16 @@ cache_simulator_t::process_memref(const memref_t &memref)
     }
 
     int core;
-    if (memref.data.tid == last_thread_)
-        core = last_core_;
-    else {
+    if (shard_type_ == SHARD_BY_THREAD) {
+        if (memref.data.tid == last_thread_)
+            core = last_core_;
+        else {
+            core = core_for_thread(memref.data.tid);
+            last_thread_ = memref.data.tid;
+            last_core_ = core;
+        }
+    } else
         core = core_for_thread(memref.data.tid);
-        last_thread_ = memref.data.tid;
-        last_core_ = core;
-    }
 
     // To support swapping to physical addresses without modifying the passed-in
     // memref (which is also passed to other tools run at the same time) we use
@@ -593,7 +596,7 @@ cache_simulator_t::print_results()
     // Print core and associated L1 cache stats first.
     for (unsigned int i = 0; i < knobs_.num_cores; i++) {
         print_core(i);
-        if (thread_ever_counts_[i] > 0) {
+        if (shard_type_ == SHARD_BY_CORE || thread_ever_counts_[i] > 0) {
             if (l1_icaches_[i] != l1_dcaches_[i]) {
                 std::cerr << "  " << l1_icaches_[i]->get_name() << " ("
                           << l1_icaches_[i]->get_description() << ") stats:" << std::endl;
