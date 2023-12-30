@@ -1965,7 +1965,7 @@ send_all_other_threads_native(void)
     return;
 }
 
-void
+static void
 detach_set_mcontext_helper(thread_record_t *thread)
 {
     priv_mcontext_t mc;
@@ -2015,7 +2015,7 @@ detach_set_mcontext_helper(thread_record_t *thread)
     IF_WINDOWS(restore_peb_pointer_for_thread(thread->dcontext));
 }
 
-void
+static void
 detach_cleanup_helper(thread_record_t *thread _IF_WINDOWS(bool detach_stacked_callbacks))
 {
     DEBUG_DECLARE(int exit_res =)
