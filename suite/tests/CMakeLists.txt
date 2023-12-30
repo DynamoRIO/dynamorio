@@ -3006,7 +3006,7 @@ if (X86 OR AARCH64)
         "-early_inject" "")
       append_pure_asm_app_link_flags(allasm_repstr)
     endif ()
-  endif()
+  endif ()
 endif ()
 
 if (NOT RISCV64)
