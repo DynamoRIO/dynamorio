@@ -1411,6 +1411,9 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
         # is failing).
         set(exe_ops "${exe_ops};-v;-attach")
       endif ()
+      if ("${runall}" MATCHES "<detach>")
+        set(exe_ops "${exe_ops};-v;")
+      endif ()
       if ("${runall}" MATCHES "<block>")
         set(exe_ops "${exe_ops};-block")
       endif ()
@@ -2574,9 +2577,9 @@ endif (ANNOTATIONS AND NOT ARM)
 
 if (NOT ANDROID) # TODO i#38: Port test to Android.
   tobuild_ci(client.attach_test client-interface/attach_test.runall "" "" "")
-  if (WIN32)
+  if ((LINUX OR WIN32) AND NOT RISCV64)
     tobuild_ci(client.detach_test client-interface/detach_test.runall "" "" "")
-  endif (WIN32)
+  endif ()
   if (UNIX)
     # Test attaching during a blocking syscall.
     torunonly_ci(client.attach_blocking linux.infloop client.attach_test.dll
@@ -3003,7 +3006,7 @@ if (X86 OR AARCH64)
         "-early_inject" "")
       append_pure_asm_app_link_flags(allasm_repstr)
     endif ()
-  endif()
+  endif ()
 endif ()
 
 if (NOT RISCV64)
