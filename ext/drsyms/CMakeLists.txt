@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2023 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2024 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -204,6 +204,8 @@ elseif (UNIX)
       install_exported_target(${lib}_pic ${INSTALL_EXT_LIB})
       copy_target_to_device(${lib}_pic "${location_suffix}")
     endforeach ()
+    # libdw uses pthread_rwlock_* routines.
+    link_with_pthread(dw_pic)
 
     include_directories("${elfutils_dir}/libelf")
     include_directories("${elfutils_dir}/libdw")

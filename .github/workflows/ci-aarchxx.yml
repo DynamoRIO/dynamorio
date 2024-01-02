@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2020-2023 Google, Inc.  All rights reserved.
+# Copyright (c) 2020-2024 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -207,6 +207,15 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get -y install doxygen vera++ cmake
+        sudo add-apt-repository 'deb [arch=arm] http://ports.ubuntu.com/ubuntu-ports focal main'
+        apt download libunwind8:arm libunwind-dev:arm liblzma5:arm \
+          zlib1g:arm zlib1g-dev:arm libsnappy1v5:arm libsnappy-dev:arm \
+          liblz4-1:arm liblz4-dev:arm
+        mkdir ../extract
+        for i in *.deb; do dpkg-deb -x $i ../extract; done
+        for i in include lib; do sudo rsync -av ../extract/usr/${i}/arm-linux-gnueabi/ /usr/arm-linux-gnueabi/${i}/; done
+        sudo rsync -av ../extract/usr/include/ /usr/arm-linux-gnueabi/include/
+        sudo rsync -av ../extract/lib/arm-linux-gnueabi/ /usr/arm-linux-gnueabi/lib/
         cd /tmp
         wget https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.zip
         unzip -q android-ndk-r10e-linux-x86_64.zip
