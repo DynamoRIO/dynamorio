@@ -207,15 +207,15 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get -y install doxygen vera++ cmake
-        sudo add-apt-repository 'deb [arch=arm] http://ports.ubuntu.com/ubuntu-ports focal main'
-        apt download libunwind8:arm libunwind-dev:arm liblzma5:arm \
-          zlib1g:arm zlib1g-dev:arm libsnappy1v5:arm libsnappy-dev:arm \
-          liblz4-1:arm liblz4-dev:arm
+        sudo add-apt-repository 'deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports focal main'
+        apt download libunwind8:armhf libunwind-dev:armhf liblzma5:armhf \
+          zlib1g:armhf zlib1g-dev:armhf libsnappy1v5:armhf libsnappy-dev:armhf \
+          liblz4-1:armhf liblz4-dev:armhf
         mkdir ../extract
         for i in *.deb; do dpkg-deb -x $i ../extract; done
-        for i in include lib; do sudo rsync -av ../extract/usr/${i}/arm-linux-gnueabi/ /usr/arm-linux-gnueabi/${i}/; done
-        sudo rsync -av ../extract/usr/include/ /usr/arm-linux-gnueabi/include/
-        sudo rsync -av ../extract/lib/arm-linux-gnueabi/ /usr/arm-linux-gnueabi/lib/
+        for i in include lib; do sudo rsync -av ../extract/usr/${i}/arm-linux-gnueabihf/ /usr/arm-linux-gnueabihf/${i}/; done
+        sudo rsync -av ../extract/usr/include/ /usr/arm-linux-gnueabihf/include/
+        sudo rsync -av ../extract/lib/arm-linux-gnueabihf/ /usr/arm-linux-gnueabihf/lib/
         cd /tmp
         wget https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.zip
         unzip -q android-ndk-r10e-linux-x86_64.zip
