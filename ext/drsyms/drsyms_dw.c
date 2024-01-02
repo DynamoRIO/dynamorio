@@ -252,7 +252,7 @@ static search_result_t
 search_addr2line_in_cu(dwarf_module_t *mod, Dwarf_Addr pc, Dwarf_Die *cu_die,
                        drsym_info_t *sym_info DR_PARAM_OUT)
 {
-    Dwarf_Lines *lines;
+    Dwarf_Lines *lines = NULL;
     size_t num_lines;
     int i;
     Dwarf_Addr lineaddr, next_lineaddr = 0;
@@ -334,7 +334,7 @@ static int
 enumerate_lines_in_cu(dwarf_module_t *mod, Dwarf_Die *cu_die,
                       drsym_enumerate_lines_cb callback, void *data)
 {
-    Dwarf_Lines *lines;
+    Dwarf_Lines *lines = NULL;
     size_t num_lines;
     int i;
     drsym_line_info_t info;
