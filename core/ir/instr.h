@@ -518,8 +518,9 @@ instr_set_translation_mangling_epilogue(dcontext_t *dcontext, instrlist_t *ilist
 
 #ifdef AARCH64
 /* Sets the DR_PRED_GOVERNING flag on the instruction to indicate that
-this instruction is predicated and execution depends on the value of a
-predicate register  */
+ * this instruction is predicated and execution depends on the value of a
+ * predicate register
+ */
 void
 instr_set_has_register_predication(instr_t *instr);
 

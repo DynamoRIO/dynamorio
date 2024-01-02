@@ -2580,7 +2580,7 @@ opnd_is_predicate_reg(opnd_t opnd);
 
 DR_API
 INSTR_INLINE
-/** Returns true iff \p opnd is a n SVEmerging predicate register. */
+/** Returns true iff \p opnd is a n SVE merging predicate register. */
 bool
 opnd_is_predicate_merge(opnd_t opnd);
 

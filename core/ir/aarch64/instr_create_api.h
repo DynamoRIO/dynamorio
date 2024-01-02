@@ -8829,7 +8829,7 @@
    \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zd   The destination vector register. Can be Z.b, Z.h, Z.s or Z.d.
- * \param Pv   The first source predicate register, P (Predicate).
+ * \param Pv   The governing predicate register, P (Predicate).
  * \param Zn   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
  *
  * The Zn2 parameter is derived from Zn.
