@@ -105,9 +105,10 @@ dr_using_all_private_caches(void);
 
 DR_API
 /**
- * Returns false if DynamoRIO is being used as a regular standalone library.
+ * Returns false if DynamoRIO is being used as a "regular" standalone library
+ * (see dr_standalone_init() and \ref page_standalone).
  * Returns true if DynamoRIO is controlling the application by running
- * its code through a sofwtare code cache.
+ * its code through a software code cache.
  */
 bool
 dr_running_under_dynamorio(void);

@@ -580,7 +580,7 @@ lookup_dll_syms(void *dc, const module_data_t *dll_data, bool loaded)
     dll_base = dll_data->start;
 
 #ifdef UNIX
-    if (strstr(dll_path, "/libc-")) {
+    if (strstr(dll_path, "/libc-") != nullptr || strstr(dll_path, "/libc.") != nullptr) {
         lookup_glibc_syms(dc, dll_data);
         return;
     }
