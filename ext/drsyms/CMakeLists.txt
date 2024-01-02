@@ -135,7 +135,17 @@ elseif (UNIX)
       "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc-macho${ARCH}/lib${BITS}/libdwarf.a")
     set(elftc_libpath
       "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc-macho${ARCH}/lib${BITS}/libelftc.a")
-  else (APPLE)
+  elseif (ANDROID)
+    # TODO i#5926: Use elfutils for Android.  First we need to get zlib installed
+    # in our test environment.
+    set(srcs ${srcs} drsyms_elf.c)
+    set(dwarf_libpath
+      "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc${ARCH}/lib${BITS}/libdwarf.a")
+    set(elftc_libpath
+      "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc${ARCH}/lib${BITS}/libelftc.a")
+    set(elf_libpath
+      "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc${ARCH}/lib${BITS}/libelf.a")
+  else ()
     set(elftc_libpath
       "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc${ARCH}/lib${BITS}/libelftc.a")
 
@@ -219,7 +229,7 @@ elseif (UNIX)
     endif ()
     # Avoid stdbool.h from libdw.h defining _Bool after dr_defines.h uses char.
     add_definitions(-DDR__Bool_EXISTS)
-  endif (APPLE)
+  endif ()
   set(srcs_static ${srcs})
 endif (WIN32)
 
