@@ -32,7 +32,7 @@
 #define HAVE_CXX11 1
 
 /* Define if the GNU dcgettext() function is already present or preinstalled.
-   */
+ */
 #define HAVE_DCGETTEXT 1
 
 /* Define to 1 if you have the declaration of `mempcpy', and to 0 if you
