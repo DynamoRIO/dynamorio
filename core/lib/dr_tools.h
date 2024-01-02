@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2023, Inc.  All rights reserved.
+ * Copyright (c) 2010-2024, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -102,6 +102,15 @@ DR_API
 /** Returns true if all DynamoRIO caches are thread private. */
 bool
 dr_using_all_private_caches(void);
+
+DR_API
+/**
+ * Returns false if DynamoRIO is being used as a regular standalone library.
+ * Returns true if DynamoRIO is controlling the application by running
+ * its code through a sofwtare code cache.
+ */
+bool
+dr_running_under_dynamorio(void);
 
 DR_API
 /** \deprecated Replaced by dr_set_process_exit_behavior() */
