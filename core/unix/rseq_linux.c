@@ -582,7 +582,8 @@ rseq_process_module(module_area_t *ma, bool at_map, bool saw_glibc_rseq_reg)
     char *strtab;
     ssize_t load_offs = ma->start - ma->os_data.base_address;
     if (at_map &&
-        elf_hdr->e_shoff + elf_hdr->e_shnum * sizeof(*sec_hdr) + ma->start < ma->end) {
+        elf_hdr->e_shoff + elf_hdr->e_shnum * elf_hdr->e_shentsize + ma->start <
+            ma->end) {
         sec_map = elf_hdr->e_shoff + ma->start;
         sec_hdr = (ELF_SECTION_HEADER_TYPE *)sec_map;
         /* We assume strtab is there too. */
