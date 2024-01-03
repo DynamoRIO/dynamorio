@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2015-2017 Google, Inc.    All rights reserved.
+# Copyright (c) 2015-2024 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -45,6 +45,8 @@ if (UNIX) # The shipped drmemtrace on Windows has no zlib support.
     message(WARNING "zlib not found: linking will fail if drmemtrace has compressed "
       "file support built-in")
   endif()
+  # Similarly, we need lz4 if drmemtrace has it.
+  find_library(liblz4 lz4)
 endif ()
 
 find_package(DynamoRIO)
@@ -61,4 +63,7 @@ target_link_libraries(analyzer_separate drmemtrace_analyzer drmemtrace_histogram
   drfrontendlib)
 if (ZLIB_FOUND)
   target_link_libraries(analyzer_separate ${ZLIB_LIBRARIES})
+endif ()
+if (liblz4)
+  target_link_libraries(analyzer_separate lz4)
 endif ()
