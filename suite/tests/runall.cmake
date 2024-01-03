@@ -288,7 +288,7 @@ elseif ("${orig_nudge}" MATCHES "<attach>" OR "${orig_nudge}" MATCHES "<detach>"
     file(READ "${out}" output)
     math(EXPR iters "${iters}+1")
     if (${iters} GREATER ${MAX_ITERS})
-      message(FATAL_ERROR "Timed out waiting for thread init")      
+      message(FATAL_ERROR "Timed out waiting for thread init")
       kill_background_process(ON)
       #message(FATAL_ERROR "Timed out waiting for thread init")
     endif ()
