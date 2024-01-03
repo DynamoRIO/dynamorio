@@ -323,7 +323,7 @@ if ("${orig_nudge}" MATCHES "<detach>")
   endwhile()
 endif ()
 file(READ "${out}" output)
-message(FATAL_ERROR ${output})
+message("${output}")
 kill_background_process(OFF)
 
 if (NOT "${fail_msg}" STREQUAL "")
