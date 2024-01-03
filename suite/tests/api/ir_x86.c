@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2869,6 +2869,8 @@ main(int argc, char *argv[])
     void *dcontext = GLOBAL_DCONTEXT;
 #else
     void *dcontext = dr_standalone_init();
+
+    ASSERT(!dr_running_under_dynamorio());
 
     /* simple test of deadlock_avoidance, etc. being disabled in standalone */
     void *x = dr_mutex_create();
