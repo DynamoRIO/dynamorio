@@ -280,26 +280,26 @@ if ("${orig_nudge}" MATCHES "-client")
       #message(FATAL_ERROR "Timed out waiting for more output")
     endif ()
   endwhile()
-elseif ("${orig_nudge}" MATCHES "<attach>" OR "${orig_nudge}" MATCHES "<detach>")
-  # Wait until thread init.
-  set(iters 0)
-  while (NOT "${output}" MATCHES "thread init\n")
-    do_sleep(0.1)
-    file(READ "${out}" output)
-    math(EXPR iters "${iters}+1")
-    if (${iters} GREATER ${MAX_ITERS})
-      message(FATAL_ERROR "Timed out waiting for thread init")
-      kill_background_process(ON)
-      #message(FATAL_ERROR "Timed out waiting for thread init")
-    endif ()
-  endwhile()
+#elseif ("${orig_nudge}" MATCHES "<attach>" OR "${orig_nudge}" MATCHES "<detach>")
+#  # Wait until thread init.
+#  set(iters 0)
+#  while (NOT "${output}" MATCHES "thread init\n")
+#    do_sleep(0.1)
+#    file(READ "${out}" output)
+#    math(EXPR iters "${iters}+1")
+#    if (${iters} GREATER ${MAX_ITERS})
+#      message(FATAL_ERROR "Timed out waiting for thread init")
+#      kill_background_process(ON)
+#      #message(FATAL_ERROR "Timed out waiting for thread init")
+#    endif ()
+#  endwhile()
 else ()
   # for reset or other DR tests there won't be further output
   # so we have to guess how long to wait.
   # FIXME: should we instead turn on stderr_mask?
   do_sleep(0.5)
 endif ()
-
+do_sleep(5)
 if ("${orig_nudge}" MATCHES "<detach>")
   execute_process(COMMAND "${toolbindir}/${detach_cmd}" "-detach" ${pid}
     RESULT_VARIABLE detach_result
