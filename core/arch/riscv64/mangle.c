@@ -72,6 +72,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                           opnd_t push_pc, reg_id_t scratch)
 {
     uint dstack_offs = 0;
+    int dstack_middle_offs;
     int max_offs;
 
     if (cci == NULL)
@@ -121,6 +122,15 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     }
 
     dstack_offs += XSP_SZ;
+    /* XXX: c.sdsp/c.fsdsp has a zero-extended 9-bit offset, it not enough for our
+     * usage, we use dstack_middle_offs to mitigate this issue.
+     */
+    dstack_middle_offs = dstack_offs;
+    dstack_offs = 0;
+    PRE(ilist, instr,
+        INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_SP),
+                          opnd_create_reg(DR_REG_SP),
+                          opnd_create_immed_int(dstack_middle_offs, OPSZ_12b)));
 
     /* Push FPRs. */
     for (int i = 0; i < DR_NUM_FPR_REGS; i++) {
@@ -150,12 +160,18 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
      * shape. */
     dstack_offs += (proc_num_simd_registers() * sizeof(dr_simd_t));
 
+    /* Restore sp. */
+    PRE(ilist, instr,
+        INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_SP),
+                          opnd_create_reg(DR_REG_SP),
+                          opnd_create_immed_int(-dstack_middle_offs, OPSZ_12b)));
+
     /* Restore the registers we used. */
     PRE(ilist, instr,
         INSTR_CREATE_c_ldsp(dcontext, opnd_create_reg(DR_REG_A0),
                             OPND_CREATE_MEM64(DR_REG_SP, REG_OFFSET(DR_REG_A0))));
 
-    return dstack_offs;
+    return dstack_offs + dstack_middle_offs;
 }
 
 void
@@ -171,11 +187,20 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
     /* sp is the stack pointer, which should not be poped. */
     cci->reg_skip[DR_REG_SP - DR_REG_START_GPR] = true;
 
+    /* XXX: c.sdsp/c.fsdsp has a zero-extended 9-bit offset, it not enough for our usage.
+     */
+    ASSERT(current_offs >= DR_NUM_FPR_REGS * XSP_SZ);
+    PRE(ilist, instr,
+        INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_SP),
+                          opnd_create_reg(DR_REG_SP),
+                          opnd_create_immed_int(DR_NUM_FPR_REGS * XSP_SZ, OPSZ_12b)));
+
     current_offs -= XSP_SZ;
     /* Uses c.ldsp to save space, see -max_bb_instrs option, same below. */
     PRE(ilist, instr,
-        INSTR_CREATE_c_ldsp(dcontext, opnd_create_reg(DR_REG_A0),
-                            OPND_CREATE_MEM64(DR_REG_SP, current_offs)));
+        INSTR_CREATE_c_ldsp(
+            dcontext, opnd_create_reg(DR_REG_A0),
+            OPND_CREATE_MEM64(DR_REG_SP, current_offs - DR_NUM_FPR_REGS * XSP_SZ)));
     /* csrw a0, fcsr */
     PRE(ilist, instr,
         INSTR_CREATE_csrrw(dcontext, opnd_create_reg(DR_REG_X0),
@@ -188,10 +213,17 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
     for (int i = 0; i < DR_NUM_FPR_REGS; i++) {
         PRE(ilist, instr,
             INSTR_CREATE_c_fldsp(dcontext, opnd_create_reg(DR_REG_F0 + i),
-                                 opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
-                                                       current_offs + i * XSP_SZ,
-                                                       OPSZ_8)));
+                                 opnd_create_base_disp(
+                                     DR_REG_SP, DR_REG_NULL, 0,
+                                     current_offs - DR_NUM_FPR_REGS * XSP_SZ + i * XSP_SZ,
+                                     OPSZ_8)));
     }
+
+    /* Restore sp. */
+    PRE(ilist, instr,
+        INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_SP),
+                          opnd_create_reg(DR_REG_SP),
+                          opnd_create_immed_int(-DR_NUM_FPR_REGS * XSP_SZ, OPSZ_12b)));
 
     /* Skip pc field. */
     current_offs -= XSP_SZ;
