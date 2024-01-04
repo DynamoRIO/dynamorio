@@ -138,7 +138,7 @@ elseif (UNIX)
   elseif (ANDROID)
     # TODO i#5926: Use elfutils for Android.  First we need to get zlib installed
     # in our test environment.
-    set(srcs ${srcs} drsyms_elf.c)
+    set(srcs ${srcs} drsyms_dwarf.c drsyms_elf.c)
     set(dwarf_libpath
       "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc${ARCH}/lib${BITS}/libdwarf.a")
     set(elftc_libpath
