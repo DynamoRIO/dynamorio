@@ -872,6 +872,9 @@ class IslGenerator:
             elif rs3 == 0x3: # SC.W/D instructions
                 dbg(f'fixup: {inst.name} {[f.name for f in inst.flds]}')
                 inst.flds[2] = Field.V_S_RS1_DISP
+                # Swap the rd and mem operand positions so that mem becomes the 
+                # first operand to be consistent with AArch64.
+                inst.flds[2], inst.flds[3] = inst.flds[3], inst.flds[2]
                 dbg(f'    -> {" " * len(inst.name)} {[f.name for f in inst.flds]}')
             else: # AMO instructions
                 dbg(f'fixup: {inst.name} {[f.name for f in inst.flds]}')

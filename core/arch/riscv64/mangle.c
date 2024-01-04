@@ -96,11 +96,12 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         if (cci->reg_skip[i])
             continue;
 
+        /* Uses c.sdsp to save space, see -max_bb_instrs option, same below. */
         PRE(ilist, instr,
-            INSTR_CREATE_sd(dcontext,
-                            opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
-                                                  dstack_offs + i * XSP_SZ, OPSZ_8),
-                            opnd_create_reg(DR_REG_START_GPR + i)));
+            INSTR_CREATE_c_sdsp(dcontext,
+                                opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
+                                                      dstack_offs + i * XSP_SZ, OPSZ_8),
+                                opnd_create_reg(DR_REG_START_GPR + i)));
     }
 
     dstack_offs += DR_NUM_GPR_REGS * XSP_SZ;
@@ -109,14 +110,14 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         PRE(ilist, instr,
             XINST_CREATE_load_int(dcontext, opnd_create_reg(DR_REG_A0), push_pc));
         PRE(ilist, instr,
-            INSTR_CREATE_sd(dcontext, OPND_CREATE_MEM64(DR_REG_SP, dstack_offs),
-                            opnd_create_reg(DR_REG_A0)));
+            INSTR_CREATE_c_sdsp(dcontext, OPND_CREATE_MEM64(DR_REG_SP, dstack_offs),
+                                opnd_create_reg(DR_REG_A0)));
     } else {
         ASSERT(opnd_is_reg(push_pc));
         /* push_pc is still holding the PC value. */
         PRE(ilist, instr,
-            INSTR_CREATE_sd(dcontext, OPND_CREATE_MEM64(DR_REG_SP, dstack_offs),
-                            push_pc));
+            INSTR_CREATE_c_sdsp(dcontext, OPND_CREATE_MEM64(DR_REG_SP, dstack_offs),
+                                push_pc));
     }
 
     dstack_offs += XSP_SZ;
@@ -124,10 +125,10 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     /* Push FPRs. */
     for (int i = 0; i < DR_NUM_FPR_REGS; i++) {
         PRE(ilist, instr,
-            INSTR_CREATE_fsd(dcontext,
-                             opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
-                                                   dstack_offs + i * XSP_SZ, OPSZ_8),
-                             opnd_create_reg(DR_REG_F0 + i)));
+            INSTR_CREATE_c_fsdsp(dcontext,
+                                 opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
+                                                       dstack_offs + i * XSP_SZ, OPSZ_8),
+                                 opnd_create_reg(DR_REG_F0 + i)));
     }
 
     dstack_offs += DR_NUM_FPR_REGS * XSP_SZ;
@@ -140,8 +141,8 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                            opnd_create_immed_int(FCSR, OPSZ_12b)));
 
     PRE(ilist, instr,
-        INSTR_CREATE_sd(dcontext, OPND_CREATE_MEM64(DR_REG_SP, dstack_offs),
-                        opnd_create_reg(DR_REG_A0)));
+        INSTR_CREATE_c_sdsp(dcontext, OPND_CREATE_MEM64(DR_REG_SP, dstack_offs),
+                            opnd_create_reg(DR_REG_A0)));
 
     dstack_offs += XSP_SZ;
 
@@ -151,8 +152,8 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
 
     /* Restore the registers we used. */
     PRE(ilist, instr,
-        INSTR_CREATE_ld(dcontext, opnd_create_reg(DR_REG_A0),
-                        OPND_CREATE_MEM64(DR_REG_SP, REG_OFFSET(DR_REG_A0))));
+        INSTR_CREATE_c_ldsp(dcontext, opnd_create_reg(DR_REG_A0),
+                            OPND_CREATE_MEM64(DR_REG_SP, REG_OFFSET(DR_REG_A0))));
 
     return dstack_offs;
 }
@@ -171,9 +172,10 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
     cci->reg_skip[DR_REG_SP - DR_REG_START_GPR] = true;
 
     current_offs -= XSP_SZ;
+    /* Uses c.ldsp to save space, see -max_bb_instrs option, same below. */
     PRE(ilist, instr,
-        INSTR_CREATE_ld(dcontext, opnd_create_reg(DR_REG_A0),
-                        OPND_CREATE_MEM64(DR_REG_SP, current_offs)));
+        INSTR_CREATE_c_ldsp(dcontext, opnd_create_reg(DR_REG_A0),
+                            OPND_CREATE_MEM64(DR_REG_SP, current_offs)));
     /* csrw a0, fcsr */
     PRE(ilist, instr,
         INSTR_CREATE_csrrw(dcontext, opnd_create_reg(DR_REG_X0),
@@ -185,9 +187,10 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
     /* Pop FPRs. */
     for (int i = 0; i < DR_NUM_FPR_REGS; i++) {
         PRE(ilist, instr,
-            INSTR_CREATE_fld(dcontext, opnd_create_reg(DR_REG_F0 + i),
-                             opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
-                                                   current_offs + i * XSP_SZ, OPSZ_8)));
+            INSTR_CREATE_c_fldsp(dcontext, opnd_create_reg(DR_REG_F0 + i),
+                                 opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
+                                                       current_offs + i * XSP_SZ,
+                                                       OPSZ_8)));
     }
 
     /* Skip pc field. */
@@ -201,9 +204,10 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
             continue;
 
         PRE(ilist, instr,
-            INSTR_CREATE_ld(dcontext, opnd_create_reg(DR_REG_START_GPR + i),
-                            opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
-                                                  current_offs + i * XSP_SZ, OPSZ_8)));
+            INSTR_CREATE_c_ldsp(dcontext, opnd_create_reg(DR_REG_START_GPR + i),
+                                opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
+                                                      current_offs + i * XSP_SZ,
+                                                      OPSZ_8)));
     }
 }
 
@@ -791,7 +795,7 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 
     dst0 = instr_get_dst(instr, 0);
     dst1 = instr_get_dst(instr, 1);
-    ASSERT(opnd_is_base_disp(dst1));
+    ASSERT(opnd_is_base_disp(dst0));
     opsz = instr_get_opcode(instr) == OP_sc_d ? OPSZ_8 : OPSZ_4;
     scratch_reg1 = pick_scratch_reg(dcontext, instr, DR_REG_NULL, &slot1);
     scratch_reg2 = pick_scratch_reg(dcontext, instr, scratch_reg1, &slot2);
@@ -800,12 +804,12 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     PRE(ilist, instr, instr_create_save_to_tls(dcontext, scratch_reg1, slot1));
     PRE(ilist, instr, instr_create_save_to_tls(dcontext, scratch_reg2, slot2));
 
-    /* Restore address saved by exclusive load and check if it's equal to dst1. */
+    /* Restore address saved by exclusive load and check if it's equal to dst0. */
     PRE(ilist, instr,
         instr_create_restore_from_tls(dcontext, scratch_reg1, TLS_LRSC_ADDR_SLOT));
     PRE(ilist, instr,
         INSTR_CREATE_bne(dcontext, opnd_create_instr(fail), opnd_create_reg(scratch_reg1),
-                         opnd_create_reg(opnd_get_base(dst1))));
+                         opnd_create_reg(opnd_get_base(dst0))));
 
     /* Restore size saved by exclusive load and check if it's equal to current size. */
     PRE(ilist, instr,
@@ -826,7 +830,7 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      */
     opcode = instr_get_opcode(instr) == OP_sc_d ? OP_lr_d : OP_lr_w;
     PRE(ilist, instr,
-        instr_create_1dst_2src(dcontext, opcode, opnd_create_reg(scratch_reg2), dst1,
+        instr_create_1dst_2src(dcontext, opcode, opnd_create_reg(scratch_reg2), dst0,
                                opnd_create_immed_int(0b11, OPSZ_2b)));
     PRE(ilist, instr,
         INSTR_CREATE_bne(dcontext, opnd_create_instr(final),
@@ -835,7 +839,7 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     /* instr is here. */
 
     PRE(ilist, next_instr,
-        INSTR_CREATE_bne(dcontext, opnd_create_instr(loop), dst0,
+        INSTR_CREATE_bne(dcontext, opnd_create_instr(loop), dst1,
                          opnd_create_reg(DR_REG_ZERO)));
     /* End of the LR/SC sequence. */
 
@@ -844,7 +848,7 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     /* Write a non-zero value to dst on fail. */
     PRE(ilist, next_instr, fail);
     PRE(ilist, next_instr,
-        XINST_CREATE_load_int(dcontext, dst0, opnd_create_immed_int(1, OPSZ_12b)));
+        XINST_CREATE_load_int(dcontext, dst1, opnd_create_immed_int(1, OPSZ_12b)));
 
     PRE(ilist, next_instr, final);
 
@@ -880,7 +884,7 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
  * stores in between application instructions, it is in danger of breaking every monitor
  * in the application."
  *
- * On a Unmatched RISC-V SBC, without this mangling, any application linked with libc
+ * On an Unmatched RISC-V SBC, without this mangling, any application linked with libc
  * would hang on startup.
  *
  * So for the LR/SC sequence, a similar approach to AArch64's exclusive monitors is
