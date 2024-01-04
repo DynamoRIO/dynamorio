@@ -724,19 +724,18 @@ mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     src0 = instr_get_src(instr, 0);
     opcode = instr_get_opcode(instr) == OP_lr_d ? OP_ld : OP_lw;
     opsz = opcode == OP_ld ? OPSZ_8 : OPSZ_4;
-    ASSERT(opnd_is_reg(dst) && opnd_is_reg(src0));
+    ASSERT(opnd_is_reg(dst) && opnd_is_base_disp(src0));
     if (opnd_get_reg(dst) == dr_reg_stolen) {
         opnd_replace_reg(&dst, dr_reg_stolen, scratch_reg2);
     }
-    if (opnd_get_reg(src0) == dr_reg_stolen) {
+    if (opnd_get_base(src0) == dr_reg_stolen) {
         opnd_replace_reg(&src0, dr_reg_stolen, scratch_reg2);
     }
     instr_reset(dcontext, instr);
     instr_set_opcode(instr, opcode);
     instr_set_num_opnds(dcontext, instr, 1, 1);
     instr_set_dst(instr, 0, dst);
-    instr_set_src(instr, 0,
-                  opnd_create_base_disp(opnd_get_reg(src0), DR_REG_NULL, 0, 0, opsz));
+    instr_set_src(instr, 0, src0);
     instr_set_translation(instr, instrlist_get_translation_target(ilist));
 
     /* Keep the acquire semantics if needed. */
@@ -751,7 +750,7 @@ mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 
     /* Save address, value and size to TLS slot. */
     PRE(ilist, next_instr,
-        instr_create_save_to_tls(dcontext, opnd_get_reg(src0), TLS_LRSC_ADDR_SLOT));
+        instr_create_save_to_tls(dcontext, opnd_get_base(src0), TLS_LRSC_ADDR_SLOT));
     PRE(ilist, next_instr,
         instr_create_save_to_tls(dcontext, opnd_get_reg(dst), TLS_LRSC_VALUE_SLOT));
     PRE(ilist, next_instr,
@@ -779,19 +778,20 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     reg_id_t scratch_reg1, scratch_reg2;
     ushort slot1, slot2;
     int opcode;
-    opnd_t dst, src0;
+    opnd_t dst0, dst1;
     opnd_size_t opsz;
     instr_t *fail = INSTR_CREATE_label(dcontext), *final = INSTR_CREATE_label(dcontext),
             *loop = INSTR_CREATE_label(dcontext);
     ASSERT(instr_is_exclusive_store(instr));
-    ASSERT(instr_num_dsts(instr) == 1 && instr_num_srcs(instr) == 3);
+    ASSERT(instr_num_dsts(instr) == 2 && instr_num_srcs(instr) == 2);
 
     /* TODO i#3544: Not implemented.  */
     ASSERT_NOT_IMPLEMENTED(!instr_uses_reg(instr, dr_reg_stolen));
     ASSERT_NOT_IMPLEMENTED(!instr_uses_reg(instr, DR_REG_TP));
 
-    dst = instr_get_dst(instr, 0);
-    src0 = instr_get_src(instr, 0);
+    dst0 = instr_get_dst(instr, 0);
+    dst1 = instr_get_dst(instr, 1);
+    ASSERT(opnd_is_base_disp(dst1));
     opsz = instr_get_opcode(instr) == OP_sc_d ? OPSZ_8 : OPSZ_4;
     scratch_reg1 = pick_scratch_reg(dcontext, instr, DR_REG_NULL, &slot1);
     scratch_reg2 = pick_scratch_reg(dcontext, instr, scratch_reg1, &slot2);
@@ -800,12 +800,12 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     PRE(ilist, instr, instr_create_save_to_tls(dcontext, scratch_reg1, slot1));
     PRE(ilist, instr, instr_create_save_to_tls(dcontext, scratch_reg2, slot2));
 
-    /* Restore address saved by exclusive load and check if it's equal to src0. */
+    /* Restore address saved by exclusive load and check if it's equal to dst1. */
     PRE(ilist, instr,
         instr_create_restore_from_tls(dcontext, scratch_reg1, TLS_LRSC_ADDR_SLOT));
     PRE(ilist, instr,
         INSTR_CREATE_bne(dcontext, opnd_create_instr(fail), opnd_create_reg(scratch_reg1),
-                         src0));
+                         opnd_create_reg(opnd_get_base(dst1))));
 
     /* Restore size saved by exclusive load and check if it's equal to current size. */
     PRE(ilist, instr,
@@ -826,7 +826,7 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      */
     opcode = instr_get_opcode(instr) == OP_sc_d ? OP_lr_d : OP_lr_w;
     PRE(ilist, instr,
-        instr_create_1dst_2src(dcontext, opcode, opnd_create_reg(scratch_reg2), src0,
+        instr_create_1dst_2src(dcontext, opcode, opnd_create_reg(scratch_reg2), dst1,
                                opnd_create_immed_int(0b11, OPSZ_2b)));
     PRE(ilist, instr,
         INSTR_CREATE_bne(dcontext, opnd_create_instr(final),
@@ -835,7 +835,7 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     /* instr is here. */
 
     PRE(ilist, next_instr,
-        INSTR_CREATE_bne(dcontext, opnd_create_instr(loop), dst,
+        INSTR_CREATE_bne(dcontext, opnd_create_instr(loop), dst0,
                          opnd_create_reg(DR_REG_ZERO)));
     /* End of the LR/SC sequence. */
 
@@ -844,7 +844,7 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     /* Write a non-zero value to dst on fail. */
     PRE(ilist, next_instr, fail);
     PRE(ilist, next_instr,
-        XINST_CREATE_load_int(dcontext, dst, opnd_create_immed_int(1, OPSZ_12b)));
+        XINST_CREATE_load_int(dcontext, dst0, opnd_create_immed_int(1, OPSZ_12b)));
 
     PRE(ilist, next_instr, final);
 

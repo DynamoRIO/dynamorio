@@ -123,6 +123,7 @@ start with i, which means implicit.
 - iimm_0
 - icrs1
 - icrs1__
+- i_s_rs1_disp
 
 This maps into `riscv64_fld_t` enum in `codec.h` and `Field` enum in `codec.py`
 generator.
