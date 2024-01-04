@@ -255,6 +255,7 @@ typedef enum {
     RISCV64_FLD_IIMM_0,
     RISCV64_FLD_ICRS1,
     RISCV64_FLD_ICRS1__,
+    RISCV64_FLD_I_S_RS1_DISP,
     RISCV64_FLD_CNT, /* Keep this last */
 } riscv64_fld_t;
 

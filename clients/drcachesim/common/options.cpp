@@ -289,8 +289,9 @@ droption_t<bool> op_cpu_scheduling(
     "round-robin fashion.  This option causes the scheduler to instead use the recorded "
     "cpu that each thread executed on (at a granularity of the trace buffer size) "
     "for scheduling, mapping traced cpu's to cores and running each segment of each "
-    "thread "
-    "on the core that owns the recorded cpu for that segment.");
+    "thread on the core that owns the recorded cpu for that segment. "
+    "This option is not supported with -core_serial; use "
+    "-cpu_schedule_file with -core_serial instead.");
 
 droption_t<bytesize_t> op_max_trace_size(
     DROPTION_SCOPE_CLIENT, "max_trace_size", 0,
@@ -857,11 +858,27 @@ droption_t<uint64_t> op_sched_blocking_switch_us(
     "maybe-blocking to incur a context switch. Applies to -core_sharded and "
     "-core_serial. ");
 
-droption_t<double>
-    op_sched_block_scale(DROPTION_SCOPE_ALL, "sched_block_scale", 1.,
-                         "Input block time scale factor",
-                         "A higher value here results in blocking syscalls "
-                         "keeping inputs unscheduled for longer.");
+droption_t<double> op_sched_block_scale(
+    DROPTION_SCOPE_ALL, "sched_block_scale", 1000., "Input block time scale factor",
+    "The scale applied to the microsecond latency of blocking system calls.  A higher "
+    "value here results in blocking syscalls keeping inputs unscheduled for longer.  "
+    "This should roughly equal the slowdown of instruction record processing versus the "
+    "original (untraced) application execution.");
+
+// We have a max to avoid outlier latencies that are already a second or more from
+// scaling up to tens of minutes.  We assume a cap is representative as the outliers
+// likely were not part of key dependence chains.  Without a cap the other threads all
+// finish and the simulation waits for tens of minutes further for a couple of outliers.
+// The cap remains a flag and not a constant as different length traces and different
+// speed simulators need different idle time ranges, so we need to be able to tune this
+// to achieve desired cpu usage targets.  The default value was selected while tuning
+// a 1-minute-long schedule_stats run on a 112-core 500-thread large application
+// to produce good cpu usage without unduly increasing tool runtime.
+droption_t<uint64_t> op_sched_block_max_us(DROPTION_SCOPE_ALL, "sched_block_max_us",
+                                           25000000,
+                                           "Maximum blocked input time, in microseconds",
+                                           "The maximum blocked time, after scaling with "
+                                           "-sched_block_scale.");
 #ifdef HAS_ZIP
 droption_t<std::string> op_record_file(DROPTION_SCOPE_FRONTEND, "record_file", "",
                                        "Path for storing record of schedule",
@@ -878,12 +895,26 @@ droption_t<std::string>
                          "Applies to -core_sharded and -core_serial. "
                          "Path with stored as-traced schedule for replay.");
 #endif
+droption_t<std::string> op_sched_switch_file(
+    DROPTION_SCOPE_FRONTEND, "sched_switch_file", "",
+    "Path to file holding context switch sequences",
+    "Applies to -core_sharded and -core_serial.  Path to file holding context switch "
+    "sequences.  The file can contain multiple sequences each with regular trace headers "
+    "and the sequence proper bracketed by TRACE_MARKER_TYPE_CONTEXT_SWITCH_START and "
+    "TRACE_MARKER_TYPE_CONTEXT_SWITCH_END markers.");
 
 // Schedule_stats options.
 droption_t<uint64_t>
-    op_schedule_stats_print_every(DROPTION_SCOPE_ALL, "schedule_stats_print_every", 5000,
-                                  "A letter is printed every N instrs",
+    op_schedule_stats_print_every(DROPTION_SCOPE_ALL, "schedule_stats_print_every",
+                                  500000, "A letter is printed every N instrs",
                                   "A letter is printed every N instrs or N waits");
+
+droption_t<std::string> op_syscall_template_file(
+    DROPTION_SCOPE_FRONTEND, "syscall_template_file", "",
+    "Path to the file that contains system call trace templates.",
+    "Path to the file that contains system call trace templates. "
+    "If set, system call traces will be injected from the file "
+    "into the resulting trace.");
 
 } // namespace drmemtrace
 } // namespace dynamorio

@@ -84,11 +84,21 @@ private:
 };
 
 static inline trace_entry_t
-make_instr(addr_t pc, trace_type_t type = TRACE_TYPE_INSTR)
+make_memref(addr_t addr, trace_type_t type = TRACE_TYPE_READ, unsigned short size = 1)
 {
     trace_entry_t entry;
     entry.type = static_cast<unsigned short>(type);
-    entry.size = 1;
+    entry.size = size;
+    entry.addr = addr;
+    return entry;
+}
+
+static inline trace_entry_t
+make_instr(addr_t pc, trace_type_t type = TRACE_TYPE_INSTR, unsigned short size = 1)
+{
+    trace_entry_t entry;
+    entry.type = static_cast<unsigned short>(type);
+    entry.size = size;
     entry.addr = pc;
     return entry;
 }
@@ -99,6 +109,15 @@ make_exit(memref_tid_t tid)
     trace_entry_t entry;
     entry.type = TRACE_TYPE_THREAD_EXIT;
     entry.addr = static_cast<addr_t>(tid);
+    return entry;
+}
+
+static inline trace_entry_t
+make_header(int version)
+{
+    trace_entry_t entry;
+    entry.type = TRACE_TYPE_HEADER;
+    entry.addr = version;
     return entry;
 }
 

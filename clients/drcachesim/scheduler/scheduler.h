@@ -241,7 +241,7 @@ public:
          * A unique identifier to distinguish from other readers for this workload.
          * Typically this will be the thread id but it does not need to be, so long
          * as it is not 0 (DynamoRIO's INVALID_THREAD_ID sentinel).
-         * This is used to in the 'thread_modifiers' field of 'input_workload_t'
+         * This allows the 'thread_modifiers' field of 'input_workload_t'
          * to refer to this input.
          */
         memref_tid_t tid = INVALID_THREAD_ID;
@@ -449,6 +449,23 @@ public:
     };
 
     /**
+     * Types of context switches for
+     * #dynamorio::drmemtrace::scheduler_tmpl_t::scheduler_options_t::
+     * kernel_switch_trace_path and kernel_switch_reader.
+     * The enum value is the subfile component name in the archive_istream_t.
+     */
+    enum switch_type_t {
+        /** Invalid value. */
+        SWITCH_INVALID = 0,
+        /** Generic thread context switch. */
+        SWITCH_THREAD,
+        /**
+         * Generic process context switch.  A workload is considered a process.
+         */
+        SWITCH_PROCESS,
+    };
+
+    /**
      * Collects the parameters specifying how the scheduler should behave, outside
      * of the workload inputs and the output count.
      */
@@ -524,16 +541,64 @@ public:
         uint64_t blocking_switch_threshold = 100;
         /**
          * Controls the amount of time inputs are considered blocked at a syscall whose
-         * latency exceeds #syscall_switch_threshold or #blocking_switch_threshold.  A
-         * "block time factor" is computed from the syscall latency divided by either
-         * #syscall_switch_threshold or #blocking_switch_threshold.  This factor is
-         * multiplied by this field #block_time_scale to produce a final value.  For
-         * #QUANTUM_TIME, that final value's amount of time, as reported by the time
-         * parameter to next_record(), must pass before the input is no longer considered
-         * blocked.  For instruction quanta, that final value's count of scheduler
-         * selections must occur before the input is actually selected.
+         * latency exceeds #syscall_switch_threshold or #blocking_switch_threshold.  The
+         * syscall latency (in microseconds) is multiplied by this field to produce the
+         * blocked time.  For #QUANTUM_TIME, that blocked time in the units reported by
+         * the time parameter to next_record() must pass before the input is no longer
+         * considered blocked.  Since the system call latencies are in microseconds, this
+         * #block_time_scale should be set to the number of next_record() time units in
+         * one simulated microsecond.  For #QUANTUM_INSTRUCTIONS, the blocked time in
+         * wall-clock microseconds must pass before the input is actually selected
+         * (wall-clock time is used as there is no reasonable alternative with no other
+         * uniform notion of time); thus, the #block_time_scale value here should equal
+         * the slowdown of the instruction record processing versus the original
+         * (untraced) application execution.  The blocked time is clamped to a maximum
+         * value controlled by #block_time_max.
          */
-        double block_time_scale = 1.;
+        double block_time_scale = 1000.;
+        /**
+         * The maximum time, in microseconds, for an input to be considered blocked
+         * for any one system call.  This is applied after multiplying by
+         * #block_time_scale.
+         */
+        uint64_t block_time_max = 25000000;
+        // XXX: Should we share the file-to-reader code currently in the scheduler
+        // with the analyzer and only then need reader interfaces and not pass paths
+        // to the scheduler?
+        /**
+         * Input file containing template sequences of kernel context switch code.
+         * Each sequence must start with a #TRACE_MARKER_TYPE_CONTEXT_SWITCH_START
+         * marker and end with #TRACE_MARKER_TYPE_CONTEXT_SWITCH_END.
+         * The values of each marker must hold a #switch_type_t enum value
+         * indicating which type of switch it corresponds to.
+         * Each sequence can be stored as a separate subfile of an archive file,
+         * or concatenated into a single file.
+         * Each sequence should be in the regular offline drmemtrace format.
+         * The sequence is inserted into the output stream on each context switch
+         * of the indicated type.
+         * The same file (or reader) must be passed when replaying as this kernel
+         * code is not stored when recording.
+         * An alternative to passing the file path is to pass #kernel_switch_reader
+         * and #kernel_switch_reader_end.
+         */
+        std::string kernel_switch_trace_path;
+        /**
+         * An alternative to #kernel_switch_trace_path is to pass a reader and
+         * #kernel_switch_reader_end.  See the description of #kernel_switch_trace_path.
+         * This field is only examined if #kernel_switch_trace_path is empty.
+         * The scheduler will call the init() function for the reader.
+         */
+        std::unique_ptr<ReaderType> kernel_switch_reader;
+        /** The end reader for #kernel_switch_reader. */
+        std::unique_ptr<ReaderType> kernel_switch_reader_end;
+        /**
+         * If true, enables a mode where all outputs are serialized into one global outer
+         * layer output.  The single global output stream alternates in round-robin
+         * lockstep among each core output.  The core outputs operate just like they
+         * would with no serialization, other than timing differences relative to other
+         * core outputs.
+         */
+        bool single_lockstep_output = false;
     };
 
     /**
@@ -571,9 +636,10 @@ public:
     class stream_t : public memtrace_stream_t {
     public:
         stream_t(scheduler_tmpl_t<RecordType, ReaderType> *scheduler, int ordinal,
-                 int verbosity = 0)
+                 int verbosity = 0, int max_ordinal = -1)
             : scheduler_(scheduler)
             , ordinal_(ordinal)
+            , max_ordinal_(max_ordinal)
             , verbosity_(verbosity)
         {
         }
@@ -863,9 +929,22 @@ public:
             return scheduler_->get_input_stream_interface(get_input_stream_ordinal());
         }
 
+        /**
+         * Returns whether the current record is from a part of the trace corresponding
+         * to kernel execution.
+         */
+        bool
+        is_record_kernel() const override
+        {
+            return scheduler_->is_record_kernel(ordinal_);
+        }
+
     protected:
         scheduler_tmpl_t<RecordType, ReaderType> *scheduler_ = nullptr;
         int ordinal_ = -1;
+        // If max_ordinal_ >= 0, ordinal_ is incremented modulo max_ordinal_ at the start
+        // of every next_record() invocation.
+        int max_ordinal_ = -1;
         int verbosity_ = 0;
         uint64_t cur_ref_count_ = 0;
         uint64_t cur_instr_count_ = 0;
@@ -904,7 +983,7 @@ public:
     {
         if (ordinal < 0 || ordinal >= static_cast<output_ordinal_t>(outputs_.size()))
             return nullptr;
-        return &outputs_[ordinal].stream;
+        return outputs_[ordinal].stream;
     }
 
     /** Returns the number of input streams. */
@@ -1015,10 +1094,12 @@ protected:
         // Used to switch before we've read the next instruction.
         bool switching_pre_instruction = false;
         // Used for time-based quanta.
-        uint64_t start_time_in_quantum = 0;
+        uint64_t prev_time_in_quantum = 0;
+        uint64_t time_spent_in_quantum = 0;
         // These fields model waiting at a blocking syscall.
-        double block_time_factor = 0.;
-        uint64_t blocked_start_time = 0; // For QUANTUM_TIME only.
+        // The units are us for instr quanta and simuilation time for time quanta.
+        uint64_t blocked_time = 0;
+        uint64_t blocked_start_time = 0;
     };
 
     // Format for recording a schedule to disk.  A separate sequence of these records
@@ -1091,15 +1172,21 @@ protected:
                       output_ordinal_t ordinal,
                       typename spec_type_t::speculator_flags_t speculator_flags,
                       RecordType last_record_init, int verbosity = 0)
-            : stream(scheduler, ordinal, verbosity)
+            : self_stream(scheduler, ordinal, verbosity)
+            , stream(&self_stream)
             , speculator(speculator_flags, verbosity)
             , last_record(last_record_init)
         {
         }
-        stream_t stream;
+        stream_t self_stream;
+        // Normally stream points to &self_stream, but for single_lockstep_output
+        // it points to a global stream shared among all outputs.
+        stream_t *stream;
         // This is an index into the inputs_ vector so -1 is an invalid value.
         // This is set to >=0 for all non-empty outputs during init().
         input_ordinal_t cur_input = INVALID_INPUT_ORDINAL;
+        // Holds the prior non-invalid input.
+        input_ordinal_t prev_input = INVALID_INPUT_ORDINAL;
         // For static schedules we can populate this up front and avoid needing a
         // lock for dynamically finding the next input, keeping things parallel.
         std::vector<input_ordinal_t> input_indices;
@@ -1120,6 +1207,9 @@ protected:
         int record_index = 0;
         bool waiting = false; // Waiting or idling.
         bool active = true;
+        bool in_kernel_code = false;
+        bool in_context_switch_code = false;
+        bool hit_switch_code_end = false;
         // Used for time-based quanta.
         uint64_t cur_time = 0;
         // Used for MAP_TO_RECORDED_OUTPUT get_output_cpuid().
@@ -1200,6 +1290,9 @@ protected:
     scheduler_status_t
     read_recorded_schedule();
 
+    scheduler_status_t
+    read_switch_sequences();
+
     uint64_t
     get_time_micros();
 
@@ -1231,7 +1324,7 @@ protected:
     // Finds the next input stream for the 'output_ordinal'-th output stream.
     // No input_info_t lock can be held on entry.
     stream_status_t
-    pick_next_input(output_ordinal_t output, double block_time_factor);
+    pick_next_input(output_ordinal_t output, uint64_t blocked_time);
 
     // Helper for pick_next_input() for MAP_AS_PREVIOUSLY.
     // No input_info_t lock can be held on entry.
@@ -1242,6 +1335,10 @@ protected:
     // If the given record has a thread id field, returns true and the value.
     bool
     record_type_has_tid(RecordType record, memref_tid_t &tid);
+
+    // For trace_entry_t, only sets the tid for record types that have it.
+    void
+    record_type_set_tid(RecordType &record, memref_tid_t tid);
 
     // Returns whether the given record is an instruction.
     bool
@@ -1318,6 +1415,11 @@ protected:
     stream_status_t
     eof_or_idle(output_ordinal_t output);
 
+    // Returns whether the current record for the current input stream scheduled on
+    // the 'output_ordinal'-th output stream is from a part of the trace corresponding
+    // to kernel execution.
+    bool
+    is_record_kernel(output_ordinal_t output);
     ///////////////////////////////////////////////////////////////////////////
     // Support for ready queues for who to schedule next:
 
@@ -1353,7 +1455,7 @@ protected:
     // The input's lock must be held by the caller.
     // Returns a multiplier for how long the input should be considered blocked.
     bool
-    syscall_incurs_switch(input_info_t *input, double &block_time_factor);
+    syscall_incurs_switch(input_info_t *input, uint64_t &blocked_time);
 
     // sched_lock_ must be held by the caller.
     // "for_output" is which output stream is looking for a new input; only an
@@ -1384,6 +1486,8 @@ protected:
     // timestamp in each workload in order to mix inputs from different workloads in the
     // same queue.  FIFO ordering is used for same-priority entries.
     flexible_queue_t<input_info_t *, InputTimestampComparator> ready_priority_;
+    // Trackes the count of blocked inputs.  Protected by sched_lock_.
+    int num_blocked_ = 0;
     // Global ready queue counter used to provide FIFO for same-priority inputs.
     uint64_t ready_counter_ = 0;
     // Count of inputs not yet at eof.
@@ -1413,6 +1517,17 @@ protected:
         }
     };
     std::unordered_map<workload_tid_t, input_ordinal_t, workload_tid_hash_t> tid2input_;
+    struct switch_type_hash_t {
+        std::size_t
+        operator()(const switch_type_t &st) const
+        {
+            return std::hash<int>()(static_cast<int>(st));
+        }
+    };
+    std::unordered_map<switch_type_t, std::vector<RecordType>, switch_type_hash_t>
+        switch_sequence_;
+    // For single_lockstep_output.
+    std::unique_ptr<stream_t> global_stream_;
 };
 
 /** See #dynamorio::drmemtrace::scheduler_tmpl_t. */

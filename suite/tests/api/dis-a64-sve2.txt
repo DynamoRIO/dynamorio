@@ -1850,6 +1850,126 @@ c51edfff : ldnt1w z31.d, p7/Z, [z31.d, x30]          : ldnt1w (%z31.d,%x30)[16by
 457e9fad : match p13.h, p7/Z, z29.h, z30.h           : match  %p7/z %z29.h %z30.h -> %p13.h
 457f9fef : match p15.h, p7/Z, z31.h, z31.h           : match  %p7/z %z31.h %z31.h -> %p15.h
 
+# MUL     <Zd>.<T>, <Zn>.<T>, <Zm>.<T> (MUL-Z.ZZ-_)
+04206000 : mul z0.b, z0.b, z0.b                      : mul    %z0.b %z0.b -> %z0.b
+04246062 : mul z2.b, z3.b, z4.b                      : mul    %z3.b %z4.b -> %z2.b
+042660a4 : mul z4.b, z5.b, z6.b                      : mul    %z5.b %z6.b -> %z4.b
+042860e6 : mul z6.b, z7.b, z8.b                      : mul    %z7.b %z8.b -> %z6.b
+042a6128 : mul z8.b, z9.b, z10.b                     : mul    %z9.b %z10.b -> %z8.b
+042c616a : mul z10.b, z11.b, z12.b                   : mul    %z11.b %z12.b -> %z10.b
+042e61ac : mul z12.b, z13.b, z14.b                   : mul    %z13.b %z14.b -> %z12.b
+043061ee : mul z14.b, z15.b, z16.b                   : mul    %z15.b %z16.b -> %z14.b
+04326230 : mul z16.b, z17.b, z18.b                   : mul    %z17.b %z18.b -> %z16.b
+04336251 : mul z17.b, z18.b, z19.b                   : mul    %z18.b %z19.b -> %z17.b
+04356293 : mul z19.b, z20.b, z21.b                   : mul    %z20.b %z21.b -> %z19.b
+043762d5 : mul z21.b, z22.b, z23.b                   : mul    %z22.b %z23.b -> %z21.b
+04396317 : mul z23.b, z24.b, z25.b                   : mul    %z24.b %z25.b -> %z23.b
+043b6359 : mul z25.b, z26.b, z27.b                   : mul    %z26.b %z27.b -> %z25.b
+043d639b : mul z27.b, z28.b, z29.b                   : mul    %z28.b %z29.b -> %z27.b
+043f63ff : mul z31.b, z31.b, z31.b                   : mul    %z31.b %z31.b -> %z31.b
+04606000 : mul z0.h, z0.h, z0.h                      : mul    %z0.h %z0.h -> %z0.h
+04646062 : mul z2.h, z3.h, z4.h                      : mul    %z3.h %z4.h -> %z2.h
+046660a4 : mul z4.h, z5.h, z6.h                      : mul    %z5.h %z6.h -> %z4.h
+046860e6 : mul z6.h, z7.h, z8.h                      : mul    %z7.h %z8.h -> %z6.h
+046a6128 : mul z8.h, z9.h, z10.h                     : mul    %z9.h %z10.h -> %z8.h
+046c616a : mul z10.h, z11.h, z12.h                   : mul    %z11.h %z12.h -> %z10.h
+046e61ac : mul z12.h, z13.h, z14.h                   : mul    %z13.h %z14.h -> %z12.h
+047061ee : mul z14.h, z15.h, z16.h                   : mul    %z15.h %z16.h -> %z14.h
+04726230 : mul z16.h, z17.h, z18.h                   : mul    %z17.h %z18.h -> %z16.h
+04736251 : mul z17.h, z18.h, z19.h                   : mul    %z18.h %z19.h -> %z17.h
+04756293 : mul z19.h, z20.h, z21.h                   : mul    %z20.h %z21.h -> %z19.h
+047762d5 : mul z21.h, z22.h, z23.h                   : mul    %z22.h %z23.h -> %z21.h
+04796317 : mul z23.h, z24.h, z25.h                   : mul    %z24.h %z25.h -> %z23.h
+047b6359 : mul z25.h, z26.h, z27.h                   : mul    %z26.h %z27.h -> %z25.h
+047d639b : mul z27.h, z28.h, z29.h                   : mul    %z28.h %z29.h -> %z27.h
+047f63ff : mul z31.h, z31.h, z31.h                   : mul    %z31.h %z31.h -> %z31.h
+04a06000 : mul z0.s, z0.s, z0.s                      : mul    %z0.s %z0.s -> %z0.s
+04a46062 : mul z2.s, z3.s, z4.s                      : mul    %z3.s %z4.s -> %z2.s
+04a660a4 : mul z4.s, z5.s, z6.s                      : mul    %z5.s %z6.s -> %z4.s
+04a860e6 : mul z6.s, z7.s, z8.s                      : mul    %z7.s %z8.s -> %z6.s
+04aa6128 : mul z8.s, z9.s, z10.s                     : mul    %z9.s %z10.s -> %z8.s
+04ac616a : mul z10.s, z11.s, z12.s                   : mul    %z11.s %z12.s -> %z10.s
+04ae61ac : mul z12.s, z13.s, z14.s                   : mul    %z13.s %z14.s -> %z12.s
+04b061ee : mul z14.s, z15.s, z16.s                   : mul    %z15.s %z16.s -> %z14.s
+04b26230 : mul z16.s, z17.s, z18.s                   : mul    %z17.s %z18.s -> %z16.s
+04b36251 : mul z17.s, z18.s, z19.s                   : mul    %z18.s %z19.s -> %z17.s
+04b56293 : mul z19.s, z20.s, z21.s                   : mul    %z20.s %z21.s -> %z19.s
+04b762d5 : mul z21.s, z22.s, z23.s                   : mul    %z22.s %z23.s -> %z21.s
+04b96317 : mul z23.s, z24.s, z25.s                   : mul    %z24.s %z25.s -> %z23.s
+04bb6359 : mul z25.s, z26.s, z27.s                   : mul    %z26.s %z27.s -> %z25.s
+04bd639b : mul z27.s, z28.s, z29.s                   : mul    %z28.s %z29.s -> %z27.s
+04bf63ff : mul z31.s, z31.s, z31.s                   : mul    %z31.s %z31.s -> %z31.s
+04e06000 : mul z0.d, z0.d, z0.d                      : mul    %z0.d %z0.d -> %z0.d
+04e46062 : mul z2.d, z3.d, z4.d                      : mul    %z3.d %z4.d -> %z2.d
+04e660a4 : mul z4.d, z5.d, z6.d                      : mul    %z5.d %z6.d -> %z4.d
+04e860e6 : mul z6.d, z7.d, z8.d                      : mul    %z7.d %z8.d -> %z6.d
+04ea6128 : mul z8.d, z9.d, z10.d                     : mul    %z9.d %z10.d -> %z8.d
+04ec616a : mul z10.d, z11.d, z12.d                   : mul    %z11.d %z12.d -> %z10.d
+04ee61ac : mul z12.d, z13.d, z14.d                   : mul    %z13.d %z14.d -> %z12.d
+04f061ee : mul z14.d, z15.d, z16.d                   : mul    %z15.d %z16.d -> %z14.d
+04f26230 : mul z16.d, z17.d, z18.d                   : mul    %z17.d %z18.d -> %z16.d
+04f36251 : mul z17.d, z18.d, z19.d                   : mul    %z18.d %z19.d -> %z17.d
+04f56293 : mul z19.d, z20.d, z21.d                   : mul    %z20.d %z21.d -> %z19.d
+04f762d5 : mul z21.d, z22.d, z23.d                   : mul    %z22.d %z23.d -> %z21.d
+04f96317 : mul z23.d, z24.d, z25.d                   : mul    %z24.d %z25.d -> %z23.d
+04fb6359 : mul z25.d, z26.d, z27.d                   : mul    %z26.d %z27.d -> %z25.d
+04fd639b : mul z27.d, z28.d, z29.d                   : mul    %z28.d %z29.d -> %z27.d
+04ff63ff : mul z31.d, z31.d, z31.d                   : mul    %z31.d %z31.d -> %z31.d
+
+# MUL     <Zd>.H, <Zn>.H, <Zm>.H[<imm>] (MUL-Z.ZZi-H)
+4420f800 : mul z0.h, z0.h, z0.h[0]                   : mul    %z0.h %z0.h $0x00 -> %z0.h
+4422f862 : mul z2.h, z3.h, z2.h[0]                   : mul    %z3.h %z2.h $0x00 -> %z2.h
+442bf8a4 : mul z4.h, z5.h, z3.h[1]                   : mul    %z5.h %z3.h $0x01 -> %z4.h
+442bf8e6 : mul z6.h, z7.h, z3.h[1]                   : mul    %z7.h %z3.h $0x01 -> %z6.h
+4434f928 : mul z8.h, z9.h, z4.h[2]                   : mul    %z9.h %z4.h $0x02 -> %z8.h
+4434f96a : mul z10.h, z11.h, z4.h[2]                 : mul    %z11.h %z4.h $0x02 -> %z10.h
+443df9ac : mul z12.h, z13.h, z5.h[3]                 : mul    %z13.h %z5.h $0x03 -> %z12.h
+443df9ee : mul z14.h, z15.h, z5.h[3]                 : mul    %z15.h %z5.h $0x03 -> %z14.h
+4466fa30 : mul z16.h, z17.h, z6.h[4]                 : mul    %z17.h %z6.h $0x04 -> %z16.h
+4466fa51 : mul z17.h, z18.h, z6.h[4]                 : mul    %z18.h %z6.h $0x04 -> %z17.h
+4466fa93 : mul z19.h, z20.h, z6.h[4]                 : mul    %z20.h %z6.h $0x04 -> %z19.h
+446ffad5 : mul z21.h, z22.h, z7.h[5]                 : mul    %z22.h %z7.h $0x05 -> %z21.h
+446ffb17 : mul z23.h, z24.h, z7.h[5]                 : mul    %z24.h %z7.h $0x05 -> %z23.h
+4470fb59 : mul z25.h, z26.h, z0.h[6]                 : mul    %z26.h %z0.h $0x06 -> %z25.h
+4470fb9b : mul z27.h, z28.h, z0.h[6]                 : mul    %z28.h %z0.h $0x06 -> %z27.h
+447ffbff : mul z31.h, z31.h, z7.h[7]                 : mul    %z31.h %z7.h $0x07 -> %z31.h
+
+# MUL     <Zd>.S, <Zn>.S, <Zm>.S[<imm>] (MUL-Z.ZZi-S)
+44a0f800 : mul z0.s, z0.s, z0.s[0]                   : mul    %z0.s %z0.s $0x00 -> %z0.s
+44a2f862 : mul z2.s, z3.s, z2.s[0]                   : mul    %z3.s %z2.s $0x00 -> %z2.s
+44a3f8a4 : mul z4.s, z5.s, z3.s[0]                   : mul    %z5.s %z3.s $0x00 -> %z4.s
+44abf8e6 : mul z6.s, z7.s, z3.s[1]                   : mul    %z7.s %z3.s $0x01 -> %z6.s
+44acf928 : mul z8.s, z9.s, z4.s[1]                   : mul    %z9.s %z4.s $0x01 -> %z8.s
+44acf96a : mul z10.s, z11.s, z4.s[1]                 : mul    %z11.s %z4.s $0x01 -> %z10.s
+44adf9ac : mul z12.s, z13.s, z5.s[1]                 : mul    %z13.s %z5.s $0x01 -> %z12.s
+44adf9ee : mul z14.s, z15.s, z5.s[1]                 : mul    %z15.s %z5.s $0x01 -> %z14.s
+44b6fa30 : mul z16.s, z17.s, z6.s[2]                 : mul    %z17.s %z6.s $0x02 -> %z16.s
+44b6fa51 : mul z17.s, z18.s, z6.s[2]                 : mul    %z18.s %z6.s $0x02 -> %z17.s
+44b6fa93 : mul z19.s, z20.s, z6.s[2]                 : mul    %z20.s %z6.s $0x02 -> %z19.s
+44b7fad5 : mul z21.s, z22.s, z7.s[2]                 : mul    %z22.s %z7.s $0x02 -> %z21.s
+44b7fb17 : mul z23.s, z24.s, z7.s[2]                 : mul    %z24.s %z7.s $0x02 -> %z23.s
+44b0fb59 : mul z25.s, z26.s, z0.s[2]                 : mul    %z26.s %z0.s $0x02 -> %z25.s
+44b8fb9b : mul z27.s, z28.s, z0.s[3]                 : mul    %z28.s %z0.s $0x03 -> %z27.s
+44bffbff : mul z31.s, z31.s, z7.s[3]                 : mul    %z31.s %z7.s $0x03 -> %z31.s
+
+# MUL     <Zd>.D, <Zn>.D, <Zm>.D[<imm>] (MUL-Z.ZZi-D)
+44e0f800 : mul z0.d, z0.d, z0.d[0]                   : mul    %z0.d %z0.d $0x00 -> %z0.d
+44e3f862 : mul z2.d, z3.d, z3.d[0]                   : mul    %z3.d %z3.d $0x00 -> %z2.d
+44e4f8a4 : mul z4.d, z5.d, z4.d[0]                   : mul    %z5.d %z4.d $0x00 -> %z4.d
+44e5f8e6 : mul z6.d, z7.d, z5.d[0]                   : mul    %z7.d %z5.d $0x00 -> %z6.d
+44e6f928 : mul z8.d, z9.d, z6.d[0]                   : mul    %z9.d %z6.d $0x00 -> %z8.d
+44e7f96a : mul z10.d, z11.d, z7.d[0]                 : mul    %z11.d %z7.d $0x00 -> %z10.d
+44e8f9ac : mul z12.d, z13.d, z8.d[0]                 : mul    %z13.d %z8.d $0x00 -> %z12.d
+44e9f9ee : mul z14.d, z15.d, z9.d[0]                 : mul    %z15.d %z9.d $0x00 -> %z14.d
+44eafa30 : mul z16.d, z17.d, z10.d[0]                : mul    %z17.d %z10.d $0x00 -> %z16.d
+44fafa51 : mul z17.d, z18.d, z10.d[1]                : mul    %z18.d %z10.d $0x01 -> %z17.d
+44fbfa93 : mul z19.d, z20.d, z11.d[1]                : mul    %z20.d %z11.d $0x01 -> %z19.d
+44fcfad5 : mul z21.d, z22.d, z12.d[1]                : mul    %z22.d %z12.d $0x01 -> %z21.d
+44fdfb17 : mul z23.d, z24.d, z13.d[1]                : mul    %z24.d %z13.d $0x01 -> %z23.d
+44fefb59 : mul z25.d, z26.d, z14.d[1]                : mul    %z26.d %z14.d $0x01 -> %z25.d
+44fffb9b : mul z27.d, z28.d, z15.d[1]                : mul    %z28.d %z15.d $0x01 -> %z27.d
+44fffbff : mul z31.d, z31.d, z15.d[1]                : mul    %z31.d %z15.d $0x01 -> %z31.d
+
 # NBSL    <Zdn>.D, <Zdn>.D, <Zm>.D, <Zk>.D (NBSL-Z.ZZZ-_)
 04e03c00 : nbsl z0.d, z0.d, z0.d, z0.d               : nbsl   %z0.d %z0.d %z0.d -> %z0.d
 04e33c82 : nbsl z2.d, z2.d, z3.d, z4.d               : nbsl   %z2.d %z3.d %z4.d -> %z2.d
@@ -3987,6 +4107,72 @@ c51edfff : ldnt1w z31.d, p7/Z, [z31.d, x30]          : ldnt1w (%z31.d,%x30)[16by
 45db7759 : smullt z25.d, z26.s, z27.s                : smullt %z26.s %z27.s -> %z25.d
 45dd779b : smullt z27.d, z28.s, z29.s                : smullt %z28.s %z29.s -> %z27.d
 45df77ff : smullt z31.d, z31.s, z31.s                : smullt %z31.s %z31.s -> %z31.d
+
+# SPLICE  <Zd>.<T>, <Pv>, { <Zn1>.<T>, <Zn2>.<T> } (SPLICE-Z.P.ZZ-Con)
+052d8000 : splice z0.b, p0, {z0.b, z1.b}             : splice %p0 %z0.b %z1.b -> %z0.b
+052d8482 : splice z2.b, p1, {z4.b, z5.b}             : splice %p1 %z4.b %z5.b -> %z2.b
+052d88c4 : splice z4.b, p2, {z6.b, z7.b}             : splice %p2 %z6.b %z7.b -> %z4.b
+052d8906 : splice z6.b, p2, {z8.b, z9.b}             : splice %p2 %z8.b %z9.b -> %z6.b
+052d8d48 : splice z8.b, p3, {z10.b, z11.b}           : splice %p3 %z10.b %z11.b -> %z8.b
+052d8d8a : splice z10.b, p3, {z12.b, z13.b}          : splice %p3 %z12.b %z13.b -> %z10.b
+052d91cc : splice z12.b, p4, {z14.b, z15.b}          : splice %p4 %z14.b %z15.b -> %z12.b
+052d920e : splice z14.b, p4, {z16.b, z17.b}          : splice %p4 %z16.b %z17.b -> %z14.b
+052d9650 : splice z16.b, p5, {z18.b, z19.b}          : splice %p5 %z18.b %z19.b -> %z16.b
+052d9671 : splice z17.b, p5, {z19.b, z20.b}          : splice %p5 %z19.b %z20.b -> %z17.b
+052d96b3 : splice z19.b, p5, {z21.b, z22.b}          : splice %p5 %z21.b %z22.b -> %z19.b
+052d9af5 : splice z21.b, p6, {z23.b, z24.b}          : splice %p6 %z23.b %z24.b -> %z21.b
+052d9b37 : splice z23.b, p6, {z25.b, z26.b}          : splice %p6 %z25.b %z26.b -> %z23.b
+052d9f79 : splice z25.b, p7, {z27.b, z28.b}          : splice %p7 %z27.b %z28.b -> %z25.b
+052d9fbb : splice z27.b, p7, {z29.b, z30.b}          : splice %p7 %z29.b %z30.b -> %z27.b
+052d9fff : splice z31.b, p7, {z31.b, z0.b}           : splice %p7 %z31.b %z0.b -> %z31.b
+056d8000 : splice z0.h, p0, {z0.h, z1.h}             : splice %p0 %z0.h %z1.h -> %z0.h
+056d8482 : splice z2.h, p1, {z4.h, z5.h}             : splice %p1 %z4.h %z5.h -> %z2.h
+056d88c4 : splice z4.h, p2, {z6.h, z7.h}             : splice %p2 %z6.h %z7.h -> %z4.h
+056d8906 : splice z6.h, p2, {z8.h, z9.h}             : splice %p2 %z8.h %z9.h -> %z6.h
+056d8d48 : splice z8.h, p3, {z10.h, z11.h}           : splice %p3 %z10.h %z11.h -> %z8.h
+056d8d8a : splice z10.h, p3, {z12.h, z13.h}          : splice %p3 %z12.h %z13.h -> %z10.h
+056d91cc : splice z12.h, p4, {z14.h, z15.h}          : splice %p4 %z14.h %z15.h -> %z12.h
+056d920e : splice z14.h, p4, {z16.h, z17.h}          : splice %p4 %z16.h %z17.h -> %z14.h
+056d9650 : splice z16.h, p5, {z18.h, z19.h}          : splice %p5 %z18.h %z19.h -> %z16.h
+056d9671 : splice z17.h, p5, {z19.h, z20.h}          : splice %p5 %z19.h %z20.h -> %z17.h
+056d96b3 : splice z19.h, p5, {z21.h, z22.h}          : splice %p5 %z21.h %z22.h -> %z19.h
+056d9af5 : splice z21.h, p6, {z23.h, z24.h}          : splice %p6 %z23.h %z24.h -> %z21.h
+056d9b37 : splice z23.h, p6, {z25.h, z26.h}          : splice %p6 %z25.h %z26.h -> %z23.h
+056d9f79 : splice z25.h, p7, {z27.h, z28.h}          : splice %p7 %z27.h %z28.h -> %z25.h
+056d9fbb : splice z27.h, p7, {z29.h, z30.h}          : splice %p7 %z29.h %z30.h -> %z27.h
+056d9fff : splice z31.h, p7, {z31.h, z0.h}           : splice %p7 %z31.h %z0.h -> %z31.h
+05ad8000 : splice z0.s, p0, {z0.s, z1.s}             : splice %p0 %z0.s %z1.s -> %z0.s
+05ad8482 : splice z2.s, p1, {z4.s, z5.s}             : splice %p1 %z4.s %z5.s -> %z2.s
+05ad88c4 : splice z4.s, p2, {z6.s, z7.s}             : splice %p2 %z6.s %z7.s -> %z4.s
+05ad8906 : splice z6.s, p2, {z8.s, z9.s}             : splice %p2 %z8.s %z9.s -> %z6.s
+05ad8d48 : splice z8.s, p3, {z10.s, z11.s}           : splice %p3 %z10.s %z11.s -> %z8.s
+05ad8d8a : splice z10.s, p3, {z12.s, z13.s}          : splice %p3 %z12.s %z13.s -> %z10.s
+05ad91cc : splice z12.s, p4, {z14.s, z15.s}          : splice %p4 %z14.s %z15.s -> %z12.s
+05ad920e : splice z14.s, p4, {z16.s, z17.s}          : splice %p4 %z16.s %z17.s -> %z14.s
+05ad9650 : splice z16.s, p5, {z18.s, z19.s}          : splice %p5 %z18.s %z19.s -> %z16.s
+05ad9671 : splice z17.s, p5, {z19.s, z20.s}          : splice %p5 %z19.s %z20.s -> %z17.s
+05ad96b3 : splice z19.s, p5, {z21.s, z22.s}          : splice %p5 %z21.s %z22.s -> %z19.s
+05ad9af5 : splice z21.s, p6, {z23.s, z24.s}          : splice %p6 %z23.s %z24.s -> %z21.s
+05ad9b37 : splice z23.s, p6, {z25.s, z26.s}          : splice %p6 %z25.s %z26.s -> %z23.s
+05ad9f79 : splice z25.s, p7, {z27.s, z28.s}          : splice %p7 %z27.s %z28.s -> %z25.s
+05ad9fbb : splice z27.s, p7, {z29.s, z30.s}          : splice %p7 %z29.s %z30.s -> %z27.s
+05ad9fff : splice z31.s, p7, {z31.s, z0.s}           : splice %p7 %z31.s %z0.s -> %z31.s
+05ed8000 : splice z0.d, p0, {z0.d, z1.d}             : splice %p0 %z0.d %z1.d -> %z0.d
+05ed8482 : splice z2.d, p1, {z4.d, z5.d}             : splice %p1 %z4.d %z5.d -> %z2.d
+05ed88c4 : splice z4.d, p2, {z6.d, z7.d}             : splice %p2 %z6.d %z7.d -> %z4.d
+05ed8906 : splice z6.d, p2, {z8.d, z9.d}             : splice %p2 %z8.d %z9.d -> %z6.d
+05ed8d48 : splice z8.d, p3, {z10.d, z11.d}           : splice %p3 %z10.d %z11.d -> %z8.d
+05ed8d8a : splice z10.d, p3, {z12.d, z13.d}          : splice %p3 %z12.d %z13.d -> %z10.d
+05ed91cc : splice z12.d, p4, {z14.d, z15.d}          : splice %p4 %z14.d %z15.d -> %z12.d
+05ed920e : splice z14.d, p4, {z16.d, z17.d}          : splice %p4 %z16.d %z17.d -> %z14.d
+05ed9650 : splice z16.d, p5, {z18.d, z19.d}          : splice %p5 %z18.d %z19.d -> %z16.d
+05ed9671 : splice z17.d, p5, {z19.d, z20.d}          : splice %p5 %z19.d %z20.d -> %z17.d
+05ed96b3 : splice z19.d, p5, {z21.d, z22.d}          : splice %p5 %z21.d %z22.d -> %z19.d
+05ed9af5 : splice z21.d, p6, {z23.d, z24.d}          : splice %p6 %z23.d %z24.d -> %z21.d
+05ed9b37 : splice z23.d, p6, {z25.d, z26.d}          : splice %p6 %z25.d %z26.d -> %z23.d
+05ed9f79 : splice z25.d, p7, {z27.d, z28.d}          : splice %p7 %z27.d %z28.d -> %z25.d
+05ed9fbb : splice z27.d, p7, {z29.d, z30.d}          : splice %p7 %z29.d %z30.d -> %z27.d
+05ed9fff : splice z31.d, p7, {z31.d, z0.d}           : splice %p7 %z31.d %z0.d -> %z31.d
 
 # SQABS   <Zd>.<T>, <Pg>/M, <Zn>.<T> (SQABS-Z.P.Z-_)
 4408a000 : sqabs z0.b, p0/M, z0.b                    : sqabs  %p0/m %z0.b -> %z0.b
@@ -7599,6 +7785,72 @@ e55e3fff : stnt1w z31.s, p7, [z31.s, x30]            : stnt1w %z31.s %p7 -> (%z3
 44dc9f79 : suqadd z25.d, p7/M, z25.d, z27.d          : suqadd %p7/m %z25.d %z27.d -> %z25.d
 44dc9fbb : suqadd z27.d, p7/M, z27.d, z29.d          : suqadd %p7/m %z27.d %z29.d -> %z27.d
 44dc9fff : suqadd z31.d, p7/M, z31.d, z31.d          : suqadd %p7/m %z31.d %z31.d -> %z31.d
+
+# TBL     <Zd>.<T>, { <Zn1>.<T>, <Zn2>.<T> }, <Zm>.<T> (TBL-Z.ZZ-2)
+05202800 : tbl z0.b, {z0.b, z1.b}, z0.b              : tbl    %z0.b %z1.b %z0.b -> %z0.b
+05242862 : tbl z2.b, {z3.b, z4.b}, z4.b              : tbl    %z3.b %z4.b %z4.b -> %z2.b
+052628a4 : tbl z4.b, {z5.b, z6.b}, z6.b              : tbl    %z5.b %z6.b %z6.b -> %z4.b
+052828e6 : tbl z6.b, {z7.b, z8.b}, z8.b              : tbl    %z7.b %z8.b %z8.b -> %z6.b
+052a2928 : tbl z8.b, {z9.b, z10.b}, z10.b            : tbl    %z9.b %z10.b %z10.b -> %z8.b
+052c296a : tbl z10.b, {z11.b, z12.b}, z12.b          : tbl    %z11.b %z12.b %z12.b -> %z10.b
+052e29ac : tbl z12.b, {z13.b, z14.b}, z14.b          : tbl    %z13.b %z14.b %z14.b -> %z12.b
+053029ee : tbl z14.b, {z15.b, z16.b}, z16.b          : tbl    %z15.b %z16.b %z16.b -> %z14.b
+05322a30 : tbl z16.b, {z17.b, z18.b}, z18.b          : tbl    %z17.b %z18.b %z18.b -> %z16.b
+05332a51 : tbl z17.b, {z18.b, z19.b}, z19.b          : tbl    %z18.b %z19.b %z19.b -> %z17.b
+05352a93 : tbl z19.b, {z20.b, z21.b}, z21.b          : tbl    %z20.b %z21.b %z21.b -> %z19.b
+05372ad5 : tbl z21.b, {z22.b, z23.b}, z23.b          : tbl    %z22.b %z23.b %z23.b -> %z21.b
+05392b17 : tbl z23.b, {z24.b, z25.b}, z25.b          : tbl    %z24.b %z25.b %z25.b -> %z23.b
+053b2b59 : tbl z25.b, {z26.b, z27.b}, z27.b          : tbl    %z26.b %z27.b %z27.b -> %z25.b
+053d2b9b : tbl z27.b, {z28.b, z29.b}, z29.b          : tbl    %z28.b %z29.b %z29.b -> %z27.b
+053f2bff : tbl z31.b, {z31.b, z0.b}, z31.b           : tbl    %z31.b %z0.b %z31.b -> %z31.b
+05602800 : tbl z0.h, {z0.h, z1.h}, z0.h              : tbl    %z0.h %z1.h %z0.h -> %z0.h
+05642862 : tbl z2.h, {z3.h, z4.h}, z4.h              : tbl    %z3.h %z4.h %z4.h -> %z2.h
+056628a4 : tbl z4.h, {z5.h, z6.h}, z6.h              : tbl    %z5.h %z6.h %z6.h -> %z4.h
+056828e6 : tbl z6.h, {z7.h, z8.h}, z8.h              : tbl    %z7.h %z8.h %z8.h -> %z6.h
+056a2928 : tbl z8.h, {z9.h, z10.h}, z10.h            : tbl    %z9.h %z10.h %z10.h -> %z8.h
+056c296a : tbl z10.h, {z11.h, z12.h}, z12.h          : tbl    %z11.h %z12.h %z12.h -> %z10.h
+056e29ac : tbl z12.h, {z13.h, z14.h}, z14.h          : tbl    %z13.h %z14.h %z14.h -> %z12.h
+057029ee : tbl z14.h, {z15.h, z16.h}, z16.h          : tbl    %z15.h %z16.h %z16.h -> %z14.h
+05722a30 : tbl z16.h, {z17.h, z18.h}, z18.h          : tbl    %z17.h %z18.h %z18.h -> %z16.h
+05732a51 : tbl z17.h, {z18.h, z19.h}, z19.h          : tbl    %z18.h %z19.h %z19.h -> %z17.h
+05752a93 : tbl z19.h, {z20.h, z21.h}, z21.h          : tbl    %z20.h %z21.h %z21.h -> %z19.h
+05772ad5 : tbl z21.h, {z22.h, z23.h}, z23.h          : tbl    %z22.h %z23.h %z23.h -> %z21.h
+05792b17 : tbl z23.h, {z24.h, z25.h}, z25.h          : tbl    %z24.h %z25.h %z25.h -> %z23.h
+057b2b59 : tbl z25.h, {z26.h, z27.h}, z27.h          : tbl    %z26.h %z27.h %z27.h -> %z25.h
+057d2b9b : tbl z27.h, {z28.h, z29.h}, z29.h          : tbl    %z28.h %z29.h %z29.h -> %z27.h
+057f2bff : tbl z31.h, {z31.h, z0.h}, z31.h           : tbl    %z31.h %z0.h %z31.h -> %z31.h
+05a02800 : tbl z0.s, {z0.s, z1.s}, z0.s              : tbl    %z0.s %z1.s %z0.s -> %z0.s
+05a42862 : tbl z2.s, {z3.s, z4.s}, z4.s              : tbl    %z3.s %z4.s %z4.s -> %z2.s
+05a628a4 : tbl z4.s, {z5.s, z6.s}, z6.s              : tbl    %z5.s %z6.s %z6.s -> %z4.s
+05a828e6 : tbl z6.s, {z7.s, z8.s}, z8.s              : tbl    %z7.s %z8.s %z8.s -> %z6.s
+05aa2928 : tbl z8.s, {z9.s, z10.s}, z10.s            : tbl    %z9.s %z10.s %z10.s -> %z8.s
+05ac296a : tbl z10.s, {z11.s, z12.s}, z12.s          : tbl    %z11.s %z12.s %z12.s -> %z10.s
+05ae29ac : tbl z12.s, {z13.s, z14.s}, z14.s          : tbl    %z13.s %z14.s %z14.s -> %z12.s
+05b029ee : tbl z14.s, {z15.s, z16.s}, z16.s          : tbl    %z15.s %z16.s %z16.s -> %z14.s
+05b22a30 : tbl z16.s, {z17.s, z18.s}, z18.s          : tbl    %z17.s %z18.s %z18.s -> %z16.s
+05b32a51 : tbl z17.s, {z18.s, z19.s}, z19.s          : tbl    %z18.s %z19.s %z19.s -> %z17.s
+05b52a93 : tbl z19.s, {z20.s, z21.s}, z21.s          : tbl    %z20.s %z21.s %z21.s -> %z19.s
+05b72ad5 : tbl z21.s, {z22.s, z23.s}, z23.s          : tbl    %z22.s %z23.s %z23.s -> %z21.s
+05b92b17 : tbl z23.s, {z24.s, z25.s}, z25.s          : tbl    %z24.s %z25.s %z25.s -> %z23.s
+05bb2b59 : tbl z25.s, {z26.s, z27.s}, z27.s          : tbl    %z26.s %z27.s %z27.s -> %z25.s
+05bd2b9b : tbl z27.s, {z28.s, z29.s}, z29.s          : tbl    %z28.s %z29.s %z29.s -> %z27.s
+05bf2bff : tbl z31.s, {z31.s, z0.s}, z31.s           : tbl    %z31.s %z0.s %z31.s -> %z31.s
+05e02800 : tbl z0.d, {z0.d, z1.d}, z0.d              : tbl    %z0.d %z1.d %z0.d -> %z0.d
+05e42862 : tbl z2.d, {z3.d, z4.d}, z4.d              : tbl    %z3.d %z4.d %z4.d -> %z2.d
+05e628a4 : tbl z4.d, {z5.d, z6.d}, z6.d              : tbl    %z5.d %z6.d %z6.d -> %z4.d
+05e828e6 : tbl z6.d, {z7.d, z8.d}, z8.d              : tbl    %z7.d %z8.d %z8.d -> %z6.d
+05ea2928 : tbl z8.d, {z9.d, z10.d}, z10.d            : tbl    %z9.d %z10.d %z10.d -> %z8.d
+05ec296a : tbl z10.d, {z11.d, z12.d}, z12.d          : tbl    %z11.d %z12.d %z12.d -> %z10.d
+05ee29ac : tbl z12.d, {z13.d, z14.d}, z14.d          : tbl    %z13.d %z14.d %z14.d -> %z12.d
+05f029ee : tbl z14.d, {z15.d, z16.d}, z16.d          : tbl    %z15.d %z16.d %z16.d -> %z14.d
+05f22a30 : tbl z16.d, {z17.d, z18.d}, z18.d          : tbl    %z17.d %z18.d %z18.d -> %z16.d
+05f32a51 : tbl z17.d, {z18.d, z19.d}, z19.d          : tbl    %z18.d %z19.d %z19.d -> %z17.d
+05f52a93 : tbl z19.d, {z20.d, z21.d}, z21.d          : tbl    %z20.d %z21.d %z21.d -> %z19.d
+05f72ad5 : tbl z21.d, {z22.d, z23.d}, z23.d          : tbl    %z22.d %z23.d %z23.d -> %z21.d
+05f92b17 : tbl z23.d, {z24.d, z25.d}, z25.d          : tbl    %z24.d %z25.d %z25.d -> %z23.d
+05fb2b59 : tbl z25.d, {z26.d, z27.d}, z27.d          : tbl    %z26.d %z27.d %z27.d -> %z25.d
+05fd2b9b : tbl z27.d, {z28.d, z29.d}, z29.d          : tbl    %z28.d %z29.d %z29.d -> %z27.d
+05ff2bff : tbl z31.d, {z31.d, z0.d}, z31.d           : tbl    %z31.d %z0.d %z31.d -> %z31.d
 
 # TBX     <Zd>.<T>, <Zn>.<T>, <Zm>.<T> (TBX-Z.ZZ-_)
 05202c00 : tbx z0.b, z0.b, z0.b                      : tbx    %z0.b %z0.b %z0.b -> %z0.b

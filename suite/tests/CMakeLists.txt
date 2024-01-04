@@ -1411,6 +1411,9 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
         # is failing).
         set(exe_ops "${exe_ops};-v;-attach")
       endif ()
+      if ("${runall}" MATCHES "<detach>")
+        set(exe_ops "${exe_ops};-v;")
+      endif ()
       if ("${runall}" MATCHES "<block>")
         set(exe_ops "${exe_ops};-block")
       endif ()
@@ -2574,9 +2577,9 @@ endif (ANNOTATIONS AND NOT ARM)
 
 if (NOT ANDROID) # TODO i#38: Port test to Android.
   tobuild_ci(client.attach_test client-interface/attach_test.runall "" "" "")
-  if (WIN32)
+  if ((LINUX OR WIN32) AND NOT RISCV64)
     tobuild_ci(client.detach_test client-interface/detach_test.runall "" "" "")
-  endif (WIN32)
+  endif ()
   if (UNIX)
     # Test attaching during a blocking syscall.
     torunonly_ci(client.attach_blocking linux.infloop client.attach_test.dll
@@ -3003,7 +3006,7 @@ if (X86 OR AARCH64)
         "-early_inject" "")
       append_pure_asm_app_link_flags(allasm_repstr)
     endif ()
-  endif()
+  endif ()
 endif ()
 
 if (NOT RISCV64)
@@ -3798,6 +3801,24 @@ if (BUILD_CLIENTS)
           "-indir ${thread_trace_dir} -simulator_type schedule_stats -core_sharded -sched_quantum 10000000"
           "")
         set(tool.schedule_stats_nopreempt_rawtemp ON) # no preprocessor
+
+        torunonly_simtool(core_serial ${ci_shared_app}
+          "-indir ${thread_trace_dir} -simulator_type schedule_stats:basic_counts -core_serial"
+          "")
+        set(tool.core_serial_rawtemp ON) # no preprocessor
+
+        set(cpu_sched_path "${thread_trace_dir}/cpu_schedule.bin.zip")
+        torunonly_simtool(simulate_as_traced ${ci_shared_app}
+          "-indir ${thread_trace_dir} -core_serial -cpu_schedule_file ${cpu_sched_path} -cores 7"
+          "")
+        set(tool.simulate_as_traced_rawtemp ON) # no preprocessor
+
+        set(switch_file
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/mock_switch_sequences.x64.zip")
+        torunonly_simtool(switch_insertion ${ci_shared_app}
+          "-indir ${thread_trace_dir} -simulator_type basic_counts -core_sharded -sched_quantum 1000 -sched_switch_file ${switch_file}"
+          "")
+        set(tool.switch_insertion_rawtemp ON) # no preprocessor
       endif ()
     endif ()
 
@@ -4300,6 +4321,12 @@ if (BUILD_CLIENTS)
         set(tool.drcacheoff.burst_maps_nodr ON)
         torunonly_drcacheoff(burst_maps tool.drcacheoff.burst_maps "" "" "")
       endif ()
+      if (LINUX)
+        set(tool.drcacheoff.burst_syscall_inject_nodr ON)
+        torunonly_drcacheoff(burst_syscall_inject tool.drcacheoff.burst_syscall_inject ""
+          "@-simulator_type@invariant_checker@-syscall_template_file@drmemtrace.tool.drcacheoff.burst_syscall_inject.*.dir/raw/syscall_trace_template"
+          "")
+      endif ()
 
       set(tool.drcacheoff.burst_traceopts_nodr ON)
       set(tool.drcacheoff.burst_traceopts_nopost ON)
@@ -4595,6 +4622,8 @@ if (BUILD_CLIENTS)
       torunonly_drcacheoff_kernel(syscall-mix ${ci_shared_app} "-raw_compress none" ""
                                   "@-simulator_type@syscall_mix")
       torunonly_drcacheoff_kernel(simple_unified_perf ${ci_shared_app} "-raw_compress none -kernel_tracing_unified_perf" "" "")
+      torunonly_drcacheoff_kernel(invariant-checker ${ci_shared_app} "-raw_compress none" ""
+                                  "@-simulator_type@invariant_checker@-test_mode_name@kernel_syscall_pt_trace")
     endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
   endif (proc_supports_pt)
 
@@ -5918,6 +5947,15 @@ if (RISCV64)
     code_api|pthreads.pthreads_exit
     code_api|sample.bbbuf
     code_api|sample.bbcount
+    code_api|sample.bbsize
+    code_api|sample.div
+    code_api|sample.empty
+    code_api|sample.inline
+    code_api|sample.inscount
+    code_api|sample.opcode_count
+    code_api|sample.signal
+    code_api|sample.stl_test
+    code_api|sample.syscall
     code_api|security-linux.trampoline
     code_api|tool.drdisas
     no_code_api,no_intercept_all_signals|linux.sigaction

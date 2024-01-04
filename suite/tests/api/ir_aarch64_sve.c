@@ -1505,7 +1505,7 @@ TEST_INSTR(mul_sve_pred)
               opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
 }
 
-TEST_INSTR(mul_sve)
+TEST_INSTR(mul_sve_imm)
 {
     /* Testing MUL     <Zdn>.<Ts>, <Zdn>.<Ts>, #<imm> */
     int imm8_0_0[6] = { -128, -85, -42, 1, 43, 127 };
@@ -1514,7 +1514,7 @@ TEST_INSTR(mul_sve)
         "mul    %z10.b $0xd6 -> %z10.b", "mul    %z16.b $0x01 -> %z16.b",
         "mul    %z21.b $0x2b -> %z21.b", "mul    %z31.b $0x7f -> %z31.b",
     };
-    TEST_LOOP(mul, mul_sve, 6, expected_0_0[i],
+    TEST_LOOP(mul, mul_sve_imm, 6, expected_0_0[i],
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_1),
               opnd_create_immed_int(imm8_0_0[i], OPSZ_1));
 
@@ -1524,7 +1524,7 @@ TEST_INSTR(mul_sve)
         "mul    %z10.h $0xd6 -> %z10.h", "mul    %z16.h $0x01 -> %z16.h",
         "mul    %z21.h $0x2b -> %z21.h", "mul    %z31.h $0x7f -> %z31.h",
     };
-    TEST_LOOP(mul, mul_sve, 6, expected_0_1[i],
+    TEST_LOOP(mul, mul_sve_imm, 6, expected_0_1[i],
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
               opnd_create_immed_int(imm8_0_1[i], OPSZ_1));
 
@@ -1534,7 +1534,7 @@ TEST_INSTR(mul_sve)
         "mul    %z10.s $0xd6 -> %z10.s", "mul    %z16.s $0x01 -> %z16.s",
         "mul    %z21.s $0x2b -> %z21.s", "mul    %z31.s $0x7f -> %z31.s",
     };
-    TEST_LOOP(mul, mul_sve, 6, expected_0_2[i],
+    TEST_LOOP(mul, mul_sve_imm, 6, expected_0_2[i],
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
               opnd_create_immed_int(imm8_0_2[i], OPSZ_1));
 
@@ -1544,7 +1544,7 @@ TEST_INSTR(mul_sve)
         "mul    %z10.d $0xd6 -> %z10.d", "mul    %z16.d $0x01 -> %z16.d",
         "mul    %z21.d $0x2b -> %z21.d", "mul    %z31.d $0x7f -> %z31.d",
     };
-    TEST_LOOP(mul, mul_sve, 6, expected_0_3[i],
+    TEST_LOOP(mul, mul_sve_imm, 6, expected_0_3[i],
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
               opnd_create_immed_int(imm8_0_3[i], OPSZ_1));
 }
@@ -8088,7 +8088,7 @@ TEST_INSTR(ext_sve)
               opnd_create_immed_uint(imm8_0_0[i], OPSZ_1));
 }
 
-TEST_INSTR(splice_sve)
+TEST_INSTR(splice_sve_des)
 {
     /* Testing SPLICE  <Zdn>.<Ts>, <Pv>, <Zdn>.<Ts>, <Zm>.<Ts> */
     const char *const expected_0_0[6] = {
@@ -8096,7 +8096,7 @@ TEST_INSTR(splice_sve)
         "splice %p3 %z10.b %z12.b -> %z10.b", "splice %p5 %z16.b %z18.b -> %z16.b",
         "splice %p6 %z21.b %z23.b -> %z21.b", "splice %p7 %z31.b %z31.b -> %z31.b",
     };
-    TEST_LOOP(splice, splice_sve, 6, expected_0_0[i],
+    TEST_LOOP(splice, splice_sve_des, 6, expected_0_0[i],
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_1),
               opnd_create_reg(Pn_half_six_offset_0[i]),
               opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_1));
@@ -8106,7 +8106,7 @@ TEST_INSTR(splice_sve)
         "splice %p3 %z10.h %z12.h -> %z10.h", "splice %p5 %z16.h %z18.h -> %z16.h",
         "splice %p6 %z21.h %z23.h -> %z21.h", "splice %p7 %z31.h %z31.h -> %z31.h",
     };
-    TEST_LOOP(splice, splice_sve, 6, expected_0_1[i],
+    TEST_LOOP(splice, splice_sve_des, 6, expected_0_1[i],
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
               opnd_create_reg(Pn_half_six_offset_0[i]),
               opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_2));
@@ -8116,7 +8116,7 @@ TEST_INSTR(splice_sve)
         "splice %p3 %z10.s %z12.s -> %z10.s", "splice %p5 %z16.s %z18.s -> %z16.s",
         "splice %p6 %z21.s %z23.s -> %z21.s", "splice %p7 %z31.s %z31.s -> %z31.s",
     };
-    TEST_LOOP(splice, splice_sve, 6, expected_0_2[i],
+    TEST_LOOP(splice, splice_sve_des, 6, expected_0_2[i],
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
               opnd_create_reg(Pn_half_six_offset_0[i]),
               opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_4));
@@ -8126,7 +8126,7 @@ TEST_INSTR(splice_sve)
         "splice %p3 %z10.d %z12.d -> %z10.d", "splice %p5 %z16.d %z18.d -> %z16.d",
         "splice %p6 %z21.d %z23.d -> %z21.d", "splice %p7 %z31.d %z31.d -> %z31.d",
     };
-    TEST_LOOP(splice, splice_sve, 6, expected_0_3[i],
+    TEST_LOOP(splice, splice_sve_des, 6, expected_0_3[i],
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
               opnd_create_reg(Pn_half_six_offset_0[i]),
               opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
@@ -20571,7 +20571,7 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(mls_sve_pred);
     RUN_INSTR_TEST(msb_sve_pred);
     RUN_INSTR_TEST(mul_sve_pred);
-    RUN_INSTR_TEST(mul_sve);
+    RUN_INSTR_TEST(mul_sve_imm);
     RUN_INSTR_TEST(smulh_sve_pred);
     RUN_INSTR_TEST(umulh_sve_pred);
 
@@ -20779,7 +20779,7 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(insr_sve_simd_fp);
 
     RUN_INSTR_TEST(ext_sve);
-    RUN_INSTR_TEST(splice_sve);
+    RUN_INSTR_TEST(splice_sve_des);
 
     RUN_INSTR_TEST(rev_sve_pred);
     RUN_INSTR_TEST(rev_sve);

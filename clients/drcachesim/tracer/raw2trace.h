@@ -70,6 +70,7 @@
 #include "instru.h"
 #include "raw2trace_shared.h"
 #include "reader.h"
+#include "record_file_reader.h"
 #include "trace_entry.h"
 #include "utils.h"
 #ifdef BUILD_PT_POST_PROCESSOR
@@ -112,6 +113,7 @@ typedef enum {
     RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT,
     RAW2TRACE_STAT_KERNEL_INSTR_COUNT,
     RAW2TRACE_STAT_SYSCALL_TRACES_DECODED,
+    RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED,
     // We add a MAX member so that we can iterate over all stats in unit tests.
     RAW2TRACE_STAT_MAX,
 } raw2trace_statistic_t;
@@ -828,6 +830,13 @@ public:
         input_entry_ = const_cast<trace_entry_t *>(entry);
         return process_input_entry() ? 1 : 0;
     }
+    unsigned char *
+    get_decode_pc(addr_t orig_pc)
+    {
+        if (encodings_.find(orig_pc) == encodings_.end())
+            return nullptr;
+        return encodings_[orig_pc].bits;
+    }
 
 private:
     bool saw_pid_ = false;
@@ -860,7 +869,9 @@ public:
         const std::string &alt_module_dir = "",
         uint64_t chunk_instr_count = 10 * 1000 * 1000,
         const std::unordered_map<thread_id_t, std::istream *> &kthread_files_map = {},
-        const std::string &kcore_path = "", const std::string &kallsyms_path = "");
+        const std::string &kcore_path = "", const std::string &kallsyms_path = "",
+        std::unique_ptr<dynamorio::drmemtrace::record_reader_t> syscall_template_file =
+            nullptr);
     // If a nullptr dcontext_in was passed to the constructor, calls dr_standalone_exit().
     virtual ~raw2trace_t();
 
@@ -943,6 +954,16 @@ public:
 
     static std::string
     check_thread_file(std::istream *f);
+
+    /**
+     * Writes the essential header entries to the given buffer. This is useful for other
+     * libraries that want to create a trace that works with our tools like the analyzer
+     * framework.
+     */
+    static void
+    create_essential_header_entries(byte *&buf_ptr, int version,
+                                    offline_file_type_t file_type, thread_id_t tid,
+                                    process_id_t pid);
 
 #ifdef BUILD_PT_POST_PROCESSOR
     /**
@@ -1084,6 +1105,7 @@ protected:
         uint64 final_trace_instr_count = 0;
         uint64 kernel_instr_count = 0;
         uint64 syscall_traces_decoded = 0;
+        uint64 syscall_traces_injected = 0;
 
         uint64 cur_chunk_instr_count = 0;
         uint64 cur_chunk_ref_count = 0;
@@ -1238,6 +1260,29 @@ protected:
     open_new_chunk(raw2trace_thread_data_t *tdata);
 
     /**
+     * Reads entries in the given system call template file. These will be added
+     * to the final trace at the locations of the corresponding system call number
+     * markers.
+     */
+    std::string
+    read_syscall_template_file();
+
+    /**
+     * Returns the app pc of the first instruction in the system call template
+     * read for syscall_num. Returns nullptr if it could not find it.
+     */
+    app_pc
+    get_first_app_pc_for_syscall_template(int syscall_num);
+
+    /**
+     * Writes the system call template to the output trace, if any was provided in
+     * the system call template file for the given syscall_num.
+     */
+    bool
+    write_syscall_template(raw2trace_thread_data_t *tdata, byte *&buf,
+                           trace_entry_t *buf_base, int syscall_num);
+
+    /**
      * The pointer to the DR context.
      */
     void *const dcontext_;
@@ -1305,6 +1350,7 @@ protected:
     uint64 final_trace_instr_count_ = 0;
     uint64 kernel_instr_count_ = 0;
     uint64 syscall_traces_decoded_ = 0;
+    uint64 syscall_traces_injected_ = 0;
 
     std::unique_ptr<module_mapper_t> module_mapper_;
 
@@ -1648,10 +1694,16 @@ private:
     offline_instru_t instru_offline_;
     const std::vector<module_t> *modvec_ptr_ = nullptr;
 
-    /* The following member variables are utilized for decoding kernel PT traces. */
+    // For decoding kernel PT traces.
     const std::unordered_map<thread_id_t, std::istream *> kthread_files_map_;
     const std::string kcore_path_;
     const std::string kallsyms_path_;
+
+    // For inserting system call traces from provided templates.
+    std::unique_ptr<dynamorio::drmemtrace::record_reader_t> syscall_template_file_reader_;
+    std::unordered_map<int, std::vector<trace_entry_t>> syscall_trace_templates_;
+    memref_counter_t syscall_trace_template_encodings_;
+    offline_file_type_t syscall_template_file_type_ = OFFLINE_FILE_TYPE_DEFAULT;
 };
 
 } // namespace drmemtrace

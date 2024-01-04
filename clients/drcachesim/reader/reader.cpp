@@ -88,6 +88,12 @@ reader_t::operator++()
             // We've already presented the thread exit entry to the analyzer.
             continue;
         }
+        if (input_entry_->type == TRACE_TYPE_HEADER) {
+            // We support complete traces being packaged in archives and then read
+            // sequentially.  We just keep going past the header.
+            VPRINT(this, 2, "Assuming header is part of concatenated traces\n");
+            continue;
+        }
         VPRINT(this, 5, "RECV: type=%s (%d), size=%d, addr=0x%zx\n",
                trace_type_names[input_entry_->type], input_entry_->type,
                input_entry_->size, input_entry_->addr);
@@ -332,6 +338,13 @@ reader_t::process_input_entry()
             chunk_instr_count_ = cur_ref_.marker.marker_value;
         else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CHUNK_FOOTER)
             skip_chunk_header_.insert(cur_tid_);
+        else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_START ||
+                 cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_START) {
+            in_kernel_trace_ = true;
+        } else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END ||
+                   cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_END) {
+            in_kernel_trace_ = false;
+        }
         break;
     default:
         ERRMSG("Unknown trace entry type %s (%d)\n", trace_type_names[input_entry_->type],

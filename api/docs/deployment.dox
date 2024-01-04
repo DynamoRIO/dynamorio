@@ -337,6 +337,12 @@ with this command:
 % echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
 \endcode
 
+Then, you can also detach DynamoRIO from the target process
+without affecting the normal execution of the application.
+\code
+% bin32/drconfig -detach <target_pid>
+\endcode
+
 Run \c drrun with no options to get a list of the options and
 environment variable shortcuts it supports.  To disable following across
 child execve calls, use the \ref op_children "-no_follow_children" runtime

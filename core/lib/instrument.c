@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2010-2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -2507,6 +2507,13 @@ bool
 dr_using_all_private_caches(void)
 {
     return !SHARED_FRAGMENTS_ENABLED();
+}
+
+DR_API
+bool
+dr_running_under_dynamorio(void)
+{
+    return !standalone_library;
 }
 
 DR_API
