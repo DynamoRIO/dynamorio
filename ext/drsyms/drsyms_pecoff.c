@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -256,7 +256,7 @@ drsym_obj_mod_init_post(void *mod_in, byte *map_base, void *dwarf_info)
 }
 
 bool
-drsym_obj_dwarf_init(void *mod_in, Dwarf_Debug *dbg)
+drsym_obj_dwarf_init(void *mod_in, dwarf_lib_handle_t *dbg)
 {
     pecoff_data_t *mod = (pecoff_data_t *)mod_in;
     Dwarf_Error de; /* expensive to init (DrM#1770) */

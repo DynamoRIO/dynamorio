@@ -1,0 +1,12 @@
+diff --git a/libdw/dwarf_begin_elf.c b/libdw/dwarf_begin_elf.c
+index 323a91d0..3c695586 100644
+--- a/libdw/dwarf_begin_elf.c
++++ b/libdw/dwarf_begin_elf.c
+@@ -278,7 +278,8 @@ __libdw_elfpath (int fd)
+   /* strlen ("/proc/self/fd/") = 14 + strlen (<MAXINT>) = 10 + 1 = 25.  */
+   char devfdpath[25];
+   sprintf (devfdpath, "/proc/self/fd/%u", fd);
+-  return realpath (devfdpath, NULL);
++  char *dest = malloc(PATH_MAX);
++  return realpath (devfdpath, dest);
+ }
