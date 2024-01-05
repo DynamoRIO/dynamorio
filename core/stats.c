@@ -358,8 +358,8 @@ kstat_thread_exit(dcontext_t *dcontext)
         return;
     LOG(THREAD, LOG_ALL, 2, "kstat_thread_exit: kstats stack is:\n");
     DOLOG(2, LOG_STATS, { kstats_dump_stack(dcontext); });
-    //KSTOP_DC(dcontext, thread_measured);
-    //ASSERT(old_thread_kstats->stack_kstats.depth == 1);
+    // KSTOP_DC(dcontext, thread_measured);
+    // ASSERT(old_thread_kstats->stack_kstats.depth == 1);
     dump_thread_kstats(dcontext);
 
     /* a good time to combine all of these with the global statistics */
