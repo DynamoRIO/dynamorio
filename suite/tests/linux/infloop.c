@@ -48,7 +48,7 @@
 static void
 signal_handler(int sig)
 {
-    if (sig == SIGTERM) {
+    if (sig == SIGTERM && !for_attach) {
         print("done\n");
     }
     exit(1);
