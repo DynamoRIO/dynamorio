@@ -313,6 +313,7 @@ if ("${orig_nudge}" MATCHES "<detach>")
     endif ()
   endwhile()
 endif ()
+message("${output}")
 
 kill_background_process(OFF)
 
