@@ -314,8 +314,9 @@ if ("${orig_nudge}" MATCHES "<detach>")
   endwhile()
 endif ()
 #message("${output}")
-
-kill_background_process(OFF)
+if (NOT "${orig_nudge}" MATCHES "<detach>")
+  kill_background_process(OFF)
+endif ()
 
 if (NOT "${fail_msg}" STREQUAL "")
   message(FATAL_ERROR "${fail_msg}")
