@@ -138,10 +138,10 @@ typedef enum _dr_pred_type_t {
     DR_PRED_LE, /**< ARM condition: 1101 Signed <=               (Z == 1 or N != V) */
     DR_PRED_AL, /**< ARM condition: 1110 Always (unconditional)                    */
 #    ifdef AARCH64
-    DR_PRED_NV, /**< ARM condition: 1111 Never, meaning always                     */
-    DR_PRED_GOVERNING, /** Used for AArch64 SVE instructions with governing predicate
-                        * registers
-                        */
+    DR_PRED_NV,     /**< ARM condition: 1111 Never, meaning always                     */
+    DR_PRED_MASKED, /** Used for AArch64 SVE instructions with governing predicate
+                     * registers
+                     */
 #    endif
 #    ifdef ARM
     DR_PRED_OP, /**< ARM condition: 1111 Part of opcode                            */
@@ -2542,17 +2542,17 @@ instr_is_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls DR_PARA
 /* we only care about these 11 flags, and mostly only about the first 6
  * we consider an undefined effect on a flag to be a write
  */
-#    define EFLAGS_READ_CF 0x00000001  /**< Reads CF (Carry Flag). */
-#    define EFLAGS_READ_PF 0x00000002  /**< Reads PF (Parity Flag). */
-#    define EFLAGS_READ_AF 0x00000004  /**< Reads AF (Auxiliary Carry Flag). */
-#    define EFLAGS_READ_ZF 0x00000008  /**< Reads ZF (Zero Flag). */
-#    define EFLAGS_READ_SF 0x00000010  /**< Reads SF (Sign Flag). */
-#    define EFLAGS_READ_TF 0x00000020  /**< Reads TF (Trap Flag). */
-#    define EFLAGS_READ_IF 0x00000040  /**< Reads IF (Interrupt Enable Flag). */
-#    define EFLAGS_READ_DF 0x00000080  /**< Reads DF (Direction Flag). */
-#    define EFLAGS_READ_OF 0x00000100  /**< Reads OF (Overflow Flag). */
-#    define EFLAGS_READ_NT 0x00000200  /**< Reads NT (Nested Task). */
-#    define EFLAGS_READ_RF 0x00000400  /**< Reads RF (Resume Flag). */
+#    define EFLAGS_READ_CF 0x00000001 /**< Reads CF (Carry Flag). */
+#    define EFLAGS_READ_PF 0x00000002 /**< Reads PF (Parity Flag). */
+#    define EFLAGS_READ_AF 0x00000004 /**< Reads AF (Auxiliary Carry Flag). */
+#    define EFLAGS_READ_ZF 0x00000008 /**< Reads ZF (Zero Flag). */
+#    define EFLAGS_READ_SF 0x00000010 /**< Reads SF (Sign Flag). */
+#    define EFLAGS_READ_TF 0x00000020 /**< Reads TF (Trap Flag). */
+#    define EFLAGS_READ_IF 0x00000040 /**< Reads IF (Interrupt Enable Flag). */
+#    define EFLAGS_READ_DF 0x00000080 /**< Reads DF (Direction Flag). */
+#    define EFLAGS_READ_OF 0x00000100 /**< Reads OF (Overflow Flag). */
+#    define EFLAGS_READ_NT 0x00000200 /**< Reads NT (Nested Task). */
+#    define EFLAGS_READ_RF 0x00000400 /**< Reads RF (Resume Flag). */
 
 #    define EFLAGS_WRITE_CF 0x00000800 /**< Writes CF (Carry Flag). */
 #    define EFLAGS_WRITE_PF 0x00001000 /**< Writes PF (Parity Flag). */

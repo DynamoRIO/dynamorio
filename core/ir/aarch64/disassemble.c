@@ -55,7 +55,7 @@ static const char *const pred_names[] = {
     "le", /* DR_PRED_LE */
     "al", /* DR_PRED_AL */
     "nv", /* DR_PRED_NV */
-    "",   /* DR_PRED_GOVERNING */
+    "",   /* DR_PRED_MASKED */
 };
 
 int
@@ -151,7 +151,7 @@ print_opcode_name(instr_t *instr, const char *name, char *buf, size_t bufsz,
                   size_t *sofar DR_PARAM_OUT)
 {
     if (instr_get_predicate(instr) != DR_PRED_NONE &&
-        instr_get_predicate(instr) != DR_PRED_GOVERNING) {
+        instr_get_predicate(instr) != DR_PRED_MASKED) {
         if (instr_get_opcode(instr) == OP_bcond) {
             print_to_buffer(buf, bufsz, sofar, "b.%s",
                             pred_names[instr_get_predicate(instr)]);
