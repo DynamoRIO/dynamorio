@@ -96,7 +96,7 @@ event_post_attach(void)
 {
     // We do not print here as the ordering is non-deterministic vs thread init.
     saw_attach_event = true;
-    dr_fprintf(STDERR, "attach\n");
+//    dr_fprintf(STDERR, "attach\n");
 }
 
 DR_EXPORT
