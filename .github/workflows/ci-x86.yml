@@ -79,13 +79,12 @@ jobs:
         sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
           liblz4-dev g++-multilib libunwind-dev
         sudo add-apt-repository 'deb [arch=i386] http://us.archive.ubuntu.com/ubuntu focal main'
-        apt download libunwind8:i386 libunwind-dev:i386 liblzma5:i386 zlib1g-dev:i386
+        apt download libunwind8:i386 libunwind-dev:i386 liblzma5:i386 zlib1g:i386 zlib1g-dev:i386
         mkdir ../extract
         for i in *.deb; do dpkg-deb -x $i ../extract; done
         sudo rsync -av ../extract/usr/lib/i386-linux-gnu/ /usr/lib/i386-linux-gnu/
         sudo rsync -av ../extract/lib/i386-linux-gnu/ /usr/lib/i386-linux-gnu/
         sudo rsync -av ../extract/usr/include/i386-linux-gnu/ /usr/include/
-        sudo mv /usr/lib/i386-linux-gnu/libz.a /usr/lib/i386-linux-gnu/libz-DISABLED.a
         echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
 
     # Use a newer cmake to avoid 32-bit toolchain problems (i#4830).
