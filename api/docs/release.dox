@@ -144,6 +144,8 @@ changes:
    differentiate it from the other SVE MUL instructions.
 
 Further non-compatibility-affecting changes include:
+ - Added DWARF-5 support to the drsyms library by linking in 4 static libraries
+   from elfutils.  These libraries have LGPL licenses.
  - Added raw2trace support to inject system call kernel trace templates collected from
    elsewhere (e.g., QEMU, Gem5) into the user-space drmemtrace traces at the
    corresponding system call number marker. This is done by specifying the path to the
