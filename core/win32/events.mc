@@ -533,7 +533,7 @@ Severity = Error
 Facility = DRCore
 SymbolicName = MSG_INSTRUMENTATION_TOO_LARGE
 Language=English
-Application %1!s! (%2!s!). Basic block or trace instrumentation exceeded maximum size.  Try lowering -max_bb_instrs and/or -max_trace_bbs.
+Application %1!s! (%2!s!). Basic block or trace instrumentation exceeded maximum size.  Try lowering -max_bb_instrs and/or -max_trace_bbs and/or set -disable_traces.
 .
 
 MessageId =

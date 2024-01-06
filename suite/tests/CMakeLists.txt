@@ -5988,6 +5988,7 @@ if (RISCV64)
     code_api|sample.syscall
     code_api|security-linux.trampoline
     code_api|tool.drdisas
+    code_api|tool.reuse_distance
     no_code_api,no_intercept_all_signals|linux.sigaction
     PROPERTIES LABELS RUNS_ON_QEMU)
   if (DEBUG)

@@ -7383,11 +7383,9 @@ dr_insert_get_stolen_reg_value(void *drcontext, instrlist_t *ilist, instr_t *ins
                   "dr_insert_get_stolen_reg: reg has wrong size\n");
     CLIENT_ASSERT(!reg_is_stolen(reg),
                   "dr_insert_get_stolen_reg: reg is used by DynamoRIO\n");
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
     instrlist_meta_preinsert(
         ilist, instr, instr_create_restore_from_tls(drcontext, reg, TLS_REG_STOLEN_SLOT));
-#elif defined(RISCV64)
-    CLIENT_ASSERT(false, "NYI on RISCV64");
 #endif
     return true;
 }
