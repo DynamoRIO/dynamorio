@@ -187,7 +187,8 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
     /* sp is the stack pointer, which should not be poped. */
     cci->reg_skip[DR_REG_SP - DR_REG_START_GPR] = true;
 
-    /* XXX: c.sdsp/c.fsdsp has a zero-extended 9-bit offset, which is not enough for our usage.
+    /* XXX: c.sdsp/c.fsdsp has a zero-extended 9-bit offset, which is not enough for our
+     * usage.
      */
     ASSERT(current_offs >= DR_NUM_FPR_REGS * XSP_SZ);
     PRE(ilist, instr,
