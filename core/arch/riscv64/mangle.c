@@ -122,8 +122,8 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     }
 
     dstack_offs += XSP_SZ;
-    /* XXX: c.sdsp/c.fsdsp has a zero-extended 9-bit offset, it not enough for our
-     * usage, we use dstack_middle_offs to mitigate this issue.
+    /* XXX: c.sdsp/c.fsdsp has a zero-extended 9-bit offset, which is not enough for our
+     * usage. We use dstack_middle_offs to mitigate this issue.
      */
     dstack_middle_offs = dstack_offs;
     dstack_offs = 0;
@@ -187,7 +187,7 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
     /* sp is the stack pointer, which should not be poped. */
     cci->reg_skip[DR_REG_SP - DR_REG_START_GPR] = true;
 
-    /* XXX: c.sdsp/c.fsdsp has a zero-extended 9-bit offset, it not enough for our usage.
+    /* XXX: c.sdsp/c.fsdsp has a zero-extended 9-bit offset, which is not enough for our usage.
      */
     ASSERT(current_offs >= DR_NUM_FPR_REGS * XSP_SZ);
     PRE(ilist, instr,

@@ -507,7 +507,7 @@ drutil_insert_get_mem_addr_risc(void *drcontext, instrlist_t *bb, instr_t *where
                                           OPND_CREATE_INT(amount));
             PRE(bb, where, instr);
 #    else  /* RISCV64 */
-            ASSERT(false, "unreachable");
+            ASSERT(false, "Unreachable, there is no base + index addressing mode in RISC-V.");
 #    endif /* AARCHXX/RISCV64 */
         } else if (base != dst) {
             PRE(bb, where,
