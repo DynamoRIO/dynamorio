@@ -46,7 +46,6 @@ dr_exit(void)
 {
     if (!saw_attach_event)
         dr_fprintf(STDERR, "Error: never saw attach event!\n");
-        // dr_fprintf(STDERR, "done\n");
 #ifdef WINDOWS
     dr_fprintf(STDERR, "done\n");
 #else
@@ -97,7 +96,6 @@ event_post_attach(void)
 {
     // We do not print here as the ordering is non-deterministic vs thread init.
     saw_attach_event = true;
-    //    dr_fprintf(STDERR, "attach\n");
 }
 
 static void
