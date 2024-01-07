@@ -51,7 +51,7 @@ dr_exit(void)
 #else
         /* The app prints 'done' for us. */
 #endif
-    //dr_fprintf(STDERR, "done\n");
+    // dr_fprintf(STDERR, "done\n");
     //#ifdef WINDOWS
     //#else
     //        /* The app prints 'done' for us. */
