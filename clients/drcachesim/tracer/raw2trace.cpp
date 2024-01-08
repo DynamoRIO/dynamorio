@@ -3048,10 +3048,11 @@ instr_summary_t::construct(void *dcontext, app_pc block_start, DR_PARAM_INOUT ap
                  * until we change the codec to use the per-element size we need to fix
                  * it up here.
                  */
-                if (desc->is_scatter_or_gather())
+                if (desc->is_scatter_or_gather()) {
                     opnd_set_size(
                         &op,
                         get_aarch64_scatter_gather_value_size(instr_get_opcode(instr)));
+                }
 #endif
                 desc->mem_srcs_and_dests_.push_back(memref_summary_t(op));
             }
@@ -3070,10 +3071,11 @@ instr_summary_t::construct(void *dcontext, app_pc block_start, DR_PARAM_INOUT ap
                  * until we change the codec to use the per-element size we need to fix
                  * it up here.
                  */
-                if (desc->is_scatter_or_gather())
+                if (desc->is_scatter_or_gather()) {
                     opnd_set_size(
                         &op,
                         get_aarch64_scatter_gather_value_size(instr_get_opcode(instr)));
+                }
 #endif
                 desc->mem_srcs_and_dests_.push_back(memref_summary_t(op));
             }
