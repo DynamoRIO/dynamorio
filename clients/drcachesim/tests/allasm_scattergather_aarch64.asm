@@ -64,19 +64,19 @@
 #define D_MASK_REG p3 // Governing predicate for doubleword-element instructions
 
 #define BUFFER_REG x1
-#define Z_BASE_REG z0 // base reg used in vector+immediate instructions
+#define Z_BASE_REG z0 // base reg used in vector+immediate/vector+scalar instructions
 
 #define S_INDEX_REG z1 // index reg used in scalar+immed instructions with 32-bit elements
 #define D_INDEX_REG z2 // index reg used in scalar+immed instructions with 64-bit elements
 
-#define X_INDEX_REG x2 // index reg used in scalar+scalar instructions
+#define X_INDEX_REG x2 // index reg used in scalar+scalar/vector+scalar instructions
 
 /*
  * Test functions. The commented number after each instruction indicates the number of
  * elements this instruction accesses with a 128-bit vector length. We can add these
  * numbers up to determine how many loads/stores we expect to see in the basic_counts
  * output when all elements are active. To find the number for hardware with a larger
- * vector size, multiply by vl_size/16.
+ * vector size, multiply by vl_bytes/16.
  */
 
 test_scalar_plus_vector:
@@ -381,6 +381,26 @@ test_replicating_loads:
 
         ret
 
+#ifdef __ARM_FEATURE_SVE2
+
+test_vector_plus_scalar:
+        ldnt1b  DEST_REG1.d, D_MASK_REG/z, [Z_BASE_REG.d, X_INDEX_REG] // 2
+        ldnt1sb DEST_REG1.d, D_MASK_REG/z, [Z_BASE_REG.d, X_INDEX_REG] // 2
+        ldnt1h  DEST_REG1.d, D_MASK_REG/z, [Z_BASE_REG.d, X_INDEX_REG] // 2
+        ldnt1sh DEST_REG1.d, D_MASK_REG/z, [Z_BASE_REG.d, X_INDEX_REG] // 2
+        ldnt1w  DEST_REG1.d, D_MASK_REG/z, [Z_BASE_REG.d, X_INDEX_REG] // 2
+        ldnt1sw DEST_REG1.d, D_MASK_REG/z, [Z_BASE_REG.d, X_INDEX_REG] // 2
+        ldnt1d  DEST_REG1.d, D_MASK_REG/z, [Z_BASE_REG.d, X_INDEX_REG] // 2
+                                                                       // Total: 14
+
+        stnt1b  {SRC_REG1.d}, D_MASK_REG, [Z_BASE_REG.d, X_INDEX_REG] // 2
+        stnt1h  {SRC_REG1.d}, D_MASK_REG, [Z_BASE_REG.d, X_INDEX_REG] // 2
+        stnt1w  {SRC_REG1.d}, D_MASK_REG, [Z_BASE_REG.d, X_INDEX_REG] // 2
+        stnt1d  {SRC_REG1.d}, D_MASK_REG, [Z_BASE_REG.d, X_INDEX_REG] // 2
+                                                                      // Total: 8
+        ret
+#endif // __ARM_FEATURE_SVE2
+
 _start:
 #ifdef __APPLE__
         adrp     BUFFER_REG, buffer@PAGE
@@ -424,9 +444,18 @@ _start:
                                            // +(322 * vl_bytes/16) stores
         bl      test_replicating_loads     // +60 loads
                                            // +0 stores
+#ifdef __ARM_FEATURE_SVE2
+        bl      test_vector_plus_scalar    // +(14 * vl_bytes/16) loads
+                                           // +(8 * vl_bytes/16) stores
+#endif
         // Running total:
+        // SVE only:
         // Loads: (136 + 14 + 374 + 374) * vl_bytes/16 + 60 = 898 * vl_bytes/16 + 60
         // Stores: (82 + 8 + 322 + 322) * vl_bytes/16 = 734 * vl_bytes/16
+
+        // Including SVE2:
+        // Loads: ((898 + 14) * vl_bytes/16) + 60 = (912 * vl_bytes/16) + 60
+        // Stores: (734 + 8) * vl_bytes/16 = 742 * vl_bytes/16
 
         /* Run all the instructions with no active elements */
 
@@ -440,10 +469,18 @@ _start:
         bl      test_scalar_plus_scalar    // +0 loads, +0 stores
         bl      test_scalar_plus_immediate // +0 loads, +0 stores
         bl      test_replicating_loads     // +0 loads, +0 stores
+#ifdef __ARM_FEATURE_SVE2
+        bl      test_vector_plus_scalar    // +0 loads, +0 stores
+#endif
 
         // Running total (unchanged from above):
+        // SVE only:
         // Loads:  (898 * vl_bytes/16) + 60
         // Stores: 734 * vl_bytes/16
+
+        // Including SVE2:
+        // Loads: (912 * vl_bytes/16) + 60
+        // Stores: 742 * vl_bytes/16
 
         /* Run all instructions with one active element */
         ptrue    B_MASK_REG.b, VL1 // Set 1 element to active in the mask regs.
@@ -456,27 +493,45 @@ _start:
         bl      test_scalar_plus_scalar    // +56 loads, +46 stores
         bl      test_scalar_plus_immediate // +56 loads, +46 stores
         bl      test_replicating_loads     // +8 loads, +0 stores
+#ifdef __ARM_FEATURE_SVE2
+        bl      test_vector_plus_scalar    // +7 loads, +4 stores
+#endif
 
         // Running total:
+        // SVE only:
         // Loads:  (898 * vl_bytes/16) + 60 + 52 + 7 + 56 + 56 + 8 = (898 * vl_bytes/16) + 239
         // Stores: (734 * vl_bytes/16) + 41 + 4 + 46 + 46 = (734 * vl_bytes/16) + 127
 
+        // Including SVE2:
+        // Loads:  (912 * vl_bytes/16) + 239 + 7 = (912 * vl_bytes/16) + 246
+        // Stores: (742 * vl_bytes/16) + 127 + 4 = (742 * vl_bytes/16) + 131
+
         // The functions in this file have the following instructions counts:
-        //     _start                       40
+        //     _start                       40 (+3 SVE2)
         //     test_scalar_plus_vector      84
         //     test_vector_plus_immediate   12
         //     test_scalar_plus_scalar      55
         //     test_scalar_plus_immediate   55
         //     test_replicating_loads       9
+        //     test_vector_plus_scalar      12
         // So there are 40 + 84 + 12 + 55 + 55 + 9 = 255 unique instructions
+        // (or 255 + 12 + 3 = 270 including SVE2)
         // We run the test_* functions 3 times each so the total instruction executed is
         //     ((84 + 12 + 55 + 55 + 9) * 3) + 40 = (215 * 3) + 37 = 685
+        // (or 685 + 3 + (12 * 3) = 724 including SVE2)
 
         // Totals:
+        // SVE only:
         // Loads:  (898 * vl_bytes/16) + 239
         // Stores: (734 * vl_bytes/16) + 127
         // Instructions: 685
         // Unique instructions: 255
+
+        // Including SVE2:
+        // Loads:  (912 * vl_bytes/16) + 246
+        // Stores: (742 * vl_bytes/16) + 131
+        // Instructions: 724
+        // Unique instructions: 270
 
 // Exit.
         mov      w0, #1            // stdout
