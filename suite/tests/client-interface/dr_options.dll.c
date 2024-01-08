@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -63,6 +63,8 @@ dr_init(client_id_t client_id)
      * should match the value read from the arbitrary query API.
      */
     ASSERT(dr_using_all_private_caches());
+
+    ASSERT(dr_running_under_dynamorio());
 
     /* Query non-existent options. */
     int_option = 1;

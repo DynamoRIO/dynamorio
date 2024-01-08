@@ -218,6 +218,8 @@ protected:
     init_scheduler(const std::string &trace_path, memref_tid_t only_thread, int verbosity,
                    typename sched_type_t::scheduler_options_t options);
 
+    // For core-sharded, worker_count_ must be set prior to calling this; for parallel
+    // mode if it is not set it will be set to the underlying core count.
     bool
     init_scheduler(std::unique_ptr<ReaderType> reader,
                    std::unique_ptr<ReaderType> reader_end, int verbosity,
