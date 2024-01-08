@@ -3073,17 +3073,40 @@ endif ()
 
 if (NOT ANDROID AND NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   # XXX i#1874: get working on Android
-  tobuild_appdll(client.drsyms-test client-interface/drsyms-test.cpp)
-  get_target_path_for_execution(drsyms_libpath client.drsyms-test.appdll "${location_suffix}")
-  tobuild_ci(client.drsyms-test client-interface/drsyms-test.cpp ""
-    "" "${drsyms_libpath}")
-  # Disable optimizations for the exe and appdll to allow stack tracing.
-  disable_optimizations_for_file(client-interface/drsyms-test.cpp)
-  disable_optimizations_for_file(client-interface/drsyms-test.appdll.cpp)
-  # Debug libc seems to mess up the test.
-  use_MT_not_MTd(client-interface/drsyms-test.appdll.cpp)
-  use_DynamoRIO_extension(client.drsyms-test.dll drsyms)
-  use_DynamoRIO_extension(client.drsyms-test.dll drwrap)  # Makes testing easy
+  macro (add_drsyms_test suffix flag)
+    tobuild_appdll(client.drsyms${suffix}-test client-interface/drsyms-test.cpp)
+    get_target_path_for_execution(drsyms_libpath client.drsyms${suffix}-test.appdll
+      "${location_suffix}")
+    tobuild_ci(client.drsyms${suffix}-test client-interface/drsyms-test.cpp ""
+      "" "${drsyms_libpath}")
+    # Disable optimizations for the exe and appdll to allow stack tracing.
+    disable_optimizations_for_file(client-interface/drsyms-test.cpp)
+    disable_optimizations_for_file(client-interface/drsyms-test.appdll.cpp)
+    # Debug libc seems to mess up the test.
+    use_MT_not_MTd(client-interface/drsyms-test.appdll.cpp)
+    use_DynamoRIO_extension(client.drsyms${suffix}-test.dll drsyms)
+    use_DynamoRIO_extension(client.drsyms${suffix}-test.dll drwrap)  # Makes testing easy
+    if (NOT "${flag}" STREQUAL "")
+      append_property_string(TARGET client.drsyms${suffix}-test
+        COMPILE_FLAGS "${flag}")
+      append_property_string(TARGET client.drsyms${suffix}-test.appdll
+        COMPILE_FLAGS "${flag}")
+    endif ()
+  endmacro ()
+
+  add_drsyms_test("" "")
+  if (LINUX)
+    # We don't try to figure out the default: we just try each variant in addition to
+    # whatever the default is.
+    CHECK_C_COMPILER_FLAG("-gdwarf-4" gdwarf4_avail)
+    if (gdwarf4_avail)
+      add_drsyms_test("-dwarf4" "-gdwarf-4")
+    endif ()
+    CHECK_C_COMPILER_FLAG("-gdwarf-5" gdwarf5_avail)
+    if (gdwarf5_avail)
+      add_drsyms_test("-dwarf5" "-gdwarf-5")
+    endif ()
+  endif ()
 
   # TODO i#2414: Port to Windows, Mac, and Android.
   if (LINUX AND HAVE_LIBUNWIND_H)
@@ -3955,6 +3978,14 @@ if (BUILD_CLIENTS)
     # lz4 is on by default so we test no compression here.
     torunonly_drcacheoff(raw-none ${ci_shared_app} "-raw_compress none" "" "")
     set(tool.drcacheoff.raw-none_expectbase "offline-simple")
+
+    # Test that malloc & co. are not invoked.
+    # We disable the lz4 default as both lz4 and snappy call
+    # dr_allow_unsafe_static_behavior().
+    # We enable function tracing for a non-library-exported function to exercise drsyms.
+    torunonly_drcacheoff(check-malloc ${ci_shared_app}
+      "-raw_compress none -record_function 'main|2'" "" "")
+    set(tool.drcacheoff.check-malloc_expectbase "offline-simple")
 
     # Test reading a trace in sharded snappy-compressed files.
     if (libsnappy)
@@ -5957,6 +5988,7 @@ if (RISCV64)
     code_api|sample.syscall
     code_api|security-linux.trampoline
     code_api|tool.drdisas
+    code_api|tool.reuse_distance
     no_code_api,no_intercept_all_signals|linux.sigaction
     PROPERTIES LABELS RUNS_ON_QEMU)
   if (DEBUG)
