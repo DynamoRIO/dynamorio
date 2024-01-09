@@ -48,7 +48,7 @@ bool for_attach = false, block = false;
 static void
 signal_handler(int sig)
 {
-    if (sig == SIGTERM && !for_attach) { // && !for_attach
+    if (sig == SIGTERM && !for_attach) {
         print("done\n");
     }
     exit(1);
