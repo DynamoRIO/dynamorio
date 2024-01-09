@@ -516,6 +516,21 @@ instr_t *
 instr_set_translation_mangling_epilogue(dcontext_t *dcontext, instrlist_t *ilist,
                                         instr_t *instr);
 
+#ifdef AARCH64
+/* Sets the DR_PRED_MASKED flag on the instruction to indicate that
+ * this instruction is predicated and execution depends on the value of a
+ * predicate register
+ */
+void
+instr_set_has_register_predication(instr_t *instr);
+
+/* Checks if DR_PRED_MASKED is set on the instruction, which indicates
+it has a governing predicate register.
+*/
+bool
+instr_has_register_predication(instr_t *instr);
+#endif
+
 app_pc
 instr_compute_address_priv(instr_t *instr, priv_mcontext_t *mc);
 
