@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -198,7 +198,29 @@ If you wish to run the test suite, you should enable BUILD_TESTS.
 
 ----------------
 
-## Cross-Compiling for ARM on Linux
+## Cross-Compiling for 64-bit ARM (AArch64) on Linux
+
+Install the cross compiler for the `gnueabihf` target:
+
+```
+$ sudo apt-get install g++-aarch64-linux-gnu
+```
+
+Check out the sources as normal, and point at our toolchain CMake file:
+
+```
+$ git clone https://github.com/DynamoRIO/dynamorio.git
+$ mkdir build_aarch64
+$ cd build_aarch64
+$ cmake -DCMAKE_TOOLCHAIN_FILE=../dynamorio/make/toolchain-arm64.cmake ../dynamorio
+$ make -j
+```
+
+To build a client, again use the toolchain file, as well as pointing at a DynamoRIO installation using `-DDynamoRIO_DIR=<path>` as described in the package documentation.
+
+----------------
+
+## Cross-Compiling for 32-bit ARM (AArch32) on Linux
 
 Install the cross compiler for the `gnueabihf` target:
 
