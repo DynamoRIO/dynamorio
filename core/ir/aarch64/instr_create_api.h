@@ -11609,8 +11609,10 @@
  *             dr_get_sve_vector_length() / 8))
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant: opnd_create_base_disp(Rn,
  *             DR_REG_NULL, 0, imm, opnd_size_from_bytes(dr_get_sve_vector_length() / 8))
- *             For the vector+scalar variant: opnd_create_base_disp_aarch64(Zn, Rm,
- *             DR_EXTEND_UXTX, 0, 0, 0, OPSZ_1)
+ *             For the [\<Zn\>.D{, \<Xm\>}] variant: opnd_create_vector_base_disp_aarch64(
+ *             Zn, Xm, OPSZ_8, DR_EXTEND_UXTX, 0, 0, OPSZ_1, 0)
+ *             For the [\<Zn\>.S{, \<Xm\>}] variant: opnd_create_vector_base_disp_aarch64(
+ *             Zn, Xm, OPSZ_4, DR_EXTEND_UXTX, 0, 0, OPSZ_1, 0)
  */
 #define INSTR_CREATE_ldnt1b_sve_pred(dc, Zt, Pg, Rn) \
     INSTR_PRED(instr_create_1dst_2src(dc, OP_ldnt1b, Zt, Rn, Pg), DR_PRED_MASKED)
@@ -11681,16 +11683,10 @@
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
  *             opnd_size_from_bytes(dr_get_sve_vector_length() / 8))
- *             For the [\<Zn\>.D{, \<Xm\>}] variant:
- *             opnd_create_vector_base_disp_aarch64(Zn, Xm, OPSZ_8,
- *             DR_EXTEND_UXTX, 0, 0, 0,
- *             opnd_size_from_bytes(proc_get_vector_length_bytes() / 8),
- *             0)
- *             For the [\<Zn\>.S{, \<Xm\>}] variant:
- *             opnd_create_vector_base_disp_aarch64(Zn, Xm, OPSZ_4,
- *             DR_EXTEND_UXTX, 0, 0, 0,
- *             opnd_size_from_bytes(proc_get_vector_length_bytes() / 4),
- *             0)
+ *             For the [\<Zn\>.D{, \<Xm\>}] variant: opnd_create_vector_base_disp_aarch64(
+ *             Zn, Xm, OPSZ_8, DR_EXTEND_UXTX, 0, 0, OPSZ_1, 0)
+ *             For the [\<Zn\>.S{, \<Xm\>}] variant: opnd_create_vector_base_disp_aarch64(
+ *             Zn, Xm, OPSZ_4, DR_EXTEND_UXTX, 0, 0, OPSZ_1, 0)
  */
 #define INSTR_CREATE_stnt1b_sve_pred(dc, Zt, Pg, Rn) \
     INSTR_PRED(instr_create_1dst_2src(dc, OP_stnt1b, Rn, Zt, Pg), DR_PRED_MASKED)
@@ -12949,10 +12945,8 @@
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
  *             opnd_size_from_bytes(dr_get_sve_vector_length() / 8))
- *             For the [\<Zn\>.D{, \<Xm\>}] variant:
- *             opnd_create_vector_base_disp_aarch64(Zn, Xm, OPSZ_8,
- *             DR_EXTEND_UXTX, 0, 0, 0,
- *             opnd_size_from_bytes(proc_get_vector_length_bytes()), 0)
+ *             For the [\<Zn\>.D{, \<Xm\>}] variant: opnd_create_vector_base_disp_aarch64(
+ *             Zn, Xm, OPSZ_8, DR_EXTEND_UXTX, 0, 0, OPSZ_8, 0)
  */
 #define INSTR_CREATE_ldnt1d_sve_pred(dc, Zt, Pg, Rn) \
     INSTR_PRED(instr_create_1dst_2src(dc, OP_ldnt1d, Zt, Rn, Pg), DR_PRED_MASKED)
@@ -12979,15 +12973,10 @@
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
  *             opnd_size_from_bytes(dr_get_sve_vector_length() / 8))
- *             For the [\<Zn\>.D{, \<Xm\>}] variant:
- *             opnd_create_vector_base_disp_aarch64(Zn, Xm, OPSZ_8,
- *             DR_EXTEND_UXTX, 0, 0, 0,
- *             opnd_size_from_bytes(proc_get_vector_length_bytes() / 4),
- *             0)
- *             For the [\<Zn\>.S{, \<Xm\>}] variant:
- *             opnd_create_vector_base_disp_aarch64(Zn, Xm, OPSZ_4,
- *             DR_EXTEND_UXTX, 0, 0, 0,
- *             opnd_size_from_bytes(proc_get_vector_length_bytes() / 2), 0)
+ *             For the [\<Zn\>.D{, \<Xm\>}] variant: opnd_create_vector_base_disp_aarch64(
+ *             Zn, Xm, OPSZ_8, DR_EXTEND_UXTX, 0, 0, OPSZ_2, 0)
+ *             For the [\<Zn\>.S{, \<Xm\>}] variant: opnd_create_vector_base_disp_aarch64(
+ *             Zn, Xm, OPSZ_4, DR_EXTEND_UXTX, 0, 0, OPSZ_2, 0)
  */
 #define INSTR_CREATE_ldnt1h_sve_pred(dc, Zt, Pg, Rn) \
     INSTR_PRED(instr_create_1dst_2src(dc, OP_ldnt1h, Zt, Rn, Pg), DR_PRED_MASKED)
@@ -13014,13 +13003,10 @@
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
  *             opnd_size_from_bytes(dr_get_sve_vector_length() / 8))
- *             For the [\<Zn\>.D{, \<Xm\>}] variant:
- *             opnd_create_vector_base_disp_aarch64(Zn, Xm, OPSZ_8,
- *             DR_EXTEND_UXTX, 0, 0, 0,
- *             opnd_size_from_bytes(proc_get_vector_length_bytes() / 2), 0)
- *             For the [\<Zn\>.S{, \<Xm\>}] variant:
- *             opnd_create_vector_base_disp_aarch64(Zn, Xm, OPSZ_4, DR_EXTEND_UXTX, 0, 0,
- *             0, opnd_size_from_bytes(proc_get_vector_length_bytes()), 0)
+ *             For the [\<Zn\>.D{, \<Xm\>}] variant: opnd_create_vector_base_disp_aarch64(
+ *             Zn, Xm, OPSZ_8, DR_EXTEND_UXTX, 0, 0, OPSZ_4, 0)
+ *             For the [\<Zn\>.S{, \<Xm\>}] variant: opnd_create_vector_base_disp_aarch64(
+ *             Zn, Xm, OPSZ_4, DR_EXTEND_UXTX, 0, 0, OPSZ_4, 0)
  */
 #define INSTR_CREATE_ldnt1w_sve_pred(dc, Zt, Pg, Rn) \
     INSTR_PRED(instr_create_1dst_2src(dc, OP_ldnt1w, Zt, Rn, Pg), DR_PRED_MASKED)
@@ -13299,10 +13285,8 @@
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
  *             opnd_size_from_bytes(dr_get_sve_vector_length() / 8))
- *             For the [\<Zn\>.D{, \<Xm\>}] variant:
- *             opnd_create_vector_base_disp_aarch64(Zn, Xm, OPSZ_8,
- *             DR_EXTEND_UXTX, 0, 0, 0,
- *             opnd_size_from_bytes(proc_get_vector_length_bytes()), 0)
+ *             For the [\<Zn\>.D{, \<Xm\>}] variant: opnd_create_vector_base_disp_aarch64(
+ *             Zn, Xm, OPSZ_8, DR_EXTEND_UXTX, 0, 0, OPSZ_8, 0)
  */
 #define INSTR_CREATE_stnt1d_sve_pred(dc, Zt, Pg, Rn) \
     INSTR_PRED(instr_create_1dst_2src(dc, OP_stnt1d, Rn, Zt, Pg), DR_PRED_MASKED)
@@ -13329,14 +13313,10 @@
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
  *             opnd_size_from_bytes(dr_get_sve_vector_length() / 8))
- *             For the [\<Zn\>.D{, \<Xm\>}] variant:
- *             opnd_create_vector_base_disp_aarch64(Zn, Xm, OPSZ_8,
- *             DR_EXTEND_UXTX, 0, 0, 0,
- *             opnd_size_from_bytes(proc_get_vector_length_bytes() / 4), 0)
- *             For the [\<Zn\>.S{, \<Xm\>}] variant:
- *             opnd_create_vector_base_disp_aarch64(Zn, Xm, OPSZ_4,
- *             DR_EXTEND_UXTX, 0, 0, 0,
- *             opnd_size_from_bytes(proc_get_vector_length_bytes() / 2), 0)
+ *             For the [\<Zn\>.D{, \<Xm\>}] variant: opnd_create_vector_base_disp_aarch64(
+ *             Zn, Xm, OPSZ_8, DR_EXTEND_UXTX, 0, 0, OPSZ_2, 0)
+ *             For the [\<Zn\>.S{, \<Xm\>}] variant: opnd_create_vector_base_disp_aarch64(
+ *             Zn, Xm, OPSZ_4, DR_EXTEND_UXTX, 0, 0, OPSZ_2, 0)
  */
 #define INSTR_CREATE_stnt1h_sve_pred(dc, Zt, Pg, Rn) \
     INSTR_PRED(instr_create_1dst_2src(dc, OP_stnt1h, Rn, Zt, Pg), DR_PRED_MASKED)
@@ -13363,14 +13343,10 @@
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
  *             opnd_size_from_bytes(dr_get_sve_vector_length() / 8))
- *             For the [\<Zn\>.D{, \<Xm\>}] variant:
- *             opnd_create_vector_base_disp_aarch64(Zn, Xm, OPSZ_8,
- *             DR_EXTEND_UXTX, 0, 0, 0,
- *             opnd_size_from_bytes(proc_get_vector_length_bytes() / 2), 0)
- *             For the [\<Zn\>.S{, \<Xm\>}] variant:
- *             opnd_create_vector_base_disp_aarch64(Zn, Xm, OPSZ_4,
- *             DR_EXTEND_UXTX, 0, 0, 0,
- *             opnd_size_from_bytes(proc_get_vector_length_bytes()), 0)
+ *             For the [\<Zn\>.D{, \<Xm\>}] variant: opnd_create_vector_base_disp_aarch64(
+ *             Zn, Xm, OPSZ_8, DR_EXTEND_UXTX, 0, 0, OPSZ_4, 0)
+ *             For the [\<Zn\>.S{, \<Xm\>}] variant: opnd_create_vector_base_disp_aarch64(
+ *             Zn, Xm, OPSZ_4, DR_EXTEND_UXTX, 0, 0, OPSZ_4, 0)
  */
 #define INSTR_CREATE_stnt1w_sve_pred(dc, Zt, Pg, Rn) \
     INSTR_PRED(instr_create_1dst_2src(dc, OP_stnt1w, Rn, Zt, Pg), DR_PRED_MASKED)
@@ -17601,8 +17577,10 @@
  * \param Pg   The governing predicate register, P (Predicate).
  * \param Zn   The first source vector base register with a register offset,
  *             constructed with the function:
- *             opnd_create_vector_base_disp_aarch64(Zn, Rm,
- *             OPSZ_8, DR_EXTEND_UXTX, 0, 0, 0, OPSZ_4, 0)
+ *             For the [\<Zn\>.D{, \<Xm\>}] variant: opnd_create_vector_base_disp_aarch64(
+ *             Zn, Xm, OPSZ_8, DR_EXTEND_UXTX, 0, 0, OPSZ_1, 0)
+ *             For the [\<Zn\>.S{, \<Xm\>}] variant: opnd_create_vector_base_disp_aarch64(
+ *             Zn, Xm, OPSZ_4, DR_EXTEND_UXTX, 0, 0, OPSZ_1, 0)
  */
 #define INSTR_CREATE_ldnt1sb_sve_pred(dc, Zt, Pg, Zn) \
     INSTR_PRED(instr_create_1dst_2src(dc, OP_ldnt1sb, Zt, Zn, Pg), DR_PRED_MASKED)
@@ -17620,8 +17598,10 @@
  * \param Pg   The governing predicate register, P (Predicate).
  * \param Zn   The first source vector base register with a register offset,
  *             constructed with the function:
- *             opnd_create_vector_base_disp_aarch64(Zn, Rm,
- *             OPSZ_8, DR_EXTEND_UXTX, 0, 0, 0, OPSZ_8, 0)
+ *             For the [\<Zn\>.D{, \<Xm\>}] variant: opnd_create_vector_base_disp_aarch64(
+ *             Zn, Xm, OPSZ_8, DR_EXTEND_UXTX, 0, 0, OPSZ_2, 0)
+ *             For the [\<Zn\>.S{, \<Xm\>}] variant: opnd_create_vector_base_disp_aarch64(
+ *             Zn, Xm, OPSZ_4, DR_EXTEND_UXTX, 0, 0, OPSZ_2, 0)
  */
 #define INSTR_CREATE_ldnt1sh_sve_pred(dc, Zt, Pg, Zn) \
     INSTR_PRED(instr_create_1dst_2src(dc, OP_ldnt1sh, Zt, Zn, Pg), DR_PRED_MASKED)
@@ -17638,8 +17618,8 @@
  * \param Pg   The governing predicate register, P (Predicate).
  * \param Zn   The first source vector base register with a register offset,
  *             constructed with the function:
- *             opnd_create_vector_base_disp_aarch64(Zn, Rm,
- *             OPSZ_8, DR_EXTEND_UXTX, 0, 0, 0, OPSZ_16, 0)
+ *             opnd_create_vector_base_disp_aarch64(
+ *             Zn, Xm, OPSZ_8, DR_EXTEND_UXTX, 0, 0, OPSZ_4, 0)
  */
 #define INSTR_CREATE_ldnt1sw_sve_pred(dc, Zt, Pg, Zn) \
     INSTR_PRED(instr_create_1dst_2src(dc, OP_ldnt1sw, Zt, Zn, Pg), DR_PRED_MASKED)

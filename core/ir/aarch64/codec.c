@@ -7991,8 +7991,7 @@ decode_svemem_vec_sd_gpr16(uint size_bit, uint enc, int opcode, byte *pc,
     const aarch64_reg_offset element_size =
         BITS(enc, size_bit, size_bit) == single_bit_value ? SINGLE_REG : DOUBLE_REG;
 
-    const opnd_size_t mem_transfer =
-        opnd_size_from_bytes(scale * get_elements_in_sve_vector(element_size));
+    const opnd_size_t mem_transfer = opnd_size_from_bytes(scale);
 
     const reg_id_t zn = decode_vreg(Z_REG, extract_uint(enc, 5, 5));
     ASSERT(reg_is_z(zn));
@@ -8038,8 +8037,7 @@ encode_svemem_vec_sd_gpr16(uint size_bit, uint enc, int opcode, byte *pc, opnd_t
     const aarch64_reg_offset msz = BITS(enc, 24, 23);
     const uint scale = 1 << msz;
 
-    const opnd_size_t mem_transfer =
-        opnd_size_from_bytes(scale * get_elements_in_sve_vector(element_size));
+    const opnd_size_t mem_transfer = opnd_size_from_bytes(scale);
     IF_RETURN_FALSE(opnd_get_size(opnd) != mem_transfer)
 
     uint xreg_number;
