@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -53,13 +53,13 @@ Clone the repository, either via ssh if you've set up ssh keys in your
 Github profile:
 
 ~~~{.unparsed}
-git clone git@github.com:DynamoRIO/dynamorio.git
+git clone --recurse-submodules -j4 git@github.com:DynamoRIO/dynamorio.git
 ~~~
 
 Or via https:
 
 ~~~{.unparsed}
-git clone https://github.com/DynamoRIO/dynamorio.git
+git clone --recurse-submodules -j4 https://github.com/DynamoRIO/dynamorio.git
 ~~~
 
 # Configuring Author Information and Aliases
