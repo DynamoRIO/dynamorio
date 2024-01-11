@@ -1208,8 +1208,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_switch_sequences()
     while (*reader != *reader_end) {
         RecordType record = **reader;
         // Only remember the records between the markers.
-        trace_marker_type_t marker_type;
-        uintptr_t marker_value;
+        trace_marker_type_t marker_type = TRACE_MARKER_TYPE_RESERVED_END;
+        uintptr_t marker_value = 0;
         if (record_type_is_marker(record, marker_type, marker_value) &&
             marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_START) {
             switch_type = static_cast<sched_type_t::switch_type_t>(marker_value);
