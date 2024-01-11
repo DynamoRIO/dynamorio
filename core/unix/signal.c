@@ -3644,7 +3644,6 @@ convert_frame_to_nonrt(dcontext_t *dcontext, int sig, sigframe_rt_t *f_old,
     f_new->sig_noclobber = f_new->sig;
 #    elif defined(ARM)
     memcpy(&f_new->uc, &f_old->uc, sizeof(f_new->uc));
-    memcpy(f_new->retcode, f_old->retcode, sizeof(f_new->retcode));
     /* now fill in our extra field */
     f_new->sig_noclobber = f_old->info.si_signo;
 #    endif /* X86 */

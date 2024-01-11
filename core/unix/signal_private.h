@@ -214,7 +214,11 @@ typedef _STRUCT_UCONTEXT /* == __darwin_ucontext */ kernel_ucontext_t;
  * (these are from /usr/src/linux/arch/i386/kernel/signal.c for kernel 2.4.17)
  */
 
-#    define RETCODE_SIZE 8
+#    if defined(X86) && !defined(X64)
+#        define RETCODE_SIZE 8
+#    elif defined(ARM)
+#        define RETCODE_SIZE 16
+#    endif
 
 typedef struct sigframe {
 #    ifdef X86
@@ -280,11 +284,9 @@ typedef struct rt_sigframe {
 #    elif defined(AARCHXX)
     kernel_siginfo_t info;
     kernel_ucontext_t uc;
-    char retcode[RETCODE_SIZE];
 #    elif defined(RISCV64)
     kernel_siginfo_t info;
     kernel_ucontext_t uc;
-    char retcode[RETCODE_SIZE];
 #    endif
 
 #elif defined(MACOS)
