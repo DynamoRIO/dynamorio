@@ -214,7 +214,7 @@ typedef _STRUCT_UCONTEXT /* == __darwin_ucontext */ kernel_ucontext_t;
  * (these are from /usr/src/linux/arch/i386/kernel/signal.c for kernel 2.4.17)
  */
 
-#    if defined(X86) && !defined(X64)
+#    if defined(X86)
 #        define RETCODE_SIZE 8
 #    elif defined(ARM)
 #        define RETCODE_SIZE 16
