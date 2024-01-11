@@ -3848,8 +3848,8 @@ raw2trace_t::raw2trace_t(
         decode_cache_.emplace_back(cache_count);
 
 #if defined(AARCH64)
-    // TODO i#5365: The decoder uses a global sve_veclen variable to store the vector
-    // length value it uses when decoding. drdecodelib ends up being linked into
+    // TODO i#6556, i#1684: The decoder uses a global sve_veclen variable to store the
+    // vector length value it uses when decoding. drdecodelib ends up being linked into
     // drcachesim twice: once into the drcachesim executable, and one into libdynamorio.
     // When we call dr_standalone_init() above it will initialize the version of
     // sve_veclen in libdynamorio, but not the one in drcachesim.
