@@ -1,6 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
- * Copyright (c) 2016-2023 ARM Limited. All rights reserved.
+ * Copyright (c) 2016-2024 ARM Limited. All rights reserved.
  * **********************************************************/
 
 /*
@@ -4706,10 +4706,8 @@ decode_svemem_gpr_vec(uint enc, aarch64_reg_offset element_size, dr_extend_type_
     const reg_id_t zm = decode_vreg(Z_REG, extract_uint(enc, 16, 5));
     ASSERT(reg_is_z(zm));
 
-    const uint num_elements = get_elements_in_sve_vector(element_size);
-    const opnd_size_t mem_size = is_prefetch
-        ? OPSZ_0
-        : opnd_size_from_bytes((1 << memory_access_size) * num_elements);
+    const opnd_size_t mem_size =
+        is_prefetch ? OPSZ_0 : opnd_size_from_bytes(1 << memory_access_size);
 
     *opnd = opnd_create_vector_base_disp_aarch64(
         xn, zm, get_opnd_size_from_offset(element_size), mod, scaled, 0, 0, mem_size,
