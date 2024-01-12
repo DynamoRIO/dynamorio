@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -88,6 +88,8 @@ public:
                         std::istream *serial_schedule_file = nullptr,
                         std::istream *cpu_schedule_file = nullptr);
     virtual ~invariant_checker_t();
+    std::string
+    initialize_shard_type(shard_type_t shard_type) override;
     std::string
     initialize_stream(memtrace_stream_t *serial_stream) override;
     bool
@@ -239,8 +241,7 @@ protected:
                                bool expect_encoding, bool at_kernel_event);
 
     void *drcontext_ = dr_standalone_init();
-    // The keys here are int for parallel, tid for serial.
-    std::unordered_map<memref_tid_t, std::unique_ptr<per_shard_t>> shard_map_;
+    std::unordered_map<int, std::unique_ptr<per_shard_t>> shard_map_;
     // This mutex is only needed in parallel_shard_init.  In all other accesses to
     // shard_map (process_memref, print_results) we are single-threaded.
     std::mutex shard_map_mutex_;

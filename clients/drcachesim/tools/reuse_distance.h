@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -79,6 +79,10 @@ class reuse_distance_t : public analysis_tool_t {
 public:
     explicit reuse_distance_t(const reuse_distance_knobs_t &knobs);
     ~reuse_distance_t() override;
+    std::string
+    initialize_stream(memtrace_stream_t *serial_stream) override;
+    std::string
+    initialize_shard_type(shard_type_t shard_type) override;
     bool
     process_memref(const memref_t &memref) override;
     bool
@@ -86,7 +90,8 @@ public:
     bool
     parallel_shard_supported() override;
     void *
-    parallel_shard_init(int shard_index, void *worker_data) override;
+    parallel_shard_init_stream(int shard_index, void *worker_data,
+                               memtrace_stream_t *stream) override;
     bool
     parallel_shard_exit(void *shard_data) override;
     bool
@@ -129,9 +134,8 @@ protected:
         std::unique_ptr<line_ref_list_t> ref_list;
         int64_t total_refs = 0;
         int64_t data_refs = 0; // Non-instruction reference count.
-        // Ideally the shard index would be the tid when shard==thread but that's
-        // not the case today so we store the tid.
-        memref_tid_t tid;
+        memref_tid_t tid = 0;  // For SHARD_BY_THREAD.
+        int64_t core = 0;      // For SHARD_BY_CORE.
         std::string error;
         // Keep a per-shard copy of distance_limit for parallel operation.
         unsigned int distance_limit = 0;
@@ -157,11 +161,12 @@ protected:
     const reuse_distance_knobs_t knobs_;
     const size_t line_size_bits_;
     static const std::string TOOL_NAME;
-    // In parallel operation the keys are "shard indices": just ints.
-    std::unordered_map<memref_tid_t, shard_data_t *> shard_map_;
+    std::unordered_map<int, shard_data_t *> shard_map_;
     // This mutex is only needed in parallel_shard_init.  In all other accesses to
     // shard_map (process_memref, print_results) we are single-threaded.
     std::mutex shard_map_mutex_;
+    shard_type_t shard_type_ = SHARD_BY_THREAD;
+    memtrace_stream_t *serial_stream_ = nullptr;
 };
 
 /* A doubly linked list node for the cache line reference info */

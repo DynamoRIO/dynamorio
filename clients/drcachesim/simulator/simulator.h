@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -114,7 +114,6 @@ protected:
     shard_type_t shard_type_ = SHARD_BY_THREAD;
     memtrace_stream_t *serial_stream_ = nullptr;
     memref_tid_t last_thread_; // Only used for SHARD_BY_THREAD.
-    int64_t last_cpu_ = -1;
     int last_core_;
 
     // For thread mapping to cores:

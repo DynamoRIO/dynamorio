@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -80,6 +80,20 @@ reuse_time_t::~reuse_time_t()
     }
 }
 
+std::string
+reuse_time_t::initialize_stream(memtrace_stream_t *serial_stream)
+{
+    serial_stream_ = serial_stream;
+    return "";
+}
+
+std::string
+reuse_time_t::initialize_shard_type(shard_type_t shard_type)
+{
+    shard_type_ = shard_type;
+    return "";
+}
+
 bool
 reuse_time_t::parallel_shard_supported()
 {
@@ -87,10 +101,13 @@ reuse_time_t::parallel_shard_supported()
 }
 
 void *
-reuse_time_t::parallel_shard_init(int shard_index, void *worker_data)
+reuse_time_t::parallel_shard_init_stream(int shard_index, void *worker_data,
+                                         memtrace_stream_t *stream)
 {
     auto shard = new shard_data_t();
     std::lock_guard<std::mutex> guard(shard_map_mutex_);
+    shard->core = stream->get_output_cpuid();
+    shard->tid = stream->get_input_tid();
     shard_map_[shard_index] = shard;
     return reinterpret_cast<void *>(shard);
 }
@@ -126,11 +143,6 @@ reuse_time_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         std::cerr << std::endl;
     }
 
-    if (memref.data.type == TRACE_TYPE_THREAD_EXIT) {
-        shard->tid = memref.exit.tid;
-        return true;
-    }
-
     // Only care about data for now.
     if (type_is_instr(memref.instr.type)) {
         shard->total_instructions++;
@@ -159,11 +171,13 @@ reuse_time_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 bool
 reuse_time_t::process_memref(const memref_t &memref)
 {
-    // For serial operation we index using the tid.
     shard_data_t *shard;
-    const auto &lookup = shard_map_.find(memref.data.tid);
+    int shard_index = serial_stream_->get_shard_index();
+    const auto &lookup = shard_map_.find(shard_index);
     if (lookup == shard_map_.end()) {
         shard = new shard_data_t();
+        shard->core = serial_stream_->get_output_cpuid();
+        shard->tid = serial_stream_->get_input_tid();
         shard_map_[memref.data.tid] = shard;
     } else
         shard = lookup->second;
@@ -241,8 +255,12 @@ reuse_time_t::print_results()
         });
         for (const auto &shard : sorted) {
             std::cerr << "\n==================================================\n"
-                      << TOOL_NAME << " results for shard " << shard.first << " (thread "
-                      << shard.second->tid << "):\n";
+                      << TOOL_NAME << " results for shard " << shard.first;
+            if (shard_type_ == SHARD_BY_THREAD)
+                std::cerr << " (thread " << shard.second->tid;
+            else
+                std::cerr << " (core " << shard.second->core;
+            std::cerr << "):\n";
             print_shard_results(shard.second);
         }
     }

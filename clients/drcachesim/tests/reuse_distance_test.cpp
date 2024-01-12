@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, LLC  All rights reserved.
+ * Copyright (c) 2015-2024 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -85,7 +85,7 @@ public:
     using reuse_distance_t::get_aggregated_results;
     using reuse_distance_t::print_histogram;
 
-    std::unordered_map<memref_tid_t, shard_data_t *> &
+    std::unordered_map<int, shard_data_t *> &
     get_shard_map()
     {
         return shard_map_;

@@ -1374,6 +1374,16 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_input_ordinal(output_ordinal_t out
 }
 
 template <typename RecordType, typename ReaderType>
+int64_t
+scheduler_tmpl_t<RecordType, ReaderType>::get_input_tid(output_ordinal_t output)
+{
+    int index = outputs_[output].cur_input;
+    if (index < 0)
+        return -1;
+    return inputs_[index].tid;
+}
+
+template <typename RecordType, typename ReaderType>
 int
 scheduler_tmpl_t<RecordType, ReaderType>::get_workload_ordinal(output_ordinal_t output)
 {
@@ -1398,7 +1408,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::is_record_synthetic(output_ordinal_t o
 
 template <typename RecordType, typename ReaderType>
 int64_t
-scheduler_tmpl_t<RecordType, ReaderType>::get_output_cpuid(output_ordinal_t output)
+scheduler_tmpl_t<RecordType, ReaderType>::get_output_cpuid(output_ordinal_t output) const
 {
     if (options_.replay_as_traced_istream != nullptr)
         return outputs_[output].as_traced_cpuid;

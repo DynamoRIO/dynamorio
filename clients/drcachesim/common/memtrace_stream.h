@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -156,9 +156,24 @@ public:
     }
 
     /**
+     * Returns the 0-based ordinal for the current shard.  For parallel analysis,
+     * this equals the \p shard_index passed to parallel_shard_init_stream().
+     * This is more useful for serial modes where there is no other convenience mechanism
+     * to determine such an index; there, it equals the same index that would be used in
+     * parallel mode, allowing a tool to compute per-shard results even in serial mode. If
+     * not implemented, -1 is returned.
+     */
+    virtual int
+    get_shard_index() const
+    {
+        return -1;
+    }
+
+    /**
      * Returns a unique identifier for the current "output cpu".  Generally this only
      * applies when using #SHARD_BY_CORE.  For dynamic schedules, the identifier is
-     * typically an output cpu ordinal.  For replaying an as-traced schedule, the
+     * typically an output cpu ordinal equal to get_shard_index().  For replaying an
+     * as-traced schedule, the
      * identifier is typically the original input cpu which is now mapped directly
      * to this output.  If not implemented for the current mode, -1 is returned.
      */
@@ -188,6 +203,17 @@ public:
      */
     virtual int64_t
     get_input_id() const
+    {
+        return -1;
+    }
+
+    /**
+     * Returns the thread identifier for the current input trace.
+     * This is a convenience method for use in parallel_shard_init_stream()
+     * prior to access to any #memref_t records.
+     */
+    virtual int64_t
+    get_input_tid() const
     {
         return -1;
     }

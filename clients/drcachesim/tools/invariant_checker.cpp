@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -79,6 +79,20 @@ invariant_checker_t::invariant_checker_t(bool offline, unsigned int verbose,
 
 invariant_checker_t::~invariant_checker_t()
 {
+}
+
+std::string
+invariant_checker_t::initialize_shard_type(shard_type_t shard_type)
+{
+    if (shard_type == SHARD_BY_CORE) {
+        // We track state that is inherently tied to threads.
+        //
+        // XXX: If we did get kernel pieces stitching together context switches,
+        // we could try to check PC continuity.  We could also try to enable
+        // certain other checks for core-sharded.
+        return "invariant_checker tool does not support sharding by core";
+    }
+    return "";
 }
 
 std::string
@@ -998,7 +1012,8 @@ bool
 invariant_checker_t::process_memref(const memref_t &memref)
 {
     per_shard_t *per_shard;
-    const auto &lookup = shard_map_.find(memref.data.tid);
+    int shard_index = serial_stream_->get_shard_index();
+    const auto &lookup = shard_map_.find(shard_index);
     if (lookup == shard_map_.end()) {
         auto per_shard_unique = std::unique_ptr<per_shard_t>(new per_shard_t);
         per_shard = per_shard_unique.get();
