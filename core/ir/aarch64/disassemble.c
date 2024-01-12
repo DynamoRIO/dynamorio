@@ -55,10 +55,11 @@ static const char *const pred_names[] = {
     "le", /* DR_PRED_LE */
     "al", /* DR_PRED_AL */
     "nv", /* DR_PRED_NV */
+    "",   /* DR_PRED_MASKED */
 };
 
 int
-print_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, byte *pc,
+print_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT, byte *pc,
                       byte *next_pc, instr_t *instr)
 {
     print_to_buffer(buf, bufsz, sofar, " %08x   ", *(uint *)pc);
@@ -66,8 +67,9 @@ print_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, byte *pc,
 }
 
 void
-print_extra_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, byte *pc,
-                            byte *next_pc, int extra_sz, const char *extra_bytes_prefix)
+print_extra_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
+                            byte *pc, byte *next_pc, int extra_sz,
+                            const char *extra_bytes_prefix)
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
 }
@@ -91,7 +93,7 @@ extend_name(dr_extend_type_t extend)
 }
 
 void
-opnd_base_disp_scale_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
+opnd_base_disp_scale_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
                                  opnd_t opnd)
 {
     bool scaled;
@@ -108,7 +110,7 @@ opnd_base_disp_scale_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
 }
 
 bool
-opnd_disassemble_arch(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t opnd)
+opnd_disassemble_arch(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT, opnd_t opnd)
 {
     if (opnd_is_immed_int(opnd) && TEST(DR_OPND_IS_SHIFT, opnd_get_flags(opnd))) {
         dr_shift_type_t t = (dr_shift_type_t)opnd_get_immed_int(opnd);
@@ -129,10 +131,10 @@ opnd_disassemble_arch(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t opnd)
 }
 
 bool
-opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
+opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
                             dcontext_t *dcontext, instr_t *instr, byte optype,
                             opnd_t opnd, bool prev, bool multiple_encodings, bool dst,
-                            int *idx INOUT)
+                            int *idx DR_PARAM_OUT)
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
     return false;
@@ -140,15 +142,16 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
 
 void
 print_instr_prefixes(dcontext_t *dcontext, instr_t *instr, char *buf, size_t bufsz,
-                     size_t *sofar INOUT)
+                     size_t *sofar DR_PARAM_OUT)
 {
 }
 
 void
 print_opcode_name(instr_t *instr, const char *name, char *buf, size_t bufsz,
-                  size_t *sofar INOUT)
+                  size_t *sofar DR_PARAM_OUT)
 {
-    if (instr_get_predicate(instr) != DR_PRED_NONE) {
+    if (instr_get_predicate(instr) != DR_PRED_NONE &&
+        instr_get_predicate(instr) != DR_PRED_MASKED) {
         if (instr_get_opcode(instr) == OP_bcond) {
             print_to_buffer(buf, bufsz, sofar, "b.%s",
                             pred_names[instr_get_predicate(instr)]);

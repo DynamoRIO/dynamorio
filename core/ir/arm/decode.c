@@ -455,7 +455,7 @@ decode_immed(decode_info_t *di, uint start_bit, opnd_size_t opsize, bool is_sign
 /* This routine creates the decoded operand(s) itself */
 static bool
 decode_SIMD_modified_immed(decode_info_t *di, byte optype, opnd_t *array,
-                           uint *counter INOUT)
+                           uint *counter DR_PARAM_OUT)
 {
     ptr_uint_t val; /* unsigned for logical shifts */
     /* This is a SIMD modified immedate: an 8-bit value with a 4-bit
@@ -546,7 +546,7 @@ decode_SIMD_modified_immed(decode_info_t *di, byte optype, opnd_t *array,
 /* This routine creates the decoded operand(s) itself */
 static bool
 decode_VFP_modified_immed(decode_info_t *di, byte optype, opnd_t *array,
-                          uint *counter INOUT)
+                          uint *counter DR_PARAM_OUT)
 {
     ptr_uint_t val; /* unsigned for logical shifts */
     /* This is a VFP modified immedate which is expanded.
@@ -582,7 +582,7 @@ decode_VFP_modified_immed(decode_info_t *di, byte optype, opnd_t *array,
 
 static bool
 decode_float_reglist(decode_info_t *di, opnd_size_t downsz, opnd_size_t upsz,
-                     opnd_t *array, uint *counter INOUT)
+                     opnd_t *array, uint *counter DR_PARAM_OUT)
 {
     uint i;
     uint count = (uint)decode_immed(di, 0, OPSZ_1, false /*unsigned*/);
@@ -632,7 +632,7 @@ decode_float_reglist(decode_info_t *di, opnd_size_t downsz, opnd_size_t upsz,
 }
 
 static dr_shift_type_t
-decode_shift_values(ptr_int_t sh2, ptr_int_t val, uint *amount OUT)
+decode_shift_values(ptr_int_t sh2, ptr_int_t val, uint *amount DR_PARAM_OUT)
 {
     if (sh2 == SHIFT_ENCODING_LSL && val == 0) {
         *amount = 0;
@@ -656,7 +656,7 @@ decode_shift_values(ptr_int_t sh2, ptr_int_t val, uint *amount OUT)
 }
 
 static dr_shift_type_t
-decode_index_shift(decode_info_t *di, ptr_int_t known_shift, uint *amount OUT)
+decode_index_shift(decode_info_t *di, ptr_int_t known_shift, uint *amount DR_PARAM_OUT)
 {
     ptr_int_t sh2, val;
     if (di->isa_mode == DR_ISA_ARM_THUMB) {
@@ -681,7 +681,7 @@ decode_index_shift(decode_info_t *di, ptr_int_t known_shift, uint *amount OUT)
 }
 
 static void
-decode_register_shift(decode_info_t *di, opnd_t *array, uint *counter IN)
+decode_register_shift(decode_info_t *di, opnd_t *array, uint *counter DR_PARAM_OUT)
 {
     if (*counter > 2 && di->shift_type_idx == *counter - 2) {
         /* Mark the register as shifted for proper disassembly. */
@@ -770,7 +770,7 @@ gpr_list_num_bits(byte optype)
 
 static bool
 decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array,
-               uint *counter INOUT)
+               uint *counter DR_PARAM_OUT)
 {
     uint i;
     ptr_int_t val = 0;

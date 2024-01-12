@@ -167,6 +167,14 @@ public:
                     if (first_timestamp_ == 0)
                         first_timestamp_ = last_timestamp_;
                     break;
+                case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
+                case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START:
+                    in_kernel_trace_ = true;
+                    break;
+                case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
+                case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END:
+                    in_kernel_trace_ = false;
+                    break;
                 }
             }
         }
@@ -218,6 +226,11 @@ public:
     {
         return page_size_;
     }
+    bool
+    is_record_kernel() const override
+    {
+        return in_kernel_trace_;
+    }
 
     virtual bool
     operator==(const record_reader_t &rhs) const
@@ -267,6 +280,7 @@ private:
     uint64_t cache_line_size_ = 0;
     uint64_t chunk_instr_count_ = 0;
     uint64_t page_size_ = 0;
+    bool in_kernel_trace_ = false;
 };
 
 /**

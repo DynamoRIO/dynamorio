@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -150,13 +150,14 @@ static void
 privload_init_search_paths(void);
 
 static bool
-privload_locate(const char *name, privmod_t *dep, char *filename OUT, bool *client OUT);
+privload_locate(const char *name, privmod_t *dep, char *filename DR_PARAM_OUT,
+                bool *client DR_PARAM_OUT);
 
 static privmod_t *
 privload_locate_and_load(const char *impname, privmod_t *dependent, bool reachable);
 
 static void
-privload_call_lib_func(fp_t func);
+privload_call_lib_func(dcontext_t *dcontext, privmod_t *privmod, fp_t func);
 
 static void
 privload_relocate_mod(privmod_t *mod);
@@ -481,7 +482,8 @@ privload_check_new_map_bounds(elf_loader_t *elf, byte *map_base, byte *map_end)
  * which we have to delay at init time at least.
  */
 app_pc
-privload_map_and_relocate(const char *filename, size_t *size OUT, modload_flags_t flags)
+privload_map_and_relocate(const char *filename, size_t *size DR_PARAM_OUT,
+                          modload_flags_t flags)
 {
 #ifdef LINUX
     map_fn_t map_func;
@@ -616,7 +618,7 @@ privload_call_entry(dcontext_t *dcontext, privmod_t *privmod, uint reason)
         if (opd->init != NULL) {
             LOG(GLOBAL, LOG_LOADER, 4, "%s: calling %s init func " PFX "\n", __FUNCTION__,
                 privmod->name, opd->init);
-            privload_call_lib_func(opd->init);
+            privload_call_lib_func(dcontext, privmod, opd->init);
         }
         if (opd->init_array != NULL) {
             uint i;
@@ -624,7 +626,7 @@ privload_call_entry(dcontext_t *dcontext, privmod_t *privmod, uint reason)
                 if (opd->init_array[i] != NULL) { /* be paranoid */
                     LOG(GLOBAL, LOG_LOADER, 4, "%s: calling %s init array func " PFX "\n",
                         __FUNCTION__, privmod->name, opd->init_array[i]);
-                    privload_call_lib_func(opd->init_array[i]);
+                    privload_call_lib_func(dcontext, privmod, opd->init_array[i]);
                 }
             }
         }
@@ -646,7 +648,7 @@ privload_call_entry(dcontext_t *dcontext, privmod_t *privmod, uint reason)
         if (opd->fini != NULL) {
             LOG(GLOBAL, LOG_LOADER, 4, "%s: calling %s fini func " PFX "\n", __FUNCTION__,
                 privmod->name, opd->fini);
-            privload_call_lib_func(opd->fini);
+            privload_call_lib_func(dcontext, privmod, opd->fini);
         }
         if (opd->fini_array != NULL) {
             uint i;
@@ -654,7 +656,7 @@ privload_call_entry(dcontext_t *dcontext, privmod_t *privmod, uint reason)
                 if (opd->fini_array[i] != NULL) { /* be paranoid */
                     LOG(GLOBAL, LOG_LOADER, 4, "%s: calling %s fini array func " PFX "\n",
                         __FUNCTION__, privmod->name, opd->fini_array[i]);
-                    privload_call_lib_func(opd->fini_array[i]);
+                    privload_call_lib_func(dcontext, privmod, opd->fini_array[i]);
                 }
             }
         }
@@ -801,7 +803,7 @@ privload_load_finalized(privmod_t *mod)
 /* If runpath, then DT_RUNPATH is searched; else, DT_RPATH. */
 static bool
 privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
-                      char *filename OUT /* buffer size is MAXIMUM_PATH */)
+                      char *filename DR_PARAM_OUT /* buffer size is MAXIMUM_PATH */)
 {
 #ifdef LINUX
     os_privmod_data_t *opd;
@@ -900,8 +902,8 @@ privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
 
 static bool
 privload_locate(const char *name, privmod_t *dep,
-                char *filename OUT /* buffer size is MAXIMUM_PATH */,
-                bool *reachable INOUT)
+                char *filename DR_PARAM_OUT /* buffer size is MAXIMUM_PATH */,
+                bool *reachable DR_PARAM_OUT)
 {
     uint i;
     char *lib_paths;
@@ -1062,7 +1064,7 @@ get_private_library_address(app_pc modbase, const char *name)
 }
 
 static void
-privload_call_lib_func(fp_t func)
+privload_call_lib_func(dcontext_t *dcontext, privmod_t *privmod, fp_t func)
 {
     char dummy_str[] = "dummy";
     char *dummy_argv[2];
@@ -1074,11 +1076,17 @@ privload_call_lib_func(fp_t func)
      */
     dummy_argv[0] = dummy_str;
     dummy_argv[1] = NULL;
-    func(1, dummy_argv, our_environ);
+    TRY_EXCEPT_ALLOW_NO_DCONTEXT(
+        dcontext, { func(1, dummy_argv, our_environ); },
+        { /* EXCEPT */
+          SYSLOG_INTERNAL_ERROR("Private library %s init/fini func " PFX " crashed",
+                                privmod->name, func);
+        });
 }
 
 bool
-get_private_library_bounds(IN app_pc modbase, OUT byte **start, OUT byte **end)
+get_private_library_bounds(DR_PARAM_IN app_pc modbase, DR_PARAM_OUT byte **start,
+                           DR_PARAM_OUT byte **end)
 {
     privmod_t *mod;
     bool found = false;
@@ -1343,9 +1351,10 @@ privload_delete_os_privmod_data(privmod_t *privmod)
  * not being relocated for priv libs).
  */
 bool
-privload_fill_os_module_info(app_pc base, OUT app_pc *out_base /* relative pc */,
-                             OUT app_pc *out_max_end /* relative pc */,
-                             OUT char **out_soname, OUT os_module_data_t *out_data)
+privload_fill_os_module_info(app_pc base, DR_PARAM_OUT app_pc *out_base /* relative pc */,
+                             DR_PARAM_OUT app_pc *out_max_end /* relative pc */,
+                             DR_PARAM_OUT char **out_soname,
+                             DR_PARAM_OUT os_module_data_t *out_data)
 {
     bool res = false;
     privmod_t *privmod;
@@ -1748,8 +1757,8 @@ reserve_brk(app_pc post_app)
 }
 
 byte *
-map_exe_file_and_brk(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
-                     map_flags_t map_flags)
+map_exe_file_and_brk(file_t f, size_t *size DR_PARAM_INOUT, uint64 offs, app_pc addr,
+                     uint prot, map_flags_t map_flags)
 {
     /* A little hacky: we assume the MEMPROT_NONE is the overall mmap for the whole
      * region, where our goal is to push it back for top-down PIE filling to leave
@@ -1774,7 +1783,7 @@ map_exe_file_and_brk(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uin
  * Return true if relocation is required.
  */
 static bool
-privload_get_os_privmod_data(app_pc base, OUT os_privmod_data_t *opd)
+privload_get_os_privmod_data(app_pc base, DR_PARAM_OUT os_privmod_data_t *opd)
 {
     app_pc mod_base, mod_end;
     ELF_HEADER_TYPE *elf_hdr = (ELF_HEADER_TYPE *)base;

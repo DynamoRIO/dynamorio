@@ -55,19 +55,21 @@
  */
 static HMODULE hlib;
 
-typedef BOOL(WINAPI *dbghelp_SymInitializeW_t)(IN HANDLE hProcess,
-                                               IN PCTSTR UserSearchPath,
-                                               IN BOOL fInvadeProcess);
-typedef BOOL(WINAPI *dbghelp_SymCleanupW_t)(IN HANDLE hProcess);
-typedef BOOL(WINAPI *dbghelp_SymSetSearchPathW_t)(IN HANDLE hProcess,
-                                                  IN PCTSTR SearchPath);
+typedef BOOL(WINAPI *dbghelp_SymInitializeW_t)(DR_PARAM_IN HANDLE hProcess,
+                                               DR_PARAM_IN PCTSTR UserSearchPath,
+                                               DR_PARAM_IN BOOL fInvadeProcess);
+typedef BOOL(WINAPI *dbghelp_SymCleanupW_t)(DR_PARAM_IN HANDLE hProcess);
+typedef BOOL(WINAPI *dbghelp_SymSetSearchPathW_t)(DR_PARAM_IN HANDLE hProcess,
+                                                  DR_PARAM_IN PCTSTR SearchPath);
 typedef DWORD64(WINAPI *dbghelp_SymLoadModuleExW_t)(
-    IN HANDLE hProcess, IN HANDLE hFile, IN PCTSTR ImageName, IN PCTSTR ModuleName,
-    IN DWORD64 BaseOfDll, IN DWORD DllSize, IN PMODLOAD_DATA Data, IN DWORD Flags);
-typedef BOOL(WINAPI *dbghelp_SymUnloadModule64_t)(IN HANDLE hProcess,
-                                                  IN DWORD64 BaseOfDll);
-typedef BOOL(WINAPI *dbghelp_SymGetModuleInfoW64_t)(IN HANDLE hProcess, IN DWORD64 dwAddr,
-                                                    OUT PIMAGEHLP_MODULEW64 ModuleInfo);
+    DR_PARAM_IN HANDLE hProcess, DR_PARAM_IN HANDLE hFile, DR_PARAM_IN PCTSTR ImageName,
+    DR_PARAM_IN PCTSTR ModuleName, DR_PARAM_IN DWORD64 BaseOfDll,
+    DR_PARAM_IN DWORD DllSize, DR_PARAM_IN PMODLOAD_DATA Data, DR_PARAM_IN DWORD Flags);
+typedef BOOL(WINAPI *dbghelp_SymUnloadModule64_t)(DR_PARAM_IN HANDLE hProcess,
+                                                  DR_PARAM_IN DWORD64 BaseOfDll);
+typedef BOOL(WINAPI *dbghelp_SymGetModuleInfoW64_t)(
+    DR_PARAM_IN HANDLE hProcess, DR_PARAM_IN DWORD64 dwAddr,
+    DR_PARAM_OUT PIMAGEHLP_MODULEW64 ModuleInfo);
 static dbghelp_SymInitializeW_t sym_init_func;
 static dbghelp_SymCleanupW_t sym_cleanup_func;
 static dbghelp_SymSetSearchPathW_t sym_set_path_func;
@@ -80,7 +82,7 @@ static dbghelp_SymGetModuleInfoW64_t sym_get_module_info_func;
 /* Semi-compatibility with the Windows CRT _access function.
  */
 drfront_status_t
-drfront_access(const char *fname, drfront_access_mode_t mode, OUT bool *ret)
+drfront_access(const char *fname, drfront_access_mode_t mode, DR_PARAM_OUT bool *ret)
 {
     int r;
     int msdn_mode = 00;
@@ -128,8 +130,8 @@ drfront_access(const char *fname, drfront_access_mode_t mode, OUT bool *ret)
  * which is needed to get the right config filename (i#1062).
  */
 drfront_status_t
-drfront_searchenv(const char *fname, const char *env_var, OUT char *full_path,
-                  const size_t full_path_size, OUT bool *ret)
+drfront_searchenv(const char *fname, const char *env_var, DR_PARAM_OUT char *full_path,
+                  const size_t full_path_size, DR_PARAM_OUT bool *ret)
 {
     drfront_status_t status_check = DRFRONT_ERROR;
     size_t size_needed = 0;
@@ -183,7 +185,8 @@ drfront_searchenv(const char *fname, const char *env_var, OUT char *full_path,
 
 /* always null-terminates */
 drfront_status_t
-drfront_tchar_to_char(const TCHAR *wstr, OUT char *buf, size_t buflen /*# elements*/)
+drfront_tchar_to_char(const TCHAR *wstr, DR_PARAM_OUT char *buf,
+                      size_t buflen /*# elements*/)
 {
     int res = WideCharToMultiByte(CP_UTF8, 0, wstr, -1 /*null-term*/, buf, (int)buflen,
                                   NULL, NULL);
@@ -195,7 +198,7 @@ drfront_tchar_to_char(const TCHAR *wstr, OUT char *buf, size_t buflen /*# elemen
 
 /* includes the terminating null */
 drfront_status_t
-drfront_tchar_to_char_size_needed(const TCHAR *wstr, OUT size_t *needed)
+drfront_tchar_to_char_size_needed(const TCHAR *wstr, DR_PARAM_OUT size_t *needed)
 {
     if (needed == NULL)
         return DRFRONT_ERROR_INVALID_PARAMETER;
@@ -206,7 +209,8 @@ drfront_tchar_to_char_size_needed(const TCHAR *wstr, OUT size_t *needed)
 
 /* always null-terminates */
 drfront_status_t
-drfront_char_to_tchar(const char *str, OUT TCHAR *wbuf, size_t wbuflen /*# elements*/)
+drfront_char_to_tchar(const char *str, DR_PARAM_OUT TCHAR *wbuf,
+                      size_t wbuflen /*# elements*/)
 {
     int res = MultiByteToWideChar(CP_UTF8, 0 /*=>MB_PRECOMPOSED*/, str, -1 /*null-term*/,
                                   wbuf, (int)wbuflen);
@@ -217,7 +221,8 @@ drfront_char_to_tchar(const char *str, OUT TCHAR *wbuf, size_t wbuflen /*# eleme
 }
 
 drfront_status_t
-drfront_get_env_var(const char *name, OUT char *buf, size_t buflen /*# elements*/)
+drfront_get_env_var(const char *name, DR_PARAM_OUT char *buf,
+                    size_t buflen /*# elements*/)
 {
     TCHAR wbuf[MAX_PATH];
     /* XXX: Not sure what the size for environment variable names should be. */
@@ -233,7 +238,8 @@ drfront_get_env_var(const char *name, OUT char *buf, size_t buflen /*# elements*
 }
 
 drfront_status_t
-drfront_get_absolute_path(const char *src, OUT char *buf, size_t buflen /*# elements*/)
+drfront_get_absolute_path(const char *src, DR_PARAM_OUT char *buf,
+                          size_t buflen /*# elements*/)
 {
     TCHAR wsrc[MAX_PATH];
     TCHAR wdst[MAX_PATH];
@@ -254,7 +260,8 @@ drfront_get_absolute_path(const char *src, OUT char *buf, size_t buflen /*# elem
 }
 
 drfront_status_t
-drfront_get_app_full_path(const char *app, OUT char *buf, size_t buflen /*# elements*/)
+drfront_get_app_full_path(const char *app, DR_PARAM_OUT char *buf,
+                          size_t buflen /*# elements*/)
 {
     TCHAR wbuf[MAX_PATH];
     TCHAR wapp[MAX_PATH];
@@ -289,7 +296,8 @@ drfront_get_app_full_path(const char *app, OUT char *buf, size_t buflen /*# elem
 
 drfront_status_t
 drfront_set_client_symbol_search_path(const char *symdir, bool ignore_env,
-                                      OUT char *symsrv_path, size_t symsrv_path_sz)
+                                      DR_PARAM_OUT char *symsrv_path,
+                                      size_t symsrv_path_sz)
 {
     char app_symsrv_path[MAX_SYMSRV_PATH];
     TCHAR wapp_symsrv_path[MAX_SYMSRV_PATH];
@@ -502,7 +510,7 @@ drfront_sym_exit(void)
 }
 
 drfront_status_t
-drfront_fetch_module_symbols(const char *modpath, OUT char *symbol_path,
+drfront_fetch_module_symbols(const char *modpath, DR_PARAM_OUT char *symbol_path,
                              size_t symbol_path_sz)
 {
     DWORD64 base;
@@ -608,7 +616,8 @@ read_nt_headers_error:
 }
 
 drfront_status_t
-drfront_is_64bit_app(const char *exe, OUT bool *is_64, OUT bool *also_32)
+drfront_is_64bit_app(const char *exe, DR_PARAM_OUT bool *is_64,
+                     DR_PARAM_OUT bool *also_32)
 {
     bool res = false;
     IMAGE_NT_HEADERS nt;
@@ -628,7 +637,7 @@ drfront_is_64bit_app(const char *exe, OUT bool *is_64, OUT bool *also_32)
 }
 
 drfront_status_t
-drfront_is_graphical_app(const char *exe, OUT bool *is_graphical)
+drfront_is_graphical_app(const char *exe, DR_PARAM_OUT bool *is_graphical)
 {
     /* reads the PE headers to see whether the given image is a graphical app */
     bool res = false; /* err on side of console */
@@ -650,7 +659,7 @@ drfront_is_graphical_app(const char *exe, OUT bool *is_graphical)
 }
 
 drfront_status_t
-drfront_dir_exists(const char *path, OUT bool *is_dir)
+drfront_dir_exists(const char *path, DR_PARAM_OUT bool *is_dir)
 {
     TCHAR wpath[MAX_PATH];
     DWORD file_attrs = INVALID_FILE_ATTRIBUTES;
@@ -680,7 +689,7 @@ drfront_dir_exists(const char *path, OUT bool *is_dir)
 }
 
 drfront_status_t
-drfront_dir_try_writable(const char *path, OUT bool *is_writable)
+drfront_dir_try_writable(const char *path, DR_PARAM_OUT bool *is_writable)
 {
     HANDLE f;
     TCHAR wpath[MAX_PATH];

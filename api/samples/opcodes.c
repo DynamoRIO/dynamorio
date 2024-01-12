@@ -236,7 +236,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                                        * here won't be used: drreg's slots will be.
                                        */
                                       SPILL_SLOT_MAX + 1,
-                                      IF_AARCHXX_(SPILL_SLOT_MAX + 1) &
+                                      IF_AARCHXX_OR_RISCV64_(SPILL_SLOT_MAX + 1) &
                                           count[isa_idx][instr_get_opcode(ins)],
                                       1,
                                       /* DRX_COUNTER_LOCK is not yet supported on ARM */

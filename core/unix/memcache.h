@@ -31,7 +31,7 @@
  */
 
 #ifndef _MEMCACHE_H_
-#    define _MEMCACHE_ 1
+#define _MEMCACHE_H_ 1
 
 void
 memcache_init(void);
@@ -60,12 +60,12 @@ bool
 memcache_remove(app_pc start, app_pc end);
 
 bool
-memcache_query_memory(const byte *pc, OUT dr_mem_info_t *out_info);
+memcache_query_memory(const byte *pc, DR_PARAM_OUT dr_mem_info_t *out_info);
 
-#    if defined(DEBUG) && defined(INTERNAL)
+#if defined(DEBUG) && defined(INTERNAL)
 void
 memcache_print(file_t outf, const char *prefix);
-#    endif
+#endif
 
 void
 memcache_handle_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,

@@ -68,6 +68,14 @@ class Opnd:
         self.used = used
         self.non_zero = must_be_set
 
+def opnd_stem(opnd_name):
+    """Strip off all flags from the opnd"""
+    return opnd_name.split(".")[0]
+
+def opnd_flags(opnd_name):
+    """Return the opnd's flags"""
+    return opnd_name.split(".")[1:]
+
 class Opndset:
     def __init__(self, fixed, dsts, srcs, enc_order):
         for (ds, i, ot) in enc_order:
@@ -138,11 +146,11 @@ def generate_opndset_decoders(opndsettab, opndtab):
             vars = (['dst%d' % i for i in range(len(dsts))] +
                     ['src%d' % i for i in range(len(srcs))])
             tests = (['!decode_opnd_%s(enc & 0x%08x, opcode, pc, &dst%d)' %
-                      (dsts[i], opndtab[dsts[i]].gen | opndtab[dsts[i]].used, i)
+                      (opnd_stem(dsts[i]), opndtab[dsts[i]].gen | opndtab[dsts[i]].used, i)
                       for i in range(len(dsts))]
                      +
                      ['!decode_opnd_%s(enc & 0x%08x, opcode, pc, &src%d)' %
-                      (srcs[i], opndtab[srcs[i]].gen | opndtab[srcs[i]].used, i)
+                      (opnd_stem(srcs[i]), opndtab[srcs[i]].gen | opndtab[srcs[i]].used, i)
                       for i in range(len(srcs))])
             c += ['    opnd_t ' + ', '.join(vars) + ';']
             c += ['    if (' + ' ||\n        '.join(tests) + ')']
@@ -150,6 +158,11 @@ def generate_opndset_decoders(opndsettab, opndtab):
         c.append('    instr_set_opcode(instr, opcode);')
         c.append('    instr_set_num_opnds(dcontext, instr, %d, %d);' %
                  (len(dsts), len(srcs)))
+        if any("gov" in opnd_flags(op) for op in srcs):
+            c += ['    instr_set_has_register_predication(instr);']
+            for i, op in enumerate(srcs):
+                if "gov" in opnd_flags(op):
+                    c += ['    src{0} = opnd_add_flags(src{0}, DR_OPND_IS_GOVERNING);'.format(i)]
         for i in range(len(dsts)):
             c.append('    instr_set_dst(instr, %d, dst%d);' % (i, i))
         for i in range(len(srcs)):
@@ -293,7 +306,7 @@ def make_enc(n, reordered, f, opndtab):
                                 'instr_get_%s(instr, %d), ' +
                                 instr_arg_if_required + '&%s%d)')
     ret_str = (encode_method_format_str %
-            (ot, ('0' if opndtab[ot].used == 0 else
+            (opnd_stem(ot), ('0' if opndtab[ot].used == 0 else
                   'enc & 0x%08x' % opndtab[ot].used
                   if opndtab[ot].used & ~f == 0 else
                   '%s & 0x%08x' % (find_required(f, reordered, n, opndtab),
@@ -319,22 +332,26 @@ def generate_opndset_encoders(opndsettab, opndtab):
             c += ['    int opcode = instr->opcode;']
             # The initial values are only required to silence a bad compiler warning:
             c += ['    uint ' + ' = 0, '.join(vars) + ' = 0;']
-            tests = (['instr_num_dsts(instr) == %d && instr_num_srcs(instr) == %d' %
-                      (len(dsts), len(srcs))] +
-                     [make_enc(i, enc_order, fixed, opndtab)
-                      for i in range(len(enc_order))])
+            tests = ['instr_num_dsts(instr) == %d && instr_num_srcs(instr) == %d' % (len(dsts), len(srcs))]
 
-            tests2 = (['dst%d == (enc & 0x%08x)' % (i, opndtab[dsts[i]].gen)
-                       for i in range(len(dsts))] +
-                      ['src%d == (enc & 0x%08x)' % (i, opndtab[srcs[i]].gen)
-                       for i in range(len(srcs))])
+            has_governing = any("gov" in opnd_flags(op) for op in srcs)
+            if has_governing:
+                tests += ['instr_has_register_predication(instr)']
+
+            tests += [make_enc(i, enc_order, fixed, opndtab) for i in range(len(enc_order))]
+
+            opnd_tests = (['dst%d == (enc & 0x%08x)' % (i, opndtab[dst].gen)
+                       for i, dst in enumerate(dsts)] +
+                       ['src%d == (enc & 0x%08x)' % (i, opndtab[src].gen)
+                       for i, src in enumerate(srcs)])
             c += ['    if (' + ' &&\n        '.join(tests) + ') {']
             c += ['        ASSERT((dst%d & 0x%08x) == 0);' %
-                  (i, ONES & ~opndtab[dsts[i]].gen) for i in range(len(dsts))]
+                  (i, ONES & ~opndtab[dst].gen) for i, dst in enumerate(dsts)]
             c += ['        ASSERT((src%d & 0x%08x) == 0);' %
-                  (i, ONES & ~opndtab[srcs[i]].gen) for i in range(len(srcs))]
+                  (i, ONES & ~opndtab[src].gen) for i, src in enumerate(srcs)]
             c += ['        enc |= ' + ' | '.join(vars) + ';']
-            c += ['        if (' + ' &&\n            '.join(tests2) + ')']
+            c += ['        if (' + ' &&\n            '.join(opnd_tests) + ')']
+
             c += ['            return enc;']
             c += ['    }']
             c += ['    return ENCFAIL;']
@@ -373,7 +390,7 @@ def generate_encoder(patterns, opndsettab, opndtab, opc_props, curr_isa, next_is
         last_pattern = patterns.pop()
         for pattern in patterns:
             c.append('        enc = encode_opnds%s(pc, instr, 0x%08x, di);' % (
-                pattern.opndset, pattern.set_bits()))
+                opnd_stem(pattern.opndset), pattern.set_bits()))
             c.append('        if (enc != ENCFAIL)')
             c.append('            return enc;')
         # Fallthrough to call the next version of the encoder if defined.
@@ -514,7 +531,19 @@ def write_if_changed(file, data):
     open(file, 'w').write(data)
 
 def read_opnd_defs_file(path):
-    opndtab = dict()
+    class OpndtabDict(dict):
+        """
+        We want additional hints to be present when parsing opnds so that
+        the generator can make differing choices about them but we always
+        want to pass down to the same decode function. This object
+        functions just like a dictionary but ignores everything after
+        the first . when using a key to access the value.
+        """
+        def __getitem__(self, key):
+            return super().__getitem__(key.split(".")[0])
+
+    opndtab = OpndtabDict()
+
     file_msg = 'operand definitions file'
 
     try:
@@ -545,7 +574,7 @@ def read_codec_file(path):
             for line in (l.split('#')[0].strip() for l in file):
                 if not line:
                     continue
-                if re.match('^[01x\^]{32} +[n|r|w|rw|wr|er|ew]+ +[0-9]+ +[a-zA-Z0-9]* +[a-zA-Z_0-9][a-zA-Z_0-9 ]*:[a-zA-Z_0-9 ]*$', line):
+                if re.match('^[01x\^]{32} +[n|r|w|rw|wr|er|ew]+ +[0-9]+ +[a-zA-Z0-9]* +[a-zA-Z_0-9][a-zA-Z_0-9 \.]*:[a-zA-Z_0-9 \.]*$', line):
                     # Syntax: pattern opcode opndtype* : opndtype*
                     pattern, nzcv_rw_flag, enum, feat, opcode, args = line.split(None, 5)
                     dsts, srcs = [a.split() for a in args.split(':')]
@@ -591,7 +620,7 @@ def consistency_check(patterns, opndtab):
                     unhandled_bits &= ~opndtab[ot].gen
                 except KeyError:
                     raise Exception('Undefined opndtype %s in:\n%s' %
-                                    (ot, pattern_to_str(*p)))
+                                    (opnd_stem(ot), pattern_to_str(*p)))
             if unhandled_bits:
                 raise Exception('Unhandled bits:\n%32s in:\n%s' %
                                 (re.sub('1', 'x', re.sub('0', ' ', bin(unhandled_bits)[2:])),

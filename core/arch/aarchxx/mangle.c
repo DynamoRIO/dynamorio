@@ -807,249 +807,6 @@ shrink_reg_for_param(reg_id_t regular, opnd_t arg)
 }
 #endif /* !AARCH64 */
 
-/* Return true if opnd is a register, but not XSP, or immediate zero on AArch64. */
-static bool
-opnd_is_reglike(opnd_t opnd)
-{
-    return ((opnd_is_reg(opnd) && opnd_get_reg(opnd) != DR_REG_XSP)
-                IF_X64(|| (opnd_is_immed_int(opnd) && opnd_get_immed_int(opnd) == 0)));
-}
-
-uint
-insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                             bool clean_call, uint num_args, opnd_t *args)
-{
-    uint num_regs = num_args < NUM_REGPARM ? num_args : NUM_REGPARM;
-    signed char regs[NUM_REGPARM];
-    int usecount[NUM_REGPARM];
-    ptr_int_t stack_inc = 0;
-    uint i, j;
-
-    /* We expect every arg to be an immediate integer, a full-size register,
-     * or a simple memory reference (NYI).
-     */
-    for (i = 0; i < num_args; i++) {
-        CLIENT_ASSERT(opnd_is_immed_int((args[i])) ||
-                          (opnd_is_reg(args[i]) &&
-                           reg_get_size(opnd_get_reg(args[i])) == OPSZ_PTR) ||
-                          opnd_is_base_disp(args[i]),
-                      "insert_parameter_preparation: bad argument type");
-        ASSERT_NOT_IMPLEMENTED(!opnd_is_base_disp(args[i])); /* FIXME i#2210 */
-    }
-
-    /* The strategy here is to first set up the arguments that can be set up
-     * without using a temporary register: stack arguments that are registers and
-     * register arguments that are not involved in a cycle. When this has been done,
-     * the value in the link register (LR) will be dead, so we can use LR as a
-     * temporary for setting up the remaining arguments.
-     */
-
-    /* Set up stack arguments that are registers (not SP) or zero (on AArch64). */
-    if (num_args > NUM_REGPARM) {
-        uint n = num_args - NUM_REGPARM;
-        /* On both ARM and AArch64 the stack pointer is kept (2 * XSP_SZ)-aligned. */
-        stack_inc = ALIGN_FORWARD(n, 2) * XSP_SZ;
-#ifdef AARCH64
-        for (i = 0; i < n; i += 2) {
-            opnd_t *arg0 = &args[NUM_REGPARM + i];
-            opnd_t *arg1 = i + 1 < n ? &args[NUM_REGPARM + i + 1] : NULL;
-            if (i == 0) {
-                if (i + 1 < n && opnd_is_reglike(*arg1)) {
-                    /* stp x(...), x(...), [sp, #-(stack_inc)]! */
-                    PRE(ilist, instr,
-                        instr_create_2dst_4src(
-                            dcontext, OP_stp,
-                            opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, -stack_inc,
-                                                  OPSZ_16),
-                            opnd_create_reg(DR_REG_XSP),
-                            opnd_is_reg(*arg0) ? *arg0 : opnd_create_reg(DR_REG_XZR),
-                            opnd_is_reg(*arg1) ? *arg1 : opnd_create_reg(DR_REG_XZR),
-                            opnd_create_reg(DR_REG_XSP),
-                            opnd_create_immed_int(-stack_inc, OPSZ_PTR)));
-                } else if (opnd_is_reglike(*arg0)) {
-                    /* str x(...), [sp, #-(stack_inc)]! */
-                    PRE(ilist, instr,
-                        instr_create_2dst_3src(
-                            dcontext, OP_str,
-                            opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, -stack_inc,
-                                                  OPSZ_PTR),
-                            opnd_create_reg(DR_REG_XSP),
-                            opnd_is_reg(*arg0) ? *arg0 : opnd_create_reg(DR_REG_XZR),
-                            opnd_create_reg(DR_REG_XSP),
-                            opnd_create_immed_int(-stack_inc, OPSZ_PTR)));
-                } else {
-                    /* sub sp, sp, #(stack_inc) */
-                    PRE(ilist, instr,
-                        INSTR_CREATE_sub(dcontext, opnd_create_reg(DR_REG_XSP),
-                                         opnd_create_reg(DR_REG_XSP),
-                                         OPND_CREATE_INT32(stack_inc)));
-                }
-            } else if (opnd_is_reglike(*arg0)) {
-                if (i + 1 < n && opnd_is_reglike(*arg1)) {
-                    /* stp x(...), x(...), [sp, #(i * XSP_SZ)] */
-                    PRE(ilist, instr,
-                        instr_create_1dst_2src(
-                            dcontext, OP_stp,
-                            opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, i * XSP_SZ,
-                                                  OPSZ_16),
-                            opnd_is_reg(*arg0) ? *arg0 : opnd_create_reg(DR_REG_XZR),
-                            opnd_is_reg(*arg1) ? *arg1 : opnd_create_reg(DR_REG_XZR)));
-                } else {
-                    /* str x(...), [sp, #(i * XSP_SZ)] */
-                    PRE(ilist, instr,
-                        instr_create_1dst_1src(
-                            dcontext, OP_str,
-                            opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, i * XSP_SZ,
-                                                  OPSZ_PTR),
-                            opnd_is_reg(*arg0) ? *arg0 : opnd_create_reg(DR_REG_XZR)));
-                }
-            } else if (i + 1 < n && opnd_is_reglike(*arg1)) {
-                /* str x(...), [sp, #((i + 1) * XSP_SZ)] */
-                PRE(ilist, instr,
-                    instr_create_1dst_1src(
-                        dcontext, OP_str,
-                        opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0,
-                                              (i + 1) * XSP_SZ, OPSZ_PTR),
-                        opnd_is_reg(*arg1) ? *arg1 : opnd_create_reg(DR_REG_XZR)));
-            }
-        }
-#else /* ARM */
-        /* XXX: We could use OP_stm here, but with lots of awkward corner cases. */
-        PRE(ilist, instr,
-            INSTR_CREATE_sub(dcontext, opnd_create_reg(DR_REG_XSP),
-                             opnd_create_reg(DR_REG_XSP), OPND_CREATE_INT32(stack_inc)));
-        for (i = 0; i < n; i++) {
-            opnd_t arg = args[NUM_REGPARM + i];
-            if (opnd_is_reglike(arg)) {
-                /* str r(...), [sp, #(i * XSP_SZ)] */
-                PRE(ilist, instr,
-                    XINST_CREATE_store(dcontext,
-                                       opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0,
-                                                             i * XSP_SZ, OPSZ_PTR),
-                                       arg));
-            }
-        }
-#endif
-    }
-
-    /* Initialise regs[], which encodes the contents of parameter registers.
-     * A non-negative value x means d_r_regparms[x];
-     * -1 means an immediate integer;
-     * -2 means a non-parameter register.
-     */
-    for (i = 0; i < num_regs; i++) {
-        if (opnd_is_immed_int(args[i]))
-            regs[i] = -1;
-        else {
-            reg_id_t reg = opnd_get_reg(args[i]);
-            regs[i] = -2;
-            for (j = 0; j < NUM_REGPARM; j++) {
-                if (reg == d_r_regparms[j]) {
-                    regs[i] = j;
-                    break;
-                }
-            }
-        }
-    }
-
-    /* Initialise usecount[]: how many other registers use the value in a reg. */
-    for (i = 0; i < num_regs; i++)
-        usecount[i] = 0;
-    for (i = 0; i < num_regs; i++) {
-        if (regs[i] >= 0 && regs[i] != i)
-            ++usecount[regs[i]];
-    }
-
-    /* Set up register arguments that are not part of a cycle. */
-    {
-        bool changed;
-        do {
-            changed = false;
-            for (i = 0; i < num_regs; i++) {
-                if (regs[i] == i || usecount[i] != 0)
-                    continue;
-                if (regs[i] == -1) {
-                    insert_mov_immed_ptrsz(dcontext, opnd_get_immed_int(args[i]),
-                                           opnd_create_reg(d_r_regparms[i]), ilist, instr,
-                                           NULL, NULL);
-                } else if (regs[i] == -2 && opnd_get_reg(args[i]) == DR_REG_XSP) {
-                    /* XXX: We could record which register has been set to the SP to
-                     * avoid repeating this load if several arguments are set to SP.
-                     */
-                    insert_get_mcontext_base(dcontext, ilist, instr, d_r_regparms[i]);
-                    PRE(ilist, instr,
-                        instr_create_restore_from_dc_via_reg(
-                            dcontext, d_r_regparms[i], d_r_regparms[i], XSP_OFFSET));
-                } else {
-                    PRE(ilist, instr,
-                        XINST_CREATE_move(dcontext, opnd_create_reg(d_r_regparms[i]),
-                                          args[i]));
-                    if (regs[i] != -2)
-                        --usecount[regs[i]];
-                }
-                regs[i] = i;
-                changed = true;
-            }
-        } while (changed);
-    }
-
-    /* From now on it is safe to use LR as a temporary. */
-
-    /* Set up register arguments that are in cycles. A rotation of n values is
-     * realised with (n + 1) moves.
-     */
-    for (;;) {
-        int first, tmp;
-        for (i = 0; i < num_regs; i++) {
-            if (regs[i] != i)
-                break;
-        }
-        if (i >= num_regs)
-            break;
-        first = i;
-        PRE(ilist, instr,
-            XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_LR),
-                              opnd_create_reg(d_r_regparms[i])));
-        do {
-            tmp = regs[i];
-            ASSERT(0 <= tmp && tmp < num_regs);
-            PRE(ilist, instr,
-                XINST_CREATE_move(dcontext, opnd_create_reg(d_r_regparms[i]),
-                                  tmp == first ? opnd_create_reg(DR_REG_LR)
-                                               : opnd_create_reg(d_r_regparms[tmp])));
-            regs[i] = i;
-            i = tmp;
-        } while (tmp != first);
-    }
-
-    /* Set up stack arguments that are (non-zero) constants or SP. */
-    for (i = NUM_REGPARM; i < num_args; i++) {
-        uint off = (i - NUM_REGPARM) * XSP_SZ;
-        opnd_t arg = args[i];
-        if (!opnd_is_reglike(arg)) {
-            if (opnd_is_reg(arg)) {
-                ASSERT(opnd_get_reg(arg) == DR_REG_XSP);
-                insert_get_mcontext_base(dcontext, ilist, instr, DR_REG_LR);
-                PRE(ilist, instr,
-                    instr_create_restore_from_dc_via_reg(dcontext, DR_REG_LR, DR_REG_LR,
-                                                         XSP_OFFSET));
-            } else {
-                ASSERT(opnd_is_immed_int(arg));
-                insert_mov_immed_ptrsz(dcontext, opnd_get_immed_int(arg),
-                                       opnd_create_reg(DR_REG_LR), ilist, instr, NULL,
-                                       NULL);
-            }
-            PRE(ilist, instr,
-                XINST_CREATE_store(
-                    dcontext,
-                    opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, off, OPSZ_PTR),
-                    opnd_create_reg(DR_REG_LR)));
-        }
-    }
-
-    return (uint)stack_inc;
-}
-
 bool
 insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
                      byte *encode_pc, byte *target, bool jmp, bool returns, bool precise,
@@ -1403,30 +1160,6 @@ instr_check_xsp_mangling(dcontext_t *dcontext, instr_t *inst, int *xsp_adjust)
      * the OP_ldm/OP_stm splits shouldn't need special translation handling.
      */
     return false;
-}
-
-void
-mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags, instr_t *instr,
-                    instr_t *next_instr)
-{
-    /* inlined conditional system call mangling is not supported */
-    ASSERT(!instr_is_predicated(instr));
-
-    /* Shared routine already checked method, handled INSTR_NI_SYSCALL*,
-     * and inserted the signal barrier and non-auto-restart nop.
-     * If we get here, we're dealing with an ignorable syscall.
-     */
-
-    /* We assume that the stolen register will, in effect, be neither
-     * read nor written by a system call as it is above the highest
-     * register used for the syscall arguments or number. This assumption
-     * currently seems to be valid on arm/arm64 Linux, which only writes the
-     * return value (with system calls that return). When other kernels are
-     * supported it may be necessary to move the stolen register value to a
-     * safer register (one that is "callee-saved" and not used by the gateway
-     * mechanism) before the system call, and restore it afterwards.
-     */
-    ASSERT(DR_REG_STOLEN_MIN > DR_REG_SYSNUM);
 }
 
 #ifdef UNIX
@@ -1926,7 +1659,7 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 static reg_id_t
 pick_scratch_reg(dcontext_t *dcontext, instr_t *instr, reg_id_t do_not_pick_a,
                  reg_id_t do_not_pick_b, reg_id_t do_not_pick_c, bool dead_reg_ok,
-                 ushort *scratch_slot OUT, bool *should_restore OUT)
+                 ushort *scratch_slot DR_PARAM_OUT, bool *should_restore DR_PARAM_OUT)
 {
     reg_id_t reg;
     ushort slot = 0;
@@ -3197,7 +2930,8 @@ create_ld_from_ldex(dcontext_t *dcontext, instr_t *ldex)
 }
 
 static instr_t *
-create_ldax_from_stex(dcontext_t *dcontext, instr_t *strex, reg_id_t *dest_reg INOUT,
+create_ldax_from_stex(dcontext_t *dcontext, instr_t *strex,
+                      reg_id_t *dest_reg DR_PARAM_INOUT,
                       /* For a pair, we need a caller-set-up scratch reg for the 2nd. */
                       reg_id_t dest_reg2,
                       /* Whether to merge a pair of 4-bytes into one 8-byte. */

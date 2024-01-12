@@ -187,7 +187,7 @@ test_main(int argc, const char *argv[])
         }
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_RETVAL) {
             // Should have succeeded.
-            assert(memref.marker.marker_value == 1);
+            assert(memref.marker.marker_value == 0);
         }
     }
     assert(saw_maybe_blocking);

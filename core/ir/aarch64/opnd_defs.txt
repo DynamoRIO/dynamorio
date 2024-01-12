@@ -326,6 +326,7 @@
 --------xx------------xxxxx-----  p_size_bhsd_5    # sve predicate vector reg, elsz depending on size
 --------xx------------xxxxx-----  p_size_hsd_5     # sve predicate vector reg, elsz depending on size
 --------xx------------xxxxx-----  z_size_bhsd_5    # sve vector reg, elsz depending on size
+--------xx------------xxxxx-----  z_size_bhsd_5p1  # sve vector reg, elsz depending on size, plus 1
 --------xx------------xxxxx-----  z_size_bhs_5     # sve vector reg, elsz depending on size
 --------xx------------xxxxx-----  z_size_bh_5      # sve vector reg, elsz depending on size
 --------xx------------xxxxx-----  z_sizep1_bhs_5   # sve vector reg, elsz depending on size, plus 1
@@ -356,6 +357,7 @@
 -------??--xxxxx------xxxxx-----  sveprf_gpr_shf   # SVE memory address [<Xn|SP>, <Xm>, LSL #x] for prefetch operation
 -------??-?xxxxx------xxxxx-----  svemem_gpr_vec64 # SVE memory address (64-bit offset) [<Xn|SP>, <Zm>.D{, <mod>}]
 -------??-xxxxxxx-----xxxxx-----  mem7_tag       # Write bytes is fixed at 16bytes, post/pre/offset is in 24:23, with memory tag scaling
+-------???-xxxxx------xxxxx-----  svemem_vec_22sd_gpr16 # SVE memort operand [<Zn>.S/D{, <Xm>}]
 -------????-xxxx------xxxxx-----  svemem_gpr_simm4_vl_1reg # SVE memory operand [<Xn|SP>{, #<imm>, MUL VL}]
                                                            # 1 src/dest register
 -------????xxxxx------xxxxx-----  svemem_ssz_gpr_shf # SVE memory operand [<Xn|SP>, <Xm>, LSL #x]
@@ -374,7 +376,7 @@
 -------xx--xxxxx----------------  z_msz_bhsd_16   # z register with element size determined by msz
 -?--------------------xxxxx-----  mem0p      # gets size from 30; no offset, pair
 -?---------xxxxx????------------  x16imm     # computes immed from 30 and 15:12
--?-----??--xxxxx------xxxxx-----  svemem_vec_sd_gpr16  # SVE memory address with GPR offset [<Zn>.S/D{, <Xm>}]
+-?-----??--xxxxx------xxxxx-----  svemem_vec_30sd_gpr16  # SVE memory address with GPR offset [<Zn>.S/D{, <Xm>}]
 -x------------------------------  index3     # index of D subreg in Q: 0-1
 -x-------------------------xxxxx  wx0_30     # X register if bit 30 is set, else W
 -x-------------------------xxxxx  dq0        # Q register if bit 30 is set, else D

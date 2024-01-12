@@ -142,10 +142,12 @@ module_is_header_test(app_pc base, size_t size)
 
 static bool
 module_walk_program_headers_test(app_pc base, size_t view_size, bool at_map,
-                                 bool dyn_reloc, OUT app_pc *out_base /* relative pc */,
-                                 OUT app_pc *out_first_end /* relative pc */,
-                                 OUT app_pc *out_max_end /* relative pc */,
-                                 OUT char **out_soname, OUT os_module_data_t *out_data)
+                                 bool dyn_reloc,
+                                 DR_PARAM_OUT app_pc *out_base /* relative pc */,
+                                 DR_PARAM_OUT app_pc *out_first_end /* relative pc */,
+                                 DR_PARAM_OUT app_pc *out_max_end /* relative pc */,
+                                 DR_PARAM_OUT char **out_soname,
+                                 DR_PARAM_OUT os_module_data_t *out_data)
 {
     ASSERT(cur_bounds);
     if (out_first_end != NULL || out_soname != NULL || out_data != NULL ||

@@ -106,6 +106,7 @@ mixed_mode_enabled(void)
 #    endif /* X64 */
 #    define SIMD_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, simd)))
 #    define OPMASK_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, opmask)))
+#    define XFLAGS_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, xflags)))
 #    define SCRATCH_REG0 DR_REG_XAX
 #    define SCRATCH_REG1 DR_REG_XBX
 #    define SCRATCH_REG2 DR_REG_XCX
@@ -141,6 +142,7 @@ mixed_mode_enabled(void)
 #    define R13_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, r13)))
 #    define R14_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, r14)))
 #    define PC_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, pc)))
+#    define XFLAGS_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, xflags)))
 #    define SCRATCH_REG0 DR_REG_R0
 #    define SCRATCH_REG1 DR_REG_R1
 #    define SCRATCH_REG2 DR_REG_R2
@@ -168,6 +170,7 @@ mixed_mode_enabled(void)
 #    define REG3_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, a3)))
 #    define REG4_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, a4)))
 #    define REG5_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, a5)))
+#    define XFLAGS_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, fcsr)))
 #    define SCRATCH_REG0 DR_REG_A0
 #    define SCRATCH_REG1 DR_REG_A1
 #    define SCRATCH_REG2 DR_REG_A2
@@ -181,14 +184,12 @@ mixed_mode_enabled(void)
 #    define SCRATCH_REG4_OFFS REG4_OFFSET
 #    define SCRATCH_REG5_OFFS REG5_OFFSET
 #    define REG_OFFSET(reg) (X0_OFFSET + ((reg)-DR_REG_X0) * sizeof(reg_t))
-/* FIXME i#3544: Check is T6 safe to use */
 #    define CALL_SCRATCH_REG DR_REG_T6
 #    define MC_IBL_REG a2
 #    define MC_RETVAL_REG a0
 #    define SS_RETVAL_REG a0
 #endif /* X86/ARM/RISCV64 */
 #define XSP_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, xsp)))
-#define XFLAGS_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, xflags)))
 #define PC_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, pc)))
 
 /* the register holds dcontext on fcache enter/return */
@@ -528,8 +529,8 @@ void
 clean_call_info_init(clean_call_info_t *cci, void *callee, bool save_fpstate,
                      uint num_args);
 void
-d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT, bool mangle_calls,
-           bool record_translation);
+d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags DR_PARAM_INOUT,
+           bool mangle_calls, bool record_translation);
 bool
 parameters_stack_padded(void);
 /* Inserts a complete call to callee with the passed-in arguments */
@@ -594,11 +595,16 @@ instr_t *
 mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 instr_t *next_instr);
 #endif
-#ifdef AARCHXX
-/* mangle instructions that use pc or dr_reg_stolen */
+#if defined(AARCHXX) || defined(RISCV64)
+/* For ARM, mangle app instr accessing registers pc and dr_reg_stolen;
+ * for AArch64, mangle app instr accessing register dr_reg_stolen;
+ * for RISC-V, mangle app instr accessing registers tp and dr_reg_stolen.
+ */
 instr_t *
 mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                          instr_t *next_instr);
+#endif
+#if defined(AARCHXX) || defined(RISCV64)
 instr_t *
 mangle_exclusive_monitor_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                             instr_t *next_instr);
@@ -626,7 +632,7 @@ mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist,
 #elif defined(ARM)
 #    define ABI_STACK_ALIGNMENT 8
 #elif defined(RISCV64)
-#    define ABI_STACK_ALIGNMENT 8
+#    define ABI_STACK_ALIGNMENT 16
 #endif
 
 /* Returns the number of bytes the stack pointer has to be aligned to. */
@@ -723,7 +729,7 @@ mangle_mov_seg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                instr_t *next_instr);
 void
 mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                instr_t *next_instr, uint *flags INOUT);
+                instr_t *next_instr, uint *flags DR_PARAM_OUT);
 void
 mangle_exit_cti_prefixes(dcontext_t *dcontext, instr_t *instr);
 void
@@ -1559,10 +1565,11 @@ get_app_instr_xl8(instr_t *instr);
 #ifdef X64
 /* in x86_to_x64.c */
 void
-translate_x86_to_x64(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr);
+translate_x86_to_x64(dcontext_t *dcontext, instrlist_t *ilist,
+                     DR_PARAM_INOUT instr_t **instr);
 #endif
 
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
 bool
 instr_is_ldstex_mangling(dcontext_t *dcontext, instr_t *inst);
 #endif
@@ -1578,7 +1585,7 @@ add_patch_entry_internal(patch_list_t *patch, instr_t *instr, ushort patch_flags
 cache_pc
 get_direct_exit_target(dcontext_t *dcontext, uint flags);
 
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
 size_t
 get_ibl_entry_tls_offs(dcontext_t *dcontext, cache_pc ibl_entry);
 #endif

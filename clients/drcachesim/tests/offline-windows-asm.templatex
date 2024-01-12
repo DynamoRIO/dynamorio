@@ -22,8 +22,8 @@ Adios world!
 Hit tracing window #5 limit: disabling tracing.
 Basic counts tool results:
 Total counts:
-          53 total \(fetched\) instructions
-          21 total unique \(fetched\) instructions
+          55 total \(fetched\) instructions
+          23 total unique \(fetched\) instructions
            4 total non-fetched instructions
            0 total prefetches
            7 total data loads
@@ -40,9 +40,9 @@ Total counts:
            0 total physical address \+ virtual address marker pairs
            0 total physical address unavailable markers
            6 total system call number markers
-           5 total blocking system call markers
+           6 total blocking system call markers
           12 total other markers
-          21 total encodings
+          23 total encodings
 Total windows: 7
 Window #0:
           15 window \(fetched\) instructions
@@ -150,8 +150,8 @@ Window #4:
            1 window other markers
            0 window encodings
 Window #5:
-           6 window \(fetched\) instructions
-           6 window unique \(fetched\) instructions
+           8 window \(fetched\) instructions
+           8 window unique \(fetched\) instructions
            0 window non-fetched instructions
            0 window prefetches
            0 window data loads
@@ -167,9 +167,9 @@ Window #5:
            0 window physical address \+ virtual address marker pairs
            0 window physical address unavailable markers
            1 window system call number markers
-           0 window blocking system call markers
+           1 window blocking system call markers
            1 window other markers
-           3 window encodings
+           5 window encodings
 Window #6:
            0 window \(fetched\) instructions
            0 window unique \(fetched\) instructions

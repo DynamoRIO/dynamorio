@@ -129,18 +129,17 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 {
     per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
     counters_t *counters = &per_shard->counters[per_shard->counters.size() - 1];
-    if (memref.instr.tid != per_shard->last_tid_) {
+    if (memref.instr.tid != INVALID_THREAD_ID &&
+        memref.instr.tid != per_shard->last_tid_) {
         counters->unique_threads.insert(memref.instr.tid);
         per_shard->last_tid_ = memref.instr.tid;
     }
     if (type_is_instr(memref.instr.type)) {
         ++counters->instrs;
-        if (TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS, per_shard->filetype_)) {
-            if (per_shard->is_kernel) {
-                ++counters->kernel_instrs;
-            } else {
-                ++counters->user_instrs;
-            }
+        if (per_shard->is_kernel) {
+            ++counters->kernel_instrs;
+        } else {
+            ++counters->user_instrs;
         }
         counters->unique_pc_addrs.insert(memref.instr.addr);
         // The encoding entries aren't exposed at the memref_t level, but
@@ -168,6 +167,9 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
                    memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER) {
             ++counters->xfer_markers;
+        } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_WAIT ||
+                   memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_IDLE) {
+            // This is a synthetic record so do not increment any counts.
         } else {
             if (memref.marker.marker_type == TRACE_MARKER_TYPE_WINDOW_ID &&
                 static_cast<intptr_t>(memref.marker.marker_value) !=
@@ -205,9 +207,13 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
                 ++counters->syscall_blocking_markers;
                 break;
             case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
+            case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START:
                 per_shard->is_kernel = true;
                 break;
-            case TRACE_MARKER_TYPE_SYSCALL_TRACE_END: per_shard->is_kernel = false; break;
+            case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
+            case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END:
+                per_shard->is_kernel = false;
+                break;
             case TRACE_MARKER_TYPE_FILETYPE:
                 if (per_shard->filetype_ == -1) {
                     per_shard->filetype_ =
@@ -235,16 +241,14 @@ bool
 basic_counts_t::process_memref(const memref_t &memref)
 {
     per_shard_t *per_shard;
-    const auto &lookup = shard_map_.find(memref.data.tid);
+    int64_t shard_index = shard_type_ == SHARD_BY_THREAD
+        ? memref.data.tid
+        : serial_stream_->get_output_cpuid();
+    const auto &lookup = shard_map_.find(shard_index);
     if (lookup == shard_map_.end()) {
         per_shard = new per_shard_t;
         per_shard->stream = serial_stream_;
-        // TODO i#5694: Once we have -core_serial we can fully test this serial
-        // code for SHARD_BY_CORE and update any other tools doing this same
-        // type of data splitting in serial mode by tid.
-        int64_t shard_index = shard_type_ == SHARD_BY_THREAD
-            ? memref.data.tid
-            : serial_stream_->get_output_cpuid();
+        per_shard->core = serial_stream_->get_output_cpuid();
         shard_map_[shard_index] = per_shard;
     } else
         per_shard = lookup->second;
@@ -331,10 +335,15 @@ basic_counts_t::print_results()
             total += ctr;
         }
         if (!for_kernel_trace &&
-            TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS, shard.second->filetype_)) {
+            TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS |
+                        OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY,
+                    shard.second->filetype_)) {
             for_kernel_trace = true;
         }
     }
+    // Print kernel data if context switches were inserted.
+    if (total.kernel_instrs > 0)
+        for_kernel_trace = true;
     total.shard_count = shard_map_.size();
     std::cerr << TOOL_NAME << " results:\n";
     std::cerr << "Total counts:\n";

@@ -57,12 +57,14 @@
 #include "raw2trace_directory.h" // Includes dr_api.h which must be after windows.h.
 #include "reader.h"
 #include "raw2trace.h"
+#include "record_file_reader.h"
 #include "trace_entry.h"
 #include "utils.h"
 #ifdef HAS_ZLIB
 #    include "common/gzip_istream.h"
 #    include "common/gzip_ostream.h"
 #    include "common/zlib_istream.h"
+#    include "compressed_file_reader.h"
 #    ifdef HAS_ZIP
 #        include "common/zipfile_ostream.h"
 #    endif
@@ -77,6 +79,16 @@
 
 namespace dynamorio {
 namespace drmemtrace {
+
+#ifdef HAS_ZLIB
+// Even if the file is uncompressed, zlib's gzip interface is faster than
+// file_reader_t's fstream in our measurements, so we always use it when
+// available.
+typedef compressed_record_file_reader_t default_record_file_reader_t;
+#else
+typedef dynamorio::drmemtrace::record_file_reader_t<std::ifstream>
+    default_record_file_reader_t;
+#endif
 
 #define FATAL_ERROR(msg, ...)                               \
     do {                                                    \
@@ -349,6 +361,25 @@ raw2trace_directory_t::open_kthread_files()
 #endif
 
 std::string
+raw2trace_directory_t::open_syscall_template_file(
+    const std::string &syscall_template_file)
+{
+    if (syscall_template_file.empty())
+        return "";
+    // XXX i#6495: Provide support for system call trace templates in zipfile format
+    // with each individual system call template in a separate component, which may be
+    // easier to inspect or modify manually.
+    syscall_template_file_reader_ =
+        std::unique_ptr<dynamorio::drmemtrace::record_reader_t>(
+            new default_record_file_reader_t(syscall_template_file, /*verbosity=*/0));
+    if (!syscall_template_file_reader_ || !syscall_template_file_reader_->init()) {
+        return "Failed to open syscall template file " +
+            std::string(syscall_template_file);
+    }
+    return "";
+}
+
+std::string
 raw2trace_directory_t::open_serial_schedule_file()
 {
 #ifndef HAS_ZIP
@@ -476,7 +507,8 @@ raw2trace_directory_t::tracedir_from_rawdir(const std::string &rawdir_in)
 
 std::string
 raw2trace_directory_t::initialize(const std::string &indir, const std::string &outdir,
-                                  const std::string &compress)
+                                  const std::string &compress,
+                                  const std::string &syscall_template_file)
 {
     indir_ = indir;
     outdir_ = outdir;
@@ -549,7 +581,7 @@ raw2trace_directory_t::initialize(const std::string &indir, const std::string &o
 #ifdef BUILD_PT_POST_PROCESSOR
     /* Open the kernel files. */
     kernel_indir_ = modfile_dir + std::string(DIRSEP) + ".." + std::string(DIRSEP) +
-        DRMEMTRACE_KERNEL_PT_SUBDIR;
+        DRMEMTRACE_KERNEL_TRACE_SUBDIR;
     /* If the -enable_kernel_tracing option is not specified during tracing, the output
      * directory will not include a kernel directory, and raw2trace will not process it.
      */
@@ -564,6 +596,10 @@ raw2trace_directory_t::initialize(const std::string &indir, const std::string &o
     kernel_indir_ = "";
 #endif
 
+    err = open_syscall_template_file(syscall_template_file);
+    if (!err.empty())
+        return err;
+
     return open_thread_files();
 }
 
@@ -576,7 +612,7 @@ raw2trace_directory_t::initialize_module_file(const std::string &module_file_pat
 std::string
 raw2trace_directory_t::initialize_funclist_file(
     const std::string &funclist_file_path,
-    OUT std::vector<std::vector<std::string>> *entries)
+    DR_PARAM_OUT std::vector<std::vector<std::string>> *entries)
 {
     std::ifstream stream(funclist_file_path);
     if (!stream.good())

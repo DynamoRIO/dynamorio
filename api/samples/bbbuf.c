@@ -64,7 +64,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 {
     app_pc pc = dr_fragment_app_pc(tag);
     reg_id_t reg;
-    /* We need a 2nd scratch reg for several operations on AArch32 and AArch64 only. */
+    /* We need a 2nd scratch reg for several operations on AArchXX and RISCV64. */
     reg_id_t reg2 = DR_REG_NULL;
 
     /* By default drmgr enables auto-predication, which predicates all instructions with
@@ -84,9 +84,9 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         return DR_EMIT_DEFAULT;
     }
 
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
     /* We need a second register here, because the drx_buf routines need a scratch reg
-     * for AArch32 and AArch64.
+     * for AArchXX and RISCV64.
      */
     if (drreg_reserve_register(drcontext, bb, inst, NULL, &reg2) != DRREG_SUCCESS) {
         DR_ASSERT(false); /* cannot recover */
@@ -109,7 +109,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     if (drreg_unreserve_register(drcontext, bb, inst, reg) != DRREG_SUCCESS)
         DR_ASSERT(false);
 
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
     if (drreg_unreserve_register(drcontext, bb, inst, reg2) != DRREG_SUCCESS)
         DR_ASSERT(false);
 #endif

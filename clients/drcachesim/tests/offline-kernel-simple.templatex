@@ -6,13 +6,6 @@ Total counts:
  .* total non-fetched instructions
  *[1-9][0-9]* total userspace instructions
  *[1-9][0-9]* total kernel instructions
- .* total prefetches
- .* total data loads
- .* total data stores
- .* total icache flushes
- .* total dcache flushes
- .* total threads
- .* total scheduling markers
 .*
 Thread .* counts:
  .* \(fetched\) instructions
@@ -20,10 +13,4 @@ Thread .* counts:
  .* non-fetched instructions
  *[1-9][0-9]* userspace instructions
  *[1-9][0-9]* kernel instructions
- .* prefetches
- .* data loads
- .* data stores
- .* icache flushes
- .* dcache flushes
- .* scheduling markers
-*
+.*

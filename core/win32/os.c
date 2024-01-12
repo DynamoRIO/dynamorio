@@ -535,7 +535,8 @@ get_context_xstate_flag(void)
 
 /* Returns false and marks 'value' as an empty string when it fails. */
 static bool
-read_version_registry_value(const wchar_t *name, char *value OUT, size_t value_sz)
+read_version_registry_value(const wchar_t *name, char *value DR_PARAM_OUT,
+                            size_t value_sz)
 {
     reg_query_value_result_t result;
     char buf_array[sizeof(KEY_VALUE_PARTIAL_INFORMATION) +
@@ -1394,8 +1395,8 @@ os_terminate_static_arguments(bool exit_process, bool custom_code, int exit_code
             byte pad_bytes[SYSCALL_PARAM_MAX_OFFSET];
         } padding;
         struct {
-            IN HANDLE ProcessOrThreadHandle;
-            IN NTSTATUS ExitStatus;
+            DR_PARAM_IN HANDLE ProcessOrThreadHandle;
+            DR_PARAM_IN NTSTATUS ExitStatus;
         } args;
     } terminate_args_t;
     /* It is not safe to use app stack and hope application will work.
@@ -1643,7 +1644,7 @@ os_tls_exit(local_state_t *local_state, bool other_thread)
 
 /* Allocates num_slots tls slots aligned with alignment align */
 bool
-os_tls_calloc(OUT uint *offset, uint num_slots, uint alignment)
+os_tls_calloc(DR_PARAM_OUT uint *offset, uint num_slots, uint alignment)
 {
     bool need_synch = !dynamo_initialized;
     if (num_slots == 0)
@@ -2031,7 +2032,7 @@ thread_attach_restore_full_state(takeover_data_t *data)
 }
 
 void
-thread_attach_translate(dcontext_t *dcontext, priv_mcontext_t *mc INOUT,
+thread_attach_translate(dcontext_t *dcontext, priv_mcontext_t *mc DR_PARAM_INOUT,
                         bool restore_memory)
 {
     takeover_data_t *data;
@@ -2048,14 +2049,14 @@ thread_attach_translate(dcontext_t *dcontext, priv_mcontext_t *mc INOUT,
 }
 
 static void
-thread_attach_context_revert_from_data(CONTEXT *cxt INOUT, takeover_data_t *data)
+thread_attach_context_revert_from_data(CONTEXT *cxt DR_PARAM_INOUT, takeover_data_t *data)
 {
     cxt->CXT_XIP = (ptr_uint_t)data->continuation_pc;
     thread_attach_restore_full_state(data);
 }
 
 void
-thread_attach_context_revert(CONTEXT *cxt INOUT)
+thread_attach_context_revert(CONTEXT *cxt DR_PARAM_OUT)
 {
     takeover_data_t *data;
     TABLE_RWLOCK(takeover_table, read, lock);
@@ -2794,7 +2795,7 @@ thread_attach_setup(priv_mcontext_t *mc)
          * sets the context back).
          */
         mc->pc = data->continuation_pc;
-        thread_set_self_mcontext(mc);
+        thread_set_self_mcontext(mc, false);
         ASSERT_NOT_REACHED();
     }
     /* Preclude double takeover if we become suspended while in ntdll */
@@ -2881,7 +2882,7 @@ client_thread_target(void *param)
 }
 
 bool
-is_new_thread_client_thread(CONTEXT *cxt, OUT byte **dstack)
+is_new_thread_client_thread(CONTEXT *cxt, DR_PARAM_OUT byte **dstack)
 {
     bool is_client = (void *)cxt->CXT_XIP == (void *)client_thread_target ||
         /* i#1309: on win8+ we have to use NtCreateThreadEx via wrapper */
@@ -2942,9 +2943,9 @@ get_os_version()
 }
 
 void
-get_os_version_ex(int *version OUT, uint *service_pack_major OUT,
-                  uint *service_pack_minor OUT, uint *build_number OUT,
-                  const char **release_id OUT, const char **edition OUT)
+get_os_version_ex(int *version DR_PARAM_OUT, uint *service_pack_major DR_PARAM_OUT,
+                  uint *service_pack_minor DR_PARAM_OUT, uint *build_number DR_PARAM_OUT,
+                  const char **release_id DR_PARAM_OUT, const char **edition DR_PARAM_OUT)
 {
     if (version != NULL)
         *version = os_version;
@@ -3225,7 +3226,7 @@ num_app_args()
 
 /* Returns the application's command-line arguments. */
 int
-get_app_args(OUT dr_app_arg_t *args_buf, int buf_size)
+get_app_args(DR_PARAM_OUT dr_app_arg_t *args_buf, int buf_size)
 {
     /* XXX i#2662: Add support for Windows. */
     ASSERT_NOT_IMPLEMENTED(false);
@@ -4916,8 +4917,8 @@ os_heap_reserve(void *preferred, size_t size, heap_error_code_t *error_code,
 }
 
 static bool
-find_free_memory_in_region(byte *start, byte *end, size_t size, byte **found_start OUT,
-                           byte **found_end OUT)
+find_free_memory_in_region(byte *start, byte *end, size_t size,
+                           byte **found_start DR_PARAM_OUT, byte **found_end DR_PARAM_OUT)
 {
     byte *cur;
     MEMORY_BASIC_INFORMATION mbi;
@@ -5089,7 +5090,7 @@ os_heap_get_commit_limit(size_t *commit_used, size_t *commit_limit)
  * only an 8-byte target and give up on hook chaining robustness.
  */
 bool
-os_find_free_code_space_in_libs(void **start OUT, void **end OUT)
+os_find_free_code_space_in_libs(void **start DR_PARAM_OUT, void **end DR_PARAM_OUT)
 {
     app_pc rx_end_nopad, rx_end_padded;
     ASSERT_CURIOSITY(get_os_version() >= WINDOWS_VERSION_8 &&
@@ -5200,7 +5201,7 @@ thread_set_context(thread_record_t *tr, CONTEXT *context)
 
 /* Takes an os-specific context */
 void
-thread_set_self_context(void *cxt)
+thread_set_self_context(void *cxt, bool is_detach_external)
 {
     /* We use NtContinue to avoid privilege issues with NtSetContext */
     nt_continue((CONTEXT *)cxt);
@@ -5209,7 +5210,7 @@ thread_set_self_context(void *cxt)
 
 /* Takes a priv_mcontext_t */
 void
-thread_set_self_mcontext(priv_mcontext_t *mc)
+thread_set_self_mcontext(priv_mcontext_t *mc, bool is_detach_external)
 {
     /* We can't use heap for our CONTEXT as we have no opportunity to free it.
      * We assume call paths can handle a large stack buffer as size something
@@ -5231,7 +5232,7 @@ thread_set_self_mcontext(priv_mcontext_t *mc)
         cxt = nt_initialize_context(buf, bufsz, cxt_flags);
     /* need ss and cs for setting my own context */
     mcontext_to_context(cxt, mc, true /* set_cur_seg */);
-    thread_set_self_context(cxt);
+    thread_set_self_context(cxt, false);
     ASSERT_NOT_REACHED();
 }
 
@@ -5566,8 +5567,9 @@ shared_library_error(char *buf, int maxlen)
  * for linux, one of addr or name is needed; for windows, neither is needed.
  */
 bool
-shared_library_bounds(IN shlib_handle_t lib, IN byte *addr, IN const char *name,
-                      OUT byte **start, OUT byte **end)
+shared_library_bounds(DR_PARAM_IN shlib_handle_t lib, DR_PARAM_IN byte *addr,
+                      DR_PARAM_IN const char *name, DR_PARAM_OUT byte **start,
+                      DR_PARAM_OUT byte **end)
 {
     size_t sz = get_allocation_size(lib, start);
     ASSERT(start != NULL && end != NULL);
@@ -5694,7 +5696,7 @@ get_allocation_size(byte *pc, byte **base_pc)
 }
 
 static void
-set_memtype_from_mbi(MEMORY_BASIC_INFORMATION *mbi, OUT dr_mem_info_t *info)
+set_memtype_from_mbi(MEMORY_BASIC_INFORMATION *mbi, DR_PARAM_OUT dr_mem_info_t *info)
 {
     if (mbi->State == MEM_FREE) {
         info->type = DR_MEMTYPE_FREE;
@@ -5717,7 +5719,7 @@ set_memtype_from_mbi(MEMORY_BASIC_INFORMATION *mbi, OUT dr_mem_info_t *info)
  * region and all with the same protection and state attributes.
  */
 static bool
-query_memory_internal(const byte *pc, OUT dr_mem_info_t *info,
+query_memory_internal(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info,
                       /* i#345, i#1462: this is expensive so we make it optional */
                       bool get_real_base)
 {
@@ -5834,7 +5836,7 @@ query_memory_internal(const byte *pc, OUT dr_mem_info_t *info,
  * region and all with the same protection and state attributes.
  */
 bool
-query_memory_ex(const byte *pc, OUT dr_mem_info_t *info)
+query_memory_ex(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info)
 {
     return query_memory_internal(pc, info, true /*get real base*/);
 }
@@ -5845,7 +5847,7 @@ query_memory_ex(const byte *pc, OUT dr_mem_info_t *info)
  * subsequent memory region.
  */
 bool
-query_memory_cur_base(const byte *pc, OUT dr_mem_info_t *info)
+query_memory_cur_base(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info)
 {
     return query_memory_internal(pc, info, false /*don't need real base*/);
 }
@@ -6476,8 +6478,8 @@ make_unwritable(byte *pc, size_t size)
 #endif /* !NOT_DYNAMORIO_CORE_PROPER: around most of file, to exclude preload */
 
 bool
-convert_NT_to_Dos_path(OUT wchar_t *buf, IN const wchar_t *fname,
-                       IN size_t buf_len /*# elements*/)
+convert_NT_to_Dos_path(DR_PARAM_OUT wchar_t *buf, DR_PARAM_IN const wchar_t *fname,
+                       DR_PARAM_IN size_t buf_len /*# elements*/)
 {
     /* RtlNtPathNameToDosPathName is only available on XP+ */
     HANDLE objdir;
@@ -6565,9 +6567,10 @@ convert_NT_to_Dos_path(OUT wchar_t *buf, IN const wchar_t *fname,
  * Always null-terminates when it returns non-NULL.
  */
 wchar_t *
-convert_to_NT_file_path_wide(OUT wchar_t *fixedbuf, IN const wchar_t *fname,
-                             IN size_t fixedbuf_len /*# elements*/,
-                             OUT size_t *allocbuf_sz /*#bytes*/)
+convert_to_NT_file_path_wide(DR_PARAM_OUT wchar_t *fixedbuf,
+                             DR_PARAM_IN const wchar_t *fname,
+                             DR_PARAM_IN size_t fixedbuf_len /*# elements*/,
+                             DR_PARAM_OUT size_t *allocbuf_sz /*#bytes*/)
 {
     /* XXX: we could templatize this to share code w/ convert_to_NT_file_path(),
      * but a lot of the extra stuff there is curiosities for use within DR,
@@ -6690,8 +6693,8 @@ convert_to_NT_file_path_wide_free(wchar_t *buf, size_t alloc_sz)
 /* Always null-terminates when it returns true.
  */
 bool
-convert_to_NT_file_path(OUT wchar_t *buf, IN const char *fname,
-                        IN size_t buf_len /*# elements*/)
+convert_to_NT_file_path(DR_PARAM_OUT wchar_t *buf, DR_PARAM_IN const char *fname,
+                        DR_PARAM_IN size_t buf_len /*# elements*/)
 {
     bool is_UNC = false;
     bool is_device = false;
@@ -6898,7 +6901,7 @@ os_get_file_size(const char *file, uint64 *size)
 }
 
 bool
-os_get_file_size_by_handle(IN HANDLE file_handle, uint64 *end_of_file /* OUT */)
+os_get_file_size_by_handle(DR_PARAM_IN HANDLE file_handle, uint64 *end_of_file /* OUT */)
 {
     FILE_STANDARD_INFORMATION standard_info;
     NTSTATUS res = nt_query_file_info(file_handle, &standard_info, sizeof(standard_info),
@@ -6914,7 +6917,7 @@ os_get_file_size_by_handle(IN HANDLE file_handle, uint64 *end_of_file /* OUT */)
 }
 
 bool
-os_set_file_size(IN HANDLE file_handle, uint64 end_of_file)
+os_set_file_size(DR_PARAM_IN HANDLE file_handle, uint64 end_of_file)
 {
     NTSTATUS res;
     FILE_END_OF_FILE_INFORMATION file_end_info;
@@ -6931,9 +6934,10 @@ os_set_file_size(IN HANDLE file_handle, uint64 end_of_file)
  * Note that any valid handle on the volume can be used.
  */
 bool
-os_get_disk_free_space(IN HANDLE file_handle, OUT uint64 *AvailableQuotaBytes OPTIONAL,
-                       OUT uint64 *TotalQuotaBytes OPTIONAL,
-                       OUT uint64 *TotalVolumeBytes OPTIONAL)
+os_get_disk_free_space(DR_PARAM_IN HANDLE file_handle,
+                       DR_PARAM_OUT uint64 *AvailableQuotaBytes OPTIONAL,
+                       DR_PARAM_OUT uint64 *TotalQuotaBytes OPTIONAL,
+                       DR_PARAM_OUT uint64 *TotalVolumeBytes OPTIONAL)
 {
     /* FIXME: considering that we don't usually care about the actual
      * bytes available on the volume, we may use just
@@ -7452,7 +7456,7 @@ os_rename_file(const char *orig_name, const char *new_name, bool replace)
  * same directory is our primary use.
  */
 bool
-os_rename_file_in_directory(IN HANDLE rootdir, const wchar_t *orig_name,
+os_rename_file_in_directory(DR_PARAM_IN HANDLE rootdir, const wchar_t *orig_name,
                             const wchar_t *new_name, bool replace)
 {
     file_t fd = INVALID_FILE;
@@ -7489,7 +7493,7 @@ os_rename_file_in_directory(IN HANDLE rootdir, const wchar_t *orig_name,
 }
 
 byte *
-os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
+os_map_file(file_t f, size_t *size DR_PARAM_INOUT, uint64 offs, app_pc addr, uint prot,
             map_flags_t map_flags)
 {
     NTSTATUS res;
@@ -7782,7 +7786,7 @@ os_dump_core_dump_thread(file_t file, thread_id_t tid, TEB *teb, HANDLE h,
 /* warning is from GET_OWN_CONTEXT: flow in/out of asm code suppresses global opt */
 #    pragma warning(disable : 4740)
 static bool
-os_dump_core_live_dump(const char *msg, char *path OUT, size_t path_sz)
+os_dump_core_live_dump(const char *msg, char *path DR_PARAM_OUT, size_t path_sz)
 {
     /* like the dump_core_buf, all the locals are protected by the
      * dumpcore_lock and are static to save stack space (CONTEXT is quite
@@ -8074,7 +8078,8 @@ os_dump_core_external_dump()
 
 /* return value is mostly about the ldmp, for dr_create_memory_dump */
 static bool
-os_dump_core_internal(const char *msg, bool live_only, char *path OUT, size_t path_sz)
+os_dump_core_internal(const char *msg, bool live_only, char *path DR_PARAM_OUT,
+                      size_t path_sz)
 {
     static thread_id_t current_dumping_thread_id VAR_IN_SECTION(NEVER_PROTECTED_SECTION) =
         0;
@@ -8138,7 +8143,7 @@ os_dump_core(const char *msg)
 }
 
 bool
-os_dump_core_live(const char *msg, char *path OUT, size_t path_sz)
+os_dump_core_live(const char *msg, char *path DR_PARAM_OUT, size_t path_sz)
 {
     return os_dump_core_internal(msg, true /*live only*/, path, path_sz);
 }
@@ -8818,8 +8823,9 @@ early_inject_init()
     wchar_t buf[MAX_PATH];
     int os_version_number = get_os_version();
     GET_NTDLL(LdrLoadDll,
-              (IN PCWSTR PathToFile OPTIONAL, IN PULONG Flags OPTIONAL,
-               IN PUNICODE_STRING ModuleFileName, OUT PHANDLE ModuleHandle));
+              (DR_PARAM_IN PCWSTR PathToFile OPTIONAL, DR_PARAM_IN PULONG Flags OPTIONAL,
+               DR_PARAM_IN PUNICODE_STRING ModuleFileName,
+               DR_PARAM_OUT PHANDLE ModuleHandle));
     ASSERT(dcontext != NULL);
 
     early_inject_location = DYNAMO_OPTION(early_inject_location);

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -32,11 +32,13 @@
 
 /* DRSyms DynamoRIO Extension */
 
-/* Symbol lookup routines for DWARF */
+/* Symbol lookup routines for DWARF via elftoolchain's libdwarf. */
+/* TODO i#5926: Use elfutils everywhere and remove this file in favor of drsysm_dw.c. */
 
 #include "dr_api.h"
 #include "drsyms.h"
 #include "drsyms_private.h"
+#include "drsyms_obj.h"
 
 #include "dwarf.h"
 #include "libdwarf.h"
@@ -56,7 +58,7 @@ static bool verbose = false;
 
 typedef struct _dwarf_module_t {
     byte *load_base;
-    Dwarf_Debug dbg;
+    dwarf_lib_handle_t dbg;
     /* we cache the last CU we looked up */
     Dwarf_Die lines_cu;
     Dwarf_Line *lines;
@@ -73,7 +75,7 @@ typedef enum {
 
 static search_result_t
 search_addr2line_in_cu(dwarf_module_t *mod, Dwarf_Addr pc, Dwarf_Die cu_die,
-                       drsym_info_t *sym_info INOUT);
+                       drsym_info_t *sym_info DR_PARAM_OUT);
 
 /******************************************************************************
  * DWARF parsing code.
@@ -83,7 +85,7 @@ search_addr2line_in_cu(dwarf_module_t *mod, Dwarf_Addr pc, Dwarf_Die cu_die,
  * determine where to start searching.
  */
 static Dwarf_Die
-next_die_matching_tag(Dwarf_Debug dbg, Dwarf_Tag search_tag)
+next_die_matching_tag(dwarf_lib_handle_t dbg, Dwarf_Tag search_tag)
 {
     Dwarf_Half tag = 0;
     Dwarf_Die die = NULL;
@@ -105,7 +107,7 @@ next_die_matching_tag(Dwarf_Debug dbg, Dwarf_Tag search_tag)
  * PC.
  */
 static Dwarf_Die
-find_cu_die_via_iter(Dwarf_Debug dbg, Dwarf_Addr pc)
+find_cu_die_via_iter(dwarf_lib_handle_t dbg, Dwarf_Addr pc)
 {
     Dwarf_Die die = NULL;
     Dwarf_Unsigned cu_offset = 0;
@@ -142,7 +144,7 @@ find_cu_die_via_iter(Dwarf_Debug dbg, Dwarf_Addr pc)
 }
 
 static Dwarf_Die
-find_cu_die(Dwarf_Debug dbg, Dwarf_Addr pc)
+find_cu_die(dwarf_lib_handle_t dbg, Dwarf_Addr pc)
 {
     Dwarf_Error de; /* expensive to init (DrM#1770) */
     Dwarf_Die cu_die = NULL;
@@ -185,7 +187,8 @@ compare_lines(const void *a_in, const void *b_in)
 /* Given a function DIE and a PC, fill out sym_info with line information.
  */
 bool
-drsym_dwarf_search_addr2line(void *mod_in, Dwarf_Addr pc, drsym_info_t *sym_info INOUT)
+drsym_dwarf_search_addr2line(void *mod_in, Dwarf_Addr pc,
+                             drsym_info_t *sym_info DR_PARAM_OUT)
 {
     dwarf_module_t *mod = (dwarf_module_t *)mod_in;
     Dwarf_Error de; /* expensive to init (DrM#1770) */
@@ -246,7 +249,8 @@ drsym_dwarf_search_addr2line(void *mod_in, Dwarf_Addr pc, drsym_info_t *sym_info
 }
 
 static Dwarf_Signed
-get_lines_from_cu(dwarf_module_t *mod, Dwarf_Die cu_die, Dwarf_Line **lines_out OUT)
+get_lines_from_cu(dwarf_module_t *mod, Dwarf_Die cu_die,
+                  Dwarf_Line **lines_out DR_PARAM_OUT)
 {
     if (mod->lines_cu != cu_die) {
         Dwarf_Line *lines;
@@ -272,7 +276,7 @@ get_lines_from_cu(dwarf_module_t *mod, Dwarf_Die cu_die, Dwarf_Line **lines_out 
 
 static search_result_t
 search_addr2line_in_cu(dwarf_module_t *mod, Dwarf_Addr pc, Dwarf_Die cu_die,
-                       drsym_info_t *sym_info INOUT)
+                       drsym_info_t *sym_info DR_PARAM_OUT)
 {
     Dwarf_Line *lines;
     Dwarf_Signed num_lines;
@@ -441,7 +445,7 @@ drsym_dwarf_enumerate_lines(void *mod_in, drsym_enumerate_lines_cb callback, voi
 }
 
 void *
-drsym_dwarf_init(Dwarf_Debug dbg)
+drsym_dwarf_init(dwarf_lib_handle_t dbg)
 {
     dwarf_module_t *mod = (dwarf_module_t *)dr_global_alloc(sizeof(*mod));
     memset(mod, 0, sizeof(*mod));

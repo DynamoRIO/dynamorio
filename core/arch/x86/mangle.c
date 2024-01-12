@@ -2320,8 +2320,15 @@ float_pc_update(dcontext_t *dcontext)
 
 void
 mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                instr_t *next_instr, uint *flags INOUT)
+                instr_t *next_instr, uint *flags DR_PARAM_OUT)
 {
+    /* XXX i#2267: AMD processors don't provide the last PC when there was no
+     * exception.  Recent processors seem to zero it out.  Should we do the same,
+     * and not supply it for intra-block cases?  For now we do supply it, and
+     * we try (but fail) for inter-block for -translate_fpu_pc (we expect failure
+     * in our floatpc_xl8all test template for AMD).
+     */
+
     /* If there is a prior non-control float instr, we can inline the pc update.
      * Otherwise, we go back to d_r_dispatch.  In the latter case we do not support
      * building traces across the float pc save: we assume it's rare.

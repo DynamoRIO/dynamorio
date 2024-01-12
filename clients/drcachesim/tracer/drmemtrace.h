@@ -283,7 +283,34 @@ DR_EXPORT
  * where data is being written.
  */
 drmemtrace_status_t
-drmemtrace_get_output_path(OUT const char **path);
+drmemtrace_get_output_path(DR_PARAM_OUT const char **path);
+
+#ifdef BUILD_PT_TRACER
+DR_EXPORT
+/**
+ * Retrieves the full path to the kcore file in -offline mode when kernel system
+ * call tracing is enabled using -enable_kernel_tracing.
+ */
+drmemtrace_status_t
+drmemtrace_get_kcore_path(DR_PARAM_OUT const char **path);
+
+DR_EXPORT
+/**
+ * Retrieves the full path to the kallsyms file in -offline mode when kernel
+ * system call tracing is enabled using -enable_kernel_tracing.
+ */
+drmemtrace_status_t
+drmemtrace_get_kallsyms_path(DR_PARAM_OUT const char **path);
+
+DR_EXPORT
+/**
+ * Retrieves the full path to the output directory in -offline mode
+ * where kernel trace data is written when kernel tracing is enabled using
+ * -enable_kernel_tracing.
+ */
+drmemtrace_status_t
+drmemtrace_get_kernel_trace_output_path(DR_PARAM_OUT const char **path);
+#endif
 
 DR_EXPORT
 /**
@@ -294,7 +321,7 @@ DR_EXPORT
  * raw2trace_t::handle_custom_data().
  */
 drmemtrace_status_t
-drmemtrace_get_modlist_path(OUT const char **path);
+drmemtrace_get_modlist_path(DR_PARAM_OUT const char **path);
 
 DR_EXPORT
 /**
@@ -313,7 +340,7 @@ DR_EXPORT
  * identifier; each will have its own line in the file.
  */
 drmemtrace_status_t
-drmemtrace_get_funclist_path(OUT const char **path);
+drmemtrace_get_funclist_path(DR_PARAM_OUT const char **path);
 
 DR_EXPORT
 /**
@@ -323,7 +350,7 @@ DR_EXPORT
  * read by the raw2trace tool.
  */
 drmemtrace_status_t
-drmemtrace_get_encoding_path(OUT const char **path);
+drmemtrace_get_encoding_path(DR_PARAM_OUT const char **path);
 
 DR_EXPORT
 /**
@@ -372,7 +399,7 @@ DR_EXPORT
  */
 drmemtrace_status_t
 drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size,
-                                            OUT uint64 *timestamp);
+                                            DR_PARAM_OUT uint64 *timestamp);
 
 } // namespace drmemtrace
 } // namespace dynamorio

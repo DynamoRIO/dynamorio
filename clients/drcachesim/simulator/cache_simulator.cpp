@@ -159,8 +159,8 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs)
                 knobs_.L1I_assoc, (int)knobs_.line_size, (int)knobs_.L1I_size, llc,
                 new cache_stats_t((int)knobs_.line_size, "", warmup_enabled_,
                                   knobs_.model_coherence),
-                nullptr /*prefetcher*/, false /*inclusive*/, knobs_.model_coherence,
-                2 * i, snoop_filter_) ||
+                nullptr /*prefetcher*/, cache_inclusion_policy_t::NON_INC_NON_EXC,
+                knobs_.model_coherence, 2 * i, snoop_filter_) ||
             !l1_dcaches_[i]->init(
                 knobs_.L1D_assoc, (int)knobs_.line_size, (int)knobs_.L1D_size, llc,
                 new cache_stats_t((int)knobs_.line_size, "", warmup_enabled_,
@@ -168,8 +168,8 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs)
                 knobs_.data_prefetcher == PREFETCH_POLICY_NEXTLINE
                     ? new prefetcher_t((int)knobs_.line_size)
                     : nullptr,
-                false /*inclusive*/, knobs_.model_coherence, (2 * i) + 1,
-                snoop_filter_)) {
+                cache_inclusion_policy_t::NON_INC_NON_EXC, knobs_.model_coherence,
+                (2 * i) + 1, snoop_filter_)) {
             error_string_ = "Usage error: failed to initialize L1 caches.  Ensure sizes "
                             "divided by associativities are powers of 2 "
                             "and that the total sizes are multiples of the line size.";
@@ -329,6 +329,10 @@ cache_simulator_t::cache_simulator_t(std::istream *config_file)
         bool is_coherent_ = knobs_.model_coherence &&
             (non_coherent_caches_.find(cache_name) == non_coherent_caches_.end());
 
+        cache_inclusion_policy_t inclusion_policy = cache_config.inclusive
+            ? cache_inclusion_policy_t::INCLUSIVE
+            : cache_config.exclusive ? cache_inclusion_policy_t::EXCLUSIVE
+                                     : cache_inclusion_policy_t::NON_INC_NON_EXC;
         if (!cache->init((int)cache_config.assoc, (int)knobs_.line_size,
                          (int)cache_config.size, parent_,
                          new cache_stats_t((int)knobs_.line_size, cache_config.miss_file,
@@ -336,7 +340,7 @@ cache_simulator_t::cache_simulator_t(std::istream *config_file)
                          cache_config.prefetcher == PREFETCH_POLICY_NEXTLINE
                              ? new prefetcher_t((int)knobs_.line_size)
                              : nullptr,
-                         cache_config.inclusive, is_coherent_, is_snooped ? snoop_id : -1,
+                         inclusion_policy, is_coherent_, is_snooped ? snoop_id : -1,
                          is_snooped ? snoop_filter_ : nullptr, children)) {
             error_string_ = "Usage error: failed to initialize the cache " + cache_name;
             success_ = false;
@@ -455,13 +459,16 @@ cache_simulator_t::process_memref(const memref_t &memref)
     }
 
     int core;
-    if (memref.data.tid == last_thread_)
-        core = last_core_;
-    else {
+    if (shard_type_ == SHARD_BY_THREAD) {
+        if (memref.data.tid == last_thread_)
+            core = last_core_;
+        else {
+            core = core_for_thread(memref.data.tid);
+            last_thread_ = memref.data.tid;
+            last_core_ = core;
+        }
+    } else
         core = core_for_thread(memref.data.tid);
-        last_thread_ = memref.data.tid;
-        last_core_ = core;
-    }
 
     // To support swapping to physical addresses without modifying the passed-in
     // memref (which is also passed to other tools run at the same time) we use
@@ -589,7 +596,7 @@ cache_simulator_t::print_results()
     // Print core and associated L1 cache stats first.
     for (unsigned int i = 0; i < knobs_.num_cores; i++) {
         print_core(i);
-        if (thread_ever_counts_[i] > 0) {
+        if (shard_type_ == SHARD_BY_CORE || thread_ever_counts_[i] > 0) {
             if (l1_icaches_[i] != l1_dcaches_[i]) {
                 std::cerr << "  " << l1_icaches_[i]->get_name() << " ("
                           << l1_icaches_[i]->get_description() << ") stats:" << std::endl;
@@ -682,6 +689,31 @@ cache_simulator_t::create_cache(const std::string &name, const std::string &poli
     ERRMSG("Usage error: undefined replacement policy. "
            "Please choose " REPLACE_POLICY_LRU " or " REPLACE_POLICY_LFU ".\n");
     return NULL;
+}
+
+// Access snoop filter stats.
+int64_t
+cache_simulator_t::get_num_snooped_caches(void)
+{
+    return (snoop_filter_ == nullptr) ? 0 : snoop_filter_->get_num_snooped_caches();
+}
+
+int64_t
+cache_simulator_t::get_num_snoop_writes(void)
+{
+    return (snoop_filter_ == nullptr) ? 0 : snoop_filter_->get_num_writes();
+}
+
+int64_t
+cache_simulator_t::get_num_snoop_writebacks(void)
+{
+    return (snoop_filter_ == nullptr) ? 0 : snoop_filter_->get_num_writebacks();
+}
+
+int64_t
+cache_simulator_t::get_num_snoop_invalidates(void)
+{
+    return (snoop_filter_ == nullptr) ? 0 : snoop_filter_->get_num_invalidates();
 }
 
 } // namespace drmemtrace

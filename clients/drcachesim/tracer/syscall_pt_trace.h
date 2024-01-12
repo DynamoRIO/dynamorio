@@ -89,7 +89,6 @@ public:
     {
         ASSERT(drcontext != nullptr, "invalid drcontext");
         if (data != nullptr) {
-            void *drcontext = dr_get_current_drcontext();
             drpttracer_destroy_output(drcontext, data);
             data = nullptr;
         }
@@ -113,13 +112,14 @@ public:
      * pass in the output directory and the file write function.
      */
     bool
-    init(void *drcontext, char *pt_dir_name, drmemtrace_open_file_func_t open_file_func,
+    init(void *drcontext, char *pt_dir_name,
+         drmemtrace_open_file_ex_func_t open_file_ex_func,
          drmemtrace_write_file_func_t write_file_func,
          drmemtrace_close_file_func_t close_file_func);
 
     /* Start the PT tracing for current syscall and store the sysnum of the syscall. */
     bool
-    start_syscall_pt_trace(IN int sysnum);
+    start_syscall_pt_trace(DR_PARAM_IN int sysnum);
 
     /* Stop the PT tracing for current syscall and dump the output data to one file. */
     bool
@@ -145,7 +145,7 @@ public:
      * supported.
      */
     static bool
-    is_syscall_pt_trace_enabled(IN int sysnum);
+    is_syscall_pt_trace_enabled(DR_PARAM_IN int sysnum);
 
 private:
     /* Dump the metadata to a per-thread file. */
@@ -157,7 +157,7 @@ private:
     trace_data_dump(drpttracer_output_autoclean_t &output);
 
     /* The shared file open function. */
-    drmemtrace_open_file_func_t open_file_func_;
+    drmemtrace_open_file_ex_func_t open_file_ex_func_;
 
     /* The shared file write function. */
     drmemtrace_write_file_func_t write_file_func_;

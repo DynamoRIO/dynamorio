@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,8 +40,12 @@
 #include "drsyms_obj.h"
 
 #include "libelf.h"
-#include "dwarf.h"
-#include "libdwarf.h"
+#ifdef USE_ELFUTILS
+#    include "libdw.h"
+#else
+#    include "dwarf.h"
+#    include "libdwarf.h"
+#endif
 
 #include <string.h>
 #include <sys/stat.h>
@@ -61,7 +65,7 @@
 #    endif
 #endif
 
-static bool verbose = 0;
+static int verbose = 0;
 
 #undef NOTIFY
 #ifdef DEBUG
@@ -107,6 +111,9 @@ static bool verbose = 0;
 #    define Elf_Shdr Elf64_Shdr
 #    define Elf_Sym Elf64_Sym
 #    define ELF_ST_TYPE ELF64_ST_TYPE
+#    ifdef USE_ELFUTILS
+#        define Elf_Note Elf64_Nhdr
+#    endif
 #else
 #    define elf_getehdr elf32_getehdr
 #    define elf_getphdr elf32_getphdr
@@ -116,6 +123,9 @@ static bool verbose = 0;
 #    define Elf_Shdr Elf32_Shdr
 #    define Elf_Sym Elf32_Sym
 #    define ELF_ST_TYPE ELF32_ST_TYPE
+#    ifdef USE_ELFUTILS
+#        define Elf_Note Elf32_Nhdr
+#    endif
 #endif
 
 typedef struct _elf_info_t {
@@ -323,9 +333,15 @@ drsym_obj_mod_init_post(void *mod_in, byte *map_base, void *dwarf_info)
 }
 
 bool
-drsym_obj_dwarf_init(void *mod_in, Dwarf_Debug *dbg)
+drsym_obj_dwarf_init(void *mod_in, dwarf_lib_handle_t *dbg)
 {
     elf_info_t *mod = (elf_info_t *)mod_in;
+#ifdef USE_ELFUTILS
+    // Need to use elfutils Elf* from elf_memory (after calling elf_version(EV_CURRENT))
+    *dbg = dwarf_begin_elf(mod->elf, DWARF_C_READ, NULL);
+    if (*dbg == NULL)
+        return false;
+#else
     Dwarf_Error de; /* expensive to init (DrM#1770) */
     if (mod == NULL)
         return false;
@@ -333,6 +349,7 @@ drsym_obj_dwarf_init(void *mod_in, Dwarf_Debug *dbg)
         NOTIFY_DWARF(de);
         return false;
     }
+#endif
     return true;
 }
 
@@ -402,8 +419,8 @@ drsym_obj_symbol_name(void *mod_in, uint idx)
 }
 
 drsym_error_t
-drsym_obj_symbol_offs(void *mod_in, uint idx, size_t *offs_start OUT,
-                      size_t *offs_end OUT)
+drsym_obj_symbol_offs(void *mod_in, uint idx, size_t *offs_start DR_PARAM_OUT,
+                      size_t *offs_end DR_PARAM_OUT)
 {
     elf_info_t *mod = (elf_info_t *)mod_in;
     if (offs_start == NULL || mod == NULL || idx >= mod->num_syms || mod->syms == NULL)
@@ -433,7 +450,7 @@ drsym_obj_symbol_offs(void *mod_in, uint idx, size_t *offs_start OUT,
 }
 
 drsym_error_t
-drsym_obj_addrsearch_symtab(void *mod_in, size_t modoffs, uint *idx OUT)
+drsym_obj_addrsearch_symtab(void *mod_in, size_t modoffs, uint *idx DR_PARAM_OUT)
 {
     elf_info_t *mod = (elf_info_t *)mod_in;
     int i;
@@ -521,3 +538,40 @@ drsym_obj_debug_path(void)
 {
     return "/usr/lib/debug";
 }
+
+#ifdef USE_ELFUTILS
+/***************************************************************************
+ * elfutils libz helpers.
+ */
+
+/* XXX: If we were guaranteed that the libz deflate calls from libelf were
+ * always in the same thread we could avoid the global heap lock and use
+ * thread-local heap.
+ */
+void *
+drsym_redirect_malloc(void *context, uint items, uint per_size)
+{
+    void *mem;
+    size_t size = items * per_size;
+    if (!dr_running_under_dynamorio())
+        return malloc(size);
+    size += sizeof(size_t);
+    mem = dr_custom_alloc(NULL, 0, size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+    if (mem == NULL)
+        return NULL;
+    *((size_t *)mem) = size;
+    return (byte *)mem + sizeof(size_t);
+}
+
+void
+drsym_redirect_free(void *context, void *ptr)
+{
+    if (!dr_running_under_dynamorio())
+        return free(ptr);
+    if (ptr != NULL) {
+        byte *mem = (byte *)ptr;
+        mem -= sizeof(size_t);
+        dr_custom_free(NULL, 0, mem, *((size_t *)mem));
+    }
+}
+#endif

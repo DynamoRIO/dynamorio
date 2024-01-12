@@ -1,0 +1,8 @@
+Basic counts tool results:
+Total counts:
+      [1-9][0-9][0-9][0-9][0-9][0-9] total \(fetched\) instructions
+        5971 total unique \(fetched\) instructions
+      [1-9][0-9][0-9][0-9][0-9][0-9] total non-fetched instructions
+      [1-9][0-9][0-9][0-9][0-9][0-9] total userspace instructions
+         [1-9][0-9][0-9] total kernel instructions
+.*

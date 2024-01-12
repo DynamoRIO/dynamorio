@@ -43,10 +43,15 @@
 #ifndef _TRACE_ENTRY_H_
 #define _TRACE_ENTRY_H_ 1
 
+#include <memory>
 #include <stddef.h>
 #include <stdint.h>
 
 #include "utils.h"
+
+#if defined(BUILD_PT_TRACER) || defined(BUILD_PT_POST_PROCESSOR)
+#    include "drpttracer_shared.h"
+#endif
 
 /**
  * @file drmemtrace/trace_entry.h
@@ -322,7 +327,7 @@ typedef enum {
      * the drmemtrace_get_funclist_path() function's documentation.
      *
      * This marker is also used to record parameter values for certain system calls such
-     * as for #OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS.  These use
+     * as for #OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS or -record_syscall.  These use
      * large identifiers equal to
      * #func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE plus the system
      * call number (for 32-bit marker values just the bottom 16 bits of the system call
@@ -348,20 +353,18 @@ typedef enum {
      * #TRACE_MARKER_TYPE_FUNC_ID marker entry. The number of such
      * entries for one function invocation is equal to the specified argument in
      * -record_function (or pre-defined functions in -record_heap_value if
-     * -record_heap is specified).
+     * -record_heap is specified) or -record_syscall.
      */
     TRACE_MARKER_TYPE_FUNC_ARG,
 
     /**
      * The marker value contains the return value of the just-entered function,
      * whose id is specified by the closest previous
-     * #TRACE_MARKER_TYPE_FUNC_ID marker entry
+     * #TRACE_MARKER_TYPE_FUNC_ID marker entry.  This is a
+     * pointer-sized value from the conventional return value register.
      *
-     * The marker value for system calls (see
-     * #func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) is either 0
-     * (failure) or 1 (success), as obtained from dr_syscall_get_result_ex() via the
-     * "succeeded" field of #dr_syscall_result_info_t.  See the corresponding
-     * documentation for caveats about the accuracy of this value.
+     * For system calls, this may not be enough to determine whether the call
+     * succeeded. See #TRACE_MARKER_TYPE_SYSCALL_FAILED.
      */
     TRACE_MARKER_TYPE_FUNC_RETVAL,
 
@@ -528,12 +531,14 @@ typedef enum {
     TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL,
 
     /**
-     * Indicates a point in the trace where a syscall's kernel trace starts.
+     * Indicates a point in the trace where a syscall's kernel trace starts. The value
+     * of the marker is set to the syscall number.
      */
     TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
 
     /**
-     * Indicates a point in the trace where a syscall's trace end.
+     * Indicates a point in the trace where a syscall's trace ends. The value of the
+     * marker is set to the syscall number.
      */
     TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
 
@@ -541,6 +546,71 @@ typedef enum {
     // non-i-filtered traces.  The marker value holds the actual target of the
     // branch.  The reader converts this to the memref_t "indirect_branch_target" field.
     TRACE_MARKER_TYPE_BRANCH_TARGET,
+
+    // Although it is only for Mac that syscall success requires more than the
+    // main return value register, we include the failure marker for all platforms
+    // as mmap is complex and it is simpler to not have Mac-only code paths.
+    /**
+     * This marker is emitted for system calls whose parameters are traced with
+     * -record_syscall.  It is emitted immediately after #TRACE_MARKER_TYPE_FUNC_RETVAL
+     * if prior the system call (whose id is specified by the closest previous
+     * #TRACE_MARKER_TYPE_FUNC_ID marker entry) failed.  Whether it failed is obtained
+     * from dr_syscall_get_result_ex() via the "succeeded" field of
+     * #dr_syscall_result_info_t.  See the corresponding documentation for caveats about
+     * the accuracy of this determination.  The marker value is the "errno_value" field
+     * of #dr_syscall_result_info_t.
+     */
+    TRACE_MARKER_TYPE_SYSCALL_FAILED,
+
+    /**
+     * This marker is emitted prior to a system call (but after the system call's
+     * #TRACE_MARKER_TYPE_SYSCALL and #TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL markers)
+     * that causes an immediate switch to another thread on the same core (with the
+     * current thread entering an unscheduled state), bypassing the kernel scheduler's
+     * normal dynamic switch code based on run queues.  The marker value holds the
+     * thread id of the target thread.  This should generally always be after a
+     * #TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL marker as such a switch always
+     * has a chance of blocking if the target needs to be migrated.
+     */
+    TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH,
+
+    /**
+     * This marker is used for core-sharded analyses to indicate that the current
+     * core is waiting on another core.  This is primarily only useful for analyses
+     * studying the scheduling of threads onto cores.  A new marker is emitted each
+     * time the tool analysis framework requests a new record from the scheduler and
+     * is given a wait status.  There are no units of time here but each repetition
+     * is roughly the time where a regular record could have been read and passed
+     * along.
+     */
+    TRACE_MARKER_TYPE_CORE_WAIT,
+
+    /**
+     * This marker is used for core-sharded analyses to indicate that the current
+     * core has no available inputs to run (all inputs are on other cores or are
+     * blocked waiting for kernel resources).  A new marker is emitted each
+     * time the tool analysis framework requests a new record from the scheduler and
+     * is given an idle status.  There are no units of time here but each repetition
+     * is roughly the time where a regular record could have been read and passed
+     * along.  This idle marker indicates that a core actually had no work to do,
+     * as opposed to #TRACE_MARKER_TYPE_CORE_WAIT which is an artifact of an
+     * imposed re-created schedule.
+     */
+    TRACE_MARKER_TYPE_CORE_IDLE,
+
+    /**
+     * Indicates a point in the trace where context switch's kernel trace starts.
+     * The value of the marker is set to the switch type enum value from
+     * #dynamorio::drmemtrace::scheduler_tmpl_t::switch_type_t.
+     */
+    TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
+
+    /**
+     * Indicates a point in the trace where a context switch's kernel trace ends.
+     * The value of the marker is set to the switch type enum value from
+     * #dynamorio::drmemtrace::scheduler_tmpl_t::switch_type_t.
+     */
+    TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
 
     // ...
     // These values are reserved for future built-in marker types.
@@ -677,7 +747,13 @@ marker_type_is_function_marker(const trace_marker_type_t mark)
  * - a bundle of instrs
  * - a flush request
  * - a prefetch request
- * - a thread/process
+ * - a thread/process.
+ * All fields are stored as little-endian.  The raw records from the tracer may
+ * be big-endian (per the architecture trace type field), in which case raw2trace must
+ * convert them to little-endian.  The #memref_t fields may be presented as big-endian
+ * to simplify analyzers running on big-endian machines, in which case the conversion
+ * from the trace format #trace_entry_t to big-endian is performed by the
+ * #dynamorio::drmemtrace::reader_t class.
  */
 START_PACKED_STRUCTURE
 struct _trace_entry_t {
@@ -759,6 +835,12 @@ typedef enum {
 #define PC_MODOFFS_BITS 33
 #define PC_MODIDX_BITS 16
 // We reserve the top value to indicate non-module generated code.
+// TODO i#2062: Filtered traces use a different scheme for modoffs (see
+// ENCODING_FILE_TYPE_SEPARATE_NON_MOD_INSTRS) where the total non-module
+// code is limited to 8GB (33 bytes worth of addressing). We can potentially
+// allow more gencode by using multiple modidx (and not just
+// PC_MODIDX_INVALID) for pointing to non-module code, growing downward from
+// PC_MODIDX_INVALID.
 #define PC_MODIDX_INVALID ((1 << PC_MODIDX_BITS) - 1)
 #define PC_INSTR_COUNT_BITS 12
 #define PC_TYPE_BITS 3
@@ -826,8 +908,11 @@ typedef enum {
      */
     OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS = 0x800,
     /**
-     * Kernel traces of syscalls are included.
-     * The included kernel traces are in the Intel® Processor Trace format.
+     * Kernel traces (both instructions and memory addresses) of syscalls are included. If
+     * only kernel instructions are included the file type is
+     * #OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY instead. The included kernel traces
+     * are provided by the -syscall_template_file to raw2trace (see
+     * #OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES).
      */
     OFFLINE_FILE_TYPE_KERNEL_SYSCALLS = 0x1000,
     /**
@@ -838,6 +923,31 @@ typedef enum {
      * The initial part can be used by a simulator for warmup.
      */
     OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP = 0x2000,
+    /**
+     * Indicates an offline trace that contains trace templates for some system calls.
+     * The individual traces are separated by a #TRACE_MARKER_TYPE_SYSCALL marker which
+     * also specifies what system call the following trace belongs to. This file can be
+     * used with -syscall_template_file to raw2trace to create a
+     * #OFFLINE_FILE_TYPE_KERNEL_SYSCALLS trace. See the sample file written by the
+     * burst_syscall_inject.cpp test for more details on the expected format for the
+     * system call template file.
+     * TODO i#6495: Add support for reading a zipfile where each trace template is in
+     * a separate component. This will make it easier to manually append, update, or
+     * inspect the individual templates, and also allow streaming the component with the
+     * required template when needed instead of reading the complete file into memory
+     * ahead of time. Note that we may drop support for non-zipfile template files in
+     * the future.
+     */
+    OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES = 0x4000,
+    /**
+     * Kernel instruction traces of syscalls are included. When memory addresses are
+     * also included for kernel execution, the file type is
+     * #OFFLINE_FILE_TYPE_KERNEL_SYSCALLS instead.
+     * On x86, the kernel trace is enabled by the -enable_kernel_tracing option that
+     * uses Intel® Processor Trace to collect an instruction trace for system call
+     * execution.
+     */
+    OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY = 0x8000,
 } offline_file_type_t;
 
 static inline const char *
@@ -867,6 +977,8 @@ build_target_arch_type()
 }
 #endif
 
+// This structure may be big- or little-endian, but when converted to trace_entry_t
+// it must be converted to litte-endian.
 START_PACKED_STRUCTURE
 struct _offline_entry_t {
     union {
@@ -920,8 +1032,34 @@ typedef union {
 // The encoding file begins with a 64-bit integer holding a version number,
 // followed by a series of records of type encoding_entry_t.
 #define ENCODING_FILE_INITIAL_VERSION 0
-#define ENCODING_FILE_VERSION ENCODING_FILE_INITIAL_VERSION
+// Encoding files have a file type as the second uint64_t in their header.
+#define ENCODING_FILE_VERSION_HAS_FILE_TYPE 1
+#define ENCODING_FILE_VERSION ENCODING_FILE_VERSION_HAS_FILE_TYPE
 
+/**
+ * Bitfields used to describe the type of the encoding file. This is stored as the
+ * second uint64_t after the encoding file version.
+ */
+typedef enum {
+    /**
+     * Default encoding file type.
+     */
+    ENCODING_FILE_TYPE_DEFAULT = 0x0,
+    /**
+     * This encoding file type tells the module_mapper_t that the non-module PC
+     * entries in the trace correspond to an individual instr. The modoffs field is
+     * interpreted as the cumulative encoding length of all instrs written to the
+     * encoding file before the recorded instr. Note that the encoding file itself
+     * is still written one mon-module block at a time because it is too inefficient
+     * to write one encoding_entry_t for just one non-module instr.
+     *
+     * If this file type is not set, then the PC entries' modoffs fields are
+     * interpreted as the non-mod block's idx.
+     */
+    ENCODING_FILE_TYPE_SEPARATE_NON_MOD_INSTRS = 0x1,
+} encoding_file_type_t;
+
+// All fields are little-endian.
 START_PACKED_STRUCTURE
 struct _encoding_entry_t {
     size_t length; // Size of the entire structure.
@@ -942,6 +1080,7 @@ typedef struct _encoding_entry_t encoding_entry_t;
 // A thread schedule file is a series of these records.
 // There is no version number here: we increase the version number in
 // the trace files when we change the format of this file.
+// All fields are little-endian.
 START_PACKED_STRUCTURE
 struct schedule_entry_t {
     schedule_entry_t(uint64_t thread, uint64_t timestamp, uint64_t cpu,
@@ -966,6 +1105,9 @@ struct schedule_entry_t {
 
 #if defined(BUILD_PT_TRACER) || defined(BUILD_PT_POST_PROCESSOR)
 
+/******************************************************
+ * Trace entries related to the kernel trace -- start.
+ */
 /**
  * The type of a syscall PT entry in the raw offline output.
  */
@@ -1008,6 +1150,7 @@ typedef enum {
     SYSCALL_PT_ENTRY_TYPE_MAX
 } syscall_pt_entry_type_t;
 
+// All fields are little-endian.
 START_PACKED_STRUCTURE
 struct _syscall_pt_entry_t {
     union {
@@ -1073,8 +1216,9 @@ typedef struct _syscall_pt_entry_t syscall_pt_entry_t;
  * 3. The 3rd instance is used to store the output buffer's type and size.
  */
 #    define PT_METADATA_PDB_HEADER_ENTRY_NUM 3
-#    define PT_METADATA_PDB_HEADER_SIZE \
-        (PT_METADATA_PDB_HEADER_ENTRY_NUM * sizeof(syscall_pt_entry_t))
+#    define PT_METADATA_PDB_HEADER_SIZE     \
+        (PT_METADATA_PDB_HEADER_ENTRY_NUM * \
+         sizeof(dynamorio::drmemtrace::syscall_pt_entry_t))
 #    define PT_METADATA_PDB_DATA_OFFSET PT_METADATA_PDB_HEADER_SIZE
 
 /* The header of each syscall's PT data buffer contains max 6 syscall_pt_entry_t
@@ -1086,7 +1230,7 @@ typedef struct _syscall_pt_entry_t syscall_pt_entry_t;
  */
 #    define PT_DATA_PDB_HEADER_ENTRY_NUM 6
 #    define PT_DATA_PDB_HEADER_SIZE \
-        (PT_DATA_PDB_HEADER_ENTRY_NUM * sizeof(syscall_pt_entry_t))
+        (PT_DATA_PDB_HEADER_ENTRY_NUM * sizeof(dynamorio::drmemtrace::syscall_pt_entry_t))
 #    define PT_DATA_PDB_DATA_OFFSET PT_DATA_PDB_HEADER_SIZE
 
 /* The metadata of each syscall is stored in the PDB header. The metadata contains 3
@@ -1097,9 +1241,12 @@ typedef struct _syscall_pt_entry_t syscall_pt_entry_t;
  */
 #    define SYSCALL_METADATA_ENTRY_NUM 3
 #    define SYSCALL_METADATA_SIZE \
-        (SYSCALL_METADATA_ENTRY_NUM * sizeof(syscall_pt_entry_t))
+        (SYSCALL_METADATA_ENTRY_NUM * sizeof(dynamorio::drmemtrace::syscall_pt_entry_t))
 
 typedef enum {
+    // TODO i#5505: We perhaps do not need to add the PID and TID in the header. They can
+    // be obtained from the thread's user-space trace files.
+
     /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_PID in the PDB header. */
     PDB_HEADER_PID_IDX = 0,
     /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_THREAD_ID in the PDB
@@ -1122,7 +1269,52 @@ typedef enum {
      */
     PDB_HEADER_NUM_ARGS_IDX = 5
 } pdb_header_entry_idx_t;
-#endif
+
+/**
+ * This is the format in which syscall_pt_trace writes the PT metadata for each
+ * thread before writing any system call's PT data.
+ * All fields are little-endian.
+ */
+START_PACKED_STRUCTURE
+struct _pt_metadata_buf_t {
+    /**
+     * The header of the PT metadata.
+     */
+    syscall_pt_entry_t header[PT_METADATA_PDB_HEADER_ENTRY_NUM];
+
+    /**
+     * The PT metadata itself. Note that the struct is already marked packed
+     * in its definition.
+     */
+    pt_metadata_t metadata;
+} END_PACKED_STRUCTURE;
+
+/** See #dynamorio::drmemtrace::_pt_metadata_buf_t. */
+typedef struct _pt_metadata_buf_t pt_metadata_buf_t;
+
+/**
+ * This is the format in which syscall_pt_trace writes each system call's PT
+ * data.
+ */
+struct _pt_data_buf_t {
+    /**
+     * The header of the PT data.
+     */
+    syscall_pt_entry_t header[PT_DATA_PDB_HEADER_ENTRY_NUM];
+    /**
+     * The actual trace data written by PT.
+     */
+    std::unique_ptr<uint8_t[]> data;
+};
+
+/** See #dynamorio::drmemtrace::_pt_data_buf_t. */
+typedef struct _pt_data_buf_t pt_data_buf_t;
+
+/****************************************************
+ * Trace entries related to the kernel trace -- end.
+ */
+
+#endif // defined(BUILD_PT_TRACER) || defined(BUILD_PT_POST_PROCESSOR)
 
 /**
  * The name of the file in -offline mode where module data is written.
@@ -1159,10 +1351,10 @@ typedef enum {
 #define DRMEMTRACE_CPU_SCHEDULE_FILENAME "cpu_schedule.bin.zip"
 
 /**
- * The name of the folder in -offline mode where the kernel's per thread PT data is
- * stored. This data is captured during online tracing.
+ * The name of the folder in -offline mode where the kernel's per thread trace
+ * data is stored.
  */
-#define DRMEMTRACE_KERNEL_PT_SUBDIR "kernel.raw"
+#define DRMEMTRACE_KERNEL_TRACE_SUBDIR "kernel.raw"
 
 /**
  * The name of the file in -offline mode where the kernel code segments are stored. This

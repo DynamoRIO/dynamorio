@@ -60,13 +60,14 @@
 #include "drwrap.h"
 #include "drx.h"
 #include "func_trace.h"
+#include "hashtable.h"
 #include "instr_counter.h"
 #include "instru.h"
 #include "named_pipe.h"
 #include "options.h"
 #include "output.h"
 #include "physaddr.h"
-#include "raw2trace.h"
+#include "raw2trace_shared.h"
 #include "reader.h"
 #include "trace_entry.h"
 #include "utils.h"
@@ -105,7 +106,7 @@ using ::dynamorio::droption::DROPTION_SCOPE_CLIENT;
 
 char logsubdir[MAXIMUM_PATH];
 #ifdef BUILD_PT_TRACER
-char kernel_pt_logsubdir[MAXIMUM_PATH];
+char kernel_trace_logsubdir[MAXIMUM_PATH];
 #endif
 char subdir_prefix[MAXIMUM_PATH]; /* Holds op_subdir_prefix. */
 
@@ -175,9 +176,10 @@ static void *trace_thread_cb_user_data;
 static bool thread_filtering_enabled;
 bool attached_midway;
 
-#ifdef AARCH64
-static bool reported_sg_warning = false;
-#endif
+// We may be able to safely use std::unordered_map as at runtime we only need
+// to do lookups which shouldn't need heap or locks, but to be safe we use
+// the DR hashtable.
+static hashtable_t syscall2args;
 
 static bool
 bbdup_instr_counting_enabled()
@@ -197,7 +199,8 @@ bbdup_duplication_enabled()
 // If we have both BBDUP_MODE_TRACE and BBDUP_MODE_L0_FILTER, then L0 filter is active
 // only when mode is BBDUP_MODE_L0_FILTER
 void
-get_L0_filters_enabled(uintptr_t mode, OUT bool *l0i_enabled, OUT bool *l0d_enabled)
+get_L0_filters_enabled(uintptr_t mode, DR_PARAM_OUT bool *l0i_enabled,
+                       DR_PARAM_OUT bool *l0d_enabled)
 {
     if (op_L0_filter_until_instrs.get_value()) {
         if (mode != BBDUP_MODE_L0_FILTER) {
@@ -219,6 +222,11 @@ struct file_ops_func_t file_ops_func;
 static char modlist_path[MAXIMUM_PATH];
 static char funclist_path[MAXIMUM_PATH];
 static char encoding_path[MAXIMUM_PATH];
+
+#ifdef BUILD_PT_TRACER
+static char kallsyms_path[MAXIMUM_PATH];
+static char kcore_path[MAXIMUM_PATH];
+#endif
 
 static void
 append_timestamp_and_cpu_marker(per_thread_t *data)
@@ -608,7 +616,7 @@ instrument_delay_instrs(void *drcontext, void *tag, instrlist_t *ilist, user_dat
  */
 static void
 insert_conditional_skip(void *drcontext, instrlist_t *ilist, instr_t *where,
-                        reg_id_t reg_skip_if_zero, reg_id_t *reg_tmp INOUT,
+                        reg_id_t reg_skip_if_zero, reg_id_t *reg_tmp DR_PARAM_INOUT,
                         instr_t *skip_label, bool short_reaches,
                         reg_id_set_t &app_regs_at_skip)
 {
@@ -1341,22 +1349,6 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         for (i = 0; i < instr_num_srcs(instr_operands); i++) {
             const opnd_t src = instr_get_src(instr_operands, i);
             if (opnd_is_memory_reference(src)) {
-#ifdef AARCH64
-                /* TODO i#5036: Memory references involving SVE registers are not
-                 * supported yet. To be implemented as part of scatter/gather work.
-                 */
-                if (opnd_is_base_disp(src) &&
-                    (reg_is_z(opnd_get_base(src)) || reg_is_z(opnd_get_index(src)))) {
-                    if (!reported_sg_warning) {
-                        NOTIFY(
-                            0,
-                            "WARNING: Scatter/gather is not supported, results will be "
-                            "inaccurate\n");
-                        reported_sg_warning = true;
-                    }
-                    continue;
-                }
-#endif
                 adjust = instrument_memref(drcontext, ud, bb, where, reg_ptr, adjust,
                                            instr_operands, src, i, false, pred, mode);
             }
@@ -1365,22 +1357,6 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         for (i = 0; i < instr_num_dsts(instr_operands); i++) {
             const opnd_t dst = instr_get_dst(instr_operands, i);
             if (opnd_is_memory_reference(dst)) {
-#ifdef AARCH64
-                /* TODO i#5036: Memory references involving SVE registers are not
-                 * supported yet. To be implemented as part of scatter/gather work.
-                 */
-                if (opnd_is_base_disp(dst) &&
-                    (reg_is_z(opnd_get_base(dst)) || reg_is_z(opnd_get_index(dst)))) {
-                    if (!reported_sg_warning) {
-                        NOTIFY(
-                            0,
-                            "WARNING: Scatter/gather is not supported, results will be "
-                            "inaccurate\n");
-                        reported_sg_warning = true;
-                    }
-                    continue;
-                }
-#endif
                 adjust = instrument_memref(drcontext, ud, bb, where, reg_ptr, adjust,
                                            instr_operands, dst, i, true, pred, mode);
             }
@@ -1469,6 +1445,52 @@ event_filter_syscall(void *drcontext, int sysnum)
     return true;
 }
 
+static void
+init_record_syscall()
+{
+    // We only modify the table at init time and do not want a lock for runtime
+    // lookups.
+    hashtable_init_ex(&syscall2args, 8, HASH_INTPTR, /*strdup=*/false, /*synch=*/false,
+                      nullptr, nullptr, nullptr);
+#ifdef LINUX
+    // We trace futex by default.  Add it first so a use can disable.
+    static constexpr int FUTEX_ARG_COUNT = 6;
+    if (!hashtable_add(&syscall2args,
+                       reinterpret_cast<void *>(static_cast<ptr_int_t>(SYS_futex)),
+                       reinterpret_cast<void *>(static_cast<ptr_int_t>(FUTEX_ARG_COUNT))))
+        DR_ASSERT(false && "Failed to add to syscall2args internal hashtable");
+#endif
+    auto op_values =
+        split_by(op_record_syscall.get_value(), op_record_syscall.get_value_separator());
+    for (auto &single_op_value : op_values) {
+        auto items = split_by(single_op_value, PATTERN_SEPARATOR);
+        if (items.size() != 2) {
+            FATAL("Error: -record_syscall takes exactly 2 fields for each item: %s\n",
+                  op_record_syscall.get_value().c_str());
+        }
+        int num = atoi(items[0].c_str());
+        if (num < 0)
+            FATAL("Error: -record_syscall invalid number %d\n", num);
+        int args = atoi(items[1].c_str());
+        // Sanity check.  Some Windows syscalls have dozens of parameters but we
+        // should not see anything as high as 100.
+        static constexpr int MAX_SYSCALL_ARGS = 100;
+        if (args < 0 || args > MAX_SYSCALL_ARGS)
+            FATAL("Error: -record_syscall invalid parameter count %d\n", args);
+        dr_log(NULL, DR_LOG_ALL, 1, "Tracing syscall #%d args=%d\n", num, args);
+        NOTIFY(1, "Tracing syscall #%d args=%d\n", num, args);
+        hashtable_add_replace(&syscall2args,
+                              reinterpret_cast<void *>(static_cast<ptr_int_t>(num)),
+                              reinterpret_cast<void *>(static_cast<ptr_int_t>(args)));
+    }
+}
+
+static void
+exit_record_syscall()
+{
+    hashtable_delete(&syscall2args);
+}
+
 static bool
 event_pre_syscall(void *drcontext, int sysnum)
 {
@@ -1498,20 +1520,21 @@ event_pre_syscall(void *drcontext, int sysnum)
 
         BUF_PTR(data->seg_base) += instru->append_marker(
             BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_SYSCALL, sysnum);
-#ifdef LINUX
-        if (sysnum == SYS_futex) {
-            static constexpr int FUTEX_ARG_COUNT = 6;
+
+        // Record parameter values, if requested.
+        int args = static_cast<int>(reinterpret_cast<ptr_int_t>(hashtable_lookup(
+            &syscall2args, reinterpret_cast<void *>(static_cast<ptr_int_t>(sysnum)))));
+        if (args > 0) {
             BUF_PTR(data->seg_base) += instru->append_marker(
                 BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_FUNC_ID,
                 static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) +
                     IF_X64_ELSE(sysnum, (sysnum & 0xffff)));
-            for (int i = 0; i < FUTEX_ARG_COUNT; ++i) {
+            for (int i = 0; i < args; ++i) {
                 BUF_PTR(data->seg_base) += instru->append_marker(
                     BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_FUNC_ARG,
                     dr_syscall_get_param(drcontext, i));
             }
         }
-#endif
     }
     // Filtered traces take a while to fill up the buffer, so we do an output
     // before each syscall so we can check for various thresholds more frequently.
@@ -1576,24 +1599,27 @@ event_post_syscall(void *drcontext, int sysnum)
 
 #ifdef LINUX
     if (!op_L0I_filter.get_value()) { /* No syscall data unless full instr trace. */
-        if (sysnum == SYS_futex) {
-            dr_syscall_result_info_t info = {
-                sizeof(info),
-            };
+        if (hashtable_lookup(&syscall2args,
+                             reinterpret_cast<void *>(static_cast<ptr_int_t>(sysnum))) !=
+            nullptr) {
+            dr_syscall_result_info_t info = {};
+            info.size = sizeof(info);
+            info.use_errno = true;
             dr_syscall_get_result_ex(drcontext, &info);
             BUF_PTR(data->seg_base) += instru->append_marker(
                 BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_FUNC_ID,
                 static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) +
                     IF_X64_ELSE(sysnum, (sysnum & 0xffff)));
-            /* XXX i#5843: Return values are complex and can include more than just
-             * the primary register value.  Since we care mostly just about failure,
-             * we use the "succeeded" field.  However, this is not accurate for all
-             * syscalls.  Plus, would the scheduler want to know about various
-             * successful return values which indicate how many waiters were woken
-             * up and other data?
-             */
             BUF_PTR(data->seg_base) += instru->append_marker(
-                BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_FUNC_RETVAL, info.succeeded);
+                BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_FUNC_RETVAL, info.value);
+            if (!info.succeeded) {
+                // On Mac you can't tell success from just the return value so we
+                // include a failure indicator.  Since mmap is also complex, and
+                // to reduce Mac-only code, we provide this for all platforms.
+                BUF_PTR(data->seg_base) += instru->append_marker(
+                    BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_SYSCALL_FAILED,
+                    info.errno_value);
+            }
         }
     }
 #endif
@@ -1728,14 +1754,17 @@ init_thread_in_process(void *drcontext)
 
 #ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
-        data->syscall_pt_trace.init(
-            drcontext, kernel_pt_logsubdir,
-            // XXX i#5505: This should be per-thread and per-window; once we've
-            // finalized the PT output scheme we should pass those parameters.
-            [](const char *fname, uint mode_flags) {
-                return file_ops_func.open_process_file(fname, mode_flags);
-            },
-            file_ops_func.write_file, file_ops_func.close_file);
+        if (!data->syscall_pt_trace.init(
+                drcontext, kernel_trace_logsubdir,
+                [](const char *fname, uint mode_flags, thread_id_t thread_id,
+                   int64 window_id) {
+                    return file_ops_func.call_open_file(fname, mode_flags, thread_id,
+                                                        window_id);
+                },
+                file_ops_func.write_file, file_ops_func.close_file)) {
+            FATAL("Failed to init syscall_pt_trace_t for kernel raw files at %s\n",
+                  kernel_trace_logsubdir);
+        }
     }
 #endif
     // XXX i#1729: gather and store an initial callstack for the thread.
@@ -1850,12 +1879,15 @@ event_exit(void)
 #ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
         drpttracer_exit();
-        /* Copy kcore and kallsyms to {kernel_pt_logsubdir}. */
-        kcore_copy_t kcore_copy(file_ops_func.open_file, file_ops_func.write_file,
-                                file_ops_func.close_file);
-        if (!kcore_copy.copy(kernel_pt_logsubdir)) {
+        /* Copy kcore and kallsyms to {kernel_trace_logsubdir}. */
+        kcore_copy_t kcore_copy(
+            [](const char *fname, uint mode_flags) {
+                return file_ops_func.open_process_file(fname, mode_flags);
+            },
+            file_ops_func.write_file, file_ops_func.close_file);
+        if (!kcore_copy.copy(kcore_path, kallsyms_path)) {
             NOTIFY(0, "WARNING: failed to copy kcore and kallsyms to %s\n",
-                   kernel_pt_logsubdir);
+                   kernel_trace_logsubdir);
         }
     }
 #endif
@@ -1921,6 +1953,7 @@ event_exit(void)
     num_refs_racy = 0;
     num_filter_refs_racy = 0;
 
+    exit_record_syscall();
     exit_io();
 
     dr_mutex_destroy(mutex);
@@ -1944,8 +1977,8 @@ init_offline_dir(void)
      */
     dr_snprintf(subdir_prefix, BUFFER_SIZE_ELEMENTS(subdir_prefix), "%s",
                 op_subdir_prefix.get_value().c_str());
-    NULL_TERMINATE_BUFFER(subdir_prefix);
     /* We do not need to call drx_init before using drx_open_unique_appid_file. */
+    NULL_TERMINATE_BUFFER(subdir_prefix);
     for (i = 0; i < NUM_OF_TRIES; i++) {
         /* We use drx_open_unique_appid_file with DRX_FILE_SKIP_OPEN to get a
          * directory name for creation.  Retry if the same name directory already
@@ -1971,13 +2004,20 @@ init_offline_dir(void)
         return false;
 
 #ifdef BUILD_PT_TRACER
-    dr_snprintf(kernel_pt_logsubdir, BUFFER_SIZE_ELEMENTS(kernel_pt_logsubdir), "%s%s%s",
-                buf, DIRSEP, DRMEMTRACE_KERNEL_PT_SUBDIR);
-    NULL_TERMINATE_BUFFER(kernel_pt_logsubdir);
+    dr_snprintf(kernel_trace_logsubdir, BUFFER_SIZE_ELEMENTS(kernel_trace_logsubdir),
+                "%s%s%s", buf, DIRSEP, DRMEMTRACE_KERNEL_TRACE_SUBDIR);
+    NULL_TERMINATE_BUFFER(kernel_trace_logsubdir);
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
-        if (!file_ops_func.create_dir(kernel_pt_logsubdir))
+        if (!file_ops_func.create_dir(kernel_trace_logsubdir))
             return false;
     }
+    dr_snprintf(kcore_path, BUFFER_SIZE_ELEMENTS(kcore_path), "%s%s%s",
+                kernel_trace_logsubdir, DIRSEP, DRMEMTRACE_KCORE_FILENAME);
+    NULL_TERMINATE_BUFFER(kcore_path);
+
+    dr_snprintf(kallsyms_path, BUFFER_SIZE_ELEMENTS(kallsyms_path), "%s%s%s",
+                kernel_trace_logsubdir, DIRSEP, DRMEMTRACE_KALLSYMS_FILENAME);
+    NULL_TERMINATE_BUFFER(kallsyms_path);
 #endif
     if (has_tracing_windows())
         open_new_window_dir(tracing_window.load(std::memory_order_acquire));
@@ -2103,7 +2143,7 @@ drmemtrace_buffer_handoff(drmemtrace_handoff_func_t handoff_func,
 }
 
 drmemtrace_status_t
-drmemtrace_get_output_path(OUT const char **path)
+drmemtrace_get_output_path(DR_PARAM_OUT const char **path)
 {
     if (path == NULL)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
@@ -2111,8 +2151,37 @@ drmemtrace_get_output_path(OUT const char **path)
     return DRMEMTRACE_SUCCESS;
 }
 
+#ifdef BUILD_PT_TRACER
 drmemtrace_status_t
-drmemtrace_get_modlist_path(OUT const char **path)
+drmemtrace_get_kcore_path(DR_PARAM_OUT const char **path)
+{
+    if (path == NULL)
+        return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+    *path = kcore_path;
+    return DRMEMTRACE_SUCCESS;
+}
+
+drmemtrace_status_t
+drmemtrace_get_kallsyms_path(DR_PARAM_OUT const char **path)
+{
+    if (path == NULL)
+        return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+    *path = kallsyms_path;
+    return DRMEMTRACE_SUCCESS;
+}
+
+drmemtrace_status_t
+drmemtrace_get_kernel_trace_output_path(DR_PARAM_OUT const char **path)
+{
+    if (path == NULL)
+        return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+    *path = kernel_trace_logsubdir;
+    return DRMEMTRACE_SUCCESS;
+}
+#endif
+
+drmemtrace_status_t
+drmemtrace_get_modlist_path(DR_PARAM_OUT const char **path)
 {
     if (path == NULL)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
@@ -2121,7 +2190,7 @@ drmemtrace_get_modlist_path(OUT const char **path)
 }
 
 drmemtrace_status_t
-drmemtrace_get_funclist_path(OUT const char **path)
+drmemtrace_get_funclist_path(DR_PARAM_OUT const char **path)
 {
     if (path == NULL)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
@@ -2130,7 +2199,7 @@ drmemtrace_get_funclist_path(OUT const char **path)
 }
 
 drmemtrace_status_t
-drmemtrace_get_encoding_path(OUT const char **path)
+drmemtrace_get_encoding_path(DR_PARAM_OUT const char **path)
 {
     if (path == NULL)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
@@ -2227,6 +2296,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         op_L0D_filter.get_value())
         op_disable_optimizations.set_value(true);
 
+    init_record_syscall();
     event_inscount_init();
     init_io();
 
@@ -2249,10 +2319,12 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         /* we use placement new for better isolation */
         DR_ASSERT(MAX_INSTRU_SIZE >= sizeof(offline_instru_t));
         placement = dr_global_alloc(MAX_INSTRU_SIZE);
-        instru = new (placement)
-            offline_instru_t(insert_load_buf_ptr, &scratch_reserve_vec,
-                             file_ops_func.write_file, module_file, encoding_file,
-                             op_disable_optimizations.get_value(), instru_notify);
+        // TODO i#6474, i#2062: Also handle op_L0_filter_until_instrs here when
+        // i#6474 is resolved.
+        instru = new (placement) offline_instru_t(
+            insert_load_buf_ptr, &scratch_reserve_vec, file_ops_func.write_file,
+            module_file, encoding_file, op_disable_optimizations.get_value(),
+            op_L0D_filter.get_value() || op_L0I_filter.get_value(), instru_notify);
     } else {
         void *placement;
         /* we use placement new for better isolation */

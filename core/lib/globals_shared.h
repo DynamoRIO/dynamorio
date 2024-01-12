@@ -933,9 +933,9 @@ enum {
 #else
     NUDGE_NUDGER_FREE_STACK = 0x02, /* nudger will free the nudge thread's stack so the
                                      * nudge thread itself shouldn't */
-    NUDGE_FREE_ARG = 0x04,          /* nudge arg is in a separate allocation and should
-                                     * be freed by the nudge thread */
 #endif
+    NUDGE_FREE_ARG = 0x04, /* nudge arg is in a separate allocation and should
+                            * be freed by the nudge thread */
 };
 
 typedef struct {

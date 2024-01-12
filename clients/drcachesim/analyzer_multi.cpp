@@ -41,8 +41,10 @@
 #ifdef HAS_ZLIB
 #    include "common/gzip_istream.h"
 #    include "reader/compressed_file_reader.h"
-#    include "zipfile_istream.h"
-#    include "zipfile_ostream.h"
+#    ifdef HAS_ZIP
+#        include "zipfile_istream.h"
+#        include "zipfile_ostream.h"
+#    endif
 #endif
 #ifdef HAS_ZIP
 #    include "common/zipfile_istream.h"
@@ -56,16 +58,53 @@
 #include "tools/invariant_checker.h"
 #include "tools/invariant_checker_create.h"
 #include "tools/opcode_mix_create.h"
+#include "tools/schedule_stats_create.h"
 #include "tools/syscall_mix_create.h"
 #include "tools/reuse_distance_create.h"
 #include "tools/reuse_time_create.h"
 #include "tools/view_create.h"
+#include "tools/loader/external_config_file.h"
+#include "tools/loader/external_tool_creator.h"
 
 namespace dynamorio {
 namespace drmemtrace {
 
 using ::dynamorio::droption::droption_parser_t;
 using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+
+analysis_tool_t *
+analyzer_multi_t::create_external_tool(const std::string &tool_name)
+{
+    analysis_tool_t *tool = nullptr;
+
+    std::string tools_dir(op_dr_root.get_value());
+    tools_dir += std::string(DIRSEP) + "tools" + std::string(DIRSEP);
+    directory_iterator_t end;
+    directory_iterator_t iter(tools_dir);
+
+    if (!iter) {
+        return nullptr;
+    }
+
+    for (; iter != end; ++iter) {
+        if ((*iter).find(".drcachesim") != std::string::npos) {
+            std::string abs_path(tools_dir);
+            abs_path.append(*iter);
+            external_tool_config_file_t config(op_dr_root.get_value(), abs_path);
+            if (config.valid_ && config.tool_name_ == tool_name) {
+                external_tool_creator_t creator(config.creator_path_);
+                error_string_ = creator.error();
+                if (creator.error().empty()) {
+                    DR_ASSERT(creator.get_tool_name() == tool_name.c_str());
+                    tool = creator.create_tool();
+                    loaders_.push_back(std::move(creator));
+                    break;
+                }
+            }
+        }
+    }
+    return tool;
+}
 
 analyzer_multi_t::analyzer_multi_t()
 {
@@ -121,7 +160,8 @@ analyzer_multi_t::analyzer_multi_t()
         if (needs_processing) {
             raw2trace_directory_t dir(op_verbose.get_value());
             std::string dir_err =
-                dir.initialize(op_indir.get_value(), "", op_trace_compress.get_value());
+                dir.initialize(op_indir.get_value(), "", op_trace_compress.get_value(),
+                               op_syscall_template_file.get_value());
             if (!dir_err.empty()) {
                 success_ = false;
                 error_string_ = "Directory setup failed: " + dir_err;
@@ -132,7 +172,8 @@ analyzer_multi_t::analyzer_multi_t()
                 dir.encoding_file_, dir.serial_schedule_file_, dir.cpu_schedule_file_,
                 nullptr, op_verbose.get_value(), op_jobs.get_value(),
                 op_alt_module_dir.get_value(), op_chunk_instr_count.get_value(),
-                dir.in_kfiles_map_, dir.kcoredir_, dir.kallsymsdir_);
+                dir.in_kfiles_map_, dir.kcoredir_, dir.kallsymsdir_,
+                std::move(dir.syscall_template_file_reader_));
             std::string error = raw2trace.do_conversion();
             if (!error.empty()) {
                 success_ = false;
@@ -144,30 +185,23 @@ analyzer_multi_t::analyzer_multi_t()
     // test_mode.
     if (!create_analysis_tools()) {
         success_ = false;
-        error_string_ = "Failed to create analysis tool: " + error_string_;
+        error_string_ = "Failed to create analysis tool:" + error_string_;
         return;
     }
 
     scheduler_t::scheduler_options_t sched_ops;
-    scheduler_t::scheduler_options_t *sched_ops_ptr = nullptr;
     if (op_core_sharded.get_value() || op_core_serial.get_value()) {
         if (op_core_serial.get_value()) {
-            // TODO i#5694: Add serial core-sharded support by having the
-            // analyzer create #cores streams but walk them in lockstep.
-            // Then, update drcachesim to use get_output_cpuid().
-            error_string_ = "-core_serial is not yet implemented";
-            success_ = false;
-            return;
+            parallel_ = false;
         }
         sched_ops = init_dynamic_schedule();
-        sched_ops_ptr = &sched_ops;
     }
 
     if (!op_indir.get_value().empty()) {
         std::string tracedir =
             raw2trace_directory_t::tracedir_from_rawdir(op_indir.get_value());
         if (!init_scheduler(tracedir, op_only_thread.get_value(), op_verbose.get_value(),
-                            sched_ops_ptr))
+                            std::move(sched_ops)))
             success_ = false;
     } else if (op_infile.get_value().empty()) {
         // XXX i#3323: Add parallel analysis support for online tools.
@@ -176,13 +210,13 @@ analyzer_multi_t::analyzer_multi_t()
             new ipc_reader_t(op_ipc_name.get_value().c_str(), op_verbose.get_value()));
         auto end = std::unique_ptr<reader_t>(new ipc_reader_t());
         if (!init_scheduler(std::move(reader), std::move(end), op_verbose.get_value(),
-                            sched_ops_ptr)) {
+                            std::move(sched_ops))) {
             success_ = false;
         }
     } else {
         // Legacy file.
         if (!init_scheduler(op_infile.get_value(), INVALID_THREAD_ID /*all threads*/,
-                            op_verbose.get_value(), sched_ops_ptr))
+                            op_verbose.get_value(), std::move(sched_ops)))
             success_ = false;
     }
     if (!init_analysis_tools()) {
@@ -218,6 +252,10 @@ analyzer_multi_t::init_dynamic_schedule()
     sched_ops.quantum_duration = op_sched_quantum.get_value();
     if (op_sched_time.get_value())
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
+    sched_ops.syscall_switch_threshold = op_sched_syscall_switch_us.get_value();
+    sched_ops.blocking_switch_threshold = op_sched_blocking_switch_us.get_value();
+    sched_ops.block_time_scale = op_sched_block_scale.get_value();
+    sched_ops.block_time_max = op_sched_block_max_us.get_value();
 #ifdef HAS_ZIP
     if (!op_record_file.get_value().empty()) {
         record_schedule_zip_.reset(new zipfile_ostream_t(op_record_file.get_value()));
@@ -234,43 +272,52 @@ analyzer_multi_t::init_dynamic_schedule()
         sched_ops.replay_as_traced_istream = cpu_schedule_zip_.get();
     }
 #endif
+    sched_ops.kernel_switch_trace_path = op_sched_switch_file.get_value();
     return sched_ops;
 }
 
 bool
 analyzer_multi_t::create_analysis_tools()
 {
-    /* TODO i#2006: add multiple tool support. */
-    /* TODO i#2006: create a single top-level tool for multi-component
-     * tools.
-     */
     tools_ = new analysis_tool_t *[max_num_tools_];
-    tools_[0] = create_analysis_tool_from_options();
-    if (tools_[0] == NULL)
-        return false;
-    if (!*tools_[0]) {
-        std::string tool_error = tools_[0]->get_error_string();
-        if (tool_error.empty())
-            tool_error = "no error message provided.";
-        error_string_ = "Tool failed to initialize: " + tool_error;
-        delete tools_[0];
-        tools_[0] = NULL;
-        return false;
+    if (!op_simulator_type.get_value().empty()) {
+        std::stringstream stream(op_simulator_type.get_value());
+        std::string type;
+        while (std::getline(stream, type, ':')) {
+            if (num_tools_ >= max_num_tools_ - 1) {
+                error_string_ = "Only " + std::to_string(max_num_tools_ - 1) +
+                    " simulators are allowed simultaneously";
+                return false;
+            }
+            auto tool = create_analysis_tool_from_options(type);
+            if (tool == NULL)
+                continue;
+            if (!*tool) {
+                std::string tool_error = tool->get_error_string();
+                if (tool_error.empty())
+                    tool_error = "no error message provided.";
+                error_string_ = "Tool failed to initialize: " + tool_error;
+                delete tool;
+                return false;
+            }
+            tools_[num_tools_++] = tool;
+        }
     }
-    num_tools_ = 1;
+
     if (op_test_mode.get_value()) {
-        tools_[1] = create_invariant_checker();
-        if (tools_[1] == NULL)
+        tools_[num_tools_] = create_invariant_checker();
+        if (tools_[num_tools_] == NULL)
             return false;
-        if (!*tools_[1]) {
-            error_string_ = tools_[1]->get_error_string();
-            delete tools_[1];
-            tools_[1] = NULL;
+        if (!*tools_[num_tools_]) {
+            error_string_ = tools_[num_tools_]->get_error_string();
+            delete tools_[num_tools_];
+            tools_[num_tools_] = NULL;
             return false;
         }
-        num_tools_ = 2;
+        num_tools_++;
     }
-    return true;
+
+    return (num_tools_ != 0);
 }
 
 bool
@@ -291,9 +338,9 @@ analyzer_multi_t::destroy_analysis_tools()
 }
 
 analysis_tool_t *
-analyzer_multi_t::create_analysis_tool_from_options()
+analyzer_multi_t::create_analysis_tool_from_options(const std::string &simulator_type)
 {
-    if (op_simulator_type.get_value() == CPU_CACHE) {
+    if (simulator_type == CPU_CACHE) {
         const std::string &config_file = op_config_file.get_value();
         if (!config_file.empty()) {
             return cache_simulator_create(config_file);
@@ -301,12 +348,12 @@ analyzer_multi_t::create_analysis_tool_from_options()
             cache_simulator_knobs_t *knobs = get_cache_simulator_knobs();
             return cache_simulator_create(*knobs);
         }
-    } else if (op_simulator_type.get_value() == MISS_ANALYZER) {
+    } else if (simulator_type == MISS_ANALYZER) {
         cache_simulator_knobs_t *knobs = get_cache_simulator_knobs();
         return cache_miss_analyzer_create(*knobs, op_miss_count_threshold.get_value(),
                                           op_miss_frac_threshold.get_value(),
                                           op_confidence_threshold.get_value());
-    } else if (op_simulator_type.get_value() == TLB) {
+    } else if (simulator_type == TLB) {
         tlb_simulator_knobs_t knobs;
         knobs.num_cores = op_num_cores.get_value();
         knobs.page_size = op_page_size.get_value();
@@ -325,10 +372,10 @@ analyzer_multi_t::create_analysis_tool_from_options()
         knobs.cpu_scheduling = op_cpu_scheduling.get_value();
         knobs.use_physical = op_use_physical.get_value();
         return tlb_simulator_create(knobs);
-    } else if (op_simulator_type.get_value() == HISTOGRAM) {
+    } else if (simulator_type == HISTOGRAM) {
         return histogram_tool_create(op_line_size.get_value(), op_report_top.get_value(),
                                      op_verbose.get_value());
-    } else if (op_simulator_type.get_value() == REUSE_DIST) {
+    } else if (simulator_type == REUSE_DIST) {
         reuse_distance_knobs_t knobs;
         knobs.line_size = op_line_size.get_value();
         knobs.report_histogram = op_reuse_distance_histogram.get_value();
@@ -344,11 +391,11 @@ analyzer_multi_t::create_analysis_tool_from_options()
         }
         knobs.verbose = op_verbose.get_value();
         return reuse_distance_tool_create(knobs);
-    } else if (op_simulator_type.get_value() == REUSE_TIME) {
+    } else if (simulator_type == REUSE_TIME) {
         return reuse_time_tool_create(op_line_size.get_value(), op_verbose.get_value());
-    } else if (op_simulator_type.get_value() == BASIC_COUNTS) {
+    } else if (simulator_type == BASIC_COUNTS) {
         return basic_counts_tool_create(op_verbose.get_value());
-    } else if (op_simulator_type.get_value() == OPCODE_MIX) {
+    } else if (simulator_type == OPCODE_MIX) {
         std::string module_file_path = get_module_file_path();
         if (module_file_path.empty() && op_indir.get_value().empty() &&
             op_infile.get_value().empty() && !op_instr_encodings.get_value()) {
@@ -358,15 +405,15 @@ analyzer_multi_t::create_analysis_tool_from_options()
         }
         return opcode_mix_tool_create(module_file_path, op_verbose.get_value(),
                                       op_alt_module_dir.get_value());
-    } else if (op_simulator_type.get_value() == SYSCALL_MIX) {
+    } else if (simulator_type == SYSCALL_MIX) {
         return syscall_mix_tool_create(op_verbose.get_value());
-    } else if (op_simulator_type.get_value() == VIEW) {
+    } else if (simulator_type == VIEW) {
         std::string module_file_path = get_module_file_path();
         // The module file is optional so we don't check for emptiness.
         return view_tool_create(module_file_path, op_skip_refs.get_value(),
                                 op_sim_refs.get_value(), op_view_syntax.get_value(),
                                 op_verbose.get_value(), op_alt_module_dir.get_value());
-    } else if (op_simulator_type.get_value() == FUNC_VIEW) {
+    } else if (simulator_type == FUNC_VIEW) {
         std::string funclist_file_path = get_aux_file_path(
             op_funclist_file.get_value(), DRMEMTRACE_FUNCTION_LIST_FILENAME);
         if (funclist_file_path.empty()) {
@@ -375,14 +422,21 @@ analyzer_multi_t::create_analysis_tool_from_options()
         }
         return func_view_tool_create(funclist_file_path, op_show_func_trace.get_value(),
                                      op_verbose.get_value());
-    } else if (op_simulator_type.get_value() == INVARIANT_CHECKER) {
+    } else if (simulator_type == INVARIANT_CHECKER) {
         return create_invariant_checker();
+    } else if (simulator_type == SCHEDULE_STATS) {
+        return schedule_stats_tool_create(op_schedule_stats_print_every.get_value(),
+                                          op_verbose.get_value());
     } else {
-        ERRMSG("Usage error: unsupported analyzer type. "
-               "Please choose " CPU_CACHE ", " MISS_ANALYZER ", " TLB ", " HISTOGRAM
-               ", " REUSE_DIST ", " BASIC_COUNTS ", " OPCODE_MIX ", " SYSCALL_MIX
-               ", " VIEW ", or " FUNC_VIEW ".\n");
-        return nullptr;
+        auto tool = create_external_tool(simulator_type);
+        if (tool == nullptr) {
+            ERRMSG("Usage error: unsupported analyzer type \"%s\". "
+                   "Please choose " CPU_CACHE ", " MISS_ANALYZER ", " TLB ", " HISTOGRAM
+                   ", " REUSE_DIST ", " BASIC_COUNTS ", " OPCODE_MIX ", " SYSCALL_MIX
+                   ", " VIEW ", " FUNC_VIEW ", or some external analyzer.\n",
+                   simulator_type.c_str());
+        }
+        return tool;
     }
 }
 

@@ -1,0 +1,68 @@
+Schedule stats tool results:
+Total counts:
+           4 cores
+           8 threads
+      638938 instructions
+           6 total context switches
+   0.0093906 CSPKI \(context switches per 1000 instructions\)
+      106490 instructions per context switch
+           6 voluntary context switches
+           0 direct context switches
+      100.00% voluntary switches
+        0.00% direct switches
+         161 system calls
+           2 maybe-blocking system calls
+           0 direct switch requests
+           0 waits
+      345686 idles
+       64.89% cpu busy by record count
+    [0-9 ]* cpu microseconds
+    [0-9 ]* idle microseconds
+    [0-9 ]* idle microseconds at last instr
+    [0-9\. ]*% cpu busy by time
+    [0-9\. ]*% cpu busy by time, ignoring idle past last instr
+Core #0 counts:
+.*
+Core #1 counts:
+.*
+Core #2 counts:
+.*
+Core #3 counts:
+.*
+Core #0 schedule: [A-H_]*
+Core #1 schedule: [A-H_]*
+Core #2 schedule: [A-H_]*
+Core #3 schedule: [A-H_]*
+
+===========================================================================
+Basic counts tool results:
+Total counts:
+      638938 total \(fetched\) instructions
+        5969 total unique \(fetched\) instructions
+      546585 total non-fetched instructions
+           0 total prefetches
+      676963 total data loads
+      725896 total data stores
+           0 total icache flushes
+           0 total dcache flushes
+           8 total threads
+        1574 total scheduling markers
+         168 total transfer markers
+           0 total function id markers
+           0 total function return address markers
+           0 total function argument markers
+           0 total function return value markers
+           0 total physical address \+ virtual address marker pairs
+           0 total physical address unavailable markers
+         161 total system call number markers
+           2 total blocking system call markers
+          40 total other markers
+        8569 total encodings
+Core [0-9] counts:
+.*
+Core [0-9] counts:
+.*
+Core [0-9] counts:
+.*
+Core [0-9] counts:
+.*

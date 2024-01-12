@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2022, Inc.  All rights reserved.
+ * Copyright (c) 2010-2024, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -104,6 +104,16 @@ bool
 dr_using_all_private_caches(void);
 
 DR_API
+/**
+ * Returns false if DynamoRIO is being used as a "regular" standalone library
+ * (see dr_standalone_init() and \ref page_standalone).
+ * Returns true if DynamoRIO is controlling the application by running
+ * its code through a software code cache.
+ */
+bool
+dr_running_under_dynamorio(void);
+
+DR_API
 /** \deprecated Replaced by dr_set_process_exit_behavior() */
 void
 dr_request_synchronized_exit(void);
@@ -131,7 +141,8 @@ DR_API
  * to the dr_client_main() routine.
  */
 bool
-dr_get_option_array(client_id_t client_id, int *argc OUT, const char ***argv OUT);
+dr_get_option_array(client_id_t client_id, int *argc DR_PARAM_OUT,
+                    const char ***argv DR_PARAM_OUT);
 
 DR_API
 /**
@@ -143,7 +154,7 @@ DR_API
  * \return false if no option named \p option_name exists, and true otherwise.
  */
 bool
-dr_get_string_option(const char *option_name, char *buf OUT, size_t len);
+dr_get_string_option(const char *option_name, char *buf DR_PARAM_OUT, size_t len);
 
 DR_API
 /**
@@ -156,7 +167,7 @@ DR_API
  * \return false if no option named \p option_name exists, and true otherwise.
  */
 bool
-dr_get_integer_option(const char *option_name, uint64 *val OUT);
+dr_get_integer_option(const char *option_name, uint64 *val DR_PARAM_OUT);
 
 DR_API
 /**
@@ -295,7 +306,7 @@ DR_API
  * \note Calling this from \p dr_client_main or from the primary thread's
  * initialization event is not guaranteed to always work, as DR may
  * invoke a thread exit event where a thread init event was never
- * called.  We recommend using dr_abort_ex() or waiting for full
+ * called.  We recommend using dr_abort_with_code() or waiting for full
  * initialization prior to use of this routine.
  */
 void
@@ -963,7 +974,7 @@ DR_API
  */
 byte *
 dr_map_executable_file(const char *filename, dr_map_executable_flags_t flags,
-                       size_t *size OUT);
+                       size_t *size DR_PARAM_OUT);
 
 DR_API
 /**
@@ -1124,7 +1135,7 @@ DR_API
  * See the fields of #dr_syscall_result_info_t for details.
  */
 bool
-dr_syscall_get_result_ex(void *drcontext, dr_syscall_result_info_t *info INOUT);
+dr_syscall_get_result_ex(void *drcontext, dr_syscall_result_info_t *info DR_PARAM_OUT);
 
 DR_API
 /**
@@ -1411,7 +1422,7 @@ DR_API
  * \return whether successful.
  */
 bool
-dr_file_size(file_t fd, OUT uint64 *size);
+dr_file_size(file_t fd, DR_PARAM_OUT uint64 *size);
 
 /** Flags for use with dr_map_file(). */
 enum {
@@ -1466,7 +1477,7 @@ DR_API
  * \return the start address of the mapping, or NULL if unsuccessful.
  */
 void *
-dr_map_file(file_t f, INOUT size_t *size, uint64 offs, app_pc addr, uint prot,
+dr_map_file(file_t f, DR_PARAM_INOUT size_t *size, uint64 offs, app_pc addr, uint prot,
             uint flags);
 
 DR_API
@@ -1944,7 +1955,7 @@ DR_API
  * See #dr_register_thread_exit_event for details.
  */
 void *
-dr_get_dr_segment_base(IN reg_id_t tls_register);
+dr_get_dr_segment_base(DR_PARAM_IN reg_id_t tls_register);
 
 DR_API
 /**
@@ -1978,8 +1989,8 @@ DR_API
  * \note On Mac OS, TLS slots may not be initialized to zero.
  */
 bool
-dr_raw_tls_calloc(OUT reg_id_t *tls_register, OUT uint *offset, IN uint num_slots,
-                  IN uint alignment);
+dr_raw_tls_calloc(DR_PARAM_OUT reg_id_t *tls_register, DR_PARAM_OUT uint *offset,
+                  DR_PARAM_IN uint num_slots, DR_PARAM_IN uint alignment);
 
 DR_API
 /**
@@ -2158,14 +2169,17 @@ DR_API
  * nudge callback.
  */
 bool
-dr_suspend_all_other_threads_ex(OUT void ***drcontexts, OUT uint *num_suspended,
-                                OUT uint *num_unsuspended, dr_suspend_flags_t flags);
+dr_suspend_all_other_threads_ex(DR_PARAM_OUT void ***drcontexts,
+                                DR_PARAM_OUT uint *num_suspended,
+                                DR_PARAM_OUT uint *num_unsuspended,
+                                dr_suspend_flags_t flags);
 
 DR_API
 /** Identical to dr_suspend_all_other_threads_ex() with \p flags set to 0. */
 bool
-dr_suspend_all_other_threads(OUT void ***drcontexts, OUT uint *num_suspended,
-                             OUT uint *num_unsuspended);
+dr_suspend_all_other_threads(DR_PARAM_OUT void ***drcontexts,
+                             DR_PARAM_OUT uint *num_suspended,
+                             DR_PARAM_OUT uint *num_unsuspended);
 
 DR_API
 /**
@@ -2178,7 +2192,8 @@ DR_API
  * return value indicates whether all resumption attempts were successful.
  */
 bool
-dr_resume_all_other_threads(IN void **drcontexts, IN uint num_suspended);
+dr_resume_all_other_threads(DR_PARAM_IN void **drcontexts,
+                            DR_PARAM_IN uint num_suspended);
 
 DR_API
 /**
@@ -2292,7 +2307,7 @@ DR_API
  * during process initialization for more accurate results.
  */
 dr_where_am_i_t
-dr_where_am_i(void *drcontext, app_pc pc, OUT void **tag);
+dr_where_am_i(void *drcontext, app_pc pc, DR_PARAM_OUT void **tag);
 
 /****************************************************************************
  * ADAPTIVE OPTIMIZATION SUPPORT

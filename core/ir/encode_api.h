@@ -62,7 +62,8 @@ DR_API
  * mis-interpreting application code.
  */
 bool
-dr_set_isa_mode(void *drcontext, dr_isa_mode_t new_mode, dr_isa_mode_t *old_mode OUT);
+dr_set_isa_mode(void *drcontext, dr_isa_mode_t new_mode,
+                dr_isa_mode_t *old_mode DR_PARAM_OUT);
 
 DR_API
 /**

@@ -159,7 +159,7 @@ static DWORD64 next_load = 0x11000000;
 static void
 unload_module(HANDLE proc, DWORD64 base);
 static size_t
-demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled, uint flags);
+demangle_symbol(char *dst DR_PARAM_OUT, size_t dst_sz, const char *mangled, uint flags);
 
 static void
 modtable_entry_free(void *p)
@@ -307,7 +307,7 @@ module_image_size(void *modbase)
 }
 
 static DWORD64
-load_module(HANDLE proc, const char *path, OUT uint64 *size_out)
+load_module(HANDLE proc, const char *path, DR_PARAM_OUT uint64 *size_out)
 {
     DWORD64 base, loaded_base;
     DWORD64 size;
@@ -475,7 +475,8 @@ enum {
  * should be no partial (non-full) overlap.
  */
 static drsym_error_t
-detemplatize(char *dst OUT, size_t dst_sz, const char *src, size_t *dst_written OUT)
+detemplatize(char *dst DR_PARAM_OUT, size_t dst_sz, const char *src,
+             size_t *dst_written DR_PARAM_OUT)
 {
     const char *c = src;
     char *d = dst;
@@ -583,7 +584,7 @@ free_symbol_info(PSYMBOL_INFO info)
 
 /* File and line info is assumed to not be available and already zeroed out */
 static drsym_error_t
-fill_in_drsym_info(drsym_info_t *out INOUT, PSYMBOL_INFO info, DWORD64 base,
+fill_in_drsym_info(drsym_info_t *out DR_PARAM_INOUT, PSYMBOL_INFO info, DWORD64 base,
                    bool set_debug_kind, uint flags)
 {
     drsym_error_t res = DRSYM_SUCCESS;
@@ -612,8 +613,8 @@ fill_in_drsym_info(drsym_info_t *out INOUT, PSYMBOL_INFO info, DWORD64 base,
 }
 
 static drsym_error_t
-drsym_lookup_address_local(const char *modpath, size_t modoffs, drsym_info_t *out INOUT,
-                           uint flags)
+drsym_lookup_address_local(const char *modpath, size_t modoffs,
+                           drsym_info_t *out DR_PARAM_INOUT, uint flags)
 {
     mod_entry_t *mod;
     DWORD64 base;
@@ -697,8 +698,8 @@ drsym_lookup_address_local(const char *modpath, size_t modoffs, drsym_info_t *ou
 }
 
 static drsym_error_t
-drsym_lookup_symbol_local(const char *modpath, const char *symbol, size_t *modoffs OUT,
-                          uint flags)
+drsym_lookup_symbol_local(const char *modpath, const char *symbol,
+                          size_t *modoffs DR_PARAM_OUT, uint flags)
 {
     mod_entry_t *mod;
     drsym_error_t r;
@@ -937,7 +938,7 @@ drsym_search_symbols_local(const char *modpath, const char *match, uint flags,
 }
 
 static size_t
-demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled, uint flags)
+demangle_symbol(char *dst DR_PARAM_OUT, size_t dst_sz, const char *mangled, uint flags)
 {
     DWORD undec_flags;
     size_t len;
@@ -1080,9 +1081,9 @@ typedef struct _type_query_t {
 
 static drsym_error_t
 decode_type(type_query_t *query, ULONG type_idx, uint expand_sub,
-            drsym_type_t **type_out OUT);
+            drsym_type_t **type_out DR_PARAM_OUT);
 static drsym_error_t
-make_unknown(type_query_t *query, drsym_type_t **type_out OUT);
+make_unknown(type_query_t *query, drsym_type_t **type_out DR_PARAM_OUT);
 
 static bool
 get_type_info(DWORD64 base, ULONG type_idx, IMAGEHLP_SYMBOL_TYPE_INFO property, void *arg)
@@ -1098,7 +1099,7 @@ get_type_info(DWORD64 base, ULONG type_idx, IMAGEHLP_SYMBOL_TYPE_INFO property, 
 
 static drsym_error_t
 decode_func_type(type_query_t *query, ULONG type_idx, uint expand_sub,
-                 drsym_type_t **type_out OUT)
+                 drsym_type_t **type_out DR_PARAM_OUT)
 {
     drsym_func_type_t *func_type;
     DWORD arg_count;
@@ -1159,7 +1160,7 @@ decode_func_type(type_query_t *query, ULONG type_idx, uint expand_sub,
 
 static drsym_error_t
 decode_ptr_type(type_query_t *query, ULONG type_idx, uint expand_sub,
-                drsym_type_t **type_out OUT)
+                drsym_type_t **type_out DR_PARAM_OUT)
 {
     drsym_ptr_type_t *ptr_type;
     ULONG64 length;
@@ -1182,7 +1183,7 @@ decode_ptr_type(type_query_t *query, ULONG type_idx, uint expand_sub,
 
 static drsym_error_t
 decode_base_type(type_query_t *query, ULONG type_idx, uint expand_sub,
-                 drsym_type_t **type_out OUT)
+                 drsym_type_t **type_out DR_PARAM_OUT)
 {
     DWORD base_type; /* BasicType */
     bool is_signed;
@@ -1227,7 +1228,7 @@ decode_base_type(type_query_t *query, ULONG type_idx, uint expand_sub,
 
 static drsym_error_t
 decode_array_type(type_query_t *query, ULONG type_idx, uint expand_sub,
-                  drsym_type_t **type_out OUT)
+                  drsym_type_t **type_out DR_PARAM_OUT)
 {
     DWORD type_id; /* BasicType */
     ULONG64 length;
@@ -1250,7 +1251,7 @@ decode_array_type(type_query_t *query, ULONG type_idx, uint expand_sub,
 
 static drsym_error_t
 decode_typedef(type_query_t *query, ULONG type_idx, uint expand_sub,
-               drsym_type_t **type_out OUT)
+               drsym_type_t **type_out DR_PARAM_OUT)
 {
     /* Go through typedefs. */
     ULONG base_type_idx;
@@ -1261,7 +1262,7 @@ decode_typedef(type_query_t *query, ULONG type_idx, uint expand_sub,
 
 static drsym_error_t
 decode_arg_type(type_query_t *query, ULONG type_idx, uint expand_sub,
-                drsym_type_t **type_out OUT)
+                drsym_type_t **type_out DR_PARAM_OUT)
 {
     ULONG base_type_idx;
     if (!get_type_info(query->base, type_idx, TI_GET_TYPE, &base_type_idx))
@@ -1273,7 +1274,7 @@ decode_arg_type(type_query_t *query, ULONG type_idx, uint expand_sub,
 
 static drsym_error_t
 decode_compound_type(type_query_t *query, ULONG type_idx, uint expand_sub,
-                     drsym_type_t **type_out OUT)
+                     drsym_type_t **type_out DR_PARAM_OUT)
 {
     drsym_compound_type_t *compound_type;
     DWORD field_count;
@@ -1352,7 +1353,7 @@ decode_compound_type(type_query_t *query, ULONG type_idx, uint expand_sub,
 }
 
 static drsym_error_t
-make_unknown(type_query_t *query, drsym_type_t **type_out OUT)
+make_unknown(type_query_t *query, drsym_type_t **type_out DR_PARAM_OUT)
 {
     drsym_type_t *type = POOL_ALLOC(&query->pool, drsym_type_t);
     if (type == NULL)
@@ -1369,7 +1370,7 @@ make_unknown(type_query_t *query, drsym_type_t **type_out OUT)
  */
 static drsym_error_t
 decode_type(type_query_t *query, ULONG type_idx, uint expand_sub,
-            drsym_type_t **type_out OUT)
+            drsym_type_t **type_out DR_PARAM_OUT)
 {
     DWORD tag; /* SymTagEnum */
     drsym_error_t res = DRSYM_ERROR;
@@ -1444,8 +1445,8 @@ decode_type(type_query_t *query, ULONG type_idx, uint expand_sub,
 
 DR_EXPORT
 drsym_error_t
-drsym_lookup_address(const char *modpath, size_t modoffs, drsym_info_t *out INOUT,
-                     uint flags)
+drsym_lookup_address(const char *modpath, size_t modoffs,
+                     drsym_info_t *out DR_PARAM_INOUT, uint flags)
 {
     if (IS_SIDELINE) {
         return DRSYM_ERROR_NOT_IMPLEMENTED;
@@ -1456,7 +1457,7 @@ drsym_lookup_address(const char *modpath, size_t modoffs, drsym_info_t *out INOU
 
 DR_EXPORT
 drsym_error_t
-drsym_lookup_symbol(const char *modpath, const char *symbol, size_t *modoffs OUT,
+drsym_lookup_symbol(const char *modpath, const char *symbol, size_t *modoffs DR_PARAM_OUT,
                     uint flags)
 {
     if (IS_SIDELINE) {
@@ -1531,7 +1532,8 @@ drsym_search_symbols_ex(const char *modpath, const char *match, uint flags_in,
 
 DR_EXPORT
 size_t
-drsym_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled, uint flags)
+drsym_demangle_symbol(char *dst DR_PARAM_OUT, size_t dst_sz, const char *mangled,
+                      uint flags)
 {
     size_t r;
     dr_recurlock_lock(symbol_lock);
@@ -1551,7 +1553,7 @@ drsym_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled, uint fl
  */
 static drsym_error_t
 drsym_get_type_by_id(mod_entry_t *mod, uint type_id, uint levels_to_expand, char *buf,
-                     size_t buf_sz, drsym_type_t **type OUT)
+                     size_t buf_sz, drsym_type_t **type DR_PARAM_OUT)
 {
     type_query_t query;
     drsym_error_t r;
@@ -1582,7 +1584,7 @@ drsym_get_type_by_id(mod_entry_t *mod, uint type_id, uint levels_to_expand, char
 static drsym_error_t
 drsym_get_type_common(const char *modpath, bool have_type_id, size_t modoffs,
                       uint type_id, uint levels_to_expand, char *buf, size_t buf_sz,
-                      drsym_type_t **expanded_type OUT)
+                      drsym_type_t **expanded_type DR_PARAM_OUT)
 {
     mod_entry_t *mod;
     drsym_error_t r;
@@ -1638,7 +1640,7 @@ drsym_get_type_common(const char *modpath, bool have_type_id, size_t modoffs,
 DR_EXPORT
 drsym_error_t
 drsym_get_type(const char *modpath, size_t modoffs, uint levels_to_expand, char *buf,
-               size_t buf_sz, drsym_type_t **type OUT)
+               size_t buf_sz, drsym_type_t **type DR_PARAM_OUT)
 {
     return drsym_get_type_common(modpath, false /*need to look up type index*/, modoffs,
                                  0, levels_to_expand, buf, buf_sz, type);
@@ -1647,7 +1649,7 @@ drsym_get_type(const char *modpath, size_t modoffs, uint levels_to_expand, char 
 DR_EXPORT
 drsym_error_t
 drsym_get_type_by_name(const char *modpath, const char *type_name, char *buf,
-                       size_t buf_sz, drsym_type_t **type OUT)
+                       size_t buf_sz, drsym_type_t **type DR_PARAM_OUT)
 {
     mod_entry_t *mod;
     drsym_error_t r;
@@ -1683,7 +1685,7 @@ drsym_get_type_by_name(const char *modpath, const char *type_name, char *buf,
 DR_EXPORT
 drsym_error_t
 drsym_get_func_type(const char *modpath, size_t modoffs, char *buf, size_t buf_sz,
-                    drsym_func_type_t **func_type OUT)
+                    drsym_func_type_t **func_type DR_PARAM_OUT)
 {
     /* Expand the function args, but none of the child function
      * or compound types.
@@ -1705,7 +1707,7 @@ drsym_get_func_type(const char *modpath, size_t modoffs, char *buf, size_t buf_s
 DR_EXPORT
 drsym_error_t
 drsym_expand_type(const char *modpath, uint type_id, uint levels_to_expand, char *buf,
-                  size_t buf_sz, drsym_type_t **expanded_type OUT)
+                  size_t buf_sz, drsym_type_t **expanded_type DR_PARAM_OUT)
 {
     return drsym_get_type_common(modpath, true /*have type index*/, 0, type_id,
                                  levels_to_expand, buf, buf_sz,
@@ -1714,7 +1716,7 @@ drsym_expand_type(const char *modpath, uint type_id, uint levels_to_expand, char
 
 DR_EXPORT
 drsym_error_t
-drsym_get_module_debug_kind(const char *modpath, drsym_debug_kind_t *kind OUT)
+drsym_get_module_debug_kind(const char *modpath, drsym_debug_kind_t *kind DR_PARAM_OUT)
 {
     if (IS_SIDELINE) {
         return DRSYM_ERROR_NOT_IMPLEMENTED;

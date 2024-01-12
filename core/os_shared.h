@@ -204,15 +204,21 @@ is_thread_currently_native(thread_record_t *tr);
  */
 bool
 thread_get_mcontext(thread_record_t *tr, priv_mcontext_t *mc);
+
+#ifdef LINUX
+bool
+thread_get_nudged_mcontext(thread_record_t *tr, priv_mcontext_t *mc);
+#endif
+
 bool
 thread_set_mcontext(thread_record_t *tr, priv_mcontext_t *mc);
 
 /* Takes an os-specific context. Does not return. */
 void
-thread_set_self_context(void *cxt);
+thread_set_self_context(void *cxt, bool is_detach_external);
 /* Only sets the priv_mcontext_t state.  Does not return. */
 void
-thread_set_self_mcontext(priv_mcontext_t *mc);
+thread_set_self_mcontext(priv_mcontext_t *mc, bool is_detach_external);
 
 /* Assumes target thread is suspended */
 bool
@@ -259,7 +265,7 @@ get_app_segment_base(uint seg);
 
 /* Allocates num_slots tls slots aligned with alignment align */
 bool
-os_tls_calloc(OUT uint *offset, uint num_slots, uint alignment);
+os_tls_calloc(DR_PARAM_OUT uint *offset, uint num_slots, uint alignment);
 
 bool
 os_tls_cfree(uint offset, uint num_slots);
@@ -288,7 +294,7 @@ get_application_name(void);
 int
 num_app_args();
 int
-get_app_args(OUT dr_app_arg_t *args_array, int args_count);
+get_app_args(DR_PARAM_OUT dr_app_arg_t *args_array, int args_count);
 const char *
 get_application_short_name(void);
 char *
@@ -417,8 +423,9 @@ shared_library_error(char *buf, int maxlen);
  * for linux, one of addr or name is needed; for windows, neither is needed.
  */
 bool
-shared_library_bounds(IN shlib_handle_t lib, IN byte *addr, IN const char *name,
-                      OUT byte **start, OUT byte **end);
+shared_library_bounds(DR_PARAM_IN shlib_handle_t lib, DR_PARAM_IN byte *addr,
+                      DR_PARAM_IN const char *name, DR_PARAM_OUT byte **start,
+                      DR_PARAM_OUT byte **end);
 char *
 get_dynamorio_library_path(void);
 
@@ -461,15 +468,15 @@ os_minsigstksz(void);
 bool
 get_memory_info(const byte *pc, byte **base_pc, size_t *size, uint *prot);
 bool
-query_memory_ex(const byte *pc, OUT dr_mem_info_t *info);
+query_memory_ex(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info);
 /* We provide this b/c getting the bounds is expensive on Windows (i#1462) */
 bool
-query_memory_cur_base(const byte *pc, OUT dr_mem_info_t *info);
+query_memory_cur_base(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info);
 #ifdef UNIX
 bool
 get_memory_info_from_os(const byte *pc, byte **base_pc, size_t *size, uint *prot);
 bool
-query_memory_ex_from_os(const byte *pc, OUT dr_mem_info_t *info);
+query_memory_ex_from_os(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info);
 void
 os_check_new_app_module(dcontext_t *dcontext, app_pc pc);
 #endif
@@ -822,7 +829,7 @@ os_rename_file(const char *orig_name, const char *new_name, bool replace);
  * and handling it is covered by PR 214097.
  */
 byte *
-os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
+os_map_file(file_t f, size_t *size DR_PARAM_INOUT, uint64 offs, app_pc addr, uint prot,
             map_flags_t map_flags);
 bool
 os_unmap_file(byte *map, size_t size);

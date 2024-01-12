@@ -91,6 +91,12 @@ else (UNIX)
 endif (UNIX)
 
 if (UNIX)
+  set(detach_cmd drconfig)
+else ()
+  set(detach_cmd drconfig.exe)
+endif()
+
+if (UNIX)
   set(MAX_ITERS 50000)
 else ()
   # Sleeping in longer units.
@@ -268,17 +274,6 @@ if ("${orig_nudge}" MATCHES "-client")
     endif ()
   endwhile()
 elseif ("${orig_nudge}" MATCHES "<attach>" OR "${orig_nudge}" MATCHES "<detach>")
-  # Wait until attached.
-  set(iters 0)
-  while (NOT "${output}" MATCHES "attach\n")
-    do_sleep(0.1)
-    file(READ "${out}" output)
-    math(EXPR iters "${iters}+1")
-    if (${iters} GREATER ${MAX_ITERS})
-      kill_background_process(ON)
-      message(FATAL_ERROR "Timed out waiting for attach")
-    endif ()
-  endwhile()
   # Wait until thread init.
   set(iters 0)
   while (NOT "${output}" MATCHES "thread init\n")
@@ -287,7 +282,7 @@ elseif ("${orig_nudge}" MATCHES "<attach>" OR "${orig_nudge}" MATCHES "<detach>"
     math(EXPR iters "${iters}+1")
     if (${iters} GREATER ${MAX_ITERS})
       kill_background_process(ON)
-      message(FATAL_ERROR "Timed out waiting for attach")
+      message(FATAL_ERROR "Timed out waiting for thread init")
     endif ()
   endwhile()
 else ()
@@ -298,7 +293,7 @@ else ()
 endif ()
 
 if ("${orig_nudge}" MATCHES "<detach>")
-  execute_process(COMMAND "${toolbindir}/drconfig.exe" "-detach" ${pid}
+  execute_process(COMMAND "${toolbindir}/${detach_cmd}" "-detach" ${pid}
     RESULT_VARIABLE detach_result
     ERROR_VARIABLE  detach_err
     OUTPUT_VARIABLE detach_out)
@@ -314,10 +309,10 @@ if ("${orig_nudge}" MATCHES "<detach>")
     math(EXPR iters "${iters}+1")
     if (${iters} GREATER ${MAX_ITERS})
       kill_background_process(ON)
-      message(FATAL_ERROR "Timed out waiting for attach")
+      message(FATAL_ERROR "Timed out waiting for detach")
     endif ()
   endwhile()
-endif()
+endif ()
 
 kill_background_process(OFF)
 

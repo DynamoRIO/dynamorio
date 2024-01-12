@@ -122,6 +122,28 @@ analyzer_t::record_is_timestamp(const memref_t &record)
         record.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP;
 }
 
+template <>
+memref_t
+analyzer_t::create_wait_marker()
+{
+    memref_t record = {}; // Zero the other fields.
+    record.marker.type = TRACE_TYPE_MARKER;
+    record.marker.marker_type = TRACE_MARKER_TYPE_CORE_WAIT;
+    record.marker.tid = INVALID_THREAD_ID;
+    return record;
+}
+
+template <>
+memref_t
+analyzer_t::create_idle_marker()
+{
+    memref_t record = {}; // Zero the other fields.
+    record.marker.type = TRACE_TYPE_MARKER;
+    record.marker.marker_type = TRACE_MARKER_TYPE_CORE_IDLE;
+    record.marker.tid = INVALID_THREAD_ID;
+    return record;
+}
+
 /******************************************************************************
  * Specializations for analyzer_tmpl_t<record_reader_t>, aka record_analyzer_t.
  */
@@ -160,6 +182,28 @@ record_analyzer_t::record_is_timestamp(const trace_entry_t &record)
     return record.type == TRACE_TYPE_MARKER && record.size == TRACE_MARKER_TYPE_TIMESTAMP;
 }
 
+template <>
+trace_entry_t
+record_analyzer_t::create_wait_marker()
+{
+    trace_entry_t record;
+    record.type = TRACE_TYPE_MARKER;
+    record.size = TRACE_MARKER_TYPE_CORE_WAIT;
+    record.addr = 0; // Marker value has no meaning so we zero it.
+    return record;
+}
+
+template <>
+trace_entry_t
+record_analyzer_t::create_idle_marker()
+{
+    trace_entry_t record;
+    record.type = TRACE_TYPE_MARKER;
+    record.size = TRACE_MARKER_TYPE_CORE_IDLE;
+    record.addr = 0; // Marker value has no meaning so we zero it.
+    return record;
+}
+
 /********************************************************************
  * Other analyzer_tmpl_t routines that do not need to be specialized.
  */
@@ -179,7 +223,7 @@ template <typename RecordType, typename ReaderType>
 bool
 analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(
     const std::string &trace_path, memref_tid_t only_thread, int verbosity,
-    typename sched_type_t::scheduler_options_t *options)
+    typename sched_type_t::scheduler_options_t options)
 {
     verbosity_ = verbosity;
     if (trace_path.empty()) {
@@ -198,14 +242,14 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(
     if (only_thread != INVALID_THREAD_ID) {
         workload.only_threads.insert(only_thread);
     }
-    return init_scheduler_common(workload, options);
+    return init_scheduler_common(workload, std::move(options));
 }
 
 template <typename RecordType, typename ReaderType>
 bool
 analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(
     std::unique_ptr<ReaderType> reader, std::unique_ptr<ReaderType> reader_end,
-    int verbosity, typename sched_type_t::scheduler_options_t *options)
+    int verbosity, typename sched_type_t::scheduler_options_t options)
 {
     verbosity_ = verbosity;
     if (!reader || !reader_end) {
@@ -219,14 +263,14 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(
     if (skip_instrs_ > 0)
         regions.emplace_back(skip_instrs_ + 1, 0);
     typename sched_type_t::input_workload_t workload(std::move(readers), regions);
-    return init_scheduler_common(workload, options);
+    return init_scheduler_common(workload, std::move(options));
 }
 
 template <typename RecordType, typename ReaderType>
 bool
 analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
     typename sched_type_t::input_workload_t &workload,
-    typename sched_type_t::scheduler_options_t *options)
+    typename sched_type_t::scheduler_options_t options)
 {
     for (int i = 0; i < num_tools_; ++i) {
         if (parallel_ && !tools_[i]->parallel_shard_supported()) {
@@ -238,25 +282,34 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
     sched_inputs[0] = std::move(workload);
 
     typename sched_type_t::scheduler_options_t sched_ops;
+    int output_count = worker_count_;
     if (shard_type_ == SHARD_BY_CORE) {
         // Subclass must pass us options and set worker_count_ to # cores.
-        if (options == nullptr || worker_count_ <= 0) {
+        if (worker_count_ <= 0) {
             error_string_ = "For -core_sharded, core count must be > 0";
             return false;
         }
-        sched_ops = *options;
+        sched_ops = std::move(options);
         if (sched_ops.quantum_unit == sched_type_t::QUANTUM_TIME)
             sched_by_time_ = true;
+        if (!parallel_) {
+            // output_count remains the # of virtual cores, but we have just
+            // one worker thread.  The scheduler multiplexes the output_count output
+            // cores onto a single stream for us with this option:
+            sched_ops.single_lockstep_output = true;
+            worker_count_ = 1;
+        }
     } else if (parallel_) {
         sched_ops = sched_type_t::make_scheduler_parallel_options(verbosity_);
         if (worker_count_ <= 0)
             worker_count_ = std::thread::hardware_concurrency();
+        output_count = worker_count_;
     } else {
         sched_ops = sched_type_t::make_scheduler_serial_options(verbosity_);
         worker_count_ = 1;
+        output_count = 1;
     }
-    int output_count = worker_count_;
-    if (scheduler_.init(sched_inputs, output_count, sched_ops) !=
+    if (scheduler_.init(sched_inputs, output_count, std::move(sched_ops)) !=
         sched_type_t::STATUS_SUCCESS) {
         ERRMSG("Failed to initialize scheduler: %s\n",
                scheduler_.get_error_string().c_str());
@@ -286,7 +339,8 @@ analyzer_tmpl_t<RecordType, ReaderType>::analyzer_tmpl_t(
 {
     // The scheduler will call reader_t::init() for each input file.  We assume
     // that won't block (analyzer_multi_t separates out IPC readers).
-    if (!init_scheduler(trace_path, INVALID_THREAD_ID, verbosity)) {
+    typename sched_type_t::scheduler_options_t sched_ops;
+    if (!init_scheduler(trace_path, INVALID_THREAD_ID, verbosity, std::move(sched_ops))) {
         success_ = false;
         error_string_ = "Failed to create scheduler";
         return;
@@ -425,7 +479,12 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
         uint64_t cur_micros = sched_by_time_ ? get_current_microseconds() : 0;
         typename sched_type_t::stream_status_t status =
             worker.stream->next_record(record, cur_micros);
-        if (status != sched_type_t::STATUS_OK) {
+        if (status == sched_type_t::STATUS_WAIT) {
+            record = create_wait_marker();
+        } else if (status == sched_type_t::STATUS_IDLE) {
+            assert(shard_type_ == SHARD_BY_CORE);
+            record = create_idle_marker();
+        } else if (status != sched_type_t::STATUS_OK) {
             if (status != sched_type_t::STATUS_EOF) {
                 if (status == sched_type_t::STATUS_REGION_INVALID) {
                     worker.error =
@@ -470,6 +529,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_shard_exit(
 {
     VPRINT(this, 1, "Worker %d finished trace shard %s\n", worker->index,
            worker->stream->get_stream_name().c_str());
+    worker->shard_data[shard_index].exited = true;
     if (interval_microseconds_ != 0 &&
         !process_interval(worker->shard_data[shard_index].cur_interval_index,
                           worker->shard_data[shard_index].cur_interval_init_instr_count,
@@ -510,11 +570,16 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
         if (sched_by_time_)
             cur_micros = get_current_microseconds();
         if (status == sched_type_t::STATUS_WAIT) {
-            // TODO i#5694: We'd like the forthcoming schedule_stats tool to know about
-            // waits and idle periods (to record "-" in its string): should the analyzer
-            // insert a new marker type that doesn't count toward ordinals (or else it
-            // needs a scheduler API to inject it)?
-            continue;
+            // We let tools know about waits so they can analyze the schedule.
+            // We synthesize a record here.  If we wanted this to count toward output
+            // stream ordinals we would need to add a scheduler API to inject it.
+            record = create_wait_marker();
+        } else if (status == sched_type_t::STATUS_IDLE) {
+            assert(shard_type_ == SHARD_BY_CORE);
+            // We let tools know about idle time so they can analyze cpu usage.
+            // We synthesize a record here.  If we wanted this to count toward output
+            // stream ordinals we would need to add a scheduler API to inject it.
+            record = create_idle_marker();
         } else if (status != sched_type_t::STATUS_OK) {
             if (status == sched_type_t::STATUS_REGION_INVALID) {
                 worker->error =
@@ -539,6 +604,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
                     tools_[i]->parallel_shard_init_stream(
                         shard_index, user_worker_data[i], worker->stream);
             }
+            worker->shard_data[shard_index].shard_index = shard_index;
         }
         memref_tid_t tid;
         if (worker->shard_data[shard_index].shard_id == 0) {
@@ -573,8 +639,16 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
         }
     }
     if (shard_type_ == SHARD_BY_CORE) {
-        if (!process_shard_exit(worker, worker->index))
-            return;
+        if (worker->shard_data.find(worker->index) != worker->shard_data.end()) {
+            if (!process_shard_exit(worker, worker->index))
+                return;
+        }
+    }
+    for (const auto &keyval : worker->shard_data) {
+        if (!keyval.second.exited) {
+            if (!process_shard_exit(worker, keyval.second.shard_index))
+                return;
+        }
     }
     for (int i = 0; i < num_tools_; ++i) {
         const std::string error = tools_[i]->parallel_worker_exit(user_worker_data[i]);

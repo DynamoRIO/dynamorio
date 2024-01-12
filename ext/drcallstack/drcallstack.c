@@ -77,7 +77,7 @@ drcallstack_exit(void)
 }
 
 drcallstack_status_t
-drcallstack_init_walk(dr_mcontext_t *mc, OUT drcallstack_walk_t **walk_out)
+drcallstack_init_walk(dr_mcontext_t *mc, DR_PARAM_OUT drcallstack_walk_t **walk_out)
 {
     if (!TESTALL(DR_MC_CONTROL | DR_MC_INTEGER, mc->flags))
         return DRCALLSTACK_ERROR_INVALID_PARAMETER;
@@ -152,7 +152,7 @@ drcallstack_cleanup_walk(drcallstack_walk_t *walk)
 }
 
 drcallstack_status_t
-drcallstack_next_frame(drcallstack_walk_t *walk, OUT drcallstack_frame_t *frame)
+drcallstack_next_frame(drcallstack_walk_t *walk, DR_PARAM_OUT drcallstack_frame_t *frame)
 {
     if (frame->struct_size != sizeof(*frame))
         return DRCALLSTACK_ERROR_INVALID_PARAMETER;

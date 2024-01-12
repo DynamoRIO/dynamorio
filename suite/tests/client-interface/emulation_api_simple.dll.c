@@ -70,7 +70,7 @@ event_instruction_change(void *drcontext, void *tag, instrlist_t *bb, bool for_t
                          bool translating);
 static dr_emit_flags_t
 event_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-               bool translating, OUT void **user_data);
+               bool translating, DR_PARAM_OUT void **user_data);
 
 static dr_emit_flags_t
 event_insertion(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
@@ -347,7 +347,7 @@ event_instruction_change(void *drcontext, void *tag, instrlist_t *bb, bool for_t
 
 static dr_emit_flags_t
 event_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-               bool translating, OUT void **user_data)
+               bool translating, DR_PARAM_OUT void **user_data)
 {
     bool in_emulation = false;
     for (instr_t *instr = instrlist_first(bb); instr != NULL;

@@ -162,7 +162,7 @@ replace_native_free(void *v)
 /* For each target wrap address, we store a list of wrap requests */
 typedef struct _wrap_entry_t {
     app_pc func;
-    void (*pre_cb)(void *, OUT void **);
+    void (*pre_cb)(void *, DR_PARAM_OUT void **);
     void (*post_cb)(void *, void *);
     /* To support delayed removal.  We don't set pre_cb and post_cb
      * to NULL instead b/c we want to support re-wrapping.
@@ -2020,8 +2020,22 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_NOT_X86(reg_t lr))
 
     NOTIFY(2, "%s: level %d function " PFX "\n", __FUNCTION__, pt->wrap_level + 1, pc);
 
-    drwrap_context_init(drcontext, &wrapcxt, pc, &mc, DRWRAP_WHERE_PRE_FUNC,
-                        IF_X86_ELSE(get_retaddr_from_stack(xsp), (app_pc)lr));
+    app_pc retaddr = IF_X86_ELSE(get_retaddr_from_stack(xsp), (app_pc)lr);
+#ifdef X86
+    if (TEST(DRWRAP_REPLACE_RETADDR, global_flags)) {
+        /* In case of a tailcall for X86, the return address has already been replaced by
+         * the sentinel in the stack, we need to retrieve the return address from the
+         * outer level.
+         */
+        if (retaddr == (app_pc)replace_retaddr_sentinel) {
+            ASSERT(pt->wrap_level >= 0, "drwrap_in_callee: pt->wrap_level < 0");
+            retaddr = pt->retaddr[pt->wrap_level];
+            NOTIFY(2, "DRWRAP_REPLACE_RETADDR: replacing real retaddr [%d] as " PFX "\n",
+                   pt->wrap_level, retaddr);
+        }
+    }
+#endif
+    drwrap_context_init(drcontext, &wrapcxt, pc, &mc, DRWRAP_WHERE_PRE_FUNC, retaddr);
 
     drwrap_in_callee_check_unwind(drcontext, pt, &mc);
 
@@ -2611,7 +2625,8 @@ drwrap_event_restore_state_ex(void *drcontext, bool restore_memory,
 
 DR_EXPORT
 bool
-drwrap_wrap_ex(app_pc func, void (*pre_func_cb)(void *wrapcxt, INOUT void **user_data),
+drwrap_wrap_ex(app_pc func,
+               void (*pre_func_cb)(void *wrapcxt, DR_PARAM_INOUT void **user_data),
                void (*post_func_cb)(void *wrapcxt, void *user_data), void *user_data,
                uint flags)
 {
@@ -2690,7 +2705,8 @@ drwrap_wrap_ex(app_pc func, void (*pre_func_cb)(void *wrapcxt, INOUT void **user
 
 DR_EXPORT
 bool
-drwrap_wrap(app_pc func, void (*pre_func_cb)(void *wrapcxt, OUT void **user_data),
+drwrap_wrap(app_pc func,
+            void (*pre_func_cb)(void *wrapcxt, DR_PARAM_OUT void **user_data),
             void (*post_func_cb)(void *wrapcxt, void *user_data))
 {
     return drwrap_wrap_ex(func, pre_func_cb, post_func_cb, NULL, DRWRAP_CALLCONV_DEFAULT);
@@ -2698,7 +2714,8 @@ drwrap_wrap(app_pc func, void (*pre_func_cb)(void *wrapcxt, OUT void **user_data
 
 DR_EXPORT
 bool
-drwrap_unwrap(app_pc func, void (*pre_func_cb)(void *wrapcxt, OUT void **user_data),
+drwrap_unwrap(app_pc func,
+              void (*pre_func_cb)(void *wrapcxt, DR_PARAM_OUT void **user_data),
               void (*post_func_cb)(void *wrapcxt, void *user_data))
 {
     wrap_entry_t *wrap;
@@ -2726,7 +2743,8 @@ drwrap_unwrap(app_pc func, void (*pre_func_cb)(void *wrapcxt, OUT void **user_da
 
 DR_EXPORT
 bool
-drwrap_is_wrapped(app_pc func, void (*pre_func_cb)(void *wrapcxt, OUT void **user_data),
+drwrap_is_wrapped(app_pc func,
+                  void (*pre_func_cb)(void *wrapcxt, DR_PARAM_OUT void **user_data),
                   void (*post_func_cb)(void *wrapcxt, void *user_data))
 {
     wrap_entry_t *wrap;
@@ -2763,7 +2781,7 @@ drwrap_is_post_wrap(app_pc pc)
 
 DR_EXPORT
 bool
-drwrap_get_stats(INOUT drwrap_stats_t *stats)
+drwrap_get_stats(DR_PARAM_OUT drwrap_stats_t *stats)
 {
     if (stats == NULL || stats->size != sizeof(*stats))
         return false;
@@ -2773,7 +2791,7 @@ drwrap_get_stats(INOUT drwrap_stats_t *stats)
 
 DR_EXPORT
 void
-drwrap_get_retaddr_if_sentinel(void *drcontext, INOUT app_pc *possibly_sentinel)
+drwrap_get_retaddr_if_sentinel(void *drcontext, DR_PARAM_INOUT app_pc *possibly_sentinel)
 {
     ASSERT(possibly_sentinel != NULL, "Input cannot be null.");
     if ((app_pc)replace_retaddr_sentinel != *possibly_sentinel)
@@ -2782,6 +2800,8 @@ drwrap_get_retaddr_if_sentinel(void *drcontext, INOUT app_pc *possibly_sentinel)
     /* If we see the sentinel, we must be inside a wrapped function. */
     ASSERT(pt != NULL && pt->wrap_level >= 0, "Invalid drwrap state.");
     *possibly_sentinel = pt->retaddr[pt->wrap_level];
+    ASSERT(*possibly_sentinel != (app_pc)replace_retaddr_sentinel,
+           "Invalid drwrap return address.");
 }
 
 /***************************************************************************

@@ -55,7 +55,9 @@
 namespace dynamorio {
 namespace drmemtrace {
 
-#define OUT /* just a marker */
+#ifndef DR_PARAM_OUT
+#    define DR_PARAM_OUT /* just a marker */
+#endif
 
 #ifdef DEBUG
 #    define VPRINT(reader, level, ...)                            \
@@ -188,8 +190,20 @@ public:
         return page_size_;
     }
     bool
+    is_record_kernel() const override
+    {
+        return in_kernel_trace_;
+    }
+    bool
     is_record_synthetic() const override
     {
+        if (cur_ref_.marker.type == TRACE_TYPE_MARKER &&
+            (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CORE_WAIT ||
+             cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CORE_IDLE)) {
+            // These are synthetic records not part of the input and not
+            // counting toward ordinals.
+            return true;
+        }
         return suppress_ref_count_ >= 0;
     }
 
@@ -252,12 +266,14 @@ protected:
     std::queue<trace_entry_t> queue_;
     trace_entry_t entry_copy_; // For use in returning a queue entry.
 
-private:
     struct encoding_info_t {
         size_t size = 0;
         unsigned char bits[MAX_ENCODING_LENGTH];
     };
 
+    std::unordered_map<addr_t, encoding_info_t> encodings_;
+
+private:
     memref_t cur_ref_;
     memref_tid_t cur_tid_ = 0;
     memref_pid_t cur_pid_ = 0;
@@ -268,8 +284,8 @@ private:
     std::unordered_map<memref_tid_t, memref_pid_t> tid2pid_;
     bool expect_no_encodings_ = true;
     encoding_info_t last_encoding_;
-    std::unordered_map<addr_t, encoding_info_t> encodings_;
     addr_t last_branch_target_ = 0;
+    bool in_kernel_trace_ = false;
 };
 
 } // namespace drmemtrace

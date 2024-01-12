@@ -751,6 +751,100 @@ instr_set_target(instr_t *instr, opnd_t target)
     instr_set_operands_valid(instr, true);
 }
 
+bool
+instr_is_opnd_store_source(instr_t *store_instr, int source_ordinal)
+{
+    /* We generally do not model data movement in our IR, especially for complex
+     * SIMD swaps and shuffles: we just have flat lists of sources and dests.
+     * Taint trackers or other dataflow tools are expected to dispatch on opcode
+     * for cases where some sources map to a subset of the dests.  However,
+     * identifying which sources flow into the (typically unique) memory
+     * destination is a key piece of information we do try to provide.  We do
+     * not yet go as far as labeling this in the IR decoding codec/table info
+     * sources and thus rely on operand ordering conventions.  If these heuristics
+     * prove too fragile we can move toward more direct support, but by
+     * providing an official helper function here now we at least get all users
+     * using the same code we can update later.
+     */
+    if (store_instr == NULL || source_ordinal < 0 ||
+        source_ordinal >= instr_num_srcs(store_instr))
+        return false;
+    /* First, find the (first) store. */
+    opnd_t memop = opnd_create_null();
+    for (int i = 0; i < instr_num_dsts(store_instr); i++) {
+        memop = instr_get_dst(store_instr, i);
+        if (opnd_is_memory_reference(memop))
+            break;
+    }
+    if (opnd_is_null(memop))
+        return false;
+#ifdef X86
+    /* First, handle exceptional cases. */
+    if (instr_get_opcode(store_instr) == OP_cmpxchg8b) {
+        /* Our table has xcx:xbx in later slots. */
+        return source_ordinal == 3 || source_ordinal == 4;
+    }
+#endif
+    /* A convention in our IR is to always list the primary data source as
+     * the first source operand.
+     */
+    if (source_ordinal == 0)
+        return true;
+#ifdef X86
+    /* XXX: Are there other atomics on x86 or other arches we need to list here too? */
+    if (instr_get_opcode(store_instr) == OP_cmpxchg)
+        return false;
+#endif
+    /* CISC ALU ops have the target listed as a (non-first) source memop. */
+    if (opnd_same(memop, instr_get_src(store_instr, source_ordinal)))
+        return true;
+    /* Now we need to distinuish additional register data sources from an
+     * address register update.  There can be many additional data sources
+     * (x86 OP_pusha, aarch32 register lists).  But an address register update
+     * will always be listed as both a source and a dest, at the end, even if this
+     * duplicates a data source.  E.g.:
+     *
+     *   e92dffff   stmdb  %r0 %r1 %r2 %r3 %r4 %r5 %r6 %r7 %r8 %r9 %r10 %r11 %r12 %sp %lr
+     * %pc %sp -> -0x40(%sp)[64byte] %sp
+     *
+     * There can be an immediate before (aarch32) or after (aarch64) the source for
+     * cases where the adjustment is not fixed: e.g., AArch64 INSTR_CREATE_str_imm().
+     *
+     * Our OP_pusha entry violates the address register convention below by listing
+     * xsp first but not duplicating it at the end: but that means we need take no
+     * further action here as all sources are data sources.
+     */
+    if (instr_num_srcs(store_instr) > 1 && instr_num_dsts(store_instr) > 1) {
+        /* Is the last dest an address register? */
+        opnd_t last_dst = instr_get_dst(store_instr, instr_num_dsts(store_instr) - 1);
+        if (opnd_is_reg(last_dst) &&
+            /* See whether the memory operation uses the last dest reg. */
+            opnd_uses_reg(memop, opnd_get_reg(last_dst))) {
+            /* Is there an identical source operand register, at the end or prior to
+             * an immed that is at the end?
+             */
+            opnd_t last_src = instr_get_src(store_instr, instr_num_srcs(store_instr) - 1);
+            /* Move prior to an immed if there are enough srcs for reg, reg, imm. */
+            bool has_immed = false;
+            if (opnd_is_immed_int(last_src) && instr_num_srcs(store_instr) > 2) {
+                has_immed = true;
+                last_src = instr_get_src(store_instr, instr_num_srcs(store_instr) - 2);
+            } else if (instr_num_srcs(store_instr) > 2 &&
+                       opnd_is_immed_int(
+                           instr_get_src(store_instr, instr_num_srcs(store_instr) - 2))) {
+                has_immed = true;
+            }
+            if (opnd_same(last_dst, last_src)) {
+                /* Fits pattern of address register. */
+                if (source_ordinal == instr_num_srcs(store_instr) - 1 ||
+                    (has_immed && source_ordinal == instr_num_srcs(store_instr) - 2))
+                    return false;
+            }
+        }
+    }
+    return true;
+}
+
 instr_t *
 instr_set_prefix_flag(instr_t *instr, uint prefix)
 {
@@ -2483,13 +2577,28 @@ instr_set_translation_mangling_epilogue(dcontext_t *dcontext, instrlist_t *ilist
     return instr;
 }
 
+#ifdef AARCH64
+void
+instr_set_has_register_predication(instr_t *instr)
+{
+    instr_set_predicate(instr, DR_PRED_MASKED);
+}
+
+bool
+instr_has_register_predication(instr_t *instr)
+{
+    return instr_get_predicate(instr) == DR_PRED_MASKED;
+}
+#endif
+
 /* Emulates instruction to find the address of the index-th memory operand.
  * Either or both OUT variables can be NULL.
  */
 static bool
 instr_compute_address_helper(instr_t *instr, priv_mcontext_t *mc, size_t mc_size,
-                             dr_mcontext_flags_t mc_flags, uint index, OUT app_pc *addr,
-                             OUT bool *is_write, OUT uint *pos)
+                             dr_mcontext_flags_t mc_flags, uint index,
+                             DR_PARAM_OUT app_pc *addr, DR_PARAM_OUT bool *is_write,
+                             DR_PARAM_OUT uint *pos)
 {
     /* for string instr, even w/ rep prefix, assume want value at point of
      * register snapshot passed in
@@ -2567,7 +2676,8 @@ instr_compute_address_helper(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
 
 bool
 instr_compute_address_ex_priv(instr_t *instr, priv_mcontext_t *mc, uint index,
-                              OUT app_pc *addr, OUT bool *is_write, OUT uint *pos)
+                              DR_PARAM_OUT app_pc *addr, DR_PARAM_OUT bool *is_write,
+                              DR_PARAM_OUT uint *pos)
 {
     return instr_compute_address_helper(instr, mc, sizeof(*mc), DR_MC_ALL, index, addr,
                                         is_write, pos);
@@ -2575,8 +2685,8 @@ instr_compute_address_ex_priv(instr_t *instr, priv_mcontext_t *mc, uint index,
 
 DR_API
 bool
-instr_compute_address_ex(instr_t *instr, dr_mcontext_t *mc, uint index, OUT app_pc *addr,
-                         OUT bool *is_write)
+instr_compute_address_ex(instr_t *instr, dr_mcontext_t *mc, uint index,
+                         DR_PARAM_OUT app_pc *addr, DR_PARAM_OUT bool *is_write)
 {
     return instr_compute_address_helper(instr, dr_mcontext_as_priv_mcontext(mc), mc->size,
                                         mc->flags, index, addr, is_write, NULL);
@@ -2586,7 +2696,8 @@ instr_compute_address_ex(instr_t *instr, dr_mcontext_t *mc, uint index, OUT app_
 DR_API
 bool
 instr_compute_address_ex_pos(instr_t *instr, dr_mcontext_t *mc, uint index,
-                             OUT app_pc *addr, OUT bool *is_write, OUT uint *pos)
+                             DR_PARAM_OUT app_pc *addr, DR_PARAM_OUT bool *is_write,
+                             DR_PARAM_OUT uint *pos)
 {
     return instr_compute_address_helper(instr, dr_mcontext_as_priv_mcontext(mc), mc->size,
                                         mc->flags, index, addr, is_write, pos);
@@ -3927,7 +4038,7 @@ instr_is_reg_spill_or_restore_ex(void *drcontext, instr_t *instr, bool DR_only, 
               check_disp == os_tls_offset((ushort)TLS_REG1_SLOT) ||
               check_disp == os_tls_offset((ushort)TLS_REG2_SLOT) ||
               check_disp == os_tls_offset((ushort)TLS_REG3_SLOT)
-#    ifdef AARCHXX
+#    if defined(AARCHXX) || defined(RISCV64)
               || check_disp == os_tls_offset((ushort)TLS_REG4_SLOT) ||
               check_disp == os_tls_offset((ushort)TLS_REG5_SLOT)
 #    endif

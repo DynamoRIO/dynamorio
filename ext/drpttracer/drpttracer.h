@@ -49,54 +49,17 @@ extern "C" {
 
 #include <inttypes.h>
 
-#ifndef IN
-#    define IN // nothing
+#include "drpttracer_shared.h"
+
+#ifndef DR_PARAM_IN
+#    define DR_PARAM_IN // nothing
 #endif
-#ifndef OUT
-#    define OUT // nothing
+#ifndef DR_PARAM_OUT
+#    define DR_PARAM_OUT // nothing
 #endif
-#ifndef INOUT
-#    define INOUT // nothing
+#ifndef DR_PARAM_INOUT
+#    define DR_PARAM_INOUT // nothing
 #endif
-
-#define END_PACKED_STRUCTURE __attribute__((__packed__))
-
-/**
- * The type of PT trace's metadata.
- *
- * \note drpttracer uses the cpuid instruction to get the cpu_family, cpu_model and
- * cpu_stepping. The cpu_family, cpu_model and cpu_stepping are used to initialize the PT
- * config of pt2ir_t when decoding a PT trace.
- *
- * \note drpttracer gets the time_shift, time_mult and time_zero from the opened perf
- * event file's head. The time_shift, time_mult and time_zero are used to initialize the
- * PT sideband config of pt2ir_t when decoding a PT trace.
- */
-typedef struct _pt_metadata_t {
-    uint16_t cpu_family;  /**< The CPU family. */
-    uint8_t cpu_model;    /**< The CPU mode. */
-    uint8_t cpu_stepping; /**< The CPU stepping. */
-
-    /**
-     * The time shift. pt2ir_t uses it to synchronize the time of the PT trace and
-     * sideband data.
-     * \note time_shift = perf_event_mmap_page.time_shift
-     */
-    uint16_t time_shift;
-
-    /**
-     * The time multiplier. pt2ir_t uses it to synchronize the time of the PT trace and
-     * sideband data.
-     * \note time_mult = perf_event_mmap_page.time_mult
-     */
-    uint32_t time_mult;
-
-    /**
-     * The time zero. pt2ir_t uses it to synchronize the time of the PT trace and
-     * sideband data. \note time_zero = perf_event_mmap_page.time_zero
-     */
-    uint64_t time_zero;
-} END_PACKED_STRUCTURE pt_metadata_t;
 
 /**
  * The storage container type of drpttracer's output.
@@ -229,9 +192,11 @@ DR_EXPORT
  * \return the status code.
  */
 drpttracer_status_t
-drpttracer_create_handle(IN void *drcontext, IN drpttracer_tracing_mode_t tracing_mode,
-                         IN uint pt_size_shift, IN uint sideband_size_shift,
-                         OUT void **tracer_handle);
+drpttracer_create_handle(DR_PARAM_IN void *drcontext,
+                         DR_PARAM_IN drpttracer_tracing_mode_t tracing_mode,
+                         DR_PARAM_IN uint pt_size_shift,
+                         DR_PARAM_IN uint sideband_size_shift,
+                         DR_PARAM_OUT void **tracer_handle);
 
 DR_EXPORT
 /**
@@ -244,7 +209,8 @@ DR_EXPORT
  * \return the status code.
  */
 drpttracer_status_t
-drpttracer_destroy_handle(IN void *drcontext, INOUT void *tracer_handle);
+drpttracer_destroy_handle(DR_PARAM_IN void *drcontext,
+                          DR_PARAM_INOUT void *tracer_handle);
 
 DR_EXPORT
 /**
@@ -256,7 +222,7 @@ DR_EXPORT
  * \return the status code.
  */
 drpttracer_status_t
-drpttracer_start_tracing(IN void *drcontext, IN void *tracer_handle);
+drpttracer_start_tracing(DR_PARAM_IN void *drcontext, DR_PARAM_IN void *tracer_handle);
 
 DR_EXPORT
 /**
@@ -286,8 +252,8 @@ DR_EXPORT
  * \return the status code.
  */
 drpttracer_status_t
-drpttracer_stop_tracing(IN void *drcontext, IN void *tracer_handle,
-                        OUT drpttracer_output_t *output);
+drpttracer_stop_tracing(DR_PARAM_IN void *drcontext, DR_PARAM_IN void *tracer_handle,
+                        DR_PARAM_OUT drpttracer_output_t *output);
 
 DR_EXPORT
 /**
@@ -299,7 +265,8 @@ DR_EXPORT
  * \return the status code.
  */
 drpttracer_status_t
-drpttracer_get_pt_metadata(IN void *tracer_handle, OUT pt_metadata_t *pt_metadata);
+drpttracer_get_pt_metadata(DR_PARAM_IN void *tracer_handle,
+                           DR_PARAM_OUT pt_metadata_t *pt_metadata);
 
 DR_EXPORT
 /**
@@ -313,8 +280,9 @@ DR_EXPORT
  * \return the status code.
  */
 drpttracer_status_t
-drpttracer_create_output(IN void *drcontext, IN uint pt_buf_size_shift,
-                         IN size_t sd_buf_size_shift, OUT drpttracer_output_t **output);
+drpttracer_create_output(DR_PARAM_IN void *drcontext, DR_PARAM_IN uint pt_buf_size_shift,
+                         DR_PARAM_IN size_t sd_buf_size_shift,
+                         DR_PARAM_OUT drpttracer_output_t **output);
 
 DR_EXPORT
 /**
@@ -326,7 +294,8 @@ DR_EXPORT
  * \return the status code.
  */
 drpttracer_status_t
-drpttracer_destroy_output(IN void *drcontext, IN drpttracer_output_t *output);
+drpttracer_destroy_output(DR_PARAM_IN void *drcontext,
+                          DR_PARAM_IN drpttracer_output_t *output);
 
 #ifdef __cplusplus
 }

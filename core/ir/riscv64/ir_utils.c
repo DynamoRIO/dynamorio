@@ -76,7 +76,8 @@ trailing_zeros_64(uint64 x)
 
 static void
 mov32(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, opnd_t dst, int32_t val,
-      OUT instr_t **first, OUT instr_t **last, OUT bool *first_set)
+      DR_PARAM_OUT instr_t **first, DR_PARAM_OUT instr_t **last,
+      DR_PARAM_OUT bool *first_set)
 {
 
     /* `ADDIW rd, rs, imm12` encodes a 12-bit signed extended number;
@@ -110,9 +111,7 @@ mov32(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, opnd_t dst, int3
     if (lo12 != 0 || hi20 == 0) {
         src = hi20 != 0 ? dst : opnd_create_reg(DR_REG_X0);
         instr_addiw =
-            INSTR_CREATE_addiw(dcontext, dst, src,
-                               opnd_add_flags(opnd_create_immed_int(lo12, OPSZ_12b),
-                                              DR_OPND_IMM_PRINT_DECIMAL));
+            INSTR_CREATE_addiw(dcontext, dst, src, opnd_create_immed_int(lo12, OPSZ_12b));
         PRE(ilist, instr, instr_addiw);
         if (first != NULL && !*first_set) {
             *first = instr_addiw;
@@ -125,7 +124,8 @@ mov32(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, opnd_t dst, int3
 
 static void
 mov64(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, opnd_t dst, ptr_int_t val,
-      OUT instr_t **first, OUT instr_t **last, OUT bool *first_set)
+      DR_PARAM_OUT instr_t **first, DR_PARAM_OUT instr_t **last,
+      DR_PARAM_OUT bool *first_set)
 {
     instr_t *tmp;
     if (((val << 32) >> 32) == val) {
@@ -150,17 +150,14 @@ mov64(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, opnd_t dst, ptr_
     hi52 = ((hi52 >> (shift - 12)) << shift) >> shift;
 
     mov64(dcontext, ilist, instr, dst, hi52, first, last, first_set);
-    tmp = INSTR_CREATE_slli(
-        dcontext, dst, dst,
-        opnd_add_flags(opnd_create_immed_int(shift, OPSZ_6b), DR_OPND_IMM_PRINT_DECIMAL));
+    tmp = INSTR_CREATE_slli(dcontext, dst, dst, opnd_create_immed_int(shift, OPSZ_6b));
     PRE(ilist, instr, tmp);
     if (last != NULL)
         *last = tmp;
 
     if (lo12) {
-        tmp = INSTR_CREATE_addi(dcontext, dst, dst,
-                                opnd_add_flags(opnd_create_immed_int(lo12, OPSZ_12b),
-                                               DR_OPND_IMM_PRINT_DECIMAL));
+        tmp =
+            INSTR_CREATE_addi(dcontext, dst, dst, opnd_create_immed_int(lo12, OPSZ_12b));
         PRE(ilist, instr, tmp);
         if (last != NULL)
             *last = tmp;
@@ -172,7 +169,7 @@ mov64(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, opnd_t dst, ptr_
 void
 insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                       ptr_int_t val, opnd_t dst, instrlist_t *ilist, instr_t *instr,
-                      OUT instr_t **first, OUT instr_t **last)
+                      DR_PARAM_OUT instr_t **first, DR_PARAM_OUT instr_t **last)
 {
     /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(src_inst == NULL && encode_estimate == NULL);
@@ -199,7 +196,7 @@ insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_esti
 void
 insert_push_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                        ptr_int_t val, instrlist_t *ilist, instr_t *instr,
-                       OUT instr_t **first, OUT instr_t **last)
+                       DR_PARAM_OUT instr_t **first, DR_PARAM_OUT instr_t **last)
 {
     /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);

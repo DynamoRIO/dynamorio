@@ -389,14 +389,14 @@ struct _instr_t;
 typedef struct _instr_t instr_t;
 #endif
 
-#ifndef IN
-#    define IN /* marks input param */
+#ifndef DR_PARAM_IN
+#    define DR_PARAM_IN /* marks input param */
 #endif
-#ifndef OUT
-#    define OUT /* marks output param */
+#ifndef DR_PARAM_OUT
+#    define DR_PARAM_OUT /* marks output param */
 #endif
-#ifndef INOUT
-#    define INOUT /* marks input+output param */
+#ifndef DR_PARAM_INOUT
+#    define DR_PARAM_INOUT /* marks input+output param */
 #endif
 
 #ifdef X86
@@ -481,6 +481,22 @@ typedef struct _instr_t instr_t;
 #    define _IF_NOT_RISCV64(x) , x
 #endif
 
+#if defined(AARCHXX) || defined(RISCV64)
+#    define IF_AARCHXX_OR_RISCV64(x) x
+#    define IF_AARCHXX_OR_RISCV64_ELSE(x, y) x
+#    define IF_AARCHXX_OR_RISCV64_(x) x,
+#    define _IF_AARCHXX_OR_RISCV64(x) , x
+#    define IF_NOT_AARCHXX_OR_RISCV64(x)
+#    define _IF_NOT_AARCHXX_OR_RISCV64(x)
+#else
+#    define IF_AARCHXX_OR_RISCV64(x)
+#    define IF_AARCHXX_OR_RISCV64_ELSE(x, y) y
+#    define IF_AARCHXX_OR_RISCV64_(x)
+#    define _IF_AARCHXX_OR_RISCV64(x)
+#    define IF_NOT_AARCHXX_OR_RISCV64(x) x
+#    define _IF_NOT_AARCHXX_OR_RISCV64(x) , x
+#endif
+
 #ifdef ANDROID
 #    define IF_ANDROID(x) x
 #    define IF_ANDROID_ELSE(x, y) x
@@ -535,6 +551,14 @@ typedef struct _instr_t instr_t;
 #else
 #    define IF_X64_OR_ARM(x)
 #    define IF_NOT_X64_OR_ARM(x) x
+#endif
+
+#if defined(X86) || defined(AARCH64)
+#    define IF_X86_OR_AARCH64(x) x
+#    define IF_NOT_X86_OR_AARCH64(x)
+#else
+#    define IF_X86_OR_AARCH64(x)
+#    define IF_NOT_X86_OR_AARCH64(x) x
 #endif
 
 /* Convenience defines for cross-platform printing.

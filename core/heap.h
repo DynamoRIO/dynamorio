@@ -105,7 +105,8 @@ void
 request_region_be_heap_reachable(byte *start, size_t size);
 
 void
-vmcode_get_reachable_region(byte **region_start OUT, byte **region_end OUT);
+vmcode_get_reachable_region(byte **region_start DR_PARAM_OUT,
+                            byte **region_end DR_PARAM_OUT);
 #endif
 
 /* Virtual memory types.  These are bitmask values. */
@@ -161,8 +162,8 @@ bool
 heap_check_option_compatibility(void);
 
 bool
-is_vmm_reserved_address(byte *pc, size_t size, OUT byte **region_start,
-                        OUT byte **region_end);
+is_vmm_reserved_address(byte *pc, size_t size, DR_PARAM_OUT byte **region_start,
+                        DR_PARAM_OUT byte **region_end);
 /* Returns whether "target" is reachable from all future vmcode allocations. */
 bool
 rel32_reachable_from_vmcode(byte *target);
@@ -231,7 +232,7 @@ heap_unreserve_for_external_mapping(byte *p, size_t size, which_vmm_t which);
 
 /* updates dynamo_areas and calls the os_ versions */
 byte *
-d_r_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
+d_r_map_file(file_t f, size_t *size DR_PARAM_INOUT, uint64 offs, app_pc addr, uint prot,
              map_flags_t map_flags);
 bool
 d_r_unmap_file(byte *map, size_t size);

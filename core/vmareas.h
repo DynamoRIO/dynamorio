@@ -200,9 +200,9 @@ vmvector_lookup_data(vm_area_vector_t *v, app_pc pc, app_pc *start, app_pc *end,
  * the vmarea after pc in [next_start,next_end) (both POINTER_MAX if none).
  */
 bool
-vmvector_lookup_prev_next(vm_area_vector_t *v, app_pc pc, OUT app_pc *prev_start,
-                          OUT app_pc *prev_end, OUT app_pc *next_start,
-                          OUT app_pc *next_end);
+vmvector_lookup_prev_next(vm_area_vector_t *v, app_pc pc, DR_PARAM_OUT app_pc *prev_start,
+                          DR_PARAM_OUT app_pc *prev_end, DR_PARAM_OUT app_pc *next_start,
+                          DR_PARAM_OUT app_pc *next_end);
 
 bool
 vmvector_modify_data(vm_area_vector_t *v, app_pc start, app_pc end, void *data);

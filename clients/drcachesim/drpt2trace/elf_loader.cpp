@@ -32,7 +32,7 @@
 
 #include <elf.h>
 
-#include "../common/utils.h"
+#include "utils.h"
 #include "elf_loader.h"
 #include "intel-pt.h"
 
@@ -42,9 +42,9 @@ namespace drmemtrace {
 #define ERRMSG_HEADER "[elf_loader] "
 
 bool
-elf_loader_t::load(IN const char *name, IN uint64_t base,
-                   INOUT struct pt_image_section_cache *iscache,
-                   INOUT struct pt_image *image)
+elf_loader_t::load(DR_PARAM_IN const char *name, DR_PARAM_IN uint64_t base,
+                   DR_PARAM_INOUT struct pt_image_section_cache *iscache,
+                   DR_PARAM_INOUT struct pt_image *image)
 {
     if (iscache == nullptr || image == nullptr || name == nullptr) {
         ERRMSG(ERRMSG_HEADER "Invalid arguments to load.\n");
@@ -77,9 +77,10 @@ elf_loader_t::load(IN const char *name, IN uint64_t base,
 
 template <typename Elf_Ehdr, typename Elf_Half, typename Elf_Phdr>
 bool
-elf_loader_t::load_elf(IN std::ifstream &f, IN const char *name, IN uint64_t base,
-                       INOUT struct pt_image_section_cache *iscache,
-                       INOUT struct pt_image *image)
+elf_loader_t::load_elf(DR_PARAM_IN std::ifstream &f, DR_PARAM_IN const char *name,
+                       DR_PARAM_IN uint64_t base,
+                       DR_PARAM_INOUT struct pt_image_section_cache *iscache,
+                       DR_PARAM_INOUT struct pt_image *image)
 {
     if (!f.is_open()) {
         ERRMSG(ERRMSG_HEADER "Failed to load ELF: invalid arguments to load_elf.\n");
@@ -147,10 +148,10 @@ elf_loader_t::load_elf(IN std::ifstream &f, IN const char *name, IN uint64_t bas
 }
 
 bool
-elf_loader_t::load_section(IN const char *name, IN uint64_t offset, IN uint64_t size,
-                           IN uint64_t vaddr,
-                           INOUT struct pt_image_section_cache *iscache,
-                           INOUT struct pt_image *image)
+elf_loader_t::load_section(DR_PARAM_IN const char *name, DR_PARAM_IN uint64_t offset,
+                           DR_PARAM_IN uint64_t size, DR_PARAM_IN uint64_t vaddr,
+                           DR_PARAM_INOUT struct pt_image_section_cache *iscache,
+                           DR_PARAM_INOUT struct pt_image *image)
 {
     int errcode = 0;
     if (!iscache) {

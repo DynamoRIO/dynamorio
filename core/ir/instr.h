@@ -516,12 +516,28 @@ instr_t *
 instr_set_translation_mangling_epilogue(dcontext_t *dcontext, instrlist_t *ilist,
                                         instr_t *instr);
 
+#ifdef AARCH64
+/* Sets the DR_PRED_MASKED flag on the instruction to indicate that
+ * this instruction is predicated and execution depends on the value of a
+ * predicate register
+ */
+void
+instr_set_has_register_predication(instr_t *instr);
+
+/* Checks if DR_PRED_MASKED is set on the instruction, which indicates
+it has a governing predicate register.
+*/
+bool
+instr_has_register_predication(instr_t *instr);
+#endif
+
 app_pc
 instr_compute_address_priv(instr_t *instr, priv_mcontext_t *mc);
 
 bool
 instr_compute_address_ex_priv(instr_t *instr, priv_mcontext_t *mc, uint index,
-                              OUT app_pc *addr, OUT bool *write, OUT uint *pos);
+                              DR_PARAM_OUT app_pc *addr, DR_PARAM_OUT bool *write,
+                              DR_PARAM_OUT uint *pos);
 
 /* Get a label instructions callback function */
 instr_label_callback_t
@@ -674,7 +690,8 @@ opc_is_not_a_real_memory_load(int opc);
 bool
 instr_compute_address_VSIB(instr_t *instr, priv_mcontext_t *mc, size_t mc_size,
                            dr_mcontext_flags_t mc_flags, opnd_t curop, uint index,
-                           OUT bool *have_addr, OUT app_pc *addr, OUT bool *write);
+                           DR_PARAM_OUT bool *have_addr, DR_PARAM_OUT app_pc *addr,
+                           DR_PARAM_OUT bool *write);
 uint
 instr_branch_type(instr_t *cti_instr);
 #ifdef AARCH64
@@ -730,8 +747,9 @@ bool
 instr_is_tls_restore(instr_t *instr, reg_id_t reg, ushort offs);
 
 bool
-instr_is_DR_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls OUT,
-                                 bool *spill OUT, reg_id_t *reg OUT, uint *offs OUT);
+instr_is_DR_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls DR_PARAM_OUT,
+                                 bool *spill DR_PARAM_OUT, reg_id_t *reg DR_PARAM_OUT,
+                                 uint *offs DR_PARAM_OUT);
 
 #ifdef AARCHXX
 bool

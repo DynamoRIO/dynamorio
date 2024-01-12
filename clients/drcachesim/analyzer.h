@@ -168,10 +168,12 @@ protected:
 
         uint64_t cur_interval_index;
         uint64_t cur_interval_init_instr_count;
-        // Identifier for the shard. Currently, shards map only to threads, so this is
-        // the thread id.
+        // Identifier for the shard (thread or core id).
         int64_t shard_id;
+        // Ordinal for the shard.
+        int shard_index = 0;
         std::vector<analyzer_tool_shard_data_t> tool_data;
+        bool exited = false;
 
     private:
         // Delete copy constructor and assignment operator to avoid overhead of
@@ -211,20 +213,21 @@ protected:
         operator=(const analyzer_worker_data_t &) = delete;
     };
 
+    // Pass INVALID_THREAD_ID for only_thread to include all threads.
     bool
-    init_scheduler(const std::string &trace_path,
-                   memref_tid_t only_thread = INVALID_THREAD_ID, int verbosity = 0,
-                   typename sched_type_t::scheduler_options_t *options = nullptr);
+    init_scheduler(const std::string &trace_path, memref_tid_t only_thread, int verbosity,
+                   typename sched_type_t::scheduler_options_t options);
 
+    // For core-sharded, worker_count_ must be set prior to calling this; for parallel
+    // mode if it is not set it will be set to the underlying core count.
     bool
-    init_scheduler(
-        std::unique_ptr<ReaderType> reader = std::unique_ptr<ReaderType>(nullptr),
-        std::unique_ptr<ReaderType> reader_end = std::unique_ptr<ReaderType>(nullptr),
-        int verbosity = 0, typename sched_type_t::scheduler_options_t *options = nullptr);
+    init_scheduler(std::unique_ptr<ReaderType> reader,
+                   std::unique_ptr<ReaderType> reader_end, int verbosity,
+                   typename sched_type_t::scheduler_options_t options);
 
     bool
     init_scheduler_common(typename sched_type_t::input_workload_t &workload,
-                          typename sched_type_t::scheduler_options_t *options);
+                          typename sched_type_t::scheduler_options_t options);
 
     // Used for std::thread so we need an rvalue (so no &worker).
     void
@@ -246,6 +249,12 @@ protected:
 
     bool
     record_is_timestamp(const RecordType &record);
+
+    RecordType
+    create_wait_marker();
+
+    RecordType
+    create_idle_marker();
 
     // Invoked when the given interval finishes during serial or parallel
     // analysis of the trace. For parallel analysis, the shard_id

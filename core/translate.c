@@ -132,6 +132,8 @@ instr_is_inline_syscall_jmp(dcontext_t *dcontext, instr_t *inst)
              /* A32 uses a regular jump */
              instr_get_opcode(inst) == OP_b) &&
             opnd_is_instr(instr_get_target(inst)));
+#    elif defined(RISCV64)
+    return (instr_get_opcode(inst) == OP_jal && opnd_is_instr(instr_get_target(inst)));
 #    else
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
@@ -304,14 +306,14 @@ translate_walk_track_pre_instr(dcontext_t *tdcontext, instr_t *inst,
         walk->unsupported_mangle = false;
         walk->xsp_adjust = 0;
         for (reg_id_t r = 0; r < REG_SPILL_NUM; r++) {
-#ifndef AARCHXX
+#ifdef X86
             /* we should have seen a restore for every spill, unless at
              * fragment-ending jump to ibl, which shouldn't come here
              */
             ASSERT(walk->reg_spill_offs[r] == UINT_MAX);
             walk->reg_spill_offs[r] = UINT_MAX; /* be paranoid */
 #else
-            /* On AArchXX we do spill registers across app instrs and mangle
+            /* On AArchXX/RISCV64 we do spill registers across app instrs and mangle
              * regions, though right now only the following routines do this:
              * - mangle_stolen_reg()
              * - mangle_gpr_list_read()
@@ -399,9 +401,6 @@ translate_walk_track_post_instr(dcontext_t *tdcontext, instr_t *inst,
          * comment above for post-mangling traces), and so for local
          * spills like rip-rel and ind branches this is fine.
          */
-#if defined(RISCV64)
-        ASSERT_NOT_IMPLEMENTED(false);
-#endif
         if (instr_is_cti(inst) &&
 #ifdef X86
             /* Do not reset for a trace-cmp jecxz or jmp (32-bit) or
@@ -420,10 +419,7 @@ translate_walk_track_post_instr(dcontext_t *tdcontext, instr_t *inst,
               (!opnd_is_pc(instr_get_target(inst)) ||
                (opnd_get_pc(instr_get_target(inst)) >= walk->start_cache &&
                 opnd_get_pc(instr_get_target(inst)) < walk->end_cache))))
-#elif defined(RISCV64)
-            /* FIXME i#3544: Not implemented */
-            false
-#else
+#elif defined(AARCHXX)
             /* Do not reset for cbnz/bne in ldstex mangling, nor for the b after strex. */
             !(instr_get_opcode(inst) == OP_cbnz ||
               (instr_get_opcode(inst) == OP_b &&
@@ -432,6 +428,17 @@ translate_walk_track_post_instr(dcontext_t *tdcontext, instr_t *inst,
               (instr_get_opcode(inst) == OP_b &&
                (instr_get_prev(inst) != NULL &&
                 instr_is_exclusive_store(instr_get_prev(inst)))))
+#elif defined(RISCV64)
+            /* Do not reset for bne in LR/SC mangling, nor for the jal after SC.
+             * This should be kept in sync with mangle_exclusive_monitor_op().
+             */
+            !(instr_get_opcode(inst) == OP_bne ||
+              (instr_get_opcode(inst) == OP_jal && instr_get_prev(inst) != NULL &&
+               instr_get_opcode(instr_get_prev(inst)) == OP_bne &&
+               instr_get_prev(instr_get_prev(inst)) != NULL &&
+               instr_is_exclusive_store(instr_get_prev(instr_get_prev(inst)))))
+#else
+#    error Unsupported architecture
 #endif
         ) {
             /* FIXME i#1551: add ARM version of the series of trace cti checks above */
@@ -547,7 +554,7 @@ translate_walk_track_post_instr(dcontext_t *tdcontext, instr_t *inst,
             /* nothing to do */
         }
 #endif
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
         else if (instr_is_ldstex_mangling(tdcontext, inst)) {
             /* nothing to do */
         }
@@ -1205,7 +1212,7 @@ recreate_selfmod_ilist(dcontext_t *dcontext, fragment_t *f)
 static void
 restore_stolen_register(dcontext_t *dcontext, priv_mcontext_t *mcontext)
 {
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
     /* dr_reg_stolen is holding DR's TLS on receiving a signal,
      * so we need put app's reg value into mcontext instead
      */

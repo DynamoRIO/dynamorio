@@ -40,7 +40,8 @@ extern int drx_scatter_gather_tls_idx;
 /* Make each scatter or gather instruction be in their own basic block.
  */
 bool
-scatter_gather_split_bb(void *drcontext, instrlist_t *bb, OUT instr_t **sg_instr);
+scatter_gather_split_bb(void *drcontext, instrlist_t *bb,
+                        DR_PARAM_OUT instr_t **sg_instr);
 
 /* Tell drx_event_restore_state() that an expansion has occurred. */
 void
@@ -85,6 +86,10 @@ typedef struct _scatter_gather_info_t {
                      */
     bool scaled;
     bool is_scalar_value_signed;
+    bool is_replicating; /* The instruction is an ld1rq[bhwd] or ld1ro[bhwd] instruction
+                          * which loads a fixed size vector that is replicated to fill
+                          * the destination register.
+                          */
     enum {
         DRX_NORMAL_FAULTING,
         DRX_FIRST_FAULTING,

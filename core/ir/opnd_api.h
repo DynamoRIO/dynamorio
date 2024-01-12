@@ -1284,15 +1284,18 @@ enum {
     DR_REG_LAST_VALID_ENUM = DR_REG_FCSR, /**< Last valid register enum. */
     DR_REG_LAST_ENUM = DR_REG_FCSR,       /**< Last value of register enums. */
 
-    DR_REG_START_64 = DR_REG_X0,  /**< Start of 64-bit register enum values. */
+    DR_REG_START_64 = DR_REG_X1,  /**< Start of 64-bit register enum values. */
     DR_REG_STOP_64 = DR_REG_F31,  /**< End of 64-bit register enum values. */
-    DR_REG_START_32 = DR_REG_X0,  /**< Start of 32-bit register enum values. */
+    DR_REG_START_32 = DR_REG_X1,  /**< Start of 32-bit register enum values. */
     DR_REG_STOP_32 = DR_REG_F31,  /**< End of 32-bit register enum values. */
-    DR_REG_START_GPR = DR_REG_X0, /**< Start of general register registers. */
-    DR_REG_STOP_GPR = DR_REG_X31, /**< End of general register registers. */
+    DR_REG_START_GPR = DR_REG_X1, /**< Start of general registers. */
+    DR_REG_STOP_GPR = DR_REG_X31, /**< End of general registers. */
+    DR_REG_START_FPR = DR_REG_F0, /**< Start of floating-point registers. */
+    DR_REG_STOP_FPR = DR_REG_F31, /**< End of floating-point registers. */
     DR_REG_XSP = DR_REG_SP, /**< Platform-independent way to refer to stack pointer. */
 
     DR_NUM_GPR_REGS = DR_REG_STOP_GPR - DR_REG_START_GPR + 1, /**< Count of GPR regs. */
+    DR_NUM_FPR_REGS = DR_REG_STOP_FPR - DR_REG_START_FPR + 1, /**< Count of FPR regs. */
     DR_NUM_SIMD_VECTOR_REGS = 0,                              /**< Count of SIMD regs. */
 #else /* RISCV64 */
 #    error Register definitions missing for this platform.
@@ -1770,7 +1773,7 @@ typedef enum _dr_opnd_flags_t {
      */
     DR_OPND_IS_VECTOR = 0x100,
     /**
-     * Predicate registers can either be merging, zero or neither. If one of these
+     * SVE predicate registers can either be merging, zero or neither. If one of these
      * are set then they are either a merge or zero otherwise aren't either.
      */
     DR_OPND_IS_MERGE_PREDICATE = 0x200,
@@ -1785,6 +1788,17 @@ typedef enum _dr_opnd_flags_t {
      * This is used by RISCV64 for immediates display format.
      */
     DR_OPND_IMM_PRINT_DECIMAL = 0x1000,
+
+    /**
+     * The register number is not in the instruction encoding but is calculated
+     * based on another register
+     */
+    DR_OPND_IMPLICIT = 0x2000,
+    /**
+     * The register is a SVE governing predicate register: it is used to select
+     * which elements of a vector are actually read or written to in AArch64 SVE
+     */
+    DR_OPND_IS_GOVERNING = 0x4000,
 } dr_opnd_flags_t;
 
 #ifdef DR_FAST_IR
@@ -2560,21 +2574,27 @@ opnd_is_element_vector_reg(opnd_t opnd);
 
 DR_API
 INSTR_INLINE
-/** Returns true iff \p opnd is a predicate register. */
+/** Returns true iff \p opnd is an SVE predicate register. */
 bool
 opnd_is_predicate_reg(opnd_t opnd);
 
 DR_API
 INSTR_INLINE
-/** Returns true iff \p opnd is a merging predicate register. */
+/** Returns true iff \p opnd is a n SVE merging predicate register. */
 bool
 opnd_is_predicate_merge(opnd_t opnd);
 
 DR_API
 INSTR_INLINE
-/** Returns true iff \p opnd is a zeroing predicate register. */
+/** Returns true iff \p opnd is an SVE zeroing predicate register. */
 bool
 opnd_is_predicate_zero(opnd_t opnd);
+
+DR_API
+INSTR_INLINE
+/** Returns true iff \p opnd is an SVE governing predicate register. */
+bool
+opnd_is_governing(opnd_t opnd);
 
 DR_API
 /**
@@ -2888,7 +2908,7 @@ DR_API
  * \note ARM-only.
  */
 dr_shift_type_t
-opnd_get_index_shift(opnd_t opnd, uint *amount OUT);
+opnd_get_index_shift(opnd_t opnd, uint *amount DR_PARAM_OUT);
 
 DR_API
 /**
@@ -2913,7 +2933,7 @@ DR_API
  * \note AArch64-only.
  */
 dr_extend_type_t
-opnd_get_index_extend(opnd_t opnd, OUT bool *scaled, OUT uint *amount);
+opnd_get_index_extend(opnd_t opnd, DR_PARAM_OUT bool *scaled, DR_PARAM_OUT uint *amount);
 
 DR_API
 /**
@@ -3474,7 +3494,7 @@ DR_API
  * requested register.
  */
 bool
-reg_get_value_ex(reg_id_t reg, dr_mcontext_t *mc, OUT byte *val);
+reg_get_value_ex(reg_id_t reg, dr_mcontext_t *mc, DR_PARAM_OUT byte *val);
 
 DR_API
 /**
@@ -3503,7 +3523,7 @@ DR_API
  * Returns false if the register is not supported.
  */
 bool
-reg_set_value_ex(reg_id_t reg, dr_mcontext_t *mc, IN byte *val_buf);
+reg_set_value_ex(reg_id_t reg, dr_mcontext_t *mc, DR_PARAM_IN byte *val_buf);
 
 DR_API
 /**

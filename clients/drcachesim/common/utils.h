@@ -39,6 +39,7 @@
 #include <iomanip>
 #include <sstream>
 #include <string>
+#include <vector>
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -164,6 +165,21 @@ starts_with(const std::string &str, const std::string &with)
     if (pos == std::string::npos)
         return false;
     return pos == 0;
+}
+
+static inline std::vector<std::string>
+split_by(std::string s, const std::string &sep)
+{
+    size_t pos;
+    std::vector<std::string> vec;
+    if (s.empty())
+        return vec;
+    do {
+        pos = s.find(sep);
+        vec.push_back(s.substr(0, pos));
+        s.erase(0, pos + sep.length());
+    } while (pos != std::string::npos);
+    return vec;
 }
 
 } // namespace drmemtrace

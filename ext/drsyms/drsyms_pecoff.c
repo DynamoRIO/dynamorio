@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -178,9 +178,11 @@ drsym_obj_mod_init_pre(byte *map_base, size_t map_size)
         mod->debug_kind |= DRSYM_SYMBOLS | DRSYM_PECOFF_SYMTAB;
 
     mod->is_64 = (nt->OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC);
-    mod->preferred_base = (byte *)(ptr_uint_t)(
-        mod->is_64 ? ((IMAGE_OPTIONAL_HEADER64 *)(&nt->OptionalHeader))->ImageBase
-                   : nt->OptionalHeader.ImageBase);
+    mod->preferred_base =
+        (byte *)(ptr_uint_t)(mod->is_64
+                                 ? ((IMAGE_OPTIONAL_HEADER64 *)(&nt->OptionalHeader))
+                                       ->ImageBase
+                                 : nt->OptionalHeader.ImageBase);
 
     /* We sort the symbols only once we know the time spent is worth it in init_post */
 
@@ -254,7 +256,7 @@ drsym_obj_mod_init_post(void *mod_in, byte *map_base, void *dwarf_info)
 }
 
 bool
-drsym_obj_dwarf_init(void *mod_in, Dwarf_Debug *dbg)
+drsym_obj_dwarf_init(void *mod_in, dwarf_lib_handle_t *dbg)
 {
     pecoff_data_t *mod = (pecoff_data_t *)mod_in;
     Dwarf_Error de; /* expensive to init (DrM#1770) */
@@ -448,7 +450,7 @@ drsym_obj_symbol_name(void *mod_in, uint idx)
 }
 
 static drsym_error_t
-drsym_pecoff_symbol_offs(pecoff_data_t *mod, IMAGE_SYMBOL *sym, size_t *offs OUT)
+drsym_pecoff_symbol_offs(pecoff_data_t *mod, IMAGE_SYMBOL *sym, size_t *offs DR_PARAM_OUT)
 {
     /* SectionNumber is 1-based */
     if (offs == NULL)
@@ -472,8 +474,8 @@ drsym_pecoff_symbol_offs(pecoff_data_t *mod, IMAGE_SYMBOL *sym, size_t *offs OUT
 }
 
 drsym_error_t
-drsym_obj_symbol_offs(void *mod_in, uint idx, size_t *offs_start OUT,
-                      size_t *offs_end OUT)
+drsym_obj_symbol_offs(void *mod_in, uint idx, size_t *offs_start DR_PARAM_OUT,
+                      size_t *offs_end DR_PARAM_OUT)
 {
     pecoff_data_t *mod = (pecoff_data_t *)mod_in;
     drsym_error_t res;
@@ -515,7 +517,7 @@ drsym_obj_symbol_offs(void *mod_in, uint idx, size_t *offs_start OUT,
 }
 
 drsym_error_t
-drsym_obj_addrsearch_symtab(void *mod_in, size_t modoffs, uint *idx OUT)
+drsym_obj_addrsearch_symtab(void *mod_in, size_t modoffs, uint *idx DR_PARAM_OUT)
 {
     /* This routine is used for both symbol table (mod->sorted_syms[])
      * and exports (mod->sorted_exports) searching, so don't go and

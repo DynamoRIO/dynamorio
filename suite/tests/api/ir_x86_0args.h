@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -197,3 +197,6 @@ OPCODE(xtest, xtest, xtest, 0)
 
 OPCODE(rdpkru, rdpkru, rdpkru, 0)
 OPCODE(wrpkru, wrpkru, wrpkru, 0)
+
+OPCODE(clac, clac, clac, 0)
+OPCODE(stac, stac, stac, 0)

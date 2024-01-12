@@ -161,17 +161,12 @@ drutil_exit(void)
 static bool
 drutil_insert_get_mem_addr_x86(void *drcontext, instrlist_t *bb, instr_t *where,
                                opnd_t memref, reg_id_t dst, reg_id_t scratch,
-                               OUT bool *scratch_used);
-#elif defined(AARCHXX)
+                               DR_PARAM_OUT bool *scratch_used);
+#elif defined(AARCHXX) || defined(RISCV64)
 static bool
-drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
-                               opnd_t memref, reg_id_t dst, reg_id_t scratch,
-                               OUT bool *scratch_used);
-#elif defined(RISCV64)
-static bool
-drutil_insert_get_mem_addr_riscv64(void *drcontext, instrlist_t *bb, instr_t *where,
-                                   opnd_t memref, reg_id_t dst, reg_id_t scratch,
-                                   OUT bool *scratch_used);
+drutil_insert_get_mem_addr_risc(void *drcontext, instrlist_t *bb, instr_t *where,
+                                opnd_t memref, reg_id_t dst, reg_id_t scratch,
+                                DR_PARAM_OUT bool *scratch_used);
 #endif /* X86/ARM/RISCV64 */
 
 /* Could be optimized to have scratch==dst for many common cases, but
@@ -188,19 +183,16 @@ DR_EXPORT
 bool
 drutil_insert_get_mem_addr_ex(void *drcontext, instrlist_t *bb, instr_t *where,
                               opnd_t memref, reg_id_t dst, reg_id_t scratch,
-                              OUT bool *scratch_used)
+                              DR_PARAM_OUT bool *scratch_used)
 {
     if (scratch_used != NULL)
         *scratch_used = false;
 #if defined(X86)
     return drutil_insert_get_mem_addr_x86(drcontext, bb, where, memref, dst, scratch,
                                           scratch_used);
-#elif defined(AARCHXX)
-    return drutil_insert_get_mem_addr_arm(drcontext, bb, where, memref, dst, scratch,
-                                          scratch_used);
-#elif defined(RISCV64)
-    return drutil_insert_get_mem_addr_riscv64(drcontext, bb, where, memref, dst, scratch,
-                                              scratch_used);
+#elif defined(AARCHXX) || defined(RISCV64)
+    return drutil_insert_get_mem_addr_risc(drcontext, bb, where, memref, dst, scratch,
+                                           scratch_used);
 #endif
 }
 
@@ -212,12 +204,9 @@ drutil_insert_get_mem_addr(void *drcontext, instrlist_t *bb, instr_t *where,
 #if defined(X86)
     return drutil_insert_get_mem_addr_x86(drcontext, bb, where, memref, dst, scratch,
                                           NULL);
-#elif defined(AARCHXX)
-    return drutil_insert_get_mem_addr_arm(drcontext, bb, where, memref, dst, scratch,
-                                          NULL);
-#elif defined(RISCV64)
-    return drutil_insert_get_mem_addr_riscv64(drcontext, bb, where, memref, dst, scratch,
-                                              NULL);
+#elif defined(AARCHXX) || defined(RISCV64)
+    return drutil_insert_get_mem_addr_risc(drcontext, bb, where, memref, dst, scratch,
+                                           NULL);
 #endif
 }
 
@@ -225,7 +214,7 @@ drutil_insert_get_mem_addr(void *drcontext, instrlist_t *bb, instr_t *where,
 static bool
 drutil_insert_get_mem_addr_x86(void *drcontext, instrlist_t *bb, instr_t *where,
                                opnd_t memref, reg_id_t dst, reg_id_t scratch,
-                               OUT bool *scratch_used)
+                               DR_PARAM_OUT bool *scratch_used)
 {
     if (opnd_is_far_base_disp(memref) &&
         /* We assume that far memory references via %ds and %es are flat,
@@ -341,7 +330,7 @@ drutil_insert_get_mem_addr_x86(void *drcontext, instrlist_t *bb, instr_t *where,
     }
     return true;
 }
-#elif defined(AARCHXX)
+#elif defined(AARCHXX) || defined(RISCV64)
 
 #    ifdef ARM
 static bool
@@ -382,7 +371,7 @@ instrlist_find_app_instr(instrlist_t *ilist, instr_t *where, opnd_t opnd)
 
 static reg_id_t
 replace_stolen_reg(void *drcontext, instrlist_t *bb, instr_t *where, opnd_t memref,
-                   reg_id_t dst, reg_id_t scratch, OUT bool *scratch_used)
+                   reg_id_t dst, reg_id_t scratch, DR_PARAM_OUT bool *scratch_used)
 {
     reg_id_t reg;
     reg = opnd_uses_reg(memref, dst) ? scratch : dst;
@@ -394,11 +383,11 @@ replace_stolen_reg(void *drcontext, instrlist_t *bb, instr_t *where, opnd_t memr
 }
 
 static bool
-drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
-                               opnd_t memref, reg_id_t dst, reg_id_t scratch,
-                               OUT bool *scratch_used)
+drutil_insert_get_mem_addr_risc(void *drcontext, instrlist_t *bb, instr_t *where,
+                                opnd_t memref, reg_id_t dst, reg_id_t scratch,
+                                DR_PARAM_OUT bool *scratch_used)
 {
-    if (!opnd_is_base_disp(memref) IF_AARCH64(&&!opnd_is_rel_addr(memref)))
+    if (!opnd_is_base_disp(memref) IF_AARCHXX_OR_RISCV64(&&!opnd_is_rel_addr(memref)))
         return false;
 #    ifdef ARM
     if (opnd_get_base(memref) == DR_REG_PC) {
@@ -414,26 +403,28 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
         instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)target,
                                          opnd_create_reg(dst), bb, where, NULL, NULL);
     }
-#    else  /* AARCH64 */
+#    else  /* AARCH64/RISCV64 */
     if (opnd_is_rel_addr(memref)) {
         instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)opnd_get_addr(memref),
                                          opnd_create_reg(dst), bb, where, NULL, NULL);
         return true;
     }
-#    endif /* ARM/AARCH64 */
+#    endif /* ARM/AARCH64/RISCV64 */
     else {
         instr_t *instr;
         reg_id_t base = opnd_get_base(memref);
         reg_id_t index = opnd_get_index(memref);
-        bool negated = TEST(DR_OPND_NEGATED, opnd_get_flags(memref));
         int disp = opnd_get_disp(memref);
         reg_id_t stolen = dr_get_stolen_reg();
+#    ifdef AARCHXX
+        bool negated = TEST(DR_OPND_NEGATED, opnd_get_flags(memref));
         /* On ARM, disp is never negative; on AArch64, we do not use DR_OPND_NEGATED. */
         ASSERT(IF_ARM_ELSE(disp >= 0, !negated), "DR_OPND_NEGATED internal error");
         if (disp < 0) {
             disp = -disp;
             negated = !negated;
         }
+#    endif
 #    ifdef AARCH64
         /* In cases where only the lower 32 bits of the index register are
          * used, we need to widen to 64 bits in order to handle stolen
@@ -463,17 +454,19 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
 #    endif
         }
         if (index == REG_NULL && opnd_get_disp(memref) != 0) {
-            /* first try "add dst, base, #disp" */
-            instr = negated
-                ? INSTR_CREATE_sub(drcontext, opnd_create_reg(dst), opnd_create_reg(base),
-                                   OPND_CREATE_INT(disp))
-                : XINST_CREATE_add_2src(drcontext, opnd_create_reg(dst),
-                                        opnd_create_reg(base), OPND_CREATE_INT(disp));
+            /* First try "add dst, base, #disp". */
+            instr = IF_AARCHXX(negated ? INSTR_CREATE_sub(drcontext, opnd_create_reg(dst),
+                                                          opnd_create_reg(base),
+                                                          OPND_CREATE_INT(disp))
+                                       :)
+                XINST_CREATE_add_2src(drcontext, opnd_create_reg(dst),
+                                      opnd_create_reg(base), OPND_CREATE_INT(disp));
 #    define MAX_ADD_IMM_DISP (1 << 12)
             if (IF_ARM_ELSE(instr_is_encoding_possible(instr), disp < MAX_ADD_IMM_DISP)) {
                 PRE(bb, where, instr);
                 return true;
             }
+#    undef MAX_ADD_IMM_DISP
             instr_destroy(drcontext, instr);
             /* The memref may have a disp that cannot be directly encoded into an
              * add_imm instr, so we use movw to put disp into the scratch instead
@@ -499,7 +492,8 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
                 : INSTR_CREATE_add_shimm(drcontext, opnd_create_reg(dst),
                                          opnd_create_reg(base), opnd_create_reg(index),
                                          OPND_CREATE_INT(shift), OPND_CREATE_INT(amount));
-#    else  /* AARCH64 */
+            PRE(bb, where, instr);
+#    elif defined(AARCH64)
             uint amount;
             dr_extend_type_t extend = opnd_get_index_extend(memref, NULL, &amount);
             instr = negated
@@ -511,8 +505,11 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
                                           opnd_create_reg(base), opnd_create_reg(index),
                                           OPND_CREATE_INT(extend),
                                           OPND_CREATE_INT(amount));
-#    endif /* ARM/AARCH64 */
             PRE(bb, where, instr);
+#    else  /* RISCV64 */
+            ASSERT(false,
+                   "Unreachable, there is no base + index addressing mode in RISC-V.");
+#    endif /* AARCHXX/RISCV64 */
         } else if (base != dst) {
             PRE(bb, where,
                 XINST_CREATE_move(drcontext, opnd_create_reg(dst),
@@ -520,16 +517,6 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
         }
     }
     return true;
-}
-#elif defined(RISCV64)
-static bool
-drutil_insert_get_mem_addr_riscv64(void *drcontext, instrlist_t *bb, instr_t *where,
-                                   opnd_t memref, reg_id_t dst, reg_id_t scratch,
-                                   OUT bool *scratch_used)
-{
-    /* FIXME i#3544: Not implemented */
-    ASSERT(false, "Not implemented");
-    return false;
 }
 #endif /* X86/AARCHXX/RISCV64 */
 
@@ -646,8 +633,8 @@ drutil_instr_is_stringop_loop(instr_t *inst)
 
 DR_EXPORT
 bool
-drutil_expand_rep_string_ex(void *drcontext, instrlist_t *bb, bool *expanded OUT,
-                            instr_t **stringop OUT)
+drutil_expand_rep_string_ex(void *drcontext, instrlist_t *bb, bool *expanded DR_PARAM_OUT,
+                            instr_t **stringop DR_PARAM_OUT)
 {
 #ifdef X86
     instr_t *inst, *next_inst, *first_app = NULL;

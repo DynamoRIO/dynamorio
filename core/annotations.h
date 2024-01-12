@@ -256,8 +256,9 @@ is_encoded_valgrind_annotation(app_pc xchg_start_pc, app_pc bb_start, app_pc pag
  * pc following the annotation, where decoding of app instructions should resume.
  */
 bool
-instrument_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc,
-                      OUT instr_t **substitution _IF_WINDOWS_X64(IN bool hint_is_safe));
+instrument_annotation(dcontext_t *dcontext, DR_PARAM_INOUT app_pc *start_pc,
+                      DR_PARAM_OUT instr_t **substitution
+                          _IF_WINDOWS_X64(DR_PARAM_IN bool hint_is_safe));
 
 #    if !(defined(WINDOWS) && defined(X64))
 /* Replace the Valgrind annotation code sequence with a clean call to
