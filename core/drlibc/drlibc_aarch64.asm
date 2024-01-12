@@ -142,7 +142,16 @@ GLOBAL_LABEL(dynamorio_clone:)
         cbnz     x0, dynamorio_clone_parent
         ldp      x0, x1, [sp], #16
         blr      x0
-        bl       GLOBAL_REF(unexpected_return)
+        /* aarch64 doesn't provide unexpected_return (ref i#4304). Instead of
+         * providing our own copy, just inline its definition here.
+         */
+clone_internal_error:
+        CALLC3(GLOBAL_REF(d_r_internal_error), HEX(0), HEX(0), HEX(0))
+        /* d_r_internal_error normally never returns */
+        /* Infinite loop is intentional.  Can we do better in release build?
+         * XXX: why not a debug instr?
+         */
+        b clone_internal_error
 dynamorio_clone_parent:
         ret
         END_FUNC(dynamorio_clone)

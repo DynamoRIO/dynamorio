@@ -41,6 +41,8 @@ START_FILE
 #include "include/syscall.h"
 #endif
 
+DECL_EXTERN(unexpected_return)
+
 /* we share dynamorio_syscall w/ preload */
 /* To avoid libc wrappers we roll our own syscall here.
  * Hardcoded to use svc/swi for 32-bit -- FIXME: use something like do_syscall

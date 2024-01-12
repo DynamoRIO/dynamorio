@@ -43,6 +43,8 @@ START_FILE
 
 #include "include/syscall.h"
 
+DECL_EXTERN(unexpected_return)
+
 /*
  * ptr_int_t dynamorio_syscall(uint sysnum, uint num_args, ...);
  *
