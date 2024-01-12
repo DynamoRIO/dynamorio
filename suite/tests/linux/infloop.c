@@ -44,7 +44,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/select.h>
-bool for_attach = false, block = false;
+
 static void
 signal_handler(int sig)
 {
@@ -59,6 +59,7 @@ main(int argc, const char *argv[])
 {
     int arg_offs = 1;
     long long counter = 0;
+    bool for_attach = false, block = false;
     while (arg_offs < argc && argv[arg_offs][0] == '-') {
         if (strcmp(argv[arg_offs], "-v") == 0) {
             /* enough verbosity to satisfy runall.cmake: needs an initial and a
