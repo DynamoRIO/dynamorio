@@ -530,19 +530,22 @@ missing_instructions_t::process_memref(const memref_t &memref)
 {
   current_instruction_id++;
 
-  std::cout << "[" << current_instruction_id << "]";
+  std::cerr << "[" << current_instruction_id << "]";
   get_opcode(memref);
 
   // if (current_instruction_id > 200000){ // limit instrs. to first 200k
   //   exit(0);
   // }
-
+  if (memref.marker.type == TRACE_TYPE_MARKER && memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID) 
+  {
+    //TODO stavi opciju pracenja razlicitih cores ovdje, mozda i da thread switcheve pratimo. Da nam svaki thread bude jedan "sample".
+  }
   // Data misses
-  int data_misses_pre = cache_simulator_t::get_cache_metric(metric_name_t::MISSES, 0, 0, cache_split_t::DATA);
-  int inst_misses_pre = cache_simulator_t::get_cache_metric(metric_name_t::MISSES, 0, 0, cache_split_t::INSTRUCTION);
+  int data_misses_pre = cache_simulator_t::get_cache_metric(metric_name_t::MISSES, 1, 0, cache_split_t::DATA);
+  int inst_misses_pre = cache_simulator_t::get_cache_metric(metric_name_t::MISSES, 1, 0, cache_split_t::INSTRUCTION);
   bool cache_ret = cache_simulator_t::process_memref(memref);
-  int data_misses_post = cache_simulator_t::get_cache_metric(metric_name_t::MISSES, 0, 0, cache_split_t::DATA);
-  int inst_misses_post = cache_simulator_t::get_cache_metric(metric_name_t::MISSES, 0, 0, cache_split_t::INSTRUCTION);
+  int data_misses_post = cache_simulator_t::get_cache_metric(metric_name_t::MISSES, 1, 0, cache_split_t::DATA);
+  int inst_misses_post = cache_simulator_t::get_cache_metric(metric_name_t::MISSES, 1, 0, cache_split_t::INSTRUCTION);
 
   int data_misses = data_misses_post - data_misses_pre;
   int inst_misses = inst_misses_post - inst_misses_pre;
@@ -562,10 +565,10 @@ missing_instructions_t::process_memref(const memref_t &memref)
   }
 
   if (data_miss)
-    std::cout << "DATA MISS\n" << std::endl;
+    std::cerr << "DATA MISS" << std::endl;
 
   if (inst_miss)
-    std::cout << "INST MISS\n" << std::endl;
+    std::cerr << "INST MISS" << std::endl;
 
   return cache_ret;
 }
@@ -671,9 +674,9 @@ missing_instructions_t::process_memref(const memref_t &memref)
 //         }
 //     }
 
-//     if (memref.instr.tid != 0) {
-//         print_prefix(memstream, memref);
-//     }
+    // if (memref.instr.tid != 0) {
+    //     print_prefix(memstream, memref);
+    // }
 
 //     if (memref.marker.type == TRACE_TYPE_MARKER) {
 //         switch (memref.marker.marker_type) {
