@@ -321,17 +321,13 @@ os_open(const char *fname, int os_open_flags)
     if (TEST(OS_OPEN_ALLOW_LARGE, os_open_flags))
         flags |= O_LARGEFILE;
 
-    if (TEST(OS_OPEN_WRITE_ONLY, os_open_flags))
-    {
+    if (TEST(OS_OPEN_WRITE_ONLY, os_open_flags)) {
         flags |= O_WRONLY | O_CREAT;
         mode = create_mode;
-    }
-    else if (!TEST(OS_OPEN_WRITE, os_open_flags))
+    } else if (!TEST(OS_OPEN_WRITE, os_open_flags))
         flags |= O_RDONLY;
     else {
-        flags |=
-            O_RDWR |
-            O_CREAT | 
+        flags |= O_RDWR | O_CREAT |
             /* Currently we only support either appending
              * or truncating, just like Windows and the client
              * interface.  If we end up w/ a use case that wants
@@ -339,7 +335,7 @@ os_open(const char *fname, int os_open_flags)
              * add OS_TRUNCATE or sthg we'll need to add it to
              * any current writers who don't set OS_OPEN_REQUIRE_NEW.
              */
-            (TEST(OS_OPEN_APPEND, os_open_flags)? O_APPEND : O_TRUNC) |
+            (TEST(OS_OPEN_APPEND, os_open_flags) ? O_APPEND : O_TRUNC) |
             (TEST(OS_OPEN_REQUIRE_NEW, os_open_flags) ? O_EXCL : 0);
 
         mode = create_mode;
