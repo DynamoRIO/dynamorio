@@ -1078,6 +1078,9 @@ protected:
         // delayed_branch and delayed_branch_decode_pcs as the other vectors are
         // passed as raw arrays to write().
         std::vector<app_pc> delayed_branch_target_pcs;
+        // Record whether a timestamp marker has been seen after a dealyed
+        // branch.
+        bool delayed_branch_past_timestamp_ = false;
 
         // Current trace conversion state.
         bool saw_header;

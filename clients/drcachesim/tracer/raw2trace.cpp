@@ -1263,6 +1263,18 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
         if (entry.timestamp.type == OFFLINE_TYPE_TIMESTAMP) {
             VPRINT(2, "Thread %u timestamp 0x" ZHEX64_FORMAT_STRING "\n",
                    (uint)tdata->tid, (uint64)entry.timestamp.usec);
+            if (delayed_branches_exist(tdata)) {
+                // Delayed branches should be appended before the second
+                // back-to-back timestamp.
+                if (tdata->delayed_branch_past_timestamp_) {
+                    if (!append_delayed_branch(tdata, nullptr)) {
+                        return false;
+                    }
+                    tdata->delayed_branch_past_timestamp_ = false;
+                } else {
+                    tdata->delayed_branch_past_timestamp_ = true;
+                }
+            }
             accumulate_to_statistic(tdata, RAW2TRACE_STAT_EARLIEST_TRACE_TIMESTAMP,
                                     static_cast<uint64>(entry.timestamp.usec));
             accumulate_to_statistic(tdata, RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP,

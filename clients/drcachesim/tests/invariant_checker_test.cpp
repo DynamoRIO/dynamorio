@@ -198,8 +198,6 @@ bool
 check_branch_target_after_branch()
 {
     std::cerr << "Testing branch targets\n";
-    constexpr memref_tid_t TID = 1;
-    constexpr uintptr_t TIMESTAMP = 3;
     // Correct simple test.
     {
         std::vector<memref_t> memrefs = {

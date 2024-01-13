@@ -461,6 +461,80 @@ test_branch_delays(void *drcontext)
 }
 
 bool
+test_branch_delays_with_back_to_back_timestamps(void *drcontext)
+{
+    std::cerr
+        << "\n===============\nTesting branch delays with back-to-back timestamps\n";
+    instrlist_t *ilist = instrlist_create(drcontext);
+    // raw2trace doesn't like offsets of 0 so we shift with a nop.
+    instr_t *nop = XINST_CREATE_nop(drcontext);
+    instr_t *move1 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
+    instr_t *move2 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
+    // Our conditional jumps over the jump which is the exit.
+    instr_t *jmp = XINST_CREATE_jump(drcontext, opnd_create_instr(move2));
+    instrlist_append(ilist, nop);
+    instrlist_append(ilist, move1);
+    instrlist_append(ilist, jmp);
+    instrlist_append(ilist, move2);
+    size_t offs_nop = 0;
+    size_t offs_move1 = offs_nop + instr_length(drcontext, nop);
+    size_t offs_jmp = offs_move1 + instr_length(drcontext, move1);
+    size_t offs_move2 = offs_jmp + instr_length(drcontext, jmp);
+
+    std::vector<offline_entry_t> raw;
+    raw.push_back(make_header());
+    raw.push_back(make_tid());
+    raw.push_back(make_pid());
+    raw.push_back(make_line_size());
+    raw.push_back(make_timestamp(/*value=*/1));
+    raw.push_back(make_core());
+    raw.push_back(make_block(offs_move1, /*instr_count=*/2));
+    raw.push_back(make_timestamp(/*value=*/2));
+    raw.push_back(make_core());
+    raw.push_back(make_timestamp(/*value=*/3));
+    raw.push_back(make_core());
+    raw.push_back(make_block(offs_move2, /*instr_count=*/1));
+    raw.push_back(make_exit());
+
+    std::vector<uint64_t> stats;
+    std::vector<trace_entry_t> entries;
+    if (!run_raw2trace(drcontext, raw, ilist, entries, &stats))
+        return false;
+    int idx = 0;
+    return (
+        check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        // The delayed branch should be appended before the second back-to-back
+        // timestamp.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#ifdef X86_32
+        // An extra encoding entry is needed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#endif
+        check_entry(entries, idx, TRACE_TYPE_INSTR_DIRECT_JUMP, -1, offs_jmp) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move2) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+}
+
+bool
 test_marker_placement(void *drcontext)
 {
     std::cerr << "\n===============\nTesting marker placement\n";
@@ -2885,11 +2959,13 @@ int
 test_main(int argc, const char *argv[])
 {
     void *drcontext = dr_standalone_init();
-    if (!test_branch_delays(drcontext) || !test_marker_placement(drcontext) ||
-        !test_marker_delays(drcontext) || !test_chunk_boundaries(drcontext) ||
-        !test_chunk_encodings(drcontext) || !test_duplicate_syscalls(drcontext) ||
-        !test_false_syscalls(drcontext) || !test_rseq_fallthrough(drcontext) ||
-        !test_rseq_rollback_legacy(drcontext) || !test_rseq_rollback(drcontext) ||
+    if (!test_branch_delays(drcontext) ||
+        !test_branch_delays_with_back_to_back_timestamps(drcontext) ||
+        !test_marker_placement(drcontext) || !test_marker_delays(drcontext) ||
+        !test_chunk_boundaries(drcontext) || !test_chunk_encodings(drcontext) ||
+        !test_duplicate_syscalls(drcontext) || !test_false_syscalls(drcontext) ||
+        !test_rseq_fallthrough(drcontext) || !test_rseq_rollback_legacy(drcontext) ||
+        !test_rseq_rollback(drcontext) ||
         !test_rseq_rollback_with_timestamps(drcontext) ||
         !test_rseq_rollback_with_signal(drcontext) ||
         !test_rseq_rollback_with_chunks(drcontext) || !test_rseq_side_exit(drcontext) ||
