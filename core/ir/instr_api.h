@@ -740,16 +740,12 @@ instr_get_category(instr_t *instr);
 
 DR_API
 /**
- * Fills \p category_names with a comma-separated string of categories.
- * Assumes \p category is a set of DR_INSTR_CATEGORY_ constants.
+ * Assumes \p category is a DR_INSTR_CATEGORY_ constant.
  * See #dr_instr_category_t.
- * Assumes \p category_names has enough space to potentially
- * contain all current category names (currently 56 char + '\0').
- * Assumes \p category_names_size is the actual size of \p category_names.
+ * Returns \p category name in string format.
  */
-void
-instr_get_category_names(uint category, char category_names[],
-                         size_t category_names_size);
+const char *
+instr_get_category_name(uint category);
 
 /**
  * Get the relative offset of \p instr in an encoded instruction list.

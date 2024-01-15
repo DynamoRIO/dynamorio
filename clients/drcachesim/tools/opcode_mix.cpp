@@ -259,6 +259,57 @@ cmp_val(const std::pair<int, int64_t> &l, const std::pair<int, int64_t> &r)
     return (l.second > r.second);
 }
 
+std::string
+get_category_names(uint category)
+{
+    std::string category_name;
+    if (category == DR_INSTR_CATEGORY_UNCATEGORIZED) {
+        category_name += instr_get_category_name(DR_INSTR_CATEGORY_UNCATEGORIZED);
+        return category_name;
+    }
+    if (TESTANY(DR_INSTR_CATEGORY_FP, category)) {
+        category_name += " ";
+        category_name += instr_get_category_name(DR_INSTR_CATEGORY_FP);
+    }
+    if (TESTANY(DR_INSTR_CATEGORY_LOAD, category)) {
+        category_name += " ";
+        category_name += instr_get_category_name(DR_INSTR_CATEGORY_LOAD);
+    }
+    if (TESTANY(DR_INSTR_CATEGORY_STORE, category)) {
+        category_name += " ";
+        category_name += instr_get_category_name(DR_INSTR_CATEGORY_STORE);
+    }
+    if (TESTANY(DR_INSTR_CATEGORY_BRANCH, category)) {
+        category_name += " ";
+        category_name += instr_get_category_name(DR_INSTR_CATEGORY_BRANCH);
+    }
+    if (TESTANY(DR_INSTR_CATEGORY_SIMD, category)) {
+        category_name += " ";
+        category_name += instr_get_category_name(DR_INSTR_CATEGORY_SIMD);
+    }
+    if (TESTANY(DR_INSTR_CATEGORY_STATE, category)) {
+        category_name += " ";
+        category_name += instr_get_category_name(DR_INSTR_CATEGORY_STATE);
+    }
+    if (TESTANY(DR_INSTR_CATEGORY_MOVE, category)) {
+        category_name += " ";
+        category_name += instr_get_category_name(DR_INSTR_CATEGORY_MOVE);
+    }
+    if (TESTANY(DR_INSTR_CATEGORY_CONVERT, category)) {
+        category_name += " ";
+        category_name += instr_get_category_name(DR_INSTR_CATEGORY_CONVERT);
+    }
+    if (TESTANY(DR_INSTR_CATEGORY_MATH, category)) {
+        category_name += " ";
+        category_name += instr_get_category_name(DR_INSTR_CATEGORY_MATH);
+    }
+    if (TESTANY(DR_INSTR_CATEGORY_OTHER, category)) {
+        category_name += " ";
+        category_name += instr_get_category_name(DR_INSTR_CATEGORY_OTHER);
+    }
+    return category_name;
+}
+
 bool
 opcode_mix_t::print_results()
 {
@@ -291,11 +342,9 @@ opcode_mix_t::print_results()
     std::vector<std::pair<uint, int64_t>> sorted_category_counts(
         total.category_counts.begin(), total.category_counts.end());
     std::sort(sorted_category_counts.begin(), sorted_category_counts.end(), cmp_val);
-    char category_names[57];
     for (const auto &keyvals : sorted_category_counts) {
-        instr_get_category_names(keyvals.first, category_names, sizeof(category_names));
         std::cerr << std::setw(15) << keyvals.second << " : " << std::setw(9)
-                  << category_names << "\n";
+                  << get_category_names(keyvals.first) << "\n";
     }
 
     return true;
