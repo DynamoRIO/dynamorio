@@ -607,7 +607,7 @@ missing_instructions_t::process_memref(const memref_t &memref)
     {
         std::string regular_message_pre = "LL miss over 2 shouldn't happen. LL pre: ";
         std::string regular_message_post = " LL post: ";
-        std::string error_message = regular_message_pre + std::to_string(unified_misses_ll_pre) + regular_message_post + std::to_string(unified_misses_ll_post) + std::to_string(data_misses_l1_pre) ;
+        std::string error_message = regular_message_pre + std::to_string(unified_misses_ll_pre) + regular_message_post + std::to_string(unified_misses_ll_post);
         throw std::runtime_error(error_message);
     }
 
