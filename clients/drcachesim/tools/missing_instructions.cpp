@@ -612,7 +612,6 @@ missing_instructions_t::process_memref(const memref_t &memref)
         throw std::runtime_error(error_message);
     }
 
-
     if (data_miss_l1 || inst_miss_l1 || unified_miss_ll) {
         addr_t pc, addr;
         if (type_is_instr(memref.data.type))
@@ -624,7 +623,8 @@ missing_instructions_t::process_memref(const memref_t &memref)
             pc = memref.data.pc;
         }
         addr = memref.data.addr;
-
+        // Addr and PC aren't formatted correctly in hex, but since we'll be using deltas
+        // anyway it doesn't matter.
         if (data_miss_l1)
             std::cerr << "< DATA_MISS_L1_CORE_" << core << "_PC_" << pc
                       << "_ADDRESS_TO_ACCESS_" << addr << " >" << std::endl;
