@@ -221,7 +221,6 @@
 -----------xxxxx----------------  b16        # B register
 -----------xxxxx----------------  h16        # H register
 -----------xxxxx----------------  s16        # S register
------------xxxxx------xxxxx-----  svemem_gprs_b1  # memory reg from Rm and Rn fields transferring 1 bytes per element
 -----------xxxxx---xxx----------  imm8_10    # 8 bit imm at pos 10, split across 20:16 and 12:10
 -----------xxxxx-??---xxxxx-----  sveprf_gpr_vec64 # SVE prefetch memory address (64-bit offset) [<Xn|SP>, <Zm>.D{, <mod> <amount>}]
 -----------xxxxxx---------------  imm6_15    # 6 bit immediate from 20:15
@@ -355,16 +354,14 @@
 -------??--xxxxx------xxxxx-----  svemem_vec_s_imm5 # SVE memory address [<Zn>.S{, #<imm>}]
 -------??--xxxxx------xxxxx-----  svemem_vec_d_imm5 # SVE memory address [<Zn>.D{, #<imm>}]
 -------??--xxxxx------xxxxx-----  sveprf_gpr_shf   # SVE memory address [<Xn|SP>, <Xm>, LSL #x] for prefetch operation
+-------??--xxxxx------xxxxx-----  svemem_gpr_shf   # SVE memory address [<Xn|SP>, <Xm>, LSL #x]
+-------??--xxxxx------xxxxx-----  svemem_gpr_shf_signed   # SVE memory address [<Xn|SP>, <Xm>, LSL #x] for signed load operations
 -------??-?xxxxx------xxxxx-----  svemem_gpr_vec64 # SVE memory address (64-bit offset) [<Xn|SP>, <Zm>.D{, <mod>}]
 -------??-xxxxxxx-----xxxxx-----  mem7_tag       # Write bytes is fixed at 16bytes, post/pre/offset is in 24:23, with memory tag scaling
 -------???-xxxxx------xxxxx-----  svemem_vec_22sd_gpr16 # SVE memort operand [<Zn>.S/D{, <Xm>}]
 -------????-xxxx------xxxxx-----  svemem_gpr_simm4_vl_1reg # SVE memory operand [<Xn|SP>{, #<imm>, MUL VL}]
                                                            # 1 src/dest register
 -------????xxxxx------xxxxx-----  svemem_ssz_gpr_shf # SVE memory operand [<Xn|SP>, <Xm>, LSL #x]
--------????xxxxx------xxxxx-----  svemem_msz_gpr_shf # SVE memory address [<Xn|SP>, <Xm>, LSL #x]
--------????xxxxx------xxxxx-----  svemem_msz_stgpr_shf # SVE memory address [<Xn|SP>, <Xm>, LSL #x]
--------????xxxxx------xxxxx-----  svemem_gpr_shf   # GPR offset and base reg for SVE ld/st, with optional shift
--------????xxxxx------xxxxx-----  svemem_gprs_bhsdx  # memory reg from Rm and Rn fields transferring x bytes per element
 -------????xxxxx-x----xxxxx-----  svemem_gpr_vec32_st # SVE memory address (32-bit offset) [<Xn|SP>, <Zm>.<T>, <mod> <amount>]
 -------xx------------------xxxxx  z_msz_bhsd_0    # z register with element size determined by msz
 -------xx------------------xxxxx  z_msz_bhsd_0p1  # z register with element size determined by msz, plus 1

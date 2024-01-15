@@ -361,9 +361,9 @@
 1000010011xxxxxx100xxxxxxxxxxxxx  n   913  SVE   ld1rsw          z_d_0 : svememx6_s_5 p10_zer_lo.gov
 1000010101xxxxxx110xxxxxxxxxxxxx  n   914  SVE    ld1rw          z_s_0 : svememx6_s_5 p10_zer_lo.gov
 1000010101xxxxxx111xxxxxxxxxxxxx  n   914  SVE    ld1rw          z_d_0 : svememx6_s_5 p10_zer_lo.gov
-10100101110xxxxx010xxxxxxxxxxxxx  n   949  SVE    ld1sb          z_h_0 : svemem_gpr_shf p10_zer_lo.gov
-10100101101xxxxx010xxxxxxxxxxxxx  n   949  SVE    ld1sb          z_s_0 : svemem_gpr_shf p10_zer_lo.gov
-10100101100xxxxx010xxxxxxxxxxxxx  n   949  SVE    ld1sb          z_d_0 : svemem_gpr_shf p10_zer_lo.gov
+10100101110xxxxx010xxxxxxxxxxxxx  n   949  SVE    ld1sb          z_h_0 : svemem_gpr_shf_signed p10_zer_lo.gov
+10100101101xxxxx010xxxxxxxxxxxxx  n   949  SVE    ld1sb          z_s_0 : svemem_gpr_shf_signed p10_zer_lo.gov
+10100101100xxxxx010xxxxxxxxxxxxx  n   949  SVE    ld1sb          z_d_0 : svemem_gpr_shf_signed p10_zer_lo.gov
 10000100001xxxxx100xxxxxxxxxxxxx  n   949  SVE    ld1sb          z_s_0 : svemem_vec_s_imm5 p10_zer_lo.gov
 11000100001xxxxx100xxxxxxxxxxxxx  n   949  SVE    ld1sb          z_d_0 : svemem_vec_d_imm5 p10_zer_lo.gov
 11000100010xxxxx100xxxxxxxxxxxxx  n   949  SVE    ld1sb          z_d_0 : svemem_gpr_vec64 p10_zer_lo.gov
@@ -380,8 +380,8 @@
 110001001x0xxxxx000xxxxxxxxxxxxx  n   977  SVE    ld1sh          z_d_0 : svemem_gpr_vec32_ld p10_zer_lo.gov
 100001001x1xxxxx000xxxxxxxxxxxxx  n   977  SVE    ld1sh          z_s_0 : svemem_gpr_vec32_ld p10_zer_lo.gov
 100001001x0xxxxx000xxxxxxxxxxxxx  n   977  SVE    ld1sh          z_s_0 : svemem_gpr_vec32_ld p10_zer_lo.gov
-10100101001xxxxx010xxxxxxxxxxxxx  n   977  SVE    ld1sh   z_msz_bhsd_0 : svemem_gpr_shf p10_zer_lo.gov
-10100101000xxxxx010xxxxxxxxxxxxx  n   977  SVE    ld1sh          z_d_0 : svemem_gpr_shf p10_zer_lo.gov
+10100101001xxxxx010xxxxxxxxxxxxx  n   977  SVE    ld1sh   z_msz_bhsd_0 : svemem_gpr_shf_signed p10_zer_lo.gov
+10100101000xxxxx010xxxxxxxxxxxxx  n   977  SVE    ld1sh          z_d_0 : svemem_gpr_shf_signed p10_zer_lo.gov
 101001010010xxxx101xxxxxxxxxxxxx  n   977  SVE    ld1sh          z_s_0 : svemem_gpr_simm4_vl_1reg p10_zer_lo.gov
 101001010000xxxx101xxxxxxxxxxxxx  n   977  SVE    ld1sh          z_d_0 : svemem_gpr_simm4_vl_1reg p10_zer_lo.gov
 11000101001xxxxx100xxxxxxxxxxxxx  n   978  SVE    ld1sw          z_d_0 : svemem_vec_d_imm5 p10_zer_lo.gov
@@ -390,7 +390,7 @@
 110001010x1xxxxx000xxxxxxxxxxxxx  n   978  SVE    ld1sw          z_d_0 : svemem_gpr_vec32_ld p10_zer_lo.gov
 110001010x0xxxxx000xxxxxxxxxxxxx  n   978  SVE    ld1sw          z_d_0 : svemem_gpr_vec32_ld p10_zer_lo.gov
 11000101001xxxxx100xxxxxxxxxxxxx  n   978  SVE    ld1sw          z_d_0 : svemem_vec_d_imm5 p10_zer_lo.gov
-10100100100xxxxx010xxxxxxxxxxxxx  n   978  SVE    ld1sw          z_d_0 : svemem_gpr_shf p10_zer_lo.gov
+10100100100xxxxx010xxxxxxxxxxxxx  n   978  SVE    ld1sw          z_d_0 : svemem_gpr_shf_signed p10_zer_lo.gov
 101001001000xxxx101xxxxxxxxxxxxx  n   978  SVE    ld1sw          z_d_0 : svemem_gpr_simm4_vl_1reg p10_zer_lo.gov
 10000101001xxxxx110xxxxxxxxxxxxx  n   979  SVE     ld1w          z_s_0 : svemem_vec_s_imm5 p10_zer_lo.gov
 11000101001xxxxx110xxxxxxxxxxxxx  n   979  SVE     ld1w          z_d_0 : svemem_vec_d_imm5 p10_zer_lo.gov
@@ -404,31 +404,31 @@
 10100101011xxxxx010xxxxxxxxxxxxx  n   979  SVE     ld1w          z_d_0 : svemem_gpr_shf p10_zer_lo.gov
 101001010100xxxx101xxxxxxxxxxxxx  n   979  SVE     ld1w          z_s_0 : svemem_gpr_simm4_vl_1reg p10_zer_lo.gov
 101001010110xxxx101xxxxxxxxxxxxx  n   979  SVE     ld1w          z_d_0 : svemem_gpr_simm4_vl_1reg p10_zer_lo.gov
-10100100001xxxxx110xxxxxxxxxxxxx  n   967  SVE     ld2b  z_b_0 z_msz_bhsd_0p1 : svemem_gprs_bhsdx p10_zer_lo.gov
+10100100001xxxxx110xxxxxxxxxxxxx  n   967  SVE     ld2b  z_b_0 z_msz_bhsd_0p1 : svemem_gpr_shf p10_zer_lo.gov
 101001000010xxxx111xxxxxxxxxxxxx  n   967  SVE     ld2b  z_b_0 z_msz_bhsd_0p1 : svemem_gpr_simm4_vl_xreg p10_zer_lo.gov
-10100101101xxxxx110xxxxxxxxxxxxx  n   983  SVE     ld2d  z_msz_bhsd_0 z_msz_bhsd_0p1 : svemem_msz_gpr_shf p10_zer_lo.gov
+10100101101xxxxx110xxxxxxxxxxxxx  n   983  SVE     ld2d  z_msz_bhsd_0 z_msz_bhsd_0p1 : svemem_gpr_shf p10_zer_lo.gov
 101001011010xxxx111xxxxxxxxxxxxx  n   983  SVE     ld2d  z_d_0 z_msz_bhsd_0p1 : svemem_gpr_simm4_vl_xreg p10_zer_lo.gov
-10100100101xxxxx110xxxxxxxxxxxxx  n   984  SVE     ld2h  z_msz_bhsd_0 z_msz_bhsd_0p1 : svemem_msz_gpr_shf p10_zer_lo.gov
+10100100101xxxxx110xxxxxxxxxxxxx  n   984  SVE     ld2h  z_msz_bhsd_0 z_msz_bhsd_0p1 : svemem_gpr_shf p10_zer_lo.gov
 101001001010xxxx111xxxxxxxxxxxxx  n   984  SVE     ld2h  z_h_0 z_msz_bhsd_0p1 : svemem_gpr_simm4_vl_xreg p10_zer_lo.gov
-10100101001xxxxx110xxxxxxxxxxxxx  n   985  SVE     ld2w  z_msz_bhsd_0 z_msz_bhsd_0p1 : svemem_msz_gpr_shf p10_zer_lo.gov
+10100101001xxxxx110xxxxxxxxxxxxx  n   985  SVE     ld2w  z_msz_bhsd_0 z_msz_bhsd_0p1 : svemem_gpr_shf p10_zer_lo.gov
 101001010010xxxx111xxxxxxxxxxxxx  n   985  SVE     ld2w  z_s_0 z_msz_bhsd_0p1 : svemem_gpr_simm4_vl_xreg p10_zer_lo.gov
-10100100010xxxxx110xxxxxxxxxxxxx  n   968  SVE     ld3b  z_b_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 : svemem_gprs_bhsdx p10_zer_lo.gov
-10100100010xxxxx110xxxxxxxxxxxxx  n   968  SVE     ld3b  z_b_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 : svemem_gprs_bhsdx p10_zer_lo.gov
+10100100010xxxxx110xxxxxxxxxxxxx  n   968  SVE     ld3b  z_b_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 : svemem_gpr_shf p10_zer_lo.gov
+10100100010xxxxx110xxxxxxxxxxxxx  n   968  SVE     ld3b  z_b_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 : svemem_gpr_shf p10_zer_lo.gov
 101001000100xxxx111xxxxxxxxxxxxx  n   968  SVE     ld3b  z_b_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 : svemem_gpr_simm4_vl_xreg p10_zer_lo.gov
-10100101110xxxxx110xxxxxxxxxxxxx  n   986  SVE     ld3d  z_msz_bhsd_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 : svemem_msz_gpr_shf p10_zer_lo.gov
+10100101110xxxxx110xxxxxxxxxxxxx  n   986  SVE     ld3d  z_msz_bhsd_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 : svemem_gpr_shf p10_zer_lo.gov
 101001011100xxxx111xxxxxxxxxxxxx  n   986  SVE     ld3d  z_d_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 : svemem_gpr_simm4_vl_xreg p10_zer_lo.gov
-10100100110xxxxx110xxxxxxxxxxxxx  n   987  SVE     ld3h  z_msz_bhsd_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 : svemem_msz_gpr_shf p10_zer_lo.gov
+10100100110xxxxx110xxxxxxxxxxxxx  n   987  SVE     ld3h  z_msz_bhsd_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 : svemem_gpr_shf p10_zer_lo.gov
 101001001100xxxx111xxxxxxxxxxxxx  n   987  SVE     ld3h  z_h_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 : svemem_gpr_simm4_vl_xreg p10_zer_lo.gov
-10100101010xxxxx110xxxxxxxxxxxxx  n   988  SVE     ld3w  z_msz_bhsd_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 : svemem_msz_gpr_shf p10_zer_lo.gov
+10100101010xxxxx110xxxxxxxxxxxxx  n   988  SVE     ld3w  z_msz_bhsd_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 : svemem_gpr_shf p10_zer_lo.gov
 101001010100xxxx111xxxxxxxxxxxxx  n   988  SVE     ld3w  z_s_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 : svemem_gpr_simm4_vl_xreg p10_zer_lo.gov
-10100100011xxxxx110xxxxxxxxxxxxx  n   969  SVE     ld4b  z_b_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 z_msz_bhsd_0p3 : svemem_gprs_bhsdx p10_zer_lo.gov
-10100100011xxxxx110xxxxxxxxxxxxx  n   969  SVE     ld4b  z_b_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 z_msz_bhsd_0p3 : svemem_gprs_bhsdx p10_zer_lo.gov
+10100100011xxxxx110xxxxxxxxxxxxx  n   969  SVE     ld4b  z_b_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 z_msz_bhsd_0p3 : svemem_gpr_shf p10_zer_lo.gov
+10100100011xxxxx110xxxxxxxxxxxxx  n   969  SVE     ld4b  z_b_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 z_msz_bhsd_0p3 : svemem_gpr_shf p10_zer_lo.gov
 101001000110xxxx111xxxxxxxxxxxxx  n   969  SVE     ld4b  z_b_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 z_msz_bhsd_0p3 : svemem_gpr_simm4_vl_xreg p10_zer_lo.gov
-10100101111xxxxx110xxxxxxxxxxxxx  n   989  SVE     ld4d  z_msz_bhsd_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 z_msz_bhsd_0p3 : svemem_msz_gpr_shf p10_zer_lo.gov
+10100101111xxxxx110xxxxxxxxxxxxx  n   989  SVE     ld4d  z_msz_bhsd_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 z_msz_bhsd_0p3 : svemem_gpr_shf p10_zer_lo.gov
 101001011110xxxx111xxxxxxxxxxxxx  n   989  SVE     ld4d  z_d_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 z_msz_bhsd_0p3 : svemem_gpr_simm4_vl_xreg p10_zer_lo.gov
-10100100111xxxxx110xxxxxxxxxxxxx  n   990  SVE     ld4h  z_msz_bhsd_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 z_msz_bhsd_0p3 : svemem_msz_gpr_shf p10_zer_lo.gov
+10100100111xxxxx110xxxxxxxxxxxxx  n   990  SVE     ld4h  z_msz_bhsd_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 z_msz_bhsd_0p3 : svemem_gpr_shf p10_zer_lo.gov
 101001001110xxxx111xxxxxxxxxxxxx  n   990  SVE     ld4h  z_h_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 z_msz_bhsd_0p3 : svemem_gpr_simm4_vl_xreg p10_zer_lo.gov
-10100101011xxxxx110xxxxxxxxxxxxx  n   991  SVE     ld4w  z_msz_bhsd_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 z_msz_bhsd_0p3 : svemem_msz_gpr_shf p10_zer_lo.gov
+10100101011xxxxx110xxxxxxxxxxxxx  n   991  SVE     ld4w  z_msz_bhsd_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 z_msz_bhsd_0p3 : svemem_gpr_shf p10_zer_lo.gov
 101001010110xxxx111xxxxxxxxxxxxx  n   991  SVE     ld4w  z_s_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 z_msz_bhsd_0p3 : svemem_gpr_simm4_vl_xreg p10_zer_lo.gov
 10100100001xxxxx011xxxxxxxxxxxxx  n   937  SVE   ldff1b          z_h_0 : svemem_gpr_shf p10_zer_lo.gov
 10100100010xxxxx011xxxxxxxxxxxxx  n   937  SVE   ldff1b          z_s_0 : svemem_gpr_shf p10_zer_lo.gov
@@ -456,16 +456,16 @@
 110001001x0xxxxx011xxxxxxxxxxxxx  n   939  SVE   ldff1h          z_d_0 : svemem_gpr_vec32_ld p10_zer_lo.gov
 100001001x1xxxxx011xxxxxxxxxxxxx  n   939  SVE   ldff1h          z_s_0 : svemem_gpr_vec32_ld p10_zer_lo.gov
 100001001x0xxxxx011xxxxxxxxxxxxx  n   939  SVE   ldff1h          z_s_0 : svemem_gpr_vec32_ld p10_zer_lo.gov
-10100101110xxxxx011xxxxxxxxxxxxx  n   940  SVE  ldff1sb          z_h_0 : svemem_gpr_shf p10_zer_lo.gov
-10100101101xxxxx011xxxxxxxxxxxxx  n   940  SVE  ldff1sb          z_s_0 : svemem_gpr_shf p10_zer_lo.gov
-10100101100xxxxx011xxxxxxxxxxxxx  n   940  SVE  ldff1sb          z_d_0 : svemem_gpr_shf p10_zer_lo.gov
+10100101110xxxxx011xxxxxxxxxxxxx  n   940  SVE  ldff1sb          z_h_0 : svemem_gpr_shf_signed p10_zer_lo.gov
+10100101101xxxxx011xxxxxxxxxxxxx  n   940  SVE  ldff1sb          z_s_0 : svemem_gpr_shf_signed p10_zer_lo.gov
+10100101100xxxxx011xxxxxxxxxxxxx  n   940  SVE  ldff1sb          z_d_0 : svemem_gpr_shf_signed p10_zer_lo.gov
 10000100001xxxxx101xxxxxxxxxxxxx  n   940  SVE  ldff1sb          z_s_0 : svemem_vec_s_imm5 p10_zer_lo.gov
 11000100001xxxxx101xxxxxxxxxxxxx  n   940  SVE  ldff1sb          z_d_0 : svemem_vec_d_imm5 p10_zer_lo.gov
 11000100010xxxxx101xxxxxxxxxxxxx  n   940  SVE  ldff1sb          z_d_0 : svemem_gpr_vec64 p10_zer_lo.gov
 110001000x0xxxxx001xxxxxxxxxxxxx  n   940  SVE  ldff1sb          z_d_0 : svemem_gpr_vec32_ld p10_zer_lo.gov
 100001000x0xxxxx001xxxxxxxxxxxxx  n   940  SVE  ldff1sb          z_s_0 : svemem_gpr_vec32_ld p10_zer_lo.gov
-10100101001xxxxx011xxxxxxxxxxxxx  n   941  SVE  ldff1sh          z_s_0 : svemem_gpr_shf p10_zer_lo.gov
-10100101000xxxxx011xxxxxxxxxxxxx  n   941  SVE  ldff1sh          z_d_0 : svemem_gpr_shf p10_zer_lo.gov
+10100101001xxxxx011xxxxxxxxxxxxx  n   941  SVE  ldff1sh          z_s_0 : svemem_gpr_shf_signed p10_zer_lo.gov
+10100101000xxxxx011xxxxxxxxxxxxx  n   941  SVE  ldff1sh          z_d_0 : svemem_gpr_shf_signed p10_zer_lo.gov
 10000100101xxxxx101xxxxxxxxxxxxx  n   941  SVE  ldff1sh          z_s_0 : svemem_vec_s_imm5 p10_zer_lo.gov
 11000100101xxxxx101xxxxxxxxxxxxx  n   941  SVE  ldff1sh          z_d_0 : svemem_vec_d_imm5 p10_zer_lo.gov
 11000100111xxxxx101xxxxxxxxxxxxx  n   941  SVE  ldff1sh          z_d_0 : svemem_gpr_vec64 p10_zer_lo.gov
@@ -474,7 +474,7 @@
 110001001x0xxxxx001xxxxxxxxxxxxx  n   941  SVE  ldff1sh          z_d_0 : svemem_gpr_vec32_ld p10_zer_lo.gov
 100001001x1xxxxx001xxxxxxxxxxxxx  n   941  SVE  ldff1sh          z_s_0 : svemem_gpr_vec32_ld p10_zer_lo.gov
 100001001x0xxxxx001xxxxxxxxxxxxx  n   941  SVE  ldff1sh          z_s_0 : svemem_gpr_vec32_ld p10_zer_lo.gov
-10100100100xxxxx011xxxxxxxxxxxxx  n   942  SVE  ldff1sw          z_d_0 : svemem_gpr_shf p10_zer_lo.gov
+10100100100xxxxx011xxxxxxxxxxxxx  n   942  SVE  ldff1sw          z_d_0 : svemem_gpr_shf_signed p10_zer_lo.gov
 11000101001xxxxx101xxxxxxxxxxxxx  n   942  SVE  ldff1sw          z_d_0 : svemem_vec_d_imm5 p10_zer_lo.gov
 11000101011xxxxx101xxxxxxxxxxxxx  n   942  SVE  ldff1sw          z_d_0 : svemem_gpr_vec64 p10_zer_lo.gov
 11000101010xxxxx101xxxxxxxxxxxxx  n   942  SVE  ldff1sw          z_d_0 : svemem_gpr_vec64 p10_zer_lo.gov
@@ -506,13 +506,13 @@
 101001001001xxxx101xxxxxxxxxxxxx  n   1012 SVE  ldnf1sw          z_d_0 : svemem_gpr_simm4_vl_1reg p10_zer_lo.gov
 101001010101xxxx101xxxxxxxxxxxxx  n   1013 SVE   ldnf1w          z_s_0 : svemem_gpr_simm4_vl_1reg p10_zer_lo.gov
 101001010111xxxx101xxxxxxxxxxxxx  n   1013 SVE   ldnf1w          z_d_0 : svemem_gpr_simm4_vl_1reg p10_zer_lo.gov
-10100100000xxxxx110xxxxxxxxxxxxx  n   950  SVE   ldnt1b          z_b_0 : svemem_gprs_b1 p10_zer_lo.gov
+10100100000xxxxx110xxxxxxxxxxxxx  n   950  SVE   ldnt1b          z_b_0 : svemem_gpr_shf p10_zer_lo.gov
 101001000000xxxx111xxxxxxxxxxxxx  n   950  SVE   ldnt1b          z_b_0 : svemem_gpr_simm4_vl_xreg p10_zer_lo.gov
-10100101100xxxxx110xxxxxxxxxxxxx  n   992  SVE   ldnt1d   z_msz_bhsd_0 : svemem_msz_gpr_shf p10_zer_lo.gov
+10100101100xxxxx110xxxxxxxxxxxxx  n   992  SVE   ldnt1d   z_msz_bhsd_0 : svemem_gpr_shf p10_zer_lo.gov
 101001011000xxxx111xxxxxxxxxxxxx  n   992  SVE   ldnt1d          z_d_0 : svemem_gpr_simm4_vl_xreg p10_zer_lo.gov
-10100100100xxxxx110xxxxxxxxxxxxx  n   993  SVE   ldnt1h   z_msz_bhsd_0 : svemem_msz_gpr_shf p10_zer_lo.gov
+10100100100xxxxx110xxxxxxxxxxxxx  n   993  SVE   ldnt1h   z_msz_bhsd_0 : svemem_gpr_shf p10_zer_lo.gov
 101001001000xxxx111xxxxxxxxxxxxx  n   993  SVE   ldnt1h          z_h_0 : svemem_gpr_simm4_vl_xreg p10_zer_lo.gov
-10100101000xxxxx110xxxxxxxxxxxxx  n   994  SVE   ldnt1w   z_msz_bhsd_0 : svemem_msz_gpr_shf p10_zer_lo.gov
+10100101000xxxxx110xxxxxxxxxxxxx  n   994  SVE   ldnt1w   z_msz_bhsd_0 : svemem_gpr_shf p10_zer_lo.gov
 101001010000xxxx111xxxxxxxxxxxxx  n   994  SVE   ldnt1w          z_s_0 : svemem_gpr_simm4_vl_xreg p10_zer_lo.gov
 1000010110xxxxxx000xxxxxxxx0xxxx  n   227  SVE      ldr             p0 : svemem_gpr_simm9_vl
 1000010110xxxxxx010xxxxxxxxxxxxx  n   227  SVE      ldr             z0 : svemem_gpr_simm9_vl
@@ -706,40 +706,39 @@
 11100101010xxxxx010xxxxxxxxxxxxx  n   982  SVE     st1w  svemem_gpr_shf : z_s_0 p10_lo.gov
 11100101011xxxxx010xxxxxxxxxxxxx  n   982  SVE     st1w  svemem_gpr_shf : z_d_0 p10_lo.gov
 1110010101x0xxxx111xxxxxxxxxxxxx  n   982  SVE     st1w  svemem_gpr_simm4_vl_1reg : z_sz21_sd_0 p10_lo.gov
-11100100001xxxxx011xxxxxxxxxxxxx  n   970  SVE     st2b  svemem_gprs_bhsdx : z_b_0 z_msz_bhsd_0p1 p10_lo.gov
+11100100001xxxxx011xxxxxxxxxxxxx  n   970  SVE     st2b  svemem_gpr_shf : z_b_0 z_msz_bhsd_0p1 p10_lo.gov
 111001000011xxxx111xxxxxxxxxxxxx  n   970  SVE     st2b  svemem_gpr_simm4_vl_xreg : z_b_0 z_msz_bhsd_0p1 p10_lo.gov
-11100101101xxxxx011xxxxxxxxxxxxx  n   995  SVE     st2d  svemem_msz_stgpr_shf : z_msz_bhsd_0 z_msz_bhsd_0p1 p10_lo.gov
+11100101101xxxxx011xxxxxxxxxxxxx  n   995  SVE     st2d  svemem_gpr_shf : z_msz_bhsd_0 z_msz_bhsd_0p1 p10_lo.gov
 111001011011xxxx111xxxxxxxxxxxxx  n   995  SVE     st2d  svemem_gpr_simm4_vl_xreg : z_d_0 z_msz_bhsd_0p1 p10_lo.gov
-11100100101xxxxx011xxxxxxxxxxxxx  n   996  SVE     st2h  svemem_msz_stgpr_shf : z_msz_bhsd_0 z_msz_bhsd_0p1 p10_lo.gov
+11100100101xxxxx011xxxxxxxxxxxxx  n   996  SVE     st2h  svemem_gpr_shf : z_msz_bhsd_0 z_msz_bhsd_0p1 p10_lo.gov
 111001001011xxxx111xxxxxxxxxxxxx  n   996  SVE     st2h  svemem_gpr_simm4_vl_xreg : z_h_0 z_msz_bhsd_0p1 p10_lo.gov
-11100101001xxxxx011xxxxxxxxxxxxx  n   997  SVE     st2w  svemem_msz_stgpr_shf : z_msz_bhsd_0 z_msz_bhsd_0p1 p10_lo.gov
+11100101001xxxxx011xxxxxxxxxxxxx  n   997  SVE     st2w  svemem_gpr_shf : z_msz_bhsd_0 z_msz_bhsd_0p1 p10_lo.gov
 111001010011xxxx111xxxxxxxxxxxxx  n   997  SVE     st2w  svemem_gpr_simm4_vl_xreg : z_s_0 z_msz_bhsd_0p1 p10_lo.gov
-11100100010xxxxx011xxxxxxxxxxxxx  n   971  SVE     st3b  svemem_gprs_bhsdx : z_b_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 p10_lo.gov
-11100100010xxxxx011xxxxxxxxxxxxx  n   971  SVE     st3b  svemem_gprs_bhsdx : z_b_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 p10_lo.gov
+11100100010xxxxx011xxxxxxxxxxxxx  n   971  SVE     st3b  svemem_gpr_shf : z_b_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 p10_lo.gov
+11100100010xxxxx011xxxxxxxxxxxxx  n   971  SVE     st3b  svemem_gpr_shf : z_b_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 p10_lo.gov
 111001000101xxxx111xxxxxxxxxxxxx  n   971  SVE     st3b  svemem_gpr_simm4_vl_xreg : z_b_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 p10_lo.gov
-11100101110xxxxx011xxxxxxxxxxxxx  n   998  SVE     st3d  svemem_msz_stgpr_shf : z_msz_bhsd_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 p10_lo.gov
+11100101110xxxxx011xxxxxxxxxxxxx  n   998  SVE     st3d  svemem_gpr_shf : z_msz_bhsd_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 p10_lo.gov
 111001011101xxxx111xxxxxxxxxxxxx  n   998  SVE     st3d  svemem_gpr_simm4_vl_xreg : z_d_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 p10_lo.gov
-11100100110xxxxx011xxxxxxxxxxxxx  n   999  SVE     st3h  svemem_msz_stgpr_shf : z_msz_bhsd_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 p10_lo.gov
+11100100110xxxxx011xxxxxxxxxxxxx  n   999  SVE     st3h  svemem_gpr_shf : z_msz_bhsd_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 p10_lo.gov
 111001001101xxxx111xxxxxxxxxxxxx  n   999  SVE     st3h  svemem_gpr_simm4_vl_xreg : z_h_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 p10_lo.gov
-11100101010xxxxx011xxxxxxxxxxxxx  n   1000 SVE     st3w  svemem_msz_stgpr_shf : z_msz_bhsd_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 p10_lo.gov
+11100101010xxxxx011xxxxxxxxxxxxx  n   1000 SVE     st3w  svemem_gpr_shf : z_msz_bhsd_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 p10_lo.gov
 111001010101xxxx111xxxxxxxxxxxxx  n   1000 SVE     st3w  svemem_gpr_simm4_vl_xreg : z_s_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 p10_lo.gov
-11100100011xxxxx011xxxxxxxxxxxxx  n   972  SVE     st4b  svemem_gprs_bhsdx : z_b_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 z_msz_bhsd_0p3 p10_lo.gov
-11100100011xxxxx011xxxxxxxxxxxxx  n   972  SVE     st4b  svemem_gprs_bhsdx : z_b_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 z_msz_bhsd_0p3 p10_lo.gov
+11100100011xxxxx011xxxxxxxxxxxxx  n   972  SVE     st4b  svemem_gpr_shf : z_b_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 z_msz_bhsd_0p3 p10_lo.gov
+11100100011xxxxx011xxxxxxxxxxxxx  n   972  SVE     st4b  svemem_gpr_shf : z_b_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 z_msz_bhsd_0p3 p10_lo.gov
 111001000111xxxx111xxxxxxxxxxxxx  n   972  SVE     st4b  svemem_gpr_simm4_vl_xreg : z_b_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 z_msz_bhsd_0p3 p10_lo.gov
-11100101111xxxxx011xxxxxxxxxxxxx  n   1001 SVE     st4d  svemem_msz_stgpr_shf : z_msz_bhsd_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 z_msz_bhsd_0p3 p10_lo.gov
+11100101111xxxxx011xxxxxxxxxxxxx  n   1001 SVE     st4d  svemem_gpr_shf : z_msz_bhsd_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 z_msz_bhsd_0p3 p10_lo.gov
 111001011111xxxx111xxxxxxxxxxxxx  n   1001 SVE     st4d  svemem_gpr_simm4_vl_xreg : z_d_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 z_msz_bhsd_0p3 p10_lo.gov
-11100100111xxxxx011xxxxxxxxxxxxx  n   1002 SVE     st4h  svemem_msz_stgpr_shf : z_msz_bhsd_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 z_msz_bhsd_0p3 p10_lo.gov
+11100100111xxxxx011xxxxxxxxxxxxx  n   1002 SVE     st4h  svemem_gpr_shf : z_msz_bhsd_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 z_msz_bhsd_0p3 p10_lo.gov
 111001001111xxxx111xxxxxxxxxxxxx  n   1002 SVE     st4h  svemem_gpr_simm4_vl_xreg : z_h_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 z_msz_bhsd_0p3 p10_lo.gov
-11100101011xxxxx011xxxxxxxxxxxxx  n   1003 SVE     st4w  svemem_msz_stgpr_shf : z_msz_bhsd_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 z_msz_bhsd_0p3 p10_lo.gov
+11100101011xxxxx011xxxxxxxxxxxxx  n   1003 SVE     st4w  svemem_gpr_shf : z_msz_bhsd_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 z_msz_bhsd_0p3 p10_lo.gov
 111001010111xxxx111xxxxxxxxxxxxx  n   1003 SVE     st4w  svemem_gpr_simm4_vl_xreg : z_s_0 z_msz_bhsd_0p1 z_msz_bhsd_0p2 z_msz_bhsd_0p3 p10_lo.gov
-11100100000xxxxx011xxxxxxxxxxxxx  n   952  SVE   stnt1b  svemem_gprs_b1 : z_b_0 p10_lo.gov
-11100100000xxxxx011xxxxxxxxxxxxx  n   952  SVE   stnt1b  svemem_gprs_b1 : z_b_0 p10_lo.gov
+11100100000xxxxx011xxxxxxxxxxxxx  n   952  SVE   stnt1b  svemem_gpr_shf : z_b_0 p10_lo.gov
 111001000001xxxx111xxxxxxxxxxxxx  n   952  SVE   stnt1b  svemem_gpr_simm4_vl_xreg : z_b_0 p10_lo.gov
-11100101100xxxxx011xxxxxxxxxxxxx  n   1004 SVE   stnt1d  svemem_msz_stgpr_shf : z_msz_bhsd_0 p10_lo.gov
+11100101100xxxxx011xxxxxxxxxxxxx  n   1004 SVE   stnt1d  svemem_gpr_shf : z_msz_bhsd_0 p10_lo.gov
 111001011001xxxx111xxxxxxxxxxxxx  n   1004 SVE   stnt1d  svemem_gpr_simm4_vl_xreg : z_d_0 p10_lo.gov
-11100100100xxxxx011xxxxxxxxxxxxx  n   1005 SVE   stnt1h  svemem_msz_stgpr_shf : z_msz_bhsd_0 p10_lo.gov
+11100100100xxxxx011xxxxxxxxxxxxx  n   1005 SVE   stnt1h  svemem_gpr_shf : z_msz_bhsd_0 p10_lo.gov
 111001001001xxxx111xxxxxxxxxxxxx  n   1005 SVE   stnt1h  svemem_gpr_simm4_vl_xreg : z_h_0 p10_lo.gov
-11100101000xxxxx011xxxxxxxxxxxxx  n   1006 SVE   stnt1w  svemem_msz_stgpr_shf : z_msz_bhsd_0 p10_lo.gov
+11100101000xxxxx011xxxxxxxxxxxxx  n   1006 SVE   stnt1w  svemem_gpr_shf : z_msz_bhsd_0 p10_lo.gov
 111001010001xxxx111xxxxxxxxxxxxx  n   1006 SVE   stnt1w  svemem_gpr_simm4_vl_xreg : z_s_0 p10_lo.gov
 1110010110xxxxxx000xxxxxxxx0xxxx  n   457  SVE      str  svemem_gpr_simm9_vl : p0
 1110010110xxxxxx010xxxxxxxxxxxxx  n   457  SVE      str  svemem_gpr_simm9_vl : z0
