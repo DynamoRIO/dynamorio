@@ -8114,35 +8114,6 @@ encode_opnd_svemem_gpr_simm4_vl_1reg(uint enc, int opcode, byte *pc, opnd_t opnd
                                    opnd, enc_out);
 }
 
-/* SVE memory operand [<Xn|SP>, <Xm> LSL #x], mem transfer size based on ssz */
-
-static inline bool
-decode_opnd_svemem_ssz_gpr_shf(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
-{
-    opnd_size_t mem_transfer;
-    if (!decode_ssz(enc, &mem_transfer))
-        return false;
-
-    const uint shift_amount = BITS(enc, 24, 23);
-
-    return svemem_gprs_per_element_decode(mem_transfer, shift_amount, enc, opcode, pc,
-                                          opnd);
-}
-
-static inline bool
-encode_opnd_svemem_ssz_gpr_shf(uint enc, int opcode, byte *pc, opnd_t opnd,
-                               OUT uint *enc_out)
-{
-    opnd_size_t mem_transfer;
-    if (!decode_ssz(enc, &mem_transfer))
-        return false;
-
-    const uint shift_amount = BITS(enc, 24, 23);
-
-    return svemem_gprs_per_element_encode(mem_transfer, shift_amount, enc, opcode, pc,
-                                          opnd, enc_out);
-}
-
 static inline bool
 encode_svemem_gpr_vec_xs(uint enc, uint pos, opnd_t opnd, OUT uint *enc_out)
 {

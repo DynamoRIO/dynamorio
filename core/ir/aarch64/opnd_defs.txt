@@ -361,7 +361,6 @@
 -------???-xxxxx------xxxxx-----  svemem_vec_22sd_gpr16 # SVE memort operand [<Zn>.S/D{, <Xm>}]
 -------????-xxxx------xxxxx-----  svemem_gpr_simm4_vl_1reg # SVE memory operand [<Xn|SP>{, #<imm>, MUL VL}]
                                                            # 1 src/dest register
--------????xxxxx------xxxxx-----  svemem_ssz_gpr_shf # SVE memory operand [<Xn|SP>, <Xm>, LSL #x]
 -------????xxxxx-x----xxxxx-----  svemem_gpr_vec32_st # SVE memory address (32-bit offset) [<Xn|SP>, <Zm>.<T>, <mod> <amount>]
 -------xx------------------xxxxx  z_msz_bhsd_0    # z register with element size determined by msz
 -------xx------------------xxxxx  z_msz_bhsd_0p1  # z register with element size determined by msz, plus 1
