@@ -2341,7 +2341,8 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
             NOTIFY( 0,
                     "drmemtrace WARNING: attempting to open write end of pipe at %s "
                     "for online analysis but pipe does not exist. Use \"-offline\" "
-                    "mode if you are using drmemtrace without a reader.\n", pipe_path);
+                    "mode if you are using drmemtrace without a reader.\n",
+                    pipe_path);
         }
 
         int fd = dr_open_file(pipe_path, DR_FILE_WRITE_ONLY);
