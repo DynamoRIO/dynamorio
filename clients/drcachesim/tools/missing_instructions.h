@@ -166,6 +166,8 @@ private:
 //     static constexpr int RECORD_COLUMN_WIDTH = 12;
 //     static constexpr int INSTR_COLUMN_WIDTH = 12;
 //     static constexpr int TID_COLUMN_WIDTH = 11;
+  uintptr_t curr_core_id;
+  memref_tid_t curr_thread_id;
 };
 
 #endif /* _MISSING_INSTRUCTIONS_H_ */

@@ -46,223 +46,229 @@
 
 const std::string missing_instructions_t::TOOL_NAME = "Missing_Instructions tool";
 
-
 bool
 missing_instructions_t::get_opcode(const memref_t &memref)
 {
-  // std::cout<<"Data request!" << std::endl;
-  // std::cout<<"orig_pc: " << memref.data.pc << std::endl;
+    // std::cout<<"Data request!" << std::endl;
+    // std::cout<<"orig_pc: " << memref.data.pc << std::endl;
 
     // if (memref.marker.type == TRACE_TYPE_MARKER) {
-  //       switch (memref.marker.marker_type) {
-  //       case TRACE_MARKER_TYPE_VERSION:
-  //           // We delay printing until we know the tid.
-  //           if (trace_version_ == -1) {
-  //               trace_version_ = static_cast<int>(memref.marker.marker_value);
-  //           } else if (trace_version_ != static_cast<int>(memref.marker.marker_value)) {
-  //               error_string_ = std::string("Version mismatch across files");
-  //               return false;
-  //           }
-  //           version_record_ord_ = memstream->get_record_ordinal();
-  //           return true; // Do not count toward -sim_refs yet b/c we don't have tid.
-  //       case TRACE_MARKER_TYPE_FILETYPE:
-  //           // We delay printing until we know the tid.
-  //           if (filetype_ == -1) {
-  //               filetype_ = static_cast<intptr_t>(memref.marker.marker_value);
-  //           } else if (filetype_ != static_cast<intptr_t>(memref.marker.marker_value)) {
-  //               error_string_ = std::string("Filetype mismatch across files");
-  //               return false;
-  //           }
-  //           filetype_record_ord_ = memstream->get_record_ordinal();
-  //           if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL, memref.marker.marker_value) &&
-  //               !TESTANY(build_target_arch_type(), memref.marker.marker_value)) {
-  //               error_string_ = std::string("Architecture mismatch: trace recorded on ") +
-  //                   trace_arch_string(static_cast<offline_file_type_t>(
-  //                       memref.marker.marker_value)) +
-  //                   " but tool built for " + trace_arch_string(build_target_arch_type());
-  //               return false;
-  //           }
-  //           return true; // Do not count toward -sim_refs yet b/c we don't have tid.
-  //       case TRACE_MARKER_TYPE_TIMESTAMP:
-  //           // Delay to see whether this is a new window.  We assume a timestamp
-  //           // is always followed by another marker (cpu or window).
-  //           // We can't easily reorder and place window markers before timestamps
-  //           // since memref iterators use the timestamps to order buffer units.
-  //           timestamp_ = memref.marker.marker_value;
-  //           timestamp_record_ord_ = memstream->get_record_ordinal();
-  //           if (should_skip(memstream, memref))
-  //               timestamp_ = 0;
-  //           return true;
-  //       default: break;
-  //       }
-  //   }
+    //       switch (memref.marker.marker_type) {
+    //       case TRACE_MARKER_TYPE_VERSION:
+    //           // We delay printing until we know the tid.
+    //           if (trace_version_ == -1) {
+    //               trace_version_ = static_cast<int>(memref.marker.marker_value);
+    //           } else if (trace_version_ !=
+    //           static_cast<int>(memref.marker.marker_value)) {
+    //               error_string_ = std::string("Version mismatch across files");
+    //               return false;
+    //           }
+    //           version_record_ord_ = memstream->get_record_ordinal();
+    //           return true; // Do not count toward -sim_refs yet b/c we don't have tid.
+    //       case TRACE_MARKER_TYPE_FILETYPE:
+    //           // We delay printing until we know the tid.
+    //           if (filetype_ == -1) {
+    //               filetype_ = static_cast<intptr_t>(memref.marker.marker_value);
+    //           } else if (filetype_ !=
+    //           static_cast<intptr_t>(memref.marker.marker_value)) {
+    //               error_string_ = std::string("Filetype mismatch across files");
+    //               return false;
+    //           }
+    //           filetype_record_ord_ = memstream->get_record_ordinal();
+    //           if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL, memref.marker.marker_value) &&
+    //               !TESTANY(build_target_arch_type(), memref.marker.marker_value)) {
+    //               error_string_ = std::string("Architecture mismatch: trace recorded on
+    //               ") +
+    //                   trace_arch_string(static_cast<offline_file_type_t>(
+    //                       memref.marker.marker_value)) +
+    //                   " but tool built for " +
+    //                   trace_arch_string(build_target_arch_type());
+    //               return false;
+    //           }
+    //           return true; // Do not count toward -sim_refs yet b/c we don't have tid.
+    //       case TRACE_MARKER_TYPE_TIMESTAMP:
+    //           // Delay to see whether this is a new window.  We assume a timestamp
+    //           // is always followed by another marker (cpu or window).
+    //           // We can't easily reorder and place window markers before timestamps
+    //           // since memref iterators use the timestamps to order buffer units.
+    //           timestamp_ = memref.marker.marker_value;
+    //           timestamp_record_ord_ = memstream->get_record_ordinal();
+    //           if (should_skip(memstream, memref))
+    //               timestamp_ = 0;
+    //           return true;
+    //       default: break;
+    //       }
+    //   }
 
-
-
-  //   // We delay the initial markers until we know the tid.
-  //   // There are always at least 2 markers (timestamp+cpu) immediately after the
-  //   // first two, and on newer versions there is a 3rd (line size).
-  //   if (memref.marker.type == TRACE_TYPE_MARKER && memref.marker.tid != 0 &&
-  //       printed_header_.find(memref.marker.tid) == printed_header_.end()) {
-  //       printed_header_.insert(memref.marker.tid);
-  //       if (trace_version_ != -1) { // Old versions may not have a version marker.
-  //           if (!should_skip(memstream, memref)) {
-  //               print_prefix(memstream, memref, version_record_ord_);
-  //               std::cerr << "<marker: version " << trace_version_ << ">\n";
-  //           }
-  //       }
-  //       if (filetype_ != -1) { // Handle old/malformed versions.
-  //           if (!should_skip(memstream, memref)) {
-  //               print_prefix(memstream, memref, filetype_record_ord_);
-  //               std::cerr << "<marker: filetype 0x" << std::hex << filetype_ << std::dec
-  //                         << ">\n";
-  //           }
-  //       }
-  //   }
-
-
-    if (memref.marker.type == TRACE_TYPE_MARKER) {
-  //       if (memref.marker.marker_type == TRACE_MARKER_TYPE_WINDOW_ID) {
-  //           // Needs special handling to get the horizontal line before the timestamp.
-  //           if (last_window_[memref.marker.tid] != memref.marker.marker_value) {
-  //               std::cerr
-  //                   << "------------------------------------------------------------\n";
-  //               print_prefix(memstream, memref,
-  //                            -1); // Already incremented for timestamp above.
-  //           }
-  //           if (timestamp_ > 0) {
-  //               std::cerr << "<marker: timestamp " << timestamp_ << ">\n";
-  //               timestamp_ = 0;
-  //               print_prefix(memstream, memref);
-  //           }
-  //           std::cerr << "<marker: window " << memref.marker.marker_value << ">\n";
-  //           last_window_[memref.marker.tid] = memref.marker.marker_value;
-  //       }
-  //       if (timestamp_ > 0) {
-  //           print_prefix(memstream, memref, timestamp_record_ord_);
-  //           std::cerr << "<marker: timestamp " << timestamp_ << ">\n";
-  //           timestamp_ = 0;
-  //       }
-    }
-
-  //   if (memref.instr.tid != 0) {
-  //       print_prefix(memstream, memref);
-  //   }
-
-
+    //   // We delay the initial markers until we know the tid.
+    //   // There are always at least 2 markers (timestamp+cpu) immediately after the
+    //   // first two, and on newer versions there is a 3rd (line size).
+    //   if (memref.marker.type == TRACE_TYPE_MARKER && memref.marker.tid != 0 &&
+    //       printed_header_.find(memref.marker.tid) == printed_header_.end()) {
+    //       printed_header_.insert(memref.marker.tid);
+    //       if (trace_version_ != -1) { // Old versions may not have a version marker.
+    //           if (!should_skip(memstream, memref)) {
+    //               print_prefix(memstream, memref, version_record_ord_);
+    //               std::cerr << "<marker: version " << trace_version_ << ">\n";
+    //           }
+    //       }
+    //       if (filetype_ != -1) { // Handle old/malformed versions.
+    //           if (!should_skip(memstream, memref)) {
+    //               print_prefix(memstream, memref, filetype_record_ord_);
+    //               std::cerr << "<marker: filetype 0x" << std::hex << filetype_ <<
+    //               std::dec
+    //                         << ">\n";
+    //           }
+    //       }
+    //   }
 
     if (memref.marker.type == TRACE_TYPE_MARKER) {
+        //       if (memref.marker.marker_type == TRACE_MARKER_TYPE_WINDOW_ID) {
+        //           // Needs special handling to get the horizontal line before the
+        //           timestamp. if (last_window_[memref.marker.tid] !=
+        //           memref.marker.marker_value) {
+        //               std::cerr
+        //                   <<
+        //                   "------------------------------------------------------------\n";
+        //               print_prefix(memstream, memref,
+        //                            -1); // Already incremented for timestamp above.
+        //           }
+        //           if (timestamp_ > 0) {
+        //               std::cerr << "<marker: timestamp " << timestamp_ << ">\n";
+        //               timestamp_ = 0;
+        //               print_prefix(memstream, memref);
+        //           }
+        //           std::cerr << "<marker: window " << memref.marker.marker_value <<
+        //           ">\n"; last_window_[memref.marker.tid] = memref.marker.marker_value;
+        //       }
+        //       if (timestamp_ > 0) {
+        //           print_prefix(memstream, memref, timestamp_record_ord_);
+        //           std::cerr << "<marker: timestamp " << timestamp_ << ">\n";
+        //           timestamp_ = 0;
+        //       }
     }
-  //       switch (memref.marker.marker_type) {
-  //       case TRACE_MARKER_TYPE_VERSION:
-  //           // Handled above.
-  //           break;
-  //       case TRACE_MARKER_TYPE_FILETYPE:
-  //           // Handled above.
-  //           break;
-  //       case TRACE_MARKER_TYPE_TIMESTAMP:
-  //           // Handled above.
-  //           break;
-  //       case TRACE_MARKER_TYPE_CPU_ID:
-  //           // We include the thread ID here under the assumption that we will always
-  //           // see a cpuid marker on a thread switch.  To avoid that assumption
-  //           // we would want to track the prior tid and print out a thread switch
-  //           // message whenever it changes.
-  //           std::cerr << "<marker: tid " << memref.marker.tid << " on core "
-  //                     << memref.marker.marker_value << ">\n";
-  //           break;
-  //       case TRACE_MARKER_TYPE_KERNEL_EVENT:
-  //           if (trace_version_ <= TRACE_ENTRY_VERSION_NO_KERNEL_PC) {
-  //               // Legacy traces just have the module offset.
-  //               std::cerr << "<marker: kernel xfer from module offset +0x" << std::hex
-  //                         << memref.marker.marker_value << std::dec << " to handler>\n";
-  //           } else {
-  //               std::cerr << "<marker: kernel xfer from 0x" << std::hex
-  //                         << memref.marker.marker_value << std::dec << " to handler>\n";
-  //           }
-  //           break;
-  //       case TRACE_MARKER_TYPE_RSEQ_ABORT:
-  //           std::cerr << "<marker: rseq abort from 0x" << std::hex
-  //                     << memref.marker.marker_value << std::dec << " to handler>\n";
-  //           break;
-  //       case TRACE_MARKER_TYPE_KERNEL_XFER:
-  //           if (trace_version_ <= TRACE_ENTRY_VERSION_NO_KERNEL_PC) {
-  //               // Legacy traces just have the module offset.
-  //               std::cerr << "<marker: syscall xfer from module offset +0x" << std::hex
-  //                         << memref.marker.marker_value << std::dec << ">\n";
-  //           } else {
-  //               std::cerr << "<marker: syscall xfer from 0x" << std::hex
-  //                         << memref.marker.marker_value << std::dec << ">\n";
-  //           }
-  //           break;
-  //       case TRACE_MARKER_TYPE_INSTRUCTION_COUNT:
-  //           std::cerr << "<marker: instruction count " << memref.marker.marker_value
-  //                     << ">\n";
-  //           break;
-  //       case TRACE_MARKER_TYPE_CACHE_LINE_SIZE:
-  //           std::cerr << "<marker: cache line size " << memref.marker.marker_value
-  //                     << ">\n";
-  //           break;
-  //       case TRACE_MARKER_TYPE_PAGE_SIZE:
-  //           std::cerr << "<marker: page size " << memref.marker.marker_value << ">\n";
-  //           break;
-  //       case TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT:
-  //           std::cerr << "<marker: chunk instruction count " << memref.marker.marker_value
-  //                     << ">\n";
-  //           break;
-  //       case TRACE_MARKER_TYPE_CHUNK_FOOTER:
-  //           std::cerr << "<marker: chunk footer #" << memref.marker.marker_value << ">\n";
-  //           break;
-  //       case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS:
-  //           std::cerr << "<marker: physical address for following virtual: 0x" << std::hex
-  //                     << memref.marker.marker_value << std::dec << ">\n";
-  //           break;
-  //       case TRACE_MARKER_TYPE_VIRTUAL_ADDRESS:
-  //           std::cerr << "<marker: virtual address for prior physical: 0x" << std::hex
-  //                     << memref.marker.marker_value << std::dec << ">\n";
-  //           break;
-  //       case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE:
-  //           std::cerr << "<marker: physical address not available for 0x" << std::hex
-  //                     << memref.marker.marker_value << std::dec << ">\n";
-  //           break;
-  //       case TRACE_MARKER_TYPE_FUNC_ID:
-  //           std::cerr << "<marker: function #" << memref.marker.marker_value << ">\n";
-  //           break;
-  //       case TRACE_MARKER_TYPE_FUNC_RETADDR:
-  //           std::cerr << "<marker: function return address 0x" << std::hex
-  //                     << memref.marker.marker_value << std::dec << ">\n";
-  //           break;
-  //       case TRACE_MARKER_TYPE_FUNC_ARG:
-  //           std::cerr << "<marker: function argument 0x" << std::hex
-  //                     << memref.marker.marker_value << std::dec << ">\n";
-  //           break;
-  //       case TRACE_MARKER_TYPE_FUNC_RETVAL:
-  //           std::cerr << "<marker: function return value 0x" << std::hex
-  //                     << memref.marker.marker_value << std::dec << ">\n";
-  //           break;
-  //       case TRACE_MARKER_TYPE_RECORD_ORDINAL:
-  //           std::cerr << "<marker: record ordinal 0x" << std::hex
-  //                     << memref.marker.marker_value << std::dec << ">\n";
-  //           break;
-  //       default:
-  //           std::cerr << "<marker: type " << memref.marker.marker_type << "; value "
-  //                     << memref.marker.marker_value << ">\n";
-  //           break;
-  //       }
-  //       return true;
-  //   }
 
+    //   if (memref.instr.tid != 0) {
+    //       print_prefix(memstream, memref);
+    //   }
 
+    if (memref.marker.type == TRACE_TYPE_MARKER) {
+    }
+    //       switch (memref.marker.marker_type) {
+    //       case TRACE_MARKER_TYPE_VERSION:
+    //           // Handled above.
+    //           break;
+    //       case TRACE_MARKER_TYPE_FILETYPE:
+    //           // Handled above.
+    //           break;
+    //       case TRACE_MARKER_TYPE_TIMESTAMP:
+    //           // Handled above.
+    //           break;
+    //       case TRACE_MARKER_TYPE_CPU_ID:
+    //           // We include the thread ID here under the assumption that we will always
+    //           // see a cpuid marker on a thread switch.  To avoid that assumption
+    //           // we would want to track the prior tid and print out a thread switch
+    //           // message whenever it changes.
+    //           std::cerr << "<marker: tid " << memref.marker.tid << " on core "
+    //                     << memref.marker.marker_value << ">\n";
+    //           break;
+    //       case TRACE_MARKER_TYPE_KERNEL_EVENT:
+    //           if (trace_version_ <= TRACE_ENTRY_VERSION_NO_KERNEL_PC) {
+    //               // Legacy traces just have the module offset.
+    //               std::cerr << "<marker: kernel xfer from module offset +0x" <<
+    //               std::hex
+    //                         << memref.marker.marker_value << std::dec << " to
+    //                         handler>\n";
+    //           } else {
+    //               std::cerr << "<marker: kernel xfer from 0x" << std::hex
+    //                         << memref.marker.marker_value << std::dec << " to
+    //                         handler>\n";
+    //           }
+    //           break;
+    //       case TRACE_MARKER_TYPE_RSEQ_ABORT:
+    //           std::cerr << "<marker: rseq abort from 0x" << std::hex
+    //                     << memref.marker.marker_value << std::dec << " to handler>\n";
+    //           break;
+    //       case TRACE_MARKER_TYPE_KERNEL_XFER:
+    //           if (trace_version_ <= TRACE_ENTRY_VERSION_NO_KERNEL_PC) {
+    //               // Legacy traces just have the module offset.
+    //               std::cerr << "<marker: syscall xfer from module offset +0x" <<
+    //               std::hex
+    //                         << memref.marker.marker_value << std::dec << ">\n";
+    //           } else {
+    //               std::cerr << "<marker: syscall xfer from 0x" << std::hex
+    //                         << memref.marker.marker_value << std::dec << ">\n";
+    //           }
+    //           break;
+    //       case TRACE_MARKER_TYPE_INSTRUCTION_COUNT:
+    //           std::cerr << "<marker: instruction count " << memref.marker.marker_value
+    //                     << ">\n";
+    //           break;
+    //       case TRACE_MARKER_TYPE_CACHE_LINE_SIZE:
+    //           std::cerr << "<marker: cache line size " << memref.marker.marker_value
+    //                     << ">\n";
+    //           break;
+    //       case TRACE_MARKER_TYPE_PAGE_SIZE:
+    //           std::cerr << "<marker: page size " << memref.marker.marker_value <<
+    //           ">\n"; break;
+    //       case TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT:
+    //           std::cerr << "<marker: chunk instruction count " <<
+    //           memref.marker.marker_value
+    //                     << ">\n";
+    //           break;
+    //       case TRACE_MARKER_TYPE_CHUNK_FOOTER:
+    //           std::cerr << "<marker: chunk footer #" << memref.marker.marker_value <<
+    //           ">\n"; break;
+    //       case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS:
+    //           std::cerr << "<marker: physical address for following virtual: 0x" <<
+    //           std::hex
+    //                     << memref.marker.marker_value << std::dec << ">\n";
+    //           break;
+    //       case TRACE_MARKER_TYPE_VIRTUAL_ADDRESS:
+    //           std::cerr << "<marker: virtual address for prior physical: 0x" <<
+    //           std::hex
+    //                     << memref.marker.marker_value << std::dec << ">\n";
+    //           break;
+    //       case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE:
+    //           std::cerr << "<marker: physical address not available for 0x" << std::hex
+    //                     << memref.marker.marker_value << std::dec << ">\n";
+    //           break;
+    //       case TRACE_MARKER_TYPE_FUNC_ID:
+    //           std::cerr << "<marker: function #" << memref.marker.marker_value <<
+    //           ">\n"; break;
+    //       case TRACE_MARKER_TYPE_FUNC_RETADDR:
+    //           std::cerr << "<marker: function return address 0x" << std::hex
+    //                     << memref.marker.marker_value << std::dec << ">\n";
+    //           break;
+    //       case TRACE_MARKER_TYPE_FUNC_ARG:
+    //           std::cerr << "<marker: function argument 0x" << std::hex
+    //                     << memref.marker.marker_value << std::dec << ">\n";
+    //           break;
+    //       case TRACE_MARKER_TYPE_FUNC_RETVAL:
+    //           std::cerr << "<marker: function return value 0x" << std::hex
+    //                     << memref.marker.marker_value << std::dec << ">\n";
+    //           break;
+    //       case TRACE_MARKER_TYPE_RECORD_ORDINAL:
+    //           std::cerr << "<marker: record ordinal 0x" << std::hex
+    //                     << memref.marker.marker_value << std::dec << ">\n";
+    //           break;
+    //       default:
+    //           std::cerr << "<marker: type " << memref.marker.marker_type << "; value "
+    //                     << memref.marker.marker_value << ">\n";
+    //           break;
+    //       }
+    //       return true;
+    //   }
 
     static constexpr int name_width = 12;
     if (!type_is_instr(memref.instr.type) &&
         memref.data.type != TRACE_TYPE_INSTR_NO_FETCH) {
-      // return true; // backeman
+        // return true; // backeman
         std::string name; // Shared output for address-containing types.
         switch (memref.data.type) {
         default: std::cerr << "<entry type " << memref.data.type << ">\n"; return true;
         case TRACE_TYPE_THREAD_EXIT:
-          std::cerr << "<thread " << memref.data.tid << " exited>\n";
+            std::cerr << "<thread " << memref.data.tid << " exited>\n";
             return true;
             // The rest are address-containing types.
         case TRACE_TYPE_READ: name = "read"; break;
@@ -306,39 +312,39 @@ missing_instructions_t::get_opcode(const memref_t &memref)
               << std::setw(2) << memref.instr.size << " byte(s) @ 0x" << std::hex
               << std::setfill('0') << std::setw(sizeof(void *) * 2) << memref.instr.addr
               << std::dec << std::setfill(' ');
-  //   if (!TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, filetype_) && !has_modules_) {
-  //       // We can't disassemble so we provide what info the trace itself contains.
-  //       // XXX i#5486: We may want to store the taken target for conditional
-  //       // branches; if added, we can print it here.
-  //       // XXX: It may avoid initial confusion over the record-oriented output
-  //       // to indicate whether an instruction accesses memory, but that requires
-  //       // delayed printing.
-  //       std::cerr << " ";
-  //       switch (memref.instr.type) {
-  //       case TRACE_TYPE_INSTR: std::cerr << "non-branch\n"; break;
-  //       case TRACE_TYPE_INSTR_DIRECT_JUMP: std::cerr << "jump\n"; break;
-  //       case TRACE_TYPE_INSTR_INDIRECT_JUMP: std::cerr << "indirect jump\n"; break;
-  //       case TRACE_TYPE_INSTR_CONDITIONAL_JUMP: std::cerr << "conditional jump\n"; break;
-  //       case TRACE_TYPE_INSTR_DIRECT_CALL: std::cerr << "call\n"; break;
-  //       case TRACE_TYPE_INSTR_INDIRECT_CALL: std::cerr << "indirect call\n"; break;
-  //       case TRACE_TYPE_INSTR_RETURN: std::cerr << "return\n"; break;
-  //       case TRACE_TYPE_INSTR_NO_FETCH: std::cerr << "non-fetched instruction\n"; break;
-  //       case TRACE_TYPE_INSTR_SYSENTER: std::cerr << "sysenter\n"; break;
-  //       default: error_string_ = "Uknown instruction type\n"; return false;
-  //       }
-  //       ++num_disasm_instrs_;
-  //       return true;
-  //   }
+    //   if (!TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, filetype_) && !has_modules_) {
+    //       // We can't disassemble so we provide what info the trace itself contains.
+    //       // XXX i#5486: We may want to store the taken target for conditional
+    //       // branches; if added, we can print it here.
+    //       // XXX: It may avoid initial confusion over the record-oriented output
+    //       // to indicate whether an instruction accesses memory, but that requires
+    //       // delayed printing.
+    //       std::cerr << " ";
+    //       switch (memref.instr.type) {
+    //       case TRACE_TYPE_INSTR: std::cerr << "non-branch\n"; break;
+    //       case TRACE_TYPE_INSTR_DIRECT_JUMP: std::cerr << "jump\n"; break;
+    //       case TRACE_TYPE_INSTR_INDIRECT_JUMP: std::cerr << "indirect jump\n"; break;
+    //       case TRACE_TYPE_INSTR_CONDITIONAL_JUMP: std::cerr << "conditional jump\n";
+    //       break; case TRACE_TYPE_INSTR_DIRECT_CALL: std::cerr << "call\n"; break; case
+    //       TRACE_TYPE_INSTR_INDIRECT_CALL: std::cerr << "indirect call\n"; break; case
+    //       TRACE_TYPE_INSTR_RETURN: std::cerr << "return\n"; break; case
+    //       TRACE_TYPE_INSTR_NO_FETCH: std::cerr << "non-fetched instruction\n"; break;
+    //       case TRACE_TYPE_INSTR_SYSENTER: std::cerr << "sysenter\n"; break;
+    //       default: error_string_ = "Uknown instruction type\n"; return false;
+    //       }
+    //       ++num_disasm_instrs_;
+    //       return true;
+    //   }
 
     app_pc decode_pc;
     const app_pc orig_pc = (app_pc)memref.instr.addr;
     // if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, filetype_)) {
-        // The trace has instruction encodings inside it.
-        decode_pc = const_cast<app_pc>(memref.instr.encoding);
-        if (memref.instr.encoding_is_new) {
-            // The code may have changed: invalidate the cache.
-            // disasm_cache_.erase(orig_pc);
-        }
+    // The trace has instruction encodings inside it.
+    decode_pc = const_cast<app_pc>(memref.instr.encoding);
+    if (memref.instr.encoding_is_new) {
+        // The code may have changed: invalidate the cache.
+        // disasm_cache_.erase(orig_pc);
+    }
     // } else {
     //     // Legacy trace support where we need the binaries.
     //     decode_pc = module_mapper_->find_mapped_trace_address(orig_pc);
@@ -352,24 +358,24 @@ missing_instructions_t::get_opcode(const memref_t &memref)
 
     std::string disasm;
     // auto cached_disasm = disasm_cache_.find(orig_pc);
-  //   if (cached_disasm != disasm_cache_.end()) {
-  //       disasm = cached_disasm->second;
-  //   } else {
-        // MAX_INSTR_DIS_SZ is set to 196 in core/ir/disassemble.h but is not
-        // exported so we just use the same value here.
-        char buf[196];
-        byte *next_pc = disassemble_to_buffer(
-            dcontext_.dcontext, decode_pc, orig_pc, /*show_pc=*/false,
-            /*show_bytes=*/true, buf, BUFFER_SIZE_ELEMENTS(buf),
-            /*printed=*/nullptr);
-        if (next_pc == nullptr) {
-            error_string_ = "Failed to disassemble " + to_hex_string(memref.instr.addr);
-            return false;
-        }
-        disasm = buf;
-        // disasm_cache_.insert({ orig_pc, disasm });
-  //   }
-  //   // Put our prefix on raw byte spillover, and skip the other columns.
+    //   if (cached_disasm != disasm_cache_.end()) {
+    //       disasm = cached_disasm->second;
+    //   } else {
+    // MAX_INSTR_DIS_SZ is set to 196 in core/ir/disassemble.h but is not
+    // exported so we just use the same value here.
+    char buf[196];
+    byte *next_pc =
+        disassemble_to_buffer(dcontext_.dcontext, decode_pc, orig_pc, /*show_pc=*/false,
+                              /*show_bytes=*/true, buf, BUFFER_SIZE_ELEMENTS(buf),
+                              /*printed=*/nullptr);
+    if (next_pc == nullptr) {
+        error_string_ = "Failed to disassemble " + to_hex_string(memref.instr.addr);
+        return false;
+    }
+    disasm = buf;
+    // disasm_cache_.insert({ orig_pc, disasm });
+    //   }
+    //   // Put our prefix on raw byte spillover, and skip the other columns.
     auto newline = disasm.find('\n');
     if (newline != std::string::npos && newline < disasm.size() - 1) {
         std::stringstream prefix;
@@ -379,39 +385,39 @@ missing_instructions_t::get_opcode(const memref_t &memref)
                       prefix.str() + skip_name + "                               ");
     }
     std::cerr << disasm;
-  //   ++num_disasm_instrs_;
+    //   ++num_disasm_instrs_;
     return true;
 }
-
-
 
 analysis_tool_t *
 missing_instructions_tool_create(const cache_simulator_knobs_t &knobs)
 {
-  return new missing_instructions_t(knobs);
+    return new missing_instructions_t(knobs);
 }
-// missing_instructions_tool_create(const std::string &module_file_path, memref_tid_t thread,
+// missing_instructions_tool_create(const std::string &module_file_path, memref_tid_t
+// thread,
 //                  uint64_t skip_refs, uint64_t sim_refs, const std::string &syntax,
 //                  unsigned int verbose, const std::string &alt_module_dir)
 // {
-//     return new missing_instructions_t(module_file_path, thread, skip_refs, sim_refs, syntax, verbose,
+//     return new missing_instructions_t(module_file_path, thread, skip_refs, sim_refs,
+//     syntax, verbose,
 //                       alt_module_dir);
 // }
 
-
-missing_instructions_t::missing_instructions_t(const cache_simulator_knobs_t &knobs) 
-  : cache_simulator_t(knobs)
+missing_instructions_t::missing_instructions_t(const cache_simulator_knobs_t &knobs)
+    : cache_simulator_t(knobs)
 {
 }
-// missing_instructions_t::missing_instructions_t(const std::string &module_file_path, memref_tid_t thread,
+// missing_instructions_t::missing_instructions_t(const std::string &module_file_path,
+// memref_tid_t thread,
 //                uint64_t skip_refs, uint64_t sim_refs, const std::string &syntax,
 //                unsigned int verbose, const std::string &alt_module_dir)
 // {
-  
+
 // }
 
-
-// missing_instructions_t::missing_instructions_t(const std::string &module_file_path, memref_tid_t thread,
+// missing_instructions_t::missing_instructions_t(const std::string &module_file_path,
+// memref_tid_t thread,
 //                uint64_t skip_refs, uint64_t sim_refs, const std::string &syntax,
 //                unsigned int verbose, const std::string &alt_module_dir)
 //     : module_file_path_(module_file_path)
@@ -502,14 +508,15 @@ missing_instructions_t::missing_instructions_t(const cache_simulator_knobs_t &kn
 // }
 
 // bool
-// missing_instructions_t::should_skip(memtrace_stream_t *memstream, const memref_t &memref)
+// missing_instructions_t::should_skip(memtrace_stream_t *memstream, const memref_t
+// &memref)
 // {
 //     if (skip_refs_left_ > 0) {
 //         skip_refs_left_--;
 //         // I considered printing the version and filetype even when skipped but
 //         // it adds more confusion from the memref counting than it removes.
-//         // A user can do two missing_instructionss, one without a skip, to see the headers.
-//         return true;
+//         // A user can do two missing_instructionss, one without a skip, to see the
+//         headers. return true;
 //     }
 //     if (knob_sim_refs_ > 0) {
 //         if (sim_refs_left_ == 0)
@@ -528,49 +535,93 @@ missing_instructions_t::missing_instructions_t(const cache_simulator_knobs_t &kn
 bool
 missing_instructions_t::process_memref(const memref_t &memref)
 {
-  current_instruction_id++;
+    current_instruction_id++;
 
-  std::cerr << "[" << current_instruction_id << "]";
-  get_opcode(memref);
+    std::cerr << "[" << current_instruction_id << "]";
+    get_opcode(memref);
 
-  // if (current_instruction_id > 200000){ // limit instrs. to first 200k
-  //   exit(0);
-  // }
-  if (memref.marker.type == TRACE_TYPE_MARKER && memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID) 
-  {
-    //TODO stavi opciju pracenja razlicitih cores ovdje, mozda i da thread switcheve pratimo. Da nam svaki thread bude jedan "sample".
-  }
-  // Data misses
-  int data_misses_pre = cache_simulator_t::get_cache_metric(metric_name_t::MISSES, 1, 0, cache_split_t::DATA);
-  int inst_misses_pre = cache_simulator_t::get_cache_metric(metric_name_t::MISSES, 1, 0, cache_split_t::INSTRUCTION);
-  bool cache_ret = cache_simulator_t::process_memref(memref);
-  int data_misses_post = cache_simulator_t::get_cache_metric(metric_name_t::MISSES, 1, 0, cache_split_t::DATA);
-  int inst_misses_post = cache_simulator_t::get_cache_metric(metric_name_t::MISSES, 1, 0, cache_split_t::INSTRUCTION);
+    // if (current_instruction_id > 200000){ // limit instrs. to first 200k
+    //   exit(0);
+    // }
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID) {
+        // TODO stavi opciju pracenja razlicitih cores ovdje, mozda i da thread switcheve
+        // pratimo. Da nam svaki thread bude jedan "sample".
+        curr_core_id = memref.marker.marker_value;
+        curr_thread_id = memref.marker.tid;
+        std::cerr << "< CURR_CORE_ID_" << curr_core_id << " >" << std::endl;
+        std::cerr << "< CURR_THREAD_ID_" << curr_thread_id << " >" << std::endl;
+    }
 
-  int data_misses = data_misses_post - data_misses_pre;
-  int inst_misses = inst_misses_post - inst_misses_pre;
+    int core;
+    if (memref.data.tid == last_thread_)
+        core = last_core_;
+    else {
+        core = core_for_thread(memref.data.tid);
+        last_thread_ = memref.data.tid;
+        std::cout << "< CORE_SWITCH_FROM_" << last_core_ << "_TO_" << core << " >"
+                  << std::endl;
+        last_core_ = core;
+    }
 
-  bool data_miss = false;
-  bool inst_miss = false;
-  if (data_misses == 1)
-    data_miss = true;
-  else if (data_misses != 0)
-    throw std::runtime_error("Data shouldn't happen...");
+    // Data misses
+    int data_misses_l1_pre = cache_simulator_t::get_cache_metric(
+        metric_name_t::MISSES, 0, core, cache_split_t::DATA);
+    int inst_misses_l1_pre = cache_simulator_t::get_cache_metric(
+        metric_name_t::MISSES, 0, core, cache_split_t::INSTRUCTION);
+    int unified_misses_ll_pre = cache_simulator_t::get_cache_metric(
+        metric_name_t::MISSES, 2, core, cache_split_t::DATA);
 
-  if (1 <= inst_misses && inst_misses <= 2)
-    inst_miss = true;
-  else if (inst_misses != 0) {
-    std::cout<<"Inst misses:" <<inst_misses << std::endl;
-    throw std::runtime_error("Inst shouldn't happen...");
-  }
+    bool cache_ret = cache_simulator_t::process_memref(memref);
 
-  if (data_miss)
-    std::cerr << "DATA MISS" << std::endl;
+    int data_misses_l1_post = cache_simulator_t::get_cache_metric(
+        metric_name_t::MISSES, 0, core, cache_split_t::DATA);
+    int inst_misses_l1_post = cache_simulator_t::get_cache_metric(
+        metric_name_t::MISSES, 0, core, cache_split_t::INSTRUCTION);
+    int unified_misses_ll_post = cache_simulator_t::get_cache_metric(
+        metric_name_t::MISSES, 2, core, cache_split_t::DATA);
 
-  if (inst_miss)
-    std::cerr << "INST MISS" << std::endl;
+    int data_misses_l1 = data_misses_l1_post - data_misses_l1_pre;
+    int inst_misses_l1 = inst_misses_l1_post - inst_misses_l1_pre;
+    int unified_misses_ll = unified_misses_ll_post - unified_misses_ll_pre;
 
-  return cache_ret;
+    bool data_miss_l1 = false;
+    bool inst_miss_l1 = false;
+    bool unified_miss_ll = false;
+
+    if (data_misses_l1 == 1)
+        data_miss_l1 = true;
+    else if (data_misses_l1 != 0)
+        throw std::runtime_error("Data shouldn't happen...");
+
+    if (1 <= inst_misses_l1 && inst_misses_l1 <= 2)
+        inst_miss_l1 = true;
+    else if (inst_misses_l1 != 0) {
+        std::cout << "Inst misses:" << inst_misses_l1 << std::endl;
+        throw std::runtime_error("Inst shouldn't happen...");
+    }
+
+    if (1 <= unified_misses_ll && unified_misses_ll <= 2)
+        unified_miss_ll = true;
+    else if (unified_misses_ll != 0)
+    {
+        std::string regular_message_pre = "LL miss over 2 shouldn't happen. LL pre: ";
+        std::string regular_message_post = " LL post: ";
+        std::string error_message = regular_message_pre + std::to_string(unified_misses_ll_pre) + regular_message_post + std::to_string(unified_misses_ll_post) + std::to_string(data_misses_l1_pre) ;
+        throw std::runtime_error(error_message);
+    }
+
+
+    if (data_miss_l1)
+        std::cerr << "< DATA_MISS_L1_CORE_" << core << " >" << std::endl;
+
+    if (inst_miss_l1)
+        std::cerr << "< INST MISS_L1_CORE_" << core << " >" << std::endl;
+
+    if (unified_miss_ll)
+        std::cerr << "< UNIFIED_MISS_LL >" << std::endl;
+
+    return cache_ret;
 }
 
 // bool
@@ -588,7 +639,8 @@ missing_instructions_t::process_memref(const memref_t &memref)
 //             // We delay printing until we know the tid.
 //             if (trace_version_ == -1) {
 //                 trace_version_ = static_cast<int>(memref.marker.marker_value);
-//             } else if (trace_version_ != static_cast<int>(memref.marker.marker_value)) {
+//             } else if (trace_version_ != static_cast<int>(memref.marker.marker_value))
+//             {
 //                 error_string_ = std::string("Version mismatch across files");
 //                 return false;
 //             }
@@ -598,17 +650,20 @@ missing_instructions_t::process_memref(const memref_t &memref)
 //             // We delay printing until we know the tid.
 //             if (filetype_ == -1) {
 //                 filetype_ = static_cast<intptr_t>(memref.marker.marker_value);
-//             } else if (filetype_ != static_cast<intptr_t>(memref.marker.marker_value)) {
+//             } else if (filetype_ != static_cast<intptr_t>(memref.marker.marker_value))
+//             {
 //                 error_string_ = std::string("Filetype mismatch across files");
 //                 return false;
 //             }
 //             filetype_record_ord_ = memstream->get_record_ordinal();
 //             if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL, memref.marker.marker_value) &&
 //                 !TESTANY(build_target_arch_type(), memref.marker.marker_value)) {
-//                 error_string_ = std::string("Architecture mismatch: trace recorded on ") +
+//                 error_string_ = std::string("Architecture mismatch: trace recorded on
+//                 ") +
 //                     trace_arch_string(static_cast<offline_file_type_t>(
 //                         memref.marker.marker_value)) +
-//                     " but tool built for " + trace_arch_string(build_target_arch_type());
+//                     " but tool built for " +
+//                     trace_arch_string(build_target_arch_type());
 //                 return false;
 //             }
 //             return true; // Do not count toward -sim_refs yet b/c we don't have tid.
@@ -641,7 +696,8 @@ missing_instructions_t::process_memref(const memref_t &memref)
 //         if (filetype_ != -1) { // Handle old/malformed versions.
 //             if (!should_skip(memstream, memref)) {
 //                 print_prefix(memstream, memref, filetype_record_ord_);
-//                 std::cerr << "<marker: filetype 0x" << std::hex << filetype_ << std::dec
+//                 std::cerr << "<marker: filetype 0x" << std::hex << filetype_ <<
+//                 std::dec
 //                           << ">\n";
 //             }
 //         }
@@ -655,7 +711,8 @@ missing_instructions_t::process_memref(const memref_t &memref)
 //             // Needs special handling to get the horizontal line before the timestamp.
 //             if (last_window_[memref.marker.tid] != memref.marker.marker_value) {
 //                 std::cerr
-//                     << "------------------------------------------------------------\n";
+//                     <<
+//                     "------------------------------------------------------------\n";
 //                 print_prefix(memstream, memref,
 //                              -1); // Already incremented for timestamp above.
 //             }
@@ -674,9 +731,9 @@ missing_instructions_t::process_memref(const memref_t &memref)
 //         }
 //     }
 
-    // if (memref.instr.tid != 0) {
-    //     print_prefix(memstream, memref);
-    // }
+// if (memref.instr.tid != 0) {
+//     print_prefix(memstream, memref);
+// }
 
 //     if (memref.marker.type == TRACE_TYPE_MARKER) {
 //         switch (memref.marker.marker_type) {
@@ -701,10 +758,12 @@ missing_instructions_t::process_memref(const memref_t &memref)
 //             if (trace_version_ <= TRACE_ENTRY_VERSION_NO_KERNEL_PC) {
 //                 // Legacy traces just have the module offset.
 //                 std::cerr << "<marker: kernel xfer from module offset +0x" << std::hex
-//                           << memref.marker.marker_value << std::dec << " to handler>\n";
+//                           << memref.marker.marker_value << std::dec << " to
+//                           handler>\n";
 //             } else {
 //                 std::cerr << "<marker: kernel xfer from 0x" << std::hex
-//                           << memref.marker.marker_value << std::dec << " to handler>\n";
+//                           << memref.marker.marker_value << std::dec << " to
+//                           handler>\n";
 //             }
 //             break;
 //         case TRACE_MARKER_TYPE_RSEQ_ABORT:
@@ -733,14 +792,16 @@ missing_instructions_t::process_memref(const memref_t &memref)
 //             std::cerr << "<marker: page size " << memref.marker.marker_value << ">\n";
 //             break;
 //         case TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT:
-//             std::cerr << "<marker: chunk instruction count " << memref.marker.marker_value
+//             std::cerr << "<marker: chunk instruction count " <<
+//             memref.marker.marker_value
 //                       << ">\n";
 //             break;
 //         case TRACE_MARKER_TYPE_CHUNK_FOOTER:
-//             std::cerr << "<marker: chunk footer #" << memref.marker.marker_value << ">\n";
-//             break;
+//             std::cerr << "<marker: chunk footer #" << memref.marker.marker_value <<
+//             ">\n"; break;
 //         case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS:
-//             std::cerr << "<marker: physical address for following virtual: 0x" << std::hex
+//             std::cerr << "<marker: physical address for following virtual: 0x" <<
+//             std::hex
 //                       << memref.marker.marker_value << std::dec << ">\n";
 //             break;
 //         case TRACE_MARKER_TYPE_VIRTUAL_ADDRESS:
@@ -830,7 +891,8 @@ missing_instructions_t::process_memref(const memref_t &memref)
 
 //     std::cerr << std::left << std::setw(name_width) << "ifetch" << std::right
 //               << std::setw(2) << memref.instr.size << " byte(s) @ 0x" << std::hex
-//               << std::setfill('0') << std::setw(sizeof(void *) * 2) << memref.instr.addr
+//               << std::setfill('0') << std::setw(sizeof(void *) * 2) <<
+//               memref.instr.addr
 //               << std::dec << std::setfill(' ');
 //     if (!TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, filetype_) && !has_modules_) {
 //         // We can't disassemble so we provide what info the trace itself contains.
@@ -844,11 +906,11 @@ missing_instructions_t::process_memref(const memref_t &memref)
 //         case TRACE_TYPE_INSTR: std::cerr << "non-branch\n"; break;
 //         case TRACE_TYPE_INSTR_DIRECT_JUMP: std::cerr << "jump\n"; break;
 //         case TRACE_TYPE_INSTR_INDIRECT_JUMP: std::cerr << "indirect jump\n"; break;
-//         case TRACE_TYPE_INSTR_CONDITIONAL_JUMP: std::cerr << "conditional jump\n"; break;
-//         case TRACE_TYPE_INSTR_DIRECT_CALL: std::cerr << "call\n"; break;
-//         case TRACE_TYPE_INSTR_INDIRECT_CALL: std::cerr << "indirect call\n"; break;
-//         case TRACE_TYPE_INSTR_RETURN: std::cerr << "return\n"; break;
-//         case TRACE_TYPE_INSTR_NO_FETCH: std::cerr << "non-fetched instruction\n"; break;
+//         case TRACE_TYPE_INSTR_CONDITIONAL_JUMP: std::cerr << "conditional jump\n";
+//         break; case TRACE_TYPE_INSTR_DIRECT_CALL: std::cerr << "call\n"; break; case
+//         TRACE_TYPE_INSTR_INDIRECT_CALL: std::cerr << "indirect call\n"; break; case
+//         TRACE_TYPE_INSTR_RETURN: std::cerr << "return\n"; break; case
+//         TRACE_TYPE_INSTR_NO_FETCH: std::cerr << "non-fetched instruction\n"; break;
 //         case TRACE_TYPE_INSTR_SYSENTER: std::cerr << "sysenter\n"; break;
 //         default: error_string_ = "Uknown instruction type\n"; return false;
 //         }
@@ -889,8 +951,8 @@ missing_instructions_t::process_memref(const memref_t &memref)
 //             /*show_bytes=*/true, buf, BUFFER_SIZE_ELEMENTS(buf),
 //             /*printed=*/nullptr);
 //         if (next_pc == nullptr) {
-//             error_string_ = "Failed to disassemble " + to_hex_string(memref.instr.addr);
-//             return false;
+//             error_string_ = "Failed to disassemble " +
+//             to_hex_string(memref.instr.addr); return false;
 //         }
 //         disasm = buf;
 //         disasm_cache_.insert({ orig_pc, disasm });
@@ -912,8 +974,8 @@ missing_instructions_t::process_memref(const memref_t &memref)
 bool
 missing_instructions_t::print_results()
 {
-    cache_simulator_t::print_results();
     std::cerr << TOOL_NAME << " results:\n";
+    cache_simulator_t::print_results();
     // std::cerr << std::setw(15) << num_disasm_instrs_ << " : total instructions\n";
     return true;
 }
