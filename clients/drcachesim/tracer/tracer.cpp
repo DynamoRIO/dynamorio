@@ -2337,8 +2337,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
 #ifdef UNIX
         /* we want an isolated fd so we don't use ipc_pipe.open_for_write() */
         const char *pipe_path = ipc_pipe.get_pipe_path().c_str();
-        if (!dr_file_exists(pipe_path))
-        {
+        if (!dr_file_exists(pipe_path)) {
             NOTIFY( 0,
                     "drmemtrace WARNING: attempting to open write end of pipe at %s "
                     "for online analysis but pipe does not exist. Use \"-offline\" "
