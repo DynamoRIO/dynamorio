@@ -603,23 +603,41 @@ missing_instructions_t::process_memref(const memref_t &memref)
 
     if (1 <= unified_misses_ll && unified_misses_ll <= 2)
         unified_miss_ll = true;
-    else if (unified_misses_ll != 0)
-    {
+    else if (unified_misses_ll != 0) {
         std::string regular_message_pre = "LL miss over 2 shouldn't happen. LL pre: ";
         std::string regular_message_post = " LL post: ";
-        std::string error_message = regular_message_pre + std::to_string(unified_misses_ll_pre) + regular_message_post + std::to_string(unified_misses_ll_post);
+        std::string error_message = regular_message_pre +
+            std::to_string(unified_misses_ll_pre) + regular_message_post +
+            std::to_string(unified_misses_ll_post);
         throw std::runtime_error(error_message);
     }
 
 
-    if (data_miss_l1)
-        std::cerr << "< DATA_MISS_L1_CORE_" << core << " >" << std::endl;
+    if (data_miss_l1 || inst_miss_l1 || unified_miss_ll) {
+        addr_t pc, addr;
+        if (type_is_instr(memref.data.type))
+            pc = memref.instr.addr;
+        else { // data ref: others shouldn't get here
+            assert(type_is_prefetch(memref.data.type) ||
+                   memref.data.type == TRACE_TYPE_READ ||
+                   memref.data.type == TRACE_TYPE_WRITE);
+            pc = memref.data.pc;
+        }
+        addr = memref.data.addr;
 
-    if (inst_miss_l1)
-        std::cerr << "< INST MISS_L1_CORE_" << core << " >" << std::endl;
+        if (data_miss_l1)
+            std::cerr << "< DATA_MISS_L1_CORE_" << core << "_PC_" << pc
+                      << "_ADDRESS_TO_ACCESS_" << addr << " >" << std::endl;
 
-    if (unified_miss_ll)
-        std::cerr << "< UNIFIED_MISS_LL >" << std::endl;
+        if (inst_miss_l1)
+            std::cerr << "< INST_MISS_L1_CORE_" << core << "_PC_" << pc
+                      << "_ADDRESS_TO_ACCESS_" << addr << " >" << std::endl;
+
+        if (unified_miss_ll)
+            std::cerr << "< UNIFIED_LL_MISS"
+                      << "_PC_" << pc << "_ADDRESS_TO_ACCESS_" << addr << " >"
+                      << std::endl;
+    }
 
     return cache_ret;
 }
