@@ -3546,6 +3546,7 @@ raw2trace_t::write_delayed_branches(raw2trace_thread_data_t *tdata,
     for (const trace_entry_t *it = start; it < end; ++it) {
         tdata->delayed_branch.push_back(*it);
         tdata->delayed_branch_empty_ = false;
+        tdata->delayed_branch_past_timestamp_ = false;
         if (type_is_instr(static_cast<trace_type_t>(it->type)))
             ++instr_count;
     }
