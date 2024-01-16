@@ -5490,67 +5490,6 @@ encode_svemem_gpr_simm4(uint enc, opnd_size_t transfer_size, int scale, opnd_t o
     return true;
 }
 
-static inline bool
-decode_ssz(uint enc, OUT opnd_size_t *transfer_size)
-{
-    switch (BITS(enc, 22, 21)) {
-    case 0b00: *transfer_size = OPSZ_16; return true;
-    case 0b01: *transfer_size = OPSZ_32; return true;
-    default: break;
-    }
-    return false;
-}
-
-/* svemem_gpr_simm4: SVE memory operand [<Xn|SP>{, #<imm>}] */
-
-static inline bool
-decode_opnd_svemem_ssz_gpr_simm4(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
-{
-    opnd_size_t transfer_size;
-    return decode_ssz(enc, &transfer_size) &&
-        decode_svemem_gpr_simm4(enc, transfer_size, 16, opnd);
-}
-
-static inline bool
-encode_opnd_svemem_ssz_gpr_simm4(uint enc, int opcode, byte *pc, opnd_t opnd,
-                                 OUT uint *enc_out)
-{
-    opnd_size_t transfer_size;
-    return decode_ssz(enc, &transfer_size) &&
-        encode_svemem_gpr_simm4(enc, OPSZ_16, 16, opnd, enc_out);
-}
-
-/* SVE memory operand [<Xn|SP>{, #<imm>, MUL VL}] multiple dest registers or nt */
-
-static inline bool
-decode_opnd_svemem_gpr_simm4_vl_xreg(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
-{
-    const uint register_count = BITS(enc, 22, 21) + 1;
-    const uint transfer_bytes = (register_count * dr_get_sve_vector_length()) / 8;
-    /* The offset is scaled by the size of the vector in memory.
-     * This is the same as the transfer size.
-     */
-    const uint scale = transfer_bytes;
-
-    return decode_svemem_gpr_simm4(enc, opnd_size_from_bytes(transfer_bytes), scale,
-                                   opnd);
-}
-
-static inline bool
-encode_opnd_svemem_gpr_simm4_vl_xreg(uint enc, int opcode, byte *pc, opnd_t opnd,
-                                     OUT uint *enc_out)
-{
-    const uint register_count = BITS(enc, 22, 21) + 1;
-    const uint transfer_bytes = (register_count * dr_get_sve_vector_length()) / 8;
-    /* The offset is scaled by the size of the vector in memory.
-     * This is the same as the transfer size.
-     */
-    const uint scale = transfer_bytes;
-
-    return encode_svemem_gpr_simm4(enc, opnd_size_from_bytes(transfer_bytes), scale, opnd,
-                                   enc_out);
-}
-
 /* hsd_immh_sz: The element size of a vector mediated by immh with possible values h, s
  * and d
  */
@@ -7994,16 +7933,6 @@ sizes_from_dtype(const uint enc, aarch64_reg_offset *insz, aarch64_reg_offset *e
         *elsz = BITS(dtype, 1, 0);
 }
 
-static inline opnd_size_t
-memory_transfer_size_from_dtype(uint enc)
-{
-    aarch64_reg_offset insz, elsz;
-    sizes_from_dtype(enc, &insz, &elsz, true);
-
-    const uint elements = get_elements_in_sve_vector(elsz);
-    return opnd_size_from_bytes((1 << insz) * elements);
-}
-
 static inline bool
 decode_svemem_vec_sd_gpr16(uint size_bit, uint enc, int opcode, byte *pc,
                            OUT opnd_t *opnd)
@@ -8100,18 +8029,87 @@ encode_opnd_svemem_vec_22sd_gpr16(uint enc, int opcode, byte *pc, opnd_t opnd,
 static inline bool
 decode_opnd_svemem_gpr_simm4_vl_1reg(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    const opnd_size_t transfer_size = memory_transfer_size_from_dtype(enc);
-    return decode_svemem_gpr_simm4(enc, transfer_size, opnd_size_in_bytes(transfer_size),
-                                   opnd);
+    aarch64_reg_offset insz, elsz;
+    sizes_from_dtype(enc, &insz, &elsz, true);
+
+    const uint elements = get_elements_in_sve_vector(elsz);
+    const uint scale = (1 << insz) * elements;
+
+    const opnd_size_t transfer_size = opnd_size_from_bytes(1 << insz);
+    return decode_svemem_gpr_simm4(enc, transfer_size, scale, opnd);
 }
 
 static inline bool
 encode_opnd_svemem_gpr_simm4_vl_1reg(uint enc, int opcode, byte *pc, opnd_t opnd,
                                      OUT uint *enc_out)
 {
-    const opnd_size_t transfer_size = memory_transfer_size_from_dtype(enc);
-    return encode_svemem_gpr_simm4(enc, transfer_size, opnd_size_in_bytes(transfer_size),
-                                   opnd, enc_out);
+    aarch64_reg_offset insz, elsz;
+    sizes_from_dtype(enc, &insz, &elsz, true);
+
+    const uint elements = get_elements_in_sve_vector(elsz);
+    const uint scale = (1 << insz) * elements;
+
+    const opnd_size_t transfer_size = opnd_size_from_bytes(1 << insz);
+    return encode_svemem_gpr_simm4(enc, transfer_size, scale, opnd, enc_out);
+}
+
+/* SVE memory operand [<Xn|SP>{, #<imm>, MUL VL}] multiple dest registers or nt */
+
+static inline bool
+decode_opnd_svemem_gpr_simm4_vl_xreg(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    const opnd_size_t element_size = get_opnd_size_from_offset(BITS(enc, 24, 23));
+
+    /* The offset is scaled by the size of the vector in memory.*/
+    const uint register_count = BITS(enc, 22, 21) + 1;
+    const uint scale = (register_count * dr_get_sve_vector_length()) / 8;
+
+    return decode_svemem_gpr_simm4(enc, element_size, scale, opnd);
+}
+
+static inline bool
+encode_opnd_svemem_gpr_simm4_vl_xreg(uint enc, int opcode, byte *pc, opnd_t opnd,
+                                     OUT uint *enc_out)
+{
+    const opnd_size_t element_size = get_opnd_size_from_offset(BITS(enc, 24, 23));
+
+    /* The offset is scaled by the size of the vector in memory.*/
+    const uint register_count = BITS(enc, 22, 21) + 1;
+    const uint scale = (register_count * dr_get_sve_vector_length()) / 8;
+
+    return encode_svemem_gpr_simm4(enc, element_size, scale, opnd, enc_out);
+}
+
+static inline bool
+decode_ssz(uint enc, OUT uint *scale)
+{
+    switch (BITS(enc, 22, 21)) {
+    case 0b00: *scale = 16; return true;
+    case 0b01: *scale = 32; return true;
+    default: break;
+    }
+    return false;
+}
+
+/* svemem_gpr_simm4: SVE memory operand [<Xn|SP>{, #<imm>}] */
+
+static inline bool
+decode_opnd_svemem_ssz_gpr_simm4(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    uint scale;
+    const opnd_size_t transfer_size = opnd_size_from_bytes(1 << BITS(enc, 24, 23));
+    return decode_ssz(enc, &scale) &&
+        decode_svemem_gpr_simm4(enc, transfer_size, scale, opnd);
+}
+
+static inline bool
+encode_opnd_svemem_ssz_gpr_simm4(uint enc, int opcode, byte *pc, opnd_t opnd,
+                                 OUT uint *enc_out)
+{
+    uint scale;
+    const opnd_size_t transfer_size = opnd_size_from_bytes(1 << BITS(enc, 24, 23));
+    return decode_ssz(enc, &scale) &&
+        encode_svemem_gpr_simm4(enc, transfer_size, scale, opnd, enc_out);
 }
 
 static inline bool
