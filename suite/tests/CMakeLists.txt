@@ -4147,6 +4147,8 @@ if (BUILD_CLIENTS)
       # TODO i#3544: Port tests to RISC-V 64
       torunonly_drcacheoff(opcode_mix ${ci_shared_app} ""
         "@-simulator_type@opcode_mix" "")
+      torunonly_drcacheoff(opcode_categories allasm_x86_64 ""
+        "@-simulator_type@opcode_mix" "")
       # Ensure the tool works without the raw/ subdir.
       set(tool.drcacheoff.opcode_mix_postcmd
         "firstglob@${drraw2trace_path}@-indir@${dir_prefix}.*.dir")
