@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2023 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2024 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2016-2023 ARM Limited.    All rights reserved.
 # **********************************************************
@@ -1118,6 +1118,10 @@ function(template2expect outexpect template runops key)
     set(rundefs "${rundefs} -D__AVX__ -D__AVX512F__")
   elseif (DEFINED ${key}_runavx)
     set(rundefs "${rundefs} -D__AVX__")
+  elseif (DEFINED ${key}_runsve2)
+    set(rundefs "${rundefs} -D__ARM_FEATURE_SVE")
+    set(rundefs "${rundefs} -D__ARM_FEATURE_SVE2")
+    set(rundefs "${rundefs} -D__ARM_FEATURE_SVE_BITS=${proc_sve_vl}")
   elseif (DEFINED ${key}_runsve)
     set(rundefs "${rundefs} -D__ARM_FEATURE_SVE")
     set(rundefs "${rundefs} -D__ARM_FEATURE_SVE_BITS=${proc_sve_vl}")
@@ -1627,9 +1631,14 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
     # Though we mostly use drrun's -s we set this too in case the requested
     # value is higher than ctest's default.
     set_tests_properties(${test} PROPERTIES TIMEOUT ${${key}_timeout})
-  elseif (is_runcmp)
-    # Runcmp generally doesn't use drrun or runstats so we need a ctest timeout.
+  elseif (is_runcmp OR is_runall)
+    # Runcmp/runall generally don't use drrun or runstats so we need a ctest timeout.
     set_tests_properties(${test} PROPERTIES TIMEOUT ${TEST_SECONDS})
+  else ()
+    # Even though we expect drrun -s to enforce a timeout, set one in ctest just
+    # in case, but give time for drrun first.
+    math(EXPR timeout "${TEST_SECONDS}+30")
+    set_tests_properties(${test} PROPERTIES TIMEOUT ${timeout})
   endif ()
 
   # Though we use drrun and runstats -s timeout parameters, we have
@@ -1807,7 +1816,12 @@ macro(set_avx_flags target)
 endmacro(set_avx_flags)
 
 macro(set_sve_flags target)
-  if (proc_supports_sve)
+  if (proc_supports_sve2)
+    if (TARGET ${target}) # Support calling on non-exe target.
+      append_property_string(TARGET ${target} COMPILE_FLAGS "${CFLAGS_SVE2}")
+    endif ()
+    set(${target}_runsve2 1)
+  elseif (proc_supports_sve)
     if (TARGET ${target}) # Support calling on non-exe target.
       append_property_string(TARGET ${target} COMPILE_FLAGS "${CFLAGS_SVE}")
     endif ()
@@ -2940,9 +2954,13 @@ if (X86 OR AARCH64)
         "" "" "")
       set_sve_flags(client.drx-scattergather)
 
-      if (proc_supports_sve)
+      if (proc_supports_sve OR proc_supports_sve2)
         # Run the tests natively as well to confirm the test reference data is correct.
-        set(client.drx-scattergather-native_runsve 1)
+        if (proc_supports_sve2)
+          set(client.drx-scattergather-native_runsve2 1)
+        else ()
+          set(client.drx-scattergather-native_runsve 1)
+        endif ()
         set(client.drx-scattergather-native_test_sample_client 1)
         torunonly_native(client.drx-scattergather-native client.drx-scattergather
           drx-scattergather-aarch64 "client-interface/drx-scattergather-aarch64.cpp" "")
@@ -3073,17 +3091,40 @@ endif ()
 
 if (NOT ANDROID AND NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   # XXX i#1874: get working on Android
-  tobuild_appdll(client.drsyms-test client-interface/drsyms-test.cpp)
-  get_target_path_for_execution(drsyms_libpath client.drsyms-test.appdll "${location_suffix}")
-  tobuild_ci(client.drsyms-test client-interface/drsyms-test.cpp ""
-    "" "${drsyms_libpath}")
-  # Disable optimizations for the exe and appdll to allow stack tracing.
-  disable_optimizations_for_file(client-interface/drsyms-test.cpp)
-  disable_optimizations_for_file(client-interface/drsyms-test.appdll.cpp)
-  # Debug libc seems to mess up the test.
-  use_MT_not_MTd(client-interface/drsyms-test.appdll.cpp)
-  use_DynamoRIO_extension(client.drsyms-test.dll drsyms)
-  use_DynamoRIO_extension(client.drsyms-test.dll drwrap)  # Makes testing easy
+  macro (add_drsyms_test suffix flag)
+    tobuild_appdll(client.drsyms${suffix}-test client-interface/drsyms-test.cpp)
+    get_target_path_for_execution(drsyms_libpath client.drsyms${suffix}-test.appdll
+      "${location_suffix}")
+    tobuild_ci(client.drsyms${suffix}-test client-interface/drsyms-test.cpp ""
+      "" "${drsyms_libpath}")
+    # Disable optimizations for the exe and appdll to allow stack tracing.
+    disable_optimizations_for_file(client-interface/drsyms-test.cpp)
+    disable_optimizations_for_file(client-interface/drsyms-test.appdll.cpp)
+    # Debug libc seems to mess up the test.
+    use_MT_not_MTd(client-interface/drsyms-test.appdll.cpp)
+    use_DynamoRIO_extension(client.drsyms${suffix}-test.dll drsyms)
+    use_DynamoRIO_extension(client.drsyms${suffix}-test.dll drwrap)  # Makes testing easy
+    if (NOT "${flag}" STREQUAL "")
+      append_property_string(TARGET client.drsyms${suffix}-test
+        COMPILE_FLAGS "${flag}")
+      append_property_string(TARGET client.drsyms${suffix}-test.appdll
+        COMPILE_FLAGS "${flag}")
+    endif ()
+  endmacro ()
+
+  add_drsyms_test("" "")
+  if (LINUX)
+    # We don't try to figure out the default: we just try each variant in addition to
+    # whatever the default is.
+    CHECK_C_COMPILER_FLAG("-gdwarf-4" gdwarf4_avail)
+    if (gdwarf4_avail)
+      add_drsyms_test("-dwarf4" "-gdwarf-4")
+    endif ()
+    CHECK_C_COMPILER_FLAG("-gdwarf-5" gdwarf5_avail)
+    if (gdwarf5_avail)
+      add_drsyms_test("-dwarf5" "-gdwarf-5")
+    endif ()
+  endif ()
 
   # TODO i#2414: Port to Windows, Mac, and Android.
   if (LINUX AND HAVE_LIBUNWIND_H)
@@ -3505,7 +3546,9 @@ if (BUILD_SAMPLES)
           torunonly_ci(sample.${sample}_scattergather client.drx-scattergather ${sample}
               client-interface/drx-scattergather-aarch64.cpp "" "" "")
           set(sample.${sample}_scattergather_test_sample_client 1)
-          if (proc_supports_sve)
+          if (proc_supports_sve2)
+            set(sample.${sample}_scattergather_runsve2 1)
+          elseif (proc_supports_sve)
             set(sample.${sample}_scattergather_runsve 1)
           endif ()
         endif ()
@@ -3855,6 +3898,8 @@ if (BUILD_CLIENTS)
         set(tool.drcachesim.scattergather-${ARCH_NAME}_runavx512 1)
       elseif (proc_supports_avx)
         set(tool.drcachesim.scattergather-${ARCH_NAME}_runavx 1)
+      elseif (proc_supports_sve2)
+        set(tool.drcachesim.scattergather-${ARCH_NAME}_runsve2 1)
       elseif (proc_supports_sve)
         set(tool.drcachesim.scattergather-${ARCH_NAME}_runsve 1)
       endif ()
@@ -3955,6 +4000,14 @@ if (BUILD_CLIENTS)
     # lz4 is on by default so we test no compression here.
     torunonly_drcacheoff(raw-none ${ci_shared_app} "-raw_compress none" "" "")
     set(tool.drcacheoff.raw-none_expectbase "offline-simple")
+
+    # Test that malloc & co. are not invoked.
+    # We disable the lz4 default as both lz4 and snappy call
+    # dr_allow_unsafe_static_behavior().
+    # We enable function tracing for a non-library-exported function to exercise drsyms.
+    torunonly_drcacheoff(check-malloc ${ci_shared_app}
+      "-raw_compress none -record_function 'main|2'" "" "")
+    set(tool.drcacheoff.check-malloc_expectbase "offline-simple")
 
     # Test reading a trace in sharded snappy-compressed files.
     if (libsnappy)
@@ -4415,7 +4468,11 @@ if (BUILD_CLIENTS)
       if (X86 AND proc_supports_avx512)
         set(tool.drcacheoff.allasm-scattergather-basic-counts_runavx512 1)
       elseif (AARCH64)
-        set(tool.drcacheoff.allasm-scattergather-basic-counts_runsve 1)
+        if (proc_supports_sve2)
+          set(tool.drcacheoff.allasm-scattergather-basic-counts_runsve2 1)
+        elseif (proc_supports_sve)
+          set(tool.drcacheoff.allasm-scattergather-basic-counts_runsve 1)
+        endif ()
       endif ()
       set(tool.drcacheoff.allasm-scattergather-basic-counts_expectbase
         "offline-allasm-scattergather-basic-counts-${ARCH_NAME}")
@@ -4426,7 +4483,11 @@ if (BUILD_CLIENTS)
       if (X86 AND proc_supports_avx512)
         set(tool.drcachesim.allasm-scattergather-basic-counts_runavx512 1)
       elseif (AARCH64)
-        set(tool.drcachesim.allasm-scattergather-basic-counts_runsve 1)
+        if (proc_supports_sve2)
+          set(tool.drcachesim.allasm-scattergather-basic-counts_runsve2 1)
+        elseif (proc_supports_sve)
+          set(tool.drcachesim.allasm-scattergather-basic-counts_runsve 1)
+        endif ()
       endif ()
       set(tool.drcachesim.allasm-scattergather-basic-counts_expectbase
             "allasm-scattergather-basic-counts-${ARCH_NAME}")
@@ -5957,6 +6018,7 @@ if (RISCV64)
     code_api|sample.syscall
     code_api|security-linux.trampoline
     code_api|tool.drdisas
+    code_api|tool.reuse_distance
     no_code_api,no_intercept_all_signals|linux.sigaction
     PROPERTIES LABELS RUNS_ON_QEMU)
   if (DEBUG)

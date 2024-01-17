@@ -4,3 +4,6 @@
 [submodule "third_party/zlib"]
     path = third_party/zlib
     url = https://github.com/madler/zlib.git
+[submodule "third_party/elfutils"]
+    path = third_party/elfutils
+    url = https://sourceware.org/git/elfutils.git

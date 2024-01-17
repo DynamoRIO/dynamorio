@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,12 +38,24 @@
 #define DRSYMS_ARCH_H
 
 #include "drsyms.h"
-#include "dwarf.h"
-#include "libdwarf.h"
+#ifdef USE_ELFUTILS
+#    include "libdw.h"
+#else
+#    include "dwarf.h"
+#    include "libdwarf.h"
+#endif
 
 /***************************************************************************
  * Platform-specific: Linux (ELF) or Cygwin/MinGW (PECOFF)
  */
+
+/* TODO i#5926: Use elfutils everywhere.  We start out with just Linux. */
+#ifdef USE_ELFUTILS
+typedef Dwarf *dwarf_lib_handle_t;
+#else
+/* elftoolchain */
+typedef Dwarf_Debug dwarf_lib_handle_t;
+#endif
 
 void
 drsym_obj_init(void);
@@ -64,7 +76,7 @@ bool
 drsym_obj_mod_init_post(void *mod_in, byte *map_base, void *dwarf_info);
 
 bool
-drsym_obj_dwarf_init(void *mod_in, Dwarf_Debug *dbg);
+drsym_obj_dwarf_init(void *mod_in, dwarf_lib_handle_t *dbg);
 
 void
 drsym_obj_mod_exit(void *mod_in);
@@ -109,7 +121,7 @@ drsym_obj_build_id(void *mod_in);
  */
 
 void *
-drsym_dwarf_init(Dwarf_Debug dbg);
+drsym_dwarf_init(dwarf_lib_handle_t dbg);
 
 void
 drsym_dwarf_exit(void *mod_in);

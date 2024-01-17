@@ -175,6 +175,13 @@ opnd_is_predicate_zero(opnd_t op)
     return opnd_is_predicate_reg(op) && ((op.aux.flags & DR_OPND_IS_ZERO_PREDICATE) != 0);
 }
 
+INSTR_INLINE
+bool
+opnd_is_governing(opnd_t op)
+{
+    return opnd_is_predicate_reg(op) && ((op.aux.flags & DR_OPND_IS_GOVERNING) != 0);
+}
+
 #    if defined(X64) || defined(ARM)
 #        ifdef X86
 #            define OPND_IS_REL_ADDR(op) ((op).kind == REL_ADDR_kind)

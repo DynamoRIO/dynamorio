@@ -355,6 +355,32 @@ function (check_sve_processor_and_compiler_support out vl_out)
   endif ()
 endfunction (check_sve_processor_and_compiler_support)
 
+function (check_sve2_processor_and_compiler_support out)
+  include(CheckCSourceRuns)
+  set(sve2_prog "int main() {
+                    asm(\"histcnt z0.d, p0/z, z0.d, z0.d\");
+                    return 0;
+                 }")
+  set(CMAKE_REQUIRED_FLAGS ${CFLAGS_SVE2})
+  if (CMAKE_CROSSCOMPILING)
+    # If we are cross-compiling check_c_source_runs() can't run the executable on the
+    # host to find out whether the target processor supports SVE2, so we assume it
+    # doesn't.
+    set(proc_found_sve2_EXITCODE 1 CACHE STRING
+        "Set to 0 if target processor/emulator supports SVE2 to enable SVE2 tests"
+        FORCE)
+  else ()
+    check_c_source_runs("${sve2_prog}" proc_found_sve2)
+  endif ()
+  if (proc_found_sve2)
+    message(STATUS "Compiler and processor support SVE2.")
+  else ()
+    message(STATUS "WARNING: Compiler or processor do not support SVE2. "
+                   "Skipping tests")
+  endif ()
+  set(${out} ${proc_found_sve2} PARENT_SCOPE)
+endfunction (check_sve2_processor_and_compiler_support)
+
 function (get_processor_vendor out)
   set(cpu_vendor "<unknown>")
   if (APPLE)
