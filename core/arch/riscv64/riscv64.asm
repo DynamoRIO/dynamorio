@@ -95,7 +95,9 @@ call_dispatch_alt_stack_no_free:
         jalr     ARG3
         /* Switch stack back. */
         mv       sp, s0
-        beqz     s1, GLOBAL_LABEL(unexpected_return)
+        bnez     s1, call_dispatch_alt_stack_ok_return
+        jal      GLOBAL_LABEL(unexpected_return)
+call_dispatch_alt_stack_ok_return:
         /* Restore the stack. */
         ld       s1, 0 (sp)
         ld       s0, 8 (sp)
