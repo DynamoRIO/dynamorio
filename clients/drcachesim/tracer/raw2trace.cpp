@@ -2883,13 +2883,22 @@ raw2trace_t::set_instr_summary_flags(raw2trace_thread_data_t *tdata, uint64 modi
 }
 
 #if defined(AARCH64)
-/* TODO i#5365: append_bb_entries() takes the size of the scatter/gather memory operand
- * to be the per-element value and uses that to create the read/write memref entries.
+/* TODO i#5365, i#5036: append_bb_entries() takes the size of the scatter/gather memory
+ * operand to be the per-element value and uses that to create the read/write memref
+ * entries.
  * The AArch64 IR currently uses the maximum amount of data transferred by the instruction
  * (number of elements * per element size) instead so until we change the codec to use the
  * per-element size we need to use this function to set the per-element size based on the
  * instruction opcode.
  * When we have made the codec/IR changes this function can be removed.
+
+ * An alternative solution @derekbruening suggested is to store the encoding during
+ * tracing like we do for vdso or JIT code (see
+ * offline_instru_t::record_instr_encodings()), but not the encoding of the emulated
+ * instr info's pointer to the original scatter/gather: rather, the unrolled single
+ * load/store. This would greatly simplify raw2trace and questions about what the IR
+ * should store. OTOH it adds some tracing overhead: which probably outweighs gains in
+ * reducing code complexity.
  */
 opnd_size_t
 get_aarch64_scatter_gather_value_size(int opcode)
