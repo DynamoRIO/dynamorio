@@ -68,6 +68,14 @@
 # If several operands handle the same 'x' bit then the automatically generated
 # encoder will check that consistent bit patterns are generated.
 
+# Opndtype instances may be annotated by adding various flags after a '.'. The
+# codec may then use these flags to generate extra code for that operand
+# or for the instruction it is a part of. This is to allow certain properties
+# to be set on the instr without having to use a custom encode/decode function
+# as well as well as reducing the need for special operand encoders/decoders if
+# only a flag needs to be set or similar. Multiple flags can be supported like
+# p10.gov.scatter
+
 # The enum field is managed by the codec sorter, and should be unique per
 # opcode. If you're adding a new entry just leave it out and run
 # codecsort.py --rewrite and it will assign the proper enum value.

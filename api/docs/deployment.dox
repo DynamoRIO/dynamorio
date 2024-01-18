@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -318,7 +318,7 @@ There are two methods for invoking an application under DynamoRIO:
 As an example of the simpler method, the following command runs \c ls
 under DynamoRIO with the bbsize sample client:
 \code
-% bin32/drrun -c samples/bin32/libbbsize.so -- ls
+% bin64/drrun -c samples/bin64/libbbsize.so -- ls
 \endcode
 
 Alternatively, you can first run the target, and then use \c drrun
@@ -328,7 +328,7 @@ In particular, if the application is in the middle of a blocking syscall,
 DynamoRIO will wait for that to finish.  To instead force interruption of
 the syscall, additionally pass -skip_syscall.
 \code
-% bin32/drrun -attach <target_pid> -c samples/bin32/libbbsize.so
+% bin64/drrun -attach <target_pid> -c samples/bin64/libbbsize.so
 \endcode
 
 This attach feature requires ptrace capabilities, which can be enabled
@@ -340,7 +340,7 @@ with this command:
 Then, you can also detach DynamoRIO from the target process
 without affecting the normal execution of the application.
 \code
-% bin32/drconfig -detach <target_pid>
+% bin64/drconfig -detach <target_pid>
 \endcode
 
 Run \c drrun with no options to get a list of the options and
@@ -390,7 +390,7 @@ To \ref sec_comm "nudge" a process with pid \c targetpid running under
 DynamoRIO and pass argument "5" to the nudge callback, use the \c
 drnudgeunix tool:
 \code
-bin32/drnudgeunix -pid targetpid -client 0 5
+bin64/drnudgeunix -pid targetpid -client 0 5
 \endcode
 This will result in a nudge event with argument=5 delivered to the
 client callback registered with dr_register_nudge_event() in the

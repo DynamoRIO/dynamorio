@@ -795,7 +795,7 @@ Further non-compatibility-affecting changes include:
    executed on along with an optional simulator scheduling feature to
    schedule threads on simulated cores to match the recorded execution on
    physical cpus.
- - Added #DR_DISALLOW_UNSAFE_STATIC and dr_disallow_unsafe_static_behavior()
+ - Added #DR_DISALLOW_UNSAFE_STATIC and dr_allow_unsafe_static_behavior()
    for sanity checks to help support statically-linked clients.
  - Added drmgr_register_pre_syscall_event_user_data() and
    drmgr_unregister_pre_syscall_event_user_data() to enable passing of user data.

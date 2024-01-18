@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2023 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2024 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2016-2023 ARM Limited.    All rights reserved.
 # **********************************************************
@@ -1631,9 +1631,14 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
     # Though we mostly use drrun's -s we set this too in case the requested
     # value is higher than ctest's default.
     set_tests_properties(${test} PROPERTIES TIMEOUT ${${key}_timeout})
-  elseif (is_runcmp)
-    # Runcmp generally doesn't use drrun or runstats so we need a ctest timeout.
+  elseif (is_runcmp OR is_runall)
+    # Runcmp/runall generally don't use drrun or runstats so we need a ctest timeout.
     set_tests_properties(${test} PROPERTIES TIMEOUT ${TEST_SECONDS})
+  else ()
+    # Even though we expect drrun -s to enforce a timeout, set one in ctest just
+    # in case, but give time for drrun first.
+    math(EXPR timeout "${TEST_SECONDS}+30")
+    set_tests_properties(${test} PROPERTIES TIMEOUT ${timeout})
   endif ()
 
   # Though we use drrun and runstats -s timeout parameters, we have

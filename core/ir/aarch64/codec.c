@@ -2406,7 +2406,8 @@ static inline bool
 encode_float_const_pair(uint pos, float first, float second, opnd_t opnd,
                         OUT uint *enc_out)
 {
-    IF_RETURN_FALSE(!opnd_is_immed_float(opnd))
+    if (!opnd_is_immed_float(opnd))
+        return false;
 
     const float value = opnd_get_immed_float(opnd);
     IF_RETURN_FALSE((value != first) && (value != second))
