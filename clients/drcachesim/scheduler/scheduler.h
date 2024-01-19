@@ -959,18 +959,16 @@ public:
         }
 
         /**
-         * Returns the input stream ordinal for #SCHEDULER_USE_INPUT_ORDINALS or
-         * #SCHEDULER_USE_SINGLE_INPUT_ORDINALS; otherwise returns the output stream
-         * ordinal.
+         * For #SCHEDULER_USE_INPUT_ORDINALS or
+         * #SCHEDULER_USE_SINGLE_INPUT_ORDINALS, returns the input stream ordinal, except
+         * for the case of a single input with thread id set to INVALID_THREAD_ID in
+         * which case the last trace record's tid is returned; otherwise returns the
+         * output stream ordinal.
          */
         int
         get_shard_index() const override
         {
-            if (TESTANY(sched_type_t::SCHEDULER_USE_INPUT_ORDINALS |
-                            sched_type_t::SCHEDULER_USE_SINGLE_INPUT_ORDINALS,
-                        scheduler_->options_.flags))
-                return get_input_stream_ordinal();
-            return get_output_stream_ordinal();
+            return scheduler_->get_shard_index(ordinal_);
         }
 
         /**
@@ -1106,6 +1104,7 @@ protected:
         // workload index + tid to identify the original input.
         int workload = -1;
         memref_tid_t tid = INVALID_THREAD_ID;
+        memref_tid_t last_record_tid = INVALID_THREAD_ID;
         // If non-empty these records should be returned before incrementing the reader.
         // This is used for read-ahead and inserting synthetic records.
         // We use a deque so we can iterate over it.
@@ -1436,6 +1435,11 @@ protected:
     // the 'output_ordinal'-th output stream.
     int64_t
     get_input_tid(output_ordinal_t output);
+
+    // Returns the shard index for the current input stream scheduled on
+    // the 'output_ordinal'-th output stream.
+    int
+    get_shard_index(output_ordinal_t output);
 
     // Returns the workload ordinal value for the current input stream scheduled on
     // the 'output_ordinal'-th output stream.

@@ -1380,7 +1380,25 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_input_tid(output_ordinal_t output)
     int index = outputs_[output].cur_input;
     if (index < 0)
         return -1;
+    if (inputs_[index].tid == INVALID_THREAD_ID)
+        return inputs_[index].last_record_tid;
     return inputs_[index].tid;
+}
+
+template <typename RecordType, typename ReaderType>
+int
+scheduler_tmpl_t<RecordType, ReaderType>::get_shard_index(output_ordinal_t output)
+{
+    if (output < 0 || output >= static_cast<output_ordinal_t>(outputs_.size()))
+        return -1;
+    if (TESTANY(sched_type_t::SCHEDULER_USE_INPUT_ORDINALS |
+                    sched_type_t::SCHEDULER_USE_SINGLE_INPUT_ORDINALS,
+                options_.flags)) {
+        if (inputs_.size() == 1 && inputs_[0].tid == INVALID_THREAD_ID)
+            return get_input_tid(output);
+        return get_input_ordinal(output);
+    }
+    return output;
 }
 
 template <typename RecordType, typename ReaderType>
@@ -2585,6 +2603,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
     VDO(this, 4, print_record(record););
 
     outputs_[output].last_record = record;
+    if (!record_type_has_tid(record, input->last_record_tid)) {
+        // Leave it as the last value.
+    }
     return sched_type_t::STATUS_OK;
 }
 

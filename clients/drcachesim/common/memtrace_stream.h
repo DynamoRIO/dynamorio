@@ -162,6 +162,9 @@ public:
      * to determine such an index; there, it equals the same index that would be used in
      * parallel mode, allowing a tool to compute per-shard results even in serial mode. If
      * not implemented, -1 is returned.
+     *
+     * There is a current exception for online analysis where instead of a 0-based
+     * ordinal the last thread id observed in a trace record is returned.
      */
     virtual int
     get_shard_index() const
@@ -309,14 +312,43 @@ public:
     {
         return 0;
     }
+
+    void
+    set_output_cpuid(int64_t cpuid)
+    {
+        cpuid_ = cpuid;
+    }
+    int64_t
+    get_output_cpuid() const override
+    {
+        return cpuid_;
+    }
+    void
+    set_shard_index(int index)
+    {
+        shard_ = index;
+    }
     int
     get_shard_index() const override
     {
-        return 0;
+        return shard_;
+    }
+    void
+    set_input_tid(int64_t tid)
+    {
+        tid_ = tid;
+    }
+    int64_t
+    get_input_tid() const override
+    {
+        return tid_;
     }
 
 private:
-    uint64_t *record_ordinal_;
+    uint64_t *record_ordinal_ = nullptr;
+    int64_t cpuid_ = 0;
+    int shard_ = 0;
+    int64_t tid_ = 0;
 };
 
 } // namespace drmemtrace

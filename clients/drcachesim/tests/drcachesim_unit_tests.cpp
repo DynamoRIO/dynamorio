@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -93,6 +93,8 @@ unit_test_warmup_fraction()
     cache_simulator_knobs_t knobs = make_test_knobs();
     knobs.warmup_fraction = 0.5;
     cache_simulator_t cache_sim(knobs);
+    default_memtrace_stream_t stream;
+    cache_sim.initialize_stream(&stream);
 
     // Feed it some memrefs, warmup fraction is set to 0.5 where the capacity at
     // each level is 32 lines each. The first 16 memrefs warm up the cache and
@@ -122,6 +124,8 @@ unit_test_warmup_refs()
     cache_simulator_knobs_t knobs = make_test_knobs();
     knobs.warmup_refs = 16;
     cache_simulator_t cache_sim(knobs);
+    default_memtrace_stream_t stream;
+    cache_sim.initialize_stream(&stream);
 
     // Feed it some memrefs, warmup refs = 16 where the capacity at
     // each level is 32 lines each. The first 16 memrefs warm up the cache and
@@ -151,6 +155,8 @@ unit_test_sim_refs()
     cache_simulator_knobs_t knobs = make_test_knobs();
     knobs.sim_refs = 8;
     cache_simulator_t cache_sim(knobs);
+    default_memtrace_stream_t stream;
+    cache_sim.initialize_stream(&stream);
 
     std::string error;
     for (int i = 0; i < 16; i++) {
@@ -176,6 +182,8 @@ unit_test_metrics_API()
 {
     cache_simulator_knobs_t knobs = make_test_knobs();
     cache_simulator_t cache_sim(knobs);
+    default_memtrace_stream_t stream;
+    cache_sim.initialize_stream(&stream);
 
     memref_t ref;
     ref.data.type = TRACE_TYPE_WRITE;
@@ -248,6 +256,8 @@ unit_test_compulsory_misses()
     knobs.L1I_size = 4 * 64;
     knobs.L1I_assoc = 4;
     cache_simulator_t cache_sim(knobs);
+    default_memtrace_stream_t stream;
+    cache_sim.initialize_stream(&stream);
 
     memref_t ref;
     ref.data.type = TRACE_TYPE_INSTR;
@@ -310,6 +320,8 @@ LLC {
 )MYCONFIG";
     std::istringstream config_in(config);
     cache_simulator_t cache_sim(&config_in);
+    default_memtrace_stream_t stream;
+    cache_sim.initialize_stream(&stream);
 
     memref_t ref;
     ref.data.type = TRACE_TYPE_READ;
@@ -396,6 +408,8 @@ LLC {
 )MYCONFIG";
     std::istringstream config_in(config);
     test_cache_simulator_t cache_sim(&config_in);
+    default_memtrace_stream_t stream;
+    cache_sim.initialize_stream(&stream);
 
     // The cache config specified coherence, and the only level with
     // multiple caches is L1.  So there should be 2 snooped caches.
@@ -766,23 +780,6 @@ unit_test_cache_accessors()
     }
 }
 
-class mock_stream_t : public default_memtrace_stream_t {
-public:
-    void
-    set_cpuid(int64_t cpuid)
-    {
-        cpuid_ = cpuid;
-    }
-    int64_t
-    get_output_cpuid() const override
-    {
-        return cpuid_;
-    }
-
-private:
-    int64_t cpuid_ = 0;
-};
-
 void
 unit_test_core_sharded()
 {
@@ -799,15 +796,17 @@ unit_test_core_sharded()
         cache_simulator_knobs_t knobs = make_test_knobs();
         knobs.num_cores = 2;
         cache_simulator_t sim(knobs);
-        mock_stream_t stream;
+        default_memtrace_stream_t stream;
         sim.initialize_stream(&stream);
         std::string error = sim.initialize_shard_type(SHARD_BY_CORE);
         assert(error.empty());
         memref_t ref = make_memref(42);
-        stream.set_cpuid(123400);
+        stream.set_shard_index(0);
+        stream.set_output_cpuid(123400);
         bool res = sim.process_memref(ref);
         assert(res);
-        stream.set_cpuid(567800);
+        stream.set_shard_index(1);
+        stream.set_output_cpuid(567800);
         res = sim.process_memref(ref);
         assert(res);
         // Capture output.
