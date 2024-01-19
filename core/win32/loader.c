@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -1501,7 +1501,11 @@ privload_call_entry(dcontext_t *dcontext, privmod_t *privmod, uint reason)
              /* i#2221: combase's entry fails on win10.  So far ignoring it
               * hasn't cause any problems with simple clients.
               */
-             str_case_prefix(privmod->name, "combase"))) {
+             str_case_prefix(privmod->name, "combase") ||
+             /* i#6570: bcrypt's entry suddenly started failing.  Ignoring it
+              * is working so far; if that changes we'll have to dig into it.
+              */
+             str_case_prefix(privmod->name, "bcrypt"))) {
             LOG(GLOBAL, LOG_LOADER, 1, "%s: ignoring failure of %s entry\n", __FUNCTION__,
                 privmod->name);
             res = TRUE;
