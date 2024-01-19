@@ -309,6 +309,11 @@ public:
     {
         return 0;
     }
+    int
+    get_shard_index() const override
+    {
+        return 0;
+    }
 
 private:
     uint64_t *record_ordinal_;

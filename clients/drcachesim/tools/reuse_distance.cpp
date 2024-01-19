@@ -219,7 +219,7 @@ reuse_distance_t::process_memref(const memref_t &memref)
                                  knobs_.distance_limit, knobs_.verify_skip);
         shard->core = serial_stream_->get_output_cpuid();
         shard->tid = serial_stream_->get_input_tid();
-        shard_map_[memref.data.tid] = shard;
+        shard_map_[shard_index] = shard;
     } else
         shard = lookup->second;
     if (!parallel_shard_memref(reinterpret_cast<void *>(shard), memref)) {
