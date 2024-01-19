@@ -42,10 +42,12 @@ DECL_EXTERN(d_r_internal_error)
 /* For debugging: report an error if the function called by call_switch_stack()
  * unexpectedly returns.  Also used elsewhere.
  * i#4304: When calling this function do not use short branch instructions,
- * eg, conditional branch instructions on aarch64. They don't have enough
+ * e.g., conditional branch instructions on aarch64. They don't have enough
  * bits of offset to reach this. Instead, use unconditional branch or
- * call instructions (eg, b, bl on aarch64) that have a sufficient number of
- * bits.
+ * call instructions (e.g., b, bl on aarch64) that have a sufficient number
+ * of bits. On x86, and other architectures where a call instruction requires
+ * the stack, only use branch instructions: This can get called when there
+ * is insufficient stack.
  */
         DECLARE_FUNC(unexpected_return)
 GLOBAL_LABEL(unexpected_return:)
