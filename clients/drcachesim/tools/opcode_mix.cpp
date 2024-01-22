@@ -213,8 +213,8 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     uint category;
     auto cached_opcode_category = shard->worker->opcode_category_cache.find(trace_pc);
     if (cached_opcode_category != shard->worker->opcode_category_cache.end()) {
-        opcode = cached_opcode_category->second.first;
-        category = cached_opcode_category->second.second;
+        opcode = cached_opcode_category->second.opcode;
+        category = cached_opcode_category->second.category;
     } else {
         instr_t instr;
         instr_init(dcontext_.dcontext, &instr);
@@ -228,7 +228,7 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         }
         opcode = instr_get_opcode(&instr);
         category = instr_get_category(&instr);
-        shard->worker->opcode_category_cache[trace_pc] = std::make_pair(opcode, category);
+        shard->worker->opcode_category_cache[trace_pc] = opcode_category_data_t(opcode, category);
         instr_free(dcontext_.dcontext, &instr);
     }
     ++shard->opcode_counts[opcode];

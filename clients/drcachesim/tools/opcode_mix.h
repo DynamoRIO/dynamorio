@@ -83,8 +83,29 @@ public:
     parallel_shard_error(void *shard_data) override;
 
 protected:
+    struct opcode_category_data_t {
+        opcode_category_data_t()
+            : opcode(0)
+            , category(0)
+        {
+        }
+        opcode_category_data_t(int opcode, uint category)
+            : opcode(opcode)
+            , category(category)
+        {
+        }
+        int opcode;
+        /*
+         * The category field is a uint instead of a dr_instr_category_t because
+         * multiple category bits can be set when an instruction belongs to more
+         * than one category.  We assume 32 bits (i.e., 32 categories) is enough
+         * to be future-proof.
+         */
+        uint category;
+    };
+
     struct worker_data_t {
-        std::unordered_map<app_pc, std::pair<int, uint>> opcode_category_cache;
+        std::unordered_map<app_pc, opcode_category_data_t> opcode_category_cache;
     };
 
     struct shard_data_t {
