@@ -36,6 +36,7 @@
 #include "dr_api.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define GD GLOBAL_DCONTEXT
 
@@ -155,12 +156,14 @@ test_noalloc(void)
      */
 }
 
-#define CHECK_CATEGORY(dcontext, instr, pc, category)                          \
+#define CHECK_CATEGORY(dcontext, instr, pc, category, category_name)           \
     ASSERT(instr_encode(dcontext, instr, pc) - pc < BUFFER_SIZE_ELEMENTS(pc)); \
     instr_reset(dcontext, instr);                                              \
     instr_set_operands_valid(instr, true);                                     \
     ASSERT(decode(dcontext, pc, instr) != NULL);                               \
     ASSERT(instr_get_category(instr) == category);                             \
+    ASSERT(strncmp(instr_get_category_name(category), category_name,           \
+                sizeof(category_name)) == 0);                                  \
     instr_destroy(dcontext, instr);
 
 static void
@@ -172,17 +175,17 @@ test_categories(void)
     /*  55 OP_mov_ld */
     instr = XINST_CREATE_load(GD, opnd_create_reg(DR_REG_XAX),
                               OPND_CREATE_MEMPTR(DR_REG_XAX, 42));
-    CHECK_CATEGORY(GD, instr, buf, DR_INSTR_CATEGORY_LOAD);
+    CHECK_CATEGORY(GD, instr, buf, DR_INSTR_CATEGORY_LOAD, "load");
 
     /*  14 OP_cmp */
     instr =
         XINST_CREATE_cmp(GD, opnd_create_reg(DR_REG_EAX), opnd_create_reg(DR_REG_EAX));
-    CHECK_CATEGORY(GD, instr, buf, DR_INSTR_CATEGORY_MATH);
+    CHECK_CATEGORY(GD, instr, buf, DR_INSTR_CATEGORY_MATH, "math");
 
     /* 46 OP_jmp */
     instr_t *after_callee = INSTR_CREATE_label(GD);
     instr = XINST_CREATE_jump(GD, opnd_create_instr(after_callee));
-    CHECK_CATEGORY(GD, instr, buf, DR_INSTR_CATEGORY_BRANCH);
+    CHECK_CATEGORY(GD, instr, buf, DR_INSTR_CATEGORY_BRANCH, "branch");
 }
 
 static void
