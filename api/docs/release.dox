@@ -189,6 +189,8 @@ Further non-compatibility-affecting changes include:
  - Added opportunity to run multiple drcachesim analysis tools simultaneously.
  - Added support of loading separately-built analysis tools to drcachesim dynamically.
  - Added instr_is_opnd_store_source().
+ - Added instr_get_category_name() API that returns the string version (as char*) of a
+   category.
 
 **************************************************
 <hr>
