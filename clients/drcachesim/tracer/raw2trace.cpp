@@ -2882,6 +2882,91 @@ raw2trace_t::set_instr_summary_flags(raw2trace_thread_data_t *tdata, uint64 modi
     return true;
 }
 
+#if defined(AARCH64)
+/* TODO i#5365, i#5036: append_bb_entries() takes the size of the scatter/gather memory
+ * operand to be the per-element value and uses that to create the read/write memref
+ * entries.
+ * The AArch64 IR currently uses the maximum amount of data transferred by the instruction
+ * (number of elements * per element size) instead so until we change the codec to use the
+ * per-element size we need to use this function to set the per-element size based on the
+ * instruction opcode.
+ * When we have made the codec/IR changes this function can be removed.
+
+ * An alternative solution @derekbruening suggested is to store the encoding during
+ * tracing like we do for vdso or JIT code (see
+ * offline_instru_t::record_instr_encodings()), but not the encoding of the emulated
+ * instr info's pointer to the original scatter/gather: rather, the unrolled single
+ * load/store. This would greatly simplify raw2trace and questions about what the IR
+ * should store. OTOH it adds some tracing overhead: which probably outweighs gains in
+ * reducing code complexity.
+ */
+opnd_size_t
+get_aarch64_scatter_gather_value_size(int opcode)
+{
+    switch (opcode) {
+    case OP_ld1b:
+    case OP_ld1sb:
+    case OP_ldff1b:
+    case OP_ldnf1b:
+    case OP_ldnt1b:
+    case OP_ld1rqb:
+    case OP_ld2b:
+    case OP_ld3b:
+    case OP_ld4b:
+    case OP_st1b:
+    case OP_stnt1b:
+    case OP_st2b:
+    case OP_st3b:
+    case OP_st4b: return OPSZ_1;
+    case OP_ld1h:
+    case OP_ld1sh:
+    case OP_ldff1h:
+    case OP_ldnf1h:
+    case OP_ldnt1h:
+    case OP_ld1rqh:
+    case OP_ld2h:
+    case OP_ld3h:
+    case OP_ld4h:
+    case OP_st1h:
+    case OP_stnt1h:
+    case OP_st2h:
+    case OP_st3h:
+    case OP_st4h: return OPSZ_2;
+    case OP_ld1w:
+    case OP_ld1sw:
+    case OP_ldff1w:
+    case OP_ldnf1w:
+    case OP_ldnt1w:
+    case OP_ld1rqw:
+    case OP_ld2w:
+    case OP_ld3w:
+    case OP_ld4w:
+    case OP_st1w:
+    case OP_stnt1w:
+    case OP_st2w:
+    case OP_st3w:
+    case OP_st4w: return OPSZ_4;
+    case OP_ld1d:
+    case OP_ldff1d:
+    case OP_ldnf1d:
+    case OP_ldnt1d:
+    case OP_ld1rqd:
+    case OP_ld2d:
+    case OP_ld3d:
+    case OP_ld4d:
+    case OP_st1d:
+    case OP_stnt1d:
+    case OP_st2d:
+    case OP_st3d:
+    case OP_st4d: return OPSZ_8;
+    }
+    DR_ASSERT_MSG(
+        false,
+        "Instruction is not a scatter/gather/predicated contiguous load/store operation");
+    return OPSZ_0;
+}
+#endif // defined(AARCH64)
+
 bool
 instr_summary_t::construct(void *dcontext, app_pc block_start, DR_PARAM_INOUT app_pc *pc,
                            app_pc orig_pc, DR_PARAM_OUT instr_summary_t *desc,
@@ -2962,15 +3047,47 @@ instr_summary_t::construct(void *dcontext, app_pc block_start, DR_PARAM_INOUT ap
     if (reads_memory || writes_memory) {
         for (int i = 0, e = instr_num_srcs(instr); i < e; ++i) {
             opnd_t op = instr_get_src(instr, i);
-            if (opnd_is_memory_reference(op))
+            if (opnd_is_memory_reference(op)) {
+#if defined(AARCH64)
+                /* TODO i#5365: append_bb_entries() takes the size of the scatter/gather
+                 * memory operand to be the per-element value and uses that to create the
+                 * read/write memref entries.
+                 * The AArch64 IR currently uses the maximum amount of data transferred
+                 * by the instruction (number of elements * per element size) instead so
+                 * until we change the codec to use the per-element size we need to fix
+                 * it up here.
+                 */
+                if (desc->is_scatter_or_gather()) {
+                    opnd_set_size(
+                        &op,
+                        get_aarch64_scatter_gather_value_size(instr_get_opcode(instr)));
+                }
+#endif
                 desc->mem_srcs_and_dests_.push_back(memref_summary_t(op));
+            }
         }
         desc->num_mem_srcs_ = static_cast<uint8_t>(desc->mem_srcs_and_dests_.size());
 
         for (int i = 0, e = instr_num_dsts(instr); i < e; ++i) {
             opnd_t op = instr_get_dst(instr, i);
-            if (opnd_is_memory_reference(op))
+            if (opnd_is_memory_reference(op)) {
+#if defined(AARCH64)
+                /* TODO i#5365: append_bb_entries() takes the size of the scatter/gather
+                 * memory operand to be the per-element value and uses that to create the
+                 * read/write memref entries.
+                 * The AArch64 IR currently uses the maximum amount of data transferred
+                 * by the instruction (number of elements * per element size) instead so
+                 * until we change the codec to use the per-element size we need to fix
+                 * it up here.
+                 */
+                if (desc->is_scatter_or_gather()) {
+                    opnd_set_size(
+                        &op,
+                        get_aarch64_scatter_gather_value_size(instr_get_opcode(instr)));
+                }
+#endif
                 desc->mem_srcs_and_dests_.push_back(memref_summary_t(op));
+            }
         }
     }
     return true;
@@ -3738,6 +3855,17 @@ raw2trace_t::raw2trace_t(
     decode_cache_.reserve(cache_count);
     for (int i = 0; i < cache_count; ++i)
         decode_cache_.emplace_back(cache_count);
+
+#if defined(AARCH64)
+    // TODO i#6556, i#1684: The decoder uses a global sve_veclen variable to store the
+    // vector length value it uses when decoding. drdecodelib ends up being linked into
+    // drcachesim twice: once into the drcachesim executable, and one into libdynamorio.
+    // When we call dr_standalone_init() above it will initialize the version of
+    // sve_veclen in libdynamorio, but not the one in drcachesim.
+    // Unfortunately it is the version of sve_veclen in drcachesim that gets used when
+    // decoding in raw2trace so we need to explicitly initialize its sve_veclen here.
+    dr_set_sve_vector_length(proc_get_vector_length_bytes() * 8);
+#endif
 }
 
 raw2trace_t::~raw2trace_t()

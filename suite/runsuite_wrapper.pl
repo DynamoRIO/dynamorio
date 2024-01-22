@@ -304,6 +304,9 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 # We list this without any "options|" which will match all variations.
                 'common.floatpc_xl8all' => 1, # i#2267
                 'code_api|client.file_io' => 1, # i#5802
+                # These we have failed to reproduce after many attempts under tmate.
+                'code_api|tool.drcacheoff.burst_traceopts' => 1, # i#6423
+                'code_api|tool.drcacheoff.burst_replaceall' => 1, # i#5412
                 );
             if ($is_long) {
                 # These are important tests so we only ignore in the long suite,
