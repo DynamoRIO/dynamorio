@@ -485,7 +485,7 @@ instr_get_category_name(dr_instr_category_t category)
     case DR_INSTR_CATEGORY_CONVERT: return "convert";
     case DR_INSTR_CATEGORY_MATH: return "math";
     case DR_INSTR_CATEGORY_OTHER: return "other";
-    default: return "error";
+    default: return "";
     }
 }
 

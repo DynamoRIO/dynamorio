@@ -267,46 +267,22 @@ get_category_names(uint category)
         category_name += instr_get_category_name(DR_INSTR_CATEGORY_UNCATEGORIZED);
         return category_name;
     }
-    if (TESTANY(DR_INSTR_CATEGORY_FP, category)) {
-        category_name += " ";
-        category_name += instr_get_category_name(DR_INSTR_CATEGORY_FP);
+
+    uint max_mask = 0x80000000;
+    for (uint mask = 0x1; mask <= max_mask; mask <<= 1) {
+        if (TESTANY(mask, category)) {
+            category_name += " ";
+            category_name += instr_get_category_name(mask);
+        }
+
+        /*
+         * Guard against 32 bit overflow.
+         */
+        if (mask == max_mask) {
+            break;
+        }
     }
-    if (TESTANY(DR_INSTR_CATEGORY_LOAD, category)) {
-        category_name += " ";
-        category_name += instr_get_category_name(DR_INSTR_CATEGORY_LOAD);
-    }
-    if (TESTANY(DR_INSTR_CATEGORY_STORE, category)) {
-        category_name += " ";
-        category_name += instr_get_category_name(DR_INSTR_CATEGORY_STORE);
-    }
-    if (TESTANY(DR_INSTR_CATEGORY_BRANCH, category)) {
-        category_name += " ";
-        category_name += instr_get_category_name(DR_INSTR_CATEGORY_BRANCH);
-    }
-    if (TESTANY(DR_INSTR_CATEGORY_SIMD, category)) {
-        category_name += " ";
-        category_name += instr_get_category_name(DR_INSTR_CATEGORY_SIMD);
-    }
-    if (TESTANY(DR_INSTR_CATEGORY_STATE, category)) {
-        category_name += " ";
-        category_name += instr_get_category_name(DR_INSTR_CATEGORY_STATE);
-    }
-    if (TESTANY(DR_INSTR_CATEGORY_MOVE, category)) {
-        category_name += " ";
-        category_name += instr_get_category_name(DR_INSTR_CATEGORY_MOVE);
-    }
-    if (TESTANY(DR_INSTR_CATEGORY_CONVERT, category)) {
-        category_name += " ";
-        category_name += instr_get_category_name(DR_INSTR_CATEGORY_CONVERT);
-    }
-    if (TESTANY(DR_INSTR_CATEGORY_MATH, category)) {
-        category_name += " ";
-        category_name += instr_get_category_name(DR_INSTR_CATEGORY_MATH);
-    }
-    if (TESTANY(DR_INSTR_CATEGORY_OTHER, category)) {
-        category_name += " ";
-        category_name += instr_get_category_name(DR_INSTR_CATEGORY_OTHER);
-    }
+
     return category_name;
 }
 
