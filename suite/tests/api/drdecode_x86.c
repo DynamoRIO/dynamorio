@@ -41,10 +41,9 @@
 
 #define GD GLOBAL_DCONTEXT
 
-#define ASSERT(x)                                                                        \
-    ((void)((!(x)) ? (fprintf(stdout, "ASSERT FAILURE: %s:%d: %s\n", __FILE__, __LINE__, \
-                              #x),                                                       \
-                      abort(), 0)                                                        \
+#define ASSERT(x)                                                                   \
+    ((void)((!(x)) ? (print("ASSERT FAILURE: %s:%d: %s\n", __FILE__, __LINE__, #x), \
+                      abort(), 0)                                                   \
                    : 0))
 
 #define BUFFER_SIZE_BYTES(buf) sizeof(buf)
@@ -271,7 +270,7 @@ main()
 
     test_store_source();
 
-    fprintf(stdout, "done\n");
+    print("done\n");
 
     return 0;
 }
