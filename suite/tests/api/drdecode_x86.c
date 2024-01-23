@@ -34,15 +34,17 @@
 
 #include "configure.h"
 #include "dr_api.h"
+#include "tools.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #define GD GLOBAL_DCONTEXT
 
-#define ASSERT(x)                                                                    \
-    ((void)((!(x)) ? (printf("ASSERT FAILURE: %s:%d: %s\n", __FILE__, __LINE__, #x), \
-                      abort(), 0)                                                    \
+#define ASSERT(x)                                                                        \
+    ((void)((!(x)) ? (fprintf(stdout, "ASSERT FAILURE: %s:%d: %s\n", __FILE__, __LINE__, \
+                              #x),                                                       \
+                      abort(), 0)                                                        \
                    : 0))
 
 #define BUFFER_SIZE_BYTES(buf) sizeof(buf)
@@ -156,14 +158,20 @@ test_noalloc(void)
      */
 }
 
-#define CHECK_CATEGORY(dcontext, instr, pc, category, category_name)           \
-    ASSERT(instr_encode(dcontext, instr, pc) - pc < BUFFER_SIZE_ELEMENTS(pc)); \
-    instr_reset(dcontext, instr);                                              \
-    instr_set_operands_valid(instr, true);                                     \
-    ASSERT(decode(dcontext, pc, instr) != NULL);                               \
-    ASSERT(instr_get_category(instr) == category);                             \
-    ASSERT(strncmp(instr_get_category_name(category), category_name,           \
-                sizeof(category_name)) == 0);                                  \
+#define CHECK_CATEGORY(dcontext, instr, pc, categories, category_names)           \
+    ASSERT(instr_encode(dcontext, instr, pc) - pc < BUFFER_SIZE_ELEMENTS(pc));    \
+    instr_reset(dcontext, instr);                                                 \
+    instr_set_operands_valid(instr, true);                                        \
+    ASSERT(decode(dcontext, pc, instr) != NULL);                                  \
+    for (int i = 0; i < BUFFER_SIZE_ELEMENTS(categories); ++i) {                  \
+        if (categories[i] == DR_INSTR_CATEGORY_UNCATEGORIZED) {                   \
+            ASSERT(instr_get_category(instr) == categories[i]);                   \
+        } else {                                                                  \
+            ASSERT(TESTANY(categories[i], instr_get_category(instr)));            \
+        }                                                                         \
+        ASSERT(strncmp(instr_get_category_name(categories[i]), category_names[i], \
+                       sizeof(category_names[i])) == 0);                          \
+    }                                                                             \
     instr_destroy(dcontext, instr);
 
 static void
@@ -175,17 +183,36 @@ test_categories(void)
     /*  55 OP_mov_ld */
     instr = XINST_CREATE_load(GD, opnd_create_reg(DR_REG_XAX),
                               OPND_CREATE_MEMPTR(DR_REG_XAX, 42));
-    CHECK_CATEGORY(GD, instr, buf, DR_INSTR_CATEGORY_LOAD, "load");
+    dr_instr_category_t categories_load[] = { DR_INSTR_CATEGORY_LOAD };
+    const char *category_names_load[] = { "load" };
+    CHECK_CATEGORY(GD, instr, buf, categories_load, category_names_load);
 
     /*  14 OP_cmp */
     instr =
         XINST_CREATE_cmp(GD, opnd_create_reg(DR_REG_EAX), opnd_create_reg(DR_REG_EAX));
-    CHECK_CATEGORY(GD, instr, buf, DR_INSTR_CATEGORY_MATH, "math");
+    dr_instr_category_t categories_cmp[] = { DR_INSTR_CATEGORY_MATH };
+    const char *category_names_cmp[] = { "math" };
+    CHECK_CATEGORY(GD, instr, buf, categories_cmp, category_names_cmp);
 
     /* 46 OP_jmp */
     instr_t *after_callee = INSTR_CREATE_label(GD);
     instr = XINST_CREATE_jump(GD, opnd_create_instr(after_callee));
-    CHECK_CATEGORY(GD, instr, buf, DR_INSTR_CATEGORY_BRANCH, "branch");
+    dr_instr_category_t categories_jmp[] = { DR_INSTR_CATEGORY_BRANCH };
+    const char *category_names_jmp[] = { "branch" };
+    CHECK_CATEGORY(GD, instr, buf, categories_jmp, category_names_jmp);
+
+    /* OP_fwait */
+    instr = INSTR_CREATE_fwait(GD);
+    dr_instr_category_t categories_fwait[] = { DR_INSTR_CATEGORY_FP,
+                                               DR_INSTR_CATEGORY_STATE };
+    const char *category_names_fwait[] = { "fp", "state" };
+    CHECK_CATEGORY(GD, instr, buf, categories_fwait, category_names_fwait);
+
+    /* OP_in */
+    instr = INSTR_CREATE_in_1(GD);
+    dr_instr_category_t categories_in[] = { DR_INSTR_CATEGORY_UNCATEGORIZED };
+    const char *category_names_in[] = { "uncategorized" };
+    CHECK_CATEGORY(GD, instr, buf, categories_in, category_names_in);
 }
 
 static void
@@ -244,7 +271,7 @@ main()
 
     test_store_source();
 
-    printf("done\n");
+    fprintf(stdout, "done\n");
 
     return 0;
 }
