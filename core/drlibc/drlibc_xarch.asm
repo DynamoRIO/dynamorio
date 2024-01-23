@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -49,7 +49,7 @@ DECL_EXTERN(d_r_internal_error)
  * the stack, only use branch instructions: This can get called when there
  * is insufficient stack.
  */
-        DECLARE_FUNC(unexpected_return)
+        DECLARE_EXPORTED_FUNC(unexpected_return)
 GLOBAL_LABEL(unexpected_return:)
         CALLC3(GLOBAL_REF(d_r_internal_error), HEX(0), HEX(0), HEX(0))
         /* d_r_internal_error normally never returns */

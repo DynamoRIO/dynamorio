@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -58,7 +58,7 @@ DECL_EXTERN(unexpected_return)
  * For Linux, the argument max is 6.
  * For MacOS, the argument max is 6 for x64 and 7 for x86.
  */
-        DECLARE_FUNC(dynamorio_syscall)
+        DECLARE_EXPORTED_FUNC(dynamorio_syscall)
 GLOBAL_LABEL(dynamorio_syscall:)
         /* x64 kernel doesn't clobber all the callee-saved registers */
         push     REG_XBX /* stack now aligned for x64 */
@@ -363,7 +363,7 @@ dynamorio_mach_syscall_next:
  * sets the exception mask flags for both regular float and xmm packed float
  */
 #define FUNCNAME dr_fpu_exception_init
-        DECLARE_FUNC(FUNCNAME)
+        DECLARE_EXPORTED_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
         fninit
         push     HEX(1f80)
@@ -376,8 +376,12 @@ GLOBAL_LABEL(FUNCNAME:)
 /* void get_mmx_val(OUT uint64 *val, uint index)
  * Returns the value of mmx register #index in val.
  */
-#define FUNCNAME get_mmx_val
+        #define FUNCNAME get_mmx_val
+#ifdef WINDOWS
         DECLARE_FUNC_SEH(FUNCNAME)
+#else
+        DECLARE_EXPORTED_FUNC(FUNCNAME)
+#endif
 GLOBAL_LABEL(FUNCNAME:)
         mov      REG_XAX, ARG1
         mov      REG_XCX, ARG2
