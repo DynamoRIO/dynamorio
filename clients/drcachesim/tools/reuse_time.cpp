@@ -219,7 +219,15 @@ reuse_time_t::print_shard_results(const shard_data_t *shard)
     std::partial_sort_copy(shard->reuse_time_histogram.begin(),
                            shard->reuse_time_histogram.end(), sorted.begin(),
                            sorted.end(), cmp_dist_key);
+    // Limit the output to make it readable and avoid stressing CMake's regex
+    // in our tests, unless the user requested verbosity.
+    const int max_print = knob_verbose_ > 0 ? 0 : 10;
+    int print_count = 0;
     for (auto it = sorted.begin(); it != sorted.end(); ++it) {
+        if (max_print > 0 && ++print_count > max_print) {
+            std::cerr << "... (increase verbosity to see entire histogram)\n";
+            break;
+        }
         double percent = it->second / static_cast<double>(count);
         cum_percent += percent;
         std::cerr << std::setw(8) << it->first << std::setw(12) << it->second
