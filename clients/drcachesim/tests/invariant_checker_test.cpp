@@ -125,7 +125,7 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
         default_memtrace_stream_t stream;
         checker.initialize_stream(&stream);
         for (const auto &memref : memrefs) {
-            int shard_index = memref.instr.tid - TID_BASE;
+            int shard_index = static_cast<int>(memref.instr.tid - TID_BASE);
             stream.set_shard_index(shard_index);
             stream.set_input_tid(memref.instr.tid);
             checker.process_memref(memref);
@@ -158,7 +158,7 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
         checker.initialize_stream(&stream);
         void *shardA = nullptr, *shardB = nullptr, *shardC = nullptr;
         for (const auto &memref : memrefs) {
-            int shard_index = memref.instr.tid - TID_BASE;
+            int shard_index = static_cast<int>(memref.instr.tid - TID_BASE);
             stream.set_shard_index(shard_index);
             stream.set_input_tid(memref.instr.tid);
             switch (memref.instr.tid) {
