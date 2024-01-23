@@ -1395,7 +1395,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_shard_index(output_ordinal_t outpu
                     sched_type_t::SCHEDULER_USE_SINGLE_INPUT_ORDINALS,
                 options_.flags)) {
         if (inputs_.size() == 1 && inputs_[0].tid == INVALID_THREAD_ID)
-            return get_input_tid(output);
+            return static_cast<int>(get_input_tid(output));
         return get_input_ordinal(output);
     }
     return output;
