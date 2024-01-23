@@ -1586,6 +1586,9 @@ protected:
         switch_sequence_;
     // For single_lockstep_output.
     std::unique_ptr<stream_t> global_stream_;
+    // For online where we currently have to map dynamically observed thread ids
+    // to the 0-based shard index.
+    std::unordered_map<memref_tid_t, int> tid2shard_;
 };
 
 /** See #dynamorio::drmemtrace::scheduler_tmpl_t. */

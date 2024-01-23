@@ -3,19 +3,19 @@ Total accesses: 1402859
 Total instructions: 638938
 .*
 ==================================================
-Reuse time tool results for shard 3 \(core 3\):
+Reuse time tool results for shard [0-9] \(core [0-9]\):
 Total accesses: .*
 .*
 ==================================================
-Reuse time tool results for shard 2 \(core 2\):
+Reuse time tool results for shard [0-9] \(core [0-9]\):
 Total accesses: .*
 .*
 ==================================================
-Reuse time tool results for shard 1 \(core 1\):
+Reuse time tool results for shard [0-9] \(core [0-9]\):
 Total accesses: .*
 .*
 ==================================================
-Reuse time tool results for shard 0 \(core 0\):
+Reuse time tool results for shard [0-9] \(core [0-9]\):
 Total accesses: .*
 .*
 ===========================================================================
@@ -24,19 +24,19 @@ Total accesses: 2041797
 Instruction accesses: 638938
 .*
 ==================================================
-Reuse distance tool results for shard 3 \(core 3\):
+Reuse distance tool results for shard [0-9] \(core [0-9]\):
 Total accesses: .*
 .*
 ==================================================
-Reuse distance tool results for shard 2 \(core 2\):
+Reuse distance tool results for shard [0-9] \(core [0-9]\):
 Total accesses: .*
 .*
 ==================================================
-Reuse distance tool results for shard 1 \(core 1\):
+Reuse distance tool results for shard [0-9] \(core [0-9]\):
 Total accesses: .*
 .*
 ==================================================
-Reuse distance tool results for shard 0 \(core 0\):
+Reuse distance tool results for shard [0-9] \(core [0-9]\):
 Total accesses: .*
 .*
 ===========================================================================

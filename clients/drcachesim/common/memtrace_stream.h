@@ -162,9 +162,6 @@ public:
      * to determine such an index; there, it equals the same index that would be used in
      * parallel mode, allowing a tool to compute per-shard results even in serial mode. If
      * not implemented, -1 is returned.
-     *
-     * There is a current exception for online analysis where instead of a 0-based
-     * ordinal the last thread id observed in a trace record is returned.
      */
     virtual int
     get_shard_index() const

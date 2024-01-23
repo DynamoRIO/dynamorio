@@ -1394,8 +1394,17 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_shard_index(output_ordinal_t outpu
     if (TESTANY(sched_type_t::SCHEDULER_USE_INPUT_ORDINALS |
                     sched_type_t::SCHEDULER_USE_SINGLE_INPUT_ORDINALS,
                 options_.flags)) {
-        if (inputs_.size() == 1 && inputs_[0].tid == INVALID_THREAD_ID)
-            return static_cast<int>(get_input_tid(output));
+        if (inputs_.size() == 1 && inputs_[0].tid == INVALID_THREAD_ID) {
+            int index;
+            memref_tid_t tid = get_input_tid(output);
+            auto exists = tid2shard_.find(tid);
+            if (exists == tid2shard_.end()) {
+                index = static_cast<int>(tid2shard_.size());
+                tid2shard_[tid] = index;
+            } else
+                index = exists->second;
+            return index;
+        }
         return get_input_ordinal(output);
     }
     return output;
