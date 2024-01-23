@@ -114,7 +114,9 @@ call_dispatch_alt_stack_no_free:
         /* after call, so we can use REG_R3 as the scratch register */
         ldr      REG_R3, [sp, #8/* r4, lr */] /* ARG5 */
         cmp      REG_R3, #0
-        beq      GLOBAL_REF(unexpected_return)
+        bne      call_dispatch_alt_stack_ok_return
+        bl       GLOBAL_REF(unexpected_return)
+call_dispatch_alt_stack_ok_return:
         /* restore and return */
         pop      {REG_R4, pc}
         END_FUNC(call_switch_stack)

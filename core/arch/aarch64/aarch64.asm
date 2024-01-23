@@ -104,19 +104,6 @@ DECL_EXTERN(initstack_mutex)
 DECL_EXTERN(icache_op_struct)
 DECL_EXTERN(linkstub_selfmod)
 
-/* For debugging: report an error if the function called by call_switch_stack()
- * unexpectedly returns.  Also used elsewhere.
- */
-        DECLARE_FUNC(unexpected_return)
-GLOBAL_LABEL(unexpected_return:)
-        CALLC3(GLOBAL_REF(d_r_internal_error), HEX(0), HEX(0), HEX(0))
-        /* d_r_internal_error normally never returns */
-        /* Infinite loop is intentional.  Can we do better in release build?
-         * XXX: why not a debug instr?
-         */
-        JUMP  GLOBAL_REF(unexpected_return)
-        END_FUNC(unexpected_return)
-
 /* bool mrs_id_reg_supported(void)
  * Checks for kernel support of the MRS instr when reading system registers
  * above exception level EL0, by attempting to read Instruction Set Attribute
@@ -158,7 +145,9 @@ call_dispatch_alt_stack_no_free:
         /* Switch stack back. */
         mov      sp, x19
         /* Test return_on_return. */
-        cbz      w20, GLOBAL_REF(unexpected_return)
+        cbnz     w20, call_dispatch_alt_stack_ok_return
+        bl       GLOBAL_REF(unexpected_return)
+call_dispatch_alt_stack_ok_return:
         /* Restore and return. */
         ldr      x19, [sp, #16]
         ldp      x20, x30, [sp], #32
