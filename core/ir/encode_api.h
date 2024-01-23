@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -74,6 +74,7 @@ DR_API
 dr_isa_mode_t
 dr_get_isa_mode(void *drcontext);
 
+DR_API
 /**
  * AArch64 Scalable Vector Extension's vector length in bits is one of:
  * 128 256 384 512 640 768 896 1024 1152 1280 1408 1536 1664 1792 1920 2048
@@ -83,6 +84,7 @@ dr_get_isa_mode(void *drcontext);
 void
 dr_set_sve_vector_length(int vl);
 
+DR_API
 /**
  * Read AArch64 Scalable Vector Extension's vector length, in bits.
  */
