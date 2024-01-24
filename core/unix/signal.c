@@ -3231,7 +3231,7 @@ thread_set_self_context(void *cxt, bool is_detach_external)
 #endif
     IF_ARM(ASSERT_NOT_TESTED());
 #if defined(X86)
-    if(!is_detach_external)
+    if (!is_detach_external)
         save_fpstate(dcontext, &frame);
 #endif
     /* The kernel calls do_sigaltstack on sys_rt_sigreturn primarily to ensure
