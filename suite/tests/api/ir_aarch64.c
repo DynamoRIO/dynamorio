@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -6924,6 +6924,18 @@ test_internal_encode(void *dcontext)
     instr_destroy(dcontext, jmp);
 }
 
+static void
+test_vector_length(void *dcontext)
+{
+    /* XXX i#6575: Add further tests.  For now, make sure these are exported. */
+    const int new_len = 2048;
+    /* XXX: Probably this should return a bool so we know whether it succeeded!
+     * It says it fails if on actual SVE hardware: but is there an easy way to know?
+     */
+    dr_set_sve_vector_length(new_len);
+    ASSERT(dr_get_sve_vector_length() == new_len);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -7101,6 +7113,8 @@ main(int argc, char *argv[])
     ld4r(dcontext);
 
     test_internal_encode(dcontext);
+
+    test_vector_length(dcontext);
 
     print("All tests complete\n");
 #ifndef STANDALONE_DECODER
