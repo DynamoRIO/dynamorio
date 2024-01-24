@@ -3211,9 +3211,12 @@ thread_set_self_context(void *cxt, bool is_detach_external)
     ASSERT_NOT_IMPLEMENTED(false); /* PR 405694: can't use regular sigreturn! */
 #endif
     memset(&frame, 0, sizeof(frame));
-#if defined(X86)
+#ifdef LINUX
+#    ifdef X86
         frame.uc.uc_mcontext.fpstate = sc->fpstate;
-#endif    
+#    endif /* X86 */
+    frame.uc.uc_mcontext = *sc;
+#endif
     IF_ARM(ASSERT_NOT_TESTED());
     /* The kernel calls do_sigaltstack on sys_rt_sigreturn primarily to ensure
      * the frame is ok, but the side effect is we can mess up our own altstack
