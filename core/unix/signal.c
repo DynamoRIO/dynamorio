@@ -3213,7 +3213,7 @@ thread_set_self_context(void *cxt, bool is_detach_external)
     memset(&frame, 0, sizeof(frame));
 #ifdef LINUX
 #    ifdef X86
-        frame.uc.uc_mcontext.fpstate = sc->fpstate;
+    frame.uc.uc_mcontext.fpstate = sc->fpstate;
 #    endif /* X86 */
     frame.uc.uc_mcontext = *sc;
 #endif
