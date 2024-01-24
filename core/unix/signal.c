@@ -3169,7 +3169,7 @@ void
 thread_set_self_context(void *cxt, bool is_detach_external)
 {
 #ifdef X86
-    if (!INTERNAL_OPTION(use_sigreturn_setcontext) || is_detach_external) {
+    if (!INTERNAL_OPTION(use_sigreturn_setcontext)) {
         sigcontext_t *sc = (sigcontext_t *)cxt;
         dr_jmp_buf_t buf;
         buf.xbx = sc->SC_XBX;
@@ -3203,6 +3203,9 @@ thread_set_self_context(void *cxt, bool is_detach_external)
      * full machine state", so we need to get the rest of the state,
      */
     sigframe_rt_t frame;
+#if defined(X86)
+    dcontext_t *dcontext;
+#endif
 #if defined(LINUX) || defined(DEBUG)
     sigcontext_t *sc = (sigcontext_t *)cxt;
 #endif
@@ -3212,18 +3215,24 @@ thread_set_self_context(void *cxt, bool is_detach_external)
 #endif
     memset(&frame, 0, sizeof(frame));
 #if defined(X86)
-    dcontext_t *dcontext = get_thread_private_dcontext();
+    if(!is_detach_external)
+        dcontext = get_thread_private_dcontext();
 #endif
 #ifdef LINUX
 #    ifdef X86
-    byte *xstate = get_and_initialize_xstate_buffer(dcontext);
-    frame.uc.uc_mcontext.fpstate = &((kernel_xstate_t *)xstate)->fpstate;
+    if(!is_detach_external){
+        byte *xstate = get_and_initialize_xstate_buffer(dcontext);
+        frame.uc.uc_mcontext.fpstate = &((kernel_xstate_t *)xstate)->fpstate;
+    } else {
+        frame.uc.uc_mcontext.fpstate = sc->fpstate;
+    }
 #    endif /* X86 */
     frame.uc.uc_mcontext = *sc;
 #endif
     IF_ARM(ASSERT_NOT_TESTED());
 #if defined(X86)
-    save_fpstate(dcontext, &frame);
+    if(!is_detach_external)
+        save_fpstate(dcontext, &frame);
 #endif
     /* The kernel calls do_sigaltstack on sys_rt_sigreturn primarily to ensure
      * the frame is ok, but the side effect is we can mess up our own altstack
