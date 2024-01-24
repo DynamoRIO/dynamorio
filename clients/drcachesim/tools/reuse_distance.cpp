@@ -121,7 +121,7 @@ reuse_distance_t::parallel_shard_init_stream(int shard_index, void *worker_data,
                                   knobs_.distance_limit, knobs_.verify_skip);
     std::lock_guard<std::mutex> guard(shard_map_mutex_);
     shard->core = stream->get_output_cpuid();
-    shard->tid = stream->get_input_tid();
+    shard->tid = stream->get_tid();
     shard_map_[shard_index] = shard;
     return reinterpret_cast<void *>(shard);
 }
@@ -218,7 +218,7 @@ reuse_distance_t::process_memref(const memref_t &memref)
         shard = new shard_data_t(knobs_.distance_threshold, knobs_.skip_list_distance,
                                  knobs_.distance_limit, knobs_.verify_skip);
         shard->core = serial_stream_->get_output_cpuid();
-        shard->tid = serial_stream_->get_input_tid();
+        shard->tid = serial_stream_->get_tid();
         shard_map_[shard_index] = shard;
     } else
         shard = lookup->second;

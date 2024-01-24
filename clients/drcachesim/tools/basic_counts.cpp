@@ -106,7 +106,7 @@ basic_counts_t::parallel_shard_init_stream(int shard_index, void *worker_data,
     std::lock_guard<std::mutex> guard(shard_map_mutex_);
     per_shard->stream = stream;
     per_shard->core = stream->get_output_cpuid();
-    per_shard->tid = stream->get_input_tid();
+    per_shard->tid = stream->get_tid();
     shard_map_[shard_index] = per_shard;
     return reinterpret_cast<void *>(per_shard);
 }
@@ -248,7 +248,7 @@ basic_counts_t::process_memref(const memref_t &memref)
         per_shard = new per_shard_t;
         per_shard->stream = serial_stream_;
         per_shard->core = serial_stream_->get_output_cpuid();
-        per_shard->tid = serial_stream_->get_input_tid();
+        per_shard->tid = serial_stream_->get_tid();
         shard_map_[shard_index] = per_shard;
     } else
         per_shard = lookup->second;

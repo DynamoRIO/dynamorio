@@ -253,7 +253,7 @@ test_parallel()
                 scheduler.get_input_stream_interface(stream->get_input_stream_ordinal())
                     ->get_instruction_ordinal());
             // Test other queries in parallel mode.
-            assert(stream->get_input_tid() == memref.instr.tid);
+            assert(stream->get_tid() == memref.instr.tid);
             assert(stream->get_shard_index() == stream->get_input_stream_ordinal());
         }
     }
@@ -782,7 +782,7 @@ test_real_file_queries_and_filters(const char *testdir)
         assert(stream->get_input_id() == stream->get_input_stream_ordinal());
         assert(stream->get_input_interface() ==
                scheduler.get_input_stream_interface(stream->get_input_stream_ordinal()));
-        assert(stream->get_input_tid() == memref.instr.tid);
+        assert(stream->get_tid() == memref.instr.tid);
         assert(stream->get_shard_index() == stream->get_input_stream_ordinal());
     }
     // Ensure 2 input workloads with 3 streams with proper names.

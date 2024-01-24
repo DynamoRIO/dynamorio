@@ -74,8 +74,6 @@ simulator_t::init_knobs(unsigned int num_cores, uint64_t skip_refs, uint64_t war
     knob_cpu_scheduling_ = cpu_scheduling;
     knob_use_physical_ = use_physical;
     knob_verbose_ = verbose;
-    last_thread_ = 0;
-    last_core_ = -1;
     if (shard_type_ == SHARD_BY_THREAD) {
         cpu_counts_.resize(knob_num_cores_, 0);
         thread_counts_.resize(knob_num_cores_, 0);
@@ -135,8 +133,8 @@ simulator_t::process_memref(const memref_t &memref)
         thread2core_[memref.marker.tid] = min_core;
         ++thread_counts_[min_core];
         ++thread_ever_counts_[min_core];
-        last_thread_ = -1;
-        last_core_ = -1;
+        last_thread_ = INVALID_THREAD_ID;
+        last_core_index_ = INVALID_CORE_INDEX;
     }
     if (!knob_use_physical_)
         return true;
@@ -240,15 +238,15 @@ int
 simulator_t::core_for_thread(memref_tid_t tid)
 {
     if (shard_type_ == SHARD_BY_CORE) {
-        int core = serial_stream_->get_shard_index();
-        if (core != last_core_) {
+        int core_index = serial_stream_->get_shard_index();
+        if (core_index != last_core_index_) {
             // Track the cpuid<->ordinal relationship for our results printout.
             int64_t cpu = serial_stream_->get_output_cpuid();
             if (cpu2core_.find(cpu) == cpu2core_.end())
-                cpu2core_[cpu] = core;
+                cpu2core_[cpu] = core_index;
         }
-        last_core_ = core;
-        return core;
+        last_core_index_ = core_index;
+        return core_index;
     }
     auto exists = thread2core_.find(tid);
     if (exists != thread2core_.end())

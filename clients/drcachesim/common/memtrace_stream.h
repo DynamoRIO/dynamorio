@@ -159,9 +159,9 @@ public:
      * Returns the 0-based ordinal for the current shard.  For parallel analysis,
      * this equals the \p shard_index passed to parallel_shard_init_stream().
      * This is more useful for serial modes where there is no other convenience mechanism
-     * to determine such an index; there, it equals the same index that would be used in
-     * parallel mode, allowing a tool to compute per-shard results even in serial mode. If
-     * not implemented, -1 is returned.
+     * to determine such an index; it allows a tool to compute per-shard results even in
+     * serial mode.  The shard orderings in serial mode may not always mach the ordering
+     * in parallel mode. If not implemented, -1 is returned.
      */
     virtual int
     get_shard_index() const
@@ -213,7 +213,7 @@ public:
      * prior to access to any #memref_t records.
      */
     virtual int64_t
-    get_input_tid() const
+    get_tid() const
     {
         return -1;
     }
@@ -336,7 +336,7 @@ public:
         tid_ = tid;
     }
     int64_t
-    get_input_tid() const override
+    get_tid() const override
     {
         return tid_;
     }

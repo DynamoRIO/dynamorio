@@ -102,6 +102,8 @@ protected:
     addr_t
     synthetic_virt2phys(addr_t virt) const;
 
+    static constexpr int INVALID_CORE_INDEX = -1;
+
     unsigned int knob_num_cores_;
     uint64_t knob_skip_refs_;
     uint64_t knob_warmup_refs_;
@@ -113,8 +115,8 @@ protected:
 
     shard_type_t shard_type_ = SHARD_BY_THREAD;
     memtrace_stream_t *serial_stream_ = nullptr;
-    memref_tid_t last_thread_; // Only used for SHARD_BY_THREAD.
-    int last_core_;
+    memref_tid_t last_thread_ = INVALID_THREAD_ID; // Only used for SHARD_BY_THREAD.
+    int last_core_index_ = INVALID_CORE_INDEX;
 
     // For thread mapping to cores:
     std::unordered_map<int64_t, int> cpu2core_;

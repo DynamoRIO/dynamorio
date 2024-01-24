@@ -232,6 +232,9 @@ protected:
     virtual void
     check_schedule_data(per_shard_t *global_shard);
 
+    virtual bool
+    is_a_unit_test(per_shard_t *shard);
+
     // Check for invariant violations caused by PC discontinuities. Return an error string
     // for such violations.
     std::string

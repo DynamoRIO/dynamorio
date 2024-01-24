@@ -1375,12 +1375,12 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_input_ordinal(output_ordinal_t out
 
 template <typename RecordType, typename ReaderType>
 int64_t
-scheduler_tmpl_t<RecordType, ReaderType>::get_input_tid(output_ordinal_t output)
+scheduler_tmpl_t<RecordType, ReaderType>::get_tid(output_ordinal_t output)
 {
     int index = outputs_[output].cur_input;
     if (index < 0)
         return -1;
-    if (inputs_[index].tid == INVALID_THREAD_ID)
+    if (inputs_[index].is_combined_stream())
         return inputs_[index].last_record_tid;
     return inputs_[index].tid;
 }
@@ -1394,9 +1394,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_shard_index(output_ordinal_t outpu
     if (TESTANY(sched_type_t::SCHEDULER_USE_INPUT_ORDINALS |
                     sched_type_t::SCHEDULER_USE_SINGLE_INPUT_ORDINALS,
                 options_.flags)) {
-        if (inputs_.size() == 1 && inputs_[0].tid == INVALID_THREAD_ID) {
+        if (inputs_.size() == 1 && inputs_[0].is_combined_stream()) {
             int index;
-            memref_tid_t tid = get_input_tid(output);
+            memref_tid_t tid = get_tid(output);
             auto exists = tid2shard_.find(tid);
             if (exists == tid2shard_.end()) {
                 index = static_cast<int>(tid2shard_.size());
@@ -2612,9 +2612,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
     VDO(this, 4, print_record(record););
 
     outputs_[output].last_record = record;
-    if (!record_type_has_tid(record, input->last_record_tid)) {
-        // Leave it as the last value.
-    }
+    record_type_has_tid(record, input->last_record_tid);
     return sched_type_t::STATUS_OK;
 }
 

@@ -139,7 +139,7 @@ func_view_t::parallel_shard_init_stream(int shard_index, void *worker_data,
 {
     auto shard_data = new shard_data_t;
     std::lock_guard<std::mutex> guard(shard_map_mutex_);
-    shard_data->tid = stream->get_input_tid();
+    shard_data->tid = stream->get_tid();
     shard_map_[shard_index] = shard_data;
     return shard_data;
 }
