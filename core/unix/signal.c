@@ -3211,11 +3211,17 @@ thread_set_self_context(void *cxt)
     ASSERT_NOT_IMPLEMENTED(false); /* PR 405694: can't use regular sigreturn! */
 #endif
     memset(&frame, 0, sizeof(frame));
+#if defined(X86)
+    dcontext_t *dcontext = get_thread_private_dcontext();
+#endif
 #ifdef LINUX
 #    ifdef X86
     frame.uc.uc_mcontext.fpstate = sc->fpstate;
 #    endif /* X86 */
     frame.uc.uc_mcontext = *sc;
+#endif
+#if defined(X86)
+    save_fpstate(dcontext, &frame);
 #endif
     IF_ARM(ASSERT_NOT_TESTED());
     /* The kernel calls do_sigaltstack on sys_rt_sigreturn primarily to ensure
