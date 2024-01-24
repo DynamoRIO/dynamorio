@@ -5201,7 +5201,7 @@ thread_set_context(thread_record_t *tr, CONTEXT *context)
 
 /* Takes an os-specific context */
 void
-thread_set_self_context(void *cxt, bool is_detach_external)
+thread_set_self_context(void *cxt)
 {
     /* We use NtContinue to avoid privilege issues with NtSetContext */
     nt_continue((CONTEXT *)cxt);
@@ -5210,7 +5210,7 @@ thread_set_self_context(void *cxt, bool is_detach_external)
 
 /* Takes a priv_mcontext_t */
 void
-thread_set_self_mcontext(priv_mcontext_t *mc, bool is_detach_external)
+thread_set_self_mcontext(priv_mcontext_t *mc)
 {
     /* We can't use heap for our CONTEXT as we have no opportunity to free it.
      * We assume call paths can handle a large stack buffer as size something
