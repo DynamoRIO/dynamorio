@@ -2795,7 +2795,7 @@ thread_attach_setup(priv_mcontext_t *mc)
          * sets the context back).
          */
         mc->pc = data->continuation_pc;
-        thread_set_self_mcontext(mc, false);
+        thread_set_self_mcontext(mc);
         ASSERT_NOT_REACHED();
     }
     /* Preclude double takeover if we become suspended while in ntdll */
@@ -5232,7 +5232,7 @@ thread_set_self_mcontext(priv_mcontext_t *mc)
         cxt = nt_initialize_context(buf, bufsz, cxt_flags);
     /* need ss and cs for setting my own context */
     mcontext_to_context(cxt, mc, true /* set_cur_seg */);
-    thread_set_self_context(cxt, false);
+    thread_set_self_context(cxt);
     ASSERT_NOT_REACHED();
 }
 
