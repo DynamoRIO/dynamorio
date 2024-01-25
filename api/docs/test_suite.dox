@@ -318,9 +318,12 @@ Unfortunately our test suite is not as clean as it could be.  Some tests can be 
 Flaky tests are marked in one of two ways:
 
  - Append "_FLAKY" to the test's name
-    - See suite/tests/CMakeLists.txt for examples
+    - See [suite/tests/CMakeLists.txt](https://github.com/DynamoRIO/dynamorio/blob/master/suite/tests/CMakeLists.txt) for examples
  - Mention the test in runsuite_wrapper.pl
-    - See suite/runsuite_wrapper.pl for examples
+    - See [suite/runsuite_wrapper.pl](https://github.com/DynamoRIO/dynamorio/blob/master/suite/runsuite_wrapper.pl) for examples
+
+In both cases make sure an issue is filed to fix the test and mention the issue
+at the place the test is marked as flaky.
 
 The latter is preferred for tests that should be fixed first.
 
