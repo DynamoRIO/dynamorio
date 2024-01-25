@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -47,6 +47,7 @@
 
 #include <cstdint>
 #include <string>
+#include <unordered_map>
 
 /**
  * @file drmemtrace/memtrace_stream.h
@@ -156,9 +157,24 @@ public:
     }
 
     /**
+     * Returns the 0-based ordinal for the current shard.  For parallel analysis,
+     * this equals the \p shard_index passed to parallel_shard_init_stream().
+     * This is more useful for serial modes where there is no other convenience mechanism
+     * to determine such an index; it allows a tool to compute per-shard results even in
+     * serial mode.  The shard orderings in serial mode may not always mach the ordering
+     * in parallel mode. If not implemented, -1 is returned.
+     */
+    virtual int
+    get_shard_index() const
+    {
+        return -1;
+    }
+
+    /**
      * Returns a unique identifier for the current "output cpu".  Generally this only
      * applies when using #SHARD_BY_CORE.  For dynamic schedules, the identifier is
-     * typically an output cpu ordinal.  For replaying an as-traced schedule, the
+     * typically an output cpu ordinal equal to get_shard_index().  For replaying an
+     * as-traced schedule, the
      * identifier is typically the original input cpu which is now mapped directly
      * to this output.  If not implemented for the current mode, -1 is returned.
      */
@@ -188,6 +204,17 @@ public:
      */
     virtual int64_t
     get_input_id() const
+    {
+        return -1;
+    }
+
+    /**
+     * Returns the thread identifier for the current input trace.
+     * This is a convenience method for use in parallel_shard_init_stream()
+     * prior to access to any #memref_t records.
+     */
+    virtual int64_t
+    get_tid() const
     {
         return -1;
     }
@@ -284,8 +311,53 @@ public:
         return 0;
     }
 
+    void
+    set_output_cpuid(int64_t cpuid)
+    {
+        cpuid_ = cpuid;
+    }
+    int64_t
+    get_output_cpuid() const override
+    {
+        return cpuid_;
+    }
+    void
+    set_shard_index(int index)
+    {
+        shard_ = index;
+    }
+    int
+    get_shard_index() const override
+    {
+        return shard_;
+    }
+    // Also sets the shard index to the dynamic-discovery-order tid ordinal.
+    void
+    set_tid(int64_t tid)
+    {
+        tid_ = tid;
+        auto exists = tid2shard_.find(tid);
+        if (exists == tid2shard_.end()) {
+            int index = static_cast<int>(tid2shard_.size());
+            tid2shard_[tid] = index;
+            set_shard_index(index);
+        } else {
+            set_shard_index(exists->second);
+        }
+    }
+    int64_t
+    get_tid() const override
+    {
+        return tid_;
+    }
+
 private:
-    uint64_t *record_ordinal_;
+    uint64_t *record_ordinal_ = nullptr;
+    int64_t cpuid_ = 0;
+    int shard_ = 0;
+    int64_t tid_ = 0;
+    // To let a test set just the tid and get a shard index for free.
+    std::unordered_map<int64_t, int> tid2shard_;
 };
 
 } // namespace drmemtrace

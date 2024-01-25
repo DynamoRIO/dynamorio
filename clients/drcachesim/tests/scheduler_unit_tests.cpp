@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -252,6 +252,9 @@ test_parallel()
                 stream->get_instruction_ordinal() ==
                 scheduler.get_input_stream_interface(stream->get_input_stream_ordinal())
                     ->get_instruction_ordinal());
+            // Test other queries in parallel mode.
+            assert(stream->get_tid() == memref.instr.tid);
+            assert(stream->get_shard_index() == stream->get_input_stream_ordinal());
         }
     }
     // We expect just 2 records (instr and exit) for each.
@@ -779,6 +782,8 @@ test_real_file_queries_and_filters(const char *testdir)
         assert(stream->get_input_id() == stream->get_input_stream_ordinal());
         assert(stream->get_input_interface() ==
                scheduler.get_input_stream_interface(stream->get_input_stream_ordinal()));
+        assert(stream->get_tid() == memref.instr.tid);
+        assert(stream->get_shard_index() == stream->get_input_stream_ordinal());
     }
     // Ensure 2 input workloads with 3 streams with proper names.
     assert(max_workload_index == 1);
@@ -865,6 +870,8 @@ run_lockstep_simulation(scheduler_t &scheduler, int num_outputs, memref_tid_t ti
                 // fillers to line everything up in time.
                 sched_as_string[i] += NON_INSTR_SYMBOL;
             }
+            assert(outputs[i]->get_shard_index() ==
+                   outputs[i]->get_output_stream_ordinal());
         }
     }
     // Ensure we never see the same output on multiple cores in the same timestep.
@@ -3107,6 +3114,7 @@ test_replay_as_traced()
             assert(cpu == CPU0);
         else
             assert(cpu == CPU1);
+        assert(scheduler.get_output_cpuid(i) == cpu);
     }
     std::vector<std::string> sched_as_string =
         run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE);

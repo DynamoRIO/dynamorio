@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -387,7 +387,8 @@ public:
     /**
      * Invoked once for each trace shard prior to calling parallel_shard_memref() for
      * that shard, this allows a tool to create data local to a shard.  The \p
-     * shard_index is a unique identifier allowing shard data to be stored into a global
+     * shard_index is the 0-based ordinal of the shard, serving as a unique identifier
+     * allowing shard data to be stored into a global
      * table if desired (typically for aggregation use in print_results()).  The \p
      * worker_data is the return value of parallel_worker_init() for the worker thread
      * who will exclusively operate on this shard.  The \p shard_stream allows tools to
