@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021-2023 Google, LLC  All rights reserved.
+ * Copyright (c) 2021-2024 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -122,7 +122,12 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
     {
         checker_no_abort_t checker(/*offline=*/true, /*serial=*/true,
                                    serial_schedule_file);
+        default_memtrace_stream_t stream;
+        checker.initialize_stream(&stream);
         for (const auto &memref : memrefs) {
+            int shard_index = static_cast<int>(memref.instr.tid - TID_BASE);
+            stream.set_tid(memref.instr.tid);
+            stream.set_shard_index(shard_index);
             checker.process_memref(memref);
         }
         checker.print_results();
@@ -149,22 +154,33 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
         }
         checker_no_abort_t checker(/*offline=*/true, /*serial=*/false,
                                    serial_schedule_file);
+        default_memtrace_stream_t stream;
+        checker.initialize_stream(&stream);
         void *shardA = nullptr, *shardB = nullptr, *shardC = nullptr;
         for (const auto &memref : memrefs) {
+            int shard_index = static_cast<int>(memref.instr.tid - TID_BASE);
+            stream.set_tid(memref.instr.tid);
+            stream.set_shard_index(shard_index);
             switch (memref.instr.tid) {
             case TID_A:
-                if (shardA == nullptr)
-                    shardA = checker.parallel_shard_init(TID_A, NULL);
+                if (shardA == nullptr) {
+                    shardA =
+                        checker.parallel_shard_init_stream(shard_index, nullptr, &stream);
+                }
                 checker.parallel_shard_memref(shardA, memref);
                 break;
             case TID_B:
-                if (shardB == nullptr)
-                    shardB = checker.parallel_shard_init(TID_B, NULL);
+                if (shardB == nullptr) {
+                    shardB =
+                        checker.parallel_shard_init_stream(shard_index, nullptr, &stream);
+                }
                 checker.parallel_shard_memref(shardB, memref);
                 break;
             case TID_C:
-                if (shardC == nullptr)
-                    shardC = checker.parallel_shard_init(TID_C, NULL);
+                if (shardC == nullptr) {
+                    shardC =
+                        checker.parallel_shard_init_stream(shard_index, nullptr, &stream);
+                }
                 checker.parallel_shard_memref(shardC, memref);
                 break;
             default: std::cerr << "Internal test error: unknown tid\n"; return false;

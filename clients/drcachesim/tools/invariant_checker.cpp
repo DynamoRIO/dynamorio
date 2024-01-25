@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -82,6 +82,20 @@ invariant_checker_t::~invariant_checker_t()
 }
 
 std::string
+invariant_checker_t::initialize_shard_type(shard_type_t shard_type)
+{
+    if (shard_type == SHARD_BY_CORE) {
+        // We track state that is inherently tied to threads.
+        //
+        // XXX: If we did get kernel pieces stitching together context switches,
+        // we could try to check PC continuity.  We could also try to enable
+        // certain other checks for core-sharded.
+        return "invariant_checker tool does not support sharding by core";
+    }
+    return "";
+}
+
+std::string
 invariant_checker_t::initialize_stream(memtrace_stream_t *serial_stream)
 {
     serial_stream_ = serial_stream;
@@ -130,6 +144,7 @@ invariant_checker_t::parallel_shard_init_stream(int shard_index, void *worker_da
     per_shard->stream = shard_stream;
     void *res = reinterpret_cast<void *>(per_shard.get());
     std::lock_guard<std::mutex> guard(shard_map_mutex_);
+    per_shard->tid_ = shard_stream->get_tid();
     shard_map_[shard_index] = std::move(per_shard);
     return res;
 }
@@ -171,11 +186,17 @@ invariant_checker_t::parallel_shard_error(void *shard_data)
 }
 
 bool
+invariant_checker_t::is_a_unit_test(per_shard_t *shard)
+{
+    // Look for a mock stream.
+    return shard->stream == nullptr || shard->stream->get_input_interface() == nullptr;
+}
+
+bool
 invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 {
     per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
-    if (shard->tid_ == -1 && memref.data.tid != 0)
-        shard->tid_ = memref.data.tid;
+    report_if_false(shard, shard->tid_ == memref.data.tid, "Shard tid != memref tid");
     // We check the memtrace_stream_t counts with our own, unless there was an
     // instr skip from the start where we cannot compare, or we're in a unit
     // test with no stream interface, or we're in serial mode (since we want
@@ -188,10 +209,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     }
     // XXX: We also can't verify counts with a skip invoked from the middle, but
     // we have no simple way to detect that here.
-    if (shard->instr_count_ <= 1 && !shard->skipped_instrs_ && shard->stream != nullptr &&
+    if (shard->instr_count_ <= 1 && !shard->skipped_instrs_ && !is_a_unit_test(shard) &&
         shard->stream->get_instruction_ordinal() > 1)
         shard->skipped_instrs_ = true;
-    if (!shard->skipped_instrs_ && shard->stream != nullptr &&
+    if (!shard->skipped_instrs_ && !is_a_unit_test(shard) &&
         (shard->stream != serial_stream_ || shard_map_.size() == 1)) {
         report_if_false(shard, shard->ref_count_ == shard->stream->get_record_ordinal(),
                         "Stream record ordinal inaccurate");
@@ -316,7 +337,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         memref.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
         shard->file_type_ = static_cast<offline_file_type_t>(memref.marker.marker_value);
         report_if_false(shard,
-                        shard->stream == nullptr ||
+                        is_a_unit_test(shard) ||
                             shard->file_type_ == shard->stream->get_filetype(),
                         "Stream interface filetype != trace marker");
     }
@@ -332,7 +353,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         memref.marker.marker_type == TRACE_MARKER_TYPE_CACHE_LINE_SIZE) {
         shard->found_cache_line_size_marker_ = true;
         report_if_false(shard,
-                        shard->stream == nullptr ||
+                        is_a_unit_test(shard) ||
                             memref.marker.marker_value ==
                                 shard->stream->get_cache_line_size(),
                         "Stream interface cache line size != trace marker");
@@ -341,7 +362,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         memref.marker.marker_type == TRACE_MARKER_TYPE_PAGE_SIZE) {
         shard->found_page_size_marker_ = true;
         report_if_false(shard,
-                        shard->stream == nullptr ||
+                        is_a_unit_test(shard) || is_a_unit_test(shard) ||
                             memref.marker.marker_value == shard->stream->get_page_size(),
                         "Stream interface page size != trace marker");
     }
@@ -349,7 +370,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         memref.marker.marker_type == TRACE_MARKER_TYPE_VERSION) {
         shard->trace_version_ = memref.marker.marker_value;
         report_if_false(shard,
-                        shard->stream == nullptr ||
+                        is_a_unit_test(shard) ||
                             memref.marker.marker_value == shard->stream->get_version(),
                         "Stream interface version != trace marker");
     }
@@ -403,7 +424,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         memref.marker.marker_type == TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) {
         shard->chunk_instr_count_ = memref.marker.marker_value;
         report_if_false(shard,
-                        shard->stream == nullptr ||
+                        is_a_unit_test(shard) ||
                             shard->chunk_instr_count_ ==
                                 shard->stream->get_chunk_instr_count(),
                         "Stream interface chunk instr count != trace marker");
@@ -472,7 +493,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             shard->pre_syscall_trace_instr_ = {};
         }
     }
-    if (shard->stream != nullptr) {
+    if (!is_a_unit_test(shard)) {
         // XXX: between_kernel_syscall_trace_markers_ does not track the
         // TRACE_MARKER_TYPE_CONTEXT_SWITCH_* markers. If the invariant checker is run
         // with dynamic injection of context switch sequences this will throw an error.
@@ -536,12 +557,12 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         "Missing instr count markers");
         report_if_false(shard,
                         shard->found_cache_line_size_marker_ ||
-                            (shard->skipped_instrs_ && shard->stream != nullptr &&
+                            (shard->skipped_instrs_ && !is_a_unit_test(shard) &&
                              shard->stream->get_cache_line_size() > 0),
                         "Missing cache line marker");
         report_if_false(shard,
                         shard->found_page_size_marker_ ||
-                            (shard->skipped_instrs_ && shard->stream != nullptr &&
+                            (shard->skipped_instrs_ && !is_a_unit_test(shard) &&
                              shard->stream->get_page_size() > 0),
                         "Missing page size marker");
         report_if_false(
@@ -998,12 +1019,14 @@ bool
 invariant_checker_t::process_memref(const memref_t &memref)
 {
     per_shard_t *per_shard;
-    const auto &lookup = shard_map_.find(memref.data.tid);
+    int shard_index = serial_stream_->get_shard_index();
+    const auto &lookup = shard_map_.find(shard_index);
     if (lookup == shard_map_.end()) {
         auto per_shard_unique = std::unique_ptr<per_shard_t>(new per_shard_t);
         per_shard = per_shard_unique.get();
         per_shard->stream = serial_stream_;
-        shard_map_[memref.data.tid] = std::move(per_shard_unique);
+        per_shard->tid_ = serial_stream_->get_tid();
+        shard_map_[shard_index] = std::move(per_shard_unique);
     } else
         per_shard = lookup->second.get();
     if (!parallel_shard_memref(reinterpret_cast<void *>(per_shard), memref)) {
