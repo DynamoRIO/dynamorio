@@ -226,10 +226,10 @@ test_cache_and_type_filter()
         // is output from this unit.
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x9 } },
           true,
-          { false, true } },
+          { true, true } },
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0xa } },
           true,
-          { false, true } },
+          { true, true } },
         // Filtered out by cache_filter.
         { { TRACE_TYPE_WRITE, 4, { 0xaa90 } }, true, { false, false } },
         // For the 1st test: filtered out by type_filter.
