@@ -347,21 +347,11 @@ for (my $i = 0; $i <= $#lines; ++$i) {
             # Note that apart from tool.drcachesim.scattergather-aarch64, these
             # have NOT been built with SVE compiler options and are seen to
             # fail intermittently on SVE hardware.
-            %ignore_failures_sve = ('code_api|tool.drcov.eintr' => 1,
-                                   'code_api|tool.drcacheoff.burst_threads_counts' => 1,
-                                   'code_api|tool.drcachesim.coherence' => 1,
-                                   'code_api|tool.drcachesim.multiproc' => 1,
+            %ignore_failures_sve = ('code_api|tool.drcacheoff.burst_threads_counts' => 1,
                                    'code_api|tool.drcachesim.scattergather-aarch64' => 1,
                                    'code_api|tool.drcacheoff.burst_threads' => 1,
                                    'code_api|tool.drcacheoff.burst_threads_counts' => 1,
                                    'code_api|tool.drcacheoff.burst_threadL0filter' => 1,
-                                   'code_api|tool.drcacheoff.raw-zlib' => 1,
-                                   'code_api|tool.drcov.fib' => 1,
-                                   'code_api|client.drsyms-test' => 1,
-                                   'code_api|client.drcallstack-test' => 1,
-                                   'code_api|api.drdecode' => 1,
-                                   'code_api|api.static_signal' => 1,
-                                   'code_api|pthreads.ptsig' => 1,
                                    );
             # Establish if tests are running on SVE hardware.
             system('cat /proc/cpuinfo | grep Features | head -1 | grep sve > /dev/null');
