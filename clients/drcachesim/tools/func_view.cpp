@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -79,8 +79,19 @@ func_view_t::func_view_t(const std::string &funclist_file_path, bool full_trace,
 }
 
 std::string
-func_view_t::initialize()
+func_view_t::initialize_shard_type(shard_type_t shard_type)
 {
+    if (shard_type == SHARD_BY_CORE) {
+        // We track state that is inherently tied to threads.
+        return "func_view tool does not support sharding by core";
+    }
+    return "";
+}
+
+std::string
+func_view_t::initialize_stream(memtrace_stream_t *serial_stream)
+{
+    serial_stream_ = serial_stream;
     std::vector<std::vector<std::string>> entries;
     raw2trace_directory_t directory_;
     std::string error =
@@ -123,10 +134,12 @@ func_view_t::parallel_shard_supported()
 }
 
 void *
-func_view_t::parallel_shard_init(int shard_index, void *worker_data)
+func_view_t::parallel_shard_init_stream(int shard_index, void *worker_data,
+                                        memtrace_stream_t *stream)
 {
     auto shard_data = new shard_data_t;
     std::lock_guard<std::mutex> guard(shard_map_mutex_);
+    shard_data->tid = stream->get_tid();
     shard_map_[shard_index] = shard_data;
     return shard_data;
 }
@@ -181,8 +194,6 @@ bool
 func_view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 {
     shard_data_t *shard = reinterpret_cast<shard_data_t *>(shard_data);
-    if (memref.data.type == TRACE_TYPE_THREAD_EXIT)
-        shard->tid = memref.exit.tid;
     if (memref.marker.type != TRACE_TYPE_MARKER)
         return true;
     process_memref_for_markers(shard, memref);
@@ -193,10 +204,11 @@ bool
 func_view_t::process_memref(const memref_t &memref)
 {
     shard_data_t *shard;
-    const auto &lookup = shard_map_.find(memref.data.tid);
+    int shard_index = serial_stream_->get_shard_index();
+    const auto &lookup = shard_map_.find(shard_index);
     if (lookup == shard_map_.end()) {
         shard = new shard_data_t;
-        shard_map_[memref.data.tid] = shard;
+        shard_map_[shard_index] = shard;
     } else
         shard = lookup->second;
     process_memref_for_markers(shard, memref);

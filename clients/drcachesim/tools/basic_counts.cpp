@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -106,6 +106,7 @@ basic_counts_t::parallel_shard_init_stream(int shard_index, void *worker_data,
     std::lock_guard<std::mutex> guard(shard_map_mutex_);
     per_shard->stream = stream;
     per_shard->core = stream->get_output_cpuid();
+    per_shard->tid = stream->get_tid();
     shard_map_[shard_index] = per_shard;
     return reinterpret_cast<void *>(per_shard);
 }
@@ -228,7 +229,7 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             }
         }
     } else if (memref.data.type == TRACE_TYPE_THREAD_EXIT) {
-        per_shard->tid = memref.exit.tid;
+        assert(shard_type_ != SHARD_BY_THREAD || per_shard->tid == memref.exit.tid);
     } else if (memref.data.type == TRACE_TYPE_INSTR_FLUSH) {
         counters->icache_flushes++;
     } else if (memref.data.type == TRACE_TYPE_DATA_FLUSH) {
@@ -241,14 +242,13 @@ bool
 basic_counts_t::process_memref(const memref_t &memref)
 {
     per_shard_t *per_shard;
-    int64_t shard_index = shard_type_ == SHARD_BY_THREAD
-        ? memref.data.tid
-        : serial_stream_->get_output_cpuid();
+    int shard_index = serial_stream_->get_shard_index();
     const auto &lookup = shard_map_.find(shard_index);
     if (lookup == shard_map_.end()) {
         per_shard = new per_shard_t;
         per_shard->stream = serial_stream_;
         per_shard->core = serial_stream_->get_output_cpuid();
+        per_shard->tid = serial_stream_->get_tid();
         shard_map_[shard_index] = per_shard;
     } else
         per_shard = lookup->second;
@@ -363,8 +363,8 @@ basic_counts_t::print_results()
     }
 
     // Print the shards sorted by instrs.
-    std::vector<std::pair<memref_tid_t, per_shard_t *>> sorted(shard_map_.begin(),
-                                                               shard_map_.end());
+    std::vector<std::pair<int, per_shard_t *>> sorted(shard_map_.begin(),
+                                                      shard_map_.end());
     std::sort(sorted.begin(), sorted.end(), cmp_threads);
     for (const auto &keyvals : sorted) {
         if (shard_type_ == SHARD_BY_THREAD)
