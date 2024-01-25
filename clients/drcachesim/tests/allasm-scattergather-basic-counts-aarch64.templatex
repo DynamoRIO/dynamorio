@@ -1,0 +1,78 @@
+Hello, world!
+---- <application exited with code 0> ----
+Basic counts tool results:
+Total counts:
+#ifdef __ARM_FEATURE_SVE2
+         724 total \(fetched\) instructions
+         270 total unique \(fetched\) instructions
+#else
+         685 total \(fetched\) instructions
+         255 total unique \(fetched\) instructions
+#endif
+           0 total non-fetched instructions
+           0 total prefetches
+#ifdef __ARM_FEATURE_SVE2
+#if (__ARM_FEATURE_SVE_BITS == 128)
+        1158 total data loads
+         873 total data stores
+#elif (__ARM_FEATURE_SVE_BITS == 256)
+        2070 total data loads
+        1615 total data stores
+#elif (__ARM_FEATURE_SVE_BITS == 512)
+        3894 total data loads
+        3099 total data stores
+#endif /* __ARM_FEATURE_SVE_BITS */
+#else
+#if (__ARM_FEATURE_SVE_BITS == 128)
+        1137 total data loads
+         861 total data stores
+#elif (__ARM_FEATURE_SVE_BITS == 256)
+        2035 total data loads
+        1595 total data stores
+#elif (__ARM_FEATURE_SVE_BITS == 512)
+        3831 total data loads
+        3063 total data stores
+#endif /* __ARM_FEATURE_SVE_BITS */
+#endif /* __ARM_FEATURE_SVE2 */
+           0 total icache flushes
+           0 total dcache flushes
+           1 total threads
+     .* total scheduling markers
+.*
+Thread .* counts:
+#ifdef __ARM_FEATURE_SVE2
+         724 \(fetched\) instructions
+         270 unique \(fetched\) instructions
+#else
+         685 \(fetched\) instructions
+         255 unique \(fetched\) instructions
+#endif
+           0 non-fetched instructions
+           0 prefetches
+#ifdef __ARM_FEATURE_SVE2
+#if (__ARM_FEATURE_SVE_BITS == 128)
+        1158 data loads
+         873 data stores
+#elif (__ARM_FEATURE_SVE_BITS == 256)
+        2070 data loads
+        1615 data stores
+#elif (__ARM_FEATURE_SVE_BITS == 512)
+        3894 data loads
+        3099 data stores
+#endif /* __ARM_FEATURE_SVE_BITS */
+#else
+#if (__ARM_FEATURE_SVE_BITS == 128)
+        1137 data loads
+         861 data stores
+#elif (__ARM_FEATURE_SVE_BITS == 256)
+        2035 data loads
+        1595 data stores
+#elif (__ARM_FEATURE_SVE_BITS == 512)
+        3831 data loads
+        3063 data stores
+#endif /* __ARM_FEATURE_SVE_BITS */
+#endif /* __ARM_FEATURE_SVE2 */
+           0 icache flushes
+           0 dcache flushes
+     .* scheduling markers
+.*

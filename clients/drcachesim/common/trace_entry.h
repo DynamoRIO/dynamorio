@@ -531,12 +531,14 @@ typedef enum {
     TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL,
 
     /**
-     * Indicates a point in the trace where a syscall's kernel trace starts.
+     * Indicates a point in the trace where a syscall's kernel trace starts. The value
+     * of the marker is set to the syscall number.
      */
     TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
 
     /**
-     * Indicates a point in the trace where a syscall's trace end.
+     * Indicates a point in the trace where a syscall's trace ends. The value of the
+     * marker is set to the syscall number.
      */
     TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
 
@@ -595,6 +597,20 @@ typedef enum {
      * imposed re-created schedule.
      */
     TRACE_MARKER_TYPE_CORE_IDLE,
+
+    /**
+     * Indicates a point in the trace where context switch's kernel trace starts.
+     * The value of the marker is set to the switch type enum value from
+     * #dynamorio::drmemtrace::scheduler_tmpl_t::switch_type_t.
+     */
+    TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
+
+    /**
+     * Indicates a point in the trace where a context switch's kernel trace ends.
+     * The value of the marker is set to the switch type enum value from
+     * #dynamorio::drmemtrace::scheduler_tmpl_t::switch_type_t.
+     */
+    TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
 
     // ...
     // These values are reserved for future built-in marker types.
@@ -819,6 +835,12 @@ typedef enum {
 #define PC_MODOFFS_BITS 33
 #define PC_MODIDX_BITS 16
 // We reserve the top value to indicate non-module generated code.
+// TODO i#2062: Filtered traces use a different scheme for modoffs (see
+// ENCODING_FILE_TYPE_SEPARATE_NON_MOD_INSTRS) where the total non-module
+// code is limited to 8GB (33 bytes worth of addressing). We can potentially
+// allow more gencode by using multiple modidx (and not just
+// PC_MODIDX_INVALID) for pointing to non-module code, growing downward from
+// PC_MODIDX_INVALID.
 #define PC_MODIDX_INVALID ((1 << PC_MODIDX_BITS) - 1)
 #define PC_INSTR_COUNT_BITS 12
 #define PC_TYPE_BITS 3
@@ -886,8 +908,11 @@ typedef enum {
      */
     OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS = 0x800,
     /**
-     * Kernel traces of syscalls are included.
-     * The included kernel traces are in the Intel® Processor Trace format.
+     * Kernel traces (both instructions and memory addresses) of syscalls are included. If
+     * only kernel instructions are included the file type is
+     * #OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY instead. The included kernel traces
+     * are provided by the -syscall_template_file to raw2trace (see
+     * #OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES).
      */
     OFFLINE_FILE_TYPE_KERNEL_SYSCALLS = 0x1000,
     /**
@@ -898,6 +923,31 @@ typedef enum {
      * The initial part can be used by a simulator for warmup.
      */
     OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP = 0x2000,
+    /**
+     * Indicates an offline trace that contains trace templates for some system calls.
+     * The individual traces are separated by a #TRACE_MARKER_TYPE_SYSCALL marker which
+     * also specifies what system call the following trace belongs to. This file can be
+     * used with -syscall_template_file to raw2trace to create a
+     * #OFFLINE_FILE_TYPE_KERNEL_SYSCALLS trace. See the sample file written by the
+     * burst_syscall_inject.cpp test for more details on the expected format for the
+     * system call template file.
+     * TODO i#6495: Add support for reading a zipfile where each trace template is in
+     * a separate component. This will make it easier to manually append, update, or
+     * inspect the individual templates, and also allow streaming the component with the
+     * required template when needed instead of reading the complete file into memory
+     * ahead of time. Note that we may drop support for non-zipfile template files in
+     * the future.
+     */
+    OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES = 0x4000,
+    /**
+     * Kernel instruction traces of syscalls are included. When memory addresses are
+     * also included for kernel execution, the file type is
+     * #OFFLINE_FILE_TYPE_KERNEL_SYSCALLS instead.
+     * On x86, the kernel trace is enabled by the -enable_kernel_tracing option that
+     * uses Intel® Processor Trace to collect an instruction trace for system call
+     * execution.
+     */
+    OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY = 0x8000,
 } offline_file_type_t;
 
 static inline const char *
@@ -982,7 +1032,32 @@ typedef union {
 // The encoding file begins with a 64-bit integer holding a version number,
 // followed by a series of records of type encoding_entry_t.
 #define ENCODING_FILE_INITIAL_VERSION 0
-#define ENCODING_FILE_VERSION ENCODING_FILE_INITIAL_VERSION
+// Encoding files have a file type as the second uint64_t in their header.
+#define ENCODING_FILE_VERSION_HAS_FILE_TYPE 1
+#define ENCODING_FILE_VERSION ENCODING_FILE_VERSION_HAS_FILE_TYPE
+
+/**
+ * Bitfields used to describe the type of the encoding file. This is stored as the
+ * second uint64_t after the encoding file version.
+ */
+typedef enum {
+    /**
+     * Default encoding file type.
+     */
+    ENCODING_FILE_TYPE_DEFAULT = 0x0,
+    /**
+     * This encoding file type tells the module_mapper_t that the non-module PC
+     * entries in the trace correspond to an individual instr. The modoffs field is
+     * interpreted as the cumulative encoding length of all instrs written to the
+     * encoding file before the recorded instr. Note that the encoding file itself
+     * is still written one mon-module block at a time because it is too inefficient
+     * to write one encoding_entry_t for just one non-module instr.
+     *
+     * If this file type is not set, then the PC entries' modoffs fields are
+     * interpreted as the non-mod block's idx.
+     */
+    ENCODING_FILE_TYPE_SEPARATE_NON_MOD_INSTRS = 0x1,
+} encoding_file_type_t;
 
 // All fields are little-endian.
 START_PACKED_STRUCTURE

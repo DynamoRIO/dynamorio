@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2010-2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -2507,6 +2507,13 @@ bool
 dr_using_all_private_caches(void)
 {
     return !SHARED_FRAGMENTS_ENABLED();
+}
+
+DR_API
+bool
+dr_running_under_dynamorio(void)
+{
+    return !standalone_library;
 }
 
 DR_API
@@ -7376,11 +7383,9 @@ dr_insert_get_stolen_reg_value(void *drcontext, instrlist_t *ilist, instr_t *ins
                   "dr_insert_get_stolen_reg: reg has wrong size\n");
     CLIENT_ASSERT(!reg_is_stolen(reg),
                   "dr_insert_get_stolen_reg: reg is used by DynamoRIO\n");
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
     instrlist_meta_preinsert(
         ilist, instr, instr_create_restore_from_tls(drcontext, reg, TLS_REG_STOLEN_SLOT));
-#elif defined(RISCV64)
-    CLIENT_ASSERT(false, "NYI on RISCV64");
 #endif
     return true;
 }

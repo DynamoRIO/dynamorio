@@ -35,10 +35,6 @@ if ("${CMAKE_BUILD_TYPE}" MATCHES "Debug")
   set(DEBUG ON)
 endif ("${CMAKE_BUILD_TYPE}" MATCHES "Debug")
 
-if (RISCV64) # TODO i#3544: Port tests to RISC-V 64
-  return()
-endif (RISCV64)
-
 # To match Makefiles and have just one build type per configured build
 # dir, we collapse VS generator configs to a single choice.
 # This must be done prior to the project() command and the var
@@ -245,7 +241,7 @@ add_sample_client(memtrace_simple "memtrace_simple.c;utils.c" "drmgr;drreg;druti
 add_sample_client(memval_simple   "memval_simple.c;utils.c"   "drmgr;drreg;drutil;drx")
 add_sample_client(instrace_simple "instrace_simple.c;utils.c" "drmgr;drreg;drx")
 add_sample_client(opcode_count    "opcode_count.cpp"    "drmgr;drreg;drx;droption")
-if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
+if (X86) # FIXME i#1551, i#1569, i#3544: port to ARM/AArch64/RISCV64
   add_sample_client(cbr         "cbr.c"           "drmgr")
   add_sample_client(countcalls  "countcalls.c"    "drmgr;drreg")
   add_sample_client(inc2add     "inc2add.c"       "drmgr;drreg")

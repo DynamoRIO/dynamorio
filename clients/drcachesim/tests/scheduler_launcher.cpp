@@ -101,6 +101,11 @@ droption_t<bool> op_honor_stamps(DROPTION_SCOPE_ALL, "honor_stamps", true,
                                  "Whether to honor recorded timestamps for ordering",
                                  "Whether to honor recorded timestamps for ordering");
 
+droption_t<double> op_block_time_scale(DROPTION_SCOPE_ALL, "block_time_scale", 1.,
+                                       "Input block time scale factor",
+                                       "A higher value here results in blocking syscalls "
+                                       "keeping inputs unscheduled for longer.");
+
 #ifdef HAS_ZIP
 droption_t<std::string> op_record_file(DROPTION_SCOPE_FRONTEND, "record_file", "",
                                        "Path for storing record of schedule",
@@ -319,6 +324,7 @@ _tmain(int argc, const TCHAR *targv[])
     sched_ops.quantum_duration = op_sched_quantum.get_value();
     if (op_sched_time.get_value())
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
+    sched_ops.block_time_scale = op_block_time_scale.get_value();
 #ifdef HAS_ZIP
     std::unique_ptr<zipfile_ostream_t> record_zip;
     std::unique_ptr<zipfile_istream_t> replay_zip;
@@ -338,7 +344,7 @@ _tmain(int argc, const TCHAR *targv[])
         sched_ops.replay_as_traced_istream = cpu_schedule_zip.get();
     }
 #endif
-    if (scheduler.init(sched_inputs, op_num_cores.get_value(), sched_ops) !=
+    if (scheduler.init(sched_inputs, op_num_cores.get_value(), std::move(sched_ops)) !=
         scheduler_t::STATUS_SUCCESS) {
         FATAL_ERROR("failed to initialize scheduler: %s",
                     scheduler.get_error_string().c_str());

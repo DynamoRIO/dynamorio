@@ -216,6 +216,8 @@ set(raw2trace_srcs
   tracer/instru_offline.cpp
   reader/reader.cpp
   common/trace_entry.cpp
+  reader/record_file_reader.cpp
+  ${zlib_reader}
   )
 if (libsnappy)
   set(raw2trace_srcs ${raw2trace_srcs}
@@ -509,6 +511,9 @@ macro(add_drmemtrace name type)
   target_link_libraries(${name} ${zlib_libs})
   if (liblz4)
     target_link_libraries(${name} lz4)
+  endif ()
+  if (RISCV64)
+    target_link_libraries(${name} atomic)
   endif ()
   add_dependencies(${name} api_headers)
   install_target(${name} ${INSTALL_CLIENTS_LIB})
@@ -1021,6 +1026,15 @@ if (BUILD_TESTS)
       use_DynamoRIO_static_client(tool.drcacheoff.burst_maps drmemtrace_static)
       target_link_libraries(tool.drcacheoff.burst_maps test_helpers)
       add_win32_flags(tool.drcacheoff.burst_maps)
+    endif ()
+    if (LINUX)
+      add_executable(tool.drcacheoff.burst_syscall_inject tests/burst_syscall_inject.cpp)
+      configure_DynamoRIO_static(tool.drcacheoff.burst_syscall_inject)
+      use_DynamoRIO_static_client(tool.drcacheoff.burst_syscall_inject drmemtrace_static)
+      target_link_libraries(tool.drcacheoff.burst_syscall_inject drmemtrace_raw2trace
+          drmemtrace_analyzer test_helpers drmemtrace_basic_counts)
+      add_win32_flags(tool.drcacheoff.burst_syscall_inject)
+      use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_syscall_inject)
     endif ()
 
     if (UNIX)

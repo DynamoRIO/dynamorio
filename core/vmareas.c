@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -8385,7 +8385,7 @@ check_in_last_thread_vm_area(dcontext_t *dcontext, app_pc pc)
                    data->last_area->start <= pc);
     }
     /* last decoded app pc may be in last shared area instead */
-    if (!in_last && DYNAMO_OPTION(shared_bbs)) {
+    if (!in_last && DYNAMO_OPTION(shared_bbs) && shared_data != NULL) {
         /* We avoid the high-ranked shared_vm_areas lock which can easily cause
          * rank order violations (i#3346).  We're trying to catch the scenario
          * where a shared bb is being built and we fault decoding it.  There,

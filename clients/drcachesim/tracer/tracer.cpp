@@ -2319,10 +2319,12 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         /* we use placement new for better isolation */
         DR_ASSERT(MAX_INSTRU_SIZE >= sizeof(offline_instru_t));
         placement = dr_global_alloc(MAX_INSTRU_SIZE);
-        instru = new (placement)
-            offline_instru_t(insert_load_buf_ptr, &scratch_reserve_vec,
-                             file_ops_func.write_file, module_file, encoding_file,
-                             op_disable_optimizations.get_value(), instru_notify);
+        // TODO i#6474, i#2062: Also handle op_L0_filter_until_instrs here when
+        // i#6474 is resolved.
+        instru = new (placement) offline_instru_t(
+            insert_load_buf_ptr, &scratch_reserve_vec, file_ops_func.write_file,
+            module_file, encoding_file, op_disable_optimizations.get_value(),
+            op_L0D_filter.get_value() || op_L0I_filter.get_value(), instru_notify);
     } else {
         void *placement;
         /* we use placement new for better isolation */
@@ -2334,7 +2336,16 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
             DR_ASSERT(false);
 #ifdef UNIX
         /* we want an isolated fd so we don't use ipc_pipe.open_for_write() */
-        int fd = dr_open_file(ipc_pipe.get_pipe_path().c_str(), DR_FILE_WRITE_ONLY);
+        const char *pipe_path = ipc_pipe.get_pipe_path().c_str();
+        if (!dr_file_exists(pipe_path)) {
+            NOTIFY(0,
+                   "drmemtrace WARNING: attempting to open write end of pipe at %s "
+                   "for online analysis but pipe does not exist. Use \"-offline\" "
+                   "mode if you are using drmemtrace without a reader.\n",
+                   pipe_path);
+        }
+
+        int fd = dr_open_file(pipe_path, DR_FILE_WRITE_ONLY);
         DR_ASSERT(fd != INVALID_FILE);
         if (!ipc_pipe.set_fd(fd))
             DR_ASSERT(false);

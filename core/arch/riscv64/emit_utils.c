@@ -866,14 +866,11 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     /* Now, a1 holds the hash table index, use slli+add to get the table entry. */
     ASSERT(4 - HASHTABLE_IBL_OFFSET(ibl_code->branch_type) >= 0);
     if (4 - HASHTABLE_IBL_OFFSET(ibl_code->branch_type) > 0) {
-        /* TODO i#3544: Immediate display format should be auto-added by the IR. */
         APP(&ilist,
             INSTR_CREATE_slli(
                 dc, opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A1),
-                opnd_add_flags(
-                    opnd_create_immed_int(4 - HASHTABLE_IBL_OFFSET(ibl_code->branch_type),
-                                          OPSZ_6b),
-                    DR_OPND_IMM_PRINT_DECIMAL)));
+                opnd_create_immed_int(4 - HASHTABLE_IBL_OFFSET(ibl_code->branch_type),
+                                      OPSZ_6b)));
     }
     APP(&ilist,
         INSTR_CREATE_add(dc, opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A0),
@@ -1076,10 +1073,8 @@ append_fcache_enter_prologue(dcontext_t *dcontext, instrlist_t *ilist, bool abso
         XINST_CREATE_move(dcontext, opnd_create_reg(REG_DCXT),
                           opnd_create_reg(DR_REG_A0)));
     APP(ilist,
-        INSTR_CREATE_lb(
-            dcontext, opnd_create_reg(DR_REG_A2),
-            opnd_add_flags(OPND_DC_FIELD(absolute, dcontext, OPSZ_1, SIGPENDING_OFFSET),
-                           DR_OPND_IMM_PRINT_DECIMAL)));
+        INSTR_CREATE_lb(dcontext, opnd_create_reg(DR_REG_A2),
+                        OPND_DC_FIELD(absolute, dcontext, OPSZ_1, SIGPENDING_OFFSET)));
     APP(ilist,
         INSTR_CREATE_bge(dcontext, opnd_create_instr(no_signals),
                          opnd_create_reg(DR_REG_ZERO), opnd_create_reg(DR_REG_A2)));

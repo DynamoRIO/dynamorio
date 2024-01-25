@@ -100,3 +100,20 @@ d50b7d3d : dc cvadp, x29                  : dc_cvadp (%x29)[1byte]
 d50b7d3e : dc cvadp, x30                  : dc_cvadp (%x30)[1byte]
 d50b7d3f : dc cvadp, xzr                  : dc_cvadp (%xzr)[1byte]
 
+# FMOV <Hd>, #<imm>
+1ef01000 : fmov h0, #-2.0                 : fmov   $-2.000000 -> %h0
+1ef05002 : fmov h2, #-2.25                : fmov   $-2.250000 -> %h2
+1ef09004 : fmov h4, #-2.5                 : fmov   $-2.500000 -> %h4
+1ef0d006 : fmov h6, #-2.75                : fmov   $-2.750000 -> %h6
+1ef11008 : fmov h8, #-3.0                 : fmov   $-3.000000 -> %h8
+1ef1500a : fmov h10, #-3.25               : fmov   $-3.250000 -> %h10
+1ef1900c : fmov h12, #-3.5                : fmov   $-3.500000 -> %h12
+1ef1d00e : fmov h14, #-3.75               : fmov   $-3.750000 -> %h14
+1ee01010 : fmov h16, #2.0                 : fmov   $2.000000 -> %h16
+1eee3011 : fmov h17, #1.0625              : fmov   $1.062500 -> %h17
+1eee7013 : fmov h19, #1.1875              : fmov   $1.187500 -> %h19
+1eeeb015 : fmov h21, #1.3125              : fmov   $1.312500 -> %h21
+1eeef017 : fmov h23, #1.4375              : fmov   $1.437500 -> %h23
+1eef3019 : fmov h25, #1.5625              : fmov   $1.562500 -> %h25
+1eef701b : fmov h27, #1.6875              : fmov   $1.687500 -> %h27
+1eeff01f : fmov h31, #1.9375              : fmov   $1.937500 -> %h31

@@ -39,6 +39,7 @@
 #include "dr_api.h"
 #include "drcovlib.h"
 #include "raw2trace.h"
+#include "record_file_reader.h"
 #include "reader.h"
 #include "memref.h"
 #include "trace_entry.h"
@@ -349,17 +350,31 @@ module_mapper_t::do_encoding_parsing()
         dr_map_file(encoding_file_, &map_size, 0, NULL, DR_MEMPROT_READ, 0));
     if (map_start == nullptr || map_size < file_size)
         return "Failed to map encoding file";
-    if (*reinterpret_cast<uint64_t *>(map_start) != ENCODING_FILE_VERSION)
+    byte *map_at = map_start;
+    byte *map_end = map_start + file_size;
+    uint64_t encoding_file_version = *reinterpret_cast<uint64_t *>(map_at);
+    map_at += sizeof(uint64_t);
+    if (encoding_file_version > ENCODING_FILE_VERSION)
         return "Encoding file has invalid version";
-    size_t offs = sizeof(uint64_t);
-    while (offs < file_size) {
-        encoding_entry_t *entry = reinterpret_cast<encoding_entry_t *>(map_start + offs);
-        if (entry->length < sizeof(encoding_entry_t))
+    if (encoding_file_version >= ENCODING_FILE_VERSION_HAS_FILE_TYPE) {
+        if (map_at + sizeof(uint64_t) > map_end)
+            return "Encoding file header is truncated";
+        uint64_t encoding_file_type = *reinterpret_cast<uint64_t *>(map_at);
+        map_at += sizeof(uint64_t);
+        separate_non_mod_instrs_ =
+            TESTANY(ENCODING_FILE_TYPE_SEPARATE_NON_MOD_INSTRS, encoding_file_type);
+    }
+    uint64_t cumulative_encoding_length = 0;
+    while (map_at < map_end) {
+        encoding_entry_t *entry = reinterpret_cast<encoding_entry_t *>(map_at);
+        if (entry->length <= sizeof(encoding_entry_t))
             return "Encoding file is corrupted";
-        if (offs + entry->length > file_size)
+        if (map_at + entry->length > map_end)
             return "Encoding file is truncated";
+        cum_block_enc_len_to_encoding_id_[cumulative_encoding_length] = entry->id;
+        cumulative_encoding_length += (entry->length - sizeof(encoding_entry_t));
         encodings_[entry->id] = entry;
-        offs += entry->length;
+        map_at += entry->length;
     }
     return "";
 }
@@ -568,6 +583,115 @@ module_mapper_t::write_module_data(char *buf, size_t buf_size,
  * Top-level
  */
 
+app_pc
+raw2trace_t::get_first_app_pc_for_syscall_template(int syscall_num)
+{
+    auto it = syscall_trace_templates_[syscall_num].begin();
+    while (it != syscall_trace_templates_[syscall_num].end()) {
+        if (type_is_instr(static_cast<trace_type_t>(it->type))) {
+            return reinterpret_cast<app_pc>(it->addr);
+        }
+        ++it;
+    }
+    return nullptr;
+}
+
+bool
+raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, byte *&buf_in,
+                                    trace_entry_t *buf_base, int syscall_num)
+{
+    // Check if we have a template for this system call.
+    if (syscall_trace_templates_.find(syscall_num) == syscall_trace_templates_.end())
+        return true;
+    if ((get_file_type(tdata) & OFFLINE_FILE_TYPE_ARCH_ALL) !=
+        (syscall_template_file_type_ & OFFLINE_FILE_TYPE_ARCH_ALL)) {
+        tdata->error = "Trace architecture mismatch with system call trace "
+                       "template.";
+        return false;
+    }
+    // Write out delayed branches if any. When we're at a system call number marker
+    // any delayed branches should already be written out at the prior syscall
+    // instruction. However, on Win32 the WOW64 calls are treated as a system call
+    // (has a corresponding system call number marker) but is also a CTI so is
+    // delayed. We expect delayed branches only in that case.
+    if (delayed_branches_exist(tdata)) {
+        app_pc next_pc = get_first_app_pc_for_syscall_template(syscall_num);
+        if (next_pc == nullptr) {
+            tdata->error = "Could not find first app pc in system call template for " +
+                std::to_string(syscall_num);
+            return false;
+        }
+        if (!append_delayed_branch(tdata, next_pc))
+            return false;
+    }
+    trace_entry_t *buf = reinterpret_cast<trace_entry_t *>(buf_in);
+    trace_entry_t start_entry = { TRACE_TYPE_MARKER,
+                                  TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
+                                  { static_cast<addr_t>(syscall_num) } };
+    *buf = start_entry;
+    ++buf;
+    // Now write any accumulated entries from before, plus the start entry.
+    size_t size = buf - buf_base;
+    if ((uint)size >= WRITE_BUFFER_SIZE) {
+        tdata->error = "Too many entries";
+        return false;
+    }
+    if (!write(tdata, buf_base, buf)) {
+        return false;
+    }
+    buf = buf_base;
+    buf_in = reinterpret_cast<byte *>(buf_base); // Defensive: update the returned buf.
+
+    app_pc saved_decode_pc;
+    int inserted_instr_count = 0;
+    // XXX i#6495: For now we write out the template as-is to the output trace. But we can
+    // potentially customize some properties of the trace. E.g. the start address for the
+    // kernel code section.
+    for (const auto &entry : syscall_trace_templates_[syscall_num]) {
+        if (type_is_instr(static_cast<trace_type_t>(entry.type))) {
+            if (buf != buf_base) {
+                if (!write(tdata, buf_base, buf, &saved_decode_pc, 1)) {
+                    return false;
+                }
+                buf = buf_base;
+            }
+            ++inserted_instr_count;
+            accumulate_to_statistic(tdata, RAW2TRACE_STAT_KERNEL_INSTR_COUNT, 1);
+            saved_decode_pc = syscall_trace_template_encodings_.get_decode_pc(
+                static_cast<addr_t>(entry.addr));
+            if (saved_decode_pc == nullptr) {
+                tdata->error =
+                    "Missing encoding in system call trace template for app PC " +
+                    std::to_string(entry.addr);
+                return false;
+            } else {
+                record_encoding_emitted(tdata, saved_decode_pc);
+            }
+        }
+        *buf = entry;
+        ++buf;
+    }
+    if (buf != buf_base) {
+        if (!write(tdata, buf_base, buf, &saved_decode_pc, 1)) {
+            return false;
+        }
+        buf = buf_base;
+    }
+    trace_entry_t end_entry = { TRACE_TYPE_MARKER,
+                                TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
+                                { static_cast<addr_t>(syscall_num) } };
+    *buf = end_entry;
+    ++buf;
+    if (!write(tdata, buf_base, buf)) {
+        return false;
+    }
+    buf_in = reinterpret_cast<byte *>(buf_base);
+    accumulate_to_statistic(tdata, RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED, 1);
+    log(2, "Inserted %d instrs from system call trace template for sysnum %d\n",
+        inserted_instr_count, syscall_num);
+    return true;
+}
+
 bool
 raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                                    const offline_entry_t *in_entry, thread_id_t tid,
@@ -625,6 +749,13 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
             // process_next_thread_buffer() so there is no need to have a separate
             // check for it here.
             if (marker_type != TRACE_MARKER_TYPE_CPU_ID) {
+                if (syscall_template_file_reader_ != nullptr &&
+                    marker_type == TRACE_MARKER_TYPE_SYSCALL) {
+                    // Also writes out the delayed branches if any.
+                    if (!write_syscall_template(tdata, buf, buf_base,
+                                                static_cast<int>(marker_val)))
+                        return false;
+                }
                 if (delayed_branches_exist(tdata)) {
                     return write_delayed_branches(tdata, buf_base,
                                                   reinterpret_cast<trace_entry_t *>(buf));
@@ -802,18 +933,29 @@ raw2trace_t::read_header(raw2trace_thread_data_t *tdata,
     return true;
 }
 
+void
+raw2trace_t::create_essential_header_entries(byte *&buf_ptr, int version,
+                                             offline_file_type_t file_type,
+                                             thread_id_t tid, process_id_t pid)
+{
+
+    trace_entry_t *header = (trace_entry_t *)buf_ptr;
+    buf_ptr += sizeof(trace_entry_t);
+    header->type = TRACE_TYPE_HEADER;
+    header->size = 0;
+    header->addr = static_cast<addr_t>(version);
+    buf_ptr += instru.append_marker(buf_ptr, TRACE_MARKER_TYPE_VERSION, version);
+    buf_ptr += instru.append_marker(buf_ptr, TRACE_MARKER_TYPE_FILETYPE, file_type);
+    buf_ptr += trace_metadata_writer_t::write_tid(buf_ptr, tid);
+    buf_ptr += trace_metadata_writer_t::write_pid(buf_ptr, pid);
+}
+
 bool
 raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
 {
     int version = tdata->version < OFFLINE_FILE_VERSION_KERNEL_INT_PC
         ? TRACE_ENTRY_VERSION_NO_KERNEL_PC
         : TRACE_ENTRY_VERSION;
-    trace_entry_t entry;
-    entry.type = TRACE_TYPE_HEADER;
-    entry.size = 0;
-    entry.addr = version;
-    if (!write(tdata, &entry, &entry + 1))
-        return false;
 
     // First read the tid and pid entries which precede any timestamps.
     trace_header_t header = { static_cast<process_id_t>(INVALID_PROCESS_ID),
@@ -825,7 +967,14 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     thread_id_t tid = header.tid;
     tdata->tid = tid;
 #ifdef BUILD_PT_POST_PROCESSOR
-    if (TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS, tdata->file_type)) {
+    if (TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS |
+                    OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY,
+                tdata->file_type)) {
+        if (syscall_template_file_reader_ != nullptr) {
+            tdata->error = "System call trace template injection not supported for "
+                           "traces already with kernel parts.";
+            return false;
+        }
         DR_ASSERT(tdata->kthread_file == nullptr);
         auto it = kthread_files_map_.find(tid);
         if (it != kthread_files_map_.end()) {
@@ -833,6 +982,10 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
         }
     }
 #endif
+    if (syscall_template_file_reader_ != nullptr) {
+        tdata->file_type = static_cast<offline_file_type_t>(
+            tdata->file_type | OFFLINE_FILE_TYPE_KERNEL_SYSCALLS);
+    }
     tdata->cache_line_size = header.cache_line_size;
     // We can't adjust filtered instructions, so we disable buffering.
     if (!TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
@@ -844,22 +997,9 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     byte *buf_base = reinterpret_cast<byte *>(get_write_buffer(tdata));
     byte *buf = buf_base;
     // Write the version, arch, and other type flags.
-    buf += instru.append_marker(buf, TRACE_MARKER_TYPE_VERSION, version);
-    buf += instru.append_marker(buf, TRACE_MARKER_TYPE_FILETYPE, tdata->file_type);
-    buf += trace_metadata_writer_t::write_tid(buf, tid);
-    buf += trace_metadata_writer_t::write_pid(buf, pid);
+    create_essential_header_entries(buf, version, tdata->file_type, tid, pid);
     buf += trace_metadata_writer_t::write_marker(buf, TRACE_MARKER_TYPE_CACHE_LINE_SIZE,
                                                  header.cache_line_size);
-    // The buffer can only hold 5 entries so write it now.
-    if ((uint)(buf - buf_base) >= WRITE_BUFFER_SIZE) {
-        tdata->error = "Too many entries";
-        return false;
-    }
-    if (!write(tdata, reinterpret_cast<trace_entry_t *>(buf_base),
-               reinterpret_cast<trace_entry_t *>(buf)))
-        return false;
-    buf_base = reinterpret_cast<byte *>(get_write_buffer(tdata));
-    buf = buf_base;
     // Write out further markers.
     // Even if tdata->out_archive == nullptr we write out a (0-valued) marker,
     // partly to simplify our test output.
@@ -948,7 +1088,7 @@ raw2trace_t::get_next_kernel_entry(raw2trace_thread_data_t *tdata,
 bool
 raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall_idx)
 {
-    DR_ASSERT(TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS, tdata->file_type));
+    DR_ASSERT(TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY, tdata->file_type));
     std::unique_ptr<pt_metadata_buf_t> pt_metadata;
     std::unique_ptr<pt_data_buf_t> pt_data =
         get_next_kernel_entry(tdata, pt_metadata, syscall_idx);
@@ -1008,9 +1148,12 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
     }
 
     /* Convert the PT Data to DR IR. */
-    drir_t drir(GLOBAL_DCONTEXT);
-    pt2ir_convert_status_t pt2ir_convert_status =
-        tdata->pt2ir.convert(pt_data->data.get(), pt_data_size, drir);
+    if (tdata->pt_decode_state_ == nullptr) {
+        tdata->pt_decode_state_ = std::unique_ptr<drir_t>(new drir_t(GLOBAL_DCONTEXT));
+    }
+    tdata->pt_decode_state_->clear_ilist();
+    pt2ir_convert_status_t pt2ir_convert_status = tdata->pt2ir.convert(
+        pt_data->data.get(), pt_data_size, tdata->pt_decode_state_.get());
     if (pt2ir_convert_status != PT2IR_CONV_SUCCESS) {
         tdata->error = "Failed to convert PT raw trace to DR IR [error status: " +
             std::to_string(pt2ir_convert_status) + "]";
@@ -1018,13 +1161,19 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
     }
 
     /* Convert the DR IR to trace entries. */
+    addr_t sysnum =
+        pt_data->header[dynamorio::drmemtrace::PDB_HEADER_SYSNUM_IDX].sysnum.sysnum;
     std::vector<trace_entry_t> entries;
     trace_entry_t start_entry = { .type = TRACE_TYPE_MARKER,
                                   .size = TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
-                                  .addr = 0 };
+                                  .addr = sysnum };
     entries.push_back(start_entry);
+    // TODO i#5505: When ir2trace starts adding synthesized read/write memrefs for
+    // the kernel trace, change the trace file type from
+    // OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY to
+    // OFFLINE_FILE_TYPE_KERNEL_SYSCALLS.
     ir2trace_convert_status_t ir2trace_convert_status =
-        ir2trace_t::convert(drir, entries);
+        ir2trace_t::convert(tdata->pt_decode_state_.get(), entries);
     if (ir2trace_convert_status != IR2TRACE_CONV_SUCCESS) {
         tdata->error = "Failed to convert DR IR to trace entries [error status: " +
             std::to_string(ir2trace_convert_status) + "]";
@@ -1032,7 +1181,7 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
     }
     trace_entry_t end_entry = { .type = TRACE_TYPE_MARKER,
                                 .size = TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
-                                .addr = 0 };
+                                .addr = sysnum };
     entries.push_back(end_entry);
     if (entries.size() == 2) {
         tdata->error = "No trace entries generated from PT data";
@@ -1040,17 +1189,41 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
     }
 
     accumulate_to_statistic(tdata, RAW2TRACE_STAT_SYSCALL_TRACES_DECODED, 1);
+    app_pc saved_decode_pc;
+    trace_entry_t entries_with_encodings[WRITE_BUFFER_SIZE];
+    trace_entry_t *buf = entries_with_encodings;
     for (const auto &entry : entries) {
-        if (type_is_instr(static_cast<trace_type_t>(entry.type)))
+        if (type_is_instr(static_cast<trace_type_t>(entry.type))) {
+            if (buf != entries_with_encodings) {
+                if (!write(tdata, entries_with_encodings, buf, &saved_decode_pc, 1)) {
+                    return false;
+                }
+                buf = entries_with_encodings;
+            }
             accumulate_to_statistic(tdata, RAW2TRACE_STAT_KERNEL_INSTR_COUNT, 1);
+            // The per-thread drir_t object (pt_decode_state_) keeps instr encoding
+            // state across system calls. So different dynamic instances of the same
+            // instruction in system calls will have the same decode_pc.
+            saved_decode_pc = tdata->pt_decode_state_->get_decode_pc(
+                reinterpret_cast<app_pc>(entry.addr));
+            if (saved_decode_pc == nullptr) {
+                tdata->error =
+                    "Unknown pc after ir2trace: did ir2trace insert new instr?";
+                return false;
+            }
+            if (record_encoding_emitted(tdata, saved_decode_pc) &&
+                !append_encoding(tdata, saved_decode_pc, entry.size, buf,
+                                 entries_with_encodings))
+                return false;
+        }
+        *buf = entry;
+        ++buf;
     }
-
-    if (!tdata->out_file->write(reinterpret_cast<const char *>(entries.data()),
-                                sizeof(trace_entry_t) * entries.size())) {
-        tdata->error = "Failed to write to output file";
-        return false;
+    if (buf != entries_with_encodings) {
+        if (!write(tdata, entries_with_encodings, buf, &saved_decode_pc, 1)) {
+            return false;
+        }
     }
-
     return true;
 }
 #endif
@@ -1265,6 +1438,60 @@ raw2trace_t::process_tasks(std::vector<raw2trace_thread_data_t *> *tasks)
     }
 }
 
+// XXX i#6495: This assumes that all contents of the file can easily fit into memory.
+// With zipfile support we can potentially stream only the required component (the one
+// with the trace template we want) when needed in write_syscall_template().
+std::string
+raw2trace_t::read_syscall_template_file()
+{
+    if (syscall_template_file_reader_ == nullptr)
+        return "";
+    int last_syscall_num = -1;
+    bool first_entry_for_syscall = false;
+    // This object works for the eof check with any type of record_reader_t.
+    dynamorio::drmemtrace::record_file_reader_t<std::ifstream> record_reader_end;
+    while (*syscall_template_file_reader_ != record_reader_end) {
+        trace_entry_t entry = **syscall_template_file_reader_;
+        ++(*syscall_template_file_reader_);
+        // Track encodings for system call template instructions. We do not need the
+        // returned entry memref count, but only the encoding locations that we will
+        // query using get_decode_pc later.
+        syscall_trace_template_encodings_.entry_memref_count(&entry);
+        if (entry.type == TRACE_TYPE_MARKER) {
+            switch (entry.size) {
+            case TRACE_MARKER_TYPE_SYSCALL:
+                last_syscall_num = static_cast<int>(entry.addr);
+                first_entry_for_syscall = true;
+                continue;
+            case TRACE_MARKER_TYPE_FILETYPE:
+                // We cannot at this point verify that the trace being post-processed is
+                // of the same arch. We do that later in write_syscall_template.
+                syscall_template_file_type_ =
+                    static_cast<offline_file_type_t>(entry.addr);
+                if (!TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES,
+                             entry.addr))
+                    return "Invalid file type for system call trace template file.";
+                if (!TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, entry.addr)) {
+                    return "System call trace templates without encodings are not "
+                           "supported.";
+                }
+                continue;
+            }
+        }
+        // No further processing if we're before the first system call template or at the
+        // end. All other entries between TRACE_MARKER_TYPE_SYSCALL markers are saved
+        // as-is.
+        if (last_syscall_num == -1 || entry.type == TRACE_TYPE_FOOTER)
+            continue;
+        // We expect at most one template per system call for now.
+        DR_ASSERT(!first_entry_for_syscall ||
+                  syscall_trace_templates_[last_syscall_num].empty());
+        syscall_trace_templates_[last_syscall_num].push_back(entry);
+        first_entry_for_syscall = false;
+    }
+    return "";
+}
+
 std::string
 raw2trace_t::do_conversion()
 {
@@ -1273,6 +1500,9 @@ raw2trace_t::do_conversion()
         return error;
     if (thread_data_.empty())
         return "No thread files found.";
+    error = read_syscall_template_file();
+    if (!error.empty())
+        return error;
     // XXX i#3286: Add a %-completed progress message by looking at the file sizes.
     if (worker_count_ == 0) {
         for (size_t i = 0; i < thread_data_.size(); ++i) {
@@ -1291,6 +1521,7 @@ raw2trace_t::do_conversion()
             final_trace_instr_count_ += thread_data_[i]->final_trace_instr_count;
             kernel_instr_count_ += thread_data_[i]->kernel_instr_count;
             syscall_traces_decoded_ += thread_data_[i]->syscall_traces_decoded;
+            syscall_traces_injected_ += thread_data_[i]->syscall_traces_injected;
         }
     } else {
         // The files can be converted concurrently.
@@ -1318,6 +1549,7 @@ raw2trace_t::do_conversion()
             final_trace_instr_count_ += tdata->final_trace_instr_count;
             kernel_instr_count_ += tdata->kernel_instr_count;
             syscall_traces_decoded_ += tdata->syscall_traces_decoded;
+            syscall_traces_injected_ += tdata->syscall_traces_injected;
         }
     }
     error = aggregate_and_write_schedule_files();
@@ -1339,6 +1571,8 @@ raw2trace_t::do_conversion()
     VPRINT(1, "Kernel instr count " UINT64_FORMAT_STRING "\n", kernel_instr_count_);
     VPRINT(1, "System call PT traces decoded " UINT64_FORMAT_STRING "\n",
            syscall_traces_decoded_);
+    VPRINT(1, "System call traces injected from template " UINT64_FORMAT_STRING "\n",
+           syscall_traces_injected_);
     VPRINT(1, "Successfully converted %zu thread files\n", thread_data_.size());
     return "";
 }
@@ -3432,7 +3666,8 @@ raw2trace_t::raw2trace_t(
     void *dcontext, unsigned int verbosity, int worker_count,
     const std::string &alt_module_dir, uint64_t chunk_instr_count,
     const std::unordered_map<thread_id_t, std::istream *> &kthread_files_map,
-    const std::string &kcore_path, const std::string &kallsyms_path)
+    const std::string &kcore_path, const std::string &kallsyms_path,
+    std::unique_ptr<dynamorio::drmemtrace::record_reader_t> syscall_template_file_reader)
     : dcontext_(dcontext == nullptr ? dr_standalone_init() : dcontext)
     , passed_dcontext_(dcontext != nullptr)
     , worker_count_(worker_count)
@@ -3448,6 +3683,7 @@ raw2trace_t::raw2trace_t(
     , kthread_files_map_(kthread_files_map)
     , kcore_path_(kcore_path)
     , kallsyms_path_(kallsyms_path)
+    , syscall_template_file_reader_(std::move(syscall_template_file_reader))
 {
     // Exactly one of out_files and out_archives should be non-empty.
     // If thread_files is not empty it must match the input size.
@@ -3502,6 +3738,17 @@ raw2trace_t::raw2trace_t(
     decode_cache_.reserve(cache_count);
     for (int i = 0; i < cache_count; ++i)
         decode_cache_.emplace_back(cache_count);
+
+#if defined(AARCH64)
+    // TODO i#6556, i#1684: The decoder uses a global sve_veclen variable to store the
+    // vector length value it uses when decoding. drdecodelib ends up being linked into
+    // drcachesim twice: once into the drcachesim executable, and one into libdynamorio.
+    // When we call dr_standalone_init() above it will initialize the version of
+    // sve_veclen in libdynamorio, but not the one in drcachesim.
+    // Unfortunately it is the version of sve_veclen in drcachesim that gets used when
+    // decoding in raw2trace so we need to explicitly initialize its sve_veclen here.
+    dr_set_sve_vector_length(proc_get_vector_length_bytes() * 8);
+#endif
 }
 
 raw2trace_t::~raw2trace_t()
@@ -3535,6 +3782,9 @@ raw2trace_t::accumulate_to_statistic(raw2trace_thread_data_t *tdata,
     case RAW2TRACE_STAT_SYSCALL_TRACES_DECODED:
         tdata->syscall_traces_decoded += value;
         break;
+    case RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED:
+        tdata->syscall_traces_injected += value;
+        break;
     case RAW2TRACE_STAT_MAX:
     default: DR_ASSERT(false);
     }
@@ -3554,6 +3804,7 @@ raw2trace_t::get_statistic(raw2trace_statistic_t stat)
     case RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT: return final_trace_instr_count_;
     case RAW2TRACE_STAT_KERNEL_INSTR_COUNT: return kernel_instr_count_;
     case RAW2TRACE_STAT_SYSCALL_TRACES_DECODED: return syscall_traces_decoded_;
+    case RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED: return syscall_traces_injected_;
     case RAW2TRACE_STAT_MAX:
     default: DR_ASSERT(false); return 0;
     }

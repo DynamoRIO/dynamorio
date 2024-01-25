@@ -61,7 +61,7 @@ static int pre_count;
 static int post_count;
 
 extern "C" { /* Make it easy to get the name across platforms. */
-EXPORT void
+EXPORT void NOINLINE
 wrapped_subfunc(void)
 {
 #ifdef LINUX

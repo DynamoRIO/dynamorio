@@ -1,0 +1,116 @@
+Cache simulation results:
+Core #0 \(traced CPU\(s\): #11\)
+  L1I0 \(size=32768, assoc=8, block=64, LRU\) stats:
+    Hits:                         *88.?342
+    Misses:                             52
+    Compulsory misses:                  52
+    Invalidations:                       0
+    Miss rate:                        0.06%
+  L1D0 \(size=32768, assoc=8, block=64, LRU\) stats:
+    Hits:                        *188.?235
+    Misses:                             33
+    Compulsory misses:                  61
+    Invalidations:                       0
+    Prefetch hits:                       5
+    Prefetch misses:                    28
+    Miss rate:                        0.02%
+Core #1 \(traced CPU\(s\): #9\)
+  L1I1 \(size=32768, assoc=8, block=64, LRU\) stats:
+    Hits:                         *94.?091
+    Misses:                             68
+    Compulsory misses:                  68
+    Invalidations:                       0
+    Miss rate:                        0.07%
+  L1D1 \(size=32768, assoc=8, block=64, LRU\) stats:
+    Hits:                        *200.?175
+    Misses:                             40
+    Compulsory misses:                  70
+    Invalidations:                       0
+    Prefetch hits:                      10
+    Prefetch misses:                    30
+    Miss rate:                        0.02%
+Core #2 \(traced CPU\(s\): #10\)
+  L1I2 \(size=32768, assoc=8, block=64, LRU\) stats:
+    Hits:                         *94.?076
+    Misses:                             66
+    Compulsory misses:                  66
+    Invalidations:                       0
+    Miss rate:                        0.07%
+  L1D2 \(size=32768, assoc=8, block=64, LRU\) stats:
+    Hits:                        *200.?168
+    Misses:                             38
+    Compulsory misses:                  67
+    Invalidations:                       0
+    Prefetch hits:                       9
+    Prefetch misses:                    29
+    Miss rate:                        0.02%
+Core #3 \(traced CPU\(s\): #5\)
+  L1I3 \(size=32768, assoc=8, block=64, LRU\) stats:
+    Hits:                        *188.?232
+    Misses:                             68
+    Compulsory misses:                  68
+    Invalidations:                       0
+    Miss rate:                        0.04%
+  L1D3 \(size=32768, assoc=8, block=64, LRU\) stats:
+    Hits:                        *400.?362
+    Misses:                             59
+    Compulsory misses:                 105
+    Invalidations:                       0
+    Prefetch hits:                      13
+    Prefetch misses:                    46
+    Miss rate:                        0.01%
+Core #4 \(traced CPU\(s\): #1\)
+  L1I4 \(size=32768, assoc=8, block=64, LRU\) stats:
+    Hits:                         *94.?076
+    Misses:                             66
+    Compulsory misses:                  66
+    Invalidations:                       0
+    Miss rate:                        0.07%
+  L1D4 \(size=32768, assoc=8, block=64, LRU\) stats:
+    Hits:                        *200.?168
+    Misses:                             38
+    Compulsory misses:                  67
+    Invalidations:                       0
+    Prefetch hits:                       9
+    Prefetch misses:                    29
+    Miss rate:                        0.02%
+Core #5 \(traced CPU\(s\): #8\)
+  L1I5 \(size=32768, assoc=8, block=64, LRU\) stats:
+    Hits:                         *29.?568
+    Misses:                            587
+    Compulsory misses:                 575
+    Invalidations:                       0
+    Miss rate:                        1.95%
+  L1D5 \(size=32768, assoc=8, block=64, LRU\) stats:
+    Hits:                         *12.?893
+    Misses:                            458
+    Compulsory misses:                 717
+    Invalidations:                       0
+    Prefetch hits:                     106
+    Prefetch misses:                   352
+    Miss rate:                        3.43%
+Core #6 \(traced CPU\(s\): #0\)
+  L1I6 \(size=32768, assoc=8, block=64, LRU\) stats:
+    Hits:                         *94.?083
+    Misses:                             68
+    Compulsory misses:                  68
+    Invalidations:                       0
+    Miss rate:                        0.07%
+  L1D6 \(size=32768, assoc=8, block=64, LRU\) stats:
+    Hits:                        *200.?172
+    Misses:                             40
+    Compulsory misses:                  70
+    Invalidations:                       0
+    Prefetch hits:                      10
+    Prefetch misses:                    30
+    Miss rate:                        0.02%
+LL \(size=8388608, assoc=16, block=64, LRU\) stats:
+    Hits:                              567
+    Misses:                        *1.?114
+    Compulsory misses:             *1.?512
+    Invalidations:                       0
+    Prefetch hits:                     146
+    Prefetch misses:                   398
+    Local miss rate:                 66.27%
+    Child hits:               *2.?084.?803
+    Total miss rate:                  0.05%

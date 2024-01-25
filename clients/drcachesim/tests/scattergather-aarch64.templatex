@@ -144,6 +144,10 @@ ldnt1w scalar\+scalar: PASS
 ld1sw scalar\+scalar: PASS
 ld1d scalar\+scalar: PASS
 ldnt1d scalar\+scalar: PASS
+ld1rqb scalar\+scalar: PASS
+ld1rqh scalar\+scalar: PASS
+ld1rqw scalar\+scalar: PASS
+ld1rqd scalar\+scalar: PASS
 ld2b scalar\+scalar: PASS
 ld2h scalar\+scalar: PASS
 ld2w scalar\+scalar: PASS
@@ -212,6 +216,12 @@ ld1d scalar\+immediate 64bit element: PASS
 ld1d scalar\+immediate 64bit element \(min index\): PASS
 ld1d scalar\+immediate 64bit element \(max index\): PASS
 ldnt1d scalar\+immediate 64bit element: PASS
+ld1rqb scalar\+immediate: PASS
+ld1rqh scalar\+immediate: PASS
+ld1rqw scalar\+immediate: PASS
+ld1rqd scalar\+immediate: PASS
+ld1rqd scalar\+immediate \(min index\): PASS
+ld1rqd scalar\+immediate \(max index\): PASS
 ld2b scalar\+immediate: PASS
 ld2h scalar\+immediate: PASS
 ld2w scalar\+immediate: PASS
@@ -267,5 +277,22 @@ st4d scalar\+immediate: PASS
 st4d scalar\+immediate \(min index\): PASS
 st4d scalar\+immediate \(max index\): PASS
 #endif /* __ARM_FEATURE_SVE */
+#ifdef __ARM_FEATURE_SVE2
+ldnt1b vector\+scalar 64bit unscaled offset: PASS
+ldnt1sb vector\+scalar 64bit unscaled offset: PASS
+ldnt1h vector\+scalar 64bit unscaled offset: PASS
+ldnt1sh vector\+scalar 64bit unscaled offset: PASS
+ldnt1w vector\+scalar 64bit unscaled offset: PASS
+ldnt1sw vector\+scalar 64bit unscaled offset: PASS
+ldnt1d vector\+scalar 64bit unscaled offset: PASS
+stnt1b vector\+scalar 64bit unscaled offset: PASS
+stnt1b vector\+scalar 64bit unscaled offset \(repeated base\): PASS
+stnt1h vector\+scalar 64bit unscaled offset: PASS
+stnt1h vector\+scalar 64bit unscaled offset \(repeated base\): PASS
+stnt1w vector\+scalar 64bit unscaled offset: PASS
+stnt1w vector\+scalar 64bit unscaled offset \(repeated base\): PASS
+stnt1d vector\+scalar 64bit unscaled offset: PASS
+stnt1d vector\+scalar 64bit unscaled offset \(repeated base\): PASS
+#endif /* __ARM_FEATURE_SVE2 */
 ---- <application exited with code 0> ----
 Trace invariant checks passed

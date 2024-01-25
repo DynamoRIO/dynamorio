@@ -1,0 +1,13 @@
+Pre-DR init
+Pre-DR start
+Done with system calls
+Pre-DR detach
+Done collecting trace
+Going to write system call trace templates
+Done writing system call trace template
+Getting basic counts for system call trace template
+Going to post-process raw trace and add system call trace templates to it
+Done post-processing the raw trace
+Verifying resulting user\+kernel trace
+Successfully completed checks
+Trace invariant checks passed

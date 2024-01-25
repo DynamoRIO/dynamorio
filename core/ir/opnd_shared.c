@@ -1496,6 +1496,7 @@ opnd_create_increment_reg(opnd_t opnd, uint increment)
         opnd.value.reg_and_element_size.element_size;
     inc_opnd.size = opnd.size; /* indicates full size of reg */
     inc_opnd.aux.flags = opnd.aux.flags;
+    inc_opnd.aux.flags |= DR_OPND_IMPLICIT;
     return inc_opnd;
 }
 
@@ -2772,6 +2773,9 @@ reg_get_size(reg_id_t reg)
 #    endif
     if (reg == DR_REG_TPIDRURW || reg == DR_REG_TPIDRURO)
         return OPSZ_PTR;
+#elif defined(RISCV64)
+    if (reg == DR_REG_X0)
+        return OPSZ_8;
 #endif
     LOG(GLOBAL, LOG_ANNOTATIONS, 2, "reg=%d, %s, last reg=%d\n", reg,
         get_register_name(reg), DR_REG_LAST_ENUM);

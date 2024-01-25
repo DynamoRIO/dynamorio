@@ -34,6 +34,13 @@
 
 #include "schedule_stats.h"
 
+#ifdef WINDOWS
+#    define WIN32_LEAN_AND_MEAN
+#    include <windows.h>
+#else
+#    include <sys/time.h>
+#endif
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -81,8 +88,7 @@ schedule_stats_t::~schedule_stats_t()
 std::string
 schedule_stats_t::initialize_stream(memtrace_stream_t *serial_stream)
 {
-    if (serial_stream != nullptr)
-        return "Only core-sharded operation is supported";
+    serial_stream_ = serial_stream;
     return "";
 }
 
@@ -97,8 +103,20 @@ schedule_stats_t::initialize_shard_type(shard_type_t shard_type)
 bool
 schedule_stats_t::process_memref(const memref_t &memref)
 {
-    error_string_ = "Only core-sharded operation is supported.";
-    return false;
+    per_shard_t *per_shard;
+    const auto &lookup = shard_map_.find(serial_stream_->get_output_cpuid());
+    if (lookup == shard_map_.end()) {
+        per_shard = new per_shard_t;
+        per_shard->stream = serial_stream_;
+        per_shard->core = serial_stream_->get_output_cpuid();
+        shard_map_[per_shard->core] = per_shard;
+    } else
+        per_shard = lookup->second;
+    if (!parallel_shard_memref(reinterpret_cast<void *>(per_shard), memref)) {
+        error_string_ = per_shard->error;
+        return false;
+    }
+    return true;
 }
 
 bool
@@ -123,6 +141,14 @@ bool
 schedule_stats_t::parallel_shard_exit(void *shard_data)
 {
     // Nothing (we read the shard data in print_results).
+    per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
+    if (shard->prev_was_idle) {
+        shard->counters.idle_microseconds +=
+            get_current_microseconds() - shard->segment_start_microseconds;
+    } else if (!shard->prev_was_wait) {
+        shard->counters.cpu_microseconds +=
+            get_current_microseconds() - shard->segment_start_microseconds;
+    }
     return true;
 }
 
@@ -131,6 +157,25 @@ schedule_stats_t::parallel_shard_error(void *shard_data)
 {
     per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
     return per_shard->error;
+}
+
+uint64_t
+schedule_stats_t::get_current_microseconds()
+{
+#ifdef UNIX
+    struct timeval time;
+    if (gettimeofday(&time, nullptr) != 0)
+        return 0;
+    return time.tv_sec * 1000000 + time.tv_usec;
+#else
+    SYSTEMTIME sys_time;
+    GetSystemTime(&sys_time);
+    FILETIME file_time;
+    if (!SystemTimeToFileTime(&sys_time, &file_time))
+        return 0;
+    return file_time.dwLowDateTime +
+        (static_cast<uint64_t>(file_time.dwHighDateTime) << 32);
+#endif
 }
 
 bool
@@ -163,8 +208,10 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
     // Cache and reset here to ensure we reset on early return paths.
     bool was_wait = shard->prev_was_wait;
     bool was_idle = shard->prev_was_idle;
+    int64_t prev_input = shard->prev_input;
     shard->prev_was_wait = false;
     shard->prev_was_idle = false;
+    shard->prev_input = -1;
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_WAIT) {
         ++shard->counters.waits;
@@ -187,6 +234,11 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
         if (!was_idle) {
             shard->thread_sequence += IDLE_SYMBOL;
             shard->cur_segment_instrs = 0;
+            if (!was_wait && shard->segment_start_microseconds > 0) {
+                shard->counters.idle_microseconds +=
+                    get_current_microseconds() - shard->segment_start_microseconds;
+            }
+            shard->segment_start_microseconds = get_current_microseconds();
         } else {
             ++shard->cur_segment_instrs;
             if (shard->cur_segment_instrs == knob_print_every_) {
@@ -197,7 +249,7 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
         return true;
     }
     int64_t input = shard->stream->get_input_id();
-    if (input != shard->prev_input) {
+    if (input != prev_input) {
         // We convert to letters which only works well for <=26 inputs.
         if (!shard->thread_sequence.empty()) {
             ++shard->counters.total_switches;
@@ -209,6 +261,11 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
         shard->thread_sequence +=
             THREAD_LETTER_INITIAL_START + static_cast<char>(input % 26);
         shard->cur_segment_instrs = 0;
+        if (!was_wait && !was_idle && shard->segment_start_microseconds > 0) {
+            shard->counters.cpu_microseconds +=
+                get_current_microseconds() - shard->segment_start_microseconds;
+        }
+        shard->segment_start_microseconds = get_current_microseconds();
         if (knob_verbose_ >= 2) {
             std::ostringstream line;
             line << "Core #" << std::setw(2) << shard->core << " @" << std::setw(9)
@@ -226,11 +283,12 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
                  << " == thread " << memref.instr.tid << "\n";
             std::cerr << line.str();
         }
-        shard->prev_input = input;
     }
+    shard->prev_input = input;
     if (type_is_instr(memref.instr.type)) {
         ++shard->counters.instrs;
         ++shard->cur_segment_instrs;
+        shard->counters.idle_micros_at_last_instr = shard->counters.idle_microseconds;
         if (shard->cur_segment_instrs == knob_print_every_) {
             shard->thread_sequence +=
                 THREAD_LETTER_SUBSEQUENT_START + static_cast<char>(input % 26);
@@ -260,6 +318,21 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
 }
 
 void
+schedule_stats_t::print_percentage(double numerator, double denominator,
+                                   const std::string &label)
+{
+    double fraction;
+    if (denominator == 0) {
+        if (numerator == 0)
+            fraction = 0.;
+        else
+            fraction = 1.;
+    } else
+        fraction = numerator / denominator;
+    std::cerr << std::setw(12) << std::setprecision(2) << 100 * fraction << label;
+}
+
+void
 schedule_stats_t::print_counters(const counters_t &counters)
 {
     std::cerr << std::setw(12) << counters.threads.size() << " threads\n";
@@ -279,17 +352,11 @@ schedule_stats_t::print_counters(const counters_t &counters)
               << counters.voluntary_switches << " voluntary context switches\n";
     std::cerr << std::setw(12) << counters.direct_switches
               << " direct context switches\n";
-    if (counters.total_switches > 0) {
-        std::cerr << std::setw(12) << std::setprecision(2)
-                  << 100 *
-                (counters.voluntary_switches /
-                 static_cast<double>(counters.total_switches))
-                  << "% voluntary switches\n";
-        std::cerr << std::setw(12) << std::setprecision(2)
-                  << 100 *
-                (counters.direct_switches / static_cast<double>(counters.total_switches))
-                  << "% direct switches\n";
-    }
+    print_percentage(static_cast<double>(counters.voluntary_switches),
+                     static_cast<double>(counters.total_switches),
+                     "% voluntary switches\n");
+    print_percentage(static_cast<double>(counters.direct_switches),
+                     static_cast<double>(counters.total_switches), "% direct switches\n");
     std::cerr << std::setw(12) << counters.syscalls << " system calls\n";
     std::cerr << std::setw(12) << counters.maybe_blocking_syscalls
               << " maybe-blocking system calls\n";
@@ -297,10 +364,21 @@ schedule_stats_t::print_counters(const counters_t &counters)
               << " direct switch requests\n";
     std::cerr << std::setw(12) << counters.waits << " waits\n";
     std::cerr << std::setw(12) << counters.idles << " idles\n";
-    std::cerr << std::setw(12) << std::setprecision(2)
-              << 100 *
-            (counters.instrs / static_cast<double>(counters.instrs + counters.idles))
-              << "% cpu busy\n";
+    print_percentage(static_cast<double>(counters.instrs),
+                     static_cast<double>(counters.instrs + counters.idles),
+                     "% cpu busy by record count\n");
+    std::cerr << std::setw(12) << counters.cpu_microseconds << " cpu microseconds\n";
+    std::cerr << std::setw(12) << counters.idle_microseconds << " idle microseconds\n";
+    std::cerr << std::setw(12) << counters.idle_micros_at_last_instr
+              << " idle microseconds at last instr\n";
+    print_percentage(
+        static_cast<double>(counters.cpu_microseconds),
+        static_cast<double>(counters.cpu_microseconds + counters.idle_microseconds),
+        "% cpu busy by time\n");
+    print_percentage(static_cast<double>(counters.cpu_microseconds),
+                     static_cast<double>(counters.cpu_microseconds +
+                                         counters.idle_micros_at_last_instr),
+                     "% cpu busy by time, ignoring idle past last instr\n");
 }
 
 bool

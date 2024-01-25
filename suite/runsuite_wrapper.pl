@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 # **********************************************************
-# Copyright () 2016-2023 Google, Inc.  All rights reserved.
+# Copyright () 2016-2024 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -304,6 +304,9 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 # We list this without any "options|" which will match all variations.
                 'common.floatpc_xl8all' => 1, # i#2267
                 'code_api|client.file_io' => 1, # i#5802
+                # These we have failed to reproduce after many attempts under tmate.
+                'code_api|tool.drcacheoff.burst_traceopts' => 1, # i#6423
+                'code_api|tool.drcacheoff.burst_replaceall' => 1, # i#5412
                 );
             if ($is_long) {
                 # These are important tests so we only ignore in the long suite,
@@ -339,8 +342,6 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                                    'code_api|linux.fib-conflict-early' => 1,
                                    'code_api|linux.mangle_asynch' => 1,
                                    'code_api,tracedump_text,tracedump_origins,syntax_intel|common.loglevel' => 1, # i#1807
-                                   'code_api|client.attach_test' => 1, # i#5740
-                                   'code_api|client.attach_blocking' => 1, # i#5740
                                    'code_api|tool.drcacheoff.rseq' => 1, # i#5734
                                    'code_api|tool.drcacheoff.windows-zlib' => 1, # i#5507
                                    );

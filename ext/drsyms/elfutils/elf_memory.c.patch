@@ -1,0 +1,11 @@
+diff --git a/libelf/elf_memory.c b/libelf/elf_memory.c
+index a47f1d24..13d77cb7 100644
+--- a/libelf/elf_memory.c
++++ b/libelf/elf_memory.c
+@@ -46,5 +46,5 @@ elf_memory (char *image, size_t size)
+       return NULL;
+     }
+ 
+-  return __libelf_read_mmaped_file (-1, image, 0, size, ELF_C_READ, NULL);
++  return __libelf_read_mmaped_file (-1, image, 0, size, ELF_C_READ_MMAP, NULL);
+ }

@@ -52,11 +52,8 @@
  */
 #ifdef X86
 #    define DR_FPSTATE_BUF_SIZE 512
-#elif defined(RISCV64)
-/* FIXME i#3544: Not implemented */
-#    define DR_FPSTATE_BUF_SIZE 1
-#elif defined(ARM) || defined(AARCH64)
-/* On ARM/AArch64 proc_save_fpstate saves nothing, so use the smallest
+#elif defined(ARM) || defined(AARCH64) || defined(RISCV64)
+/* On ARM/AArch64/RISCV64 proc_save_fpstate saves nothing, so use the smallest
  * legal size for an array.
  */
 #    define DR_FPSTATE_BUF_SIZE 1

@@ -90,8 +90,8 @@ typedef bool (*opnd_dec_func_t)(dcontext_t *dc, uint32_t inst, int op_sz, byte *
  * Helper functions.
  */
 
-#define INFO_NDST(opcode) GET_FIELD((opcode), 31, 31);
-#define INFO_NSRC(opcode) GET_FIELD((opcode), 30, 28);
+#define INFO_NDST(opcode) GET_FIELD((opcode), 31, 30);
+#define INFO_NSRC(opcode) GET_FIELD((opcode), 29, 27);
 
 /*
  * End of helper functions.
@@ -1049,7 +1049,9 @@ decode_v_l_rs1_disp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc,
                          byte *orig_pc, int idx, instr_t *out)
 {
     reg_t reg = DR_REG_X0 + GET_FIELD(inst, 19, 15);
-    int32_t imm = SIGN_EXTEND(GET_FIELD(inst, 31, 20), 12);
+    /* Immediate part of LR.W/D is always 0. */
+    int32_t imm =
+        GET_FIELD(inst, 6, 0) == 0b0101111 ? 0 : SIGN_EXTEND(GET_FIELD(inst, 31, 20), 12);
     opnd_t opnd = opnd_add_flags(opnd_create_base_disp(reg, DR_REG_NULL, 0, imm, op_sz),
                                  DR_OPND_IMM_PRINT_DECIMAL);
     instr_set_src(out, idx, opnd);
@@ -1072,7 +1074,10 @@ decode_v_s_rs1_disp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc,
                          byte *orig_pc, int idx, instr_t *out)
 {
     reg_t reg = DR_REG_X0 + GET_FIELD(inst, 19, 15);
-    int32_t imm = (GET_FIELD(inst, 31, 25) << 5) | GET_FIELD(inst, 11, 7);
+    /* Immediate part of SC.W/D is always 0. */
+    int32_t imm = GET_FIELD(inst, 6, 0) == 0b0101111
+        ? 0
+        : (GET_FIELD(inst, 31, 25) << 5) | GET_FIELD(inst, 11, 7);
     imm = SIGN_EXTEND(imm, 12);
     opnd_t opnd = opnd_add_flags(opnd_create_base_disp(reg, DR_REG_NULL, 0, imm, op_sz),
                                  DR_OPND_IMM_PRINT_DECIMAL);
@@ -1159,7 +1164,8 @@ decode_iimm_0_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *ori
                    int idx, instr_t *out)
 {
     ASSERT(idx == 1);
-    opnd_t opnd = opnd_create_immed_int(0, op_sz);
+    opnd_t opnd =
+        opnd_add_flags(opnd_create_immed_int(0, op_sz), DR_OPND_IMM_PRINT_DECIMAL);
     instr_set_src(out, idx, opnd);
     return true;
 }
@@ -1258,6 +1264,7 @@ opnd_dec_func_t opnd_decoders[] = {
     [RISCV64_FLD_IIMM_0] = decode_iimm_0_opnd,
     [RISCV64_FLD_ICRS1] = decode_icrs1_opnd,
     [RISCV64_FLD_ICRS1__] = decode_icrs1___opnd,
+    [RISCV64_FLD_I_S_RS1_DISP] = decode_v_s_rs1_disp_opnd,
 };
 
 /* Decode RVC quadrant 0.
@@ -1514,11 +1521,20 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
     instr_set_opcode(instr, info->info.type);
     instr_set_num_opnds(dcontext, instr, ndst, nsrc);
 
-    CLIENT_ASSERT(info->info.dst1_type < RISCV64_FLD_CNT, "Invalid dst1_type.");
-    if (ndst > 0 &&
-        !opnd_decoders[info->info.dst1_type](dcontext, inst, info->info.dst1_size, pc,
-                                             orig_pc, 0, instr))
-        goto decode_failure;
+    switch (ndst) {
+    case 2:
+        CLIENT_ASSERT(info->info.dst2_type < RISCV64_FLD_CNT, "Invalid dst2_type.");
+        if (!opnd_decoders[info->info.dst2_type](dcontext, inst, info->info.dst2_size, pc,
+                                                 orig_pc, 1, instr))
+            goto decode_failure;
+    case 1:
+        CLIENT_ASSERT(info->info.dst1_type < RISCV64_FLD_CNT, "Invalid dst1_type.");
+        if (!opnd_decoders[info->info.dst1_type](dcontext, inst, info->info.dst1_size, pc,
+                                                 orig_pc, 0, instr))
+            goto decode_failure;
+    case 0: break;
+    default: ASSERT_NOT_REACHED();
+    }
     switch (nsrc) {
     case 4:
         CLIENT_ASSERT(info->info.dst2_type < RISCV64_FLD_CNT, "Invalid dst2_type.");
@@ -2473,8 +2489,10 @@ encode_v_l_rs1_disp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out,
     opnd_t opnd = instr_get_src(instr, idx);
     uint32_t reg = opnd_get_base(opnd) - DR_REG_X0;
     *out |= SET_FIELD(reg, 19, 15);
-    int32_t imm = opnd_get_disp(opnd);
-    *out |= SET_FIELD(imm, 31, 20);
+    if (instr->opcode != OP_lr_w && instr->opcode != OP_lr_d) {
+        int32_t imm = opnd_get_disp(opnd);
+        *out |= SET_FIELD(imm, 31, 20);
+    }
     return true;
 }
 
@@ -2496,8 +2514,10 @@ encode_v_s_rs1_disp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out,
     opnd_t opnd = instr_get_dst(instr, idx);
     uint32_t reg = opnd_get_base(opnd) - DR_REG_X0;
     *out |= SET_FIELD(reg, 19, 15);
-    int32_t imm = opnd_get_disp(opnd);
-    *out |= SET_FIELD(imm, 11, 7) | SET_FIELD(imm >> 5, 31, 25);
+    if (instr->opcode != OP_sc_w && instr->opcode != OP_sc_d) {
+        int32_t imm = opnd_get_disp(opnd);
+        *out |= SET_FIELD(imm, 11, 7) | SET_FIELD(imm >> 5, 31, 25);
+    }
     return true;
 }
 
@@ -2565,6 +2585,7 @@ opnd_enc_func_t opnd_encoders[] = {
     [RISCV64_FLD_IIMM_0] = encode_implicit_opnd,
     [RISCV64_FLD_ICRS1] = encode_implicit_opnd,
     [RISCV64_FLD_ICRS1__] = encode_implicit_opnd,
+    [RISCV64_FLD_I_S_RS1_DISP] = encode_implicit_opnd,
 };
 
 uint
@@ -2581,9 +2602,18 @@ encode_common(byte *pc, instr_t *instr, decode_info_t *di)
     CLIENT_ASSERT(ndst >= 0 || ndst <= 1, "Invalid number of destination operands.");
     CLIENT_ASSERT(nsrc >= 0 || nsrc <= 4, "Invalid number of source operands.");
 
-    CLIENT_ASSERT(info->info.dst1_type < RISCV64_FLD_CNT, "Invalid dst1_type.");
-    if (ndst > 0 && !opnd_encoders[info->info.dst1_type](instr, pc, 0, &inst, di))
-        goto encode_failure;
+    switch (ndst) {
+    case 2:
+        CLIENT_ASSERT(info->info.dst2_type < RISCV64_FLD_CNT, "Invalid dst2_type.");
+        if (!opnd_encoders[info->info.dst2_type](instr, pc, 1, &inst, di))
+            goto encode_failure;
+    case 1:
+        CLIENT_ASSERT(info->info.dst1_type < RISCV64_FLD_CNT, "Invalid dst1_type.");
+        if (!opnd_encoders[info->info.dst1_type](instr, pc, 0, &inst, di))
+            goto encode_failure;
+    case 0: break;
+    default: ASSERT_NOT_REACHED();
+    }
     switch (nsrc) {
     case 4:
         CLIENT_ASSERT(info->info.dst2_type < RISCV64_FLD_CNT, "Invalid dst2_type.");

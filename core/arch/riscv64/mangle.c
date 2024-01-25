@@ -72,6 +72,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                           opnd_t push_pc, reg_id_t scratch)
 {
     uint dstack_offs = 0;
+    int dstack_middle_offs;
     int max_offs;
 
     if (cci == NULL)
@@ -86,21 +87,22 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     PRE(ilist, instr,
         INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_SP),
                           opnd_create_reg(DR_REG_SP),
-                          opnd_add_flags(opnd_create_immed_int(-max_offs, OPSZ_12b),
-                                         DR_OPND_IMM_PRINT_DECIMAL)));
+                          opnd_create_immed_int(-max_offs, OPSZ_12b)));
+
+    /* Skip X0 slot. */
+    dstack_offs += XSP_SZ;
 
     /* Push GPRs. */
-    for (int i = 1; i < DR_NUM_GPR_REGS; i++) {
+    for (int i = 0; i < DR_NUM_GPR_REGS; i++) {
         if (cci->reg_skip[i])
             continue;
 
+        /* Uses c.sdsp to save space, see -max_bb_instrs option, same below. */
         PRE(ilist, instr,
-            INSTR_CREATE_sd(
-                dcontext,
-                opnd_add_flags(opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
-                                                     dstack_offs + i * XSP_SZ, OPSZ_8),
-                               DR_OPND_IMM_PRINT_DECIMAL),
-                opnd_create_reg(DR_REG_ZERO + i)));
+            INSTR_CREATE_c_sdsp(dcontext,
+                                opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
+                                                      dstack_offs + i * XSP_SZ, OPSZ_8),
+                                opnd_create_reg(DR_REG_START_GPR + i)));
     }
 
     dstack_offs += DR_NUM_GPR_REGS * XSP_SZ;
@@ -109,27 +111,34 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         PRE(ilist, instr,
             XINST_CREATE_load_int(dcontext, opnd_create_reg(DR_REG_A0), push_pc));
         PRE(ilist, instr,
-            INSTR_CREATE_sd(dcontext, OPND_CREATE_MEM64(DR_REG_SP, dstack_offs),
-                            opnd_create_reg(DR_REG_A0)));
+            INSTR_CREATE_c_sdsp(dcontext, OPND_CREATE_MEM64(DR_REG_SP, dstack_offs),
+                                opnd_create_reg(DR_REG_A0)));
     } else {
         ASSERT(opnd_is_reg(push_pc));
         /* push_pc is still holding the PC value. */
         PRE(ilist, instr,
-            INSTR_CREATE_sd(dcontext, OPND_CREATE_MEM64(DR_REG_SP, dstack_offs),
-                            push_pc));
+            INSTR_CREATE_c_sdsp(dcontext, OPND_CREATE_MEM64(DR_REG_SP, dstack_offs),
+                                push_pc));
     }
 
     dstack_offs += XSP_SZ;
+    /* XXX: c.sdsp/c.fsdsp has a zero-extended 9-bit offset, which is not enough for our
+     * usage. We use dstack_middle_offs to mitigate this issue.
+     */
+    dstack_middle_offs = dstack_offs;
+    dstack_offs = 0;
+    PRE(ilist, instr,
+        INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_SP),
+                          opnd_create_reg(DR_REG_SP),
+                          opnd_create_immed_int(dstack_middle_offs, OPSZ_12b)));
 
     /* Push FPRs. */
     for (int i = 0; i < DR_NUM_FPR_REGS; i++) {
         PRE(ilist, instr,
-            INSTR_CREATE_fsd(
-                dcontext,
-                opnd_add_flags(opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
-                                                     dstack_offs + i * XSP_SZ, OPSZ_8),
-                               DR_OPND_IMM_PRINT_DECIMAL),
-                opnd_create_reg(DR_REG_F0 + i)));
+            INSTR_CREATE_c_fsdsp(dcontext,
+                                 opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
+                                                       dstack_offs + i * XSP_SZ, OPSZ_8),
+                                 opnd_create_reg(DR_REG_F0 + i)));
     }
 
     dstack_offs += DR_NUM_FPR_REGS * XSP_SZ;
@@ -142,8 +151,8 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                            opnd_create_immed_int(FCSR, OPSZ_12b)));
 
     PRE(ilist, instr,
-        INSTR_CREATE_sd(dcontext, OPND_CREATE_MEM64(DR_REG_SP, dstack_offs),
-                        opnd_create_reg(DR_REG_A0)));
+        INSTR_CREATE_c_sdsp(dcontext, OPND_CREATE_MEM64(DR_REG_SP, dstack_offs),
+                            opnd_create_reg(DR_REG_A0)));
 
     dstack_offs += XSP_SZ;
 
@@ -151,12 +160,18 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
      * shape. */
     dstack_offs += (proc_num_simd_registers() * sizeof(dr_simd_t));
 
+    /* Restore sp. */
+    PRE(ilist, instr,
+        INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_SP),
+                          opnd_create_reg(DR_REG_SP),
+                          opnd_create_immed_int(-dstack_middle_offs, OPSZ_12b)));
+
     /* Restore the registers we used. */
     PRE(ilist, instr,
-        INSTR_CREATE_ld(dcontext, opnd_create_reg(DR_REG_A0),
-                        OPND_CREATE_MEM64(DR_REG_SP, REG_OFFSET(DR_REG_A0))));
+        INSTR_CREATE_c_ldsp(dcontext, opnd_create_reg(DR_REG_A0),
+                            OPND_CREATE_MEM64(DR_REG_SP, REG_OFFSET(DR_REG_A0))));
 
-    return dstack_offs;
+    return dstack_offs + dstack_middle_offs;
 }
 
 void
@@ -166,13 +181,27 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
     if (cci == NULL)
         cci = &default_clean_call_info;
     uint current_offs;
-    current_offs =
-        get_clean_call_switch_stack_size() - proc_num_simd_registers() * XSP_SZ;
+    current_offs = get_clean_call_switch_stack_size() -
+        proc_num_simd_registers() * sizeof(dr_simd_t);
 
+    /* sp is the stack pointer, which should not be poped. */
+    cci->reg_skip[DR_REG_SP - DR_REG_START_GPR] = true;
+
+    /* XXX: c.sdsp/c.fsdsp has a zero-extended 9-bit offset, which is not enough for our
+     * usage.
+     */
+    ASSERT(current_offs >= DR_NUM_FPR_REGS * XSP_SZ);
     PRE(ilist, instr,
-        INSTR_CREATE_ld(dcontext, opnd_create_reg(DR_REG_A0),
-                        OPND_CREATE_MEM64(DR_REG_SP, current_offs)));
+        INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_SP),
+                          opnd_create_reg(DR_REG_SP),
+                          opnd_create_immed_int(DR_NUM_FPR_REGS * XSP_SZ, OPSZ_12b)));
 
+    current_offs -= XSP_SZ;
+    /* Uses c.ldsp to save space, see -max_bb_instrs option, same below. */
+    PRE(ilist, instr,
+        INSTR_CREATE_c_ldsp(
+            dcontext, opnd_create_reg(DR_REG_A0),
+            OPND_CREATE_MEM64(DR_REG_SP, current_offs - DR_NUM_FPR_REGS * XSP_SZ)));
     /* csrw a0, fcsr */
     PRE(ilist, instr,
         INSTR_CREATE_csrrw(dcontext, opnd_create_reg(DR_REG_X0),
@@ -184,12 +213,18 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
     /* Pop FPRs. */
     for (int i = 0; i < DR_NUM_FPR_REGS; i++) {
         PRE(ilist, instr,
-            INSTR_CREATE_fld(
-                dcontext, opnd_create_reg(DR_REG_F0 + i),
-                opnd_add_flags(opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
-                                                     current_offs + i * XSP_SZ, OPSZ_8),
-                               DR_OPND_IMM_PRINT_DECIMAL)));
+            INSTR_CREATE_c_fldsp(dcontext, opnd_create_reg(DR_REG_F0 + i),
+                                 opnd_create_base_disp(
+                                     DR_REG_SP, DR_REG_NULL, 0,
+                                     current_offs - DR_NUM_FPR_REGS * XSP_SZ + i * XSP_SZ,
+                                     OPSZ_8)));
     }
+
+    /* Restore sp. */
+    PRE(ilist, instr,
+        INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_SP),
+                          opnd_create_reg(DR_REG_SP),
+                          opnd_create_immed_int(-DR_NUM_FPR_REGS * XSP_SZ, OPSZ_12b)));
 
     /* Skip pc field. */
     current_offs -= XSP_SZ;
@@ -197,16 +232,15 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
     current_offs -= DR_NUM_GPR_REGS * XSP_SZ;
 
     /* Pop GPRs. */
-    for (int i = 1; i < DR_NUM_GPR_REGS; i++) {
+    for (int i = 0; i < DR_NUM_GPR_REGS; i++) {
         if (cci->reg_skip[i])
             continue;
 
         PRE(ilist, instr,
-            INSTR_CREATE_ld(
-                dcontext, opnd_create_reg(DR_REG_X0 + i),
-                opnd_add_flags(opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
-                                                     current_offs + i * XSP_SZ, OPSZ_8),
-                               DR_OPND_IMM_PRINT_DECIMAL)));
+            INSTR_CREATE_c_ldsp(dcontext, opnd_create_reg(DR_REG_START_GPR + i),
+                                opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
+                                                      current_offs + i * XSP_SZ,
+                                                      OPSZ_8)));
     }
 }
 
@@ -468,12 +502,10 @@ mangle_stolen_reg_and_tp_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
             if (opnd_is_reg(curop) && opnd_get_reg(curop) == DR_REG_TP)
                 instr_set_dst(instr, i, opnd_create_reg(scratch_reg));
             else if (opnd_is_base_disp(curop) && opnd_get_base(curop) == DR_REG_TP) {
-                instr_set_dst(
-                    instr, i,
-                    opnd_add_flags(opnd_create_base_disp(scratch_reg, DR_REG_NULL, 0,
-                                                         opnd_get_disp(curop),
-                                                         opnd_get_size(curop)),
-                                   DR_OPND_IMM_PRINT_DECIMAL));
+                instr_set_dst(instr, i,
+                              opnd_create_base_disp(scratch_reg, DR_REG_NULL, 0,
+                                                    opnd_get_disp(curop),
+                                                    opnd_get_size(curop)));
             }
         }
         for (i = 0; i < instr_num_srcs(instr); i++) {
@@ -481,12 +513,10 @@ mangle_stolen_reg_and_tp_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
             if (opnd_is_reg(curop) && opnd_get_reg(curop) == DR_REG_TP)
                 instr_set_src(instr, i, opnd_create_reg(scratch_reg));
             else if (opnd_is_base_disp(curop) && opnd_get_base(curop) == DR_REG_TP) {
-                instr_set_src(
-                    instr, i,
-                    opnd_add_flags(opnd_create_base_disp(scratch_reg, DR_REG_NULL, 0,
-                                                         opnd_get_disp(curop),
-                                                         opnd_get_size(curop)),
-                                   DR_OPND_IMM_PRINT_DECIMAL));
+                instr_set_src(instr, i,
+                              opnd_create_base_disp(scratch_reg, DR_REG_NULL, 0,
+                                                    opnd_get_disp(curop),
+                                                    opnd_get_size(curop)));
             }
         }
         instr_set_translation(instr, instrlist_get_translation_target(ilist));
@@ -514,12 +544,10 @@ mangle_stolen_reg_and_tp_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
             if (opnd_is_reg(curop) && opnd_get_reg(curop) == dr_reg_stolen)
                 instr_set_dst(instr, i, opnd_create_reg(scratch_reg));
             else if (opnd_is_base_disp(curop) && opnd_get_base(curop) == dr_reg_stolen) {
-                instr_set_dst(
-                    instr, i,
-                    opnd_add_flags(opnd_create_base_disp(scratch_reg, DR_REG_NULL, 0,
-                                                         opnd_get_disp(curop),
-                                                         opnd_get_size(curop)),
-                                   DR_OPND_IMM_PRINT_DECIMAL));
+                instr_set_dst(instr, i,
+                              opnd_create_base_disp(scratch_reg, DR_REG_NULL, 0,
+                                                    opnd_get_disp(curop),
+                                                    opnd_get_size(curop)));
             }
         }
         for (i = 0; i < instr_num_srcs(instr); i++) {
@@ -527,12 +555,10 @@ mangle_stolen_reg_and_tp_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
             if (opnd_is_reg(curop) && opnd_get_reg(curop) == dr_reg_stolen)
                 instr_set_src(instr, i, opnd_create_reg(scratch_reg));
             else if (opnd_is_base_disp(curop) && opnd_get_base(curop) == dr_reg_stolen) {
-                instr_set_src(
-                    instr, i,
-                    opnd_add_flags(opnd_create_base_disp(scratch_reg, DR_REG_NULL, 0,
-                                                         opnd_get_disp(curop),
-                                                         opnd_get_size(curop)),
-                                   DR_OPND_IMM_PRINT_DECIMAL));
+                instr_set_src(instr, i,
+                              opnd_create_base_disp(scratch_reg, DR_REG_NULL, 0,
+                                                    opnd_get_disp(curop),
+                                                    opnd_get_size(curop)));
             }
         }
         instr_set_translation(instr, instrlist_get_translation_target(ilist));
@@ -735,21 +761,18 @@ mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     src0 = instr_get_src(instr, 0);
     opcode = instr_get_opcode(instr) == OP_lr_d ? OP_ld : OP_lw;
     opsz = opcode == OP_ld ? OPSZ_8 : OPSZ_4;
-    ASSERT(opnd_is_reg(dst) && opnd_is_reg(src0));
+    ASSERT(opnd_is_reg(dst) && opnd_is_base_disp(src0));
     if (opnd_get_reg(dst) == dr_reg_stolen) {
         opnd_replace_reg(&dst, dr_reg_stolen, scratch_reg2);
     }
-    if (opnd_get_reg(src0) == dr_reg_stolen) {
+    if (opnd_get_base(src0) == dr_reg_stolen) {
         opnd_replace_reg(&src0, dr_reg_stolen, scratch_reg2);
     }
     instr_reset(dcontext, instr);
     instr_set_opcode(instr, opcode);
     instr_set_num_opnds(dcontext, instr, 1, 1);
     instr_set_dst(instr, 0, dst);
-    instr_set_src(
-        instr, 0,
-        opnd_add_flags(opnd_create_base_disp(opnd_get_reg(src0), DR_REG_NULL, 0, 0, opsz),
-                       DR_OPND_IMM_PRINT_DECIMAL));
+    instr_set_src(instr, 0, src0);
     instr_set_translation(instr, instrlist_get_translation_target(ilist));
 
     /* Keep the acquire semantics if needed. */
@@ -764,15 +787,13 @@ mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 
     /* Save address, value and size to TLS slot. */
     PRE(ilist, next_instr,
-        instr_create_save_to_tls(dcontext, opnd_get_reg(src0), TLS_LRSC_ADDR_SLOT));
+        instr_create_save_to_tls(dcontext, opnd_get_base(src0), TLS_LRSC_ADDR_SLOT));
     PRE(ilist, next_instr,
         instr_create_save_to_tls(dcontext, opnd_get_reg(dst), TLS_LRSC_VALUE_SLOT));
     PRE(ilist, next_instr,
         XINST_CREATE_load_int(
             dcontext, opnd_create_reg(scratch_reg1),
-            opnd_add_flags(
-                opnd_create_immed_int(opnd_get_size(instr_get_src(instr, 0)), OPSZ_12b),
-                DR_OPND_IMM_PRINT_DECIMAL)));
+            opnd_create_immed_int(opnd_get_size(instr_get_src(instr, 0)), OPSZ_12b)));
     PRE(ilist, next_instr,
         instr_create_save_to_tls(dcontext, scratch_reg1, TLS_LRSC_SIZE_SLOT));
 
@@ -794,19 +815,20 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     reg_id_t scratch_reg1, scratch_reg2;
     ushort slot1, slot2;
     int opcode;
-    opnd_t dst, src0;
+    opnd_t dst0, dst1;
     opnd_size_t opsz;
     instr_t *fail = INSTR_CREATE_label(dcontext), *final = INSTR_CREATE_label(dcontext),
             *loop = INSTR_CREATE_label(dcontext);
     ASSERT(instr_is_exclusive_store(instr));
-    ASSERT(instr_num_dsts(instr) == 1 && instr_num_srcs(instr) == 3);
+    ASSERT(instr_num_dsts(instr) == 2 && instr_num_srcs(instr) == 2);
 
     /* TODO i#3544: Not implemented.  */
     ASSERT_NOT_IMPLEMENTED(!instr_uses_reg(instr, dr_reg_stolen));
     ASSERT_NOT_IMPLEMENTED(!instr_uses_reg(instr, DR_REG_TP));
 
-    dst = instr_get_dst(instr, 0);
-    src0 = instr_get_src(instr, 0);
+    dst0 = instr_get_dst(instr, 0);
+    dst1 = instr_get_dst(instr, 1);
+    ASSERT(opnd_is_base_disp(dst0));
     opsz = instr_get_opcode(instr) == OP_sc_d ? OPSZ_8 : OPSZ_4;
     scratch_reg1 = pick_scratch_reg(dcontext, instr, DR_REG_NULL, &slot1);
     scratch_reg2 = pick_scratch_reg(dcontext, instr, scratch_reg1, &slot2);
@@ -815,20 +837,19 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     PRE(ilist, instr, instr_create_save_to_tls(dcontext, scratch_reg1, slot1));
     PRE(ilist, instr, instr_create_save_to_tls(dcontext, scratch_reg2, slot2));
 
-    /* Restore address saved by exclusive load and check if it's equal to src0. */
+    /* Restore address saved by exclusive load and check if it's equal to dst0. */
     PRE(ilist, instr,
         instr_create_restore_from_tls(dcontext, scratch_reg1, TLS_LRSC_ADDR_SLOT));
     PRE(ilist, instr,
         INSTR_CREATE_bne(dcontext, opnd_create_instr(fail), opnd_create_reg(scratch_reg1),
-                         src0));
+                         opnd_create_reg(opnd_get_base(dst0))));
 
     /* Restore size saved by exclusive load and check if it's equal to current size. */
     PRE(ilist, instr,
         instr_create_restore_from_tls(dcontext, scratch_reg1, TLS_LRSC_SIZE_SLOT));
     PRE(ilist, instr,
         XINST_CREATE_load_int(dcontext, opnd_create_reg(scratch_reg2),
-                              opnd_add_flags(opnd_create_immed_int(opsz, OPSZ_12b),
-                                             DR_OPND_IMM_PRINT_DECIMAL)));
+                              opnd_create_immed_int(opsz, OPSZ_12b)));
     PRE(ilist, instr,
         INSTR_CREATE_bne(dcontext, opnd_create_instr(fail), opnd_create_reg(scratch_reg1),
                          opnd_create_reg(scratch_reg2)));
@@ -842,7 +863,7 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      */
     opcode = instr_get_opcode(instr) == OP_sc_d ? OP_lr_d : OP_lr_w;
     PRE(ilist, instr,
-        instr_create_1dst_2src(dcontext, opcode, opnd_create_reg(scratch_reg2), src0,
+        instr_create_1dst_2src(dcontext, opcode, opnd_create_reg(scratch_reg2), dst0,
                                opnd_create_immed_int(0b11, OPSZ_2b)));
     PRE(ilist, instr,
         INSTR_CREATE_bne(dcontext, opnd_create_instr(final),
@@ -851,7 +872,7 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     /* instr is here. */
 
     PRE(ilist, next_instr,
-        INSTR_CREATE_bne(dcontext, opnd_create_instr(loop), dst,
+        INSTR_CREATE_bne(dcontext, opnd_create_instr(loop), dst1,
                          opnd_create_reg(DR_REG_ZERO)));
     /* End of the LR/SC sequence. */
 
@@ -860,9 +881,7 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     /* Write a non-zero value to dst on fail. */
     PRE(ilist, next_instr, fail);
     PRE(ilist, next_instr,
-        XINST_CREATE_load_int(dcontext, dst,
-                              opnd_add_flags(opnd_create_immed_int(1, OPSZ_12b),
-                                             DR_OPND_IMM_PRINT_DECIMAL)));
+        XINST_CREATE_load_int(dcontext, dst1, opnd_create_immed_int(1, OPSZ_12b)));
 
     PRE(ilist, next_instr, final);
 
@@ -871,8 +890,7 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      */
     PRE(ilist, next_instr,
         XINST_CREATE_load_int(dcontext, opnd_create_reg(scratch_reg1),
-                              opnd_add_flags(opnd_create_immed_int(-1, OPSZ_12b),
-                                             DR_OPND_IMM_PRINT_DECIMAL)));
+                              opnd_create_immed_int(-1, OPSZ_12b)));
     PRE(ilist, next_instr,
         instr_create_save_to_tls(dcontext, scratch_reg1, TLS_LRSC_ADDR_SLOT));
 
@@ -899,7 +917,7 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
  * stores in between application instructions, it is in danger of breaking every monitor
  * in the application."
  *
- * On a Unmatched RISC-V SBC, without this mangling, any application linked with libc
+ * On an Unmatched RISC-V SBC, without this mangling, any application linked with libc
  * would hang on startup.
  *
  * So for the LR/SC sequence, a similar approach to AArch64's exclusive monitors is

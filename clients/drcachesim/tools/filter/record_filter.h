@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -148,8 +148,7 @@ protected:
         memtrace_stream_t *shard_stream;
         bool enabled;
     };
-    // In parallel operation the keys are "shard indices": just ints.
-    std::unordered_map<memref_tid_t, per_shard_t *> shard_map_;
+    std::unordered_map<int, per_shard_t *> shard_map_;
     // This mutex is only needed in parallel_shard_init. In all other accesses
     // to shard_map (print_results) we are single-threaded.
     std::mutex shard_map_mutex_;

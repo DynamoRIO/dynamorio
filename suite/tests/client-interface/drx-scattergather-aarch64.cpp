@@ -2843,6 +2843,55 @@ test_ld1_scalar_plus_scalar()
             INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
             /*index=*/2,
         },
+        // Load and replicate instructions
+        {
+            "ld1rqb scalar+scalar",
+            TEST_FUNC("ld1rqb z21.b, p1/z, [%[base], %[index]]"),
+            { /*zt=*/ { 21 }, /*pg=*/1 },
+            std::array<std::array<uint8_t, 64>, 1> {
+                { 0x06, 0x07, 0x08, 0x09, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16,
+                  0x17, 0x18, 0x19, 0x20, 0x21, 0x06, 0x07, 0x08, 0x09, 0x10, 0x11,
+                  0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21, 0x06,
+                  0x07, 0x08, 0x09, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+                  0x18, 0x19, 0x20, 0x21, 0x06, 0x07, 0x08, 0x09, 0x10, 0x11, 0x12,
+                  0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21 } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            /*index=*/6,
+        },
+        {
+            "ld1rqh scalar+scalar",
+            TEST_FUNC("ld1rqh z25.h, p0/z, [%[base], %[index], lsl #1]"),
+            { /*zt=*/ { 25 }, /*pg=*/0 },
+            std::array<std::array<uint16_t, 32>, 1> {
+                { 0x0012, 0x0013, 0x0014, 0x0015, 0x0016, 0x0017, 0x0018, 0x0019,
+                  0x0012, 0x0013, 0x0014, 0x0015, 0x0016, 0x0017, 0x0018, 0x0019,
+                  0x0012, 0x0013, 0x0014, 0x0015, 0x0016, 0x0017, 0x0018, 0x0019,
+                  0x0012, 0x0013, 0x0014, 0x0015, 0x0016, 0x0017, 0x0018, 0x0019 } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            /*index=*/12,
+        },
+        {
+            "ld1rqw scalar+scalar",
+            TEST_FUNC("ld1rqw z29.s, p1/z, [%[base], %[index], lsl #2]"),
+            { /*zt=*/ { 29 }, /*pg=*/1 },
+            std::array<std::array<uint32_t, 16>, 1> {
+                { 0x00000020, 0x00000021, 0x00000022, 0x00000023, 0x00000020, 0x00000021,
+                  0x00000022, 0x00000023, 0x00000020, 0x00000021, 0x00000022, 0x00000023,
+                  0x00000020, 0x00000021, 0x00000022, 0x00000023 } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+            /*index=*/-12,
+        },
+        {
+            "ld1rqd scalar+scalar",
+            TEST_FUNC("ld1rqd z31.d, p2/z, [%[base], %[index], lsl #3]"),
+            { /*zt=*/ { 31 }, /*pg=*/2 },
+            std::array<std::array<uint64_t, 8>, 1> {
+                { 0xfffffffffffffff6, 0xfffffffffffffff5, 0xfffffffffffffff6,
+                  0xfffffffffffffff5, 0xfffffffffffffff6, 0xfffffffffffffff5,
+                  0xfffffffffffffff6, 0xfffffffffffffff5 } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+            /*index=*/-6,
+        },
     });
 #    undef TEST_FUNC
 }
@@ -4371,6 +4420,104 @@ test_ld1_scalar_plus_immediate()
                   0x0000000000000022, 0x0000000000000023 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
         },
+        // Load and replicate instructions
+        {
+            "ld1rqb scalar+immediate",
+            TEST_FUNC("ld1rqb z26.b, p5/z, [%[base], #80]"),
+            { /*zt=*/26, /*pg=*/5 },
+            std::array<std::array<uint8_t, 16>, 1> { { 0x16, 0x17, 0x18, 0x19, 0x20, 0x21,
+                                                       0x22, 0x23, 0xf8, 0xf7, 0xf6, 0xf5,
+                                                       0xf4, 0xf3, 0xf2, 0xf1 } },
+            std::array<std::array<uint8_t, 32>, 1> {
+                { 0x16, 0x17, 0x18, 0x19, 0x20, 0x21, 0x22, 0x23, 0xf8, 0xf7, 0xf6,
+                  0xf5, 0xf4, 0xf3, 0xf2, 0xf1, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21,
+                  0x22, 0x23, 0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1 } },
+            std::array<std::array<uint8_t, 64>, 1> {
+                { 0x16, 0x17, 0x18, 0x19, 0x20, 0x21, 0x22, 0x23, 0xf8, 0xf7, 0xf6,
+                  0xf5, 0xf4, 0xf3, 0xf2, 0xf1, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21,
+                  0x22, 0x23, 0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1, 0x16,
+                  0x17, 0x18, 0x19, 0x20, 0x21, 0x22, 0x23, 0xf8, 0xf7, 0xf6, 0xf5,
+                  0xf4, 0xf3, 0xf2, 0xf1, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21, 0x22,
+                  0x23, 0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1 } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+        },
+        {
+            "ld1rqh scalar+immediate",
+            TEST_FUNC("ld1rqh z27.h, p4/z, [%[base], #48]"),
+            { /*zt=*/27, /*pg=*/4 },
+            std::array<std::array<uint16_t, 8>, 1> {
+                { 0xfff8, 0xfff7, 0xfff6, 0xfff5, 0xfff4, 0xfff3, 0xfff2, 0xfff1 } },
+            std::array<std::array<uint16_t, 16>, 1> { {
+
+                0xfff8, 0xfff7, 0xfff6, 0xfff5, 0xfff4, 0xfff3, 0xfff2, 0xfff1, 0xfff8,
+                0xfff7, 0xfff6, 0xfff5, 0xfff4, 0xfff3, 0xfff2, 0xfff1 } },
+            std::array<std::array<uint16_t, 32>, 1> {
+                { 0xfff8, 0xfff7, 0xfff6, 0xfff5, 0xfff4, 0xfff3, 0xfff2, 0xfff1,
+                  0xfff8, 0xfff7, 0xfff6, 0xfff5, 0xfff4, 0xfff3, 0xfff2, 0xfff1,
+                  0xfff8, 0xfff7, 0xfff6, 0xfff5, 0xfff4, 0xfff3, 0xfff2, 0xfff1,
+                  0xfff8, 0xfff7, 0xfff6, 0xfff5, 0xfff4, 0xfff3, 0xfff2, 0xfff1 } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+        },
+        {
+            "ld1rqw scalar+immediate",
+            TEST_FUNC("ld1rqw z28.s, p3/z, [%[base], #-16]"),
+            { /*zt=*/28, /*pg=*/3 },
+            std::array<std::array<uint32_t, 4>, 1> {
+                { 0xfffffff4, 0xfffffff3, 0xfffffff2, 0xfffffff1 } },
+            std::array<std::array<uint32_t, 8>, 1> { { 0xfffffff4, 0xfffffff3, 0xfffffff2,
+                                                       0xfffffff1, 0xfffffff4, 0xfffffff3,
+                                                       0xfffffff2, 0xfffffff1 } },
+            std::array<std::array<uint32_t, 16>, 1> {
+                { 0xfffffff4, 0xfffffff3, 0xfffffff2, 0xfffffff1, 0xfffffff4, 0xfffffff3,
+                  0xfffffff2, 0xfffffff1, 0xfffffff4, 0xfffffff3, 0xfffffff2, 0xfffffff1,
+                  0xfffffff4, 0xfffffff3, 0xfffffff2, 0xfffffff1 } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+        },
+        {
+            "ld1rqd scalar+immediate",
+            TEST_FUNC("ld1rqd z29.d, p2/z, [%[base], #-32]"),
+            { /*zt=*/29, /*pg=*/2 },
+            std::array<std::array<uint64_t, 2>, 1> {
+                { 0xfffffffffffffff4, 0xfffffffffffffff3 } },
+            std::array<std::array<uint64_t, 4>, 1> {
+                { 0xfffffffffffffff4, 0xfffffffffffffff3, 0xfffffffffffffff4,
+                  0xfffffffffffffff3 } },
+            std::array<std::array<uint64_t, 8>, 1> {
+                { 0xfffffffffffffff4, 0xfffffffffffffff3, 0xfffffffffffffff4,
+                  0xfffffffffffffff3, 0xfffffffffffffff4, 0xfffffffffffffff3,
+                  0xfffffffffffffff4, 0xfffffffffffffff3 } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+        },
+        {
+            "ld1rqd scalar+immediate (min index)",
+            TEST_FUNC("ld1rqd z30.d, p1/z, [%[base], #-128]"),
+            { /*zt=*/30, /*pg=*/1 },
+            std::array<std::array<uint64_t, 2>, 1> {
+                { 0x0000000000000016, 0x0000000000000017 } },
+            std::array<std::array<uint64_t, 4>, 1> {
+                { 0x0000000000000016, 0x0000000000000017, 0x0000000000000016,
+                  0x0000000000000017 } },
+            std::array<std::array<uint64_t, 8>, 1> {
+                { 0x0000000000000016, 0x0000000000000017, 0x0000000000000016,
+                  0x0000000000000017, 0x0000000000000016, 0x0000000000000017,
+                  0x0000000000000016, 0x0000000000000017 } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+        },
+        {
+            "ld1rqd scalar+immediate (max index)",
+            TEST_FUNC("ld1rqd z31.d, p0/z, [%[base], #112]"),
+            { /*zt=*/31, /*pg=*/0 },
+            std::array<std::array<uint64_t, 2>, 1> {
+                { 0x0000000000000014, 0x0000000000000015 } },
+            std::array<std::array<uint64_t, 4>, 1> {
+                { 0x0000000000000014, 0x0000000000000015, 0x0000000000000014,
+                  0x0000000000000015 } },
+            std::array<std::array<uint64_t, 8>, 1> {
+                { 0x0000000000000014, 0x0000000000000015, 0x0000000000000014,
+                  0x0000000000000015, 0x0000000000000014, 0x0000000000000015,
+                  0x0000000000000014, 0x0000000000000015 } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+        },
     });
 #    undef TEST_FUNC
 }
@@ -5670,6 +5817,453 @@ test_st4_scalar_plus_immediate()
 }
 
 #endif // defined(__ARM_FEATURE_SVE)
+
+#if defined(__ARM_FEATURE_SVE2)
+
+struct test_ptrs_with_index_t : public basic_test_ptrs_t {
+    int64_t index; // Scalar index used for the test instruction.
+
+    test_ptrs_with_index_t(const void *z_restore_base_, const void *p_restore_base_,
+                           void *z_save_base_, void *p_save_base_, int64_t index_)
+        : basic_test_ptrs_t { z_restore_base_, p_restore_base_, z_save_base_,
+                              p_save_base_ }
+        , index(index_)
+    {
+    }
+};
+
+struct vector_plus_scalar_load_test_case_t
+    : public test_case_base_t<test_ptrs_with_index_t> {
+    vector_reg_value128_t reference_data_;
+    vector_reg_value128_t base_data_;
+
+    struct registers_used_t {
+        unsigned dest_z;
+        unsigned governing_p;
+        unsigned base_z;
+    } registers_used_;
+
+    int64_t index_; // The scalar index used for the test instruction.
+                    // This gets copied to the test_ptrs_t object to pass to the test
+                    // function.
+
+    template <typename ELEMENT_T, typename BASE_T>
+    vector_plus_scalar_load_test_case_t(
+        std::string name, test_func_t func, registers_used_t registers_used,
+        std::array<ELEMENT_T, TEST_VL_BYTES / sizeof(ELEMENT_T)> reference_data,
+        std::array<BASE_T, TEST_VL_BYTES / sizeof(BASE_T)> base, int64_t index)
+        : test_case_base_t<test_ptrs_t>(std::move(name), std::move(func),
+                                        registers_used.governing_p,
+                                        static_cast<element_size_t>(sizeof(BASE_T)))
+        , registers_used_(registers_used)
+        , index_(index)
+
+    {
+        std::memcpy(reference_data_.data(), reference_data.data(),
+                    reference_data_.size());
+        std::memcpy(base_data_.data(), base.data(), base_data_.size());
+    }
+
+    void
+    setup(sve_register_file_t &register_values) override
+    {
+        // Set the value for the base vector register.
+        register_values.set_z_register_value(registers_used_.base_z, base_data_);
+    }
+
+    void
+    check_output(predicate_reg_value128_t pred,
+                 const test_register_data_t &register_data) override
+    {
+        const auto vl_bytes = get_vl_bytes();
+
+        std::vector<uint8_t> expected_output_data;
+        expected_output_data.resize(vl_bytes);
+
+        assert(reference_data_.size() == TEST_VL_BYTES);
+        for (size_t i = 0; i < vl_bytes / TEST_VL_BYTES; i++) {
+            memcpy(&expected_output_data[TEST_VL_BYTES * i], reference_data_.data(),
+                   TEST_VL_BYTES);
+        }
+        apply_predicate_mask(expected_output_data, pred, element_size_);
+        const scalable_reg_value_t expected_output {
+            expected_output_data.data(),
+            vl_bytes,
+        };
+
+        const auto output_value =
+            register_data.after.get_z_register_value(registers_used_.dest_z);
+
+        if (output_value != expected_output) {
+            test_failed();
+            print("predicate: ");
+            print_predicate(
+                register_data.before.get_p_register_value(registers_used_.governing_p));
+            print("\nexpected:  ");
+            print_vector(expected_output);
+            print("\nactual:    ");
+            print_vector(output_value);
+            print("\n");
+        }
+
+        // Check that the values of the other Z registers have been preserved.
+        for (size_t i = 0; i < NUM_Z_REGS; i++) {
+            if (i == registers_used_.dest_z)
+                continue;
+            check_z_reg(i, register_data);
+        }
+        // Check that the values of the P registers have been preserved.
+        for (size_t i = 0; i < NUM_P_REGS; i++) {
+            check_p_reg(i, register_data);
+        }
+    }
+
+    test_ptrs_t
+    create_test_ptrs(test_register_data_t &register_data) override
+    {
+        return {
+            register_data.before.z.data(),
+            register_data.before.p.data(),
+            register_data.after.z.data(),
+            register_data.after.p.data(),
+            index_,
+        };
+    }
+};
+
+test_result_t
+test_ld1_vector_plus_scalar()
+{
+#    define TEST_FUNC(ld_instruction)                                          \
+        [](vector_plus_scalar_load_test_case_t::test_ptrs_t &ptrs) {           \
+            asm(/* clang-format off */                                      \
+            RESTORE_Z_REGISTERS(z_restore_base)                             \
+            RESTORE_P_REGISTERS(p_restore_base)                             \
+            ld_instruction "\n"                                             \
+            SAVE_Z_REGISTERS(z_save_base)                                   \
+            SAVE_P_REGISTERS(p_save_base) /* clang-format on */    \
+                :                                                              \
+                : [z_restore_base] "r"(ptrs.z_restore_base),                   \
+                  [z_save_base] "r"(ptrs.z_save_base),                         \
+                  [p_restore_base] "r"(ptrs.p_restore_base),                   \
+                  [p_save_base] "r"(ptrs.p_save_base), [index] "r"(ptrs.index) \
+                : ALL_Z_REGS, ALL_P_REGS, "memory");                           \
+        }
+
+    const auto get_base_ptr = [&](element_size_t element_size, size_t offset) {
+        void *start = INPUT_DATA.base_addr_for_data_size(element_size);
+        switch (element_size) {
+        case element_size_t::BYTE:
+            return reinterpret_cast<uintptr_t>(&static_cast<uint8_t *>(start)[offset]);
+        case element_size_t::HALF:
+            return reinterpret_cast<uintptr_t>(&static_cast<uint16_t *>(start)[offset]);
+        case element_size_t::SINGLE:
+            return reinterpret_cast<uintptr_t>(&static_cast<uint32_t *>(start)[offset]);
+        case element_size_t::DOUBLE:
+            return reinterpret_cast<uintptr_t>(&static_cast<uint64_t *>(start)[offset]);
+        }
+        assert(false); // unreachable
+        return uintptr_t(0);
+    };
+    return run_tests<vector_plus_scalar_load_test_case_t>({
+        /* {
+         *     Test name,
+         *     Function that executes the test instruction,
+         *     Registers used {zt, pg, zn},
+         *     Expected output data,
+         *     Base data (value for zn),
+         *     Index value,
+         * },
+         */
+        /* TODO i#5036: Add tests for 32-bit element variants.
+         *              For example: ldnt1b z0.s, p0/z, [z31.s, x2].
+         *              These instructions require 32-bit base pointers and I'm not sure
+         *              how we can reliably and portably guarantee that allocated memory
+         *              has an address that fits into 32-bits.
+         */
+        {
+            "ldnt1b vector+scalar 64bit unscaled offset",
+            TEST_FUNC("ldnt1b z0.d, p0/z, [z31.d, %[index]]"),
+            { /*zt=*/0, /*pg=*/0, /*zn=*/31 },
+            std::array<uint64_t, 2> { 0x00, 0x16 },
+            std::array<uintptr_t, 2> {
+                get_base_ptr(element_size_t::BYTE, 0),
+                get_base_ptr(element_size_t::BYTE, 16),
+            },
+            0,
+        },
+        {
+            "ldnt1sb vector+scalar 64bit unscaled offset",
+            TEST_FUNC("ldnt1sb z7.d, p1/z, [z24.d, %[index]]"),
+            { /*zt=*/7, /*pg=*/1, /*zn=*/24 },
+            std::array<int64_t, 2> { -15, 0x15 },
+            std::array<uintptr_t, 2> {
+                get_base_ptr(element_size_t::BYTE, 0),
+                get_base_ptr(element_size_t::BYTE, 16),
+            },
+            -1,
+        },
+        {
+            "ldnt1h vector+scalar 64bit unscaled offset",
+            TEST_FUNC("ldnt1h z14.d, p2/z, [z17.d, %[index]]"),
+            { /*zt=*/14, /*pg=*/2, /*zn=*/17 },
+            std::array<uint64_t, 2> { 0x12, 0x14 },
+            std::array<uintptr_t, 2> {
+                get_base_ptr(element_size_t::HALF, 8),
+                get_base_ptr(element_size_t::HALF, 10),
+            },
+            8,
+        },
+        {
+            "ldnt1sh vector+scalar 64bit unscaled offset",
+            TEST_FUNC("ldnt1sh z21.d, p3/z, [z10.d, %[index]]"),
+            { /*zt=*/21, /*pg=*/3, /*zn=*/10 },
+            std::array<int64_t, 2> { -15, 0x17 },
+            std::array<uintptr_t, 2> {
+                get_base_ptr(element_size_t::HALF, 2),
+                get_base_ptr(element_size_t::HALF, 20),
+            },
+            -6,
+        },
+        {
+            "ldnt1w vector+scalar 64bit unscaled offset",
+            TEST_FUNC("ldnt1w z28.d, p4/z, [z3.d, %[index]]"),
+            { /*zt=*/28, /*pg=*/4, /*zn=*/3 },
+            std::array<uint64_t, 2> { 0xfffffff4, 0xfffffff3 },
+            std::array<uintptr_t, 2> {
+                get_base_ptr(element_size_t::SINGLE, 4),
+                get_base_ptr(element_size_t::SINGLE, 5),
+            },
+            -32,
+        },
+        {
+            "ldnt1sw vector+scalar 64bit unscaled offset",
+            TEST_FUNC("ldnt1sw z29.d, p5/z, [z4.d, %[index]]"),
+            { /*zt=*/29, /*pg=*/5, /*zn=*/4 },
+            std::array<int64_t, 2> { -12, -13 },
+            std::array<uintptr_t, 2> {
+                get_base_ptr(element_size_t::SINGLE, 4),
+                get_base_ptr(element_size_t::SINGLE, 5),
+            },
+            -32,
+        },
+        {
+            "ldnt1d vector+scalar 64bit unscaled offset",
+            TEST_FUNC("ldnt1d z22.d, p6/z, [z11.d, %[index]]"),
+            { /*zt=*/22, /*pg=*/6, /*zn=*/11 },
+            std::array<uint64_t, 2> { 0x03, 0x19 },
+            std::array<uintptr_t, 2> {
+                get_base_ptr(element_size_t::DOUBLE, 0),
+                get_base_ptr(element_size_t::DOUBLE, 16),
+            },
+            24,
+        },
+    });
+#    undef TEST_FUNC
+}
+
+struct vector_plus_scalar_store_test_case_t
+    : public test_case_base_t<test_ptrs_with_index_t> {
+    vector_reg_value128_t base_data_;
+    std::array<const void *, 2> base_ptrs_;
+
+    struct registers_used_t {
+        unsigned src_z;
+        unsigned governing_p;
+        unsigned base_z;
+    } registers_used_;
+
+    element_size_t stored_value_size_;
+
+    expected_values_t expected_values_;
+
+    int64_t index_; // The scalar index used for the test instruction.
+                    // This gets copied to the test_ptrs_t object to pass to the test
+                    // function.
+
+    vector_plus_scalar_store_test_case_t(std::string name, test_func_t func,
+                                         registers_used_t registers_used,
+                                         std::array<std::ptrdiff_t, 2> base_offsets,
+                                         element_size_t stored_value_size,
+                                         std::ptrdiff_t offset)
+        : test_case_base_t<test_ptrs_t>(std::move(name), std::move(func),
+                                        registers_used.governing_p,
+                                        element_size_t::DOUBLE)
+        , registers_used_(registers_used)
+        , stored_value_size_(stored_value_size)
+        , expected_values_(std::array<std::ptrdiff_t, 2> { offset, offset },
+                           stored_value_size)
+        , index_(static_cast<int64_t>(offset))
+    {
+        base_ptrs_[0] =
+            static_cast<const uint8_t *>(OUTPUT_DATA.base_addr()) + base_offsets[0];
+        base_ptrs_[1] =
+            static_cast<const uint8_t *>(OUTPUT_DATA.base_addr()) + base_offsets[1];
+        std::memcpy(base_data_.data(), base_ptrs_.data(), base_data_.size());
+    }
+
+    void
+    setup(sve_register_file_t &register_values) override
+    {
+        // Set the value for the base register.
+        register_values.set_z_register_value(registers_used_.base_z, base_data_);
+
+        register_values.set_z_register_value(registers_used_.src_z,
+                                             { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
+                                               0x07, 0x08, 0x09, 0x10, 0x11, 0x12, 0x13,
+                                               0x14, 0x15 });
+        OUTPUT_DATA.reset();
+    }
+
+    void
+    check_output(predicate_reg_value128_t pred,
+                 const test_register_data_t &register_data) override
+    {
+        // Check that the values of the Z registers have been preserved.
+        for (size_t i = 0; i < NUM_Z_REGS; i++) {
+            check_z_reg(i, register_data);
+        }
+        // Check that the values of the P registers have been preserved.
+        for (size_t i = 0; i < NUM_P_REGS; i++) {
+            check_p_reg(i, register_data);
+        }
+
+        const bool scaled = false;
+        assert(element_size_ == element_size_t::DOUBLE);
+
+        switch (stored_value_size_) {
+        case element_size_t::BYTE:
+            check_expected_values(expected_values_.u8x2, pred, base_ptrs_, scaled);
+            break;
+        case element_size_t::HALF:
+            check_expected_values(expected_values_.u16x2, pred, base_ptrs_, scaled);
+            break;
+        case element_size_t::SINGLE:
+            check_expected_values(expected_values_.u32x2, pred, base_ptrs_, scaled);
+            break;
+        case element_size_t::DOUBLE:
+            check_expected_values(expected_values_.u64x2, pred, base_ptrs_, scaled);
+            break;
+        }
+    }
+
+    test_ptrs_t
+    create_test_ptrs(test_register_data_t &register_data) override
+    {
+        return {
+            register_data.before.z.data(),
+            register_data.before.p.data(),
+            register_data.after.z.data(),
+            register_data.after.p.data(),
+            index_,
+        };
+    }
+#    undef TEST_FUNC
+};
+
+test_result_t
+test_st1_vector_plus_scalar()
+{
+#    define TEST_FUNC(st_instruction)                                          \
+        [](vector_plus_scalar_load_test_case_t::test_ptrs_t &ptrs) {           \
+            asm(/* clang-format off */                                      \
+            RESTORE_Z_REGISTERS(z_restore_base)                             \
+            RESTORE_P_REGISTERS(p_restore_base)                             \
+            st_instruction "\n"                                             \
+            SAVE_Z_REGISTERS(z_save_base)                                   \
+            SAVE_P_REGISTERS(p_save_base) /* clang-format on */    \
+                :                                                              \
+                : [z_restore_base] "r"(ptrs.z_restore_base),                   \
+                  [z_save_base] "r"(ptrs.z_save_base),                         \
+                  [p_restore_base] "r"(ptrs.p_restore_base),                   \
+                  [p_save_base] "r"(ptrs.p_save_base), [index] "r"(ptrs.index) \
+                : ALL_Z_REGS, ALL_P_REGS, "memory");                           \
+        }
+
+    return run_tests<vector_plus_scalar_store_test_case_t>({
+        /* {
+         *     Test name,
+         *     Function that executes the test instruction,
+         *     Registers used {zt, pg, zn},
+         *     Offsets
+         *     Stored value size
+         *     index value
+         * },
+         */
+        /* TODO i#5036: Add tests for 32-bit element variants.
+         *              For example: stnt1b z0.s, p0/z, [z31.s, x5].
+         *              These instructions require 32-bit base pointers and I'm not sure
+         *              how we can reliably and portably guarantee that allocated memory
+         *              has an address that fits into 32-bits.
+         */
+        {
+            "stnt1b vector+scalar 64bit unscaled offset",
+            TEST_FUNC("stnt1b z0.d, p7, [z28.d, %[index]]"),
+            { /*zt=*/0, /*pg=*/7, /*zn=*/28 },
+            std::array<std::ptrdiff_t, 2> { 0, 16 },
+            element_size_t::BYTE,
+            0,
+        },
+        {
+            "stnt1b vector+scalar 64bit unscaled offset (repeated base)",
+            TEST_FUNC("stnt1b z3.d, p6, [z24.d, %[index]]"),
+            { /*zt=*/3, /*pg=*/6, /*zn=*/24 },
+            std::array<std::ptrdiff_t, 2> { 7, 7 },
+            element_size_t::BYTE,
+            0,
+        },
+        {
+            "stnt1h vector+scalar 64bit unscaled offset",
+            TEST_FUNC("stnt1h z7.d, p5, [z20.d, %[index]]"),
+            { /*zt=*/7, /*pg=*/5, /*zn=*/20 },
+            std::array<std::ptrdiff_t, 2> { -32, -16 },
+            element_size_t::HALF,
+            -10,
+        },
+        {
+            "stnt1h vector+scalar 64bit unscaled offset (repeated base)",
+            TEST_FUNC("stnt1h z11.d, p4, [z16.d, %[index]]"),
+            { /*zt=*/11, /*pg=*/4, /*zn=*/16 },
+            std::array<std::ptrdiff_t, 2> { -32, -32 },
+            element_size_t::HALF,
+            -10,
+        },
+        {
+            "stnt1w vector+scalar 64bit unscaled offset",
+            TEST_FUNC("stnt1w z15.d, p3, [z12.d, %[index]]"),
+            { /*zt=*/15, /*pg=*/3, /*zn=*/12 },
+            std::array<std::ptrdiff_t, 2> { 14, 100 },
+            element_size_t::SINGLE,
+            32,
+        },
+        {
+            "stnt1w vector+scalar 64bit unscaled offset (repeated base)",
+            TEST_FUNC("stnt1w z19.d, p2, [z8.d, %[index]]"),
+            { /*zt=*/19, /*pg=*/2, /*zn=*/8 },
+            std::array<std::ptrdiff_t, 2> { 14, 14 },
+            element_size_t::SINGLE,
+            32,
+        },
+        {
+            "stnt1d vector+scalar 64bit unscaled offset",
+            TEST_FUNC("stnt1d z23.d, p1, [z4.d, %[index]]"),
+            { /*zt=*/23, /*pg=*/1, /*zn=*/4 },
+            std::array<std::ptrdiff_t, 2> { -16, 16 },
+            element_size_t::DOUBLE,
+            50,
+        },
+        {
+            "stnt1d vector+scalar 64bit unscaled offset (repeated base)",
+            TEST_FUNC("stnt1d z27.d, p0, [z0.d, %[index]]"),
+            { /*zt=*/27, /*pg=*/0, /*zn=*/0 },
+            std::array<std::ptrdiff_t, 2> { -16, 16 },
+            element_size_t::DOUBLE,
+            50,
+        },
+    });
+}
+
+#endif // defined(__ARM_FEATURE_SVE2)
 } // namespace
 
 int
@@ -5716,6 +6310,12 @@ main(int argc, char **argv)
     if (test_st3_scalar_plus_immediate() == FAIL)
         status = FAIL;
     if (test_st4_scalar_plus_immediate() == FAIL)
+        status = FAIL;
+#endif
+#if defined(__ARM_FEATURE_SVE2)
+    if (test_ld1_vector_plus_scalar() == FAIL)
+        status = FAIL;
+    if (test_st1_vector_plus_scalar() == FAIL)
         status = FAIL;
 #endif
 

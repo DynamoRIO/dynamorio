@@ -264,6 +264,7 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t
             instr_create_restore_from_tls(dcontext, SCRATCH_REG0, TLS_REG0_SLOT));
     } else {
         IF_AARCH64(ASSERT_NOT_REACHED());
+        IF_RISCV64(ASSERT_NOT_REACHED());
         PRE(ilist, instr, instr_create_save_to_dcontext(dcontext, REG_XSP, XSP_OFFSET));
 #ifdef WINDOWS
         if (!cci->out_of_line_swap) {
@@ -584,12 +585,11 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
             if (opnd_is_reglike(arg)) {
                 /* sd x(...), i*XSP_SZ(sp) */
                 PRE(ilist, instr,
-                    XINST_CREATE_store(
-                        dcontext,
-                        opnd_add_flags(opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0,
+                    XINST_CREATE_store(dcontext,
+                                       opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0,
                                                              i * XSP_SZ, OPSZ_PTR),
-                                       DR_OPND_IMM_PRINT_DECIMAL),
-                        opnd_is_reg(arg) ? arg : opnd_create_reg(DR_REG_ZERO)));
+                                       opnd_is_reg(arg) ? arg
+                                                        : opnd_create_reg(DR_REG_ZERO)));
             }
         }
 #    else /* ARM */

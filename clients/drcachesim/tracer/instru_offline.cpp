@@ -78,13 +78,14 @@ offline_instru_t::offline_instru_t(
     drvector_t *reg_vector,
     ssize_t (*write_file)(file_t file, const void *data, size_t count),
     file_t module_file, file_t encoding_file, bool disable_optimizations,
-    void (*log)(uint level, const char *fmt, ...))
+    bool instrs_are_separate, void (*log)(uint level, const char *fmt, ...))
     : instru_t(insert_load_buf, reg_vector, sizeof(offline_entry_t),
                disable_optimizations)
     , write_file_func_(write_file)
     , modfile_(module_file)
     , log_(log)
     , encoding_file_(encoding_file)
+    , instrs_are_separate_(instrs_are_separate)
 {
     drcovlib_status_t res = drmodtrack_init();
     DR_ASSERT(res == DRCOVLIB_SUCCESS);
@@ -110,8 +111,18 @@ offline_instru_t::offline_instru_t(
     encoding_buf_start_ = reinterpret_cast<byte *>(
         dr_raw_mem_alloc(encoding_buf_sz_, DR_MEMPROT_READ | DR_MEMPROT_WRITE, nullptr));
     encoding_buf_ptr_ = encoding_buf_start_;
-    // Write out the header which is just a 64-bit version.
+    // Write out the encoding file header.
+    // 64-bit version.
     *reinterpret_cast<uint64_t *>(encoding_buf_ptr_) = ENCODING_FILE_VERSION;
+    encoding_buf_ptr_ += sizeof(uint64_t);
+    // 64-bit file type.
+    uint64_t encoding_file_type =
+        static_cast<uint64_t>(encoding_file_type_t::ENCODING_FILE_TYPE_DEFAULT);
+    if (instrs_are_separate_) {
+        encoding_file_type |= static_cast<uint64_t>(
+            encoding_file_type_t::ENCODING_FILE_TYPE_SEPARATE_NON_MOD_INSTRS);
+    }
+    *reinterpret_cast<uint64_t *>(encoding_buf_ptr_) = encoding_file_type;
     encoding_buf_ptr_ += sizeof(uint64_t);
 }
 
@@ -480,6 +491,7 @@ offline_instru_t::record_instr_encodings(void *drcontext, app_pc tag_pc,
     log_(3, "%s: new block id " UINT64_FORMAT_STRING " for %p\n", __FUNCTION__,
          encoding_id_, tag_pc);
     per_block->id = encoding_id_++;
+    per_block->encoding_length_start = encoding_length_;
 
     if (encoding_buf_ptr_ + max_block_encoding_size_ >=
         encoding_buf_start_ + encoding_buf_sz_) {
@@ -518,6 +530,13 @@ offline_instru_t::record_instr_encodings(void *drcontext, app_pc tag_pc,
         DR_ASSERT(buf < encoding_buf_start_ + encoding_buf_sz_);
     }
 
+    DR_ASSERT(buf >= buf_start + sizeof(encoding_entry_t));
+    if (buf == buf_start + sizeof(encoding_entry_t)) {
+        // If the given ilist has no app instr, we skip writing anything to the
+        // encoding file.
+        dr_mutex_unlock(encoding_lock_);
+        return;
+    }
     encoding_entry_t *enc = reinterpret_cast<encoding_entry_t *>(buf_start);
     enc->length = buf - buf_start;
     enc->id = per_block->id;
@@ -526,7 +545,7 @@ offline_instru_t::record_instr_encodings(void *drcontext, app_pc tag_pc,
         dr_app_pc_as_jump_target(instr_get_isa_mode(instrlist_first(ilist)), tag_pc));
     log_(2, "%s: Recorded %zu bytes for id " UINT64_FORMAT_STRING " @ %p\n", __FUNCTION__,
          enc->length, enc->id, tag_pc);
-
+    encoding_length_ += (enc->length - sizeof(encoding_entry_t));
     encoding_buf_ptr_ += enc->length;
     dr_mutex_unlock(encoding_lock_);
 }
@@ -570,7 +589,12 @@ offline_instru_t::insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *w
         modidx = PC_MODIDX_INVALID;
         // For generated code we store the id for matching with the encodings recorded
         // into the encoding file.
-        modoffs = per_block->id;
+        if (instrs_are_separate_) {
+            DR_ASSERT(pc >= per_block->start_pc);
+            modoffs = pc - per_block->start_pc + per_block->encoding_length_start;
+        } else {
+            modoffs = per_block->id;
+        }
     }
     // Check that the values we want to assign to the bitfields in offline_entry_t do not
     // overflow. In i#2956 we observed an overflow for the modidx field.
@@ -840,10 +864,12 @@ offline_instru_t::bb_analysis(void *drcontext, void *tag, void **bb_field,
 
     per_block->instr_count = instru_t::count_app_instrs(ilist);
 
+    app_pc tag_pc = dr_fragment_app_pc(tag);
+    per_block->start_pc = tag_pc;
+
     identify_elidable_addresses(drcontext, ilist, OFFLINE_FILE_VERSION,
                                 memref_needs_full_info);
 
-    app_pc tag_pc = dr_fragment_app_pc(tag);
     if (does_pc_require_encoding(drcontext, tag_pc, nullptr, nullptr)) {
         // For (unmodified) library code we do not need to record encodings as we
         // rely on access to the binary during post-processing.

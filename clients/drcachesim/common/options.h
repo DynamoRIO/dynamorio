@@ -193,12 +193,16 @@ extern dynamorio::droption::droption_t<bool> op_sched_time;
 extern dynamorio::droption::droption_t<bool> op_sched_order_time;
 extern dynamorio::droption::droption_t<uint64_t> op_sched_syscall_switch_us;
 extern dynamorio::droption::droption_t<uint64_t> op_sched_blocking_switch_us;
+extern dynamorio::droption::droption_t<double> op_sched_block_scale;
+extern dynamorio::droption::droption_t<uint64_t> op_sched_block_max_us;
 #ifdef HAS_ZIP
 extern dynamorio::droption::droption_t<std::string> op_record_file;
 extern dynamorio::droption::droption_t<std::string> op_replay_file;
 extern dynamorio::droption::droption_t<std::string> op_cpu_schedule_file;
 #endif
+extern dynamorio::droption::droption_t<std::string> op_sched_switch_file;
 extern dynamorio::droption::droption_t<uint64_t> op_schedule_stats_print_every;
+extern dynamorio::droption::droption_t<std::string> op_syscall_template_file;
 
 } // namespace drmemtrace
 } // namespace dynamorio
