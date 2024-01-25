@@ -47,6 +47,7 @@
 
 #include <cstdint>
 #include <string>
+#include <unordered_map>
 
 /**
  * @file drmemtrace/memtrace_stream.h
@@ -330,10 +331,19 @@ public:
     {
         return shard_;
     }
+    // Also sets the shard index to the dynamic-discovery-order tid ordinal.
     void
-    set_input_tid(int64_t tid)
+    set_tid(int64_t tid)
     {
         tid_ = tid;
+        auto exists = tid2shard_.find(tid);
+        if (exists == tid2shard_.end()) {
+            int index = static_cast<int>(tid2shard_.size());
+            tid2shard_[tid] = index;
+            set_shard_index(index);
+        } else {
+            set_shard_index(exists->second);
+        }
     }
     int64_t
     get_tid() const override
@@ -346,6 +356,8 @@ private:
     int64_t cpuid_ = 0;
     int shard_ = 0;
     int64_t tid_ = 0;
+    // To let a test set just the tid and get a shard index for free.
+    std::unordered_map<int64_t, int> tid2shard_;
 };
 
 } // namespace drmemtrace

@@ -102,6 +102,9 @@ protected:
     addr_t
     synthetic_virt2phys(addr_t virt) const;
 
+    // We use -1 instead of INVALID_THREAD_ID==0 because we have many tests
+    // which set tid to 0 to mean "don't care".
+    static constexpr memref_tid_t INVALID_LAST_THREAD = -1;
     static constexpr int INVALID_CORE_INDEX = -1;
 
     unsigned int knob_num_cores_;
@@ -115,7 +118,7 @@ protected:
 
     shard_type_t shard_type_ = SHARD_BY_THREAD;
     memtrace_stream_t *serial_stream_ = nullptr;
-    memref_tid_t last_thread_ = INVALID_THREAD_ID; // Only used for SHARD_BY_THREAD.
+    memref_tid_t last_thread_ = INVALID_LAST_THREAD; // Only used for SHARD_BY_THREAD.
     int last_core_index_ = INVALID_CORE_INDEX;
 
     // For thread mapping to cores:

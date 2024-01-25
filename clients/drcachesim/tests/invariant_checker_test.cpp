@@ -126,8 +126,8 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
         checker.initialize_stream(&stream);
         for (const auto &memref : memrefs) {
             int shard_index = static_cast<int>(memref.instr.tid - TID_BASE);
+            stream.set_tid(memref.instr.tid);
             stream.set_shard_index(shard_index);
-            stream.set_input_tid(memref.instr.tid);
             checker.process_memref(memref);
         }
         checker.print_results();
@@ -159,8 +159,8 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
         void *shardA = nullptr, *shardB = nullptr, *shardC = nullptr;
         for (const auto &memref : memrefs) {
             int shard_index = static_cast<int>(memref.instr.tid - TID_BASE);
+            stream.set_tid(memref.instr.tid);
             stream.set_shard_index(shard_index);
-            stream.set_input_tid(memref.instr.tid);
             switch (memref.instr.tid) {
             case TID_A:
                 if (shardA == nullptr) {
