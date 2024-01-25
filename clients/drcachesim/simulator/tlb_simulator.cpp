@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -158,13 +158,13 @@ tlb_simulator_t::process_memref(const memref_t &memref)
     // We use a static scheduling of threads to cores, as it is
     // not practical to measure which core each thread actually
     // ran on for each memref.
-    int core;
+    int core_index;
     if (memref.data.tid == last_thread_)
-        core = last_core_;
+        core_index = last_core_index_;
     else {
-        core = core_for_thread(memref.data.tid);
+        core_index = core_for_thread(memref.data.tid);
         last_thread_ = memref.data.tid;
-        last_core_ = core;
+        last_core_index_ = core_index;
     }
 
     // To support swapping to physical addresses without modifying the passed-in
@@ -178,10 +178,10 @@ tlb_simulator_t::process_memref(const memref_t &memref)
     }
 
     if (type_is_instr(simref->instr.type))
-        itlbs_[core]->request(*simref);
+        itlbs_[core_index]->request(*simref);
     else if (simref->data.type == TRACE_TYPE_READ ||
              simref->data.type == TRACE_TYPE_WRITE)
-        dtlbs_[core]->request(*simref);
+        dtlbs_[core_index]->request(*simref);
     else if (simref->exit.type == TRACE_TYPE_THREAD_EXIT) {
         handle_thread_exit(simref->exit.tid);
         last_thread_ = 0;
