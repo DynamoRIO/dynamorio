@@ -708,7 +708,7 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
       string(REGEX REPLACE "\\.c$" ".cpp" client_source "${client_source}")
     endif ()
     set(${test}_client_source ${client_source})
-  endif()
+  endif ()
 
   if (NOT "${source}" MATCHES "\\.runall$")
     # Many client tests don't care about the app that's run.  To save time
