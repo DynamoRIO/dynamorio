@@ -228,7 +228,7 @@ if (WIN32)
         # we assume this error always means that it's that symlink:
         cmd_result MATCHES "Access is denied")
       set(GCC_IS_CYGWIN ON)
-    endif()
+    endif ()
   endif (NOT GCC)
 else (WIN32)
   # i#215: if SELinux is enabled we'll use chcon to mark tests w/ text relocations
