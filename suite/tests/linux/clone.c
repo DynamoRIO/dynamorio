@@ -86,6 +86,9 @@ create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand,
 static pid_t
 create_thread_clone3(void (*fcn)(void), void **stack, bool share_sighand, bool clone_vm);
 #endif
+
+static bool clone3_available = false;
+
 static void
 delete_thread(pid_t pid, void *stack);
 int
@@ -106,17 +109,16 @@ test_thread(bool share_sighand, bool clone_vm, bool use_clone3)
 {
     print("%s(share_sighand %d, clone_vm %d, use_clone3 %d)\n", __FUNCTION__,
           share_sighand, clone_vm, use_clone3);
-    if (use_clone3) {
-#ifdef SYS_clone3
+
+    if (use_clone3 && clone3_available)
         child = create_thread_clone3(run_with_exit, &stack, share_sighand, clone_vm);
-#else
-        /* If SYS_clone3 is not defined, we simply use SYS_clone instead, so that
-         * the expected output is the same in both cases.
+    else {
+        /* If use_clone3 is true but clone3 is not available, we simply use
+         * SYS_clone instead, so that the expected output is the same.
          */
         child = create_thread(run, NULL, &stack, share_sighand, clone_vm);
-#endif
-    } else
-        child = create_thread(run, NULL, &stack, share_sighand, clone_vm);
+    }
+
     assert(child > -1);
     delete_thread(child, stack);
 }
@@ -124,6 +126,22 @@ test_thread(bool share_sighand, bool clone_vm, bool use_clone3)
 int
 main()
 {
+    /* Try using clone3 when it is possibly not defined. */
+    int ret_failure_clone3 = make_clone3_syscall(NULL, 0, NULL);
+    assert(ret_failure_clone3 == -1);
+#ifdef SYS_clone3
+    /* In some scenarios SYS_clone3 is defined but clone3 returns ENOSYS
+    * e.g. when running in a container under Ubuntu 22.04
+    * see https://github.com/moby/moby/pull/42681
+    */
+    if (errno != ENOSYS)
+        clone3_available = true;
+#endif
+    /* On some environments, we see that the kernel supports clone3 even though
+     * SYS_clone3 is not defined by glibc.
+     */
+    assert(errno == ENOSYS || errno == EINVAL);
+
     /* First test a thread that does not share signal handlers
      * (xref i#2089).
      */
@@ -139,21 +157,6 @@ main()
      */
     test_thread(true /*share_sighand*/, true /*clone_vm*/, false /*use_clone3*/);
     test_thread(true /*share_sighand*/, true /*clone_vm*/, true /*use_clone3*/);
-
-    /* Try using clone3 when it is possibly not defined. */
-    int ret_failure_clone3 = make_clone3_syscall(NULL, 0, NULL);
-    assert(ret_failure_clone3 == -1);
-#ifdef SYS_clone3
-    /* Though there's no guarantee, we assume that the kernel supports clone3 if
-     * SYS_clone3 is defined.
-     */
-    assert(errno == EINVAL);
-#else
-    /* On some environments, we see that the kernel supports clone3 even though
-     * SYS_clone3 is not defined by glibc.
-     */
-    assert(errno == ENOSYS || errno == EINVAL);
-#endif
 }
 
 /* Procedure executed by sideline threads
