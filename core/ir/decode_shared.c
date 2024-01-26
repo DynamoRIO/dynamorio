@@ -182,13 +182,14 @@ int sve_veclens[] = { 128,  256,  384,  512,  640,  768,  896,  1024,
 bool
 dr_set_sve_vector_length(int vl)
 {
-    /* TODO i#3044: Vector length will be read from h/w when running on SVE. */
     for (int i = 0; i < sizeof(sve_veclens) / sizeof(sve_veclens[0]); i++) {
         if (vl == sve_veclens[i]) {
             sve_veclen = vl;
             return true;
         }
     }
+    /* Make unusual values visible in case our internal uses mess up. */
+    ASSERT_CURIOSITY(false);
     return false;
 }
 
