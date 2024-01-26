@@ -78,10 +78,11 @@ DR_API
 /**
  * AArch64 Scalable Vector Extension's vector length in bits is one of:
  * 128 256 384 512 640 768 896 1024 1152 1280 1408 1536 1664 1792 1920 2048
+ * Returns whether successful.
  * TODO i#3044: This function will only allow setting vector length if not
  * running on SVE.
  */
-void
+bool
 dr_set_sve_vector_length(int vl);
 
 DR_API
