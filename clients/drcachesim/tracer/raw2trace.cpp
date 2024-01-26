@@ -841,6 +841,8 @@ raw2trace_t::process_marker_additionally(raw2trace_thread_data_t *tdata,
         log(4, "Rseq abort %d\n", tdata->rseq_past_end_);
         if (!adjust_and_emit_rseq_buffer(tdata, marker_val, marker_val))
             return false;
+        if (!append_delayed_branch(tdata, reinterpret_cast<app_pc>(marker_val)))
+            return false;
     } else if (marker_type == TRACE_MARKER_TYPE_RSEQ_ENTRY) {
         if (tdata->rseq_want_rollback_) {
             if (tdata->rseq_buffering_enabled_) {
@@ -1263,18 +1265,6 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
         if (entry.timestamp.type == OFFLINE_TYPE_TIMESTAMP) {
             VPRINT(2, "Thread %u timestamp 0x" ZHEX64_FORMAT_STRING "\n",
                    (uint)tdata->tid, (uint64)entry.timestamp.usec);
-            if (delayed_branches_exist(tdata)) {
-                // Delayed branches should be appended before the second
-                // back-to-back timestamp.
-                if (tdata->delayed_branch_past_timestamp_) {
-                    if (!append_delayed_branch(tdata, nullptr)) {
-                        return false;
-                    }
-                    tdata->delayed_branch_past_timestamp_ = false;
-                } else {
-                    tdata->delayed_branch_past_timestamp_ = true;
-                }
-            }
             accumulate_to_statistic(tdata, RAW2TRACE_STAT_EARLIEST_TRACE_TIMESTAMP,
                                     static_cast<uint64>(entry.timestamp.usec));
             accumulate_to_statistic(tdata, RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP,
@@ -1968,6 +1958,11 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             if (tdata->rseq_past_end_) {
                 if (!adjust_and_emit_rseq_buffer(tdata, instr_pc))
                     return false;
+                if (!instr->is_cti()) {
+                    // Write out delayed branches now that we have a target.
+                    if (!append_delayed_branch(tdata, orig_pc))
+                        return false;
+                }
             } else if (instr_pc < tdata->rseq_start_pc_ ||
                        instr_pc >= tdata->rseq_end_pc_) {
                 log(4, "Hit exit to 0x%zx during instrumented rseq run\n", orig_pc);
@@ -2221,6 +2216,9 @@ raw2trace_t::handle_kernel_interrupt_and_markers(raw2trace_thread_data_t *tdata,
                         : 0;
                     if (!adjust_and_emit_rseq_buffer(tdata, static_cast<addr_t>(cur_pc),
                                                      rseq_abort_pc))
+                        return false;
+                    if (!append_delayed_branch(tdata,
+                                               reinterpret_cast<app_pc>(marker_val)))
                         return false;
                 }
                 append = true;
@@ -2585,6 +2583,34 @@ raw2trace_t::rollback_rseq_buffer(raw2trace_thread_data_t *tdata,
         if (type_is_instr(static_cast<trace_type_t>(tdata->rseq_buffer_[i].type)))
             ++decode_end;
     }
+    // If the last instructoin after the rollback is a branch, delay the branch.
+    if (remove_start > 0 &&
+        type_is_instr_branch(
+            static_cast<trace_type_t>(tdata->rseq_buffer_[remove_start - 1].type))) {
+        const int last_buffer_idx = remove_start - 1;
+        // Walk backwards to find all the related encodings.
+        int first_encoding_idx;
+        for (first_encoding_idx = last_buffer_idx - 1; first_encoding_idx >= 0;
+             --first_encoding_idx) {
+            if (tdata->rseq_buffer_[first_encoding_idx].type != TRACE_TYPE_ENCODING)
+                break;
+        }
+        const app_pc instr_addr =
+            reinterpret_cast<app_pc>(tdata->rseq_buffer_[last_buffer_idx].addr);
+        app_pc target_pc = 0;
+        for (const auto &branch : tdata->rseq_branch_targets_) {
+            if (branch.pc == instr_addr) {
+                target_pc = branch.target_pc;
+                break;
+            }
+        }
+        if (!write_delayed_branches(tdata, &tdata->rseq_buffer_[first_encoding_idx + 1],
+                                    &tdata->rseq_buffer_[last_buffer_idx] + 1,
+                                    tdata->rseq_decode_pcs_[decode_start - 1], target_pc))
+            return false;
+        remove_start -= last_buffer_idx - first_encoding_idx;
+        decode_start--;
+    }
     log(4, "Rolling back %d entries for rseq: %d-%d\n", remove_end - remove_start,
         remove_start, remove_end);
     tdata->rseq_buffer_.erase(tdata->rseq_buffer_.begin() + remove_start,
@@ -2743,10 +2769,16 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
                 // encoding out so it will change back if we see this PC again.
                 rollback_last_encoding(tdata);
             }
-            for (trace_entry_t *e = toadd; e < buf; e++)
-                tdata->rseq_buffer_.push_back(*e);
-            tdata->rseq_buffer_.push_back(jump);
-            tdata->rseq_decode_pcs_.push_back(encoding);
+            if (delayed_branches_exist(tdata)) {
+                write_delayed_branches(tdata, toadd, buf, nullptr, nullptr);
+                write_delayed_branches(tdata, &jump, &jump + 1, encoding,
+                                       reinterpret_cast<app_pc>(next_pc));
+            } else {
+                for (trace_entry_t *e = toadd; e < buf; e++)
+                    tdata->rseq_buffer_.push_back(*e);
+                tdata->rseq_buffer_.push_back(jump);
+                tdata->rseq_decode_pcs_.push_back(encoding);
+            }
             log(4, "Appended synthetic jump 0x%zx -> 0x%zx\n", jump.addr, next_pc);
         }
     }
@@ -3546,7 +3578,6 @@ raw2trace_t::write_delayed_branches(raw2trace_thread_data_t *tdata,
     for (const trace_entry_t *it = start; it < end; ++it) {
         tdata->delayed_branch.push_back(*it);
         tdata->delayed_branch_empty_ = false;
-        tdata->delayed_branch_past_timestamp_ = false;
         if (type_is_instr(static_cast<trace_type_t>(it->type)))
             ++instr_count;
     }
