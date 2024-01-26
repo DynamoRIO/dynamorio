@@ -94,7 +94,7 @@ if (UNIX)
   set(detach_cmd drconfig)
 else ()
   set(detach_cmd drconfig.exe)
-endif()
+endif ()
 
 if (UNIX)
   set(MAX_ITERS 50000)
