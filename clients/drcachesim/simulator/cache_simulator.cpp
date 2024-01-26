@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -458,17 +458,17 @@ cache_simulator_t::process_memref(const memref_t &memref)
         return true;
     }
 
-    int core;
+    int core_index;
     if (shard_type_ == SHARD_BY_THREAD) {
         if (memref.data.tid == last_thread_)
-            core = last_core_;
+            core_index = last_core_index_;
         else {
-            core = core_for_thread(memref.data.tid);
+            core_index = core_for_thread(memref.data.tid);
             last_thread_ = memref.data.tid;
-            last_core_ = core;
+            last_core_index_ = core_index;
         }
     } else
-        core = core_for_thread(memref.data.tid);
+        core_index = core_for_thread(memref.data.tid);
 
     // To support swapping to physical addresses without modifying the passed-in
     // memref (which is also passed to other tools run at the same time) we use
@@ -487,7 +487,7 @@ cache_simulator_t::process_memref(const memref_t &memref)
                       << " @" << (void *)simref->instr.addr << " instr x"
                       << simref->instr.size << "\n";
         }
-        l1_icaches_[core]->request(*simref);
+        l1_icaches_[core_index]->request(*simref);
     } else if (simref->data.type == TRACE_TYPE_READ ||
                simref->data.type == TRACE_TYPE_WRITE ||
                // We may potentially handle prefetches differently.
@@ -499,21 +499,21 @@ cache_simulator_t::process_memref(const memref_t &memref)
                       << trace_type_names[simref->data.type] << " "
                       << (void *)simref->data.addr << " x" << simref->data.size << "\n";
         }
-        l1_dcaches_[core]->request(*simref);
+        l1_dcaches_[core_index]->request(*simref);
     } else if (simref->flush.type == TRACE_TYPE_INSTR_FLUSH) {
         if (knobs_.verbose >= 3) {
             std::cerr << "::" << simref->data.pid << "." << simref->data.tid << ":: "
                       << " @" << (void *)simref->data.pc << " iflush "
                       << (void *)simref->data.addr << " x" << simref->data.size << "\n";
         }
-        l1_icaches_[core]->flush(*simref);
+        l1_icaches_[core_index]->flush(*simref);
     } else if (simref->flush.type == TRACE_TYPE_DATA_FLUSH) {
         if (knobs_.verbose >= 3) {
             std::cerr << "::" << simref->data.pid << "." << simref->data.tid << ":: "
                       << " @" << (void *)simref->data.pc << " dflush "
                       << (void *)simref->data.addr << " x" << simref->data.size << "\n";
         }
-        l1_dcaches_[core]->flush(*simref);
+        l1_dcaches_[core_index]->flush(*simref);
     } else if (simref->exit.type == TRACE_TYPE_THREAD_EXIT) {
         handle_thread_exit(simref->exit.tid);
         last_thread_ = 0;

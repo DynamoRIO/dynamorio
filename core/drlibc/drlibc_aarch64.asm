@@ -37,6 +37,12 @@
 #include "../asm_defines.asm"
 START_FILE
 
+#ifdef LINUX
+#include "include/syscall.h"
+#endif
+
+DECL_EXTERN(unexpected_return)
+
         DECLARE_FUNC(dynamorio_syscall)
 GLOBAL_LABEL(dynamorio_syscall:)
 #ifdef LINUX
@@ -123,6 +129,25 @@ GLOBAL_LABEL(dynamorio_mach_dep_syscall:)
 GLOBAL_LABEL(dynamorio_mach_syscall:)
         b _dynamorio_syscall
         END_FUNC(dynamorio_mach_syscall)
+#endif
+
+#ifdef LINUX
+/* thread_id_t dynamorio_clone(uint flags, byte *newsp, void *ptid, void *tls,
+ *                             void *ctid, void (*func)(void))
+ */
+        DECLARE_FUNC(dynamorio_clone)
+GLOBAL_LABEL(dynamorio_clone:)
+        stp      ARG6, x0, [ARG2, #-16]! /* func is now on TOS of newsp */
+        /* All args are already in syscall registers. */
+        mov      SYSNUM_REG, #SYS_clone
+        svc      #0
+        cbnz     x0, dynamorio_clone_parent
+        ldp      x0, x1, [sp], #16
+        blr      x0
+        bl       GLOBAL_REF(unexpected_return)
+dynamorio_clone_parent:
+        ret
+        END_FUNC(dynamorio_clone)
 #endif
 
 END_FILE
