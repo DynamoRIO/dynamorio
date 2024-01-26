@@ -101,7 +101,7 @@ if (UNIX)
 else ()
   # Sleeping in longer units.
   set(MAX_ITERS 1000)
-endif()
+endif ()
 
 function (do_sleep ms)
   if (UNIX)
