@@ -38,6 +38,7 @@
 #include <zlib.h>
 #include "minizip/unzip.h"
 #include "file_reader.h"
+#include "record_file_reader.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -69,6 +70,7 @@ struct zipfile_reader_t {
 };
 
 typedef file_reader_t<zipfile_reader_t> zipfile_file_reader_t;
+typedef record_file_reader_t<zipfile_reader_t> zipfile_record_file_reader_t;
 
 /* Declare this so the compiler knows not to use the default implementation in the
  * class declaration.
