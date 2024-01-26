@@ -245,12 +245,6 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &in
         return true;
     }
 
-    // Since we're outputting something from this unit, output its unit header.
-    if (!per_shard->last_delayed_unit_header.empty()) {
-        if (!write_trace_entries(per_shard, per_shard->last_delayed_unit_header))
-            return false;
-        per_shard->last_delayed_unit_header.clear();
-    }
 
     if (is_any_instr_type(static_cast<trace_type_t>(entry.type))) {
         // Output if we have encodings that haven't yet been output.
