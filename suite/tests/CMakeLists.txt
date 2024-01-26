@@ -537,7 +537,7 @@ function(add_sve_flags target)
         # string(REGEX REPLACE "-O[0-9]? " " " CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
         # line above.
         -O3)
-    endif()
+    endif ()
   endif()
 endfunction(add_sve_flags)
 
