@@ -85,7 +85,8 @@ bool
 file_reader_t<zipfile_reader_t>::open_single_file(const std::string &path)
 {
     zipfile_reader_t zread;
-    if (!open_single_file_common(path,zread)) return false;
+    if (!open_single_file_common(path, zread))
+        return false;
     input_file_ = std::move(zread);
     VPRINT(this, 1, "Opened input file %s\n", path.c_str());
     return true;
@@ -225,8 +226,7 @@ file_reader_t<zipfile_reader_t>::skip_instructions(uint64_t instruction_count)
  * zipfile_reader_t specializations for record_file_reader_t.
  */
 
-template <>
-record_file_reader_t<zipfile_reader_t>::record_file_reader_t()
+template <> record_file_reader_t<zipfile_reader_t>::record_file_reader_t()
 {
     input_file_->file = nullptr;
 }
@@ -245,14 +245,16 @@ bool
 record_file_reader_t<zipfile_reader_t>::open_single_file(const std::string &path)
 {
     zipfile_reader_t zread;
-    if (!open_single_file_common(path,zread)) return false;
+    if (!open_single_file_common(path, zread))
+        return false;
     input_file_ = std::unique_ptr<zipfile_reader_t>(new zipfile_reader_t(zread));
     VPRINT(this, 1, "Opened input file %s\n", path.c_str());
     return true;
 }
 
 template <>
-bool record_file_reader_t<zipfile_reader_t>::read_next_entry()
+bool
+record_file_reader_t<zipfile_reader_t>::read_next_entry()
 {
     zipfile_reader_t *zipfile = input_file_.get();
     if (zipfile->cur_buf >= zipfile->max_buf) {
