@@ -538,7 +538,7 @@ function(add_sve_flags target)
         # line above.
         -O3)
     endif ()
-  endif()
+  endif ()
 endfunction(add_sve_flags)
 
 function(add_exe test source)
