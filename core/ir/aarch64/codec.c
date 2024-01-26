@@ -2461,6 +2461,20 @@ encode_opnd_fpimm1_half_two_5(uint enc, int opcode, byte *pc, opnd_t opnd,
     return encode_float_const_pair(5, 0.5f, 2.0f, opnd, enc_out);
 }
 
+/* imm2_6: 2-bit immediate from bits 6-7 */
+
+static inline bool
+decode_opnd_imm2_6(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_int(6, 2, false, 0, OPSZ_3b, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_imm2_6(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_int(6, 2, false, 0, 0, opnd, enc_out);
+}
+
 /* op2: 3-bit immediate from bits 5-7 */
 
 static inline bool
@@ -9696,6 +9710,7 @@ decode_category(uint encoding, instr_t *instr)
 #include "decode_gen_sve2.h"
 #include "decode_gen_sve.h"
 #include "decode_gen_v86.h"
+#include "decode_gen_v85.h"
 #include "decode_gen_v84.h"
 #include "decode_gen_v83.h"
 #include "decode_gen_v82.h"
@@ -9704,6 +9719,7 @@ decode_category(uint encoding, instr_t *instr)
 #include "encode_gen_sve2.h"
 #include "encode_gen_sve.h"
 #include "encode_gen_v86.h"
+#include "encode_gen_v85.h"
 #include "encode_gen_v84.h"
 #include "encode_gen_v83.h"
 #include "encode_gen_v82.h"

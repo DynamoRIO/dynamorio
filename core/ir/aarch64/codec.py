@@ -670,7 +670,7 @@ def main():
     # and SVE2 are partially supported. The null terminator element at the end
     # is required by some generator functions to correctly generate links
     # between each version's decode/encode logic.
-    isa_versions = ['v80', 'v81', 'v82', 'v83', 'v84', 'v86', 'sve', 'sve2', '']
+    isa_versions = ['v80', 'v81', 'v82', 'v83', 'v84', 'v85', 'v86', 'sve', 'sve2', '']
 
     # Read the instruction operand definitions. Used by the codec when
     # generating code to decode and encode instructions.

@@ -82,6 +82,8 @@ add_custom_command(
           ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/codec_v81.txt
           ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/codec_v82.txt
           ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/codec_v83.txt
+          ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/codec_v84.txt
+          ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/codec_v85.txt
           ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/codec_v86.txt
           ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/codec_sve.txt
           ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/codec_sve2.txt
