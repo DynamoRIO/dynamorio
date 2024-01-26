@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -135,7 +135,7 @@ protected:
     // must match ours.
     raw2trace_directory_t directory_;
 
-    std::unordered_map<memref_tid_t, shard_data_t *> shard_map_;
+    std::unordered_map<int, shard_data_t *> shard_map_;
     // This mutex is only needed in parallel_shard_init.  In all other accesses to
     // shard_map (process_memref, print_results) we are single-threaded.
     std::mutex shard_map_mutex_;

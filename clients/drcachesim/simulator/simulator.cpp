@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -74,8 +74,6 @@ simulator_t::init_knobs(unsigned int num_cores, uint64_t skip_refs, uint64_t war
     knob_cpu_scheduling_ = cpu_scheduling;
     knob_use_physical_ = use_physical;
     knob_verbose_ = verbose;
-    last_thread_ = 0;
-    last_core_ = 0;
     if (shard_type_ == SHARD_BY_THREAD) {
         cpu_counts_.resize(knob_num_cores_, 0);
         thread_counts_.resize(knob_num_cores_, 0);
@@ -135,8 +133,8 @@ simulator_t::process_memref(const memref_t &memref)
         thread2core_[memref.marker.tid] = min_core;
         ++thread_counts_[min_core];
         ++thread_ever_counts_[min_core];
-        last_thread_ = -1;
-        last_core_ = -1;
+        last_thread_ = INVALID_THREAD_ID;
+        last_core_index_ = INVALID_CORE_INDEX;
     }
     if (!knob_use_physical_)
         return true;
@@ -240,29 +238,15 @@ int
 simulator_t::core_for_thread(memref_tid_t tid)
 {
     if (shard_type_ == SHARD_BY_CORE) {
-        int64_t cpu = serial_stream_->get_output_cpuid();
-        // While the scheduler uses a 0-based ordinal for all but replaying as-traced,
-        // to handle as-traced (and because the docs for get_output_cpuid() do not
-        // guarantee 0-based), we map to a 0-based index just by incrementing an index
-        // as we discover each cpu.
-        // XXX: Should we add a new stream API for get_output_ordinal()?  That would
-        // be a more faithful mapping than our dynamic discovery here -- although the
-        // lockstep ordering by the scheduler should have our ordinals in order.
-        if (cpu == last_cpu_)
-            return last_core_;
-        int core;
-        auto exists = cpu2core_.find(cpu);
-        if (exists == cpu2core_.end()) {
-            core = static_cast<int>(cpu2core_.size());
-            cpu2core_[cpu] = core;
-            if (knob_verbose_ >= 1) {
-                std::cerr << "new cpu " << cpu << " => core " << core << "\n";
-            }
-        } else
-            core = exists->second;
-        last_cpu_ = cpu;
-        last_core_ = core;
-        return core;
+        int core_index = serial_stream_->get_shard_index();
+        if (core_index != last_core_index_) {
+            // Track the cpuid<->ordinal relationship for our results printout.
+            int64_t cpu = serial_stream_->get_output_cpuid();
+            if (cpu2core_.find(cpu) == cpu2core_.end())
+                cpu2core_[cpu] = core_index;
+        }
+        last_core_index_ = core_index;
+        return core_index;
     }
     auto exists = thread2core_.find(tid);
     if (exists != thread2core_.end())

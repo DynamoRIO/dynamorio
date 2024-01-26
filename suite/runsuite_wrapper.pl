@@ -304,6 +304,9 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 # We list this without any "options|" which will match all variations.
                 'common.floatpc_xl8all' => 1, # i#2267
                 'code_api|client.file_io' => 1, # i#5802
+                # These we have failed to reproduce after many attempts under tmate.
+                'code_api|tool.drcacheoff.burst_traceopts' => 1, # i#6423
+                'code_api|tool.drcacheoff.burst_replaceall' => 1, # i#5412
                 );
             if ($is_long) {
                 # These are important tests so we only ignore in the long suite,
@@ -386,6 +389,8 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 );
             %ignore_failures_64 = (
                 'code_api|tool.drcacheoff.burst_threadfilter' => 1, # i#2941
+                'code_api|client.attach_test' => 1, # i#6452
+                'code_api|client.detach_test' => 1, # i#6536
                 # These are from the long suite.
                 'code_api,opt_memory|common.loglevel' => 1, # i#1807
                 'code_api,opt_speed|common.decode-stress' => 1, # i#1807

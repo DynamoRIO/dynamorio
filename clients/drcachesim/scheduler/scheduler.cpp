@@ -1374,6 +1374,43 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_input_ordinal(output_ordinal_t out
 }
 
 template <typename RecordType, typename ReaderType>
+int64_t
+scheduler_tmpl_t<RecordType, ReaderType>::get_tid(output_ordinal_t output)
+{
+    int index = outputs_[output].cur_input;
+    if (index < 0)
+        return -1;
+    if (inputs_[index].is_combined_stream())
+        return inputs_[index].last_record_tid;
+    return inputs_[index].tid;
+}
+
+template <typename RecordType, typename ReaderType>
+int
+scheduler_tmpl_t<RecordType, ReaderType>::get_shard_index(output_ordinal_t output)
+{
+    if (output < 0 || output >= static_cast<output_ordinal_t>(outputs_.size()))
+        return -1;
+    if (TESTANY(sched_type_t::SCHEDULER_USE_INPUT_ORDINALS |
+                    sched_type_t::SCHEDULER_USE_SINGLE_INPUT_ORDINALS,
+                options_.flags)) {
+        if (inputs_.size() == 1 && inputs_[0].is_combined_stream()) {
+            int index;
+            memref_tid_t tid = get_tid(output);
+            auto exists = tid2shard_.find(tid);
+            if (exists == tid2shard_.end()) {
+                index = static_cast<int>(tid2shard_.size());
+                tid2shard_[tid] = index;
+            } else
+                index = exists->second;
+            return index;
+        }
+        return get_input_ordinal(output);
+    }
+    return output;
+}
+
+template <typename RecordType, typename ReaderType>
 int
 scheduler_tmpl_t<RecordType, ReaderType>::get_workload_ordinal(output_ordinal_t output)
 {
@@ -1398,7 +1435,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::is_record_synthetic(output_ordinal_t o
 
 template <typename RecordType, typename ReaderType>
 int64_t
-scheduler_tmpl_t<RecordType, ReaderType>::get_output_cpuid(output_ordinal_t output)
+scheduler_tmpl_t<RecordType, ReaderType>::get_output_cpuid(output_ordinal_t output) const
 {
     if (options_.replay_as_traced_istream != nullptr)
         return outputs_[output].as_traced_cpuid;
@@ -2575,6 +2612,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
     VDO(this, 4, print_record(record););
 
     outputs_[output].last_record = record;
+    record_type_has_tid(record, input->last_record_tid);
     return sched_type_t::STATUS_OK;
 }
 

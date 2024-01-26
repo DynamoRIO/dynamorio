@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -140,7 +140,6 @@ protected:
         std::unique_ptr<std::ostream> writer;
         std::string error;
         std::vector<void *> filter_shard_data;
-        std::vector<trace_entry_t> last_delayed_unit_header;
         std::unordered_map<uint64_t, std::vector<trace_entry_t>> delayed_encodings;
         std::vector<trace_entry_t> last_encoding;
         uint64_t input_entry_count;
@@ -148,8 +147,7 @@ protected:
         memtrace_stream_t *shard_stream;
         bool enabled;
     };
-    // In parallel operation the keys are "shard indices": just ints.
-    std::unordered_map<memref_tid_t, per_shard_t *> shard_map_;
+    std::unordered_map<int, per_shard_t *> shard_map_;
     // This mutex is only needed in parallel_shard_init. In all other accesses
     // to shard_map (print_results) we are single-threaded.
     std::mutex shard_map_mutex_;
