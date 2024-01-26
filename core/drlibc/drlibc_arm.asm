@@ -37,6 +37,12 @@
 #include "../asm_defines.asm"
 START_FILE
 
+#ifdef LINUX
+#include "include/syscall.h"
+#endif
+
+DECL_EXTERN(unexpected_return)
+
 /* we share dynamorio_syscall w/ preload */
 /* To avoid libc wrappers we roll our own syscall here.
  * Hardcoded to use svc/swi for 32-bit -- FIXME: use something like do_syscall
@@ -94,5 +100,31 @@ GLOBAL_LABEL(FUNCNAME:)
         bx       lr
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
+
+#ifdef LINUX
+/* thread_id_t dynamorio_clone(uint flags, byte *newsp, void *ptid, void *tls,
+ *                             void *ctid, void (*func)(void))
+ */
+        DECLARE_FUNC(dynamorio_clone)
+GLOBAL_LABEL(dynamorio_clone:)
+        /* Save callee-saved regs we clobber in the parent. */
+        push     {r4, r5, r7}
+        ldr      r4, [sp, #12] /* ARG5 minus the pushes above */
+        ldr      r5, [sp, #16] /* ARG6 minus the pushes above */
+        /* All args are now in syscall registers. */
+        /* Push func on the new stack. */
+        stmdb    ARG2!, {r5}
+        mov      r7, #SYS_clone
+        svc      0
+        cmp      r0, #0
+        bne      dynamorio_clone_parent
+        ldmia    sp!, {r0}
+        blx      r0
+        bl       GLOBAL_REF(unexpected_return)
+dynamorio_clone_parent:
+        pop      {r4, r5, r7}
+        bx       lr
+        END_FUNC(dynamorio_clone)
+#endif
 
 END_FILE
