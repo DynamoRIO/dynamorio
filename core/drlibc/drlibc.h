@@ -72,6 +72,7 @@ dynamorio_mach_syscall(uint sysnum, uint num_args, ...);
 #    else
 ptr_int_t
 dynamorio_syscall(uint sysnum, uint num_args, ...);
+/* N.B. func must not return. */
 thread_id_t
 dynamorio_clone(uint flags, byte *newsp, void *ptid, void *tls, void *ctid,
                 void (*func)(void));
