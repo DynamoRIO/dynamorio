@@ -1416,7 +1416,7 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
         set(exe_ops "${exe_ops};-v;-attach")
       endif ()
       if ("${runall}" MATCHES "<detach>")
-        set(exe_ops "${exe_ops};-v;")
+        set(exe_ops "${exe_ops};-v;-detach")
       endif ()
       if ("${runall}" MATCHES "<block>")
         set(exe_ops "${exe_ops};-block")
