@@ -932,6 +932,23 @@ raw2trace_t::read_header(raw2trace_thread_data_t *tdata,
         header->cache_line_size = proc_get_cache_line_size();
         unread_last_entry(tdata);
     }
+
+    in_entry = get_next_entry(tdata);
+    if (in_entry == nullptr) {
+        tdata->error = "Failed to read header from input file";
+        return false;
+    }
+    if (in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
+        in_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
+        in_entry->extended.valueB == TRACE_MARKER_TYPE_DYNAMIC_VECTOR_LENGTH) {
+        header->vector_length_bytes = in_entry->extended.valueA;
+    } else {
+        // process_header() interprets a value of 0 to mean there was no dynamic vector
+        // length marker.
+        header->vector_length_bytes = 0;
+        unread_last_entry(tdata);
+    }
+
     return true;
 }
 
@@ -1002,6 +1019,13 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     create_essential_header_entries(buf, version, tdata->file_type, tid, pid);
     buf += trace_metadata_writer_t::write_marker(buf, TRACE_MARKER_TYPE_CACHE_LINE_SIZE,
                                                  header.cache_line_size);
+    if (header.vector_length_bytes > 0) {
+#ifdef AARCH64
+        dr_set_sve_vector_length(header.vector_length_bytes * 8);
+#endif
+        buf += trace_metadata_writer_t::write_marker(
+            buf, TRACE_MARKER_TYPE_DYNAMIC_VECTOR_LENGTH, header.vector_length_bytes);
+    }
     // Write out further markers.
     // Even if tdata->out_archive == nullptr we write out a (0-valued) marker,
     // partly to simplify our test output.
@@ -3783,17 +3807,6 @@ raw2trace_t::raw2trace_t(
     decode_cache_.reserve(cache_count);
     for (int i = 0; i < cache_count; ++i)
         decode_cache_.emplace_back(cache_count);
-
-#if defined(AARCH64)
-    // TODO i#6556, i#1684: The decoder uses a global sve_veclen variable to store the
-    // vector length value it uses when decoding. drdecodelib ends up being linked into
-    // drcachesim twice: once into the drcachesim executable, and one into libdynamorio.
-    // When we call dr_standalone_init() above it will initialize the version of
-    // sve_veclen in libdynamorio, but not the one in drcachesim.
-    // Unfortunately it is the version of sve_veclen in drcachesim that gets used when
-    // decoding in raw2trace so we need to explicitly initialize its sve_veclen here.
-    dr_set_sve_vector_length(proc_get_vector_length_bytes() * 8);
-#endif
 }
 
 raw2trace_t::~raw2trace_t()
