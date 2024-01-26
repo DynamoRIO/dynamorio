@@ -226,21 +226,6 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &in
                 entry.addr |= OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP;
             }
             break;
-        case TRACE_MARKER_TYPE_TIMESTAMP:
-            // No need to remember the previous unit's header anymore. We're in the
-            // next unit now.
-            // XXX: it may happen that we never output a unit header due to this
-            // optimization. We should ensure that we output it at least once. We
-            // skip handling this corner case for now.
-            per_shard->last_delayed_unit_header.clear();
-            ANNOTATE_FALLTHROUGH;
-        case TRACE_MARKER_TYPE_WINDOW_ID:
-        case TRACE_MARKER_TYPE_CPU_ID:
-            // Optimize space by outputting the unit header only if we are outputting
-            // something from that unit.
-            if (output)
-                per_shard->last_delayed_unit_header.push_back(entry);
-            return true;
         }
     }
 
@@ -258,13 +243,6 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &in
     if (entry.type == TRACE_TYPE_ENCODING) {
         per_shard->last_encoding.push_back(entry);
         return true;
-    }
-
-    // Since we're outputting something from this unit, output its unit header.
-    if (!per_shard->last_delayed_unit_header.empty()) {
-        if (!write_trace_entries(per_shard, per_shard->last_delayed_unit_header))
-            return false;
-        per_shard->last_delayed_unit_header.clear();
     }
 
     if (is_any_instr_type(static_cast<trace_type_t>(entry.type))) {
