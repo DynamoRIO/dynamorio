@@ -245,7 +245,6 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &in
         return true;
     }
 
-
     if (is_any_instr_type(static_cast<trace_type_t>(entry.type))) {
         // Output if we have encodings that haven't yet been output.
         if (!per_shard->last_encoding.empty()) {
