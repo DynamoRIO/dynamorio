@@ -309,8 +309,11 @@ scheduler_tmpl_t<trace_entry_t, record_reader_t>::get_reader(const std::string &
 {
     // TODO i#5675: Add support for other file formats, particularly
     // .zip files.
-    if (ends_with(path, ".sz") || ends_with(path, ".zip"))
+    if (ends_with(path, ".sz"))
         return nullptr;
+    if (ends_with(path, ".zip"))
+        return std::unique_ptr<dynamorio::drmemtrace::record_reader_t>(
+            new zipfile_record_file_reader_t(path, verbosity));
     return std::unique_ptr<dynamorio::drmemtrace::record_reader_t>(
         new default_record_file_reader_t(path, verbosity));
 }

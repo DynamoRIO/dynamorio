@@ -226,6 +226,21 @@ file_reader_t<zipfile_reader_t>::skip_instructions(uint64_t instruction_count)
  */
 
 template <>
+record_file_reader_t<zipfile_reader_t>::record_file_reader_t()
+{
+    input_file_->file = nullptr;
+}
+
+template <>
+record_file_reader_t<zipfile_reader_t>::~record_file_reader_t<zipfile_reader_t>()
+{
+    if (input_file_->file != nullptr) {
+        unzClose(input_file_->file);
+        input_file_->file = nullptr;
+    }
+}
+
+template <>
 bool
 record_file_reader_t<zipfile_reader_t>::open_single_file(const std::string &path)
 {
