@@ -128,11 +128,12 @@ test_with_null_stack_pointer(bool clone_vm, bool use_clone3)
     print("%s(clone_vm %d, use_clone3 %d)\n", __FUNCTION__, clone_vm, use_clone3);
     int flags = clone_vm ? (CLONE_VFORK | CLONE_VM) : 0;
     int ret;
-    /* If we don't have SYS_clone3, keep expected output the same and just use SYS_clone. */
+    /* If we don't have SYS_clone3, keep expected output the same and just use SYS_clone.
+     */
     bool really_use_clone3 = use_clone3;
-#ifndef SYS_clone3
+#    ifndef SYS_clone3
     really_use_clone3 = false;
-#endif
+#    endif
     if (really_use_clone3) {
         struct clone_args cl_args = { 0 };
         cl_args.flags = flags;
@@ -140,8 +141,8 @@ test_with_null_stack_pointer(bool clone_vm, bool use_clone3)
         ret = make_clone3_syscall(&cl_args, sizeof(cl_args), run_with_exit);
     } else {
         flags = flags | SIGCHLD;
-        ret = make_clone_syscall(flags, /*stack*/NULL, /*parent_tid*/NULL,
-                                 /*tls*/NULL, /*child_tid*/NULL, run_with_exit);
+        ret = make_clone_syscall(flags, /*stack*/ NULL, /*parent_tid*/ NULL,
+                                 /*tls*/ NULL, /*child_tid*/ NULL, run_with_exit);
     }
     if (ret == -1) {
         perror("Error calling clone");
@@ -227,7 +228,8 @@ run_with_exit(void)
 /* A wrapper on dynamorio_clone to set errno. */
 static int
 make_clone_syscall(uint flags, byte *newsp, void *ptid, void *tls, void *ctid,
-                   void (*fcn)(void)) {
+                   void (*fcn)(void))
+{
     int ret = dynamorio_clone(flags, newsp, ptid, tls, ctid, fcn);
     if (ret < 0) {
         errno = -ret;
