@@ -762,46 +762,72 @@ GLOBAL_LABEL(load_dynamo_failure:)
  * signature:
  *   thread_id_t dynamorio_clone(uint flags, byte *newsp, void *ptid, void *tls,
  *                               void *ctid, void (*func)(void))
+ * i#6514: If newsp is NULL then that tells the kernel to give the child the
+ * same value for SP as the parent.
  */
         DECLARE_FUNC(dynamorio_clone)
 GLOBAL_LABEL(dynamorio_clone:)
-        /* save func for use post-syscall on the newsp.
-         * when using clone_record_t we have 4 slots we can clobber.
+        /* Save func for use post-syscall on the newsp.
+         * This is tricky because we have to handle the case of newsp == NULL.
          */
 # ifdef X64
-        sub      ARG2, ARG_SZ
-        mov      [ARG2], ARG6 /* func is now on TOS of newsp */
-        /* all args are already in syscall registers */
+        /* The syscall preserves all registers except rax, rcx, r11. */
+        sub      REG_XSP, FRAME_ALIGNMENT
+        mov      [REG_XSP], r15
+        mov      r15, ARG6 /* func is now in r15 */
+        /* All args are already in syscall registers, except for rcx. */
         mov      r10, rcx
         mov      REG_XAX, SYS_clone
         syscall
 # else
-        mov      REG_XAX, ARG6
-        mov      REG_XCX, ARG2
-        sub      REG_XCX, ARG_SZ
-        mov      [REG_XCX], REG_XAX /* func is now on TOS of newsp */
-        mov      REG_XDX, ARG3
-        /* preserve callee-saved regs */
+        /* Fetch some args we need before we modify XSP and ARGn is no
+         * longer usable.
+         */
+        mov      REG_XCX, ARG2 /* newsp */
+        mov      REG_XDX, ARG3 /* ptid */
+        mov      REG_XAX, ARG6 /* func */
+        /* Preserve callee-saved regs. */
         push     REG_XBX
         push     REG_XSI
         push     REG_XDI
-        /* now can't use ARG* since xsp modified by pushes */
-        mov      REG_XBX, DWORD [4*ARG_SZ + REG_XSP] /* ARG1 + 3 pushes */
-        mov      REG_XSI, DWORD [7*ARG_SZ + REG_XSP] /* ARG4 + 3 pushes */
-        mov      REG_XDI, DWORD [8*ARG_SZ + REG_XSP] /* ARG5 + 3 pushes */
+        /* Save space for func for newsp == NULL case. */
+        sub      REG_XSP, ARG_SZ
+        /* i#6514: Save func on the child's stack. Remember that if newsp is
+         * NULL then the child's stack is our stack.
+         */
+        and      REG_XCX, HEX(fffffff0) /* Ensure child xsp is aligned. */
+        jnz      stack_not_null
+        lea      REG_XCX, [ARG_SZ + REG_XSP] /* Add ARG_SZ back for the sub. */
+stack_not_null:
+        sub      REG_XCX, ARG_SZ
+        mov      [REG_XCX], REG_XAX /* func is now on TOS of newsp */
+        /* Now can't use ARG* since xsp modified by pushes. */
+        mov      REG_XBX, DWORD [5*ARG_SZ + REG_XSP] /* ARG1 + 4 pushes */
+        mov      REG_XSI, DWORD [8*ARG_SZ + REG_XSP] /* ARG4 + 4 pushes */
+        mov      REG_XDI, DWORD [9*ARG_SZ + REG_XSP] /* ARG5 + 4 pushes */
         mov      REG_XAX, SYS_clone
         /* PR 254280: we assume int$80 is ok even for LOL64 */
         int      HEX(80)
 # endif
         cmp      REG_XAX, 0
         jne      dynamorio_clone_parent
+# ifdef X64
+        call     r15
+# else
         pop      REG_XCX
+        /* Ensure child xsp is aligned again, for newsp == NULL case. */
+        and      REG_XSP, HEX(fffffff0)
         call     REG_XCX
+# endif
         /* shouldn't return */
         jmp      GLOBAL_REF(unexpected_return)
 dynamorio_clone_parent:
-# ifndef X64
+# ifdef X64
+        mov      r15, [REG_XSP]
+        add      REG_XSP, FRAME_ALIGNMENT
+# else
         /* restore callee-saved regs */
+        add      REG_XSP, ARG_SZ
         pop      REG_XDI
         pop      REG_XSI
         pop      REG_XBX
