@@ -104,8 +104,9 @@ test_thread(bool share_sighand, bool clone_vm, bool use_clone3)
     print("%s(share_sighand %d, clone_vm %d, use_clone3 %d)\n", __FUNCTION__,
           share_sighand, clone_vm, use_clone3);
 
-    pid_t (*create_thread_func)(void (*fcn)(void), void **stack, bool share_sighand, bool clone_vm) =
-            (use_clone3 && clone3_available) ? create_thread_clone3 : create_thread;
+    pid_t (*create_thread_func)(void (*fcn)(void), void **stack, bool share_sighand,
+                                bool clone_vm) =
+        (use_clone3 && clone3_available) ? create_thread_clone3 : create_thread;
 
     child = create_thread_func(run_with_exit, &stack, share_sighand, clone_vm);
 
