@@ -141,8 +141,8 @@ test_with_null_stack_pointer(bool clone_vm, bool use_clone3)
         ret = make_clone3_syscall(&cl_args, sizeof(cl_args), run_with_exit);
     } else {
         flags = flags | SIGCHLD;
-        ret = make_clone_syscall(flags, /*stack*/ NULL, /*parent_tid*/ NULL,
-                                 /*tls*/ NULL, /*child_tid*/ NULL, run_with_exit);
+        ret = make_clone_syscall(flags, /*stack=*/NULL, /*parent_tid=*/NULL,
+                                 /*tls=*/NULL, /*child_tid=*/NULL, run_with_exit);
     }
     if (ret == -1) {
         perror("Error calling clone");
@@ -277,7 +277,7 @@ create_thread(void (*fcn)(void), void **stack, bool share_sighand, bool clone_vm
     return newpid;
 }
 
-/* drlibc does not provide a wrapper for clone3 yet. This makes it difficult
+/* glibc,drlibc do not provide a wrapper for clone3 yet. This makes it difficult
  * to create new threads in C code using syscall(), as we have to deal with
  * complexities associated with the child thread having a fresh stack
  * without any return addresses or space for local variables. So, we
