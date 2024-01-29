@@ -64,10 +64,6 @@ typedef unsigned long ulong;
  */
 #define CLONE3_SYSCALL_NUM 435
 
-/* i#762: Hard to get clone() from sched.h, so copy prototype. */
-extern int
-clone(int (*fn)(void *arg), void *child_stack, int flags, void *arg, ...);
-
 #define THREAD_STACK_SIZE (32 * 1024)
 
 #ifdef X64
@@ -80,8 +76,7 @@ clone(int (*fn)(void *arg), void *child_stack, int flags, void *arg, ...);
 static int
 make_clone3_syscall(void *clone_args, ulong clone_args_size, void (*fcn)(void));
 static pid_t
-create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand,
-              bool clone_vm);
+create_thread(void (*fcn)(void), void **stack, bool share_sighand, bool clone_vm);
 
 static pid_t
 create_thread_clone3(void (*fcn)(void), void **stack, bool share_sighand, bool clone_vm);
@@ -109,14 +104,10 @@ test_thread(bool share_sighand, bool clone_vm, bool use_clone3)
     print("%s(share_sighand %d, clone_vm %d, use_clone3 %d)\n", __FUNCTION__,
           share_sighand, clone_vm, use_clone3);
 
-    if (use_clone3 && clone3_available)
-        child = create_thread_clone3(run_with_exit, &stack, share_sighand, clone_vm);
-    else {
-        /* If use_clone3 is true but clone3 is not available, we simply use
-         * SYS_clone instead, so that the expected output is the same.
-         */
-        child = create_thread(run, NULL, &stack, share_sighand, clone_vm);
-    }
+    pid_t (*create_thread_func)(void (*fcn)(void), void **stack, bool share_sighand, bool clone_vm) =
+            (use_clone3 && clone3_available) ? create_thread_clone3 : create_thread;
+
+    child = create_thread_func(run_with_exit, &stack, share_sighand, clone_vm);
 
     assert(child > -1);
     delete_thread(child, stack);
@@ -194,14 +185,14 @@ void *p_tid, *c_tid;
  * first argument is passed in "arg". Returns the PID of the new
  * thread */
 static pid_t
-create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand,
-              bool clone_vm)
+create_thread(void (*fcn)(void), void **stack, bool share_sighand, bool clone_vm)
 {
     /* !clone_vm && share_sighand is not supported. */
     assert(clone_vm || !share_sighand);
     pid_t newpid;
     int flags;
     void *my_stack;
+    void *stack_ptr;
 
     my_stack = stack_alloc(THREAD_STACK_SIZE);
 
@@ -213,10 +204,12 @@ create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand,
     flags = (SIGCHLD | CLONE_FS | CLONE_FILES | (share_sighand ? CLONE_SIGHAND : 0) |
              (clone_vm ? CLONE_VM : 0));
     /* The stack arg should point to the stack's highest address (non-inclusive). */
-    newpid = clone(fcn, (void *)((size_t)my_stack + THREAD_STACK_SIZE), flags, arg,
-                   &p_tid, NULL, &c_tid);
+    stack_ptr = (void *)((size_t)my_stack + THREAD_STACK_SIZE);
+    newpid = dynamorio_clone(flags, stack_ptr, &p_tid, NULL, &c_tid, fcn);
 
-    if (newpid == -1) {
+    if (newpid < 0) {
+        /* dynamorio_clone doesn't set errno */
+        errno = -newpid;
         perror("Error calling clone\n");
         stack_free(my_stack, THREAD_STACK_SIZE);
         return -1;
