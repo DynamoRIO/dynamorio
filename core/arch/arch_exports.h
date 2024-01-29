@@ -708,9 +708,6 @@ dynamorio_condvar_wake_and_jmp(KSYNCH_TYPE *ksynch /*in xax/r0*/,
 void
 dynamorio_nonrt_sigreturn(void);
 #        endif
-thread_id_t
-dynamorio_clone(uint flags, byte *newsp, void *ptid, void *tls, void *ctid,
-                void (*func)(void));
 void
 xfer_to_new_libdr(app_pc entry, void **init_sp, byte *cur_dr_map, size_t cur_dr_size);
 #    endif

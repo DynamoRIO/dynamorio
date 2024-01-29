@@ -66,7 +66,7 @@ class Opnd:
 
 def opnd_stem(opnd_name):
     """Strip off all flags from the opnd"""
-    return opnd_name.split(".")[0]
+    return opnd_name.split(".")[0] # pytype: disable=attribute-error
 
 def opnd_flags(opnd_name):
     """Return the opnd's flags"""
