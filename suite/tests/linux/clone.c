@@ -82,10 +82,9 @@ make_clone3_syscall(void *clone_args, ulong clone_args_size, void (*fcn)(void));
 static pid_t
 create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand,
               bool clone_vm);
-#ifdef SYS_clone3
+
 static pid_t
 create_thread_clone3(void (*fcn)(void), void **stack, bool share_sighand, bool clone_vm);
-#endif
 
 static bool clone3_available = false;
 
@@ -129,14 +128,14 @@ main()
     /* Try using clone3 when it is possibly not defined. */
     int ret_failure_clone3 = make_clone3_syscall(NULL, 0, NULL);
     assert(ret_failure_clone3 == -1);
-#ifdef SYS_clone3
-    /* In some scenarios SYS_clone3 is defined but clone3 returns ENOSYS
-    * e.g. when running in a container under Ubuntu 22.04
-    * see https://github.com/moby/moby/pull/42681
-    */
+
+    /* i#6596 In some scenarios SYS_clone3 is defined but clone3 returns ENOSYS
+     * e.g. when running in a container under Ubuntu 22.04
+     * see https://github.com/moby/moby/pull/42681
+     */
     if (errno != ENOSYS)
         clone3_available = true;
-#endif
+
     /* On some environments, we see that the kernel supports clone3 even though
      * SYS_clone3 is not defined by glibc.
      */
@@ -304,7 +303,6 @@ make_clone3_syscall(void *clone_args, ulong clone_args_size, void (*fcn)(void))
     return result;
 }
 
-#ifdef SYS_clone3
 static pid_t
 create_thread_clone3(void (*fcn)(void), void **stack, bool share_sighand, bool clone_vm)
 {
@@ -349,7 +347,6 @@ create_thread_clone3(void (*fcn)(void), void **stack, bool share_sighand, bool c
     *stack = my_stack;
     return (pid_t)ret;
 }
-#endif
 
 static void
 delete_thread(pid_t pid, void *stack)
