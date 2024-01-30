@@ -169,7 +169,7 @@ test_noalloc(void)
             ASSERT(TESTANY(categories[i], instr_get_category(instr)));            \
         }                                                                         \
         ASSERT(strncmp(instr_get_category_name(categories[i]), category_names[i], \
-                       sizeof(category_names[i])) == 0);                          \
+                       strlen(category_names[i])) == 0);                          \
     }                                                                             \
     instr_destroy(dcontext, instr);
 
