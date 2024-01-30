@@ -42,6 +42,10 @@
 #else
 #endif /* WINDOWS */
 
+#ifdef LINUX
+#    include "synch.h"
+#endif
+
 #ifdef HOT_PATCHING_INTERFACE
 #    include "hotpatch.h" /* for hotp_nudge_update() */
 #endif
@@ -430,12 +434,30 @@ handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg)
             SYSLOG_INTERNAL_WARNING("nudge reset ignored since resets are disabled");
         }
     }
-#ifdef WINDOWS
+#if defined(WINDOWS) || defined(LINUX)
     /* The detach handler is last since in the common case it doesn't return. */
     if (TEST(NUDGE_GENERIC(detach), nudge_action_mask)) {
+#    ifdef WINDOWS
         dcontext->free_app_stack = false;
         nudge_action_mask &= ~NUDGE_GENERIC(detach);
         detach_helper(DETACH_NORMAL_TYPE);
+#    else
+        nudge_action_mask &= ~NUDGE_GENERIC(detach);
+        /* This is not using stack_alloc() because we can't have this being cleaned up
+         * via normal cleanup paths. */
+        heap_error_code_t error_code_reserve, error_code_commit;
+        void *d_r_detachstack =
+            os_heap_reserve(NULL, DYNAMORIO_STACK_SIZE, &error_code_reserve, false);
+        /* XXX: This memory is not freed. */
+        if (!os_heap_commit(d_r_detachstack, DYNAMORIO_STACK_SIZE,
+                            MEMPROT_READ | MEMPROT_WRITE, &error_code_commit)) {
+            ASSERT_NOT_REACHED();
+        }
+        call_switch_stack(dcontext,
+                          (byte *)((ptr_uint_t)d_r_detachstack + DYNAMORIO_STACK_SIZE),
+                          (void (*)(void *))detach_externally_on_new_stack, NULL, true);
+        ASSERT_NOT_REACHED();
+#    endif
     }
 #endif
 }

@@ -113,6 +113,7 @@ typedef enum {
     RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT,
     RAW2TRACE_STAT_KERNEL_INSTR_COUNT,
     RAW2TRACE_STAT_SYSCALL_TRACES_DECODED,
+    RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED,
     // We add a MAX member so that we can iterate over all stats in unit tests.
     RAW2TRACE_STAT_MAX,
 } raw2trace_statistic_t;
@@ -1104,6 +1105,7 @@ protected:
         uint64 final_trace_instr_count = 0;
         uint64 kernel_instr_count = 0;
         uint64 syscall_traces_decoded = 0;
+        uint64 syscall_traces_injected = 0;
 
         uint64 cur_chunk_instr_count = 0;
         uint64 cur_chunk_ref_count = 0;
@@ -1348,6 +1350,7 @@ protected:
     uint64 final_trace_instr_count_ = 0;
     uint64 kernel_instr_count_ = 0;
     uint64 syscall_traces_decoded_ = 0;
+    uint64 syscall_traces_injected_ = 0;
 
     std::unique_ptr<module_mapper_t> module_mapper_;
 

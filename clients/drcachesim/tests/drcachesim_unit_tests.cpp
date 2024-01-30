@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,8 +31,11 @@
  */
 
 // Unit tests for drcachesim
+
 #include <iostream>
 #include <cstdlib>
+#include <regex>
+
 #undef NDEBUG
 #include <assert.h>
 #include "config_reader_unit_test.h"
@@ -77,10 +80,11 @@ make_test_knobs()
 memref_t
 make_memref(addr_t address, trace_type_t type = TRACE_TYPE_READ, int size = 4)
 {
-    memref_t ref;
+    memref_t ref = {};
     ref.data.type = type;
     ref.data.size = size;
     ref.data.addr = address;
+    ref.data.tid = 1;
     return ref;
 }
 
@@ -763,6 +767,55 @@ unit_test_cache_accessors()
     }
 }
 
+void
+unit_test_core_sharded()
+{
+    {
+        // Test invalid cpu_scheduling + core-sharded combo.
+        cache_simulator_knobs_t knobs = make_test_knobs();
+        knobs.cpu_scheduling = true;
+        cache_simulator_t sim(knobs);
+        std::string error = sim.initialize_shard_type(SHARD_BY_CORE);
+        assert(!error.empty());
+    }
+    {
+        // Test cpu to core mapping by passing larger integers as cpus.
+        cache_simulator_knobs_t knobs = make_test_knobs();
+        knobs.num_cores = 2;
+        cache_simulator_t sim(knobs);
+        default_memtrace_stream_t stream;
+        sim.initialize_stream(&stream);
+        std::string error = sim.initialize_shard_type(SHARD_BY_CORE);
+        assert(error.empty());
+        memref_t ref = make_memref(42);
+        stream.set_shard_index(0);
+        stream.set_output_cpuid(123400);
+        bool res = sim.process_memref(ref);
+        assert(res);
+        stream.set_shard_index(1);
+        stream.set_output_cpuid(567800);
+        res = sim.process_memref(ref);
+        assert(res);
+        // Capture output.
+        std::stringstream output;
+        std::streambuf *prev_buf = std::cerr.rdbuf(output.rdbuf());
+        res = sim.print_results();
+        assert(res);
+        std::cerr.rdbuf(prev_buf);
+        // Make sure the large cpuids are mapped to core 0 and core 1.
+        // XXX: This regex causes a "regex_constants::error_complexity"
+        // exception on Windows; for now we disable this part of the test there.
+#ifndef WINDOWS
+        assert(std::regex_search(output.str(), std::regex(R"DELIM((.|\r?\n)*
+Core #0 \(traced CPU\(s\): #123400\)
+(.|\r?\n)*
+Core #1 \(traced CPU\(s\): #567800\)
+(.|\r?\n)*
+)DELIM")));
+#endif
+    }
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -783,6 +836,7 @@ test_main(int argc, const char *argv[])
     unit_test_sim_refs();
     unit_test_child_hits();
     unit_test_cache_replacement_policy();
+    unit_test_core_sharded();
     return 0;
 }
 

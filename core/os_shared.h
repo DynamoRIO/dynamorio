@@ -204,15 +204,21 @@ is_thread_currently_native(thread_record_t *tr);
  */
 bool
 thread_get_mcontext(thread_record_t *tr, priv_mcontext_t *mc);
+
+#ifdef LINUX
+bool
+thread_get_nudged_mcontext(thread_record_t *tr, priv_mcontext_t *mc);
+#endif
+
 bool
 thread_set_mcontext(thread_record_t *tr, priv_mcontext_t *mc);
 
 /* Takes an os-specific context. Does not return. */
 void
-thread_set_self_context(void *cxt);
+thread_set_self_context(void *cxt, bool is_detach_external);
 /* Only sets the priv_mcontext_t state.  Does not return. */
 void
-thread_set_self_mcontext(priv_mcontext_t *mc);
+thread_set_self_mcontext(priv_mcontext_t *mc, bool is_detach_external);
 
 /* Assumes target thread is suspended */
 bool

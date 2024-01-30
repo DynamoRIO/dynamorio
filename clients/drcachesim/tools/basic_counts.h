@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -274,8 +274,7 @@ protected:
     void
     compute_shard_interval_result(per_shard_t *shard, uint64_t interval_id);
 
-    // The keys here are int for parallel, tid for serial.
-    std::unordered_map<memref_tid_t, per_shard_t *> shard_map_;
+    std::unordered_map<int, per_shard_t *> shard_map_;
     // This mutex is only needed in parallel_shard_init.  In all other accesses to
     // shard_map (process_memref, print_results) we are single-threaded.
     std::mutex shard_map_mutex_;

@@ -88,8 +88,7 @@ schedule_stats_t::~schedule_stats_t()
 std::string
 schedule_stats_t::initialize_stream(memtrace_stream_t *serial_stream)
 {
-    if (serial_stream != nullptr)
-        return "Only core-sharded operation is supported";
+    serial_stream_ = serial_stream;
     return "";
 }
 
@@ -104,8 +103,20 @@ schedule_stats_t::initialize_shard_type(shard_type_t shard_type)
 bool
 schedule_stats_t::process_memref(const memref_t &memref)
 {
-    error_string_ = "Only core-sharded operation is supported.";
-    return false;
+    per_shard_t *per_shard;
+    const auto &lookup = shard_map_.find(serial_stream_->get_output_cpuid());
+    if (lookup == shard_map_.end()) {
+        per_shard = new per_shard_t;
+        per_shard->stream = serial_stream_;
+        per_shard->core = serial_stream_->get_output_cpuid();
+        shard_map_[per_shard->core] = per_shard;
+    } else
+        per_shard = lookup->second;
+    if (!parallel_shard_memref(reinterpret_cast<void *>(per_shard), memref)) {
+        error_string_ = per_shard->error;
+        return false;
+    }
+    return true;
 }
 
 bool

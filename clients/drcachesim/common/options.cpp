@@ -289,8 +289,9 @@ droption_t<bool> op_cpu_scheduling(
     "round-robin fashion.  This option causes the scheduler to instead use the recorded "
     "cpu that each thread executed on (at a granularity of the trace buffer size) "
     "for scheduling, mapping traced cpu's to cores and running each segment of each "
-    "thread "
-    "on the core that owns the recorded cpu for that segment.");
+    "thread on the core that owns the recorded cpu for that segment. "
+    "This option is not supported with -core_serial; use "
+    "-cpu_schedule_file with -core_serial instead.");
 
 droption_t<bytesize_t> op_max_trace_size(
     DROPTION_SCOPE_CLIENT, "max_trace_size", 0,
@@ -888,6 +889,13 @@ droption_t<std::string>
                          "Applies to -core_sharded and -core_serial. "
                          "Path with stored as-traced schedule for replay.");
 #endif
+droption_t<std::string> op_sched_switch_file(
+    DROPTION_SCOPE_FRONTEND, "sched_switch_file", "",
+    "Path to file holding context switch sequences",
+    "Applies to -core_sharded and -core_serial.  Path to file holding context switch "
+    "sequences.  The file can contain multiple sequences each with regular trace headers "
+    "and the sequence proper bracketed by TRACE_MARKER_TYPE_CONTEXT_SWITCH_START and "
+    "TRACE_MARKER_TYPE_CONTEXT_SWITCH_END markers.");
 
 // Schedule_stats options.
 droption_t<uint64_t>

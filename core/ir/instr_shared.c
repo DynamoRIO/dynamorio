@@ -2596,6 +2596,20 @@ instr_set_translation_mangling_epilogue(dcontext_t *dcontext, instrlist_t *ilist
     return instr;
 }
 
+#ifdef AARCH64
+void
+instr_set_has_register_predication(instr_t *instr)
+{
+    instr_set_predicate(instr, DR_PRED_MASKED);
+}
+
+bool
+instr_has_register_predication(instr_t *instr)
+{
+    return instr_get_predicate(instr) == DR_PRED_MASKED;
+}
+#endif
+
 /* Emulates instruction to find the address of the index-th memory operand.
  * Either or both OUT variables can be NULL.
  */

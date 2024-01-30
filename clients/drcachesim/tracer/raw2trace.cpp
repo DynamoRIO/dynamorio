@@ -686,6 +686,7 @@ raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, byte *&buf_i
         return false;
     }
     buf_in = reinterpret_cast<byte *>(buf_base);
+    accumulate_to_statistic(tdata, RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED, 1);
     log(2, "Inserted %d instrs from system call trace template for sysnum %d\n",
         inserted_instr_count, syscall_num);
     return true;
@@ -966,8 +967,10 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     thread_id_t tid = header.tid;
     tdata->tid = tid;
 #ifdef BUILD_PT_POST_PROCESSOR
-    if (TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS, tdata->file_type)) {
-        if (syscall_template_file_reader_ == nullptr) {
+    if (TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS |
+                    OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY,
+                tdata->file_type)) {
+        if (syscall_template_file_reader_ != nullptr) {
             tdata->error = "System call trace template injection not supported for "
                            "traces already with kernel parts.";
             return false;
@@ -1085,7 +1088,7 @@ raw2trace_t::get_next_kernel_entry(raw2trace_thread_data_t *tdata,
 bool
 raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall_idx)
 {
-    DR_ASSERT(TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS, tdata->file_type));
+    DR_ASSERT(TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY, tdata->file_type));
     std::unique_ptr<pt_metadata_buf_t> pt_metadata;
     std::unique_ptr<pt_data_buf_t> pt_data =
         get_next_kernel_entry(tdata, pt_metadata, syscall_idx);
@@ -1165,6 +1168,10 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
                                   .size = TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
                                   .addr = sysnum };
     entries.push_back(start_entry);
+    // TODO i#5505: When ir2trace starts adding synthesized read/write memrefs for
+    // the kernel trace, change the trace file type from
+    // OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY to
+    // OFFLINE_FILE_TYPE_KERNEL_SYSCALLS.
     ir2trace_convert_status_t ir2trace_convert_status =
         ir2trace_t::convert(tdata->pt_decode_state_.get(), entries);
     if (ir2trace_convert_status != IR2TRACE_CONV_SUCCESS) {
@@ -1204,7 +1211,8 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
                     "Unknown pc after ir2trace: did ir2trace insert new instr?";
                 return false;
             }
-            if (!append_encoding(tdata, saved_decode_pc, entry.size, buf,
+            if (record_encoding_emitted(tdata, saved_decode_pc) &&
+                !append_encoding(tdata, saved_decode_pc, entry.size, buf,
                                  entries_with_encodings))
                 return false;
         }
@@ -1513,6 +1521,7 @@ raw2trace_t::do_conversion()
             final_trace_instr_count_ += thread_data_[i]->final_trace_instr_count;
             kernel_instr_count_ += thread_data_[i]->kernel_instr_count;
             syscall_traces_decoded_ += thread_data_[i]->syscall_traces_decoded;
+            syscall_traces_injected_ += thread_data_[i]->syscall_traces_injected;
         }
     } else {
         // The files can be converted concurrently.
@@ -1540,6 +1549,7 @@ raw2trace_t::do_conversion()
             final_trace_instr_count_ += tdata->final_trace_instr_count;
             kernel_instr_count_ += tdata->kernel_instr_count;
             syscall_traces_decoded_ += tdata->syscall_traces_decoded;
+            syscall_traces_injected_ += tdata->syscall_traces_injected;
         }
     }
     error = aggregate_and_write_schedule_files();
@@ -1561,6 +1571,8 @@ raw2trace_t::do_conversion()
     VPRINT(1, "Kernel instr count " UINT64_FORMAT_STRING "\n", kernel_instr_count_);
     VPRINT(1, "System call PT traces decoded " UINT64_FORMAT_STRING "\n",
            syscall_traces_decoded_);
+    VPRINT(1, "System call traces injected from template " UINT64_FORMAT_STRING "\n",
+           syscall_traces_injected_);
     VPRINT(1, "Successfully converted %zu thread files\n", thread_data_.size());
     return "";
 }
@@ -3726,6 +3738,17 @@ raw2trace_t::raw2trace_t(
     decode_cache_.reserve(cache_count);
     for (int i = 0; i < cache_count; ++i)
         decode_cache_.emplace_back(cache_count);
+
+#if defined(AARCH64)
+    // TODO i#6556, i#1684: The decoder uses a global sve_veclen variable to store the
+    // vector length value it uses when decoding. drdecodelib ends up being linked into
+    // drcachesim twice: once into the drcachesim executable, and one into libdynamorio.
+    // When we call dr_standalone_init() above it will initialize the version of
+    // sve_veclen in libdynamorio, but not the one in drcachesim.
+    // Unfortunately it is the version of sve_veclen in drcachesim that gets used when
+    // decoding in raw2trace so we need to explicitly initialize its sve_veclen here.
+    dr_set_sve_vector_length(proc_get_vector_length_bytes() * 8);
+#endif
 }
 
 raw2trace_t::~raw2trace_t()
@@ -3759,6 +3782,9 @@ raw2trace_t::accumulate_to_statistic(raw2trace_thread_data_t *tdata,
     case RAW2TRACE_STAT_SYSCALL_TRACES_DECODED:
         tdata->syscall_traces_decoded += value;
         break;
+    case RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED:
+        tdata->syscall_traces_injected += value;
+        break;
     case RAW2TRACE_STAT_MAX:
     default: DR_ASSERT(false);
     }
@@ -3778,6 +3804,7 @@ raw2trace_t::get_statistic(raw2trace_statistic_t stat)
     case RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT: return final_trace_instr_count_;
     case RAW2TRACE_STAT_KERNEL_INSTR_COUNT: return kernel_instr_count_;
     case RAW2TRACE_STAT_SYSCALL_TRACES_DECODED: return syscall_traces_decoded_;
+    case RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED: return syscall_traces_injected_;
     case RAW2TRACE_STAT_MAX:
     default: DR_ASSERT(false); return 0;
     }

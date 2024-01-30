@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -61,6 +61,13 @@ public:
                 double warmup_fraction, uint64_t sim_refs, bool cpu_scheduling,
                 bool use_physical, unsigned int verbose);
     virtual ~simulator_t() = 0;
+
+    std::string
+    initialize_stream(memtrace_stream_t *serial_stream) override;
+
+    std::string
+    initialize_shard_type(shard_type_t shard_type) override;
+
     bool
     process_memref(const memref_t &memref) override;
 
@@ -95,6 +102,11 @@ protected:
     addr_t
     synthetic_virt2phys(addr_t virt) const;
 
+    // We use -1 instead of INVALID_THREAD_ID==0 because we have many tests
+    // which set tid to 0 to mean "don't care".
+    static constexpr memref_tid_t INVALID_LAST_THREAD = -1;
+    static constexpr int INVALID_CORE_INDEX = -1;
+
     unsigned int knob_num_cores_;
     uint64_t knob_skip_refs_;
     uint64_t knob_warmup_refs_;
@@ -104,11 +116,14 @@ protected:
     bool knob_use_physical_;
     unsigned int knob_verbose_;
 
-    memref_tid_t last_thread_;
-    int last_core_;
+    shard_type_t shard_type_ = SHARD_BY_THREAD;
+    memtrace_stream_t *serial_stream_ = nullptr;
+    memref_tid_t last_thread_ = INVALID_LAST_THREAD; // Only used for SHARD_BY_THREAD.
+    int last_core_index_ = INVALID_CORE_INDEX;
 
     // For thread mapping to cores:
-    std::unordered_map<int, int> cpu2core_;
+    std::unordered_map<int64_t, int> cpu2core_;
+    // The following fields are only used for SHARD_BY_THREAD.
     std::unordered_map<memref_tid_t, int> thread2core_;
     std::vector<int> cpu_counts_;
     std::vector<int> thread_counts_;

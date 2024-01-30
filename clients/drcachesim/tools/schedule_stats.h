@@ -147,7 +147,7 @@ protected:
     unsigned int knob_verbose_ = 0;
     // We use an ordered map to get our output in order.  This table is not
     // used on the hot path so its performance does not matter.
-    std::map<int, per_shard_t *> shard_map_;
+    std::map<int64_t, per_shard_t *> shard_map_;
     // This mutex is only needed in parallel_shard_init.  In all other accesses to
     // shard_map (in print_results) we are single-threaded.
     std::mutex shard_map_mutex_;
