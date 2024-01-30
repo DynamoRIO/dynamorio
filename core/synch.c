@@ -761,9 +761,9 @@ check_wait_at_safe_spot(dcontext_t *dcontext, thread_synch_permission_t cur_stat
          * being at the synch point vs in the cache.
          */
         if (set_mcontext)
-            thread_set_self_mcontext((priv_mcontext_t *)cxt, false);
+            thread_set_self_mcontext((priv_mcontext_t *)cxt);
         else
-            thread_set_self_context((void *)cxt, false);
+            thread_set_self_context((void *)cxt);
         ASSERT_NOT_REACHED();
     }
 }
@@ -2435,6 +2435,6 @@ detach_externally_on_new_stack()
     LOG(GLOBAL, LOG_ALL, 1, "Detach: Entering final cleanup and unload\n");
     SYSLOG_INTERNAL_INFO("Detaching from process, entering final cleanup");
     detach_cleanup_helper(my_tr);
-    thread_set_self_mcontext(&my_mcontext, true);
+    thread_set_self_mcontext(&my_mcontext);
 }
 #endif
