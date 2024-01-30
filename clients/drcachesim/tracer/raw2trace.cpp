@@ -2583,7 +2583,7 @@ raw2trace_t::rollback_rseq_buffer(raw2trace_thread_data_t *tdata,
         if (type_is_instr(static_cast<trace_type_t>(tdata->rseq_buffer_[i].type)))
             ++decode_end;
     }
-    // If the last instructoin after the rollback is a branch, delay the branch.
+    // If the last instruction after the rollback is a branch, delay the branch.
     if (remove_start > 0 &&
         type_is_instr_branch(
             static_cast<trace_type_t>(tdata->rseq_buffer_[remove_start - 1].type))) {
