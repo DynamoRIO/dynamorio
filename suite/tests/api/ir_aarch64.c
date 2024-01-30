@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -6924,6 +6924,23 @@ test_internal_encode(void *dcontext)
     instr_destroy(dcontext, jmp);
 }
 
+static void
+test_vector_length(void *dcontext)
+{
+    /* XXX i#6575: Add further tests.  For now, make sure these are exported. */
+    const int new_len = 2048;
+    /* XXX: Make this test work when on actual SVE hardware where this API routine
+     * is documented as failing.
+     */
+    bool res = dr_set_sve_vector_length(new_len);
+    ASSERT(res);
+    ASSERT(dr_get_sve_vector_length() == new_len);
+    /* Ensure invalid lengths return failure. */
+    ASSERT(!dr_set_sve_vector_length(0));
+    ASSERT(!dr_set_sve_vector_length(1));
+    ASSERT(!dr_set_sve_vector_length(4096));
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -7101,6 +7118,8 @@ main(int argc, char *argv[])
     ld4r(dcontext);
 
     test_internal_encode(dcontext);
+
+    test_vector_length(dcontext);
 
     print("All tests complete\n");
 #ifndef STANDALONE_DECODER

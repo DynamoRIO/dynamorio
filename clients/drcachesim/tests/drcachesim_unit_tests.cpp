@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -80,10 +80,11 @@ make_test_knobs()
 memref_t
 make_memref(addr_t address, trace_type_t type = TRACE_TYPE_READ, int size = 4)
 {
-    memref_t ref;
+    memref_t ref = {};
     ref.data.type = type;
     ref.data.size = size;
     ref.data.addr = address;
+    ref.data.tid = 1;
     return ref;
 }
 
@@ -766,23 +767,6 @@ unit_test_cache_accessors()
     }
 }
 
-class mock_stream_t : public default_memtrace_stream_t {
-public:
-    void
-    set_cpuid(int64_t cpuid)
-    {
-        cpuid_ = cpuid;
-    }
-    int64_t
-    get_output_cpuid() const override
-    {
-        return cpuid_;
-    }
-
-private:
-    int64_t cpuid_ = 0;
-};
-
 void
 unit_test_core_sharded()
 {
@@ -799,15 +783,17 @@ unit_test_core_sharded()
         cache_simulator_knobs_t knobs = make_test_knobs();
         knobs.num_cores = 2;
         cache_simulator_t sim(knobs);
-        mock_stream_t stream;
+        default_memtrace_stream_t stream;
         sim.initialize_stream(&stream);
         std::string error = sim.initialize_shard_type(SHARD_BY_CORE);
         assert(error.empty());
         memref_t ref = make_memref(42);
-        stream.set_cpuid(123400);
+        stream.set_shard_index(0);
+        stream.set_output_cpuid(123400);
         bool res = sim.process_memref(ref);
         assert(res);
-        stream.set_cpuid(567800);
+        stream.set_shard_index(1);
+        stream.set_output_cpuid(567800);
         res = sim.process_memref(ref);
         assert(res);
         // Capture output.

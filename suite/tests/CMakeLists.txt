@@ -3862,6 +3862,12 @@ if (BUILD_CLIENTS)
           "-indir ${thread_trace_dir} -simulator_type basic_counts -core_sharded -sched_quantum 1000 -sched_switch_file ${switch_file}"
           "")
         set(tool.switch_insertion_rawtemp ON) # no preprocessor
+
+        # Sanity test that core-sharded at least runs without errors on our other tools.
+        torunonly_simtool(core_sharded ${ci_shared_app}
+          "-indir ${thread_trace_dir} -simulator_type reuse_time:reuse_distance:histogram:opcode_mix:syscall_mix -core_sharded"
+          "")
+        set(tool.core_sharded_rawtemp ON) # no preprocessor
       endif ()
     endif ()
 

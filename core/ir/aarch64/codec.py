@@ -66,7 +66,7 @@ class Opnd:
 
 def opnd_stem(opnd_name):
     """Strip off all flags from the opnd"""
-    return opnd_name.split(".")[0]
+    return opnd_name.split(".")[0] # pytype: disable=attribute-error
 
 def opnd_flags(opnd_name):
     """Return the opnd's flags"""
@@ -534,15 +534,15 @@ def read_opnd_defs_file(path):
             for line in (l.split('#')[0].strip() for l in file):
                 if not line:
                     continue
-                if not re.match('^[x\?\-\+]{32} +[a-zA-Z_0-9]+$', line):
+                if not re.match(r'^[x\?\-\+]{32} +[a-zA-Z_0-9]+$', line):
                     raise Exception('Cannot parse line: %s in %s' % (line, file_msg))
                 # Syntax: mask opndtype
                 mask, opndtype = line.split()
                 if opndtype in opndtab:
                     raise Exception('Repeated definition of opndtype %s in %s' % (opndtype, file_msg))
-                opndtab[opndtype] = Opnd(int(re.sub('[x\+]', '1', re.sub('[^x^\+]', '0', mask)), 2),
-                                         int(re.sub('\?', '1', re.sub('[^\?]', '0', mask)), 2),
-                                         int(re.sub('\+', '1', re.sub('[^\+]', '0', mask)), 2))
+                opndtab[opndtype] = Opnd(int(re.sub(r'[x\+]', '1', re.sub(r'[^x^\+]', '0', mask)), 2),
+                                         int(re.sub(r'\?', '1', re.sub(r'[^\?]', '0', mask)), 2),
+                                         int(re.sub(r'\+', '1', re.sub(r'[^\+]', '0', mask)), 2))
     except IOError as e:
         raise Exception('Unable to read operand definitions file, {}: {}'.format(path, e.strerror))
 
@@ -557,7 +557,7 @@ def read_codec_file(path):
             for line in (l.split('#')[0].strip() for l in file):
                 if not line:
                     continue
-                if re.match('^[01x\^]{32} +[n|r|w|rw|wr|er|ew]+ +[0-9]+ +[a-zA-Z0-9]* +[a-zA-Z_0-9][a-zA-Z_0-9 \.]*:[a-zA-Z_0-9 \.]*$', line):
+                if re.match(r'^[01x\^]{32} +[n|r|w|rw|wr|er|ew]+ +[0-9]+ +[a-zA-Z0-9]* +[a-zA-Z_0-9][a-zA-Z_0-9 \.]*:[a-zA-Z_0-9 \.]*$', line):
                     # Syntax: pattern opcode opndtype* : opndtype*
                     pattern, nzcv_rw_flag, enum, feat, opcode, args = line.split(None, 5)
                     dsts, srcs = [a.split() for a in args.split(':')]
@@ -567,7 +567,7 @@ def read_codec_file(path):
                     patterns.append(Pattern(pattern, opcode_bits, opnd_bits, high_soft_bits, opcode, (dsts, srcs), enum, feat))
                     opc_props[opcode] = Opcode(opcode, nzcv_rw_flag, feat)
                     continue
-                if re.match('^[01x\^]{32} +[n|r|w|rw|wr|er|ew]+ +[0-9]+ +[a-zA-Z0-9]* +[a-zA-Z_0-9]+ +[a-zA-Z_0-9]+', line):
+                if re.match(r'^[01x\^]{32} +[n|r|w|rw|wr|er|ew]+ +[0-9]+ +[a-zA-Z0-9]* +[a-zA-Z_0-9]+ +[a-zA-Z_0-9]+', line):
                     # Syntax: pattern opcode opndset
                     pattern, nzcv_rw_flag, enum, feat, opcode, opndset = line.split()
                     opcode_bits = int(re.sub('x', '0', pattern), 2)

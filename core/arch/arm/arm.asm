@@ -114,7 +114,9 @@ call_dispatch_alt_stack_no_free:
         /* after call, so we can use REG_R3 as the scratch register */
         ldr      REG_R3, [sp, #8/* r4, lr */] /* ARG5 */
         cmp      REG_R3, #0
-        beq      GLOBAL_REF(unexpected_return)
+        bne      call_dispatch_alt_stack_ok_return
+        bl       GLOBAL_REF(unexpected_return)
+call_dispatch_alt_stack_ok_return:
         /* restore and return */
         pop      {REG_R4, pc}
         END_FUNC(call_switch_stack)
@@ -489,30 +491,6 @@ GLOBAL_LABEL(_dynamorio_runtime_resolve:)
 #endif /* UNIX */
 
 #ifdef LINUX
-/* thread_id_t dynamorio_clone(uint flags, byte *newsp, void *ptid, void *tls,
- *                             void *ctid, void (*func)(void))
- */
-        DECLARE_FUNC(dynamorio_clone)
-GLOBAL_LABEL(dynamorio_clone:)
-        /* Save callee-saved regs we clobber in the parent. */
-        push     {r4, r5, r7}
-        ldr      r4, [sp, #12] /* ARG5 minus the pushes above */
-        ldr      r5, [sp, #16] /* ARG6 minus the pushes above */
-        /* All args are now in syscall registers. */
-        /* Push func on the new stack. */
-        stmdb    ARG2!, {r5}
-        mov      r7, #SYS_clone
-        svc      0
-        cmp      r0, #0
-        bne      dynamorio_clone_parent
-        ldmia    sp!, {r0}
-        blx      r0
-        bl       GLOBAL_REF(unexpected_return)
-dynamorio_clone_parent:
-        pop      {r4, r5, r7}
-        bx       lr
-        END_FUNC(dynamorio_clone)
-
         DECLARE_FUNC(dynamorio_sigreturn)
 GLOBAL_LABEL(dynamorio_sigreturn:)
         mov      r7, #SYS_rt_sigreturn

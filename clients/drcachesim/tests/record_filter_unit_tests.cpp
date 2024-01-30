@@ -222,14 +222,13 @@ test_cache_and_type_filter()
         { { TRACE_TYPE_INSTR, 4, { 0xaa00 } }, true, { true, true } },
         { { TRACE_TYPE_WRITE, 4, { 0xaa80 } }, true, { true, true } },
 
-        // Unit header. For the 1st test, this is skipped, since no entry
-        // is output from this unit.
+        // Unit header.
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x9 } },
           true,
-          { false, true } },
+          { true, true } },
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0xa } },
           true,
-          { false, true } },
+          { true, true } },
         // Filtered out by cache_filter.
         { { TRACE_TYPE_WRITE, 4, { 0xaa90 } }, true, { false, false } },
         // For the 1st test: filtered out by type_filter.

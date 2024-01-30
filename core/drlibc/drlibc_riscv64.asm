@@ -37,6 +37,14 @@
 #include "../asm_defines.asm"
 START_FILE
 
+#ifndef LINUX
+# error Non-Linux is not supported
+#endif
+
+#include "include/syscall.h"
+
+DECL_EXTERN(unexpected_return)
+
 /*
  * ptr_int_t dynamorio_syscall(uint sysnum, uint num_args, ...);
  *
@@ -64,5 +72,24 @@ GLOBAL_LABEL(FUNCNAME:)
         ret
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
+
+/*
+ * thread_id_t dynamorio_clone(uint flags, byte *newsp, void *ptid, void *tls,
+ *                             void *ctid, void (*func)(void))
+ */
+        DECLARE_FUNC(dynamorio_clone)
+GLOBAL_LABEL(dynamorio_clone:)
+        addi     ARG2, ARG2, -16 /* Description: newsp = newsp - 16. */
+        sd       ARG6, 0 (ARG2) /* The func is now on TOS of newsp. */
+        li       SYSNUM_REG, SYS_clone /* All args are already in syscall registers.*/
+        ecall
+        bnez     ARG1, dynamorio_clone_parent
+        ld       ARG1, 0 (sp)
+        addi     sp, sp, 16
+        jalr     ARG1
+        jal      GLOBAL_REF(unexpected_return)
+dynamorio_clone_parent:
+        ret
+        END_FUNC(dynamorio_clone)
 
 END_FILE
