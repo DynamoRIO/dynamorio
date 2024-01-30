@@ -45,7 +45,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  aarch64-sve-native:
+  aarch64-native:
     strategy:
       fail-fast: false
       matrix:
