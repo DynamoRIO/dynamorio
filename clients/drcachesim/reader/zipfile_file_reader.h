@@ -67,6 +67,7 @@ struct zipfile_reader_t {
     // Store the path and component names for debug messages.
     std::string path;
     char name[128];
+    int verbosity = 0;
 };
 
 typedef file_reader_t<zipfile_reader_t> zipfile_file_reader_t;
