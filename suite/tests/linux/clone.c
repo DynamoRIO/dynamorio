@@ -109,7 +109,11 @@ test_thread(bool share_sighand, bool clone_vm, bool use_clone3)
      */
     pid_t (*create_thread_func)(void (*fcn)(void), void **stack, bool share_sighand,
                                 bool clone_vm) =
-        (use_clone3 && clone3_available) ? create_thread_clone3 : create_thread;
+        create_thread;
+#ifdef SYS_clone3
+    if (use_clone3 && clone3_available)
+        create_thread_func = create_thread_clone3;
+#endif
 
     child = create_thread_func(run_with_exit, &stack, share_sighand, clone_vm);
 
@@ -124,19 +128,22 @@ main()
     int ret_failure_clone3 = make_clone3_syscall(NULL, 0, NULL);
     assert(ret_failure_clone3 == -1);
 
-#ifndef ANDROID /* clone3 not supported on Android */
-    /* i#6596 In some scenarios SYS_clone3 is defined but clone3 returns ENOSYS
-     * e.g. when running in a container under Ubuntu 22.04
-     * see https://github.com/moby/moby/pull/42681
-     */
-    if (errno != ENOSYS)
-        clone3_available = true;
-#endif
-
     /* On some environments, we see that the kernel supports clone3 even though
      * SYS_clone3 is not defined by glibc.
      */
     assert(errno == ENOSYS || errno == EINVAL);
+
+    /* i#6596 In some scenarios SYS_clone3 is defined but clone3 returns ENOSYS
+     * e.g. when running in a container under Ubuntu 22.04
+     * see https://github.com/moby/moby/pull/42681
+     * The presence of SYS_clone3 is also a gating factor on whether glibc
+     * defines struct clone_args. So only try clone3 if the kernel supports it
+     * and the definition of struct clone_args is available.
+     */
+#ifdef SYS_clone3
+    if (errno != ENOSYS)
+        clone3_available = true;
+#endif
 
     /* First test a thread that does not share signal handlers
      * (xref i#2089).
@@ -302,15 +309,8 @@ make_clone3_syscall(void *clone_args, ulong clone_args_size, void (*fcn)(void))
     return result;
 }
 
-#ifdef ANDROID
-static pid_t
-create_thread_clone3(void (*fcn)(void), void **stack, bool share_sighand, bool clone_vm)
-{
-    /* Should never get here */
-    assert(0);
-    return -1;
-}
-#else
+#ifdef SYS_clone3
+
 static pid_t
 create_thread_clone3(void (*fcn)(void), void **stack, bool share_sighand, bool clone_vm)
 {
@@ -355,7 +355,8 @@ create_thread_clone3(void (*fcn)(void), void **stack, bool share_sighand, bool c
     *stack = my_stack;
     return (pid_t)ret;
 }
-#endif
+
+#endif /* SYS_clone3 */
 
 static void
 delete_thread(pid_t pid, void *stack)
