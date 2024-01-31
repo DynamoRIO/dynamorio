@@ -245,6 +245,9 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api,thread_private,disable_traces|common.decode-stress' => 1, # i#1807
                 'code_api,thread_private,tracedump_binary|common.decode-stress' => 1, # i#1807
                 'code_api|client.file_io' => 1, # i#5802
+                'code_api|tool.drcacheoff.windows-invar' => 1, # i#6599
+                'code_api|tool.drcacheoff.invariant_checker' => 1, # i#6599
+                'code_api|tool.drcacheoff.getretaddr_record_replace_retaddr' => 1, # i#6599
                 );
 
             %ignore_failures_64 = (
@@ -389,6 +392,8 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 );
             %ignore_failures_64 = (
                 'code_api|tool.drcacheoff.burst_threadfilter' => 1, # i#2941
+                'code_api|client.attach_test' => 1, # i#6452
+                'code_api|client.detach_test' => 1, # i#6536
                 # These are from the long suite.
                 'code_api,opt_memory|common.loglevel' => 1, # i#1807
                 'code_api,opt_speed|common.decode-stress' => 1, # i#1807

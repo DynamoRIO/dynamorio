@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -179,17 +179,18 @@ int sve_veclen;
 int sve_veclens[] = { 128,  256,  384,  512,  640,  768,  896,  1024,
                       1152, 1280, 1408, 1536, 1664, 1792, 1920, 2048 };
 
-void
+bool
 dr_set_sve_vector_length(int vl)
 {
-    /* TODO i#3044: Vector length will be read from h/w when running on SVE. */
-    for (int i = 0; i < sizeof(sve_veclens); i++) {
+    for (int i = 0; i < sizeof(sve_veclens) / sizeof(sve_veclens[0]); i++) {
         if (vl == sve_veclens[i]) {
             sve_veclen = vl;
-            return;
+            return true;
         }
     }
-    CLIENT_ASSERT(false, "invalid SVE vector length");
+    /* Make unusual values visible in case our internal uses mess up. */
+    ASSERT_CURIOSITY(false);
+    return false;
 }
 
 int

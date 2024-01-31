@@ -72,7 +72,9 @@
 #define HAVE_FALLTHROUGH 1
 
 /* Defined if __attribute__((gcc_struct)) is supported */
-#define HAVE_GCC_STRUCT 1
+#if defined(__x86_64__) || defined(__i386__)
+#    define HAVE_GCC_STRUCT 1
+#endif
 
 /* Define to 1 if you have the `getrlimit' function. */
 #define HAVE_GETRLIMIT 1
