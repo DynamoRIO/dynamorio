@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -46,8 +46,12 @@
 #ifdef HAS_ZLIB
 #    include "common/gzip_ostream.h"
 #endif
+#ifdef HAS_ZIP
+#    include "common/zipfile_ostream.h"
+#endif
 #include "memref.h"
 #include "memtrace_stream.h"
+#include "raw2trace_shared.h"
 #include "trace_entry.h"
 #include "utils.h"
 
@@ -105,19 +109,42 @@ record_filter_t::parallel_shard_supported()
     return true;
 }
 
-std::unique_ptr<std::ostream>
+std::string
 record_filter_t::get_writer(per_shard_t *per_shard, memtrace_stream_t *shard_stream)
 {
     per_shard->output_path = output_dir_ + DIRSEP + shard_stream->get_stream_name();
 #ifdef HAS_ZLIB
     if (ends_with(per_shard->output_path, ".gz")) {
         VPRINT(this, 3, "Using the gzip writer for %s\n", per_shard->output_path.c_str());
-        return std::unique_ptr<std::ostream>(new gzip_ostream_t(per_shard->output_path));
+        per_shard->file_writer =
+            std::unique_ptr<std::ostream>(new gzip_ostream_t(per_shard->output_path));
+        per_shard->writer = per_shard->file_writer.get();
+        return "";
+    }
+#endif
+#ifdef HAS_ZIP
+    if (ends_with(per_shard->output_path, ".zip")) {
+        VPRINT(this, 3, "Using the zip writer for %s\n", per_shard->output_path.c_str());
+        per_shard->archive_writer = std::unique_ptr<archive_ostream_t>(
+            new zipfile_ostream_t(per_shard->output_path));
+        per_shard->writer = per_shard->archive_writer.get();
+        return open_new_chunk(per_shard);
     }
 #endif
     VPRINT(this, 3, "Using the default writer for %s\n", per_shard->output_path.c_str());
-    return std::unique_ptr<std::ostream>(
+    per_shard->file_writer = std::unique_ptr<std::ostream>(
         new std::ofstream(per_shard->output_path, std::ofstream::binary));
+    per_shard->writer = per_shard->file_writer.get();
+    return "";
+}
+
+std::string
+record_filter_t::open_new_chunk(per_shard_t *shard)
+{
+    std::ostringstream stream;
+    stream << TRACE_CHUNK_PREFIX << std::setfill('0') << std::setw(4)
+           << shard->chunk_ordinal;
+    return shard->archive_writer->open_new_component(stream.str());
 }
 
 void *
@@ -125,15 +152,19 @@ record_filter_t::parallel_shard_init_stream(int shard_index, void *worker_data,
                                             memtrace_stream_t *shard_stream)
 {
     auto per_shard = new per_shard_t;
-    per_shard->writer = get_writer(per_shard, shard_stream);
+    std::string error = get_writer(per_shard, shard_stream);
+    if (!error.empty()) {
+        per_shard->error = "Failure in opening writer: " + error;
+        success_ = false;
+    }
+    if (!per_shard->writer && !per_shard->archive_writer) {
+        per_shard->error = "Could not open a writer for " + per_shard->output_path;
+        success_ = false;
+    }
     per_shard->shard_stream = shard_stream;
     per_shard->enabled = true;
     per_shard->input_entry_count = 0;
     per_shard->output_entry_count = 0;
-    if (!per_shard->writer) {
-        per_shard->error = "Could not open a writer for " + per_shard->output_path;
-        success_ = false;
-    }
     for (auto &f : filters_) {
         per_shard->filter_shard_data.push_back(
             f->parallel_shard_init(shard_stream, stop_timestamp_ != 0));
@@ -160,7 +191,8 @@ record_filter_t::parallel_shard_exit(void *shard_data)
     // Destroy the writer since we do not need it anymore. This also makes sure
     // that data is written out to the file; curiously, a simple flush doesn't
     // do it.
-    per_shard->writer.reset(nullptr);
+    per_shard->file_writer.reset(nullptr);
+    per_shard->archive_writer.reset(nullptr);
     return res;
 }
 
@@ -201,6 +233,7 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &in
     ++per_shard->input_entry_count;
     trace_entry_t entry = input_entry;
     bool output = true;
+    int record_count = per_shard->memref_counter.entry_memref_count(&entry);
     if (per_shard->enabled && stop_timestamp_ != 0 &&
         per_shard->shard_stream->get_last_timestamp() >= stop_timestamp_) {
         per_shard->enabled = false;
@@ -217,6 +250,19 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &in
                 output = false;
             }
         }
+        if (!output) {
+            if (is_any_instr_type(static_cast<trace_type_t>(entry.type)) &&
+                per_shard->archive_writer) {
+                // TODO i#5675: Add support for moving chunk boundaries (requires
+                // instruction counting and re-doing timestamp duplication).
+                per_shard->error =
+                    "Removing instructions from archive output is not yet supported";
+                return false;
+            }
+            // TODO i#5675,i#5694: Add core-sharded support by updating
+            // memref_counter_t to count across multiple thread headers.
+            per_shard->removed_from_prev_chunk += record_count;
+        }
     }
 
     if (entry.type == TRACE_TYPE_MARKER) {
@@ -225,6 +271,40 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &in
             if (stop_timestamp_ != 0) {
                 entry.addr |= OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP;
             }
+            break;
+        case TRACE_MARKER_TYPE_CHUNK_FOOTER: {
+            if (!output) {
+                per_shard->error = "Removing chunk footers is not supported";
+                return false;
+            }
+            if (!per_shard->archive_writer) {
+                per_shard->error = "Chunks found in non-archive output";
+                return false;
+            }
+            if (entry.addr != per_shard->chunk_ordinal) {
+                per_shard->error = "Chunk ordinal mismatch: found " +
+                    std::to_string(entry.addr) + " expected " +
+                    std::to_string(per_shard->chunk_ordinal);
+                return false;
+            }
+            if (!write_trace_entry(per_shard, entry))
+                return false;
+            ++per_shard->chunk_ordinal;
+            std::string error = open_new_chunk(per_shard);
+            if (!error.empty()) {
+                per_shard->error = error;
+                return false;
+            }
+            return true;
+        }
+        case TRACE_MARKER_TYPE_RECORD_ORDINAL:
+            if (!output) {
+                per_shard->error = "Removing ordinal marker is not supported";
+                return false;
+            }
+            // Update the record count marker for records filtered out.
+            entry.addr -= per_shard->removed_from_prev_chunk;
+            per_shard->removed_from_prev_chunk = 0;
             break;
         }
     }

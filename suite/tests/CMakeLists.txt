@@ -1539,6 +1539,7 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
       -D postcmd=${${key}_postcmd}
       -D postcmd2=${${key}_postcmd2}
       -D postcmd3=${${key}_postcmd3}
+      -D postcmd4=${${key}_postcmd4}
       -D failok=${${key}_failok}
       -D cmp=${CMAKE_CURRENT_BINARY_DIR}/${expectbase}.expect
       -D code=${${key}_code}
@@ -4558,6 +4559,33 @@ if (BUILD_CLIENTS)
       "${drcachesim_path}@-indir@${testname_full}.*.dir")
     set(${testname_full}_postcmd2
       "${histo_path}@-test_mode@-test_mode_name@kernel_xfer_app@-trace_dir@${testname_full}.*.dir/trace")
+
+    # Test the standalone record filter tool (beyond its unit tests).
+    set(testname "tool.record_filter")
+    torunonly_ci(${testname} ${ci_shared_app} drcachesim
+      "record_filter-offline.c" "-offline -subdir_prefix ${testname}" "" "")
+    set(${testname}_toolname "drcachesim")
+    set(${testname}_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+    set(${testname}_rawtemp ON) # no preprocessor
+    get_target_path_for_execution(filter_path record_filter_launcher "${location_suffix}")
+    prefix_cmd_if_necessary(filter_path ON ${filter_path})
+    set(outdir "${testname}.filtered.dir")
+    set(${testname}_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+    set(${testname}_precmd
+      "foreach@${CMAKE_COMMAND}@-E@remove_directory@${testname}.*.dir")
+    # Post-process the trace and sanity check it.
+    # Use a smaller chunk threshold to test multiple chunks.
+    set(${testname}_postcmd
+      "${drcachesim_path}@-chunk_instr_count@1000@-indir@${testname}.*.dir@-simulator_type@invariant_checker")
+    # Run the record filter tool with a null filter.
+    set(${testname}_postcmd2 "${CMAKE_COMMAND}@-E@make_directory@${outdir}")
+    set(${testname}_postcmd3
+      # We assume the app name starts with "s" here to avoid colliding with
+      # our output dir, while still letting the single precmd remove both.
+      "${filter_path}@-trace_dir@${testname}.s*.dir/trace@-output_dir@${outdir}")
+    # Run the invariant checker on the result.
+    set(${testname}_postcmd4
+      "${drcachesim_path}@-indir@${outdir}@-simulator_type@invariant_checker")
 
     if (AARCH64)
       set(testname_full "tool.drcacheoff.allasm-aarch64-prefetch-counts")
