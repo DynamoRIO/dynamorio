@@ -2773,13 +2773,14 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
                 write_delayed_branches(tdata, toadd, buf, nullptr, nullptr);
                 write_delayed_branches(tdata, &jump, &jump + 1, encoding,
                                        reinterpret_cast<app_pc>(next_pc));
+                log(4, "Delayed synthetic jump 0x%zx -> 0x%zx\n", jump.addr, next_pc);
             } else {
                 for (trace_entry_t *e = toadd; e < buf; e++)
                     tdata->rseq_buffer_.push_back(*e);
                 tdata->rseq_buffer_.push_back(jump);
                 tdata->rseq_decode_pcs_.push_back(encoding);
+                log(4, "Appended synthetic jump 0x%zx -> 0x%zx\n", jump.addr, next_pc);
             }
-            log(4, "Appended synthetic jump 0x%zx -> 0x%zx\n", jump.addr, next_pc);
         }
     }
 
