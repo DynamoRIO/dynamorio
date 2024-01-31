@@ -137,6 +137,10 @@ apply_predicate_mask(std::vector<uint8_t> &data, predicate_reg_value128_t mask,
 size_t
 get_vl_bytes()
 {
+    /* XXX: The test for defined(PR_SVE_GET_VL) was still needed in 2023 on RHE7.
+     * We also check defined(PR_GET_NAME) in case the macros get replaced by an enum.
+     */
+#if defined(PR_SVE_GET_VL) || !defined(PR_GET_NAME)
     static const auto vl_bytes = []() {
         const int returned_value = prctl(PR_SVE_GET_VL);
         if (returned_value < 0) {
@@ -147,6 +151,10 @@ get_vl_bytes()
         return static_cast<size_t>(returned_value & PR_SVE_VL_LEN_MASK);
     }();
     return vl_bytes;
+#else
+    perror("PR_SVE_GET_VL not defined");
+    exit(1);
+#endif
 }
 
 struct scalable_reg_value_t {
