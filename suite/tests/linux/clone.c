@@ -78,8 +78,10 @@ make_clone3_syscall(void *clone_args, ulong clone_args_size, void (*fcn)(void));
 static pid_t
 create_thread(void (*fcn)(void), void **stack, bool share_sighand, bool clone_vm);
 
+#ifdef SYS_clone3
 static pid_t
 create_thread_clone3(void (*fcn)(void), void **stack, bool share_sighand, bool clone_vm);
+#endif
 
 static bool clone3_available = false;
 
