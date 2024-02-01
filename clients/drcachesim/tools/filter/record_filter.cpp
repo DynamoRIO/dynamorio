@@ -303,7 +303,7 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &in
                 return false;
             }
             // Update the record count marker for records filtered out.
-            entry.addr -= per_shard->removed_from_prev_chunk;
+            entry.addr -= static_cast<addr_t>(per_shard->removed_from_prev_chunk);
             per_shard->removed_from_prev_chunk = 0;
             break;
         }
