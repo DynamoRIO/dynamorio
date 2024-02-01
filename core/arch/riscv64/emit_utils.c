@@ -659,7 +659,16 @@ append_restore_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 void
 append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
-    /* No-op. */
+    opnd_t memopnd;
+
+    /* Floating-point register is not SIMD registers in RISC-V, but to be consistent with
+     * other architectures, we handle them here.
+     */
+    for (int reg = DR_REG_F0; reg <= DR_REG_F31; reg++) {
+        memopnd = opnd_create_dcontext_field_via_reg_sz(
+            dcontext, REG_NULL, REG_OFFSET(reg), reg_get_size(reg));
+        APP(ilist, INSTR_CREATE_fld(dcontext, opnd_create_reg(reg), memopnd));
+    }
 }
 
 /* Append instructions to restore gpr on fcache enter, to be executed
@@ -749,7 +758,16 @@ append_save_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool ibl_end, bool abs
 void
 append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
-    /* No-op. */
+    opnd_t memopnd;
+
+    /* Floating-point register is not SIMD registers in RISC-V, but to be consistent with
+     * other architectures, we handle them here.
+     */
+    for (int reg = DR_REG_F0; reg <= DR_REG_F31; reg++) {
+        memopnd = opnd_create_dcontext_field_via_reg_sz(
+            dcontext, REG_NULL, REG_OFFSET(reg), reg_get_size(reg));
+        APP(ilist, INSTR_CREATE_fsd(dcontext, memopnd, opnd_create_reg(reg)));
+    }
 }
 
 /* Scratch reg0 is holding exit stub. */
