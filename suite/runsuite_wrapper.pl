@@ -391,7 +391,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'prof_pcs,thread_private|common.nativeexec_bindnow_opt' => 1, # i#2052
                 );
             %ignore_failures_64 = (
-                'api.rseq' => 1, # i#6612
+                'code_api|api.rseq' => 1, # i#6185 i#1807
                 'code_api|tool.drcacheoff.burst_threadfilter' => 1, # i#2941
                 'code_api|client.attach_test' => 1, # i#6452
                 'code_api|client.detach_test' => 1, # i#6536
