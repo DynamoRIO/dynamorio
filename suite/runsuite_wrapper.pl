@@ -305,6 +305,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'finite_shared_bb_cache,cache_shared_bb_regen|common.nativeexec' => 1, # i#1807
                 'finite_shared_trace_cache,cache_shared_trace_regen|common.nativeexec' => 1, # i#1807
                 # We list this without any "options|" which will match all variations.
+                'api.rseq' => 1, # i#6612
                 'common.floatpc_xl8all' => 1, # i#2267
                 'code_api|client.file_io' => 1, # i#5802
                 # These we have failed to reproduce after many attempts under tmate.
