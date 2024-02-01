@@ -110,7 +110,7 @@ public:
         if (addr_beg > addr_end) {
             // Wrap max in parens to work around Visual Studio compiler issues with the
             // max macro (even despite NOMINMAX defined above).
-            addr_end = (std::numeric_limits<addr_t>::max());
+            addr_end = (std::numeric_limits<addr_t>::max)();
         }
 
         std::map<addr_t, addr_t>::reverse_iterator prev_it(next_it);
