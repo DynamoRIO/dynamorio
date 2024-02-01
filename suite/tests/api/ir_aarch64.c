@@ -6929,11 +6929,16 @@ test_vector_length(void *dcontext)
 {
     /* XXX i#6575: Add further tests.  For now, make sure these are exported. */
     const int new_len = 2048;
-    /* XXX: Probably this should return a bool so we know whether it succeeded!
-     * It says it fails if on actual SVE hardware: but is there an easy way to know?
+    /* XXX: Make this test work when on actual SVE hardware where this API routine
+     * is documented as failing.
      */
-    dr_set_sve_vector_length(new_len);
+    bool res = dr_set_sve_vector_length(new_len);
+    ASSERT(res);
     ASSERT(dr_get_sve_vector_length() == new_len);
+    /* Ensure invalid lengths return failure. */
+    ASSERT(!dr_set_sve_vector_length(0));
+    ASSERT(!dr_set_sve_vector_length(1));
+    ASSERT(!dr_set_sve_vector_length(4096));
 }
 
 int

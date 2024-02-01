@@ -143,9 +143,10 @@ endif()
 
 if (TEST_LONG)
   set(DO_ALL_BUILDS ON)
-  # i#2974: We skip tests marked _FLAKY since we have no other mechanism to
-  # have CDash ignore them and avoid going red and sending emails.
-  # We rely on our CI for a history of _FLAKY results.
+  # i#2974: Skip tests marked _FLAKY to avoid test runs going red.
+  # This is the less preferred way of marking flaky tests, and is for use for
+  # lower priority tests. The preferred mechanism is to use the ignored section
+  # in runsuite_wrapper.pl. We rely on our CI for a history of _FLAKY results.
   set(base_cache "${base_cache}
     ${build_tests}
     TEST_LONG:BOOL=ON
