@@ -42,6 +42,11 @@
 #    define DT_RELR 36
 #endif
 
+/* XXX: Workaround for EM_RISCV not being defined in elf.h on RHEL-7. */
+#ifndef EM_RISCV
+#    define EM_RISCV 243
+#endif
+
 /* XXX i#1345: support mixed-mode 32-bit and 64-bit in one process.
  * There is no official support for that on Linux or Mac and for now we do
  * not support it either, especially not mixing libraries.
