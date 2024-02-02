@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -86,21 +86,21 @@ static droption_t<uint64_t>
 
 static droption_t<int> op_cache_filter_size(
     DROPTION_SCOPE_FRONTEND, "cache_filter_size", 0,
-    "[Required] Enable data cache filter with given size (in bytes).",
+    "Enable data cache filter with given size (in bytes).",
     "Enable data cache filter with given size (in bytes), with 64 byte "
     "line size and a direct mapped LRU cache.");
 
-static droption_t<std::string> op_remove_trace_types(
-    DROPTION_SCOPE_FRONTEND, "remove_trace_types", "",
-    "[Required] Comma-separated integers for trace types to remove.",
-    "Comma-separated integers for trace types to remove. "
-    "See trace_type_t for the list of trace entry types.");
+static droption_t<std::string>
+    op_remove_trace_types(DROPTION_SCOPE_FRONTEND, "remove_trace_types", "",
+                          "Comma-separated integers for trace types to remove.",
+                          "Comma-separated integers for trace types to remove. "
+                          "See trace_type_t for the list of trace entry types.");
 
-static droption_t<std::string> op_remove_marker_types(
-    DROPTION_SCOPE_FRONTEND, "remove_marker_types", "",
-    "[Required] Comma-separated integers for marker types to remove.",
-    "Comma-separated integers for marker types to remove. "
-    "See trace_marker_type_t for the list of marker types.");
+static droption_t<std::string>
+    op_remove_marker_types(DROPTION_SCOPE_FRONTEND, "remove_marker_types", "",
+                           "Comma-separated integers for marker types to remove.",
+                           "Comma-separated integers for marker types to remove. "
+                           "See trace_marker_type_t for the list of marker types.");
 
 template <typename T>
 std::vector<T>
@@ -170,8 +170,9 @@ _tmain(int argc, const TCHAR *targv[])
     std::vector<record_analysis_tool_t *> tools;
     tools.push_back(record_filter.get());
 
-    record_analyzer_t record_analyzer(op_trace_dir.get_value(), &tools[0],
-                                      (int)tools.size());
+    record_analyzer_t record_analyzer(
+        op_trace_dir.get_value(), &tools[0], (int)tools.size(), /*worker_count=*/0,
+        /*skip_instrs=*/0, /*interval_microseconds=*/0, op_verbose.get_value());
     if (!record_analyzer) {
         FATAL_ERROR("Failed to initialize trace filter: %s",
                     record_analyzer.get_error_string().c_str());
