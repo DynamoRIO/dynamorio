@@ -592,8 +592,12 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         }
         if (!TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
                      shard->file_type_)) {
-            report_if_false(shard, type_is_instr(shard->prev_instr_.memref.instr.type),
-                            "An unfiltered thread should have at least 1 instruction");
+            report_if_false(
+                shard,
+                type_is_instr(shard->prev_instr_.memref.instr.type) ||
+                    shard->prev_instr_.memref.instr.type == TRACE_TYPE_PREFETCH_INSTR ||
+                    shard->prev_instr_.memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH,
+                "An unfiltered thread should have at least 1 instruction");
         }
     }
     if (shard->prev_entry_.marker.type == TRACE_TYPE_MARKER &&
