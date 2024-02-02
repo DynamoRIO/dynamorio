@@ -4761,8 +4761,8 @@ find_next_fragment_from_gencode(dcontext_t *dcontext, sigcontext_t *sc)
         if (f == NULL && sc->SC_XCX != 0)
             f = fragment_lookup(dcontext, (app_pc)sc->SC_XCX);
 #elif defined(RISCV64)
-        /* FIXME i#3544: Not implemented */
-        ASSERT_NOT_IMPLEMENTED(false);
+        if (f == NULL && sc->SC_A2 != 0)
+            f = fragment_lookup(dcontext, (app_pc)(sc->SC_A2));
 #else
 #    error Unsupported arch.
 #endif
