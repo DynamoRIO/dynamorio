@@ -401,10 +401,10 @@ kcore_copy_t::read_kallsyms()
      * for more details).
      * Perf's kcore copy logic does not copy JIT code but somehow includes JIT encodings
      * and symbols in perf.data/data itself (not sure how yet). However, we use a
-     * different approach and copy the BPF JIT code to our kcore dump. If we find the
-     * kernel to execute other JIT code (indicated by "no memory mapped at this address"
-     * errors during libipt decoding), we would need to extend this logic to somehow
-     * identify those other /proc/kcore JIT regions.
+     * different approach and copy the BPF JIT code to our kcore dump. If we find that
+     * the kernel executes other JIT code (indicated by "no memory mapped at this
+     * address" errors during libipt decoding), we would need to extend this logic to
+     * somehow identify those other /proc/kcore JIT regions.
      */
     std::set<uint64_t> bpf_jit_symbols;
 #define BPF_JIT_MODULE_NAME "[bpf]"
@@ -451,20 +451,20 @@ kcore_copy_t::read_kallsyms()
          * similar to perf adding page size to the highest kernel symbol in its own
          * kcore copy logic.
          */
-#define PAGE_SIZE 4096
+        size_t page_size = dr_page_size();
         proc_module_t *bpf_module = nullptr;
         for (auto it = bpf_jit_symbols.begin(); it != bpf_jit_symbols.end();) {
             uint64_t addr = *it;
             if (bpf_module == nullptr) {
                 bpf_module = (proc_module_t *)dr_global_alloc(sizeof(proc_module_t));
-                bpf_module->start = addr;
-                bpf_module->end = addr + PAGE_SIZE;
+                bpf_module->start = ALIGN_BACKWARD(addr, page_size);
+                bpf_module->end = ALIGN_FORWARD(addr + page_size, page_size);
                 ++it;
                 continue;
             }
             if (bpf_module->end < addr) {
                 /* Just extend the last module region. */
-                bpf_module->end = addr + PAGE_SIZE;
+                bpf_module->end = ALIGN_FORWARD(addr + page_size, page_size);
                 ++it;
             } else {
                 bpf_module->next = modules_;
