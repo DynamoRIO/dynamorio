@@ -4562,11 +4562,17 @@ if (BUILD_CLIENTS)
 
     # Test the standalone record filter tool (beyond its unit tests).
     set(testname "tool.record_filter")
+    if (WIN32)
+      # Speed the test up (takes 1+ minutes otherwise).
+      set(extra_ops "-trace_after_instrs 5K -exit_after_tracing 50K")
+    else ()
+      set(extra_ops "")
+    endif ()
     torunonly_ci(${testname} ${ci_shared_app} drcachesim
-      "record_filter-offline.c" "-offline -subdir_prefix ${testname}" "" "")
+      "record_filter-offline.c"
+      "-offline -subdir_prefix ${testname} ${extra_ops}" "" "")
     set(${testname}_toolname "drcachesim")
     set(${testname}_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
-    set(${testname}_rawtemp ON) # no preprocessor
     get_target_path_for_execution(filter_path record_filter_launcher "${location_suffix}")
     prefix_cmd_if_necessary(filter_path ON ${filter_path})
     set(outdir "${testname}.filtered.dir")
