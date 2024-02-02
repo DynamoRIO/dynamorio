@@ -121,7 +121,7 @@ test_thread(bool share_sighand, bool clone_vm, bool use_clone3)
     delete_thread(child, stack);
 }
 
-#ifdef X86
+#ifdef X86 /* i#6514: dynamorio_clone needs to be updated for other arches. */
 
 /* i#6514: Test passing NULL for the stack pointer to the syscall. */
 void
@@ -130,14 +130,9 @@ test_with_null_stack_pointer(bool clone_vm, bool use_clone3)
     print("%s(clone_vm %d, use_clone3 %d)\n", __FUNCTION__, clone_vm, use_clone3);
     int flags = clone_vm ? (CLONE_VFORK | CLONE_VM) : 0;
     int ret;
-    /* If we don't have SYS_clone3, keep expected output the same and just use SYS_clone.
-     */
-    bool really_use_clone3 = use_clone3;
-#    ifndef SYS_clone3
-    really_use_clone3 = false;
-#    endif
-    if (really_use_clone3) {
-        struct clone_args cl_args = { 0 };
+    /* If we don't have clone3, keep expected output the same and just use clone. */
+    if (use_clone3 && clone3_available) {
+        clone3_syscall_args_t cl_args = { 0 };
         cl_args.flags = flags;
         cl_args.exit_signal = SIGCHLD;
         ret = make_clone3_syscall(&cl_args, sizeof(cl_args), run_with_exit);
