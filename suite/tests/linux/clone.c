@@ -130,8 +130,8 @@ main()
 
     /* In some environments, we see that the kernel supports clone3 even though
      * SYS_clone3 is not defined by glibc. So we don't predicate our efforts on
-     * whether SYS_clone3 is defined.
-    /* Plus in some scenarios SYS_clone3 is defined but clone3 returns ENOSYS.
+     * whether SYS_clone3 is defined. Plus in some scenarios SYS_clone3 is
+     * defined but clone3 returns ENOSYS.
      * E.g., when running in a container under Ubuntu 22.04 i#6596
      * see https://github.com/moby/moby/pull/42681
      */
