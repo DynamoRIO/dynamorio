@@ -189,10 +189,10 @@ main()
 
 #if defined(X86)
     /* Test passing NULL for the stack pointer (xref i#6514). */
-    test_with_null_stack_pointer(false /*clone_vm*/, false /*use_clone3*/);
-    test_with_null_stack_pointer(false /*clone_vm*/, true /*use_clone3*/);
-    test_with_null_stack_pointer(true /*clone_vm*/, false /*use_clone3*/);
-    test_with_null_stack_pointer(true /*clone_vm*/, true /*use_clone3*/);
+    test_with_null_stack_pointer(/*clone_vm=*/false, /*use_clone3=*/false);
+    test_with_null_stack_pointer(/*clone_vm=*/false, /*use_clone3=*/true);
+    test_with_null_stack_pointer(/*clone_vm=*/true, /*use_clone3=*/false);
+    test_with_null_stack_pointer(/*clone_vm=*/true, /*use_clone3=*/true);
 #endif
 }
 

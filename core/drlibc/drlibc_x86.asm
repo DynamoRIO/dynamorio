@@ -774,8 +774,7 @@ GLOBAL_LABEL(dynamorio_clone:)
         /* The syscall preserves all registers except rax, rcx, r11. */
         push     r15
         mov      r15, ARG6 /* Func is now in r15. */
-        sub      REG_XSP, 2*ARG_SZ /* Keep xsp aligned, for newsp==NULL case. */
-        and      REG_XSI, -FRAME_ALIGNMENT /* For glibc compatibility, align newsp. */
+        and      ARG2, -FRAME_ALIGNMENT /* For glibc compatibility, align newsp. */
         /* All args are already in syscall registers, except for rcx. */
         mov      r10, rcx
         mov      REG_XAX, SYS_clone
@@ -822,7 +821,6 @@ newsp_is_null:
         jmp      GLOBAL_REF(unexpected_return)
 dynamorio_clone_parent:
 # ifdef X64
-        add      REG_XSP, 2*ARG_SZ
         pop      r15
 # else
         /* Restore callee-saved regs. */
