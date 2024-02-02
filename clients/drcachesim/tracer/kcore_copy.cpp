@@ -462,8 +462,10 @@ kcore_copy_t::read_kallsyms()
                 ++it;
                 continue;
             }
-            if (bpf_module->end < addr) {
-                /* Just extend the last module region. */
+            if (bpf_module->end >= addr) {
+                /* Just extend the last module region if the new addr falls within
+                 * the last recorded range.
+                 */
                 bpf_module->end = ALIGN_FORWARD(addr + page_size, page_size);
                 ++it;
             } else {
