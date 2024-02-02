@@ -34,8 +34,8 @@
 
 #ifdef WINDOWS
 #    define NOMINMAX // Avoid windows.h messing up std::max.
-#    define UNICODE
-#    define _UNICODE
+#    define UNICODE  // For Windows headers.
+#    define _UNICODE // For C headers.
 #endif
 
 #include "analyzer.h"
