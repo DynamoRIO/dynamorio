@@ -32,7 +32,6 @@
 
 #include <unistd.h>
 #include <signal.h>
-#include <ucontext.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <assert.h>
