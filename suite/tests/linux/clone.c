@@ -48,6 +48,7 @@
 #include <errno.h>
 
 #include "tools.h" /* for nolibc_* wrappers. */
+#include "../../core/unix/include/clone3.h" /* for clone3_syscall_args_t */
 
 #ifdef ANDROID
 typedef unsigned long ulong;
@@ -56,7 +57,7 @@ typedef unsigned long ulong;
 /* The first published clone_args had all fields till 'tls'. A clone3
  * syscall made by the user must have a struct of at least this size.
  */
-#define CLONE_ARGS_SIZE_MIN_POSSIBLE 64
+#define CLONE_ARGS_SIZE_MIN_POSSIBLE CLONE_ARGS_SIZE_VER0
 
 /* We define this constant so that we can try to make the clone3
  * syscall on systems where it is not available, to verify that it
@@ -78,10 +79,8 @@ make_clone3_syscall(void *clone_args, ulong clone_args_size, void (*fcn)(void));
 static pid_t
 create_thread(void (*fcn)(void), void **stack, bool share_sighand, bool clone_vm);
 
-#ifdef SYS_clone3
 static pid_t
 create_thread_clone3(void (*fcn)(void), void **stack, bool share_sighand, bool clone_vm);
-#endif
 
 static bool clone3_available = false;
 
@@ -111,10 +110,8 @@ test_thread(bool share_sighand, bool clone_vm, bool use_clone3)
      */
     pid_t (*create_thread_func)(void (*fcn)(void), void **stack, bool share_sighand,
                                 bool clone_vm) = create_thread;
-#ifdef SYS_clone3
     if (use_clone3 && clone3_available)
         create_thread_func = create_thread_clone3;
-#endif
 
     child = create_thread_func(run_with_exit, &stack, share_sighand, clone_vm);
 
@@ -125,26 +122,23 @@ test_thread(bool share_sighand, bool clone_vm, bool use_clone3)
 int
 main()
 {
-    /* Try using clone3 when it is possibly not defined. */
+    /* Try using clone3 when it is possibly not defined. This is done for two
+     * reasons: test whether the kernel supports it, and our handling of clone3
+     * when it doesn't.
+     */
     int ret_failure_clone3 = make_clone3_syscall(NULL, 0, NULL);
     assert(ret_failure_clone3 == -1);
 
-    /* On some environments, we see that the kernel supports clone3 even though
-     * SYS_clone3 is not defined by glibc.
+    /* In some environments, we see that the kernel supports clone3 even though
+     * SYS_clone3 is not defined by glibc. So we don't predicate our efforts on
+     * whether SYS_clone3 is defined.
+    /* Plus in some scenarios SYS_clone3 is defined but clone3 returns ENOSYS.
+     * E.g., when running in a container under Ubuntu 22.04 i#6596
+     * see https://github.com/moby/moby/pull/42681
      */
     assert(errno == ENOSYS || errno == EINVAL);
-
-    /* i#6596 In some scenarios SYS_clone3 is defined but clone3 returns ENOSYS
-     * e.g. when running in a container under Ubuntu 22.04
-     * see https://github.com/moby/moby/pull/42681
-     * The presence of SYS_clone3 is also a gating factor on whether glibc
-     * defines struct clone_args. So only try clone3 if the kernel supports it
-     * and the definition of struct clone_args is available.
-     */
-#ifdef SYS_clone3
     if (errno != ENOSYS)
         clone3_available = true;
-#endif
 
     /* First test a thread that does not share signal handlers
      * (xref i#2089).
@@ -310,14 +304,12 @@ make_clone3_syscall(void *clone_args, ulong clone_args_size, void (*fcn)(void))
     return result;
 }
 
-#ifdef SYS_clone3
-
 static pid_t
 create_thread_clone3(void (*fcn)(void), void **stack, bool share_sighand, bool clone_vm)
 {
     /* !clone_vm && share_sighand is not supported. */
     assert(clone_vm || !share_sighand);
-    struct clone_args cl_args = { 0 };
+    clone3_syscall_args_t cl_args = { 0 };
     void *my_stack;
     my_stack = stack_alloc(THREAD_STACK_SIZE);
     /* We're not doing CLONE_THREAD => child has its own pid
@@ -330,17 +322,17 @@ create_thread_clone3(void (*fcn)(void), void **stack, bool share_sighand, bool c
     cl_args.exit_signal = SIGCHLD;
     cl_args.stack = (ptr_uint_t)my_stack;
     cl_args.stack_size = THREAD_STACK_SIZE;
-    int ret = make_clone3_syscall(NULL, sizeof(struct clone_args), fcn);
+    int ret = make_clone3_syscall(NULL, sizeof(clone3_syscall_args_t), fcn);
     assert(errno == EFAULT);
 
     ret = make_clone3_syscall((void *)0x123 /* bogus address */,
-                              sizeof(struct clone_args), fcn);
+                              sizeof(clone3_syscall_args_t), fcn);
     assert(errno == EFAULT);
 
     ret = make_clone3_syscall(&cl_args, CLONE_ARGS_SIZE_MIN_POSSIBLE - 1, fcn);
     assert(errno == EINVAL);
 
-    ret = make_clone3_syscall(&cl_args, sizeof(struct clone_args), fcn);
+    ret = make_clone3_syscall(&cl_args, sizeof(clone3_syscall_args_t), fcn);
     /* Child threads should already have been directed to fcn. */
     assert(ret != 0);
     if (ret == -1) {
@@ -349,15 +341,13 @@ create_thread_clone3(void (*fcn)(void), void **stack, bool share_sighand, bool c
         return -1;
     } else {
         assert(ret > 0);
-        /* Ensure that DR restores fields in clone_args after the syscall. */
+        /* Ensure that DR restores fields in cl_args after the syscall. */
         assert(cl_args.stack == (ptr_uint_t)my_stack &&
                cl_args.stack_size == THREAD_STACK_SIZE);
     }
     *stack = my_stack;
     return (pid_t)ret;
 }
-
-#endif /* SYS_clone3 */
 
 static void
 delete_thread(pid_t pid, void *stack)
