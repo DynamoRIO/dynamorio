@@ -695,7 +695,6 @@ struct trace_header_t {
     thread_id_t tid;
     uint64 timestamp;
     size_t cache_line_size;
-    size_t vector_length_bytes;
 };
 
 /**

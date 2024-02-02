@@ -178,13 +178,13 @@ online_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid,
     new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_FILETYPE, file_type);
     new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_CACHE_LINE_SIZE,
                              proc_get_cache_line_size());
+    new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_PAGE_SIZE, dr_page_size());
 #if defined(AARCH64)
     if (proc_has_feature(FEATURE_SVE)) {
         new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_DYNAMIC_VECTOR_LENGTH,
                                  proc_get_vector_length_bytes());
     }
 #endif
-    new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_PAGE_SIZE, dr_page_size());
     return (int)(new_buf - buf_ptr);
 }
 

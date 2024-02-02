@@ -305,7 +305,6 @@ run_limit_tests(void *drcontext)
         gen_marker(t1, TRACE_MARKER_TYPE_VERSION, 3),
         gen_marker(t1, TRACE_MARKER_TYPE_FILETYPE, 0),
         gen_marker(t1, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
-        gen_marker(t1, TRACE_MARKER_TYPE_DYNAMIC_VECTOR_LENGTH, 32),
         gen_marker(t1, TRACE_MARKER_TYPE_TIMESTAMP, 1001),
         gen_marker(t1, TRACE_MARKER_TYPE_CPU_ID, 2),
         gen_instr(t1, offs_nop1),
@@ -464,7 +463,6 @@ run_single_thread_chunk_test(void *drcontext)
         { TRACE_TYPE_THREAD, 0, { t1 } },
         { TRACE_TYPE_PID, 0, { t1 } },
         { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 64 } },
-        { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_DYNAMIC_VECTOR_LENGTH, { 16 } },
         { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, { 2 } },
         { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 1002 } },
         { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 2 } },
@@ -480,14 +478,13 @@ run_single_thread_chunk_test(void *drcontext)
     const char *expect = R"DELIM(           1           0:           3 <marker: version 3>
            2           0:           3 <marker: filetype 0x0>
            3           0:           3 <marker: cache line size 64>
-           4           0:           3 <marker: vector length 16 bytes>
-           5           0:           3 <marker: chunk instruction count 2>
-           6           0:           3 <marker: timestamp 1002>
-           7           0:           3 <marker: tid 3 on core 2>
-           8           1:           3 ifetch       4 byte(s) @ 0x0000002a non-branch
-           9           2:           3 ifetch       4 byte(s) @ 0x0000002a non-branch
-          10           2:           3 <marker: chunk footer #0>
-          11           3:           3 ifetch       4 byte(s) @ 0x0000002a non-branch
+           4           0:           3 <marker: chunk instruction count 2>
+           5           0:           3 <marker: timestamp 1002>
+           6           0:           3 <marker: tid 3 on core 2>
+           7           1:           3 ifetch       4 byte(s) @ 0x0000002a non-branch
+           8           2:           3 ifetch       4 byte(s) @ 0x0000002a non-branch
+           9           2:           3 <marker: chunk footer #0>
+          10           3:           3 ifetch       4 byte(s) @ 0x0000002a non-branch
 )DELIM";
     instrlist_t *ilist_unused = nullptr;
     view_nomod_test_t view(drcontext, *ilist_unused, 0, 0);
@@ -518,7 +515,6 @@ run_serial_chunk_test(void *drcontext)
             { TRACE_TYPE_THREAD, 0, { t1 } },
             { TRACE_TYPE_PID, 0, { t1 } },
             { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 64 } },
-            { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_DYNAMIC_VECTOR_LENGTH, { 16 } },
             { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, { 20 } },
             { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 1001 } },
             { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 2 } },
@@ -535,7 +531,6 @@ run_serial_chunk_test(void *drcontext)
             { TRACE_TYPE_THREAD, 0, { t2 } },
             { TRACE_TYPE_PID, 0, { t2 } },
             { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 64 } },
-            { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_DYNAMIC_VECTOR_LENGTH, { 16 } },
             { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, { 2 } },
             { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 1002 } },
             { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 2 } },
@@ -550,30 +545,28 @@ run_serial_chunk_test(void *drcontext)
         R"DELIM(           1           0:           3 <marker: version 3>
            2           0:           3 <marker: filetype 0x0>
            3           0:           3 <marker: cache line size 64>
-           4           0:           3 <marker: vector length 16 bytes>
-           5           0:           3 <marker: chunk instruction count 20>
-           6           0:           3 <marker: timestamp 1001>
-           7           0:           3 <marker: tid 3 on core 2>
-           8           1:           3 ifetch       4 byte(s) @ 0x0000002a non-branch
-           9           2:           3 ifetch       4 byte(s) @ 0x0000002a non-branch
+           4           0:           3 <marker: chunk instruction count 20>
+           5           0:           3 <marker: timestamp 1001>
+           6           0:           3 <marker: tid 3 on core 2>
+           7           1:           3 ifetch       4 byte(s) @ 0x0000002a non-branch
+           8           2:           3 ifetch       4 byte(s) @ 0x0000002a non-branch
 ------------------------------------------------------------
-          10           2:           7 <marker: version 3>
-          11           2:           7 <marker: filetype 0x0>
-          12           2:           7 <marker: cache line size 64>
-          13           2:           7 <marker: vector length 16 bytes>
-          14           2:           7 <marker: chunk instruction count 2>
-          15           2:           7 <marker: timestamp 1002>
-          16           2:           7 <marker: tid 7 on core 2>
-          17           3:           7 ifetch       4 byte(s) @ 0x0000002a non-branch
-          18           4:           7 ifetch       4 byte(s) @ 0x0000002a non-branch
+           9           2:           7 <marker: version 3>
+          10           2:           7 <marker: filetype 0x0>
+          11           2:           7 <marker: cache line size 64>
+          12           2:           7 <marker: chunk instruction count 2>
+          13           2:           7 <marker: timestamp 1002>
+          14           2:           7 <marker: tid 7 on core 2>
+          15           3:           7 ifetch       4 byte(s) @ 0x0000002a non-branch
+          16           4:           7 ifetch       4 byte(s) @ 0x0000002a non-branch
 ------------------------------------------------------------
-          19           4:           3 <marker: timestamp 1003>
-          20           4:           3 <marker: tid 3 on core 3>
-          21           5:           3 ifetch       4 byte(s) @ 0x0000002a non-branch
+          17           4:           3 <marker: timestamp 1003>
+          18           4:           3 <marker: tid 3 on core 3>
+          19           5:           3 ifetch       4 byte(s) @ 0x0000002a non-branch
 ------------------------------------------------------------
-          22           5:           7 <marker: timestamp 1004>
-          23           5:           7 <marker: tid 7 on core 3>
-          24           6:           7 ifetch       4 byte(s) @ 0x0000002a non-branch
+          20           5:           7 <marker: timestamp 1004>
+          21           5:           7 <marker: tid 7 on core 3>
+          22           6:           7 ifetch       4 byte(s) @ 0x0000002a non-branch
 )DELIM";
     instrlist_t *ilist_unused = nullptr;
     view_nomod_test_t view(drcontext, *ilist_unused, 0, 0);
