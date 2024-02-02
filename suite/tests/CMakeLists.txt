@@ -4503,7 +4503,7 @@ if (BUILD_CLIENTS)
             "allasm-scattergather-basic-counts-${ARCH_NAME}")
     endif ()
 
-    if (UNIX AND (AARCH64 AND proc_supports_sve))
+    if (UNIX AND AARCH64 AND proc_supports_sve)
       torunonly_drcacheoff(allasm-scattergather-vl-view allasm_scattergather
         "" "@-simulator_type@view" "")
       unset(tool.drcacheoff.allasm-scattergather-vl-view_rawtemp) # use preprocessor
