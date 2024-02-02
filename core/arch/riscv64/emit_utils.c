@@ -53,6 +53,13 @@
 /* Number of the fcsr register. */
 #define FCSR 0x003
 
+/* Instruction fixed bits constants. */
+
+/* ld zero, 0(zero) */
+#define RAW_LD_INST_MATCH 0x3003
+/* sd zero, 0(zero) */
+#define RAW_SD_INST_MATCH 0x3023
+
 /***************************************************************************/
 /*                               EXIT STUB                                 */
 /***************************************************************************/
@@ -358,8 +365,9 @@ unpatch_stub(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc, bool hot_pat
          */
         ASSERT(TLS_REG0_SLOT <= (2 << 11) - 1);
         *(uint *)vmcode_get_writable_addr(stub_pc) =
-            (0x3023 | TLS_REG0_SLOT >> 5 << 25 | (DR_REG_A0 - DR_REG_ZERO) << 20 |
-             (dr_reg_stolen - DR_REG_ZERO) << 15 | (TLS_REG0_SLOT & 0x1f) << 7);
+            (RAW_SD_INST_MATCH | TLS_REG0_SLOT >> 5 << 25 |
+             (DR_REG_A0 - DR_REG_ZERO) << 20 | (dr_reg_stolen - DR_REG_ZERO) << 15 |
+             (TLS_REG0_SLOT & 0x1f) << 7);
         if (hot_patch)
             machine_cache_sync(stub_pc, stub_pc + 4, /*flush_icache=*/true);
     } else if (stub_is_patched_for_far_fragment_link(dcontext, f, stub_pc)) {
@@ -475,12 +483,37 @@ get_stub_branch(uint *val)
     return (uint *)pc;
 }
 
+static void
+set_indirect_exit_target(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
+                         cache_pc target, cache_pc exit_target, bool hot_patch)
+{
+    byte *stub_pc = (byte *)EXIT_STUB_PC(dcontext, f, l);
+    /* Set pc to the last instruction in the stub.
+     * See insert_exit_stub_other_flags(), the last instruction in indirect exit stub will
+     * always be a c.nop.
+     */
+    uint *pc = (uint *)(stub_pc + exit_stub_size(dcontext, target, f->flags) -
+                        RISCV64_INSTR_COMPRESSED_SIZE);
+    pc = get_stub_branch(pc) - 1;
+
+    ASSERT(get_ibl_entry_tls_offs(dcontext, exit_target) <= (1 << 11) - 1);
+    /* Format of the ld instruction:
+        | imm[11:0] |  rs1  |011|  rd  |0000011|
+        ^   31-20   ^ 19-15 ^   ^ 11-7 ^
+     */
+    /* ld a1, offs(reg_stolen) */
+    *(uint *)vmcode_get_writable_addr((byte *)pc) = RAW_LD_INST_MATCH |
+        get_ibl_entry_tls_offs(dcontext, exit_target) << 20 |
+        (dr_reg_stolen - DR_REG_ZERO) << 15 | (DR_REG_A1 - DR_REG_ZERO) << 7;
+
+    if (hot_patch)
+        machine_cache_sync(pc, pc + 1, true);
+}
+
 void
 link_indirect_exit_arch(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
                         bool hot_patch, app_pc target_tag)
 {
-    byte *stub_pc = (byte *)EXIT_STUB_PC(dcontext, f, l);
-    uint *pc;
     cache_pc exit_target;
     ibl_type_t ibl_type = { 0 };
     DEBUG_DECLARE(bool is_ibl =)
@@ -491,26 +524,24 @@ link_indirect_exit_arch(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
     else
         exit_target = get_linked_entry(dcontext, target_tag);
 
-    /* Set pc to the last instruction in the stub.
-     * See insert_exit_stub_other_flags(), the last instruction in indirect exit stub will
-     * always be a c.nop.
-     */
-    pc = (uint *)(stub_pc + exit_stub_size(dcontext, target_tag, f->flags) -
-                  RISCV64_INSTR_COMPRESSED_SIZE);
-    pc = get_stub_branch(pc) - 1;
+    set_indirect_exit_target(dcontext, f, l, target_tag, exit_target, hot_patch);
+}
 
-    ASSERT(get_ibl_entry_tls_offs(dcontext, exit_target) <= (2 << 11) - 1);
-    /* Format of the ld instruction:
-        | imm[11:0] |  rs1  |011|  rd  |0000011|
-        ^   31-20   ^ 19-15 ^   ^ 11-7 ^
-     */
-    /* ld a1, offs(reg_stolen) */
-    *(uint *)vmcode_get_writable_addr((byte *)pc) = 0x3003 |
-        get_ibl_entry_tls_offs(dcontext, exit_target) << 20 |
-        (dr_reg_stolen - DR_REG_ZERO) << 15 | (DR_REG_A1 - DR_REG_ZERO) << 7;
+void
+unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
+{
+    cache_pc exit_target;
+    ibl_code_t *ibl_code = NULL;
+    ASSERT(linkstub_owned_by_fragment(dcontext, f, l));
+    ASSERT(LINKSTUB_INDIRECT(l->flags));
+    /* Target is always the same, so if it's already unlinked, this is a nop. */
+    if (!TEST(LINK_LINKED, l->flags))
+        return;
+    ibl_code = get_ibl_routine_code(dcontext, extract_branchtype(l->flags), f->flags);
+    exit_target = ibl_code->unlinked_ibl_entry;
 
-    if (hot_patch)
-        machine_cache_sync(pc, pc + 1, true);
+    set_indirect_exit_target(dcontext, f, l, ibl_code->indirect_branch_lookup_routine,
+                             exit_target, true);
 }
 
 cache_pc
@@ -535,44 +566,6 @@ cbr_fallthrough_exit_cti(cache_pc prev_cti_pc)
     /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
     return NULL;
-}
-
-void
-unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
-{
-    byte *stub_pc = (byte *)EXIT_STUB_PC(dcontext, f, l);
-    uint *pc;
-    cache_pc exit_target;
-    ibl_code_t *ibl_code = NULL;
-    ASSERT(linkstub_owned_by_fragment(dcontext, f, l));
-    ASSERT(LINKSTUB_INDIRECT(l->flags));
-    /* Target is always the same, so if it's already unlinked, this is a nop. */
-    if (!TEST(LINK_LINKED, l->flags))
-        return;
-    ibl_code = get_ibl_routine_code(dcontext, extract_branchtype(l->flags), f->flags);
-    exit_target = ibl_code->unlinked_ibl_entry;
-
-    /* Set pc to the last instruction in the stub.
-     * See insert_exit_stub_other_flags(), the last instruction in indirect exit stub will
-     * always be a c.nop.
-     */
-    pc = (uint *)(stub_pc +
-                  exit_stub_size(dcontext, ibl_code->indirect_branch_lookup_routine,
-                                 f->flags) -
-                  RISCV64_INSTR_COMPRESSED_SIZE);
-    pc = get_stub_branch(pc) - 1;
-
-    ASSERT(get_ibl_entry_tls_offs(dcontext, exit_target) <= (2 << 11) - 1);
-    /* Format of the ld instruction:
-        | imm[11:0] |  rs1  |011|  rd  |0000011|
-        ^   31-20   ^ 19-15 ^   ^ 11-7 ^
-     */
-    /* ld a1, offs(reg_stolen) */
-    *(uint *)vmcode_get_writable_addr((byte *)pc) = 0x3003 |
-        get_ibl_entry_tls_offs(dcontext, exit_target) << 20 |
-        (dr_reg_stolen - DR_REG_ZERO) << 15 | (DR_REG_A1 - DR_REG_ZERO) << 7;
-
-    machine_cache_sync(pc, pc + 1, true);
 }
 
 /*******************************************************************************
