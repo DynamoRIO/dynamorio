@@ -48,6 +48,8 @@ namespace drmemtrace {
 namespace {
 
 #ifdef DEBUG
+// We use the VPRINT from reader.h for member function code.
+// For common routines we need a separate variant taking verbosity in directly.
 #    define ZPRINT(verbosity, level, ...)     \
         do {                                  \
             if (verbosity >= (level)) {       \

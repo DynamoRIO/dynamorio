@@ -143,8 +143,8 @@ protected:
         // One and only one of these writers can be valid.
         std::unique_ptr<std::ostream> file_writer;
         std::unique_ptr<archive_ostream_t> archive_writer;
-        // This is always valid and points to one of the writers.
-        std::ostream *writer;
+        // This points to one of the writers.
+        std::ostream *writer = nullptr;
         std::string error;
         std::vector<void *> filter_shard_data;
         std::unordered_map<uint64_t, std::vector<trace_entry_t>> delayed_encodings;

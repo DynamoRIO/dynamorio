@@ -111,7 +111,7 @@ protected:
         if (write_archive_) {
             per_shard->archive_writer =
                 std::unique_ptr<archive_ostream_t>(new zipfile_ostream_t("/dev/null"));
-            per_shard->writer = per_shard->file_writer.get();
+            per_shard->writer = per_shard->archive_writer.get();
         } else {
             per_shard->file_writer =
                 std::unique_ptr<std::ostream>(new std::ofstream("/dev/null"));
@@ -140,6 +140,18 @@ public:
 
 private:
     uint64_t last_timestamp_;
+};
+
+struct test_case_t {
+    trace_entry_t entry;
+    // Specifies whether the entry should be processed by the record_filter
+    // as an input. Some entries are added only to show the expected output
+    // and shouldn't be used as input to the record_filter.
+    bool input;
+    // Specifies whether the entry should be expected in the result of the
+    // record filter. This is an array of size equal to the number of test
+    // cases.
+    std::vector<bool> output;
 };
 
 static bool
@@ -176,27 +188,79 @@ print_entry(trace_entry_t entry)
             entry.addr);
 }
 
+bool
+process_entries_and_check_result(test_record_filter_t *record_filter,
+                                 const std::vector<test_case_t> &entries, int index)
+{
+    auto stream = std::unique_ptr<local_stream_t>(new local_stream_t());
+    void *shard_data =
+        record_filter->parallel_shard_init_stream(0, nullptr, stream.get());
+    if (!*record_filter) {
+        fprintf(stderr, "Filtering init failed: %s\n",
+                record_filter->get_error_string().c_str());
+        return false;
+    }
+    // Process each trace entry.
+    for (int i = 0; i < static_cast<int>(entries.size()); ++i) {
+        // We need to emulate the stream for the tool.
+        if (entries[i].entry.type == TRACE_TYPE_MARKER &&
+            entries[i].entry.size == TRACE_MARKER_TYPE_TIMESTAMP)
+            stream->set_last_timestamp(entries[i].entry.addr);
+        if (entries[i].input &&
+            !record_filter->parallel_shard_memref(shard_data, entries[i].entry)) {
+            fprintf(stderr, "Filtering failed: %s\n",
+                    record_filter->parallel_shard_error(shard_data).c_str());
+            return false;
+        }
+    }
+    if (!record_filter->parallel_shard_exit(shard_data) || !*record_filter) {
+        fprintf(stderr, "Filtering exit failed\n");
+        return false;
+    }
+
+    // Check filtered output entries.
+    std::vector<trace_entry_t> filtered = record_filter->get_output_entries();
+    int j = 0;
+    for (int i = 0; i < static_cast<int>(entries.size()); ++i) {
+        if (!entries[i].output[index])
+            continue;
+        if (j >= static_cast<int>(filtered.size())) {
+            fprintf(stderr,
+                    "Too few entries in filtered output (iter=%d). Expected: ", index);
+            print_entry(entries[i].entry);
+            fprintf(stderr, "\n");
+            return false;
+        }
+        if (memcmp(&filtered[j], &entries[i].entry, sizeof(trace_entry_t)) != 0) {
+            fprintf(stderr,
+                    "Wrong filter result for iter=%d, at pos=%d. Expected: ", index, i);
+            print_entry(entries[i].entry);
+            fprintf(stderr, ", got: ");
+            print_entry(filtered[j]);
+            fprintf(stderr, "\n");
+            return false;
+        }
+        ++j;
+    }
+    if (j < static_cast<int>(filtered.size())) {
+        fprintf(stderr, "Got %d extra entries in filtered output (iter=%d). Next one: ",
+                static_cast<int>(filtered.size()) - j, index);
+        print_entry(filtered[j]);
+        fprintf(stderr, "\n");
+        return false;
+    }
+    return true;
+}
+
 static bool
 test_cache_and_type_filter()
 {
-    struct test_case {
-        trace_entry_t entry;
-        // Specifies whether the entry should be processed by the record_filter
-        // as an input. Some entries are added only to show the expected output
-        // and shouldn't be used as input to the record_filter.
-        bool input;
-        // Specifies whether the entry should be expected in the result of the
-        // record filter. This is an array of size equal to the number of test
-        // cases.
-        bool output[2];
-    };
-
     // We test two configurations:
     // 1. filter data address stream using a cache, and filter function markers
     //    and encoding entries, without any stop timestamp.
     // 2. filter data and instruction address stream using a cache, with a
     //    stop timestamp.
-    std::vector<struct test_case> entries = {
+    std::vector<test_case_t> entries = {
         // Trace shard header.
         { { TRACE_TYPE_HEADER, 0, { 0x1 } }, true, { true, true } },
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 0x2 } },
@@ -315,7 +379,6 @@ test_cache_and_type_filter()
     };
 
     for (int k = 0; k < 2; ++k) {
-        auto stream = std::unique_ptr<local_stream_t>(new local_stream_t());
         // Construct record_filter_func_ts.
         std::vector<std::unique_ptr<record_filter_func_t>> filters;
         auto cache_filter = std::unique_ptr<record_filter_func_t>(
@@ -347,64 +410,8 @@ test_cache_and_type_filter()
         uint64_t stop_timestamp = k == 0 ? 0 : 0xabcdee;
         auto record_filter = std::unique_ptr<test_record_filter_t>(
             new test_record_filter_t(std::move(filters), stop_timestamp));
-        void *shard_data =
-            record_filter->parallel_shard_init_stream(0, nullptr, stream.get());
-        if (!*record_filter) {
-            fprintf(stderr, "Filtering init failed\n");
+        if (!process_entries_and_check_result(record_filter.get(), entries, k))
             return false;
-        }
-
-        // Process each trace entry.
-        for (int i = 0; i < static_cast<int>(entries.size()); ++i) {
-            stream->set_last_timestamp(entries[i].entry.addr);
-            // We need to emulate the stream for the tool.
-            if (entries[i].entry.type == TRACE_TYPE_MARKER &&
-                entries[i].entry.size == TRACE_MARKER_TYPE_TIMESTAMP)
-                stream->set_last_timestamp(entries[i].entry.addr);
-            if (entries[i].input &&
-                !record_filter->parallel_shard_memref(shard_data, entries[i].entry)) {
-                fprintf(stderr, "Filtering failed: %s\n",
-                        record_filter->parallel_shard_error(shard_data).c_str());
-                return false;
-            }
-        }
-        if (!record_filter->parallel_shard_exit(shard_data) || !*record_filter) {
-            fprintf(stderr, "Filtering exit failed\n");
-            return false;
-        }
-
-        // Check filtered output entries.
-        std::vector<trace_entry_t> filtered = record_filter->get_output_entries();
-        int j = 0;
-        for (int i = 0; i < static_cast<int>(entries.size()); ++i) {
-            if (!entries[i].output[k])
-                continue;
-            if (j >= static_cast<int>(filtered.size())) {
-                fprintf(stderr,
-                        "Too few entries in filtered output (iter=%d). Expected: ", k);
-                print_entry(entries[i].entry);
-                fprintf(stderr, "\n");
-                return false;
-            }
-            if (memcmp(&filtered[j], &entries[i].entry, sizeof(trace_entry_t)) != 0) {
-                fprintf(stderr,
-                        "Wrong filter result for iter=%d, at pos=%d. Expected: ", k, i);
-                print_entry(entries[i].entry);
-                fprintf(stderr, ", got: ");
-                print_entry(filtered[j]);
-                fprintf(stderr, "\n");
-                return false;
-            }
-            ++j;
-        }
-        if (j < static_cast<int>(filtered.size())) {
-            fprintf(stderr,
-                    "Got %d extra entries in filtered output (iter=%d). Next one: ",
-                    static_cast<int>(filtered.size()) - j, k);
-            print_entry(filtered[j]);
-            fprintf(stderr, "\n");
-            return false;
-        }
     }
     fprintf(stderr, "test_cache_and_type_filter passed\n");
     return true;
@@ -413,51 +420,55 @@ test_cache_and_type_filter()
 static bool
 test_chunk_update()
 {
-    struct test_case {
-        trace_entry_t entry;
-        // Specifies whether the entry should be expected in the filtered result.
-        bool remain;
-    };
     // From Chunk 1 we remove 3 visible records (the _FUNC_ ones); the encodings
-    // are not visible in the record count.
-    constexpr int REMOVED_VISIBLE_COUNT = 3;
-    std::vector<struct test_case> entries = {
+    // are also removed but are not visible in the record count.
+    std::vector<test_case_t> entries = {
         // Header.
-        { { TRACE_TYPE_HEADER, 0, { 0x1 } }, true },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 0x2 } }, true },
+        { { TRACE_TYPE_HEADER, 0, { 0x1 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 0x2 } }, true, { true } },
         { { TRACE_TYPE_MARKER,
             TRACE_MARKER_TYPE_FILETYPE,
             { OFFLINE_FILE_TYPE_ENCODINGS } },
-          true },
-        { { TRACE_TYPE_THREAD, 0, { 0x4 } }, true },
-        { { TRACE_TYPE_PID, 0, { 0x5 } }, true },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 0x6 } }, true },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, { 0x2 } }, true },
+          true,
+          { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE, { 0 } }, false, { true } },
+        { { TRACE_TYPE_THREAD, 0, { 0x4 } }, true, { true } },
+        { { TRACE_TYPE_PID, 0, { 0x5 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 0x6 } },
+          true,
+          { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, { 0x2 } },
+          true,
+          { true } },
         // Chunk 1.
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x7 } }, true },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } }, true },
-        { { TRACE_TYPE_ENCODING, 2, { 0xf00d } }, false },
-        { { TRACE_TYPE_INSTR, 2, { 0x1234 } }, true },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { 0 } }, false },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_RETADDR, { 0 } }, false },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG, { 0 } }, false },
-        { { TRACE_TYPE_ENCODING, 2, { 0xf00d } }, false },
-        { { TRACE_TYPE_INSTR, 2, { 0x1235 } }, true },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER, { 0 } }, true },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x7 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } }, true, { true } },
+        { { TRACE_TYPE_ENCODING, 2, { 0xf00d } }, true, { false } },
+        { { TRACE_TYPE_INSTR, 2, { 0x1234 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { 0 } }, true, { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_RETADDR, { 0 } }, true, { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG, { 0 } }, true, { false } },
+        { { TRACE_TYPE_ENCODING, 2, { 0xf00d } }, true, { false } },
+        { { TRACE_TYPE_INSTR, 2, { 0x1235 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER, { 0 } }, true, { true } },
         // Chunk 2.
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL, { 12 } }, true },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x7 } }, true },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } }, true },
-        { { TRACE_TYPE_ENCODING, 2, { 0xf00d } }, false },
-        { { TRACE_TYPE_INSTR, 2, { 0x1236 } }, true },
-        { { TRACE_TYPE_ENCODING, 2, { 0xf00d } }, false },
-        { { TRACE_TYPE_INSTR, 2, { 01237 } }, true },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER, { 1 } }, true },
-        { { TRACE_TYPE_FOOTER, 0, { 0xa2 } }, true }
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL, { 12 } },
+          true,
+          { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL, { 9 } },
+          false,
+          { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x7 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } }, true, { true } },
+        { { TRACE_TYPE_ENCODING, 2, { 0xf00d } }, true, { false } },
+        { { TRACE_TYPE_INSTR, 2, { 0x1236 } }, true, { true } },
+        { { TRACE_TYPE_ENCODING, 2, { 0xf00d } }, true, { false } },
+        { { TRACE_TYPE_INSTR, 2, { 01237 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER, { 1 } }, true, { true } },
+        { { TRACE_TYPE_FOOTER, 0, { 0xa2 } }, true, { true } },
     };
 
     // Test that the ordinal marker is updated on removing records.
-    auto stream = std::unique_ptr<local_stream_t>(new local_stream_t());
     std::vector<std::unique_ptr<record_filter_func_t>> filters;
     auto filter =
         std::unique_ptr<record_filter_func_t>(new dynamorio::drmemtrace::type_filter_t(
@@ -472,72 +483,8 @@ test_chunk_update()
     filters.push_back(std::move(filter));
     auto record_filter = std::unique_ptr<test_record_filter_t>(
         new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
-    void *shard_data =
-        record_filter->parallel_shard_init_stream(0, nullptr, stream.get());
-    if (!*record_filter) {
-        fprintf(stderr, "Filtering init failed\n");
+    if (!process_entries_and_check_result(record_filter.get(), entries, 0))
         return false;
-    }
-    for (int i = 0; i < static_cast<int>(entries.size()); ++i) {
-        // We need to emulate the stream for the tool.
-        if (entries[i].entry.type == TRACE_TYPE_MARKER &&
-            entries[i].entry.size == TRACE_MARKER_TYPE_TIMESTAMP)
-            stream->set_last_timestamp(entries[i].entry.addr);
-        if (!record_filter->parallel_shard_memref(shard_data, entries[i].entry)) {
-            fprintf(stderr, "Filtering failed: %s\n",
-                    record_filter->parallel_shard_error(shard_data).c_str());
-            return false;
-        }
-    }
-    if (!record_filter->parallel_shard_exit(shard_data) || !*record_filter) {
-        fprintf(stderr, "Filtering exit failed\n");
-        return false;
-    }
-    // Check filtered output entries.
-    std::vector<trace_entry_t> filtered = record_filter->get_output_entries();
-    int j = 0;
-    for (int i = 0; i < static_cast<int>(entries.size()); ++i) {
-        if (!entries[i].remain)
-            continue;
-        if (j >= static_cast<int>(filtered.size())) {
-            fprintf(stderr, "Too few entries in filtered output. Expected: ");
-            print_entry(entries[i].entry);
-            fprintf(stderr, "\n");
-            return false;
-        }
-        if (entries[i].entry.type == TRACE_TYPE_MARKER &&
-            entries[i].entry.size == TRACE_MARKER_TYPE_RECORD_ORDINAL) {
-            if (filtered[j].type != entries[i].entry.type ||
-                filtered[j].size != entries[i].entry.size ||
-                filtered[j].addr != entries[i].entry.addr - REMOVED_VISIBLE_COUNT) {
-                fprintf(stderr, "Failed to update record ordinal: got %zu\n",
-                        filtered[j].addr);
-                return false;
-            }
-        } else if (memcmp(&filtered[j], &entries[i].entry, sizeof(trace_entry_t)) != 0) {
-            if (entries[i].entry.type == TRACE_TYPE_MARKER &&
-                entries[i].entry.size == TRACE_MARKER_TYPE_FILETYPE &&
-                filtered[j].type == entries[i].entry.type &&
-                filtered[j].size == entries[i].entry.size) {
-                // This is expected, because we removed encodings.
-            } else {
-                fprintf(stderr, "Wrong filter result at pos=%d. Expected: ", i);
-                print_entry(entries[i].entry);
-                fprintf(stderr, ", got: ");
-                print_entry(filtered[j]);
-                fprintf(stderr, "\n");
-                return false;
-            }
-        }
-        ++j;
-    }
-    if (j < static_cast<int>(filtered.size())) {
-        fprintf(stderr, "Got %d extra entries in filtered output. Next one: ",
-                static_cast<int>(filtered.size()) - j);
-        print_entry(filtered[j]);
-        fprintf(stderr, "\n");
-        return false;
-    }
     fprintf(stderr, "test_chunk_update passed\n");
     return true;
 }

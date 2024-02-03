@@ -156,10 +156,12 @@ record_filter_t::parallel_shard_init_stream(int shard_index, void *worker_data,
     if (!error.empty()) {
         per_shard->error = "Failure in opening writer: " + error;
         success_ = false;
+        return reinterpret_cast<void *>(per_shard);
     }
-    if (!per_shard->writer && !per_shard->archive_writer) {
+    if (per_shard->writer == nullptr) {
         per_shard->error = "Could not open a writer for " + per_shard->output_path;
         success_ = false;
+        return reinterpret_cast<void *>(per_shard);
     }
     per_shard->shard_stream = shard_stream;
     per_shard->enabled = true;
@@ -193,6 +195,7 @@ record_filter_t::parallel_shard_exit(void *shard_data)
     // do it.
     per_shard->file_writer.reset(nullptr);
     per_shard->archive_writer.reset(nullptr);
+    per_shard->writer = nullptr;
     return res;
 }
 
