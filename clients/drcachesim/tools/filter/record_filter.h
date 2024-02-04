@@ -43,8 +43,10 @@
 #include <vector>
 
 #include "analysis_tool.h"
+#include "archive_ostream.h"
 #include "memref.h"
 #include "memtrace_stream.h"
+#include "raw2trace_shared.h"
 #include "trace_entry.h"
 
 namespace dynamorio {
@@ -114,6 +116,7 @@ public:
         std::string error_string_;
     };
 
+    // stop_timestamp sets a point beyond which no filtering will occur.
     record_filter_t(const std::string &output_dir,
                     std::vector<std::unique_ptr<record_filter_func_t>> filters,
                     uint64_t stop_timestamp, unsigned int verbose);
@@ -137,7 +140,11 @@ public:
 protected:
     struct per_shard_t {
         std::string output_path;
-        std::unique_ptr<std::ostream> writer;
+        // One and only one of these writers can be valid.
+        std::unique_ptr<std::ostream> file_writer;
+        std::unique_ptr<archive_ostream_t> archive_writer;
+        // This points to one of the writers.
+        std::ostream *writer = nullptr;
         std::string error;
         std::vector<void *> filter_shard_data;
         std::unordered_map<uint64_t, std::vector<trace_entry_t>> delayed_encodings;
@@ -146,7 +153,14 @@ protected:
         uint64_t output_entry_count;
         memtrace_stream_t *shard_stream;
         bool enabled;
+        uint64_t chunk_ordinal = 0;
+        uint64_t removed_from_prev_chunk = 0;
+        memref_counter_t memref_counter;
     };
+
+    virtual std::string
+    open_new_chunk(per_shard_t *shard);
+
     std::unordered_map<int, per_shard_t *> shard_map_;
     // This mutex is only needed in parallel_shard_init. In all other accesses
     // to shard_map (print_results) we are single-threaded.
@@ -156,7 +170,9 @@ private:
     virtual bool
     write_trace_entry(per_shard_t *shard, const trace_entry_t &entry);
 
-    virtual std::unique_ptr<std::ostream>
+    // Sets one of file_writer or archive_writer, along with writer, in per_shard.
+    // Returns "" or an error string.
+    virtual std::string
     get_writer(per_shard_t *per_shard, memtrace_stream_t *shard_stream);
 
     bool

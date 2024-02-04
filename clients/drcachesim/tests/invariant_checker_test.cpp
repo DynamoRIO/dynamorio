@@ -3169,6 +3169,50 @@ check_kernel_syscall_trace(void)
 #endif
 }
 
+bool
+check_has_instructions(void)
+{
+    std::cerr << "Testing at-least-1-instruction\n";
+    // Correct: 1 regular instruction.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Correct: 1 unfetched instruction.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr_type(TRACE_TYPE_INSTR_NO_FETCH, TID_A, 1),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Incorrect: no instructions.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, true,
+                         { "An unfiltered thread should have at least 1 instruction",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/3, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/0 },
+                         "Failed to catch missing instructions"))
+            return false;
+    }
+    return true;
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -3179,7 +3223,7 @@ test_main(int argc, const char *argv[])
         check_branch_decoration() && check_filter_endpoint() &&
         check_timestamps_increase_monotonically() &&
         check_read_write_records_match_operands() && check_exit_found() &&
-        check_kernel_syscall_trace()) {
+        check_kernel_syscall_trace() && check_has_instructions()) {
         std::cerr << "invariant_checker_test passed\n";
         return 0;
     }
