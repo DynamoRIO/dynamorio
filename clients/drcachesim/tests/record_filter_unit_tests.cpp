@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,6 +33,7 @@
 /* Unit tests for the record_filter analyzer. */
 
 #include "analyzer.h"
+#include "archive_ostream.h"
 #include "dr_api.h"
 #include "droption.h"
 #include "tools/basic_counts.h"
@@ -40,6 +41,7 @@
 #include "tools/filter/cache_filter.h"
 #include "tools/filter/record_filter.h"
 #include "tools/filter/type_filter.h"
+#include "zipfile_ostream.h"
 
 #include <inttypes.h>
 #include <fstream>
@@ -48,6 +50,8 @@
 namespace dynamorio {
 namespace drmemtrace {
 
+using record_filter_func_t =
+    ::dynamorio::drmemtrace::record_filter_t::record_filter_func_t;
 using ::dynamorio::droption::droption_parser_t;
 using ::dynamorio::droption::DROPTION_SCOPE_ALL;
 using ::dynamorio::droption::DROPTION_SCOPE_FRONTEND;
@@ -81,15 +85,16 @@ static droption_t<std::string> op_tmp_output_dir(
 class test_record_filter_t : public dynamorio::drmemtrace::record_filter_t {
 public:
     test_record_filter_t(std::vector<std::unique_ptr<record_filter_func_t>> filters,
-                         uint64_t last_timestamp)
+                         uint64_t last_timestamp, bool write_archive = false)
         : record_filter_t("", std::move(filters), last_timestamp,
                           /*verbose=*/0)
+        , write_archive_(write_archive)
     {
     }
     std::vector<trace_entry_t>
     get_output_entries()
     {
-        return output;
+        return output_;
     }
 
 protected:
@@ -97,17 +102,27 @@ protected:
     write_trace_entry(dynamorio::drmemtrace::record_filter_t::per_shard_t *shard,
                       const trace_entry_t &entry) override
     {
-        output.push_back(entry);
+        output_.push_back(entry);
         return true;
     }
-    std::unique_ptr<std::ostream>
+    std::string
     get_writer(per_shard_t *per_shard, memtrace_stream_t *shard_stream) override
     {
-        return std::unique_ptr<std::ostream>(new std::ofstream("/dev/null"));
+        if (write_archive_) {
+            per_shard->archive_writer =
+                std::unique_ptr<archive_ostream_t>(new zipfile_ostream_t("/dev/null"));
+            per_shard->writer = per_shard->archive_writer.get();
+        } else {
+            per_shard->file_writer =
+                std::unique_ptr<std::ostream>(new std::ofstream("/dev/null"));
+            per_shard->writer = per_shard->file_writer.get();
+        }
+        return "";
     }
 
 private:
-    std::vector<trace_entry_t> output;
+    std::vector<trace_entry_t> output_;
+    bool write_archive_ = false;
 };
 
 class local_stream_t : public default_memtrace_stream_t {
@@ -125,6 +140,18 @@ public:
 
 private:
     uint64_t last_timestamp_;
+};
+
+struct test_case_t {
+    trace_entry_t entry;
+    // Specifies whether the entry should be processed by the record_filter
+    // as an input. Some entries are added only to show the expected output
+    // and shouldn't be used as input to the record_filter.
+    bool input;
+    // Specifies whether the entry should be expected in the result of the
+    // record filter. This is an array of size equal to the number of test
+    // cases.
+    std::vector<bool> output;
 };
 
 static bool
@@ -161,27 +188,79 @@ print_entry(trace_entry_t entry)
             entry.addr);
 }
 
+bool
+process_entries_and_check_result(test_record_filter_t *record_filter,
+                                 const std::vector<test_case_t> &entries, int index)
+{
+    auto stream = std::unique_ptr<local_stream_t>(new local_stream_t());
+    void *shard_data =
+        record_filter->parallel_shard_init_stream(0, nullptr, stream.get());
+    if (!*record_filter) {
+        fprintf(stderr, "Filtering init failed: %s\n",
+                record_filter->get_error_string().c_str());
+        return false;
+    }
+    // Process each trace entry.
+    for (int i = 0; i < static_cast<int>(entries.size()); ++i) {
+        // We need to emulate the stream for the tool.
+        if (entries[i].entry.type == TRACE_TYPE_MARKER &&
+            entries[i].entry.size == TRACE_MARKER_TYPE_TIMESTAMP)
+            stream->set_last_timestamp(entries[i].entry.addr);
+        if (entries[i].input &&
+            !record_filter->parallel_shard_memref(shard_data, entries[i].entry)) {
+            fprintf(stderr, "Filtering failed: %s\n",
+                    record_filter->parallel_shard_error(shard_data).c_str());
+            return false;
+        }
+    }
+    if (!record_filter->parallel_shard_exit(shard_data) || !*record_filter) {
+        fprintf(stderr, "Filtering exit failed\n");
+        return false;
+    }
+
+    // Check filtered output entries.
+    std::vector<trace_entry_t> filtered = record_filter->get_output_entries();
+    int j = 0;
+    for (int i = 0; i < static_cast<int>(entries.size()); ++i) {
+        if (!entries[i].output[index])
+            continue;
+        if (j >= static_cast<int>(filtered.size())) {
+            fprintf(stderr,
+                    "Too few entries in filtered output (iter=%d). Expected: ", index);
+            print_entry(entries[i].entry);
+            fprintf(stderr, "\n");
+            return false;
+        }
+        if (memcmp(&filtered[j], &entries[i].entry, sizeof(trace_entry_t)) != 0) {
+            fprintf(stderr,
+                    "Wrong filter result for iter=%d, at pos=%d. Expected: ", index, i);
+            print_entry(entries[i].entry);
+            fprintf(stderr, ", got: ");
+            print_entry(filtered[j]);
+            fprintf(stderr, "\n");
+            return false;
+        }
+        ++j;
+    }
+    if (j < static_cast<int>(filtered.size())) {
+        fprintf(stderr, "Got %d extra entries in filtered output (iter=%d). Next one: ",
+                static_cast<int>(filtered.size()) - j, index);
+        print_entry(filtered[j]);
+        fprintf(stderr, "\n");
+        return false;
+    }
+    return true;
+}
+
 static bool
 test_cache_and_type_filter()
 {
-    struct test_case {
-        trace_entry_t entry;
-        // Specifies whether the entry should be processed by the record_filter
-        // as an input. Some entries are added only to show the expected output
-        // and shouldn't be used as input to the record_filter.
-        bool input;
-        // Specifies whether the entry should be expected in the result of the
-        // record filter. This is an array of size equal to the number of test
-        // cases.
-        bool output[2];
-    };
-
     // We test two configurations:
     // 1. filter data address stream using a cache, and filter function markers
     //    and encoding entries, without any stop timestamp.
     // 2. filter data and instruction address stream using a cache, with a
     //    stop timestamp.
-    std::vector<struct test_case> entries = {
+    std::vector<test_case_t> entries = {
         // Trace shard header.
         { { TRACE_TYPE_HEADER, 0, { 0x1 } }, true, { true, true } },
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 0x2 } },
@@ -219,6 +298,7 @@ test_cache_and_type_filter()
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } },
           true,
           { true, true } },
+        { { TRACE_TYPE_ENCODING, 4, { 0xf00d } }, true, { false, true } },
         { { TRACE_TYPE_INSTR, 4, { 0xaa00 } }, true, { true, true } },
         { { TRACE_TYPE_WRITE, 4, { 0xaa80 } }, true, { true, true } },
 
@@ -261,7 +341,7 @@ test_cache_and_type_filter()
         // cache_filter.
         { { TRACE_TYPE_ENCODING, 4, { 0x8bad } }, true, { false, false } },
         { { TRACE_TYPE_ENCODING, 2, { 0xf00d } }, true, { false, false } },
-        { { TRACE_TYPE_INSTR, 4, { 0xaa80 } }, true, { true, false } },
+        { { TRACE_TYPE_INSTR, 6, { 0xaa80 } }, true, { true, false } },
         // Filtered out by the cache_filter.
         { { TRACE_TYPE_READ, 4, { 0xaaa0 } }, true, { false, false } },
 
@@ -288,27 +368,23 @@ test_cache_and_type_filter()
         // For the 1st test: encoding entries are filtered out by type_filter.
         { { TRACE_TYPE_ENCODING, 4, { 0xdead } }, true, { false, true } },
         { { TRACE_TYPE_ENCODING, 2, { 0xbeef } }, true, { false, true } },
-        { { TRACE_TYPE_INSTR, 4, { 0xab80 } }, true, { true, true } },
+        { { TRACE_TYPE_INSTR, 6, { 0xab80 } }, true, { true, true } },
         // For the 2nd test: Delayed encodings from the previous instance
         // of the instruction at PC 0xaa80 that was filtered out.
         { { TRACE_TYPE_ENCODING, 4, { 0x8bad } }, false, { false, true } },
         { { TRACE_TYPE_ENCODING, 2, { 0xf00d } }, false, { false, true } },
-        { { TRACE_TYPE_INSTR, 4, { 0xaa80 } }, true, { true, true } },
+        { { TRACE_TYPE_INSTR, 6, { 0xaa80 } }, true, { true, true } },
         // Trace shard footer.
         { { TRACE_TYPE_FOOTER, 0, { 0xa2 } }, true, { true, true } }
     };
 
     for (int k = 0; k < 2; ++k) {
-        auto stream = std::unique_ptr<local_stream_t>(new local_stream_t());
         // Construct record_filter_func_ts.
-        std::vector<
-            std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>>
-            filters;
-        auto cache_filter =
-            std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
-                new dynamorio::drmemtrace::cache_filter_t(
-                    /*cache_associativity=*/1, /*cache_line_size=*/64, /*cache_size=*/128,
-                    /*filter_data=*/true, /*filter_instrs=*/k == 1));
+        std::vector<std::unique_ptr<record_filter_func_t>> filters;
+        auto cache_filter = std::unique_ptr<record_filter_func_t>(
+            new dynamorio::drmemtrace::cache_filter_t(
+                /*cache_associativity=*/1, /*cache_line_size=*/64, /*cache_size=*/128,
+                /*filter_data=*/true, /*filter_instrs=*/k == 1));
         if (cache_filter->get_error_string() != "") {
             fprintf(stderr, "Couldn't construct a cache_filter %s",
                     cache_filter->get_error_string().c_str());
@@ -317,8 +393,7 @@ test_cache_and_type_filter()
         filters.push_back(std::move(cache_filter));
 
         if (k == 0) {
-            auto type_filter = std::unique_ptr<
-                dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
+            auto type_filter = std::unique_ptr<record_filter_func_t>(
                 new dynamorio::drmemtrace::type_filter_t({ TRACE_TYPE_ENCODING },
                                                          { TRACE_MARKER_TYPE_FUNC_ID,
                                                            TRACE_MARKER_TYPE_FUNC_RETADDR,
@@ -335,68 +410,88 @@ test_cache_and_type_filter()
         uint64_t stop_timestamp = k == 0 ? 0 : 0xabcdee;
         auto record_filter = std::unique_ptr<test_record_filter_t>(
             new test_record_filter_t(std::move(filters), stop_timestamp));
-        void *shard_data =
-            record_filter->parallel_shard_init_stream(0, nullptr, stream.get());
-        if (!*record_filter) {
-            fprintf(stderr, "Filtering init failed\n");
+        if (!process_entries_and_check_result(record_filter.get(), entries, k))
             return false;
-        }
-
-        // Process each trace entry.
-        for (int i = 0; i < static_cast<int>(entries.size()); ++i) {
-            // We need to emulate the stream for the tool.
-            if (entries[i].entry.type == TRACE_TYPE_MARKER &&
-                entries[i].entry.size == TRACE_MARKER_TYPE_TIMESTAMP)
-                stream->set_last_timestamp(entries[i].entry.addr);
-            if (entries[i].input &&
-                !record_filter->parallel_shard_memref(shard_data, entries[i].entry)) {
-                fprintf(stderr, "Filtering failed\n");
-                return false;
-            }
-        }
-        if (!record_filter->parallel_shard_exit(shard_data) || !*record_filter) {
-            fprintf(stderr, "Filtering exit failed\n");
-            return false;
-        }
-
-        // Check filtered output entries.
-        std::vector<trace_entry_t> filtered = record_filter->get_output_entries();
-        int j = 0;
-        for (int i = 0; i < static_cast<int>(entries.size()); ++i) {
-            if (!entries[i].output[k])
-                continue;
-            if (j >= static_cast<int>(filtered.size())) {
-                fprintf(stderr,
-                        "Too few entries in filtered output (iter=%d). Expected: ", k);
-                print_entry(entries[i].entry);
-                fprintf(stderr, "\n");
-                return false;
-            }
-            if (memcmp(&filtered[j], &entries[i].entry, sizeof(trace_entry_t)) != 0) {
-                fprintf(stderr,
-                        "Wrong filter result for iter=%d, at pos=%d. Expected: ", k, i);
-                print_entry(entries[i].entry);
-                fprintf(stderr, ", got: ");
-                print_entry(filtered[j]);
-                fprintf(stderr, "\n");
-                return false;
-            }
-            ++j;
-        }
-        if (j < static_cast<int>(filtered.size())) {
-            fprintf(stderr,
-                    "Got %d extra entries in filtered output (iter=%d). Next one: ",
-                    static_cast<int>(filtered.size()) - j, k);
-            print_entry(filtered[j]);
-            fprintf(stderr, "\n");
-            return false;
-        }
     }
     fprintf(stderr, "test_cache_and_type_filter passed\n");
     return true;
 }
 
-// Tests I/O for the record_filter.
+static bool
+test_chunk_update()
+{
+    // From Chunk 1 we remove 3 visible records (the _FUNC_ ones); the encodings
+    // are also removed but are not visible in the record count.
+    std::vector<test_case_t> entries = {
+        // Header.
+        { { TRACE_TYPE_HEADER, 0, { 0x1 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 0x2 } }, true, { true } },
+        { { TRACE_TYPE_MARKER,
+            TRACE_MARKER_TYPE_FILETYPE,
+            { OFFLINE_FILE_TYPE_ENCODINGS } },
+          true,
+          { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE, { 0 } }, false, { true } },
+        { { TRACE_TYPE_THREAD, 0, { 0x4 } }, true, { true } },
+        { { TRACE_TYPE_PID, 0, { 0x5 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 0x6 } },
+          true,
+          { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, { 0x2 } },
+          true,
+          { true } },
+        // Chunk 1.
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x7 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } }, true, { true } },
+        { { TRACE_TYPE_ENCODING, 2, { 0xf00d } }, true, { false } },
+        { { TRACE_TYPE_INSTR, 2, { 0x1234 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { 0 } }, true, { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_RETADDR, { 0 } }, true, { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG, { 0 } }, true, { false } },
+        { { TRACE_TYPE_ENCODING, 2, { 0xf00d } }, true, { false } },
+        { { TRACE_TYPE_INSTR, 2, { 0x1235 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER, { 0 } }, true, { true } },
+        // Chunk 2.
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL, { 12 } },
+          true,
+          { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL, { 9 } },
+          false,
+          { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x7 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } }, true, { true } },
+        { { TRACE_TYPE_ENCODING, 2, { 0xf00d } }, true, { false } },
+        { { TRACE_TYPE_INSTR, 2, { 0x1236 } }, true, { true } },
+        { { TRACE_TYPE_ENCODING, 2, { 0xf00d } }, true, { false } },
+        { { TRACE_TYPE_INSTR, 2, { 01237 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER, { 1 } }, true, { true } },
+        { { TRACE_TYPE_FOOTER, 0, { 0xa2 } }, true, { true } },
+    };
+
+    // Test that the ordinal marker is updated on removing records.
+    std::vector<std::unique_ptr<record_filter_func_t>> filters;
+    auto filter =
+        std::unique_ptr<record_filter_func_t>(new dynamorio::drmemtrace::type_filter_t(
+            { TRACE_TYPE_ENCODING },
+            { TRACE_MARKER_TYPE_FUNC_ID, TRACE_MARKER_TYPE_FUNC_RETADDR,
+              TRACE_MARKER_TYPE_FUNC_ARG }));
+    if (!filter->get_error_string().empty()) {
+        fprintf(stderr, "Couldn't construct a type_filter %s",
+                filter->get_error_string().c_str());
+        return false;
+    }
+    filters.push_back(std::move(filter));
+    auto record_filter = std::unique_ptr<test_record_filter_t>(
+        new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
+    if (!process_entries_and_check_result(record_filter.get(), entries, 0))
+        return false;
+    fprintf(stderr, "test_chunk_update passed\n");
+    return true;
+}
+
+// Tests I/O for the record_filter on a legacy trace.
+// We also have the tool.record_filter test which tests on a freshly generated
+// zipfile trace.
 static bool
 test_null_filter()
 {
@@ -405,11 +500,8 @@ test_null_filter()
         FATAL_ERROR("Failed to create filtered trace output dir %s", output_dir.c_str());
     }
     auto null_filter =
-        std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
-            new dynamorio::drmemtrace::null_filter_t());
-    std::vector<
-        std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>>
-        filter_funcs;
+        std::unique_ptr<record_filter_func_t>(new dynamorio::drmemtrace::null_filter_t());
+    std::vector<std::unique_ptr<record_filter_func_t>> filter_funcs;
     filter_funcs.push_back(std::move(null_filter));
     // We use a very small stop_timestamp for the record filter. This is to verify that
     // we emit the TRACE_MARKER_TYPE_FILTER_ENDPOINT marker for each thread even if it
@@ -453,10 +545,8 @@ test_main(int argc, const char *argv[])
         FATAL_ERROR("Usage error: %s\nUsage:\n%s", parse_err.c_str(),
                     droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
     }
-    if (!test_cache_and_type_filter() || !test_null_filter())
+    if (!test_cache_and_type_filter() || !test_chunk_update() || !test_null_filter())
         return 1;
-    // TODO i#5675: Add test using a freshly generated trace (during the test) when
-    // zip support is added.
     fprintf(stderr, "All done!\n");
     return 0;
 }
