@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,6 +31,12 @@
  */
 
 /* Standalone record filter tool launcher for file traces. */
+
+#ifdef WINDOWS
+#    define NOMINMAX // Avoid windows.h messing up std::max.
+#    define UNICODE  // For Windows headers.
+#    define _UNICODE // For C headers.
+#endif
 
 #include "analyzer.h"
 #include "droption.h"
@@ -77,8 +83,10 @@ static droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 
                                            "Verbosity level for notifications.");
 
 static droption_t<uint64_t>
+    // Wrap max in parens to work around Visual Studio compiler issues with the
+    // max macro (even despite NOMINMAX defined above).
     op_stop_timestamp(DROPTION_SCOPE_ALL, "stop_timestamp", 0, 0,
-                      std::numeric_limits<uint64_t>::max(),
+                      (std::numeric_limits<uint64_t>::max)(),
                       "Timestamp (in us) in the trace when to stop filtering.",
                       "Record filtering will be disabled (everything will be output) "
                       "when the tool sees a TRACE_MARKER_TYPE_TIMESTAMP marker with "
@@ -86,21 +94,21 @@ static droption_t<uint64_t>
 
 static droption_t<int> op_cache_filter_size(
     DROPTION_SCOPE_FRONTEND, "cache_filter_size", 0,
-    "[Required] Enable data cache filter with given size (in bytes).",
+    "Enable data cache filter with given size (in bytes).",
     "Enable data cache filter with given size (in bytes), with 64 byte "
     "line size and a direct mapped LRU cache.");
 
-static droption_t<std::string> op_remove_trace_types(
-    DROPTION_SCOPE_FRONTEND, "remove_trace_types", "",
-    "[Required] Comma-separated integers for trace types to remove.",
-    "Comma-separated integers for trace types to remove. "
-    "See trace_type_t for the list of trace entry types.");
+static droption_t<std::string>
+    op_remove_trace_types(DROPTION_SCOPE_FRONTEND, "remove_trace_types", "",
+                          "Comma-separated integers for trace types to remove.",
+                          "Comma-separated integers for trace types to remove. "
+                          "See trace_type_t for the list of trace entry types.");
 
-static droption_t<std::string> op_remove_marker_types(
-    DROPTION_SCOPE_FRONTEND, "remove_marker_types", "",
-    "[Required] Comma-separated integers for marker types to remove.",
-    "Comma-separated integers for marker types to remove. "
-    "See trace_marker_type_t for the list of marker types.");
+static droption_t<std::string>
+    op_remove_marker_types(DROPTION_SCOPE_FRONTEND, "remove_marker_types", "",
+                           "Comma-separated integers for marker types to remove.",
+                           "Comma-separated integers for marker types to remove. "
+                           "See trace_marker_type_t for the list of marker types.");
 
 template <typename T>
 std::vector<T>
@@ -124,6 +132,10 @@ int
 _tmain(int argc, const TCHAR *targv[])
 {
     disable_popups();
+
+#if defined(WINDOWS) && !defined(_UNICODE)
+#    error _UNICODE must be defined
+#endif
 
     char **argv;
     drfront_status_t sc = drfront_convert_args(targv, &argv, argc);
@@ -170,8 +182,9 @@ _tmain(int argc, const TCHAR *targv[])
     std::vector<record_analysis_tool_t *> tools;
     tools.push_back(record_filter.get());
 
-    record_analyzer_t record_analyzer(op_trace_dir.get_value(), &tools[0],
-                                      (int)tools.size());
+    record_analyzer_t record_analyzer(
+        op_trace_dir.get_value(), &tools[0], (int)tools.size(), /*worker_count=*/0,
+        /*skip_instrs=*/0, /*interval_microseconds=*/0, op_verbose.get_value());
     if (!record_analyzer) {
         FATAL_ERROR("Failed to initialize trace filter: %s",
                     record_analyzer.get_error_string().c_str());

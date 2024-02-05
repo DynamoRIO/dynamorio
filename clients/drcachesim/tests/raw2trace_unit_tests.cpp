@@ -1508,6 +1508,84 @@ test_rseq_rollback_with_signal(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
 }
 
+/* Tests rseq rollback with taken branch right before signal. */
+bool
+test_rseq_rollback_with_signal_after_branch(void *drcontext)
+{
+    std::cerr << "\n===============\nTesting rseq rollback with taken branch before "
+                 "signal.\n";
+    instrlist_t *ilist = instrlist_create(drcontext);
+    // raw2trace doesn't like offsets of 0 so we shift with a nop.
+    instr_t *nop = XINST_CREATE_nop(drcontext);
+    instr_t *move1 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *store =
+        XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(REG2, 0), opnd_create_reg(REG1));
+    instr_t *jcc =
+        XINST_CREATE_jump_cond(drcontext, DR_PRED_EQ, opnd_create_instr(store));
+    instr_t *move2 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
+    instrlist_append(ilist, nop);
+    instrlist_append(ilist, jcc);
+    instrlist_append(ilist, move1);
+    instrlist_append(ilist, store);
+    instrlist_append(ilist, move2);
+    size_t offs_nop = 0;
+    size_t offs_jcc = offs_nop + instr_length(drcontext, nop);
+    size_t offs_move1 = offs_jcc + instr_length(drcontext, jcc);
+    size_t offs_store = offs_move1 + instr_length(drcontext, move1);
+    size_t offs_move2 = offs_store + instr_length(drcontext, store);
+
+    std::vector<offline_entry_t> raw;
+    raw.push_back(make_header());
+    raw.push_back(make_tid());
+    raw.push_back(make_pid());
+    raw.push_back(make_line_size());
+    raw.push_back(make_timestamp());
+    raw.push_back(make_core());
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_RSEQ_ENTRY, offs_move2));
+    raw.push_back(make_block(offs_jcc, 1));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_RSEQ_ABORT, offs_store));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_KERNEL_EVENT, offs_store));
+    raw.push_back(make_block(offs_move2, 1));
+    raw.push_back(make_exit());
+
+    std::vector<uint64_t> stats;
+    std::vector<trace_entry_t> entries;
+    if (!run_raw2trace(drcontext, raw, ilist, entries, &stats))
+        return false;
+    int idx = 0;
+    return (
+        stats[RAW2TRACE_STAT_RSEQ_ABORT] == 1 &&
+        check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RSEQ_ENTRY) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#ifdef X86_32
+        // An extra encoding entry is needed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#endif
+        check_entry(entries, idx, TRACE_TYPE_INSTR_TAKEN_JUMP, -1, offs_jcc) &&
+        // The move1 and committing store should not be here.
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RSEQ_ABORT) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_EVENT) &&
+        // Normally the handler is called with another kernel event. The
+        // trace here is simplified to test rseq abort followed by kernel event.
+        // The move2 instr.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move2) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+}
+
 /* Tests rollback i#5954 where a chunk boundary splits an rseq region. */
 bool
 test_rseq_rollback_with_chunks(void *drcontext)
@@ -1980,6 +2058,203 @@ test_rseq_side_exit_inverted_with_timestamp(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_WRITE, -1) &&
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move2) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+}
+
+/* Tests an inverted rseq side exit with delayed branch and synthetic jump (i#6346). */
+bool
+test_rseq_side_exit_inverted_with_delayed_branches(void *drcontext)
+{
+    std::cerr
+        << "\n===============\nTesting inverted rseq side exit with delayed branches\n";
+    instrlist_t *ilist = instrlist_create(drcontext);
+    // raw2trace doesn't like offsets of 0 so we shift with a nop.
+    instr_t *nop = XINST_CREATE_nop(drcontext);
+    instr_t *move1 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *move3 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
+    // Our conditional jumps over the jump which is the exit.
+    instr_t *jcc =
+        XINST_CREATE_jump_cond(drcontext, DR_PRED_EQ, opnd_create_instr(move1));
+    instr_t *jmp = XINST_CREATE_jump(drcontext, opnd_create_instr(move3));
+    instr_t *store =
+        XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(REG2, 0), opnd_create_reg(REG1));
+    instr_t *move2 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
+    instrlist_append(ilist, nop);
+    instrlist_append(ilist, jcc);
+    instrlist_append(ilist, jmp);
+    instrlist_append(ilist, move1);
+    instrlist_append(ilist, store);
+    instrlist_append(ilist, move2);
+    instrlist_append(ilist, move3);
+    size_t offs_nop = 0;
+    size_t offs_jcc = offs_nop + instr_length(drcontext, nop);
+    size_t offs_jmp = offs_jcc + instr_length(drcontext, jcc);
+    size_t offs_move1 = offs_jmp + instr_length(drcontext, jmp);
+    size_t offs_store = offs_move1 + instr_length(drcontext, move1);
+    size_t offs_move2 = offs_store + instr_length(drcontext, store);
+    size_t offs_move3 = offs_move2 + instr_length(drcontext, move2);
+
+    std::vector<offline_entry_t> raw;
+    raw.push_back(make_header());
+    raw.push_back(make_tid());
+    raw.push_back(make_pid());
+    raw.push_back(make_line_size());
+    raw.push_back(make_timestamp());
+    raw.push_back(make_core());
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_RSEQ_ENTRY, offs_move2));
+    // The jcc is taken and we don't see the side exit in instrumented execution.
+    raw.push_back(make_block(offs_jcc, 1));
+    raw.push_back(make_timestamp());
+    raw.push_back(make_core());
+    // The end of our rseq sequence, ending in a committing store.
+    raw.push_back(make_block(offs_move1, 2));
+    raw.push_back(make_memref(42));
+    // A discontinuity as we continue with the side exit target.
+    raw.push_back(make_block(offs_move3, 1));
+    raw.push_back(make_exit());
+
+    std::vector<uint64_t> stats;
+    std::vector<trace_entry_t> entries;
+    if (!run_raw2trace(drcontext, raw, ilist, entries, &stats))
+        return false;
+    int idx = 0;
+    return (
+        stats[RAW2TRACE_STAT_RSEQ_SIDE_EXIT] == 1 &&
+        check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RSEQ_ENTRY) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        // The jcc instr.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#ifdef X86_32
+        // An extra encoding entry is needed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#endif
+        check_entry(entries, idx, TRACE_TYPE_INSTR_UNTAKEN_JUMP, -1, offs_jcc) &&
+        // The jmp which raw2trace has to synthesize.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#ifdef X86_32
+        // An extra encoding entry is needed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#endif
+        check_entry(entries, idx, TRACE_TYPE_INSTR_DIRECT_JUMP, -1, offs_jmp) &&
+        // The move1, move2, and committing store should be gone.
+        // We should go straight to the move3 instr.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move3) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+}
+
+/* Tests rseq side exit with timestamps. */
+bool
+test_rseq_side_exit_with_timestamps(void *drcontext)
+{
+    std::cerr << "\n===============\nTesting rseq side exit with timestamps\n";
+    instrlist_t *ilist = instrlist_create(drcontext);
+    // raw2trace doesn't like offsets of 0 so we shift with a nop.
+    instr_t *nop = XINST_CREATE_nop(drcontext);
+    instr_t *move1 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *move2 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
+    instr_t *move3 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *move4 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *jmp1 = XINST_CREATE_jump(drcontext, opnd_create_instr(move4));
+    instr_t *jcc = XINST_CREATE_jump_cond(drcontext, DR_PRED_EQ, opnd_create_instr(jmp1));
+    instr_t *store =
+        XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(REG2, 0), opnd_create_reg(REG1));
+    instrlist_append(ilist, nop);
+    instrlist_append(ilist, jcc);
+    instrlist_append(ilist, move1);
+    instrlist_append(ilist, store);
+    instrlist_append(ilist, move2);
+    instrlist_append(ilist, jmp1);
+    instrlist_append(ilist, move3);
+    instrlist_append(ilist, move4);
+    size_t offs_nop = 0;
+    size_t offs_jcc = offs_nop + instr_length(drcontext, nop);
+    size_t offs_move1 = offs_jcc + instr_length(drcontext, jcc);
+    size_t offs_store = offs_move1 + instr_length(drcontext, move1);
+    size_t offs_move2 = offs_store + instr_length(drcontext, store);
+    size_t offs_jmp1 = offs_move2 + instr_length(drcontext, move2);
+    size_t offs_move3 = offs_jmp1 + instr_length(drcontext, jmp1);
+    size_t offs_move4 = offs_move3 + instr_length(drcontext, move3);
+
+    std::vector<offline_entry_t> raw;
+    raw.push_back(make_header());
+    raw.push_back(make_tid());
+    raw.push_back(make_pid());
+    raw.push_back(make_line_size());
+    raw.push_back(make_timestamp(/*value=*/1));
+    raw.push_back(make_core());
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_RSEQ_ENTRY, offs_move2));
+    raw.push_back(make_block(offs_jcc, /*instr_count=*/1));
+    // The jcc jumps to jmp1, and skips move1, store, and move2.
+    raw.push_back(make_block(offs_move1, /*instr_count=*/2));
+    raw.push_back(make_memref(/*addr=*/42));
+    raw.push_back(make_block(offs_jmp1, /*instr_count=*/1));
+    raw.push_back(make_timestamp(/*value=*/2));
+    raw.push_back(make_core());
+    raw.push_back(make_timestamp(/*value=*/3));
+    raw.push_back(make_core());
+    raw.push_back(make_block(offs_move4, /*instr_count=*/1));
+    raw.push_back(make_exit());
+
+    std::vector<uint64_t> stats;
+    std::vector<trace_entry_t> entries;
+    if (!run_raw2trace(drcontext, raw, ilist, entries, &stats))
+        return false;
+    int idx = 0;
+    return (
+        stats[RAW2TRACE_STAT_RSEQ_SIDE_EXIT] == 1 &&
+        check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RSEQ_ENTRY) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        // The jcc instr.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#ifdef X86_32
+        // An extra encoding entry is needed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#endif
+        check_entry(entries, idx, TRACE_TYPE_INSTR_TAKEN_JUMP, -1, offs_jcc) &&
+        // The move1, move2, and committing store should be gone.
+        // We should go straight to the jmp1 instr.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#ifdef X86_32
+        // An extra encoding entry is needed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#endif
+        check_entry(entries, idx, TRACE_TYPE_INSTR_DIRECT_JUMP, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move4) &&
         check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
         check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
 }
@@ -2892,12 +3167,15 @@ test_main(int argc, const char *argv[])
         !test_rseq_rollback_legacy(drcontext) || !test_rseq_rollback(drcontext) ||
         !test_rseq_rollback_with_timestamps(drcontext) ||
         !test_rseq_rollback_with_signal(drcontext) ||
+        !test_rseq_rollback_with_signal_after_branch(drcontext) ||
         !test_rseq_rollback_with_chunks(drcontext) || !test_rseq_side_exit(drcontext) ||
         !test_rseq_side_exit_signal(drcontext) ||
         !test_rseq_side_exit_inverted(drcontext) ||
         !test_rseq_side_exit_inverted_with_timestamp(drcontext) ||
-        !test_midrseq_end(drcontext) || !test_xfer_modoffs(drcontext) ||
-        !test_xfer_absolute(drcontext) || !test_branch_decoration(drcontext) ||
+        !test_rseq_side_exit_inverted_with_delayed_branches(drcontext) ||
+        !test_rseq_side_exit_with_timestamps(drcontext) || !test_midrseq_end(drcontext) ||
+        !test_xfer_modoffs(drcontext) || !test_xfer_absolute(drcontext) ||
+        !test_branch_decoration(drcontext) ||
         !test_stats_timestamp_instr_count(drcontext) ||
         !test_is_maybe_blocking_syscall(drcontext) || !test_ifiltered(drcontext))
         return 1;
