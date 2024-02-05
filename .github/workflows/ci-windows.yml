@@ -128,6 +128,10 @@ jobs:
       with:
         submodules: true
 
+    # edeiana
+    - name: Setup tmate session
+      uses: mxschmitt/action-tmate@v3
+
     # Cancel any prior runs for a PR (but do not cancel master branch runs).
     - uses: n1hility/cancel-previous-runs@v2
       with:
@@ -184,10 +188,6 @@ jobs:
           See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
         to: dynamorio-devs@googlegroups.com
         from: Github Action CI
-
-    # edeiana
-    - name: Setup tmate session
-      uses: mxschmitt/action-tmate@v3
 
   ###########################################################################
   # 32-bit and 64-bit VS2019 release builds:
