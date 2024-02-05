@@ -310,6 +310,7 @@ privload_set_pthread_tls_fields(privmod_t *mod, app_pc priv_tls_base)
     instr_init(dcontext, &instr);
 #    define MAX_INSTRS_TO_DECODE 64
     int instr_count = 0;
+    long *tid_slot = NULL;
     while (instr_count < MAX_INSTRS_TO_DECODE) {
         IF_DEBUG(app_pc prev_pc = pc;)
         pc = decode(dcontext, pc, &instr);
@@ -318,11 +319,35 @@ privload_set_pthread_tls_fields(privmod_t *mod, app_pc priv_tls_base)
                                     prev_pc);
             break;
         }
+        if (instr_is_return(&instr)) {
+            SYSLOG_INTERNAL_WARNING("%s: failed to find TLS offset\n", __FUNCTION__);
+            break;
+        }
+#    ifdef X86
+        /* We're looking for the only far ref in the function, like this:
+         *   8ac26:       64 8b 04 25 d0 02 00    mov    %fs:0x2d0,%eax
+         *   8ac2d:       00
+         */
         if (instr_get_opcode(&instr) == OP_mov_ld &&
             opnd_is_far_base_disp(instr_get_src(&instr, 0)) &&
             opnd_get_segment(instr_get_src(&instr, 0)) == LIB_SEG_TLS) {
             int offs = opnd_get_disp(instr_get_src(&instr, 0));
-            long *tid_slot = (long *)(priv_tls_base + offs);
+            tid_slot = (long *)(priv_tls_base + offs);
+        }
+#    elif defined(AARCH64)
+        /* TODO i#6611: We have to decode something like this to come up with
+         * privlib_tls_base - 0x700 + 208 but we need a 2.37+ machine to test on:
+         *     13dec:       d53bd042        mrs     x2, tpidr_el0
+         *     13df0:       52800000        mov     w0, #0x0
+         *     13df4:       d11c0042        sub     x2, x2, #0x700
+         *     13df8:       b940d042        ldr     w2, [x2, #208]
+         */
+        break;
+#    else
+        /* XXX i#6611: Not supported. */
+        break;
+#    endif
+        if (tid_slot != NULL) {
             long cur_tid;
             thread_id_t real_tid = get_sys_thread_id();
             if (!d_r_safe_read(tid_slot, sizeof(cur_tid), &cur_tid)) {
