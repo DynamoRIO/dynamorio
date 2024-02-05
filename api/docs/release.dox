@@ -193,6 +193,9 @@ Further non-compatibility-affecting changes include:
  - Added instr_is_opnd_store_source().
  - Added kernel context switch sequence injection support to the drmemtrace scheduler.
  - Added dr_running_under_dynamorio().
+ - Added #dynamorio::drmemtrace::TRACE_MARKER_TYPE_DYNAMIC_VECTOR_LENGTH marker to
+   indicate the current vector length for architectures with a hardware defined or
+   runtime changeable vector length (such as AArch64's SVE scalable vectors).
 
 **************************************************
 <hr>
