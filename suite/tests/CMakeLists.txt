@@ -1539,6 +1539,7 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
       -D postcmd=${${key}_postcmd}
       -D postcmd2=${${key}_postcmd2}
       -D postcmd3=${${key}_postcmd3}
+      -D postcmd4=${${key}_postcmd4}
       -D failok=${${key}_failok}
       -D cmp=${CMAKE_CURRENT_BINARY_DIR}/${expectbase}.expect
       -D code=${${key}_code}
@@ -4559,6 +4560,39 @@ if (BUILD_CLIENTS)
     set(${testname_full}_postcmd2
       "${histo_path}@-test_mode@-test_mode_name@kernel_xfer_app@-trace_dir@${testname_full}.*.dir/trace")
 
+    # Test the standalone record filter tool (beyond its unit tests).
+    set(testname "tool.record_filter")
+    if (WIN32)
+      # Speed the test up (takes 1+ minutes otherwise).
+      set(extra_ops "-trace_after_instrs 5K -exit_after_tracing 50K")
+    else ()
+      set(extra_ops "")
+    endif ()
+    torunonly_ci(${testname} ${ci_shared_app} drcachesim
+      "record_filter-offline.c"
+      "-offline -subdir_prefix ${testname} ${extra_ops}" "" "")
+    set(${testname}_toolname "drcachesim")
+    set(${testname}_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+    get_target_path_for_execution(filter_path record_filter_launcher "${location_suffix}")
+    prefix_cmd_if_necessary(filter_path ON ${filter_path})
+    set(outdir "${testname}.filtered.dir")
+    set(${testname}_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+    set(${testname}_precmd
+      "foreach@${CMAKE_COMMAND}@-E@remove_directory@${testname}.*.dir")
+    # Post-process the trace and sanity check it.
+    # Use a smaller chunk threshold to test multiple chunks.
+    set(${testname}_postcmd
+      "${drcachesim_path}@-chunk_instr_count@1000@-indir@${testname}.*.dir@-simulator_type@invariant_checker")
+    # Run the record filter tool with a null filter.
+    set(${testname}_postcmd2 "${CMAKE_COMMAND}@-E@make_directory@${outdir}")
+    set(${testname}_postcmd3
+      # We assume the app name starts with "s" here to avoid colliding with
+      # our output dir, while still letting the single precmd remove both.
+      "${filter_path}@-trace_dir@${testname}.s*.dir/trace@-output_dir@${outdir}")
+    # Run the invariant checker on the result.
+    set(${testname}_postcmd4
+      "${drcachesim_path}@-indir@${outdir}@-simulator_type@invariant_checker")
+
     if (AARCH64)
       set(testname_full "tool.drcacheoff.allasm-aarch64-prefetch-counts")
       torunonly_ci(${testname_full} allasm_aarch64_prefetch drcachesim
@@ -5993,23 +6027,42 @@ if (RISCV64)
     code_api|api.ir
     code_api|api.ir-static
     code_api|client.app_args
+    code_api|client.app_args
+    code_api|client.blackbox
     code_api|client.blackbox
     code_api|client.crashmsg
+    code_api|client.crashmsg
+    code_api|client.execfault
     code_api|client.execfault
     code_api|client.mangle_suspend
+    code_api|client.mangle_suspend
+    code_api|client.null_instrument
     code_api|client.null_instrument
     code_api|client.option_parse
+    code_api|client.option_parse
+    code_api|client.partial_module_map
     code_api|client.partial_module_map
     code_api|client.stack-overflow
+    code_api|client.stack-overflow
     code_api|client.truncate
+    code_api|client.unregister
     code_api|common.broadfun
+    code_api|common.hello
+    code_api|libutil.drconfig_test
     code_api|libutil.drconfig_test
     code_api|libutil.frontend_test
+    code_api|libutil.frontend_test
+    code_api|linux.exit
     code_api|linux.exit
     code_api|linux.infinite
+    code_api|linux.infinite
+    code_api|linux.longjmp
     code_api|linux.longjmp
     code_api|linux.prctl
+    code_api|linux.prctl
     code_api|linux.signalfd
+    code_api|pthreads.pthreads
+    code_api|pthreads.pthreads_exit
     code_api|pthreads.pthreads_exit
     code_api|sample.bbbuf
     code_api|sample.bbcount
@@ -6018,12 +6071,21 @@ if (RISCV64)
     code_api|sample.empty
     code_api|sample.inline
     code_api|sample.inscount
+    code_api|sample.inscount.cleancall
+    code_api|sample.inscount.prof-pcs.cleancall
     code_api|sample.opcode_count
     code_api|sample.signal
     code_api|sample.stl_test
+    code_api|sample.stl_test
+    code_api|sample.syscall
     code_api|sample.syscall
     code_api|security-linux.trampoline
+    code_api|security-linux.trampoline
+    code_api|tool.drcachesim.missfile-config-file
+    code_api|tool.drcachesim.syscall-mix
+    code_api|tool.drcov.fib
     code_api|tool.drdisas
+    code_api|tool.histogram
     code_api|tool.reuse_distance
     no_code_api,no_intercept_all_signals|linux.sigaction
     PROPERTIES LABELS RUNS_ON_QEMU)

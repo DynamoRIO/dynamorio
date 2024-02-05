@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -41,8 +41,11 @@
  * @brief DrMemtrace routines and structs shared between raw2trace and tracer.
  */
 
+#include <list>
+
 #include "dr_api.h"
 #include "drmemtrace.h"
+#include "reader.h"
 #include "trace_entry.h"
 
 namespace dynamorio {
@@ -67,6 +70,7 @@ namespace drmemtrace {
 #define WINDOW_SUBDIR_FORMAT "window.%04zd" /* ptr_int_t is the window number type. */
 #define WINDOW_SUBDIR_FIRST "window.0000"
 #define TRACE_SUBDIR "trace"
+#define TRACE_CHUNK_PREFIX "chunk."
 
 /**
  * Functions for decoding and verifying raw memtrace data headers.
@@ -78,6 +82,71 @@ struct trace_metadata_reader_t {
                     DR_PARAM_OUT offline_file_type_t *file_type);
     static std::string
     check_entry_thread_start(const offline_entry_t *entry);
+};
+
+// We need to determine the memref_t record count for inserting a marker with
+// that count at the start of each chunk.
+class memref_counter_t : public reader_t {
+public:
+    bool
+    init() override
+    {
+        return true;
+    }
+    trace_entry_t *
+    read_next_entry() override
+    {
+        return nullptr;
+    };
+    std::string
+    get_stream_name() const override
+    {
+        return "";
+    }
+    int
+    entry_memref_count(const trace_entry_t *entry)
+    {
+        // Mirror file_reader_t::open_input_file().
+        // In particular, we need to skip TRACE_TYPE_HEADER and to pass the
+        // tid and pid to the reader before the 2 markers in front of them.
+        if (!saw_pid_) {
+            if (entry->type == TRACE_TYPE_HEADER)
+                return 0;
+            else if (entry->type == TRACE_TYPE_THREAD) {
+                list_.push_front(*entry);
+                return 0;
+            } else if (entry->type != TRACE_TYPE_PID) {
+                list_.push_back(*entry);
+                return 0;
+            }
+            saw_pid_ = true;
+            auto it = list_.begin();
+            ++it;
+            list_.insert(it, *entry);
+            int count = 0;
+            for (auto &next : list_) {
+                input_entry_ = &next;
+                if (process_input_entry())
+                    ++count;
+            }
+            return count;
+        }
+        if (entry->type == TRACE_TYPE_FOOTER)
+            return 0;
+        input_entry_ = const_cast<trace_entry_t *>(entry);
+        return process_input_entry() ? 1 : 0;
+    }
+    unsigned char *
+    get_decode_pc(addr_t orig_pc)
+    {
+        if (encodings_.find(orig_pc) == encodings_.end())
+            return nullptr;
+        return encodings_[orig_pc].bits;
+    }
+
+private:
+    bool saw_pid_ = false;
+    std::list<trace_entry_t> list_;
 };
 
 } // namespace drmemtrace
