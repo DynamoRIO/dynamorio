@@ -273,7 +273,7 @@ get_category_names(uint category)
     for (uint mask = 0x1; mask <= max_mask; mask <<= 1) {
         if (TESTANY(mask, category)) {
             category_name += " ";
-            category_name += instr_get_category_name(mask);
+            category_name += instr_get_category_name(static_cast<dr_instr_category_t>(mask));
         }
 
         /*

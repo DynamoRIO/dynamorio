@@ -741,15 +741,6 @@ DR_API
 uint
 instr_get_category(instr_t *instr);
 
-DR_API
-/**
- * Assumes \p category is a DR_INSTR_CATEGORY_ constant.
- * See #dr_instr_category_t.
- * Returns \p category name in string format.
- */
-const char *
-instr_get_category_name(uint category);
-
 /**
  * Get the relative offset of \p instr in an encoded instruction list.
  *
@@ -1945,6 +1936,15 @@ typedef enum {
     DR_FP_CONVERT, /**< Converts to or from floating point values. */
     DR_FP_MATH,    /**< Performs arithmetic or conditional operations. */
 } dr_fp_type_t;
+
+DR_API
+/**
+ * Assumes \p category is a DR_INSTR_CATEGORY_ constant.
+ * See #dr_instr_category_t.
+ * Returns \p category name in string format.
+ */
+const char *
+instr_get_category_name(dr_instr_category_t category);
 
 DR_API
 /**
