@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -82,8 +82,8 @@ The create function lets the client specify the following parameters:
  - pt_size_shift: The size shift of PT trace's ring buffer. It must be greater than 0, and
 the buffer size is 2^pt_size_shift * PAGE_SIZE.
 
- - sideband_size_shift: The size shift of PT sideband data's ring buffer. It must be greater
-than 0, and the buffer size is 2^sideband_size_shift * PAGE_SIZE.
+ - sideband_size_shift: The size shift of PT sideband data's ring buffer. It must be
+greater than 0, and the buffer size is 2^sideband_size_shift * PAGE_SIZE.
 
 \note Linux perf sets the buffer size to 4MiB by default. Therefore, it is best for
 clients to set trace and sideband buffers larger than 4Mib.
@@ -140,5 +140,43 @@ flag to drpttracer_start_tracing().
 \note For kernel PT traces, the trace data's raw bits are all from kcore. So the output
 data from \p drpttracer doesn't contain sideband data; it only contains the trace
 data and metadata.
+
+\section sec_unit_tests Unit Tests
+
+\p We have some unit tests that verify the kernel tracing feature in drmemtrace, which
+also uses the `drpttracer` DynamoRIO extension. These tests are not
+built and run by default because they require superuser permission. They are also
+disabled automatically if the host system does not support the Intel-PT feature.
+
+To run these tests, pass `-DRUN_SUDO_TESTS=ON` to cmake when building DynamoRIO. E.g.,
+
+```
+$ cmake -DRUN_SUDO_TESTS=ON -DBUILD_TESTS=ON <dynamorio-src-dir>
+$ make -j
+$ ctest -R 'drpttracer|drcacheoff.kernel'
+```
+
+On some systems, one may see errors like the following:
+
+```
+408:   *** postcmd failed (1): drpt2ir: [28430, IP:ffffffffc11dd000] get next
+408:   instruction error: no memory mapped at this address
+```
+
+This is because our kcore logic copy may have missed copying some instructions from
+`/proc/kcore`. We rely on `/proc/modules` and `/proc/kallsyms` to point to relevant
+kernel code regions. Symbols for JIT code like eBPF are not included by default. The
+following workaround may help in cases where the missing memory region belongs to
+BPF JIT code. They make the BPF JIT code symbols visible in `/proc/kallsyms`.
+
+```
+$ sudo bash -c "echo 0 > /proc/sys/net/core/bpf_jit_harden"
+$ sudo bash -c "echo 1 > /proc/sys/net/core/bpf_jit_kallsyms"
+```
+
+You may want to record the existing values in these configs so you can revert them
+after running the tests. See
+https://docs.kernel.org/admin-guide/sysctl/net.html#proc-sys-net-core-network-core-options
+for more details.
 
 */
