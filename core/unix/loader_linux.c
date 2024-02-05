@@ -39,6 +39,7 @@
 #include "../module_shared.h"
 #include "os_private.h"
 #include "../ir/instr.h" /* SEG_GS/SEG_FS */
+#include "../ir/decode.h"
 #include "module.h"
 #include "module_private.h"
 #include "../heap.h" /* HEAPACCT */
@@ -283,7 +284,73 @@ privload_mod_tls_init(privmod_t *mod)
 }
 
 static void
-privload_copy_tls_block(app_pc priv_tls_base, uint mod_idx)
+privload_set_pthread_tls_fields(privmod_t *mod, app_pc priv_tls_base)
+{
+    /* Set pthreads fields for glibc 3.24+ where pthreads is inside libc and has
+     * special undocumented initialization by ld.so.
+     */
+    if (strstr(mod->name, "libc.so") != mod->name)
+        return;
+    os_privmod_data_t *opd = (os_privmod_data_t *)mod->os_privmod_data;
+    /* i#6611: Find the pthread tid TLS field offset by decoding a function known
+     * to reference it.
+     */
+#    define PTHREAD_TID_FUNC_NAME "pthread_mutex_consistent"
+    void (*tid_using_func)(bool) = (void (*)(bool))get_proc_address_from_os_data(
+        &opd->os_data, opd->load_delta, PTHREAD_TID_FUNC_NAME, NULL);
+    if (tid_using_func == NULL)
+        return;
+    LOG(GLOBAL, LOG_LOADER, 2, "%s: decoding %s to find tid offset\n", __FUNCTION__,
+        PTHREAD_TID_FUNC_NAME);
+    app_pc pc = (app_pc)tid_using_func;
+    instr_t instr;
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    if (dcontext == NULL)
+        dcontext = GLOBAL_DCONTEXT;
+    instr_init(dcontext, &instr);
+#    define MAX_INSTRS_TO_DECODE 64
+    int instr_count = 0;
+    while (instr_count < MAX_INSTRS_TO_DECODE) {
+        IF_DEBUG(app_pc prev_pc = pc;)
+        pc = decode(dcontext, pc, &instr);
+        if (pc == NULL || !instr_valid(&instr)) {
+            SYSLOG_INTERNAL_WARNING("%s: failed to decode from %p\n", __FUNCTION__,
+                                    prev_pc);
+            break;
+        }
+        if (instr_get_opcode(&instr) == OP_mov_ld &&
+            opnd_is_far_base_disp(instr_get_src(&instr, 0)) &&
+            opnd_get_segment(instr_get_src(&instr, 0)) == LIB_SEG_TLS) {
+            int offs = opnd_get_disp(instr_get_src(&instr, 0));
+            long *tid_slot = (long *)(priv_tls_base + offs);
+            long cur_tid;
+            thread_id_t real_tid = get_sys_thread_id();
+            if (!d_r_safe_read(tid_slot, sizeof(cur_tid), &cur_tid)) {
+                SYSLOG_INTERNAL_WARNING("%s: failed to read tid from slot %p\n",
+                                        __FUNCTION__, tid_slot);
+            } else if (cur_tid == real_tid) {
+                LOG(GLOBAL, LOG_LOADER, 2, "%s: tid slot is already correct\n",
+                    __FUNCTION__);
+            } else {
+                LOG(GLOBAL, LOG_LOADER, 2, "%s: writing tid " TIDFMT " to slot %p\n",
+                    __FUNCTION__, real_tid, tid_slot);
+                size_t written;
+                if (!safe_write_ex(tid_slot, sizeof(*tid_slot), &real_tid, &written) ||
+                    written != sizeof(*tid_slot)) {
+                    SYSLOG_INTERNAL_WARNING("%s: failed to write tid to slot %p\n",
+                                            __FUNCTION__, tid_slot);
+                }
+            }
+            break;
+        }
+        instr_reset(dcontext, &instr);
+        ++instr_count;
+    }
+    instr_free(dcontext, &instr);
+}
+
+static void
+privload_copy_tls_block(privmod_t *mod, app_pc priv_tls_base, uint mod_idx)
 {
     os_privmod_data_t *opd = tls_info.mods[mod_idx]->os_privmod_data;
     void *dest;
@@ -306,6 +373,7 @@ privload_copy_tls_block(app_pc priv_tls_base, uint mod_idx)
      */
     ASSERT(opd->tls_block_size >= opd->tls_image_size);
     memset(dest + opd->tls_image_size, 0, opd->tls_block_size - opd->tls_image_size);
+    privload_set_pthread_tls_fields(mod, priv_tls_base);
 }
 
 /* Called post-reloc. */
@@ -320,7 +388,7 @@ privload_mod_tls_primary_thread_init(privmod_t *mod)
     os_local_state_t *os_tls = get_os_tls();
     app_pc priv_tls_base = os_tls->os_seg_info.priv_lib_tls_base;
     os_privmod_data_t *opd = (os_privmod_data_t *)mod->os_privmod_data;
-    privload_copy_tls_block(priv_tls_base, opd->tls_modid);
+    privload_copy_tls_block(mod, priv_tls_base, opd->tls_modid);
 }
 #endif
 
@@ -401,7 +469,7 @@ privload_tls_init(void *app_tp)
     if (dynamo_initialized) {
         uint i;
         for (i = 0; i < tls_info.num_mods; i++)
-            privload_copy_tls_block(dr_tp, i);
+            privload_copy_tls_block(tls_info.mods[i], dr_tp, i);
     }
 
     return dr_tp;
