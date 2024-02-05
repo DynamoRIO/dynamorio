@@ -367,7 +367,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         "Stream interface page size != trace marker");
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
-        memref.marker.marker_type == TRACE_MARKER_TYPE_DYNAMIC_VECTOR_SIZE) {
+        memref.marker.marker_type == TRACE_MARKER_TYPE_DYNAMIC_VECTOR_LENGTH) {
 #ifdef AARCH64
         static const int MAX_VL_BYTES = 256; // SVE's maximum vector length is 2048-bit
         // Vector length must be a multiple of 16 bytes between 16 and 256.
@@ -381,7 +381,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         if (dr_get_sve_vector_length() != new_vl_bits) {
             dr_set_sve_vector_length(new_vl_bits);
             // Changing the vector length can change the IR representation of some SVE
-            // instructions but it doesn't effect any off the metadata that is stored
+            // instructions but it doesn't effect any of the metadata that is stored
             // in decode_cache_ so we don't need to flush the cache.
         }
 #else
