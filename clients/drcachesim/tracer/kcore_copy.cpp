@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,6 +38,7 @@
 #include <sys/types.h>
 
 #include <fstream>
+#include <set>
 #include <string>
 
 #include "dr_api.h"
@@ -374,6 +375,14 @@ kcore_copy_t::read_modules()
     return true;
 }
 
+static bool
+is_function_symbol(char type)
+{
+    // From man nm, "t"/"T" are symbols from the code section,
+    // and "w"/"W" are weak symbols.
+    return toupper(type) == 'T' || toupper(type) == 'W';
+}
+
 bool
 kcore_copy_t::read_kallsyms()
 {
@@ -384,12 +393,32 @@ kcore_copy_t::read_kallsyms()
     }
     proc_module_t *kernel_module = nullptr;
     std::string line;
+
+    /* i#6486: Kernel JIT code like eBPF is not included in /proc/modules, but they have
+     * entries in /proc/kallsyms if /proc/sys/net/core/bpf_jit_harden and
+     * /proc/sys/net/core/bpf_jit_kallsyms are set appropriately (see
+     * docs.kernel.org/admin-guide/sysctl/net.html#proc-sys-net-core-network-core-options
+     * for more details).
+     * Perf's kcore copy logic does not copy JIT code but somehow includes JIT encodings
+     * and symbols in perf.data/data itself (not sure how yet). However, we use a
+     * different approach and copy the BPF JIT code to our kcore dump. If we find that
+     * the kernel executes other JIT code (indicated by "no memory mapped at this
+     * address" errors during libipt decoding), we would need to extend this logic to
+     * somehow identify those other /proc/kcore JIT regions.
+     */
+    std::set<uint64_t> bpf_jit_symbols;
+#define BPF_JIT_MODULE_NAME "[bpf]"
+
     while (std::getline(f, line)) {
         char name[KERNEL_SYMBOL_MAX_LEN];
+        char module[KERNEL_SYMBOL_MAX_LEN];
+        char type;
         uint64_t addr;
-        if (dr_sscanf(line.c_str(), HEX64_FORMAT_STRING " %*1c %299s [%*99s", &addr,
-                      name) < 2)
+        int n_read = dr_sscanf(line.c_str(), HEX64_FORMAT_STRING " %c %299s %299s", &addr,
+                               &type, name, module);
+        if (n_read < 3)
             continue;
+        bool has_module = n_read > 3;
         if (strcmp(name, "_stext") == 0) {
             if (kernel_module != nullptr) {
                 ASSERT(false, "multiple kernel modules found");
@@ -409,9 +438,49 @@ kcore_copy_t::read_kallsyms()
             kcore_code_segments_num_++;
             modules_ = kernel_module;
             kernel_module = nullptr;
+        } else if (has_module && strcmp(module, BPF_JIT_MODULE_NAME) == 0 &&
+                   is_function_symbol(type)) {
+            bpf_jit_symbols.insert(addr);
         }
     }
     ASSERT(kernel_module == nullptr, "failed to find kernel module");
+
+    if (!bpf_jit_symbols.empty()) {
+        /* We copy a page size worth of contents after each bpf-related function symbol
+         * in an effort to make sure that the complete function is copied. This is
+         * similar to perf adding page size to the highest kernel symbol in its own
+         * kcore copy logic.
+         */
+        size_t page_size = dr_page_size();
+        proc_module_t *bpf_module = nullptr;
+        for (auto it = bpf_jit_symbols.begin(); it != bpf_jit_symbols.end();) {
+            uint64_t addr = *it;
+            if (bpf_module == nullptr) {
+                bpf_module = (proc_module_t *)dr_global_alloc(sizeof(proc_module_t));
+                bpf_module->start = ALIGN_BACKWARD(addr, page_size);
+                bpf_module->end = ALIGN_FORWARD(addr + page_size, page_size);
+                ++it;
+                continue;
+            }
+            if (bpf_module->end >= addr) {
+                /* Just extend the last module region if the new addr falls within
+                 * the last recorded range.
+                 */
+                bpf_module->end = ALIGN_FORWARD(addr + page_size, page_size);
+                ++it;
+            } else {
+                bpf_module->next = modules_;
+                kcore_code_segments_num_++;
+                modules_ = bpf_module;
+                /* Create a new module region for `addr` in the next iteration. */
+                bpf_module = nullptr;
+            }
+        }
+        ASSERT(bpf_module != nullptr, "Did not expect nullptr");
+        bpf_module->next = modules_;
+        kcore_code_segments_num_++;
+        modules_ = bpf_module;
+    }
     f.close();
     return true;
 }
