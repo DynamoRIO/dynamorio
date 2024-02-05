@@ -101,3 +101,7 @@ jobs:
             See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
           to: dynamorio-devs@googlegroups.com
           from: Github Action CI
+
+      # edeiana
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3

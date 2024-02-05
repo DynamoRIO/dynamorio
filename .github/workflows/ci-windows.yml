@@ -185,6 +185,10 @@ jobs:
         to: dynamorio-devs@googlegroups.com
         from: Github Action CI
 
+    # edeiana
+    - name: Setup tmate session
+      uses: mxschmitt/action-tmate@v3
+
   ###########################################################################
   # 32-bit and 64-bit VS2019 release builds:
   vs2019-builds:
