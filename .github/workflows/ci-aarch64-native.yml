@@ -31,7 +31,7 @@
 
 # Github Actions workflow for aarch64 Continuous Integration testing.
 
-name: ci-aarch64-native
+name: ci-aarchxx
 on:
   # Run on pushes to master and on pull request changes, including from a
   # forked repo with no "push" trigger, while avoiding duplicate triggers.
@@ -45,7 +45,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  aarch64-native:
+  aarch64-precommit:
     strategy:
       fail-fast: false
       matrix:
