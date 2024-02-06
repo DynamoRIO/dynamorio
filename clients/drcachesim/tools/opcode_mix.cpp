@@ -257,7 +257,7 @@ opcode_mix_t::process_memref(const memref_t &memref)
 static bool
 cmp_val(const std::pair<int, int64_t> &l, const std::pair<int, int64_t> &r)
 {
-    return (l.second > r.second);
+    return (l.second > r.second) || (l.second == r.second && l.first < r.first);
 }
 
 std::string

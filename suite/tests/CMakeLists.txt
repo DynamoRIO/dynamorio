@@ -4228,8 +4228,6 @@ if (BUILD_CLIENTS)
       # TODO i#3544: Port tests to RISC-V 64
       torunonly_drcacheoff(opcode_mix ${ci_shared_app} ""
         "@-simulator_type@opcode_mix" "")
-      torunonly_drcacheoff(opcode_categories allasm_x86_64 ""
-        "@-simulator_type@opcode_mix" "")
       # Ensure the tool works without the raw/ subdir.
       set(tool.drcacheoff.opcode_mix_postcmd
         "firstglob@${drraw2trace_path}@-indir@${dir_prefix}.*.dir")
@@ -4237,6 +4235,9 @@ if (BUILD_CLIENTS)
         "foreach@${CMAKE_COMMAND}@-E@remove_directory@${dir_prefix}.*.dir/raw")
       set(tool.drcacheoff.opcode_mix_postcmd3
         "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir@-simulator_type@opcode_mix")
+
+      torunonly_drcacheoff(opcode_categories allasm_x86_64 ""
+        "@-simulator_type@opcode_mix" "")
 
       torunonly_drcacheoff(view ${ci_shared_app} ""
         "@-simulator_type@view@-sim_refs@16384" "")
