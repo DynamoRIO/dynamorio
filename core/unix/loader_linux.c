@@ -308,9 +308,12 @@ privload_set_pthread_tls_fields(privmod_t *mod, app_pc priv_tls_base)
     if (dcontext == NULL)
         dcontext = GLOBAL_DCONTEXT;
     instr_init(dcontext, &instr);
+    /* This is a small function with 10-15 instructions, and we stop when we hit
+     * a return.  We set a just-in-case upper limit of 64 to ensure we don't
+     * loop for too long if something goes wrong.
+     */
 #    define MAX_INSTRS_TO_DECODE 64
     int instr_count = 0;
-    long *tid_slot = NULL;
     while (instr_count < MAX_INSTRS_TO_DECODE) {
         IF_DEBUG(app_pc prev_pc = pc;)
         pc = decode(dcontext, pc, &instr);
@@ -323,6 +326,7 @@ privload_set_pthread_tls_fields(privmod_t *mod, app_pc priv_tls_base)
             SYSLOG_INTERNAL_WARNING("%s: failed to find TLS offset\n", __FUNCTION__);
             break;
         }
+        long *tid_slot = NULL;
 #    ifdef X86
         /* We're looking for the only far ref in the function, like this:
          *   8ac26:       64 8b 04 25 d0 02 00    mov    %fs:0x2d0,%eax
@@ -342,9 +346,11 @@ privload_set_pthread_tls_fields(privmod_t *mod, app_pc priv_tls_base)
          *     13df4:       d11c0042        sub     x2, x2, #0x700
          *     13df8:       b940d042        ldr     w2, [x2, #208]
          */
+        /* We have a glibc 2.37+ SYSLOG_INTERNAL_WARNING in privload_os_finalize(). */
         break;
 #    else
-        /* XXX i#6611: Not supported. */
+        /* XXX i#6611: Not supported yet. */
+        /* We have a glibc 2.37+ SYSLOG_INTERNAL_WARNING in privload_os_finalize(). */
         break;
 #    endif
         if (tid_slot != NULL) {

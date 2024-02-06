@@ -723,6 +723,15 @@ privload_os_finalize(privmod_t *privmod)
     if ((ver[0] == '\0' || ver[0] < '2') || ver[1] != '.' || ver[2] < '3' ||
         (ver[2] == '3' && ver[3] < '4'))
         return;
+#    ifndef X86
+    /* XXX i#6611: We have privload_set_pthread_tls_fields() setting the pthread tid
+     * field on x86, but not other arches.  Since we have the glibc version here and
+     * believe this to be limited to 2.37 we warn about it here.
+     */
+    if (ver[2] == '3' && ver[3] >= '7') {
+        SYSLOG_INTERNAL_WARNING("glibc 2.37+ i#6611 pthread tid fix NYI for non-x86");
+    }
+#    endif
     if (privmod_ld_linux == NULL) {
         SYSLOG_INTERNAL_WARNING("glibc 2.34+ i#5437 workaround failed: missed ld");
         return;
