@@ -50,7 +50,7 @@ jobs:
       fail-fast: false
       matrix:
         # This job will run in parallel.
-        os: [self-hosted-ubuntu-20.04-arm64, self-hosted-ubuntu-20.04-arm64-sve]
+        os: [ubuntu-20-arm64, ubuntu-20-arm64-sve]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Check out repository code
