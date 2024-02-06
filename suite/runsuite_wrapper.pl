@@ -354,10 +354,14 @@ for (my $i = 0; $i <= $#lines; ++$i) {
             # have NOT been built with SVE compiler options and are seen to
             # fail intermittently on SVE hardware.
             %ignore_failures_sve = ('code_api|tool.drcacheoff.burst_threads_counts' => 1,
-                                   'code_api|tool.drcachesim.scattergather-aarch64' => 1,
+                                   'code_api|tool.drcachesim.scattergather-aarch64' => 1, # i#3320
+                                   'code_api|tool.drcachesim.threads-with-config-file' => 1,  # i#3320
+                                   'code_api|tool.drcachesim.coherence' => 1, # i#3320
+                                   'code_api|tool.drcachesim.miss_analyzer' => 1, # i#3320
                                    'code_api|tool.drcacheoff.burst_threads' => 1,
                                    'code_api|tool.drcacheoff.burst_threads_counts' => 1,
                                    'code_api|tool.drcacheoff.burst_threadL0filter' => 1,
+                                   'code_api|tool.drcacheoff.burst_thread_filter' => 1,
                                    );
             # Establish if tests are running on SVE hardware.
             system('cat /proc/cpuinfo | grep Features | head -1 | grep sve > /dev/null');
