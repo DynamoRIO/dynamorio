@@ -377,6 +377,10 @@ privload_set_pthread_tls_fields(privmod_t *mod, app_pc priv_tls_base)
         instr_reset(dcontext, &instr);
         ++instr_count;
     }
+    if (instr_count >= MAX_INSTRS_TO_DECODE) {
+        SYSLOG_INTERNAL_WARNING("%s: decoding hit max instr count before target or ret\n",
+                                __FUNCTION__);
+    }
     instr_free(dcontext, &instr);
 }
 
