@@ -76,6 +76,10 @@ locally can be hard to debug. Fortunately, there's a way to SSH into a Github
 Actions runner to debug the test. This can be done using `tmate`:
 https://github.com/marketplace/actions/debugging-with-tmate.
 
+Using tmate requires sudo on the Actions runners which is only available with
+pull requests on branches within the repository; it will not work with pull
+requests created from external forks of the repository.
+
 First, identify the Actions workflow file which contains the job with the
 failure.  From the Actions run page with the failing test (usually reached from
 the links in the job runs for a pull request), click on "Workflow file" in the
