@@ -47,7 +47,7 @@
 #include <string.h>
 #include <errno.h>
 
-#include "tools.h"                          /* for nolibc_* wrappers. */
+#include "tools.h" /* for nolibc_* wrappers. */
 #include "../../core/unix/include/clone3.h" /* for clone3_syscall_args_t */
 
 #ifdef ANDROID
@@ -249,13 +249,13 @@ make_clone3_syscall(void *clone_args, ulong clone_args_size, void (*fcn)(void))
                  "mov %[fcn], %%rdx\n\t"
                  "syscall\n\t"
                  "test %%rax, %%rax\n\t"
-                 "jnz 1f\n\t"
+                 "jnz parent\n\t"
                  "call *%%rdx\n\t"
-                 "1:\n\t"
+                 "parent:\n\t"
                  "mov %%rax, %[result]\n\t"
-                 : [result] "=m"(result)
-                 : [sys_clone3] "i"(CLONE3_SYSCALL_NUM), [clone_args] "m"(clone_args),
-                   [clone_args_size] "m"(clone_args_size), [fcn] "m"(fcn)
+                 : [ result ] "=m"(result)
+                 : [ sys_clone3 ] "i"(CLONE3_SYSCALL_NUM), [ clone_args ] "m"(clone_args),
+                   [ clone_args_size ] "m"(clone_args_size), [ fcn ] "m"(fcn)
                  /* syscall clobbers rcx and r11 */
                  : "rax", "rdi", "rsi", "rdx", "rcx", "r11", "memory");
 #    else
@@ -265,13 +265,13 @@ make_clone3_syscall(void *clone_args, ulong clone_args_size, void (*fcn)(void))
                  "mov %[fcn], %%edx\n\t"
                  "int $0x80\n\t"
                  "test %%eax, %%eax\n\t"
-                 "jnz 1f\n\t"
+                 "jnz parent\n\t"
                  "call *%%edx\n\t"
-                 "1:\n\t"
+                 "parent:\n\t"
                  "mov %%eax, %[result]\n\t"
-                 : [result] "=m"(result)
-                 : [sys_clone3] "i"(CLONE3_SYSCALL_NUM), [clone_args] "m"(clone_args),
-                   [clone_args_size] "m"(clone_args_size), [fcn] "m"(fcn)
+                 : [ result ] "=m"(result)
+                 : [ sys_clone3 ] "i"(CLONE3_SYSCALL_NUM), [ clone_args ] "m"(clone_args),
+                   [ clone_args_size ] "m"(clone_args_size), [ fcn ] "m"(fcn)
                  : "eax", "ebx", "ecx", "edx", "memory");
 #    endif
 #elif defined(AARCH64)
@@ -280,13 +280,13 @@ make_clone3_syscall(void *clone_args, ulong clone_args_size, void (*fcn)(void))
                  "ldr x1, %[clone_args_size]\n\t"
                  "ldr x2, %[fcn]\n\t"
                  "svc #0\n\t"
-                 "cbnz x0, 1f\n\t"
+                 "cbnz x0, parent\n\t"
                  "blr x2\n\t"
-                 "1:\n\t"
+                 "parent:\n\t"
                  "str x0, %[result]\n\t"
-                 : [result] "=m"(result)
-                 : [sys_clone3] "i"(CLONE3_SYSCALL_NUM), [clone_args] "m"(clone_args),
-                   [clone_args_size] "m"(clone_args_size), [fcn] "m"(fcn)
+                 : [ result ] "=m"(result)
+                 : [ sys_clone3 ] "i"(CLONE3_SYSCALL_NUM), [ clone_args ] "m"(clone_args),
+                   [ clone_args_size ] "m"(clone_args_size), [ fcn ] "m"(fcn)
                  : "x0", "x1", "x2", "x8", "memory");
 #elif defined(ARM)
     /* XXX: Add asm wrapper for ARM.
