@@ -180,6 +180,9 @@ online_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid,
                              proc_get_cache_line_size());
     new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_PAGE_SIZE, dr_page_size());
 #if defined(AARCH64)
+    // TRACE_MARKER_TYPE_VECTOR_LENGTH is emitted in the thread header to establish the
+    // initial vector length for the thread, but the marker can also be emitted again
+    // later if the app changes the vector length.
     if (proc_has_feature(FEATURE_SVE)) {
         new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_VECTOR_LENGTH,
                                  proc_get_vector_length_bytes());
