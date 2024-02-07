@@ -83,13 +83,13 @@ public:
     parallel_shard_error(void *shard_data) override;
 
 protected:
-    struct opcode_category_data_t {
-        opcode_category_data_t()
-            : opcode(0)
-            , category(0)
+    struct opcode_data_t {
+        opcode_data_t()
+            : opcode(OP_INVALID)
+            , category(DR_INSTR_CATEGORY_UNCATEGORIZED)
         {
         }
-        opcode_category_data_t(int opcode, uint category)
+        opcode_data_t(int opcode, uint category)
             : opcode(opcode)
             , category(category)
         {
@@ -105,7 +105,7 @@ protected:
     };
 
     struct worker_data_t {
-        std::unordered_map<app_pc, opcode_category_data_t> opcode_category_cache;
+        std::unordered_map<app_pc, opcode_data_t> opcode_data_cache;
     };
 
     struct shard_data_t {

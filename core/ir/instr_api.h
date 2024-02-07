@@ -1911,6 +1911,8 @@ instr_is_rep_string_op(instr_t *instr);
 
 /**
  * Indicates which category the instruction corresponds to.
+ * Update instr_get_category_name() in core/ir/instr_shared.c
+ * when adding new categories in this enum.
  */
 typedef enum {
     DR_INSTR_CATEGORY_UNCATEGORIZED = 0x0, /**< Uncategorized. */

@@ -158,10 +158,12 @@ test_noalloc(void)
 }
 
 #define CHECK_CATEGORY(dcontext, instr, pc, categories, category_names)           \
-    ASSERT(instr_encode(dcontext, instr, pc) - pc < BUFFER_SIZE_ELEMENTS(pc));    \
+    byte instr_encoded_pc = instr_encode(dcontext, instr, pc);                    \
+    ASSERT(instr_encoded_pc - pc < BUFFER_SIZE_ELEMENTS(pc));                     \
     instr_reset(dcontext, instr);                                                 \
     instr_set_operands_valid(instr, true);                                        \
-    ASSERT(decode(dcontext, pc, instr) != NULL);                                  \
+    byte instr_decoded_pc = decode(dcontext, pc, instr);                          \
+    ASSERT(instr_decoded_pc != NULL);                                             \
     for (int i = 0; i < BUFFER_SIZE_ELEMENTS(categories); ++i) {                  \
         if (categories[i] == DR_INSTR_CATEGORY_UNCATEGORIZED) {                   \
             ASSERT(instr_get_category(instr) == categories[i]);                   \
@@ -182,34 +184,34 @@ test_categories(void)
     /*  55 OP_mov_ld */
     instr = XINST_CREATE_load(GD, opnd_create_reg(DR_REG_XAX),
                               OPND_CREATE_MEMPTR(DR_REG_XAX, 42));
-    dr_instr_category_t categories_load[] = { DR_INSTR_CATEGORY_LOAD };
+    const dr_instr_category_t categories_load[] = { DR_INSTR_CATEGORY_LOAD };
     const char *category_names_load[] = { "load" };
     CHECK_CATEGORY(GD, instr, buf, categories_load, category_names_load);
 
     /*  14 OP_cmp */
     instr =
         XINST_CREATE_cmp(GD, opnd_create_reg(DR_REG_EAX), opnd_create_reg(DR_REG_EAX));
-    dr_instr_category_t categories_cmp[] = { DR_INSTR_CATEGORY_MATH };
+    const dr_instr_category_t categories_cmp[] = { DR_INSTR_CATEGORY_MATH };
     const char *category_names_cmp[] = { "math" };
     CHECK_CATEGORY(GD, instr, buf, categories_cmp, category_names_cmp);
 
     /* 46 OP_jmp */
     instr_t *after_callee = INSTR_CREATE_label(GD);
     instr = XINST_CREATE_jump(GD, opnd_create_instr(after_callee));
-    dr_instr_category_t categories_jmp[] = { DR_INSTR_CATEGORY_BRANCH };
+    const dr_instr_category_t categories_jmp[] = { DR_INSTR_CATEGORY_BRANCH };
     const char *category_names_jmp[] = { "branch" };
     CHECK_CATEGORY(GD, instr, buf, categories_jmp, category_names_jmp);
 
     /* OP_fwait */
     instr = INSTR_CREATE_fwait(GD);
-    dr_instr_category_t categories_fwait[] = { DR_INSTR_CATEGORY_FP,
-                                               DR_INSTR_CATEGORY_STATE };
+    const dr_instr_category_t categories_fwait[] = { DR_INSTR_CATEGORY_FP,
+                                                     DR_INSTR_CATEGORY_STATE };
     const char *category_names_fwait[] = { "fp", "state" };
     CHECK_CATEGORY(GD, instr, buf, categories_fwait, category_names_fwait);
 
     /* OP_in */
     instr = INSTR_CREATE_in_1(GD);
-    dr_instr_category_t categories_in[] = { DR_INSTR_CATEGORY_UNCATEGORIZED };
+    const dr_instr_category_t categories_in[] = { DR_INSTR_CATEGORY_UNCATEGORIZED };
     const char *category_names_in[] = { "uncategorized" };
     CHECK_CATEGORY(GD, instr, buf, categories_in, category_names_in);
 }

@@ -178,7 +178,7 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         decode_pc = const_cast<app_pc>(memref.instr.encoding);
         if (memref.instr.encoding_is_new) {
             // The code may have changed: invalidate the cache.
-            shard->worker->opcode_category_cache.erase(trace_pc);
+            shard->worker->opcode_data_cache.erase(trace_pc);
         }
     } else {
         // Legacy trace support where we need the binaries.
@@ -211,8 +211,8 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     }
     int opcode;
     uint category;
-    auto cached_opcode_category = shard->worker->opcode_category_cache.find(trace_pc);
-    if (cached_opcode_category != shard->worker->opcode_category_cache.end()) {
+    auto cached_opcode_category = shard->worker->opcode_data_cache.find(trace_pc);
+    if (cached_opcode_category != shard->worker->opcode_data_cache.end()) {
         opcode = cached_opcode_category->second.opcode;
         category = cached_opcode_category->second.category;
     } else {
@@ -228,8 +228,7 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         }
         opcode = instr_get_opcode(&instr);
         category = instr_get_category(&instr);
-        shard->worker->opcode_category_cache[trace_pc] =
-            opcode_category_data_t(opcode, category);
+        shard->worker->opcode_data_cache[trace_pc] = opcode_data_t(opcode, category);
         instr_free(dcontext_.dcontext, &instr);
     }
     ++shard->opcode_counts[opcode];
@@ -269,7 +268,7 @@ get_category_names(uint category)
         return category_name;
     }
 
-    uint max_mask = 0x80000000;
+    const uint max_mask = 0x80000000;
     for (uint mask = 0x1; mask <= max_mask; mask <<= 1) {
         if (TESTANY(mask, category)) {
             category_name += " ";
