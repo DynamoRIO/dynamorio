@@ -367,7 +367,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         "Stream interface page size != trace marker");
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
-        memref.marker.marker_type == TRACE_MARKER_TYPE_DYNAMIC_VECTOR_LENGTH) {
+        memref.marker.marker_type == TRACE_MARKER_TYPE_VECTOR_LENGTH) {
 #ifdef AARCH64
         static const int MAX_VL_BYTES = 256; // SVE's maximum vector length is 2048-bit
         // Vector length must be a multiple of 16 bytes between 16 and 256.
@@ -375,7 +375,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         (memref.marker.marker_value > 0) &&
                             (memref.marker.marker_value <= MAX_VL_BYTES) &&
                             (memref.marker.marker_value % 16 == 0),
-                        "Dynamic vector length marker has invalid size");
+                        "Vector length marker has invalid size");
 
         const int new_vl_bits = memref.marker.marker_value * 8;
         if (dr_get_sve_vector_length() != new_vl_bits) {
@@ -385,7 +385,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             // in decode_cache_ so we don't need to flush the cache.
         }
 #else
-        report_if_false(shard, false, "Unexpected dynamic vector length marker");
+        report_if_false(shard, false, "Unexpected vector length marker");
 #endif
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&

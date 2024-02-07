@@ -165,7 +165,7 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             return false;
         }
     } else if (memref.marker.type == TRACE_TYPE_MARKER &&
-               memref.marker.marker_type == TRACE_MARKER_TYPE_DYNAMIC_VECTOR_LENGTH) {
+               memref.marker.marker_type == TRACE_MARKER_TYPE_VECTOR_LENGTH) {
 #ifdef AARCH64
         const int new_vl_bits = memref.marker.marker_value * 8;
         if (dr_get_sve_vector_length() != new_vl_bits) {

@@ -617,7 +617,7 @@ typedef enum {
      * dynamic vector length, for example the AArch64 SVE vector length. This does not
      * apply to fixed length vector architectures.
      */
-    TRACE_MARKER_TYPE_DYNAMIC_VECTOR_LENGTH,
+    TRACE_MARKER_TYPE_VECTOR_LENGTH,
 
     // ...
     // These values are reserved for future built-in marker types.

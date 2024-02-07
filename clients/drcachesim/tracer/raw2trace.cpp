@@ -883,7 +883,7 @@ raw2trace_t::process_marker_additionally(raw2trace_thread_data_t *tdata,
         log(2, "Maybe-blocking syscall %zu\n", marker_val);
         buf += trace_metadata_writer_t::write_marker(
             buf, TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0);
-    } else if (marker_type == TRACE_MARKER_TYPE_DYNAMIC_VECTOR_LENGTH) {
+    } else if (marker_type == TRACE_MARKER_TYPE_VECTOR_LENGTH) {
 #ifdef AARCH64
         log(4, "Setting SVE vector length to %zu bytes\n", marker_val);
 

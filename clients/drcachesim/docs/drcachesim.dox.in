@@ -127,8 +127,8 @@ code.  (For online traces, encodings are not provided unless the
 option `-instr_encodings` is passed, as encodings add overhead and
 are not needed for many tools.) Cached decoding information might also
 need to be discarded if there is a
-#dynamorio::drmemtrace::TRACE_MARKER_TYPE_DYNAMIC_VECTOR_LENGTH marker
-entry indicating a change of vector length on architectures such as AArch64
+#dynamorio::drmemtrace::TRACE_MARKER_TYPE_VECTOR_LENGTH marker entry
+indicating a change of vector length on architectures such as AArch64
 which have a dynamic vector length.
 
 Older legacy traces may not contain instruction encodings.  For those

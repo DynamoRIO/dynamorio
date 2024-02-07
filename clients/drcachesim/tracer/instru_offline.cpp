@@ -399,7 +399,7 @@ offline_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid,
     new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_PAGE_SIZE, dr_page_size());
 #if defined(AARCH64)
     if (proc_has_feature(FEATURE_SVE)) {
-        new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_DYNAMIC_VECTOR_LENGTH,
+        new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_VECTOR_LENGTH,
                                  proc_get_vector_length_bytes());
     }
 #endif
