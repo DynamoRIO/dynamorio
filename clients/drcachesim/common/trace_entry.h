@@ -613,9 +613,9 @@ typedef enum {
     TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
 
     /**
-     * This marker's value is the current vector length in bytes for architectures with a
-     * dynamic vector length, for example the AArch64 SVE vector length. This does not
-     * apply to fixed length vector architectures.
+     * This marker's value is the current thread's vector length in bytes, for
+     * architectures with a dynamic vector length. For example the AArch64 SVE vector
+     * length. This does not apply to fixed length vector architectures.
      */
     TRACE_MARKER_TYPE_VECTOR_LENGTH,
 
