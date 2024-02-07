@@ -157,23 +157,25 @@ test_noalloc(void)
      */
 }
 
-#define CHECK_CATEGORY(dcontext, instr, pc, categories, category_names)           \
-    byte instr_encoded_pc = instr_encode(dcontext, instr, pc);                    \
-    ASSERT(instr_encoded_pc - pc < BUFFER_SIZE_ELEMENTS(pc));                     \
-    instr_reset(dcontext, instr);                                                 \
-    instr_set_operands_valid(instr, true);                                        \
-    byte instr_decoded_pc = decode(dcontext, pc, instr);                          \
-    ASSERT(instr_decoded_pc != NULL);                                             \
-    for (int i = 0; i < BUFFER_SIZE_ELEMENTS(categories); ++i) {                  \
-        if (categories[i] == DR_INSTR_CATEGORY_UNCATEGORIZED) {                   \
-            ASSERT(instr_get_category(instr) == categories[i]);                   \
-        } else {                                                                  \
-            ASSERT(TESTANY(categories[i], instr_get_category(instr)));            \
-        }                                                                         \
-        ASSERT(strncmp(instr_get_category_name(categories[i]), category_names[i], \
-                       strlen(category_names[i])) == 0);                          \
-    }                                                                             \
-    instr_destroy(dcontext, instr);
+#define CHECK_CATEGORY(dcontext, instr, pc, categories, category_names)               \
+    do {                                                                              \
+        byte *instr_encoded_pc = instr_encode(dcontext, instr, pc);                   \
+        ASSERT(instr_encoded_pc - pc < BUFFER_SIZE_ELEMENTS(pc));                     \
+        instr_reset(dcontext, instr);                                                 \
+        instr_set_operands_valid(instr, true);                                        \
+        byte *instr_decoded_pc = decode(dcontext, pc, instr);                         \
+        ASSERT(instr_decoded_pc != NULL);                                             \
+        for (int i = 0; i < BUFFER_SIZE_ELEMENTS(categories); ++i) {                  \
+            if (categories[i] == DR_INSTR_CATEGORY_UNCATEGORIZED) {                   \
+                ASSERT(instr_get_category(instr) == categories[i]);                   \
+            } else {                                                                  \
+                ASSERT(TESTANY(categories[i], instr_get_category(instr)));            \
+            }                                                                         \
+            ASSERT(strncmp(instr_get_category_name(categories[i]), category_names[i], \
+                           strlen(category_names[i])) == 0);                          \
+        }                                                                             \
+        instr_destroy(dcontext, instr);                                               \
+    } while (0);
 
 static void
 test_categories(void)
