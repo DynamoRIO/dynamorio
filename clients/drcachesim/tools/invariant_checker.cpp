@@ -372,9 +372,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         static const int MAX_VL_BYTES = 256; // SVE's maximum vector length is 2048-bit
         // Vector length must be a multiple of 16 bytes between 16 and 256.
         report_if_false(shard,
-                        (memref.marker.marker_value > 0) &&
-                            (memref.marker.marker_value <= MAX_VL_BYTES) &&
-                            (memref.marker.marker_value % 16 == 0),
+                        memref.marker.marker_value > 0 &&
+                            memref.marker.marker_value <= MAX_VL_BYTES &&
+                            memref.marker.marker_value % 16 == 0,
                         "Vector length marker has invalid size");
 
         const int new_vl_bits = memref.marker.marker_value * 8;
