@@ -885,7 +885,9 @@ raw2trace_t::process_marker_additionally(raw2trace_thread_data_t *tdata,
             buf, TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0);
     } else if (marker_type == TRACE_MARKER_TYPE_VECTOR_LENGTH) {
 #ifdef AARCH64
-        log(4, "Setting SVE vector length to %zu bytes\n", marker_val);
+        log(4,
+            "Setting SVE vector length for thread " INT64_FORMAT_STRING " to %zu bytes\n",
+            tdata->tid, marker_val);
 
         const int new_vl_bits = marker_val * 8;
         if (dr_get_sve_vector_length() != new_vl_bits) {
