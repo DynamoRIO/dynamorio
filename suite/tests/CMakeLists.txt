@@ -490,8 +490,8 @@ endfunction(append_link_flags)
 # TODO i#6429 Change this allowlist to a blocklist.
 set(sve_tests
       simple_app api.ir api.ir_negative api.ir_v81 api.ir_v82 api.ir_v83 api.ir_v84
-      api.ir_v86 api.ir_sve api.ir_sve2 api.ir-static api.drdecode common.broadfun
-      common.fib common.nzcv common.getretaddr common.segfault
+      api.ir_v85 api.ir_v86 api.ir_sve api.ir_sve2 api.ir-static api.drdecode
+      common.broadfun common.fib common.nzcv common.getretaddr common.segfault
       common.allasm_aarch64_isa common.allasm_aarch64_cache allasm_aarch64_prefetch
       allasm_aarch64_flush libutil.frontend_test libutil.drconfig_test
       client.call-retarget client.modules client.annotation-concurrency
@@ -2029,6 +2029,7 @@ if (NOT ANDROID)
     tobuild_api(api.ir_v82 api/ir_aarch64_v82.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_v83 api/ir_aarch64_v83.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_v84 api/ir_aarch64_v84.c "" "" OFF OFF OFF)
+    tobuild_api(api.ir_v85 api/ir_aarch64_v85.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_v86 api/ir_aarch64_v86.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_sve api/ir_aarch64_sve.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_sve2 api/ir_aarch64_sve2.c "" "" OFF OFF OFF)
@@ -3237,6 +3238,8 @@ elseif (AARCH64)
     "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v83.txt" OFF OFF)
   torunonly_api(api.dis-a64-v84 api.dis-a64 api/dis-a64.c ""
     "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v84.txt" OFF OFF)
+  torunonly_api(api.dis-a64-v85 api.dis-a64 api/dis-a64.c ""
+    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v85.txt" OFF OFF)
   torunonly_api(api.dis-a64-v86 api.dis-a64 api/dis-a64.c ""
     "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v86.txt" OFF OFF)
   torunonly_api(api.dis-a64-sve api.dis-a64 api/dis-a64.c ""
