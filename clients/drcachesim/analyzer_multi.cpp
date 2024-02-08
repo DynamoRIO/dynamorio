@@ -72,6 +72,26 @@ namespace drmemtrace {
 using ::dynamorio::droption::droption_parser_t;
 using ::dynamorio::droption::DROPTION_SCOPE_ALL;
 
+/****************************************************************
+ * Specializations for analyzer_multi_tmpl_t<memref_t, reader_t>,
+ * aka analyzer_multi_t.
+ */
+
+template <>
+std::unique_ptr<reader_t>
+analyzer_multi_t::create_ipc_reader(const char *name, int verbose)
+{
+    return std::unique_ptr<reader_t>(new ipc_reader_t(name, verbose));
+}
+
+template <>
+std::unique_ptr<reader_t>
+analyzer_multi_t::create_ipc_reader_end()
+{
+    return std::unique_ptr<reader_t>(new ipc_reader_t());
+}
+
+template <>
 analysis_tool_t *
 analyzer_multi_t::create_external_tool(const std::string &tool_name)
 {
@@ -106,238 +126,57 @@ analyzer_multi_t::create_external_tool(const std::string &tool_name)
     return tool;
 }
 
-analyzer_multi_t::analyzer_multi_t()
+template <>
+analysis_tool_t *
+analyzer_multi_t::create_invariant_checker()
 {
-    worker_count_ = op_jobs.get_value();
-    skip_instrs_ = op_skip_instrs.get_value();
-    interval_microseconds_ = op_interval_microseconds.get_value();
-    // Initial measurements show it's sometimes faster to keep the parallel model
-    // of using single-file readers but use them sequentially, as opposed to
-    // the every-file interleaving reader, but the user can specify -jobs 1, so
-    // we still keep the serial vs parallel split for 0.
-    if (worker_count_ == 0)
-        parallel_ = false;
-    if (!op_indir.get_value().empty() || !op_infile.get_value().empty())
-        op_offline.set_value(true); // Some tools check this on post-proc runs.
-    // XXX: add a "required" flag to droption to avoid needing this here
-    if (op_indir.get_value().empty() && op_infile.get_value().empty() &&
-        op_ipc_name.get_value().empty()) {
-        error_string_ =
-            "Usage error: -ipc_name or -indir or -infile is required\nUsage:\n" +
-            droption_parser_t::usage_short(DROPTION_SCOPE_ALL);
-        success_ = false;
-        return;
-    }
-    if (!op_indir.get_value().empty()) {
+    if (op_offline.get_value()) {
+        // TODO i#5538: Locate and open the schedule files and pass to the
+        // reader(s) for seeking. For now we only read them for this test.
+        // TODO i#5843: Share this code with scheduler_t or pass in for all
+        // tools from here for fast skipping in serial and per-cpu modes.
         std::string tracedir =
             raw2trace_directory_t::tracedir_from_rawdir(op_indir.get_value());
-        // We support the trace dir being empty if we haven't post-processed
-        // the raw files yet.
-        bool needs_processing = false;
-        if (!directory_iterator_t::is_directory(tracedir))
-            needs_processing = true;
-        else {
+        if (directory_iterator_t::is_directory(tracedir)) {
             directory_iterator_t end;
             directory_iterator_t iter(tracedir);
             if (!iter) {
-                needs_processing = true;
-            } else {
-                int count = 0;
-                for (; iter != end; ++iter) {
-                    if ((*iter) == "." || (*iter) == ".." ||
-                        starts_with(*iter, DRMEMTRACE_SERIAL_SCHEDULE_FILENAME) ||
-                        *iter == DRMEMTRACE_CPU_SCHEDULE_FILENAME)
-                        continue;
-                    ++count;
-                    // XXX: It would be nice to call file_reader_t::is_complete()
-                    // but we don't have support for that for compressed files.
-                    // Thus it's up to the user to delete incomplete processed files.
+                this->error_string_ = "Failed to list directory: " + iter.error_string();
+                return nullptr;
+            }
+            for (; iter != end; ++iter) {
+                const std::string fname = *iter;
+                const std::string fpath = tracedir + DIRSEP + fname;
+                if (starts_with(fname, DRMEMTRACE_SERIAL_SCHEDULE_FILENAME)) {
+                    if (ends_with(fname, ".gz")) {
+#ifdef HAS_ZLIB
+                        this->serial_schedule_file_ =
+                            std::unique_ptr<std::istream>(new gzip_istream_t(fpath));
+#endif
+                    } else {
+                        this->serial_schedule_file_ = std::unique_ptr<std::istream>(
+                            new std::ifstream(fpath, std::ifstream::binary));
+                    }
+                    if (this->serial_schedule_file_ && !*serial_schedule_file_) {
+                        this->error_string_ =
+                            "Failed to open serial schedule file " + fpath;
+                        return nullptr;
+                    }
+                } else if (fname == DRMEMTRACE_CPU_SCHEDULE_FILENAME) {
+#ifdef HAS_ZIP
+                    this->cpu_schedule_file_ =
+                        std::unique_ptr<std::istream>(new zipfile_istream_t(fpath));
+#endif
                 }
-                if (count == 0)
-                    needs_processing = true;
-            }
-        }
-        if (needs_processing) {
-            raw2trace_directory_t dir(op_verbose.get_value());
-            std::string dir_err =
-                dir.initialize(op_indir.get_value(), "", op_trace_compress.get_value(),
-                               op_syscall_template_file.get_value());
-            if (!dir_err.empty()) {
-                success_ = false;
-                error_string_ = "Directory setup failed: " + dir_err;
-                return;
-            }
-            raw2trace_t raw2trace(
-                dir.modfile_bytes_, dir.in_files_, dir.out_files_, dir.out_archives_,
-                dir.encoding_file_, dir.serial_schedule_file_, dir.cpu_schedule_file_,
-                nullptr, op_verbose.get_value(), op_jobs.get_value(),
-                op_alt_module_dir.get_value(), op_chunk_instr_count.get_value(),
-                dir.in_kfiles_map_, dir.kcoredir_, dir.kallsymsdir_,
-                std::move(dir.syscall_template_file_reader_));
-            std::string error = raw2trace.do_conversion();
-            if (!error.empty()) {
-                success_ = false;
-                error_string_ = "raw2trace failed: " + error;
             }
         }
     }
-    // Create the tools after post-processing so we have the schedule files for
-    // test_mode.
-    if (!create_analysis_tools()) {
-        success_ = false;
-        error_string_ = "Failed to create analysis tool:" + error_string_;
-        return;
-    }
-
-    scheduler_t::scheduler_options_t sched_ops;
-    if (op_core_sharded.get_value() || op_core_serial.get_value()) {
-        if (op_core_serial.get_value()) {
-            parallel_ = false;
-        }
-        sched_ops = init_dynamic_schedule();
-    }
-
-    if (!op_indir.get_value().empty()) {
-        std::string tracedir =
-            raw2trace_directory_t::tracedir_from_rawdir(op_indir.get_value());
-        if (!init_scheduler(tracedir, op_only_thread.get_value(), op_verbose.get_value(),
-                            std::move(sched_ops)))
-            success_ = false;
-    } else if (op_infile.get_value().empty()) {
-        // XXX i#3323: Add parallel analysis support for online tools.
-        parallel_ = false;
-        auto reader = std::unique_ptr<reader_t>(
-            new ipc_reader_t(op_ipc_name.get_value().c_str(), op_verbose.get_value()));
-        auto end = std::unique_ptr<reader_t>(new ipc_reader_t());
-        if (!init_scheduler(std::move(reader), std::move(end), op_verbose.get_value(),
-                            std::move(sched_ops))) {
-            success_ = false;
-        }
-    } else {
-        // Legacy file.
-        if (!init_scheduler(op_infile.get_value(), INVALID_THREAD_ID /*all threads*/,
-                            op_verbose.get_value(), std::move(sched_ops)))
-            success_ = false;
-    }
-    if (!init_analysis_tools()) {
-        success_ = false;
-        return;
-    }
-    // We can't call serial_trace_iter_->init() here as it blocks for ipc_reader_t.
+    return new invariant_checker_t(op_offline.get_value(), op_verbose.get_value(),
+                                   op_test_mode_name.get_value(),
+                                   serial_schedule_file_.get(), cpu_schedule_file_.get());
 }
 
-analyzer_multi_t::~analyzer_multi_t()
-{
-
-#ifdef HAS_ZIP
-    if (!op_record_file.get_value().empty()) {
-        if (scheduler_.write_recorded_schedule() != scheduler_t::STATUS_SUCCESS) {
-            ERRMSG("Failed to write schedule to %s", op_record_file.get_value().c_str());
-        }
-    }
-#endif
-    destroy_analysis_tools();
-}
-
-scheduler_t::scheduler_options_t
-analyzer_multi_t::init_dynamic_schedule()
-{
-    shard_type_ = SHARD_BY_CORE;
-    worker_count_ = op_num_cores.get_value();
-    scheduler_t::scheduler_options_t sched_ops(
-        scheduler_t::MAP_TO_ANY_OUTPUT,
-        op_sched_order_time.get_value() ? scheduler_t::DEPENDENCY_TIMESTAMPS
-                                        : scheduler_t::DEPENDENCY_IGNORE,
-        scheduler_t::SCHEDULER_DEFAULTS, op_verbose.get_value());
-    sched_ops.quantum_duration = op_sched_quantum.get_value();
-    if (op_sched_time.get_value())
-        sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
-    sched_ops.syscall_switch_threshold = op_sched_syscall_switch_us.get_value();
-    sched_ops.blocking_switch_threshold = op_sched_blocking_switch_us.get_value();
-    sched_ops.block_time_scale = op_sched_block_scale.get_value();
-    sched_ops.block_time_max = op_sched_block_max_us.get_value();
-    sched_ops.randomize_next_input = op_sched_randomize.get_value();
-#ifdef HAS_ZIP
-    if (!op_record_file.get_value().empty()) {
-        record_schedule_zip_.reset(new zipfile_ostream_t(op_record_file.get_value()));
-        sched_ops.schedule_record_ostream = record_schedule_zip_.get();
-    } else if (!op_replay_file.get_value().empty()) {
-        replay_schedule_zip_.reset(new zipfile_istream_t(op_replay_file.get_value()));
-        sched_ops.schedule_replay_istream = replay_schedule_zip_.get();
-        sched_ops.mapping = scheduler_t::MAP_AS_PREVIOUSLY;
-        sched_ops.deps = scheduler_t::DEPENDENCY_TIMESTAMPS;
-    } else if (!op_cpu_schedule_file.get_value().empty()) {
-        cpu_schedule_zip_.reset(new zipfile_istream_t(op_cpu_schedule_file.get_value()));
-        sched_ops.mapping = scheduler_t::MAP_TO_RECORDED_OUTPUT;
-        sched_ops.deps = scheduler_t::DEPENDENCY_TIMESTAMPS;
-        sched_ops.replay_as_traced_istream = cpu_schedule_zip_.get();
-    }
-#endif
-    sched_ops.kernel_switch_trace_path = op_sched_switch_file.get_value();
-    return sched_ops;
-}
-
-bool
-analyzer_multi_t::create_analysis_tools()
-{
-    tools_ = new analysis_tool_t *[max_num_tools_];
-    if (!op_simulator_type.get_value().empty()) {
-        std::stringstream stream(op_simulator_type.get_value());
-        std::string type;
-        while (std::getline(stream, type, ':')) {
-            if (num_tools_ >= max_num_tools_ - 1) {
-                error_string_ = "Only " + std::to_string(max_num_tools_ - 1) +
-                    " simulators are allowed simultaneously";
-                return false;
-            }
-            auto tool = create_analysis_tool_from_options(type);
-            if (tool == NULL)
-                continue;
-            if (!*tool) {
-                std::string tool_error = tool->get_error_string();
-                if (tool_error.empty())
-                    tool_error = "no error message provided.";
-                error_string_ = "Tool failed to initialize: " + tool_error;
-                delete tool;
-                return false;
-            }
-            tools_[num_tools_++] = tool;
-        }
-    }
-
-    if (op_test_mode.get_value()) {
-        tools_[num_tools_] = create_invariant_checker();
-        if (tools_[num_tools_] == NULL)
-            return false;
-        if (!*tools_[num_tools_]) {
-            error_string_ = tools_[num_tools_]->get_error_string();
-            delete tools_[num_tools_];
-            tools_[num_tools_] = NULL;
-            return false;
-        }
-        num_tools_++;
-    }
-
-    return (num_tools_ != 0);
-}
-
-bool
-analyzer_multi_t::init_analysis_tools()
-{
-    // initialize_stream() is now called from analyzer_t::run().
-    return true;
-}
-
-void
-analyzer_multi_t::destroy_analysis_tools()
-{
-    if (!success_)
-        return;
-    for (int i = 0; i < num_tools_; i++)
-        delete tools_[i];
-    delete[] tools_;
-}
-
+template <>
 analysis_tool_t *
 analyzer_multi_t::create_analysis_tool_from_options(const std::string &simulator_type)
 {
@@ -441,52 +280,301 @@ analyzer_multi_t::create_analysis_tool_from_options(const std::string &simulator
     }
 }
 
-analysis_tool_t *
-analyzer_multi_t::create_invariant_checker()
+/******************************************************************************
+ * Specializations for analyzer_multi_tmpl_t<trace_entry_t, record_reader_t>, aka
+ * record_analyzer_multi_t.
+ */
+
+template <>
+std::unique_ptr<record_reader_t>
+record_analyzer_multi_t::create_ipc_reader(const char *name, int verbose)
 {
-    if (op_offline.get_value()) {
-        // TODO i#5538: Locate and open the schedule files and pass to the
-        // reader(s) for seeking. For now we only read them for this test.
-        // TODO i#5843: Share this code with scheduler_t or pass in for all
-        // tools from here for fast skipping in serial and per-cpu modes.
+    // Not supported;
+    return std::unique_ptr<record_reader_t>();
+}
+
+template <>
+std::unique_ptr<record_reader_t>
+record_analyzer_multi_t::create_ipc_reader_end()
+{
+    // Not supported;
+    return std::unique_ptr<record_reader_t>();
+}
+
+template <>
+record_analysis_tool_t *
+record_analyzer_multi_t::create_external_tool(const std::string &tool_name)
+{
+    // Not supported.
+    return nullptr;
+}
+
+template <>
+record_analysis_tool_t *
+record_analyzer_multi_t::create_invariant_checker()
+{
+    // Not supported.
+    return nullptr;
+}
+
+template <>
+record_analysis_tool_t *
+record_analyzer_multi_t::create_analysis_tool_from_options(
+    const std::string &simulator_type)
+{
+    // TODO i#6635: create the record_filter tool if requested.
+    return nullptr;
+}
+
+/********************************************************************
+ * Other analyzer_multi_tmpl_t routines that do not need to be specialized.
+ */
+
+template <typename RecordType, typename ReaderType>
+analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
+{
+    this->worker_count_ = op_jobs.get_value();
+    this->skip_instrs_ = op_skip_instrs.get_value();
+    this->interval_microseconds_ = op_interval_microseconds.get_value();
+    // Initial measurements show it's sometimes faster to keep the parallel model
+    // of using single-file readers but use them sequentially, as opposed to
+    // the every-file interleaving reader, but the user can specify -jobs 1, so
+    // we still keep the serial vs parallel split for 0.
+    if (this->worker_count_ == 0)
+        this->parallel_ = false;
+    if (!op_indir.get_value().empty() || !op_infile.get_value().empty())
+        op_offline.set_value(true); // Some tools check this on post-proc runs.
+    // XXX: add a "required" flag to droption to avoid needing this here
+    if (op_indir.get_value().empty() && op_infile.get_value().empty() &&
+        op_ipc_name.get_value().empty()) {
+        this->error_string_ =
+            "Usage error: -ipc_name or -indir or -infile is required\nUsage:\n" +
+            droption_parser_t::usage_short(DROPTION_SCOPE_ALL);
+        this->success_ = false;
+        return;
+    }
+    if (!op_indir.get_value().empty()) {
         std::string tracedir =
             raw2trace_directory_t::tracedir_from_rawdir(op_indir.get_value());
-        if (directory_iterator_t::is_directory(tracedir)) {
+        // We support the trace dir being empty if we haven't post-processed
+        // the raw files yet.
+        bool needs_processing = false;
+        if (!directory_iterator_t::is_directory(tracedir))
+            needs_processing = true;
+        else {
             directory_iterator_t end;
             directory_iterator_t iter(tracedir);
             if (!iter) {
-                error_string_ = "Failed to list directory: " + iter.error_string();
-                return nullptr;
-            }
-            for (; iter != end; ++iter) {
-                const std::string fname = *iter;
-                const std::string fpath = tracedir + DIRSEP + fname;
-                if (starts_with(fname, DRMEMTRACE_SERIAL_SCHEDULE_FILENAME)) {
-                    if (ends_with(fname, ".gz")) {
-#ifdef HAS_ZLIB
-                        serial_schedule_file_ =
-                            std::unique_ptr<std::istream>(new gzip_istream_t(fpath));
-#endif
-                    } else {
-                        serial_schedule_file_ = std::unique_ptr<std::istream>(
-                            new std::ifstream(fpath, std::ifstream::binary));
-                    }
-                    if (serial_schedule_file_ && !*serial_schedule_file_) {
-                        error_string_ = "Failed to open serial schedule file " + fpath;
-                        return nullptr;
-                    }
-                } else if (fname == DRMEMTRACE_CPU_SCHEDULE_FILENAME) {
-#ifdef HAS_ZIP
-                    cpu_schedule_file_ =
-                        std::unique_ptr<std::istream>(new zipfile_istream_t(fpath));
-#endif
+                needs_processing = true;
+            } else {
+                int count = 0;
+                for (; iter != end; ++iter) {
+                    if ((*iter) == "." || (*iter) == ".." ||
+                        starts_with(*iter, DRMEMTRACE_SERIAL_SCHEDULE_FILENAME) ||
+                        *iter == DRMEMTRACE_CPU_SCHEDULE_FILENAME)
+                        continue;
+                    ++count;
+                    // XXX: It would be nice to call file_reader_t::is_complete()
+                    // but we don't have support for that for compressed files.
+                    // Thus it's up to the user to delete incomplete processed files.
                 }
+                if (count == 0)
+                    needs_processing = true;
+            }
+        }
+        if (needs_processing) {
+            raw2trace_directory_t dir(op_verbose.get_value());
+            std::string dir_err =
+                dir.initialize(op_indir.get_value(), "", op_trace_compress.get_value(),
+                               op_syscall_template_file.get_value());
+            if (!dir_err.empty()) {
+                this->success_ = false;
+                this->error_string_ = "Directory setup failed: " + dir_err;
+                return;
+            }
+            raw2trace_t raw2trace(
+                dir.modfile_bytes_, dir.in_files_, dir.out_files_, dir.out_archives_,
+                dir.encoding_file_, dir.serial_schedule_file_, dir.cpu_schedule_file_,
+                nullptr, op_verbose.get_value(), op_jobs.get_value(),
+                op_alt_module_dir.get_value(), op_chunk_instr_count.get_value(),
+                dir.in_kfiles_map_, dir.kcoredir_, dir.kallsymsdir_,
+                std::move(dir.syscall_template_file_reader_));
+            std::string error = raw2trace.do_conversion();
+            if (!error.empty()) {
+                this->success_ = false;
+                this->error_string_ = "raw2trace failed: " + error;
             }
         }
     }
-    return new invariant_checker_t(op_offline.get_value(), op_verbose.get_value(),
-                                   op_test_mode_name.get_value(),
-                                   serial_schedule_file_.get(), cpu_schedule_file_.get());
+    // Create the tools after post-processing so we have the schedule files for
+    // test_mode.
+    if (!create_analysis_tools()) {
+        this->success_ = false;
+        this->error_string_ = "Failed to create analysis tool:" + this->error_string_;
+        return;
+    }
+
+    typename sched_type_t::scheduler_options_t sched_ops;
+    if (op_core_sharded.get_value() || op_core_serial.get_value()) {
+        if (op_core_serial.get_value()) {
+            this->parallel_ = false;
+        }
+        sched_ops = init_dynamic_schedule();
+    }
+
+    if (!op_indir.get_value().empty()) {
+        std::string tracedir =
+            raw2trace_directory_t::tracedir_from_rawdir(op_indir.get_value());
+        if (!this->init_scheduler(tracedir, op_only_thread.get_value(),
+                                  op_verbose.get_value(), std::move(sched_ops)))
+            this->success_ = false;
+    } else if (op_infile.get_value().empty()) {
+        // NOCHECK has to be in analyzer_multi_t specialization?
+        // XXX i#3323: Add parallel analysis support for online tools.
+        this->parallel_ = false;
+        auto reader =
+            create_ipc_reader(op_ipc_name.get_value().c_str(), op_verbose.get_value());
+        if (!reader) {
+            this->error_string_ = "Online not supported";
+            this->success_ = false;
+            return;
+        }
+        auto end = create_ipc_reader_end();
+        if (!this->init_scheduler(std::move(reader), std::move(end),
+                                  op_verbose.get_value(), std::move(sched_ops))) {
+            this->success_ = false;
+        }
+    } else {
+        // Legacy file.
+        if (!this->init_scheduler(op_infile.get_value(),
+                                  INVALID_THREAD_ID /*all threads*/,
+                                  op_verbose.get_value(), std::move(sched_ops)))
+            this->success_ = false;
+    }
+    if (!init_analysis_tools()) {
+        this->success_ = false;
+        return;
+    }
+    // We can't call serial_trace_iter_->init() here as it blocks for ipc_reader_t.
+}
+
+template <typename RecordType, typename ReaderType>
+analyzer_multi_tmpl_t<RecordType, ReaderType>::~analyzer_multi_tmpl_t()
+{
+
+#ifdef HAS_ZIP
+    if (!op_record_file.get_value().empty()) {
+        if (this->scheduler_.write_recorded_schedule() != sched_type_t::STATUS_SUCCESS) {
+            ERRMSG("Failed to write schedule to %s", op_record_file.get_value().c_str());
+        }
+    }
+#endif
+    destroy_analysis_tools();
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_options_t
+analyzer_multi_tmpl_t<RecordType, ReaderType>::init_dynamic_schedule()
+{
+    this->shard_type_ = SHARD_BY_CORE;
+    this->worker_count_ = op_num_cores.get_value();
+    typename sched_type_t::scheduler_options_t sched_ops(
+        sched_type_t::MAP_TO_ANY_OUTPUT,
+        op_sched_order_time.get_value() ? sched_type_t::DEPENDENCY_TIMESTAMPS
+                                        : sched_type_t::DEPENDENCY_IGNORE,
+        sched_type_t::SCHEDULER_DEFAULTS, op_verbose.get_value());
+    sched_ops.quantum_duration = op_sched_quantum.get_value();
+    if (op_sched_time.get_value())
+        sched_ops.quantum_unit = sched_type_t::QUANTUM_TIME;
+    sched_ops.syscall_switch_threshold = op_sched_syscall_switch_us.get_value();
+    sched_ops.blocking_switch_threshold = op_sched_blocking_switch_us.get_value();
+    sched_ops.block_time_scale = op_sched_block_scale.get_value();
+    sched_ops.block_time_max = op_sched_block_max_us.get_value();
+    sched_ops.randomize_next_input = op_sched_randomize.get_value();
+#ifdef HAS_ZIP
+    if (!op_record_file.get_value().empty()) {
+        record_schedule_zip_.reset(new zipfile_ostream_t(op_record_file.get_value()));
+        sched_ops.schedule_record_ostream = record_schedule_zip_.get();
+    } else if (!op_replay_file.get_value().empty()) {
+        replay_schedule_zip_.reset(new zipfile_istream_t(op_replay_file.get_value()));
+        sched_ops.schedule_replay_istream = replay_schedule_zip_.get();
+        sched_ops.mapping = sched_type_t::MAP_AS_PREVIOUSLY;
+        sched_ops.deps = sched_type_t::DEPENDENCY_TIMESTAMPS;
+    } else if (!op_cpu_schedule_file.get_value().empty()) {
+        cpu_schedule_zip_.reset(new zipfile_istream_t(op_cpu_schedule_file.get_value()));
+        sched_ops.mapping = sched_type_t::MAP_TO_RECORDED_OUTPUT;
+        sched_ops.deps = sched_type_t::DEPENDENCY_TIMESTAMPS;
+        sched_ops.replay_as_traced_istream = cpu_schedule_zip_.get();
+    }
+#endif
+    sched_ops.kernel_switch_trace_path = op_sched_switch_file.get_value();
+    return sched_ops;
+}
+
+template <typename RecordType, typename ReaderType>
+bool
+analyzer_multi_tmpl_t<RecordType, ReaderType>::create_analysis_tools()
+{
+    this->tools_ = new analysis_tool_tmpl_t<RecordType> *[this->max_num_tools_];
+    if (!op_simulator_type.get_value().empty()) {
+        std::stringstream stream(op_simulator_type.get_value());
+        std::string type;
+        while (std::getline(stream, type, ':')) {
+            if (this->num_tools_ >= this->max_num_tools_ - 1) {
+                this->error_string_ = "Only " + std::to_string(this->max_num_tools_ - 1) +
+                    " simulators are allowed simultaneously";
+                return false;
+            }
+            auto tool = create_analysis_tool_from_options(type);
+            if (tool == NULL)
+                continue;
+            if (!*tool) {
+                std::string tool_error = tool->get_error_string();
+                if (tool_error.empty())
+                    tool_error = "no error message provided.";
+                this->error_string_ = "Tool failed to initialize: " + tool_error;
+                delete tool;
+                return false;
+            }
+            this->tools_[this->num_tools_++] = tool;
+        }
+    }
+
+    if (op_test_mode.get_value()) {
+        // This will return nullptr for record_ instantiation; we just don't support
+        // -test_mode for record_.
+        this->tools_[this->num_tools_] = create_invariant_checker();
+        if (this->tools_[this->num_tools_] == NULL)
+            return false;
+        if (!*this->tools_[this->num_tools_]) {
+            this->error_string_ = this->tools_[this->num_tools_]->get_error_string();
+            delete this->tools_[this->num_tools_];
+            this->tools_[this->num_tools_] = NULL;
+            return false;
+        }
+        this->num_tools_++;
+    }
+
+    return (this->num_tools_ != 0);
+}
+
+template <typename RecordType, typename ReaderType>
+bool
+analyzer_multi_tmpl_t<RecordType, ReaderType>::init_analysis_tools()
+{
+    // initialize_stream() is now called from analyzer_t::run().
+    return true;
+}
+
+template <typename RecordType, typename ReaderType>
+void
+analyzer_multi_tmpl_t<RecordType, ReaderType>::destroy_analysis_tools()
+{
+    if (!this->success_)
+        return;
+    for (int i = 0; i < this->num_tools_; i++)
+        delete this->tools_[i];
+    delete[] this->tools_;
 }
 
 /* Get the path to an auxiliary file by examining
@@ -495,8 +583,10 @@ analyzer_multi_t::create_invariant_checker()
  * If a trace file is provided instead of a trace directory, it searches in the
  * directory which contains the trace file.
  */
+template <typename RecordType, typename ReaderType>
 std::string
-analyzer_multi_t::get_aux_file_path(std::string option_val, std::string default_filename)
+analyzer_multi_tmpl_t<RecordType, ReaderType>::get_aux_file_path(
+    std::string option_val, std::string default_filename)
 {
     std::string file_path;
     if (!option_val.empty())
@@ -534,8 +624,9 @@ analyzer_multi_t::get_aux_file_path(std::string option_val, std::string default_
     return file_path;
 }
 
+template <typename RecordType, typename ReaderType>
 std::string
-analyzer_multi_t::get_module_file_path()
+analyzer_multi_tmpl_t<RecordType, ReaderType>::get_module_file_path()
 {
     return get_aux_file_path(op_module_file.get_value(), DRMEMTRACE_MODULE_LIST_FILENAME);
 }
@@ -543,8 +634,9 @@ analyzer_multi_t::get_module_file_path()
 /* Get the cache simulator knobs used by the cache simulator
  * and the cache miss analyzer.
  */
+template <typename RecordType, typename ReaderType>
 cache_simulator_knobs_t *
-analyzer_multi_t::get_cache_simulator_knobs()
+analyzer_multi_tmpl_t<RecordType, ReaderType>::get_cache_simulator_knobs()
 {
     cache_simulator_knobs_t *knobs = new cache_simulator_knobs_t;
     knobs->num_cores = op_num_cores.get_value();
@@ -568,6 +660,10 @@ analyzer_multi_t::get_cache_simulator_knobs()
     knobs->use_physical = op_use_physical.get_value();
     return knobs;
 }
+
+template class analyzer_multi_tmpl_t<memref_t, reader_t>;
+template class analyzer_multi_tmpl_t<trace_entry_t,
+                                     dynamorio::drmemtrace::record_reader_t>;
 
 } // namespace drmemtrace
 } // namespace dynamorio
