@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -276,6 +276,7 @@ tools can also be created, as described in \ref sec_drcachesim_newtool.
 - \ref sec_tool_histogram
 - \ref sec_tool_invariant_checker
 - \ref sec_tool_syscall_mix
+- \ref sec_tool_record_filter
 
 \section sec_tool_cache_sim Cache Simulator
 
@@ -892,6 +893,51 @@ Syscall mix tool results:
               1 :       318
               1 :        11
               1 :       273
+\endcode
+
+\section sec_tool_record_filter Record Filter
+
+The record filter tool modifies a target trace.  It contains several varieties of
+filters which selectively remove records from the tool.  The filters currently provided
+include:
+
+- Removing records of types specified by the -filter_trace_types option.
+  The types are identified by their #dynamorio::drmemtrace::trace_type_t
+  enum numeric value.
+
+- Remove marker records of marker types specified by the -filter_marker_types option.
+  The types are identified by their #dynamorio::drmemtrace::trace_marker_type_t
+  enum numeric value.
+
+- Running a simple data cache filter and removing hits.  The cache is enbabled
+  and its size specified by the -filter_cache_size option.  The cache filter
+  can be applied only to the start of a trace using the -filter_stop_timestamp
+  option.
+
+- Trimming the start (via -trim_before_timestamp) and end (via -trim_after_timestamp)
+  of a trace.  Any now-empty shards are deleted entirely.
+
+Example of removing function markers:
+
+\code
+$ bin64/drrun -t drcachesim -indir mytracedir -simulator_type basic_counts
+...
+        9009 total function id markers
+        5006 total function return address markers
+        6007 total function argument markers
+        4003 total function return value markers
+...
+
+$ bin64/drrun -t drcachesim -simulator_type record_filter -filter_marker_types 4,5,6,7 -indir mytracedir -outdir newdir
+Output 1280800 entries from 1304825 entries.
+
+$ bin64/drrun -t drcachesim -indir newdir -simulator_type basic_counts
+...
+           0 total function id markers
+           0 total function return address markers
+           0 total function argument markers
+           0 total function return value markers
+...
 \endcode
 
 ****************************************************************************

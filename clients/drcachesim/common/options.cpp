@@ -35,6 +35,7 @@
 #include "options.h"
 
 #include <cstdint>
+#include <limits>
 #include <string>
 
 #include "dr_api.h" // For IF_X86_ELSE.
@@ -457,13 +458,16 @@ droption_t<std::string>
                           "Specifies the replacement policy for TLBs. "
                           "Supported policies: LFU (Least Frequently Used).");
 
+// TODO i#6660: Add "-tool" alias as these are not all "simulators".
 droption_t<std::string>
     op_simulator_type(DROPTION_SCOPE_FRONTEND, "simulator_type", CPU_CACHE,
-                      "Specifies the types of simulators, separated by a colon (\":\").",
+                      "Specifies which trace analysis tool(s) to run.  Multiple tools "
+                      "can be specified, separated by a colon (\":\").",
                       "Predefined types: " CPU_CACHE ", " MISS_ANALYZER ", " TLB
                       ", " REUSE_DIST ", " REUSE_TIME ", " HISTOGRAM ", " BASIC_COUNTS
-                      ", " INVARIANT_CHECKER ", or " SCHEDULE_STATS
-                      ". The external types: name of a tool identified by a "
+                      ", " INVARIANT_CHECKER ", " SCHEDULE_STATS ", or " RECORD_FILTER
+                      ". The " RECORD_FILTER " tool cannot be combined with the others. "
+                      "To invoke an external tool: specify its name as identified by a "
                       "name.drcachesim config file in the DR tools directory.");
 
 droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 64,
@@ -927,6 +931,50 @@ droption_t<std::string> op_syscall_template_file(
     "Path to the file that contains system call trace templates. "
     "If set, system call traces will be injected from the file "
     "into the resulting trace.");
+
+// Record filter options.
+droption_t<uint64_t> op_filter_stop_timestamp(
+    DROPTION_SCOPE_FRONTEND, "filter_stop_timestamp", 0, 0,
+    // Wrap max in parens to work around Visual Studio compiler issues with the
+    // max macro (even despite NOMINMAX defined above).
+    (std::numeric_limits<uint64_t>::max)(),
+    "Timestamp (in us) in the trace when to stop filtering.",
+    "Record filtering will be disabled (everything will be output) "
+    "when the tool sees a TRACE_MARKER_TYPE_TIMESTAMP marker with "
+    "timestamp greater than the specified value.");
+
+droption_t<int> op_filter_cache_size(
+    DROPTION_SCOPE_FRONTEND, "filter_cache_size", 0,
+    "Enable data cache filter with given size (in bytes).",
+    "Enable data cache filter with given size (in bytes), with 64 byte "
+    "line size and a direct mapped LRU cache.");
+
+droption_t<std::string>
+    op_filter_trace_types(DROPTION_SCOPE_FRONTEND, "filter_trace_types", "",
+                          "Comma-separated integers for trace types to remove.",
+                          "Comma-separated integers for trace types to remove. "
+                          "See trace_type_t for the list of trace entry types.");
+
+droption_t<std::string>
+    op_filter_marker_types(DROPTION_SCOPE_FRONTEND, "filter_marker_types", "",
+                           "Comma-separated integers for marker types to remove.",
+                           "Comma-separated integers for marker types to remove. "
+                           "See trace_marker_type_t for the list of marker types.");
+
+droption_t<uint64_t> op_trim_before_timestamp(
+    DROPTION_SCOPE_ALL, "trim_before_timestamp", 0, 0,
+    (std::numeric_limits<uint64_t>::max)(),
+    "Trim records until this timestamp (in us) in the trace.",
+    "Removes all records (after headers) before the first TRACE_MARKER_TYPE_TIMESTAMP "
+    "marker in the trace with timestamp greater than or equal to the specified value.");
+
+droption_t<uint64_t> op_trim_after_timestamp(
+    DROPTION_SCOPE_ALL, "trim_after_timestamp", (std::numeric_limits<uint64_t>::max)(), 0,
+    (std::numeric_limits<uint64_t>::max)(),
+    "Trim records after this timestamp (in us) in the trace.",
+    "Removes all records after the first TRACE_MARKER_TYPE_TIMESTAMP marker with "
+    "timestamp larger than the specified value (keeps a TRACE_MARKER_TYPE_CPU_ID "
+    "immediately following the transition timestamp).");
 
 } // namespace drmemtrace
 } // namespace dynamorio
