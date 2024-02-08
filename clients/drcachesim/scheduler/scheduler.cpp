@@ -70,12 +70,6 @@
 #endif
 #include "directory_iterator.h"
 #include "utils.h"
-#ifdef UNIX
-#    include <sys/time.h>
-#else
-#    define WIN32_LEAN_AND_MEAN
-#    include <windows.h>
-#endif
 
 #undef VPRINT
 #ifdef DEBUG
@@ -1610,24 +1604,7 @@ template <typename RecordType, typename ReaderType>
 uint64_t
 scheduler_tmpl_t<RecordType, ReaderType>::get_time_micros()
 {
-    // XXX i#5843: Should we just use dr_get_microseconds() and avoid split-OS support
-    // inside here?  We will be pulling in drdecode at least for identifying blocking
-    // syscalls so maybe full DR isn't much more since we're often linked with raw2trace
-    // which already needs it.  If we do we can remove the headers for this code too.
-#ifdef UNIX
-    struct timeval time;
-    if (gettimeofday(&time, nullptr) != 0)
-        return sched_type_t::STATUS_RECORD_FAILED;
-    return time.tv_sec * 1000000 + time.tv_usec;
-#else
-    SYSTEMTIME sys_time;
-    GetSystemTime(&sys_time);
-    FILETIME file_time;
-    if (!SystemTimeToFileTime(&sys_time, &file_time))
-        return sched_type_t::STATUS_RECORD_FAILED;
-    return file_time.dwLowDateTime +
-        (static_cast<uint64_t>(file_time.dwHighDateTime) << 32);
-#endif
+    return get_microsecond_timestamp();
 }
 
 template <typename RecordType, typename ReaderType>

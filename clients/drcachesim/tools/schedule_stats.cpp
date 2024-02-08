@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,13 +33,6 @@
 #define NOMINMAX // Avoid windows.h messing up std::max.
 
 #include "schedule_stats.h"
-
-#ifdef WINDOWS
-#    define WIN32_LEAN_AND_MEAN
-#    include <windows.h>
-#else
-#    include <sys/time.h>
-#endif
 
 #include <stddef.h>
 #include <stdint.h>
@@ -162,20 +155,7 @@ schedule_stats_t::parallel_shard_error(void *shard_data)
 uint64_t
 schedule_stats_t::get_current_microseconds()
 {
-#ifdef UNIX
-    struct timeval time;
-    if (gettimeofday(&time, nullptr) != 0)
-        return 0;
-    return time.tv_sec * 1000000 + time.tv_usec;
-#else
-    SYSTEMTIME sys_time;
-    GetSystemTime(&sys_time);
-    FILETIME file_time;
-    if (!SystemTimeToFileTime(&sys_time, &file_time))
-        return 0;
-    return file_time.dwLowDateTime +
-        (static_cast<uint64_t>(file_time.dwHighDateTime) << 32);
-#endif
+    return get_microsecond_timestamp();
 }
 
 bool
