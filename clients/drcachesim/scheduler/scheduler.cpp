@@ -1722,8 +1722,13 @@ scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue(
     sched_type_t::stream_status_t status = STATUS_OK;
     uint64_t cur_time = (num_blocked_ > 0) ? get_output_time(for_output) : 0;
     while (!ready_priority_.empty()) {
-        res = ready_priority_.top();
-        ready_priority_.pop();
+        if (options_.randomize_next_input) {
+            res = ready_priority_.get_random_entry();
+            ready_priority_.erase(res);
+        } else {
+            res = ready_priority_.top();
+            ready_priority_.pop();
+        }
         if (res->binding.empty() || res->binding.find(for_output) != res->binding.end()) {
             // For blocked inputs, as we don't have interrupts or other regular
             // control points we only check for being unblocked when an input
