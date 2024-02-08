@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,11 +35,19 @@
 #ifndef _UTILS_H_
 #define _UTILS_H_ 1
 
+#include <stdint.h>
 #include <stdio.h>
 #include <iomanip>
 #include <sstream>
 #include <string>
 #include <vector>
+
+#ifdef UNIX
+#    include <sys/time.h>
+#else
+#    define WIN32_LEAN_AND_MEAN
+#    include <windows.h>
+#endif
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -89,7 +97,7 @@ namespace drmemtrace {
 #ifdef WINDOWS
 /* Use special C99 operator _Pragma to generate a pragma from a macro */
 #    if _MSC_VER <= 1200
-#        define ACTUAL_PRAGMA(p) _Pragma(#        p)
+#        define ACTUAL_PRAGMA(p) _Pragma(#p)
 #    else
 #        define ACTUAL_PRAGMA(p) __pragma(p)
 #    endif
@@ -180,6 +188,25 @@ split_by(std::string s, const std::string &sep)
         s.erase(0, pos + sep.length());
     } while (pos != std::string::npos);
     return vec;
+}
+
+// Returns a timestamp with at least microsecond granularity.
+// On UNIX this is an absolute timestamp; but on Windows where we had
+// trouble with the GetSystemTime* functions not being granular enough
+// it's the timestamp counter from the processor.
+static inline uint64_t
+get_microsecond_timestamp()
+{
+#ifdef UNIX
+    struct timeval time;
+    if (gettimeofday(&time, nullptr) != 0)
+        return 0;
+    return time.tv_sec * 1000000 + time.tv_usec;
+#else
+    uint64_t res;
+    QueryPerformanceCounter((LARGE_INTEGER *)&res);
+    return res;
+#endif
 }
 
 } // namespace drmemtrace
