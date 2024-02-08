@@ -42,11 +42,11 @@
 #include <string>
 #include <vector>
 
-#ifdef UNIX
-#    include <sys/time.h>
-#else
+#if defined(_WIN32) || defined(_WIN64) || defined(WINDOWS)
 #    define WIN32_LEAN_AND_MEAN
 #    include <windows.h>
+#else
+#    include <sys/time.h>
 #endif
 
 namespace dynamorio {
@@ -97,7 +97,7 @@ namespace drmemtrace {
 #ifdef WINDOWS
 /* Use special C99 operator _Pragma to generate a pragma from a macro */
 #    if _MSC_VER <= 1200
-#        define ACTUAL_PRAGMA(p) _Pragma(#p)
+#        define ACTUAL_PRAGMA(p) _Pragma(#        p)
 #    else
 #        define ACTUAL_PRAGMA(p) __pragma(p)
 #    endif
@@ -197,15 +197,15 @@ split_by(std::string s, const std::string &sep)
 static inline uint64_t
 get_microsecond_timestamp()
 {
-#ifdef UNIX
+#if defined(_WIN32) || defined(_WIN64) || defined(WINDOWS)
+    uint64_t res;
+    QueryPerformanceCounter((LARGE_INTEGER *)&res);
+    return res;
+#else
     struct timeval time;
     if (gettimeofday(&time, nullptr) != 0)
         return 0;
     return time.tv_sec * 1000000 + time.tv_usec;
-#else
-    uint64_t res;
-    QueryPerformanceCounter((LARGE_INTEGER *)&res);
-    return res;
 #endif
 }
 
