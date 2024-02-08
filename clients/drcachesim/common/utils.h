@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,11 +35,22 @@
 #ifndef _UTILS_H_
 #define _UTILS_H_ 1
 
+#include <stdint.h>
 #include <stdio.h>
 #include <iomanip>
 #include <sstream>
 #include <string>
 #include <vector>
+
+#if defined(_WIN32) || defined(_WIN64) || defined(WINDOWS)
+#    define WIN32_LEAN_AND_MEAN
+#    define UNICODE  // For Windows headers.
+#    define _UNICODE // For C headers.
+#    define NOMINMAX // Avoid windows.h messing up std::min.
+#    include <windows.h>
+#else
+#    include <sys/time.h>
+#endif
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -180,6 +191,27 @@ split_by(std::string s, const std::string &sep)
         s.erase(0, pos + sep.length());
     } while (pos != std::string::npos);
     return vec;
+}
+
+// Returns a timestamp with at least microsecond granularity.
+// On UNIX this is an absolute timestamp; but on Windows where we had
+// trouble with the GetSystemTime* functions not being granular enough
+// it's the timestamp counter from the processor.
+// (We avoid dr_get_microseconds() because not all targets link
+// in the DR library.)
+static inline uint64_t
+get_microsecond_timestamp()
+{
+#if defined(_WIN32) || defined(_WIN64) || defined(WINDOWS)
+    uint64_t res;
+    QueryPerformanceCounter((LARGE_INTEGER *)&res);
+    return res;
+#else
+    struct timeval time;
+    if (gettimeofday(&time, nullptr) != 0)
+        return 0;
+    return time.tv_sec * 1000000 + time.tv_usec;
+#endif
 }
 
 } // namespace drmemtrace

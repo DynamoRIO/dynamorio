@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -62,7 +62,8 @@ my_setenv(const char *var, const char *value)
 #ifdef UNIX
     return setenv(var, value, 1 /*override*/) == 0;
 #else
-    return SetEnvironmentVariable(var, value) == TRUE;
+    // UNICODE is defined in utils.h so to use ANSI we explicitly name it.
+    return SetEnvironmentVariableA(var, value) == TRUE;
 #endif
 }
 
