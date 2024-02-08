@@ -44,6 +44,8 @@
 
 #if defined(_WIN32) || defined(_WIN64) || defined(WINDOWS)
 #    define WIN32_LEAN_AND_MEAN
+#    define UNICODE  // For Windows headers.
+#    define _UNICODE // For C headers.
 #    define NOMINMAX // Avoid windows.h messing up std::min.
 #    include <windows.h>
 #else
