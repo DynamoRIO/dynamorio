@@ -197,6 +197,8 @@ split_by(std::string s, const std::string &sep)
 // On UNIX this is an absolute timestamp; but on Windows where we had
 // trouble with the GetSystemTime* functions not being granular enough
 // it's the timestamp counter from the processor.
+// (We avoid dr_get_microseconds() because not all targets link
+// in the DR library.)
 static inline uint64_t
 get_microsecond_timestamp()
 {

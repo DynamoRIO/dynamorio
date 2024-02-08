@@ -62,6 +62,7 @@ my_setenv(const char *var, const char *value)
 #ifdef UNIX
     return setenv(var, value, 1 /*override*/) == 0;
 #else
+    // UNICODE is defined in utils.h so to use ANSI we explicitly name it.
     return SetEnvironmentVariableA(var, value) == TRUE;
 #endif
 }
