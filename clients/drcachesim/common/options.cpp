@@ -899,7 +899,7 @@ droption_t<std::string> op_sched_switch_file(
 
 droption_t<bool> op_sched_randomize(
     DROPTION_SCOPE_FRONTEND, "sched_randomize", false,
-    "Pick next inputs randomnly on context switches",
+    "Pick next inputs randomly on context switches",
     "Applies to -core_sharded and -core_serial.  Disables the normal methods of "
     "choosing the next input based on priority, timestamps (if -sched_order_time is "
     "set), and FIFO order and instead selects the next input randomly. "

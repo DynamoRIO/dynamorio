@@ -41,6 +41,7 @@
  */
 
 #define NOMINMAX // Avoid windows.h messing up std::max.
+#include <assert.h>
 #include <iostream>
 #include <limits>
 #include <random>
@@ -94,12 +95,14 @@ public:
     T
     top() const
     {
+        assert(!empty());
         return entries_[0]; // Undefined if empty.
     }
 
     T
     get_random_entry() // Not const as it change rand_gen's state.
     {
+        assert(!empty());
         // minstd_rand returns uint_fast32_t.  We do not support get_random_entry()
         // for queues with >2^32 entries.
         return entries_[rand_gen_() % size()]; // Undefined if empty.
