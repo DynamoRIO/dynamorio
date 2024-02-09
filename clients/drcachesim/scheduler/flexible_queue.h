@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -41,8 +41,10 @@
  */
 
 #define NOMINMAX // Avoid windows.h messing up std::max.
+#include <assert.h>
 #include <iostream>
 #include <limits>
+#include <random>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -66,10 +68,10 @@ public:
     // max macro (even despite NOMINMAX defined above).
     static constexpr index_t INVALID_INDEX = (std::numeric_limits<index_t>::max)();
 
-    flexible_queue_t() = default;
-    explicit flexible_queue_t(int verbose)
+    flexible_queue_t(int rand_seed = 0, int verbose = 0)
         : verbose_(verbose)
     {
+        rand_gen_.seed(rand_seed);
     }
     bool
     push(T entry)
@@ -93,7 +95,17 @@ public:
     T
     top() const
     {
+        assert(!empty());
         return entries_[0]; // Undefined if empty.
+    }
+
+    T
+    get_random_entry() // Not const as it change rand_gen's state.
+    {
+        assert(!empty());
+        // minstd_rand returns uint_fast32_t.  We do not support get_random_entry()
+        // for queues with >2^32 entries.
+        return entries_[rand_gen_() % size()]; // Undefined if empty.
     }
 
     bool
@@ -223,6 +235,7 @@ private:
     comparator_t compare_;
     std::unordered_map<T, index_t, hash_t> entry2index_;
     int verbose_ = 0;
+    std::minstd_rand rand_gen_;
 };
 
 } // namespace drmemtrace

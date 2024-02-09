@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -201,6 +201,7 @@ extern dynamorio::droption::droption_t<std::string> op_replay_file;
 extern dynamorio::droption::droption_t<std::string> op_cpu_schedule_file;
 #endif
 extern dynamorio::droption::droption_t<std::string> op_sched_switch_file;
+extern dynamorio::droption::droption_t<bool> op_sched_randomize;
 extern dynamorio::droption::droption_t<uint64_t> op_schedule_stats_print_every;
 extern dynamorio::droption::droption_t<std::string> op_syscall_template_file;
 
