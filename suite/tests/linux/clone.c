@@ -75,6 +75,9 @@ typedef unsigned long ulong;
 
 /* forward declarations */
 static int
+make_clone_syscall(uint flags, byte *newsp, void *ptid, void *tls, void *ctid,
+                   void (*fcn)(void));
+static int
 make_clone3_syscall(void *clone_args, ulong clone_args_size, void (*fcn)(void));
 static pid_t
 create_thread(void (*fcn)(void), void **stack, bool share_sighand, bool clone_vm);
@@ -118,6 +121,35 @@ test_thread(bool share_sighand, bool clone_vm, bool use_clone3)
     delete_thread(child, stack);
 }
 
+#ifdef X86 /* i#6514: dynamorio_clone needs to be updated for other arches. */
+
+/* i#6514: Test passing NULL for the stack pointer to the syscall. */
+void
+test_with_null_stack_pointer(bool clone_vm, bool use_clone3)
+{
+    print("%s(clone_vm %d, use_clone3 %d)\n", __FUNCTION__, clone_vm, use_clone3);
+    int flags = clone_vm ? (CLONE_VFORK | CLONE_VM) : 0;
+    int ret;
+    /* If we don't have clone3, keep expected output the same and just use clone. */
+    if (use_clone3 && clone3_available) {
+        clone3_syscall_args_t cl_args = { 0 };
+        cl_args.flags = flags;
+        cl_args.exit_signal = SIGCHLD;
+        ret = make_clone3_syscall(&cl_args, sizeof(cl_args), run_with_exit);
+    } else {
+        flags = flags | SIGCHLD;
+        ret = make_clone_syscall(flags, /*stack=*/NULL, /*parent_tid=*/NULL,
+                                 /*tls=*/NULL, /*child_tid=*/NULL, run_with_exit);
+    }
+    if (ret == -1) {
+        perror("Error calling clone");
+        return;
+    }
+    delete_thread(ret, NULL);
+}
+
+#endif
+
 int
 main()
 {
@@ -154,6 +186,14 @@ main()
      */
     test_thread(true /*share_sighand*/, true /*clone_vm*/, false /*use_clone3*/);
     test_thread(true /*share_sighand*/, true /*clone_vm*/, true /*use_clone3*/);
+
+#if defined(X86)
+    /* Test passing NULL for the stack pointer (xref i#6514). */
+    test_with_null_stack_pointer(/*clone_vm=*/false, /*use_clone3=*/false);
+    test_with_null_stack_pointer(/*clone_vm=*/false, /*use_clone3=*/true);
+    test_with_null_stack_pointer(/*clone_vm=*/true, /*use_clone3=*/false);
+    test_with_null_stack_pointer(/*clone_vm=*/true, /*use_clone3=*/true);
+#endif
 }
 
 /* Procedure executed by sideline threads
@@ -185,6 +225,19 @@ run_with_exit(void)
     exit(run(NULL));
 }
 
+/* A wrapper on dynamorio_clone to set errno. */
+static int
+make_clone_syscall(uint flags, byte *newsp, void *ptid, void *tls, void *ctid,
+                   void (*fcn)(void))
+{
+    int ret = dynamorio_clone(flags, newsp, ptid, tls, ctid, fcn);
+    if (ret < 0) {
+        errno = -ret;
+        return -1;
+    }
+    return ret;
+}
+
 void *p_tid, *c_tid;
 
 /* Create a new thread. It should be passed "fcn", a function which
@@ -212,11 +265,9 @@ create_thread(void (*fcn)(void), void **stack, bool share_sighand, bool clone_vm
              (clone_vm ? CLONE_VM : 0));
     /* The stack arg should point to the stack's highest address (non-inclusive). */
     stack_ptr = (void *)((size_t)my_stack + THREAD_STACK_SIZE);
-    newpid = dynamorio_clone(flags, stack_ptr, &p_tid, NULL, &c_tid, fcn);
+    newpid = make_clone_syscall(flags, stack_ptr, &p_tid, NULL, &c_tid, fcn);
 
     if (newpid < 0) {
-        /* dynamorio_clone doesn't set errno */
-        errno = -newpid;
         perror("Error calling clone\n");
         stack_free(my_stack, THREAD_STACK_SIZE);
         return -1;
@@ -226,7 +277,7 @@ create_thread(void (*fcn)(void), void **stack, bool share_sighand, bool clone_vm
     return newpid;
 }
 
-/* glibc does not provide a wrapper for clone3 yet. This makes it difficult
+/* glibc,drlibc do not provide a wrapper for clone3 yet. This makes it difficult
  * to create new threads in C code using syscall(), as we have to deal with
  * complexities associated with the child thread having a fresh stack
  * without any return addresses or space for local variables. So, we
@@ -249,9 +300,9 @@ make_clone3_syscall(void *clone_args, ulong clone_args_size, void (*fcn)(void))
                  "mov %[fcn], %%rdx\n\t"
                  "syscall\n\t"
                  "test %%rax, %%rax\n\t"
-                 "jnz parent\n\t"
+                 "jnz 1f\n\t"
                  "call *%%rdx\n\t"
-                 "parent:\n\t"
+                 "1:\n\t"
                  "mov %%rax, %[result]\n\t"
                  : [result] "=m"(result)
                  : [sys_clone3] "i"(CLONE3_SYSCALL_NUM), [clone_args] "m"(clone_args),
@@ -265,9 +316,9 @@ make_clone3_syscall(void *clone_args, ulong clone_args_size, void (*fcn)(void))
                  "mov %[fcn], %%edx\n\t"
                  "int $0x80\n\t"
                  "test %%eax, %%eax\n\t"
-                 "jnz parent\n\t"
+                 "jnz 1f\n\t"
                  "call *%%edx\n\t"
-                 "parent:\n\t"
+                 "1:\n\t"
                  "mov %%eax, %[result]\n\t"
                  : [result] "=m"(result)
                  : [sys_clone3] "i"(CLONE3_SYSCALL_NUM), [clone_args] "m"(clone_args),
@@ -280,9 +331,9 @@ make_clone3_syscall(void *clone_args, ulong clone_args_size, void (*fcn)(void))
                  "ldr x1, %[clone_args_size]\n\t"
                  "ldr x2, %[fcn]\n\t"
                  "svc #0\n\t"
-                 "cbnz x0, parent\n\t"
+                 "cbnz x0, 1f\n\t"
                  "blr x2\n\t"
-                 "parent:\n\t"
+                 "1:\n\t"
                  "str x0, %[result]\n\t"
                  : [result] "=m"(result)
                  : [sys_clone3] "i"(CLONE3_SYSCALL_NUM), [clone_args] "m"(clone_args),
@@ -360,7 +411,8 @@ delete_thread(pid_t pid, void *stack)
         perror("delete_thread waitpid");
     else if (!WIFEXITED(wait_status) || WEXITSTATUS(wait_status) != 0)
         print("delete_thread bad wait_status: 0x%x\n", wait_status);
-    stack_free(stack, THREAD_STACK_SIZE);
+    if (stack != NULL)
+        stack_free(stack, THREAD_STACK_SIZE);
 }
 
 /* Allocate stack storage on the app's heap. Returns the lowest address of the
