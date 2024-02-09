@@ -289,8 +289,8 @@ template <>
 std::unique_ptr<record_reader_t>
 record_analyzer_multi_t::create_ipc_reader(const char *name, int verbose)
 {
-    error_string_ = "Online analysis is not supported for record_filter\n";
-    ERRMSG(error_string_.c_str());
+    error_string_ = "Online analysis is not supported for record_filter";
+    ERRMSG("%s\n", error_string_.c_str());
     return std::unique_ptr<record_reader_t>();
 }
 
@@ -298,8 +298,8 @@ template <>
 std::unique_ptr<record_reader_t>
 record_analyzer_multi_t::create_ipc_reader_end()
 {
-    error_string_ = "Online analysis is not supported for record_filter\n";
-    ERRMSG(error_string_.c_str());
+    error_string_ = "Online analysis is not supported for record_filter";
+    ERRMSG("%s\n", error_string_.c_str());
     return std::unique_ptr<record_reader_t>();
 }
 
@@ -307,8 +307,8 @@ template <>
 record_analysis_tool_t *
 record_analyzer_multi_t::create_external_tool(const std::string &tool_name)
 {
-    error_string_ = "External tools are not supported for record analysis\n";
-    ERRMSG(error_string_.c_str());
+    error_string_ = "External tools are not supported for record analysis";
+    ERRMSG("%s\n", error_string_.c_str());
     return nullptr;
 }
 
@@ -316,8 +316,8 @@ template <>
 record_analysis_tool_t *
 record_analyzer_multi_t::create_invariant_checker()
 {
-    error_string_ = "Invariant checker is not supported for record analysis\n";
-    ERRMSG(error_string_.c_str());
+    error_string_ = "Invariant checker is not supported for record analysis";
+    ERRMSG("%s\n", error_string_.c_str());
     return nullptr;
 }
 
