@@ -272,12 +272,12 @@ protected:
 
     // Compute interval id for the given latest_timestamp, assuming the trace (or
     // trace shard) starts at the given first_timestamp. This is relevant when
-    // timestamp intervals are enabled.
+    // timestamp intervals are enabled using interval_microseconds_.
     uint64_t
     compute_timestamp_interval_id(uint64_t first_timestamp, uint64_t latest_timestamp);
 
     // Compute interval id at the given instr count. This is relevant when instr count
-    // intervals are enabled.
+    // intervals are enabled using interval_instr_count_.
     uint64_t
     compute_instr_count_interval_id(uint64_t cur_instr_count);
 
@@ -377,15 +377,15 @@ protected:
     // of the interval snapshots for that tool and shard. Note that the snapshots for
     // each shard are separate; they are not merged across shards.
     //
-    // XXX: Figure out a useful way to merge instr count intervals across shards.
+    // TODO i#6643: Figure out a useful way to merge instr count intervals across shards.
     // One way is to merge the shard interval snapshots that correspond to the same
     // [interval_instr_count_ * interval_id, interval_instr_count_ * (interval_id + 1))
-    // shard-local instrs. But it is not clear whether that will be useful.
+    // shard-local instrs. But it is not clear whether this is useful.
     // Another way is to merge the shard interval snapshots that correspond to the same
     // [interval_instr_count_ * interval_id, interval_instr_count_ * (interval_id + 1))
     // whole-trace instrs. But that is much harder to compute. We'd need some way to
-    // identify the whole-trace interval boundaries when processing each shard
-    // separately; this would likely need a pre-processing pass.
+    // identify the whole-trace interval boundaries in each shard's stream (since we
+    // process each shard separately); this would likely need a pre-processing pass.
     std::unordered_map<key_tool_shard_t,
                        std::vector<typename analysis_tool_tmpl_t<
                            RecordType>::interval_state_snapshot_t *>,

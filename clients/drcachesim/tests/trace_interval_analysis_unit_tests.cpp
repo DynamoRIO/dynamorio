@@ -271,6 +271,8 @@ private:
     int generate_snapshot_count_;
 };
 
+#define SERIAL_TID 0
+
 // Test analysis_tool_t that records information about when the
 // generate_shard_interval_snapshot and generate_interval_snapshot APIs were invoked.
 class test_analysis_tool_t : public analysis_tool_t {
@@ -387,7 +389,7 @@ public:
         snapshot->tool_shard_id =
             analysis_tool_t::interval_state_snapshot_t::WHOLE_TRACE_SHARD_ID;
         snapshot->component_intervals.push_back(
-            { /*tid=*/0, seen_memrefs_, interval_id });
+            { SERIAL_TID, seen_memrefs_, interval_id });
         ++outstanding_snapshots_;
         return snapshot;
     }
@@ -451,7 +453,7 @@ public:
             latest_shard_snapshots,
         uint64_t interval_end_timestamp) override
     {
-        // If we expect multiple std::vector of state snapshots (one for each shard),
+        // If we expect multiple std::vector of interval snapshots (one for each shard),
         // it means we're not merging the snapshots across shards, so there must not
         // be any combine_interval_snapshot calls.
         if (expected_state_snapshots_.size() != 1) {
@@ -550,9 +552,9 @@ public:
 private:
     int seen_memrefs_;
     // We expect to see one print_interval_results call per shard (we do not merge
-    // the shard intervals for instr count intervals), or exactly one
-    // print_interval_results call for the whole-trace (we merge shard intervals
-    // for timestamp intervals).
+    // the shard interval snapshots for instr count intervals), or exactly one
+    // print_interval_results call for the whole-trace (we merge shard interval
+    // snapshots for timestamp intervals).
     std::vector<std::vector<recorded_snapshot_t>> expected_state_snapshots_;
     int outstanding_snapshots_;
     bool combine_only_active_shards_;
@@ -609,12 +611,18 @@ test_non_zero_interval(bool parallel, bool combine_only_active_shards = true)
             // Format:
             // <interval_id, interval_end_timestamp, instr_count_cumulative,
             //  instr_count_delta, <tid, seen_memrefs, interval_id>>
-            test_analysis_tool_t::recorded_snapshot_t(1, 100, 1, 1, { { 0, 3, 1 } }),
-            test_analysis_tool_t::recorded_snapshot_t(2, 200, 3, 2, { { 0, 7, 2 } }),
-            test_analysis_tool_t::recorded_snapshot_t(3, 300, 6, 3, { { 0, 13, 3 } }),
-            test_analysis_tool_t::recorded_snapshot_t(5, 500, 7, 1, { { 0, 15, 5 } }),
-            test_analysis_tool_t::recorded_snapshot_t(6, 600, 7, 0, { { 0, 17, 6 } }),
-            test_analysis_tool_t::recorded_snapshot_t(7, 700, 8, 1, { { 0, 20, 7 } }),
+            test_analysis_tool_t::recorded_snapshot_t(1, 100, 1, 1,
+                                                      { { SERIAL_TID, 3, 1 } }),
+            test_analysis_tool_t::recorded_snapshot_t(2, 200, 3, 2,
+                                                      { { SERIAL_TID, 7, 2 } }),
+            test_analysis_tool_t::recorded_snapshot_t(3, 300, 6, 3,
+                                                      { { SERIAL_TID, 13, 3 } }),
+            test_analysis_tool_t::recorded_snapshot_t(5, 500, 7, 1,
+                                                      { { SERIAL_TID, 15, 5 } }),
+            test_analysis_tool_t::recorded_snapshot_t(6, 600, 7, 0,
+                                                      { { SERIAL_TID, 17, 6 } }),
+            test_analysis_tool_t::recorded_snapshot_t(7, 700, 8, 1,
+                                                      { { SERIAL_TID, 20, 7 } }),
         } };
     } else if (combine_only_active_shards) {
         // Each whole trace interval is made up of snapshots from each
@@ -745,10 +753,14 @@ test_non_zero_instr_interval(bool parallel)
             { // Format:
               // <interval_id, interval_end_timestamp, instr_count_cumulative,
               //  instr_count_delta, <tid, seen_memrefs, interval_id>>
-              test_analysis_tool_t::recorded_snapshot_t(1, 170, 2, 2, { { 0, 6, 1 } }),
-              test_analysis_tool_t::recorded_snapshot_t(2, 210, 4, 2, { { 0, 10, 2 } }),
-              test_analysis_tool_t::recorded_snapshot_t(3, 490, 6, 2, { { 0, 14, 3 } }),
-              test_analysis_tool_t::recorded_snapshot_t(4, 610, 8, 2, { { 0, 20, 4 } }) }
+              test_analysis_tool_t::recorded_snapshot_t(1, 170, 2, 2,
+                                                        { { SERIAL_TID, 6, 1 } }),
+              test_analysis_tool_t::recorded_snapshot_t(2, 210, 4, 2,
+                                                        { { SERIAL_TID, 10, 2 } }),
+              test_analysis_tool_t::recorded_snapshot_t(3, 490, 6, 2,
+                                                        { { SERIAL_TID, 14, 3 } }),
+              test_analysis_tool_t::recorded_snapshot_t(4, 610, 8, 2,
+                                                        { { SERIAL_TID, 20, 4 } }) }
         };
     } else {
         // For instr count intervals, we do not merge the shard intervals to form the

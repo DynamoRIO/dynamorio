@@ -483,9 +483,9 @@ analyzer_tmpl_t<RecordType, ReaderType>::advance_interval_id(
         next_interval_index = compute_timestamp_interval_id(stream->get_first_timestamp(),
                                                             stream->get_last_timestamp());
     } else if (interval_instr_count_ > 0) {
-        // The interval callbacks are invoked just prior to the first instr
-        // of the new interval, which keeps the instr's memory accesses in the
-        // same interval as the instr.
+        // The interval callbacks are invoked just prior to the process_memref or
+        // parallel_shard_memref callback for the first instr of the new interval; This
+        // keeps the instr's memory accesses in the same interval as the instr.
         next_interval_index =
             compute_instr_count_interval_id(stream->get_instruction_ordinal());
     } else {
@@ -496,6 +496,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::advance_interval_id(
         prev_interval_index = shard->cur_interval_index;
         prev_interval_init_instr_count = shard->cur_interval_init_instr_count;
         shard->cur_interval_index = next_interval_index;
+        // This is supposed to be non-inclusive of the current interval.
         shard->cur_interval_init_instr_count =
             stream->get_instruction_ordinal() - (at_instr_record ? 1 : 0);
         return true;
@@ -977,7 +978,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::print_stats()
         print_output_separator();
         std::cerr << "Printing whole-trace interval results:\n";
         for (int i = 0; i < num_tools_; ++i) {
-            // merged_interval_snapshots_ may be empty if the corresponding tool did
+            // merged_interval_snapshots_[i] may be empty if the corresponding tool did
             // not produce any interval results.
             if (!merged_interval_snapshots_[i].empty() &&
                 !tools_[i]->print_interval_results(merged_interval_snapshots_[i])) {
@@ -1051,17 +1052,18 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_interval(
                       RecordType>::interval_state_snapshot_t::WHOLE_TRACE_SHARD_ID;
             snapshot->interval_id = interval_id;
             if (interval_microseconds_ > 0) {
-                // For timestamp intervals, theinterval_end_timestamp is the abstract
+                // For timestamp intervals, the interval_end_timestamp is the abstract
                 // non-inclusive end timestamp for the interval_id. This is to make it
-                // easier to line up the corresponding shard interval snapshots for
-                // merging to form the whole-trace interval snapshots.
+                // easier to line up the corresponding shard interval snapshots so that
+                // we can merge them to form the whole-trace interval snapshots.
                 snapshot->interval_end_timestamp = compute_interval_end_timestamp(
                     worker->stream->get_first_timestamp(), interval_id);
             } else {
                 snapshot->interval_end_timestamp = worker->stream->get_last_timestamp();
             }
             // instr_count_cumulative for the interval snapshot is supposed to be
-            // inclusive, so if we're at an instr right now, it must be subtracted.
+            // inclusive, so if the first record after the interval (that is, the record
+            // we're at right now) is an instr, it must be subtracted.
             snapshot->instr_count_cumulative =
                 worker->stream->get_instruction_ordinal() - (at_instr_record ? 1 : 0);
             snapshot->instr_count_delta =

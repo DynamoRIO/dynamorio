@@ -522,7 +522,7 @@ droption_t<bytesize_t> op_interval_microseconds(
     "Desired length of each trace interval, defined in microseconds of trace time. "
     "Trace intervals are measured using the TRACE_MARKER_TYPE_TIMESTAMP marker values. "
     "If set, analysis tools receive a callback at the end of each interval, and one "
-    "at the end to print the whole-trace interval results.");
+    "at the end of trace analysis to print the whole-trace interval results.");
 
 droption_t<bytesize_t> op_interval_instr_count(
     DROPTION_SCOPE_FRONTEND, "interval_instr_count", 0,
@@ -530,7 +530,8 @@ droption_t<bytesize_t> op_interval_instr_count(
     "Desired length of each trace interval, defined in instr count of each shard. "
     "This does not support whole trace intervals, only per-shard intervals. "
     "If set, analysis tools receive a callback at the end of each interval, and "
-    "separate callbacks per shard at the end to print the shard's interval results.");
+    "separate callbacks per shard at the end of trace analysis to print each shard's "
+    "interval results.");
 
 droption_t<int>
     op_only_thread(DROPTION_SCOPE_FRONTEND, "only_thread", 0,
