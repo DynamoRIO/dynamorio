@@ -289,7 +289,8 @@ template <>
 std::unique_ptr<record_reader_t>
 record_analyzer_multi_t::create_ipc_reader(const char *name, int verbose)
 {
-    // Not supported;
+    error_string_ = "Online analysis is not supported for record_filter\n";
+    ERRMSG(error_string_.c_str());
     return std::unique_ptr<record_reader_t>();
 }
 
@@ -297,7 +298,8 @@ template <>
 std::unique_ptr<record_reader_t>
 record_analyzer_multi_t::create_ipc_reader_end()
 {
-    // Not supported;
+    error_string_ = "Online analysis is not supported for record_filter\n";
+    ERRMSG(error_string_.c_str());
     return std::unique_ptr<record_reader_t>();
 }
 
@@ -305,7 +307,8 @@ template <>
 record_analysis_tool_t *
 record_analyzer_multi_t::create_external_tool(const std::string &tool_name)
 {
-    // Not supported.
+    error_string_ = "External tools are not supported for record analysis\n";
+    ERRMSG(error_string_.c_str());
     return nullptr;
 }
 
@@ -313,7 +316,8 @@ template <>
 record_analysis_tool_t *
 record_analyzer_multi_t::create_invariant_checker()
 {
-    // Not supported.
+    error_string_ = "Invariant checker is not supported for record analysis\n";
+    ERRMSG(error_string_.c_str());
     return nullptr;
 }
 
@@ -429,13 +433,12 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
                                   op_verbose.get_value(), std::move(sched_ops)))
             this->success_ = false;
     } else if (op_infile.get_value().empty()) {
-        // NOCHECK has to be in analyzer_multi_t specialization?
         // XXX i#3323: Add parallel analysis support for online tools.
         this->parallel_ = false;
         auto reader =
             create_ipc_reader(op_ipc_name.get_value().c_str(), op_verbose.get_value());
         if (!reader) {
-            this->error_string_ = "Online not supported";
+            this->error_string_ = "Failed to create IPC reader: " + this->error_string_;
             this->success_ = false;
             return;
         }
