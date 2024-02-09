@@ -320,6 +320,11 @@ protected:
                         *> &merged_intervals,
         int tool_idx);
 
+    // Populates the unmerged_interval_snapshots_ field based on the interval snapshots
+    // stored in worker_data_.
+    void
+    populate_unmerged_shard_interval_results();
+
     // Combines all interval snapshots in the given vector to create the interval
     // snapshot for the whole-trace interval ending at interval_end_timestamp and
     // stores it in 'result'. These snapshots are for the tool at tool_idx. Returns

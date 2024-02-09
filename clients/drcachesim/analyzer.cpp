@@ -847,33 +847,40 @@ analyzer_tmpl_t<RecordType, ReaderType>::merge_shard_interval_results(
 }
 
 template <typename RecordType, typename ReaderType>
+void
+analyzer_tmpl_t<RecordType, ReaderType>::populate_unmerged_shard_interval_results()
+{
+    for (auto &worker : worker_data_) {
+        for (auto &shard_data : worker.shard_data) {
+            for (int tool_idx = 0; tool_idx < num_tools_; ++tool_idx) {
+                key_tool_shard_t tool_shard_key = { tool_idx,
+                                                    shard_data.second.shard_index };
+                std::queue<typename analysis_tool_tmpl_t<
+                    RecordType>::interval_state_snapshot_t *> &worker_snapshots =
+                    shard_data.second.tool_data[tool_idx].interval_snapshot_data;
+                std::vector<typename analysis_tool_tmpl_t<
+                    RecordType>::interval_state_snapshot_t *> &tool_shard_snapshots =
+                    unmerged_interval_snapshots_[tool_shard_key];
+                // If interval_snapshot_data were an std::vector we could just
+                // std::move here, but that would make the implementation of
+                // merge_shard_interval_results more complex, so there are trade-offs.
+                while (!worker_snapshots.empty()) {
+                    tool_shard_snapshots.push_back(worker_snapshots.front());
+                    worker_snapshots.pop();
+                }
+            }
+        }
+    }
+}
+
+template <typename RecordType, typename ReaderType>
 bool
 analyzer_tmpl_t<RecordType, ReaderType>::collect_and_maybe_merge_shard_interval_results()
 {
     if (interval_instr_count_ > 0) {
         // We do not merge interval state snapshots across shards. See comment by
         // unmerged_interval_snapshots_ for more details.
-        for (auto &worker : worker_data_) {
-            for (auto &shard_data : worker.shard_data) {
-                for (int tool_idx = 0; tool_idx < num_tools_; ++tool_idx) {
-                    key_tool_shard_t tool_shard_key = { tool_idx,
-                                                        shard_data.second.shard_index };
-                    std::queue<typename analysis_tool_tmpl_t<
-                        RecordType>::interval_state_snapshot_t *> &worker_snapshots =
-                        shard_data.second.tool_data[tool_idx].interval_snapshot_data;
-                    std::vector<typename analysis_tool_tmpl_t<
-                        RecordType>::interval_state_snapshot_t *> &tool_shard_snapshots =
-                        unmerged_interval_snapshots_[tool_shard_key];
-                    // If interval_snapshot_data were an std::vector we could just
-                    // std::move here, but that would make the implementation of
-                    // merge_shard_interval_results more complex, so there are trade-offs.
-                    while (!worker_snapshots.empty()) {
-                        tool_shard_snapshots.push_back(worker_snapshots.front());
-                        worker_snapshots.pop();
-                    }
-                }
-            }
-        }
+        populate_unmerged_shard_interval_results();
         return true;
     }
     if (interval_microseconds_ == 0)
