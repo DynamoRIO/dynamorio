@@ -231,7 +231,7 @@ public:
         // to the specified -interval_microseconds.
         uint64_t interval_end_timestamp = 0;
 
-        // Count of instructions: cumulative till this interval (inclusive), and the
+        // Count of instructions: cumulative till this interval's end, and the
         // incremental delta in this interval vs the previous one. May be useful for
         // tools to compute PKI (per kilo instruction) metrics; obviates the need for
         // each tool to duplicate this.

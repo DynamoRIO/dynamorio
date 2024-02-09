@@ -496,7 +496,10 @@ analyzer_tmpl_t<RecordType, ReaderType>::advance_interval_id(
         prev_interval_index = shard->cur_interval_index;
         prev_interval_init_instr_count = shard->cur_interval_init_instr_count;
         shard->cur_interval_index = next_interval_index;
-        // This is supposed to be non-inclusive of the current interval.
+        // If the next record to be presented to the tools is an instr record, we need to
+        // adjust for the fact that the record has already been read from the stream.
+        // Since cur_interval_init_instr_count is supposed to be the count just prior
+        // to the new interval, we need to subtract that.
         shard->cur_interval_init_instr_count =
             stream->get_instruction_ordinal() - (at_instr_record ? 1 : 0);
         return true;

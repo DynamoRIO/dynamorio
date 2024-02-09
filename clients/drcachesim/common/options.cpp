@@ -528,10 +528,10 @@ droption_t<bytesize_t> op_interval_instr_count(
     DROPTION_SCOPE_FRONTEND, "interval_instr_count", 0,
     "Enable periodic heartbeats for intervals of given per-shard instr count. ",
     "Desired length of each trace interval, defined in instr count of each shard. "
-    "This does not support whole trace intervals, only per-shard intervals. "
-    "If set, analysis tools receive a callback at the end of each interval, and "
-    "separate callbacks per shard at the end of trace analysis to print each shard's "
-    "interval results.");
+    "With -parallel, this does not support whole trace intervals, only per-shard "
+    "intervals. If set, analysis tools receive a callback at the end of each interval, "
+    "and separate callbacks per shard at the end of trace analysis to print each "
+    "shard's interval results.");
 
 droption_t<int>
     op_only_thread(DROPTION_SCOPE_FRONTEND, "only_thread", 0,

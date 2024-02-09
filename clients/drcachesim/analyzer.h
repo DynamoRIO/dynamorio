@@ -168,7 +168,8 @@ protected:
         }
 
         uint64_t cur_interval_index;
-        // Cumulative instr count when the current interval started (non-inclusive).
+        // Cumulative instr count as it was just before the start of the current
+        // interval.
         uint64_t cur_interval_init_instr_count;
         // Identifier for the shard (thread or core id).
         int64_t shard_id;
@@ -290,6 +291,8 @@ protected:
     // on the most recent seen timestamp in the trace stream. Returns whether the
     // current interval id was updated, and if so also sets the previous interval index
     // in prev_interval_index.
+    // at_instr_record indicates that the next record that will be presented to
+    // the analysis tools is an instr record.
     bool
     advance_interval_id(
         typename scheduler_tmpl_t<RecordType, ReaderType>::stream_t *stream,
@@ -341,8 +344,8 @@ protected:
     std::vector<analyzer_worker_data_t> worker_data_;
     int num_tools_;
     analysis_tool_tmpl_t<RecordType> **tools_;
-    // Stores the interval state snapshots that are merged across shards. These
-    // are produced when timestamp intervals are enabled using interval_microseconds_.
+    // Stores the interval state snapshots, merged across shards. These are
+    // produced when timestamp intervals are enabled using interval_microseconds_.
     //
     // merged_interval_snapshots_[tool_idx] is a vector of the interval snapshots
     // (in order of the intervals) for that tool. For the parallel mode, these
@@ -370,8 +373,8 @@ protected:
         }
     };
 
-    // Stores the interval state snapshots that are not merged across shards. These
-    // are produced when instr count intervals are enabled using interval_instr_count_.
+    // Stores the interval state snapshots, unmerged across shards. These are
+    // produced when instr count intervals are enabled using interval_instr_count_.
     //
     // unmerged_interval_snapshots_[(tool_idx, shard_idx)] is a vector
     // of the interval snapshots for that tool and shard. Note that the snapshots for

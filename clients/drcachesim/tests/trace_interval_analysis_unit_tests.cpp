@@ -454,7 +454,7 @@ public:
         uint64_t interval_end_timestamp) override
     {
         // If we expect multiple std::vector of interval snapshots (one for each shard),
-        // it means we're not merging the snapshots across shards, so there must not
+        // it means we're not merging the snapshots across shards, so there should not
         // be any combine_interval_snapshot calls.
         if (expected_state_snapshots_.size() != 1) {
             error_string_ = "Did not expect any combine_interval_snapshots() calls";
