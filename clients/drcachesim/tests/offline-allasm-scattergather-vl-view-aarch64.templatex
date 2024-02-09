@@ -1,0 +1,15 @@
+.*
+#if __ARM_FEATURE_SVE_BITS == 128
+.*<marker: vector length 16 bytes>
+.*a401a03c   ld1b   \+0x10\(%x1\)\[1byte\] %p0/z -> %z28\.b
+.*e5d1ec3c   st3d   %z28\.d %z29\.d %z30\.d %p3 -> \+0x30\(%x1\)\[8byte\]
+#elif __ARM_FEATURE_SVE_BITS == 256
+.*<marker: vector length 32 bytes>
+.*a401a03c   ld1b   \+0x20\(%x1\)\[1byte\] %p0/z -> %z28.b
+.*e5d1ec3c   st3d   %z28\.d %z29\.d %z30\.d %p3 -> \+0x60\(%x1\)\[8byte\]
+#elif __ARM_FEATURE_SVE_BITS == 512
+.*<marker: vector length 64 bytes>
+.*a401a03c   ld1b   \+0x40\(%x1\)\[1byte\] %p0/z -> %z28.b
+.*e5d1ec3c   st3d   %z28\.d %z29\.d %z30\.d %p3 -> \+0xc0\(%x1\)\[8byte\]
+#endif
+.*
