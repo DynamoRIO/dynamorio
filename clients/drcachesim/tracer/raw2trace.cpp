@@ -883,6 +883,23 @@ raw2trace_t::process_marker_additionally(raw2trace_thread_data_t *tdata,
         log(2, "Maybe-blocking syscall %zu\n", marker_val);
         buf += trace_metadata_writer_t::write_marker(
             buf, TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0);
+    } else if (marker_type == TRACE_MARKER_TYPE_VECTOR_LENGTH) {
+#ifdef AARCH64
+        log(4,
+            "Setting SVE vector length for thread " INT64_FORMAT_STRING " to %zu bytes\n",
+            tdata->tid, marker_val);
+
+        const int new_vl_bits = marker_val * 8;
+        if (dr_get_sve_vector_length() != new_vl_bits) {
+            dr_set_sve_vector_length(new_vl_bits);
+            // Some SVE load/store instructions have an offset which is scaled by a value
+            // that depends on the vector length. These instructions will need to be
+            // re-decoded after the vector length changes.
+            *flush_decode_cache = true;
+        }
+#else
+        log(2, "Ignoring unexpected dynamic vector length marker\n");
+#endif
     }
     return true;
 }
@@ -932,6 +949,7 @@ raw2trace_t::read_header(raw2trace_thread_data_t *tdata,
         header->cache_line_size = proc_get_cache_line_size();
         unread_last_entry(tdata);
     }
+
     return true;
 }
 
@@ -3783,17 +3801,6 @@ raw2trace_t::raw2trace_t(
     decode_cache_.reserve(cache_count);
     for (int i = 0; i < cache_count; ++i)
         decode_cache_.emplace_back(cache_count);
-
-#if defined(AARCH64)
-    // TODO i#6556, i#1684: The decoder uses a global sve_veclen variable to store the
-    // vector length value it uses when decoding. drdecodelib ends up being linked into
-    // drcachesim twice: once into the drcachesim executable, and one into libdynamorio.
-    // When we call dr_standalone_init() above it will initialize the version of
-    // sve_veclen in libdynamorio, but not the one in drcachesim.
-    // Unfortunately it is the version of sve_veclen in drcachesim that gets used when
-    // decoding in raw2trace so we need to explicitly initialize its sve_veclen here.
-    dr_set_sve_vector_length(proc_get_vector_length_bytes() * 8);
-#endif
 }
 
 raw2trace_t::~raw2trace_t()

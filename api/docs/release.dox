@@ -195,6 +195,9 @@ Further non-compatibility-affecting changes include:
  - Added dr_running_under_dynamorio().
  - Added instr_get_category_name() API that returns the string version (as char*) of a
    category.
+ - Added #dynamorio::drmemtrace::TRACE_MARKER_TYPE_VECTOR_LENGTH marker to indicate the
+   current vector length for architectures with a hardware defined or runtime changeable
+   vector length (such as AArch64's SVE scalable vectors).
 
 **************************************************
 <hr>

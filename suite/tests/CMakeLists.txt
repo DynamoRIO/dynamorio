@@ -4241,6 +4241,10 @@ if (BUILD_CLIENTS)
 
       torunonly_drcacheoff(view ${ci_shared_app} ""
         "@-simulator_type@view@-sim_refs@16384" "")
+      unset(tool.drcacheoff.view_rawtemp) # Use preprocessor
+      if (AARCH64 AND proc_supports_sve)
+        set(tool.drcacheoff.view_runsve 1)
+      endif ()
 
       set(tool.drcacheoff.func_view_full_run ON) # Fails on Windows if truncated.
       torunonly_drcacheoff(func_view common.fib "-record_function fib|1"
@@ -4504,6 +4508,22 @@ if (BUILD_CLIENTS)
       endif ()
       set(tool.drcachesim.allasm-scattergather-basic-counts_expectbase
             "allasm-scattergather-basic-counts-${ARCH_NAME}")
+    endif ()
+
+    if (UNIX AND AARCH64 AND proc_supports_sve)
+      torunonly_drcacheoff(allasm-scattergather-vl-view allasm_scattergather
+        "" "@-simulator_type@view" "")
+      unset(tool.drcacheoff.allasm-scattergather-vl-view_rawtemp) # use preprocessor
+      set(tool.drcacheoff.allasm-scattergather-vl-view_runsve 1)
+      set(tool.drcacheoff.allasm-scattergather-vl-view_expectbase
+        "offline-allasm-scattergather-vl-view-${ARCH_NAME}")
+
+      torunonly_drcachesim(allasm-scattergather-vl-view allasm_scattergather
+        "-simulator_type view" "")
+      unset(tool.drcachesim.allasm-scattergather-vl-view_rawtemp) # use preprocessor
+      set(tool.drcachesim.allasm-scattergather-vl-view_runsve 1)
+      set(tool.drcachesim.allasm-scattergather-vl-view_expectbase
+            "allasm-scattergather-vl-view-${ARCH_NAME}")
     endif ()
 
     if (UNIX AND X86 AND X64)
