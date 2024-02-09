@@ -292,75 +292,75 @@ test_scalar_plus_scalar:
 
 
 test_scalar_plus_immediate:
-        ld1b    DEST_REG1.b, B_MASK_REG/z, [BUFFER_REG, #0, mul vl] // 16
-        ld1b    DEST_REG1.h, H_MASK_REG/z, [BUFFER_REG, #0, mul vl] // 8
-        ld1b    DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, #0, mul vl] // 4
-        ld1b    DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, #0, mul vl] // 2
-        ldnt1b  DEST_REG1.b, B_MASK_REG/z, [BUFFER_REG, #0, mul vl] // 16
-        ld1sb   DEST_REG1.h, H_MASK_REG/z, [BUFFER_REG, #0, mul vl] // 8
-        ld1sb   DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, #0, mul vl] // 4
-        ld1sb   DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, #0, mul vl] // 2
-        ld1h    DEST_REG1.h, H_MASK_REG/z, [BUFFER_REG, #0, mul vl] // 8
-        ld1h    DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, #0, mul vl] // 4
-        ld1h    DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, #0, mul vl] // 2
-        ldnt1h  DEST_REG1.h, H_MASK_REG/z, [BUFFER_REG, #0, mul vl] // 8
-        ld1sh   DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, #0, mul vl] // 4
-        ld1sh   DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, #0, mul vl] // 2
-        ld1w    DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, #0, mul vl] // 4
-        ld1w    DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, #0, mul vl] // 2
-        ldnt1w  DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, #0, mul vl] // 4
-        ld1sw   DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, #0, mul vl] // 2
-        ld1d    DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, #0, mul vl] // 2
-        ldnt1d  DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, #0, mul vl] // 2
+        ld1b    DEST_REG1.b, B_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 16
+        ld1b    DEST_REG1.h, H_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 8
+        ld1b    DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 4
+        ld1b    DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 2
+        ldnt1b  DEST_REG1.b, B_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 16
+        ld1sb   DEST_REG1.h, H_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 8
+        ld1sb   DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 4
+        ld1sb   DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 2
+        ld1h    DEST_REG1.h, H_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 8
+        ld1h    DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 4
+        ld1h    DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 2
+        ldnt1h  DEST_REG1.h, H_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 8
+        ld1sh   DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 4
+        ld1sh   DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 2
+        ld1w    DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 4
+        ld1w    DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 2
+        ldnt1w  DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 4
+        ld1sw   DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 2
+        ld1d    DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 2
+        ldnt1d  DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 2
                                                                     // Total: 104
 
-        ld2b { DEST_REG1.b, DEST_REG2.b }, B_MASK_REG/z, [BUFFER_REG, #0, mul vl] // 32
-        ld2h { DEST_REG1.h, DEST_REG2.h }, H_MASK_REG/z, [BUFFER_REG, #0, mul vl] // 16
-        ld2w { DEST_REG1.s, DEST_REG2.s }, S_MASK_REG/z, [BUFFER_REG, #0, mul vl] // 8
-        ld2d { DEST_REG1.d, DEST_REG2.d }, D_MASK_REG/z, [BUFFER_REG, #0, mul vl] // 4
+        ld2b { DEST_REG1.b, DEST_REG2.b }, B_MASK_REG/z, [BUFFER_REG, #2, mul vl] // 32
+        ld2h { DEST_REG1.h, DEST_REG2.h }, H_MASK_REG/z, [BUFFER_REG, #2, mul vl] // 16
+        ld2w { DEST_REG1.s, DEST_REG2.s }, S_MASK_REG/z, [BUFFER_REG, #2, mul vl] // 8
+        ld2d { DEST_REG1.d, DEST_REG2.d }, D_MASK_REG/z, [BUFFER_REG, #2, mul vl] // 4
                                                                                   // Total: 60
 
-        ld3b { DEST_REG1.b, DEST_REG2.b, DEST_REG3.b }, B_MASK_REG/z, [BUFFER_REG, #0, mul vl] // 48
-        ld3h { DEST_REG1.h, DEST_REG2.h, DEST_REG3.h }, H_MASK_REG/z, [BUFFER_REG, #0, mul vl] // 24
-        ld3w { DEST_REG1.s, DEST_REG2.s, DEST_REG3.s }, S_MASK_REG/z, [BUFFER_REG, #0, mul vl] // 12
-        ld3d { DEST_REG1.d, DEST_REG2.d, DEST_REG3.d }, D_MASK_REG/z, [BUFFER_REG, #0, mul vl] // 6
+        ld3b { DEST_REG1.b, DEST_REG2.b, DEST_REG3.b }, B_MASK_REG/z, [BUFFER_REG, #3, mul vl] // 48
+        ld3h { DEST_REG1.h, DEST_REG2.h, DEST_REG3.h }, H_MASK_REG/z, [BUFFER_REG, #3, mul vl] // 24
+        ld3w { DEST_REG1.s, DEST_REG2.s, DEST_REG3.s }, S_MASK_REG/z, [BUFFER_REG, #3, mul vl] // 12
+        ld3d { DEST_REG1.d, DEST_REG2.d, DEST_REG3.d }, D_MASK_REG/z, [BUFFER_REG, #3, mul vl] // 6
                                                                                                // Total: 90
 
-        ld4b { DEST_REG1.b, DEST_REG2.b, DEST_REG3.b, DEST_REG4.b }, B_MASK_REG/z, [BUFFER_REG, #0, mul vl] // 64
-        ld4h { DEST_REG1.h, DEST_REG2.h, DEST_REG3.h, DEST_REG4.h }, H_MASK_REG/z, [BUFFER_REG, #0, mul vl] // 32
-        ld4w { DEST_REG1.s, DEST_REG2.s, DEST_REG3.s, DEST_REG4.s }, S_MASK_REG/z, [BUFFER_REG, #0, mul vl] // 16
-        ld4d { DEST_REG1.d, DEST_REG2.d, DEST_REG3.d, DEST_REG4.d }, D_MASK_REG/z, [BUFFER_REG, #0, mul vl] // 8
+        ld4b { DEST_REG1.b, DEST_REG2.b, DEST_REG3.b, DEST_REG4.b }, B_MASK_REG/z, [BUFFER_REG, #4, mul vl] // 64
+        ld4h { DEST_REG1.h, DEST_REG2.h, DEST_REG3.h, DEST_REG4.h }, H_MASK_REG/z, [BUFFER_REG, #4, mul vl] // 32
+        ld4w { DEST_REG1.s, DEST_REG2.s, DEST_REG3.s, DEST_REG4.s }, S_MASK_REG/z, [BUFFER_REG, #4, mul vl] // 16
+        ld4d { DEST_REG1.d, DEST_REG2.d, DEST_REG3.d, DEST_REG4.d }, D_MASK_REG/z, [BUFFER_REG, #4, mul vl] // 8
                                                                                                             // Total: 120
         // Total loads: 104 + 60 + 90 + 120 = 374
 
-        st1b SRC_REG1.b, B_MASK_REG, [BUFFER_REG, #0, mul vl] // 16
-        st1b SRC_REG1.h, H_MASK_REG, [BUFFER_REG, #0, mul vl] // 8
-        st1b SRC_REG1.s, S_MASK_REG, [BUFFER_REG, #0, mul vl] // 4
-        st1b SRC_REG1.d, D_MASK_REG, [BUFFER_REG, #0, mul vl] // 2
-        st1h SRC_REG1.h, H_MASK_REG, [BUFFER_REG, #0, mul vl] // 8
-        st1h SRC_REG1.s, S_MASK_REG, [BUFFER_REG, #0, mul vl] // 4
-        st1h SRC_REG1.d, D_MASK_REG, [BUFFER_REG, #0, mul vl] // 2
-        st1w SRC_REG1.s, S_MASK_REG, [BUFFER_REG, #0, mul vl] // 4
-        st1w SRC_REG1.d, D_MASK_REG, [BUFFER_REG, #0, mul vl] // 2
-        st1d SRC_REG1.d, D_MASK_REG, [BUFFER_REG, #0, mul vl] // 2
+        st1b SRC_REG1.b, B_MASK_REG, [BUFFER_REG, #1, mul vl] // 16
+        st1b SRC_REG1.h, H_MASK_REG, [BUFFER_REG, #1, mul vl] // 8
+        st1b SRC_REG1.s, S_MASK_REG, [BUFFER_REG, #1, mul vl] // 4
+        st1b SRC_REG1.d, D_MASK_REG, [BUFFER_REG, #1, mul vl] // 2
+        st1h SRC_REG1.h, H_MASK_REG, [BUFFER_REG, #1, mul vl] // 8
+        st1h SRC_REG1.s, S_MASK_REG, [BUFFER_REG, #1, mul vl] // 4
+        st1h SRC_REG1.d, D_MASK_REG, [BUFFER_REG, #1, mul vl] // 2
+        st1w SRC_REG1.s, S_MASK_REG, [BUFFER_REG, #1, mul vl] // 4
+        st1w SRC_REG1.d, D_MASK_REG, [BUFFER_REG, #1, mul vl] // 2
+        st1d SRC_REG1.d, D_MASK_REG, [BUFFER_REG, #1, mul vl] // 2
                                                               // Total: 52
 
-        st2b { SRC_REG1.b, SRC_REG2.b }, B_MASK_REG, [BUFFER_REG, #0, mul vl] // 32
-        st2h { SRC_REG1.h, SRC_REG2.h }, H_MASK_REG, [BUFFER_REG, #0, mul vl] // 16
-        st2w { SRC_REG1.s, SRC_REG2.s }, S_MASK_REG, [BUFFER_REG, #0, mul vl] // 8
-        st2d { SRC_REG1.d, SRC_REG2.d }, D_MASK_REG, [BUFFER_REG, #0, mul vl] // 4
+        st2b { SRC_REG1.b, SRC_REG2.b }, B_MASK_REG, [BUFFER_REG, #2, mul vl] // 32
+        st2h { SRC_REG1.h, SRC_REG2.h }, H_MASK_REG, [BUFFER_REG, #2, mul vl] // 16
+        st2w { SRC_REG1.s, SRC_REG2.s }, S_MASK_REG, [BUFFER_REG, #2, mul vl] // 8
+        st2d { SRC_REG1.d, SRC_REG2.d }, D_MASK_REG, [BUFFER_REG, #2, mul vl] // 4
                                                                               // Total: 60
 
-        st3b { SRC_REG1.b, SRC_REG2.b, SRC_REG3.b }, B_MASK_REG, [BUFFER_REG, #0, mul vl] // 48
-        st3h { SRC_REG1.h, SRC_REG2.h, SRC_REG3.h }, H_MASK_REG, [BUFFER_REG, #0, mul vl] // 24
-        st3w { SRC_REG1.s, SRC_REG2.s, SRC_REG3.s }, S_MASK_REG, [BUFFER_REG, #0, mul vl] // 12
-        st3d { SRC_REG1.d, SRC_REG2.d, SRC_REG3.d }, D_MASK_REG, [BUFFER_REG, #0, mul vl] // 6
+        st3b { SRC_REG1.b, SRC_REG2.b, SRC_REG3.b }, B_MASK_REG, [BUFFER_REG, #3, mul vl] // 48
+        st3h { SRC_REG1.h, SRC_REG2.h, SRC_REG3.h }, H_MASK_REG, [BUFFER_REG, #3, mul vl] // 24
+        st3w { SRC_REG1.s, SRC_REG2.s, SRC_REG3.s }, S_MASK_REG, [BUFFER_REG, #3, mul vl] // 12
+        st3d { SRC_REG1.d, SRC_REG2.d, SRC_REG3.d }, D_MASK_REG, [BUFFER_REG, #3, mul vl] // 6
                                                                                           // Total: 90
 
-        st4b { SRC_REG1.b, SRC_REG2.b, SRC_REG3.b, SRC_REG4.b }, B_MASK_REG, [BUFFER_REG, #0, mul vl] // 64
-        st4h { SRC_REG1.h, SRC_REG2.h, SRC_REG3.h, SRC_REG4.h }, H_MASK_REG, [BUFFER_REG, #0, mul vl] // 32
-        st4w { SRC_REG1.s, SRC_REG2.s, SRC_REG3.s, SRC_REG4.s }, S_MASK_REG, [BUFFER_REG, #0, mul vl] // 16
-        st4d { SRC_REG1.d, SRC_REG2.d, SRC_REG3.d, SRC_REG4.d }, D_MASK_REG, [BUFFER_REG, #0, mul vl] // 8
+        st4b { SRC_REG1.b, SRC_REG2.b, SRC_REG3.b, SRC_REG4.b }, B_MASK_REG, [BUFFER_REG, #4, mul vl] // 64
+        st4h { SRC_REG1.h, SRC_REG2.h, SRC_REG3.h, SRC_REG4.h }, H_MASK_REG, [BUFFER_REG, #4, mul vl] // 32
+        st4w { SRC_REG1.s, SRC_REG2.s, SRC_REG3.s, SRC_REG4.s }, S_MASK_REG, [BUFFER_REG, #4, mul vl] // 16
+        st4d { SRC_REG1.d, SRC_REG2.d, SRC_REG3.d, SRC_REG4.d }, D_MASK_REG, [BUFFER_REG, #4, mul vl] // 8
                                                                                                       // Total: 120
         // Total stores: 52 + 60 + 90 + 120 = 322
 
@@ -557,4 +557,9 @@ helloworld:
         .ascii   "Hello, world!\n"
 
 buffer:
-        .zero   1024                // Maximum size of an SVE Z register * 4.
+        .zero   2048                // Maximum size of an SVE Z register * 8.
+                                    // This gives us enough space to use an offset of
+                                    // #1, mul vl for scalar+immediate/vector+immediate
+                                    // instructions which lets us check the VL scaling of
+                                    // offsets in the IR in
+                                    // tool.drcacheoff.allasm-scattergather-vl-view

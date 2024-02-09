@@ -907,6 +907,14 @@ droption_t<std::string> op_sched_switch_file(
     "and the sequence proper bracketed by TRACE_MARKER_TYPE_CONTEXT_SWITCH_START and "
     "TRACE_MARKER_TYPE_CONTEXT_SWITCH_END markers.");
 
+droption_t<bool> op_sched_randomize(
+    DROPTION_SCOPE_FRONTEND, "sched_randomize", false,
+    "Pick next inputs randomly on context switches",
+    "Applies to -core_sharded and -core_serial.  Disables the normal methods of "
+    "choosing the next input based on priority, timestamps (if -sched_order_time is "
+    "set), and FIFO order and instead selects the next input randomly. "
+    "This is intended for experimental use in sensitivity studies.");
+
 // Schedule_stats options.
 droption_t<uint64_t>
     op_schedule_stats_print_every(DROPTION_SCOPE_ALL, "schedule_stats_print_every",

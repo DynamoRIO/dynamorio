@@ -257,6 +257,7 @@ analyzer_multi_t::init_dynamic_schedule()
     sched_ops.blocking_switch_threshold = op_sched_blocking_switch_us.get_value();
     sched_ops.block_time_scale = op_sched_block_scale.get_value();
     sched_ops.block_time_max = op_sched_block_max_us.get_value();
+    sched_ops.randomize_next_input = op_sched_randomize.get_value();
 #ifdef HAS_ZIP
     if (!op_record_file.get_value().empty()) {
         record_schedule_zip_.reset(new zipfile_ostream_t(op_record_file.get_value()));

@@ -443,6 +443,10 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             std::cerr << "<marker: wait for another core>\n";
             break;
         case TRACE_MARKER_TYPE_CORE_IDLE: std::cerr << "<marker: core is idle>\n"; break;
+        case TRACE_MARKER_TYPE_VECTOR_LENGTH:
+            std::cerr << "<marker: vector length " << memref.marker.marker_value
+                      << " bytes>\n";
+            break;
         default:
             std::cerr << "<marker: type " << memref.marker.marker_type << "; value "
                       << memref.marker.marker_value << ">\n";
