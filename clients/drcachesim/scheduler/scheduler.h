@@ -607,6 +607,14 @@ public:
          * core outputs.
          */
         bool single_lockstep_output = false;
+        /**
+         * If true, enables a mode where the normal methods of choosing the next input
+         * based on priority, timestamps (if -sched_order_time is set), and FIFO order
+         * are disabled.  Instead, the scheduler selects the next input randomly.  Output
+         * bindings are still honored.  This is intended for experimental use in
+         * sensitivity studies.
+         */
+        bool randomize_next_input = false;
     };
 
     /**
@@ -1009,6 +1017,7 @@ public:
 
     /** Default constructor. */
     scheduler_tmpl_t()
+        : ready_priority_(static_cast<int>(get_time_micros()))
     {
     }
     virtual ~scheduler_tmpl_t() = default;
