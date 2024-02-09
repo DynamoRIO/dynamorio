@@ -119,7 +119,8 @@ public:
     analyzer_tmpl_t(const std::string &trace_path,
                     analysis_tool_tmpl_t<RecordType> **tools, int num_tools,
                     int worker_count = 0, uint64_t skip_instrs = 0,
-                    uint64_t interval_microseconds = 0, int verbosity = 0);
+                    uint64_t interval_microseconds = 0, uint64_t interval_instr_count = 0,
+                    int verbosity = 0);
     /** Launches the analysis process. */
     virtual bool
     run();
@@ -167,6 +168,7 @@ protected:
         }
 
         uint64_t cur_interval_index;
+        // Cumulative instr count when the current interval started (non-inclusive).
         uint64_t cur_interval_init_instr_count;
         // Identifier for the shard (thread or core id).
         int64_t shard_id;
@@ -250,6 +252,9 @@ protected:
     bool
     record_is_timestamp(const RecordType &record);
 
+    bool
+    record_is_instr(const RecordType &record);
+
     RecordType
     create_wait_marker();
 
@@ -262,15 +267,22 @@ protected:
     // finished. For serial analysis, it should remain the default value.
     bool
     process_interval(uint64_t interval_id, uint64_t interval_init_instr_count,
-                     analyzer_worker_data_t *worker, bool parallel, int shard_idx = 0);
+                     analyzer_worker_data_t *worker, bool parallel, bool at_instr_record,
+                     int shard_idx = 0);
 
     // Compute interval id for the given latest_timestamp, assuming the trace (or
-    // trace shard) starts at the given first_timestamp.
+    // trace shard) starts at the given first_timestamp. This is relevant when
+    // timestamp intervals are enabled.
     uint64_t
-    compute_interval_id(uint64_t first_timestamp, uint64_t latest_timestamp);
+    compute_timestamp_interval_id(uint64_t first_timestamp, uint64_t latest_timestamp);
 
-    // Compute the interval end timestamp for the given interval_id, assuming the trace
-    // (or trace shard) starts at the given first_timestamp.
+    // Compute interval id at the given instr count. This is relevant when instr count
+    // intervals are enabled.
+    uint64_t
+    compute_instr_count_interval_id(uint64_t cur_instr_count);
+
+    // Compute the interval end timestamp (non-inclusive) for the given interval_id,
+    // assuming the trace (or trace shard) starts at the given first_timestamp.
     uint64_t
     compute_interval_end_timestamp(uint64_t first_timestamp, uint64_t interval_id);
 
@@ -282,7 +294,7 @@ protected:
     advance_interval_id(
         typename scheduler_tmpl_t<RecordType, ReaderType>::stream_t *stream,
         analyzer_shard_data_t *shard, uint64_t &prev_interval_index,
-        uint64_t &prev_interval_init_instr_count);
+        uint64_t &prev_interval_init_instr_count, bool at_instr_record);
 
     // Collects interval results for all shards from the workers, and then optional
     // merges the shard-local intervals to form the whole-trace interval results using
@@ -329,21 +341,63 @@ protected:
     std::vector<analyzer_worker_data_t> worker_data_;
     int num_tools_;
     analysis_tool_tmpl_t<RecordType> **tools_;
-    // Stores the interval state snapshots for the whole trace, which for the parallel
-    // mode are the resulting interval state snapshots after merging from all shards
-    // in merge_shard_interval_results.
+    // Stores the interval state snapshots that are merged across shards. These
+    // are produced when timestamp intervals are enabled using interval_microseconds_.
+    //
     // merged_interval_snapshots_[tool_idx] is a vector of the interval snapshots
-    // (in order of the intervals) for that tool.
-    // This may not be set, depending on the derived class's implementation of
-    // collect_and_maybe_merge_shard_interval_results.
+    // (in order of the intervals) for that tool. For the parallel mode, these
+    // interval state snapshots are produced after merging corresponding shard
+    // interval snapshots using merge_shard_interval_results.
     std::vector<std::vector<
         typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>>
         merged_interval_snapshots_;
+
+    // Key that combines tool and shard idx for use with an std::unordered_map.
+    struct key_tool_shard_t {
+        int tool_idx;
+        int shard_idx;
+        bool
+        operator==(const key_tool_shard_t &rhs) const
+        {
+            return tool_idx == rhs.tool_idx && shard_idx == rhs.shard_idx;
+        }
+    };
+    struct key_tool_shard_hash_t {
+        std::size_t
+        operator()(const key_tool_shard_t &t) const
+        {
+            return std::hash<int>()(t.tool_idx ^ t.shard_idx);
+        }
+    };
+
+    // Stores the interval state snapshots that are not merged across shards. These
+    // are produced when instr count intervals are enabled using interval_instr_count_.
+    //
+    // unmerged_interval_snapshots_[(tool_idx, shard_idx)] is a vector
+    // of the interval snapshots for that tool and shard. Note that the snapshots for
+    // each shard are separate; they are not merged across shards.
+    //
+    // XXX: Figure out a useful way to merge instr count intervals across shards.
+    // One way is to merge the shard interval snapshots that correspond to the same
+    // [interval_instr_count_ * interval_id, interval_instr_count_ * (interval_id + 1))
+    // shard-local instrs. But it is not clear whether that will be useful.
+    // Another way is to merge the shard interval snapshots that correspond to the same
+    // [interval_instr_count_ * interval_id, interval_instr_count_ * (interval_id + 1))
+    // whole-trace instrs. But that is much harder to compute. We'd need some way to
+    // identify the whole-trace interval boundaries when processing each shard
+    // separately; this would likely need a pre-processing pass.
+    std::unordered_map<key_tool_shard_t,
+                       std::vector<typename analysis_tool_tmpl_t<
+                           RecordType>::interval_state_snapshot_t *>,
+                       key_tool_shard_hash_t>
+        unmerged_interval_snapshots_;
+
     bool parallel_;
     int worker_count_;
     const char *output_prefix_ = "[analyzer]";
     uint64_t skip_instrs_ = 0;
     uint64_t interval_microseconds_ = 0;
+    uint64_t interval_instr_count_ = 0;
     int verbosity_ = 0;
     shard_type_t shard_type_ = SHARD_BY_THREAD;
     bool sched_by_time_ = false;

@@ -123,6 +123,13 @@ analyzer_t::record_is_timestamp(const memref_t &record)
 }
 
 template <>
+bool
+analyzer_t::record_is_instr(const memref_t &record)
+{
+    return type_is_instr(record.instr.type);
+}
+
+template <>
 memref_t
 analyzer_t::create_wait_marker()
 {
@@ -180,6 +187,13 @@ bool
 record_analyzer_t::record_is_timestamp(const trace_entry_t &record)
 {
     return record.type == TRACE_TYPE_MARKER && record.size == TRACE_MARKER_TYPE_TIMESTAMP;
+}
+
+template <>
+bool
+record_analyzer_t::record_is_instr(const trace_entry_t &record)
+{
+    return type_is_instr(static_cast<trace_type_t>(record.type));
 }
 
 template <>
@@ -328,7 +342,7 @@ template <typename RecordType, typename ReaderType>
 analyzer_tmpl_t<RecordType, ReaderType>::analyzer_tmpl_t(
     const std::string &trace_path, analysis_tool_tmpl_t<RecordType> **tools,
     int num_tools, int worker_count, uint64_t skip_instrs, uint64_t interval_microseconds,
-    int verbosity)
+    uint64_t interval_instr_count, int verbosity)
     : success_(true)
     , num_tools_(num_tools)
     , tools_(tools)
@@ -336,8 +350,14 @@ analyzer_tmpl_t<RecordType, ReaderType>::analyzer_tmpl_t(
     , worker_count_(worker_count)
     , skip_instrs_(skip_instrs)
     , interval_microseconds_(interval_microseconds)
+    , interval_instr_count_(interval_instr_count)
     , verbosity_(verbosity)
 {
+    if (interval_microseconds_ > 0 && interval_instr_count_ > 0) {
+        success_ = false;
+        error_string_ = "Cannot enable both kinds of interval analysis";
+        return;
+    }
     // The scheduler will call reader_t::init() for each input file.  We assume
     // that won't block (analyzer_multi_t separates out IPC readers).
     typename sched_type_t::scheduler_options_t sched_ops;
@@ -405,10 +425,11 @@ analyzer_tmpl_t<RecordType, ReaderType>::get_current_microseconds()
 
 template <typename RecordType, typename ReaderType>
 uint64_t
-analyzer_tmpl_t<RecordType, ReaderType>::compute_interval_id(uint64_t first_timestamp,
-                                                             uint64_t latest_timestamp)
+analyzer_tmpl_t<RecordType, ReaderType>::compute_timestamp_interval_id(
+    uint64_t first_timestamp, uint64_t latest_timestamp)
 {
     assert(first_timestamp <= latest_timestamp);
+    assert(interval_microseconds_ > 0);
     // We keep the interval end timestamps independent of the first timestamp of the
     // trace. For the parallel mode, where we need to merge intervals from different
     // shards that were active during the same final whole-trace interval, having aligned
@@ -421,15 +442,32 @@ analyzer_tmpl_t<RecordType, ReaderType>::compute_interval_id(uint64_t first_time
 
 template <typename RecordType, typename ReaderType>
 uint64_t
+analyzer_tmpl_t<RecordType, ReaderType>::compute_instr_count_interval_id(
+    uint64_t cur_instr_count)
+{
+    assert(interval_instr_count_ > 0);
+    if (cur_instr_count == 0)
+        return 1;
+    // We want all memory access entries following an instr to stay in the same
+    // interval as the instr, so we increment interval_id at instr entries. Also,
+    // we want the last instr in each interval to have an ordinal that's a multiple
+    // of interval_instr_count_.
+    return (cur_instr_count - 1) / interval_instr_count_ + 1;
+}
+
+template <typename RecordType, typename ReaderType>
+uint64_t
 analyzer_tmpl_t<RecordType, ReaderType>::compute_interval_end_timestamp(
     uint64_t first_timestamp, uint64_t interval_id)
 {
+    assert(interval_microseconds_ > 0);
     assert(interval_id >= 1);
     uint64_t end_timestamp =
         (first_timestamp / interval_microseconds_ + interval_id) * interval_microseconds_;
     // Since the interval's end timestamp is exclusive, the end_timestamp would actually
     // fall under the next interval.
-    assert(compute_interval_id(first_timestamp, end_timestamp) == interval_id + 1);
+    assert(compute_timestamp_interval_id(first_timestamp, end_timestamp) ==
+           interval_id + 1);
     return end_timestamp;
 }
 
@@ -438,19 +476,28 @@ bool
 analyzer_tmpl_t<RecordType, ReaderType>::advance_interval_id(
     typename scheduler_tmpl_t<RecordType, ReaderType>::stream_t *stream,
     analyzer_shard_data_t *shard, uint64_t &prev_interval_index,
-    uint64_t &prev_interval_init_instr_count)
+    uint64_t &prev_interval_init_instr_count, bool at_instr_record)
 {
-    if (interval_microseconds_ == 0) {
+    uint64_t next_interval_index = 0;
+    if (interval_microseconds_ > 0) {
+        next_interval_index = compute_timestamp_interval_id(stream->get_first_timestamp(),
+                                                            stream->get_last_timestamp());
+    } else if (interval_instr_count_ > 0) {
+        // The interval callbacks are invoked just prior to the first instr
+        // of the new interval, which keeps the instr's memory accesses in the
+        // same interval as the instr.
+        next_interval_index =
+            compute_instr_count_interval_id(stream->get_instruction_ordinal());
+    } else {
         return false;
     }
-    uint64_t next_interval_index =
-        compute_interval_id(stream->get_first_timestamp(), stream->get_last_timestamp());
     if (next_interval_index != shard->cur_interval_index) {
         assert(next_interval_index > shard->cur_interval_index);
         prev_interval_index = shard->cur_interval_index;
         prev_interval_init_instr_count = shard->cur_interval_init_instr_count;
         shard->cur_interval_index = next_interval_index;
-        shard->cur_interval_init_instr_count = stream->get_instruction_ordinal();
+        shard->cur_interval_init_instr_count =
+            stream->get_instruction_ordinal() - (at_instr_record ? 1 : 0);
         return true;
     }
     return false;
@@ -463,7 +510,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
     std::vector<void *> user_worker_data(num_tools_);
 
     worker.shard_data[0].tool_data.resize(num_tools_);
-    if (interval_microseconds_ != 0)
+    if (interval_microseconds_ != 0 || interval_instr_count_ != 0)
         worker.shard_data[0].cur_interval_index = 1;
     for (int i = 0; i < num_tools_; ++i) {
         worker.error = tools_[i]->initialize_stream(worker.stream);
@@ -494,21 +541,22 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
                     worker.error =
                         "Failed to read from trace: " + worker.stream->get_stream_name();
                 }
-            } else if (interval_microseconds_ != 0) {
+            } else if (interval_microseconds_ != 0 || interval_instr_count_ != 0) {
                 process_interval(worker.shard_data[0].cur_interval_index,
                                  worker.shard_data[0].cur_interval_init_instr_count,
                                  &worker,
-                                 /*parallel=*/false);
+                                 /*parallel=*/false, /*at_instr_record=*/false);
             }
             return;
         }
         uint64_t prev_interval_index;
         uint64_t prev_interval_init_instr_count;
-        if (record_is_timestamp(record) &&
+        if ((record_is_timestamp(record) || record_is_instr(record)) &&
             advance_interval_id(worker.stream, &worker.shard_data[0], prev_interval_index,
-                                prev_interval_init_instr_count) &&
+                                prev_interval_init_instr_count,
+                                record_is_instr(record)) &&
             !process_interval(prev_interval_index, prev_interval_init_instr_count,
-                              &worker, /*parallel=*/false)) {
+                              &worker, /*parallel=*/false, record_is_instr(record))) {
             return;
         }
         for (int i = 0; i < num_tools_; ++i) {
@@ -531,11 +579,11 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_shard_exit(
     VPRINT(this, 1, "Worker %d finished trace shard %s\n", worker->index,
            worker->stream->get_stream_name().c_str());
     worker->shard_data[shard_index].exited = true;
-    if (interval_microseconds_ != 0 &&
+    if ((interval_microseconds_ != 0 || interval_instr_count_ != 0) &&
         !process_interval(worker->shard_data[shard_index].cur_interval_index,
                           worker->shard_data[shard_index].cur_interval_init_instr_count,
                           worker,
-                          /*parallel=*/true, shard_index))
+                          /*parallel=*/true, /*at_instr_record=*/false, shard_index))
         return false;
     for (int i = 0; i < num_tools_; ++i) {
         if (!tools_[i]->parallel_shard_exit(
@@ -598,7 +646,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
             VPRINT(this, 1, "Worker %d starting on trace shard %d stream is %p\n",
                    worker->index, shard_index, worker->stream);
             worker->shard_data[shard_index].tool_data.resize(num_tools_);
-            if (interval_microseconds_ != 0)
+            if (interval_microseconds_ != 0 || interval_instr_count_ != 0)
                 worker->shard_data[shard_index].cur_interval_index = 1;
             for (int i = 0; i < num_tools_; ++i) {
                 worker->shard_data[shard_index].tool_data[i].shard_data =
@@ -616,11 +664,12 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
         }
         uint64_t prev_interval_index;
         uint64_t prev_interval_init_instr_count;
-        if (record_is_timestamp(record) &&
+        if ((record_is_timestamp(record) || record_is_instr(record)) &&
             advance_interval_id(worker->stream, &worker->shard_data[shard_index],
-                                prev_interval_index, prev_interval_init_instr_count) &&
+                                prev_interval_index, prev_interval_init_instr_count,
+                                record_is_instr(record)) &&
             !process_interval(prev_interval_index, prev_interval_init_instr_count, worker,
-                              /*parallel=*/true, shard_index)) {
+                              /*parallel=*/true, record_is_instr(record), shard_index)) {
             return;
         }
         for (int i = 0; i < num_tools_; ++i) {
@@ -778,7 +827,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::merge_shard_interval_results(
         cur_merged_interval->shard_id = analysis_tool_tmpl_t<
             RecordType>::interval_state_snapshot_t::WHOLE_TRACE_SHARD_ID;
         cur_merged_interval->interval_end_timestamp = earliest_interval_end_timestamp;
-        cur_merged_interval->interval_id = compute_interval_id(
+        cur_merged_interval->interval_id = compute_timestamp_interval_id(
             earliest_ever_interval_end_timestamp, earliest_interval_end_timestamp);
         merged_intervals.push_back(cur_merged_interval);
     }
@@ -796,6 +845,34 @@ template <typename RecordType, typename ReaderType>
 bool
 analyzer_tmpl_t<RecordType, ReaderType>::collect_and_maybe_merge_shard_interval_results()
 {
+    if (interval_instr_count_ > 0) {
+        // We do not merge interval state snapshots across shards. See comment by
+        // unmerged_interval_snapshots_ for more details.
+        for (auto &worker : worker_data_) {
+            for (auto &shard_data : worker.shard_data) {
+                for (int tool_idx = 0; tool_idx < num_tools_; ++tool_idx) {
+                    key_tool_shard_t tool_shard_key = { tool_idx,
+                                                        shard_data.second.shard_index };
+                    std::queue<typename analysis_tool_tmpl_t<
+                        RecordType>::interval_state_snapshot_t *> &worker_snapshots =
+                        shard_data.second.tool_data[tool_idx].interval_snapshot_data;
+                    std::vector<typename analysis_tool_tmpl_t<
+                        RecordType>::interval_state_snapshot_t *> &tool_shard_snapshots =
+                        unmerged_interval_snapshots_[tool_shard_key];
+                    // If interval_snapshot_data were an std::vector we could just
+                    // std::move here, but that would make the implementation of
+                    // merge_shard_interval_results more complex, so there are trade-offs.
+                    while (!worker_snapshots.empty()) {
+                        tool_shard_snapshots.push_back(worker_snapshots.front());
+                        worker_snapshots.pop();
+                    }
+                }
+            }
+        }
+        return true;
+    }
+    if (interval_microseconds_ == 0)
+        return true;
     // all_intervals[tool_idx][shard_idx] contains a queue of the
     // interval_state_snapshot_t* that were output by that tool for that shard.
     std::vector<std::vector<std::queue<
@@ -864,10 +941,18 @@ analyzer_tmpl_t<RecordType, ReaderType>::run()
             }
         }
     }
-    if (interval_microseconds_ != 0) {
+    if (interval_microseconds_ != 0 || interval_instr_count_ != 0) {
         return collect_and_maybe_merge_shard_interval_results();
     }
     return true;
+}
+
+static void
+print_output_separator()
+{
+
+    std::cerr << "\n=========================================================="
+                 "=================\n";
 }
 
 template <typename RecordType, typename ReaderType>
@@ -881,9 +966,19 @@ analyzer_tmpl_t<RecordType, ReaderType>::print_stats()
             error_string_ = tools_[i]->get_error_string();
             return false;
         }
-        if (interval_microseconds_ != 0 && !merged_interval_snapshots_.empty()) {
-            // merged_interval_snapshots_ may be empty depending on the derived class's
-            // implementation of collect_and_maybe_merge_shard_interval_results.
+        if (i + 1 < num_tools_) {
+            // Separate tool output.
+            print_output_separator();
+        }
+    }
+    // Now print interval results.
+    if (interval_microseconds_ != 0 && !merged_interval_snapshots_.empty()) {
+        // Separate non-interval and interval outputs.
+        print_output_separator();
+        std::cerr << "Printing whole-trace interval results:\n";
+        for (int i = 0; i < num_tools_; ++i) {
+            // merged_interval_snapshots_ may be empty if the corresponding tool did
+            // not produce any interval results.
             if (!merged_interval_snapshots_[i].empty() &&
                 !tools_[i]->print_interval_results(merged_interval_snapshots_[i])) {
                 error_string_ = tools_[i]->get_error_string();
@@ -895,11 +990,29 @@ analyzer_tmpl_t<RecordType, ReaderType>::print_stats()
                     return false;
                 }
             }
+            if (i + 1 < num_tools_) {
+                // Separate tool output.
+                print_output_separator();
+            }
         }
-        if (i + 1 < num_tools_) {
-            // Separate tool output.
-            std::cerr << "\n=========================================================="
-                         "=================\n";
+    } else if (interval_instr_count_ != 0 && !unmerged_interval_snapshots_.empty()) {
+        // Separate non-interval and interval outputs.
+        print_output_separator();
+        std::cerr << "Printing unmerged per-shard interval results:\n";
+        for (auto &interval_snapshots : unmerged_interval_snapshots_) {
+            int tool_idx = interval_snapshots.first.tool_idx;
+            if (!interval_snapshots.second.empty() &&
+                !tools_[tool_idx]->print_interval_results(interval_snapshots.second)) {
+                error_string_ = tools_[tool_idx]->get_error_string();
+                return false;
+            }
+            for (auto snapshot : interval_snapshots.second) {
+                if (!tools_[tool_idx]->release_interval_snapshot(snapshot)) {
+                    error_string_ = tools_[tool_idx]->get_error_string();
+                    return false;
+                }
+            }
+            print_output_separator();
         }
     }
     return true;
@@ -909,7 +1022,7 @@ template <typename RecordType, typename ReaderType>
 bool
 analyzer_tmpl_t<RecordType, ReaderType>::process_interval(
     uint64_t interval_id, uint64_t interval_init_instr_count,
-    analyzer_worker_data_t *worker, bool parallel, int shard_idx)
+    analyzer_worker_data_t *worker, bool parallel, bool at_instr_record, int shard_idx)
 {
     assert(parallel || shard_idx == 0); // Default to zero for the serial mode.
     for (int tool_idx = 0; tool_idx < num_tools_; ++tool_idx) {
@@ -937,9 +1050,20 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_interval(
                 : analysis_tool_tmpl_t<
                       RecordType>::interval_state_snapshot_t::WHOLE_TRACE_SHARD_ID;
             snapshot->interval_id = interval_id;
-            snapshot->interval_end_timestamp = compute_interval_end_timestamp(
-                worker->stream->get_first_timestamp(), interval_id);
-            snapshot->instr_count_cumulative = worker->stream->get_instruction_ordinal();
+            if (interval_microseconds_ > 0) {
+                // For timestamp intervals, theinterval_end_timestamp is the abstract
+                // non-inclusive end timestamp for the interval_id. This is to make it
+                // easier to line up the corresponding shard interval snapshots for
+                // merging to form the whole-trace interval snapshots.
+                snapshot->interval_end_timestamp = compute_interval_end_timestamp(
+                    worker->stream->get_first_timestamp(), interval_id);
+            } else {
+                snapshot->interval_end_timestamp = worker->stream->get_last_timestamp();
+            }
+            // instr_count_cumulative for the interval snapshot is supposed to be
+            // inclusive, so if we're at an instr right now, it must be subtracted.
+            snapshot->instr_count_cumulative =
+                worker->stream->get_instruction_ordinal() - (at_instr_record ? 1 : 0);
             snapshot->instr_count_delta =
                 snapshot->instr_count_cumulative - interval_init_instr_count;
             worker->shard_data[shard_idx].tool_data[tool_idx].interval_snapshot_data.push(

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -158,6 +158,8 @@ extern dynamorio::droption::droption_t<std::string> op_tracer_alt;
 extern dynamorio::droption::droption_t<std::string> op_tracer_ops;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t>
     op_interval_microseconds;
+extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t>
+    op_interval_instr_count;
 extern dynamorio::droption::droption_t<int> op_only_thread;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t> op_skip_instrs;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t> op_skip_refs;

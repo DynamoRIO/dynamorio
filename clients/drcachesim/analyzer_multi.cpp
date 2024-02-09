@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -111,6 +111,7 @@ analyzer_multi_t::analyzer_multi_t()
     worker_count_ = op_jobs.get_value();
     skip_instrs_ = op_skip_instrs.get_value();
     interval_microseconds_ = op_interval_microseconds.get_value();
+    interval_instr_count_ = op_interval_instr_count.get_value();
     // Initial measurements show it's sometimes faster to keep the parallel model
     // of using single-file readers but use them sequentially, as opposed to
     // the every-file interleaving reader, but the user can specify -jobs 1, so
