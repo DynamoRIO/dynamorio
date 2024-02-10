@@ -490,8 +490,8 @@ endfunction(append_link_flags)
 # TODO i#6429 Change this allowlist to a blocklist.
 set(sve_tests
       simple_app api.ir api.ir_negative api.ir_v81 api.ir_v82 api.ir_v83 api.ir_v84
-      api.ir_v86 api.ir_sve api.ir_sve2 api.ir-static api.drdecode common.broadfun
-      common.fib common.nzcv common.getretaddr common.segfault
+      api.ir_v85 api.ir_v86 api.ir_sve api.ir_sve2 api.ir-static api.drdecode
+      common.broadfun common.fib common.nzcv common.getretaddr common.segfault
       common.allasm_aarch64_isa common.allasm_aarch64_cache allasm_aarch64_prefetch
       allasm_aarch64_flush libutil.frontend_test libutil.drconfig_test
       client.call-retarget client.modules client.annotation-concurrency
@@ -1539,6 +1539,7 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
       -D postcmd=${${key}_postcmd}
       -D postcmd2=${${key}_postcmd2}
       -D postcmd3=${${key}_postcmd3}
+      -D postcmd4=${${key}_postcmd4}
       -D failok=${${key}_failok}
       -D cmp=${CMAKE_CURRENT_BINARY_DIR}/${expectbase}.expect
       -D code=${${key}_code}
@@ -2028,6 +2029,7 @@ if (NOT ANDROID)
     tobuild_api(api.ir_v82 api/ir_aarch64_v82.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_v83 api/ir_aarch64_v83.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_v84 api/ir_aarch64_v84.c "" "" OFF OFF OFF)
+    tobuild_api(api.ir_v85 api/ir_aarch64_v85.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_v86 api/ir_aarch64_v86.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_sve api/ir_aarch64_sve.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_sve2 api/ir_aarch64_sve2.c "" "" OFF OFF OFF)
@@ -3236,6 +3238,8 @@ elseif (AARCH64)
     "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v83.txt" OFF OFF)
   torunonly_api(api.dis-a64-v84 api.dis-a64 api/dis-a64.c ""
     "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v84.txt" OFF OFF)
+  torunonly_api(api.dis-a64-v85 api.dis-a64 api/dis-a64.c ""
+    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v85.txt" OFF OFF)
   torunonly_api(api.dis-a64-v86 api.dis-a64 api/dis-a64.c ""
     "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v86.txt" OFF OFF)
   torunonly_api(api.dis-a64-sve api.dis-a64 api/dis-a64.c ""
@@ -4237,6 +4241,10 @@ if (BUILD_CLIENTS)
 
       torunonly_drcacheoff(view ${ci_shared_app} ""
         "@-simulator_type@view@-sim_refs@16384" "")
+      unset(tool.drcacheoff.view_rawtemp) # Use preprocessor
+      if (AARCH64 AND proc_supports_sve)
+        set(tool.drcacheoff.view_runsve 1)
+      endif ()
 
       set(tool.drcacheoff.func_view_full_run ON) # Fails on Windows if truncated.
       torunonly_drcacheoff(func_view common.fib "-record_function fib|1"
@@ -4499,6 +4507,22 @@ if (BUILD_CLIENTS)
             "allasm-scattergather-basic-counts-${ARCH_NAME}")
     endif ()
 
+    if (UNIX AND AARCH64 AND proc_supports_sve)
+      torunonly_drcacheoff(allasm-scattergather-vl-view allasm_scattergather
+        "" "@-simulator_type@view" "")
+      unset(tool.drcacheoff.allasm-scattergather-vl-view_rawtemp) # use preprocessor
+      set(tool.drcacheoff.allasm-scattergather-vl-view_runsve 1)
+      set(tool.drcacheoff.allasm-scattergather-vl-view_expectbase
+        "offline-allasm-scattergather-vl-view-${ARCH_NAME}")
+
+      torunonly_drcachesim(allasm-scattergather-vl-view allasm_scattergather
+        "-simulator_type view" "")
+      unset(tool.drcachesim.allasm-scattergather-vl-view_rawtemp) # use preprocessor
+      set(tool.drcachesim.allasm-scattergather-vl-view_runsve 1)
+      set(tool.drcachesim.allasm-scattergather-vl-view_expectbase
+            "allasm-scattergather-vl-view-${ARCH_NAME}")
+    endif ()
+
     if (UNIX AND X86 AND X64)
       torunonly_drcacheoff(allasm-repstr-basic-counts allasm_repstr
         "" "@-simulator_type@basic_counts" "")
@@ -4558,6 +4582,39 @@ if (BUILD_CLIENTS)
       "${drcachesim_path}@-indir@${testname_full}.*.dir")
     set(${testname_full}_postcmd2
       "${histo_path}@-test_mode@-test_mode_name@kernel_xfer_app@-trace_dir@${testname_full}.*.dir/trace")
+
+    # Test the standalone record filter tool (beyond its unit tests).
+    set(testname "tool.record_filter")
+    if (WIN32)
+      # Speed the test up (takes 1+ minutes otherwise).
+      set(extra_ops "-trace_after_instrs 5K -exit_after_tracing 50K")
+    else ()
+      set(extra_ops "")
+    endif ()
+    torunonly_ci(${testname} ${ci_shared_app} drcachesim
+      "record_filter-offline.c"
+      "-offline -subdir_prefix ${testname} ${extra_ops}" "" "")
+    set(${testname}_toolname "drcachesim")
+    set(${testname}_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+    get_target_path_for_execution(filter_path record_filter_launcher "${location_suffix}")
+    prefix_cmd_if_necessary(filter_path ON ${filter_path})
+    set(outdir "${testname}.filtered.dir")
+    set(${testname}_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+    set(${testname}_precmd
+      "foreach@${CMAKE_COMMAND}@-E@remove_directory@${testname}.*.dir")
+    # Post-process the trace and sanity check it.
+    # Use a smaller chunk threshold to test multiple chunks.
+    set(${testname}_postcmd
+      "${drcachesim_path}@-chunk_instr_count@1000@-indir@${testname}.*.dir@-simulator_type@invariant_checker")
+    # Run the record filter tool with a null filter.
+    set(${testname}_postcmd2 "${CMAKE_COMMAND}@-E@make_directory@${outdir}")
+    set(${testname}_postcmd3
+      # We assume the app name starts with "s" here to avoid colliding with
+      # our output dir, while still letting the single precmd remove both.
+      "${filter_path}@-trace_dir@${testname}.s*.dir/trace@-output_dir@${outdir}")
+    # Run the invariant checker on the result.
+    set(${testname}_postcmd4
+      "${drcachesim_path}@-indir@${outdir}@-simulator_type@invariant_checker")
 
     if (AARCH64)
       set(testname_full "tool.drcacheoff.allasm-aarch64-prefetch-counts")
@@ -5993,23 +6050,42 @@ if (RISCV64)
     code_api|api.ir
     code_api|api.ir-static
     code_api|client.app_args
+    code_api|client.app_args
+    code_api|client.blackbox
     code_api|client.blackbox
     code_api|client.crashmsg
+    code_api|client.crashmsg
+    code_api|client.execfault
     code_api|client.execfault
     code_api|client.mangle_suspend
+    code_api|client.mangle_suspend
+    code_api|client.null_instrument
     code_api|client.null_instrument
     code_api|client.option_parse
+    code_api|client.option_parse
+    code_api|client.partial_module_map
     code_api|client.partial_module_map
     code_api|client.stack-overflow
+    code_api|client.stack-overflow
     code_api|client.truncate
+    code_api|client.unregister
     code_api|common.broadfun
+    code_api|common.hello
+    code_api|libutil.drconfig_test
     code_api|libutil.drconfig_test
     code_api|libutil.frontend_test
+    code_api|libutil.frontend_test
+    code_api|linux.exit
     code_api|linux.exit
     code_api|linux.infinite
+    code_api|linux.infinite
+    code_api|linux.longjmp
     code_api|linux.longjmp
     code_api|linux.prctl
+    code_api|linux.prctl
     code_api|linux.signalfd
+    code_api|pthreads.pthreads
+    code_api|pthreads.pthreads_exit
     code_api|pthreads.pthreads_exit
     code_api|sample.bbbuf
     code_api|sample.bbcount
@@ -6018,12 +6094,21 @@ if (RISCV64)
     code_api|sample.empty
     code_api|sample.inline
     code_api|sample.inscount
+    code_api|sample.inscount.cleancall
+    code_api|sample.inscount.prof-pcs.cleancall
     code_api|sample.opcode_count
     code_api|sample.signal
     code_api|sample.stl_test
+    code_api|sample.stl_test
+    code_api|sample.syscall
     code_api|sample.syscall
     code_api|security-linux.trampoline
+    code_api|security-linux.trampoline
+    code_api|tool.drcachesim.missfile-config-file
+    code_api|tool.drcachesim.syscall-mix
+    code_api|tool.drcov.fib
     code_api|tool.drdisas
+    code_api|tool.histogram
     code_api|tool.reuse_distance
     no_code_api,no_intercept_all_signals|linux.sigaction
     PROPERTIES LABELS RUNS_ON_QEMU)

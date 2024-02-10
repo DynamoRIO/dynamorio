@@ -857,6 +857,19 @@
 #define INSTR_CREATE_ic_ialluis(dc) instr_create_0dst_0src(dc, OP_ic_ialluis)
 
 /**
+ * Creates a BTI instruction to  guard against the execution of instructions
+ * which are not the intended target of a branch, and is a NOP on hardware
+ * which does not support FEAT_BTI. BTI belongs to the hints instruction class.
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BTI    #<imm>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param imm   The imm representing the appropriate bti symbol
+ */
+#define INSTR_CREATE_bti(dc, imm) instr_create_0dst_1src(dc, OP_bti, imm)
+
+/**
  * Creates a CLREX instruction.
  * \param dc   The void * dcontext used to allocate memory for the instr_t.
  */

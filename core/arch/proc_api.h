@@ -361,6 +361,7 @@ typedef enum {
     FEATURE_SVESM4 = DEF_FEAT(AA64ZFR0, 10, 1, 0), /**< SVE2 + SM4(AArch64) */
     FEATURE_SVEBitPerm = DEF_FEAT(AA64ZFR0, 4, 1, 0), /**< SVE2 + BitPerm(AArch64) */
     FEATURE_MTE = DEF_FEAT(AA64PFR1, 2, 1, 0),        /**< Memory Tagging Extension */
+    FEATURE_BTI = DEF_FEAT(AA64PFR1, 0, 1, 0),        /**< Branch Target Identification*/
 } feature_bit_t;
 #endif
 #ifdef RISCV64

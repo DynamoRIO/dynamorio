@@ -817,12 +817,18 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
              * cl_args->stack. But we expect the highest (non-inclusive)
              * in the clone record's app_thread_xsp.
              */
-            record->app_thread_xsp = dr_clone_args->stack + dr_clone_args->stack_size;
+            if (dr_clone_args->stack == 0)
+                record->app_thread_xsp = get_mcontext(dcontext)->xsp;
+            else
+                record->app_thread_xsp = dr_clone_args->stack + dr_clone_args->stack_size;
             record->clone_flags = dr_clone_args->flags;
             record->app_clone_args = app_clone_args;
         } else {
 #endif
-            record->app_thread_xsp = *app_thread_xsp;
+            if (*app_thread_xsp == 0)
+                record->app_thread_xsp = get_mcontext(dcontext)->xsp;
+            else
+                record->app_thread_xsp = *app_thread_xsp;
             record->clone_flags = dcontext->sys_param0;
             IF_LINUX(record->app_clone_args = NULL);
 #ifdef LINUX
@@ -4755,8 +4761,8 @@ find_next_fragment_from_gencode(dcontext_t *dcontext, sigcontext_t *sc)
         if (f == NULL && sc->SC_XCX != 0)
             f = fragment_lookup(dcontext, (app_pc)sc->SC_XCX);
 #elif defined(RISCV64)
-        /* FIXME i#3544: Not implemented */
-        ASSERT_NOT_IMPLEMENTED(false);
+        if (f == NULL && sc->SC_A2 != 0)
+            f = fragment_lookup(dcontext, (app_pc)(sc->SC_A2));
 #else
 #    error Unsupported arch.
 #endif

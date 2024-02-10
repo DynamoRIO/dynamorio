@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -70,12 +70,6 @@
 #endif
 #include "directory_iterator.h"
 #include "utils.h"
-#ifdef UNIX
-#    include <sys/time.h>
-#else
-#    define WIN32_LEAN_AND_MEAN
-#    include <windows.h>
-#endif
 
 #undef VPRINT
 #ifdef DEBUG
@@ -307,10 +301,15 @@ std::unique_ptr<dynamorio::drmemtrace::record_reader_t>
 scheduler_tmpl_t<trace_entry_t, record_reader_t>::get_reader(const std::string &path,
                                                              int verbosity)
 {
-    // TODO i#5675: Add support for other file formats, particularly
-    // .zip files.
-    if (ends_with(path, ".sz") || ends_with(path, ".zip"))
+    // TODO i#5675: Add support for other file formats.
+    if (ends_with(path, ".sz"))
         return nullptr;
+#ifdef HAS_ZIP
+    if (ends_with(path, ".zip")) {
+        return std::unique_ptr<dynamorio::drmemtrace::record_reader_t>(
+            new zipfile_record_file_reader_t(path, verbosity));
+    }
+#endif
     return std::unique_ptr<dynamorio::drmemtrace::record_reader_t>(
         new default_record_file_reader_t(path, verbosity));
 }
@@ -1605,24 +1604,7 @@ template <typename RecordType, typename ReaderType>
 uint64_t
 scheduler_tmpl_t<RecordType, ReaderType>::get_time_micros()
 {
-    // XXX i#5843: Should we just use dr_get_microseconds() and avoid split-OS support
-    // inside here?  We will be pulling in drdecode at least for identifying blocking
-    // syscalls so maybe full DR isn't much more since we're often linked with raw2trace
-    // which already needs it.  If we do we can remove the headers for this code too.
-#ifdef UNIX
-    struct timeval time;
-    if (gettimeofday(&time, nullptr) != 0)
-        return sched_type_t::STATUS_RECORD_FAILED;
-    return time.tv_sec * 1000000 + time.tv_usec;
-#else
-    SYSTEMTIME sys_time;
-    GetSystemTime(&sys_time);
-    FILETIME file_time;
-    if (!SystemTimeToFileTime(&sys_time, &file_time))
-        return sched_type_t::STATUS_RECORD_FAILED;
-    return file_time.dwLowDateTime +
-        (static_cast<uint64_t>(file_time.dwHighDateTime) << 32);
-#endif
+    return get_microsecond_timestamp();
 }
 
 template <typename RecordType, typename ReaderType>
@@ -1740,8 +1722,13 @@ scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue(
     sched_type_t::stream_status_t status = STATUS_OK;
     uint64_t cur_time = (num_blocked_ > 0) ? get_output_time(for_output) : 0;
     while (!ready_priority_.empty()) {
-        res = ready_priority_.top();
-        ready_priority_.pop();
+        if (options_.randomize_next_input) {
+            res = ready_priority_.get_random_entry();
+            ready_priority_.erase(res);
+        } else {
+            res = ready_priority_.top();
+            ready_priority_.pop();
+        }
         if (res->binding.empty() || res->binding.find(for_output) != res->binding.end()) {
             // For blocked inputs, as we don't have interrupts or other regular
             // control points we only check for being unblocked when an input

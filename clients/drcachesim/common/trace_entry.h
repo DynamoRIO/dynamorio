@@ -612,6 +612,21 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
 
+    /**
+     * This marker's value is the current thread's vector length in bytes, for
+     * architectures with a dynamic vector length. It is currently only used on AArch64.
+     *
+     * On AArch64 the marker's value contains the SVE vector length. The marker is
+     * emitted with the thread header to establish the initial vector length for that
+     * thread. In the future it will also be emitted later in the trace if the app
+     * changes the vector length at runtime (TODO i#6625). In all cases the vector
+     * length value is specific to the current thread.
+     * The vector length affects how some SVE instructions are decoded so any tools which
+     * decode instructions should clear any cached data and set the vector length used by
+     * the decoder using dr_set_sve_vector_length().
+     */
+    TRACE_MARKER_TYPE_VECTOR_LENGTH,
+
     // ...
     // These values are reserved for future built-in marker types.
     // ...

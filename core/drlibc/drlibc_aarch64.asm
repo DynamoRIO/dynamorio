@@ -134,6 +134,7 @@ GLOBAL_LABEL(dynamorio_mach_syscall:)
 #ifdef LINUX
 /* thread_id_t dynamorio_clone(uint flags, byte *newsp, void *ptid, void *tls,
  *                             void *ctid, void (*func)(void))
+ * TODO i#6514: Add support for passing NULL for newsp.
  */
         DECLARE_FUNC(dynamorio_clone)
 GLOBAL_LABEL(dynamorio_clone:)

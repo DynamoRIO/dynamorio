@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,6 +35,8 @@
 
 #ifndef _CACHING_DEVICE_STATS_H_
 #define _CACHING_DEVICE_STATS_H_ 1
+
+#define NOMINMAX // Avoid windows.h messing up std::max.
 
 #include <stdint.h>
 #ifdef HAS_ZLIB
@@ -106,7 +108,9 @@ public:
 
         // Detect the overflow and assign maximum possible value to the addr_end.
         if (addr_beg > addr_end) {
-            addr_end = std::numeric_limits<addr_t>::max();
+            // Wrap max in parens to work around Visual Studio compiler issues with the
+            // max macro (even despite NOMINMAX defined above).
+            addr_end = (std::numeric_limits<addr_t>::max)();
         }
 
         std::map<addr_t, addr_t>::reverse_iterator prev_it(next_it);

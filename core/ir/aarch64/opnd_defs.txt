@@ -108,6 +108,7 @@
 --------------------------x-----  fpimm1_half_one_5 # 1 bit floating-point index, represents 0.5 or 1.0
 --------------------------x-----  fpimm1_zero_one_5 # 1 bit floating-point index, represents 0.0 or 1.0
 --------------------------x-----  fpimm1_half_two_5 # 1 bit floating-point index, represents 0.5 or 2.0
+------------------------xx------  imm2_6     # 2 bit immediate from 6-7
 ------------------------xxx-----  op2        # 3 bit immediate from 5-7
 -----------------------xxxx-----  p_b_5      # P register with a byte element size
 -----------------------xxxx-----  p5         # P register

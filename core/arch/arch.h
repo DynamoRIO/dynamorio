@@ -184,6 +184,7 @@ mixed_mode_enabled(void)
 #    define SCRATCH_REG4_OFFS REG4_OFFSET
 #    define SCRATCH_REG5_OFFS REG5_OFFSET
 #    define REG_OFFSET(reg) (X0_OFFSET + ((reg)-DR_REG_X0) * sizeof(reg_t))
+#    define FREG_OFFSET(reg) (F0_OFFSET + ((reg)-DR_REG_F0) * sizeof(reg_t))
 #    define CALL_SCRATCH_REG DR_REG_T6
 #    define MC_IBL_REG a2
 #    define MC_RETVAL_REG a0

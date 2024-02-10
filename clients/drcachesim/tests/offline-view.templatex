@@ -7,9 +7,16 @@ Output format:
            3           0: +[0-9]+ <marker: cache line size [0-9]*>
            4           0: +[0-9]+ <marker: chunk instruction count [0-9]*>
            5           0: +[0-9]+ <marker: page size [0-9]*>
+#ifdef __ARM_FEATURE_SVE
+           6           0: +[0-9]+ <marker: vector length [0-9]* bytes>
+           7           0: +[0-9]+ <marker: timestamp [0-9]*>
+           8           0: +[0-9]+ <marker: tid [0-9]* on core [0-9]*>
+           9           1: +[0-9]+ ifetch      .*
+#else
            6           0: +[0-9]+ <marker: timestamp [0-9]*>
            7           0: +[0-9]+ <marker: tid [0-9]* on core [0-9]*>
            8           1: +[0-9]+ ifetch      .*
+#endif
 .*
 View tool results:
     *[0-9]* : total instructions
