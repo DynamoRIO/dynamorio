@@ -708,7 +708,8 @@ analyzer_tmpl_t<RecordType, ReaderType>::combine_interval_snapshots(
     result = tools_[tool_idx]->combine_interval_snapshots(latest_shard_snapshots,
                                                           interval_end_timestamp);
     if (result == nullptr) {
-        error_string_ = "combine_interval_snapshots unexpectedly returned nullptr";
+        error_string_ = "combine_interval_snapshots unexpectedly returned nullptr: " +
+            tools_[tool_idx]->get_error_string();
         return false;
     }
     result->instr_count_delta = 0;
@@ -828,28 +829,54 @@ analyzer_tmpl_t<RecordType, ReaderType>::merge_shard_interval_results(
 
 template <typename RecordType, typename ReaderType>
 void
+analyzer_tmpl_t<RecordType, ReaderType>::drain_interval_snapshot_queue_to_vector(
+    std::queue<typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>
+        &que,
+    std::vector<typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>
+        &vec)
+{
+    // If the worker's interval snapshot data were an std::vector we could just
+    // std::move here, but that would make the implementation of
+    // merge_shard_interval_results more complex, so there are trade-offs.
+    while (!que.empty()) {
+        vec.push_back(que.front());
+        que.pop();
+    }
+}
+
+template <typename RecordType, typename ReaderType>
+void
 analyzer_tmpl_t<RecordType, ReaderType>::populate_unmerged_shard_interval_results()
 {
     for (auto &worker : worker_data_) {
         for (auto &shard_data : worker.shard_data) {
+            assert(static_cast<int>(shard_data.second.tool_data.size()) == num_tools_);
             for (int tool_idx = 0; tool_idx < num_tools_; ++tool_idx) {
                 key_tool_shard_t tool_shard_key = { tool_idx,
                                                     shard_data.second.shard_index };
-                std::queue<typename analysis_tool_tmpl_t<
-                    RecordType>::interval_state_snapshot_t *> &worker_snapshots =
-                    shard_data.second.tool_data[tool_idx].interval_snapshot_data;
-                std::vector<typename analysis_tool_tmpl_t<
-                    RecordType>::interval_state_snapshot_t *> &tool_shard_snapshots =
-                    unmerged_interval_snapshots_[tool_shard_key];
-                // If interval_snapshot_data were an std::vector we could just
-                // std::move here, but that would make the implementation of
-                // merge_shard_interval_results more complex, so there are trade-offs.
-                while (!worker_snapshots.empty()) {
-                    tool_shard_snapshots.push_back(worker_snapshots.front());
-                    worker_snapshots.pop();
-                }
+                drain_interval_snapshot_queue_to_vector(
+                    shard_data.second.tool_data[tool_idx].interval_snapshot_data,
+                    per_shard_interval_snapshots_[tool_shard_key]);
             }
         }
+    }
+}
+
+template <typename RecordType, typename ReaderType>
+void
+analyzer_tmpl_t<RecordType, ReaderType>::populate_serial_interval_results()
+{
+    assert(whole_trace_interval_snapshots_.empty());
+    whole_trace_interval_snapshots_.resize(num_tools_);
+    assert(worker_data_.size() == 1);
+    assert(worker_data_[0].shard_data.size() == 1 &&
+           worker_data_[0].shard_data.count(0) == 1);
+    assert(static_cast<int>(worker_data_[0].shard_data[0].tool_data.size()) ==
+           num_tools_);
+    for (int tool_idx = 0; tool_idx < num_tools_; ++tool_idx) {
+        drain_interval_snapshot_queue_to_vector(
+            worker_data_[0].shard_data[0].tool_data[tool_idx].interval_snapshot_data,
+            whole_trace_interval_snapshots_[tool_idx]);
     }
 }
 
@@ -857,14 +884,17 @@ template <typename RecordType, typename ReaderType>
 bool
 analyzer_tmpl_t<RecordType, ReaderType>::collect_and_maybe_merge_shard_interval_results()
 {
+    assert(interval_microseconds_ != 0 || interval_instr_count_ != 0);
+    if (!parallel_) {
+        populate_serial_interval_results();
+        return true;
+    }
     if (interval_instr_count_ > 0) {
         // We do not merge interval state snapshots across shards. See comment by
-        // unmerged_interval_snapshots_ for more details.
+        // per_shard_interval_snapshots for more details.
         populate_unmerged_shard_interval_results();
         return true;
     }
-    if (interval_microseconds_ == 0)
-        return true;
     // all_intervals[tool_idx][shard_idx] contains a queue of the
     // interval_state_snapshot_t* that were output by that tool for that shard.
     std::vector<std::vector<std::queue<
@@ -872,20 +902,21 @@ analyzer_tmpl_t<RecordType, ReaderType>::collect_and_maybe_merge_shard_interval_
         all_intervals(num_tools_);
     for (const auto &worker : worker_data_) {
         for (const auto &shard_data : worker.shard_data) {
+            assert(static_cast<int>(shard_data.second.tool_data.size()) == num_tools_);
             for (int tool_idx = 0; tool_idx < num_tools_; ++tool_idx) {
                 all_intervals[tool_idx].emplace_back(std::move(
                     shard_data.second.tool_data[tool_idx].interval_snapshot_data));
             }
         }
     }
-    assert(merged_interval_snapshots_.empty());
-    merged_interval_snapshots_.resize(num_tools_);
+    assert(whole_trace_interval_snapshots_.empty());
+    whole_trace_interval_snapshots_.resize(num_tools_);
     for (int tool_idx = 0; tool_idx < num_tools_; ++tool_idx) {
         // We need to do this separately per tool because all tools may not
         // generate an interval_state_snapshot_t for the same intervals (even though
         // the framework notifies all tools of all intervals).
         if (!merge_shard_interval_results(all_intervals[tool_idx],
-                                          merged_interval_snapshots_[tool_idx],
+                                          whole_trace_interval_snapshots_[tool_idx],
                                           tool_idx)) {
             return false;
         }
@@ -964,19 +995,24 @@ analyzer_tmpl_t<RecordType, ReaderType>::print_stats()
         }
     }
     // Now print interval results.
-    if (interval_microseconds_ != 0 && !merged_interval_snapshots_.empty()) {
+    // Should not have both whole-trace or per-shard interval snapshots.
+    assert(whole_trace_interval_snapshots_.empty() ||
+           per_shard_interval_snapshots_.empty());
+    // We may have whole-trace intervals snaphots for instr count intervals in serial
+    // mode, and for timestamp (microsecond) intervals in both serial and parallel mode.
+    if (!whole_trace_interval_snapshots_.empty()) {
         // Separate non-interval and interval outputs.
         print_output_separator();
         std::cerr << "Printing whole-trace interval results:\n";
         for (int i = 0; i < num_tools_; ++i) {
-            // merged_interval_snapshots_[i] may be empty if the corresponding tool did
-            // not produce any interval results.
-            if (!merged_interval_snapshots_[i].empty() &&
-                !tools_[i]->print_interval_results(merged_interval_snapshots_[i])) {
+            // whole_trace_interval_snapshots_[i] may be empty if the corresponding tool
+            // did not produce any interval results.
+            if (!whole_trace_interval_snapshots_[i].empty() &&
+                !tools_[i]->print_interval_results(whole_trace_interval_snapshots_[i])) {
                 error_string_ = tools_[i]->get_error_string();
                 return false;
             }
-            for (auto snapshot : merged_interval_snapshots_[i]) {
+            for (auto snapshot : whole_trace_interval_snapshots_[i]) {
                 if (!tools_[i]->release_interval_snapshot(snapshot)) {
                     error_string_ = tools_[i]->get_error_string();
                     return false;
@@ -987,11 +1023,11 @@ analyzer_tmpl_t<RecordType, ReaderType>::print_stats()
                 print_output_separator();
             }
         }
-    } else if (interval_instr_count_ != 0 && !unmerged_interval_snapshots_.empty()) {
+    } else if (!per_shard_interval_snapshots_.empty()) {
         // Separate non-interval and interval outputs.
         print_output_separator();
         std::cerr << "Printing unmerged per-shard interval results:\n";
-        for (auto &interval_snapshots : unmerged_interval_snapshots_) {
+        for (auto &interval_snapshots : per_shard_interval_snapshots_) {
             int tool_idx = interval_snapshots.first.tool_idx;
             if (!interval_snapshots.second.empty() &&
                 !tools_[tool_idx]->print_interval_results(interval_snapshots.second)) {

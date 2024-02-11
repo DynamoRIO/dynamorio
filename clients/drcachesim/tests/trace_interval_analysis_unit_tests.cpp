@@ -406,6 +406,7 @@ public:
     void *
     parallel_shard_init(int shard_index, void *worker_data) override
     {
+        parallel_mode_ = true;
         auto per_shard = new per_shard_t;
         per_shard->magic_num = kMagicNum;
         per_shard->tid = kInvalidTid;
@@ -458,6 +459,11 @@ public:
         // be any combine_interval_snapshot calls.
         if (expected_state_snapshots_.size() != 1) {
             error_string_ = "Did not expect any combine_interval_snapshots() calls";
+            return nullptr;
+        }
+        if (!parallel_mode_) {
+            error_string_ =
+                "Did not expect any combine_interval_snapshots() calls in serial mode.";
             return nullptr;
         }
         recorded_snapshot_t *result = new recorded_snapshot_t();
@@ -559,6 +565,7 @@ private:
     int outstanding_snapshots_;
     bool combine_only_active_shards_;
     int seen_print_interval_results_calls_ = 0;
+    bool parallel_mode_ = false;
 
     // Data tracked per shard.
     struct per_shard_t {

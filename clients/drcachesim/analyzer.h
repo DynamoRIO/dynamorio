@@ -306,7 +306,7 @@ protected:
     virtual bool
     collect_and_maybe_merge_shard_interval_results();
 
-    // Computes and stores the interval results in merged_interval_snapshots_. For
+    // Computes and stores the interval results in whole_trace_interval_snapshots_. For
     // serial analysis where we already have only a single shard, this involves
     // simply copying interval_state_snapshot_t* from the input. For parallel
     // analysis, this involves merging results from multiple shards for intervals
@@ -320,10 +320,15 @@ protected:
                         *> &merged_intervals,
         int tool_idx);
 
-    // Populates the unmerged_interval_snapshots_ field based on the interval snapshots
+    // Populates the per_shard_interval_snapshots_ field based on the interval snapshots
     // stored in worker_data_.
     void
     populate_unmerged_shard_interval_results();
+
+    // Populates the whole_trace_interval_snapshots_ field based on the interval snapshots
+    // stored in the only entry of worker_data_.
+    void
+    populate_serial_interval_results();
 
     // Combines all interval snapshots in the given vector to create the interval
     // snapshot for the whole-trace interval ending at interval_end_timestamp and
@@ -341,6 +346,13 @@ protected:
     uint64_t
     get_current_microseconds();
 
+    void
+    drain_interval_snapshot_queue_to_vector(
+        std::queue<typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>
+            &que,
+        std::vector<
+            typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *> &vec);
+
     bool success_;
     scheduler_tmpl_t<RecordType, ReaderType> scheduler_;
     std::string error_string_;
@@ -352,13 +364,13 @@ protected:
     // Stores the interval state snapshots, merged across shards. These are
     // produced when timestamp intervals are enabled using interval_microseconds_.
     //
-    // merged_interval_snapshots_[tool_idx] is a vector of the interval snapshots
+    // whole_trace_interval_snapshots_[tool_idx] is a vector of the interval snapshots
     // (in order of the intervals) for that tool. For the parallel mode, these
     // interval state snapshots are produced after merging corresponding shard
     // interval snapshots using merge_shard_interval_results.
     std::vector<std::vector<
         typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>>
-        merged_interval_snapshots_;
+        whole_trace_interval_snapshots_;
 
     // Key that combines tool and shard idx for use with an std::unordered_map.
     struct key_tool_shard_t {
@@ -381,7 +393,7 @@ protected:
     // Stores the interval state snapshots, unmerged across shards. These are
     // produced when instr count intervals are enabled using interval_instr_count_.
     //
-    // unmerged_interval_snapshots_[(tool_idx, shard_idx)] is a vector
+    // per_shard_interval_snapshots_[(tool_idx, shard_idx)] is a vector
     // of the interval snapshots for that tool and shard. Note that the snapshots for
     // each shard are separate; they are not merged across shards.
     //
@@ -398,7 +410,7 @@ protected:
                        std::vector<typename analysis_tool_tmpl_t<
                            RecordType>::interval_state_snapshot_t *>,
                        key_tool_shard_hash_t>
-        unmerged_interval_snapshots_;
+        per_shard_interval_snapshots_;
 
     bool parallel_;
     int worker_count_;
