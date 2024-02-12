@@ -142,6 +142,11 @@ changes:
    refers to timestamps and direct switches, which is what most users should want.
  - Rename the macro INSTR_CREATE_mul_sve to INSTR_CREATE_mul_sve_imm to
    differentiate it from the other SVE MUL instructions.
+ - Added a new drmemtrace analyzer option \p -interval_instr_count that enables trace
+   analyzer interval results for every given count of instrs in each shard. This mode
+   does not support merging the shard interval snapshots to output the whole-trace
+   interval snapshots. Instead, the print_interval_results() API is called separately
+   for each shard with the interval state snapshots of that shard.
 
 Further non-compatibility-affecting changes include:
  - Added DWARF-5 support to the drsyms library by linking in 4 static libraries
