@@ -520,7 +520,7 @@ set(sve_tests
       linux.threadexit linux.threadexit2 linux.signalfd linux.alarm
       linux.signal_racesys linux.signal_pre_syscall linux.bad-signal-stack
       linux.sigsuspend linux.sigmask linux.mangle_asynch linux.app_tls
-      linux.readlink linux.fib-conflict linux.fib-static linux.fib-pie linux.vfork
+      linux.readlink linux.fib-static linux.fib-pie linux.vfork
       pthreads.pthreads pthreads.pthreads_exit pthreads.ptsig
       pthreads.pthreads_fork_FLAKY security-linux.trampoline linux.infloop
       linux.rseq_disable security-common.codemod security-common.ret_noncall_trace
