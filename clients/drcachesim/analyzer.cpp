@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,13 +31,6 @@
  */
 
 #include "analyzer.h"
-
-#ifdef WINDOWS
-#    define WIN32_LEAN_AND_MEAN
-#    include <windows.h>
-#else
-#    include <sys/time.h>
-#endif
 
 #include <stddef.h>
 #include <stdint.h>
@@ -257,8 +250,9 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(
         return false;
     }
     std::vector<typename sched_type_t::input_reader_t> readers;
-    // With no modifiers or only_threads the tid doesn't matter.
-    readers.emplace_back(std::move(reader), std::move(reader_end), /*tid=*/1);
+    // Use a sentinel for the tid so the scheduler will use the memref record tid.
+    readers.emplace_back(std::move(reader), std::move(reader_end),
+                         /*tid=*/INVALID_THREAD_ID);
     std::vector<typename sched_type_t::range_t> regions;
     if (skip_instrs_ > 0)
         regions.emplace_back(skip_instrs_ + 1, 0);
@@ -386,20 +380,7 @@ template <typename RecordType, typename ReaderType>
 uint64_t
 analyzer_tmpl_t<RecordType, ReaderType>::get_current_microseconds()
 {
-#ifdef UNIX
-    struct timeval time;
-    if (gettimeofday(&time, nullptr) != 0)
-        return 0;
-    return time.tv_sec * 1000000 + time.tv_usec;
-#else
-    SYSTEMTIME sys_time;
-    GetSystemTime(&sys_time);
-    FILETIME file_time;
-    if (!SystemTimeToFileTime(&sys_time, &file_time))
-        return 0;
-    return file_time.dwLowDateTime +
-        (static_cast<uint64_t>(file_time.dwHighDateTime) << 32);
-#endif
+    return get_microsecond_timestamp();
 }
 
 template <typename RecordType, typename ReaderType>

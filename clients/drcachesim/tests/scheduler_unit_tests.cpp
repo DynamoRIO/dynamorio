@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -252,6 +252,9 @@ test_parallel()
                 stream->get_instruction_ordinal() ==
                 scheduler.get_input_stream_interface(stream->get_input_stream_ordinal())
                     ->get_instruction_ordinal());
+            // Test other queries in parallel mode.
+            assert(stream->get_tid() == memref.instr.tid);
+            assert(stream->get_shard_index() == stream->get_input_stream_ordinal());
         }
     }
     // We expect just 2 records (instr and exit) for each.
@@ -779,6 +782,8 @@ test_real_file_queries_and_filters(const char *testdir)
         assert(stream->get_input_id() == stream->get_input_stream_ordinal());
         assert(stream->get_input_interface() ==
                scheduler.get_input_stream_interface(stream->get_input_stream_ordinal()));
+        assert(stream->get_tid() == memref.instr.tid);
+        assert(stream->get_shard_index() == stream->get_input_stream_ordinal());
     }
     // Ensure 2 input workloads with 3 streams with proper names.
     assert(max_workload_index == 1);
@@ -865,6 +870,8 @@ run_lockstep_simulation(scheduler_t &scheduler, int num_outputs, memref_tid_t ti
                 // fillers to line everything up in time.
                 sched_as_string[i] += NON_INSTR_SYMBOL;
             }
+            assert(outputs[i]->get_shard_index() ==
+                   outputs[i]->get_output_stream_ordinal());
         }
     }
     // Ensure we never see the same output on multiple cores in the same timestep.
@@ -3107,6 +3114,7 @@ test_replay_as_traced()
             assert(cpu == CPU0);
         else
             assert(cpu == CPU1);
+        assert(scheduler.get_output_cpuid(i) == cpu);
     }
     std::vector<std::string> sched_as_string =
         run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE);
@@ -3788,6 +3796,63 @@ test_kernel_switch_sequences()
     }
 }
 
+void
+test_random_schedule()
+{
+    std::cerr << "\n----------------\nTesting random scheduling\n";
+    static constexpr int NUM_INPUTS = 7;
+    static constexpr int NUM_OUTPUTS = 2;
+    static constexpr int NUM_INSTRS = 9;
+    static constexpr int QUANTUM_DURATION = 3;
+    static constexpr int ITERS = 9;
+    static constexpr memref_tid_t TID_BASE = 100;
+    std::vector<trace_entry_t> inputs[NUM_INPUTS];
+    for (int i = 0; i < NUM_INPUTS; i++) {
+        memref_tid_t tid = TID_BASE + i;
+        inputs[i].push_back(make_thread(tid));
+        inputs[i].push_back(make_pid(1));
+        inputs[i].push_back(make_version(TRACE_ENTRY_VERSION));
+        inputs[i].push_back(make_timestamp(10)); // All the same time priority.
+        for (int j = 0; j < NUM_INSTRS; j++) {
+            inputs[i].push_back(make_instr(42 + j * 4));
+        }
+        inputs[i].push_back(make_exit(tid));
+    }
+    std::vector<std::set<std::string>> scheds_by_cpu(NUM_OUTPUTS);
+    for (int iter = 0; iter < ITERS; ++iter) {
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        for (int i = 0; i < NUM_INPUTS; i++) {
+            std::vector<scheduler_t::input_reader_t> readers;
+            readers.emplace_back(
+                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
+                std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_BASE + i);
+            sched_inputs.emplace_back(std::move(readers));
+        }
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_IGNORE,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/3);
+        sched_ops.randomize_next_input = true;
+        sched_ops.quantum_duration = QUANTUM_DURATION;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<std::string> sched_as_string =
+            run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE);
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+            scheds_by_cpu[i].insert(sched_as_string[i]);
+        }
+    }
+    // With non-determinism it's hard to have a precise test.
+    // We assume most runs should be different: at least half of them (probably
+    // more but let's not make this into a flaky test).
+    for (int i = 0; i < NUM_OUTPUTS; i++) {
+        assert(scheds_by_cpu[i].size() >= ITERS / 2);
+    }
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -3823,6 +3888,7 @@ test_main(int argc, const char *argv[])
     test_inactive();
     test_direct_switch();
     test_kernel_switch_sequences();
+    test_random_schedule();
 
     dr_standalone_exit();
     return 0;

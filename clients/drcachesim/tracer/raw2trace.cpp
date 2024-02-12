@@ -841,6 +841,8 @@ raw2trace_t::process_marker_additionally(raw2trace_thread_data_t *tdata,
         log(4, "Rseq abort %d\n", tdata->rseq_past_end_);
         if (!adjust_and_emit_rseq_buffer(tdata, marker_val, marker_val))
             return false;
+        if (!append_delayed_branch(tdata, reinterpret_cast<app_pc>(marker_val)))
+            return false;
     } else if (marker_type == TRACE_MARKER_TYPE_RSEQ_ENTRY) {
         if (tdata->rseq_want_rollback_) {
             if (tdata->rseq_buffering_enabled_) {
@@ -881,6 +883,23 @@ raw2trace_t::process_marker_additionally(raw2trace_thread_data_t *tdata,
         log(2, "Maybe-blocking syscall %zu\n", marker_val);
         buf += trace_metadata_writer_t::write_marker(
             buf, TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0);
+    } else if (marker_type == TRACE_MARKER_TYPE_VECTOR_LENGTH) {
+#ifdef AARCH64
+        log(4,
+            "Setting SVE vector length for thread " INT64_FORMAT_STRING " to %zu bytes\n",
+            tdata->tid, marker_val);
+
+        const int new_vl_bits = marker_val * 8;
+        if (dr_get_sve_vector_length() != new_vl_bits) {
+            dr_set_sve_vector_length(new_vl_bits);
+            // Some SVE load/store instructions have an offset which is scaled by a value
+            // that depends on the vector length. These instructions will need to be
+            // re-decoded after the vector length changes.
+            *flush_decode_cache = true;
+        }
+#else
+        log(2, "Ignoring unexpected dynamic vector length marker\n");
+#endif
     }
     return true;
 }
@@ -930,6 +949,7 @@ raw2trace_t::read_header(raw2trace_thread_data_t *tdata,
         header->cache_line_size = proc_get_cache_line_size();
         unread_last_entry(tdata);
     }
+
     return true;
 }
 
@@ -1956,6 +1976,11 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             if (tdata->rseq_past_end_) {
                 if (!adjust_and_emit_rseq_buffer(tdata, instr_pc))
                     return false;
+                if (!instr->is_cti()) {
+                    // Write out delayed branches now that we have a target.
+                    if (!append_delayed_branch(tdata, orig_pc))
+                        return false;
+                }
             } else if (instr_pc < tdata->rseq_start_pc_ ||
                        instr_pc >= tdata->rseq_end_pc_) {
                 log(4, "Hit exit to 0x%zx during instrumented rseq run\n", orig_pc);
@@ -2209,6 +2234,9 @@ raw2trace_t::handle_kernel_interrupt_and_markers(raw2trace_thread_data_t *tdata,
                         : 0;
                     if (!adjust_and_emit_rseq_buffer(tdata, static_cast<addr_t>(cur_pc),
                                                      rseq_abort_pc))
+                        return false;
+                    if (!append_delayed_branch(tdata,
+                                               reinterpret_cast<app_pc>(marker_val)))
                         return false;
                 }
                 append = true;
@@ -2573,6 +2601,34 @@ raw2trace_t::rollback_rseq_buffer(raw2trace_thread_data_t *tdata,
         if (type_is_instr(static_cast<trace_type_t>(tdata->rseq_buffer_[i].type)))
             ++decode_end;
     }
+    // If the last instruction after the rollback is a branch, delay the branch.
+    if (remove_start > 0 &&
+        type_is_instr_branch(
+            static_cast<trace_type_t>(tdata->rseq_buffer_[remove_start - 1].type))) {
+        const int last_buffer_idx = remove_start - 1;
+        // Walk backwards to find all the related encodings.
+        int first_encoding_idx;
+        for (first_encoding_idx = last_buffer_idx - 1; first_encoding_idx >= 0;
+             --first_encoding_idx) {
+            if (tdata->rseq_buffer_[first_encoding_idx].type != TRACE_TYPE_ENCODING)
+                break;
+        }
+        const app_pc instr_addr =
+            reinterpret_cast<app_pc>(tdata->rseq_buffer_[last_buffer_idx].addr);
+        app_pc target_pc = 0;
+        for (const auto &branch : tdata->rseq_branch_targets_) {
+            if (branch.pc == instr_addr) {
+                target_pc = branch.target_pc;
+                break;
+            }
+        }
+        if (!write_delayed_branches(tdata, &tdata->rseq_buffer_[first_encoding_idx + 1],
+                                    &tdata->rseq_buffer_[last_buffer_idx] + 1,
+                                    tdata->rseq_decode_pcs_[decode_start - 1], target_pc))
+            return false;
+        remove_start -= last_buffer_idx - first_encoding_idx;
+        decode_start--;
+    }
     log(4, "Rolling back %d entries for rseq: %d-%d\n", remove_end - remove_start,
         remove_start, remove_end);
     tdata->rseq_buffer_.erase(tdata->rseq_buffer_.begin() + remove_start,
@@ -2731,11 +2787,18 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
                 // encoding out so it will change back if we see this PC again.
                 rollback_last_encoding(tdata);
             }
-            for (trace_entry_t *e = toadd; e < buf; e++)
-                tdata->rseq_buffer_.push_back(*e);
-            tdata->rseq_buffer_.push_back(jump);
-            tdata->rseq_decode_pcs_.push_back(encoding);
-            log(4, "Appended synthetic jump 0x%zx -> 0x%zx\n", jump.addr, next_pc);
+            if (delayed_branches_exist(tdata)) {
+                write_delayed_branches(tdata, toadd, buf, nullptr, nullptr);
+                write_delayed_branches(tdata, &jump, &jump + 1, encoding,
+                                       reinterpret_cast<app_pc>(next_pc));
+                log(4, "Delayed synthetic jump 0x%zx -> 0x%zx\n", jump.addr, next_pc);
+            } else {
+                for (trace_entry_t *e = toadd; e < buf; e++)
+                    tdata->rseq_buffer_.push_back(*e);
+                tdata->rseq_buffer_.push_back(jump);
+                tdata->rseq_decode_pcs_.push_back(encoding);
+                log(4, "Appended synthetic jump 0x%zx -> 0x%zx\n", jump.addr, next_pc);
+            }
         }
     }
 

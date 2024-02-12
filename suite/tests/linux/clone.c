@@ -47,7 +47,8 @@
 #include <string.h>
 #include <errno.h>
 
-#include "tools.h" /* for nolibc_* wrappers. */
+#include "tools.h"                          /* for nolibc_* wrappers. */
+#include "../../core/unix/include/clone3.h" /* for clone3_syscall_args_t */
 
 #ifdef ANDROID
 typedef unsigned long ulong;
@@ -56,17 +57,13 @@ typedef unsigned long ulong;
 /* The first published clone_args had all fields till 'tls'. A clone3
  * syscall made by the user must have a struct of at least this size.
  */
-#define CLONE_ARGS_SIZE_MIN_POSSIBLE 64
+#define CLONE_ARGS_SIZE_MIN_POSSIBLE CLONE_ARGS_SIZE_VER0
 
 /* We define this constant so that we can try to make the clone3
  * syscall on systems where it is not available, to verify that it
  * returns an expected response.
  */
 #define CLONE3_SYSCALL_NUM 435
-
-/* i#762: Hard to get clone() from sched.h, so copy prototype. */
-extern int
-clone(int (*fn)(void *arg), void *child_stack, int flags, void *arg, ...);
 
 #define THREAD_STACK_SIZE (32 * 1024)
 
@@ -78,14 +75,18 @@ clone(int (*fn)(void *arg), void *child_stack, int flags, void *arg, ...);
 
 /* forward declarations */
 static int
+make_clone_syscall(uint flags, byte *newsp, void *ptid, void *tls, void *ctid,
+                   void (*fcn)(void));
+static int
 make_clone3_syscall(void *clone_args, ulong clone_args_size, void (*fcn)(void));
 static pid_t
-create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand,
-              bool clone_vm);
-#ifdef SYS_clone3
+create_thread(void (*fcn)(void), void **stack, bool share_sighand, bool clone_vm);
+
 static pid_t
 create_thread_clone3(void (*fcn)(void), void **stack, bool share_sighand, bool clone_vm);
-#endif
+
+static bool clone3_available = false;
+
 static void
 delete_thread(pid_t pid, void *stack);
 int
@@ -106,24 +107,70 @@ test_thread(bool share_sighand, bool clone_vm, bool use_clone3)
 {
     print("%s(share_sighand %d, clone_vm %d, use_clone3 %d)\n", __FUNCTION__,
           share_sighand, clone_vm, use_clone3);
-    if (use_clone3) {
-#ifdef SYS_clone3
-        child = create_thread_clone3(run_with_exit, &stack, share_sighand, clone_vm);
-#else
-        /* If SYS_clone3 is not defined, we simply use SYS_clone instead, so that
-         * the expected output is the same in both cases.
-         */
-        child = create_thread(run, NULL, &stack, share_sighand, clone_vm);
-#endif
-    } else
-        child = create_thread(run, NULL, &stack, share_sighand, clone_vm);
+
+    /* Use create_thread when clone3 is asked for but not available so that
+     * the output is the same.
+     */
+    pid_t (*create_thread_func)(void (*fcn)(void), void **stack, bool share_sighand,
+                                bool clone_vm) =
+        (use_clone3 && clone3_available) ? create_thread_clone3 : create_thread;
+
+    child = create_thread_func(run_with_exit, &stack, share_sighand, clone_vm);
+
     assert(child > -1);
     delete_thread(child, stack);
 }
 
+#ifdef X86 /* i#6514: dynamorio_clone needs to be updated for other arches. */
+
+/* i#6514: Test passing NULL for the stack pointer to the syscall. */
+void
+test_with_null_stack_pointer(bool clone_vm, bool use_clone3)
+{
+    print("%s(clone_vm %d, use_clone3 %d)\n", __FUNCTION__, clone_vm, use_clone3);
+    int flags = clone_vm ? (CLONE_VFORK | CLONE_VM) : 0;
+    int ret;
+    /* If we don't have clone3, keep expected output the same and just use clone. */
+    if (use_clone3 && clone3_available) {
+        clone3_syscall_args_t cl_args = { 0 };
+        cl_args.flags = flags;
+        cl_args.exit_signal = SIGCHLD;
+        ret = make_clone3_syscall(&cl_args, sizeof(cl_args), run_with_exit);
+    } else {
+        flags = flags | SIGCHLD;
+        ret = make_clone_syscall(flags, /*stack=*/NULL, /*parent_tid=*/NULL,
+                                 /*tls=*/NULL, /*child_tid=*/NULL, run_with_exit);
+    }
+    if (ret == -1) {
+        perror("Error calling clone");
+        return;
+    }
+    delete_thread(ret, NULL);
+}
+
+#endif
+
 int
 main()
 {
+    /* Try using clone3 when it is possibly not defined. This is done for two
+     * reasons: test whether the kernel supports it, and our handling of clone3
+     * when it doesn't.
+     */
+    int ret_failure_clone3 = make_clone3_syscall(NULL, 0, NULL);
+    assert(ret_failure_clone3 == -1);
+
+    /* In some environments, we see that the kernel supports clone3 even though
+     * SYS_clone3 is not defined by glibc. So we don't predicate our efforts on
+     * whether SYS_clone3 is defined. Plus in some scenarios SYS_clone3 is
+     * defined but clone3 returns ENOSYS.
+     * E.g., when running in a container under Ubuntu 22.04 i#6596
+     * see https://github.com/moby/moby/pull/42681
+     */
+    assert(errno == ENOSYS || errno == EINVAL);
+    if (errno != ENOSYS)
+        clone3_available = true;
+
     /* First test a thread that does not share signal handlers
      * (xref i#2089).
      */
@@ -140,19 +187,12 @@ main()
     test_thread(true /*share_sighand*/, true /*clone_vm*/, false /*use_clone3*/);
     test_thread(true /*share_sighand*/, true /*clone_vm*/, true /*use_clone3*/);
 
-    /* Try using clone3 when it is possibly not defined. */
-    int ret_failure_clone3 = make_clone3_syscall(NULL, 0, NULL);
-    assert(ret_failure_clone3 == -1);
-#ifdef SYS_clone3
-    /* Though there's no guarantee, we assume that the kernel supports clone3 if
-     * SYS_clone3 is defined.
-     */
-    assert(errno == EINVAL);
-#else
-    /* On some environments, we see that the kernel supports clone3 even though
-     * SYS_clone3 is not defined by glibc.
-     */
-    assert(errno == ENOSYS || errno == EINVAL);
+#if defined(X86)
+    /* Test passing NULL for the stack pointer (xref i#6514). */
+    test_with_null_stack_pointer(/*clone_vm=*/false, /*use_clone3=*/false);
+    test_with_null_stack_pointer(/*clone_vm=*/false, /*use_clone3=*/true);
+    test_with_null_stack_pointer(/*clone_vm=*/true, /*use_clone3=*/false);
+    test_with_null_stack_pointer(/*clone_vm=*/true, /*use_clone3=*/true);
 #endif
 }
 
@@ -185,6 +225,19 @@ run_with_exit(void)
     exit(run(NULL));
 }
 
+/* A wrapper on dynamorio_clone to set errno. */
+static int
+make_clone_syscall(uint flags, byte *newsp, void *ptid, void *tls, void *ctid,
+                   void (*fcn)(void))
+{
+    int ret = dynamorio_clone(flags, newsp, ptid, tls, ctid, fcn);
+    if (ret < 0) {
+        errno = -ret;
+        return -1;
+    }
+    return ret;
+}
+
 void *p_tid, *c_tid;
 
 /* Create a new thread. It should be passed "fcn", a function which
@@ -192,14 +245,14 @@ void *p_tid, *c_tid;
  * first argument is passed in "arg". Returns the PID of the new
  * thread */
 static pid_t
-create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand,
-              bool clone_vm)
+create_thread(void (*fcn)(void), void **stack, bool share_sighand, bool clone_vm)
 {
     /* !clone_vm && share_sighand is not supported. */
     assert(clone_vm || !share_sighand);
     pid_t newpid;
     int flags;
     void *my_stack;
+    void *stack_ptr;
 
     my_stack = stack_alloc(THREAD_STACK_SIZE);
 
@@ -211,10 +264,10 @@ create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand,
     flags = (SIGCHLD | CLONE_FS | CLONE_FILES | (share_sighand ? CLONE_SIGHAND : 0) |
              (clone_vm ? CLONE_VM : 0));
     /* The stack arg should point to the stack's highest address (non-inclusive). */
-    newpid = clone(fcn, (void *)((size_t)my_stack + THREAD_STACK_SIZE), flags, arg,
-                   &p_tid, NULL, &c_tid);
+    stack_ptr = (void *)((size_t)my_stack + THREAD_STACK_SIZE);
+    newpid = make_clone_syscall(flags, stack_ptr, &p_tid, NULL, &c_tid, fcn);
 
-    if (newpid == -1) {
+    if (newpid < 0) {
         perror("Error calling clone\n");
         stack_free(my_stack, THREAD_STACK_SIZE);
         return -1;
@@ -224,7 +277,7 @@ create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand,
     return newpid;
 }
 
-/* glibc does not provide a wrapper for clone3 yet. This makes it difficult
+/* glibc,drlibc do not provide a wrapper for clone3 yet. This makes it difficult
  * to create new threads in C code using syscall(), as we have to deal with
  * complexities associated with the child thread having a fresh stack
  * without any return addresses or space for local variables. So, we
@@ -247,13 +300,13 @@ make_clone3_syscall(void *clone_args, ulong clone_args_size, void (*fcn)(void))
                  "mov %[fcn], %%rdx\n\t"
                  "syscall\n\t"
                  "test %%rax, %%rax\n\t"
-                 "jnz parent\n\t"
+                 "jnz 1f\n\t"
                  "call *%%rdx\n\t"
-                 "parent:\n\t"
+                 "1:\n\t"
                  "mov %%rax, %[result]\n\t"
-                 : [ result ] "=m"(result)
-                 : [ sys_clone3 ] "i"(CLONE3_SYSCALL_NUM), [ clone_args ] "m"(clone_args),
-                   [ clone_args_size ] "m"(clone_args_size), [ fcn ] "m"(fcn)
+                 : [result] "=m"(result)
+                 : [sys_clone3] "i"(CLONE3_SYSCALL_NUM), [clone_args] "m"(clone_args),
+                   [clone_args_size] "m"(clone_args_size), [fcn] "m"(fcn)
                  /* syscall clobbers rcx and r11 */
                  : "rax", "rdi", "rsi", "rdx", "rcx", "r11", "memory");
 #    else
@@ -263,13 +316,13 @@ make_clone3_syscall(void *clone_args, ulong clone_args_size, void (*fcn)(void))
                  "mov %[fcn], %%edx\n\t"
                  "int $0x80\n\t"
                  "test %%eax, %%eax\n\t"
-                 "jnz parent\n\t"
+                 "jnz 1f\n\t"
                  "call *%%edx\n\t"
-                 "parent:\n\t"
+                 "1:\n\t"
                  "mov %%eax, %[result]\n\t"
-                 : [ result ] "=m"(result)
-                 : [ sys_clone3 ] "i"(CLONE3_SYSCALL_NUM), [ clone_args ] "m"(clone_args),
-                   [ clone_args_size ] "m"(clone_args_size), [ fcn ] "m"(fcn)
+                 : [result] "=m"(result)
+                 : [sys_clone3] "i"(CLONE3_SYSCALL_NUM), [clone_args] "m"(clone_args),
+                   [clone_args_size] "m"(clone_args_size), [fcn] "m"(fcn)
                  : "eax", "ebx", "ecx", "edx", "memory");
 #    endif
 #elif defined(AARCH64)
@@ -278,13 +331,13 @@ make_clone3_syscall(void *clone_args, ulong clone_args_size, void (*fcn)(void))
                  "ldr x1, %[clone_args_size]\n\t"
                  "ldr x2, %[fcn]\n\t"
                  "svc #0\n\t"
-                 "cbnz x0, parent\n\t"
+                 "cbnz x0, 1f\n\t"
                  "blr x2\n\t"
-                 "parent:\n\t"
+                 "1:\n\t"
                  "str x0, %[result]\n\t"
-                 : [ result ] "=m"(result)
-                 : [ sys_clone3 ] "i"(CLONE3_SYSCALL_NUM), [ clone_args ] "m"(clone_args),
-                   [ clone_args_size ] "m"(clone_args_size), [ fcn ] "m"(fcn)
+                 : [result] "=m"(result)
+                 : [sys_clone3] "i"(CLONE3_SYSCALL_NUM), [clone_args] "m"(clone_args),
+                   [clone_args_size] "m"(clone_args_size), [fcn] "m"(fcn)
                  : "x0", "x1", "x2", "x8", "memory");
 #elif defined(ARM)
     /* XXX: Add asm wrapper for ARM.
@@ -301,13 +354,12 @@ make_clone3_syscall(void *clone_args, ulong clone_args_size, void (*fcn)(void))
     return result;
 }
 
-#ifdef SYS_clone3
 static pid_t
 create_thread_clone3(void (*fcn)(void), void **stack, bool share_sighand, bool clone_vm)
 {
     /* !clone_vm && share_sighand is not supported. */
     assert(clone_vm || !share_sighand);
-    struct clone_args cl_args = { 0 };
+    clone3_syscall_args_t cl_args = { 0 };
     void *my_stack;
     my_stack = stack_alloc(THREAD_STACK_SIZE);
     /* We're not doing CLONE_THREAD => child has its own pid
@@ -320,17 +372,17 @@ create_thread_clone3(void (*fcn)(void), void **stack, bool share_sighand, bool c
     cl_args.exit_signal = SIGCHLD;
     cl_args.stack = (ptr_uint_t)my_stack;
     cl_args.stack_size = THREAD_STACK_SIZE;
-    int ret = make_clone3_syscall(NULL, sizeof(struct clone_args), fcn);
+    int ret = make_clone3_syscall(NULL, sizeof(clone3_syscall_args_t), fcn);
     assert(errno == EFAULT);
 
     ret = make_clone3_syscall((void *)0x123 /* bogus address */,
-                              sizeof(struct clone_args), fcn);
+                              sizeof(clone3_syscall_args_t), fcn);
     assert(errno == EFAULT);
 
     ret = make_clone3_syscall(&cl_args, CLONE_ARGS_SIZE_MIN_POSSIBLE - 1, fcn);
     assert(errno == EINVAL);
 
-    ret = make_clone3_syscall(&cl_args, sizeof(struct clone_args), fcn);
+    ret = make_clone3_syscall(&cl_args, sizeof(clone3_syscall_args_t), fcn);
     /* Child threads should already have been directed to fcn. */
     assert(ret != 0);
     if (ret == -1) {
@@ -339,14 +391,13 @@ create_thread_clone3(void (*fcn)(void), void **stack, bool share_sighand, bool c
         return -1;
     } else {
         assert(ret > 0);
-        /* Ensure that DR restores fields in clone_args after the syscall. */
+        /* Ensure that DR restores fields in cl_args after the syscall. */
         assert(cl_args.stack == (ptr_uint_t)my_stack &&
                cl_args.stack_size == THREAD_STACK_SIZE);
     }
     *stack = my_stack;
     return (pid_t)ret;
 }
-#endif
 
 static void
 delete_thread(pid_t pid, void *stack)
@@ -360,7 +411,8 @@ delete_thread(pid_t pid, void *stack)
         perror("delete_thread waitpid");
     else if (!WIFEXITED(wait_status) || WEXITSTATUS(wait_status) != 0)
         print("delete_thread bad wait_status: 0x%x\n", wait_status);
-    stack_free(stack, THREAD_STACK_SIZE);
+    if (stack != NULL)
+        stack_free(stack, THREAD_STACK_SIZE);
 }
 
 /* Allocate stack storage on the app's heap. Returns the lowest address of the

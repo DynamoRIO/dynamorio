@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021-2023 Google, LLC  All rights reserved.
+ * Copyright (c) 2021-2024 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -122,7 +122,12 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
     {
         checker_no_abort_t checker(/*offline=*/true, /*serial=*/true,
                                    serial_schedule_file);
+        default_memtrace_stream_t stream;
+        checker.initialize_stream(&stream);
         for (const auto &memref : memrefs) {
+            int shard_index = static_cast<int>(memref.instr.tid - TID_BASE);
+            stream.set_tid(memref.instr.tid);
+            stream.set_shard_index(shard_index);
             checker.process_memref(memref);
         }
         checker.print_results();
@@ -149,22 +154,33 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
         }
         checker_no_abort_t checker(/*offline=*/true, /*serial=*/false,
                                    serial_schedule_file);
+        default_memtrace_stream_t stream;
+        checker.initialize_stream(&stream);
         void *shardA = nullptr, *shardB = nullptr, *shardC = nullptr;
         for (const auto &memref : memrefs) {
+            int shard_index = static_cast<int>(memref.instr.tid - TID_BASE);
+            stream.set_tid(memref.instr.tid);
+            stream.set_shard_index(shard_index);
             switch (memref.instr.tid) {
             case TID_A:
-                if (shardA == nullptr)
-                    shardA = checker.parallel_shard_init(TID_A, NULL);
+                if (shardA == nullptr) {
+                    shardA =
+                        checker.parallel_shard_init_stream(shard_index, nullptr, &stream);
+                }
                 checker.parallel_shard_memref(shardA, memref);
                 break;
             case TID_B:
-                if (shardB == nullptr)
-                    shardB = checker.parallel_shard_init(TID_B, NULL);
+                if (shardB == nullptr) {
+                    shardB =
+                        checker.parallel_shard_init_stream(shard_index, nullptr, &stream);
+                }
                 checker.parallel_shard_memref(shardB, memref);
                 break;
             case TID_C:
-                if (shardC == nullptr)
-                    shardC = checker.parallel_shard_init(TID_C, NULL);
+                if (shardC == nullptr) {
+                    shardC =
+                        checker.parallel_shard_init_stream(shard_index, nullptr, &stream);
+                }
                 checker.parallel_shard_memref(shardC, memref);
                 break;
             default: std::cerr << "Internal test error: unknown tid\n"; return false;
@@ -3153,6 +3169,50 @@ check_kernel_syscall_trace(void)
 #endif
 }
 
+bool
+check_has_instructions(void)
+{
+    std::cerr << "Testing at-least-1-instruction\n";
+    // Correct: 1 regular instruction.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Correct: 1 unfetched instruction.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr_type(TRACE_TYPE_INSTR_NO_FETCH, TID_A, 1),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Incorrect: no instructions.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, true,
+                         { "An unfiltered thread should have at least 1 instruction",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/3, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/0 },
+                         "Failed to catch missing instructions"))
+            return false;
+    }
+    return true;
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -3163,7 +3223,7 @@ test_main(int argc, const char *argv[])
         check_branch_decoration() && check_filter_endpoint() &&
         check_timestamps_increase_monotonically() &&
         check_read_write_records_match_operands() && check_exit_found() &&
-        check_kernel_syscall_trace()) {
+        check_kernel_syscall_trace() && check_has_instructions()) {
         std::cerr << "invariant_checker_test passed\n";
         return 0;
     }

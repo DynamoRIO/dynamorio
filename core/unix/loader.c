@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -157,7 +157,7 @@ static privmod_t *
 privload_locate_and_load(const char *impname, privmod_t *dependent, bool reachable);
 
 static void
-privload_call_lib_func(fp_t func);
+privload_call_lib_func(dcontext_t *dcontext, privmod_t *privmod, fp_t func);
 
 static void
 privload_relocate_mod(privmod_t *mod);
@@ -618,7 +618,7 @@ privload_call_entry(dcontext_t *dcontext, privmod_t *privmod, uint reason)
         if (opd->init != NULL) {
             LOG(GLOBAL, LOG_LOADER, 4, "%s: calling %s init func " PFX "\n", __FUNCTION__,
                 privmod->name, opd->init);
-            privload_call_lib_func(opd->init);
+            privload_call_lib_func(dcontext, privmod, opd->init);
         }
         if (opd->init_array != NULL) {
             uint i;
@@ -626,7 +626,7 @@ privload_call_entry(dcontext_t *dcontext, privmod_t *privmod, uint reason)
                 if (opd->init_array[i] != NULL) { /* be paranoid */
                     LOG(GLOBAL, LOG_LOADER, 4, "%s: calling %s init array func " PFX "\n",
                         __FUNCTION__, privmod->name, opd->init_array[i]);
-                    privload_call_lib_func(opd->init_array[i]);
+                    privload_call_lib_func(dcontext, privmod, opd->init_array[i]);
                 }
             }
         }
@@ -648,7 +648,7 @@ privload_call_entry(dcontext_t *dcontext, privmod_t *privmod, uint reason)
         if (opd->fini != NULL) {
             LOG(GLOBAL, LOG_LOADER, 4, "%s: calling %s fini func " PFX "\n", __FUNCTION__,
                 privmod->name, opd->fini);
-            privload_call_lib_func(opd->fini);
+            privload_call_lib_func(dcontext, privmod, opd->fini);
         }
         if (opd->fini_array != NULL) {
             uint i;
@@ -656,7 +656,7 @@ privload_call_entry(dcontext_t *dcontext, privmod_t *privmod, uint reason)
                 if (opd->fini_array[i] != NULL) { /* be paranoid */
                     LOG(GLOBAL, LOG_LOADER, 4, "%s: calling %s fini array func " PFX "\n",
                         __FUNCTION__, privmod->name, opd->fini_array[i]);
-                    privload_call_lib_func(opd->fini_array[i]);
+                    privload_call_lib_func(dcontext, privmod, opd->fini_array[i]);
                 }
             }
         }
@@ -723,6 +723,15 @@ privload_os_finalize(privmod_t *privmod)
     if ((ver[0] == '\0' || ver[0] < '2') || ver[1] != '.' || ver[2] < '3' ||
         (ver[2] == '3' && ver[3] < '4'))
         return;
+#    ifndef X86
+    /* XXX i#6611: We have privload_set_pthread_tls_fields() setting the pthread tid
+     * field on x86, but not other arches.  Since we have the glibc version here and
+     * believe this to be limited to 2.37 we warn about it here.
+     */
+    if (ver[2] == '3' && ver[3] >= '7') {
+        SYSLOG_INTERNAL_WARNING("glibc 2.37+ i#6611 pthread tid fix NYI for non-x86");
+    }
+#    endif
     if (privmod_ld_linux == NULL) {
         SYSLOG_INTERNAL_WARNING("glibc 2.34+ i#5437 workaround failed: missed ld");
         return;
@@ -1064,7 +1073,7 @@ get_private_library_address(app_pc modbase, const char *name)
 }
 
 static void
-privload_call_lib_func(fp_t func)
+privload_call_lib_func(dcontext_t *dcontext, privmod_t *privmod, fp_t func)
 {
     char dummy_str[] = "dummy";
     char *dummy_argv[2];
@@ -1076,7 +1085,12 @@ privload_call_lib_func(fp_t func)
      */
     dummy_argv[0] = dummy_str;
     dummy_argv[1] = NULL;
-    func(1, dummy_argv, our_environ);
+    TRY_EXCEPT_ALLOW_NO_DCONTEXT(
+        dcontext, { func(1, dummy_argv, our_environ); },
+        { /* EXCEPT */
+          SYSLOG_INTERNAL_ERROR("Private library %s init/fini func " PFX " crashed",
+                                privmod->name, func);
+        });
 }
 
 bool

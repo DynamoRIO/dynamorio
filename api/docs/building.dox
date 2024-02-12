@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -47,7 +47,7 @@ To build DynamoRIO on Linux, use the following commands as a guide.  This builds
   # other distributions (in particular, use "cmake3" for Ubuntu Trusty).
   $ sudo apt-get install cmake g++ g++-multilib doxygen git zlib1g-dev libunwind-dev libsnappy-dev liblz4-dev
   # Get sources and initialize the submodules.
-  $ git clone --recursive https://github.com/DynamoRIO/dynamorio.git
+  $ git clone --recurse-submodules -j4 https://github.com/DynamoRIO/dynamorio.git
   # Make a separate build directory.  Building in the source directory is not
   # supported.
   $ cd dynamorio && mkdir build && cd build
@@ -78,7 +78,7 @@ To build 64-bit DynamoRIO in release mode, launch the `Visual Studio 2019 > x64 
 
   ```
   # Get sources.
-  $ git clone https://github.com/DynamoRIO/dynamorio.git
+  $ git clone --recurse-submodules -j4 https://github.com/DynamoRIO/dynamorio.git
   # Make a separate build directory.  Building in the source directory is not
   # supported.
   $ cd dynamorio && mkdir build && cd build
@@ -198,7 +198,29 @@ If you wish to run the test suite, you should enable BUILD_TESTS.
 
 ----------------
 
-## Cross-Compiling for ARM on Linux
+## Cross-Compiling for 64-bit ARM (AArch64) on Linux
+
+Install the cross compiler for the `gnueabihf` target:
+
+```
+$ sudo apt-get install g++-aarch64-linux-gnu
+```
+
+Check out the sources as normal, and point at our toolchain CMake file:
+
+```
+$ git clone --recurse-submodules -j4 https://github.com/DynamoRIO/dynamorio.git
+$ mkdir build_aarch64
+$ cd build_aarch64
+$ cmake -DCMAKE_TOOLCHAIN_FILE=../dynamorio/make/toolchain-arm64.cmake ../dynamorio
+$ make -j
+```
+
+To build a client, again use the toolchain file, as well as pointing at a DynamoRIO installation using `-DDynamoRIO_DIR=<path>` as described in the package documentation.
+
+----------------
+
+## Cross-Compiling for 32-bit ARM (AArch32) on Linux
 
 Install the cross compiler for the `gnueabihf` target:
 
@@ -209,7 +231,7 @@ $ sudo apt-get install gcc-arm-linux-gnueabihf binutils-arm-linux-gnueabihf g++-
 Check out the sources as normal, and point at our toolchain CMake file:
 
 ```
-$ git clone https://github.com/DynamoRIO/dynamorio.git
+$ git clone --recurse-submodules -j4 https://github.com/DynamoRIO/dynamorio.git
 $ mkdir build_arm
 $ cd build_arm
 $ cmake -DCMAKE_TOOLCHAIN_FILE=../dynamorio/make/toolchain-arm32.cmake ../dynamorio
@@ -241,7 +263,7 @@ Now check out the sources as normal, and point at our toolchain CMake file.  If 
 
 
 ```
-$ git clone https://github.com/DynamoRIO/dynamorio.git
+$ git clone --recurse-submodules -j4 https://github.com/DynamoRIO/dynamorio.git
 $ mkdir build_android
 $ cd build_android
 $ cmake -DCMAKE_TOOLCHAIN_FILE=../dynamorio/make/toolchain-android.cmake -DANDROID_TOOLCHAIN=/mytooldir/android-ndk-21 -DDR_COPY_TO_DEVICE=ON ../dynamorio

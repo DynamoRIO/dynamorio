@@ -277,8 +277,27 @@ st4d scalar\+immediate: PASS
 st4d scalar\+immediate \(min index\): PASS
 st4d scalar\+immediate \(max index\): PASS
 #endif /* __ARM_FEATURE_SVE */
+#ifdef __ARM_FEATURE_SVE2
+ldnt1b vector\+scalar 64bit unscaled offset: PASS
+ldnt1sb vector\+scalar 64bit unscaled offset: PASS
+ldnt1h vector\+scalar 64bit unscaled offset: PASS
+ldnt1sh vector\+scalar 64bit unscaled offset: PASS
+ldnt1w vector\+scalar 64bit unscaled offset: PASS
+ldnt1sw vector\+scalar 64bit unscaled offset: PASS
+ldnt1d vector\+scalar 64bit unscaled offset: PASS
+stnt1b vector\+scalar 64bit unscaled offset: PASS
+stnt1b vector\+scalar 64bit unscaled offset \(repeated base\): PASS
+stnt1h vector\+scalar 64bit unscaled offset: PASS
+stnt1h vector\+scalar 64bit unscaled offset \(repeated base\): PASS
+stnt1w vector\+scalar 64bit unscaled offset: PASS
+stnt1w vector\+scalar 64bit unscaled offset \(repeated base\): PASS
+stnt1d vector\+scalar 64bit unscaled offset: PASS
+stnt1d vector\+scalar 64bit unscaled offset \(repeated base\): PASS
+#endif /* __ARM_FEATURE_SVE2 */
 #ifndef TEST_SAMPLE_CLIENT
-#ifdef __ARM_FEATURE_SVE
+#if defined(__ARM_FEATURE_SVE2)
+event_exit, 1168 scatter/gather instructions
+#elif defined( __ARM_FEATURE_SVE)
 event_exit, 1108 scatter/gather instructions
 #else
 event_exit, 0 scatter/gather instructions

@@ -95,7 +95,9 @@ call_dispatch_alt_stack_no_free:
         jalr     ARG3
         /* Switch stack back. */
         mv       sp, s0
-        beqz     s1, GLOBAL_LABEL(unexpected_return)
+        bnez     s1, call_dispatch_alt_stack_ok_return
+        jal      GLOBAL_LABEL(unexpected_return)
+call_dispatch_alt_stack_ok_return:
         /* Restore the stack. */
         ld       s1, 0 (sp)
         ld       s0, 8 (sp)
@@ -523,25 +525,6 @@ GLOBAL_LABEL(_dynamorio_runtime_resolve:)
 #endif /* UNIX */
 
 #ifdef LINUX
-/*
- * thread_id_t dynamorio_clone(uint flags, byte *newsp, void *ptid, void *tls,
- *                             void *ctid, void (*func)(void))
- */
-        DECLARE_FUNC(dynamorio_clone)
-GLOBAL_LABEL(dynamorio_clone:)
-        addi     ARG2, ARG2, -16 /* Description: newsp = newsp - 16. */
-        sd       ARG6, 0 (ARG2) /* The func is now on TOS of newsp. */
-        li       SYSNUM_REG, SYS_clone /* All args are already in syscall registers.*/
-        ecall
-        bnez     ARG1, dynamorio_clone_parent
-        ld       ARG1, 0 (sp)
-        addi     sp, sp, 16
-        jalr     ARG1
-        jal      GLOBAL_REF(unexpected_return)
-dynamorio_clone_parent:
-        ret
-        END_FUNC(dynamorio_clone)
-
         DECLARE_FUNC(dynamorio_sigreturn)
 GLOBAL_LABEL(dynamorio_sigreturn:)
         li       SYSNUM_REG, SYS_rt_sigreturn

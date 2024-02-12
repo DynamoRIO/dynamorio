@@ -168,98 +168,115 @@ get_scatter_gather_info(instr_t *instr, DR_PARAM_OUT scatter_gather_info_t *sg_i
     sg_info->extend =
         opnd_get_index_extend(memopnd, &sg_info->scaled, &sg_info->extend_amount);
 
-    sg_info->scatter_gather_size = opnd_get_size(memopnd);
+    sg_info->scalar_value_size = opnd_get_size(memopnd);
 
     switch (instr_get_opcode(instr)) {
-#define DRX_CASE(op, _reg_count, _scalar_value_size, _is_scalar_value_signed, \
-                 _is_replicating, _faulting_behavior)                         \
-    case OP_##op:                                                             \
-        sg_info->reg_count = _reg_count;                                      \
-        sg_info->scalar_value_size = _scalar_value_size;                      \
-        sg_info->is_scalar_value_signed = _is_scalar_value_signed;            \
-        sg_info->is_replicating = _is_replicating;                            \
-        sg_info->faulting_behavior = _faulting_behavior;                      \
+#define DRX_CASE(op, _reg_count, _is_scalar_value_signed, _faulting_behavior)           \
+    case OP_##op:                                                                       \
+        sg_info->reg_count = _reg_count;                                                \
+        sg_info->is_scalar_value_signed = _is_scalar_value_signed;                      \
+        sg_info->is_replicating = false;                                                \
+        sg_info->faulting_behavior = _faulting_behavior;                                \
+        /* The size of the vector in memory is:                                         \
+         *     number_of_elements = (reg_count * vector_length) / element_size          \
+         *     size = number_of_elements * value_size                                   \
+         *          = (reg_count * vector_length / element_size) * value_size           \
+         *          = (reg_count * vector_length * value_size) / element_size           \
+         */                                                                             \
+        sg_info->scatter_gather_size =                                                  \
+            opnd_size_from_bytes((sg_info->reg_count * proc_get_vector_length_bytes() * \
+                                  opnd_size_in_bytes(sg_info->scalar_value_size)) /     \
+                                 opnd_size_in_bytes(sg_info->element_size));            \
         break
 
-        DRX_CASE(ld1b, 1, OPSZ_1, false, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld1h, 1, OPSZ_2, false, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld1w, 1, OPSZ_4, false, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld1d, 1, OPSZ_8, false, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld1sb, 1, OPSZ_1, true, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld1sh, 1, OPSZ_2, true, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld1sw, 1, OPSZ_4, true, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld1b, 1, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld1h, 1, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld1w, 1, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld1d, 1, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld1sb, 1, true, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld1sh, 1, true, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld1sw, 1, true, DRX_NORMAL_FAULTING);
 
-        DRX_CASE(ldff1b, 1, OPSZ_1, false, false, DRX_FIRST_FAULTING);
-        DRX_CASE(ldff1h, 1, OPSZ_2, false, false, DRX_FIRST_FAULTING);
-        DRX_CASE(ldff1w, 1, OPSZ_4, false, false, DRX_FIRST_FAULTING);
-        DRX_CASE(ldff1d, 1, OPSZ_8, false, false, DRX_FIRST_FAULTING);
-        DRX_CASE(ldff1sb, 1, OPSZ_1, true, false, DRX_FIRST_FAULTING);
-        DRX_CASE(ldff1sh, 1, OPSZ_2, true, false, DRX_FIRST_FAULTING);
-        DRX_CASE(ldff1sw, 1, OPSZ_4, true, false, DRX_FIRST_FAULTING);
+        DRX_CASE(ldff1b, 1, false, DRX_FIRST_FAULTING);
+        DRX_CASE(ldff1h, 1, false, DRX_FIRST_FAULTING);
+        DRX_CASE(ldff1w, 1, false, DRX_FIRST_FAULTING);
+        DRX_CASE(ldff1d, 1, false, DRX_FIRST_FAULTING);
+        DRX_CASE(ldff1sb, 1, true, DRX_FIRST_FAULTING);
+        DRX_CASE(ldff1sh, 1, true, DRX_FIRST_FAULTING);
+        DRX_CASE(ldff1sw, 1, true, DRX_FIRST_FAULTING);
 
-        DRX_CASE(ldnf1b, 1, OPSZ_1, false, false, DRX_NON_FAULTING);
-        DRX_CASE(ldnf1h, 1, OPSZ_2, false, false, DRX_NON_FAULTING);
-        DRX_CASE(ldnf1w, 1, OPSZ_4, false, false, DRX_NON_FAULTING);
-        DRX_CASE(ldnf1d, 1, OPSZ_8, false, false, DRX_NON_FAULTING);
-        DRX_CASE(ldnf1sb, 1, OPSZ_1, true, false, DRX_NON_FAULTING);
-        DRX_CASE(ldnf1sh, 1, OPSZ_2, true, false, DRX_NON_FAULTING);
-        DRX_CASE(ldnf1sw, 1, OPSZ_4, true, false, DRX_NON_FAULTING);
+        DRX_CASE(ldnf1b, 1, false, DRX_NON_FAULTING);
+        DRX_CASE(ldnf1h, 1, false, DRX_NON_FAULTING);
+        DRX_CASE(ldnf1w, 1, false, DRX_NON_FAULTING);
+        DRX_CASE(ldnf1d, 1, false, DRX_NON_FAULTING);
+        DRX_CASE(ldnf1sb, 1, true, DRX_NON_FAULTING);
+        DRX_CASE(ldnf1sh, 1, true, DRX_NON_FAULTING);
+        DRX_CASE(ldnf1sw, 1, true, DRX_NON_FAULTING);
 
-        DRX_CASE(ldnt1b, 1, OPSZ_1, false, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ldnt1h, 1, OPSZ_2, false, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ldnt1w, 1, OPSZ_4, false, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ldnt1d, 1, OPSZ_8, false, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ldnt1sb, 1, OPSZ_1, true, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ldnt1sh, 1, OPSZ_2, true, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ldnt1sw, 1, OPSZ_4, true, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ldnt1b, 1, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ldnt1h, 1, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ldnt1w, 1, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ldnt1d, 1, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ldnt1sb, 1, true, DRX_NORMAL_FAULTING);
+        DRX_CASE(ldnt1sh, 1, true, DRX_NORMAL_FAULTING);
+        DRX_CASE(ldnt1sw, 1, true, DRX_NORMAL_FAULTING);
 
-        DRX_CASE(st1b, 1, OPSZ_1, false, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(st1h, 1, OPSZ_2, false, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(st1w, 1, OPSZ_4, false, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(st1d, 1, OPSZ_8, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(st1b, 1, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(st1h, 1, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(st1w, 1, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(st1d, 1, false, DRX_NORMAL_FAULTING);
 
-        DRX_CASE(stnt1b, 1, OPSZ_1, false, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(stnt1h, 1, OPSZ_2, false, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(stnt1w, 1, OPSZ_4, false, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(stnt1d, 1, OPSZ_8, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(stnt1b, 1, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(stnt1h, 1, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(stnt1w, 1, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(stnt1d, 1, false, DRX_NORMAL_FAULTING);
 
-        DRX_CASE(ld2b, 2, OPSZ_1, false, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld2h, 2, OPSZ_2, false, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld2w, 2, OPSZ_4, false, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld2d, 2, OPSZ_8, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld2b, 2, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld2h, 2, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld2w, 2, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld2d, 2, false, DRX_NORMAL_FAULTING);
 
-        DRX_CASE(st2b, 2, OPSZ_1, false, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(st2h, 2, OPSZ_2, false, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(st2w, 2, OPSZ_4, false, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(st2d, 2, OPSZ_8, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(st2b, 2, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(st2h, 2, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(st2w, 2, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(st2d, 2, false, DRX_NORMAL_FAULTING);
 
-        DRX_CASE(ld3b, 3, OPSZ_1, false, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld3h, 3, OPSZ_2, false, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld3w, 3, OPSZ_4, false, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld3d, 3, OPSZ_8, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld3b, 3, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld3h, 3, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld3w, 3, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld3d, 3, false, DRX_NORMAL_FAULTING);
 
-        DRX_CASE(st3b, 3, OPSZ_1, false, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(st3h, 3, OPSZ_2, false, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(st3w, 3, OPSZ_4, false, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(st3d, 3, OPSZ_8, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(st3b, 3, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(st3h, 3, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(st3w, 3, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(st3d, 3, false, DRX_NORMAL_FAULTING);
 
-        DRX_CASE(ld4b, 4, OPSZ_1, false, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld4h, 4, OPSZ_2, false, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld4w, 4, OPSZ_4, false, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld4d, 4, OPSZ_8, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld4b, 4, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld4h, 4, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld4w, 4, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld4d, 4, false, DRX_NORMAL_FAULTING);
 
-        DRX_CASE(st4b, 4, OPSZ_1, false, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(st4h, 4, OPSZ_2, false, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(st4w, 4, OPSZ_4, false, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(st4d, 4, OPSZ_8, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(st4b, 4, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(st4h, 4, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(st4w, 4, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(st4d, 4, false, DRX_NORMAL_FAULTING);
+#define DRX_CASE_REP(op, loaded_vector_size)               \
+    case OP_##op:                                          \
+        sg_info->reg_count = 1;                            \
+        sg_info->scatter_gather_size = loaded_vector_size; \
+        sg_info->is_scalar_value_signed = false;           \
+        sg_info->is_replicating = true;                    \
+        sg_info->faulting_behavior = DRX_NORMAL_FAULTING;  \
+        break
 
-        DRX_CASE(ld1rob, 1, OPSZ_1, false, true, DRX_NORMAL_FAULTING);
+        DRX_CASE_REP(ld1rob, OPSZ_32);
 
-        DRX_CASE(ld1rqb, 1, OPSZ_1, false, true, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld1rqh, 1, OPSZ_2, false, true, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld1rqw, 1, OPSZ_4, false, true, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld1rqd, 1, OPSZ_8, false, true, DRX_NORMAL_FAULTING);
+        DRX_CASE_REP(ld1rqb, OPSZ_16);
+        DRX_CASE_REP(ld1rqh, OPSZ_16);
+        DRX_CASE_REP(ld1rqw, OPSZ_16);
+        DRX_CASE_REP(ld1rqd, OPSZ_16);
 #undef DRX_CASE
+#undef DRX_CASE_REP
 
     default: DR_ASSERT_MSG(false, "Invalid scatter/gather instruction");
     }
@@ -1453,7 +1470,7 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, DR_PARAM_OUT bool *e
                                       governing_pred, scratch_vec);
         }
     } else {
-        /* scalar+vector or vector+immediate scatter/gather */
+        /* scalar+vector, vector+immediate, or vector+scalar scatter/gather */
         reg_id_t scalar_base;
         reg_id_t scalar_index;
         if (reg_is_z(sg_info.index_reg)) {
