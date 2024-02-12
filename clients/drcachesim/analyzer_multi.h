@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -45,15 +45,18 @@
 namespace dynamorio {
 namespace drmemtrace {
 
-class analyzer_multi_t : public analyzer_t {
+template <typename RecordType, typename ReaderType>
+class analyzer_multi_tmpl_t : public analyzer_tmpl_t<RecordType, ReaderType> {
 public:
     // Usage: errors encountered during the constructor will set a flag that should
     // be queried via operator!.
-    analyzer_multi_t();
-    virtual ~analyzer_multi_t();
+    analyzer_multi_tmpl_t();
+    virtual ~analyzer_multi_tmpl_t();
 
 protected:
-    scheduler_t::scheduler_options_t
+    typedef scheduler_tmpl_t<RecordType, ReaderType> sched_type_t;
+
+    typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_options_t
     init_dynamic_schedule();
     bool
     create_analysis_tools();
@@ -62,13 +65,19 @@ protected:
     void
     destroy_analysis_tools();
 
-    analysis_tool_t *
+    std::unique_ptr<ReaderType>
+    create_ipc_reader(const char *name, int verbose);
+
+    std::unique_ptr<ReaderType>
+    create_ipc_reader_end();
+
+    analysis_tool_tmpl_t<RecordType> *
     create_analysis_tool_from_options(const std::string &type);
 
-    analysis_tool_t *
+    analysis_tool_tmpl_t<RecordType> *
     create_external_tool(const std::string &id);
 
-    analysis_tool_t *
+    analysis_tool_tmpl_t<RecordType> *
     create_invariant_checker();
 
     std::string
@@ -95,6 +104,11 @@ protected:
 
     static const int max_num_tools_ = 8;
 };
+
+typedef analyzer_multi_tmpl_t<memref_t, reader_t> analyzer_multi_t;
+
+typedef analyzer_multi_tmpl_t<trace_entry_t, dynamorio::drmemtrace::record_reader_t>
+    record_analyzer_multi_t;
 
 } // namespace drmemtrace
 } // namespace dynamorio
