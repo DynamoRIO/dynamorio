@@ -83,6 +83,9 @@ public:
     parallel_shard_error(void *shard_data) override;
 
 protected:
+    std::string
+    get_category_names(uint category);
+
     struct opcode_data_t {
         opcode_data_t()
             : opcode(OP_INVALID)

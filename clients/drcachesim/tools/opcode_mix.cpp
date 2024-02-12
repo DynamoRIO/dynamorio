@@ -271,7 +271,7 @@ cmp_val(const std::pair<int, int64_t> &l, const std::pair<int, int64_t> &r)
 }
 
 std::string
-get_category_names(uint category)
+opcode_mix_t::get_category_names(uint category)
 {
     std::string category_name;
     if (category == DR_INSTR_CATEGORY_UNCATEGORIZED) {
