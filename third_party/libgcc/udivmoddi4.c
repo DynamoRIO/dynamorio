@@ -26,8 +26,8 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #include <stdint.h>
 
 /* This is extracted from gcc's libgcc/libgcc2.c with these typedefs added.
-   Note that for the targets we care about LIBGCC2_UNITS_PER_WORD == 4.
-   Thus a double word is 8 bytes (DImode in GCC parlance). */
+   Note that for current targets (x86, aarch, riscv - 32 and 64 bit)
+   LIBGCC2_UNITS_PER_WORD == 4. Thus a double word is 8 bytes. */
 typedef int32_t Wtype;
 typedef int64_t DWtype;
 typedef uint32_t UWtype;
