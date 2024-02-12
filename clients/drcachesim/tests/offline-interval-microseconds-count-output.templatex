@@ -23,6 +23,7 @@ Thread [0-9]* counts:
      [ 0-9]* dcache flushes
      [ 0-9]* scheduling markers
 .*
+Printing whole-trace interval results:
 Counts per trace interval for whole trace:
 Interval #1 ending at timestamp [0-9]*:
      [ 0-9]* interval delta \(fetched\) instructions

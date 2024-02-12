@@ -340,6 +340,7 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
     this->worker_count_ = op_jobs.get_value();
     this->skip_instrs_ = op_skip_instrs.get_value();
     this->interval_microseconds_ = op_interval_microseconds.get_value();
+    this->interval_instr_count_ = op_interval_instr_count.get_value();
     // Initial measurements show it's sometimes faster to keep the parallel model
     // of using single-file readers but use them sequentially, as opposed to
     // the every-file interleaving reader, but the user can specify -jobs 1, so

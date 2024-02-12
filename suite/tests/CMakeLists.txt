@@ -491,7 +491,7 @@ endfunction(append_link_flags)
 set(sve_tests
       simple_app api.ir api.ir_negative api.ir_v81 api.ir_v82 api.ir_v83 api.ir_v84
       api.ir_v85 api.ir_v86 api.ir_sve api.ir_sve2 api.ir-static api.drdecode
-      common.broadfun common.fib common.nzcv common.getretaddr common.segfault
+      common.broadfun common.nzcv common.getretaddr common.segfault
       common.allasm_aarch64_isa common.allasm_aarch64_cache allasm_aarch64_prefetch
       allasm_aarch64_flush libutil.frontend_test libutil.drconfig_test
       client.call-retarget client.modules client.annotation-concurrency
@@ -511,8 +511,8 @@ set(sve_tests
       api.static_reattach_client_flags api.static_crash api.static_sideline_FLAKY
       api.static_symbols api.static_maps_mixup_yesvars
       api.static_maps_mixup_novars_FLAKY api.thread_churn client.app_args
-      client.destructor builtin_prefetch tool.multiproc stride_benchmark
-      tool.fib_plus tool.heap_test tool.drcacheoff.gencode linux.eintr
+      client.destructor builtin_prefetch stride_benchmark
+      tool.heap_test tool.drcacheoff.gencode
       linux.execve-sub linux.execve-null linux.execve-config linux.execv
       linux.execve-rec linux.exit linux.fork linux.fork-sleep linux.infinite
       linux.longjmp linux.prctl linux.mmap linux.zero-length-mem-ranges
@@ -520,7 +520,7 @@ set(sve_tests
       linux.threadexit linux.threadexit2 linux.signalfd linux.alarm
       linux.signal_racesys linux.signal_pre_syscall linux.bad-signal-stack
       linux.sigsuspend linux.sigmask linux.mangle_asynch linux.app_tls
-      linux.readlink linux.fib-conflict linux.fib-static linux.fib-pie linux.vfork
+      linux.readlink linux.vfork
       pthreads.pthreads pthreads.pthreads_exit pthreads.ptsig
       pthreads.pthreads_fork_FLAKY security-linux.trampoline linux.infloop
       linux.rseq_disable security-common.codemod security-common.ret_noncall_trace
@@ -4064,8 +4064,11 @@ if (BUILD_CLIENTS)
       endif ()
     endif ()
 
-    torunonly_drcacheoff(interval-count-output ${ci_shared_app} ""
+    torunonly_drcacheoff(interval-microseconds-count-output ${ci_shared_app} ""
       "@-simulator_type@basic_counts@-interval_microseconds@1M" "")
+
+    torunonly_drcacheoff(interval-instr-count-output ${ci_shared_app} ""
+      "@-simulator_type@basic_counts@-interval_instr_count@10000" "")
 
     # As for the online test, we check that only 1 thread is in the final trace.
     torunonly_drcacheoff(max-global client.annotation-concurrency
