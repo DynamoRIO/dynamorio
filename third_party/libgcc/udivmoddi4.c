@@ -25,27 +25,28 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 #include <stdint.h>
 
-/* This is extracted from gcc's libgcc/libgcc2.c with these typedefs added: */
-typedef int Wtype;
-typedef int32_t SItype;
-typedef uint32_t USItype;
-typedef int64_t DItype;
-typedef uint64_t UDItype;
+/* This is extracted from gcc's libgcc/libgcc2.c with these typedefs added.
+   Note that for the targets we care about LIBGCC2_UNITS_PER_WORD == 4.
+   Thus a double word is 8 bytes (DImode in GCC parlance). */
+typedef int32_t Wtype;
+typedef int64_t DWtype;
+typedef uint32_t UWtype;
+typedef uint64_t UDWtype;
 #if __BYTE_ORDER__ != __ORDER_LITTLE_ENDIAN__
-struct DIstruct {SItype high, low;};
+struct DWstruct {Wtype high, low;};
 #else
-struct DIstruct {SItype low, high;};
+struct DWstruct {Wtype low, high;};
 #endif
 typedef union {
-  struct DIstruct s;
-  DItype ll;
-} DIunion;
+  struct DWstruct s;
+  DWtype ll;
+} DWunion;
 
-UDItype
-__udivmoddi4 (UDItype n, UDItype d, UDItype *rp)
+UDWtype
+__udivmoddi4 (UDWtype n, UDWtype d, UDWtype *rp)
 {
-  UDItype q = 0, r = n, y = d;
-  USItype lz1, lz2, i, k;
+  UDWtype q = 0, r = n, y = d;
+  UWtype lz1, lz2, i, k;
 
   /* Implements align divisor shift dividend method. This algorithm
      aligns the divisor under the dividend and then perform number of
@@ -103,13 +104,13 @@ __udivmoddi4 (UDItype n, UDItype d, UDItype *rp)
   return q;
 }
 
-DItype
-__moddi3 (DItype u, DItype v)
+DWtype
+__moddi3 (DWtype u, DWtype v)
 {
   Wtype c = 0;
-  DIunion uu = {.ll = u};
-  DIunion vv = {.ll = v};
-  DItype w;
+  DWunion uu = {.ll = u};
+  DWunion vv = {.ll = v};
+  DWtype w;
 
   if (uu.s.high < 0)
     c = ~c,
@@ -117,7 +118,7 @@ __moddi3 (DItype u, DItype v)
   if (vv.s.high < 0)
     vv.ll = -vv.ll;
 
-  (void) __udivmoddi4 (uu.ll, vv.ll, (UDItype*)&w);
+  (void) __udivmoddi4 (uu.ll, vv.ll, (UDWtype*)&w);
   if (c)
     w = -w;
 
