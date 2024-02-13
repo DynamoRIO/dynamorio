@@ -589,7 +589,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         "Missing page size marker");
         report_if_false(
             shard,
-            shard->found_syscall_marker_ ==
+            shard->skipped_instrs_ ||
+                shard->found_syscall_marker_ ==
                     // Making sure this is a bool for a safe comparison.
                     static_cast<bool>(
                         TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, shard->file_type_)) ||
@@ -599,7 +600,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // one direction here.
         report_if_false(
             shard,
-            !shard->found_blocking_marker_ ||
+            shard->skipped_instrs_ || !shard->found_blocking_marker_ ||
                 TESTANY(OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS, shard->file_type_),
             "Kernel scheduling marker presence does not match filetype");
         report_if_false(
