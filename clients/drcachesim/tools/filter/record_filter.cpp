@@ -326,7 +326,7 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &in
         VPRINT(this, 4, "Cur chunk instr count: %" PRIu64 " vs threshold %" PRIu64 "\n",
                per_shard->cur_chunk_instrs, per_shard->chunk_size);
         if (per_shard->cur_chunk_instrs >= per_shard->chunk_size &&
-            (type_is_instr(static_cast<trace_type_t>(entry.type)) ||
+            (is_any_instr_type(static_cast<trace_type_t>(entry.type)) ||
              (entry.type == TRACE_TYPE_MARKER &&
               entry.size == TRACE_MARKER_TYPE_TIMESTAMP) ||
              entry.type == TRACE_TYPE_THREAD_EXIT || entry.type == TRACE_TYPE_FOOTER)) {
@@ -423,7 +423,7 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &in
 
             per_shard->cur_chunk_pcs.insert(entry.addr);
 
-            if (output) {
+            if (output && type_is_instr(static_cast<trace_type_t>(entry.type))) {
                 ++per_shard->cur_chunk_instrs;
             }
         }
