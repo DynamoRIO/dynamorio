@@ -23,11 +23,15 @@ a copy of the GCC Runtime Library Exception along with this program;
 see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 <http://www.gnu.org/licenses/>.  */
 
-/* This is extracted from gcc's libgcc/libgcc2.c with these typedefs added: */
-typedef short Wtype;
-typedef int DWtype;
-typedef unsigned int UWtype;
-typedef unsigned long long UDWtype;
+#include <stdint.h>
+
+/* This is extracted from gcc's libgcc/libgcc2.c with these typedefs added.
+   Note that for current targets (x86, aarch, riscv - 32 and 64 bit)
+   LIBGCC2_UNITS_PER_WORD == 4. Thus a double word is 8 bytes. */
+typedef int32_t Wtype;
+typedef int64_t DWtype;
+typedef uint32_t UWtype;
+typedef uint64_t UDWtype;
 #if __BYTE_ORDER__ != __ORDER_LITTLE_ENDIAN__
 struct DWstruct {Wtype high, low;};
 #else
