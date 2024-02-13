@@ -4619,6 +4619,27 @@ if (BUILD_CLIENTS)
     set(${testname}_postcmd4
       "${drcachesim_path}@-indir@${outdir}@-simulator_type@invariant_checker")
 
+    # Test the trim filter.
+    if (X86 AND X64 AND ZLIB_FOUND)
+      set(zip_path
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.allasm_x86_64.trace.zip")
+      set(outdir ${PROJECT_BINARY_DIR}/trim_filter)
+      file(MAKE_DIRECTORY ${outdir})
+      # The filter launcher doesn't have an -infile parameter.
+      set(srcdir ${PROJECT_BINARY_DIR}/trim_filter_src)
+      file(MAKE_DIRECTORY ${srcdir})
+      file(COPY ${zip_path} DESTINATION ${srcdir})
+      torunonly_api(tool.drcacheoff.trim "${drcachesim_path}" "offline-trim" ""
+        "-simulator_type;view;-indir;${outdir};${test_mode_flag}"
+        OFF OFF)
+      set(tool.drcacheoff.trim_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+      # The filter overwrites any existing file in the dir from a prior run.
+      set(tool.drcacheoff.trim_precmd
+        "${filter_path}@-keep_start_timestamp@13352268558646120@-keep_end_timestamp@13352268558646661@-trace_dir@${srcdir}@-output_dir@${outdir}")
+      set(tool.drcacheoff.trim_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.drcacheoff.trim_rawtemp ON) # no preprocessor
+    endif ()
+
     if (AARCH64)
       set(testname_full "tool.drcacheoff.allasm-aarch64-prefetch-counts")
       torunonly_ci(${testname_full} allasm_aarch64_prefetch drcachesim

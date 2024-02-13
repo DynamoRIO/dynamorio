@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2015-2023 Google, Inc.    All rights reserved.
+# Copyright (c) 2015-2024 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -115,7 +115,7 @@ macro(process_cmdline line skip_empty err_and_out)
   set(${err_and_out} "${${err_and_out}}${cmd_err}${cmd_out}")
 endmacro()
 
-process_cmdline(precmd ON ignore)
+process_cmdline(precmd ON tomatch)
 
 process_cmdline(cmd OFF tomatch)
 
