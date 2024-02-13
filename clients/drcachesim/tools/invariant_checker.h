@@ -199,6 +199,7 @@ protected:
         // operation.
         addr_t app_handler_pc_ = 0;
         offline_file_type_t file_type_ = OFFLINE_FILE_TYPE_DEFAULT;
+        bool saw_filetype_ = false;
         uintptr_t last_window_ = 0;
         bool window_transition_ = false;
         uint64_t chunk_instr_count_ = 0;
