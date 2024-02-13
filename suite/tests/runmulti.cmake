@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2015-2023 Google, Inc.    All rights reserved.
+# Copyright (c) 2015-2024 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -101,7 +101,7 @@ macro(process_cmdline line skip_empty err_and_out)
     set(${line} ${newcmd})
   endif ()
   if (NOT ${line} MATCHES "^foreach;")
-    if (NOT ${skip_empty} OR NOT ${line} STREQUAL "" AND NOT globempty)
+    if (NOT skip_empty OR NOT ${line} STREQUAL "" AND NOT globempty)
       message("Running ${line} |${${line}}|")
       execute_process(COMMAND ${${line}}
         RESULT_VARIABLE cmd_result
