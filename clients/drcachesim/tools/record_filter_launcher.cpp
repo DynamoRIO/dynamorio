@@ -111,20 +111,19 @@ static droption_t<std::string>
                            "Comma-separated integers for marker types to remove. "
                            "See trace_marker_type_t for the list of marker types.");
 
-static droption_t<uint64_t> op_keep_start_timestamp(
-    DROPTION_SCOPE_ALL, "keep_start_timestamp", 0, 0,
+static droption_t<uint64_t> op_trim_before_timestamp(
+    DROPTION_SCOPE_ALL, "trim_before_timestamp", 0, 0,
     (std::numeric_limits<uint64_t>::max)(),
     "Trim records until this timestamp (in us) in the trace.",
-    "Removes all records between the first TRACE_MARKER_TYPE_TIMESTAMP marker with "
-    "timestamp less than the specified value and the -keep_end_timestamp.");
+    "Removes all records (after headers) before the first TRACE_MARKER_TYPE_TIMESTAMP "
+    "marker in the trace with timestamp less than the specified value.");
 
-static droption_t<uint64_t> op_keep_end_timestamp(
-    DROPTION_SCOPE_ALL, "keep_end_timestamp", (std::numeric_limits<uint64_t>::max)(), 0,
+static droption_t<uint64_t> op_trim_after_timestamp(
+    DROPTION_SCOPE_ALL, "trim_after_timestamp", (std::numeric_limits<uint64_t>::max)(), 0,
     (std::numeric_limits<uint64_t>::max)(),
     "Trim records after this timestamp (in us) in the trace.",
-    "Removes all records between the first TRACE_MARKER_TYPE_TIMESTAMP marker with "
-    "timestamp less than -keep_start_timestamp and the first timestamp with the "
-    "specified value.");
+    "Removes all records starting from the first TRACE_MARKER_TYPE_TIMESTAMP marker with "
+    "timestamp larger than the specified value.");
 
 template <typename T>
 std::vector<T>
@@ -189,12 +188,12 @@ _tmain(int argc, const TCHAR *targv[])
                 new dynamorio::drmemtrace::type_filter_t(filter_trace_types,
                                                          filter_marker_types)));
     }
-    if (op_keep_start_timestamp.specified() || op_keep_end_timestamp.specified()) {
+    if (op_trim_before_timestamp.specified() || op_trim_after_timestamp.specified()) {
         filter_funcs.emplace_back(
             std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
                 new dynamorio::drmemtrace::trim_filter_t(
-                    op_keep_start_timestamp.get_value(),
-                    op_keep_end_timestamp.get_value())));
+                    op_trim_before_timestamp.get_value(),
+                    op_trim_after_timestamp.get_value())));
     }
     // TODO i#5675: Add other filters.
 

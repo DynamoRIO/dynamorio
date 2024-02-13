@@ -36,6 +36,7 @@
 #include "record_filter.h"
 #include "trace_entry.h"
 
+#include <limits>
 #include <vector>
 #include <unordered_set>
 
@@ -44,11 +45,15 @@ namespace drmemtrace {
 
 class trim_filter_t : public record_filter_t::record_filter_func_t {
 public:
-    trim_filter_t(uint64_t keep_start_timestamp, uint64_t keep_end_timestamp)
-        : keep_start_timestamp_(keep_start_timestamp)
-        , keep_end_timestamp_(keep_end_timestamp)
+    trim_filter_t(uint64_t trim_before_timestamp, uint64_t trim_after_timestamp)
+        : trim_before_timestamp_(trim_before_timestamp)
+        , trim_after_timestamp_(trim_after_timestamp)
     {
-        if (keep_end_timestamp <= keep_start_timestamp) {
+        // Support 0 to make it easier for users to have no trim-after.
+        if (trim_after_timestamp_ == 0) {
+            trim_after_timestamp_ = (std::numeric_limits<uint64_t>::max)();
+        }
+        if (trim_after_timestamp_ <= trim_before_timestamp_) {
             error_string_ = "Invalid parameters: end must be > start";
         }
     }
@@ -65,7 +70,7 @@ public:
         per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
         if (entry.type == TRACE_TYPE_MARKER &&
             entry.size == TRACE_MARKER_TYPE_TIMESTAMP) {
-            if (entry.addr < keep_start_timestamp_ || entry.addr > keep_end_timestamp_)
+            if (entry.addr < trim_before_timestamp_ || entry.addr > trim_after_timestamp_)
                 per_shard->in_removed_region = true;
             else
                 per_shard->in_removed_region = false;
@@ -96,8 +101,8 @@ private:
         bool in_removed_region = false;
     };
 
-    uint64_t keep_start_timestamp_;
-    uint64_t keep_end_timestamp_;
+    uint64_t trim_before_timestamp_;
+    uint64_t trim_after_timestamp_;
 };
 
 } // namespace drmemtrace
