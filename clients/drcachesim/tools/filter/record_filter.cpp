@@ -32,6 +32,7 @@
 
 #include "record_filter.h"
 
+#include <inttypes.h>
 #include <stdint.h>
 
 #include <fstream>
