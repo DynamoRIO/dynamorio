@@ -35,6 +35,7 @@
 #include <inttypes.h>
 #include <stdint.h>
 
+#include <cstdio>
 #include <fstream>
 #include <iostream>
 #include <memory>
