@@ -114,7 +114,6 @@ get_processor_specific_info(void)
      */
 #        if !defined(DR_HOST_NOT_TARGET)
     if (proc_has_feature(FEATURE_SVE)) {
-#            if !defined(BUILD_TESTS)
         uint64 vl;
         /* This RDVL instruction is inserted as raw hex because we don't build
          * with SVE enabled: i.e. not -march=armv8-a+sve, so that we can run a
@@ -129,10 +128,6 @@ get_processor_specific_info(void)
             : "x0");
         cpu_info.sve_vector_length_bytes = vl;
         dr_set_sve_vector_length(vl * 8);
-#            else
-        cpu_info.sve_vector_length_bytes = 32;
-        dr_set_sve_vector_length(256);
-#            endif
     } else {
         cpu_info.sve_vector_length_bytes = 32;
         dr_set_sve_vector_length(256);
