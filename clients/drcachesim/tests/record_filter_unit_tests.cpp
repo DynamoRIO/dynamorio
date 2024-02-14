@@ -115,11 +115,10 @@ protected:
                 std::unique_ptr<archive_ostream_t>(new zipfile_ostream_t("/dev/null"));
             per_shard->writer = per_shard->archive_writer.get();
             return open_new_chunk(per_shard);
-        } else {
-            per_shard->file_writer =
-                std::unique_ptr<std::ostream>(new std::ofstream("/dev/null"));
-            per_shard->writer = per_shard->file_writer.get();
         }
+        per_shard->file_writer =
+            std::unique_ptr<std::ostream>(new std::ofstream("/dev/null"));
+        per_shard->writer = per_shard->file_writer.get();
         return "";
     }
     std::string
@@ -599,6 +598,7 @@ test_trim_filter()
     }
     {
         // Test removing from the start to mid-way in the 1st chunk.
+        // This requires repeating encodings in the new chunks.
         std::vector<test_case_t> entries = {
             // Header.
             { { TRACE_TYPE_HEADER, 0, { 0x1 } }, true, { true } },

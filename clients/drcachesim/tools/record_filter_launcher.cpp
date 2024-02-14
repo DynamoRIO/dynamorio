@@ -116,7 +116,7 @@ static droption_t<uint64_t> op_trim_before_timestamp(
     (std::numeric_limits<uint64_t>::max)(),
     "Trim records until this timestamp (in us) in the trace.",
     "Removes all records (after headers) before the first TRACE_MARKER_TYPE_TIMESTAMP "
-    "marker in the trace with timestamp less than the specified value.");
+    "marker in the trace with timestamp greater than or equal to the specified value.");
 
 static droption_t<uint64_t> op_trim_after_timestamp(
     DROPTION_SCOPE_ALL, "trim_after_timestamp", (std::numeric_limits<uint64_t>::max)(), 0,
