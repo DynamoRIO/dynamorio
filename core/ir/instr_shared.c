@@ -470,6 +470,25 @@ instr_get_category(instr_t *instr)
 /* in rest of file, directly de-reference for performance (PR 622253) */
 #define instr_get_category inlined_instr_get_category
 
+const char *
+instr_get_category_name(dr_instr_category_t category)
+{
+    switch (category) {
+    case DR_INSTR_CATEGORY_UNCATEGORIZED: return "uncategorized";
+    case DR_INSTR_CATEGORY_FP: return "fp";
+    case DR_INSTR_CATEGORY_LOAD: return "load";
+    case DR_INSTR_CATEGORY_STORE: return "store";
+    case DR_INSTR_CATEGORY_BRANCH: return "branch";
+    case DR_INSTR_CATEGORY_SIMD: return "simd";
+    case DR_INSTR_CATEGORY_STATE: return "state";
+    case DR_INSTR_CATEGORY_MOVE: return "move";
+    case DR_INSTR_CATEGORY_CONVERT: return "convert";
+    case DR_INSTR_CATEGORY_MATH: return "math";
+    case DR_INSTR_CATEGORY_OTHER: return "other";
+    default: return "";
+    }
+}
+
 static inline void
 instr_being_modified(instr_t *instr, bool raw_bits_valid)
 {

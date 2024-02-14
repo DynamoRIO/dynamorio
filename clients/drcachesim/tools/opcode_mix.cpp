@@ -189,7 +189,7 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         decode_pc = const_cast<app_pc>(memref.instr.encoding);
         if (memref.instr.encoding_is_new) {
             // The code may have changed: invalidate the cache.
-            shard->worker->opcode_cache.erase(trace_pc);
+            shard->worker->opcode_data_cache.erase(trace_pc);
         }
     } else {
         // Legacy trace support where we need the binaries.
@@ -221,9 +221,11 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         }
     }
     int opcode;
-    auto cached_opcode = shard->worker->opcode_cache.find(trace_pc);
-    if (cached_opcode != shard->worker->opcode_cache.end()) {
-        opcode = cached_opcode->second;
+    uint category;
+    auto cached_opcode_category = shard->worker->opcode_data_cache.find(trace_pc);
+    if (cached_opcode_category != shard->worker->opcode_data_cache.end()) {
+        opcode = cached_opcode_category->second.opcode;
+        category = cached_opcode_category->second.category;
     } else {
         instr_t instr;
         instr_init(dcontext_.dcontext, &instr);
@@ -236,10 +238,12 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             return false;
         }
         opcode = instr_get_opcode(&instr);
-        shard->worker->opcode_cache[trace_pc] = opcode;
+        category = instr_get_category(&instr);
+        shard->worker->opcode_data_cache[trace_pc] = opcode_data_t(opcode, category);
         instr_free(dcontext_.dcontext, &instr);
     }
     ++shard->opcode_counts[opcode];
+    ++shard->category_counts[category];
     return true;
 }
 
@@ -263,7 +267,35 @@ opcode_mix_t::process_memref(const memref_t &memref)
 static bool
 cmp_val(const std::pair<int, int64_t> &l, const std::pair<int, int64_t> &r)
 {
-    return (l.second > r.second);
+    return (l.second > r.second) || (l.second == r.second && l.first < r.first);
+}
+
+std::string
+opcode_mix_t::get_category_names(uint category)
+{
+    std::string category_name;
+    if (category == DR_INSTR_CATEGORY_UNCATEGORIZED) {
+        category_name += instr_get_category_name(DR_INSTR_CATEGORY_UNCATEGORIZED);
+        return category_name;
+    }
+
+    const uint max_mask = 0x80000000;
+    for (uint mask = 0x1; mask <= max_mask; mask <<= 1) {
+        if (TESTANY(mask, category)) {
+            category_name += " ";
+            category_name +=
+                instr_get_category_name(static_cast<dr_instr_category_t>(mask));
+        }
+
+        /*
+         * Guard against 32 bit overflow.
+         */
+        if (mask == max_mask) {
+            break;
+        }
+    }
+
+    return category_name;
 }
 
 bool
@@ -278,6 +310,9 @@ opcode_mix_t::print_results()
             for (const auto &keyvals : shard.second->opcode_counts) {
                 total.opcode_counts[keyvals.first] += keyvals.second;
             }
+            for (const auto &keyvals : shard.second->category_counts) {
+                total.category_counts[keyvals.first] += keyvals.second;
+            }
         }
     }
     std::cerr << TOOL_NAME << " results:\n";
@@ -289,6 +324,17 @@ opcode_mix_t::print_results()
         std::cerr << std::setw(15) << keyvals.second << " : " << std::setw(9)
                   << decode_opcode_name(keyvals.first) << "\n";
     }
+    std::cerr << "\n";
+    std::cerr << std::setw(15) << total.category_counts.size()
+              << " : sets of categories\n";
+    std::vector<std::pair<uint, int64_t>> sorted_category_counts(
+        total.category_counts.begin(), total.category_counts.end());
+    std::sort(sorted_category_counts.begin(), sorted_category_counts.end(), cmp_val);
+    for (const auto &keyvals : sorted_category_counts) {
+        std::cerr << std::setw(15) << keyvals.second << " : " << std::setw(9)
+                  << get_category_names(keyvals.first) << "\n";
+    }
+
     return true;
 }
 

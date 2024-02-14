@@ -39,6 +39,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <utility>
 #include <unordered_map>
 
 #include "dr_api.h" // Must be before trace_entry.h from analysis_tool.h.
@@ -82,8 +83,32 @@ public:
     parallel_shard_error(void *shard_data) override;
 
 protected:
+    std::string
+    get_category_names(uint category);
+
+    struct opcode_data_t {
+        opcode_data_t()
+            : opcode(OP_INVALID)
+            , category(DR_INSTR_CATEGORY_UNCATEGORIZED)
+        {
+        }
+        opcode_data_t(int opcode, uint category)
+            : opcode(opcode)
+            , category(category)
+        {
+        }
+        int opcode;
+        /*
+         * The category field is a uint instead of a dr_instr_category_t because
+         * multiple category bits can be set when an instruction belongs to more
+         * than one category.  We assume 32 bits (i.e., 32 categories) is enough
+         * to be future-proof.
+         */
+        uint category;
+    };
+
     struct worker_data_t {
-        std::unordered_map<app_pc, int> opcode_cache;
+        std::unordered_map<app_pc, opcode_data_t> opcode_data_cache;
     };
 
     struct shard_data_t {
@@ -103,6 +128,7 @@ protected:
         worker_data_t *worker;
         int64_t instr_count;
         std::unordered_map<int, int64_t> opcode_counts;
+        std::unordered_map<uint, int64_t> category_counts;
         std::string error;
         app_pc last_trace_module_start;
         size_t last_trace_module_size;
