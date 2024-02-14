@@ -122,6 +122,12 @@ protected:
         }
         return "";
     }
+    std::string
+    remove_output_file(per_shard_t *per_shard) override
+    {
+        output_.clear();
+        return "";
+    }
 
 private:
     std::vector<trace_entry_t> output_;
@@ -678,6 +684,57 @@ test_trim_filter()
             { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0 } }, false, { true } },
             { { TRACE_TYPE_THREAD_EXIT, 0, { TID } }, true, { true } },
             { { TRACE_TYPE_FOOTER, 0, { 0xa2 } }, true, { true } },
+        };
+        std::vector<std::unique_ptr<record_filter_func_t>> filters;
+        auto filter = std::unique_ptr<record_filter_func_t>(
+            new dynamorio::drmemtrace::trim_filter_t(150, 600));
+        if (!filter->get_error_string().empty()) {
+            fprintf(stderr, "Couldn't construct a trim_filter %s",
+                    filter->get_error_string().c_str());
+            return false;
+        }
+        filters.push_back(std::move(filter));
+        auto record_filter = std::unique_ptr<test_record_filter_t>(
+            new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
+        if (!process_entries_and_check_result(record_filter.get(), entries, 0))
+            return false;
+    }
+    {
+        // Test removing a zero-instruction thread.
+        std::vector<test_case_t> entries = {
+            // Header.
+            { { TRACE_TYPE_HEADER, 0, { 0x1 } }, true, { false } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 0x2 } },
+              true,
+              { false } },
+            { { TRACE_TYPE_MARKER,
+                TRACE_MARKER_TYPE_FILETYPE,
+                { OFFLINE_FILE_TYPE_ENCODINGS } },
+              true,
+              { false } },
+            { { TRACE_TYPE_THREAD, 0, { TID } }, true, { false } },
+            { { TRACE_TYPE_PID, 0, { 0x5 } }, true, { false } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 0x6 } },
+              true,
+              { false } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, { 2 } },
+              true,
+              { false } },
+            // Original chunk 1.
+            // Removal starts here.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 100 } },
+              true,
+              { false } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0 } }, true, { false } },
+            { { TRACE_TYPE_ENCODING, 2, { ENCODING_B } }, true, { false } },
+            { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { false } },
+            // Removal ends here.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 200 } },
+              true,
+              { false } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0 } }, true, { false } },
+            { { TRACE_TYPE_THREAD_EXIT, 0, { TID } }, true, { false } },
+            { { TRACE_TYPE_FOOTER, 0, { 0xa2 } }, true, { false } },
         };
         std::vector<std::unique_ptr<record_filter_func_t>> filters;
         auto filter = std::unique_ptr<record_filter_func_t>(

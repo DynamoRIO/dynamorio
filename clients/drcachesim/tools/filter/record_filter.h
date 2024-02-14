@@ -167,6 +167,7 @@ protected:
         std::unordered_map<addr_t, std::vector<trace_entry_t>> pc2encoding;
         bool prev_was_output = false;
         addr_t filetype = 0;
+        memref_tid_t tid = 0; // For thread-sharded.
     };
 
     virtual std::string
@@ -174,6 +175,9 @@ protected:
 
     std::string
     emit_marker(per_shard_t *shard, unsigned short marker_type, uint64_t marker_value);
+
+    virtual std::string
+    remove_output_file(per_shard_t *per_shard);
 
     std::unordered_map<int, per_shard_t *> shard_map_;
     // This mutex is only needed in parallel_shard_init. In all other accesses
