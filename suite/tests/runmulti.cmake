@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2015-2023 Google, Inc.    All rights reserved.
+# Copyright (c) 2015-2024 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -45,6 +45,9 @@
 # If the command starts with "firstglob@", only the first item in the
 # glob-expansion is passed to the command.
 # If the expansion is empty for precmd, the precmd execution is skipped.
+
+# Recognize literals in if statements.
+cmake_policy(SET CMP0012 NEW)
 
 # Intra-arg space=@@ and inter-arg space=@.
 # XXX i#1327: now that we have -c and other option passing improvements we
