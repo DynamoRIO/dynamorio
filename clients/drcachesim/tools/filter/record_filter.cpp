@@ -303,68 +303,10 @@ record_filter_t::write_trace_entries(per_shard_t *shard,
     return true;
 }
 
-bool
-record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &input_entry)
+std::string
+record_filter_t::process_markers(per_shard_t *per_shard, trace_entry_t &entry,
+                                 bool &output)
 {
-    per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
-    ++per_shard->input_entry_count;
-    trace_entry_t entry = input_entry;
-    bool output = true;
-    if (per_shard->enabled && stop_timestamp_ != 0 &&
-        per_shard->shard_stream->get_last_timestamp() >= stop_timestamp_) {
-        per_shard->enabled = false;
-        trace_entry_t filter_boundary_entry = { TRACE_TYPE_MARKER,
-                                                TRACE_MARKER_TYPE_FILTER_ENDPOINT,
-                                                { 0 } };
-        if (!write_trace_entry(per_shard, filter_boundary_entry)) {
-            per_shard->error = "Failed to write";
-            return false;
-        }
-    }
-    if (per_shard->enabled) {
-        for (int i = 0; i < static_cast<int>(filters_.size()); ++i) {
-            if (!filters_[i]->parallel_shard_filter(entry,
-                                                    per_shard->filter_shard_data[i])) {
-                output = false;
-            }
-            if (!filters_[i]->get_error_string().empty()) {
-                per_shard->error = "Filter error: " + filters_[i]->get_error_string();
-                return false;
-            }
-        }
-        if (!output) {
-            if (entry.type == TRACE_TYPE_MARKER &&
-                (entry.size == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS ||
-                 entry.size == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE) &&
-                per_shard->archive_writer) {
-                // These markers need to be repeated across chunks.
-                // Currently even raw2trace doesn't support this.
-                per_shard->error = "Removing physical address markers from archive "
-                                   "output is not yet supported";
-                return false;
-            }
-        }
-    }
-
-    if (per_shard->archive_writer) {
-        // Wait until we reach the next instr or timestamp past the threshold to
-        // insert the new chunk, to ensure we get all associated records with the
-        // chunk-final instr.
-        VPRINT(this, 4, "Cur chunk instr count: %" PRIu64 " vs threshold %" PRIu64 "\n",
-               per_shard->cur_chunk_instrs, per_shard->chunk_size);
-        if (per_shard->cur_chunk_instrs >= per_shard->chunk_size &&
-            (is_any_instr_type(static_cast<trace_type_t>(entry.type)) ||
-             (entry.type == TRACE_TYPE_MARKER &&
-              entry.size == TRACE_MARKER_TYPE_TIMESTAMP) ||
-             entry.type == TRACE_TYPE_THREAD_EXIT || entry.type == TRACE_TYPE_FOOTER)) {
-            std::string error = open_new_chunk(per_shard);
-            if (!error.empty()) {
-                per_shard->error = error;
-                return false;
-            }
-        }
-    }
-
     if (entry.type == TRACE_TYPE_MARKER) {
         switch (entry.size) {
         case TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT:
@@ -401,96 +343,172 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &in
                 per_shard->input_entry_count - per_shard->input_count_at_ordinal == 2)
                 output = false;
             break;
+        case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS:
+        case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE:
+            if (!output && per_shard->archive_writer) {
+                // These markers need to be repeated across chunks, yet even raw2trace
+                // doesn't support this yet: so we bail on it here too.
+                return "Removing physical address markers from archive output is not yet "
+                       "supported";
+            }
+            break;
+        }
+    }
+    return "";
+}
+
+std::string
+record_filter_t::process_chunk_encodings(per_shard_t *per_shard, trace_entry_t &entry,
+                                         bool output)
+{
+    if (!per_shard->archive_writer ||
+        !is_any_instr_type(static_cast<trace_type_t>(entry.type)))
+        return "";
+    if (!per_shard->last_encoding.empty()) {
+        per_shard->pc2encoding[entry.addr] = per_shard->last_encoding;
+        // Disable the just-delayed encoding output below if this is
+        // what used to be a new-chunk encoding.
+        if (per_shard->cur_chunk_pcs.find(entry.addr) != per_shard->cur_chunk_pcs.end()) {
+            VPRINT(this, 3, "clearing new-chunk last encoding @pc=0x%zx\n", entry.addr);
+            per_shard->last_encoding.clear();
+        }
+    } else {
+        // Insert the cached encoding if this is the first instance of this PC
+        // (without an encoding) in this chunk, unless the user is removing all encodings.
+        // XXX: What if there is a filter removing all encodings but only
+        // to the stop point, so a partial remove that does not change
+        // the filetype?  For now we do not support that, and we re-add
+        // encodings at chunk boundaries regardless.
+        if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, per_shard->filetype) &&
+            per_shard->cur_chunk_pcs.find(entry.addr) == per_shard->cur_chunk_pcs.end()) {
+            if (per_shard->pc2encoding.find(entry.addr) == per_shard->pc2encoding.end()) {
+                return "Missing encoding for PC " + std::to_string(entry.addr) +
+                    " at input entry " + std::to_string(per_shard->input_entry_count);
+            }
+            VPRINT(this, 3,
+                   "output new-chunk encoding chunk=%" PRIu64 " ref=%" PRIu64 "\n",
+                   per_shard->chunk_ordinal, per_shard->cur_refs);
+            if (!write_trace_entries(per_shard, per_shard->pc2encoding[entry.addr])) {
+                return "Failed to write";
+            }
+        }
+    }
+    per_shard->cur_chunk_pcs.insert(entry.addr);
+    return "";
+}
+
+std::string
+record_filter_t::process_delayed_encodings(per_shard_t *per_shard, trace_entry_t &entry,
+                                           bool output)
+{
+    if (!is_any_instr_type(static_cast<trace_type_t>(entry.type)))
+        return "";
+    if (!output) {
+        if (!per_shard->last_encoding.empty()) {
+            // Overwrite in case the encoding for this pc was already recorded.
+            per_shard->delayed_encodings[entry.addr] =
+                std::move(per_shard->last_encoding);
+        }
+    } else {
+        // Output if we have encodings that haven't yet been output.
+        if (!per_shard->last_encoding.empty() && per_shard->prev_was_output) {
+            // This instruction is accompanied by a preceding encoding. Since
+            // this instruction is not filtered out, output the encoding now.
+            VPRINT(this, 3,
+                   "output just-delayed encoding chunk=%" PRIu64 " ref=%" PRIu64
+                   " pc=0x%zx\n",
+                   per_shard->chunk_ordinal, per_shard->cur_refs, entry.addr);
+            if (!write_trace_entries(per_shard, per_shard->last_encoding)) {
+                return "Failed to write";
+            }
+            // Remove previously delayed encoding that doesn't need to be output
+            // now that we have a more recent version for this instr.
+            per_shard->delayed_encodings.erase(entry.addr);
+        } else if (!per_shard->delayed_encodings[entry.addr].empty()) {
+            // The previous instance of this instruction was filtered out and
+            // its encoding was saved. Now that we have an instance of the same
+            // instruction that is not filtered out, we need to output its
+            // encoding.
+            VPRINT(this, 3,
+                   "output long-delayed encoding chunk=%" PRIu64 " ref=%" PRIu64
+                   " pc=0x%zx\n",
+                   per_shard->chunk_ordinal, per_shard->cur_refs, entry.addr);
+            if (!write_trace_entries(per_shard,
+                                     per_shard->delayed_encodings[entry.addr])) {
+                return "Failed to write";
+            }
+            per_shard->delayed_encodings.erase(entry.addr);
+        }
+    }
+    return "";
+}
+
+bool
+record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &input_entry)
+{
+    per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
+    ++per_shard->input_entry_count;
+    trace_entry_t entry = input_entry;
+    bool output = true;
+    if (per_shard->enabled && stop_timestamp_ != 0 &&
+        per_shard->shard_stream->get_last_timestamp() >= stop_timestamp_) {
+        per_shard->enabled = false;
+        trace_entry_t filter_boundary_entry = { TRACE_TYPE_MARKER,
+                                                TRACE_MARKER_TYPE_FILTER_ENDPOINT,
+                                                { 0 } };
+        if (!write_trace_entry(per_shard, filter_boundary_entry)) {
+            per_shard->error = "Failed to write";
+            return false;
+        }
+    }
+    if (per_shard->enabled) {
+        for (int i = 0; i < static_cast<int>(filters_.size()); ++i) {
+            if (!filters_[i]->parallel_shard_filter(entry,
+                                                    per_shard->filter_shard_data[i])) {
+                output = false;
+            }
+            if (!filters_[i]->get_error_string().empty()) {
+                per_shard->error = "Filter error: " + filters_[i]->get_error_string();
+                return false;
+            }
         }
     }
 
-    if (per_shard->archive_writer &&
-        is_any_instr_type(static_cast<trace_type_t>(entry.type))) {
-        if (!per_shard->last_encoding.empty()) {
-            per_shard->pc2encoding[entry.addr] = per_shard->last_encoding;
-            // Disable the just-delayed encoding output below if this is
-            // what used to be a new-chunk encoding.
-            if (per_shard->cur_chunk_pcs.find(entry.addr) !=
-                per_shard->cur_chunk_pcs.end()) {
-                VPRINT(this, 3, "clearing new-chunk last encoding @pc=0x%zx\n",
-                       entry.addr);
-                per_shard->last_encoding.clear();
-            }
-        } else {
-            // Insert the cached encoding if this is the first instance of this
-            // PC in this chunk, unless the user is removing all encodings.
-            // XXX: What if there is a filter removing all encodings but only
-            // to the stop point, so a partial remove that does not change
-            // the filetype?  For now we do not support that, and we re-add
-            // encodings at chunk boundaries regardless.
-            if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, per_shard->filetype) &&
-                per_shard->cur_chunk_pcs.find(entry.addr) ==
-                    per_shard->cur_chunk_pcs.end()) {
-                if (per_shard->pc2encoding.find(entry.addr) ==
-                    per_shard->pc2encoding.end()) {
-                    per_shard->error = "Missing encoding for PC " +
-                        std::to_string(entry.addr) + " at input entry " +
-                        std::to_string(per_shard->input_entry_count);
-                    return false;
-                }
-                VPRINT(this, 3,
-                       "output new-chunk encoding chunk=%" PRIu64 " ref=%" PRIu64 "\n",
-                       per_shard->chunk_ordinal, per_shard->cur_refs);
-                if (!write_trace_entries(per_shard, per_shard->pc2encoding[entry.addr])) {
-                    per_shard->error = "Failed to write";
-                    return false;
-                }
+    if (per_shard->archive_writer) {
+        // Wait until we reach the next instr or timestamp past the threshold to
+        // insert the new chunk, to ensure we get all associated records with the
+        // chunk-final instr.
+        VPRINT(this, 4, "Cur chunk instr count: %" PRIu64 " vs threshold %" PRIu64 "\n",
+               per_shard->cur_chunk_instrs, per_shard->chunk_size);
+        if (per_shard->cur_chunk_instrs >= per_shard->chunk_size &&
+            (is_any_instr_type(static_cast<trace_type_t>(entry.type)) ||
+             (entry.type == TRACE_TYPE_MARKER &&
+              entry.size == TRACE_MARKER_TYPE_TIMESTAMP) ||
+             entry.type == TRACE_TYPE_THREAD_EXIT || entry.type == TRACE_TYPE_FOOTER)) {
+            std::string error = open_new_chunk(per_shard);
+            if (!error.empty()) {
+                per_shard->error = error;
+                return false;
             }
         }
-        per_shard->cur_chunk_pcs.insert(entry.addr);
     }
+
+    per_shard->error = process_markers(per_shard, entry, output);
+    if (!per_shard->error.empty())
+        return false;
+
+    per_shard->error = process_chunk_encodings(per_shard, entry, output);
+    if (!per_shard->error.empty())
+        return false;
 
     if (output && type_is_instr(static_cast<trace_type_t>(entry.type)) &&
         // Do not count PC-only i-filtered instrs.
         entry.size > 0)
         ++per_shard->cur_chunk_instrs;
 
-    if (is_any_instr_type(static_cast<trace_type_t>(entry.type))) {
-        if (!output) {
-            if (!per_shard->last_encoding.empty()) {
-                // Overwrite in case the encoding for this pc was already recorded.
-                per_shard->delayed_encodings[entry.addr] =
-                    std::move(per_shard->last_encoding);
-            }
-        } else {
-            // Output if we have encodings that haven't yet been output.
-            if (!per_shard->last_encoding.empty() && per_shard->prev_was_output) {
-                // This instruction is accompanied by a preceding encoding. Since
-                // this instruction is not filtered out, output the encoding now.
-                VPRINT(this, 3,
-                       "output just-delayed encoding chunk=%" PRIu64 " ref=%" PRIu64
-                       " pc=0x%zx\n",
-                       per_shard->chunk_ordinal, per_shard->cur_refs, entry.addr);
-                if (!write_trace_entries(per_shard, per_shard->last_encoding)) {
-                    per_shard->error = "Failed to write";
-                    return false;
-                }
-                // Remove previously delayed encoding that doesn't need to be output
-                // now that we have a more recent version for this instr.
-                per_shard->delayed_encodings.erase(entry.addr);
-            } else if (!per_shard->delayed_encodings[entry.addr].empty()) {
-                // The previous instance of this instruction was filtered out and
-                // its encoding was saved. Now that we have an instance of the same
-                // instruction that is not filtered out, we need to output its
-                // encoding.
-                VPRINT(this, 3,
-                       "output long-delayed encoding chunk=%" PRIu64 " ref=%" PRIu64
-                       " pc=0x%zx\n",
-                       per_shard->chunk_ordinal, per_shard->cur_refs, entry.addr);
-                if (!write_trace_entries(per_shard,
-                                         per_shard->delayed_encodings[entry.addr])) {
-                    per_shard->error = "Failed to write";
-                    return false;
-                }
-                per_shard->delayed_encodings.erase(entry.addr);
-            }
-        }
-    }
+    per_shard->error = process_delayed_encodings(per_shard, entry, output);
+    if (!per_shard->error.empty())
+        return false;
 
     per_shard->prev_was_output = output;
 

@@ -179,6 +179,15 @@ protected:
     virtual std::string
     remove_output_file(per_shard_t *per_shard);
 
+    std::string
+    process_markers(per_shard_t *per_shard, trace_entry_t &entry, bool &output);
+
+    std::string
+    process_chunk_encodings(per_shard_t *per_shard, trace_entry_t &entry, bool output);
+
+    std::string
+    process_delayed_encodings(per_shard_t *per_shard, trace_entry_t &entry, bool output);
+
     std::unordered_map<int, per_shard_t *> shard_map_;
     // This mutex is only needed in parallel_shard_init. In all other accesses
     // to shard_map (print_results) we are single-threaded.
