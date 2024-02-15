@@ -413,6 +413,8 @@ record_filter_t::process_delayed_encodings(per_shard_t *per_shard, trace_entry_t
         }
     } else {
         // Output if we have encodings that haven't yet been output.
+        // We check prev_was_output to rule out filtered-out encodings
+        // (we record all encodings for new-chunk insertion).
         if (!per_shard->last_encoding.empty() && per_shard->prev_was_output) {
             // This instruction is accompanied by a preceding encoding. Since
             // this instruction is not filtered out, output the encoding now.

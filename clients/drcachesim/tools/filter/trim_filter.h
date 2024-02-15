@@ -43,6 +43,10 @@
 namespace dynamorio {
 namespace drmemtrace {
 
+// A trimming tool to remove records from the start and end of a trace.  To ensure
+// alignment across threads, we trim by timestamp.  Since timestamps are inserted
+// only at certain points, this necessarily disallows precise trimming at say certain
+// instructions, but at the gain of consistent inter-thread trimming.
 class trim_filter_t : public record_filter_t::record_filter_func_t {
 public:
     trim_filter_t(uint64_t trim_before_timestamp, uint64_t trim_after_timestamp)
