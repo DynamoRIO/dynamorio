@@ -998,7 +998,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::print_stats()
     // Should not have both whole-trace or per-shard interval snapshots.
     assert(whole_trace_interval_snapshots_.empty() ||
            per_shard_interval_snapshots_.empty());
-    // We may have whole-trace intervals snaphots for instr count intervals in serial
+    // We may have whole-trace intervals snapshots for instr count intervals in serial
     // mode, and for timestamp (microsecond) intervals in both serial and parallel mode.
     if (!whole_trace_interval_snapshots_.empty()) {
         // Separate non-interval and interval outputs.
