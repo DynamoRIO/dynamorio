@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -90,7 +90,7 @@ public:
     {
         per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
         if (entry.type == TRACE_TYPE_MARKER && entry.size == TRACE_MARKER_TYPE_FILETYPE) {
-            if (TESTANY(entry.addr, OFFLINE_FILE_TYPE_ENCODINGS) &&
+            if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, entry.addr) &&
                 !per_shard->partial_trace_filter &&
                 remove_trace_types_.find(TRACE_TYPE_ENCODING) !=
                     remove_trace_types_.end()) {
