@@ -76,7 +76,8 @@ public:
                 per_shard->in_removed_region = false;
         }
         if (entry.type == TRACE_TYPE_THREAD_EXIT || entry.type == TRACE_TYPE_FOOTER) {
-            // Don't throw the footer away.
+            // Don't throw the footer away.  (The header is always kept because we
+            // don't start removing until we see a timestamp marker.)
             // TODO i#6635: For core-sharded there will be multiple thread exits
             // so we need to handle that.  For thread-sharded we assume just one.
             // (We do not support trimming a single-file multi-window trace).

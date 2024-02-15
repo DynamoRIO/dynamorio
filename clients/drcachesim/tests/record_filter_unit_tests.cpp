@@ -643,6 +643,8 @@ test_trim_filter()
               true,
               { false } },
             { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0 } }, true, { false } },
+            // This encoding is not repeated b/c this is now in the same chunk as
+            // the prior instance of this same instr.
             { { TRACE_TYPE_ENCODING, 2, { ENCODING_B } }, true, { false } },
             { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { true } },
             { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER, { 0 } },
@@ -656,6 +658,7 @@ test_trim_filter()
               false,
               { true } },
             { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0 } }, false, { true } },
+            // This encoding is added since it is the first instance in a new chunk.
             { { TRACE_TYPE_ENCODING, 2, { ENCODING_B } }, false, { true } },
             { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { true } },
             { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER, { 0 } },
