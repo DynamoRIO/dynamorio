@@ -45,6 +45,7 @@
 #include "tools/filter/cache_filter.h"
 #include "tools/filter/type_filter.h"
 #include "tools/filter/record_filter.h"
+#include "tools/filter/trim_filter.h"
 #include "tests/test_helpers.h"
 
 #include <limits>
@@ -110,6 +111,21 @@ static droption_t<std::string>
                            "Comma-separated integers for marker types to remove. "
                            "See trace_marker_type_t for the list of marker types.");
 
+static droption_t<uint64_t> op_trim_before_timestamp(
+    DROPTION_SCOPE_ALL, "trim_before_timestamp", 0, 0,
+    (std::numeric_limits<uint64_t>::max)(),
+    "Trim records until this timestamp (in us) in the trace.",
+    "Removes all records (after headers) before the first TRACE_MARKER_TYPE_TIMESTAMP "
+    "marker in the trace with timestamp greater than or equal to the specified value.");
+
+static droption_t<uint64_t> op_trim_after_timestamp(
+    DROPTION_SCOPE_ALL, "trim_after_timestamp", (std::numeric_limits<uint64_t>::max)(), 0,
+    (std::numeric_limits<uint64_t>::max)(),
+    "Trim records after this timestamp (in us) in the trace.",
+    "Removes all records after the first TRACE_MARKER_TYPE_TIMESTAMP marker with "
+    "timestamp larger than the specified value (keeps a TRACE_MARKER_TYPE_CPU_ID "
+    "immediately following the transition timestamp).");
+
 template <typename T>
 std::vector<T>
 parse_string(const std::string &s, char sep = ',')
@@ -172,6 +188,13 @@ _tmain(int argc, const TCHAR *targv[])
             std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
                 new dynamorio::drmemtrace::type_filter_t(filter_trace_types,
                                                          filter_marker_types)));
+    }
+    if (op_trim_before_timestamp.specified() || op_trim_after_timestamp.specified()) {
+        filter_funcs.emplace_back(
+            std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
+                new dynamorio::drmemtrace::trim_filter_t(
+                    op_trim_before_timestamp.get_value(),
+                    op_trim_after_timestamp.get_value())));
     }
     // TODO i#5675: Add other filters.
 

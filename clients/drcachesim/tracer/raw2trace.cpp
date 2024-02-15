@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -3346,7 +3346,7 @@ raw2trace_t::open_new_chunk(raw2trace_thread_data_t *tdata)
     tdata->encoding_emitted.clear();
     tdata->last_encoding_emitted = nullptr;
 
-    // TODO i#5538: Add a virtual-to-physical cache and clear it here.
+    // TODO i#6654,i#5538: Add a virtual-to-physical cache and clear it here.
     // We'll need to add a routine for trace_converter_t to call to query our cache --
     // or we can put the cache in trace_converter_t and have it clear the cache via
     // a new new-chunk return value from write() and append_delayed_branch().
