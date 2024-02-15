@@ -346,8 +346,9 @@ record_filter_t::process_markers(per_shard_t *per_shard, trace_entry_t &entry,
         case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS:
         case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE:
             if (!output && per_shard->archive_writer) {
-                // These markers need to be repeated across chunks, yet even raw2trace
-                // doesn't support this yet: so we bail on it here too.
+                // TODO i#6654: These markers need to be repeated across chunks.  Even
+                // raw2trace doesn't support this yet: once we add it there we can add it
+                // here or try to share code.
                 return "Removing physical address markers from archive output is not yet "
                        "supported";
             }
