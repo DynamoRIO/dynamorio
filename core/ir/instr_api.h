@@ -1911,6 +1911,8 @@ instr_is_rep_string_op(instr_t *instr);
 
 /**
  * Indicates which category the instruction corresponds to.
+ * Update instr_get_category_name() in core/ir/instr_shared.c
+ * when adding new categories in this enum.
  */
 typedef enum {
     DR_INSTR_CATEGORY_UNCATEGORIZED = 0x0, /**< Uncategorized. */
@@ -1936,6 +1938,15 @@ typedef enum {
     DR_FP_CONVERT, /**< Converts to or from floating point values. */
     DR_FP_MATH,    /**< Performs arithmetic or conditional operations. */
 } dr_fp_type_t;
+
+DR_API
+/**
+ * Assumes \p category is a DR_INSTR_CATEGORY_ constant.
+ * See #dr_instr_category_t.
+ * Returns \p category name in string format.
+ */
+const char *
+instr_get_category_name(dr_instr_category_t category);
 
 DR_API
 /**

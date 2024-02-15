@@ -4254,6 +4254,9 @@ if (BUILD_CLIENTS)
         "@-simulator_type@func_view" "only_5")
     endif (NOT RISCV64)
     if (DR_HOST_X86 AND DR_HOST_X64 AND LINUX)
+      torunonly_drcacheoff(opcode_categories allasm_x86_64 ""
+        "@-simulator_type@opcode_mix" "")
+    
       # Requires sudo to access pagemap.
       # XXX: Should we not enable this outside of the Github suite where we know
       # we have passwordless sudo?  The pause for a password may cause problems

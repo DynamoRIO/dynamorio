@@ -210,8 +210,13 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     // XXX: We also can't verify counts with a skip invoked from the middle, but
     // we have no simple way to detect that here.
     if (shard->instr_count_ <= 1 && !shard->skipped_instrs_ && !is_a_unit_test(shard) &&
-        shard->stream->get_instruction_ordinal() > 1)
+        shard->stream->get_instruction_ordinal() > 1) {
         shard->skipped_instrs_ = true;
+        if (!shard->saw_filetype_) {
+            shard->file_type_ =
+                static_cast<offline_file_type_t>(shard->stream->get_filetype());
+        }
+    }
     if (!shard->skipped_instrs_ && !is_a_unit_test(shard) &&
         (shard->stream != serial_stream_ || shard_map_.size() == 1)) {
         report_if_false(shard, shard->ref_count_ == shard->stream->get_record_ordinal(),
@@ -336,6 +341,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
         shard->file_type_ = static_cast<offline_file_type_t>(memref.marker.marker_value);
+        shard->saw_filetype_ = true;
         report_if_false(shard,
                         is_a_unit_test(shard) ||
                             shard->file_type_ == shard->stream->get_filetype(),
