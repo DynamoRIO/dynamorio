@@ -367,8 +367,8 @@ record_filter_t::process_chunk_encodings(per_shard_t *per_shard, trace_entry_t &
         return "";
     if (!per_shard->last_encoding.empty()) {
         per_shard->pc2encoding[entry.addr] = per_shard->last_encoding;
-        // Disable the just-delayed encoding output below if this is
-        // what used to be a new-chunk encoding.
+        // Disable the just-delayed encoding output in process_delayed_encodings() if
+        // this is what used to be a new-chunk encoding but is no longer.
         if (per_shard->cur_chunk_pcs.find(entry.addr) != per_shard->cur_chunk_pcs.end()) {
             VPRINT(this, 3, "clearing new-chunk last encoding @pc=0x%zx\n", entry.addr);
             per_shard->last_encoding.clear();
@@ -392,6 +392,7 @@ record_filter_t::process_chunk_encodings(per_shard_t *per_shard, trace_entry_t &
             if (!write_trace_entries(per_shard, per_shard->pc2encoding[entry.addr])) {
                 return "Failed to write";
             }
+            // Avoid emitting the encoding twice.
             per_shard->delayed_encodings[entry.addr].clear();
         }
     }
