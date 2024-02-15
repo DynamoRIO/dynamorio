@@ -372,7 +372,7 @@ record_filter_t::process_chunk_encodings(per_shard_t *per_shard, trace_entry_t &
             VPRINT(this, 3, "clearing new-chunk last encoding @pc=0x%zx\n", entry.addr);
             per_shard->last_encoding.clear();
         }
-    } else {
+    } else if (output) {
         // Insert the cached encoding if this is the first instance of this PC
         // (without an encoding) in this chunk, unless the user is removing all encodings.
         // XXX: What if there is a filter removing all encodings but only
@@ -391,9 +391,11 @@ record_filter_t::process_chunk_encodings(per_shard_t *per_shard, trace_entry_t &
             if (!write_trace_entries(per_shard, per_shard->pc2encoding[entry.addr])) {
                 return "Failed to write";
             }
+            per_shard->delayed_encodings[entry.addr].clear();
         }
     }
-    per_shard->cur_chunk_pcs.insert(entry.addr);
+    if (output)
+        per_shard->cur_chunk_pcs.insert(entry.addr);
     return "";
 }
 

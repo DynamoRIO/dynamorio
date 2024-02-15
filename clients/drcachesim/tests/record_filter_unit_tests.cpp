@@ -46,6 +46,7 @@
 
 #include <inttypes.h>
 #include <fstream>
+#include <set>
 #include <vector>
 
 namespace dynamorio {
@@ -443,68 +444,192 @@ test_cache_and_type_filter()
 static bool
 test_chunk_update()
 {
-    // From Chunk 1 we remove 3 visible records (the _FUNC_ ones); the encodings
-    // are also removed but are not visible in the record count.
-    std::vector<test_case_t> entries = {
-        // Header.
-        { { TRACE_TYPE_HEADER, 0, { 0x1 } }, true, { true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 0x2 } }, true, { true } },
-        { { TRACE_TYPE_MARKER,
-            TRACE_MARKER_TYPE_FILETYPE,
-            { OFFLINE_FILE_TYPE_ENCODINGS } },
-          true,
-          { false } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE, { 0 } }, false, { true } },
-        { { TRACE_TYPE_THREAD, 0, { 0x4 } }, true, { true } },
-        { { TRACE_TYPE_PID, 0, { 0x5 } }, true, { true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 0x6 } },
-          true,
-          { true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, { 0x2 } },
-          true,
-          { true } },
-        // Chunk 1.
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x7 } }, true, { true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } }, true, { true } },
-        { { TRACE_TYPE_ENCODING, 2, { 0xf00d } }, true, { false } },
-        { { TRACE_TYPE_INSTR, 2, { 0x1234 } }, true, { true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { 0 } }, true, { false } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_RETADDR, { 0 } }, true, { false } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG, { 0 } }, true, { false } },
-        { { TRACE_TYPE_ENCODING, 2, { 0xf00d } }, true, { false } },
-        { { TRACE_TYPE_INSTR, 2, { 0x1235 } }, true, { true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER, { 0 } }, true, { true } },
-        // Chunk 2.
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL, { 12 } },
-          true,
-          { false } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL, { 9 } },
-          false,
-          { true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x7 } }, true, { true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } }, true, { true } },
-        { { TRACE_TYPE_ENCODING, 2, { 0xf00d } }, true, { false } },
-        { { TRACE_TYPE_INSTR, 2, { 0x1236 } }, true, { true } },
-        { { TRACE_TYPE_FOOTER, 0, { 0xa2 } }, true, { true } },
-    };
-
-    // Test that the ordinal marker is updated on removing records.
-    std::vector<std::unique_ptr<record_filter_func_t>> filters;
-    auto filter =
-        std::unique_ptr<record_filter_func_t>(new dynamorio::drmemtrace::type_filter_t(
-            { TRACE_TYPE_ENCODING },
-            { TRACE_MARKER_TYPE_FUNC_ID, TRACE_MARKER_TYPE_FUNC_RETADDR,
-              TRACE_MARKER_TYPE_FUNC_ARG }));
-    if (!filter->get_error_string().empty()) {
-        fprintf(stderr, "Couldn't construct a type_filter %s",
-                filter->get_error_string().c_str());
-        return false;
+    {
+        // Test that the ordinal marker is updated on removing records.
+        // From Chunk 1 we remove 3 visible records (the _FUNC_ ones); the encodings
+        // are also removed but are not visible in the record count.
+        std::vector<test_case_t> entries = {
+            // Header.
+            { { TRACE_TYPE_HEADER, 0, { 0x1 } }, true, { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 0x2 } }, true, { true } },
+            { { TRACE_TYPE_MARKER,
+                TRACE_MARKER_TYPE_FILETYPE,
+                { OFFLINE_FILE_TYPE_ENCODINGS } },
+              true,
+              { false } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE, { 0 } }, false, { true } },
+            { { TRACE_TYPE_THREAD, 0, { 0x4 } }, true, { true } },
+            { { TRACE_TYPE_PID, 0, { 0x5 } }, true, { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 0x6 } },
+              true,
+              { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, { 0x2 } },
+              true,
+              { true } },
+            // Chunk 1.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x7 } },
+              true,
+              { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } }, true, { true } },
+            { { TRACE_TYPE_ENCODING, 2, { 0xf00d } }, true, { false } },
+            { { TRACE_TYPE_INSTR, 2, { 0x1234 } }, true, { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { 0 } }, true, { false } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_RETADDR, { 0 } },
+              true,
+              { false } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG, { 0 } }, true, { false } },
+            { { TRACE_TYPE_ENCODING, 2, { 0xf00d } }, true, { false } },
+            { { TRACE_TYPE_INSTR, 2, { 0x1235 } }, true, { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER, { 0 } },
+              true,
+              { true } },
+            // Chunk 2.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL, { 12 } },
+              true,
+              { false } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL, { 9 } },
+              false,
+              { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x7 } },
+              true,
+              { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } }, true, { true } },
+            { { TRACE_TYPE_ENCODING, 2, { 0xf00d } }, true, { false } },
+            { { TRACE_TYPE_INSTR, 2, { 0x1236 } }, true, { true } },
+            { { TRACE_TYPE_FOOTER, 0, { 0xa2 } }, true, { true } },
+        };
+        std::vector<std::unique_ptr<record_filter_func_t>> filters;
+        auto filter = std::unique_ptr<record_filter_func_t>(
+            new dynamorio::drmemtrace::type_filter_t({ TRACE_TYPE_ENCODING },
+                                                     { TRACE_MARKER_TYPE_FUNC_ID,
+                                                       TRACE_MARKER_TYPE_FUNC_RETADDR,
+                                                       TRACE_MARKER_TYPE_FUNC_ARG }));
+        if (!filter->get_error_string().empty()) {
+            fprintf(stderr, "Couldn't construct a type_filter %s",
+                    filter->get_error_string().c_str());
+            return false;
+        }
+        filters.push_back(std::move(filter));
+        auto record_filter = std::unique_ptr<test_record_filter_t>(
+            new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
+        if (!process_entries_and_check_result(record_filter.get(), entries, 0))
+            return false;
     }
-    filters.push_back(std::move(filter));
-    auto record_filter = std::unique_ptr<test_record_filter_t>(
-        new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
-    if (!process_entries_and_check_result(record_filter.get(), entries, 0))
-        return false;
+    {
+        // Test that a filtered-out instr doesn't have new-chunk encodings added.
+        class ordinal_filter_t : public record_filter_t::record_filter_func_t {
+        public:
+            ordinal_filter_t(std::set<int> ordinals)
+                : ordinals_(ordinals)
+            {
+            }
+            void *
+            parallel_shard_init(memtrace_stream_t *shard_stream,
+                                bool partial_trace_filter) override
+            {
+                return nullptr;
+            }
+            bool
+            parallel_shard_filter(trace_entry_t &entry, void *shard_data) override
+            {
+                bool res = true;
+                if (type_is_instr(static_cast<trace_type_t>(entry.type))) {
+                    if (ordinals_.find(cur_ord_) != ordinals_.end())
+                        res = false;
+                    ++cur_ord_;
+                }
+                return res;
+            }
+            bool
+            parallel_shard_exit(void *shard_data) override
+            {
+                return true;
+            }
+
+        private:
+            // Our test class supports only a single small shard.
+            std::set<int> ordinals_;
+            int cur_ord_ = 0;
+        };
+        constexpr addr_t PC_A = 0x1234;
+        constexpr addr_t PC_B = 0x5678;
+        constexpr addr_t ENCODING_A = 0x4321;
+        constexpr addr_t ENCODING_B = 0x8765;
+        // We have the following where "e" means encoding and | divides chunks and
+        // x means we removed it:
+        //   "eA A A | eB B eA" => "eA A x eB | x eA"
+        // We check to ensure the 2nd B, now removed, has no encoding added.
+        std::vector<test_case_t> entries = {
+            // Header.
+            { { TRACE_TYPE_HEADER, 0, { 0x1 } }, true, { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 0x2 } }, true, { true } },
+            { { TRACE_TYPE_MARKER,
+                TRACE_MARKER_TYPE_FILETYPE,
+                { OFFLINE_FILE_TYPE_ENCODINGS } },
+              true,
+              { true } },
+            { { TRACE_TYPE_THREAD, 0, { 0x4 } }, true, { true } },
+            { { TRACE_TYPE_PID, 0, { 0x5 } }, true, { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 0x6 } },
+              true,
+              { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, { 0x3 } },
+              true,
+              { true } },
+            // Chunk 1.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x7 } },
+              true,
+              { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } }, true, { true } },
+            { { TRACE_TYPE_ENCODING, 2, { ENCODING_A } }, true, { true } },
+            { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
+            { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
+            { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { false } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER, { 0 } },
+              true,
+              { false } },
+            // Chunk 2.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL, { 10 } },
+              true,
+              { false } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x8 } },
+              true,
+              { false } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } }, true, { false } },
+            { { TRACE_TYPE_ENCODING, 2, { ENCODING_B } }, true, { true } },
+            { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER, { 0 } },
+              false,
+              { true } },
+            // New chunk 2.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL, { 10 } },
+              false,
+              { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x8 } },
+              false,
+              { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } }, false, { true } },
+            // This is the heart of this test: there should be no inserted new-chunk
+            // encoding for this filtered-out instruction.
+            { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { false } },
+            { { TRACE_TYPE_ENCODING, 2, { ENCODING_A } }, true, { true } },
+            { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
+            { { TRACE_TYPE_FOOTER, 0, { 0xa2 } }, true, { true } },
+        };
+        std::vector<std::unique_ptr<record_filter_func_t>> filters;
+        auto filter =
+            std::unique_ptr<record_filter_func_t>(new ordinal_filter_t({ 2, 4 }));
+        if (!filter->get_error_string().empty()) {
+            fprintf(stderr, "Couldn't construct a pc_filter %s",
+                    filter->get_error_string().c_str());
+            return false;
+        }
+        filters.push_back(std::move(filter));
+        auto record_filter = std::unique_ptr<test_record_filter_t>(
+            new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
+        if (!process_entries_and_check_result(record_filter.get(), entries, 0))
+            return false;
+    }
     fprintf(stderr, "test_chunk_update passed\n");
     return true;
 }
