@@ -466,7 +466,8 @@ droption_t<std::string>
                       "Predefined types: " CPU_CACHE ", " MISS_ANALYZER ", " TLB
                       ", " REUSE_DIST ", " REUSE_TIME ", " HISTOGRAM ", " BASIC_COUNTS
                       ", " INVARIANT_CHECKER ", " SCHEDULE_STATS ", or " RECORD_FILTER
-                      ". The " RECORD_FILTER " tool cannot be combined with the others. "
+                      ". The " RECORD_FILTER " tool cannot be combined with the others "
+                      "as it operates on raw disk records. "
                       "To invoke an external tool: specify its name as identified by a "
                       "name.drcachesim config file in the DR tools directory.");
 

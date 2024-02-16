@@ -427,7 +427,7 @@ _tmain(int argc, const TCHAR *targv[])
         }
         // release analyzer's space
         delete analyzer;
-    } else {
+    } else if (record_analyzer != nullptr) {
         if (!record_analyzer->print_stats()) {
             std::string error_string_ = record_analyzer->get_error_string();
             FATAL_ERROR("failed to print results%s%s", error_string_.empty() ? "" : ": ",

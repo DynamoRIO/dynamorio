@@ -910,12 +910,13 @@ include:
   enum numeric value.
 
 - Running a simple data cache filter and removing hits.  The cache is enbabled
-  and its size specified by the -filter_cache_size option.  The cache filter
-  can be applied only to the start of a trace using the -filter_stop_timestamp
-  option.
+  and its size specified by the -filter_cache_size option.
 
 - Trimming the start (via -trim_before_timestamp) and end (via -trim_after_timestamp)
   of a trace.  Any now-empty shards are deleted entirely.
+
+A filter can be applied only to the start of a trace using the -filter_stop_timestamp
+option.
 
 Example of removing function markers:
 
