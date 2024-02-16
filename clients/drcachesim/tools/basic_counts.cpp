@@ -228,8 +228,6 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             default: ++counters->other_markers; break;
             }
         }
-    } else if (memref.data.type == TRACE_TYPE_THREAD_EXIT) {
-        assert(shard_type_ != SHARD_BY_THREAD || per_shard->tid == memref.exit.tid);
     } else if (memref.data.type == TRACE_TYPE_INSTR_FLUSH) {
         counters->icache_flushes++;
     } else if (memref.data.type == TRACE_TYPE_DATA_FLUSH) {

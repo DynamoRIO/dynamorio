@@ -3872,6 +3872,13 @@ if (BUILD_CLIENTS)
           "-indir ${thread_trace_dir} -simulator_type reuse_time:reuse_distance:histogram:opcode_mix:syscall_mix -core_sharded"
           "")
         set(tool.core_sharded_rawtemp ON) # no preprocessor
+
+        # Test analysis of core-sharded-on-disk traces.
+        set(core_sharded_dir
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig-core-sharded.x64.tracedir")
+        torunonly_simtool(core_on_disk ${ci_shared_app}
+          "-indir ${core_sharded_dir} -simulator_type basic_counts" "")
+        set(tool.core_on_disk_rawtemp ON) # no preprocessor
       endif ()
     endif ()
 

@@ -692,6 +692,19 @@ typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
     std::unordered_map<int, std::vector<int>> &workload2inputs)
 {
+    bool gather_timestamps = false;
+    if (options_.deps == DEPENDENCY_TIMESTAMPS ||
+        (options_.mapping == MAP_TO_RECORDED_OUTPUT &&
+         options_.replay_as_traced_istream != nullptr && inputs_.size() > 1))
+        gather_timestamps = true;
+    sched_type_t::scheduler_status_t res = get_initial_input_content(gather_timestamps);
+    if (res != STATUS_SUCCESS) {
+        error_string_ = "Failed to read initial input contents for filetype";
+        if (gather_timestamps)
+            error_string_ += " and initial timestamps";
+        return res;
+    }
+
     if (options_.mapping == MAP_AS_PREVIOUSLY) {
         live_replay_output_count_.store(static_cast<int>(outputs_.size()),
                                         std::memory_order_release);
@@ -703,9 +716,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
             return STATUS_ERROR_INVALID_PARAMETER;
         if (options_.deps == DEPENDENCY_TIMESTAMPS) {
             // Match the ordinals from the original run by pre-reading the timestamps.
-            sched_type_t::scheduler_status_t res = get_initial_timestamps();
-            if (res != STATUS_SUCCESS)
-                return res;
+            assert(gather_timestamps);
         }
     } else if (options_.schedule_replay_istream != nullptr) {
         return STATUS_ERROR_INVALID_PARAMETER;
@@ -740,9 +751,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
             // thread first and then pick the oldest timestamp once it reached a
             // timestamp. We instead queue those headers so we can start directly with the
             // oldest timestamp's thread.
-            sched_type_t::scheduler_status_t res = get_initial_timestamps();
-            if (res != STATUS_SUCCESS)
-                return res;
+            assert(gather_timestamps);
             uint64_t min_time = std::numeric_limits<uint64_t>::max();
             input_ordinal_t min_input = -1;
             for (int i = 0; i < static_cast<input_ordinal_t>(inputs_.size()); ++i) {
@@ -758,11 +767,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
     } else {
         // Assign initial inputs.
         if (options_.deps == DEPENDENCY_TIMESTAMPS) {
-            sched_type_t::scheduler_status_t res = get_initial_timestamps();
-            if (res != STATUS_SUCCESS) {
-                error_string_ = "Failed to find initial timestamps";
-                return res;
-            }
+            assert(gather_timestamps);
             // Compute the min timestamp (==base_timestamp) per workload and sort
             // all inputs by relative time from the base.
             for (int workload_idx = 0;
@@ -1254,27 +1259,53 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_switch_sequences()
 
 template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
-scheduler_tmpl_t<RecordType, ReaderType>::get_initial_timestamps()
+scheduler_tmpl_t<RecordType, ReaderType>::get_initial_input_content(
+    bool gather_timestamps)
 {
+    // For every mode, read ahead until we see a filetype record so the user
+    // can examine it prior to retrieving any records.
+
     // Read ahead in each input until we find a timestamp record.
     // Queue up any skipped records to ensure we present them to the
     // output stream(s).
     for (size_t i = 0; i < inputs_.size(); ++i) {
         input_info_t &input = inputs_[i];
-        if (input.next_timestamp <= 0) {
+        bool found_filetype = false;
+        bool found_timestamp = !gather_timestamps || input.next_timestamp > 0;
+        if (!found_filetype || !found_timestamp) {
             for (const auto &record : input.queue) {
+                trace_marker_type_t marker_type;
+                uintptr_t marker_value;
+                if (record_type_is_marker(record, marker_type, marker_value) &&
+                    marker_type == TRACE_MARKER_TYPE_FILETYPE) {
+                    found_filetype = true;
+                    VPRINT(this, 2, "Input %zu filetype %zu\n", i, marker_value);
+                }
                 if (record_type_is_timestamp(record, input.next_timestamp))
+                    found_timestamp = true;
+                if (found_filetype && found_timestamp)
                     break;
             }
         }
-        if (input.next_timestamp <= 0) {
+        if (input.next_timestamp > 0)
+            found_timestamp = true;
+        if (!found_filetype || !found_timestamp) {
             if (input.needs_init) {
                 input.reader->init();
                 input.needs_init = false;
             }
             while (*input.reader != *input.reader_end) {
                 RecordType record = **input.reader;
+                trace_marker_type_t marker_type;
+                uintptr_t marker_value;
+                if (record_type_is_marker(record, marker_type, marker_value) &&
+                    marker_type == TRACE_MARKER_TYPE_FILETYPE) {
+                    found_filetype = true;
+                    VPRINT(this, 2, "Input %zu filetype %zu\n", i, marker_value);
+                }
                 if (record_type_is_timestamp(record, input.next_timestamp))
+                    found_timestamp = true;
+                if (found_filetype && found_timestamp)
                     break;
                 // If we see an instruction, there may be no timestamp (a malformed
                 // synthetic trace in a test) or we may have to read thousands of records
@@ -1287,7 +1318,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_initial_timestamps()
                 ++(*input.reader);
             }
         }
-        if (input.next_timestamp <= 0)
+        if (gather_timestamps && input.next_timestamp <= 0)
             return STATUS_ERROR_INVALID_PARAMETER;
     }
     return STATUS_SUCCESS;
@@ -1894,6 +1925,11 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_cur_input(output_ordinal_t output,
     }
 
     std::lock_guard<std::mutex> lock(*inputs_[input].lock);
+
+    if (prev_input < 0 && outputs_[output].stream->filetype_ == 0) {
+        // Set the filetype up front, to let the user query at init time as documented.
+        outputs_[output].stream->filetype_ = inputs_[input].reader->get_filetype();
+    }
 
     if (!switch_sequence_.empty() &&
         outputs_[output].stream->get_instruction_ordinal() > 0) {

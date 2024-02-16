@@ -865,6 +865,8 @@ public:
          * #offline_file_type_t identifying the architecture and
          * other key high-level attributes of the trace from the
          * #TRACE_MARKER_TYPE_FILETYPE record in the trace header.
+         * This can be queried prior to explicitly retrieving any records from
+         * output streams.
          */
         uint64_t
         get_filetype() const override
@@ -1306,10 +1308,11 @@ protected:
     set_initial_schedule(std::unordered_map<int, std::vector<int>> &workload2inputs);
 
     // Assumed to only be called at initialization time.
-    // Reads ahead in each input to find its first timestamp (queuing the records
-    // read to feed to the user's first requests).
+    // Reads ahead in each input to find its filetype, and if "gather_timestamps"
+    // is set, to find its first timestamp, queuing all records
+    // read to feed to the user's first requests.
     scheduler_status_t
-    get_initial_timestamps();
+    get_initial_input_content(bool gather_timestamps);
 
     // Opens up all the readers for each file in 'path' which may be a directory.
     // Returns a map of the thread id of each file to its index in inputs_.
