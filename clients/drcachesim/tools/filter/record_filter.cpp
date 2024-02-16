@@ -56,6 +56,10 @@
 #include "raw2trace_shared.h"
 #include "trace_entry.h"
 #include "utils.h"
+#include "null_filter.h"
+#include "cache_filter.h"
+#include "trim_filter.h"
+#include "type_filter.h"
 
 #undef VPRINT
 #ifdef DEBUG
@@ -78,13 +82,72 @@ namespace dynamorio {
 namespace drmemtrace {
 
 namespace {
+
 bool
 is_any_instr_type(trace_type_t type)
 {
     return type_is_instr(type) || type == TRACE_TYPE_INSTR_MAYBE_FETCH ||
         type == TRACE_TYPE_INSTR_NO_FETCH;
 }
+
+template <typename T>
+std::vector<T>
+parse_string(const std::string &s, char sep = ',')
+{
+    size_t pos, at = 0;
+    if (s.empty())
+        return {};
+    std::vector<T> vec;
+    do {
+        pos = s.find(sep, at);
+        vec.push_back(static_cast<T>(std::stoi(s.substr(at, pos))));
+        at = pos + 1;
+    } while (pos != std::string::npos);
+    return vec;
+}
+
 } // namespace
+
+record_analysis_tool_t *
+record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp,
+                          int cache_filter_size, const std::string &remove_trace_types,
+                          const std::string &remove_marker_types,
+                          uint64_t trim_before_timestamp, uint64_t trim_after_timestamp,
+                          unsigned int verbose)
+{
+    std::vector<
+        std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>>
+        filter_funcs;
+    if (cache_filter_size > 0) {
+        filter_funcs.emplace_back(
+            std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
+                // XXX: add more command-line options to allow the user to set these
+                // parameters.
+                new dynamorio::drmemtrace::cache_filter_t(
+                    /*cache_associativity=*/1, /*cache_line_size=*/64, cache_filter_size,
+                    /*filter_data=*/true, /*filter_instrs=*/false)));
+    }
+    if (!remove_trace_types.empty() || !remove_marker_types.empty()) {
+        std::vector<trace_type_t> filter_trace_types =
+            parse_string<trace_type_t>(remove_trace_types);
+        std::vector<trace_marker_type_t> filter_marker_types =
+            parse_string<trace_marker_type_t>(remove_marker_types);
+        filter_funcs.emplace_back(
+            std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
+                new dynamorio::drmemtrace::type_filter_t(filter_trace_types,
+                                                         filter_marker_types)));
+    }
+    if (trim_before_timestamp > 0 || trim_after_timestamp > 0) {
+        filter_funcs.emplace_back(
+            std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
+                new dynamorio::drmemtrace::trim_filter_t(trim_before_timestamp,
+                                                         trim_after_timestamp)));
+    }
+    // TODO i#5675: Add other filters.
+
+    return new dynamorio::drmemtrace::record_filter_t(output_dir, std::move(filter_funcs),
+                                                      stop_timestamp, verbose);
+}
 
 record_filter_t::record_filter_t(
     const std::string &output_dir,
