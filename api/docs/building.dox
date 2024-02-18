@@ -152,7 +152,12 @@ In order to build the documentation, you will additionally need:
 
   - doxygen
 
-We have tested the following versions of gcc: 4.4.3, 4.3.0, 4.1.2, and 3.4.3.
+To see which versions of these packages we have tested, look up the
+versions for the Github Actions runner images that execute our
+continuous integration tests at
+https://github.com/actions/runner-images.  You can find the images we
+are currently using in our [workflow
+files](https://github.com/DynamoRIO/dynamorio/tree/master/.github/workflows).
 
 If your machine does not have support for running 32-bit applications and
 its version of binutils is older than 2.18.50 then you'll need to set the
