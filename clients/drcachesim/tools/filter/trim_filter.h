@@ -72,23 +72,18 @@ public:
     parallel_shard_filter(trace_entry_t &entry, void *shard_data) override
     {
         per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
-        if (per_shard->just_saw_trim_start_after) {
-            if (entry.type == TRACE_TYPE_MARKER &&
-                entry.size == TRACE_MARKER_TYPE_CPU_ID) {
-                // Wait for the next record to start removing.
-                return true;
-            }
-            per_shard->in_removed_region = true;
-            per_shard->just_saw_trim_start_after = false;
-        }
         if (entry.type == TRACE_TYPE_MARKER &&
             entry.size == TRACE_MARKER_TYPE_TIMESTAMP) {
-            if (entry.addr < trim_before_timestamp_)
+            // While it seems theoretically nice to keep the timestamp,cpuid that
+            // is over the threshold so we have a timestamp at the end, that results
+            // in large time gaps if across a blocking syscall.  Trying to edit
+            // that timestamp a la -align_endpoints is not deal either as it can
+            // distort syscall durations.  The least-bad solution seems to be to
+            // keep the regular trace content right up to the timestamp and
+            // throw away the timestamp.
+            if (entry.addr < trim_before_timestamp_ || entry.addr > trim_after_timestamp_)
                 per_shard->in_removed_region = true;
-            else if (entry.addr > trim_after_timestamp_) {
-                if (!per_shard->in_removed_region)
-                    per_shard->just_saw_trim_start_after = true;
-            } else
+            else
                 per_shard->in_removed_region = false;
         }
         if (entry.type == TRACE_TYPE_THREAD_EXIT || entry.type == TRACE_TYPE_FOOTER) {
@@ -116,7 +111,6 @@ public:
 private:
     struct per_shard_t {
         bool in_removed_region = false;
-        bool just_saw_trim_start_after = false;
     };
 
     uint64_t trim_before_timestamp_;

@@ -1,4 +1,4 @@
-Output 290 entries from 329 entries.
+Output 288 entries from 329 entries.
 Output format:
 <--record#-> <--instr#->: <---tid---> <record details>
 ------------------------------------------------------------
@@ -21,9 +21,7 @@ Output format:
          215         119:     1992554 ifetch       5 byte\(s\) @ 0x0000000000401021 b8 01 00 00 00       mov    \$0x00000001 -> %eax
          216         120:     1992554 ifetch       2 byte\(s\) @ 0x0000000000401026 0f 05                syscall  -> %rcx %r11
          217         120:     1992554 <marker: chunk footer #5>
-         218         120:     1992554 <marker: timestamp 13352268558646666>
-         219         120:     1992554 <marker: tid 1992554 on core 10>
-         220         120:     1992554 <thread 1992554 exited>
+         218         120:     1992554 <thread 1992554 exited>
 View tool results:
             120 : total instructions
 
