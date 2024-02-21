@@ -200,6 +200,9 @@ public:
         // Allow the analyzer framework access to private data members to set them
         // during trace interval analysis. Tools have read-only access via the public
         // accessor functions.
+        // Note that we expect X to be same as RecordType. But friend declarations
+        // cannot refer to partial specializations so we go with the separate template
+        // parameter X.
         template <typename X, typename Y> friend class analyzer_tmpl_t;
 
     public:
