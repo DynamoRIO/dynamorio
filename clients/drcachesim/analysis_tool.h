@@ -220,7 +220,7 @@ public:
         // the tool returns the interval_state_snapshot_t* in the
         // generate_*interval_snapshot APIs. So they'll be available to the tool in
         // the finalize_interval_snapshots(), combine_interval_snapshots(), and
-        // print_interval_results APIs.
+        // print_interval_results() APIs.
 
         // Identifier for the shard to which this interval belongs. Currently, shards
         // map only to threads, so this is the thread id. Set to WHOLE_TRACE_SHARD_ID
@@ -255,8 +255,8 @@ public:
      * Trace intervals have a length equal to the \p -interval_microseconds specified
      * to the framework. Trace intervals are measured using the value of the
      * #TRACE_MARKER_TYPE_TIMESTAMP markers. Alternatively, trace intervals may be
-     * defined in terms of the \p -interval_instr_count count of instrs specified to
-     * the framework.
+     * defined in terms of the \p -interval_instr_count count of shard-local instrs
+     * specified to the framework.
      *
      * The provided \p interval_id values will be monotonically increasing but may
      * not be continuous, i.e. the tool may not see some \p interval_id if the trace
@@ -291,8 +291,10 @@ public:
      *
      * Tools can modify the individual snapshots and also the list of snapshots itself.
      * If some snapshots are removed, release_interval_snapshot() will not be invoked
-     * for them. Adding new snapshots to the list is undefined behavior; tools should
-     * operate only on the provided snapshots.
+     * for them and the tool is responsible to de-allocate the resources. Adding new
+     * snapshots to the list is undefined behavior; tools should operate only on the
+     * provided snapshots which were generated in prior generate_*interval_snapshot
+     * calls.
      *
      * Tools should not modify any data in the base \p interval_state_snapshot_t
      * struct.
@@ -499,8 +501,8 @@ public:
      * Trace intervals have a length equal to the \p -interval_microseconds specified
      * to the framework. Trace intervals are measured using the value of the
      * #TRACE_MARKER_TYPE_TIMESTAMP markers.  Alternatively, trace intervals may be
-     * defined in terms of the \p -interval_instr_count count of instrs specified to
-     * the framework.
+     * defined in terms of the \p -interval_instr_count count of shard-local instrs
+     * specified to the framework.
      *
      * The provided \p interval_id values will be monotonically increasing but may
      * not be continuous, i.e. the tool may not see some \p interval_id if the trace
