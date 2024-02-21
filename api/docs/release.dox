@@ -147,6 +147,10 @@ changes:
    does not support merging the shard interval snapshots to output the whole-trace
    interval snapshots. Instead, the print_interval_results() API is called separately
    for each shard with the interval state snapshots of that shard.
+ - Added a new finalize_interval_snapshots() API to
+   #dynamorio::drmemtrace::analysis_tool_t to allow the tool to make holistic
+   adjustments to the interval snapshots after all have been generated, and before
+   they are used for merging across shards (potentially), and printing the results.
 
 Further non-compatibility-affecting changes include:
  - Added DWARF-5 support to the drsyms library by linking in 4 static libraries
