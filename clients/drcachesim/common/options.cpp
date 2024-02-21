@@ -973,9 +973,8 @@ droption_t<uint64_t> op_trim_after_timestamp(
     DROPTION_SCOPE_ALL, "trim_after_timestamp", (std::numeric_limits<uint64_t>::max)(), 0,
     (std::numeric_limits<uint64_t>::max)(),
     "Trim records after this timestamp (in us) in the trace.",
-    "Removes all records after the first TRACE_MARKER_TYPE_TIMESTAMP marker with "
-    "timestamp larger than the specified value (keeps a TRACE_MARKER_TYPE_CPU_ID "
-    "immediately following the transition timestamp).");
+    "Removes all records from the first TRACE_MARKER_TYPE_TIMESTAMP marker with "
+    "timestamp larger than the specified value.");
 
 } // namespace drmemtrace
 } // namespace dynamorio
