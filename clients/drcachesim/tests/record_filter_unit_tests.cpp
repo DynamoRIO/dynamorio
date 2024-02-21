@@ -226,6 +226,10 @@ process_entries_and_check_result(test_record_filter_t *record_filter,
         fprintf(stderr, "Filtering exit failed\n");
         return false;
     }
+    if (!record_filter->print_results()) {
+        fprintf(stderr, "Filtering results failed\n");
+        return false;
+    }
 
     std::vector<trace_entry_t> filtered = record_filter->get_output_entries();
     // Verbose output for easier debugging.
