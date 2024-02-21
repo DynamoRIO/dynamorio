@@ -451,37 +451,38 @@ basic_counts_t::print_interval_results(
 {
     std::cerr << "Counts per trace interval for ";
     if (!interval_snapshots.empty() &&
-        interval_snapshots[0]->shard_id !=
+        interval_snapshots[0]->get_shard_id() !=
             interval_state_snapshot_t::WHOLE_TRACE_SHARD_ID) {
-        std::cerr << "TID " << interval_snapshots[0]->shard_id << ":\n";
+        std::cerr << "TID " << interval_snapshots[0]->get_shard_id() << ":\n";
     } else {
         std::cerr << "whole trace:\n";
     }
     counters_t last;
     for (const auto &snapshot_base : interval_snapshots) {
         auto *snapshot = dynamic_cast<count_snapshot_t *>(snapshot_base);
-        std::cerr << "Interval #" << snapshot->interval_id << " ending at timestamp "
-                  << snapshot->interval_end_timestamp << ":\n";
+        std::cerr << "Interval #" << snapshot->get_interval_id()
+                  << " ending at timestamp " << snapshot->get_interval_end_timestamp()
+                  << ":\n";
         counters_t diff = snapshot->counters;
         diff -= last;
         print_counters(diff, " interval delta");
         last = snapshot->counters;
         if (knob_verbose_ > 0) {
-            if (snapshot->instr_count_cumulative !=
+            if (snapshot->get_instr_count_cumulative() !=
                 static_cast<uint64_t>(snapshot->counters.instrs)) {
                 std::stringstream err_stream;
                 err_stream << "Cumulative instr count value provided by framework ("
-                           << snapshot->instr_count_cumulative
+                           << snapshot->get_instr_count_cumulative()
                            << ") not equal to tool value (" << snapshot->counters.instrs
                            << ")\n";
                 error_string_ = err_stream.str();
                 return false;
             }
-            if (snapshot->instr_count_delta != static_cast<uint64_t>(diff.instrs)) {
+            if (snapshot->get_instr_count_delta() != static_cast<uint64_t>(diff.instrs)) {
                 std::stringstream err_stream;
                 err_stream << "Delta instr count value provided by framework ("
-                           << snapshot->instr_count_delta << ") not equal to tool value ("
-                           << diff.instrs << ")\n";
+                           << snapshot->get_instr_count_delta()
+                           << ") not equal to tool value (" << diff.instrs << ")\n";
                 error_string_ = err_stream.str();
                 return false;
             }

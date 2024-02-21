@@ -196,7 +196,13 @@ public:
      * default constructor. The members of this base class will be set by the
      * framework automatically.
      */
-    struct interval_state_snapshot_t {
+    class interval_state_snapshot_t {
+        // Allow the analyzer framework access to private data members to set them
+        // during trace interval analysis. Tools have read-only access via the public
+        // accessor functions.
+        template <typename X, typename Y> friend class analyzer_tmpl_t;
+
+    public:
         // This constructor is only for convenience in unit tests. The tool does not
         // need to provide these values, and can simply use the default constructor
         // below.
@@ -204,43 +210,70 @@ public:
                                   uint64_t interval_end_timestamp,
                                   uint64_t instr_count_cumulative,
                                   uint64_t instr_count_delta)
-            : shard_id(shard_id)
-            , interval_id(interval_id)
-            , interval_end_timestamp(interval_end_timestamp)
-            , instr_count_cumulative(instr_count_cumulative)
-            , instr_count_delta(instr_count_delta)
+            : shard_id_(shard_id)
+            , interval_id_(interval_id)
+            , interval_end_timestamp_(interval_end_timestamp)
+            , instr_count_cumulative_(instr_count_cumulative)
+            , instr_count_delta_(instr_count_delta)
         {
         }
         interval_state_snapshot_t()
         {
         }
+        virtual ~interval_state_snapshot_t() = default;
 
+        int64_t
+        get_shard_id() const
+        {
+            return shard_id_;
+        }
+        uint64_t
+        get_interval_id() const
+        {
+            return interval_id_;
+        }
+        uint64_t
+        get_interval_end_timestamp() const
+        {
+            return interval_end_timestamp_;
+        }
+        uint64_t
+        get_instr_count_cumulative() const
+        {
+            return instr_count_cumulative_;
+        }
+        uint64_t
+        get_instr_count_delta() const
+        {
+            return instr_count_delta_;
+        }
+
+        static constexpr int64_t WHOLE_TRACE_SHARD_ID = -1;
+
+    private:
         // The following fields are set automatically by the analyzer framework after
         // the tool returns the interval_state_snapshot_t* in the
         // generate_*interval_snapshot APIs. So they'll be available to the tool in
-        // the combine_interval_snapshots and print_interval_results APIs.
+        // the combine_interval_snapshots (for the parameter snapshots) and
+        // print_interval_results APIs via the above public accessor functions.
 
         // Identifier for the shard to which this interval belongs. Currently, shards
         // map only to threads, so this is the thread id. Set to WHOLE_TRACE_SHARD_ID
         // for the whole trace interval snapshots.
-        int64_t shard_id = 0;
-        uint64_t interval_id = 0;
+        int64_t shard_id_ = 0;
+        uint64_t interval_id_ = 0;
         // Stores the timestamp (exclusive) when the above interval ends. Note
         // that this is not the last timestamp actually seen in the trace interval,
         // but simply the abstract boundary of the interval. This will be aligned
         // to the specified -interval_microseconds.
-        uint64_t interval_end_timestamp = 0;
+        uint64_t interval_end_timestamp_ = 0;
 
         // Count of instructions: cumulative till this interval's end, and the
         // incremental delta in this interval vs the previous one. May be useful for
         // tools to compute PKI (per kilo instruction) metrics; obviates the need for
         // each tool to duplicate this.
-        uint64_t instr_count_cumulative = 0;
-        uint64_t instr_count_delta = 0;
-
-        static constexpr int64_t WHOLE_TRACE_SHARD_ID = -1;
-
-        virtual ~interval_state_snapshot_t() = default;
+        uint64_t instr_count_cumulative_ = 0;
+        uint64_t instr_count_delta_ = 0;
     };
     /**
      * Notifies the analysis tool that the given trace \p interval_id has ended so
