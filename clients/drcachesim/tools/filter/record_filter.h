@@ -168,6 +168,7 @@ protected:
         bool prev_was_output = false;
         addr_t filetype = 0;
         memref_tid_t tid = 0; // For thread-sharded.
+        bool now_empty = false;
     };
 
     virtual std::string
