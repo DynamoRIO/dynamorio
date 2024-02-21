@@ -622,6 +622,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
                 worker->error =
                     "Failed to read from trace: " + worker->stream->get_stream_name();
             }
+            worker->stream->set_active(false); // Avoid hang in scheduler.
             return;
         }
         int shard_index = shard_type_ == SHARD_BY_CORE
@@ -655,6 +656,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
                                 record_is_instr(record)) &&
             !process_interval(prev_interval_index, prev_interval_init_instr_count, worker,
                               /*parallel=*/true, record_is_instr(record), shard_index)) {
+            worker->stream->set_active(false); // Avoid hang in scheduler.
             return;
         }
         for (int i = 0; i < num_tools_; ++i) {
@@ -665,24 +667,31 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
                 VPRINT(this, 1, "Worker %d hit shard memref error %s on trace shard %s\n",
                        worker->index, worker->error.c_str(),
                        worker->stream->get_stream_name().c_str());
+                worker->stream->set_active(false); // Avoid hang in scheduler.
                 return;
             }
         }
         if (record_is_thread_final(record) && shard_type_ != SHARD_BY_CORE) {
-            if (!process_shard_exit(worker, shard_index))
+            if (!process_shard_exit(worker, shard_index)) {
+                worker->stream->set_active(false); // Avoid hang in scheduler.
                 return;
+            }
         }
     }
     if (shard_type_ == SHARD_BY_CORE) {
         if (worker->shard_data.find(worker->index) != worker->shard_data.end()) {
-            if (!process_shard_exit(worker, worker->index))
+            if (!process_shard_exit(worker, worker->index)) {
+                worker->stream->set_active(false); // Avoid hang in scheduler.
                 return;
+            }
         }
     }
     for (const auto &keyval : worker->shard_data) {
         if (!keyval.second.exited) {
-            if (!process_shard_exit(worker, keyval.second.shard_index))
+            if (!process_shard_exit(worker, keyval.second.shard_index)) {
+                worker->stream->set_active(false); // Avoid hang in scheduler.
                 return;
+            }
         }
     }
     for (int i = 0; i < num_tools_; ++i) {
@@ -691,6 +700,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
             worker->error = error;
             VPRINT(this, 1, "Worker %d hit worker exit error %s\n", worker->index,
                    error.c_str());
+            worker->stream->set_active(false); // Avoid hang in scheduler.
             return;
         }
     }
