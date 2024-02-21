@@ -92,6 +92,7 @@ public:
          * The passed \p entry is not guaranteed to be the original one from
          * the trace if other filter tools are present, and may include changes
          * made by other tools.
+         * An error is indicated by setting error_string_ to a non-empty value.
          */
         virtual bool
         parallel_shard_filter(trace_entry_t &entry, void *shard_data) = 0;
@@ -153,13 +154,39 @@ protected:
         uint64_t output_entry_count;
         memtrace_stream_t *shard_stream;
         bool enabled;
+        // For re-chunking archive files.
         uint64_t chunk_ordinal = 0;
-        uint64_t removed_from_prev_chunk = 0;
+        uint64_t chunk_size = 0;
+        uint64_t cur_chunk_instrs = 0;
+        uint64_t cur_refs = 0;
+        uint64_t input_count_at_ordinal = 0;
         memref_counter_t memref_counter;
+        addr_t last_timestamp = 0;
+        addr_t last_cpu_id = 0;
+        std::unordered_set<addr_t> cur_chunk_pcs;
+        std::unordered_map<addr_t, std::vector<trace_entry_t>> pc2encoding;
+        bool prev_was_output = false;
+        addr_t filetype = 0;
+        memref_tid_t tid = 0; // For thread-sharded.
     };
 
     virtual std::string
     open_new_chunk(per_shard_t *shard);
+
+    std::string
+    emit_marker(per_shard_t *shard, unsigned short marker_type, uint64_t marker_value);
+
+    virtual std::string
+    remove_output_file(per_shard_t *per_shard);
+
+    std::string
+    process_markers(per_shard_t *per_shard, trace_entry_t &entry, bool &output);
+
+    std::string
+    process_chunk_encodings(per_shard_t *per_shard, trace_entry_t &entry, bool output);
+
+    std::string
+    process_delayed_encodings(per_shard_t *per_shard, trace_entry_t &entry, bool output);
 
     std::unordered_map<int, per_shard_t *> shard_map_;
     // This mutex is only needed in parallel_shard_init. In all other accesses

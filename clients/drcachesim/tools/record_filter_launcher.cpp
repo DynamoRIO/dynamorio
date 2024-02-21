@@ -41,10 +41,7 @@
 #include "analyzer.h"
 #include "droption.h"
 #include "dr_frontend.h"
-#include "tools/filter/null_filter.h"
-#include "tools/filter/cache_filter.h"
-#include "tools/filter/type_filter.h"
-#include "tools/filter/record_filter.h"
+#include "tools/filter/record_filter_create.h"
 #include "tests/test_helpers.h"
 
 #include <limits>
@@ -110,21 +107,20 @@ static droption_t<std::string>
                            "Comma-separated integers for marker types to remove. "
                            "See trace_marker_type_t for the list of marker types.");
 
-template <typename T>
-std::vector<T>
-parse_string(const std::string &s, char sep = ',')
-{
-    size_t pos, at = 0;
-    if (s.empty())
-        return {};
-    std::vector<T> vec;
-    do {
-        pos = s.find(sep, at);
-        vec.push_back(static_cast<T>(std::stoi(s.substr(at, pos))));
-        at = pos + 1;
-    } while (pos != std::string::npos);
-    return vec;
-}
+static droption_t<uint64_t> op_trim_before_timestamp(
+    DROPTION_SCOPE_ALL, "trim_before_timestamp", 0, 0,
+    (std::numeric_limits<uint64_t>::max)(),
+    "Trim records until this timestamp (in us) in the trace.",
+    "Removes all records (after headers) before the first TRACE_MARKER_TYPE_TIMESTAMP "
+    "marker in the trace with timestamp greater than or equal to the specified value.");
+
+static droption_t<uint64_t> op_trim_after_timestamp(
+    DROPTION_SCOPE_ALL, "trim_after_timestamp", (std::numeric_limits<uint64_t>::max)(), 0,
+    (std::numeric_limits<uint64_t>::max)(),
+    "Trim records after this timestamp (in us) in the trace.",
+    "Removes all records after the first TRACE_MARKER_TYPE_TIMESTAMP marker with "
+    "timestamp larger than the specified value (keeps a TRACE_MARKER_TYPE_CPU_ID "
+    "immediately following the transition timestamp).");
 
 } // namespace
 
@@ -150,35 +146,12 @@ _tmain(int argc, const TCHAR *targv[])
                     droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
     }
 
-    std::vector<
-        std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>>
-        filter_funcs;
-    if (op_cache_filter_size.specified()) {
-        filter_funcs.emplace_back(
-            std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
-                // XXX: add more command-line options to allow the user to set these
-                // parameters.
-                new dynamorio::drmemtrace::cache_filter_t(
-                    /*cache_associativity=*/1, /*cache_line_size=*/64,
-                    op_cache_filter_size.get_value(),
-                    /*filter_data=*/true, /*filter_instrs=*/false)));
-    }
-    if (op_remove_trace_types.specified() || op_remove_marker_types.specified()) {
-        std::vector<trace_type_t> filter_trace_types =
-            parse_string<trace_type_t>(op_remove_trace_types.get_value());
-        std::vector<trace_marker_type_t> filter_marker_types =
-            parse_string<trace_marker_type_t>(op_remove_marker_types.get_value());
-        filter_funcs.emplace_back(
-            std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
-                new dynamorio::drmemtrace::type_filter_t(filter_trace_types,
-                                                         filter_marker_types)));
-    }
-    // TODO i#5675: Add other filters.
-
     auto record_filter = std::unique_ptr<record_analysis_tool_t>(
-        new dynamorio::drmemtrace::record_filter_t(
-            op_output_dir.get_value(), std::move(filter_funcs),
-            op_stop_timestamp.get_value(), op_verbose.get_value()));
+        dynamorio::drmemtrace::record_filter_tool_create(
+            op_output_dir.get_value(), op_stop_timestamp.get_value(),
+            op_cache_filter_size.get_value(), op_remove_trace_types.get_value(),
+            op_remove_marker_types.get_value(), op_trim_before_timestamp.get_value(),
+            op_trim_after_timestamp.get_value(), op_verbose.get_value()));
     std::vector<record_analysis_tool_t *> tools;
     tools.push_back(record_filter.get());
 

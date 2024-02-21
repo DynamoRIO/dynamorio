@@ -355,6 +355,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
             # fail intermittently on SVE hardware.
             %ignore_failures_sve = ('code_api|tool.drcacheoff.burst_threads_counts' => 1,
                                    'code_api|tool.drcachesim.scattergather-aarch64' => 1, # i#3320
+                                   'code_api|tool.drcachesim.threads' => 1,  # i#3320
                                    'code_api|tool.drcachesim.threads-with-config-file' => 1,  # i#3320
                                    'code_api|tool.drcachesim.coherence' => 1, # i#3320
                                    'code_api|tool.drcachesim.miss_analyzer' => 1, # i#3320

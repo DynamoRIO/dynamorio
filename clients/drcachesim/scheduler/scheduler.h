@@ -565,9 +565,10 @@ public:
          */
         double block_time_scale = 1000.;
         /**
-         * The maximum time, in microseconds, for an input to be considered blocked
-         * for any one system call.  This is applied after multiplying by
-         * #block_time_scale.
+         * The maximum time, in the units explained by #block_time_scale (either
+         * #QUANTUM_TIME simulator time or wall-clock microseconds for
+         * #QUANTUM_INSTRUCTIONS), for an input to be considered blocked for any one
+         * system call.  This is applied after multiplying by #block_time_scale.
          */
         uint64_t block_time_max = 25000000;
         // XXX: Should we share the file-to-reader code currently in the scheduler

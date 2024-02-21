@@ -53,6 +53,7 @@
 #include "simulator/cache_simulator_create.h"
 #include "simulator/tlb_simulator_create.h"
 #include "tools/basic_counts_create.h"
+#include "tools/filter/record_filter_create.h"
 #include "tools/func_view_create.h"
 #include "tools/histogram_create.h"
 #include "tools/invariant_checker.h"
@@ -65,6 +66,7 @@
 #include "tools/view_create.h"
 #include "tools/loader/external_config_file.h"
 #include "tools/loader/external_tool_creator.h"
+#include "tools/filter/record_filter_create.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -326,7 +328,16 @@ record_analysis_tool_t *
 record_analyzer_multi_t::create_analysis_tool_from_options(
     const std::string &simulator_type)
 {
-    // TODO i#6635: create the record_filter tool if requested.
+    if (simulator_type == RECORD_FILTER) {
+        return record_filter_tool_create(
+            op_outdir.get_value(), op_filter_stop_timestamp.get_value(),
+            op_filter_cache_size.get_value(), op_filter_trace_types.get_value(),
+            op_filter_marker_types.get_value(), op_trim_before_timestamp.get_value(),
+            op_trim_after_timestamp.get_value(), op_verbose.get_value());
+    }
+    ERRMSG("Usage error: unsupported record analyzer type \"%s\".  Only " RECORD_FILTER
+           " is supported.\n",
+           simulator_type.c_str());
     return nullptr;
 }
 
