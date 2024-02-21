@@ -76,6 +76,7 @@ public:
             sched_ops = scheduler_t::make_scheduler_parallel_options(verbosity_);
         else
             sched_ops = scheduler_t::make_scheduler_serial_options(verbosity_);
+        sched_mapping_ = sched_ops.mapping;
         if (scheduler_.init(sched_inputs, worker_count_, std::move(sched_ops)) !=
             sched_type_t::STATUS_SUCCESS) {
             assert(false);

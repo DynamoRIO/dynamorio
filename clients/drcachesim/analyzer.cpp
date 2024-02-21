@@ -317,6 +317,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
         worker_count_ = 1;
         output_count = 1;
     }
+    sched_mapping_ = options.mapping;
     if (scheduler_.init(sched_inputs, output_count, std::move(sched_ops)) !=
         sched_type_t::STATUS_SUCCESS) {
         ERRMSG("Failed to initialize scheduler: %s\n",
@@ -585,8 +586,9 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_shard_exit(
 }
 
 template <typename RecordType, typename ReaderType>
-void
-analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *worker)
+bool
+analyzer_tmpl_t<RecordType, ReaderType>::process_tasks_internal(
+    analyzer_worker_data_t *worker)
 {
     std::vector<void *> user_worker_data(num_tools_);
 
@@ -622,8 +624,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
                 worker->error =
                     "Failed to read from trace: " + worker->stream->get_stream_name();
             }
-            worker->stream->set_active(false); // Avoid hang in scheduler.
-            return;
+            return false;
         }
         int shard_index = shard_type_ == SHARD_BY_CORE
             ? worker->index
@@ -656,8 +657,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
                                 record_is_instr(record)) &&
             !process_interval(prev_interval_index, prev_interval_init_instr_count, worker,
                               /*parallel=*/true, record_is_instr(record), shard_index)) {
-            worker->stream->set_active(false); // Avoid hang in scheduler.
-            return;
+            return false;
         }
         for (int i = 0; i < num_tools_; ++i) {
             if (!tools_[i]->parallel_shard_memref(
@@ -667,30 +667,26 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
                 VPRINT(this, 1, "Worker %d hit shard memref error %s on trace shard %s\n",
                        worker->index, worker->error.c_str(),
                        worker->stream->get_stream_name().c_str());
-                worker->stream->set_active(false); // Avoid hang in scheduler.
-                return;
+                return false;
             }
         }
         if (record_is_thread_final(record) && shard_type_ != SHARD_BY_CORE) {
             if (!process_shard_exit(worker, shard_index)) {
-                worker->stream->set_active(false); // Avoid hang in scheduler.
-                return;
+                return false;
             }
         }
     }
     if (shard_type_ == SHARD_BY_CORE) {
         if (worker->shard_data.find(worker->index) != worker->shard_data.end()) {
             if (!process_shard_exit(worker, worker->index)) {
-                worker->stream->set_active(false); // Avoid hang in scheduler.
-                return;
+                return false;
             }
         }
     }
     for (const auto &keyval : worker->shard_data) {
         if (!keyval.second.exited) {
             if (!process_shard_exit(worker, keyval.second.shard_index)) {
-                worker->stream->set_active(false); // Avoid hang in scheduler.
-                return;
+                return false;
             }
         }
     }
@@ -700,8 +696,28 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
             worker->error = error;
             VPRINT(this, 1, "Worker %d hit worker exit error %s\n", worker->index,
                    error.c_str());
-            worker->stream->set_active(false); // Avoid hang in scheduler.
-            return;
+            return false;
+        }
+    }
+    return true;
+}
+
+template <typename RecordType, typename ReaderType>
+void
+analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *worker)
+{
+    if (!process_tasks_internal(worker)) {
+        if (sched_mapping_ == sched_type_t::MAP_TO_ANY_OUTPUT) {
+            // Avoid a hang in the scheduler if we leave our current input stranded.
+            // XXX: Better to just do a global exit and not let the other threads
+            // keep running?  That breaks the current model where errors are
+            // propagated to the user to decide what to do.
+            // We could perhaps add thread synch points to have other threads
+            // exit earlier: but maybe some uses cases consider one shard error
+            // to not affect others and not be fatal?
+            if (worker->stream->set_active(false) != sched_type_t::STATUS_OK) {
+                ERRMSG("Failed to set failing worker to inactive; may hang");
+            }
         }
     }
 }
