@@ -204,6 +204,7 @@ public:
     analysis_tool_t::interval_state_snapshot_t *
     generate_interval_snapshot(uint64_t interval_id) override
     {
+        saw_serial_generate_snapshot_ = true;
         ++generate_snapshot_count_;
         return nullptr;
     }
@@ -236,7 +237,27 @@ public:
     generate_shard_interval_snapshot(void *shard_data, uint64_t interval_id) override
     {
         ++generate_snapshot_count_;
-        return nullptr;
+        // We generate a snapshot here, but we clear them all in
+        // finalize_interval_snapshots to test that scenario.
+        auto *snapshot = new interval_state_snapshot_t();
+        return snapshot;
+    }
+    bool
+    finalize_interval_snapshots(
+        std::vector<interval_state_snapshot_t *> &interval_snapshots)
+    {
+        if (saw_serial_generate_snapshot_) {
+            error_string_ = "Did not expect finalize_interval_snapshots call in serial "
+                            "mode which does not generate any snapshot.";
+            return false;
+        }
+        for (auto snapshot : interval_snapshots) {
+            delete snapshot;
+        }
+        // We clear the snapshots here so that there will be no
+        // combine_interval_snapshots or print_interval_results calls.
+        interval_snapshots.clear();
+        return true;
     }
     analysis_tool_t::interval_state_snapshot_t *
     combine_interval_snapshots(
@@ -269,6 +290,7 @@ public:
 
 private:
     int generate_snapshot_count_;
+    bool saw_serial_generate_snapshot_ = false;
 };
 
 #define SERIAL_TID 0
@@ -359,6 +381,8 @@ struct recorded_snapshot_t : public analysis_tool_t::interval_state_snapshot_t {
     // Stores the shard_id recorded by the test tool. Compared with the shard_id
     // stored by the framework in the base struct.
     int64_t tool_shard_id;
+    // Stores whether this snapshot was seen by finalize_interval_snapshots.
+    bool saw_finalize_call = false;
 };
 
 // Test analysis_tool_t that records information about when the
@@ -448,6 +472,26 @@ public:
         ++outstanding_snapshots_;
         return snapshot;
     }
+    bool
+    finalize_interval_snapshots(
+        std::vector<interval_state_snapshot_t *> &interval_snapshots)
+    {
+        for (auto snapshot : interval_snapshots) {
+            if (snapshot == nullptr) {
+                error_string_ =
+                    "Did not expect a nullptr snapshot in finalize_interval_snapshots";
+                return false;
+            }
+            auto recorded_snapshot = dynamic_cast<recorded_snapshot_t *>(snapshot);
+            if (recorded_snapshot->saw_finalize_call) {
+                error_string_ = "interval_state_snapshot_t presented "
+                                "to finalize_interval_snapshots multiple times";
+                return false;
+            }
+            recorded_snapshot->saw_finalize_call = true;
+        }
+        return true;
+    }
     analysis_tool_t::interval_state_snapshot_t *
     combine_interval_snapshots(
         const std::vector<const analysis_tool_t::interval_state_snapshot_t *>
@@ -481,6 +525,11 @@ public:
                                 ") and framework (%" PRIi64 ") mismatch",
                                 recorded_snapshot->tool_shard_id,
                                 recorded_snapshot->shard_id);
+                    return nullptr;
+                }
+                if (!recorded_snapshot->saw_finalize_call) {
+                    error_string_ =
+                        "combine_interval_snapshots saw non-finalized snapshot";
                     return nullptr;
                 }
                 result->component_intervals.insert(

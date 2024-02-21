@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -47,7 +47,6 @@
 
 #include <iterator>
 #include <memory>
-#include <queue>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -145,9 +144,8 @@ protected:
         }
 
         void *shard_data;
-        // This is a queue as merge_shard_interval_results processes the intervals in a
-        // FIFO manner. Using a queue also makes code a bit simpler.
-        std::queue<typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>
+        std::vector<
+            typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>
             interval_snapshot_data;
 
     private:
@@ -262,6 +260,13 @@ protected:
     RecordType
     create_idle_marker();
 
+    // Invoked after all interval state snapshots have been generated for the given
+    // shard_idx. This invokes the finalize_interval_snapshots API for all tools that
+    // returned some non-null interval snapshot.
+    bool
+    finalize_interval_snapshots(analyzer_worker_data_t *worker, bool parallel,
+                                int shard_idx = 0);
+
     // Invoked when the given interval finishes during serial or parallel
     // analysis of the trace. For parallel analysis, the shard_id
     // parameter should be set to the shard_id for which the interval
@@ -313,7 +318,7 @@ protected:
     // that map to the same final whole-trace interval.
     bool
     merge_shard_interval_results(
-        std::vector<std::queue<
+        std::vector<std::vector<
             typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>>
             &intervals,
         std::vector<typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t
@@ -345,13 +350,6 @@ protected:
 
     uint64_t
     get_current_microseconds();
-
-    void
-    drain_interval_snapshot_queue_to_vector(
-        std::queue<typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>
-            &que,
-        std::vector<
-            typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *> &vec);
 
     bool success_;
     scheduler_tmpl_t<RecordType, ReaderType> scheduler_;
