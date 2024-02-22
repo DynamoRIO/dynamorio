@@ -1456,6 +1456,12 @@ protected:
     bool
     record_type_is_invalid(RecordType record);
 
+    bool
+    record_type_is_encoding(RecordType record);
+
+    bool
+    record_type_is_instr_boundary(RecordType record, RecordType prev_record);
+
     // Creates the marker we insert between regions of interest.
     RecordType
     create_region_separator_marker(memref_tid_t tid, uintptr_t value);
