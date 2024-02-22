@@ -207,6 +207,11 @@ Further non-compatibility-affecting changes include:
  - Added #dynamorio::drmemtrace::TRACE_MARKER_TYPE_VECTOR_LENGTH marker to indicate the
    current vector length for architectures with a hardware defined or runtime changeable
    vector length (such as AArch64's SVE scalable vectors).
+ - Renamed a protected data member in #dynamorio::drmemtrace::analyzer_tmpl_t from
+   merged_interval_snapshots_ to whole_trace_interval_snapshots_ (may be relevant for
+   users sub-classing analyzer_tmpl_t).
+ - Converted #dynamorio::drmemtrace::analysis_tool_tmpl_t::interval_state_snapshot_t
+   into a class with all its data members marked private with public accessor functions.
 
 **************************************************
 <hr>

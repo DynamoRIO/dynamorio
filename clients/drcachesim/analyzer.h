@@ -239,6 +239,10 @@ protected:
     void
     process_serial(analyzer_worker_data_t &worker);
 
+    // Helper for process_tasks().
+    bool
+    process_tasks_internal(analyzer_worker_data_t *worker);
+
     // Helper for process_tasks() which calls parallel_shard_exit() in each tool.
     // Returns false if there was an error and the caller should return early.
     bool
@@ -421,6 +425,7 @@ protected:
     int verbosity_ = 0;
     shard_type_t shard_type_ = SHARD_BY_THREAD;
     bool sched_by_time_ = false;
+    typename sched_type_t::mapping_t sched_mapping_ = sched_type_t::MAP_TO_ANY_OUTPUT;
 
 private:
     bool

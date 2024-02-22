@@ -350,21 +350,23 @@ struct recorded_snapshot_t : public analysis_tool_t::interval_state_snapshot_t {
     bool
     operator==(const recorded_snapshot_t &rhs) const
     {
-        return shard_id == rhs.shard_id && tool_shard_id == rhs.tool_shard_id &&
-            interval_id == rhs.interval_id &&
-            interval_end_timestamp == rhs.interval_end_timestamp &&
-            instr_count_cumulative == rhs.instr_count_cumulative &&
-            instr_count_delta == rhs.instr_count_delta &&
+        return get_shard_id() == rhs.get_shard_id() &&
+            tool_shard_id == rhs.tool_shard_id &&
+            get_interval_id() == rhs.get_interval_id() &&
+            get_interval_end_timestamp() == rhs.get_interval_end_timestamp() &&
+            get_instr_count_cumulative() == rhs.get_instr_count_cumulative() &&
+            get_instr_count_delta() == rhs.get_instr_count_delta() &&
             component_intervals == rhs.component_intervals;
     }
     void
     print() const
     {
-        std::cerr << "(shard_id: " << shard_id << ", interval_id: " << interval_id
+        std::cerr << "(shard_id: " << get_shard_id()
+                  << ", interval_id: " << get_interval_id()
                   << ", tool_shard_id: " << tool_shard_id
-                  << ", end_timestamp: " << interval_end_timestamp
-                  << ", instr_count_cumulative: " << instr_count_cumulative
-                  << ", instr_count_delta: " << instr_count_delta
+                  << ", end_timestamp: " << get_interval_end_timestamp()
+                  << ", instr_count_cumulative: " << get_instr_count_cumulative()
+                  << ", instr_count_delta: " << get_instr_count_delta()
                   << ", component_intervals: ";
         for (const auto &s : component_intervals) {
             std::cerr << "(tid:" << s.tid << ", seen_memrefs:" << s.seen_memrefs
@@ -517,14 +519,15 @@ public:
         for (auto snapshot : latest_shard_snapshots) {
             if (snapshot != nullptr &&
                 (!combine_only_active_shards_ ||
-                 snapshot->interval_end_timestamp == interval_end_timestamp)) {
+                 snapshot->get_interval_end_timestamp() == interval_end_timestamp)) {
                 auto recorded_snapshot =
                     dynamic_cast<const recorded_snapshot_t *const>(snapshot);
-                if (recorded_snapshot->tool_shard_id != recorded_snapshot->shard_id) {
+                if (recorded_snapshot->tool_shard_id !=
+                    recorded_snapshot->get_shard_id()) {
                     FATAL_ERROR("shard_id stored by tool (%" PRIi64
                                 ") and framework (%" PRIi64 ") mismatch",
                                 recorded_snapshot->tool_shard_id,
-                                recorded_snapshot->shard_id);
+                                recorded_snapshot->get_shard_id());
                     return nullptr;
                 }
                 if (!recorded_snapshot->saw_finalize_call) {

@@ -328,9 +328,9 @@ record_filter_t::parallel_shard_exit(void *shard_data)
         // chunk_ordinal is 1 after the init-time call for archives; it
         // remains 0 for non-archives.
         per_shard->chunk_ordinal <= 1 && per_shard->cur_chunk_instrs == 0) {
-        per_shard->error = remove_output_file(per_shard);
-        if (!per_shard->error.empty())
-            res = false;
+        // Mark for removal.  We delay removal in case it involves global
+        // operations that might race with other workers.
+        per_shard->now_empty = true;
     }
     return res;
 }
@@ -617,15 +617,21 @@ record_filter_t::process_memref(const trace_entry_t &memref)
 bool
 record_filter_t::print_results()
 {
+    bool res = true;
     uint64_t input_entry_count = 0;
     uint64_t output_entry_count = 0;
     for (const auto &shard : shard_map_) {
         input_entry_count += shard.second->input_entry_count;
-        output_entry_count += shard.second->output_entry_count;
+        if (shard.second->now_empty) {
+            error_string_ = remove_output_file(shard.second);
+            if (!error_string_.empty())
+                res = false;
+        } else
+            output_entry_count += shard.second->output_entry_count;
     }
     std::cerr << "Output " << output_entry_count << " entries from " << input_entry_count
               << " entries.\n";
-    return true;
+    return res;
 }
 
 } // namespace drmemtrace
