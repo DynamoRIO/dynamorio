@@ -267,8 +267,9 @@ protected:
     create_idle_marker();
 
     // Invoked after all interval state snapshots have been generated for the given
-    // shard_idx. This invokes the finalize_interval_snapshots API for all tools that
-    // returned some non-null interval snapshot.
+    // shard_idx and before any merging or printing of interval snapshots. This
+    // invokes the finalize_interval_snapshots API for all tools that returned some
+    // non-null interval snapshot.
     bool
     finalize_interval_snapshots(analyzer_worker_data_t *worker, bool parallel,
                                 int shard_idx = 0);

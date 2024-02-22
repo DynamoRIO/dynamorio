@@ -1059,7 +1059,8 @@ bool
 analyzer_tmpl_t<RecordType, ReaderType>::finalize_interval_snapshots(
     analyzer_worker_data_t *worker, bool parallel, int shard_idx)
 {
-    assert(parallel || shard_idx == 0); // Default to zero for the serial mode.
+    assert(parallel ||
+           shard_idx == 0); // Only parallel mode supports a non-zero shard_idx.
     for (int tool_idx = 0; tool_idx < num_tools_; ++tool_idx) {
         if (!worker->shard_data[shard_idx]
                  .tool_data[tool_idx]
@@ -1085,7 +1086,8 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_interval(
     uint64_t interval_id, uint64_t interval_init_instr_count,
     analyzer_worker_data_t *worker, bool parallel, bool at_instr_record, int shard_idx)
 {
-    assert(parallel || shard_idx == 0); // Default to zero for the serial mode.
+    assert(parallel ||
+           shard_idx == 0); // Only parallel mode supports a non-zero shard_idx.
     for (int tool_idx = 0; tool_idx < num_tools_; ++tool_idx) {
         typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *snapshot;
         if (parallel) {
