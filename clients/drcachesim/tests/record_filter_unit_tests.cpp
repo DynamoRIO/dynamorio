@@ -226,6 +226,10 @@ process_entries_and_check_result(test_record_filter_t *record_filter,
         fprintf(stderr, "Filtering exit failed\n");
         return false;
     }
+    if (!record_filter->print_results()) {
+        fprintf(stderr, "Filtering results failed\n");
+        return false;
+    }
 
     std::vector<trace_entry_t> filtered = record_filter->get_output_entries();
     // Verbose output for easier debugging.
@@ -683,11 +687,11 @@ test_trim_filter()
             { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0 } }, true, { true } },
             { { TRACE_TYPE_ENCODING, 2, { ENCODING_A } }, true, { true } },
             { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
-            // Removal starts right after here.
+            // Removal starts here.
             { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 200 } },
               true,
-              { true } },
-            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0 } }, true, { true } },
+              { false } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0 } }, true, { false } },
             { { TRACE_TYPE_ENCODING, 2, { ENCODING_B } }, true, { false } },
             { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { false } },
             { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER, { 0 } },
