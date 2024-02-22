@@ -347,6 +347,8 @@ public:
      *
      * This is an optional API. If a tool chooses to not override this, the snapshot
      * list will simply continue unmodified.
+     *
+     * Returns whether it was successful.
      */
     virtual bool
     finalize_interval_snapshots(
