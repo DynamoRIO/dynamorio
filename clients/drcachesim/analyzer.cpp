@@ -1130,8 +1130,9 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_interval(
                 worker->stream->get_instruction_ordinal() - (at_instr_record ? 1 : 0);
             snapshot->instr_count_delta_ =
                 snapshot->instr_count_cumulative_ - interval_init_instr_count;
-            worker->shard_data[shard_idx].tool_data[tool_idx].interval_snapshot_data.push(
-                snapshot);
+            worker->shard_data[shard_idx]
+                .tool_data[tool_idx]
+                .interval_snapshot_data.push_back(snapshot);
         }
     }
     return true;
