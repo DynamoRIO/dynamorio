@@ -189,10 +189,10 @@ public:
     print_results() = 0;
 
     /**
-     * Struct that stores details of a tool's state snapshot at an interval. This is
+     * Type that stores details of a tool's state snapshot at an interval. This is
      * useful for computing and combining interval results. Tools should inherit from
-     * this struct to define their own state snapshot structs. Tools do not need to
-     * supply any values to construct this base struct; they can simply use the
+     * this type to define their own state snapshot types. Tools do not need to
+     * supply any values to construct this base class; they can simply use the
      * default constructor. The members of this base class will be set by the
      * framework automatically, and must not be modified by the tool at any point.
      * XXX: Perhaps this should be a class with private data members.
@@ -221,6 +221,10 @@ public:
             , instr_count_delta_(instr_count_delta)
         {
         }
+        // This constructor should be used by tools that subclass
+        // interval_state_snapshot_t. The data members will be set by the framework
+        // automatically when the tool returns a pointer to their created object from
+        // generate_*interval_snapshot or combine_interval_snapshots.
         interval_state_snapshot_t()
         {
         }
@@ -282,7 +286,7 @@ public:
     };
     /**
      * Notifies the analysis tool that the given trace \p interval_id has ended so
-     * that it can generate a snapshot of its internal state in a struct derived
+     * that it can generate a snapshot of its internal state in a type derived
      * from \p interval_state_snapshot_t, and return a pointer to it. The returned
      * pointer will be provided to the tool in later finalize_interval_snapshots(),
      * and print_interval_result() calls.
@@ -301,8 +305,7 @@ public:
      * After all interval state snapshots are generated, the list of all returned
      * \p interval_state_snapshot_t* is passed to finalize_interval_snapshots()
      * to allow the tool the opportunity to make any holistic adjustments to the
-     * snapshots. Note that, at any point, the tool must not modify the data
-     * members of the base \p interval_state_snapshot_t struct.
+     * snapshots.
      *
      * Finally, the print_interval_result() API is invoked with a list of
      * \p interval_state_snapshot_t* representing interval snapshots for the
@@ -332,8 +335,9 @@ public:
      * provided snapshots which were generated in prior generate_*interval_snapshot
      * calls.
      *
-     * Tools should not modify any data in the base \p interval_state_snapshot_t
-     * struct.
+     * Tools cannot modify any data set by the framework in the base
+     * \p interval_state_snapshot_t; note that only read-only access is allowed anyway
+     * to those private data members via public accessor functions.
      *
      * In the parallel mode, this is invoked for each list of shard-local snapshots
      * before they are possibly merged to create whole-trace snapshots using
@@ -521,7 +525,7 @@ public:
     /**
      * Notifies the analysis tool that the given trace \p interval_id in the shard
      * represented by the given \p shard_data has ended, so that it can generate a
-     * snapshot of its internal state in a struct derived from \p
+     * snapshot of its internal state in a type derived from \p
      * interval_state_snapshot_t, and return a pointer to it. The returned pointer will
      * be provided to the tool in later combine_interval_snapshots(),
      * finalize_interval_snapshots(), and print_interval_result() calls.
