@@ -786,9 +786,9 @@ analyzer_tmpl_t<RecordType, ReaderType>::merge_shard_interval_results(
         for (size_t shard_idx = 0; shard_idx < shard_count; ++shard_idx) {
             if (at_idx[shard_idx] == intervals[shard_idx].size())
                 continue;
-            earliest_interval_end_timestamp =
-                std::min(earliest_interval_end_timestamp,
-                         intervals[shard_idx][at_idx[shard_idx]]->interval_end_timestamp_);
+            earliest_interval_end_timestamp = std::min(
+                earliest_interval_end_timestamp,
+                intervals[shard_idx][at_idx[shard_idx]]->interval_end_timestamp_);
         }
         // We're done if no shard has any interval left unprocessed.
         if (earliest_interval_end_timestamp == std::numeric_limits<uint64_t>::max()) {
