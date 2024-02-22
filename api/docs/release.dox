@@ -142,11 +142,11 @@ changes:
    refers to timestamps and direct switches, which is what most users should want.
  - Rename the macro INSTR_CREATE_mul_sve to INSTR_CREATE_mul_sve_imm to
    differentiate it from the other SVE MUL instructions.
- - Added a new drmemtrace analyzer option \p -interval_instr_count that enables trace
-   analyzer interval results for every given count of instrs in each shard. This mode
-   does not support merging the shard interval snapshots to output the whole-trace
-   interval snapshots. Instead, the print_interval_results() API is called separately
-   for each shard with the interval state snapshots of that shard.
+ - Renamed a protected data member in #dynamorio::drmemtrace::analyzer_tmpl_t from
+   merged_interval_snapshots_ to whole_trace_interval_snapshots_ (may be relevant for
+   users sub-classing analyzer_tmpl_t).
+ - Converted #dynamorio::drmemtrace::analysis_tool_tmpl_t::interval_state_snapshot_t
+   into a class with all its data members marked private with public accessor functions.
 
 Further non-compatibility-affecting changes include:
  - Added DWARF-5 support to the drsyms library by linking in 4 static libraries
@@ -203,11 +203,15 @@ Further non-compatibility-affecting changes include:
  - Added #dynamorio::drmemtrace::TRACE_MARKER_TYPE_VECTOR_LENGTH marker to indicate the
    current vector length for architectures with a hardware defined or runtime changeable
    vector length (such as AArch64's SVE scalable vectors).
- - Renamed a protected data member in #dynamorio::drmemtrace::analyzer_tmpl_t from
-   merged_interval_snapshots_ to whole_trace_interval_snapshots_ (may be relevant for
-   users sub-classing analyzer_tmpl_t).
- - Converted #dynamorio::drmemtrace::analysis_tool_tmpl_t::interval_state_snapshot_t
-   into a class with all its data members marked private with public accessor functions.
+ - Added a new drmemtrace analyzer option \p -interval_instr_count that enables trace
+   analyzer interval results for every given count of instrs in each shard. This mode
+   does not support merging the shard interval snapshots to output the whole-trace
+   interval snapshots. Instead, the print_interval_results() API is called separately
+   for each shard with the interval state snapshots of that shard.
+ - Added a new finalize_interval_snapshots() API to
+   #dynamorio::drmemtrace::analysis_tool_t to allow the tool to make holistic
+   adjustments to the interval snapshots after all have been generated, and before
+   they are used for merging across shards (potentially), and printing the results.
 
 **************************************************
 <hr>

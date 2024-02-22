@@ -40,7 +40,6 @@
 #include <iostream>
 #include <limits>
 #include <memory>
-#include <queue>
 #include <string>
 #include <thread>
 #include <utility>
@@ -528,10 +527,12 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
                         "Failed to read from trace: " + worker.stream->get_stream_name();
                 }
             } else if (interval_microseconds_ != 0 || interval_instr_count_ != 0) {
-                process_interval(worker.shard_data[0].cur_interval_index,
-                                 worker.shard_data[0].cur_interval_init_instr_count,
-                                 &worker,
-                                 /*parallel=*/false, /*at_instr_record=*/false);
+                if (!process_interval(worker.shard_data[0].cur_interval_index,
+                                      worker.shard_data[0].cur_interval_init_instr_count,
+                                      &worker,
+                                      /*parallel=*/false, /*at_instr_record=*/false) ||
+                    !finalize_interval_snapshots(&worker, /*parallel=*/false))
+                    return;
             }
             return;
         }
@@ -566,10 +567,11 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_shard_exit(
            worker->stream->get_stream_name().c_str());
     worker->shard_data[shard_index].exited = true;
     if ((interval_microseconds_ != 0 || interval_instr_count_ != 0) &&
-        !process_interval(worker->shard_data[shard_index].cur_interval_index,
-                          worker->shard_data[shard_index].cur_interval_init_instr_count,
-                          worker,
-                          /*parallel=*/true, /*at_instr_record=*/false, shard_index))
+        (!process_interval(worker->shard_data[shard_index].cur_interval_index,
+                           worker->shard_data[shard_index].cur_interval_init_instr_count,
+                           worker,
+                           /*parallel=*/true, /*at_instr_record=*/false, shard_index) ||
+         !finalize_interval_snapshots(worker, /*parallel=*/true, shard_index)))
         return false;
     for (int i = 0; i < num_tools_; ++i) {
         if (!tools_[i]->parallel_shard_exit(
@@ -756,11 +758,9 @@ analyzer_tmpl_t<RecordType, ReaderType>::combine_interval_snapshots(
 template <typename RecordType, typename ReaderType>
 bool
 analyzer_tmpl_t<RecordType, ReaderType>::merge_shard_interval_results(
-    // intervals[shard_idx] is a queue of interval_state_snapshot_t*
-    // representing the interval snapshots for that shard. This is a queue as we
-    // process the intervals here in a FIFO manner. Using a queue also makes code
-    // a bit simpler.
-    std::vector<std::queue<
+    // intervals[shard_idx] is a vector of interval_state_snapshot_t*
+    // representing the interval snapshots for that shard.
+    std::vector<std::vector<
         typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>>
         &intervals,
     // This function will write the resulting whole-trace intervals to
@@ -775,6 +775,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::merge_shard_interval_results(
     // numbered by the earliest shard's timestamp.
     uint64_t earliest_ever_interval_end_timestamp = std::numeric_limits<uint64_t>::max();
     size_t shard_count = intervals.size();
+    std::vector<size_t> at_idx(shard_count, 0);
     bool any_shard_has_results_left = true;
     std::vector<typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>
         last_snapshot_per_shard(shard_count, nullptr);
@@ -783,11 +784,11 @@ analyzer_tmpl_t<RecordType, ReaderType>::merge_shard_interval_results(
         // one with the earliest interval-end timestamp.
         uint64_t earliest_interval_end_timestamp = std::numeric_limits<uint64_t>::max();
         for (size_t shard_idx = 0; shard_idx < shard_count; ++shard_idx) {
-            if (intervals[shard_idx].empty())
+            if (at_idx[shard_idx] == intervals[shard_idx].size())
                 continue;
-            earliest_interval_end_timestamp =
-                std::min(earliest_interval_end_timestamp,
-                         intervals[shard_idx].front()->interval_end_timestamp_);
+            earliest_interval_end_timestamp = std::min(
+                earliest_interval_end_timestamp,
+                intervals[shard_idx][at_idx[shard_idx]]->interval_end_timestamp_);
         }
         // We're done if no shard has any interval left unprocessed.
         if (earliest_interval_end_timestamp == std::numeric_limits<uint64_t>::max()) {
@@ -802,10 +803,10 @@ analyzer_tmpl_t<RecordType, ReaderType>::merge_shard_interval_results(
         // Update last_snapshot_per_shard for shards that were active during this
         // interval, which have a timestamp == earliest_interval_end_timestamp.
         for (size_t shard_idx = 0; shard_idx < shard_count; ++shard_idx) {
-            if (intervals[shard_idx].empty())
+            if (at_idx[shard_idx] == intervals[shard_idx].size())
                 continue;
             uint64_t cur_interval_end_timestamp =
-                intervals[shard_idx].front()->interval_end_timestamp_;
+                intervals[shard_idx][at_idx[shard_idx]]->interval_end_timestamp_;
             assert(cur_interval_end_timestamp >= earliest_interval_end_timestamp);
             if (cur_interval_end_timestamp > earliest_interval_end_timestamp)
                 continue;
@@ -818,8 +819,8 @@ analyzer_tmpl_t<RecordType, ReaderType>::merge_shard_interval_results(
                     return false;
                 }
             }
-            last_snapshot_per_shard[shard_idx] = intervals[shard_idx].front();
-            intervals[shard_idx].pop();
+            last_snapshot_per_shard[shard_idx] = intervals[shard_idx][at_idx[shard_idx]];
+            ++at_idx[shard_idx];
         }
         // Merge last_snapshot_per_shard to form the result of the current
         // whole-trace interval.
@@ -855,23 +856,6 @@ analyzer_tmpl_t<RecordType, ReaderType>::merge_shard_interval_results(
 
 template <typename RecordType, typename ReaderType>
 void
-analyzer_tmpl_t<RecordType, ReaderType>::drain_interval_snapshot_queue_to_vector(
-    std::queue<typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>
-        &que,
-    std::vector<typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>
-        &vec)
-{
-    // If the worker's interval snapshot data were an std::vector we could just
-    // std::move here, but that would make the implementation of
-    // merge_shard_interval_results more complex, so there are trade-offs.
-    while (!que.empty()) {
-        vec.push_back(que.front());
-        que.pop();
-    }
-}
-
-template <typename RecordType, typename ReaderType>
-void
 analyzer_tmpl_t<RecordType, ReaderType>::populate_unmerged_shard_interval_results()
 {
     for (auto &worker : worker_data_) {
@@ -880,9 +864,8 @@ analyzer_tmpl_t<RecordType, ReaderType>::populate_unmerged_shard_interval_result
             for (int tool_idx = 0; tool_idx < num_tools_; ++tool_idx) {
                 key_tool_shard_t tool_shard_key = { tool_idx,
                                                     shard_data.second.shard_index };
-                drain_interval_snapshot_queue_to_vector(
-                    shard_data.second.tool_data[tool_idx].interval_snapshot_data,
-                    per_shard_interval_snapshots_[tool_shard_key]);
+                per_shard_interval_snapshots_[tool_shard_key] = std::move(
+                    shard_data.second.tool_data[tool_idx].interval_snapshot_data);
             }
         }
     }
@@ -900,9 +883,8 @@ analyzer_tmpl_t<RecordType, ReaderType>::populate_serial_interval_results()
     assert(static_cast<int>(worker_data_[0].shard_data[0].tool_data.size()) ==
            num_tools_);
     for (int tool_idx = 0; tool_idx < num_tools_; ++tool_idx) {
-        drain_interval_snapshot_queue_to_vector(
-            worker_data_[0].shard_data[0].tool_data[tool_idx].interval_snapshot_data,
-            whole_trace_interval_snapshots_[tool_idx]);
+        whole_trace_interval_snapshots_[tool_idx] = std::move(
+            worker_data_[0].shard_data[0].tool_data[tool_idx].interval_snapshot_data);
     }
 }
 
@@ -921,9 +903,9 @@ analyzer_tmpl_t<RecordType, ReaderType>::collect_and_maybe_merge_shard_interval_
         populate_unmerged_shard_interval_results();
         return true;
     }
-    // all_intervals[tool_idx][shard_idx] contains a queue of the
+    // all_intervals[tool_idx][shard_idx] contains a vector of the
     // interval_state_snapshot_t* that were output by that tool for that shard.
-    std::vector<std::vector<std::queue<
+    std::vector<std::vector<std::vector<
         typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>>>
         all_intervals(num_tools_);
     for (const auto &worker : worker_data_) {
@@ -1074,11 +1056,38 @@ analyzer_tmpl_t<RecordType, ReaderType>::print_stats()
 
 template <typename RecordType, typename ReaderType>
 bool
+analyzer_tmpl_t<RecordType, ReaderType>::finalize_interval_snapshots(
+    analyzer_worker_data_t *worker, bool parallel, int shard_idx)
+{
+    assert(parallel ||
+           shard_idx == 0); // Only parallel mode supports a non-zero shard_idx.
+    for (int tool_idx = 0; tool_idx < num_tools_; ++tool_idx) {
+        if (!worker->shard_data[shard_idx]
+                 .tool_data[tool_idx]
+                 .interval_snapshot_data.empty() &&
+            !tools_[tool_idx]->finalize_interval_snapshots(worker->shard_data[shard_idx]
+                                                               .tool_data[tool_idx]
+                                                               .interval_snapshot_data)) {
+            worker->error = tools_[tool_idx]->get_error_string();
+            VPRINT(this, 1,
+                   "Worker %d hit finalize_interval_snapshots error %s during %s "
+                   "analysis in trace shard %s\n",
+                   worker->index, worker->error.c_str(), parallel ? "parallel" : "serial",
+                   worker->stream->get_stream_name().c_str());
+            return false;
+        }
+    }
+    return true;
+}
+
+template <typename RecordType, typename ReaderType>
+bool
 analyzer_tmpl_t<RecordType, ReaderType>::process_interval(
     uint64_t interval_id, uint64_t interval_init_instr_count,
     analyzer_worker_data_t *worker, bool parallel, bool at_instr_record, int shard_idx)
 {
-    assert(parallel || shard_idx == 0); // Default to zero for the serial mode.
+    assert(parallel ||
+           shard_idx == 0); // Only parallel mode supports a non-zero shard_idx.
     for (int tool_idx = 0; tool_idx < num_tools_; ++tool_idx) {
         typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *snapshot;
         if (parallel) {
@@ -1121,8 +1130,9 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_interval(
                 worker->stream->get_instruction_ordinal() - (at_instr_record ? 1 : 0);
             snapshot->instr_count_delta_ =
                 snapshot->instr_count_cumulative_ - interval_init_instr_count;
-            worker->shard_data[shard_idx].tool_data[tool_idx].interval_snapshot_data.push(
-                snapshot);
+            worker->shard_data[shard_idx]
+                .tool_data[tool_idx]
+                .interval_snapshot_data.push_back(snapshot);
         }
     }
     return true;
