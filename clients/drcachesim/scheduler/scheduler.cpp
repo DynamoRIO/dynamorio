@@ -1628,6 +1628,12 @@ scheduler_tmpl_t<RecordType, ReaderType>::record_schedule_segment(
     // We always use the current wall-clock time, as the time stored in the prior
     // next_record() call can be out of order across outputs and lead to deadlocks.
     uint64_t timestamp = get_time_micros();
+    if (type == schedule_record_t::IDLE &&
+        outputs_[output].record.back().type == schedule_record_t::IDLE) {
+        // Merge.  We don't need intermediate timestamps when idle, and consecutive
+        // idle records quickly balloon the file.
+        return sched_type_t::STATUS_OK;
+    }
     outputs_[output].record.emplace_back(type, input, start_instruction, stop_instruction,
                                          timestamp);
     // The stop is typically updated later in close_schedule_segment().
