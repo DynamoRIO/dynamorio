@@ -106,6 +106,23 @@ typedef dynamorio::drmemtrace::record_file_reader_t<std::ifstream>
     default_record_file_reader_t;
 #endif
 
+std::string
+replay_file_checker_t::check(archive_istream_t *infile)
+{
+    // Ensure we don't have repeated idle records, which balloon the file size.
+    scheduler_t::schedule_record_t record;
+    bool prev_was_idle = false;
+    while (infile->read(reinterpret_cast<char *>(&record), sizeof(record))) {
+        if (record.type == scheduler_t::schedule_record_t::IDLE) {
+            if (prev_was_idle)
+                return "Error: consecutive idle records";
+            prev_was_idle = true;
+        } else
+            prev_was_idle = false;
+    }
+    return "";
+}
+
 /****************************************************************
  * Specializations for scheduler_tmpl_t<reader_t>, aka scheduler_t.
  */
@@ -1628,6 +1645,12 @@ scheduler_tmpl_t<RecordType, ReaderType>::record_schedule_segment(
     // We always use the current wall-clock time, as the time stored in the prior
     // next_record() call can be out of order across outputs and lead to deadlocks.
     uint64_t timestamp = get_time_micros();
+    if (type == schedule_record_t::IDLE &&
+        outputs_[output].record.back().type == schedule_record_t::IDLE) {
+        // Merge.  We don't need intermediate timestamps when idle, and consecutive
+        // idle records quickly balloon the file.
+        return sched_type_t::STATUS_OK;
+    }
     outputs_[output].record.emplace_back(type, input, start_instruction, stop_instruction,
                                          timestamp);
     // The stop is typically updated later in close_schedule_segment().
