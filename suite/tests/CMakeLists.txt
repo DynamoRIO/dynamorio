@@ -1865,7 +1865,7 @@ function(is_test_enabled_by_name output name regex)
                 ("${name}" MATCHES "tool.drcpusim" AND
                   NOT "${name}" MATCHES "Pentium3") OR
                 ("${name}" MATCHES "tool.[^d]" AND
-                  NOT "${name}" MATCHES "(basic_counts|reuse_offline|record_filter)") OR
+                  NOT "${name}" MATCHES "(basic_counts|reuse_offline)") OR
                 # instrcalls is the slowest of the samples.
                 "${name}" MATCHES "sample.instrcalls" OR
                 ("${name}" MATCHES "client.annotation-" AND
