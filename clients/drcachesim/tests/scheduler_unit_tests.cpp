@@ -1149,6 +1149,14 @@ test_synthetic_time_quanta()
             assert(false);
     }
     {
+        replay_file_checker_t checker;
+        zipfile_istream_t infile(record_fname);
+        std::string res = checker.check(&infile);
+        if (!res.empty())
+            std::cerr << "replay file checker failed: " << res;
+        assert(res.empty());
+    }
+    {
         // Replay.
         std::vector<scheduler_t::input_reader_t> readers;
         for (int i = 0; i < NUM_INPUTS; ++i) {
@@ -2285,6 +2293,14 @@ test_replay()
         if (scheduler.write_recorded_schedule() != scheduler_t::STATUS_SUCCESS)
             assert(false);
     }
+    {
+        replay_file_checker_t checker;
+        zipfile_istream_t infile(record_fname);
+        std::string res = checker.check(&infile);
+        if (!res.empty())
+            std::cerr << "replay file checker failed: " << res;
+        assert(res.empty());
+    }
     // Now replay the schedule several times to ensure repeatability.
     for (int outer = 0; outer < 5; ++outer) {
         std::vector<scheduler_t::input_workload_t> sched_inputs;
@@ -2401,6 +2417,14 @@ test_replay_multi_threaded(const char *testdir)
             thread.join();
         if (scheduler.write_recorded_schedule() != scheduler_t::STATUS_SUCCESS)
             assert(false);
+    }
+    {
+        replay_file_checker_t checker;
+        zipfile_istream_t infile(record_fname);
+        std::string res = checker.check(&infile);
+        if (!res.empty())
+            std::cerr << "replay file checker failed: " << res;
+        assert(res.empty());
     }
     {
         // Replay.
@@ -2741,6 +2765,14 @@ test_replay_skip()
             assert(false);
     }
     {
+        replay_file_checker_t checker;
+        zipfile_istream_t infile(record_fname);
+        std::string res = checker.check(&infile);
+        if (!res.empty())
+            std::cerr << "replay file checker failed: " << res;
+        assert(res.empty());
+    }
+    {
         // Replay.
         std::vector<scheduler_t::input_reader_t> readers;
         readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(memrefs)),
@@ -2918,6 +2950,14 @@ test_replay_limit()
             thread.join();
         if (scheduler.write_recorded_schedule() != scheduler_t::STATUS_SUCCESS)
             assert(false);
+    }
+    {
+        replay_file_checker_t checker;
+        zipfile_istream_t infile(record_fname);
+        std::string res = checker.check(&infile);
+        if (!res.empty())
+            std::cerr << "replay file checker failed: " << res;
+        assert(res.empty());
         for (int i = 0; i < NUM_OUTPUTS; ++i) {
             std::cerr << "Output #" << i << " schedule: " << record_schedule[i] << "\n";
         }
@@ -3005,6 +3045,14 @@ test_replay_limit()
             thread.join();
         if (scheduler.write_recorded_schedule() != scheduler_t::STATUS_SUCCESS)
             assert(false);
+    }
+    {
+        replay_file_checker_t checker;
+        zipfile_istream_t infile(record_fname);
+        std::string res = checker.check(&infile);
+        if (!res.empty())
+            std::cerr << "replay file checker failed: " << res;
+        assert(res.empty());
         int switches = 0;
         for (int i = 0; i < NUM_OUTPUTS; ++i) {
             std::cerr << "Output #" << i << " schedule: " << record_schedule[i] << "\n";
@@ -3399,6 +3447,14 @@ test_inactive()
         check_next(stream1, scheduler_t::STATUS_EOF);
         if (scheduler.write_recorded_schedule() != scheduler_t::STATUS_SUCCESS)
             assert(false);
+    }
+    {
+        replay_file_checker_t checker;
+        zipfile_istream_t infile(record_fname);
+        std::string res = checker.check(&infile);
+        if (!res.empty())
+            std::cerr << "replay file checker failed: " << res;
+        assert(res.empty());
     }
     {
         // Replay.

@@ -72,6 +72,13 @@
 namespace dynamorio {  /**< General DynamoRIO namespace. */
 namespace drmemtrace { /**< DrMemtrace tracing + simulation infrastructure namespace. */
 
+/* For testing, where schedule_record_t is not accessible. */
+class replay_file_checker_t {
+public:
+    std::string
+    check(archive_istream_t *infile);
+};
+
 /**
  * Schedules traced software threads onto simulated cpus.
  * Takes in a set of recorded traces and maps them onto a new set of output
@@ -1611,6 +1618,9 @@ protected:
     // For online where we currently have to map dynamically observed thread ids
     // to the 0-based shard index.
     std::unordered_map<memref_tid_t, int> tid2shard_;
+
+    // Our testing class needs access to schedule_record_t.
+    friend class replay_file_checker_t;
 };
 
 /** See #dynamorio::drmemtrace::scheduler_tmpl_t. */

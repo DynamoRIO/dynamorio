@@ -106,6 +106,23 @@ typedef dynamorio::drmemtrace::record_file_reader_t<std::ifstream>
     default_record_file_reader_t;
 #endif
 
+std::string
+replay_file_checker_t::check(archive_istream_t *infile)
+{
+    // Ensure we don't have repeated idle records, which balloon the file size.
+    scheduler_t::schedule_record_t record;
+    bool prev_was_idle = false;
+    while (infile->read(reinterpret_cast<char *>(&record), sizeof(record))) {
+        if (record.type == scheduler_t::schedule_record_t::IDLE) {
+            if (prev_was_idle)
+                return "Error: consecutive idle records";
+            prev_was_idle = true;
+        } else
+            prev_was_idle = false;
+    }
+    return "";
+}
+
 /****************************************************************
  * Specializations for scheduler_tmpl_t<reader_t>, aka scheduler_t.
  */
