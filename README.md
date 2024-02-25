@@ -36,7 +36,7 @@ Tools built on DynamoRIO and available in the [release package](https://dynamori
   - [Function call tracing](https://dynamorio.org/sec_drcachesim_tools.html#sec_tool_func_view)
 - The legacy processor emulator
   [drcpusim](https://dynamorio.org/page_drcpusim.html)
-- The "strace for Windows" tool [drstrace](http://drmemory.org/strace_for_windows.html)
+- The "strace for Windows" tool [drstrace](https://dynamorio.org/page_drstrace.html)
 - The code coverage tool [drcov](https://dynamorio.org/page_drcov.html)
 - The library tracing tool [drltrace](http://dynamorio.org/page_drltrace.html)
 - The memory address tracing tool [memtrace](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/memtrace_x86.c) ([drmemtrace](https://dynamorio.org/page_drcachesim.html)'s offline traces are faster with more surrounding infrastructure, but this is a simpler starting point for customized memory address tracing)
