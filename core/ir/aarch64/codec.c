@@ -4501,20 +4501,6 @@ encode_opnd_q16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_vector_reg(16, 4, opnd, enc_out);
 }
 
-/* z16: Z register at bit position 16. */
-
-static inline bool
-decode_opnd_z16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
-{
-    return decode_opnd_vector_reg(16, Z_REG, enc, opnd);
-}
-
-static inline bool
-encode_opnd_z16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
-{
-    return encode_opnd_vector_reg(16, Z_REG, opnd, enc_out);
-}
-
 /* z_b_16: Z register with b size elements. */
 
 static inline bool
