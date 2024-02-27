@@ -223,6 +223,8 @@ protected:
 
     // For core-sharded, worker_count_ must be set prior to calling this; for parallel
     // mode if it is not set it will be set to the underlying core count.
+    // For core-sharded, all of "options" is used; otherwise, only the
+    // read_inputs_in_init field is preserved.
     bool
     init_scheduler(std::unique_ptr<ReaderType> reader,
                    std::unique_ptr<ReaderType> reader_end, int verbosity,

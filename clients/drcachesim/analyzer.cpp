@@ -308,11 +308,13 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
         }
     } else if (parallel_) {
         sched_ops = sched_type_t::make_scheduler_parallel_options(verbosity_);
+        sched_ops.read_inputs_in_init = options.read_inputs_in_init;
         if (worker_count_ <= 0)
             worker_count_ = std::thread::hardware_concurrency();
         output_count = worker_count_;
     } else {
         sched_ops = sched_type_t::make_scheduler_serial_options(verbosity_);
+        sched_ops.read_inputs_in_init = options.read_inputs_in_init;
         worker_count_ = 1;
         output_count = 1;
     }
@@ -326,11 +328,13 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
 
     for (int i = 0; i < worker_count_; ++i) {
         worker_data_.push_back(analyzer_worker_data_t(i, scheduler_.get_stream(i)));
-        // The docs say we can query the filetype up front.
-        uint64_t filetype = scheduler_.get_stream(i)->get_filetype();
-        VPRINT(this, 2, "Worker %d filetype %" PRIx64 "\n", i, filetype);
-        if (TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, filetype)) {
-            shard_type_ = SHARD_BY_CORE;
+        if (options.read_inputs_in_init) {
+            // The docs say we can query the filetype up front.
+            uint64_t filetype = scheduler_.get_stream(i)->get_filetype();
+            VPRINT(this, 2, "Worker %d filetype %" PRIx64 "\n", i, filetype);
+            if (TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, filetype)) {
+                shard_type_ = SHARD_BY_CORE;
+            }
         }
     }
 

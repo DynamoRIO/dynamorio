@@ -394,6 +394,8 @@ public:
          * dependencies: thus, timestamp ordering will be followed at context switch
          * points for picking the next input, but timestamps will not preempt an input.
          * To precisely follow the recorded timestamps, use #MAP_TO_RECORDED_OUTPUT.
+         * If this flag is on, #dynamorio::drmemtrace::scheduler_tmpl_t::
+         * scheduler_options_t.read_inputs_in_init must be set to true.
          */
         DEPENDENCY_TIMESTAMPS_BITFIELD = 0x01,
         /**
@@ -623,6 +625,15 @@ public:
          * sensitivity studies.
          */
         bool randomize_next_input = false;
+        /**
+         * If true, the scheduler will read from each input to determine its filetype
+         * during initialization.  If false, the filetype will not be available prior
+         * to explicit record rerieval by the user, but this may be required for
+         * inputs whose sources are not yet set up at scheduler init time.
+         * This must be true for #DEPENDENCY_TIMESTAMPS as it also requires reading
+         * ahead.
+         */
+        bool read_inputs_in_init = true;
     };
 
     /**
@@ -773,7 +784,10 @@ public:
         get_record_ordinal() const override
         {
             if (TESTANY(sched_type_t::SCHEDULER_USE_INPUT_ORDINALS,
-                        scheduler_->options_.flags))
+                        scheduler_->options_.flags) &&
+                // Avoid discrepancies from read_inputs_in_init() reading early
+                // markers by using the output until the 1st instruction.
+                cur_instr_count_ > 0)
                 return scheduler_->get_input_stream(ordinal_)->get_record_ordinal();
             return cur_ref_count_;
         }
@@ -866,7 +880,9 @@ public:
          * other key high-level attributes of the trace from the
          * #TRACE_MARKER_TYPE_FILETYPE record in the trace header.
          * This can be queried prior to explicitly retrieving any records from
-         * output streams.
+         * output streams, unless #dynamorio::drmemtrace::scheduler_tmpl_t::
+         * scheduler_options_t.read_inputs_in_init is false.
+
          */
         uint64_t
         get_filetype() const override

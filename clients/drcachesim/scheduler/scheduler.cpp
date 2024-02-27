@@ -693,16 +693,23 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
     std::unordered_map<int, std::vector<int>> &workload2inputs)
 {
     bool gather_timestamps = false;
-    if (options_.deps == DEPENDENCY_TIMESTAMPS ||
+    if (((options_.mapping == MAP_AS_PREVIOUSLY ||
+          options_.mapping == MAP_TO_ANY_OUTPUT) &&
+         options_.deps == DEPENDENCY_TIMESTAMPS) ||
         (options_.mapping == MAP_TO_RECORDED_OUTPUT &&
-         options_.replay_as_traced_istream != nullptr && inputs_.size() > 1))
+         options_.replay_as_traced_istream == nullptr && inputs_.size() > 1)) {
         gather_timestamps = true;
-    sched_type_t::scheduler_status_t res = get_initial_input_content(gather_timestamps);
-    if (res != STATUS_SUCCESS) {
-        error_string_ = "Failed to read initial input contents for filetype";
-        if (gather_timestamps)
-            error_string_ += " and initial timestamps";
-        return res;
+    }
+    bool gather_filetype = options_.read_inputs_in_init;
+    if (gather_filetype || gather_timestamps) {
+        sched_type_t::scheduler_status_t res =
+            get_initial_input_content(gather_timestamps);
+        if (res != STATUS_SUCCESS) {
+            error_string_ = "Failed to read initial input contents for filetype";
+            if (gather_timestamps)
+                error_string_ += " and initial timestamps";
+            return res;
+        }
     }
 
     if (options_.mapping == MAP_AS_PREVIOUSLY) {
@@ -1262,8 +1269,10 @@ typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::get_initial_input_content(
     bool gather_timestamps)
 {
-    // For every mode, read ahead until we see a filetype record so the user
-    // can examine it prior to retrieving any records.
+    // For every mode, read ahead until we see a filetype record so the user can
+    // examine it prior to retrieving any records.
+    if (!options_.read_inputs_in_init)
+        return STATUS_ERROR_INVALID_PARAMETER;
 
     // Read ahead in each input until we find a timestamp record.
     // Queue up any skipped records to ensure we present them to the
