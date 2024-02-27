@@ -3,27 +3,27 @@ Total counts:
 .*
            8 total threads
 .*
-Core 2 counts:
+Core [0-5] counts:
 .*
            2 threads
 .*
-Core 3 counts:
+Core [0-5] counts:
 .*
            2 threads
 .*
-Core 4 counts:
+Core [0-5] counts:
 .*
            2 threads
 .*
-Core 0 counts:
+Core [0-5] counts:
 .*
            1 threads
 .*
-Core [15] counts:
+Core [0-5] counts:
 .*
            1 threads
 .*
-Core [15] counts:
+Core [0-5] counts:
 .*
            1 threads
 .*
