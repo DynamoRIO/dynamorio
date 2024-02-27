@@ -4601,37 +4601,62 @@ if (BUILD_CLIENTS)
       "${histo_path}@-test_mode@-test_mode_name@kernel_xfer_app@-trace_dir@${testname_full}.*.dir/trace")
 
     # Test the standalone record filter tool (beyond its unit tests).
+    # Assumes the record filter output dir is named "${testname}.filtered.dir".
+    macro (torun_record_filter testname exename template_name launch_cmd analyzer)
+      if (WIN32)
+        # Speed the test up (takes 1+ minutes otherwise).
+        set(extra_ops "-trace_after_instrs 5K -exit_after_tracing 50K")
+      else ()
+        set(extra_ops "")
+      endif ()
+      torunonly_ci(${testname} ${exename} drcachesim
+        "${template_name}.c"
+        "-offline -subdir_prefix ${testname} ${extra_ops}" "" "")
+      set(${testname}_toolname "drcachesim")
+      set(${testname}_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(outdir "${testname}.filtered.dir")
+      set(${testname}_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+      set(${testname}_precmd
+        "foreach@${CMAKE_COMMAND}@-E@remove_directory@${testname}.*.dir")
+      # Post-process the trace and sanity check it.
+      # Use a smaller chunk threshold to test multiple chunks.
+      set(${testname}_postcmd
+        "${drcachesim_path}@-chunk_instr_count@1000@-indir@${testname}.*.dir@-simulator_type@invariant_checker")
+      # Run the record filter tool with a null filter.
+      set(${testname}_postcmd2 "${CMAKE_COMMAND}@-E@make_directory@${outdir}")
+      set(${testname}_postcmd3 ${launch_cmd})
+      # Run the analyzer on the result.
+      set(${testname}_postcmd4
+        "${drcachesim_path}@-indir@${outdir}@-simulator_type@${analyzer}")
+    endmacro ()
+
     set(testname "tool.record_filter")
-    if (WIN32)
-      # Speed the test up (takes 1+ minutes otherwise).
-      set(extra_ops "-trace_after_instrs 5K -exit_after_tracing 50K")
-    else ()
-      set(extra_ops "")
-    endif ()
-    torunonly_ci(${testname} ${ci_shared_app} drcachesim
-      "record_filter-offline.c"
-      "-offline -subdir_prefix ${testname} ${extra_ops}" "" "")
-    set(${testname}_toolname "drcachesim")
-    set(${testname}_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
     get_target_path_for_execution(filter_path record_filter_launcher "${location_suffix}")
     prefix_cmd_if_necessary(filter_path ON ${filter_path})
-    set(outdir "${testname}.filtered.dir")
-    set(${testname}_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
-    set(${testname}_precmd
-      "foreach@${CMAKE_COMMAND}@-E@remove_directory@${testname}.*.dir")
-    # Post-process the trace and sanity check it.
-    # Use a smaller chunk threshold to test multiple chunks.
-    set(${testname}_postcmd
-      "${drcachesim_path}@-chunk_instr_count@1000@-indir@${testname}.*.dir@-simulator_type@invariant_checker")
-    # Run the record filter tool with a null filter.
-    set(${testname}_postcmd2 "${CMAKE_COMMAND}@-E@make_directory@${outdir}")
-    set(${testname}_postcmd3
+    torun_record_filter("${testname}" ${ci_shared_app} "record_filter-offline"
       # We assume the app name starts with "s" here to avoid colliding with
       # our output dir, while still letting the single precmd remove both.
-      "${filter_path}@-trace_dir@${testname}.s*.dir/trace@-output_dir@${outdir}")
-    # Run the invariant checker on the result.
-    set(${testname}_postcmd4
-      "${drcachesim_path}@-indir@${outdir}@-simulator_type@invariant_checker")
+      "${filter_path}@-trace_dir@${testname}.s*.dir/trace@-output_dir@${testname}.filtered.dir"
+      "invariant_checker")
+
+    # Single-threaded app on 4 cores to test start-idle cores.
+    set(testname "tool.record_filter_bycore_uni")
+    torun_record_filter("${testname}" ${ci_shared_app}
+      "record_filter_bycore_uni"
+      # We assume the app name starts with "s" here to avoid colliding with
+      # our output dir, while still letting the single precmd remove both.
+      "${drcachesim_path}@-simulator_type@record_filter@-indir@${testname}.s*.dir/trace@-core_sharded@-cores@4@-outdir@${testname}.filtered.dir"
+      "schedule_stats")
+
+    if (UNIX) # Windows multi-thread tests are too slow.
+      set(testname "tool.record_filter_bycore_multi")
+      torun_record_filter("${testname}" pthreads.ptsig
+        "record_filter_bycore_multi"
+        # We use the app name start char "p" here to avoid colliding with
+        # our output dir, while still letting the single precmd remove both.
+        "${drcachesim_path}@-simulator_type@record_filter@-indir@${testname}.p*.dir/trace@-core_sharded@-cores@3@-outdir@${testname}.filtered.dir"
+        "schedule_stats")
+    endif ()
 
     # Test the trim filter.
     if (X86 AND X64 AND ZLIB_FOUND)

@@ -176,9 +176,49 @@ record_filter_t::parallel_shard_supported()
 }
 
 std::string
+record_filter_t::initialize_shard_type(shard_type_t shard_type)
+{
+    shard_type_ = shard_type;
+    return "";
+}
+
+std::string
 record_filter_t::get_writer(per_shard_t *per_shard, memtrace_stream_t *shard_stream)
 {
-    per_shard->output_path = output_dir_ + DIRSEP + shard_stream->get_stream_name();
+    if (shard_type_ == SHARD_BY_CORE) {
+        // Each output is a mix of inputs so we do not want to reuse the input
+        // names with tids.
+        // Since some shards may not have inputs, we need to synchronize determining
+        // the file extension.
+        // First, get our path without the extension, so we can add it later.
+        per_shard->output_path = output_dir_ + DIRSEP + "drmemtrace.core." +
+            std::to_string(shard_stream->get_shard_index()) + ".trace";
+        std::string input_name = shard_stream->get_stream_name();
+        // Now synchronize determining the extension.
+        auto lock = std::unique_lock<std::mutex>(input_info_mutex_);
+        if (!output_ext_.empty()) {
+            per_shard->output_path += output_ext_;
+            lock.unlock();
+        } else if (!input_name.empty()) {
+            size_t last_dot = input_name.rfind('.');
+            if (last_dot == std::string::npos)
+                return "Failed to determine filename type from extension";
+            output_ext_ = input_name.substr(last_dot);
+            // Set the other key input data.
+            version_ = shard_stream->get_version();
+            filetype_ = add_to_filetype(shard_stream->get_filetype());
+            per_shard->output_path += output_ext_;
+            lock.unlock();
+            input_info_cond_var_.notify_all();
+        } else {
+            // We have to wait for another shard with an input to set output_ext_.
+            input_info_cond_var_.wait(lock, [this] { return !output_ext_.empty(); });
+            per_shard->output_path += output_ext_;
+            lock.unlock();
+        }
+    } else {
+        per_shard->output_path = output_dir_ + DIRSEP + shard_stream->get_stream_name();
+    }
 #ifdef HAS_ZLIB
     if (ends_with(per_shard->output_path, ".gz")) {
         VPRINT(this, 3, "Using the gzip writer for %s\n", per_shard->output_path.c_str());
@@ -289,6 +329,9 @@ record_filter_t::parallel_shard_init_stream(int shard_index, void *worker_data,
     per_shard->input_entry_count = 0;
     per_shard->output_entry_count = 0;
     per_shard->tid = shard_stream->get_tid();
+    if (shard_type_ == SHARD_BY_CORE) {
+        per_shard->memref_counter.set_core_sharded(true);
+    }
     for (auto &f : filters_) {
         per_shard->filter_shard_data.push_back(
             f->parallel_shard_init(shard_stream, stop_timestamp_ != 0));
@@ -312,6 +355,16 @@ record_filter_t::parallel_shard_exit(void *shard_data)
         if (!filters_[i]->parallel_shard_exit(per_shard->filter_shard_data[i]))
             res = false;
     }
+    if (per_shard->last_written_record.type != TRACE_TYPE_FOOTER) {
+        // When core-sharded some cores can end in TRACE_TYPE_IDLE.
+        // i#6703: Should the scheduler add a footer instead of us?
+        trace_entry_t footer = {};
+        footer.type = TRACE_TYPE_FOOTER;
+        if (!write_trace_entry(per_shard, footer)) {
+            per_shard->error = "Failed to write footer";
+            return false;
+        }
+    }
     // Destroy the writer since we do not need it anymore. This also makes sure
     // that data is written out to the file; curiously, a simple flush doesn't
     // do it.
@@ -327,7 +380,9 @@ record_filter_t::parallel_shard_exit(void *shard_data)
                  per_shard->filetype) &&
         // chunk_ordinal is 1 after the init-time call for archives; it
         // remains 0 for non-archives.
-        per_shard->chunk_ordinal <= 1 && per_shard->cur_chunk_instrs == 0) {
+        per_shard->chunk_ordinal <= 1 && per_shard->cur_chunk_instrs == 0 &&
+        // Leave a core-sharded completely-idle file.
+        shard_type_ != SHARD_BY_CORE) {
         // Mark for removal.  We delay removal in case it involves global
         // operations that might race with other workers.
         per_shard->now_empty = true;
@@ -345,6 +400,53 @@ record_filter_t::parallel_shard_error(void *shard_data)
 bool
 record_filter_t::write_trace_entry(per_shard_t *shard, const trace_entry_t &entry)
 {
+    if (shard->output_entry_count == 0 && entry.type != TRACE_TYPE_HEADER) {
+        // When core-sharded with initially-idle cores we can start without a header.
+        // XXX i#6703: The scheduler should insert these headers for us.
+        std::vector<trace_entry_t> header;
+        trace_entry_t record = {};
+        record.type = TRACE_TYPE_HEADER;
+        // Our own stream's version + filetype are 0 so we use another shard's.
+        std::lock_guard<std::mutex> guard(input_info_mutex_);
+        record.addr = version_;
+        header.push_back(record);
+        record.type = TRACE_TYPE_MARKER;
+        record.size = TRACE_MARKER_TYPE_VERSION;
+        record.addr = static_cast<addr_t>(version_);
+        header.push_back(record);
+        record.type = TRACE_TYPE_MARKER;
+        record.size = TRACE_MARKER_TYPE_FILETYPE;
+        record.addr = static_cast<addr_t>(filetype_);
+        header.push_back(record);
+        // file_reader_t::open_input_file demands tid+pid so we insert sentinel values.
+        // We can't use INVALID_THREAD_ID as scheduler_t::open_reader() loops until
+        // record_type_has_tid() which requires record.marker.tid != INVALID_THREAD_ID.
+        record.type = TRACE_TYPE_THREAD;
+        record.size = sizeof(thread_id_t);
+        record.addr = static_cast<addr_t>(IDLE_THREAD_ID);
+        header.push_back(record);
+        record.type = TRACE_TYPE_PID;
+        record.size = sizeof(process_id_t);
+        record.addr = static_cast<addr_t>(INVALID_PID);
+        header.push_back(record);
+        // The scheduler itself demands a timestamp,cpuid pair.
+        // We don't have a good value to use here though:
+        // XXX i#6703: The scheduler should insert these for us.
+        // As-is, these can cause confusion with -1 values, but this is our best
+        // effort support until i#6703.
+        record.type = TRACE_TYPE_MARKER;
+        record.size = TRACE_MARKER_TYPE_TIMESTAMP;
+        record.addr = static_cast<addr_t>(-1);
+        header.push_back(record);
+        record.type = TRACE_TYPE_MARKER;
+        record.size = TRACE_MARKER_TYPE_CPU_ID;
+        record.addr = static_cast<addr_t>(-1);
+        header.push_back(record);
+        if (!write_trace_entries(shard, header)) {
+            shard->error += "Failed to write synthetic header";
+            return false;
+        }
+    }
     if (!shard->writer->write((char *)&entry, sizeof(entry))) {
         shard->error = "Failed to write to output file " + shard->output_path;
         success_ = false;
@@ -352,6 +454,7 @@ record_filter_t::write_trace_entry(per_shard_t *shard, const trace_entry_t &entr
     }
     shard->cur_refs += shard->memref_counter.entry_memref_count(&entry);
     ++shard->output_entry_count;
+    shard->last_written_record = entry;
     return true;
 }
 
@@ -376,9 +479,7 @@ record_filter_t::process_markers(per_shard_t *per_shard, trace_entry_t &entry,
             per_shard->chunk_size = entry.addr;
             break;
         case TRACE_MARKER_TYPE_FILETYPE:
-            if (stop_timestamp_ != 0) {
-                entry.addr |= OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP;
-            }
+            entry.addr = static_cast<addr_t>(add_to_filetype(entry.addr));
             per_shard->filetype = entry.addr;
             break;
         case TRACE_MARKER_TYPE_CHUNK_FOOTER:
@@ -429,7 +530,10 @@ record_filter_t::process_chunk_encodings(per_shard_t *per_shard, trace_entry_t &
         !is_any_instr_type(static_cast<trace_type_t>(entry.type)))
         return "";
     if (!per_shard->last_encoding.empty()) {
-        per_shard->pc2encoding[entry.addr] = per_shard->last_encoding;
+        if (per_shard->per_input == nullptr)
+            return "Invalid input id for instruction";
+        std::lock_guard<std::mutex> guard(per_shard->per_input->lock);
+        per_shard->per_input->pc2encoding[entry.addr] = per_shard->last_encoding;
         // Disable the just-delayed encoding output in process_delayed_encodings() if
         // this is what used to be a new-chunk encoding but is no longer.
         if (per_shard->cur_chunk_pcs.find(entry.addr) != per_shard->cur_chunk_pcs.end()) {
@@ -445,14 +549,23 @@ record_filter_t::process_chunk_encodings(per_shard_t *per_shard, trace_entry_t &
         // encodings at chunk boundaries regardless.
         if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, per_shard->filetype) &&
             per_shard->cur_chunk_pcs.find(entry.addr) == per_shard->cur_chunk_pcs.end()) {
-            if (per_shard->pc2encoding.find(entry.addr) == per_shard->pc2encoding.end()) {
+            if (per_shard->per_input == nullptr)
+                return "Invalid input id for instruction";
+            std::lock_guard<std::mutex> guard(per_shard->per_input->lock);
+            if (per_shard->per_input->pc2encoding.find(entry.addr) ==
+                per_shard->per_input->pc2encoding.end()) {
                 return "Missing encoding for PC " + std::to_string(entry.addr) +
+                    " in shard " +
+                    std::to_string(per_shard->shard_stream->get_shard_index()) +
+                    " for input " +
+                    std::to_string(per_shard->shard_stream->get_input_id()) +
                     " at input entry " + std::to_string(per_shard->input_entry_count);
             }
             VPRINT(this, 3,
                    "output new-chunk encoding chunk=%" PRIu64 " ref=%" PRIu64 "\n",
                    per_shard->chunk_ordinal, per_shard->cur_refs);
-            if (!write_trace_entries(per_shard, per_shard->pc2encoding[entry.addr])) {
+            if (!write_trace_entries(per_shard,
+                                     per_shard->per_input->pc2encoding[entry.addr])) {
                 return "Failed to write";
             }
             // Avoid emitting the encoding twice.
@@ -521,6 +634,36 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &in
     ++per_shard->input_entry_count;
     trace_entry_t entry = input_entry;
     bool output = true;
+    // XXX: Once we have multi-workload inputs we'll want all our PC keys to become
+    // pairs <get_workload_ordinal(), PC>.
+    if (per_shard->shard_stream->get_workload_id() != per_shard->prev_workload_id &&
+        per_shard->shard_stream->get_workload_id() >= 0 &&
+        per_shard->prev_workload_id >= 0) {
+        per_shard->error = "Multi-workload inputs not yet supported";
+        return false;
+    }
+    int64_t input_id = per_shard->shard_stream->get_input_id();
+    if (per_shard->prev_input_id != input_id) {
+        VPRINT(this, 3,
+               "shard %d switch from %" PRId64 " to %" PRId64 " (refs=%" PRIu64
+               " instrs=%" PRIu64 ")\n",
+               per_shard->shard_stream->get_shard_index(), per_shard->prev_input_id,
+               input_id,
+               per_shard->shard_stream->get_input_interface() == nullptr
+                   ? 0
+                   : per_shard->shard_stream->get_input_interface()->get_record_ordinal(),
+               per_shard->shard_stream->get_input_interface() == nullptr
+                   ? 0
+                   : per_shard->shard_stream->get_input_interface()
+                         ->get_instruction_ordinal());
+        std::lock_guard<std::mutex> guard(input2info_mutex_);
+        auto it = input2info_.find(input_id);
+        if (it == input2info_.end()) {
+            input2info_[input_id] = std::unique_ptr<per_input_t>(new per_input_t);
+            it = input2info_.find(input_id);
+        }
+        per_shard->per_input = it->second.get();
+    }
     if (per_shard->enabled && stop_timestamp_ != 0 &&
         per_shard->shard_stream->get_last_timestamp() >= stop_timestamp_) {
         per_shard->enabled = false;
@@ -552,6 +695,7 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &in
         VPRINT(this, 4, "Cur chunk instr count: %" PRIu64 " vs threshold %" PRIu64 "\n",
                per_shard->cur_chunk_instrs, per_shard->chunk_size);
         if (per_shard->cur_chunk_instrs >= per_shard->chunk_size &&
+            per_shard->chunk_size > 0 &&
             (is_any_instr_type(static_cast<trace_type_t>(entry.type)) ||
              (entry.type == TRACE_TYPE_MARKER &&
               entry.size == TRACE_MARKER_TYPE_TIMESTAMP) ||
@@ -592,6 +736,9 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &in
     } else if (is_any_instr_type(static_cast<trace_type_t>(entry.type))) {
         per_shard->last_encoding.clear();
     }
+
+    per_shard->prev_input_id = per_shard->shard_stream->get_input_id();
+    per_shard->prev_workload_id = per_shard->shard_stream->get_workload_id();
 
     if (output) {
         // XXX i#5675: Currently we support writing to a single output file, but we may

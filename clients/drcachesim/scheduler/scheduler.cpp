@@ -2127,7 +2127,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_cur_input(output_ordinal_t output,
     std::lock_guard<std::mutex> lock(*inputs_[input].lock);
 
     if (prev_input < 0 && outputs_[output].stream->filetype_ == 0) {
-        // Set the filetype up front, to let the user query at init time as documented.
+        // Set the version and filetype up front, to let the user query at init time
+        // as documented.
+        outputs_[output].stream->version_ = inputs_[input].reader->get_version();
         outputs_[output].stream->filetype_ = inputs_[input].reader->get_filetype();
     }
 
