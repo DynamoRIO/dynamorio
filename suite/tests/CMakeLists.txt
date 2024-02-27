@@ -6152,3 +6152,5 @@ if (RISCV64)
       PROPERTIES LABELS RUNS_ON_QEMU)
   endif ()
 endif ()
+
+set_tests_properties(code_api|tool.core_on_disk PROPERTIES LABELS TMATE_DEBUG)#NOCHECK
