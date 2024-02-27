@@ -379,9 +379,6 @@ record_filter_t::process_markers(per_shard_t *per_shard, trace_entry_t &entry,
             if (stop_timestamp_ != 0) {
                 entry.addr |= OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP;
             }
-            if (shard_type_ == SHARD_BY_CORE) {
-                entry.addr |= OFFLINE_FILE_TYPE_CORE_SHARDED;
-            }
             per_shard->filetype = entry.addr;
             break;
         case TRACE_MARKER_TYPE_CHUNK_FOOTER:
