@@ -699,8 +699,16 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
         (options_.mapping == MAP_TO_RECORDED_OUTPUT &&
          options_.replay_as_traced_istream == nullptr && inputs_.size() > 1)) {
         gather_timestamps = true;
+        if (!options_.read_inputs_in_init) {
+            error_string_ = "Timestamp dependencies require read_inputs_in_init";
+            return STATUS_ERROR_INVALID_PARAMETER;
+        }
     }
     bool gather_filetype = options_.read_inputs_in_init;
+    // Avoid reading ahead for replay as it makes the input ords not match in tests.
+    if (options_.mapping == MAP_TO_RECORDED_OUTPUT &&
+        options_.replay_as_traced_istream != nullptr)
+        gather_filetype = false;
     if (gather_filetype || gather_timestamps) {
         sched_type_t::scheduler_status_t res =
             get_initial_input_content(gather_timestamps);
@@ -1271,9 +1279,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_initial_input_content(
 {
     // For every mode, read ahead until we see a filetype record so the user can
     // examine it prior to retrieving any records.
-    if (!options_.read_inputs_in_init)
-        return STATUS_ERROR_INVALID_PARAMETER;
-
+    VPRINT(this, 1, "Reading headers from inputs to find filetypes%s\n",
+           gather_timestamps ? " and timestamps" : "");
+    assert(options_.read_inputs_in_init);
     // Read ahead in each input until we find a timestamp record.
     // Queue up any skipped records to ensure we present them to the
     // output stream(s).
@@ -1316,6 +1324,18 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_initial_input_content(
                     found_timestamp = true;
                 if (found_filetype && found_timestamp)
                     break;
+                // Don't go too far if only looking for filetype, to avoid reaching
+                // the first instruction, which messes up some unit tests that don't
+                // bother to include a filetype.  Just exit with a 0 filetype.
+                if (!found_filetype &&
+                    (record_type_is_timestamp(record, marker_value) ||
+                     (record_type_is_marker(record, marker_type, marker_value) &&
+                      marker_type == TRACE_MARKER_TYPE_PAGE_SIZE))) {
+                    VPRINT(this, 2, "No filetype found: assuming unit test input.\n");
+                    found_filetype = true;
+                    if (!gather_timestamps)
+                        break;
+                }
                 // If we see an instruction, there may be no timestamp (a malformed
                 // synthetic trace in a test) or we may have to read thousands of records
                 // to find it if it were somehow missing, which we do not want to do.  We

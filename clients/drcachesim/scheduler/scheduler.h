@@ -786,8 +786,8 @@ public:
             if (TESTANY(sched_type_t::SCHEDULER_USE_INPUT_ORDINALS,
                         scheduler_->options_.flags) &&
                 // Avoid discrepancies from read_inputs_in_init() reading early
-                // markers by using the output until the 1st instruction.
-                cur_instr_count_ > 0)
+                // markers by using the output until it sees the 1st timestamp.
+                last_timestamp_ > 0)
                 return scheduler_->get_input_stream(ordinal_)->get_record_ordinal();
             return cur_ref_count_;
         }
@@ -850,7 +850,10 @@ public:
         get_last_timestamp() const override
         {
             if (TESTANY(sched_type_t::SCHEDULER_USE_INPUT_ORDINALS,
-                        scheduler_->options_.flags))
+                        scheduler_->options_.flags) &&
+                // Avoid discrepancies from read_inputs_in_init() reading early
+                // markers by using the output until the 1st timestamp is actually read.
+                last_timestamp_ > 0)
                 return scheduler_->get_input_stream(ordinal_)->get_last_timestamp();
             return last_timestamp_;
         }
@@ -861,7 +864,10 @@ public:
         get_first_timestamp() const override
         {
             if (TESTANY(sched_type_t::SCHEDULER_USE_INPUT_ORDINALS,
-                        scheduler_->options_.flags))
+                        scheduler_->options_.flags) &&
+                // Avoid discrepancies from read_inputs_in_init() reading early
+                // markers by using the output until the 1st timestamp is actually read.
+                last_timestamp_ > 0)
                 return scheduler_->get_input_stream(ordinal_)->get_first_timestamp();
             return first_timestamp_;
         }
