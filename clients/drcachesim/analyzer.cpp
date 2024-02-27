@@ -638,9 +638,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks_internal(
             }
             return false;
         }
-        int shard_index = shard_type_ == SHARD_BY_CORE
-            ? worker->index
-            : worker->stream->get_input_stream_ordinal();
+        int shard_index = worker->stream->get_shard_index();
         if (worker->shard_data.find(shard_index) == worker->shard_data.end()) {
             VPRINT(this, 1, "Worker %d starting on trace shard %d stream is %p\n",
                    worker->index, shard_index, worker->stream);
