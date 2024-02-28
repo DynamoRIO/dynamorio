@@ -784,11 +784,8 @@ public:
         get_record_ordinal() const override
         {
             if (TESTANY(sched_type_t::SCHEDULER_USE_INPUT_ORDINALS,
-                        scheduler_->options_.flags) &&
-                // Avoid discrepancies from read_inputs_in_init() reading early
-                // markers by using the output until it sees the 1st timestamp.
-                last_timestamp_ > 0)
-                return scheduler_->get_input_stream(ordinal_)->get_record_ordinal();
+                        scheduler_->options_.flags))
+                return scheduler_->get_input_record_ordinal(ordinal_);
             return cur_ref_count_;
         }
         /**
@@ -850,11 +847,8 @@ public:
         get_last_timestamp() const override
         {
             if (TESTANY(sched_type_t::SCHEDULER_USE_INPUT_ORDINALS,
-                        scheduler_->options_.flags) &&
-                // Avoid discrepancies from read_inputs_in_init() reading early
-                // markers by using the output until the 1st timestamp is actually read.
-                last_timestamp_ > 0)
-                return scheduler_->get_input_stream(ordinal_)->get_last_timestamp();
+                        scheduler_->options_.flags))
+                return scheduler_->get_input_last_timestamp(ordinal_);
             return last_timestamp_;
         }
         /**
@@ -864,11 +858,8 @@ public:
         get_first_timestamp() const override
         {
             if (TESTANY(sched_type_t::SCHEDULER_USE_INPUT_ORDINALS,
-                        scheduler_->options_.flags) &&
-                // Avoid discrepancies from read_inputs_in_init() reading early
-                // markers by using the output until the 1st timestamp is actually read.
-                last_timestamp_ > 0)
-                return scheduler_->get_input_stream(ordinal_)->get_first_timestamp();
+                        scheduler_->options_.flags))
+                return scheduler_->get_input_first_timestamp(ordinal_);
             return first_timestamp_;
         }
         /**
@@ -1162,6 +1153,7 @@ protected:
         // This is used for read-ahead and inserting synthetic records.
         // We use a deque so we can iterate over it.
         std::deque<RecordType> queue;
+        bool cur_from_queue;
         std::set<output_ordinal_t> binding;
         int priority = 0;
         std::vector<range_t> regions_of_interest;
@@ -1509,6 +1501,21 @@ protected:
     // 'output_ordinal'-th output stream.
     memtrace_stream_t *
     get_input_stream(output_ordinal_t output);
+
+    // Returns the possibly adjusted (for queued records) record ordinal for the current
+    // input stream interface for the 'output_ordinal'-th output stream.
+    uint64_t
+    get_input_record_ordinal(output_ordinal_t output);
+
+    // Returns the possibly adjusted (for queued records) first timestamp for the current
+    // input stream interface for the 'output_ordinal'-th output stream.
+    uint64_t
+    get_input_first_timestamp(output_ordinal_t output);
+
+    // Returns the possibly adjusted (for queued records) last timestamp for the current
+    // input stream interface for the 'output_ordinal'-th output stream.
+    uint64_t
+    get_input_last_timestamp(output_ordinal_t output);
 
     stream_status_t
     start_speculation(output_ordinal_t output, addr_t start_address,

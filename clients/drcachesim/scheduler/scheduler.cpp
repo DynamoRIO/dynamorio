@@ -1532,6 +1532,62 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_input_stream(output_ordinal_t outp
 }
 
 template <typename RecordType, typename ReaderType>
+uint64_t
+scheduler_tmpl_t<RecordType, ReaderType>::get_input_record_ordinal(
+    output_ordinal_t output)
+{
+    if (output < 0 || output >= static_cast<output_ordinal_t>(outputs_.size()))
+        return 0;
+    int index = outputs_[output].cur_input;
+    if (index < 0)
+        return 0;
+    uint64_t ord = inputs_[index].reader->get_record_ordinal();
+    if (inputs_[index].reader->get_instruction_ordinal() == 0) {
+        // Account for get_initial_input_content() readahead for filetype/timestamp.
+        ord -= (inputs_[index].queue.size() + inputs_[index].cur_from_queue ? 1 : 0);
+    }
+    return ord;
+}
+
+template <typename RecordType, typename ReaderType>
+uint64_t
+scheduler_tmpl_t<RecordType, ReaderType>::get_input_first_timestamp(
+    output_ordinal_t output)
+{
+    if (output < 0 || output >= static_cast<output_ordinal_t>(outputs_.size()))
+        return 0;
+    int index = outputs_[output].cur_input;
+    if (index < 0)
+        return 0;
+    uint64_t res = inputs_[index].reader->get_first_timestamp();
+    if (inputs_[index].reader->get_instruction_ordinal() == 0 &&
+        (!inputs_[index].queue.empty() || inputs_[index].cur_from_queue)) {
+        // Account for get_initial_input_content() readahead for filetype/timestamp.
+        res = 0;
+    }
+    return res;
+}
+
+template <typename RecordType, typename ReaderType>
+uint64_t
+scheduler_tmpl_t<RecordType, ReaderType>::get_input_last_timestamp(
+    output_ordinal_t output)
+{
+    if (output < 0 || output >= static_cast<output_ordinal_t>(outputs_.size()))
+        return 0;
+    int index = outputs_[output].cur_input;
+    if (index < 0)
+        return 0;
+    uint64_t res = inputs_[index].reader->get_last_timestamp();
+    if (inputs_[index].reader->get_instruction_ordinal() == 0 &&
+        (!inputs_[index].queue.empty() || inputs_[index].cur_from_queue)) {
+        // Account for get_initial_input_content() readahead for filetype/timestamp.
+        res = 0;
+    }
+    return res;
+}
+
+template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(
     output_ordinal_t output, RecordType &record, input_info_t &input)
@@ -2392,7 +2448,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
         return sched_type_t::STATUS_OK;
     }
     while (true) {
-        bool from_queue = false;
+        input->cur_from_queue = false;
         if (input->needs_init) {
             // We pay the cost of this conditional to support ipc_reader_t::init() which
             // blocks and must be called right before reading its first record.
@@ -2406,7 +2462,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
         if (!input->queue.empty()) {
             record = input->queue.front();
             input->queue.pop_front();
-            from_queue = true;
+            input->cur_from_queue = true;
         } else {
             // We again have a flag check because reader_t::init() does an initial ++
             // and so we want to skip that on the first record but perform a ++ prior
@@ -2474,7 +2530,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                 // to get into the trace reading loop and then do something like a skip
                 // from the start rather than adding logic into the setup code).
                 if (input->reader->get_instruction_ordinal() >= stop &&
-                    (!from_queue || (start == 0 && stop == 0))) {
+                    (!input->cur_from_queue || (start == 0 && stop == 0))) {
                     VPRINT(this, 5,
                            "next_record[%d]: need new input: at end of segment in=%d "
                            "stop=%" PRId64 "\n",
