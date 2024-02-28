@@ -1548,7 +1548,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_input_record_ordinal(
     uint64_t ord = inputs_[index].reader->get_record_ordinal();
     if (inputs_[index].reader->get_instruction_ordinal() == 0) {
         // Account for get_initial_input_content() readahead for filetype/timestamp.
-        ord -= (inputs_[index].queue.size() + inputs_[index].cur_from_queue ? 1 : 0);
+        // If this gets any more complex, the scheduler stream should track its
+        // own counts for every input and just ignore the input stream's tracking.
+        ord -= inputs_[index].queue.size() + (inputs_[index].cur_from_queue ? 1 : 0);
     }
     return ord;
 }
