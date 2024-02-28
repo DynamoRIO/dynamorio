@@ -213,7 +213,6 @@
 -----------xxxxx----------------  x16p1      # ... add 1
 -----------xxxxx----------------  d16        # D register
 -----------xxxxx----------------  q16        # Q register
------------xxxxx----------------  z16        # Z register
 -----------xxxxx----------------  z_b_16     # Z register with b size elements
 -----------xxxxx----------------  z_h_16     # Z register with h size elements
 -----------xxxxx----------------  z_s_16     # Z register with h size elements
