@@ -249,6 +249,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|tool.drcacheoff.windows-invar' => 1, # i#6599
                 'code_api|tool.drcacheoff.invariant_checker' => 1, # i#6599
                 'code_api|tool.drcacheoff.getretaddr_record_replace_retaddr' => 1, # i#6599
+                'code_api|tool.record_filter' => 1, # i#6599
                 );
 
             %ignore_failures_64 = (
