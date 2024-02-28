@@ -1516,6 +1516,10 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_output_cpuid(output_ordinal_t outp
 {
     if (options_.replay_as_traced_istream != nullptr)
         return outputs_[output].as_traced_cpuid;
+    int index = outputs_[output].cur_input;
+    if (index >= 0 &&
+        TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, inputs_[index].reader->get_filetype()))
+        return outputs_[output].cur_input;
     return output;
 }
 

@@ -931,7 +931,9 @@ public:
         /**
          * Returns a unique identifier for the current output stream.  For
          * #MAP_TO_RECORDED_OUTPUT, the identifier is the as-traced cpuid mapped to this
-         * output.  For dynamic schedules, the identifier is the output stream ordinal.
+         * output.  For dynamic schedules, the identifier is the output stream ordinal,
+         * except for #OFFLINE_FILE_TYPE_CORE_SHARDED inputs where the identifier
+         * is the input stream ordinal.
          */
         int64_t
         get_output_cpuid() const override
