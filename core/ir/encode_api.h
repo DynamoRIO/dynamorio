@@ -51,6 +51,7 @@ typedef enum _dr_isa_mode_t {
     DR_ISA_ARM_THUMB,         /**< Thumb (ARM T32). */
     DR_ISA_ARM_A64,           /**< ARM A64 (AArch64). */
     DR_ISA_RV64IMAFDC,        /**< RISC-V (rv64imafdc). */
+    DR_ISA_SYNTH,             /**< Synthetic ISA for public traces. */
 } dr_isa_mode_t;
 
 DR_API

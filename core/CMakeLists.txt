@@ -279,6 +279,7 @@ set(DECODER_SRCS
   ir/${ARCH_NAME}/decode.c
   ir/encode_shared.c
   ir/${ARCH_NAME}/encode.c
+  ir/synthetic/encode.c
   ir/disassemble_shared.c
   ir/${ARCH_NAME}/disassemble.c
   ir/ir_utils_shared.c
