@@ -145,6 +145,11 @@ public:
         }
         return 0;
     }
+    int
+    get_shard_index() const override
+    {
+        return get_input_stream_ordinal();
+    }
 
 private:
     std::unordered_map<memref_tid_t, scheduler_t::input_ordinal_t> tid2ordinal_;
