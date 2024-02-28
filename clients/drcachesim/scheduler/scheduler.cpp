@@ -692,6 +692,10 @@ typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
     std::unordered_map<int, std::vector<int>> &workload2inputs)
 {
+    // Determine whether we need to read ahead in the inputs.  There are cases where we
+    // do not want to do that as it would block forever if the inputs are not available
+    // (e.g., online analysis IPC readers); it also complicates ordinals so we avoid it
+    // if we can and enumerate all the cases that do need it.
     bool gather_timestamps = false;
     if (((options_.mapping == MAP_AS_PREVIOUSLY ||
           options_.mapping == MAP_TO_ANY_OUTPUT) &&
@@ -704,6 +708,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
             return STATUS_ERROR_INVALID_PARAMETER;
         }
     }
+    // The filetype, if present, is before the first timestamp.  If we only need the
+    // filetype we avoid going as far as the timestamp.
     bool gather_filetype = options_.read_inputs_in_init;
     // Avoid reading ahead for replay as it makes the input ords not match in tests.
     if (options_.mapping == MAP_TO_RECORDED_OUTPUT &&
@@ -1290,6 +1296,11 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_initial_input_content(
         bool found_filetype = false;
         bool found_timestamp = !gather_timestamps || input.next_timestamp > 0;
         if (!found_filetype || !found_timestamp) {
+            // First, check any queued records in the input.
+            // XXX: Can we create a helper to iterate the queue and then the
+            // reader, and avoid the duplicated loops here?  The challenge is
+            // the non-consuming queue loop vs the consuming and queue-pushback
+            // reader loop.
             for (const auto &record : input.queue) {
                 trace_marker_type_t marker_type;
                 uintptr_t marker_value;
@@ -1307,6 +1318,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_initial_input_content(
         if (input.next_timestamp > 0)
             found_timestamp = true;
         if (!found_filetype || !found_timestamp) {
+            // If we didn't find our targets in the queue, request new records.
             if (input.needs_init) {
                 input.reader->init();
                 input.needs_init = false;
@@ -1325,8 +1337,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_initial_input_content(
                 if (found_filetype && found_timestamp)
                     break;
                 // Don't go too far if only looking for filetype, to avoid reaching
-                // the first instruction, which messes up some unit tests that don't
-                // bother to include a filetype.  Just exit with a 0 filetype.
+                // the first instruction, which causes problems with ordinals when
+                // there is no filetype as happens in legacy traces (and unit tests).
+                // Just exit with a 0 filetype.
                 if (!found_filetype &&
                     (record_type_is_timestamp(record, marker_value) ||
                      (record_type_is_marker(record, marker_type, marker_value) &&

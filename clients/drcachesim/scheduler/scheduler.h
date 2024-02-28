@@ -629,7 +629,9 @@ public:
          * If true, the scheduler will read from each input to determine its filetype
          * during initialization.  If false, the filetype will not be available prior
          * to explicit record rerieval by the user, but this may be required for
-         * inputs whose sources are not yet set up at scheduler init time.
+         * inputs whose sources are not yet set up at scheduler init time (e.g.,
+         * inputs over blocking pipes with data only becoming available after
+         * initializing the scheduler, as happens with online trace analyzers).
          * This must be true for #DEPENDENCY_TIMESTAMPS as it also requires reading
          * ahead.
          */
@@ -1504,18 +1506,18 @@ protected:
     memtrace_stream_t *
     get_input_stream(output_ordinal_t output);
 
-    // Returns the possibly adjusted (for queued records) record ordinal for the current
-    // input stream interface for the 'output_ordinal'-th output stream.
+    // Returns the record ordinal for the current input stream interface for the
+    // 'output_ordinal'-th output stream.
     uint64_t
     get_input_record_ordinal(output_ordinal_t output);
 
-    // Returns the possibly adjusted (for queued records) first timestamp for the current
-    // input stream interface for the 'output_ordinal'-th output stream.
+    // Returns the first timestamp for the current input stream interface for the
+    // 'output_ordinal'-th output stream.
     uint64_t
     get_input_first_timestamp(output_ordinal_t output);
 
-    // Returns the possibly adjusted (for queued records) last timestamp for the current
-    // input stream interface for the 'output_ordinal'-th output stream.
+    // Returns the last timestamp for the current input stream interface for the
+    // 'output_ordinal'-th output stream.
     uint64_t
     get_input_last_timestamp(output_ordinal_t output);
 
