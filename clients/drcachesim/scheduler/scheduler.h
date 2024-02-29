@@ -628,7 +628,7 @@ public:
         /**
          * If true, the scheduler will read from each input to determine its filetype
          * during initialization.  If false, the filetype will not be available prior
-         * to explicit record rerieval by the user, but this may be required for
+         * to explicit record retrieval by the user, but this may be required for
          * inputs whose sources are not yet set up at scheduler init time (e.g.,
          * inputs over blocking pipes with data only becoming available after
          * initializing the scheduler, as happens with online trace analyzers).
