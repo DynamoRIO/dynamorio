@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -135,7 +135,7 @@ reader_t::process_input_entry()
     case TRACE_TYPE_PREFETCH_WRITE_L3:
     case TRACE_TYPE_PREFETCH_WRITE_L3_NT:
         have_memref = true;
-        assert(cur_tid_ != 0 && cur_pid_ != 0);
+        assert((cur_tid_ != 0 && cur_pid_ != 0) || core_sharded_);
         cur_ref_.data.pid = cur_pid_;
         cur_ref_.data.tid = cur_tid_;
         cur_ref_.data.type = (trace_type_t)input_entry_->type;
@@ -177,7 +177,7 @@ reader_t::process_input_entry()
     case TRACE_TYPE_INSTR_RETURN:
     case TRACE_TYPE_INSTR_SYSENTER:
     case TRACE_TYPE_INSTR_NO_FETCH:
-        assert(cur_tid_ != 0 && cur_pid_ != 0);
+        assert((cur_tid_ != 0 && cur_pid_ != 0) || core_sharded_);
         if (input_entry_->size == 0) {
             // Just an entry to tell us the PC of the subsequent memref,
             // used with -L0_filter where we don't reliably have icache
@@ -250,7 +250,7 @@ reader_t::process_input_entry()
         break;
     case TRACE_TYPE_INSTR_FLUSH:
     case TRACE_TYPE_DATA_FLUSH:
-        assert(cur_tid_ != 0 && cur_pid_ != 0);
+        assert((cur_tid_ != 0 && cur_pid_ != 0) || core_sharded_);
         cur_ref_.flush.pid = cur_pid_;
         cur_ref_.flush.tid = cur_tid_;
         cur_ref_.flush.type = (trace_type_t)input_entry_->type;
@@ -274,7 +274,7 @@ reader_t::process_input_entry()
     case TRACE_TYPE_THREAD_EXIT:
         cur_tid_ = (memref_tid_t)input_entry_->addr;
         cur_pid_ = tid2pid_[cur_tid_];
-        assert(cur_tid_ != 0 && cur_pid_ != 0);
+        assert((cur_tid_ != 0 && cur_pid_ != 0) || core_sharded_);
         // We do pass this to the caller but only some fields are valid:
         cur_ref_.exit.pid = cur_pid_;
         cur_ref_.exit.tid = cur_tid_;
@@ -288,7 +288,7 @@ reader_t::process_input_entry()
         break;
     case TRACE_TYPE_MARKER:
         cur_ref_.marker.type = (trace_type_t)input_entry_->type;
-        assert(cur_tid_ != 0 && cur_pid_ != 0);
+        assert((cur_tid_ != 0 && cur_pid_ != 0) || core_sharded_);
         cur_ref_.marker.pid = cur_pid_;
         cur_ref_.marker.tid = cur_tid_;
         cur_ref_.marker.marker_type = (trace_marker_type_t)input_entry_->size;
@@ -330,6 +330,9 @@ reader_t::process_input_entry()
             if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, filetype_)) {
                 expect_no_encodings_ = false;
             }
+            if (TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, filetype_)) {
+                core_sharded_ = true;
+            }
         } else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CACHE_LINE_SIZE)
             cache_line_size_ = cur_ref_.marker.marker_value;
         else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_PAGE_SIZE)
@@ -345,6 +348,14 @@ reader_t::process_input_entry()
                    cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_END) {
             in_kernel_trace_ = false;
         }
+        break;
+    case TRACE_TYPE_HEADER:
+        // We support complete traces being packaged in archives and then read
+        // sequentially, or core-sharded record_filter operation.
+        // We just keep going past the header.
+        VPRINT(
+            this, 2,
+            "Assuming header is part of concatenated or on-disk-core-sharded traces\n");
         break;
     default:
         ERRMSG("Unknown trace entry type %s (%d)\n", trace_type_names[input_entry_->type],

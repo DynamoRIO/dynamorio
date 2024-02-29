@@ -455,6 +455,8 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
             return;
         }
         auto end = create_ipc_reader_end();
+        // We do not want the scheduler's init() to block.
+        sched_ops.read_inputs_in_init = false;
         if (!this->init_scheduler(std::move(reader), std::move(end),
                                   op_verbose.get_value(), std::move(sched_ops))) {
             this->success_ = false;
