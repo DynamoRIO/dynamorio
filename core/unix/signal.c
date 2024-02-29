@@ -4148,6 +4148,7 @@ send_signal_to_client(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
     /* i#207: fragment tag and fcache start pc on fault. */
     si.fault_fragment_info.tag = NULL;
     si.fault_fragment_info.cache_start_pc = NULL;
+    si.fault_fragment_info.ilist = NULL;
     /* i#182/PR 449996: we provide the pre-translation context */
     if (raw_sc != NULL) {
         fragment_t wrapper;
