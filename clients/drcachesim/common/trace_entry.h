@@ -1290,6 +1290,23 @@ typedef enum {
 } pdb_header_entry_idx_t;
 
 /**
+ * Represents the metadata extension for PT traces.
+ * \note This structure defines the configuration details for decoding PT traces.
+ */
+START_PACKED_STRUCTURE
+struct _pt_metadata_ext_t {
+    /**
+     * Indicates whether all PT raw data chunk is collected via a single perf file.
+     * If set to true, the instance of #dynamorio::drmemtrace::pt2ir_t will use streaming
+     * decoding for all PT raw data chunk. If false, the instance of
+     * #dynamorio::drmemtrace::pt2ir_t will decode each chunk one at a time, treating each
+     * as an independent PT file.
+     */
+    bool unified_perf_file;
+} END_PACKED_STRUCTURE;
+typedef struct _pt_metadata_ext_t pt_metadata_ext_t;
+
+/**
  * This is the format in which syscall_pt_trace writes the PT metadata for each
  * thread before writing any system call's PT data.
  * All fields are little-endian.
@@ -1306,6 +1323,12 @@ struct _pt_metadata_buf_t {
      * in its definition.
      */
     pt_metadata_t metadata;
+
+    /**
+     * The PT metadata extension. Note that the struct is already marked packed
+     * in its definition.
+     */
+    pt_metadata_ext_t metadata_ext;
 } END_PACKED_STRUCTURE;
 
 /** See #dynamorio::drmemtrace::_pt_metadata_buf_t. */

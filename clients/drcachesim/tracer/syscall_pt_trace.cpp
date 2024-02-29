@@ -66,6 +66,7 @@ syscall_pt_trace_t::syscall_pt_trace_t()
     , close_file_func_(nullptr)
     , is_initialized_(false)
     , pttracer_handle_ { GLOBAL_DCONTEXT, nullptr }
+    , unified_pttracer_handle_(false)
     , pttracer_output_buffer_ { GLOBAL_DCONTEXT, nullptr }
     , traced_syscall_idx_(0)
     , cur_recording_sysnum_(-1)
@@ -87,7 +88,8 @@ bool
 syscall_pt_trace_t::init(void *drcontext, char *pt_dir_name,
                          drmemtrace_open_file_ex_func_t open_file_ex_func,
                          drmemtrace_write_file_func_t write_file_func,
-                         drmemtrace_close_file_func_t close_file_func)
+                         drmemtrace_close_file_func_t close_file_func,
+                         bool unified_pttracer_handle)
 {
     if (is_initialized_) {
         ASSERT(false, "syscall_pt_trace_t is already initialized");
@@ -97,6 +99,7 @@ syscall_pt_trace_t::init(void *drcontext, char *pt_dir_name,
     open_file_ex_func_ = open_file_ex_func;
     write_file_func_ = write_file_func;
     close_file_func_ = close_file_func;
+    unified_pttracer_handle_ = unified_pttracer_handle;
     pttracer_handle_ = { drcontext, nullptr };
     pttracer_output_buffer_ = { drcontext_, nullptr };
     std::string output_file_name(pt_dir_name);
@@ -121,14 +124,27 @@ syscall_pt_trace_t::init(void *drcontext, char *pt_dir_name,
 bool
 syscall_pt_trace_t::start_syscall_pt_trace(DR_PARAM_IN int sysnum)
 {
-    ASSERT(is_initialized_, "syscall_pt_trace_t is not initialized");
-    ASSERT(drcontext_ != nullptr, "drcontext_ is nullptr");
-
-    if (drpttracer_create_handle(drcontext_, DRPTTRACER_TRACING_ONLY_KERNEL,
-                                 RING_BUFFER_SIZE_SHIFT, RING_BUFFER_SIZE_SHIFT,
-                                 &pttracer_handle_.handle) != DRPTTRACER_SUCCESS) {
+    if (!is_initialized_) {
+        ASSERT(false, "syscall_pt_trace_t is not initialized");
         return false;
     }
+
+    ASSERT(drcontext_ != nullptr, "drcontext_ is nullptr");
+
+    if (!unified_pttracer_handle_) {
+        /* Reset the pttracer handle for next syscall. */
+        pttracer_handle_.reset();
+    }
+
+    /* Create a pttracer handle if it doesn't exist. */
+    if (pttracer_handle_.handle == nullptr) {
+        if (drpttracer_create_handle(drcontext_, DRPTTRACER_TRACING_ONLY_KERNEL,
+                                     RING_BUFFER_SIZE_SHIFT, RING_BUFFER_SIZE_SHIFT,
+                                     &pttracer_handle_.handle) != DRPTTRACER_SUCCESS) {
+            return false;
+        }
+    }
+    ASSERT(pttracer_handle_.handle != nullptr, "pttracer_handle_.handle is nullptr");
 
     /* All syscalls within a single thread share the same pttracer configuration, and
      * thus, the same pt_metadata. Metadata is dumped at the beginning of the output
@@ -157,7 +173,10 @@ syscall_pt_trace_t::start_syscall_pt_trace(DR_PARAM_IN int sysnum)
 bool
 syscall_pt_trace_t::stop_syscall_pt_trace()
 {
-    ASSERT(is_initialized_, "syscall_pt_trace_t is not initialized");
+    if (!is_initialized_) {
+        ASSERT(false, "syscall_pt_trace_t is not initialized");
+        return false;
+    }
     ASSERT(drcontext_ != nullptr, "drcontext_ is nullptr");
     ASSERT(pttracer_handle_.handle != nullptr, "pttracer_handle_.handle is nullptr");
     ASSERT(pttracer_output_buffer_.data != nullptr,
@@ -176,20 +195,14 @@ syscall_pt_trace_t::stop_syscall_pt_trace()
     traced_syscall_idx_++;
     cur_recording_sysnum_ = -1;
 
-    /* Reset the pttracer handle for next syscall.
-     * TODO i#5505: To reduce the overhead caused by pttracer initialization, we need to
-     * share the same pttracer handle for all syscalls per thread. And also, we need to
-     * improve the libpt2ir to support streaming decoding.
-     */
-    pttracer_handle_.reset();
     return true;
 }
 
 bool
 syscall_pt_trace_t::metadata_dump(pt_metadata_t metadata)
 {
-    ASSERT(output_file_ != INVALID_FILE, "output_file_ is INVALID_FILE");
     if (output_file_ == INVALID_FILE) {
+        ASSERT(false, "output_file_ is INVALID_FILE");
         return false;
     }
 
@@ -206,19 +219,19 @@ syscall_pt_trace_t::metadata_dump(pt_metadata_t metadata)
         SYSCALL_PT_ENTRY_TYPE_PT_METADATA_BOUNDARY;
 
     to_write.metadata = metadata;
+    to_write.metadata_ext = { unified_pttracer_handle_ };
     if (write_file_func_(output_file_, &to_write, sizeof(to_write)) == 0) {
         ASSERT(false, "Failed to write the metadata's header to the output file");
         return false;
     }
-
     return true;
 }
 
 bool
 syscall_pt_trace_t::trace_data_dump(drpttracer_output_autoclean_t &output)
 {
-    ASSERT(output_file_ != INVALID_FILE, "output_file_ is INVALID_FILE");
     if (output_file_ == INVALID_FILE) {
+        ASSERT(false, "output_file_ is INVALID_FILE");
         return false;
     }
 

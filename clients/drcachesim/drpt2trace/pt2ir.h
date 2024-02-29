@@ -52,6 +52,7 @@
 #include "dr_api.h"
 #include "drir.h"
 #include "elf_loader.h"
+#include "trace_entry.h"
 
 #ifndef DR_PARAM_IN
 #    define DR_PARAM_IN // nothing
@@ -93,41 +94,66 @@ public:
  * The type of pt2ir_t::convert() return value.
  */
 enum pt2ir_convert_status_t {
-    /** The conversion process is successful. */
+    /**
+     * The conversion process is successful.
+     */
     PT2IR_CONV_SUCCESS = 0,
 
-    /** The conversion process fail to initiate for invalid input. */
+    /**
+     * The conversion process fail to initiate for invalid input.
+     */
     PT2IR_CONV_ERROR_INVALID_INPUT,
 
-    /** The conversion process failed to initiate because the instance was not
-     *  initialized.
+    /**
+     * The conversion process failed to initiate because the instance was not initialized.
      */
     PT2IR_CONV_ERROR_NOT_INITIALIZED,
 
-    /** The conversion process failed to initiate because it attempted to copy a large
-     *  amount of PT data into the raw buffer that was too small to accommodate it.
+    /**
+     * The conversion process failed to initiate because it attempted to copy a large
+     * amount of PT data into the raw buffer that was too small to accommodate it.
      */
     PT2IR_CONV_ERROR_RAW_TRACE_TOO_LARGE,
-    /** The conversion process ends with a failure to sync to the PSB packet. */
+
+    /**
+     * The conversion process ends with a failure to sync to the PSB packet.
+     */
     PT2IR_CONV_ERROR_SYNC_PACKET,
 
-    /** The conversion process ends with a failure to handle a perf event. */
+    /**
+     * The conversion process ends with a failure to handle a perf event.
+     */
     PT2IR_CONV_ERROR_HANDLE_SIDEBAND_EVENT,
 
-    /** The conversion process ends with a failure to get the pending event. */
+    /**
+     * The conversion process ends with a failure to get the pending event.
+     */
     PT2IR_CONV_ERROR_GET_PENDING_EVENT,
 
-    /** The conversion process ends with a failure to set the new image. */
+    /**
+     * The conversion process ends with a failure to set the new image.
+     */
     PT2IR_CONV_ERROR_SET_IMAGE,
 
-    /** The conversion process ends with a failure to decode the next instruction. */
+    /**
+     * The conversion process ends with a failure to decode the next intruction.
+     */
     PT2IR_CONV_ERROR_DECODE_NEXT_INSTR,
 
     /**
-     * The conversion process ends with a failure to convert the libipt's IR to
-     * Dynamorio's IR.
+     * The conversion process ends with a failure to get the decoding offset.
      */
-    PT2IR_CONV_ERROR_DR_IR_CONVERT
+    PT2IR_CONV_ERROR_GET_DECODER_OFFSET,
+
+    /**
+     * The conversion process ends with a failure when execute the pre-decode function.
+     */
+    PT2IR_CONV_ERROR_PRE_DECODE,
+
+    /**
+     * The conversion process ends with a failure when execute the post-decode function.
+     */
+    PT2IR_CONV_ERROR_POST_DECODE
 };
 
 /**
@@ -274,6 +300,11 @@ public:
      */
     std::string sb_kcore_path;
 
+    /**
+     * It indicates whether pt2ir decodes the PT raw trace using streaming decoding.
+     */
+    bool stream_mode;
+
     pt2ir_config_t()
     {
         pt_config.cpu.vendor = CPU_VENDOR_UNKNOWN;
@@ -298,29 +329,17 @@ public:
         sb_primary_file_path = "";
         sb_secondary_file_path_list.clear();
         sb_kcore_path = "";
+
+        stream_mode = false;
     }
 
     /**
      * Return true if the config is successfully initialized.
-     * This function is used to parse the metadata of the PT raw trace.
+     * This function parses the metadata from the syscalls' PT raw trace.
      */
     bool
-    init_with_metadata(DR_PARAM_IN const void *metadata_buffer)
+    init_with_metadata(DR_PARAM_IN pt_metadata_t metadata, DR_PARAM_IN pt_metadata_ext_t metadata_ext)
     {
-        if (metadata_buffer == NULL)
-            return false;
-
-        struct {
-            uint16_t cpu_family;
-            uint8_t cpu_model;
-            uint8_t cpu_stepping;
-            uint16_t time_shift;
-            uint32_t time_mult;
-            uint64_t time_zero;
-        } __attribute__((__packed__)) metadata;
-
-        memcpy(&metadata, metadata_buffer, sizeof(metadata));
-
         pt_config.cpu.family = metadata.cpu_family;
         pt_config.cpu.model = metadata.cpu_model;
         pt_config.cpu.stepping = metadata.cpu_stepping;
@@ -329,6 +348,16 @@ public:
         sb_config.time_shift = metadata.time_shift;
         sb_config.time_mult = metadata.time_mult;
         sb_config.time_zero = metadata.time_zero;
+
+        /* When system call PT data is gathered through a unified perf file, each system
+         * call's PT data might not always begin or conclude with a full PT packet.
+         * Additionally, valid data won't be delimited by Packet Stream Boundaries (PSB)
+         * Packet encapsulations. Given that libipt doesn't support streaming decoding or
+         * partial PT data decoding, we utilize pt2ir_t to monitor the decode offset and
+         * implement streaming decoding to ensure accurate processing of each syscall's
+         * data.
+         */
+        stream_mode = metadata_ext.unified_perf_file;
 
         return true;
     }
@@ -353,13 +382,14 @@ public:
     init(DR_PARAM_IN pt2ir_config_t &pt2ir_config, DR_PARAM_IN int verbosity = 0);
 
     /**
-     * The convert function performs two processes: (1) decode the PT raw trace into
-     * libipt's IR format pt_insn; (2) convert pt_insn into the DynamoRIO's IR format
-     * instr_t and append it to ilist inside the drir object.
+     * The convert function performs two processes:
+     * (1) decode the PT raw trace into libipt's IR format pt_insn;
+     * (2) convert pt_insn into the DynamoRIO's IR format instr_t and append it to ilist
+     * inside the drir object.
      * @param pt_data The PT raw trace.
      * @param pt_data_size The size of PT raw trace.
      * @param drir The drir object.
-     * @return pt2ir_convert_status_t. If the conversion is successful, the function
+     * @return pt2ir_convert_status_t. If the convertion is successful, the function
      * returns #PT2IR_CONV_SUCCESS. Otherwise, the function returns the corresponding
      * error code.
      */
@@ -368,6 +398,19 @@ public:
             DR_PARAM_INOUT drir_t *drir);
 
 private:
+    /* Pre-decoding involves determining the final data packet's offset for setting a stop
+     * position and identifying the last Packet Stream Boundary (PSB) packet's offset in
+     * the current buffer for future buffer left shift operations.
+     */
+    bool
+    pre_decode();
+
+    /* If a Packet Stream Boundary (PSB) packet is detected in the middle of the buffer,
+     * the buffer is shifted to the left and the decoder is reset.
+     */
+    bool
+    post_decode();
+
     /* Diagnose converting errors and output diagnostic results.
      * It will used to generate the error message during the decoding process.
      */
@@ -380,9 +423,35 @@ private:
      */
     bool pt2ir_initialized_;
 
+    /* It indicates if the instance of pt2ir_t will decode the PT raw trace using
+     * streaming decoding mode.
+     * In non-stream mode, the instance will treat the PT raw trace as a whole and decode
+     * it through the default libipt decoder. In stream mode, each incoming PT raw trace
+     * data is treated as a PT raw trace chunk. The instance monitors the decode offset
+     * for each chunk and performs streaming decoding.
+     *
+     * TODO i#5505: The last packet of each PT data chunk might be incomplete. So for
+     * every PT raw trace chunk, we will not decode the final packet. Instead, we will
+     * decode the partial packet when the next chunk arrives. This results in each initial
+     * chunk missing some instructions at the end, the final chunk having some extraneous
+     * instructions, and the middle chunks' decoding outcomes containing instructions from
+     * the previous chunk at the beginning and missing some at the end. This approach is
+     * acceptable for decoding every syscall's trace since they are surrounded by noise
+     * instructions and the missing instructions only impact these noise instructions.
+     * However, it's important not to employ pt2ir to decode other discontinuous chunks
+     * that demand a precision instruction list.
+     */
+    bool pt2ir_stream_mode_;
+
     /* Buffer for caching the PT raw trace. */
     std::unique_ptr<uint8_t[]> pt_raw_buffer_;
     size_t pt_raw_buffer_size_;
+
+    /* The size of the PT data within the raw buffer. */
+    uint64_t pt_raw_buffer_data_size_;
+
+    /* The offset for next time buffer left shifts. */
+    uint64_t pt_raw_buffer_lshift_offset_;
 
     /* The libipt instruction decoder. */
     struct pt_insn_decoder *pt_instr_decoder_;
@@ -393,8 +462,16 @@ private:
     /* The libipt sideband session. */
     struct pt_sb_session *pt_sb_session_;
 
-    /* The size of the PT data within the raw buffer. */
-    uint64_t pt_raw_buffer_data_size_;
+    /* The state of the libipt instruction decoder since the last operation. */
+    int pt_instr_status_;
+
+    /* Determine whether the decoder has synchronization to the first Packet Stream
+     * Boundary(PSB) packet.
+     */
+    bool pt_decoder_has_sync_;
+
+    /* The offset for where the decoder will stop. */
+    uint64_t pt_decoder_stop_offset_;
 
     /* The shared image section cache.
      * The pt2ir_t instance is designed to work with a single thread, while the image is

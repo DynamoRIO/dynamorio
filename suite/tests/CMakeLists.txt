@@ -4779,6 +4779,7 @@ if (BUILD_CLIENTS)
                                   "@-simulator_type@opcode_mix")
       torunonly_drcacheoff_kernel(syscall-mix ${ci_shared_app} "-raw_compress none" ""
                                   "@-simulator_type@syscall_mix")
+      torunonly_drcacheoff_kernel(simple_unified_perf ${ci_shared_app} "-raw_compress none -kernel_tracing_unified_perf" "" "")
       torunonly_drcacheoff_kernel(invariant-checker ${ci_shared_app} "-raw_compress none" ""
                                   "@-simulator_type@invariant_checker@-test_mode_name@kernel_syscall_pt_trace")
     endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)

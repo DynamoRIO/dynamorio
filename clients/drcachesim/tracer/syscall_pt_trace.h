@@ -110,12 +110,17 @@ public:
     /* Initialize the syscall_pt_trace_t instance for current thread.
      * The instance will dump the kernel PT trace for every syscall. So the caller must
      * pass in the output directory and the file write function.
+     * The parameter unified_pttracer_handle determines whether a single, unified pttracer
+     * should be employed to record all syscalls. If set to true, pttracer_handle_ is
+     * initialized once and then reused for all syscalls. If not, pttracer_handle_ is
+     * reset prior to recording each syscall's PT data.
      */
     bool
     init(void *drcontext, char *pt_dir_name,
          drmemtrace_open_file_ex_func_t open_file_ex_func,
          drmemtrace_write_file_func_t write_file_func,
-         drmemtrace_close_file_func_t close_file_func);
+         drmemtrace_close_file_func_t close_file_func,
+         bool unified_pttracer_handle = false);
 
     /* Start the PT tracing for current syscall and store the sysnum of the syscall. */
     bool
@@ -172,6 +177,9 @@ private:
 
     /* The pttracer handle held by this instance. */
     drpttracer_handle_autoclean_t pttracer_handle_;
+
+    /* Indicates whether use a unified pttracer_handle for all syscalls. */
+    bool unified_pttracer_handle_;
 
     /* The pttracer output data held by every instance. The output buffer stores PT trace
      * data for each system call. The buffer will be updated when stop_syscall_pt_trace()

@@ -454,6 +454,7 @@ main(int argc, const char *argv[])
 
     if (op_raw_pt_format.get_value() == "PERF") {
         config.pt_raw_buffer_size = pt_raw_buffer.size();
+        config.stream_mode = false;
         if (!ptconverter->init(config)) {
             std::cerr << CLIENT_NAME << ": failed to initialize pt2ir_t." << std::endl;
             return FAILURE;
@@ -478,16 +479,21 @@ main(int argc, const char *argv[])
             return FAILURE;
         }
 
-        void *metadata_buffer =
-            reinterpret_cast<void *>(reinterpret_cast<uint8_t *>(pt_metadata_header) +
-                                     PT_METADATA_PDB_DATA_OFFSET);
-        config.init_with_metadata(metadata_buffer);
+        pt_metadata_t *pt_metadata = reinterpret_cast<pt_metadata_t *>(
+            reinterpret_cast<uint8_t *>(pt_metadata_header) +
+            PT_METADATA_PDB_DATA_OFFSET);
+        pt_metadata_ext_t *pt_metadata_ext = reinterpret_cast<pt_metadata_ext_t *>(
+            reinterpret_cast<uint8_t *>(pt_metadata_header) +
+            PT_METADATA_PDB_DATA_OFFSET + sizeof(pt_metadata_t));
+        config.init_with_metadata(*pt_metadata, *pt_metadata_ext);
 
-        /* Set the buffer size to be at least the maximum stream data size.
+        /* For stream decoding of PT data, the buffer might, in a worst-case scenario,
+         * store PT data from two stream data chunks. Hence, we should set the buffer size
+         * to twice the maximum stream data chunk size.
          */
 #define RING_BUFFER_SIZE_SHIFT 8
         config.pt_raw_buffer_size =
-            (1L << RING_BUFFER_SIZE_SHIFT) * sysconf(_SC_PAGESIZE);
+            (2L << RING_BUFFER_SIZE_SHIFT) * sysconf(_SC_PAGESIZE);
 
         /* Initialize the ptconverter. */
         if (!ptconverter->init(config)) {

@@ -1761,7 +1761,8 @@ init_thread_in_process(void *drcontext)
                     return file_ops_func.call_open_file(fname, mode_flags, thread_id,
                                                         window_id);
                 },
-                file_ops_func.write_file, file_ops_func.close_file)) {
+                file_ops_func.write_file, file_ops_func.close_file,
+                op_kernel_tracing_unified_perf.get_value())) {
             FATAL("Failed to init syscall_pt_trace_t for kernel raw files at %s\n",
                   kernel_trace_logsubdir);
         }
