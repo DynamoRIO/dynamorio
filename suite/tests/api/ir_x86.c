@@ -787,6 +787,46 @@ test_instr_encode_and_decode(void *dc, instr_t *instr, uint len_expect,
     instr_destroy(dc, decin);
 }
 
+bool
+instr_same_synthetic(instr_t *inst1, instr_t *inst2)
+{
+    if (instr_num_srcs(inst1) != instr_num_srcs(inst2))
+        return false;
+
+    if (instr_num_dsts(inst1) != instr_num_dsts(inst2))
+        return false;
+
+    if (instr_get_isa_mode(inst1) != instr_get_isa_mode(inst2))
+        return false;
+
+    return true;
+}
+
+static void
+test_instr_encode_decode_synthetic(void *dc, instr_t *instr, byte *bytes)
+{
+    instr_t *instr_copy;
+    instr_set_isa_mode(instr, DR_ISA_SYNTH);
+    instr_encode(dc, instr, bytes);
+    instr_copy = instr_create(dc);
+    instr_set_isa_mode(instr_copy, DR_ISA_SYNTH);
+    decode(dc, bytes, instr_copy);
+    ASSERT(instr_same_synthetic(instr, instr_copy));
+    instr_destroy(dc, instr);
+    instr_destroy(dc, instr_copy);
+}
+
+static void
+test_instr_create_encode_decode_synthetic(void *dc)
+{
+    instr_t *instr;
+    opnd_t abs_addr = opnd_create_abs_addr((void *)0xdeadbeefdeadbeef, OPSZ_8);
+
+    instr = INSTR_CREATE_mov_ld(dc, opnd_create_reg(DR_REG_RAX), abs_addr);
+    byte bytes[8];
+    test_instr_encode_decode_synthetic(dc, instr, bytes);
+}
+
 static void
 test_indirect_cti(void *dc)
 {
@@ -2878,6 +2918,8 @@ main(int argc, char *argv[])
     dr_mutex_unlock(x);
     dr_mutex_destroy(x);
 #endif
+
+    test_instr_create_encode_decode_synthetic(dcontext);
 
     test_all_opcodes_0(dcontext);
 #ifndef STANDALONE_DECODER /* speed up compilation */
