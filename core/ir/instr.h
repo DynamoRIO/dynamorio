@@ -215,6 +215,12 @@ enum {
 #endif
     /* PR 267260: distinguish our own mangling from client-added instrs */
     INSTR_OUR_MANGLING = 0x80000000,
+    /*
+     * Synthetic ISA mode.
+     * TOFIX: we're exceeding 4 bytes, this is an issue on 32 bits arch
+     * where uint flags of instr_t is only 4 bytes.
+     */
+    INSTR_SYNTH_MODE = 0x100000000,
 };
 
 #define DR_TUPLE_TYPE_BITS 4

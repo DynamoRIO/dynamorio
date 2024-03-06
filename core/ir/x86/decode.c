@@ -38,6 +38,7 @@
 /* decode.c -- a full x86 decoder */
 
 #include "../globals.h"
+#include "../synthetic/decode.h"
 #include "arch.h"
 #include "instr.h"
 #include "decode.h"
@@ -2579,6 +2580,16 @@ check_is_variable_size(opnd_t op)
 static byte *
 decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
 {
+    /*
+     * If we're dealing with decoding from synthetic ISA, we don't care about returning
+     * the pc of the next instruction (?), so we just write the encoding in final_pc and
+     * return it.
+     */
+    if (instr_get_isa_mode(instr) == DR_ISA_SYNTH) {
+        decode_from_synth(dcontext, orig_pc, instr);
+        return orig_pc;
+    }
+
     const instr_info_t *info;
     decode_info_t di;
     byte *next_pc;

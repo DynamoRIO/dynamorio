@@ -2760,13 +2760,12 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
                   bool *has_instr_opnds /*OUT OPTIONAL*/
                       _IF_DEBUG(bool assert_reachable))
 {
-
     /*
      * If we're dealing with encoding to synthetic ISA, we don't care about returning
-     * the pc of the next instruction, so we just write the encoding in final_pc and
+     * the pc of the next instruction (?), so we just write the encoding in final_pc and
      * return it.
      */
-    if (dr_get_isa_mode(dcontext) == DR_ISA_SYNTH) {
+    if (instr_get_isa_mode(instr) == DR_ISA_SYNTH) {
         encode_to_synth(dcontext, instr, final_pc);
         return final_pc;
     }

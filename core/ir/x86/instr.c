@@ -40,6 +40,7 @@
 #include "instr.h"
 #include "decode.h"
 #include "decode_private.h"
+#include "encode_api.h"
 #include "instr_create_shared.h"
 
 #ifdef X64
@@ -70,6 +71,10 @@ instr_get_x86_mode(instr_t *instr)
 bool
 instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
 {
+    if (mode == DR_ISA_SYNTH) {
+        instr->flags |= INSTR_SYNTH_MODE;
+        return true;
+    }
 #ifdef X64
     if (mode == DR_ISA_IA32)
         instr_set_x86_mode(instr, true);
@@ -87,6 +92,9 @@ instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
 dr_isa_mode_t
 instr_get_isa_mode(instr_t *instr)
 {
+    if (TEST(INSTR_SYNTH_MODE, instr->flags)) {
+        return DR_ISA_SYNTH;
+    }
 #ifdef X64
     return TEST(INSTR_X86_MODE, instr->flags) ? DR_ISA_IA32 : DR_ISA_AMD64;
 #else
