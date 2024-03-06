@@ -48,6 +48,12 @@ DR_API
  * \warning This context cannot be used as the drcontext for a thread
  * running under DR control!  It is only for standalone programs that
  * wish to use DR as a library of disassembly, etc. routines.
+ * \warning This context is not fully thread-safe as it stores
+ * the current ISA mode DR uses in a global variable.
+ * Hence, having different threads (e.g., in a parallel analysis tool)
+ * setting different ISA modes at the same time results in a race condition.
+ * Currently we require parallel analysis tools to use their own lock/unlock
+ * mechanism to avoid such race condition when setting the ISA mode.
  * \return NULL on failure, such as running on an unsupported operating
  * system version.
  */
