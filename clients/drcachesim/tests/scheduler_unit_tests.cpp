@@ -244,10 +244,12 @@ test_parallel()
             else
                 assert(tid2stream[memref.instr.tid] == i);
             // Ensure the ordinals do not accumulate across inputs.
-            assert(
-                stream->get_record_ordinal() ==
-                scheduler.get_input_stream_interface(stream->get_input_stream_ordinal())
-                    ->get_record_ordinal());
+            assert(stream->get_record_ordinal() ==
+                       scheduler
+                           .get_input_stream_interface(stream->get_input_stream_ordinal())
+                           ->get_record_ordinal() ||
+                   // Relax for early on where the scheduler has read ahead.
+                   stream->get_last_timestamp() == 0);
             assert(
                 stream->get_instruction_ordinal() ==
                 scheduler.get_input_stream_interface(stream->get_input_stream_ordinal())

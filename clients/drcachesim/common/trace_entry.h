@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -963,6 +963,10 @@ typedef enum {
      * execution.
      */
     OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY = 0x8000,
+    /**
+     * Each trace shard represents one core and contains interleaved software threads.
+     */
+    OFFLINE_FILE_TYPE_CORE_SHARDED = 0x10000,
 } offline_file_type_t;
 
 static inline const char *

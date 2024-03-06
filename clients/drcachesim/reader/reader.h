@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -272,6 +272,7 @@ protected:
     };
 
     std::unordered_map<addr_t, encoding_info_t> encodings_;
+    bool core_sharded_ = false;
 
 private:
     memref_t cur_ref_;

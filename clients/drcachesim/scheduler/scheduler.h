@@ -394,6 +394,8 @@ public:
          * dependencies: thus, timestamp ordering will be followed at context switch
          * points for picking the next input, but timestamps will not preempt an input.
          * To precisely follow the recorded timestamps, use #MAP_TO_RECORDED_OUTPUT.
+         * If this flag is on, #dynamorio::drmemtrace::scheduler_tmpl_t::
+         * scheduler_options_t.read_inputs_in_init must be set to true.
          */
         DEPENDENCY_TIMESTAMPS_BITFIELD = 0x01,
         /**
@@ -623,6 +625,17 @@ public:
          * sensitivity studies.
          */
         bool randomize_next_input = false;
+        /**
+         * If true, the scheduler will read from each input to determine its filetype
+         * during initialization.  If false, the filetype will not be available prior
+         * to explicit record retrieval by the user, but this may be required for
+         * inputs whose sources are not yet set up at scheduler init time (e.g.,
+         * inputs over blocking pipes with data only becoming available after
+         * initializing the scheduler, as happens with online trace analyzers).
+         * This must be true for #DEPENDENCY_TIMESTAMPS as it also requires reading
+         * ahead.
+         */
+        bool read_inputs_in_init = true;
     };
 
     /**
@@ -774,7 +787,7 @@ public:
         {
             if (TESTANY(sched_type_t::SCHEDULER_USE_INPUT_ORDINALS,
                         scheduler_->options_.flags))
-                return scheduler_->get_input_stream(ordinal_)->get_record_ordinal();
+                return scheduler_->get_input_record_ordinal(ordinal_);
             return cur_ref_count_;
         }
         /**
@@ -837,7 +850,7 @@ public:
         {
             if (TESTANY(sched_type_t::SCHEDULER_USE_INPUT_ORDINALS,
                         scheduler_->options_.flags))
-                return scheduler_->get_input_stream(ordinal_)->get_last_timestamp();
+                return scheduler_->get_input_last_timestamp(ordinal_);
             return last_timestamp_;
         }
         /**
@@ -848,7 +861,7 @@ public:
         {
             if (TESTANY(sched_type_t::SCHEDULER_USE_INPUT_ORDINALS,
                         scheduler_->options_.flags))
-                return scheduler_->get_input_stream(ordinal_)->get_first_timestamp();
+                return scheduler_->get_input_first_timestamp(ordinal_);
             return first_timestamp_;
         }
         /**
@@ -865,6 +878,10 @@ public:
          * #offline_file_type_t identifying the architecture and
          * other key high-level attributes of the trace from the
          * #TRACE_MARKER_TYPE_FILETYPE record in the trace header.
+         * This can be queried prior to explicitly retrieving any records from
+         * output streams, unless #dynamorio::drmemtrace::scheduler_tmpl_t::
+         * scheduler_options_t.read_inputs_in_init is false.
+
          */
         uint64_t
         get_filetype() const override
@@ -916,7 +933,9 @@ public:
         /**
          * Returns a unique identifier for the current output stream.  For
          * #MAP_TO_RECORDED_OUTPUT, the identifier is the as-traced cpuid mapped to this
-         * output.  For dynamic schedules, the identifier is the output stream ordinal.
+         * output.  For dynamic schedules, the identifier is the output stream ordinal,
+         * except for #OFFLINE_FILE_TYPE_CORE_SHARDED inputs where the identifier
+         * is the input stream ordinal.
          */
         int64_t
         get_output_cpuid() const override
@@ -1138,6 +1157,7 @@ protected:
         // This is used for read-ahead and inserting synthetic records.
         // We use a deque so we can iterate over it.
         std::deque<RecordType> queue;
+        bool cur_from_queue;
         std::set<output_ordinal_t> binding;
         int priority = 0;
         std::vector<range_t> regions_of_interest;
@@ -1306,10 +1326,11 @@ protected:
     set_initial_schedule(std::unordered_map<int, std::vector<int>> &workload2inputs);
 
     // Assumed to only be called at initialization time.
-    // Reads ahead in each input to find its first timestamp (queuing the records
-    // read to feed to the user's first requests).
+    // Reads ahead in each input to find its filetype, and if "gather_timestamps"
+    // is set, to find its first timestamp, queuing all records
+    // read to feed to the user's first requests.
     scheduler_status_t
-    get_initial_timestamps();
+    get_initial_input_content(bool gather_timestamps);
 
     // Opens up all the readers for each file in 'path' which may be a directory.
     // Returns a map of the thread id of each file to its index in inputs_.
@@ -1484,6 +1505,21 @@ protected:
     // 'output_ordinal'-th output stream.
     memtrace_stream_t *
     get_input_stream(output_ordinal_t output);
+
+    // Returns the record ordinal for the current input stream interface for the
+    // 'output_ordinal'-th output stream.
+    uint64_t
+    get_input_record_ordinal(output_ordinal_t output);
+
+    // Returns the first timestamp for the current input stream interface for the
+    // 'output_ordinal'-th output stream.
+    uint64_t
+    get_input_first_timestamp(output_ordinal_t output);
+
+    // Returns the last timestamp for the current input stream interface for the
+    // 'output_ordinal'-th output stream.
+    uint64_t
+    get_input_last_timestamp(output_ordinal_t output);
 
     stream_status_t
     start_speculation(output_ordinal_t output, addr_t start_address,
