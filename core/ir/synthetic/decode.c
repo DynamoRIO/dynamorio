@@ -34,58 +34,60 @@
 /* Copyright (c) 2001-2003 Massachusetts Institute of Technology */
 /* Copyright (c) 2001 Hewlett-Packard Company */
 
-/* encode.c -- an encoder for DR synthetic IR */
+/* decode.c -- a decoder for DR synthetic IR */
 
 #include "encode.h"
+#include "decode.h"
 
 #include "../globals.h"
+#include "instr_api.h"
 
 #define CATEGORY_BITS 22
 #define FLAGS_BITS 2
 #define NUM_OPND_BITS 4
 
 void
-encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
+decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
 {
     uint encoding = 0;
     uint shift = 0;
 
     /*
-     * Encode category as synthetic opcode.
+     * Copy encoded_instr in a uint for easy retrieving of values.
      */
-    uint category = instr_get_category(instr);
-    encoding |= category;
+    memcpy(&encoding, encoded_instr, sizeof(uint));
+
+    /*
+     * Decode synthetic opcode as instruction category.
+     */
+    uint category_mask = (1U << CATEGORY_BITS) - 1;
+    uint category = encoding & category_mask;
+    instr_set_category(instr, category);
     shift += CATEGORY_BITS;
 
     /*
-     * Encode flags.
+     * Decode flags.
      */
-    // TOFIX: this is probably not the right way to look at arithmetic flags of an instr_t
-    uint flags = (uint)instr_arith_flags_valid(instr);
-    encoding |= (flags << shift);
+    // Commented to avoid unused variable error.
+    // uint flags_mask = ((1U << FLAGS_BITS) - 1) << shift;
+    // uint flags = encoding & flags_mask;
+    // TOFIX: set all arithmetic flags of instr_t?
     shift += FLAGS_BITS;
 
     /*
-     * Encode number of source operands.
+     * Decode number of source operands.
      */
-    uint num_srcs = (uint)instr_num_srcs(instr);
-    encoding |= (num_srcs << shift);
+    uint num_srcs_mask = ((1U << NUM_OPND_BITS) - 1) << shift;
+    uint num_srcs = encoding & num_srcs_mask;
     shift += NUM_OPND_BITS;
 
     /*
-     * Encode number of destination operands.
+     * Decode number of destination operands.
      */
-    uint num_dsts = (uint)instr_num_dsts(instr);
-    encoding |= (num_dsts << shift);
+    uint num_dsts_mask = ((1U << NUM_OPND_BITS) - 1) << shift;
+    uint num_dsts = encoding & num_dsts_mask;
 
-    /*
-     * TODO: Encode registers.
-     */
-
-    /*
-     * Copy result to output encoded_instr.
-     */
-    memcpy(encoded_instr, &encoding, sizeof(uint));
+    instr_set_num_opnds(dcontext, instr, num_dsts, num_srcs);
 
     return;
 }

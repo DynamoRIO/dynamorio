@@ -280,6 +280,7 @@ set(DECODER_SRCS
   ir/encode_shared.c
   ir/${ARCH_NAME}/encode.c
   ir/synthetic/encode.c
+  ir/synthetic/decode.c
   ir/disassemble_shared.c
   ir/${ARCH_NAME}/disassemble.c
   ir/ir_utils_shared.c
@@ -1213,7 +1214,6 @@ DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/arm/opcode_api.h dr_ir_opcodes_a
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/instr_create_shared_api.h dr_ir_macros.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/x86/instr_create_api.h dr_ir_macros_x86.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/arm/instr_create_api.h dr_ir_macros_arm.h)
-DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/synthetic/encode.h dr_ir_encode_synthetic.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/aarch64/instr_create_api.h
   dr_ir_macros_aarch64.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/lib/dr_ir_utils.h dr_ir_utils.h)
