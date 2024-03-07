@@ -3879,6 +3879,10 @@ if (BUILD_CLIENTS)
         torunonly_simtool(core_on_disk ${ci_shared_app}
           "-indir ${core_sharded_dir} -simulator_type basic_counts" "")
         set(tool.core_on_disk_rawtemp ON) # no preprocessor
+
+        torunonly_simtool(core_on_disk_schedule ${ci_shared_app}
+          "-indir ${core_sharded_dir} -simulator_type schedule_stats" "")
+        set(tool.core_on_disk_schedule_rawtemp ON) # no preprocessor
       endif ()
     endif ()
 

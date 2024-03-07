@@ -350,6 +350,11 @@ public:
     {
         return tid_;
     }
+    memtrace_stream_t *
+    get_input_interface() const override
+    {
+        return const_cast<default_memtrace_stream_t *>(this);
+    }
 
 private:
     uint64_t *record_ordinal_ = nullptr;
