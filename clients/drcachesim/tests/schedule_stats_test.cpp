@@ -65,7 +65,9 @@ using ::dynamorio::drmemtrace::TRACE_MARKER_TYPE_SYSCALL;
 static schedule_stats_t::counters_t
 run_schedule_stats(const std::vector<std::vector<memref_t>> &memrefs)
 {
-    schedule_stats_t tool(/*print_every=*/1, /*verbosity=*/2);
+    // At verbosity 2+ we'd need to subclass default_memtrace_stream_t
+    // and provide a non-null get_input_interface() (point at "this").
+    schedule_stats_t tool(/*print_every=*/1, /*verbosity=*/1);
     struct per_core_t {
         void *worker_data;
         void *shard_data;
