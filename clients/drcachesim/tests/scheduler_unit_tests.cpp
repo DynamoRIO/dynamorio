@@ -4023,21 +4023,21 @@ test_record_scheduler()
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_ENCODING);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
     // Ensure the switch is *before* the encoding.
-    // TODO i#6635: Insert a tid,pid pair as otherwise the switch is invisible
-    // at the trace_entry_t record level.
-    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_ENCODING); // A
-    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);    // A
-    // TODO i#6635: Insert a tid,pid pair as otherwise the switch is invisible
-    // at the trace_entry_t record level.
-    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_ENCODING);    // B
-    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);       // B
-    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);       // B
-    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD_EXIT); // B
-    // TODO i#6635: Insert a tid,pid pair as otherwise the switch is invisible
-    // at the trace_entry_t record level.
-    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_ENCODING);    // A
-    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);       // A
-    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD_EXIT); // A
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD, TID_A);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID, PID_A);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_ENCODING);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD, TID_B);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID, PID_B);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_ENCODING);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD_EXIT);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD, TID_A);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID, PID_A);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_ENCODING);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD_EXIT);
     check_next(stream0, record_scheduler_t::STATUS_EOF);
 }
 

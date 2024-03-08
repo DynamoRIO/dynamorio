@@ -208,6 +208,17 @@ scheduler_tmpl_t<memref_t, reader_t>::record_type_has_tid(memref_t record,
 }
 
 template <>
+bool
+scheduler_tmpl_t<memref_t, reader_t>::record_type_has_pid(memref_t record,
+                                                          memref_pid_t &pid)
+{
+    if (record.marker.pid == INVALID_PID)
+        return false;
+    pid = record.marker.pid;
+    return true;
+}
+
+template <>
 void
 scheduler_tmpl_t<memref_t, reader_t>::record_type_set_tid(memref_t &record,
                                                           memref_tid_t tid)
@@ -319,6 +330,13 @@ scheduler_tmpl_t<memref_t, reader_t>::print_record(const memref_t &record)
     fprintf(stderr, "\n");
 }
 
+template <>
+void
+scheduler_tmpl_t<memref_t, reader_t>::insert_switch_tid_pid(input_info_t &info)
+{
+    // We do nothing, as every record has a tid from the separate inputs.
+}
+
 /******************************************************************************
  * Specializations for scheduler_tmpl_t<record_reader_t>, aka record_scheduler_t.
  */
@@ -357,6 +375,17 @@ scheduler_tmpl_t<trace_entry_t, record_reader_t>::record_type_has_tid(
     if (record.type != TRACE_TYPE_THREAD)
         return false;
     tid = static_cast<memref_tid_t>(record.addr);
+    return true;
+}
+
+template <>
+bool
+scheduler_tmpl_t<trace_entry_t, record_reader_t>::record_type_has_pid(
+    trace_entry_t record, memref_pid_t &pid)
+{
+    if (record.type != TRACE_TYPE_PID)
+        return false;
+    pid = static_cast<memref_pid_t>(record.addr);
     return true;
 }
 
@@ -480,6 +509,27 @@ scheduler_tmpl_t<trace_entry_t, record_reader_t>::print_record(
 {
     fprintf(stderr, "type=%d size=%d addr=0x%zx\n", record.type, record.size,
             record.addr);
+}
+
+template <>
+void
+scheduler_tmpl_t<trace_entry_t, record_reader_t>::insert_switch_tid_pid(
+    input_info_t &input)
+{
+    // We need explicit tid,pid records so reader_t will see the new context.
+    // We insert at the front, so we have reverse order.
+    trace_entry_t pid;
+    pid.type = TRACE_TYPE_PID;
+    pid.size = 0;
+    pid.addr = static_cast<addr_t>(input.pid);
+
+    trace_entry_t tid;
+    tid.type = TRACE_TYPE_THREAD;
+    tid.size = 0;
+    tid.addr = static_cast<addr_t>(input.tid);
+
+    input.queue.push_front(pid);
+    input.queue.push_front(tid);
 }
 
 /***************************************************************************
@@ -2080,6 +2130,10 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_cur_input(output_ordinal_t output,
         outputs_[output].stream->filetype_ = inputs_[input].reader->get_filetype();
     }
 
+    if (inputs_[input].pid != INVALID_PID) {
+        insert_switch_tid_pid(inputs_[input]);
+    }
+
     if (!switch_sequence_.empty() &&
         outputs_[output].stream->get_instruction_ordinal() > 0) {
         sched_type_t::switch_type_t switch_type = SWITCH_INVALID;
@@ -2812,6 +2866,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
 
     outputs_[output].last_record = record;
     record_type_has_tid(record, input->last_record_tid);
+    record_type_has_pid(record, input->pid);
     return sched_type_t::STATUS_OK;
 }
 
