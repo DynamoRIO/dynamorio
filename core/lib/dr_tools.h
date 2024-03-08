@@ -48,8 +48,20 @@ DR_API
  * \warning This context cannot be used as the drcontext for a thread
  * running under DR control!  It is only for standalone programs that
  * wish to use DR as a library of disassembly, etc. routines.
+ * \warning This context is not fully thread-safe as it stores some state
+ * (such as #dr_isa_mode_t and other fields related to AArch32 encoding
+ * and decoding) that is global and may be prone to data races.
+ * For example, having different threads use dr_set_isa_mode() to set
+ * different ISA modes at the same time can result in a data race.
+ * Furthermore, encoding and decoding of AArch32 instructions in parallel
+ * may also result in a data race.
+ * Code that uses a standalone DR context across multiple threads should
+ * implement its own lock/unlock mechanism to avoid such data races
+ * when using dr_set_isa_mode() or encoding/decoding AArch32 instructions.
  * \return NULL on failure, such as running on an unsupported operating
  * system version.
+ */
+/* TODO i#6690: Add better multi-thread standalone decoding support.
  */
 void *
 dr_standalone_init(void);
@@ -66,6 +78,9 @@ dr_standalone_exit(void);
 /**
  * Use this dcontext for use with the standalone static decoder library.
  * Pass it whenever a decoding-related API routine asks for a context.
+ * Note that this GLOBAL_DCONTEXT is returned by dr_standalone_init();
+ * beware of its limitations (especially about thread-safety) described
+ * there.
  */
 #    define GLOBAL_DCONTEXT ((void *)-1)
 #endif
