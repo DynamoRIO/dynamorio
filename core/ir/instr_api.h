@@ -274,6 +274,11 @@ struct _instr_t {
     /* flags contains the constants defined above */
     uint flags;
 
+    /* Instruction ISA mode used to distinguish between 32/64-bit
+     * architectures for encoding purposes.
+     */
+    dr_isa_mode_t isa_mode;
+
     /* hints for encoding this instr in a specific way, holds dr_encoding_hint_type_t */
     uint encoding_hints;
 
@@ -339,7 +344,7 @@ struct _instr_t {
 
     /* Used to hold the relative offset within an instruction list when encoding. */
     size_t offset;
-};     /* instr_t */
+}; /* instr_t */
 #endif /* DR_FAST_IR */
 
 /**

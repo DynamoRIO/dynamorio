@@ -36,13 +36,17 @@
 bool
 instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
 {
-    return (mode == DR_ISA_RV64IMAFDC);
+    if (mode != DR_ISA_RV64IMAFDC) {
+        return false;
+    }
+    instr->isa_mode = DR_ISA_RV64IMAFDC;
+    return true;
 }
 
 dr_isa_mode_t
 instr_get_isa_mode(instr_t *instr)
 {
-    return DR_ISA_RV64IMAFDC;
+    return instr->isa_mode;
 }
 
 int

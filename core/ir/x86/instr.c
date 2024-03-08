@@ -40,7 +40,30 @@
 #include "instr.h"
 #include "decode.h"
 #include "decode_private.h"
+#include "encode_api.h"
 #include "instr_create_shared.h"
+
+bool
+instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
+{
+#ifdef X64
+    if ((mode != DR_ISA_IA32) && (mode != DR_ISA_AMD64)) {
+        return false;
+    }
+#else
+    if (mode != DR_ISA_IA32) {
+        return false;
+    }
+#endif
+    instr->isa_mode = mode;
+    return true;
+}
+
+dr_isa_mode_t
+instr_get_isa_mode(instr_t *instr)
+{
+    return instr->isa_mode;
+}
 
 #ifdef X64
 /*
@@ -50,10 +73,11 @@
 void
 instr_set_x86_mode(instr_t *instr, bool x86)
 {
-    if (x86)
-        instr->flags |= INSTR_X86_MODE;
-    else
-        instr->flags &= ~INSTR_X86_MODE;
+    if (x86) {
+        instr->isa_mode = DR_ISA_IA32;
+    } else {
+        instr->isa_mode = DR_ISA_AMD64;
+    }
 }
 
 /*
@@ -63,36 +87,9 @@ instr_set_x86_mode(instr_t *instr, bool x86)
 bool
 instr_get_x86_mode(instr_t *instr)
 {
-    return TEST(INSTR_X86_MODE, instr->flags);
+    return (instr->isa_mode == DR_ISA_IA32);
 }
 #endif
-
-bool
-instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
-{
-#ifdef X64
-    if (mode == DR_ISA_IA32)
-        instr_set_x86_mode(instr, true);
-    else if (mode == DR_ISA_AMD64)
-        instr_set_x86_mode(instr, false);
-    else
-        return false;
-#else
-    if (mode != DR_ISA_IA32)
-        return false;
-#endif
-    return true;
-}
-
-dr_isa_mode_t
-instr_get_isa_mode(instr_t *instr)
-{
-#ifdef X64
-    return TEST(INSTR_X86_MODE, instr->flags) ? DR_ISA_IA32 : DR_ISA_AMD64;
-#else
-    return DR_ISA_IA32;
-#endif
-}
 
 int
 instr_length_arch(dcontext_t *dcontext, instr_t *instr)

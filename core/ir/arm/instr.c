@@ -39,19 +39,17 @@
 bool
 instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
 {
-    if (mode == DR_ISA_ARM_THUMB)
-        instr->flags |= INSTR_THUMB_MODE;
-    else if (mode == DR_ISA_ARM_A32)
-        instr->flags &= ~INSTR_THUMB_MODE;
-    else
+    if ((mode != DR_ISA_ARM_THUMB) && (mode != DR_ISA_ARM_A32)) {
         return false;
+    }
+    instr->isa_mode = mode;
     return true;
 }
 
 dr_isa_mode_t
 instr_get_isa_mode(instr_t *instr)
 {
-    return TEST(INSTR_THUMB_MODE, instr->flags) ? DR_ISA_ARM_THUMB : DR_ISA_ARM_A32;
+    return instr->isa_mode;
 }
 
 int

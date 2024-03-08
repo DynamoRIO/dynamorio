@@ -35,18 +35,23 @@
 #include "instr.h"
 #include "decode.h"
 
+#include "encode_api.h"
 #include "opcode_names.h"
 
 bool
 instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
 {
-    return (mode == DR_ISA_ARM_A64);
+    if (mode != DR_ISA_ARM_A64) {
+        return false;
+    }
+    instr->isa_mode = DR_ISA_ARM_A64;
+    return true;
 }
 
 dr_isa_mode_t
 instr_get_isa_mode(instr_t *instr)
 {
-    return DR_ISA_ARM_A64;
+    return instr->isa_mode;
 }
 
 int
