@@ -224,6 +224,23 @@ scheduler_tmpl_t<memref_t, reader_t>::record_type_is_instr(memref_t record)
 
 template <>
 bool
+scheduler_tmpl_t<memref_t, reader_t>::record_type_is_encoding(memref_t record)
+{
+    // There are no separate memref_t encoding records: encoding info is
+    // inside instruction records.
+    return false;
+}
+
+template <>
+bool
+scheduler_tmpl_t<memref_t, reader_t>::record_type_is_instr_boundary(memref_t record,
+                                                                    memref_t prev_record)
+{
+    return record_type_is_instr(record);
+}
+
+template <>
+bool
 scheduler_tmpl_t<memref_t, reader_t>::record_type_is_marker(memref_t record,
                                                             trace_marker_type_t &type,
                                                             uintptr_t &value)
@@ -359,6 +376,34 @@ scheduler_tmpl_t<trace_entry_t, record_reader_t>::record_type_is_instr(
     trace_entry_t record)
 {
     return type_is_instr(static_cast<trace_type_t>(record.type));
+}
+
+template <>
+bool
+scheduler_tmpl_t<trace_entry_t, record_reader_t>::record_type_is_encoding(
+    trace_entry_t record)
+{
+    return static_cast<trace_type_t>(record.type) == TRACE_TYPE_ENCODING;
+}
+
+template <>
+bool
+scheduler_tmpl_t<trace_entry_t, record_reader_t>::record_type_is_instr_boundary(
+    trace_entry_t record, trace_entry_t prev_record)
+{
+    // Don't advance past encodings and split them from their associated instr.
+    return (record_type_is_instr(record) || record_type_is_encoding(record)) &&
+        !record_type_is_encoding(prev_record);
+}
+
+template <>
+typename scheduler_tmpl_t<trace_entry_t, record_reader_t>::stream_status_t
+scheduler_tmpl_t<trace_entry_t, record_reader_t>::unread_last_record(
+    output_ordinal_t output, trace_entry_t &record, input_info_t *&input)
+{
+    // See the general unread_last_record() below: we don't support this as
+    // we can't provide the prev-prev record for record_type_is_instr_boundary().
+    return STATUS_NOT_IMPLEMENTED;
 }
 
 template <>
@@ -2583,7 +2628,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                     } else {
                         input->switch_to_input = it->second;
                     }
-                } else if (record_type_is_instr(record)) {
+                } else if (record_type_is_instr_boundary(record,
+                                                         outputs_[output].last_record)) {
                     if (syscall_incurs_switch(input, blocked_time)) {
                         // Model as blocking and should switch to a different input.
                         need_new_input = true;
@@ -2641,7 +2687,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                 }
             }
             if (options_.quantum_unit == QUANTUM_INSTRUCTIONS &&
-                record_type_is_instr(record) && !outputs_[output].in_kernel_code) {
+                record_type_is_instr_boundary(record, outputs_[output].last_record) &&
+                !outputs_[output].in_kernel_code) {
                 ++input->instrs_in_quantum;
                 if (input->instrs_in_quantum > options_.quantum_duration) {
                     // We again prefer to switch to another input even if the current
@@ -2669,7 +2716,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                     // We only switch on instruction boundaries.  We could possibly switch
                     // in between (e.g., scatter/gather long sequence of reads/writes) by
                     // setting input->switching_pre_instruction.
-                    record_type_is_instr(record)) {
+                    record_type_is_instr_boundary(record, outputs_[output].last_record)) {
                     VPRINT(this, 4,
                            "next_record[%d]: hit end of time quantum after %" PRIu64 "\n",
                            output, input->time_spent_in_quantum);
@@ -2715,7 +2762,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                        prev_input, outputs_[output].cur_input);
                 if (!preempt) {
                     if (options_.quantum_unit == QUANTUM_INSTRUCTIONS &&
-                        record_type_is_instr(record)) {
+                        record_type_is_instr_boundary(record,
+                                                      outputs_[output].last_record)) {
                         --inputs_[prev_input].instrs_in_quantum;
                     } else if (options_.quantum_unit == QUANTUM_TIME) {
                         inputs_[prev_input].time_spent_in_quantum -=
@@ -2784,6 +2832,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::unread_last_record(output_ordinal_t ou
     VPRINT(this, 4, "next_record[%d]: unreading last record, from %d\n", output,
            input->index);
     input->queue.push_back(outinfo.last_record);
+    // XXX: This should be record_type_is_instr_boundary() but we don't have the pre-prev
+    // record.  For now we don't support unread_last_record() for record_reader_t,
+    // enforced in a specialization of unread_last_record().
     if (options_.quantum_unit == QUANTUM_INSTRUCTIONS && record_type_is_instr(record))
         --input->instrs_in_quantum;
     outinfo.last_record = create_invalid_record();
