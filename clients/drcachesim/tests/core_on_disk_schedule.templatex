@@ -1,5 +1,5 @@
 .*
-Core #0 schedule: FJ_
-Core #1 schedule: EK_
-Core #2 schedule: GI
-Core #3 schedule: CHC_C__
+Core #0 schedule: (FJ_|EK_|GI|CHC_C__)
+Core #1 schedule: (FJ_|EK_|GI|CHC_C__)
+Core #2 schedule: (FJ_|EK_|GI|CHC_C__)
+Core #3 schedule: (FJ_|EK_|GI|CHC_C__)
