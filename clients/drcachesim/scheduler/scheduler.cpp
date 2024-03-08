@@ -226,6 +226,8 @@ template <>
 bool
 scheduler_tmpl_t<memref_t, reader_t>::record_type_is_encoding(memref_t record)
 {
+    // There are no separate memref_t encoding records: encoding info is
+    // inside instruction records.
     return false;
 }
 
@@ -2830,7 +2832,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::unread_last_record(output_ordinal_t ou
     VPRINT(this, 4, "next_record[%d]: unreading last record, from %d\n", output,
            input->index);
     input->queue.push_back(outinfo.last_record);
-    // XXX: This should be record_type_is_instr_boundary() but we don't have the prev-prev
+    // XXX: This should be record_type_is_instr_boundary() but we don't have the pre-prev
     // record.  For now we don't support unread_last_record() for record_reader_t,
     // enforced in a specialization of unread_last_record().
     if (options_.quantum_unit == QUANTUM_INSTRUCTIONS && record_type_is_instr(record))
