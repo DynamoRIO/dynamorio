@@ -126,7 +126,7 @@ schedule_stats_t::parallel_shard_init_stream(int shard_index, void *worker_data,
     std::lock_guard<std::mutex> guard(shard_map_mutex_);
     per_shard->stream = stream;
     per_shard->core = stream->get_output_cpuid();
-    per_shard->filetype = stream->get_filetype();
+    per_shard->filetype = static_cast<intptr_t>(stream->get_filetype());
     shard_map_[shard_index] = per_shard;
     return reinterpret_cast<void *>(per_shard);
 }
