@@ -82,10 +82,6 @@
 # error ARM is only 32-bit; AARCH64 is 64-bit
 #endif
 
-#if defined(AARCHXX) && defined(WINDOWS)
-# error ARM/AArch64 on Windows is not supported
-#endif
-
 #if defined(RISCV64) && defined(WINDOWS)
 # error RISC-V on Windows is not supported
 #endif

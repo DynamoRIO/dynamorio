@@ -93,6 +93,8 @@ struct stats_type *d_r_stats = &thestats;
  */
 #    define OPTION_PARSE_ERROR(a, b, c, d, e, f)
 
+#ifdef AARCH64 _ARM64_
+#endif
 static void
 ignore_varargs_function(char *format, ...)
 {

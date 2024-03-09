@@ -103,10 +103,12 @@ get_mmx_val(DR_PARAM_OUT uint64 *val, uint index);
 
 #ifdef WINDOWS
 /* no intrinsic available, and no inline asm support, so we have asm routines */
+#ifndef _ARM64_
 byte *
 get_frame_ptr(void);
 byte *
 get_stack_ptr(void);
+#endif
 #endif
 
 #ifdef UNIX
