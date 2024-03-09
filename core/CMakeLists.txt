@@ -728,11 +728,11 @@ else (UNIX)
   # We re-add our own snprintf by listing it in the .def file, and we suppress
   # the warning using the secret option "/ignore".
   set(dynamorio_link_flags /NODEFAULTLIB)
-  if (X64)
+  if (X64 AND NOT AARCH64)
     # Xref PR 215395, we currently require DynamoRIO to be loaded in a certain address
     # range.  To be double sure we compile it FIXED for now.
-    # set(dynamorio_link_flags "${dynamorio_link_flags} /dynamicbase:no /FIXED")
-  endif (X64)
+    set(dynamorio_link_flags "${dynamorio_link_flags} /dynamicbase:no /FIXED")
+  endif (X64 AND NOT AARCH64)
   if (DEBUG)
     set(LD_FLAGS "${LINK_DBG} /release /opt:ref")
   else (DEBUG)
