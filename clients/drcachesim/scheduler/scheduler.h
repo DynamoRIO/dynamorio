@@ -1132,6 +1132,8 @@ protected:
             : lock(new std::mutex)
         {
         }
+        // Returns whether the stream mixes threads (online analysis mode) yet
+        // wants to treat them as separate shards (so not core-sharded-on-disk).
         bool
         is_combined_stream()
         {

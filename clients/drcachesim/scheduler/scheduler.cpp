@@ -1565,7 +1565,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_tid(output_ordinal_t output)
     int index = outputs_[output].cur_input;
     if (index < 0)
         return -1;
-    if (inputs_[index].is_combined_stream())
+    if (inputs_[index].is_combined_stream() ||
+        TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, inputs_[index].reader->get_filetype()))
         return inputs_[index].last_record_tid;
     return inputs_[index].tid;
 }
