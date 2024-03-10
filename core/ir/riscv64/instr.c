@@ -46,7 +46,8 @@ instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
 dr_isa_mode_t
 instr_get_isa_mode(instr_t *instr)
 {
-    return instr->isa_mode;
+    return DR_ISA_RV64IMAFDC;
+    // return instr->isa_mode;
 }
 
 int

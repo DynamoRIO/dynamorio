@@ -43,28 +43,6 @@
 #include "encode_api.h"
 #include "instr_create_shared.h"
 
-bool
-instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
-{
-#ifdef X64
-    if ((mode != DR_ISA_IA32) && (mode != DR_ISA_AMD64)) {
-        return false;
-    }
-#else
-    if (mode != DR_ISA_IA32) {
-        return false;
-    }
-#endif
-    instr->isa_mode = mode;
-    return true;
-}
-
-dr_isa_mode_t
-instr_get_isa_mode(instr_t *instr)
-{
-    return instr->isa_mode;
-}
-
 #ifdef X64
 /*
  * Each instruction stores whether it should be interpreted in 32-bit
@@ -90,6 +68,32 @@ instr_get_x86_mode(instr_t *instr)
     return (instr->isa_mode == DR_ISA_IA32);
 }
 #endif
+
+bool
+instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
+{
+#ifdef X64
+    if ((mode != DR_ISA_IA32) && (mode != DR_ISA_AMD64)) {
+        return false;
+    }
+#else
+    if (mode != DR_ISA_IA32) {
+        return false;
+    }
+#endif
+    instr->isa_mode = mode;
+    return true;
+}
+
+dr_isa_mode_t
+instr_get_isa_mode(instr_t *instr)
+{
+#ifdef X64
+    return instr->isa_mode;
+#else
+    return DR_ISA_IA32;
+#endif
+}
 
 int
 instr_length_arch(dcontext_t *dcontext, instr_t *instr)
