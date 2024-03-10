@@ -32,6 +32,7 @@
 
 #include "../globals.h"
 #include "instr.h"
+#include "encode_api.h"
 
 bool
 instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)

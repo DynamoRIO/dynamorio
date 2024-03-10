@@ -34,7 +34,6 @@
 #include "../globals.h"
 #include "instr.h"
 #include "decode.h"
-
 #include "encode_api.h"
 #include "opcode_names.h"
 

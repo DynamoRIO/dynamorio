@@ -32,6 +32,7 @@
 
 #include "../globals.h"
 #include "instr.h"
+#include "encode_api.h"
 #include "decode.h"
 
 /* FIXME i#1551: add A64 and Thumb support throughout */
