@@ -274,11 +274,6 @@ struct _instr_t {
     /* flags contains the constants defined above */
     uint flags;
 
-    /* Instruction ISA mode used to distinguish between 32/64-bit
-     * architectures for encoding purposes.
-     */
-    dr_isa_mode_t isa_mode;
-
     /* hints for encoding this instr in a specific way, holds dr_encoding_hint_type_t */
     uint encoding_hints;
 
@@ -314,6 +309,11 @@ struct _instr_t {
      */
     byte num_dsts;
     byte num_srcs;
+
+    /* Instruction ISA mode used to distinguish between 32/64-bit
+     * architectures for encoding purposes.
+     */
+    byte isa_mode;
 
     union {
         struct {
