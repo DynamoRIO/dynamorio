@@ -89,7 +89,7 @@ dr_isa_mode_t
 instr_get_isa_mode(instr_t *instr)
 {
 #ifdef X64
-    return instr->isa_mode;
+    return (dr_isa_mode_t)instr->isa_mode;
 #else
     return DR_ISA_IA32;
 #endif
