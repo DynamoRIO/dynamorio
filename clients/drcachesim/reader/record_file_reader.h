@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -126,7 +126,7 @@ public:
     virtual ~record_reader_t()
     {
     }
-    bool
+    virtual bool
     init()
     {
         if (!open_input_file())
