@@ -313,7 +313,7 @@ struct _instr_t {
     /* Instruction ISA mode used to distinguish between 32/64-bit
      * architectures for encoding purposes.
      */
-    byte isa_mode;
+    dr_isa_mode_t isa_mode;
 
     union {
         struct {
