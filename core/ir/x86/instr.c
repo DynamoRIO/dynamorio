@@ -68,7 +68,7 @@ instr_get_x86_mode(instr_t *instr)
 }
 #endif
 
-/* XXX: currently only x86 and x64 are supported for instruction encoding.
+/* XXX i#6690: currently only x86 and x64 are supported for instruction encoding.
  * We want to add support for x86 and x64 decoding and synthetic ISA encoding as well.
  * XXX i#1684: move this function to core/ir/instr_shared.c once we can support
  * all architectures in the same build of DR.

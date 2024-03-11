@@ -37,7 +37,7 @@
 #include "encode_api.h"
 #include "opcode_names.h"
 
-/* XXX: currently only A64 is supported for instruction encoding.
+/* XXX i#6690: currently only A64 is supported for instruction encoding.
  * We want to add support for A64 decoding and synthetic ISA encoding as well.
  * XXX i#1684: move this function to core/ir/instr_shared.c once we can support
  * all architectures in the same build of DR.

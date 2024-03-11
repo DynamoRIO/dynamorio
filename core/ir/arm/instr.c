@@ -35,16 +35,15 @@
 #include "encode_api.h"
 #include "decode.h"
 
-/* FIXME i#1551: add A64 and Thumb support throughout */
-/* XXX: currently only A64 and Thumb is supported for instruction encoding.
- * We want to add support for A64 and Thumb decoding and synthetic ISA encoding as well.
+/* XXX i#6690: currently only A32 and Thumb is supported for instruction encoding.
+ * We want to add support for A32 and Thumb decoding and synthetic ISA encoding as well.
  * XXX i#1684: move this function to core/ir/instr_shared.c once we can support
  * all architectures in the same build of DR.
  */
 bool
 instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
 {
-    if ((mode != DR_ISA_ARM_THUMB) && (mode != DR_ISA_ARM_A32)) {
+    if (mode != DR_ISA_ARM_THUMB && mode != DR_ISA_ARM_A32) {
         return false;
     }
     instr->isa_mode = mode;
