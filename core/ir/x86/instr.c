@@ -51,11 +51,10 @@
 void
 instr_set_x86_mode(instr_t *instr, bool x86)
 {
-    if (x86) {
+    if (x86)
         instr->isa_mode = DR_ISA_IA32;
-    } else {
+    else
         instr->isa_mode = DR_ISA_AMD64;
-    }
 }
 
 /*
@@ -65,36 +64,29 @@ instr_set_x86_mode(instr_t *instr, bool x86)
 bool
 instr_get_x86_mode(instr_t *instr)
 {
-    return (instr->isa_mode == DR_ISA_IA32);
+    return instr->isa_mode == DR_ISA_IA32;
 }
 #endif
 
+/* XXX: currently only x86 and x64 are supported for instruction encoding.
+ * We want to add support for x86 and x64 decoding and synthetic ISA encoding as well.
+ * XXX i#1684: move this function to core/ir/instr_shared.c once we can support
+ * all architectures in the same build of DR.
+ */
 bool
 instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
 {
 #ifdef X64
-    if ((mode != DR_ISA_IA32) && (mode != DR_ISA_AMD64)) {
+    if (mode != DR_ISA_IA32 && mode != DR_ISA_AMD64)
         return false;
-    }
 #else
-    if (mode != DR_ISA_IA32) {
+    if (mode != DR_ISA_IA32)
         return false;
-    }
 #endif
     instr->isa_mode = mode;
     return true;
 }
-/*
-dr_isa_mode_t
-instr_get_isa_mode(instr_t *instr)
-{
-    // #ifdef X64
-    return (dr_isa_mode_t)instr->isa_mode;
-    // #else
-    //     return DR_ISA_IA32;
-    // #endif
-}
-*/
+
 int
 instr_length_arch(dcontext_t *dcontext, instr_t *instr)
 {

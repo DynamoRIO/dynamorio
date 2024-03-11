@@ -36,7 +36,11 @@
 #include "decode.h"
 
 /* FIXME i#1551: add A64 and Thumb support throughout */
-
+/* XXX: currently only A64 and Thumb is supported for instruction encoding.
+ * We want to add support for A64 and Thumb decoding and synthetic ISA encoding as well.
+ * XXX i#1684: move this function to core/ir/instr_shared.c once we can support
+ * all architectures in the same build of DR.
+ */
 bool
 instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
 {
@@ -46,13 +50,7 @@ instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
     instr->isa_mode = mode;
     return true;
 }
-/*
-dr_isa_mode_t
-instr_get_isa_mode(instr_t *instr)
-{
-    return (dr_isa_mode_t)instr->isa_mode;
-}
-*/
+
 int
 instr_length_arch(dcontext_t *dcontext, instr_t *instr)
 {

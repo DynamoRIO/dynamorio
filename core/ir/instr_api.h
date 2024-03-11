@@ -310,8 +310,10 @@ struct _instr_t {
     byte num_dsts;
     byte num_srcs;
 
-    /* Instruction ISA mode used to distinguish between 32/64-bit
-     * architectures for encoding purposes.
+    /** This field assumes values of type #dr_isa_mode_t.
+     */
+    /* Instruction ISA mode to support multiple architectures in the same build of DR
+     * (xref i#6698 i#1684).
      */
     byte isa_mode;
 
@@ -344,7 +346,7 @@ struct _instr_t {
 
     /* Used to hold the relative offset within an instruction list when encoding. */
     size_t offset;
-};     /* instr_t */
+}; /* instr_t */
 #endif /* DR_FAST_IR */
 
 /**
