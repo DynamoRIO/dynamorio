@@ -91,12 +91,8 @@ instr_create(void *drcontext)
     memset((void *)instr, 0, sizeof(instr_t));
 #if defined(X86) && defined(X64)
     instr_set_isa_mode(instr, X64_CACHE_MODE_DC(dcontext) ? DR_ISA_AMD64 : DR_ISA_IA32);
-#elif defined(ARM)
+#else
     instr_set_isa_mode(instr, dr_get_isa_mode(dcontext));
-#elif defined(AARCH64)
-    instr_set_isa_mode(instr, DR_ISA_ARM_A64);
-#elif defined(RISCV64)
-    instr_set_isa_mode(instr, DR_ISA_RV64IMAFDC);
 #endif
     return instr;
 }
@@ -4206,4 +4202,4 @@ move_mm_avx512_reg_opcode(bool aligned64)
 }
 
 #endif /* !STANDALONE_DECODER */
-       /****************************************************************************/
+/****************************************************************************/
