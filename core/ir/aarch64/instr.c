@@ -47,12 +47,14 @@ instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
     return true;
 }
 
+/*
 dr_isa_mode_t
 instr_get_isa_mode(instr_t *instr)
 {
-    return DR_ISA_ARM_A64;
+    return (dr_isa_mode_t)instr->isa_mode;
+    // return DR_ISA_ARM_A64;
 }
-
+*/
 int
 instr_length_arch(dcontext_t *dcontext, instr_t *instr)
 {

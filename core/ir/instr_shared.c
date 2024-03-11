@@ -93,6 +93,10 @@ instr_create(void *drcontext)
     instr_set_isa_mode(instr, X64_CACHE_MODE_DC(dcontext) ? DR_ISA_AMD64 : DR_ISA_IA32);
 #elif defined(ARM)
     instr_set_isa_mode(instr, dr_get_isa_mode(dcontext));
+#elif defined(AARCH64)
+    instr_set_isa_mode(instr, DR_ISA_ARM_A64);
+#elif defined(RISCV64)
+    instr_set_isa_mode(instr, DR_ISA_RV64IMAFDC);
 #endif
     return instr;
 }
@@ -440,6 +444,12 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
     if (!TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags))
         heap_reachable_free(dcontext, buf, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
     return len;
+}
+
+dr_isa_mode_t
+instr_get_isa_mode(instr_t *instr)
+{
+    return (dr_isa_mode_t)instr->isa_mode;
 }
 
 #define inlined_instr_get_opcode(instr)                                           \
@@ -4196,4 +4206,4 @@ move_mm_avx512_reg_opcode(bool aligned64)
 }
 
 #endif /* !STANDALONE_DECODER */
-/****************************************************************************/
+       /****************************************************************************/

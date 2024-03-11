@@ -84,17 +84,17 @@ instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
     instr->isa_mode = mode;
     return true;
 }
-
+/*
 dr_isa_mode_t
 instr_get_isa_mode(instr_t *instr)
 {
-#ifdef X64
+    // #ifdef X64
     return (dr_isa_mode_t)instr->isa_mode;
-#else
-    return DR_ISA_IA32;
-#endif
+    // #else
+    //     return DR_ISA_IA32;
+    // #endif
 }
-
+*/
 int
 instr_length_arch(dcontext_t *dcontext, instr_t *instr)
 {
