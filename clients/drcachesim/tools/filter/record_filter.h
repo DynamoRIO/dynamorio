@@ -251,7 +251,7 @@ private:
     std::unordered_map<int64_t, std::unique_ptr<per_input_t>> input2info_;
 
     // For core-sharded we don't have a 1:1 input:output file mapping.
-    // Thus, some shards may not not have an input stream at init time, and
+    // Thus, some shards may not have an input stream at init time, and
     // need to figure out their file extension and header info from other shards.
     std::mutex input_info_mutex_;
     std::condition_variable input_info_cond_var_;
