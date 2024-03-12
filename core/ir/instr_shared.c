@@ -51,8 +51,6 @@
  */
 #define INSTR_INLINE extern inline
 
-#include <stdio.h>
-
 #include "../globals.h"
 #include "instr.h"
 #include "arch.h"
