@@ -293,10 +293,8 @@ reader_t::process_input_entry()
     case TRACE_TYPE_MARKER:
         cur_ref_.marker.type = (trace_type_t)input_entry_->type;
         assert((cur_tid_ != 0 && cur_pid_ != 0) || core_sharded_ ||
-               // We have to wait past the version to see whether we're core-sharded.
-               input_entry_->size == TRACE_MARKER_TYPE_VERSION ||
-               (input_entry_->size == TRACE_MARKER_TYPE_FILETYPE &&
-                TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, input_entry_->addr)));
+               // We have to wait for the filetype to see whether we're core-sharded.
+               !found_filetype_);
         cur_ref_.marker.pid = cur_pid_;
         cur_ref_.marker.tid = cur_tid_;
         cur_ref_.marker.marker_type = (trace_marker_type_t)input_entry_->size;
@@ -335,6 +333,7 @@ reader_t::process_input_entry()
             version_ = cur_ref_.marker.marker_value;
         else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
             filetype_ = cur_ref_.marker.marker_value;
+            found_filetype_ = true;
             if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, filetype_)) {
                 expect_no_encodings_ = false;
             }
