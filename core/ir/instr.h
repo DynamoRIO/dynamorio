@@ -202,19 +202,8 @@ enum {
     INSTR_DO_NOT_EMIT = 0x10000000,
     /* PR 251479: re-relativization support: is instr->rip_rel_pos valid? */
     INSTR_RIP_REL_VALID = 0x20000000,
-#ifdef X86
-    /* PR 278329: each instr stores its own mode */
-    INSTR_X86_MODE = 0x40000000,
-#elif defined(ARM)
-    /* We assume we don't need to distinguish A64 from A32 as you cannot swap
-     * between them in user mode.  Thus we only need one flag.
-     * XXX: we might want more power for drdecode, though the global isa_mode
-     * should be sufficient there.
-     */
-    INSTR_THUMB_MODE = 0x40000000,
-#endif
     /* PR 267260: distinguish our own mangling from client-added instrs */
-    INSTR_OUR_MANGLING = 0x80000000,
+    INSTR_OUR_MANGLING = 0x40000000,
 };
 
 #define DR_TUPLE_TYPE_BITS 4

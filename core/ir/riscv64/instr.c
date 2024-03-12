@@ -32,17 +32,20 @@
 
 #include "../globals.h"
 #include "instr.h"
+#include "encode_api.h"
 
+/* XXX i#6690: currently only RISCV64 is supported for instruction encoding.
+ * We want to add support for RISCV64 decoding and synthetic ISA encoding as well.
+ * XXX i#1684: move this function to core/ir/instr_shared.c once we can support
+ * all architectures in the same build of DR.
+ */
 bool
 instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
 {
-    return (mode == DR_ISA_RV64IMAFDC);
-}
-
-dr_isa_mode_t
-instr_get_isa_mode(instr_t *instr)
-{
-    return DR_ISA_RV64IMAFDC;
+    if (mode != DR_ISA_RV64IMAFDC)
+        return false;
+    instr->isa_mode = DR_ISA_RV64IMAFDC;
+    return true;
 }
 
 int

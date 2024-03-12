@@ -84,16 +84,19 @@
 instr_t *
 instr_create(void *drcontext)
 {
+    bool is_instr_isa_mode_set = false;
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *instr = (instr_t *)heap_alloc(dcontext, sizeof(instr_t) HEAPACCT(ACCT_IR));
     /* everything initializes to 0, even flags, to indicate
      * an uninitialized instruction */
     memset((void *)instr, 0, sizeof(instr_t));
 #if defined(X86) && defined(X64)
-    instr_set_isa_mode(instr, X64_CACHE_MODE_DC(dcontext) ? DR_ISA_AMD64 : DR_ISA_IA32);
-#elif defined(ARM)
-    instr_set_isa_mode(instr, dr_get_isa_mode(dcontext));
+    is_instr_isa_mode_set = instr_set_isa_mode(
+        instr, X64_CACHE_MODE_DC(dcontext) ? DR_ISA_AMD64 : DR_ISA_IA32);
+#else
+    is_instr_isa_mode_set = instr_set_isa_mode(instr, dr_get_isa_mode(dcontext));
 #endif
+    CLIENT_ASSERT(is_instr_isa_mode_set, "setting instruction ISA mode unsuccessful");
     return instr;
 }
 
@@ -440,6 +443,12 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
     if (!TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags))
         heap_reachable_free(dcontext, buf, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
     return len;
+}
+
+dr_isa_mode_t
+instr_get_isa_mode(instr_t *instr)
+{
+    return (dr_isa_mode_t)instr->isa_mode;
 }
 
 #define inlined_instr_get_opcode(instr)                                           \
