@@ -408,7 +408,7 @@ record_filter_t::write_trace_entry(per_shard_t *shard, const trace_entry_t &entr
         record.type = TRACE_TYPE_HEADER;
         // Our own stream's version + filetype are 0 so we use another shard's.
         std::lock_guard<std::mutex> guard(input_info_mutex_);
-        record.addr = version_;
+        record.addr = static_cast<addr_t>(version_);
         header.push_back(record);
         record.type = TRACE_TYPE_MARKER;
         record.size = TRACE_MARKER_TYPE_VERSION;
