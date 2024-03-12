@@ -1132,6 +1132,8 @@ protected:
             : lock(new std::mutex)
         {
         }
+        // Returns whether the stream mixes threads (online analysis mode) yet
+        // wants to treat them as separate shards (so not core-sharded-on-disk).
         bool
         is_combined_stream()
         {
@@ -1152,6 +1154,8 @@ protected:
         int workload = -1;
         // If left invalid, this is a combined stream (online analysis mode).
         memref_tid_t tid = INVALID_THREAD_ID;
+        memref_pid_t pid = INVALID_PID;
+        // Used for combined streams.
         memref_tid_t last_record_tid = INVALID_THREAD_ID;
         // If non-empty these records should be returned before incrementing the reader.
         // This is used for read-ahead and inserting synthetic records.
@@ -1437,6 +1441,10 @@ protected:
     bool
     record_type_has_tid(RecordType record, memref_tid_t &tid);
 
+    // If the given record has a process id field, returns true and the value.
+    bool
+    record_type_has_pid(RecordType record, memref_pid_t &pid);
+
     // For trace_entry_t, only sets the tid for record types that have it.
     void
     record_type_set_tid(RecordType &record, memref_tid_t tid);
@@ -1456,6 +1464,12 @@ protected:
     bool
     record_type_is_invalid(RecordType record);
 
+    bool
+    record_type_is_encoding(RecordType record);
+
+    bool
+    record_type_is_instr_boundary(RecordType record, RecordType prev_record);
+
     // Creates the marker we insert between regions of interest.
     RecordType
     create_region_separator_marker(memref_tid_t tid, uintptr_t value);
@@ -1466,6 +1480,11 @@ protected:
 
     RecordType
     create_invalid_record();
+
+    // If necessary, inserts context switch info on the incoming pid+tid.
+    // The lock for 'input' is held by the caller.
+    void
+    insert_switch_tid_pid(input_info_t &input);
 
     // Used for diagnostics: prints record fields to stderr.
     void

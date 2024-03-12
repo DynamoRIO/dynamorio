@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021-2023 Google, LLC  All rights reserved.
+ * Copyright (c) 2021-2024 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -63,36 +63,15 @@ using ::dynamorio::drmemtrace::TRACE_MARKER_TYPE_SYSCALL;
 // Bypasses the analyzer and scheduler for a controlled test sequence.
 // Alternates the per-core memref vectors in lockstep.
 static schedule_stats_t::counters_t
-run_schedule_stats(const std::vector<std::vector<memref_t>> &memrefs,
-                   const std::unordered_map<memref_tid_t, int64_t> &tid2ord)
+run_schedule_stats(const std::vector<std::vector<memref_t>> &memrefs)
 {
-    schedule_stats_t tool(/*print_every=*/1, /*verbosity=*/2);
-    // schedule_stats_t uses get_input_id() to identify switches.
-    class mock_stream_t : public default_memtrace_stream_t {
-    public:
-        void
-        set_input_id(int64_t input_id)
-        {
-            input_id_ = input_id;
-        }
-        int64_t
-        get_input_id() const override
-        {
-            return input_id_;
-        }
-        memtrace_stream_t *
-        get_input_interface() const override
-        {
-            return const_cast<mock_stream_t *>(this);
-        }
-
-    private:
-        int64_t input_id_ = 0;
-    };
+    // At verbosity 2+ we'd need to subclass default_memtrace_stream_t
+    // and provide a non-null get_input_interface() (point at "this").
+    schedule_stats_t tool(/*print_every=*/1, /*verbosity=*/1);
     struct per_core_t {
         void *worker_data;
         void *shard_data;
-        mock_stream_t stream;
+        default_memtrace_stream_t stream;
         bool finished = false;
         size_t memref_idx = 0;
     };
@@ -109,7 +88,7 @@ run_schedule_stats(const std::vector<std::vector<memref_t>> &memrefs,
             if (per_core[cpu].finished)
                 continue;
             memref_t memref = memrefs[cpu][per_core[cpu].memref_idx];
-            per_core[cpu].stream.set_input_id(tid2ord.at(memref.instr.tid));
+            per_core[cpu].stream.set_tid(memref.instr.tid);
             bool res = tool.parallel_shard_memref(per_core[cpu].shard_data, memref);
             assert(res);
             ++per_core[cpu].memref_idx;
@@ -132,10 +111,6 @@ test_basic_stats()
     static constexpr int64_t TID_A = 42;
     static constexpr int64_t TID_B = 142;
     static constexpr int64_t TID_C = 242;
-    std::unordered_map<memref_tid_t, int64_t> tid2ord;
-    tid2ord[TID_A] = 0;
-    tid2ord[TID_B] = 1;
-    tid2ord[TID_C] = 2;
     std::vector<std::vector<memref_t>> memrefs = {
         {
             gen_instr(TID_A),
@@ -187,7 +162,7 @@ test_basic_stats()
             gen_instr(TID_B),
         },
     };
-    auto result = run_schedule_stats(memrefs, tid2ord);
+    auto result = run_schedule_stats(memrefs);
     assert(result.instrs == 16);
     assert(result.total_switches == 6);
     assert(result.voluntary_switches == 2);
@@ -210,10 +185,6 @@ test_idle()
     static constexpr int64_t TID_A = 42;
     static constexpr int64_t TID_B = 142;
     static constexpr int64_t TID_C = 242;
-    std::unordered_map<memref_tid_t, int64_t> tid2ord;
-    tid2ord[TID_A] = 0;
-    tid2ord[TID_B] = 1;
-    tid2ord[TID_C] = 2;
     std::vector<std::vector<memref_t>> memrefs = {
         {
             gen_instr(TID_B),
@@ -248,7 +219,7 @@ test_idle()
             gen_instr(TID_A),
         },
     };
-    auto result = run_schedule_stats(memrefs, tid2ord);
+    auto result = run_schedule_stats(memrefs);
     assert(result.instrs == 13);
     assert(result.total_switches == 5);
     assert(result.voluntary_switches == 0);
