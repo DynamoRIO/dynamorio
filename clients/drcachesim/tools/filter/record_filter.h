@@ -222,6 +222,10 @@ private:
     virtual std::string
     get_writer(per_shard_t *per_shard, memtrace_stream_t *shard_stream);
 
+    // Sets output_path plus cross-shard output_ext_, version_, filetype_.
+    virtual std::string
+    initialize_shard_output(per_shard_t *per_shard, memtrace_stream_t *shard_stream);
+
     bool
     write_trace_entries(per_shard_t *shard, const std::vector<trace_entry_t> &entries);
 
