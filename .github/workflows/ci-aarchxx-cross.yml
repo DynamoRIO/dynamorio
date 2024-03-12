@@ -30,7 +30,7 @@
 
 # Github Actions workflow for AArchXX Continuous Integration testing.
 
-name: ci-aarchxx
+name: ci-aarchxx-cross
 on:
   # Run on pushes to master and on pull request changes, including from a
   # forked repo with no "push" trigger, while avoiding duplicate triggers.
