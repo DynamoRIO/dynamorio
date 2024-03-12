@@ -34,19 +34,21 @@
 #include "../globals.h"
 #include "instr.h"
 #include "decode.h"
-
+#include "encode_api.h"
 #include "opcode_names.h"
 
+/* XXX i#6690: currently only A64 is supported for instruction encoding.
+ * We want to add support for A64 decoding and synthetic ISA encoding as well.
+ * XXX i#1684: move this function to core/ir/instr_shared.c once we can support
+ * all architectures in the same build of DR.
+ */
 bool
 instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
 {
-    return (mode == DR_ISA_ARM_A64);
-}
-
-dr_isa_mode_t
-instr_get_isa_mode(instr_t *instr)
-{
-    return DR_ISA_ARM_A64;
+    if (mode != DR_ISA_ARM_A64)
+        return false;
+    instr->isa_mode = DR_ISA_ARM_A64;
+    return true;
 }
 
 int
