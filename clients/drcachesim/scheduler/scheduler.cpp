@@ -1827,7 +1827,12 @@ scheduler_tmpl_t<RecordType, ReaderType>::skip_instructions(output_ordinal_t out
 
     // If we skipped from the start we may not have seen the initial headers:
     // use the input's cached copies.
-    if (stream->version_ == 0 || stream->cache_line_size_ == 0) {
+    // We set the version and filetype up front for outputs with
+    // an initial input, so we check a different field to detect a
+    // skip.
+    if (stream->cache_line_size_ == 0 ||
+        // Check the version too as a fallback for inputs with no cache size.
+        stream->version_ == 0) {
         stream->version_ = input.reader->get_version();
         stream->last_timestamp_ = input.reader->get_last_timestamp();
         stream->first_timestamp_ = input.reader->get_first_timestamp();

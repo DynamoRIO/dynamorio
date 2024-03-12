@@ -357,7 +357,7 @@ record_filter_t::parallel_shard_exit(void *shard_data)
     }
     if (per_shard->last_written_record.type != TRACE_TYPE_FOOTER) {
         // When core-sharded some cores can end in TRACE_TYPE_IDLE.
-        // i#6703: Should the scheduler add a footer instead of us?
+        // i#6703: The scheduler should add this footer for us.
         trace_entry_t footer = {};
         footer.type = TRACE_TYPE_FOOTER;
         if (!write_trace_entry(per_shard, footer)) {
