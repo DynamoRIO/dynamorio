@@ -452,45 +452,35 @@ record_filter_t::write_trace_entry(per_shard_t *shard, const trace_entry_t &entr
     if (shard->output_entry_count == 0 && entry.type != TRACE_TYPE_HEADER) {
         // When core-sharded with initially-idle cores we can start without a header.
         // XXX i#6703: The scheduler should insert these headers for us.
-        std::vector<trace_entry_t> header;
-        trace_entry_t record = {};
-        record.type = TRACE_TYPE_HEADER;
         // Our own stream's version + filetype are 0 so we use another shard's.
         std::lock_guard<std::mutex> guard(input_info_mutex_);
-        record.addr = static_cast<addr_t>(version_);
-        header.push_back(record);
-        record.type = TRACE_TYPE_MARKER;
-        record.size = TRACE_MARKER_TYPE_VERSION;
-        record.addr = static_cast<addr_t>(version_);
-        header.push_back(record);
-        record.type = TRACE_TYPE_MARKER;
-        record.size = TRACE_MARKER_TYPE_FILETYPE;
-        record.addr = static_cast<addr_t>(filetype_);
-        header.push_back(record);
+        std::vector<trace_entry_t> header;
+        header.push_back({ TRACE_TYPE_HEADER, 0, { static_cast<addr_t>(version_) } });
+        header.push_back({ TRACE_TYPE_MARKER,
+                           TRACE_MARKER_TYPE_VERSION,
+                           { static_cast<addr_t>(version_) } });
+        header.push_back({ TRACE_TYPE_MARKER,
+                           TRACE_MARKER_TYPE_FILETYPE,
+                           { static_cast<addr_t>(filetype_) } });
         // file_reader_t::open_input_file demands tid+pid so we insert sentinel values.
         // We can't use INVALID_THREAD_ID as scheduler_t::open_reader() loops until
         // record_type_has_tid() which requires record.marker.tid != INVALID_THREAD_ID.
-        record.type = TRACE_TYPE_THREAD;
-        record.size = sizeof(thread_id_t);
-        record.addr = static_cast<addr_t>(IDLE_THREAD_ID);
-        header.push_back(record);
-        record.type = TRACE_TYPE_PID;
-        record.size = sizeof(process_id_t);
-        record.addr = static_cast<addr_t>(INVALID_PID);
-        header.push_back(record);
+        header.push_back({ TRACE_TYPE_THREAD,
+                           sizeof(thread_id_t),
+                           { static_cast<addr_t>(IDLE_THREAD_ID) } });
+        header.push_back({ TRACE_TYPE_PID,
+                           sizeof(process_id_t),
+                           { static_cast<addr_t>(INVALID_PID) } });
         // The scheduler itself demands a timestamp,cpuid pair.
         // We don't have a good value to use here though:
         // XXX i#6703: The scheduler should insert these for us.
         // As-is, these can cause confusion with -1 values, but this is our best
         // effort support until i#6703.
-        record.type = TRACE_TYPE_MARKER;
-        record.size = TRACE_MARKER_TYPE_TIMESTAMP;
-        record.addr = static_cast<addr_t>(-1);
-        header.push_back(record);
-        record.type = TRACE_TYPE_MARKER;
-        record.size = TRACE_MARKER_TYPE_CPU_ID;
-        record.addr = static_cast<addr_t>(-1);
-        header.push_back(record);
+        header.push_back({ TRACE_TYPE_MARKER,
+                           TRACE_MARKER_TYPE_TIMESTAMP,
+                           { static_cast<addr_t>(-1) } });
+        header.push_back(
+            { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { static_cast<addr_t>(-1) } });
         if (!write_trace_entries(shard, header)) {
             shard->error += "Failed to write synthetic header";
             return false;
