@@ -84,18 +84,19 @@
 instr_t *
 instr_create(void *drcontext)
 {
+    bool is_instr_isa_mode_set = false;
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *instr = (instr_t *)heap_alloc(dcontext, sizeof(instr_t) HEAPACCT(ACCT_IR));
     /* everything initializes to 0, even flags, to indicate
      * an uninitialized instruction */
     memset((void *)instr, 0, sizeof(instr_t));
-    // #if defined(X86) && defined(X64)
-    //     instr_set_isa_mode(instr, X64_CACHE_MODE_DC(dcontext) ? DR_ISA_AMD64 :
-    //     DR_ISA_IA32);
-    // #else
-    bool is_instr_isa_mode_set = instr_set_isa_mode(instr, dr_get_isa_mode(dcontext));
+#if defined(X86) && defined(X64)
+    is_instr_isa_mode_set = instr_set_isa_mode(
+        instr, X64_CACHE_MODE_DC(dcontext) ? DR_ISA_AMD64 : DR_ISA_IA32);
+#else
+    is_instr_isa_mode_set = instr_set_isa_mode(instr, dr_get_isa_mode(dcontext));
+#endif
     CLIENT_ASSERT(!is_instr_isa_mode_set, "setting instruction ISA mode unsuccessful");
-    // #endif
     return instr;
 }
 
