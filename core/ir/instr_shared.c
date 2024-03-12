@@ -51,6 +51,8 @@
  */
 #define INSTR_INLINE extern inline
 
+#include <stdio.h>
+
 #include "../globals.h"
 #include "instr.h"
 #include "arch.h"
@@ -96,7 +98,7 @@ instr_create(void *drcontext)
 #else
     is_instr_isa_mode_set = instr_set_isa_mode(instr, dr_get_isa_mode(dcontext));
 #endif
-    CLIENT_ASSERT(!is_instr_isa_mode_set, "setting instruction ISA mode unsuccessful");
+    CLIENT_ASSERT(is_instr_isa_mode_set, "setting instruction ISA mode unsuccessful");
     return instr;
 }
 
