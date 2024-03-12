@@ -144,6 +144,7 @@ public:
 protected:
     // For core-sharded we need to remember encodings for an input that were
     // seen on a different core, as there is no reader_t remembering them for us.
+    // XXX i#6635: Is this something the scheduler should help us with?
     struct per_input_t {
         // There should be no contention on the lock as each input is on
         // just one core at a time.

@@ -451,7 +451,8 @@ record_filter_t::write_trace_entry(per_shard_t *shard, const trace_entry_t &entr
 {
     if (shard->output_entry_count == 0 && entry.type != TRACE_TYPE_HEADER) {
         // When core-sharded with initially-idle cores we can start without a header.
-        // XXX i#6703: The scheduler should insert these headers for us.
+        // XXX i#6703: The scheduler should insert these headers for us, as this
+        // issue can affect other tools as well.
         // Our own stream's version + filetype are 0 so we use another shard's.
         std::lock_guard<std::mutex> guard(input_info_mutex_);
         std::vector<trace_entry_t> header;
@@ -698,6 +699,8 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &in
             input2info_[input_id] = std::unique_ptr<per_input_t>(new per_input_t);
             it = input2info_.find(input_id);
         }
+        // It would be nice to assert that this pointer is not in use in other shards
+        // but that is too expensive.
         per_shard->per_input = it->second.get();
     }
     if (per_shard->enabled && stop_timestamp_ != 0 &&
