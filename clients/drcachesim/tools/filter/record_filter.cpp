@@ -594,10 +594,7 @@ record_filter_t::process_chunk_encodings(per_shard_t *per_shard, trace_entry_t &
             if (per_shard->per_input->pc2encoding.find(entry.addr) ==
                 per_shard->per_input->pc2encoding.end()) {
                 return "Missing encoding for PC " + std::to_string(entry.addr) +
-                    " in shard " +
-                    std::to_string(per_shard->shard_stream->get_shard_index()) +
-                    " for input " +
-                    std::to_string(per_shard->shard_stream->get_input_id()) +
+                    " in shard " + per_shard->shard_stream->get_stream_name() +
                     " at input entry " + std::to_string(per_shard->input_entry_count);
             }
             VPRINT(this, 3,
