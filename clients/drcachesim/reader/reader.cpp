@@ -204,8 +204,8 @@ reader_t::process_input_entry()
             // Look for encoding bits that belong to this instr.
             if (last_encoding_.size > 0) {
                 if (last_encoding_.size != cur_ref_.instr.size) {
-                    ERRMSG("Encoding size %zu != instr size %zu\n", last_encoding_.size,
-                           cur_ref_.instr.size);
+                    ERRMSG("Encoding size %zu != instr size %zu for PC 0x%zx\n",
+                           last_encoding_.size, cur_ref_.instr.size, cur_ref_.instr.addr);
                     assert(false);
                 }
                 memcpy(cur_ref_.instr.encoding, last_encoding_.bits, last_encoding_.size);
@@ -216,7 +216,11 @@ reader_t::process_input_entry()
                 const auto &it = encodings_.find(cur_ref_.instr.addr);
                 if (it != encodings_.end()) {
                     memcpy(cur_ref_.instr.encoding, it->second.bits, it->second.size);
-                } else if (!expect_no_encodings_) {
+                } else if (!expect_no_encodings_ &&
+                           // A thread can migrate after encoding records are seen.
+                           // It is up to the user to properly handle encodings
+                           // in this mode.
+                           !core_sharded_) {
                     ERRMSG("Missing encoding for 0x%zx\n", cur_ref_.instr.addr);
                     assert(false);
                 }
@@ -288,7 +292,9 @@ reader_t::process_input_entry()
         break;
     case TRACE_TYPE_MARKER:
         cur_ref_.marker.type = (trace_type_t)input_entry_->type;
-        assert((cur_tid_ != 0 && cur_pid_ != 0) || core_sharded_);
+        assert((cur_tid_ != 0 && cur_pid_ != 0) || core_sharded_ ||
+               // We have to wait for the filetype to see whether we're core-sharded.
+               !found_filetype_);
         cur_ref_.marker.pid = cur_pid_;
         cur_ref_.marker.tid = cur_tid_;
         cur_ref_.marker.marker_type = (trace_marker_type_t)input_entry_->size;
@@ -327,6 +333,7 @@ reader_t::process_input_entry()
             version_ = cur_ref_.marker.marker_value;
         else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
             filetype_ = cur_ref_.marker.marker_value;
+            found_filetype_ = true;
             if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, filetype_)) {
                 expect_no_encodings_ = false;
             }

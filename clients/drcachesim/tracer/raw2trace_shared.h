@@ -143,6 +143,11 @@ public:
             return nullptr;
         return encodings_[orig_pc].bits;
     }
+    void
+    set_core_sharded(bool core_sharded)
+    {
+        core_sharded_ = core_sharded;
+    }
 
 private:
     bool saw_pid_ = false;
