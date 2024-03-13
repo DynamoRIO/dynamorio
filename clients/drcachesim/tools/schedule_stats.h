@@ -121,7 +121,7 @@ protected:
         int64_t core = 0; // We target core-sharded.
         counters_t counters;
         int64_t prev_workload_id = -1;
-        int64_t prev_tid = -1;
+        int64_t prev_tid = INVALID_THREAD_ID;
         // These are cleared when an instruction is seen.
         bool saw_syscall = false;
         memref_tid_t direct_switch_target = INVALID_THREAD_ID;

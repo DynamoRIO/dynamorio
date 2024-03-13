@@ -867,6 +867,9 @@ public:
         /**
          * Returns the #trace_version_t value from the
          * #TRACE_MARKER_TYPE_VERSION record in the trace header.
+         * This can be queried prior to explicitly retrieving any records from
+         * output streams, unless #dynamorio::drmemtrace::scheduler_tmpl_t::
+         * scheduler_options_t.read_inputs_in_init is false.
          */
         uint64_t
         get_version() const override
@@ -881,7 +884,6 @@ public:
          * This can be queried prior to explicitly retrieving any records from
          * output streams, unless #dynamorio::drmemtrace::scheduler_tmpl_t::
          * scheduler_options_t.read_inputs_in_init is false.
-
          */
         uint64_t
         get_filetype() const override

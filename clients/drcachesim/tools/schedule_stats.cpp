@@ -241,7 +241,7 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
         (TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, shard->filetype) || input_id < 0)
         ? tid
         : input_id;
-    if (workload_id != prev_workload_id || tid != prev_tid) {
+    if ((workload_id != prev_workload_id || tid != prev_tid) && tid != IDLE_THREAD_ID) {
         // We convert to letters which only works well for <=26 inputs.
         if (!shard->thread_sequence.empty()) {
             ++shard->counters.total_switches;

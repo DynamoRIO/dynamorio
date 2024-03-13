@@ -272,7 +272,10 @@ protected:
     };
 
     std::unordered_map<addr_t, encoding_info_t> encodings_;
+    // Whether this reader's input stream interleaves software threads and thus
+    // some thread-based checks may not apply.
     bool core_sharded_ = false;
+    bool found_filetype_ = false;
 
 private:
     memref_t cur_ref_;
