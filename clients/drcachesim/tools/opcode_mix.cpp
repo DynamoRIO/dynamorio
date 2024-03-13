@@ -366,7 +366,7 @@ opcode_mix_t::finalize_interval_snapshots(
     // Loop through snapshots in reverse order, subtracting the *earlier*
     // snapshot's cumulative values from this snapshot's cumulative values, to get
     // deltas.  The first snapshot needs no updates, obviously.
-    for (int i = interval_snapshots.size() - 1; i > 0; --i) {
+    for (int i = static_cast<int>(interval_snapshots.size()) - 1; i > 0; --i) {
         auto &this_snap = *reinterpret_cast<snapshot_t *>(interval_snapshots[i]);
         const auto &prior_snap =
             *reinterpret_cast<const snapshot_t *>(interval_snapshots[i - 1]);
@@ -422,7 +422,7 @@ opcode_mix_t::print_interval_results(
         std::vector<std::pair<int, int64_t>> sorted(snap->opcode_counts_.begin(),
                                                     snap->opcode_counts_.end());
         std::sort(sorted.begin(), sorted.end(), cmp_val);
-        for (uint i = 0; i < PRINT_TOP_N && i < sorted.size(); ++i) {
+        for (int i = 0; i < PRINT_TOP_N && i < static_cast<int>(sorted.size()); ++i) {
             std::cerr << "   [" << i + 1 << "]"
                       << " Opcode: " << decode_opcode_name(sorted[i].first) << " ("
                       << sorted[i].first << ")"
@@ -433,7 +433,8 @@ opcode_mix_t::print_interval_results(
         std::vector<std::pair<uint, int64_t>> sorted_cats(snap->category_counts_.begin(),
                                                           snap->category_counts_.end());
         std::sort(sorted_cats.begin(), sorted_cats.end(), cmp_val);
-        for (uint i = 0; i < PRINT_TOP_N && i < sorted_cats.size(); ++i) {
+        for (int i = 0; i < PRINT_TOP_N && i < static_cast<int>(sorted_cats.size());
+             ++i) {
             std::cerr << "   [" << i + 1 << "]"
                       << " Category=" << get_category_names(sorted_cats[i].first)
                       << " Count=" << sorted_cats[i].second
