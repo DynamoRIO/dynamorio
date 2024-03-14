@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -89,6 +89,19 @@ a primary contributor to DynamoRIO's efficiency.
 The instruction representation includes all of the operands, whether
 implicit or explicit, and the condition code effects of each instruction.
 This allows for analysis of liveness of registers and condition codes.
+The operands are split into sources and destinations.
+
+A memory reference is treated as one operand even when it uses
+registers to compute its address: those constituent registers are not
+listed as their own separate source operands (unless they are read for
+other reasons such as updating the index register).  This means that a
+store to memory will have that store as a destination operand without
+listing the store's addressing mode registers as source operands in
+their own right.  Tools interested in all registers inside such
+operands can use interfaces like instr_reads_from_reg() to query (it
+will consider registers used to compute a store address as being read)
+or opnd_get_reg_used() to generically walk the registers inside an
+operand.
 
 DynamoRIO's IR is mostly opaque to clients.  Key data structures have their
 sizes exposed to allow for stack allocation, but their fields are opaque.  In
