@@ -183,6 +183,17 @@ record_filter_t::initialize_shard_type(shard_type_t shard_type)
 }
 
 std::string
+record_filter_t::get_output_basename(memtrace_stream_t *shard_stream)
+{
+    if (shard_type_ == SHARD_BY_CORE) {
+        return output_dir_ + DIRSEP + "drmemtrace.core." +
+            std::to_string(shard_stream->get_shard_index()) + ".trace";
+    } else {
+        return output_dir_ + DIRSEP + shard_stream->get_stream_name();
+    }
+}
+
+std::string
 record_filter_t::initialize_shard_output(per_shard_t *per_shard,
                                          memtrace_stream_t *shard_stream)
 {
@@ -192,8 +203,7 @@ record_filter_t::initialize_shard_output(per_shard_t *per_shard,
         // Since some shards may not have inputs, we need to synchronize determining
         // the file extension.
         // First, get our path without the extension, so we can add it later.
-        per_shard->output_path = output_dir_ + DIRSEP + "drmemtrace.core." +
-            std::to_string(shard_stream->get_shard_index()) + ".trace";
+        per_shard->output_path = get_output_basename(shard_stream);
         std::string input_name = shard_stream->get_stream_name();
         // Now synchronize determining the extension.
         auto lock = std::unique_lock<std::mutex>(input_info_mutex_);
@@ -218,7 +228,7 @@ record_filter_t::initialize_shard_output(per_shard_t *per_shard,
             lock.unlock();
         }
     } else {
-        per_shard->output_path = output_dir_ + DIRSEP + shard_stream->get_stream_name();
+        per_shard->output_path = get_output_basename(shard_stream);
     }
     return "";
 }

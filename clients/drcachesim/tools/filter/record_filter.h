@@ -208,11 +208,26 @@ protected:
     std::string
     process_delayed_encodings(per_shard_t *per_shard, trace_entry_t &entry, bool output);
 
+    // Computes the output path without the extension output_ext_ which is added
+    // separately after determining the input path extension.
+    virtual std::string
+    get_output_basename(memtrace_stream_t *shard_stream);
+
     std::unordered_map<int, per_shard_t *> shard_map_;
     // This mutex is only needed in parallel_shard_init. In all other accesses
     // to shard_map (print_results) we are single-threaded.
     std::mutex shard_map_mutex_;
     shard_type_t shard_type_ = SHARD_BY_THREAD;
+
+    // For core-sharded we don't have a 1:1 input:output file mapping.
+    // Thus, some shards may not have an input stream at init time, and
+    // need to figure out their file extension and header info from other shards.
+    std::mutex input_info_mutex_;
+    std::condition_variable input_info_cond_var_;
+    // The above locks guard these fields:
+    std::string output_ext_;
+    uint64_t version_ = 0;
+    uint64_t filetype_ = 0;
 
 private:
     virtual bool
@@ -254,16 +269,6 @@ private:
     // XXX: We could use a read-write lock but C++11 doesn't have a ready-made one.
     // If we had the input count we could use an array and atomic reads.
     std::unordered_map<int64_t, std::unique_ptr<per_input_t>> input2info_;
-
-    // For core-sharded we don't have a 1:1 input:output file mapping.
-    // Thus, some shards may not have an input stream at init time, and
-    // need to figure out their file extension and header info from other shards.
-    std::mutex input_info_mutex_;
-    std::condition_variable input_info_cond_var_;
-    // The above locks guard these fields:
-    std::string output_ext_;
-    uint64_t version_ = 0;
-    uint64_t filetype_ = 0;
 };
 
 } // namespace drmemtrace
