@@ -238,40 +238,6 @@ record_filter_t::get_writer(per_shard_t *per_shard, memtrace_stream_t *shard_str
 {
     if (per_shard->output_path.empty())
         return "Error: output_path is empty";
-    if (shard_type_ == SHARD_BY_CORE) {
-        // Each output is a mix of inputs so we do not want to reuse the input
-        // names with tids.
-        // Since some shards may not have inputs, we need to synchronize determining
-        // the file extension.
-        // First, get our path without the extension, so we can add it later.
-        per_shard->output_path = output_dir_ + DIRSEP + "drmemtrace.core." +
-            std::to_string(shard_stream->get_shard_index()) + ".trace";
-        std::string input_name = shard_stream->get_stream_name();
-        // Now synchronize determining the extension.
-        auto lock = std::unique_lock<std::mutex>(input_info_mutex_);
-        if (!output_ext_.empty()) {
-            per_shard->output_path += output_ext_;
-            lock.unlock();
-        } else if (!input_name.empty()) {
-            size_t last_dot = input_name.rfind('.');
-            if (last_dot == std::string::npos)
-                return "Failed to determine filename type from extension";
-            output_ext_ = input_name.substr(last_dot);
-            // Set the other key input data.
-            version_ = shard_stream->get_version();
-            filetype_ = add_to_filetype(shard_stream->get_filetype());
-            per_shard->output_path += output_ext_;
-            lock.unlock();
-            input_info_cond_var_.notify_all();
-        } else {
-            // We have to wait for another shard with an input to set output_ext_.
-            input_info_cond_var_.wait(lock, [this] { return !output_ext_.empty(); });
-            per_shard->output_path += output_ext_;
-            lock.unlock();
-        }
-    } else {
-        per_shard->output_path = output_dir_ + DIRSEP + shard_stream->get_stream_name();
-    }
 #ifdef HAS_ZLIB
     if (ends_with(per_shard->output_path, ".gz")) {
         VPRINT(this, 3, "Using the gzip writer for %s\n", per_shard->output_path.c_str());
