@@ -94,7 +94,7 @@ failure email step".  Be sure to match the surrounding indentation as
 indentation matters for .yml files.
 
     - name: Setup tmate session
-      if: ${{ failure() }}
+      if: failure()
       uses: mxschmitt/action-tmate@v3
 
 Next, delete all the other workflow files in the ".github/workflows/" directory.
