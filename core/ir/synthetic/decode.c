@@ -135,5 +135,5 @@ decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
      */
     byte *next_pc = encoded_instr + encoding_size + num_srcs + num_dsts;
 
-    return;
+    return next_pc;
 }
