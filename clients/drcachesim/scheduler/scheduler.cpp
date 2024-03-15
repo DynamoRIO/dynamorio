@@ -208,6 +208,17 @@ scheduler_tmpl_t<memref_t, reader_t>::record_type_has_tid(memref_t record,
 }
 
 template <>
+bool
+scheduler_tmpl_t<memref_t, reader_t>::record_type_has_pid(memref_t record,
+                                                          memref_pid_t &pid)
+{
+    if (record.marker.pid == INVALID_PID)
+        return false;
+    pid = record.marker.pid;
+    return true;
+}
+
+template <>
 void
 scheduler_tmpl_t<memref_t, reader_t>::record_type_set_tid(memref_t &record,
                                                           memref_tid_t tid)
@@ -220,6 +231,23 @@ bool
 scheduler_tmpl_t<memref_t, reader_t>::record_type_is_instr(memref_t record)
 {
     return type_is_instr(record.instr.type);
+}
+
+template <>
+bool
+scheduler_tmpl_t<memref_t, reader_t>::record_type_is_encoding(memref_t record)
+{
+    // There are no separate memref_t encoding records: encoding info is
+    // inside instruction records.
+    return false;
+}
+
+template <>
+bool
+scheduler_tmpl_t<memref_t, reader_t>::record_type_is_instr_boundary(memref_t record,
+                                                                    memref_t prev_record)
+{
+    return record_type_is_instr(record);
 }
 
 template <>
@@ -302,6 +330,13 @@ scheduler_tmpl_t<memref_t, reader_t>::print_record(const memref_t &record)
     fprintf(stderr, "\n");
 }
 
+template <>
+void
+scheduler_tmpl_t<memref_t, reader_t>::insert_switch_tid_pid(input_info_t &info)
+{
+    // We do nothing, as every record has a tid from the separate inputs.
+}
+
 /******************************************************************************
  * Specializations for scheduler_tmpl_t<record_reader_t>, aka record_scheduler_t.
  */
@@ -344,6 +379,17 @@ scheduler_tmpl_t<trace_entry_t, record_reader_t>::record_type_has_tid(
 }
 
 template <>
+bool
+scheduler_tmpl_t<trace_entry_t, record_reader_t>::record_type_has_pid(
+    trace_entry_t record, memref_pid_t &pid)
+{
+    if (record.type != TRACE_TYPE_PID)
+        return false;
+    pid = static_cast<memref_pid_t>(record.addr);
+    return true;
+}
+
+template <>
 void
 scheduler_tmpl_t<trace_entry_t, record_reader_t>::record_type_set_tid(
     trace_entry_t &record, memref_tid_t tid)
@@ -359,6 +405,34 @@ scheduler_tmpl_t<trace_entry_t, record_reader_t>::record_type_is_instr(
     trace_entry_t record)
 {
     return type_is_instr(static_cast<trace_type_t>(record.type));
+}
+
+template <>
+bool
+scheduler_tmpl_t<trace_entry_t, record_reader_t>::record_type_is_encoding(
+    trace_entry_t record)
+{
+    return static_cast<trace_type_t>(record.type) == TRACE_TYPE_ENCODING;
+}
+
+template <>
+bool
+scheduler_tmpl_t<trace_entry_t, record_reader_t>::record_type_is_instr_boundary(
+    trace_entry_t record, trace_entry_t prev_record)
+{
+    // Don't advance past encodings and split them from their associated instr.
+    return (record_type_is_instr(record) || record_type_is_encoding(record)) &&
+        !record_type_is_encoding(prev_record);
+}
+
+template <>
+typename scheduler_tmpl_t<trace_entry_t, record_reader_t>::stream_status_t
+scheduler_tmpl_t<trace_entry_t, record_reader_t>::unread_last_record(
+    output_ordinal_t output, trace_entry_t &record, input_info_t *&input)
+{
+    // See the general unread_last_record() below: we don't support this as
+    // we can't provide the prev-prev record for record_type_is_instr_boundary().
+    return STATUS_NOT_IMPLEMENTED;
 }
 
 template <>
@@ -435,6 +509,27 @@ scheduler_tmpl_t<trace_entry_t, record_reader_t>::print_record(
 {
     fprintf(stderr, "type=%d size=%d addr=0x%zx\n", record.type, record.size,
             record.addr);
+}
+
+template <>
+void
+scheduler_tmpl_t<trace_entry_t, record_reader_t>::insert_switch_tid_pid(
+    input_info_t &input)
+{
+    // We need explicit tid,pid records so reader_t will see the new context.
+    // We insert at the front, so we have reverse order.
+    trace_entry_t pid;
+    pid.type = TRACE_TYPE_PID;
+    pid.size = 0;
+    pid.addr = static_cast<addr_t>(input.pid);
+
+    trace_entry_t tid;
+    tid.type = TRACE_TYPE_THREAD;
+    tid.size = 0;
+    tid.addr = static_cast<addr_t>(input.tid);
+
+    input.queue.push_front(pid);
+    input.queue.push_front(tid);
 }
 
 /***************************************************************************
@@ -1470,7 +1565,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_tid(output_ordinal_t output)
     int index = outputs_[output].cur_input;
     if (index < 0)
         return -1;
-    if (inputs_[index].is_combined_stream())
+    if (inputs_[index].is_combined_stream() ||
+        TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, inputs_[index].reader->get_filetype()))
         return inputs_[index].last_record_tid;
     return inputs_[index].tid;
 }
@@ -1731,7 +1827,12 @@ scheduler_tmpl_t<RecordType, ReaderType>::skip_instructions(output_ordinal_t out
 
     // If we skipped from the start we may not have seen the initial headers:
     // use the input's cached copies.
-    if (stream->version_ == 0) {
+    // We set the version and filetype up front for outputs with
+    // an initial input, so we check a different field to detect a
+    // skip.
+    if (stream->cache_line_size_ == 0 ||
+        // Check the version too as a fallback for inputs with no cache size.
+        stream->version_ == 0) {
         stream->version_ = input.reader->get_version();
         stream->last_timestamp_ = input.reader->get_last_timestamp();
         stream->first_timestamp_ = input.reader->get_first_timestamp();
@@ -2031,8 +2132,14 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_cur_input(output_ordinal_t output,
     std::lock_guard<std::mutex> lock(*inputs_[input].lock);
 
     if (prev_input < 0 && outputs_[output].stream->filetype_ == 0) {
-        // Set the filetype up front, to let the user query at init time as documented.
+        // Set the version and filetype up front, to let the user query at init time
+        // as documented.
+        outputs_[output].stream->version_ = inputs_[input].reader->get_version();
         outputs_[output].stream->filetype_ = inputs_[input].reader->get_filetype();
+    }
+
+    if (inputs_[input].pid != INVALID_PID) {
+        insert_switch_tid_pid(inputs_[input]);
     }
 
     if (!switch_sequence_.empty() &&
@@ -2583,7 +2690,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                     } else {
                         input->switch_to_input = it->second;
                     }
-                } else if (record_type_is_instr(record)) {
+                } else if (record_type_is_instr_boundary(record,
+                                                         outputs_[output].last_record)) {
                     if (syscall_incurs_switch(input, blocked_time)) {
                         // Model as blocking and should switch to a different input.
                         need_new_input = true;
@@ -2641,7 +2749,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                 }
             }
             if (options_.quantum_unit == QUANTUM_INSTRUCTIONS &&
-                record_type_is_instr(record) && !outputs_[output].in_kernel_code) {
+                record_type_is_instr_boundary(record, outputs_[output].last_record) &&
+                !outputs_[output].in_kernel_code) {
                 ++input->instrs_in_quantum;
                 if (input->instrs_in_quantum > options_.quantum_duration) {
                     // We again prefer to switch to another input even if the current
@@ -2669,7 +2778,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                     // We only switch on instruction boundaries.  We could possibly switch
                     // in between (e.g., scatter/gather long sequence of reads/writes) by
                     // setting input->switching_pre_instruction.
-                    record_type_is_instr(record)) {
+                    record_type_is_instr_boundary(record, outputs_[output].last_record)) {
                     VPRINT(this, 4,
                            "next_record[%d]: hit end of time quantum after %" PRIu64 "\n",
                            output, input->time_spent_in_quantum);
@@ -2715,7 +2824,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                        prev_input, outputs_[output].cur_input);
                 if (!preempt) {
                     if (options_.quantum_unit == QUANTUM_INSTRUCTIONS &&
-                        record_type_is_instr(record)) {
+                        record_type_is_instr_boundary(record,
+                                                      outputs_[output].last_record)) {
                         --inputs_[prev_input].instrs_in_quantum;
                     } else if (options_.quantum_unit == QUANTUM_TIME) {
                         inputs_[prev_input].time_spent_in_quantum -=
@@ -2764,6 +2874,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
 
     outputs_[output].last_record = record;
     record_type_has_tid(record, input->last_record_tid);
+    record_type_has_pid(record, input->pid);
     return sched_type_t::STATUS_OK;
 }
 
@@ -2784,6 +2895,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::unread_last_record(output_ordinal_t ou
     VPRINT(this, 4, "next_record[%d]: unreading last record, from %d\n", output,
            input->index);
     input->queue.push_back(outinfo.last_record);
+    // XXX: This should be record_type_is_instr_boundary() but we don't have the pre-prev
+    // record.  For now we don't support unread_last_record() for record_reader_t,
+    // enforced in a specialization of unread_last_record().
     if (options_.quantum_unit == QUANTUM_INSTRUCTIONS && record_type_is_instr(record))
         --input->instrs_in_quantum;
     outinfo.last_record = create_invalid_record();

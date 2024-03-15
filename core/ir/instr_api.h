@@ -310,6 +310,12 @@ struct _instr_t {
     byte num_dsts;
     byte num_srcs;
 
+    /* Instruction ISA mode to support multiple architectures in the same build of DR
+     * (xref i#6698 i#1684).
+     * This field holds values of type #dr_isa_mode_t.
+     */
+    byte isa_mode;
+
     union {
         struct {
             /* for efficiency everyone has a 1st src opnd, since we often just

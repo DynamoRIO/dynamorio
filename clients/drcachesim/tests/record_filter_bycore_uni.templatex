@@ -1,0 +1,14 @@
+#ifdef WINDOWS
+Hit delay threshold: enabling tracing.
+Exiting process after .* references.
+#else
+Hello, world!
+#endif
+Trace invariant checks passed
+Output .* entries from .* entries.
+Schedule stats tool results:
+.*
+Core #0 schedule: .*
+Core #1 schedule: .*
+Core #2 schedule: .*
+Core #3 schedule: .*

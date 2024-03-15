@@ -106,6 +106,7 @@ protected:
     {
         output_.push_back(entry);
         shard->cur_refs += shard->memref_counter.entry_memref_count(&entry);
+        shard->last_written_record = entry;
         return true;
     }
     std::string
@@ -145,6 +146,12 @@ public:
     set_last_timestamp(uint64_t last_timestamp)
     {
         last_timestamp_ = last_timestamp;
+    }
+    int64_t
+    get_input_id() const override
+    {
+        // Just one input for our tests.
+        return 0;
     }
 
 private:
