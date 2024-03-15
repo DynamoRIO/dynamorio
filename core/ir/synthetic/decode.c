@@ -41,6 +41,7 @@
 
 /* Decodes the raw bytes of an encoded instruction \p encoded_instr into DR instruction
  * representation \p instr.
+ * Returns next instruction's pc.
  *
  * The smallest encoded instruction (i.e., with no operands) has 4 bytes and follows
  * this scheme:
@@ -68,7 +69,7 @@
  *
  * We assume all encoded values to be little-endian.
  */
-void
+byte *
 decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
 {
     uint encoding = 0;
@@ -128,6 +129,10 @@ decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
         opnd_t dst_opnd = opnd_create_reg(dst);
         instr_set_dst(instr, i, dst_opnd);
     }
+
+    /* Compute next instruction's pc as: current pc + encoded instruction size.
+     */
+    byte *next_pc = encoded_instr + encoding_size + num_srcs + num_dsts;
 
     return;
 }

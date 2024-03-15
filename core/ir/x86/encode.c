@@ -2760,15 +2760,13 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
                   bool *has_instr_opnds /*OUT OPTIONAL*/
                       _IF_DEBUG(bool assert_reachable))
 {
-    /*
-     * If we're dealing with encoding to synthetic ISA, we don't care about returning
-     * the pc of the next instruction (?), so we just write the encoding in final_pc and
-     * return it.
+    /* Synthetic ISA has its own encoder.
+     * XXX i#1684: when DR can be built with full dynamic architecture selection we won't
+     * need to pollute the encoding of other architectures with this synthetic ISA special
+     * case.
      */
-    if (instr_get_isa_mode(instr) == DR_ISA_SYNTHETIC) {
-        encode_to_synth(dcontext, instr, final_pc);
-        return final_pc;
-    }
+    if (instr_get_isa_mode(instr) == DR_ISA_SYNTHETIC)
+        return encode_to_synth(dcontext, instr, final_pc);
 
     const instr_info_t *info;
     decode_info_t di;

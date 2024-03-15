@@ -40,10 +40,11 @@
 #include "opnd_api.h"
 
 /* Encodes DR instruction representation \p instr into raw bytes \p encoded_instr.
+ * Returns next instruction's pc.
  * A description of the encoding scheme is provided in core/ir/synthetic/decode.c.
  * We assume all encoded values to be little-endian.
  */
-void
+byte *
 encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
 {
     uint encoding = 0;
@@ -54,8 +55,8 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
     uint original_num_dsts = (uint)instr_num_dsts(instr);
     uint num_dsts = 0;
     for (uint i = 0; i < original_num_dsts; ++i) {
-        opnd_t src_opnd = instr_get_dst(instr, i);
-        if (opnd_is_reg(src_opnd))
+        opnd_t dst_opnd = instr_get_dst(instr, i);
+        if (opnd_is_reg(dst_opnd))
             ++num_dsts;
     }
     encoding |= num_dsts;
@@ -123,5 +124,9 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
         }
     }
 
-    return;
+    /* Compute next instruction's pc as: current pc + encoded instruction size.
+     */
+    byte *next_pc = encoded_instr + encoding_size + src_reg_counter + dst_reg_counter;
+
+    return next_pc;
 }

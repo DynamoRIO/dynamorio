@@ -35,7 +35,7 @@
 
 #include "../globals.h"
 
-void
+byte *
 decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr);
 
 #endif /* _SYNTHETIC_DECODE_H_ */
