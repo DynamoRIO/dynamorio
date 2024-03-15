@@ -806,10 +806,10 @@ static void
 test_instr_encode_decode_synthetic(void *dc, instr_t *instr, byte *bytes)
 {
     instr_t *instr_copy;
-    instr_set_isa_mode(instr, DR_ISA_SYNTH);
+    instr_set_isa_mode(instr, DR_ISA_SYNTHETIC);
     instr_encode(dc, instr, bytes);
     instr_copy = instr_create(dc);
-    instr_set_isa_mode(instr_copy, DR_ISA_SYNTH);
+    instr_set_isa_mode(instr_copy, DR_ISA_SYNTHETIC);
     decode(dc, bytes, instr_copy);
     ASSERT(instr_same_synthetic(instr, instr_copy));
     instr_destroy(dc, instr);

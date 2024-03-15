@@ -2585,7 +2585,7 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
      * the pc of the next instruction (?), so we just write the encoding in final_pc and
      * return it.
      */
-    if (instr_get_isa_mode(instr) == DR_ISA_SYNTH) {
+    if (instr_get_isa_mode(instr) == DR_ISA_SYNTHETIC) {
         decode_from_synth(dcontext, orig_pc, instr);
         return orig_pc;
     }

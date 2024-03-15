@@ -2765,7 +2765,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
      * the pc of the next instruction (?), so we just write the encoding in final_pc and
      * return it.
      */
-    if (instr_get_isa_mode(instr) == DR_ISA_SYNTH) {
+    if (instr_get_isa_mode(instr) == DR_ISA_SYNTHETIC) {
         encode_to_synth(dcontext, instr, final_pc);
         return final_pc;
     }
