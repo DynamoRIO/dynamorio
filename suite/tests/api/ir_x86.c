@@ -788,15 +788,60 @@ test_instr_encode_and_decode(void *dc, instr_t *instr, uint len_expect,
 }
 
 bool
-instr_same_synthetic(instr_t *inst1, instr_t *inst2)
+instr_same_synthetic(instr_t *instr_orig, instr_t *instr_copy)
 {
-    if (instr_num_srcs(inst1) != instr_num_srcs(inst2))
+    /* Check that instr_t ISA modes are the same.
+     */
+    if (instr_get_isa_mode(instr_orig) != instr_get_isa_mode(instr_copy))
         return false;
 
-    if (instr_num_dsts(inst1) != instr_num_dsts(inst2))
+    /* Check that instr_t categories are the same.
+     */
+    if (instr_get_category(instr_orig) != instr_get_category(instr_copy))
         return false;
 
-    if (instr_get_isa_mode(inst1) != instr_get_isa_mode(inst2))
+    /* Check that register destination operands are the same.
+     */
+    uint original_num_dsts = (uint)instr_num_dsts(instr_orig);
+    uint num_reg_dsts = 0;
+    for (uint i = 0; i < original_num_dsts; ++i) {
+        opnd_t dst_opnd = instr_get_dst(instr_orig, i);
+        if (opnd_is_reg(dst_opnd)) {
+            // TODO i#6662: we need to compare the virtual register stored in instr_copy
+            // against the converted DR_REG_ (to virtual register) of instr_orig.
+            // Currently we don't have virtual registers, so we can compare the two
+            // DR_REG_ of instr_orig and instr_copy directly.
+            if (!opnd_same(dst_opnd, instr_get_dst(instr_copy, num_reg_dsts)))
+                return false;
+            ++num_reg_dsts;
+        }
+    }
+
+    /* Check that we have the same number of destination operands that are registers.
+     */
+    if (num_reg_dsts != instr_num_dsts(instr_copy))
+        return false;
+
+    /* Check that register source operands are the same.
+     */
+    uint original_num_srcs = (uint)instr_num_srcs(instr_orig);
+    uint num_reg_srcs = 0;
+    for (uint i = 0; i < original_num_srcs; ++i) {
+        opnd_t src_opnd = instr_get_src(instr_orig, i);
+        if (opnd_is_reg(src_opnd)) {
+            // TODO i#6662: we need to compare the virtual register stored in instr_copy
+            // against the converted DR_REG_ (to virtual register) of instr_orig.
+            // Currently we don't have virtual registers, so we can compare the two
+            // DR_REG_ of instr_orig and instr_copy directly.
+            if (!opnd_same(src_opnd, instr_get_src(instr_copy, num_reg_srcs)))
+                return false;
+            ++num_reg_srcs;
+        }
+    }
+
+    /* Check that we have the same number of source operands that are registers.
+     */
+    if (num_reg_srcs != instr_num_srcs(instr_copy))
         return false;
 
     return true;
@@ -805,12 +850,19 @@ instr_same_synthetic(instr_t *inst1, instr_t *inst2)
 static void
 test_instr_encode_decode_synthetic(void *dc, instr_t *instr, byte *bytes)
 {
-    instr_t *instr_copy;
-    instr_set_isa_mode(instr, DR_ISA_SYNTHETIC);
-    instr_encode(dc, instr, bytes);
+    instr_t *instr_copy = NULL;
     instr_copy = instr_create(dc);
-    instr_set_isa_mode(instr_copy, DR_ISA_SYNTHETIC);
-    decode(dc, bytes, instr_copy);
+    ASSERT(instr_copy != NULL);
+    bool is_isa_mode_set = false;
+    is_isa_mode_set = instr_set_isa_mode(instr_copy, DR_ISA_SYNTHETIC);
+    ASSERT(is_isa_mode_set);
+    is_isa_mode_set = instr_set_isa_mode(instr, DR_ISA_SYNTHETIC);
+    ASSERT(is_isa_mode_set);
+    byte *next_pc = NULL;
+    next_pc = instr_encode(dc, instr, bytes);
+    ASSERT(next_pc != NULL);
+    next_pc = decode(dc, bytes, instr_copy);
+    ASSERT(next_pc != NULL);
     ASSERT(instr_same_synthetic(instr, instr_copy));
     instr_destroy(dc, instr);
     instr_destroy(dc, instr_copy);
@@ -823,7 +875,7 @@ test_instr_create_encode_decode_synthetic(void *dc)
     opnd_t abs_addr = opnd_create_abs_addr((void *)0xdeadbeefdeadbeef, OPSZ_8);
 
     instr = INSTR_CREATE_mov_ld(dc, opnd_create_reg(DR_REG_RAX), abs_addr);
-    byte bytes[8];
+    byte bytes[16];
     test_instr_encode_decode_synthetic(dc, instr, bytes);
 }
 
@@ -1150,15 +1202,16 @@ test_size_changes(void *dc)
     test_instr_encode(dc, instr, 3);
 
     /*
-     *   0x004ee0b8   a6                   cmps   %ds:(%esi) %es:(%edi) %esi %edi -> %esi
-     * %edi 0x004ee0b8   67 a6                addr16 cmps   %ds:(%si) %es:(%di) %si %di ->
-     * %si %di 0x004ee0b8   66 a7                data16 cmps   %ds:(%esi) %es:(%edi) %esi
-     * %edi -> %esi %edi 0x004ee0b8   d7                   xlat   %ds:(%ebx,%al,1) -> %al
-     *   0x004ee0b8   67 d7                addr16 xlat   %ds:(%bx,%al,1) -> %al
-     *   0x004ee0b8   0f f7 c1             maskmovq %mm0 %mm1 -> %ds:(%edi)
-     *   0x004ee0b8   67 0f f7 c1          addr16 maskmovq %mm0 %mm1 -> %ds:(%di)
-     *   0x004ee0b8   66 0f f7 c1          maskmovdqu %xmm0 %xmm1 -> %ds:(%edi)
-     *   0x004ee0b8   67 66 0f f7 c1       addr16 maskmovdqu %xmm0 %xmm1 -> %ds:(%di)
+     *   0x004ee0b8   a6                   cmps   %ds:(%esi) %es:(%edi) %esi %edi ->
+     * %esi %edi 0x004ee0b8   67 a6                addr16 cmps   %ds:(%si) %es:(%di)
+     * %si %di -> %si %di 0x004ee0b8   66 a7                data16 cmps   %ds:(%esi)
+     * %es:(%edi) %esi %edi -> %esi %edi 0x004ee0b8   d7                   xlat
+     * %ds:(%ebx,%al,1) -> %al 0x004ee0b8   67 d7                addr16 xlat
+     * %ds:(%bx,%al,1) -> %al 0x004ee0b8   0f f7 c1             maskmovq %mm0 %mm1 ->
+     * %ds:(%edi) 0x004ee0b8   67 0f f7 c1          addr16 maskmovq %mm0 %mm1 ->
+     * %ds:(%di) 0x004ee0b8   66 0f f7 c1          maskmovdqu %xmm0 %xmm1 ->
+     * %ds:(%edi) 0x004ee0b8   67 66 0f f7 c1       addr16 maskmovdqu %xmm0 %xmm1 ->
+     * %ds:(%di)
      */
     test_instr_encode(dc, INSTR_CREATE_cmps_1(dc), 1);
     instr = instr_create_2dst_4src(
@@ -1333,7 +1386,8 @@ test_hint_nops(void *dc)
     /* other types of hintable nop [eax] */
     buf[2] = 0x00;
     for (buf[1] = 0x19; buf[1] <= 0x1f; buf[1]++) {
-        /* Intel is using these encodings now for the MPX instructions bndldx and bndstx.
+        /* Intel is using these encodings now for the MPX instructions bndldx and
+         * bndstx.
          */
         if (buf[1] == 0x1a || buf[1] == 0x1b)
             continue;
@@ -1417,9 +1471,10 @@ static void
 test_avx512_vnni_encoding(void *dc)
 {
     /*
-     * These tests are taken from binutils-2.37.90/gas/testsuite/gas/i386/avx-vnni.{s,d}
-     * Each pair below differs only in assembler syntax so we took only 3 out of the 6
-     * tests below (x 4 for each opcode)
+     * These tests are taken from
+     * binutils-2.37.90/gas/testsuite/gas/i386/avx-vnni.{s,d} Each pair below differs
+     * only in assembler syntax so we took only 3 out of the 6 tests below (x 4 for
+     * each opcode)
      *
      *   \mnemonic %xmm2, %xmm4, %xmm2
      *   {evex} \mnemonic %xmm2, %xmm4, %xmm2
@@ -1802,8 +1857,8 @@ test_instr_opnds(void *dc)
      *   0x00000000006b8de0  ff 25 02 00 00 00    jmp    <rel> 0x00000000006b8de8
      *   0x00000000006b8de6  48 b8 ef be ad de 00 mov    $0x00000000deadbeef -> %rax
      *                       00 00 00
-     *   0x00000000006b8de0  8a 05 02 00 00 00    mov    <rel> 0x00000000006b8de8 -> %al
-     *   0x00000000006b8de6  48 b8 ef be ad de 00 mov    $0x00000000deadbeef -> %rax
+     *   0x00000000006b8de0  8a 05 02 00 00 00    mov    <rel> 0x00000000006b8de8 ->
+     * %al 0x00000000006b8de6  48 b8 ef be ad de 00 mov    $0x00000000deadbeef -> %rax
      *                       00 00 00
      */
     instrlist_t *ilist;
@@ -2481,13 +2536,13 @@ test_stack_pointer_size(void *dc)
                                false /*no pc*/, false /*no bytes*/, dbuf,
                                BUFFER_SIZE_ELEMENTS(dbuf), &len);
     ASSERT(pc != NULL && pc - (byte *)bytes_enter == sizeof(bytes_enter));
-    ASSERT(
-        strcmp(dbuf,
-               IF_X64_ELSE(
-                   "addr32 enter  $0xcdab $0xef %rsp %rbp -> %rsp 0xfffffff8(%rsp)[8byte]"
-                   " %rbp\n",
-                   "addr16 enter  $0xcdab $0xef %esp %ebp -> %esp 0xfffffffc(%esp)[4byte]"
-                   " %ebp\n")) == 0);
+    ASSERT(strcmp(dbuf,
+                  IF_X64_ELSE("addr32 enter  $0xcdab $0xef %rsp %rbp -> %rsp "
+                              "0xfffffff8(%rsp)[8byte]"
+                              " %rbp\n",
+                              "addr16 enter  $0xcdab $0xef %esp %ebp -> %esp "
+                              "0xfffffffc(%esp)[4byte]"
+                              " %ebp\n")) == 0);
 
     pc = disassemble_to_buffer(dc, (byte *)bytes_leave, (byte *)bytes_leave,
                                false /*no pc*/, false /*no bytes*/, dbuf,
@@ -2802,11 +2857,9 @@ test_evex_compressed_disp_with_segment_prefix(void *dc)
         disassemble_to_buffer(dc, (byte *)b, (byte *)b, false /*no pc*/,
                               false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
     ASSERT(pc == &b[0] + sizeof(b));
-    ASSERT(
-        strcmp(
-            dbuf,
-            "addr32 vpinsrw %xmm23[14byte] %gs:0x42(%r10d)[2byte] $0x00 -> %xmm28\n") ==
-        0);
+    ASSERT(strcmp(dbuf,
+                  "addr32 vpinsrw %xmm23[14byte] %gs:0x42(%r10d)[2byte] $0x00 -> "
+                  "%xmm28\n") == 0);
 #endif
 }
 
