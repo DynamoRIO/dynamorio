@@ -75,7 +75,8 @@ decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
     uint encoding = 0;
     uint shift = 0;
 
-    /* Copy encoded_instr in a uint for easier retrieving of values.
+    /* Copy the first 4 bytes of encoded_instr (which is always present) in a uint for
+     * easier retrieving of category, eflags, #src, #dst values.
      */
     memcpy(&encoding, encoded_instr, sizeof(encoding));
 
