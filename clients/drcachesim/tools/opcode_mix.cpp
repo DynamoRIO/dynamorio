@@ -353,7 +353,6 @@ opcode_mix_t::generate_shard_interval_snapshot(void *shard_data, uint64_t interv
     assert(shard_data != nullptr);
     auto &shard = *reinterpret_cast<shard_data_t *>(shard_data);
     auto *snap = new snapshot_t;
-    snap->instr_count_ = shard.instr_count;
     snap->opcode_counts_ = shard.opcode_counts;
     snap->category_counts_ = shard.category_counts;
     return snap;
@@ -368,20 +367,12 @@ opcode_mix_t::finalize_interval_snapshots(
     // deltas.  The first snapshot needs no updates, obviously.
     for (int i = static_cast<int>(interval_snapshots.size()) - 1; i > 0; --i) {
         auto &this_snap = *reinterpret_cast<snapshot_t *>(interval_snapshots[i]);
-        const auto &prior_snap =
-            *reinterpret_cast<const snapshot_t *>(interval_snapshots[i - 1]);
-        this_snap.instr_count_ -= prior_snap.instr_count_;
+        auto &prior_snap = *reinterpret_cast<snapshot_t *>(interval_snapshots[i - 1]);
         for (auto &opc_count : this_snap.opcode_counts_) {
-            auto prior_opc_it = prior_snap.opcode_counts_.find(opc_count.first);
-            if (prior_opc_it != prior_snap.opcode_counts_.end()) {
-                opc_count.second -= prior_opc_it->second;
-            }
+            opc_count.second -= prior_snap.opcode_counts_[opc_count.first];
         }
         for (auto &cat_count : this_snap.category_counts_) {
-            auto prior_cat_it = prior_snap.category_counts_.find(cat_count.first);
-            if (prior_cat_it != prior_snap.category_counts_.end()) {
-                cat_count.second -= prior_cat_it->second;
-            }
+            cat_count.second -= prior_snap.category_counts_[cat_count.first];
         }
     }
     return true;
@@ -395,7 +386,11 @@ opcode_mix_t::combine_interval_snapshots(
     snapshot_t *super_snap = new snapshot_t;
     for (const interval_state_snapshot_t *base_snap : latest_shard_snapshots) {
         const auto *snap = reinterpret_cast<const snapshot_t *>(base_snap);
-        super_snap->instr_count_ += snap->instr_count_;
+        // Skip nullptrs and snapshots from different intervals.
+        if (snap == nullptr ||
+            snap->get_interval_end_timestamp() != interval_end_timestamp) {
+            continue;
+        }
         for (const auto opc_count : snap->opcode_counts_) {
             super_snap->opcode_counts_[opc_count.first] += opc_count.second;
         }
@@ -427,7 +422,7 @@ opcode_mix_t::print_interval_results(
                       << " Opcode: " << decode_opcode_name(sorted[i].first) << " ("
                       << sorted[i].first << ")"
                       << " Count=" << sorted[i].second
-                      << " PKI=" << sorted[i].second * 1000.0 / snap->instr_count_
+                      << " PKI=" << sorted[i].second * 1000.0 / snap->get_instr_count_delta()
                       << "\n";
         }
         std::vector<std::pair<uint, int64_t>> sorted_cats(snap->category_counts_.begin(),
@@ -438,7 +433,7 @@ opcode_mix_t::print_interval_results(
             std::cerr << "   [" << i + 1 << "]"
                       << " Category=" << get_category_names(sorted_cats[i].first)
                       << " Count=" << sorted_cats[i].second
-                      << " PKI=" << sorted_cats[i].second * 1000.0 / snap->instr_count_
+                      << " PKI=" << sorted_cats[i].second * 1000.0 / snap->get_instr_count_delta()
                       << "\n";
         }
     }

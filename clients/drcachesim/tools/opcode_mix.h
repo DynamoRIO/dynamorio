@@ -129,7 +129,8 @@ protected:
 
     class snapshot_t : public interval_state_snapshot_t {
     public:
-        int64_t instr_count_;
+        // Snapshot the counts as cumulative stats, and then converted them to deltas in
+        // finalize_interval_snapshots().  Printed interval results are all deltas.
         std::unordered_map<int, int64_t> opcode_counts_;
         std::unordered_map<uint, int64_t> category_counts_;
     };
