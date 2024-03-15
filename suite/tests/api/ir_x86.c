@@ -1202,16 +1202,15 @@ test_size_changes(void *dc)
     test_instr_encode(dc, instr, 3);
 
     /*
-     *   0x004ee0b8   a6                   cmps   %ds:(%esi) %es:(%edi) %esi %edi ->
-     * %esi %edi 0x004ee0b8   67 a6                addr16 cmps   %ds:(%si) %es:(%di)
-     * %si %di -> %si %di 0x004ee0b8   66 a7                data16 cmps   %ds:(%esi)
-     * %es:(%edi) %esi %edi -> %esi %edi 0x004ee0b8   d7                   xlat
-     * %ds:(%ebx,%al,1) -> %al 0x004ee0b8   67 d7                addr16 xlat
-     * %ds:(%bx,%al,1) -> %al 0x004ee0b8   0f f7 c1             maskmovq %mm0 %mm1 ->
-     * %ds:(%edi) 0x004ee0b8   67 0f f7 c1          addr16 maskmovq %mm0 %mm1 ->
-     * %ds:(%di) 0x004ee0b8   66 0f f7 c1          maskmovdqu %xmm0 %xmm1 ->
-     * %ds:(%edi) 0x004ee0b8   67 66 0f f7 c1       addr16 maskmovdqu %xmm0 %xmm1 ->
-     * %ds:(%di)
+     *   0x004ee0b8   a6                   cmps   %ds:(%esi) %es:(%edi) %esi %edi -> %esi
+     * %edi 0x004ee0b8   67 a6                addr16 cmps   %ds:(%si) %es:(%di) %si %di ->
+     * %si %di 0x004ee0b8   66 a7                data16 cmps   %ds:(%esi) %es:(%edi) %esi
+     * %edi -> %esi %edi 0x004ee0b8   d7                   xlat   %ds:(%ebx,%al,1) -> %al
+     *   0x004ee0b8   67 d7                addr16 xlat   %ds:(%bx,%al,1) -> %al
+     *   0x004ee0b8   0f f7 c1             maskmovq %mm0 %mm1 -> %ds:(%edi)
+     *   0x004ee0b8   67 0f f7 c1          addr16 maskmovq %mm0 %mm1 -> %ds:(%di)
+     *   0x004ee0b8   66 0f f7 c1          maskmovdqu %xmm0 %xmm1 -> %ds:(%edi)
+     *   0x004ee0b8   67 66 0f f7 c1       addr16 maskmovdqu %xmm0 %xmm1 -> %ds:(%di)
      */
     test_instr_encode(dc, INSTR_CREATE_cmps_1(dc), 1);
     instr = instr_create_2dst_4src(
@@ -1386,8 +1385,7 @@ test_hint_nops(void *dc)
     /* other types of hintable nop [eax] */
     buf[2] = 0x00;
     for (buf[1] = 0x19; buf[1] <= 0x1f; buf[1]++) {
-        /* Intel is using these encodings now for the MPX instructions bndldx and
-         * bndstx.
+        /* Intel is using these encodings now for the MPX instructions bndldx and bndstx.
          */
         if (buf[1] == 0x1a || buf[1] == 0x1b)
             continue;
@@ -1471,10 +1469,9 @@ static void
 test_avx512_vnni_encoding(void *dc)
 {
     /*
-     * These tests are taken from
-     * binutils-2.37.90/gas/testsuite/gas/i386/avx-vnni.{s,d} Each pair below differs
-     * only in assembler syntax so we took only 3 out of the 6 tests below (x 4 for
-     * each opcode)
+     * These tests are taken from binutils-2.37.90/gas/testsuite/gas/i386/avx-vnni.{s,d}
+     * Each pair below differs only in assembler syntax so we took only 3 out of the 6
+     * tests below (x 4 for each opcode)
      *
      *   \mnemonic %xmm2, %xmm4, %xmm2
      *   {evex} \mnemonic %xmm2, %xmm4, %xmm2
@@ -1857,8 +1854,8 @@ test_instr_opnds(void *dc)
      *   0x00000000006b8de0  ff 25 02 00 00 00    jmp    <rel> 0x00000000006b8de8
      *   0x00000000006b8de6  48 b8 ef be ad de 00 mov    $0x00000000deadbeef -> %rax
      *                       00 00 00
-     *   0x00000000006b8de0  8a 05 02 00 00 00    mov    <rel> 0x00000000006b8de8 ->
-     * %al 0x00000000006b8de6  48 b8 ef be ad de 00 mov    $0x00000000deadbeef -> %rax
+     *   0x00000000006b8de0  8a 05 02 00 00 00    mov    <rel> 0x00000000006b8de8 -> %al
+     *   0x00000000006b8de6  48 b8 ef be ad de 00 mov    $0x00000000deadbeef -> %rax
      *                       00 00 00
      */
     instrlist_t *ilist;
@@ -2536,13 +2533,13 @@ test_stack_pointer_size(void *dc)
                                false /*no pc*/, false /*no bytes*/, dbuf,
                                BUFFER_SIZE_ELEMENTS(dbuf), &len);
     ASSERT(pc != NULL && pc - (byte *)bytes_enter == sizeof(bytes_enter));
-    ASSERT(strcmp(dbuf,
-                  IF_X64_ELSE("addr32 enter  $0xcdab $0xef %rsp %rbp -> %rsp "
-                              "0xfffffff8(%rsp)[8byte]"
-                              " %rbp\n",
-                              "addr16 enter  $0xcdab $0xef %esp %ebp -> %esp "
-                              "0xfffffffc(%esp)[4byte]"
-                              " %ebp\n")) == 0);
+    ASSERT(
+        strcmp(dbuf,
+               IF_X64_ELSE(
+                   "addr32 enter  $0xcdab $0xef %rsp %rbp -> %rsp 0xfffffff8(%rsp)[8byte]"
+                   " %rbp\n",
+                   "addr16 enter  $0xcdab $0xef %esp %ebp -> %esp 0xfffffffc(%esp)[4byte]"
+                   " %ebp\n")) == 0);
 
     pc = disassemble_to_buffer(dc, (byte *)bytes_leave, (byte *)bytes_leave,
                                false /*no pc*/, false /*no bytes*/, dbuf,
@@ -2857,9 +2854,11 @@ test_evex_compressed_disp_with_segment_prefix(void *dc)
         disassemble_to_buffer(dc, (byte *)b, (byte *)b, false /*no pc*/,
                               false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
     ASSERT(pc == &b[0] + sizeof(b));
-    ASSERT(strcmp(dbuf,
-                  "addr32 vpinsrw %xmm23[14byte] %gs:0x42(%r10d)[2byte] $0x00 -> "
-                  "%xmm28\n") == 0);
+    ASSERT(
+        strcmp(
+            dbuf,
+            "addr32 vpinsrw %xmm23[14byte] %gs:0x42(%r10d)[2byte] $0x00 -> %xmm28\n") ==
+        0);
 #endif
 }
 
