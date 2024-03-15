@@ -1,6 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
- * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,62 +29,99 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
  * DAMAGE.
  */
-/* Copyright (c) 2003-2007 Determina Corp. */
-/* Copyright (c) 2001-2003 Massachusetts Institute of Technology */
-/* Copyright (c) 2001 Hewlett-Packard Company */
 
 /* encode.c -- an encoder for DR synthetic IR */
 
 #include "encode.h"
 
 #include "../globals.h"
+#include "encoding_common.h"
+#include "instr_api.h"
+#include "opnd_api.h"
 
-#define CATEGORY_BITS 22
-#define FLAGS_BITS 2
-#define NUM_OPND_BITS 4
-
+/* Encodes DR instruction representation \p instr into raw bytes \p encoded_instr.
+ * A description of the encoding scheme is provided in core/ir/synthetic/decode.c.
+ * We assume all encoded values to be little-endian.
+ */
 void
 encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
 {
     uint encoding = 0;
     uint shift = 0;
 
-    /*
-     * Encode category as synthetic opcode.
+    /* Encode number of destination operands.
      */
-    uint category = instr_get_category(instr);
-    encoding |= category;
-    shift += CATEGORY_BITS;
+    uint original_num_dsts = (uint)instr_num_dsts(instr);
+    uint num_dsts = 0;
+    for (uint i = 0; i < original_num_dsts; ++i) {
+        opnd_t src_opnd = instr_get_dst(instr, i);
+        if (opnd_is_reg(src_opnd))
+            ++num_dsts;
+    }
+    encoding |= num_dsts;
+    shift += NUM_OPND_BITS;
 
-    /*
-     * Encode flags.
+    /* Encode number of source operands.
      */
-    // TOFIX: this is probably not the right way to look at arithmetic flags of an instr_t
-    uint flags = (uint)instr_arith_flags_valid(instr);
-    encoding |= (flags << shift);
-    shift += FLAGS_BITS;
-
-    /*
-     * Encode number of source operands.
-     */
-    uint num_srcs = (uint)instr_num_srcs(instr);
+    uint original_num_srcs = (uint)instr_num_srcs(instr);
+    uint num_srcs = 0;
+    for (uint i = 0; i < original_num_srcs; ++i) {
+        opnd_t src_opnd = instr_get_src(instr, i);
+        if (opnd_is_reg(src_opnd))
+            ++num_srcs;
+    }
     encoding |= (num_srcs << shift);
     shift += NUM_OPND_BITS;
 
-    /*
-     * Encode number of destination operands.
+    /* Encode flags.
      */
-    uint num_dsts = (uint)instr_num_dsts(instr);
-    encoding |= (num_dsts << shift);
+    // TODO i#6662: retrieve whether arithmetic flags are used from instr_t.
+    // Currently assuming all instructions both read and write at least one arithmetic
+    // flag (both bits set to 1).
+    uint flags = 0x3;
+    encoding |= (flags << shift);
+    shift += FLAGS_BITS;
 
-    /*
-     * TODO: Encode registers.
+    /* Encode category as synthetic opcode.
      */
+    uint category = instr_get_category(instr);
+    encoding |= (category << shift);
 
-    /*
-     * Copy result to output encoded_instr.
+    /* Copy encoding that is common to all instructions (initial 4 bytes) to output:
+     * encoded_instr.
      */
-    memcpy(encoded_instr, &encoding, sizeof(uint));
+    memcpy(encoded_instr, &encoding, sizeof(encoding));
+
+    /* Encode register source operands, if present.
+     */
+    uint encoding_size = (uint)sizeof(encoding); // Initial 4 bytes offset.
+    uint src_reg_counter = 0;
+    for (uint i = 0; i < original_num_srcs; ++i) {
+        opnd_t src_opnd = instr_get_src(instr, i);
+        if (opnd_is_reg(src_opnd)) {
+            // TODO i#6662: need to add virtual registers.
+            // Right now using regular reg_id_t (which holds DR_REG_ values) from
+            // opnd_api.h.
+            reg_id_t reg = opnd_get_reg(src_opnd);
+            encoded_instr[src_reg_counter + encoding_size] = (byte)reg;
+            ++src_reg_counter;
+        }
+    }
+
+    /* Decode register source operands, if present.
+     */
+    uint dst_reg_counter = 0;
+    for (uint i = 0; i < original_num_dsts; ++i) {
+        opnd_t dst_opnd = instr_get_dst(instr, i);
+        if (opnd_is_reg(dst_opnd)) {
+            // TODO i#6662: need to add virtual registers.
+            // Right now using regular reg_id_t (which holds DR_REG_ values) from
+            // opnd_api.h.
+            reg_id_t reg = opnd_get_reg(dst_opnd);
+            encoded_instr[dst_reg_counter + encoding_size + num_srcs] = (byte)reg;
+            ++dst_reg_counter;
+        }
+    }
 
     return;
 }

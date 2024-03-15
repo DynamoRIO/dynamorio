@@ -30,12 +30,11 @@
  * DAMAGE.
  */
 
-#ifndef _SYNTHETIC_ENCODE_H_
-#define _SYNTHETIC_ENCODE_H_ 1
+#ifndef _SYNTHETIC_ENCODING_COMMON_H_
+#define _SYNTHETIC_ENCODING_COMMON_H_
 
-#include "../globals.h"
+#define CATEGORY_BITS 22
+#define FLAGS_BITS 2
+#define NUM_OPND_BITS 4
 
-void
-encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr);
-
-#endif /* _SYNTHETIC_ENCODE_H_ */
+#endif // _SYNTHETIC_ENCODING_COMMON_H_
