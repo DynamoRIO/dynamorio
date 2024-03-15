@@ -64,7 +64,8 @@ following sections:
 \section sec_IR Instruction Representation
 
 The primary data structures involved in instruction manipulation are
-the #instr_t, which represents a single instruction, and the \c
+the #opnd_t, which represents one operand; the #instr_t, which
+represents a single instruction; and the \c
 #instrlist_t, which is a linked list of instructions.  The header files
 dr_ir_instrlist.h and dr_ir_instr.h list a number of functions that
 operate on these data structures, including:
@@ -98,10 +99,11 @@ other reasons such as updating the index register).  This means that a
 store to memory will have that store as a destination operand without
 listing the store's addressing mode registers as source operands in
 their own right.  Tools interested in all registers inside such
-operands can use interfaces like instr_reads_from_reg() to query (it
-will consider registers used to compute a store address as being read)
-or opnd_get_reg_used() to generically walk the registers inside an
-operand.
+operands can use opnd_get_num_regs_used() and opnd_get_reg_used() to
+generically walk the registers inside an operand, or
+instr_reads_from_reg() to determine whether an instruction reads a
+register either as a source operand or as a component of a destination
+memory reference.
 
 DynamoRIO's IR is mostly opaque to clients.  Key data structures have their
 sizes exposed to allow for stack allocation, but their fields are opaque.  In
