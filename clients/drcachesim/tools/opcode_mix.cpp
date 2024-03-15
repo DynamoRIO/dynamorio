@@ -421,8 +421,8 @@ opcode_mix_t::print_interval_results(
             std::cerr << "   [" << i + 1 << "]"
                       << " Opcode: " << decode_opcode_name(sorted[i].first) << " ("
                       << sorted[i].first << ")"
-                      << " Count=" << sorted[i].second
-                      << " PKI=" << sorted[i].second * 1000.0 / snap->get_instr_count_delta()
+                      << " Count=" << sorted[i].second << " PKI="
+                      << sorted[i].second * 1000.0 / snap->get_instr_count_delta()
                       << "\n";
         }
         std::vector<std::pair<uint, int64_t>> sorted_cats(snap->category_counts_.begin(),
@@ -432,8 +432,8 @@ opcode_mix_t::print_interval_results(
              ++i) {
             std::cerr << "   [" << i + 1 << "]"
                       << " Category=" << get_category_names(sorted_cats[i].first)
-                      << " Count=" << sorted_cats[i].second
-                      << " PKI=" << sorted_cats[i].second * 1000.0 / snap->get_instr_count_delta()
+                      << " Count=" << sorted_cats[i].second << " PKI="
+                      << sorted_cats[i].second * 1000.0 / snap->get_instr_count_delta()
                       << "\n";
         }
     }
