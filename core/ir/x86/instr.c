@@ -77,7 +77,7 @@ bool
 instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
 {
     if (mode == DR_ISA_SYNTHETIC) {
-        instr->flags |= INSTR_SYNTH_MODE;
+        instr->isa_mode = DR_ISA_SYNTHETIC;
         return true;
     }
 #ifdef X64
