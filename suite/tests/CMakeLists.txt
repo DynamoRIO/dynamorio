@@ -4081,6 +4081,9 @@ if (BUILD_CLIENTS)
     torunonly_drcacheoff(interval-instr-count-output ${ci_shared_app} ""
       "@-simulator_type@basic_counts@-interval_instr_count@10000" "")
 
+    torunonly_drcacheoff(interval-opcode-mix-output ${ci_shared_app} ""
+      "@-simulator_type@opcode_mix@-interval_instr_count@10000" "")
+
     # As for the online test, we check that only 1 thread is in the final trace.
     torunonly_drcacheoff(max-global client.annotation-concurrency
       # Include function tracing to sanity test combining with delay and max.
