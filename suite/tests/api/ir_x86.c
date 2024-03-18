@@ -850,16 +850,15 @@ instr_same_synthetic(instr_t *instr_orig, instr_t *instr_copy)
 static void
 test_instr_encode_decode_synthetic(void *dc, instr_t *instr, byte *bytes)
 {
-    instr_t *instr_copy = NULL;
-    instr_copy = instr_create(dc);
+    instr_t *instr_copy = instr_create(dc);
     ASSERT(instr_copy != NULL);
-    bool is_isa_mode_set = false;
-    is_isa_mode_set = instr_set_isa_mode(instr_copy, DR_ISA_SYNTHETIC);
+    // We need to set Synthetic ISA mode for the instruction we decode to.
+    bool is_isa_mode_set = instr_set_isa_mode(instr_copy, DR_ISA_SYNTHETIC);
     ASSERT(is_isa_mode_set);
+    // We need to set Synthetic ISA mode for the x86 instruction we encode next.
     is_isa_mode_set = instr_set_isa_mode(instr, DR_ISA_SYNTHETIC);
     ASSERT(is_isa_mode_set);
-    byte *next_pc = NULL;
-    next_pc = instr_encode(dc, instr, bytes);
+    byte *next_pc = instr_encode(dc, instr, bytes);
     ASSERT(next_pc != NULL);
     next_pc = decode(dc, bytes, instr_copy);
     ASSERT(next_pc != NULL);
@@ -875,8 +874,8 @@ test_instr_create_encode_decode_synthetic(void *dc)
     opnd_t abs_addr = opnd_create_abs_addr((void *)0xdeadbeefdeadbeef, OPSZ_8);
 
     instr = INSTR_CREATE_mov_ld(dc, opnd_create_reg(DR_REG_RAX), abs_addr);
-    byte bytes[16];
-    test_instr_encode_decode_synthetic(dc, instr, bytes);
+    uint bytes[3];
+    test_instr_encode_decode_synthetic(dc, instr, (byte *)bytes);
 }
 
 static void
