@@ -149,7 +149,13 @@ public:
         UNUSED(res);
         if (!eof_) {
             ++cur_ref_count_;
-            if (type_is_instr(static_cast<trace_type_t>(cur_entry_.type)))
+            // We increment the instr count at the encoding as that avoids multiple
+            // problems with separating encodings from instrs when skipping (including
+            // for scheduler regions of interest) and when replaying schedules: anything
+            // using instr ordinals as boundaries.
+            if (!prev_record_was_encoding_ &&
+                (cur_entry_.type == TRACE_TYPE_ENCODING ||
+                 type_is_instr(static_cast<trace_type_t>(cur_entry_.type))))
                 ++cur_instr_count_;
             else if (cur_entry_.type == TRACE_TYPE_MARKER) {
                 switch (cur_entry_.size) {
@@ -177,6 +183,10 @@ public:
                     break;
                 }
             }
+            if (cur_entry_.type == TRACE_TYPE_ENCODING)
+                prev_record_was_encoding_ = true;
+            else
+                prev_record_was_encoding_ = false;
         }
         return *this;
     }
@@ -273,6 +283,7 @@ private:
     uint64_t cur_instr_count_ = 0;
     uint64_t last_timestamp_ = 0;
     uint64_t first_timestamp_ = 0;
+    bool prev_record_was_encoding_ = false;
 
     // Remember top-level headers for the memtrace_stream_t interface.
     uint64_t version_ = 0;

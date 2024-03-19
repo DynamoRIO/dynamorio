@@ -1789,7 +1789,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::clear_input_queue(input_info_t &input)
     // skip it all when skipping ahead in the input stream.
     int i = 0;
     while (!input.queue.empty()) {
-        assert(i == 0 || !record_type_is_instr(input.queue.front()));
+        assert(i == 0 ||
+               (!record_type_is_instr(input.queue.front()) &&
+                !record_type_is_encoding(input.queue.front())));
         ++i;
         input.queue.pop_front();
     }
@@ -1809,7 +1811,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::skip_instructions(output_ordinal_t out
     // For a skip of 0 we still need to clear non-instrs from the queue, but
     // should not have an instr in there.
     assert(skip_amount > 0 || input.queue.empty() ||
-           !record_type_is_instr(input.queue.front()));
+           (!record_type_is_instr(input.queue.front()) &&
+            !record_type_is_encoding(input.queue.front())));
     clear_input_queue(input);
     input.reader->skip_instructions(skip_amount);
     if (*input.reader == *input.reader_end) {
