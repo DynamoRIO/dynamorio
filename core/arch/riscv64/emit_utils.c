@@ -292,6 +292,9 @@ void
 patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, cache_pc target_prefix_pc,
            bool hot_patch)
 {
+    /* If stub_pc is not aligned to 4 bytes, the first instruction will be c.nop, see
+     * insert_exit_stub_other_flags(). */
+    stub_pc = ALIGNED(stub_pc, 4) ? stub_pc : stub_pc + 2;
     ptr_int_t off = (ptr_int_t)target_pc - (ptr_int_t)stub_pc;
     if (off < 0x100000 && off > (ptr_int_t)0xFFFFFFFFFFF00000L) {
         /* target_pc is a near fragment. We can get there with a J (OP_jal, 21-bit signed
