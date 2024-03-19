@@ -1091,9 +1091,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_traced_schedule()
     uint64_t cur_cpu = std::numeric_limits<uint64_t>::max();
     // We also want to collapse same-cpu consecutive records so we start with
     // a temporary local vector.
-    std::vector<std::vector<schedule_record_t>> all_sched(outputs_.size());
+    std::vector<std::vector<schedule_output_tracker_t>> all_sched(outputs_.size());
     // Work around i#6107 by tracking counts sorted by timestamp for each input.
-    std::vector<std::vector<schedule_record_t>> input_sched(inputs_.size());
+    std::vector<std::vector<schedule_input_tracker_t>> input_sched(inputs_.size());
     while (options_.replay_as_traced_istream->read(reinterpret_cast<char *>(&entry),
                                                    sizeof(entry))) {
         if (entry.cpu != cur_cpu) {
@@ -1115,24 +1115,24 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_traced_schedule()
         uint64_t timestamp = entry.timestamp;
         // Some entries have no instructions (there is an entry for each timestamp, and
         // a signal can come in after a prior timestamp with no intervening instrs).
-        assert(all_sched[cur_output].empty() ||
-               all_sched[cur_output].back().type == schedule_record_t::DEFAULT);
         if (!all_sched[cur_output].empty() &&
-            input == all_sched[cur_output].back().key.input &&
-            start == all_sched[cur_output].back().value.start_instruction) {
+            input == all_sched[cur_output].back().input &&
+            start == all_sched[cur_output].back().start_instruction) {
             VPRINT(this, 3,
                    "Output #%d: as-read segment #%zu has no instructions: skipping\n",
                    cur_output, all_sched[cur_output].size() - 1);
             continue;
         }
-        all_sched[cur_output].emplace_back(schedule_record_t::DEFAULT, input, start, 0,
-                                           timestamp);
+        all_sched[cur_output].emplace_back(true, input, start, timestamp);
         start2stop[input].insert(start);
-        input_sched[input].emplace_back(schedule_record_t::DEFAULT, input, start, 0,
-                                        timestamp);
+        input_sched[input].emplace_back(cur_output, all_sched[cur_output].size() - 1,
+                                        start, timestamp);
     }
     sched_type_t::scheduler_status_t res =
         check_and_fix_modulo_problem_in_schedule(input_sched, start2stop, all_sched);
+    if (res != sched_type_t::STATUS_SUCCESS)
+        return res;
+    res = remove_zero_instruction_segments(input_sched, all_sched);
     if (res != sched_type_t::STATUS_SUCCESS)
         return res;
     for (int output_idx = 0; output_idx < static_cast<output_ordinal_t>(outputs_.size());
@@ -1145,41 +1145,40 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_traced_schedule()
         for (int sched_idx = 0;
              sched_idx < static_cast<int>(all_sched[output_idx].size()); ++sched_idx) {
             auto &segment = all_sched[output_idx][sched_idx];
-            auto find =
-                start2stop[segment.key.input].find(segment.value.start_instruction);
+            if (!segment.valid)
+                continue;
+            auto find = start2stop[segment.input].find(segment.start_instruction);
             ++find;
-            if (find == start2stop[segment.key.input].end())
+            if (find == start2stop[segment.input].end())
                 segment.stop_instruction = std::numeric_limits<uint64_t>::max();
             else
                 segment.stop_instruction = *find;
             VPRINT(this, 4,
                    "as-read segment #%d: input=%d start=%" PRId64 " stop=%" PRId64
                    " time=%" PRId64 "\n",
-                   sched_idx, segment.key.input, segment.value.start_instruction,
+                   sched_idx, segment.input, segment.start_instruction,
                    segment.stop_instruction, segment.timestamp);
             if (sched_idx + 1 < static_cast<int>(all_sched[output_idx].size()) &&
-                segment.key.input == all_sched[output_idx][sched_idx + 1].key.input &&
+                segment.input == all_sched[output_idx][sched_idx + 1].input &&
                 segment.stop_instruction >
-                    all_sched[output_idx][sched_idx + 1].value.start_instruction) {
+                    all_sched[output_idx][sched_idx + 1].start_instruction) {
                 // A second sanity check.
                 error_string_ = "Invalid decreasing start field in schedule file";
                 return STATUS_ERROR_INVALID_PARAMETER;
             } else if (sched_idx + 1 < static_cast<int>(all_sched[output_idx].size()) &&
-                       segment.key.input ==
-                           all_sched[output_idx][sched_idx + 1].key.input &&
+                       segment.input == all_sched[output_idx][sched_idx + 1].input &&
                        segment.stop_instruction ==
-                           all_sched[output_idx][sched_idx + 1].value.start_instruction) {
+                           all_sched[output_idx][sched_idx + 1].start_instruction) {
                 // Collapse into next.
                 if (start_consec == -1)
                     start_consec = sched_idx;
             } else {
-                schedule_record_t &toadd = start_consec >= 0
+                schedule_output_tracker_t &toadd = start_consec >= 0
                     ? all_sched[output_idx][start_consec]
                     : all_sched[output_idx][sched_idx];
                 outputs_[output_idx].record.emplace_back(
-                    static_cast<typename schedule_record_t::record_type_t>(toadd.type),
-                    +toadd.key.input, +toadd.value.start_instruction,
-                    +all_sched[output_idx][sched_idx].stop_instruction, +toadd.timestamp);
+                    schedule_record_t::DEFAULT, toadd.input, toadd.start_instruction,
+                    all_sched[output_idx][sched_idx].stop_instruction, toadd.timestamp);
                 start_consec = -1;
                 VDO(this, 3, {
                     auto &added = outputs_[output_idx].record.back();
@@ -1214,10 +1213,61 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_traced_schedule()
 
 template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
+scheduler_tmpl_t<RecordType, ReaderType>::remove_zero_instruction_segments(
+    std::vector<std::vector<schedule_input_tracker_t>> &input_sched,
+    std::vector<std::vector<schedule_output_tracker_t>> &all_sched)
+
+{
+    // For a cpuid pair with no instructions in between, our
+    // instruction-ordinal-based control points cannot model both sides.
+    // For example:
+    //    5   0:  1294139 <marker: page size 4096>
+    //    6   0:  1294139 <marker: timestamp 13344214879969223>
+    //    7   0:  1294139 <marker: tid 1294139 on core 2>
+    //    8   0:  1294139 <marker: function==syscall #202>
+    //    9   0:  1294139 <marker: function return value 0xffffffffffffff92>
+    //   10   0:  1294139 <marker: system call failed: 110>
+    //   11   0:  1294139 <marker: timestamp 13344214880209404>
+    //   12   0:  1294139 <marker: tid 1294139 on core 2>
+    //   13   1:  1294139 ifetch 3 byte(s) @ 0x0000563642cc5e75 8d 50 0b  lea...
+    // That sequence has 2 different cpu_schedule file entries for that input
+    // starting at instruction 0, which causes confusion when determining endpoints.
+    // We just drop the older entry and keep the later one, which is the one bundled
+    // with actual instructions.
+    for (int input_idx = 0; input_idx < static_cast<input_ordinal_t>(inputs_.size());
+         ++input_idx) {
+        std::sort(
+            input_sched[input_idx].begin(), input_sched[input_idx].end(),
+            [](const schedule_input_tracker_t &l, const schedule_input_tracker_t &r) {
+                return l.timestamp < r.timestamp;
+            });
+        uint64_t prev_start = 0;
+        for (size_t i = 0; i < input_sched[input_idx].size(); ++i) {
+            uint64_t start = input_sched[input_idx][i].start_instruction;
+            assert(start >= prev_start);
+            if (i > 0 && start == prev_start) {
+                // Keep the newer one.
+                VPRINT(this, 1, "Dropping same-input=%d same-start=%" PRIu64 " entry\n",
+                       input_idx, start);
+                all_sched[input_sched[input_idx][i - 1].output]
+                         [input_sched[input_idx][i - 1].output_array_idx]
+                             .valid = false;
+                input_sched[input_idx].erase(input_sched[input_idx].begin() + i - 1);
+                // Keep the iteration on course.
+                --i;
+            }
+            prev_start = start;
+        }
+    }
+    return STATUS_SUCCESS;
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::check_and_fix_modulo_problem_in_schedule(
-    std::vector<std::vector<schedule_record_t>> &input_sched,
+    std::vector<std::vector<schedule_input_tracker_t>> &input_sched,
     std::vector<std::set<uint64_t>> &start2stop,
-    std::vector<std::vector<schedule_record_t>> &all_sched)
+    std::vector<std::vector<schedule_output_tracker_t>> &all_sched)
 
 {
     // Work around i#6107 where the counts in the file are incorrectly modulo the chunk
@@ -1240,16 +1290,16 @@ scheduler_tmpl_t<RecordType, ReaderType>::check_and_fix_modulo_problem_in_schedu
     bool found_i6107 = false;
     for (int input_idx = 0; input_idx < static_cast<input_ordinal_t>(inputs_.size());
          ++input_idx) {
-        std::sort(input_sched[input_idx].begin(), input_sched[input_idx].end(),
-                  [](const schedule_record_t &l, const schedule_record_t &r) {
-                      return l.timestamp < r.timestamp;
-                  });
+        std::sort(
+            input_sched[input_idx].begin(), input_sched[input_idx].end(),
+            [](const schedule_input_tracker_t &l, const schedule_input_tracker_t &r) {
+                return l.timestamp < r.timestamp;
+            });
         uint64_t prev_start = 0;
         uint64_t add_to_start = 0;
         bool in_order = true;
-        for (const schedule_record_t &sched : input_sched[input_idx]) {
-            assert(sched.type == schedule_record_t::DEFAULT);
-            if (sched.value.start_instruction < prev_start) {
+        for (schedule_input_tracker_t &sched : input_sched[input_idx]) {
+            if (sched.start_instruction < prev_start) {
                 // If within 50% of the end of the chunk we assume it's i#6107.
                 if (prev_start * 2 > DEFAULT_CHUNK_SIZE) {
                     add_to_start += DEFAULT_CHUNK_SIZE;
@@ -1271,9 +1321,10 @@ scheduler_tmpl_t<RecordType, ReaderType>::check_and_fix_modulo_problem_in_schedu
                 error_string_ = "Same timestamps not supported for i#6107 workaround";
                 return STATUS_ERROR_INVALID_PARAMETER;
             }
-            prev_start = sched.value.start_instruction;
+            prev_start = sched.start_instruction;
             timestamp2adjust[input_idx][sched.timestamp] =
-                sched.value.start_instruction + add_to_start;
+                sched.start_instruction + add_to_start;
+            sched.start_instruction += add_to_start;
         }
     }
     if (!found_i6107)
@@ -1292,21 +1343,23 @@ scheduler_tmpl_t<RecordType, ReaderType>::check_and_fix_modulo_problem_in_schedu
         for (int sched_idx = 0;
              sched_idx < static_cast<int>(all_sched[output_idx].size()); ++sched_idx) {
             auto &segment = all_sched[output_idx][sched_idx];
-            auto it = timestamp2adjust[segment.key.input].find(segment.timestamp);
-            if (it == timestamp2adjust[segment.key.input].end()) {
+            if (!segment.valid)
+                continue;
+            auto it = timestamp2adjust[segment.input].find(segment.timestamp);
+            if (it == timestamp2adjust[segment.input].end()) {
                 error_string_ = "Failed to find timestamp for i#6107 workaround";
                 return STATUS_ERROR_INVALID_PARAMETER;
             }
-            assert(it->second >= segment.value.start_instruction);
-            assert(it->second % DEFAULT_CHUNK_SIZE == segment.value.start_instruction);
-            if (it->second != segment.value.start_instruction) {
+            assert(it->second >= segment.start_instruction);
+            assert(it->second % DEFAULT_CHUNK_SIZE == segment.start_instruction);
+            if (it->second != segment.start_instruction) {
                 VPRINT(this, 2,
                        "Updating all_sched[%d][%d] input %d from %" PRId64 " to %" PRId64
                        "\n",
-                       output_idx, sched_idx, segment.key.input,
-                       segment.value.start_instruction, it->second);
+                       output_idx, sched_idx, segment.input, segment.start_instruction,
+                       it->second);
             }
-            segment.value.start_instruction = it->second;
+            segment.start_instruction = it->second;
         }
     }
     return STATUS_SUCCESS;
