@@ -51,6 +51,7 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
      * We can do this safely because encoded_instr is 4 bytes aligned.
      */
     uint *encoding = ((uint *)&encoded_instr[0]);
+    *encoding = 0;
 
     /* Encode number of destination operands.
      * Note that a destination operand that is a memory renference, should have its
