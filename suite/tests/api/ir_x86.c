@@ -892,7 +892,13 @@ instr_synthetic_matches_real(instr_t *instr_real, instr_t *instr_synthetic)
 static void
 test_instr_encode_decode_synthetic(void *dc, instr_t *instr)
 {
-    __attribute__((aligned(4))) byte bytes[12];
+    /* __attribute__((aligned())) is a clang/gcc extension and it's not supported by our
+     * windows compiler, hence we declare bytes (where instruction encoding will be
+     * stored) as a uint array to keep the 4 bytes alignment requirement for encoding and
+     * decoding of synthetic ISA instructions.
+     */
+    uint bytes_aligned_4_bytes[3];
+    byte *bytes = (byte *)bytes_aligned_4_bytes;
     instr_t *instr_synthetic = instr_create(dc);
     ASSERT(instr_synthetic != NULL);
     // We need to set Synthetic ISA mode for the synthetic instruction we decode to.
@@ -906,7 +912,7 @@ test_instr_encode_decode_synthetic(void *dc, instr_t *instr)
     byte *next_pc_decode = decode(dc, bytes, instr_synthetic);
     ASSERT(next_pc_decode != NULL);
     ASSERT(next_pc_encode == next_pc_decode);
-    ASSERT(instr_length(dc, instr_synthetic) <= sizeof(bytes));
+    ASSERT(instr_length(dc, instr_synthetic) <= sizeof(bytes_aligned_4_bytes));
     ASSERT(instr_synthetic_matches_real(instr, instr_synthetic));
     instr_destroy(dc, instr);
     instr_destroy(dc, instr_synthetic);
