@@ -141,6 +141,15 @@ public:
         return cur_entry_;
     }
 
+    bool
+    record_is_pre_instr(trace_entry_t *record)
+    {
+        return record->type == TRACE_TYPE_ENCODING ||
+            // The branch target marker sits between any encodings and the instr.
+            (record->type == TRACE_TYPE_MARKER &&
+             record->size == TRACE_MARKER_TYPE_BRANCH_TARGET);
+    }
+
     record_reader_t &
     operator++()
     {
@@ -153,8 +162,8 @@ public:
             // problems with separating encodings from instrs when skipping (including
             // for scheduler regions of interest) and when replaying schedules: anything
             // using instr ordinals as boundaries.
-            if (!prev_record_was_encoding_ &&
-                (cur_entry_.type == TRACE_TYPE_ENCODING ||
+            if (!prev_record_was_pre_instr_ &&
+                (record_is_pre_instr(&cur_entry_) ||
                  type_is_instr(static_cast<trace_type_t>(cur_entry_.type))))
                 ++cur_instr_count_;
             else if (cur_entry_.type == TRACE_TYPE_MARKER) {
@@ -183,10 +192,7 @@ public:
                     break;
                 }
             }
-            if (cur_entry_.type == TRACE_TYPE_ENCODING)
-                prev_record_was_encoding_ = true;
-            else
-                prev_record_was_encoding_ = false;
+            prev_record_was_pre_instr_ = record_is_pre_instr(&cur_entry_);
         }
         return *this;
     }
@@ -283,7 +289,10 @@ private:
     uint64_t cur_instr_count_ = 0;
     uint64_t last_timestamp_ = 0;
     uint64_t first_timestamp_ = 0;
-    bool prev_record_was_encoding_ = false;
+    // Whether the prior record was a record that immediately precedes
+    // an instrution or another record of this type: an encoding or
+    // TRACE_MARKER_TYPE_BRANCH_TARGET.
+    bool prev_record_was_pre_instr_ = false;
 
     // Remember top-level headers for the memtrace_stream_t interface.
     uint64_t version_ = 0;

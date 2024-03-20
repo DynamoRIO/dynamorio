@@ -416,16 +416,6 @@ scheduler_tmpl_t<trace_entry_t, record_reader_t>::record_type_is_encoding(
 }
 
 template <>
-bool
-scheduler_tmpl_t<trace_entry_t, record_reader_t>::record_type_is_instr_boundary(
-    trace_entry_t record, trace_entry_t prev_record)
-{
-    // Don't advance past encodings and split them from their associated instr.
-    return (record_type_is_instr(record) || record_type_is_encoding(record)) &&
-        !record_type_is_encoding(prev_record);
-}
-
-template <>
 typename scheduler_tmpl_t<trace_entry_t, record_reader_t>::stream_status_t
 scheduler_tmpl_t<trace_entry_t, record_reader_t>::unread_last_record(
     output_ordinal_t output, trace_entry_t &record, input_info_t *&input)
@@ -445,6 +435,25 @@ scheduler_tmpl_t<trace_entry_t, record_reader_t>::record_type_is_marker(
     type = static_cast<trace_marker_type_t>(record.size);
     value = record.addr;
     return true;
+}
+
+template <>
+bool
+scheduler_tmpl_t<trace_entry_t, record_reader_t>::record_type_is_instr_boundary(
+    trace_entry_t record, trace_entry_t prev_record)
+{
+    trace_marker_type_t marker_type;
+    uintptr_t marker_value;
+    // The branch target marker sits between any encodings and the instr.
+    bool is_target_marker = record_type_is_marker(record, marker_type, marker_value) &&
+        marker_type == TRACE_MARKER_TYPE_BRANCH_TARGET;
+    // Don't advance past encodings or target markers and split them from their
+    // associated instr.
+    return (record_type_is_instr(record) || record_type_is_encoding(record) ||
+            is_target_marker) &&
+        !record_type_is_encoding(prev_record) &&
+        (!record_type_is_marker(prev_record, marker_type, marker_value) ||
+         marker_type != TRACE_MARKER_TYPE_BRANCH_TARGET);
 }
 
 template <>
@@ -563,7 +572,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::stream_t::next_record(RecordType &reco
     std::lock_guard<std::mutex> guard(*input->lock);
     if (!input->reader->is_record_synthetic())
         ++cur_ref_count_;
-    if (scheduler_->record_type_is_instr(record))
+    if (scheduler_->record_type_is_instr_boundary(record, prev_record_))
         ++cur_instr_count_;
     VPRINT(scheduler_, 4,
            "stream record#=%" PRId64 ", instr#=%" PRId64 " (cur input %" PRId64
@@ -597,6 +606,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::stream_t::next_record(RecordType &reco
             break;
         }
     }
+    prev_record_ = record;
     return sched_type_t::STATUS_OK;
 }
 
