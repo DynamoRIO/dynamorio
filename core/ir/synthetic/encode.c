@@ -53,30 +53,45 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
     uint *encoding = ((uint *)&encoded_instr[0]);
 
     /* Encode number of destination operands.
+     * Note that a destination operand that is a memory renference, should have its
+     * registers (if any) counted as source operands, since they are being read.
+     * We use used_[src|dst]_reg_map to keep track of registers we've seen and avoid
+     * duplicates.
      */
+    byte used_src_reg_map[MAX_NUM_REGS];
+    memset(used_src_reg_map, 0, sizeof(used_src_reg_map));
+    uint num_srcs = 0;
     byte used_dst_reg_map[MAX_NUM_REGS];
     memset(used_dst_reg_map, 0, sizeof(used_dst_reg_map));
-    uint original_num_dsts = (uint)instr_num_dsts(instr);
     uint num_dsts = 0;
+    uint original_num_dsts = (uint)instr_num_dsts(instr);
     for (uint dst_index = 0; dst_index < original_num_dsts; ++dst_index) {
         opnd_t dst_opnd = instr_get_dst(instr, dst_index);
-        for (uint opnd_index = 0; opnd_index < opnd_num_regs_used(dst_opnd);
-             ++opnd_index) {
-            reg_id_t reg = opnd_get_reg_used(dst_opnd, opnd_index);
-            if (used_dst_reg_map[reg] == 0) {
-                ++num_dsts;
-                used_dst_reg_map[reg] = 1;
+        if (opnd_is_memory_reference(dst_opnd)) {
+            for (uint opnd_index = 0; opnd_index < opnd_num_regs_used(dst_opnd);
+                 ++opnd_index) {
+                reg_id_t reg = opnd_get_reg_used(dst_opnd, opnd_index);
+                if (used_src_reg_map[reg] == 0) {
+                    ++num_srcs;
+                    used_src_reg_map[reg] = 1;
+                }
+            }
+        } else {
+            for (uint opnd_index = 0; opnd_index < opnd_num_regs_used(dst_opnd);
+                 ++opnd_index) {
+                reg_id_t reg = opnd_get_reg_used(dst_opnd, opnd_index);
+                if (used_dst_reg_map[reg] == 0) {
+                    ++num_dsts;
+                    used_dst_reg_map[reg] = 1;
+                }
             }
         }
     }
     *encoding |= num_dsts;
 
-    /* Encode number of source operands.
+    /* Encode number of source operands, adding on top of already present source operands.
      */
-    byte used_src_reg_map[MAX_NUM_REGS];
-    memset(used_src_reg_map, 0, sizeof(used_src_reg_map));
     uint original_num_srcs = (uint)instr_num_srcs(instr);
-    uint num_srcs = 0;
     for (uint i = 0; i < original_num_srcs; ++i) {
         opnd_t src_opnd = instr_get_src(instr, i);
         for (uint opnd_index = 0; opnd_index < opnd_num_regs_used(src_opnd);
@@ -91,8 +106,17 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
     *encoding |= (num_srcs << SRC_OPND_SHIFT);
 
     /* Encode flags.
+     * We need to temporarly change the instr_t ISA mode to its original one because
+     * instr_get_arith_flags() may call instr_get_eflags(), which may call
+     * private_instr_encode(), which may call instr_encode_check_reachability(), which
+     * calls instr_encode_arch(), which calls us if instr_t ISA mode is DR_ISA_SYNTHETIC,
+     * and we don't want to end up in a loop.
+     * We get the original ISA mode from dcontext.
+     * This is thread safe, since we're only reading the ISA mode.
      */
+    instr_set_isa_mode(instr, dr_get_isa_mode(dcontext));
     uint eflags_instr = instr_get_arith_flags(instr, DR_QUERY_DEFAULT);
+    instr_set_isa_mode(instr, DR_ISA_SYNTHETIC);
     uint eflags = 0;
     if (eflags_instr & EFLAGS_WRITE_ARITH)
         eflags |= SYNTHETIC_INSTR_WRITES_ARITH;
@@ -105,7 +129,7 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
     uint category = instr_get_category(instr);
     *encoding |= (category << CATEGORY_SHIFT);
 
-    /* Decode register destination operands, if present.
+    /* Encode register destination operands, if present.
      */
     uint dst_reg_counter = 0;
     for (uint reg = 0; reg < MAX_NUM_REGS; ++reg) {
@@ -117,7 +141,7 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
         }
     }
 
-    /* Decode register source operands, if present.
+    /* Encode register source operands, if present.
      */
     uint src_reg_counter = 0;
     for (uint reg = 0; reg < MAX_NUM_REGS; ++reg) {
@@ -129,13 +153,15 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
         }
     }
 
-    /* Compute next instruction's PC as: current PC + encoded instruction size (including
-     * bytes for padding to reach 4 bytes alignment).
+    /* Compute instruction length including bytes for padding to reach 4 bytes alignment.
      */
     uint num_opnds = num_srcs + num_dsts;
     uint num_opnds_ceil = (num_opnds + INSTRUCTION_BYTES - 1) / INSTRUCTION_BYTES;
-    byte *next_pc =
-        encoded_instr + INSTRUCTION_BYTES + num_opnds_ceil * INSTRUCTION_BYTES;
+    uint instr_length = INSTRUCTION_BYTES + num_opnds_ceil * INSTRUCTION_BYTES;
+
+    /* Compute next instruction's PC as: current PC + instruction length.
+     */
+    byte *next_pc = encoded_instr + instr_length;
 
     return next_pc;
 }
