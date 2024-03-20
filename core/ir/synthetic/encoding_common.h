@@ -33,6 +33,22 @@
 #ifndef _SYNTHETIC_ENCODING_COMMON_H_
 #define _SYNTHETIC_ENCODING_COMMON_H_
 
+/* This synthetic ISA is a made up ISA that has the purpose of preserving register
+ * dependencies and giving hints on the type of operations each instruction is performing.
+ * For this reason the majority of operations that would normally work on instructions
+ * coming from an actual ISA are not supported.
+ * The only operations that we support are instr_encode() and decode() when DynamoRIO's
+ * host is an x86 architecture.
+ * Also note that in DynamoRIO we use the #instr_t ISA mode to determine what type of
+ * encoding to perform, and #dr_context_t ISA mode to determine what type of decoding to
+ * perform.
+ * Currently the only exception to this rule happens for decoding of synthetic
+ * instructions, where #instr_t ISA mode takes precedence and #dr_context_t ISA mode is
+ * ignored if #instr_t ISA mode is DR_ISA_SYNTHETIC.
+ * XXX i#1684: Note that this is part of a larger issue, where lack of cross-arch support
+ * in the same build of DynamoRIO is limiting us.
+ */
+
 /* Here we describe the encoding scheme for the Synthetic ISA that is enforced in decode.c
  * and encode.c.
  *
