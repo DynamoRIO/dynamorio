@@ -63,7 +63,7 @@ decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
 
     instr_set_num_opnds(dcontext, instr, num_dsts, num_srcs);
 
-    /* Decode flags.
+    /* Decode arithmetic flags.
      */
     uint eflags = (*encoding & FLAGS_MASK) >> FLAGS_SHIFT;
     uint eflags_instr = 0;
@@ -72,6 +72,11 @@ decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
     if (eflags & SYNTHETIC_INSTR_READS_ARITH)
         eflags_instr |= EFLAGS_READ_ARITH;
     instr->eflags = eflags_instr;
+
+    /* Declare the eflags to be valid.
+     * This is needed in order to retrieve their value without trying to compute it again.
+     */
+    instr_set_arith_flags_valid(instr, true);
 
     /* Decode synthetic opcode as instruction category.
      */
@@ -98,6 +103,10 @@ decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
         instr_set_src(instr, i, src_opnd);
     }
 
+    /* Declare the operands to be valid.
+     */
+    instr_set_operands_valid(instr, true);
+
     /* Compute instruction length including bytes for padding to reach 4 bytes alignment.
      */
     uint num_opnds = num_srcs + num_dsts;
@@ -106,11 +115,11 @@ decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
     instr->length = instr_length;
 
     /* At this point the synthetic instruction has been fully decoded, so we set the
-     * decoded flags bit.
+     * decoded flags bit and declare the synthetic instruction valid.
      * This is useful to avoid trying to compute its length again when we want to
      * retrieve it using instr_length().
      */
-    instr->flags |= INSTR_RAW_BITS_VALID;
+    instr_set_raw_bits_valid(instr, true);
 
     /* Compute next instruction's PC as: current PC + instruction length.
      */
