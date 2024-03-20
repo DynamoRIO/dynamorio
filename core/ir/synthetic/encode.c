@@ -105,18 +105,9 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
     }
     *encoding |= (num_srcs << SRC_OPND_SHIFT);
 
-    /* Encode flags.
-     * We need to temporarly change the instr_t ISA mode to its original one because
-     * instr_get_arith_flags() may call instr_get_eflags(), which may call
-     * private_instr_encode(), which may call instr_encode_check_reachability(), which
-     * calls instr_encode_arch(), which calls us if instr_t ISA mode is DR_ISA_SYNTHETIC,
-     * and we don't want to end up in a loop.
-     * We get the original ISA mode from dcontext.
-     * This is thread safe, since we're only reading the ISA mode.
+    /* Encode arithmetic flags.
      */
-    instr_set_isa_mode(instr, dr_get_isa_mode(dcontext));
     uint eflags_instr = instr_get_arith_flags(instr, DR_QUERY_DEFAULT);
-    instr_set_isa_mode(instr, DR_ISA_SYNTHETIC);
     uint eflags = 0;
     if (eflags_instr & EFLAGS_WRITE_ARITH)
         eflags |= SYNTHETIC_INSTR_WRITES_ARITH;
