@@ -871,6 +871,22 @@ instr_synthetic_matches_real(instr_t *instr_real, instr_t *instr_synthetic)
                sizeof(used_dst_reg_map_real)) != 0)
         return false;
 
+    uint eflags_instr_real = instr_get_arith_flags(instr_real, DR_QUERY_DEFAULT);
+    uint eflags_instr_synthetic =
+        instr_get_arith_flags(instr_synthetic, DR_QUERY_DEFAULT);
+    uint eflags_real = 0x0;
+    if (eflags_instr_real & EFLAGS_WRITE_ARITH)
+        eflags_real |= 0x1;
+    if (eflags_instr_real & EFLAGS_READ_ARITH)
+        eflags_real |= 0x2;
+    uint eflags_synthetic = 0x0;
+    if (eflags_instr_synthetic & EFLAGS_WRITE_ARITH)
+        eflags_synthetic |= 0x1;
+    if (eflags_instr_synthetic & EFLAGS_READ_ARITH)
+        eflags_synthetic |= 0x2;
+    if (eflags_real != eflags_synthetic)
+        return false;
+
     return true;
 }
 
