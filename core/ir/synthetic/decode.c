@@ -98,13 +98,23 @@ decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
         instr_set_src(instr, i, src_opnd);
     }
 
-    /* Compute next instruction's PC as: current PC + encoded instruction size (including
-     * bytes for padding to reach 4 bytes alignment).
+    /* Compute instruction length including bytes for padding to reach 4 bytes alignment.
      */
     uint num_opnds = num_srcs + num_dsts;
     uint num_opnds_ceil = (num_opnds + INSTRUCTION_BYTES - 1) / INSTRUCTION_BYTES;
-    byte *next_pc =
-        encoded_instr + INSTRUCTION_BYTES + num_opnds_ceil * INSTRUCTION_BYTES;
+    uint instr_length = INSTRUCTION_BYTES + num_opnds_ceil * INSTRUCTION_BYTES;
+    instr->length = instr_length;
+
+    /* At this point the synthetic instruction has been fully decoded, so we set the
+     * decoded flags bit.
+     * This is useful to avoid trying to compute its length again when we want to
+     * retrieve it using instr_length().
+     */
+    instr->flags |= INSTR_RAW_BITS_VALID;
+
+    /* Compute next instruction's PC as: current PC + instruction length.
+     */
+    byte *next_pc = encoded_instr + instr_length;
 
     return next_pc;
 }
