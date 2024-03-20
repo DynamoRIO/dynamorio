@@ -798,9 +798,9 @@ get_instr_src_and_dst_registers(instr_t *instr, uint max_num_regs, byte *used_sr
     uint original_num_dsts = (uint)instr_num_dsts(instr);
     for (uint dst_index = 0; dst_index < original_num_dsts; ++dst_index) {
         opnd_t dst_opnd = instr_get_dst(instr, dst_index);
+        uint num_regs_used_by_opnd = (uint)opnd_num_regs_used(dst_opnd);
         if (opnd_is_memory_reference(dst_opnd)) {
-            for (uint opnd_index = 0; opnd_index < opnd_num_regs_used(dst_opnd);
-                 ++opnd_index) {
+            for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
                 // TODO i#6662: need to add virtual registers.
                 // Right now using regular reg_id_t (which holds DR_REG_ values) from
                 // opnd_api.h.
@@ -809,8 +809,7 @@ get_instr_src_and_dst_registers(instr_t *instr, uint max_num_regs, byte *used_sr
                     used_src_reg_map[reg] = 1;
             }
         } else {
-            for (uint opnd_index = 0; opnd_index < opnd_num_regs_used(dst_opnd);
-                 ++opnd_index) {
+            for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
                 // TODO i#6662: need to add virtual registers.
                 // Right now using regular reg_id_t (which holds DR_REG_ values) from
                 // opnd_api.h.
@@ -824,8 +823,8 @@ get_instr_src_and_dst_registers(instr_t *instr, uint max_num_regs, byte *used_sr
     uint original_num_srcs = (uint)instr_num_srcs(instr);
     for (uint i = 0; i < original_num_srcs; ++i) {
         opnd_t src_opnd = instr_get_src(instr, i);
-        for (uint opnd_index = 0; opnd_index < opnd_num_regs_used(src_opnd);
-             ++opnd_index) {
+        uint num_regs_used_by_opnd = (uint)opnd_num_regs_used(src_opnd);
+        for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
             // TODO i#6662: need to add virtual registers.
             // Right now using regular reg_id_t (which holds DR_REG_ values) from
             // opnd_api.h.

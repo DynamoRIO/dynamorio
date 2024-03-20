@@ -67,9 +67,9 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
     uint original_num_dsts = (uint)instr_num_dsts(instr);
     for (uint dst_index = 0; dst_index < original_num_dsts; ++dst_index) {
         opnd_t dst_opnd = instr_get_dst(instr, dst_index);
+        uint num_regs_used_by_opnd = (uint)opnd_num_regs_used(dst_opnd);
         if (opnd_is_memory_reference(dst_opnd)) {
-            for (uint opnd_index = 0; opnd_index < opnd_num_regs_used(dst_opnd);
-                 ++opnd_index) {
+            for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
                 reg_id_t reg = opnd_get_reg_used(dst_opnd, opnd_index);
                 if (used_src_reg_map[reg] == 0) {
                     ++num_srcs;
@@ -77,8 +77,7 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
                 }
             }
         } else {
-            for (uint opnd_index = 0; opnd_index < opnd_num_regs_used(dst_opnd);
-                 ++opnd_index) {
+            for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
                 reg_id_t reg = opnd_get_reg_used(dst_opnd, opnd_index);
                 if (used_dst_reg_map[reg] == 0) {
                     ++num_dsts;
@@ -94,8 +93,8 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
     uint original_num_srcs = (uint)instr_num_srcs(instr);
     for (uint i = 0; i < original_num_srcs; ++i) {
         opnd_t src_opnd = instr_get_src(instr, i);
-        for (uint opnd_index = 0; opnd_index < opnd_num_regs_used(src_opnd);
-             ++opnd_index) {
+        uint num_regs_used_by_opnd = (uint)opnd_num_regs_used(src_opnd);
+        for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
             reg_id_t reg = opnd_get_reg_used(src_opnd, opnd_index);
             if (used_src_reg_map[reg] == 0) {
                 ++num_srcs;
