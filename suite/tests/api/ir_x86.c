@@ -91,6 +91,8 @@ static byte buf[32768];
 #define EVEX_SCALABLE_DISP 0x100
 static int memarg_disp = DEFAULT_DISP;
 
+#define MAX_NUM_REGS 256
+
 /***************************************************************************
  * make sure the following are consistent (though they could still all be wrong :))
  * with respect to instr length and opcode:
@@ -787,84 +789,112 @@ test_instr_encode_and_decode(void *dc, instr_t *instr, uint len_expect,
     instr_destroy(dc, decin);
 }
 
+void
+get_instr_src_and_dst_registers(instr_t *instr, uint max_num_regs, byte *used_src_reg_map,
+                                byte *used_dst_reg_map)
+{
+    memset(used_src_reg_map, 0, max_num_regs);
+    memset(used_dst_reg_map, 0, max_num_regs);
+    uint original_num_dsts = (uint)instr_num_dsts(instr);
+    for (uint dst_index = 0; dst_index < original_num_dsts; ++dst_index) {
+        opnd_t dst_opnd = instr_get_dst(instr, dst_index);
+        if (opnd_is_memory_reference(dst_opnd)) {
+            for (uint opnd_index = 0; opnd_index < opnd_num_regs_used(dst_opnd);
+                 ++opnd_index) {
+                // TODO i#6662: need to add virtual registers.
+                // Right now using regular reg_id_t (which holds DR_REG_ values) from
+                // opnd_api.h.
+                reg_id_t reg = opnd_get_reg_used(dst_opnd, opnd_index);
+                if (used_src_reg_map[reg] == 0)
+                    used_src_reg_map[reg] = 1;
+            }
+        } else {
+            for (uint opnd_index = 0; opnd_index < opnd_num_regs_used(dst_opnd);
+                 ++opnd_index) {
+                // TODO i#6662: need to add virtual registers.
+                // Right now using regular reg_id_t (which holds DR_REG_ values) from
+                // opnd_api.h.
+                reg_id_t reg = opnd_get_reg_used(dst_opnd, opnd_index);
+                if (used_dst_reg_map[reg] == 0)
+                    used_dst_reg_map[reg] = 1;
+            }
+        }
+    }
+
+    uint original_num_srcs = (uint)instr_num_srcs(instr);
+    for (uint i = 0; i < original_num_srcs; ++i) {
+        opnd_t src_opnd = instr_get_src(instr, i);
+        for (uint opnd_index = 0; opnd_index < opnd_num_regs_used(src_opnd);
+             ++opnd_index) {
+            // TODO i#6662: need to add virtual registers.
+            // Right now using regular reg_id_t (which holds DR_REG_ values) from
+            // opnd_api.h.
+            reg_id_t reg = opnd_get_reg_used(src_opnd, opnd_index);
+            if (used_src_reg_map[reg] == 0)
+                used_src_reg_map[reg] = 1;
+        }
+    }
+
+    return;
+}
+
 bool
-instr_same_synthetic(instr_t *instr_orig, instr_t *instr_copy)
+instr_synthetic_matches_real(instr_t *instr_real, instr_t *instr_synthetic)
 {
     /* Check that instr_t ISA modes are the same.
      */
-    if (instr_get_isa_mode(instr_orig) != instr_get_isa_mode(instr_copy))
+    if (instr_get_isa_mode(instr_real) != instr_get_isa_mode(instr_synthetic))
         return false;
 
     /* Check that instr_t categories are the same.
      */
-    if (instr_get_category(instr_orig) != instr_get_category(instr_copy))
+    if (instr_get_category(instr_real) != instr_get_category(instr_synthetic))
         return false;
 
-    /* Check that register destination operands are the same.
+    /* Check that register operands are the same.
+     * This also ensures the two instructions have the same number of source and
+     * destination operands.
      */
-    uint original_num_dsts = (uint)instr_num_dsts(instr_orig);
-    uint num_reg_dsts = 0;
-    for (uint i = 0; i < original_num_dsts; ++i) {
-        opnd_t dst_opnd = instr_get_dst(instr_orig, i);
-        if (opnd_is_reg(dst_opnd)) {
-            // TODO i#6662: we need to compare the virtual register stored in instr_copy
-            // against the converted DR_REG_ (to virtual register) of instr_orig.
-            // Currently we don't have virtual registers, so we can compare the two
-            // DR_REG_ of instr_orig and instr_copy directly.
-            if (!opnd_same(dst_opnd, instr_get_dst(instr_copy, num_reg_dsts)))
-                return false;
-            ++num_reg_dsts;
-        }
-    }
-
-    /* Check that we have the same number of destination operands that are registers.
-     */
-    if (num_reg_dsts != instr_num_dsts(instr_copy))
+    byte used_src_reg_map_real[MAX_NUM_REGS];
+    byte used_dst_reg_map_real[MAX_NUM_REGS];
+    get_instr_src_and_dst_registers(instr_real, MAX_NUM_REGS, used_src_reg_map_real,
+                                    used_dst_reg_map_real);
+    byte used_src_reg_map_synthetic[MAX_NUM_REGS];
+    byte used_dst_reg_map_synthetic[MAX_NUM_REGS];
+    get_instr_src_and_dst_registers(instr_synthetic, MAX_NUM_REGS,
+                                    used_src_reg_map_synthetic,
+                                    used_dst_reg_map_synthetic);
+    if (memcmp(used_src_reg_map_real, used_src_reg_map_synthetic,
+               sizeof(used_src_reg_map_real)) != 0)
         return false;
-
-    /* Check that register source operands are the same.
-     */
-    uint original_num_srcs = (uint)instr_num_srcs(instr_orig);
-    uint num_reg_srcs = 0;
-    for (uint i = 0; i < original_num_srcs; ++i) {
-        opnd_t src_opnd = instr_get_src(instr_orig, i);
-        if (opnd_is_reg(src_opnd)) {
-            // TODO i#6662: we need to compare the virtual register stored in instr_copy
-            // against the converted DR_REG_ (to virtual register) of instr_orig.
-            // Currently we don't have virtual registers, so we can compare the two
-            // DR_REG_ of instr_orig and instr_copy directly.
-            if (!opnd_same(src_opnd, instr_get_src(instr_copy, num_reg_srcs)))
-                return false;
-            ++num_reg_srcs;
-        }
-    }
-
-    /* Check that we have the same number of source operands that are registers.
-     */
-    if (num_reg_srcs != instr_num_srcs(instr_copy))
+    if (memcmp(used_dst_reg_map_real, used_dst_reg_map_synthetic,
+               sizeof(used_dst_reg_map_real)) != 0)
         return false;
 
     return true;
 }
 
 static void
-test_instr_encode_decode_synthetic(void *dc, instr_t *instr, byte *bytes)
+test_instr_encode_decode_synthetic(void *dc, instr_t *instr)
 {
-    instr_t *instr_copy = instr_create(dc);
-    ASSERT(instr_copy != NULL);
-    // We need to set Synthetic ISA mode for the instruction we decode to.
-    bool is_isa_mode_set = instr_set_isa_mode(instr_copy, DR_ISA_SYNTHETIC);
+    __attribute__((aligned(4))) byte bytes[12];
+    instr_t *instr_synthetic = instr_create(dc);
+    ASSERT(instr_synthetic != NULL);
+    // We need to set Synthetic ISA mode for the synthetic instruction we decode to.
+    bool is_isa_mode_set = instr_set_isa_mode(instr_synthetic, DR_ISA_SYNTHETIC);
     ASSERT(is_isa_mode_set);
     // We need to set Synthetic ISA mode for the x86 instruction we encode next.
     is_isa_mode_set = instr_set_isa_mode(instr, DR_ISA_SYNTHETIC);
     ASSERT(is_isa_mode_set);
-    byte *next_pc = instr_encode(dc, instr, bytes);
-    ASSERT(next_pc != NULL);
-    next_pc = decode(dc, bytes, instr_copy);
-    ASSERT(next_pc != NULL);
-    ASSERT(instr_same_synthetic(instr, instr_copy));
+    byte *next_pc_encode = instr_encode(dc, instr, bytes);
+    ASSERT(next_pc_encode != NULL);
+    byte *next_pc_decode = decode(dc, bytes, instr_synthetic);
+    ASSERT(next_pc_decode != NULL);
+    ASSERT(next_pc_encode == next_pc_decode);
+    ASSERT(instr_length(dc, instr_synthetic) <= sizeof(bytes));
+    ASSERT(instr_synthetic_matches_real(instr, instr_synthetic));
     instr_destroy(dc, instr);
-    instr_destroy(dc, instr_copy);
+    instr_destroy(dc, instr_synthetic);
 }
 
 static void
@@ -874,8 +904,7 @@ test_instr_create_encode_decode_synthetic(void *dc)
     opnd_t abs_addr = opnd_create_abs_addr((void *)0xdeadbeefdeadbeef, OPSZ_8);
 
     instr = INSTR_CREATE_mov_ld(dc, opnd_create_reg(DR_REG_RAX), abs_addr);
-    uint bytes[3];
-    test_instr_encode_decode_synthetic(dc, instr, (byte *)bytes);
+    test_instr_encode_decode_synthetic(dc, instr);
 }
 
 static void
