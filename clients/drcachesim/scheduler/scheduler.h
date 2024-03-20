@@ -792,8 +792,8 @@ public:
         }
         /**
          * Returns the count of instructions from the start of the trace to this point.
-         * For record_scheduler_t, if any encoding records or
-         * #TRACE_MARKER_TYPE_BRANCH_TARGET records are present prior to an instruction
+         * For record_scheduler_t, if any encoding records or the internal record
+         * TRACE_MARKER_TYPE_BRANCH_TARGET records are present prior to an instruction
          * marker, the count will increase at the first of those records as they are
          * considered part of the instruction.
          * If #SCHEDULER_USE_INPUT_ORDINALS is set, then this value matches the
