@@ -38,6 +38,7 @@
 /* encode_shared.c -- cross-platform encodingn routines */
 
 #include "../globals.h"
+#include "synthetic/encode.h"
 #include "arch.h"
 #include "instr.h"
 #include "decode.h"
@@ -139,5 +140,14 @@ byte *
 instr_encode(void *drcontext, instr_t *instr, byte *pc)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
+
+    /* Synthetic ISA has its own encoder.
+     * XXX i#1684: when DR can be built with full dynamic architecture selection we won't
+     * need to pollute the encoding of other architectures with this synthetic ISA special
+     * case.
+     */
+    if (instr_get_isa_mode(instr) == DR_ISA_SYNTHETIC)
+        return encode_to_synth(dcontext, instr, pc);
+
     return instr_encode_to_copy(dcontext, instr, pc, pc);
 }

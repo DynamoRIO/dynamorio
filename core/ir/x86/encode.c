@@ -37,7 +37,6 @@
 /* encode.c -- an x86 encoder */
 
 #include "../globals.h"
-#include "../synthetic/encode.h"
 #include "arch.h"
 #include "instr.h"
 #include "decode.h"
@@ -2760,14 +2759,6 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
                   bool *has_instr_opnds /*OUT OPTIONAL*/
                       _IF_DEBUG(bool assert_reachable))
 {
-    /* Synthetic ISA has its own encoder.
-     * XXX i#1684: when DR can be built with full dynamic architecture selection we won't
-     * need to pollute the encoding of other architectures with this synthetic ISA special
-     * case.
-     */
-    if (instr_get_isa_mode(instr) == DR_ISA_SYNTHETIC)
-        return encode_to_synth(dcontext, instr, final_pc);
-
     const instr_info_t *info;
     decode_info_t di;
 
