@@ -870,6 +870,8 @@ instr_synthetic_matches_real(instr_t *instr_real, instr_t *instr_synthetic)
                sizeof(used_dst_reg_map_real)) != 0)
         return false;
 
+    /* Check that arithmetic flags are the same.
+     */
     uint eflags_instr_real = instr_get_arith_flags(instr_real, DR_QUERY_DEFAULT);
     uint eflags_instr_synthetic =
         instr_get_arith_flags(instr_synthetic, DR_QUERY_DEFAULT);
@@ -893,8 +895,8 @@ static void
 test_instr_encode_decode_synthetic(void *dc, instr_t *instr)
 {
     /* __attribute__((aligned())) is a clang/gcc extension and it's not supported by our
-     * windows compiler, hence we declare bytes (where instruction encoding will be
-     * stored) as a uint array to keep the 4 bytes alignment requirement for encoding and
+     * windows compiler, hence we declare the array where instruction encoding will be
+     * stored as a uint array to keep the 4 bytes alignment requirement for encoding and
      * decoding of synthetic ISA instructions.
      */
     uint bytes_aligned_4_bytes[3];
@@ -924,7 +926,7 @@ test_instr_create_encode_decode_synthetic(void *dc)
     instr_t *instr;
     opnd_t abs_addr = opnd_create_abs_addr((void *)0xdeadbeefdeadbeef, OPSZ_8);
 
-    instr = INSTR_CREATE_mov_ld(dc, opnd_create_reg(DR_REG_RAX), abs_addr);
+    instr = INSTR_CREATE_mov_ld(dc, opnd_create_reg(DR_REG_EAX), abs_addr);
     test_instr_encode_decode_synthetic(dc, instr);
 }
 
