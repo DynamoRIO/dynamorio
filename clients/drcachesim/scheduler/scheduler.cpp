@@ -1250,7 +1250,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::remove_zero_instruction_segments(
                 VPRINT(this, 1, "Dropping same-input=%d same-start=%" PRIu64 " entry\n",
                        input_idx, start);
                 all_sched[input_sched[input_idx][i - 1].output]
-                         [input_sched[input_idx][i - 1].output_array_idx]
+                         [static_cast<size_t>(
+                              input_sched[input_idx][i - 1].output_array_idx)]
                              .valid = false;
                 input_sched[input_idx].erase(input_sched[input_idx].begin() + i - 1);
                 // Keep the iteration on course.
