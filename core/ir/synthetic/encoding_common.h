@@ -37,14 +37,7 @@
  * dependencies and giving hints on the type of operations each instruction is performing.
  * For this reason the majority of operations that would normally work on instructions
  * coming from an actual ISA are not supported.
- * The only operations that we support are instr_encode() and decode() when DynamoRIO's
- * host is an x86 architecture.
- * Also note that in DynamoRIO we use the #instr_t ISA mode to determine what type of
- * encoding to perform, and #dr_context_t ISA mode to determine what type of decoding to
- * perform.
- * Currently the only exception to this rule happens for decoding of synthetic
- * instructions, where #instr_t ISA mode takes precedence and #dr_context_t ISA mode is
- * ignored if #instr_t ISA mode is DR_ISA_SYNTHETIC.
+ * The only operations that we support are instr_encode_to_copy() and decode().
  * XXX i#1684: Note that this is part of a larger issue, where lack of cross-arch support
  * in the same build of DynamoRIO is limiting us.
  */
@@ -54,7 +47,8 @@
  *
  * Encoded instructions are 4 bytes aligned.
  *
- * All instruction encodings begin with the following 4 bytes, which follow this scheme:
+ * All instruction encodings begin with the following 4 header bytes, which follow this
+ * scheme:
  * |----------------------| |--| |----| |----|
  * 31..               ..10  9,8   7..4   3..0
  *       category          eflags #src   #dst
@@ -66,20 +60,23 @@
  * 2 bits, eflags: most significant bit set to 1 indicates the instruction reads at least
  * one arithmetic flag, least significant bit set to 1 indicates the instruction writes
  * at least one arithmetic flag.
- * 4 bits, #src: number of source operands (read) that are registers.
+ * 4 bits, #src: number of source operands (read) that are registers. Registers used in
+ * memory reference operands of the instruction we are encoding are always considered as
+ * source operands in the encoded instruction.
  * 4 bits, #dst: number of destination operands (written) that are registers.
- * (Note that we are only interested in register dependencies, hence operands that are
- * not registers, such as immediates or memory references, are not present.)
+ * We assume these encoded values to be little-endian.
+ * Note that we are only interested in register dependencies, hence operands that are
+ * not registers, such as immediates or memory references, are not present.
  *
- * Following the 4 instruction-related bytes are the bytes for encoding register operands.
+ * Following the 4 header bytes are the bytes for encoding register operands.
  * Each operand is 1 byte.
  * The destination operands go first, followed by the source operands.
  * An instruction can have up to 8 operands (sources + destinations).
  * Note that, because of 4 bytes alignment, instructions with 1 to 4 (included) operands
- * will have a size of 8 bytes (4 instruction-related bytes + 4 operand-related bytes),
+ * will have a size of 8 bytes (4 heaser bytes + 4 operand-related bytes),
  * while instructions with 5 to 8 (included) operands will have a size of 12 bytes
- * (4 instruction-related bytes + 8 operand-related bytes).
- * Instructions with no operands only have 4 bytes (the 4 instruction-related bytes).
+ * (4 header bytes + 8 operand-related bytes).
+ * Instructions with no operands only have the 4 header bytes.
  * For example, an instruction with 3 operands (1 dst, 2 src) has 4 additional bytes that
  * are encoded following this scheme:
  * |--------| |--------| |--------| |--------|
@@ -89,8 +86,6 @@
  * Because of 4 bytes alignment, the last byte (31..  ..24) is padding and it's undefined
  * (i.e., it cannot be assumed that it has been zeroed-out or contains any meaningful
  * value).
- *
- * We assume all encoded values to be little-endian.
  */
 
 #define CATEGORY_BITS 22
