@@ -442,18 +442,11 @@ bool
 scheduler_tmpl_t<trace_entry_t, record_reader_t>::record_type_is_instr_boundary(
     trace_entry_t record, trace_entry_t prev_record)
 {
-    trace_marker_type_t marker_type;
-    uintptr_t marker_value;
-    // The branch target marker sits between any encodings and the instr.
-    bool is_target_marker = record_type_is_marker(record, marker_type, marker_value) &&
-        marker_type == TRACE_MARKER_TYPE_BRANCH_TARGET;
     // Don't advance past encodings or target markers and split them from their
     // associated instr.
-    return (record_type_is_instr(record) || record_type_is_encoding(record) ||
-            is_target_marker) &&
-        !record_type_is_encoding(prev_record) &&
-        (!record_type_is_marker(prev_record, marker_type, marker_value) ||
-         marker_type != TRACE_MARKER_TYPE_BRANCH_TARGET);
+    return (record_type_is_instr(record) ||
+            record_reader_t::record_is_pre_instr(&record)) &&
+        !record_reader_t::record_is_pre_instr(&prev_record);
 }
 
 template <>

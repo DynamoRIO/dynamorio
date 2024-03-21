@@ -141,7 +141,7 @@ public:
         return cur_entry_;
     }
 
-    bool
+    static bool
     record_is_pre_instr(trace_entry_t *record)
     {
         return record->type == TRACE_TYPE_ENCODING ||
@@ -290,7 +290,7 @@ private:
     uint64_t last_timestamp_ = 0;
     uint64_t first_timestamp_ = 0;
     // Whether the prior record was a record that immediately precedes
-    // an instrution or another record of this type: an encoding or
+    // an instruction or another record of this type: an encoding or
     // TRACE_MARKER_TYPE_BRANCH_TARGET.
     bool prev_record_was_pre_instr_ = false;
 
