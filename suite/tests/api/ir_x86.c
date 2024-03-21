@@ -789,7 +789,7 @@ test_instr_encode_and_decode(void *dc, instr_t *instr, uint len_expect,
     instr_destroy(dc, decin);
 }
 
-void
+static void
 get_instr_src_and_dst_registers(instr_t *instr, uint max_num_regs, byte *used_src_reg_map,
                                 byte *used_dst_reg_map)
 {
@@ -833,8 +833,6 @@ get_instr_src_and_dst_registers(instr_t *instr, uint max_num_regs, byte *used_sr
                 used_src_reg_map[reg] = 1;
         }
     }
-
-    return;
 }
 
 bool

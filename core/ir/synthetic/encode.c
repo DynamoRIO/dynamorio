@@ -52,7 +52,7 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
     uint encoding = 0;
 
     /* Encode number of destination operands.
-     * Note that a destination operand that is a memory renference, should have its
+     * Note that a destination operand that is a memory renference should have its
      * registers (if any) counted as source operands, since they are being read.
      * We use used_[src|dst]_reg_map to keep track of registers we've seen and avoid
      * duplicates.
