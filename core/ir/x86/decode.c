@@ -129,9 +129,9 @@ bool
 is_isa_mode_legal(dr_isa_mode_t mode)
 {
 #ifdef X64
-    return (mode == DR_ISA_IA32 || mode == DR_ISA_AMD64);
+    return (mode == DR_ISA_IA32 || mode == DR_ISA_AMD64 || mode == DR_ISA_SYNTHETIC);
 #else
-    return (mode == DR_ISA_IA32);
+    return (mode == DR_ISA_IA32 || mode == DR_ISA_SYNTHETIC);
 #endif
 }
 
@@ -2761,7 +2761,7 @@ decode(void *drcontext, byte *pc, instr_t *instr)
      * need to pollute the decoding of other architectures with this synthetic ISA special
      * case.
      */
-    if (instr_get_isa_mode(instr) == DR_ISA_SYNTHETIC)
+    if (dr_get_isa_mode(drcontext) == DR_ISA_SYNTHETIC)
         return decode_from_synth(dcontext, pc, instr);
 
     return decode_common(dcontext, pc, pc, instr);

@@ -911,7 +911,10 @@ test_instr_encode_decode_synthetic(void *dc, instr_t *instr)
     ASSERT(is_isa_mode_set);
     byte *next_pc_encode = instr_encode(dc, instr, bytes);
     ASSERT(next_pc_encode != NULL);
+    dr_isa_mode_t old_isa_mode;
+    dr_set_isa_mode(dc, DR_ISA_SYNTHETIC, &old_isa_mode);
     byte *next_pc_decode = decode(dc, bytes, instr_synthetic);
+    dr_set_isa_mode(dc, old_isa_mode, NULL);
     ASSERT(next_pc_decode != NULL);
     ASSERT(next_pc_encode == next_pc_decode);
     ASSERT(instr_length(dc, instr_synthetic) <= sizeof(bytes_aligned_4_bytes));
@@ -926,7 +929,7 @@ test_instr_create_encode_decode_synthetic(void *dc)
     instr_t *instr;
     opnd_t abs_addr = opnd_create_abs_addr((void *)0xdeadbeefdeadbeef, OPSZ_8);
 
-    instr = INSTR_CREATE_mov_ld(dc, opnd_create_reg(DR_REG_EAX), abs_addr);
+    instr = INSTR_CREATE_mov_ld(dc, opnd_create_reg(DR_REG_RAX), abs_addr);
     test_instr_encode_decode_synthetic(dc, instr);
 }
 
