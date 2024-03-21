@@ -792,6 +792,10 @@ public:
         }
         /**
          * Returns the count of instructions from the start of the trace to this point.
+         * For record_scheduler_t, if any encoding records or the internal record
+         * TRACE_MARKER_TYPE_BRANCH_TARGET records are present prior to an instruction
+         * marker, the count will increase at the first of those records as they are
+         * considered part of the instruction.
          * If #SCHEDULER_USE_INPUT_ORDINALS is set, then this value matches the
          * instruction ordinal for the current input stream (and thus might decrease or
          * not change across records if the input changed). Otherwise, if multiple input
@@ -1039,6 +1043,7 @@ public:
         uint64_t cache_line_size_ = 0;
         uint64_t chunk_instr_count_ = 0;
         uint64_t page_size_ = 0;
+        RecordType prev_record_ = {};
 
         // Let the outer class update our state.
         friend class scheduler_tmpl_t<RecordType, ReaderType>;

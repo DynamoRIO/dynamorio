@@ -3955,6 +3955,8 @@ test_record_scheduler()
         make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
         make_instr(40),
         make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
+        // Test a target marker between the encoding and the instr.
+        make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, 42),
         make_instr(60),
         // No encoding for repeated instr.
         make_instr(20),
@@ -4006,8 +4008,17 @@ test_record_scheduler()
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID, PID_A);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER);
+    // Test ordinals.
+    assert(stream0->get_instruction_ordinal() == 0);
+    assert(stream0->get_input_interface()->get_instruction_ordinal() == 0);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_ENCODING);
+    // The encoding should have incremented the ordinal.
+    assert(stream0->get_instruction_ordinal() == 1);
+    assert(stream0->get_input_interface()->get_instruction_ordinal() == 1);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+    // The instr should not have further incremented it.
+    assert(stream0->get_instruction_ordinal() == 1);
+    assert(stream0->get_input_interface()->get_instruction_ordinal() == 1);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER);
@@ -4022,7 +4033,8 @@ test_record_scheduler()
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_ENCODING);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
-    // Ensure the switch is *before* the encoding.
+    // Ensure the switch is *before* the encoding and target marker.
+    assert(stream0->get_input_interface()->get_instruction_ordinal() == 2);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD, TID_A);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID, PID_A);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_ENCODING);
@@ -4030,8 +4042,18 @@ test_record_scheduler()
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD, TID_B);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID, PID_B);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_ENCODING);
+    assert(stream0->get_instruction_ordinal() == 5);
+    assert(stream0->get_input_interface()->get_instruction_ordinal() == 3);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER);
+    assert(stream0->get_instruction_ordinal() == 5);
+    assert(stream0->get_input_interface()->get_instruction_ordinal() == 3);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+    // Should still be at the same count after the encoding, marker, and instr.
+    assert(stream0->get_instruction_ordinal() == 5);
+    assert(stream0->get_input_interface()->get_instruction_ordinal() == 3);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+    assert(stream0->get_instruction_ordinal() == 6);
+    assert(stream0->get_input_interface()->get_instruction_ordinal() == 4);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD_EXIT);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD, TID_A);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID, PID_A);
