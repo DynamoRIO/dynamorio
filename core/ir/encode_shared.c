@@ -132,6 +132,15 @@ byte *
 instr_encode_to_copy(void *drcontext, instr_t *instr, byte *copy_pc, byte *final_pc)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
+
+    /* Synthetic ISA has its own encoder.
+     * XXX i#1684: when DR can be built with full dynamic architecture selection we won't
+     * need to pollute the encoding of other architectures with this synthetic ISA special
+     * case.
+     */
+    if (instr_get_isa_mode(instr) == DR_ISA_SYNTHETIC)
+        return encode_to_synth(dcontext, instr, copy_pc);
+
     return instr_encode_arch(dcontext, instr, copy_pc, final_pc, true,
                              NULL _IF_DEBUG(true));
 }
@@ -140,14 +149,5 @@ byte *
 instr_encode(void *drcontext, instr_t *instr, byte *pc)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
-
-    /* Synthetic ISA has its own encoder.
-     * XXX i#1684: when DR can be built with full dynamic architecture selection we won't
-     * need to pollute the encoding of other architectures with this synthetic ISA special
-     * case.
-     */
-    if (instr_get_isa_mode(instr) == DR_ISA_SYNTHETIC)
-        return encode_to_synth(dcontext, instr, pc);
-
     return instr_encode_to_copy(dcontext, instr, pc, pc);
 }
