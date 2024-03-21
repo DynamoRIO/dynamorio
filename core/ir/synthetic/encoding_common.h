@@ -45,7 +45,7 @@
 /* Here we describe the encoding scheme for the Synthetic ISA that is enforced in decode.c
  * and encode.c.
  *
- * Encoded instructions are 4 bytes aligned.
+ * Encoded instructions are 4 byte aligned.
  *
  * All instruction encodings begin with the following 4 header bytes, which follow this
  * scheme:
@@ -72,8 +72,8 @@
  * Each operand is 1 byte.
  * The destination operands go first, followed by the source operands.
  * An instruction can have up to 8 operands (sources + destinations).
- * Note that, because of 4 bytes alignment, instructions with 1 to 4 (included) operands
- * will have a size of 8 bytes (4 heaser bytes + 4 operand-related bytes),
+ * Note that, because of 4 byte alignment, instructions with 1 to 4 (included) operands
+ * will have a size of 8 bytes (4 header bytes + 4 operand-related bytes),
  * while instructions with 5 to 8 (included) operands will have a size of 12 bytes
  * (4 header bytes + 8 operand-related bytes).
  * Instructions with no operands only have the 4 header bytes.
@@ -83,7 +83,7 @@
  * 31.. ..24  23.. ..16  15..  ..8  7..   ..0
  *            src_opnd1  src_opnd0  dst_opnd0
  *
- * Because of 4 bytes alignment, the last byte (31..  ..24) is padding and it's undefined
+ * Because of 4 byte alignment, the last byte (31..  ..24) is padding and it's undefined
  * (i.e., it cannot be assumed that it has been zeroed-out or contains any meaningful
  * value).
  */
