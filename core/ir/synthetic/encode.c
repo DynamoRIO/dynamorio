@@ -46,12 +46,10 @@
 byte *
 encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
 {
-    /* Interpret the first 4 bytes of encoded_instr (which are always present) as a uint
-     * for easier retrieving of category, eflags, #src, and #dst values.
-     * We can do this safely because encoded_instr is 4 bytes aligned.
+    /* Use a local uint variable for easier setting of category, eflags, #src, and #dst
+     * values.
      */
-    uint *encoding = ((uint *)&encoded_instr[0]);
-    *encoding = 0;
+    uint encoding = 0;
 
     /* Encode number of destination operands.
      * Note that a destination operand that is a memory renference, should have its
@@ -87,7 +85,7 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
             }
         }
     }
-    *encoding |= num_dsts;
+    encoding |= num_dsts;
 
     /* Encode number of source operands, adding on top of already present source operands.
      */
@@ -103,7 +101,7 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
             }
         }
     }
-    *encoding |= (num_srcs << SRC_OPND_SHIFT);
+    encoding |= (num_srcs << SRC_OPND_SHIFT);
 
     /* Encode arithmetic flags.
      */
@@ -113,12 +111,16 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
         eflags |= SYNTHETIC_INSTR_WRITES_ARITH;
     if (eflags_instr & EFLAGS_READ_ARITH)
         eflags |= SYNTHETIC_INSTR_READS_ARITH;
-    *encoding |= (eflags << FLAGS_SHIFT);
+    encoding |= (eflags << FLAGS_SHIFT);
 
     /* Encode category as synthetic opcode.
      */
     uint category = instr_get_category(instr);
-    *encoding |= (category << CATEGORY_SHIFT);
+    encoding |= (category << CATEGORY_SHIFT);
+
+    /* Copy encoding back into encoded_instr output.
+     */
+    *((uint *)&encoded_instr[0]) = encoding;
 
     /* Encode register destination operands, if present.
      */
@@ -152,7 +154,5 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
 
     /* Compute next instruction's PC as: current PC + instruction length.
      */
-    byte *next_pc = encoded_instr + instr_length;
-
-    return next_pc;
+    return encoded_instr + instr_length;
 }

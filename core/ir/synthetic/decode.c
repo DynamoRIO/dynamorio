@@ -51,21 +51,21 @@ decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
      * for easier retrieving of category, eflags, #src, and #dst values.
      * We can do this safely because encoded_instr is 4 bytes aligned.
      */
-    uint *encoding = ((uint *)&encoded_instr[0]);
+    uint encoding = *((uint *)&encoded_instr[0]);
 
     /* Decode number of destination operands.
      */
-    uint num_dsts = *encoding & DST_OPND_MASK;
+    uint num_dsts = encoding & DST_OPND_MASK;
 
     /* Decode number of source operands.
      */
-    uint num_srcs = (*encoding & SRC_OPND_MASK) >> SRC_OPND_SHIFT;
+    uint num_srcs = (encoding & SRC_OPND_MASK) >> SRC_OPND_SHIFT;
 
     instr_set_num_opnds(dcontext, instr, num_dsts, num_srcs);
 
     /* Decode arithmetic flags.
      */
-    uint eflags = (*encoding & FLAGS_MASK) >> FLAGS_SHIFT;
+    uint eflags = (encoding & FLAGS_MASK) >> FLAGS_SHIFT;
     uint eflags_instr = 0;
     if (eflags & SYNTHETIC_INSTR_WRITES_ARITH)
         eflags_instr |= EFLAGS_WRITE_ARITH;
@@ -80,7 +80,7 @@ decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
 
     /* Decode synthetic opcode as instruction category.
      */
-    uint category = (*encoding & CATEGORY_MASK) >> CATEGORY_SHIFT;
+    uint category = (encoding & CATEGORY_MASK) >> CATEGORY_SHIFT;
     instr_set_category(instr, category);
 
     /* Decode register destination operands, if present.
@@ -123,7 +123,5 @@ decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
 
     /* Compute next instruction's PC as: current PC + instruction length.
      */
-    byte *next_pc = encoded_instr + instr_length;
-
-    return next_pc;
+    return encoded_instr + instr_length;
 }
