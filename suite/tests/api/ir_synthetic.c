@@ -236,16 +236,16 @@ test_instr_create_encode_decode_synthetic_aarch64(void *dc)
                              opnd_create_reg(DR_REG_X1));
     test_instr_encode_decode_synthetic(dc, instr);
 
-    INSTR_CREATE_adds_imm(dc, opnd_create_reg(DR_REG_W0), opnd_create_reg(DR_REG_W1),
-                          opnd_create_immed_int(0, OPSZ_12b), OPND_CREATE_INT8(0));
+    instr =
+        INSTR_CREATE_adds_imm(dc, opnd_create_reg(DR_REG_W0), opnd_create_reg(DR_REG_W1),
+                              opnd_create_immed_int(0, OPSZ_12b), OPND_CREATE_INT8(0));
     test_instr_encode_decode_synthetic(dc, instr);
 
-    instr_t *instr =
-        INSTR_CREATE_adr(dc, opnd_create_reg(DR_REG_X1),
-                         OPND_CREATE_ABSMEM((void *)0x0000000010010208, OPSZ_0));
+    instr = INSTR_CREATE_adr(dc, opnd_create_reg(DR_REG_X1),
+                             OPND_CREATE_ABSMEM((void *)0x0000000010010208, OPSZ_0));
     test_instr_encode_decode_synthetic(dc, instr);
 
-    instr_t *instr = INSTR_CREATE_ldpsw(
+    instr = INSTR_CREATE_ldpsw(
         dc, opnd_create_reg(DR_REG_X1), opnd_create_reg(DR_REG_X2),
         opnd_create_reg(DR_REG_X0),
         opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL, 0, false, 4, 0, OPSZ_8),
@@ -260,28 +260,30 @@ test_instr_create_encode_decode_synthetic_riscv64(void *dc)
 {
     instr_t *instr;
 
-    instr = INSTR_CREATE_add(dc, opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_SP),
-                             opnd_create_reg(DR_REG_X1));
+    instr =
+        INSTR_CREATE_lwu(dc, opnd_create_reg(DR_REG_A0),
+                         opnd_create_base_disp(DR_REG_X31, DR_REG_NULL, 0, 0, OPSZ_4));
     test_instr_encode_decode_synthetic(dc, instr);
 
-    instr = INSTR_CREATE_sub(dc, opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_SP),
-                             opnd_create_reg(DR_REG_X1));
+    instr = INSTR_CREATE_sw(
+        dc, opnd_create_base_disp(DR_REG_X31, DR_REG_NULL, 0, (1 << 11) - 1, OPSZ_4),
+        opnd_create_reg(DR_REG_X0));
     test_instr_encode_decode_synthetic(dc, instr);
 
-    INSTR_CREATE_adds_imm(dc, opnd_create_reg(DR_REG_W0), opnd_create_reg(DR_REG_W1),
-                          opnd_create_immed_int(0, OPSZ_12b), OPND_CREATE_INT8(0));
+    instr = INSTR_CREATE_flw(dc, opnd_create_reg(DR_REG_F0),
+                             opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_4));
     test_instr_encode_decode_synthetic(dc, instr);
 
-    instr_t *instr =
-        INSTR_CREATE_adr(dc, opnd_create_reg(DR_REG_X1),
-                         OPND_CREATE_ABSMEM((void *)0x0000000010010208, OPSZ_0));
+    instr =
+        INSTR_CREATE_lr_d(dc, opnd_create_reg(DR_REG_X0),
+                          opnd_create_base_disp(DR_REG_X31, DR_REG_NULL, 0, 0, OPSZ_8),
+                          opnd_create_immed_int(0b10, OPSZ_2b));
     test_instr_encode_decode_synthetic(dc, instr);
 
-    instr_t *instr = INSTR_CREATE_ldpsw(
-        dc, opnd_create_reg(DR_REG_X1), opnd_create_reg(DR_REG_X2),
-        opnd_create_reg(DR_REG_X0),
-        opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL, 0, false, 4, 0, OPSZ_8),
-        OPND_CREATE_INT(4));
+    instr = INSTR_CREATE_fmadd_d(dc, opnd_create_reg(DR_REG_F31),
+                                 opnd_create_immed_int(0b000, OPSZ_3b),
+                                 opnd_create_reg(DR_REG_F0), opnd_create_reg(DR_REG_F2),
+                                 opnd_create_reg(DR_REG_F3));
     test_instr_encode_decode_synthetic(dc, instr);
 }
 #endif
