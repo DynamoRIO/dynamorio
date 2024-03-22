@@ -207,10 +207,10 @@ test_instr_create_encode_decode_synthetic_arm(void *dc)
     instr_t *instr;
 
     instr = INSTR_CREATE_lsls(dc, opnd_create_reg(DR_REG_R0), opnd_create_reg(DR_REG_R1),
+                              OPND_CREATE_INT(4));
     test_instr_encode_decode_synthetic(dc, instr);
 
-    instr = INSTR_CREATE_sel(dc, opnd_create_reg(DR_REG_R0),
-                             opnd_create_reg(DR_REG_R1),
+    instr = INSTR_CREATE_sel(dc, opnd_create_reg(DR_REG_R0), opnd_create_reg(DR_REG_R1),
                              opnd_create_reg(DR_REG_R1));
     test_instr_encode_decode_synthetic(dc, instr);
 
