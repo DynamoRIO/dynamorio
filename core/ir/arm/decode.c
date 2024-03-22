@@ -2549,15 +2549,6 @@ byte *
 decode_from_copy(void *drcontext, byte *copy_pc, byte *orig_pc, instr_t *instr)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
-
-    /* Synthetic ISA has its own decoder.
-     * XXX i#1684: when DR can be built with full dynamic architecture selection we won't
-     * need to pollute the decoding of other architectures with this synthetic ISA special
-     * case.
-     */
-    if (dr_get_isa_mode(drcontext) == DR_ISA_SYNTHETIC)
-        return decode_from_synth(dcontext, pc, instr);
-
     return decode_common(dcontext, copy_pc, orig_pc, instr);
 }
 
