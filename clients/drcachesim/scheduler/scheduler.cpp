@@ -1234,6 +1234,14 @@ scheduler_tmpl_t<RecordType, ReaderType>::remove_zero_instruction_segments(
     // starting at instruction 0, which causes confusion when determining endpoints.
     // We just drop the older entry and keep the later one, which is the one bundled
     // with actual instructions.
+    //
+    // Should we not have instruction-based control points? The skip and
+    // region-of-interest features were designed thinking about instructions, the more
+    // natural unit for microarchitectural simulators.  It seemed like that was much more
+    // usable for a user, and translated to other venues like PMU counts.  The scheduler
+    // replay features were also designed that way.  But, that makes the infrastructure
+    // messy as the underlying records are not built that way.  Xref i#6716 on an
+    // instruction-based iterator.
     for (int input_idx = 0; input_idx < static_cast<input_ordinal_t>(inputs_.size());
          ++input_idx) {
         std::sort(
@@ -1253,9 +1261,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::remove_zero_instruction_segments(
                          [static_cast<size_t>(
                               input_sched[input_idx][i - 1].output_array_idx)]
                              .valid = false;
-                input_sched[input_idx].erase(input_sched[input_idx].begin() + i - 1);
-                // Keep the iteration on course.
-                --i;
+                // If code after this used input_sched we would want to erase the
+                // entry, but we have no further use so we leave it.
             }
             prev_start = start;
         }

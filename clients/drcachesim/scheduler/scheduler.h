@@ -1342,6 +1342,8 @@ protected:
             , timestamp(timestamp)
         {
         }
+        // To support removing later-discovered-as-redundant entries without
+        // a linear erase operation we have a 'valid' flag.
         bool valid;
         input_ordinal_t input;
         uint64_t start_instruction;

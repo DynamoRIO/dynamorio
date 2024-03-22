@@ -3297,10 +3297,10 @@ test_replay_as_traced_dup_start()
     {
         zipfile_ostream_t outfile(cpu_fname);
         {
-            // Simple dup start: non-consecutive but in same output.
             std::vector<schedule_entry_t> sched;
             sched.emplace_back(TID_A, TIMESTAMP_BASE, CPU_0, 0);
             sched.emplace_back(TID_B, TIMESTAMP_BASE + 2, CPU_0, 0);
+            // Simple dup start: non-consecutive but in same output.
             sched.emplace_back(TID_A, TIMESTAMP_BASE + 4, CPU_0, 0);
             sched.emplace_back(TID_B, TIMESTAMP_BASE + 5, CPU_0, 4);
             std::ostringstream cpu_string;
@@ -3312,8 +3312,8 @@ test_replay_as_traced_dup_start()
                 assert(false);
         }
         {
-            // More complex dup start across outputs.
             std::vector<schedule_entry_t> sched;
+            // More complex dup start across outputs.
             sched.emplace_back(TID_B, TIMESTAMP_BASE + 1, CPU_1, 0);
             sched.emplace_back(TID_C, TIMESTAMP_BASE + 3, CPU_1, 0);
             sched.emplace_back(TID_A, TIMESTAMP_BASE + 6, CPU_1, 4);
