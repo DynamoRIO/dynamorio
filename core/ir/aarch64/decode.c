@@ -33,6 +33,7 @@
 
 #include "../globals.h"
 #include "../synthetic/decode.h"
+#include "encode_api.h"
 #include "instr.h"
 #include "decode.h"
 #include "decode_fast.h" /* ensure we export decode_next_pc, decode_sizeof */
@@ -42,7 +43,7 @@
 bool
 is_isa_mode_legal(dr_isa_mode_t mode)
 {
-    return (mode == DR_ISA_ARM_A64);
+    return (mode == DR_ISA_ARM_A64 || mode == DR_ISA_SYNTHETIC);
 }
 
 app_pc

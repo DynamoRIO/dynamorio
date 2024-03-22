@@ -32,6 +32,7 @@
 
 #include "../globals.h"
 #include "../synthetic/decode.h"
+#include "encode_api.h"
 #include "instr.h"
 #include "decode.h"
 #include "decode_private.h"
@@ -173,7 +174,8 @@ decode_in_it_block(decode_state_t *state, app_pc pc, decode_info_t *di)
 bool
 is_isa_mode_legal(dr_isa_mode_t mode)
 {
-    return (mode == DR_ISA_ARM_THUMB || DR_ISA_ARM_A32);
+    return (mode == DR_ISA_ARM_THUMB || mode == DR_ISA_ARM_A32 ||
+            mode == DR_ISA_SYNTHETIC);
 }
 
 /* We need to call canonicalize_pc_target() on all next_tag-writing
