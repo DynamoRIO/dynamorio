@@ -42,9 +42,9 @@
 bool
 instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
 {
-    if (mode != DR_ISA_RV64IMAFDC)
+    if (mode != DR_ISA_RV64IMAFDC && mode != DR_ISA_SYNTHETIC)
         return false;
-    instr->isa_mode = DR_ISA_RV64IMAFDC;
+    instr->isa_mode = mode;
     return true;
 }
 

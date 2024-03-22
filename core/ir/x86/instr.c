@@ -76,15 +76,11 @@ instr_get_x86_mode(instr_t *instr)
 bool
 instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
 {
-    if (mode == DR_ISA_SYNTHETIC) {
-        instr->isa_mode = DR_ISA_SYNTHETIC;
-        return true;
-    }
 #ifdef X64
-    if (mode != DR_ISA_IA32 && mode != DR_ISA_AMD64)
+    if (mode != DR_ISA_IA32 && mode != DR_ISA_AMD64 && mode != DR_ISA_SYNTHETIC)
         return false;
 #else
-    if (mode != DR_ISA_IA32)
+    if (mode != DR_ISA_IA32 && mode != DR_ISA_SYNTHETIC)
         return false;
 #endif
     instr->isa_mode = mode;
