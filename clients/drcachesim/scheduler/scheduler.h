@@ -1331,6 +1331,41 @@ protected:
         uint64_t wait_start_time = 0;
     };
 
+    // Used for reading as-traced schedules.
+    struct schedule_output_tracker_t {
+        schedule_output_tracker_t(bool valid, input_ordinal_t input,
+                                  uint64_t start_instruction, uint64_t timestamp)
+            : valid(valid)
+            , input(input)
+            , start_instruction(start_instruction)
+            , stop_instruction(0)
+            , timestamp(timestamp)
+        {
+        }
+        // To support removing later-discovered-as-redundant entries without
+        // a linear erase operation we have a 'valid' flag.
+        bool valid;
+        input_ordinal_t input;
+        uint64_t start_instruction;
+        uint64_t stop_instruction;
+        uint64_t timestamp;
+    };
+    // Used for reading as-traced schedules.
+    struct schedule_input_tracker_t {
+        schedule_input_tracker_t(output_ordinal_t output, uint64_t output_array_idx,
+                                 uint64_t start_instruction, uint64_t timestamp)
+            : output(output)
+            , output_array_idx(output_array_idx)
+            , start_instruction(start_instruction)
+            , timestamp(timestamp)
+        {
+        }
+        output_ordinal_t output;
+        uint64_t output_array_idx;
+        uint64_t start_instruction;
+        uint64_t timestamp;
+    };
+
     // Called just once at initialization time to set the initial input-to-output
     // mappings and state.
     scheduler_status_t
@@ -1394,10 +1429,15 @@ protected:
     read_traced_schedule();
 
     scheduler_status_t
+    remove_zero_instruction_segments(
+        std::vector<std::vector<schedule_input_tracker_t>> &input_sched,
+        std::vector<std::vector<schedule_output_tracker_t>> &all_sched);
+
+    scheduler_status_t
     check_and_fix_modulo_problem_in_schedule(
-        std::vector<std::vector<schedule_record_t>> &input_sched,
+        std::vector<std::vector<schedule_input_tracker_t>> &input_sched,
         std::vector<std::set<uint64_t>> &start2stop,
-        std::vector<std::vector<schedule_record_t>> &all_sched);
+        std::vector<std::vector<schedule_output_tracker_t>> &all_sched);
 
     scheduler_status_t
     read_recorded_schedule();
