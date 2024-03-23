@@ -106,30 +106,7 @@ void
 invariant_checker_t::report_if_false(per_shard_t *shard, bool condition,
                                      const std::string &invariant_name)
 {
-    static int pc_disc = 0;
-    static int branch_target_bad = 0;
-    static int too_many_read = 0;
     if (!condition) {
-        std::cerr << "Trace invariant failure in T" << shard->tid_ << " at ref # "
-                  << shard->stream->get_record_ordinal() << " ("
-                  << shard->instr_count_since_last_timestamp_
-                  << " instrs since timestamp " << shard->last_timestamp_
-                  << "): " << invariant_name << "\n";
-        if (invariant_name == "Too many read records") {
-            too_many_read++;
-            std::cerr << "Too many read: " << too_many_read << "\n";
-            return;
-        }
-        if (invariant_name == "Non-explicit control flow has no marker") {
-            pc_disc++;
-            std::cerr << "Found pc disc: " << pc_disc << "\n";
-            return;
-        }
-        if (invariant_name == "Branch does not go to the correct target") {
-            branch_target_bad++;
-            std::cerr << "Found bad branch target: " << branch_target_bad << "\n";
-            return;
-        }
         // TODO i#5505: There are some PC discontinuities in the instr traces
         // captured using Intel-PT. Since these are not trivial to solve, we
         // turn this into a non-fatal check for the test for now.
