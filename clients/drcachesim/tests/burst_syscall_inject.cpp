@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -143,14 +143,18 @@ write_system_call_template(void *dr_context)
     }
 
     // Write the trace template for SYS_getpid.
-    write_trace_entry(writer, make_marker(TRACE_MARKER_TYPE_SYSCALL, SYS_getpid));
+    write_trace_entry(writer,
+                      make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYS_getpid));
     // Just a random instruction.
     instr_in_getpid = XINST_CREATE_nop(dr_context);
     write_instr_entry(dr_context, writer, instr_in_getpid,
                       reinterpret_cast<app_pc>(PC_SYSCALL_GETPID));
+    write_trace_entry(writer,
+                      make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_getpid));
 
     // Write the trace template for SYS_gettid.
-    write_trace_entry(writer, make_marker(TRACE_MARKER_TYPE_SYSCALL, SYS_gettid));
+    write_trace_entry(writer,
+                      make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYS_gettid));
     // Just a random instruction.
 #ifdef X86
 #    define TEST_REG DR_REG_XDX
@@ -167,7 +171,14 @@ write_system_call_template(void *dr_context)
     write_trace_entry(
         writer,
         make_memref(READ_MEMADDR_GETTID, TRACE_TYPE_READ, opnd_size_in_bytes(OPSZ_PTR)));
+    write_trace_entry(writer,
+                      make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_gettid));
 
+    // Write footer.
+    dynamorio::drmemtrace::trace_entry_t thread_exit = {
+        dynamorio::drmemtrace::TRACE_TYPE_THREAD_EXIT, 0, { /*tid=*/1 }
+    };
+    write_trace_entry(writer, thread_exit);
     write_trace_entry(writer, make_footer());
     std::cerr << "Done writing system call trace template\n";
     return syscall_trace_template_file;
@@ -406,7 +417,8 @@ test_main(int argc, const char *argv[])
     std::cerr << "Getting basic counts for system call trace template\n";
     basic_counts_t::counters_t template_counts = get_basic_counts(syscall_trace_template);
     if (!(template_counts.instrs == 2 && template_counts.encodings == 2 &&
-          template_counts.syscall_number_markers == 2)) {
+          // We only have trace start and end markers, no syscall number markers.
+          template_counts.syscall_number_markers == 0)) {
         std::cerr << "Unexpected counts in system call trace template: "
                   << syscall_trace_template << ": #instrs: " << template_counts.instrs
                   << ", #encodings: " << template_counts.encodings

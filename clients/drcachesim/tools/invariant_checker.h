@@ -135,6 +135,9 @@ protected:
         std::stack<addr_t> retaddr_stack_;
         uintptr_t trace_version_ = 0;
         // Struct to store decoding related attributes.
+#ifdef X86
+        uint64_t instrs_since_sti = 0;
+#endif
         struct decoding_info_t {
             bool has_valid_decoding = false;
             bool is_syscall = false;
@@ -143,6 +146,12 @@ protected:
             uint num_memory_read_access = 0;
             uint num_memory_write_access = 0;
             addr_t branch_target = 0;
+            bool is_prefetch = false;
+            int opcode = 0;
+#ifdef X86
+            bool is_xsave = false;
+            bool is_xrstor = false;
+#endif
         };
         struct instr_info_t {
             memref_t memref = {};
