@@ -57,10 +57,10 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
      * We use used_[src|dst]_reg_map to keep track of registers we've seen and avoid
      * duplicates.
      */
-    byte used_src_reg_map[MAX_NUM_REGS];
+    bool used_src_reg_map[MAX_NUM_REGS];
     memset(used_src_reg_map, 0, sizeof(used_src_reg_map));
     uint num_srcs = 0;
-    byte used_dst_reg_map[MAX_NUM_REGS];
+    bool used_dst_reg_map[MAX_NUM_REGS];
     memset(used_dst_reg_map, 0, sizeof(used_dst_reg_map));
     uint num_dsts = 0;
     uint original_num_dsts = (uint)instr_num_dsts(instr);
@@ -70,17 +70,17 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
         if (opnd_is_memory_reference(dst_opnd)) {
             for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
                 reg_id_t reg = opnd_get_reg_used(dst_opnd, opnd_index);
-                if (used_src_reg_map[reg] == 0) {
+                if (!used_src_reg_map[reg]) {
                     ++num_srcs;
-                    used_src_reg_map[reg] = 1;
+                    used_src_reg_map[reg] = true;
                 }
             }
         } else {
             for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
                 reg_id_t reg = opnd_get_reg_used(dst_opnd, opnd_index);
-                if (used_dst_reg_map[reg] == 0) {
+                if (!used_dst_reg_map[reg]) {
                     ++num_dsts;
-                    used_dst_reg_map[reg] = 1;
+                    used_dst_reg_map[reg] = true;
                 }
             }
         }
@@ -95,9 +95,9 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
         uint num_regs_used_by_opnd = (uint)opnd_num_regs_used(src_opnd);
         for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
             reg_id_t reg = opnd_get_reg_used(src_opnd, opnd_index);
-            if (used_src_reg_map[reg] == 0) {
+            if (!used_src_reg_map[reg]) {
                 ++num_srcs;
-                used_src_reg_map[reg] = 1;
+                used_src_reg_map[reg] = true;
             }
         }
     }
@@ -107,9 +107,9 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
      */
     uint eflags_instr = instr_get_arith_flags(instr, DR_QUERY_DEFAULT);
     uint eflags = 0;
-    if (eflags_instr & EFLAGS_WRITE_ARITH)
+    if (TESTANY(EFLAGS_WRITE_ARITH, eflags_instr))
         eflags |= SYNTHETIC_INSTR_WRITES_ARITH;
-    if (eflags_instr & EFLAGS_READ_ARITH)
+    if (TESTANY(EFLAGS_READ_ARITH, eflags_instr))
         eflags |= SYNTHETIC_INSTR_READS_ARITH;
     encoding |= (eflags << FLAGS_SHIFT);
 
@@ -129,7 +129,7 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
         // TODO i#6662: need to add virtual registers.
         // Right now using regular reg_id_t (which holds DR_REG_ values) from opnd_api.h.
         if (used_dst_reg_map[reg] == 1) {
-            encoded_instr[dst_reg_counter + INSTRUCTION_BYTES] = (byte)reg;
+            encoded_instr[dst_reg_counter + HEADER_BYTES] = (byte)reg;
             ++dst_reg_counter;
         }
     }
@@ -141,7 +141,7 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
         // TODO i#6662: need to add virtual registers.
         // Right now using regular reg_id_t (which holds DR_REG_ values) from opnd_api.h.
         if (used_src_reg_map[reg] == 1) {
-            encoded_instr[src_reg_counter + INSTRUCTION_BYTES + num_dsts] = (byte)reg;
+            encoded_instr[src_reg_counter + HEADER_BYTES + num_dsts] = (byte)reg;
             ++src_reg_counter;
         }
     }
@@ -149,8 +149,7 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
     /* Compute instruction length including bytes for padding to reach 4 bytes alignment.
      */
     uint num_opnds = num_srcs + num_dsts;
-    uint num_opnds_ceil = (num_opnds + INSTRUCTION_BYTES - 1) / INSTRUCTION_BYTES;
-    uint instr_length = INSTRUCTION_BYTES + num_opnds_ceil * INSTRUCTION_BYTES;
+    uint instr_length = ALIGN_FORWARD(HEADER_BYTES + num_opnds, HEADER_BYTES);
 
     /* Compute next instruction's PC as: current PC + instruction length.
      */

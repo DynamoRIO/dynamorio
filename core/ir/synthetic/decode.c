@@ -67,9 +67,9 @@ decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
      */
     uint eflags = (encoding & FLAGS_MASK) >> FLAGS_SHIFT;
     uint eflags_instr = 0;
-    if (eflags & SYNTHETIC_INSTR_WRITES_ARITH)
+    if (TESTANY(SYNTHETIC_INSTR_WRITES_ARITH, eflags))
         eflags_instr |= EFLAGS_WRITE_ARITH;
-    if (eflags & SYNTHETIC_INSTR_READS_ARITH)
+    if (TESTANY(SYNTHETIC_INSTR_READS_ARITH, eflags))
         eflags_instr |= EFLAGS_READ_ARITH;
     instr->eflags = eflags_instr;
 
@@ -86,7 +86,7 @@ decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
     /* Decode register destination operands, if present.
      */
     for (uint i = 0; i < num_dsts; ++i) {
-        reg_id_t dst = (reg_id_t)encoded_instr[i + INSTRUCTION_BYTES];
+        reg_id_t dst = (reg_id_t)encoded_instr[i + HEADER_BYTES];
         // TODO i#6662: need to add virtual registers.
         // Right now using regular reg_id_t (which holds DR_REG_ values) from opnd_api.h.
         opnd_t dst_opnd = opnd_create_reg(dst);
@@ -96,7 +96,7 @@ decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
     /* Decode register source operands, if present.
      */
     for (uint i = 0; i < num_srcs; ++i) {
-        reg_id_t src = (reg_id_t)encoded_instr[i + INSTRUCTION_BYTES + num_dsts];
+        reg_id_t src = (reg_id_t)encoded_instr[i + HEADER_BYTES + num_dsts];
         // TODO i#6662: need to add virtual registers.
         // Right now using regular reg_id_t (which holds DR_REG_ values) from opnd_api.h.
         opnd_t src_opnd = opnd_create_reg(src);
@@ -110,8 +110,7 @@ decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
     /* Compute instruction length including bytes for padding to reach 4 bytes alignment.
      */
     uint num_opnds = num_srcs + num_dsts;
-    uint num_opnds_ceil = (num_opnds + INSTRUCTION_BYTES - 1) / INSTRUCTION_BYTES;
-    uint instr_length = INSTRUCTION_BYTES + num_opnds_ceil * INSTRUCTION_BYTES;
+    uint instr_length = ALIGN_FORWARD(HEADER_BYTES + num_opnds, HEADER_BYTES);
     instr->length = instr_length;
 
     /* At this point the synthetic instruction has been fully decoded, so we set the

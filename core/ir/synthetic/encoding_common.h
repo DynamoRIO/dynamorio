@@ -37,7 +37,7 @@
  * dependencies and giving hints on the type of operations each instruction is performing.
  * For this reason the majority of operations that would normally work on instructions
  * coming from an actual ISA are not supported.
- * The only operations that we support are instr_encode_to_copy() and decode().
+ * Currently, the only operations that we support are instr_encode_to_copy() and decode().
  * XXX i#1684: Note that this is part of a larger issue, where lack of cross-arch support
  * in the same build of DynamoRIO is limiting us.
  */
@@ -61,9 +61,11 @@
  * one arithmetic flag, least significant bit set to 1 indicates the instruction writes
  * at least one arithmetic flag.
  * 4 bits, #src: number of source operands (read) that are registers. Registers used in
- * memory reference operands of the instruction we are encoding are always considered as
- * source operands in the encoded instruction.
+ * memory reference operands of the instruction we are encoding (regardless on whether
+ * they are source or destination operands) are considered as source operands in the
+ * encoded instruction.
  * 4 bits, #dst: number of destination operands (written) that are registers.
+ *
  * We assume these encoded values to be little-endian.
  * Note that we are only interested in register dependencies, hence operands that are
  * not registers, such as immediates or memory references, are not present.
@@ -104,7 +106,7 @@
 #define SYNTHETIC_INSTR_WRITES_ARITH 0x1
 #define SYNTHETIC_INSTR_READS_ARITH 0x2
 
-#define INSTRUCTION_BYTES 4
+#define HEADER_BYTES 4
 
 #define MAX_NUM_REGS 256
 

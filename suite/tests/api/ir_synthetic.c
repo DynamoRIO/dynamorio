@@ -42,9 +42,13 @@
                       dr_abort(), 0)                                              \
                    : 0))
 
+/* XXX i#6717: this code duplicates part of the synthetic ISA encoding in
+ * core/ir/synthetic/encoding.c and should be kept in synch. A whole-instr register
+ * operand iterator would allow us to remove this duplicate code.
+ */
 static void
-get_instr_src_and_dst_registers(instr_t *instr, uint max_num_regs, byte *used_src_reg_map,
-                                byte *used_dst_reg_map)
+get_instr_src_and_dst_registers(instr_t *instr, uint max_num_regs, bool *used_src_reg_map,
+                                bool *used_dst_reg_map)
 {
     memset(used_src_reg_map, 0, max_num_regs);
     memset(used_dst_reg_map, 0, max_num_regs);
@@ -58,8 +62,7 @@ get_instr_src_and_dst_registers(instr_t *instr, uint max_num_regs, byte *used_sr
                 // Right now using regular reg_id_t (which holds DR_REG_ values) from
                 // opnd_api.h.
                 reg_id_t reg = opnd_get_reg_used(dst_opnd, opnd_index);
-                if (used_src_reg_map[reg] == 0)
-                    used_src_reg_map[reg] = 1;
+                used_src_reg_map[reg] = true;
             }
         } else {
             for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
@@ -67,8 +70,7 @@ get_instr_src_and_dst_registers(instr_t *instr, uint max_num_regs, byte *used_sr
                 // Right now using regular reg_id_t (which holds DR_REG_ values) from
                 // opnd_api.h.
                 reg_id_t reg = opnd_get_reg_used(dst_opnd, opnd_index);
-                if (used_dst_reg_map[reg] == 0)
-                    used_dst_reg_map[reg] = 1;
+                used_dst_reg_map[reg] = true;
             }
         }
     }
@@ -82,8 +84,7 @@ get_instr_src_and_dst_registers(instr_t *instr, uint max_num_regs, byte *used_sr
             // Right now using regular reg_id_t (which holds DR_REG_ values) from
             // opnd_api.h.
             reg_id_t reg = opnd_get_reg_used(src_opnd, opnd_index);
-            if (used_src_reg_map[reg] == 0)
-                used_src_reg_map[reg] = 1;
+            used_src_reg_map[reg] = true;
         }
     }
 }
@@ -103,14 +104,14 @@ instr_synthetic_matches_real(instr_t *instr_real, instr_t *instr_synthetic)
 
     /* Check that register operands are the same.
      * This also ensures the two instructions have the same number of source and
-     * destination operands.
+     * destination operands that are registers.
      */
-    byte used_src_reg_map_real[MAX_NUM_REGS];
-    byte used_dst_reg_map_real[MAX_NUM_REGS];
+    bool used_src_reg_map_real[MAX_NUM_REGS];
+    bool used_dst_reg_map_real[MAX_NUM_REGS];
     get_instr_src_and_dst_registers(instr_real, MAX_NUM_REGS, used_src_reg_map_real,
                                     used_dst_reg_map_real);
-    byte used_src_reg_map_synthetic[MAX_NUM_REGS];
-    byte used_dst_reg_map_synthetic[MAX_NUM_REGS];
+    bool used_src_reg_map_synthetic[MAX_NUM_REGS];
+    bool used_dst_reg_map_synthetic[MAX_NUM_REGS];
     get_instr_src_and_dst_registers(instr_synthetic, MAX_NUM_REGS,
                                     used_src_reg_map_synthetic,
                                     used_dst_reg_map_synthetic);
@@ -127,14 +128,14 @@ instr_synthetic_matches_real(instr_t *instr_real, instr_t *instr_synthetic)
     uint eflags_instr_synthetic =
         instr_get_arith_flags(instr_synthetic, DR_QUERY_DEFAULT);
     uint eflags_real = 0x0;
-    if (eflags_instr_real & EFLAGS_WRITE_ARITH)
+    if (TESTANY(EFLAGS_WRITE_ARITH, eflags_instr_real))
         eflags_real |= 0x1;
-    if (eflags_instr_real & EFLAGS_READ_ARITH)
+    if (TESTANY(EFLAGS_READ_ARITH, eflags_instr_real))
         eflags_real |= 0x2;
     uint eflags_synthetic = 0x0;
-    if (eflags_instr_synthetic & EFLAGS_WRITE_ARITH)
+    if (TESTANY(EFLAGS_WRITE_ARITH, eflags_instr_synthetic))
         eflags_synthetic |= 0x1;
-    if (eflags_instr_synthetic & EFLAGS_READ_ARITH)
+    if (TESTANY(EFLAGS_READ_ARITH, eflags_instr_synthetic))
         eflags_synthetic |= 0x2;
     if (eflags_real != eflags_synthetic)
         return false;
@@ -145,30 +146,37 @@ instr_synthetic_matches_real(instr_t *instr_real, instr_t *instr_synthetic)
 static void
 test_instr_encode_decode_synthetic(void *dc, instr_t *instr)
 {
-    /* __attribute__((aligned())) is a clang/gcc extension and it's not supported by our
-     * windows compiler, hence we declare the array where instruction encoding will be
-     * stored as a uint array to keep the 4 byte alignment requirement for encoding and
-     * decoding of synthetic ISA instructions.
+    /* Encoded synthetic ISA instructions require 4 byte alignment.
+     * The biggest synthetic encoded instruction reaches 12 bytes.
      */
-    uint bytes_aligned_4_bytes[3];
-    byte *bytes = (byte *)bytes_aligned_4_bytes;
+    byte ALIGN_VAR(4) bytes[12];
     instr_t *instr_synthetic = instr_create(dc);
     ASSERT(instr_synthetic != NULL);
-    // We need to set Synthetic ISA mode for the synthetic instruction we decode to.
+    /* DR uses instr_t ISA mode to encode instructions.
+     * Since we are encoding synthetic instructions, we set it to DR_ISA_SYNTHETIC for
+     * both the instruction we are encoding (instr) and the instruction we are decoding to
+     * (instr_synthetic).
+     */
     bool is_isa_mode_set = instr_set_isa_mode(instr_synthetic, DR_ISA_SYNTHETIC);
     ASSERT(is_isa_mode_set);
-    // We need to set Synthetic ISA mode for the x86 instruction we encode next.
     is_isa_mode_set = instr_set_isa_mode(instr, DR_ISA_SYNTHETIC);
     ASSERT(is_isa_mode_set);
+    /* Encode instr (which comes from a real ISA) to a synthetic instruction into bytes.
+     */
     byte *next_pc_encode = instr_encode(dc, instr, bytes);
     ASSERT(next_pc_encode != NULL);
     dr_isa_mode_t old_isa_mode;
+    /* DR uses dcontext_t ISA mode to decode instructions.
+     * Since we are decoding synthetic instructions, we set it to DR_ISA_SYNTHETIC.
+     */
     dr_set_isa_mode(dc, DR_ISA_SYNTHETIC, &old_isa_mode);
+    /* Decode the encoded synthetic instruction bytes into instr_synthetic.
+     */
     byte *next_pc_decode = decode(dc, bytes, instr_synthetic);
     dr_set_isa_mode(dc, old_isa_mode, NULL);
     ASSERT(next_pc_decode != NULL);
     ASSERT(next_pc_encode == next_pc_decode);
-    ASSERT(instr_length(dc, instr_synthetic) <= sizeof(bytes_aligned_4_bytes));
+    ASSERT(instr_length(dc, instr_synthetic) <= sizeof(bytes));
     ASSERT(instr_synthetic_matches_real(instr, instr_synthetic));
     instr_destroy(dc, instr);
     instr_destroy(dc, instr_synthetic);
