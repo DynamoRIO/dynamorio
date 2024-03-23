@@ -976,5 +976,11 @@ droption_t<uint64_t> op_trim_after_timestamp(
     "Removes all records from the first TRACE_MARKER_TYPE_TIMESTAMP marker with "
     "timestamp larger than the specified value.");
 
+droption_t<bool> op_abort_on_invariant_error(
+    DROPTION_SCOPE_ALL, "abort_on_invariant_error", true,
+    "Abort invariant checker when a trace invariant error is found.",
+    "When set to true, the trace invariant checker analysis tool aborts when a trace "
+    "invariant error is found. Otherwise it prints the error and continues.");
+
 } // namespace drmemtrace
 } // namespace dynamorio

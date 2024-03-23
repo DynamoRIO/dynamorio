@@ -86,7 +86,8 @@ public:
     invariant_checker_t(bool offline = true, unsigned int verbose = 0,
                         std::string test_name = "",
                         std::istream *serial_schedule_file = nullptr,
-                        std::istream *cpu_schedule_file = nullptr);
+                        std::istream *cpu_schedule_file = nullptr,
+                        bool abort_on_invariant_error = true);
     virtual ~invariant_checker_t();
     std::string
     initialize_shard_type(shard_type_t shard_type) override;
@@ -268,6 +269,8 @@ protected:
     std::istream *cpu_schedule_file_ = nullptr;
 
     memtrace_stream_t *serial_stream_ = nullptr;
+
+    bool abort_on_invariant_error_ = true;
 };
 
 } // namespace drmemtrace

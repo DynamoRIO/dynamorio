@@ -212,6 +212,9 @@ Further non-compatibility-affecting changes include:
    #dynamorio::drmemtrace::analysis_tool_t to allow the tool to make holistic
    adjustments to the interval snapshots after all have been generated, and before
    they are used for merging across shards (potentially), and printing the results.
+ - Add -abort_on_invariant_error flag that instructs the invariant checker drmemtrace
+   analysis tool to abort trace analysis when a trace invariant error is found. This
+   is set to true by default.
 
 **************************************************
 <hr>

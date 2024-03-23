@@ -66,12 +66,14 @@ invariant_checker_create(bool offline, unsigned int verbose)
 invariant_checker_t::invariant_checker_t(bool offline, unsigned int verbose,
                                          std::string test_name,
                                          std::istream *serial_schedule_file,
-                                         std::istream *cpu_schedule_file)
+                                         std::istream *cpu_schedule_file,
+                                         bool abort_on_invariant_error)
     : knob_offline_(offline)
     , knob_verbose_(verbose)
     , knob_test_name_(test_name)
     , serial_schedule_file_(serial_schedule_file)
     , cpu_schedule_file_(cpu_schedule_file)
+    , abort_on_invariant_error_(abort_on_invariant_error)
 {
     if (knob_test_name_ == "kernel_xfer_app" || knob_test_name_ == "rseq_app")
         has_annotations_ = true;
@@ -126,7 +128,8 @@ invariant_checker_t::report_if_false(per_shard_t *shard, bool condition,
                   << shard->instr_count_since_last_timestamp_
                   << " instrs since timestamp " << shard->last_timestamp_
                   << "): " << invariant_name << "\n";
-        abort();
+        if (abort_on_invariant_error_)
+            abort();
     }
 }
 
