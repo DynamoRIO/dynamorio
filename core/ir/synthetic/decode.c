@@ -35,6 +35,7 @@
 #include "decode.h"
 
 #include "../globals.h"
+#include "encode_api.h"
 #include "encoding_common.h"
 #include "instr_api.h"
 #include "opnd_api.h"
@@ -47,17 +48,21 @@
 byte *
 decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
 {
+    /* Clear the instruction.
+     */
+    memset((void *)instr, 0, sizeof(instr_t));
+
     /* Interpret the first 4 bytes of encoded_instr (which are always present) as a uint
      * for easier retrieving of category, eflags, #src, and #dst values.
      * We can do this safely because encoded_instr is 4 bytes aligned.
      */
     uint encoding = *((uint *)&encoded_instr[0]);
 
-    /* Decode number of destination operands.
+    /* Decode number of register destination operands.
      */
     uint num_dsts = encoding & DST_OPND_MASK;
 
-    /* Decode number of source operands.
+    /* Decode number of register source operands.
      */
     uint num_srcs = (encoding & SRC_OPND_MASK) >> SRC_OPND_SHIFT;
 
@@ -83,23 +88,25 @@ decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
     uint category = (encoding & CATEGORY_MASK) >> CATEGORY_SHIFT;
     instr_set_category(instr, category);
 
-    /* Decode register destination operands, if present.
+    /* Decode register destination operands and their sizes, if present.
      */
-    for (uint i = 0; i < num_dsts; ++i) {
+    uint num_dst_bytes = num_dsts * OPERAND_BYTES;
+    for (uint i = 0; i < num_dst_bytes; i += OPERAND_BYTES) {
         reg_id_t dst = (reg_id_t)encoded_instr[i + HEADER_BYTES];
-        // TODO i#6662: need to add virtual registers.
-        // Right now using regular reg_id_t (which holds DR_REG_ values) from opnd_api.h.
+        opnd_size_t dst_size = (opnd_size_t)encoded_instr[i + 1 + HEADER_BYTES];
         opnd_t dst_opnd = opnd_create_reg(dst);
+        opnd_set_size(&dst_opnd, dst_size);
         instr_set_dst(instr, i, dst_opnd);
     }
 
-    /* Decode register source operands, if present.
+    /* Decode register source operands and their sizes, if present.
      */
-    for (uint i = 0; i < num_srcs; ++i) {
+    uint num_src_bytes = num_srcs * OPERAND_BYTES;
+    for (uint i = 0; i < num_src_bytes; i += OPERAND_BYTES) {
         reg_id_t src = (reg_id_t)encoded_instr[i + HEADER_BYTES + num_dsts];
-        // TODO i#6662: need to add virtual registers.
-        // Right now using regular reg_id_t (which holds DR_REG_ values) from opnd_api.h.
+        opnd_size_t src_size = (opnd_size_t)encoded_instr[i + 1 + HEADER_BYTES];
         opnd_t src_opnd = opnd_create_reg(src);
+        opnd_set_size(&src_opnd, src_size);
         instr_set_src(instr, i, src_opnd);
     }
 
@@ -109,16 +116,20 @@ decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
 
     /* Compute instruction length including bytes for padding to reach 4 bytes alignment.
      */
-    uint num_opnds = num_srcs + num_dsts;
-    uint instr_length = ALIGN_FORWARD(HEADER_BYTES + num_opnds, HEADER_BYTES);
+    uint num_opnd_bytes = num_src_bytes + num_dst_bytes;
+    uint instr_length = ALIGN_FORWARD(HEADER_BYTES + num_opnd_bytes, HEADER_BYTES);
     instr->length = instr_length;
 
     /* At this point the synthetic instruction has been fully decoded, so we set the
      * decoded flags bit and declare the synthetic instruction valid.
-     * This is useful to avoid trying to compute its length again when we want to
+     * This is necessary to avoid trying to compute its length again when we want to
      * retrieve it using instr_length().
      */
     instr_set_raw_bits_valid(instr, true);
+
+    /* Set decoded instruction ISA mode to be synthetic.
+     */
+    instr_set_isa_mode(instr, DR_ISA_SYNTHETIC);
 
     /* Compute next instruction's PC as: current PC + instruction length.
      */

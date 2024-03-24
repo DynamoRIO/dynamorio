@@ -47,30 +47,35 @@
  * operand iterator would allow us to remove this duplicate code.
  */
 static void
-get_instr_src_and_dst_registers(instr_t *instr, uint max_num_regs, bool *used_src_reg_map,
-                                bool *used_dst_reg_map)
+get_instr_src_and_dst_registers(instr_t *instr, uint max_num_regs,
+                                opnd_size_t *src_reg_to_size,
+                                opnd_size_t *dst_reg_to_size)
 {
-    memset(used_src_reg_map, 0, max_num_regs);
-    memset(used_dst_reg_map, 0, max_num_regs);
+    memset((void *)src_reg_to_size, 0, max_num_regs);
+    memset((void *)dst_reg_to_size, 0, max_num_regs);
     uint original_num_dsts = (uint)instr_num_dsts(instr);
     for (uint dst_index = 0; dst_index < original_num_dsts; ++dst_index) {
         opnd_t dst_opnd = instr_get_dst(instr, dst_index);
         uint num_regs_used_by_opnd = (uint)opnd_num_regs_used(dst_opnd);
         if (opnd_is_memory_reference(dst_opnd)) {
             for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
-                // TODO i#6662: need to add virtual registers.
-                // Right now using regular reg_id_t (which holds DR_REG_ values) from
-                // opnd_api.h.
                 reg_id_t reg = opnd_get_reg_used(dst_opnd, opnd_index);
-                used_src_reg_map[reg] = true;
+                /* Map sub-registers to their containing register.
+                 */
+                reg_id_t reg_canonical = reg_to_pointer_sized(reg);
+                opnd_size_t reg_size = reg_get_size(reg_canonical);
+                if (src_reg_to_size[reg_canonical] != 0)
+                    src_reg_to_size[reg_canonical] = reg_size;
             }
         } else {
             for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
-                // TODO i#6662: need to add virtual registers.
-                // Right now using regular reg_id_t (which holds DR_REG_ values) from
-                // opnd_api.h.
                 reg_id_t reg = opnd_get_reg_used(dst_opnd, opnd_index);
-                used_dst_reg_map[reg] = true;
+                /* Map sub-registers to their containing register.
+                 */
+                reg_id_t reg_canonical = reg_to_pointer_sized(reg);
+                opnd_size_t reg_size = reg_get_size(reg_canonical);
+                if (dst_reg_to_size[reg_canonical] != 0)
+                    dst_reg_to_size[reg_canonical] = reg_size;
             }
         }
     }
@@ -80,11 +85,13 @@ get_instr_src_and_dst_registers(instr_t *instr, uint max_num_regs, bool *used_sr
         opnd_t src_opnd = instr_get_src(instr, i);
         uint num_regs_used_by_opnd = (uint)opnd_num_regs_used(src_opnd);
         for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
-            // TODO i#6662: need to add virtual registers.
-            // Right now using regular reg_id_t (which holds DR_REG_ values) from
-            // opnd_api.h.
             reg_id_t reg = opnd_get_reg_used(src_opnd, opnd_index);
-            used_src_reg_map[reg] = true;
+            /* Map sub-registers to their containing register.
+             */
+            reg_id_t reg_canonical = reg_to_pointer_sized(reg);
+            opnd_size_t reg_size = reg_get_size(reg_canonical);
+            if (src_reg_to_size[reg_canonical] != 0)
+                src_reg_to_size[reg_canonical] = reg_size;
         }
     }
 }
@@ -106,20 +113,20 @@ instr_synthetic_matches_real(instr_t *instr_real, instr_t *instr_synthetic)
      * This also ensures the two instructions have the same number of source and
      * destination operands that are registers.
      */
-    bool used_src_reg_map_real[MAX_NUM_REGS];
-    bool used_dst_reg_map_real[MAX_NUM_REGS];
-    get_instr_src_and_dst_registers(instr_real, MAX_NUM_REGS, used_src_reg_map_real,
-                                    used_dst_reg_map_real);
-    bool used_src_reg_map_synthetic[MAX_NUM_REGS];
-    bool used_dst_reg_map_synthetic[MAX_NUM_REGS];
+    opnd_size_t src_reg_to_size_real_instr[MAX_NUM_REGS];
+    opnd_size_t dst_reg_to_size_real_instr[MAX_NUM_REGS];
+    get_instr_src_and_dst_registers(instr_real, MAX_NUM_REGS, src_reg_to_size_real_instr,
+                                    dst_reg_to_size_real_instr);
+    opnd_size_t src_reg_to_size_synthetic_instr[MAX_NUM_REGS];
+    opnd_size_t dst_reg_to_size_synthetic_instr[MAX_NUM_REGS];
     get_instr_src_and_dst_registers(instr_synthetic, MAX_NUM_REGS,
-                                    used_src_reg_map_synthetic,
-                                    used_dst_reg_map_synthetic);
-    if (memcmp(used_src_reg_map_real, used_src_reg_map_synthetic,
-               sizeof(used_src_reg_map_real)) != 0)
+                                    src_reg_to_size_synthetic_instr,
+                                    dst_reg_to_size_synthetic_instr);
+    if (memcmp(src_reg_to_size_real_instr, src_reg_to_size_synthetic_instr,
+               sizeof(src_reg_to_size_real_instr)) != 0)
         return false;
-    if (memcmp(used_dst_reg_map_real, used_dst_reg_map_synthetic,
-               sizeof(used_dst_reg_map_real)) != 0)
+    if (memcmp(dst_reg_to_size_real_instr, dst_reg_to_size_synthetic_instr,
+               sizeof(dst_reg_to_size_real_instr)) != 0)
         return false;
 
     /* Check that arithmetic flags are the same.

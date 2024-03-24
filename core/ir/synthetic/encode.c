@@ -51,17 +51,18 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
      */
     uint encoding = 0;
 
-    /* Encode number of destination operands.
+    /* Encode number of register destination operands.
      * Note that a destination operand that is a memory renference should have its
      * registers (if any) counted as source operands, since they are being read.
-     * We use used_[src|dst]_reg_map to keep track of registers we've seen and avoid
-     * duplicates.
+     * We use [src|dst]_reg_to_size to keep track of registers we've seen and avoid
+     * duplicates, and also to record their size, which we encode later.
+     * opnd_size_t
      */
-    bool used_src_reg_map[MAX_NUM_REGS];
-    memset(used_src_reg_map, 0, sizeof(used_src_reg_map));
+    opnd_size_t src_reg_to_size[MAX_NUM_REGS];
+    memset((void *)src_reg_to_size, 0, sizeof(src_reg_to_size));
     uint num_srcs = 0;
-    bool used_dst_reg_map[MAX_NUM_REGS];
-    memset(used_dst_reg_map, 0, sizeof(used_dst_reg_map));
+    opnd_size_t dst_reg_to_size[MAX_NUM_REGS];
+    memset((void *)dst_reg_to_size, 0, sizeof(dst_reg_to_size));
     uint num_dsts = 0;
     uint original_num_dsts = (uint)instr_num_dsts(instr);
     for (uint dst_index = 0; dst_index < original_num_dsts; ++dst_index) {
@@ -70,24 +71,32 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
         if (opnd_is_memory_reference(dst_opnd)) {
             for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
                 reg_id_t reg = opnd_get_reg_used(dst_opnd, opnd_index);
-                if (!used_src_reg_map[reg]) {
+                /* Map sub-registers to their containing register.
+                 */
+                reg_id_t reg_canonical = reg_to_pointer_sized(reg);
+                opnd_size_t reg_size = reg_get_size(reg_canonical);
+                if (src_reg_to_size[reg_canonical] != 0) {
                     ++num_srcs;
-                    used_src_reg_map[reg] = true;
+                    src_reg_to_size[reg_canonical] = reg_size;
                 }
             }
         } else {
             for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
                 reg_id_t reg = opnd_get_reg_used(dst_opnd, opnd_index);
-                if (!used_dst_reg_map[reg]) {
+                /* Map sub-registers to their containing register.
+                 */
+                reg_id_t reg_canonical = reg_to_pointer_sized(reg);
+                opnd_size_t reg_size = reg_get_size(reg_canonical);
+                if (dst_reg_to_size[reg_canonical] != 0) {
                     ++num_dsts;
-                    used_dst_reg_map[reg] = true;
+                    dst_reg_to_size[reg_canonical] = reg_size;
                 }
             }
         }
     }
     encoding |= num_dsts;
 
-    /* Encode number of source operands, adding on top of already present source operands.
+    /* Encode number of register source operands, adding on top of already existing ones.
      */
     uint original_num_srcs = (uint)instr_num_srcs(instr);
     for (uint i = 0; i < original_num_srcs; ++i) {
@@ -95,9 +104,13 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
         uint num_regs_used_by_opnd = (uint)opnd_num_regs_used(src_opnd);
         for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
             reg_id_t reg = opnd_get_reg_used(src_opnd, opnd_index);
-            if (!used_src_reg_map[reg]) {
+            /* Map sub-registers to their containing register.
+             */
+            reg_id_t reg_canonical = reg_to_pointer_sized(reg);
+            opnd_size_t reg_size = reg_get_size(reg_canonical);
+            if (src_reg_to_size[reg_canonical] != 0) {
                 ++num_srcs;
-                used_src_reg_map[reg] = true;
+                src_reg_to_size[reg_canonical] = reg_size;
             }
         }
     }
@@ -122,34 +135,40 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
      */
     *((uint *)&encoded_instr[0]) = encoding;
 
-    /* Encode register destination operands, if present.
+    /* Encode register destination operands and their sizes, if present.
      */
     uint dst_reg_counter = 0;
     for (uint reg = 0; reg < MAX_NUM_REGS; ++reg) {
-        // TODO i#6662: need to add virtual registers.
-        // Right now using regular reg_id_t (which holds DR_REG_ values) from opnd_api.h.
-        if (used_dst_reg_map[reg] == 1) {
+        if (dst_reg_to_size[reg] != 0) {
+            /* XXX i#6662: we might want to consider doing some kind of register
+             * shuffling.
+             */
             encoded_instr[dst_reg_counter + HEADER_BYTES] = (byte)reg;
-            ++dst_reg_counter;
+            encoded_instr[dst_reg_counter + 1 + HEADER_BYTES] =
+                (byte)dst_reg_to_size[reg];
+            dst_reg_counter += OPERAND_BYTES;
         }
     }
 
-    /* Encode register source operands, if present.
+    /* Encode register source operands and their sizes, if present.
      */
     uint src_reg_counter = 0;
     for (uint reg = 0; reg < MAX_NUM_REGS; ++reg) {
-        // TODO i#6662: need to add virtual registers.
-        // Right now using regular reg_id_t (which holds DR_REG_ values) from opnd_api.h.
-        if (used_src_reg_map[reg] == 1) {
+        if (src_reg_to_size[reg]) {
+            /* XXX i#6662: we might want to consider doing some kind of register
+             * shuffling.
+             */
             encoded_instr[src_reg_counter + HEADER_BYTES + num_dsts] = (byte)reg;
-            ++src_reg_counter;
+            encoded_instr[src_reg_counter + 1 + HEADER_BYTES] =
+                (byte)src_reg_to_size[reg];
+            src_reg_counter += OPERAND_BYTES;
         }
     }
 
     /* Compute instruction length including bytes for padding to reach 4 bytes alignment.
      */
-    uint num_opnds = num_srcs + num_dsts;
-    uint instr_length = ALIGN_FORWARD(HEADER_BYTES + num_opnds, HEADER_BYTES);
+    uint num_opnd_bytes = dst_reg_counter + src_reg_counter;
+    uint instr_length = ALIGN_FORWARD(HEADER_BYTES + num_opnd_bytes, HEADER_BYTES);
 
     /* Compute next instruction's PC as: current PC + instruction length.
      */
