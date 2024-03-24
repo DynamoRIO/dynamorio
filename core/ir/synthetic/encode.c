@@ -56,7 +56,6 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
      * registers (if any) counted as source operands, since they are being read.
      * We use [src|dst]_reg_to_size to keep track of registers we've seen and avoid
      * duplicates, and also to record their size, which we encode later.
-     * opnd_size_t
      */
     opnd_size_t src_reg_to_size[MAX_NUM_REGS];
     memset((void *)src_reg_to_size, 0, sizeof(src_reg_to_size));
@@ -138,30 +137,34 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
     /* Encode register destination operands and their sizes, if present.
      */
     uint dst_reg_counter = 0;
-    for (uint reg = 0; reg < MAX_NUM_REGS; ++reg) {
-        if (dst_reg_to_size[reg] != 0) {
-            /* XXX i#6662: we might want to consider doing some kind of register
-             * shuffling.
-             */
-            encoded_instr[dst_reg_counter + HEADER_BYTES] = (byte)reg;
-            encoded_instr[dst_reg_counter + 1 + HEADER_BYTES] =
-                (byte)dst_reg_to_size[reg];
-            dst_reg_counter += OPERAND_BYTES;
+    if (num_dsts > 0) {
+        for (uint reg = 0; reg < MAX_NUM_REGS; ++reg) {
+            if (dst_reg_to_size[reg] != 0) {
+                /* XXX i#6662: we might want to consider doing some kind of register
+                 * shuffling.
+                 */
+                encoded_instr[dst_reg_counter + HEADER_BYTES] = (byte)reg;
+                encoded_instr[dst_reg_counter + 1 + HEADER_BYTES] =
+                    (byte)dst_reg_to_size[reg];
+                dst_reg_counter += OPERAND_BYTES;
+            }
         }
     }
 
     /* Encode register source operands and their sizes, if present.
      */
     uint src_reg_counter = 0;
-    for (uint reg = 0; reg < MAX_NUM_REGS; ++reg) {
-        if (src_reg_to_size[reg]) {
-            /* XXX i#6662: we might want to consider doing some kind of register
-             * shuffling.
-             */
-            encoded_instr[src_reg_counter + HEADER_BYTES + num_dsts] = (byte)reg;
-            encoded_instr[src_reg_counter + 1 + HEADER_BYTES] =
-                (byte)src_reg_to_size[reg];
-            src_reg_counter += OPERAND_BYTES;
+    if (num_srcs > 0) {
+        for (uint reg = 0; reg < MAX_NUM_REGS; ++reg) {
+            if (src_reg_to_size[reg]) {
+                /* XXX i#6662: we might want to consider doing some kind of register
+                 * shuffling.
+                 */
+                encoded_instr[src_reg_counter + HEADER_BYTES + num_dsts] = (byte)reg;
+                encoded_instr[src_reg_counter + 1 + HEADER_BYTES] =
+                    (byte)src_reg_to_size[reg];
+                src_reg_counter += OPERAND_BYTES;
+            }
         }
     }
 
