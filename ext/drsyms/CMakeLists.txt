@@ -43,7 +43,7 @@ endif ()
 
 if (DR_HOST_ARM)
   if (ANDROID)
-    set(ARCH "-android")
+    set(ARCH "-android-arm")
   else ()
     set(ARCH "-arm")
     # XXX i#1501: to support both arm-linux-gnueabi and arm-linux-gnueabi,
@@ -59,7 +59,11 @@ if (DR_HOST_ARM)
 endif()
 
 if (DR_HOST_AARCH64)
-  set(ARCH "-aarch64")
+  if (ANDROID)
+    set(ARCH "-android-aarch64")
+  else ()
+    set(ARCH "-aarch64")
+  endif ()
 endif ()
 
 if (DR_HOST_RISCV64)
