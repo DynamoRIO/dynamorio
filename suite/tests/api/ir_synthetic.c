@@ -154,9 +154,9 @@ static void
 test_instr_encode_decode_synthetic(void *dc, instr_t *instr)
 {
     /* Encoded synthetic ISA instructions require 4 byte alignment.
-     * The biggest synthetic encoded instruction reaches 12 bytes.
+     * The biggest synthetic encoded instruction reaches 20 bytes.
      */
-    byte ALIGN_VAR(4) bytes[12];
+    byte ALIGN_VAR(4) bytes[20];
     instr_t *instr_synthetic = instr_create(dc);
     ASSERT(instr_synthetic != NULL);
     /* DR uses instr_t ISA mode to encode instructions.

@@ -156,7 +156,7 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
     uint src_reg_counter = 0;
     if (num_srcs > 0) {
         for (uint reg = 0; reg < MAX_NUM_REGS; ++reg) {
-            if (src_reg_to_size[reg]) {
+            if (src_reg_to_size[reg] != 0) {
                 /* XXX i#6662: we might want to consider doing some kind of register
                  * shuffling.
                  */
