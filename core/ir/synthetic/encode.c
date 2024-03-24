@@ -160,9 +160,10 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
                 /* XXX i#6662: we might want to consider doing some kind of register
                  * shuffling.
                  */
-                encoded_instr[src_reg_counter + HEADER_BYTES + num_dsts] = (byte)reg;
-                encoded_instr[src_reg_counter + 1 + HEADER_BYTES] =
-                    (byte)src_reg_to_size[reg];
+                encoded_instr[src_reg_counter + HEADER_BYTES + num_dsts * OPERAND_BYTES] =
+                    (byte)reg;
+                encoded_instr[src_reg_counter + 1 + HEADER_BYTES +
+                              num_dsts * OPERAND_BYTES] = (byte)src_reg_to_size[reg];
                 src_reg_counter += OPERAND_BYTES;
             }
         }

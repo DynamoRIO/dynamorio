@@ -103,8 +103,9 @@ decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
      */
     uint num_src_bytes = num_srcs * OPERAND_BYTES;
     for (uint i = 0; i < num_src_bytes; i += OPERAND_BYTES) {
-        reg_id_t src = (reg_id_t)encoded_instr[i + HEADER_BYTES + num_dsts];
-        opnd_size_t src_size = (opnd_size_t)encoded_instr[i + 1 + HEADER_BYTES];
+        reg_id_t src = (reg_id_t)encoded_instr[i + HEADER_BYTES + num_dst_bytes];
+        opnd_size_t src_size =
+            (opnd_size_t)encoded_instr[i + 1 + HEADER_BYTES + num_dst_bytes];
         opnd_t src_opnd = opnd_create_reg(src);
         opnd_set_size(&src_opnd, src_size);
         instr_set_src(instr, i, src_opnd);
