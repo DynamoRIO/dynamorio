@@ -74,7 +74,7 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
                 /* Map sub-registers to their containing register.
                  */
                 reg_id_t reg_canonical = reg_to_pointer_sized(reg);
-                opnd_size_t reg_size = reg_get_size(reg_canonical);
+                opnd_size_t reg_size = reg_get_size(reg);
                 if (src_reg_to_size[reg_canonical] != 0) {
                     ++num_srcs;
                     src_reg_to_size[reg_canonical] = reg_size;
@@ -86,7 +86,7 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
                 /* Map sub-registers to their containing register.
                  */
                 reg_id_t reg_canonical = reg_to_pointer_sized(reg);
-                opnd_size_t reg_size = reg_get_size(reg_canonical);
+                opnd_size_t reg_size = reg_get_size(reg);
                 if (dst_reg_to_size[reg_canonical] != 0) {
                     ++num_dsts;
                     dst_reg_to_size[reg_canonical] = reg_size;
@@ -107,7 +107,7 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
             /* Map sub-registers to their containing register.
              */
             reg_id_t reg_canonical = reg_to_pointer_sized(reg);
-            opnd_size_t reg_size = reg_get_size(reg_canonical);
+            opnd_size_t reg_size = reg_get_size(reg);
             if (src_reg_to_size[reg_canonical] != 0) {
                 ++num_srcs;
                 src_reg_to_size[reg_canonical] = reg_size;

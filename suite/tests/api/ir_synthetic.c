@@ -63,7 +63,7 @@ get_instr_src_and_dst_registers(instr_t *instr, uint max_num_regs,
                 /* Map sub-registers to their containing register.
                  */
                 reg_id_t reg_canonical = reg_to_pointer_sized(reg);
-                opnd_size_t reg_size = reg_get_size(reg_canonical);
+                opnd_size_t reg_size = reg_get_size(reg);
                 if (src_reg_to_size[reg_canonical] != 0)
                     src_reg_to_size[reg_canonical] = reg_size;
             }
@@ -73,7 +73,7 @@ get_instr_src_and_dst_registers(instr_t *instr, uint max_num_regs,
                 /* Map sub-registers to their containing register.
                  */
                 reg_id_t reg_canonical = reg_to_pointer_sized(reg);
-                opnd_size_t reg_size = reg_get_size(reg_canonical);
+                opnd_size_t reg_size = reg_get_size(reg);
                 if (dst_reg_to_size[reg_canonical] != 0)
                     dst_reg_to_size[reg_canonical] = reg_size;
             }
@@ -89,7 +89,7 @@ get_instr_src_and_dst_registers(instr_t *instr, uint max_num_regs,
             /* Map sub-registers to their containing register.
              */
             reg_id_t reg_canonical = reg_to_pointer_sized(reg);
-            opnd_size_t reg_size = reg_get_size(reg_canonical);
+            opnd_size_t reg_size = reg_get_size(reg);
             if (src_reg_to_size[reg_canonical] != 0)
                 src_reg_to_size[reg_canonical] = reg_size;
         }
