@@ -214,7 +214,7 @@ Further non-compatibility-affecting changes include:
    they are used for merging across shards (potentially), and printing the results.
  - Add -abort_on_invariant_error flag that instructs the invariant checker drmemtrace
    analysis tool to abort trace analysis when a trace invariant error is found. This
-   is set to true by default.
+   is set to true by default to match the existing behavior of the invariant checker.
 
 **************************************************
 <hr>
