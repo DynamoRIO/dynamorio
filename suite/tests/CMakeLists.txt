@@ -6256,6 +6256,5 @@ if (X86 AND NOT X64)
     code_api|tool.drcachesim.windows-simple
     code_api|tool.drcacheoff.windows-split
     code_api|tool.drcov.eintr
-    code_api|tool.schedule_stats_nopreempt
     PROPERTIES LABELS X32_DENYLIST)
 endif ()
