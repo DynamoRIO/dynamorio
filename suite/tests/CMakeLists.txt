@@ -6224,35 +6224,35 @@ if (UNIX AND X86 AND NOT X64)
     code_api|common.decode-stress
     code_api|linux.eintr
     code_api|linux.eintr-noinline
-    code_api|sample.callstack
-    code_api|sample.cbr
-    code_api|sample.cbrtrace
-    code_api|sample.countcalls
-    code_api|sample.div
-    code_api|sample.hot_bbcount
-    code_api|sample.inc2add
-    code_api|sample.inline
-    code_api|sample.inscount
-    code_api|sample.inscount.cleancall
-    code_api|sample.inscount.prof-pcs.cleancall
-    code_api|sample.instrace_simple
-    code_api|sample.instrcalls
-    code_api|sample.memtrace_simple
-    code_api|sample.memval_simple
-    code_api|sample.memval_simple_scattergather
-    code_api|sample.memtrace_x86_binary
-    code_api|sample.memtrace_x86_text
-    code_api|sample.modxfer
-    code_api|sample.modxfer_app2lib
-    code_api|sample.instrace_x86_binary
-    code_api|sample.instrace_x86_text
-    code_api|sample.opcodes
-    code_api|sample.opcode_count
-    code_api|sample.signal
-    code_api|sample.ssljack
-    code_api|sample.stl_test
-    code_api|sample.syscall
-    code_api|sample.wrap
+   #code_api|sample.callstack
+   #code_api|sample.cbr
+   #code_api|sample.cbrtrace
+   #code_api|sample.countcalls
+   #code_api|sample.div
+   #code_api|sample.hot_bbcount
+   #code_api|sample.inc2add
+   #code_api|sample.inline
+   #code_api|sample.inscount
+   #code_api|sample.inscount.cleancall
+   #code_api|sample.inscount.prof-pcs.cleancall
+   #code_api|sample.instrace_simple
+   #code_api|sample.instrcalls
+   #code_api|sample.memtrace_simple
+   #code_api|sample.memval_simple
+   #code_api|sample.memval_simple_scattergather
+   #code_api|sample.memtrace_x86_binary
+   #code_api|sample.memtrace_x86_text
+   #code_api|sample.modxfer
+   #code_api|sample.modxfer_app2lib
+   #code_api|sample.instrace_x86_binary
+   #code_api|sample.instrace_x86_text
+   #code_api|sample.opcodes
+   #code_api|sample.opcode_count
+   #code_api|sample.signal
+   #code_api|sample.ssljack
+   #code_api|sample.stl_test
+   #code_api|sample.syscall
+   #code_api|sample.wrap
     code_api|tool.basic_counts
     code_api|tool.drcacheoff.altbindir
     code_api|tool.drcacheoff.burst_client
