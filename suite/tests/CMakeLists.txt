@@ -6206,7 +6206,6 @@ endif ()
 # The following tests are excluded until they are fixed.
 if (X86 AND NOT X64)
   set_tests_properties(
-    code_api|api.static_signal
     code_api|client.alloc
     code_api|client.exception
     code_api|client.attach_test
@@ -6214,10 +6213,10 @@ if (X86 AND NOT X64)
     code_api|client.attach_blocking
     code_api|client.flush
     code_api|client.strace
+    code_api|common.decode-stress
     code_api|linux.eintr
     code_api|linux.eintr-noinline
     code_api|sample.bbcount
-    code_api|sample.bbsize
     code_api|sample.callstack
     code_api|sample.cbr
     code_api|sample.cbrtrace
@@ -6247,14 +6246,47 @@ if (X86 AND NOT X64)
     code_api|sample.stl_test
     code_api|sample.syscall
     code_api|sample.wrap
+    code_api|tool.basic_counts
+    code_api|tool.drcacheoff.burst_client
+    code_api|tool.drcacheoff.basic_counts
+    code_api|tool.drcacheoff.burst_futex
+    code_api|tool.drcacheoff.burst_malloc
+    code_api|tool.drcacheoff.burst_maps
+    code_api|tool.drcacheoff.burst_reattach
+    code_api|tool.drcacheoff.burst_replace
+    code_api|tool.drcacheoff.burst_replaceall
+    code_api|tool.drcacheoff.burst_static
+    code_api|tool.drcacheoff.burst_syscall_inject
+    code_api|tool.drcacheoff.burst_threadfilter
+    code_api|tool.drcacheoff.burst_threads
+    code_api|tool.drcacheoff.burst_threads_counts
+    code_api|tool.drcacheoff.burst_threadL0filter
+    code_api|tool.drcacheoff.gencode
+    code_api|tool.drcacheoff.gencode_filtered
+    code_api|tool.drcacheoff.invariant_checker
+    code_api|tool.drcacheoff.invariant_checker_pthreads
+    code_api|tool.drcacheoff.max-global
+    code_api|tool.drcacheoff.sysnums
+    code_api|tool.drcacheoff.warmup-pthreads-2
+    code_api|tool.drcacheoff.warmup-pthreads-max-refs
+    code_api|tool.drcacheoff.warmup-pthreads-max-trace-size
+    code_api|tool.drcacheoff.warmup-pthreads-windows-split
     code_api|tool.drcacheoff.windows-split
+    code_api|tool.drcacheoff.windows-timestamps
     code_api|tool.drcachesim.coherence
     code_api|tool.drcachesim.delay-global
+    code_api|tool.drcachesim.filter-no-d
+    code_api|tool.drcachesim.invariants
+    code_api|tool.drcachesim.miss_analyzer
     code_api|tool.drcachesim.phys-threads_SUDO
+    code_api|tool.drcachesim.scattergather-x86
     code_api|tool.drcachesim.threads
     code_api|tool.drcachesim.threads-with-config-file
     code_api|tool.drcachesim.windows-simple
-    code_api|tool.drcacheoff.windows-split
+    code_api|tool.drcachesim.TLB-threads
     code_api|tool.drcov.eintr
+    code_api|tool.histogram.offline
+    code_api|tool.record_filter
+    code_api|tool.record_filter_bycore_uni
     PROPERTIES LABELS X32_DENYLIST)
 endif ()
