@@ -6204,7 +6204,7 @@ endif ()
 # TODO i#6417: The switch to AMD VM's for GA CI has broken many of our tests.
 # This includes timeouts which increases suite length.
 # The following tests are excluded until they are fixed.
-if (X86 AND NOT X64)
+if (UNIX AND X86 AND NOT X64)
   set_tests_properties(
     code_api|api.detach
     code_api|api.detach_spawn_quick_exit
