@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 # **********************************************************
-# Copyright () 2016-2023 Google, Inc.  All rights reserved.
+# Copyright () 2016-2024 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -203,6 +203,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
         my $issue_no = "";
         my %ignore_failures_32 = ();
         my %ignore_failures_64 = ();
+        my %ignore_failures_sve = ();
         if ($^O eq 'cygwin' ||
             $^O eq 'MSWin32') {
             # FIXME i#2145: ignoring certain Windows CI test failures until
@@ -245,6 +246,10 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api,thread_private,disable_traces|common.decode-stress' => 1, # i#1807
                 'code_api,thread_private,tracedump_binary|common.decode-stress' => 1, # i#1807
                 'code_api|client.file_io' => 1, # i#5802
+                'code_api|tool.drcacheoff.windows-invar' => 1, # i#6599
+                'code_api|tool.drcacheoff.invariant_checker' => 1, # i#6599
+                'code_api|tool.drcacheoff.getretaddr_record_replace_retaddr' => 1, # i#6599
+                'code_api|tool.record_filter' => 1, # i#6599
                 );
 
             %ignore_failures_64 = (
@@ -304,6 +309,9 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 # We list this without any "options|" which will match all variations.
                 'common.floatpc_xl8all' => 1, # i#2267
                 'code_api|client.file_io' => 1, # i#5802
+                # These we have failed to reproduce after many attempts under tmate.
+                'code_api|tool.drcacheoff.burst_traceopts' => 1, # i#6423
+                'code_api|tool.drcacheoff.burst_replaceall' => 1, # i#5412
                 );
             if ($is_long) {
                 # These are important tests so we only ignore in the long suite,
@@ -339,15 +347,37 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                                    'code_api|linux.fib-conflict-early' => 1,
                                    'code_api|linux.mangle_asynch' => 1,
                                    'code_api,tracedump_text,tracedump_origins,syntax_intel|common.loglevel' => 1, # i#1807
-                                   'code_api|client.attach_test' => 1, # i#5740
-                                   'code_api|client.attach_blocking' => 1, # i#5740
                                    'code_api|tool.drcacheoff.rseq' => 1, # i#5734
                                    'code_api|tool.drcacheoff.windows-zlib' => 1, # i#5507
                                    );
+            # FIXME i#5365: fix flaky AArch64 tests running on SVE hardware.
+            # Note that apart from tool.drcachesim.scattergather-aarch64, these
+            # have NOT been built with SVE compiler options and are seen to
+            # fail intermittently on SVE hardware.
+            %ignore_failures_sve = ('code_api|tool.drcacheoff.burst_threads_counts' => 1,
+                                   'code_api|tool.drcachesim.scattergather-aarch64' => 1, # i#3320
+                                   'code_api|tool.drcachesim.threads' => 1,  # i#3320
+                                   'code_api|tool.drcachesim.threads-with-config-file' => 1,  # i#3320
+                                   'code_api|tool.drcachesim.coherence' => 1, # i#3320
+                                   'code_api|tool.drcachesim.miss_analyzer' => 1, # i#3320
+                                   'code_api|tool.drcacheoff.burst_threads' => 1,
+                                   'code_api|tool.drcacheoff.burst_threads_counts' => 1,
+                                   'code_api|tool.drcacheoff.burst_threadL0filter' => 1,
+                                   'code_api|tool.drcacheoff.burst_threadfilter' => 1,
+                                   'code_api|api.static_signal' => 1,
+                                   );
+            # Establish if tests are running on SVE hardware.
+            system('cat /proc/cpuinfo | grep Features | head -1 | grep sve > /dev/null');
+            my $is_sve = ($? >> 8 == 0) ? 1 : 0;
             if ($is_32) {
                 $issue_no = "#2416";
             } else {
-                $issue_no = "#2417";
+                if ($is_sve) {
+                    $issue_no = "#5365";
+                }
+                else {
+                    $issue_no = "#2417";
+                }
             }
         } elsif ($is_x86_64 && ($ENV{'DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY'} eq 'yes') && $args =~ /64_only/) {
             # These AArch64 cross-compiled tests fail on x86-64 QEMU but pass
@@ -387,7 +417,10 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'prof_pcs,thread_private|common.nativeexec_bindnow_opt' => 1, # i#2052
                 );
             %ignore_failures_64 = (
+                'code_api|api.rseq' => 1, # i#6185 i#1807
                 'code_api|tool.drcacheoff.burst_threadfilter' => 1, # i#2941
+                'code_api|client.attach_test' => 1, # i#6452
+                'code_api|client.detach_test' => 1, # i#6536
                 # These are from the long suite.
                 'code_api,opt_memory|common.loglevel' => 1, # i#1807
                 'code_api,opt_speed|common.decode-stress' => 1, # i#1807
@@ -431,7 +464,9 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 if (($is_32 && ($ignore_failures_32{$test} ||
                                 $ignore_failures_32{$test_base_name})) ||
                     (!$is_32 && ($ignore_failures_64{$test} ||
-                                 $ignore_failures_64{$test_base_name}))) {
+                                 $ignore_failures_64{$test_base_name} ||
+                                 $ignore_failures_sve{$test} ||
+                                 $ignore_failures_sve{$test_base_name}))) {
                     $lines[$j] = "\t(ignore: i" . $issue_no . ") " . $lines[$j];
                     $num_ignore++;
                 } elsif ($test =~ /_FLAKY$/) {

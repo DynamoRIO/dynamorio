@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -686,6 +686,7 @@ raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, byte *&buf_i
         return false;
     }
     buf_in = reinterpret_cast<byte *>(buf_base);
+    accumulate_to_statistic(tdata, RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED, 1);
     log(2, "Inserted %d instrs from system call trace template for sysnum %d\n",
         inserted_instr_count, syscall_num);
     return true;
@@ -840,6 +841,8 @@ raw2trace_t::process_marker_additionally(raw2trace_thread_data_t *tdata,
         log(4, "Rseq abort %d\n", tdata->rseq_past_end_);
         if (!adjust_and_emit_rseq_buffer(tdata, marker_val, marker_val))
             return false;
+        if (!append_delayed_branch(tdata, reinterpret_cast<app_pc>(marker_val)))
+            return false;
     } else if (marker_type == TRACE_MARKER_TYPE_RSEQ_ENTRY) {
         if (tdata->rseq_want_rollback_) {
             if (tdata->rseq_buffering_enabled_) {
@@ -880,6 +883,23 @@ raw2trace_t::process_marker_additionally(raw2trace_thread_data_t *tdata,
         log(2, "Maybe-blocking syscall %zu\n", marker_val);
         buf += trace_metadata_writer_t::write_marker(
             buf, TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0);
+    } else if (marker_type == TRACE_MARKER_TYPE_VECTOR_LENGTH) {
+#ifdef AARCH64
+        log(4,
+            "Setting SVE vector length for thread " INT64_FORMAT_STRING " to %zu bytes\n",
+            tdata->tid, marker_val);
+
+        const int new_vl_bits = marker_val * 8;
+        if (dr_get_sve_vector_length() != new_vl_bits) {
+            dr_set_sve_vector_length(new_vl_bits);
+            // Some SVE load/store instructions have an offset which is scaled by a value
+            // that depends on the vector length. These instructions will need to be
+            // re-decoded after the vector length changes.
+            *flush_decode_cache = true;
+        }
+#else
+        log(2, "Ignoring unexpected dynamic vector length marker\n");
+#endif
     }
     return true;
 }
@@ -929,6 +949,7 @@ raw2trace_t::read_header(raw2trace_thread_data_t *tdata,
         header->cache_line_size = proc_get_cache_line_size();
         unread_last_entry(tdata);
     }
+
     return true;
 }
 
@@ -966,8 +987,10 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     thread_id_t tid = header.tid;
     tdata->tid = tid;
 #ifdef BUILD_PT_POST_PROCESSOR
-    if (TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS, tdata->file_type)) {
-        if (syscall_template_file_reader_ == nullptr) {
+    if (TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS |
+                    OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY,
+                tdata->file_type)) {
+        if (syscall_template_file_reader_ != nullptr) {
             tdata->error = "System call trace template injection not supported for "
                            "traces already with kernel parts.";
             return false;
@@ -1085,7 +1108,7 @@ raw2trace_t::get_next_kernel_entry(raw2trace_thread_data_t *tdata,
 bool
 raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall_idx)
 {
-    DR_ASSERT(TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS, tdata->file_type));
+    DR_ASSERT(TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY, tdata->file_type));
     std::unique_ptr<pt_metadata_buf_t> pt_metadata;
     std::unique_ptr<pt_data_buf_t> pt_data =
         get_next_kernel_entry(tdata, pt_metadata, syscall_idx);
@@ -1165,6 +1188,10 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
                                   .size = TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
                                   .addr = sysnum };
     entries.push_back(start_entry);
+    // TODO i#5505: When ir2trace starts adding synthesized read/write memrefs for
+    // the kernel trace, change the trace file type from
+    // OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY to
+    // OFFLINE_FILE_TYPE_KERNEL_SYSCALLS.
     ir2trace_convert_status_t ir2trace_convert_status =
         ir2trace_t::convert(tdata->pt_decode_state_.get(), entries);
     if (ir2trace_convert_status != IR2TRACE_CONV_SUCCESS) {
@@ -1204,7 +1231,8 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
                     "Unknown pc after ir2trace: did ir2trace insert new instr?";
                 return false;
             }
-            if (!append_encoding(tdata, saved_decode_pc, entry.size, buf,
+            if (record_encoding_emitted(tdata, saved_decode_pc) &&
+                !append_encoding(tdata, saved_decode_pc, entry.size, buf,
                                  entries_with_encodings))
                 return false;
         }
@@ -1513,6 +1541,7 @@ raw2trace_t::do_conversion()
             final_trace_instr_count_ += thread_data_[i]->final_trace_instr_count;
             kernel_instr_count_ += thread_data_[i]->kernel_instr_count;
             syscall_traces_decoded_ += thread_data_[i]->syscall_traces_decoded;
+            syscall_traces_injected_ += thread_data_[i]->syscall_traces_injected;
         }
     } else {
         // The files can be converted concurrently.
@@ -1540,6 +1569,7 @@ raw2trace_t::do_conversion()
             final_trace_instr_count_ += tdata->final_trace_instr_count;
             kernel_instr_count_ += tdata->kernel_instr_count;
             syscall_traces_decoded_ += tdata->syscall_traces_decoded;
+            syscall_traces_injected_ += tdata->syscall_traces_injected;
         }
     }
     error = aggregate_and_write_schedule_files();
@@ -1561,6 +1591,8 @@ raw2trace_t::do_conversion()
     VPRINT(1, "Kernel instr count " UINT64_FORMAT_STRING "\n", kernel_instr_count_);
     VPRINT(1, "System call PT traces decoded " UINT64_FORMAT_STRING "\n",
            syscall_traces_decoded_);
+    VPRINT(1, "System call traces injected from template " UINT64_FORMAT_STRING "\n",
+           syscall_traces_injected_);
     VPRINT(1, "Successfully converted %zu thread files\n", thread_data_.size());
     return "";
 }
@@ -1944,6 +1976,11 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             if (tdata->rseq_past_end_) {
                 if (!adjust_and_emit_rseq_buffer(tdata, instr_pc))
                     return false;
+                if (!instr->is_cti()) {
+                    // Write out delayed branches now that we have a target.
+                    if (!append_delayed_branch(tdata, orig_pc))
+                        return false;
+                }
             } else if (instr_pc < tdata->rseq_start_pc_ ||
                        instr_pc >= tdata->rseq_end_pc_) {
                 log(4, "Hit exit to 0x%zx during instrumented rseq run\n", orig_pc);
@@ -2197,6 +2234,9 @@ raw2trace_t::handle_kernel_interrupt_and_markers(raw2trace_thread_data_t *tdata,
                         : 0;
                     if (!adjust_and_emit_rseq_buffer(tdata, static_cast<addr_t>(cur_pc),
                                                      rseq_abort_pc))
+                        return false;
+                    if (!append_delayed_branch(tdata,
+                                               reinterpret_cast<app_pc>(marker_val)))
                         return false;
                 }
                 append = true;
@@ -2561,6 +2601,34 @@ raw2trace_t::rollback_rseq_buffer(raw2trace_thread_data_t *tdata,
         if (type_is_instr(static_cast<trace_type_t>(tdata->rseq_buffer_[i].type)))
             ++decode_end;
     }
+    // If the last instruction after the rollback is a branch, delay the branch.
+    if (remove_start > 0 &&
+        type_is_instr_branch(
+            static_cast<trace_type_t>(tdata->rseq_buffer_[remove_start - 1].type))) {
+        const int last_buffer_idx = remove_start - 1;
+        // Walk backwards to find all the related encodings.
+        int first_encoding_idx;
+        for (first_encoding_idx = last_buffer_idx - 1; first_encoding_idx >= 0;
+             --first_encoding_idx) {
+            if (tdata->rseq_buffer_[first_encoding_idx].type != TRACE_TYPE_ENCODING)
+                break;
+        }
+        const app_pc instr_addr =
+            reinterpret_cast<app_pc>(tdata->rseq_buffer_[last_buffer_idx].addr);
+        app_pc target_pc = 0;
+        for (const auto &branch : tdata->rseq_branch_targets_) {
+            if (branch.pc == instr_addr) {
+                target_pc = branch.target_pc;
+                break;
+            }
+        }
+        if (!write_delayed_branches(tdata, &tdata->rseq_buffer_[first_encoding_idx + 1],
+                                    &tdata->rseq_buffer_[last_buffer_idx] + 1,
+                                    tdata->rseq_decode_pcs_[decode_start - 1], target_pc))
+            return false;
+        remove_start -= last_buffer_idx - first_encoding_idx;
+        decode_start--;
+    }
     log(4, "Rolling back %d entries for rseq: %d-%d\n", remove_end - remove_start,
         remove_start, remove_end);
     tdata->rseq_buffer_.erase(tdata->rseq_buffer_.begin() + remove_start,
@@ -2719,11 +2787,18 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
                 // encoding out so it will change back if we see this PC again.
                 rollback_last_encoding(tdata);
             }
-            for (trace_entry_t *e = toadd; e < buf; e++)
-                tdata->rseq_buffer_.push_back(*e);
-            tdata->rseq_buffer_.push_back(jump);
-            tdata->rseq_decode_pcs_.push_back(encoding);
-            log(4, "Appended synthetic jump 0x%zx -> 0x%zx\n", jump.addr, next_pc);
+            if (delayed_branches_exist(tdata)) {
+                write_delayed_branches(tdata, toadd, buf, nullptr, nullptr);
+                write_delayed_branches(tdata, &jump, &jump + 1, encoding,
+                                       reinterpret_cast<app_pc>(next_pc));
+                log(4, "Delayed synthetic jump 0x%zx -> 0x%zx\n", jump.addr, next_pc);
+            } else {
+                for (trace_entry_t *e = toadd; e < buf; e++)
+                    tdata->rseq_buffer_.push_back(*e);
+                tdata->rseq_buffer_.push_back(jump);
+                tdata->rseq_decode_pcs_.push_back(encoding);
+                log(4, "Appended synthetic jump 0x%zx -> 0x%zx\n", jump.addr, next_pc);
+            }
         }
     }
 
@@ -3271,7 +3346,7 @@ raw2trace_t::open_new_chunk(raw2trace_thread_data_t *tdata)
     tdata->encoding_emitted.clear();
     tdata->last_encoding_emitted = nullptr;
 
-    // TODO i#5538: Add a virtual-to-physical cache and clear it here.
+    // TODO i#6654,i#5538: Add a virtual-to-physical cache and clear it here.
     // We'll need to add a routine for trace_converter_t to call to query our cache --
     // or we can put the cache in trace_converter_t and have it clear the cache via
     // a new new-chunk return value from write() and append_delayed_branch().
@@ -3759,6 +3834,9 @@ raw2trace_t::accumulate_to_statistic(raw2trace_thread_data_t *tdata,
     case RAW2TRACE_STAT_SYSCALL_TRACES_DECODED:
         tdata->syscall_traces_decoded += value;
         break;
+    case RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED:
+        tdata->syscall_traces_injected += value;
+        break;
     case RAW2TRACE_STAT_MAX:
     default: DR_ASSERT(false);
     }
@@ -3778,6 +3856,7 @@ raw2trace_t::get_statistic(raw2trace_statistic_t stat)
     case RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT: return final_trace_instr_count_;
     case RAW2TRACE_STAT_KERNEL_INSTR_COUNT: return kernel_instr_count_;
     case RAW2TRACE_STAT_SYSCALL_TRACES_DECODED: return syscall_traces_decoded_;
+    case RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED: return syscall_traces_injected_;
     case RAW2TRACE_STAT_MAX:
     default: DR_ASSERT(false); return 0;
     }

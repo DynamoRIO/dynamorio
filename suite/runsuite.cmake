@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2022 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2024 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -91,6 +91,11 @@ if (UNIX AND NOT APPLE AND NOT ANDROID AND NOT cross_riscv64_linux_only)
     # just a few tests.
     set(extra_ctest_args INCLUDE_LABEL UBUNTU_22)
     set(arg_debug_only ON)
+  elseif (arg_32_only AND NOT cross_aarchxx_linux_only AND NOT cross_android_only)
+    # TODO i#6417: The switch to AMD VM's for GA CI has broken many of our tests.
+    # This includes timeouts which increases suite length.
+    # Until we get ths x86-32 job back green, we drop back to a small set of tests.
+    set(extra_ctest_args INCLUDE_LABEL UBUNTU_22)
   endif ()
 endif ()
 
@@ -138,9 +143,10 @@ endif()
 
 if (TEST_LONG)
   set(DO_ALL_BUILDS ON)
-  # i#2974: We skip tests marked _FLAKY since we have no other mechanism to
-  # have CDash ignore them and avoid going red and sending emails.
-  # We rely on our CI for a history of _FLAKY results.
+  # i#2974: Skip tests marked _FLAKY to avoid test runs going red.
+  # This is the less preferred way of marking flaky tests, and is for use for
+  # lower priority tests. The preferred mechanism is to use the ignored section
+  # in runsuite_wrapper.pl. We rely on our CI for a history of _FLAKY results.
   set(base_cache "${base_cache}
     ${build_tests}
     TEST_LONG:BOOL=ON

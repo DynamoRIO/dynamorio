@@ -72,6 +72,14 @@ dynamorio_mach_syscall(uint sysnum, uint num_args, ...);
 #    else
 ptr_int_t
 dynamorio_syscall(uint sysnum, uint num_args, ...);
+/* Wrapper for clone().
+ * N.B. func must not return.
+ * On x86 (32 and 64-bit) this supports passing NULL for newsp which is just
+ * shorthand for the child using the same value as the parent.
+ */
+thread_id_t
+dynamorio_clone(uint flags, byte *newsp, void *ptid, void *tls, void *ctid,
+                void (*func)(void));
 #    endif
 #endif
 

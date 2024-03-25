@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,6 +35,7 @@
 #include "options.h"
 
 #include <cstdint>
+#include <limits>
 #include <string>
 
 #include "dr_api.h" // For IF_X86_ELSE.
@@ -289,8 +290,9 @@ droption_t<bool> op_cpu_scheduling(
     "round-robin fashion.  This option causes the scheduler to instead use the recorded "
     "cpu that each thread executed on (at a granularity of the trace buffer size) "
     "for scheduling, mapping traced cpu's to cores and running each segment of each "
-    "thread "
-    "on the core that owns the recorded cpu for that segment.");
+    "thread on the core that owns the recorded cpu for that segment. "
+    "This option is not supported with -core_serial; use "
+    "-cpu_schedule_file with -core_serial instead.");
 
 droption_t<bytesize_t> op_max_trace_size(
     DROPTION_SCOPE_CLIENT, "max_trace_size", 0,
@@ -456,13 +458,17 @@ droption_t<std::string>
                           "Specifies the replacement policy for TLBs. "
                           "Supported policies: LFU (Least Frequently Used).");
 
+// TODO i#6660: Add "-tool" alias as these are not all "simulators".
 droption_t<std::string>
     op_simulator_type(DROPTION_SCOPE_FRONTEND, "simulator_type", CPU_CACHE,
-                      "Specifies the types of simulators, separated by a colon (\":\").",
+                      "Specifies which trace analysis tool(s) to run.  Multiple tools "
+                      "can be specified, separated by a colon (\":\").",
                       "Predefined types: " CPU_CACHE ", " MISS_ANALYZER ", " TLB
                       ", " REUSE_DIST ", " REUSE_TIME ", " HISTOGRAM ", " BASIC_COUNTS
-                      ", " INVARIANT_CHECKER ", or " SCHEDULE_STATS
-                      ". The external types: name of a tool identified by a "
+                      ", " INVARIANT_CHECKER ", " SCHEDULE_STATS ", or " RECORD_FILTER
+                      ". The " RECORD_FILTER " tool cannot be combined with the others "
+                      "as it operates on raw disk records. "
+                      "To invoke an external tool: specify its name as identified by a "
                       "name.drcachesim config file in the DR tools directory.");
 
 droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 64,
@@ -520,7 +526,17 @@ droption_t<bytesize_t> op_interval_microseconds(
     "Enable periodic heartbeats for intervals of given microseconds in the trace.",
     "Desired length of each trace interval, defined in microseconds of trace time. "
     "Trace intervals are measured using the TRACE_MARKER_TYPE_TIMESTAMP marker values. "
-    "If set, analysis tools receive a callback at the end of each interval.");
+    "If set, analysis tools receive a callback at the end of each interval, and one "
+    "at the end of trace analysis to print the whole-trace interval results.");
+
+droption_t<bytesize_t> op_interval_instr_count(
+    DROPTION_SCOPE_FRONTEND, "interval_instr_count", 0,
+    "Enable periodic heartbeats for intervals of given per-shard instr count. ",
+    "Desired length of each trace interval, defined in instr count of each shard. "
+    "With -parallel, this does not support whole trace intervals, only per-shard "
+    "intervals. If set, analysis tools receive a callback at the end of each interval, "
+    "and separate callbacks per shard at the end of trace analysis to print each "
+    "shard's interval results.");
 
 droption_t<int>
     op_only_thread(DROPTION_SCOPE_FRONTEND, "only_thread", 0,
@@ -888,6 +904,21 @@ droption_t<std::string>
                          "Applies to -core_sharded and -core_serial. "
                          "Path with stored as-traced schedule for replay.");
 #endif
+droption_t<std::string> op_sched_switch_file(
+    DROPTION_SCOPE_FRONTEND, "sched_switch_file", "",
+    "Path to file holding context switch sequences",
+    "Applies to -core_sharded and -core_serial.  Path to file holding context switch "
+    "sequences.  The file can contain multiple sequences each with regular trace headers "
+    "and the sequence proper bracketed by TRACE_MARKER_TYPE_CONTEXT_SWITCH_START and "
+    "TRACE_MARKER_TYPE_CONTEXT_SWITCH_END markers.");
+
+droption_t<bool> op_sched_randomize(
+    DROPTION_SCOPE_FRONTEND, "sched_randomize", false,
+    "Pick next inputs randomly on context switches",
+    "Applies to -core_sharded and -core_serial.  Disables the normal methods of "
+    "choosing the next input based on priority, timestamps (if -sched_order_time is "
+    "set), and FIFO order and instead selects the next input randomly. "
+    "This is intended for experimental use in sensitivity studies.");
 
 // Schedule_stats options.
 droption_t<uint64_t>
@@ -901,6 +932,49 @@ droption_t<std::string> op_syscall_template_file(
     "Path to the file that contains system call trace templates. "
     "If set, system call traces will be injected from the file "
     "into the resulting trace.");
+
+// Record filter options.
+droption_t<uint64_t> op_filter_stop_timestamp(
+    DROPTION_SCOPE_FRONTEND, "filter_stop_timestamp", 0, 0,
+    // Wrap max in parens to work around Visual Studio compiler issues with the
+    // max macro (even despite NOMINMAX defined above).
+    (std::numeric_limits<uint64_t>::max)(),
+    "Timestamp (in us) in the trace when to stop filtering.",
+    "Record filtering will be disabled (everything will be output) "
+    "when the tool sees a TRACE_MARKER_TYPE_TIMESTAMP marker with "
+    "timestamp greater than the specified value.");
+
+droption_t<int> op_filter_cache_size(
+    DROPTION_SCOPE_FRONTEND, "filter_cache_size", 0,
+    "Enable data cache filter with given size (in bytes).",
+    "Enable data cache filter with given size (in bytes), with 64 byte "
+    "line size and a direct mapped LRU cache.");
+
+droption_t<std::string>
+    op_filter_trace_types(DROPTION_SCOPE_FRONTEND, "filter_trace_types", "",
+                          "Comma-separated integers for trace types to remove.",
+                          "Comma-separated integers for trace types to remove. "
+                          "See trace_type_t for the list of trace entry types.");
+
+droption_t<std::string>
+    op_filter_marker_types(DROPTION_SCOPE_FRONTEND, "filter_marker_types", "",
+                           "Comma-separated integers for marker types to remove.",
+                           "Comma-separated integers for marker types to remove. "
+                           "See trace_marker_type_t for the list of marker types.");
+
+droption_t<uint64_t> op_trim_before_timestamp(
+    DROPTION_SCOPE_ALL, "trim_before_timestamp", 0, 0,
+    (std::numeric_limits<uint64_t>::max)(),
+    "Trim records until this timestamp (in us) in the trace.",
+    "Removes all records (after headers) before the first TRACE_MARKER_TYPE_TIMESTAMP "
+    "marker in the trace with timestamp greater than or equal to the specified value.");
+
+droption_t<uint64_t> op_trim_after_timestamp(
+    DROPTION_SCOPE_ALL, "trim_after_timestamp", (std::numeric_limits<uint64_t>::max)(), 0,
+    (std::numeric_limits<uint64_t>::max)(),
+    "Trim records after this timestamp (in us) in the trace.",
+    "Removes all records from the first TRACE_MARKER_TYPE_TIMESTAMP marker with "
+    "timestamp larger than the specified value.");
 
 } // namespace drmemtrace
 } // namespace dynamorio

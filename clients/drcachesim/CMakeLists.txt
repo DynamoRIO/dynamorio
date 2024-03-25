@@ -277,7 +277,7 @@ target_link_libraries(drcachesim drmemtrace_simulator drmemtrace_reuse_distance
   drmemtrace_histogram drmemtrace_reuse_time drmemtrace_basic_counts
   drmemtrace_opcode_mix drmemtrace_syscall_mix drmemtrace_view drmemtrace_func_view
   drmemtrace_raw2trace directory_iterator drmemtrace_invariant_checker
-  drmemtrace_schedule_stats)
+  drmemtrace_schedule_stats drmemtrace_record_filter)
 if (UNIX)
     target_link_libraries(drcachesim dl)
 endif ()
@@ -511,6 +511,9 @@ macro(add_drmemtrace name type)
   target_link_libraries(${name} ${zlib_libs})
   if (liblz4)
     target_link_libraries(${name} lz4)
+  endif ()
+  if (RISCV64)
+    target_link_libraries(${name} atomic)
   endif ()
   add_dependencies(${name} api_headers)
   install_target(${name} ${INSTALL_CLIENTS_LIB})
@@ -819,7 +822,7 @@ if (BUILD_TESTS)
     drmemtrace_histogram drmemtrace_reuse_time drmemtrace_basic_counts
     drmemtrace_opcode_mix drmemtrace_syscall_mix drmemtrace_view drmemtrace_func_view
     drmemtrace_raw2trace directory_iterator drmemtrace_invariant_checker
-    drmemtrace_schedule_stats drmemtrace_analyzer)
+    drmemtrace_schedule_stats drmemtrace_analyzer drmemtrace_record_filter)
   if (UNIX)
     target_link_libraries(tool.drcachesim.core_sharded dl)
   endif ()

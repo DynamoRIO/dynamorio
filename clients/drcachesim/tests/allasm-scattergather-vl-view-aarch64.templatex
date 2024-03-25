@@ -1,0 +1,9 @@
+.*
+#if __ARM_FEATURE_SVE_BITS == 128
+.*<marker: vector length 16 bytes>
+#elif __ARM_FEATURE_SVE_BITS == 256
+.*<marker: vector length 32 bytes>
+#elif __ARM_FEATURE_SVE_BITS == 512
+.*<marker: vector length 64 bytes>
+#endif
+.*

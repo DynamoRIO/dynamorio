@@ -817,12 +817,18 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
              * cl_args->stack. But we expect the highest (non-inclusive)
              * in the clone record's app_thread_xsp.
              */
-            record->app_thread_xsp = dr_clone_args->stack + dr_clone_args->stack_size;
+            if (dr_clone_args->stack == 0)
+                record->app_thread_xsp = get_mcontext(dcontext)->xsp;
+            else
+                record->app_thread_xsp = dr_clone_args->stack + dr_clone_args->stack_size;
             record->clone_flags = dr_clone_args->flags;
             record->app_clone_args = app_clone_args;
         } else {
 #endif
-            record->app_thread_xsp = *app_thread_xsp;
+            if (*app_thread_xsp == 0)
+                record->app_thread_xsp = get_mcontext(dcontext)->xsp;
+            else
+                record->app_thread_xsp = *app_thread_xsp;
             record->clone_flags = dcontext->sys_param0;
             IF_LINUX(record->app_clone_args = NULL);
 #ifdef LINUX
@@ -3166,10 +3172,10 @@ translate_sigcontext(dcontext_t *dcontext, kernel_ucontext_t *uc, bool avoid_fai
 
 /* Takes an os-specific context */
 void
-thread_set_self_context(void *cxt)
+thread_set_self_context(void *cxt, bool is_detach_external)
 {
 #ifdef X86
-    if (!INTERNAL_OPTION(use_sigreturn_setcontext)) {
+    if (!INTERNAL_OPTION(use_sigreturn_setcontext) || is_detach_external) {
         sigcontext_t *sc = (sigcontext_t *)cxt;
         dr_jmp_buf_t buf;
         buf.xbx = sc->SC_XBX;
@@ -3311,7 +3317,7 @@ thread_set_segment_registers(sigcontext_t *sc)
 
 /* Takes a priv_mcontext_t */
 void
-thread_set_self_mcontext(priv_mcontext_t *mc)
+thread_set_self_mcontext(priv_mcontext_t *mc, bool is_detach_external)
 {
     kernel_ucontext_t ucxt;
     sig_full_cxt_t sc_full;
@@ -3325,7 +3331,7 @@ thread_set_self_mcontext(priv_mcontext_t *mc)
     IF_ARM(
         set_pc_mode_in_cpsr(sc_full.sc, dr_get_isa_mode(get_thread_private_dcontext())));
     /* thread_set_self_context will fill in the real fp/simd state for x86 */
-    thread_set_self_context((void *)sc_full.sc);
+    thread_set_self_context((void *)sc_full.sc, is_detach_external);
     ASSERT_NOT_REACHED();
 }
 
@@ -4142,6 +4148,7 @@ send_signal_to_client(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
     /* i#207: fragment tag and fcache start pc on fault. */
     si.fault_fragment_info.tag = NULL;
     si.fault_fragment_info.cache_start_pc = NULL;
+    si.fault_fragment_info.ilist = NULL;
     /* i#182/PR 449996: we provide the pre-translation context */
     if (raw_sc != NULL) {
         fragment_t wrapper;
@@ -4755,8 +4762,8 @@ find_next_fragment_from_gencode(dcontext_t *dcontext, sigcontext_t *sc)
         if (f == NULL && sc->SC_XCX != 0)
             f = fragment_lookup(dcontext, (app_pc)sc->SC_XCX);
 #elif defined(RISCV64)
-        /* FIXME i#3544: Not implemented */
-        ASSERT_NOT_IMPLEMENTED(false);
+        if (f == NULL && sc->SC_A2 != 0)
+            f = fragment_lookup(dcontext, (app_pc)(sc->SC_A2));
 #else
 #    error Unsupported arch.
 #endif
@@ -7917,10 +7924,15 @@ signal_to_itimer_type(int sig)
 static bool
 alarm_signal_has_DR_only_itimer(dcontext_t *dcontext, int signal)
 {
-    thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     int which = signal_to_itimer_type(signal);
     if (which == -1)
         return false;
+#ifdef LINUX
+    if (dcontext == GLOBAL_DCONTEXT) {
+        return false;
+    }
+#endif
+    thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     if (info->shared_itimer)
         acquire_recursive_lock(&(*info->itimer)[which].lock);
     bool DR_only =
@@ -8480,8 +8492,13 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_siginfo_t *siginfo,
 
     if (is_sigqueue_supported() && SUSPEND_SIGNAL == NUDGESIG_SIGNUM) {
         nudge_arg_t *arg = (nudge_arg_t *)siginfo;
-        if (!TEST(NUDGE_IS_SUSPEND, arg->flags))
+        if (!TEST(NUDGE_IS_SUSPEND, arg->flags)) {
+#ifdef LINUX
+            sig_full_initialize(&sc_full, ucxt);
+            ostd->nudged_sigcxt = &sc_full;
+#endif
             return handle_nudge_signal(dcontext, siginfo, ucxt);
+        }
     }
 
     /* We distinguish from an app signal further below from the rare case of an

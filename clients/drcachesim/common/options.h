@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,6 +36,9 @@
 #define _OPTIONS_H_ 1
 
 // Tool names (for -simulator_type option).
+// TODO i#6660: When we add "-tool", add "cache_simulator" or "drcachesim"
+// instead of just "-tool cache".  Ditto for "TLB".
+#define CPU_CACHE "cache"
 #define MISS_ANALYZER "miss_analyzer"
 #define TLB "TLB"
 #define HISTOGRAM "histogram"
@@ -48,6 +51,7 @@
 #define FUNC_VIEW "func_view"
 #define INVARIANT_CHECKER "invariant_checker"
 #define SCHEDULE_STATS "schedule_stats"
+#define RECORD_FILTER "record_filter"
 
 // Constants used by specific tools.
 #define REPLACE_POLICY_NON_SPECIFIED ""
@@ -56,7 +60,6 @@
 #define REPLACE_POLICY_FIFO "FIFO"
 #define PREFETCH_POLICY_NEXTLINE "nextline"
 #define PREFETCH_POLICY_NONE "none"
-#define CPU_CACHE "cache"
 #define CACHE_TYPE_INSTRUCTION "instruction"
 #define CACHE_TYPE_DATA "data"
 #define CACHE_TYPE_UNIFIED "unified"
@@ -158,6 +161,8 @@ extern dynamorio::droption::droption_t<std::string> op_tracer_alt;
 extern dynamorio::droption::droption_t<std::string> op_tracer_ops;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t>
     op_interval_microseconds;
+extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t>
+    op_interval_instr_count;
 extern dynamorio::droption::droption_t<int> op_only_thread;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t> op_skip_instrs;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t> op_skip_refs;
@@ -200,8 +205,16 @@ extern dynamorio::droption::droption_t<std::string> op_record_file;
 extern dynamorio::droption::droption_t<std::string> op_replay_file;
 extern dynamorio::droption::droption_t<std::string> op_cpu_schedule_file;
 #endif
+extern dynamorio::droption::droption_t<std::string> op_sched_switch_file;
+extern dynamorio::droption::droption_t<bool> op_sched_randomize;
 extern dynamorio::droption::droption_t<uint64_t> op_schedule_stats_print_every;
 extern dynamorio::droption::droption_t<std::string> op_syscall_template_file;
+extern dynamorio::droption::droption_t<uint64_t> op_filter_stop_timestamp;
+extern dynamorio::droption::droption_t<int> op_filter_cache_size;
+extern dynamorio::droption::droption_t<std::string> op_filter_trace_types;
+extern dynamorio::droption::droption_t<std::string> op_filter_marker_types;
+extern dynamorio::droption::droption_t<uint64_t> op_trim_before_timestamp;
+extern dynamorio::droption::droption_t<uint64_t> op_trim_after_timestamp;
 
 } // namespace drmemtrace
 } // namespace dynamorio

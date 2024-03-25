@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -34,7 +34,8 @@
  ****************************************************************************
 \mainpage Home
 
-\copydoc page_home
+\brief \copybrief page_home
+\details \copydetails page_home
 
 <div style="display:none;">
 \subpage page_home

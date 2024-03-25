@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -83,6 +83,54 @@ private:
     int index_ = -1;
 };
 
+// A mock record reader that iterates over a vector of records.
+class mock_record_reader_t : public record_reader_t {
+public:
+    mock_record_reader_t() = default;
+    explicit mock_record_reader_t(const std::vector<trace_entry_t> &trace)
+        : trace_(trace)
+    {
+        verbosity_ = 3;
+    }
+    bool
+    init() override
+    {
+        eof_ = false;
+        ++*this;
+        return true;
+    }
+    bool
+    read_next_entry() override
+    {
+        ++index_;
+        if (index_ >= static_cast<int>(trace_.size())) {
+            eof_ = true;
+            return false;
+        }
+        cur_entry_ = trace_[index_];
+        return true;
+    }
+    std::string
+    get_stream_name() const override
+    {
+        return "";
+    }
+    bool
+    open_single_file(const std::string &input_path) override
+    {
+        return false;
+    }
+    bool
+    open_input_file() override
+    {
+        return false;
+    }
+
+private:
+    std::vector<trace_entry_t> trace_;
+    int index_ = -1;
+};
+
 static inline trace_entry_t
 make_memref(addr_t addr, trace_type_t type = TRACE_TYPE_READ, unsigned short size = 1)
 {
@@ -109,6 +157,15 @@ make_exit(memref_tid_t tid)
     trace_entry_t entry;
     entry.type = TRACE_TYPE_THREAD_EXIT;
     entry.addr = static_cast<addr_t>(tid);
+    return entry;
+}
+
+static inline trace_entry_t
+make_header(int version)
+{
+    trace_entry_t entry;
+    entry.type = TRACE_TYPE_HEADER;
+    entry.addr = version;
     return entry;
 }
 
@@ -165,6 +222,16 @@ make_marker(trace_marker_type_t type, uintptr_t value)
     entry.type = TRACE_TYPE_MARKER;
     entry.size = static_cast<unsigned short>(type);
     entry.addr = value;
+    return entry;
+}
+
+static inline trace_entry_t
+make_encoding(unsigned short size, addr_t encoding)
+{
+    trace_entry_t entry;
+    entry.type = TRACE_TYPE_ENCODING;
+    entry.size = size;
+    entry.addr = encoding;
     return entry;
 }
 

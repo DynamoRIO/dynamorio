@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,6 +39,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <utility>
 #include <unordered_map>
 
 #include "dr_api.h" // Must be before trace_entry.h from analysis_tool.h.
@@ -81,9 +82,61 @@ public:
     std::string
     parallel_shard_error(void *shard_data) override;
 
+    // Interval support.
+    interval_state_snapshot_t *
+    generate_interval_snapshot(uint64_t interval_id) override;
+    interval_state_snapshot_t *
+    combine_interval_snapshots(
+        const std::vector<const interval_state_snapshot_t *> latest_shard_snapshots,
+        uint64_t interval_end_timestamp) override;
+    bool
+    print_interval_results(
+        const std::vector<interval_state_snapshot_t *> &interval_snapshots) override;
+    bool
+    release_interval_snapshot(interval_state_snapshot_t *interval_snapshot) override;
+    interval_state_snapshot_t *
+    generate_shard_interval_snapshot(void *shard_data, uint64_t interval_id) override;
+
+    // Convert the captured cumulative snapshots to deltas.
+    bool
+    finalize_interval_snapshots(
+        std::vector<interval_state_snapshot_t *> &interval_snapshots) override;
+
 protected:
+    std::string
+    get_category_names(uint category);
+
+    struct opcode_data_t {
+        opcode_data_t()
+            : opcode(OP_INVALID)
+            , category(DR_INSTR_CATEGORY_UNCATEGORIZED)
+        {
+        }
+        opcode_data_t(int opcode, uint category)
+            : opcode(opcode)
+            , category(category)
+        {
+        }
+        int opcode;
+        /*
+         * The category field is a uint instead of a dr_instr_category_t because
+         * multiple category bits can be set when an instruction belongs to more
+         * than one category.  We assume 32 bits (i.e., 32 categories) is enough
+         * to be future-proof.
+         */
+        uint category;
+    };
+
+    class snapshot_t : public interval_state_snapshot_t {
+    public:
+        // Snapshot the counts as cumulative stats, and then converted them to deltas in
+        // finalize_interval_snapshots().  Printed interval results are all deltas.
+        std::unordered_map<int, int64_t> opcode_counts_;
+        std::unordered_map<uint, int64_t> category_counts_;
+    };
+
     struct worker_data_t {
-        std::unordered_map<app_pc, int> opcode_cache;
+        std::unordered_map<app_pc, opcode_data_t> opcode_data_cache;
     };
 
     struct shard_data_t {
@@ -103,6 +156,7 @@ protected:
         worker_data_t *worker;
         int64_t instr_count;
         std::unordered_map<int, int64_t> opcode_counts;
+        std::unordered_map<uint, int64_t> category_counts;
         std::string error;
         app_pc last_trace_module_start;
         size_t last_trace_module_size;
@@ -135,7 +189,7 @@ protected:
     // must match ours.
     raw2trace_directory_t directory_;
 
-    std::unordered_map<memref_tid_t, shard_data_t *> shard_map_;
+    std::unordered_map<int, shard_data_t *> shard_map_;
     // This mutex is only needed in parallel_shard_init.  In all other accesses to
     // shard_map (process_memref, print_results) we are single-threaded.
     std::mutex shard_map_mutex_;

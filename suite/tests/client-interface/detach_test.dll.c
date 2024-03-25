@@ -39,11 +39,18 @@
 
 static thread_id_t injection_tid;
 static bool first_thread = true;
+static bool saw_attach_event = false;
 
 static void
 dr_exit(void)
 {
+    if (!saw_attach_event)
+        dr_fprintf(STDERR, "Error: never saw attach event!\n");
+#ifdef WINDOWS
     dr_fprintf(STDERR, "done\n");
+#else
+        /* The app prints 'done' for us. */
+#endif
 }
 
 static void
@@ -87,7 +94,8 @@ dr_exception_event(void *drcontext, dr_exception_t *excpt)
 static void
 event_post_attach(void)
 {
-    dr_fprintf(STDERR, "attach\n");
+    // We do not print here as the ordering is non-deterministic vs thread init.
+    saw_attach_event = true;
 }
 
 static void

@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2020-2023 Google, Inc.  All rights reserved.
+# Copyright (c) 2020-2024 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -81,7 +81,8 @@ jobs:
         sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
           liblz4-dev g++-multilib libunwind-dev
         sudo add-apt-repository 'deb [arch=i386] http://us.archive.ubuntu.com/ubuntu focal main'
-        apt download libunwind8:i386 libunwind-dev:i386 liblzma5:i386
+        apt download libunwind8:i386 libunwind-dev:i386 liblzma5:i386 \
+          zlib1g:i386 zlib1g-dev:i386
         mkdir ../extract
         for i in *.deb; do dpkg-deb -x $i ../extract; done
         sudo rsync -av ../extract/usr/lib/i386-linux-gnu/ /usr/lib/i386-linux-gnu/
@@ -470,7 +471,7 @@ jobs:
         7z x c:\projects\install\doxygen.zip -oc:\projects\install\doxygen > nul
         set PATH=c:\projects\install\doxygen;%PATH%
         dir "c:\Program Files (x86)\WiX Toolset"*
-        set PATH=C:\Program Files (x86)\WiX Toolset v3.11\bin;%PATH%
+        set PATH=C:\Program Files (x86)\WiX Toolset v3.14\bin;%PATH%
         call "C:/Program Files (x86)/Microsoft Visual Studio/2019/Enterprise/VC/Auxiliary/Build/vcvars32.bat"
         echo ------ Running suite ------
         echo PATH is "%PATH%"

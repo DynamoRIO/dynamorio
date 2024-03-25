@@ -42,6 +42,7 @@
 #include <string.h>
 
 #include <algorithm>
+#include <cassert>
 #include <iomanip>
 #include <iostream>
 #include <memory>
@@ -164,6 +165,17 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
                 " but tool built for " + trace_arch_string(build_target_arch_type());
             return false;
         }
+    } else if (memref.marker.type == TRACE_TYPE_MARKER &&
+               memref.marker.marker_type == TRACE_MARKER_TYPE_VECTOR_LENGTH) {
+#ifdef AARCH64
+        const int new_vl_bits = memref.marker.marker_value * 8;
+        if (dr_get_sve_vector_length() != new_vl_bits) {
+            dr_set_sve_vector_length(new_vl_bits);
+            // Changing the vector length can change the IR representation of some SVE
+            // instructions but it will never change the opcode so we don't need to
+            // flush the opcode cache.
+        }
+#endif
     }
     if (!type_is_instr(memref.instr.type) &&
         memref.data.type != TRACE_TYPE_INSTR_NO_FETCH) {
@@ -178,7 +190,7 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         decode_pc = const_cast<app_pc>(memref.instr.encoding);
         if (memref.instr.encoding_is_new) {
             // The code may have changed: invalidate the cache.
-            shard->worker->opcode_cache.erase(trace_pc);
+            shard->worker->opcode_data_cache.erase(trace_pc);
         }
     } else {
         // Legacy trace support where we need the binaries.
@@ -210,9 +222,11 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         }
     }
     int opcode;
-    auto cached_opcode = shard->worker->opcode_cache.find(trace_pc);
-    if (cached_opcode != shard->worker->opcode_cache.end()) {
-        opcode = cached_opcode->second;
+    uint category;
+    auto cached_opcode_category = shard->worker->opcode_data_cache.find(trace_pc);
+    if (cached_opcode_category != shard->worker->opcode_data_cache.end()) {
+        opcode = cached_opcode_category->second.opcode;
+        category = cached_opcode_category->second.category;
     } else {
         instr_t instr;
         instr_init(dcontext_.dcontext, &instr);
@@ -225,10 +239,12 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             return false;
         }
         opcode = instr_get_opcode(&instr);
-        shard->worker->opcode_cache[trace_pc] = opcode;
+        category = instr_get_category(&instr);
+        shard->worker->opcode_data_cache[trace_pc] = opcode_data_t(opcode, category);
         instr_free(dcontext_.dcontext, &instr);
     }
     ++shard->opcode_counts[opcode];
+    ++shard->category_counts[category];
     return true;
 }
 
@@ -252,7 +268,37 @@ opcode_mix_t::process_memref(const memref_t &memref)
 static bool
 cmp_val(const std::pair<int, int64_t> &l, const std::pair<int, int64_t> &r)
 {
-    return (l.second > r.second);
+    return (l.second > r.second) || (l.second == r.second && l.first < r.first);
+}
+
+std::string
+opcode_mix_t::get_category_names(uint category)
+{
+    std::string category_name;
+    if (category == DR_INSTR_CATEGORY_UNCATEGORIZED) {
+        category_name += instr_get_category_name(DR_INSTR_CATEGORY_UNCATEGORIZED);
+        return category_name;
+    }
+
+    const uint max_mask = 0x80000000;
+    for (uint mask = 0x1; mask <= max_mask; mask <<= 1) {
+        if (TESTANY(mask, category)) {
+            if (category_name.length() > 0) {
+                category_name += " ";
+            }
+            category_name +=
+                instr_get_category_name(static_cast<dr_instr_category_t>(mask));
+        }
+
+        /*
+         * Guard against 32 bit overflow.
+         */
+        if (mask == max_mask) {
+            break;
+        }
+    }
+
+    return category_name;
 }
 
 bool
@@ -267,6 +313,9 @@ opcode_mix_t::print_results()
             for (const auto &keyvals : shard.second->opcode_counts) {
                 total.opcode_counts[keyvals.first] += keyvals.second;
             }
+            for (const auto &keyvals : shard.second->category_counts) {
+                total.category_counts[keyvals.first] += keyvals.second;
+            }
         }
     }
     std::cerr << TOOL_NAME << " results:\n";
@@ -278,6 +327,123 @@ opcode_mix_t::print_results()
         std::cerr << std::setw(15) << keyvals.second << " : " << std::setw(9)
                   << decode_opcode_name(keyvals.first) << "\n";
     }
+    std::cerr << "\n";
+    std::cerr << std::setw(15) << total.category_counts.size()
+              << " : sets of categories\n";
+    std::vector<std::pair<uint, int64_t>> sorted_category_counts(
+        total.category_counts.begin(), total.category_counts.end());
+    std::sort(sorted_category_counts.begin(), sorted_category_counts.end(), cmp_val);
+    for (const auto &keyvals : sorted_category_counts) {
+        std::cerr << std::setw(15) << keyvals.second << " : " << std::setw(9)
+                  << get_category_names(keyvals.first) << "\n";
+    }
+
+    return true;
+}
+
+opcode_mix_t::interval_state_snapshot_t *
+opcode_mix_t::generate_interval_snapshot(uint64_t interval_id)
+{
+    return generate_shard_interval_snapshot(&serial_shard_, interval_id);
+}
+
+opcode_mix_t::interval_state_snapshot_t *
+opcode_mix_t::generate_shard_interval_snapshot(void *shard_data, uint64_t interval_id)
+{
+    assert(shard_data != nullptr);
+    auto &shard = *reinterpret_cast<shard_data_t *>(shard_data);
+    auto *snap = new snapshot_t;
+    snap->opcode_counts_ = shard.opcode_counts;
+    snap->category_counts_ = shard.category_counts;
+    return snap;
+}
+
+bool
+opcode_mix_t::finalize_interval_snapshots(
+    std::vector<interval_state_snapshot_t *> &interval_snapshots)
+{
+    // Loop through snapshots in reverse order, subtracting the *earlier*
+    // snapshot's cumulative values from this snapshot's cumulative values, to get
+    // deltas.  The first snapshot needs no updates, obviously.
+    for (int i = static_cast<int>(interval_snapshots.size()) - 1; i > 0; --i) {
+        auto &this_snap = *reinterpret_cast<snapshot_t *>(interval_snapshots[i]);
+        auto &prior_snap = *reinterpret_cast<snapshot_t *>(interval_snapshots[i - 1]);
+        for (auto &opc_count : this_snap.opcode_counts_) {
+            opc_count.second -= prior_snap.opcode_counts_[opc_count.first];
+        }
+        for (auto &cat_count : this_snap.category_counts_) {
+            cat_count.second -= prior_snap.category_counts_[cat_count.first];
+        }
+    }
+    return true;
+}
+
+opcode_mix_t::interval_state_snapshot_t *
+opcode_mix_t::combine_interval_snapshots(
+    const std::vector<const interval_state_snapshot_t *> latest_shard_snapshots,
+    uint64_t interval_end_timestamp)
+{
+    snapshot_t *super_snap = new snapshot_t;
+    for (const interval_state_snapshot_t *base_snap : latest_shard_snapshots) {
+        const auto *snap = reinterpret_cast<const snapshot_t *>(base_snap);
+        // Skip nullptrs and snapshots from different intervals.
+        if (snap == nullptr ||
+            snap->get_interval_end_timestamp() != interval_end_timestamp) {
+            continue;
+        }
+        for (const auto opc_count : snap->opcode_counts_) {
+            super_snap->opcode_counts_[opc_count.first] += opc_count.second;
+        }
+        for (const auto cat_count : snap->category_counts_) {
+            super_snap->category_counts_[cat_count.first] += cat_count.second;
+        }
+    }
+    return super_snap;
+}
+
+bool
+opcode_mix_t::print_interval_results(
+    const std::vector<interval_state_snapshot_t *> &interval_snapshots)
+{
+    // Number of opcodes and categories to print per interval.
+    constexpr int PRINT_TOP_N = 3;
+    std::cerr << "There were " << interval_snapshots.size() << " intervals created.\n";
+    for (auto *base_snap : interval_snapshots) {
+        const auto *snap = reinterpret_cast<const snapshot_t *>(base_snap);
+        std::cerr << "ID:" << snap->get_interval_id() << " ending at instruction "
+                  << snap->get_instr_count_cumulative() << " has "
+                  << snap->opcode_counts_.size() << " opcodes"
+                  << " and " << snap->category_counts_.size() << " categories.\n";
+        std::vector<std::pair<int, int64_t>> sorted(snap->opcode_counts_.begin(),
+                                                    snap->opcode_counts_.end());
+        std::sort(sorted.begin(), sorted.end(), cmp_val);
+        for (int i = 0; i < PRINT_TOP_N && i < static_cast<int>(sorted.size()); ++i) {
+            std::cerr << "   [" << i + 1 << "]"
+                      << " Opcode: " << decode_opcode_name(sorted[i].first) << " ("
+                      << sorted[i].first << ")"
+                      << " Count=" << sorted[i].second << " PKI="
+                      << sorted[i].second * 1000.0 / snap->get_instr_count_delta()
+                      << "\n";
+        }
+        std::vector<std::pair<uint, int64_t>> sorted_cats(snap->category_counts_.begin(),
+                                                          snap->category_counts_.end());
+        std::sort(sorted_cats.begin(), sorted_cats.end(), cmp_val);
+        for (int i = 0; i < PRINT_TOP_N && i < static_cast<int>(sorted_cats.size());
+             ++i) {
+            std::cerr << "   [" << i + 1 << "]"
+                      << " Category=" << get_category_names(sorted_cats[i].first)
+                      << " Count=" << sorted_cats[i].second << " PKI="
+                      << sorted_cats[i].second * 1000.0 / snap->get_instr_count_delta()
+                      << "\n";
+        }
+    }
+    return true;
+}
+
+bool
+opcode_mix_t::release_interval_snapshot(interval_state_snapshot_t *interval_snapshot)
+{
+    delete interval_snapshot;
     return true;
 }
 

@@ -1556,60 +1556,6 @@ no_swap:
         END_FUNC(main_signal_handler)
 #endif /* !HAVE_SIGALTSTACK */
 
-#ifdef LINUX
-/* SYS_clone swaps the stack so we need asm support to call it.
- * signature:
- *   thread_id_t dynamorio_clone(uint flags, byte *newsp, void *ptid, void *tls,
- *                               void *ctid, void (*func)(void))
- */
-        DECLARE_FUNC(dynamorio_clone)
-GLOBAL_LABEL(dynamorio_clone:)
-        /* save func for use post-syscall on the newsp.
-         * when using clone_record_t we have 4 slots we can clobber.
-         */
-# ifdef X64
-        sub      ARG2, ARG_SZ
-        mov      [ARG2], ARG6 /* func is now on TOS of newsp */
-        /* all args are already in syscall registers */
-        mov      r10, rcx
-        mov      REG_XAX, SYS_clone
-        syscall
-# else
-        mov      REG_XAX, ARG6
-        mov      REG_XCX, ARG2
-        sub      REG_XCX, ARG_SZ
-        mov      [REG_XCX], REG_XAX /* func is now on TOS of newsp */
-        mov      REG_XDX, ARG3
-        /* preserve callee-saved regs */
-        push     REG_XBX
-        push     REG_XSI
-        push     REG_XDI
-        /* now can't use ARG* since xsp modified by pushes */
-        mov      REG_XBX, DWORD [4*ARG_SZ + REG_XSP] /* ARG1 + 3 pushes */
-        mov      REG_XSI, DWORD [7*ARG_SZ + REG_XSP] /* ARG4 + 3 pushes */
-        mov      REG_XDI, DWORD [8*ARG_SZ + REG_XSP] /* ARG5 + 3 pushes */
-        mov      REG_XAX, SYS_clone
-        /* PR 254280: we assume int$80 is ok even for LOL64 */
-        int      HEX(80)
-# endif
-        cmp      REG_XAX, 0
-        jne      dynamorio_clone_parent
-        pop      REG_XCX
-        call     REG_XCX
-        /* shouldn't return */
-        jmp      GLOBAL_REF(unexpected_return)
-dynamorio_clone_parent:
-# ifndef X64
-        /* restore callee-saved regs */
-        pop      REG_XDI
-        pop      REG_XSI
-        pop      REG_XBX
-# endif
-        /* return val is in eax still */
-        ret
-        END_FUNC(dynamorio_clone)
-#endif /* LINUX */
-
 #endif /* UNIX */
 
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -190,6 +190,11 @@ public:
         return page_size_;
     }
     bool
+    is_record_kernel() const override
+    {
+        return in_kernel_trace_;
+    }
+    bool
     is_record_synthetic() const override
     {
         if (cur_ref_.marker.type == TRACE_TYPE_MARKER &&
@@ -267,6 +272,10 @@ protected:
     };
 
     std::unordered_map<addr_t, encoding_info_t> encodings_;
+    // Whether this reader's input stream interleaves software threads and thus
+    // some thread-based checks may not apply.
+    bool core_sharded_ = false;
+    bool found_filetype_ = false;
 
 private:
     memref_t cur_ref_;
@@ -280,6 +289,7 @@ private:
     bool expect_no_encodings_ = true;
     encoding_info_t last_encoding_;
     addr_t last_branch_target_ = 0;
+    bool in_kernel_trace_ = false;
 };
 
 } // namespace drmemtrace

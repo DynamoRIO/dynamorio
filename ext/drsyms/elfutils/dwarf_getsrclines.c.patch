@@ -1,0 +1,15 @@
+diff --git a/libdw/dwarf_getsrclines.c b/libdw/dwarf_getsrclines.c
+index 69e10c7b..473255dd 100644
+--- a/libdw/dwarf_getsrclines.c
++++ b/libdw/dwarf_getsrclines.c
+@@ -171,8 +171,8 @@ read_srclines (Dwarf *dbg,
+      the stack.  Stack allocate some entries, only dynamically malloc
+      when more than MAX.  */
+ #define MAX_STACK_ALLOC 4096
+-#define MAX_STACK_LINES (MAX_STACK_ALLOC / 2)
+-#define MAX_STACK_FILES (MAX_STACK_ALLOC / 4)
++#define MAX_STACK_LINES (MAX_STACK_ALLOC / 32)
++#define MAX_STACK_FILES (MAX_STACK_ALLOC / 32)
+ #define MAX_STACK_DIRS  (MAX_STACK_ALLOC / 16)
+ 
+   /* Initial statement program state (except for stmt_list, see below).  */

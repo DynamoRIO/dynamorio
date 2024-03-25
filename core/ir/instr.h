@@ -202,19 +202,8 @@ enum {
     INSTR_DO_NOT_EMIT = 0x10000000,
     /* PR 251479: re-relativization support: is instr->rip_rel_pos valid? */
     INSTR_RIP_REL_VALID = 0x20000000,
-#ifdef X86
-    /* PR 278329: each instr stores its own mode */
-    INSTR_X86_MODE = 0x40000000,
-#elif defined(ARM)
-    /* We assume we don't need to distinguish A64 from A32 as you cannot swap
-     * between them in user mode.  Thus we only need one flag.
-     * XXX: we might want more power for drdecode, though the global isa_mode
-     * should be sufficient there.
-     */
-    INSTR_THUMB_MODE = 0x40000000,
-#endif
     /* PR 267260: distinguish our own mangling from client-added instrs */
-    INSTR_OUR_MANGLING = 0x80000000,
+    INSTR_OUR_MANGLING = 0x40000000,
 };
 
 #define DR_TUPLE_TYPE_BITS 4
@@ -515,6 +504,21 @@ instr_set_our_mangling_epilogue(instr_t *instr, bool epilogue);
 instr_t *
 instr_set_translation_mangling_epilogue(dcontext_t *dcontext, instrlist_t *ilist,
                                         instr_t *instr);
+
+#ifdef AARCH64
+/* Sets the DR_PRED_MASKED flag on the instruction to indicate that
+ * this instruction is predicated and execution depends on the value of a
+ * predicate register
+ */
+void
+instr_set_has_register_predication(instr_t *instr);
+
+/* Checks if DR_PRED_MASKED is set on the instruction, which indicates
+it has a governing predicate register.
+*/
+bool
+instr_has_register_predication(instr_t *instr);
+#endif
 
 app_pc
 instr_compute_address_priv(instr_t *instr, priv_mcontext_t *mc);

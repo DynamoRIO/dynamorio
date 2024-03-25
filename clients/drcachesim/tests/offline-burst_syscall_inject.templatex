@@ -10,11 +10,4 @@ Going to post-process raw trace and add system call trace templates to it
 Done post-processing the raw trace
 Verifying resulting user\+kernel trace
 Successfully completed checks
-Basic counts tool results:
-Total counts:
-    .* total \(fetched\) instructions
-    .* total unique \(fetched\) instructions
-    .* total non-fetched instructions
-    .* total userspace instructions
-           2 total kernel instructions
-.*
+Trace invariant checks passed

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -88,6 +88,8 @@ public:
                         std::istream *serial_schedule_file = nullptr,
                         std::istream *cpu_schedule_file = nullptr);
     virtual ~invariant_checker_t();
+    std::string
+    initialize_shard_type(shard_type_t shard_type) override;
     std::string
     initialize_stream(memtrace_stream_t *serial_stream) override;
     bool
@@ -183,6 +185,8 @@ protected:
         bool found_instr_count_marker_ = false;
         bool found_page_size_marker_ = false;
         bool found_syscall_marker_ = false;
+        bool prev_was_syscall_marker_ = false;
+        int last_syscall_marker_value_ = 0;
         bool found_blocking_marker_ = false;
         uint64_t syscall_count_ = 0;
         uint64_t last_instr_count_marker_ = 0;
@@ -195,6 +199,7 @@ protected:
         // operation.
         addr_t app_handler_pc_ = 0;
         offline_file_type_t file_type_ = OFFLINE_FILE_TYPE_DEFAULT;
+        bool saw_filetype_ = false;
         uintptr_t last_window_ = 0;
         bool window_transition_ = false;
         uint64_t chunk_instr_count_ = 0;
@@ -214,6 +219,8 @@ protected:
         // Counters for expected read and write records.
         int expected_read_records_ = 0;
         int expected_write_records_ = 0;
+        bool between_kernel_syscall_trace_markers_ = false;
+        instr_info_t pre_syscall_trace_instr_;
     };
 
     // We provide this for subclasses to run these invariants with custom
@@ -226,6 +233,9 @@ protected:
     virtual void
     check_schedule_data(per_shard_t *global_shard);
 
+    virtual bool
+    is_a_unit_test(per_shard_t *shard);
+
     // Check for invariant violations caused by PC discontinuities. Return an error string
     // for such violations.
     std::string
@@ -235,8 +245,7 @@ protected:
                                bool expect_encoding, bool at_kernel_event);
 
     void *drcontext_ = dr_standalone_init();
-    // The keys here are int for parallel, tid for serial.
-    std::unordered_map<memref_tid_t, std::unique_ptr<per_shard_t>> shard_map_;
+    std::unordered_map<int, std::unique_ptr<per_shard_t>> shard_map_;
     // This mutex is only needed in parallel_shard_init.  In all other accesses to
     // shard_map (process_memref, print_results) we are single-threaded.
     std::mutex shard_map_mutex_;

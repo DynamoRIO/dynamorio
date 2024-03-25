@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -126,7 +126,7 @@ public:
     virtual ~record_reader_t()
     {
     }
-    bool
+    virtual bool
     init()
     {
         if (!open_input_file())
@@ -141,6 +141,15 @@ public:
         return cur_entry_;
     }
 
+    static bool
+    record_is_pre_instr(trace_entry_t *record)
+    {
+        return record->type == TRACE_TYPE_ENCODING ||
+            // The branch target marker sits between any encodings and the instr.
+            (record->type == TRACE_TYPE_MARKER &&
+             record->size == TRACE_MARKER_TYPE_BRANCH_TARGET);
+    }
+
     record_reader_t &
     operator++()
     {
@@ -149,7 +158,13 @@ public:
         UNUSED(res);
         if (!eof_) {
             ++cur_ref_count_;
-            if (type_is_instr(static_cast<trace_type_t>(cur_entry_.type)))
+            // We increment the instr count at the encoding as that avoids multiple
+            // problems with separating encodings from instrs when skipping (including
+            // for scheduler regions of interest) and when replaying schedules: anything
+            // using instr ordinals as boundaries.
+            if (!prev_record_was_pre_instr_ &&
+                (record_is_pre_instr(&cur_entry_) ||
+                 type_is_instr(static_cast<trace_type_t>(cur_entry_.type))))
                 ++cur_instr_count_;
             else if (cur_entry_.type == TRACE_TYPE_MARKER) {
                 switch (cur_entry_.size) {
@@ -167,8 +182,17 @@ public:
                     if (first_timestamp_ == 0)
                         first_timestamp_ = last_timestamp_;
                     break;
+                case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
+                case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START:
+                    in_kernel_trace_ = true;
+                    break;
+                case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
+                case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END:
+                    in_kernel_trace_ = false;
+                    break;
                 }
             }
+            prev_record_was_pre_instr_ = record_is_pre_instr(&cur_entry_);
         }
         return *this;
     }
@@ -218,6 +242,11 @@ public:
     {
         return page_size_;
     }
+    bool
+    is_record_kernel() const override
+    {
+        return in_kernel_trace_;
+    }
 
     virtual bool
     operator==(const record_reader_t &rhs) const
@@ -260,6 +289,10 @@ private:
     uint64_t cur_instr_count_ = 0;
     uint64_t last_timestamp_ = 0;
     uint64_t first_timestamp_ = 0;
+    // Whether the prior record was a record that immediately precedes
+    // an instruction or another record of this type: an encoding or
+    // TRACE_MARKER_TYPE_BRANCH_TARGET.
+    bool prev_record_was_pre_instr_ = false;
 
     // Remember top-level headers for the memtrace_stream_t interface.
     uint64_t version_ = 0;
@@ -267,6 +300,7 @@ private:
     uint64_t cache_line_size_ = 0;
     uint64_t chunk_instr_count_ = 0;
     uint64_t page_size_ = 0;
+    bool in_kernel_trace_ = false;
 };
 
 /**

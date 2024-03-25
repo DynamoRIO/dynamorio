@@ -84,16 +84,19 @@
 instr_t *
 instr_create(void *drcontext)
 {
+    bool is_instr_isa_mode_set = false;
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *instr = (instr_t *)heap_alloc(dcontext, sizeof(instr_t) HEAPACCT(ACCT_IR));
     /* everything initializes to 0, even flags, to indicate
      * an uninitialized instruction */
     memset((void *)instr, 0, sizeof(instr_t));
 #if defined(X86) && defined(X64)
-    instr_set_isa_mode(instr, X64_CACHE_MODE_DC(dcontext) ? DR_ISA_AMD64 : DR_ISA_IA32);
-#elif defined(ARM)
-    instr_set_isa_mode(instr, dr_get_isa_mode(dcontext));
+    is_instr_isa_mode_set = instr_set_isa_mode(
+        instr, X64_CACHE_MODE_DC(dcontext) ? DR_ISA_AMD64 : DR_ISA_IA32);
+#else
+    is_instr_isa_mode_set = instr_set_isa_mode(instr, dr_get_isa_mode(dcontext));
 #endif
+    CLIENT_ASSERT(is_instr_isa_mode_set, "setting instruction ISA mode unsuccessful");
     return instr;
 }
 
@@ -442,6 +445,12 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
     return len;
 }
 
+dr_isa_mode_t
+instr_get_isa_mode(instr_t *instr)
+{
+    return (dr_isa_mode_t)instr->isa_mode;
+}
+
 #define inlined_instr_get_opcode(instr)                                           \
     (IF_DEBUG_(CLIENT_ASSERT(sizeof(*instr) == sizeof(instr_t), "invalid type"))( \
         ((instr)->opcode == OP_UNDECODED)                                         \
@@ -469,6 +478,25 @@ instr_get_category(instr_t *instr)
 }
 /* in rest of file, directly de-reference for performance (PR 622253) */
 #define instr_get_category inlined_instr_get_category
+
+const char *
+instr_get_category_name(dr_instr_category_t category)
+{
+    switch (category) {
+    case DR_INSTR_CATEGORY_UNCATEGORIZED: return "uncategorized";
+    case DR_INSTR_CATEGORY_FP: return "fp";
+    case DR_INSTR_CATEGORY_LOAD: return "load";
+    case DR_INSTR_CATEGORY_STORE: return "store";
+    case DR_INSTR_CATEGORY_BRANCH: return "branch";
+    case DR_INSTR_CATEGORY_SIMD: return "simd";
+    case DR_INSTR_CATEGORY_STATE: return "state";
+    case DR_INSTR_CATEGORY_MOVE: return "move";
+    case DR_INSTR_CATEGORY_CONVERT: return "convert";
+    case DR_INSTR_CATEGORY_MATH: return "math";
+    case DR_INSTR_CATEGORY_OTHER: return "other";
+    default: return "";
+    }
+}
 
 static inline void
 instr_being_modified(instr_t *instr, bool raw_bits_valid)
@@ -2576,6 +2604,20 @@ instr_set_translation_mangling_epilogue(dcontext_t *dcontext, instrlist_t *ilist
     instr_set_our_mangling_epilogue(instr, true);
     return instr;
 }
+
+#ifdef AARCH64
+void
+instr_set_has_register_predication(instr_t *instr)
+{
+    instr_set_predicate(instr, DR_PRED_MASKED);
+}
+
+bool
+instr_has_register_predication(instr_t *instr)
+{
+    return instr_get_predicate(instr) == DR_PRED_MASKED;
+}
+#endif
 
 /* Emulates instruction to find the address of the index-th memory operand.
  * Either or both OUT variables can be NULL.

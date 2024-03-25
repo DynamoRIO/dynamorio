@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -120,7 +120,8 @@ protected:
         memtrace_stream_t *stream = nullptr;
         int64_t core = 0; // We target core-sharded.
         counters_t counters;
-        int64_t prev_input = -1;
+        int64_t prev_workload_id = -1;
+        int64_t prev_tid = INVALID_THREAD_ID;
         // These are cleared when an instruction is seen.
         bool saw_syscall = false;
         memref_tid_t direct_switch_target = INVALID_THREAD_ID;
@@ -132,6 +133,7 @@ protected:
         bool prev_was_idle = false;
         // Computing %-idle.
         uint64_t segment_start_microseconds = 0;
+        intptr_t filetype = 0;
     };
 
     void
@@ -147,7 +149,7 @@ protected:
     unsigned int knob_verbose_ = 0;
     // We use an ordered map to get our output in order.  This table is not
     // used on the hot path so its performance does not matter.
-    std::map<int, per_shard_t *> shard_map_;
+    std::map<int64_t, per_shard_t *> shard_map_;
     // This mutex is only needed in parallel_shard_init.  In all other accesses to
     // shard_map (in print_results) we are single-threaded.
     std::mutex shard_map_mutex_;

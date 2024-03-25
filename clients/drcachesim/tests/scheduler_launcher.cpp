@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,10 +38,6 @@
 #ifdef WINDOWS
 #    define UNICODE
 #    define _UNICODE
-#    define WIN32_LEAN_AND_MEAN
-#    include <windows.h>
-#else
-#    include <sys/time.h>
 #endif
 
 #include "droption.h"
@@ -49,6 +45,7 @@
 #include "scheduler.h"
 #include "trace_entry.h"
 #include "test_helpers.h"
+#include "utils.h"
 #ifdef HAS_ZIP
 #    include "zipfile_istream.h"
 #    include "zipfile_ostream.h"
@@ -63,6 +60,7 @@ using ::dynamorio::drmemtrace::trace_type_names;
 using ::dynamorio::drmemtrace::zipfile_istream_t;
 using ::dynamorio::drmemtrace::zipfile_ostream_t;
 #endif
+using ::dynamorio::drmemtrace::get_microsecond_timestamp;
 using ::dynamorio::droption::droption_parser_t;
 using ::dynamorio::droption::DROPTION_SCOPE_ALL;
 using ::dynamorio::droption::DROPTION_SCOPE_FRONTEND;
@@ -127,20 +125,7 @@ droption_t<uint64_t> op_print_every(DROPTION_SCOPE_ALL, "print_every", 5000,
 uint64_t
 get_current_microseconds()
 {
-#ifdef UNIX
-    struct timeval time;
-    if (gettimeofday(&time, nullptr) != 0)
-        return 0;
-    return time.tv_sec * 1000000 + time.tv_usec;
-#else
-    SYSTEMTIME sys_time;
-    GetSystemTime(&sys_time);
-    FILETIME file_time;
-    if (!SystemTimeToFileTime(&sys_time, &file_time))
-        return 0;
-    return file_time.dwLowDateTime +
-        (static_cast<uint64_t>(file_time.dwHighDateTime) << 32);
-#endif
+    return get_microsecond_timestamp();
 }
 
 // Processes the stream of records scheduled on the "ordinal"-th virtual core with
@@ -344,7 +329,7 @@ _tmain(int argc, const TCHAR *targv[])
         sched_ops.replay_as_traced_istream = cpu_schedule_zip.get();
     }
 #endif
-    if (scheduler.init(sched_inputs, op_num_cores.get_value(), sched_ops) !=
+    if (scheduler.init(sched_inputs, op_num_cores.get_value(), std::move(sched_ops)) !=
         scheduler_t::STATUS_SUCCESS) {
         FATAL_ERROR("failed to initialize scheduler: %s",
                     scheduler.get_error_string().c_str());
