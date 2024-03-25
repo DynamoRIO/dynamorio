@@ -1,0 +1,13 @@
+Calling mmap\(0, 0x8765, 0x7, 0x22, -1, 0\)
+Output format:
+<--record#-> <--instr#->: <---tid---> <record details>
+------------------------------------------------------------
+.*
+      +[0-9]+    +[0-9]+: +[0-9]+ <marker: function==syscall #192>
+      +[0-9]+    +[0-9]+: +[0-9]+ <marker: function argument 0x0>
+      +[0-9]+    +[0-9]+: +[0-9]+ <marker: function argument 0x8765>
+      +[0-9]+    +[0-9]+: +[0-9]+ <marker: function argument 0x7>
+      +[0-9]+    +[0-9]+: +[0-9]+ <marker: function argument 0x22>
+      +[0-9]+    +[0-9]+: +[0-9]+ <marker: function argument 0xffffffff>
+      +[0-9]+    +[0-9]+: +[0-9]+ <marker: function argument 0x0>
+.*
