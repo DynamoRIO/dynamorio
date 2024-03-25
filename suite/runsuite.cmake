@@ -95,7 +95,7 @@ if (UNIX AND NOT APPLE AND NOT ANDROID AND NOT cross_riscv64_linux_only)
     # TODO i#6417: The switch to AMD VM's for GA CI has broken many of our tests.
     # This includes timeouts which increases suite length.
     # Until we get ths x86-32 job back green, we drop back to a small set of tests.
-    set(extra_ctest_args INCLUDE_LABEL UBUNTU_22)
+    set(extra_ctest_args EXCLUDE_LABEL X32_DENYLIST)
   endif ()
 endif ()
 

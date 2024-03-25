@@ -6200,3 +6200,65 @@ if (RISCV64)
       PROPERTIES LABELS RUNS_ON_QEMU)
   endif ()
 endif ()
+
+# TODO i#6417: The switch to AMD VM's for GA CI has broken many of our tests.
+# This includes timeouts which increases suite length.
+# The following tests are excluded until they are fixed.
+if (X86 AND NOT X64)
+  set_tests_properties(
+    code_api|api.rseq
+    code_api|api.static_maps_mixup_novars_FLAKY
+    code_api|api.static_sideline_FLAKY
+    code_api|api.static_signal
+    code_api|client.alloc
+    code_api|client.exception
+    code_api|client.attach_test
+    code_api|client.detach_test
+    code_api|client.attach_blocking
+    code_api|client.flush
+    code_api|client.strace
+    code_api|linux.eintr
+    code_api|linux.eintr-noinline
+    code_api|sample.bbcount
+    code_api|sample.bbsize
+    code_api|sample.callstack
+    code_api|sample.cbr
+    code_api|sample.cbrtrace
+    code_api|sample.countcalls
+    code_api|sample.div
+    code_api|sample.hot_bbcount
+    code_api|sample.inc2add
+    code_api|sample.inline
+    code_api|sample.inscount
+    code_api|sample.inscount.cleancall
+    code_api|sample.inscount.prof-pcs.cleancall
+    code_api|sample.instrace_simple
+    code_api|sample.instrcalls
+    code_api|sample.memtrace_simple
+    code_api|sample.memval_simple
+    code_api|sample.memval_simple_scattergather
+    code_api|sample.memtrace_x86_binary
+    code_api|sample.memtrace_x86_text
+    code_api|sample.modxfer
+    code_api|sample.modxfer_app2lib
+    code_api|sample.instrace_x86_binary
+    code_api|sample.instrace_x86_text
+    code_api|sample.opcodes
+    code_api|sample.opcode_count
+    code_api|sample.signal
+    code_api|sample.ssljack
+    code_api|sample.stl_test
+    code_api|sample.syscall
+    code_api|sample.wrap
+    code_api|tool.drcacheoff.windows-split
+    code_api|tool.drcachesim.coherence
+    code_api|tool.drcachesim.delay-global
+    code_api|tool.drcachesim.phys-threads_SUDO
+    code_api|tool.drcachesim.threads
+    code_api|tool.drcachesim.threads-with-config-file
+    code_api|tool.drcachesim.windows-simple
+    code_api|tool.drcacheoff.windows-split
+    code_api|tool.drcov.eintr
+    code_api|tool.schedule_stats_nopreempt
+    PROPERTIES LABELS X32_DENYLIST)
+endif ()
