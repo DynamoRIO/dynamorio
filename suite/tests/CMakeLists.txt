@@ -6224,7 +6224,6 @@ if (UNIX AND X86 AND NOT X64)
     code_api|common.decode-stress
     code_api|linux.eintr
     code_api|linux.eintr-noinline
-    code_api|sample.bbcount
     code_api|sample.callstack
     code_api|sample.cbr
     code_api|sample.cbrtrace
