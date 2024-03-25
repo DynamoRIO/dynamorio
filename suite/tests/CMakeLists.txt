@@ -6206,9 +6206,6 @@ endif ()
 # The following tests are excluded until they are fixed.
 if (X86 AND NOT X64)
   set_tests_properties(
-    code_api|api.rseq
-    code_api|api.static_maps_mixup_novars_FLAKY
-    code_api|api.static_sideline_FLAKY
     code_api|api.static_signal
     code_api|client.alloc
     code_api|client.exception
