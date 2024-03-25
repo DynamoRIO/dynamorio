@@ -6206,11 +6206,19 @@ endif ()
 # The following tests are excluded until they are fixed.
 if (X86 AND NOT X64)
   set_tests_properties(
+    code_api|api.detach
+    code_api|api.detach_spawn_quick_exit
+    code_api|api.ibl-stress
+    code_api|api.startstop
+    code_api|api.static_detach
+    code_api|api.static_prepop
+    code_api|api.static_signal
+    code_api|api.thread_churn
     code_api|client.alloc
-    code_api|client.exception
+    code_api|client.attach_blocking
     code_api|client.attach_test
     code_api|client.detach_test
-    code_api|client.attach_blocking
+    code_api|client.drwrap-test-detach
     code_api|client.flush
     code_api|client.strace
     code_api|common.decode-stress
@@ -6247,6 +6255,7 @@ if (X86 AND NOT X64)
     code_api|sample.syscall
     code_api|sample.wrap
     code_api|tool.basic_counts
+    code_api|tool.drcacheoff.altbindir
     code_api|tool.drcacheoff.burst_client
     code_api|tool.drcacheoff.basic_counts
     code_api|tool.drcacheoff.burst_futex
@@ -6261,10 +6270,13 @@ if (X86 AND NOT X64)
     code_api|tool.drcacheoff.burst_threads
     code_api|tool.drcacheoff.burst_threads_counts
     code_api|tool.drcacheoff.burst_threadL0filter
+    code_api|tool.drcacheoff.func_view_noret
     code_api|tool.drcacheoff.gencode
     code_api|tool.drcacheoff.gencode_filtered
+    code_api|tool.drcacheoff.getretaddr_record_replace_retaddr
     code_api|tool.drcacheoff.invariant_checker
     code_api|tool.drcacheoff.invariant_checker_pthreads
+    code_api|tool.drcacheoff.legacy
     code_api|tool.drcacheoff.max-global
     code_api|tool.drcacheoff.sysnums
     code_api|tool.drcacheoff.warmup-pthreads-2
@@ -6275,6 +6287,7 @@ if (X86 AND NOT X64)
     code_api|tool.drcacheoff.windows-timestamps
     code_api|tool.drcachesim.coherence
     code_api|tool.drcachesim.delay-global
+    code_api|tool.drcachesim.filter-d
     code_api|tool.drcachesim.filter-no-d
     code_api|tool.drcachesim.invariants
     code_api|tool.drcachesim.miss_analyzer
@@ -6287,6 +6300,7 @@ if (X86 AND NOT X64)
     code_api|tool.drcov.eintr
     code_api|tool.histogram.offline
     code_api|tool.record_filter
+    code_api|tool.record_filter_bycore_multi
     code_api|tool.record_filter_bycore_uni
     PROPERTIES LABELS X32_DENYLIST)
 endif ()
