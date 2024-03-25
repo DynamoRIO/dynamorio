@@ -809,10 +809,6 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
     // The filetype, if present, is before the first timestamp.  If we only need the
     // filetype we avoid going as far as the timestamp.
     bool gather_filetype = options_.read_inputs_in_init;
-    // Avoid reading ahead for replay as it makes the input ords not match in tests.
-    if (options_.mapping == MAP_TO_RECORDED_OUTPUT &&
-        options_.replay_as_traced_istream != nullptr)
-        gather_filetype = false;
     if (gather_filetype || gather_timestamps) {
         sched_type_t::scheduler_status_t res =
             get_initial_input_content(gather_timestamps);
@@ -1043,7 +1039,11 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_recorded_schedule()
     }
     for (int i = 0; i < static_cast<output_ordinal_t>(outputs_.size()); ++i) {
         if (outputs_[i].record.empty()) {
+            // XXX i#6630: We should auto-set the output count and avoid
+            // having extra outputs; these complicate idle computations, etc.
+            VPRINT(this, 1, "output %d empty: returning eof up front\n", i);
             set_cur_input(i, INVALID_INPUT_ORDINAL);
+            outputs_[i].at_eof = true;
         } else if (outputs_[i].record[0].type == schedule_record_t::IDLE) {
             set_cur_input(i, INVALID_INPUT_ORDINAL);
             outputs_[i].waiting = true;
@@ -1205,8 +1205,13 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_traced_schedule()
                        outputs_[output_idx].record[0].key.input);
                 set_cur_input(output_idx, outputs_[output_idx].record[0].key.input);
             }
-        } else
+        } else {
+            // XXX i#6630: We should auto-set the output count and avoid
+            // having extra ouputs; these complicate idle computations, etc.
+            VPRINT(this, 1, "Output %d empty: returning eof up front\n", output_idx);
+            outputs_[output_idx].at_eof = true;
             set_cur_input(output_idx, INVALID_INPUT_ORDINAL);
+        }
     }
     return STATUS_SUCCESS;
 }
