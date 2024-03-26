@@ -3411,6 +3411,92 @@ test_replay_as_traced_dup_start()
 }
 
 static void
+test_replay_as_traced_sort()
+{
+#ifdef HAS_ZIP
+    // Test that outputs have the cpuids in sorted order.
+    std::cerr << "\n----------------\nTesting replay as-traced sorting\n";
+
+    static constexpr int NUM_INPUTS = 4;
+    static constexpr int NUM_OUTPUTS = NUM_INPUTS; // Required to be equal.
+    static constexpr int NUM_INSTRS = 2;
+    static constexpr memref_tid_t TID_BASE = 100;
+    static constexpr addr_t PC_BASE = 1000;
+    static const std::vector<int> CPUIDS = { 42, 7, 56, 3 };
+    // Index into CPUIDS if sorted.
+    static const std::vector<int> INDICES = { 3, 1, 0, 2 };
+    static constexpr uint64_t TIMESTAMP_BASE = 100;
+
+    std::vector<trace_entry_t> inputs[NUM_INPUTS];
+    for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
+        memref_tid_t tid = TID_BASE + input_idx;
+        inputs[input_idx].push_back(make_thread(tid));
+        inputs[input_idx].push_back(make_pid(1));
+        // These timestamps do not line up with the schedule file but
+        // that does not cause problems and leaving it this way
+        // simplifies the testdata construction.
+        inputs[input_idx].push_back(make_timestamp(TIMESTAMP_BASE));
+        inputs[input_idx].push_back(
+            make_marker(TRACE_MARKER_TYPE_CPU_ID, CPUIDS[input_idx]));
+        for (int instr_idx = 0; instr_idx < NUM_INSTRS; ++instr_idx) {
+            inputs[input_idx].push_back(make_instr(PC_BASE + instr_idx));
+        }
+        inputs[input_idx].push_back(make_exit(tid));
+    }
+
+    // Synthesize a cpu-schedule file.
+    std::string cpu_fname = "tmp_test_cpu_i6721.zip";
+    {
+        zipfile_ostream_t outfile(cpu_fname);
+        for (int i = 0; i < NUM_OUTPUTS; ++i) {
+            std::vector<schedule_entry_t> sched;
+            sched.emplace_back(TID_BASE + i, TIMESTAMP_BASE, CPUIDS[i], 0);
+            std::ostringstream cpu_string;
+            cpu_string << CPUIDS[i];
+            std::string err = outfile.open_new_component(cpu_string.str());
+            assert(err.empty());
+            if (!outfile.write(reinterpret_cast<char *>(sched.data()),
+                               sched.size() * sizeof(sched[0])))
+                assert(false);
+        }
+    }
+
+    // Replay the recorded schedule.
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    for (int i = 0; i < NUM_INPUTS; i++) {
+        memref_tid_t tid = TID_BASE + i;
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+        sched_inputs.emplace_back(std::move(readers));
+    }
+    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_RECORDED_OUTPUT,
+                                               scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                               scheduler_t::SCHEDULER_DEFAULTS,
+                                               /*verbosity=*/4);
+    zipfile_istream_t infile(cpu_fname);
+    sched_ops.replay_as_traced_istream = &infile;
+    scheduler_t scheduler;
+    if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    for (int i = 0; i < NUM_OUTPUTS; ++i) {
+        auto *stream = scheduler.get_stream(i);
+        memref_t memref;
+        scheduler_t::stream_status_t status = stream->next_record(memref);
+        if (status == scheduler_t::STATUS_OK) {
+            assert(memref.marker.tid == TID_BASE + INDICES[i]);
+            if (memref.marker.type == TRACE_TYPE_MARKER &&
+                memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID)
+                assert(static_cast<int>(memref.marker.marker_value) ==
+                       CPUIDS[INDICES[i]]);
+        } else
+            assert(status == scheduler_t::STATUS_EOF);
+    }
+#endif
+}
+
+static void
 test_replay_as_traced_from_file(const char *testdir)
 {
 #if (defined(X86_64) || defined(ARM_64)) && defined(HAS_ZIP)
@@ -4249,6 +4335,7 @@ test_main(int argc, const char *argv[])
     test_replay_as_traced();
     test_replay_as_traced_i6107_workaround();
     test_replay_as_traced_dup_start();
+    test_replay_as_traced_sort();
     test_inactive();
     test_direct_switch();
     test_kernel_switch_sequences();
