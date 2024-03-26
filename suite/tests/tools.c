@@ -510,8 +510,7 @@ dump_ucontext(ucontext_t *ucxt, bool is_sve, int vl_bytes)
     assert(head->magic == FPSIMD_MAGIC);
     assert(head->size == sizeof(struct fpsimd_context));
 
-    struct fpsimd_context *fpsimd =
-        (struct fpsimd_context *)(ucxt->uc_mcontext.RESERVED);
+    struct fpsimd_context *fpsimd = (struct fpsimd_context *)(ucxt->uc_mcontext.RESERVED);
     print("\nfpsr 0x%x\n", fpsimd->fpsr);
     print("fpcr 0x%x\n", fpsimd->fpcr);
     reinterpret128_2x64_t vreg;
@@ -542,7 +541,8 @@ dump_ucontext(ucontext_t *ucxt, bool is_sve, int vl_bytes)
                 for (i = 0; i < MCXT_NUM_SIMD_SVE_SLOTS; i++) {
                     print("z%-2d  0x", i);
                     for (boff = ((vq * 2) - 1); boff >= 0; boff--) {
-                        vdw = *((uint64 *)((((byte *)sve) + (SVE_SIG_ZREG_OFFSET(vq, i)) + (boff * 8))));
+                        vdw = *((uint64 *)((((byte *)sve) + (SVE_SIG_ZREG_OFFSET(vq, i)) +
+                                            (boff * 8))));
                         print("%016lx ", vdw);
                     }
                     print("\n");

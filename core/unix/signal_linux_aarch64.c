@@ -66,9 +66,9 @@ typedef union {
 void
 dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
 {
-#ifdef DR_HOST_NOT_TARGET
+#    ifdef DR_HOST_NOT_TARGET
     ASSERT_NOT_REACHED();
-#endif
+#    endif
     LOG(THREAD, LOG_ASYNCH, 1, "\tSignal context:\n");
     int i;
     for (i = 0; i <= DR_REG_X30 - DR_REG_X0; i++)
@@ -125,7 +125,8 @@ dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
                 for (i = 0; i < MCXT_NUM_SIMD_SVE_SLOTS; i++) {
                     LOG(THREAD, LOG_ASYNCH, 2, "\tz%-2d  0x", i);
                     for (boff = ((vq * 2) - 1); boff >= 0; boff--) {
-                        vdw = *((uint64 *)((((byte *)sve) + (SVE_SIG_ZREG_OFFSET(vq, i)) + (boff * 8))));
+                        vdw = *((uint64 *)((((byte *)sve) + (SVE_SIG_ZREG_OFFSET(vq, i)) +
+                                            (boff * 8))));
                         LOG(THREAD, LOG_ASYNCH, 2, "%016lx ", vdw);
                     }
                     LOG(THREAD, LOG_ASYNCH, 2, "\n");
@@ -141,8 +142,9 @@ dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
                 break;
             }
             default:
-                SYSLOG_INTERNAL_WARNING("%s %d Unknown section found in signal context with magic number 0x%x",
-                                      __func__, __LINE__, next_head->magic);
+                SYSLOG_INTERNAL_WARNING("%s %d Unknown section found in signal context "
+                                        "with magic number 0x%x",
+                                        __func__, __LINE__, next_head->magic);
                 break;
             }
             offset += next_head->size;
