@@ -6204,7 +6204,7 @@ endif ()
 # TODO i#6417: The switch to AMD VM's for GA CI has broken many of our tests.
 # This includes timeouts which increases suite length.
 # The following tests are excluded until they are fixed.
-if (UNIX AND X86 AND NOT X64 AND arg_32_only )
+if (UNIX AND X86 AND arg_32_only)
   set_tests_properties(
     code_api|api.detach
     code_api|api.detach_spawn_quick_exit
@@ -6261,7 +6261,6 @@ if (UNIX AND X86 AND NOT X64 AND arg_32_only )
     code_api|tool.drcachesim.filter-no-d
     code_api|tool.drcachesim.invariants
     code_api|tool.drcachesim.miss_analyzer
-    code_api|tool.drcachesim.phys-threads_SUDO
     code_api|tool.drcachesim.scattergather-x86
     code_api|tool.drcachesim.threads
     code_api|tool.drcachesim.threads-with-config-file
@@ -6272,5 +6271,11 @@ if (UNIX AND X86 AND NOT X64 AND arg_32_only )
     code_api|tool.record_filter
     code_api|tool.record_filter_bycore_multi
     code_api|tool.record_filter_bycore_uni
+    PROPERTIES LABELS X32_DENYLIST)
+endif ()
+
+if (LINUX AND X86 AND arg_32_only)
+  set_tests_properties(
+    code_api|tool.drcachesim.phys-threads_SUDO
     PROPERTIES LABELS X32_DENYLIST)
 endif ()
