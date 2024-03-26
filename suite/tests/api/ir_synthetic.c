@@ -46,14 +46,14 @@
  * core/ir/synthetic/encoding.c and should be kept in synch. A whole-instr register
  * operand iterator would allow us to remove this duplicate code.
  */
-static void
-get_instr_src_and_dst_registers(instr_t *instr, uint max_num_regs,
-                                opnd_size_t *src_reg_to_size,
-                                opnd_size_t *dst_reg_to_size)
+static uint
+get_instr_src_and_dst_registers(instr_t *instr, uint max_num_regs, bool *src_reg_used,
+                                bool *dst_reg_used)
 {
-    memset((void *)src_reg_to_size, 0, max_num_regs);
-    memset((void *)dst_reg_to_size, 0, max_num_regs);
+    memset((void *)src_reg_used, 0, max_num_regs);
+    memset((void *)dst_reg_used, 0, max_num_regs);
     uint original_num_dsts = (uint)instr_num_dsts(instr);
+    uint max_reg_size = 0;
     for (uint dst_index = 0; dst_index < original_num_dsts; ++dst_index) {
         opnd_t dst_opnd = instr_get_dst(instr, dst_index);
         uint num_regs_used_by_opnd = (uint)opnd_num_regs_used(dst_opnd);
@@ -63,9 +63,13 @@ get_instr_src_and_dst_registers(instr_t *instr, uint max_num_regs,
                 /* Map sub-registers to their containing register.
                  */
                 reg_id_t reg_canonical = reg_to_pointer_sized(reg);
-                opnd_size_t reg_size = reg_get_size(reg);
-                if (src_reg_to_size[reg_canonical] != 0)
-                    src_reg_to_size[reg_canonical] = reg_size;
+                opnd_size_t reg_size = reg_get_size(reg_canonical);
+                uint reg_size_in_bytes = opnd_size_in_bytes(reg_size);
+                if (!src_reg_used[reg_canonical]) {
+                    src_reg_used[reg_canonical] = true;
+                    if (reg_size_in_bytes > max_reg_size)
+                        max_reg_size = reg_size_in_bytes;
+                }
             }
         } else {
             for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
@@ -73,9 +77,13 @@ get_instr_src_and_dst_registers(instr_t *instr, uint max_num_regs,
                 /* Map sub-registers to their containing register.
                  */
                 reg_id_t reg_canonical = reg_to_pointer_sized(reg);
-                opnd_size_t reg_size = reg_get_size(reg);
-                if (dst_reg_to_size[reg_canonical] != 0)
-                    dst_reg_to_size[reg_canonical] = reg_size;
+                opnd_size_t reg_size = reg_get_size(reg_canonical);
+                uint reg_size_in_bytes = opnd_size_in_bytes(reg_size);
+                if (!dst_reg_used[reg_canonical]) {
+                    dst_reg_used[reg_canonical] = true;
+                    if (reg_size_in_bytes > max_reg_size)
+                        max_reg_size = reg_size_in_bytes;
+                }
             }
         }
     }
@@ -89,11 +97,17 @@ get_instr_src_and_dst_registers(instr_t *instr, uint max_num_regs,
             /* Map sub-registers to their containing register.
              */
             reg_id_t reg_canonical = reg_to_pointer_sized(reg);
-            opnd_size_t reg_size = reg_get_size(reg);
-            if (src_reg_to_size[reg_canonical] != 0)
-                src_reg_to_size[reg_canonical] = reg_size;
+            opnd_size_t reg_size = reg_get_size(reg_canonical);
+            uint reg_size_in_bytes = opnd_size_in_bytes(reg_size);
+            if (!src_reg_used[reg_canonical]) {
+                src_reg_used[reg_canonical] = true;
+                if (reg_size_in_bytes > max_reg_size)
+                    max_reg_size = reg_size_in_bytes;
+            }
         }
     }
+
+    return max_reg_size;
 }
 
 static bool
@@ -113,20 +127,25 @@ instr_synthetic_matches_real(instr_t *instr_real, instr_t *instr_synthetic)
      * This also ensures the two instructions have the same number of source and
      * destination operands that are registers.
      */
-    opnd_size_t src_reg_to_size_real_instr[MAX_NUM_REGS];
-    opnd_size_t dst_reg_to_size_real_instr[MAX_NUM_REGS];
-    get_instr_src_and_dst_registers(instr_real, MAX_NUM_REGS, src_reg_to_size_real_instr,
-                                    dst_reg_to_size_real_instr);
-    opnd_size_t src_reg_to_size_synthetic_instr[MAX_NUM_REGS];
-    opnd_size_t dst_reg_to_size_synthetic_instr[MAX_NUM_REGS];
-    get_instr_src_and_dst_registers(instr_synthetic, MAX_NUM_REGS,
-                                    src_reg_to_size_synthetic_instr,
-                                    dst_reg_to_size_synthetic_instr);
-    if (memcmp(src_reg_to_size_real_instr, src_reg_to_size_synthetic_instr,
-               sizeof(src_reg_to_size_real_instr)) != 0)
+    bool src_regs_real_instr[MAX_NUM_REGS];
+    bool dst_regs_real_instr[MAX_NUM_REGS];
+    uint max_reg_size_real_instr = get_instr_src_and_dst_registers(
+        instr_real, MAX_NUM_REGS, src_regs_real_instr, dst_regs_real_instr);
+    bool src_regs_synthetic_instr[MAX_NUM_REGS];
+    bool dst_regs_synthetic_instr[MAX_NUM_REGS];
+    uint max_reg_size_synthetic_instr = get_instr_src_and_dst_registers(
+        instr_synthetic, MAX_NUM_REGS, src_regs_synthetic_instr,
+        dst_regs_synthetic_instr);
+    if (memcmp(src_regs_real_instr, src_regs_synthetic_instr,
+               sizeof(src_regs_real_instr)) != 0)
         return false;
-    if (memcmp(dst_reg_to_size_real_instr, dst_reg_to_size_synthetic_instr,
-               sizeof(dst_reg_to_size_real_instr)) != 0)
+    if (memcmp(dst_regs_real_instr, dst_regs_synthetic_instr,
+               sizeof(dst_regs_real_instr)) != 0)
+        return false;
+
+    /* Check that the operands' size is the same.
+     */
+    if (max_reg_size_real_instr != max_reg_size_synthetic_instr)
         return false;
 
     /* Check that arithmetic flags are the same.
@@ -154,9 +173,10 @@ static void
 test_instr_encode_decode_synthetic(void *dc, instr_t *instr)
 {
     /* Encoded synthetic ISA instructions require 4 byte alignment.
-     * The biggest synthetic encoded instruction reaches 20 bytes.
+     * The biggest synthetic encoded instruction reaches 13 bytes.
      */
-    byte ALIGN_VAR(4) bytes[20];
+    byte ALIGN_VAR(4) bytes[13];
+    memset(bytes, 0, sizeof(bytes));
     instr_t *instr_synthetic = instr_create(dc);
     ASSERT(instr_synthetic != NULL);
     /* DR uses instr_t ISA mode to encode instructions.

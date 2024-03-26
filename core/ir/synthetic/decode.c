@@ -48,29 +48,25 @@
 byte *
 decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
 {
-    /* Clear the instruction.
-     */
-    memset((void *)instr, 0, sizeof(instr_t));
-
     /* Interpret the first 4 bytes of encoded_instr (which are always present) as a uint
      * for easier retrieving of category, eflags, #src, and #dst values.
      * We can do this safely because encoded_instr is 4 bytes aligned.
      */
-    uint encoding = *((uint *)&encoded_instr[0]);
+    uint encoding_header = *((uint *)&encoded_instr[0]);
 
     /* Decode number of register destination operands.
      */
-    uint num_dsts = encoding & DST_OPND_MASK;
+    uint num_dsts = encoding_header & DST_OPND_MASK;
 
     /* Decode number of register source operands.
      */
-    uint num_srcs = (encoding & SRC_OPND_MASK) >> SRC_OPND_SHIFT;
+    uint num_srcs = (encoding_header & SRC_OPND_MASK) >> SRC_OPND_SHIFT;
 
     instr_set_num_opnds(dcontext, instr, num_dsts, num_srcs);
 
     /* Decode arithmetic flags.
      */
-    uint eflags = (encoding & FLAGS_MASK) >> FLAGS_SHIFT;
+    uint eflags = (encoding_header & FLAGS_MASK) >> FLAGS_SHIFT;
     uint eflags_instr = 0;
     if (TESTANY(SYNTHETIC_INSTR_WRITES_ARITH, eflags))
         eflags_instr |= EFLAGS_WRITE_ARITH;
@@ -85,29 +81,31 @@ decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
 
     /* Decode synthetic opcode as instruction category.
      */
-    uint category = (encoding & CATEGORY_MASK) >> CATEGORY_SHIFT;
+    uint category = (encoding_header & CATEGORY_MASK) >> CATEGORY_SHIFT;
     instr_set_category(instr, category);
 
-    /* Decode register destination operands and their sizes, if present.
+    /* Decode register operand size, if there are any operands.
      */
-    uint num_dst_bytes = num_dsts * OPERAND_BYTES;
-    for (uint i = 0; i < num_dst_bytes; i += OPERAND_BYTES) {
-        reg_id_t dst = (reg_id_t)encoded_instr[i + HEADER_BYTES];
-        opnd_size_t dst_size = (opnd_size_t)encoded_instr[i + 1 + HEADER_BYTES];
+    uint num_opnds = num_dsts + num_srcs;
+    opnd_size_t max_reg_size = OPSZ_NA;
+    if (num_opnds > 0)
+        max_reg_size = (opnd_size_t)encoded_instr[HEADER_BYTES];
+
+    /* Decode register destination operands, if present.
+     */
+    for (uint i = 0; i < num_dsts; ++i) {
+        reg_id_t dst = (reg_id_t)encoded_instr[i + HEADER_BYTES + 1];
         opnd_t dst_opnd = opnd_create_reg(dst);
-        opnd_set_size(&dst_opnd, dst_size);
+        opnd_set_size(&dst_opnd, max_reg_size);
         instr_set_dst(instr, i, dst_opnd);
     }
 
-    /* Decode register source operands and their sizes, if present.
+    /* Decode register source operands, if present.
      */
-    uint num_src_bytes = num_srcs * OPERAND_BYTES;
-    for (uint i = 0; i < num_src_bytes; i += OPERAND_BYTES) {
-        reg_id_t src = (reg_id_t)encoded_instr[i + HEADER_BYTES + num_dst_bytes];
-        opnd_size_t src_size =
-            (opnd_size_t)encoded_instr[i + 1 + HEADER_BYTES + num_dst_bytes];
+    for (uint i = 0; i < num_srcs; ++i) {
+        reg_id_t src = (reg_id_t)encoded_instr[i + HEADER_BYTES + 1 + num_dsts];
         opnd_t src_opnd = opnd_create_reg(src);
-        opnd_set_size(&src_opnd, src_size);
+        opnd_set_size(&src_opnd, max_reg_size);
         instr_set_src(instr, i, src_opnd);
     }
 
@@ -116,8 +114,10 @@ decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
     instr_set_operands_valid(instr, true);
 
     /* Compute instruction length including bytes for padding to reach 4 bytes alignment.
+     * Account for 1 additional byte containing max register operand size, if there are
+     * any operands.
      */
-    uint num_opnd_bytes = num_src_bytes + num_dst_bytes;
+    uint num_opnd_bytes = num_opnds > 0 ? num_opnds + 1 : 0;
     uint instr_length = ALIGN_FORWARD(HEADER_BYTES + num_opnd_bytes, HEADER_BYTES);
     instr->length = instr_length;
 

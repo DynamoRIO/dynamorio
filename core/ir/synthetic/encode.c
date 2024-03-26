@@ -49,21 +49,26 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
     /* Use a local uint variable for easier setting of category, eflags, #src, and #dst
      * values.
      */
-    uint encoding = 0;
+    uint encoding_header = 0;
 
     /* Encode number of register destination operands.
      * Note that a destination operand that is a memory renference should have its
      * registers (if any) counted as source operands, since they are being read.
-     * We use [src|dst]_reg_to_size to keep track of registers we've seen and avoid
-     * duplicates, and also to record their size, which we encode later.
+     * We use [src|dst]_reg_used to keep track of registers we've seen and avoid
+     * duplicates.
+     * We user max_reg_size to keep track of the largest containing register.
+     * max_reg_size is a uint instead of opnd_size_t to avoid relying on OPSZ_ enum
+     * values.
+     * We convert max_reg_size to OPSZ_ only before encoding.
      */
-    opnd_size_t src_reg_to_size[MAX_NUM_REGS];
-    memset((void *)src_reg_to_size, 0, sizeof(src_reg_to_size));
+    bool src_reg_used[MAX_NUM_REGS];
+    memset((void *)src_reg_used, 0, sizeof(src_reg_used));
     uint num_srcs = 0;
-    opnd_size_t dst_reg_to_size[MAX_NUM_REGS];
-    memset((void *)dst_reg_to_size, 0, sizeof(dst_reg_to_size));
+    bool dst_reg_used[MAX_NUM_REGS];
+    memset((void *)dst_reg_used, 0, sizeof(dst_reg_used));
     uint num_dsts = 0;
     uint original_num_dsts = (uint)instr_num_dsts(instr);
+    uint max_reg_size = 0;
     for (uint dst_index = 0; dst_index < original_num_dsts; ++dst_index) {
         opnd_t dst_opnd = instr_get_dst(instr, dst_index);
         uint num_regs_used_by_opnd = (uint)opnd_num_regs_used(dst_opnd);
@@ -73,10 +78,13 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
                 /* Map sub-registers to their containing register.
                  */
                 reg_id_t reg_canonical = reg_to_pointer_sized(reg);
-                opnd_size_t reg_size = reg_get_size(reg);
-                if (src_reg_to_size[reg_canonical] != 0) {
+                opnd_size_t reg_size = reg_get_size(reg_canonical);
+                uint reg_size_in_bytes = opnd_size_in_bytes(reg_size);
+                if (!src_reg_used[reg_canonical]) {
                     ++num_srcs;
-                    src_reg_to_size[reg_canonical] = reg_size;
+                    src_reg_used[reg_canonical] = true;
+                    if (reg_size_in_bytes > max_reg_size)
+                        max_reg_size = reg_size_in_bytes;
                 }
             }
         } else {
@@ -85,15 +93,18 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
                 /* Map sub-registers to their containing register.
                  */
                 reg_id_t reg_canonical = reg_to_pointer_sized(reg);
-                opnd_size_t reg_size = reg_get_size(reg);
-                if (dst_reg_to_size[reg_canonical] != 0) {
+                opnd_size_t reg_size = reg_get_size(reg_canonical);
+                uint reg_size_in_bytes = opnd_size_in_bytes(reg_size);
+                if (!dst_reg_used[reg_canonical]) {
                     ++num_dsts;
-                    dst_reg_to_size[reg_canonical] = reg_size;
+                    dst_reg_used[reg_canonical] = true;
+                    if (reg_size_in_bytes > max_reg_size)
+                        max_reg_size = reg_size_in_bytes;
                 }
             }
         }
     }
-    encoding |= num_dsts;
+    encoding_header |= num_dsts;
 
     /* Encode number of register source operands, adding on top of already existing ones.
      */
@@ -106,14 +117,17 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
             /* Map sub-registers to their containing register.
              */
             reg_id_t reg_canonical = reg_to_pointer_sized(reg);
-            opnd_size_t reg_size = reg_get_size(reg);
-            if (src_reg_to_size[reg_canonical] != 0) {
+            opnd_size_t reg_size = reg_get_size(reg_canonical);
+            uint reg_size_in_bytes = opnd_size_in_bytes(reg_size);
+            if (!src_reg_used[reg_canonical]) {
                 ++num_srcs;
-                src_reg_to_size[reg_canonical] = reg_size;
+                src_reg_used[reg_canonical] = true;
+                if (reg_size_in_bytes > max_reg_size)
+                    max_reg_size = reg_size_in_bytes;
             }
         }
     }
-    encoding |= (num_srcs << SRC_OPND_SHIFT);
+    encoding_header |= (num_srcs << SRC_OPND_SHIFT);
 
     /* Encode arithmetic flags.
      */
@@ -123,55 +137,61 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
         eflags |= SYNTHETIC_INSTR_WRITES_ARITH;
     if (TESTANY(EFLAGS_READ_ARITH, eflags_instr))
         eflags |= SYNTHETIC_INSTR_READS_ARITH;
-    encoding |= (eflags << FLAGS_SHIFT);
+    encoding_header |= (eflags << FLAGS_SHIFT);
 
     /* Encode category as synthetic opcode.
      */
     uint category = instr_get_category(instr);
-    encoding |= (category << CATEGORY_SHIFT);
+    encoding_header |= (category << CATEGORY_SHIFT);
 
     /* Copy encoding back into encoded_instr output.
      */
-    *((uint *)&encoded_instr[0]) = encoding;
+    *((uint *)&encoded_instr[0]) = encoding_header;
 
-    /* Encode register destination operands and their sizes, if present.
+    /* Encode largest register size, if there is at least one operand.
      */
-    uint dst_reg_counter = 0;
+    uint num_opnds = num_dsts + num_srcs;
+    if (num_opnds > 0) {
+        CLIENT_ASSERT(max_reg_size != 0,
+                      "instructions with register operands cannot have operand size 0");
+        encoded_instr[HEADER_BYTES] = opnd_size_from_bytes(max_reg_size);
+    }
+
+    /* Encode register destination operands, if present.
+     */
     if (num_dsts > 0) {
+        uint reg_counter = 0;
         for (uint reg = 0; reg < MAX_NUM_REGS; ++reg) {
-            if (dst_reg_to_size[reg] != 0) {
+            if (dst_reg_used[reg]) {
                 /* XXX i#6662: we might want to consider doing some kind of register
                  * shuffling.
                  */
-                encoded_instr[dst_reg_counter + HEADER_BYTES] = (byte)reg;
-                encoded_instr[dst_reg_counter + 1 + HEADER_BYTES] =
-                    (byte)dst_reg_to_size[reg];
-                dst_reg_counter += OPERAND_BYTES;
+                encoded_instr[reg_counter + HEADER_BYTES + 1] = (byte)reg;
+                ++reg_counter;
             }
         }
     }
 
-    /* Encode register source operands and their sizes, if present.
+    /* Encode register source operands, if present.
      */
-    uint src_reg_counter = 0;
     if (num_srcs > 0) {
+        uint reg_counter = 0;
         for (uint reg = 0; reg < MAX_NUM_REGS; ++reg) {
-            if (src_reg_to_size[reg] != 0) {
+            if (src_reg_used[reg]) {
                 /* XXX i#6662: we might want to consider doing some kind of register
                  * shuffling.
                  */
-                encoded_instr[src_reg_counter + HEADER_BYTES + num_dsts * OPERAND_BYTES] =
-                    (byte)reg;
-                encoded_instr[src_reg_counter + 1 + HEADER_BYTES +
-                              num_dsts * OPERAND_BYTES] = (byte)src_reg_to_size[reg];
-                src_reg_counter += OPERAND_BYTES;
+                encoded_instr[reg_counter + HEADER_BYTES + 1 + num_dsts] = (byte)reg;
+                ++reg_counter;
             }
         }
     }
 
     /* Compute instruction length including bytes for padding to reach 4 bytes alignment.
+     * Account for 1 additional byte containing max register operand size, if there are
+     * any operands.
      */
-    uint num_opnd_bytes = dst_reg_counter + src_reg_counter;
+    uint num_opnd_bytes = num_opnds > 0 ? num_opnds + 1 : 0;
     uint instr_length = ALIGN_FORWARD(HEADER_BYTES + num_opnd_bytes, HEADER_BYTES);
 
     /* Compute next instruction's PC as: current PC + instruction length.
