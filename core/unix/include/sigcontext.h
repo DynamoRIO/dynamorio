@@ -449,9 +449,7 @@ struct esr_context {
         ((vl) % __SVE_VQ_BYTES == 0 && (vl) >= __SVE_VL_MIN && (vl) <= __SVE_VL_MAX)
 
 #    define __sve_vq_from_vl(vl) ((vl) / __SVE_VQ_BYTES)
-#    define __sve_vl_from_vq(vq) ((vq)*__SVE_VQ_BYTES)
 
-#    define __SVE_ZREG_SIZE(vq) ((__u32)(vq)*__SVE_VQ_BYTES)
 #    define __SVE_PREG_SIZE(vq) ((__u32)(vq) * (__SVE_VQ_BYTES / 8))
 #    define __SVE_FFR_SIZE(vq) __SVE_PREG_SIZE(vq)
 
