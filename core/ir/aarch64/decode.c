@@ -32,7 +32,6 @@
  */
 
 #include "../globals.h"
-#include "../synthetic/decode.h"
 #include "encode_api.h"
 #include "instr.h"
 #include "decode.h"

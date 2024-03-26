@@ -2581,6 +2581,14 @@ check_is_variable_size(opnd_t op)
 static byte *
 decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
 {
+    /* Synthetic ISA has its own decoder.
+     * XXX i#1684: when DR can be built with full dynamic architecture selection we won't
+     * need to pollute the decoding of other architectures with this synthetic ISA special
+     * case.
+     */
+    if (dr_get_isa_mode((void *)dcontext) == DR_ISA_SYNTHETIC)
+        return decode_from_synth(dcontext, pc, instr);
+
     const instr_info_t *info;
     decode_info_t di;
     byte *next_pc;
@@ -2755,15 +2763,6 @@ byte *
 decode(void *drcontext, byte *pc, instr_t *instr)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
-
-    /* Synthetic ISA has its own decoder.
-     * XXX i#1684: when DR can be built with full dynamic architecture selection we won't
-     * need to pollute the decoding of other architectures with this synthetic ISA special
-     * case.
-     */
-    if (dr_get_isa_mode(drcontext) == DR_ISA_SYNTHETIC)
-        return decode_from_synth(dcontext, pc, instr);
-
     return decode_common(dcontext, pc, pc, instr);
 }
 

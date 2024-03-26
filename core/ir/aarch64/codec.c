@@ -40,9 +40,11 @@
 
 #include <stdint.h>
 #include "../globals.h"
+#include "../synthetic/decode.h"
 #include "arch.h"
 #include "decode.h"
 #include "disassemble.h"
+#include "encode_api.h"
 #include "instr.h"
 #include "instr_create_shared.h"
 
@@ -9717,6 +9719,14 @@ decode_category(uint encoding, instr_t *instr)
 byte *
 decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
 {
+    /* Synthetic ISA has its own decoder.
+     * XXX i#1684: when DR can be built with full dynamic architecture selection we won't
+     * need to pollute the decoding of other architectures with this synthetic ISA special
+     * case.
+     */
+    if (dr_get_isa_mode((void *)dcontext) == DR_ISA_SYNTHETIC)
+        return decode_from_synth(dcontext, pc, instr);
+
     byte *next_pc = pc + 4;
     uint enc = *(uint *)pc;
     uint eflags = 0;
