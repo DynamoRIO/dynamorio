@@ -184,6 +184,13 @@ opnd_is_vsib(opnd_t op)
 }
 
 bool
+opnd_is_vector_base_disp(opnd_t op)
+{
+    return opnd_is_base_disp(op) &&
+        (reg_is_simd(opnd_get_base(op)) || reg_is_simd(opnd_get_index(op)));
+}
+
+bool
 opnd_is_reg_32bit(opnd_t opnd)
 {
     if (opnd_is_reg(opnd))
@@ -232,7 +239,12 @@ bool
 reg_is_pointer_sized(reg_id_t reg)
 {
 #ifdef X64
+#    ifdef AARCH64
+    return (reg >= DR_REG_Z0 && reg <= DR_REG_Z31) ||
+        (reg >= REG_START_64 && reg <= REG_STOP_64);
+#    else
     return (reg >= REG_START_64 && reg <= REG_STOP_64);
+#    endif
 #else
     return (reg >= REG_START_32 && reg <= REG_STOP_32);
 #endif
@@ -2211,6 +2223,21 @@ reg_get_value_ex(reg_id_t reg, dr_mcontext_t *mc, DR_PARAM_OUT byte *val)
         reg_t regval = reg_get_value(reg, mc);
         *(reg_t *)val = regval;
     }
+#elif defined(AARCH64)
+    if (reg >= DR_REG_START_Z && reg <= DR_REG_STOP_Z) {
+        if (!TEST(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
+            return false;
+        memcpy(val, &mc->simd[reg - DR_REG_START_Z],
+               opnd_size_in_bytes(reg_get_size(reg)));
+    } else if (reg >= DR_REG_START_P && reg <= DR_REG_STOP_P) {
+        if (!TEST(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
+            return false;
+        memcpy(val, &mc->svep[reg - DR_REG_START_P],
+               opnd_size_in_bytes(reg_get_size(reg)));
+    } else {
+        reg_t regval = reg_get_value(reg, mc);
+        *(reg_t *)val = regval;
+    }
 #else
     CLIENT_ASSERT(false, "NYI i#1551");
 #endif
@@ -2334,30 +2361,7 @@ opnd_compute_address_priv(opnd_t opnd, priv_mcontext_t *mc)
         ptr_int_t scale = opnd_get_scale(opnd);
         scaled_index = scale * reg_get_value_priv(index, mc);
 #elif defined(AARCH64)
-        bool scaled = false;
-        uint amount = 0;
-        dr_extend_type_t type = opnd_get_index_extend(opnd, &scaled, &amount);
-        reg_t index_val = reg_get_value_priv(index, mc);
-        reg_t extended = 0;
-        uint msb = 0;
-        switch (type) {
-        default: CLIENT_ASSERT(false, "Unsupported extend type"); return NULL;
-        case DR_EXTEND_UXTW: extended = (index_val << (63u - 31u)) >> (63u - 31u); break;
-        case DR_EXTEND_SXTW:
-            extended = (index_val << (63u - 31u)) >> (63u - 31u);
-            msb = extended >> 31u;
-            if (msb == 1) {
-                extended = ((~0ull) << 32u) | extended;
-            }
-            break;
-        case DR_EXTEND_UXTX:
-        case DR_EXTEND_SXTX: extended = index_val; break;
-        }
-        if (scaled) {
-            scaled_index = extended << amount;
-        } else {
-            scaled_index = extended;
-        }
+        scaled_index = compute_scaled_index_aarch64(opnd, reg_get_value_priv(index, mc));
 #elif defined(ARM)
         uint amount;
         dr_shift_type_t type = opnd_get_index_shift(opnd, &amount);
@@ -2758,14 +2762,10 @@ reg_get_size(reg_id_t reg)
     if (reg >= DR_REG_MDCCSR_EL0 && reg <= DR_REG_SPSR_FIQ)
         return OPSZ_8;
     if (reg >= DR_REG_Z0 && reg <= DR_REG_Z31) {
-#        if !defined(DR_HOST_NOT_TARGET) && !defined(STANDALONE_DECODER)
-        return opnd_size_from_bytes(proc_get_vector_length_bytes());
-#        else
-        return OPSZ_SCALABLE;
-#        endif
+        return OPSZ_SVE_VL_BYTES;
     }
     if ((reg >= DR_REG_P0 && reg <= DR_REG_P15) || reg == DR_REG_FFR)
-        return OPSZ_SCALABLE_PRED;
+        return OPSZ_SVE_PL_BYTES;
     if (reg == DR_REG_CNTVCT_EL0)
         return OPSZ_8;
     if (reg >= DR_REG_NZCV && reg <= DR_REG_FPSR)

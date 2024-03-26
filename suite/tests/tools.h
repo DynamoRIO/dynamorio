@@ -301,6 +301,20 @@ typedef void (*handler_3_t)(int, siginfo_t *, ucontext_t *);
 /* set up signal_handler as the handler for signal "sig" */
 void
 intercept_signal(int sig, handler_3_t handler, bool sigstack);
+
+#    ifdef AARCH64
+void
+dump_ucontext(ucontext_t *ucxt, bool is_sve, int vl);
+#    endif
+
+/* Representation of quadwords as 2 doubles. */
+typedef union {
+    __uint128_t as_128;
+    struct {
+        uint64 lo;
+        uint64 hi;
+    } as_2x64;
+} reinterpret128_2x64_t;
 #endif
 
 /* for cross-plaform siglongjmp */

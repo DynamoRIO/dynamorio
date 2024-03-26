@@ -1119,6 +1119,10 @@ enum {
     DR_REG_STOP_32 = DR_REG_WSP,  /**< End of 32-bit general register enum values */
     DR_REG_START_GPR = DR_REG_X0, /**< Start of full-size general-purpose registers */
     DR_REG_STOP_GPR = DR_REG_XSP, /**< End of full-size general-purpose registers */
+    DR_REG_START_Z = DR_REG_Z0,   /**< Start of Z scalable vector registers */
+    DR_REG_STOP_Z = DR_REG_Z31,   /**< Start of Z scalable vector registers */
+    DR_REG_START_P = DR_REG_P0,   /**< Start of P scalable predicate registers */
+    DR_REG_STOP_P = DR_REG_P15,   /**< Start of P scalable predicate registers */
 #    else
     DR_REG_START_32 = DR_REG_R0,  /**< Start of 32-bit general register enum values */
     DR_REG_STOP_32 = DR_REG_R15,  /**< End of 32-bit general register enum values */
@@ -1128,7 +1132,8 @@ enum {
 
     DR_NUM_GPR_REGS = DR_REG_STOP_GPR - DR_REG_START_GPR + 1, /**< Count of GPR regs. */
 #    ifdef AARCH64
-    DR_NUM_SIMD_VECTOR_REGS = DR_REG_Z31 - DR_REG_Z0 + 1,     /**< Count of SIMD regs. */
+    DR_NUM_SIMD_VECTOR_REGS =
+        DR_REG_STOP_Z - DR_REG_START_Z + 1, /**< Count of SIMD regs. */
 #    else
     /* XXX: maybe we want more distinct names that provide counts for 64-bit D or 32-bit
      * S registers.
@@ -2603,6 +2608,14 @@ DR_API
  */
 bool
 opnd_is_vsib(opnd_t opnd);
+
+DR_API
+/**
+ * Returns true iff \p opnd is a base+disp memory reference operand which uses vector
+ * registers.
+ */
+bool
+opnd_is_vector_base_disp(opnd_t opnd);
 
 DR_API
 /**

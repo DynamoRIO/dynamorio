@@ -196,6 +196,12 @@ opnd_compute_address_helper(opnd_t opnd, priv_mcontext_t *mc, ptr_int_t scaled_i
 bool
 opnd_is_abs_base_disp(opnd_t opnd);
 
+#if defined(AARCH64)
+/* Internal function shared with vector address calculation */
+ptr_int_t
+compute_scaled_index_aarch64(opnd_t opnd, reg_t index_val);
+#endif
+
 #ifndef STANDALONE_DECODER
 opnd_t
 opnd_create_dcontext_field(dcontext_t *dcontext, int offs);
@@ -338,5 +344,23 @@ extern reg_id_t dr_reg_stolen;
 #    define DR_REG_STOLEN_MAX DR_REG_X31
 extern reg_id_t dr_reg_stolen;
 #endif
+
+#ifdef AARCH64
+#if !defined(DR_HOST_NOT_TARGET) && !defined(STANDALONE_DECODER) && !defined(BUILD_TESTS)
+#    define OPSZ_SVE_VL_BYTES opnd_size_from_bytes(proc_get_vector_length_bytes())
+#    define OPSZ_SVE_PL_BYTES opnd_size_from_bytes(proc_get_vector_length_bytes() / 8)
+#else
+/* SVE vector length for off-line decoder set using -vl option with drdisas,
+ * e.g.
+ * $ drdisas -vl 256 e58057a1 85865e6b
+ *  e58057a1   str    %z1 -> +0x05(%x29)[32byte]
+ *  85865e6b   ldr    +0x37(%x19)[32byte] -> %z11
+ * $
+ */
+#    define OPSZ_SVE_VL_BYTES opnd_size_from_bytes(dr_get_sve_vector_length() / 8)
+#    define OPSZ_SVE_PL_BYTES opnd_size_from_bytes((dr_get_sve_vector_length() / 8) / 8)
+#endif
+#endif /*AARCH64*/
+
 
 #endif /* _OPND_H_ */
