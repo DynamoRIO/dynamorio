@@ -1052,6 +1052,48 @@ test_null_filter()
     return true;
 }
 
+static bool
+test_wait_filter()
+{
+    // Test that wait records (artificial timing during replay) are not preserved.
+    constexpr addr_t TID = 5;
+    constexpr addr_t PC_A = 0x1234;
+    constexpr addr_t ENCODING_A = 0x4321;
+    std::vector<test_case_t> entries = {
+        { { TRACE_TYPE_HEADER, 0, { 0x1 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 0x2 } }, true, { true } },
+        { { TRACE_TYPE_MARKER,
+            TRACE_MARKER_TYPE_FILETYPE,
+            { OFFLINE_FILE_TYPE_ENCODINGS } },
+          true,
+          { true } },
+        { { TRACE_TYPE_THREAD, 0, { TID } }, true, { true } },
+        { { TRACE_TYPE_PID, 0, { 0x5 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 0x6 } },
+          true,
+          { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 100 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0 } }, true, { true } },
+        { { TRACE_TYPE_ENCODING, 2, { ENCODING_A } }, true, { true } },
+        { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
+        // Test wait and idle records.
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CORE_WAIT, { 0 } }, true, { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CORE_WAIT, { 0 } }, true, { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CORE_IDLE, { 0 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CORE_WAIT, { 0 } }, true, { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CORE_IDLE, { 0 } }, true, { true } },
+        { { TRACE_TYPE_THREAD_EXIT, 0, { TID } }, true, { true } },
+        { { TRACE_TYPE_FOOTER, 0, { 0xa2 } }, true, { true } },
+    };
+    std::vector<std::unique_ptr<record_filter_func_t>> filters;
+    auto record_filter = std::unique_ptr<test_record_filter_t>(
+        new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
+    if (!process_entries_and_check_result(record_filter.get(), entries, 0))
+        return false;
+    fprintf(stderr, "test_wait_filter passed\n");
+    return true;
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -1063,7 +1105,7 @@ test_main(int argc, const char *argv[])
                     droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
     }
     if (!test_cache_and_type_filter() || !test_chunk_update() || !test_trim_filter() ||
-        !test_null_filter())
+        !test_null_filter() || !test_wait_filter())
         return 1;
     fprintf(stderr, "All done!\n");
     return 0;
