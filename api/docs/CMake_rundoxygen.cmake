@@ -348,6 +348,9 @@ if (embeddable)
     if (js MATCHES "page_user_docs.js")
       # CMake 3.6+ guarantees the glob is sorted lexicographically, so we've already
       # seen navtreedata.js.
+      if (found_user_docs)
+        message(FATAL_ERROR "Found unexpected \"page_user_docs\" menu file")
+      endif ()
       set(found_user_docs ON)
       if (ext_entry)
         if (NOT string MATCHES "Disassembly Library")
