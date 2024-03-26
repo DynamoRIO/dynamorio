@@ -1149,7 +1149,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_traced_schedule()
     // disk2index would then hold 1,2,0,3, but we want 2,0,1,3.
     std::vector<output_ordinal_t> disk2output(disk2index.size());
     for (size_t i = 0; i < disk2index.size(); ++i) {
-        disk2output[disk2index[i]] = i;
+        disk2output[disk2index[i]] = static_cast<output_ordinal_t>(i);
     }
     for (int disk_idx = 0; disk_idx < static_cast<output_ordinal_t>(outputs_.size());
          ++disk_idx) {

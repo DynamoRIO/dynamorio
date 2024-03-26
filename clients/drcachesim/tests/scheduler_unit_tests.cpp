@@ -3487,9 +3487,10 @@ test_replay_as_traced_sort()
         if (status == scheduler_t::STATUS_OK) {
             assert(memref.marker.tid == TID_BASE + INDICES[i]);
             if (memref.marker.type == TRACE_TYPE_MARKER &&
-                memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID)
+                memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID) {
                 assert(static_cast<int>(memref.marker.marker_value) ==
                        CPUIDS[INDICES[i]]);
+            }
         } else
             assert(status == scheduler_t::STATUS_EOF);
     }
