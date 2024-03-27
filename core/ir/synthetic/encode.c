@@ -146,7 +146,6 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
     uint eflags_instr = instr_get_arith_flags(instr, DR_QUERY_DEFAULT);
     instr_set_isa_mode(instr, DR_ISA_SYNTHETIC);
     uint eflags = 0;
-    DR_ISA_
     if (TESTANY(EFLAGS_WRITE_ARITH, eflags_instr))
         eflags |= SYNTHETIC_INSTR_WRITES_ARITH;
     if (TESTANY(EFLAGS_READ_ARITH, eflags_instr))
