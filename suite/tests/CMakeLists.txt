@@ -4272,7 +4272,7 @@ if (BUILD_CLIENTS)
     if (DR_HOST_X86 AND DR_HOST_X64 AND LINUX)
       torunonly_drcacheoff(opcode_categories allasm_x86_64 ""
         "@-simulator_type@opcode_mix" "")
-    
+
       # Requires sudo to access pagemap.
       # XXX: Should we not enable this outside of the Github suite where we know
       # we have passwordless sudo?  The pause for a password may cause problems
@@ -6152,7 +6152,6 @@ if (RISCV64)
     code_api|api.ir
     code_api|api.ir-static
     code_api|client.app_args
-    code_api|client.stolen-reg
     code_api|client.blackbox
     code_api|client.crashmsg
     code_api|client.execfault
