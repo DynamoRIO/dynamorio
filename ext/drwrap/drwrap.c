@@ -1940,12 +1940,9 @@ drwrap_ensure_postcall(void *drcontext, per_thread_t *pt, wrap_entry_t *wrap,
         pt->retaddr[pt->wrap_level] = wrapcxt->retaddr; /* Original, not load tgt. */
 #ifdef X86
         set_retaddr_on_stack(wrapcxt->mc->xsp, (app_pc)replace_retaddr_sentinel);
-#elif defined(RISCV64)
-        /* FIXME i#3544: Not implemented */
-        ASSERT(false, "Not implemented");
 #else
         drwrap_get_mcontext_internal(wrapcxt, DR_MC_CONTROL);
-        wrapcxt->mc->lr = (reg_t)replace_retaddr_sentinel;
+        wrapcxt->mc->IF_RISCV64_ELSE(ra, lr) = (reg_t)replace_retaddr_sentinel;
         wrapcxt->mc_modified = true;
 #endif
         return;
@@ -1986,7 +1983,7 @@ drwrap_ensure_postcall(void *drcontext, per_thread_t *pt, wrap_entry_t *wrap,
 
 /* called via clean call at the top of callee */
 static void
-drwrap_in_callee(void *arg1, reg_t xsp _IF_NOT_X86(reg_t lr))
+drwrap_in_callee(void *arg1, reg_t xsp _IF_NOT_X86(IF_RISCV64_ELSE(reg_t ra, reg_t lr)))
 {
     void *drcontext = dr_get_current_drcontext();
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
@@ -2006,6 +2003,8 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_NOT_X86(reg_t lr))
 #ifdef AARCHXX
     /* ditto */
     mc.lr = lr;
+#elif defined(RISCV64)
+    mc.ra = ra;
 #endif
     mc.flags = 0; /* if anything else is asked for, lazily initialize */
 
@@ -2020,7 +2019,7 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_NOT_X86(reg_t lr))
 
     NOTIFY(2, "%s: level %d function " PFX "\n", __FUNCTION__, pt->wrap_level + 1, pc);
 
-    app_pc retaddr = IF_X86_ELSE(get_retaddr_from_stack(xsp), (app_pc)lr);
+    app_pc retaddr = IF_X86_ELSE(get_retaddr_from_stack(xsp), (app_pc)IF_AARCHXX_ELSE(lr, ra));
     if (TEST(DRWRAP_REPLACE_RETADDR, global_flags)) {
         /* In case of a tailcall, the return address has already been replaced by
          * the sentinel in the stack, we need to retrieve the return address from the
@@ -2467,12 +2466,11 @@ drwrap_event_bb_insert_where(void *drcontext, void *tag, instrlist_t *bb, instr_
                 ? (DR_CLEANCALL_NOSAVE_FLAGS | DR_CLEANCALL_NOSAVE_XMM_NONPARAM)
                 : 0;
             flags |= DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_WRITES_APP_CONTEXT;
-            /* FIXME i#3544: Adapt to a real RISC-V clean call implementation */
             dr_insert_clean_call_ex(
                 drcontext, bb, where, (void *)drwrap_in_callee, flags,
-                IF_AARCHXX_ELSE(3, 2), OPND_CREATE_INTPTR((ptr_int_t)arg1),
+                IF_AARCHXX_OR_RISCV64_ELSE(3, 2), OPND_CREATE_INTPTR((ptr_int_t)arg1),
                 /* pass in xsp to avoid dr_get_mcontext */
-                opnd_create_reg(DR_REG_XSP) _IF_AARCHXX(opnd_create_reg(DR_REG_LR)));
+                opnd_create_reg(DR_REG_XSP) _IF_AARCHXX_OR_RISCV64(opnd_create_reg(IF_AARCHXX_ELSE(DR_REG_LR, DR_REG_RA))));
         }
         dr_recurlock_unlock(wrap_lock);
     }
