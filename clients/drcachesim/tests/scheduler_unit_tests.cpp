@@ -3422,6 +3422,7 @@ test_replay_as_traced_sort()
     static constexpr int NUM_INSTRS = 2;
     static constexpr memref_tid_t TID_BASE = 100;
     static constexpr addr_t PC_BASE = 1000;
+    // Our unsorted cpuid order in the file.
     static const std::vector<int> CPUIDS = { 42, 7, 56, 3 };
     // Index into CPUIDS if sorted.
     static const std::vector<int> INDICES = { 3, 1, 0, 2 };
@@ -3444,7 +3445,7 @@ test_replay_as_traced_sort()
         inputs[input_idx].push_back(make_exit(tid));
     }
 
-    // Synthesize a cpu-schedule file.
+    // Synthesize a cpu-schedule file with unsorted entries (see CPUIDS above).
     std::string cpu_fname = "tmp_test_cpu_i6721.zip";
     {
         zipfile_ostream_t outfile(cpu_fname);

@@ -1095,11 +1095,13 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_traced_schedule()
     std::vector<std::vector<schedule_output_tracker_t>> all_sched(outputs_.size());
     // Work around i#6107 by tracking counts sorted by timestamp for each input.
     std::vector<std::vector<schedule_input_tracker_t>> input_sched(inputs_.size());
-    std::vector<output_ordinal_t> disk2index;
-    std::vector<uint64_t> disk2cpuid;
+    // These hold entries added in the on-disk (unsorted) order.
+    std::vector<output_ordinal_t> disk_ord2index; // Initially [i] holds i.
+    std::vector<uint64_t> disk_ord2cpuid;         // [i] holds cpuid for entry i.
     while (options_.replay_as_traced_istream->read(reinterpret_cast<char *>(&entry),
                                                    sizeof(entry))) {
         if (entry.cpu != cur_cpu) {
+            // This is a zipfile component boundary: one conmponent per cpu.
             if (cur_cpu != std::numeric_limits<uint64_t>::max()) {
                 ++cur_output;
                 if (cur_output >= static_cast<int>(outputs_.size())) {
@@ -1108,8 +1110,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_traced_schedule()
                 }
             }
             cur_cpu = entry.cpu;
-            disk2cpuid.push_back(cur_cpu);
-            disk2index.push_back(cur_output);
+            disk_ord2cpuid.push_back(cur_cpu);
+            disk_ord2index.push_back(cur_output);
         }
         input_ordinal_t input = tid2input[entry.thread];
         // We'll fill in the stop ordinal in our second pass below.
@@ -1140,20 +1142,27 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_traced_schedule()
     // Sort by cpuid to get a more natural ordering.
     // Probably raw2trace should do this in the first place, but we have many
     // schedule files already out there so we still need a sort here.
-    std::sort(disk2index.begin(), disk2index.end(),
-              [disk2cpuid](const output_ordinal_t &l, const output_ordinal_t &r) {
-                  return disk2cpuid[l] < disk2cpuid[r];
+    // If we didn't have cross-indices pointing at all_sched from input_sched, we
+    // would just sort all_sched: but instead we have to construct a separate
+    // ordering structure.
+    std::sort(disk_ord2index.begin(), disk_ord2index.end(),
+              [disk_ord2cpuid](const output_ordinal_t &l, const output_ordinal_t &r) {
+                  return disk_ord2cpuid[l] < disk_ord2cpuid[r];
               });
-    // disk2index now holds the sorted index, but we need another array to
-    // store that in the disk order. E.g., if the original file held 6,2,3,7,
-    // disk2index would then hold 1,2,0,3, but we want 2,0,1,3.
-    std::vector<output_ordinal_t> disk2output(disk2index.size());
-    for (size_t i = 0; i < disk2index.size(); ++i) {
-        disk2output[disk2index[i]] = static_cast<output_ordinal_t>(i);
+    // disk_ord2index[i] used to hold i; now after sorting it holds the ordinal in
+    // the disk file that has the ith largest cpuid.  We need to turn that into
+    // the output_idx ordinal for the cpu at ith ordinal in the disk file, for
+    // which we use a new vector disk_ord2output.
+    // E.g., if the original file was in this order disk_ord2cpuid = {6,2,3,7},
+    // disk_ord2index after sorting would hold {1,2,0,3}, which we want to turn
+    // into disk_ord2output = {2,0,1,3}.
+    std::vector<output_ordinal_t> disk_ord2output(disk_ord2index.size());
+    for (size_t i = 0; i < disk_ord2index.size(); ++i) {
+        disk_ord2output[disk_ord2index[i]] = static_cast<output_ordinal_t>(i);
     }
     for (int disk_idx = 0; disk_idx < static_cast<output_ordinal_t>(outputs_.size());
          ++disk_idx) {
-        if (disk_idx >= static_cast<int>(disk2index.size())) {
+        if (disk_idx >= static_cast<int>(disk_ord2index.size())) {
             // XXX i#6630: We should auto-set the output count and avoid
             // having extra ouputs; these complicate idle computations, etc.
             VPRINT(this, 1, "Output %d empty: returning eof up front\n", disk_idx);
@@ -1161,10 +1170,10 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_traced_schedule()
             set_cur_input(disk_idx, INVALID_INPUT_ORDINAL);
             continue;
         }
-        output_ordinal_t output_idx = disk2output[disk_idx];
+        output_ordinal_t output_idx = disk_ord2output[disk_idx];
         VPRINT(this, 1, "Read %zu as-traced records for output #%d\n",
                all_sched[disk_idx].size(), output_idx);
-        outputs_[output_idx].as_traced_cpuid = disk2cpuid[disk_idx];
+        outputs_[output_idx].as_traced_cpuid = disk_ord2cpuid[disk_idx];
         VPRINT(this, 1, "Output #%d is as-traced CPU #%" PRId64 "\n", output_idx,
                outputs_[output_idx].as_traced_cpuid);
         // Update the stop_instruction field and collapse consecutive entries while
