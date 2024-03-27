@@ -2019,7 +2019,8 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_NOT_X86(IF_RISCV64_ELSE(reg_t ra, reg
 
     NOTIFY(2, "%s: level %d function " PFX "\n", __FUNCTION__, pt->wrap_level + 1, pc);
 
-    app_pc retaddr = IF_X86_ELSE(get_retaddr_from_stack(xsp), (app_pc)IF_AARCHXX_ELSE(lr, ra));
+    app_pc retaddr =
+        IF_X86_ELSE(get_retaddr_from_stack(xsp), (app_pc)IF_AARCHXX_ELSE(lr, ra));
     if (TEST(DRWRAP_REPLACE_RETADDR, global_flags)) {
         /* In case of a tailcall, the return address has already been replaced by
          * the sentinel in the stack, we need to retrieve the return address from the
@@ -2470,7 +2471,8 @@ drwrap_event_bb_insert_where(void *drcontext, void *tag, instrlist_t *bb, instr_
                 drcontext, bb, where, (void *)drwrap_in_callee, flags,
                 IF_AARCHXX_OR_RISCV64_ELSE(3, 2), OPND_CREATE_INTPTR((ptr_int_t)arg1),
                 /* pass in xsp to avoid dr_get_mcontext */
-                opnd_create_reg(DR_REG_XSP) _IF_AARCHXX_OR_RISCV64(opnd_create_reg(IF_AARCHXX_ELSE(DR_REG_LR, DR_REG_RA))));
+                opnd_create_reg(DR_REG_XSP) _IF_AARCHXX_OR_RISCV64(
+                    opnd_create_reg(IF_AARCHXX_ELSE(DR_REG_LR, DR_REG_RA))));
         }
         dr_recurlock_unlock(wrap_lock);
     }
