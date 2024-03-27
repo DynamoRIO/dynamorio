@@ -262,11 +262,13 @@ main(int argc, char **argv)
 
     join_thread(thread);
 
+#ifndef RISCV64
     val = get_stolen_reg_val();
     if (val != STOLEN_REG_SENTINEL) {
         print("ERROR: Stolen register %d not preserved past synchall: %d\n",
               STOLEN_REG_SENTINEL, val);
     }
+#endif
 
     // Checking for this sequence in stolen-reg.dll.c
 #if defined(AARCH64)

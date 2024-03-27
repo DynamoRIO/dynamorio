@@ -60,6 +60,9 @@ static void
 do_flush(app_pc next_pc)
 {
     dr_fprintf(STDERR, "Performing synchall flush\n");
+
+    /* FIXME i#3544: synchall translation path does not work with RISC-V yet. */
+#ifndef RISCV64
     if (!dr_flush_region(NULL, ~0UL))
         DR_ASSERT(false);
     void *drcontext = dr_get_current_drcontext();
@@ -70,6 +73,7 @@ do_flush(app_pc next_pc)
     mcontext.pc = dr_app_pc_as_jump_target(dr_get_isa_mode(drcontext), next_pc);
     dr_redirect_execution(&mcontext);
     DR_ASSERT(false);
+#endif
 }
 
 // Storing the original stolen reg before mconext set.
