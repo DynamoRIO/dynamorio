@@ -6504,19 +6504,22 @@ dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *
     else if (TEST(DR_MC_CONTROL, dmc->flags))
         dmc->xsp = get_mcontext(dcontext)->xsp;
 
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
     if (mc != NULL || TEST(DR_MC_INTEGER, dmc->flags)) {
         /* get the stolen register's app value */
         if (mc != NULL) {
             set_stolen_reg_val(mc,
                                (reg_t)d_r_get_tls(os_tls_offset(TLS_REG_STOLEN_SLOT)));
+#    ifdef RISCV64
+            set_tp_reg_val(mc, (reg_t)os_get_app_tls_base(dcontext, TLS_REG_LIB));
+#    endif
         } else {
             set_stolen_reg_val(dr_mcontext_as_priv_mcontext(dmc),
                                (reg_t)d_r_get_tls(os_tls_offset(TLS_REG_STOLEN_SLOT)));
+            set_tp_reg_val(dr_mcontext_as_priv_mcontext(dmc),
+                           (reg_t)os_get_app_tls_base(dcontext, TLS_REG_LIB));
         }
     }
-#elif defined(RISCV64)
-    ASSERT_NOT_IMPLEMENTED(false);
 #endif
 
     /* XXX: should we set the pc field?
@@ -6539,7 +6542,8 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
 {
     priv_mcontext_t *state;
     dcontext_t *dcontext = (dcontext_t *)drcontext;
-    IF_AARCHXX(reg_t reg_val = 0 /* silence the compiler warning */;)
+    IF_AARCHXX_OR_RISCV64(reg_t stolen_reg_val = 0 /* silence the compiler warning */;)
+    IF_RISCV64(reg_t tp_reg_val = 0;)
     CLIENT_ASSERT(!TEST(SELFPROT_DCONTEXT, DYNAMO_OPTION(protect_mask)),
                   "DR context protection NYI");
     CLIENT_ASSERT(context != NULL, "invalid context");
@@ -6570,7 +6574,7 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
      * will override any save_fpstate xmm values, as desired.
      */
     state = get_priv_mcontext_from_dstack(dcontext);
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
     if (TEST(DR_MC_INTEGER, context->flags)) {
         /* Set the stolen register's app value in TLS, not on stack (we rely
          * on our stolen reg retaining its value on the stack)
@@ -6578,20 +6582,20 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
         priv_mcontext_t *mc = dr_mcontext_as_priv_mcontext(context);
         d_r_set_tls(os_tls_offset(TLS_REG_STOLEN_SLOT), (void *)get_stolen_reg_val(mc));
         /* save the reg val on the stack to be clobbered by the the copy below */
-        reg_val = get_stolen_reg_val(state);
+        stolen_reg_val = get_stolen_reg_val(state);
+#    ifdef RISCV64
+        tp_reg_val = get_tp_reg_val(state);
+#    endif
     }
-#elif defined(RISCV64)
-    CLIENT_ASSERT(false, "NYI on RISCV64");
 #endif
     if (!dr_mcontext_to_priv_mcontext(state, context))
         return false;
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
     if (TEST(DR_MC_INTEGER, context->flags)) {
         /* restore the reg val on the stack clobbered by the copy above */
-        set_stolen_reg_val(state, reg_val);
+        set_stolen_reg_val(state, stolen_reg_val);
+        set_tp_reg_val(state, tp_reg_val);
     }
-#elif defined(RISCV64)
-    CLIENT_ASSERT(false, "NYI on RISCV64");
 #endif
 
     if (TEST(DR_MC_CONTROL, context->flags)) {
@@ -7400,7 +7404,7 @@ dr_insert_set_stolen_reg_value(void *drcontext, instrlist_t *ilist, instr_t *ins
                   "dr_insert_set_stolen_reg: reg has wrong size\n");
     CLIENT_ASSERT(!reg_is_stolen(reg),
                   "dr_insert_set_stolen_reg: reg is used by DynamoRIO\n");
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
     instrlist_meta_preinsert(
         ilist, instr, instr_create_save_to_tls(drcontext, reg, TLS_REG_STOLEN_SLOT));
 #endif
