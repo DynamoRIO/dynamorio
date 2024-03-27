@@ -3222,7 +3222,7 @@ check_kernel_syscall_trace(void)
                 { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
                 { gen_instr(TID_A), move1 },
                 { gen_instr(TID_A), iret },
-                // Multiple reads.
+                // Multiple reads. Acceptable because of the prior iret.
                 { gen_data(TID_A, true, 42, 8), nullptr },
                 { gen_data(TID_A, true, 42, 8), nullptr },
                 { gen_data(TID_A, true, 42, 8), nullptr },
@@ -3231,21 +3231,21 @@ check_kernel_syscall_trace(void)
                 { gen_instr(TID_A), nop1 },
                 // Missing nop2. Acceptable because of the recent sti.
                 { gen_instr(TID_A), xrstors },
-                // Multiple reads.
+                // Multiple reads. Acceptable because of the prior xrstors.
                 { gen_data(TID_A, true, 42, 8), nullptr },
                 { gen_data(TID_A, true, 42, 8), nullptr },
                 { gen_data(TID_A, true, 42, 8), nullptr },
                 { gen_data(TID_A, true, 42, 8), nullptr },
                 { gen_instr(TID_A), xsaves },
-                // Multiple writes.
+                // Multiple writes. Acceptable because of the prior xsaves.
                 { gen_data(TID_A, false, 42, 8), nullptr },
                 { gen_data(TID_A, false, 42, 8), nullptr },
                 { gen_data(TID_A, false, 42, 8), nullptr },
                 { gen_data(TID_A, false, 42, 8), nullptr },
                 { gen_instr(TID_A), hlt },
-                // Missing nop3.
+                // Missing nop3. Acceptable because of the prior hlt.
                 { gen_instr(TID_A), prefetch },
-                // Missing reads.
+                // Missing reads. Acceptable because of the prior prefetch.
                 { gen_instr(TID_A), sysret },
                 { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
                 // Continues after sys1.

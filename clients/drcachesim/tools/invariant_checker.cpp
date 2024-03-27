@@ -128,8 +128,10 @@ invariant_checker_t::report_if_false(per_shard_t *shard, bool condition,
                   << shard->instr_count_since_last_timestamp_
                   << " instrs since timestamp " << shard->last_timestamp_
                   << "): " << invariant_name << "\n";
-        if (abort_on_invariant_error_)
+        if (abort_on_invariant_error_) {
+            ++shard->error_count_;
             abort();
+        }
     }
 }
 
@@ -587,25 +589,21 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
 
     if (memref.exit.type == TRACE_TYPE_THREAD_EXIT) {
         shard->saw_thread_exit_ = true;
-        if (!TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES,
-                     shard->file_type_)) {
-            report_if_false(
-                shard,
-                !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
-                         shard->file_type_) ||
-                    shard->found_instr_count_marker_,
-                "Missing instr count markers");
-            report_if_false(shard,
-                            shard->found_cache_line_size_marker_ ||
-                                (shard->skipped_instrs_ && !is_a_unit_test(shard) &&
-                                 shard->stream->get_cache_line_size() > 0),
-                            "Missing cache line marker");
-            report_if_false(shard,
-                            shard->found_page_size_marker_ ||
-                                (shard->skipped_instrs_ && !is_a_unit_test(shard) &&
-                                 shard->stream->get_page_size() > 0),
-                            "Missing page size marker");
-        }
+        report_if_false(shard,
+                        !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                                 shard->file_type_) ||
+                            shard->found_instr_count_marker_,
+                        "Missing instr count markers");
+        report_if_false(shard,
+                        shard->found_cache_line_size_marker_ ||
+                            (shard->skipped_instrs_ && !is_a_unit_test(shard) &&
+                             shard->stream->get_cache_line_size() > 0),
+                        "Missing cache line marker");
+        report_if_false(shard,
+                        shard->found_page_size_marker_ ||
+                            (shard->skipped_instrs_ && !is_a_unit_test(shard) &&
+                             shard->stream->get_page_size() > 0),
+                        "Missing page size marker");
         report_if_false(
             shard,
             shard->found_syscall_marker_ ==
@@ -1075,6 +1073,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             // Xrstor does multiple reads. Read count cannot be
                             // determined using the decoder. System call trace
                             // templates collected on QEMU would show all reads.
+                            // XXX: Perhaps we can query the expected size using
+                            // cpuid and add it as a marker in the system call
+                            // trace template, and then adjust it according to the
+                            // cpuid value for the trace being injected into.
                             || (shard->between_kernel_syscall_trace_markers_ &&
                                 shard->prev_instr_.decoding.is_xrstor)),
                     "Too many read records");
@@ -1090,6 +1092,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             // Xsave does multiple writes. Write count cannot be
                             // determined using the decoder. System call trace
                             // templates collected on QEMU would show all writes.
+                            // XXX: Perhaps we can query the expected size using
+                            // cpuid and add it as a marker in the system call
+                            // trace template, and then adjust it according to the
+                            // cpuid value for the trace being injected into.
                             || (shard->between_kernel_syscall_trace_markers_ &&
                                 shard->prev_instr_.decoding.is_xsave)),
                     "Too many write records");
@@ -1264,7 +1270,17 @@ invariant_checker_t::print_results()
     }
     per_shard_t global;
     check_schedule_data(&global);
-    std::cerr << "Trace invariant checks passed\n";
+    uint64_t total_error_count = global.error_count_;
+    if (!abort_on_invariant_error_) {
+        for (const auto &keyval : shard_map_) {
+            total_error_count += keyval.second->error_count_;
+        }
+    }
+    if (total_error_count == 0) {
+        std::cerr << "Trace invariant checks passed\n";
+    } else {
+        std::cerr << "Found " << total_error_count << " invariant errors\n";
+    }
     return true;
 }
 
@@ -1352,8 +1368,12 @@ invariant_checker_t::check_for_pc_discontinuity(
             TRACE_TYPE_INSTR_SYSENTER IF_X86(
                 ||
                 (shard->between_kernel_syscall_trace_markers_ &&
+                 // hlt suspends processing until the next interrupt, which may be
+                 // handled at a discontinuous PC.
                  (shard->prev_instr_.decoding.opcode == OP_hlt ||
-                  // After interrupts are enabled, we may be interrupted.
+                  // After interrupts are enabled, we may be interrupted. The tolerance
+                  // of 2-instrs was found empirically on some x86 QEMU system call
+                  // trace templates.
                   (shard->instrs_since_sti > 0 && shard->instrs_since_sti <= 2))));
 
     if (!valid_nonbranch_flow) {

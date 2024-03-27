@@ -231,6 +231,8 @@ protected:
         int expected_write_records_ = 0;
         bool between_kernel_syscall_trace_markers_ = false;
         instr_info_t pre_syscall_trace_instr_;
+        // Relevant when -no_abort_on_invariant_error.
+        uint64_t error_count_ = 0;
     };
 
     // We provide this for subclasses to run these invariants with custom

@@ -141,6 +141,8 @@ write_system_call_template(void *dr_context)
         trace_entry_t to_write = *reinterpret_cast<trace_entry_t *>(buf_at);
         write_trace_entry(writer, to_write);
     }
+    write_trace_entry(writer, make_marker(TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64));
+    write_trace_entry(writer, make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096));
 
     // Write the trace template for SYS_getpid.
     write_trace_entry(writer,
