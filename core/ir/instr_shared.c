@@ -2680,12 +2680,12 @@ instr_compute_address_helper(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
                         break;
                     else
                         return false;
+                }
 #else
                 CLIENT_ASSERT(
                     false,
                     "Vector address computation implemented for AArch64 and x86 only");
 #endif
-                }
                 memcount++;
                 if (memcount == (int)index)
                     break;
