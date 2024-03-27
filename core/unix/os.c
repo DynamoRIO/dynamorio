@@ -1783,7 +1783,7 @@ os_timeout(int time_in_milliseconds)
             __asm__ __volatile__("ld %0, %1(tp) \n\t"                   \
                                  "add %0, %0, %2 \n\t"                  \
                                  "ld %0, 0(%0) \n\t"                    \
-                                 : "+r"(var)                           \
+                                 : "+r"(var)                            \
                                  : "i"(DR_TLS_BASE_OFFSET), "r"(offs)); \
         } while (0)
 #endif /* X86/ARM/RISCV64 */

@@ -6516,8 +6516,10 @@ dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *
         } else {
             set_stolen_reg_val(dr_mcontext_as_priv_mcontext(dmc),
                                (reg_t)d_r_get_tls(os_tls_offset(TLS_REG_STOLEN_SLOT)));
+#    ifdef RISCV64
             set_tp_reg_val(dr_mcontext_as_priv_mcontext(dmc),
                            (reg_t)os_get_app_tls_base(dcontext, TLS_REG_LIB));
+#    endif
         }
     }
 #endif
@@ -6594,7 +6596,9 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
     if (TEST(DR_MC_INTEGER, context->flags)) {
         /* restore the reg val on the stack clobbered by the copy above */
         set_stolen_reg_val(state, stolen_reg_val);
+#    ifdef RISCV64
         set_tp_reg_val(state, tp_reg_val);
+#    endif
     }
 #endif
 
