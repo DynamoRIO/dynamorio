@@ -750,9 +750,9 @@ dr_compute_scaled_index_aarch64(opnd_t opnd, reg_t index_val)
     uint msb = 0;
     switch (type) {
     default: CLIENT_ASSERT(false, "Unsupported extend type"); return 0;
-    case DR_EXTEND_UXTW: extended = (index_val << (63u - 31u)) >> (63u - 31u); break;
+    case DR_EXTEND_UXTW: extended = index_val & 0x00000000ffffffffULL; break;
     case DR_EXTEND_SXTW:
-        extended = (index_val << (63u - 31u)) >> (63u - 31u);
+        extended = index_val & 0x00000000ffffffffULL;
         msb = extended >> 31u;
         if (msb == 1) {
             extended = ((~0ull) << 32u) | extended;
