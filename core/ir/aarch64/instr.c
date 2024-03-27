@@ -815,7 +815,7 @@ instr_compute_vector_address(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
     for (size_t element = 0; element < num_elements; element++) {
         if (is_active_in_mask(element, mask, element_size_bytes)) {
             active_elements_found++;
-            if (active_elements_found == addr_index + 1) {
+            if (active_elements_found - 1 == addr_index) {
                 const reg_t base_reg = opnd_get_base(curop);
                 if (reg_is_z(base_reg)) {
                     size_t base_reg_num = base_reg - DR_REG_START_Z;
