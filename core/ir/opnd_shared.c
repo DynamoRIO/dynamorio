@@ -2763,10 +2763,10 @@ reg_get_size(reg_id_t reg)
     if (reg >= DR_REG_MDCCSR_EL0 && reg <= DR_REG_SPSR_FIQ)
         return OPSZ_8;
     if (reg >= DR_REG_Z0 && reg <= DR_REG_Z31) {
-        return OPSZ_SVE_VL_BYTES;
+        return OPSZ_SVE_VECLEN_BYTES;
     }
     if ((reg >= DR_REG_P0 && reg <= DR_REG_P15) || reg == DR_REG_FFR)
-        return OPSZ_SVE_PL_BYTES;
+        return OPSZ_SVE_PREDLEN_BYTES;
     if (reg == DR_REG_CNTVCT_EL0)
         return OPSZ_8;
     if (reg >= DR_REG_NZCV && reg <= DR_REG_FPSR)

@@ -791,7 +791,7 @@ instr_compute_vector_address(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
     *write = instr_is_scatter(instr);
     ASSERT(*write || instr_is_gather(instr));
 
-    const size_t vl_bytes = opnd_size_in_bytes(OPSZ_SVE_VL_BYTES);
+    const size_t vl_bytes = opnd_size_in_bytes(OPSZ_SVE_VECLEN_BYTES);
     /* DynamoRIO currently supports up to 512-bit vector registers so a predicate register
      * value should be <= 64-bits.
      * If DynamoRIO is extended in the future to support large vector lengths this

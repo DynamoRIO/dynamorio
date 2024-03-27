@@ -348,18 +348,24 @@ extern reg_id_t dr_reg_stolen;
 #ifdef AARCH64
 #    if !defined(DR_HOST_NOT_TARGET) && !defined(STANDALONE_DECODER) && \
         !defined(BUILD_TESTS)
-#        define OPSZ_SVE_VL_BYTES opnd_size_from_bytes(proc_get_vector_length_bytes())
-#        define OPSZ_SVE_PL_BYTES opnd_size_from_bytes(proc_get_vector_length_bytes() / 8)
+/* Size of the SVE Z vector registers in bytes. */
+#        define OPSZ_SVE_VECLEN_BYTES opnd_size_from_bytes(proc_get_vector_length_bytes())
+/* Size of the SVE P predicate registers in bytes. */
+#        define OPSZ_SVE_PREDLEN_BYTES \
+            opnd_size_from_bytes(proc_get_vector_length_bytes() / 8)
 #    else
-/* SVE vector length for off-line decoder set using -vl option with drdisas,
+/* SVE vector length for off-line decoder set using dr_set_sve_vector_length() or -vl
+ * option with drdisas,
  * e.g.
  * $ drdisas -vl 256 e58057a1 85865e6b
  *  e58057a1   str    %z1 -> +0x05(%x29)[32byte]
  *  85865e6b   ldr    +0x37(%x19)[32byte] -> %z11
  * $
  */
-#        define OPSZ_SVE_VL_BYTES opnd_size_from_bytes(dr_get_sve_vector_length() / 8)
-#        define OPSZ_SVE_PL_BYTES \
+/* Size of the SVE Z vector registers in bytes. */
+#        define OPSZ_SVE_VECLEN_BYTES opnd_size_from_bytes(dr_get_sve_vector_length() / 8)
+/* Size of the SVE P predicate registers in bytes. */
+#        define OPSZ_SVE_PREDLEN_BYTES \
             opnd_size_from_bytes((dr_get_sve_vector_length() / 8) / 8)
 #    endif
 #endif /*AARCH64*/
