@@ -9724,7 +9724,7 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
      * need to pollute the decoding of other architectures with this synthetic ISA special
      * case.
      */
-    if (dr_get_isa_mode((void *)dcontext) == DR_ISA_SYNTHETIC)
+    if (dr_get_isa_mode((void *)dcontext) == DR_ISA_REGDEPS)
         return decode_from_synth(dcontext, pc, instr);
 
     byte *next_pc = pc + 4;
