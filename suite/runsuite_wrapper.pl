@@ -222,6 +222,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|tool.drcacheoff.burst_traceopts' => 1, # i#4622
                 'code_api|tool.drcacheoff.burst_replaceall' => 1, # i#4622
                 'code_api|tool.drcacheoff.burst_static' => 1, # i#4486
+                'code_api|tool.drcacheoff.windows-timestamps' => 1, # i#6081
                 'code_api|api.symtest' => 1, # i#4131
                 'code_api|client.drwrap-test-detach' => 1, # i#4616
                 'code_api|client.cbr4' => 1, # i#4792
