@@ -1081,8 +1081,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_traced_schedule()
         tid2input[inputs_[i].tid] = i;
     }
     std::vector<std::set<uint64_t>> start2stop(inputs_.size());
-    // We number the outputs according to their order in the file.
-    // XXX i#5843: Should we support some direction from the user on this?  Simulation
+    // We initially number the outputs according to their order in the file, and then
+    // sort by the stored cpuid below.
+    // XXX i#6726: Should we support some direction from the user on this?  Simulation
     // may want to preserve the NUMA relationships and may need to set up its simulated
     // cores at init time, so it would prefer to partition by output stream identifier.
     // Maybe we could at least add the proposed memtrace_stream_t query for cpuid and
@@ -1094,9 +1095,13 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_traced_schedule()
     std::vector<std::vector<schedule_output_tracker_t>> all_sched(outputs_.size());
     // Work around i#6107 by tracking counts sorted by timestamp for each input.
     std::vector<std::vector<schedule_input_tracker_t>> input_sched(inputs_.size());
+    // These hold entries added in the on-disk (unsorted) order.
+    std::vector<output_ordinal_t> disk_ord2index; // Initially [i] holds i.
+    std::vector<uint64_t> disk_ord2cpuid;         // [i] holds cpuid for entry i.
     while (options_.replay_as_traced_istream->read(reinterpret_cast<char *>(&entry),
                                                    sizeof(entry))) {
         if (entry.cpu != cur_cpu) {
+            // This is a zipfile component boundary: one conmponent per cpu.
             if (cur_cpu != std::numeric_limits<uint64_t>::max()) {
                 ++cur_output;
                 if (cur_output >= static_cast<int>(outputs_.size())) {
@@ -1105,9 +1110,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_traced_schedule()
                 }
             }
             cur_cpu = entry.cpu;
-            VPRINT(this, 1, "Output #%d is as-traced CPU #%" PRId64 "\n", cur_output,
-                   cur_cpu);
-            outputs_[cur_output].as_traced_cpuid = cur_cpu;
+            disk_ord2cpuid.push_back(cur_cpu);
+            disk_ord2index.push_back(cur_output);
         }
         input_ordinal_t input = tid2input[entry.thread];
         // We'll fill in the stop ordinal in our second pass below.
@@ -1135,16 +1139,49 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_traced_schedule()
     res = remove_zero_instruction_segments(input_sched, all_sched);
     if (res != sched_type_t::STATUS_SUCCESS)
         return res;
-    for (int output_idx = 0; output_idx < static_cast<output_ordinal_t>(outputs_.size());
-         ++output_idx) {
+    // Sort by cpuid to get a more natural ordering.
+    // Probably raw2trace should do this in the first place, but we have many
+    // schedule files already out there so we still need a sort here.
+    // If we didn't have cross-indices pointing at all_sched from input_sched, we
+    // would just sort all_sched: but instead we have to construct a separate
+    // ordering structure.
+    std::sort(disk_ord2index.begin(), disk_ord2index.end(),
+              [disk_ord2cpuid](const output_ordinal_t &l, const output_ordinal_t &r) {
+                  return disk_ord2cpuid[l] < disk_ord2cpuid[r];
+              });
+    // disk_ord2index[i] used to hold i; now after sorting it holds the ordinal in
+    // the disk file that has the ith largest cpuid.  We need to turn that into
+    // the output_idx ordinal for the cpu at ith ordinal in the disk file, for
+    // which we use a new vector disk_ord2output.
+    // E.g., if the original file was in this order disk_ord2cpuid = {6,2,3,7},
+    // disk_ord2index after sorting would hold {1,2,0,3}, which we want to turn
+    // into disk_ord2output = {2,0,1,3}.
+    std::vector<output_ordinal_t> disk_ord2output(disk_ord2index.size());
+    for (size_t i = 0; i < disk_ord2index.size(); ++i) {
+        disk_ord2output[disk_ord2index[i]] = static_cast<output_ordinal_t>(i);
+    }
+    for (int disk_idx = 0; disk_idx < static_cast<output_ordinal_t>(outputs_.size());
+         ++disk_idx) {
+        if (disk_idx >= static_cast<int>(disk_ord2index.size())) {
+            // XXX i#6630: We should auto-set the output count and avoid
+            // having extra ouputs; these complicate idle computations, etc.
+            VPRINT(this, 1, "Output %d empty: returning eof up front\n", disk_idx);
+            outputs_[disk_idx].at_eof = true;
+            set_cur_input(disk_idx, INVALID_INPUT_ORDINAL);
+            continue;
+        }
+        output_ordinal_t output_idx = disk_ord2output[disk_idx];
         VPRINT(this, 1, "Read %zu as-traced records for output #%d\n",
-               all_sched[output_idx].size(), output_idx);
+               all_sched[disk_idx].size(), output_idx);
+        outputs_[output_idx].as_traced_cpuid = disk_ord2cpuid[disk_idx];
+        VPRINT(this, 1, "Output #%d is as-traced CPU #%" PRId64 "\n", output_idx,
+               outputs_[output_idx].as_traced_cpuid);
         // Update the stop_instruction field and collapse consecutive entries while
         // inserting into the final location.
         int start_consec = -1;
-        for (int sched_idx = 0;
-             sched_idx < static_cast<int>(all_sched[output_idx].size()); ++sched_idx) {
-            auto &segment = all_sched[output_idx][sched_idx];
+        for (int sched_idx = 0; sched_idx < static_cast<int>(all_sched[disk_idx].size());
+             ++sched_idx) {
+            auto &segment = all_sched[disk_idx][sched_idx];
             if (!segment.valid)
                 continue;
             auto find = start2stop[segment.input].find(segment.start_instruction);
@@ -1158,27 +1195,27 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_traced_schedule()
                    " time=%" PRId64 "\n",
                    sched_idx, segment.input, segment.start_instruction,
                    segment.stop_instruction, segment.timestamp);
-            if (sched_idx + 1 < static_cast<int>(all_sched[output_idx].size()) &&
-                segment.input == all_sched[output_idx][sched_idx + 1].input &&
+            if (sched_idx + 1 < static_cast<int>(all_sched[disk_idx].size()) &&
+                segment.input == all_sched[disk_idx][sched_idx + 1].input &&
                 segment.stop_instruction >
-                    all_sched[output_idx][sched_idx + 1].start_instruction) {
+                    all_sched[disk_idx][sched_idx + 1].start_instruction) {
                 // A second sanity check.
                 error_string_ = "Invalid decreasing start field in schedule file";
                 return STATUS_ERROR_INVALID_PARAMETER;
-            } else if (sched_idx + 1 < static_cast<int>(all_sched[output_idx].size()) &&
-                       segment.input == all_sched[output_idx][sched_idx + 1].input &&
+            } else if (sched_idx + 1 < static_cast<int>(all_sched[disk_idx].size()) &&
+                       segment.input == all_sched[disk_idx][sched_idx + 1].input &&
                        segment.stop_instruction ==
-                           all_sched[output_idx][sched_idx + 1].start_instruction) {
+                           all_sched[disk_idx][sched_idx + 1].start_instruction) {
                 // Collapse into next.
                 if (start_consec == -1)
                     start_consec = sched_idx;
             } else {
                 schedule_output_tracker_t &toadd = start_consec >= 0
-                    ? all_sched[output_idx][start_consec]
-                    : all_sched[output_idx][sched_idx];
+                    ? all_sched[disk_idx][start_consec]
+                    : all_sched[disk_idx][sched_idx];
                 outputs_[output_idx].record.emplace_back(
                     schedule_record_t::DEFAULT, toadd.input, toadd.start_instruction,
-                    all_sched[output_idx][sched_idx].stop_instruction, toadd.timestamp);
+                    all_sched[disk_idx][sched_idx].stop_instruction, toadd.timestamp);
                 start_consec = -1;
                 VDO(this, 3, {
                     auto &added = outputs_[output_idx].record.back();
@@ -1193,24 +1230,19 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_traced_schedule()
         }
         VPRINT(this, 1, "Collapsed duplicates for %zu as-traced records for output #%d\n",
                outputs_[output_idx].record.size(), output_idx);
-        if (!outputs_[output_idx].record.empty()) {
-            if (outputs_[output_idx].record[0].value.start_instruction != 0) {
-                VPRINT(this, 1, "Initial input for output #%d is: wait state\n",
-                       output_idx);
-                set_cur_input(output_idx, INVALID_INPUT_ORDINAL);
-                outputs_[output_idx].waiting = true;
-                outputs_[output_idx].record_index = -1;
-            } else {
-                VPRINT(this, 1, "Initial input for output #%d is %d\n", output_idx,
-                       outputs_[output_idx].record[0].key.input);
-                set_cur_input(output_idx, outputs_[output_idx].record[0].key.input);
-            }
-        } else {
-            // XXX i#6630: We should auto-set the output count and avoid
-            // having extra ouputs; these complicate idle computations, etc.
-            VPRINT(this, 1, "Output %d empty: returning eof up front\n", output_idx);
-            outputs_[output_idx].at_eof = true;
+        if (outputs_[output_idx].record.empty()) {
+            error_string_ = "Empty as-traced schedule";
+            return STATUS_ERROR_INVALID_PARAMETER;
+        }
+        if (outputs_[output_idx].record[0].value.start_instruction != 0) {
+            VPRINT(this, 1, "Initial input for output #%d is: wait state\n", output_idx);
             set_cur_input(output_idx, INVALID_INPUT_ORDINAL);
+            outputs_[output_idx].waiting = true;
+            outputs_[output_idx].record_index = -1;
+        } else {
+            VPRINT(this, 1, "Initial input for output #%d is %d\n", output_idx,
+                   outputs_[output_idx].record[0].key.input);
+            set_cur_input(output_idx, outputs_[output_idx].record[0].key.input);
         }
     }
     return STATUS_SUCCESS;
