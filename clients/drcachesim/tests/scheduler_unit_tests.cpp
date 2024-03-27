@@ -3425,7 +3425,7 @@ test_replay_as_traced_from_file(const char *testdir)
         "Core #3: 1257599 => 1257604 @ <366987,87875,13331862029895453> "
         // The ordinal is really 1 ("<1,0,0>") but with the scheduler's readahead
         // it becomes 2; easier to just check for that as trying to avoid readahead
-        // causes other problems (i#xxxx).
+        // causes other problems with start-idle cores (i#6721).
         "(<366986,87875,13331862029895453> => <2,0,0>) \n"
         "Core #4: 1257600 \nCore #5: 1257596 \nCore #6: 1257602 \n";
     static constexpr int NUM_OUTPUTS = 7; // Matches the actual trace's core footprint.
