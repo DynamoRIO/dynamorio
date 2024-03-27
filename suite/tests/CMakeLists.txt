@@ -5125,6 +5125,10 @@ if (UNIX)
           --build-makeprogram ${CMAKE_MAKE_PROGRAM}
           --build-options ${config_type} -DBUILD_TESTS=ON -DBUILD_DOCS=OFF
           -DBUILD_SAMPLES=OFF -DBUILD_EXT=OFF -DBUILD_CLIENTS=OFF
+          # TODO i#6417: The switch to AMD VM's for GA CI has broken many of our tests.
+          # LINUX_XARCH_TEST is used to indicate the test is linux.xarch which runs 32 bit tests
+          # on 64 bit host.
+          -DLINUX_XARCH_TEST=ON
           --test-command ${CMAKE_COMMAND} -P ${xarch_script})
         file(READ linux/execve-client.expect expect)
         set_tests_properties(linux.xarch PROPERTIES ENVIRONMENT
@@ -6220,75 +6224,11 @@ if (RISCV64)
 endif ()
 
 # TODO i#6417: The switch to AMD VM's for GA CI has broken many of our tests.
-# This includes timeouts which increases suite length.
+# This includes timeouts which increase suite length.
 # The following tests are excluded until they are fixed.
-if (X86)
-  message(STATUS "X86: true")
-else ()
-  message(STATUS "X86: false")
-endif ()
-if (DR_HOST_X86)
-  message(STATUS "DR_HOST_X86: true")
-endif ()
-if (DR_HOST_X64)
-  message(STATUS "DR_HOST_X64: true")
-else ()
-  message(STATUS "DR_HOST_X64: false")
-endif ()
-if (arg_32_only)
-  message(STATUS "arg_32_only: true")
-else ()
-  message(STATUS "arg_32_only: false")
-endif ()
-if (arg_64_only)
-  message(STATUS "arg_64_only: true")
-else ()
-  message(STATUS "arg_64_only: false")
-endif ()
-if (CPU_AMD)
-  message(STATUS "amd: true")
-endif ()
-if (CPU_INTEL)
-  message(STATUS "intel: true")
-endif ()
-if (X64)
-  message(STATUS "X64: true")
-else ()
-  message(STATUS "X64: false")
-endif ()
-if (DR_HOST_NOT_TARGET)
-  message(STATUS "DR_HOST_NOT_TARGET: true")
-else ()
-  message(STATUS "DR_HOST_NOT_TARGET: false")
-endif ()
-if (UNIX)
-  message(STATUS "UNIX: true")
-else ()
-  message(STATUS "UNIX: false")
-endif ()
-if (LINUX)
-  message(STATUS "LINUX: true")
-else ()
-  message(STATUS "LINUX: false")
-endif ()
-
-message(STATUS "target: ${target}")
-message(STATUS "TARGET_ARCH: ${TARGET_ARCH}")
-message(STATUS "CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
-message(STATUS "ARCH_CFLAGS: ${ARCH_CFLAGS}")
-
-if (${ARCH_CFLAGS} STREQUAL "-m32")
-  message(STATUS "ARCH_CFLAGS == -m32")
-else ()
-  message(STATUS "ARCH_CFLAGS != -m32")
-endif ()
-if ("${ARCH_CFLAGS}" STREQUAL "-m32")
-  message(STATUS "'ARCH_CFLAGS' == -m32")
-else ()
-  message(STATUS "'ARCH_CFLAGS' != -m32")
-endif ()
-
-if (UNIX AND X86 AND "${ARCH_CFLAGS}" STREQUAL "-m32")
+# LINUX_XARCH_TEST is defined only for x86-64 linux.xarch test which don't
+# have the following tests, so we need to skip set_tests_properties.
+if (UNIX AND CPU_AMD AND NOT DR_HOST_X64 AND NOT LINUX_XARCH_TEST)
   set_tests_properties(
     code_api|api.detach
     code_api|api.detach_spawn_quick_exit
@@ -6355,5 +6295,10 @@ if (UNIX AND X86 AND "${ARCH_CFLAGS}" STREQUAL "-m32")
     code_api|tool.record_filter
     code_api|tool.record_filter_bycore_multi
     code_api|tool.record_filter_bycore_uni
-    PROPERTIES LABELS X32_DENYLIST)
+    PROPERTIES LABELS AMD_X32_DENYLIST)
+  if (tool.drcachesim.phys-threads_SUDO_sudo)
+    set_tests_properties(
+      code_api|tool.drcachesim.phys-threads_SUDO
+      PROPERTIES LABELS AMD_X32_DENYLIST)
+  endif ()
 endif ()

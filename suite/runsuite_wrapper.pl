@@ -403,6 +403,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|client.drwrap-test-detach' => 1, # i#4593
                 'code_api|linux.thread-reset' => 1, # i#4604
                 'code_api|linux.clone-reset' => 1, # i#4604
+                'code_api|tool.drcachesim.phys-threads_SUDO' => 1, # i#6417
                 # These are from the long suite.
                 'common.decode-stress' => 1, # i#1807 Ignored for all options.
                 'code_api,opt_speed|common.fib' => 1, # i#1807: Undiagnosed timeout.
