@@ -6299,9 +6299,4 @@ if (UNIX AND CPU_AMD AND NOT DR_HOST_X64 AND NOT LINUX_XARCH_TEST)
     code_api|tool.record_filter_bycore_multi
     code_api|tool.record_filter_bycore_uni
     PROPERTIES LABELS AMD_X32_DENYLIST)
-  if (tool.drcachesim.phys-threads_SUDO_sudo)
-    set_tests_properties(
-      code_api|tool.drcachesim.phys-threads_SUDO
-      PROPERTIES LABELS AMD_X32_DENYLIST)
-  endif ()
 endif ()
