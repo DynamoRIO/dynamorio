@@ -550,6 +550,12 @@ record_filter_t::process_markers(per_shard_t *per_shard, trace_entry_t &entry,
                        "supported";
             }
             break;
+        case TRACE_MARKER_TYPE_CORE_WAIT:
+            // These are artificial timing records: do not output them, nor consider
+            // them real input records.
+            output = false;
+            --per_shard->input_entry_count;
+            break;
         }
     }
     return "";
