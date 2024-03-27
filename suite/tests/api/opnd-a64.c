@@ -68,8 +68,8 @@ test_get_size()
         }
     }
 
-    opnd_size_t opsz_vl = OPSZ_NA;
-    opnd_size_t opsz_pl = OPSZ_NA;
+    opnd_size_t opsz_veclen = OPSZ_NA;  /* Length of a Z vector register in bytes */
+    opnd_size_t opsz_predlen = OPSZ_NA; /* Length of a P predicate register in bytes */
     if (proc_has_feature(FEATURE_SVE)) {
         /* Check sizes of SVE vector and predicate registers. Read vector length
          * directly from hardware and compare with OPSZ_ value reg_get_size()
@@ -82,20 +82,20 @@ test_get_size()
             : "=r"(vl)
             :
             : "x0");
-        opsz_vl = opnd_size_from_bytes(vl);
-        opsz_pl = opnd_size_from_bytes(vl / 8);
+        opsz_veclen = opnd_size_from_bytes(vl);
+        opsz_predlen = opnd_size_from_bytes(vl / 8);
     } else {
         /* Set vector length to 256 bits for unit tests on non-SVE hardware. */
         ASSERT(dr_get_sve_vector_length() == 256);
-        opsz_vl = OPSZ_32;
-        opsz_pl = OPSZ_4;
+        opsz_veclen = OPSZ_32;
+        opsz_predlen = OPSZ_4;
     }
     for (uint i = 0; i < 32; i++) {
-        ASSERT(reg_get_size((reg_id_t)DR_REG_Z0 + i) == opsz_vl);
+        ASSERT(reg_get_size((reg_id_t)DR_REG_Z0 + i) == opsz_veclen);
     }
 
     for (uint i = 0; i < 16; i++) {
-        ASSERT(reg_get_size((reg_id_t)DR_REG_P0 + i) == opsz_pl);
+        ASSERT(reg_get_size((reg_id_t)DR_REG_P0 + i) == opsz_predlen);
     }
 }
 
@@ -467,6 +467,7 @@ test_compute_vector_address(void *drcontext)
 #define ELSZ_S OPSZ_4
 #define ELSZ_D OPSZ_8
 
+/* Declare expected test results.*/
 #define EXPECT(...)                                \
     app_pc addresses[] = { __VA_ARGS__ };          \
     vector_address_test_expectation_t expected = { \
@@ -475,21 +476,21 @@ test_compute_vector_address(void *drcontext)
         false,                                     \
     }
 
-#define VEC_ADDR_TEST(op, pg, mask, create_mem_opnd, decl_expect)                       \
-    {                                                                                   \
-        decl_expect;                                                                    \
-        expected.is_write = op_is_write(OP_##op);                                       \
-        mc.svep[pg].u32[0] = mask;                                                      \
-        opnd_t mem_opnd = create_mem_opnd;                                              \
-        opnd_set_size(&mem_opnd, op_mem_size(OP_##op));                                 \
-        instr_t *instr = INSTR_CREATE_##op##_sve_pred(                                  \
-            drcontext,                                                                  \
-            opnd_create_reg_element_vector(DR_REG_Z31,                                  \
-                                           opnd_get_vector_element_size(mem_opnd)),     \
-            opnd_create_predicate_reg(DR_REG_P0 + pg, false), mem_opnd);                \
-        test_compute_vector_address_helper(drcontext, instr, &mc, &expected, __LINE__); \
-        instr_destroy(drcontext, instr);                                                \
-        mc.svep[pg].u32[0] = 0xffffffff;                                                \
+#define VEC_ADDR_TEST(op, governing_pred_reg, mask, create_mem_opnd, decl_expect)        \
+    {                                                                                    \
+        decl_expect;                                                                     \
+        expected.is_write = op_is_write(OP_##op);                                        \
+        mc.svep[governing_pred_reg].u32[0] = mask;                                       \
+        opnd_t mem_opnd = create_mem_opnd;                                               \
+        opnd_set_size(&mem_opnd, op_mem_size(OP_##op));                                  \
+        instr_t *instr = INSTR_CREATE_##op##_sve_pred(                                   \
+            drcontext,                                                                   \
+            opnd_create_reg_element_vector(DR_REG_Z31,                                   \
+                                           opnd_get_vector_element_size(mem_opnd)),      \
+            opnd_create_predicate_reg(DR_REG_P0 + governing_pred_reg, false), mem_opnd); \
+        test_compute_vector_address_helper(drcontext, instr, &mc, &expected, __LINE__);  \
+        instr_destroy(drcontext, instr);                                                 \
+        mc.svep[governing_pred_reg].u32[0] = 0xffffffff;                                 \
     }
 
 #define SCALAR_PLUS_VECTOR(xn, zm, el_size, extend, scale)                             \
@@ -504,25 +505,25 @@ test_compute_vector_address(void *drcontext)
      */
 
     /* 32-bit scaled offset [<Xn|SP>, <Zm>.S, <mod> #N] */
-    VEC_ADDR_TEST(ld1h, /*pg=*/0, 0x11111111,
+    VEC_ADDR_TEST(ld1h, /*governing_pred_reg=*/0, 0x11111111,
                   SCALAR_PLUS_VECTOR(SCALAR_BASE_REG, INDEX_REG_S, ELSZ_S, UXTW, 1),
                   EXPECT((app_pc)0x8000000000020000, (app_pc)0x8000000000040000,
                          (app_pc)0x8000000000060000, (app_pc)0x8000000000080000,
                          (app_pc)0x80000001fffe0000, (app_pc)0x80000001fffa0000,
                          (app_pc)0x80000001fff80000, (app_pc)0x80000001fff60000));
-    VEC_ADDR_TEST(st1h, /*pg=*/0, 0x11111111,
+    VEC_ADDR_TEST(st1h, /*governing_pred_reg=*/0, 0x11111111,
                   SCALAR_PLUS_VECTOR(SCALAR_BASE_REG, INDEX_REG_S, ELSZ_S, SXTW, 1),
                   EXPECT((app_pc)0x8000000000020000, (app_pc)0x8000000000040000,
                          (app_pc)0x8000000000060000, (app_pc)0x8000000000080000,
                          (app_pc)0x7ffffffffffe0000, (app_pc)0x7ffffffffffa0000,
                          (app_pc)0x7ffffffffff80000, (app_pc)0x7ffffffffff60000));
-    VEC_ADDR_TEST(ld1w, /*pg=*/0, 0x11111111,
+    VEC_ADDR_TEST(ld1w, /*governing_pred_reg=*/0, 0x11111111,
                   SCALAR_PLUS_VECTOR(SCALAR_BASE_REG, INDEX_REG_S, ELSZ_S, UXTW, 2),
                   EXPECT((app_pc)0x8000000000040000, (app_pc)0x8000000000080000,
                          (app_pc)0x80000000000c0000, (app_pc)0x8000000000100000,
                          (app_pc)0x80000003fffc0000, (app_pc)0x80000003fff40000,
                          (app_pc)0x80000003fff00000, (app_pc)0x80000003ffec0000));
-    VEC_ADDR_TEST(st1w, /*pg=*/0, 0x11111111,
+    VEC_ADDR_TEST(st1w, /*governing_pred_reg=*/0, 0x11111111,
                   SCALAR_PLUS_VECTOR(SCALAR_BASE_REG, INDEX_REG_S, ELSZ_S, SXTW, 2),
                   EXPECT((app_pc)0x8000000000040000, (app_pc)0x8000000000080000,
                          (app_pc)0x80000000000c0000, (app_pc)0x8000000000100000,
@@ -530,13 +531,13 @@ test_compute_vector_address(void *drcontext)
                          (app_pc)0x7ffffffffff00000, (app_pc)0x7fffffffffec0000));
 
     /* 32-bit unscaled offset [<Xn|SP>, <Zm>.S, <mod>] */
-    VEC_ADDR_TEST(ld1w, /*pg=*/1, 0x11111111,
+    VEC_ADDR_TEST(ld1w, /*governing_pred_reg=*/1, 0x11111111,
                   SCALAR_PLUS_VECTOR(SCALAR_BASE_REG, INDEX_REG_S, ELSZ_S, UXTW, 0),
                   EXPECT((app_pc)0x8000000000010000, (app_pc)0x8000000000020000,
                          (app_pc)0x8000000000030000, (app_pc)0x8000000000040000,
                          (app_pc)0x80000000ffff0000, (app_pc)0x80000000fffd0000,
                          (app_pc)0x80000000fffc0000, (app_pc)0x80000000fffb0000));
-    VEC_ADDR_TEST(st1w, /*pg=*/1, 0x11111111,
+    VEC_ADDR_TEST(st1w, /*governing_pred_reg=*/1, 0x11111111,
                   SCALAR_PLUS_VECTOR(SCALAR_BASE_REG, INDEX_REG_S, ELSZ_S, SXTW, 0),
                   EXPECT((app_pc)0x8000000000010000, (app_pc)0x8000000000020000,
                          (app_pc)0x8000000000030000, (app_pc)0x8000000000040000,
@@ -544,57 +545,57 @@ test_compute_vector_address(void *drcontext)
                          (app_pc)0x7ffffffffffc0000, (app_pc)0x7ffffffffffb0000));
 
     /* 32-bit unpacked scaled offset [<Xn|SP>, <Zm>.D, <mod> #N] */
-    VEC_ADDR_TEST(ld1h, /*pg=*/1, 0x01010101,
+    VEC_ADDR_TEST(ld1h, /*governing_pred_reg=*/1, 0x01010101,
                   SCALAR_PLUS_VECTOR(SCALAR_BASE_REG, INDEX_REG_D, ELSZ_D, UXTW, 1),
                   EXPECT((app_pc)0x8000000000020000, (app_pc)0x8000000000040000,
                          (app_pc)0x80000001fffe0000, (app_pc)0x80000001fffc0000));
-    VEC_ADDR_TEST(st1h, /*pg=*/1, 0x01010101,
+    VEC_ADDR_TEST(st1h, /*governing_pred_reg=*/1, 0x01010101,
                   SCALAR_PLUS_VECTOR(SCALAR_BASE_REG, INDEX_REG_D, ELSZ_D, SXTW, 1),
                   EXPECT((app_pc)0x8000000000020000, (app_pc)0x8000000000040000,
                          (app_pc)0x7ffffffffffe0000, (app_pc)0x7ffffffffffc0000));
-    VEC_ADDR_TEST(ld1w, /*pg=*/1, 0x01010101,
+    VEC_ADDR_TEST(ld1w, /*governing_pred_reg=*/1, 0x01010101,
                   SCALAR_PLUS_VECTOR(SCALAR_BASE_REG, INDEX_REG_D, ELSZ_D, UXTW, 2),
                   EXPECT((app_pc)0x8000000000040000, (app_pc)0x8000000000080000,
                          (app_pc)0x80000003fffc0000, (app_pc)0x80000003fff80000));
-    VEC_ADDR_TEST(st1w, /*pg=*/1, 0x01010101,
+    VEC_ADDR_TEST(st1w, /*governing_pred_reg=*/1, 0x01010101,
                   SCALAR_PLUS_VECTOR(SCALAR_BASE_REG, INDEX_REG_D, ELSZ_D, SXTW, 2),
                   EXPECT((app_pc)0x8000000000040000, (app_pc)0x8000000000080000,
                          (app_pc)0x7ffffffffffc0000, (app_pc)0x7ffffffffff80000));
-    VEC_ADDR_TEST(ld1d, /*pg=*/1, 0x01010101,
+    VEC_ADDR_TEST(ld1d, /*governing_pred_reg=*/1, 0x01010101,
                   SCALAR_PLUS_VECTOR(SCALAR_BASE_REG, INDEX_REG_D, ELSZ_D, UXTW, 3),
                   EXPECT((app_pc)0x8000000000080000, (app_pc)0x8000000000100000,
                          (app_pc)0x80000007fff80000, (app_pc)0x80000007fff00000));
-    VEC_ADDR_TEST(st1d, /*pg=*/1, 0x01010101,
+    VEC_ADDR_TEST(st1d, /*governing_pred_reg=*/1, 0x01010101,
                   SCALAR_PLUS_VECTOR(SCALAR_BASE_REG, INDEX_REG_D, ELSZ_D, SXTW, 3),
                   EXPECT((app_pc)0x8000000000080000, (app_pc)0x8000000000100000,
                          (app_pc)0x7ffffffffff80000, (app_pc)0x7ffffffffff00000));
 
     /* 32-bit unpacked unscaled offset [<Xn|SP>, <Zm>.D, <mod>] */
-    VEC_ADDR_TEST(ld1d, /*pg=*/1, 0x01010101,
+    VEC_ADDR_TEST(ld1d, /*governing_pred_reg=*/1, 0x01010101,
                   SCALAR_PLUS_VECTOR(SCALAR_BASE_REG, INDEX_REG_D, ELSZ_D, UXTW, 0),
                   EXPECT((app_pc)0x8000000000010000, (app_pc)0x8000000000020000,
                          (app_pc)0x80000000ffff0000, (app_pc)0x80000000fffe0000));
-    VEC_ADDR_TEST(st1d, /*pg=*/1, 0x01010101,
+    VEC_ADDR_TEST(st1d, /*governing_pred_reg=*/1, 0x01010101,
                   SCALAR_PLUS_VECTOR(SCALAR_BASE_REG, INDEX_REG_D, ELSZ_D, SXTW, 0),
                   EXPECT((app_pc)0x8000000000010000, (app_pc)0x8000000000020000,
                          (app_pc)0x7fffffffffff0000, (app_pc)0x7ffffffffffe0000));
 
     /* 64-bit scaled offset [<Xn|SP>, <Zm>.D, LSL #N] */
-    VEC_ADDR_TEST(ld1h, /*pg=*/1, 0x01010101,
+    VEC_ADDR_TEST(ld1h, /*governing_pred_reg=*/1, 0x01010101,
                   SCALAR_PLUS_VECTOR(SCALAR_BASE_REG, INDEX_REG_D, ELSZ_D, UXTX, 1),
                   EXPECT((app_pc)0x8000000000020000, (app_pc)0x8000000000040000,
                          (app_pc)0x7ffffffffffe0000, (app_pc)0x7ffffffffffc0000));
-    VEC_ADDR_TEST(st1w, /*pg=*/1, 0x01010101,
+    VEC_ADDR_TEST(st1w, /*governing_pred_reg=*/1, 0x01010101,
                   SCALAR_PLUS_VECTOR(SCALAR_BASE_REG, INDEX_REG_D, ELSZ_D, UXTX, 2),
                   EXPECT((app_pc)0x8000000000040000, (app_pc)0x8000000000080000,
                          (app_pc)0x7ffffffffffc0000, (app_pc)0x7ffffffffff80000));
-    VEC_ADDR_TEST(ld1d, /*pg=*/1, 0x01010101,
+    VEC_ADDR_TEST(ld1d, /*governing_pred_reg=*/1, 0x01010101,
                   SCALAR_PLUS_VECTOR(SCALAR_BASE_REG, INDEX_REG_D, ELSZ_D, UXTX, 3),
                   EXPECT((app_pc)0x8000000000080000, (app_pc)0x8000000000100000,
                          (app_pc)0x7ffffffffff80000, (app_pc)0x7ffffffffff00000));
 
     /* 64-bit unscaled offset [<Xn|SP>, <Zm>.D] */
-    VEC_ADDR_TEST(st1d, /*pg=*/1, 0x01010101,
+    VEC_ADDR_TEST(st1d, /*governing_pred_reg=*/1, 0x01010101,
                   SCALAR_PLUS_VECTOR(SCALAR_BASE_REG, INDEX_REG_D, ELSZ_D, UXTX, 0),
                   EXPECT((app_pc)0x8000000000010000, (app_pc)0x8000000000020000,
                          (app_pc)0x7fffffffffff0000, (app_pc)0x7ffffffffffe0000));
@@ -602,27 +603,27 @@ test_compute_vector_address(void *drcontext)
     /* Test predicate handling. */
 
     /* Test with all elements inactive */
-    VEC_ADDR_TEST(ld1w, /*pg=*/2, 0x00000000,
+    VEC_ADDR_TEST(ld1w, /*governing_pred_reg=*/2, 0x00000000,
                   SCALAR_PLUS_VECTOR(SCALAR_BASE_REG, INDEX_REG_S, ELSZ_S, UXTW, 0),
                   EXPECT(/*nothing*/));
-    VEC_ADDR_TEST(st1d, /*pg=*/3, 0x00000000,
+    VEC_ADDR_TEST(st1d, /*governing_pred_reg=*/3, 0x00000000,
                   SCALAR_PLUS_VECTOR(SCALAR_BASE_REG, INDEX_REG_D, ELSZ_D, UXTW, 0),
                   EXPECT(/*nothing*/));
 
     /* Test with every other element active */
-    VEC_ADDR_TEST(st1b, /*pg=*/4, 0x01010101,
+    VEC_ADDR_TEST(st1b, /*governing_pred_reg=*/4, 0x01010101,
                   SCALAR_PLUS_VECTOR(SCALAR_BASE_REG, INDEX_REG_S, ELSZ_S, UXTW, 0),
                   EXPECT((app_pc)0x8000000000010000, (app_pc)0x8000000000030000,
                          (app_pc)0x80000000ffff0000, (app_pc)0x80000000fffc0000));
-    VEC_ADDR_TEST(st1h, /*pg=*/5, 0x00010001,
+    VEC_ADDR_TEST(st1h, /*governing_pred_reg=*/5, 0x00010001,
                   SCALAR_PLUS_VECTOR(SCALAR_BASE_REG, INDEX_REG_D, ELSZ_D, UXTW, 0),
                   EXPECT((app_pc)0x8000000000010000, (app_pc)0x80000000ffff0000));
 
     /* Test with a single element active */
-    VEC_ADDR_TEST(ld1w, /*pg=*/6, 0x00000010,
+    VEC_ADDR_TEST(ld1w, /*governing_pred_reg=*/6, 0x00000010,
                   SCALAR_PLUS_VECTOR(SCALAR_BASE_REG, INDEX_REG_S, ELSZ_S, UXTW, 0),
                   EXPECT((app_pc)0x8000000000020000));
-    VEC_ADDR_TEST(st1d, /*pg=*/7, 0x00000100,
+    VEC_ADDR_TEST(st1d, /*governing_pred_reg=*/7, 0x00000100,
                   SCALAR_PLUS_VECTOR(SCALAR_BASE_REG, INDEX_REG_D, ELSZ_D, UXTW, 0),
                   EXPECT((app_pc)0x8000000000020000));
 #undef SCALAR_PLUS_VECTOR
@@ -631,62 +632,75 @@ test_compute_vector_address(void *drcontext)
     opnd_create_vector_base_disp_aarch64(DR_REG_Z0 + zn, DR_REG_NULL, el_size, \
                                          DR_EXTEND_UXTX, 0, imm, 0, OPSZ_NA, 0)
 
-    VEC_ADDR_TEST(ld1b, /*pg=*/0, 0x11111111, VECTOR_PLUS_IMM(BASE_REG_S, ELSZ_S, 0),
+    VEC_ADDR_TEST(ld1b, /*governing_pred_reg=*/0, 0x11111111,
+                  VECTOR_PLUS_IMM(BASE_REG_S, ELSZ_S, 0),
                   EXPECT((app_pc)0x0000000000000000, (app_pc)0x0000000080000000,
                          (app_pc)0x00000000ffffffff, (app_pc)0x0000000000010000,
                          (app_pc)0x0000000010000000, (app_pc)0x0000000020000000,
                          (app_pc)0x0000000030000000, (app_pc)0x0000000040000000));
-    VEC_ADDR_TEST(st1b, /*pg=*/0, 0x11111111, VECTOR_PLUS_IMM(BASE_REG_S, ELSZ_S, 31),
+    VEC_ADDR_TEST(st1b, /*governing_pred_reg=*/0, 0x11111111,
+                  VECTOR_PLUS_IMM(BASE_REG_S, ELSZ_S, 31),
                   EXPECT((app_pc)0x000000000000001f, (app_pc)0x000000008000001f,
                          (app_pc)0x000000010000001e, (app_pc)0x000000000001001f,
                          (app_pc)0x000000001000001f, (app_pc)0x000000002000001f,
                          (app_pc)0x000000003000001f, (app_pc)0x000000004000001f));
-    VEC_ADDR_TEST(ld1b, /*pg=*/0, 0x01010101, VECTOR_PLUS_IMM(BASE_REG_D, ELSZ_D, 0),
+    VEC_ADDR_TEST(ld1b, /*governing_pred_reg=*/0, 0x01010101,
+                  VECTOR_PLUS_IMM(BASE_REG_D, ELSZ_D, 0),
                   EXPECT((app_pc)0x0000000000000000, (app_pc)0x8000000000000000,
                          (app_pc)0xffffffffffffffff, (app_pc)0x0000000010000000));
-    VEC_ADDR_TEST(st1b, /*pg=*/0, 0x11111111, VECTOR_PLUS_IMM(BASE_REG_D, ELSZ_D, 31),
+    VEC_ADDR_TEST(st1b, /*governing_pred_reg=*/0, 0x11111111,
+                  VECTOR_PLUS_IMM(BASE_REG_D, ELSZ_D, 31),
                   EXPECT((app_pc)0x000000000000001f, (app_pc)0x800000000000001f,
                          (app_pc)0x000000000000001e, (app_pc)0x000000001000001f));
 
-    VEC_ADDR_TEST(ld1h, /*pg=*/0, 0x11111111, VECTOR_PLUS_IMM(BASE_REG_S, ELSZ_S, 62),
+    VEC_ADDR_TEST(ld1h, /*governing_pred_reg=*/0, 0x11111111,
+                  VECTOR_PLUS_IMM(BASE_REG_S, ELSZ_S, 62),
                   EXPECT((app_pc)0x000000000000003e, (app_pc)0x000000008000003e,
                          (app_pc)0x000000010000003d, (app_pc)0x000000000001003e,
                          (app_pc)0x000000001000003e, (app_pc)0x000000002000003e,
                          (app_pc)0x000000003000003e, (app_pc)0x000000004000003e));
-    VEC_ADDR_TEST(st1h, /*pg=*/0, 0x11111111, VECTOR_PLUS_IMM(BASE_REG_D, ELSZ_D, 62),
+    VEC_ADDR_TEST(st1h, /*governing_pred_reg=*/0, 0x11111111,
+                  VECTOR_PLUS_IMM(BASE_REG_D, ELSZ_D, 62),
                   EXPECT((app_pc)0x000000000000003e, (app_pc)0x800000000000003e,
                          (app_pc)0x000000000000003d, (app_pc)0x000000001000003e));
 
-    VEC_ADDR_TEST(ld1w, /*pg=*/0, 0x11111111, VECTOR_PLUS_IMM(BASE_REG_S, ELSZ_S, 124),
+    VEC_ADDR_TEST(ld1w, /*governing_pred_reg=*/0, 0x11111111,
+                  VECTOR_PLUS_IMM(BASE_REG_S, ELSZ_S, 124),
                   EXPECT((app_pc)0x000000000000007c, (app_pc)0x000000008000007c,
                          (app_pc)0x000000010000007b, (app_pc)0x000000000001007c,
                          (app_pc)0x000000001000007c, (app_pc)0x000000002000007c,
                          (app_pc)0x000000003000007c, (app_pc)0x000000004000007c));
-    VEC_ADDR_TEST(st1w, /*pg=*/0, 0x11111111, VECTOR_PLUS_IMM(BASE_REG_D, ELSZ_D, 124),
+    VEC_ADDR_TEST(st1w, /*governing_pred_reg=*/0, 0x11111111,
+                  VECTOR_PLUS_IMM(BASE_REG_D, ELSZ_D, 124),
                   EXPECT((app_pc)0x000000000000007c, (app_pc)0x800000000000007c,
                          (app_pc)0x000000000000007b, (app_pc)0x000000001000007c));
 
-    VEC_ADDR_TEST(ld1d, /*pg=*/0, 0x11111111, VECTOR_PLUS_IMM(BASE_REG_D, ELSZ_D, 248),
+    VEC_ADDR_TEST(ld1d, /*governing_pred_reg=*/0, 0x11111111,
+                  VECTOR_PLUS_IMM(BASE_REG_D, ELSZ_D, 248),
                   EXPECT((app_pc)0x00000000000000f8, (app_pc)0x80000000000000f8,
                          (app_pc)0x00000000000000f7, (app_pc)0x00000000100000f8));
 
     /* Test with all elements inactive */
-    VEC_ADDR_TEST(ld1w, /*pg=*/0, 0x00000000, VECTOR_PLUS_IMM(BASE_REG_S, ELSZ_S, 124),
-                  EXPECT(/*nothing*/));
-    VEC_ADDR_TEST(st1w, /*pg=*/0, 0x00000000, VECTOR_PLUS_IMM(BASE_REG_D, ELSZ_D, 124),
-                  EXPECT(/*nothing*/));
+    VEC_ADDR_TEST(ld1w, /*governing_pred_reg=*/0, 0x00000000,
+                  VECTOR_PLUS_IMM(BASE_REG_S, ELSZ_S, 124), EXPECT(/*nothing*/));
+    VEC_ADDR_TEST(st1w, /*governing_pred_reg=*/0, 0x00000000,
+                  VECTOR_PLUS_IMM(BASE_REG_D, ELSZ_D, 124), EXPECT(/*nothing*/));
 
     /* Test with every other element active */
-    VEC_ADDR_TEST(ld1w, /*pg=*/0, 0x01010101, VECTOR_PLUS_IMM(BASE_REG_S, ELSZ_S, 124),
+    VEC_ADDR_TEST(ld1w, /*governing_pred_reg=*/0, 0x01010101,
+                  VECTOR_PLUS_IMM(BASE_REG_S, ELSZ_S, 124),
                   EXPECT((app_pc)0x000000000000007c, (app_pc)0x000000010000007b,
                          (app_pc)0x000000001000007c, (app_pc)0x000000003000007c));
-    VEC_ADDR_TEST(st1w, /*pg=*/0, 0x00010001, VECTOR_PLUS_IMM(BASE_REG_D, ELSZ_D, 124),
+    VEC_ADDR_TEST(st1w, /*governing_pred_reg=*/0, 0x00010001,
+                  VECTOR_PLUS_IMM(BASE_REG_D, ELSZ_D, 124),
                   EXPECT((app_pc)0x000000000000007c, (app_pc)0x000000000000007b));
 
     /* Test with a single element active */
-    VEC_ADDR_TEST(ld1w, /*pg=*/0, 0x00000010, VECTOR_PLUS_IMM(BASE_REG_S, ELSZ_S, 124),
+    VEC_ADDR_TEST(ld1w, /*governing_pred_reg=*/0, 0x00000010,
+                  VECTOR_PLUS_IMM(BASE_REG_S, ELSZ_S, 124),
                   EXPECT((app_pc)0x000000008000007c));
-    VEC_ADDR_TEST(st1w, /*pg=*/0, 0x00000100, VECTOR_PLUS_IMM(BASE_REG_D, ELSZ_D, 124),
+    VEC_ADDR_TEST(st1w, /*governing_pred_reg=*/0, 0x00000100,
+                  VECTOR_PLUS_IMM(BASE_REG_D, ELSZ_D, 124),
                   EXPECT((app_pc)0x800000000000007c));
 
 #undef VECTOR_PLUS_IMM
@@ -694,32 +708,38 @@ test_compute_vector_address(void *drcontext)
 #define VECTOR_PLUS_SCALAR(zn, el_size, xm)                                       \
     opnd_create_vector_base_disp_aarch64(DR_REG_Z0 + zn, DR_REG_X0 + xm, el_size, \
                                          DR_EXTEND_UXTX, 0, 0, 0, OPSZ_NA, 0)
-    VEC_ADDR_TEST(ldnt1b, /*pg=*/0, 0x11111111, VECTOR_PLUS_SCALAR(BASE_REG_S, ELSZ_S, 8),
+    VEC_ADDR_TEST(ldnt1b, /*governing_pred_reg=*/0, 0x11111111,
+                  VECTOR_PLUS_SCALAR(BASE_REG_S, ELSZ_S, 8),
                   EXPECT((app_pc)0xffffffffffffffff, (app_pc)0x000000007fffffff,
                          (app_pc)0x00000000fffffffe, (app_pc)0x000000000000ffff,
                          (app_pc)0x000000000fffffff, (app_pc)0x000000001fffffff,
                          (app_pc)0x000000002fffffff, (app_pc)0x000000003fffffff));
-    VEC_ADDR_TEST(stnt1b, /*pg=*/0, 0x01010101, VECTOR_PLUS_SCALAR(BASE_REG_D, ELSZ_D, 7),
+    VEC_ADDR_TEST(stnt1b, /*governing_pred_reg=*/0, 0x01010101,
+                  VECTOR_PLUS_SCALAR(BASE_REG_D, ELSZ_D, 7),
                   EXPECT((app_pc)0x0000000000000007, (app_pc)0x8000000000000007,
                          (app_pc)0x0000000000000006, (app_pc)0x0000000010000007));
 
     /* Test with all elements inactive */
-    VEC_ADDR_TEST(ldnt1h, /*pg=*/0, 0x00000000, VECTOR_PLUS_SCALAR(BASE_REG_S, ELSZ_S, 6),
-                  EXPECT(/*nothing*/));
-    VEC_ADDR_TEST(stnt1h, /*pg=*/0, 0x00000000, VECTOR_PLUS_SCALAR(BASE_REG_D, ELSZ_D, 5),
-                  EXPECT(/*nothing*/));
+    VEC_ADDR_TEST(ldnt1h, /*governing_pred_reg=*/0, 0x00000000,
+                  VECTOR_PLUS_SCALAR(BASE_REG_S, ELSZ_S, 6), EXPECT(/*nothing*/));
+    VEC_ADDR_TEST(stnt1h, /*governing_pred_reg=*/0, 0x00000000,
+                  VECTOR_PLUS_SCALAR(BASE_REG_D, ELSZ_D, 5), EXPECT(/*nothing*/));
 
     /* Test with every other element active */
-    VEC_ADDR_TEST(ldnt1w, /*pg=*/0, 0x01010101, VECTOR_PLUS_SCALAR(BASE_REG_S, ELSZ_S, 4),
+    VEC_ADDR_TEST(ldnt1w, /*governing_pred_reg=*/0, 0x01010101,
+                  VECTOR_PLUS_SCALAR(BASE_REG_S, ELSZ_S, 4),
                   EXPECT((app_pc)0x0000000000000004, (app_pc)0x0000000100000003,
                          (app_pc)0x0000000010000004, (app_pc)0x0000000030000004));
-    VEC_ADDR_TEST(stnt1w, /*pg=*/0, 0x00010001, VECTOR_PLUS_SCALAR(BASE_REG_D, ELSZ_D, 3),
+    VEC_ADDR_TEST(stnt1w, /*governing_pred_reg=*/0, 0x00010001,
+                  VECTOR_PLUS_SCALAR(BASE_REG_D, ELSZ_D, 3),
                   EXPECT((app_pc)0x0000000000000003, (app_pc)0x0000000000000002));
 
     /* Test with a single element active */
-    VEC_ADDR_TEST(ldnt1w, /*pg=*/0, 0x00000010, VECTOR_PLUS_SCALAR(BASE_REG_S, ELSZ_S, 2),
+    VEC_ADDR_TEST(ldnt1w, /*governing_pred_reg=*/0, 0x00000010,
+                  VECTOR_PLUS_SCALAR(BASE_REG_S, ELSZ_S, 2),
                   EXPECT((app_pc)0x0000000080000002));
-    VEC_ADDR_TEST(stnt1d, /*pg=*/0, 0x00000100, VECTOR_PLUS_SCALAR(BASE_REG_D, ELSZ_D, 1),
+    VEC_ADDR_TEST(stnt1d, /*governing_pred_reg=*/0, 0x00000100,
+                  VECTOR_PLUS_SCALAR(BASE_REG_D, ELSZ_D, 1),
                   EXPECT((app_pc)0x8000000000000001));
 
 #undef VECTOR_PLUS_SCALAR
