@@ -256,6 +256,11 @@ if (embeddable)
   endforeach ()
 
   # We leverage the javascript menu from the non-embedded version.
+  # Menu hierarchy changes:
+  #   (1) Remove the outer "DynamoRIO" layer.
+  #   (2) Remove home page at the end.
+  #   (3) Insert an "API Reference" layer around API details.
+  #   (4) Move the "Extension API" menu inside "Build Your Own Tool".
   file(GLOB all_js ${CMAKE_CURRENT_BINARY_DIR}/../html/*.js)
   set(found_user_docs OFF)
   foreach (js ${all_js})
@@ -286,7 +291,31 @@ if (embeddable)
         message(FATAL_ERROR "Cannot find menu entry for page \"Extension API\"")
       endif ()
       string(REGEX MATCH "\n[^\n]+\"Extension API\"[^\n]+\n" ext_entry "${string}")
-      string(REPLACE "${ext_entry}" "\n" string "${string}")
+      # If ext_entry ends with a [, the menu items are expanded inline and the
+      # whole Extension API menu can be moved within this file.
+      string(REGEX MATCH "\\[\n" ext_multiline "${ext_entry}")
+      if (ext_multiline)
+        # Extract everything up to but not including the newly-inserted API Reference.
+        string(REGEX REPLACE
+               "(\n[^\n]+\"Extension API\",.+)(\n\\[ \"API Reference\")"
+               "\\2" string "${string}")
+        # Remember the full Extension API match.
+        set(ext_entry ${CMAKE_MATCH_1})
+        if (NOT ext_entry)
+          message(FATAL_ERROR "Cannot move menu entry for \"Extension API\"")
+        endif ()
+        # Now insert the Extension API menu right above Disassembly Library.
+        if (NOT string MATCHES "Disassembly Library")
+          message(FATAL_ERROR "Cannot find menu entry for page \"Disassembly Library\"")
+        endif ()
+        string(REGEX REPLACE "(\n[^\n]+\"Disassembly Library)" "${ext_entry}\\1"
+          string "${string}")
+        # Set the user_docs flag since we found its contents here.
+        set(found_user_docs ON)
+      else ()
+        # Remove the 1-line Extension API string from this file.
+        string(REPLACE "${ext_entry}" "\n" string "${string}")
+      endif ()
     else ()
       # Remove name so we can inline.
       string(REGEX REPLACE "var [^\n]* =\n" "" string "${string}")
@@ -319,6 +348,9 @@ if (embeddable)
     if (js MATCHES "page_user_docs.js")
       # CMake 3.6+ guarantees the glob is sorted lexicographically, so we've already
       # seen navtreedata.js.
+      if (found_user_docs)
+        message(FATAL_ERROR "Found unexpected \"page_user_docs\" menu file")
+      endif ()
       set(found_user_docs ON)
       if (ext_entry)
         if (NOT string MATCHES "Disassembly Library")

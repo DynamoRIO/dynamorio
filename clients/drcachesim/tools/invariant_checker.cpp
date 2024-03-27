@@ -421,6 +421,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         }
 #endif
         shard->expect_syscall_marker_ = false;
+        // TODO i#5949,i#6599: On WOW64 the "syscall" call is delayed by raw2trace
+        // acros the 2nd timestamp+cpuid; we disable this check until that is solved.
+#if !defined(WINDOWS) || defined(X64)
         // We expect an immediately preceding timestamp + cpuid.
         if (shard->trace_version_ >= TRACE_ENTRY_VERSION_FREQUENT_TIMESTAMPS) {
             report_if_false(
@@ -432,6 +435,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         TRACE_MARKER_TYPE_TIMESTAMP,
                 "Syscall marker not preceded by timestamp + cpuid");
         }
+#endif
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL) {

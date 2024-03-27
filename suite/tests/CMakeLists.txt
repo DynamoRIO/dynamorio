@@ -4696,6 +4696,24 @@ if (BUILD_CLIENTS)
       set(tool.record_filter_as_traced_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.record_filter_as_traced_rawtemp ON) # no preprocessor
+
+      # Test the record_filter in as-traced mode with start-idle cores.
+      # This checked-in partial-hello,world-trace ran on 4 different cores.
+      set(trace_dir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.as_traced.x64.tracedir")
+      set(sched_file "${trace_dir}/cpu_schedule.bin.zip")
+      set(outdir ${CMAKE_CURRENT_BINARY_DIR}/filter_start_idle)
+      file(MAKE_DIRECTORY ${outdir})
+      torunonly_api(tool.record_filter_start_idle "${drcachesim_path}"
+        "record_filter_start_idle"
+        "" "-simulator_type;schedule_stats;-indir;${outdir}" OFF OFF)
+      set(tool.record_filter_start_idle_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+      set(tool.record_filter_start_idle_precmd
+        "${drcachesim_path}@-simulator_type@record_filter@-cpu_schedule_file@${sched_file}@-core_sharded@-cores@4@-indir@${trace_dir}@-outdir@${outdir}")
+      set(tool.record_filter_start_idle_basedir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.record_filter_start_idle_rawtemp ON) # no preprocessor
+
     endif ()
 
     if (AARCH64)
