@@ -818,6 +818,7 @@ instr_compute_vector_address(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
             if (active_elements_found - 1 == addr_index) {
                 const reg_t base_reg = opnd_get_base(curop);
                 if (reg_is_z(base_reg)) {
+                    /* Vector base: extract the current element. */
                     size_t base_reg_num = base_reg - DR_REG_START_Z;
                     if (element_size_bytes == 4) {
                         *addr = (app_pc)(reg_t)mc->simd[base_reg_num].u32[element];
@@ -826,13 +827,14 @@ instr_compute_vector_address(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
                         *addr = (app_pc)mc->simd[base_reg_num].u64[element];
                     }
                 } else {
+                    /* Scalar base. */
                     *addr = (app_pc)reg_get_value_priv(base_reg, mc);
                 }
 
                 const reg_t index_reg = opnd_get_index(curop);
                 reg_t unscaled_index_val = 0;
                 if (reg_is_z(index_reg)) {
-                    /* Vector index, extract the current element */
+                    /* Vector index: extract the current element. */
                     size_t index_reg_num = index_reg - DR_REG_START_Z;
                     if (element_size_bytes == 4) {
                         unscaled_index_val = mc->simd[index_reg_num].u32[element];
@@ -841,7 +843,7 @@ instr_compute_vector_address(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
                         unscaled_index_val = mc->simd[index_reg_num].u64[element];
                     }
                 } else {
-                    /* scalar index or no index */
+                    /* Scalar index or no index. */
                     unscaled_index_val = reg_get_value_priv(index_reg, mc);
                 }
 
