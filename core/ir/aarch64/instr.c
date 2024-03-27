@@ -781,14 +781,13 @@ instr_compute_vector_address(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
                              DR_PARAM_OUT bool *have_addr, DR_PARAM_OUT app_pc *addr,
                              DR_PARAM_OUT bool *write)
 {
-    CLIENT_ASSERT(have_addr != NULL && addr != NULL && mc != NULL,
+    CLIENT_ASSERT(have_addr != NULL && addr != NULL && mc != NULL && write != NULL,
                   "SVE address computation: invalid args");
     CLIENT_ASSERT(TEST(DR_MC_MULTIMEDIA, mc_flags),
                   "dr_mcontext_t.flags must include DR_MC_MULTIMEDIA");
     CLIENT_ASSERT(mc_size >= offsetof(dr_mcontext_t, svep) + sizeof(mc->svep),
                   "Incompatible client, invalid dr_mcontext_t.size.");
 
-    ASSERT(write != NULL);
     *write = instr_is_scatter(instr);
     ASSERT(*write || instr_is_gather(instr));
 
