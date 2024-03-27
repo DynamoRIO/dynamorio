@@ -199,7 +199,7 @@ opnd_is_abs_base_disp(opnd_t opnd);
 #if defined(AARCH64)
 /* Internal function shared with vector address calculation */
 ptr_int_t
-compute_scaled_index_aarch64(opnd_t opnd, reg_t index_val);
+dr_compute_scaled_index_aarch64(opnd_t opnd, reg_t index_val);
 #endif
 
 #ifndef STANDALONE_DECODER

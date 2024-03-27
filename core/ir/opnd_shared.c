@@ -2361,7 +2361,8 @@ opnd_compute_address_priv(opnd_t opnd, priv_mcontext_t *mc)
         ptr_int_t scale = opnd_get_scale(opnd);
         scaled_index = scale * reg_get_value_priv(index, mc);
 #elif defined(AARCH64)
-        scaled_index = compute_scaled_index_aarch64(opnd, reg_get_value_priv(index, mc));
+        scaled_index =
+            dr_compute_scaled_index_aarch64(opnd, reg_get_value_priv(index, mc));
 #elif defined(ARM)
         uint amount;
         dr_shift_type_t type = opnd_get_index_shift(opnd, &amount);
