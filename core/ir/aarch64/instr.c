@@ -741,7 +741,7 @@ instr_invert_predicate(dr_pred_type_t pred)
 }
 
 ptr_int_t
-dr_compute_scaled_index_aarch64(opnd_t opnd, reg_t index_val)
+d_r_compute_scaled_index_aarch64(opnd_t opnd, reg_t index_val)
 {
     bool scaled = false;
     uint amount = 0;
@@ -848,7 +848,7 @@ instr_compute_vector_address(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
                 }
 
                 *have_addr = true;
-                *addr += dr_compute_scaled_index_aarch64(curop, unscaled_index_val);
+                *addr += d_r_compute_scaled_index_aarch64(curop, unscaled_index_val);
                 *addr += opnd_get_disp(curop);
 
                 return addr_index < num_elements;
