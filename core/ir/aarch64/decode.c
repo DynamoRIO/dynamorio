@@ -42,7 +42,7 @@
 bool
 is_isa_mode_legal(dr_isa_mode_t mode)
 {
-    return (mode == DR_ISA_ARM_A64 || mode == DR_ISA_SYNTHETIC);
+    return (mode == DR_ISA_ARM_A64 || mode == DR_ISA_REGDEPS);
 }
 
 app_pc

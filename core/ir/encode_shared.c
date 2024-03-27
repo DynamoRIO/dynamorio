@@ -138,7 +138,7 @@ instr_encode_to_copy(void *drcontext, instr_t *instr, byte *copy_pc, byte *final
      * need to pollute the encoding of other architectures with this synthetic ISA special
      * case.
      */
-    if (instr_get_isa_mode(instr) == DR_ISA_SYNTHETIC)
+    if (instr_get_isa_mode(instr) == DR_ISA_REGDEPS)
         return encode_to_synth(dcontext, instr, copy_pc);
 
     return instr_encode_arch(dcontext, instr, copy_pc, final_pc, true,

@@ -180,13 +180,13 @@ test_instr_encode_decode_synthetic(void *dc, instr_t *instr)
     instr_t *instr_synthetic = instr_create(dc);
     ASSERT(instr_synthetic != NULL);
     /* DR uses instr_t ISA mode to encode instructions.
-     * Since we are encoding synthetic instructions, we set it to DR_ISA_SYNTHETIC for
+     * Since we are encoding synthetic instructions, we set it to DR_ISA_REGDEPS for
      * both the instruction we are encoding (instr) and the instruction we are decoding to
      * (instr_synthetic).
      */
-    bool is_isa_mode_set = instr_set_isa_mode(instr_synthetic, DR_ISA_SYNTHETIC);
+    bool is_isa_mode_set = instr_set_isa_mode(instr_synthetic, DR_ISA_REGDEPS);
     ASSERT(is_isa_mode_set);
-    is_isa_mode_set = instr_set_isa_mode(instr, DR_ISA_SYNTHETIC);
+    is_isa_mode_set = instr_set_isa_mode(instr, DR_ISA_REGDEPS);
     ASSERT(is_isa_mode_set);
     /* Encode instr (which comes from a real ISA) to a synthetic instruction into bytes.
      */
@@ -194,9 +194,9 @@ test_instr_encode_decode_synthetic(void *dc, instr_t *instr)
     ASSERT(next_pc_encode != NULL);
     dr_isa_mode_t old_isa_mode;
     /* DR uses dcontext_t ISA mode to decode instructions.
-     * Since we are decoding synthetic instructions, we set it to DR_ISA_SYNTHETIC.
+     * Since we are decoding synthetic instructions, we set it to DR_ISA_REGDEPS.
      */
-    dr_set_isa_mode(dc, DR_ISA_SYNTHETIC, &old_isa_mode);
+    dr_set_isa_mode(dc, DR_ISA_REGDEPS, &old_isa_mode);
     /* Decode the encoded synthetic instruction bytes into instr_synthetic.
      */
     byte *next_pc_decode = decode(dc, bytes, instr_synthetic);

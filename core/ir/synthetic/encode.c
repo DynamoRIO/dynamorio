@@ -133,18 +133,18 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
     /* Encode arithmetic flags.
      * In AARCH64 instr_get_arith_flags() may need to do additional decoding of instr.
      * If that happens, #dcontext_t ISA mode will be set to be the #intr_t ISA mode, which
-     * is DR_ISA_SYNTHETIC.
-     * This would trigger the decoding for DR_ISA_SYNTHETIC, which is not what we want.
+     * is DR_ISA_REGDEPS.
+     * This would trigger the decoding for DR_ISA_REGDEPS, which is not what we want.
      * So, we temporary set instr ISA mode to be the dcontex_t ISA mode, which contains
      * a real ISA mode (e.g., DR_ISA_ARM_A64).
      */
     dr_isa_mode_t dcontext_isa_mode = dr_get_isa_mode((void *)dcontext);
-    CLIENT_ASSERT(dcontext_isa_mode != DR_ISA_SYNTHETIC,
-                  "dcontext_t ISA mode cannot be DR_ISA_SYNTHETIC when encoding into a "
+    CLIENT_ASSERT(dcontext_isa_mode != DR_ISA_REGDEPS,
+                  "dcontext_t ISA mode cannot be DR_ISA_REGDEPS when encoding into a "
                   "synthetic instruction");
     instr_set_isa_mode(instr, dcontext_isa_mode);
     uint eflags_instr = instr_get_arith_flags(instr, DR_QUERY_DEFAULT);
-    instr_set_isa_mode(instr, DR_ISA_SYNTHETIC);
+    instr_set_isa_mode(instr, DR_ISA_REGDEPS);
     uint eflags = 0;
     if (TESTANY(EFLAGS_WRITE_ARITH, eflags_instr))
         eflags |= SYNTHETIC_INSTR_WRITES_ARITH;

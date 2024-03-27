@@ -130,7 +130,7 @@ decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
 
     /* Set decoded instruction ISA mode to be synthetic.
      */
-    instr_set_isa_mode(instr, DR_ISA_SYNTHETIC);
+    instr_set_isa_mode(instr, DR_ISA_REGDEPS);
 
     /* Compute next instruction's PC as: current PC + instruction length.
      */
