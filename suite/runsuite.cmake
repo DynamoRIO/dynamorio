@@ -52,6 +52,7 @@ set(cross_android_only OFF)
 set(cross_riscv64_linux_only OFF)
 set(arg_debug_only OFF) # Only build the main debug builds.
 set(arg_nontest_only OFF) # Only build configs with no tests.
+set(arg_branch "master") # branch to diff this patch against
 foreach (arg ${CTEST_SCRIPT_ARG})
   if (${arg} STREQUAL "automated_ci")
     set(arg_automated_ci ON)
@@ -78,6 +79,8 @@ foreach (arg ${CTEST_SCRIPT_ARG})
     set(arg_debug_only ON)
   elseif (${arg} STREQUAL "nontest_only")
     set(arg_nontest_only ON)
+  elseif (${arg} MATCHES "^branch=")
+    string(REGEX REPLACE "^branch=" "" arg_branch "${arg}")
   endif ()
 endforeach (arg)
 
@@ -200,9 +203,10 @@ else ()
     find_program(GIT git DOC "git client")
     if (GIT)
       # Included committed, staged, and unstaged changes.
-      # We assume "origin/master" contains the top-of-trunk.
+      # We assume "origin/master" contains the top-of-trunk, unless the "branch"
+      # parameter has been set.
       # We pass -U0 so clang-format-diff only complains about touched lines.
-      execute_process(COMMAND ${GIT} diff -U0 origin/master
+      execute_process(COMMAND ${GIT} diff -U0 origin/${arg_branch}
         WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
         RESULT_VARIABLE git_result
         ERROR_VARIABLE git_err
