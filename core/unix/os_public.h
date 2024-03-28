@@ -215,6 +215,7 @@ typedef kernel_sigcontext_t sigcontext_t;
 #    define SC_A6 SC_FIELD(sc_regs.a6)
 #    define SC_A7 SC_FIELD(sc_regs.a7)
 #    define SC_FP SC_FIELD(sc_regs.s0)
+#    define SC_S11 SC_FIELD(sc_regs.s11)
 #    define SC_RA SC_FIELD(sc_regs.ra)
 #    define SC_XIP SC_FIELD(sc_regs.pc)
 #    define SC_XSP SC_FIELD(sc_regs.sp)

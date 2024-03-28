@@ -247,6 +247,11 @@ os_get_app_tls_reg_offset(reg_id_t seg);
 void *
 os_get_app_tls_base(dcontext_t *dcontext, reg_id_t seg);
 
+#if defined(AARCHXX) || defined(RISCV64)
+bool
+os_set_app_tls_base(dcontext_t *dcontext, reg_id_t reg, void *base);
+#endif
+
 #ifdef DEBUG
 void
 os_enter_dynamorio(void);

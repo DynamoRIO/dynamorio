@@ -1805,12 +1805,14 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
          * But the stolen reg was restored to the application value during
          * translate_mcontext.
          */
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
         /* Preserve the translated value from mc before we clobber it. */
         dcontext->local_state->spill_space.reg_stolen = get_stolen_reg_val(mc);
         set_stolen_reg_val(mc, (reg_t)os_get_dr_tls_base(dcontext));
-#elif defined(RISCV64)
-        ASSERT_NOT_IMPLEMENTED(false);
+#    ifdef RISCV64
+        os_set_app_tls_base(dcontext, TLS_REG_LIB, (void *)get_tp_reg_val(mc));
+        set_tp_reg_val(mc, (reg_t)os_get_app_tls_base(dcontext, TLS_REG_LIB));
+#    endif
 #endif
 
 #ifdef WINDOWS

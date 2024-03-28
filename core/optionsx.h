@@ -645,7 +645,7 @@ OPTION_DEFAULT_INTERNAL(bool, ldstex2cas, true,
 #endif
 #ifdef RISCV64
 /* We only allow register between x18 and x31 to be used. */
-OPTION_DEFAULT_INTERNAL(uint, steal_reg, 28, "The register stolen/used by DynamoRIO")
+OPTION_DEFAULT_INTERNAL(uint, steal_reg, 27, "The register stolen/used by DynamoRIO")
 #endif
 #ifdef WINDOWS_PC_SAMPLE
 OPTION_DEFAULT(uint, prof_pcs_DR, 2,

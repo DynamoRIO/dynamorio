@@ -1219,6 +1219,11 @@ restore_stolen_register(dcontext_t *dcontext, priv_mcontext_t *mcontext)
     LOG(THREAD_GET, LOG_INTERP, 2, "\trestoring stolen register to " PFX "\n",
         dcontext->local_state->spill_space.reg_stolen);
     set_stolen_reg_val(mcontext, dcontext->local_state->spill_space.reg_stolen);
+#    ifdef RISCV64
+    LOG(THREAD_GET, LOG_INTERP, 2, "\trestoring tp register to " PFX "\n",
+        os_get_app_tls_base(dcontext, TLS_REG_LIB));
+    set_tp_reg_val(mcontext, (reg_t)os_get_app_tls_base(dcontext, TLS_REG_LIB));
+#    endif
 #endif
 }
 

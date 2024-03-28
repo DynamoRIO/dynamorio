@@ -3868,6 +3868,11 @@ set_stolen_reg_val(priv_mcontext_t *mc, reg_t newval)
 }
 
 #    ifdef RISCV64
+reg_t
+get_tp_reg_val(priv_mcontext_t *mc)
+{
+    return *(reg_t *)(((byte *)mc) + opnd_get_reg_dcontext_offs(DR_REG_TP));
+}
 void
 set_tp_reg_val(priv_mcontext_t *mc, reg_t newval)
 {

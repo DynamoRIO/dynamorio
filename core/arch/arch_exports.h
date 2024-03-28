@@ -471,6 +471,8 @@ get_stolen_reg_val(priv_mcontext_t *context);
 void
 set_stolen_reg_val(priv_mcontext_t *mc, reg_t newval);
 #    ifdef RISCV64
+reg_t
+get_tp_reg_val(priv_mcontext_t *mc);
 void
 set_tp_reg_val(priv_mcontext_t *mc, reg_t newval);
 #    endif
