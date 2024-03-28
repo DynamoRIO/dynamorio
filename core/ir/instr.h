@@ -678,6 +678,12 @@ bool
 opc_is_not_a_real_memory_load(int opc);
 
 #if defined(X86) || defined(AARCH64)
+/* Compute the index-th address for a memory operand that uses a vector register for the
+ * base or index register.
+ * The return value has the same semantics as instr_compute_address_ex(). It returns:
+ *   true if index is in bounds and an address was calculated and returned,
+ *   false if index >= the number of addresses this instruction accesses.
+ */
 bool
 instr_compute_vector_address(instr_t *instr, priv_mcontext_t *mc, size_t mc_size,
                              dr_mcontext_flags_t mc_flags, opnd_t curop, uint index,
