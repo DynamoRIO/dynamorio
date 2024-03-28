@@ -129,8 +129,9 @@ invariant_checker_t::report_if_false(per_shard_t *shard, bool condition,
                   << " instrs since timestamp " << shard->last_timestamp_
                   << "): " << invariant_name << "\n";
         if (abort_on_invariant_error_) {
-            ++shard->error_count_;
             abort();
+        } else {
+            ++shard->error_count_;
         }
     }
 }
