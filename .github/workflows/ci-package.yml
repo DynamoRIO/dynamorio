@@ -471,7 +471,7 @@ jobs:
         7z x c:\projects\install\doxygen.zip -oc:\projects\install\doxygen > nul
         set PATH=c:\projects\install\doxygen;%PATH%
         dir "c:\Program Files (x86)\WiX Toolset"*
-        set PATH=C:\Program Files (x86)\WiX Toolset v3.11\bin;%PATH%
+        set PATH=C:\Program Files (x86)\WiX Toolset v3.14\bin;%PATH%
         call "C:/Program Files (x86)/Microsoft Visual Studio/2019/Enterprise/VC/Auxiliary/Build/vcvars32.bat"
         echo ------ Running suite ------
         echo PATH is "%PATH%"

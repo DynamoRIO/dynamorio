@@ -42,6 +42,7 @@
 #include <string.h>
 
 #include <algorithm>
+#include <cassert>
 #include <iomanip>
 #include <iostream>
 #include <memory>
@@ -282,7 +283,9 @@ opcode_mix_t::get_category_names(uint category)
     const uint max_mask = 0x80000000;
     for (uint mask = 0x1; mask <= max_mask; mask <<= 1) {
         if (TESTANY(mask, category)) {
-            category_name += " ";
+            if (category_name.length() > 0) {
+                category_name += " ";
+            }
             category_name +=
                 instr_get_category_name(static_cast<dr_instr_category_t>(mask));
         }
@@ -335,6 +338,112 @@ opcode_mix_t::print_results()
                   << get_category_names(keyvals.first) << "\n";
     }
 
+    return true;
+}
+
+opcode_mix_t::interval_state_snapshot_t *
+opcode_mix_t::generate_interval_snapshot(uint64_t interval_id)
+{
+    return generate_shard_interval_snapshot(&serial_shard_, interval_id);
+}
+
+opcode_mix_t::interval_state_snapshot_t *
+opcode_mix_t::generate_shard_interval_snapshot(void *shard_data, uint64_t interval_id)
+{
+    assert(shard_data != nullptr);
+    auto &shard = *reinterpret_cast<shard_data_t *>(shard_data);
+    auto *snap = new snapshot_t;
+    snap->opcode_counts_ = shard.opcode_counts;
+    snap->category_counts_ = shard.category_counts;
+    return snap;
+}
+
+bool
+opcode_mix_t::finalize_interval_snapshots(
+    std::vector<interval_state_snapshot_t *> &interval_snapshots)
+{
+    // Loop through snapshots in reverse order, subtracting the *earlier*
+    // snapshot's cumulative values from this snapshot's cumulative values, to get
+    // deltas.  The first snapshot needs no updates, obviously.
+    for (int i = static_cast<int>(interval_snapshots.size()) - 1; i > 0; --i) {
+        auto &this_snap = *reinterpret_cast<snapshot_t *>(interval_snapshots[i]);
+        auto &prior_snap = *reinterpret_cast<snapshot_t *>(interval_snapshots[i - 1]);
+        for (auto &opc_count : this_snap.opcode_counts_) {
+            opc_count.second -= prior_snap.opcode_counts_[opc_count.first];
+        }
+        for (auto &cat_count : this_snap.category_counts_) {
+            cat_count.second -= prior_snap.category_counts_[cat_count.first];
+        }
+    }
+    return true;
+}
+
+opcode_mix_t::interval_state_snapshot_t *
+opcode_mix_t::combine_interval_snapshots(
+    const std::vector<const interval_state_snapshot_t *> latest_shard_snapshots,
+    uint64_t interval_end_timestamp)
+{
+    snapshot_t *super_snap = new snapshot_t;
+    for (const interval_state_snapshot_t *base_snap : latest_shard_snapshots) {
+        const auto *snap = reinterpret_cast<const snapshot_t *>(base_snap);
+        // Skip nullptrs and snapshots from different intervals.
+        if (snap == nullptr ||
+            snap->get_interval_end_timestamp() != interval_end_timestamp) {
+            continue;
+        }
+        for (const auto opc_count : snap->opcode_counts_) {
+            super_snap->opcode_counts_[opc_count.first] += opc_count.second;
+        }
+        for (const auto cat_count : snap->category_counts_) {
+            super_snap->category_counts_[cat_count.first] += cat_count.second;
+        }
+    }
+    return super_snap;
+}
+
+bool
+opcode_mix_t::print_interval_results(
+    const std::vector<interval_state_snapshot_t *> &interval_snapshots)
+{
+    // Number of opcodes and categories to print per interval.
+    constexpr int PRINT_TOP_N = 3;
+    std::cerr << "There were " << interval_snapshots.size() << " intervals created.\n";
+    for (auto *base_snap : interval_snapshots) {
+        const auto *snap = reinterpret_cast<const snapshot_t *>(base_snap);
+        std::cerr << "ID:" << snap->get_interval_id() << " ending at instruction "
+                  << snap->get_instr_count_cumulative() << " has "
+                  << snap->opcode_counts_.size() << " opcodes"
+                  << " and " << snap->category_counts_.size() << " categories.\n";
+        std::vector<std::pair<int, int64_t>> sorted(snap->opcode_counts_.begin(),
+                                                    snap->opcode_counts_.end());
+        std::sort(sorted.begin(), sorted.end(), cmp_val);
+        for (int i = 0; i < PRINT_TOP_N && i < static_cast<int>(sorted.size()); ++i) {
+            std::cerr << "   [" << i + 1 << "]"
+                      << " Opcode: " << decode_opcode_name(sorted[i].first) << " ("
+                      << sorted[i].first << ")"
+                      << " Count=" << sorted[i].second << " PKI="
+                      << sorted[i].second * 1000.0 / snap->get_instr_count_delta()
+                      << "\n";
+        }
+        std::vector<std::pair<uint, int64_t>> sorted_cats(snap->category_counts_.begin(),
+                                                          snap->category_counts_.end());
+        std::sort(sorted_cats.begin(), sorted_cats.end(), cmp_val);
+        for (int i = 0; i < PRINT_TOP_N && i < static_cast<int>(sorted_cats.size());
+             ++i) {
+            std::cerr << "   [" << i + 1 << "]"
+                      << " Category=" << get_category_names(sorted_cats[i].first)
+                      << " Count=" << sorted_cats[i].second << " PKI="
+                      << sorted_cats[i].second * 1000.0 / snap->get_instr_count_delta()
+                      << "\n";
+        }
+    }
+    return true;
+}
+
+bool
+opcode_mix_t::release_interval_snapshot(interval_state_snapshot_t *interval_snapshot)
+{
+    delete interval_snapshot;
     return true;
 }
 

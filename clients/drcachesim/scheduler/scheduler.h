@@ -792,6 +792,10 @@ public:
         }
         /**
          * Returns the count of instructions from the start of the trace to this point.
+         * For record_scheduler_t, if any encoding records or the internal record
+         * TRACE_MARKER_TYPE_BRANCH_TARGET records are present prior to an instruction
+         * marker, the count will increase at the first of those records as they are
+         * considered part of the instruction.
          * If #SCHEDULER_USE_INPUT_ORDINALS is set, then this value matches the
          * instruction ordinal for the current input stream (and thus might decrease or
          * not change across records if the input changed). Otherwise, if multiple input
@@ -1039,6 +1043,7 @@ public:
         uint64_t cache_line_size_ = 0;
         uint64_t chunk_instr_count_ = 0;
         uint64_t page_size_ = 0;
+        RecordType prev_record_ = {};
 
         // Let the outer class update our state.
         friend class scheduler_tmpl_t<RecordType, ReaderType>;
@@ -1326,6 +1331,41 @@ protected:
         uint64_t wait_start_time = 0;
     };
 
+    // Used for reading as-traced schedules.
+    struct schedule_output_tracker_t {
+        schedule_output_tracker_t(bool valid, input_ordinal_t input,
+                                  uint64_t start_instruction, uint64_t timestamp)
+            : valid(valid)
+            , input(input)
+            , start_instruction(start_instruction)
+            , stop_instruction(0)
+            , timestamp(timestamp)
+        {
+        }
+        // To support removing later-discovered-as-redundant entries without
+        // a linear erase operation we have a 'valid' flag.
+        bool valid;
+        input_ordinal_t input;
+        uint64_t start_instruction;
+        uint64_t stop_instruction;
+        uint64_t timestamp;
+    };
+    // Used for reading as-traced schedules.
+    struct schedule_input_tracker_t {
+        schedule_input_tracker_t(output_ordinal_t output, uint64_t output_array_idx,
+                                 uint64_t start_instruction, uint64_t timestamp)
+            : output(output)
+            , output_array_idx(output_array_idx)
+            , start_instruction(start_instruction)
+            , timestamp(timestamp)
+        {
+        }
+        output_ordinal_t output;
+        uint64_t output_array_idx;
+        uint64_t start_instruction;
+        uint64_t timestamp;
+    };
+
     // Called just once at initialization time to set the initial input-to-output
     // mappings and state.
     scheduler_status_t
@@ -1389,10 +1429,15 @@ protected:
     read_traced_schedule();
 
     scheduler_status_t
+    remove_zero_instruction_segments(
+        std::vector<std::vector<schedule_input_tracker_t>> &input_sched,
+        std::vector<std::vector<schedule_output_tracker_t>> &all_sched);
+
+    scheduler_status_t
     check_and_fix_modulo_problem_in_schedule(
-        std::vector<std::vector<schedule_record_t>> &input_sched,
+        std::vector<std::vector<schedule_input_tracker_t>> &input_sched,
         std::vector<std::set<uint64_t>> &start2stop,
-        std::vector<std::vector<schedule_record_t>> &all_sched);
+        std::vector<std::vector<schedule_output_tracker_t>> &all_sched);
 
     scheduler_status_t
     read_recorded_schedule();

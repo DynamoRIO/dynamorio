@@ -222,6 +222,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|tool.drcacheoff.burst_traceopts' => 1, # i#4622
                 'code_api|tool.drcacheoff.burst_replaceall' => 1, # i#4622
                 'code_api|tool.drcacheoff.burst_static' => 1, # i#4486
+                'code_api|tool.drcacheoff.windows-timestamps' => 1, # i#6081
                 'code_api|api.symtest' => 1, # i#4131
                 'code_api|client.drwrap-test-detach' => 1, # i#4616
                 'code_api|client.cbr4' => 1, # i#4792
@@ -246,10 +247,6 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api,thread_private,disable_traces|common.decode-stress' => 1, # i#1807
                 'code_api,thread_private,tracedump_binary|common.decode-stress' => 1, # i#1807
                 'code_api|client.file_io' => 1, # i#5802
-                'code_api|tool.drcacheoff.windows-invar' => 1, # i#6599
-                'code_api|tool.drcacheoff.invariant_checker' => 1, # i#6599
-                'code_api|tool.drcacheoff.getretaddr_record_replace_retaddr' => 1, # i#6599
-                'code_api|tool.record_filter' => 1, # i#6599
                 );
 
             %ignore_failures_64 = (
