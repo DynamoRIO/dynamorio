@@ -57,21 +57,6 @@ encode_common(byte *pc, instr_t *i, decode_info_t *di);
 #define BITS(_enc, bitmax, bitmin) \
     ((((uint32)(_enc)) >> (bitmin)) & (uint32)MASK((bitmax) - (bitmin) + 1))
 
-#if !defined(DR_HOST_NOT_TARGET) && !defined(STANDALONE_DECODER) && !defined(BUILD_TESTS)
-#    define OPSZ_SVE_VL_BYTES opnd_size_from_bytes(proc_get_vector_length_bytes())
-#    define OPSZ_SVE_PL_BYTES opnd_size_from_bytes(proc_get_vector_length_bytes() / 8)
-#else
-/* SVE vector length for off-line decoder set using -vl option with drdisas,
- * e.g.
- * $ drdisas -vl 256 e58057a1 85865e6b
- *  e58057a1   str    %z1 -> +0x05(%x29)[32byte]
- *  85865e6b   ldr    +0x37(%x19)[32byte] -> %z11
- * $
- */
-#    define OPSZ_SVE_VL_BYTES opnd_size_from_bytes(dr_get_sve_vector_length() / 8)
-#    define OPSZ_SVE_PL_BYTES opnd_size_from_bytes((dr_get_sve_vector_length() / 8) / 8)
-#endif
-
 #define RETURN_FALSE                                               \
     do {                                                           \
         CLIENT_ASSERT(false, "Unexpected state in AArch64 codec"); \

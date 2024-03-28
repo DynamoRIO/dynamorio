@@ -63,6 +63,8 @@ opnd_get_reg_dcontext_offs(reg_id_t reg)
         return R0_OFFSET + (R1_OFFSET - R0_OFFSET) * (reg - DR_REG_W0);
     if (reg == DR_REG_XSP || reg == DR_REG_WSP)
         return XSP_OFFSET;
+    if (DR_REG_Z0 <= reg && reg <= DR_REG_Z31)
+        return Z_REG_OFFSET(reg);
     CLIENT_ASSERT(false, "opnd_get_reg_dcontext_offs: invalid reg");
     return -1;
 #else

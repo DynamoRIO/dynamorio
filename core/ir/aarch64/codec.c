@@ -1032,7 +1032,7 @@ get_elements_in_sve_vector(aarch64_reg_offset element_size)
 {
     const uint element_length =
         opnd_size_in_bits(get_opnd_size_from_offset(element_size));
-    return opnd_size_in_bits(OPSZ_SVE_VL_BYTES) / element_length;
+    return opnd_size_in_bits(OPSZ_SVE_VECLEN_BYTES) / element_length;
 }
 
 /*******************************************************************************
@@ -5195,7 +5195,8 @@ decode_opnd_svemem_gpr_simm6_vl(uint enc, int opcode, byte *pc, OUT opnd_t *opnd
     const int offset = extract_int(enc, 16, 6);
     IF_RETURN_FALSE(offset < -32 || offset > 31)
     const reg_id_t rn = decode_reg(extract_uint(enc, 5, 5), true, true);
-    const opnd_size_t mem_transfer = op_is_prefetch(opcode) ? OPSZ_0 : OPSZ_SVE_VL_BYTES;
+    const opnd_size_t mem_transfer =
+        op_is_prefetch(opcode) ? OPSZ_0 : OPSZ_SVE_VECLEN_BYTES;
 
     /* As specified in the AArch64 SVE reference manual for contiguous prefetch
      * instructions, the immediate index value is a vector index into memory, NOT
@@ -5214,7 +5215,8 @@ static inline bool
 encode_opnd_svemem_gpr_simm6_vl(uint enc, int opcode, byte *pc, opnd_t opnd,
                                 OUT uint *enc_out)
 {
-    const opnd_size_t mem_transfer = op_is_prefetch(opcode) ? OPSZ_0 : OPSZ_SVE_VL_BYTES;
+    const opnd_size_t mem_transfer =
+        op_is_prefetch(opcode) ? OPSZ_0 : OPSZ_SVE_VECLEN_BYTES;
     if (!opnd_is_base_disp(opnd) || opnd_get_index(opnd) != DR_REG_NULL ||
         opnd_get_size(opnd) != mem_transfer)
         return false;
@@ -5344,7 +5346,8 @@ decode_opnd_svemem_gpr_simm9_vl(uint enc, int opcode, byte *pc, OUT opnd_t *opnd
     bool is_vector = TEST(1u << 14, enc);
 
     /* Transfer size depends on whether we are transferring a Z or a P register. */
-    opnd_size_t memory_transfer_size = is_vector ? OPSZ_SVE_VL_BYTES : OPSZ_SVE_PL_BYTES;
+    opnd_size_t memory_transfer_size =
+        is_vector ? OPSZ_SVE_VECLEN_BYTES : OPSZ_SVE_PREDLEN_BYTES;
 
     /* As specified in the AArch64 SVE reference manual for unpredicated vector
      * register load LDR and store STR instructions, the immediate index value is a
@@ -5374,7 +5377,8 @@ encode_opnd_svemem_gpr_simm9_vl(uint enc, int opcode, byte *pc, opnd_t opnd,
     bool is_vector = TEST(1u << 14, enc);
 
     /* Transfer size depends on whether we are transferring a Z or a P register. */
-    opnd_size_t memory_transfer_size = is_vector ? OPSZ_SVE_VL_BYTES : OPSZ_SVE_PL_BYTES;
+    opnd_size_t memory_transfer_size =
+        is_vector ? OPSZ_SVE_VECLEN_BYTES : OPSZ_SVE_PREDLEN_BYTES;
 
     if (!opnd_is_base_disp(opnd) || opnd_get_size(opnd) != memory_transfer_size)
         return false;
