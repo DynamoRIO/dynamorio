@@ -6231,7 +6231,7 @@ endif ()
 # The following tests are excluded until they are fixed.
 # LINUX_XARCH_TEST is defined only for x86-64 linux.xarch test which don't
 # have the following tests, so we need to skip set_tests_properties.
-if (UNIX AND CPU_AMD AND NOT DR_HOST_X64 AND NOT LINUX_XARCH_TEST)
+if (UNIX AND X86 AND CPU_AMD AND NOT DR_HOST_X64 AND NOT LINUX_XARCH_TEST)
   set_tests_properties(
     code_api|api.detach
     code_api|api.detach_spawn_quick_exit
