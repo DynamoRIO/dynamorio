@@ -931,7 +931,8 @@ droption_t<std::string> op_syscall_template_file(
     "Path to the file that contains system call trace templates.",
     "Path to the file that contains system call trace templates. "
     "If set, system call traces will be injected from the file "
-    "into the resulting trace.");
+    "into the resulting trace. This is still experimental so the template file "
+    "format may change without backward compatibility.");
 
 // Record filter options.
 droption_t<uint64_t> op_filter_stop_timestamp(
@@ -975,6 +976,14 @@ droption_t<uint64_t> op_trim_after_timestamp(
     "Trim records after this timestamp (in us) in the trace.",
     "Removes all records from the first TRACE_MARKER_TYPE_TIMESTAMP marker with "
     "timestamp larger than the specified value.");
+
+droption_t<bool> op_abort_on_invariant_error(
+    DROPTION_SCOPE_ALL, "abort_on_invariant_error", true,
+    "Abort invariant checker when a trace invariant error is found.",
+    "When set to true, the trace invariant checker analysis tool aborts when a trace "
+    "invariant error is found. Otherwise it prints the error and continues. Also, the "
+    "total invariant error count is printed at the end; a non-zero error count does not "
+    "affect the exit code of the analyzer.");
 
 } // namespace drmemtrace
 } // namespace dynamorio

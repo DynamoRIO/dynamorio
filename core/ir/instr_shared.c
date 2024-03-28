@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2302,7 +2302,18 @@ instr_is_xsave(instr_t *instr)
 {
     int opcode = instr_get_opcode(instr); /* force decode */
     if (opcode == OP_xsave32 || opcode == OP_xsaveopt32 || opcode == OP_xsave64 ||
-        opcode == OP_xsaveopt64 || opcode == OP_xsavec32 || opcode == OP_xsavec64)
+        opcode == OP_xsaveopt64 || opcode == OP_xsavec32 || opcode == OP_xsavec64 ||
+        opcode == OP_xsaves32 || opcode == OP_xsaves64)
+        return true;
+    return false;
+}
+
+bool
+instr_is_xrstor(instr_t *instr)
+{
+    int opcode = instr_get_opcode(instr); /* force decode */
+    if (opcode == OP_xrstor32 || opcode == OP_xrstor64 || opcode == OP_xrstors32 ||
+        opcode == OP_xrstors64)
         return true;
     return false;
 }

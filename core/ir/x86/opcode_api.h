@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1615,12 +1615,12 @@ enum {
     /* 1434 */ OP_vpopcntq, /**< IA-32/AMD64 vpopcntd opcode. */
 
     /* Supervisor Mode Access Prevention (SMAP) */
-    /* 1435 */ OP_clac,
-    /* 1436 */ OP_stac,
-    /* 1437 */ OP_xsaves32,
-    /* 1438 */ OP_xsaves64,
-    /* 1439 */ OP_xrstors32,
-    /* 1440 */ OP_xrstors64,
+    /* 1435 */ OP_clac,      /**< IA-32/AMD64 clac opcode. */
+    /* 1436 */ OP_stac,      /**< IA-32/AMD64 stac opcode. */
+    /* 1437 */ OP_xsaves32,  /**< IA-32/AMD64 xsaves32 opcode. */
+    /* 1438 */ OP_xsaves64,  /**< IA-32/AMD64 xsaves64 opcode. */
+    /* 1439 */ OP_xrstors32, /**< IA-32/AMD64 xrstors32 opcode. */
+    /* 1440 */ OP_xrstors64, /**< IA-32/AMD64 xrstors64 opcode. */
     OP_AFTER_LAST,
     OP_FIRST = OP_add,           /**< First real opcode. */
     OP_LAST = OP_AFTER_LAST - 1, /**< Last real opcode. */
