@@ -4651,7 +4651,10 @@ if (BUILD_CLIENTS)
       # We assume the app name starts with "s" here to avoid colliding with
       # our output dir, while still letting the single precmd remove both.
       "${drcachesim_path}@-simulator_type@record_filter@-indir@${testname}.s*.dir/trace@-core_sharded@-cores@4@-outdir@${testname}.filtered.dir"
-      "schedule_stats")
+      # We run opcode_mix to test encodings.
+      # XXX i#6684: Once we have invariant_checker support, run it here (and ensure
+      # it checks encodings).
+      "opcode_mix")
 
     if (UNIX) # Windows multi-thread tests are too slow.
       set(testname "tool.record_filter_bycore_multi")

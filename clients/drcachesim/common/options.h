@@ -215,6 +215,7 @@ extern dynamorio::droption::droption_t<std::string> op_filter_trace_types;
 extern dynamorio::droption::droption_t<std::string> op_filter_marker_types;
 extern dynamorio::droption::droption_t<uint64_t> op_trim_before_timestamp;
 extern dynamorio::droption::droption_t<uint64_t> op_trim_after_timestamp;
+extern dynamorio::droption::droption_t<bool> op_abort_on_invariant_error;
 
 } // namespace drmemtrace
 } // namespace dynamorio

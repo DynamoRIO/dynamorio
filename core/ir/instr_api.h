@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1548,11 +1548,20 @@ bool
 instr_zeroes_zmmh(instr_t *instr);
 
 DR_API
-/** Returns true if \p instr's opcode is #OP_xsave32, #OP_xsaveopt32, #OP_xsave64,
- * #OP_xsaveopt64, #OP_xsavec32 or #OP_xsavec64.
+/**
+ * Returns true if \p instr's opcode is #OP_xsave32, #OP_xsaveopt32, #OP_xsave64,
+ * #OP_xsaveopt64, #OP_xsavec32, #OP_xsavec64, #OP_xsaves32, or #OP_xsaves64.
  */
 bool
 instr_is_xsave(instr_t *instr);
+
+DR_API
+/**
+ * Returns true if \p instr's opcode is #OP_xrstor32, #OP_xrstor64, #OP_xrstors32,
+ * or #OP_xrstors64.
+ */
+bool
+instr_is_xrstor(instr_t *instr);
 #endif
 
 DR_API
