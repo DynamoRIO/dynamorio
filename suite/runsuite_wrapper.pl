@@ -341,7 +341,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                                    );
             # FIXME i#2417: fix flaky/regressed AArch64 tests
             %ignore_failures_64 = ('code_api|linux.sigsuspend' => 1,
-                                   'code_api|linux.thread-reset' => 1,
+                                   'code_api|linux.thread-reset' => 1, # i#6741
                                    'code_api|pthreads.pthreads_exit' => 1,
                                    'code_api|tool.histogram.offline' => 1, # i#3980
                                    'code_api|linux.fib-conflict' => 1,

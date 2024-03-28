@@ -361,7 +361,8 @@ typedef struct _kernel_sigcontext_t {
  * Header to be used at the beginning of structures extending the user
  * context. Such structures must be placed after the rt_sigframe on the stack
  * and be 16-byte aligned. The last structure must be a null terminator context
- * with the magic and size set to 0.
+ * with a magic number and size set to 0. The magic number is one of the
+ * *_MAGIC constants, see below. The null terminator's magic number is 0.
  */
 struct _aarch64_ctx {
     __u32 magic;
@@ -372,9 +373,9 @@ struct _aarch64_ctx {
 
 struct fpsimd_context {
     struct _aarch64_ctx head; /* 8 bytes */
-    __u32 fpsr;               /* 4 */
-    __u32 fpcr;               /* 4 */
-    __uint128_t vregs[32];    /* 512 */
+    __u32 fpsr;               /* 4 bytes */
+    __u32 fpcr;               /* 4 bytes */
+    __uint128_t vregs[32];    /* 512 bytes */
 };
 
 /* Storage of sve_context in kernel_sigcontext_t.__reserved, see above. See
@@ -385,8 +386,8 @@ struct fpsimd_context {
 
 struct sve_context {
     struct _aarch64_ctx head; /* 8 bytes */
-    __u16 vl;                 /* 2 */
-    __u16 __reserved[3];      /* 6 */
+    __u16 vl;                 /* 2 bytes */
+    __u16 __reserved[3];      /* 6 bytes */
 };
 
 /*
