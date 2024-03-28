@@ -2974,7 +2974,7 @@ check_kernel_context_switch_trace(void)
         };
         if (!run_checker(memrefs, true,
                          { "Non-explicit control flow has no marker", TID_A,
-                           /*ref_ordinal=*/9, /*last_timestamp=*/0,
+                           /*ref_ordinal=*/8, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/4 },
                          "Failed to catch PC discontinuity after context switch trace")) {
             return false;
@@ -2995,7 +2995,7 @@ check_kernel_context_switch_trace(void)
         if (!run_checker(
                 memrefs, true,
                 { "Non-explicit control flow has no marker", TID_A,
-                  /*ref_ordinal=*/7, /*last_timestamp=*/0,
+                  /*ref_ordinal=*/6, /*last_timestamp=*/0,
                   /*instrs_since_last_timestamp=*/3 },
                 "Failed to catch PC discontinuity inside context switch trace")) {
             return false;
