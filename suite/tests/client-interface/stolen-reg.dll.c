@@ -65,7 +65,8 @@ do_flush(app_pc next_pc)
 
     /* TODO i#3544: Add synchall support to RISC-V. */
 #ifndef RISCV64
-        if (!dr_flush_region(NULL, ~0UL)) DR_ASSERT(false);
+    if (!dr_flush_region(NULL, ~0UL))
+        DR_ASSERT(false);
     void *drcontext = dr_get_current_drcontext();
     dr_mcontext_t mcontext;
     mcontext.size = sizeof(mcontext);
