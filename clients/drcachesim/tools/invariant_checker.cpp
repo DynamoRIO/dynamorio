@@ -536,12 +536,29 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             shard->pre_syscall_trace_instr_ = {};
         }
     }
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_START) {
+        report_if_false(shard, !shard->between_kernel_context_switch_markers_,
+                        "Nested kernel context switch traces are not expected");
+        shard->pre_context_switch_trace_instr_ = shard->prev_instr_;
+        shard->between_kernel_context_switch_markers_ = true;
+    }
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_END) {
+        report_if_false(shard, shard->between_kernel_context_switch_markers_,
+                        "Found kernel context switch trace end without start");
+        shard->between_kernel_context_switch_markers_ = false;
+        // For future checks, pretend that the previous instr was the instr just
+        // before the context switch trace start.
+        if (shard->pre_context_switch_trace_instr_.memref.instr.addr > 0) {
+            shard->prev_instr_ = shard->pre_context_switch_trace_instr_;
+            shard->pre_context_switch_trace_instr_ = {};
+        }
+    }
     if (!is_a_unit_test(shard)) {
-        // XXX: between_kernel_syscall_trace_markers_ does not track the
-        // TRACE_MARKER_TYPE_CONTEXT_SWITCH_* markers. If the invariant checker is run
-        // with dynamic injection of context switch sequences this will throw an error.
         report_if_false(shard,
-                        shard->between_kernel_syscall_trace_markers_ ==
+                        (shard->between_kernel_syscall_trace_markers_ ||
+                         shard->between_kernel_context_switch_markers_) ==
                             shard->stream->is_record_kernel(),
                         "Stream is_record_kernel() inaccurate");
     }
@@ -1353,6 +1370,11 @@ invariant_checker_t::check_for_pc_discontinuity(
          (shard->prev_entry_.marker.type == TRACE_TYPE_MARKER &&
           shard->prev_entry_.marker.marker_type ==
               TRACE_MARKER_TYPE_SYSCALL_TRACE_START)) ||
+        // First instr of kernel context switch trace.
+        (shard->between_kernel_context_switch_markers_ &&
+         (shard->prev_entry_.marker.type == TRACE_TYPE_MARKER &&
+          shard->prev_entry_.marker.marker_type ==
+              TRACE_MARKER_TYPE_CONTEXT_SWITCH_START)) ||
         // String loop.
         (prev_instr_trace_pc == cur_pc &&
          (cur_memref_info.memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH ||

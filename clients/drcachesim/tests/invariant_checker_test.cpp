@@ -2942,6 +2942,72 @@ check_exit_found(void)
 }
 
 bool
+check_kernel_context_switch_trace(void)
+{
+    std::cerr << "Testing kernel context switch traces\n";
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION, TRACE_ENTRY_VERSION_BRANCH_INFO),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, 0),
+            gen_instr(TID_A, /*pc=*/10),
+            gen_instr(TID_A, /*pc=*/11),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, 0),
+            gen_instr(TID_A, /*pc=*/2),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION, TRACE_ENTRY_VERSION_BRANCH_INFO),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, 0),
+            gen_instr(TID_A, /*pc=*/10),
+            gen_instr(TID_A, /*pc=*/11),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, 0),
+            gen_instr(TID_A, /*pc=*/3),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, true,
+                         { "Non-explicit control flow has no marker", TID_A,
+                           /*ref_ordinal=*/9, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/4 },
+                         "Failed to catch PC discontinuity after context switch trace")) {
+            return false;
+        }
+    }
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION, TRACE_ENTRY_VERSION_BRANCH_INFO),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, 0),
+            gen_instr(TID_A, /*pc=*/10),
+            gen_instr(TID_A, /*pc=*/12),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, 0),
+            gen_instr(TID_A, /*pc=*/2),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(
+                memrefs, true,
+                { "Non-explicit control flow has no marker", TID_A,
+                  /*ref_ordinal=*/7, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/3 },
+                "Failed to catch PC discontinuity inside context switch trace")) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool
 check_kernel_syscall_trace(void)
 {
     std::cerr << "Testing kernel syscall traces\n";
@@ -3377,7 +3443,8 @@ test_main(int argc, const char *argv[])
         check_branch_decoration() && check_filter_endpoint() &&
         check_timestamps_increase_monotonically() &&
         check_read_write_records_match_operands() && check_exit_found() &&
-        check_kernel_syscall_trace() && check_has_instructions()) {
+        check_kernel_syscall_trace() && check_has_instructions() &&
+        check_kernel_context_switch_trace()) {
         std::cerr << "invariant_checker_test passed\n";
         return 0;
     }
