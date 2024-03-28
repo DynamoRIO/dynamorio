@@ -1065,9 +1065,13 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                     shard->expected_read_records_ >
                         0 IF_X86(
                             // iret pops bunch of data from the stack at interrupt
-                            // returns. Read count cannot be determined using the
-                            // decoder. System call trace templates collected on
+                            // returns. System call trace templates collected on
                             // QEMU would show all reads.
+                            // TODO i#6742: iret has different behavior in user vs
+                            // protected mode. This difference in iret behavior can
+                            // be detected in the decoder and perhaps be accounted
+                            // for here in a way better than relying on
+                            // between_kernel_syscall_trace_markers_.
                             || (shard->between_kernel_syscall_trace_markers_ &&
                                 shard->prev_instr_.decoding.opcode == OP_iret)
                             // Xrstor does multiple reads. Read count cannot be
@@ -1279,6 +1283,20 @@ invariant_checker_t::print_results()
     if (total_error_count == 0) {
         std::cerr << "Trace invariant checks passed\n";
     } else {
+        // XXX: Should the invariant checker cause an abort on finding invariant
+        // errors? In some cases it's useful: unit tests where we want to fail
+        // where the collected trace has invariant errors. This is currently
+        // supported by the default setting of -abort_on_invariant_error which
+        // aborts on finding the very first invariant error. In other cases,
+        // aborting may not be appropriate as the invariant checker indeed
+        // successfully did what it was supposed to (find/count invariant errors),
+        // and there may be other tools that are running too; perhaps aborting
+        // should be reserved only for cases when there's some internal fatal error
+        // in the framework or the tool that cannot be recovered from. OTOH aborting,
+        // even if at the end after finding all invariant errors, may be useful
+        // to highlight that there were invariant errors in the trace. For now
+        // we do not fail or return an error exit code on
+        // -no_abort_on_invariant_error even if some invariant errors were found.
         std::cerr << "Found " << total_error_count << " invariant errors\n";
     }
     return true;
