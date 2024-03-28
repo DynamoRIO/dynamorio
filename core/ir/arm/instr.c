@@ -43,7 +43,7 @@
 bool
 instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
 {
-    if (mode != DR_ISA_ARM_THUMB && mode != DR_ISA_ARM_A32) {
+    if (mode != DR_ISA_ARM_THUMB && mode != DR_ISA_ARM_A32 && mode != DR_ISA_REGDEPS) {
         return false;
     }
     instr->isa_mode = mode;
