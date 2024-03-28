@@ -3200,10 +3200,12 @@ if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
   set(DynamoRIO_SET_PREFERRED_BASE OFF)
 endif (X86)
 
-if (AARCHXX)
+if (AARCHXX OR RISCV64)
   tobuild_ci(client.stolen-reg client-interface/stolen-reg.c "" "" "")
   link_with_pthread(client.stolen-reg)
+endif ()
 
+if (AARCHXX)
   tobuild_ci(client.ldstex client-interface/ldstex.c "" "" "")
   link_with_pthread(client.ldstex)
 endif ()
@@ -6153,42 +6155,26 @@ if (RISCV64)
     code_api|api.ir
     code_api|api.ir-static
     code_api|client.app_args
-    code_api|client.app_args
-    code_api|client.blackbox
     code_api|client.blackbox
     code_api|client.crashmsg
-    code_api|client.crashmsg
-    code_api|client.execfault
     code_api|client.execfault
     code_api|client.mangle_suspend
-    code_api|client.mangle_suspend
-    code_api|client.null_instrument
     code_api|client.null_instrument
     code_api|client.option_parse
-    code_api|client.option_parse
     code_api|client.partial_module_map
-    code_api|client.partial_module_map
-    code_api|client.stack-overflow
     code_api|client.stack-overflow
     code_api|client.truncate
     code_api|client.unregister
     code_api|common.broadfun
     code_api|common.hello
     code_api|libutil.drconfig_test
-    code_api|libutil.drconfig_test
-    code_api|libutil.frontend_test
     code_api|libutil.frontend_test
     code_api|linux.exit
-    code_api|linux.exit
-    code_api|linux.infinite
     code_api|linux.infinite
     code_api|linux.longjmp
-    code_api|linux.longjmp
-    code_api|linux.prctl
     code_api|linux.prctl
     code_api|linux.signalfd
     code_api|pthreads.pthreads
-    code_api|pthreads.pthreads_exit
     code_api|pthreads.pthreads_exit
     code_api|sample.bbbuf
     code_api|sample.bbcount
@@ -6202,10 +6188,7 @@ if (RISCV64)
     code_api|sample.opcode_count
     code_api|sample.signal
     code_api|sample.stl_test
-    code_api|sample.stl_test
     code_api|sample.syscall
-    code_api|sample.syscall
-    code_api|security-linux.trampoline
     code_api|security-linux.trampoline
     code_api|tool.drcachesim.missfile-config-file
     code_api|tool.drcachesim.syscall-mix
