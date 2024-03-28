@@ -262,6 +262,7 @@ main(int argc, char **argv)
 
     join_thread(thread);
 
+    /* TODO i#3544: Add synchall support to RISC-V. */
 #ifndef RISCV64
     val = get_stolen_reg_val();
     if (val != STOLEN_REG_SENTINEL) {

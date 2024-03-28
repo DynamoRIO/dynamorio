@@ -40,6 +40,8 @@
 /* See stolen-reg.c for the same definition. */
 #define BAD_VALUE 0x123
 
+#define STOLEN_REG IF_ARM_ELSE(r10, IF_AARCH64_ELSE(r28, s11))
+
 /* We assume the app is single-threaded and don't worry about races. */
 static ptr_int_t app_stolen_reg_val;
 
@@ -52,8 +54,8 @@ restore_event(void *drcontext, void *tag, dr_mcontext_t *mcontext, bool restore_
      * restore event for simplicity.
      */
     dr_log(drcontext, DR_LOG_ALL, 2, "Changing the stolen reg value from %ld to %ld\n",
-           mcontext->IF_ARM_ELSE(r10, IF_AARCH64_ELSE(r28, s11)), app_stolen_reg_val);
-    mcontext->IF_ARM_ELSE(r10, IF_AARCH64_ELSE(r28, s11)) = app_stolen_reg_val;
+           mcontext->STOLEN_REG, app_stolen_reg_val);
+    mcontext->STOLEN_REG = app_stolen_reg_val;
 }
 
 static void
@@ -61,10 +63,9 @@ do_flush(app_pc next_pc)
 {
     dr_fprintf(STDERR, "Performing synchall flush\n");
 
-    /* FIXME i#3544: synchall translation path does not work with RISC-V yet. */
+    /* TODO i#3544: Add synchall support to RISC-V. */
 #ifndef RISCV64
-    if (!dr_flush_region(NULL, ~0UL))
-        DR_ASSERT(false);
+        if (!dr_flush_region(NULL, ~0UL)) DR_ASSERT(false);
     void *drcontext = dr_get_current_drcontext();
     dr_mcontext_t mcontext;
     mcontext.size = sizeof(mcontext);
@@ -99,11 +100,11 @@ read_and_restore_stolen_reg_value()
     dr_get_mcontext(drcontext, &mc);
 
     /* The key part of the test: that the modified value shows up here. */
-    DR_ASSERT(mc.IF_ARM_ELSE(r10, IF_AARCH64_ELSE(r28, s11)) == test_value);
+    DR_ASSERT(mc.STOLEN_REG == test_value);
     dr_fprintf(STDERR, "mc->stolen_reg after = " IF_ARM_ELSE("%d", "%ld") "\n",
-               mc.IF_ARM_ELSE(r10, IF_AARCH64_ELSE(r28, s11)));
+               mc.STOLEN_REG);
 
-    mc.IF_ARM_ELSE(r10, IF_AARCH64_ELSE(r28, s11)) = orig_value;
+    mc.STOLEN_REG = orig_value;
 
     dr_set_mcontext(drcontext, &mc);
 }
@@ -124,9 +125,9 @@ change_stolen_reg_value()
     mc.flags = DR_MC_ALL;
     dr_get_mcontext(drcontext, &mc);
 
-    orig_value = mc.IF_ARM_ELSE(r10, IF_AARCH64_ELSE(r28, s11));
+    orig_value = mc.STOLEN_REG;
 
-    mc.IF_ARM_ELSE(r10, IF_AARCH64_ELSE(r28, s11)) = test_value;
+    mc.STOLEN_REG = test_value;
 
     dr_set_mcontext(drcontext, &mc);
 }
