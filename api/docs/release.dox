@@ -212,6 +212,8 @@ Further non-compatibility-affecting changes include:
    #dynamorio::drmemtrace::analysis_tool_t to allow the tool to make holistic
    adjustments to the interval snapshots after all have been generated, and before
    they are used for merging across shards (potentially), and printing the results.
+ - Added instr_convert_to_isa_regdeps() API that converts an #instr_t from a real ISA
+   (e.g., DR_ISA_AMD64) to the DR_ISA_REGDEPS synthetic ISA and returns it.
 
 **************************************************
 <hr>
