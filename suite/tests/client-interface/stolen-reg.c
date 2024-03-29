@@ -45,6 +45,10 @@
 
 #define STOLEN_REG_SENTINEL 42
 
+/* RISC-V ADDI instruction can only move up to 12-bit sign-extended immediate values into
+ * a register. To simplify things, we set the bad value to 0x123. */
+#define BAD_VALUE 0x123
+
 /* We assume a single thread when these are used. */
 static SIGJMP_BUF mark;
 static int sigsegv_count;
@@ -60,6 +64,8 @@ get_stolen_reg_val(void)
     __asm__ __volatile__("str x28, %0\n\t" : "=m"(val) : :);
 #elif defined(ARM)
     __asm__ __volatile__("str r10, %0\n\t" : "=m"(val) : :);
+#elif defined(RISCV64)
+    __asm__ __volatile__("mv %0, s11\n\t" : "=r"(val) : :);
 #else
 #    error Unsupported arch
 #endif
@@ -73,6 +79,9 @@ get_stolen_reg_val(void)
 #elif defined(ARM)
 #    define SET_STOLEN_REG_TO_SENTINEL() \
         __asm__ __volatile__("mov r10, #" STRINGIFY(STOLEN_REG_SENTINEL) : : : "r10")
+#elif defined(RISCV64)
+#    define SET_STOLEN_REG_TO_SENTINEL() \
+        __asm__ __volatile__("li s11, " STRINGIFY(STOLEN_REG_SENTINEL) : : : "s11")
 #else
 #    error Unsupported arch
 #endif
@@ -89,13 +98,20 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
               STOLEN_REG_SENTINEL, val);
     }
     sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
-    if (sc->IF_ARM_ELSE(SC_R10, SC_R28) != STOLEN_REG_SENTINEL) {
+    if (sc->IF_ARM_ELSE(SC_R10, IF_AARCH64_ELSE(SC_R28, SC_S11)) != STOLEN_REG_SENTINEL) {
         print("ERROR: Stolen register %d not preserved in signal context: %d\n",
-              STOLEN_REG_SENTINEL, sc->IF_ARM_ELSE(SC_R10, SC_R28));
+              STOLEN_REG_SENTINEL,
+              sc->IF_ARM_ELSE(SC_R10, IF_AARCH64_ELSE(SC_R28, SC_S11)));
     }
     if (sigsegv_count == 0) {
         /* Allow re-execution to no longer fault. */
+#if defined(AARCHXX)
         sc->SC_R0 = sc->SC_XSP;
+#elif defined(RISCV64)
+        sc->SC_A0 = sc->SC_XSP;
+#else
+#    error Unsupported arch
+#endif
     } else {
         SIGLONGJMP(mark, 1);
     }
@@ -124,6 +140,14 @@ cause_sigsegv(void)
                          : "=m"(val)
                          :
                          : "r0", "r1", "r10");
+#elif defined(RISCV64)
+    __asm__ __volatile__("li s11, " STRINGIFY(STOLEN_REG_SENTINEL) "\n\t"
+                                                                   "li a0, 0\n\t"
+                                                                   "ld a1, (a0)\n\t"
+                                                                   "mv %0, s11\n\t"
+                         : "=r"(val)
+                         :
+                         : "a0", "a1", "s11");
 #else
 #    error Unsupported arch
 #endif
@@ -154,6 +178,13 @@ thread_func(void *arg)
                          :
                          :
                          : "r10");
+#elif defined(RISCV64)
+    __asm__ __volatile__("li s11, " STRINGIFY(STOLEN_REG_SENTINEL) "\n\t"
+                                                                   "nop\n\t"
+                                                                   "nop\n\t"
+                         :
+                         :
+                         : "s11");
 #else
 #    error Unsupported arch
 #endif
@@ -207,6 +238,14 @@ main(int argc, char **argv)
                          :
                          :
                          : "r0", "r10");
+#elif defined(RISCV64)
+    __asm__ __volatile__("li s11, " STRINGIFY(STOLEN_REG_SENTINEL) "\n\t"
+                                                                   "li a0, 0\n\t"
+                                                                   "nop\n\t"
+                         :
+                         :
+                         : "a0", "s11");
+
 #else
 #    error Unsupported arch
 #endif
@@ -223,17 +262,22 @@ main(int argc, char **argv)
 
     join_thread(thread);
 
+    /* TODO i#3544: Add synchall support to RISC-V. */
+#ifndef RISCV64
     val = get_stolen_reg_val();
     if (val != STOLEN_REG_SENTINEL) {
         print("ERROR: Stolen register %d not preserved past synchall: %d\n",
               STOLEN_REG_SENTINEL, val);
     }
+#endif
 
     // Checking for this sequence in stolen-reg.dll.c
 #if defined(AARCH64)
-    __asm__ __volatile__("mov x28, #0xdead" : : : "x28");
+    __asm__ __volatile__("mov x28, #" STRINGIFY(BAD_VALUE) : : : "x28");
 #elif defined(ARM)
-    __asm__ __volatile__("movw r10, #0xdead" : : : "r10");
+    __asm__ __volatile__("movw r10, #" STRINGIFY(BAD_VALUE) : : : "r10");
+#elif defined(RISCV64)
+    __asm__ __volatile__("li s11, " STRINGIFY(BAD_VALUE) : : : "s11");
 #else
 #    error Unsupported arch
 #endif

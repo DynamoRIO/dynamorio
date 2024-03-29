@@ -572,19 +572,19 @@ mangle_stolen_reg_and_tp_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
 
 /* Mangle a cbr that uses stolen register and tp register as follows:
  *
- *      beq  tp, t3, target         # t3 is the stolen register
+ *      beq  tp, s11, target        # s11 is the stolen register
  * =>
- *      sd   a0, a0_slot(t3)        # spill a0
- *      ld   a0, tp_slot(t3)        # load app's tp from memory
- *      sd   a1, a1_slot(t3)        # spill a1
- *      ld   a1, stolen_slot(t3)    # laod app's t3 from memory
+ *      sd   a0, a0_slot(s11)       # spill a0
+ *      ld   a0, tp_slot(s11)       # load app's tp from memory
+ *      sd   a1, a1_slot(s11)       # spill a1
+ *      ld   a1, stolen_slot(s11)   # laod app's s11 from memory
  *      bne  a0, a1, fall
- *      ld   a0, a0_slot(t3)        # restore a0 (original branch taken)
- *      ld   a1, a1_slot(t3)        # restore a1
+ *      ld   a0, a0_slot(s11)       # restore a0 (original branch taken)
+ *      ld   a1, a1_slot(s11)       # restore a1
  *      j    target
  * fall:
- *      ld   a0, a0_slot(t3)        # restore a0 (original branch not taken)
- *      ld   a1, a1_slot(t3)        # restore a1
+ *      ld   a0, a0_slot(s11)       # restore a0 (original branch not taken)
+ *      ld   a1, a1_slot(s11)       # restore a1
  */
 static void
 mangle_cbr_stolen_reg_and_tp_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
@@ -939,27 +939,27 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
  * # After mangling
  * <block 1>
  * 1:
- *      sd          a0, a0_slot(t3)         # save scratch register
+ *      sd          a0, a0_slot(s11)        # save scratch register
  *      fence       rw, rw                  # keep release semantics
  *      lw          a5, 0(a3)               # replace lr with a normal load
  *      fence       rw, rw                  # keep acquire semantics
- *      sd          a3, lrsc_addr_slot(t3)  # save address
- *      sd          a5, lrsc_val_slot(t3)   # save value
+ *      sd          a3, lrsc_addr_slot(s11) # save address
+ *      sd          a5, lrsc_val_slot(s11)  # save value
  *      li          a0, 4
- *      sd          a0, lrsc_size_slot(t3)  # save size (4 bytes)
- *      ld          a0, a0_slot(t3)         # restore scratch register
+ *      sd          a0, lrsc_size_slot(s11) # save size (4 bytes)
+ *      ld          a0, a0_slot(s11)        # restore scratch register
  *      bne         a5, a4, 1f
  *
  * <block 2>
  * 1:
- *      sd          a0, a0_slot(t3)         # save scratch register 1
- *      sd          a4, a4_slot(t3)         # save scratch register 2
- *      ld          a0, lrsc_addr_slot(t3)  # load saved address
+ *      sd          a0, a0_slot(s11)        # save scratch register 1
+ *      sd          a4, a4_slot(s11)        # save scratch register 2
+ *      ld          a0, lrsc_addr_slot(s11) # load saved address
  *      bne         a0, a3, fail            # check address
- *      ld          a0, lrsc_size_slot(t3)  # load saved size
+ *      ld          a0, lrsc_size_slot(s11) # load saved size
  *      li          a4, 4
  *      bne         a0, a4, fail            # check size
- *      ld          a0, lrsc_val_slot(t3)   # load saved value
+ *      ld          a0, lrsc_val_slot(s11)  # load saved value
  * loop:
  *      lr.w.aqrl   a4, (a3)                # begin of the CAS sequence
  *      bne         a0, a4, final
@@ -970,9 +970,9 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
  *      li          a1, 1                   # sets non-zero value to dst on failure
  * final:
  *      li          a0, -1
- *      sd          a0, lrsc_addr_slot(t3)  # invalidate reservation
- *      ld          a0, a0_slot(t3)         # restore scratch register 1
- *      ld          a4, a4_slot(t3)         # restore scratch register 2
+ *      sd          a0, lrsc_addr_slot(s11) # invalidate reservation
+ *      ld          a0, a0_slot(s11)        # restore scratch register 1
+ *      ld          a4, a4_slot(s11)        # restore scratch register 2
  *      bnez        a1, 1b
  */
 instr_t *

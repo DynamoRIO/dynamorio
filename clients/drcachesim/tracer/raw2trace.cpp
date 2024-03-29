@@ -1479,10 +1479,11 @@ raw2trace_t::read_syscall_template_file()
         syscall_trace_template_encodings_.entry_memref_count(&entry);
         if (entry.type == TRACE_TYPE_MARKER) {
             switch (entry.size) {
-            case TRACE_MARKER_TYPE_SYSCALL:
+            case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
                 last_syscall_num = static_cast<int>(entry.addr);
                 first_entry_for_syscall = true;
                 continue;
+            case TRACE_MARKER_TYPE_SYSCALL_TRACE_END: last_syscall_num = -1; continue;
             case TRACE_MARKER_TYPE_FILETYPE:
                 // We cannot at this point verify that the trace being post-processed is
                 // of the same arch. We do that later in write_syscall_template.
@@ -1499,9 +1500,10 @@ raw2trace_t::read_syscall_template_file()
             }
         }
         // No further processing if we're before the first system call template or at the
-        // end. All other entries between TRACE_MARKER_TYPE_SYSCALL markers are saved
-        // as-is.
-        if (last_syscall_num == -1 || entry.type == TRACE_TYPE_FOOTER)
+        // end, or in between two templates. All other entries between
+        // TRACE_MARKER_TYPE_SYSCALL_TRACE_START and TRACE_MARKER_TYPE_SYSCALL_TRACE_END
+        // markers are saved as-is.
+        if (last_syscall_num == -1)
             continue;
         // We expect at most one template per system call for now.
         DR_ASSERT(!first_entry_for_syscall ||
