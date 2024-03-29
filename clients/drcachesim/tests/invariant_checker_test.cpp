@@ -3001,6 +3001,41 @@ check_kernel_context_switch_trace(void)
             return false;
         }
     }
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, 0),
+            gen_instr(TID_A, /*pc=*/10),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, 0),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, true,
+                         { "Nested kernel context switch traces are not expected", TID_A,
+                           /*ref_ordinal=*/6, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/2 },
+                         "Failed to catch nested kernel context switch traces")) {
+            return false;
+        }
+    }
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, 0),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(
+                memrefs, true,
+                { "Found kernel context switch trace end without start", TID_A,
+                  /*ref_ordinal=*/4, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/1 },
+                "Failed to catch kernel context switch trace end without start")) {
+            return false;
+        }
+    }
     return true;
 }
 
