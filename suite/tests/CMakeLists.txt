@@ -3869,6 +3869,11 @@ if (BUILD_CLIENTS)
           "")
         set(tool.switch_insertion_rawtemp ON) # no preprocessor
 
+        torunonly_simtool(switch_file_invariants ${ci_shared_app}
+          "-infile ${switch_file} -simulator_type invariant_checker"
+          "")
+        set(tool.switch_file_invariants_rawtemp ON) # no preprocessor
+
         # Sanity test that core-sharded at least runs without errors on our other tools.
         torunonly_simtool(core_sharded ${ci_shared_app}
           "-indir ${thread_trace_dir} -simulator_type reuse_time:reuse_distance:histogram:opcode_mix:syscall_mix -core_sharded"
