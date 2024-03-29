@@ -345,7 +345,7 @@ struct _instr_t {
 
     /* Used to hold the relative offset within an instruction list when encoding. */
     size_t offset;
-};     /* instr_t */
+}; /* instr_t */
 #endif /* DR_FAST_IR */
 
 /**
@@ -2085,6 +2085,16 @@ DR_API
  */
 instr_t *
 instr_convert_short_meta_jmp_to_long(void *drcontext, instrlist_t *ilist, instr_t *instr);
+
+DR_API
+/**
+ * Converts \p instr_from into a DR_ISA_REGDEPS #instr_t.
+ * Assumes \p instr_from is a level 3 or 4 decoded instruction of a real ISA.
+ * Returns an #instr_t that contains the information of a DR_ISA_REGDEPS synthetic
+ * instruction described in core/ir/synthetic/encoding_common.h.
+ */
+instr_t *
+instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_from);
 
 DR_API
 /**

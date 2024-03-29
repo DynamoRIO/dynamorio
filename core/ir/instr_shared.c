@@ -52,6 +52,7 @@
 #define INSTR_INLINE extern inline
 
 #include "../globals.h"
+#include "synthetic/encoding_common.h"
 #include "instr.h"
 #include "arch.h"
 #include "../link.h"
@@ -2988,6 +2989,172 @@ instr_uses_fp_reg(instr_t *instr)
     return false;
 }
 
+instr_t *
+instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_from)
+{
+    /* Create instruction we convert instr_from into.
+     */
+    instr_t *instr_to = instr_create(drcontext);
+
+    /* Retrieve number of register destination operands from real ISA instruction.
+     * Note that a destination operand that is a memory renference should have its
+     * registers (if any) counted as source operands, since they are being read.
+     * We use [src|dst]_reg_used to keep track of registers we've seen and avoid
+     * duplicates.
+     * We use max_reg_size to keep track of the size of the largest containing register.
+     * max_reg_size is a uint instead of a opnd_size_t to avoid relying on OPSZ_ enum
+     * values.
+     * We convert max_reg_size to OPSZ_ and use it as the size for all register operands
+     * when we set the operands in the converted instruction later on.
+     */
+    bool src_reg_used[MAX_NUM_REGS];
+    memset((void *)src_reg_used, 0, sizeof(src_reg_used));
+    uint num_srcs = 0;
+    bool dst_reg_used[MAX_NUM_REGS];
+    memset((void *)dst_reg_used, 0, sizeof(dst_reg_used));
+    uint num_dsts = 0;
+    uint original_num_dsts = (uint)instr_num_dsts(instr_from);
+    uint max_reg_size = 0;
+    for (uint dst_index = 0; dst_index < original_num_dsts; ++dst_index) {
+        opnd_t dst_opnd = instr_get_dst(instr_from, dst_index);
+        uint num_regs_used_by_opnd = (uint)opnd_num_regs_used(dst_opnd);
+        if (opnd_is_memory_reference(dst_opnd)) {
+            for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
+                reg_id_t reg = opnd_get_reg_used(dst_opnd, opnd_index);
+                /* Map sub-registers to their containing register.
+                 */
+                reg_id_t reg_canonical = reg_to_pointer_sized(reg);
+                opnd_size_t reg_size = reg_get_size(reg_canonical);
+                uint reg_size_in_bytes = opnd_size_in_bytes(reg_size);
+                if (!src_reg_used[reg_canonical]) {
+                    ++num_srcs;
+                    src_reg_used[reg_canonical] = true;
+                    if (reg_size_in_bytes > max_reg_size)
+                        max_reg_size = reg_size_in_bytes;
+                }
+            }
+        } else {
+            for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
+                reg_id_t reg = opnd_get_reg_used(dst_opnd, opnd_index);
+                /* Map sub-registers to their containing register.
+                 */
+                reg_id_t reg_canonical = reg_to_pointer_sized(reg);
+                opnd_size_t reg_size = reg_get_size(reg_canonical);
+                uint reg_size_in_bytes = opnd_size_in_bytes(reg_size);
+                if (!dst_reg_used[reg_canonical]) {
+                    ++num_dsts;
+                    dst_reg_used[reg_canonical] = true;
+                    if (reg_size_in_bytes > max_reg_size)
+                        max_reg_size = reg_size_in_bytes;
+                }
+            }
+        }
+    }
+
+    /* Retrieve number of register source operands from real ISA instruction.
+     */
+    uint original_num_srcs = (uint)instr_num_srcs(instr_from);
+    for (uint i = 0; i < original_num_srcs; ++i) {
+        opnd_t src_opnd = instr_get_src(instr_from, i);
+        uint num_regs_used_by_opnd = (uint)opnd_num_regs_used(src_opnd);
+        for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
+            reg_id_t reg = opnd_get_reg_used(src_opnd, opnd_index);
+            /* Map sub-registers to their containing register.
+             */
+            reg_id_t reg_canonical = reg_to_pointer_sized(reg);
+            opnd_size_t reg_size = reg_get_size(reg_canonical);
+            uint reg_size_in_bytes = opnd_size_in_bytes(reg_size);
+            if (!src_reg_used[reg_canonical]) {
+                ++num_srcs;
+                src_reg_used[reg_canonical] = true;
+                if (reg_size_in_bytes > max_reg_size)
+                    max_reg_size = reg_size_in_bytes;
+            }
+        }
+    }
+
+    /* Declare num of source and destination operands valid in the converted instruction.
+     */
+    instr_set_num_opnds(drcontext, instr_to, num_dsts, num_srcs);
+
+    /* Retrieve arithmetic flags from real ISA instruction.
+     * If the real ISA instruction reads or writes one or more arithmetic flag, all
+     * arithmetic flags will be set to read or written in the converted instruction.
+     * Note that this operation can trigger additional encoding and decoding of instr_from
+     * depending on its decoding level.
+     */
+    uint eflags_instr_from = instr_get_arith_flags(instr_from, DR_QUERY_DEFAULT);
+    uint eflags_instr_to = 0;
+    if (TESTANY(EFLAGS_WRITE_ARITH, eflags_instr_from))
+        eflags_instr_to |= EFLAGS_WRITE_ARITH;
+    if (TESTANY(EFLAGS_READ_ARITH, eflags_instr_from))
+        eflags_instr_to |= EFLAGS_READ_ARITH;
+    instr_to->eflags = eflags_instr_to;
+    instr_set_arith_flags_valid(instr_to, true);
+
+    /* Retrieve category of real ISA instruction and set it directly as the category of
+     * the converted instruction.
+     */
+    instr_set_category(instr_to, instr_get_category(instr_from));
+
+    /* Get max_reg_size as opnz_size_t (takes values from OPSZ_ enum), if there are any
+     * operands.
+     */
+    opnd_size_t max_opnd_size = OPSZ_NA;
+    uint num_opnds = num_dsts + num_srcs;
+    if (num_opnds > 0)
+        max_opnd_size = opnd_size_from_bytes(max_reg_size);
+
+    /* Set the source and destination register operands for the converted instruction.
+     * Note that their size is always the same: max_opnd_size.
+     */
+    if (num_dsts > 0) {
+        uint reg_counter = 0;
+        for (uint reg = 0; reg < MAX_NUM_REGS; ++reg) {
+            if (dst_reg_used[reg]) {
+                opnd_t dst_opnd = opnd_create_reg(reg);
+                opnd_set_size(&dst_opnd, max_opnd_size);
+                instr_set_dst(instr_to, reg_counter, dst_opnd);
+                ++reg_counter;
+            }
+        }
+    }
+
+    if (num_srcs > 0) {
+        uint reg_counter = 0;
+        for (uint reg = 0; reg < MAX_NUM_REGS; ++reg) {
+            if (src_reg_used[reg]) {
+                opnd_t src_opnd = opnd_create_reg(reg);
+                opnd_set_size(&src_opnd, max_opnd_size);
+                instr_set_src(instr_to, reg_counter, src_opnd);
+                ++reg_counter;
+            }
+        }
+    }
+
+    /* Declare converted instruction operands to be valid.
+     */
+    instr_set_operands_valid(instr_to, true);
+
+    /* Compute instruction length, including bytes for padding to reach 4 byte alignment.
+     * Account for 1 additional byte containing max register operand size, if there are
+     * any operands.
+     */
+    uint num_opnd_bytes = num_opnds > 0 ? num_opnds + 1 : 0;
+    uint instr_length = ALIGN_FORWARD(HEADER_BYTES + num_opnd_bytes, HEADER_BYTES);
+    instr_to->length = instr_length;
+
+    /* Set converted instruction ISA mode to be DR_ISA_REGDEPS.
+     */
+    instr_set_isa_mode(instr_to, DR_ISA_REGDEPS);
+
+    /* Declare converted instruction valid.
+     */
+    instr_set_raw_bits_valid(instr_to, true);
+
+    return instr_to;
+}
+
 /* We place these here rather than in mangle_shared.c to avoid the work of
  * linking mangle_shared.c into drdecodelib.
  */
@@ -4205,4 +4372,4 @@ move_mm_avx512_reg_opcode(bool aligned64)
 }
 
 #endif /* !STANDALONE_DECODER */
-/****************************************************************************/
+       /****************************************************************************/
