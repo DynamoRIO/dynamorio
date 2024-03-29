@@ -3331,7 +3331,7 @@ check_kernel_syscall_trace(void)
                 { gen_data(TID_A, true, 42, 8), nullptr },
                 { gen_instr(TID_A), sti },
                 { gen_instr(TID_A), nop1 },
-                // Missing nop2. Acceptable because of the recent sti.
+            // Missing nop2. Acceptable because of the recent sti.
 #        if defined(X64)
                 { gen_instr(TID_A), xrstors },
                 // Multiple reads. Acceptable because of the prior xrstors.
