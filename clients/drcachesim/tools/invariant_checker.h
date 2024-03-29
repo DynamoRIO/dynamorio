@@ -230,7 +230,9 @@ protected:
         int expected_read_records_ = 0;
         int expected_write_records_ = 0;
         bool between_kernel_syscall_trace_markers_ = false;
+        bool between_kernel_context_switch_markers_ = false;
         instr_info_t pre_syscall_trace_instr_;
+        instr_info_t pre_context_switch_trace_instr_;
         // Relevant when -no_abort_on_invariant_error.
         uint64_t error_count_ = 0;
     };
