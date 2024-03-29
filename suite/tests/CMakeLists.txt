@@ -6209,13 +6209,25 @@ if (RISCV64)
   endif ()
 endif ()
 
+# Set a LABEL property on a list of tests, ignoring any listed tests that
+# don't exist.
+macro(set_labels_on_known_tests LABEL)
+  foreach (testname ${ARGN})
+    if (TEST ${testname})
+      set_tests_properties(${testname} PROPERTIES LABELS ${LABEL})
+    else ()
+      message(DEBUG "Not applying ${LABEL} to non-existing test ${testname}")
+    endif ()
+  endforeach ()
+endmacro()
+
 # TODO i#6417: The switch to AMD VM's for GA CI has broken many of our tests.
 # This includes timeouts which increase suite length.
 # The following tests are excluded until they are fixed.
 # LINUX_XARCH_TEST is defined only for x86-64 linux.xarch test which don't
 # have the following tests, so we need to skip set_tests_properties.
 if (UNIX AND X86 AND CPU_AMD AND NOT DR_HOST_X64 AND NOT LINUX_XARCH_TEST)
-  set_tests_properties(
+  set_labels_on_known_tests(AMD_X32_DENYLIST
     code_api|api.detach
     code_api|api.detach_spawn_quick_exit
     code_api|api.ibl-stress
@@ -6271,6 +6283,7 @@ if (UNIX AND X86 AND CPU_AMD AND NOT DR_HOST_X64 AND NOT LINUX_XARCH_TEST)
     code_api|tool.drcachesim.filter-no-d
     code_api|tool.drcachesim.invariants
     code_api|tool.drcachesim.miss_analyzer
+    code_api|tool.drcachesim.phys-threads_SUDO
     code_api|tool.drcachesim.scattergather-x86
     code_api|tool.drcachesim.threads
     code_api|tool.drcachesim.threads-with-config-file
@@ -6280,6 +6293,5 @@ if (UNIX AND X86 AND CPU_AMD AND NOT DR_HOST_X64 AND NOT LINUX_XARCH_TEST)
     code_api|tool.histogram.offline
     code_api|tool.record_filter
     code_api|tool.record_filter_bycore_multi
-    code_api|tool.record_filter_bycore_uni
-    PROPERTIES LABELS AMD_X32_DENYLIST)
+    code_api|tool.record_filter_bycore_uni)
 endif ()
