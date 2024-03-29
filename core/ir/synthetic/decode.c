@@ -95,7 +95,7 @@ decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
      */
     for (uint i = 0; i < num_dsts; ++i) {
         reg_id_t dst = (reg_id_t)encoded_instr[i + HEADER_BYTES + 1];
-        opnd_t dst_opnd = opnd_create_reg(dst);
+        opnd_t dst_opnd = opnd_create_reg((reg_id_t)dst);
         opnd_set_size(&dst_opnd, max_reg_size);
         instr_set_dst(instr, i, dst_opnd);
     }
@@ -104,7 +104,7 @@ decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
      */
     for (uint i = 0; i < num_srcs; ++i) {
         reg_id_t src = (reg_id_t)encoded_instr[i + HEADER_BYTES + 1 + num_dsts];
-        opnd_t src_opnd = opnd_create_reg(src);
+        opnd_t src_opnd = opnd_create_reg((reg_id_t)src);
         opnd_set_size(&src_opnd, max_reg_size);
         instr_set_src(instr, i, src_opnd);
     }

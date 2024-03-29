@@ -3123,7 +3123,7 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_from)
         uint reg_counter = 0;
         for (uint reg = 0; reg < MAX_NUM_REGS; ++reg) {
             if (dst_reg_used[reg]) {
-                opnd_t dst_opnd = opnd_create_reg(reg);
+                opnd_t dst_opnd = opnd_create_reg((reg_id_t)reg);
                 opnd_set_size(&dst_opnd, max_opnd_size);
                 instr_set_dst(instr_to, reg_counter, dst_opnd);
                 ++reg_counter;
@@ -3135,7 +3135,7 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_from)
         uint reg_counter = 0;
         for (uint reg = 0; reg < MAX_NUM_REGS; ++reg) {
             if (src_reg_used[reg]) {
-                opnd_t src_opnd = opnd_create_reg(reg);
+                opnd_t src_opnd = opnd_create_reg((reg_id_t)reg);
                 opnd_set_size(&src_opnd, max_opnd_size);
                 instr_set_src(instr_to, reg_counter, src_opnd);
                 ++reg_counter;
