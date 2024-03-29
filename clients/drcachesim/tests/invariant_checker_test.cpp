@@ -3272,12 +3272,21 @@ check_kernel_syscall_trace(void)
         instr_t *sti = INSTR_CREATE_sti(GLOBAL_DCONTEXT);
         instr_t *nop1 = XINST_CREATE_nop(GLOBAL_DCONTEXT);
         instr_t *nop2 = XINST_CREATE_nop(GLOBAL_DCONTEXT);
+#        if defined(X64)
         instr_t *xrstors = INSTR_CREATE_xrstors64(
             GLOBAL_DCONTEXT,
             opnd_create_base_disp(DR_REG_XCX, DR_REG_NULL, 0, 0, OPSZ_xsave));
         instr_t *xsaves = INSTR_CREATE_xsaves64(
             GLOBAL_DCONTEXT,
             opnd_create_base_disp(DR_REG_XCX, DR_REG_NULL, 0, 0, OPSZ_xsave));
+#        else
+        instr_t *xrstors = INSTR_CREATE_xrstors32(
+            GLOBAL_DCONTEXT,
+            opnd_create_base_disp(DR_REG_XCX, DR_REG_NULL, 0, 0, OPSZ_xsave));
+        instr_t *xsaves = INSTR_CREATE_xsaves32(
+            GLOBAL_DCONTEXT,
+            opnd_create_base_disp(DR_REG_XCX, DR_REG_NULL, 0, 0, OPSZ_xsave));
+#        endif
         instr_t *hlt = INSTR_CREATE_hlt(GLOBAL_DCONTEXT);
         instr_t *nop3 = XINST_CREATE_nop(GLOBAL_DCONTEXT);
         instr_t *prefetch = INSTR_CREATE_prefetchnta(
