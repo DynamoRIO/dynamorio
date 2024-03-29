@@ -3279,6 +3279,13 @@ check_kernel_syscall_trace(void)
         instr_t *xsaves = INSTR_CREATE_xsaves64(
             GLOBAL_DCONTEXT,
             opnd_create_base_disp(DR_REG_XCX, DR_REG_NULL, 0, 0, OPSZ_xsave));
+#        else
+        instr_t *xrstors = INSTR_CREATE_xrstors32(
+            GLOBAL_DCONTEXT,
+            opnd_create_base_disp(DR_REG_XCX, DR_REG_NULL, 0, 0, OPSZ_xsave));
+        instr_t *xsaves = INSTR_CREATE_xsaves32(
+            GLOBAL_DCONTEXT,
+            opnd_create_base_disp(DR_REG_XCX, DR_REG_NULL, 0, 0, OPSZ_xsave));
 #        endif
         instr_t *hlt = INSTR_CREATE_hlt(GLOBAL_DCONTEXT);
         instr_t *nop3 = XINST_CREATE_nop(GLOBAL_DCONTEXT);
@@ -3297,10 +3304,8 @@ check_kernel_syscall_trace(void)
         instrlist_append(ilist2, sti);
         instrlist_append(ilist2, nop1);
         instrlist_append(ilist2, nop2);
-#        if defined(X64)
         instrlist_append(ilist2, xrstors);
         instrlist_append(ilist2, xsaves);
-#        endif
         instrlist_append(ilist2, hlt);
         instrlist_append(ilist2, nop3);
         instrlist_append(ilist2, prefetch);
@@ -3331,8 +3336,7 @@ check_kernel_syscall_trace(void)
                 { gen_data(TID_A, true, 42, 8), nullptr },
                 { gen_instr(TID_A), sti },
                 { gen_instr(TID_A), nop1 },
-            // Missing nop2. Acceptable because of the recent sti.
-#        if defined(X64)
+                // Missing nop2. Acceptable because of the recent sti.
                 { gen_instr(TID_A), xrstors },
                 // Multiple reads. Acceptable because of the prior xrstors.
                 { gen_data(TID_A, true, 42, 8), nullptr },
@@ -3345,7 +3349,6 @@ check_kernel_syscall_trace(void)
                 { gen_data(TID_A, false, 42, 8), nullptr },
                 { gen_data(TID_A, false, 42, 8), nullptr },
                 { gen_data(TID_A, false, 42, 8), nullptr },
-#        endif
                 { gen_instr(TID_A), hlt },
                 // Missing nop3. Acceptable because of the prior hlt.
                 { gen_instr(TID_A), prefetch },
