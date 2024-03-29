@@ -34,8 +34,6 @@
 #include "dr_api.h"
 #include "tools.h"
 
-#define MAX_NUM_REGS 256
-
 #define ASSERT(x)                                                                 \
     ((void)((!(x)) ? (dr_fprintf(STDERR, "ASSERT FAILURE: %s:%d: %s\n", __FILE__, \
                                  __LINE__, #x),                                   \
@@ -60,7 +58,8 @@ test_instr_encode_decode_synthetic(void *dc, instr_t *instr)
     byte *next_pc_encode = instr_encode(dc, instr_synthetic_converted, bytes);
     ASSERT(next_pc_encode != NULL);
 
-    /* Create an instruction where we decoded the previous encoded synthetic instruction.
+    /* Create an instruction where we can decode the previously encoded synthetic
+     * instruction.
      */
     instr_t *instr_synthetic_decoded = instr_create(dc);
 
