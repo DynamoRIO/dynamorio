@@ -5130,10 +5130,6 @@ if (UNIX)
           --build-makeprogram ${CMAKE_MAKE_PROGRAM}
           --build-options ${config_type} -DBUILD_TESTS=ON -DBUILD_DOCS=OFF
           -DBUILD_SAMPLES=OFF -DBUILD_EXT=OFF -DBUILD_CLIENTS=OFF
-          # TODO i#6417: The switch to AMD VM's for GA CI has broken many of our tests.
-          # LINUX_XARCH_TEST is used to indicate the test is linux.xarch which runs 32 bit tests
-          # on 64 bit host.
-          -DLINUX_XARCH_TEST=ON
           --test-command ${CMAKE_COMMAND} -P ${xarch_script})
         file(READ linux/execve-client.expect expect)
         set_tests_properties(linux.xarch PROPERTIES ENVIRONMENT
@@ -6226,7 +6222,7 @@ endmacro()
 # The following tests are excluded until they are fixed.
 # LINUX_XARCH_TEST is defined only for x86-64 linux.xarch test which don't
 # have the following tests, so we need to skip set_tests_properties.
-if (UNIX AND X86 AND CPU_AMD AND NOT DR_HOST_X64 AND NOT LINUX_XARCH_TEST)
+if (UNIX AND X86 AND CPU_AMD AND NOT DR_HOST_X64)
   set_labels_on_known_tests(AMD_X32_DENYLIST
     code_api|api.detach
     code_api|api.detach_spawn_quick_exit
