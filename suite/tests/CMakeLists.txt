@@ -3203,10 +3203,12 @@ if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
   set(DynamoRIO_SET_PREFERRED_BASE OFF)
 endif (X86)
 
-if (AARCHXX)
+if (AARCHXX OR RISCV64)
   tobuild_ci(client.stolen-reg client-interface/stolen-reg.c "" "" "")
   link_with_pthread(client.stolen-reg)
+endif ()
 
+if (AARCHXX)
   tobuild_ci(client.ldstex client-interface/ldstex.c "" "" "")
   link_with_pthread(client.ldstex)
 endif ()
@@ -4084,6 +4086,9 @@ if (BUILD_CLIENTS)
     torunonly_drcacheoff(interval-instr-count-output ${ci_shared_app} ""
       "@-simulator_type@basic_counts@-interval_instr_count@10000" "")
 
+    torunonly_drcacheoff(interval-opcode-mix-output ${ci_shared_app} ""
+      "@-simulator_type@opcode_mix@-interval_instr_count@10000" "")
+
     # As for the online test, we check that only 1 thread is in the final trace.
     torunonly_drcacheoff(max-global client.annotation-concurrency
       # Include function tracing to sanity test combining with delay and max.
@@ -4649,7 +4654,10 @@ if (BUILD_CLIENTS)
       # We assume the app name starts with "s" here to avoid colliding with
       # our output dir, while still letting the single precmd remove both.
       "${drcachesim_path}@-simulator_type@record_filter@-indir@${testname}.s*.dir/trace@-core_sharded@-cores@4@-outdir@${testname}.filtered.dir"
-      "schedule_stats")
+      # We run opcode_mix to test encodings.
+      # XXX i#6684: Once we have invariant_checker support, run it here (and ensure
+      # it checks encodings).
+      "opcode_mix")
 
     if (UNIX) # Windows multi-thread tests are too slow.
       set(testname "tool.record_filter_bycore_multi")
@@ -4661,8 +4669,8 @@ if (BUILD_CLIENTS)
         "schedule_stats")
     endif ()
 
-    # Test the trim filter.
     if (X86 AND X64 AND ZLIB_FOUND)
+      # Test the trim filter.
       set(zip_path
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.allasm_x86_64.trace.zip")
       set(outdir ${PROJECT_BINARY_DIR}/trim_filter)
@@ -4680,6 +4688,40 @@ if (BUILD_CLIENTS)
         "${drcachesim_path}@-simulator_type@record_filter@-trim_before_timestamp@13352268558646120@-trim_after_timestamp@13352268558646661@-indir@${srcdir}@-outdir@${outdir}")
       set(tool.drcacheoff.trim_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcacheoff.trim_rawtemp ON) # no preprocessor
+
+      # Test the record_filter in as-traced mode.
+      set(trace_dir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.x64.tracedir")
+      set(sched_file "${trace_dir}/cpu_schedule.bin.zip")
+      set(outdir ${CMAKE_CURRENT_BINARY_DIR}/filter_as_traced)
+      file(MAKE_DIRECTORY ${outdir})
+      torunonly_api(tool.record_filter_as_traced "${drcachesim_path}"
+        "record_filter_as_traced"
+        "" "-simulator_type;schedule_stats;-indir;${outdir}" OFF OFF)
+      set(tool.record_filter_as_traced_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+      set(tool.record_filter_as_traced_precmd
+        "${drcachesim_path}@-simulator_type@record_filter@-cpu_schedule_file@${sched_file}@-core_sharded@-cores@7@-indir@${trace_dir}@-outdir@${outdir}")
+      set(tool.record_filter_as_traced_basedir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.record_filter_as_traced_rawtemp ON) # no preprocessor
+
+      # Test the record_filter in as-traced mode with start-idle cores.
+      # This checked-in partial-hello,world-trace ran on 4 different cores.
+      set(trace_dir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.as_traced.x64.tracedir")
+      set(sched_file "${trace_dir}/cpu_schedule.bin.zip")
+      set(outdir ${CMAKE_CURRENT_BINARY_DIR}/filter_start_idle)
+      file(MAKE_DIRECTORY ${outdir})
+      torunonly_api(tool.record_filter_start_idle "${drcachesim_path}"
+        "record_filter_start_idle"
+        "" "-simulator_type;schedule_stats;-indir;${outdir}" OFF OFF)
+      set(tool.record_filter_start_idle_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+      set(tool.record_filter_start_idle_precmd
+        "${drcachesim_path}@-simulator_type@record_filter@-cpu_schedule_file@${sched_file}@-core_sharded@-cores@4@-indir@${trace_dir}@-outdir@${outdir}")
+      set(tool.record_filter_start_idle_basedir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.record_filter_start_idle_rawtemp ON) # no preprocessor
+
     endif ()
 
     if (AARCH64)
@@ -6116,42 +6158,26 @@ if (RISCV64)
     code_api|api.ir
     code_api|api.ir-static
     code_api|client.app_args
-    code_api|client.app_args
-    code_api|client.blackbox
     code_api|client.blackbox
     code_api|client.crashmsg
-    code_api|client.crashmsg
-    code_api|client.execfault
     code_api|client.execfault
     code_api|client.mangle_suspend
-    code_api|client.mangle_suspend
-    code_api|client.null_instrument
     code_api|client.null_instrument
     code_api|client.option_parse
-    code_api|client.option_parse
     code_api|client.partial_module_map
-    code_api|client.partial_module_map
-    code_api|client.stack-overflow
     code_api|client.stack-overflow
     code_api|client.truncate
     code_api|client.unregister
     code_api|common.broadfun
     code_api|common.hello
     code_api|libutil.drconfig_test
-    code_api|libutil.drconfig_test
-    code_api|libutil.frontend_test
     code_api|libutil.frontend_test
     code_api|linux.exit
-    code_api|linux.exit
-    code_api|linux.infinite
     code_api|linux.infinite
     code_api|linux.longjmp
-    code_api|linux.longjmp
-    code_api|linux.prctl
     code_api|linux.prctl
     code_api|linux.signalfd
     code_api|pthreads.pthreads
-    code_api|pthreads.pthreads_exit
     code_api|pthreads.pthreads_exit
     code_api|sample.bbbuf
     code_api|sample.bbcount
@@ -6165,10 +6191,7 @@ if (RISCV64)
     code_api|sample.opcode_count
     code_api|sample.signal
     code_api|sample.stl_test
-    code_api|sample.stl_test
     code_api|sample.syscall
-    code_api|sample.syscall
-    code_api|security-linux.trampoline
     code_api|security-linux.trampoline
     code_api|tool.drcachesim.missfile-config-file
     code_api|tool.drcachesim.syscall-mix

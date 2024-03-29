@@ -183,6 +183,17 @@ record_filter_t::initialize_shard_type(shard_type_t shard_type)
 }
 
 std::string
+record_filter_t::get_output_basename(memtrace_stream_t *shard_stream)
+{
+    if (shard_type_ == SHARD_BY_CORE) {
+        return output_dir_ + DIRSEP + "drmemtrace.core." +
+            std::to_string(shard_stream->get_shard_index()) + ".trace";
+    } else {
+        return output_dir_ + DIRSEP + shard_stream->get_stream_name();
+    }
+}
+
+std::string
 record_filter_t::initialize_shard_output(per_shard_t *per_shard,
                                          memtrace_stream_t *shard_stream)
 {
@@ -192,13 +203,17 @@ record_filter_t::initialize_shard_output(per_shard_t *per_shard,
         // Since some shards may not have inputs, we need to synchronize determining
         // the file extension.
         // First, get our path without the extension, so we can add it later.
-        per_shard->output_path = output_dir_ + DIRSEP + "drmemtrace.core." +
-            std::to_string(shard_stream->get_shard_index()) + ".trace";
+        per_shard->output_path = get_output_basename(shard_stream);
         std::string input_name = shard_stream->get_stream_name();
         // Now synchronize determining the extension.
         auto lock = std::unique_lock<std::mutex>(input_info_mutex_);
         if (!output_ext_.empty()) {
+            VPRINT(this, 2,
+                   "Shard #%d using pre-set ext=%s, ver=%" PRIu64 ", type=%" PRIu64 "\n",
+                   shard_stream->get_shard_index(), output_ext_.c_str(), version_,
+                   filetype_);
             per_shard->output_path += output_ext_;
+            per_shard->filetype = static_cast<addr_t>(filetype_);
             lock.unlock();
         } else if (!input_name.empty()) {
             size_t last_dot = input_name.rfind('.');
@@ -208,17 +223,32 @@ record_filter_t::initialize_shard_output(per_shard_t *per_shard,
             // Set the other key input data.
             version_ = shard_stream->get_version();
             filetype_ = add_to_filetype(shard_stream->get_filetype());
+            if (version_ == 0) {
+                // We give up support for version 0 to have an up-front error check
+                // rather than having some output files with bad headers (i#6721).
+                return "Version not available at shard init time";
+            }
+            VPRINT(this, 2,
+                   "Shard #%d setting ext=%s, ver=%" PRIu64 ", type=%" PRIu64 "\n",
+                   shard_stream->get_shard_index(), output_ext_.c_str(), version_,
+                   filetype_);
             per_shard->output_path += output_ext_;
+            per_shard->filetype = static_cast<addr_t>(filetype_);
             lock.unlock();
             input_info_cond_var_.notify_all();
         } else {
             // We have to wait for another shard with an input to set output_ext_.
             input_info_cond_var_.wait(lock, [this] { return !output_ext_.empty(); });
+            VPRINT(this, 2,
+                   "Shard #%d waited for ext=%s, ver=%" PRIu64 ", type=%" PRIu64 "\n",
+                   shard_stream->get_shard_index(), output_ext_.c_str(), version_,
+                   filetype_);
             per_shard->output_path += output_ext_;
+            per_shard->filetype = static_cast<addr_t>(filetype_);
             lock.unlock();
         }
     } else {
-        per_shard->output_path = output_dir_ + DIRSEP + shard_stream->get_stream_name();
+        per_shard->output_path = get_output_basename(shard_stream);
     }
     return "";
 }
@@ -228,40 +258,6 @@ record_filter_t::get_writer(per_shard_t *per_shard, memtrace_stream_t *shard_str
 {
     if (per_shard->output_path.empty())
         return "Error: output_path is empty";
-    if (shard_type_ == SHARD_BY_CORE) {
-        // Each output is a mix of inputs so we do not want to reuse the input
-        // names with tids.
-        // Since some shards may not have inputs, we need to synchronize determining
-        // the file extension.
-        // First, get our path without the extension, so we can add it later.
-        per_shard->output_path = output_dir_ + DIRSEP + "drmemtrace.core." +
-            std::to_string(shard_stream->get_shard_index()) + ".trace";
-        std::string input_name = shard_stream->get_stream_name();
-        // Now synchronize determining the extension.
-        auto lock = std::unique_lock<std::mutex>(input_info_mutex_);
-        if (!output_ext_.empty()) {
-            per_shard->output_path += output_ext_;
-            lock.unlock();
-        } else if (!input_name.empty()) {
-            size_t last_dot = input_name.rfind('.');
-            if (last_dot == std::string::npos)
-                return "Failed to determine filename type from extension";
-            output_ext_ = input_name.substr(last_dot);
-            // Set the other key input data.
-            version_ = shard_stream->get_version();
-            filetype_ = add_to_filetype(shard_stream->get_filetype());
-            per_shard->output_path += output_ext_;
-            lock.unlock();
-            input_info_cond_var_.notify_all();
-        } else {
-            // We have to wait for another shard with an input to set output_ext_.
-            input_info_cond_var_.wait(lock, [this] { return !output_ext_.empty(); });
-            per_shard->output_path += output_ext_;
-            lock.unlock();
-        }
-    } else {
-        per_shard->output_path = output_dir_ + DIRSEP + shard_stream->get_stream_name();
-    }
 #ifdef HAS_ZLIB
     if (ends_with(per_shard->output_path, ".gz")) {
         VPRINT(this, 3, "Using the gzip writer for %s\n", per_shard->output_path.c_str());
@@ -557,6 +553,12 @@ record_filter_t::process_markers(per_shard_t *per_shard, trace_entry_t &entry,
                        "supported";
             }
             break;
+        case TRACE_MARKER_TYPE_CORE_WAIT:
+            // These are artificial timing records: do not output them, nor consider
+            // them real input records.
+            output = false;
+            --per_shard->input_entry_count;
+            break;
         }
     }
     return "";
@@ -667,6 +669,10 @@ record_filter_t::process_delayed_encodings(per_shard_t *per_shard, trace_entry_t
 bool
 record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &input_entry)
 {
+    if (!success_) {
+        // Report an error that happened during shard init.
+        return false;
+    }
     per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
     ++per_shard->input_entry_count;
     trace_entry_t entry = input_entry;

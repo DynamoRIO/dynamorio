@@ -3261,6 +3261,244 @@ test_replay_as_traced_i6107_workaround()
 }
 
 static void
+test_replay_as_traced_dup_start()
+{
+#ifdef HAS_ZIP
+    // Test what i#6712 fixes: duplicate start entries.
+    std::cerr << "\n----------------\nTesting replay as-traced dup starts\n";
+
+    static constexpr int NUM_INPUTS = 3;
+    static constexpr int NUM_OUTPUTS = 2;
+    static constexpr int NUM_INSTRS = 6;
+    static constexpr memref_tid_t TID_A = 100;
+    static constexpr memref_tid_t TID_B = TID_A + 1;
+    static constexpr memref_tid_t TID_C = TID_A + 2;
+    static constexpr int CPU_0 = 6;
+    static constexpr int CPU_1 = 7;
+    static constexpr uint64_t TIMESTAMP_BASE = 100;
+
+    std::vector<trace_entry_t> inputs[NUM_INPUTS];
+    for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
+        memref_tid_t tid = TID_A + input_idx;
+        inputs[input_idx].push_back(make_thread(tid));
+        inputs[input_idx].push_back(make_pid(1));
+        // These timestamps do not line up with the schedule file but
+        // that does not cause problems and leaving it this way
+        // simplifies the testdata construction.
+        inputs[input_idx].push_back(make_timestamp(TIMESTAMP_BASE));
+        for (int instr_idx = 0; instr_idx < NUM_INSTRS; ++instr_idx) {
+            inputs[input_idx].push_back(make_instr(42 + instr_idx));
+        }
+        inputs[input_idx].push_back(make_exit(tid));
+    }
+
+    // Synthesize a cpu-schedule file with duplicate starts.
+    std::string cpu_fname = "tmp_test_cpu_i6712.zip";
+    {
+        zipfile_ostream_t outfile(cpu_fname);
+        {
+            std::vector<schedule_entry_t> sched;
+            sched.emplace_back(TID_A, TIMESTAMP_BASE, CPU_0, 0);
+            sched.emplace_back(TID_B, TIMESTAMP_BASE + 2, CPU_0, 0);
+            // Simple dup start: non-consecutive but in same output.
+            sched.emplace_back(TID_A, TIMESTAMP_BASE + 4, CPU_0, 0);
+            sched.emplace_back(TID_B, TIMESTAMP_BASE + 5, CPU_0, 4);
+            std::ostringstream cpu_string;
+            cpu_string << CPU_0;
+            std::string err = outfile.open_new_component(cpu_string.str());
+            assert(err.empty());
+            if (!outfile.write(reinterpret_cast<char *>(sched.data()),
+                               sched.size() * sizeof(sched[0])))
+                assert(false);
+        }
+        {
+            std::vector<schedule_entry_t> sched;
+            // More complex dup start across outputs.
+            sched.emplace_back(TID_B, TIMESTAMP_BASE + 1, CPU_1, 0);
+            sched.emplace_back(TID_C, TIMESTAMP_BASE + 3, CPU_1, 0);
+            sched.emplace_back(TID_A, TIMESTAMP_BASE + 6, CPU_1, 4);
+            std::ostringstream cpu_string;
+            cpu_string << CPU_1;
+            std::string err = outfile.open_new_component(cpu_string.str());
+            assert(err.empty());
+            if (!outfile.write(reinterpret_cast<char *>(sched.data()),
+                               sched.size() * sizeof(sched[0])))
+                assert(false);
+        }
+    }
+
+    // Replay the recorded schedule.
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
+        memref_tid_t tid = TID_A + input_idx;
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(
+            std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[input_idx])),
+            std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+        sched_inputs.emplace_back(std::move(readers));
+    }
+    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_RECORDED_OUTPUT,
+                                               scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                               scheduler_t::SCHEDULER_DEFAULTS,
+                                               /*verbosity=*/4);
+    zipfile_istream_t infile(cpu_fname);
+    sched_ops.replay_as_traced_istream = &infile;
+    scheduler_t scheduler;
+    if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    auto *stream0 = scheduler.get_stream(0);
+    auto *stream1 = scheduler.get_stream(1);
+    auto check_next = [](scheduler_t::stream_t *stream,
+                         scheduler_t::stream_status_t expect_status,
+                         memref_tid_t expect_tid = INVALID_THREAD_ID,
+                         trace_type_t expect_type = TRACE_TYPE_READ) {
+        memref_t memref;
+        scheduler_t::stream_status_t status = stream->next_record(memref);
+        if (status != expect_status) {
+            std::cerr << "Expected status " << expect_status << " != " << status << "\n";
+            assert(false);
+        }
+        if (status == scheduler_t::STATUS_OK) {
+            if (memref.marker.tid != expect_tid) {
+                std::cerr << "Expected tid " << expect_tid << " != " << memref.marker.tid
+                          << "\n";
+                assert(false);
+            }
+            if (memref.marker.type != expect_type) {
+                std::cerr << "Expected type " << expect_type
+                          << " != " << memref.marker.type << "\n";
+                assert(false);
+            }
+        }
+    };
+    // We expect the 1st of the start-at-0 TID_A to be deleted; so we should
+    // start with TID_B (the 2nd of the start-at-0 TID_B).
+    check_next(stream0, scheduler_t::STATUS_OK, TID_B, TRACE_TYPE_MARKER);
+    check_next(stream0, scheduler_t::STATUS_OK, TID_B, TRACE_TYPE_INSTR);
+    check_next(stream0, scheduler_t::STATUS_OK, TID_B, TRACE_TYPE_INSTR);
+    check_next(stream0, scheduler_t::STATUS_OK, TID_B, TRACE_TYPE_INSTR);
+    // We should have removed the 1st start-at-0  B and start with C
+    // on cpu 1.
+    check_next(stream1, scheduler_t::STATUS_OK, TID_C, TRACE_TYPE_MARKER);
+    check_next(stream1, scheduler_t::STATUS_OK, TID_C, TRACE_TYPE_INSTR);
+    check_next(stream1, scheduler_t::STATUS_OK, TID_C, TRACE_TYPE_INSTR);
+    check_next(stream1, scheduler_t::STATUS_OK, TID_C, TRACE_TYPE_INSTR);
+    check_next(stream1, scheduler_t::STATUS_OK, TID_C, TRACE_TYPE_INSTR);
+    check_next(stream1, scheduler_t::STATUS_OK, TID_C, TRACE_TYPE_INSTR);
+    check_next(stream1, scheduler_t::STATUS_OK, TID_C, TRACE_TYPE_INSTR);
+    check_next(stream1, scheduler_t::STATUS_OK, TID_C, TRACE_TYPE_THREAD_EXIT);
+    // Now cpu 0 should run A.
+    check_next(stream0, scheduler_t::STATUS_OK, TID_A, TRACE_TYPE_MARKER);
+    check_next(stream0, scheduler_t::STATUS_OK, TID_A, TRACE_TYPE_INSTR);
+    check_next(stream0, scheduler_t::STATUS_OK, TID_A, TRACE_TYPE_INSTR);
+    check_next(stream0, scheduler_t::STATUS_OK, TID_A, TRACE_TYPE_INSTR);
+    // Cpu 0 now finishes with B.
+    check_next(stream0, scheduler_t::STATUS_OK, TID_B, TRACE_TYPE_INSTR);
+    check_next(stream0, scheduler_t::STATUS_OK, TID_B, TRACE_TYPE_INSTR);
+    check_next(stream0, scheduler_t::STATUS_OK, TID_B, TRACE_TYPE_INSTR);
+    check_next(stream0, scheduler_t::STATUS_OK, TID_B, TRACE_TYPE_THREAD_EXIT);
+    check_next(stream0, scheduler_t::STATUS_IDLE);
+    // Cpu 1 now finishes with A.
+    check_next(stream1, scheduler_t::STATUS_OK, TID_A, TRACE_TYPE_INSTR);
+    check_next(stream1, scheduler_t::STATUS_OK, TID_A, TRACE_TYPE_INSTR);
+    check_next(stream1, scheduler_t::STATUS_OK, TID_A, TRACE_TYPE_INSTR);
+    check_next(stream1, scheduler_t::STATUS_OK, TID_A, TRACE_TYPE_THREAD_EXIT);
+    check_next(stream1, scheduler_t::STATUS_EOF);
+    // Finalize.
+    check_next(stream0, scheduler_t::STATUS_EOF);
+#endif
+}
+
+static void
+test_replay_as_traced_sort()
+{
+#ifdef HAS_ZIP
+    // Test that outputs have the cpuids in sorted order.
+    std::cerr << "\n----------------\nTesting replay as-traced sorting\n";
+
+    static constexpr int NUM_INPUTS = 4;
+    static constexpr int NUM_OUTPUTS = NUM_INPUTS; // Required to be equal.
+    static constexpr int NUM_INSTRS = 2;
+    static constexpr memref_tid_t TID_BASE = 100;
+    static constexpr addr_t PC_BASE = 1000;
+    // Our unsorted cpuid order in the file.
+    static const std::vector<int> CPUIDS = { 42, 7, 56, 3 };
+    // Index into CPUIDS if sorted.
+    static const std::vector<int> INDICES = { 3, 1, 0, 2 };
+    static constexpr uint64_t TIMESTAMP_BASE = 100;
+
+    std::vector<trace_entry_t> inputs[NUM_INPUTS];
+    for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
+        memref_tid_t tid = TID_BASE + input_idx;
+        inputs[input_idx].push_back(make_thread(tid));
+        inputs[input_idx].push_back(make_pid(1));
+        // These timestamps do not line up with the schedule file but
+        // that does not cause problems and leaving it this way
+        // simplifies the testdata construction.
+        inputs[input_idx].push_back(make_timestamp(TIMESTAMP_BASE));
+        inputs[input_idx].push_back(
+            make_marker(TRACE_MARKER_TYPE_CPU_ID, CPUIDS[input_idx]));
+        for (int instr_idx = 0; instr_idx < NUM_INSTRS; ++instr_idx) {
+            inputs[input_idx].push_back(make_instr(PC_BASE + instr_idx));
+        }
+        inputs[input_idx].push_back(make_exit(tid));
+    }
+
+    // Synthesize a cpu-schedule file with unsorted entries (see CPUIDS above).
+    std::string cpu_fname = "tmp_test_cpu_i6721.zip";
+    {
+        zipfile_ostream_t outfile(cpu_fname);
+        for (int i = 0; i < NUM_OUTPUTS; ++i) {
+            std::vector<schedule_entry_t> sched;
+            sched.emplace_back(TID_BASE + i, TIMESTAMP_BASE, CPUIDS[i], 0);
+            std::ostringstream cpu_string;
+            cpu_string << CPUIDS[i];
+            std::string err = outfile.open_new_component(cpu_string.str());
+            assert(err.empty());
+            if (!outfile.write(reinterpret_cast<char *>(sched.data()),
+                               sched.size() * sizeof(sched[0])))
+                assert(false);
+        }
+    }
+
+    // Replay the recorded schedule.
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    for (int i = 0; i < NUM_INPUTS; i++) {
+        memref_tid_t tid = TID_BASE + i;
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+        sched_inputs.emplace_back(std::move(readers));
+    }
+    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_RECORDED_OUTPUT,
+                                               scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                               scheduler_t::SCHEDULER_DEFAULTS,
+                                               /*verbosity=*/4);
+    zipfile_istream_t infile(cpu_fname);
+    sched_ops.replay_as_traced_istream = &infile;
+    scheduler_t scheduler;
+    if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    for (int i = 0; i < NUM_OUTPUTS; ++i) {
+        auto *stream = scheduler.get_stream(i);
+        memref_t memref;
+        scheduler_t::stream_status_t status = stream->next_record(memref);
+        if (status == scheduler_t::STATUS_OK) {
+            assert(memref.marker.tid == TID_BASE + INDICES[i]);
+            if (memref.marker.type == TRACE_TYPE_MARKER &&
+                memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID) {
+                assert(static_cast<int>(memref.marker.marker_value) ==
+                       CPUIDS[INDICES[i]]);
+            }
+        } else
+            assert(status == scheduler_t::STATUS_EOF);
+    }
+#endif
+}
+
+static void
 test_replay_as_traced_from_file(const char *testdir)
 {
 #if (defined(X86_64) || defined(ARM_64)) && defined(HAS_ZIP)
@@ -3270,11 +3508,15 @@ test_replay_as_traced_from_file(const char *testdir)
         std::string(testdir) + "/drmemtrace.threadsig.x64.tracedir/cpu_schedule.bin.zip";
     // This checked-in trace has 8 threads on 7 cores.  It doesn't have
     // much thread migration but our synthetic test above covers that.
+    // The outputs use the stored cores sorted by cpuid.
     static const char *const SCHED_STRING =
-        "Core #0: 1257598 \nCore #1: 1257603 \nCore #2: 1257601 \n"
-        "Core #3: 1257599 => 1257604 @ <366987,87875,13331862029895453> "
-        "(<366986,87875,13331862029895453> => <1,0,0>) \n"
-        "Core #4: 1257600 \nCore #5: 1257596 \nCore #6: 1257602 \n";
+        "Core #0: 1257602 \nCore #1: 1257600 \n"
+        "Core #2: 1257599 => 1257604 @ <366987,87875,13331862029895453> "
+        // The ordinal is really 1 ("<1,0,0>") but with the scheduler's readahead
+        // it becomes 2; easier to just check for that as trying to avoid readahead
+        // causes other problems (i#xxxx).
+        "(<366986,87875,13331862029895453> => <2,0,0>) \n"
+        "Core #3: 1257596 \nCore #4: 1257603 \nCore #5: 1257601 \nCore #6: 1257598 \n";
     static constexpr int NUM_OUTPUTS = 7; // Matches the actual trace's core footprint.
     scheduler_t scheduler;
     std::vector<scheduler_t::input_workload_t> sched_inputs;
@@ -3955,6 +4197,8 @@ test_record_scheduler()
         make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
         make_instr(40),
         make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
+        // Test a target marker between the encoding and the instr.
+        make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, 42),
         make_instr(60),
         // No encoding for repeated instr.
         make_instr(20),
@@ -4006,8 +4250,17 @@ test_record_scheduler()
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID, PID_A);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER);
+    // Test ordinals.
+    assert(stream0->get_instruction_ordinal() == 0);
+    assert(stream0->get_input_interface()->get_instruction_ordinal() == 0);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_ENCODING);
+    // The encoding should have incremented the ordinal.
+    assert(stream0->get_instruction_ordinal() == 1);
+    assert(stream0->get_input_interface()->get_instruction_ordinal() == 1);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+    // The instr should not have further incremented it.
+    assert(stream0->get_instruction_ordinal() == 1);
+    assert(stream0->get_input_interface()->get_instruction_ordinal() == 1);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER);
@@ -4022,7 +4275,8 @@ test_record_scheduler()
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_ENCODING);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
-    // Ensure the switch is *before* the encoding.
+    // Ensure the switch is *before* the encoding and target marker.
+    assert(stream0->get_input_interface()->get_instruction_ordinal() == 2);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD, TID_A);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID, PID_A);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_ENCODING);
@@ -4030,8 +4284,18 @@ test_record_scheduler()
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD, TID_B);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID, PID_B);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_ENCODING);
+    assert(stream0->get_instruction_ordinal() == 5);
+    assert(stream0->get_input_interface()->get_instruction_ordinal() == 3);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER);
+    assert(stream0->get_instruction_ordinal() == 5);
+    assert(stream0->get_input_interface()->get_instruction_ordinal() == 3);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+    // Should still be at the same count after the encoding, marker, and instr.
+    assert(stream0->get_instruction_ordinal() == 5);
+    assert(stream0->get_input_interface()->get_instruction_ordinal() == 3);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+    assert(stream0->get_instruction_ordinal() == 6);
+    assert(stream0->get_input_interface()->get_instruction_ordinal() == 4);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD_EXIT);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD, TID_A);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID, PID_A);
@@ -4073,6 +4337,8 @@ test_main(int argc, const char *argv[])
     test_replay_as_traced_from_file(argv[1]);
     test_replay_as_traced();
     test_replay_as_traced_i6107_workaround();
+    test_replay_as_traced_dup_start();
+    test_replay_as_traced_sort();
     test_inactive();
     test_direct_switch();
     test_kernel_switch_sequences();

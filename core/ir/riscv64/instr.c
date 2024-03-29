@@ -277,7 +277,7 @@ instr_is_mov_constant(instr_t *instr, ptr_int_t *value)
     uint opc = instr_get_opcode(instr);
 
     if (opc == OP_addi || opc == OP_addiw || opc == OP_c_addi || opc == OP_c_addiw ||
-        opc == OP_c_addi4spn || opc == OP_c_addi16sp) {
+        opc == OP_c_addi4spn || opc == OP_c_addi16sp || opc == OP_c_li) {
         opnd_t op1 = instr_get_src(instr, 0);
         opnd_t op2 = instr_get_src(instr, 1);
         if (opnd_is_reg(op1) && opnd_get_reg(op1) == DR_REG_X0) {
@@ -455,6 +455,8 @@ bool
 instr_is_nop(instr_t *instr)
 {
     uint opc = instr_get_opcode(instr);
+    if (opc == OP_c_nop)
+        return true;
     if (instr_num_srcs(instr) < 2 || instr_num_dsts(instr) < 1)
         return false;
     opnd_t rd = instr_get_dst(instr, 0);

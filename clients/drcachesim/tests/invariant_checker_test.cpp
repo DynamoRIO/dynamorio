@@ -3165,6 +3165,160 @@ check_kernel_syscall_trace(void)
                          "Failed to catch nested syscall traces"))
             res = false;
     }
+#    ifdef X86
+    // TODO i#6495: Adapt this test to AArch64-equivalent scenarios.
+    {
+        instr_t *move1 = XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
+                                           opnd_create_reg(REG2));
+        instr_t *iret = INSTR_CREATE_iret(GLOBAL_DCONTEXT);
+        instr_t *sti = INSTR_CREATE_sti(GLOBAL_DCONTEXT);
+        instr_t *nop1 = XINST_CREATE_nop(GLOBAL_DCONTEXT);
+        instr_t *nop2 = XINST_CREATE_nop(GLOBAL_DCONTEXT);
+        instr_t *xrstors = INSTR_CREATE_xrstors64(
+            GLOBAL_DCONTEXT,
+            opnd_create_base_disp(DR_REG_XCX, DR_REG_NULL, 0, 0, OPSZ_xsave));
+        instr_t *xsaves = INSTR_CREATE_xsaves64(
+            GLOBAL_DCONTEXT,
+            opnd_create_base_disp(DR_REG_XCX, DR_REG_NULL, 0, 0, OPSZ_xsave));
+        instr_t *hlt = INSTR_CREATE_hlt(GLOBAL_DCONTEXT);
+        instr_t *nop3 = XINST_CREATE_nop(GLOBAL_DCONTEXT);
+        instr_t *prefetch = INSTR_CREATE_prefetchnta(
+            GLOBAL_DCONTEXT,
+            opnd_create_base_disp(DR_REG_XCX, DR_REG_NULL, 0, 0, OPSZ_1));
+        instr_t *sysret = INSTR_CREATE_sysret(GLOBAL_DCONTEXT);
+        instr_t *nop4 = XINST_CREATE_nop(GLOBAL_DCONTEXT);
+        instr_t *sys1 = instr_clone(GLOBAL_DCONTEXT, sys);
+        instr_t *nop5 = XINST_CREATE_nop(GLOBAL_DCONTEXT);
+        instr_t *sys2 = instr_clone(GLOBAL_DCONTEXT, sys);
+        instr_t *nop6 = XINST_CREATE_nop(GLOBAL_DCONTEXT);
+        instrlist_t *ilist2 = instrlist_create(GLOBAL_DCONTEXT);
+        instrlist_append(ilist2, move1);
+        instrlist_append(ilist2, iret);
+        instrlist_append(ilist2, sti);
+        instrlist_append(ilist2, nop1);
+        instrlist_append(ilist2, nop2);
+        instrlist_append(ilist2, xrstors);
+        instrlist_append(ilist2, xsaves);
+        instrlist_append(ilist2, hlt);
+        instrlist_append(ilist2, nop3);
+        instrlist_append(ilist2, prefetch);
+        instrlist_append(ilist2, sysret);
+        instrlist_append(ilist2, nop4);
+        instrlist_append(ilist2, sys1);
+        instrlist_append(ilist2, nop5);
+        instrlist_append(ilist2, sys2);
+        instrlist_append(ilist2, nop6);
+        {
+            std::vector<memref_with_IR_t> memref_instr_vec = {
+                { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE,
+                             OFFLINE_FILE_TYPE_ENCODINGS |
+                                 OFFLINE_FILE_TYPE_SYSCALL_NUMBERS |
+                                 OFFLINE_FILE_TYPE_KERNEL_SYSCALLS),
+                  nullptr },
+                { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
+                { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
+                { gen_instr(TID_A), sys1 },
+                { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+                { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
+                { gen_instr(TID_A), move1 },
+                { gen_instr(TID_A), iret },
+                // Multiple reads. Acceptable because of the prior iret.
+                { gen_data(TID_A, true, 42, 8), nullptr },
+                { gen_data(TID_A, true, 42, 8), nullptr },
+                { gen_data(TID_A, true, 42, 8), nullptr },
+                { gen_data(TID_A, true, 42, 8), nullptr },
+                { gen_instr(TID_A), sti },
+                { gen_instr(TID_A), nop1 },
+                // Missing nop2. Acceptable because of the recent sti.
+                { gen_instr(TID_A), xrstors },
+                // Multiple reads. Acceptable because of the prior xrstors.
+                { gen_data(TID_A, true, 42, 8), nullptr },
+                { gen_data(TID_A, true, 42, 8), nullptr },
+                { gen_data(TID_A, true, 42, 8), nullptr },
+                { gen_data(TID_A, true, 42, 8), nullptr },
+                { gen_instr(TID_A), xsaves },
+                // Multiple writes. Acceptable because of the prior xsaves.
+                { gen_data(TID_A, false, 42, 8), nullptr },
+                { gen_data(TID_A, false, 42, 8), nullptr },
+                { gen_data(TID_A, false, 42, 8), nullptr },
+                { gen_data(TID_A, false, 42, 8), nullptr },
+                { gen_instr(TID_A), hlt },
+                // Missing nop3. Acceptable because of the prior hlt.
+                { gen_instr(TID_A), prefetch },
+                // Missing reads. Acceptable because of the prior prefetch.
+                { gen_instr(TID_A), sysret },
+                { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+                // Continues after sys1.
+                { gen_instr(TID_A), nop5 },
+                { gen_instr(TID_A), sys2 },
+                { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 41), nullptr },
+                { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 41), nullptr },
+                { gen_instr(TID_A), move1 },
+                { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 41), nullptr },
+                // Continues after sys2.
+                { gen_instr(TID_A), nop6 },
+                { gen_exit(TID_A), nullptr }
+            };
+            auto memrefs = add_encodings_to_memrefs(ilist2, memref_instr_vec, BASE_ADDR);
+            if (!run_checker(memrefs, false))
+                res = false;
+        }
+        {
+            std::vector<memref_with_IR_t> memref_instr_vec = {
+                { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE,
+                             OFFLINE_FILE_TYPE_ENCODINGS |
+                                 OFFLINE_FILE_TYPE_SYSCALL_NUMBERS |
+                                 OFFLINE_FILE_TYPE_KERNEL_SYSCALLS),
+                  nullptr },
+                { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
+                { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
+                { gen_instr(TID_A), sys1 },
+                { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+                { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
+                { gen_instr(TID_A), move1 },
+                { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+                // Missing instrs.
+                { gen_instr(TID_A), nop6 },
+                { gen_exit(TID_A), nullptr }
+            };
+            auto memrefs = add_encodings_to_memrefs(ilist2, memref_instr_vec, BASE_ADDR);
+            if (!run_checker(memrefs, true,
+                             { "Non-explicit control flow has no marker",
+                               /*tid=*/TID_A,
+                               /*ref_ordinal=*/9, /*last_timestamp=*/0,
+                               /*instrs_since_last_timestamp=*/3 },
+                             "Failed to catch discontinuity on return from syscall"))
+                res = false;
+        }
+        std::vector<memref_with_IR_t> memref_instr_vec = {
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE,
+                         OFFLINE_FILE_TYPE_ENCODINGS | OFFLINE_FILE_TYPE_SYSCALL_NUMBERS |
+                             OFFLINE_FILE_TYPE_KERNEL_SYSCALLS),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
+            { gen_instr(TID_A), sys1 },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
+            { gen_instr(TID_A), move1 },
+            // Missing instrs.
+            { gen_instr(TID_A), sti },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+            { gen_instr(TID_A), nop5 },
+            { gen_exit(TID_A), nullptr }
+        };
+        {
+            auto memrefs = add_encodings_to_memrefs(ilist2, memref_instr_vec, BASE_ADDR);
+            if (!run_checker(memrefs, true,
+                             { "Non-explicit control flow has no marker",
+                               /*tid=*/TID_A,
+                               /*ref_ordinal=*/8, /*last_timestamp=*/0,
+                               /*instrs_since_last_timestamp=*/3 },
+                             "Failed to catch discontinuity inside syscall trace"))
+                res = false;
+        }
+    }
+#    endif
     return res;
 #endif
 }
