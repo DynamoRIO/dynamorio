@@ -316,9 +316,12 @@ endif ()
 # to get the diff and check it.  The vera++ rules do check C/C++ code.
 
 # Check for trailing space.  This is a diff with an initial column for +-,
-# so a blank line will have one space: thus we rule that out.
+# so we need to exclude the following cases:
+# 1. existing blank line will now have one space;
+# 2. lines starting with -.
+# We do this by matching lines that start with + or a space and end with a space.
 # The clang-format check will now find these in C files, but not non-C files.
-string(REGEX MATCH "[^\n] \n" match "${diff_contents}")
+string(REGEX MATCH "^[+ ].* \n" match "${diff_contents}")
 if (NOT "${match}" STREQUAL "")
   # Get more context
   string(REGEX MATCH "\n[^\n]+ \n" match "${diff_contents}")
