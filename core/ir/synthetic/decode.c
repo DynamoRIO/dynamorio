@@ -84,17 +84,22 @@ decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
     uint category = (encoding_header & CATEGORY_MASK) >> CATEGORY_SHIFT;
     instr_set_category(instr, category);
 
+    /* Decode nummber of memory operations (i.e., loads + stores).
+     */
+    byte num_mem_ops = encoded_instr[NUM_MEM_OPS_INDEX];
+    instr->encoding_hints = (uint)num_mem_ops;
+
     /* Decode register operand size, if there are any operands.
      */
     uint num_opnds = num_dsts + num_srcs;
     opnd_size_t max_reg_size = OPSZ_NA;
     if (num_opnds > 0)
-        max_reg_size = (opnd_size_t)encoded_instr[HEADER_BYTES];
+        max_reg_size = (opnd_size_t)encoded_instr[OP_SIZE_INDEX];
 
     /* Decode register destination operands, if present.
      */
     for (uint i = 0; i < num_dsts; ++i) {
-        reg_id_t dst = (reg_id_t)encoded_instr[i + HEADER_BYTES + 1];
+        reg_id_t dst = (reg_id_t)encoded_instr[i + OPND_INDEX];
         opnd_t dst_opnd = opnd_create_reg((reg_id_t)dst);
         opnd_set_size(&dst_opnd, max_reg_size);
         instr_set_dst(instr, i, dst_opnd);
@@ -103,7 +108,7 @@ decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
     /* Decode register source operands, if present.
      */
     for (uint i = 0; i < num_srcs; ++i) {
-        reg_id_t src = (reg_id_t)encoded_instr[i + HEADER_BYTES + 1 + num_dsts];
+        reg_id_t src = (reg_id_t)encoded_instr[i + OPND_INDEX + num_dsts];
         opnd_t src_opnd = opnd_create_reg((reg_id_t)src);
         opnd_set_size(&src_opnd, max_reg_size);
         instr_set_src(instr, i, src_opnd);
@@ -118,7 +123,7 @@ decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
      * any operands.
      */
     uint num_opnd_bytes = num_opnds > 0 ? num_opnds + 1 : 0;
-    uint instr_length = ALIGN_FORWARD(HEADER_BYTES + num_opnd_bytes, HEADER_BYTES);
+    uint instr_length = ALIGN_FORWARD(HEADER_BYTES + num_opnd_bytes, ALIGN_BYTES);
     instr->length = instr_length;
 
     /* At this point the synthetic instruction has been fully decoded, so we set the

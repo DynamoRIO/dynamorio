@@ -3026,10 +3026,12 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_from)
     uint num_dsts = 0;
     uint original_num_dsts = (uint)instr_num_dsts(instr_from);
     uint max_reg_size = 0;
+    uint num_stores = 0;
     for (uint dst_index = 0; dst_index < original_num_dsts; ++dst_index) {
         opnd_t dst_opnd = instr_get_dst(instr_from, dst_index);
         uint num_regs_used_by_opnd = (uint)opnd_num_regs_used(dst_opnd);
         if (opnd_is_memory_reference(dst_opnd)) {
+            ++num_stores;
             for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
                 reg_id_t reg = opnd_get_reg_used(dst_opnd, opnd_index);
                 /* Map sub-registers to their containing register.
@@ -3065,8 +3067,11 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_from)
     /* Retrieve number of register source operands from real ISA instruction.
      */
     uint original_num_srcs = (uint)instr_num_srcs(instr_from);
+    uint num_loads = 0;
     for (uint i = 0; i < original_num_srcs; ++i) {
         opnd_t src_opnd = instr_get_src(instr_from, i);
+        if (opnd_is_memory_reference(src_opnd))
+            ++num_loads;
         uint num_regs_used_by_opnd = (uint)opnd_num_regs_used(src_opnd);
         for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
             reg_id_t reg = opnd_get_reg_used(src_opnd, opnd_index);
@@ -3107,6 +3112,11 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_from)
      * the converted instruction.
      */
     instr_set_category(instr_to, instr_get_category(instr_from));
+
+    /* Use instr_t encoding_hints to record the number of memory operations
+     * (i.e., loads + stores) executed by the instruction.
+     */
+    instr_to->encoding_hints = num_stores + num_loads;
 
     /* Get max_reg_size as opnz_size_t (takes values from OPSZ_ enum), if there are any
      * operands.
@@ -3152,7 +3162,7 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_from)
      * any operands.
      */
     uint num_opnd_bytes = num_opnds > 0 ? num_opnds + 1 : 0;
-    uint instr_length = ALIGN_FORWARD(HEADER_BYTES + num_opnd_bytes, HEADER_BYTES);
+    uint instr_length = ALIGN_FORWARD(HEADER_BYTES + num_opnd_bytes, ALIGN_BYTES);
     instr_to->length = instr_length;
 
     /* Set converted instruction ISA mode to be DR_ISA_REGDEPS.

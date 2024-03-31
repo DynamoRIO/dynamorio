@@ -81,6 +81,11 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
      */
     *((uint *)&encoded_instr[0]) = encoding_header;
 
+    /* Encode number of memory operations (i.e., loads + stores).
+     */
+    uint num_mem_ops = instr->encoding_hints;
+    encoded_instr[NUM_MEM_OPS_INDEX] = (byte)num_mem_ops;
+
     /* Encode register destination operands, if present.
      */
     opnd_size_t max_opnd_size = OPSZ_NA;
@@ -90,7 +95,7 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
         uint num_regs_used_by_opnd = (uint)opnd_num_regs_used(dst_opnd);
         for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
             reg_id_t reg = opnd_get_reg_used(dst_opnd, opnd_index);
-            encoded_instr[dst_index + HEADER_BYTES + 1] = (byte)reg;
+            encoded_instr[dst_index + OPND_INDEX] = (byte)reg;
         }
     }
 
@@ -102,7 +107,7 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
         uint num_regs_used_by_opnd = (uint)opnd_num_regs_used(src_opnd);
         for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
             reg_id_t reg = opnd_get_reg_used(src_opnd, opnd_index);
-            encoded_instr[src_index + HEADER_BYTES + 1 + num_dsts] = (byte)reg;
+            encoded_instr[src_index + OPND_INDEX + num_dsts] = (byte)reg;
         }
     }
 
@@ -113,7 +118,7 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
         CLIENT_ASSERT(
             max_opnd_size != OPSZ_NA,
             "instructions with register operands cannot have operand size OPSZ_NA");
-        encoded_instr[HEADER_BYTES] = (byte)max_opnd_size;
+        encoded_instr[OP_SIZE_INDEX] = (byte)max_opnd_size;
     }
 
     /* Retrieve instruction length, which includes bytes for padding to reach 4 byte
