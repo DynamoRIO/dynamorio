@@ -92,6 +92,12 @@ test_instr_create_encode_decode_synthetic_x86_64(void *dc)
 {
     instr_t *instr;
 
+    instr = INSTR_CREATE_push(dc, opnd_create_reg(SEG_FS));
+    test_instr_encode_decode_synthetic(dc, instr);
+
+    instr = INSTR_CREATE_pop(dc, opnd_create_reg(SEG_FS));
+    test_instr_encode_decode_synthetic(dc, instr);
+
     opnd_t abs_addr = opnd_create_abs_addr((void *)0xdeadbeefdeadbeef, OPSZ_8);
     instr = INSTR_CREATE_mov_ld(dc, opnd_create_reg(DR_REG_RAX), abs_addr);
     test_instr_encode_decode_synthetic(dc, instr);
