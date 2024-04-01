@@ -321,10 +321,8 @@ endif ()
 # 2. lines starting with -.
 # We do this by matching lines that start with + or a space and end with a space.
 # The clang-format check will now find these in C files, but not non-C files.
-string(REGEX MATCH "^[+ ].* \n" match "${diff_contents}")
+string(REGEX MATCH "\n[+ ][^\n]* \n" match "${diff_contents}")
 if (NOT "${match}" STREQUAL "")
-  # Get more context
-  string(REGEX MATCH "\n[^\n]+ \n" match "${diff_contents}")
   message(FATAL_ERROR "ERROR: diff contains trailing spaces: ${match}")
 endif ()
 
