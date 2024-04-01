@@ -102,30 +102,39 @@ dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
             case EXTRA_MAGIC: break;
             case SVE_MAGIC: {
                 const struct sve_context *sve = (struct sve_context *)(next_head);
-                LOG(THREAD, LOG_ASYNCH, 2, "\tSVE VL %d bytes\n", sve->vl);
+                LOG(THREAD, LOG_ASYNCH, 2, "\tSVE vector length %d bytes\n", sve->vl);
                 ASSERT(sve->vl == proc_get_vector_length_bytes());
-                const unsigned int vq = sve_vq_from_vl(sve->vl);
-                LOG(THREAD, LOG_ASYNCH, 2, "\tVQ %d\n\n", vq);
+                const unsigned int quads_per_vector = sve_vecquad_from_veclen(sve->vl);
+		/* The size and offset macros below are used to access register
+		 * state from memory. These are defined in the kernel's
+		 * sigcontext.h. For scalable vectors, we typically deal in
+		 * units of bytes and quadwords (128 bits). All scalable
+		 * vectors are mutiples of 128 bits. For the purposes of signal
+		 * context handling, these are the simplest and most consistent
+		 * units for calculating sizes and offsets in order to access
+		 * scalable register state in memory.
+                 */
+                LOG(THREAD, LOG_ASYNCH, 2, "\tQuadwords (128 bits) per vector %d\n\n", quads_per_vector);
                 LOG(THREAD, LOG_ASYNCH, 2, "\tSVE_SIG_ZREG_SIZE %d\n",
-                    SVE_SIG_ZREG_SIZE(vq));
+                    SVE_SIG_ZREG_SIZE(quads_per_vector));
                 LOG(THREAD, LOG_ASYNCH, 2, "\tSVE_SIG_PREG_SIZE %d\n",
-                    SVE_SIG_PREG_SIZE(vq));
+                    SVE_SIG_PREG_SIZE(quads_per_vector));
                 LOG(THREAD, LOG_ASYNCH, 2, "\tSVE_SIG_FFR_SIZE  %d\n",
-                    SVE_SIG_FFR_SIZE(vq));
+                    SVE_SIG_FFR_SIZE(quads_per_vector));
                 LOG(THREAD, LOG_ASYNCH, 2, "\tsve->head.size %d\n\n", sve->head.size);
                 LOG(THREAD, LOG_ASYNCH, 2, "\tSVE_SIG_ZREGS_OFFSET %d\n",
                     SVE_SIG_ZREGS_OFFSET);
                 LOG(THREAD, LOG_ASYNCH, 2, "\tSVE_SIG_PREGS_OFFSET %d\n",
-                    SVE_SIG_PREGS_OFFSET(vq));
+                    SVE_SIG_PREGS_OFFSET(quads_per_vector));
                 LOG(THREAD, LOG_ASYNCH, 2, "\tSVE_SIG_FFR_OFFSET   %d\n\n",
-                    SVE_SIG_FFR_OFFSET(vq));
+                    SVE_SIG_FFR_OFFSET(quads_per_vector));
 
                 uint64 vdw; /* A vector's doubleword. */
                 int boff;   /* Byte offset for each doubleword in a vector. */
                 for (i = 0; i < MCXT_NUM_SIMD_SVE_SLOTS; i++) {
                     LOG(THREAD, LOG_ASYNCH, 2, "\tz%-2d  0x", i);
-                    for (boff = ((vq * 2) - 1); boff >= 0; boff--) {
-                        vdw = *((uint64 *)((((byte *)sve) + (SVE_SIG_ZREG_OFFSET(vq, i)) +
+                    for (boff = ((quads_per_vector * 2) - 1); boff >= 0; boff--) {
+                        vdw = *((uint64 *)((((byte *)sve) + (SVE_SIG_ZREG_OFFSET(quads_per_vector, i)) +
                                             (boff * 8))));
                         LOG(THREAD, LOG_ASYNCH, 2, "%016lx ", vdw);
                     }
@@ -134,11 +143,11 @@ dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
                 LOG(THREAD, LOG_ASYNCH, 2, "\n");
                 for (i = 0; i < MCXT_NUM_SVEP_SLOTS; i++) {
                     LOG(THREAD, LOG_ASYNCH, 2, "\tp%-2d  0x%08lx\n", i,
-                        *((uint32 *)((byte *)sve + SVE_SIG_PREG_OFFSET(vq, i))));
+                        *((uint32 *)((byte *)sve + SVE_SIG_PREG_OFFSET(quads_per_vector, i))));
                 }
                 LOG(THREAD, LOG_ASYNCH, 2, "\n");
                 LOG(THREAD, LOG_ASYNCH, 2, "\tFFR  0x%08lx\n\n",
-                    *((uint32 *)((byte *)sve + SVE_SIG_FFR_OFFSET(vq))));
+                    *((uint32 *)((byte *)sve + SVE_SIG_FFR_OFFSET(quads_per_vector))));
                 break;
             }
             default:
@@ -200,7 +209,7 @@ sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
             case SVE_MAGIC: {
                 const struct sve_context *sve = (struct sve_context *)(next_head);
                 ASSERT(sve->vl == proc_get_vector_length_bytes());
-                const unsigned int vq = sve_vq_from_vl(sve->vl);
+                const unsigned int quads_per_vector = sve_vecquad_from_veclen(sve->vl);
                 if (sve->head.size != sizeof(struct sve_context)) {
                     for (i = 0; i < MCXT_NUM_SIMD_SVE_SLOTS; i++) {
                         /* SVE specifies that AArch64's SIMD&FP registers
@@ -211,15 +220,15 @@ sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
                          * from the corresponding members of fpsimd_context's
                          * vregs and not from sve_context.
                          */
-                        memcpy(&mc->simd[i].u32, (byte *)sve + SVE_SIG_ZREG_OFFSET(vq, i),
+                        memcpy(&mc->simd[i].u32, (byte *)sve + SVE_SIG_ZREG_OFFSET(quads_per_vector, i),
                                sve->vl);
                         memcpy(&mc->simd[i].q, &fpc->vregs[i], sizeof(mc->simd->q));
                     }
                     for (i = 0; i < MCXT_NUM_SVEP_SLOTS; i++) {
-                        memcpy(&mc->svep[i].u32, (byte *)sve + SVE_SIG_PREG_OFFSET(vq, i),
+                        memcpy(&mc->svep[i].u32, (byte *)sve + SVE_SIG_PREG_OFFSET(quads_per_vector, i),
                                sve->vl);
                     }
-                    memcpy(&mc->ffr, (byte *)sve + SVE_SIG_FFR_OFFSET(vq), sve->vl);
+                    memcpy(&mc->ffr, (byte *)sve + SVE_SIG_FFR_OFFSET(quads_per_vector), sve->vl);
                 }
                 break;
             }
@@ -263,15 +272,15 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
         struct sve_context *sve = (void *)((byte *)esr + sizeof(struct esr_context));
         sve->head.magic = SVE_MAGIC;
         sve->vl = proc_get_vector_length_bytes();
-        const uint vq = sve_vq_from_vl(sve->vl);
-        sve->head.size = ALIGN_FORWARD(SVE_SIG_CONTEXT_SIZE(vq), 16);
+        const uint quads_per_vector = sve_vecquad_from_veclen(sve->vl);
+        sve->head.size = ALIGN_FORWARD(SVE_SIG_CONTEXT_SIZE(quads_per_vector), 16);
         for (uint i = 0; i < MCXT_NUM_SIMD_SVE_SLOTS; i++) {
-            memcpy((byte *)sve + SVE_SIG_ZREG_OFFSET(vq, i), &mc->simd[i].u32, sve->vl);
+            memcpy((byte *)sve + SVE_SIG_ZREG_OFFSET(quads_per_vector, i), &mc->simd[i].u32, sve->vl);
         }
         for (uint i = 0; i < MCXT_NUM_SVEP_SLOTS; i++) {
-            memcpy((byte *)sve + SVE_SIG_PREG_OFFSET(vq, i), &mc->svep[i].u32, sve->vl);
+            memcpy((byte *)sve + SVE_SIG_PREG_OFFSET(quads_per_vector, i), &mc->svep[i].u32, sve->vl);
         }
-        memcpy((byte *)sve + SVE_SIG_FFR_OFFSET(vq), &mc->ffr, sve->vl);
+        memcpy((byte *)sve + SVE_SIG_FFR_OFFSET(quads_per_vector), &mc->ffr, sve->vl);
 
         size_t offset = (proc_get_vector_length_bytes() * MCXT_NUM_SIMD_SVE_SLOTS) +
             ((proc_get_vector_length_bytes() / 8) * MCXT_NUM_SVEP_SLOTS) + 16;

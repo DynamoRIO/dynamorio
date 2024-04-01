@@ -434,74 +434,9 @@ struct esr_context {
 
 #    endif
 
-/* SVE helper macros. */
-#    define __SVE_VQ_BYTES 16 /* number of bytes per quadword */
-
-#    define __SVE_VQ_MIN 1
-#    define __SVE_VQ_MAX 512
-
-#    define __SVE_VL_MIN (__SVE_VQ_MIN * __SVE_VQ_BYTES)
-#    define __SVE_VL_MAX (__SVE_VQ_MAX * __SVE_VQ_BYTES)
-
-#    define __SVE_NUM_ZREGS 32
-#    define __SVE_NUM_PREGS 16
-
-#    define __sve_vl_valid(vl) \
-        ((vl) % __SVE_VQ_BYTES == 0 && (vl) >= __SVE_VL_MIN && (vl) <= __SVE_VL_MAX)
-
-#    define __sve_vq_from_vl(vl) ((vl) / __SVE_VQ_BYTES)
-
-#    define __SVE_PREG_SIZE(vq) ((__u32)(vq) * (__SVE_VQ_BYTES / 8))
-#    define __SVE_FFR_SIZE(vq) __SVE_PREG_SIZE(vq)
-
-#    define __SVE_ZREGS_OFFSET 0
-#    define __SVE_ZREG_OFFSET(vq, n) (__SVE_ZREGS_OFFSET + __SVE_ZREG_SIZE(vq) * (n))
-#    define __SVE_ZREGS_SIZE(vq) \
-        (__SVE_ZREG_OFFSET(vq, __SVE_NUM_ZREGS) - __SVE_ZREGS_OFFSET)
-
-#    define __SVE_PREGS_OFFSET(vq) (__SVE_ZREGS_OFFSET + __SVE_ZREGS_SIZE(vq))
-#    define __SVE_PREG_OFFSET(vq, n) (__SVE_PREGS_OFFSET(vq) + __SVE_PREG_SIZE(vq) * (n))
-#    define __SVE_PREGS_SIZE(vq) \
-        (__SVE_PREG_OFFSET(vq, __SVE_NUM_PREGS) - __SVE_PREGS_OFFSET(vq))
-
-#    define __SVE_FFR_OFFSET(vq) (__SVE_PREGS_OFFSET(vq) + __SVE_PREGS_SIZE(vq))
-
-#    define SVE_VQ_BYTES __SVE_VQ_BYTES /* bytes per quadword */
-
-#    define SVE_VQ_MIN __SVE_VQ_MIN
-#    define SVE_VQ_MAX __SVE_VQ_MAX
-
-#    define SVE_VL_MIN __SVE_VL_MIN
-#    define SVE_VL_MAX __SVE_VL_MAX
-
-#    define SVE_NUM_ZREGS __SVE_NUM_ZREGS
-#    define SVE_NUM_PREGS __SVE_NUM_PREGS
-
-#    define sve_vl_valid(vl) __sve_vl_valid(vl)
-#    define sve_vq_from_vl(vl) __sve_vq_from_vl(vl)
-#    define sve_vl_from_vq(vq) __sve_vl_from_vq(vq)
-
-#    define SVE_SIG_ZREG_SIZE(vq) __SVE_ZREG_SIZE(vq)
-#    define SVE_SIG_PREG_SIZE(vq) __SVE_PREG_SIZE(vq)
-#    define SVE_SIG_FFR_SIZE(vq) __SVE_FFR_SIZE(vq)
-
-#    define SVE_SIG_REGS_OFFSET                                                 \
-        ((sizeof(struct sve_context) + (__SVE_VQ_BYTES - 1)) / __SVE_VQ_BYTES * \
-         __SVE_VQ_BYTES)
-
-#    define SVE_SIG_ZREGS_OFFSET (SVE_SIG_REGS_OFFSET + __SVE_ZREGS_OFFSET)
-#    define SVE_SIG_ZREG_OFFSET(vq, n) (SVE_SIG_REGS_OFFSET + __SVE_ZREG_OFFSET(vq, n))
-#    define SVE_SIG_ZREGS_SIZE(vq) __SVE_ZREGS_SIZE(vq)
-
-#    define SVE_SIG_PREGS_OFFSET(vq) (SVE_SIG_REGS_OFFSET + __SVE_PREGS_OFFSET(vq))
-#    define SVE_SIG_PREG_OFFSET(vq, n) (SVE_SIG_REGS_OFFSET + __SVE_PREG_OFFSET(vq, n))
-#    define SVE_SIG_PREGS_SIZE(vq) __SVE_PREGS_SIZE(vq)
-
-#    define SVE_SIG_FFR_OFFSET(vq) (SVE_SIG_REGS_OFFSET + __SVE_FFR_OFFSET(vq))
-
-#    define SVE_SIG_REGS_SIZE(vq) (__SVE_FFR_OFFSET(vq) + __SVE_FFR_SIZE(vq))
-
-#    define SVE_SIG_CONTEXT_SIZE(vq) (SVE_SIG_REGS_OFFSET + SVE_SIG_REGS_SIZE(vq))
+/* SVE helper macro. */
+#    define BYTES_PER_QUADWORD 16 /* A quadword is 128 bits. */
+#    define sve_vecquad_from_veclen(veclen) ((veclen) / BYTES_PER_QUADWORD)
 
 #endif /* AARCH64 */
 
