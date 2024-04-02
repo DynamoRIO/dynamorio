@@ -80,7 +80,11 @@ module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
 
         addr_two_args = (app_pc)dr_get_proc_address(mod->handle, "two_args");
         CHECK(addr_two_args != NULL, "cannot find lib export");
+#if defined(RISCV64)
+        bool ok = drwrap_wrap_ex(addr_two_args, wrap_pre, wrap_post, 0, DRWRAP_CALLCONV_RISCV_LP64 | DRWRAP_REPLACE_RETADDR);
+#else
         bool ok = drwrap_wrap(addr_two_args, wrap_pre, wrap_post);
+#endif
         CHECK(ok, "wrap failed");
     }
 }
@@ -292,13 +296,20 @@ insert_multipath_call(void *drcontext, instrlist_t *bb, instr_t *inst)
 
     instr_t *skip_call = INSTR_CREATE_label(drcontext);
     /* The app executes twice and sets rcx/r0 to 0 for one of them. */
+#if defined(RISCV64)
     instrlist_meta_preinsert(
         bb, inst,
-        XINST_CREATE_cmp(drcontext, opnd_create_reg(IF_X86_ELSE(DR_REG_XCX, IF_AARCHXX_ELSE(DR_REG_R0, DR_REG_A0))),
+        XINST_CREATE_beq(drcontext, opnd_create_instr(skip_call), opnd_create_reg(DR_REG_A0),
+                         OPND_CREATE_INT32(0)));
+#else
+    instrlist_meta_preinsert(
+        bb, inst,
+        XINST_CREATE_cmp(drcontext, opnd_create_reg(IF_X86_ELSE(DR_REG_XCX, DR_REG_R0)),
                          OPND_CREATE_INT32(0)));
     instrlist_meta_preinsert(
         bb, inst,
         XINST_CREATE_jump_cond(drcontext, DR_PRED_EQ, opnd_create_instr(skip_call)));
+#endif
     dr_insert_clean_call_ex(drcontext, bb, inst, clean_call_multipath,
                             DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_MULTIPATH, 0);
     instrlist_meta_preinsert(bb, inst, skip_call);

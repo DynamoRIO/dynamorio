@@ -200,6 +200,20 @@
     INSTR_CREATE_jal(dc, opnd_create_reg(DR_REG_ZERO), t)
 
 /**
+ * This platform-independent macro creates an instr_t for an conditional
+ * branch instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param t   The opnd_t target operand for the instruction, which can be
+ * either a pc (opnd_create_pc)()) or an instr_t (opnd_create_instr()).
+ * \param s1  The opnd_t explicit first source operand for the instruction.
+ * \param s2  The opnd_t explicit second source operand for the instruction.
+ * Be sure to ensure that the limited reach of this short branch will reach
+ * the target (a pc operand is not suitable for most uses unless you know
+ * precisely where this instruction will be encoded).
+ */
+#define XINST_CREATE_beq(dc, t, s1, s2) INSTR_CREATE_beq(dc, t, s1, s2)
+
+/**
  * This platform-independent macro creates an instr_t for an unconditional
  * branch instruction.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.

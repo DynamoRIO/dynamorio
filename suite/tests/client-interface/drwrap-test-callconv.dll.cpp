@@ -48,7 +48,7 @@
 #    define PLATFORM_HAS_THISCALL 1
 #endif
 
-#if !defined(ARM) && !defined(X64)
+#if !defined(ARM) && !defined(X64) && !defined(RISCV64)
 #    define PLATFORM_HAS_FASTCALL 1
 #endif
 
@@ -190,6 +190,8 @@ dr_init(client_id_t id)
 
 #ifdef PLATFORM_HAS_THISCALL
     thiscall = DRWRAP_CALLCONV_THISCALL;
+#elif defined(RISCV64)
+    thiscall = DRWRAP_CALLCONV_RISCV_LP64;
 #else
     thiscall = DRWRAP_CALLCONV_DEFAULT;
 #endif
@@ -197,6 +199,8 @@ dr_init(client_id_t id)
 
 #ifdef PLATFORM_HAS_FASTCALL
     fastcall = DRWRAP_CALLCONV_FASTCALL;
+#elif defined(RISCV64)
+    thiscall = DRWRAP_CALLCONV_RISCV_LP64;
 #else
     fastcall = DRWRAP_CALLCONV_DEFAULT;
 #endif
