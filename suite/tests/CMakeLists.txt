@@ -4425,18 +4425,17 @@ if (BUILD_CLIENTS)
       set(tool.drcacheoff.burst_traceopts_nodr ON)
       set(tool.drcacheoff.burst_traceopts_nopost ON)
       torunonly_drcacheoff(burst_traceopts tool.drcacheoff.burst_traceopts "" "" "")
+
       set(tool.drcacheoff.windows-timestamps_nodr ON)
       set(tool.drcacheoff.windows-timestamps_nopost ON)
       torunonly_drcacheoff(windows-timestamps tool.drcacheoff.windows-timestamps
-        "" ""
-        "-trace_after_instrs 1000 -trace_for_instrs 2500 -retrace_every_instrs 1000")
-      set(tool.drcacheoff.windows-timestamps_expectbase "offline-windows-timestamps")
+        "" "" "-trace_after_instrs 1000 -trace_for_instrs 2500 -retrace_every_instrs 1000")
       set(tool.drcacheoff.windows-timestamps_timeout 120)
 
       set(tool.drcacheoff.delayed-tracing-timestamps_nodr ON)
       set(tool.drcacheoff.delayed-tracing-timestamps_nopost ON)
       torunonly_drcacheoff(delayed-tracing-timestamps tool.drcacheoff.windows-timestamps "" ""
-        "-trace_after_instrs 10000  -subdir_prefix drmemtrace.tool.drcacheoff.delayed-tracing-timestamps")
+        "-trace_after_instrs 10000")
       set(tool.drcacheoff.delayed-tracing-timestamps_expectbase "offline-windows-timestamps")
       set(tool.drcacheoff.delayed-tracing-timestamps_timeout 120)
 
