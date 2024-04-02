@@ -213,6 +213,7 @@ record_filter_t::initialize_shard_output(per_shard_t *per_shard,
                    shard_stream->get_shard_index(), output_ext_.c_str(), version_,
                    filetype_);
             per_shard->output_path += output_ext_;
+            per_shard->filetype = static_cast<addr_t>(filetype_);
             lock.unlock();
         } else if (!input_name.empty()) {
             size_t last_dot = input_name.rfind('.');
@@ -232,6 +233,7 @@ record_filter_t::initialize_shard_output(per_shard_t *per_shard,
                    shard_stream->get_shard_index(), output_ext_.c_str(), version_,
                    filetype_);
             per_shard->output_path += output_ext_;
+            per_shard->filetype = static_cast<addr_t>(filetype_);
             lock.unlock();
             input_info_cond_var_.notify_all();
         } else {
@@ -242,6 +244,7 @@ record_filter_t::initialize_shard_output(per_shard_t *per_shard,
                    shard_stream->get_shard_index(), output_ext_.c_str(), version_,
                    filetype_);
             per_shard->output_path += output_ext_;
+            per_shard->filetype = static_cast<addr_t>(filetype_);
             lock.unlock();
         }
     } else {

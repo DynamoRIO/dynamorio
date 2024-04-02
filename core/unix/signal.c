@@ -4088,6 +4088,8 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, kernel_ucontext
     /* Now put DR's base in the sigcontext. */
     set_sigcxt_stolen_reg(sc, (reg_t)*get_dr_tls_base_addr());
 #    ifdef RISCV64
+    os_set_app_tls_base(dcontext, TLS_REG_LIB, (void *)get_sigcxt_tp_reg(sc));
+    /* Now put host tp in the sigcontext. */
     set_sigcxt_tp_reg(sc, (reg_t)read_thread_register(TLS_REG_LIB));
 #    endif
 
@@ -4661,6 +4663,12 @@ adjust_syscall_for_restart(dcontext_t *dcontext, thread_sig_info_t *info, int si
      * a custom translation.
      */
     set_sigcxt_stolen_reg(sc, dcontext->local_state->spill_space.reg_stolen);
+#    ifdef RISCV64
+    /* Same for the tp register on RISC-V, here we need to put app's tp reg value
+     * into the ucontext.
+     */
+    set_sigcxt_tp_reg(sc, (reg_t)os_get_app_tls_base(dcontext, TLS_REG_LIB));
+#    endif
 #endif
     LOG(THREAD, LOG_ASYNCH, 2, "%s: sigreturn pc is now " PFX "\n", __FUNCTION__,
         sc->SC_XIP);

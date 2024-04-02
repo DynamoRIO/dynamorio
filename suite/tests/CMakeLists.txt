@@ -3200,10 +3200,12 @@ if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
   set(DynamoRIO_SET_PREFERRED_BASE OFF)
 endif (X86)
 
-if (AARCHXX)
+if (AARCHXX OR RISCV64)
   tobuild_ci(client.stolen-reg client-interface/stolen-reg.c "" "" "")
   link_with_pthread(client.stolen-reg)
+endif ()
 
+if (AARCHXX)
   tobuild_ci(client.ldstex client-interface/ldstex.c "" "" "")
   link_with_pthread(client.ldstex)
 endif ()
@@ -3866,6 +3868,11 @@ if (BUILD_CLIENTS)
           "-indir ${thread_trace_dir} -simulator_type basic_counts -core_sharded -sched_quantum 1000 -sched_switch_file ${switch_file}"
           "")
         set(tool.switch_insertion_rawtemp ON) # no preprocessor
+
+        torunonly_simtool(switch_file_invariants ${ci_shared_app}
+          "-infile ${switch_file} -simulator_type invariant_checker"
+          "")
+        set(tool.switch_file_invariants_rawtemp ON) # no preprocessor
 
         # Sanity test that core-sharded at least runs without errors on our other tools.
         torunonly_simtool(core_sharded ${ci_shared_app}
@@ -4649,7 +4656,10 @@ if (BUILD_CLIENTS)
       # We assume the app name starts with "s" here to avoid colliding with
       # our output dir, while still letting the single precmd remove both.
       "${drcachesim_path}@-simulator_type@record_filter@-indir@${testname}.s*.dir/trace@-core_sharded@-cores@4@-outdir@${testname}.filtered.dir"
-      "schedule_stats")
+      # We run opcode_mix to test encodings.
+      # XXX i#6684: Once we have invariant_checker support, run it here (and ensure
+      # it checks encodings).
+      "opcode_mix")
 
     if (UNIX) # Windows multi-thread tests are too slow.
       set(testname "tool.record_filter_bycore_multi")
@@ -6150,42 +6160,26 @@ if (RISCV64)
     code_api|api.ir
     code_api|api.ir-static
     code_api|client.app_args
-    code_api|client.app_args
-    code_api|client.blackbox
     code_api|client.blackbox
     code_api|client.crashmsg
-    code_api|client.crashmsg
-    code_api|client.execfault
     code_api|client.execfault
     code_api|client.mangle_suspend
-    code_api|client.mangle_suspend
-    code_api|client.null_instrument
     code_api|client.null_instrument
     code_api|client.option_parse
-    code_api|client.option_parse
     code_api|client.partial_module_map
-    code_api|client.partial_module_map
-    code_api|client.stack-overflow
     code_api|client.stack-overflow
     code_api|client.truncate
     code_api|client.unregister
     code_api|common.broadfun
     code_api|common.hello
     code_api|libutil.drconfig_test
-    code_api|libutil.drconfig_test
-    code_api|libutil.frontend_test
     code_api|libutil.frontend_test
     code_api|linux.exit
-    code_api|linux.exit
-    code_api|linux.infinite
     code_api|linux.infinite
     code_api|linux.longjmp
-    code_api|linux.longjmp
-    code_api|linux.prctl
     code_api|linux.prctl
     code_api|linux.signalfd
     code_api|pthreads.pthreads
-    code_api|pthreads.pthreads_exit
     code_api|pthreads.pthreads_exit
     code_api|sample.bbbuf
     code_api|sample.bbcount
@@ -6199,10 +6193,7 @@ if (RISCV64)
     code_api|sample.opcode_count
     code_api|sample.signal
     code_api|sample.stl_test
-    code_api|sample.stl_test
     code_api|sample.syscall
-    code_api|sample.syscall
-    code_api|security-linux.trampoline
     code_api|security-linux.trampoline
     code_api|tool.drcachesim.missfile-config-file
     code_api|tool.drcachesim.syscall-mix
@@ -6217,4 +6208,91 @@ if (RISCV64)
       code_api|common.logstderr
       PROPERTIES LABELS RUNS_ON_QEMU)
   endif ()
+endif ()
+
+# Set a LABEL property on a list of tests, ignoring any listed tests that
+# don't exist.
+macro(set_labels_on_known_tests LABEL)
+  foreach (testname ${ARGN})
+    if (TEST ${testname})
+      set_tests_properties(${testname} PROPERTIES LABELS ${LABEL})
+    else ()
+      message(DEBUG "Not applying ${LABEL} to non-existing test ${testname}")
+    endif ()
+  endforeach ()
+endmacro()
+
+# TODO i#6417: The switch to AMD VM's for GA CI has broken many of our tests.
+# This includes timeouts which increase suite length.
+# The following tests are excluded until they are fixed.
+# LINUX_XARCH_TEST is defined only for x86-64 linux.xarch test which don't
+# have the following tests, so we need to skip set_tests_properties.
+if (UNIX AND X86 AND CPU_AMD AND NOT DR_HOST_X64)
+  set_labels_on_known_tests(AMD_X32_DENYLIST
+    code_api|api.detach
+    code_api|api.detach_spawn_quick_exit
+    code_api|api.ibl-stress
+    code_api|api.startstop
+    code_api|api.static_detach
+    code_api|api.static_prepop
+    code_api|api.static_signal
+    code_api|api.thread_churn
+    code_api|client.alloc
+    code_api|client.attach_blocking
+    code_api|client.attach_test
+    code_api|client.detach_test
+    code_api|client.drwrap-test-detach
+    code_api|client.flush
+    code_api|client.strace
+    code_api|common.decode-stress
+    code_api|linux.eintr
+    code_api|linux.eintr-noinline
+    code_api|tool.basic_counts
+    code_api|tool.drcacheoff.altbindir
+    code_api|tool.drcacheoff.burst_client
+    code_api|tool.drcacheoff.basic_counts
+    code_api|tool.drcacheoff.burst_futex
+    code_api|tool.drcacheoff.burst_malloc
+    code_api|tool.drcacheoff.burst_maps
+    code_api|tool.drcacheoff.burst_reattach
+    code_api|tool.drcacheoff.burst_replace
+    code_api|tool.drcacheoff.burst_replaceall
+    code_api|tool.drcacheoff.burst_static
+    code_api|tool.drcacheoff.burst_syscall_inject
+    code_api|tool.drcacheoff.burst_threadfilter
+    code_api|tool.drcacheoff.burst_threads
+    code_api|tool.drcacheoff.burst_threads_counts
+    code_api|tool.drcacheoff.burst_threadL0filter
+    code_api|tool.drcacheoff.func_view_noret
+    code_api|tool.drcacheoff.gencode
+    code_api|tool.drcacheoff.gencode_filtered
+    code_api|tool.drcacheoff.getretaddr_record_replace_retaddr
+    code_api|tool.drcacheoff.invariant_checker
+    code_api|tool.drcacheoff.invariant_checker_pthreads
+    code_api|tool.drcacheoff.legacy
+    code_api|tool.drcacheoff.max-global
+    code_api|tool.drcacheoff.sysnums
+    code_api|tool.drcacheoff.warmup-pthreads-2
+    code_api|tool.drcacheoff.warmup-pthreads-max-refs
+    code_api|tool.drcacheoff.warmup-pthreads-max-trace-size
+    code_api|tool.drcacheoff.warmup-pthreads-windows-split
+    code_api|tool.drcacheoff.windows-split
+    code_api|tool.drcacheoff.windows-timestamps
+    code_api|tool.drcachesim.coherence
+    code_api|tool.drcachesim.delay-global
+    code_api|tool.drcachesim.filter-d
+    code_api|tool.drcachesim.filter-no-d
+    code_api|tool.drcachesim.invariants
+    code_api|tool.drcachesim.miss_analyzer
+    code_api|tool.drcachesim.phys-threads_SUDO
+    code_api|tool.drcachesim.scattergather-x86
+    code_api|tool.drcachesim.threads
+    code_api|tool.drcachesim.threads-with-config-file
+    code_api|tool.drcachesim.windows-simple
+    code_api|tool.drcachesim.TLB-threads
+    code_api|tool.drcov.eintr
+    code_api|tool.histogram.offline
+    code_api|tool.record_filter
+    code_api|tool.record_filter_bycore_multi
+    code_api|tool.record_filter_bycore_uni)
 endif ()

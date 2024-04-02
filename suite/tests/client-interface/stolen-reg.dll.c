@@ -37,7 +37,10 @@
 #include "dr_api.h"
 #include "client_tools.h"
 
-#define BAD_VALUE 0xdeadbeef
+/* See stolen-reg.c for the same definition. */
+#define BAD_VALUE 0x123
+
+#define STOLEN_REG IF_ARM_ELSE(r10, IF_AARCH64_ELSE(r28, s11))
 
 /* We assume the app is single-threaded and don't worry about races. */
 static ptr_int_t app_stolen_reg_val;
@@ -51,14 +54,17 @@ restore_event(void *drcontext, void *tag, dr_mcontext_t *mcontext, bool restore_
      * restore event for simplicity.
      */
     dr_log(drcontext, DR_LOG_ALL, 2, "Changing the stolen reg value from %ld to %ld\n",
-           mcontext->IF_ARM_ELSE(r10, r28), app_stolen_reg_val);
-    mcontext->IF_ARM_ELSE(r10, r28) = app_stolen_reg_val;
+           mcontext->STOLEN_REG, app_stolen_reg_val);
+    mcontext->STOLEN_REG = app_stolen_reg_val;
 }
 
 static void
 do_flush(app_pc next_pc)
 {
     dr_fprintf(STDERR, "Performing synchall flush\n");
+
+    /* TODO i#3544: Add synchall support to RISC-V. */
+#ifndef RISCV64
     if (!dr_flush_region(NULL, ~0UL))
         DR_ASSERT(false);
     void *drcontext = dr_get_current_drcontext();
@@ -69,6 +75,7 @@ do_flush(app_pc next_pc)
     mcontext.pc = dr_app_pc_as_jump_target(dr_get_isa_mode(drcontext), next_pc);
     dr_redirect_execution(&mcontext);
     DR_ASSERT(false);
+#endif
 }
 
 // Storing the original stolen reg before mconext set.
@@ -94,11 +101,11 @@ read_and_restore_stolen_reg_value()
     dr_get_mcontext(drcontext, &mc);
 
     /* The key part of the test: that the modified value shows up here. */
-    DR_ASSERT(mc.IF_ARM_ELSE(r10, r28) == test_value);
+    DR_ASSERT(mc.STOLEN_REG == test_value);
     dr_fprintf(STDERR, "mc->stolen_reg after = " IF_ARM_ELSE("%d", "%ld") "\n",
-               mc.IF_ARM_ELSE(r10, r28));
+               mc.STOLEN_REG);
 
-    mc.IF_ARM_ELSE(r10, r28) = orig_value;
+    mc.STOLEN_REG = orig_value;
 
     dr_set_mcontext(drcontext, &mc);
 }
@@ -119,9 +126,9 @@ change_stolen_reg_value()
     mc.flags = DR_MC_ALL;
     dr_get_mcontext(drcontext, &mc);
 
-    orig_value = mc.IF_ARM_ELSE(r10, r28);
+    orig_value = mc.STOLEN_REG;
 
-    mc.IF_ARM_ELSE(r10, r28) = test_value;
+    mc.STOLEN_REG = test_value;
 
     dr_set_mcontext(drcontext, &mc);
 }
@@ -136,8 +143,11 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
             next_next_instr = instr_get_next(next_instr);
         else
             next_next_instr = NULL;
-        /* Look for the sentinel-SIGSEGV sequence from the app.
-         * Look for "mov <stolen-reg>, <const>; mov r0, <const>; ldr rx, [r0].
+        /* Look for the sentinel-SIGSEGV sequence from the app:
+         *  for ARM/AArch64, look for
+         *    "mov <stolen-reg>, <const>; mov r0, <const>; ldr rx,[r0].
+         *  for RISC-V, look for
+         *    "addi <stolen-reg>, zero, <const>; addi a0, zero, <const>; ld reg, (a0).
          */
         ptr_int_t stolen_val, substitute_val;
         if (instr_is_mov_constant(instr, &stolen_val) &&
@@ -145,34 +155,41 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
             opnd_get_reg(instr_get_dst(instr, 0)) == dr_get_stolen_reg() &&
             next_instr != NULL && instr_is_mov_constant(next_instr, &substitute_val) &&
             substitute_val != stolen_val && opnd_is_reg(instr_get_dst(next_instr, 0)) &&
-            opnd_get_reg(instr_get_dst(next_instr, 0)) == DR_REG_R0 &&
+            opnd_get_reg(instr_get_dst(next_instr, 0)) ==
+                IF_AARCHXX_ELSE(DR_REG_R0, DR_REG_A0) &&
             next_next_instr != NULL && instr_reads_memory(next_next_instr) &&
             opnd_is_base_disp(instr_get_src(next_next_instr, 0)) &&
-            opnd_get_base(instr_get_src(next_next_instr, 0)) == DR_REG_R0) {
+            opnd_get_base(instr_get_src(next_next_instr, 0)) ==
+                IF_AARCHXX_ELSE(DR_REG_R0, DR_REG_A0)) {
             /* Now change the stolen reg value to be r0's value, before the crash. */
             dr_log(drcontext, DR_LOG_ALL, 2, "Setting stolen reg val in block %p\n", tag);
             app_stolen_reg_val = stolen_val;
-            dr_insert_set_stolen_reg_value(drcontext, bb, next_next_instr, DR_REG_R0);
+            dr_insert_set_stolen_reg_value(drcontext, bb, next_next_instr,
+                                           IF_AARCHXX_ELSE(DR_REG_R0, DR_REG_A0));
             break;
         }
-        /* Look for the sentinel-nop sequence prior to 2nd thread creation.
-         * Look for "mov <stolen-reg>, <const>; mov r0, <const>; nop.
+        /* Look for the sentinel-nop sequence prior to 2nd thread creation:
+         *  for ARM/AArch64, look for "mov <stolen-reg>, <const>; mov r0, <const>; nop.
+         *  for RISC-V, look for "addi <stolen-reg>, zero, <const>; addi a0, zero, 0; nop.
          */
         if (instr_is_mov_constant(instr, &stolen_val) &&
             opnd_is_reg(instr_get_dst(instr, 0)) &&
             opnd_get_reg(instr_get_dst(instr, 0)) == dr_get_stolen_reg() &&
             next_instr != NULL && instr_is_mov_constant(next_instr, &substitute_val) &&
             substitute_val != stolen_val && opnd_is_reg(instr_get_dst(next_instr, 0)) &&
-            opnd_get_reg(instr_get_dst(next_instr, 0)) == DR_REG_R0 &&
+            opnd_get_reg(instr_get_dst(next_instr, 0)) ==
+                IF_AARCHXX_ELSE(DR_REG_R0, DR_REG_A0) &&
             next_next_instr != NULL && instr_is_nop(next_next_instr)) {
             /* Change the stolen reg value. */
             dr_log(drcontext, DR_LOG_ALL, 2, "Setting stolen reg val in block %p\n", tag);
             app_stolen_reg_val = stolen_val;
-            dr_insert_set_stolen_reg_value(drcontext, bb, next_next_instr, DR_REG_R0);
+            dr_insert_set_stolen_reg_value(drcontext, bb, next_next_instr,
+                                           IF_AARCHXX_ELSE(DR_REG_R0, DR_REG_A0));
             break;
         }
-        /* Look for the sentinel-nop sequence from the app's 2nd thread.
-         * Look for "mov <stolen-reg>, <const>; nop; nop.
+        /* Look for the sentinel-nop sequence from the app's 2nd thread:
+         *  for ARM/AArch64, look for "mov <stolen-reg>, <const>; nop; nop.
+         *  for RISC-V, look for "addi <stolen-reg>, zero, <const>; nop; nop.
          */
         if (instr_is_mov_constant(instr, &stolen_val) &&
             opnd_is_reg(instr_get_dst(instr, 0)) &&
@@ -186,11 +203,13 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
             break;
         }
 
-        // Look for mov <stolen-reg>, #0xdead.
+        /* For ARM/AArch64, look for "mov <stolen-reg>, #BAD_VALUE;
+         * for RISC-V, look for "addi <stolen-reg>, zero, #BAD_VALUE.
+         */
         ptr_int_t imm1 = 0;
         if (instr_is_mov_constant(instr, &imm1) && opnd_is_reg(instr_get_dst(instr, 0)) &&
             opnd_get_reg(instr_get_dst(instr, 0)) == dr_get_stolen_reg() &&
-            imm1 == 0xdead) {
+            imm1 == BAD_VALUE) {
             dr_insert_clean_call_ex(
                 drcontext, bb, instr, (void *)change_stolen_reg_value,
                 DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_WRITES_APP_CONTEXT, 0);
@@ -208,7 +227,8 @@ void
 dr_init(client_id_t id)
 {
     // Stop test failing silently if we ever change the stolen reg value.
-    if (dr_get_stolen_reg() != IF_ARM_ELSE(DR_REG_R10, DR_REG_R28)) {
+    if (dr_get_stolen_reg() !=
+        IF_ARM_ELSE(DR_REG_R10, IF_AARCH64_ELSE(DR_REG_R28, DR_REG_S11))) {
         dr_fprintf(STDERR,
                    "ERROR: stolen reg value has changed, this test needs to be updated");
         DR_ASSERT(false);
