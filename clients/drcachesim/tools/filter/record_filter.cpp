@@ -600,8 +600,16 @@ record_filter_t::process_chunk_encodings(per_shard_t *per_shard, trace_entry_t &
             VPRINT(this, 3,
                    "output new-chunk encoding chunk=%" PRIu64 " ref=%" PRIu64 "\n",
                    per_shard->chunk_ordinal, per_shard->cur_refs);
-            if (!write_trace_entries(per_shard,
-                                     per_shard->per_input->pc2encoding[entry.addr])) {
+            // Sanity check that the encoding size is correct.
+            const auto &enc = per_shard->per_input->pc2encoding[entry.addr];
+            size_t enc_sz = 0;
+            for (const auto &record : enc)
+                enc_sz += record.size;
+            if (enc_sz != entry.size) {
+                return "New-chunk encoding size " + std::to_string(enc_sz) +
+                    " != instr size " + std::to_string(entry.size);
+            }
+            if (!write_trace_entries(per_shard, enc)) {
                 return "Failed to write";
             }
             // Avoid emitting the encoding twice.
@@ -705,6 +713,12 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &in
         // It would be nice to assert that this pointer is not in use in other shards
         // but that is too expensive.
         per_shard->per_input = it->second.get();
+        // Not supposed to see a switch that splits an encoding from its instr.
+        // That would cause recording an incorrect encoding into pc2encoding.
+        if (!per_shard->last_encoding.empty()) {
+            per_shard->error = "Input switch immediately after encoding not supported";
+            return false;
+        }
     }
     if (per_shard->enabled && stop_timestamp_ != 0 &&
         per_shard->shard_stream->get_last_timestamp() >= stop_timestamp_) {

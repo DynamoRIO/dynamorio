@@ -204,8 +204,11 @@ reader_t::process_input_entry()
             // Look for encoding bits that belong to this instr.
             if (last_encoding_.size > 0) {
                 if (last_encoding_.size != cur_ref_.instr.size) {
-                    ERRMSG("Encoding size %zu != instr size %zu for PC 0x%zx\n",
-                           last_encoding_.size, cur_ref_.instr.size, cur_ref_.instr.addr);
+                    ERRMSG("Encoding size %zu != instr size %zu for PC 0x%zx at ord %lu "
+                           " instr %lu last_timestamp=0x%zx\n",
+                           last_encoding_.size, cur_ref_.instr.size, cur_ref_.instr.addr,
+                           get_record_ordinal(), get_instruction_ordinal(),
+                           get_last_timestamp());
                     assert(false);
                 }
                 memcpy(cur_ref_.instr.encoding, last_encoding_.bits, last_encoding_.size);
