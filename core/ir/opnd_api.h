@@ -3275,7 +3275,9 @@ opnd_is_reg_64bit(opnd_t opnd);
 DR_API
 /**
  * Assumes that \p reg is a DR_REG_ constant.
- * Returns true iff it refers to a pointer-sized general-purpose register.
+ * Returns true iff it refers to a pointer-sized register. \p reg is a general
+ * purpose register for all architectures apart from AArch64. For AArch64, \p
+ * reg can also be a scalable vector (SVE) Z register.
  */
 bool
 reg_is_pointer_sized(reg_id_t reg);
