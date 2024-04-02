@@ -321,6 +321,7 @@ endif ()
 # 2. lines starting with -.
 # We do this by matching lines that start with + or a space and end with a space.
 # The clang-format check will now find these in C files, but not non-C files.
+# The first line is always the diff header and can be safely skipped.
 string(REGEX MATCH "\n[+ ][^\n]* \n" match "${diff_contents}")
 if (NOT "${match}" STREQUAL "")
   message(FATAL_ERROR "ERROR: diff contains trailing spaces: ${match}")
