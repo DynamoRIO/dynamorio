@@ -81,11 +81,6 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
      */
     *((uint *)&encoded_instr[0]) = encoding_header;
 
-    /* Encode number of memory operations (i.e., loads + stores).
-     */
-    uint num_mem_ops = instr->encoding_hints;
-    encoded_instr[NUM_MEM_OPS_INDEX] = (byte)num_mem_ops;
-
     /* Encode register destination operands, if present.
      */
     opnd_size_t max_opnd_size = OPSZ_NA;

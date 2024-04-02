@@ -84,11 +84,6 @@ decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
     uint category = (encoding_header & CATEGORY_MASK) >> CATEGORY_SHIFT;
     instr_set_category(instr, category);
 
-    /* Decode nummber of memory operations (i.e., loads + stores).
-     */
-    byte num_mem_ops = encoded_instr[NUM_MEM_OPS_INDEX];
-    instr->encoding_hints = (uint)num_mem_ops;
-
     /* Decode register operand size, if there are any operands.
      */
     uint num_opnds = num_dsts + num_srcs;
