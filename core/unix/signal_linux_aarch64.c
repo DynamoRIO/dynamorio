@@ -130,23 +130,49 @@ dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
                 LOG(THREAD, LOG_ASYNCH, 2, "\tSVE_SIG_FFR_OFFSET   %d\n\n",
                     SVE_SIG_FFR_OFFSET(quads_per_vector));
 
-                uint64 vdw; /* A vector's doubleword. */
-                int boff;   /* Byte offset for each doubleword in a vector. */
+                dr_simd_t z;
+                int boff; /* Byte offset for each doubleword in a vector. */
                 for (i = 0; i < MCXT_NUM_SIMD_SVE_SLOTS; i++) {
                     LOG(THREAD, LOG_ASYNCH, 2, "\tz%-2d  0x", i);
                     for (boff = ((quads_per_vector * 2) - 1); boff >= 0; boff--) {
-                        vdw = *((uint64 *)((((byte *)sve) +
-                                            (SVE_SIG_ZREG_OFFSET(quads_per_vector, i)) +
-                                            (boff * 8))));
-                        LOG(THREAD, LOG_ASYNCH, 2, "%016lx ", vdw);
+                        /* We access data in the scalable vector using the
+                         * kernel's SVE_SIG_ZREG_OFFSET macro which gives the
+                         * byte offset into a vector based on units of 128 bits
+                         * (quadwords). In this loop we offset from the start
+                         * of struct sve_context. We log the data as 64 bit
+                         * ints, so 2 per quadword.
+                         *
+                         * For example, for a 256 bit vector (2 quadwords, 4
+                         * doublewords), the byte offset (boff) for each
+                         * scalable vector register is:
+                         * boff=3  vdw=sve+SVE_SIG_ZREG_OFFSET+24
+                         * boff=2  vdw=sve+SVE_SIG_ZREG_OFFSET+16
+                         * boff=1  vdw=sve+SVE_SIG_ZREG_OFFSET+8
+                         * boff=0  vdw=sve+SVE_SIG_ZREG_OFFSET
+                         *
+                         * Note that at present we support little endian only.
+                         * All major Linux arm64 kernel distributions are
+                         * little-endian.
+                         */
+                        z.u64[boff] = *((uint64 *)((
+                            ((byte *)sve) + (SVE_SIG_ZREG_OFFSET(quads_per_vector, i)) +
+                            (boff * 8))));
+                        LOG(THREAD, LOG_ASYNCH, 2, "%016lx ", z.u64[boff]);
                     }
                     LOG(THREAD, LOG_ASYNCH, 2, "\n");
                 }
                 LOG(THREAD, LOG_ASYNCH, 2, "\n");
+                /* We access data in predicate and first-fault registers using
+                 * the kernel's SVE_SIG_PREG_OFFSET and SVE_SIG_FFR_OFFSET
+                 * macros. SVE predicate and FFR registers are an 1/8th the
+                 * size of SVE vector registers (1 bit per byte) and are logged
+                 * as 32 bit ints.
+                 */
+                dr_simd_t p;
                 for (i = 0; i < MCXT_NUM_SVEP_SLOTS; i++) {
-                    LOG(THREAD, LOG_ASYNCH, 2, "\tp%-2d  0x%08lx\n", i,
-                        *((uint32 *)((byte *)sve +
-                                     SVE_SIG_PREG_OFFSET(quads_per_vector, i))));
+                    p.u32[i] = *((uint32 *)((byte *)sve +
+                                            SVE_SIG_PREG_OFFSET(quads_per_vector, i)));
+                    LOG(THREAD, LOG_ASYNCH, 2, "\tp%-2d  0x%08lx\n", i, p.u32[i]);
                 }
                 LOG(THREAD, LOG_ASYNCH, 2, "\n");
                 LOG(THREAD, LOG_ASYNCH, 2, "\tFFR  0x%08lx\n\n",

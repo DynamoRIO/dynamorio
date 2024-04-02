@@ -536,22 +536,48 @@ dump_ucontext(ucontext_t *ucxt, bool is_sve, int vl_bytes)
                 if (sve->head.size != sizeof(struct sve_context))
                     assert(sve->head.size == ALIGN_FORWARD(SVE_SIG_CONTEXT_SIZE(vq), 16));
 
-                uint64 vdw; /* A vector's doubleword. */
-                int boff;   /* Byte offset for each doubleword in a vector. */
+                dr_simd_t z;
+                int boff; /* Byte offset for each doubleword in a vector. */
                 for (i = 0; i < MCXT_NUM_SIMD_SVE_SLOTS; i++) {
                     print("z%-2d  0x", i);
                     for (boff = ((vq * 2) - 1); boff >= 0; boff--) {
-                        vdw = *((uint64 *)((((byte *)sve) + (SVE_SIG_ZREG_OFFSET(vq, i)) +
-                                            (boff * 8))));
-                        print("%016lx ", vdw);
+                        /* We access data in the scalable vector using the
+                         * kernel's SVE_SIG_ZREG_OFFSET macro which gives the
+                         * byte offset into a vector based on units of 128 bits
+                         * (quadwords). In this loop we offset from the start
+                         * of struct sve_context. We print the data as 64 bit
+                         * ints, so 2 per quadword.
+                         *
+                         * For example, for a 256 bit vector (2 quadwords, 4
+                         * doublewords), the byte offset (boff) for each
+                         * scalable vector register is:
+                         * boff=3  vdw=sve+SVE_SIG_ZREG_OFFSET+24
+                         * boff=2  vdw=sve+SVE_SIG_ZREG_OFFSET+16
+                         * boff=1  vdw=sve+SVE_SIG_ZREG_OFFSET+8
+                         * boff=0  vdw=sve+SVE_SIG_ZREG_OFFSET
+                         *
+                         * Note that at present we support little endian only.
+                         * All major Linux arm64 kernel distributions are
+                         * little-endian.
+                         */
+                        z.u64[boff] = *((uint64 *)((
+                            ((byte *)sve) + (SVE_SIG_ZREG_OFFSET(vq, i)) + (boff * 8))));
+                        print("%016lx ", z.u64[boff]);
                     }
                     print("\n");
                 }
 
                 print("\n");
+                /* We access data in predicate and first-fault registers using
+                 * the kernel's SVE_SIG_PREG_OFFSET and SVE_SIG_FFR_OFFSET
+                 * macros. SVE predicate and FFR registers are an 1/8th the
+                 * size of SVE vector registers (1 bit per byte) and are printed
+                 * as 32 bit ints.
+                 */
+                dr_simd_t p;
                 for (i = 0; i < MCXT_NUM_SVEP_SLOTS; i++) {
-                    print("p%-2d  0x%08lx\n", i,
-                          *((uint32 *)((byte *)sve + SVE_SIG_PREG_OFFSET(vq, i))));
+                    p.u32[i] = *((uint32 *)((byte *)sve + SVE_SIG_PREG_OFFSET(vq, i)));
+                    print("p%-2d  0x%08lx\n", i, p.u32[i]);
                 }
                 print("\n");
                 print("FFR  0x%08lx\n\n",
