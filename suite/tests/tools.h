@@ -305,7 +305,6 @@ intercept_signal(int sig, handler_3_t handler, bool sigstack);
 #    ifdef AARCH64
 void
 dump_ucontext(ucontext_t *ucxt, bool is_sve, int vl);
-#    endif
 
 /* Representation of quadwords as 2 doubles. */
 typedef union {
@@ -315,6 +314,7 @@ typedef union {
         uint64 hi;
     } as_2x64;
 } reinterpret128_2x64_t;
+#    endif
 #endif
 
 /* for cross-plaform siglongjmp */
