@@ -606,6 +606,8 @@ record_filter_t::process_chunk_encodings(per_shard_t *per_shard, trace_entry_t &
             // Sanity check that the encoding size is correct.
             const auto &enc = per_shard->per_input->pc2encoding[entry.addr];
             size_t enc_sz = 0;
+            // Since all but the last entry are fixed-size we could avoid a loop
+            // but the loop is easier to read and we have just 1 or 2 iters.
             for (const auto &record : enc)
                 enc_sz += record.size;
             if (enc_sz != entry.size) {
