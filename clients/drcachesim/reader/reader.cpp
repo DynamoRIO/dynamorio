@@ -53,8 +53,8 @@ namespace drmemtrace {
 #define assert_release_too(cond) \
     do {                         \
         if (!(cond))             \
-            abort;               \
-    }
+            abort();             \
+    } while (0)
 
 // Work around clang-format bug: no newline after return type for single-char operator.
 // clang-format off
