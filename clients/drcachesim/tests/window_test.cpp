@@ -114,13 +114,12 @@ post_process()
 }
 
 static std::string
-gather_trace()
+gather_trace(const std::string &drmemtrace_args)
 {
     // Set -trace_for_instrs and -retrace_every_instrs in such a way that the
     // sleep introduced in the app is big enough to cross window boundaries.
-    std::string dr_ops(
-        "-stderr_mask 0xc -client_lib ';;-offline -offline -trace_after_instrs 1000 "
-        "-trace_for_instrs 2500 -retrace_every_instrs 1000");
+    std::string dr_ops("-stderr_mask 0xc -client_lib ';;-offline ");
+    dr_ops += drmemtrace_args;
     if (!my_setenv("DYNAMORIO_OPTIONS", dr_ops.c_str()))
         std::cerr << "failed to set env var!\n";
     dr_app_setup();
@@ -136,7 +135,7 @@ gather_trace()
 int
 test_main(int argc, const char *argv[])
 {
-    std::string dir = gather_trace();
+    std::string dir = gather_trace(std::string(argv[1]));
     void *dr_context = dr_standalone_init();
     scheduler_t scheduler;
     std::vector<scheduler_t::input_workload_t> sched_inputs;
@@ -159,7 +158,7 @@ test_main(int argc, const char *argv[])
         assert(status == scheduler_t::STATUS_OK);
         if (memref.marker.type == TRACE_TYPE_MARKER &&
             memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
-            // Looks at the gap between the current and the previous timestamps
+            // Looks at the gap between the first and second timestamps
             // and checks if it's less than the sleep added between windows in
             // the test app. This ensures that a large gap in wall-clock time
             // introduced during window-tracing doesn't result in timestamps so

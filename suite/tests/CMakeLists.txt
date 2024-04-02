@@ -4277,7 +4277,7 @@ if (BUILD_CLIENTS)
     if (DR_HOST_X86 AND DR_HOST_X64 AND LINUX)
       torunonly_drcacheoff(opcode_categories allasm_x86_64 ""
         "@-simulator_type@opcode_mix" "")
-    
+
       # Requires sudo to access pagemap.
       # XXX: Should we not enable this outside of the Github suite where we know
       # we have passwordless sudo?  The pause for a password may cause problems
@@ -4427,9 +4427,18 @@ if (BUILD_CLIENTS)
       torunonly_drcacheoff(burst_traceopts tool.drcacheoff.burst_traceopts "" "" "")
       set(tool.drcacheoff.windows-timestamps_nodr ON)
       set(tool.drcacheoff.windows-timestamps_nopost ON)
-      torunonly_drcacheoff(windows-timestamps tool.drcacheoff.windows-timestamps "" "" "")
-      set(tool.drcacheoff.windows-timestamps-expectbase "offline-windows-timestamps")
+      torunonly_drcacheoff(windows-timestamps tool.drcacheoff.windows-timestamps
+        "" ""
+        "-trace_after_instrs 1000 -trace_for_instrs 2500 -retrace_every_instrs 1000")
+      set(tool.drcacheoff.windows-timestamps_expectbase "offline-windows-timestamps")
       set(tool.drcacheoff.windows-timestamps_timeout 120)
+
+      set(tool.drcacheoff.delayed-tracing-timestamps_nodr ON)
+      set(tool.drcacheoff.delayed-tracing-timestamps_nopost ON)
+      torunonly_drcacheoff(delayed-tracing-timestamps tool.drcacheoff.windows-timestamps "" ""
+        "-trace_after_instrs 10000  -subdir_prefix drmemtrace.tool.drcacheoff.delayed-tracing-timestamps")
+      set(tool.drcacheoff.delayed-tracing-timestamps_expectbase "offline-windows-timestamps")
+      set(tool.drcacheoff.delayed-tracing-timestamps_timeout 120)
 
       if (LINUX) # Futex is Linux-only.
         set(tool.drcacheoff.burst_futex_nodr ON)
