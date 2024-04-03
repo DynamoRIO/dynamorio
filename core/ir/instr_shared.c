@@ -2655,20 +2655,16 @@ instr_compute_address_helper(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
     for (i = 0; i < instr_num_dsts(instr); i++) {
         curop = instr_get_dst(instr, i);
         if (opnd_is_memory_reference(curop)) {
-            if (opnd_is_vsib(curop)) {
-#ifdef X86
-                if (instr_compute_address_VSIB(instr, mc, mc_size, mc_flags, curop, index,
-                                               &have_addr, addr, &write)) {
-                    CLIENT_ASSERT(
-                        write,
-                        "VSIB found in destination but instruction is not a scatter");
+            if (opnd_is_vector_base_disp(curop)) {
+                if (instr_compute_vector_address(instr, mc, mc_size, mc_flags, curop,
+                                                 index, &have_addr, addr, &write)) {
+                    CLIENT_ASSERT(write,
+                                  "Vector address found in destination but instruction "
+                                  "is not a scatter");
                     break;
                 } else {
                     return false;
                 }
-#else
-                CLIENT_ASSERT(false, "VSIB should be x86-only");
-#endif
             }
             memcount++;
             if (memcount == (int)index) {
@@ -2683,16 +2679,12 @@ instr_compute_address_helper(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
         for (i = 0; i < instr_num_srcs(instr); i++) {
             curop = instr_get_src(instr, i);
             if (opnd_is_memory_reference(curop)) {
-                if (opnd_is_vsib(curop)) {
-#ifdef X86
-                    if (instr_compute_address_VSIB(instr, mc, mc_size, mc_flags, curop,
-                                                   index, &have_addr, addr, &write))
+                if (opnd_is_vector_base_disp(curop)) {
+                    if (instr_compute_vector_address(instr, mc, mc_size, mc_flags, curop,
+                                                     index, &have_addr, addr, &write))
                         break;
                     else
                         return false;
-#else
-                    CLIENT_ASSERT(false, "VSIB should be x86-only");
-#endif
                 }
                 memcount++;
                 if (memcount == (int)index)

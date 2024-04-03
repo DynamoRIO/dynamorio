@@ -1119,6 +1119,10 @@ enum {
     DR_REG_STOP_32 = DR_REG_WSP,  /**< End of 32-bit general register enum values */
     DR_REG_START_GPR = DR_REG_X0, /**< Start of full-size general-purpose registers */
     DR_REG_STOP_GPR = DR_REG_XSP, /**< End of full-size general-purpose registers */
+    DR_REG_START_Z = DR_REG_Z0,   /**< Start of Z scalable vector registers */
+    DR_REG_STOP_Z = DR_REG_Z31,   /**< Start of Z scalable vector registers */
+    DR_REG_START_P = DR_REG_P0,   /**< Start of P scalable predicate registers */
+    DR_REG_STOP_P = DR_REG_P15,   /**< Start of P scalable predicate registers */
 #    else
     DR_REG_START_32 = DR_REG_R0,  /**< Start of 32-bit general register enum values */
     DR_REG_STOP_32 = DR_REG_R15,  /**< End of 32-bit general register enum values */
@@ -1128,7 +1132,8 @@ enum {
 
     DR_NUM_GPR_REGS = DR_REG_STOP_GPR - DR_REG_START_GPR + 1, /**< Count of GPR regs. */
 #    ifdef AARCH64
-    DR_NUM_SIMD_VECTOR_REGS = DR_REG_Z31 - DR_REG_Z0 + 1,     /**< Count of SIMD regs. */
+    DR_NUM_SIMD_VECTOR_REGS =
+        DR_REG_STOP_Z - DR_REG_START_Z + 1, /**< Count of SIMD regs. */
 #    else
     /* XXX: maybe we want more distinct names that provide counts for 64-bit D or 32-bit
      * S registers.
@@ -2606,6 +2611,14 @@ opnd_is_vsib(opnd_t opnd);
 
 DR_API
 /**
+ * Returns true iff \p opnd is a base+disp memory reference operand which uses vector
+ * registers.
+ */
+bool
+opnd_is_vector_base_disp(opnd_t opnd);
+
+DR_API
+/**
  * Returns true iff \p opnd is a (near or far) absolute address operand.
  * Returns true for both base-disp operands with no base or index and
  * 64-bit non-base-disp absolute address operands.
@@ -3262,7 +3275,13 @@ opnd_is_reg_64bit(opnd_t opnd);
 DR_API
 /**
  * Assumes that \p reg is a DR_REG_ constant.
- * Returns true iff it refers to a pointer-sized general-purpose register.
+ * Returns true iff it refers to a pointer-sized register. \p reg is a general
+ * purpose register for all architectures apart from AArch64. For AArch64, \p
+ * reg can also be a scalable vector (SVE) Z register. Although Z registers are
+ * supported from 128 to 512 bits in length on DynamoRIO, addressing uses 32 or
+ * 64 bit elements of a vector for scatter/gather instructions, e.g.
+ * LD1SB Z0.D, P0/Z, [Z1.D]. See also issue
+ * <a href="https://github.com/DynamoRIO/dynamorio/issues/6750">6750</a>
  */
 bool
 reg_is_pointer_sized(reg_id_t reg);
