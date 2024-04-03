@@ -63,6 +63,7 @@ static instr_t *instr_in_gettid = nullptr;
 #define PC_SYSCALL_GETPID 0xdeadbe00
 #define PC_SYSCALL_GETTID 0x8badf000
 #define READ_MEMADDR_GETTID 0xdecafbad
+#define REP_MOVS_COUNT 1024
 
 #define FATAL_ERROR(msg, ...)                               \
     do {                                                    \
@@ -89,7 +90,7 @@ write_trace_entry(std::unique_ptr<std::ostream> &writer, const trace_entry_t &en
 
 static void
 write_instr_entry(void *dr_context, std::unique_ptr<std::ostream> &writer, instr_t *instr,
-                  app_pc instr_app_pc)
+                  app_pc instr_app_pc, trace_type_t type = TRACE_TYPE_INSTR)
 {
     if (instr == nullptr) {
         FATAL_ERROR("Cannot write a nullptr instr.");
@@ -102,24 +103,13 @@ write_instr_entry(void *dr_context, std::unique_ptr<std::ostream> &writer, instr
     }
     instr_encode_to_copy(dr_context, instr, encoding.encoding, instr_app_pc);
     write_trace_entry(writer, encoding);
-    write_trace_entry(
-        writer,
-        make_instr(reinterpret_cast<addr_t>(instr_app_pc), TRACE_TYPE_INSTR, len));
+    write_trace_entry(writer,
+                      make_instr(reinterpret_cast<addr_t>(instr_app_pc), type, len));
 }
 
-static std::string
-write_system_call_template(void *dr_context)
+static void
+write_header_entries(std::unique_ptr<std::ostream> &writer)
 {
-    std::cerr << "Going to write system call trace templates\n";
-    // Get path to write the template and an ostream to it.
-    const char *raw_dir;
-    drmemtrace_status_t mem_res = drmemtrace_get_output_path(&raw_dir);
-    assert(mem_res == DRMEMTRACE_SUCCESS);
-    std::string syscall_trace_template_file =
-        std::string(raw_dir) + DIRSEP + "syscall_trace_template";
-    auto writer =
-        std::unique_ptr<std::ostream>(new std::ofstream(syscall_trace_template_file));
-
     // Write a valid header so the trace can be used with the trace analyzer.
 #define MAX_HEADER_ENTRIES 10
     trace_entry_t header_buf[MAX_HEADER_ENTRIES];
@@ -143,6 +133,31 @@ write_system_call_template(void *dr_context)
     }
     write_trace_entry(writer, make_marker(TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64));
     write_trace_entry(writer, make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096));
+}
+
+static void
+write_footer_entries(std::unique_ptr<std::ostream> &writer)
+{
+    dynamorio::drmemtrace::trace_entry_t thread_exit = {
+        dynamorio::drmemtrace::TRACE_TYPE_THREAD_EXIT, 0, { /*tid=*/1 }
+    };
+    write_trace_entry(writer, thread_exit);
+    write_trace_entry(writer, make_footer());
+}
+
+static std::string
+write_system_call_template(void *dr_context)
+{
+    // Get path to write the template and an ostream to it.
+    const char *raw_dir;
+    drmemtrace_status_t mem_res = drmemtrace_get_output_path(&raw_dir);
+    assert(mem_res == DRMEMTRACE_SUCCESS);
+    std::string syscall_trace_template_file =
+        std::string(raw_dir) + DIRSEP + "syscall_trace_template";
+    auto writer =
+        std::unique_ptr<std::ostream>(new std::ofstream(syscall_trace_template_file));
+
+    write_header_entries(writer);
 
     // Write the trace template for SYS_getpid.
     write_trace_entry(writer,
@@ -176,26 +191,19 @@ write_system_call_template(void *dr_context)
     write_trace_entry(writer,
                       make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_gettid));
 
-    // Write footer.
-    dynamorio::drmemtrace::trace_entry_t thread_exit = {
-        dynamorio::drmemtrace::TRACE_TYPE_THREAD_EXIT, 0, { /*tid=*/1 }
-    };
-    write_trace_entry(writer, thread_exit);
-    write_trace_entry(writer, make_footer());
-    std::cerr << "Done writing system call trace template\n";
+    write_footer_entries(writer);
     return syscall_trace_template_file;
 }
 
 static std::string
-postprocess(void *dr_context, std::string syscall_trace_template_file)
+postprocess(void *dr_context, std::string syscall_trace_template_file,
+            int expected_injected_syscall_count, std::string suffix = "")
 {
-    std::cerr
-        << "Going to post-process raw trace and add system call trace templates to it\n";
     // Get path to write the final trace to.
     const char *raw_dir;
     drmemtrace_status_t mem_res = drmemtrace_get_output_path(&raw_dir);
     assert(mem_res == DRMEMTRACE_SUCCESS);
-    std::string outdir = std::string(raw_dir) + DIRSEP + "post_processed";
+    std::string outdir = std::string(raw_dir) + DIRSEP + "post_processed." + suffix;
 
     raw2trace_directory_t dir;
     if (!dr_create_dir(outdir.c_str()))
@@ -217,15 +225,14 @@ postprocess(void *dr_context, std::string syscall_trace_template_file)
         FATAL_ERROR("raw2trace failed: %s\n", error.c_str());
     uint64 injected_syscall_count =
         raw2trace.get_statistic(RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED);
-    if (injected_syscall_count != 2) {
-        std::cerr << "Incorrect injected syscall count (" << injected_syscall_count
-                  << ")\n";
+    if (injected_syscall_count != expected_injected_syscall_count) {
+        std::cerr << "Incorrect injected syscall count (found: " << injected_syscall_count
+                  << " vs expected:" << expected_injected_syscall_count << ")\n";
     }
-    std::cerr << "Done post-processing the raw trace\n";
     return outdir;
 }
 
-basic_counts_t::counters_t
+static basic_counts_t::counters_t
 get_basic_counts(const std::string &trace_dir)
 {
     auto basic_counts_tool =
@@ -243,19 +250,17 @@ get_basic_counts(const std::string &trace_dir)
     return basic_counts_tool->get_total_counts();
 }
 
-void
+static void
 gather_trace()
 {
+    std::cerr << "Collecting a trace...\n";
     if (setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -client_lib ';;-offline",
                1 /*override*/) != 0)
         std::cerr << "failed to set env var!\n";
-    std::cerr << "Pre-DR init\n";
     dr_app_setup();
     assert(!dr_app_running_under_dynamorio());
-    std::cerr << "Pre-DR start\n";
     dr_app_start();
     do_some_syscalls();
-    std::cerr << "Pre-DR detach\n";
     dr_app_stop_and_cleanup();
     std::cerr << "Done collecting trace\n";
     return;
@@ -287,7 +292,6 @@ check_instr_same(void *dr_context, memref_t &memref, instr_t *expected_instr)
 static bool
 look_for_syscall_trace(void *dr_context, std::string trace_dir)
 {
-    std::cerr << "Verifying resulting user+kernel trace\n";
     scheduler_t scheduler;
     std::vector<scheduler_t::input_workload_t> sched_inputs;
     sched_inputs.emplace_back(trace_dir);
@@ -404,36 +408,118 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
     } else if (!found_gettid_read) {
         std::cerr << "Did not find read data memref in gettid trace\n";
     } else {
-        std::cerr << "Successfully completed checks\n";
         return true;
     }
     return false;
 }
 
-int
-test_main(int argc, const char *argv[])
+#ifdef X86
+
+static std::string
+write_system_call_template_with_repstr(void *dr_context)
 {
-    gather_trace();
-    void *dr_context = dr_standalone_init();
-    std::string syscall_trace_template = write_system_call_template(dr_context);
-    std::cerr << "Getting basic counts for system call trace template\n";
+    // Get path to write the template and an ostream to it.
+    const char *raw_dir;
+    drmemtrace_status_t mem_res = drmemtrace_get_output_path(&raw_dir);
+    assert(mem_res == DRMEMTRACE_SUCCESS);
+    std::string syscall_trace_template_file =
+        std::string(raw_dir) + DIRSEP + "syscall_trace_template_repstr";
+    auto writer =
+        std::unique_ptr<std::ostream>(new std::ofstream(syscall_trace_template_file));
+
+    write_header_entries(writer);
+
+    write_trace_entry(writer,
+                      make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYS_gettid));
+    instr_t *rep_movs = INSTR_CREATE_rep_movs_1(GLOBAL_DCONTEXT);
+    for (int i = 0; i < REP_MOVS_COUNT; ++i) {
+        write_instr_entry(dr_context, writer, rep_movs,
+                          reinterpret_cast<app_pc>(PC_SYSCALL_GETTID),
+                          i == 0 ? TRACE_TYPE_INSTR : TRACE_TYPE_INSTR_NO_FETCH);
+        write_trace_entry(writer,
+                          make_memref(READ_MEMADDR_GETTID, TRACE_TYPE_READ,
+                                      opnd_size_in_bytes(OPSZ_PTR)));
+        write_trace_entry(writer,
+                          make_memref(READ_MEMADDR_GETTID, TRACE_TYPE_WRITE,
+                                      opnd_size_in_bytes(OPSZ_PTR)));
+    }
+    instr_destroy(dr_context, rep_movs);
+    write_trace_entry(writer,
+                      make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_getpid));
+
+    write_footer_entries(writer);
+
+    return syscall_trace_template_file;
+}
+
+static int
+test_template_with_repstr(void *dr_context)
+{
+    std::cerr << "Testing system call trace template injection with repstr...\n";
+
+    std::string syscall_trace_template =
+        write_system_call_template_with_repstr(dr_context);
     basic_counts_t::counters_t template_counts = get_basic_counts(syscall_trace_template);
-    if (!(template_counts.instrs == 2 && template_counts.encodings == 2 &&
+    if (!(template_counts.instrs == 1 &&
+          template_counts.instrs_nofetch == REP_MOVS_COUNT - 1 &&
+          template_counts.encodings == REP_MOVS_COUNT &&
+          template_counts.loads == REP_MOVS_COUNT &&
+          template_counts.stores == REP_MOVS_COUNT)) {
+        std::cerr << "Unexpected counts in system call trace template with repstr ("
+                  << syscall_trace_template << "): #instrs: " << template_counts.instrs
+                  << ", #instrs_nofetch: " << template_counts.instrs_nofetch
+                  << ", #encodings: " << template_counts.encodings
+                  << ", #loads: " << template_counts.loads
+                  << ", #stores: " << template_counts.stores << "\n";
+        return 1;
+    }
+
+    std::string trace_dir = postprocess(dr_context, syscall_trace_template,
+                                        /*expected_injected_syscall_count=*/1, "repstr");
+
+    basic_counts_t::counters_t final_trace_counts = get_basic_counts(trace_dir);
+    if (final_trace_counts.kernel_instrs != 1 ||
+        final_trace_counts.kernel_nofetch_instrs != REP_MOVS_COUNT - 1) {
+        std::cerr << "Unexpected counts in the final trace with repstr (#instr="
+                  << final_trace_counts.kernel_instrs
+                  << ",#nofetch_instr=" << final_trace_counts.kernel_nofetch_instrs
+                  << "\n";
+        return 1;
+    }
+    std::cerr << "Done with test.\n";
+    return 0;
+}
+#endif
+
+static int
+test_trace_templates(void *dr_context)
+{
+    std::cerr << "Testing system call trace template injection...\n";
+    // The following template is also used by the postcmd in cmake which runs the
+    // invariant checker on a trace injected with these templates.
+    std::string syscall_trace_template = write_system_call_template(dr_context);
+    basic_counts_t::counters_t template_counts = get_basic_counts(syscall_trace_template);
+    if (!(template_counts.instrs == 2 && template_counts.instrs_nofetch == 0 &&
+          template_counts.encodings == 2 && template_counts.loads == 1 &&
+          template_counts.stores == 0 &&
           // We only have trace start and end markers, no syscall number markers.
           template_counts.syscall_number_markers == 0)) {
-        std::cerr << "Unexpected counts in system call trace template: "
-                  << syscall_trace_template << ": #instrs: " << template_counts.instrs
+        std::cerr << "Unexpected counts in system call trace template ("
+                  << syscall_trace_template << "): #instrs: " << template_counts.instrs
+                  << ", #instrs_nofetch: " << template_counts.instrs_nofetch
                   << ", #encodings: " << template_counts.encodings
+                  << ", #loads: " << template_counts.loads
+                  << ", #stores: " << template_counts.stores
                   << ", #syscall_number_markers: "
                   << template_counts.syscall_number_markers << "\n";
         return 1;
     }
 
-    std::string trace_dir = postprocess(dr_context, syscall_trace_template);
+    std::string trace_dir = postprocess(dr_context, syscall_trace_template,
+                                        /*expected_injected_syscall_count=*/2, "");
     bool success = look_for_syscall_trace(dr_context, trace_dir);
     instr_destroy(dr_context, instr_in_getpid);
     instr_destroy(dr_context, instr_in_gettid);
-    dr_standalone_exit();
     if (!success) {
         return 1;
     }
@@ -443,6 +529,25 @@ test_main(int argc, const char *argv[])
                   << final_trace_counts.kernel_instrs << ")\n";
         return 1;
     }
+    std::cerr << "Done with test.\n";
+    return 0;
+}
+
+int
+test_main(int argc, const char *argv[])
+{
+
+    gather_trace();
+    void *dr_context = dr_standalone_init();
+    if (test_trace_templates(dr_context)) {
+        return 1;
+    }
+#ifdef X86
+    if (test_template_with_repstr(dr_context)) {
+        return 1;
+    }
+#endif
+    dr_standalone_exit();
     return 0;
 }
 
