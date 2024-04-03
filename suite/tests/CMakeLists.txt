@@ -4432,12 +4432,15 @@ if (BUILD_CLIENTS)
         "" "" "-trace_after_instrs 1000 -trace_for_instrs 2500 -retrace_every_instrs 1000")
       set(tool.drcacheoff.windows-timestamps_timeout 120)
 
-      set(tool.drcacheoff.delayed-tracing-timestamps_nodr ON)
-      set(tool.drcacheoff.delayed-tracing-timestamps_nopost ON)
-      torunonly_drcacheoff(delayed-tracing-timestamps tool.drcacheoff.windows-timestamps "" ""
-        "-trace_after_instrs 10000 -subdir_prefix drmemtrace.tool.drcacheoff.delayed-tracing-timestamps")
-      set(tool.drcacheoff.delayed-tracing-timestamps_expectbase "offline-windows-timestamps")
-      set(tool.drcacheoff.delayed-tracing-timestamps_timeout 120)
+      set(tool.drcacheoff.delay-tstamp_nodr ON)
+      set(tool.drcacheoff.delay-tstamp_nopost ON)
+      # -subdir_prefix should match the test name. For this test, the created trace
+      # path is very close to the max length allowed by Windows, so we abbreviate
+      # the test name a tad.
+      torunonly_drcacheoff(delay-tstamp tool.drcacheoff.windows-timestamps "" ""
+        "-trace_after_instrs 10000 -subdir_prefix tool.drcacheoff.delay-tstamp")
+      set(tool.drcacheoff.delay-tstamp_expectbase "offline-windows-timestamps")
+      set(tool.drcacheoff.delay-tstamp_timeout 120)
 
       if (LINUX) # Futex is Linux-only.
         set(tool.drcacheoff.burst_futex_nodr ON)
@@ -6286,7 +6289,7 @@ if (UNIX AND X86 AND CPU_AMD AND NOT DR_HOST_X64)
     code_api|tool.drcacheoff.warmup-pthreads-windows-split
     code_api|tool.drcacheoff.windows-split
     code_api|tool.drcacheoff.windows-timestamps
-    code_api|tool.drcacheoff.delayed-tracing-timestamps
+    code_api|tool.drcacheoff.delay-tstamp
     code_api|tool.drcachesim.coherence
     code_api|tool.drcachesim.delay-global
     code_api|tool.drcachesim.filter-d
