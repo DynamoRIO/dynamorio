@@ -240,6 +240,9 @@ reg_is_pointer_sized(reg_id_t reg)
 {
 #ifdef X64
 #    ifdef AARCH64
+    /* XXX i#6750: We need to generalize reg_{to,is}_pointer_sized() for non-GPR
+     * registers. Change names or add new keeping old or update docs?
+     */
     return (reg >= DR_REG_Z0 && reg <= DR_REG_Z31) ||
         (reg >= REG_START_64 && reg <= REG_STOP_64);
 #    else

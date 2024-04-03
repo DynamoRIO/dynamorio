@@ -54,7 +54,7 @@ save_fpstate(dcontext_t *dcontext, sigframe_rt_t *frame)
 }
 
 #ifdef DEBUG
-/* Representation of quadwords as 2 doublewords. */
+/* Representation of quadwords (128 bits) as 2 doublewords. */
 typedef union {
     __uint128_t as_128;
     struct {
@@ -135,20 +135,19 @@ dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
                 for (i = 0; i < MCXT_NUM_SIMD_SVE_SLOTS; i++) {
                     LOG(THREAD, LOG_ASYNCH, 2, "\tz%-2d  0x", i);
                     for (boff = ((quads_per_vector * 2) - 1); boff >= 0; boff--) {
-                        /* We access data in the scalable vector using the
-                         * kernel's SVE_SIG_ZREG_OFFSET macro which gives the
-                         * byte offset into a vector based on units of 128 bits
-                         * (quadwords). In this loop we offset from the start
-                         * of struct sve_context. We log the data as 64 bit
-                         * ints, so 2 per quadword.
+                        /* We access data in the scalable vector using the kernel's
+                         * SVE_SIG_ZREG_OFFSET macro which gives the byte offset into a
+                         * vector based on units of 128 bits (quadwords). In this loop we
+                         * offset from the start of struct sve_context. We log the data
+                         * as 64 bit ints, so 2 per quadword (2 x 64 bits -> 128 bits).
                          *
-                         * For example, for a 256 bit vector (2 quadwords, 4
-                         * doublewords), the byte offset (boff) for each
+                         * For example, for a 256 bit vector (2 quadwords (2 x 128 bits),
+                         * 4 doublewords (4 x 64 bits)), the byte offset (boff) for each
                          * scalable vector register is:
-                         * boff=3  vdw=sve+SVE_SIG_ZREG_OFFSET+24
-                         * boff=2  vdw=sve+SVE_SIG_ZREG_OFFSET+16
-                         * boff=1  vdw=sve+SVE_SIG_ZREG_OFFSET+8
-                         * boff=0  vdw=sve+SVE_SIG_ZREG_OFFSET
+                         * boff=3  z.u64[3] = sve + SVE_SIG_ZREG_OFFSET + 24
+                         * boff=2  z.u64[2] = sve + SVE_SIG_ZREG_OFFSET + 16
+                         * boff=1  z.u64[1] = sve + SVE_SIG_ZREG_OFFSET + 8
+                         * boff=0  z.u64[0] = sve + SVE_SIG_ZREG_OFFSET
                          *
                          * Note that at present we support little endian only.
                          * All major Linux arm64 kernel distributions are
@@ -192,7 +191,7 @@ dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
 }
 #endif /* DEBUG */
 
-/* Representation of quadword as 4 words, used for SIMD. */
+/* Representation of quadword (128 bits) as 4 words, used for SIMD. */
 typedef union {
     __uint128_t as_128;
     struct {

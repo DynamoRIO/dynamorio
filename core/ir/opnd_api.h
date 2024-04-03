@@ -3277,7 +3277,11 @@ DR_API
  * Assumes that \p reg is a DR_REG_ constant.
  * Returns true iff it refers to a pointer-sized register. \p reg is a general
  * purpose register for all architectures apart from AArch64. For AArch64, \p
- * reg can also be a scalable vector (SVE) Z register.
+ * reg can also be a scalable vector (SVE) Z register. Although Z registers are
+ * supported from 128 to 512 bits in length on DynamoRIO, addressing uses 32 or
+ * 64 bit elements of a vector for scatter/gather instructions, e.g.
+ * LD1SB Z0.D, P0/Z, [Z1.D]. See also issue
+ * <a href="https://github.com/DynamoRIO/dynamorio/issues/6750">6750</a>
  */
 bool
 reg_is_pointer_sized(reg_id_t reg);
