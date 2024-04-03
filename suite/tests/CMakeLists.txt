@@ -4435,7 +4435,7 @@ if (BUILD_CLIENTS)
       set(tool.drcacheoff.delayed-tracing-timestamps_nodr ON)
       set(tool.drcacheoff.delayed-tracing-timestamps_nopost ON)
       torunonly_drcacheoff(delayed-tracing-timestamps tool.drcacheoff.windows-timestamps "" ""
-        "-trace_after_instrs 10000")
+        "-trace_after_instrs 10000 -subdir_prefix delayed-tracing")
       set(tool.drcacheoff.delayed-tracing-timestamps_expectbase "offline-windows-timestamps")
       set(tool.drcacheoff.delayed-tracing-timestamps_timeout 120)
 
@@ -6286,6 +6286,7 @@ if (UNIX AND X86 AND CPU_AMD AND NOT DR_HOST_X64)
     code_api|tool.drcacheoff.warmup-pthreads-windows-split
     code_api|tool.drcacheoff.windows-split
     code_api|tool.drcacheoff.windows-timestamps
+    code_api|tool.drcacheoff.delayed-tracing-timestamps
     code_api|tool.drcachesim.coherence
     code_api|tool.drcachesim.delay-global
     code_api|tool.drcachesim.filter-d
