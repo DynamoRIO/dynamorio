@@ -223,7 +223,7 @@ sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
         memcpy(&mc->simd[i].q, &fpc->vregs[i], sizeof(mc->simd->q));
     }
 
-#    ifndef DR_HOST_NOT_TARGET
+#ifndef DR_HOST_NOT_TARGET
     if (proc_has_feature(FEATURE_SVE)) {
         size_t offset = sizeof(struct fpsimd_context);
         /* fpsimd_context is always the first section. After that the esr_context,
@@ -274,7 +274,7 @@ sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
             next_head = (struct _aarch64_ctx *)(sc_full->sc->__reserved + offset);
         }
     }
-#    endif
+#endif
 }
 
 void
@@ -299,7 +299,7 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
         memcpy(&fpc->vregs[i], &mc->simd[i].u32[0], sizeof(fpc->vregs[i]));
     }
 
-#    ifndef DR_HOST_NOT_TARGET
+#ifndef DR_HOST_NOT_TARGET
     if (proc_has_feature(FEATURE_SVE)) {
         struct _aarch64_ctx *esr = (void *)((byte *)fpc + sizeof(struct fpsimd_context));
         esr->magic = ESR_MAGIC;
@@ -327,7 +327,7 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
         null->magic = 0;
         null->size = 0;
     }
-#    endif
+#endif
 }
 
 size_t
