@@ -677,7 +677,6 @@ instr_length_arch(dcontext_t *dcontext, instr_t *instr);
 bool
 opc_is_not_a_real_memory_load(int opc);
 
-#if defined(X86) || defined(AARCH64)
 /* Compute the index-th address for a memory operand that uses a vector register for the
  * base or index register.
  * The return value has the same semantics as instr_compute_address_ex(). It returns:
@@ -689,7 +688,6 @@ instr_compute_vector_address(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
                              dr_mcontext_flags_t mc_flags, opnd_t curop, uint index,
                              DR_PARAM_OUT bool *have_addr, DR_PARAM_OUT app_pc *addr,
                              DR_PARAM_OUT bool *write);
-#endif
 
 uint
 instr_branch_type(instr_t *cti_instr);

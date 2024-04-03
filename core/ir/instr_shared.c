@@ -2655,7 +2655,6 @@ instr_compute_address_helper(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
     for (i = 0; i < instr_num_dsts(instr); i++) {
         curop = instr_get_dst(instr, i);
         if (opnd_is_memory_reference(curop)) {
-#if defined(X86) || defined(AARCH64)
             if (opnd_is_vector_base_disp(curop)) {
                 if (instr_compute_vector_address(instr, mc, mc_size, mc_flags, curop,
                                                  index, &have_addr, addr, &write)) {
@@ -2667,10 +2666,6 @@ instr_compute_address_helper(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
                     return false;
                 }
             }
-#else
-            CLIENT_ASSERT(
-                false, "Vector address computation implemented for AArch64 and x86 only");
-#endif
             memcount++;
             if (memcount == (int)index) {
                 write = true;
@@ -2684,7 +2679,6 @@ instr_compute_address_helper(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
         for (i = 0; i < instr_num_srcs(instr); i++) {
             curop = instr_get_src(instr, i);
             if (opnd_is_memory_reference(curop)) {
-#if defined(X86) || defined(AARCH64)
                 if (opnd_is_vector_base_disp(curop)) {
                     if (instr_compute_vector_address(instr, mc, mc_size, mc_flags, curop,
                                                      index, &have_addr, addr, &write))
@@ -2692,11 +2686,6 @@ instr_compute_address_helper(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
                     else
                         return false;
                 }
-#else
-                CLIENT_ASSERT(
-                    false,
-                    "Vector address computation implemented for AArch64 and x86 only");
-#endif
                 memcount++;
                 if (memcount == (int)index)
                     break;
