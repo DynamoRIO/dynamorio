@@ -31,8 +31,10 @@ Total counts:
            0 total icache flushes
            0 total dcache flushes
            1 total threads
-          36 total scheduling markers
-           0 total transfer markers
+          36 total timestamp \+ cpuid markers
+           0 total idle markers
+           0 total wait markers
+           0 total kernel transfer markers
            0 total function id markers
            0 total function return address markers
            0 total function argument markers
@@ -53,8 +55,10 @@ Window #0:
            5 window data stores
            0 window icache flushes
            0 window dcache flushes
-           5 window scheduling markers
-           0 window transfer markers
+           5 window timestamp \+ cpuid markers
+           0 window idle markers
+           0 window wait markers
+           0 window kernel transfer markers
            0 window function id markers
            0 window function return address markers
            0 window function argument markers
@@ -74,8 +78,10 @@ Window #1:
            0 window data stores
            0 window icache flushes
            0 window dcache flushes
-           6 window scheduling markers
-           0 window transfer markers
+           6 window timestamp \+ cpuid markers
+           0 window idle markers
+           0 window wait markers
+           0 window kernel transfer markers
            0 window function id markers
            0 window function return address markers
            0 window function argument markers
@@ -95,8 +101,10 @@ Window #2:
            0 window data stores
            0 window icache flushes
            0 window dcache flushes
-           6 window scheduling markers
-           0 window transfer markers
+           6 window timestamp \+ cpuid markers
+           0 window idle markers
+           0 window wait markers
+           0 window kernel transfer markers
            0 window function id markers
            0 window function return address markers
            0 window function argument markers
@@ -116,8 +124,10 @@ Window #3:
            0 window data stores
            0 window icache flushes
            0 window dcache flushes
-           6 window scheduling markers
-           0 window transfer markers
+           6 window timestamp \+ cpuid markers
+           0 window idle markers
+           0 window wait markers
+           0 window kernel transfer markers
            0 window function id markers
            0 window function return address markers
            0 window function argument markers
@@ -137,8 +147,10 @@ Window #4:
            0 window data stores
            0 window icache flushes
            0 window dcache flushes
-           6 window scheduling markers
-           0 window transfer markers
+           6 window timestamp \+ cpuid markers
+           0 window idle markers
+           0 window wait markers
+           0 window kernel transfer markers
            0 window function id markers
            0 window function return address markers
            0 window function argument markers
@@ -158,8 +170,10 @@ Window #5:
            0 window data stores
            0 window icache flushes
            0 window dcache flushes
-           6 window scheduling markers
-           0 window transfer markers
+           6 window timestamp \+ cpuid markers
+           0 window idle markers
+           0 window wait markers
+           0 window kernel transfer markers
            0 window function id markers
            0 window function return address markers
            0 window function argument markers
@@ -179,8 +193,10 @@ Window #6:
            0 window data stores
            0 window icache flushes
            0 window dcache flushes
-           1 window scheduling markers
-           0 window transfer markers
+           1 window timestamp \+ cpuid markers
+           0 window idle markers
+           0 window wait markers
+           0 window kernel transfer markers
            0 window function id markers
            0 window function return address markers
            0 window function argument markers
@@ -200,8 +216,10 @@ Thread [0-9]* counts:
            5 data stores
            0 icache flushes
            0 dcache flushes
-           5 scheduling markers
-           0 transfer markers
+           5 timestamp \+ cpuid markers
+           0 idle markers
+           0 wait markers
+           0 kernel transfer markers
            0 function id markers
            0 function return address markers
            0 function argument markers
