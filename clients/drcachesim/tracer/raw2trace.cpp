@@ -630,8 +630,8 @@ raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, byte *&buf_i
                                   { static_cast<addr_t>(syscall_num) } };
     *buf = start_entry;
     ++buf;
+    // Now write any accumulated entries from before, plus the start entry.
     {
-        // Now write any accumulated entries from before, plus the start entry.
         size_t size = buf - buf_base;
         if ((uint)size >= WRITE_BUFFER_SIZE) {
             tdata->error = "Too many entries";
