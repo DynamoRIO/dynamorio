@@ -1171,6 +1171,12 @@ run_tests(std::vector<TEST_CASE_T> tests)
         "p0", "p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9", "p10", "p11", "p12", \
             "p13", "p14", "p15"
 
+#    if !defined(__clang__) && defined(__GNUC__) && __GNUC__ >= 10
+#        define _FFR , "ffr"
+#    else
+#        define _FFR
+#    endif
+
 test_result_t
 test_ld1_scalar_plus_vector()
 {
@@ -1189,7 +1195,7 @@ test_ld1_scalar_plus_vector()
                   [z_save_base] "r"(ptrs.z_save_base),                              \
                   [p_restore_base] "r"(ptrs.p_restore_base),                        \
                   [p_save_base] "r"(ptrs.p_save_base)                               \
-                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");                         \
+                : ALL_Z_REGS, ALL_P_REGS _FFR, "memory");                           \
         }
 
     return run_tests<scalar_plus_vector_load_test_case_t>({
@@ -1836,7 +1842,7 @@ test_st1_scalar_plus_vector()
                   [z_save_base] "r"(ptrs.z_save_base),                              \
                   [p_restore_base] "r"(ptrs.p_restore_base),                        \
                   [p_save_base] "r"(ptrs.p_save_base)                               \
-                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");                         \
+                : ALL_Z_REGS, ALL_P_REGS _FFR, "memory");                           \
         }
 
     return run_tests<scalar_plus_vector_store_test_case_t>({
@@ -2288,7 +2294,7 @@ test_ld1_vector_plus_immediate()
                   [z_save_base] "r"(ptrs.z_save_base),                  \
                   [p_restore_base] "r"(ptrs.p_restore_base),            \
                   [p_save_base] "r"(ptrs.p_save_base)                   \
-                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");             \
+                : ALL_Z_REGS, ALL_P_REGS _FFR, "memory");               \
         }
 
     const auto get_base_ptr = [&](element_size_t element_size, size_t offset) {
@@ -2592,7 +2598,7 @@ test_st1_vector_plus_immediate()
                   [z_save_base] "r"(ptrs.z_save_base),                  \
                   [p_restore_base] "r"(ptrs.p_restore_base),            \
                   [p_save_base] "r"(ptrs.p_save_base)                   \
-                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");             \
+                : ALL_Z_REGS, ALL_P_REGS _FFR, "memory");               \
         }
 
     return run_tests<vector_plus_immediate_store_test_case_t>({
@@ -2865,7 +2871,7 @@ test_ld1_scalar_plus_scalar()
                   [z_save_base] "r"(ptrs.z_save_base),                  \
                   [p_restore_base] "r"(ptrs.p_restore_base),            \
                   [p_save_base] "r"(ptrs.p_save_base)                   \
-                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");             \
+                : ALL_Z_REGS, ALL_P_REGS _FFR, "memory");               \
         }
 
     return run_tests<scalar_plus_scalar_load_test_case_t<1>>({
@@ -3189,7 +3195,7 @@ test_ld2_scalar_plus_scalar()
                   [z_save_base] "r"(ptrs.z_save_base),                  \
                   [p_restore_base] "r"(ptrs.p_restore_base),            \
                   [p_save_base] "r"(ptrs.p_save_base)                   \
-                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");             \
+                : ALL_Z_REGS, ALL_P_REGS _FFR, "memory");               \
         }
 
     return run_tests<scalar_plus_scalar_load_test_case_t<2>>({
@@ -3299,7 +3305,7 @@ test_ld3_scalar_plus_scalar()
                   [z_save_base] "r"(ptrs.z_save_base),                  \
                   [p_restore_base] "r"(ptrs.p_restore_base),            \
                   [p_save_base] "r"(ptrs.p_save_base)                   \
-                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");             \
+                : ALL_Z_REGS, ALL_P_REGS _FFR, "memory");               \
         }
 
     return run_tests<scalar_plus_scalar_load_test_case_t<3>>({
@@ -3435,7 +3441,7 @@ test_ld4_scalar_plus_scalar()
                   [z_save_base] "r"(ptrs.z_save_base),                  \
                   [p_restore_base] "r"(ptrs.p_restore_base),            \
                   [p_save_base] "r"(ptrs.p_save_base)                   \
-                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");             \
+                : ALL_Z_REGS, ALL_P_REGS _FFR, "memory");               \
         }
 
     return run_tests<scalar_plus_scalar_load_test_case_t<4>>({
@@ -3738,7 +3744,7 @@ test_st1_scalar_plus_scalar()
                   [z_save_base] "r"(ptrs.z_save_base),                   \
                   [p_restore_base] "r"(ptrs.p_restore_base),             \
                   [p_save_base] "r"(ptrs.p_save_base)                    \
-                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");              \
+                : ALL_Z_REGS, ALL_P_REGS _FFR, "memory");                \
         }
 
     return run_tests<scalar_plus_scalar_store_test_case_t<1>>({
@@ -3849,7 +3855,7 @@ test_st2_scalar_plus_scalar()
                   [z_save_base] "r"(ptrs.z_save_base),                   \
                   [p_restore_base] "r"(ptrs.p_restore_base),             \
                   [p_save_base] "r"(ptrs.p_save_base)                    \
-                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");              \
+                : ALL_Z_REGS, ALL_P_REGS _FFR, "memory");                \
         }
 
     return run_tests<scalar_plus_scalar_store_test_case_t<2>>({
@@ -3919,7 +3925,7 @@ test_st3_scalar_plus_scalar()
                   [z_save_base] "r"(ptrs.z_save_base),                   \
                   [p_restore_base] "r"(ptrs.p_restore_base),             \
                   [p_save_base] "r"(ptrs.p_save_base)                    \
-                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");              \
+                : ALL_Z_REGS, ALL_P_REGS _FFR, "memory");                \
         }
 
     return run_tests<scalar_plus_scalar_store_test_case_t<3>>({
@@ -3993,7 +3999,7 @@ test_st4_scalar_plus_scalar()
                   [z_save_base] "r"(ptrs.z_save_base),                   \
                   [p_restore_base] "r"(ptrs.p_restore_base),             \
                   [p_save_base] "r"(ptrs.p_save_base)                    \
-                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");              \
+                : ALL_Z_REGS, ALL_P_REGS _FFR, "memory");                \
         }
 
     return run_tests<scalar_plus_scalar_store_test_case_t<4>>({
@@ -4209,7 +4215,7 @@ test_ld1_scalar_plus_immediate()
                   [z_save_base] "r"(ptrs.z_save_base),                              \
                   [p_restore_base] "r"(ptrs.p_restore_base),                        \
                   [p_save_base] "r"(ptrs.p_save_base)                               \
-                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");                         \
+                : ALL_Z_REGS, ALL_P_REGS _FFR, "memory");                           \
         }
 
     const auto vl_bytes = static_cast<std::ptrdiff_t>(get_vl_bytes());
@@ -4908,7 +4914,7 @@ test_ld2_scalar_plus_immediate()
                   [z_save_base] "r"(ptrs.z_save_base),                              \
                   [p_restore_base] "r"(ptrs.p_restore_base),                        \
                   [p_save_base] "r"(ptrs.p_save_base)                               \
-                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");                         \
+                : ALL_Z_REGS, ALL_P_REGS _FFR, "memory");                           \
         }
 
     const auto vl_bytes = static_cast<std::ptrdiff_t>(get_vl_bytes());
@@ -5112,7 +5118,7 @@ test_ld3_scalar_plus_immediate()
                   [z_save_base] "r"(ptrs.z_save_base),                              \
                   [p_restore_base] "r"(ptrs.p_restore_base),                        \
                   [p_save_base] "r"(ptrs.p_save_base)                               \
-                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");                         \
+                : ALL_Z_REGS, ALL_P_REGS _FFR, "memory");                           \
         }
 
     const auto vl_bytes = static_cast<std::ptrdiff_t>(get_vl_bytes());
@@ -5358,7 +5364,7 @@ test_ld4_scalar_plus_immediate()
                   [z_save_base] "r"(ptrs.z_save_base),                              \
                   [p_restore_base] "r"(ptrs.p_restore_base),                        \
                   [p_save_base] "r"(ptrs.p_save_base)                               \
-                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");                         \
+                : ALL_Z_REGS, ALL_P_REGS _FFR, "memory");                           \
         }
 
     const auto vl_bytes = static_cast<std::ptrdiff_t>(get_vl_bytes());
@@ -5795,7 +5801,7 @@ test_st1_scalar_plus_immediate()
                   [z_save_base] "r"(ptrs.z_save_base),                              \
                   [p_restore_base] "r"(ptrs.p_restore_base),                        \
                   [p_save_base] "r"(ptrs.p_save_base)                               \
-                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");                         \
+                : ALL_Z_REGS, ALL_P_REGS _FFR, "memory");                           \
         }
 
     return run_tests<scalar_plus_immediate_store_test_case_t<1>>({
@@ -5961,7 +5967,7 @@ test_st2_scalar_plus_immediate()
                   [z_save_base] "r"(ptrs.z_save_base),                              \
                   [p_restore_base] "r"(ptrs.p_restore_base),                        \
                   [p_save_base] "r"(ptrs.p_save_base)                               \
-                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");                         \
+                : ALL_Z_REGS, ALL_P_REGS _FFR, "memory");                           \
         }
 
     return run_tests<scalar_plus_immediate_store_test_case_t<2>>({
@@ -6050,7 +6056,7 @@ test_st3_scalar_plus_immediate()
                   [z_save_base] "r"(ptrs.z_save_base),                              \
                   [p_restore_base] "r"(ptrs.p_restore_base),                        \
                   [p_save_base] "r"(ptrs.p_save_base)                               \
-                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");                         \
+                : ALL_Z_REGS, ALL_P_REGS _FFR, "memory");                           \
         }
 
     return run_tests<scalar_plus_immediate_store_test_case_t<3>>({
@@ -6145,7 +6151,7 @@ test_st4_scalar_plus_immediate()
                   [z_save_base] "r"(ptrs.z_save_base),                              \
                   [p_restore_base] "r"(ptrs.p_restore_base),                        \
                   [p_save_base] "r"(ptrs.p_save_base)                               \
-                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");                         \
+                : ALL_Z_REGS, ALL_P_REGS _FFR, "memory");                           \
         }
 
     return run_tests<scalar_plus_immediate_store_test_case_t<4>>({
@@ -6369,7 +6375,7 @@ test_ld1_vector_plus_scalar()
                   [z_save_base] "r"(ptrs.z_save_base),                         \
                   [p_restore_base] "r"(ptrs.p_restore_base),                   \
                   [p_save_base] "r"(ptrs.p_save_base), [index] "r"(ptrs.index) \
-                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");                    \
+                : ALL_Z_REGS, ALL_P_REGS _FFR, "memory");                      \
         }
 
     const auto get_base_ptr = [&](element_size_t element_size, size_t offset) {
@@ -6606,7 +6612,7 @@ test_st1_vector_plus_scalar()
                   [z_save_base] "r"(ptrs.z_save_base),                         \
                   [p_restore_base] "r"(ptrs.p_restore_base),                   \
                   [p_save_base] "r"(ptrs.p_save_base), [index] "r"(ptrs.index) \
-                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");                    \
+                : ALL_Z_REGS, ALL_P_REGS _FFR, "memory");                      \
         }
 
     return run_tests<vector_plus_scalar_store_test_case_t>({
