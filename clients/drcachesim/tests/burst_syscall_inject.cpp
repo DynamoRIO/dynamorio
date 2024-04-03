@@ -107,7 +107,7 @@ write_instr_entry(void *dr_context, std::unique_ptr<std::ostream> &writer, instr
                       make_instr(reinterpret_cast<addr_t>(instr_app_pc), type, len));
 }
 
-void
+static void
 write_header_entries(std::unique_ptr<std::ostream> &writer)
 {
     // Write a valid header so the trace can be used with the trace analyzer.
@@ -135,7 +135,7 @@ write_header_entries(std::unique_ptr<std::ostream> &writer)
     write_trace_entry(writer, make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096));
 }
 
-void
+static void
 write_footer_entries(std::unique_ptr<std::ostream> &writer)
 {
     dynamorio::drmemtrace::trace_entry_t thread_exit = {
@@ -232,7 +232,7 @@ postprocess(void *dr_context, std::string syscall_trace_template_file,
     return outdir;
 }
 
-basic_counts_t::counters_t
+static basic_counts_t::counters_t
 get_basic_counts(const std::string &trace_dir)
 {
     auto basic_counts_tool =
@@ -250,7 +250,7 @@ get_basic_counts(const std::string &trace_dir)
     return basic_counts_tool->get_total_counts();
 }
 
-void
+static void
 gather_trace()
 {
     std::cerr << "Collecting a trace...\n";
@@ -452,7 +452,7 @@ write_system_call_template_with_repstr(void *dr_context)
     return syscall_trace_template_file;
 }
 
-int
+static int
 test_template_with_repstr(void *dr_context)
 {
     std::cerr << "Testing system call trace template injection with repstr...\n";
@@ -491,7 +491,7 @@ test_template_with_repstr(void *dr_context)
 }
 #endif
 
-int
+static int
 test_trace_templates(void *dr_context)
 {
     std::cerr << "Testing system call trace template injection...\n";
