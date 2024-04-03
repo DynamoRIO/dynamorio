@@ -4439,7 +4439,7 @@ if (BUILD_CLIENTS)
       # path is very close to the max length allowed by Windows, so we abbreviate
       # the test name a tad.
       torunonly_drcacheoff(delay-tstamp tool.drcacheoff.windows-timestamps "" ""
-        "-trace_after_instrs 10000 -subdir_prefix tool.drcacheoff.delay-tstamp")
+        "-trace_after_instrs 10000 -subdir_prefix drmemtrace.tool.drcacheoff.delay-tstamp")
       set(tool.drcacheoff.delay-tstamp_expectbase "offline-windows-timestamps")
       set(tool.drcacheoff.delay-tstamp_timeout 120)
 
