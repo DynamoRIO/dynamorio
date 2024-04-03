@@ -4434,7 +4434,8 @@ if (BUILD_CLIENTS)
 
       set(tool.drcacheoff.delay-tstamp_nodr ON)
       set(tool.drcacheoff.delay-tstamp_nopost ON)
-      # -subdir_prefix should match the test name. For this test, the created trace
+      # -subdir_prefix should match the test name to allow the precmd to cleanup
+      # traces from previous runs of the test. For this test, the created trace
       # path is very close to the max length allowed by Windows, so we abbreviate
       # the test name a tad.
       torunonly_drcacheoff(delay-tstamp tool.drcacheoff.windows-timestamps "" ""
