@@ -300,10 +300,10 @@ insert_multipath_call(void *drcontext, instrlist_t *bb, instr_t *inst)
     instr_t *skip_call = INSTR_CREATE_label(drcontext);
     /* The app executes twice and sets rcx/r0 to 0 for one of them. */
 #if defined(RISCV64)
-    instrlist_meta_preinsert(
-        bb, inst,
-        INSTR_CREATE_beq(drcontext, opnd_create_instr(skip_call), opnd_create_reg(DR_REG_A0),
-                         OPND_CREATE_INT32(0)));
+    instrlist_meta_preinsert(bb, inst,
+                             INSTR_CREATE_beq(drcontext, opnd_create_instr(skip_call),
+                                              opnd_create_reg(DR_REG_A0),
+                                              OPND_CREATE_INT32(0)));
 #else
     instrlist_meta_preinsert(
         bb, inst,
