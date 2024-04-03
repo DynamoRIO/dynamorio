@@ -146,43 +146,6 @@ write_footer_entries(std::unique_ptr<std::ostream> &writer)
 }
 
 static std::string
-write_system_call_template_with_repstr(void *dr_context)
-{
-    // Get path to write the template and an ostream to it.
-    const char *raw_dir;
-    drmemtrace_status_t mem_res = drmemtrace_get_output_path(&raw_dir);
-    assert(mem_res == DRMEMTRACE_SUCCESS);
-    std::string syscall_trace_template_file =
-        std::string(raw_dir) + DIRSEP + "syscall_trace_template_repstr";
-    auto writer =
-        std::unique_ptr<std::ostream>(new std::ofstream(syscall_trace_template_file));
-
-    write_header_entries(writer);
-
-    write_trace_entry(writer,
-                      make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYS_gettid));
-    instr_t *rep_movs = INSTR_CREATE_rep_movs_1(GLOBAL_DCONTEXT);
-    for (int i = 0; i < REP_MOVS_COUNT; ++i) {
-        write_instr_entry(dr_context, writer, rep_movs,
-                          reinterpret_cast<app_pc>(PC_SYSCALL_GETTID),
-                          i == 0 ? TRACE_TYPE_INSTR : TRACE_TYPE_INSTR_NO_FETCH);
-        write_trace_entry(writer,
-                          make_memref(READ_MEMADDR_GETTID, TRACE_TYPE_READ,
-                                      opnd_size_in_bytes(OPSZ_PTR)));
-        write_trace_entry(writer,
-                          make_memref(READ_MEMADDR_GETTID, TRACE_TYPE_WRITE,
-                                      opnd_size_in_bytes(OPSZ_PTR)));
-    }
-    instr_destroy(dr_context, rep_movs);
-    write_trace_entry(writer,
-                      make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_getpid));
-
-    write_footer_entries(writer);
-
-    return syscall_trace_template_file;
-}
-
-static std::string
 write_system_call_template(void *dr_context)
 {
     // Get path to write the template and an ostream to it.
@@ -451,6 +414,44 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
 }
 
 #ifdef X86
+
+static std::string
+write_system_call_template_with_repstr(void *dr_context)
+{
+    // Get path to write the template and an ostream to it.
+    const char *raw_dir;
+    drmemtrace_status_t mem_res = drmemtrace_get_output_path(&raw_dir);
+    assert(mem_res == DRMEMTRACE_SUCCESS);
+    std::string syscall_trace_template_file =
+        std::string(raw_dir) + DIRSEP + "syscall_trace_template_repstr";
+    auto writer =
+        std::unique_ptr<std::ostream>(new std::ofstream(syscall_trace_template_file));
+
+    write_header_entries(writer);
+
+    write_trace_entry(writer,
+                      make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYS_gettid));
+    instr_t *rep_movs = INSTR_CREATE_rep_movs_1(GLOBAL_DCONTEXT);
+    for (int i = 0; i < REP_MOVS_COUNT; ++i) {
+        write_instr_entry(dr_context, writer, rep_movs,
+                          reinterpret_cast<app_pc>(PC_SYSCALL_GETTID),
+                          i == 0 ? TRACE_TYPE_INSTR : TRACE_TYPE_INSTR_NO_FETCH);
+        write_trace_entry(writer,
+                          make_memref(READ_MEMADDR_GETTID, TRACE_TYPE_READ,
+                                      opnd_size_in_bytes(OPSZ_PTR)));
+        write_trace_entry(writer,
+                          make_memref(READ_MEMADDR_GETTID, TRACE_TYPE_WRITE,
+                                      opnd_size_in_bytes(OPSZ_PTR)));
+    }
+    instr_destroy(dr_context, rep_movs);
+    write_trace_entry(writer,
+                      make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_getpid));
+
+    write_footer_entries(writer);
+
+    return syscall_trace_template_file;
+}
+
 int
 test_template_with_repstr(void *dr_context)
 {
