@@ -1648,7 +1648,8 @@ DR_API
  * write is returned in \p is_write.  Either or both OUT variables can
  * be NULL.
  * \p mc->flags must include DR_MC_CONTROL and DR_MC_INTEGER.
- * For instructions that use vector addressing (VSIB, introduced in AVX2),
+ * For instructions that use vector addressing (x86 VSIB, introduced in AVX2, or
+ * AArch64 scatter/gather instructions introduced in SVE/SVE2),
  * mc->flags must additionally include DR_MC_MULTIMEDIA.
  *
  * Like instr_reads_memory(), this routine does not consider
