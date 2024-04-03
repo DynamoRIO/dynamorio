@@ -81,7 +81,8 @@ module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
         addr_two_args = (app_pc)dr_get_proc_address(mod->handle, "two_args");
         CHECK(addr_two_args != NULL, "cannot find lib export");
 #if defined(RISCV64)
-        bool ok = drwrap_wrap_ex(addr_two_args, wrap_pre, wrap_post, 0, DRWRAP_CALLCONV_RISCV_LP64 | DRWRAP_REPLACE_RETADDR);
+        bool ok = drwrap_wrap_ex(addr_two_args, wrap_pre, wrap_post, 0,
+                                 DRWRAP_CALLCONV_RISCV_LP64 | DRWRAP_REPLACE_RETADDR);
 #else
         bool ok = drwrap_wrap(addr_two_args, wrap_pre, wrap_post);
 #endif
@@ -108,7 +109,8 @@ clean_call_rw(void)
     mc.flags = DR_MC_CONTROL | DR_MC_INTEGER;
     bool ok = dr_get_mcontext(drcontext, &mc);
     CHECK(ok, "dr_get_mcontext failed");
-    CHECK(IF_X86_ELSE(mc.xdx, IF_AARCHXX_ELSE(mc.r1, mc.a1)) == 4, "app reg val not restored for clean call");
+    CHECK(IF_X86_ELSE(mc.xdx, IF_AARCHXX_ELSE(mc.r1, mc.a1)) == 4,
+          "app reg val not restored for clean call");
     IF_X86_ELSE(mc.xcx, IF_AARCHXX_ELSE(mc.r2, mc.a2)) = 3;
     ok = dr_set_mcontext(drcontext, &mc);
     CHECK(ok, "dr_set_mcontext failed");
@@ -140,7 +142,8 @@ clean_call_multipath(void)
     mc.flags = DR_MC_CONTROL | DR_MC_INTEGER;
     bool ok = dr_get_mcontext(drcontext, &mc);
     CHECK(ok, "dr_get_mcontext failed");
-    CHECK(IF_X86_ELSE(mc.xdx, IF_AARCHXX_ELSE(mc.r1, mc.a1)) == 4, "app reg val not restored for clean call");
+    CHECK(IF_X86_ELSE(mc.xdx, IF_AARCHXX_ELSE(mc.r1, mc.a1)) == 4,
+          "app reg val not restored for clean call");
 #ifdef X86
     /* This tests the drreg_statelessly_restore_app_value() respill which only
      * happens with aflags in xax.
@@ -351,11 +354,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     /* Look for nop;nop;nop in reg_val_test() and 4 nops in multipath_test(). */
     if (instr_is_app(inst)) {
         int *nop_count = (int *)user_data;
-#if defined(RISCV64)
-        if (instr_is_nop(inst)) {
-#else
-        if (instr_get_opcode(inst) == OP_nop IF_ARM(|| instr_is_mov_nop(inst))) {
-#endif
+        if (instr_is_nop(inst) IF_ARM(|| instr_is_mov_nop(inst))) {
             ++(*nop_count);
         } else {
             if (*nop_count == 3) {
