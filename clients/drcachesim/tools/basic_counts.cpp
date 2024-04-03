@@ -150,6 +150,11 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             ++counters->encodings;
     } else if (memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
         ++counters->instrs_nofetch;
+        if (per_shard->is_kernel) {
+            ++counters->kernel_nofetch_instrs;
+        } else {
+            ++counters->user_nofetch_instrs;
+        }
         // The encoding entries aren't exposed at the memref_t level, but
         // we use encoding_is_new as a proxy.
         if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, per_shard->filetype_) &&
@@ -276,13 +281,19 @@ basic_counts_t::print_counters(const counters_t &counters, const std::string &pr
         std::cerr << std::setw(12) << counters.unique_pc_addrs.size() << prefix
                   << " unique (fetched) instructions\n";
     }
-    std::cerr << std::setw(12) << counters.instrs_nofetch << prefix
-              << " non-fetched instructions\n";
     if (for_kernel_trace) {
         std::cerr << std::setw(12) << counters.user_instrs << prefix
                   << " userspace instructions\n";
         std::cerr << std::setw(12) << counters.kernel_instrs << prefix
                   << " kernel instructions\n";
+    }
+    std::cerr << std::setw(12) << counters.instrs_nofetch << prefix
+              << " non-fetched instructions\n";
+    if (for_kernel_trace) {
+        std::cerr << std::setw(12) << counters.user_nofetch_instrs << prefix
+                  << " non-fetched userspace instructions\n";
+        std::cerr << std::setw(12) << counters.kernel_nofetch_instrs << prefix
+                  << " non-fetched kernel instructions\n";
     }
     std::cerr << std::setw(12) << counters.prefetches << prefix << " prefetches\n";
     std::cerr << std::setw(12) << counters.loads << prefix << " data loads\n";
