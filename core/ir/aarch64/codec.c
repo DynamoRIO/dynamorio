@@ -9719,12 +9719,12 @@ decode_category(uint encoding, instr_t *instr)
 byte *
 decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
 {
-    /* Synthetic ISA has its own decoder.
+    /* #DR_ISA_REGDEPS synthetic ISA has its own decoder.
      * XXX i#1684: when DR can be built with full dynamic architecture selection we won't
      * need to pollute the decoding of other architectures with this synthetic ISA special
      * case.
      */
-    if (dr_get_isa_mode((void *)dcontext) == DR_ISA_REGDEPS)
+    if (dr_get_isa_mode(dcontext) == DR_ISA_REGDEPS)
         return decode_from_synth(dcontext, pc, instr);
 
     byte *next_pc = pc + 4;
