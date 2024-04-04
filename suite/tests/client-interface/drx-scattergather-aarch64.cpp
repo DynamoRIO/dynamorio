@@ -5812,7 +5812,7 @@ test_ldnf1_scalar_plus_immediate()
                   [z_save_base] "r"(ptrs.z_save_base),                              \
                   [p_restore_base] "r"(ptrs.p_restore_base),                        \
                   [p_save_base] "r"(ptrs.p_save_base)                               \
-                : ALL_Z_REGS, ALL_P_REGS, "ffr", "memory");                         \
+                : ALL_Z_REGS, ALL_P_REGS _FFR, "memory");                           \
         }
 
     const auto vl_bytes = static_cast<std::ptrdiff_t>(get_vl_bytes());
