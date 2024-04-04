@@ -631,10 +631,12 @@ raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, byte *&buf_i
     *buf = start_entry;
     ++buf;
     // Now write any accumulated entries from before, plus the start entry.
-    size_t size = buf - buf_base;
-    if ((uint)size >= WRITE_BUFFER_SIZE) {
-        tdata->error = "Too many entries";
-        return false;
+    {
+        size_t size = buf - buf_base;
+        if ((uint)size >= WRITE_BUFFER_SIZE) {
+            tdata->error = "Too many entries";
+            return false;
+        }
     }
     if (!write(tdata, buf_base, buf)) {
         return false;
@@ -648,15 +650,20 @@ raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, byte *&buf_i
     // potentially customize some properties of the trace. E.g. the start address for the
     // kernel code section.
     for (const auto &entry : syscall_trace_templates_[syscall_num]) {
-        if (type_is_instr(static_cast<trace_type_t>(entry.type))) {
+        if (type_is_instr(static_cast<trace_type_t>(entry.type)) ||
+            // We want to write out at each repstr instance so that we do not accumulate
+            // too many buffered entries.
+            entry.type == TRACE_TYPE_INSTR_NO_FETCH) {
             if (buf != buf_base) {
                 if (!write(tdata, buf_base, buf, &saved_decode_pc, 1)) {
                     return false;
                 }
                 buf = buf_base;
             }
-            ++inserted_instr_count;
-            accumulate_to_statistic(tdata, RAW2TRACE_STAT_KERNEL_INSTR_COUNT, 1);
+            if (type_is_instr(static_cast<trace_type_t>(entry.type))) {
+                ++inserted_instr_count;
+                accumulate_to_statistic(tdata, RAW2TRACE_STAT_KERNEL_INSTR_COUNT, 1);
+            }
             saved_decode_pc = syscall_trace_template_encodings_.get_decode_pc(
                 static_cast<addr_t>(entry.addr));
             if (saved_decode_pc == nullptr) {
@@ -667,6 +674,11 @@ raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, byte *&buf_i
             } else {
                 record_encoding_emitted(tdata, saved_decode_pc);
             }
+        }
+        size_t size = buf - buf_base;
+        if ((uint)size >= WRITE_BUFFER_SIZE) {
+            tdata->error = "Too many accumulated entries";
+            return false;
         }
         *buf = entry;
         ++buf;
