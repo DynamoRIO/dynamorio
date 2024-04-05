@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2024 Google, Inc. All rights reserved.
+ * Copyright (c) 2019-2023 Google, Inc. All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -226,42 +226,16 @@ save_priv_mcontext_helper:
         str      w2, [x0, #(16 * ARG_SZ*2 + 12)]
         str      w3, [x0, #(16 * ARG_SZ*2 + 16)]
         add      x4, x0, #simd_OFFSET
-
-        /* Registers Q0-Q31 map directly to registers V0-V31. */
-        str      q0, [x4], #64
-        str      q1, [x4], #64
-        str      q2, [x4], #64
-        str      q3, [x4], #64
-        str      q4, [x4], #64
-        str      q5, [x4], #64
-        str      q6, [x4], #64
-        str      q7, [x4], #64
-        str      q8, [x4], #64
-        str      q9, [x4], #64
-        str      q10, [x4], #64
-        str      q11, [x4], #64
-        str      q12, [x4], #64
-        str      q13, [x4], #64
-        str      q14, [x4], #64
-        str      q15, [x4], #64
-        str      q16, [x4], #64
-        str      q17, [x4], #64
-        str      q18, [x4], #64
-        str      q19, [x4], #64
-        str      q20, [x4], #64
-        str      q21, [x4], #64
-        str      q22, [x4], #64
-        str      q23, [x4], #64
-        str      q24, [x4], #64
-        str      q25, [x4], #64
-        str      q26, [x4], #64
-        str      q27, [x4], #64
-        str      q28, [x4], #64
-        str      q29, [x4], #64
-        str      q30, [x4], #64
-        str      q31, [x4], #64
-        /* TODO i#5365, i#5036: Save Z/P regs as well? Will require runtime
-         * check of ID_AA64PFR0_EL1 for FEAT_SVE.
+        st1      {v0.2d-v3.2d}, [x4], #64
+        st1      {v4.2d-v7.2d}, [x4], #64
+        st1      {v8.2d-v11.2d}, [x4], #64
+        st1      {v12.2d-v15.2d}, [x4], #64
+        st1      {v16.2d-v19.2d}, [x4], #64
+        st1      {v20.2d-v23.2d}, [x4], #64
+        st1      {v24.2d-v27.2d}, [x4], #64
+        st1      {v28.2d-v31.2d}, [x4], #64
+        /* TODO i#5365: Save Z/P regs as well? Will require runtime check of
+         * ID_AA64PFR0_EL1 for FEAT_SVE.
          */
         ret
 
