@@ -846,7 +846,14 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 // DR hands us a different address for sysenter than the
                 // resumption point.
                 shard->last_signal_context_.pre_signal_instr.memref.instr.type ==
-                    TRACE_TYPE_INSTR_SYSENTER;
+                    TRACE_TYPE_INSTR_SYSENTER // clang-format off
+                // The AArch64 scatter/gather expansion test skips faulting
+                // instructions in the signal handler by incrementing the PC.
+                IF_AARCH64(||
+                           (knob_test_name_ == "scattergather" &&
+                            memref.instr.addr ==
+                                shard->last_signal_context_.xfer_int_pc + 4));
+            // clang-format on
             report_if_false(
                 shard,
                 kernel_event_marker_equality ||

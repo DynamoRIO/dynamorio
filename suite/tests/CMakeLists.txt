@@ -3920,8 +3920,13 @@ if (BUILD_CLIENTS)
 
     if ((NOT MACOS) AND (X86 OR AARCH64))
         torunonly_drcachesim(scattergather-${ARCH_NAME} client.drx-scattergather
-        "-simulator_type invariant_checker" "")
+        "-simulator_type invariant_checker -test_mode_name scattergather" "")
       unset(tool.drcachesim.scattergather-${ARCH_NAME}_rawtemp) # use preprocessor
+      if (AARCH64)
+          # The AArch64 version of the test tests a lot of instruction variants and can
+          # take >100s.
+          set(tool.drcachesim.scattergather-${ARCH_NAME}_timeout 180)
+      endif ()
       if (proc_supports_avx512)
         set(tool.drcachesim.scattergather-${ARCH_NAME}_runavx512 1)
       elseif (proc_supports_avx)

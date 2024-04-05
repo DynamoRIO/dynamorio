@@ -1,0 +1,10 @@
+Collecting a trace...
+Done with system calls
+Done collecting trace
+Testing system call trace template injection...
+Done with test.
+#ifdef X86
+Testing system call trace template injection with repstr...
+Done with test.
+#endif
+Trace invariant checks passed
