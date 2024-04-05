@@ -32,7 +32,7 @@
 #include <stdint.h>
 
 #include "../globals.h"
-#include "../synthetic/decode.h"
+#include "../isa_regdeps/decode.h"
 #include "codec.h"
 #include "encode_api.h"
 #include "trie.h"

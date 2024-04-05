@@ -2036,8 +2036,8 @@ if (NOT ANDROID)
   endif (AARCH64)
 endif ()
 
-# test synthetic ISA encoding/decoding
-tobuild_api(api.ir_synthetic api/ir_synthetic.c "" "" OFF OFF OFF)
+# test synthetic DR_ISA_REGDEPS encoding/decoding
+tobuild_api(api.ir_regdeps api/ir_regdeps.c "" "" OFF OFF OFF)
 
 # test static decoder library
 tobuild_api(api.ir-static api/ir_${sfx}.c "" "" ON OFF OFF)

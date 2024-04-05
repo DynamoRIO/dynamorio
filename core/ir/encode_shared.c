@@ -38,7 +38,7 @@
 /* encode_shared.c -- cross-platform encodingn routines */
 
 #include "../globals.h"
-#include "synthetic/encode.h"
+#include "isa_regdeps/encode.h"
 #include "arch.h"
 #include "instr.h"
 #include "decode.h"

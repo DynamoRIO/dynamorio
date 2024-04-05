@@ -40,7 +40,7 @@
 
 #include <stdint.h>
 #include "../globals.h"
-#include "../synthetic/decode.h"
+#include "../isa_regdeps/decode.h"
 #include "arch.h"
 #include "decode.h"
 #include "disassemble.h"

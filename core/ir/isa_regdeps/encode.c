@@ -30,7 +30,7 @@
  * DAMAGE.
  */
 
-/* encode.c -- an encoder for DR synthetic IR */
+/* encode.c -- an encoder for DR_ISA_REGDEPS instructions */
 
 #include "encode.h"
 
@@ -42,7 +42,7 @@
 
 /* Encodes DR instruction representation \p instr into raw bytes \p encoded_instr.
  * Returns next instruction's pc.
- * The encoding scheme followed is described in core/ir/synthetic/encoding_common.h.
+ * The encoding scheme followed is described in #core/ir/isa_regdeps/encoding_common.h.
  */
 byte *
 encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
@@ -67,9 +67,9 @@ encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
     uint eflags_instr = instr_get_arith_flags(instr, DR_QUERY_DEFAULT);
     uint eflags = 0;
     if (TESTANY(EFLAGS_WRITE_ARITH, eflags_instr))
-        eflags |= SYNTHETIC_INSTR_WRITES_ARITH;
+        eflags |= REGDEPS_INSTR_WRITES_ARITH;
     if (TESTANY(EFLAGS_READ_ARITH, eflags_instr))
-        eflags |= SYNTHETIC_INSTR_READS_ARITH;
+        eflags |= REGDEPS_INSTR_READS_ARITH;
     encoding_header |= (eflags << FLAGS_SHIFT);
 
     /* Encode category as synthetic opcode.

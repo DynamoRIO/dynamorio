@@ -52,7 +52,7 @@
 #define INSTR_INLINE extern inline
 
 #include "../globals.h"
-#include "synthetic/encoding_common.h"
+#include "isa_regdeps/encoding_common.h"
 #include "instr.h"
 #include "arch.h"
 #include "../link.h"
@@ -4378,4 +4378,4 @@ move_mm_avx512_reg_opcode(bool aligned64)
 }
 
 #endif /* !STANDALONE_DECODER */
-/****************************************************************************/
+       /****************************************************************************/

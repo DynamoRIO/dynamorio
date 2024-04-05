@@ -30,8 +30,8 @@
  * DAMAGE.
  */
 
-#ifndef _SYNTHETIC_ENCODING_COMMON_H_
-#define _SYNTHETIC_ENCODING_COMMON_H_
+#ifndef _REGDEPS_ENCODING_COMMON_H_
+#define _REGDEPS_ENCODING_COMMON_H_
 
 /**
  * This synthetic ISA (which we call #DR_ISA_REGDEPS) is a made up ISA that has the
@@ -46,7 +46,7 @@
  * instructions: instr_encode(), instr_encode_to_copy(), decode(), decode_from_copy().
  *
  * Note that a #DR_ISA_REGDEPS #instr_t contains only the encoded information described in
- * the encoding scheme (see #core/ir/synthetic/encoding_common.h):
+ * the encoding scheme (see #core/ir/isa_regdeps/encoding_common.h):
  * - categories (from #dr_category_t), to indicate the type of operation performed (e.g.,
  *   a load, a math operation, a floating point math operation, a branch, etc.);
  * - arithmetic flags, with no distinction between different flags, we only report if at
@@ -136,8 +136,8 @@
 #define FLAGS_MASK (((1U << FLAGS_BITS) - 1) << FLAGS_SHIFT)
 #define CATEGORY_MASK (((1U << CATEGORY_BITS) - 1) << CATEGORY_SHIFT)
 
-#define SYNTHETIC_INSTR_WRITES_ARITH 0x1
-#define SYNTHETIC_INSTR_READS_ARITH 0x2
+#define REGDEPS_INSTR_WRITES_ARITH 0x1
+#define REGDEPS_INSTR_READS_ARITH 0x2
 
 #define HEADER_BYTES 4
 #define OP_SIZE_INDEX HEADER_BYTES
@@ -152,4 +152,4 @@
  */
 #define MAX_NUM_REGS 256
 
-#endif // _SYNTHETIC_ENCODING_COMMON_H_
+#endif // _REGDEPS_ENCODING_COMMON_H_

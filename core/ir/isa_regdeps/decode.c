@@ -30,7 +30,7 @@
  * DAMAGE.
  */
 
-/* decode.c -- a decoder for DR synthetic IR */
+/* decode.c -- a decoder for DR_ISA_REGDEPS instructions */
 
 #include "decode.h"
 
@@ -43,7 +43,7 @@
 /* Decodes the raw bytes of an encoded instruction \p encoded_instr into DR instruction
  * representation \p instr.
  * Returns the next instruction's PC.
- * The encoding scheme followed is described in core/ir/synthetic/encoding_common.h.
+ * The encoding scheme followed is described in #core/ir/isa_regdeps/encoding_common.h.
  */
 byte *
 decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
@@ -68,9 +68,9 @@ decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
      */
     uint eflags = (encoding_header & FLAGS_MASK) >> FLAGS_SHIFT;
     uint eflags_instr = 0;
-    if (TESTANY(SYNTHETIC_INSTR_WRITES_ARITH, eflags))
+    if (TESTANY(REGDEPS_INSTR_WRITES_ARITH, eflags))
         eflags_instr |= EFLAGS_WRITE_ARITH;
-    if (TESTANY(SYNTHETIC_INSTR_READS_ARITH, eflags))
+    if (TESTANY(REGDEPS_INSTR_READS_ARITH, eflags))
         eflags_instr |= EFLAGS_READ_ARITH;
     instr->eflags = eflags_instr;
 

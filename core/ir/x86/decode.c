@@ -38,7 +38,7 @@
 /* decode.c -- a full x86 decoder */
 
 #include "../globals.h"
-#include "../synthetic/decode.h"
+#include "../isa_regdeps/decode.h"
 #include "arch.h"
 #include "encode_api.h"
 #include "instr.h"
