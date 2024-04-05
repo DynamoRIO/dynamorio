@@ -12,8 +12,10 @@ Total counts:
            0 total icache flushes
            0 total dcache flushes
            3 total threads
-         136 total scheduling markers
-          11 total transfer markers
+         136 total timestamp \+ cpuid markers
+           0 total idle markers
+           0 total wait markers
+          11 total kernel transfer markers
            0 total function id markers
            0 total function return address markers
            0 total function argument markers
@@ -33,8 +35,10 @@ Thread 552306 counts:
         4442 data stores
            0 icache flushes
            0 dcache flushes
-         110 scheduling markers
-          11 transfer markers
+         110 timestamp \+ cpuid markers
+           0 idle markers
+           0 wait markers
+          11 kernel transfer markers
            0 function id markers
            0 function return address markers
            0 function argument markers
@@ -54,8 +58,10 @@ Thread 552323 counts:
          651 data stores
            0 icache flushes
            0 dcache flushes
-          14 scheduling markers
-           0 transfer markers
+          14 timestamp \+ cpuid markers
+           0 idle markers
+           0 wait markers
+           0 kernel transfer markers
            0 function id markers
            0 function return address markers
            0 function argument markers
@@ -75,8 +81,10 @@ Thread 552324 counts:
          451 data stores
            0 icache flushes
            0 dcache flushes
-          12 scheduling markers
-           0 transfer markers
+          12 timestamp \+ cpuid markers
+           0 idle markers
+           0 wait markers
+           0 kernel transfer markers
            0 function id markers
            0 function return address markers
            0 function argument markers
