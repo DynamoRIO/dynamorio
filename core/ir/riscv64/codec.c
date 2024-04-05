@@ -1491,7 +1491,7 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
      * case.
      */
     if (dr_get_isa_mode(dcontext) == DR_ISA_REGDEPS)
-        return decode_from_synth(dcontext, pc, instr);
+        return decode_isa_regdeps(dcontext, pc, instr);
 
     /* Decode instruction width from the opcode. */
     int width = instruction_width(*(uint16_t *)pc);

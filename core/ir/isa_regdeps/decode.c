@@ -46,7 +46,7 @@
  * The encoding scheme followed is described in #core/ir/isa_regdeps/encoding_common.h.
  */
 byte *
-decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
+decode_isa_regdeps(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
 {
     /* Interpret the first 4 bytes of encoded_instr (which are always present) as a uint
      * for easier retrieving of category, eflags, #src, and #dst values.

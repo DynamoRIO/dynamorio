@@ -45,7 +45,7 @@
  * The encoding scheme followed is described in #core/ir/isa_regdeps/encoding_common.h.
  */
 byte *
-encode_to_synth(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
+encode_isa_regdeps(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
 {
     /* Use a local uint variable for easier setting of category, eflags, #src, and #dst
      * values.

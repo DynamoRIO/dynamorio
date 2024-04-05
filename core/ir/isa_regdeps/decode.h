@@ -36,6 +36,6 @@
 #include "../globals.h"
 
 byte *
-decode_from_synth(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr);
+decode_isa_regdeps(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr);
 
 #endif /* _REGDEPS_DECODE_H_ */
