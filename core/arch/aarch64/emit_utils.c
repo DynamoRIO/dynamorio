@@ -568,7 +568,7 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
                               opnd_create_reg(REG_DCXT),
                               OPND_CREATE_INTPTR(offsetof(priv_mcontext_t, simd))));
     ASSERT(sizeof(dr_simd_t) == 64);
-    for (i = 0; i < 32; i++) {
+    for (i = 0; i < 32; i ++) {
         /* ldr q(i), [x1, #(i * sizeof(dr_simd_t))] */
         APP(ilist,
             INSTR_CREATE_ldr(
