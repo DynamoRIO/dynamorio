@@ -41,7 +41,7 @@
 #include "opnd_api.h"
 
 /* Encodes DR instruction representation \p instr into raw bytes \p encoded_instr.
- * Returns next instruction's pc.
+ * Returns the next instruction's PC.
  * The encoding scheme followed is described in #core/ir/isa_regdeps/encoding_common.h.
  */
 byte *
@@ -64,6 +64,7 @@ encode_isa_regdeps(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
 
     /* Encode arithmetic flags.
      */
+    ASSERT(instr_arith_flags_valid(instr));
     uint eflags_instr = instr_get_arith_flags(instr, DR_QUERY_DEFAULT);
     uint eflags = 0;
     if (TESTANY(EFLAGS_WRITE_ARITH, eflags_instr))
@@ -72,21 +73,19 @@ encode_isa_regdeps(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
         eflags |= REGDEPS_INSTR_READS_ARITH;
     encoding_header |= (eflags << FLAGS_SHIFT);
 
-    /* Encode category as synthetic opcode.
+    /* Encode instruction category.
      */
     uint category = instr_get_category(instr);
     encoding_header |= (category << CATEGORY_SHIFT);
 
     /* Copy header encoding back into encoded_instr output.
      */
-    *((uint *)&encoded_instr[0]) = encoding_header;
+    *((uint *)encoded_instr) = encoding_header;
 
     /* Encode register destination operands, if present.
      */
-    opnd_size_t max_opnd_size = OPSZ_NA;
     for (uint dst_index = 0; dst_index < num_dsts; ++dst_index) {
         opnd_t dst_opnd = instr_get_dst(instr, dst_index);
-        max_opnd_size = opnd_get_size(dst_opnd);
         uint num_regs_used_by_opnd = (uint)opnd_num_regs_used(dst_opnd);
         for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
             reg_id_t reg = opnd_get_reg_used(dst_opnd, opnd_index);
@@ -98,7 +97,6 @@ encode_isa_regdeps(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
      */
     for (uint src_index = 0; src_index < num_srcs; ++src_index) {
         opnd_t src_opnd = instr_get_src(instr, src_index);
-        max_opnd_size = opnd_get_size(src_opnd);
         uint num_regs_used_by_opnd = (uint)opnd_num_regs_used(src_opnd);
         for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
             reg_id_t reg = opnd_get_reg_used(src_opnd, opnd_index);
@@ -109,21 +107,18 @@ encode_isa_regdeps(dcontext_t *dcontext, instr_t *instr, byte *encoded_instr)
     /* Encode largest register size, if there is at least one operand.
      */
     uint num_opnds = num_dsts + num_srcs;
-    if (num_opnds > 0) {
-        CLIENT_ASSERT(
-            max_opnd_size != OPSZ_NA,
-            "instructions with register operands cannot have operand size OPSZ_NA");
+    opnd_size_t max_opnd_size = instr->operation_size;
+    if (num_opnds > 0)
         encoded_instr[OP_SIZE_INDEX] = (byte)max_opnd_size;
-    }
 
-    /* Retrieve instruction length, which includes bytes for padding to reach 4 byte
-     * alignment.
-     * This already accounts for 1 additional byte containing max register operand size,
-     * if there are any operands.
+    /* Compute instruction length including bytes for padding to reach 4 bytes alignment.
+     * Account for 1 additional byte containing max register operand size, if there are
+     * any operands.
      */
-    uint length = (uint)instr_length(dcontext, instr);
+    uint num_opnd_bytes = num_opnds > 0 ? num_opnds + 1 : 0;
+    uint instr_length = ALIGN_FORWARD(HEADER_BYTES + num_opnd_bytes, ALIGN_BYTES);
 
     /* Compute next instruction's PC as: current PC + instruction length.
      */
-    return encoded_instr + length;
+    return encoded_instr + instr_length;
 }

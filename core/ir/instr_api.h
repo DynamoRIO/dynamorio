@@ -298,10 +298,14 @@ struct _instr_t {
 
     uint opcode;
 
-#    ifdef X86
-    /* PR 251479: offset into instr's raw bytes of rip-relative 4-byte displacement */
-    byte rip_rel_pos;
-#    endif
+    union {
+        /* PR 251479: offset into instr's raw bytes of rip-relative 4-byte displacement */
+        byte rip_rel_pos;
+        /* PR #6691: size of source data (i.e., read) an instruction operates on.
+         * Note that opnd_size_t is an alias for byte.
+         */
+        opnd_size_t operation_size;
+    };
 
     /* we dynamically allocate dst and src arrays b/c x86 instrs can have
      * up to 8 of each of them, but most have <=2 dsts and <=3 srcs, and we
@@ -2099,11 +2103,12 @@ DR_API
 /**
  * Converts a real ISA (e.g., #DR_ISA_AMD64) instruction \p instr_real_isa into a
  * #DR_ISA_REGDEPS instruction and stores it into \p instr_regdeps_isa.
- * Assumes \p instr_regdeps_isa has been allocated in the caller (e.g., using
+ * Assumes \p instr_regdeps_isa has been allocated by the caller (e.g., using
  * instr_create()).
- * Assumes \p instr_real_isa is a fully-decoded or synthesized instruction of a real ISA.
+ * Assumes \p instr_real_isa is a fully-decoded or synthesized instruction of a real ISA
+ * with valid operand information.
  * \note \p instr_regdeps_isa will contain the information of a #DR_ISA_REGDEPS synthetic
- * instruction described in #core/ir/synthetic/encoding_common.h.
+ * instruction described in #core/ir/isa_regdeps/encoding_common.h.
  */
 void
 instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,

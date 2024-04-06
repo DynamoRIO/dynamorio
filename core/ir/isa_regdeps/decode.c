@@ -52,7 +52,8 @@ decode_isa_regdeps(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
      * for easier retrieving of category, eflags, #src, and #dst values.
      * We can do this safely because encoded_instr is 4 bytes aligned.
      */
-    uint encoding_header = *((uint *)&encoded_instr[0]);
+    ASSERT(ALIGNED(encoded_instr, ALIGN_BYTES));
+    uint encoding_header = *((uint *)encoded_instr);
 
     /* Decode number of register destination operands.
      */
@@ -79,24 +80,24 @@ decode_isa_regdeps(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
      */
     instr_set_arith_flags_valid(instr, true);
 
-    /* Decode synthetic opcode as instruction category.
+    /* Decode instruction category.
      */
     uint category = (encoding_header & CATEGORY_MASK) >> CATEGORY_SHIFT;
     instr_set_category(instr, category);
 
-    /* Decode register operand size, if there are any operands.
+    /* Decode operation size, if there are any operands.
      */
     uint num_opnds = num_dsts + num_srcs;
-    opnd_size_t max_reg_size = OPSZ_NA;
+    opnd_size_t max_opnd_size = OPSZ_0;
     if (num_opnds > 0)
-        max_reg_size = (opnd_size_t)encoded_instr[OP_SIZE_INDEX];
+        max_opnd_size = (opnd_size_t)encoded_instr[OP_SIZE_INDEX];
+    instr->operation_size = max_opnd_size;
 
     /* Decode register destination operands, if present.
      */
     for (uint i = 0; i < num_dsts; ++i) {
         reg_id_t dst = (reg_id_t)encoded_instr[i + OPND_INDEX];
         opnd_t dst_opnd = opnd_create_reg((reg_id_t)dst);
-        opnd_set_size(&dst_opnd, max_reg_size);
         instr_set_dst(instr, i, dst_opnd);
     }
 
@@ -105,7 +106,6 @@ decode_isa_regdeps(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
     for (uint i = 0; i < num_srcs; ++i) {
         reg_id_t src = (reg_id_t)encoded_instr[i + OPND_INDEX + num_dsts];
         opnd_t src_opnd = opnd_create_reg((reg_id_t)src);
-        opnd_set_size(&src_opnd, max_reg_size);
         instr_set_src(instr, i, src_opnd);
     }
 
@@ -120,13 +120,6 @@ decode_isa_regdeps(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
     uint num_opnd_bytes = num_opnds > 0 ? num_opnds + 1 : 0;
     uint instr_length = ALIGN_FORWARD(HEADER_BYTES + num_opnd_bytes, ALIGN_BYTES);
     instr->length = instr_length;
-
-    /* At this point the synthetic instruction has been fully decoded, so we set the
-     * decoded flags bit and declare the synthetic instruction valid.
-     * This is necessary to avoid trying to compute its length again when we want to
-     * retrieve it using instr_length().
-     */
-    instr_set_raw_bits_valid(instr, true);
 
     /* Set decoded instruction ISA mode to be synthetic.
      */
