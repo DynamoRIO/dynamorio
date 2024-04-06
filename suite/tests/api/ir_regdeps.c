@@ -50,7 +50,7 @@ test_instr_encode_decode_synthetic(void *dc, instr_t *instr)
      */
     byte ALIGN_VAR(ALIGN_BYTES) bytes[16];
 
-    /* Convert an real ISA instruction to a synthetic ISA (DR_ISA_REGDEPS) instruction.
+    /* Convert a real ISA instruction to a synthetic ISA (DR_ISA_REGDEPS) instruction.
      */
     instr_t *instr_synthetic_converted = instr_create(dc);
     instr_convert_to_isa_regdeps(dc, instr, instr_synthetic_converted);
@@ -78,7 +78,8 @@ test_instr_encode_decode_synthetic(void *dc, instr_t *instr)
     ASSERT(next_pc_encode == next_pc_decode);
     /* Check for overflow.
      */
-    ASSERT(instr_length(dc, instr_synthetic_decoded) <= sizeof(bytes));
+    ASSERT((next_pc_encode - bytes) <= sizeof(bytes));
+    ASSERT((next_pc_decode - bytes) <= sizeof(bytes));
     /* Check that the two synthetic instructions are the same.
      */
     ASSERT(instr_same(instr_synthetic_converted, instr_synthetic_decoded));
