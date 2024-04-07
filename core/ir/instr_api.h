@@ -2107,8 +2107,8 @@ DR_API
  * instr_create()).
  * Assumes \p instr_real_isa is a fully-decoded or synthesized instruction of a real ISA
  * with valid operand information.
- * \note \p instr_regdeps_isa will contain the information of a #DR_ISA_REGDEPS synthetic
- * instruction described in #core/ir/isa_regdeps/encoding_common.h.
+ * \note \p instr_regdeps_isa will contain only the information of a #DR_ISA_REGDEPS
+ * synthetic instruction.
  */
 void
 instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
