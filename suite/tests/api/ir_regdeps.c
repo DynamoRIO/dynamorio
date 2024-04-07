@@ -319,7 +319,7 @@ main(int argc, char *argv[])
     test_instr_create_encode_decode_synthetic_riscv64(dcontext);
 #endif
 
-    print("All synthetic tests are done.\n");
+    print("All DR_ISA_REGDEPS tests are done.\n");
     dr_standalone_exit();
     return 0;
 }
