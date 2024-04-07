@@ -3131,15 +3131,6 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
      */
     instr_set_operands_valid(instr_regdeps_isa, true);
 
-    /* Compute instruction length, including bytes for padding to reach 4 byte alignment.
-     * Account for 1 additional byte containing the operation size, if there are any
-     * operands.
-     */
-    uint num_opnds = num_dsts + num_srcs;
-    uint num_opnd_bytes = num_opnds > 0 ? num_opnds + 1 : 0;
-    uint instr_length = ALIGN_FORWARD(HEADER_BYTES + num_opnd_bytes, ALIGN_BYTES);
-    instr_regdeps_isa->length = instr_length;
-
     /* Set converted instruction ISA mode to be DR_ISA_REGDEPS.
      */
     instr_set_isa_mode(instr_regdeps_isa, DR_ISA_REGDEPS);

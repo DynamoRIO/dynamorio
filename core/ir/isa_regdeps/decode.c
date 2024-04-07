@@ -119,7 +119,6 @@ decode_isa_regdeps(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
      */
     uint num_opnd_bytes = num_opnds > 0 ? num_opnds + 1 : 0;
     uint instr_length = ALIGN_FORWARD(HEADER_BYTES + num_opnd_bytes, ALIGN_BYTES);
-    instr->length = instr_length;
 
     /* Set decoded instruction ISA mode to be synthetic.
      */
