@@ -62,7 +62,7 @@ typedef enum _dr_isa_mode_t {
      * Currently we support:
      * - instr_convert_to_isa_regdeps(), which converts an #instr_t of an actual ISA to a
      *   #DR_ISA_REGDEPS instruction;
-     * - instr_encode() and instr_encode_to_copy(), to encode an #DR_ISA_REGDEPS #instr_t
+     * - instr_encode() and instr_encode_to_copy(), to encode a #DR_ISA_REGDEPS #instr_t
      *   into a sequence of contiguous bytes;
      * - decode() and decode_from_copy(), to decode an encoded #DR_ISA_REGDEPS instruction
      *   into an #instr_t.
