@@ -228,8 +228,8 @@ test_instr_create_encode_decode_synthetic_aarch64(void *dc)
     decode(dc, buf, instr);
     test_instr_encode_decode_synthetic(dc, instr);
 
-    instr = INSTR_CREATE_adr(dc, opnd_create_reg(DR_REG_X1),
-                             OPND_CREATE_ABSMEM((void *)0x0000000010010208, OPSZ_0));
+    instr = INSTR_CREATE_adc(dc, opnd_create_reg(DR_REG_W0), opnd_create_reg(DR_REG_W1),
+                             opnd_create_reg(DR_REG_W2));
     instr_encode(dc, instr, buf);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
