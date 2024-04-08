@@ -222,6 +222,22 @@ ld1rqw scalar\+immediate: PASS
 ld1rqd scalar\+immediate: PASS
 ld1rqd scalar\+immediate \(min index\): PASS
 ld1rqd scalar\+immediate \(max index\): PASS
+ldnf1b scalar\+immediate 8bit element: PASS
+ldnf1b scalar\+immediate 16bit element: PASS
+ldnf1b scalar\+immediate 32bit element: PASS
+ldnf1b scalar\+immediate 64bit element: PASS
+ldnf1sb scalar\+immediate 16bit element: PASS
+ldnf1sb scalar\+immediate 32bit element: PASS
+ldnf1sb scalar\+immediate 64bit element: PASS
+ldnf1h scalar\+immediate 16bit element: PASS
+ldnf1h scalar\+immediate 32bit element: PASS
+ldnf1h scalar\+immediate 64bit element: PASS
+ldnf1sh scalar\+immediate 32bit element: PASS
+ldnf1sh scalar\+immediate 64bit element: PASS
+ldnf1w scalar\+immediate 32bit element: PASS
+ldnf1w scalar\+immediate 64bit element: PASS
+ldnf1sw scalar\+immediate 64bit element: PASS
+ldnf1d scalar\+immediate 64bit element: PASS
 ld2b scalar\+immediate: PASS
 ld2h scalar\+immediate: PASS
 ld2w scalar\+immediate: PASS

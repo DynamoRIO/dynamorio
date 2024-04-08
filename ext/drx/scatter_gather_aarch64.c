@@ -42,6 +42,7 @@
 #include "../ext_utils.h"
 #include "scatter_gather_shared.h"
 
+#include <signal.h>
 #include <string.h>
 #include <stddef.h> /* for offsetof */
 
@@ -1427,8 +1428,8 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, DR_PARAM_OUT bool *e
      * we didn't expand any instructions. This matches the behaviour of this function
      * for architectures with no scatter/gather expansion support.
      */
-    if (sg_info.faulting_behavior != DRX_NORMAL_FAULTING) {
-        /* TODO i#5036: Add support for first-fault and non-fault accesses. */
+    if (sg_info.faulting_behavior == DRX_FIRST_FAULTING) {
+        /* TODO i#5036: Add support for first-fault loads. */
         return true;
     }
 
@@ -1620,6 +1621,104 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, DR_PARAM_OUT bool *e
 drx_expand_scatter_gather_exit:
     drvector_delete(&allowed);
     return res;
+}
+
+dr_signal_action_t
+drx_scatter_gather_signal_event(void *drcontext, dr_siginfo_t *info, instr_t *sg_inst)
+{
+    scatter_gather_info_t sg_info;
+    get_scatter_gather_info(sg_inst, &sg_info);
+
+    if ((info->sig == SIGSEGV || info->sig == SIGBUS) &&
+        sg_info.faulting_behavior == DRX_NON_FAULTING) {
+        /* The only SVE instructions which have non-faulting behaviour are
+         * predicated contiguous scalar+immediate loads (ldnf1[bhwd]).
+         * TODO i#5036: instr_compute_address() does not support vector addressing modes
+         *              (scalar+vector, vector+immediate) which is fine for non-faulting
+         *              loads, but when we add support for first-fault instructions we
+         *              will need to switch this to use instr_compute_address_ex().
+         */
+        DR_ASSERT(!reg_is_z(sg_info.base_reg));
+        DR_ASSERT(!reg_is_z(sg_info.index_reg));
+        const app_pc load_min_addr = instr_compute_address(sg_inst, info->mcontext);
+        const app_pc load_max_addr =
+            load_min_addr + opnd_size_in_bytes(sg_info.scatter_gather_size);
+        if (info->access_address < load_min_addr ||
+            info->access_address >= load_max_addr) {
+            /* The faulting address is out of range for the expanded ldnf instruction so
+             * the fault must have come from an instruction inserted by a client, rather
+             * than one of the expansion loads inserted by expand_scatter_gather() so we
+             * pass the fault on for the client to handle.
+             */
+            return DR_SIGNAL_DELIVER;
+        }
+        /* Non-faulting loads do not generate a fault when one of the addresses it
+         * accesses faults. Instead it sets the value of the FFR to indicate which
+         * element faulted and execution continues. We implement that behaviour here
+         * by setting the FFR and redirecting to the next app instruction.
+         */
+
+        /* Skip to the next app instruction */
+        info->mcontext->pc += instr_length(drcontext, sg_inst);
+
+        /* allocate_zp_registers() is deterministic so we can call it again here and find
+         * out which registers are used in the expansion.
+         */
+        spill_slot_state_t spill_slot_state;
+        init_spill_slot_state(&spill_slot_state);
+
+        scratch_regs_t scratch_regs;
+
+        allocate_zp_registers(sg_inst, &sg_info, &spill_slot_state, &scratch_regs);
+
+        /* Set the FFR value
+         *
+         * The FFR is like a special purpose predicate register. When an element access
+         * faults, the corresponding bit in the FFR is set to 0 and all the higher bits
+         * are zeroed too. All bits lower than the faulting element are preserved.
+         * We can find out which element faulted by looking at the value of the register
+         * we use as a loop variable in the expansion code. It will contain a mask where
+         * a single bit is set which corresponds to the current loop iteration (the
+         * faulting element).
+         * Essentially we do:
+         *
+         *   ffr = ffr & (loop_var - 1)
+         *
+         * but ffr is a dr_simd_t so we have to do it in 32-bit chunks.
+         */
+
+        const size_t loop_p_reg = scratch_regs.pred - DR_REG_P0;
+
+        bool found_fault = false;
+        for (size_t i = 0;
+             i < sizeof(info->mcontext->ffr.u32) / sizeof(info->mcontext->ffr.u32[0]);
+             i++) {
+            if (found_fault) {
+                /* We have passed the element that faulted, all further bits are set to 0
+                 */
+                info->mcontext->ffr.u32[i] = 0;
+            } else {
+                const uint loop_var = info->raw_mcontext->svep[loop_p_reg].u32[i];
+                if (loop_var != 0) {
+                    /* This chunk contains the bit for the faulting element so we need to
+                     * mask this chunk. All bits before the faulting element are
+                     * unchanged and bits after it are set to 0.
+                     */
+                    info->mcontext->ffr.u32[i] &= loop_var - 1;
+                    found_fault = true;
+                } else {
+                    /* We haven't passed the faulting element yet so this chunk is
+                     * unchanged.
+                     */
+                }
+            }
+        }
+        /* Suppress the signal and continue from the PC we set above (the next app
+         * instruction). */
+        return DR_SIGNAL_REDIRECT;
+    }
+
+    return DR_SIGNAL_DELIVER;
 }
 
 bool
