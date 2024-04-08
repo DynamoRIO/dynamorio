@@ -112,27 +112,12 @@ get_encoding_info(instr_t *instr)
     return info;
 }
 
-/* completely ignores reachability and predication failures */
-byte *
-instr_encode_ignore_reachability(dcontext_t *dcontext, instr_t *instr, byte *pc)
+static byte *
+instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *final_pc,
+                    bool check_reachable,
+                    bool *has_instr_opnds /*OUT OPTIONAL*/
+                        _IF_DEBUG(bool assert_reachable))
 {
-    return instr_encode_arch(dcontext, instr, pc, pc, false, NULL _IF_DEBUG(false));
-}
-
-/* just like instr_encode but doesn't assert on reachability or predication failures */
-byte *
-instr_encode_check_reachability(dcontext_t *dcontext, instr_t *instr, byte *pc,
-                                bool *has_instr_opnds /*OUT OPTIONAL*/)
-{
-    return instr_encode_arch(dcontext, instr, pc, pc, true,
-                             has_instr_opnds _IF_DEBUG(false));
-}
-
-byte *
-instr_encode_to_copy(void *drcontext, instr_t *instr, byte *copy_pc, byte *final_pc)
-{
-    dcontext_t *dcontext = (dcontext_t *)drcontext;
-
     /* #DR_ISA_REGDEPS synthetic ISA has its own encoder.
      * XXX i#1684: when DR can be built with full dynamic architecture selection we won't
      * need to pollute the encoding of other architectures with this synthetic ISA special
@@ -141,8 +126,32 @@ instr_encode_to_copy(void *drcontext, instr_t *instr, byte *copy_pc, byte *final
     if (instr_get_isa_mode(instr) == DR_ISA_REGDEPS)
         return encode_isa_regdeps(dcontext, instr, copy_pc);
 
-    return instr_encode_arch(dcontext, instr, copy_pc, final_pc, true,
-                             NULL _IF_DEBUG(true));
+    return instr_encode_arch(dcontext, instr, copy_pc, final_pc, check_reachable,
+                             has_instr_opnds _IF_DEBUG(assert_reachable));
+}
+
+/* completely ignores reachability and predication failures */
+byte *
+instr_encode_ignore_reachability(dcontext_t *dcontext, instr_t *instr, byte *pc)
+{
+    return instr_encode_common(dcontext, instr, pc, pc, false, NULL _IF_DEBUG(false));
+}
+
+/* just like instr_encode but doesn't assert on reachability or predication failures */
+byte *
+instr_encode_check_reachability(dcontext_t *dcontext, instr_t *instr, byte *pc,
+                                bool *has_instr_opnds /*OUT OPTIONAL*/)
+{
+    return instr_encode_common(dcontext, instr, pc, pc, true,
+                               has_instr_opnds _IF_DEBUG(false));
+}
+
+byte *
+instr_encode_to_copy(void *drcontext, instr_t *instr, byte *copy_pc, byte *final_pc)
+{
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
+    return instr_encode_common(dcontext, instr, copy_pc, final_pc, true,
+                               NULL _IF_DEBUG(true));
 }
 
 byte *
