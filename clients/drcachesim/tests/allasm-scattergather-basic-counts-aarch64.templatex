@@ -37,7 +37,7 @@ Total counts:
            0 total icache flushes
            0 total dcache flushes
            1 total threads
-     .* total scheduling markers
+     .* total timestamp \+ cpuid markers
 .*
 Thread .* counts:
 #ifdef __ARM_FEATURE_SVE2
@@ -74,5 +74,5 @@ Thread .* counts:
 #endif /* __ARM_FEATURE_SVE2 */
            0 icache flushes
            0 dcache flushes
-     .* scheduling markers
+     .* timestamp \+ cpuid markers
 .*

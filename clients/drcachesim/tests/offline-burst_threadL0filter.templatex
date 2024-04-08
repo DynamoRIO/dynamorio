@@ -22,6 +22,5 @@ Total counts:
     *[0-9]* total icache flushes
     *[0-9]* total dcache flushes
            4 total threads
-    *[0-9]* total scheduling markers
-    *[0-9]* total transfer markers
+    *[0-9]* total timestamp \+ cpuid markers
 .*

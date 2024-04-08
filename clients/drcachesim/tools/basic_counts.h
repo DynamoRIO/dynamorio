@@ -103,6 +103,8 @@ public:
             loads += rhs.loads;
             stores += rhs.stores;
             sched_markers += rhs.sched_markers;
+            idle_markers += rhs.idle_markers;
+            wait_markers += rhs.wait_markers;
             xfer_markers += rhs.xfer_markers;
             func_id_markers += rhs.func_id_markers;
             func_retaddr_markers += rhs.func_retaddr_markers;
@@ -136,6 +138,8 @@ public:
             loads -= rhs.loads;
             stores -= rhs.stores;
             sched_markers -= rhs.sched_markers;
+            idle_markers -= rhs.idle_markers;
+            wait_markers -= rhs.wait_markers;
             xfer_markers -= rhs.xfer_markers;
             func_id_markers -= rhs.func_id_markers;
             func_retaddr_markers -= rhs.func_retaddr_markers;
@@ -170,6 +174,7 @@ public:
                 kernel_nofetch_instrs == rhs.kernel_nofetch_instrs &&
                 prefetches == rhs.prefetches && loads == rhs.loads &&
                 stores == rhs.stores && sched_markers == rhs.sched_markers &&
+                idle_markers == rhs.idle_markers && wait_markers == rhs.wait_markers &&
                 xfer_markers == rhs.xfer_markers &&
                 func_id_markers == rhs.func_id_markers &&
                 func_retaddr_markers == rhs.func_retaddr_markers &&
@@ -194,8 +199,10 @@ public:
         int64_t prefetches = 0;
         int64_t loads = 0;
         int64_t stores = 0;
-        int64_t sched_markers = 0;
-        int64_t xfer_markers = 0;
+        int64_t sched_markers = 0; // Timestamps and cpuids.
+        int64_t idle_markers = 0;
+        int64_t wait_markers = 0;
+        int64_t xfer_markers = 0; // Kernel transfers.
         int64_t func_id_markers = 0;
         int64_t func_retaddr_markers = 0;
         int64_t func_arg_markers = 0;
