@@ -6200,7 +6200,6 @@ if (RISCV64)
     code_api|sample.inscount
     code_api|sample.inscount.cleancall
     code_api|sample.inscount.prof-pcs.cleancall
-    code_api|sample.memtrace_simple
     code_api|sample.opcode_count
     code_api|sample.signal
     code_api|sample.stl_test
