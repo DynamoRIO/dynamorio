@@ -53,7 +53,6 @@
 
 #include "../globals.h"
 #include "isa_regdeps/encoding_common.h"
-#include "isa_regdeps/encode.h"
 #include "instr.h"
 #include "arch.h"
 #include "../link.h"
