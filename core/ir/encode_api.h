@@ -51,41 +51,50 @@ typedef enum _dr_isa_mode_t {
     DR_ISA_ARM_THUMB,         /**< Thumb (ARM T32). */
     DR_ISA_ARM_A64,           /**< ARM A64 (AArch64). */
     DR_ISA_RV64IMAFDC,        /**< RISC-V (rv64imafdc). */
-/**
- * This is a synthetic ISA that has the purpose of preserving register dependencies
- * and giving hints on the type of operations each instruction is performing.
- *
- * For this reason some operations that would normally work on instructions
- * coming from an actual ISA (e.g., #DR_ISA_AMD64) are not supported.
- *
- * Currently we support:
- * - instr_convert_to_isa_regdeps(), which converts an #instr_t of an actual ISA to a
- *   #DR_ISA_REGDEPS instruction.
- * - instr_encode() and instr_encode_to_copy(), to encode a #DR_ISA_REGDEPS #instr_t
- *   into a sequence of contiguous bytes.
- * - decode() and decode_from_copy(), to decode an encoded #DR_ISA_REGDEPS instruction
- *   into an #instr_t.
- *
- * A #DR_ISA_REGDEPS #instr_t has the following information:
- * - categories (composed by #dr_instr_category_t values), to indicate the type of
- *   operation performed (e.g., load, store, floating point math operation, branch,
- * etc.).                           Note that more than one category can be set.
- * - arithmetic flags, with no distinction between different flags, we only report if
- *   at least one arithmetic flag was read and/or written.
- * - number of source and destination register operands.
- * - source operation size, which is the largest source operand the instruction
- *   operates on.
- * - list of register operand identifiers (contained in #opnd_t), separated in source
- *   and destination. Note that these #reg_id_t identifiers are virtual and they
- *   should not be assumed to be equal to any DR_REG_ enum values of any specific
- *   architecture,they are meant for tracking dependencies with respect to other
- *   #DR_ISA_REGDEPS instructions only.
- * - ISA mode, which is #DR_ISA_REGDEPS.
- *
- * Querying additional #instr_t related information outside those described above
- * (e.g., the instruction opcode) will return the corresponding zeroed value set
- * by instr_create() or instr_init().
- */
+                              /**
+                               * This is a synthetic ISA that has the purpose of
+                               * preserving register dependencies and giving hints on the
+                               * type of operations each instruction is performing.
+                               *
+                               * For this reason some operations that work on instructions
+                               * coming from an actual ISA (e.g., #DR_ISA_AMD64) are not
+                               * supported.
+                               *
+                               * Currently we support:
+                               * - instr_convert_to_isa_regdeps(), which converts an
+                               *   #instr_t of an actual ISA to a #DR_ISA_REGDEPS
+                               *   instruction.
+                               * - instr_encode() and instr_encode_to_copy(), to encode a
+                               *   #DR_ISA_REGDEPS #instr_t into a sequence of contiguous
+                               *   bytes.
+                               * - decode() and decode_from_copy(), to decode an encoded
+                               *   #DR_ISA_REGDEPS instruction into an #instr_t.
+                               *
+                               * A #DR_ISA_REGDEPS #instr_t has the following information:
+                               * - categories (composed by #dr_instr_category_t values),
+                               *   to indicate the type of operation performed (e.g.,load,
+                               *   store, floating point math operation, branch, etc.).
+                               *   Note that more than one category can be set.
+                               * - arithmetic flags, with no distinction between different
+                               *   flags, we only report if at least one arithmetic flag
+                               *   was read and/or written.
+                               * - number of source and destination register operands.
+                               * - source operation size, which is the largest source
+                               *   operand the instruction operates on.
+                               * - list of register operand identifiers (contained in
+                               *   #opnd_t), separated in source and destination.
+                               *   Note that these #reg_id_t identifiers are virtual and
+                               *   they should not be assumed to be equal to any DR_REG_
+                               *   enum values of any specific architecture, they are
+                               *   meant for tracking dependencies with respect to other
+                               *   #DR_ISA_REGDEPS instructions only.
+                               * - ISA mode, which is #DR_ISA_REGDEPS.
+                               *
+                               * Querying additional #instr_t related information outside
+                               * of those described above (e.g., the instruction opcode)
+                               * will return the corresponding zeroed value set by
+                               * instr_create() or instr_init().
+                               */
     DR_ISA_REGDEPS,
 
 } dr_isa_mode_t;
