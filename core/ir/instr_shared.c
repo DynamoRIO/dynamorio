@@ -53,6 +53,7 @@
 
 #include "../globals.h"
 #include "isa_regdeps/encoding_common.h"
+#include "isa_regdeps/encode.h"
 #include "instr.h"
 #include "arch.h"
 #include "../link.h"
@@ -3127,13 +3128,35 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
         }
     }
 
+    /* Compute instruction length including bytes for padding to reach 4 bytes alignment.
+     * Account for 1 additional byte containing max register operand size, if there are
+     * any operands.
+     */
+    uint num_opnds = num_srcs + num_dsts;
+    uint num_opnd_bytes = num_opnds > 0 ? num_opnds + 1 : 0;
+    uint length = ALIGN_FORWARD(HEADER_BYTES + num_opnd_bytes, ALIGN_BYTES);
+    instr_regdeps_isa->length = length;
+
+    /* Allocate space to save encoding in the bytes field of instr_t.  We use it to avoid
+     * unnecessary encoding.
+     */
+    instr_allocate_raw_bits(drcontext, instr_regdeps_isa, length);
+
     /* Declare converted instruction operands to be valid.
+     * Must be done after instr_allocate_raw_bits(), which sets operands as invalid.
      */
     instr_set_operands_valid(instr_regdeps_isa, true);
 
     /* Set converted instruction ISA mode to be DR_ISA_REGDEPS.
      */
     instr_set_isa_mode(instr_regdeps_isa, DR_ISA_REGDEPS);
+
+    /* Perform DR_ISA_REGDEPS encoding and save it in bytes field of instr_t.
+     * We encode directly into the bytes field of instr_t to avoid calling
+     * instr_set_raw_bytes() and do an extra memcpy().
+     */
+    encode_isa_regdeps((dcontext_t *)drcontext, instr_regdeps_isa,
+                       instr_get_raw_bits(instr_regdeps_isa));
 }
 
 /* We place these here rather than in mangle_shared.c to avoid the work of
@@ -4353,4 +4376,4 @@ move_mm_avx512_reg_opcode(bool aligned64)
 }
 
 #endif /* !STANDALONE_DECODER */
-/****************************************************************************/
+       /****************************************************************************/

@@ -109,22 +109,32 @@ decode_isa_regdeps(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
         instr_set_src(instr, i, src_opnd);
     }
 
-    /* Declare the operands to be valid.
-     */
-    instr_set_operands_valid(instr, true);
-
     /* Compute instruction length including bytes for padding to reach 4 bytes alignment.
      * Account for 1 additional byte containing max register operand size, if there are
      * any operands.
      */
     uint num_opnd_bytes = num_opnds > 0 ? num_opnds + 1 : 0;
-    uint instr_length = ALIGN_FORWARD(HEADER_BYTES + num_opnd_bytes, ALIGN_BYTES);
+    uint length = ALIGN_FORWARD(HEADER_BYTES + num_opnd_bytes, ALIGN_BYTES);
+    instr->length = length;
+
+    /* Allocate space to save encoding in the bytes field of instr_t.  We use it to avoid
+     * unnecessary encoding.
+     */
+    instr_allocate_raw_bits(dcontext, instr, length);
+
+    /* Declare the operands to be valid.
+     */
+    instr_set_operands_valid(instr, true);
 
     /* Set decoded instruction ISA mode to be synthetic.
      */
     instr_set_isa_mode(instr, DR_ISA_REGDEPS);
 
+    /* Copy encoding to bytes field of instr_t.
+     */
+    instr_set_raw_bytes(instr, encoded_instr, length);
+
     /* Compute next instruction's PC as: current PC + instruction length.
      */
-    return encoded_instr + instr_length;
+    return encoded_instr + length;
 }
