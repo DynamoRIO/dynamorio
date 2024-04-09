@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -567,13 +567,12 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
         XINST_CREATE_add_2src(dcontext, opnd_create_reg(DR_REG_X1),
                               opnd_create_reg(REG_DCXT),
                               OPND_CREATE_INTPTR(offsetof(priv_mcontext_t, simd))));
-    for (i = 0; i < 32; i += 2) {
-        /* ldp q(i), q(i + 1), [x1, #(i * 16)] */
+    for (i = 0; i < 32; i++) {
+        /* ldr q(i), [x1, #(i * sizeof(dr_simd_t))] */
         APP(ilist,
-            INSTR_CREATE_ldp(
-                dcontext, opnd_create_reg(DR_REG_Q0 + i),
-                opnd_create_reg(DR_REG_Q0 + i + 1),
-                opnd_create_base_disp(DR_REG_X1, DR_REG_NULL, 0, i * 16, OPSZ_32)));
+            INSTR_CREATE_ldr(dcontext, opnd_create_reg(DR_REG_Q0 + i),
+                             opnd_create_base_disp(DR_REG_X1, DR_REG_NULL, 0,
+                                                   i * sizeof(dr_simd_t), OPSZ_16)));
     }
     if (proc_has_feature(FEATURE_SVE)) {
         for (i = 0; i < 32; i++) {
@@ -588,7 +587,7 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
                 INSTR_CREATE_ldr(
                     dcontext, opnd_create_reg(DR_REG_Z0 + i),
                     opnd_create_base_disp(
-                        DR_REG_X1, DR_REG_NULL, 0, i * proc_get_vector_length_bytes(),
+                        DR_REG_X1, DR_REG_NULL, 0, i * sizeof(dr_simd_t),
                         opnd_size_from_bytes(proc_get_vector_length_bytes()))));
         }
         /* add x1, x(dcxt), #(offset svep) */
@@ -605,8 +604,7 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
                 INSTR_CREATE_ldr(
                     dcontext, opnd_create_reg(DR_REG_P0 + i),
                     opnd_create_base_disp(
-                        DR_REG_X1, DR_REG_NULL, 0,
-                        i * (proc_get_vector_length_bytes() / 8),
+                        DR_REG_X1, DR_REG_NULL, 0, i * sizeof(dr_simd_t),
                         opnd_size_from_bytes(proc_get_vector_length_bytes() / 8))));
         }
         /* There is no load instruction for the first-fault register (FFR). Use
@@ -633,7 +631,7 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
             INSTR_CREATE_ldr(
                 dcontext, opnd_create_reg(DR_REG_P15),
                 opnd_create_base_disp(
-                    DR_REG_X1, DR_REG_NULL, 0, 15 * (proc_get_vector_length_bytes() / 8),
+                    DR_REG_X1, DR_REG_NULL, 0, 15 * sizeof(dr_simd_t),
                     opnd_size_from_bytes(proc_get_vector_length_bytes() / 8))));
     }
 }
@@ -778,18 +776,18 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
         XINST_CREATE_add_2src(dcontext, opnd_create_reg(DR_REG_X1),
                               opnd_create_reg(REG_DCXT),
                               OPND_CREATE_INTPTR(offsetof(priv_mcontext_t, simd))));
-    for (i = 0; i < 32; i += 2) {
-        /* stp q(i), q(i + 1), [x1, #(i * 16)]
+    for (i = 0; i < 32; i++) {
+        /* str q(i), [x1, #(i * sizeof(dr_simd_t))]
          * From the AArch64 manual:
          * "The signed immediate byte offset is a multiple of 16 in the range
          * -1024 to 1008, defaulting to 0 and encoded in the imm7 field as
          * <imm>/16."
          */
         APP(ilist,
-            INSTR_CREATE_stp(
-                dcontext,
-                opnd_create_base_disp(DR_REG_X1, DR_REG_NULL, 0, i * 16, OPSZ_32),
-                opnd_create_reg(DR_REG_Q0 + i), opnd_create_reg(DR_REG_Q0 + i + 1)));
+            INSTR_CREATE_str(dcontext,
+                             opnd_create_base_disp(DR_REG_X1, DR_REG_NULL, 0,
+                                                   i * sizeof(dr_simd_t), OPSZ_16),
+                             opnd_create_reg(DR_REG_Q0 + i)));
     }
     if (proc_has_feature(FEATURE_SVE)) {
         for (i = 0; i < 32; i++) {
@@ -803,7 +801,7 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
                 INSTR_CREATE_str(
                     dcontext,
                     opnd_create_base_disp(
-                        DR_REG_X1, DR_REG_NULL, 0, i * proc_get_vector_length_bytes(),
+                        DR_REG_X1, DR_REG_NULL, 0, i * sizeof(dr_simd_t),
                         opnd_size_from_bytes(proc_get_vector_length_bytes())),
                     opnd_create_reg(DR_REG_Z0 + i)));
         }
@@ -818,8 +816,7 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
                 INSTR_CREATE_str(
                     dcontext,
                     opnd_create_base_disp(
-                        DR_REG_X1, DR_REG_NULL, 0,
-                        i * (proc_get_vector_length_bytes() / 8),
+                        DR_REG_X1, DR_REG_NULL, 0, i * sizeof(dr_simd_t),
                         opnd_size_from_bytes(proc_get_vector_length_bytes() / 8)),
                     opnd_create_reg(DR_REG_P0 + i)));
         }
@@ -848,7 +845,7 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
             INSTR_CREATE_ldr(
                 dcontext, opnd_create_reg(DR_REG_P15),
                 opnd_create_base_disp(
-                    DR_REG_X1, DR_REG_NULL, 0, 15 * (proc_get_vector_length_bytes() / 8),
+                    DR_REG_X1, DR_REG_NULL, 0, 15 * sizeof(dr_simd_t),
                     opnd_size_from_bytes(proc_get_vector_length_bytes() / 8))));
     }
 }

@@ -46,8 +46,10 @@ Total counts:
            0 total icache flushes
            0 total dcache flushes
            8 total threads
-        1574 total scheduling markers
-         168 total transfer markers
+        1574 total timestamp \+ cpuid markers
+      345686 total idle markers
+           0 total wait markers
+         168 total kernel transfer markers
            0 total function id markers
            0 total function return address markers
            0 total function argument markers

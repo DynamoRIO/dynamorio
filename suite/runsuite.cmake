@@ -98,7 +98,7 @@ if (UNIX AND NOT APPLE AND NOT ANDROID AND NOT cross_riscv64_linux_only)
     # TODO i#6417: The switch to AMD VM's for GA CI has broken many of our tests.
     # This includes timeouts which increases suite length.
     # Until we get ths x86-32 job back green, we drop back to a small set of tests.
-    set(extra_ctest_args INCLUDE_LABEL UBUNTU_22)
+    set(extra_ctest_args EXCLUDE_LABEL AMD_X32_DENYLIST)
   endif ()
 endif ()
 
@@ -316,12 +316,14 @@ endif ()
 # to get the diff and check it.  The vera++ rules do check C/C++ code.
 
 # Check for trailing space.  This is a diff with an initial column for +-,
-# so a blank line will have one space: thus we rule that out.
+# so we need to exclude the following cases:
+# 1. existing blank line will now have one space;
+# 2. lines starting with -.
+# We do this by matching lines that start with + or a space and end with a space.
 # The clang-format check will now find these in C files, but not non-C files.
-string(REGEX MATCH "[^\n] \n" match "${diff_contents}")
+# The first line is always the diff header and can be safely skipped.
+string(REGEX MATCH "\n[+ ][^\n]* \n" match "${diff_contents}")
 if (NOT "${match}" STREQUAL "")
-  # Get more context
-  string(REGEX MATCH "\n[^\n]+ \n" match "${diff_contents}")
   message(FATAL_ERROR "ERROR: diff contains trailing spaces: ${match}")
 endif ()
 

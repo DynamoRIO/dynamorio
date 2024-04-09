@@ -212,6 +212,8 @@ Further non-compatibility-affecting changes include:
    #dynamorio::drmemtrace::analysis_tool_t to allow the tool to make holistic
    adjustments to the interval snapshots after all have been generated, and before
    they are used for merging across shards (potentially), and printing the results.
+ - Added opnd_is_vector_base_disp() to test if an opnd_t is a base+disp memory operand
+   that uses a vector register for the base or index register.
  - Added -abort_on_invariant_error flag that instructs the invariant checker drmemtrace
    analysis tool to abort trace analysis when a trace invariant error is found. This
    is set to true by default to match the existing behavior of the invariant checker.
@@ -221,6 +223,7 @@ Further non-compatibility-affecting changes include:
    purpose of preserving register dependencies.
  - Added instr_convert_to_isa_regdeps() API that converts an #instr_t from a real ISA
    (e.g., #DR_ISA_AMD64) to the #DR_ISA_REGDEPS synthetic ISA.
+
 
 **************************************************
 <hr>

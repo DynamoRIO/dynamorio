@@ -519,3 +519,14 @@ instr_is_gather(instr_t *instr)
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
+
+bool
+instr_compute_vector_address(instr_t *instr, priv_mcontext_t *mc, size_t mc_size,
+                             dr_mcontext_flags_t mc_flags, opnd_t curop, uint addr_index,
+                             DR_PARAM_OUT bool *have_addr, DR_PARAM_OUT app_pc *addr,
+                             DR_PARAM_OUT bool *write)
+{
+    /* FIXME i#3544: Not implemented */
+    ASSERT_NOT_IMPLEMENTED(false);
+    return false;
+}
