@@ -353,30 +353,55 @@ dump_diff_mcontexts(void)
                        after_reg.u32[6], after_reg.u32[7]);
         }
 #elif defined(AARCH64)
-        const size_t mmsz = proc_get_vector_length_bytes();
-        dr_simd_t before_reg, after_reg;
+        const size_t veclen_bytes = proc_get_vector_length_bytes();
+        const size_t predlen_bytes = veclen_bytes / 8;
         char reg_name[4];
-        if (i >= (MCXT_NUM_SIMD_SVE_SLOTS + MCXT_NUM_SVEP_SLOTS)) {
-            strcpy(reg_name, "FFR");
-            before_reg = before_mcontext.ffr;
-            after_reg = after_mcontext.ffr;
-        } else if (i >= MCXT_NUM_SIMD_SVE_SLOTS) {
-            dr_snprintf(reg_name, 4, "P%2d", i - MCXT_NUM_SIMD_SVE_SLOTS);
-            before_reg = before_mcontext.svep[i - MCXT_NUM_SIMD_SVE_SLOTS];
-            after_reg = after_mcontext.svep[i - MCXT_NUM_SIMD_SVE_SLOTS];
+        const char *diff_str = NULL;
+        if (i >= MCXT_NUM_SIMD_SVE_SLOTS) {
+            dr_svep_t before_reg, after_reg;
+
+            if (i >= (MCXT_NUM_SIMD_SVE_SLOTS + MCXT_NUM_SVEP_SLOTS)) {
+                strcpy(reg_name, "FFR");
+                before_reg = before_mcontext.ffr;
+                after_reg = after_mcontext.ffr;
+            } else {
+                dr_snprintf(reg_name, 4, "P%-2d", i - MCXT_NUM_SIMD_SVE_SLOTS);
+                before_reg = before_mcontext.svep[i - MCXT_NUM_SIMD_SVE_SLOTS];
+                after_reg = after_mcontext.svep[i - MCXT_NUM_SIMD_SVE_SLOTS];
+            }
+
+            diff_str =
+                (memcmp(&before_reg, &after_reg, predlen_bytes) == 0 ? ""
+                                                                     : " <- DIFFERS");
+
+            const size_t num_elements = predlen_bytes / sizeof(before_reg.u16[0]);
+            dr_fprintf(STDERR, "%s before: ", reg_name);
+            for (int element = 0; element < num_elements; element++) {
+                dr_fprintf(STDERR, "%04x", before_reg.u16[element]);
+            }
+            dr_fprintf(STDERR, " after: ");
+            for (int element = 0; element < num_elements; element++) {
+                dr_fprintf(STDERR, "%04x", after_reg.u16[element]);
+            }
+
         } else {
-            dr_snprintf(reg_name, 4, "Z%2d", i);
-            before_reg = before_mcontext.simd[i];
-            after_reg = after_mcontext.simd[i];
+            dr_snprintf(reg_name, 4, "Z%-2d", i);
+            dr_simd_t before_reg = before_mcontext.simd[i];
+            dr_simd_t after_reg = after_mcontext.simd[i];
+
+            diff_str =
+                (memcmp(&before_reg, &after_reg, veclen_bytes) == 0 ? "" : " <- DIFFERS");
+
+            const size_t num_elements = veclen_bytes / sizeof(before_reg.u64[0]);
+            dr_fprintf(STDERR, "%s before: ", reg_name);
+            for (size_t element = 0; element < num_elements; element++) {
+                dr_fprintf(STDERR, PFMT, before_reg.u64[element]);
+            }
+            dr_fprintf(STDERR, " after: ");
+            for (size_t element = 0; element < num_elements; element++) {
+                dr_fprintf(STDERR, PFMT, after_reg.u64[element]);
+            }
         }
-
-        const char *diff_str =
-            (memcmp(&before_reg, &after_reg, mmsz) == 0 ? "" : " <- DIFFERS");
-
-        dr_fprintf(STDERR, "%s before: %08x%08x%08x%08x", reg_name, before_reg.u32[0],
-                   before_reg.u32[1], before_reg.u32[2], before_reg.u32[3]);
-        dr_fprintf(STDERR, " after: %08x%08x%08x%08x", after_reg.u32[0], after_reg.u32[1],
-                   after_reg.u32[2], after_reg.u32[3]);
 #endif
         dr_fprintf(STDERR, "%s\n", diff_str);
     }

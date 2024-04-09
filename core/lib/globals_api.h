@@ -688,10 +688,9 @@ typedef uint64 dr_opmask_t;
 
 #if defined(AARCHXX)
 /**
- * 512-bit ARM Scalable Vector Extension (SVE) vector registers Zn and
- * predicate registers Pn. Low 128 bits of Zn overlap with existing ARM
- * Advanced SIMD (NEON) Vn registers. The SVE specification defines the
- * following valid vector lengths:
+ * 512-bit ARM Scalable Vector Extension (SVE) vector registers Zn.
+ * Low 128 bits of Zn overlap with existing ARM Advanced SIMD (NEON) Vn registers.
+ * The SVE specification defines the following valid vector lengths:
  * 128 256 384 512 640 768 896 1024 1152 1280 1408 1536 1664 1792 1920 2048
  * We currently support 512-bit maximum due to DR's stack size limitation,
  * (machine context stored in the stack). In AArch64, align to 16 bytes for
@@ -706,11 +705,28 @@ typedef union ALIGN_VAR(16) _dr_simd_t {
     uint s;        /**< Singleword (32 bit, Sn) scalar element of Vn, Zn and Pn. */
     uint64 d;      /**< Doubleword (64 bit, Dn) scalar element of Vn, Zn and Pn. */
     uint q[4];     /**< The full 128 bit Vn register, Qn as q[3]:q[2]:q[1]:q[0]. */
-    uint u32[16];  /**< The full 512 bit Zn, Pn and FFR registers as Singleword (32-bit)
-                      elements. */
-    uint64 u64[8]; /**< The full 512 bit Zn, Pn and FFR registers as Doubleword (64-bit)
-                      elements. */
+    uint u32[16];  /**< The full 512 bit Zn register as Singleword (32-bit) elements. */
+    uint64 u64[8]; /**< The full 512 bit Zn register as Doubleword (64-bit) elements. */
 } dr_simd_t;
+
+/**
+ * 64-bit Arm Scalable Vector Extension (SVE) predicate register Pn.
+ * SVE Pn registers are used to hold mask values that control the operation of some SVE
+ * instructions. Pn registers have one bit for every byte of a Zn register to the size
+ * of a Pn register is always 1/8 the size of a Zn register.
+ * DynamoRIO currently supports up to 512-bit Zn registers and 64-bit Pn registers.
+ */
+typedef union _dr_svep_t {
+    ushort u16[4]; /**< The full 64-bit Pn or FFR register as 16-bit elements. */
+    uint u32[2];   /**< The full 64-bit Pn or FFR register as 32-bit elements. */
+    uint64 u64[1]; /**< The full 64-bit Pn or FFR register as 64-bit elements. */
+} dr_svep_t;
+
+/**
+ * 64-bit Arm Scalable Vector Extension (SVE) First Fault Register (FFR).
+ * FFR is a special purpose predicate register used by some SVE instructions.
+ */
+typedef dr_svep_t dr_ffr_t;
 #    else
 typedef union _dr_simd_t {
     uint s[4];   /**< Representation as 4 32-bit Sn elements. */
@@ -720,7 +736,7 @@ typedef union _dr_simd_t {
 #    endif
 #    ifdef X64
 #        define MCXT_NUM_SIMD_SVE_SLOTS                                  \
-            32 /**< Number of 128-bit SIMD Vn/Zn slots in dr_mcontext_t. \
+            32 /**< Number of 512-bit SIMD Vn/Zn slots in dr_mcontext_t. \
                 */
 #        define MCXT_NUM_SVEP_SLOTS 16 /**< Number of SIMD Pn slots in dr_mcontext_t. */
 #        define MCXT_NUM_FFR_SLOTS \

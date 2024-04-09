@@ -257,12 +257,12 @@ sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
                         memcpy(&mc->simd[i].q, &fpc->vregs[i], sizeof(mc->simd->q));
                     }
                     for (i = 0; i < MCXT_NUM_SVEP_SLOTS; i++) {
-                        memcpy(&mc->svep[i].u32,
+                        memcpy(&mc->svep[i].u16,
                                (byte *)sve + SVE_SIG_PREG_OFFSET(quads_per_vector, i),
-                               sve->vl);
+                               sve->vl / 8);
                     }
                     memcpy(&mc->ffr, (byte *)sve + SVE_SIG_FFR_OFFSET(quads_per_vector),
-                           sve->vl);
+                           sve->vl / 8);
                 }
                 break;
             }
@@ -316,9 +316,9 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
         }
         for (uint i = 0; i < MCXT_NUM_SVEP_SLOTS; i++) {
             memcpy((byte *)sve + SVE_SIG_PREG_OFFSET(quads_per_vector, i),
-                   &mc->svep[i].u32, sve->vl);
+                   &mc->svep[i].u16, sve->vl / 8);
         }
-        memcpy((byte *)sve + SVE_SIG_FFR_OFFSET(quads_per_vector), &mc->ffr, sve->vl);
+        memcpy((byte *)sve + SVE_SIG_FFR_OFFSET(quads_per_vector), &mc->ffr, sve->vl / 8);
 
         size_t offset = (proc_get_vector_length_bytes() * MCXT_NUM_SIMD_SVE_SLOTS) +
             ((proc_get_vector_length_bytes() / 8) * MCXT_NUM_SVEP_SLOTS) + 16;

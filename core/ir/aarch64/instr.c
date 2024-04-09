@@ -801,7 +801,7 @@ instr_compute_vector_address(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
 
     const reg_t governing_pred = opnd_get_reg(instr_get_src(instr, 1));
     ASSERT(governing_pred >= DR_REG_START_P && governing_pred <= DR_REG_STOP_P);
-    uint64 mask = mc->svep[governing_pred - DR_REG_START_P].d;
+    uint64 mask = mc->svep[governing_pred - DR_REG_START_P].u64[0];
 
     if (mask == 0) {
         return false;

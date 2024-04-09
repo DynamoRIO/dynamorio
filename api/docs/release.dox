@@ -147,6 +147,9 @@ changes:
    users sub-classing analyzer_tmpl_t).
  - Converted #dynamorio::drmemtrace::analysis_tool_tmpl_t::interval_state_snapshot_t
    into a class with all its data members marked private with public accessor functions.
+ - Changed the type of the AArch64 #dr_mcontext_t members svep and ffr to #dr_svep_t.
+   This breaks binary compatibility with clients that were built against versions of
+   DynamoRIO before this change.
 
 Further non-compatibility-affecting changes include:
  - Added DWARF-5 support to the drsyms library by linking in 4 static libraries
