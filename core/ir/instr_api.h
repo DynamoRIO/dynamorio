@@ -300,12 +300,12 @@ struct _instr_t {
 
     union {
 #    ifdef X86
-        /* PR 251479: offset into instr's raw bytes of rip-relative 4-byte displacement.
+        /* Offset into instr's raw bytes of rip-relative 4-byte displacement.
          * This field is valid when instr_t isa_mode is DR_ISA_X86.
          */
         byte rip_rel_pos;
 #    endif
-        /* PR #6691: size of source data (i.e., read) an instruction operates on.
+        /* Size of source data (i.e., read) a DR_ISA_REGDEPS instruction operates on.
          * This field is valid when instr_t isa_mode is DR_ISA_REGDEPS.
          * Note that opnd_size_t is an alias of byte.
          */
