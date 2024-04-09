@@ -40,7 +40,30 @@
                       dr_abort(), 0)                                              \
                    : 0))
 
-#define ALIGN_BYTES 4
+/* We are not exporting the defines in core/ir/isa_regdeps/encoding_common.h, so we
+ * redefine DR_ISA_REGDEPS alignment requirement here.
+ */
+#define REGDEPS_ALIGN_BYTES 4
+
+static bool
+instr_has_only_register_operands(instr_t *instr)
+{
+    uint num_dsts = (uint)instr_num_dsts(instr);
+    for (uint dst_index = 0; dst_index < num_dsts; ++dst_index) {
+        opnd_t dst_opnd = instr_get_dst(instr, dst_index);
+        if (!opnd_is_reg(dst_opnd))
+            return false;
+    }
+
+    uint num_srcs = (uint)instr_num_srcs(instr);
+    for (uint src_index = 0; src_index < num_srcs; ++src_index) {
+        opnd_t src_opnd = instr_get_src(instr, src_index);
+        if (!opnd_is_reg(src_opnd))
+            return false;
+    }
+
+    return true;
+}
 
 static void
 test_instr_encode_decode_synthetic(void *dc, instr_t *instr)
@@ -48,12 +71,20 @@ test_instr_encode_decode_synthetic(void *dc, instr_t *instr)
     /* Encoded synthetic ISA instructions require 4 byte alignment.
      * The largest synthetic encoded instruction has 16 bytes.
      */
-    byte ALIGN_VAR(ALIGN_BYTES) bytes[16];
+    byte ALIGN_VAR(REGDEPS_ALIGN_BYTES) bytes[16];
 
     /* Convert a real ISA instruction to a synthetic ISA (DR_ISA_REGDEPS) instruction.
      */
     instr_t *instr_synthetic_converted = instr_create(dc);
     instr_convert_to_isa_regdeps(dc, instr, instr_synthetic_converted);
+
+    /* Check that the converted instruction only has register operands.
+     */
+    ASSERT(instr_has_only_register_operands(instr_synthetic_converted));
+
+    /* Check that we do not have an opcode for the converted instruction.
+     */
+    ASSERT(instr_get_opcode(instr_synthetic_converted) == OP_INVALID);
 
     /* Encode the synthetic instruction.
      */

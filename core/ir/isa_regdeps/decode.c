@@ -52,22 +52,22 @@ decode_isa_regdeps(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
      * for easier retrieving of category, eflags, #src, and #dst values.
      * We can do this safely because encoded_instr is 4 bytes aligned.
      */
-    ASSERT(ALIGNED(encoded_instr, ALIGN_BYTES));
+    ASSERT(ALIGNED(encoded_instr, REGDEPS_ALIGN_BYTES));
     uint encoding_header = *((uint *)encoded_instr);
 
     /* Decode number of register destination operands.
      */
-    uint num_dsts = encoding_header & DST_OPND_MASK;
+    uint num_dsts = encoding_header & REGDEPS_DST_OPND_MASK;
 
     /* Decode number of register source operands.
      */
-    uint num_srcs = (encoding_header & SRC_OPND_MASK) >> SRC_OPND_SHIFT;
+    uint num_srcs = (encoding_header & REGDEPS_SRC_OPND_MASK) >> REGDEPS_SRC_OPND_SHIFT;
 
     instr_set_num_opnds(dcontext, instr, num_dsts, num_srcs);
 
     /* Decode arithmetic flags.
      */
-    uint eflags = (encoding_header & FLAGS_MASK) >> FLAGS_SHIFT;
+    uint eflags = (encoding_header & REGDEPS_FLAGS_MASK) >> REGDEPS_FLAGS_SHIFT;
     uint eflags_instr = 0;
     if (TESTANY(REGDEPS_INSTR_WRITES_ARITH, eflags))
         eflags_instr |= EFLAGS_WRITE_ARITH;
@@ -82,7 +82,7 @@ decode_isa_regdeps(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
 
     /* Decode instruction category.
      */
-    uint category = (encoding_header & CATEGORY_MASK) >> CATEGORY_SHIFT;
+    uint category = (encoding_header & REGDEPS_CATEGORY_MASK) >> REGDEPS_CATEGORY_SHIFT;
     instr_set_category(instr, category);
 
     /* Decode operation size, if there are any operands.
@@ -90,13 +90,13 @@ decode_isa_regdeps(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
     uint num_opnds = num_dsts + num_srcs;
     opnd_size_t max_opnd_size = OPSZ_0;
     if (num_opnds > 0)
-        max_opnd_size = (opnd_size_t)encoded_instr[OP_SIZE_INDEX];
+        max_opnd_size = (opnd_size_t)encoded_instr[REGDEPS_OP_SIZE_INDEX];
     instr->operation_size = max_opnd_size;
 
     /* Decode register destination operands, if present.
      */
     for (uint i = 0; i < num_dsts; ++i) {
-        reg_id_t dst = (reg_id_t)encoded_instr[i + OPND_INDEX];
+        reg_id_t dst = (reg_id_t)encoded_instr[i + REGDEPS_OPND_INDEX];
         opnd_t dst_opnd = opnd_create_reg((reg_id_t)dst);
         instr_set_dst(instr, i, dst_opnd);
     }
@@ -104,7 +104,7 @@ decode_isa_regdeps(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
     /* Decode register source operands, if present.
      */
     for (uint i = 0; i < num_srcs; ++i) {
-        reg_id_t src = (reg_id_t)encoded_instr[i + OPND_INDEX + num_dsts];
+        reg_id_t src = (reg_id_t)encoded_instr[i + REGDEPS_OPND_INDEX + num_dsts];
         opnd_t src_opnd = opnd_create_reg((reg_id_t)src);
         instr_set_src(instr, i, src_opnd);
     }
@@ -114,7 +114,8 @@ decode_isa_regdeps(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
      * any operands.
      */
     uint num_opnd_bytes = num_opnds > 0 ? num_opnds + 1 : 0;
-    uint length = ALIGN_FORWARD(HEADER_BYTES + num_opnd_bytes, ALIGN_BYTES);
+    uint length =
+        ALIGN_FORWARD(REGDEPS_HEADER_BYTES + num_opnd_bytes, REGDEPS_ALIGN_BYTES);
     instr->length = length;
 
     /* Allocate space to save encoding in the bytes field of instr_t.  We use it to avoid

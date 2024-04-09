@@ -3011,10 +3011,10 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
      * We use [src|dst]_reg_used to keep track of registers we've seen and avoid
      * duplicates.
      */
-    bool src_reg_used[MAX_NUM_REGS];
+    bool src_reg_used[REGDEPS_MAX_NUM_REGS];
     memset(src_reg_used, 0, sizeof(src_reg_used));
     uint num_srcs = 0;
-    bool dst_reg_used[MAX_NUM_REGS];
+    bool dst_reg_used[REGDEPS_MAX_NUM_REGS];
     memset(dst_reg_used, 0, sizeof(dst_reg_used));
     uint num_dsts = 0;
     uint instr_real_num_dsts = (uint)instr_num_dsts(instr_real_isa);
@@ -3046,15 +3046,14 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
         }
     }
 
-    /* Retrieve number of register source operands from real ISA instruction.
-     * We use max_src_opnd_size_bytes to keep track of the size of the largest source
-     * operand.
-     * We count the number of bytes instead of using opnd_size_t to avoid relying on
-     * OPSZ_ enum values.
-     * We convert max_src_opnd_size_bytes to its corresponding OPSZ_ enum value later on,
-     * and store it into operation_size.
+    /* We use max_src_opnd_size_bytes to keep track of the size of the largest source
+     * operand.  This variable counts the number of bytes instead of using opnd_size_t to
+     * avoid relying on OPSZ_ enum values.  Later on we convert max_src_opnd_size_bytes to
+     * its corresponding OPSZ_ enum value and store it into operation_size.
      */
     uint max_src_opnd_size_bytes = 0;
+    /* Retrieve number of register source operands from real ISA instruction.
+     */
     uint instr_real_num_srcs = (uint)instr_num_srcs(instr_real_isa);
     for (uint i = 0; i < instr_real_num_srcs; ++i) {
         opnd_t src_opnd = instr_get_src(instr_real_isa, i);
@@ -3108,7 +3107,7 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
      */
     if (num_dsts > 0) {
         uint reg_counter = 0;
-        for (uint reg = 0; reg < MAX_NUM_REGS; ++reg) {
+        for (uint reg = 0; reg < REGDEPS_MAX_NUM_REGS; ++reg) {
             if (dst_reg_used[reg]) {
                 opnd_t dst_opnd = opnd_create_reg((reg_id_t)reg);
                 instr_set_dst(instr_regdeps_isa, reg_counter, dst_opnd);
@@ -3119,7 +3118,7 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
 
     if (num_srcs > 0) {
         uint reg_counter = 0;
-        for (uint reg = 0; reg < MAX_NUM_REGS; ++reg) {
+        for (uint reg = 0; reg < REGDEPS_MAX_NUM_REGS; ++reg) {
             if (src_reg_used[reg]) {
                 opnd_t src_opnd = opnd_create_reg((reg_id_t)reg);
                 instr_set_src(instr_regdeps_isa, reg_counter, src_opnd);
@@ -3127,20 +3126,6 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
             }
         }
     }
-
-    /* Compute instruction length including bytes for padding to reach 4 bytes alignment.
-     * Account for 1 additional byte containing max register operand size, if there are
-     * any operands.
-     */
-    uint num_opnds = num_srcs + num_dsts;
-    uint num_opnd_bytes = num_opnds > 0 ? num_opnds + 1 : 0;
-    uint length = ALIGN_FORWARD(HEADER_BYTES + num_opnd_bytes, ALIGN_BYTES);
-    instr_regdeps_isa->length = length;
-
-    /* Allocate space to save encoding in the bytes field of instr_t.  We use it to avoid
-     * unnecessary encoding.
-     */
-    instr_allocate_raw_bits(drcontext, instr_regdeps_isa, length);
 
     /* Declare converted instruction operands to be valid.
      * Must be done after instr_allocate_raw_bits(), which sets operands as invalid.
@@ -3150,13 +3135,6 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
     /* Set converted instruction ISA mode to be DR_ISA_REGDEPS.
      */
     instr_set_isa_mode(instr_regdeps_isa, DR_ISA_REGDEPS);
-
-    /* Perform DR_ISA_REGDEPS encoding and save it in bytes field of instr_t.
-     * We encode directly into the bytes field of instr_t to avoid calling
-     * instr_set_raw_bytes() and do an extra memcpy().
-     */
-    encode_isa_regdeps((dcontext_t *)drcontext, instr_regdeps_isa,
-                       instr_get_raw_bits(instr_regdeps_isa));
 }
 
 /* We place these here rather than in mangle_shared.c to avoid the work of

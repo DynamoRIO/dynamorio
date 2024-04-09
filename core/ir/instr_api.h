@@ -299,10 +299,15 @@ struct _instr_t {
     uint opcode;
 
     union {
-        /* PR 251479: offset into instr's raw bytes of rip-relative 4-byte displacement */
+#    ifdef X86
+        /* PR 251479: offset into instr's raw bytes of rip-relative 4-byte displacement.
+         * This field is valid when instr_t isa_mode is DR_ISA_X86.
+         */
         byte rip_rel_pos;
+#    endif
         /* PR #6691: size of source data (i.e., read) an instruction operates on.
-         * Note that opnd_size_t is an alias for byte.
+         * This field is valid when instr_t isa_mode is DR_ISA_REGDEPS.
+         * Note that opnd_size_t is an alias of byte.
          */
         opnd_size_t operation_size;
     };
@@ -349,7 +354,7 @@ struct _instr_t {
 
     /* Used to hold the relative offset within an instruction list when encoding. */
     size_t offset;
-};     /* instr_t */
+}; /* instr_t */
 #endif /* DR_FAST_IR */
 
 /**
