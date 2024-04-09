@@ -178,9 +178,7 @@ DR_API
 const char *
 decode_opcode_name(int opcode)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return NULL;
+    return get_opcode_name(opcode);
 }
 
 opnd_size_t

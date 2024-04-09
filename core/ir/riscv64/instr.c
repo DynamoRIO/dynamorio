@@ -33,6 +33,7 @@
 #include "../globals.h"
 #include "instr.h"
 #include "encode_api.h"
+#include "codec.h"
 
 /* XXX i#6690: currently only RISCV64 is supported for instruction encoding.
  * We want to add support for RISCV64 decoding and synthetic ISA encoding as well.
@@ -148,9 +149,7 @@ instr_branch_type(instr_t *cti_instr)
 const char *
 get_opcode_name(int opc)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return "<opcode>";
+    return get_instruction_info(opc)->name;
 }
 
 bool
