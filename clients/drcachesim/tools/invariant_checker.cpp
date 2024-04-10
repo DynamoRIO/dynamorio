@@ -1121,13 +1121,12 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                                  // trace template, and then adjust it according to the
                                  // cpuid value for the trace being injected into.
                                  || shard->prev_instr_.decoding.is_xrstor
-                                 // xsaveopt also reads some fields from the xsave
+                                 // xsave variants also reads some fields from the xsave
                                  // header (https://www.felixcloutier.com/x86/xsaveopt).
                                  // XXX: Same as above, can we store any metadata in the
                                  // trace to allow us to adapt the decoder to expect
                                  // this?
-                                 || shard->prev_instr_.decoding.opcode == OP_xsaveopt64 ||
-                                 shard->prev_instr_.decoding.opcode == OP_xsaveopt32))),
+                                 || shard->prev_instr_.decoding.is_xsave))),
                     "Too many read records");
                 if (shard->expected_read_records_ > 0) {
                     shard->expected_read_records_--;
