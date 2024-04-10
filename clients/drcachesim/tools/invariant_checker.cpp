@@ -1123,6 +1123,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                                  || shard->prev_instr_.decoding.is_xrstor
                                  // xsaveopt also reads some fields from the xsave
                                  // header (https://www.felixcloutier.com/x86/xsaveopt).
+                                 // XXX: Same as above, can we store any metadata in the
+                                 // trace to allow us to adapt the decoder to expect
+                                 // this?
                                  || shard->prev_instr_.decoding.opcode == OP_xsaveopt64 ||
                                  shard->prev_instr_.decoding.opcode == OP_xsaveopt32))),
                     "Too many read records");
