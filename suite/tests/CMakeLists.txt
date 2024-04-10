@@ -3585,7 +3585,7 @@ if (BUILD_SAMPLES)
             samples/${sample}_repstr "-log_to_stderr" "" "")
         endif ()
       elseif (sample STREQUAL "callstack")
-        set(sample.${sample}_expectbase "sample.callstack.control_flags")
+        set(sample.${sample}_expectbase "sample.callstack")
       endif()
     endforeach ()
   endif (NOT ANDROID)
@@ -6220,6 +6220,12 @@ if (RISCV64)
   if (DEBUG)
     set_tests_properties(
       code_api|common.logstderr
+      PROPERTIES LABELS RUNS_ON_QEMU)
+  endif ()
+  CHECK_INCLUDE_FILE("libunwind.h" HAVE_LIBUNWIND_H)
+  if (HAVE_LIBUNWIND_H)
+    set_tests_properties(
+      code_api|sample.callstack
       PROPERTIES LABELS RUNS_ON_QEMU)
   endif ()
 endif ()
