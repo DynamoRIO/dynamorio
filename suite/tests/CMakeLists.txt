@@ -6222,12 +6222,6 @@ if (RISCV64)
       code_api|common.logstderr
       PROPERTIES LABELS RUNS_ON_QEMU)
   endif ()
-  CHECK_INCLUDE_FILE("libunwind.h" HAVE_LIBUNWIND_H)
-  if (HAVE_LIBUNWIND_H)
-    set_tests_properties(
-      code_api|sample.callstack
-      PROPERTIES LABELS RUNS_ON_QEMU)
-  endif ()
 endif ()
 
 # Set a LABEL property on a list of tests, ignoring any listed tests that
