@@ -31,6 +31,8 @@
  */
 
 #include "../globals.h"
+#include "../isa_regdeps/decode.h"
+#include "encode_api.h"
 #include "instr.h"
 #include "decode.h"
 #include "decode_private.h"
@@ -172,7 +174,7 @@ decode_in_it_block(decode_state_t *state, app_pc pc, decode_info_t *di)
 bool
 is_isa_mode_legal(dr_isa_mode_t mode)
 {
-    return (mode == DR_ISA_ARM_THUMB || DR_ISA_ARM_A32);
+    return (mode == DR_ISA_ARM_THUMB || mode == DR_ISA_ARM_A32 || mode == DR_ISA_REGDEPS);
 }
 
 /* We need to call canonicalize_pc_target() on all next_tag-writing
@@ -2428,6 +2430,14 @@ decode_opcode(dcontext_t *dcontext, byte *pc, instr_t *instr)
 static byte *
 decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
 {
+    /* #DR_ISA_REGDEPS synthetic ISA has its own decoder.
+     * XXX i#1684: when DR can be built with full dynamic architecture selection we won't
+     * need to pollute the decoding of other architectures with this synthetic ISA special
+     * case.
+     */
+    if (dr_get_isa_mode(dcontext) == DR_ISA_REGDEPS)
+        return decode_isa_regdeps(dcontext, pc, instr);
+
     const instr_info_t *info = &invalid_instr;
     decode_info_t di;
     byte *next_pc;

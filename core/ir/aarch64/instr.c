@@ -47,9 +47,9 @@
 bool
 instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
 {
-    if (mode != DR_ISA_ARM_A64)
+    if (mode != DR_ISA_ARM_A64 && mode != DR_ISA_REGDEPS)
         return false;
-    instr->isa_mode = DR_ISA_ARM_A64;
+    instr->isa_mode = mode;
     return true;
 }
 

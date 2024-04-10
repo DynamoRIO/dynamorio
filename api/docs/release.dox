@@ -219,6 +219,10 @@ Further non-compatibility-affecting changes include:
    is set to true by default to match the existing behavior of the invariant checker.
  - Added a new instr API instr_is_xrstor() that tells whether an instruction is any
    variant of the x86 xrstor opcode.
+ - Added a new #dr_isa_mode_t: #DR_ISA_REGDEPS, which is a synthetic ISA with the main
+   purpose of preserving register dependencies.
+ - Added instr_convert_to_isa_regdeps() API that converts an #instr_t from a real ISA
+   (e.g., #DR_ISA_AMD64) to the #DR_ISA_REGDEPS synthetic ISA.
 
 
 **************************************************
