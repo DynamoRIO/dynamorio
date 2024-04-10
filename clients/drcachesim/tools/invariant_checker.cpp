@@ -506,7 +506,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             shard->last_syscall_marker_value_ ==
                                 static_cast<int>(memref.marker.marker_value),
                             "Mismatching syscall num in trace start and syscall marker");
-            report_if_false(shard, shard->prev_instr_.decoding.is_syscall,
+            report_if_false(shard,
+                            !TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_) ||
+                                shard->prev_instr_.decoding.is_syscall,
                             "prev_instr at syscall trace start is not a syscall");
         }
         shard->pre_syscall_trace_instr_ = shard->prev_instr_;
