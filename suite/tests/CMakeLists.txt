@@ -3521,8 +3521,13 @@ if (BUILD_SAMPLES)
     foreach (sample ${sample_list})
       # FIXME i#4392: Remove sanity checks and replace with functioning tests like
       # that done for the opcode_count and memtrace_simple samples.
-      torunonly_ci(sample.${sample} common.${control_flags}
-        ${sample} common/${control_flags}.c "" "" "")
+      if (RISCV64 AND sample STREQUAL "memtrace_simple")
+        torunonly_ci(sample.${sample} common.${control_flags}
+          ${sample} common/${control_flags}.c "" "-max_bb_instrs 8" "")
+      else ()
+        torunonly_ci(sample.${sample} common.${control_flags}
+          ${sample} common/${control_flags}.c "" "" "")
+      endif ()
       if (sample STREQUAL "inscount")
         # test out-of-line clean call
         torunonly_ci(sample.${sample}.cleancall common.${control_flags} ${sample}

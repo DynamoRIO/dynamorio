@@ -925,6 +925,10 @@ OPTION_DEFAULT(uint, selfmod_max_writes, 5, "maximum write instrs per selfmod fr
  * "exceeded maximum size" failure.
  * On RISC-V, direct branch has a range of +/- 4 KiB -- for extreme use cases, such as
  * putting a clean call before every app instruction, 15 is a safe value to use.
+ *
+ * TODO i#3544: For use cases heavier than one clean call per instruction, this number
+ * may need to be even lower on RISC-V, for example memtrace_simple must be set to 8 to
+ * work properly. State this in the documentation.
  */
 OPTION_DEFAULT(uint, max_bb_instrs, IF_RISCV64_ELSE(15, 256),
                "maximum instrs per basic block")
