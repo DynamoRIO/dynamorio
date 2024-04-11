@@ -217,7 +217,7 @@ Check out the sources as normal, and point at our toolchain CMake file:
 $ git clone --recurse-submodules -j4 https://github.com/DynamoRIO/dynamorio.git
 $ mkdir build_aarch64
 $ cd build_aarch64
-$ cmake -DCMAKE_TOOLCHAIN_FILE=../dynamorio/make/toolchain-arm64.cmake ../dynamorio
+$ cmake -DCMAKE_TOOLCHAIN_FILE=../dynamorio/make/toolchain-aarch64.cmake ../dynamorio
 $ make -j
 ```
 
