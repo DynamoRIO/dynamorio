@@ -50,6 +50,9 @@
 #include "caching_device_block.h"
 #include "trace_entry.h"
 
+// Jin : use the library to add timestamp
+#include "../common/utils.h"
+
 namespace dynamorio {
 namespace drmemtrace {
 
@@ -153,7 +156,9 @@ caching_device_stats_t::check_compulsory_miss(addr_t addr)
 void
 caching_device_stats_t::dump_miss(const memref_t &memref)
 {
-    addr_t pc, addr;
+    addr_t addr;
+    
+    /* Jin : We don't need pc so I command these
     if (type_is_instr(memref.instr.type))
         pc = memref.instr.addr;
     else { // data ref: others shouldn't get here
@@ -162,11 +167,14 @@ caching_device_stats_t::dump_miss(const memref_t &memref)
                memref.data.type == TRACE_TYPE_WRITE);
         pc = memref.data.pc;
     }
+    */
     addr = memref.data.addr;
+
+    // the output function below I add some informatiom to output
 #ifdef HAS_ZLIB
-    gzprintf(file_, "0x%zx,0x%zx\n", pc, addr);
+    gzprintf(file_, "0x%zx,%d,%lld\n", addr, memref.data.pid, get_microsecond_timestamp());
 #else
-    fprintf(file_, "0x%zx,0x%zx\n", pc, addr);
+    fprintf(file_, "0x%zx,%d,%lld\n", addr, memref.data.pid, get_microsecond_timestamp());
 #endif
 }
 
