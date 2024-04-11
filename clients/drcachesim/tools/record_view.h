@@ -59,7 +59,7 @@ namespace drmemtrace {
  */
 class record_view_t : public record_analysis_tool_t {
 public:
-    record_view_t();
+    record_view_t(uint64_t sim_refs);
 
     ~record_view_t() override;
 
@@ -87,6 +87,12 @@ public:
 
     std::string
     parallel_shard_error(void *shard_data) override;
+
+protected:
+    bool
+    should_skip(void);
+
+    uint64_t sim_refs_;
 };
 
 } // namespace drmemtrace

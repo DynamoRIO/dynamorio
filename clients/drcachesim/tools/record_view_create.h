@@ -50,7 +50,7 @@ namespace drmemtrace {
  * file.
  */
 analysis_tool_t *
-record_view_tool_create(void);
+record_view_tool_create(uint64_t sim_refs);
 
 } // namespace drmemtrace
 } // namespace dynamorio

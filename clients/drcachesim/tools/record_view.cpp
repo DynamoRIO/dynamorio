@@ -78,17 +78,28 @@ namespace dynamorio {
 namespace drmemtrace {
 
 record_analysis_tool_t *
-record_view_tool_create(void)
+record_view_tool_create(uint64_t sim_refs)
 {
-    return new dynamorio::drmemtrace::record_view_t();
+    return new dynamorio::drmemtrace::record_view_t(sim_refs);
 }
 
-record_view_t::record_view_t()
+record_view_t::record_view_t(uint64_t sim_refs)
+    : sim_refs_(sim_refs)
 {
 }
 
 record_view_t::~record_view_t()
 {
+}
+
+bool
+record_view_t::should_skip(void)
+{
+    if (sim_refs_ > 0) {
+        --sim_refs_;
+        return false;
+    }
+    return true;
 }
 
 bool
@@ -125,6 +136,9 @@ record_view_t::parallel_shard_error(void *shard_data)
 bool
 record_view_t::parallel_shard_memref(void *shard_data, const trace_entry_t &entry)
 {
+    if (should_skip())
+        return true;
+
     const char *trace_type_name = trace_type_names[entry.type];
     std::cerr << std::string(trace_type_name) << "\n";
 
