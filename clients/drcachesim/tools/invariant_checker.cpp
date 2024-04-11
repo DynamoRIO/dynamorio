@@ -206,12 +206,10 @@ invariant_checker_t::relax_expected_write_count_check_for_kernel(per_shard_t *sh
         !shard->between_kernel_context_switch_markers_)
         return false;
     bool relax =
-        // Xsave does multiple writes. Write count cannot be
-        // determined using the decoder. System call trace
-        // templates collected on QEMU would show all writes.
-        // XXX: Perhaps we can query the expected size using
-        // cpuid and add it as a marker in the system call
-        // trace template, and then adjust it according to the
+        // Xsave does multiple writes. Write count cannot be determined using the
+        // decoder. System call trace templates collected on QEMU would show all writes.
+        // XXX: Perhaps we can query the expected size using cpuid and add it as a
+        // marker in the system call trace template, and then adjust it according to the
         // cpuid value for the trace being injected into.
         shard->prev_instr_.decoding.is_xsave;
     return relax;
@@ -224,30 +222,25 @@ invariant_checker_t::relax_expected_read_count_check_for_kernel(per_shard_t *sha
         !shard->between_kernel_context_switch_markers_)
         return false;
     bool relax =
-        // iret pops bunch of data from the stack at interrupt
-        // returns. System call trace templates collected on
-        // QEMU would show all reads.
-        // TODO i#6742: iret has different behavior in user vs
-        // protected mode. This difference in iret behavior can
-        // be detected in the decoder and perhaps be accounted
-        // for here in a way better than relying on
+        // iret pops bunch of data from the stack at interrupt returns. System call
+        // trace templates collected on QEMU would show all reads.
+        // TODO i#6742: iret has different behavior in user vs protected mode. This
+        // difference in iret behavior can be detected in the decoder and perhaps be
+        // accounted for here in a way better than relying on
         // between_kernel_syscall_trace_markers_.
         shard->prev_instr_.decoding.opcode == OP_iret
 
-        // Xrstor does multiple reads. Read count cannot be
-        // determined using the decoder. System call trace
-        // templates collected on QEMU would show all reads.
-        // XXX: Perhaps we can query the expected size using
-        // cpuid and add it as a marker in the system call
-        // trace template, and then adjust it according to the
+        // Xrstor does multiple reads. Read count cannot be determined using the
+        // decoder. System call trace templates collected on QEMU would show all reads.
+        // XXX: Perhaps we can query the expected size using cpuid and add it as a
+        // marker in the system call trace template, and then adjust it according to the
         // cpuid value for the trace being injected into.
         || shard->prev_instr_.decoding.is_xrstor
 
-        // xsave variants also read some fields from the xsave
-        // header (https://www.felixcloutier.com/x86/xsaveopt).
-        // XXX, i#6769: Same as above, can we store any metadata
-        // in the trace to allow us to adapt the decoder to expect
-        // this?
+        // xsave variants also read some fields from the xsave header
+        // (https://www.felixcloutier.com/x86/xsaveopt).
+        // XXX, i#6769: Same as above, can we store any metadata in the trace to allow
+        // us to adapt the decoder to expect this?
         || shard->prev_instr_.decoding.is_xsave;
     return relax;
 }
