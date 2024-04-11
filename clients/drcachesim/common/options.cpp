@@ -926,7 +926,8 @@ droption_t<bool> op_sched_disable_direct_switches(
     "Applies to -core_sharded and -core_serial.  Disables switching to the recorded "
     "targets of TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH system call metadata markers "
     "and causes the associated system call to be treated like any other call with a "
-    "switch being determined by latency and the next input in the queue.");
+    "switch being determined by latency and the next input in the queue.  The "
+    "TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH markers are not removed from the trace.");
 
 // Schedule_stats options.
 droption_t<uint64_t>
