@@ -636,6 +636,17 @@ public:
          * ahead.
          */
         bool read_inputs_in_init = true;
+        /**
+         * If true, the scheduler will attempt to switch to the recorded targets of
+         * #TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH system call metadata markers
+         * regardless of system call latency.  If the target is not available, the
+         * current implementation will select the next available input in the regular
+         * scheduling queue, but in the future a forced migration may be applied for
+         * an input currently on another output.  If false, the direct switch markers
+         * are ignored and only system call latency thresholds are used to determine
+         * switches.
+         */
+        bool honor_direct_switches = true;
     };
 
     /**
