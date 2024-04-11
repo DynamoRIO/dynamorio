@@ -3585,7 +3585,7 @@ if (BUILD_SAMPLES)
             samples/${sample}_repstr "-log_to_stderr" "" "")
         endif ()
       elseif (sample STREQUAL "callstack")
-        set(sample.${sample}_expectbase "sample.callstack.control_flags")
+        set(sample.${sample}_expectbase "sample.callstack")
       endif()
     endforeach ()
   endif (NOT ANDROID)
@@ -6204,6 +6204,7 @@ if (RISCV64)
     code_api|sample.inscount.cleancall
     code_api|sample.inscount.prof-pcs.cleancall
     code_api|sample.opcode_count
+    code_api|sample.opcodes
     code_api|sample.signal
     code_api|sample.stl_test
     code_api|sample.syscall
