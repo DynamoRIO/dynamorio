@@ -64,6 +64,7 @@
 #include "tools/reuse_distance_create.h"
 #include "tools/reuse_time_create.h"
 #include "tools/view_create.h"
+#include "tools/record_view_create.h"
 #include "tools/loader/external_config_file.h"
 #include "tools/loader/external_tool_creator.h"
 #include "tools/filter/record_filter_create.h"
@@ -265,6 +266,8 @@ analyzer_multi_t::create_analysis_tool_from_options(const std::string &simulator
         }
         return func_view_tool_create(funclist_file_path, op_show_func_trace.get_value(),
                                      op_verbose.get_value());
+    } else if (simulator_type == RECORD_VIEW) {
+        return record_view_tool_create();
     } else if (simulator_type == INVARIANT_CHECKER) {
         return create_invariant_checker();
     } else if (simulator_type == SCHEDULE_STATS) {
