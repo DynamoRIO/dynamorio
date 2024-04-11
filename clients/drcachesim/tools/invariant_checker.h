@@ -258,6 +258,7 @@ protected:
                                const per_shard_t::instr_info_t &cur_memref_info,
                                bool expect_encoding, bool at_kernel_event);
 
+#ifdef X86
     // Whether the expected write entry count check should be relaxed for the kernel
     // part of the trace.
     bool
@@ -267,6 +268,7 @@ protected:
     // part of the trace.
     bool
     relax_expected_read_count_check_for_kernel(per_shard_t *shard);
+#endif
 
     void *drcontext_ = dr_standalone_init();
     std::unordered_map<int, std::unique_ptr<per_shard_t>> shard_map_;

@@ -198,6 +198,7 @@ invariant_checker_t::is_a_unit_test(per_shard_t *shard)
     return shard->stream == nullptr || shard->stream->get_input_interface() == nullptr;
 }
 
+#ifdef X86
 bool
 invariant_checker_t::relax_expected_write_count_check_for_kernel(per_shard_t *shard)
 {
@@ -250,6 +251,7 @@ invariant_checker_t::relax_expected_read_count_check_for_kernel(per_shard_t *sha
         || shard->prev_instr_.decoding.is_xsave;
     return relax;
 }
+#endif
 
 bool
 invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
