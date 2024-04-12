@@ -3843,7 +3843,7 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
         for (uint i = 0; i < num_simd_regs; i++) {
             print_file(f, dump_xml ? "\t\t%s%d= \"0x" : "\t%s%-3d= 0x", reg_prefix, i);
             for (uint j = 0; j < elements; j++) {
-                print_file(f, PFMT " ", context->simd[i].u32[j]);
+                print_file(f, "%08x ", context->simd[i].u32[j]);
             }
             print_file(f, dump_xml ? "\"\n" : "\n");
         }
