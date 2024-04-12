@@ -266,8 +266,6 @@ analyzer_multi_t::create_analysis_tool_from_options(const std::string &simulator
         }
         return func_view_tool_create(funclist_file_path, op_show_func_trace.get_value(),
                                      op_verbose.get_value());
-    } else if (simulator_type == RECORD_VIEW) {
-        return record_view_tool_create(op_sim_refs.get_value());
     } else if (simulator_type == INVARIANT_CHECKER) {
         return create_invariant_checker();
     } else if (simulator_type == SCHEDULE_STATS) {
@@ -338,6 +336,8 @@ record_analyzer_multi_t::create_analysis_tool_from_options(
             op_filter_cache_size.get_value(), op_filter_trace_types.get_value(),
             op_filter_marker_types.get_value(), op_trim_before_timestamp.get_value(),
             op_trim_after_timestamp.get_value(), op_verbose.get_value());
+    } else if (simulator_type == RECORD_VIEW) {
+        return record_view_tool_create(op_sim_refs.get_value());
     }
     ERRMSG("Usage error: unsupported record analyzer type \"%s\".  Only " RECORD_FILTER
            " is supported.\n",

@@ -139,8 +139,10 @@ record_view_t::parallel_shard_memref(void *shard_data, const trace_entry_t &entr
     if (should_skip())
         return true;
 
-    const char *trace_type_name = trace_type_names[entry.type];
-    std::cerr << std::string(trace_type_name) << "\n";
+    std::string line = "";
+    // trace_type_t type = (trace_type_t)entry.type;
+    // const char *trace_type_name = trace_type_names[type];
+    std::cerr << entry.type << " " << entry.size << " " << entry.addr << "\n";
 
     return true;
 }
