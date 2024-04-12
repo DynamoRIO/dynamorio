@@ -3827,23 +3827,23 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
     {
 #    ifdef AARCH64
         const uint elements = proc_has_feature(FEATURE_SVE)
-            ? (proc_get_vector_length_bytes() / sizeof(uint64))
-            : 2;
+            ? (proc_get_vector_length_bytes() / sizeof(uint))
+            : 4;
         /* XXX: should be proc_num_simd_saved(). */
         const uint num_simd_regs = MCXT_NUM_SIMD_SVE_SLOTS;
         const char *reg_prefix = proc_has_feature(FEATURE_SVE) ? "z" : "q";
 #    else
-        const uint elements = 2;
+        const uint elements = 4;
         /* XXX: should be proc_num_simd_saved(). */
         const uint num_simd_regs = proc_num_simd_registers();
         const char *reg_prefix = "q";
 #    endif
         ASSERT(elements <=
-               sizeof(context->simd[0].u64) / sizeof(context->simd[0].u64[0]));
+               sizeof(context->simd[0].u32) / sizeof(context->simd[0].u32[0]));
         for (uint i = 0; i < num_simd_regs; i++) {
             print_file(f, dump_xml ? "\t\t%s%d= \"0x" : "\t%s%-3d= 0x", reg_prefix, i);
             for (uint j = 0; j < elements; j++) {
-                print_file(f, PFMT " ", context->simd[i].u64[j]);
+                print_file(f, PFMT " ", context->simd[i].u32[j]);
             }
             print_file(f, dump_xml ? "\"\n" : "\n");
         }
