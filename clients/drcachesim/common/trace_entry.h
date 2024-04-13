@@ -652,6 +652,8 @@ enum class func_trace_t : uint64_t { // VS2019 won't infer 64-bit with "enum {".
 };
 
 extern const char *const trace_type_names[];
+extern const char *const trace_version_names[];
+extern const char *const trace_marker_names[];
 
 /**
  * Returns whether the type represents an instruction fetch.

@@ -35,19 +35,10 @@
 
 #include <stdint.h>
 
-#include <condition_variable>
-#include <memory>
-#include <mutex>
-#include <ostream>
 #include <string>
-#include <unordered_map>
-#include <vector>
 
 #include "analysis_tool.h"
-#include "archive_ostream.h"
-#include "memref.h"
 #include "memtrace_stream.h"
-#include "raw2trace_shared.h"
 #include "trace_entry.h"
 
 namespace dynamorio {

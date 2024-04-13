@@ -88,5 +88,55 @@ const char *const trace_type_names[] = {
     "untaken_jump",
 };
 
+const char *const trace_version_names[] = {
+    "<unknown>",
+    "<unknown>",
+    "trace_entry_version_no_kernel_pc",
+    "trace_entry_version_kernel_pc",
+    "trace_entry_version_encodings",
+    "trace_entry_version_branch_info",
+    "trace_entry_version_frequent_timestamps",
+};
+
+const char *const trace_marker_names[] = {
+    "trace_marker_type_kernel_event",
+    "trace_marker_type_kernel_xfer",
+    "trace_marker_type_timestamp",
+    "trace_marker_type_cpu_id",
+    "trace_marker_type_func_id",
+    "trace_marker_type_func_retaddr",
+    "trace_marker_type_func_arg",
+    "trace_marker_type_func_retval",
+    "trace_marker_type_split_value",
+    "trace_marker_type_filetype",
+    "trace_marker_type_cache_line_size",
+    "trace_marker_type_instruction_count",
+    "trace_marker_type_version",
+    "trace_marker_type_rseq_abort",
+    "trace_marker_type_window_id",
+    "trace_marker_type_physical_address",
+    "trace_marker_type_physical_address_not_available",
+    "trace_marker_type_virtual_address",
+    "trace_marker_type_page_size",
+    "trace_marker_type_syscall_idx",
+    "trace_marker_type_chunk_instr_count",
+    "trace_marker_type_chunk_footer",
+    "trace_marker_type_record_ordinal",
+    "trace_marker_type_filter_endpoint",
+    "trace_marker_type_rseq_entry",
+    "trace_marker_type_syscall",
+    "trace_marker_type_maybe_blocking_syscall",
+    "trace_marker_type_syscall_trace_start",
+    "trace_marker_type_syscall_trace_end",
+    "trace_marker_type_branch_target",
+    "trace_marker_type_syscall_failed",
+    "trace_marker_type_direct_thread_switch",
+    "trace_marker_type_core_wait",
+    "trace_marker_type_core_idle",
+    "trace_marker_type_context_switch_start",
+    "trace_marker_type_context_switch_end",
+    "trace_marker_type_vector_length",
+};
+
 } // namespace drmemtrace
 } // namespace dynamorio

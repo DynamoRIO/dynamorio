@@ -46,8 +46,8 @@ namespace drmemtrace {
  */
 
 /**
- * Creates an analysis tool which prints out the the #trace_entry_t records in a trace
- * file.
+ * Creates an analysis tool which prints out the #trace_entry_t records in a trace file
+ * to std::err.
  */
 record_analysis_tool_t *
 record_view_tool_create(uint64_t sim_refs);
