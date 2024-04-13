@@ -3794,42 +3794,83 @@ test_direct_switch()
         make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_BASE + 3),
         make_exit(TID_C),
     };
-    std::vector<scheduler_t::input_reader_t> readers;
-    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
-                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
-    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
-                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
-    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_C)),
-                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_C);
-    // The string constructor writes "." for markers.
-    // We expect A's first switch to be to C even though B has an earlier timestamp.
-    // We expect C's direct switch to A to proceed immediately even though A still
-    // has significant blocked time left.  But then after B is scheduled and finishes,
-    // we still have to wait for C's block time so we see idle underscores:
-    static const char *const CORE0_SCHED_STRING =
-        "...AA.........CC......A....BBBB.______________C...";
+    {
+        // Test the defaults with direct switches enabled.
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_C)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_C);
+        // The string constructor writes "." for markers.
+        // We expect A's first switch to be to C even though B has an earlier timestamp.
+        // We expect C's direct switch to A to proceed immediately even though A still
+        // has significant blocked time left.  But then after B is scheduled and finishes,
+        // we still have to wait for C's block time so we see idle underscores:
+        static const char *const CORE0_SCHED_STRING =
+            "...AA.........CC......A....BBBB.______________C...";
 
-    std::vector<scheduler_t::input_workload_t> sched_inputs;
-    sched_inputs.emplace_back(std::move(readers));
-    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
-                                               scheduler_t::DEPENDENCY_TIMESTAMPS,
-                                               scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/3);
-    sched_ops.quantum_duration = QUANTUM_DURATION;
-    // We use our mock's time==instruction count for a deterministic result.
-    sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
-    sched_ops.blocking_switch_threshold = BLOCK_LATENCY;
-    sched_ops.block_time_scale = BLOCK_SCALE;
-    scheduler_t scheduler;
-    if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
-        scheduler_t::STATUS_SUCCESS)
-        assert(false);
-    std::vector<std::string> sched_as_string =
-        run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE, /*send_time=*/true);
-    for (int i = 0; i < NUM_OUTPUTS; i++) {
-        std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/3);
+        sched_ops.quantum_duration = QUANTUM_DURATION;
+        // We use our mock's time==instruction count for a deterministic result.
+        sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
+        sched_ops.blocking_switch_threshold = BLOCK_LATENCY;
+        sched_ops.block_time_scale = BLOCK_SCALE;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<std::string> sched_as_string =
+            run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE, /*send_time=*/true);
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        }
+        assert(sched_as_string[0] == CORE0_SCHED_STRING);
     }
-    assert(sched_as_string[0] == CORE0_SCHED_STRING);
+    {
+        // Test disabling direct switches.
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_C)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_C);
+        // The string constructor writes "." for markers.
+        // We expect A's first switch to be to B with an earlier timestamp.
+        // We expect C's direct switch to A to not happen until A's blocked time ends.
+        static const char *const CORE0_SCHED_STRING =
+            "...AA.........BBBB....CC......___________________C...___A.";
+
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/3);
+        sched_ops.quantum_duration = QUANTUM_DURATION;
+        // We use our mock's time==instruction count for a deterministic result.
+        sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
+        sched_ops.blocking_switch_threshold = BLOCK_LATENCY;
+        sched_ops.block_time_scale = BLOCK_SCALE;
+        sched_ops.honor_direct_switches = false;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<std::string> sched_as_string =
+            run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE, /*send_time=*/true);
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        }
+        assert(sched_as_string[0] == CORE0_SCHED_STRING);
+    }
 }
 
 static void

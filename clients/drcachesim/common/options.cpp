@@ -920,6 +920,15 @@ droption_t<bool> op_sched_randomize(
     "set), and FIFO order and instead selects the next input randomly. "
     "This is intended for experimental use in sensitivity studies.");
 
+droption_t<bool> op_sched_disable_direct_switches(
+    DROPTION_SCOPE_FRONTEND, "sched_disable_direct_switches", false,
+    "Ignore direct thread switch requests",
+    "Applies to -core_sharded and -core_serial.  Disables switching to the recorded "
+    "targets of TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH system call metadata markers "
+    "and causes the associated system call to be treated like any other call with a "
+    "switch being determined by latency and the next input in the queue.  The "
+    "TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH markers are not removed from the trace.");
+
 // Schedule_stats options.
 droption_t<uint64_t>
     op_schedule_stats_print_every(DROPTION_SCOPE_ALL, "schedule_stats_print_every",

@@ -3279,11 +3279,18 @@ check_kernel_syscall_trace(void)
         instr_t *xsaves = INSTR_CREATE_xsaves64(
             GLOBAL_DCONTEXT,
             opnd_create_base_disp(DR_REG_XCX, DR_REG_NULL, 0, 0, OPSZ_xsave));
+        instr_t *xsaveopt = INSTR_CREATE_xsaveopt64(
+            GLOBAL_DCONTEXT,
+            opnd_create_base_disp(DR_REG_XCX, DR_REG_NULL, 0, 0, OPSZ_xsave));
+
 #        else
         instr_t *xrstors = INSTR_CREATE_xrstors32(
             GLOBAL_DCONTEXT,
             opnd_create_base_disp(DR_REG_XCX, DR_REG_NULL, 0, 0, OPSZ_xsave));
         instr_t *xsaves = INSTR_CREATE_xsaves32(
+            GLOBAL_DCONTEXT,
+            opnd_create_base_disp(DR_REG_XCX, DR_REG_NULL, 0, 0, OPSZ_xsave));
+        instr_t *xsaveopt = INSTR_CREATE_xsaveopt32(
             GLOBAL_DCONTEXT,
             opnd_create_base_disp(DR_REG_XCX, DR_REG_NULL, 0, 0, OPSZ_xsave));
 #        endif
@@ -3306,6 +3313,7 @@ check_kernel_syscall_trace(void)
         instrlist_append(ilist2, nop2);
         instrlist_append(ilist2, xrstors);
         instrlist_append(ilist2, xsaves);
+        instrlist_append(ilist2, xsaveopt);
         instrlist_append(ilist2, hlt);
         instrlist_append(ilist2, nop3);
         instrlist_append(ilist2, prefetch);
@@ -3330,25 +3338,31 @@ check_kernel_syscall_trace(void)
                 { gen_instr(TID_A), move1 },
                 { gen_instr(TID_A), iret },
                 // Multiple reads. Acceptable because of the prior iret.
-                { gen_data(TID_A, true, 42, 8), nullptr },
-                { gen_data(TID_A, true, 42, 8), nullptr },
-                { gen_data(TID_A, true, 42, 8), nullptr },
-                { gen_data(TID_A, true, 42, 8), nullptr },
+                { gen_data(TID_A, true, 4000, 8), nullptr },
+                { gen_data(TID_A, true, 4008, 8), nullptr },
+                { gen_data(TID_A, true, 4016, 8), nullptr },
+                { gen_data(TID_A, true, 4024, 8), nullptr },
                 { gen_instr(TID_A), sti },
                 { gen_instr(TID_A), nop1 },
                 // Missing nop2. Acceptable because of the recent sti.
                 { gen_instr(TID_A), xrstors },
                 // Multiple reads. Acceptable because of the prior xrstors.
-                { gen_data(TID_A, true, 42, 8), nullptr },
-                { gen_data(TID_A, true, 42, 8), nullptr },
-                { gen_data(TID_A, true, 42, 8), nullptr },
-                { gen_data(TID_A, true, 42, 8), nullptr },
+                { gen_data(TID_A, true, 4032, 8), nullptr },
+                { gen_data(TID_A, true, 4040, 8), nullptr },
+                { gen_data(TID_A, true, 4048, 8), nullptr },
+                { gen_data(TID_A, true, 4056, 8), nullptr },
                 { gen_instr(TID_A), xsaves },
                 // Multiple writes. Acceptable because of the prior xsaves.
-                { gen_data(TID_A, false, 42, 8), nullptr },
-                { gen_data(TID_A, false, 42, 8), nullptr },
-                { gen_data(TID_A, false, 42, 8), nullptr },
-                { gen_data(TID_A, false, 42, 8), nullptr },
+                { gen_data(TID_A, false, 4064, 8), nullptr },
+                { gen_data(TID_A, false, 4072, 8), nullptr },
+                { gen_data(TID_A, false, 4080, 8), nullptr },
+                { gen_data(TID_A, false, 4088, 8), nullptr },
+                { gen_instr(TID_A), xsaveopt },
+                // Multiple writes and a read. Acceptable because of the prior xsaveopt.
+                { gen_data(TID_A, false, 4096, 8), nullptr },
+                { gen_data(TID_A, false, 4104, 8), nullptr },
+                { gen_data(TID_A, true, 4112, 8), nullptr },
+                { gen_data(TID_A, false, 4120, 8), nullptr },
                 { gen_instr(TID_A), hlt },
                 // Missing nop3. Acceptable because of the prior hlt.
                 { gen_instr(TID_A), prefetch },
@@ -3369,6 +3383,50 @@ check_kernel_syscall_trace(void)
             auto memrefs = add_encodings_to_memrefs(ilist2, memref_instr_vec, BASE_ADDR);
             if (!run_checker(memrefs, false))
                 res = false;
+        }
+        {
+            std::vector<memref_with_IR_t> memref_instr_vec = {
+                { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE,
+                             OFFLINE_FILE_TYPE_ENCODINGS |
+                                 OFFLINE_FILE_TYPE_SYSCALL_NUMBERS |
+                                 OFFLINE_FILE_TYPE_KERNEL_SYSCALLS),
+                  nullptr },
+                { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
+                { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
+                { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+                { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
+                { gen_instr(TID_A), move1 },
+                { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+                { gen_exit(TID_A), nullptr }
+            };
+            auto memrefs = add_encodings_to_memrefs(ilist2, memref_instr_vec, BASE_ADDR);
+            if (!run_checker(
+                    memrefs, true,
+                    { "prev_instr at syscall trace start is not a syscall",
+                      /*tid=*/TID_A,
+                      /*ref_ordinal=*/5, /*last_timestamp=*/0,
+                      /*instrs_since_last_timestamp=*/0 },
+                    "Failed to catch missing syscall instr before syscall trace"))
+                res = false;
+        }
+        {
+            std::vector<memref_t> memrefs = {
+                gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE,
+                           OFFLINE_FILE_TYPE_SYSCALL_NUMBERS |
+                               OFFLINE_FILE_TYPE_KERNEL_SYSCALLS),
+                gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+                gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+                // Since the file type does not indicate presence of encodings, we do
+                // not need this instr to be a system call.
+                gen_instr(TID_A),
+                gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42),
+                gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42),
+                gen_instr(TID_A),
+                gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42),
+                gen_exit(TID_A),
+            };
+            if (!run_checker(memrefs, false))
+                return false;
         }
         {
             std::vector<memref_with_IR_t> memref_instr_vec = {
