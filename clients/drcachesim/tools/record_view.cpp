@@ -44,6 +44,8 @@
 namespace dynamorio {
 namespace drmemtrace {
 
+typedef unsigned int uint;
+
 record_analysis_tool_t *
 record_view_tool_create(uint64_t sim_refs)
 {
@@ -135,7 +137,7 @@ record_view_t::parallel_shard_memref(void *shard_data, const trace_entry_t &entr
     } else if (trace_type == TRACE_TYPE_MARKER) {
         /* XXX i#6751: we have a lot of different types of markers; we should use some
          * kind of dispatching mechanism to print a more informative output for each of
-         * them.  For now we only do so only for a few markers here.
+         * them.  For now we do so only for a few markers here.
          */
         trace_marker_type_t trace_marker_type = (trace_marker_type_t)entry.size;
         std::string trace_marker_name =
