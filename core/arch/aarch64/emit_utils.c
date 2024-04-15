@@ -815,10 +815,10 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
         }
         /* There is no store instruction for the first-fault register (FFR). Use
          * a temporary predicate register to store:
-         * rdffr p15.b
-         * add x2, x(dcxt), #(offset ffr)
-         * str p15, [x2, #0]
-         * ldr p15, [x1, #(15 * sizeof(dr_svep_t))]
+         * rdffr p15.b                              ; Read FFR to P15
+         * add x2, x(dcxt), #(offset ffr)           ; Calculate FFR dcxt offset
+         * str p15, [x2, #0]                        ; Save FFR to dcxt
+         * ldr p15, [x1, #(15 * sizeof(dr_svep_t))] ; Restore app P15 value from dcxt
          */
         APP(ilist,
             INSTR_CREATE_rdffr_sve(dcontext,
