@@ -169,6 +169,66 @@ if ($^O eq 'MSWin32') {
     };
 }
 
+if ($is_aarchxx) {
+
+    my $cpuinfo = '/proc/cpuinfo';
+    my $osfile = '/etc/os-release';
+
+    sub extract {
+        my ($file, $filter, $delim) = @_;
+        my $line;
+        if (open my $handle, '<', "$file") {
+            while (<$handle>) {
+                if (/$filter/) {
+                    chomp ($line = (split $delim)[1]);
+                    $line =~ s/ ^\s+ | \s+$ | \"//gx; # Strip spaces and "
+                    close $handle;
+                    return $line;
+                }
+            }
+            close $handle;
+        } else {
+            print "Failed to open file ${file}: $!\n";
+        }
+        return 'unknown';
+    }
+
+    sub first_line_or {
+        my ($command, $or) = @_;
+        my $stdout = `${command}`;
+
+        if ($? == 0) {
+            chomp($stdout = (split '\n', $stdout)[0]);
+            return $stdout;
+        }
+        return $or;
+    }
+
+    my $cpu_part = extract($cpuinfo, qr/\bCPU part\b/, ':');
+    my $features = extract($cpuinfo, qr/\bFeatures\b/, ':');
+    my $os_name = extract($osfile, qr/\bPRETTY_NAME\b/, '=');
+    my $clang_version = first_line_or('clang --version', 'none');
+    my $gcc_version = first_line_or('gcc --version', 'none');
+    my $kernel_version = first_line_or('uname -r', 'unknown');
+
+    my %cpu_parts = (
+        '0xd40' => 'Neoverse V1', '0xd4f' => 'Neoverse V2', '0xd0c' => 'Neoverse N1',
+        '0xd49' => 'Neoverse N2', '0xd08' => 'Cortex-A72', '0xd46' => 'Cortex-A510',
+        '0xd47' => 'Cortex-A710', 'unknown' => 'unknown',);
+    my $cpu_name = $cpu_parts{$cpu_part} // "unknown(${cpu_part})";
+
+    print "=========== System info ===========\n";
+    print "OS: ${os_name}\n";
+    print "Kernel Version: ${kernel_version}\n";
+    print "CPU: ${cpu_name}\n";
+    print "Clang version: ${clang_version}\n";
+    print "GCC version: ${gcc_version}\n";
+    print "Features: ${features}\n";
+    print "===================================\n\n";
+    print "===================================\n\n";
+}
+
+
 my @lines = split('\n', $res);
 my $should_print = 0;
 my $exit_code = 0;
