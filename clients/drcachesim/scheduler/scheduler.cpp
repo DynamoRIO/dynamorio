@@ -2781,7 +2781,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                 // boundaries so we live with those being before the switch.
                 // XXX: Once we insert kernel traces, we may have to try harder
                 // to stop before the post-syscall records.
-                if (record_type_is_marker(record, marker_type, marker_value) &&
+                if (options_.honor_direct_switches &&
+                    record_type_is_marker(record, marker_type, marker_value) &&
                     marker_type == TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH) {
                     memref_tid_t target_tid = marker_value;
                     auto it =
