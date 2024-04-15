@@ -253,16 +253,16 @@ sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
                          */
                         memcpy(&mc->simd[i].u32,
                                (byte *)sve + SVE_SIG_ZREG_OFFSET(quads_per_vector, i),
-                               sve->vl);
+                               SVE_SIG_ZREG_SIZE(quads_per_vector));
                         memcpy(&mc->simd[i].q, &fpc->vregs[i], sizeof(mc->simd->q));
                     }
                     for (i = 0; i < MCXT_NUM_SVEP_SLOTS; i++) {
                         memcpy(&mc->svep[i].u16,
                                (byte *)sve + SVE_SIG_PREG_OFFSET(quads_per_vector, i),
-                               sve->vl / 8);
+                               SVE_SIG_PREG_SIZE(quads_per_vector));
                     }
                     memcpy(&mc->ffr, (byte *)sve + SVE_SIG_FFR_OFFSET(quads_per_vector),
-                           sve->vl / 8);
+                           SVE_SIG_FFR_SIZE(quads_per_vector));
                 }
                 break;
             }
