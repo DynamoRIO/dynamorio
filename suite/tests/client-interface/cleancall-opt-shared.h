@@ -361,7 +361,7 @@ dump_diff_mcontexts(void)
             dr_svep_t before_reg, after_reg;
 
             if (i >= (MCXT_NUM_SIMD_SVE_SLOTS + MCXT_NUM_SVEP_SLOTS)) {
-                strcpy(reg_name, "FFR");
+                strncpy(reg_name, "FFR", sizeof(reg_name));
                 before_reg = before_mcontext.ffr;
                 after_reg = after_mcontext.ffr;
             } else {
