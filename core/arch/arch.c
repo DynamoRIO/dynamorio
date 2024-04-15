@@ -3826,23 +3826,25 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
 #elif defined(AARCHXX)
     {
 #    ifdef AARCH64
-        const uint elements = proc_has_feature(FEATURE_SVE)
-            ? (proc_get_vector_length_bytes() / sizeof(uint))
-            : 4;
+        const uint vector_length_bytes =
+            (proc_has_feature(FEATURE_SVE) ? proc_get_vector_length_bytes()
+                                           : opnd_size_in_bytes(reg_get_size(DR_REG_Q0)));
+        const uint u32_count = vector_length_bytes / sizeof(uint);
         /* XXX: should be proc_num_simd_saved(). */
         const uint num_simd_regs = MCXT_NUM_SIMD_SVE_SLOTS;
         const char *reg_prefix = proc_has_feature(FEATURE_SVE) ? "z" : "q";
 #    else
-        const uint elements = 4;
+        const uint u32_count =
+            sizeof(context->simd[0].u32) / sizeof(context->simd[0].u32[0]);
         /* XXX: should be proc_num_simd_saved(). */
         const uint num_simd_regs = proc_num_simd_registers();
         const char *reg_prefix = "q";
 #    endif
-        ASSERT(elements <=
+        ASSERT(u32_count <=
                sizeof(context->simd[0].u32) / sizeof(context->simd[0].u32[0]));
         for (uint i = 0; i < num_simd_regs; i++) {
             print_file(f, dump_xml ? "\t\t%s%d= \"0x" : "\t%s%-3d= 0x", reg_prefix, i);
-            for (uint j = 0; j < elements; j++) {
+            for (uint j = 0; j < u32_count; j++) {
                 print_file(f, "%08x ", context->simd[i].u32[j]);
             }
             print_file(f, dump_xml ? "\"\n" : "\n");
@@ -3850,18 +3852,18 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
 #    ifdef AARCH64
         if (proc_has_feature(FEATURE_SVE)) {
             /* Dump SVE P registers */
-            const uint pred_u16_elements =
+            const uint pred_u16_count =
                 (proc_get_vector_length_bytes() / 8) / sizeof(ushort);
             for (uint i = 0; i < MCXT_NUM_SVEP_SLOTS; i++) {
                 print_file(f, dump_xml ? "\t\tp%d= \"0x" : "\tp%-3d= 0x", i);
-                for (size_t j = 0; j < pred_u16_elements; j++) {
+                for (size_t j = 0; j < pred_u16_count; j++) {
                     print_file(f, "%04x ", context->svep[i].u16[j]);
                 }
                 print_file(f, dump_xml ? "\"\n" : "\n");
             }
             /* Dump SVE FFR register */
             print_file(f, dump_xml ? "\t\tffr= \"0x" : "\tffr = 0x");
-            for (size_t j = 0; j < pred_u16_elements; j++) {
+            for (size_t j = 0; j < pred_u16_count; j++) {
                 print_file(f, "%04x ", context->ffr.u16[j]);
             }
             print_file(f, dump_xml ? "\"\n" : "\n");
