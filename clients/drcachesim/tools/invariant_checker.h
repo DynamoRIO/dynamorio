@@ -86,7 +86,8 @@ public:
     invariant_checker_t(bool offline = true, unsigned int verbose = 0,
                         std::string test_name = "",
                         std::istream *serial_schedule_file = nullptr,
-                        std::istream *cpu_schedule_file = nullptr);
+                        std::istream *cpu_schedule_file = nullptr,
+                        bool abort_on_invariant_error = true);
     virtual ~invariant_checker_t();
     std::string
     initialize_shard_type(shard_type_t shard_type) override;
@@ -135,6 +136,9 @@ protected:
         std::stack<addr_t> retaddr_stack_;
         uintptr_t trace_version_ = 0;
         // Struct to store decoding related attributes.
+#ifdef X86
+        uint64_t instrs_since_sti = 0;
+#endif
         struct decoding_info_t {
             bool has_valid_decoding = false;
             bool is_syscall = false;
@@ -143,6 +147,12 @@ protected:
             uint num_memory_read_access = 0;
             uint num_memory_write_access = 0;
             addr_t branch_target = 0;
+            bool is_prefetch = false;
+            int opcode = 0;
+#ifdef X86
+            bool is_xsave = false;
+            bool is_xrstor = false;
+#endif
         };
         struct instr_info_t {
             memref_t memref = {};
@@ -220,7 +230,11 @@ protected:
         int expected_read_records_ = 0;
         int expected_write_records_ = 0;
         bool between_kernel_syscall_trace_markers_ = false;
+        bool between_kernel_context_switch_markers_ = false;
         instr_info_t pre_syscall_trace_instr_;
+        instr_info_t pre_context_switch_trace_instr_;
+        // Relevant when -no_abort_on_invariant_error.
+        uint64_t error_count_ = 0;
     };
 
     // We provide this for subclasses to run these invariants with custom
@@ -244,6 +258,18 @@ protected:
                                const per_shard_t::instr_info_t &cur_memref_info,
                                bool expect_encoding, bool at_kernel_event);
 
+#ifdef X86
+    // Whether the expected write entry count check should be relaxed for the kernel
+    // part of the trace.
+    bool
+    relax_expected_write_count_check_for_kernel(per_shard_t *shard);
+
+    // Whether the expected read entry count check should be relaxed for the kernel
+    // part of the trace.
+    bool
+    relax_expected_read_count_check_for_kernel(per_shard_t *shard);
+#endif
+
     void *drcontext_ = dr_standalone_init();
     std::unordered_map<int, std::unique_ptr<per_shard_t>> shard_map_;
     // This mutex is only needed in parallel_shard_init.  In all other accesses to
@@ -259,6 +285,8 @@ protected:
     std::istream *cpu_schedule_file_ = nullptr;
 
     memtrace_stream_t *serial_stream_ = nullptr;
+
+    bool abort_on_invariant_error_ = true;
 };
 
 } // namespace drmemtrace

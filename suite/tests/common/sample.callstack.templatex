@@ -1,7 +1,9 @@
 wrapping .*malloc
 malloc called from:
 .*
-#ifdef AARCHXX
+#if defined(RISCV64)
+Hello world!
+#elif defined(AARCHXX)
 OK 1 N
 OK 0 N
 OK 1 Z

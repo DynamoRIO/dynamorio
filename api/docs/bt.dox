@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -64,7 +64,8 @@ following sections:
 \section sec_IR Instruction Representation
 
 The primary data structures involved in instruction manipulation are
-the #instr_t, which represents a single instruction, and the \c
+the #opnd_t, which represents one operand; the #instr_t, which
+represents a single instruction; and the \c
 #instrlist_t, which is a linked list of instructions.  The header files
 dr_ir_instrlist.h and dr_ir_instr.h list a number of functions that
 operate on these data structures, including:
@@ -89,6 +90,20 @@ a primary contributor to DynamoRIO's efficiency.
 The instruction representation includes all of the operands, whether
 implicit or explicit, and the condition code effects of each instruction.
 This allows for analysis of liveness of registers and condition codes.
+The operands are split into sources and destinations.
+
+A memory reference is treated as one operand even when it uses
+registers to compute its address: those constituent registers are not
+listed as their own separate source operands (unless they are read for
+other reasons such as updating the index register).  This means that a
+store to memory will have that store as a destination operand without
+listing the store's addressing mode registers as source operands in
+their own right.  Tools interested in all registers inside such
+operands can use opnd_get_num_regs_used() and opnd_get_reg_used() to
+generically walk the registers inside an operand, or
+instr_reads_from_reg() to determine whether an instruction reads a
+register either as a source operand or as a component of a destination
+memory reference.
 
 DynamoRIO's IR is mostly opaque to clients.  Key data structures have their
 sizes exposed to allow for stack allocation, but their fields are opaque.  In

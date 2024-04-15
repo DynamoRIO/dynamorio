@@ -920,6 +920,15 @@ droption_t<bool> op_sched_randomize(
     "set), and FIFO order and instead selects the next input randomly. "
     "This is intended for experimental use in sensitivity studies.");
 
+droption_t<bool> op_sched_disable_direct_switches(
+    DROPTION_SCOPE_FRONTEND, "sched_disable_direct_switches", false,
+    "Ignore direct thread switch requests",
+    "Applies to -core_sharded and -core_serial.  Disables switching to the recorded "
+    "targets of TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH system call metadata markers "
+    "and causes the associated system call to be treated like any other call with a "
+    "switch being determined by latency and the next input in the queue.  The "
+    "TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH markers are not removed from the trace.");
+
 // Schedule_stats options.
 droption_t<uint64_t>
     op_schedule_stats_print_every(DROPTION_SCOPE_ALL, "schedule_stats_print_every",
@@ -931,7 +940,8 @@ droption_t<std::string> op_syscall_template_file(
     "Path to the file that contains system call trace templates.",
     "Path to the file that contains system call trace templates. "
     "If set, system call traces will be injected from the file "
-    "into the resulting trace.");
+    "into the resulting trace. This is still experimental so the template file "
+    "format may change without backward compatibility.");
 
 // Record filter options.
 droption_t<uint64_t> op_filter_stop_timestamp(
@@ -973,9 +983,16 @@ droption_t<uint64_t> op_trim_after_timestamp(
     DROPTION_SCOPE_ALL, "trim_after_timestamp", (std::numeric_limits<uint64_t>::max)(), 0,
     (std::numeric_limits<uint64_t>::max)(),
     "Trim records after this timestamp (in us) in the trace.",
-    "Removes all records after the first TRACE_MARKER_TYPE_TIMESTAMP marker with "
-    "timestamp larger than the specified value (keeps a TRACE_MARKER_TYPE_CPU_ID "
-    "immediately following the transition timestamp).");
+    "Removes all records from the first TRACE_MARKER_TYPE_TIMESTAMP marker with "
+    "timestamp larger than the specified value.");
+
+droption_t<bool> op_abort_on_invariant_error(
+    DROPTION_SCOPE_ALL, "abort_on_invariant_error", true,
+    "Abort invariant checker when a trace invariant error is found.",
+    "When set to true, the trace invariant checker analysis tool aborts when a trace "
+    "invariant error is found. Otherwise it prints the error and continues. Also, the "
+    "total invariant error count is printed at the end; a non-zero error count does not "
+    "affect the exit code of the analyzer.");
 
 } // namespace drmemtrace
 } // namespace dynamorio

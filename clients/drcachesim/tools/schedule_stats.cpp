@@ -126,6 +126,7 @@ schedule_stats_t::parallel_shard_init_stream(int shard_index, void *worker_data,
     std::lock_guard<std::mutex> guard(shard_map_mutex_);
     per_shard->stream = stream;
     per_shard->core = stream->get_output_cpuid();
+    per_shard->filetype = static_cast<intptr_t>(stream->get_filetype());
     shard_map_[shard_index] = per_shard;
     return reinterpret_cast<void *>(per_shard);
 }
@@ -166,12 +167,13 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
     static constexpr char WAIT_SYMBOL = '-';
     static constexpr char IDLE_SYMBOL = '_';
     per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
+    int64_t input_id = shard->stream->get_input_id();
     if (knob_verbose_ >= 4) {
         std::ostringstream line;
         line << "Core #" << std::setw(2) << shard->core << " @" << std::setw(9)
              << shard->stream->get_record_ordinal() << " refs, " << std::setw(9)
              << shard->stream->get_instruction_ordinal() << " instrs: input "
-             << std::setw(4) << shard->stream->get_input_id() << " @" << std::setw(9)
+             << std::setw(4) << input_id << " @" << std::setw(9)
              << shard->stream->get_input_interface()->get_record_ordinal() << " refs, "
              << std::setw(9)
              << shard->stream->get_input_interface()->get_instruction_ordinal()
@@ -188,10 +190,12 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
     // Cache and reset here to ensure we reset on early return paths.
     bool was_wait = shard->prev_was_wait;
     bool was_idle = shard->prev_was_idle;
-    int64_t prev_input = shard->prev_input;
+    int64_t prev_workload_id = shard->prev_workload_id;
+    int64_t prev_tid = shard->prev_tid;
     shard->prev_was_wait = false;
     shard->prev_was_idle = false;
-    shard->prev_input = -1;
+    shard->prev_workload_id = -1;
+    shard->prev_tid = -1;
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_WAIT) {
         ++shard->counters.waits;
@@ -228,8 +232,16 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
         }
         return true;
     }
-    int64_t input = shard->stream->get_input_id();
-    if (input != prev_input) {
+    // We use <workload,tid> to detect switches (instead of input_id) to handle
+    // core-sharded-on-disk.  However, we still prefer the input_id ordinal
+    // for the letters.
+    int64_t workload_id = shard->stream->get_workload_id();
+    int64_t tid = shard->stream->get_tid();
+    int64_t letter_ord =
+        (TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, shard->filetype) || input_id < 0)
+        ? tid
+        : input_id;
+    if ((workload_id != prev_workload_id || tid != prev_tid) && tid != IDLE_THREAD_ID) {
         // We convert to letters which only works well for <=26 inputs.
         if (!shard->thread_sequence.empty()) {
             ++shard->counters.total_switches;
@@ -239,7 +251,7 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
                 ++shard->counters.direct_switches;
         }
         shard->thread_sequence +=
-            THREAD_LETTER_INITIAL_START + static_cast<char>(input % 26);
+            THREAD_LETTER_INITIAL_START + static_cast<char>(letter_ord % 26);
         shard->cur_segment_instrs = 0;
         if (!was_wait && !was_idle && shard->segment_start_microseconds > 0) {
             shard->counters.cpu_microseconds +=
@@ -251,7 +263,7 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
             line << "Core #" << std::setw(2) << shard->core << " @" << std::setw(9)
                  << shard->stream->get_record_ordinal() << " refs, " << std::setw(9)
                  << shard->stream->get_instruction_ordinal() << " instrs: input "
-                 << std::setw(4) << input << " @" << std::setw(9)
+                 << std::setw(4) << input_id << " @" << std::setw(9)
                  << shard->stream->get_input_interface()->get_record_ordinal()
                  << " refs, " << std::setw(9)
                  << shard->stream->get_input_interface()->get_instruction_ordinal()
@@ -264,14 +276,15 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
             std::cerr << line.str();
         }
     }
-    shard->prev_input = input;
+    shard->prev_workload_id = workload_id;
+    shard->prev_tid = tid;
     if (type_is_instr(memref.instr.type)) {
         ++shard->counters.instrs;
         ++shard->cur_segment_instrs;
         shard->counters.idle_micros_at_last_instr = shard->counters.idle_microseconds;
         if (shard->cur_segment_instrs == knob_print_every_) {
             shard->thread_sequence +=
-                THREAD_LETTER_SUBSEQUENT_START + static_cast<char>(input % 26);
+                THREAD_LETTER_SUBSEQUENT_START + static_cast<char>(letter_ord % 26);
             shard->cur_segment_instrs = 0;
         }
         shard->direct_switch_target = INVALID_THREAD_ID;
@@ -291,6 +304,8 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
         } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH) {
             ++shard->counters.direct_switch_requests;
             shard->direct_switch_target = memref.marker.marker_value;
+        } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
+            shard->filetype = static_cast<intptr_t>(memref.marker.marker_value);
         }
     } else if (memref.exit.type == TRACE_TYPE_THREAD_EXIT)
         shard->saw_exit = true;

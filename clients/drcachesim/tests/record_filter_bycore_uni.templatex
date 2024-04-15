@@ -1,0 +1,10 @@
+#ifdef WINDOWS
+Hit delay threshold: enabling tracing.
+Exiting process after .* references.
+#else
+Hello, world!
+#endif
+Trace invariant checks passed
+Output .* entries from .* entries.
+Opcode mix tool results:
+.*

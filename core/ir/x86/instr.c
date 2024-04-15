@@ -40,6 +40,7 @@
 #include "instr.h"
 #include "decode.h"
 #include "decode_private.h"
+#include "encode_api.h"
 #include "instr_create_shared.h"
 
 #ifdef X64
@@ -51,9 +52,9 @@ void
 instr_set_x86_mode(instr_t *instr, bool x86)
 {
     if (x86)
-        instr->flags |= INSTR_X86_MODE;
+        instr->isa_mode = DR_ISA_IA32;
     else
-        instr->flags &= ~INSTR_X86_MODE;
+        instr->isa_mode = DR_ISA_AMD64;
 }
 
 /*
@@ -63,35 +64,27 @@ instr_set_x86_mode(instr_t *instr, bool x86)
 bool
 instr_get_x86_mode(instr_t *instr)
 {
-    return TEST(INSTR_X86_MODE, instr->flags);
+    return instr->isa_mode == DR_ISA_IA32;
 }
 #endif
 
+/* XXX i#6690: currently only x86 and x64 are supported for instruction encoding.
+ * We want to add support for x86 and x64 decoding and synthetic ISA encoding as well.
+ * XXX i#1684: move this function to core/ir/instr_shared.c once we can support
+ * all architectures in the same build of DR.
+ */
 bool
 instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
 {
 #ifdef X64
-    if (mode == DR_ISA_IA32)
-        instr_set_x86_mode(instr, true);
-    else if (mode == DR_ISA_AMD64)
-        instr_set_x86_mode(instr, false);
-    else
+    if (mode != DR_ISA_IA32 && mode != DR_ISA_AMD64 && mode != DR_ISA_REGDEPS)
         return false;
 #else
-    if (mode != DR_ISA_IA32)
+    if (mode != DR_ISA_IA32 && mode != DR_ISA_REGDEPS)
         return false;
 #endif
+    instr->isa_mode = mode;
     return true;
-}
-
-dr_isa_mode_t
-instr_get_isa_mode(instr_t *instr)
-{
-#ifdef X64
-    return TEST(INSTR_X86_MODE, instr->flags) ? DR_ISA_IA32 : DR_ISA_AMD64;
-#else
-    return DR_ISA_IA32;
-#endif
 }
 
 int
@@ -417,10 +410,10 @@ instr_compute_VSIB_index(bool *selected DR_PARAM_OUT, app_pc *result DR_PARAM_OU
 }
 
 bool
-instr_compute_address_VSIB(instr_t *instr, priv_mcontext_t *mc, size_t mc_size,
-                           dr_mcontext_flags_t mc_flags, opnd_t curop, uint index,
-                           DR_PARAM_OUT bool *have_addr, DR_PARAM_OUT app_pc *addr,
-                           DR_PARAM_OUT bool *write)
+instr_compute_vector_address(instr_t *instr, priv_mcontext_t *mc, size_t mc_size,
+                             dr_mcontext_flags_t mc_flags, opnd_t curop, uint index,
+                             DR_PARAM_OUT bool *have_addr, DR_PARAM_OUT app_pc *addr,
+                             DR_PARAM_OUT bool *write)
 {
     /* We assume that any instr w/ a VSIB opnd has no other
      * memory reference (and the VSIB is a source)!  Else we'll

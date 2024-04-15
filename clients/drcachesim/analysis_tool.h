@@ -189,14 +189,24 @@ public:
     print_results() = 0;
 
     /**
-     * Struct that stores details of a tool's state snapshot at an interval. This is
+     * Type that stores details of a tool's state snapshot at an interval. This is
      * useful for computing and combining interval results. Tools should inherit from
-     * this struct to define their own state snapshot structs. Tools do not need to
-     * supply any values to construct this base struct; they can simply use the
+     * this type to define their own state snapshot types. Tools do not need to
+     * supply any values to construct this base class; they can simply use the
      * default constructor. The members of this base class will be set by the
-     * framework automatically.
+     * framework automatically, and must not be modified by the tool at any point.
+     * XXX: Perhaps this should be a class with private data members.
      */
-    struct interval_state_snapshot_t {
+    class interval_state_snapshot_t {
+        // Allow the analyzer framework access to private data members to set them
+        // during trace interval analysis. Tools have read-only access via the public
+        // accessor functions.
+        // Note that we expect X to be same as RecordType. But friend declarations
+        // cannot refer to partial specializations so we go with the separate template
+        // parameter X.
+        template <typename X, typename Y> friend class analyzer_tmpl_t;
+
+    public:
         // This constructor is only for convenience in unit tests. The tool does not
         // need to provide these values, and can simply use the default constructor
         // below.
@@ -204,63 +214,98 @@ public:
                                   uint64_t interval_end_timestamp,
                                   uint64_t instr_count_cumulative,
                                   uint64_t instr_count_delta)
-            : shard_id(shard_id)
-            , interval_id(interval_id)
-            , interval_end_timestamp(interval_end_timestamp)
-            , instr_count_cumulative(instr_count_cumulative)
-            , instr_count_delta(instr_count_delta)
+            : shard_id_(shard_id)
+            , interval_id_(interval_id)
+            , interval_end_timestamp_(interval_end_timestamp)
+            , instr_count_cumulative_(instr_count_cumulative)
+            , instr_count_delta_(instr_count_delta)
         {
         }
+        // This constructor should be used by tools that subclass
+        // interval_state_snapshot_t. The data members will be set by the framework
+        // automatically when the tool returns a pointer to their created object from
+        // generate_*interval_snapshot or combine_interval_snapshots.
         interval_state_snapshot_t()
         {
         }
+        virtual ~interval_state_snapshot_t() = default;
 
+        int64_t
+        get_shard_id() const
+        {
+            return shard_id_;
+        }
+        uint64_t
+        get_interval_id() const
+        {
+            return interval_id_;
+        }
+        uint64_t
+        get_interval_end_timestamp() const
+        {
+            return interval_end_timestamp_;
+        }
+        uint64_t
+        get_instr_count_cumulative() const
+        {
+            return instr_count_cumulative_;
+        }
+        uint64_t
+        get_instr_count_delta() const
+        {
+            return instr_count_delta_;
+        }
+
+        static constexpr int64_t WHOLE_TRACE_SHARD_ID = -1;
+
+    private:
         // The following fields are set automatically by the analyzer framework after
         // the tool returns the interval_state_snapshot_t* in the
         // generate_*interval_snapshot APIs. So they'll be available to the tool in
-        // the combine_interval_snapshots and print_interval_results APIs.
+        // the finalize_interval_snapshots(), combine_interval_snapshots() (for the
+        // parameter snapshots), and print_interval_results() APIs via the above
+        // public accessor functions.
 
         // Identifier for the shard to which this interval belongs. Currently, shards
         // map only to threads, so this is the thread id. Set to WHOLE_TRACE_SHARD_ID
         // for the whole trace interval snapshots.
-        int64_t shard_id = 0;
-        uint64_t interval_id = 0;
+        int64_t shard_id_ = 0;
+        uint64_t interval_id_ = 0;
         // Stores the timestamp (exclusive) when the above interval ends. Note
         // that this is not the last timestamp actually seen in the trace interval,
         // but simply the abstract boundary of the interval. This will be aligned
         // to the specified -interval_microseconds.
-        uint64_t interval_end_timestamp = 0;
+        uint64_t interval_end_timestamp_ = 0;
 
         // Count of instructions: cumulative till this interval's end, and the
         // incremental delta in this interval vs the previous one. May be useful for
         // tools to compute PKI (per kilo instruction) metrics; obviates the need for
         // each tool to duplicate this.
-        uint64_t instr_count_cumulative = 0;
-        uint64_t instr_count_delta = 0;
-
-        static constexpr int64_t WHOLE_TRACE_SHARD_ID = -1;
-
-        virtual ~interval_state_snapshot_t() = default;
+        uint64_t instr_count_cumulative_ = 0;
+        uint64_t instr_count_delta_ = 0;
     };
     /**
      * Notifies the analysis tool that the given trace \p interval_id has ended so
-     * that it can generate a snapshot of its internal state in a struct derived
+     * that it can generate a snapshot of its internal state in a type derived
      * from \p interval_state_snapshot_t, and return a pointer to it. The returned
-     * pointer will be provided to the tool in later combine_interval_snapshots()
+     * pointer will be provided to the tool in later finalize_interval_snapshots(),
      * and print_interval_result() calls.
      *
      * \p interval_id is a positive ordinal of the trace interval that just ended.
-     * Trace intervals have a length equal to the \p -interval_microseconds specified
-     * to the framework. Trace intervals are measured using the value of the
-     * #TRACE_MARKER_TYPE_TIMESTAMP markers. The provided \p interval_id
-     * values will be monotonically increasing but may not be continuous,
-     * i.e. the tool may not see some \p interval_id if the trace did not have
-     * any activity in that interval.
+     * Trace intervals have a length equal to either \p -interval_microseconds or
+     * \p -interval_instr_count. Time-based intervals are measured using the value
+     * of the #TRACE_MARKER_TYPE_TIMESTAMP markers. Instruction count intervals are
+     * measured in terms of shard-local instrs.
      *
-     * The returned \p interval_state_snapshot_t* will be passed to the
-     * combine_interval_snapshots() API which is invoked by the framework to merge
-     * multiple \p interval_state_snapshot_t from different shards in the parallel
-     * mode of the analyzer.
+     * The provided \p interval_id values will be monotonically increasing. For
+     * \p -interval_microseconds intervals, these values may not be continuous,
+     * i.e. the tool may not see some \p interval_id if the trace did not have any
+     * activity in that interval.
+     *
+     * After all interval state snapshots are generated, the list of all returned
+     * \p interval_state_snapshot_t* is passed to finalize_interval_snapshots()
+     * to allow the tool the opportunity to make any holistic adjustments to the
+     * snapshots.
      *
      * Finally, the print_interval_result() API is invoked with a list of
      * \p interval_state_snapshot_t* representing interval snapshots for the
@@ -276,6 +321,40 @@ public:
     generate_interval_snapshot(uint64_t interval_id)
     {
         return nullptr;
+    }
+    /**
+     * Finalizes the interval snapshots in the given \p interval_snapshots list.
+     * This callback provides an opportunity for tools to make any holistic
+     * adjustments to the snapshot list now that we have all of them together. This
+     * may include, for example, computing the diff with the previous snapshot.
+     *
+     * Tools can modify the individual snapshots and also the list of snapshots itself.
+     * If some snapshots are removed, release_interval_snapshot() will not be invoked
+     * for them and the tool is responsible to de-allocate the resources. Adding new
+     * snapshots to the list is undefined behavior; tools should operate only on the
+     * provided snapshots which were generated in prior generate_*interval_snapshot
+     * calls.
+     *
+     * Tools cannot modify any data set by the framework in the base
+     * \p interval_state_snapshot_t; note that only read-only access is allowed anyway
+     * to those private data members via public accessor functions.
+     *
+     * In the parallel mode, this is invoked for each list of shard-local snapshots
+     * before they are possibly merged to create whole-trace snapshots using
+     * combine_interval_snapshots() and passed to print_interval_result(). In the
+     * serial mode, this is invoked with the list of whole-trace snapshots before it
+     * is passed to print_interval_results().
+     *
+     * This is an optional API. If a tool chooses to not override this, the snapshot
+     * list will simply continue unmodified.
+     *
+     * Returns whether it was successful.
+     */
+    virtual bool
+    finalize_interval_snapshots(
+        std::vector<interval_state_snapshot_t *> &interval_snapshots)
+    {
+        return true;
     }
     /**
      * Invoked by the framework to combine the shard-local \p interval_state_snapshot_t
@@ -302,6 +381,10 @@ public:
      *   \p interval_end_timestamp)
      * - or if the tool mixes cumulative and delta metrics: some field-specific logic that
      *   combines the above two strategies.
+     *
+     * Note that after the given snapshots have been combined to create the whole-trace
+     * snapshot using this API, any change made by the tool to the snapshot contents will
+     * not have any effect.
      */
     virtual interval_state_snapshot_t *
     combine_interval_snapshots(
@@ -314,14 +397,14 @@ public:
      * Prints the interval results for the given series of interval state snapshots in
      * \p interval_snapshots.
      *
-     * This is currently invoked with the list of whole-trace interval snapshots (for
-     * the parallel mode, these are the snapshots created by merging the shard-local
-     * snapshots).
+     * This is invoked with the list of whole-trace interval snapshots (for the
+     * parallel mode, these are the snapshots created by merging the shard-local
+     * snapshots). For the \p -interval_instr_count snapshots in parallel mode, this is
+     * invoked separately for the snapshots of each shard.
      *
      * The framework should be able to invoke this multiple times, possibly with a
      * different list of interval snapshots. So it should avoid free-ing memory or
-     * changing global state. This is to keep open the possibility of the framework
-     * printing interval results for each shard separately in future.
+     * changing global state.
      */
     virtual bool
     print_interval_results(
@@ -334,6 +417,10 @@ public:
      * by \p interval_snapshot is no longer needed by the framework. The tool may
      * de-allocate it right away or later, as it needs. Returns whether it was
      * successful.
+     *
+     * Note that if the tool removed some snapshot from the list passed to
+     * finalize_interval_snapshots(), then release_interval_snapshot() will not be
+     * invoked for that snapshot.
      */
     virtual bool
     release_interval_snapshot(interval_state_snapshot_t *interval_snapshot)
@@ -440,10 +527,10 @@ public:
     /**
      * Notifies the analysis tool that the given trace \p interval_id in the shard
      * represented by the given \p shard_data has ended, so that it can generate a
-     * snapshot of its internal state in a struct derived from \p
+     * snapshot of its internal state in a type derived from \p
      * interval_state_snapshot_t, and return a pointer to it. The returned pointer will
-     * be provided to the tool in later combine_interval_snapshots() and
-     * print_interval_result() calls.
+     * be provided to the tool in later combine_interval_snapshots(),
+     * finalize_interval_snapshots(), and print_interval_result() calls.
      *
      * Note that the provided \p interval_id is local to the shard that is
      * represented by the given \p shard_data, and not the whole-trace interval. The
@@ -452,30 +539,22 @@ public:
      * shard-local \p interval_state_snapshot_t corresponding to that whole-trace
      * interval.
      *
-     * \p interval_id is a positive ordinal of the trace interval that just ended.
-     * Trace intervals have a length equal to the \p -interval_microseconds specified
-     * to the framework. Trace intervals are measured using the value of the
-     * #TRACE_MARKER_TYPE_TIMESTAMP markers. The provided \p interval_id
-     * values will be monotonically increasing but may not be continuous,
-     * i.e. the tool may not see some \p interval_id if the trace shard did not
-     * have any activity in that interval.
+     * The \p interval_id field is defined similar to the same field in
+     * generate_interval_snapshot().
      *
-     * The returned \p interval_state_snapshot_t* will be passed to the
-     * combine_interval_snapshot() API which is invoked by the framework to merge
-     * multiple \p interval_state_snapshot_t from different shards in the parallel
-     * mode of the analyzer.
+     * The returned \p interval_state_snapshot_t* is treated in the same manner as
+     * the same in generate_interval_snapshot(), with the following additions:
      *
-     * Finally, the print_interval_result() API is invoked with a list of
-     * \p interval_state_snapshot_t* representing interval snapshots for the
-     * whole trace. In the parallel mode of the analyzer, this list is computed by
-     * combining the shard-local \p interval_state_snapshot_t using the tool's
-     * combine_interval_snapshot() API.
+     * In case of \p -interval_microseconds in the parallel mode: after
+     * finalize_interval_snapshots() has been invoked, the \p interval_state_snapshot_t*
+     * objects generated at the same time period across different shards are passed to
+     * the combine_interval_snapshot() API by the framework to merge them to create the
+     * whole-trace interval snapshots. The print_interval_result() API is then invoked
+     * with the list of whole-trace \p interval_state_snapshot_t* thus obtained.
      *
-     * The tool must not de-allocate the state snapshot until
-     * release_interval_snapshot() is invoked by the framework.
-     *
-     * An example use case of this API is to create a time series of some output
-     * metric over the whole trace.
+     * In case of \p -interval_instr_count in the parallel mode: no merging across
+     * shards is done, and the print_interval_results() API is invoked for each list
+     * of shard-local \p interval_state_snapshot_t*.
      */
     virtual interval_state_snapshot_t *
     generate_shard_interval_snapshot(void *shard_data, uint64_t interval_id)

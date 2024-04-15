@@ -169,6 +169,66 @@ if ($^O eq 'MSWin32') {
     };
 }
 
+if ($is_aarchxx) {
+
+    my $cpuinfo = '/proc/cpuinfo';
+    my $osfile = '/etc/os-release';
+
+    sub extract {
+        my ($file, $filter, $delim) = @_;
+        my $line;
+        if (open my $handle, '<', "$file") {
+            while (<$handle>) {
+                if (/$filter/) {
+                    chomp ($line = (split $delim)[1]);
+                    $line =~ s/ ^\s+ | \s+$ | \"//gx; # Strip spaces and "
+                    close $handle;
+                    return $line;
+                }
+            }
+            close $handle;
+        } else {
+            print "Failed to open file ${file}: $!\n";
+        }
+        return 'unknown';
+    }
+
+    sub first_line_or {
+        my ($command, $or) = @_;
+        my $stdout = `${command}`;
+
+        if ($? == 0) {
+            chomp($stdout = (split '\n', $stdout)[0]);
+            return $stdout;
+        }
+        return $or;
+    }
+
+    my $cpu_part = extract($cpuinfo, qr/\bCPU part\b/, ':');
+    my $features = extract($cpuinfo, qr/\bFeatures\b/, ':');
+    my $os_name = extract($osfile, qr/\bPRETTY_NAME\b/, '=');
+    my $clang_version = first_line_or('clang --version', 'none');
+    my $gcc_version = first_line_or('gcc --version', 'none');
+    my $kernel_version = first_line_or('uname -r', 'unknown');
+
+    my %cpu_parts = (
+        '0xd40' => 'Neoverse V1', '0xd4f' => 'Neoverse V2', '0xd0c' => 'Neoverse N1',
+        '0xd49' => 'Neoverse N2', '0xd08' => 'Cortex-A72', '0xd46' => 'Cortex-A510',
+        '0xd47' => 'Cortex-A710', 'unknown' => 'unknown',);
+    my $cpu_name = $cpu_parts{$cpu_part} // "unknown(${cpu_part})";
+
+    print "=========== System info ===========\n";
+    print "OS: ${os_name}\n";
+    print "Kernel Version: ${kernel_version}\n";
+    print "CPU: ${cpu_name}\n";
+    print "Clang version: ${clang_version}\n";
+    print "GCC version: ${gcc_version}\n";
+    print "Features: ${features}\n";
+    print "===================================\n\n";
+    print "===================================\n\n";
+}
+
+
 my @lines = split('\n', $res);
 my $should_print = 0;
 my $exit_code = 0;
@@ -222,6 +282,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|tool.drcacheoff.burst_traceopts' => 1, # i#4622
                 'code_api|tool.drcacheoff.burst_replaceall' => 1, # i#4622
                 'code_api|tool.drcacheoff.burst_static' => 1, # i#4486
+                'code_api|tool.drcacheoff.windows-timestamps' => 1, # i#6081
                 'code_api|api.symtest' => 1, # i#4131
                 'code_api|client.drwrap-test-detach' => 1, # i#4616
                 'code_api|client.cbr4' => 1, # i#4792
@@ -246,9 +307,6 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api,thread_private,disable_traces|common.decode-stress' => 1, # i#1807
                 'code_api,thread_private,tracedump_binary|common.decode-stress' => 1, # i#1807
                 'code_api|client.file_io' => 1, # i#5802
-                'code_api|tool.drcacheoff.windows-invar' => 1, # i#6599
-                'code_api|tool.drcacheoff.invariant_checker' => 1, # i#6599
-                'code_api|tool.drcacheoff.getretaddr_record_replace_retaddr' => 1, # i#6599
                 );
 
             %ignore_failures_64 = (
@@ -340,6 +398,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                                    );
             # FIXME i#2417: fix flaky/regressed AArch64 tests
             %ignore_failures_64 = ('code_api|linux.sigsuspend' => 1,
+                                   'code_api|linux.thread-reset' => 1, # i#6741
                                    'code_api|pthreads.pthreads_exit' => 1,
                                    'code_api|tool.histogram.offline' => 1, # i#3980
                                    'code_api|linux.fib-conflict' => 1,
@@ -359,6 +418,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                                    'code_api|tool.drcachesim.threads-with-config-file' => 1,  # i#3320
                                    'code_api|tool.drcachesim.coherence' => 1, # i#3320
                                    'code_api|tool.drcachesim.miss_analyzer' => 1, # i#3320
+                                   'code_api|tool.drcachesim.multiproc' => 1, # i#3320
                                    'code_api|tool.drcacheoff.burst_threads' => 1,
                                    'code_api|tool.drcacheoff.burst_threads_counts' => 1,
                                    'code_api|tool.drcacheoff.burst_threadL0filter' => 1,

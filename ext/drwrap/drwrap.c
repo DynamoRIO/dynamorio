@@ -2021,9 +2021,8 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_NOT_X86(reg_t lr))
     NOTIFY(2, "%s: level %d function " PFX "\n", __FUNCTION__, pt->wrap_level + 1, pc);
 
     app_pc retaddr = IF_X86_ELSE(get_retaddr_from_stack(xsp), (app_pc)lr);
-#ifdef X86
     if (TEST(DRWRAP_REPLACE_RETADDR, global_flags)) {
-        /* In case of a tailcall for X86, the return address has already been replaced by
+        /* In case of a tailcall, the return address has already been replaced by
          * the sentinel in the stack, we need to retrieve the return address from the
          * outer level.
          */
@@ -2034,7 +2033,6 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_NOT_X86(reg_t lr))
                    pt->wrap_level, retaddr);
         }
     }
-#endif
     drwrap_context_init(drcontext, &wrapcxt, pc, &mc, DRWRAP_WHERE_PRE_FUNC, retaddr);
 
     drwrap_in_callee_check_unwind(drcontext, pt, &mc);

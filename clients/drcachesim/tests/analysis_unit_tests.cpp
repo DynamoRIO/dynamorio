@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -76,6 +76,7 @@ public:
             sched_ops = scheduler_t::make_scheduler_parallel_options(verbosity_);
         else
             sched_ops = scheduler_t::make_scheduler_serial_options(verbosity_);
+        sched_mapping_ = sched_ops.mapping;
         if (scheduler_.init(sched_inputs, worker_count_, std::move(sched_ops)) !=
             sched_type_t::STATUS_SUCCESS) {
             assert(false);
@@ -366,10 +367,122 @@ test_wait_records()
     return true;
 }
 
+bool
+test_tool_errors()
+{
+    // Tool errors can hang the analyzer if it doesn't tell the scheduler
+    // it's giving up on its input.  We test that here.
+    std::cerr << "\n----------------\nTesting tool errors\n";
+
+    static constexpr int NUM_INPUTS = 5;
+    static constexpr int NUM_OUTPUTS = 2;
+    static constexpr int NUM_INSTRS = 9;
+    static constexpr memref_tid_t TID_BASE = 100;
+    std::vector<trace_entry_t> inputs[NUM_INPUTS];
+    for (int i = 0; i < NUM_INPUTS; i++) {
+        memref_tid_t tid = TID_BASE + i;
+        inputs[i].push_back(make_thread(tid));
+        inputs[i].push_back(make_pid(1));
+        for (int j = 0; j < NUM_INSTRS; j++)
+            inputs[i].push_back(make_instr(42 + j * 4));
+        if (i == 4) {
+            // This one input will trigger an error in our error_tool_t.
+            inputs[i].push_back(make_marker(TRACE_MARKER_TYPE_CPU_ID, 4));
+        }
+        inputs[i].push_back(make_exit(tid));
+    }
+
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    for (int i = 0; i < NUM_INPUTS; i++) {
+        memref_tid_t tid = TID_BASE + i;
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+        sched_inputs.emplace_back(std::move(readers));
+    }
+    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                               scheduler_t::DEPENDENCY_IGNORE,
+                                               scheduler_t::SCHEDULER_DEFAULTS,
+                                               /*verbosity=*/1);
+
+    static const char *const TOOL_ERROR_STRING = "cpuid not supported";
+
+    class error_tool_t : public analysis_tool_t {
+    public:
+        bool
+        process_memref(const memref_t &memref) override
+        {
+            assert(false); // Only expect parallel mode.
+            return false;
+        }
+        bool
+        print_results() override
+        {
+            return true;
+        }
+        bool
+        parallel_shard_supported() override
+        {
+            return true;
+        }
+        void *
+        parallel_shard_init_stream(int shard_index, void *worker_data,
+                                   memtrace_stream_t *stream) override
+        {
+            auto per_shard = new per_shard_t;
+            return reinterpret_cast<void *>(per_shard);
+        }
+        bool
+        parallel_shard_exit(void *shard_data) override
+        {
+            per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
+            delete shard;
+            return true;
+        }
+        std::string
+        parallel_shard_error(void *shard_data) override
+        {
+            per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
+            return shard->error;
+        }
+        bool
+        parallel_shard_memref(void *shard_data, const memref_t &memref) override
+        {
+            per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
+            // Return an error in one of the inputs.
+            if (memref.marker.type == TRACE_TYPE_MARKER &&
+                memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID) {
+                shard->error = TOOL_ERROR_STRING;
+                return false;
+            }
+            return true;
+        }
+
+    private:
+        struct per_shard_t {
+            std::string error;
+        };
+    };
+
+    std::vector<analysis_tool_t *> tools;
+    auto test_tool = std::unique_ptr<error_tool_t>(new error_tool_t);
+    tools.push_back(test_tool.get());
+    mock_analyzer_t analyzer(sched_inputs, &tools[0], (int)tools.size(),
+                             /*parallel=*/true, NUM_OUTPUTS, &sched_ops);
+    assert(!!analyzer);
+    // If the analyzer doesn't give up the input in the output stream that
+    // encounters it, the scheduler will hang waiting for that input,
+    // so failure in this test would be a CTest timeout.
+    bool res = analyzer.run();
+    assert(!res);
+    assert(analyzer.get_error_string() == TOOL_ERROR_STRING);
+    return true;
+}
+
 int
 test_main(int argc, const char *argv[])
 {
-    if (!test_queries() || !test_wait_records())
+    if (!test_queries() || !test_wait_records() || !test_tool_errors())
         return 1;
     std::cerr << "All done!\n";
     return 0;

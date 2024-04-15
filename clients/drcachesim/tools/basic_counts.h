@@ -94,13 +94,17 @@ public:
         operator+=(const counters_t &rhs)
         {
             instrs += rhs.instrs;
-            instrs_nofetch += rhs.instrs_nofetch;
             user_instrs += rhs.user_instrs;
             kernel_instrs += rhs.kernel_instrs;
+            instrs_nofetch += rhs.instrs_nofetch;
+            user_nofetch_instrs += rhs.user_nofetch_instrs;
+            kernel_nofetch_instrs += rhs.kernel_nofetch_instrs;
             prefetches += rhs.prefetches;
             loads += rhs.loads;
             stores += rhs.stores;
             sched_markers += rhs.sched_markers;
+            idle_markers += rhs.idle_markers;
+            wait_markers += rhs.wait_markers;
             xfer_markers += rhs.xfer_markers;
             func_id_markers += rhs.func_id_markers;
             func_retaddr_markers += rhs.func_retaddr_markers;
@@ -125,13 +129,17 @@ public:
         operator-=(const counters_t &rhs)
         {
             instrs -= rhs.instrs;
-            instrs_nofetch -= rhs.instrs_nofetch;
             user_instrs -= rhs.user_instrs;
             kernel_instrs -= rhs.kernel_instrs;
+            instrs_nofetch -= rhs.instrs_nofetch;
+            user_nofetch_instrs -= rhs.user_nofetch_instrs;
+            kernel_nofetch_instrs -= rhs.kernel_nofetch_instrs;
             prefetches -= rhs.prefetches;
             loads -= rhs.loads;
             stores -= rhs.stores;
             sched_markers -= rhs.sched_markers;
+            idle_markers -= rhs.idle_markers;
+            wait_markers -= rhs.wait_markers;
             xfer_markers -= rhs.xfer_markers;
             func_id_markers -= rhs.func_id_markers;
             func_retaddr_markers -= rhs.func_retaddr_markers;
@@ -159,10 +167,14 @@ public:
             // memcmp doesn't work with the unordered_set member. Also,
             // cannot compare till offsetof(basic_counts_t::counters_t, unique_pc_addrs)
             // as it gives a non-standard-layout type warning on osx.
-            return instrs == rhs.instrs && instrs_nofetch == rhs.instrs_nofetch &&
-                user_instrs == rhs.user_instrs && kernel_instrs == rhs.kernel_instrs &&
+            return instrs == rhs.instrs && user_instrs == rhs.user_instrs &&
+                kernel_instrs == rhs.kernel_instrs &&
+                instrs_nofetch == rhs.instrs_nofetch &&
+                user_nofetch_instrs == rhs.user_nofetch_instrs &&
+                kernel_nofetch_instrs == rhs.kernel_nofetch_instrs &&
                 prefetches == rhs.prefetches && loads == rhs.loads &&
                 stores == rhs.stores && sched_markers == rhs.sched_markers &&
+                idle_markers == rhs.idle_markers && wait_markers == rhs.wait_markers &&
                 xfer_markers == rhs.xfer_markers &&
                 func_id_markers == rhs.func_id_markers &&
                 func_retaddr_markers == rhs.func_retaddr_markers &&
@@ -179,14 +191,18 @@ public:
                 unique_threads == rhs.unique_threads;
         }
         int64_t instrs = 0;
-        int64_t instrs_nofetch = 0;
         int64_t user_instrs = 0;
         int64_t kernel_instrs = 0;
+        int64_t instrs_nofetch = 0;
+        int64_t user_nofetch_instrs = 0;
+        int64_t kernel_nofetch_instrs = 0;
         int64_t prefetches = 0;
         int64_t loads = 0;
         int64_t stores = 0;
-        int64_t sched_markers = 0;
-        int64_t xfer_markers = 0;
+        int64_t sched_markers = 0; // Timestamps and cpuids.
+        int64_t idle_markers = 0;
+        int64_t wait_markers = 0;
+        int64_t xfer_markers = 0; // Kernel transfers.
         int64_t func_id_markers = 0;
         int64_t func_retaddr_markers = 0;
         int64_t func_arg_markers = 0;

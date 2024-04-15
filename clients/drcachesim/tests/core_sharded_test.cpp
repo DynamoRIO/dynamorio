@@ -253,6 +253,11 @@ Core .*
                                       "-replay_file",    record_file.c_str() };
         std::string replay_out =
             run_analyzer(sizeof(replay_args) / sizeof(replay_args[0]), replay_args);
+        // The idle and wait counts can vary so we remove them.
+        record_out = std::regex_replace(
+            record_out, std::regex(" *[0-9]+ [a-z ]*(idle|wait) markers\\n"), "");
+        replay_out = std::regex_replace(
+            replay_out, std::regex(" *[0-9]+ [a-z ]*(idle|wait) markers\\n"), "");
         assert(replay_out == record_out);
     }
 #endif

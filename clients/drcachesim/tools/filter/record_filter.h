@@ -35,6 +35,7 @@
 
 #include <stdint.h>
 
+#include <condition_variable>
 #include <memory>
 #include <mutex>
 #include <ostream>
@@ -128,6 +129,8 @@ public:
     print_results() override;
     bool
     parallel_shard_supported() override;
+    std::string
+    initialize_shard_type(shard_type_t shard_type) override;
     void *
     parallel_shard_init_stream(int shard_index, void *worker_data,
                                memtrace_stream_t *shard_stream) override;
@@ -139,6 +142,16 @@ public:
     parallel_shard_error(void *shard_data) override;
 
 protected:
+    // For core-sharded we need to remember encodings for an input that were
+    // seen on a different core, as there is no reader_t remembering them for us.
+    // XXX i#6635: Is this something the scheduler should help us with?
+    struct per_input_t {
+        // There should be no contention on the lock as each input is on
+        // just one core at a time.
+        std::mutex lock;
+        std::unordered_map<addr_t, std::vector<trace_entry_t>> pc2encoding;
+    };
+
     struct per_shard_t {
         std::string output_path;
         // One and only one of these writers can be valid.
@@ -164,10 +177,17 @@ protected:
         addr_t last_timestamp = 0;
         addr_t last_cpu_id = 0;
         std::unordered_set<addr_t> cur_chunk_pcs;
-        std::unordered_map<addr_t, std::vector<trace_entry_t>> pc2encoding;
         bool prev_was_output = false;
         addr_t filetype = 0;
-        memref_tid_t tid = 0; // For thread-sharded.
+        bool now_empty = false;
+        // For thread-sharded.
+        memref_tid_t tid = 0;
+        int64_t prev_workload_id = -1;
+        // For core-sharded.
+        int64_t prev_input_id = -1;
+        trace_entry_t last_written_record;
+        // Cached value updated on context switches.
+        per_input_t *per_input = nullptr;
     };
 
     virtual std::string
@@ -188,10 +208,26 @@ protected:
     std::string
     process_delayed_encodings(per_shard_t *per_shard, trace_entry_t &entry, bool output);
 
+    // Computes the output path without the extension output_ext_ which is added
+    // separately after determining the input path extension.
+    virtual std::string
+    get_output_basename(memtrace_stream_t *shard_stream);
+
     std::unordered_map<int, per_shard_t *> shard_map_;
     // This mutex is only needed in parallel_shard_init. In all other accesses
     // to shard_map (print_results) we are single-threaded.
     std::mutex shard_map_mutex_;
+    shard_type_t shard_type_ = SHARD_BY_THREAD;
+
+    // For core-sharded we don't have a 1:1 input:output file mapping.
+    // Thus, some shards may not have an input stream at init time, and
+    // need to figure out their file extension and header info from other shards.
+    std::mutex input_info_mutex_;
+    std::condition_variable input_info_cond_var_;
+    // The above locks guard these fields:
+    std::string output_ext_;
+    uint64_t version_ = 0;
+    uint64_t filetype_ = 0;
 
 private:
     virtual bool
@@ -202,14 +238,37 @@ private:
     virtual std::string
     get_writer(per_shard_t *per_shard, memtrace_stream_t *shard_stream);
 
+    // Sets output_path plus cross-shard output_ext_, version_, filetype_.
+    virtual std::string
+    initialize_shard_output(per_shard_t *per_shard, memtrace_stream_t *shard_stream);
+
     bool
     write_trace_entries(per_shard_t *shard, const std::vector<trace_entry_t> &entries);
+
+    inline uint64_t
+    add_to_filetype(uint64_t filetype)
+    {
+        if (stop_timestamp_ != 0) {
+            filetype |= OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP;
+        }
+        if (shard_type_ == SHARD_BY_CORE) {
+            filetype |= OFFLINE_FILE_TYPE_CORE_SHARDED;
+        }
+        return filetype;
+    }
 
     std::string output_dir_;
     std::vector<std::unique_ptr<record_filter_func_t>> filters_;
     uint64_t stop_timestamp_;
     unsigned int verbosity_;
     const char *output_prefix_ = "[record_filter]";
+    // For core-sharded, but used for thread-sharded to simplify the code.
+    std::mutex input2info_mutex_;
+    // We use a pointer so we can safely cache it in per_shard_t to avoid
+    // input2info_mutex_ on every access.
+    // XXX: We could use a read-write lock but C++11 doesn't have a ready-made one.
+    // If we had the input count we could use an array and atomic reads.
+    std::unordered_map<int64_t, std::unique_ptr<per_input_t>> input2info_;
 };
 
 } // namespace drmemtrace

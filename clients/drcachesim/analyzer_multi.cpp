@@ -175,7 +175,8 @@ analyzer_multi_t::create_invariant_checker()
     }
     return new invariant_checker_t(op_offline.get_value(), op_verbose.get_value(),
                                    op_test_mode_name.get_value(),
-                                   serial_schedule_file_.get(), cpu_schedule_file_.get());
+                                   serial_schedule_file_.get(), cpu_schedule_file_.get(),
+                                   op_abort_on_invariant_error.get_value());
 }
 
 template <>
@@ -455,6 +456,8 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
             return;
         }
         auto end = create_ipc_reader_end();
+        // We do not want the scheduler's init() to block.
+        sched_ops.read_inputs_in_init = false;
         if (!this->init_scheduler(std::move(reader), std::move(end),
                                   op_verbose.get_value(), std::move(sched_ops))) {
             this->success_ = false;
@@ -506,6 +509,7 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::init_dynamic_schedule()
     sched_ops.block_time_scale = op_sched_block_scale.get_value();
     sched_ops.block_time_max = op_sched_block_max_us.get_value();
     sched_ops.randomize_next_input = op_sched_randomize.get_value();
+    sched_ops.honor_direct_switches = !op_sched_disable_direct_switches.get_value();
 #ifdef HAS_ZIP
     if (!op_record_file.get_value().empty()) {
         record_schedule_zip_.reset(new zipfile_ostream_t(op_record_file.get_value()));

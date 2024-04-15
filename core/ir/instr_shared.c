@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -52,6 +52,7 @@
 #define INSTR_INLINE extern inline
 
 #include "../globals.h"
+#include "isa_regdeps/encoding_common.h"
 #include "instr.h"
 #include "arch.h"
 #include "../link.h"
@@ -84,16 +85,19 @@
 instr_t *
 instr_create(void *drcontext)
 {
+    bool is_instr_isa_mode_set = false;
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *instr = (instr_t *)heap_alloc(dcontext, sizeof(instr_t) HEAPACCT(ACCT_IR));
     /* everything initializes to 0, even flags, to indicate
      * an uninitialized instruction */
     memset((void *)instr, 0, sizeof(instr_t));
 #if defined(X86) && defined(X64)
-    instr_set_isa_mode(instr, X64_CACHE_MODE_DC(dcontext) ? DR_ISA_AMD64 : DR_ISA_IA32);
-#elif defined(ARM)
-    instr_set_isa_mode(instr, dr_get_isa_mode(dcontext));
+    is_instr_isa_mode_set = instr_set_isa_mode(
+        instr, X64_CACHE_MODE_DC(dcontext) ? DR_ISA_AMD64 : DR_ISA_IA32);
+#else
+    is_instr_isa_mode_set = instr_set_isa_mode(instr, dr_get_isa_mode(dcontext));
 #endif
+    CLIENT_ASSERT(is_instr_isa_mode_set, "setting instruction ISA mode unsuccessful");
     return instr;
 }
 
@@ -440,6 +444,12 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
     if (!TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags))
         heap_reachable_free(dcontext, buf, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
     return len;
+}
+
+dr_isa_mode_t
+instr_get_isa_mode(instr_t *instr)
+{
+    return (dr_isa_mode_t)instr->isa_mode;
 }
 
 #define inlined_instr_get_opcode(instr)                                           \
@@ -2293,7 +2303,18 @@ instr_is_xsave(instr_t *instr)
 {
     int opcode = instr_get_opcode(instr); /* force decode */
     if (opcode == OP_xsave32 || opcode == OP_xsaveopt32 || opcode == OP_xsave64 ||
-        opcode == OP_xsaveopt64 || opcode == OP_xsavec32 || opcode == OP_xsavec64)
+        opcode == OP_xsaveopt64 || opcode == OP_xsavec32 || opcode == OP_xsavec64 ||
+        opcode == OP_xsaves32 || opcode == OP_xsaves64)
+        return true;
+    return false;
+}
+
+bool
+instr_is_xrstor(instr_t *instr)
+{
+    int opcode = instr_get_opcode(instr); /* force decode */
+    if (opcode == OP_xrstor32 || opcode == OP_xrstor64 || opcode == OP_xrstors32 ||
+        opcode == OP_xrstors64)
         return true;
     return false;
 }
@@ -2635,20 +2656,16 @@ instr_compute_address_helper(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
     for (i = 0; i < instr_num_dsts(instr); i++) {
         curop = instr_get_dst(instr, i);
         if (opnd_is_memory_reference(curop)) {
-            if (opnd_is_vsib(curop)) {
-#ifdef X86
-                if (instr_compute_address_VSIB(instr, mc, mc_size, mc_flags, curop, index,
-                                               &have_addr, addr, &write)) {
-                    CLIENT_ASSERT(
-                        write,
-                        "VSIB found in destination but instruction is not a scatter");
+            if (opnd_is_vector_base_disp(curop)) {
+                if (instr_compute_vector_address(instr, mc, mc_size, mc_flags, curop,
+                                                 index, &have_addr, addr, &write)) {
+                    CLIENT_ASSERT(write,
+                                  "Vector address found in destination but instruction "
+                                  "is not a scatter");
                     break;
                 } else {
                     return false;
                 }
-#else
-                CLIENT_ASSERT(false, "VSIB should be x86-only");
-#endif
             }
             memcount++;
             if (memcount == (int)index) {
@@ -2663,16 +2680,12 @@ instr_compute_address_helper(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
         for (i = 0; i < instr_num_srcs(instr); i++) {
             curop = instr_get_src(instr, i);
             if (opnd_is_memory_reference(curop)) {
-                if (opnd_is_vsib(curop)) {
-#ifdef X86
-                    if (instr_compute_address_VSIB(instr, mc, mc_size, mc_flags, curop,
-                                                   index, &have_addr, addr, &write))
+                if (opnd_is_vector_base_disp(curop)) {
+                    if (instr_compute_vector_address(instr, mc, mc_size, mc_flags, curop,
+                                                     index, &have_addr, addr, &write))
                         break;
                     else
                         return false;
-#else
-                    CLIENT_ASSERT(false, "VSIB should be x86-only");
-#endif
                 }
                 memcount++;
                 if (memcount == (int)index)
@@ -2977,6 +2990,142 @@ instr_uses_fp_reg(instr_t *instr)
         }
     }
     return false;
+}
+
+void
+instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
+                             instr_t *instr_regdeps_isa)
+{
+    /* Retrieve number of register destination operands from real ISA instruction.
+     * Note that a destination operand that is a memory renference should have its
+     * registers (if any) counted as source operands, since they are being read.
+     * We use [src|dst]_reg_used to keep track of registers we've seen and avoid
+     * duplicates.
+     */
+    bool src_reg_used[REGDEPS_MAX_NUM_REGS];
+    memset(src_reg_used, 0, sizeof(src_reg_used));
+    uint num_srcs = 0;
+    bool dst_reg_used[REGDEPS_MAX_NUM_REGS];
+    memset(dst_reg_used, 0, sizeof(dst_reg_used));
+    uint num_dsts = 0;
+    uint instr_real_num_dsts = (uint)instr_num_dsts(instr_real_isa);
+    for (uint dst_index = 0; dst_index < instr_real_num_dsts; ++dst_index) {
+        opnd_t dst_opnd = instr_get_dst(instr_real_isa, dst_index);
+        uint num_regs_used_by_opnd = (uint)opnd_num_regs_used(dst_opnd);
+        if (opnd_is_memory_reference(dst_opnd)) {
+            for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
+                reg_id_t reg = opnd_get_reg_used(dst_opnd, opnd_index);
+                /* Map sub-registers to their containing register.
+                 */
+                reg_id_t reg_canonical = reg_to_pointer_sized(reg);
+                if (!src_reg_used[reg_canonical]) {
+                    ++num_srcs;
+                    src_reg_used[reg_canonical] = true;
+                }
+            }
+        } else {
+            for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
+                reg_id_t reg = opnd_get_reg_used(dst_opnd, opnd_index);
+                /* Map sub-registers to their containing register.
+                 */
+                reg_id_t reg_canonical = reg_to_pointer_sized(reg);
+                if (!dst_reg_used[reg_canonical]) {
+                    ++num_dsts;
+                    dst_reg_used[reg_canonical] = true;
+                }
+            }
+        }
+    }
+
+    /* We use max_src_opnd_size_bytes to keep track of the size of the largest source
+     * operand.  This variable counts the number of bytes instead of using opnd_size_t to
+     * avoid relying on OPSZ_ enum values.  Later on we convert max_src_opnd_size_bytes to
+     * its corresponding OPSZ_ enum value and store it into operation_size.
+     */
+    uint max_src_opnd_size_bytes = 0;
+    /* Retrieve number of register source operands from real ISA instruction.
+     */
+    uint instr_real_num_srcs = (uint)instr_num_srcs(instr_real_isa);
+    for (uint i = 0; i < instr_real_num_srcs; ++i) {
+        opnd_t src_opnd = instr_get_src(instr_real_isa, i);
+        opnd_size_t opnd_size = opnd_get_size(src_opnd);
+        uint opnd_size_bytes = opnd_size_in_bytes(opnd_size);
+        if (opnd_size_bytes > max_src_opnd_size_bytes)
+            max_src_opnd_size_bytes = opnd_size_bytes;
+        uint num_regs_used_by_opnd = (uint)opnd_num_regs_used(src_opnd);
+        for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
+            reg_id_t reg = opnd_get_reg_used(src_opnd, opnd_index);
+            /* Map sub-registers to their containing register.
+             */
+            reg_id_t reg_canonical = reg_to_pointer_sized(reg);
+            if (!src_reg_used[reg_canonical]) {
+                ++num_srcs;
+                src_reg_used[reg_canonical] = true;
+            }
+        }
+    }
+
+    /* Declare num of source and destination operands valid in the converted instruction.
+     */
+    instr_set_num_opnds(drcontext, instr_regdeps_isa, num_dsts, num_srcs);
+
+    /* Retrieve arithmetic flags from real ISA instruction.
+     * If the real ISA instruction reads or writes one or more arithmetic flag, all
+     * arithmetic flags will be set to read or written in the converted instruction.
+     * Note that this operation can trigger additional encoding and decoding of
+     * instr_real_isa, depending on its decoding level.
+     */
+    uint eflags_instr_real = instr_get_arith_flags(instr_real_isa, DR_QUERY_DEFAULT);
+    uint eflags_instr_regdeps = 0;
+    if (TESTANY(EFLAGS_WRITE_ARITH, eflags_instr_real))
+        eflags_instr_regdeps |= EFLAGS_WRITE_ARITH;
+    if (TESTANY(EFLAGS_READ_ARITH, eflags_instr_real))
+        eflags_instr_regdeps |= EFLAGS_READ_ARITH;
+    instr_regdeps_isa->eflags = eflags_instr_regdeps;
+    instr_set_arith_flags_valid(instr_regdeps_isa, true);
+
+    /* Retrieve category of real ISA instruction and set it directly as the category of
+     * the converted instruction.  No changes needed here.
+     */
+    instr_set_category(instr_regdeps_isa, instr_get_category(instr_real_isa));
+
+    /* Convert max_src_opnd_size_bytes from number of bytes to opnd_size_t (which holds
+     * OPSZ_ enum values).
+     */
+    instr_regdeps_isa->operation_size = opnd_size_from_bytes(max_src_opnd_size_bytes);
+
+    /* Set the source and destination register operands for the converted instruction.
+     */
+    if (num_dsts > 0) {
+        uint reg_counter = 0;
+        for (uint reg = 0; reg < REGDEPS_MAX_NUM_REGS; ++reg) {
+            if (dst_reg_used[reg]) {
+                opnd_t dst_opnd = opnd_create_reg((reg_id_t)reg);
+                instr_set_dst(instr_regdeps_isa, reg_counter, dst_opnd);
+                ++reg_counter;
+            }
+        }
+    }
+
+    if (num_srcs > 0) {
+        uint reg_counter = 0;
+        for (uint reg = 0; reg < REGDEPS_MAX_NUM_REGS; ++reg) {
+            if (src_reg_used[reg]) {
+                opnd_t src_opnd = opnd_create_reg((reg_id_t)reg);
+                instr_set_src(instr_regdeps_isa, reg_counter, src_opnd);
+                ++reg_counter;
+            }
+        }
+    }
+
+    /* Declare converted instruction operands to be valid.
+     * Must be done after instr_allocate_raw_bits(), which sets operands as invalid.
+     */
+    instr_set_operands_valid(instr_regdeps_isa, true);
+
+    /* Set converted instruction ISA mode to be DR_ISA_REGDEPS.
+     */
+    instr_set_isa_mode(instr_regdeps_isa, DR_ISA_REGDEPS);
 }
 
 /* We place these here rather than in mangle_shared.c to avoid the work of
