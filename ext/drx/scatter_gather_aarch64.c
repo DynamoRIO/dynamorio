@@ -1803,7 +1803,7 @@ drx_scatter_gather_restore_state(void *drcontext, dr_restore_state_info_t *info,
             const size_t reg_num = spill_slot_state.pred_slots[slot].reg - DR_REG_P0;
 
             memcpy(&info->mcontext->svep[reg_num],
-                   &((char *)pt->scratch_pred_spill_slots)[pl_bytes * slot], vl_bytes);
+                   &((char *)pt->scratch_pred_spill_slots)[pl_bytes * slot], pl_bytes);
         }
     }
 
