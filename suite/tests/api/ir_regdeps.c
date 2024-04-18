@@ -45,8 +45,10 @@
  */
 #define REGDEPS_ALIGN_BYTES 4
 
-#define REGARG(reg) opnd_create_reg(DR_REG_##reg)
-#define REGARG_PARTIAL(reg, sz) opnd_create_reg_partial(DR_REG_##reg, sz)
+#ifdef X64
+#	define REGARG(reg) opnd_create_reg(DR_REG_##reg)
+#	define REGARG_PARTIAL(reg, sz) opnd_create_reg_partial(DR_REG_##reg, sz)
+#endif
 
 static bool
 instr_has_only_register_operands(instr_t *instr)
