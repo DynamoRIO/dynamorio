@@ -45,7 +45,7 @@
  */
 #define REGDEPS_ALIGN_BYTES 4
 
-#ifdef X64
+#ifdef X86_64
 #	define REGARG(reg) opnd_create_reg(DR_REG_##reg)
 #	define REGARG_PARTIAL(reg, sz) opnd_create_reg_partial(DR_REG_##reg, sz)
 #endif
@@ -125,7 +125,7 @@ test_instr_encode_decode_synthetic(void *dc, instr_t *instr)
     instr_destroy(dc, instr_synthetic_decoded);
 }
 
-#ifdef X64
+#ifdef X86_64
 static void
 test_avx512_bf16_encoding(void *dc, byte *buf)
 {
@@ -462,7 +462,7 @@ main(int argc, char *argv[])
     void *dcontext = dr_standalone_init();
     ASSERT(!dr_running_under_dynamorio());
 
-#ifdef X64
+#ifdef X86_64
     test_instr_create_encode_decode_synthetic_x86_64(dcontext);
 #endif
 
