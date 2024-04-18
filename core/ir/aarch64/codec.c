@@ -1086,7 +1086,7 @@ static inline bool
 decode_opnd_dq_plus(int add, int rpos, int qpos, uint enc, OUT opnd_t *opnd)
 {
     *opnd = opnd_create_reg((TEST(1U << qpos, enc) ? DR_REG_Q0 : DR_REG_D0) +
-                            (extract_uint(enc, rpos, rpos + 5) + add) % 32);
+                            (extract_uint(enc, rpos, 5) + add) % 32);
     return true;
 }
 
@@ -1111,7 +1111,7 @@ static inline bool
 decode_opnd_sd(int rpos, int qpos, uint enc, OUT opnd_t *opnd)
 {
     *opnd = opnd_create_reg((TEST(1U << qpos, enc) ? DR_REG_D0 : DR_REG_S0) +
-                            (extract_uint(enc, rpos, rpos + 5) % 32));
+                            (extract_uint(enc, rpos, 5) % 32));
     return true;
 }
 
