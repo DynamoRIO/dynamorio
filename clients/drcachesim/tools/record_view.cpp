@@ -47,13 +47,14 @@ namespace drmemtrace {
 typedef unsigned int uint;
 
 record_analysis_tool_t *
-record_view_tool_create(uint64_t sim_refs)
+record_view_tool_create(uint64_t skip_refs, uint64_t sim_refs)
 {
-    return new dynamorio::drmemtrace::record_view_t(sim_refs);
+    return new dynamorio::drmemtrace::record_view_t(skip_refs, sim_refs);
 }
 
-record_view_t::record_view_t(uint64_t sim_refs)
-    : sim_refs_(sim_refs)
+record_view_t::record_view_t(uint64_t skip_refs, uint64_t sim_refs)
+    : skip_refs_(skip_refs)
+    , sim_refs_(sim_refs)
 {
 }
 
@@ -64,6 +65,10 @@ record_view_t::~record_view_t()
 bool
 record_view_t::should_skip(void)
 {
+    if (skip_refs_ > 0) {
+        --skip_refs_;
+        return true;
+    }
     if (sim_refs_ > 0) {
         --sim_refs_;
         return false;

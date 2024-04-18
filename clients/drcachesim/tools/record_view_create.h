@@ -32,10 +32,11 @@
 
 /* record view tool creation */
 
+#include <cstdint>
 #ifndef _RECORD_VIEW_CREATE_H_
-#define _RECORD_VIEW_CREATE_H_ 1
+#    define _RECORD_VIEW_CREATE_H_ 1
 
-#include "analysis_tool.h"
+#    include "analysis_tool.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -50,7 +51,7 @@ namespace drmemtrace {
  * to std::err.
  */
 record_analysis_tool_t *
-record_view_tool_create(uint64_t sim_refs);
+record_view_tool_create(uint64_t skip_refs, uint64_t sim_refs);
 
 } // namespace drmemtrace
 } // namespace dynamorio

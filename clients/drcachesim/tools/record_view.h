@@ -50,7 +50,7 @@ namespace drmemtrace {
  */
 class record_view_t : public record_analysis_tool_t {
 public:
-    record_view_t(uint64_t sim_refs);
+    record_view_t(uint64_t skip_refs, uint64_t sim_refs);
 
     ~record_view_t() override;
 
@@ -83,6 +83,7 @@ protected:
     bool
     should_skip(void);
 
+    uint64_t skip_refs_;
     uint64_t sim_refs_;
 };
 
