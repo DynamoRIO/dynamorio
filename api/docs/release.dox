@@ -226,7 +226,10 @@ Further non-compatibility-affecting changes include:
    purpose of preserving register dependencies.
  - Added instr_convert_to_isa_regdeps() API that converts an #instr_t from a real ISA
    (e.g., #DR_ISA_AMD64) to the #DR_ISA_REGDEPS synthetic ISA.
-
+ - Added reg_to_virtual() which takes a regular DR_REG_ register and returns a DR_REG_V
+   virtual register for #DR_ISA_REGDEPS.
+ - Added get_virtual_register_name() which takes a virtual DR_REG_V register (used by
+   #DR_ISA_REGDEPS) and returns its string name (as const char *).
 
 **************************************************
 <hr>

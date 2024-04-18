@@ -3010,6 +3010,14 @@ get_register_name(reg_id_t reg);
 
 DR_API
 /**
+ * Assumes that \p reg is a DR_REG_V 8-bit register constant.
+ * Returns the string name for virtual \p reg.
+ */
+const char *
+get_virtual_register_name(reg_id_t reg);
+
+DR_API
+/**
  * Assumes that \p reg is a DR_REG_ 32-bit register constant.
  * Returns the 16-bit version of \p reg.
  * \note x86-only.
@@ -3293,6 +3301,15 @@ DR_API
  */
 reg_id_t
 reg_to_pointer_sized(reg_id_t reg);
+
+DR_API
+/**
+ * Assumes that \p reg is a DR_REG_ 32-bit register constant.
+ * Returns the corresponding #DR_ISA_REGDEPS virtual register of \p reg, which
+ * holds 8-bit DR_REG_V values.
+ */
+reg_id_t
+reg_to_virtual(reg_id_t reg);
 
 DR_API
 /**

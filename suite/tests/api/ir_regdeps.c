@@ -45,6 +45,9 @@
  */
 #define REGDEPS_ALIGN_BYTES 4
 
+#define REGARG(reg) opnd_create_reg(DR_REG_##reg)
+#define REGARG_PARTIAL(reg, sz) opnd_create_reg_partial(DR_REG_##reg, sz)
+
 static bool
 instr_has_only_register_operands(instr_t *instr)
 {
@@ -120,7 +123,101 @@ test_instr_encode_decode_synthetic(void *dc, instr_t *instr)
     instr_destroy(dc, instr_synthetic_decoded);
 }
 
-#ifdef X86_64
+#ifdef X64
+static void
+test_avx512_bf16_encoding(void *dc, byte *buf)
+{
+    /* These tests are taken from
+     * binutils-2.37.90/gas/testsuite/gas/i386/x86-64-avx512_bf16.{s,d}
+     */
+    // clang-format off
+    // 62 02 17 40 72 f4     vcvtne2ps2bf16 %zmm28,%zmm29,%zmm30
+    // 62 22 17 47 72 b4 f5 00 00 00 10  vcvtne2ps2bf16 0x10000000\(%rbp,%r14,8\),%zmm29,%zmm30\{%k7\}
+    // 62 42 17 50 72 31     vcvtne2ps2bf16 \(%r9\)\{1to16\},%zmm29,%zmm30
+    // 62 62 17 40 72 71 7f  vcvtne2ps2bf16 0x1fc0\(%rcx\),%zmm29,%zmm30
+    // 62 62 17 d7 72 b2 00 e0 ff ff   vcvtne2ps2bf16 -0x2000\(%rdx\)\{1to16\},%zmm29,%zmm30\{%k7\}\{z\}
+    // 62 02 7e 48 72 f5     vcvtneps2bf16 %zmm29,%ymm30
+    // 62 22 7e 4f 72 b4 f5 00 00 00 10  vcvtneps2bf16 0x10000000\(%rbp,%r14,8\),%ymm30\{%k7\}
+    // 62 42 7e 58 72 31     vcvtneps2bf16 \(%r9\)\{1to16\},%ymm30
+    // 62 62 7e 48 72 71 7f  vcvtneps2bf16 0x1fc0\(%rcx\),%ymm30
+    // 62 62 7e df 72 b2 00 e0 ff ff   vcvtneps2bf16 -0x2000\(%rdx\)\{1to16\},%ymm30\{%k7\}\{z\}
+    // 62 02 16 40 52 f4     vdpbf16ps %zmm28,%zmm29,%zmm30
+    // 62 22 16 47 52 b4 f5 00 00 00 10  vdpbf16ps 0x10000000\(%rbp,%r14,8\),%zmm29,%zmm30\{%k7\}
+    // 62 42 16 50 52 31     vdpbf16ps \(%r9\)\{1to16\},%zmm29,%zmm30
+    // 62 62 16 40 52 71 7f  vdpbf16ps 0x1fc0\(%rcx\),%zmm29,%zmm30
+    // 62 62 16 d7 52 b2 00 e0 ff ff   vdpbf16ps -0x2000\(%rdx\)\{1to16\},%zmm29,%zmm30\{%k7\}\{z\}
+    byte out00[] = { 0x62, 0x02, 0x17, 0x40, 0x72, 0xf4,}; //
+    byte out01[] = { 0x62, 0x22, 0x17, 0x47, 0x72, 0xb4, 0xf5, 0x00, 0x00, 0x00, 0x10,}; //
+    byte out02[] = { 0x62, 0x42, 0x17, 0x50, 0x72, 0x31,}; //
+    byte out03[] = { 0x62, 0x62, 0x17, 0x40, 0x72, 0x71, 0x7f,}; //
+    byte out04[] = { 0x62, 0x62, 0x17, 0xd7, 0x72, 0xb2, 0x00, 0xe0, 0xff, 0xff,}; //
+    byte out05[] = { 0x62, 0x02, 0x7e, 0x48, 0x72, 0xf5,}; //
+    byte out06[] = { 0x62, 0x22, 0x7e, 0x4f, 0x72, 0xb4, 0xf5, 0x00, 0x00, 0x00, 0x10,}; //
+    byte out07[] = { 0x62, 0x42, 0x7e, 0x58, 0x72, 0x31,}; //
+    byte out08[] = { 0x62, 0x62, 0x7e, 0x48, 0x72, 0x71, 0x7f,}; //
+    byte out09[] = { 0x62, 0x62, 0x7e, 0xdf, 0x72, 0xb2, 0x00, 0xe0, 0xff, 0xff,}; //
+    byte out10[] = { 0x62, 0x02, 0x16, 0x40, 0x52, 0xf4,}; //
+    byte out11[] = { 0x62, 0x22, 0x16, 0x47, 0x52, 0xb4, 0xf5, 0x00, 0x00, 0x00, 0x10,}; //
+    byte out12[] = { 0x62, 0x42, 0x16, 0x50, 0x52, 0x31,}; //
+    byte out13[] = { 0x62, 0x62, 0x16, 0x40, 0x52, 0x71, 0x7f,}; //
+    byte out14[] = { 0x62, 0x62, 0x16, 0xd7, 0x52, 0xb2, 0x00, 0xe0, 0xff, 0xff,}; //
+    opnd_t test0[][4] = {
+        { REGARG(ZMM30), REGARG(K0), REGARG(ZMM29), REGARG(ZMM28) },
+        { REGARG(ZMM30), REGARG(K7), REGARG(ZMM29), opnd_create_base_disp(DR_REG_RBP, DR_REG_R14 , 8, 0x10000000, OPSZ_64) },
+        { REGARG(ZMM30), REGARG(K0), REGARG(ZMM29), opnd_create_base_disp(DR_REG_R9 , DR_REG_NULL, 0,          0, OPSZ_4) },
+        { REGARG(ZMM30), REGARG(K0), REGARG(ZMM29), opnd_create_base_disp(DR_REG_RCX, DR_REG_NULL, 0,     0x1fc0, OPSZ_64) },
+        { REGARG(ZMM30), REGARG(K7), REGARG(ZMM29), opnd_create_base_disp(DR_REG_RDX, DR_REG_NULL, 0,    -0x2000, OPSZ_4) },
+    };
+    opnd_t test1[][3] = {
+        { REGARG_PARTIAL(ZMM30, OPSZ_32), REGARG(K0), REGARG(ZMM29) },
+        { REGARG_PARTIAL(ZMM30, OPSZ_32), REGARG(K7), opnd_create_base_disp(DR_REG_RBP, DR_REG_R14,  8,  0x10000000, OPSZ_64) },
+        { REGARG_PARTIAL(ZMM30, OPSZ_32), REGARG(K0), opnd_create_base_disp(DR_REG_R9,  DR_REG_NULL, 0,  0,          OPSZ_4) },
+        { REGARG_PARTIAL(ZMM30, OPSZ_32), REGARG(K0), opnd_create_base_disp(DR_REG_RCX, DR_REG_NULL, 0,  0x1fc0,     OPSZ_64) },
+        { REGARG_PARTIAL(ZMM30, OPSZ_32), REGARG(K7), opnd_create_base_disp(DR_REG_RDX, DR_REG_NULL, 0, -0x2000,     OPSZ_4) },
+    };
+    // clang-format on
+
+    // TODO: remove once these are available in some header
+#    define PREFIX_EVEX_z 0x000800000
+    uint prefixes[] = { 0, 0, 0, 0, PREFIX_EVEX_z };
+
+    int expected_sizes[] = {
+        sizeof(out00), sizeof(out01), sizeof(out02), sizeof(out03), sizeof(out04),
+        sizeof(out05), sizeof(out06), sizeof(out07), sizeof(out08), sizeof(out09),
+        sizeof(out10), sizeof(out11), sizeof(out12), sizeof(out13), sizeof(out14),
+    };
+
+    byte *expected_output[] = {
+        out00, out01, out02, out03, out04, out05, out06, out07,
+        out08, out09, out10, out11, out12, out13, out14,
+    };
+
+    for (int i = 0; i < 15; i++) {
+        instr_t *instr;
+        int set = i / 5;
+        int idx = i % 5;
+        if (set == 0) {
+            instr = INSTR_CREATE_vcvtne2ps2bf16_mask(dc, test0[idx][0], test0[idx][1],
+                                                     test0[idx][2], test0[idx][3]);
+        } else if (set == 1) {
+            instr = INSTR_CREATE_vcvtneps2bf16_mask(dc, test1[idx][0], test1[idx][1],
+                                                    test1[idx][2]);
+        } else if (set == 2) {
+            instr = INSTR_CREATE_vdpbf16ps_mask(dc, test0[idx][0], test0[idx][1],
+                                                test0[idx][2], test0[idx][3]);
+        }
+        instr_set_prefix_flag(instr, prefixes[idx]);
+        instr_encode(dc, instr, buf);
+        instr_reset(dc, instr);
+        decode(dc, buf, instr);
+        test_instr_encode_decode_synthetic(dc, instr);
+        for (int b = 0; b < expected_sizes[i]; b++) {
+            ASSERT(expected_output[i][b] == buf[b]);
+        }
+        // instr_destroy() called by test_instr_encode_decode_synthetic().
+    }
+}
+
 static void
 test_instr_create_encode_decode_synthetic_x86_64(void *dc)
 {
@@ -192,6 +289,19 @@ test_instr_create_encode_decode_synthetic_x86_64(void *dc)
     instr_reset(dc, instr);
     decode(dc, buf, instr);
     test_instr_encode_decode_synthetic(dc, instr);
+
+    /* Containing-register IDs can be >=256, hence their value does not fit in the
+     * allotted 8 bits per register operand of regdeps encoding. This was causing a
+     * memory corruption in instr_convert_to_isa_regdeps() where src_reg_used and
+     * dst_reg_used have only 256 elements and are laid out next to each other in memory.
+     * Writing to index >=256 into one was overwriting the other. Fix: remap containing
+     * register IDs starting from 0 for all architectures, since we still have only up to
+     * 198 unique containing registers (max number of containing registers for AARCH64).
+     * DR_REG_K0, DR_REG_K7, and the DR_REG_ZMM_ registers are some of these "problematic"
+     * registers with enum value >=256. test_avx512_bf16_encoding() uses them to test our
+     * fix.
+     */
+    test_avx512_bf16_encoding(dc, buf);
 }
 #endif
 
@@ -328,13 +438,29 @@ test_instr_create_encode_decode_synthetic_riscv64(void *dc)
 }
 #endif
 
+void
+test_virtual_register(void)
+{
+    const char rv0[] = "rv0";
+    ASSERT(strncmp(get_virtual_register_name((reg_id_t)0), rv0, sizeof(rv0)) == 0);
+
+    const char rv1[] = "rv1";
+    ASSERT(strncmp(get_virtual_register_name((reg_id_t)1), rv1, sizeof(rv1)) == 0);
+
+    const char rv187[] = "rv187";
+    ASSERT(strncmp(get_virtual_register_name((reg_id_t)187), rv187, sizeof(rv187)) == 0);
+
+    const char rv255[] = "rv255";
+    ASSERT(strncmp(get_virtual_register_name((reg_id_t)255), rv255, sizeof(rv255)) == 0);
+}
+
 int
 main(int argc, char *argv[])
 {
     void *dcontext = dr_standalone_init();
     ASSERT(!dr_running_under_dynamorio());
 
-#ifdef X86_64
+#ifdef X64
     test_instr_create_encode_decode_synthetic_x86_64(dcontext);
 #endif
 
@@ -349,6 +475,8 @@ main(int argc, char *argv[])
 #ifdef RISCV64
     test_instr_create_encode_decode_synthetic_riscv64(dcontext);
 #endif
+
+    test_virtual_register();
 
     print("All DR_ISA_REGDEPS tests are done.\n");
     dr_standalone_exit();

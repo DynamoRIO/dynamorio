@@ -3018,9 +3018,10 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
                 /* Map sub-registers to their containing register.
                  */
                 reg_id_t reg_canonical = reg_to_pointer_sized(reg);
-                if (!src_reg_used[reg_canonical]) {
+                reg_id_t reg_virtual = reg_to_virtual(reg_canonical);
+                if (!src_reg_used[reg_virtual]) {
                     ++num_srcs;
-                    src_reg_used[reg_canonical] = true;
+                    src_reg_used[reg_virtual] = true;
                 }
             }
         } else {
@@ -3029,9 +3030,10 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
                 /* Map sub-registers to their containing register.
                  */
                 reg_id_t reg_canonical = reg_to_pointer_sized(reg);
-                if (!dst_reg_used[reg_canonical]) {
+                reg_id_t reg_virtual = reg_to_virtual(reg_canonical);
+                if (!dst_reg_used[reg_virtual]) {
                     ++num_dsts;
-                    dst_reg_used[reg_canonical] = true;
+                    dst_reg_used[reg_virtual] = true;
                 }
             }
         }
@@ -3058,9 +3060,10 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
             /* Map sub-registers to their containing register.
              */
             reg_id_t reg_canonical = reg_to_pointer_sized(reg);
-            if (!src_reg_used[reg_canonical]) {
+            reg_id_t reg_virtual = reg_to_virtual(reg_canonical);
+            if (!src_reg_used[reg_virtual]) {
                 ++num_srcs;
-                src_reg_used[reg_canonical] = true;
+                src_reg_used[reg_virtual] = true;
             }
         }
     }
@@ -3092,7 +3095,8 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
     /* Convert max_src_opnd_size_bytes from number of bytes to opnd_size_t (which holds
      * OPSZ_ enum values).
      */
-    instr_regdeps_isa->operation_size = opnd_size_from_bytes(max_src_opnd_size_bytes);
+    opnd_size_t max_opnd_size = opnd_size_from_bytes(max_src_opnd_size_bytes);
+    instr_regdeps_isa->operation_size = max_opnd_size;
 
     /* Set the source and destination register operands for the converted instruction.
      */
@@ -3101,6 +3105,7 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
         for (uint reg = 0; reg < REGDEPS_MAX_NUM_REGS; ++reg) {
             if (dst_reg_used[reg]) {
                 opnd_t dst_opnd = opnd_create_reg((reg_id_t)reg);
+                opnd_set_size(&dst_opnd, max_opnd_size);
                 instr_set_dst(instr_regdeps_isa, reg_counter, dst_opnd);
                 ++reg_counter;
             }
@@ -3112,6 +3117,7 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
         for (uint reg = 0; reg < REGDEPS_MAX_NUM_REGS; ++reg) {
             if (src_reg_used[reg]) {
                 opnd_t src_opnd = opnd_create_reg((reg_id_t)reg);
+                opnd_set_size(&src_opnd, max_opnd_size);
                 instr_set_src(instr_regdeps_isa, reg_counter, src_opnd);
                 ++reg_counter;
             }
