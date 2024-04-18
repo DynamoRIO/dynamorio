@@ -46,8 +46,8 @@
 #define REGDEPS_ALIGN_BYTES 4
 
 #ifdef X86_64
-#	define REGARG(reg) opnd_create_reg(DR_REG_##reg)
-#	define REGARG_PARTIAL(reg, sz) opnd_create_reg_partial(DR_REG_##reg, sz)
+#    define REGARG(reg) opnd_create_reg(DR_REG_##reg)
+#    define REGARG_PARTIAL(reg, sz) opnd_create_reg_partial(DR_REG_##reg, sz)
 #endif
 
 static bool
