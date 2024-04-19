@@ -98,6 +98,15 @@ decode_isa_regdeps(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
     for (uint i = 0; i < num_dsts; ++i) {
         reg_id_t dst = (reg_id_t)encoded_instr[i + REGDEPS_OPND_INDEX];
         opnd_t dst_opnd = opnd_create_reg((reg_id_t)dst);
+        /* Virtual registers may have ID values not supported by reg_get_size().
+         * We set the opnd_t.size field to be the operation_size max_opnd_size so
+         * that reg_get_size() can return it without triggering a CLIENT_ASSERT
+         * error.  Note that now the same virtual register in two different
+         * instructions may have different sizes.  However, querying the size of
+         * a virtual register is not supported on purpose, so the user should not
+         * expect opnd_t.size to have any meaningful value.  We do the same for
+         * both src and dst register operands of DR_ISA_REGDEPS instructions.
+         */
         opnd_set_size(&dst_opnd, max_opnd_size);
         instr_set_dst(instr, i, dst_opnd);
     }

@@ -2411,9 +2411,9 @@ get_register_name(reg_id_t reg)
 }
 
 const char *
-get_virtual_register_name(reg_id_t reg)
+dr_get_virtual_register_name(reg_id_t reg)
 {
-    return reg_virtual_names[reg];
+    return d_r_reg_virtual_names[reg];
 }
 
 reg_id_t
@@ -2423,9 +2423,9 @@ reg_to_pointer_sized(reg_id_t reg)
 }
 
 reg_id_t
-reg_to_virtual(reg_id_t reg)
+dr_reg_to_virtual(reg_id_t reg)
 {
-    return dr_reg_virtual[reg];
+    return d_r_reg_id_to_virtual[reg];
 }
 
 reg_id_t

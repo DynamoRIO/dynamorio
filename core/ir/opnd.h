@@ -90,9 +90,9 @@
 
 /* indexed by enum */
 extern const char *const reg_names[];
-extern const char *const reg_virtual_names[];
+extern const char *const d_r_reg_virtual_names[];
 extern const reg_id_t dr_reg_fixer[];
-extern const reg_id_t dr_reg_virtual[];
+extern const reg_id_t d_r_reg_id_to_virtual[];
 
 #ifdef X86
 #    define REG_START_SPILL DR_REG_XAX

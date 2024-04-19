@@ -3017,8 +3017,7 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
                 reg_id_t reg = opnd_get_reg_used(dst_opnd, opnd_index);
                 /* Map sub-registers to their containing register.
                  */
-                reg_id_t reg_canonical = reg_to_pointer_sized(reg);
-                reg_id_t reg_virtual = reg_to_virtual(reg_canonical);
+                reg_id_t reg_virtual = dr_reg_to_virtual(reg);
                 if (!src_reg_used[reg_virtual]) {
                     ++num_srcs;
                     src_reg_used[reg_virtual] = true;
@@ -3029,8 +3028,7 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
                 reg_id_t reg = opnd_get_reg_used(dst_opnd, opnd_index);
                 /* Map sub-registers to their containing register.
                  */
-                reg_id_t reg_canonical = reg_to_pointer_sized(reg);
-                reg_id_t reg_virtual = reg_to_virtual(reg_canonical);
+                reg_id_t reg_virtual = dr_reg_to_virtual(reg);
                 if (!dst_reg_used[reg_virtual]) {
                     ++num_dsts;
                     dst_reg_used[reg_virtual] = true;
@@ -3059,8 +3057,7 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
             reg_id_t reg = opnd_get_reg_used(src_opnd, opnd_index);
             /* Map sub-registers to their containing register.
              */
-            reg_id_t reg_canonical = reg_to_pointer_sized(reg);
-            reg_id_t reg_virtual = reg_to_virtual(reg_canonical);
+            reg_id_t reg_virtual = dr_reg_to_virtual(reg);
             if (!src_reg_used[reg_virtual]) {
                 ++num_srcs;
                 src_reg_used[reg_virtual] = true;
@@ -3105,6 +3102,15 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
         for (uint reg = 0; reg < REGDEPS_MAX_NUM_REGS; ++reg) {
             if (dst_reg_used[reg]) {
                 opnd_t dst_opnd = opnd_create_reg((reg_id_t)reg);
+                /* Virtual registers may have ID values not supported by reg_get_size().
+                 * We set the opnd_t.size field to be the operation_size max_opnd_size so
+                 * that reg_get_size() can return it without triggering a CLIENT_ASSERT
+                 * error.  Note that now the same virtual register in two different
+                 * instructions may have different sizes.  However, querying the size of
+                 * a virtual register is not supported on purpose, so the user should not
+                 * expect opnd_t.size to have any meaningful value.  We do the same for
+                 * both src and dst register operands of DR_ISA_REGDEPS instructions.
+                 */
                 opnd_set_size(&dst_opnd, max_opnd_size);
                 instr_set_dst(instr_regdeps_isa, reg_counter, dst_opnd);
                 ++reg_counter;
