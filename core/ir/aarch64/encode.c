@@ -32,7 +32,6 @@
  */
 
 #include "../globals.h"
-#include "../isa_regdeps/encoding_common.h"
 #include "arch.h"
 #include "instr.h"
 #include "decode.h"

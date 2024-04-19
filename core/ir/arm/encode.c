@@ -34,7 +34,6 @@
 /* FIXME i#1569: add A64 support: for now just A32 */
 
 #include "../globals.h"
-#include "../isa_regdeps/encoding_common.h"
 #include "arch.h"
 #include "instr.h"
 #include "decode.h"

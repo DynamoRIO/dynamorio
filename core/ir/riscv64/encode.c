@@ -31,7 +31,6 @@
  */
 
 #include "../globals.h"
-#include "../isa_regdeps/encoding_common.h"
 #include "arch.h"
 #include "decode.h"
 #include "decode_private.h"
