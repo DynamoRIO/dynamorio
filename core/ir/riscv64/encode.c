@@ -70,20 +70,79 @@ const reg_id_t dr_reg_fixer[] = { REG_NULL,
 };
 /* clang-format on */
 
-/* Maps containing-registers to their DR_ISA_REGDEPS virtual-register.
+/* Maps real ISA registers to their corresponding virtual DR_ISA_REGDEPS register.
+ * Note that we map real sub-registers to their corresponding containing virtual register.
  * Same size as dr_reg_fixer[], keep them synched.
  */
 const reg_id_t d_r_reg_id_to_virtual[] = {
-    DR_REG_NULL, DR_REG_NULL, DR_REG_V0,  DR_REG_V1,  DR_REG_V2,  DR_REG_V3,  DR_REG_V4,
-    DR_REG_V5,   DR_REG_V6,   DR_REG_V7,  DR_REG_V8,  DR_REG_V9,  DR_REG_V10, DR_REG_V11,
-    DR_REG_V12,  DR_REG_V13,  DR_REG_V14, DR_REG_V15, DR_REG_V16, DR_REG_V17, DR_REG_V18,
-    DR_REG_V19,  DR_REG_V20,  DR_REG_V21, DR_REG_V22, DR_REG_V23, DR_REG_V24, DR_REG_V25,
-    DR_REG_V26,  DR_REG_V27,  DR_REG_V28, DR_REG_V29, DR_REG_V30, DR_REG_V31, DR_REG_V32,
-    DR_REG_V33,  DR_REG_V34,  DR_REG_V35, DR_REG_V36, DR_REG_V37, DR_REG_V38, DR_REG_V39,
-    DR_REG_V40,  DR_REG_V41,  DR_REG_V42, DR_REG_V43, DR_REG_V44, DR_REG_V45, DR_REG_V46,
-    DR_REG_V47,  DR_REG_V48,  DR_REG_V49, DR_REG_V50, DR_REG_V51, DR_REG_V52, DR_REG_V53,
-    DR_REG_V54,  DR_REG_V55,  DR_REG_V56, DR_REG_V57, DR_REG_V58, DR_REG_V59, DR_REG_V60,
-    DR_REG_V61,  DR_REG_V62,  DR_REG_V63, DR_REG_V64, DR_REG_V65,
+    DR_REG_NULL, /* DR_REG_NULL */
+    DR_REG_NULL, /* DR_REG_NULL */
+    DR_REG_V0,   /* DR_REG_X0 */
+    DR_REG_V1,   /* DR_REG_X1 */
+    DR_REG_V2,   /* DR_REG_X2 */
+    DR_REG_V3,   /* DR_REG_X3 */
+    DR_REG_V4,   /* DR_REG_X4 */
+    DR_REG_V5,   /* DR_REG_X5 */
+    DR_REG_V6,   /* DR_REG_X6 */
+    DR_REG_V7,   /* DR_REG_X7 */
+    DR_REG_V8,   /* DR_REG_X8 */
+    DR_REG_V9,   /* DR_REG_X9 */
+    DR_REG_V10,  /* DR_REG_X10 */
+    DR_REG_V11,  /* DR_REG_X11 */
+    DR_REG_V12,  /* DR_REG_X12 */
+    DR_REG_V13,  /* DR_REG_X13 */
+    DR_REG_V14,  /* DR_REG_X14 */
+    DR_REG_V15,  /* DR_REG_X15 */
+    DR_REG_V16,  /* DR_REG_X16 */
+    DR_REG_V17,  /* DR_REG_X17 */
+    DR_REG_V18,  /* DR_REG_X18 */
+    DR_REG_V19,  /* DR_REG_X19 */
+    DR_REG_V20,  /* DR_REG_X20 */
+    DR_REG_V21,  /* DR_REG_X21 */
+    DR_REG_V22,  /* DR_REG_X22 */
+    DR_REG_V23,  /* DR_REG_X23 */
+    DR_REG_V24,  /* DR_REG_X24 */
+    DR_REG_V25,  /* DR_REG_X25 */
+    DR_REG_V26,  /* DR_REG_X26 */
+    DR_REG_V27,  /* DR_REG_X27 */
+    DR_REG_V28,  /* DR_REG_X28 */
+    DR_REG_V29,  /* DR_REG_X29 */
+    DR_REG_V30,  /* DR_REG_X30 */
+    DR_REG_V31,  /* DR_REG_X31 */
+    DR_REG_V32,  /* DR_REG_PC */
+    DR_REG_V33,  /* DR_REG_F0 */
+    DR_REG_V34,  /* DR_REG_F1 */
+    DR_REG_V35,  /* DR_REG_F2 */
+    DR_REG_V36,  /* DR_REG_F3 */
+    DR_REG_V37,  /* DR_REG_F4 */
+    DR_REG_V38,  /* DR_REG_F5 */
+    DR_REG_V39,  /* DR_REG_F6 */
+    DR_REG_V40,  /* DR_REG_F7 */
+    DR_REG_V41,  /* DR_REG_F8 */
+    DR_REG_V42,  /* DR_REG_F9 */
+    DR_REG_V43,  /* DR_REG_F10 */
+    DR_REG_V44,  /* DR_REG_F11 */
+    DR_REG_V45,  /* DR_REG_F12 */
+    DR_REG_V46,  /* DR_REG_F13 */
+    DR_REG_V47,  /* DR_REG_F14 */
+    DR_REG_V48,  /* DR_REG_F15 */
+    DR_REG_V49,  /* DR_REG_F16 */
+    DR_REG_V50,  /* DR_REG_F17 */
+    DR_REG_V51,  /* DR_REG_F18 */
+    DR_REG_V52,  /* DR_REG_F19 */
+    DR_REG_V53,  /* DR_REG_F20 */
+    DR_REG_V54,  /* DR_REG_F21 */
+    DR_REG_V55,  /* DR_REG_F22 */
+    DR_REG_V56,  /* DR_REG_F23 */
+    DR_REG_V57,  /* DR_REG_F24 */
+    DR_REG_V58,  /* DR_REG_F25 */
+    DR_REG_V59,  /* DR_REG_F26 */
+    DR_REG_V60,  /* DR_REG_F27 */
+    DR_REG_V61,  /* DR_REG_F28 */
+    DR_REG_V62,  /* DR_REG_F29 */
+    DR_REG_V63,  /* DR_REG_F30 */
+    DR_REG_V64,  /* DR_REG_F31 */
+    DR_REG_V65,  /* DR_REG_FCSR */
 };
 
 #ifdef DEBUG
