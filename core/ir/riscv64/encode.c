@@ -110,39 +110,40 @@ const reg_id_t d_r_reg_id_to_virtual[] = {
     DR_REG_V30,  /* DR_REG_X30 */
     DR_REG_V31,  /* DR_REG_X31 */
     DR_REG_V32,  /* DR_REG_PC */
-    DR_REG_V33,  /* DR_REG_F0 */
-    DR_REG_V34,  /* DR_REG_F1 */
-    DR_REG_V35,  /* DR_REG_F2 */
-    DR_REG_V36,  /* DR_REG_F3 */
-    DR_REG_V37,  /* DR_REG_F4 */
-    DR_REG_V38,  /* DR_REG_F5 */
-    DR_REG_V39,  /* DR_REG_F6 */
-    DR_REG_V40,  /* DR_REG_F7 */
-    DR_REG_V41,  /* DR_REG_F8 */
-    DR_REG_V42,  /* DR_REG_F9 */
-    DR_REG_V43,  /* DR_REG_F10 */
-    DR_REG_V44,  /* DR_REG_F11 */
-    DR_REG_V45,  /* DR_REG_F12 */
-    DR_REG_V46,  /* DR_REG_F13 */
-    DR_REG_V47,  /* DR_REG_F14 */
-    DR_REG_V48,  /* DR_REG_F15 */
-    DR_REG_V49,  /* DR_REG_F16 */
-    DR_REG_V50,  /* DR_REG_F17 */
-    DR_REG_V51,  /* DR_REG_F18 */
-    DR_REG_V52,  /* DR_REG_F19 */
-    DR_REG_V53,  /* DR_REG_F20 */
-    DR_REG_V54,  /* DR_REG_F21 */
-    DR_REG_V55,  /* DR_REG_F22 */
-    DR_REG_V56,  /* DR_REG_F23 */
-    DR_REG_V57,  /* DR_REG_F24 */
-    DR_REG_V58,  /* DR_REG_F25 */
-    DR_REG_V59,  /* DR_REG_F26 */
-    DR_REG_V60,  /* DR_REG_F27 */
-    DR_REG_V61,  /* DR_REG_F28 */
-    DR_REG_V62,  /* DR_REG_F29 */
-    DR_REG_V63,  /* DR_REG_F30 */
-    DR_REG_V64,  /* DR_REG_F31 */
-    DR_REG_V65,  /* DR_REG_FCSR */
+
+    DR_REG_V33, /* DR_REG_F0 */
+    DR_REG_V34, /* DR_REG_F1 */
+    DR_REG_V35, /* DR_REG_F2 */
+    DR_REG_V36, /* DR_REG_F3 */
+    DR_REG_V37, /* DR_REG_F4 */
+    DR_REG_V38, /* DR_REG_F5 */
+    DR_REG_V39, /* DR_REG_F6 */
+    DR_REG_V40, /* DR_REG_F7 */
+    DR_REG_V41, /* DR_REG_F8 */
+    DR_REG_V42, /* DR_REG_F9 */
+    DR_REG_V43, /* DR_REG_F10 */
+    DR_REG_V44, /* DR_REG_F11 */
+    DR_REG_V45, /* DR_REG_F12 */
+    DR_REG_V46, /* DR_REG_F13 */
+    DR_REG_V47, /* DR_REG_F14 */
+    DR_REG_V48, /* DR_REG_F15 */
+    DR_REG_V49, /* DR_REG_F16 */
+    DR_REG_V50, /* DR_REG_F17 */
+    DR_REG_V51, /* DR_REG_F18 */
+    DR_REG_V52, /* DR_REG_F19 */
+    DR_REG_V53, /* DR_REG_F20 */
+    DR_REG_V54, /* DR_REG_F21 */
+    DR_REG_V55, /* DR_REG_F22 */
+    DR_REG_V56, /* DR_REG_F23 */
+    DR_REG_V57, /* DR_REG_F24 */
+    DR_REG_V58, /* DR_REG_F25 */
+    DR_REG_V59, /* DR_REG_F26 */
+    DR_REG_V60, /* DR_REG_F27 */
+    DR_REG_V61, /* DR_REG_F28 */
+    DR_REG_V62, /* DR_REG_F29 */
+    DR_REG_V63, /* DR_REG_F30 */
+    DR_REG_V64, /* DR_REG_F31 */
+    DR_REG_V65, /* DR_REG_FCSR */
 };
 
 #ifdef DEBUG
