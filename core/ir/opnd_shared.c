@@ -38,6 +38,7 @@
 /* file "opnd_shared.c" -- IR opnd utilities */
 
 #include "../globals.h"
+#include "encode_api.h"
 #include "opnd.h"
 #include "arch.h"
 /* FIXME i#1551: refactor this file and avoid this x86-specific include in base arch/ */
@@ -2407,13 +2408,11 @@ opnd_compute_address(opnd_t opnd, dr_mcontext_t *mc)
 const char *
 get_register_name(reg_id_t reg)
 {
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    bool is_isa_mode_synthetic = dr_get_isa_mode(dcontext) == DR_ISA_REGDEPS;
+    if (is_isa_mode_synthetic)
+        return d_r_reg_virtual_names[reg];
     return reg_names[reg];
-}
-
-const char *
-dr_get_virtual_register_name(reg_id_t reg)
-{
-    return d_r_reg_virtual_names[reg];
 }
 
 reg_id_t

@@ -347,19 +347,30 @@ test_instr_create_encode_decode_synthetic_riscv64(void *dc)
 #endif
 
 void
-test_virtual_register(void)
+test_virtual_register_names(void *dc)
 {
+    dr_isa_mode_t old_isa_mode;
+    /* DR uses the dcontext_t ISA mode to decide whether a register is virtual or real and
+     * to return its correct name.  Since we are testing virtual register names, we set it
+     * to DR_ISA_REGDEPS.
+     */
+    dr_set_isa_mode(dc, DR_ISA_REGDEPS, &old_isa_mode);
+
     const char rv0[] = "rv0";
-    ASSERT(strncmp(dr_get_virtual_register_name(DR_REG_V0), rv0, sizeof(rv0)) == 0);
+    ASSERT(strncmp(get_register_name(DR_REG_V0), rv0, sizeof(rv0)) == 0);
 
     const char rv1[] = "rv1";
-    ASSERT(strncmp(dr_get_virtual_register_name(DR_REG_V1), rv1, sizeof(rv1)) == 0);
+    ASSERT(strncmp(get_register_name(DR_REG_V1), rv1, sizeof(rv1)) == 0);
 
     const char rv187[] = "rv187";
-    ASSERT(strncmp(dr_get_virtual_register_name(DR_REG_V187), rv187, sizeof(rv187)) == 0);
+    ASSERT(strncmp(get_register_name(DR_REG_V187), rv187, sizeof(rv187)) == 0);
 
     const char rv252[] = "rv252";
-    ASSERT(strncmp(dr_get_virtual_register_name(DR_REG_V252), rv252, sizeof(rv252)) == 0);
+    ASSERT(strncmp(get_register_name(DR_REG_V252), rv252, sizeof(rv252)) == 0);
+
+    /* Restore previous ISA mode.
+     */
+    dr_set_isa_mode(dc, old_isa_mode, NULL);
 }
 
 int
@@ -384,7 +395,7 @@ main(int argc, char *argv[])
     test_instr_create_encode_decode_synthetic_riscv64(dcontext);
 #endif
 
-    test_virtual_register();
+    test_virtual_register_names(dcontext);
 
     print("All DR_ISA_REGDEPS tests are done.\n");
     dr_standalone_exit();
