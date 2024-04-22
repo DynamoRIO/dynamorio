@@ -18220,7 +18220,9 @@
  *
  * This macro is used to encode the forms:
    \verbatim
-      FRINT32X <Vd>.<Ts>, <Vn>.<Ts>
+      FRINT32X <Vd>.2S, <Vn>.2S
+      FRINT32X <Vd>.4S, <Vn>.4S
+      FRINT32X <Vd>.2D, <Vn>.2D
    \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd   The destination vector register. Can be D (doubleword, 64 bits)
@@ -18252,7 +18254,9 @@
  *
  * This macro is used to encode the forms:
    \verbatim
-      FRINT32Z <Vd>.<Ts>, <Vn>.<Ts>
+      FRINT32Z <Vd>.2S, <Vn>.2S
+      FRINT32Z <Vd>.4S, <Vn>.4S
+      FRINT32Z <Vd>.2D, <Vn>.2D
    \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd   The destination vector register. Can be D (doubleword, 64 bits)
@@ -18284,7 +18288,9 @@
  *
  * This macro is used to encode the forms:
    \verbatim
-      FRINT64X <Vd>.<Ts>, <Vn>.<Ts>
+      FRINT64X <Vd>.2S, <Vn>.2S
+      FRINT64X <Vd>.4S, <Vn>.4S
+      FRINT64X <Vd>.2D, <Vn>.2D
    \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd   The destination vector register. Can be D (doubleword, 64 bits)
@@ -18316,7 +18322,9 @@
  *
  * This macro is used to encode the forms:
    \verbatim
-      FRINT64Z <Vd>.<Ts>, <Vn>.<Ts>
+      FRINT64Z <Vd>.2S, <Vn>.2S
+      FRINT64Z <Vd>.4S, <Vn>.4S
+      FRINT64Z <Vd>.2D, <Vn>.2D
    \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd   The destination vector register. Can be D (doubleword, 64 bits)
