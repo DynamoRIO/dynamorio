@@ -18199,4 +18199,139 @@
 #define INSTR_CREATE_mul_sve_idx(dc, Zd, Zn, Zm, index) \
     instr_create_1dst_3src(dc, OP_mul, Zd, Zn, Zm, index)
 
+/**
+ * Creates a FRINT32X instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      FRINT32X <Dd>, <Dn>
+      FRINT32X <Sd>, <Sn>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination  register. Can be D (doubleword, 64 bits) or S
+ *             (singleword, 32 bits).
+ * \param Rn   The source  register. Can be D (doubleword, 64 bits) or S
+ *             (singleword, 32 bits).
+ */
+#define INSTR_CREATE_frint32x(dc, Rd, Rn) instr_create_1dst_1src(dc, OP_frint32x, Rd, Rn)
+
+/**
+ * Creates a FRINT32X instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      FRINT32X <Vd>.2S, <Vn>.2S
+      FRINT32X <Vd>.4S, <Vn>.4S
+      FRINT32X <Vd>.2D, <Vn>.2D
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination vector register. Can be D (doubleword, 64 bits)
+ *             or Q (quadword, 128 bits).
+ * \param Rn   The source vector register. Can be D (doubleword, 64 bits) or Q
+ *             (quadword, 128 bits).
+ */
+#define INSTR_CREATE_frint32x_vector(dc, Rd, Rn) \
+    instr_create_1dst_1src(dc, OP_frint32x, Rd, Rn)
+
+/**
+ * Creates a FRINT32Z instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      FRINT32Z <Dd>, <Dn>
+      FRINT32Z <Sd>, <Sn>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination  register. Can be D (doubleword, 64 bits) or S
+ *             (singleword, 32 bits).
+ * \param Rn   The source  register. Can be D (doubleword, 64 bits) or S
+ *             (singleword, 32 bits).
+ */
+#define INSTR_CREATE_frint32z(dc, Rd, Rn) instr_create_1dst_1src(dc, OP_frint32z, Rd, Rn)
+
+/**
+ * Creates a FRINT32Z instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      FRINT32Z <Vd>.2S, <Vn>.2S
+      FRINT32Z <Vd>.4S, <Vn>.4S
+      FRINT32Z <Vd>.2D, <Vn>.2D
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination vector register. Can be D (doubleword, 64 bits)
+ *             or Q (quadword, 128 bits).
+ * \param Rn   The source vector register. Can be D (doubleword, 64 bits) or Q
+ *             (quadword, 128 bits).
+ */
+#define INSTR_CREATE_frint32z_vector(dc, Rd, Rn) \
+    instr_create_1dst_1src(dc, OP_frint32z, Rd, Rn)
+
+/**
+ * Creates a FRINT64X instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      FRINT64X <Dd>, <Dn>
+      FRINT64X <Sd>, <Sn>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination  register. Can be D (doubleword, 64 bits) or S
+ *             (singleword, 32 bits).
+ * \param Rn   The source  register. Can be D (doubleword, 64 bits) or S
+ *             (singleword, 32 bits).
+ */
+#define INSTR_CREATE_frint64x(dc, Rd, Rn) instr_create_1dst_1src(dc, OP_frint64x, Rd, Rn)
+
+/**
+ * Creates a FRINT64X instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      FRINT64X <Vd>.2S, <Vn>.2S
+      FRINT64X <Vd>.4S, <Vn>.4S
+      FRINT64X <Vd>.2D, <Vn>.2D
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination vector register. Can be D (doubleword, 64 bits)
+ *             or Q (quadword, 128 bits).
+ * \param Rn   The source vector register. Can be D (doubleword, 64 bits) or Q
+ *             (quadword, 128 bits).
+ */
+#define INSTR_CREATE_frint64x_vector(dc, Rd, Rn) \
+    instr_create_1dst_1src(dc, OP_frint64x, Rd, Rn)
+
+/**
+ * Creates a FRINT64Z instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      FRINT64Z <Dd>, <Dn>
+      FRINT64Z <Sd>, <Sn>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination  register. Can be D (doubleword, 64 bits) or S
+ *             (singleword, 32 bits).
+ * \param Rn   The source  register. Can be D (doubleword, 64 bits) or S
+ *             (singleword, 32 bits).
+ */
+#define INSTR_CREATE_frint64z(dc, Rd, Rn) instr_create_1dst_1src(dc, OP_frint64z, Rd, Rn)
+
+/**
+ * Creates a FRINT64Z instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      FRINT64Z <Vd>.2S, <Vn>.2S
+      FRINT64Z <Vd>.4S, <Vn>.4S
+      FRINT64Z <Vd>.2D, <Vn>.2D
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination vector register. Can be D (doubleword, 64 bits)
+ *             or Q (quadword, 128 bits).
+ * \param Rn   The source vector register. Can be D (doubleword, 64 bits) or Q
+ *             (quadword, 128 bits).
+ */
+#define INSTR_CREATE_frint64z_vector(dc, Rd, Rn) \
+    instr_create_1dst_1src(dc, OP_frint64z, Rd, Rn)
 #endif /* DR_IR_MACROS_AARCH64_H */
