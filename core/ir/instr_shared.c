@@ -58,6 +58,7 @@
 #include "../link.h"
 #include "decode.h"
 #include "decode_fast.h"
+#include "opnd.h"
 #include "instr_create_shared.h"
 /* FIXME i#1551: refactor this file and avoid this x86-specific include in base arch/ */
 #include "x86/decode_private.h"
@@ -3017,7 +3018,7 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
                 reg_id_t reg = opnd_get_reg_used(dst_opnd, opnd_index);
                 /* Map sub-registers to their containing register.
                  */
-                reg_id_t reg_virtual = dr_reg_to_virtual(reg);
+                reg_id_t reg_virtual = d_r_reg_to_virtual(reg);
                 if (!src_reg_used[reg_virtual]) {
                     ++num_srcs;
                     src_reg_used[reg_virtual] = true;
@@ -3028,7 +3029,7 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
                 reg_id_t reg = opnd_get_reg_used(dst_opnd, opnd_index);
                 /* Map sub-registers to their containing register.
                  */
-                reg_id_t reg_virtual = dr_reg_to_virtual(reg);
+                reg_id_t reg_virtual = d_r_reg_to_virtual(reg);
                 if (!dst_reg_used[reg_virtual]) {
                     ++num_dsts;
                     dst_reg_used[reg_virtual] = true;
@@ -3057,7 +3058,7 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
             reg_id_t reg = opnd_get_reg_used(src_opnd, opnd_index);
             /* Map sub-registers to their containing register.
              */
-            reg_id_t reg_virtual = dr_reg_to_virtual(reg);
+            reg_id_t reg_virtual = d_r_reg_to_virtual(reg);
             if (!src_reg_used[reg_virtual]) {
                 ++num_srcs;
                 src_reg_used[reg_virtual] = true;

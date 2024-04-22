@@ -180,6 +180,13 @@ opnd_get_reg_dcontext_offs(reg_id_t reg);
 int
 opnd_get_reg_mcontext_offs(reg_id_t reg);
 
+/* Assumes that \p reg is a DR_REG_ 32-bit register constant.
+ * Returns the corresponding DR_ISA_REGDEPS virtual register of \p reg, which holds 8-bit
+ * DR_REG_V values.
+ */
+reg_id_t
+d_r_reg_to_virtual(reg_id_t reg);
+
 /* internal version */
 reg_t
 reg_get_value_priv(reg_id_t reg, priv_mcontext_t *mc);

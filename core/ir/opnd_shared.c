@@ -2423,7 +2423,7 @@ reg_to_pointer_sized(reg_id_t reg)
 }
 
 reg_id_t
-dr_reg_to_virtual(reg_id_t reg)
+d_r_reg_to_virtual(reg_id_t reg)
 {
     return d_r_reg_id_to_virtual[reg];
 }

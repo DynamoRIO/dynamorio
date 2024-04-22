@@ -3566,15 +3566,6 @@ reg_to_pointer_sized(reg_id_t reg);
 
 DR_API
 /**
- * Assumes that \p reg is a DR_REG_ 32-bit register constant.
- * Returns the corresponding #DR_ISA_REGDEPS virtual register of \p reg, which
- * holds 8-bit DR_REG_V values.
- */
-reg_id_t
-dr_reg_to_virtual(reg_id_t reg);
-
-DR_API
-/**
  * Returns true iff \p opnd is a register operand that refers to a
  * pointer-sized general-purpose register.
  */
