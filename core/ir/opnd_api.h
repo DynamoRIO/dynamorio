@@ -1309,8 +1309,8 @@ enum {
 
 /* We need a seprate DR_REG_V enum from DR_REG_ so we can start counting virtual registers
  * from lower values.  Otherwise, the DR_REG_ enum values won't fit in the 1 byte operand
- * size of #DR_ISA_REGDEPS encoding.  Note that DR_REG_V skip the value of DR_REG_INVALID
- * to avoid issues with opnd_t operations.
+ * size of #DR_ISA_REGDEPS encoding.  Note that DR_REG_V skips both values of
+ * DR_REG_INVALID to avoid issues with opnd_t operations.
  */
 /** Virtual register identifiers for #DR_ISA_REGDEPS. */
 enum {
