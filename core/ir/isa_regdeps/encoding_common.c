@@ -32,7 +32,7 @@
 
 #include "encoding_common.h"
 
-/* Keep reg_virtual_names[] and DR_REG_V* enum in encoding_common.h synched.
+/* Keep d_r_reg_virtual_names[] and DR_REG_V* enum in encoding_common.h synched.
  */
 const char *const d_r_reg_virtual_names[] = {
     "rv_null", "rv_invalid", "rv0",   "rv1",        "rv2",   "rv3",   "rv4",   "rv5",
