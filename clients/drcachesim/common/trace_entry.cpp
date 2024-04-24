@@ -100,106 +100,107 @@ const char *const trace_version_names[] = {
 /* Keep synched with trace_marker_type_t enum in trace_entry.h.
  */
 const char *const trace_marker_names[] = {
-    "kernel_event",
-    "kernel_xfer",
-    "timestamp",
-    "cpu_id",
-    "func_id",
-    "func_retaddr",
-    "func_arg",
-    "func_retval",
-    "split_value",
-    "filetype",
-    "cache_line_size",
-    "instruction_count",
-    "version",
-    "rseq_abort",
-    "window_id",
-    "physical_address",
-    "physical_address_not_available",
-    "virtual_address",
-    "page_size",
-    "syscall_idx",
-    "chunk_instr_count",
-    "chunk_footer",
-    "record_ordinal",
-    "filter_endpoint",
-    "rseq_entry",
-    "syscall",
-    "maybe_blocking_syscall",
-    "syscall_trace_start",
-    "syscall_trace_end",
-    "branch_target",
-    "syscall_failed",
-    "direct_thread_switch",
-    "core_wait",
-    "core_idle",
-    "context_switch_start",
-    "context_switch_end",
-    "vector_length",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "unused",
-    "reserved_end",
+    "marker: kernel xfer",                    /* TRACE_MARKER_TYPE_KERNEL_EVENT */
+    "marker: syscall xfer",                   /* TRACE_MARKER_TYPE_KERNEL_XFER */
+    "marker: timestamp",                      /* TRACE_MARKER_TYPE_TIMESTAMP */
+    "marker: cpu id",                         /* TRACE_MARKER_TYPE_CPU_ID */
+    "marker: function",                       /* TRACE_MARKER_TYPE_FUNC_ID */
+    "marker: function return address",        /* TRACE_MARKER_TYPE_FUNC_RETADDR */
+    "marker: function argument",              /* TRACE_MARKER_TYPE_FUNC_ARG */
+    "marker: function return value",          /* TRACE_MARKER_TYPE_FUNC_RETVAL */
+    "marker: split value",                    /* TRACE_MARKER_TYPE_SPLIT_VALUE */
+    "marker: filetype",                       /* TRACE_MARKER_TYPE_FILETYPE */
+    "marker: cache line size",                /* TRACE_MARKER_TYPE_CACHE_LINE_SIZE */
+    "marker: instruction count",              /* TRACE_MARKER_TYPE_INSTRUCTION_COUNT */
+    "marker: version",                        /* TRACE_MARKER_TYPE_VERSION */
+    "marker: rseq abort",                     /* TRACE_MARKER_TYPE_RSEQ_ABORT */
+    "marker: window",                         /* TRACE_MARKER_TYPE_WINDOW_ID */
+    "marker: physical address",               /* TRACE_MARKER_TYPE_PHYSICAL_ADDRESS */
+    "marker: physical address not available", /* TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_
+                                                 AVAILABLE */
+    "marker: virtual address",                /* TRACE_MARKER_TYPE_VIRTUAL_ADDRESS */
+    "marker: page size",                      /* TRACE_MARKER_TYPE_PAGE_SIZE */
+    "marker: system call idx",                /* TRACE_MARKER_TYPE_SYSCALL_IDX */
+    "marker: chunk instruction count",        /* TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT */
+    "marker: chunk footer",                   /* TRACE_MARKER_TYPE_CHUNK_FOOTER */
+    "marker: record ordinal",                 /* TRACE_MARKER_TYPE_RECORD_ORDINAL */
+    "marker: filter endpoint",                /* TRACE_MARKER_TYPE_FILTER_ENDPOINT */
+    "marker: rseq entry",                     /* TRACE_MARKER_TYPE_RSEQ_ENTRY */
+    "marker: system call",                    /* TRACE_MARKER_TYPE_SYSCALL */
+    "marker: maybe-blocking system call",  /* TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL */
+    "marker: trace start for system call", /* TRACE_MARKER_TYPE_SYSCALL_TRACE_START */
+    "marker: trace end for system call",   /* TRACE_MARKER_TYPE_SYSCALL_TRACE_END */
+    "marker: indirect branch target",      /* TRACE_MARKER_TYPE_BRANCH_TARGET */
+    "marker: system call failed",          /* TRACE_MARKER_TYPE_SYSCALL_FAILED */
+    "marker: direct switch to thread",     /* TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH */
+    "marker: wait for another core",       /* TRACE_MARKER_TYPE_CORE_WAIT */
+    "marker: core is idle",                /* TRACE_MARKER_TYPE_CORE_IDLE */
+    "marker: trace start for context switch", /* TRACE_MARKER_TYPE_CONTEXT_SWITCH_START */
+    "marker: trace end for context switch",   /* TRACE_MARKER_TYPE_CONTEXT_SWITCH_END */
+    "marker: vector length",                  /* TRACE_MARKER_TYPE_VECTOR_LENGTH */
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: unused",
+    "marker: reserved end", /* TRACE_MARKER_TYPE_RESERVED_END */
 };
 
 } // namespace drmemtrace
