@@ -1003,7 +1003,7 @@ trace_marker_type_value_as_string(trace_marker_type_t marker_type, uintptr_t mar
     case TRACE_MARKER_TYPE_CORE_WAIT:
     case TRACE_MARKER_TYPE_CORE_IDLE: ss << "<" << marker_name << ">\n"; break;
 
-    /* Handle all the simple cases where we simply print <marker_type marker_value>.
+    /* Handle all the cases where we simply print <marker_type marker_value>.
      */
     case TRACE_MARKER_TYPE_TIMESTAMP:
     case TRACE_MARKER_TYPE_CPU_ID:
@@ -1017,7 +1017,7 @@ trace_marker_type_value_as_string(trace_marker_type_t marker_type, uintptr_t mar
     case TRACE_MARKER_TYPE_SYSCALL_IDX:
         ss << "<" << marker_name << " " << marker_value << ">\n";
         break;
-    /* Handle all the simple cases where we simply print <marker_type 0xmarker_value>.
+    /* Handle all the cases where we simply print <marker_type 0xmarker_value>.
      */
     case TRACE_MARKER_TYPE_FUNC_RETADDR:
     case TRACE_MARKER_TYPE_FUNC_ARG:
