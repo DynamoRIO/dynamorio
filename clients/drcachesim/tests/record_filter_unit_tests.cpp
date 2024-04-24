@@ -42,6 +42,7 @@
 #include "tools/filter/record_filter.h"
 #include "tools/filter/trim_filter.h"
 #include "tools/filter/type_filter.h"
+#include "trace_entry.h"
 #include "zipfile_ostream.h"
 
 #include <inttypes.h>
@@ -541,7 +542,8 @@ test_chunk_update()
                 return nullptr;
             }
             bool
-            parallel_shard_filter(trace_entry_t &entry, void *shard_data) override
+            parallel_shard_filter(trace_entry_t &entry, void *shard_data,
+                                  std::vector<trace_entry_t> &last_encoding) override
             {
                 bool res = true;
                 if (type_is_instr(static_cast<trace_type_t>(entry.type))) {

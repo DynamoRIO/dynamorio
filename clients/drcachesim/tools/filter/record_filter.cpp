@@ -82,14 +82,14 @@
 namespace dynamorio {
 namespace drmemtrace {
 
-namespace {
-
 bool
 is_any_instr_type(trace_type_t type)
 {
     return type_is_instr(type) || type == TRACE_TYPE_INSTR_MAYBE_FETCH ||
         type == TRACE_TYPE_INSTR_NO_FETCH;
 }
+
+namespace {
 
 template <typename T>
 std::vector<T>
@@ -744,8 +744,8 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &in
     }
     if (per_shard->enabled) {
         for (int i = 0; i < static_cast<int>(filters_.size()); ++i) {
-            if (!filters_[i]->parallel_shard_filter(entry,
-                                                    per_shard->filter_shard_data[i])) {
+            if (!filters_[i]->parallel_shard_filter(
+                    entry, per_shard->filter_shard_data[i], per_shard->last_encoding)) {
                 output = false;
             }
             if (!filters_[i]->get_error_string().empty()) {

@@ -53,6 +53,11 @@
 namespace dynamorio {
 namespace drmemtrace {
 
+/* Utility function.
+ */
+bool
+is_any_instr_type(trace_type_t type);
+
 /**
  * Analysis tool that filters the #trace_entry_t records of an offline
  * trace. Streams through each shard independenty and parallelly, and
@@ -96,7 +101,8 @@ public:
          * An error is indicated by setting error_string_ to a non-empty value.
          */
         virtual bool
-        parallel_shard_filter(trace_entry_t &entry, void *shard_data) = 0;
+        parallel_shard_filter(trace_entry_t &entry, void *shard_data,
+                              std::vector<trace_entry_t> &last_encoding) = 0;
         /**
          * Invoked when all #trace_entry_t in a shard have been processed
          * by parallel_shard_filter(). \p shard_data is same as what was

@@ -47,7 +47,8 @@ public:
         return nullptr;
     }
     bool
-    parallel_shard_filter(trace_entry_t &entry, void *shard_data) override
+    parallel_shard_filter(trace_entry_t &entry, void *shard_data,
+                          std::vector<trace_entry_t> &last_encoding) override
     {
         return true;
     }

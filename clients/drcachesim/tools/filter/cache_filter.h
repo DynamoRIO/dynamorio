@@ -55,7 +55,8 @@ public:
     parallel_shard_init(memtrace_stream_t *shard_stream,
                         bool partial_trace_filter) override;
     bool
-    parallel_shard_filter(trace_entry_t &entry, void *shard_data) override;
+    parallel_shard_filter(trace_entry_t &entry, void *shard_data,
+                          std::vector<trace_entry_t> &last_encoding) override;
     bool
     parallel_shard_exit(void *shard_data) override;
 

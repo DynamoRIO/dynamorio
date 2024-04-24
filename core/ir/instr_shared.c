@@ -3008,16 +3008,21 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
     bool dst_reg_used[REGDEPS_MAX_NUM_REGS];
     memset(dst_reg_used, 0, sizeof(dst_reg_used));
     uint num_dsts = 0;
+    bool sentinel = false; // TOREMOVE
     uint instr_real_num_dsts = (uint)instr_num_dsts(instr_real_isa);
     for (uint dst_index = 0; dst_index < instr_real_num_dsts; ++dst_index) {
         opnd_t dst_opnd = instr_get_dst(instr_real_isa, dst_index);
         uint num_regs_used_by_opnd = (uint)opnd_num_regs_used(dst_opnd);
         if (opnd_is_memory_reference(dst_opnd)) {
+            sentinel = true;
             for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
                 reg_id_t reg = opnd_get_reg_used(dst_opnd, opnd_index);
                 /* Map sub-registers to their containing register.
                  */
                 reg_id_t reg_canonical = reg_to_pointer_sized(reg);
+                // TOREMOVE
+                if (reg_canonical >= 256)
+                    reg_canonical = 255;
                 if (!src_reg_used[reg_canonical]) {
                     ++num_srcs;
                     src_reg_used[reg_canonical] = true;
@@ -3029,6 +3034,10 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
                 /* Map sub-registers to their containing register.
                  */
                 reg_id_t reg_canonical = reg_to_pointer_sized(reg);
+                // TOREMOVE
+                if (reg_canonical >= 256)
+                    reg_canonical = 255;
+
                 if (!dst_reg_used[reg_canonical]) {
                     ++num_dsts;
                     dst_reg_used[reg_canonical] = true;
@@ -3058,6 +3067,10 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
             /* Map sub-registers to their containing register.
              */
             reg_id_t reg_canonical = reg_to_pointer_sized(reg);
+            // TOREMOVE
+            if (reg_canonical >= 256)
+                reg_canonical = 255;
+
             if (!src_reg_used[reg_canonical]) {
                 ++num_srcs;
                 src_reg_used[reg_canonical] = true;
@@ -4345,4 +4358,4 @@ move_mm_avx512_reg_opcode(bool aligned64)
 }
 
 #endif /* !STANDALONE_DECODER */
-/****************************************************************************/
+       /****************************************************************************/
