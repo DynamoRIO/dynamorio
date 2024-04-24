@@ -32,11 +32,12 @@
 
 /* record view tool creation */
 
-#include <cstdint>
 #ifndef _INTERNAL_RECORD_VIEW_CREATE_H_
-#    define _INTERNAL_RECORD_VIEW_CREATE_H_ 1
+#define _INTERNAL_RECORD_VIEW_CREATE_H_ 1
 
-#    include "analysis_tool.h"
+#include "analysis_tool.h"
+
+#include <cstdint>
 
 namespace dynamorio {
 namespace drmemtrace {
