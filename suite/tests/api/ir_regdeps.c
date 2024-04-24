@@ -641,7 +641,7 @@ test_virtual_register_names(void *dc)
     ASSERT_NOT_NULL_OR_INVALID(DR_REG_V251) \
     ASSERT_NOT_NULL_OR_INVALID(DR_REG_V252)
 
-bool
+void
 check_virtual_register_enum_values(void)
 {
     CHECK_VIRTUAL_REGISTER_IDS;
