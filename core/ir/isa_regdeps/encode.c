@@ -35,7 +35,6 @@
 #include "encode.h"
 
 #include "../globals.h"
-#include "encode_api.h"
 #include "encoding_common.h"
 #include "instr_api.h"
 #include "opnd_api.h"
