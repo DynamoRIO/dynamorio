@@ -1314,6 +1314,9 @@ enum {
  */
 /** Virtual register identifiers for #DR_ISA_REGDEPS. */
 enum {
+    /**
+     * The first virtual register.  Note that all virtual registers named here are valid.
+     */
     DR_REG_V0 = DR_REG_NULL + 2, /* Start from 2. Skip DR_REG_INVALID == 1 for non-x86. */
     DR_REG_V1,
     DR_REG_V2,
