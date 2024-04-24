@@ -30,7 +30,7 @@
  * DAMAGE.
  */
 
-#include "record_view.h"
+#include "internal_record_view.h"
 
 #include <cstdio>
 #include <inttypes.h>
@@ -47,23 +47,23 @@ namespace drmemtrace {
 typedef unsigned int uint;
 
 record_analysis_tool_t *
-record_view_tool_create(uint64_t skip_refs, uint64_t sim_refs)
+internal_record_view_tool_create(uint64_t skip_refs, uint64_t sim_refs)
 {
-    return new dynamorio::drmemtrace::record_view_t(skip_refs, sim_refs);
+    return new dynamorio::drmemtrace::internal_record_view_t(skip_refs, sim_refs);
 }
 
-record_view_t::record_view_t(uint64_t skip_refs, uint64_t sim_refs)
+internal_record_view_t::internal_record_view_t(uint64_t skip_refs, uint64_t sim_refs)
     : skip_refs_(skip_refs)
     , sim_refs_(sim_refs)
 {
 }
 
-record_view_t::~record_view_t()
+internal_record_view_t::~internal_record_view_t()
 {
 }
 
 bool
-record_view_t::should_skip(void)
+internal_record_view_t::should_skip(void)
 {
     if (skip_refs_ > 0) {
         --skip_refs_;
@@ -77,19 +77,19 @@ record_view_t::should_skip(void)
 }
 
 bool
-record_view_t::parallel_shard_supported()
+internal_record_view_t::parallel_shard_supported()
 {
     return false;
 }
 
 std::string
-record_view_t::initialize_shard_type(shard_type_t shard_type)
+internal_record_view_t::initialize_shard_type(shard_type_t shard_type)
 {
     return "";
 }
 
 std::string
-record_view_t::initialize_stream(memtrace_stream_t *serial_stream)
+internal_record_view_t::initialize_stream(memtrace_stream_t *serial_stream)
 {
     /* Print warning header.
      */
@@ -101,26 +101,27 @@ record_view_t::initialize_stream(memtrace_stream_t *serial_stream)
 }
 
 void *
-record_view_t::parallel_shard_init_stream(int shard_index, void *worker_data,
-                                          memtrace_stream_t *shard_stream)
+internal_record_view_t::parallel_shard_init_stream(int shard_index, void *worker_data,
+                                                   memtrace_stream_t *shard_stream)
 {
     return shard_stream;
 }
 
 bool
-record_view_t::parallel_shard_exit(void *shard_data)
+internal_record_view_t::parallel_shard_exit(void *shard_data)
 {
     return true;
 }
 
 std::string
-record_view_t::parallel_shard_error(void *shard_data)
+internal_record_view_t::parallel_shard_error(void *shard_data)
 {
     return "";
 }
 
 bool
-record_view_t::parallel_shard_memref(void *shard_data, const trace_entry_t &entry)
+internal_record_view_t::parallel_shard_memref(void *shard_data,
+                                              const trace_entry_t &entry)
 {
     if (should_skip())
         return true;
@@ -201,13 +202,13 @@ record_view_t::parallel_shard_memref(void *shard_data, const trace_entry_t &entr
 }
 
 bool
-record_view_t::process_memref(const trace_entry_t &entry)
+internal_record_view_t::process_memref(const trace_entry_t &entry)
 {
     return parallel_shard_memref(NULL, entry);
 }
 
 bool
-record_view_t::print_results()
+internal_record_view_t::print_results()
 {
     return true;
 }

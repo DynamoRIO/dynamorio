@@ -64,7 +64,7 @@
 #include "tools/reuse_distance_create.h"
 #include "tools/reuse_time_create.h"
 #include "tools/view_create.h"
-#include "tools/record_view_create.h"
+#include "tools/internal_record_view_create.h"
 #include "tools/loader/external_config_file.h"
 #include "tools/loader/external_tool_creator.h"
 #include "tools/filter/record_filter_create.h"
@@ -336,8 +336,9 @@ record_analyzer_multi_t::create_analysis_tool_from_options(
             op_filter_cache_size.get_value(), op_filter_trace_types.get_value(),
             op_filter_marker_types.get_value(), op_trim_before_timestamp.get_value(),
             op_trim_after_timestamp.get_value(), op_verbose.get_value());
-    } else if (simulator_type == RECORD_VIEW) {
-        return record_view_tool_create(op_skip_refs.get_value(), op_sim_refs.get_value());
+    } else if (simulator_type == INTERNAL_RECORD_VIEW) {
+        return internal_record_view_tool_create(op_skip_refs.get_value(),
+                                                op_sim_refs.get_value());
     }
     ERRMSG("Usage error: unsupported record analyzer type \"%s\".  Only " RECORD_FILTER
            " is supported.\n",

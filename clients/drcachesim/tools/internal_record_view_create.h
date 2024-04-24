@@ -33,27 +33,22 @@
 /* record view tool creation */
 
 #include <cstdint>
-#ifndef _RECORD_VIEW_CREATE_H_
-#    define _RECORD_VIEW_CREATE_H_ 1
+#ifndef _INTERNAL_RECORD_VIEW_CREATE_H_
+#    define _INTERNAL_RECORD_VIEW_CREATE_H_ 1
 
 #    include "analysis_tool.h"
 
 namespace dynamorio {
 namespace drmemtrace {
 
-/**
- * @file drmemtrace/record_view_create.h
- * @brief DrMemtrace record view trace analysis tool creation.
- */
-
-/**
- * Creates an analysis tool which prints out the #trace_entry_t records in a trace file
- * to std::cerr.
+/* Creates an analysis tool which pretty prints out the #trace_entry_t records in a trace
+ * file to std::cerr.  Note that this is an internal tool for debugging purposes.  Its
+ * output is subject to changes.
  */
 record_analysis_tool_t *
-record_view_tool_create(uint64_t skip_refs, uint64_t sim_refs);
+internal_record_view_tool_create(uint64_t skip_refs, uint64_t sim_refs);
 
 } // namespace drmemtrace
 } // namespace dynamorio
 
-#endif /* _RECORD_VIEW_CREATE_H_ */
+#endif /* _INTERNAL_RECORD_VIEW_CREATE_H_ */

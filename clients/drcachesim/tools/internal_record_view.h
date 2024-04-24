@@ -30,8 +30,8 @@
  * DAMAGE.
  */
 
-#ifndef _RECORD_VIEW_H_
-#define _RECORD_VIEW_H_ 1
+#ifndef _INTERNAL_RECORD_VIEW_H_
+#define _INTERNAL_RECORD_VIEW_H_ 1
 
 #include <stdint.h>
 
@@ -44,15 +44,15 @@
 namespace dynamorio {
 namespace drmemtrace {
 
-/**
- * Analysis tool that prints #trace_entry_t records of an offline trace in human readable
- * form.
+/* Analysis tool that prints #trace_entry_t records of an offline trace in human readable
+ * form.  Note that this is an internal tool for debugging purposes only.  Its output is
+ * subject to changes.
  */
-class record_view_t : public record_analysis_tool_t {
+class internal_record_view_t : public record_analysis_tool_t {
 public:
-    record_view_t(uint64_t skip_refs, uint64_t sim_refs);
+    internal_record_view_t(uint64_t skip_refs, uint64_t sim_refs);
 
-    ~record_view_t() override;
+    ~internal_record_view_t() override;
 
     bool
     process_memref(const trace_entry_t &entry) override;
@@ -93,4 +93,4 @@ protected:
 } // namespace drmemtrace
 } // namespace dynamorio
 
-#endif /* _RECORD_VIEW_H_ */
+#endif /* _INTERNAL_RECORD_VIEW_H_ */

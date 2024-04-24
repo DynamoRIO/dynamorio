@@ -165,7 +165,7 @@ add_exported_library(drmemtrace_opcode_mix STATIC tools/opcode_mix.cpp)
 add_exported_library(drmemtrace_syscall_mix STATIC tools/syscall_mix.cpp)
 add_exported_library(drmemtrace_view STATIC tools/view.cpp)
 add_exported_library(drmemtrace_func_view STATIC tools/func_view.cpp)
-add_exported_library(drmemtrace_record_view STATIC tools/record_view.cpp)
+add_exported_library(drmemtrace_internal_record_view STATIC tools/internal_record_view.cpp)
 add_exported_library(drmemtrace_invariant_checker STATIC tools/invariant_checker.cpp)
 add_exported_library(drmemtrace_schedule_stats STATIC tools/schedule_stats.cpp)
 
@@ -173,7 +173,7 @@ target_link_libraries(drmemtrace_invariant_checker drdecode)
 
 configure_DynamoRIO_standalone(drmemtrace_opcode_mix)
 configure_DynamoRIO_standalone(drmemtrace_view)
-configure_DynamoRIO_standalone(drmemtrace_record_view)
+configure_DynamoRIO_standalone(drmemtrace_internal_record_view)
 configure_DynamoRIO_standalone(drmemtrace_invariant_checker)
 
 # We combine the cache and TLB simulators as they share code already.
@@ -278,7 +278,7 @@ configure_DynamoRIO_standalone(drcachesim)
 target_link_libraries(drcachesim drmemtrace_simulator drmemtrace_reuse_distance
   drmemtrace_histogram drmemtrace_reuse_time drmemtrace_basic_counts
   drmemtrace_opcode_mix drmemtrace_syscall_mix drmemtrace_view drmemtrace_func_view
-  drmemtrace_record_view drmemtrace_raw2trace directory_iterator
+  drmemtrace_internal_record_view drmemtrace_raw2trace directory_iterator
   drmemtrace_invariant_checker drmemtrace_schedule_stats drmemtrace_record_filter)
 if (UNIX)
     target_link_libraries(drcachesim dl)
@@ -359,7 +359,7 @@ install_client_nonDR_header(drmemtrace simulator/cache_simulator_create.h)
 install_client_nonDR_header(drmemtrace simulator/tlb_simulator_create.h)
 install_client_nonDR_header(drmemtrace tools/view_create.h)
 install_client_nonDR_header(drmemtrace tools/func_view_create.h)
-install_client_nonDR_header(drmemtrace tools/record_view_create.h)
+install_client_nonDR_header(drmemtrace tools/internal_record_view_create.h)
 # TODO i#6412: Create a separate directory for non-tracer headers so that
 # we can more cleanly separate tracer and raw2trace code.
 install_client_nonDR_header(drmemtrace tracer/raw2trace.h)
@@ -581,7 +581,7 @@ restore_nonclient_flags(drmemtrace_opcode_mix)
 restore_nonclient_flags(drmemtrace_syscall_mix)
 restore_nonclient_flags(drmemtrace_view)
 restore_nonclient_flags(drmemtrace_func_view)
-restore_nonclient_flags(drmemtrace_record_view)
+restore_nonclient_flags(drmemtrace_internal_record_view)
 restore_nonclient_flags(drmemtrace_record_filter)
 restore_nonclient_flags(drmemtrace_analyzer)
 restore_nonclient_flags(drmemtrace_invariant_checker)
@@ -648,7 +648,7 @@ add_win32_flags(drmemtrace_opcode_mix)
 add_win32_flags(drmemtrace_syscall_mix)
 add_win32_flags(drmemtrace_view)
 add_win32_flags(drmemtrace_func_view)
-add_win32_flags(drmemtrace_record_view)
+add_win32_flags(drmemtrace_internal_record_view)
 add_win32_flags(drmemtrace_record_filter)
 add_win32_flags(drmemtrace_analyzer)
 add_win32_flags(drmemtrace_invariant_checker)
@@ -826,7 +826,7 @@ if (BUILD_TESTS)
     drmemtrace_raw2trace drmemtrace_simulator drmemtrace_reuse_distance
     drmemtrace_histogram drmemtrace_reuse_time drmemtrace_basic_counts
     drmemtrace_opcode_mix drmemtrace_syscall_mix drmemtrace_view drmemtrace_func_view
-    drmemtrace_record_view drmemtrace_raw2trace directory_iterator
+    drmemtrace_internal_record_view drmemtrace_raw2trace directory_iterator
     drmemtrace_invariant_checker drmemtrace_schedule_stats drmemtrace_analyzer
     drmemtrace_record_filter)
   if (UNIX)

@@ -324,7 +324,7 @@ _tmain(int argc, const TCHAR *targv[])
         }
     } else {
         if (op_simulator_type.get_value() == RECORD_FILTER ||
-            op_simulator_type.get_value() == RECORD_VIEW) {
+            op_simulator_type.get_value() == INTERNAL_RECORD_VIEW) {
             record_analyzer = new record_analyzer_multi_t;
             if (!*record_analyzer) {
                 std::string error_string_ = record_analyzer->get_error_string();
