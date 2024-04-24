@@ -987,6 +987,9 @@ trace_arch_string(offline_file_type_t type)
                                                                       : "unspecified")));
 }
 
+/* Returns a string representation of marker type and corresponding marker value (if any)
+ * together.
+ */
 static inline std::string
 trace_marker_type_value_as_string(trace_marker_type_t marker_type, uintptr_t marker_value)
 {
