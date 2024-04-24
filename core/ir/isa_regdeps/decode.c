@@ -103,7 +103,7 @@ decode_isa_regdeps(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
          * instructions may have different sizes.
          *
          * Even though querying the size of a virtual register is not supported on
-         * purpose (a user should query the instr_t.operation_size); we set the
+         * purpose (a user should query the instr_t.operation_size), we set the
          * opnd_t.size field to be the same as instr_t.operation_size (i.e.,
          * max_opnd_size), so that reg_get_size() can return some meaningful
          * information without triggering a CLIENT_ASSERT error because the

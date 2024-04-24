@@ -2405,12 +2405,23 @@ opnd_compute_address(opnd_t opnd, dr_mcontext_t *mc)
  ***      Register utility functions
  ***************************************************************************/
 
+/* XXX i#1684: performance matters on all getter and setter routines.  Now that we call
+ * get_thread_private_dcontext(), we add non-negligible overhead to get_register_name().
+ * Currently there are other routines that call get_thread_private_dcontext() such as:
+ * instr_get_eflags() and opnd_create_far_abs_addr().  We should revisit this and make
+ * a decision on which of these routines should take dcontext_t as input argument.
+ */
+/* XXX i#6690: here we assume that changes made by the user of this routine
+ * (and by its threads) to the global dcontext_t (and specifically its isa_mode)
+ * are guarded by locks.  We can remove this assumption once we have a completely
+ * lock-free dcontext_t.
+ */
 const char *
 get_register_name(reg_id_t reg)
 {
-    dcontext_t *dcontext = get_thread_private_dcontext();
-    bool is_isa_mode_synthetic = dr_get_isa_mode(dcontext) == DR_ISA_REGDEPS;
-    if (is_isa_mode_synthetic)
+    bool is_global_isa_mode_synthetic =
+        dr_get_isa_mode(get_thread_private_dcontext()) == DR_ISA_REGDEPS;
+    if (is_global_isa_mode_synthetic)
         return d_r_reg_virtual_names[reg];
     return reg_names[reg];
 }

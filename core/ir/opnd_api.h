@@ -3267,7 +3267,7 @@ DR_API
  * Assumes that \p reg is a DR_REG_ 32-bit register constant.
  * Returns the string name for \p reg.
  * \note It uses the global dcontext_t to determine the ISA mode.  If the ISA mode is a
- * synthetic one (e.g., #DR_ISA_REGDEPS), it returns the name of a DR_REG_V virtual
+ * synthetic one (e.g., #DR_ISA_REGDEPS), it returns the name of a #DR_REG_V0 etc. virtual
  * register.
  */
 const char *
