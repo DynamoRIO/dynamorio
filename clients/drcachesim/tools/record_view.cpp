@@ -88,6 +88,18 @@ record_view_t::initialize_shard_type(shard_type_t shard_type)
     return "";
 }
 
+std::string
+record_view_t::initialize_stream(memtrace_stream_t *serial_stream)
+{
+    /* Print warning header.
+     */
+    std::cerr << "The internal_record_view tool is a pretty printer for trace_entry_t "
+                 "records.\nThe trace_entry_t internal record format is not a public "
+                 "interface and is subject to change without notice.\nThis tool is meant "
+                 "for debugging only, please do not rely on the details here.\n";
+    return "";
+}
+
 void *
 record_view_t::parallel_shard_init_stream(int shard_index, void *worker_data,
                                           memtrace_stream_t *shard_stream)

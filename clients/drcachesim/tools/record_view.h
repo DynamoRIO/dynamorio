@@ -66,6 +66,9 @@ public:
     std::string
     initialize_shard_type(shard_type_t shard_type) override;
 
+    std::string
+    initialize_stream(memtrace_stream_t *serial_stream) override;
+
     void *
     parallel_shard_init_stream(int shard_index, void *worker_data,
                                memtrace_stream_t *shard_stream) override;
