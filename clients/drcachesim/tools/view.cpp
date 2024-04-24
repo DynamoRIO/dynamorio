@@ -249,16 +249,15 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         if (trace_version_ != -1) { // Old versions may not have a version marker.
             if (!should_skip(memstream, memref)) {
                 print_prefix(memstream, memref, version_record_ord_);
-                const char *marker_name = trace_marker_names[TRACE_MARKER_TYPE_VERSION];
-                std::cerr << "<" << marker_name << " " << trace_version_ << ">\n";
+                std::cerr << "<" << trace_marker_names[TRACE_MARKER_TYPE_VERSION] << " "
+                          << trace_version_ << ">\n";
             }
         }
         if (filetype_ != -1) { // Handle old/malformed versions.
             if (!should_skip(memstream, memref)) {
                 print_prefix(memstream, memref, filetype_record_ord_);
-                const char *marker_name = trace_marker_names[TRACE_MARKER_TYPE_FILETYPE];
-                std::cerr << "<" << marker_name << " 0x" << std::hex << filetype_
-                          << std::dec << ">\n";
+                std::cerr << "<" << trace_marker_names[TRACE_MARKER_TYPE_FILETYPE]
+                          << " 0x" << std::hex << filetype_ << std::dec << ">\n";
             }
         }
     }
@@ -276,19 +275,19 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
                              -1); // Already incremented for timestamp above.
             }
             if (timestamp_ > 0) {
-                const char *marker_name = trace_marker_names[TRACE_MARKER_TYPE_TIMESTAMP];
-                std::cerr << "<" << marker_name << " " << timestamp_ << ">\n";
+                std::cerr << "<" << trace_marker_names[TRACE_MARKER_TYPE_TIMESTAMP] << " "
+                          << timestamp_ << ">\n";
                 timestamp_ = 0;
                 print_prefix(memstream, memref);
             }
-            const char *marker_name = trace_marker_names[TRACE_MARKER_TYPE_WINDOW_ID];
-            std::cerr << "<" << marker_name << " " << memref.marker.marker_value << ">\n";
+            std::cerr << "<" << trace_marker_names[TRACE_MARKER_TYPE_WINDOW_ID] << " "
+                      << memref.marker.marker_value << ">\n";
             last_window_[memref.marker.tid] = memref.marker.marker_value;
         }
         if (timestamp_ > 0) {
             print_prefix(memstream, memref, timestamp_record_ord_);
-            const char *marker_name = trace_marker_names[TRACE_MARKER_TYPE_TIMESTAMP];
-            std::cerr << "<" << marker_name << " " << timestamp_ << ">\n";
+            std::cerr << "<" << trace_marker_names[TRACE_MARKER_TYPE_TIMESTAMP] << " "
+                      << timestamp_ << ">\n";
             timestamp_ = 0;
         }
     }
@@ -346,6 +345,10 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
                       << memref.marker.marker_value << ">\n";
             break;
         default:
+            /* The previous cases have state and require extra processing.  Here we print
+             * all the remaining cases that do not need that extra processing and
+             * bookkeeping.
+             */
             std::cerr << trace_marker_type_value_as_string(memref.marker.marker_type,
                                                            memref.marker.marker_value);
             break;

@@ -1002,7 +1002,6 @@ trace_marker_type_value_as_string(trace_marker_type_t marker_type, uintptr_t mar
     case TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL:
     case TRACE_MARKER_TYPE_CORE_WAIT:
     case TRACE_MARKER_TYPE_CORE_IDLE: ss << "<" << marker_name << ">\n"; break;
-
     /* Handle all the cases where we simply print <marker_type marker_value>.
      */
     case TRACE_MARKER_TYPE_TIMESTAMP:
