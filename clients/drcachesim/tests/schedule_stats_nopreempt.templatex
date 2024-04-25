@@ -1,7 +1,7 @@
 Schedule stats tool results:
 Total counts:
            4 cores
-           8 threads
+           8 threads: 1257.*
       638938 instructions
            6 total context switches
    0\.0093906 CSPKI \(context switches per 1000 instructions\)
@@ -22,7 +22,7 @@ Total counts:
       *[0-9\.]*% cpu busy by time
       *[0-9\.]*% cpu busy by time, ignoring idle past last instr
 Core #0 counts:
-           . threads
+           . threads: 1257.*
       *[0-9]* instructions
            . total context switches
    0\.0[0-9\.]* CSPKI \(context switches per 1000 instructions\)
@@ -43,7 +43,7 @@ Core #0 counts:
       *[0-9\.]*% cpu busy by time
       *[0-9\.]*% cpu busy by time, ignoring idle past last instr
 Core #1 counts:
-           . threads
+           . threads: 1257.*
       *[0-9]* instructions
            . total context switches
    0\.0[0-9\.]* CSPKI \(context switches per 1000 instructions\)
@@ -64,7 +64,7 @@ Core #1 counts:
       *[0-9\.]*% cpu busy by time
       *[0-9\.]*% cpu busy by time, ignoring idle past last instr
 Core #2 counts:
-           . threads
+           . threads: 1257.*
       *[0-9]* instructions
            . total context switches
    0\.0[0-9\.]* CSPKI \(context switches per 1000 instructions\)
@@ -85,7 +85,7 @@ Core #2 counts:
       *[0-9\.]*% cpu busy by time
       *[0-9\.]*% cpu busy by time, ignoring idle past last instr
 Core #3 counts:
-           . threads
+           . threads: 1257.*
       *[0-9]* instructions
            . total context switches
    0\.0[0-9\.]* CSPKI \(context switches per 1000 instructions\)

@@ -330,7 +330,13 @@ schedule_stats_t::print_percentage(double numerator, double denominator,
 void
 schedule_stats_t::print_counters(const counters_t &counters)
 {
-    std::cerr << std::setw(12) << counters.threads.size() << " threads\n";
+    std::cerr << std::setw(12) << counters.threads.size() << " threads";
+    if (!counters.threads.empty()) {
+        std::cerr << ":";
+        for (auto thread : counters.threads)
+            std::cerr << " " << thread;
+    }
+    std::cerr << "\n";
     std::cerr << std::setw(12) << counters.instrs << " instructions\n";
     std::cerr << std::setw(12) << counters.total_switches << " total context switches\n";
     double cspki = 0.;
