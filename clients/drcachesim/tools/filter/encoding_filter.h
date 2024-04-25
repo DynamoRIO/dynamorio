@@ -33,8 +33,6 @@
 #ifndef _ENCODING_FILTER_H_
 #define _ENCODING_FILTER_H_ 1
 
-#include "utils.h"
-#include "dr_api.h" // Must be before trace_entry.h from analysis_tool.h.
 #include "record_filter.h"
 #include "trace_entry.h"
 #include "utils.h"
