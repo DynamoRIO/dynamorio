@@ -117,7 +117,7 @@ public:
             /* Compute number of trace_entry_t to contain regdeps ISA encoding.
              * Each trace_entry_t record can contain 8 byte encoding.
              */
-            size_t trace_entry_encoding_size = sizeof(entry.addr); /* == 8 */
+            uint trace_entry_encoding_size = (uint)sizeof(entry.addr); /* == 8 */
             uint regdeps_encoding_length = next_pc_regdeps - encoding_regdeps;
             uint num_regdeps_encoding_entries =
                 ALIGN_FORWARD(regdeps_encoding_length, trace_entry_encoding_size) /
