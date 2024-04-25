@@ -42,6 +42,13 @@
 #include <cstring>
 #include <vector>
 
+/* We are not exporting the defines in core/ir/isa_regdeps/encoding_common.h, so we
+ * redefine DR_ISA_REGDEPS alignment requirement here.
+ */
+#define REGDEPS_ALIGN_BYTES 4
+
+#define REGDEPS_MAX_ENCODING_LENGTH 16
+
 namespace dynamorio {
 namespace drmemtrace {
 
@@ -56,18 +63,13 @@ public:
                         bool partial_trace_filter) override
     {
         dcontext_.dcontext = dr_standalone_init();
-        per_shard_t *per_shard = new per_shard_t;
-        per_shard->prev_instr_length = 0;
-        per_shard->prev_pc = 0;
-        return per_shard;
+        return nullptr;
     }
 
     bool
     parallel_shard_filter(trace_entry_t &entry, void *shard_data,
                           std::vector<trace_entry_t> &last_encoding) override
     {
-        per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
-
         /* We have encoding to convert.
          * Normally the sequence of trace_entry_t(s) looks like:
          * [encoding,]+ instr_with_PC, [read | write]*
@@ -76,60 +78,68 @@ public:
          */
         if (is_any_instr_type(static_cast<trace_type_t>(entry.type)) &&
             !last_encoding.empty()) {
+            /* Gather real ISA encoding bytes looping through all previously saved
+             * encoding bytes in last_encoding.
+             */
             const app_pc pc = reinterpret_cast<app_pc>(entry.addr);
             byte encoding[MAX_ENCODING_LENGTH];
             memset(encoding, 0, sizeof(encoding));
-            uint encoding_size_acc = 0;
+            uint encoding_offset = 0;
             for (auto &trace_encoding : last_encoding) {
-                memcpy(encoding + encoding_size_acc, trace_encoding.encoding,
+                memcpy(encoding + encoding_offset, trace_encoding.encoding,
                        trace_encoding.size);
-                encoding_size_acc += trace_encoding.size;
+                encoding_offset += trace_encoding.size;
             }
 
+            /* Genenerate the real ISA instr_t by decoding the encoding bytes.
+             */
             instr_t instr;
             instr_init(dcontext_.dcontext, &instr);
             app_pc next_pc = decode_from_copy(dcontext_.dcontext, encoding, pc, &instr);
             if (next_pc == NULL || !instr_valid(&instr)) {
                 instr_free(dcontext_.dcontext, &instr);
+                error_string_ =
+                    "Failed to decode instruction " + to_hex_string(entry.addr);
                 return false;
             }
 
+            /* Convert the real ISA instr_t into a regdeps ISA instr_t.
+             */
             instr_t instr_regdeps;
             instr_init(dcontext_.dcontext, &instr_regdeps);
             instr_convert_to_isa_regdeps(dcontext_.dcontext, &instr, &instr_regdeps);
 
-            byte ALIGN_VAR(4) encoding_regdeps[16];
+            /* Obtain regdeps ISA instr_t encoding bytes.
+             */
+            byte ALIGN_VAR(REGDEPS_ALIGN_BYTES)
+                encoding_regdeps[REGDEPS_MAX_ENCODING_LENGTH];
             app_pc next_pc_regdeps =
                 instr_encode(dcontext_.dcontext, &instr_regdeps, encoding_regdeps);
 
-            uint encoding_regdeps_length = next_pc_regdeps - encoding_regdeps;
+            /* Compute number of trace_entry_t to contain regdeps ISA encoding.
+             * Each trace_entry_t record can contain 8 byte encoding.
+             */
+            size_t trace_entry_encoding_size = sizeof(entry.addr); /* == 8 */
+            uint regdeps_encoding_length = next_pc_regdeps - encoding_regdeps;
+            uint num_regdeps_encoding_entries =
+                ALIGN_FORWARD(regdeps_encoding_length, trace_entry_encoding_size) /
+                trace_entry_encoding_size;
+            last_encoding.resize(num_regdeps_encoding_entries);
 
-            entry.size = encoding_regdeps_length;
-            if (per_shard->prev_pc == 0)
-                per_shard->prev_pc = entry.addr;
-            old_to_new_pc[entry.addr] = per_shard->prev_pc + per_shard->prev_instr_length;
-            old_to_new_length[entry.addr] = encoding_regdeps_length;
-            entry.addr = per_shard->prev_pc + per_shard->prev_instr_length;
-            per_shard->prev_instr_length = encoding_regdeps_length;
-            per_shard->prev_pc = entry.addr;
-
-            uint num_encoding_entries_regdeps =
-                ALIGN_FORWARD(encoding_regdeps_length, 8) / 8;
-            last_encoding.resize(num_encoding_entries_regdeps);
-            for (trace_entry_t &te : last_encoding) {
-                te.type = TRACE_TYPE_ENCODING;
-                te.size = encoding_regdeps_length < 8 ? encoding_regdeps_length : 8;
-                memset(te.encoding, 0, 8);
-                memcpy(te.encoding, encoding_regdeps, te.size);
-                encoding_regdeps_length -= 8;
-            }
-        } else if (is_any_instr_type(static_cast<trace_type_t>(entry.type)) &&
-                   last_encoding.empty()) {
-            addr_t old_pc = entry.addr;
-            auto found = old_to_new_pc.find(old_pc);
-            if (found != old_to_new_pc.end()) {
-                entry.addr = found->second;
-                entry.size = old_to_new_length[old_pc];
+            /* Copy regdeps ISA encoding, splitting it among the last_encoding
+             * trace_entry_t records.
+             */
+            uint regdeps_encoding_offset = 0;
+            for (trace_entry_t &encoding_entry : last_encoding) {
+                encoding_entry.type = TRACE_TYPE_ENCODING;
+                encoding_entry.size = regdeps_encoding_length < trace_entry_encoding_size
+                    ? regdeps_encoding_length
+                    : trace_entry_encoding_size;
+                memset(encoding_entry.encoding, 0, trace_entry_encoding_size);
+                memcpy(encoding_entry.encoding,
+                       encoding_regdeps + regdeps_encoding_offset, encoding_entry.size);
+                regdeps_encoding_length -= trace_entry_encoding_size;
+                regdeps_encoding_offset += encoding_entry.size;
             }
         }
         return true;
@@ -138,17 +148,10 @@ public:
     bool
     parallel_shard_exit(void *shard_data) override
     {
-        per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
-        delete per_shard;
         return true;
     }
 
 private:
-    struct per_shard_t {
-        uint prev_instr_length;
-        addr_t prev_pc;
-    };
-
     struct dcontext_cleanup_last_t {
     public:
         ~dcontext_cleanup_last_t()
@@ -160,9 +163,6 @@ private:
     };
 
     dcontext_cleanup_last_t dcontext_;
-
-    std::unordered_map<addr_t, addr_t> old_to_new_pc;
-    std::unordered_map<addr_t, unsigned short> old_to_new_length;
 };
 
 } // namespace drmemtrace
