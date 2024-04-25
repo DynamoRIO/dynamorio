@@ -155,7 +155,8 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
     /* If we are changing the encoding of trace_entry_t, we will be generating
      * discrepancies between encoding size and instruction length.  So, we need to tell
      * reader_t, which here comes in the form of memref_counter_t, to ignore such
-     * discrepancies.
+     * discrepancies.  Note that simulators that deal with these filtered traces will
+     * also have to handle the fact that encoding_size != instruction_length.
      */
     bool ignore_encoding_size_vs_instr_length_check = encoding_filter_enabled;
     return new dynamorio::drmemtrace::record_filter_t(
