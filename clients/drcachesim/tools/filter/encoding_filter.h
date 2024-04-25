@@ -68,6 +68,10 @@ public:
     parallel_shard_filter(trace_entry_t &entry, void *shard_data,
                           std::vector<trace_entry_t> &last_encoding) override
     {
+        /* TODO i#6662: modify trace_entry_t header entry to regdeps ISA, instead of the
+         * real ISA of the incoming trace.
+         */
+
         /* We have encoding to convert.
          * Normally the sequence of trace_entry_t(s) looks like:
          * [encoding,]+ instr_with_PC, [read | write]*
