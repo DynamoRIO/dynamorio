@@ -122,7 +122,7 @@ public:
              * Each trace_entry_t record can contain 8 byte encoding.
              */
             uint trace_entry_encoding_size = (uint)sizeof(entry.addr); /* == 8 */
-            uint regdeps_encoding_size = next_pc_regdeps - encoding_regdeps;
+            uint regdeps_encoding_size = (uint)(next_pc_regdeps - encoding_regdeps);
             uint num_regdeps_encoding_entries =
                 ALIGN_FORWARD(regdeps_encoding_size, trace_entry_encoding_size) /
                 trace_entry_encoding_size;
