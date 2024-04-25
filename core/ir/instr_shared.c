@@ -58,6 +58,7 @@
 #include "../link.h"
 #include "decode.h"
 #include "decode_fast.h"
+#include "opnd.h"
 #include "instr_create_shared.h"
 /* FIXME i#1551: refactor this file and avoid this x86-specific include in base arch/ */
 #include "x86/decode_private.h"
@@ -3017,10 +3018,10 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
                 reg_id_t reg = opnd_get_reg_used(dst_opnd, opnd_index);
                 /* Map sub-registers to their containing register.
                  */
-                reg_id_t reg_canonical = reg_to_pointer_sized(reg);
-                if (!src_reg_used[reg_canonical]) {
+                reg_id_t reg_virtual = d_r_reg_to_virtual(reg);
+                if (!src_reg_used[reg_virtual]) {
                     ++num_srcs;
-                    src_reg_used[reg_canonical] = true;
+                    src_reg_used[reg_virtual] = true;
                 }
             }
         } else {
@@ -3028,10 +3029,10 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
                 reg_id_t reg = opnd_get_reg_used(dst_opnd, opnd_index);
                 /* Map sub-registers to their containing register.
                  */
-                reg_id_t reg_canonical = reg_to_pointer_sized(reg);
-                if (!dst_reg_used[reg_canonical]) {
+                reg_id_t reg_virtual = d_r_reg_to_virtual(reg);
+                if (!dst_reg_used[reg_virtual]) {
                     ++num_dsts;
-                    dst_reg_used[reg_canonical] = true;
+                    dst_reg_used[reg_virtual] = true;
                 }
             }
         }
@@ -3057,10 +3058,10 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
             reg_id_t reg = opnd_get_reg_used(src_opnd, opnd_index);
             /* Map sub-registers to their containing register.
              */
-            reg_id_t reg_canonical = reg_to_pointer_sized(reg);
-            if (!src_reg_used[reg_canonical]) {
+            reg_id_t reg_virtual = d_r_reg_to_virtual(reg);
+            if (!src_reg_used[reg_virtual]) {
                 ++num_srcs;
-                src_reg_used[reg_canonical] = true;
+                src_reg_used[reg_virtual] = true;
             }
         }
     }
@@ -3092,7 +3093,8 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
     /* Convert max_src_opnd_size_bytes from number of bytes to opnd_size_t (which holds
      * OPSZ_ enum values).
      */
-    instr_regdeps_isa->operation_size = opnd_size_from_bytes(max_src_opnd_size_bytes);
+    opnd_size_t max_opnd_size = opnd_size_from_bytes(max_src_opnd_size_bytes);
+    instr_regdeps_isa->operation_size = max_opnd_size;
 
     /* Set the source and destination register operands for the converted instruction.
      */
@@ -3101,6 +3103,22 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
         for (uint reg = 0; reg < REGDEPS_MAX_NUM_REGS; ++reg) {
             if (dst_reg_used[reg]) {
                 opnd_t dst_opnd = opnd_create_reg((reg_id_t)reg);
+                /* Virtual registers don't have a fixed size like real ISA registers do.
+                 * So, it can happen that the same virtual register in two different
+                 * instructions may have different sizes.
+                 *
+                 * Even though querying the size of a virtual register is not supported on
+                 * purpose (a user should query the instr_t.operation_size), we set the
+                 * opnd_t.size field to be the same as instr_t.operation_size (i.e.,
+                 * max_opnd_size), so that reg_get_size() can return some meaningful
+                 * information without triggering a CLIENT_ASSERT error because the
+                 * virtual register ID is not supported (e.g., is one of the "reserved"
+                 * register IDs).
+                 *
+                 * We do the same for both src and dst register operands of DR_ISA_REGDEPS
+                 * instructions.
+                 */
+                opnd_set_size(&dst_opnd, max_opnd_size);
                 instr_set_dst(instr_regdeps_isa, reg_counter, dst_opnd);
                 ++reg_counter;
             }
@@ -3112,6 +3130,7 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
         for (uint reg = 0; reg < REGDEPS_MAX_NUM_REGS; ++reg) {
             if (src_reg_used[reg]) {
                 opnd_t src_opnd = opnd_create_reg((reg_id_t)reg);
+                opnd_set_size(&src_opnd, max_opnd_size);
                 instr_set_src(instr_regdeps_isa, reg_counter, src_opnd);
                 ++reg_counter;
             }

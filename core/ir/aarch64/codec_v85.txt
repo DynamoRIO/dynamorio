@@ -35,4 +35,16 @@
 # generation.
 
 # Instruction definitions:
-110101010000001100100100xx011111  n   1211  BTI        bti                : imm2_6
+110101010000001100100100xx011111  n   1211  BTI      bti                 : imm2_6
+0x1011100x100001111010xxxxxxxxxx  n   1212  FRINTTS  frint32x vdq_q_sd_0 : vdq_q_sd_5
+0001111001101000110000xxxxxxxxxx  n   1212  FRINTTS  frint32x         d0 : d5
+0001111000101000110000xxxxxxxxxx  n   1212  FRINTTS  frint32x         s0 : s5
+0x0011100x100001111010xxxxxxxxxx  n   1213  FRINTTS  frint32z vdq_q_sd_0 : vdq_q_sd_5
+0001111001101000010000xxxxxxxxxx  n   1213  FRINTTS  frint32z         d0 : d5
+0001111000101000010000xxxxxxxxxx  n   1213  FRINTTS  frint32z         s0 : s5
+0x1011100x100001111110xxxxxxxxxx  n   1214  FRINTTS  frint64x vdq_q_sd_0 : vdq_q_sd_5
+0001111001101001110000xxxxxxxxxx  n   1214  FRINTTS  frint64x         d0 : d5
+0001111000101001110000xxxxxxxxxx  n   1214  FRINTTS  frint64x         s0 : s5
+0x0011100x100001111110xxxxxxxxxx  n   1215  FRINTTS  frint64z vdq_q_sd_0 : vdq_q_sd_5
+0001111001101001010000xxxxxxxxxx  n   1215  FRINTTS  frint64z         d0 : d5
+0001111000101001010000xxxxxxxxxx  n   1215  FRINTTS  frint64z         s0 : s5

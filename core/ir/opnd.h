@@ -90,7 +90,9 @@
 
 /* indexed by enum */
 extern const char *const reg_names[];
+extern const char *const d_r_reg_virtual_names[];
 extern const reg_id_t dr_reg_fixer[];
+extern const reg_id_t d_r_reg_id_to_virtual[];
 
 #ifdef X86
 #    define REG_START_SPILL DR_REG_XAX
@@ -177,6 +179,13 @@ opnd_get_reg_dcontext_offs(reg_id_t reg);
 
 int
 opnd_get_reg_mcontext_offs(reg_id_t reg);
+
+/* Assumes that \p reg is a DR_REG_ 32-bit register constant.
+ * Returns the corresponding DR_ISA_REGDEPS virtual register of \p reg, which holds 8-bit
+ * DR_REG_V values.
+ */
+reg_id_t
+d_r_reg_to_virtual(reg_id_t reg);
 
 /* internal version */
 reg_t
