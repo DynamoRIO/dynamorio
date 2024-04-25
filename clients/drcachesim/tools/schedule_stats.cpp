@@ -332,9 +332,14 @@ schedule_stats_t::print_counters(const counters_t &counters)
 {
     std::cerr << std::setw(12) << counters.threads.size() << " threads";
     if (!counters.threads.empty()) {
-        std::cerr << ":";
-        for (auto thread : counters.threads)
-            std::cerr << " " << thread;
+        std::cerr << ": ";
+        auto it = counters.threads.begin();
+        while (it != counters.threads.end()) {
+            std::cerr << *it;
+            ++it;
+            if (it != counters.threads.end())
+                std::cerr << ", ";
+        }
     }
     std::cerr << "\n";
     std::cerr << std::setw(12) << counters.instrs << " instructions\n";
