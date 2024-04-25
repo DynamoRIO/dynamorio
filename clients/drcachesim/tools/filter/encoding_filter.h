@@ -122,9 +122,9 @@ public:
              * Each trace_entry_t record can contain 8 byte encoding.
              */
             uint trace_entry_encoding_size = (uint)sizeof(entry.addr); /* == 8 */
-            uint regdeps_encoding_length = next_pc_regdeps - encoding_regdeps;
+            uint regdeps_encoding_size = next_pc_regdeps - encoding_regdeps;
             uint num_regdeps_encoding_entries =
-                ALIGN_FORWARD(regdeps_encoding_length, trace_entry_encoding_size) /
+                ALIGN_FORWARD(regdeps_encoding_size, trace_entry_encoding_size) /
                 trace_entry_encoding_size;
             last_encoding.resize(num_regdeps_encoding_entries);
 
@@ -134,13 +134,14 @@ public:
             uint regdeps_encoding_offset = 0;
             for (trace_entry_t &encoding_entry : last_encoding) {
                 encoding_entry.type = TRACE_TYPE_ENCODING;
-                encoding_entry.size = regdeps_encoding_length < trace_entry_encoding_size
-                    ? regdeps_encoding_length
+                uint size = regdeps_encoding_size < trace_entry_encoding_size
+                    ? regdeps_encoding_size
                     : trace_entry_encoding_size;
+                encoding_entry.size = (unsigned short)size;
                 memset(encoding_entry.encoding, 0, trace_entry_encoding_size);
                 memcpy(encoding_entry.encoding,
                        encoding_regdeps + regdeps_encoding_offset, encoding_entry.size);
-                regdeps_encoding_length -= trace_entry_encoding_size;
+                regdeps_encoding_size -= trace_entry_encoding_size;
                 regdeps_encoding_offset += encoding_entry.size;
             }
         }
