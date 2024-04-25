@@ -72,7 +72,6 @@
 #endif
 
 #if defined(X86) || defined(AARCH64)
-/* TODO i#5036: Complete AArch64 support. */
 #    define PLATFORM_SUPPORTS_SCATTER_GATHER
 #endif
 

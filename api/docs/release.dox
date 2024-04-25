@@ -227,7 +227,6 @@ Further non-compatibility-affecting changes include:
  - Added instr_convert_to_isa_regdeps() API that converts an #instr_t from a real ISA
    (e.g., #DR_ISA_AMD64) to the #DR_ISA_REGDEPS synthetic ISA.
 
-
 **************************************************
 <hr>
 

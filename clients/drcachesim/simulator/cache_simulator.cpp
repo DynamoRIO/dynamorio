@@ -469,6 +469,11 @@ cache_simulator_t::process_memref(const memref_t &memref)
         }
     } else
         core_index = core_for_thread(memref.data.tid);
+    if (core_index >= static_cast<int>(knobs_.num_cores)) {
+        error_string_ = "Too-small core count " + std::to_string(knobs_.num_cores) +
+            " for trace core #" + std::to_string(core_index);
+        return false;
+    }
 
     // To support swapping to physical addresses without modifying the passed-in
     // memref (which is also passed to other tools run at the same time) we use
