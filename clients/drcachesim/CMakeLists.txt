@@ -398,6 +398,7 @@ drmemtrace_raw2trace drcovlib_static drfrontendlib ${static_libc} ${zlib_libs})
 add_dependencies(record_filter_launcher api_headers)
 append_property_list(TARGET record_filter_launcher COMPILE_DEFINITIONS "NO_HELPER_MAIN")
 use_DynamoRIO_extension(record_filter_launcher droption)
+configure_DynamoRIO_static(record_filter_launcher)
 
 # We want to use test_helper's disable_popups() but we have _tmain and so do not want
 # the test_helper library's main symbol: so we compile ourselves and disable.
