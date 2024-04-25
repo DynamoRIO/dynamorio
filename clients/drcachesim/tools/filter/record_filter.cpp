@@ -114,7 +114,7 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
                           int cache_filter_size, const std::string &remove_trace_types,
                           const std::string &remove_marker_types,
                           uint64_t trim_before_timestamp, uint64_t trim_after_timestamp,
-                          unsigned int verbose)
+                          bool encoding_filter_enabled, unsigned int verbose)
 {
     std::vector<
         std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>>
@@ -144,25 +144,35 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
                 new dynamorio::drmemtrace::trim_filter_t(trim_before_timestamp,
                                                          trim_after_timestamp)));
     }
-    // ED: always enabling encoding_filter for test purposes. TOREMOVE.
-    filter_funcs.emplace_back(
-        std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
-            new dynamorio::drmemtrace::encoding_filter_t()));
+    if (encoding_filter_enabled) {
+        filter_funcs.emplace_back(
+            std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
+                new dynamorio::drmemtrace::encoding_filter_t()));
+    }
 
     // TODO i#5675: Add other filters.
 
-    return new dynamorio::drmemtrace::record_filter_t(output_dir, std::move(filter_funcs),
-                                                      stop_timestamp, verbose);
+    /* If we are changing the encoding of trace_entry_t, we will be generating
+     * discrepancies between encoding size and instruction length.  So, we need to tell
+     * reader_t, which here comes in the form of memref_counter_t, to ignore such
+     * discrepancies.
+     */
+    bool ignore_encoding_size_vs_instr_length_check = encoding_filter_enabled;
+    return new dynamorio::drmemtrace::record_filter_t(
+        output_dir, std::move(filter_funcs), stop_timestamp, verbose,
+        ignore_encoding_size_vs_instr_length_check);
 }
 
 record_filter_t::record_filter_t(
     const std::string &output_dir,
     std::vector<std::unique_ptr<record_filter_func_t>> filters, uint64_t stop_timestamp,
-    unsigned int verbose)
+    unsigned int verbose, bool ignore_encoding_size_vs_instr_length_check)
     : output_dir_(output_dir)
     , filters_(std::move(filters))
     , stop_timestamp_(stop_timestamp)
     , verbosity_(verbose)
+    , ignore_encoding_size_vs_instr_length_check_(
+          ignore_encoding_size_vs_instr_length_check)
 {
     UNUSED(verbosity_);
     UNUSED(output_prefix_);
@@ -380,6 +390,8 @@ record_filter_t::parallel_shard_init_stream(int shard_index, void *worker_data,
     per_shard->input_entry_count = 0;
     per_shard->output_entry_count = 0;
     per_shard->tid = shard_stream->get_tid();
+    per_shard->memref_counter.set_ignore_encoding_size_vs_instr_length_check(
+        ignore_encoding_size_vs_instr_length_check_);
     if (shard_type_ == SHARD_BY_CORE) {
         per_shard->memref_counter.set_core_sharded(true);
     }

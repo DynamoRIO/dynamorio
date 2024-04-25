@@ -127,7 +127,8 @@ public:
     // stop_timestamp sets a point beyond which no filtering will occur.
     record_filter_t(const std::string &output_dir,
                     std::vector<std::unique_ptr<record_filter_func_t>> filters,
-                    uint64_t stop_timestamp, unsigned int verbose);
+                    uint64_t stop_timestamp, unsigned int verbose,
+                    bool ignore_encoding_size_vs_instr_length_check);
     ~record_filter_t() override;
     bool
     process_memref(const trace_entry_t &entry) override;
@@ -267,6 +268,7 @@ private:
     std::vector<std::unique_ptr<record_filter_func_t>> filters_;
     uint64_t stop_timestamp_;
     unsigned int verbosity_;
+    bool ignore_encoding_size_vs_instr_length_check_;
     const char *output_prefix_ = "[record_filter]";
     // For core-sharded, but used for thread-sharded to simplify the code.
     std::mutex input2info_mutex_;

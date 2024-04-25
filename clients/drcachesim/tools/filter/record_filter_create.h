@@ -68,7 +68,7 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
                           int cache_filter_size, const std::string &remove_trace_types,
                           const std::string &remove_marker_types,
                           uint64_t trim_before_timestamp, uint64_t trim_after_timestamp,
-                          unsigned int verbose);
+                          bool encoding_filter_enabled, unsigned int verbose);
 
 } // namespace drmemtrace
 } // namespace dynamorio

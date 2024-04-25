@@ -148,6 +148,11 @@ public:
     {
         core_sharded_ = core_sharded;
     }
+    void
+    set_ignore_encoding_size_vs_instr_length_check(bool ignore)
+    {
+        ignore_encoding_size_vs_instr_length_check_ = ignore;
+    }
 
 private:
     bool saw_pid_ = false;
