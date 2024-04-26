@@ -1105,6 +1105,41 @@ encode_opnd_dq_plus(int add, int rpos, int qpos, opnd_t opnd, OUT uint *enc_out)
     return true;
 }
 
+/* dq_q : used for vdq_q_sd_0, vdq_q_sd_5 */
+static inline bool
+decode_opnd_dq_q(int reg_pos, uint enc, OUT opnd_t *opnd)
+{
+    const reg_id_t min_reg = TEST(1U << 30, enc) ? DR_REG_Q0 : DR_REG_D0;
+    const reg_id_t reg_id = min_reg + extract_uint(enc, reg_pos, 5);
+
+    const uint sz = extract_uint(enc, 22, 1);
+    const opnd_size_t element_size = sz == 1 ? OPSZ_8 : OPSZ_4;
+
+    *opnd = opnd_create_reg_element_vector(reg_id, element_size);
+    return true;
+}
+
+static inline bool
+encode_opnd_dq_q(int rpos, opnd_t opnd, OUT uint *enc_out)
+{
+    if (!opnd_is_element_vector_reg(opnd))
+        return false;
+
+    const aarch64_reg_offset size = get_vector_element_reg_offset(opnd);
+    if (size == NOT_A_REG)
+        return false;
+
+    reg_id_t reg_id = opnd_get_reg(opnd);
+    bool q = (reg_id - DR_REG_Q0) < 32;
+    bool sz = (size == DOUBLE_REG);
+    uint reg_num = reg_id - (q ? DR_REG_Q0 : DR_REG_D0);
+    if (reg_num >= 32)
+        return false;
+
+    *enc_out = reg_num << rpos | (uint)q << 30 | (uint)sz << 22;
+    return true;
+}
+
 /* sd: used for sd0, sd5, sd16 */
 
 static inline bool
@@ -8711,6 +8746,30 @@ static inline bool
 encode_opnd_sd16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_sd(16, 30, opnd, enc_out);
+}
+
+static inline bool
+decode_opnd_vdq_q_sd_0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_dq_q(0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_vdq_q_sd_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_dq_q(0, opnd, enc_out);
+}
+
+static inline bool
+decode_opnd_vdq_q_sd_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_dq_q(5, enc, opnd);
+}
+
+static inline bool
+encode_opnd_vdq_q_sd_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_dq_q(5, opnd, enc_out);
 }
 
 /* imm6: shift amount for logical and arithmetical instructions */

@@ -208,6 +208,7 @@ proc_init_arch(void)
         LOG_FEATURE(FEATURE_PAUTH);
         LOG_FEATURE(FEATURE_LRCPC);
         LOG_FEATURE(FEATURE_LRCPC2);
+        LOG_FEATURE(FEATURE_FRINTTS);
 
         LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n ID_AA64ZFR0_EL1 = 0x%016lx\n",
             cpu_info.features.flags_aa64zfr0);
@@ -292,7 +293,7 @@ enable_all_test_cpu_features()
         FEATURE_BF16,   FEATURE_I8MM,       FEATURE_F64MM,   FEATURE_FlagM,
         FEATURE_JSCVT,  FEATURE_DPB,        FEATURE_DPB2,    FEATURE_SVE2,
         FEATURE_SVEAES, FEATURE_SVEBitPerm, FEATURE_SVESHA3, FEATURE_SVESM4,
-        FEATURE_MTE,    FEATURE_BTI
+        FEATURE_MTE,    FEATURE_BTI,        FEATURE_FRINTTS
     };
     for (int i = 0; i < BUFFER_SIZE_ELEMENTS(features); ++i) {
         proc_set_feature(features[i], true);
