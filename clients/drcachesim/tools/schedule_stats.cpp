@@ -102,6 +102,8 @@ schedule_stats_t::process_memref(const memref_t &memref)
         per_shard = new per_shard_t;
         per_shard->stream = serial_stream_;
         per_shard->core = serial_stream_->get_output_cpuid();
+        per_shard->filetype = static_cast<intptr_t>(serial_stream_->get_filetype());
+        per_shard->segment_start_microseconds = get_current_microseconds();
         shard_map_[per_shard->core] = per_shard;
     } else
         per_shard = lookup->second;
@@ -159,6 +161,8 @@ bool
 schedule_stats_t::update_state_time(per_shard_t *shard, state_t state)
 {
     uint64_t cur = get_current_microseconds();
+    assert(cur > shard->segment_start_microseconds);
+    assert(shard->segment_start_microseconds > 0);
     uint64_t delta = cur - shard->segment_start_microseconds;
     switch (state) {
     case STATE_CPU: shard->counters.cpu_microseconds += delta; break;
