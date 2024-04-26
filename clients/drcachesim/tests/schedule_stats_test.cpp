@@ -88,7 +88,8 @@ public:
     }
 
 private:
-    uint64_t global_time_;
+    // Start at 1 to avoid asserts about a time of 0.
+    uint64_t global_time_ = 1;
 };
 
 // Bypasses the analyzer and scheduler for a controlled test sequence.
