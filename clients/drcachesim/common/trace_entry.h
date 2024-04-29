@@ -665,6 +665,17 @@ type_is_instr(const trace_type_t type)
         type == TRACE_TYPE_INSTR_UNTAKEN_JUMP;
 }
 
+/**
+ * Returns whether the type represents an instruction.
+ * Includes TRACE_TYPE_INSTR_NO_FETCH and TRACE_TYPE_INSTR_MAYBE_FETCH.
+ */
+static inline bool
+is_any_instr_type(const trace_type_t type)
+{
+    return type_is_instr(type) || type == TRACE_TYPE_INSTR_MAYBE_FETCH ||
+        type == TRACE_TYPE_INSTR_NO_FETCH;
+}
+
 /** Returns whether the type represents the fetch of a branch instruction. */
 static inline bool
 type_is_instr_branch(const trace_type_t type)

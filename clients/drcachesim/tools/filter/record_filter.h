@@ -53,11 +53,6 @@
 namespace dynamorio {
 namespace drmemtrace {
 
-/* Utility function.
- */
-bool
-is_any_instr_type(trace_type_t type);
-
 /**
  * Analysis tool that filters the #trace_entry_t records of an offline
  * trace. Streams through each shard independenty and parallelly, and

@@ -82,13 +82,6 @@
 namespace dynamorio {
 namespace drmemtrace {
 
-bool
-is_any_instr_type(trace_type_t type)
-{
-    return type_is_instr(type) || type == TRACE_TYPE_INSTR_MAYBE_FETCH ||
-        type == TRACE_TYPE_INSTR_NO_FETCH;
-}
-
 namespace {
 
 template <typename T>
