@@ -17,6 +17,7 @@ Total counts:
       345686 idles
        64.89% cpu busy by record count
     [0-9 ]* cpu microseconds
+    [0-9 ]* wait microseconds
     [0-9 ]* idle microseconds
     [0-9 ]* idle microseconds at last instr
     [0-9\. ]*% cpu busy by time
