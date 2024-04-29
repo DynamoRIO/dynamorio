@@ -161,7 +161,7 @@ bool
 schedule_stats_t::update_state_time(per_shard_t *shard, state_t state)
 {
     uint64_t cur = get_current_microseconds();
-    assert(cur > shard->segment_start_microseconds);
+    assert(cur >= shard->segment_start_microseconds);
     assert(shard->segment_start_microseconds > 0);
     uint64_t delta = cur - shard->segment_start_microseconds;
     switch (state) {
