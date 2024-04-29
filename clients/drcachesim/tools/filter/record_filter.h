@@ -127,8 +127,7 @@ public:
     // stop_timestamp sets a point beyond which no filtering will occur.
     record_filter_t(const std::string &output_dir,
                     std::vector<std::unique_ptr<record_filter_func_t>> filters,
-                    uint64_t stop_timestamp, unsigned int verbose,
-                    bool ignore_encoding_size_vs_instr_length_check);
+                    uint64_t stop_timestamp, unsigned int verbose);
     ~record_filter_t() override;
     bool
     process_memref(const trace_entry_t &entry) override;
@@ -255,11 +254,13 @@ private:
     inline uint64_t
     add_to_filetype(uint64_t filetype)
     {
-        if (stop_timestamp_ != 0) {
+        if (stop_timestamp_ != 0)
             filetype |= OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP;
-        }
-        if (shard_type_ == SHARD_BY_CORE) {
+        if (shard_type_ == SHARD_BY_CORE)
             filetype |= OFFLINE_FILE_TYPE_CORE_SHARDED;
+        if (encodings2regdeps_) {
+            filetype &= ~OFFLINE_FILE_TYPE_ARCH_ALL;
+            filetype |= OFFLINE_FILE_TYPE_ARCH_REGDEPS;
         }
         return filetype;
     }
@@ -268,7 +269,7 @@ private:
     std::vector<std::unique_ptr<record_filter_func_t>> filters_;
     uint64_t stop_timestamp_;
     unsigned int verbosity_;
-    bool ignore_encoding_size_vs_instr_length_check_;
+    bool encodings2regdeps_;
     const char *output_prefix_ = "[record_filter]";
     // For core-sharded, but used for thread-sharded to simplify the code.
     std::mutex input2info_mutex_;

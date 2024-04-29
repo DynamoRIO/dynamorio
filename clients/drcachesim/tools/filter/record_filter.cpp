@@ -158,23 +158,28 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
      * discrepancies.  Note that simulators that deal with these filtered traces will
      * also have to handle the fact that encoding_size != instruction_length.
      */
-    bool ignore_encoding_size_vs_instr_length_check = encoding_filter_enabled;
-    return new dynamorio::drmemtrace::record_filter_t(
-        output_dir, std::move(filter_funcs), stop_timestamp, verbose,
-        ignore_encoding_size_vs_instr_length_check);
+    return new dynamorio::drmemtrace::record_filter_t(output_dir, std::move(filter_funcs),
+                                                      stop_timestamp, verbose);
 }
 
 record_filter_t::record_filter_t(
     const std::string &output_dir,
     std::vector<std::unique_ptr<record_filter_func_t>> filters, uint64_t stop_timestamp,
-    unsigned int verbose, bool ignore_encoding_size_vs_instr_length_check)
+    unsigned int verbose)
     : output_dir_(output_dir)
     , filters_(std::move(filters))
     , stop_timestamp_(stop_timestamp)
     , verbosity_(verbose)
-    , ignore_encoding_size_vs_instr_length_check_(
-          ignore_encoding_size_vs_instr_length_check)
 {
+    /* Check if encodings2regdeps filter is present.
+     */
+    encodings2regdeps_ = false;
+    for (auto &filter : filters) {
+        if (dynamic_cast<encoding_filter_t *>(filter.get()) != nullptr) {
+            encodings2regdeps_ = true;
+            break;
+        }
+    }
     UNUSED(verbosity_);
     UNUSED(output_prefix_);
 }
@@ -391,8 +396,6 @@ record_filter_t::parallel_shard_init_stream(int shard_index, void *worker_data,
     per_shard->input_entry_count = 0;
     per_shard->output_entry_count = 0;
     per_shard->tid = shard_stream->get_tid();
-    per_shard->memref_counter.set_ignore_encoding_size_vs_instr_length_check(
-        ignore_encoding_size_vs_instr_length_check_);
     if (shard_type_ == SHARD_BY_CORE) {
         per_shard->memref_counter.set_core_sharded(true);
     }

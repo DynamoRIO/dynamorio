@@ -68,15 +68,27 @@ public:
     parallel_shard_filter(trace_entry_t &entry, void *shard_data,
                           std::vector<trace_entry_t> &last_encoding) override
     {
-        /* TODO i#6662: modify trace_entry_t header entry to regdeps ISA, instead of the
-         * real ISA of the incoming trace.
+        /* Modify file_type to regdeps ISA, removing the real ISA of the input trace.
          */
+        trace_type_t entry_type = static_cast<trace_type_t>(entry.type);
+        if (entry_type == TRACE_TYPE_MARKER) {
+            trace_marker_type_t marker_type =
+                static_cast<trace_marker_type_t>(entry.size);
+            if (marker_type == TRACE_MARKER_TYPE_FILETYPE) {
+                uint64_t marker_value = static_cast<uint64_t>(entry.addr);
+                marker_value &= ~OFFLINE_FILE_TYPE_ARCH_ALL;
+                marker_value |= OFFLINE_FILE_TYPE_ARCH_REGDEPS;
+                entry.addr = static_cast<addr_t>(marker_value);
+            }
+        }
 
         /* We have encoding to convert.
          * Normally the sequence of trace_entry_t(s) looks like:
-         * [encoding,]+ instr_with_PC, [read | write]*
-         * (+ = one or more, * = zero or more)
-         * If we enter here, trace_entry_t is instr_with_PC.
+         * [TRACE_TYPE_ENCODING,]+ [TRACE_TYPE_MARKER.TRACE_MARKER_TYPE_BRANCH_TARGET,]
+         * TRACE_TYPE_INSTR_, [TRACE_TYPE_READ | TRACE_TYPE_WRITE]*
+         * ([] = zero or one, + = one or more, * = zero or more)
+         * If we enter here, trace_entry_t is some TRACE_TYPE_INSTR_ for which
+         * last_encoding already contains its encoding.
          */
         if (is_any_instr_type(static_cast<trace_type_t>(entry.type)) &&
             !last_encoding.empty()) {

@@ -968,19 +968,27 @@ typedef enum {
      * Each trace shard represents one core and contains interleaved software threads.
      */
     OFFLINE_FILE_TYPE_CORE_SHARDED = 0x10000,
+    /**
+     * Trace filtered by the record_filter tool using encodings2regdeps.
+     */
+    OFFLINE_FILE_TYPE_ARCH_REGDEPS = 0x20000,
 } offline_file_type_t;
 
 static inline const char *
 trace_arch_string(offline_file_type_t type)
 {
-    return TESTANY(OFFLINE_FILE_TYPE_ARCH_AARCH64, type)
-        ? "aarch64"
-        : (TESTANY(OFFLINE_FILE_TYPE_ARCH_ARM32, type)
-               ? "arm"
-               : (TESTANY(OFFLINE_FILE_TYPE_ARCH_X86_32, type)
-                      ? "i386"
-                      : (TESTANY(OFFLINE_FILE_TYPE_ARCH_X86_64, type) ? "x86_64"
-                                                                      : "unspecified")));
+    if (TESTANY(OFFLINE_FILE_TYPE_ARCH_AARCH64, type))
+        return "aarch64";
+    else if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ARM32, type))
+        return "arm";
+    else if (TESTANY(OFFLINE_FILE_TYPE_ARCH_X86_32, type))
+        return "i386";
+    else if (TESTANY(OFFLINE_FILE_TYPE_ARCH_X86_64, type))
+        return "x86_64";
+    else if (TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, type))
+        return "regdeps";
+    else
+        return "unspecified";
 }
 
 /* We have non-client targets including this header that do not include API

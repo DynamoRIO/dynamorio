@@ -90,8 +90,7 @@ public:
     test_record_filter_t(std::vector<std::unique_ptr<record_filter_func_t>> filters,
                          uint64_t last_timestamp, bool write_archive = false)
         : record_filter_t("", std::move(filters), last_timestamp,
-                          /*verbose=*/0,
-                          /*ignore_encoding_size_vs_instr_length_check*/ false)
+                          /*verbose=*/0)
         , write_archive_(write_archive)
     {
     }
@@ -1029,10 +1028,9 @@ test_null_filter()
     // other entries are expected to stay.
     static constexpr uint64_t stop_timestamp_us = 1;
     auto record_filter = std::unique_ptr<dynamorio::drmemtrace::record_filter_t>(
-        new dynamorio::drmemtrace::record_filter_t(
-            output_dir, std::move(filter_funcs), stop_timestamp_us,
-            /*verbosity=*/0,
-            /*ignore_encoding_size_vs_instr_length_check=*/false));
+        new dynamorio::drmemtrace::record_filter_t(output_dir, std::move(filter_funcs),
+                                                   stop_timestamp_us,
+                                                   /*verbosity=*/0));
     std::vector<record_analysis_tool_t *> tools;
     tools.push_back(record_filter.get());
     record_analyzer_t record_analyzer(op_trace_dir.get_value(), &tools[0],
