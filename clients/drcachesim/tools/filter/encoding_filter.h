@@ -129,6 +129,12 @@ public:
                 encoding_regdeps[REGDEPS_MAX_ENCODING_LENGTH];
             app_pc next_pc_regdeps =
                 instr_encode(dcontext_.dcontext, &instr_regdeps, encoding_regdeps);
+            if (next_pc_regdeps == NULL) {
+                instr_free(dcontext_.dcontext, &instr);
+                error_string_ =
+                    "Failed to encode regdeps instruction " + to_hex_string(entry.addr);
+                return false;
+            }
 
             /* Compute number of trace_entry_t to contain regdeps ISA encoding.
              * Each trace_entry_t record can contain 8 byte encoding.
