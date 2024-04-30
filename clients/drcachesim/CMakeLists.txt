@@ -196,7 +196,7 @@ add_exported_library(drmemtrace_record_filter STATIC
   tools/filter/cache_filter.h
   tools/filter/cache_filter.cpp
   tools/filter/type_filter.h
-  tools/filter/encoding_filter.h
+  tools/filter/encodings2regdeps.h
   tools/filter/null_filter.h)
 target_link_libraries(drmemtrace_record_filter drmemtrace_simulator)
 

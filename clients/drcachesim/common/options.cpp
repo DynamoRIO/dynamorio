@@ -972,10 +972,11 @@ droption_t<std::string>
                            "Comma-separated integers for marker types to remove. "
                            "See trace_marker_type_t for the list of marker types.");
 
-droption_t<bool> op_encoding_filter_enabled(
-    DROPTION_SCOPE_FRONTEND, "encoding_filter_enabled", false,
+droption_t<bool> op_encodings2regdeps(
+    DROPTION_SCOPE_FRONTEND, "encodings2regdeps", false,
     "Enable converting the encoding of instructions to synthetic ISA DR_ISA_REGDEPS.",
-    "Enable converting the encoding of instructions to synthetic ISA DR_ISA_REGDEPS.");
+    "When present, converts the encoding of instructions from a real ISA to the "
+    "DR_ISA_REGDEPS synthetic ISA.");
 
 droption_t<uint64_t> op_trim_before_timestamp(
     DROPTION_SCOPE_ALL, "trim_before_timestamp", 0, 0,

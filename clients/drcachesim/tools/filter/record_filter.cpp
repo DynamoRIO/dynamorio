@@ -60,7 +60,7 @@
 #include "cache_filter.h"
 #include "trim_filter.h"
 #include "type_filter.h"
-#include "encoding_filter.h"
+#include "encodings2regdeps.h"
 
 #undef VPRINT
 #ifdef DEBUG
@@ -107,7 +107,7 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
                           int cache_filter_size, const std::string &remove_trace_types,
                           const std::string &remove_marker_types,
                           uint64_t trim_before_timestamp, uint64_t trim_after_timestamp,
-                          bool encoding_filter_enabled, unsigned int verbose)
+                          bool encodings2regdeps, unsigned int verbose)
 {
     std::vector<
         std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>>
@@ -137,7 +137,7 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
                 new dynamorio::drmemtrace::trim_filter_t(trim_before_timestamp,
                                                          trim_after_timestamp)));
     }
-    if (encoding_filter_enabled) {
+    if (encodings2regdeps) {
         filter_funcs.emplace_back(
             std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
                 new dynamorio::drmemtrace::encoding_filter_t()));
