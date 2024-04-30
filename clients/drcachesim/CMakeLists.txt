@@ -394,7 +394,7 @@ add_executable(record_filter_launcher
   tools/record_filter_launcher.cpp
   tests/test_helpers.cpp)
 target_link_libraries(record_filter_launcher drmemtrace_analyzer drmemtrace_record_filter
-drmemtrace_raw2trace drcovlib_static drfrontendlib ${static_libc} ${zlib_libs})
+  drmemtrace_raw2trace drcovlib_static drfrontendlib ${static_libc} ${zlib_libs})
 add_dependencies(record_filter_launcher api_headers)
 append_property_list(TARGET record_filter_launcher COMPILE_DEFINITIONS "NO_HELPER_MAIN")
 use_DynamoRIO_extension(record_filter_launcher droption)
