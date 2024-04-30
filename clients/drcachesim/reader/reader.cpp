@@ -210,7 +210,6 @@ reader_t::process_input_entry()
                 ++cur_instr_count_;
             // Look for encoding bits that belong to this instr.
             if (last_encoding_.size > 0) {
-
                 if (!TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, filetype_) &&
                     (last_encoding_.size != cur_ref_.instr.size)) {
                     ERRMSG(
