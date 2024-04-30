@@ -138,6 +138,14 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
                                                          trim_after_timestamp)));
     }
     if (encodings2regdeps) {
+        /* If we are changing the encoding of trace_entry_t with encodings2regdeps, we
+         * will be generating discrepancies between encoding size and instruction length.
+         * So, we need to tell reader_t, which here comes in the form of memref_counter_t,
+         * to ignore such discrepancies. We do so by adding OFFLINE_FILE_TYPE_ARCH_REGDEPS
+         * to the file type of the filtered trace. Note that simulators that deal with
+         * these filtered traces will also have to handle the fact that
+         * encoding_size != instruction_length.
+         */
         filter_funcs.emplace_back(
             std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
                 new dynamorio::drmemtrace::encodings2regdeps_t()));
@@ -145,12 +153,6 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
 
     // TODO i#5675: Add other filters.
 
-    /* If we are changing the encoding of trace_entry_t, we will be generating
-     * discrepancies between encoding size and instruction length.  So, we need to tell
-     * reader_t, which here comes in the form of memref_counter_t, to ignore such
-     * discrepancies.  Note that simulators that deal with these filtered traces will
-     * also have to handle the fact that encoding_size != instruction_length.
-     */
     return new dynamorio::drmemtrace::record_filter_t(output_dir, std::move(filter_funcs),
                                                       stop_timestamp, verbose);
 }

@@ -276,7 +276,6 @@ protected:
     // some thread-based checks may not apply.
     bool core_sharded_ = false;
     bool found_filetype_ = false;
-    bool ignore_encoding_size_vs_instr_length_check_ = false;
 
 private:
     memref_t cur_ref_;
