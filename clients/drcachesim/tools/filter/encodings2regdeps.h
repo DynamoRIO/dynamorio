@@ -50,9 +50,9 @@
 namespace dynamorio {
 namespace drmemtrace {
 
-class encoding_filter_t : public record_filter_t::record_filter_func_t {
+class encodings2regdeps_t : public record_filter_t::record_filter_func_t {
 public:
-    encoding_filter_t()
+    encodings2regdeps_t()
     {
     }
 

@@ -140,7 +140,7 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
     if (encodings2regdeps) {
         filter_funcs.emplace_back(
             std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
-                new dynamorio::drmemtrace::encoding_filter_t()));
+                new dynamorio::drmemtrace::encodings2regdeps_t()));
     }
 
     // TODO i#5675: Add other filters.
@@ -168,7 +168,7 @@ record_filter_t::record_filter_t(
      */
     encodings2regdeps_ = false;
     for (auto &filter : filters) {
-        if (dynamic_cast<encoding_filter_t *>(filter.get()) != nullptr) {
+        if (dynamic_cast<encodings2regdeps_t *>(filter.get()) != nullptr) {
             encodings2regdeps_ = true;
             break;
         }
