@@ -341,7 +341,8 @@ opcode_mix_t::print_results()
             return false;
 
         std::cerr << std::setw(15) << sorted[0].second << " : " << std::setw(9)
-                  << "invalid" << "\n";
+                  << "invalid"
+                  << "\n";
     } else {
         for (const auto &keyvals : sorted) {
             std::cerr << std::setw(15) << keyvals.second << " : " << std::setw(9)
