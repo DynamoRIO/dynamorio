@@ -51,9 +51,9 @@ const op_to_instr_info_t op_instr[] = {
     /* Format is:           {A32, T32, T32.it} */
 
     /* OP_INVALID */        {NULL, NULL, NULL},
-    /* OP_UNDECODED */      (const op_to_instr_info_t){(const instr_info_t[]){{1, 0xffffff, 0, "<undecoded>", 0, 0, 0, 0, 0, 0, 0, 0}},
+    /* OP_UNDECODED */      {NULL, NULL, NULL},/*(const op_to_instr_info_t){(const instr_info_t[]){{1, 0xffffff, 0, "<undecoded>", 0, 0, 0, 0, 0, 0, 0, 0}},
                              (const instr_info_t[]){{1, 0xffffff, 0, "<undecoded>", 0, 0, 0, 0, 0, 0, 0, 0}},
-                             (const instr_info_t[]){{1, 0xffffff, 0, "<undecoded>", 0, 0, 0, 0, 0, 0, 0, 0}}},
+                             (const instr_info_t[]){{1, 0xffffff, 0, "<undecoded>", 0, 0, 0, 0, 0, 0, 0, 0}}},*/
     /* OP_CONTD   */        {NULL, NULL, NULL},
     /* OP_LABEL   */        {NULL, NULL, NULL},
 
