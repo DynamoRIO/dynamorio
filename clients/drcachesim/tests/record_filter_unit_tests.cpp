@@ -172,17 +172,6 @@ struct test_case_t {
     std::vector<bool> output;
 };
 
-struct test_entries_t {
-    /* Represents entry in the input trace.
-     */
-    trace_entry_t entry_test;
-    /* Represents corresponding expected entry in the output trace.
-     * XXX i#6662: consider making this into a std::vector<trace_entry_t> to test cases
-     * where DR_ISA_REGDEPS encoding is longer or shorter than entry_test.
-     */
-    trace_entry_t entry_expected;
-};
-
 static bool
 local_create_dir(const char *dir)
 {
@@ -300,101 +289,40 @@ process_entries_and_check_result(test_record_filter_t *record_filter,
     return true;
 }
 
-bool
-process_entries_and_check_result_against_ground_truth(
-    test_record_filter_t *record_filter, const std::vector<test_entries_t> &entries)
-{
-    auto stream = std::unique_ptr<local_stream_t>(new local_stream_t());
-    void *shard_data =
-        record_filter->parallel_shard_init_stream(0, nullptr, stream.get());
-    if (!*record_filter) {
-        fprintf(stderr, "Filtering init failed: %s\n",
-                record_filter->get_error_string().c_str());
-        return false;
-    }
-    // Process each trace entry.
-    for (int i = 0; i < static_cast<int>(entries.size()); ++i) {
-        // We need to emulate the stream for the tool.
-        if (entries[i].entry_test.type == TRACE_TYPE_MARKER &&
-            entries[i].entry_test.size == TRACE_MARKER_TYPE_TIMESTAMP)
-            stream->set_last_timestamp(entries[i].entry_test.addr);
-        if (!record_filter->parallel_shard_memref(shard_data, entries[i].entry_test)) {
-            fprintf(stderr, "Filtering failed on entry %d: %s\n", i,
-                    record_filter->parallel_shard_error(shard_data).c_str());
-            return false;
-        }
-    }
-    if (!record_filter->parallel_shard_exit(shard_data) || !*record_filter) {
-        fprintf(stderr, "Filtering exit failed\n");
-        return false;
-    }
-    if (!record_filter->print_results()) {
-        fprintf(stderr, "Filtering results failed\n");
-        return false;
-    }
-
-    std::vector<trace_entry_t> filtered = record_filter->get_output_entries();
-    // Verbose output for easier debugging.
-    fprintf(stderr, "Input:\n");
-    for (int i = 0; i < static_cast<int>(entries.size()); ++i) {
-        fprintf(stderr, "  %d: ", i);
-        print_entry(entries[i].entry_test);
-        fprintf(stderr, "\n");
-    }
-    fprintf(stderr, "Output:\n");
-    for (int i = 0; i < static_cast<int>(filtered.size()); ++i) {
-        fprintf(stderr, "  %d: ", i);
-        print_entry(filtered[i]);
-        fprintf(stderr, "\n");
-    }
-    // Check filtered output entries.
-    for (int i = 0; i < static_cast<int>(entries.size()); ++i) {
-        if (memcmp(&filtered[i], &entries[i].entry_expected, sizeof(trace_entry_t)) !=
-            0) {
-            fprintf(stderr, "Wrong filter result for at pos=%d. Expected: ", i);
-            print_entry(entries[i].entry_expected);
-            fprintf(stderr, ", got: ");
-            print_entry(filtered[i]);
-            fprintf(stderr, "\n");
-            return false;
-        }
-    }
-    return true;
-}
-
 static bool
 test_encodings2regdeps_filter()
 {
-    std::vector<test_entries_t> entries = {
+    std::vector<test_case_t> entries = {
         // Trace shard header.
-        { { TRACE_TYPE_HEADER, 0, { 0x1 } }, { TRACE_TYPE_HEADER, 0, { 0x1 } } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 0x2 } },
-          { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 0x2 } } },
-        // File type, also modified by the record_filter encodings2regdeps.
+        { { TRACE_TYPE_HEADER, 0, { 0x1 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 0x2 } }, true, { true } },
+        // File type, modified by the record_filter encodings2regdeps.
         { { TRACE_TYPE_MARKER,
             TRACE_MARKER_TYPE_FILETYPE,
             { OFFLINE_FILE_TYPE_ARCH_X86_64 | OFFLINE_FILE_TYPE_ENCODINGS |
               OFFLINE_FILE_TYPE_SYSCALL_NUMBERS | OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS } },
-          { TRACE_TYPE_MARKER,
+          true,
+          { false } },
+        { { TRACE_TYPE_MARKER,
             TRACE_MARKER_TYPE_FILETYPE,
             { OFFLINE_FILE_TYPE_ARCH_REGDEPS | OFFLINE_FILE_TYPE_ENCODINGS |
-              OFFLINE_FILE_TYPE_SYSCALL_NUMBERS |
-              OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS } } },
-        { { TRACE_TYPE_THREAD, 0, { 0x4 } }, { TRACE_TYPE_THREAD, 0, { 0x4 } } },
-        { { TRACE_TYPE_PID, 0, { 0x5 } }, { TRACE_TYPE_PID, 0, { 0x5 } } },
+              OFFLINE_FILE_TYPE_SYSCALL_NUMBERS | OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS } },
+          false,
+          { true } },
+        { { TRACE_TYPE_THREAD, 0, { 0x4 } }, true, { true } },
+        { { TRACE_TYPE_PID, 0, { 0x5 } }, true, { true } },
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 0x6 } },
-          { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 0x6 } } },
+          true,
+          { true } },
         // Unit header.
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x7 } },
-          { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x7 } } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } },
-          { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } } },
-        { { TRACE_TYPE_ENCODING, 4, { 0xe78948 } },
-          { TRACE_TYPE_ENCODING, 8, { 0x0006090600010011 } } },
-        { { TRACE_TYPE_INSTR, 3, { 0x7f6fdd3ec360 } },
-          { TRACE_TYPE_INSTR, 3, { 0x7f6fdd3ec360 } } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x7 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } }, true, { true } },
+        // Encoding, modified by the record_filter encodings2regdeps.
+        { { TRACE_TYPE_ENCODING, 4, { 0xe78948 } }, true, { false } },
+        { { TRACE_TYPE_ENCODING, 8, { 0x0006090600010011 } }, false, { true } },
+        { { TRACE_TYPE_INSTR, 3, { 0x7f6fdd3ec360 } }, true, { true } },
         // Trace shard footer.
-        { { TRACE_TYPE_FOOTER, 0, { 0x0 } }, { TRACE_TYPE_FOOTER, 0, { 0x0 } } },
+        { { TRACE_TYPE_FOOTER, 0, { 0x0 } }, true, { true } },
     };
 
     // Construct record_filter_t.
@@ -409,8 +337,7 @@ test_encodings2regdeps_filter()
     filters.push_back(std::move(encodings2regdeps_filter));
     auto record_filter = std::unique_ptr<test_record_filter_t>(
         new test_record_filter_t(std::move(filters), 0));
-    if (!process_entries_and_check_result_against_ground_truth(record_filter.get(),
-                                                               entries))
+    if (!process_entries_and_check_result(record_filter.get(), entries, 0))
         return false;
 
     fprintf(stderr, "test_encodings2regdeps_filter passed\n");
