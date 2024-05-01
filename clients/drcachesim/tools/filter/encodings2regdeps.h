@@ -50,6 +50,13 @@
 namespace dynamorio {
 namespace drmemtrace {
 
+/* This filter changes the encoding of trace_entry_t and generates discrepancies between
+ * encoding size and instruction length. So, we need to tell reader_t, which here comes in
+ * the form of memref_counter_t used in record_filter, to ignore such discrepancies. We do
+ * so by adding OFFLINE_FILE_TYPE_ARCH_REGDEPS to the file type of the filtered trace.
+ * Note that simulators that deal with these filtered traces will also have to handle the
+ * fact that encoding_size != instruction_length.
+ */
 class encodings2regdeps_t : public record_filter_t::record_filter_func_t {
 public:
     encodings2regdeps_t()
@@ -140,10 +147,12 @@ public:
             }
 
             /* Compute number of trace_entry_t to contain regdeps ISA encoding.
-             * Each trace_entry_t record can contain 8 byte encoding.
+             * Each trace_entry_t record can contain pointer-sized byte encoding
+             * (i.e., 4 bytes for 32 bits architectures and 8 bytes for 64 bits).
              */
-            uint trace_entry_encoding_size = (uint)sizeof(entry.addr); /* == 8 */
-            uint regdeps_encoding_size = (uint)(next_pc_regdeps - encoding_regdeps);
+            uint trace_entry_encoding_size = static_cast<uint>(sizeof(entry.addr));
+            uint regdeps_encoding_size =
+                static_cast<uint>(next_pc_regdeps - encoding_regdeps);
             uint num_regdeps_encoding_entries =
                 ALIGN_FORWARD(regdeps_encoding_size, trace_entry_encoding_size) /
                 trace_entry_encoding_size;
@@ -155,14 +164,12 @@ public:
             uint regdeps_encoding_offset = 0;
             for (trace_entry_t &encoding_entry : *last_encoding) {
                 encoding_entry.type = TRACE_TYPE_ENCODING;
-                uint size = regdeps_encoding_size < trace_entry_encoding_size
-                    ? regdeps_encoding_size
-                    : trace_entry_encoding_size;
-                encoding_entry.size = (unsigned short)size;
+                uint size = std::min(regdeps_encoding_size, trace_entry_encoding_size);
+                encoding_entry.size = static_cast<unsigned short>(size);
                 memset(encoding_entry.encoding, 0, trace_entry_encoding_size);
                 memcpy(encoding_entry.encoding,
                        encoding_regdeps + regdeps_encoding_offset, encoding_entry.size);
-                regdeps_encoding_size -= trace_entry_encoding_size;
+                regdeps_encoding_size -= encoding_entry.size;
                 regdeps_encoding_offset += encoding_entry.size;
             }
         }

@@ -666,8 +666,9 @@ type_is_instr(const trace_type_t type)
 }
 
 /**
- * Returns whether the type represents an instruction.
- * Includes TRACE_TYPE_INSTR_NO_FETCH and TRACE_TYPE_INSTR_MAYBE_FETCH.
+ * Returns whether \p type represents any type of instruction record whether an
+ * instruction fetch or operation hint. This is a superset of type_is_instr() and includes
+ * TRACE_TYPE_INSTR_NO_FETCH.
  */
 static inline bool
 is_any_instr_type(const trace_type_t type)
@@ -900,9 +901,6 @@ typedef enum {
     OFFLINE_FILE_TYPE_ARCH_ARM32 = 0x10,       /**< Recorded on ARM (32-bit). */
     OFFLINE_FILE_TYPE_ARCH_X86_32 = 0x20,      /**< Recorded on x86 (32-bit). */
     OFFLINE_FILE_TYPE_ARCH_X86_64 = 0x40,      /**< Recorded on x86 (64-bit). */
-    OFFLINE_FILE_TYPE_ARCH_ALL = OFFLINE_FILE_TYPE_ARCH_AARCH64 |
-        OFFLINE_FILE_TYPE_ARCH_ARM32 | OFFLINE_FILE_TYPE_ARCH_X86_32 |
-        OFFLINE_FILE_TYPE_ARCH_X86_64, /**< All possible architecture types. */
     /**
      * Instruction addresses filtered online.
      * Note: this file type may transition to non-filtered. If so, the transition is
@@ -980,9 +978,15 @@ typedef enum {
      */
     OFFLINE_FILE_TYPE_CORE_SHARDED = 0x10000,
     /**
-     * Trace filtered by the record_filter tool using encodings2regdeps.
+     * Trace filtered by the record_filter tool using -filter_encodings2regdeps.
      */
     OFFLINE_FILE_TYPE_ARCH_REGDEPS = 0x20000,
+    /**
+     * All possible architecture types, including synthetic ones.
+     */
+    OFFLINE_FILE_TYPE_ARCH_ALL = OFFLINE_FILE_TYPE_ARCH_AARCH64 |
+        OFFLINE_FILE_TYPE_ARCH_ARM32 | OFFLINE_FILE_TYPE_ARCH_X86_32 |
+        OFFLINE_FILE_TYPE_ARCH_X86_64 | OFFLINE_FILE_TYPE_ARCH_REGDEPS,
 } offline_file_type_t;
 
 static inline const char *

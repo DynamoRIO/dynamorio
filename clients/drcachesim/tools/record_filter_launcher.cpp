@@ -121,11 +121,15 @@ static droption_t<uint64_t> op_trim_after_timestamp(
     "Removes all records from the first TRACE_MARKER_TYPE_TIMESTAMP marker with "
     "timestamp larger than the specified value.");
 
+/* XXX i#6369: we should partition our options by tool. This one should belong to the
+ * record_filter partition. For now we add the filter_ prefix to options that should be
+ * used in conjunction with record_filter.
+ */
 droption_t<bool> op_encodings2regdeps(
-    DROPTION_SCOPE_FRONTEND, "encodings2regdeps", false,
+    DROPTION_SCOPE_FRONTEND, "filter_encodings2regdeps", false,
     "Enable converting the encoding of instructions to synthetic ISA DR_ISA_REGDEPS.",
-    "When present, converts the encoding of instructions from a real ISA to the "
-    "DR_ISA_REGDEPS synthetic ISA.");
+    "This option is intended to be used with record_filter. When present, it converts "
+    "the encoding of instructions from a real ISA to the DR_ISA_REGDEPS synthetic ISA.");
 } // namespace
 
 int

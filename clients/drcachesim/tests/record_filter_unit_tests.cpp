@@ -1152,10 +1152,10 @@ test_null_filter()
         std::unique_ptr<record_filter_func_t>(new dynamorio::drmemtrace::null_filter_t());
     std::vector<std::unique_ptr<record_filter_func_t>> filter_funcs;
     filter_funcs.push_back(std::move(null_filter));
-    // We use a very small stop_timestamp for the record filter. This is to verify
-    // that we emit the TRACE_MARKER_TYPE_FILTER_ENDPOINT marker for each thread even
-    // if it starts after the given stop_timestamp. Since the stop_timestamp is so
-    // small, all other entries are expected to stay.
+    // We use a very small stop_timestamp for the record filter. This is to verify that
+    // we emit the TRACE_MARKER_TYPE_FILTER_ENDPOINT marker for each thread even if it
+    // starts after the given stop_timestamp. Since the stop_timestamp is so small, all
+    // other entries are expected to stay.
     static constexpr uint64_t stop_timestamp_us = 1;
     auto record_filter = std::unique_ptr<dynamorio::drmemtrace::record_filter_t>(
         new dynamorio::drmemtrace::record_filter_t(output_dir, std::move(filter_funcs),

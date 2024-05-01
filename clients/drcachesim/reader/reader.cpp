@@ -210,6 +210,10 @@ reader_t::process_input_entry()
                 ++cur_instr_count_;
             // Look for encoding bits that belong to this instr.
             if (last_encoding_.size > 0) {
+                /* OFFLINE_FILE_TYPE_ARCH_REGDEPS traces have encodings with
+                 * size != ifetch. It's a design choice, not an error, hence
+                 * we avoid this sanity check.
+                 */
                 if (!TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, filetype_) &&
                     (last_encoding_.size != cur_ref_.instr.size)) {
                     ERRMSG(
