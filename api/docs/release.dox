@@ -152,8 +152,8 @@ changes:
    DynamoRIO before this change.
  - Changed #dynamorio::drmemtrace::record_filter_t::record_filter_func_t
    parallel_shard_filter() interface.  Added a new parameter of type
-   #dynamorio::drmemtrace::record_filter_info_t that allows record_filter to share data
-   with its filters.
+   #dynamorio::drmemtrace::record_filter_t::record_filter_info_t that allows record_filter
+   to share data with its filters.
 
 Further non-compatibility-affecting changes include:
  - Added DWARF-5 support to the drsyms library by linking in 4 static libraries
