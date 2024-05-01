@@ -571,26 +571,34 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
 template <typename RecordType, typename ReaderType>
 bool
 analyzer_tmpl_t<RecordType, ReaderType>::process_shard_exit(
-    analyzer_worker_data_t *worker, int shard_index)
+    analyzer_worker_data_t *worker, int shard_index, bool do_process_final_interval)
 {
     VPRINT(this, 1, "Worker %d finished trace shard %s\n", worker->index,
            worker->stream->get_stream_name().c_str());
     worker->shard_data[shard_index].exited = true;
-    if ((interval_microseconds_ != 0 || interval_instr_count_ != 0) &&
-        (!process_interval(worker->shard_data[shard_index].cur_interval_index,
-                           worker->shard_data[shard_index].cur_interval_init_instr_count,
-                           worker,
-                           /*parallel=*/true, /*at_instr_record=*/false, shard_index) ||
-         !finalize_interval_snapshots(worker, /*parallel=*/true, shard_index)))
-        return false;
+    if (interval_microseconds_ != 0 || interval_instr_count_ != 0) {
+        if (!do_process_final_interval) {
+            ERRMSG(
+                "i#6793: Skipping process_interval for final interval of shard id %d\n",
+                shard_index);
+        } else if (!process_interval(
+                       worker->shard_data[shard_index].cur_interval_index,
+                       worker->shard_data[shard_index].cur_interval_init_instr_count,
+                       worker,
+                       /*parallel=*/true, /*at_instr_record=*/false, shard_index)) {
+            return false;
+        }
+        if (!finalize_interval_snapshots(worker, /*parallel=*/true, shard_index)) {
+            return false;
+        }
+    }
     for (int i = 0; i < num_tools_; ++i) {
         if (!tools_[i]->parallel_shard_exit(
                 worker->shard_data[shard_index].tool_data[i].shard_data)) {
             worker->error = tools_[i]->parallel_shard_error(
                 worker->shard_data[shard_index].tool_data[i].shard_data);
-            VPRINT(this, 1, "Worker %d hit shard exit error %s on trace shard %s\n",
-                   worker->index, worker->error.c_str(),
-                   worker->stream->get_stream_name().c_str());
+            VPRINT(this, 1, "Worker %d hit shard exit error %s on trace shard index %d\n",
+                   worker->index, worker->error.c_str(), shard_index);
             return false;
         }
     }
@@ -693,9 +701,18 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks_internal(
             }
         }
     }
+    // i#6444: Workaround for cases where there is a missing thread final record in
+    // non-core-sharded traces, in which case we have not yet invoked
+    // process_shard_exit.
     for (const auto &keyval : worker->shard_data) {
         if (!keyval.second.exited) {
-            if (!process_shard_exit(worker, keyval.second.shard_index)) {
+            // i#6793: We skip processing the final interval for shards exited here
+            // if the stream has already moved on and cannot provide the state for
+            // the shard anymore.
+            bool do_process_final_interval =
+                keyval.second.shard_index == worker->stream->get_shard_index();
+            if (!process_shard_exit(worker, keyval.second.shard_index,
+                                    do_process_final_interval)) {
                 return false;
             }
         }

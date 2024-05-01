@@ -764,6 +764,145 @@ test_non_zero_interval(bool parallel, bool combine_only_active_shards = true)
 }
 
 static bool
+test_non_zero_interval_i6793_workaround(bool parallel,
+                                        bool combine_only_active_shards = true)
+{
+    constexpr uint64_t kIntervalMicroseconds = 100;
+    constexpr uint64_t kNoIntervalInstrCount = 0;
+    std::vector<memref_t> refs = {
+        // Trace for a single worker which has two constituent shards. (scheduler_t
+        // does not guarantee that workers will process shards one after the other.)
+        // Expected active interval_id: tid_51_local | tid_52_local | whole_trace
+        gen_marker(51, TRACE_MARKER_TYPE_TIMESTAMP, 40),  // 1 | _ | 1
+        gen_instr(51, 10000),                             // 1 | _ | 1
+        gen_data(51, true, 1234, 4),                      // 1 | _ | 1
+        gen_marker(52, TRACE_MARKER_TYPE_TIMESTAMP, 151), // _ | 1 | 2
+        gen_instr(52, 20000),                             // _ | 1 | 2
+        gen_marker(51, TRACE_MARKER_TYPE_TIMESTAMP, 170), // 2 | _ | 2
+        gen_instr(51, 10008),                             // 2 | _ | 2
+        gen_marker(51, TRACE_MARKER_TYPE_TIMESTAMP, 201), // 3 | _ | 3
+        gen_instr(51, 20004),                             // 3 | _ | 3
+        gen_marker(52, TRACE_MARKER_TYPE_TIMESTAMP, 210), // _ | 2 | 3
+        gen_instr(52, 20008),                             // _ | 2 | 3
+        gen_marker(52, TRACE_MARKER_TYPE_TIMESTAMP, 270), // _ | 2 | 3
+        gen_instr(52, 20008),                             // _ | 2 | 3
+        gen_marker(52, TRACE_MARKER_TYPE_TIMESTAMP, 490), // _ | 4 | 5
+        gen_instr(52, 20012),                             // _ | 4 | 5
+        gen_marker(51, TRACE_MARKER_TYPE_TIMESTAMP, 590), // 6 | _ | 6
+        // Missing thread exit for tid=51. Would cause the last interval
+        // of this thread to not be processed and included in results.
+        gen_marker(52, TRACE_MARKER_TYPE_TIMESTAMP, 610), // _ | 6 | 7
+        gen_instr(52, 20016),                             // _ | 6 | 7
+        // Missing thread exit for tid=52. Would not matter that it's missing
+        // because the stream ends with tid=52 therefore can still provide
+        // the state required for generating the interval snapshot here.
+    };
+
+    std::vector<std::vector<recorded_snapshot_t>> expected_state_snapshots;
+    if (!parallel) {
+        // Each whole trace interval is made up of only one snapshot, the
+        // serial snapshot.
+        expected_state_snapshots = { {
+            // Format:
+            // <interval_id, interval_end_timestamp, instr_count_cumulative,
+            //  instr_count_delta, <tid, seen_memrefs, interval_id>>
+            recorded_snapshot_t(1, 100, 1, 1, { { SERIAL_TID, 3, 1 } }),
+            recorded_snapshot_t(2, 200, 3, 2, { { SERIAL_TID, 7, 2 } }),
+            recorded_snapshot_t(3, 300, 6, 3, { { SERIAL_TID, 13, 3 } }),
+            recorded_snapshot_t(5, 500, 7, 1, { { SERIAL_TID, 15, 5 } }),
+            recorded_snapshot_t(6, 600, 7, 0, { { SERIAL_TID, 16, 6 } }),
+            recorded_snapshot_t(7, 700, 8, 1, { { SERIAL_TID, 18, 7 } }),
+        } };
+    } else if (combine_only_active_shards) {
+        // Each whole trace interval is made up of snapshots from each
+        // shard that was active in that interval.
+        expected_state_snapshots = {
+            { // Format:
+              // <interval_id, interval_end_timestamp, instr_count_cumulative,
+              //  instr_count_delta, <tid, seen_memrefs, interval_id>>
+              recorded_snapshot_t(1, 100, 1, 1, { { 51, 3, 1 } }),
+              // Narration: The whole-trace interval_id=2 with interval_end_timestamp=200
+              // is made up of the following two shard-local interval snapshots:
+              // - from shard_id=51, the interval_id=2 that ends at the local_memref=5
+              // - from shard_id=52, the interval_id=1 that ends at the local_memref=2
+              recorded_snapshot_t(2, 200, 3, 2, { { 51, 5, 2 }, { 52, 2, 1 } }),
+              recorded_snapshot_t(3, 300, 6, 3, { { 51, 7, 3 }, { 52, 6, 2 } }),
+              recorded_snapshot_t(5, 500, 7, 1, { { 52, 8, 4 } }),
+              // No interval-6 including tid=51 because of its missing thread exit.
+              // In such cases, instead of generating a likely faulty interval with
+              // wrong interval_end_timestamp, instr_count_cumulative, and
+              // instr_count_delta, we simply skip the final interval for that thread.
+              recorded_snapshot_t(7, 700, 8, 1, { { 52, 10, 6 } }) }
+        };
+    } else {
+        // Each whole trace interval is made up of last snapshots from all trace shards.
+        expected_state_snapshots = {
+            { { // Format:
+                // <interval_id, interval_end_timestamp, instr_count_cumulative,
+                //  instr_count_delta, <tid, seen_memrefs, interval_id>>
+                recorded_snapshot_t(1, 100, 1, 1, { { 51, 3, 1 } }),
+                recorded_snapshot_t(2, 200, 3, 2, { { 51, 5, 2 }, { 52, 2, 1 } }),
+                recorded_snapshot_t(3, 300, 6, 3, { { 51, 7, 3 }, { 52, 6, 2 } }),
+                recorded_snapshot_t(5, 500, 7, 1, { { 51, 7, 3 }, { 52, 8, 4 } }),
+                // No interval-6 including tid=51 because of its missing thread exit.
+                // So the interval merge logic did not observe any activity during the
+                // interval-6.
+                recorded_snapshot_t(7, 700, 8, 1, { { 51, 7, 3 }, { 52, 10, 6 } }) } }
+        };
+    }
+    std::vector<analysis_tool_t *> tools;
+    auto test_analysis_tool = std::unique_ptr<test_analysis_tool_t>(
+        new test_analysis_tool_t(expected_state_snapshots, combine_only_active_shards));
+    tools.push_back(test_analysis_tool.get());
+    auto dummy_analysis_tool =
+        std::unique_ptr<dummy_analysis_tool_t>(new dummy_analysis_tool_t());
+    tools.push_back(dummy_analysis_tool.get());
+    test_analyzer_t test_analyzer(refs, &tools[0], (int)tools.size(), parallel,
+                                  kIntervalMicroseconds, kNoIntervalInstrCount);
+    if (!test_analyzer) {
+        FATAL_ERROR("failed to initialize test analyzer: %s",
+                    test_analyzer.get_error_string().c_str());
+    }
+    if (!test_analyzer.run()) {
+        FATAL_ERROR("failed to run test_analyzer: %s",
+                    test_analyzer.get_error_string().c_str());
+    }
+    if (!test_analyzer.print_stats()) {
+        FATAL_ERROR("failed to print stats: %s",
+                    test_analyzer.get_error_string().c_str());
+    }
+    if (test_analysis_tool.get()->get_outstanding_snapshot_count() != 0) {
+        std::cerr << "Failed to release all outstanding snapshots: "
+                  << test_analysis_tool.get()->get_outstanding_snapshot_count()
+                  << " left\n";
+        return false;
+    }
+    if (test_analysis_tool.get()->get_outstanding_print_interval_results_calls() != 0) {
+        std::cerr
+            << "Missing "
+            << test_analysis_tool.get()->get_outstanding_print_interval_results_calls()
+            << " print_interval_result() calls\n";
+        return false;
+    }
+    // One fewer generate snapshot call in parallel mode because of the missing thread
+    // exit for tid=51.
+    int expected_generate_call_count = parallel ? 7 : 6;
+    if (dummy_analysis_tool.get()->get_generate_snapshot_count() !=
+        expected_generate_call_count) {
+        std::cerr << "Dummy analysis tool got "
+                  << dummy_analysis_tool.get()->get_generate_snapshot_count()
+                  << " interval API calls, but expected " << expected_generate_call_count
+                  << "\n";
+        return false;
+    }
+    fprintf(stderr,
+            "test_non_zero_interval_i6793_workaround done for parallel=%d, "
+            "combine_only_active_shards=%d\n",
+            parallel, combine_only_active_shards);
+    return true;
+}
+
+static bool
 test_non_zero_instr_interval(bool parallel)
 {
     constexpr uint64_t kNoIntervalMicroseconds = 0;
@@ -871,12 +1010,142 @@ test_non_zero_instr_interval(bool parallel)
     return true;
 }
 
+static bool
+test_non_zero_instr_interval_i6793_workaround(bool parallel)
+{
+    constexpr uint64_t kNoIntervalMicroseconds = 0;
+    constexpr uint64_t kIntervalInstrCount = 2;
+    std::vector<memref_t> refs = {
+        // Trace for a single worker which has two constituent shards. (scheduler_t
+        // does not guarantee that workers will process shards one after the other.)
+        // Expected active interval_id: tid_51_local | tid_52_local | whole_trace
+        gen_marker(51, TRACE_MARKER_TYPE_TIMESTAMP, 40),  // 1 | _ | 1
+        gen_instr(51, 10000),                             // 1 | _ | 1
+        gen_data(51, true, 1234, 4),                      // 1 | _ | 1
+        gen_marker(52, TRACE_MARKER_TYPE_TIMESTAMP, 151), // _ | 1 | 1
+        gen_instr(52, 20000),                             // _ | 1 | 1
+        gen_marker(51, TRACE_MARKER_TYPE_TIMESTAMP, 170), // 1 | _ | 1
+        gen_instr(51, 10008),                             // 1 | _ | 2
+        gen_marker(51, TRACE_MARKER_TYPE_TIMESTAMP, 201), // 1 | _ | 2
+        gen_instr(51, 20004),                             // 2 | _ | 2
+        gen_marker(52, TRACE_MARKER_TYPE_TIMESTAMP, 210), // _ | 1 | 2
+        gen_instr(52, 20008),                             // _ | 1 | 3
+        gen_marker(52, TRACE_MARKER_TYPE_TIMESTAMP, 270), // _ | 1 | 3
+        gen_instr(52, 20008),                             // _ | 2 | 3
+        gen_marker(52, TRACE_MARKER_TYPE_TIMESTAMP, 490), // _ | 2 | 3
+        gen_instr(52, 20012),                             // _ | 2 | 4
+        gen_marker(51, TRACE_MARKER_TYPE_TIMESTAMP, 590), // 2 | _ | 4
+        // Missing thread exit for tid=51. Would cause the last interval
+        // of this thread to not be processed and included in results.
+        gen_marker(52, TRACE_MARKER_TYPE_TIMESTAMP, 610), // _ | 2 | 4
+        gen_instr(52, 20016),                             // _ | 3 | 4
+        // Missing thread exit for tid=52. Would not matter that it's missing
+        // because the stream ends with tid=52 therefore can still provide
+        // the state required for generating the interval snapshot here.
+    };
+
+    std::vector<std::vector<recorded_snapshot_t>> expected_state_snapshots;
+    if (!parallel) {
+        // Each whole trace interval is made up of only one snapshot, the
+        // serial snapshot.
+        // The missing exit for tid=51 does not affect the serial intervals.
+        expected_state_snapshots = {
+            { // Format:
+              // <interval_id, interval_end_timestamp, instr_count_cumulative,
+              //  instr_count_delta, <tid, seen_memrefs, interval_id>>
+              recorded_snapshot_t(1, 170, 2, 2, { { SERIAL_TID, 6, 1 } }),
+              recorded_snapshot_t(2, 210, 4, 2, { { SERIAL_TID, 10, 2 } }),
+              recorded_snapshot_t(3, 490, 6, 2, { { SERIAL_TID, 14, 3 } }),
+              recorded_snapshot_t(4, 610, 8, 2, { { SERIAL_TID, 18, 4 } }) }
+        };
+    } else {
+        // For instr count intervals, we do not merge the shard intervals to form the
+        // whole-trace intervals. Instead, there are multiple print_interval_result
+        // calls, one for the interval snapshots of each shard. The shard_id is
+        // included in the provided interval snapshots (see below).
+        expected_state_snapshots = {
+            // Format:
+            // <shard_id, interval_id, interval_end_timestamp, instr_count_cumulative,
+            //  instr_count_delta, <tid, seen_memrefs, interval_id>>
+            {
+                recorded_snapshot_t(51, 1, 201, 2, 2, { { 51, 6, 1 } }),
+                // We do not see any recorded snapshot for the second interval on tid=51
+                // because tid=51 is missing a thread exit (a bug that affects some traces
+                // prior to the i#6444 fix). In such cases, instead of generating a
+                // likely faulty interval with wrong interval_end_timestamp,
+                // instr_count_cumulative, and instr_count_delta, we simply skip the
+                // final interval for that thread.
+            },
+            { recorded_snapshot_t(52, 1, 270, 2, 2, { { 52, 5, 1 } }),
+              recorded_snapshot_t(52, 2, 610, 4, 2, { { 52, 9, 2 } }),
+              // Even though a thread exit record is missing for tid=52, it still
+              // generates a final interval, because tid=52 is the last thread in the
+              // stream.
+              recorded_snapshot_t(52, 3, 610, 5, 1, { { 52, 10, 3 } }) },
+        };
+    }
+    std::vector<analysis_tool_t *> tools;
+    constexpr bool kNopCombineOnlyActiveShards = false;
+    auto test_analysis_tool = std::unique_ptr<test_analysis_tool_t>(
+        new test_analysis_tool_t(expected_state_snapshots, kNopCombineOnlyActiveShards));
+    tools.push_back(test_analysis_tool.get());
+    auto dummy_analysis_tool =
+        std::unique_ptr<dummy_analysis_tool_t>(new dummy_analysis_tool_t());
+    tools.push_back(dummy_analysis_tool.get());
+    test_analyzer_t test_analyzer(refs, &tools[0], (int)tools.size(), parallel,
+                                  kNoIntervalMicroseconds, kIntervalInstrCount);
+    if (!test_analyzer) {
+        FATAL_ERROR("failed to initialize test analyzer: %s",
+                    test_analyzer.get_error_string().c_str());
+    }
+    if (!test_analyzer.run()) {
+        FATAL_ERROR("failed to run test_analyzer: %s",
+                    test_analyzer.get_error_string().c_str());
+    }
+    if (!test_analyzer.print_stats()) {
+        FATAL_ERROR("failed to print stats: %s",
+                    test_analyzer.get_error_string().c_str());
+    }
+    if (test_analysis_tool.get()->get_outstanding_snapshot_count() != 0) {
+        std::cerr << "Failed to release all outstanding snapshots: "
+                  << test_analysis_tool.get()->get_outstanding_snapshot_count()
+                  << " left\n";
+        return false;
+    }
+    if (test_analysis_tool.get()->get_outstanding_print_interval_results_calls() != 0) {
+        std::cerr
+            << "Missing "
+            << test_analysis_tool.get()->get_outstanding_print_interval_results_calls()
+            << " print_interval_result() calls\n";
+        return false;
+    }
+    // One fewer generate call because of the missing thread exit on tid=51.
+    int expected_generate_call_count = parallel ? 4 : 4;
+    if (dummy_analysis_tool.get()->get_generate_snapshot_count() !=
+        expected_generate_call_count) {
+        std::cerr << "Dummy analysis tool got "
+                  << dummy_analysis_tool.get()->get_generate_snapshot_count()
+                  << " interval API calls, but expected " << expected_generate_call_count
+                  << "\n";
+        return false;
+    }
+    fprintf(stderr,
+            "test_non_zero_instr_interval_i6793_workaround done for parallel=%d\n",
+            parallel);
+    return true;
+}
+
 int
 test_main(int argc, const char *argv[])
 {
     if (!test_non_zero_interval(false) || !test_non_zero_interval(true, true) ||
         !test_non_zero_interval(true, false) || !test_non_zero_instr_interval(false) ||
-        !test_non_zero_instr_interval(true))
+        !test_non_zero_instr_interval(true) ||
+        !test_non_zero_interval_i6793_workaround(false) ||
+        !test_non_zero_interval_i6793_workaround(true, true) ||
+        !test_non_zero_interval_i6793_workaround(true, false) ||
+        !test_non_zero_instr_interval_i6793_workaround(false) ||
+        !test_non_zero_instr_interval_i6793_workaround(true))
         return 1;
     fprintf(stderr, "All done!\n");
     return 0;
