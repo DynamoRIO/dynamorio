@@ -158,7 +158,11 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
         shard->filetype = static_cast<offline_file_type_t>(memref.marker.marker_value);
-        if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL, memref.marker.marker_value) &&
+        /* We remove OFFLINE_FILE_TYPE_ARCH_REGDEPS from this check since DR_ISA_REGDEPS
+         * is not a real ISA and can coexist with any real architecture.
+         */
+        if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL | ~OFFLINE_FILE_TYPE_ARCH_REGDEPS,
+                    memref.marker.marker_value) &&
             !TESTANY(build_target_arch_type(), memref.marker.marker_value)) {
             shard->error = std::string("Architecture mismatch: trace recorded on ") +
                 trace_arch_string(static_cast<offline_file_type_t>(
@@ -419,16 +423,16 @@ opcode_mix_t::print_interval_results(
         const auto *snap = reinterpret_cast<const snapshot_t *>(base_snap);
         std::cerr << "ID:" << snap->get_interval_id() << " ending at instruction "
                   << snap->get_instr_count_cumulative() << " has "
-                  << snap->opcode_counts_.size() << " opcodes"
-                  << " and " << snap->category_counts_.size() << " categories.\n";
+                  << snap->opcode_counts_.size() << " opcodes" << " and "
+                  << snap->category_counts_.size() << " categories.\n";
         std::vector<std::pair<int, int64_t>> sorted(snap->opcode_counts_.begin(),
                                                     snap->opcode_counts_.end());
         std::sort(sorted.begin(), sorted.end(), cmp_val);
         for (int i = 0; i < PRINT_TOP_N && i < static_cast<int>(sorted.size()); ++i) {
             std::cerr << "   [" << i + 1 << "]"
                       << " Opcode: " << decode_opcode_name(sorted[i].first) << " ("
-                      << sorted[i].first << ")"
-                      << " Count=" << sorted[i].second << " PKI="
+                      << sorted[i].first << ")" << " Count=" << sorted[i].second
+                      << " PKI="
                       << sorted[i].second * 1000.0 / snap->get_instr_count_delta()
                       << "\n";
         }
