@@ -65,9 +65,12 @@ public:
     }
 
     bool
-    parallel_shard_filter(trace_entry_t &entry, void *shard_data,
-                          std::vector<trace_entry_t> &last_encoding) override
+    parallel_shard_filter(
+        trace_entry_t &entry, void *shard_data,
+        record_filter_t::record_filter_info_t &record_filter_info) override
     {
+        std::vector<trace_entry_t> *last_encoding = record_filter_info.last_encoding;
+
         /* Modify file_type to regdeps ISA, removing the real ISA of the input trace.
          */
         trace_type_t entry_type = static_cast<trace_type_t>(entry.type);
@@ -76,8 +79,7 @@ public:
                 static_cast<trace_marker_type_t>(entry.size);
             if (marker_type == TRACE_MARKER_TYPE_FILETYPE) {
                 uint64_t marker_value = static_cast<uint64_t>(entry.addr);
-                marker_value &= ~OFFLINE_FILE_TYPE_ARCH_ALL;
-                marker_value |= OFFLINE_FILE_TYPE_ARCH_REGDEPS;
+                marker_value = add_to_filetype(marker_value);
                 entry.addr = static_cast<addr_t>(marker_value);
             }
         }
@@ -91,7 +93,7 @@ public:
          * last_encoding already contains its encoding.
          */
         if (is_any_instr_type(static_cast<trace_type_t>(entry.type)) &&
-            !last_encoding.empty()) {
+            !last_encoding->empty()) {
             /* Gather real ISA encoding bytes looping through all previously saved
              * encoding bytes in last_encoding.
              */
@@ -99,7 +101,7 @@ public:
             byte encoding[MAX_ENCODING_LENGTH];
             memset(encoding, 0, sizeof(encoding));
             uint encoding_offset = 0;
-            for (auto &trace_encoding : last_encoding) {
+            for (auto &trace_encoding : *last_encoding) {
                 memcpy(encoding + encoding_offset, trace_encoding.encoding,
                        trace_encoding.size);
                 encoding_offset += trace_encoding.size;
@@ -145,13 +147,13 @@ public:
             uint num_regdeps_encoding_entries =
                 ALIGN_FORWARD(regdeps_encoding_size, trace_entry_encoding_size) /
                 trace_entry_encoding_size;
-            last_encoding.resize(num_regdeps_encoding_entries);
+            last_encoding->resize(num_regdeps_encoding_entries);
 
             /* Copy regdeps ISA encoding, splitting it among the last_encoding
              * trace_entry_t records.
              */
             uint regdeps_encoding_offset = 0;
-            for (trace_entry_t &encoding_entry : last_encoding) {
+            for (trace_entry_t &encoding_entry : *last_encoding) {
                 encoding_entry.type = TRACE_TYPE_ENCODING;
                 uint size = regdeps_encoding_size < trace_entry_encoding_size
                     ? regdeps_encoding_size
@@ -171,6 +173,14 @@ public:
     parallel_shard_exit(void *shard_data) override
     {
         return true;
+    }
+
+    uint64_t
+    add_to_filetype(uint64_t filetype) override
+    {
+        filetype &= ~OFFLINE_FILE_TYPE_ARCH_ALL;
+        filetype |= OFFLINE_FILE_TYPE_ARCH_REGDEPS;
+        return filetype;
     }
 
 private:

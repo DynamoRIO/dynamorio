@@ -166,15 +166,6 @@ record_filter_t::record_filter_t(
     , stop_timestamp_(stop_timestamp)
     , verbosity_(verbose)
 {
-    /* Check if encodings2regdeps filter is present.
-     */
-    encodings2regdeps_ = false;
-    for (auto &filter : filters) {
-        if (dynamic_cast<encodings2regdeps_t *>(filter.get()) != nullptr) {
-            encodings2regdeps_ = true;
-            break;
-        }
-    }
     UNUSED(verbosity_);
     UNUSED(output_prefix_);
 }
@@ -403,6 +394,7 @@ record_filter_t::parallel_shard_init_stream(int shard_index, void *worker_data,
             success_ = false;
         }
     }
+    per_shard->record_filter_info.last_encoding = &per_shard->last_encoding;
     std::lock_guard<std::mutex> guard(shard_map_mutex_);
     shard_map_[shard_index] = per_shard;
     return reinterpret_cast<void *>(per_shard);
@@ -605,7 +597,10 @@ record_filter_t::process_chunk_encodings(per_shard_t *per_shard, trace_entry_t &
         // XXX: What if there is a filter removing all encodings but only
         // to the stop point, so a partial remove that does not change
         // the filetype?  For now we do not support that, and we re-add
-        // encodings at chunk boundaries regardless.
+        // encodings at chunk boundaries regardless. Note that filters that modify
+        // encodings (even if they add or remove trace_entry_t records) do not incurr in
+        // this problem and we don't need support for partial removal of encodings in this
+        // case. An example of such filters is encodings2regdeps_t.
         if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, per_shard->filetype) &&
             per_shard->cur_chunk_pcs.find(entry.addr) == per_shard->cur_chunk_pcs.end()) {
             if (per_shard->per_input == nullptr)
@@ -622,14 +617,19 @@ record_filter_t::process_chunk_encodings(per_shard_t *per_shard, trace_entry_t &
                    per_shard->chunk_ordinal, per_shard->cur_refs);
             // Sanity check that the encoding size is correct.
             const auto &enc = per_shard->per_input->pc2encoding[entry.addr];
-            size_t enc_sz = 0;
-            // Since all but the last entry are fixed-size we could avoid a loop
-            // but the loop is easier to read and we have just 1 or 2 iters.
-            for (const auto &record : enc)
-                enc_sz += record.size;
-            if (enc_sz != entry.size) {
-                return "New-chunk encoding size " + std::to_string(enc_sz) +
-                    " != instr size " + std::to_string(entry.size);
+            /* OFFLINE_FILE_TYPE_ARCH_REGDEPS traces have encodings with size != ifetch.
+             * It's a design choice, not an error, hence we avoid this sanity check.
+             */
+            if (!TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, per_shard->filetype)) {
+                size_t enc_sz = 0;
+                // Since all but the last entry are fixed-size we could avoid a loop
+                // but the loop is easier to read and we have just 1 or 2 iters.
+                for (const auto &record : enc)
+                    enc_sz += record.size;
+                if (enc_sz != entry.size) {
+                    return "New-chunk encoding size " + std::to_string(enc_sz) +
+                        " != instr size " + std::to_string(entry.size);
+                }
             }
             if (!write_trace_entries(per_shard, enc)) {
                 return "Failed to write";
@@ -658,7 +658,10 @@ record_filter_t::process_delayed_encodings(per_shard_t *per_shard, trace_entry_t
     } else if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, per_shard->filetype)) {
         // Output if we have encodings that haven't yet been output, and
         // there is no filter removing all encodings (we don't support
-        // partial encoding removal).
+        // partial encoding removal). Note that filters that modify encodings (even if
+        // they add or remove trace_entry_t records) do not incurr in this problem and we
+        // don't need support for partial removal of encodings in this case. An example
+        // of such filters is encodings2regdeps_t.
         // We check prev_was_output to rule out filtered-out encodings
         // (we record all encodings for new-chunk insertion).
         if (!per_shard->last_encoding.empty() && per_shard->prev_was_output) {
@@ -755,8 +758,9 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &in
     }
     if (per_shard->enabled) {
         for (int i = 0; i < static_cast<int>(filters_.size()); ++i) {
-            if (!filters_[i]->parallel_shard_filter(
-                    entry, per_shard->filter_shard_data[i], per_shard->last_encoding)) {
+            if (!filters_[i]->parallel_shard_filter(entry,
+                                                    per_shard->filter_shard_data[i],
+                                                    per_shard->record_filter_info)) {
                 output = false;
             }
             if (!filters_[i]->get_error_string().empty()) {

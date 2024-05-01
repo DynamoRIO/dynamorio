@@ -49,6 +49,7 @@
  * this macro magic is unnecessary.
  * http://msdn.microsoft.com/en-us/library/xa0d9ste.aspx
  */
+#include "opcode_api.h"
 #define INSTR_INLINE extern inline
 
 #include "../globals.h"
@@ -3141,6 +3142,12 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
      * Must be done after instr_allocate_raw_bits(), which sets operands as invalid.
      */
     instr_set_operands_valid(instr_regdeps_isa, true);
+
+    /* Set opcode as OP_UNDECODED, so routines like instr_valid() can still work.
+     * We can't use instr_set_opcode() because of its CLIENT_ASSERT when setting the
+     * opcode to OP_UNDECODED or OP_INVALID.
+     */
+    instr_regdeps_isa->opcode = OP_UNDECODED;
 
     /* Set converted instruction ISA mode to be DR_ISA_REGDEPS.
      */

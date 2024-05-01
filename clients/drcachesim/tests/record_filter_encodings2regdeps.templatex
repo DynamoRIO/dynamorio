@@ -1,10 +1,11 @@
+Hello, world!
+
+Trace invariant checks passed
+
 Output .* entries from .* entries.
-Schedule stats tool results:
+
+Opcode mix tool results:
+
+    *[0-9]* : total executed instructions
+    *[0-9]* : <undecoded>
 .*
-Core #0 schedule: .*
-Core #1 schedule: .*
-Core #2 schedule: .*
-Core #3 schedule: .*
-Core #4 schedule: .*
-Core #5 schedule: .*
-Core #6 schedule: .*

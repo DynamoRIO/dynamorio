@@ -166,6 +166,9 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
                 " but tool built for " + trace_arch_string(build_target_arch_type());
             return false;
         }
+        /* If we are dealing with a regdeps trace, we need to set the dcontext ISA mode
+         * to the correct synthetic ISA (i.e., DR_ISA_REGDEPS).
+         */
         if (TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, memref.marker.marker_value))
             dr_set_isa_mode(dcontext_.dcontext, DR_ISA_REGDEPS, nullptr);
     } else if (memref.marker.type == TRACE_TYPE_MARKER &&
@@ -235,17 +238,10 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         instr_init(dcontext_.dcontext, &instr);
         app_pc next_pc =
             decode_from_copy(dcontext_.dcontext, decode_pc, trace_pc, &instr);
-        if (next_pc == NULL) {
+        if (next_pc == NULL || !instr_valid(&instr)) {
             instr_free(dcontext_.dcontext, &instr);
             shard->error =
                 "Failed to decode instruction " + to_hex_string(memref.instr.addr);
-            return false;
-        }
-        if (!TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, shard->filetype) &&
-            !instr_valid(&instr)) {
-            instr_free(dcontext_.dcontext, &instr);
-            shard->error = "Failed to decode instruction (invalid) " +
-                to_hex_string(memref.instr.addr);
             return false;
         }
         opcode = instr_get_opcode(&instr);
@@ -334,20 +330,9 @@ opcode_mix_t::print_results()
     std::vector<std::pair<int, int64_t>> sorted(total.opcode_counts.begin(),
                                                 total.opcode_counts.end());
     std::sort(sorted.begin(), sorted.end(), cmp_val);
-    if (TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, total.filetype)) {
-        /* There should be only one opcode: OP_INVALID.
-         */
-        if (sorted.size() != 1)
-            return false;
-
-        std::cerr << std::setw(15) << sorted[0].second << " : " << std::setw(9)
-                  << "invalid"
-                  << "\n";
-    } else {
-        for (const auto &keyvals : sorted) {
-            std::cerr << std::setw(15) << keyvals.second << " : " << std::setw(9)
-                      << decode_opcode_name(keyvals.first) << "\n";
-        }
+    for (const auto &keyvals : sorted) {
+        std::cerr << std::setw(15) << keyvals.second << " : " << std::setw(9)
+                  << decode_opcode_name(keyvals.first) << "\n";
     }
     std::cerr << "\n";
     std::cerr << std::setw(15) << total.category_counts.size()

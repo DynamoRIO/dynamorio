@@ -62,6 +62,13 @@ namespace drmemtrace {
 class record_filter_t : public record_analysis_tool_t {
 public:
     /**
+     * Interface for the record_filter to share data with its filters.
+     */
+    struct record_filter_info_t {
+        std::vector<trace_entry_t> *last_encoding;
+    };
+
+    /**
      * The base class for a single filter.
      */
     class record_filter_func_t {
@@ -94,10 +101,12 @@ public:
          * the trace if other filter tools are present, and may include changes
          * made by other tools.
          * An error is indicated by setting error_string_ to a non-empty value.
+         * \p record_filter_info is the interface used by record_filter to
+         * share data with its filters.
          */
         virtual bool
         parallel_shard_filter(trace_entry_t &entry, void *shard_data,
-                              std::vector<trace_entry_t> &last_encoding) = 0;
+                              record_filter_info_t &record_filter_info) = 0;
         /**
          * Invoked when all #trace_entry_t in a shard have been processed
          * by parallel_shard_filter(). \p shard_data is same as what was
@@ -113,6 +122,17 @@ public:
         get_error_string()
         {
             return error_string_;
+        }
+
+        /**
+         * If a filter modifies the file type of a trace, its changes should be made here,
+         * so they are visible to the record_filter even if the #trace_entry_t containing
+         * the file type marker is not modified.
+         */
+        virtual uint64_t
+        add_to_filetype(uint64_t filetype)
+        {
+            return filetype;
         }
 
     protected:
@@ -189,6 +209,7 @@ protected:
         trace_entry_t last_written_record;
         // Cached value updated on context switches.
         per_input_t *per_input = nullptr;
+        record_filter_info_t record_filter_info;
     };
 
     virtual std::string
@@ -253,9 +274,10 @@ private:
             filetype |= OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP;
         if (shard_type_ == SHARD_BY_CORE)
             filetype |= OFFLINE_FILE_TYPE_CORE_SHARDED;
-        if (encodings2regdeps_) {
-            filetype &= ~OFFLINE_FILE_TYPE_ARCH_ALL;
-            filetype |= OFFLINE_FILE_TYPE_ARCH_REGDEPS;
+        /* If filters modify the file type, add their changes here.
+         */
+        for (auto &filter : filters_) {
+            filetype = filter->add_to_filetype(filetype);
         }
         return filetype;
     }
@@ -264,7 +286,6 @@ private:
     std::vector<std::unique_ptr<record_filter_func_t>> filters_;
     uint64_t stop_timestamp_;
     unsigned int verbosity_;
-    bool encodings2regdeps_;
     const char *output_prefix_ = "[record_filter]";
     // For core-sharded, but used for thread-sharded to simplify the code.
     std::mutex input2info_mutex_;
