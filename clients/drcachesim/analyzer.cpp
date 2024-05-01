@@ -578,9 +578,9 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_shard_exit(
     worker->shard_data[shard_index].exited = true;
     if (interval_microseconds_ != 0 || interval_instr_count_ != 0) {
         if (!do_process_final_interval) {
-            ERRMSG(
-                "i#6793: Skipping process_interval for final interval of shard id %d\n",
-                shard_index);
+            ERRMSG("i#6793: Skipping process_interval for final interval of shard index "
+                   "%d\n",
+                   shard_index);
         } else if (!process_interval(
                        worker->shard_data[shard_index].cur_interval_index,
                        worker->shard_data[shard_index].cur_interval_init_instr_count,
@@ -701,7 +701,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks_internal(
             }
         }
     }
-    // i#6444: Workaround for cases where there is a missing thread final record in
+    // i#6444: Fallback for cases where there is a missing thread final record in
     // non-core-sharded traces, in which case we have not yet invoked
     // process_shard_exit.
     for (const auto &keyval : worker->shard_data) {

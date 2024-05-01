@@ -802,6 +802,7 @@ test_non_zero_interval_i6793_workaround(bool parallel,
     if (!parallel) {
         // Each whole trace interval is made up of only one snapshot, the
         // serial snapshot.
+        // The missing exit for tid=51 does not affect the serial intervals.
         expected_state_snapshots = { {
             // Format:
             // <interval_id, interval_end_timestamp, instr_count_cumulative,
@@ -847,6 +848,9 @@ test_non_zero_interval_i6793_workaround(bool parallel,
                 // No interval-6 including tid=51 because of its missing thread exit.
                 // So the interval merge logic did not observe any activity during the
                 // interval-6.
+                // The following whole-trace interval-7 constitutes of the interval-3
+                // from tid=51, because the interval-6 from tid=51 was dropped because
+                // of the missing thread exit.
                 recorded_snapshot_t(7, 700, 8, 1, { { 51, 7, 3 }, { 52, 10, 6 } }) } }
         };
     }
