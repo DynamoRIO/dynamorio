@@ -4680,7 +4680,7 @@ if (BUILD_CLIENTS)
           "record_filter_encodings2regdeps"
           # We assume the app name starts with "s" here to avoid colliding with
           # our output dir, while still letting the single precmd remove both.
-          "${drcachesim_path}@-simulator_type@record_filter@-encodings2regdeps@-indir@${testname}.s*.dir/trace@-core_sharded@-cores@4@-outdir@${testname}.filtered.dir"
+          "${drcachesim_path}@-simulator_type@record_filter@-filter_encodings2regdeps@-indir@${testname}.s*.dir/trace@-core_sharded@-cores@4@-outdir@${testname}.filtered.dir"
           # We run the opcode_mix analyzer to test econdings2regdeps filtered traces.
           "opcode_mix")
     endif ()
