@@ -49,7 +49,6 @@
  * this macro magic is unnecessary.
  * http://msdn.microsoft.com/en-us/library/xa0d9ste.aspx
  */
-#include "opcode_api.h"
 #define INSTR_INLINE extern inline
 
 #include "../globals.h"
@@ -59,6 +58,7 @@
 #include "../link.h"
 #include "decode.h"
 #include "decode_fast.h"
+#include "opcode_api.h"
 #include "opnd.h"
 #include "instr_create_shared.h"
 /* FIXME i#1551: refactor this file and avoid this x86-specific include in base arch/ */
