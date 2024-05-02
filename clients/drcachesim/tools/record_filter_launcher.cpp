@@ -128,7 +128,7 @@ static droption_t<uint64_t> op_trim_after_timestamp(
 droption_t<bool> op_encodings2regdeps(
     DROPTION_SCOPE_FRONTEND, "filter_encodings2regdeps", false,
     "Enable converting the encoding of instructions to synthetic ISA DR_ISA_REGDEPS.",
-    "This option is intended to be used with record_filter. When present, it converts "
+    "This option is for -simulator_type record_filter. When present, it converts "
     "the encoding of instructions from a real ISA to the DR_ISA_REGDEPS synthetic ISA.");
 } // namespace
 

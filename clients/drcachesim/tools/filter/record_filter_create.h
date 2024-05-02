@@ -62,8 +62,9 @@ namespace drmemtrace {
  *   up to its first timestamp whose value is greater or equal to this parameter.
  * @param[in] trim_after_timestamp  Trim records after the trace's first timestamp
  *   whose value is greater than this parameter.
- * @param[in] encodings2regdeps If true, converts instruction encodings from the real ISA
+ * @param[in] encodings2regdeps  If true, converts instruction encodings from the real ISA
  *   of the input trace to the #DR_ISA_REGDEPS synthetic ISA.
+ * @param[in] verbose  Verbosity level for notifications.
  */
 record_analysis_tool_t *
 record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp,

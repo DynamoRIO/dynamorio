@@ -192,6 +192,7 @@ add_exported_library(drmemtrace_simulator STATIC
   )
 
 add_exported_library(drmemtrace_record_filter STATIC
+  tools/filter/record_filter.h
   tools/filter/record_filter.cpp
   tools/filter/cache_filter.h
   tools/filter/cache_filter.cpp
@@ -358,6 +359,8 @@ install_client_nonDR_header(drmemtrace simulator/cache_simulator_create.h)
 install_client_nonDR_header(drmemtrace simulator/tlb_simulator_create.h)
 install_client_nonDR_header(drmemtrace tools/view_create.h)
 install_client_nonDR_header(drmemtrace tools/func_view_create.h)
+install_client_nonDR_header(drmemtrace tools/filter/record_filter_create.h)
+install_client_nonDR_header(drmemtrace tools/filter/record_filter.h)
 # TODO i#6412: Create a separate directory for non-tracer headers so that
 # we can more cleanly separate tracer and raw2trace code.
 install_client_nonDR_header(drmemtrace tracer/raw2trace.h)

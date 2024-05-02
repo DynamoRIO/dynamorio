@@ -86,7 +86,7 @@ public:
                 static_cast<trace_marker_type_t>(entry.size);
             if (marker_type == TRACE_MARKER_TYPE_FILETYPE) {
                 uint64_t marker_value = static_cast<uint64_t>(entry.addr);
-                marker_value = add_to_filetype(marker_value);
+                marker_value = update_filetype(marker_value);
                 entry.addr = static_cast<addr_t>(marker_value);
             }
         }
@@ -183,7 +183,7 @@ public:
     }
 
     uint64_t
-    add_to_filetype(uint64_t filetype) override
+    update_filetype(uint64_t filetype) override
     {
         filetype &= ~OFFLINE_FILE_TYPE_ARCH_ALL;
         filetype |= OFFLINE_FILE_TYPE_ARCH_REGDEPS;

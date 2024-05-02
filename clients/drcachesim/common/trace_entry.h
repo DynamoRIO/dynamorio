@@ -668,7 +668,7 @@ type_is_instr(const trace_type_t type)
 /**
  * Returns whether \p type represents any type of instruction record whether an
  * instruction fetch or operation hint. This is a superset of type_is_instr() and includes
- * TRACE_TYPE_INSTR_NO_FETCH.
+ * #TRACE_TYPE_INSTR_NO_FETCH.
  */
 static inline bool
 is_any_instr_type(const trace_type_t type)
@@ -979,6 +979,9 @@ typedef enum {
     OFFLINE_FILE_TYPE_CORE_SHARDED = 0x10000,
     /**
      * Trace filtered by the record_filter tool using -filter_encodings2regdeps.
+     * The encodings2regdeps filter replaces real ISA encodings with #DR_ISA_REGDEPS
+     * encodings. Note that these encoding changes do not update the instruction length,
+     * hence encoding size and instruction fetch size may not match.
      */
     OFFLINE_FILE_TYPE_ARCH_REGDEPS = 0x20000,
     /**

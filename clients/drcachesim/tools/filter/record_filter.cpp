@@ -590,7 +590,7 @@ record_filter_t::process_chunk_encodings(per_shard_t *per_shard, trace_entry_t &
         // to the stop point, so a partial remove that does not change
         // the filetype?  For now we do not support that, and we re-add
         // encodings at chunk boundaries regardless. Note that filters that modify
-        // encodings (even if they add or remove trace_entry_t records) do not incurr in
+        // encodings (even if they add or remove trace_entry_t records) do not incur in
         // this problem and we don't need support for partial removal of encodings in this
         // case. An example of such filters is encodings2regdeps_t.
         if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, per_shard->filetype) &&
@@ -651,7 +651,7 @@ record_filter_t::process_delayed_encodings(per_shard_t *per_shard, trace_entry_t
         // Output if we have encodings that haven't yet been output, and
         // there is no filter removing all encodings (we don't support
         // partial encoding removal). Note that filters that modify encodings (even if
-        // they add or remove trace_entry_t records) do not incurr in this problem and we
+        // they add or remove trace_entry_t records) do not incur in this problem and we
         // don't need support for partial removal of encodings in this case. An example
         // of such filters is encodings2regdeps_t.
         // We check prev_was_output to rule out filtered-out encodings

@@ -65,6 +65,10 @@ public:
      * Interface for the record_filter to share data with its filters.
      */
     struct record_filter_info_t {
+        /**
+         * Stores the encoding of an instructions, which may be split among more than one
+         * #trace_entry_t, hence the vector.
+         */
         std::vector<trace_entry_t> *last_encoding;
     };
 
@@ -127,10 +131,10 @@ public:
         /**
          * If a filter modifies the file type of a trace, its changes should be made here,
          * so they are visible to the record_filter even if the #trace_entry_t containing
-         * the file type marker is not modified.
+         * the file type marker is not modified by the filter.
          */
         virtual uint64_t
-        add_to_filetype(uint64_t filetype)
+        update_filetype(uint64_t filetype)
         {
             return filetype;
         }
@@ -277,7 +281,7 @@ private:
         /* If filters modify the file type, add their changes here.
          */
         for (auto &filter : filters_) {
-            filetype = filter->add_to_filetype(filetype);
+            filetype = filter->update_filetype(filetype);
         }
         return filetype;
     }
