@@ -199,7 +199,7 @@ add_exported_library(drmemtrace_record_filter STATIC
   tools/filter/type_filter.h
   tools/filter/encodings2regdeps.h
   tools/filter/null_filter.h)
-target_link_libraries(drmemtrace_record_filter drmemtrace_simulator)
+target_link_libraries(drmemtrace_record_filter drmemtrace_simulator drdecode)
 
 add_exported_library(directory_iterator STATIC common/directory_iterator.cpp)
 add_dependencies(directory_iterator api_headers)
