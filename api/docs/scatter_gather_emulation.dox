@@ -76,8 +76,9 @@ LSB) will be complete.
 
 ## AArch64
 
-The AArch64 SVE (Scalable Vector Extension) introduced the first AArch64 scatter and
-gather instructions.
+The <a href="https://developer.arm.com/documentation/102476/latest">AArch64 SVE
+(Scalable Vector Extension)</a> introduced the first AArch64 scatter and gather
+instructions.
 
 SVE has two scatter and gather addressing modes (scalar+vector and vector+immediate)
 and two predicated contiguous load and store addressing modes (scalar+scalar and
