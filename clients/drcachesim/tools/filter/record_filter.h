@@ -97,10 +97,10 @@ public:
         /**
          * Invoked for each #trace_entry_t in the shard. It returns
          * whether or not this \p entry should be included in the result
-         * trace. \p shard_data is same as what was returned by
-         * parallel_shard_init(). The given \p entry is included in the result
-         * trace iff all provided record_filter_func_t return true. The
-         * \p entry parameter can also be modified by the record_filter_func_t.
+         * trace. \p shard_data is same as what was returned by parallel_shard_init().
+         * The given \p entry is included in the result trace iff all provided
+         * #dynamorio::drmemtrace::record_filter_t::record_filter_func_t return true.
+         * The \p entry parameter can also be modified by the record_filter_func_t.
          * The passed \p entry is not guaranteed to be the original one from
          * the trace if other filter tools are present, and may include changes
          * made by other tools.
