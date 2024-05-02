@@ -182,8 +182,8 @@ if it is 16 bytes, and cannot be encoded for vector lengths > 32 bytes.
 ### Non-faulting loads
 
 Non-faulting loads (`ldnf*`) do not fault if an element read faults. Instead a special
-predicate register FFR is updated. If this happends the FFR element corresponding to the
-element that faulted, and all elements higher that that are set to 0. Elements lower than
+predicate register FFR is updated. If this happens the FFR element corresponding to the
+element that faulted, and all elements higher than that are set to 0. Elements lower than
 the faulting element are unchanged.
 Non-faulting loads support scalar+immediate addressing.
 
@@ -526,7 +526,7 @@ ldff1sb (%x1,%z2.d)[1byte] %p3/z -> %z28.d
    ldr    (%x0)[8byte] -> %x0
    ldr    +0x10(%x0)[8byte] -> %x0
    ldr    (%x0)[8byte] -> %x0
-   str    %p0 -> (%x0)[4byte]            // Spill a predicate register to use as the loop varaible mask
+   str    %p0 -> (%x0)[4byte]            // Spill a predicate register to use as the loop variable mask
    <label note=0x0000000000000001>
    dup    $0x00 lsl $0x00 -> %z28.d      // Clear destination register
    pfalse  -> %p0.b                      // Initialize loop variable to 0
