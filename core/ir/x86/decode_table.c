@@ -75,7 +75,7 @@
 const instr_info_t * const op_instr[] =
 {
     /* OP_INVALID */   NULL,
-    /* OP_UNDECODED */ (instr_info_t[]){{OP_UNDECODED, 0xffffff, 0, "<undecoded>", 0, 0, 0, 0, 0, 0, 0, 0}},
+    /* OP_UNDECODED */ NULL,
     /* OP_CONTD   */   NULL,
     /* OP_LABEL   */   NULL,
 
