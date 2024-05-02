@@ -321,6 +321,20 @@ test_encodings2regdeps_filter()
         { { TRACE_TYPE_ENCODING, 4, { 0xe78948 } }, true, { false } },
         { { TRACE_TYPE_ENCODING, 8, { 0x0006090600010011 } }, false, { true } },
         { { TRACE_TYPE_INSTR, 3, { 0x7f6fdd3ec360 } }, true, { true } },
+        // Same instr same chunk.
+        { { TRACE_TYPE_INSTR, 3, { 0x7f6fdd3ec360 } }, true, { true } },
+        // Unit header.
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0xc } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0xd } }, true, { true } },
+        // Duplicated encoding across chunk boundary.
+        { { TRACE_TYPE_ENCODING, 4, { 0xe78948 } }, true, { false } },
+        { { TRACE_TYPE_ENCODING, 8, { 0x0006090600010011 } }, false, { true } },
+        { { TRACE_TYPE_INSTR, 3, { 0x7f6fdd3ec360 } }, true, { true } },
+        // Unit header.
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0xe } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0xf } }, true, { true } },
+        // Same instr in different chunk.
+        { { TRACE_TYPE_INSTR, 3, { 0x7f6fdd3ec360 } }, true, { true } },
         // Trace shard footer.
         { { TRACE_TYPE_FOOTER, 0, { 0x0 } }, true, { true } },
     };
