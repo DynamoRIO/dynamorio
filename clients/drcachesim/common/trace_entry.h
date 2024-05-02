@@ -567,10 +567,16 @@ typedef enum {
      * #TRACE_MARKER_TYPE_SYSCALL and #TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL markers)
      * that causes an immediate switch to another thread on the same core (with the
      * current thread entering an unscheduled state), bypassing the kernel scheduler's
-     * normal dynamic switch code based on run queues.  The marker value holds the
-     * thread id of the target thread.  This should generally always be after a
-     * #TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL marker as such a switch always
-     * has a chance of blocking if the target needs to be migrated.
+     * normal dynamic switch code based on run queues.  The marker value holds the thread
+     * id of the target thread.  The current thread will remain unschedulable
+     * indefinitely unless another thread resumes it with either
+     * #TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH or #TRACE_MARKER_TYPE_SYSCALL_SCHEDULE;
+     * or, if a #TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT marker is present, the thread will
+     * become schedulable when that timeout expires.  This marker should generally always
+     * be after a #TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL marker as such a switch
+     * always has a chance of blocking the source thread.  See also
+     * #TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, #TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, and
+     * #TRACE_MARKER_TYPE_SYSCALL_SCHEDULE.
      */
     TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH,
 
@@ -626,6 +632,39 @@ typedef enum {
      * the decoder using dr_set_sve_vector_length().
      */
     TRACE_MARKER_TYPE_VECTOR_LENGTH,
+
+    /**
+     * This marker is emitted prior to a system call (but after the system call's
+     * #TRACE_MARKER_TYPE_SYSCALL and #TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL markers)
+     * that causes the current thread to become unschedulable (removed from all queues of
+     * runnable threads).  The thread will remain unschedulable indefinitely unless
+     * another thread resumes it with either #TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH or
+     * #TRACE_MARKER_TYPE_SYSCALL_SCHEDULE; or, if a
+     * #TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT marker is present, the thread will become
+     * schedulable when that timeout expires.  This marker should generally always be
+     * after a #TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL marker as becoming unschedulable
+     * is a form of blocking and results in a context switch.
+     */
+    TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE,
+
+    /**
+     * This marker is emitted prior to a system call (but after the system call's
+     * #TRACE_MARKER_TYPE_SYSCALL marker) that causes a target thread identified in the
+     * marker value to become schedulable again if it were currently unschedulable.  See
+     * also #TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE and
+     * #TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH.
+     */
+    TRACE_MARKER_TYPE_SYSCALL_SCHEDULE,
+
+    /**
+     * This marker is emitted prior to a system call (but after the system call's
+     * #TRACE_MARKER_TYPE_SYSCALL and #TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL markers)
+     * which also has a #TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH or
+     * #TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE marker.  This indicates a timeout after which
+     * the thread will become schedulable again.  The marker value holds the timeout
+     * duration in microseconds.
+     */
+    TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT,
 
     // ...
     // These values are reserved for future built-in marker types.
