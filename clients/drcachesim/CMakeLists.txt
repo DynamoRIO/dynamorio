@@ -173,7 +173,6 @@ target_link_libraries(drmemtrace_invariant_checker drdecode)
 configure_DynamoRIO_standalone(drmemtrace_opcode_mix)
 configure_DynamoRIO_standalone(drmemtrace_view)
 configure_DynamoRIO_standalone(drmemtrace_invariant_checker)
-configure_DynamoRIO_standalone(drmemtrace_record_filter)
 
 # We combine the cache and TLB simulators as they share code already.
 add_exported_library(drmemtrace_simulator STATIC
@@ -201,6 +200,7 @@ add_exported_library(drmemtrace_record_filter STATIC
   tools/filter/encodings2regdeps.h
   tools/filter/null_filter.h)
 target_link_libraries(drmemtrace_record_filter drmemtrace_simulator)
+configure_DynamoRIO_standalone(drmemtrace_record_filter)
 
 add_exported_library(directory_iterator STATIC common/directory_iterator.cpp)
 add_dependencies(directory_iterator api_headers)
