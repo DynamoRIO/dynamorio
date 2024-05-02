@@ -292,6 +292,9 @@ process_entries_and_check_result(test_record_filter_t *record_filter,
 static bool
 test_encodings2regdeps_filter()
 {
+    constexpr addr_t PC = 0x7f6fdd3ec360;
+    constexpr addr_t ENCODING_REAL_ISA = 0xe78948;
+    constexpr addr_t ENCODING_REGDEPS_ISA = 0x0006090600010011;
     std::vector<test_case_t> entries = {
         // Trace shard header.
         { { TRACE_TYPE_HEADER, 0, { 0x1 } }, true, { true } },
@@ -314,27 +317,41 @@ test_encodings2regdeps_filter()
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 0x6 } },
           true,
           { true } },
-        // Unit header.
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, { 0x3 } },
+          true,
+          { true } },
+
+        // Chunk 1.
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x7 } }, true, { true } },
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } }, true, { true } },
         // Encoding, modified by the record_filter encodings2regdeps.
-        { { TRACE_TYPE_ENCODING, 4, { 0xe78948 } }, true, { false } },
-        { { TRACE_TYPE_ENCODING, 8, { 0x0006090600010011 } }, false, { true } },
-        { { TRACE_TYPE_INSTR, 3, { 0x7f6fdd3ec360 } }, true, { true } },
-        // Same instr same chunk.
-        { { TRACE_TYPE_INSTR, 3, { 0x7f6fdd3ec360 } }, true, { true } },
-        // Unit header.
+        { { TRACE_TYPE_ENCODING, 4, { ENCODING_REAL_ISA } }, true, { false } },
+        { { TRACE_TYPE_ENCODING, 8, { ENCODING_REGDEPS_ISA } }, false, { true } },
+        { { TRACE_TYPE_INSTR, 3, { PC } }, true, { true } },
+        { { TRACE_TYPE_INSTR, 3, { PC } }, true, { true } },
+        { { TRACE_TYPE_INSTR, 3, { PC } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER, { 0 } }, true, { false } },
+
+        // Chunk 2.
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL, { 10 } },
+          true,
+          { false } },
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0xc } }, true, { true } },
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0xd } }, true, { true } },
         // Duplicated encoding across chunk boundary.
-        { { TRACE_TYPE_ENCODING, 4, { 0xe78948 } }, true, { false } },
-        { { TRACE_TYPE_ENCODING, 8, { 0x0006090600010011 } }, false, { true } },
-        { { TRACE_TYPE_INSTR, 3, { 0x7f6fdd3ec360 } }, true, { true } },
-        // Unit header.
+        { { TRACE_TYPE_ENCODING, 4, { ENCODING_REAL_ISA } }, true, { false } },
+        { { TRACE_TYPE_ENCODING, 8, { ENCODING_REGDEPS_ISA } }, false, { true } },
+        { { TRACE_TYPE_INSTR, 3, { PC } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER, { 0 } }, true, { false } },
+
+        // Chunk 3.
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL, { 10 } },
+          true,
+          { false } },
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0xe } }, true, { true } },
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0xf } }, true, { true } },
         // Same instr in different chunk.
-        { { TRACE_TYPE_INSTR, 3, { 0x7f6fdd3ec360 } }, true, { true } },
+        { { TRACE_TYPE_INSTR, 3, { PC } }, true, { true } },
         // Trace shard footer.
         { { TRACE_TYPE_FOOTER, 0, { 0x0 } }, true, { true } },
     };
