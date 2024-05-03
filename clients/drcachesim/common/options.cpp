@@ -458,18 +458,18 @@ droption_t<std::string>
                           "Specifies the replacement policy for TLBs. "
                           "Supported policies: LFU (Least Frequently Used).");
 
-// TODO i#6660: Add "-tool" alias as these are not all "simulators".
 droption_t<std::string>
-    op_simulator_type(DROPTION_SCOPE_FRONTEND, "simulator_type", CPU_CACHE,
-                      "Specifies which trace analysis tool(s) to run.  Multiple tools "
-                      "can be specified, separated by a colon (\":\").",
-                      "Predefined types: " CPU_CACHE ", " MISS_ANALYZER ", " TLB
-                      ", " REUSE_DIST ", " REUSE_TIME ", " HISTOGRAM ", " BASIC_COUNTS
-                      ", " INVARIANT_CHECKER ", " SCHEDULE_STATS ", or " RECORD_FILTER
-                      ". The " RECORD_FILTER " tool cannot be combined with the others "
-                      "as it operates on raw disk records. "
-                      "To invoke an external tool: specify its name as identified by a "
-                      "name.drcachesim config file in the DR tools directory.");
+    op_tool(DROPTION_SCOPE_FRONTEND,
+            std::vector<std::string>({ "tool", "simulator_type" }), CPU_CACHE,
+            "Specifies which trace analysis tool(s) to run.  Multiple tools "
+            "can be specified, separated by a colon (\":\").",
+            "Predefined types: " CPU_CACHE ", " MISS_ANALYZER ", " TLB ", " REUSE_DIST
+            ", " REUSE_TIME ", " HISTOGRAM ", " BASIC_COUNTS ", " INVARIANT_CHECKER
+            ", " SCHEDULE_STATS ", or " RECORD_FILTER ". The " RECORD_FILTER
+            " tool cannot be combined with the others "
+            "as it operates on raw disk records. "
+            "To invoke an external tool: specify its name as identified by a "
+            "name.drcachesim config file in the DR tools directory.");
 
 droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 64,
                                     "Verbosity level",

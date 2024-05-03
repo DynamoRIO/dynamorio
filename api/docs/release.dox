@@ -226,6 +226,8 @@ Further non-compatibility-affecting changes include:
    purpose of preserving register dependencies.
  - Added instr_convert_to_isa_regdeps() API that converts an #instr_t from a real ISA
    (e.g., #DR_ISA_AMD64) to the #DR_ISA_REGDEPS synthetic ISA.
+ - Added -tool as the preferred alias for -simulator_type for the drmemtrace/drcachesim
+   trace analysis tool framework.
 
 **************************************************
 <hr>

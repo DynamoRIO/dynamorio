@@ -35,12 +35,13 @@
 #ifndef _OPTIONS_H_
 #define _OPTIONS_H_ 1
 
-// Tool names (for -simulator_type option).
-// TODO i#6660: When we add "-tool", add "cache_simulator" or "drcachesim"
-// instead of just "-tool cache".  Ditto for "TLB".
-#define CPU_CACHE "cache"
+// Tool names (for -tool option).
+#define CPU_CACHE_LEGACY "cache"
+#define CPU_CACHE "cache_simulator"
+#define CPU_CACHE_ALT "drcachesim"
 #define MISS_ANALYZER "miss_analyzer"
-#define TLB "TLB"
+#define TLB_LEGACY "TLB"
+#define TLB "TLB_simulator"
 #define HISTOGRAM "histogram"
 #define REUSE_DIST "reuse_distance"
 #define REUSE_TIME "reuse_time"
@@ -146,7 +147,7 @@ extern dynamorio::droption::droption_t<unsigned int> op_TLB_L1D_assoc;
 extern dynamorio::droption::droption_t<unsigned int> op_TLB_L2_entries;
 extern dynamorio::droption::droption_t<unsigned int> op_TLB_L2_assoc;
 extern dynamorio::droption::droption_t<std::string> op_TLB_replace_policy;
-extern dynamorio::droption::droption_t<std::string> op_simulator_type;
+extern dynamorio::droption::droption_t<std::string> op_tool;
 extern dynamorio::droption::droption_t<unsigned int> op_verbose;
 extern dynamorio::droption::droption_t<bool> op_show_func_trace;
 extern dynamorio::droption::droption_t<int> op_jobs;
