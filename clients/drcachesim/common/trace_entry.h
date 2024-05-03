@@ -477,7 +477,8 @@ typedef enum {
 
     /**
      * Marks the end of a chunk.  The value of this marker is the chunk ordinal, which
-     * is an increasing counter set by #dynamorio::drmemtrace::record_filter.
+     * is an increasing counter set by #dynamorio::drmemtrace::record_filter_t starting
+     * from 0.
      * The final chunk does not have such a marker but instead relies on the
      * #TRACE_TYPE_FOOTER entry.
      */
