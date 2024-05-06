@@ -92,6 +92,7 @@ public:
             idle_microseconds += rhs.idle_microseconds;
             idle_micros_at_last_instr += rhs.idle_micros_at_last_instr;
             cpu_microseconds += rhs.cpu_microseconds;
+            wait_microseconds += rhs.wait_microseconds;
             for (const memref_tid_t tid : rhs.threads) {
                 threads.insert(tid);
             }
@@ -109,12 +110,16 @@ public:
         uint64_t idle_microseconds = 0;
         uint64_t idle_micros_at_last_instr = 0;
         uint64_t cpu_microseconds = 0;
+        uint64_t wait_microseconds = 0;
         std::unordered_set<memref_tid_t> threads;
     };
     counters_t
     get_total_counts();
 
 protected:
+    // We're in one of 3 states.
+    typedef enum { STATE_CPU, STATE_IDLE, STATE_WAIT } state_t;
+
     struct per_shard_t {
         std::string error;
         memtrace_stream_t *stream = nullptr;
@@ -129,8 +134,7 @@ protected:
         // A representation of the thread interleavings.
         std::string thread_sequence;
         uint64_t cur_segment_instrs = 0;
-        bool prev_was_wait = false;
-        bool prev_was_idle = false;
+        state_t cur_state = STATE_CPU;
         // Computing %-idle.
         uint64_t segment_start_microseconds = 0;
         intptr_t filetype = 0;
@@ -142,8 +146,11 @@ protected:
     void
     print_counters(const counters_t &counters);
 
-    uint64_t
+    virtual uint64_t
     get_current_microseconds();
+
+    bool
+    update_state_time(per_shard_t *shard, state_t state);
 
     uint64_t knob_print_every_ = 0;
     unsigned int knob_verbose_ = 0;
