@@ -137,6 +137,7 @@ public:
              */
             byte ALIGN_VAR(REGDEPS_ALIGN_BYTES)
                 encoding_regdeps[REGDEPS_MAX_ENCODING_LENGTH];
+            memset(encoding_regdeps, 0, sizeof(encoding_regdeps));
             app_pc next_pc_regdeps =
                 instr_encode(dcontext_.dcontext, &instr_regdeps, encoding_regdeps);
             instr_free(dcontext_.dcontext, &instr_regdeps);
