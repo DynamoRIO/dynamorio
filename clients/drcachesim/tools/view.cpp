@@ -50,6 +50,7 @@
 
 #include "analysis_tool.h"
 #include "dr_api.h"
+#include "dr_ir_encode.h"
 #include "memref.h"
 #include "memtrace_stream.h"
 #include "raw2trace.h"
@@ -562,10 +563,16 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         // MAX_INSTR_DIS_SZ is set to 196 in core/ir/disassemble.h but is not
         // exported so we just use the same value here.
         char buf[196];
+        /* Set dcontext ISA mode to DR_ISA_REGDEPS if trace file type has
+         * OFFLINE_FILE_TYPE_ARCH_REDEPS set.
+         */
+        dr_isa_mode_t old_isa_mode;
+        dr_set_isa_mode(dcontext_.dcontext, DR_ISA_REGDEPS, &old_isa_mode);
         byte *next_pc = disassemble_to_buffer(
             dcontext_.dcontext, decode_pc, orig_pc, /*show_pc=*/false,
             /*show_bytes=*/true, buf, BUFFER_SIZE_ELEMENTS(buf),
             /*printed=*/nullptr);
+        dr_set_isa_mode(dcontext_.dcontext, old_isa_mode, nullptr);
         if (next_pc == nullptr) {
             error_string_ = "Failed to disassemble " + to_hex_string(memref.instr.addr);
             return false;

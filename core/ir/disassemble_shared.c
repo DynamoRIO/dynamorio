@@ -54,6 +54,8 @@
 
 #include "../globals.h"
 #include "arch.h"
+#include "encode_api.h"
+#include "include/dr_ir_instr.h"
 #include "instr.h"
 #include "decode.h"
 #include "decode_fast.h"
@@ -1180,7 +1182,10 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT
     bool use_size_sfx = false;
     size_t offs_pre_name, offs_post_name, offs_pre_opnds;
 
-    if (!instr_valid(instr)) {
+    if (instr_get_isa_mode(instr) == DR_ISA_REGDEPS) {
+        // uint category = instr_get_category(instr);
+        name = instr_get_category_name(DR_INSTR_CATEGORY_UNCATEGORIZED);
+    } else if (!instr_valid(instr)) {
         print_to_buffer(buf, bufsz, sofar, "<INVALID>");
         return;
     } else if (instr_is_label(instr)) {
