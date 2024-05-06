@@ -157,7 +157,11 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
         shard->filetype = static_cast<offline_file_type_t>(memref.marker.marker_value);
-        if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL, memref.marker.marker_value) &&
+        /* We remove OFFLINE_FILE_TYPE_ARCH_REGDEPS from this check since DR_ISA_REGDEPS
+         * is not a real ISA and can coexist with any real architecture.
+         */
+        if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL & ~OFFLINE_FILE_TYPE_ARCH_REGDEPS,
+                    memref.marker.marker_value) &&
             !TESTANY(build_target_arch_type(), memref.marker.marker_value)) {
             shard->error = std::string("Architecture mismatch: trace recorded on ") +
                 trace_arch_string(static_cast<offline_file_type_t>(
@@ -165,6 +169,11 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
                 " but tool built for " + trace_arch_string(build_target_arch_type());
             return false;
         }
+        /* If we are dealing with a regdeps trace, we need to set the dcontext ISA mode
+         * to the correct synthetic ISA (i.e., DR_ISA_REGDEPS).
+         */
+        if (TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, memref.marker.marker_value))
+            dr_set_isa_mode(dcontext_.dcontext, DR_ISA_REGDEPS, nullptr);
     } else if (memref.marker.type == TRACE_TYPE_MARKER &&
                memref.marker.marker_type == TRACE_MARKER_TYPE_VECTOR_LENGTH) {
 #ifdef AARCH64

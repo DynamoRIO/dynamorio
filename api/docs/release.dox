@@ -150,6 +150,10 @@ changes:
  - Changed the type of the AArch64 #dr_mcontext_t members svep and ffr to #dr_svep_t.
    This breaks binary compatibility with clients that were built against versions of
    DynamoRIO before this change.
+ - Changed #dynamorio::drmemtrace::record_filter_t::record_filter_func_t
+   parallel_shard_filter() interface.  Added a new parameter of type
+   #dynamorio::drmemtrace::record_filter_t::record_filter_info_t that allows
+   #dynamorio::drmemtrace::record_filter_t to share data with its filters.
 
 Further non-compatibility-affecting changes include:
  - Added DWARF-5 support to the drsyms library by linking in 4 static libraries
@@ -226,6 +230,10 @@ Further non-compatibility-affecting changes include:
    purpose of preserving register dependencies.
  - Added instr_convert_to_isa_regdeps() API that converts an #instr_t from a real ISA
    (e.g., #DR_ISA_AMD64) to the #DR_ISA_REGDEPS synthetic ISA.
+ - Added encodings2regdeps_filter_t filter to #dynamorio::drmemtrace::record_filter_t to
+   generate #DR_ISA_REGDEPS traces.
+ - Added #dynamorio::drmemtrace::OFFLINE_FILE_TYPE_ARCH_REGDEPS file type for
+   #DR_ISA_REGDEPS traces.
  - Added -tool as the preferred alias for -simulator_type for the drmemtrace/drcachesim
    trace analysis tool framework.
 

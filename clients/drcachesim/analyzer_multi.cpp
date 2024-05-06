@@ -333,7 +333,8 @@ record_analyzer_multi_t::create_analysis_tool_from_options(const std::string &to
             op_outdir.get_value(), op_filter_stop_timestamp.get_value(),
             op_filter_cache_size.get_value(), op_filter_trace_types.get_value(),
             op_filter_marker_types.get_value(), op_trim_before_timestamp.get_value(),
-            op_trim_after_timestamp.get_value(), op_verbose.get_value());
+            op_trim_after_timestamp.get_value(), op_encodings2regdeps.get_value(),
+            op_verbose.get_value());
     }
     ERRMSG("Usage error: unsupported record analyzer type \"%s\".  Only " RECORD_FILTER
            " is supported.\n",
