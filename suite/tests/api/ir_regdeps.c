@@ -84,7 +84,7 @@ test_instr_encode_decode_synthetic(void *dc, instr_t *instr)
 
     /* Check that we do not have an opcode for the converted instruction.
      */
-    ASSERT(instr_get_opcode(instr_synthetic_converted) == OP_INVALID);
+    ASSERT(instr_get_opcode(instr_synthetic_converted) == OP_UNDECODED);
 
     /* Encode the synthetic instruction.
      */

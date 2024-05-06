@@ -2791,6 +2791,13 @@ const char *
 decode_opcode_name(int opcode)
 {
     const instr_info_t *info = op_instr[opcode];
+    if (info == NULL) {
+        switch (opcode) {
+        case OP_INVALID: return "<invalid>";
+        case OP_UNDECODED: return "<undecoded>";
+        default: return "<unknown>";
+        }
+    }
     return info->name;
 }
 
