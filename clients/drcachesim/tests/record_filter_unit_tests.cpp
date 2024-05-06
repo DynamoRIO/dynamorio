@@ -293,13 +293,25 @@ static bool
 test_encodings2regdeps_filter()
 {
     constexpr addr_t PC = 0x7f6fdd3ec360;
+    constexpr addr_t PC2 = 0x7f6fdd3eb1f7;
+    // constexpr addr_t PC2 = 0x00007f6fdd3eb1f7;
+    constexpr addr_t PC3 = 0x7f6fdd3eb21a;
     constexpr addr_t ENCODING_REAL_ISA = 0xe78948;
+    constexpr addr_t ENCODING_REAL_ISA_2_PART1 = 0x841f0f66;
+    constexpr addr_t ENCODING_REAL_ISA_2_PART2 = 0x0;
+    constexpr addr_t ENCODING_REAL_ISA_3 = 0xab48f3;
     constexpr addr_t ENCODING_REGDEPS_ISA = 0x0006090600010011;
+    constexpr addr_t ENCODING_REGDEPS_ISA_2 = 0x0000020400004010;
+    constexpr addr_t ENCODING_REGDEPS_ISA_3_PART1 = 0x0209030600001042;
+    constexpr addr_t ENCODING_REGDEPS_ISA_3_PART2 = 0x0000000000220903;
     std::vector<test_case_t> entries = {
-        // Trace shard header.
+        /* Trace shard header.
+         */
         { { TRACE_TYPE_HEADER, 0, { 0x1 } }, true, { true } },
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 0x2 } }, true, { true } },
-        // File type, modified by the record_filter encodings2regdeps.
+        /* File type, modified by record_filter encodings2regdeps to add
+         * OFFLINE_FILE_TYPE_ARCH_REGDEPS.
+         */
         { { TRACE_TYPE_MARKER,
             TRACE_MARKER_TYPE_FILETYPE,
             { OFFLINE_FILE_TYPE_ARCH_X86_64 | OFFLINE_FILE_TYPE_ENCODINGS |
@@ -321,10 +333,14 @@ test_encodings2regdeps_filter()
           true,
           { true } },
 
-        // Chunk 1.
+        /* Chunk 1.
+         */
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x7 } }, true, { true } },
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } }, true, { true } },
-        // Encoding, modified by the record_filter encodings2regdeps.
+        /* Encoding, modified by the record_filter encodings2regdeps.
+         * encoding real ISA size == encoding regdeps ISA size
+         * (in terms of trace_entry_t).
+         */
         { { TRACE_TYPE_ENCODING, 3, { ENCODING_REAL_ISA } }, true, { false } },
         { { TRACE_TYPE_ENCODING, 8, { ENCODING_REGDEPS_ISA } }, false, { true } },
         { { TRACE_TYPE_INSTR, 3, { PC } }, true, { true } },
@@ -332,13 +348,15 @@ test_encodings2regdeps_filter()
         { { TRACE_TYPE_INSTR, 3, { PC } }, true, { true } },
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER, { 0 } }, true, { true } },
 
-        // Chunk 2.
+        /* Chunk 2.
+         */
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL, { 0xa } },
           true,
           { true } },
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x7 } }, true, { true } },
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } }, true, { true } },
-        // Duplicated encoding across chunk boundary.
+        /* Duplicated encoding across chunk boundary.
+         */
         { { TRACE_TYPE_ENCODING, 3, { ENCODING_REAL_ISA } }, true, { false } },
         { { TRACE_TYPE_ENCODING, 8, { ENCODING_REGDEPS_ISA } }, false, { true } },
         { { TRACE_TYPE_INSTR, 3, { PC } }, true, { true } },
@@ -346,22 +364,45 @@ test_encodings2regdeps_filter()
         { { TRACE_TYPE_INSTR, 3, { PC } }, true, { true } },
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER, { 1 } }, true, { true } },
 
-        // Chunk 3.
+        /* Chunk 3.
+         */
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL, { 0xe } },
           true,
           { true } },
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x7 } }, true, { true } },
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } }, true, { true } },
-        // Same instr in different chunk. We expect record_filter to add
-        // ENCODING_REGDEPS_ISA here (not ENCODING_REAL_ISA).
-        { { TRACE_TYPE_ENCODING, 8, { ENCODING_REGDEPS_ISA } }, false, { true } },
-        { { TRACE_TYPE_INSTR, 3, { PC } }, true, { true } },
-        { { TRACE_TYPE_INSTR, 3, { PC } }, true, { true } },
-        // Trace shard footer.
+        /* encoding real ISA size > encoding regdeps ISA size
+         */
+        { { TRACE_TYPE_ENCODING, 8, { ENCODING_REAL_ISA_2_PART1 } }, true, { false } },
+        { { TRACE_TYPE_ENCODING, 1, { ENCODING_REAL_ISA_2_PART2 } }, true, { false } },
+        { { TRACE_TYPE_ENCODING, 8, { ENCODING_REGDEPS_ISA_2 } }, false, { true } },
+        { { TRACE_TYPE_INSTR, 9, { PC2 } }, true, { true } },
+        { { TRACE_TYPE_INSTR, 9, { PC2 } }, true, { true } },
+        { { TRACE_TYPE_INSTR, 9, { PC2 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER, { 2 } }, true, { true } },
+
+        /* Chunk 4.
+         */
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL, { 0x12 } },
+          true,
+          { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x7 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } }, true, { true } },
+        /* encoding real ISA size < encoding regdeps ISA size
+         */
+        { { TRACE_TYPE_ENCODING, 3, { ENCODING_REAL_ISA_3 } }, true, { false } },
+        { { TRACE_TYPE_ENCODING, 8, { ENCODING_REGDEPS_ISA_3_PART1 } }, false, { true } },
+        { { TRACE_TYPE_ENCODING, 4, { ENCODING_REGDEPS_ISA_3_PART2 } }, false, { true } },
+        { { TRACE_TYPE_INSTR, 3, { PC3 } }, true, { true } },
+        { { TRACE_TYPE_INSTR, 3, { PC3 } }, true, { true } },
+
+        /* Trace shard footer.
+         */
         { { TRACE_TYPE_FOOTER, 0, { 0x0 } }, true, { true } },
     };
 
-    // Construct record_filter_t.
+    /* Construct encodings2regdeps_filter.
+     */
     std::vector<std::unique_ptr<record_filter_func_t>> filters;
     auto encodings2regdeps_filter = std::unique_ptr<record_filter_func_t>(
         new dynamorio::drmemtrace::encodings2regdeps_t());
@@ -371,8 +412,14 @@ test_encodings2regdeps_filter()
         return false;
     }
     filters.push_back(std::move(encodings2regdeps_filter));
+
+    /* Construct record_filter_t.
+     */
     auto record_filter = std::unique_ptr<test_record_filter_t>(
         new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
+
+    /* Run the test.
+     */
     if (!process_entries_and_check_result(record_filter.get(), entries, 0))
         return false;
 
