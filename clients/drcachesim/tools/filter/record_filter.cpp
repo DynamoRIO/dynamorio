@@ -60,7 +60,7 @@
 #include "cache_filter.h"
 #include "trim_filter.h"
 #include "type_filter.h"
-#include "encodings2regdeps.h"
+#include "encodings2regdeps_filter.h"
 
 #undef VPRINT
 #ifdef DEBUG
@@ -140,7 +140,7 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
     if (encodings2regdeps) {
         filter_funcs.emplace_back(
             std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
-                new dynamorio::drmemtrace::encodings2regdeps_t()));
+                new dynamorio::drmemtrace::encodings2regdeps_filter_t()));
     }
 
     // TODO i#5675: Add other filters.
@@ -592,7 +592,7 @@ record_filter_t::process_chunk_encodings(per_shard_t *per_shard, trace_entry_t &
         // encodings at chunk boundaries regardless. Note that filters that modify
         // encodings (even if they add or remove trace_entry_t records) do not incur in
         // this problem and we don't need support for partial removal of encodings in this
-        // case. An example of such filters is encodings2regdeps_t.
+        // case. An example of such filters is encodings2regdeps_filter_t.
         if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, per_shard->filetype) &&
             per_shard->cur_chunk_pcs.find(entry.addr) == per_shard->cur_chunk_pcs.end()) {
             if (per_shard->per_input == nullptr)
@@ -653,7 +653,7 @@ record_filter_t::process_delayed_encodings(per_shard_t *per_shard, trace_entry_t
         // partial encoding removal). Note that filters that modify encodings (even if
         // they add or remove trace_entry_t records) do not incur in this problem and we
         // don't need support for partial removal of encodings in this case. An example
-        // of such filters is encodings2regdeps_t.
+        // of such filters is encodings2regdeps_filter_t.
         // We check prev_was_output to rule out filtered-out encodings
         // (we record all encodings for new-chunk insertion).
         if (!per_shard->last_encoding.empty() && per_shard->prev_was_output) {

@@ -230,8 +230,8 @@ Further non-compatibility-affecting changes include:
    purpose of preserving register dependencies.
  - Added instr_convert_to_isa_regdeps() API that converts an #instr_t from a real ISA
    (e.g., #DR_ISA_AMD64) to the #DR_ISA_REGDEPS synthetic ISA.
- - Added encodings2regdeps_t filter to #dynamorio::drmemtrace::record_filter_t to generate
-   #DR_ISA_REGDEPS traces.
+ - Added encodings2regdeps_filter_t filter to #dynamorio::drmemtrace::record_filter_t to
+   generate #DR_ISA_REGDEPS traces.
  - Added #dynamorio::drmemtrace::OFFLINE_FILE_TYPE_ARCH_REGDEPS file type for
    #DR_ISA_REGDEPS traces.
 

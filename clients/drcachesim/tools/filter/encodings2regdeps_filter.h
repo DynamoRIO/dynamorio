@@ -57,9 +57,9 @@ namespace drmemtrace {
  * Note that simulators that deal with these filtered traces will also have to handle the
  * fact that encoding_size != instruction_length.
  */
-class encodings2regdeps_t : public record_filter_t::record_filter_func_t {
+class encodings2regdeps_filter_t : public record_filter_t::record_filter_func_t {
 public:
-    encodings2regdeps_t()
+    encodings2regdeps_filter_t()
     {
     }
 

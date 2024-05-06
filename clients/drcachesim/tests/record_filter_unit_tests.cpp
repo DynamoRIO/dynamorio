@@ -42,7 +42,7 @@
 #include "tools/filter/record_filter.h"
 #include "tools/filter/trim_filter.h"
 #include "tools/filter/type_filter.h"
-#include "tools/filter/encodings2regdeps.h"
+#include "tools/filter/encodings2regdeps_filter.h"
 #include "trace_entry.h"
 #include "zipfile_ostream.h"
 
@@ -405,7 +405,7 @@ test_encodings2regdeps_filter()
      */
     std::vector<std::unique_ptr<record_filter_func_t>> filters;
     auto encodings2regdeps_filter = std::unique_ptr<record_filter_func_t>(
-        new dynamorio::drmemtrace::encodings2regdeps_t());
+        new dynamorio::drmemtrace::encodings2regdeps_filter_t());
     if (encodings2regdeps_filter->get_error_string() != "") {
         fprintf(stderr, "Couldn't construct a encodings2regdeps_filter %s",
                 encodings2regdeps_filter->get_error_string().c_str());
