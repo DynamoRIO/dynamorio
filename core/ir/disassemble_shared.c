@@ -191,8 +191,8 @@ reg_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT, reg_id_t 
                             DYNAMO_OPTION(disasm_mask))
                         ? "%s%s%s%s"
                         : "%s%s%%%s%s",
-                    prefix, TEST(DR_OPND_NEGATED, flags) ? "-" : "", reg_names[reg],
-                    suffix);
+                    prefix, TEST(DR_OPND_NEGATED, flags) ? "-" : "",
+                    get_register_name(reg), suffix);
 }
 
 static const char *
@@ -751,9 +751,12 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
         case IMMED_DOUBLE_kind:
         case PC_kind:
         case FAR_PC_kind: break;
-        case REG_kind:
-            if (!opnd_is_reg_partial(opnd))
+        case REG_kind: {
+            bool is_global_isa_mode_synthetic =
+                dr_get_isa_mode(get_thread_private_dcontext()) == DR_ISA_REGDEPS;
+            if (!opnd_is_reg_partial(opnd) && !is_global_isa_mode_synthetic)
                 break;
+        }
             /* fall-through */
         default: {
             const char *size_str = opnd_size_suffix_dr(opnd);
@@ -1001,14 +1004,15 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PAR
     for (i = 0; i < num; i++) {
         bool printing = false;
         opnd = dsts_first() ? instr_get_dst(instr, i) : instr_get_src(instr, i);
-        IF_X86_ELSE({ optype = instr_info_opnd_type(info, !dsts_first(), i); },
-                    {
-                        /* XXX i#1683: -syntax_arm currently fails here on register lists
-                         * and will trigger the assert in instr_info_opnd_type().  We
-                         * don't use the optype on ARM yet though.
-                         */
-                        optype = 0;
-                    });
+        IF_X86_ELSE(
+            { optype = instr_info_opnd_type(info, !dsts_first(), i); },
+            {
+                /* XXX i#1683: -syntax_arm currently fails here on register lists
+                 * and will trigger the assert in instr_info_opnd_type().  We
+                 * don't use the optype on ARM yet though.
+                 */
+                optype = 0;
+            });
         bool is_evex_mask = !instr_is_opmask(instr) && opnd_is_reg(opnd) &&
             reg_is_opmask(opnd_get_reg(opnd)) && opmask_with_dsts();
         if (!is_evex_mask) {
@@ -1031,11 +1035,12 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PAR
     for (i = 0; i < num; i++) {
         bool print = true;
         opnd = dsts_first() ? instr_get_src(instr, i) : instr_get_dst(instr, i);
-        IF_X86_ELSE({ optype = instr_info_opnd_type(info, dsts_first(), i); },
-                    {
-                        /* XXX i#1683: see comment above */
-                        optype = 0;
-                    });
+        IF_X86_ELSE(
+            { optype = instr_info_opnd_type(info, dsts_first(), i); },
+            {
+                /* XXX i#1683: see comment above */
+                optype = 0;
+            });
         IF_X86({
             /* PR 312458: still not matching Intel-style tools like windbg or udis86:
              * we need to suppress certain implicit operands, such as:
@@ -1166,6 +1171,48 @@ sign_extend_immed(instr_t *instr, int srcnum, opnd_t *src)
     }
 }
 
+#define MAX_LENGTH_ALL_CATEGORIES_AS_STRING 57
+
+/* Returns a space-separated string representation of the list of categories an
+ * instruction belongs to.
+ */
+void
+get_category_names(uint category, char category_names[], size_t category_names_size)
+{
+    memset(category_names, '\0', category_names_size);
+    if (category == DR_INSTR_CATEGORY_UNCATEGORIZED) {
+        const char *category_name = instr_get_category_name(category);
+        size_t char_to_copy = strlen(category_name);
+        strncpy(category_names, category_name, char_to_copy);
+        return;
+    }
+
+    /* We consider 0x80000000 enough to be future proof when adding new categories.
+     */
+    const uint max_mask = 0x80000000;
+    uint start_index = 0;
+    for (uint mask = 0x1; mask <= max_mask; mask <<= 1) {
+        if (TESTANY(mask, category)) {
+            const char *category_name = instr_get_category_name(mask);
+            size_t char_to_copy = strlen(category_name);
+            strncpy(category_names + start_index, category_name, char_to_copy);
+            start_index += (uint)char_to_copy;
+            category_names[start_index] = ' ';
+            ++start_index; // +1 accounts for the previous space char: ' '.
+        }
+
+        /* Guard against 32 bit overflow.
+         */
+        if (mask == max_mask)
+            break;
+    }
+
+    /* Remove the last space.
+     */
+    if (start_index > 0)
+        category_names[start_index - 1] = '\0';
+}
+
 /*
  * Prints the instruction instr to file outfile.
  * Does not print addr16 or data16 prefixes for other than just-decoded instrs,
@@ -1183,8 +1230,10 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT
     size_t offs_pre_name, offs_post_name, offs_pre_opnds;
 
     if (instr_get_isa_mode(instr) == DR_ISA_REGDEPS) {
-        // uint category = instr_get_category(instr);
-        name = instr_get_category_name(DR_INSTR_CATEGORY_UNCATEGORIZED);
+        char category_names[MAX_LENGTH_ALL_CATEGORIES_AS_STRING];
+        get_category_names(instr_get_category(instr), category_names,
+                           MAX_LENGTH_ALL_CATEGORIES_AS_STRING);
+        name = category_names;
     } else if (!instr_valid(instr)) {
         print_to_buffer(buf, bufsz, sofar, "<INVALID>");
         return;

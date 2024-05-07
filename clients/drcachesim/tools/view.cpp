@@ -218,7 +218,12 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
                 return false;
             }
             filetype_record_ord_ = memstream->get_record_ordinal();
-            if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL, memref.marker.marker_value) &&
+            /* We remove OFFLINE_FILE_TYPE_ARCH_REGDEPS from this check since
+             * DR_ISA_REGDEPS is not a real ISA and can coexist with any real
+             * architecture.
+             */
+            if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL & ~OFFLINE_FILE_TYPE_ARCH_REGDEPS,
+                        memref.marker.marker_value) &&
                 !TESTANY(build_target_arch_type(), memref.marker.marker_value)) {
                 error_string_ = std::string("Architecture mismatch: trace recorded on ") +
                     trace_arch_string(static_cast<offline_file_type_t>(
@@ -564,15 +569,20 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         // exported so we just use the same value here.
         char buf[196];
         /* Set dcontext ISA mode to DR_ISA_REGDEPS if trace file type has
-         * OFFLINE_FILE_TYPE_ARCH_REDEPS set.
+         * OFFLINE_FILE_TYPE_ARCH_REGDEPS set. We need this to correctly
+         * disassemble DR_ISA_REGDEPS instructions.
          */
         dr_isa_mode_t old_isa_mode;
-        dr_set_isa_mode(dcontext_.dcontext, DR_ISA_REGDEPS, &old_isa_mode);
+        if (TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, filetype_)) {
+            dr_set_isa_mode(dcontext_.dcontext, DR_ISA_REGDEPS, &old_isa_mode);
+        }
         byte *next_pc = disassemble_to_buffer(
             dcontext_.dcontext, decode_pc, orig_pc, /*show_pc=*/false,
             /*show_bytes=*/true, buf, BUFFER_SIZE_ELEMENTS(buf),
             /*printed=*/nullptr);
-        dr_set_isa_mode(dcontext_.dcontext, old_isa_mode, nullptr);
+        if (TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, filetype_)) {
+            dr_set_isa_mode(dcontext_.dcontext, old_isa_mode, nullptr);
+        }
         if (next_pc == nullptr) {
             error_string_ = "Failed to disassemble " + to_hex_string(memref.instr.addr);
             return false;
