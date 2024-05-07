@@ -294,7 +294,6 @@ test_encodings2regdeps_filter()
 {
     constexpr addr_t PC = 0x7f6fdd3ec360;
     constexpr addr_t PC2 = 0x7f6fdd3eb1f7;
-    // constexpr addr_t PC2 = 0x00007f6fdd3eb1f7;
     constexpr addr_t PC3 = 0x7f6fdd3eb21a;
     constexpr addr_t ENCODING_REAL_ISA = 0xe78948;
     constexpr addr_t ENCODING_REAL_ISA_2_PART1 = 0x841f0f66;
