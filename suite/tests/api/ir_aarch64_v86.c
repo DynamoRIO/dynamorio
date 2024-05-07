@@ -819,6 +819,71 @@ TEST_INSTR(dc_gzva)
     TEST_LOOP(dc_gzva, dc_gzva, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]));
 }
 
+TEST_INSTR(stgm)
+{
+    /* Testing STGM    <Xt|SP>, [<Xn|SP>] */
+    const char *const expected_0[6] = {
+        "stgm   %x0 -> (%x0)",   "stgm   %x6 -> (%x5)",   "stgm   %x11 -> (%x10)",
+        "stgm   %x16 -> (%x15)", "stgm   %x21 -> (%x20)", "stgm   %x30 -> (%sp)",
+    };
+    TEST_LOOP(stgm, stgm, 6, expected_0[i],
+              opnd_create_base_disp_aarch64(Xn_six_offset_0_sp[i], DR_REG_NULL,
+                                            DR_EXTEND_UXTX, 0, 0, 0, OPSZ_0),
+              opnd_create_reg(Xn_six_offset_1[i]));
+
+    instr =
+        INSTR_CREATE_stgm(dc,
+                          opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL,
+                                                        DR_EXTEND_UXTX, 0, 0, 0, OPSZ_0),
+                          opnd_create_reg(DR_REG_X0));
+    ASSERT(!instr_reads_memory(instr));
+    ASSERT(!instr_writes_memory(instr));
+    instr_destroy(dc, instr);
+}
+
+TEST_INSTR(stzgm)
+{
+    /* Testing STZGM   <Xt|SP>, [<Xn|SP>] */
+    const char *const expected_0[6] = {
+        "stzgm  %x0 -> (%x0)[16byte]",   "stzgm  %x6 -> (%x5)[16byte]",
+        "stzgm  %x11 -> (%x10)[16byte]", "stzgm  %x16 -> (%x15)[16byte]",
+        "stzgm  %x21 -> (%x20)[16byte]", "stzgm  %x30 -> (%sp)[16byte]",
+    };
+    TEST_LOOP(stzgm, stzgm, 6, expected_0[i],
+              opnd_create_base_disp_aarch64(Xn_six_offset_0_sp[i], DR_REG_NULL,
+                                            DR_EXTEND_UXTX, 0, 0, 0, OPSZ_16),
+              opnd_create_reg(Xn_six_offset_1[i]));
+
+    instr =
+        INSTR_CREATE_stzgm(dc,
+                           opnd_create_base_disp_aarch64(
+                               DR_REG_X0, DR_REG_NULL, DR_EXTEND_UXTX, 0, 0, 0, OPSZ_16),
+                           opnd_create_reg(DR_REG_X0));
+    ASSERT(!instr_reads_memory(instr));
+    ASSERT(instr_writes_memory(instr));
+    instr_destroy(dc, instr);
+}
+
+TEST_INSTR(ldgm)
+{
+    /* Testing LDGM    <Xt>, [<Xn|SP>] */
+    const char *const expected[6] = {
+        "ldgm   (%x0) -> %x0",   "ldgm   (%x6) -> %x5",   "ldgm   (%x11) -> %x10",
+        "ldgm   (%x16) -> %x15", "ldgm   (%x21) -> %x20", "ldgm   (%sp) -> %x30",
+    };
+    TEST_LOOP(ldgm, ldgm, 6, expected[i], opnd_create_reg(Xn_six_offset_0[i]),
+              opnd_create_base_disp_aarch64(Xn_six_offset_1_sp[i], DR_REG_NULL,
+                                            DR_EXTEND_UXTX, 0, 0, 0, OPSZ_0));
+
+    instr =
+        INSTR_CREATE_ldgm(dc, opnd_create_reg(DR_REG_X0),
+                          opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL,
+                                                        DR_EXTEND_UXTX, 0, 0, 0, OPSZ_0));
+    ASSERT(!instr_reads_memory(instr));
+    ASSERT(!instr_writes_memory(instr));
+    instr_destroy(dc, instr);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -866,6 +931,11 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(subg);
     RUN_INSTR_TEST(dc_gva);
     RUN_INSTR_TEST(dc_gzva);
+
+    /* FEAT_MTE2 */
+    RUN_INSTR_TEST(stgm);
+    RUN_INSTR_TEST(stzgm);
+    RUN_INSTR_TEST(ldgm);
 
     print("All v8.6 tests complete.\n");
 #ifndef STANDALONE_DECODER

@@ -352,6 +352,24 @@ d969f338 : ldg x24, [x25, #2544]                     : ldg    %x24 +0x09f0(%x25)
 d96bf37a : ldg x26, [x27, #3056]                     : ldg    %x26 +0x0bf0(%x27) -> %x26
 d96ff3fe : ldg x30, [sp, #4080]                      : ldg    %x30 +0x0ff0(%sp) -> %x30
 
+# LDGM    <Xt>, [<Xn|SP>]
+d9e00000 : ldgm x0, [x0]                              : ldgm   (%x0) -> %x0
+d9e00062 : ldgm x2, [x3]                              : ldgm   (%x3) -> %x2
+d9e000a4 : ldgm x4, [x5]                              : ldgm   (%x5) -> %x4
+d9e000e6 : ldgm x6, [x7]                              : ldgm   (%x7) -> %x6
+d9e00128 : ldgm x8, [x9]                              : ldgm   (%x9) -> %x8
+d9e00149 : ldgm x9, [x10]                             : ldgm   (%x10) -> %x9
+d9e0018b : ldgm x11, [x12]                            : ldgm   (%x12) -> %x11
+d9e001cd : ldgm x13, [x14]                            : ldgm   (%x14) -> %x13
+d9e0020f : ldgm x15, [x16]                            : ldgm   (%x16) -> %x15
+d9e00251 : ldgm x17, [x18]                            : ldgm   (%x18) -> %x17
+d9e00293 : ldgm x19, [x20]                            : ldgm   (%x20) -> %x19
+d9e002d5 : ldgm x21, [x22]                            : ldgm   (%x22) -> %x21
+d9e002f6 : ldgm x22, [x23]                            : ldgm   (%x23) -> %x22
+d9e00338 : ldgm x24, [x25]                            : ldgm   (%x25) -> %x24
+d9e0037a : ldgm x26, [x27]                            : ldgm   (%x27) -> %x26
+d9e003fe : ldgm x30, [sp]                             : ldgm   (%sp) -> %x30
+
 # SMMLA   <Vd>.4S, <Vn>.16B, <Vm>.16B (SMMLA-Q.QQ-Vec)
 4e80a400 : smmla v0.4s, v0.16b, v0.16b               : smmla  %q0 %q0 %q0 $0x00 -> %q0
 4e84a462 : smmla v2.4s, v3.16b, v4.16b               : smmla  %q2 %q3 %q4 $0x00 -> %q2
@@ -477,6 +495,24 @@ d927fef6 : stg  x22, [x23, #2032]!                   : stg    %x22 %x23 $0x00000
 d929ff38 : stg  x24, [x25, #2544]!                   : stg    %x24 %x25 $0x00000000000009f0 -> +0x09f0(%x25) %x25
 d92bff7a : stg  x26, [x27, #3056]!                   : stg    %x26 %x27 $0x0000000000000bf0 -> +0x0bf0(%x27) %x27
 d92ffffe : stg  x30, [sp, #4080]!                    : stg    %x30 %sp $0x0000000000000ff0 -> +0x0ff0(%sp) %sp
+
+# STGM    <Xt|SP>, [<Xn|SP>]
+d9a00000 : stgm x0, [x0]                             : stgm   %x0 -> (%x0)
+d9a00062 : stgm x2, [x3]                             : stgm   %x2 -> (%x3)
+d9a000a4 : stgm x4, [x5]                             : stgm   %x4 -> (%x5)
+d9a000e6 : stgm x6, [x7]                             : stgm   %x6 -> (%x7)
+d9a00128 : stgm x8, [x9]                             : stgm   %x8 -> (%x9)
+d9a00149 : stgm x9, [x10]                            : stgm   %x9 -> (%x10)
+d9a0018b : stgm x11, [x12]                           : stgm   %x11 -> (%x12)
+d9a001cd : stgm x13, [x14]                           : stgm   %x13 -> (%x14)
+d9a0020f : stgm x15, [x16]                           : stgm   %x15 -> (%x16)
+d9a00251 : stgm x17, [x18]                           : stgm   %x17 -> (%x18)
+d9a00293 : stgm x19, [x20]                           : stgm   %x19 -> (%x20)
+d9a002d5 : stgm x21, [x22]                           : stgm   %x21 -> (%x22)
+d9a002f6 : stgm x22, [x23]                           : stgm   %x22 -> (%x23)
+d9a00338 : stgm x24, [x25]                           : stgm   %x24 -> (%x25)
+d9a0037a : stgm x26, [x27]                           : stgm   %x26 -> (%x27)
+d9a003fe : stgm x30, [sp]                            : stgm   %x30 -> (%sp)
 
 # STGP    <Xt>, <Xt2>, [<Xn|SP>], #<simm>
 68a00000 : stgp x0, x0, [x0], #-1024                 : stgp   %x0 %x0 %x0 $0xfffffffffffffc00 -> (%x0)[16byte] %x0
@@ -639,6 +675,24 @@ d967fef6 : stzg x22, [x23, #2032]!                   : stzg   %x22 %x23 $0x00000
 d969ff38 : stzg x24, [x25, #2544]!                   : stzg   %x24 %x25 $0x00000000000009f0 -> +0x09f0(%x25)[16byte] %x25
 d96bff7a : stzg x26, [x27, #3056]!                   : stzg   %x26 %x27 $0x0000000000000bf0 -> +0x0bf0(%x27)[16byte] %x27
 d96ffffe : stzg x30, [sp, #4080]!                    : stzg   %x30 %sp $0x0000000000000ff0 -> +0x0ff0(%sp)[16byte] %sp
+
+# STZGM   <Xt|SP>, [<Xn|SP>]
+d9200000 : stzgm x0, [x0]                            : stzgm  %x0 -> (%x0)[16byte]
+d9200062 : stzgm x2, [x3]                            : stzgm  %x2 -> (%x3)[16byte]
+d92000a4 : stzgm x4, [x5]                            : stzgm  %x4 -> (%x5)[16byte]
+d92000e6 : stzgm x6, [x7]                            : stzgm  %x6 -> (%x7)[16byte]
+d9200128 : stzgm x8, [x9]                            : stzgm  %x8 -> (%x9)[16byte]
+d9200149 : stzgm x9, [x10]                           : stzgm  %x9 -> (%x10)[16byte]
+d920018b : stzgm x11, [x12]                          : stzgm  %x11 -> (%x12)[16byte]
+d92001cd : stzgm x13, [x14]                          : stzgm  %x13 -> (%x14)[16byte]
+d920020f : stzgm x15, [x16]                          : stzgm  %x15 -> (%x16)[16byte]
+d9200251 : stzgm x17, [x18]                          : stzgm  %x17 -> (%x18)[16byte]
+d9200293 : stzgm x19, [x20]                          : stzgm  %x19 -> (%x20)[16byte]
+d92002d5 : stzgm x21, [x22]                          : stzgm  %x21 -> (%x22)[16byte]
+d92002f6 : stzgm x22, [x23]                          : stzgm  %x22 -> (%x23)[16byte]
+d9200338 : stzgm x24, [x25]                          : stzgm  %x24 -> (%x25)[16byte]
+d920037a : stzgm x26, [x27]                          : stzgm  %x26 -> (%x27)[16byte]
+d92003fe : stzgm x30, [sp]                           : stzgm  %x30 -> (%sp)[16byte]
 
 # SUBG    <Xd|SP>, <Xn|SP>, #<imm1>, #<imm2> (SUBG-R.RII-tag)
 d180c000 : subg x0, x0, #0x0, #0x0                   : subg   %x0 $0x0000 $0x00 -> %x0
@@ -831,3 +885,4 @@ badf03fe : subps x30, sp, sp                         : subps  %sp %sp -> %x30
 4e9baf59 : usmmla v25.4s, v26.16b, v27.16b           : usmmla %q25 %q26 %q27 $0x00 -> %q25
 4e9daf9b : usmmla v27.4s, v28.16b, v29.16b           : usmmla %q27 %q28 %q29 $0x00 -> %q27
 4e9fafff : usmmla v31.4s, v31.16b, v31.16b           : usmmla %q31 %q31 %q31 $0x00 -> %q31
+

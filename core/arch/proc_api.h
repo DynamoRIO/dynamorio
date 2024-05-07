@@ -385,8 +385,10 @@ typedef enum {
     FEATURE_SVESM4 = DEF_FEAT(AA64ZFR0, 10, 1, FEAT_EQ),   /**< SVE2 + SM4 (AArch64) */
     FEATURE_SVEBitPerm =
         DEF_FEAT(AA64ZFR0, 4, 1, FEAT_EQ), /**< SVE2 + BitPerm (AArch64) */
-    FEATURE_MTE =
-        DEF_FEAT(AA64PFR1, 2, 1, FEAT_GR_EQ), /**< Memory Tagging Extension (AArch64) */
+    FEATURE_MTE = DEF_FEAT(AA64PFR1, 2, 1,
+                           FEAT_GR_EQ), /**< Instruction-only Memory Tagging (AArch64) */
+    FEATURE_MTE2 =
+        DEF_FEAT(AA64PFR1, 2, 2, FEAT_GR_EQ), /**< Full Memory Tagging (AArch64) */
     FEATURE_BTI =
         DEF_FEAT(AA64PFR1, 0, 1, FEAT_EQ), /**< Branch Target Identification (AArch64) */
     FEATURE_PAUTH2 =

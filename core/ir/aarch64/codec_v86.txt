@@ -49,7 +49,8 @@
 01101110010xxxxx111011xxxxxxxxxx  n   957  BF16  bfmmla             q0 : q0 q5 q16 h_sz
 10011010110xxxxx000101xxxxxxxxxx  n   1203 MTE      gmi             x0 : x5sp x16
 10011010110xxxxx000100xxxxxxxxxx  n   1204 MTE      irg           x0sp : x5sp x16
-11011001011xxxxxxxxx00xxxxxxxxxx  n   1201 MTE      ldg             x0 : x0 mem9_ldg_tag
+11011001011xxxxxxxxx00xxxxxxxxxx  n   1201 MTE      ldg             x0 : x0 mem9_tag
+1101100111100000000000xxxxxxxxxx  n   1218 MTE2    ldgm             x0 : mem9_tag
 01001110100xxxxx101001xxxxxxxxxx  n   958  I8MM   smmla             q0 : q0 q5 q16 b_const_sz
 11011001101xxxxxxxxx01xxxxxxxxxx  n   1197 MTE     st2g  mem9post_tag x5sp : x0sp x5sp mem9off_tag
 11011001101xxxxxxxxx11xxxxxxxxxx  n   1197 MTE     st2g  mem9_tag x5sp : x0sp x5sp mem9off_tag
@@ -57,6 +58,7 @@
 11011001001xxxxxxxxx01xxxxxxxxxx  n   1198 MTE      stg  mem9post_tag x5sp : x0sp x5sp mem9off_tag
 11011001001xxxxxxxxx11xxxxxxxxxx  n   1198 MTE      stg  mem9_tag x5sp : x0sp x5sp mem9off_tag
 11011001001xxxxxxxxx10xxxxxxxxxx  n   1198 MTE      stg       mem9_tag : x0sp
+1101100110100000000000xxxxxxxxxx  n   1216 MTE2    stgm       mem9_tag : x0
 0110100010xxxxxxxxxxxxxxxxxxxxxx  n   1202 MTE     stgp  mem7post_tag x5sp : x0 x10 x5sp mem7off_tag
 0110100110xxxxxxxxxxxxxxxxxxxxxx  n   1202 MTE     stgp  mem7_tag x5sp : x0 x10 x5sp mem7off_tag
 0110100100xxxxxxxxxxxxxxxxxxxxxx  n   1202 MTE     stgp       mem7_tag : x0 x10
@@ -66,6 +68,7 @@
 11011001011xxxxxxxxx01xxxxxxxxxx  n   1200 MTE     stzg  mem9post_tag x5sp : x0sp x5sp mem9off_tag
 11011001011xxxxxxxxx11xxxxxxxxxx  n   1200 MTE     stzg  mem9_tag x5sp : x0sp x5sp mem9off_tag
 11011001011xxxxxxxxx10xxxxxxxxxx  n   1200 MTE     stzg       mem9_tag : x0sp
+1101100100100000000000xxxxxxxxxx  n   1217 MTE2   stzgm       mem9_tag : x0
 1101000110xxxxxx^^xxxxxxxxxxxxxx  n   1208 MTE     subg           x0sp : x5sp imm6_16_tag imm4_10
 10011010110xxxxx000000xxxxxxxxxx  n   1205 MTE     subp             x0 : x5sp x16sp
 10111010110xxxxx000000xxxxxxxxxx  n   1206 MTE    subps             x0 : x5sp x16sp

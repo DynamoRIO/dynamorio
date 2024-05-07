@@ -71,21 +71,21 @@ opc_is_not_a_real_memory_load(int opc)
 {
     /* These instructions have a memref operand, but do not read memory:
      * - adp/adrp do pc-relative address calculation.
-     * - ldg loads the allocation tag for the referenced address.
+     * - ldg/ldgm loads the allocation tag for the referenced address.
      */
-    return (opc == OP_adr || opc == OP_adrp || opc == OP_ldg);
+    return (opc == OP_adr || opc == OP_adrp || opc == OP_ldg || opc == OP_ldgm);
 }
 
 bool
 opc_is_not_a_real_memory_store(int opc)
 {
     /* These instructions have a memref operand, but do not write memory:
-     * - stg/st2g stores the allocation tag for the referenced address.
+     * - stg/st2g/stgm stores the allocation tag for the referenced address.
      *   note: other MTE tag storing instructions (stgp, stzg, etc) store memory as well
      *         as allocation tags so they are not checked for here. stg/st2g only store a
      *         tag.
      */
-    return (opc == OP_stg || opc == OP_st2g);
+    return (opc == OP_stg || opc == OP_st2g || opc == OP_stgm);
 }
 
 uint
