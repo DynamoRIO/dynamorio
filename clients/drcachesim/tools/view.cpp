@@ -572,7 +572,7 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
          * OFFLINE_FILE_TYPE_ARCH_REGDEPS set. We need this to correctly
          * disassemble DR_ISA_REGDEPS instructions.
          */
-        dr_isa_mode_t old_isa_mode;
+        dr_isa_mode_t old_isa_mode = dr_get_isa_mode(dcontext_.dcontext);
         if (TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, filetype_)) {
             dr_set_isa_mode(dcontext_.dcontext, DR_ISA_REGDEPS, &old_isa_mode);
         }
