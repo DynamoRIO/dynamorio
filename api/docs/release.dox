@@ -234,6 +234,8 @@ Further non-compatibility-affecting changes include:
    generate #DR_ISA_REGDEPS traces.
  - Added #dynamorio::drmemtrace::OFFLINE_FILE_TYPE_ARCH_REGDEPS file type for
    #DR_ISA_REGDEPS traces.
+ - Added -tool as the preferred alias for -simulator_type for the drmemtrace/drcachesim
+   trace analysis tool framework.
 
 **************************************************
 <hr>
