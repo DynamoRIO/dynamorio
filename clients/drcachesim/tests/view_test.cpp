@@ -612,17 +612,18 @@ run_regdeps_test(void *drcontext)
         { TRACE_TYPE_INSTR, 3, { PC } },
         { TRACE_TYPE_FOOTER, 0, { 0 } },
     } };
-    /* clang-format off */
-    const char *expect = R"DELIM(           1           0:           3 <marker: version 3>
+    std::string expect =
+        std::string(R"DELIM(           1           0:           3 <marker: version 3>
            2           0:           3 <marker: filetype 0x20e00>
            3           0:           3 <marker: cache line size 64>
            4           0:           3 <marker: chunk instruction count 2>
            5           0:           3 <marker: timestamp 1002>
            6           0:           3 <marker: tid 3 on core 2>
-           7           1:           3 ifetch       3 byte(s) @ 0x00007f6fdd3ec360 11 00 01 00 06 09 06 move   %rv4[8byte] -> %rv7[8byte]
+           7           1:           3 ifetch       )DELIM") +
+        std::string(R"DELIM(3 byte(s) @ 0x00007f6fdd3ec360 )DELIM") +
+        std::string(R"DELIM(11 00 01 00 06 09 06 move   %rv4[8byte] -> %rv7[8byte]
            7           1:           3                                             00
-)DELIM";
-    /* clang-format on */
+)DELIM");
     instrlist_t *ilist_unused = nullptr;
     view_nomod_test_t view(drcontext, *ilist_unused, 0, 0);
     std::string res = run_serial_test_helper(view, entries, tids);
