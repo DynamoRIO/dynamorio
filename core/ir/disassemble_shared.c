@@ -752,6 +752,9 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
         case PC_kind:
         case FAR_PC_kind: break;
         case REG_kind: {
+            /* We always want to print the operation size for DR_ISA_REGDEP
+             * instructions.
+             */
             bool is_global_isa_mode_synthetic =
                 dr_get_isa_mode(get_thread_private_dcontext()) == DR_ISA_REGDEPS;
             if (!opnd_is_reg_partial(opnd) && !is_global_isa_mode_synthetic)
@@ -1004,15 +1007,14 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PAR
     for (i = 0; i < num; i++) {
         bool printing = false;
         opnd = dsts_first() ? instr_get_dst(instr, i) : instr_get_src(instr, i);
-        IF_X86_ELSE(
-            { optype = instr_info_opnd_type(info, !dsts_first(), i); },
-            {
-                /* XXX i#1683: -syntax_arm currently fails here on register lists
-                 * and will trigger the assert in instr_info_opnd_type().  We
-                 * don't use the optype on ARM yet though.
-                 */
-                optype = 0;
-            });
+        IF_X86_ELSE({ optype = instr_info_opnd_type(info, !dsts_first(), i); },
+                    {
+                        /* XXX i#1683: -syntax_arm currently fails here on register lists
+                         * and will trigger the assert in instr_info_opnd_type().  We
+                         * don't use the optype on ARM yet though.
+                         */
+                        optype = 0;
+                    });
         bool is_evex_mask = !instr_is_opmask(instr) && opnd_is_reg(opnd) &&
             reg_is_opmask(opnd_get_reg(opnd)) && opmask_with_dsts();
         if (!is_evex_mask) {
@@ -1035,12 +1037,11 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PAR
     for (i = 0; i < num; i++) {
         bool print = true;
         opnd = dsts_first() ? instr_get_src(instr, i) : instr_get_dst(instr, i);
-        IF_X86_ELSE(
-            { optype = instr_info_opnd_type(info, dsts_first(), i); },
-            {
-                /* XXX i#1683: see comment above */
-                optype = 0;
-            });
+        IF_X86_ELSE({ optype = instr_info_opnd_type(info, dsts_first(), i); },
+                    {
+                        /* XXX i#1683: see comment above */
+                        optype = 0;
+                    });
         IF_X86({
             /* PR 312458: still not matching Intel-style tools like windbg or udis86:
              * we need to suppress certain implicit operands, such as:
@@ -1229,6 +1230,9 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT
     bool use_size_sfx = false;
     size_t offs_pre_name, offs_post_name, offs_pre_opnds;
 
+    /* Print the instruction categories instead of opcode for DR_ISA_REGDEPS
+     * instructions.
+     */
     if (instr_get_isa_mode(instr) == DR_ISA_REGDEPS) {
         char category_names[MAX_LENGTH_ALL_CATEGORIES_AS_STRING];
         get_category_names(instr_get_category(instr), category_names,
