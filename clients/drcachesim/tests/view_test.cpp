@@ -587,10 +587,12 @@ run_chunk_tests(void *drcontext)
 }
 
 /* Test view tool on a OFFLINE_FILE_TYPE_ARCH_REGDEPS trace.
+ * The trace hardcoded in entries is X64, so we only test on X64 architectures here.
  */
 bool
 run_regdeps_test(void *drcontext)
 {
+#ifdef X64
     const memref_tid_t t1 = 3;
     std::vector<memref_tid_t> tids = { t1 };
     constexpr addr_t PC = 0x00007f6fdd3ec360;
@@ -621,8 +623,8 @@ run_regdeps_test(void *drcontext)
            6           0:           3 <marker: tid 3 on core 2>
            7           1:           3 ifetch       )DELIM") +
         std::string(R"DELIM(3 byte(s) @ 0x00007f6fdd3ec360 )DELIM") +
-        std::string(R"DELIM(11 00 01 00 06 09 06 move   %rv4[8byte] -> %rv7[8byte]
-           7           1:           3                                             00
+        std::string(
+            R"DELIM(11 00 01 00 06 09 06 00 move   %rv4[8byte] -> %rv7[8byte]
 )DELIM");
     instrlist_t *ilist_unused = nullptr;
     view_nomod_test_t view(drcontext, *ilist_unused, 0, 0);
@@ -631,6 +633,7 @@ run_regdeps_test(void *drcontext)
         std::cerr << "Output mismatch: got |" << res << "| expected |" << expect << "|\n";
         return false;
     }
+#endif
     return true;
 }
 
