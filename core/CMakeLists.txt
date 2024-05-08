@@ -1149,7 +1149,7 @@ if (BUILD_TESTS AND
       append_property_string(TARGET unit_tests LINK_FLAGS "-Wl,${ld_entry_flag},_start")
     endif ()
     if (NOT ANDROID) # everything is inside Bionic on Android
-      target_link_libraries(unit_tests c dl m pthread)
+      target_link_libraries(unit_tests dl m pthread)
     endif ()
     set_preferred_base_start_and_end(unit_tests ${preferred_base} ON)
   else (UNIX)
@@ -1159,6 +1159,7 @@ if (BUILD_TESTS AND
       LINK_FLAGS "/base:${preferred_base} ${LD_FLAGS}")
   endif (UNIX)
   target_link_libraries(unit_tests drlibc)
+  target_link_libraries(unit_tests drmemfuncs)
   get_target_path_for_execution(unit_relpath unit_tests "${location_suffix}")
   prefix_cmd_if_necessary(unit_relpath OFF ${unit_relpath})
   add_test(unit_tests ${unit_relpath})
