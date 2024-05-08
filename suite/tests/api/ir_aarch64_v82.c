@@ -70,6 +70,7 @@ TEST_INSTR(fcvtas_vector)
                                            opnd_create_reg(Rn_0[i]), elsz);
         if (!test_instr_encoding(dc, OP_fcvtas, instr, expected_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* FCVTAS  <Vd>.4H, <Vn>.4H */
@@ -86,6 +87,7 @@ TEST_INSTR(fcvtas_vector)
                                            opnd_create_reg(Rn_1[i]), elsz);
         if (!test_instr_encoding(dc, OP_fcvtas, instr, expected_1[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -105,6 +107,7 @@ TEST_INSTR(fcvtas_scalar)
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtas, instr, expected_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* FCVTAS  <Xd>, <Hn> */
@@ -119,6 +122,7 @@ TEST_INSTR(fcvtas_scalar)
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtas, instr, expected_1[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* FCVTAS  <Hd>, <Hn> */
@@ -133,6 +137,7 @@ TEST_INSTR(fcvtas_scalar)
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtas, instr, expected_2[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -158,6 +163,7 @@ TEST_INSTR(fcvtau_vector)
                                            opnd_create_reg(Rn_0[i]), elsz);
         if (!test_instr_encoding(dc, OP_fcvtau, instr, expected_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* FCVTAU  <Vd>.4H, <Vn>.4H */
@@ -174,6 +180,7 @@ TEST_INSTR(fcvtau_vector)
                                            opnd_create_reg(Rn_1[i]), elsz);
         if (!test_instr_encoding(dc, OP_fcvtau, instr, expected_1[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -193,6 +200,7 @@ TEST_INSTR(fcvtau_scalar)
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtau, instr, expected_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* FCVTAU  <Xd>, <Hn> */
@@ -207,6 +215,7 @@ TEST_INSTR(fcvtau_scalar)
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtau, instr, expected_1[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* FCVTAU  <Hd>, <Hn> */
@@ -221,6 +230,7 @@ TEST_INSTR(fcvtau_scalar)
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtau, instr, expected_2[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -246,6 +256,7 @@ TEST_INSTR(fcvtms_vector)
                                            opnd_create_reg(Rn_0[i]), elsz);
         if (!test_instr_encoding(dc, OP_fcvtms, instr, expected_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* FCVTMS  <Vd>.4H, <Vn>.4H */
@@ -262,6 +273,7 @@ TEST_INSTR(fcvtms_vector)
                                            opnd_create_reg(Rn_1[i]), elsz);
         if (!test_instr_encoding(dc, OP_fcvtms, instr, expected_1[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -281,6 +293,7 @@ TEST_INSTR(fcvtms_scalar)
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtms, instr, expected_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* FCVTMS  <Xd>, <Hn> */
@@ -295,6 +308,7 @@ TEST_INSTR(fcvtms_scalar)
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtms, instr, expected_1[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* FCVTMS  <Hd>, <Hn> */
@@ -309,6 +323,7 @@ TEST_INSTR(fcvtms_scalar)
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtms, instr, expected_2[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -334,6 +349,7 @@ TEST_INSTR(fcvtmu_vector)
                                            opnd_create_reg(Rn_0[i]), elsz);
         if (!test_instr_encoding(dc, OP_fcvtmu, instr, expected_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* FCVTMU  <Vd>.4H, <Vn>.4H */
@@ -350,6 +366,7 @@ TEST_INSTR(fcvtmu_vector)
                                            opnd_create_reg(Rn_1[i]), elsz);
         if (!test_instr_encoding(dc, OP_fcvtmu, instr, expected_1[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -369,6 +386,7 @@ TEST_INSTR(fcvtmu_scalar)
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtmu, instr, expected_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* FCVTMU  <Xd>, <Hn> */
@@ -383,6 +401,7 @@ TEST_INSTR(fcvtmu_scalar)
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtmu, instr, expected_1[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* FCVTMU  <Hd>, <Hn> */
@@ -397,6 +416,7 @@ TEST_INSTR(fcvtmu_scalar)
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtmu, instr, expected_2[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -422,6 +442,7 @@ TEST_INSTR(fcvtns_vector)
                                            opnd_create_reg(Rn_0[i]), elsz);
         if (!test_instr_encoding(dc, OP_fcvtns, instr, expected_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* FCVTNS  <Vd>.4H, <Vn>.4H */
@@ -438,6 +459,7 @@ TEST_INSTR(fcvtns_vector)
                                            opnd_create_reg(Rn_1[i]), elsz);
         if (!test_instr_encoding(dc, OP_fcvtns, instr, expected_1[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -457,6 +479,7 @@ TEST_INSTR(fcvtns_scalar)
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtns, instr, expected_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* FCVTNS  <Xd>, <Hn> */
@@ -471,6 +494,7 @@ TEST_INSTR(fcvtns_scalar)
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtns, instr, expected_1[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* FCVTNS  <Hd>, <Hn> */
@@ -485,6 +509,7 @@ TEST_INSTR(fcvtns_scalar)
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtns, instr, expected_2[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -510,6 +535,7 @@ TEST_INSTR(fcvtnu_vector)
                                            opnd_create_reg(Rn_0[i]), elsz);
         if (!test_instr_encoding(dc, OP_fcvtnu, instr, expected_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* FCVTNU  <Vd>.4H, <Vn>.4H */
@@ -526,6 +552,7 @@ TEST_INSTR(fcvtnu_vector)
                                            opnd_create_reg(Rn_1[i]), elsz);
         if (!test_instr_encoding(dc, OP_fcvtnu, instr, expected_1[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -545,6 +572,7 @@ TEST_INSTR(fcvtnu_scalar)
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtnu, instr, expected_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* FCVTNU  <Xd>, <Hn> */
@@ -559,6 +587,7 @@ TEST_INSTR(fcvtnu_scalar)
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtnu, instr, expected_1[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* FCVTNU  <Hd>, <Hn> */
@@ -573,6 +602,7 @@ TEST_INSTR(fcvtnu_scalar)
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtnu, instr, expected_2[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -598,6 +628,7 @@ TEST_INSTR(fcvtps_vector)
                                            opnd_create_reg(Rn_0[i]), elsz);
         if (!test_instr_encoding(dc, OP_fcvtps, instr, expected_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* FCVTPS  <Vd>.4H, <Vn>.4H */
@@ -614,6 +645,7 @@ TEST_INSTR(fcvtps_vector)
                                            opnd_create_reg(Rn_1[i]), elsz);
         if (!test_instr_encoding(dc, OP_fcvtps, instr, expected_1[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -633,6 +665,7 @@ TEST_INSTR(fcvtps_scalar)
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtps, instr, expected_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* FCVTPS  <Xd>, <Hn> */
@@ -647,6 +680,7 @@ TEST_INSTR(fcvtps_scalar)
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtps, instr, expected_1[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* FCVTPS  <Hd>, <Hn> */
@@ -661,6 +695,7 @@ TEST_INSTR(fcvtps_scalar)
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtps, instr, expected_2[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -686,6 +721,7 @@ TEST_INSTR(fcvtpu_vector)
                                            opnd_create_reg(Rn_0[i]), elsz);
         if (!test_instr_encoding(dc, OP_fcvtpu, instr, expected_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* FCVTPU  <Vd>.4H, <Vn>.4H */
@@ -702,6 +738,7 @@ TEST_INSTR(fcvtpu_vector)
                                            opnd_create_reg(Rn_1[i]), elsz);
         if (!test_instr_encoding(dc, OP_fcvtpu, instr, expected_1[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -721,6 +758,7 @@ TEST_INSTR(fcvtpu_scalar)
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtpu, instr, expected_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* FCVTPU  <Xd>, <Hn> */
@@ -735,6 +773,7 @@ TEST_INSTR(fcvtpu_scalar)
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtpu, instr, expected_1[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* FCVTPU  <Hd>, <Hn> */
@@ -749,6 +788,7 @@ TEST_INSTR(fcvtpu_scalar)
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtpu, instr, expected_2[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -775,6 +815,7 @@ TEST_INSTR(fcvtzs_vector)
                                            opnd_create_reg(Rn_0_0[i]), Rn_elsz);
         if (!test_instr_encoding(dc, OP_fcvtzs, instr, expected_0_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* Testing FCVTZS  <Hd>.8H, <Hn>.8H */
@@ -791,6 +832,7 @@ TEST_INSTR(fcvtzs_vector)
                                            opnd_create_reg(Rn_0_1[i]), Rn_elsz);
         if (!test_instr_encoding(dc, OP_fcvtzs, instr, expected_0_1[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -810,6 +852,7 @@ TEST_INSTR(fcvtzs_scalar)
                                            opnd_create_reg(Rn_1_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtzs, instr, expected_1_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* Testing FCVTZS  <Xd>, <Hn> */
@@ -825,6 +868,7 @@ TEST_INSTR(fcvtzs_scalar)
                                            opnd_create_reg(Rn_4_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtzs, instr, expected_4_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* Testing FCVTZS  <Wd>, <Hn>, #<fbits> */
@@ -842,6 +886,7 @@ TEST_INSTR(fcvtzs_scalar)
             opnd_create_immed_uint(scale_10_0[i], OPSZ_0));
         if (!test_instr_encoding(dc, OP_fcvtzs, instr, expected_10_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* Testing FCVTZS  <Xd>, <Hn>, #<fbits> */
@@ -859,6 +904,7 @@ TEST_INSTR(fcvtzs_scalar)
             opnd_create_immed_uint(scale_11_0[i], OPSZ_0));
         if (!test_instr_encoding(dc, OP_fcvtzs, instr, expected_11_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* Testing FCVTZS  <Hd>, <Hn> */
@@ -874,6 +920,7 @@ TEST_INSTR(fcvtzs_scalar)
                                            opnd_create_reg(Rn_12_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtzs, instr, expected_12_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -900,6 +947,7 @@ TEST_INSTR(fcvtzu_vector)
                                            opnd_create_reg(Rn_0_0[i]), Rn_elsz);
         if (!test_instr_encoding(dc, OP_fcvtzu, instr, expected_0_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* Testing FCVTZU  <Hd>.8H, <Hn>.8H */
@@ -916,6 +964,7 @@ TEST_INSTR(fcvtzu_vector)
                                            opnd_create_reg(Rn_0_1[i]), Rn_elsz);
         if (!test_instr_encoding(dc, OP_fcvtzu, instr, expected_0_1[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -935,6 +984,7 @@ TEST_INSTR(fcvtzu_scalar)
                                            opnd_create_reg(Rn_1_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtzu, instr, expected_1_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* Testing FCVTZU  <Xd>, <Hn> */
@@ -950,6 +1000,7 @@ TEST_INSTR(fcvtzu_scalar)
                                            opnd_create_reg(Rn_4_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtzu, instr, expected_4_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* Testing FCVTZU  <Wd>, <Hn>, #<fbits> */
@@ -967,6 +1018,7 @@ TEST_INSTR(fcvtzu_scalar)
             opnd_create_immed_uint(scale_10_0[i], OPSZ_0));
         if (!test_instr_encoding(dc, OP_fcvtzu, instr, expected_10_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* Testing FCVTZU  <Xd>, <Hn>, #<fbits> */
@@ -984,6 +1036,7 @@ TEST_INSTR(fcvtzu_scalar)
             opnd_create_immed_uint(scale_11_0[i], OPSZ_0));
         if (!test_instr_encoding(dc, OP_fcvtzu, instr, expected_11_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* Testing FCVTZU  <Hd>, <Hn> */
@@ -999,6 +1052,7 @@ TEST_INSTR(fcvtzu_scalar)
                                            opnd_create_reg(Rn_12_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtzu, instr, expected_12_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -1024,6 +1078,7 @@ TEST_INSTR(frinta_vector)
                                            opnd_create_reg(Rn_0[i]), elsz);
         if (!test_instr_encoding(dc, OP_frinta, instr, expected_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* FRINTA  <Hd>.4H, <Hn>.4H */
@@ -1040,6 +1095,7 @@ TEST_INSTR(frinta_vector)
                                            opnd_create_reg(Rn_1[i]), elsz);
         if (!test_instr_encoding(dc, OP_frinta, instr, expected_1[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -1059,6 +1115,7 @@ TEST_INSTR(frinta_scalar)
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_frinta, instr, expected_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -1084,6 +1141,7 @@ TEST_INSTR(frinti_vector)
                                            opnd_create_reg(Rn_0[i]), elsz);
         if (!test_instr_encoding(dc, OP_frinti, instr, expected_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* FRINTI  <Hd>.4H, <Hn>.4H */
@@ -1100,6 +1158,7 @@ TEST_INSTR(frinti_vector)
                                            opnd_create_reg(Rn_1[i]), elsz);
         if (!test_instr_encoding(dc, OP_frinti, instr, expected_1[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -1119,6 +1178,7 @@ TEST_INSTR(frinti_scalar)
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_frinti, instr, expected_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -1144,6 +1204,7 @@ TEST_INSTR(frintm_vector)
                                            opnd_create_reg(Rn_0[i]), elsz);
         if (!test_instr_encoding(dc, OP_frintm, instr, expected_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* FRINTM  <Hd>.4H, <Hn>.4H */
@@ -1160,6 +1221,7 @@ TEST_INSTR(frintm_vector)
                                            opnd_create_reg(Rn_1[i]), elsz);
         if (!test_instr_encoding(dc, OP_frintm, instr, expected_1[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -1179,6 +1241,7 @@ TEST_INSTR(frintm_scalar)
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_frintm, instr, expected_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -1204,6 +1267,7 @@ TEST_INSTR(frintn_vector)
                                            opnd_create_reg(Rn_0[i]), elsz);
         if (!test_instr_encoding(dc, OP_frintn, instr, expected_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* FRINTN  <Hd>.4H, <Hn>.4H */
@@ -1220,6 +1284,7 @@ TEST_INSTR(frintn_vector)
                                            opnd_create_reg(Rn_1[i]), elsz);
         if (!test_instr_encoding(dc, OP_frintn, instr, expected_1[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -1239,6 +1304,7 @@ TEST_INSTR(frintn_scalar)
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_frintn, instr, expected_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -1264,6 +1330,7 @@ TEST_INSTR(frintp_vector)
                                            opnd_create_reg(Rn_0[i]), elsz);
         if (!test_instr_encoding(dc, OP_frintp, instr, expected_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* FRINTP  <Hd>.4H, <Hn>.4H */
@@ -1280,6 +1347,7 @@ TEST_INSTR(frintp_vector)
                                            opnd_create_reg(Rn_1[i]), elsz);
         if (!test_instr_encoding(dc, OP_frintp, instr, expected_1[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -1299,6 +1367,7 @@ TEST_INSTR(frintp_scalar)
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_frintp, instr, expected_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -1324,6 +1393,7 @@ TEST_INSTR(frintx_vector)
                                            opnd_create_reg(Rn_0[i]), elsz);
         if (!test_instr_encoding(dc, OP_frintx, instr, expected_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* FRINTX  <Hd>.4H, <Hn>.4H */
@@ -1340,6 +1410,7 @@ TEST_INSTR(frintx_vector)
                                            opnd_create_reg(Rn_1[i]), elsz);
         if (!test_instr_encoding(dc, OP_frintx, instr, expected_1[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -1359,6 +1430,7 @@ TEST_INSTR(frintx_scalar)
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_frintx, instr, expected_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -1384,6 +1456,7 @@ TEST_INSTR(frintz_vector)
                                            opnd_create_reg(Rn_0[i]), elsz);
         if (!test_instr_encoding(dc, OP_frintz, instr, expected_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* FRINTZ  <Hd>.4H, <Hn>.4H */
@@ -1400,6 +1473,7 @@ TEST_INSTR(frintz_vector)
                                            opnd_create_reg(Rn_1[i]), elsz);
         if (!test_instr_encoding(dc, OP_frintz, instr, expected_1[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -1419,6 +1493,7 @@ TEST_INSTR(frintz_scalar)
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_frintz, instr, expected_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -1701,6 +1776,7 @@ TEST_INSTR(sm3partw1_vector)
                                               opnd_create_reg(Rm_0_0[i]), Rm_elsz);
         if (!test_instr_encoding(dc, OP_sm3partw1, instr, expected_0_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -1723,6 +1799,7 @@ TEST_INSTR(sm3partw2_vector)
                                               opnd_create_reg(Rm_0_0[i]), Rm_elsz);
         if (!test_instr_encoding(dc, OP_sm3partw2, instr, expected_0_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -1746,6 +1823,7 @@ TEST_INSTR(sm3ss1_vector)
             opnd_create_reg(Rm_0_0[i]), opnd_create_reg(Ra_0_0[i]), Ra_elsz);
         if (!test_instr_encoding(dc, OP_sm3ss1, instr, expected_0_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -1770,6 +1848,7 @@ TEST_INSTR(sm3tt1a_vector_indexed)
             Rm_elsz);
         if (!test_instr_encoding(dc, OP_sm3tt1a, instr, expected_0_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -1794,6 +1873,7 @@ TEST_INSTR(sm3tt1b_vector_indexed)
             Rm_elsz);
         if (!test_instr_encoding(dc, OP_sm3tt1b, instr, expected_0_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -1818,6 +1898,7 @@ TEST_INSTR(sm3tt2a_vector_indexed)
             Rm_elsz);
         if (!test_instr_encoding(dc, OP_sm3tt2a, instr, expected_0_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -1842,6 +1923,7 @@ TEST_INSTR(sm3tt2b_vector_indexed)
             Rm_elsz);
         if (!test_instr_encoding(dc, OP_sm3tt2b, instr, expected_0_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -1862,6 +1944,7 @@ TEST_INSTR(sm4e_vector)
                                          opnd_create_reg(Rn_0_0[i]), Rn_elsz);
         if (!test_instr_encoding(dc, OP_sm4e, instr, expected_0_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -1884,6 +1967,7 @@ TEST_INSTR(sm4ekey_vector)
                                             opnd_create_reg(Rm_0_0[i]), Rm_elsz);
         if (!test_instr_encoding(dc, OP_sm4ekey, instr, expected_0_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -1906,6 +1990,7 @@ TEST_INSTR(sha512h)
                                      opnd_create_reg(Rm_0_0[i]), Rm_elsz);
         if (!test_instr_encoding(dc, OP_sha512h, instr, expected_0_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -1928,6 +2013,7 @@ TEST_INSTR(sha512h2)
                                       opnd_create_reg(Rm_0_0[i]), Rm_elsz);
         if (!test_instr_encoding(dc, OP_sha512h2, instr, expected_0_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -1948,6 +2034,7 @@ TEST_INSTR(sha512su0)
                                        opnd_create_reg(Rn_0_0[i]), Rn_elsz);
         if (!test_instr_encoding(dc, OP_sha512su0, instr, expected_0_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -1970,6 +2057,7 @@ TEST_INSTR(sha512su1)
                                        opnd_create_reg(Rm_0_0[i]), Rm_elsz);
         if (!test_instr_encoding(dc, OP_sha512su1, instr, expected_0_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -1992,6 +2080,7 @@ TEST_INSTR(bcax)
                               opnd_create_reg(Rm_0_0[i]), opnd_create_reg(Ra_0_0[i]));
         if (!test_instr_encoding(dc, OP_bcax, instr, expected_0_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -2014,6 +2103,7 @@ TEST_INSTR(eor3)
                               opnd_create_reg(Rm_0_0[i]), opnd_create_reg(Ra_0_0[i]));
         if (!test_instr_encoding(dc, OP_eor3, instr, expected_0_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -2025,6 +2115,7 @@ TEST_INSTR(esb)
     instr = INSTR_CREATE_esb(dc);
     if (!test_instr_encoding(dc, OP_esb, instr, expected_0_0[0]))
         *psuccess = false;
+    instr_destroy(dc, instr);
 }
 
 TEST_INSTR(psb)
@@ -2035,6 +2126,7 @@ TEST_INSTR(psb)
     instr = INSTR_CREATE_psb_csync(dc);
     if (!test_instr_encoding(dc, OP_psb, instr, expected_0_0[0]))
         *psuccess = false;
+    instr_destroy(dc, instr);
 }
 
 TEST_INSTR(fsqrt_vector)
@@ -2054,6 +2146,7 @@ TEST_INSTR(fsqrt_vector)
                                           opnd_create_reg(Rn_0_0[i]), Rn_elsz);
         if (!test_instr_encoding(dc, OP_fsqrt, instr, expected_0_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
     reg_id_t Rd_0_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_0_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
@@ -2068,6 +2161,7 @@ TEST_INSTR(fsqrt_vector)
                                           opnd_create_reg(Rn_0_1[i]), Rn_elsz);
         if (!test_instr_encoding(dc, OP_fsqrt, instr, expected_0_1[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -2087,6 +2181,7 @@ TEST_INSTR(fsqrt_scalar)
                                           opnd_create_reg(Rn_1_0[i]));
         if (!test_instr_encoding(dc, OP_fsqrt, instr, expected_1_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -2107,6 +2202,7 @@ TEST_INSTR(scvtf_vector)
                                           opnd_create_reg(Rn_0_0[i]), Rn_elsz);
         if (!test_instr_encoding(dc, OP_scvtf, instr, expected_0_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
     reg_id_t Rd_0_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_0_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
@@ -2121,6 +2217,7 @@ TEST_INSTR(scvtf_vector)
                                           opnd_create_reg(Rn_0_1[i]), Rn_elsz);
         if (!test_instr_encoding(dc, OP_scvtf, instr, expected_0_1[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -2140,6 +2237,7 @@ TEST_INSTR(scvtf_scalar)
                                           opnd_create_reg(Rn_0_0[i]));
         if (!test_instr_encoding(dc, OP_scvtf, instr, expected_0_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* Testing SCVTF   <Hd>, <Xn> */
@@ -2155,6 +2253,7 @@ TEST_INSTR(scvtf_scalar)
                                           opnd_create_reg(Rn_1_0[i]));
         if (!test_instr_encoding(dc, OP_scvtf, instr, expected_1_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -2176,6 +2275,7 @@ TEST_INSTR(scvtf_scalar_fixed)
                                                 OPND_CREATE_INT(scale_0[i]));
         if (!test_instr_encoding(dc, OP_scvtf, instr, expected_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* Testing SCVTF   <Hd>, <Xn>, #<imm> */
@@ -2193,6 +2293,7 @@ TEST_INSTR(scvtf_scalar_fixed)
                                                 OPND_CREATE_INT(scale_1[i]));
         if (!test_instr_encoding(dc, OP_scvtf, instr, expected_1[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -2213,6 +2314,7 @@ TEST_INSTR(ucvtf_vector)
                                           opnd_create_reg(Rn_0_0[i]), Rn_elsz);
         if (!test_instr_encoding(dc, OP_ucvtf, instr, expected_0_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
     reg_id_t Rd_0_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_0_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
@@ -2227,6 +2329,7 @@ TEST_INSTR(ucvtf_vector)
                                           opnd_create_reg(Rn_0_1[i]), Rn_elsz);
         if (!test_instr_encoding(dc, OP_ucvtf, instr, expected_0_1[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -2246,6 +2349,7 @@ TEST_INSTR(ucvtf_scalar)
                                           opnd_create_reg(Rn_0_0[i]));
         if (!test_instr_encoding(dc, OP_ucvtf, instr, expected_0_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* Testing UCVTF   <Hd>, <Xn> */
@@ -2261,6 +2365,7 @@ TEST_INSTR(ucvtf_scalar)
                                           opnd_create_reg(Rn_1_0[i]));
         if (!test_instr_encoding(dc, OP_ucvtf, instr, expected_1_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -2282,6 +2387,7 @@ TEST_INSTR(ucvtf_scalar_fixed)
                                                 OPND_CREATE_INT(scale_0[i]));
         if (!test_instr_encoding(dc, OP_ucvtf, instr, expected_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* Testing UCVTF   <Hd>, <Xn>, #<imm> */
@@ -2299,6 +2405,7 @@ TEST_INSTR(ucvtf_scalar_fixed)
                                                 OPND_CREATE_INT(scale_1[i]));
         if (!test_instr_encoding(dc, OP_ucvtf, instr, expected_1[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -2319,6 +2426,7 @@ TEST_INSTR(rax1)
                                   opnd_create_reg(Rm_0[i]));
         if (!test_instr_encoding(dc, OP_rax1, instr, expected_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -2341,6 +2449,7 @@ TEST_INSTR(xar)
                                  opnd_create_immed_uint(imm6_0_0[i], OPSZ_0));
         if (!test_instr_encoding(dc, OP_xar, instr, expected_0_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -2362,6 +2471,7 @@ TEST_INSTR(fccmp)
             opnd_create_immed_uint(nzcv_0_0[i], OPSZ_0), condition_code_0_0[i]);
         if (!test_instr_encoding(dc, OP_fccmp, instr, expected_0_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
     /* Testing FCCMP   <Hn>, <Hm>, #<imm>, <cond> */
     reg_id_t Rn_1_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -2379,6 +2489,7 @@ TEST_INSTR(fccmp)
             opnd_create_immed_uint(nzcv_1_0[i], OPSZ_0), condition_code_1_0[i]);
         if (!test_instr_encoding(dc, OP_fccmp, instr, expected_1_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
     /* Testing FCCMP   <Sn>, <Sm>, #<imm>, <cond> */
     reg_id_t Rn_2_0[3] = { DR_REG_S0, DR_REG_S10, DR_REG_S31 };
@@ -2396,6 +2507,7 @@ TEST_INSTR(fccmp)
             opnd_create_immed_uint(nzcv_2_0[i], OPSZ_0), condition_code_2_0[i]);
         if (!test_instr_encoding(dc, OP_fccmp, instr, expected_2_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 TEST_INSTR(fccmpe)
@@ -2416,6 +2528,7 @@ TEST_INSTR(fccmpe)
             opnd_create_immed_uint(nzcv_0_0[i], OPSZ_0), condition_code_0_0[i]);
         if (!test_instr_encoding(dc, OP_fccmpe, instr, expected_0_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
     /* Testing FCCMPE  <Hn>, <Hm>, #<imm>, <cond> */
     reg_id_t Rn_1_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -2433,6 +2546,7 @@ TEST_INSTR(fccmpe)
             opnd_create_immed_uint(nzcv_1_0[i], OPSZ_0), condition_code_1_0[i]);
         if (!test_instr_encoding(dc, OP_fccmpe, instr, expected_1_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
     /* Testing FCCMPE  <Sn>, <Sm>, #<imm>, <cond> */
     reg_id_t Rn_2_0[3] = { DR_REG_S0, DR_REG_S10, DR_REG_S31 };
@@ -2450,6 +2564,7 @@ TEST_INSTR(fccmpe)
             opnd_create_immed_uint(nzcv_2_0[i], OPSZ_0), condition_code_2_0[i]);
         if (!test_instr_encoding(dc, OP_fccmpe, instr, expected_2_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 TEST_INSTR(fcmp)
@@ -2465,6 +2580,7 @@ TEST_INSTR(fcmp)
         instr = INSTR_CREATE_fcmp_zero(dc, opnd_create_reg(Rn_0_0[i]));
         if (!test_instr_encoding(dc, OP_fcmp, instr, expected_0_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
     /* Testing FCMP    <Hn>, #0.0 */
     reg_id_t Rn_1_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -2477,6 +2593,7 @@ TEST_INSTR(fcmp)
         instr = INSTR_CREATE_fcmp_zero(dc, opnd_create_reg(Rn_1_0[i]));
         if (!test_instr_encoding(dc, OP_fcmp, instr, expected_1_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
     /* Testing FCMP    <Sn>, #0.0 */
     reg_id_t Rn_2_0[3] = { DR_REG_S0, DR_REG_S10, DR_REG_S31 };
@@ -2489,6 +2606,7 @@ TEST_INSTR(fcmp)
         instr = INSTR_CREATE_fcmp_zero(dc, opnd_create_reg(Rn_2_0[i]));
         if (!test_instr_encoding(dc, OP_fcmp, instr, expected_2_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
     /* Testing FCMP    <Dn>, <Dm> */
     reg_id_t Rn_3_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
@@ -2503,6 +2621,7 @@ TEST_INSTR(fcmp)
             INSTR_CREATE_fcmp(dc, opnd_create_reg(Rn_3_0[i]), opnd_create_reg(Rm_3_0[i]));
         if (!test_instr_encoding(dc, OP_fcmp, instr, expected_3_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
     /* Testing FCMP    <Hn>, <Hm> */
     reg_id_t Rn_4_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -2517,6 +2636,7 @@ TEST_INSTR(fcmp)
             INSTR_CREATE_fcmp(dc, opnd_create_reg(Rn_4_0[i]), opnd_create_reg(Rm_4_0[i]));
         if (!test_instr_encoding(dc, OP_fcmp, instr, expected_4_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
     /* Testing FCMP    <Sn>, <Sm> */
     reg_id_t Rn_5_0[3] = { DR_REG_S0, DR_REG_S10, DR_REG_S31 };
@@ -2531,6 +2651,7 @@ TEST_INSTR(fcmp)
             INSTR_CREATE_fcmp(dc, opnd_create_reg(Rn_5_0[i]), opnd_create_reg(Rm_5_0[i]));
         if (!test_instr_encoding(dc, OP_fcmp, instr, expected_5_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 TEST_INSTR(fcmpe)
@@ -2546,6 +2667,7 @@ TEST_INSTR(fcmpe)
         instr = INSTR_CREATE_fcmpe_zero(dc, opnd_create_reg(Rn_0_0[i]));
         if (!test_instr_encoding(dc, OP_fcmpe, instr, expected_0_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
     /* Testing FCMPE   <Hn>, #0.0 */
     reg_id_t Rn_1_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -2558,6 +2680,7 @@ TEST_INSTR(fcmpe)
         instr = INSTR_CREATE_fcmpe_zero(dc, opnd_create_reg(Rn_1_0[i]));
         if (!test_instr_encoding(dc, OP_fcmpe, instr, expected_1_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
     /* Testing FCMPE   <Sn>, #0.0 */
     reg_id_t Rn_2_0[3] = { DR_REG_S0, DR_REG_S10, DR_REG_S31 };
@@ -2570,6 +2693,7 @@ TEST_INSTR(fcmpe)
         instr = INSTR_CREATE_fcmpe_zero(dc, opnd_create_reg(Rn_2_0[i]));
         if (!test_instr_encoding(dc, OP_fcmpe, instr, expected_2_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
     /* Testing FCMPE   <Dn>, <Dm> */
     reg_id_t Rn_3_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
@@ -2584,6 +2708,7 @@ TEST_INSTR(fcmpe)
                                    opnd_create_reg(Rm_3_0[i]));
         if (!test_instr_encoding(dc, OP_fcmpe, instr, expected_3_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
     /* Testing FCMPE   <Hn>, <Hm> */
     reg_id_t Rn_4_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -2598,6 +2723,7 @@ TEST_INSTR(fcmpe)
                                    opnd_create_reg(Rm_4_0[i]));
         if (!test_instr_encoding(dc, OP_fcmpe, instr, expected_4_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
     /* Testing FCMPE   <Sn>, <Sm> */
     reg_id_t Rn_5_0[3] = { DR_REG_S0, DR_REG_S10, DR_REG_S31 };
@@ -2612,6 +2738,7 @@ TEST_INSTR(fcmpe)
                                    opnd_create_reg(Rm_5_0[i]));
         if (!test_instr_encoding(dc, OP_fcmpe, instr, expected_5_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -2634,6 +2761,7 @@ TEST_INSTR(fcsel)
                                opnd_create_reg(Rm_0_0[i]), condition_code_0_0[i]);
         if (!test_instr_encoding(dc, OP_fcsel, instr, expected_0_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* Testing FCSEL   <Hd>, <Hn>, <Hm>, <cond> */
@@ -2652,6 +2780,7 @@ TEST_INSTR(fcsel)
                                opnd_create_reg(Rm_1_0[i]), condition_code_1_0[i]);
         if (!test_instr_encoding(dc, OP_fcsel, instr, expected_1_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 
     /* Testing FCSEL   <Sd>, <Sn>, <Sm>, <cond> */
@@ -2670,6 +2799,7 @@ TEST_INSTR(fcsel)
                                opnd_create_reg(Rm_2_0[i]), condition_code_2_0[i]);
         if (!test_instr_encoding(dc, OP_fcsel, instr, expected_2_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -2691,6 +2821,7 @@ TEST_INSTR(sdot_vector)
                                          opnd_create_reg(Rm_0_0[i]));
         if (!test_instr_encoding(dc, OP_sdot, instr, expected_0_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
     reg_id_t Rd_0_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_0_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
@@ -2706,6 +2837,7 @@ TEST_INSTR(sdot_vector)
                                          opnd_create_reg(Rm_0_1[i]));
         if (!test_instr_encoding(dc, OP_sdot, instr, expected_0_1[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -2728,6 +2860,7 @@ TEST_INSTR(sdot_vector_indexed)
             opnd_create_reg(Rm_0_0[i]), opnd_create_immed_uint(index_0_0[i], OPSZ_0));
         if (!test_instr_encoding(dc, OP_sdot, instr, expected_0_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
     reg_id_t Rd_0_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_0_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
@@ -2744,6 +2877,7 @@ TEST_INSTR(sdot_vector_indexed)
             opnd_create_reg(Rm_0_1[i]), opnd_create_immed_uint(index_0_1[i], OPSZ_0));
         if (!test_instr_encoding(dc, OP_sdot, instr, expected_0_1[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -2765,6 +2899,7 @@ TEST_INSTR(udot_vector)
                                          opnd_create_reg(Rm_0_0[i]));
         if (!test_instr_encoding(dc, OP_udot, instr, expected_0_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
     reg_id_t Rd_0_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_0_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
@@ -2780,6 +2915,7 @@ TEST_INSTR(udot_vector)
                                          opnd_create_reg(Rm_0_1[i]));
         if (!test_instr_encoding(dc, OP_udot, instr, expected_0_1[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
@@ -2802,6 +2938,7 @@ TEST_INSTR(udot_vector_indexed)
             opnd_create_reg(Rm_0_0[i]), opnd_create_immed_uint(index_0_0[i], OPSZ_0));
         if (!test_instr_encoding(dc, OP_udot, instr, expected_0_0[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
     reg_id_t Rd_0_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_0_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
@@ -2818,6 +2955,7 @@ TEST_INSTR(udot_vector_indexed)
             opnd_create_reg(Rm_0_1[i]), opnd_create_immed_uint(index_0_1[i], OPSZ_0));
         if (!test_instr_encoding(dc, OP_udot, instr, expected_0_1[i]))
             *psuccess = false;
+        instr_destroy(dc, instr);
     }
 }
 
