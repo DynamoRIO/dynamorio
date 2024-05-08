@@ -1051,7 +1051,6 @@ our_memcpy_vs_libc(void)
     global_heap_free(dst, alloc_size HEAPACCT(ACCT_OTHER));
 }
 
-
 static void
 our_memset_vs_libc(void)
 {

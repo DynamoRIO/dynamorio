@@ -1151,6 +1151,7 @@ if (BUILD_TESTS AND
     if (NOT ANDROID) # everything is inside Bionic on Android
       target_link_libraries(unit_tests dl m pthread)
     endif ()
+    target_link_libraries(unit_tests drmemfuncs)
     set_preferred_base_start_and_end(unit_tests ${preferred_base} ON)
   else (UNIX)
     # Just like drinjectlib (see above) we need libc before ntdll
@@ -1159,7 +1160,6 @@ if (BUILD_TESTS AND
       LINK_FLAGS "/base:${preferred_base} ${LD_FLAGS}")
   endif (UNIX)
   target_link_libraries(unit_tests drlibc)
-  target_link_libraries(unit_tests drmemfuncs)
   get_target_path_for_execution(unit_relpath unit_tests "${location_suffix}")
   prefix_cmd_if_necessary(unit_relpath OFF ${unit_relpath})
   add_test(unit_tests ${unit_relpath})
