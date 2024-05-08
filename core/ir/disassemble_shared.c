@@ -752,7 +752,7 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
         case PC_kind:
         case FAR_PC_kind: break;
         case REG_kind: {
-            /* We always want to print the operation size for DR_ISA_REGDEP
+            /* We always want to print the operation size for DR_ISA_REGDEPS
              * instructions.
              */
             bool is_global_isa_mode_synthetic =
@@ -817,6 +817,47 @@ print_extra_bytes_to_file(file_t outfile, byte *pc, byte *next_pc, int extra_sz,
     os_write(outfile, buf, sofar);
 }
 
+/* DR_ISA_REGDEPS instruction encodings can be at most 16 bytes,
+ * hence we can have at most 2 lines.
+ */
+#define REGDEPS_BYTES_PER_LINE 8
+
+int
+print_regdeps_encoding_bytes_to_buffer(char *buf, size_t bufsz,
+                                       size_t *sofar DR_PARAM_INOUT, byte *pc,
+                                       byte *next_pc)
+{
+    int sz = (int)(next_pc - pc);
+    int i, extra_sz;
+    if (sz > REGDEPS_BYTES_PER_LINE) {
+        extra_sz = sz - REGDEPS_BYTES_PER_LINE;
+        sz = REGDEPS_BYTES_PER_LINE;
+    } else
+        extra_sz = 0;
+    for (i = 0; i < sz; i++)
+        print_to_buffer(buf, bufsz, sofar, " %02x", *(pc + i));
+    for (i = sz; i < REGDEPS_BYTES_PER_LINE; i++)
+        print_to_buffer(buf, bufsz, sofar, "   ");
+    print_to_buffer(buf, bufsz, sofar, " ");
+    return extra_sz;
+}
+
+void
+print_extra_regdeps_encoding_bytes_to_buffer(char *buf, size_t bufsz,
+                                             size_t *sofar DR_PARAM_INOUT, byte *pc,
+                                             byte *next_pc, int extra_sz,
+                                             const char *extra_bytes_prefix)
+{
+    int i;
+    if (extra_sz > 0) {
+        print_to_buffer(buf, bufsz, sofar, "%s", extra_bytes_prefix);
+        for (i = 0; i < extra_sz; i++)
+            print_to_buffer(buf, bufsz, sofar, " %02x",
+                            *(pc + REGDEPS_BYTES_PER_LINE + i));
+        print_to_buffer(buf, bufsz, sofar, "\n");
+    }
+}
+
 /* Disassembles the instruction at pc and prints the result to buf.
  * Returns a pointer to the pc of the next instruction.
  * Returns NULL if the instruction at pc is invalid.
@@ -852,8 +893,13 @@ internal_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
                         PC_AS_LOAD_TGT(instr_get_isa_mode(&instr), orig_pc));
     }
 
+    dr_isa_mode_t instr_isa_mode = instr_get_isa_mode(&instr);
     if (with_bytes) {
-        extra_sz = print_bytes_to_buffer(buf, bufsz, sofar, pc, next_pc, &instr);
+        if (instr_isa_mode == DR_ISA_REGDEPS)
+            extra_sz =
+                print_regdeps_encoding_bytes_to_buffer(buf, bufsz, sofar, pc, next_pc);
+        else
+            extra_sz = print_bytes_to_buffer(buf, bufsz, sofar, pc, next_pc, &instr);
     }
 
     internal_instr_disassemble(buf, bufsz, sofar, dcontext, &instr);
@@ -864,8 +910,12 @@ internal_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
     if (with_bytes && extra_sz > 0) {
         if (with_pc)
             print_to_buffer(buf, bufsz, sofar, IF_X64_ELSE("%21s", "%13s"), " ");
-        print_extra_bytes_to_buffer(buf, bufsz, sofar, pc, next_pc, extra_sz,
-                                    extra_bytes_prefix);
+        if (instr_isa_mode == DR_ISA_REGDEPS)
+            print_extra_regdeps_encoding_bytes_to_buffer(buf, bufsz, sofar, pc, next_pc,
+                                                         extra_sz, extra_bytes_prefix);
+        else
+            print_extra_bytes_to_buffer(buf, bufsz, sofar, pc, next_pc, extra_sz,
+                                        extra_bytes_prefix);
     }
 
     instr_free(dcontext, &instr);
