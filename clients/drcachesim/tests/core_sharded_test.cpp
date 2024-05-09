@@ -89,8 +89,7 @@ test_real_files(const char *testdir)
     // for that.
     {
         // Test thread-sharded with defaults.
-        const char *args[] = { "<exe>", "-simulator_type", "basic_counts", "-indir",
-                               dir.c_str() };
+        const char *args[] = { "<exe>", "-tool", "basic_counts", "-indir", dir.c_str() };
         std::string output = run_analyzer(sizeof(args) / sizeof(args[0]), args);
         assert(std::regex_search(output, std::regex(R"DELIM(Basic counts tool results:
 Total counts:
@@ -104,7 +103,7 @@ Thread [0-9]+ counts:
     }
     {
         // Test core-sharded with defaults.
-        const char *args[] = { "<exe>",        "-core_sharded", "-simulator_type",
+        const char *args[] = { "<exe>",        "-core_sharded", "-tool",
                                "basic_counts", "-indir",        dir.c_str() };
         std::string output = run_analyzer(sizeof(args) / sizeof(args[0]), args);
         assert(std::regex_search(output, std::regex(R"DELIM(Basic counts tool results:
@@ -122,9 +121,8 @@ Core [0-9] counts:
     }
     {
         // Test core-sharded with time quantum.
-        const char *args[] = { "<exe>",        "-core_sharded", "-simulator_type",
-                               "basic_counts", "-indir",        dir.c_str(),
-                               "-sched_time" };
+        const char *args[] = { "<exe>",  "-core_sharded", "-tool",      "basic_counts",
+                               "-indir", dir.c_str(),     "-sched_time" };
         std::string output = run_analyzer(sizeof(args) / sizeof(args[0]), args);
         assert(std::regex_search(output, std::regex(R"DELIM(Basic counts tool results:
 Total counts:
@@ -146,7 +144,7 @@ Core [0-9] counts:
         // TODO i#5694: Add more targeted checks once we have schedule_stats.
         const char *args[] = { "<exe>",
                                "-core_sharded",
-                               "-simulator_type",
+                               "-tool",
                                "basic_counts",
                                "-indir",
                                dir.c_str(),
@@ -173,16 +171,10 @@ Core [0-9] counts:
         // Test core-sharded with replay-as-traced.
         std::string cpu_file = std::string(testdir) +
             "/drmemtrace.threadsig.x64.tracedir/cpu_schedule.bin.zip";
-        const char *args[] = { "<exe>",
-                               "-core_sharded",
-                               "-simulator_type",
-                               "basic_counts",
-                               "-indir",
-                               dir.c_str(),
-                               "-cores",
-                               "7",
-                               "-cpu_schedule_file",
-                               cpu_file.c_str() };
+        const char *args[] = {
+            "<exe>",     "-core_sharded", "-tool", "basic_counts",       "-indir",
+            dir.c_str(), "-cores",        "7",     "-cpu_schedule_file", cpu_file.c_str()
+        };
         std::string output = run_analyzer(sizeof(args) / sizeof(args[0]), args);
         assert(std::regex_search(output, std::regex(R"DELIM(Basic counts tool results:
 Total counts:
@@ -230,11 +222,10 @@ Core 8 counts:
     {
         // Test record-replay.
         std::string record_file = "tmp_core_sharded_replay.zip";
-        const char *record_args[] = { "<exe>",           "-core_sharded",
-                                      "-simulator_type", "basic_counts",
-                                      "-indir",          dir.c_str(),
-                                      "-cores",          "3",
-                                      "-record_file",    record_file.c_str() };
+        const char *record_args[] = {
+            "<exe>",     "-core_sharded", "-tool", "basic_counts", "-indir",
+            dir.c_str(), "-cores",        "3",     "-record_file", record_file.c_str()
+        };
         std::string record_out =
             run_analyzer(sizeof(record_args) / sizeof(record_args[0]), record_args);
         assert(std::regex_search(record_out, std::regex(R"DELIM(Basic counts tool results:
@@ -246,11 +237,10 @@ Core .*
  *[0-9]+ threads
 (.|\n)*
 )DELIM")));
-        const char *replay_args[] = { "<exe>",           "-core_sharded",
-                                      "-simulator_type", "basic_counts",
-                                      "-indir",          dir.c_str(),
-                                      "-cores",          "3",
-                                      "-replay_file",    record_file.c_str() };
+        const char *replay_args[] = {
+            "<exe>",     "-core_sharded", "-tool", "basic_counts", "-indir",
+            dir.c_str(), "-cores",        "3",     "-replay_file", record_file.c_str()
+        };
         std::string replay_out =
             run_analyzer(sizeof(replay_args) / sizeof(replay_args[0]), replay_args);
         // The idle and wait counts can vary so we remove them.

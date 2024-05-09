@@ -87,7 +87,9 @@ cache_filter_t::parallel_shard_init(memtrace_stream_t *shard_stream,
     return per_shard;
 }
 bool
-cache_filter_t::parallel_shard_filter(trace_entry_t &entry, void *shard_data)
+cache_filter_t::parallel_shard_filter(
+    trace_entry_t &entry, void *shard_data,
+    record_filter_t::record_filter_info_t &record_filter_info)
 {
     if (entry.type == TRACE_TYPE_MARKER && entry.size == TRACE_MARKER_TYPE_FILETYPE) {
         if (filter_instrs_)

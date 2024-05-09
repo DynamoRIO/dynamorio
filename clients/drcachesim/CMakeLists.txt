@@ -192,12 +192,15 @@ add_exported_library(drmemtrace_simulator STATIC
   )
 
 add_exported_library(drmemtrace_record_filter STATIC
+  tools/filter/record_filter.h
   tools/filter/record_filter.cpp
   tools/filter/cache_filter.h
   tools/filter/cache_filter.cpp
   tools/filter/type_filter.h
+  tools/filter/encodings2regdeps_filter.h
   tools/filter/null_filter.h)
 target_link_libraries(drmemtrace_record_filter drmemtrace_simulator)
+configure_DynamoRIO_standalone(drmemtrace_record_filter)
 
 add_exported_library(directory_iterator STATIC common/directory_iterator.cpp)
 add_dependencies(directory_iterator api_headers)
@@ -357,6 +360,8 @@ install_client_nonDR_header(drmemtrace simulator/cache_simulator_create.h)
 install_client_nonDR_header(drmemtrace simulator/tlb_simulator_create.h)
 install_client_nonDR_header(drmemtrace tools/view_create.h)
 install_client_nonDR_header(drmemtrace tools/func_view_create.h)
+install_client_nonDR_header(drmemtrace tools/filter/record_filter_create.h)
+install_client_nonDR_header(drmemtrace tools/filter/record_filter.h)
 # TODO i#6412: Create a separate directory for non-tracer headers so that
 # we can more cleanly separate tracer and raw2trace code.
 install_client_nonDR_header(drmemtrace tracer/raw2trace.h)
@@ -393,8 +398,12 @@ add_executable(record_filter_launcher
   tools/record_filter_launcher.cpp
   tests/test_helpers.cpp)
 target_link_libraries(record_filter_launcher drmemtrace_analyzer drmemtrace_record_filter)
+add_dependencies(record_filter_launcher api_headers)
 append_property_list(TARGET record_filter_launcher COMPILE_DEFINITIONS "NO_HELPER_MAIN")
 use_DynamoRIO_extension(record_filter_launcher droption)
+if (NOT APPLE)
+  configure_DynamoRIO_static(record_filter_launcher)
+endif()
 
 # We want to use test_helper's disable_popups() but we have _tmain and so do not want
 # the test_helper library's main symbol: so we compile ourselves and disable.
