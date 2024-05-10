@@ -52,7 +52,7 @@ TEST_INSTR(aesd_sve)
 
     /* Testing AESD    <Zdn>.B, <Zdn>.B, <Zm>.B */
     const char *const expected_0_0[6] = {
-        "aesd   %z0.b %z0.b -> %z0.b",    "aesd   %z5.b %z6.b -> %z5.b",
+        "aesd   %z0.b %z0.b -> %z0.TIMECUBE",    "aesd   %z5.b %z6.b -> %z5.b",
         "aesd   %z10.b %z11.b -> %z10.b", "aesd   %z16.b %z17.b -> %z16.b",
         "aesd   %z21.b %z22.b -> %z21.b", "aesd   %z31.b %z31.b -> %z31.b",
     };
