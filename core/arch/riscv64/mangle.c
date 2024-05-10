@@ -69,11 +69,10 @@ insert_clear_eflags(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t *i
 uint
 insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                           instrlist_t *ilist, instr_t *instr, uint alignment,
-                          opnd_t push_pc, reg_id_t scratch)
+                          opnd_t push_pc, reg_id_t scratch, bool out_of_line)
 {
     uint dstack_offs = 0;
     int dstack_middle_offs;
-    int max_offs;
 
     if (cci == NULL)
         cci = &default_clean_call_info;
@@ -82,19 +81,24 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     /* a0 is used to save and restore the pc and csr registers. */
     cci->reg_skip[DR_REG_A0 - DR_REG_START_GPR] = false;
 
-    max_offs = get_clean_call_switch_stack_size();
-
-    PRE(ilist, instr,
-        INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_SP),
-                          opnd_create_reg(DR_REG_SP),
-                          opnd_create_immed_int(-max_offs, OPSZ_12b)));
-
+    /* For out-of-line clean calls, the stack pointer is adjusted before jumping to this
+     * code.
+     */
+    if (!out_of_line) {
+        PRE(ilist, instr,
+            INSTR_CREATE_addi(
+                dcontext, opnd_create_reg(DR_REG_SP), opnd_create_reg(DR_REG_SP),
+                opnd_create_immed_int(-get_clean_call_switch_stack_size(), OPSZ_12b)));
+    }
     /* Skip X0 slot. */
     dstack_offs += XSP_SZ;
 
     /* Push GPRs. */
     for (int i = 0; i < DR_NUM_GPR_REGS; i++) {
-        if (cci->reg_skip[i])
+        /* For out-of-line clean calls, RA is saved before jumping to this code, because
+         * it is used for the return address.
+         */
+        if (cci->reg_skip[i] || (out_of_line && DR_REG_START_GPR + i == DR_REG_RA))
             continue;
 
         /* Uses c.sdsp to save space, see -max_bb_instrs option, same below. */
@@ -176,7 +180,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
 
 void
 insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t *ilist,
-                         instr_t *instr, uint alignment)
+                         instr_t *instr, uint alignment, bool out_of_line)
 {
     if (cci == NULL)
         cci = &default_clean_call_info;
@@ -233,7 +237,10 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
 
     /* Pop GPRs. */
     for (int i = 0; i < DR_NUM_GPR_REGS; i++) {
-        if (cci->reg_skip[i])
+        /* For out-of-line clean calls, RA is restored after jumping back from this code,
+         * because it is used for the return address.
+         */
+        if (cci->reg_skip[i] || (out_of_line && DR_REG_START_GPR + i == DR_REG_RA))
             continue;
 
         PRE(ilist, instr,
@@ -284,9 +291,56 @@ int
 insert_out_of_line_context_switch(dcontext_t *dcontext, instrlist_t *ilist,
                                   instr_t *instr, bool save, byte *encode_pc)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
+    if (save) {
+        /* Reserve stack space to push the context. We do it here instead of
+         * in insert_push_all_registers, so we can save the original value
+         * of RA on the stack before it is changed by the JALR (jump & link register)
+         * to the clean call save routine in the code cache.
+         *
+         * sub sp, sp, clean_call_switch_stack_size
+         */
+        PRE(ilist, instr,
+            XINST_CREATE_sub(dcontext, opnd_create_reg(DR_REG_SP),
+                             OPND_CREATE_INT16(get_clean_call_switch_stack_size())));
+
+        /* sd ra, ra_offset(sp)
+         *
+         * We have to save the original value of RA before using JALR to jump
+         * to the save code, because JALR will modify RA. The original value of
+         * RA is restored after the returning from the save/restore functions below.
+         */
+        PRE(ilist, instr,
+            INSTR_CREATE_sd(dcontext,
+                            opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
+                                                  REG_OFFSET(DR_REG_RA), OPSZ_8),
+                            opnd_create_reg(DR_REG_RA)));
+    }
+
+    insert_mov_immed_ptrsz(
+        dcontext,
+        (long)(save ? get_clean_call_save(dcontext) : get_clean_call_restore(dcontext)),
+        opnd_create_reg(DR_REG_RA), ilist, instr, NULL, NULL);
+    PRE(ilist, instr,
+        INSTR_CREATE_jalr(dcontext, opnd_create_reg(DR_REG_RA),
+                          opnd_create_reg(DR_REG_RA),
+                          opnd_create_immed_int(0, OPSZ_12b)));
+
+    /* Restore original value of RA, which was changed by JALR.
+     *
+     * ld ra, ra_offset(sp)
+     */
+    PRE(ilist, instr,
+        INSTR_CREATE_ld(dcontext, opnd_create_reg(DR_REG_RA),
+                        OPND_CREATE_MEM64(DR_REG_SP, REG_OFFSET(DR_REG_RA))));
+
+    if (!save) {
+        /* add sp, sp, clean_call_switch_stack_size */
+        PRE(ilist, instr,
+            XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_SP),
+                             OPND_CREATE_INT16(get_clean_call_switch_stack_size())));
+    }
+
+    return get_clean_call_switch_stack_size();
 }
 
 /*###########################################################################

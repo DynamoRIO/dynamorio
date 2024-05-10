@@ -290,9 +290,9 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t
         dstack_offs +=
             insert_out_of_line_context_switch(dcontext, ilist, instr, true, encode_pc);
     } else {
-        dstack_offs +=
-            insert_push_all_registers(dcontext, cci, ilist, instr, (uint)PAGE_SIZE,
-                                      OPND_CREATE_INT32(0), REG_NULL _IF_AARCH64(false));
+        dstack_offs += insert_push_all_registers(dcontext, cci, ilist, instr,
+                                                 (uint)PAGE_SIZE, OPND_CREATE_INT32(0),
+                                                 REG_NULL _IF_AARCH64_OR_RISCV64(false));
 
         insert_clear_eflags(dcontext, cci, ilist, instr);
         /* XXX: add a cci field for optimizing this away if callee makes no calls */
@@ -373,7 +373,7 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
         /* XXX: add a cci field for optimizing this away if callee makes no calls */
         insert_pop_all_registers(dcontext, cci, ilist, instr,
                                  /* see notes in prepare_for_clean_call() */
-                                 (uint)PAGE_SIZE _IF_AARCH64(false));
+                                 (uint)PAGE_SIZE _IF_AARCH64_OR_RISCV64(false));
     }
 
     /* Swap stacks back.  For thread-shared, we need to get the dcontext
