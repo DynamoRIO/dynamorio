@@ -144,6 +144,12 @@ decode_isa_regdeps(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
      */
     instr_set_operands_valid(instr, true);
 
+    /* Set opcode as OP_UNDECODED, so routines like instr_valid() can still work.
+     * We can't use instr_set_opcode() because of its CLIENT_ASSERT when setting the
+     * opcode to OP_UNDECODED or OP_INVALID.
+     */
+    instr->opcode = OP_UNDECODED;
+
     /* Set decoded instruction ISA mode to be synthetic.
      */
     instr_set_isa_mode(instr, DR_ISA_REGDEPS);

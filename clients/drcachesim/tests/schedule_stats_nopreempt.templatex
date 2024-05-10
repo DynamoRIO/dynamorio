@@ -17,6 +17,7 @@ Total counts:
     *[0-9]* idles
       *[0-9\.]*% cpu busy by record count
    *[0-9]* cpu microseconds
+   *[0-9]* wait microseconds
    *[0-9]* idle microseconds
    *[0-9]* idle microseconds at last instr
       *[0-9\.]*% cpu busy by time
@@ -38,6 +39,7 @@ Core #0 counts:
     *[0-9]* idles
       *[0-9\.]*% cpu busy by record count
    *[0-9]* cpu microseconds
+   *[0-9]* wait microseconds
    *[0-9]* idle microseconds
    *[0-9]* idle microseconds at last instr
       *[0-9\.]*% cpu busy by time
@@ -59,6 +61,7 @@ Core #1 counts:
     *[0-9]* idles
       *[0-9\.]*% cpu busy by record count
    *[0-9]* cpu microseconds
+   *[0-9]* wait microseconds
    *[0-9]* idle microseconds
    *[0-9]* idle microseconds at last instr
       *[0-9\.]*% cpu busy by time
@@ -80,6 +83,7 @@ Core #2 counts:
     *[0-9]* idles
       *[0-9\.]*% cpu busy by record count
    *[0-9]* cpu microseconds
+   *[0-9]* wait microseconds
    *[0-9]* idle microseconds
    *[0-9]* idle microseconds at last instr
       *[0-9\.]*% cpu busy by time
@@ -101,6 +105,7 @@ Core #3 counts:
     *[0-9]* idles
       *[0-9\.]*% cpu busy by record count
    *[0-9]* cpu microseconds
+   *[0-9]* wait microseconds
    *[0-9]* idle microseconds
    *[0-9]* idle microseconds at last instr
       *[0-9\.]*% cpu busy by time

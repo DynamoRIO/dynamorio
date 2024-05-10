@@ -62,13 +62,16 @@ namespace drmemtrace {
  *   up to its first timestamp whose value is greater or equal to this parameter.
  * @param[in] trim_after_timestamp  Trim records after the trace's first timestamp
  *   whose value is greater than this parameter.
+ * @param[in] encodings2regdeps  If true, converts instruction encodings from the real ISA
+ *   of the input trace to the #DR_ISA_REGDEPS synthetic ISA.
+ * @param[in] verbose  Verbosity level for notifications.
  */
 record_analysis_tool_t *
 record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp,
                           int cache_filter_size, const std::string &remove_trace_types,
                           const std::string &remove_marker_types,
                           uint64_t trim_before_timestamp, uint64_t trim_after_timestamp,
-                          unsigned int verbose);
+                          bool encodings2regdeps, unsigned int verbose);
 
 } // namespace drmemtrace
 } // namespace dynamorio

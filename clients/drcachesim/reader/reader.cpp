@@ -210,7 +210,12 @@ reader_t::process_input_entry()
                 ++cur_instr_count_;
             // Look for encoding bits that belong to this instr.
             if (last_encoding_.size > 0) {
-                if (last_encoding_.size != cur_ref_.instr.size) {
+                if (last_encoding_.size != cur_ref_.instr.size &&
+                    /* OFFLINE_FILE_TYPE_ARCH_REGDEPS traces have encodings with
+                     * size != ifetch. It's a design choice, not an error, hence
+                     * we avoid this sanity check for these traces.
+                     */
+                    !TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, filetype_)) {
                     ERRMSG(
                         "Encoding size %zu != instr size %zu for PC 0x%zx at ord %" PRIu64
                         " instr %" PRIu64 " last_timestamp=0x%" PRIx64 "\n",
