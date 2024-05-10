@@ -486,15 +486,31 @@ typedef struct _instr_t instr_t;
 #    define IF_AARCHXX_OR_RISCV64_ELSE(x, y) x
 #    define IF_AARCHXX_OR_RISCV64_(x) x,
 #    define _IF_AARCHXX_OR_RISCV64(x) , x
-#    define IF_NOT_AARCHXX_OR_RISCV64(x)
-#    define _IF_NOT_AARCHXX_OR_RISCV64(x)
+#    define IF_NOT_AARCHXX_AND_NOT_RISCV64(x)
+#    define _IF_NOT_AARCHXX_AND_NOT_RISCV64(x)
 #else
 #    define IF_AARCHXX_OR_RISCV64(x)
 #    define IF_AARCHXX_OR_RISCV64_ELSE(x, y) y
 #    define IF_AARCHXX_OR_RISCV64_(x)
 #    define _IF_AARCHXX_OR_RISCV64(x)
-#    define IF_NOT_AARCHXX_OR_RISCV64(x) x
-#    define _IF_NOT_AARCHXX_OR_RISCV64(x) , x
+#    define IF_NOT_AARCHXX_AND_NOT_RISCV64(x) x
+#    define _IF_NOT_AARCHXX_AND_NOT_RISCV64(x) , x
+#endif
+
+#if defined(AARCH64) || defined(RISCV64)
+#    define IF_AARCH64_OR_RISCV64(x) x
+#    define IF_AARCH64_OR_RISCV64_ELSE(x, y) x
+#    define IF_AARCH64_OR_RISCV64_(x) x,
+#    define _IF_AARCH64_OR_RISCV64(x) , x
+#    define IF_NOT_AARCH64_AND_NOT_RISCV64(x)
+#    define _IF_NOT_AARCH64_AND_NOT_RISCV64(x)
+#else
+#    define IF_AARCH64_OR_RISCV64(x)
+#    define IF_AARCH64_OR_RISCV64_ELSE(x, y) y
+#    define IF_AARCH64_OR_RISCV64_(x)
+#    define _IF_AARCH64_OR_RISCV64(x)
+#    define IF_NOT_AARCH64_AND_NOT_RISCV64(x) x
+#    define _IF_NOT_AARCH64_AND_NOT_RISCV64(x) , x
 #endif
 
 #ifdef ANDROID

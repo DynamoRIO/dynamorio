@@ -662,10 +662,11 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                           instrlist_t *ilist, instr_t *instr, uint alignment,
                           opnd_t push_pc,
                           reg_id_t scratch /*optional*/
-                              _IF_AARCH64(bool out_of_line));
+                              _IF_AARCH64_OR_RISCV64(bool out_of_line));
 void
 insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t *ilist,
-                         instr_t *instr, uint alignment _IF_AARCH64(bool out_of_line));
+                         instr_t *instr,
+                         uint alignment _IF_AARCH64_OR_RISCV64(bool out_of_line));
 bool
 insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
                      byte *encode_pc, byte *target, bool jmp, bool returns, bool precise,

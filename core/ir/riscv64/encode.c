@@ -150,6 +150,9 @@ const reg_id_t d_r_reg_id_to_virtual[] = {
 void
 encode_debug_checks(void)
 {
+    CLIENT_ASSERT(sizeof(d_r_reg_id_to_virtual) == sizeof(dr_reg_fixer),
+                  "register to virtual register map size error");
+
     /* FIXME i#3544: NYI */
 }
 #endif
