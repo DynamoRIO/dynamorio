@@ -1035,12 +1035,12 @@ our_memcpy_vs_libc(void)
         our_memcpy_time = our_memcpy_end - our_memcpy_start;
         libc_memcpy_time = libc_memcpy_end - libc_memcpy_start;
         print_file(STDERR,
-                   "our_memcpy_time: size=" UINT64_FORMAT_STRING " " UINT64_FORMAT_STRING
-                   "\n",
+                   "our_memcpy_time: size=" UINT64_FORMAT_STRING
+                   " time=" UINT64_FORMAT_STRING "\n",
                    tests_size[j], our_memcpy_time);
         print_file(STDERR,
-                   "libc_memcpy_time: size=" UINT64_FORMAT_STRING " " UINT64_FORMAT_STRING
-                   "\n",
+                   "libc_memcpy_time: size=" UINT64_FORMAT_STRING
+                   " time=" UINT64_FORMAT_STRING "\n",
                    tests_size[j], libc_memcpy_time);
     }
     /* We could assert that we're not too much slower, but that's a recipe for

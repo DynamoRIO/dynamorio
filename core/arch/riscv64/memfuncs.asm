@@ -40,7 +40,6 @@
 START_FILE
 #ifdef UNIX
 
-
 /* Private memcpy.
  * Optimize private memcpy by using loop unrolling.
  */
@@ -79,10 +78,10 @@ copy_remain:
 copy0_4:
         /* 0 < size < 4:
          * Using a trick to avoid branches.
-         * t2 and t3 may be redundant.
-         * size = 1: t1 = src[0], t2 = src[0], t3 = src[0]
-         * size = 2: t1 = src[0], t2 = src[1], t3 = src[1]
-         * size = 3: t1 = src[0], t2 = src[1], t3 = src[2]
+         * Perhaps a redundant here, but the overhead is negligible.
+         * size = 1: '0(ARG1)'=src[0], '-1(a6)'=src[0], '0(t4)'=src[0]
+         * size = 2: '0(ARG1)'=src[0], '-1(a6)'=src[1], '0(t4)'=src[1]
+         * size = 3: '0(ARG1)'=src[0], '-1(a6)'=src[1], '0(t4)'=src[2]
          */
         srli     t4, ARG3, 1
         add      t5, t4, ARG1
@@ -98,7 +97,7 @@ copy4_8:
         /* 4 < size < 8:
          * Step1: Use lwu/sw pair to copy src[0]~src[3] to dst[0]~dst[3].
          * Step2: Copy src[size-4]~src[size-1] to dst[size-4]~dst[size-1].
-         * Some overlap here, but the overhead is negligible.
+         * Perhaps a redundant here, but the overhead is negligible.
          */
         lwu      t1, 0(ARG2)
         lwu      t2, -4(a6)
@@ -108,7 +107,7 @@ copy4_8:
 copy8_32:
         /* 8 < size < 32: */
         /* Copy src[0]~src[7] and src[size-8]~size[size-1].
-         * Some overlap here, but the overhead is negligible.
+         * Perhaps a redundant here, but the overhead is negligible.
          */
         ld       t1, 0(ARG2)
         ld       t2, -8(a6)
@@ -116,6 +115,7 @@ copy8_32:
         sd       t2, -8(a7)
         /* If size > 16, src[8]~src[size-9] has not been copied.
          * Copy src[8]~src[15] with ld/sd pair.
+         * Perhaps a redundant here, but the overhead is negligible.
          */
         addi     t6, x0, 16
         ble      ARG3, t6, copyexit
@@ -123,6 +123,7 @@ copy8_32:
         sd       t1, 8(ARG1)
         /* If size > 24, src[16]~src[size-9] has not been copied.
          * Copy src[16]~src[23] with ld/sd pair.
+         * Perhaps a redundant here, but the overhead is negligible.
          */
         addi     t6, x0, 24
         ble      ARG3, t6, copyexit
@@ -135,14 +136,13 @@ copyexit:
 
 /* Private memset.
  * Optimize private memset by using loop unrolling.
- * Optimization method is same as memcpy.
  */
         DECLARE_FUNC(memset)
 GLOBAL_LABEL(memset:)
         addi     t6, x0, 32
-        mv       t0, ARG1 /* save for return */
+        mv       t0, ARG1 /* Save for return */
 
-        /* duplicate byte into whole register */
+        /* Duplicate a single byte into whole 4 bytes register. */
         andi     ARG2, ARG2, 0xff
         mv       t1, ARG2
         slli     ARG2, ARG2, 8
@@ -160,7 +160,12 @@ GLOBAL_LABEL(memset:)
         slli     ARG2, ARG2, 8
         or       t1, t1, ARG2
 set32_:
-        blt      ARG3, t6, set0_32
+        /* When size is greater than 32, we use 4 sd pairs
+         * to store 4*8=32 bytes in each iteration.
+         * When size is less than 32, we jump to set_remain and
+         * use other optimized methods.
+         */
+        blt      ARG3, t6, set_remain
         sd       t1, 0(ARG1)
         sd       t1, 8(ARG1)
         sd       t1, 16(ARG1)
@@ -168,8 +173,8 @@ set32_:
         addi     ARG3, ARG3, -32
         addi     ARG1, ARG1, 32
         j        set32_
-set0_32:
-        add      a6, ARG1, ARG3
+set_remain:
+        add      a6, ARG1, ARG3 /* a6 = dst + size */
         addi     t6, x0, 8
         bge      ARG3, t6, set8_32
         addi     t6, x0, 4
@@ -177,6 +182,13 @@ set0_32:
         bgtz     ARG3, set0_4
         j        setexit
 set0_4:
+        /* 0 < size < 4:
+         * Using a trick to avoid branches.
+         * Perhaps a redundant here, but the overhead is negligible.
+         * size = 1: '0(ARG1)'=src[0], '-1(a6)'=src[0], '0(t4)'=src[0]
+         * size = 2: '0(ARG1)'=src[0], '-1(a6)'=src[1], '0(t4)'=src[1]
+         * size = 3: '0(ARG1)'=src[0], '-1(a6)'=src[1], '0(t4)'=src[2]
+         */
         srli     t4, ARG3, 1
         add      t4, t4, ARG1
         sb       t1, 0(ARG1)
@@ -184,15 +196,32 @@ set0_4:
         sb       t1, 0(t4)
         j        setexit
 set4_8:
+        /* 4 < size < 8:
+         * Step1: Set src[0]~src[3] .
+         * Step2: Set src[size-4]~src[size-1].
+         * Perhaps a redundant here, but the overhead is negligible.
+         */
         sw       t1, 0(ARG1)
         sw       t1, -4(a6)
         j        setexit
 set8_32:
+        /* 8 < size < 32: */
+        /* Set src[0]~src[7] and src[size-8]~size[size-1].
+         * Perhaps a redundant here, but the overhead is negligible.
+         */
         sd       t1, 0(ARG1)
         sd       t1, -8(a6)
+        /* If size > 16, src[8]~src[size-9] has not been set.
+         * Set src[8]~src[15].
+         * Perhaps a redundant here, but the overhead is negligible.
+         */
         addi     t6, x0, 16
         ble      ARG3, t6, setexit
         sd       t1, 8(ARG1)
+        /* If size > 24, src[16]~src[size-9] has not been set.
+         * Set src[16]~src[23].
+         * Perhaps a redundant here, but the overhead is negligible.
+         */
         addi     t6, x0, 24
         ble      ARG3, t6, setexit
         sd       t1, 16(ARG1)
