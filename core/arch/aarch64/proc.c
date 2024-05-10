@@ -113,7 +113,7 @@ get_processor_specific_info(void)
      * - Release or development test build.
      */
 #        if !defined(DR_HOST_NOT_TARGET)
-    if (proc_has_feature(FEATURE_SVE)) {
+    if (proc_has_feature(FEATURE_SVE) && false) {
         uint64 vl;
         /* This RDVL instruction is inserted as raw hex because we don't build
          * with SVE enabled: i.e. not -march=armv8-a+sve, so that we can run a
