@@ -48,10 +48,10 @@ START_FILE
 GLOBAL_LABEL(memcpy:)
         addi     t6, x0, 32
         mv       t0, ARG2 /* Save dst for return */
-copy32_: 
-        /* When size is greater than 32, we use 4 ld/sd pairs 
-         * to copy 4*8=32 bytes in each iteration. 
-         * When size is less than 32, we jump to copy_remain and 
+copy32_:
+        /* When size is greater than 32, we use 4 ld/sd pairs
+         * to copy 4*8=32 bytes in each iteration.
+         * When size is less than 32, we jump to copy_remain and
          * use other optimized copy methods.
          */
         blt      ARG3, t6, copy_remain
@@ -67,7 +67,6 @@ copy32_:
         addi     ARG1, ARG1, 32
         addi     ARG2, ARG2, 32
         j        copy32_
-
 copy_remain:
         add      a6, ARG2, ARG3 /* a6 = src + size */
         add      a7, ARG1, ARG3 /* a7 = dst + size */
@@ -77,7 +76,6 @@ copy_remain:
         bge      ARG3, t6, copy4_8
         bgtz     ARG3, copy0_4
         j        copyexit
-
 copy0_4:
         /* 0 < size < 4:
          * Using a trick to avoid branches.
@@ -96,7 +94,6 @@ copy0_4:
         sb       t2, -1(a7)
         sb       t3, 0(t5)
         j        copyexit
-
 copy4_8:
         /* 4 < size < 8:
          * Step1: Use lwu/sw pair to copy src[0]~src[3] to dst[0]~dst[3].
@@ -108,10 +105,8 @@ copy4_8:
         sw       t1, 0(ARG1)
         sw       t2, -4(a7)
         j        copyexit
-        
 copy8_32:
         /* 8 < size < 32: */
-
         /* Copy src[0]~src[7] and src[size-8]~size[size-1].
          * Some overlap here, but the overhead is negligible.
          */
@@ -119,16 +114,14 @@ copy8_32:
         ld       t2, -8(a6)
         sd       t1, 0(ARG1)
         sd       t2, -8(a7)
-
-        /* If size > 16, src[8]~src[size-9] has not been copied. 
+        /* If size > 16, src[8]~src[size-9] has not been copied.
          * Copy src[8]~src[15] with ld/sd pair.
          */
         addi     t6, x0, 16
         ble      ARG3, t6, copyexit
         ld       t1, 8(ARG2)
         sd       t1, 8(ARG1)
-
-        /* If size > 24, src[16]~src[size-9] has not been copied. 
+        /* If size > 24, src[16]~src[size-9] has not been copied.
          * Copy src[16]~src[23] with ld/sd pair.
          */
         addi     t6, x0, 24
