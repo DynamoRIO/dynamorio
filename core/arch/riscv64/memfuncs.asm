@@ -139,7 +139,7 @@ GLOBAL_LABEL(memset:)
         li       t6, 32
         mv       t0, ARG1 /* Save for return. */
 
-        /* Duplicate a single byte into whole 4 bytes register. */
+        /* Duplicate a single byte into whole 8 bytes register. */
         andi     ARG2, ARG2, 0xff
         mv       t1, ARG2
         slli     ARG2, ARG2, 8
