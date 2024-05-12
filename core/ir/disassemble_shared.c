@@ -55,7 +55,6 @@
 #include "../globals.h"
 #include "arch.h"
 #include "encode_api.h"
-#include "include/dr_ir_instr.h"
 #include "instr.h"
 #include "decode.h"
 #include "decode_fast.h"
