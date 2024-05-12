@@ -50,7 +50,6 @@
 
 #include "analysis_tool.h"
 #include "dr_api.h"
-#include "dr_ir_encode.h"
 #include "memref.h"
 #include "memtrace_stream.h"
 #include "raw2trace.h"
@@ -573,15 +572,16 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
          * disassemble DR_ISA_REGDEPS instructions.
          */
         dr_isa_mode_t old_isa_mode = dr_get_isa_mode(dcontext_.dcontext);
-        if (TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, filetype_)) {
-            // std::cerr << "SET REGDEPS\n";
+        bool is_regdeps_trace =
+            filetype_ != -1 && TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, filetype_);
+        if (is_regdeps_trace) {
             dr_set_isa_mode(dcontext_.dcontext, DR_ISA_REGDEPS, &old_isa_mode);
         }
         byte *next_pc = disassemble_to_buffer(
             dcontext_.dcontext, decode_pc, orig_pc, /*show_pc=*/false,
             /*show_bytes=*/true, buf, BUFFER_SIZE_ELEMENTS(buf),
             /*printed=*/nullptr);
-        if (TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, filetype_)) {
+        if (is_regdeps_trace) {
             dr_set_isa_mode(dcontext_.dcontext, old_isa_mode, nullptr);
         }
         if (next_pc == nullptr) {
