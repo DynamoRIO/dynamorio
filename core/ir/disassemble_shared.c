@@ -197,9 +197,9 @@ reg_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT, reg_id_t 
 }
 
 static const char *
-opnd_size_suffix_dr(opnd_t opnd)
+opnd_size_suffix_dr(opnd_size_t opnd_sz)
 {
-    int sz = opnd_size_in_bytes(opnd_get_size(opnd));
+    int sz = opnd_size_in_bytes(opnd_sz);
     switch (sz) {
     case 1: return "1byte";
     case 2: return "2byte";
@@ -762,7 +762,8 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
         }
             /* fall-through */
         default: {
-            const char *size_str = opnd_size_suffix_dr(opnd);
+            opnd_size_t opnd_sz = opnd_get_size(opnd);
+            const char *size_str = opnd_size_suffix_dr(opnd_sz);
             if (size_str[0] != '\0')
                 print_to_buffer(buf, bufsz, sofar, "[%s]", size_str);
         }
@@ -1239,8 +1240,8 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT
         uint category = instr_get_category(instr);
         print_category_names_to_buffer(buf, bufsz, sofar, category);
         opnd_size_t operation_size = instr->operation_size;
-        uint operation_size_bytes = opnd_size_in_bytes(operation_size);
-        print_to_buffer(buf, bufsz, sofar, "[%dbyte]", operation_size_bytes);
+        const char *operation_size_str = opnd_size_suffix_dr(operation_size);
+        print_to_buffer(buf, bufsz, sofar, "[%s]", operation_size_str);
         name = "";
     } else if (!instr_valid(instr)) {
         print_to_buffer(buf, bufsz, sofar, "<INVALID>");
