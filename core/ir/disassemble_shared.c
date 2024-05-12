@@ -1243,7 +1243,7 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT
         print_category_names_to_buffer(buf, bufsz, sofar, category);
         opnd_size_t operation_size = instr->operation_size;
         uint operation_size_bytes = opnd_size_in_bytes(operation_size);
-        print_to_buffer(buf, bufsz, sofar, "%d", operation_size_bytes);
+        print_to_buffer(buf, bufsz, sofar, "[%dbyte]", operation_size_bytes);
         name = "";
     } else if (!instr_valid(instr)) {
         print_to_buffer(buf, bufsz, sofar, "<INVALID>");
