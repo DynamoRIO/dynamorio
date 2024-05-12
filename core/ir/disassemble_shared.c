@@ -752,14 +752,9 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
         case IMMED_DOUBLE_kind:
         case PC_kind:
         case FAR_PC_kind: break;
-        case REG_kind: {
-            /* DR_ISA_REGDEPS registers don't have a size, so we never print it.
-             */
-            bool is_global_isa_mode_synthetic =
-                dr_get_isa_mode(dcontext) == DR_ISA_REGDEPS;
-            if (!opnd_is_reg_partial(opnd) && !is_global_isa_mode_synthetic)
+        case REG_kind:
+            if (!opnd_is_reg_partial(opnd))
                 break;
-        }
             /* fall-through */
         default: {
             opnd_size_t opnd_sz = opnd_get_size(opnd);
@@ -1241,7 +1236,8 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT
         print_category_names_to_buffer(buf, bufsz, sofar, category);
         opnd_size_t operation_size = instr->operation_size;
         const char *operation_size_str = opnd_size_suffix_dr(operation_size);
-        print_to_buffer(buf, bufsz, sofar, "[%s]", operation_size_str);
+        if (operation_size_str[0] != '\0')
+            print_to_buffer(buf, bufsz, sofar, "[%s]", operation_size_str);
         name = "";
     } else if (!instr_valid(instr)) {
         print_to_buffer(buf, bufsz, sofar, "<INVALID>");
