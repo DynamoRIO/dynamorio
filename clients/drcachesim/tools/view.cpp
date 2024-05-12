@@ -574,6 +574,7 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
          */
         dr_isa_mode_t old_isa_mode = dr_get_isa_mode(dcontext_.dcontext);
         if (TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, filetype_)) {
+            // std::cerr << "SET REGDEPS\n";
             dr_set_isa_mode(dcontext_.dcontext, DR_ISA_REGDEPS, &old_isa_mode);
         }
         byte *next_pc = disassemble_to_buffer(
@@ -591,7 +592,7 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         disasm_cache_.insert({ orig_pc, disasm });
     }
     // Add branch decoration, which varies and so can't be cached purely by PC.
-    auto newline = disasm.find('\n');
+    size_t newline = disasm.find('\n');
     if (memref.instr.type == TRACE_TYPE_INSTR_TAKEN_JUMP)
         disasm.insert(newline, " (taken)");
     else if (memref.instr.type == TRACE_TYPE_INSTR_UNTAKEN_JUMP)
@@ -604,13 +605,16 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         disasm.insert(newline, str.str());
     }
     // Put our prefix on raw byte spillover, and skip the other columns.
-    newline = disasm.find('\n');
-    if (newline != std::string::npos && newline < disasm.size() - 1) {
+    size_t pos = 0;
+    newline = disasm.find('\n', pos);
+    while (newline != std::string::npos && newline < disasm.size() - 1) {
         std::stringstream prefix;
         print_prefix(memstream, memref, -1, prefix);
         std::string skip_name(name_width, ' ');
         disasm.insert(newline + 1,
                       prefix.str() + skip_name + "                               ");
+        pos = newline + 1;
+        newline = disasm.find('\n', pos);
     }
     std::cerr << disasm;
     ++num_disasm_instrs_;

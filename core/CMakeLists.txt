@@ -282,6 +282,7 @@ set(DECODER_SRCS
   ir/isa_regdeps/encoding_common.c
   ir/isa_regdeps/encode.c
   ir/isa_regdeps/decode.c
+  ir/isa_regdeps/disassemble.c
   ir/disassemble_shared.c
   ir/${ARCH_NAME}/disassemble.c
   ir/ir_utils_shared.c
