@@ -210,6 +210,7 @@ bool
 process_entries_and_check_result(test_record_filter_t *record_filter,
                                  const std::vector<test_case_t> &entries, int index)
 {
+    record_filter->initialize_stream(nullptr);
     auto stream = std::unique_ptr<local_stream_t>(new local_stream_t());
     void *shard_data =
         record_filter->parallel_shard_init_stream(0, nullptr, stream.get());

@@ -70,6 +70,11 @@ public:
          * #trace_entry_t, hence the vector.
          */
         std::vector<trace_entry_t> *last_encoding;
+
+        /**
+         * Gives filters access to dcontext_t.
+         */
+        void *dcontext;
     };
 
     /**
@@ -148,6 +153,8 @@ public:
                     std::vector<std::unique_ptr<record_filter_func_t>> filters,
                     uint64_t stop_timestamp, unsigned int verbose);
     ~record_filter_t() override;
+    std::string
+    initialize_stream(memtrace_stream_t *serial_stream) override;
     bool
     process_memref(const trace_entry_t &entry) override;
     bool
@@ -286,6 +293,17 @@ private:
         return filetype;
     }
 
+    struct dcontext_cleanup_last_t {
+    public:
+        ~dcontext_cleanup_last_t()
+        {
+            if (dcontext != nullptr)
+                dr_standalone_exit();
+        }
+        void *dcontext = nullptr;
+    };
+
+    dcontext_cleanup_last_t dcontext_;
     std::string output_dir_;
     std::vector<std::unique_ptr<record_filter_func_t>> filters_;
     uint64_t stop_timestamp_;
