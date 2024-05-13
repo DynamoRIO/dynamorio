@@ -338,9 +338,10 @@ check_extra_nibbles(feature_bit_t feature_bit)
     for (i = 0; i < array_length; i++) {
         ushort feat_bit = feature_ids[i] >> 16;
 
-        if (feat_bit == (ushort)feature_bit)
+        if (feat_bit == (ushort)feature_bit) {
             if (proc_has_feature_imp((ushort)feature_ids[i]))
                 return true;
+        }
     }
 
     return false;
