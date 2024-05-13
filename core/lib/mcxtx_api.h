@@ -140,12 +140,12 @@
      * The Arm AArch64 Scalable Vector Extension (SVE) predicate registers
      * DR_REG_P0 to DR_REG_P15.
      */
-    dr_simd_t svep[MCXT_NUM_SVEP_SLOTS];
+    dr_svep_t svep[MCXT_NUM_SVEP_SLOTS];
     /**
      * The Arm AArch64 Scalable Vector Extension (SVE) first fault register
      * DR_REG_FFR, for vector load instrcutions.
      */
-    dr_simd_t ffr;
+    dr_ffr_t ffr;
 #   else
     /*
      * For the Arm AArch32 SIMD registers, we would probably be ok if we did

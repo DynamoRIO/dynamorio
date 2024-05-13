@@ -77,10 +77,10 @@ bool
 instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
 {
 #ifdef X64
-    if (mode != DR_ISA_IA32 && mode != DR_ISA_AMD64)
+    if (mode != DR_ISA_IA32 && mode != DR_ISA_AMD64 && mode != DR_ISA_REGDEPS)
         return false;
 #else
-    if (mode != DR_ISA_IA32)
+    if (mode != DR_ISA_IA32 && mode != DR_ISA_REGDEPS)
         return false;
 #endif
     instr->isa_mode = mode;
@@ -410,10 +410,10 @@ instr_compute_VSIB_index(bool *selected DR_PARAM_OUT, app_pc *result DR_PARAM_OU
 }
 
 bool
-instr_compute_address_VSIB(instr_t *instr, priv_mcontext_t *mc, size_t mc_size,
-                           dr_mcontext_flags_t mc_flags, opnd_t curop, uint index,
-                           DR_PARAM_OUT bool *have_addr, DR_PARAM_OUT app_pc *addr,
-                           DR_PARAM_OUT bool *write)
+instr_compute_vector_address(instr_t *instr, priv_mcontext_t *mc, size_t mc_size,
+                             dr_mcontext_flags_t mc_flags, opnd_t curop, uint index,
+                             DR_PARAM_OUT bool *have_addr, DR_PARAM_OUT app_pc *addr,
+                             DR_PARAM_OUT bool *write)
 {
     /* We assume that any instr w/ a VSIB opnd has no other
      * memory reference (and the VSIB is a source)!  Else we'll

@@ -49,6 +49,13 @@
 namespace dynamorio {
 namespace drmemtrace {
 
+// We want to abort in release build for some cases.
+#define assert_release_too(cond) \
+    do {                         \
+        if (!(cond))             \
+            abort();             \
+    } while (0)
+
 // Work around clang-format bug: no newline after return type for single-char operator.
 // clang-format off
 const memref_t &
@@ -203,10 +210,20 @@ reader_t::process_input_entry()
                 ++cur_instr_count_;
             // Look for encoding bits that belong to this instr.
             if (last_encoding_.size > 0) {
-                if (last_encoding_.size != cur_ref_.instr.size) {
-                    ERRMSG("Encoding size %zu != instr size %zu for PC 0x%zx\n",
-                           last_encoding_.size, cur_ref_.instr.size, cur_ref_.instr.addr);
-                    assert(false);
+                if (last_encoding_.size != cur_ref_.instr.size &&
+                    /* OFFLINE_FILE_TYPE_ARCH_REGDEPS traces have encodings with
+                     * size != ifetch. It's a design choice, not an error, hence
+                     * we avoid this sanity check for these traces.
+                     */
+                    !TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, filetype_)) {
+                    ERRMSG(
+                        "Encoding size %zu != instr size %zu for PC 0x%zx at ord %" PRIu64
+                        " instr %" PRIu64 " last_timestamp=0x%" PRIx64 "\n",
+                        last_encoding_.size, cur_ref_.instr.size, cur_ref_.instr.addr,
+                        get_record_ordinal(), get_instruction_ordinal(),
+                        get_last_timestamp());
+                    // Encoding errors indicate serious problems so we always abort.
+                    assert_release_too(false);
                 }
                 memcpy(cur_ref_.instr.encoding, last_encoding_.bits, last_encoding_.size);
                 cur_ref_.instr.encoding_is_new = true;
@@ -222,7 +239,8 @@ reader_t::process_input_entry()
                            // in this mode.
                            !core_sharded_) {
                     ERRMSG("Missing encoding for 0x%zx\n", cur_ref_.instr.addr);
-                    assert(false);
+                    // Encoding errors indicate serious problems so we always abort.
+                    assert_release_too(false);
                 }
             }
             last_encoding_.size = 0;

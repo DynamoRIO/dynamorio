@@ -262,7 +262,7 @@ LL stats:
 
 In addition to a CPU cache simulator, other predefined analysis tools are
 available that operate on memory address traces.  Which set of tools is used
-can be selected with the \p -simulator_type parameter.  New, custom
+can be selected with the \p -tool parameter.  New, custom
 tools can also be created, as described in \ref sec_drcachesim_newtool.
 
 - \ref sec_tool_cache_sim
@@ -332,10 +332,10 @@ LL stats:
 
 \section sec_tool_TLB_sim TLB Simulator
 
-To simulate TLB devices instead of caches, pass \p TLB to \p -simulator_type:
+To simulate TLB devices instead of caches, pass \p TLB to \p -tool:
 
 \code
-$ bin64/drrun -t drcachesim -simulator_type TLB -- ~/test/pi_estimator
+$ bin64/drrun -t drcachesim -tool TLB -- ~/test/pi_estimator
 Estimation of pi is 3.142425985001098
 ---- <application exited with code 0> ----
 TLB simulation results:
@@ -392,7 +392,7 @@ Core #3 (0 thread(s))
 To compute reuse distance metrics:
 
 \code
-$ bin64/drrun -t drcachesim -simulator_type reuse_distance -reuse_distance_histogram -- ~/test/pi_estimator
+$ bin64/drrun -t drcachesim -tool reuse_distance -reuse_distance_histogram -- ~/test/pi_estimator
 Estimation of pi is 3.142425985001098
 ---- <application exited with code 0> ----
 Reuse distance tool aggregated results:
@@ -486,7 +486,7 @@ accesses (without considering uniqueness) between accesses to the same
 address:
 
 \code
-$ bin64/drrun -t drcachesim -simulator_type reuse_time -- ~/test/pi_estimator
+$ bin64/drrun -t drcachesim -tool reuse_time -- ~/test/pi_estimator
 Estimation of pi is 3.142425985001098
 ---- <application exited with code 0> ----
 Reuse time tool aggregated results:
@@ -528,7 +528,7 @@ To simply see the counts of instructions and memory references broken down
 by thread use the basic counts tool:
 
 \code
-$ bin64/drrun -t drcachesim -simulator_type basic_counts -- ~/test/pi_estimator
+$ bin64/drrun -t drcachesim -tool basic_counts -- ~/test/pi_estimator
 Estimation of pi is 3.142425985001098
 ---- <application exited with code 0> ----
 Basic counts tool results:
@@ -542,8 +542,10 @@ Total counts:
            0 total icache flushes
            0 total dcache flushes
            3 total threads
-        1134 total scheduling markers
-           5 total transfer markers
+        1134 total timestamp + cpuid markers
+           0 total idle markers
+           0 total wait markers
+           5 total kernel transfer markers
           10 total function id markers
            0 total function return address markers
           30 total function argument markers
@@ -563,8 +565,10 @@ Thread 64951 counts:
        12594 data stores
            0 icache flushes
            0 dcache flushes
-        1072 scheduling markers
-           5 transfer markers
+        1072 timestamp + cpuid markers
+           0 idle markers
+           0 wait markers
+           5 kernel transfer markers
            4 function id markers
            0 function return address markers
           12 function argument markers
@@ -584,8 +588,10 @@ Thread 64958 counts:
          262 data stores
            0 icache flushes
            0 dcache flushes
-          30 scheduling markers
-           0 transfer markers
+          30 timestamp + cupid markers
+           0 idle markers
+           0 wait markers
+           0 kernel transfer markers
            2 function id markers
            0 function return address markers
            6 function argument markers
@@ -605,8 +611,10 @@ Thread 64959 counts:
          266 data stores
            0 icache flushes
            0 dcache flushes
-          32 scheduling markers
-           0 transfer markers
+          32 timestamp + cpuid markers
+           0 idle markers
+           0 wait markers
+           0 kernel transfer markers
            4 function id markers
            0 function return address markers
           12 function argument markers
@@ -637,7 +645,7 @@ opcode for load and store but both have the same public string "mov":
 \code
 $ bin64/drrun -t drcachesim -offline -- ~/test/pi_estimator
 Estimation of pi is 3.142425985001098
-$ bin64/drrun -t drcachesim -simulator_type opcode_mix -indir drmemtrace.*.dir
+$ bin64/drrun -t drcachesim -tool opcode_mix -indir drmemtrace.*.dir
 Opcode mix tool results:
          267271 : total executed instructions
           36432 :       mov
@@ -687,7 +695,7 @@ In its first two columns, the tool displays the trace record ordinal
 and the instruction fetch ordinal.
 
 \code
-$ $ bin64/drrun -t drcachesim -simulator_type view -indir drmemtrace.*.dir -sim_refs 20
+$ $ bin64/drrun -t drcachesim -tool view -indir drmemtrace.*.dir -sim_refs 20
 Output format:
 <--record#-> <--instr#->: <---tid---> <record details>
 ------------------------------------------------------------
@@ -787,7 +795,7 @@ more information.
 \code
 $ bin64/drrun -t drcachesim -offline -record_function 'fib|1' -- ~/test/fib 5
 Estimation of pi is 3.142425985001098
-$ bin64/drrun -t drcachesim -simulator_type func_view -indir drmemtrace.*.dir
+$ bin64/drrun -t drcachesim -tool func_view -indir drmemtrace.*.dir
 0x7fc06d2288eb => common.fib!fib(0x5)
     0x7fc06d22888e => common.fib!fib(0x4)
         0x7fc06d22888e => common.fib!fib(0x3)
@@ -821,7 +829,7 @@ Function id=0: common.fib!fib
 The top referenced cache lines are displayed by the \p histogram tool:
 
 \code
-$ bin64/drrun -t drcachesim -simulator_type histogram -- ~/test/pi_estimator
+$ bin64/drrun -t drcachesim -tool histogram -- ~/test/pi_estimator
 Estimation of pi is 3.142425985001098
 ---- <application exited with code 0> ----
 Cache line histogram tool results:
@@ -869,7 +877,7 @@ number. This works only with traces that have these markers; that is, offline tr
 must have #dynamorio::drmemtrace::OFFLINE_FILE_TYPE_SYSCALL_NUMBERS in their file type.
 
 \code
-$ bin64/drrun -t drcachesim -indir drmemtrace.ls.*.dir -simulator_type syscall_mix
+$ bin64/drrun -t drcachesim -indir drmemtrace.ls.*.dir -tool syscall_mix
 Syscall mix tool results:
           count : syscall_num
              17 :         9
@@ -921,7 +929,7 @@ option.
 Example of removing function markers:
 
 \code
-$ bin64/drrun -t drcachesim -indir mytracedir -simulator_type basic_counts
+$ bin64/drrun -t drcachesim -indir mytracedir -tool basic_counts
 ...
         9009 total function id markers
         5006 total function return address markers
@@ -929,10 +937,10 @@ $ bin64/drrun -t drcachesim -indir mytracedir -simulator_type basic_counts
         4003 total function return value markers
 ...
 
-$ bin64/drrun -t drcachesim -simulator_type record_filter -filter_marker_types 4,5,6,7 -indir mytracedir -outdir newdir
+$ bin64/drrun -t drcachesim -tool record_filter -filter_marker_types 4,5,6,7 -indir mytracedir -outdir newdir
 Output 1280800 entries from 1304825 entries.
 
-$ bin64/drrun -t drcachesim -indir newdir -simulator_type basic_counts
+$ bin64/drrun -t drcachesim -indir newdir -tool basic_counts
 ...
            0 total function id markers
            0 total function return address markers
@@ -1258,7 +1266,7 @@ burst_static test application</a>.
 Generally, the simulator is able to be extended to model a variety of
 caching devices.  Currently, CPU caches and TLBs are implemented.  The type of
 devices to simulate can be specified by the parameter
-"-simulator_type" (see \ref sec_drcachesim_ops).
+"-tool" (see \ref sec_drcachesim_ops).
 
 The CPU cache simulator models a configurable number of cores,
 each with an L1 data cache and an L1 instruction cache.
@@ -1385,7 +1393,7 @@ The cache simulator can be used to analyze the stream of last-level cache (LLC)
 miss addresses. This can be useful when looking for patterns that can be utilized
 in software prefetching. The current analyzer can only identify simple stride
 patterns, but it can be extended to search for more complex patterns.
-To invoke the miss analyzer, pass \p miss_analyzer to the \p -simulator_type
+To invoke the miss analyzer, pass \p miss_analyzer to the \p -tool
 parameter. To write the prefetching hints to a file use the \p -LL_miss_file
 parameter to specify the file's path and name.
 
@@ -1393,7 +1401,7 @@ For example, to run the analyzer on a benchmark called "my_benchmark" and store
 the prefetching recommendations in a file called "rec.csv", run the following:
 
 \code
-$ bin64/drrun -t drcachesim -simulator_type miss_analyzer -LL_miss_file rec.csv -- my_benchmark
+$ bin64/drrun -t drcachesim -tool miss_analyzer -LL_miss_file rec.csv -- my_benchmark
 \endcode
 
 
@@ -1661,7 +1669,7 @@ functions.
 
 \p drcachesim \p drmemtrace analysis tool framework allows to load
 non-predefined separately-built external tools. This tool can be loaded by drcachesim
-using the \p -simulator_type option.
+using the \p -tool option.
 
 ## External tool package
 

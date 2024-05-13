@@ -55,7 +55,9 @@ public:
     parallel_shard_init(memtrace_stream_t *shard_stream,
                         bool partial_trace_filter) override;
     bool
-    parallel_shard_filter(trace_entry_t &entry, void *shard_data) override;
+    parallel_shard_filter(
+        trace_entry_t &entry, void *shard_data,
+        record_filter_t::record_filter_info_t &record_filter_info) override;
     bool
     parallel_shard_exit(void *shard_data) override;
 

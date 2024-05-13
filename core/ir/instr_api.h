@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -298,10 +298,19 @@ struct _instr_t {
 
     uint opcode;
 
+    union {
 #    ifdef X86
-    /* PR 251479: offset into instr's raw bytes of rip-relative 4-byte displacement */
-    byte rip_rel_pos;
+        /* Offset into instr's raw bytes of rip-relative 4-byte displacement.
+         * This field is valid when instr_t isa_mode is DR_ISA_X86.
+         */
+        byte rip_rel_pos;
 #    endif
+        /* Size of source data (i.e., read) a DR_ISA_REGDEPS instruction operates on.
+         * This field is valid when instr_t isa_mode is DR_ISA_REGDEPS.
+         * Note that opnd_size_t is an alias of byte.
+         */
+        opnd_size_t operation_size;
+    };
 
     /* we dynamically allocate dst and src arrays b/c x86 instrs can have
      * up to 8 of each of them, but most have <=2 dsts and <=3 srcs, and we
@@ -1548,11 +1557,20 @@ bool
 instr_zeroes_zmmh(instr_t *instr);
 
 DR_API
-/** Returns true if \p instr's opcode is #OP_xsave32, #OP_xsaveopt32, #OP_xsave64,
- * #OP_xsaveopt64, #OP_xsavec32 or #OP_xsavec64.
+/**
+ * Returns true if \p instr's opcode is #OP_xsave32, #OP_xsaveopt32, #OP_xsave64,
+ * #OP_xsaveopt64, #OP_xsavec32, #OP_xsavec64, #OP_xsaves32, or #OP_xsaves64.
  */
 bool
 instr_is_xsave(instr_t *instr);
+
+DR_API
+/**
+ * Returns true if \p instr's opcode is #OP_xrstor32, #OP_xrstor64, #OP_xrstors32,
+ * or #OP_xrstors64.
+ */
+bool
+instr_is_xrstor(instr_t *instr);
 #endif
 
 DR_API
@@ -1639,7 +1657,8 @@ DR_API
  * write is returned in \p is_write.  Either or both OUT variables can
  * be NULL.
  * \p mc->flags must include DR_MC_CONTROL and DR_MC_INTEGER.
- * For instructions that use vector addressing (VSIB, introduced in AVX2),
+ * For instructions that use vector addressing (x86 VSIB, introduced in AVX2, or
+ * AArch64 scatter/gather instructions introduced in SVE/SVE2),
  * mc->flags must additionally include DR_MC_MULTIMEDIA.
  *
  * Like instr_reads_memory(), this routine does not consider
@@ -2085,6 +2104,21 @@ DR_API
  */
 instr_t *
 instr_convert_short_meta_jmp_to_long(void *drcontext, instrlist_t *ilist, instr_t *instr);
+
+DR_API
+/**
+ * Converts a real ISA (e.g., #DR_ISA_AMD64) instruction \p instr_real_isa into a
+ * #DR_ISA_REGDEPS instruction and stores it into \p instr_regdeps_isa.
+ * Assumes \p instr_regdeps_isa has been allocated by the caller (e.g., using
+ * instr_create()).
+ * Assumes \p instr_real_isa is a fully-decoded or synthesized instruction of a real ISA
+ * with valid operand information.
+ * \note \p instr_regdeps_isa will contain only the information of a #DR_ISA_REGDEPS
+ * synthetic instruction.
+ */
+void
+instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
+                             instr_t *instr_regdeps_isa);
 
 DR_API
 /**

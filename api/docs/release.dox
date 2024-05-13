@@ -147,6 +147,13 @@ changes:
    users sub-classing analyzer_tmpl_t).
  - Converted #dynamorio::drmemtrace::analysis_tool_tmpl_t::interval_state_snapshot_t
    into a class with all its data members marked private with public accessor functions.
+ - Changed the type of the AArch64 #dr_mcontext_t members svep and ffr to #dr_svep_t.
+   This breaks binary compatibility with clients that were built against versions of
+   DynamoRIO before this change.
+ - Changed #dynamorio::drmemtrace::record_filter_t::record_filter_func_t
+   parallel_shard_filter() interface.  Added a new parameter of type
+   #dynamorio::drmemtrace::record_filter_t::record_filter_info_t that allows
+   #dynamorio::drmemtrace::record_filter_t to share data with its filters.
 
 Further non-compatibility-affecting changes include:
  - Added DWARF-5 support to the drsyms library by linking in 4 static libraries
@@ -212,6 +219,23 @@ Further non-compatibility-affecting changes include:
    #dynamorio::drmemtrace::analysis_tool_t to allow the tool to make holistic
    adjustments to the interval snapshots after all have been generated, and before
    they are used for merging across shards (potentially), and printing the results.
+ - Added opnd_is_vector_base_disp() to test if an opnd_t is a base+disp memory operand
+   that uses a vector register for the base or index register.
+ - Added -abort_on_invariant_error flag that instructs the invariant checker drmemtrace
+   analysis tool to abort trace analysis when a trace invariant error is found. This
+   is set to true by default to match the existing behavior of the invariant checker.
+ - Added a new instr API instr_is_xrstor() that tells whether an instruction is any
+   variant of the x86 xrstor opcode.
+ - Added a new #dr_isa_mode_t: #DR_ISA_REGDEPS, which is a synthetic ISA with the main
+   purpose of preserving register dependencies.
+ - Added instr_convert_to_isa_regdeps() API that converts an #instr_t from a real ISA
+   (e.g., #DR_ISA_AMD64) to the #DR_ISA_REGDEPS synthetic ISA.
+ - Added encodings2regdeps_filter_t filter to #dynamorio::drmemtrace::record_filter_t to
+   generate #DR_ISA_REGDEPS traces.
+ - Added #dynamorio::drmemtrace::OFFLINE_FILE_TYPE_ARCH_REGDEPS file type for
+   #DR_ISA_REGDEPS traces.
+ - Added -tool as the preferred alias for -simulator_type for the drmemtrace/drcachesim
+   trace analysis tool framework.
 
 **************************************************
 <hr>

@@ -1770,7 +1770,7 @@ os_timeout(int time_in_milliseconds)
             IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                              \
             ASSERT(sizeof(var) == sizeof(void *));                              \
             __asm__ __volatile__("ld t0, %0(tp) \n\t"                           \
-                                 "add t0, t0, %2\n\t"                           \
+                                 "add t0, t0, %2 \n\t"                          \
                                  "sd %1, 0(t0) \n\t"                            \
                                  :                                              \
                                  : "i"(DR_TLS_BASE_OFFSET), "r"(var), "r"(offs) \
@@ -1781,9 +1781,9 @@ os_timeout(int time_in_milliseconds)
             IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                      \
             ASSERT(sizeof(var) == sizeof(void *));                      \
             __asm__ __volatile__("ld %0, %1(tp) \n\t"                   \
-                                 "add %0, %0, %2\n\t"                   \
+                                 "add %0, %0, %2 \n\t"                  \
                                  "ld %0, 0(%0) \n\t"                    \
-                                 : "=r"(var)                            \
+                                 : "+r"(var)                            \
                                  : "i"(DR_TLS_BASE_OFFSET), "r"(offs)); \
         } while (0)
 #endif /* X86/ARM/RISCV64 */
@@ -2092,7 +2092,7 @@ os_get_app_tls_reg_offset(reg_id_t reg)
 void *
 d_r_get_tls(ushort tls_offs)
 {
-    void *val;
+    void *val = 0;
     READ_TLS_SLOT(tls_offs, val);
     return val;
 }

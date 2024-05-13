@@ -38,6 +38,7 @@
 /* file "opnd_shared.c" -- IR opnd utilities */
 
 #include "../globals.h"
+#include "encode_api.h"
 #include "opnd.h"
 #include "arch.h"
 /* FIXME i#1551: refactor this file and avoid this x86-specific include in base arch/ */
@@ -184,6 +185,13 @@ opnd_is_vsib(opnd_t op)
 }
 
 bool
+opnd_is_vector_base_disp(opnd_t op)
+{
+    return opnd_is_base_disp(op) &&
+        (reg_is_simd(opnd_get_base(op)) || reg_is_simd(opnd_get_index(op)));
+}
+
+bool
 opnd_is_reg_32bit(opnd_t opnd)
 {
     if (opnd_is_reg(opnd))
@@ -232,7 +240,15 @@ bool
 reg_is_pointer_sized(reg_id_t reg)
 {
 #ifdef X64
+#    ifdef AARCH64
+    /* XXX i#6750: We need to generalize reg_{to,is}_pointer_sized() for non-GPR
+     * registers. Change names or add new keeping old or update docs?
+     */
+    return (reg >= DR_REG_Z0 && reg <= DR_REG_Z31) ||
+        (reg >= REG_START_64 && reg <= REG_STOP_64);
+#    else
     return (reg >= REG_START_64 && reg <= REG_STOP_64);
+#    endif
 #else
     return (reg >= REG_START_32 && reg <= REG_STOP_32);
 #endif
@@ -1399,21 +1415,9 @@ opnd_replace_reg(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg)
                 s, b, i, sc, d, size, opnd_is_disp_encode_zero(*opnd),
                 opnd_is_disp_force_full(*opnd), opnd_is_disp_short_addr(*opnd));
 #elif defined(RISCV64)
-            /* FIXME i#3544: RISC-V has no support for base + idx * scale + disp.
-             * We could support base + disp as long as disp == +/-1MB.
-             * If needed, instructions with this operand should be transformed
-             * to:
-             *   mul idx, idx, scale # or slli if scale is immediate
-             *   add base, base, idx
-             *   addi base, base, disp
-             */
-            CLIENT_ASSERT(false, "Not implemented");
-            /* Marking as unused to silence -Wunused-variable. */
-            (void)size;
-            (void)b;
-            (void)i;
-            (void)d;
-            return false;
+            CLIENT_ASSERT(i == DR_REG_NULL, "opnd_replace_reg: index_reg must be null");
+            bool scaled = false;
+            *opnd = opnd_create_base_disp(b, i, scaled, d, size);
 #endif
             return true;
         }
@@ -2211,6 +2215,21 @@ reg_get_value_ex(reg_id_t reg, dr_mcontext_t *mc, DR_PARAM_OUT byte *val)
         reg_t regval = reg_get_value(reg, mc);
         *(reg_t *)val = regval;
     }
+#elif defined(AARCH64)
+    if (reg >= DR_REG_START_Z && reg <= DR_REG_STOP_Z) {
+        if (!TEST(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
+            return false;
+        memcpy(val, &mc->simd[reg - DR_REG_START_Z],
+               opnd_size_in_bytes(reg_get_size(reg)));
+    } else if (reg >= DR_REG_START_P && reg <= DR_REG_STOP_P) {
+        if (!TEST(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
+            return false;
+        memcpy(val, &mc->svep[reg - DR_REG_START_P],
+               opnd_size_in_bytes(reg_get_size(reg)));
+    } else {
+        reg_t regval = reg_get_value(reg, mc);
+        *(reg_t *)val = regval;
+    }
 #else
     CLIENT_ASSERT(false, "NYI i#1551");
 #endif
@@ -2334,30 +2353,8 @@ opnd_compute_address_priv(opnd_t opnd, priv_mcontext_t *mc)
         ptr_int_t scale = opnd_get_scale(opnd);
         scaled_index = scale * reg_get_value_priv(index, mc);
 #elif defined(AARCH64)
-        bool scaled = false;
-        uint amount = 0;
-        dr_extend_type_t type = opnd_get_index_extend(opnd, &scaled, &amount);
-        reg_t index_val = reg_get_value_priv(index, mc);
-        reg_t extended = 0;
-        uint msb = 0;
-        switch (type) {
-        default: CLIENT_ASSERT(false, "Unsupported extend type"); return NULL;
-        case DR_EXTEND_UXTW: extended = (index_val << (63u - 31u)) >> (63u - 31u); break;
-        case DR_EXTEND_SXTW:
-            extended = (index_val << (63u - 31u)) >> (63u - 31u);
-            msb = extended >> 31u;
-            if (msb == 1) {
-                extended = ((~0ull) << 32u) | extended;
-            }
-            break;
-        case DR_EXTEND_UXTX:
-        case DR_EXTEND_SXTX: extended = index_val; break;
-        }
-        if (scaled) {
-            scaled_index = extended << amount;
-        } else {
-            scaled_index = extended;
-        }
+        scaled_index =
+            d_r_compute_scaled_index_aarch64(opnd, reg_get_value_priv(index, mc));
 #elif defined(ARM)
         uint amount;
         dr_shift_type_t type = opnd_get_index_shift(opnd, &amount);
@@ -2396,9 +2393,24 @@ opnd_compute_address(opnd_t opnd, dr_mcontext_t *mc)
  ***      Register utility functions
  ***************************************************************************/
 
+/* XXX i#1684: performance matters on all getter and setter routines.  Now that we call
+ * get_thread_private_dcontext(), we add non-negligible overhead to get_register_name().
+ * Currently there are other routines that call get_thread_private_dcontext() such as:
+ * instr_get_eflags() and opnd_create_far_abs_addr().  We should revisit this and make
+ * a decision on which of these routines should take dcontext_t as input argument.
+ */
+/* XXX i#6690: here we assume that changes made by the user of this routine
+ * (and by its threads) to the global dcontext_t (and specifically its isa_mode)
+ * are guarded by locks.  We can remove this assumption once we have a completely
+ * lock-free dcontext_t.
+ */
 const char *
 get_register_name(reg_id_t reg)
 {
+    bool is_global_isa_mode_synthetic =
+        dr_get_isa_mode(get_thread_private_dcontext()) == DR_ISA_REGDEPS;
+    if (is_global_isa_mode_synthetic)
+        return d_r_reg_virtual_names[reg];
     return reg_names[reg];
 }
 
@@ -2406,6 +2418,12 @@ reg_id_t
 reg_to_pointer_sized(reg_id_t reg)
 {
     return dr_reg_fixer[reg];
+}
+
+reg_id_t
+d_r_reg_to_virtual(reg_id_t reg)
+{
+    return d_r_reg_id_to_virtual[reg];
 }
 
 reg_id_t
@@ -2758,14 +2776,10 @@ reg_get_size(reg_id_t reg)
     if (reg >= DR_REG_MDCCSR_EL0 && reg <= DR_REG_SPSR_FIQ)
         return OPSZ_8;
     if (reg >= DR_REG_Z0 && reg <= DR_REG_Z31) {
-#        if !defined(DR_HOST_NOT_TARGET) && !defined(STANDALONE_DECODER)
-        return opnd_size_from_bytes(proc_get_vector_length_bytes());
-#        else
-        return OPSZ_SCALABLE;
-#        endif
+        return OPSZ_SVE_VECLEN_BYTES;
     }
     if ((reg >= DR_REG_P0 && reg <= DR_REG_P15) || reg == DR_REG_FFR)
-        return OPSZ_SCALABLE_PRED;
+        return OPSZ_SVE_PREDLEN_BYTES;
     if (reg == DR_REG_CNTVCT_EL0)
         return OPSZ_8;
     if (reg >= DR_REG_NZCV && reg <= DR_REG_FPSR)

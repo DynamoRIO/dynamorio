@@ -1,6 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2013-2023 Google, Inc.   All rights reserved.
- * Copyright (c) 2023      Arm Limited.   All rights reserved.
+ * Copyright (c) 2023-2024 Arm Limited.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -42,6 +42,8 @@
 #include "../ext_utils.h"
 #include "scatter_gather_shared.h"
 
+#include <signal.h>
+#include <string.h>
 #include <stddef.h> /* for offsetof */
 
 /* Control printing of verbose debugging messages. */
@@ -64,25 +66,40 @@ typedef struct _per_thread_t {
                                                 spilled Z vector registers. */
 } per_thread_t;
 
+typedef enum _sg_slot_kind_t {
+    SLOT_KIND_UNUSED,
+    SLOT_KIND_DST,   /* Slot contains a destination register. */
+    SLOT_KIND_SPILL, /* Slot contains a spilled scratch register. */
+} sg_slot_kind_t;
+
+typedef struct _sg_slot_t {
+    sg_slot_kind_t kind;
+    reg_id_t reg;
+} sg_slot_t;
+
 /* Track the state of manual spill slots for SVE registers.
  * This corresponds to the spill slot storage in per_thread_t.
  */
 typedef struct _spill_slot_state_t {
 #define NUM_PRED_SLOTS 2
-    reg_id_t pred_slots[NUM_PRED_SLOTS];
+    sg_slot_t pred_slots[NUM_PRED_SLOTS];
 
-#define NUM_VECTOR_SLOTS 1
-    reg_id_t vector_slots[NUM_VECTOR_SLOTS];
+#define NUM_VECTOR_SLOTS 5
+    sg_slot_t vector_slots[NUM_VECTOR_SLOTS];
 } spill_slot_state_t;
 
 void
 init_spill_slot_state(DR_PARAM_OUT spill_slot_state_t *spill_slot_state)
 {
-    for (size_t i = 0; i < NUM_PRED_SLOTS; i++)
-        spill_slot_state->pred_slots[i] = DR_REG_NULL;
+    for (size_t i = 0; i < NUM_PRED_SLOTS; i++) {
+        spill_slot_state->pred_slots[i].kind = SLOT_KIND_UNUSED;
+        spill_slot_state->pred_slots[i].reg = DR_REG_INVALID;
+    }
 
-    for (size_t i = 0; i < NUM_VECTOR_SLOTS; i++)
-        spill_slot_state->vector_slots[i] = DR_REG_NULL;
+    for (size_t i = 0; i < NUM_VECTOR_SLOTS; i++) {
+        spill_slot_state->vector_slots[i].kind = SLOT_KIND_UNUSED;
+        spill_slot_state->vector_slots[i].reg = DR_REG_INVALID;
+    }
 }
 
 void
@@ -1164,30 +1181,11 @@ expand_replicating(const sg_emit_context_t *sg_context,
 
 #undef EMIT
 
-/* Spill a scratch predicate or vector register.
- * TODO i#3844: drreg does not support spilling predicate regs yet, so we do it
- * ourselves.
- * When that support is available, this function can be replaced with a drreg API call.
- */
-reg_id_t
-reserve_sve_register(void *drcontext, instrlist_t *bb, instr_t *where,
-                     reg_id_t scratch_gpr0, reg_id_t min_register, reg_id_t max_register,
-                     size_t slot_tls_offset, opnd_size_t reg_size, uint slot_num,
-                     reg_id_t *already_allocated_regs, uint num_already_allocated)
+void
+save_sve_register(void *drcontext, instrlist_t *bb, instr_t *where, reg_id_t scratch_gpr0,
+                  size_t slot_tls_offset, opnd_size_t reg_size, uint slot_num,
+                  reg_id_t reg_to_save)
 {
-    /* Search the instruction for an unused register we will use as a temp. */
-    reg_id_t reg;
-    for (reg = min_register; reg <= max_register; ++reg) {
-        if (!instr_uses_reg(where, reg)) {
-            bool reg_already_allocated = false;
-            for (uint i = 0; !reg_already_allocated && i < num_already_allocated; i++) {
-                reg_already_allocated = already_allocated_regs[i] == reg;
-            }
-            if (!reg_already_allocated)
-                break;
-        }
-    }
-    DR_ASSERT(!instr_uses_reg(where, reg));
 
     drmgr_insert_read_tls_field(drcontext, drx_scatter_gather_tls_idx, bb, where,
                                 scratch_gpr0);
@@ -1205,55 +1203,72 @@ reserve_sve_register(void *drcontext, instrlist_t *bb, instr_t *where,
                          opnd_create_base_disp(
                              scratch_gpr0, DR_REG_NULL, /*scale=*/0,
                              /*disp=*/slot_num * opnd_size_in_bytes(reg_size), reg_size),
-                         opnd_create_reg(reg)));
+                         opnd_create_reg(reg_to_save)));
+}
+
+/* Spill a scratch predicate or vector register.
+ * TODO i#3844: drreg does not support spilling SVE regs yet, so we do it ourselves.
+ * When that support is available, this function can be replaced with a drreg API call.
+ */
+reg_id_t
+reserve_sve_register(instr_t *sg_instr, reg_id_t min_register, reg_id_t max_register)
+{
+    /* Search the instruction for an unused register we will use as a temp. */
+    reg_id_t reg;
+    for (reg = min_register; reg <= max_register; ++reg) {
+        if (!instr_uses_reg(sg_instr, reg))
+            break;
+    }
+    DR_ASSERT(!instr_uses_reg(sg_instr, reg));
 
     return reg;
 }
 
 reg_id_t
-reserve_pred_register(void *drcontext, instrlist_t *bb, instr_t *where,
-                      reg_id_t scratch_gpr0, spill_slot_state_t *slot_state)
+reserve_pred_register(instr_t *sg_instr, spill_slot_state_t *slot_state)
 {
     uint slot;
     for (slot = 0; slot < NUM_PRED_SLOTS; slot++) {
-        if (slot_state->pred_slots[slot] == DR_REG_NULL) {
+        if (slot_state->pred_slots[slot].kind == SLOT_KIND_UNUSED) {
             break;
         }
     }
-    DR_ASSERT(slot_state->pred_slots[slot] == DR_REG_NULL);
+    DR_ASSERT(slot_state->pred_slots[slot].kind == SLOT_KIND_UNUSED);
 
     /* Some instructions require the predicate to be in the range p0 - p7. This includes
      * LASTB which we use to extract elements from the vector register.
      */
-    const reg_id_t reg =
-        reserve_sve_register(drcontext, bb, where, scratch_gpr0, DR_REG_P0, DR_REG_P7,
-                             offsetof(per_thread_t, scratch_pred_spill_slots),
-                             opnd_size_from_bytes(proc_get_vector_length_bytes() / 8),
-                             slot, slot_state->pred_slots, slot);
+    reg_id_t min_reg = DR_REG_P0;
+    /* Skip over any registers that have already been allocated. */
+    if (slot > 0 && slot_state->pred_slots[slot - 1].kind == SLOT_KIND_SPILL)
+        min_reg = slot_state->pred_slots[slot - 1].reg + 1;
 
-    slot_state->pred_slots[slot] = reg;
+    const reg_id_t reg = reserve_sve_register(sg_instr, min_reg, DR_REG_P7);
+
+    slot_state->pred_slots[slot].kind = SLOT_KIND_SPILL;
+    slot_state->pred_slots[slot].reg = reg;
     return reg;
 }
 
 reg_id_t
-reserve_vector_register(void *drcontext, instrlist_t *bb, instr_t *where,
-                        reg_id_t scratch_gpr0, spill_slot_state_t *slot_state)
+reserve_vector_register(instr_t *sg_instr, spill_slot_state_t *slot_state)
 {
     uint slot;
     for (slot = 0; slot < NUM_VECTOR_SLOTS; slot++) {
-        if (slot_state->vector_slots[slot] == DR_REG_NULL) {
+        if (slot_state->vector_slots[slot].kind == SLOT_KIND_UNUSED) {
             break;
         }
     }
-    DR_ASSERT(slot_state->vector_slots[slot] == DR_REG_NULL);
+    DR_ASSERT(slot_state->vector_slots[slot].kind == SLOT_KIND_UNUSED);
 
-    const reg_id_t reg =
-        reserve_sve_register(drcontext, bb, where, scratch_gpr0, DR_REG_Z0, DR_REG_Z31,
-                             offsetof(per_thread_t, scratch_vector_spill_slots_aligned),
-                             opnd_size_from_bytes(proc_get_vector_length_bytes()), slot,
-                             slot_state->vector_slots, slot);
+    reg_id_t min_reg = DR_REG_Z0;
+    /* Skip over any registers that have already been allocated. */
+    if (slot > 0 && slot_state->vector_slots[slot - 1].kind == SLOT_KIND_SPILL)
+        min_reg = slot_state->vector_slots[slot - 1].reg + 1;
+    const reg_id_t reg = reserve_sve_register(sg_instr, min_reg, DR_REG_Z31);
 
-    slot_state->vector_slots[slot] = reg;
+    slot_state->vector_slots[slot].kind = SLOT_KIND_SPILL;
+    slot_state->vector_slots[slot].reg = reg;
     return reg;
 }
 
@@ -1293,18 +1308,20 @@ unreserve_pred_register(void *drcontext, instrlist_t *bb, instr_t *where,
 {
     uint slot;
     for (slot = 0; slot < NUM_PRED_SLOTS; slot++) {
-        if (slot_state->pred_slots[slot] == scratch_pred) {
+        if (slot_state->pred_slots[slot].reg == scratch_pred) {
             break;
         }
     }
-    DR_ASSERT(slot_state->pred_slots[slot] == scratch_pred);
+    DR_ASSERT(slot_state->pred_slots[slot].kind == SLOT_KIND_SPILL);
+    DR_ASSERT(slot_state->pred_slots[slot].reg == scratch_pred);
 
     unreserve_sve_register(drcontext, bb, where, scratch_gpr0, scratch_pred,
                            offsetof(per_thread_t, scratch_pred_spill_slots),
                            opnd_size_from_bytes(proc_get_vector_length_bytes() / 8),
                            slot);
 
-    slot_state->pred_slots[slot] = DR_REG_NULL;
+    slot_state->pred_slots[slot].kind = SLOT_KIND_UNUSED;
+    slot_state->pred_slots[slot].reg = DR_REG_INVALID;
 }
 
 void
@@ -1314,17 +1331,67 @@ unreserve_vector_register(void *drcontext, instrlist_t *bb, instr_t *where,
 {
     uint slot;
     for (slot = 0; slot < NUM_VECTOR_SLOTS; slot++) {
-        if (slot_state->vector_slots[slot] == scratch_vec) {
+        if (slot_state->vector_slots[slot].reg == scratch_vec) {
             break;
         }
     }
-    DR_ASSERT(slot_state->vector_slots[slot] == scratch_vec);
+    DR_ASSERT(slot_state->vector_slots[slot].reg == scratch_vec);
 
     unreserve_sve_register(drcontext, bb, where, scratch_gpr0, scratch_vec,
                            offsetof(per_thread_t, scratch_vector_spill_slots_aligned),
                            opnd_size_from_bytes(proc_get_vector_length_bytes()), slot);
 
-    slot_state->vector_slots[slot] = DR_REG_NULL;
+    slot_state->vector_slots[slot].kind = SLOT_KIND_UNUSED;
+    slot_state->vector_slots[slot].reg = DR_REG_INVALID;
+}
+
+typedef struct _scratch_regs_t {
+    reg_id_t pred; /* General scratch predicate register. */
+    reg_id_t vec;  /* General scratch vector register. */
+    reg_id_t governing_pred;
+} scratch_regs_t;
+
+/*
+ * Decide which scratch registers we will need based on the instruction which is being
+ * expanded. This function must be deterministic so that it can be used in
+ * drx_scatter_gather_restore_state() to determine which registers need to be restored.
+ */
+void
+allocate_zp_registers(instr_t *sg_instr, const scatter_gather_info_t *sg_info,
+                      spill_slot_state_t *slot_state,
+                      DR_PARAM_OUT scratch_regs_t *scratch_regs)
+{
+    if (sg_info->is_load && sg_info->faulting_behavior != DRX_NON_FAULTING) {
+        /* Normal faulting and first-faulting loads need to be able to restore the
+         * original value of the destination register(s) if any of the accesses fault so
+         * we need to save the value before we start.
+         */
+        for (uint reg_index = 0; reg_index < sg_info->reg_count; reg_index++) {
+            slot_state->vector_slots[reg_index].kind = SLOT_KIND_DST;
+            slot_state->vector_slots[reg_index].reg =
+                get_register_at_index(sg_info->gather_dst_reg, reg_index);
+        }
+    }
+
+    const bool is_contiguous =
+        !(reg_is_z(sg_info->base_reg) || reg_is_z(sg_info->index_reg));
+
+    /* All variants require a scratch predicate register */
+    scratch_regs->pred = reserve_pred_register(sg_instr, slot_state);
+
+    if (is_contiguous) {
+        /* This is a contiguous predicated access which requires an extra scratch Z
+         * register. */
+        scratch_regs->vec = reserve_vector_register(sg_instr, slot_state);
+    } else {
+        scratch_regs->vec = DR_REG_INVALID;
+    }
+
+    if (sg_info->is_replicating && proc_get_vector_length_bytes() > 16) {
+        scratch_regs->governing_pred = reserve_pred_register(sg_instr, slot_state);
+    } else {
+        scratch_regs->governing_pred = sg_info->mask_reg;
+    }
 }
 
 /*****************************************************************************************
@@ -1355,16 +1422,6 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, DR_PARAM_OUT bool *e
     scatter_gather_info_t sg_info;
     bool res = false;
     get_scatter_gather_info(sg_instr, &sg_info);
-
-    /* Filter out instructions which are not yet supported.
-     * We return true with *expanded=false here to indicate that no error occurred but
-     * we didn't expand any instructions. This matches the behaviour of this function
-     * for architectures with no scatter/gather expansion support.
-     */
-    if (sg_info.faulting_behavior != DRX_NORMAL_FAULTING) {
-        /* TODO i#5036: Add support for first-fault and non-fault accesses. */
-        return true;
-    }
 
     const bool is_contiguous =
         !(reg_is_z(sg_info.base_reg) || reg_is_z(sg_info.index_reg));
@@ -1420,21 +1477,26 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, DR_PARAM_OUT bool *e
     spill_slot_state_t spill_slot_state;
     init_spill_slot_state(&spill_slot_state);
 
-    const reg_id_t scratch_pred =
-        reserve_pred_register(drcontext, bb, sg_instr, scratch_gpr, &spill_slot_state);
+    scratch_regs_t scratch_regs;
 
-    reg_id_t scratch_vec = DR_REG_INVALID;
-    if (is_contiguous) {
-        /* This is a contiguous predicated access which requires an extra scratch Z
-         * register. */
-        scratch_vec = reserve_vector_register(drcontext, bb, sg_instr, scratch_gpr,
-                                              &spill_slot_state);
+    allocate_zp_registers(sg_instr, &sg_info, &spill_slot_state, &scratch_regs);
+
+    /* Save the original values of the registers we have allocated. */
+    for (uint slot = 0; slot < NUM_VECTOR_SLOTS; slot++) {
+        if (spill_slot_state.vector_slots[slot].kind != SLOT_KIND_UNUSED) {
+            save_sve_register(drcontext, bb, sg_instr, scratch_gpr,
+                              offsetof(per_thread_t, scratch_vector_spill_slots_aligned),
+                              opnd_size_from_bytes(proc_get_vector_length_bytes()), slot,
+                              spill_slot_state.vector_slots[slot].reg);
+        }
     }
-
-    reg_id_t governing_pred = sg_info.mask_reg;
-    if (sg_info.is_replicating && proc_get_vector_length_bytes() > 16) {
-        governing_pred = reserve_pred_register(drcontext, bb, sg_instr, scratch_gpr,
-                                               &spill_slot_state);
+    for (uint slot = 0; slot < NUM_PRED_SLOTS; slot++) {
+        if (spill_slot_state.pred_slots[slot].kind != SLOT_KIND_UNUSED) {
+            save_sve_register(drcontext, bb, sg_instr, scratch_gpr,
+                              offsetof(per_thread_t, scratch_pred_spill_slots),
+                              opnd_size_from_bytes(proc_get_vector_length_bytes() / 8),
+                              slot, spill_slot_state.pred_slots[slot].reg);
+        }
     }
 
     const app_pc orig_app_pc = instr_get_app_pc(sg_instr);
@@ -1456,18 +1518,20 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, DR_PARAM_OUT bool *e
 
     if (sg_info.is_replicating) {
         expand_replicating(&sg_context, &sg_info, contiguous_new_base, scratch_gpr,
-                           scalar_src_or_dst, scratch_pred, governing_pred, scratch_vec);
+                           scalar_src_or_dst, scratch_regs.pred,
+                           scratch_regs.governing_pred, scratch_regs.vec);
     } else if (is_contiguous) {
         /* scalar+scalar or scalar+immediate predicated contiguous access */
 
         if (sg_info.index_reg == DR_REG_NULL) {
             expand_scalar_plus_immediate(&sg_context, &sg_info, contiguous_new_base,
-                                         scratch_gpr, scalar_src_or_dst, scratch_pred,
-                                         governing_pred, scratch_vec);
+                                         scratch_gpr, scalar_src_or_dst,
+                                         scratch_regs.pred, scratch_regs.governing_pred,
+                                         scratch_regs.vec);
         } else {
             expand_scalar_plus_scalar(&sg_context, &sg_info, contiguous_new_base,
-                                      scratch_gpr, scalar_src_or_dst, scratch_pred,
-                                      governing_pred, scratch_vec);
+                                      scratch_gpr, scalar_src_or_dst, scratch_regs.pred,
+                                      scratch_regs.governing_pred, scratch_regs.vec);
         }
     } else {
         /* scalar+vector, vector+immediate, or vector+scalar scatter/gather */
@@ -1482,23 +1546,23 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, DR_PARAM_OUT bool *e
         }
 
         expand_scatter_gather(&sg_context, &sg_info, scalar_base, scalar_index,
-                              scalar_src_or_dst, scratch_pred);
+                              scalar_src_or_dst, scratch_regs.pred);
     }
 
     drmgr_insert_emulation_end(drcontext, bb, sg_instr);
 
     for (uint i = 0; i < NUM_VECTOR_SLOTS; i++) {
-        const reg_id_t reg = spill_slot_state.vector_slots[i];
-        if (reg != DR_REG_NULL) {
-            unreserve_vector_register(drcontext, bb, sg_instr, scratch_gpr, reg,
+        const sg_slot_t slot = spill_slot_state.vector_slots[i];
+        if (slot.kind == SLOT_KIND_SPILL) {
+            unreserve_vector_register(drcontext, bb, sg_instr, scratch_gpr, slot.reg,
                                       &spill_slot_state);
         }
     }
 
     for (uint i = 0; i < NUM_PRED_SLOTS; i++) {
-        const reg_id_t reg = spill_slot_state.pred_slots[i];
-        if (reg != DR_REG_NULL) {
-            unreserve_pred_register(drcontext, bb, sg_instr, scratch_gpr, reg,
+        const sg_slot_t slot = spill_slot_state.pred_slots[i];
+        if (slot.kind == SLOT_KIND_SPILL) {
+            unreserve_pred_register(drcontext, bb, sg_instr, scratch_gpr, slot.reg,
                                     &spill_slot_state);
         }
     }
@@ -1549,6 +1613,168 @@ drx_expand_scatter_gather_exit:
     return res;
 }
 
+/* Used by the signal and state_restore event handlers to detect whether a first-fault
+ * load faulted on the first active element or not.
+ */
+static bool
+loop_var_is_first_element(const scatter_gather_info_t *sg_info,
+                          const scratch_regs_t *scratch_regs, const dr_mcontext_t *mc)
+{
+    const uint vl_bytes = proc_get_vector_length_bytes();
+    const uint pl_bytes = vl_bytes / 8;
+
+    /* DynamoRIO currently supports vector lengths up to 512-bits which means a
+     * predicate register size of up to 512/8 = 64-bits.
+     */
+    DR_ASSERT(pl_bytes <= sizeof(uint64));
+
+    uint64 loop_var = 0;
+    memcpy(&loop_var, &mc->svep[scratch_regs->pred - DR_REG_P0].u64[0], pl_bytes);
+
+    uint64 governing_predicate = 0;
+    memcpy(&governing_predicate, &mc->svep[sg_info->mask_reg - DR_REG_P0].u64[0],
+           pl_bytes);
+
+    /* Make sure we only consider the governing_predicate bits used by the instruction */
+    switch (sg_info->element_size) {
+    case OPSZ_1: break;                                            /* 0b11111111 */
+    case OPSZ_2: governing_predicate &= 0x5555555555555555; break; /* 0b01010101 */
+    case OPSZ_4: governing_predicate &= 0x1111111111111111; break; /* 0b00010001 */
+    case OPSZ_8: governing_predicate &= 0x0101010101010101; break; /* 0b00000001 */
+    default: DR_ASSERT_MSG(false, "Scatter/gather instruction has invalid element size");
+    }
+
+    /* loop_var should be 1-bit mask indicating the current element */
+    DR_ASSERT(loop_var != 0);
+    DR_ASSERT(TEST(loop_var, governing_predicate));
+
+    /* If any of the governing_predicate bits lower than the loop_var bit are set, then
+     * this is not the first active element.
+     */
+    return !TESTANY(loop_var - 1, governing_predicate);
+}
+
+dr_signal_action_t
+drx_scatter_gather_signal_event(void *drcontext, dr_siginfo_t *info, instr_t *sg_inst)
+{
+    scatter_gather_info_t sg_info;
+    get_scatter_gather_info(sg_inst, &sg_info);
+
+    /* allocate_zp_registers() is deterministic so we can call it again here and find out
+     * which registers are used in the expansion.
+     */
+    spill_slot_state_t spill_slot_state;
+    init_spill_slot_state(&spill_slot_state);
+
+    scratch_regs_t scratch_regs;
+
+    allocate_zp_registers(sg_inst, &sg_info, &spill_slot_state, &scratch_regs);
+
+    if ((info->sig == SIGSEGV || info->sig == SIGBUS) &&
+        sg_info.faulting_behavior != DRX_NORMAL_FAULTING) {
+        if (reg_is_z(sg_info.base_reg) || reg_is_z(sg_info.index_reg)) {
+            DR_ASSERT(sg_info.faulting_behavior == DRX_FIRST_FAULTING);
+            app_pc addr;
+            uint address_index = 0;
+            bool found_match = false;
+            while (!found_match &&
+                   instr_compute_address_ex(sg_inst, info->mcontext, address_index, &addr,
+                                            NULL)) {
+                if (addr == info->access_address)
+                    found_match = true;
+                else
+                    address_index++;
+            }
+            if (!found_match || address_index == 0) {
+                /* For first-fault loads, the fault is not suppressed if the element that
+                 * faults is the first active element
+                 */
+                return DR_SIGNAL_DELIVER;
+            }
+        } else {
+            const app_pc load_min_addr = instr_compute_address(sg_inst, info->mcontext);
+            const app_pc load_max_addr =
+                load_min_addr + opnd_size_in_bytes(sg_info.scatter_gather_size);
+            if (info->access_address < load_min_addr ||
+                info->access_address >= load_max_addr) {
+                /* The faulting address is out of range for the expanded ldnf instruction
+                 * so the fault must have come from an instruction inserted by a client,
+                 * rather than one of the expansion loads inserted by
+                 * expand_scatter_gather() so we pass the fault on for the client to
+                 * handle.
+                 */
+                return DR_SIGNAL_DELIVER;
+            }
+
+            /* First-fault loads behave differently depending on which element faults.
+             * If the first active element faults then the fault is propagated like a
+             * normal gather instruction. If any other element faults the fault is
+             * suppressed and the instruction behaves like a non-faulting load.
+             */
+            if (sg_info.faulting_behavior == DRX_FIRST_FAULTING &&
+                loop_var_is_first_element(&sg_info, &scratch_regs, info->raw_mcontext)) {
+                return DR_SIGNAL_DELIVER;
+            }
+        }
+        /* Non-faulting loads do not generate a fault when one of the addresses it
+         * accesses faults. Instead it sets the value of the FFR to indicate which
+         * element faulted and execution continues. We implement that behaviour here
+         * by setting the FFR and redirecting to the next app instruction.
+         */
+
+        /* Skip to the next app instruction */
+        info->mcontext->pc += instr_length(drcontext, sg_inst);
+
+        /* Set the FFR value
+         *
+         * The FFR is like a special purpose predicate register. When an element access
+         * faults, the corresponding bit in the FFR is set to 0 and all the higher bits
+         * are zeroed too. All bits lower than the faulting element are preserved.
+         * We can find out which element faulted by looking at the value of the register
+         * we use as a loop variable in the expansion code. It will contain a mask where
+         * a single bit is set which corresponds to the current loop iteration (the
+         * faulting element).
+         * Essentially we do:
+         *
+         *   ffr = ffr & (loop_var - 1)
+         *
+         * but ffr is a dr_simd_t so we have to do it in 32-bit chunks.
+         */
+
+        const size_t loop_p_reg = scratch_regs.pred - DR_REG_P0;
+
+        bool found_fault = false;
+        for (size_t i = 0;
+             i < sizeof(info->mcontext->ffr.u32) / sizeof(info->mcontext->ffr.u32[0]);
+             i++) {
+            if (found_fault) {
+                /* We have passed the element that faulted, all further bits are set to 0
+                 */
+                info->mcontext->ffr.u32[i] = 0;
+            } else {
+                const uint loop_var = info->raw_mcontext->svep[loop_p_reg].u32[i];
+                if (loop_var != 0) {
+                    /* This chunk contains the bit for the faulting element so we need to
+                     * mask this chunk. All bits before the faulting element are
+                     * unchanged and bits after it are set to 0.
+                     */
+                    info->mcontext->ffr.u32[i] &= loop_var - 1;
+                    found_fault = true;
+                } else {
+                    /* We haven't passed the faulting element yet so this chunk is
+                     * unchanged.
+                     */
+                }
+            }
+        }
+        /* Suppress the signal and continue from the PC we set above (the next app
+         * instruction). */
+        return DR_SIGNAL_REDIRECT;
+    }
+
+    return DR_SIGNAL_DELIVER;
+}
+
 bool
 drx_scatter_gather_restore_state(void *drcontext, dr_restore_state_info_t *info,
                                  instr_t *sg_inst)
@@ -1560,16 +1786,10 @@ drx_scatter_gather_restore_state(void *drcontext, dr_restore_state_info_t *info,
      *
      * If a scatter/gather expansion instruction faults we need to treat it as if the
      * expanded scatter/gather instruction had faulted and set the register state as
-     * appropriate for the expanded instruction. This isn't implemented yet so we hit
-     * an assert below.
+     * appropriate for the expanded instruction.
      *
-     * Previously this function would always assert but this causes a problem with
-     * clients (such as memval_simple) that use drx_buf (or similar) which uses faulting
-     * stores to manage the trace buffer.
-     * Until we implement proper state restoration we need to filter out faults that
-     * don't come from scatter/gather expansion instructions and pass them on to the
-     * client to handle, otherwise we can get spurious failures with clients like
-     * memval_simple.
+     * If a load/store added later by a client faults, we need to pass it on for that
+     * client to handle.
      */
     if (info->fragment_info.ilist != NULL) {
         byte *pc = info->fragment_info.cache_start_pc;
@@ -1594,14 +1814,59 @@ drx_scatter_gather_restore_state(void *drcontext, dr_restore_state_info_t *info,
     } else {
         /* The ilist isn't available (see i#3801). We could decode the code cache and use
          * heuristics to determine the origin of the load/store, but right now we just
-         * assume that it is an expansion instruction and hit the assert below.
+         * assume that it is an expansion instruction.
          */
     }
 
-    /* TODO i#6317, i#5036: Restore the scratch predicate register.
-     *                      We need to add support for handling SVE state during
-     *                      signals first.
+    scatter_gather_info_t sg_info;
+    get_scatter_gather_info(sg_inst, &sg_info);
+
+    /* allocate_zp_registers() is deterministic so we can call it again here and find out
+     * which registers the expansion uses and therefore which registers need to be
+     * restored.
      */
-    DR_ASSERT_MSG(false, "NYI i#6317 i#5036");
-    return false;
+    spill_slot_state_t spill_slot_state;
+    init_spill_slot_state(&spill_slot_state);
+
+    scratch_regs_t scratch_regs;
+
+    allocate_zp_registers(sg_inst, &sg_info, &spill_slot_state, &scratch_regs);
+
+    per_thread_t *pt =
+        (per_thread_t *)drmgr_get_tls_field(drcontext, drx_scatter_gather_tls_idx);
+
+    /* Faulting element is not the first active element so we need to
+     * suppress the fault and leave the partial value in the dst reg.
+     */
+    const bool dont_restore_dst = sg_info.faulting_behavior == DRX_FIRST_FAULTING &&
+        !loop_var_is_first_element(&sg_info, &scratch_regs, info->raw_mcontext);
+
+    const uint vl_bytes = proc_get_vector_length_bytes();
+    const uint pl_bytes = vl_bytes / 8;
+    for (uint slot = 0; slot < NUM_VECTOR_SLOTS; slot++) {
+        if (spill_slot_state.vector_slots[slot].kind != SLOT_KIND_UNUSED) {
+            const reg_id_t reg = spill_slot_state.vector_slots[slot].reg;
+            DR_ASSERT(reg >= DR_REG_Z0 && reg <= DR_REG_Z31);
+
+            if (dont_restore_dst && reg == sg_info.gather_dst_reg)
+                continue;
+
+            memcpy(&info->mcontext->simd[reg - DR_REG_Z0],
+                   &((char *)pt->scratch_vector_spill_slots_aligned)[vl_bytes * slot],
+                   vl_bytes);
+        }
+    }
+    for (uint slot = 0; slot < NUM_PRED_SLOTS; slot++) {
+        if (spill_slot_state.pred_slots[slot].kind != SLOT_KIND_UNUSED) {
+            DR_ASSERT(spill_slot_state.pred_slots[slot].reg >= DR_REG_P0 &&
+                      spill_slot_state.pred_slots[slot].reg <= DR_REG_P15);
+
+            const size_t reg_num = spill_slot_state.pred_slots[slot].reg - DR_REG_P0;
+
+            memcpy(&info->mcontext->svep[reg_num],
+                   &((char *)pt->scratch_pred_spill_slots)[pl_bytes * slot], pl_bytes);
+        }
+    }
+
+    return true;
 }

@@ -458,18 +458,18 @@ droption_t<std::string>
                           "Specifies the replacement policy for TLBs. "
                           "Supported policies: LFU (Least Frequently Used).");
 
-// TODO i#6660: Add "-tool" alias as these are not all "simulators".
 droption_t<std::string>
-    op_simulator_type(DROPTION_SCOPE_FRONTEND, "simulator_type", CPU_CACHE,
-                      "Specifies which trace analysis tool(s) to run.  Multiple tools "
-                      "can be specified, separated by a colon (\":\").",
-                      "Predefined types: " CPU_CACHE ", " MISS_ANALYZER ", " TLB
-                      ", " REUSE_DIST ", " REUSE_TIME ", " HISTOGRAM ", " BASIC_COUNTS
-                      ", " INVARIANT_CHECKER ", " SCHEDULE_STATS ", or " RECORD_FILTER
-                      ". The " RECORD_FILTER " tool cannot be combined with the others "
-                      "as it operates on raw disk records. "
-                      "To invoke an external tool: specify its name as identified by a "
-                      "name.drcachesim config file in the DR tools directory.");
+    op_tool(DROPTION_SCOPE_FRONTEND,
+            std::vector<std::string>({ "tool", "simulator_type" }), CPU_CACHE,
+            "Specifies which trace analysis tool(s) to run.  Multiple tools "
+            "can be specified, separated by a colon (\":\").",
+            "Predefined types: " CPU_CACHE ", " MISS_ANALYZER ", " TLB ", " REUSE_DIST
+            ", " REUSE_TIME ", " HISTOGRAM ", " BASIC_COUNTS ", " INVARIANT_CHECKER
+            ", " SCHEDULE_STATS ", or " RECORD_FILTER ". The " RECORD_FILTER
+            " tool cannot be combined with the others "
+            "as it operates on raw disk records. "
+            "To invoke an external tool: specify its name as identified by a "
+            "name.drcachesim config file in the DR tools directory.");
 
 droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 64,
                                     "Verbosity level",
@@ -920,6 +920,15 @@ droption_t<bool> op_sched_randomize(
     "set), and FIFO order and instead selects the next input randomly. "
     "This is intended for experimental use in sensitivity studies.");
 
+droption_t<bool> op_sched_disable_direct_switches(
+    DROPTION_SCOPE_FRONTEND, "sched_disable_direct_switches", false,
+    "Ignore direct thread switch requests",
+    "Applies to -core_sharded and -core_serial.  Disables switching to the recorded "
+    "targets of TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH system call metadata markers "
+    "and causes the associated system call to be treated like any other call with a "
+    "switch being determined by latency and the next input in the queue.  The "
+    "TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH markers are not removed from the trace.");
+
 // Schedule_stats options.
 droption_t<uint64_t>
     op_schedule_stats_print_every(DROPTION_SCOPE_ALL, "schedule_stats_print_every",
@@ -931,7 +940,8 @@ droption_t<std::string> op_syscall_template_file(
     "Path to the file that contains system call trace templates.",
     "Path to the file that contains system call trace templates. "
     "If set, system call traces will be injected from the file "
-    "into the resulting trace.");
+    "into the resulting trace. This is still experimental so the template file "
+    "format may change without backward compatibility.");
 
 // Record filter options.
 droption_t<uint64_t> op_filter_stop_timestamp(
@@ -962,6 +972,16 @@ droption_t<std::string>
                            "Comma-separated integers for marker types to remove. "
                            "See trace_marker_type_t for the list of marker types.");
 
+/* XXX i#6369: we should partition our options by tool. This one should belong to the
+ * record_filter partition. For now we add the filter_ prefix to options that should be
+ * used in conjunction with record_filter.
+ */
+droption_t<bool> op_encodings2regdeps(
+    DROPTION_SCOPE_FRONTEND, "filter_encodings2regdeps", false,
+    "Enable converting the encoding of instructions to synthetic ISA DR_ISA_REGDEPS.",
+    "This option is for -simulator_type " RECORD_FILTER ". When present, it converts "
+    "the encoding of instructions from a real ISA to the DR_ISA_REGDEPS synthetic ISA.");
+
 droption_t<uint64_t> op_trim_before_timestamp(
     DROPTION_SCOPE_ALL, "trim_before_timestamp", 0, 0,
     (std::numeric_limits<uint64_t>::max)(),
@@ -975,6 +995,14 @@ droption_t<uint64_t> op_trim_after_timestamp(
     "Trim records after this timestamp (in us) in the trace.",
     "Removes all records from the first TRACE_MARKER_TYPE_TIMESTAMP marker with "
     "timestamp larger than the specified value.");
+
+droption_t<bool> op_abort_on_invariant_error(
+    DROPTION_SCOPE_ALL, "abort_on_invariant_error", true,
+    "Abort invariant checker when a trace invariant error is found.",
+    "When set to true, the trace invariant checker analysis tool aborts when a trace "
+    "invariant error is found. Otherwise it prints the error and continues. Also, the "
+    "total invariant error count is printed at the end; a non-zero error count does not "
+    "affect the exit code of the analyzer.");
 
 } // namespace drmemtrace
 } // namespace dynamorio

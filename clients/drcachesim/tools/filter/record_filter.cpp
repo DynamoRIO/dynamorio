@@ -60,6 +60,7 @@
 #include "cache_filter.h"
 #include "trim_filter.h"
 #include "type_filter.h"
+#include "encodings2regdeps_filter.h"
 
 #undef VPRINT
 #ifdef DEBUG
@@ -82,13 +83,6 @@ namespace dynamorio {
 namespace drmemtrace {
 
 namespace {
-
-bool
-is_any_instr_type(trace_type_t type)
-{
-    return type_is_instr(type) || type == TRACE_TYPE_INSTR_MAYBE_FETCH ||
-        type == TRACE_TYPE_INSTR_NO_FETCH;
-}
 
 template <typename T>
 std::vector<T>
@@ -113,7 +107,7 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
                           int cache_filter_size, const std::string &remove_trace_types,
                           const std::string &remove_marker_types,
                           uint64_t trim_before_timestamp, uint64_t trim_after_timestamp,
-                          unsigned int verbose)
+                          bool encodings2regdeps, unsigned int verbose)
 {
     std::vector<
         std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>>
@@ -143,6 +137,12 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
                 new dynamorio::drmemtrace::trim_filter_t(trim_before_timestamp,
                                                          trim_after_timestamp)));
     }
+    if (encodings2regdeps) {
+        filter_funcs.emplace_back(
+            std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
+                new dynamorio::drmemtrace::encodings2regdeps_filter_t()));
+    }
+
     // TODO i#5675: Add other filters.
 
     return new dynamorio::drmemtrace::record_filter_t(output_dir, std::move(filter_funcs),
@@ -208,7 +208,12 @@ record_filter_t::initialize_shard_output(per_shard_t *per_shard,
         // Now synchronize determining the extension.
         auto lock = std::unique_lock<std::mutex>(input_info_mutex_);
         if (!output_ext_.empty()) {
+            VPRINT(this, 2,
+                   "Shard #%d using pre-set ext=%s, ver=%" PRIu64 ", type=%" PRIu64 "\n",
+                   shard_stream->get_shard_index(), output_ext_.c_str(), version_,
+                   filetype_);
             per_shard->output_path += output_ext_;
+            per_shard->filetype = static_cast<addr_t>(filetype_);
             lock.unlock();
         } else if (!input_name.empty()) {
             size_t last_dot = input_name.rfind('.');
@@ -218,13 +223,28 @@ record_filter_t::initialize_shard_output(per_shard_t *per_shard,
             // Set the other key input data.
             version_ = shard_stream->get_version();
             filetype_ = add_to_filetype(shard_stream->get_filetype());
+            if (version_ == 0) {
+                // We give up support for version 0 to have an up-front error check
+                // rather than having some output files with bad headers (i#6721).
+                return "Version not available at shard init time";
+            }
+            VPRINT(this, 2,
+                   "Shard #%d setting ext=%s, ver=%" PRIu64 ", type=%" PRIu64 "\n",
+                   shard_stream->get_shard_index(), output_ext_.c_str(), version_,
+                   filetype_);
             per_shard->output_path += output_ext_;
+            per_shard->filetype = static_cast<addr_t>(filetype_);
             lock.unlock();
             input_info_cond_var_.notify_all();
         } else {
             // We have to wait for another shard with an input to set output_ext_.
             input_info_cond_var_.wait(lock, [this] { return !output_ext_.empty(); });
+            VPRINT(this, 2,
+                   "Shard #%d waited for ext=%s, ver=%" PRIu64 ", type=%" PRIu64 "\n",
+                   shard_stream->get_shard_index(), output_ext_.c_str(), version_,
+                   filetype_);
             per_shard->output_path += output_ext_;
+            per_shard->filetype = static_cast<addr_t>(filetype_);
             lock.unlock();
         }
     } else {
@@ -366,6 +386,7 @@ record_filter_t::parallel_shard_init_stream(int shard_index, void *worker_data,
             success_ = false;
         }
     }
+    per_shard->record_filter_info.last_encoding = &per_shard->last_encoding;
     std::lock_guard<std::mutex> guard(shard_map_mutex_);
     shard_map_[shard_index] = per_shard;
     return reinterpret_cast<void *>(per_shard);
@@ -533,6 +554,12 @@ record_filter_t::process_markers(per_shard_t *per_shard, trace_entry_t &entry,
                        "supported";
             }
             break;
+        case TRACE_MARKER_TYPE_CORE_WAIT:
+            // These are artificial timing records: do not output them, nor consider
+            // them real input records.
+            output = false;
+            --per_shard->input_entry_count;
+            break;
         }
     }
     return "";
@@ -562,7 +589,10 @@ record_filter_t::process_chunk_encodings(per_shard_t *per_shard, trace_entry_t &
         // XXX: What if there is a filter removing all encodings but only
         // to the stop point, so a partial remove that does not change
         // the filetype?  For now we do not support that, and we re-add
-        // encodings at chunk boundaries regardless.
+        // encodings at chunk boundaries regardless. Note that filters that modify
+        // encodings (even if they add or remove trace_entry_t records) do not incur in
+        // this problem and we don't need support for partial removal of encodings in this
+        // case. An example of such filters is encodings2regdeps_filter_t.
         if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, per_shard->filetype) &&
             per_shard->cur_chunk_pcs.find(entry.addr) == per_shard->cur_chunk_pcs.end()) {
             if (per_shard->per_input == nullptr)
@@ -577,8 +607,23 @@ record_filter_t::process_chunk_encodings(per_shard_t *per_shard, trace_entry_t &
             VPRINT(this, 3,
                    "output new-chunk encoding chunk=%" PRIu64 " ref=%" PRIu64 "\n",
                    per_shard->chunk_ordinal, per_shard->cur_refs);
-            if (!write_trace_entries(per_shard,
-                                     per_shard->per_input->pc2encoding[entry.addr])) {
+            // Sanity check that the encoding size is correct.
+            const auto &enc = per_shard->per_input->pc2encoding[entry.addr];
+            /* OFFLINE_FILE_TYPE_ARCH_REGDEPS traces have encodings with size != ifetch.
+             * It's a design choice, not an error, hence we avoid this sanity check.
+             */
+            if (!TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, per_shard->filetype)) {
+                size_t enc_sz = 0;
+                // Since all but the last entry are fixed-size we could avoid a loop
+                // but the loop is easier to read and we have just 1 or 2 iters.
+                for (const auto &record : enc)
+                    enc_sz += record.size;
+                if (enc_sz != entry.size) {
+                    return "New-chunk encoding size " + std::to_string(enc_sz) +
+                        " != instr size " + std::to_string(entry.size);
+                }
+            }
+            if (!write_trace_entries(per_shard, enc)) {
                 return "Failed to write";
             }
             // Avoid emitting the encoding twice.
@@ -605,7 +650,10 @@ record_filter_t::process_delayed_encodings(per_shard_t *per_shard, trace_entry_t
     } else if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, per_shard->filetype)) {
         // Output if we have encodings that haven't yet been output, and
         // there is no filter removing all encodings (we don't support
-        // partial encoding removal).
+        // partial encoding removal). Note that filters that modify encodings (even if
+        // they add or remove trace_entry_t records) do not incur in this problem and we
+        // don't need support for partial removal of encodings in this case. An example
+        // of such filters is encodings2regdeps_filter_t.
         // We check prev_was_output to rule out filtered-out encodings
         // (we record all encodings for new-chunk insertion).
         if (!per_shard->last_encoding.empty() && per_shard->prev_was_output) {
@@ -643,6 +691,10 @@ record_filter_t::process_delayed_encodings(per_shard_t *per_shard, trace_entry_t
 bool
 record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &input_entry)
 {
+    if (!success_) {
+        // Report an error that happened during shard init.
+        return false;
+    }
     per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
     ++per_shard->input_entry_count;
     trace_entry_t entry = input_entry;
@@ -678,6 +730,12 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &in
         // It would be nice to assert that this pointer is not in use in other shards
         // but that is too expensive.
         per_shard->per_input = it->second.get();
+        // Not supposed to see a switch that splits an encoding from its instr.
+        // That would cause recording an incorrect encoding into pc2encoding.
+        if (!per_shard->last_encoding.empty()) {
+            per_shard->error = "Input switch immediately after encoding not supported";
+            return false;
+        }
     }
     if (per_shard->enabled && stop_timestamp_ != 0 &&
         per_shard->shard_stream->get_last_timestamp() >= stop_timestamp_) {
@@ -693,7 +751,8 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &in
     if (per_shard->enabled) {
         for (int i = 0; i < static_cast<int>(filters_.size()); ++i) {
             if (!filters_[i]->parallel_shard_filter(entry,
-                                                    per_shard->filter_shard_data[i])) {
+                                                    per_shard->filter_shard_data[i],
+                                                    per_shard->record_filter_info)) {
                 output = false;
             }
             if (!filters_[i]->get_error_string().empty()) {

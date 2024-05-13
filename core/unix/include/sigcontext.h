@@ -332,6 +332,25 @@ typedef struct _kernel_sigcontext_t {
     unsigned char __reserved[4096] __attribute__((__aligned__(16)));
 } kernel_sigcontext_t;
 
+/*
+ * Allocation of 4k bytes of __reserved[]:
+ * (Note: records do not necessarily occur in the order shown here.)
+ *
+ * size   description
+ *
+ * 528    fpsimd_context
+ * 16     esr_context (not used in DynamoRIO)
+ * 16     sve_context
+ * 32     extra_context
+ * 16     terminator (null _aarch64_ctx)
+ *
+ * 3488 (reserved for future allocation)
+ *
+ * The above table documents the maximum set and sizes of records that can be
+ * generated for userspace. New records which exceed this space will need to
+ * implement a mechanism to handle expanded signal frames.
+ */
+
 /* XXX: These defines come from the system include files for a regular
  * build (signal.h is included), but for DR_HOST_NOT_TARGET we need
  * them defined here.  Probably what we should do is rename them so
@@ -341,8 +360,9 @@ typedef struct _kernel_sigcontext_t {
 /*
  * Header to be used at the beginning of structures extending the user
  * context. Such structures must be placed after the rt_sigframe on the stack
- * and be 16-byte aligned. The last structure must be a dummy one with the
- * magic and size set to 0.
+ * and be 16-byte aligned. The last structure must be a null terminator context
+ * with a magic number and size set to 0. The magic number is one of the
+ * *_MAGIC constants, see below. The null terminator's magic number is 0.
  */
 struct _aarch64_ctx {
     __u32 magic;
@@ -352,25 +372,71 @@ struct _aarch64_ctx {
 #        define FPSIMD_MAGIC 0x46508001
 
 struct fpsimd_context {
-    struct _aarch64_ctx head;
-    __u32 fpsr;
-    __u32 fpcr;
-    __uint128_t vregs[32];
+    struct _aarch64_ctx head; /* 8 bytes */
+    __u32 fpsr;               /* 4 bytes */
+    __u32 fpcr;               /* 4 bytes */
+    __uint128_t vregs[32];    /* 512 bytes */
 };
 
-/* TODO i#5365: Storage of sve_context in kernel_sigcontext_t.__reserved, see
- * above. See also sigcontext_to_mcontext_simd() and
- * mcontext_to_sigcontext_simd().
+/* Storage of sve_context in kernel_sigcontext_t.__reserved, see above. See
+ * also sigcontext_to_mcontext_simd() and mcontext_to_sigcontext_simd().
  */
 
 #        define SVE_MAGIC 0x53564501
 
 struct sve_context {
-    struct _aarch64_ctx head;
-    __u16 vl;
-    __u16 __reserved[3];
+    struct _aarch64_ctx head; /* 8 bytes */
+    __u16 vl;                 /* 2 bytes */
+    __u16 __reserved[3];      /* 6 bytes */
 };
+
+/*
+ * extra_context: describes extra space in the signal frame for
+ * additional structures that don't fit in sigcontext.__reserved[].
+ *
+ * Note:
+ *
+ * 1) fpsimd_context, esr_context and extra_context must be placed in
+ * sigcontext.__reserved[] if present.  They cannot be placed in the
+ * extra space.  Any other record can be placed either in the extra
+ * space or in sigcontext.__reserved[], unless otherwise specified in
+ * this file.
+ *
+ * 2) There must not be more than one extra_context.
+ *
+ * 3) If extra_context is present, it must be followed immediately in
+ * sigcontext.__reserved[] by the terminating null _aarch64_ctx.
+ *
+ * 4) The extra space to which datap points must start at the first
+ * 16-byte aligned address immediately after the terminating null
+ * _aarch64_ctx that follows the extra_context structure in
+ * __reserved[].  The extra space may overrun the end of __reserved[],
+ * as indicated by a sufficiently large value for the size field.
+ *
+ * 5) The extra space must itself be terminated with a null
+ * _aarch64_ctx.
+ */
+#        define EXTRA_MAGIC 0x45585401
+
+struct extra_context {
+    struct _aarch64_ctx head; /* 8 bytes */
+    __u64 datap; /*  8 bytes. 16-byte aligned pointer to extra space cast to __u64 */
+    __u32 size;  /* 4 bytes. size in bytes of the extra space */
+    __u32 __reserved[3]; /* 12 bytes */
+};
+
+#        define ESR_MAGIC 0x45535201
+
+struct esr_context {
+    struct _aarch64_ctx head;
+    __u64 esr;
+};
+
 #    endif
+
+/* SVE helper macro. */
+#    define BYTES_PER_QUADWORD 16 /* A quadword is 128 bits. */
+#    define sve_vecquad_from_veclen(veclen) ((veclen) / BYTES_PER_QUADWORD)
 
 #endif /* AARCH64 */
 

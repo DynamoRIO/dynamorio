@@ -156,6 +156,9 @@ mixed_mode_enabled(void)
 #    define SCRATCH_REG4_OFFS R4_OFFSET
 #    define SCRATCH_REG5_OFFS R5_OFFSET
 #    define REG_OFFSET(reg) (R0_OFFSET + ((reg)-DR_REG_R0) * sizeof(reg_t))
+#    define Z_REG_OFFSET(reg) \
+        ((MC_OFFS) +          \
+         (offsetof(priv_mcontext_t, simd) + ((reg)-DR_REG_Z0) * sizeof(dr_simd_t)))
 #    define CALL_SCRATCH_REG DR_REG_R11
 #    define MC_IBL_REG r2
 #    define MC_RETVAL_REG r0
@@ -659,10 +662,11 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                           instrlist_t *ilist, instr_t *instr, uint alignment,
                           opnd_t push_pc,
                           reg_id_t scratch /*optional*/
-                              _IF_AARCH64(bool out_of_line));
+                              _IF_AARCH64_OR_RISCV64(bool out_of_line));
 void
 insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t *ilist,
-                         instr_t *instr, uint alignment _IF_AARCH64(bool out_of_line));
+                         instr_t *instr,
+                         uint alignment _IF_AARCH64_OR_RISCV64(bool out_of_line));
 bool
 insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
                      byte *encode_pc, byte *target, bool jmp, bool returns, bool precise,

@@ -29,11 +29,13 @@ Total counts:
      .* total icache flushes
      .* total dcache flushes
            1 total threads
-     .* total scheduling markers
+     .* total timestamp \+ cpuid markers
+     .* total idle markers
+     .* total wait markers
 #if defined(WINDOWS) && !defined(X64)
-          26 total transfer markers
+          26 total kernel transfer markers
 #else
-          13 total transfer markers
+          13 total kernel transfer markers
 #endif
      .* total function id markers
      .* total function return address markers
@@ -54,11 +56,13 @@ Thread .* counts:
      .* data stores
      .* icache flushes
      .* dcache flushes
-     .* scheduling markers
+     .* timestamp \+ cpuid markers
+     .* idle markers
+     .* wait markers
 #if defined(WINDOWS) && !defined(X64)
-          26 transfer markers
+          26 kernel transfer markers
 #else
-          13 transfer markers
+          13 kernel transfer markers
 #endif
      .* function id markers
      .* function return address markers

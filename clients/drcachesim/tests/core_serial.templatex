@@ -1,7 +1,7 @@
 Schedule stats tool results:
 Total counts:
            4 cores
-           8 threads
+           8 threads: 1257.*
       638938 instructions
            6 total context switches
    0.0093906 CSPKI \(context switches per 1000 instructions\)
@@ -17,6 +17,7 @@ Total counts:
       345686 idles
        64.89% cpu busy by record count
     [0-9 ]* cpu microseconds
+    [0-9 ]* wait microseconds
     [0-9 ]* idle microseconds
     [0-9 ]* idle microseconds at last instr
     [0-9\. ]*% cpu busy by time
@@ -46,8 +47,10 @@ Total counts:
            0 total icache flushes
            0 total dcache flushes
            8 total threads
-        1574 total scheduling markers
-         168 total transfer markers
+        1574 total timestamp \+ cpuid markers
+      345686 total idle markers
+           0 total wait markers
+         168 total kernel transfer markers
            0 total function id markers
            0 total function return address markers
            0 total function argument markers

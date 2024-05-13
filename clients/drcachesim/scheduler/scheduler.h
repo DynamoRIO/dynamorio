@@ -220,10 +220,10 @@ public:
          * though the input were constructed by concatenating these ranges together.  A
          * #TRACE_MARKER_TYPE_WINDOW_ID marker is inserted between
          * ranges (with a value equal to the range ordinal) to notify the client of the
-         * discontinuity (but not before the first range nor between back-to-back regions
-         * with no separation), with a #dynamorio::drmemtrace::TRACE_TYPE_THREAD_EXIT
-         * record inserted after the final range.  These ranges must be non-overlapping
-         * and in increasing order.
+         * discontinuity.  This marker is inserted between back-to-back regions with no
+         * separation, but it is not inserted prior to the first range.  A
+         * #dynamorio::drmemtrace::TRACE_TYPE_THREAD_EXIT record is inserted after the
+         * final range.  These ranges must be non-overlapping and in increasing order.
          */
         std::vector<range_t> regions_of_interest;
     };
@@ -636,6 +636,18 @@ public:
          * ahead.
          */
         bool read_inputs_in_init = true;
+        /**
+         * If true, the scheduler will attempt to switch to the recorded targets of
+         * #TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH system call metadata markers
+         * regardless of system call latency.  If the target is not available, the
+         * current implementation will select the next available input in the regular
+         * scheduling queue, but in the future a forced migration may be applied for an
+         * input currently on another output. If false, the direct switch markers are
+         * ignored and only system call latency thresholds are used to determine
+         * switches (the #TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH markers remain: they
+         * are not removed from the trace).
+         */
+        bool honor_direct_switches = true;
     };
 
     /**
