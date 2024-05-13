@@ -311,21 +311,21 @@ proc_has_feature_imp(feature_bit_t feature_bit)
  */
 static uint32 feature_ids[] = {
     (FEATURE_PAUTH << 16) |
-        DEF_FEAT(AA64ISAR1, 1, 1, FEAT_GREATER_EQUAL), /* APA (QARMA5) */
+        DEF_FEAT(AA64ISAR1, 1, 1, FEAT_GR_EQ), /* APA (QARMA5) */
     (FEATURE_PAUTH2 << 16) |
-        DEF_FEAT(AA64ISAR1, 1, 3, FEAT_GREATER_EQUAL), /* APA (QARMA5 - EnhancedPAC2) */
+        DEF_FEAT(AA64ISAR1, 1, 3, FEAT_GR_EQ), /* APA (QARMA5 - EnhancedPAC2) */
     (FEATURE_PAUTH2 << 16) |
-        DEF_FEAT(AA64ISAR1, 2, 3, FEAT_GREATER_EQUAL), /* API (IMP DEF algorithm) */
+        DEF_FEAT(AA64ISAR1, 2, 3, FEAT_GR_EQ), /* API (IMP DEF algorithm) */
     (FEATURE_PAUTH << 16) |
-        DEF_FEAT(AA64ISAR1, 6, 1, FEAT_EXACT_MATCH), /* GPA (QARMA5) */
+        DEF_FEAT(AA64ISAR1, 6, 1, FEAT_EQ), /* GPA (QARMA5) */
     (FEATURE_PAUTH << 16) |
-        DEF_FEAT(AA64ISAR1, 7, 1, FEAT_EXACT_MATCH), /* GPI (IMP DEF algorithm) */
+        DEF_FEAT(AA64ISAR1, 7, 1, FEAT_EQ), /* GPI (IMP DEF algorithm) */
     (FEATURE_I8MM << 16) |
-        DEF_FEAT(AA64ISAR1, 13, 1, FEAT_EXACT_MATCH), /* I8MM (Int8 Matrix mul.) */
+        DEF_FEAT(AA64ISAR1, 13, 1, FEAT_EQ), /* I8MM (Int8 Matrix mul.) */
     (FEATURE_PAUTH << 16) |
-        DEF_FEAT(AA64ISAR2, 2, 1, FEAT_EXACT_MATCH), /* GPA3 (QARMA3) */
+        DEF_FEAT(AA64ISAR2, 2, 1, FEAT_EQ), /* GPA3 (QARMA3) */
     (FEATURE_PAUTH << 16) |
-        DEF_FEAT(AA64ISAR2, 3, 1, FEAT_GREATER_EQUAL), /* APA3 (QARMA3) */
+        DEF_FEAT(AA64ISAR2, 3, 1, FEAT_GR_EQ), /* APA3 (QARMA3) */
 
 };
 
