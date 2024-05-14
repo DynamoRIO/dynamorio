@@ -2110,7 +2110,8 @@ if (DR_HOST_NOT_TARGET)
     set(locdir ${PROJECT_BINARY_DIR}/drmemtrace.threadsig.aarch64)
     file(MAKE_DIRECTORY ${locdir})
     file(COPY ${srcdir}/raw DESTINATION ${locdir}/)
-    get_target_path_for_execution(drcachesim_path drcachesim "${location_suffix}")
+    get_target_path_for_execution(drcachesim_path drmemtrace_launcher
+      "${location_suffix}")
     prefix_cmd_if_necessary(drcachesim_path ON ${drcachesim_path})
     torunonly_api(tool.drcacheoff.altbindir "${drcachesim_path}"
       "offline-altbindir.c" ""
