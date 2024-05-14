@@ -43,14 +43,7 @@
 
 #define MAX_FEATURES_LEN 2048
 
-/* These features are supported by almost all base v8.0 h/w, i.e. at least one
- * of them will appear in /proc/cpuinfo's 'Features' string.
- */
-const char *test_features[] = { "aes",    "pmull",   "sha1", "sha2",  "crc32", "sve",
-                                "sha512", "atomics", "bf16", "jscvt", "lrcpc", "sm3",
-                                "sm4",    "i8mm",    "rng",  "fphp",  "" };
-
-int
+static int
 read_hw_features(char *feat_str)
 {
     FILE *cmd;
@@ -74,26 +67,49 @@ read_hw_features(char *feat_str)
 }
 
 /*
- * FEATURE_PAUTH is identified by six different nibbles. We initially check the API nibble
- * but on Neoverse V1 hardware this is 0. Running this on a Neoverse V1 machine verifies
- * that the other nibbles are being checked correctly.
+ * FEATURE_PAUTH is identified by six different nibbles across two registers. We initially
+ * check the API nibble but on Neoverse V1 hardware this is 0. Testing that the
+ * FEATURE_PAUTH is recognized on a Neoverse V1 machine verifies that the other nibbles
+ * are being checked correctly.
  */
-void
+static void
 check_for_pauth()
 {
-    uint64 id_aa64isar1_el1 = 0;
+    uint64 id_aa64isar1_el1 = 0, id_aa64isar2_el1 = 0;
 
     asm("mrs %0, ID_AA64ISAR1_EL1" : "=r"(id_aa64isar1_el1));
 
-    ushort gpi = (id_aa64isar1_el1 >> 28) & 0xF;
-    ushort gpa = (id_aa64isar1_el1 >> 24) & 0xF;
-    ushort api = (id_aa64isar1_el1 >> 8) & 0xF;
-    ushort apa = (id_aa64isar1_el1 >> 4) & 0xF;
+    asm(".inst 0xd5380640\n" /* mrs x0, ID_AA64ISAR2_EL1 */
+        "mov %0, x0"
+        : "=r"(id_aa64isar2_el1)
+        :
+        : "x0");
 
-    if (apa >= 1 || api >= 1 || gpa == 1 || gpa == 1) {
+    ushort gpi = (id_aa64isar1_el1 >> 28) &
+        0xF; /* IMPLEMENTATION DEFINED algorithm for generic code authentication */
+    ushort gpa = (id_aa64isar1_el1 >> 24) &
+        0xF; /* QARMA5 algorithm for generic code authentication */
+    ushort api = (id_aa64isar1_el1 >> 8) &
+        0xF; /* IMPLEMENTATION DEFINED algorithm for address authentication */
+    ushort apa =
+        (id_aa64isar1_el1 >> 4) & 0xF; /* QARMA5 algorithm for address authentication */
+    ushort apa3 =
+        (id_aa64isar2_el1 >> 12) & 0xF; /* QARMA3 algorithm for address authentication */
+    ushort gpa3 = (id_aa64isar2_el1 >> 8) &
+        0xF; /* QARMA3 algorithm for generic code authentication */
+
+    /* If one of these conditions is met then FEATURE_PAUTH is implemented */
+    if (apa >= 1 || api >= 1 || gpa == 1 || gpa == 1 || gpa3 == 1 || apa3 >= 1) {
         ASSERT(proc_has_feature(FEATURE_PAUTH));
     }
 }
+
+/* These features are supported by almost all base v8.0 h/w, i.e. at least one
+ * of them will appear in /proc/cpuinfo's 'Features' string.
+ */
+static const char *test_features[] = { "aes",    "pmull",   "sha1", "sha2",  "crc32", "sve",
+                                "sha512", "atomics", "bf16", "jscvt", "lrcpc", "sm3",
+                                "sm4",    "i8mm",    "rng",  "fphp",  "" };
 
 DR_EXPORT void
 dr_init(client_id_t client_id)
@@ -112,35 +128,35 @@ dr_init(client_id_t client_id)
         while (strcmp(test_features[i++], "") != 0) {
             if (strcmp(feat, "aes") == 0)
                 ASSERT(proc_has_feature(FEATURE_AESX));
-            if (strcmp(feat, "pmull") == 0)
+            else if (strcmp(feat, "pmull") == 0)
                 ASSERT(proc_has_feature(FEATURE_PMULL));
-            if (strcmp(feat, "sha1") == 0)
+            else if (strcmp(feat, "sha1") == 0)
                 ASSERT(proc_has_feature(FEATURE_SHA1));
-            if (strcmp(feat, "sha2") == 0)
+            else if (strcmp(feat, "sha2") == 0)
                 ASSERT(proc_has_feature(FEATURE_SHA256));
-            if (strcmp(feat, "crc32") == 0)
+            else if (strcmp(feat, "crc32") == 0)
                 ASSERT(proc_has_feature(FEATURE_CRC32));
-            if (strcmp(feat, "sve") == 0)
+            else if (strcmp(feat, "sve") == 0)
                 ASSERT(proc_has_feature(FEATURE_SVE));
-            if (strcmp(feat, "sha512") == 0)
+            else if (strcmp(feat, "sha512") == 0)
                 ASSERT(proc_has_feature(FEATURE_SHA512));
-            if (strcmp(feat, "atomics") == 0)
+            else if (strcmp(feat, "atomics") == 0)
                 ASSERT(proc_has_feature(FEATURE_LSE));
-            if (strcmp(feat, "bf16") == 0)
+            else if (strcmp(feat, "bf16") == 0)
                 ASSERT(proc_has_feature(FEATURE_BF16));
-            if (strcmp(feat, "jscvt") == 0)
+            else if (strcmp(feat, "jscvt") == 0)
                 ASSERT(proc_has_feature(FEATURE_JSCVT));
-            if (strcmp(feat, "jscvt") == 0)
+            else if (strcmp(feat, "jscvt") == 0)
                 ASSERT(proc_has_feature(FEATURE_LRCPC));
-            if (strcmp(feat, "sm3") == 0)
+            else if (strcmp(feat, "sm3") == 0)
                 ASSERT(proc_has_feature(FEATURE_SM3));
-            if (strcmp(feat, "sm4") == 0)
+            else if (strcmp(feat, "sm4") == 0)
                 ASSERT(proc_has_feature(FEATURE_SM4));
-            if (strcmp(feat, "i8mm") == 0)
+            else if (strcmp(feat, "i8mm") == 0)
                 ASSERT(proc_has_feature(FEATURE_I8MM));
-            if (strcmp(feat, "rng") == 0)
+            else if (strcmp(feat, "rng") == 0)
                 ASSERT(proc_has_feature(FEATURE_RNG));
-            if (strcmp(feat, "fphp") == 0)
+            else if (strcmp(feat, "fphp") == 0)
                 ASSERT(proc_has_feature(FEATURE_FP16));
         }
         feat = strtok(NULL, " ");

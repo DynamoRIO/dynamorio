@@ -273,13 +273,13 @@ enable_all_test_cpu_features()
     dr_set_sve_vector_length(256);
 }
 
-uint64
+static uint64
 get_reg_val(feature_reg_idx_t feat_reg)
 {
     return cpu_info.features.isa_features[feat_reg];
 }
 
-bool
+static bool
 proc_has_feature_imp(feature_bit_t feature_bit)
 {
     bool has_feature = false;
@@ -310,22 +310,30 @@ proc_has_feature_imp(feature_bit_t feature_bit)
  * In this case we need to add extra mappings between features and nibble values
  */
 static uint32 feature_ids[] = {
-    (FEATURE_PAUTH << 16) | DEF_FEAT(AA64ISAR1, 1, 1, FEAT_GR_EQ), /* APA (QARMA5) */
+    (FEATURE_PAUTH << 16) |
+        DEF_FEAT(AA64ISAR1, 1, 1,
+                 FEAT_GR_EQ), /* APA - QARMA5 algorithm for address authentication */
+    (FEATURE_PAUTH << 16) |
+        DEF_FEAT(AA64ISAR1, 6, 1,
+                 FEAT_GR_EQ), /* GPA - QARMA5 algorithm for generic code authentication */
+    (FEATURE_PAUTH << 16) |
+        DEF_FEAT(AA64ISAR1, 7, 1, FEAT_GR_EQ), /* GPI - IMPLEMENTATION DEFINED algorithm for
+                                               generic code authentication */
+    (FEATURE_PAUTH << 16) |
+        DEF_FEAT(AA64ISAR2, 2, 1,
+                 FEAT_GR_EQ), /* GPA3 - QARMA3 algorithm for generic code authentication  */
+    (FEATURE_PAUTH << 16) |
+        DEF_FEAT(AA64ISAR2, 3, 1,
+                 FEAT_GR_EQ), /* APA3 - QARMA3 algorithm for address authentication */
     (FEATURE_PAUTH2 << 16) |
         DEF_FEAT(AA64ISAR1, 1, 3, FEAT_GR_EQ), /* APA (QARMA5 - EnhancedPAC2) */
     (FEATURE_PAUTH2 << 16) |
         DEF_FEAT(AA64ISAR1, 2, 3, FEAT_GR_EQ), /* API (IMP DEF algorithm) */
-    (FEATURE_PAUTH << 16) | DEF_FEAT(AA64ISAR1, 6, 1, FEAT_EQ), /* GPA (QARMA5) */
-    (FEATURE_PAUTH << 16) |
-        DEF_FEAT(AA64ISAR1, 7, 1, FEAT_EQ), /* GPI (IMP DEF algorithm) */
     (FEATURE_I8MM << 16) |
         DEF_FEAT(AA64ISAR1, 13, 1, FEAT_EQ), /* I8MM (Int8 Matrix mul.) */
-    (FEATURE_PAUTH << 16) | DEF_FEAT(AA64ISAR2, 2, 1, FEAT_EQ),    /* GPA3 (QARMA3) */
-    (FEATURE_PAUTH << 16) | DEF_FEAT(AA64ISAR2, 3, 1, FEAT_GR_EQ), /* APA3 (QARMA3) */
-
 };
 
-bool
+static bool
 check_extra_nibbles(feature_bit_t feature_bit)
 {
     int array_length = sizeof(feature_ids) / sizeof(*feature_ids);
@@ -351,7 +359,7 @@ proc_has_feature(feature_bit_t feature_bit)
 #else
     bool has_feature = proc_has_feature_imp(feature_bit);
 
-    /* Some features are identified in more than one place */
+    /* Some features are identified in more than one place. */
     if (!has_feature)
         has_feature = check_extra_nibbles(feature_bit);
 

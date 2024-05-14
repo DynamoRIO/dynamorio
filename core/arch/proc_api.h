@@ -167,24 +167,25 @@ typedef struct {
  */
 #ifdef AARCHXX
 
-typedef enum {
-    AA64ISAR0,
-    AA64ISAR1,
-    AA64PFR0,
-    AA64MMFR1,
-    AA64DFR0,
-    AA64ZFR0,
-    AA64PFR1,
-    AA64ISAR2,
-    AA64_NUM_FEAT_REGS
-} feature_reg_idx_t;
-
 /**
- * For AArch64 this struct holds features registers' values read by MRS instructions.
- * Used by proc_get_all_feature_bits().
+ * For AArch64 the isa_features array holds features registers' values read by MRS
+ * instructions. Used by proc_has_feature().
  */
+typedef enum {
+    AA64ISAR0,         /**< ID_AA64ISAR0_EL1 */
+    AA64ISAR1,         /**< ID_AA64ISAR1_EL1 */
+    AA64PFR0,          /**< ID_AA64PFR0_EL1 */
+    AA64MMFR1,         /**< ID_AA64MMFR1_EL1 */
+    AA64DFR0,          /**< ID_AA64DFR0_EL1 */
+    AA64ZFR0,          /**< ID_AA64ZFR0_EL1 */
+    AA64PFR1,          /**< ID_AA64PFR1_EL1, */
+    AA64ISAR2,         /**< ID_AA64ISAR2_EL1 */
+    AA64_NUM_FEAT_REGS /**< Number of feature registers */
+} feature_reg_idx_t; /**< List of AArch64 registers that we read to identify features. */
+
 typedef struct {
-    uint64 isa_features[AA64_NUM_FEAT_REGS];
+    uint64 isa_features[AA64_NUM_FEAT_REGS]; /**< array of ints representing the AArch64
+                                                attribute registers */
 } features_t;
 
 #endif
@@ -312,8 +313,14 @@ typedef enum {
  *   supported at all but in some cases 15 means a feature is not supported at
  *   all, NSFLAG.
  * - If FEAT_EQ is set then the nibble value should match exactly, otherwise reg
- * values greater than or equal to the feature nibble are considered a match. The helper
- * macro below packs feature data into 16 bits (ushort).
+ *   values greater than or equal to the feature nibble are considered a match. The helper
+ *   macro below packs feature data into 16 bits (ushort).
+ *
+ * Bit 15: Set if a nibble value of 15 indicates feature not set
+ * Bit 14: Exact match flag
+ * Bits 8-13: Register ID in feature_reg_idx_t
+ * Bits 4-7: Nibble index in register
+ * Bits 0-3: Value to check for
  */
 #    define DEF_FEAT(FREG, NIBPOS, FVAL, flags) \
         ((ushort)((flags) | (FREG << 8) | (NIBPOS << 4) | FVAL))
