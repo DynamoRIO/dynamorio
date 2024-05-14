@@ -317,11 +317,12 @@ static uint32 feature_ids[] = {
         DEF_FEAT(AA64ISAR1, 6, 1,
                  FEAT_GR_EQ), /* GPA - QARMA5 algorithm for generic code authentication */
     (FEATURE_PAUTH << 16) |
-        DEF_FEAT(AA64ISAR1, 7, 1, FEAT_GR_EQ), /* GPI - IMPLEMENTATION DEFINED algorithm for
-                                               generic code authentication */
+        DEF_FEAT(AA64ISAR1, 7, 1, FEAT_GR_EQ), /* GPI - IMPLEMENTATION DEFINED algorithm
+                                               for generic code authentication */
     (FEATURE_PAUTH << 16) |
-        DEF_FEAT(AA64ISAR2, 2, 1,
-                 FEAT_GR_EQ), /* GPA3 - QARMA3 algorithm for generic code authentication  */
+        DEF_FEAT(
+            AA64ISAR2, 2, 1,
+            FEAT_GR_EQ), /* GPA3 - QARMA3 algorithm for generic code authentication  */
     (FEATURE_PAUTH << 16) |
         DEF_FEAT(AA64ISAR2, 3, 1,
                  FEAT_GR_EQ), /* APA3 - QARMA3 algorithm for address authentication */

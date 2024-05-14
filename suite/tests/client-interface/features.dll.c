@@ -107,9 +107,10 @@ check_for_pauth()
 /* These features are supported by almost all base v8.0 h/w, i.e. at least one
  * of them will appear in /proc/cpuinfo's 'Features' string.
  */
-static const char *test_features[] = { "aes",    "pmull",   "sha1", "sha2",  "crc32", "sve",
-                                "sha512", "atomics", "bf16", "jscvt", "lrcpc", "sm3",
-                                "sm4",    "i8mm",    "rng",  "fphp",  "" };
+static const char *test_features[] = { "aes",   "pmull",  "sha1",    "sha2", "crc32",
+                                       "sve",   "sha512", "atomics", "bf16", "jscvt",
+                                       "lrcpc", "sm3",    "sm4",     "i8mm", "rng",
+                                       "fphp",  "" };
 
 DR_EXPORT void
 dr_init(client_id_t client_id)

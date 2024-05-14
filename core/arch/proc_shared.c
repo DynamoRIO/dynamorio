@@ -85,7 +85,7 @@ cpu_info_t cpu_info = {
     CACHE_SIZE_UNKNOWN,
     CACHE_SIZE_UNKNOWN,
     CACHE_SIZE_UNKNOWN,
-    /* FIXME i#3544: (RISCV64) Not implemented */
+/* FIXME i#3544: (RISCV64) Not implemented */
 #ifdef AARCHXX
     {},
 #else
