@@ -75,14 +75,25 @@ public:
     std::string
     parallel_shard_error(void *shard_data) override;
 
+    // Histogram interface for instrs-per-switch distribution.
+    class histogram_interface_t {
+    public:
+        virtual ~histogram_interface_t() = default;
+        virtual void
+        add(int64_t value) = 0;
+        virtual void
+        merge(const histogram_interface_t *rhs) = 0;
+        virtual void
+        print() const = 0;
+    };
+
     // Simple binning histogram for instrs-per-switch distribution.
-    class histogram_t {
+    class histogram_t : public histogram_interface_t {
     public:
         histogram_t() = default;
-        virtual ~histogram_t() = default;
 
-        virtual void
-        add(int64_t value)
+        void
+        add(int64_t value) override
         {
             // XXX: Add dynamic bin size changing.
             // For now with relatively known data ranges we just stick
@@ -91,16 +102,17 @@ public:
             ++bin2count_[bin];
         }
 
-        virtual void
-        merge(const histogram_t *rhs)
+        void
+        merge(const histogram_interface_t *rhs) override
         {
-            for (const auto &keyval : rhs->bin2count_) {
+            const histogram_t *rhs_hist = reinterpret_cast<const histogram_t *>(rhs);
+            for (const auto &keyval : rhs_hist->bin2count_) {
                 bin2count_[keyval.first] += keyval.second;
             }
         }
 
-        virtual void
-        print() const
+        void
+        print() const override
         {
             for (const auto &keyval : bin2count_) {
                 std::cerr << std::setw(12) << keyval.first << ".." << std::setw(8)
@@ -119,7 +131,7 @@ public:
     struct counters_t {
         counters_t()
         {
-            instrs_per_switch = std::unique_ptr<histogram_t>(new histogram_t);
+            instrs_per_switch = std::unique_ptr<histogram_interface_t>(new histogram_t);
         }
         counters_t &
         operator+=(const counters_t &rhs)
@@ -157,7 +169,7 @@ public:
         uint64_t cpu_microseconds = 0;
         uint64_t wait_microseconds = 0;
         std::unordered_set<memref_tid_t> threads;
-        std::unique_ptr<histogram_t> instrs_per_switch;
+        std::unique_ptr<histogram_interface_t> instrs_per_switch;
     };
     counters_t
     get_total_counts();
@@ -184,6 +196,10 @@ protected:
         bool saw_exit = false;
         // A representation of the thread interleavings.
         std::string thread_sequence;
+        // The instruction count for the current activity (an active input or a wait
+        // or idle state) on this shard, since the last context switch or reset due
+        // to knob_print_every_: the time period between switches or resets we call
+        // a "segment".
         uint64_t cur_segment_instrs = 0;
         state_t cur_state = STATE_CPU;
         // Computing %-idle.
