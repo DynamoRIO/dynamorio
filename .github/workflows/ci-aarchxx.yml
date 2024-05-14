@@ -60,7 +60,7 @@ jobs:
             sve: true
             sve_length: 128
     runs-on: ${{ matrix.os }}
-    name: AArch64 ${{matrix.sve && 'SVE' || ''}} precommit ${{matrix.sve_length}}
+    name: aarch64-${{matrix.sve && 'sve-' || ''}}precommit${{matrix.sve_length && '-' || ''}}${{matrix.sve_length}}
     steps:
       - name: Check out repository code
         uses: actions/checkout@v3
