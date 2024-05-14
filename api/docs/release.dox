@@ -236,6 +236,8 @@ Further non-compatibility-affecting changes include:
    #DR_ISA_REGDEPS traces.
  - Added -tool as the preferred alias for -simulator_type for the drmemtrace/drcachesim
    trace analysis tool framework.
+ - Added "-t drmemtrace" as the preferred launcher for the drmemtrace/drcachesim
+   trace analysis tool framework.
 
 **************************************************
 <hr>

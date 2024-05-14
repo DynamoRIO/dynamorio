@@ -3643,11 +3643,11 @@ if (BUILD_CLIENTS)
     endif ()
 
     macro (torunonly_drcachesim testname exetgt sim_ops app_args)
-      torunonly_ci(tool.drcachesim.${testname} ${exetgt} drcachesim
+      torunonly_ci(tool.drcachesim.${testname} ${exetgt} drmemtrace_launcher
         "${testname}.c" # for templatex basename
         "-ipc_name ${IPC_PREFIX}drtestpipe_${testname} ${sim_ops}"
         "" "${app_args}")
-      set(tool.drcachesim.${testname}_toolname "drcachesim")
+      set(tool.drcachesim.${testname}_toolname "drmemtrace")
       set(tool.drcachesim.${testname}_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcachesim.${testname}_rawtemp ON) # no preprocessor
@@ -3806,10 +3806,10 @@ if (BUILD_CLIENTS)
 
     # Test other analysis tools
     macro (torunonly_simtool testname exetgt sim_ops app_args)
-      torunonly_ci(tool.${testname} ${exetgt} drcachesim
+      torunonly_ci(tool.${testname} ${exetgt} drmemtrace_launcher
         "${testname}.c" # for templatex basename
         "-ipc_name ${IPC_PREFIX}drtestpipe_${testname} ${sim_ops}" "" "${app_args}")
-      set(tool.${testname}_toolname "drcachesim")
+      set(tool.${testname}_toolname "drmemtrace")
       set(tool.${testname}_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
     endmacro (torunonly_simtool)
 
@@ -3946,7 +3946,8 @@ if (BUILD_CLIENTS)
       # XXX: we could exclude the pipe files and build the offline trace
       # support by itself for Android.
       # TODO i#3544: Port tests to RISC-V 64
-      get_target_path_for_execution(drcachesim_path drcachesim "${location_suffix}")
+      get_target_path_for_execution(drcachesim_path drmemtrace_launcher
+        "${location_suffix}")
       prefix_cmd_if_necessary(drcachesim_path ON ${drcachesim_path})
       get_target_path_for_execution(drraw2trace_path drraw2trace "${location_suffix}")
       prefix_cmd_if_necessary(drraw2trace_path ON ${drraw2trace_path})
@@ -3971,12 +3972,12 @@ if (BUILD_CLIENTS)
         # Shrink test times on Appveyor.
         set(extra_ops "-max_trace_size 1M")
       endif ()
-      torunonly_ci(tool.drcacheoff.${testname} ${exetgt} drcachesim
+      torunonly_ci(tool.drcacheoff.${testname} ${exetgt} drmemtrace_launcher
         "offline-${testname}.c" # for templatex basename
         # Set a test-unique prefix to avoid races removing/finding output.
         "-offline -subdir_prefix ${testname_full} ${extra_ops} ${tracer_ops}"
         "" "${app_args}")
-      set(${testname_full}_toolname "drcachesim")
+      set(${testname_full}_toolname "drmemtrace")
       set(${testname_full}_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(${testname_full}_rawtemp ON) # no preprocessor
       set(${testname_full}_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
@@ -4311,10 +4312,10 @@ if (BUILD_CLIENTS)
       # Thus we run this manually and check in the resulting trace.  I ran with
       # a delay to shrink the size, since we are not interesting in the main thread's
       # pre-main() init:
-      #     $ bin64/drrun -t drcachesim -offline -trace_after_instrs 210K \
+      #     $ bin64/drrun -t drmemtrace -offline -trace_after_instrs 210K \
       #       -record_function 'fib|1&noret_func|2|noret&noargs|0' -- \
       #       suite/tests/bin/tool.fib_plus
-      #     $ bin64/drrun -t drcachesim -tool func_view -indir \
+      #     $ bin64/drrun -t drmemtrace -tool func_view -indir \
       #       drmemtrace*.dir/
       torunonly_api(tool.drcacheoff.func_view_noret "${drcachesim_path}"
         "offline-func_view_noret.c" ""
@@ -4484,13 +4485,13 @@ if (BUILD_CLIENTS)
           prefix_cmd_if_necessary(raw2trace_io_path ON ${raw2trace_io_path})
           macro (torunonly_raw2trace testname exetgt extra_ops app_args)
             set(testname_full "tool.raw2trace.${testname}")
-            torunonly_ci(tool.raw2trace.${testname} ${exetgt} drcachesim
+            torunonly_ci(tool.raw2trace.${testname} ${exetgt} drmemtrace_launcher
               "raw2trace-${testname}.c" # for templatex basename
               # Disable compression, since we need to seek and our compression
               # readers do not support seeking.
               "-offline -raw_compress none -subdir_prefix ${testname_full} ${extra_ops}"
               "" "${app_args}")
-            set(${testname_full}_toolname "drcachesim")
+            set(${testname_full}_toolname "drmemtrace")
             set(${testname_full}_basedir
               "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
             set(${testname_full}_rawtemp ON) # no preprocessor
@@ -4600,10 +4601,10 @@ if (BUILD_CLIENTS)
       set(histo_ops "")
     endif ()
     set(testname_full "tool.histogram.offline")
-    torunonly_ci(${testname_full} ${histo_app} drcachesim
+    torunonly_ci(${testname_full} ${histo_app} drmemtrace_launcher
       "histogram-offline.c"
       "-offline -subdir_prefix ${testname_full} ${histo_ops}" "" "")
-    set(${testname_full}_toolname "drcachesim")
+    set(${testname_full}_toolname "drmemtrace")
     set(${testname_full}_basedir
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
     set(${testname_full}_rawtemp ON) # no preprocessor
@@ -4627,10 +4628,10 @@ if (BUILD_CLIENTS)
       else ()
         set(extra_ops "")
       endif ()
-      torunonly_ci(${testname} ${exename} drcachesim
+      torunonly_ci(${testname} ${exename} drmemtrace_launcher
         "${template_name}.c"
         "-offline -subdir_prefix ${testname} ${extra_ops}" "" "")
-      set(${testname}_toolname "drcachesim")
+      set(${testname}_toolname "drmemtrace")
       set(${testname}_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(outdir "${testname}.filtered.dir")
       set(${testname}_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
@@ -4747,10 +4748,10 @@ if (BUILD_CLIENTS)
 
     if (AARCH64)
       set(testname_full "tool.drcacheoff.allasm-aarch64-prefetch-counts")
-      torunonly_ci(${testname_full} allasm_aarch64_prefetch drcachesim
+      torunonly_ci(${testname_full} allasm_aarch64_prefetch drmemtrace_launcher
         "offline-allasm-aarch64-prefetch-counts"
         "-offline -subdir_prefix ${testname_full}" "" "")
-      set(${testname_full}_toolname "drcachesim")
+      set(${testname_full}_toolname "drmemtrace")
       set(${testname_full}_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(${testname_full}_rawtemp ON) # no preprocessor
@@ -4847,13 +4848,13 @@ if (BUILD_CLIENTS)
       get_target_path_for_execution(drpt2trace_path drpt2trace "${location_suffix}")
       macro (torunonly_drcacheoff_kernel testname exetgt extra_ops app_args sim_atops)
         set(testname_full "tool.drcacheoff.kernel.${testname}_SUDO")
-        torunonly_ci(${testname_full} ${exetgt} drcachesim
+        torunonly_ci(${testname_full} ${exetgt} drmemtrace_launcher
           "offline-kernel-${testname}.c" # for templatex basename
           "-offline -enable_kernel_tracing -subdir_prefix ${testname_full} ${extra_ops}"
           "" "${app_args}")
         set(${testname_full}_sudo ON)
         set(${testname_full}_self_serial ON)
-        set(${testname_full}_toolname "drcachesim")
+        set(${testname_full}_toolname "drmemtrace")
         set(${testname_full}_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
         set(${testname_full}_rawtemp ON) # no preprocessor
         set(${testname_full}_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
