@@ -426,16 +426,16 @@ opcode_mix_t::print_interval_results(
         const auto *snap = reinterpret_cast<const snapshot_t *>(base_snap);
         std::cerr << "ID:" << snap->get_interval_id() << " ending at instruction "
                   << snap->get_instr_count_cumulative() << " has "
-                  << snap->opcode_counts_.size() << " opcodes" << " and "
-                  << snap->category_counts_.size() << " categories.\n";
+                  << snap->opcode_counts_.size() << " opcodes"
+                  << " and " << snap->category_counts_.size() << " categories.\n";
         std::vector<std::pair<int, int64_t>> sorted(snap->opcode_counts_.begin(),
                                                     snap->opcode_counts_.end());
         std::sort(sorted.begin(), sorted.end(), cmp_val);
         for (int i = 0; i < PRINT_TOP_N && i < static_cast<int>(sorted.size()); ++i) {
             std::cerr << "   [" << i + 1 << "]"
                       << " Opcode: " << decode_opcode_name(sorted[i].first) << " ("
-                      << sorted[i].first << ")" << " Count=" << sorted[i].second
-                      << " PKI="
+                      << sorted[i].first << ")"
+                      << " Count=" << sorted[i].second << " PKI="
                       << sorted[i].second * 1000.0 / snap->get_instr_count_delta()
                       << "\n";
         }
