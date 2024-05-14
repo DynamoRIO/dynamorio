@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 ARM Limited. All rights reserved.
+ * Copyright (c) 2023 - 2024 ARM Limited. All rights reserved.
  * **********************************************************/
 
 /*
@@ -359,6 +359,14 @@ TEST_INSTR(ldg)
     TEST_LOOP(ldg, ldg, 6, expected[i], opnd_create_reg(Xn_six_offset_0[i]),
               opnd_create_base_disp_aarch64(Xn_six_offset_1_sp[i], DR_REG_NULL,
                                             DR_EXTEND_UXTX, 0, imm9[i], 0, OPSZ_0));
+
+    instr =
+        INSTR_CREATE_ldg(dc, opnd_create_reg(DR_REG_X0),
+                         opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL,
+                                                       DR_EXTEND_UXTX, 0, 0, 0, OPSZ_0));
+    ASSERT(!instr_reads_memory(instr));
+    ASSERT(!instr_writes_memory(instr));
+    instr_destroy(dc, instr);
 }
 
 TEST_INSTR(st2g)
@@ -378,6 +386,15 @@ TEST_INSTR(st2g)
                                             DR_EXTEND_UXTX, 0, 0, 0, OPSZ_0),
               opnd_create_reg(Xn_six_offset_1_sp[i]), OPND_CREATE_INT(imm9[i]));
 
+    instr = INSTR_CREATE_st2g_post(dc,
+                                   opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL,
+                                                                 DR_EXTEND_UXTX, 0, 0, 0,
+                                                                 OPSZ_0),
+                                   opnd_create_reg(DR_REG_X0), OPND_CREATE_INT(0));
+    ASSERT(!instr_reads_memory(instr));
+    ASSERT(!instr_writes_memory(instr));
+    instr_destroy(dc, instr);
+
     /* Testing ST2G    <Xt|SP>, [<Xn|SP>, #<simm>]! */
     const char *const expected_1[6] = {
         "st2g   %x0 %x0 $0xfffffffffffff000 -> -0x1000(%x0) %x0",
@@ -392,6 +409,13 @@ TEST_INSTR(st2g)
         opnd_create_base_disp(Xn_six_offset_0_sp[i], DR_REG_NULL, 0, imm9[i], OPSZ_0),
         opnd_create_reg(Xn_six_offset_1_sp[i]));
 
+    instr = INSTR_CREATE_st2g_pre(
+        dc, opnd_create_base_disp(DR_REG_X0, DR_REG_NULL, 0, 0, OPSZ_0),
+        opnd_create_reg(DR_REG_X0));
+    ASSERT(!instr_reads_memory(instr));
+    ASSERT(!instr_writes_memory(instr));
+    instr_destroy(dc, instr);
+
     //    /* Testing ST2G    <Xt|SP>, [<Xn|SP>, #<simm>] */
     const char *const expected_2[6] = {
         "st2g   %x0 -> -0x1000(%x0)",   "st2g   %x6 -> -0x0a90(%x5)",
@@ -402,6 +426,15 @@ TEST_INSTR(st2g)
               opnd_create_base_disp_aarch64(Xn_six_offset_0_sp[i], DR_REG_NULL,
                                             DR_EXTEND_UXTX, 0, imm9[i], 0, OPSZ_0),
               opnd_create_reg(Xn_six_offset_1_sp[i]));
+
+    instr = INSTR_CREATE_st2g_offset(dc,
+                                     opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL,
+                                                                   DR_EXTEND_UXTX, 0, 0,
+                                                                   0, OPSZ_0),
+                                     opnd_create_reg(DR_REG_X0));
+    ASSERT(!instr_reads_memory(instr));
+    ASSERT(!instr_writes_memory(instr));
+    instr_destroy(dc, instr);
 }
 
 TEST_INSTR(stg)
@@ -421,6 +454,15 @@ TEST_INSTR(stg)
                                             DR_EXTEND_UXTX, 0, 0, 0, OPSZ_0),
               opnd_create_reg(Xn_six_offset_1_sp[i]), OPND_CREATE_INT(imm9[i]));
 
+    instr = INSTR_CREATE_stg_post(dc,
+                                  opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL,
+                                                                DR_EXTEND_UXTX, 0, 0, 0,
+                                                                OPSZ_0),
+                                  opnd_create_reg(DR_REG_X0), OPND_CREATE_INT(0));
+    ASSERT(!instr_reads_memory(instr));
+    ASSERT(!instr_writes_memory(instr));
+    instr_destroy(dc, instr);
+
     /* Testing STG     <Xt|SP>, [<Xn|SP>, #<simm>]! */
     const char *const expected_1[6] = {
         "stg    %x0 %x0 $0xfffffffffffff000 -> -0x1000(%x0) %x0",
@@ -435,6 +477,13 @@ TEST_INSTR(stg)
         opnd_create_base_disp(Xn_six_offset_0_sp[i], DR_REG_NULL, 0, imm9[i], OPSZ_0),
         opnd_create_reg(Xn_six_offset_1_sp[i]));
 
+    instr = INSTR_CREATE_stg_pre(
+        dc, opnd_create_base_disp(DR_REG_X0, DR_REG_NULL, 0, 0, OPSZ_0),
+        opnd_create_reg(DR_REG_X0));
+    ASSERT(!instr_reads_memory(instr));
+    ASSERT(!instr_writes_memory(instr));
+    instr_destroy(dc, instr);
+
     /* Testing STG     <Xt|SP>, [<Xn|SP>, #<simm>] */
     const char *const expected_2[6] = {
         "stg    %x0 -> -0x1000(%x0)",   "stg    %x6 -> -0x0a90(%x5)",
@@ -445,6 +494,15 @@ TEST_INSTR(stg)
               opnd_create_base_disp_aarch64(Xn_six_offset_0_sp[i], DR_REG_NULL,
                                             DR_EXTEND_UXTX, 0, imm9[i], 0, OPSZ_0),
               opnd_create_reg(Xn_six_offset_1_sp[i]));
+
+    instr = INSTR_CREATE_stg_offset(dc,
+                                    opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL,
+                                                                  DR_EXTEND_UXTX, 0, 0, 0,
+                                                                  OPSZ_0),
+                                    opnd_create_reg(DR_REG_X0));
+    ASSERT(!instr_reads_memory(instr));
+    ASSERT(!instr_writes_memory(instr));
+    instr_destroy(dc, instr);
 }
 
 TEST_INSTR(stz2g)
@@ -464,6 +522,15 @@ TEST_INSTR(stz2g)
                                             DR_EXTEND_UXTX, 0, 0, 0, OPSZ_32),
               opnd_create_reg(Xn_six_offset_1_sp[i]), OPND_CREATE_INT(imm9[i]));
 
+    instr = INSTR_CREATE_stz2g_post(dc,
+                                    opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL,
+                                                                  DR_EXTEND_UXTX, 0, 0, 0,
+                                                                  OPSZ_32),
+                                    opnd_create_reg(DR_REG_X0), OPND_CREATE_INT(0));
+    ASSERT(!instr_reads_memory(instr));
+    ASSERT(instr_writes_memory(instr));
+    instr_destroy(dc, instr);
+
     /* Testing STZ2G   <Xt|SP>, [<Xn|SP>, #<simm>]! */
     const char *const expected_1[6] = {
         "stz2g  %x0 %x0 $0xfffffffffffff000 -> -0x1000(%x0)[32byte] %x0",
@@ -478,6 +545,13 @@ TEST_INSTR(stz2g)
         opnd_create_base_disp(Xn_six_offset_0_sp[i], DR_REG_NULL, 0, imm9[i], OPSZ_32),
         opnd_create_reg(Xn_six_offset_1_sp[i]));
 
+    instr = INSTR_CREATE_stz2g_pre(
+        dc, opnd_create_base_disp(DR_REG_X0, DR_REG_NULL, 0, 0, OPSZ_32),
+        opnd_create_reg(DR_REG_X0));
+    ASSERT(!instr_reads_memory(instr));
+    ASSERT(instr_writes_memory(instr));
+    instr_destroy(dc, instr);
+
     /* Testing STZ2G   <Xt|SP>, [<Xn|SP>, #<simm>] */
     const char *const expected_2[6] = {
         "stz2g  %x0 -> -0x1000(%x0)[32byte]",   "stz2g  %x6 -> -0x0a90(%x5)[32byte]",
@@ -488,6 +562,15 @@ TEST_INSTR(stz2g)
               opnd_create_base_disp_aarch64(Xn_six_offset_0_sp[i], DR_REG_NULL,
                                             DR_EXTEND_UXTX, 0, imm9[i], 0, OPSZ_32),
               opnd_create_reg(Xn_six_offset_1_sp[i]));
+
+    instr = INSTR_CREATE_stz2g_offset(
+        dc,
+        opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL, DR_EXTEND_UXTX, 0, 0, 0,
+                                      OPSZ_32),
+        opnd_create_reg(DR_REG_X0));
+    ASSERT(!instr_reads_memory(instr));
+    ASSERT(instr_writes_memory(instr));
+    instr_destroy(dc, instr);
 }
 
 TEST_INSTR(stzg)
@@ -507,6 +590,15 @@ TEST_INSTR(stzg)
                                             DR_EXTEND_UXTX, 0, 0, 0, OPSZ_16),
               opnd_create_reg(Xn_six_offset_1_sp[i]), OPND_CREATE_INT(imm9[i]));
 
+    instr = INSTR_CREATE_stzg_post(dc,
+                                   opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL,
+                                                                 DR_EXTEND_UXTX, 0, 0, 0,
+                                                                 OPSZ_16),
+                                   opnd_create_reg(DR_REG_X0), OPND_CREATE_INT(0));
+    ASSERT(!instr_reads_memory(instr));
+    ASSERT(instr_writes_memory(instr));
+    instr_destroy(dc, instr);
+
     /* Testing STZG    <Xt|SP>, [<Xn|SP>, #<simm>]! */
     const char *const expected_1[6] = {
         "stzg   %x0 %x0 $0xfffffffffffff000 -> -0x1000(%x0)[16byte] %x0",
@@ -521,6 +613,13 @@ TEST_INSTR(stzg)
         opnd_create_base_disp(Xn_six_offset_0_sp[i], DR_REG_NULL, 0, imm9[i], OPSZ_16),
         opnd_create_reg(Xn_six_offset_1_sp[i]));
 
+    instr = INSTR_CREATE_stzg_pre(
+        dc, opnd_create_base_disp(DR_REG_X0, DR_REG_NULL, 0, 0, OPSZ_16),
+        opnd_create_reg(DR_REG_X0));
+    ASSERT(!instr_reads_memory(instr));
+    ASSERT(instr_writes_memory(instr));
+    instr_destroy(dc, instr);
+
     /* Testing STZG    <Xt|SP>, [<Xn|SP>, #<simm>] */
     const char *const expected_2[6] = {
         "stzg   %x0 -> -0x1000(%x0)[16byte]",   "stzg   %x6 -> -0x0a90(%x5)[16byte]",
@@ -531,6 +630,15 @@ TEST_INSTR(stzg)
               opnd_create_base_disp_aarch64(Xn_six_offset_0_sp[i], DR_REG_NULL,
                                             DR_EXTEND_UXTX, 0, imm9[i], 0, OPSZ_16),
               opnd_create_reg(Xn_six_offset_1_sp[i]));
+
+    instr = INSTR_CREATE_stzg_offset(dc,
+                                     opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL,
+                                                                   DR_EXTEND_UXTX, 0, 0,
+                                                                   0, OPSZ_16),
+                                     opnd_create_reg(DR_REG_X0));
+    ASSERT(!instr_reads_memory(instr));
+    ASSERT(instr_writes_memory(instr));
+    instr_destroy(dc, instr);
 }
 
 TEST_INSTR(stgp)
@@ -551,6 +659,15 @@ TEST_INSTR(stgp)
               opnd_create_reg(Xn_six_offset_1[i]), opnd_create_reg(Xn_six_offset_2[i]),
               OPND_CREATE_INT(imm7[i]));
 
+    instr = INSTR_CREATE_stgp_post(
+        dc,
+        opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL, DR_EXTEND_UXTX, 0, 0, 0,
+                                      OPSZ_16),
+        opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_X0), OPND_CREATE_INT(0));
+    ASSERT(!instr_reads_memory(instr));
+    ASSERT(instr_writes_memory(instr));
+    instr_destroy(dc, instr);
+
     /* Testing STGP    <Xt>, <Xt2>, [<Xn|SP>, #<simm>]! */
     const char *const expected_1_0[6] = {
         "stgp   %x0 %x0 %x0 $0xfffffffffffffc00 -> -0x0400(%x0)[16byte] %x0",
@@ -565,6 +682,13 @@ TEST_INSTR(stgp)
         opnd_create_base_disp(Xn_six_offset_0_sp[i], DR_REG_NULL, 0, imm7[i], OPSZ_16),
         opnd_create_reg(Xn_six_offset_1[i]), opnd_create_reg(Xn_six_offset_2[i]));
 
+    instr = INSTR_CREATE_stgp_pre(
+        dc, opnd_create_base_disp(DR_REG_X0, DR_REG_NULL, 0, 0, OPSZ_16),
+        opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_X0));
+    ASSERT(!instr_reads_memory(instr));
+    ASSERT(instr_writes_memory(instr));
+    instr_destroy(dc, instr);
+
     /* Testing STGP    <Xt>, <Xt2>, [<Xn|SP>, #<simm>] */
     const char *const expected_2_0[6] = {
         "stgp   %x0 %x0 -> -0x0400(%x0)[16byte]",
@@ -578,6 +702,15 @@ TEST_INSTR(stgp)
               opnd_create_base_disp_aarch64(Xn_six_offset_2_sp[i], DR_REG_NULL,
                                             DR_EXTEND_UXTX, 0, imm7[i], 0, OPSZ_16),
               opnd_create_reg(Xn_six_offset_0[i]), opnd_create_reg(Xn_six_offset_1[i]));
+
+    instr = INSTR_CREATE_stgp_offset(
+        dc,
+        opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL, DR_EXTEND_UXTX, 0, 0, 0,
+                                      OPSZ_16),
+        opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_X0));
+    ASSERT(!instr_reads_memory(instr));
+    ASSERT(instr_writes_memory(instr));
+    instr_destroy(dc, instr);
 }
 
 TEST_INSTR(gmi)
