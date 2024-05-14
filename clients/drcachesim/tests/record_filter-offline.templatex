@@ -5,6 +5,7 @@ Exiting process after .* references.
 Hello, world!
 #endif
 Trace invariant checks passed
+<unable to determine lib path for cross-arch execve>
 Output .* entries from .* entries.
 Done!
 Trace invariant checks passed
