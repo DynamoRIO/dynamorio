@@ -177,7 +177,9 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
          */
         if (TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, memref.marker.marker_value)) {
             std::lock_guard<std::mutex> guard(dcontext_mutex_);
-            dr_set_isa_mode(dcontext_.dcontext, DR_ISA_REGDEPS, nullptr);
+            dr_isa_mode_t isa_mode = dr_get_isa_mode(dcontext_.dcontext);
+            if (isa_mode != DR_ISA_REGDEPS)
+                dr_set_isa_mode(dcontext_.dcontext, DR_ISA_REGDEPS, nullptr);
         }
     } else if (memref.marker.type == TRACE_TYPE_MARKER &&
                memref.marker.marker_type == TRACE_MARKER_TYPE_VECTOR_LENGTH) {
