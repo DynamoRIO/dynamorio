@@ -105,7 +105,7 @@ public:
         void
         merge(const histogram_interface_t *rhs) override
         {
-            const histogram_t *rhs_hist = reinterpret_cast<const histogram_t *>(rhs);
+            const histogram_t *rhs_hist = dynamic_cast<const histogram_t *>(rhs);
             for (const auto &keyval : rhs_hist->bin2count_) {
                 bin2count_[keyval.first] += keyval.second;
             }
