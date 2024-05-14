@@ -205,7 +205,7 @@ const reg_id_t d_r_reg_id_to_virtual[] = {
     DR_REG_NULL, /* DR_REG_NULL */
     DR_REG_NULL, /* DR_REG_NULL */
 
-#define VIRTUAL_XREGS
+#define VIRTUAL_XREGS                                                                \
     DR_REG_V0, DR_REG_V1, DR_REG_V2, DR_REG_V3, DR_REG_V4, DR_REG_V5, DR_REG_V6,     \
     DR_REG_V7, DR_REG_V8, DR_REG_V9, DR_REG_V10, DR_REG_V11, DR_REG_V12, DR_REG_V13, \
     DR_REG_V14, DR_REG_V15, DR_REG_V16, DR_REG_V17, DR_REG_V18, DR_REG_V19,          \
@@ -217,7 +217,7 @@ const reg_id_t d_r_reg_id_to_virtual[] = {
     VIRTUAL_XREGS /* from DR_REG_W0 to DR_REG_WZR */
 #undef VIRTUAL_XREGS
 
-#define VIRTUAL_ZREGS
+#define VIRTUAL_ZREGS                                                                   \
     DR_REG_V33, DR_REG_V34, DR_REG_V35, DR_REG_V36, DR_REG_V37, DR_REG_V38, DR_REG_V39, \
     DR_REG_V40, DR_REG_V41, DR_REG_V42, DR_REG_V43, DR_REG_V44, DR_REG_V45, DR_REG_V46, \
     DR_REG_V47, DR_REG_V48, DR_REG_V49, DR_REG_V50, DR_REG_V51, DR_REG_V52,             \
@@ -373,6 +373,9 @@ const reg_id_t d_r_reg_id_to_virtual[] = {
 void
 encode_debug_checks(void)
 {
+    CLIENT_ASSERT(sizeof(d_r_reg_id_to_virtual) == sizeof(dr_reg_fixer),
+                  "register to virtual register map size error");
+
     /* FIXME i#1569: NYI */
 }
 #endif

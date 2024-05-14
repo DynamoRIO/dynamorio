@@ -50,8 +50,17 @@ jobs:
       fail-fast: false
       matrix:
         # This job will run in parallel.
-        os: [ubuntu-20-arm64, ubuntu-20-arm64-sve]
+        include:
+          - os: ubuntu-20-arm64
+            sve: false
+          - os: ubuntu-20-arm64-sve
+            sve: true
+            sve_length: 256
+          - os: ubuntu-20-arm64-sve
+            sve: true
+            sve_length: 128
     runs-on: ${{ matrix.os }}
+    name: aarch64-${{matrix.sve && 'sve-' || ''}}precommit${{matrix.sve_length && '-' || ''}}${{matrix.sve_length}}
     steps:
       - name: Check out repository code
         uses: actions/checkout@v3
@@ -81,6 +90,14 @@ jobs:
         run: ../suite/runsuite_wrapper.pl travis
         env:
           CI_BRANCH: ${{ github.ref }}
+        if: ${{ matrix.sve == false || matrix.sve_length == '' }}
+
+      - name: Run Suite with sve vector length ${{ matrix.sve_length }}
+        working-directory: build
+        run: ../tools/run_with_vector_length.py ${{ matrix.sve_length }} ../suite/runsuite_wrapper.pl travis
+        env:
+          CI_BRANCH: ${{ github.ref }}
+        if: ${{ matrix.sve == true && matrix.sve_length != ''}}
 
       - name: Send failure mail to dynamorio-devs
         if: failure() && github.ref == 'refs/heads/master'
