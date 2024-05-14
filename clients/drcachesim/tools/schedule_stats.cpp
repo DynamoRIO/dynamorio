@@ -174,13 +174,46 @@ schedule_stats_t::update_state_time(per_shard_t *shard, state_t state)
     return true;
 }
 
+void
+schedule_stats_t::record_context_switch(per_shard_t *shard, int64_t tid, int64_t input_id,
+                                        int64_t letter_ord)
+{
+    // We convert to letters which only works well for <=26 inputs.
+    if (!shard->thread_sequence.empty()) {
+        ++shard->counters.total_switches;
+        if (shard->saw_syscall || shard->saw_exit)
+            ++shard->counters.voluntary_switches;
+        if (shard->direct_switch_target == tid)
+            ++shard->counters.direct_switches;
+        uint64_t instr_delta = shard->counters.instrs - shard->switch_start_instrs;
+        shard->counters.instrs_per_switch->add(instr_delta);
+        shard->switch_start_instrs = shard->counters.instrs;
+    }
+    shard->thread_sequence +=
+        THREAD_LETTER_INITIAL_START + static_cast<char>(letter_ord % 26);
+    shard->cur_segment_instrs = 0;
+    if (knob_verbose_ >= 2) {
+        std::ostringstream line;
+        line << "Core #" << std::setw(2) << shard->core << " @" << std::setw(9)
+             << shard->stream->get_record_ordinal() << " refs, " << std::setw(9)
+             << shard->stream->get_instruction_ordinal() << " instrs: input "
+             << std::setw(4) << input_id << " @" << std::setw(9)
+             << shard->stream->get_input_interface()->get_record_ordinal() << " refs, "
+             << std::setw(9)
+             << shard->stream->get_input_interface()->get_instruction_ordinal()
+             << " instrs, time "
+             << std::setw(16)
+             // TODO i#5843: For time quanta, provide some way to get the
+             // latest time and print that here instead of the timestamp?
+             << shard->stream->get_input_interface()->get_last_timestamp()
+             << " == thread " << tid << "\n";
+        std::cerr << line.str();
+    }
+}
+
 bool
 schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 {
-    static constexpr char THREAD_LETTER_INITIAL_START = 'A';
-    static constexpr char THREAD_LETTER_SUBSEQUENT_START = 'a';
-    static constexpr char WAIT_SYMBOL = '-';
-    static constexpr char IDLE_SYMBOL = '_';
     per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
     int64_t input_id = shard->stream->get_input_id();
     if (knob_verbose_ >= 4) {
@@ -257,34 +290,7 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
         ? tid
         : input_id;
     if ((workload_id != prev_workload_id || tid != prev_tid) && tid != IDLE_THREAD_ID) {
-        // We convert to letters which only works well for <=26 inputs.
-        if (!shard->thread_sequence.empty()) {
-            ++shard->counters.total_switches;
-            if (shard->saw_syscall || shard->saw_exit)
-                ++shard->counters.voluntary_switches;
-            if (shard->direct_switch_target == memref.marker.tid)
-                ++shard->counters.direct_switches;
-        }
-        shard->thread_sequence +=
-            THREAD_LETTER_INITIAL_START + static_cast<char>(letter_ord % 26);
-        shard->cur_segment_instrs = 0;
-        if (knob_verbose_ >= 2) {
-            std::ostringstream line;
-            line << "Core #" << std::setw(2) << shard->core << " @" << std::setw(9)
-                 << shard->stream->get_record_ordinal() << " refs, " << std::setw(9)
-                 << shard->stream->get_instruction_ordinal() << " instrs: input "
-                 << std::setw(4) << input_id << " @" << std::setw(9)
-                 << shard->stream->get_input_interface()->get_record_ordinal()
-                 << " refs, " << std::setw(9)
-                 << shard->stream->get_input_interface()->get_instruction_ordinal()
-                 << " instrs, time "
-                 << std::setw(16)
-                 // TODO i#5843: For time quanta, provide some way to get the
-                 // latest time and print that here instead of the the timestamp?
-                 << shard->stream->get_input_interface()->get_last_timestamp()
-                 << " == thread " << memref.instr.tid << "\n";
-            std::cerr << line.str();
-        }
+        record_context_switch(shard, tid, input_id, letter_ord);
     }
     shard->prev_workload_id = workload_id;
     shard->prev_tid = tid;
@@ -396,6 +402,16 @@ schedule_stats_t::print_counters(const counters_t &counters)
                      static_cast<double>(counters.cpu_microseconds +
                                          counters.idle_micros_at_last_instr),
                      "% cpu busy by time, ignoring idle past last instr\n");
+    std::cerr << "  Instructions per context switch histogram:\n";
+    counters.instrs_per_switch->print();
+}
+
+void
+schedule_stats_t::aggregate_results(counters_t &total)
+{
+    for (const auto &shard : shard_map_) {
+        total += shard.second->counters;
+    }
 }
 
 bool
@@ -404,9 +420,7 @@ schedule_stats_t::print_results()
     std::cerr << TOOL_NAME << " results:\n";
     std::cerr << "Total counts:\n";
     counters_t total;
-    for (const auto &shard : shard_map_) {
-        total += shard.second->counters;
-    }
+    aggregate_results(total);
     std::cerr << std::setw(12) << shard_map_.size() << " cores\n";
     print_counters(total);
     for (const auto &shard : shard_map_) {
