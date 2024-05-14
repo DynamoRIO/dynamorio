@@ -199,6 +199,9 @@ protected:
     // For serial operation.
     worker_data_t serial_worker_;
     shard_data_t serial_shard_;
+    /* To guard the setting of isa_mode in dcontext.
+     */
+    std::mutex dcontext_mutex_;
 };
 
 } // namespace drmemtrace

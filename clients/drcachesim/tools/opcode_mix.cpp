@@ -170,10 +170,15 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             return false;
         }
         /* If we are dealing with a regdeps trace, we need to set the dcontext ISA mode
-         * to the correct synthetic ISA (i.e., DR_ISA_REGDEPS).
+         * to the correct synthetic ISA (i.e., DR_ISA_REGDEPS). Because isa_mode in
+         * dcontext is a global resource, we guard its access to avoid data races
+         * (even though this is a benign data race, as all threads are writing the same
+         * isa_mode value).
          */
-        if (TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, memref.marker.marker_value))
+        if (TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, memref.marker.marker_value)) {
+            std::lock_guard<std::mutex> guard(dcontext_mutex_);
             dr_set_isa_mode(dcontext_.dcontext, DR_ISA_REGDEPS, nullptr);
+        }
     } else if (memref.marker.type == TRACE_TYPE_MARKER &&
                memref.marker.marker_type == TRACE_MARKER_TYPE_VECTOR_LENGTH) {
 #ifdef AARCH64
@@ -421,16 +426,16 @@ opcode_mix_t::print_interval_results(
         const auto *snap = reinterpret_cast<const snapshot_t *>(base_snap);
         std::cerr << "ID:" << snap->get_interval_id() << " ending at instruction "
                   << snap->get_instr_count_cumulative() << " has "
-                  << snap->opcode_counts_.size() << " opcodes"
-                  << " and " << snap->category_counts_.size() << " categories.\n";
+                  << snap->opcode_counts_.size() << " opcodes" << " and "
+                  << snap->category_counts_.size() << " categories.\n";
         std::vector<std::pair<int, int64_t>> sorted(snap->opcode_counts_.begin(),
                                                     snap->opcode_counts_.end());
         std::sort(sorted.begin(), sorted.end(), cmp_val);
         for (int i = 0; i < PRINT_TOP_N && i < static_cast<int>(sorted.size()); ++i) {
             std::cerr << "   [" << i + 1 << "]"
                       << " Opcode: " << decode_opcode_name(sorted[i].first) << " ("
-                      << sorted[i].first << ")"
-                      << " Count=" << sorted[i].second << " PKI="
+                      << sorted[i].first << ")" << " Count=" << sorted[i].second
+                      << " PKI="
                       << sorted[i].second * 1000.0 / snap->get_instr_count_delta()
                       << "\n";
         }
