@@ -174,6 +174,16 @@ public:
     parallel_shard_error(void *shard_data) override;
 
 protected:
+    struct dcontext_cleanup_last_t {
+    public:
+        ~dcontext_cleanup_last_t()
+        {
+            if (dcontext != nullptr)
+                dr_standalone_exit();
+        }
+        void *dcontext = nullptr;
+    };
+
     // For core-sharded we need to remember encodings for an input that were
     // seen on a different core, as there is no reader_t remembering them for us.
     // XXX i#6635: Is this something the scheduler should help us with?
@@ -246,6 +256,8 @@ protected:
     virtual std::string
     get_output_basename(memtrace_stream_t *shard_stream);
 
+    dcontext_cleanup_last_t dcontext_;
+
     std::unordered_map<int, per_shard_t *> shard_map_;
     // This mutex is only needed in parallel_shard_init. In all other accesses
     // to shard_map (print_results) we are single-threaded.
@@ -293,17 +305,6 @@ private:
         return filetype;
     }
 
-    struct dcontext_cleanup_last_t {
-    public:
-        ~dcontext_cleanup_last_t()
-        {
-            if (dcontext != nullptr)
-                dr_standalone_exit();
-        }
-        void *dcontext = nullptr;
-    };
-
-    dcontext_cleanup_last_t dcontext_;
     std::string output_dir_;
     std::vector<std::unique_ptr<record_filter_func_t>> filters_;
     uint64_t stop_timestamp_;
