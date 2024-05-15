@@ -171,6 +171,12 @@ opc_is_not_a_real_memory_load(int opc)
     return false;
 }
 
+bool
+opc_is_not_a_real_memory_store(int opc)
+{
+    return false;
+}
+
 /* Returns whether ordinal is within the count of memory references
  * (i.e., the caller should iterate, incrementing ordinal by one,
  * until it returns false).

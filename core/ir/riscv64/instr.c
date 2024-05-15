@@ -107,6 +107,12 @@ opc_is_not_a_real_memory_load(int opc)
     return opc == OP_auipc;
 }
 
+bool
+opc_is_not_a_real_memory_store(int opc)
+{
+    return false;
+}
+
 uint
 instr_branch_type(instr_t *cti_instr)
 {
