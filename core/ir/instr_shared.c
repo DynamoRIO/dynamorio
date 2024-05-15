@@ -2232,6 +2232,11 @@ instr_writes_memory(instr_t *instr)
 {
     int a;
     opnd_t curop;
+    int opc = instr_get_opcode(instr);
+
+    if (opc_is_not_a_real_memory_store(opc))
+        return false;
+
     for (a = 0; a < instr_num_dsts(instr); a++) {
         curop = instr_get_dst(instr, a);
         if (opnd_is_memory_reference(curop)) {

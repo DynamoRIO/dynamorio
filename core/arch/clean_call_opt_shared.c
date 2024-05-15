@@ -757,14 +757,14 @@ analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
      */
 #        define GPR_SAVE_THRESHOLD DR_NUM_GPR_REGS
 #    endif
-#elif defined(AARCH64)
+#elif defined(AARCH64) || defined(RISCV64)
     /* Use out-of-line calls if more than 6 SIMD registers need to be saved. */
 #    define SIMD_SAVE_THRESHOLD 6
     /* Use out-of-line calls if more than 6 GP registers need to be saved. */
 #    define GPR_SAVE_THRESHOLD 6
 #endif
 
-#if defined(X86) || defined(AARCH64)
+#if defined(X86) || defined(AARCH64) || defined(RISCV64)
     /* 9. derived fields */
     /* Use out-of-line calls if more than SIMD_SAVE_THRESHOLD SIMD registers have
      * to be saved or if more than GPR_SAVE_THRESHOLD GP registers have to be saved.
