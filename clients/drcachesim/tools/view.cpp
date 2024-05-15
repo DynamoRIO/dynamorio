@@ -217,12 +217,7 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
                 return false;
             }
             filetype_record_ord_ = memstream->get_record_ordinal();
-            /* We remove OFFLINE_FILE_TYPE_ARCH_REGDEPS from this check since
-             * DR_ISA_REGDEPS is not a real ISA and can coexist with any real
-             * architecture.
-             */
-            if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL & ~OFFLINE_FILE_TYPE_ARCH_REGDEPS,
-                        memref.marker.marker_value) &&
+            if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL, memref.marker.marker_value) &&
                 !TESTANY(build_target_arch_type(), memref.marker.marker_value)) {
                 error_string_ = std::string("Architecture mismatch: trace recorded on ") +
                     trace_arch_string(static_cast<offline_file_type_t>(
@@ -567,23 +562,10 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         // MAX_INSTR_DIS_SZ is set to 196 in core/ir/disassemble.h but is not
         // exported so we just use the same value here.
         char buf[196];
-        /* Set dcontext ISA mode to DR_ISA_REGDEPS if trace file type has
-         * OFFLINE_FILE_TYPE_ARCH_REGDEPS set. We need this to correctly
-         * disassemble DR_ISA_REGDEPS instructions.
-         */
-        dr_isa_mode_t old_isa_mode = dr_get_isa_mode(dcontext_.dcontext);
-        bool is_regdeps_trace =
-            filetype_ != -1 && TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, filetype_);
-        if (is_regdeps_trace) {
-            dr_set_isa_mode(dcontext_.dcontext, DR_ISA_REGDEPS, &old_isa_mode);
-        }
         byte *next_pc = disassemble_to_buffer(
             dcontext_.dcontext, decode_pc, orig_pc, /*show_pc=*/false,
             /*show_bytes=*/true, buf, BUFFER_SIZE_ELEMENTS(buf),
             /*printed=*/nullptr);
-        if (is_regdeps_trace) {
-            dr_set_isa_mode(dcontext_.dcontext, old_isa_mode, nullptr);
-        }
         if (next_pc == nullptr) {
             error_string_ = "Failed to disassemble " + to_hex_string(memref.instr.addr);
             return false;
@@ -592,7 +574,7 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         disasm_cache_.insert({ orig_pc, disasm });
     }
     // Add branch decoration, which varies and so can't be cached purely by PC.
-    size_t newline = disasm.find('\n');
+    auto newline = disasm.find('\n');
     if (memref.instr.type == TRACE_TYPE_INSTR_TAKEN_JUMP)
         disasm.insert(newline, " (taken)");
     else if (memref.instr.type == TRACE_TYPE_INSTR_UNTAKEN_JUMP)
@@ -605,16 +587,13 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         disasm.insert(newline, str.str());
     }
     // Put our prefix on raw byte spillover, and skip the other columns.
-    size_t pos = 0;
-    newline = disasm.find('\n', pos);
-    while (newline != std::string::npos && newline < disasm.size() - 1) {
+    newline = disasm.find('\n');
+    if (newline != std::string::npos && newline < disasm.size() - 1) {
         std::stringstream prefix;
         print_prefix(memstream, memref, -1, prefix);
         std::string skip_name(name_width, ' ');
         disasm.insert(newline + 1,
                       prefix.str() + skip_name + "                               ");
-        pos = newline + 1;
-        newline = disasm.find('\n', pos);
     }
     std::cerr << disasm;
     ++num_disasm_instrs_;
