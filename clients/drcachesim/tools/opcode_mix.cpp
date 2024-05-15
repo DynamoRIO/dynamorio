@@ -197,6 +197,21 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         memref.data.type != TRACE_TYPE_INSTR_NO_FETCH) {
         return true;
     }
+
+    /* At this point we start processing memref instructions, so we're past the header of
+     * the trace, which contains the trace filetype. If we didn't encounter a
+     * TRACE_MARKER_TYPE_FILETYPE we return an error and stop processing the trace.
+     * XXX i#6812: we could allow traces that have some shards with no filetype, as long
+     * as there is at least one shard with it, by caching the filetype from shards that
+     * have it and using that one. We can do this using memtrace_stream_t::get_filetype(),
+     * which requires updating opcode_mix to use parallel_shard_init_stream() rather than
+     * the current (and deprecated) parallel_shard_init().
+     */
+    if (shard->filetype == OFFLINE_FILE_TYPE_DEFAULT) {
+        shard->error = "No file type found in this shard";
+        return false;
+    }
+
     ++shard->instr_count;
 
     app_pc decode_pc;
