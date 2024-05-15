@@ -707,7 +707,7 @@ function (write_config_file dst bindir libdir)
     set(debugopt "")
   endif ()
   file(GENERATE OUTPUT ${dst} CONTENT
-"# drcachesim tool config file\n\
+"# drmemtrace tracing and analysis tool config file.\n\
 FRONTEND_REL=${bindir}/$<TARGET_FILE_NAME:drmemtrace_launcher>\n\
 TOOL_OP=-dr\n\
 TOOL_OP_DR_PATH\n\
@@ -722,7 +722,8 @@ endfunction ()
 if (X64)
   set(CONFIG_INSTALL ${PROJECT_BINARY_DIR}/drmemtrace.drrun64)
   set(CONFIG_BUILD ${PROJECT_BINARY_DIR}/tools/drmemtrace.drrun64)
-  # Support the older launcher name.
+  # Support the older launcher name (i#6660 applied s/drcachesim/drmemtrace/ as
+  # "drcachesim" is just one tool and we use "drmemtrace" to refer to the framework).
   set(CONFIG_OLD_INSTALL ${PROJECT_BINARY_DIR}/drcachesim.drrun64)
   set(CONFIG_OLD_BUILD ${PROJECT_BINARY_DIR}/tools/drcachesim.drrun64)
 else (X64)
@@ -737,13 +738,13 @@ set(BUILD_CLIENTS_LIB clients/${INSTALL_LIB})
 
 write_config_file(${CONFIG_INSTALL} ${INSTALL_CLIENTS_BIN} ${INSTALL_CLIENTS_LIB})
 write_config_file(${CONFIG_BUILD} ${BUILD_CLIENTS_BIN} ${BUILD_CLIENTS_LIB})
-# Support the older launcher name.
+# Support the older launcher name (i#6660 renamed it).
 write_config_file(${CONFIG_OLD_INSTALL} ${INSTALL_CLIENTS_BIN} ${INSTALL_CLIENTS_LIB})
 write_config_file(${CONFIG_OLD_BUILD} ${BUILD_CLIENTS_BIN} ${BUILD_CLIENTS_LIB})
 
 DR_install(FILES "${CONFIG_INSTALL}" DESTINATION ${INSTALL_DRCACHESIM_CONFIG})
 register_tool_file("drmemtrace")
-# Support the older launcher name.
+# Support the older launcher name (i#6660 renamed it).
 DR_install(FILES "${CONFIG_OLD_INSTALL}" DESTINATION ${INSTALL_DRCACHESIM_CONFIG})
 register_tool_file("drcachesim")
 
