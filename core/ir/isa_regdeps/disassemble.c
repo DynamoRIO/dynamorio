@@ -32,46 +32,79 @@
 
 #include "../globals.h"
 #include "disassemble.h"
+#include "encoding_common.h"
 
-/* DR_ISA_REGDEPS instruction encodings can be at most 16 bytes and are 4 byte aligned,
- * hence we can have at most 4 lines of 4 bytes each.
+/* DR_ISA_REGDEPS instruction encodings can be at most 16 bytes, hence we can have at
+ * most 2 lines of 8 bytes each.
  */
-#define REGDEPS_BYTES_PER_LINE 4
+#define REGDEPS_BYTES_PER_LINE 8
 
+/* We separate the 8 bytes per line in two 4 byte words.
+ */
+#define REGDEPS_BYTES_PER_WORD 4
+
+/* Prints the first line of regdeps encoding bytes in one or two 4 byte words, depending
+ * on the encoding length.
+ * Returns the number of bytes that need to be printed on the second line.
+ */
 int
-print_regdeps_encoding_bytes_to_buffer(char *buf, size_t bufsz,
-                                       size_t *sofar DR_PARAM_INOUT, byte *pc,
-                                       byte *next_pc)
+d_r_disassemble_regdeps_print_encoding_bytes_first_line_to_buffer(
+    char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT, byte *pc, byte *next_pc)
 {
-    int extra_sz = 0;
     int sz = (int)(next_pc - pc);
+    /* Sanity check. This should never happen.
+     */
+    if (sz <= 0)
+        return 0;
+
+    /* Compute the number of bytes present in the second line.
+     */
+    int extra_sz = 0;
     if (sz > REGDEPS_BYTES_PER_LINE)
         extra_sz = sz - REGDEPS_BYTES_PER_LINE;
+
     /* DR_ISA_REGDEPS instruction encodings are 4 byte aligned, so casting (byte *)
-     * to (uint *) is safe.
+     * to (uint *) is safe. We always have a 4 byte header, so we print the first 4 byte
+     * word.
      */
-    print_to_buffer(buf, bufsz, sofar, " %08x ", *((uint *)pc));
+    print_to_buffer(buf, bufsz, sofar, " %08x", *((uint *)pc));
+
+    /* Print second 4 byte word, if any.
+     */
+    if (sz > REGDEPS_BYTES_PER_WORD) {
+        print_to_buffer(buf, bufsz, sofar, " %08x",
+                        *((uint *)(pc + REGDEPS_BYTES_PER_WORD)));
+    }
+
+    /* Add a space at the end.
+     */
+    print_to_buffer(buf, bufsz, sofar, " ");
+
     return extra_sz;
 }
 
+/* Prints the second line of regdeps encoding bytes in one or two 4 byte words, depending
+ * on the encoding length.
+ */
 void
-print_extra_regdeps_encoding_bytes_to_buffer(char *buf, size_t bufsz,
-                                             size_t *sofar DR_PARAM_INOUT, byte *pc,
-                                             byte *next_pc, int extra_sz,
-                                             const char *extra_bytes_prefix)
+d_r_disassemble_regdeps_print_encoding_bytes_second_line_to_buffer(
+    char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT, byte *pc, byte *next_pc,
+    int extra_sz, const char *extra_bytes_prefix)
 {
-    /* + 1 accounts for line 0 printed by print_regdeps_encoding_bytes_to_buffer().
+    /* Sanity check. This should never happen.
      */
-    int num_lines =
-        (ALIGN_FORWARD(extra_sz, REGDEPS_BYTES_PER_LINE) / REGDEPS_BYTES_PER_LINE) + 1;
-    /* We start from line 1 because line 0 has already been printed by
-     * print_regdeps_encoding_bytes_to_buffer().
+    if (extra_sz <= 0)
+        return;
+
+    /* If we are here we have a third 4 byte word to print.
      */
-    for (int line = 1; line < num_lines; ++line) {
-        /* DR_ISA_REGDEPS instruction encodings are 4 byte aligned, so casting (byte *)
-         * to (uint *) is safe.
-         */
-        print_to_buffer(buf, bufsz, sofar, "%s %08x\n", extra_bytes_prefix,
-                        *((uint *)(pc + line * REGDEPS_BYTES_PER_LINE)));
+    print_to_buffer(buf, bufsz, sofar, " %08x", *((uint *)(pc + REGDEPS_BYTES_PER_LINE)));
+
+    /* Print fourth 4 byte word, if any.
+     */
+    if (extra_sz > REGDEPS_BYTES_PER_WORD) {
+        print_to_buffer(
+            buf, bufsz, sofar, " %08x",
+            *((uint *)(pc + REGDEPS_BYTES_PER_LINE + REGDEPS_BYTES_PER_WORD)));
     }
 }

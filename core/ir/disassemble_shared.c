@@ -850,8 +850,8 @@ internal_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
     dr_isa_mode_t instr_isa_mode = instr_get_isa_mode(&instr);
     if (with_bytes) {
         if (instr_isa_mode == DR_ISA_REGDEPS) {
-            extra_sz =
-                print_regdeps_encoding_bytes_to_buffer(buf, bufsz, sofar, pc, next_pc);
+            extra_sz = d_r_disassemble_regdeps_print_encoding_bytes_first_line_to_buffer(
+                buf, bufsz, sofar, pc, next_pc);
         } else
             extra_sz = print_bytes_to_buffer(buf, bufsz, sofar, pc, next_pc, &instr);
     }
@@ -865,8 +865,8 @@ internal_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
         if (with_pc)
             print_to_buffer(buf, bufsz, sofar, IF_X64_ELSE("%21s", "%13s"), " ");
         if (instr_isa_mode == DR_ISA_REGDEPS) {
-            print_extra_regdeps_encoding_bytes_to_buffer(buf, bufsz, sofar, pc, next_pc,
-                                                         extra_sz, extra_bytes_prefix);
+            d_r_disassemble_regdeps_print_encoding_bytes_second_line_to_buffer(
+                buf, bufsz, sofar, pc, next_pc, extra_sz, extra_bytes_prefix);
         } else {
             print_extra_bytes_to_buffer(buf, bufsz, sofar, pc, next_pc, extra_sz,
                                         extra_bytes_prefix);
