@@ -76,6 +76,12 @@ opc_is_not_a_real_memory_load(int opc)
     return false;
 }
 
+bool
+opc_is_not_a_real_memory_store(int opc)
+{
+    return false;
+}
+
 /* return the branch type of the (branch) inst */
 uint
 instr_branch_type(instr_t *cti_instr)
