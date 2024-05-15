@@ -120,9 +120,6 @@ test_instr_encode_decode_synthetic(void *dc, instr_t *instr,
     byte *pc_disasm = disassemble_to_buffer(dc, bytes, bytes, false, true, dbuf,
                                             BUFFER_SIZE_ELEMENTS(dbuf), &len);
 
-    print("DISASMB\n%s\n", dbuf);
-    print("DISASMS\n%s\n", expected_disasm_str);
-
     /* We need dcontext ISA mode to still be DR_ISA_REGDEPS for dissassemble_to_buffer(),
      * as it calls decode() on synthetic regdepes encodings again. We restore the old mode
      * here, after disassembly.
@@ -131,9 +128,10 @@ test_instr_encode_decode_synthetic(void *dc, instr_t *instr,
 
     ASSERT(pc_disasm == next_pc_encode);
     /* Check that the string representation of the disassembled regdeps instruction is
-     * what we expect (ground truth).
+     * what we expect (ground truth), if we have it.
      */
-    // ASSERT(strcmp(dbuf, expected_disasm_str) == 0);
+    if (expected_disasm_str[0] != '\0')
+        ASSERT(strcmp(dbuf, expected_disasm_str) == 0);
 
     /* Check that the two synthetic instructions are the same.
      */
@@ -306,14 +304,18 @@ test_instr_create_encode_decode_disassemble_synthetic_aarch64(void *dc)
     instr_encode(dc, instr, buf);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
-    test_instr_encode_decode_synthetic(dc, instr, "");
+    const char *expected_disasm_str_add =
+        " 00040021 21030206 math [8byte]       %rv1 %rv31 -> %rv0\n";
+    test_instr_encode_decode_synthetic(dc, instr, expected_disasm_str_add);
 
     instr = INSTR_CREATE_sub(dc, opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_SP),
                              opnd_create_reg(DR_REG_X1));
     instr_encode(dc, instr, buf);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
-    test_instr_encode_decode_synthetic(dc, instr, "");
+    const char *expected_disasm_str_sub =
+        " 00040021 21030206 math [8byte]       %rv1 %rv31 -> %rv0\n";
+    test_instr_encode_decode_synthetic(dc, instr, expected_disasm_str_sub);
 
     instr =
         INSTR_CREATE_adds_imm(dc, opnd_create_reg(DR_REG_W0), opnd_create_reg(DR_REG_W1),
@@ -321,14 +323,18 @@ test_instr_create_encode_decode_disassemble_synthetic_aarch64(void *dc)
     instr_encode(dc, instr, buf);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
-    test_instr_encode_decode_synthetic(dc, instr, "");
+    const char *expected_disasm_adds_imm =
+        " 00040111 00030204 math [4byte]       %rv1 -> %rv0\n";
+    test_instr_encode_decode_synthetic(dc, instr, expected_disasm_adds_imm);
 
     instr = INSTR_CREATE_adc(dc, opnd_create_reg(DR_REG_W0), opnd_create_reg(DR_REG_W1),
                              opnd_create_reg(DR_REG_W2));
     instr_encode(dc, instr, buf);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
-    test_instr_encode_decode_synthetic(dc, instr, "");
+    const char *expected_disasm_adc =
+        " 00040221 04030204 math [4byte]       %rv1 %rv2 -> %rv0\n";
+    test_instr_encode_decode_synthetic(dc, instr, expected_disasm_adc);
 
     instr = INSTR_CREATE_ldpsw(
         dc, opnd_create_reg(DR_REG_X1), opnd_create_reg(DR_REG_X2),
@@ -338,7 +344,9 @@ test_instr_create_encode_decode_disassemble_synthetic_aarch64(void *dc)
     instr_encode(dc, instr, buf);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
-    test_instr_encode_decode_synthetic(dc, instr, "");
+    const char *expected_disasm_str_ldpsw =
+        " 00000813 04030206 load [8byte]       %rv0 -> %rv0 %rv1 %rv2\n00000002";
+    test_instr_encode_decode_synthetic(dc, instr, expected_disasm_str_ldpsw);
 }
 #endif
 
