@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2023 Google LLC  All rights reserved.
+ * Copyright (c) 2018-2024 Google LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -41,7 +41,7 @@
  * * Compile the microbenchmark. Assuming g++ is the compiler being used:
  *   $ g++ -O3 -o stride_benchmark stride_benchmark.cpp
  * * Run the analyzer:
- *   $ bin64/drrun -t drcachesim -simulator_type miss_analyzer -LL_miss_file rec.csv -- \
+ *   $ bin64/drrun -t drmemtrace -tool miss_analyzer -LL_miss_file rec.csv -- \
  *     stride_benchmark
  *
  */
