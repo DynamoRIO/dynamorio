@@ -104,13 +104,21 @@ check_for_pauth()
     }
 }
 
-/* These features are supported by almost all base v8.0 h/w, i.e. at least one
- * of them will appear in /proc/cpuinfo's 'Features' string.
+struct feature_strings {
+    const char *feature_name;
+    ushort feature_code;
+};
+
+/*  These features appear in /proc/cpuinfo's 'Features' string on a Neoverse V1 machine.
  */
-static const char *test_features[] = { "aes",   "pmull",  "sha1",    "sha2", "crc32",
-                                       "sve",   "sha512", "atomics", "bf16", "jscvt",
-                                       "lrcpc", "sm3",    "sm4",     "i8mm", "rng",
-                                       "fphp",  "" };
+static const struct feature_strings features[] = {
+    { "aes", FEATURE_AESX },      { "pmull", FEATURE_PMULL }, { "sha1", FEATURE_SHA1 },
+    { "sha2", FEATURE_SHA256 },   { "crc32", FEATURE_CRC32 }, { "sve", FEATURE_SVE },
+    { "sha512", FEATURE_SHA512 }, { "atomics", FEATURE_LSE }, { "bf16", FEATURE_BF16 },
+    { "jscvt", FEATURE_JSCVT },   { "lrcpc", FEATURE_LRCPC }, { "sm3", FEATURE_SM3 },
+    { "sm4", FEATURE_SM4 },       { "i8mm", FEATURE_I8MM },   { "rng", FEATURE_RNG },
+    { "fphp", FEATURE_FP16 }
+};
 
 DR_EXPORT void
 dr_init(client_id_t client_id)
@@ -123,42 +131,17 @@ dr_init(client_id_t client_id)
     if (read_hw_features(feat_str) == -1)
         dr_fprintf(STDERR, "Error retrieving 'Features' string from /proc/cpuinfo\n");
 
+    int num_features_to_check = sizeof(features) / sizeof(*features);
+
     feat = strtok(feat_str, " ");
     while (feat != NULL) {
-        int i = 0;
-        while (strcmp(test_features[i++], "") != 0) {
-            if (strcmp(feat, "aes") == 0)
-                ASSERT(proc_has_feature(FEATURE_AESX));
-            else if (strcmp(feat, "pmull") == 0)
-                ASSERT(proc_has_feature(FEATURE_PMULL));
-            else if (strcmp(feat, "sha1") == 0)
-                ASSERT(proc_has_feature(FEATURE_SHA1));
-            else if (strcmp(feat, "sha2") == 0)
-                ASSERT(proc_has_feature(FEATURE_SHA256));
-            else if (strcmp(feat, "crc32") == 0)
-                ASSERT(proc_has_feature(FEATURE_CRC32));
-            else if (strcmp(feat, "sve") == 0)
-                ASSERT(proc_has_feature(FEATURE_SVE));
-            else if (strcmp(feat, "sha512") == 0)
-                ASSERT(proc_has_feature(FEATURE_SHA512));
-            else if (strcmp(feat, "atomics") == 0)
-                ASSERT(proc_has_feature(FEATURE_LSE));
-            else if (strcmp(feat, "bf16") == 0)
-                ASSERT(proc_has_feature(FEATURE_BF16));
-            else if (strcmp(feat, "jscvt") == 0)
-                ASSERT(proc_has_feature(FEATURE_JSCVT));
-            else if (strcmp(feat, "jscvt") == 0)
-                ASSERT(proc_has_feature(FEATURE_LRCPC));
-            else if (strcmp(feat, "sm3") == 0)
-                ASSERT(proc_has_feature(FEATURE_SM3));
-            else if (strcmp(feat, "sm4") == 0)
-                ASSERT(proc_has_feature(FEATURE_SM4));
-            else if (strcmp(feat, "i8mm") == 0)
-                ASSERT(proc_has_feature(FEATURE_I8MM));
-            else if (strcmp(feat, "rng") == 0)
-                ASSERT(proc_has_feature(FEATURE_RNG));
-            else if (strcmp(feat, "fphp") == 0)
-                ASSERT(proc_has_feature(FEATURE_FP16));
+        int i;
+        bool found = false;
+        for (i = 0; i < num_features_to_check && !found; i++) {
+            if (strcmp(feat, features[i].feature_name) == 0) {
+                ASSERT(proc_has_feature(features[i].feature_code));
+                found = true;
+            }
         }
         feat = strtok(NULL, " ");
     }
