@@ -6803,13 +6803,7 @@ execute_native_handler_using_cur_frame(dcontext_t *dcontext, int sig, byte *xsp)
     if (!TEST(SA_NOMASK, sigact_struct.flags))
         kernel_sigaddset(&blocked, sig);
 
-    // Emulate the app's sigmask for this signal, so that the kernel restores
-    // it on then native handler's return.
-    for (int i = 1; i <= MAX_SIGNUM; i++) {
-        if (kernel_sigismember(&blocked, i)) {
-            kernel_sigaddset((kernel_sigset_t *)&frame->uc.uc_sigmask, i);
-        }
-    }
+    // Emulate the app's sigmask for this signal.
     sigprocmask_syscall(SIG_SETMASK, &blocked, NULL, sizeof(blocked));
     void (*asm_jmp_tgt)() = SIGACT_PRIMARY_HANDLER(&sigact_struct);
     kernel_siginfo_t *siginfo_var = &((sigframe_rt_t *)xsp)->info;
