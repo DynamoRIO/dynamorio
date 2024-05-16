@@ -34,19 +34,11 @@
 #include "dr_api.h"
 #include "tools.h"
 
-#ifdef STANDALONE_DECODER
-#    define ASSERT(x)                                                              \
-        ((void)((!(x)) ? (fprintf(stderr, "ASSERT FAILURE: %s:%d: %s\n", __FILE__, \
-                                  __LINE__, #x),                                   \
-                          abort(), 0)                                              \
-                       : 0))
-#else
-#    define ASSERT(x)                                                                 \
-        ((void)((!(x)) ? (dr_fprintf(STDERR, "ASSERT FAILURE: %s:%d: %s\n", __FILE__, \
-                                     __LINE__, #x),                                   \
-                          dr_abort(), 0)                                              \
-                       : 0))
-#endif
+#define ASSERT(x)                                                                 \
+    ((void)((!(x)) ? (dr_fprintf(STDERR, "ASSERT FAILURE: %s:%d: %s\n", __FILE__, \
+                                 __LINE__, #x),                                   \
+                      dr_abort(), 0)                                              \
+                   : 0))
 
 /* We are not exporting the defines in core/ir/isa_regdeps/encoding_common.h, so we
  * redefine DR_ISA_REGDEPS alignment requirement here.
@@ -712,12 +704,8 @@ check_virtual_register_enum_values(void)
 int
 main(int argc, char *argv[])
 {
-#ifdef STANDALONE_DECODER
-    void *dcontext = GLOBAL_DCONTEXT;
-#else
     void *dcontext = dr_standalone_init();
     ASSERT(!dr_running_under_dynamorio());
-#endif
 
 #ifdef X86_64
     test_instr_create_encode_decode_disassemble_synthetic_x86_64(dcontext);
@@ -740,8 +728,6 @@ main(int argc, char *argv[])
     check_virtual_register_enum_values();
 
     print("All DR_ISA_REGDEPS tests are done.\n");
-#ifndef STANDALONE_DECODER
     dr_standalone_exit();
-#endif
     return 0;
 }
