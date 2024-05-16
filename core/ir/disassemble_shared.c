@@ -90,9 +90,9 @@ d_r_print_encoding_first_line_to_buffer(char *buf, size_t bufsz,
 
 void
 d_r_print_encoding_second_line_to_buffer(char *buf, size_t bufsz,
-                                            size_t *sofar DR_PARAM_INOUT, byte *pc,
-                                            byte *next_pc, int extra_sz,
-                                            const char *extra_bytes_prefix);
+                                         size_t *sofar DR_PARAM_INOUT, byte *pc,
+                                         byte *next_pc, int extra_sz,
+                                         const char *extra_bytes_prefix);
 
 void
 opnd_base_disp_scale_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
@@ -808,9 +808,8 @@ print_extra_bytes_to_file(file_t outfile, byte *pc, byte *next_pc, int extra_sz,
 {
     char buf[MAX_PC_DIS_SZ];
     size_t sofar = 0;
-    d_r_print_encoding_second_line_to_buffer(buf, BUFFER_SIZE_ELEMENTS(buf), &sofar,
-                                                pc, next_pc, extra_sz,
-                                                extra_bytes_prefix);
+    d_r_print_encoding_second_line_to_buffer(buf, BUFFER_SIZE_ELEMENTS(buf), &sofar, pc,
+                                             next_pc, extra_sz, extra_bytes_prefix);
     CLIENT_ASSERT(sofar < BUFFER_SIZE_ELEMENTS(buf) - 1, "internal buffer too small");
     os_write(outfile, buf, sofar);
 }
@@ -873,7 +872,7 @@ internal_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
                                                    extra_sz, extra_bytes_prefix);
         } else {
             d_r_print_encoding_second_line_to_buffer(buf, bufsz, sofar, pc, next_pc,
-                                                        extra_sz, extra_bytes_prefix);
+                                                     extra_sz, extra_bytes_prefix);
         }
     }
 

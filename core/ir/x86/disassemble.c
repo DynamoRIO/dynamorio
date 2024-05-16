@@ -91,9 +91,9 @@ d_r_print_encoding_first_line_to_buffer(char *buf, size_t bufsz,
 
 void
 d_r_print_encoding_second_line_to_buffer(char *buf, size_t bufsz,
-                                            size_t *sofar DR_PARAM_INOUT, byte *pc,
-                                            byte *next_pc, int extra_sz,
-                                            const char *extra_bytes_prefix)
+                                         size_t *sofar DR_PARAM_INOUT, byte *pc,
+                                         byte *next_pc, int extra_sz,
+                                         const char *extra_bytes_prefix)
 {
     int i;
     if (extra_sz > 0) {
