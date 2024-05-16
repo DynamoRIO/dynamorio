@@ -6786,6 +6786,7 @@ execute_native_handler_using_cur_frame(dcontext_t *dcontext, int sig, byte *xsp)
         return false;
     }
 
+#ifdef X86_64
     RSTATS_INC(num_signals);
     RSTATS_INC(num_native_signals);
 
@@ -6811,7 +6812,6 @@ execute_native_handler_using_cur_frame(dcontext_t *dcontext, int sig, byte *xsp)
     void (*asm_jmp_tgt)() = SIGACT_PRIMARY_HANDLER(&sigact_struct);
     kernel_siginfo_t *siginfo_var = &((sigframe_rt_t *)xsp)->info;
     kernel_ucontext_t *ucontext_var = &((sigframe_rt_t *)xsp)->uc;
-#ifdef X86_64
     asm volatile("mov %[jmp_tgt],  %%rcx\n\t"
                  "mov     %[sig],  %%rdi\n\t"
                  "mov %[siginfo],  %%rsi\n\t"
