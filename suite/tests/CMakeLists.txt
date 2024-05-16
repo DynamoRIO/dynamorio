@@ -2036,7 +2036,7 @@ if (NOT ANDROID)
   endif (AARCH64)
 endif ()
 
-# test synthetic DR_ISA_REGDEPS encoding/decoding
+# test synthetic DR_ISA_REGDEPS encoding, decoding, and disassembly
 tobuild_api(api.ir_regdeps api/ir_regdeps.c "" "" OFF OFF OFF)
 
 # test static decoder library
@@ -5979,7 +5979,6 @@ endif ()
 # support (drcachesim and other tools), or hit bugs in QEMU or in DR.
 if (NOT ANDROID AND AARCHXX)
   set_tests_properties(
-    code_api|api.ir_regdeps
     code_api|common.broadfun
     code_api|common.getretaddr
     code_api|common.nzcv
@@ -6110,7 +6109,6 @@ if (NOT ANDROID AND AARCHXX)
   endif ()
   if (ARM)
     set_tests_properties(
-      code_api|api.ir_regdeps
       code_api|common.allasm_arm
       code_api|common.allasm_thumb
       code_api|common.broadfun-stress
