@@ -6773,7 +6773,9 @@ execute_native_handler_using_cur_frame(dcontext_t *dcontext, int sig, byte *xsp)
     d_r_read_unlock(&detached_sigact_lock);
 
 #ifdef HAVE_SIGALTSTACK
-    if (has_sigstack && !USE_APP_SIGSTACK_EX(app_sigstack, &sigact_struct)) {
+    // Satisfy "will never be NULL" complain from the compiler.
+    kernel_sigaction_t *sigact = &sigact_struct;
+    if (has_sigstack && !USE_APP_SIGSTACK_EX(app_sigstack, sigact)) {
         // We are on the sigstack but we don't want to use it for signal delivery.
         return false;
     }
