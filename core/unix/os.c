@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -2952,10 +2952,16 @@ os_thread_under_dynamo(dcontext_t *dcontext)
 }
 
 void
-os_thread_not_under_dynamo(dcontext_t *dcontext)
+os_thread_not_under_dynamo(dcontext_t *dcontext, bool restore_sigblocked)
 {
     stop_itimer(dcontext);
-    signal_swap_mask(dcontext, true /*to app*/);
+    // The caller may not want to restore the app's sigblocked mask. E.g., when
+    // a thread is in DR's signal handler to handle the detach signal, it can
+    // restore the mask simply by setting it on the signal frame, which is
+    // better.
+    if (restore_sigblocked) {
+        signal_swap_mask(dcontext, true /*to app*/);
+    }
     os_swap_context(dcontext, true /*to app*/, DR_STATE_GO_NATIVE);
 }
 

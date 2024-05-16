@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -46,8 +46,8 @@
 
 extern vm_area_vector_t *fcache_unit_areas; /* from fcache.c */
 
-static bool started_detach = false; /* set before synchall */
-bool doing_detach = false;          /* set after synchall */
+bool started_detach = false; /* set before synchall */
+bool doing_detach = false;   /* set after synchall */
 thread_id_t detacher_tid = INVALID_THREAD_ID;
 
 static void

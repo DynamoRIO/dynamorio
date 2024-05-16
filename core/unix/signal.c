@@ -167,17 +167,20 @@ sig_is_alarm_signal(int sig)
  * We do not support the "legacy stack switching" that uses the restorer field
  * as seen in kernel sources.
  */
-#define APP_HAS_SIGSTACK(info) \
-    ((info)->app_sigstack.ss_sp != NULL && (info)->app_sigstack.ss_flags != SS_DISABLE)
+#define APP_HAS_SIGSTACK_EX(app_sigstack) \
+    (app_sigstack.ss_sp != NULL && app_sigstack.ss_flags != SS_DISABLE)
+#define APP_HAS_SIGSTACK(info) (APP_HAS_SIGSTACK_EX((info)->app_sigstack))
 
 /* Under normal circumstances the app's action[] entry is lazily initialized when the
  * app registers a signal handler, but during detach there are points where we
  * are still intercepting signals after action[sig] has been set to
  * zeros. To be extra defensive, we do a NULL check.
  */
-#define USE_APP_SIGSTACK(info, sig)                                    \
-    (APP_HAS_SIGSTACK(info) && (info)->sighand->action[sig] != NULL && \
-     TEST(SA_ONSTACK, (info)->sighand->action[sig]->flags))
+#define USE_APP_SIGSTACK_EX(app_sigstack, sigact)             \
+    (APP_HAS_SIGSTACK_EX(app_sigstack) && (sigact) != NULL && \
+     TEST(SA_ONSTACK, (sigact)->flags))
+#define USE_APP_SIGSTACK(info, sig) \
+    (USE_APP_SIGSTACK_EX((info)->app_sigstack, (info)->sighand->action[sig]))
 
 /* If we only intercept a few signals, we leave whether un-intercepted signals
  * are blocked unchanged and stored in the kernel.  If we intercept all (not
@@ -288,6 +291,10 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
 
 static bool
 execute_handler_from_dispatch(dcontext_t *dcontext, int sig);
+
+static void
+execute_native_handler_maybe_using_cur_frame(dcontext_t *dcontext, int sig,
+                                             sigframe_rt_t *our_frame, byte *xsp);
 
 static void
 execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame);
@@ -5609,7 +5616,7 @@ main_signal_handler_C(byte *xsp)
      */
     sigframe_rt_t *frame = (sigframe_rt_t *)((byte *)siginfo - sizeof(frame->mc));
     /* The kernel's method of aligning overshoots. */
-#    define KERNEL_ALIGN_BACK(val, align) (((val)-align) & -(align))
+#    define KERNEL_ALIGN_BACK(val, align) (((val) - align) & -(align))
     /* If this assert fails, we may be seeing an AVX512 frame. */
     ASSERT(KERNEL_ALIGN_BACK((ptr_uint_t)frame, 16) - 8 == (ptr_uint_t)xsp &&
            "AVX512 frames not yet supported");
@@ -5784,7 +5791,7 @@ main_signal_handler_C(byte *xsp)
         /* For can_always_delay[sig] we could just return and drop it, but we
          * try to perturb the app behavior less with a native signal frame:
          */
-        execute_native_handler(dcontext, sig, frame);
+        execute_native_handler_maybe_using_cur_frame(dcontext, sig, frame, xsp);
         return;
     }
 
@@ -6691,6 +6698,144 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
         memset(&detached_sigact[sig], 0, sizeof(detached_sigact[sig]));
         d_r_write_unlock(&detached_sigact_lock);
     }
+}
+
+// Attempts to execute the native signal handler by reusing the current frame
+// which is assumed to be at xsp. If it succeeds, it does not return. Otherwise
+// it returns a bool: false if DR should continue trying to deliver the signal.
+static bool
+execute_native_handler_using_cur_frame(dcontext_t *dcontext, int sig, byte *xsp)
+{
+    // For a signal that arrived when the thread is native and the process is in
+    // the middle of detaching, we should try to reuse the current DR signal
+    // frame to deliver it if possible. This is to avoid using up too much app
+    // stack, which has been seen to cause a stack overflow in the app (i#6814).
+    // If we cannot optimize, we fall back to the regular
+    // execute_native_handler() on returning.
+    //
+    // Summary of relevant events when DR starts detaching:
+    // D: Detacher thread sends suspend signal to all other threads
+    // O: each of the Other threads receive the suspend signal. Note that DR's
+    //    signal handling configuration blocks all signals except SIGSEGV and
+    //    the suspend signal. So at this point Other threads cannot receive
+    //    app signals. Other threads signal to the Detacher thread that they're
+    //    suspended and awaiting wakeup call to continue detaching (sig_detach).
+    // D: Detacher thread sets doing_detach to true. A side effect of this is
+    //    that get_thread_private_dcontext() will return NULL when any Other
+    //    thread tries to get its private dcontext.
+    // D: Detacher thread wakes up each Other thread, telling it to detach.
+    // O: Each Other thread wakes up, does sig_detach which reinstates the app
+    //    signal stack (if available) and the app's blocked signal set, lets the
+    //    Detacher thread know that its done detaching and resumes native
+    //    execution. Note that at this point, DR's sigact config is still
+    //    installed (including main_signal_handler). When the Other thread
+    //    return from the suspend signal, signals get unblocked automatically
+    //    and may now be delivered.
+    // <execute_native_handler_using_cur_frame may help here>
+    // D: When all threads are done detaching, the Detacher thread cleans up
+    //    each thread's drcontext for real, and also reinstates the app's
+    //    sigact in signal_thread_exit (which removes main_signal_handler).
+    //
+    // Therefore, if we arrive here and find doing_detach to be true and
+    // dcontext to be NULL, we can be certain that the current thread has
+    // completed sig_detach. This means the interrupted context stack (sc->XSP)
+    // must be the app's own regular stack.
+    //
+    // Also, if the thread has a signal stack at all for any signal, we will
+    // be on it (because DR sets SA_ONSTACK for all signals, and that config is
+    // still in effect), regardless of whether the signal stack was registered
+    // for sig. If the signal stack was actually not registered for sig, then we
+    // return true (indicating that DR should continue trying to deliver the
+    // signal).
+    if (dcontext != NULL || !doing_detach)
+        return false;
+
+    bool has_sigstack = false;
+#ifdef HAVE_SIGALTSTACK
+    stack_t app_sigstack;
+    IF_DEBUG(int rc =)
+    sigaltstack_syscall(NULL, &app_sigstack);
+    ASSERT(rc == 0);
+    if (APP_HAS_SIGSTACK_EX(app_sigstack)) {
+        has_sigstack = true;
+        // If the app has a sigstack, we must be on it.
+        ASSERT(app_sigstack.ss_sp < (void *)xsp &&
+               (void *)xsp < app_sigstack.ss_sp + app_sigstack.ss_size);
+        // In release build, we bail on this optimization and try to deliver the
+        // signal.
+        return false;
+    }
+#endif
+
+    kernel_sigaction_t sigact_struct;
+    d_r_read_lock(&detached_sigact_lock);
+    memcpy(&sigact_struct, &detached_sigact[sig], sizeof(sigact_struct));
+    d_r_read_unlock(&detached_sigact_lock);
+
+#ifdef HAVE_SIGALTSTACK
+    if (has_sigstack && !USE_APP_SIGSTACK_EX(app_sigstack, &sigact_struct)) {
+        // We are on the sigstack but we don't want to use it for signal delivery.
+        return false;
+    }
+#endif
+
+    if (sigact_struct.handler == (handler_t)SIG_IGN ||
+        sigact_struct.handler == (handler_t)SIG_DFL) {
+        // We handle logs, messages and asserts related to these cases in
+        // execute_native_handler() later.
+        return false;
+    }
+
+    RSTATS_INC(num_signals);
+    RSTATS_INC(num_native_signals);
+
+    sigframe_rt_t *frame = (sigframe_rt_t *)xsp;
+    kernel_ucontext_t *uc = get_ucontext_from_rt_frame(frame);
+    sigcontext_t *sc = SIGCXT_FROM_UCXT(uc);
+    report_app_problem(
+        /*dcontext=*/NULL, APPFAULT_FAULT, (byte *)sc->SC_XIP, (byte *)sc->SC_FP,
+        "\nSignal %d delivered to application handler reusing current frame.\n", sig);
+
+    kernel_sigset_t blocked = sigact_struct.mask;
+    if (!TEST(SA_NOMASK, sigact_struct.flags))
+        kernel_sigaddset(&blocked, sig);
+
+    // Emulate the app's sigmask for this signal, so that the kernel restores
+    // it on then native handler's return.
+    for (int i = 1; i <= MAX_SIGNUM; i++) {
+        if (kernel_sigismember(&blocked, i)) {
+            kernel_sigaddset((kernel_sigset_t *)&frame->uc.uc_sigmask, i);
+        }
+    }
+    sigprocmask_syscall(SIG_SETMASK, &blocked, NULL, sizeof(blocked));
+    void (*asm_jmp_tgt)() = SIGACT_PRIMARY_HANDLER(&sigact_struct);
+    kernel_siginfo_t *siginfo_var = &((sigframe_rt_t *)xsp)->info;
+    kernel_ucontext_t *ucontext_var = &((sigframe_rt_t *)xsp)->uc;
+#ifdef X86_64
+    asm volatile("mov %[jmp_tgt],  %%rcx\n\t"
+                 "mov     %[sig],  %%rdi\n\t"
+                 "mov %[siginfo],  %%rsi\n\t"
+                 "mov %[ucontext], %%rdx\n\t"
+                 "mov %[target_sp], %%rsp\n\t"
+                 "jmp *%%rcx\n\t"
+                 :
+                 : [jmp_tgt] "m"(asm_jmp_tgt), [sig] "m"(sig), [siginfo] "m"(siginfo_var),
+                   [ucontext] "m"(ucontext_var), [target_sp] "m"(xsp)
+                 : "rdi", "rsi", "rdx", "rcx", "rsp");
+    ASSERT_NOT_REACHED();
+#else
+    // TODO i#6814: Add support for other archs.
+#endif
+    return false;
+}
+
+static void
+execute_native_handler_maybe_using_cur_frame(dcontext_t *dcontext, int sig,
+                                             sigframe_rt_t *our_frame, byte *xsp)
+{
+    if (execute_native_handler_using_cur_frame(dcontext, sig, xsp))
+        return;
+    execute_native_handler(dcontext, sig, our_frame);
 }
 
 /* The arg to SYS_kill, i.e., the signal number, should be in dcontext->sys_param0 */
@@ -8433,8 +8578,11 @@ sig_detach(dcontext_t *dcontext, sigframe_rt_t *frame, KSYNCH_TYPE *detached)
     ASSERT(((sigframe_rt_t *)xsp)->uc.uc_stack.ss_sp == info->app_sigstack.ss_sp);
 #endif
 
-    /* Restore app segment registers. */
-    os_thread_not_under_dynamo(dcontext);
+    /* Restore app segment registers. It is important that we do not restore the
+     * app's sigblocked mask yet. It is better to let that happen automatically
+     * at signal return since we've already set it in the signal frame.
+     */
+    os_thread_not_under_dynamo(dcontext, /*restore_sigblocked=*/false);
     os_tls_thread_exit(dcontext->local_state);
 
 #ifdef HAVE_SIGALTSTACK
@@ -8583,16 +8731,30 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_siginfo_t *siginfo,
     ksynch_set_value(&ostd->suspended, 1);
     ksynch_wake_all(&ostd->suspended);
 
-    /* We're sitting on our sigaltstack w/ all signals blocked.  We're
-     * going to stay here but unblock all signals so we don't lose any
-     * delivered while we're waiting.  We're at a safe enough point (now
-     * that we've set ostd->suspended: i#5779) to re-enter
-     * main_signal_handler().  We use a mutex in thread_{suspend,resume} to
-     * prevent our own re-suspension signal from arriving before we've
-     * re-blocked on the resume.
+    bool unblocked_sigs = false;
+    /*
+     * Avoid various race conditions seen at detach time if a signal is
+     * delivered here (i#6814). This gets complicated because we are on the
+     * DR signal stack here; if a signal is delivered here:
+     * - makes it harder for execute_native_handler_using_cur_frame() to know
+     *   how far along the thread is in detach.
+     * - execute_native_handler() would need to switch away from the DR signal
+     *   stack and also use the app's interrupted context, rather than the DR
+     *   interrupted context that would be in the signal frame.
      */
-    sigprocmask_syscall(SIG_SETMASK, SIGMASK_FROM_UCXT(ucxt), &prevmask,
-                        sizeof(ucxt->uc_sigmask));
+    if (!started_detach) {
+        /* We're sitting on our sigaltstack w/ all signals blocked.  We're
+         * going to stay here but unblock all signals so we don't lose any
+         * delivered while we're waiting.  We're at a safe enough point (now
+         * that we've set ostd->suspended: i#5779) to re-enter
+         * main_signal_handler().  We use a mutex in thread_{suspend,resume} to
+         * prevent our own re-suspension signal from arriving before we've
+         * re-blocked on the resume.
+         */
+        sigprocmask_syscall(SIG_SETMASK, SIGMASK_FROM_UCXT(ucxt), &prevmask,
+                            sizeof(ucxt->uc_sigmask));
+        unblocked_sigs = true;
+    }
 
     /* i#96/PR 295561: use futex(2) if available */
     while (ksynch_get_value(&ostd->wakeup) == 0) {
@@ -8607,8 +8769,10 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_siginfo_t *siginfo,
     }
     LOG(THREAD, LOG_ASYNCH, 2, "handle_suspend_signal: awake now\n");
 
-    /* re-block so our exit from main_signal_handler is not interrupted */
-    sigprocmask_syscall(SIG_SETMASK, &prevmask, NULL, sizeof(prevmask));
+    if (unblocked_sigs) {
+        /* re-block so our exit from main_signal_handler is not interrupted */
+        sigprocmask_syscall(SIG_SETMASK, &prevmask, NULL, sizeof(prevmask));
+    }
     ostd->suspended_sigcxt = NULL;
 
     /* Notify os_thread_resume that it can return now, which (assuming
