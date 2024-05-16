@@ -6821,7 +6821,7 @@ execute_native_handler_using_cur_frame(dcontext_t *dcontext, int sig, byte *xsp)
                  :
                  : [jmp_tgt] "m"(asm_jmp_tgt), [sig] "m"(sig), [siginfo] "m"(siginfo_var),
                    [ucontext] "m"(ucontext_var), [target_sp] "m"(xsp)
-                   // Cannot add "rsp" as listing it in clobber list is deprecated.
+                 // Cannot add "rsp" as listing it in clobber list is deprecated.
                  : "rdi", "rsi", "rdx", "rcx");
     ASSERT_NOT_REACHED();
 #else
