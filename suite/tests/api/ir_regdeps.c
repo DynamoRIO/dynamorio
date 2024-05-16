@@ -120,6 +120,8 @@ test_instr_encode_decode_synthetic(void *dc, instr_t *instr,
     byte *pc_disasm = disassemble_to_buffer(dc, bytes, bytes, false, true, dbuf,
                                             BUFFER_SIZE_ELEMENTS(dbuf), &len);
 
+    print("DBUF\n%s\n", dbuf);
+
     /* We need dcontext ISA mode to still be DR_ISA_REGDEPS for dissassemble_to_buffer(),
      * as it calls decode() on synthetic regdepes encodings again. We restore the old mode
      * here, after disassembly.

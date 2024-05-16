@@ -5935,6 +5935,7 @@ if (APPLE)
     code_api|sample.signal
     code_api|api.ir
     code_api|api.ir-static
+    code_api|api.ir_regdeps
     code_api|api.drdecode
     code_api|linux.sigaction
     no_code_api,no_intercept_all_signals|linux.sigaction
@@ -5978,6 +5979,7 @@ endif ()
 # support (drcachesim and other tools), or hit bugs in QEMU or in DR.
 if (NOT ANDROID AND AARCHXX)
   set_tests_properties(
+    code_api|api.ir_regdeps
     code_api|common.broadfun
     code_api|common.getretaddr
     code_api|common.nzcv
@@ -6108,6 +6110,7 @@ if (NOT ANDROID AND AARCHXX)
   endif ()
   if (ARM)
     set_tests_properties(
+      code_api|api.ir_regdeps
       code_api|common.allasm_arm
       code_api|common.allasm_thumb
       code_api|common.broadfun-stress
@@ -6178,6 +6181,7 @@ if (RISCV64)
   set_tests_properties(
     code_api|api.ir
     code_api|api.ir-static
+    code_api|api.ir_regdeps
     code_api|client.app_args
     code_api|client.blackbox
     code_api|client.crashmsg
