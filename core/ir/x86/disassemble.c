@@ -66,8 +66,9 @@ reg_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT, reg_id_t 
 #define BYTES_PER_LINE 7
 
 int
-print_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT, byte *pc,
-                      byte *next_pc, instr_t *instr)
+d_r_print_encoding_first_line_to_buffer(char *buf, size_t bufsz,
+                                        size_t *sofar DR_PARAM_INOUT, byte *pc,
+                                        byte *next_pc, instr_t *instr)
 {
     int sz = (int)(next_pc - pc);
     int i, extra_sz;
@@ -89,9 +90,10 @@ print_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT, byt
 }
 
 void
-print_extra_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
-                            byte *pc, byte *next_pc, int extra_sz,
-                            const char *extra_bytes_prefix)
+d_r_print_encoding_second_line_to_buffer(char *buf, size_t bufsz,
+                                            size_t *sofar DR_PARAM_INOUT, byte *pc,
+                                            byte *next_pc, int extra_sz,
+                                            const char *extra_bytes_prefix)
 {
     int i;
     if (extra_sz > 0) {

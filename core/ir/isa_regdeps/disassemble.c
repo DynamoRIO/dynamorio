@@ -48,8 +48,9 @@
  * Returns the number of bytes that need to be printed on the second line.
  */
 int
-d_r_disassemble_regdeps_print_encoding_bytes_first_line_to_buffer(
-    char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT, byte *pc, byte *next_pc)
+d_r_regdeps_print_encoding_first_line(char *buf, size_t bufsz,
+                                      size_t *sofar DR_PARAM_INOUT, byte *pc,
+                                      byte *next_pc)
 {
     int sz = (int)(next_pc - pc);
     /* Sanity check. This should never happen.
@@ -87,9 +88,10 @@ d_r_disassemble_regdeps_print_encoding_bytes_first_line_to_buffer(
  * on the encoding length.
  */
 void
-d_r_disassemble_regdeps_print_encoding_bytes_second_line_to_buffer(
-    char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT, byte *pc, byte *next_pc,
-    int extra_sz, const char *extra_bytes_prefix)
+d_r_regdeps_print_encoding_second_line(char *buf, size_t bufsz,
+                                       size_t *sofar DR_PARAM_INOUT, byte *pc,
+                                       byte *next_pc, int extra_sz,
+                                       const char *extra_bytes_prefix)
 {
     /* Sanity check. This should never happen.
      */
