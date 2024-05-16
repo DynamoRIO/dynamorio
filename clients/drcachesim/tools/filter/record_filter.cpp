@@ -347,6 +347,13 @@ record_filter_t::open_new_chunk(per_shard_t *shard)
     return "";
 }
 
+std::string
+record_filter_t::initialize_stream(memtrace_stream_t *serial_stream)
+{
+    dcontext_.dcontext = dr_standalone_init();
+    return "";
+}
+
 void *
 record_filter_t::parallel_shard_init_stream(int shard_index, void *worker_data,
                                             memtrace_stream_t *shard_stream)
@@ -387,6 +394,7 @@ record_filter_t::parallel_shard_init_stream(int shard_index, void *worker_data,
         }
     }
     per_shard->record_filter_info.last_encoding = &per_shard->last_encoding;
+    per_shard->record_filter_info.dcontext = dcontext_.dcontext;
     std::lock_guard<std::mutex> guard(shard_map_mutex_);
     shard_map_[shard_index] = per_shard;
     return reinterpret_cast<void *>(per_shard);
