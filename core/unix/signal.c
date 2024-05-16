@@ -5616,7 +5616,7 @@ main_signal_handler_C(byte *xsp)
      */
     sigframe_rt_t *frame = (sigframe_rt_t *)((byte *)siginfo - sizeof(frame->mc));
     /* The kernel's method of aligning overshoots. */
-#    define KERNEL_ALIGN_BACK(val, align) (((val) - align) & -(align))
+#    define KERNEL_ALIGN_BACK(val, align) (((val)-align) & -(align))
     /* If this assert fails, we may be seeing an AVX512 frame. */
     ASSERT(KERNEL_ALIGN_BACK((ptr_uint_t)frame, 16) - 8 == (ptr_uint_t)xsp &&
            "AVX512 frames not yet supported");
