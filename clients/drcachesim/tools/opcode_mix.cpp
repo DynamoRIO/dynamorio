@@ -170,12 +170,13 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             return false;
         }
         /* If we are dealing with a regdeps trace, we need to set the dcontext ISA mode
-         * to the correct synthetic ISA (i.e., DR_ISA_REGDEPS). Because isa_mode in
-         * dcontext is a global resource, we guard its access to avoid data races
-         * (even though this is a benign data race, as all threads are writing the same
-         * isa_mode value).
+         * to the correct synthetic ISA (i.e., DR_ISA_REGDEPS).
          */
         if (TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, memref.marker.marker_value)) {
+            /* Because isa_mode in dcontext is a global resource, we guard its access to
+             * avoid data races (even though this is a benign data race, as all threads
+             * are writing the same isa_mode value).
+             */
             std::lock_guard<std::mutex> guard(dcontext_mutex_);
             dr_isa_mode_t isa_mode = dr_get_isa_mode(dcontext_.dcontext);
             if (isa_mode != DR_ISA_REGDEPS)
@@ -201,11 +202,16 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     /* At this point we start processing memref instructions, so we're past the header of
      * the trace, which contains the trace filetype. If we didn't encounter a
      * TRACE_MARKER_TYPE_FILETYPE we return an error and stop processing the trace.
+     * We expected the value of TRACE_MARKER_TYPE_FILETYPE to contain at least one of the
+     * enum values of offline_file_type_t (e.g., OFFLINE_FILE_TYPE_ARCH_), so
+     * OFFLINE_FILE_TYPE_DEFAULT (== 0) should never be present alone and can be used as
+     * uninitialized value of filetype for an error check.
      * XXX i#6812: we could allow traces that have some shards with no filetype, as long
      * as there is at least one shard with it, by caching the filetype from shards that
      * have it and using that one. We can do this using memtrace_stream_t::get_filetype(),
      * which requires updating opcode_mix to use parallel_shard_init_stream() rather than
-     * the current (and deprecated) parallel_shard_init().
+     * the current (and deprecated) parallel_shard_init(). However, we should first decide
+     * whether we want to allow traces that have some shards without a filetype.
      */
     if (shard->filetype == OFFLINE_FILE_TYPE_DEFAULT) {
         shard->error = "No file type found in this shard";

@@ -73,11 +73,12 @@ public:
 
         /**
          * Gives filters access to dcontext_t.
-         */
-        /* xref i#6690 i#1595: dcontext_t is not entirely thread-safe. AArch32 encoding
-         * and decoding is problematic as the global encode_state_t and decode_state_t are
+         * Note that dcontext_t is not entirely thread-safe. AArch32 encoding and
+         * decoding is problematic as the global encode_state_t and decode_state_t are
          * used for GLOBAL_DCONTEXT. Furthermore, modifying the ISA mode can lead to data
          * races.
+         */
+        /* xref i#6690 i#1595: multi-dcontext_t solution.
          */
         void *dcontext;
     };
