@@ -70,7 +70,7 @@ jobs:
     # Install cross-compiler for cross-compiling Linux build.
     # Unfortunately there are no libunwind or compression cross-compile
     # packages so we unpack the native versions and copy their files.
-    # Unfortunately, only kinetic (ubuntu 22.10) has linunwind-riscv64 packages.
+    # Unfortunately, only kinetic (ubuntu 22.10) has libunwind-riscv64 packages.
     # I prefer debian-ports here, it is more close to upstream.
     - name: Create Build Environment
       run: |
