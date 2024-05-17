@@ -135,12 +135,10 @@ dr_init(client_id_t client_id)
 
     feat = strtok(feat_str, " ");
     while (feat != NULL) {
-        int i;
-        bool found = false;
-        for (i = 0; i < num_features_to_check && !found; i++) {
+        for (int i = 0; i < num_features_to_check; i++) {
             if (strcmp(feat, features[i].feature_name) == 0) {
                 ASSERT(proc_has_feature(features[i].feature_code));
-                found = true;
+                break;
             }
         }
         feat = strtok(NULL, " ");
