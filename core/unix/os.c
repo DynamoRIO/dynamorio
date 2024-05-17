@@ -2957,8 +2957,8 @@ os_thread_not_under_dynamo(dcontext_t *dcontext, bool restore_sigblocked)
     stop_itimer(dcontext);
     // The caller may not want to restore the app's sigblocked mask. E.g., when
     // a thread is in DR's signal handler to handle the detach signal, it can
-    // restore the mask simply by setting it on the signal frame, which is
-    // better.
+    // restore the mask atomically with going native by setting it on the signal
+    // frame, which avoids races.
     if (restore_sigblocked) {
         signal_swap_mask(dcontext, true /*to app*/);
     }

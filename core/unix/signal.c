@@ -168,7 +168,7 @@ sig_is_alarm_signal(int sig)
  * as seen in kernel sources.
  */
 #define APP_HAS_SIGSTACK_EX(app_sigstack) \
-    (app_sigstack.ss_sp != NULL && app_sigstack.ss_flags != SS_DISABLE)
+    ((app_sigstack).ss_sp != NULL && (app_sigstack).ss_flags != SS_DISABLE)
 #define APP_HAS_SIGSTACK(info) (APP_HAS_SIGSTACK_EX((info)->app_sigstack))
 
 /* Under normal circumstances the app's action[] entry is lazily initialized when the
@@ -180,7 +180,7 @@ sig_is_alarm_signal(int sig)
     (APP_HAS_SIGSTACK_EX(app_sigstack) && (sigact) != NULL && \
      TEST(SA_ONSTACK, (sigact)->flags))
 #define USE_APP_SIGSTACK(info, sig) \
-    (USE_APP_SIGSTACK_EX((info)->app_sigstack, (info)->sighand->action[sig]))
+    (USE_APP_SIGSTACK_EX((info)->app_sigstack, (info)->sighand->action[(sig)]))
 
 /* If we only intercept a few signals, we leave whether un-intercepted signals
  * are blocked unchanged and stored in the kernel.  If we intercept all (not
@@ -6714,7 +6714,7 @@ execute_native_handler_using_cur_frame(dcontext_t *dcontext, int sig, byte *xsp)
     // execute_native_handler() on returning.
     //
     // Summary of relevant events when DR starts detaching:
-    // D: Detacher thread sends suspend signal to all other threads
+    // D: Detacher thread sends suspend signal to all other threads.
     // O: each of the Other threads receive the suspend signal. Note that DR's
     //    signal handling configuration blocks all signals except SIGSEGV and
     //    the suspend signal. So at this point Other threads cannot receive
@@ -6725,11 +6725,12 @@ execute_native_handler_using_cur_frame(dcontext_t *dcontext, int sig, byte *xsp)
     //    thread tries to get its private dcontext.
     // D: Detacher thread wakes up each Other thread, telling it to detach.
     // O: Each Other thread wakes up, does sig_detach which reinstates the app
-    //    signal stack (if available) and the app's blocked signal set, lets the
-    //    Detacher thread know that its done detaching and resumes native
+    //    signal stack (if available) and the app's blocked signal set on the
+    //    signal frame (it's restored on sigreturn from DR's handler), lets the
+    //    Detacher thread know that it's done detaching and resumes native
     //    execution. Note that at this point, DR's sigact config is still
     //    installed (including main_signal_handler). When the Other thread
-    //    return from the suspend signal, signals get unblocked automatically
+    //    returns from the suspend signal, signals get unblocked automatically
     //    and may now be delivered.
     // <execute_native_handler_using_cur_frame may help here>
     // D: When all threads are done detaching, the Detacher thread cleans up
@@ -6745,7 +6746,7 @@ execute_native_handler_using_cur_frame(dcontext_t *dcontext, int sig, byte *xsp)
     // be on it (because DR sets SA_ONSTACK for all signals, and that config is
     // still in effect), regardless of whether the signal stack was registered
     // for sig. If the signal stack was actually not registered for sig, then we
-    // return true (indicating that DR should continue trying to deliver the
+    // return false (indicating that DR should continue trying to deliver the
     // signal).
     if (dcontext != NULL || !doing_detach)
         return false;
@@ -6758,12 +6759,15 @@ execute_native_handler_using_cur_frame(dcontext_t *dcontext, int sig, byte *xsp)
     ASSERT(rc == 0);
     if (APP_HAS_SIGSTACK_EX(app_sigstack)) {
         has_sigstack = true;
-        // If the app has a sigstack, we must be on it.
-        ASSERT(app_sigstack.ss_sp < (void *)xsp &&
-               (void *)xsp < app_sigstack.ss_sp + app_sigstack.ss_size);
-        // In release build, we bail on this optimization and try to deliver the
-        // signal.
-        return false;
+        bool currently_on_sigstack = app_sigstack.ss_sp < (void *)xsp &&
+            (void *)xsp < app_sigstack.ss_sp + app_sigstack.ss_size;
+        if (!currently_on_sigstack) {
+            // If the app has a sigstack, we must be on it.
+            ASSERT_NOT_REACHED();
+            // In release build, we bail on this optimization and try to deliver the
+            // signal.
+            return false;
+        }
     }
 #endif
 
