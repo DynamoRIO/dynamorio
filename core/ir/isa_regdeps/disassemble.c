@@ -109,4 +109,8 @@ d_r_regdeps_print_encoding_second_line(char *buf, size_t bufsz,
             buf, bufsz, sofar, " %08x",
             *((uint *)(pc + REGDEPS_BYTES_PER_LINE + REGDEPS_BYTES_PER_WORD)));
     }
+
+    /* Add a new line at the end.
+     */
+    print_to_buffer(buf, bufsz, sofar, "\n");
 }

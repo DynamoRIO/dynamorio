@@ -186,7 +186,7 @@ test_instr_create_encode_decode_disassemble_synthetic_x86_64(void *dc)
     instr_reset(dc, instr);
     decode(dc, buf, instr);
     const char *expected_disasm_str_cmps = " 00000942 08090806 load [8byte]       %rv6 "
-                                           "%rv7 %rv32 %rv35 -> %rv6 %rv7\n 00252209";
+                                           "%rv7 %rv32 %rv35 -> %rv6 %rv7\n 00252209\n";
     test_instr_encode_decode_disassemble_synthetic(dc, instr, expected_disasm_str_cmps);
 
     instr = INSTR_CREATE_maskmovq(dc, opnd_create_reg(DR_REG_MM0),
@@ -195,7 +195,7 @@ test_instr_create_encode_decode_disassemble_synthetic_x86_64(void *dc)
     instr_reset(dc, instr);
     decode(dc, buf, instr);
     const char *expected_disasm_str_maskmovq =
-        " 00005040 13120906 store simd [8byte]       %rv7 %rv16 %rv17 %rv35\n 00000025";
+        " 00005040 13120906 store simd [8byte]       %rv7 %rv16 %rv17 %rv35\n 00000025\n";
     test_instr_encode_decode_disassemble_synthetic(dc, instr,
                                                    expected_disasm_str_maskmovq);
 
@@ -205,7 +205,7 @@ test_instr_create_encode_decode_disassemble_synthetic_x86_64(void *dc)
     instr_reset(dc, instr);
     decode(dc, buf, instr);
     const char *expected_disasm_str_xchg = " 00000022 020a0204 uncategorized [4byte]     "
-                                           "  %rv0 %rv8 -> %rv0 %rv8\n 0000000a";
+                                           "  %rv0 %rv8 -> %rv0 %rv8\n 0000000a\n";
     test_instr_encode_decode_disassemble_synthetic(dc, instr, expected_disasm_str_xchg);
 
     instr = INSTR_CREATE_add(dc, opnd_create_reg(DR_REG_RAX), OPND_CREATE_INT32(42));
@@ -254,7 +254,7 @@ test_instr_create_encode_decode_disassemble_synthetic_x86_64(void *dc)
     decode(dc, buf, instr);
     const char *expected_disasm_str_vdpbf16ps_mask =
         " 00000031 65646640 uncategorized [64byte]       %rv98 %rv99 %rv102 -> %rv100\n "
-        "00000068";
+        "00000068\n";
     test_instr_encode_decode_disassemble_synthetic(dc, instr,
                                                    expected_disasm_str_vdpbf16ps_mask);
 }
@@ -352,7 +352,7 @@ test_instr_create_encode_decode_disassemble_synthetic_aarch64(void *dc)
     instr_reset(dc, instr);
     decode(dc, buf, instr);
     const char *expected_disasm_str_ldpsw =
-        " 00000813 04030206 load [8byte]       %rv0 -> %rv0 %rv1 %rv2\n 00000002";
+        " 00000813 04030206 load [8byte]       %rv0 -> %rv0 %rv1 %rv2\n 00000002\n";
     test_instr_encode_decode_disassemble_synthetic(dc, instr, expected_disasm_str_ldpsw);
 }
 #endif
@@ -413,7 +413,7 @@ test_instr_create_encode_decode_disassemble_synthetic_riscv64(void *dc)
     decode(dc, buf, instr);
     const char *expected_disasm_str_fmadd_d =
         " 00000031 25234206 uncategorized [8byte]       %rv33 %rv35 %rv36 -> %rv64\n "
-        "00000026";
+        "00000026\n";
     test_instr_encode_decode_disassemble_synthetic(dc, instr,
                                                    expected_disasm_str_fmadd_d);
 }
