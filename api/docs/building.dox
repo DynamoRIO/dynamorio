@@ -255,7 +255,7 @@ Prepare cross-compiling environment for RISCV64:
 $ sudo apt-get -y install doxygen vera++ cmake crossbuild-essential-riscv64 git
 ```
 
-Some packages may need to be manually installed for cross-compiling environment. You can also refer to our [CI workflow file](https://github.com/DynamoRIO/dynamorio/blob/master/.github/workflows/ci-riscv64.yml) for creating RISCV64 build environment.
+Some packages may need to be manually installed for cross-compiling environment. You can also refer to our [CI workflow file](https://github.com/DynamoRIO/dynamorio/blob/master/.github/workflows/ci-riscv64.yml) for creating a RISCV64 build environment.
 
 ```
 $ sudo add-apt-repository 'deb [trusted=yes arch=riscv64] http://deb.debian.org/debian sid main'
