@@ -860,20 +860,20 @@ use_addr_prefix_on_short_disp(void)
 #include "encode_api.h"
 
 /* static version for drdecodelib */
-#define DEFAULT_ISA_MODE_STATIC                                                \
-    IF_X86_ELSE(IF_X64_ELSE(DR_ISA_AMD64, DR_ISA_IA32),                        \
-                IF_AARCHXX_ELSE(IF_X64_ELSE(DR_ISA_ARM_A64, DR_ISA_ARM_THUMB), \
-                                DR_ISA_RV64IMAFDC))
+#define DEFAULT_ISA_MODE_STATIC                 \
+    IF_X86_ELSE(                                \
+        IF_X64_ELSE(DR_ISA_AMD64, DR_ISA_IA32), \
+        IF_AARCHXX_ELSE(IF_X64_ELSE(DR_ISA_ARM_A64, DR_ISA_ARM_THUMB), DR_ISA_RV64))
 
 /* Use this one in DR proper.
  * This one is now static as well after we removed the runtime option that
  * used to be here: but I'm leaving the split to make it easier to add
  * an option in the future.
  */
-#define DEFAULT_ISA_MODE                                                       \
-    IF_X86_ELSE(IF_X64_ELSE(DR_ISA_AMD64, DR_ISA_IA32),                        \
-                IF_AARCHXX_ELSE(IF_X64_ELSE(DR_ISA_ARM_A64, DR_ISA_ARM_THUMB), \
-                                DR_ISA_RV64IMAFDC))
+#define DEFAULT_ISA_MODE                        \
+    IF_X86_ELSE(                                \
+        IF_X64_ELSE(DR_ISA_AMD64, DR_ISA_IA32), \
+        IF_AARCHXX_ELSE(IF_X64_ELSE(DR_ISA_ARM_A64, DR_ISA_ARM_THUMB), DR_ISA_RV64))
 
 /* For converting back from PC_AS_JMP_TGT on Thumb */
 #ifdef ARM
@@ -1788,7 +1788,7 @@ get_mcontext_frame_ptr(dcontext_t *dcontext, priv_mcontext_t *mc)
 #elif defined(AARCH64)
     case DR_ISA_ARM_A64: reg = mc->r29; break;
 #elif defined(RISCV64)
-    case DR_ISA_RV64IMAFDC: reg = mc->x8; break;
+    case DR_ISA_RV64: reg = mc->x8; break;
 #endif /* X86/ARM/AARCH64 */
     default: ASSERT_NOT_REACHED(); reg = 0;
     }
