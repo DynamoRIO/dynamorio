@@ -152,12 +152,15 @@ sig_is_alarm_signal(int sig)
 
 /* if no app sigaction, it's RT, since that's our handler */
 #ifdef LINUX
-#    define IS_RT_FOR_APP(info, sig)                        \
-        IF_X64_ELSE(true,                                   \
-                    ((info)->sighand->action[(sig)] == NULL \
-                         ? true                             \
-                         : (TEST(SA_SIGINFO, (info)->sighand->action[(sig)]->flags))))
+#    define IS_RT_FOR_APP_EX(sigact)  \
+        IF_X64_ELSE(true,             \
+                    ((sigact) == NULL \
+                         ? true       \
+                         : (TEST(SA_SIGINFO, (sigact)->flags))))
+#    define IS_RT_FOR_APP(info, sig) \
+        IS_RT_FOR_APP_EX((info)->sighand->action[(sig)])
 #elif defined(MACOS)
+#    define IS_RT_FOR_APP_EX(sigaction) (true)
 #    define IS_RT_FOR_APP(info, sig) (true)
 #endif
 
@@ -6776,6 +6779,11 @@ execute_native_handler_using_cur_frame(dcontext_t *dcontext, int sig, byte *xsp)
     memcpy(&sigact_struct, &detached_sigact[sig], sizeof(sigact_struct));
     d_r_read_unlock(&detached_sigact_lock);
 
+    if (!IS_RT_FOR_APP_EX(&sigact_struct)) {
+        // If the app wants a non-RT frame, we cannot reuse the DR signal frame
+        // which is RT.
+        return false;
+    }
 #ifdef HAVE_SIGALTSTACK
     // Satisfy "will never be NULL" complain from the compiler.
     kernel_sigaction_t *sigact = &sigact_struct;
@@ -6809,6 +6817,11 @@ execute_native_handler_using_cur_frame(dcontext_t *dcontext, int sig, byte *xsp)
 
     // Emulate the app's sigmask for this signal.
     sigprocmask_syscall(SIG_SETMASK, &blocked, NULL, sizeof(blocked));
+
+    // Directly jump to the native signal handler. Note that we cannot do this in the
+    // way execute_native_handler() does using sigreturn, because that would clobber
+    // some reg app values which we want to stay around for the native handler to
+    // potentially examine.
     void (*asm_jmp_tgt)() = SIGACT_PRIMARY_HANDLER(&sigact_struct);
     kernel_siginfo_t *siginfo_var = &((sigframe_rt_t *)xsp)->info;
     kernel_ucontext_t *ucontext_var = &((sigframe_rt_t *)xsp)->uc;
