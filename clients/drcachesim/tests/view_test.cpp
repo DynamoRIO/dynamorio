@@ -616,12 +616,14 @@ run_regdeps_test(void *drcontext)
         { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 2 } },
         { TRACE_TYPE_ENCODING, 8, { ENCODING_REGDEPS_ISA } },
         { TRACE_TYPE_INSTR, 3, { PC } },
-        { TRACE_TYPE_ENCODING, 16, { ENCODING_REGDEPS_ISA_vpmovmskb } },
+        { TRACE_TYPE_ENCODING, 8, { ENCODING_REGDEPS_ISA_vpmovmskb } },
         { TRACE_TYPE_INSTR, 4, { PC_vpmovmskb } },
-        { TRACE_TYPE_ENCODING, 16, { ENCODING_REGDEPS_ISA_vmovdqu } },
+        { TRACE_TYPE_ENCODING, 8, { ENCODING_REGDEPS_ISA_vmovdqu } },
         { TRACE_TYPE_INSTR, 4, { PC_vmovdqu } },
         { TRACE_TYPE_FOOTER, 0, { 0 } },
     } };
+
+    /* clang-format off */
     std::string expect =
         std::string(R"DELIM(           1           0:           3 <marker: version 3>
            2           0:           3 <marker: filetype 0x20e00>
@@ -629,30 +631,11 @@ run_regdeps_test(void *drcontext)
            4           0:           3 <marker: chunk instruction count 3>
            5           0:           3 <marker: timestamp 1002>
            6           0:           3 <marker: tid 3 on core 2>
-           7           1:           3 ifetch       )DELIM") +
-        std::string(R"DELIM(3 byte(s) @ 0x00007f6fdd3ec360 )DELIM") +
-        std::string(R"DELIM(00010011 move [8byte]       %rv4 -> %rv7
-)DELIM") +
-        std::string(R"DELIM(           7           1:           3)DELIM") +
-        std::string(
-            R"DELIM(                                             00060906
-)DELIM") +
-        std::string(R"DELIM(           8           2:           3 ifetch       )DELIM") +
-        std::string(R"DELIM(4 byte(s) @ 0x00007f6fdc76cb35 )DELIM") +
-        std::string(R"DELIM(00004011 simd [32byte]       %rv76 -> %rv1
-)DELIM") +
-        std::string(R"DELIM(           8           2:           3)DELIM") +
-        std::string(
-            R"DELIM(                                             004e0321
-)DELIM") +
-        std::string(R"DELIM(           9           3:           3 ifetch       )DELIM") +
-        std::string(R"DELIM(4 byte(s) @ 0x00007f6fdc76cb2d )DELIM") +
-        std::string(R"DELIM(00004811 load simd [32byte]       %rv7 -> %rv71
-)DELIM") +
-        std::string(R"DELIM(           9           3:           3)DELIM") +
-        std::string(
-            R"DELIM(                                             00094921
+           7           1:           3 ifetch       3 byte(s) @ 0x00007f6fdd3ec360 00010011 00060906 move [8byte]       %rv4 -> %rv7
+           8           2:           3 ifetch       4 byte(s) @ 0x00007f6fdc76cb35 00004011 004e0321 simd [32byte]       %rv76 -> %rv1
+           9           3:           3 ifetch       4 byte(s) @ 0x00007f6fdc76cb2d 00004811 00094921 load simd [32byte]       %rv7 -> %rv71
 )DELIM");
+    /* clang-format on */
 
     instrlist_t *ilist_unused = nullptr;
     view_nomod_test_t view(drcontext, *ilist_unused, 0, 0);
