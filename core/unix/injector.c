@@ -1248,7 +1248,7 @@ injectee_run_get_retval(dr_inject_info_t *info, void *dc, instrlist_t *ilist)
 #    elif defined(ARM)
     app_mode = TEST(EFLAGS_T, regs.uregs[16]) ? DR_ISA_ARM_THUMB : DR_ISA_ARM_A32;
 #    elif defined(RISCV64)
-    app_mode = DR_ISA_RV64IMAFDC;
+    app_mode = DR_ISA_RV64;
 #    else
 #        error Unsupported arch.
 #    endif
@@ -1802,7 +1802,7 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
 #    elif defined(ARM)
     app_mode = TEST(EFLAGS_T, regs.uregs[16]) ? DR_ISA_ARM_THUMB : DR_ISA_ARM_A32;
 #    elif defined(RISCV64)
-    app_mode = DR_ISA_RV64IMAFDC;
+    app_mode = DR_ISA_RV64;
 #    else
 #        error Unsupported arch.
 #    endif

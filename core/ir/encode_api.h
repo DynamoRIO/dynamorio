@@ -69,9 +69,9 @@ typedef enum _dr_isa_mode_t {
      */
     DR_ISA_ARM_A64,
     /**
-     * RISC-V (rv64imafdc).
+     * RISC-V (RV64).
      */
-    DR_ISA_RV64IMAFDC,
+    DR_ISA_RV64,
     /**
      * A synthetic ISA that has the purpose of preserving register dependencies and giving
      * hints on the type of operation an instruction performs.
