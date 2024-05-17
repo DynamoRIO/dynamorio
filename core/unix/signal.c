@@ -152,13 +152,9 @@ sig_is_alarm_signal(int sig)
 
 /* if no app sigaction, it's RT, since that's our handler */
 #ifdef LINUX
-#    define IS_RT_FOR_APP_EX(sigact)  \
-        IF_X64_ELSE(true,             \
-                    ((sigact) == NULL \
-                         ? true       \
-                         : (TEST(SA_SIGINFO, (sigact)->flags))))
-#    define IS_RT_FOR_APP(info, sig) \
-        IS_RT_FOR_APP_EX((info)->sighand->action[(sig)])
+#    define IS_RT_FOR_APP_EX(sigact) \
+        IF_X64_ELSE(true, ((sigact) == NULL ? true : (TEST(SA_SIGINFO, (sigact)->flags))))
+#    define IS_RT_FOR_APP(info, sig) IS_RT_FOR_APP_EX((info)->sighand->action[(sig)])
 #elif defined(MACOS)
 #    define IS_RT_FOR_APP_EX(sigaction) (true)
 #    define IS_RT_FOR_APP(info, sig) (true)
