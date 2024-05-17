@@ -6774,15 +6774,14 @@ execute_native_handler_using_cur_frame(dcontext_t *dcontext, int sig, byte *xsp)
     d_r_read_lock(&detached_sigact_lock);
     memcpy(&sigact_struct, &detached_sigact[sig], sizeof(sigact_struct));
     d_r_read_unlock(&detached_sigact_lock);
-
-    if (!IS_RT_FOR_APP_EX(&sigact_struct)) {
+    // Satisfy "will never be NULL" complain from the compiler.
+    kernel_sigaction_t *sigact = &sigact_struct;
+    if (!IS_RT_FOR_APP_EX(sigact)) {
         // If the app wants a non-RT frame, we cannot reuse the DR signal frame
         // which is RT.
         return false;
     }
 #ifdef HAVE_SIGALTSTACK
-    // Satisfy "will never be NULL" complain from the compiler.
-    kernel_sigaction_t *sigact = &sigact_struct;
     if (has_sigstack && !USE_APP_SIGSTACK_EX(app_sigstack, sigact)) {
         // We are on the sigstack but we don't want to use it for signal delivery.
         return false;
