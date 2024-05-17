@@ -586,11 +586,91 @@ run_chunk_tests(void *drcontext)
     return run_single_thread_chunk_test(drcontext) && run_serial_chunk_test(drcontext);
 }
 
+/* Test view tool on a OFFLINE_FILE_TYPE_ARCH_REGDEPS trace.
+ * The trace hardcoded in entries is X64, so we only test on X64 architectures here.
+ */
+bool
+run_regdeps_test(void *drcontext)
+{
+#ifdef X64
+    const memref_tid_t t1 = 3;
+    std::vector<memref_tid_t> tids = { t1 };
+    constexpr addr_t PC = 0x00007f6fdd3ec360;
+    constexpr addr_t PC_vpmovmskb = 0x00007f6fdc76cb35;
+    constexpr addr_t PC_vmovdqu = 0x00007f6fdc76cb2d;
+    constexpr addr_t ENCODING_REGDEPS_ISA = 0x0006090600010011;
+    constexpr addr_t ENCODING_REGDEPS_ISA_vpmovmskb = 0x004e032100004011;
+    constexpr addr_t ENCODING_REGDEPS_ISA_vmovdqu = 0x0009492100004811;
+    std::vector<std::vector<trace_entry_t>> entries = { {
+        { TRACE_TYPE_HEADER, 0, { 0x1 } },
+        { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 3 } },
+        { TRACE_TYPE_MARKER,
+          TRACE_MARKER_TYPE_FILETYPE,
+          { OFFLINE_FILE_TYPE_ARCH_REGDEPS | OFFLINE_FILE_TYPE_ENCODINGS |
+            OFFLINE_FILE_TYPE_SYSCALL_NUMBERS | OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS } },
+        { TRACE_TYPE_THREAD, 0, { t1 } },
+        { TRACE_TYPE_PID, 0, { t1 } },
+        { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 64 } },
+        { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, { 3 } },
+        { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 1002 } },
+        { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 2 } },
+        { TRACE_TYPE_ENCODING, 8, { ENCODING_REGDEPS_ISA } },
+        { TRACE_TYPE_INSTR, 3, { PC } },
+        { TRACE_TYPE_ENCODING, 16, { ENCODING_REGDEPS_ISA_vpmovmskb } },
+        { TRACE_TYPE_INSTR, 4, { PC_vpmovmskb } },
+        { TRACE_TYPE_ENCODING, 16, { ENCODING_REGDEPS_ISA_vmovdqu } },
+        { TRACE_TYPE_INSTR, 4, { PC_vmovdqu } },
+        { TRACE_TYPE_FOOTER, 0, { 0 } },
+    } };
+    std::string expect =
+        std::string(R"DELIM(           1           0:           3 <marker: version 3>
+           2           0:           3 <marker: filetype 0x20e00>
+           3           0:           3 <marker: cache line size 64>
+           4           0:           3 <marker: chunk instruction count 3>
+           5           0:           3 <marker: timestamp 1002>
+           6           0:           3 <marker: tid 3 on core 2>
+           7           1:           3 ifetch       )DELIM") +
+        std::string(R"DELIM(3 byte(s) @ 0x00007f6fdd3ec360 )DELIM") +
+        std::string(R"DELIM(00010011 move [8byte]       %rv4 -> %rv7
+)DELIM") +
+        std::string(R"DELIM(           7           1:           3)DELIM") +
+        std::string(
+            R"DELIM(                                             00060906
+)DELIM") +
+        std::string(R"DELIM(           8           2:           3 ifetch       )DELIM") +
+        std::string(R"DELIM(4 byte(s) @ 0x00007f6fdc76cb35 )DELIM") +
+        std::string(R"DELIM(00004011 simd [32byte]       %rv76 -> %rv1
+)DELIM") +
+        std::string(R"DELIM(           8           2:           3)DELIM") +
+        std::string(
+            R"DELIM(                                             004e0321
+)DELIM") +
+        std::string(R"DELIM(           9           3:           3 ifetch       )DELIM") +
+        std::string(R"DELIM(4 byte(s) @ 0x00007f6fdc76cb2d )DELIM") +
+        std::string(R"DELIM(00004811 load simd [32byte]       %rv7 -> %rv71
+)DELIM") +
+        std::string(R"DELIM(           9           3:           3)DELIM") +
+        std::string(
+            R"DELIM(                                             00094921
+)DELIM");
+
+    instrlist_t *ilist_unused = nullptr;
+    view_nomod_test_t view(drcontext, *ilist_unused, 0, 0);
+    std::string res = run_serial_test_helper(view, entries, tids);
+    if (res != expect) {
+        std::cerr << "Output mismatch: got |" << res << "| expected |" << expect << "|\n";
+        return false;
+    }
+#endif
+    return true;
+}
+
 int
 test_main(int argc, const char *argv[])
 {
     void *drcontext = dr_standalone_init();
-    if (run_limit_tests(drcontext) && run_chunk_tests(drcontext)) {
+    if (run_limit_tests(drcontext) && run_chunk_tests(drcontext) &&
+        run_regdeps_test(drcontext)) {
         std::cerr << "view_test passed\n";
         return 0;
     }
