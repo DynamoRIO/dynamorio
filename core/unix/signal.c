@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -178,14 +178,6 @@ sig_is_alarm_signal(int sig)
 #define USE_APP_SIGSTACK(info, sig)                                    \
     (APP_HAS_SIGSTACK(info) && (info)->sighand->action[sig] != NULL && \
      TEST(SA_ONSTACK, (info)->sighand->action[sig]->flags))
-
-/* If we only intercept a few signals, we leave whether un-intercepted signals
- * are blocked unchanged and stored in the kernel.  If we intercept all (not
- * quite yet: PR 297033, hence the need for this macro) we emulate the mask for
- * all.
- */
-#define EMULATE_SIGMASK(info, sig) \
-    (DYNAMO_OPTION(intercept_all_signals) || (info)->sighand->we_intercept[(sig)])
 
 /* i#27: custom data to pass to the child of a clone */
 /* PR i#149/403015: clone record now passed via a new dstack */
@@ -1055,8 +1047,6 @@ signal_info_init_sigaction(dcontext_t *dcontext, thread_sig_info_t *info)
     memset(&info->restorer_valid, -1, SIGARRAY_SIZE * sizeof(info->restorer_valid[0]));
     ASSIGN_INIT_LOCK_FREE(info->sighand->lock, sighand_lock);
     for (int i = 1; i <= MAX_SIGNUM; i++) {
-        if (!EMULATE_SIGMASK(info, i))
-            continue;
         info->sighand->threads_unmasked[i] = 1;
     }
 }
@@ -1159,8 +1149,6 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
             d_r_mutex_lock(&info->sighand->lock);
             info->sighand->refcount++;
             for (i = 1; i <= MAX_SIGNUM; i++) {
-                if (!EMULATE_SIGMASK(info, i))
-                    continue;
                 if (!kernel_sigismember(&info->app_sigblocked, i))
                     ATOMIC_INC(int, info->sighand->threads_unmasked[i]);
             }
@@ -1189,12 +1177,10 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
                         info->sighand->action[i]->handler);
                 }
                 /* No sighand synch needed since only this thread owns these. */
-                if (EMULATE_SIGMASK(info, i)) {
-                    if (!kernel_sigismember(&info->app_sigblocked, i))
-                        info->sighand->threads_unmasked[i] = 1;
-                    else
-                        info->sighand->threads_unmasked[i] = 0;
-                }
+                if (!kernel_sigismember(&info->app_sigblocked, i))
+                    info->sighand->threads_unmasked[i] = 1;
+                else
+                    info->sighand->threads_unmasked[i] = 0;
             }
             memcpy(info->sighand->we_intercept, record->info.sighand->we_intercept,
                    SIGARRAY_SIZE * sizeof(bool));
@@ -1255,54 +1241,22 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
          * i#2335.  We'll set them up when os_process_under_dynamorio_*() invokes
          * signal_reinstate_handlers().  All we do now is mark which signals we
          * want to intercept.
+         *
+         * PR 304708: to support client signal handlers without
+         * the complexity of per-thread and per-signal callbacks
+         * we always intercept all signals.  We also check here
+         * for handlers the app registered before our init.
          */
-        if (DYNAMO_OPTION(intercept_all_signals)) {
-            /* PR 304708: to support client signal handlers without
-             * the complexity of per-thread and per-signal callbacks
-             * we always intercept all signals.  We also check here
-             * for handlers the app registered before our init.
-             */
-            for (i = 1; i <= MAX_SIGNUM; i++) {
-                /* cannot intercept KILL or STOP */
-                if (signal_is_interceptable(i) &&
-                    /* FIXME PR 297033: we don't support intercepting DEFAULT_STOP /
-                     * DEFAULT_CONTINUE signals.  Once add support, update
-                     * dr_register_signal_event() comments.
-                     */
-                    default_action[i] != DEFAULT_STOP &&
-                    default_action[i] != DEFAULT_CONTINUE)
-                    info->sighand->we_intercept[i] = true;
-            }
-        } else {
-            /* We intercept the following signals ourselves.  If this is the first
-             * thread, currently doing DR init, the app handlers for these are in
-             * init_info.  We do not copy those handlers into info at this time as we're
-             * not equipped yet to deliver signals.  We wait for DR to start running the
-             * app (init can be separated from start for dr_app_* interfaces), when
-             * signal_reinstate_handlers() will record the app handlers.  Signals
-             * received in the meantime will go through execute_native_handler().
-             */
-            info->sighand->we_intercept[SIGSEGV] = true;
-            /* PR 313665: look for DR crashes on unaligned memory or mmap bounds */
-            info->sighand->we_intercept[SIGBUS] = true;
-            /* PR 212090: the signal we use to suspend threads */
-            info->sighand->we_intercept[SUSPEND_SIGNAL] = true;
-#ifdef PAPI
-            /* use SIGPROF for updating gui so it can be distinguished from SIGVTALRM */
-            info->sighand->we_intercept[SIGPROF] = true;
-#endif
-            /* vtalarm only used with pc profiling.  it interferes w/ PAPI
-             * so arm this signal only if necessary
-             */
-            if (INTERNAL_OPTION(profile_pcs)) {
-                info->sighand->we_intercept[SIGVTALRM] = true;
-            }
-            info->sighand->we_intercept[SIGALRM] = true;
-#ifdef SIDELINE
-            info->sighand->we_intercept[SIGCHLD] = true;
-#endif
-            /* i#61/PR 211530: the signal we use for nudges */
-            info->sighand->we_intercept[NUDGESIG_SIGNUM] = true;
+        for (i = 1; i <= MAX_SIGNUM; i++) {
+            /* cannot intercept KILL or STOP */
+            if (signal_is_interceptable(i) &&
+                /* FIXME PR 297033: we don't support intercepting DEFAULT_STOP /
+                 * DEFAULT_CONTINUE signals.  Once add support, update
+                 * dr_register_signal_event() comments.
+                 */
+                default_action[i] != DEFAULT_STOP &&
+                default_action[i] != DEFAULT_CONTINUE)
+                info->sighand->we_intercept[i] = true;
         }
 
         /* should be 1st thread */
@@ -1386,8 +1340,6 @@ signal_fork_init(dcontext_t *dcontext)
         info->sighand->is_shared = false;
         info->sighand->refcount = 0;
         for (i = 1; i <= MAX_SIGNUM; i++) {
-            if (!EMULATE_SIGMASK(info, i))
-                continue;
             /* No sighand synch needed since only this thread owns these. */
             if (!kernel_sigismember(&info->app_sigblocked, i))
                 info->sighand->threads_unmasked[i] = 1;
@@ -1518,8 +1470,6 @@ signal_thread_exit(dcontext_t *dcontext, bool other_thread)
         d_r_mutex_unlock(&info->sighand->lock);
     }
     for (i = 1; i <= MAX_SIGNUM; i++) {
-        if (!EMULATE_SIGMASK(info, i))
-            continue;
         if (!kernel_sigismember(&info->app_sigblocked, i))
             ATOMIC_DEC(int, info->sighand->threads_unmasked[i]);
     }
@@ -2162,6 +2112,10 @@ handle_post_sigaction(dcontext_t *dcontext, bool success, int sig,
 #endif
         }
     }
+#if 0 // TODO
+    // TODO: Seems like we can delete this if(), but the code itself doesn't
+    // reference intercept_all_signals.
+    // TODO: we_intercept can still be false
     /* If installing IGN or DFL, delete ours.
      * XXX: This is racy.  We can't hold the lock across the syscall, though.
      * What we should do is just drop support for -no_intercept_all_signals,
@@ -2182,6 +2136,7 @@ handle_post_sigaction(dcontext_t *dcontext, bool success, int sig,
         if (info->sighand->is_shared)
             d_r_mutex_unlock(&info->sighand->lock);
     }
+#endif // TODO
     return 0;
 }
 
@@ -2347,8 +2302,6 @@ clear_blocked(dcontext_t *dcontext, thread_sig_info_t *info)
 {
     ASSERT(OWN_MUTEX(&info->sigblocked_lock));
     for (int i = 1; i <= MAX_SIGNUM; i++) {
-        if (!EMULATE_SIGMASK(info, i))
-            continue;
         if (kernel_sigismember(&info->app_sigblocked, i))
             ATOMIC_INC(int, info->sighand->threads_unmasked[i]);
     }
@@ -2366,8 +2319,6 @@ set_blocked(dcontext_t *dcontext, kernel_sigset_t *set, bool absolute)
         clear_blocked(dcontext, info);
     } /* else, OR in the new set */
     for (i = 1; i <= MAX_SIGNUM; i++) {
-        if (!EMULATE_SIGMASK(info, i))
-            continue;
         if (kernel_sigismember(set, i) && !kernel_sigismember(&info->app_sigblocked, i)) {
             ATOMIC_DEC(int, info->sighand->threads_unmasked[i]);
             kernel_sigaddset(&info->app_sigblocked, i);
@@ -2414,8 +2365,6 @@ signal_swap_mask(dcontext_t *dcontext, bool to_app)
          * app_sigblocked to a new absolute set).
          */
         for (int i = 1; i <= MAX_SIGNUM; i++) {
-            if (!EMULATE_SIGMASK(info, i))
-                continue;
             if (kernel_sigismember(&info->app_sigblocked, i))
                 ATOMIC_INC(int, info->sighand->threads_unmasked[i]);
         }
@@ -2423,8 +2372,6 @@ signal_swap_mask(dcontext_t *dcontext, bool to_app)
         unblock_all_signals(&info->app_sigblocked);
         d_r_mutex_unlock(&info->sigblocked_lock);
         for (int i = 1; i <= MAX_SIGNUM; i++) {
-            if (!EMULATE_SIGMASK(info, i))
-                continue;
             if (kernel_sigismember(&info->app_sigblocked, i))
                 ATOMIC_DEC(int, info->sighand->threads_unmasked[i]);
         }
@@ -2498,50 +2445,31 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
             *error_code = EINVAL;
         return false;
     }
-    /* We intentionally do not check validity of oset here. This is because,
+
+    /* Emulate the syscall.
+     *
+     * We intentionally do not check validity of oset here. This is because,
      * for an unwriteable oset, the native sigprocmask syscall shows a weird
      * non-atomic behavior: it returns EFAULT, but also updates the app signal
      * mask. To replicate the same behavior, we allow the following code to
-     * update the app signal masks, which happens either by making the actual
-     * syscall (for -no_intercept_all_signals) or by updating app_sigblocked
-     * (for -intercept_all_signals). oset is checked in handle_post_sigprocmask
+     * update app_sigblocked. oset is checked in handle_post_sigprocmask
      * and any failures are returned to the app.
      */
-    /* If we're intercepting all, we emulate the whole thing */
-    bool execute_syscall = !DYNAMO_OPTION(intercept_all_signals);
     LOG(THREAD, LOG_ASYNCH, 2, "handle_sigprocmask how=%d\n", how);
     d_r_mutex_lock(&info->sigblocked_lock);
     if (oset != NULL)
         info->pre_syscall_app_sigblocked = info->app_sigblocked;
     if (app_set != NULL) {
         /* app_set was already read into safe_set above. */
-        if (execute_syscall) {
-            /* The syscall will execute, so remove from the set passed
-             * to it.   We restore post-syscall.
-             * XXX i#1187: we could crash here touching app memory -- could
-             * use TRY, but the app could pass read-only memory and it
-             * would work natively!  Better to swap in our own
-             * allocated data struct. This would prevent a second read (by
-             * the kernel) too, which might fail if it does not _remain_
-             * readable anymore.  There's a transparency issue w/
-             * races too if another thread looks at this memory.  This
-             * won't happen by default b/c -intercept_all_signals is
-             * on by default so we don't try to solve all these
-             * issues.
-             */
-            info->pre_syscall_app_sigprocmask = safe_set;
-        }
         if (how == SIG_BLOCK) {
             /* The set of blocked signals is the union of the current
              * set and the set argument.
              */
             for (i = 1; i <= MAX_SIGNUM; i++) {
-                if (EMULATE_SIGMASK(info, i) && kernel_sigismember(&safe_set, i)) {
+                if (kernel_sigismember(&safe_set, i)) {
                     if (!kernel_sigismember(&info->app_sigblocked, i))
                         ATOMIC_DEC(int, info->sighand->threads_unmasked[i]);
                     kernel_sigaddset(&info->app_sigblocked, i);
-                    if (execute_syscall)
-                        kernel_sigdelset(app_set, i);
                 }
             }
         } else if (how == SIG_UNBLOCK) {
@@ -2549,25 +2477,19 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
              *  blocked signals.
              */
             for (i = 1; i <= MAX_SIGNUM; i++) {
-                if (EMULATE_SIGMASK(info, i) && kernel_sigismember(&safe_set, i)) {
+                if (kernel_sigismember(&safe_set, i)) {
                     if (kernel_sigismember(&info->app_sigblocked, i))
                         ATOMIC_INC(int, info->sighand->threads_unmasked[i]);
                     kernel_sigdelset(&info->app_sigblocked, i);
-                    if (execute_syscall)
-                        kernel_sigdelset(app_set, i);
                 }
             }
         } else if (how == SIG_SETMASK) {
             /* The set of blocked signals is set to the argument set. */
             clear_blocked(dcontext, info);
             for (i = 1; i <= MAX_SIGNUM; i++) {
-                if (!EMULATE_SIGMASK(info, i))
-                    continue;
                 if (kernel_sigismember(&safe_set, i)) {
                     ATOMIC_DEC(int, info->sighand->threads_unmasked[i]);
                     kernel_sigaddset(&info->app_sigblocked, i);
-                    if (execute_syscall)
-                        kernel_sigdelset(app_set, i);
                 }
             }
         }
@@ -2590,14 +2512,12 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
     }
     d_r_mutex_unlock(&info->sigblocked_lock);
     DOLOG(4, LOG_ASYNCH, dump_unmasked(dcontext, __FUNCTION__););
-    if (!execute_syscall) {
-        int status = handle_post_sigprocmask(dcontext, how, app_set, oset, sigsetsize);
-        if (status != 0 && error_code != NULL) {
-            *error_code = status;
-        }
-        return false; /* skip syscall */
-    } else
-        return true;
+    int status = handle_post_sigprocmask(dcontext, how, app_set, oset, sigsetsize);
+    if (status != 0 && error_code != NULL) {
+        *error_code = status;
+    }
+    /* We emulate the syscall, so skip it. */
+    return false;
 }
 
 /* need to add in our signals that the app thinks are blocked */
@@ -2606,21 +2526,6 @@ handle_post_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
                         kernel_sigset_t *oset, size_t sigsetsize)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
-    int i;
-    if (!DYNAMO_OPTION(intercept_all_signals)) {
-        /* Restore app memory.
-         * XXX i#1187: See comment in handle_sigprocmask about read-only
-         * app_set. Ideally, we would replace app_set with our own copy
-         * pre-syscall so that we only need to restore a pointer to the original
-         * app copy post-syscall.
-         * In case of a write failure below, we do not return an EFAULT as it would
-         * be incorrect to expect app_set to be writeable. We try continuing and
-         * return a cloberred app_set to the app. This is low priority as
-         * -intercept_all_signals is true by default.
-         */
-        safe_write_ex(app_set, sizeof(*app_set), &info->pre_syscall_app_sigprocmask,
-                      NULL);
-    }
     if (oset != NULL) {
         /* Note that we check validity of oset post-syscall only, after the app's
          * blocked signal mask has been updated. If there's a fault writing oset,
@@ -2632,34 +2537,9 @@ handle_post_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
          * EFAULT. However, on Mac systems, a bad oset does not cause EFAULT
          * natively, so we fail the write silently.
          */
-        if (DYNAMO_OPTION(intercept_all_signals)) {
-            if (!safe_write_ex(oset, sizeof(*oset), &info->pre_syscall_app_sigblocked,
-                               NULL))
-                return IF_MACOS_ELSE(0, EFAULT);
-        } else {
-            bool write_fault = true;
-            TRY_EXCEPT(
-                dcontext,
-                {
-                    /* the syscall wrote to oset already, so just add any additional */
-                    for (i = 1; i <= MAX_SIGNUM; i++) {
-                        if (EMULATE_SIGMASK(info, i) &&
-                            /* use the pre-syscall value: do not take into account changes
-                             * from this syscall itself! (PR 523394)
-                             */
-                            kernel_sigismember(&info->pre_syscall_app_sigblocked, i)) {
-                            kernel_sigaddset(oset, i);
-                        }
-                    }
-                    write_fault = false;
-                },
-                {
-                    /* EXCEPT */
-                    /* nothing: write_fault is already true */
-                });
-            if (write_fault)
-                return IF_MACOS_ELSE(0, EFAULT);
-        }
+        if (!safe_write_ex(oset, sizeof(*oset), &info->pre_syscall_app_sigblocked,
+                           NULL))
+            return IF_MACOS_ELSE(0, EFAULT);
     }
     return 0;
 }
@@ -2676,7 +2556,7 @@ handle_sigsuspend(dcontext_t *dcontext, kernel_sigset_t *set, size_t sigsetsize)
     d_r_mutex_lock(&info->sigblocked_lock);
     clear_blocked(dcontext, info);
     for (i = 1; i <= MAX_SIGNUM; i++) {
-        if (EMULATE_SIGMASK(info, i) && kernel_sigismember(set, i)) {
+        if (kernel_sigismember(set, i)) {
             ATOMIC_DEC(int, info->sighand->threads_unmasked[i]);
             kernel_sigaddset(&info->app_sigblocked, i);
             kernel_sigdelset(set, i);
@@ -2704,7 +2584,7 @@ terminate_sigsuspend(dcontext_t *dcontext, thread_sig_info_t *info,
     clear_blocked(dcontext, info);
     info->app_sigblocked = info->app_sigblocked_save;
     for (int i = 1; i <= MAX_SIGNUM; i++) {
-        if (EMULATE_SIGMASK(info, i) && kernel_sigismember(&info->app_sigblocked, i)) {
+        if (kernel_sigismember(&info->app_sigblocked, i)) {
             ATOMIC_DEC(int, info->sighand->threads_unmasked[i]);
         }
     }
@@ -6705,8 +6585,6 @@ terminate_via_kill(dcontext_t *dcontext)
      * signals in signal_thread_exit().
      */
     for (int i = 1; i <= MAX_SIGNUM; i++) {
-        if (!EMULATE_SIGMASK(info, i))
-            continue;
         if (kernel_sigismember(&info->app_sigblocked, i))
             ATOMIC_INC(int, info->sighand->threads_unmasked[i]);
     }

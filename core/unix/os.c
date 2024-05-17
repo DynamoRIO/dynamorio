@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -5742,26 +5742,11 @@ handle_self_signal(dcontext_t *dcontext, uint sig)
      *
      * FIXME PR 297033: watch for SIGSTOP and SIGCONT.
      *
-     * With -intercept_all_signals, we only need to watch for SIGKILL
-     * and SIGSTOP here, and we avoid the FIXMEs below.  If it's fine
-     * for DR not to clean up on a SIGKILL, then SIGSTOP is all that's
-     * left (at least once we have PR 297033 and are intercepting the
-     * various STOP variations and CONT).
+     * We now always intercept all signals, which means we only need to watch
+     * for SIGKILL and SIGSTOP here. If it's fine for DR not to clean up on a
+     * SIGKILL, then SIGSTOP is all that's left (at least once we have PR
+     * 297033 and are intercepting the various STOP variations and CONT).
      */
-    if (sig == SIGABRT && !DYNAMO_OPTION(intercept_all_signals)) {
-        LOG(GLOBAL, LOG_TOP | LOG_SYSCALLS, 1,
-            "thread " TIDFMT " sending itself a SIGABRT\n", d_r_get_thread_id());
-        KSTOP(num_exits_dir_syscall);
-        /* FIXME: need to check whether app has a handler for SIGABRT! */
-        /* FIXME PR 211180/6723: this will do SYS_exit rather than the SIGABRT.
-         * Should do set_default_signal_action(SIGABRT) (and set a flag so
-         * no races w/ another thread re-installing?) and then SYS_kill.
-         */
-        block_cleanup_and_terminate(dcontext, SYSNUM_EXIT_THREAD, -1, 0,
-                                    (is_last_app_thread() && !dynamo_exited),
-                                    IF_MACOS_ELSE(dcontext->thread_port, 0), 0);
-        ASSERT_NOT_REACHED();
-    }
 }
 
 /***************************************************************************

@@ -102,9 +102,6 @@ endif (UNIX)
 set(main_run_list
   # our main configuration
   "SHORT::-code_api"
-  # no_intercept_all_signals tests.
-  # TODO i#5261: Remove this suite when -intercept_all_signals is deprecated.
-  "SHORT::LIN::ONLY::sigaction$::-no_code_api -no_intercept_all_signals"
   # sanity check: run single app to make sure these options aren't totally broken
   # i#1575: ARM doesn't yet support -coarse_units
   "SHORT::X86::ONLY::client.events$::-code_api -opt_memory"
@@ -5939,7 +5936,6 @@ if (APPLE)
     code_api|api.ir-static
     code_api|api.drdecode
     code_api|linux.sigaction
-    no_code_api,no_intercept_all_signals|linux.sigaction
     code_api|linux.sigaction.native
     PROPERTIES LABELS OSX)
   if (X86)
@@ -6223,7 +6219,6 @@ if (RISCV64)
     code_api|tool.drdisas
     code_api|tool.histogram
     code_api|tool.reuse_distance
-    no_code_api,no_intercept_all_signals|linux.sigaction
     PROPERTIES LABELS RUNS_ON_QEMU)
   if (DEBUG)
     set_tests_properties(
