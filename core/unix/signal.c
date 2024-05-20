@@ -291,7 +291,7 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig);
 
 static void
 execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame,
-                       byte *xsp);
+                       byte *cur_xsp);
 
 /* Execute default action from code cache and may terminate the process.
  * If returns, the return value decides if caller should restore
@@ -3524,8 +3524,8 @@ get_sigstack_frame_ptr(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
     if (frame != NULL) {
         /* Handle DR's frame already being on the app stack.  For native delivery we
          * already try to re-use this frame in execute_native_handler(), but that doesn't
-         * work with plain vs rt. Instead we move below and live with the downsides of a
-         * potential stack overflow.
+         * work with plain vs rt, and a few other cases. Here, we fall back to moving below
+         * and live with the downsides of a potential stack overflow.
          */
         size_t frame_sz_max = sizeof(sigframe_rt_t) + REDZONE_SIZE +
             IF_LINUX(IF_X86((sc->fpstate == NULL ? 0
@@ -6666,7 +6666,7 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame,
      * Therefore, if we arrive here and find doing_detach to be true and
      * dcontext to be NULL, we can be certain that the current thread has
      * completed sig_detach. This means the interrupted context stack (sc->XSP)
-     * must be the app's own regular stack.
+     * must be the app's own stack.
      *
      * Also, if the thread has a signal stack at all for any signal, we will
      * be on it (because DR sets SA_ONSTACK for all signals, and that config is
@@ -6703,8 +6703,7 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame,
         }
     }
 
-    /* Get the signals that are supposed to be blocked during handling of sig.
-     */
+    /* Get the signals that are supposed to be blocked during handling of sig. */
     kernel_sigset_t blocked;
     blocked = info->sighand->action[sig]->mask;
     if (!TEST(SA_NOMASK, (info->sighand->action[sig]->flags)))
@@ -8709,11 +8708,11 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_siginfo_t *siginfo,
      * Avoid various race conditions seen at detach time if a signal is
      * delivered here (i#6814). This gets complicated because we are on the
      * DR signal stack here; if a signal is delivered here:
-     * - makes it harder for execute_native_handler_using_cur_frame() to know
-     *   how far along the thread is in detach.
+     * - makes it harder for execute_native_handler() to know how far along
+     *   the thread is in detach.
      * - execute_native_handler() would need to switch away from the DR signal
-     *   stack and also use the app's interrupted context, rather than the DR
-     *   interrupted context that would be in the signal frame.
+     *   stack and also restore the app's interrupted context on the signal
+     *   frame (in place of the DR interrupted context present currently).
      */
     if (!started_detach) {
         /* We're sitting on our sigaltstack w/ all signals blocked.  We're
