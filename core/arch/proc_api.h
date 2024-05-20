@@ -188,7 +188,7 @@ typedef enum {
  * attribute registers.
  */
 typedef struct {
-    /** Array of ints representing attribute registers */
+    /** Array of ints representing attribute registers. */
     uint64 isa_features[AA64_NUM_FEAT_REGS];
 } features_t;
 
