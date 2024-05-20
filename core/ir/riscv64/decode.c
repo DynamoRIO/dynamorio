@@ -39,7 +39,7 @@
 bool
 is_isa_mode_legal(dr_isa_mode_t mode)
 {
-    return (mode == DR_ISA_RV64IMAFDC || mode == DR_ISA_REGDEPS);
+    return (mode == DR_ISA_RV64 || mode == DR_ISA_REGDEPS);
 }
 
 app_pc

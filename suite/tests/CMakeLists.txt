@@ -2036,7 +2036,7 @@ if (NOT ANDROID)
   endif (AARCH64)
 endif ()
 
-# test synthetic DR_ISA_REGDEPS encoding/decoding
+# test synthetic DR_ISA_REGDEPS encoding, decoding, and disassembly
 tobuild_api(api.ir_regdeps api/ir_regdeps.c "" "" OFF OFF OFF)
 
 # test static decoder library
@@ -5937,6 +5937,7 @@ if (APPLE)
     code_api|sample.signal
     code_api|api.ir
     code_api|api.ir-static
+    code_api|api.ir_regdeps
     code_api|api.drdecode
     code_api|linux.sigaction
     no_code_api,no_intercept_all_signals|linux.sigaction
@@ -6180,6 +6181,7 @@ if (RISCV64)
   set_tests_properties(
     code_api|api.ir
     code_api|api.ir-static
+    code_api|api.ir_regdeps
     code_api|client.app_args
     code_api|client.blackbox
     code_api|client.crashmsg
