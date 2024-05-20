@@ -273,6 +273,7 @@ enable_all_test_cpu_features()
     dr_set_sve_vector_length(256);
 }
 
+#ifndef DR_HOST_NOT_TARGET
 static uint64
 get_reg_val(feature_reg_idx_t feat_reg)
 {
@@ -351,6 +352,7 @@ check_extra_nibbles(feature_bit_t feature_bit)
 
     return false;
 }
+#endif /* DR_HOST_NOT_TARGET */
 
 bool
 proc_has_feature(feature_bit_t feature_bit)
