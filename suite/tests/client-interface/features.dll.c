@@ -117,7 +117,7 @@ static const struct feature_strings features[] = {
     { "sha512", FEATURE_SHA512 }, { "atomics", FEATURE_LSE }, { "bf16", FEATURE_BF16 },
     { "jscvt", FEATURE_JSCVT },   { "lrcpc", FEATURE_LRCPC }, { "sm3", FEATURE_SM3 },
     { "sm4", FEATURE_SM4 },       { "i8mm", FEATURE_I8MM },   { "rng", FEATURE_RNG },
-    { "fphp", FEATURE_FP16 }
+    { "fphp", FEATURE_FP16 },     { "mte", FEATURE_MTE2 },
 };
 
 DR_EXPORT void

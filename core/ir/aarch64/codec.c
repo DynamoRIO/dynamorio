@@ -4868,37 +4868,6 @@ encode_opnd_mem9q(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
     return encode_opnd_mem9_bytes(16, false, opnd, enc_out);
 }
 
-/* mem9_ldg_tag: Same as mem9_tag but fixed at offset with 0 bytes transferred */
-
-static inline bool
-decode_opnd_mem9_ldg_tag(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
-{
-    const reg_id_t Xn = decode_reg(extract_uint(enc, 5, 5), true, true);
-    const uint disp = extract_int(enc, 12, 9) << log2_tag_granule;
-
-    *opnd = opnd_create_base_disp_aarch64(Xn, DR_REG_NULL, DR_EXTEND_UXTX, false, disp, 0,
-                                          OPSZ_0);
-    return true;
-}
-
-static inline bool
-encode_opnd_mem9_ldg_tag(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
-{
-    uint xn;
-    if (!is_base_imm(opnd, &xn) || opnd_get_size(opnd) != OPSZ_0)
-        return false;
-
-    /* Disp must be multiple of 16 */
-    int disp = (int)opnd_get_disp(opnd);
-    IF_RETURN_FALSE((disp % (1 << log2_tag_granule)) != 0)
-
-    disp >>= log2_tag_granule;
-    IF_RETURN_FALSE(disp < -256 || disp > 255)
-
-    *enc_out = xn << 5 | (disp & 0x1ff) << 12;
-    return true;
-}
-
 /* prf9: prefetch variant of mem9 */
 
 static inline bool
@@ -6465,28 +6434,37 @@ encode_mem7_base_tag(uint enc, opnd_t opnd, OUT enum mem_op_index_t *index_type_
     return true;
 }
 
+static inline void
+decode_mem9_tag_index_type_and_size(uint enc, OUT enum mem_op_index_t *index_type_out,
+                                    OUT opnd_size_t *size_out)
+{
+#define OPSZ_tag OPSZ_0
+    const uint opc = extract_uint(enc, 22, 2);
+    const uint op2 = extract_uint(enc, 10, 2);
+
+    if (op2 == 0) {
+        *index_type_out = MEM_OP_INDEX_NONE;
+        *size_out = opc == 0 ? OPSZ_16   /* STZGM */
+                             : OPSZ_tag; /* LDG/STGM/LDGM/ */
+    } else {
+        *index_type_out = op2;
+        switch (extract_uint(enc, 22, 2)) {
+        case 0x1: *size_out = OPSZ_16; break; /* STZG */
+        case 0x3: *size_out = OPSZ_32; break; /* STZ2G */
+        default: *size_out = OPSZ_tag; break; /* STG/ST2G */
+        }
+    }
+}
+
 static inline bool
 decode_mem9_tag(uint enc, OUT opnd_t *opnd)
 {
-    // Post/Pre/None
-    const uint index_type = extract_uint(enc, 10, 2);
-    switch (index_type) {
-    case MEM_OP_INDEX_POST:
-    case MEM_OP_INDEX_NONE:
-    case MEM_OP_INDEX_PRE: break;
-    default: ASSERT_NOT_REACHED();
-    }
-
-    // Bytes to write
+    enum mem_op_index_t index_type;
     opnd_size_t bytes;
-    switch (extract_uint(enc, 22, 2)) {
-    case 0x1: bytes = OPSZ_16; break;
-    case 0x3: bytes = OPSZ_32; break;
-    default: bytes = OPSZ_0; break;
-    }
+    decode_mem9_tag_index_type_and_size(enc, &index_type, &bytes);
 
     const reg_id_t Xn = decode_reg(extract_uint(enc, 5, 5), true, true);
-    // Disp is zero for post-indexed
+    /* Disp is zero for post-indexed */
     const uint disp = index_type == MEM_OP_INDEX_POST
         ? 0
         : (extract_int(enc, 12, 9) << log2_tag_granule);
@@ -6500,31 +6478,19 @@ decode_mem9_tag(uint enc, OUT opnd_t *opnd)
 }
 
 static inline bool
-encode_mem9_base_tag(uint enc, opnd_t opnd, OUT enum mem_op_index_t *index_type_out,
-                     OUT uint *enc_out)
+encode_mem9_base_tag(uint enc, opnd_t opnd, enum mem_op_index_t index_type,
+                     opnd_size_t bytes, OUT uint *enc_out)
 {
-    /* Bytes to write */
-    opnd_size_t bytes;
-    switch (extract_uint(enc, 22, 2)) {
-    case 0x1: bytes = OPSZ_16; break;
-    case 0x3: bytes = OPSZ_32; break;
-    default: bytes = OPSZ_0; break;
-    }
-
     uint xn;
     if (!is_base_imm(opnd, &xn) || opnd_get_size(opnd) != bytes)
         return false;
 
     /* Check the indexed state matches the expected pre_index value */
-    const uint index_type = extract_uint(enc, 10, 2);
     if ((index_type == MEM_OP_INDEX_POST || index_type == MEM_OP_INDEX_NONE) &&
         opnd.value.base_disp.pre_index)
         return false;
     if (index_type == MEM_OP_INDEX_PRE && !opnd.value.base_disp.pre_index)
         return false;
-
-    if (index_type_out)
-        *index_type_out = index_type;
 
     *enc_out = xn << 5;
     return true;
@@ -6542,7 +6508,9 @@ static inline bool
 encode_opnd_mem9post_tag(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     enum mem_op_index_t index_type;
-    const bool result = encode_mem9_base_tag(enc, opnd, &index_type, enc_out);
+    opnd_size_t bytes;
+    decode_mem9_tag_index_type_and_size(enc, &index_type, &bytes);
+    const bool result = encode_mem9_base_tag(enc, opnd, index_type, bytes, enc_out);
 
     /* Operand only for post-index */
     IF_RETURN_FALSE(result && (index_type != MEM_OP_INDEX_POST))
@@ -6853,7 +6821,9 @@ static inline bool
 encode_opnd_mem9_tag(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     enum mem_op_index_t index_type;
-    if (!encode_mem9_base_tag(enc, opnd, &index_type, enc_out))
+    opnd_size_t bytes;
+    decode_mem9_tag_index_type_and_size(enc, &index_type, &bytes);
+    if (!encode_mem9_base_tag(enc, opnd, index_type, bytes, enc_out))
         return false;
 
     int disp;
@@ -9760,7 +9730,6 @@ decode_category(uint encoding, instr_t *instr)
 #include "opnd_encode_funcs.h"
 #include "decode_gen_sve2.h"
 #include "decode_gen_sve.h"
-#include "decode_gen_v86.h"
 #include "decode_gen_v85.h"
 #include "decode_gen_v84.h"
 #include "decode_gen_v83.h"
@@ -9769,7 +9738,6 @@ decode_category(uint encoding, instr_t *instr)
 #include "decode_gen_v80.h"
 #include "encode_gen_sve2.h"
 #include "encode_gen_sve.h"
-#include "encode_gen_v86.h"
 #include "encode_gen_v85.h"
 #include "encode_gen_v84.h"
 #include "encode_gen_v83.h"
