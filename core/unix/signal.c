@@ -3524,8 +3524,8 @@ get_sigstack_frame_ptr(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
     if (frame != NULL) {
         /* Handle DR's frame already being on the app stack.  For native delivery we
          * already try to re-use this frame in execute_native_handler(), but that doesn't
-         * work with plain vs rt, and a few other cases. Here, we fall back to moving below
-         * and live with the downsides of a potential stack overflow.
+         * work with plain vs rt, and a few other cases. Here, we fall back to moving
+         * below and live with the downsides of a potential stack overflow.
          */
         size_t frame_sz_max = sizeof(sigframe_rt_t) + REDZONE_SIZE +
             IF_LINUX(IF_X86((sc->fpstate == NULL ? 0
