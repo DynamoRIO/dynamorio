@@ -232,7 +232,6 @@
 -----------xxxxxxxxx------------  mem9off     # immed offset for mem9/mem9post
 -----------xxxxxxxxx------------  mem9off_tag # Same as mem9off, but performs memory tag scaling
 -----------xxxxxxxxx--xxxxx-----  mem9q      # size is 16 bytes
------------xxxxxxxxx--xxxxx-----  mem9_ldg_tag # Same as mem9_tag but fixed at offset with 0 bytes transferred
 -----------xxxxxxxxx--xxxxx-----  prf9       # size is 0 bytes (prefetch variant of mem9)
 -----------xxxxxxxxx--xxxxx-----  memregq    # register offset, size is 16 bytes
 -----------xxxxxxxxx--xxxxx-----  prfreg     # register offset, size is 0 (prefetch)

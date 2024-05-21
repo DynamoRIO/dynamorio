@@ -18334,4 +18334,77 @@
  */
 #define INSTR_CREATE_frint64z_vector(dc, Rd, Rn) \
     instr_create_1dst_1src(dc, OP_frint64z, Rd, Rn)
+
+/**
+ * Creates an STGM instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      STGM    <Xt>, [<Xn|SP>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The destination memory operand constructed with the function:
+ *             opnd_create_base_disp_aarch64(Rn, DR_REG_NULL, DR_EXTEND_UXTX, 0, 0, 0,
+ *             OPSZ_0)
+ *             Note that memory tag accesses are not treated as real/data memory
+ *             accesses by DynamoRIO, similar to prefetch and PC-relative address
+ *             manipulation instructions.
+ * \param Rt   The first source register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_stgm(dc, Rn, Rt) instr_create_1dst_1src(dc, OP_stgm, Rn, Rt)
+
+/**
+ * Creates an STZGM instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      STZGM    <Xt>, [<Xn|SP>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The destination memory operand constructed with the function:
+ *             opnd_create_base_disp_aarch64(Rn, DR_REG_NULL, DR_EXTEND_UXTX, 0, 0, 0,
+ *             OPSZ_16)
+ * \param Rt   The first source register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_stzgm(dc, Rn, Rt) instr_create_1dst_1src(dc, OP_stzgm, Rn, Rt)
+
+/**
+ * Creates an LDGM instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      LDGM    <Xt>, [<Xn|SP>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rt   The source register, X (Extended, 64 bits).
+ * \param Rn   The source base register, constructed with the function:
+ *             opnd_create_base_disp_aarch64(Rn, DR_REG_NULL, DR_EXTEND_UXTX, 0, 0, 0,
+ *             OPSZ_0)
+ *             Note that memory tag accesses are not treated as real/data memory
+ *             accesses by DynamoRIO, similar to prefetch and PC-relative address
+ *             manipulation instructions.
+ */
+#define INSTR_CREATE_ldgm(dc, Rt, Rn) instr_create_1dst_1src(dc, OP_ldgm, Rt, Rn)
+
+/**
+ * Creates an AXFLAG instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      AXFLAG
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_axflag(dc) instr_create_0dst_0src(dc, OP_axflag)
+
+/**
+ * Creates a XAFLAG instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      XAFLAG
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_xaflag(dc) instr_create_0dst_0src(dc, OP_xaflag)
 #endif /* DR_IR_MACROS_AARCH64_H */

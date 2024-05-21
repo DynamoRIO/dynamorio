@@ -67,7 +67,6 @@ public:
     parallel_shard_init(memtrace_stream_t *shard_stream,
                         bool partial_trace_filter) override
     {
-        dcontext_.dcontext = dr_standalone_init();
         return nullptr;
     }
 
@@ -77,6 +76,7 @@ public:
         record_filter_t::record_filter_info_t &record_filter_info) override
     {
         std::vector<trace_entry_t> *last_encoding = record_filter_info.last_encoding;
+        void *dcontext = record_filter_info.dcontext;
 
         /* Modify file_type to regdeps ISA, removing the real ISA of the input trace.
          */
@@ -117,10 +117,10 @@ public:
             /* Genenerate the real ISA instr_t by decoding the encoding bytes.
              */
             instr_t instr;
-            instr_init(dcontext_.dcontext, &instr);
-            app_pc next_pc = decode_from_copy(dcontext_.dcontext, encoding, pc, &instr);
+            instr_init(dcontext, &instr);
+            app_pc next_pc = decode_from_copy(dcontext, encoding, pc, &instr);
             if (next_pc == NULL || !instr_valid(&instr)) {
-                instr_free(dcontext_.dcontext, &instr);
+                instr_free(dcontext, &instr);
                 error_string_ =
                     "Failed to decode instruction " + to_hex_string(entry.addr);
                 return false;
@@ -129,9 +129,9 @@ public:
             /* Convert the real ISA instr_t into a regdeps ISA instr_t.
              */
             instr_t instr_regdeps;
-            instr_init(dcontext_.dcontext, &instr_regdeps);
-            instr_convert_to_isa_regdeps(dcontext_.dcontext, &instr, &instr_regdeps);
-            instr_free(dcontext_.dcontext, &instr);
+            instr_init(dcontext, &instr_regdeps);
+            instr_convert_to_isa_regdeps(dcontext, &instr, &instr_regdeps);
+            instr_free(dcontext, &instr);
 
             /* Obtain regdeps ISA instr_t encoding bytes.
              */
@@ -139,8 +139,8 @@ public:
                 encoding_regdeps[REGDEPS_MAX_ENCODING_LENGTH];
             memset(encoding_regdeps, 0, sizeof(encoding_regdeps));
             app_pc next_pc_regdeps =
-                instr_encode(dcontext_.dcontext, &instr_regdeps, encoding_regdeps);
-            instr_free(dcontext_.dcontext, &instr_regdeps);
+                instr_encode(dcontext, &instr_regdeps, encoding_regdeps);
+            instr_free(dcontext, &instr_regdeps);
             if (next_pc_regdeps == NULL) {
                 error_string_ =
                     "Failed to encode regdeps instruction " + to_hex_string(entry.addr);
@@ -190,19 +190,6 @@ public:
         filetype |= OFFLINE_FILE_TYPE_ARCH_REGDEPS;
         return filetype;
     }
-
-private:
-    struct dcontext_cleanup_last_t {
-    public:
-        ~dcontext_cleanup_last_t()
-        {
-            if (dcontext != nullptr)
-                dr_standalone_exit();
-        }
-        void *dcontext = nullptr;
-    };
-
-    dcontext_cleanup_last_t dcontext_;
 };
 
 } // namespace drmemtrace

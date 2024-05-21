@@ -210,6 +210,7 @@ bool
 process_entries_and_check_result(test_record_filter_t *record_filter,
                                  const std::vector<test_case_t> &entries, int index)
 {
+    record_filter->initialize_stream(nullptr);
     auto stream = std::unique_ptr<local_stream_t>(new local_stream_t());
     void *shard_data =
         record_filter->parallel_shard_init_stream(0, nullptr, stream.get());
@@ -294,7 +295,6 @@ test_encodings2regdeps_filter()
 {
     constexpr addr_t PC = 0x7f6fdd3ec360;
     constexpr addr_t PC2 = 0x7f6fdd3eb1f7;
-    // constexpr addr_t PC2 = 0x00007f6fdd3eb1f7;
     constexpr addr_t PC3 = 0x7f6fdd3eb21a;
     constexpr addr_t ENCODING_REAL_ISA = 0xe78948;
     constexpr addr_t ENCODING_REAL_ISA_2_PART1 = 0x841f0f66;
