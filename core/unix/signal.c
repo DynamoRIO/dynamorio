@@ -6751,7 +6751,7 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame,
             : [jmp_tgt] "m"(asm_jmp_tgt), [sig] "m"(sig), [siginfo] "m"(siginfo_var),
               [ucontext] "m"(ucontext_var), [target_sp] "m"(cur_xsp)
             /* Cannot add "sp" as listing it in clobber list is deprecated. */
-            : "x0", "x1", "x2", "x3");
+            : "x0", "x1", "x2", "x3", "x4");
 #    endif
         ASSERT_NOT_REACHED();
 #else
