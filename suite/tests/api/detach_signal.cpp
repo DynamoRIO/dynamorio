@@ -58,9 +58,6 @@
 #    define VPRINT(...) /* nothing */
 #endif
 
-/* SIGSTKSZ*2 results in a fatal error from DR on fitting the copied frame. */
-#define ALT_STACK_SIZE (SIGSTKSZ * 4)
-
 #ifdef MACOS
 #    define DR_SUSPEND_SIGNAL SIGFPE /* DR's takeover signal. */
 #else
@@ -149,9 +146,14 @@ sideline_spinner(void *arg)
     VPRINT("%d signaling sideline_ready\n", idx);
     signal_cond_var(sideline_ready[idx]);
 
+    /* (SIGSTKSZ * 1) results in a fatal error from DR on fitting the copied frame
+     * during native signal delivery if we do not attempt to reuse the same frame
+     * (i#6814).
+     */
+    size_t sigstack_size = SIGSTKSZ * (idx % 2 == 0 ? 1 : 4);
     stack_t sigstack;
-    sigstack.ss_sp = (char *)malloc(ALT_STACK_SIZE);
-    sigstack.ss_size = ALT_STACK_SIZE;
+    sigstack.ss_sp = (char *)malloc(sigstack_size);
+    sigstack.ss_size = sigstack_size;
     sigstack.ss_flags = 0;
     int res = sigaltstack(&sigstack, NULL);
     assert(res == 0);

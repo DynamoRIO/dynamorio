@@ -6711,7 +6711,6 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame,
 
     RSTATS_INC(num_signals);
     RSTATS_INC(num_native_signals);
-#ifdef X86_64
     if (reuse_cur_frame) {
         /* We've determined that we can reuse the current signal frame to
          * deliver sig to the native signal handler. We want to simply jump
@@ -6722,9 +6721,11 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame,
          */
         sigprocmask_syscall(SIG_SETMASK, &blocked, NULL, sizeof(blocked));
 
+#if defined(X86_64) || defined(AARCH64)
         void (*asm_jmp_tgt)() = SIGACT_PRIMARY_HANDLER(&sigact_struct);
         kernel_siginfo_t *siginfo_var = &our_frame->info;
         kernel_ucontext_t *ucontext_var = &our_frame->uc;
+#    ifdef X86_64
         asm volatile(
             "mov %[jmp_tgt],  %%rcx\n\t"
             "mov     %[sig],  %%rdi\n\t"
@@ -6737,12 +6738,27 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame,
               [ucontext] "m"(ucontext_var), [target_sp] "m"(cur_xsp)
             /* Cannot add "rsp" as listing it in clobber list is deprecated. */
             : "rdi", "rsi", "rdx", "rcx");
+#    else
+        asm volatile(
+            "ldr " ASM_R0 ", %[sig]\n\t"
+            "ldr " ASM_R1 ", %[siginfo]\n\t"
+            "ldr " ASM_R2 ", %[ucontext]\n\t"
+            "ldr " ASM_R4 ", %[target_sp]\n\t"
+            "ldr " ASM_R3 ", %[jmp_tgt]\n\t"
+            "mov " ASM_XSP ", " ASM_R4 "\n\t"
+            "br " ASM_R3 "\n\t"
+            :
+            : [jmp_tgt] "m"(asm_jmp_tgt), [sig] "m"(sig), [siginfo] "m"(siginfo_var),
+              [ucontext] "m"(ucontext_var), [target_sp] "m"(cur_xsp)
+            /* Cannot add "sp" as listing it in clobber list is deprecated. */
+            : "x0", "x1", "x2", "x3");
+#    endif
         ASSERT_NOT_REACHED();
-    }
 #else
-    /* TODO i#6814: Add support for other archs. */
-    reuse_cur_frame = false; /* Dead store, but we reset for clarity. */
+        /* TODO i#6814: Add support for other envs. */
+        reuse_cur_frame = false; /* Dead store, but we reset for clarity. */
 #endif
+    }
     /* We cannot reuse the current signal frame, therefore we create a copy. */
     byte *new_xsp = get_sigstack_frame_ptr(dcontext, info, sig, our_frame);
     copy_frame_to_stack(dcontext, info, sig, our_frame, (void *)new_xsp,
