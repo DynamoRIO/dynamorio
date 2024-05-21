@@ -1475,6 +1475,14 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_switch_sequences()
 }
 
 template <typename RecordType, typename ReaderType>
+bool
+scheduler_tmpl_t<RecordType, ReaderType>::process_next_initial_record(
+    input_info_t &input, RecordType record, bool found_filetype, bool found_timestamp)
+{
+    return !(found_filetype && found_timestamp);
+}
+
+template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::get_initial_input_content(
     bool gather_timestamps)
@@ -1507,7 +1515,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_initial_input_content(
                 }
                 if (record_type_is_timestamp(record, input.next_timestamp))
                     found_timestamp = true;
-                if (found_filetype && found_timestamp)
+                if (!process_next_initial_record(input, record, found_filetype,
+                                                 found_timestamp))
                     break;
             }
         }
@@ -1530,7 +1539,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_initial_input_content(
                 }
                 if (record_type_is_timestamp(record, input.next_timestamp))
                     found_timestamp = true;
-                if (found_filetype && found_timestamp)
+                if (!process_next_initial_record(input, record, found_filetype,
+                                                 found_timestamp))
                     break;
                 // Don't go too far if only looking for filetype, to avoid reaching
                 // the first instruction, which causes problems with ordinals when
@@ -2615,6 +2625,56 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
 }
 
 template <typename RecordType, typename ReaderType>
+void
+scheduler_tmpl_t<RecordType, ReaderType>::process_marker(input_info_t &input,
+                                                         output_ordinal_t output,
+                                                         trace_marker_type_t marker_type,
+                                                         uintptr_t marker_value)
+{
+    switch (marker_type) {
+    case TRACE_MARKER_TYPE_SYSCALL:
+        input.processing_syscall = true;
+        input.pre_syscall_timestamp = input.reader->get_last_timestamp();
+        break;
+    case TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL:
+        input.processing_maybe_blocking_syscall = true;
+        // Generally we should already have the timestamp from a just-prior
+        // syscall marker, but we support tests and other synthetic sequences
+        // with just a maybe-blocking.
+        input.pre_syscall_timestamp = input.reader->get_last_timestamp();
+        break;
+    case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START:
+        outputs_[output].in_context_switch_code = true;
+        ANNOTATE_FALLTHROUGH;
+    case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
+        outputs_[output].in_kernel_code = true;
+        break;
+    case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END:
+        // We have to delay until the next record.
+        outputs_[output].hit_switch_code_end = true;
+        ANNOTATE_FALLTHROUGH;
+    case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
+        outputs_[output].in_kernel_code = false;
+        break;
+    case TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH: {
+        if (!options_.honor_direct_switches)
+            break;
+        memref_tid_t target_tid = marker_value;
+        auto it = tid2input_.find(workload_tid_t(input.workload, target_tid));
+        if (it == tid2input_.end()) {
+            VPRINT(this, 1, "Failed to find input for target switch thread %" PRId64 "\n",
+                   target_tid);
+        } else {
+            input.switch_to_input = it->second;
+        }
+        break;
+    }
+    default: // Nothing to do.
+        break;
+    }
+}
+
+template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                                                       RecordType &record,
@@ -2781,22 +2841,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                 // boundaries so we live with those being before the switch.
                 // XXX: Once we insert kernel traces, we may have to try harder
                 // to stop before the post-syscall records.
-                if (options_.honor_direct_switches &&
-                    record_type_is_marker(record, marker_type, marker_value) &&
-                    marker_type == TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH) {
-                    memref_tid_t target_tid = marker_value;
-                    auto it =
-                        tid2input_.find(workload_tid_t(input->workload, target_tid));
-                    if (it == tid2input_.end()) {
-                        VPRINT(this, 1,
-                               "Failed to find input for target switch thread %" PRId64
-                               "\n",
-                               target_tid);
-                    } else {
-                        input->switch_to_input = it->second;
-                    }
-                } else if (record_type_is_instr_boundary(record,
-                                                         outputs_[output].last_record)) {
+                if (record_type_is_instr_boundary(record, outputs_[output].last_record)) {
                     if (syscall_incurs_switch(input, blocked_time)) {
                         // Model as blocking and should switch to a different input.
                         need_new_input = true;
@@ -2827,31 +2872,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                 // we'll want to make sure skipping while in these switch and kernel
                 // sequences is handled correctly.
             }
-            if (record_type_is_marker(record, marker_type, marker_value) &&
-                marker_type == TRACE_MARKER_TYPE_SYSCALL) {
-                input->processing_syscall = true;
-                input->pre_syscall_timestamp = input->reader->get_last_timestamp();
-            } else if (record_type_is_marker(record, marker_type, marker_value) &&
-                       marker_type == TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL) {
-                input->processing_maybe_blocking_syscall = true;
-                // Generally we should already have the timestamp from a just-prior
-                // syscall marker, but we support tests and other synthetic sequences
-                // with just a maybe-blocking.
-                input->pre_syscall_timestamp = input->reader->get_last_timestamp();
-            } else if (record_type_is_marker(record, marker_type, marker_value) &&
-                       (marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_START ||
-                        marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_START)) {
-                outputs_[output].in_kernel_code = true;
-                if (marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_START)
-                    outputs_[output].in_context_switch_code = true;
-            } else if (record_type_is_marker(record, marker_type, marker_value) &&
-                       (marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END ||
-                        marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_END)) {
-                outputs_[output].in_kernel_code = false;
-                if (marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_END) {
-                    // We have to delay until the next record.
-                    outputs_[output].hit_switch_code_end = true;
-                }
+            if (record_type_is_marker(record, marker_type, marker_value)) {
+                process_marker(*input, output, marker_type, marker_value);
             }
             if (options_.quantum_unit == QUANTUM_INSTRUCTIONS &&
                 record_type_is_instr_boundary(record, outputs_[output].last_record) &&
