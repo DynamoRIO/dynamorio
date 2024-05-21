@@ -1499,7 +1499,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_initial_input_content(
         input_info_t &input = inputs_[i];
         bool found_filetype = false;
         bool found_timestamp = !gather_timestamps || input.next_timestamp > 0;
-        if (!found_filetype || !found_timestamp) {
+        if (process_next_initial_record(input, create_invalid_record(), found_filetype,
+                                        found_timestamp)) {
             // First, check any queued records in the input.
             // XXX: Can we create a helper to iterate the queue and then the
             // reader, and avoid the duplicated loops here?  The challenge is
@@ -1522,7 +1523,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_initial_input_content(
         }
         if (input.next_timestamp > 0)
             found_timestamp = true;
-        if (!found_filetype || !found_timestamp) {
+        if (process_next_initial_record(input, create_invalid_record(), found_filetype,
+                                        found_timestamp)) {
             // If we didn't find our targets in the queue, request new records.
             if (input.needs_init) {
                 input.reader->init();

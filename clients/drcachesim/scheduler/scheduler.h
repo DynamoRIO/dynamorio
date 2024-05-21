@@ -1393,6 +1393,8 @@ protected:
     // Allow subclasses to perform custom initial marker processing during
     // get_initial_input_content().  Returns whether to keep reading.
     // The caller will stop calling when an instruction record is reached.
+    // The 'record' may have TRACE_TYPE_INVALID in some calls in which case
+    // the two bool parameters are what the return value should be based on.
     virtual bool
     process_next_initial_record(input_info_t &input, RecordType record,
                                 bool found_filetype, bool found_timestamp);
