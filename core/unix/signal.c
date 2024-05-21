@@ -6523,9 +6523,9 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
 
 /* Sends a signal to a currently-native thread.
  * dcontext can be NULL.
- * cur_xsp is the stack pointer seen by the DR signal handler. May be NULL for
- * paths where it's not readily available. It's currently used only during
- * native signal delivery during detach.
+ * cur_xsp is the stack pointer initially passed to the DR signal handler. May be NULL
+ * for paths where it's not readily available. It's needed during native signal delivery
+ * during detach so must be passed in those paths.
  */
 static void
 execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame,
