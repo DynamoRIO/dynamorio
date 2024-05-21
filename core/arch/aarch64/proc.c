@@ -267,7 +267,7 @@ enable_all_test_cpu_features()
         FEATURE_JSCVT,  FEATURE_DPB,        FEATURE_DPB2,    FEATURE_SVE2,
         FEATURE_SVEAES, FEATURE_SVEBitPerm, FEATURE_SVESHA3, FEATURE_SVESM4,
         FEATURE_MTE,    FEATURE_BTI,        FEATURE_FRINTTS, FEATURE_PAUTH2,
-        FEATURE_MTE2
+        FEATURE_MTE2,   FEATURE_FlagM2
     };
     for (int i = 0; i < BUFFER_SIZE_ELEMENTS(features); ++i) {
         proc_set_feature(features[i], true);

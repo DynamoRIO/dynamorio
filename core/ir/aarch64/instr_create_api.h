@@ -18386,4 +18386,25 @@
  */
 #define INSTR_CREATE_ldgm(dc, Rt, Rn) instr_create_1dst_1src(dc, OP_ldgm, Rt, Rn)
 
+/**
+ * Creates an AXFLAG instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      AXFLAG
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_axflag(dc) instr_create_0dst_0src(dc, OP_axflag)
+
+/**
+ * Creates a XAFLAG instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      XAFLAG
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_xaflag(dc) instr_create_0dst_0src(dc, OP_xaflag)
 #endif /* DR_IR_MACROS_AARCH64_H */

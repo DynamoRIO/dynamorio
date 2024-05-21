@@ -32,6 +32,9 @@
 # See dis-a64-sve.txt for the formatting.
 
 # Tests:
+# AXFLAG   (AXFLAG--flags)
+d5004f5f : axflag                                    : axflag
+
 d503241f : bti #0                         : bti    $0x00
 d503245f : bti #1                         : bti    $0x01
 d503249f : bti #2                         : bti    $0x02
@@ -847,4 +850,7 @@ d1afeef6 : subg x22, x23, #0x2f0, #0xb               : subg   %x23 $0x02f0 $0x0b
 d1b3f338 : subg x24, x25, #0x330, #0xc               : subg   %x25 $0x0330 $0x0c -> %x24
 d1b7f77a : subg x26, x27, #0x370, #0xd               : subg   %x27 $0x0370 $0x0d -> %x26
 d1bfffff : subg sp, sp, #0x3f0, #0xf                 : subg   %sp $0x03f0 $0x0f -> %sp
+
+# XAFLAG   (XAFLAG--flags)
+d5004f3f : xaflag                                    : xaflag
 
