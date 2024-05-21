@@ -6720,8 +6720,9 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame,
         /* Emulate the app's sigmask for this signal.
          */
         sigprocmask_syscall(SIG_SETMASK, &blocked, NULL, sizeof(blocked));
-
-#if defined(X86_64) || defined(AARCH64)
+#ifdef DR_HOST_NOT_TARGET
+        ASSERT_NOT_REACHED();
+#elif defined(X86_64) || defined(AARCH64)
         void (*asm_jmp_tgt)() = SIGACT_PRIMARY_HANDLER(&sigact_struct);
         kernel_siginfo_t *siginfo_var = &our_frame->info;
         kernel_ucontext_t *ucontext_var = &our_frame->uc;
