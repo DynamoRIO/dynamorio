@@ -456,8 +456,16 @@ test_encodings2regdeps_filter()
     {
         constexpr addr_t syscall_base =
             static_cast<addr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE);
+#ifdef LINUX
         constexpr addr_t syscall_num_futex = SYS_futex + syscall_base;
         constexpr addr_t syscall_num_fsync = SYS_fsync + syscall_base;
+#else
+        /* The following are just some random numbers, so we can still run this test in a
+         * non-LINUX environment.
+         */
+        constexpr addr_t syscall_num_futex = 7;
+        constexpr addr_t syscall_num_fsync = 77;
+#endif
         constexpr addr_t PC = 0x7f6fdd3ec360;
         constexpr addr_t ENCODING_REAL_ISA = 0xe78948;
         constexpr addr_t ENCODING_REGDEPS_ISA = 0x0006090600010011;
