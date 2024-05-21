@@ -37,6 +37,11 @@
 #include "trace_entry.h"
 #include "utils.h"
 
+#ifdef LINUX
+// XXX: We should have the core export this to an include dir.
+#    include "../../../../core/unix/include/syscall_target.h"
+#endif
+
 #include <cstring>
 #include <vector>
 
@@ -67,7 +72,9 @@ public:
     parallel_shard_init(memtrace_stream_t *shard_stream,
                         bool partial_trace_filter) override
     {
-        return nullptr;
+        per_shard_t *per_shard = new per_shard_t;
+        per_shard->output_syscall_func_markers = false;
+        return per_shard;
     }
 
     bool
@@ -75,19 +82,68 @@ public:
         trace_entry_t &entry, void *shard_data,
         record_filter_t::record_filter_info_t &record_filter_info) override
     {
+        /* Get per_shard private data.
+         */
+        per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
+
+        /* Get data from record_filter.
+         */
         std::vector<trace_entry_t> *last_encoding = record_filter_info.last_encoding;
         void *dcontext = record_filter_info.dcontext;
 
-        /* Modify file_type to regdeps ISA, removing the real ISA of the input trace.
-         */
         trace_type_t entry_type = static_cast<trace_type_t>(entry.type);
         if (entry_type == TRACE_TYPE_MARKER) {
             trace_marker_type_t marker_type =
                 static_cast<trace_marker_type_t>(entry.size);
-            if (marker_type == TRACE_MARKER_TYPE_FILETYPE) {
+            switch (marker_type) {
+            /* Modify file_type to regdeps ISA. Removes the real ISA of the input
+             * trace and adds OFFLINE_FILE_TYPE_ARCH_REGDEPS.
+             */
+            case TRACE_MARKER_TYPE_FILETYPE: {
                 uint64_t marker_value = static_cast<uint64_t>(entry.addr);
                 marker_value = update_filetype(marker_value);
                 entry.addr = static_cast<addr_t>(marker_value);
+                return true;
+            }
+            /* Output TRACE_MARKER_TYPE_FUNC_[ID | ARG | RETVAL] for SYS_futex syscalls.
+             */
+            case TRACE_MARKER_TYPE_FUNC_ID: {
+#ifdef LINUX
+                uintptr_t marker_value = static_cast<uintptr_t>(entry.addr);
+                uintptr_t syscall_base =
+                    static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE);
+                uintptr_t syscall_num = marker_value - syscall_base;
+                /* Function is a SYS_futex syscall, so we output the
+                 * TRACE_MARKER_TYPE_FUNC_ID marker.
+                 */
+                if (syscall_num >= 0 && syscall_num == SYS_futex) {
+                    per_shard->output_syscall_func_markers = true;
+                    return true;
+                }
+#endif
+                return false;
+            }
+            case TRACE_MARKER_TYPE_FUNC_ARG:
+                /* Output the TRACE_MARKER_TYPE_FUNC_ARG only if they are from a
+                 * SYS_futex syscall.
+                 */
+                return per_shard->output_syscall_func_markers;
+            case TRACE_MARKER_TYPE_FUNC_RETVAL:
+                if (per_shard->output_syscall_func_markers) {
+                    /* Output TRACE_MARKER_TYPE_FUNC_RETVAL, but stop the output of other
+                     * TRACE_MARKER_TYPE_FUNC_ markers.
+                     */
+                    per_shard->output_syscall_func_markers = false;
+                    return true;
+                }
+                return false;
+            /* In encodings2regdeps_filter_t we only handle
+             * TRACE_MARKER_TYPE_FILETYPE, TRACE_MARKER_TYPE_FUNC_ID,
+             * TRACE_MARKER_TYPE_FUNC_ARG, TRACE_MARKER_TYPE_FUNC_RETVAL. By default
+             * we output all other markers. We use type_filter_t to filter out
+             * additional markers in the public trace.
+             */
+            default: return true;
             }
         }
 
@@ -180,6 +236,8 @@ public:
     bool
     parallel_shard_exit(void *shard_data) override
     {
+        per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
+        delete per_shard;
         return true;
     }
 
@@ -190,6 +248,11 @@ public:
         filetype |= OFFLINE_FILE_TYPE_ARCH_REGDEPS;
         return filetype;
     }
+
+private:
+    struct per_shard_t {
+        bool output_syscall_func_markers;
+    };
 };
 
 } // namespace drmemtrace
