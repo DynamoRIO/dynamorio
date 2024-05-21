@@ -1390,6 +1390,15 @@ protected:
     scheduler_status_t
     get_initial_input_content(bool gather_timestamps);
 
+    // Allow subclasses to perform custom initial marker processing during
+    // get_initial_input_content().  Returns whether to keep reading.
+    // The caller will stop calling when an instruction record is reached.
+    // The 'record' may have TRACE_TYPE_INVALID in some calls in which case
+    // the two bool parameters are what the return value should be based on.
+    virtual bool
+    process_next_initial_record(input_info_t &input, RecordType record,
+                                bool found_filetype, bool found_timestamp);
+
     // Opens up all the readers for each file in 'path' which may be a directory.
     // Returns a map of the thread id of each file to its index in inputs_.
     scheduler_status_t
@@ -1548,6 +1557,12 @@ protected:
     // Used for diagnostics: prints record fields to stderr.
     void
     print_record(const RecordType &record);
+
+    // Process each marker seen for MAP_TO_ANY_OUTPUT during next_record().
+    // The input's lock must be held by the caller.
+    virtual void
+    process_marker(input_info_t &input, output_ordinal_t output,
+                   trace_marker_type_t marker_type, uintptr_t marker_value);
 
     // Returns the get_stream_name() value for the current input stream scheduled on
     // the 'output_ordinal'-th output stream.
