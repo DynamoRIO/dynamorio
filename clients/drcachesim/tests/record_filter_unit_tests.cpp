@@ -454,9 +454,9 @@ test_encodings2regdeps_filter()
     /* Test SYS_futex preservation.
      */
     {
+#ifdef LINUX
         constexpr addr_t syscall_base =
             static_cast<addr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE);
-#ifdef LINUX
         constexpr addr_t syscall_num_futex = SYS_futex + syscall_base;
         constexpr addr_t syscall_num_fsync = SYS_fsync + syscall_base;
 #else
