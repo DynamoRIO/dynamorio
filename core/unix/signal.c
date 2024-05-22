@@ -6722,7 +6722,7 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame,
          * interrupted app context.
          */
         for (int i = 1; i <= MAX_SIGNUM; i++) {
-            if (kernel_sigismember(&our_frame->uc.uc_sigmask, i)) {
+            if (kernel_sigismember((kernel_sigset_t *)&our_frame->uc.uc_sigmask, i)) {
                 kernel_sigaddset((kernel_sigset_t *)&blocked, i);
             }
         }
