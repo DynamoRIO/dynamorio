@@ -49,12 +49,8 @@
 #include "thread.h"
 #include "condvar.h"
 
-#include<string>
-#include<iostream>
-
-#define MAX_SIGNUM SIGRTMAX
 #define VERBOSE 0
-#define NUM_THREADS 2
+#define NUM_THREADS 10
 
 #if VERBOSE
 #    define VPRINT(...) print(__VA_ARGS__)
@@ -171,6 +167,7 @@ sideline_spinner(void *arg)
     sigaddset(&mask, SIGURG);
     res = sigprocmask(SIG_SETMASK, &mask, NULL);
     assert(res == 0);
+
     /* Now sit in a signal-generating loop. */
     while (!sideline_exit) {
         /* We generate 4 different signals to test different types. */
