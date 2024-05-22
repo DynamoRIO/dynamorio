@@ -6521,25 +6521,6 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
     return true;
 }
 
-static void
-print_sigset(const char* msg, kernel_sigset_t *ss) {
-    u_int64_t p=0;
-    char nz[200]="";
-    for (int i=1;i<=MAX_SIGNUM;++i) {
-        p<<=1;
-        if (kernel_sigismember(ss,i)) {
-            //nz += std::to_string(i);
-            //nz += ",";
-            //strcat(nz, itoa(i));
-            //strcat(nz,",");
-            dr_snprintf(nz, 200,"%s,%d",nz,i);
-            p|=1;
-        }
-    }
-    dr_fprintf(STDERR, "SSS %s: %llx, %s\n", msg, p, nz);
-}
-
-
 /* Sends a signal to a currently-native thread.
  * dcontext can be NULL.
  * cur_xsp is the stack pointer initially passed to the DR signal handler. May be NULL
@@ -6744,13 +6725,6 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame,
                 kernel_sigaddset((kernel_sigset_t *)&blocked, i);
             }
         }
-        kernel_sigset_t cur_sigb;
-        sigprocmask_syscall(SIG_SETMASK, NULL, &cur_sigb, sizeof(cur_sigb));
-        char tmp[100];
-        dr_snprintf(tmp, 100, "NNN cur_sigb before native deli sig=%d:", sig);
-        print_sigset(tmp, &cur_sigb);
-        dr_snprintf(tmp, 100, "NNN frame blocked before native deli sig=%d:", sig);
-        print_sigset(tmp, &our_frame->uc.uc_sigmask);
         sigprocmask_syscall(SIG_SETMASK, &blocked, NULL, sizeof(blocked));
 #ifdef DR_HOST_NOT_TARGET
         ASSERT_NOT_REACHED();
@@ -8578,7 +8552,6 @@ sig_detach(dcontext_t *dcontext, sigframe_rt_t *frame, KSYNCH_TYPE *detached)
         }
         d_r_read_unlock(&detached_sigact_lock);
     }
-    print_sigset("DDD detach restoring app ",&info->app_sigblocked);
     /* Update the mask of the signal frame so that the later sigreturn will
      * restore the app signal mask.
      */
@@ -8776,11 +8749,6 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_siginfo_t *siginfo,
         sigprocmask_syscall(SIG_SETMASK, SIGMASK_FROM_UCXT(ucxt), &prevmask,
                             sizeof(ucxt->uc_sigmask));
         unblocked_sigs = true;
-    } else {
-        kernel_sigset_t curmask;
-        sigprocmask_syscall(SIG_SETMASK, NULL, &curmask,
-                            sizeof(curmask));
-        print_sigset("DDD before wakeup-wait sigset: ", &curmask);
     }
 
     /* i#96/PR 295561: use futex(2) if available */

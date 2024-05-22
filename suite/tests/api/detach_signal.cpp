@@ -78,21 +78,6 @@ static std::atomic<int> count;
 static sigset_t handler_mask;
 
 static void
-print_sigset(std::string msg, sigset_t *ss) {
-    uint64_t p=0;
-    std::string nz;
-    for (int i=1;i<=MAX_SIGNUM;++i) {
-        p<<=1;
-        if (sigismember(ss,i)) {
-            nz += std::to_string(i);
-            nz += ",";
-            p|=1;
-        }
-    }
-    dr_fprintf(STDERR, "SSS %s: %llx, %s\n", msg.c_str(), p, nz.c_str());
-}
-
-static void
 handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
     /* Ensure the mask within the handler is correct. */
@@ -111,12 +96,6 @@ handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
     memcpy(&expect_mask2, &handler_mask, sizeof(expect_mask2));
     sigaddset(&expect_mask2, signal);
     sigaddset(&expect_mask2, DR_SUSPEND_SIGNAL);
-    if (!(memcmp(&expect_mask1, &actual_mask, sizeof(expect_mask1)) == 0 ||
-           memcmp(&expect_mask2, &actual_mask, sizeof(expect_mask2)) == 0)) {
-        print_sigset("HHH actual:",&actual_mask);
-        print_sigset("HHH expect_mask1:",&expect_mask1);
-        print_sigset("HHH expect_mask2:",&expect_mask2);
-    }
     assert(memcmp(&expect_mask1, &actual_mask, sizeof(expect_mask1)) == 0 ||
            memcmp(&expect_mask2, &actual_mask, sizeof(expect_mask2)) == 0);
 
@@ -192,7 +171,6 @@ sideline_spinner(void *arg)
     sigaddset(&mask, SIGURG);
     res = sigprocmask(SIG_SETMASK, &mask, NULL);
     assert(res == 0);
-    print_sigset("TTT thread mask:",&mask);
     /* Now sit in a signal-generating loop. */
     while (!sideline_exit) {
         /* We generate 4 different signals to test different types. */
@@ -256,7 +234,6 @@ main(void)
     res = sigprocmask(SIG_SETMASK, &prior_mask, NULL);
     assert(res == 0);
 
-    print_sigset("MMM handler mask:",&handler_mask);
     /* We request an alt stack for some signals but not all to test both types. */
     intercept_signal_with_mask(SIGSEGV, (handler_3_t)&handle_signal, true, &handler_mask);
     intercept_signal_with_mask(SIGBUS, (handler_3_t)&handle_signal, false, &handler_mask);
