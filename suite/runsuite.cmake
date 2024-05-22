@@ -101,7 +101,7 @@ if (UNIX AND NOT APPLE AND NOT ANDROID AND NOT cross_riscv64_linux_only)
     set(extra_ctest_args EXCLUDE_LABEL AMD_X32_DENYLIST)
   endif ()
 endif ()
-
+set(extra_ctest_args INCLUDE_LABEL TMATE_DEBUG)
 set(build_tests "BUILD_TESTS:BOOL=ON")
 
 if (arg_automated_ci)
