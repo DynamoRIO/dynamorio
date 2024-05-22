@@ -1,6 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2014-2022 Google, Inc.  All rights reserved.
- * Copyright (c) 2016 ARM Limited. All rights reserved.
+ * Copyright (c) 2016-2024 ARM Limited. All rights reserved.
  * **********************************************************/
 
 /*
@@ -43,6 +43,11 @@
  */
 #define POST instrlist_meta_postinsert
 #define PRE instrlist_meta_preinsert
+
+static reg_id_t
+pick_scratch_reg(dcontext_t *dcontext, instr_t *instr, reg_id_t do_not_pick_a,
+                 reg_id_t do_not_pick_b, reg_id_t do_not_pick_c, bool dead_reg_ok,
+                 ushort *scratch_slot DR_PARAM_OUT, bool *should_restore DR_PARAM_OUT);
 
 /* For ARM and AArch64, we always use TLS and never use hardcoded
  * dcontext (xref USE_SHARED_GENCODE_ALWAYS() and -private_ib_in_tls).
@@ -1346,6 +1351,201 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 #endif
 }
 
+#if defined(AARCH64)
+/* Insert instructions to perform pointer authentication on the target of a combined
+ * branch and authenticate instruction.
+ * `instr` must be a direct/indirect branch instruction with pointer authentication.
+ */
+static void
+insert_authenticate_pointer(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
+{
+    /* There are three scenarios here depending on which architecture features are
+     * implemented.
+     *
+     * FEAT_PAUTH:
+     *     None of the pauth instructions fault if authenication fails.
+     *     Instead AUTI* inserts an error code in to the pointer to leave it with a
+     *     non-canonical value so a subsequent branch to the address will fault.
+     *     On Linux SIGSEGV is raised with the non-canonical target address as the PC.
+     *
+     * FEAT_FPAC: (implies FEAT_PAUTH is also implemented)
+     *     AUTI* instructions generate a fault when authentication fails.
+     *     On Linux SIGILL will be raised with the faulting AUTI* instruction as the PC.
+     *     Combined authenticate and branch instructions (RETA*, BLRA*, BRA*) behaviour
+     *     is the same as FEAT_PAUTH.
+     *
+     * FEAT_FPACCOMBINE: (implies FEAT_PAUTH and FEAT_FPAC are also implemented)
+     *     AUTI* instructions behave the same as with FEAT_FPAC.
+     *     Combined authenicate and branch instructions behave the same way as AUTI*
+     *     when authentication fails.
+     *     On Linux SIGILL will be raised with the faulting instruction as the PC.
+     *
+     * For the FEAT_PAUTH and FEAT_PAUTHCOMBINE cases AUTI* and the combined auth+branch
+     * instructions we are mangling behave the same way so we can just insert an AUTI*
+     * to authenticate the pointer in IBL_TARGET_REG.
+     * For the FEAT_FPAC case AUTI* and the combined auth+branch instructions behave
+     * differently so we need to perform the authentication ourselves (see below).
+     */
+    ASSERT(proc_has_feature(FEATURE_PAUTH));
+    if (proc_has_feature(FEATURE_FPACCOMBINE) || !proc_has_feature(FEATURE_FPAC)) {
+        switch (instr_get_opcode(instr)) {
+        case OP_retaa:
+            PRE(ilist, instr,
+                INSTR_XL8(INSTR_CREATE_autia(dcontext, opnd_create_reg(IBL_TARGET_REG),
+                                             opnd_create_reg(DR_REG_SP)),
+                          instr_get_app_pc(instr)));
+            break;
+        case OP_retab:
+            PRE(ilist, instr,
+                INSTR_XL8(INSTR_CREATE_autib(dcontext, opnd_create_reg(IBL_TARGET_REG),
+                                             opnd_create_reg(DR_REG_SP)),
+                          instr_get_app_pc(instr)));
+            break;
+        case OP_braa:
+        case OP_blraa:
+            PRE(ilist, instr,
+                INSTR_XL8(INSTR_CREATE_autia(dcontext, opnd_create_reg(IBL_TARGET_REG),
+                                             instr_get_src(instr, 1)),
+                          instr_get_app_pc(instr)));
+            break;
+        case OP_brab:
+        case OP_blrab:
+            PRE(ilist, instr,
+                INSTR_XL8(INSTR_CREATE_autib(dcontext, opnd_create_reg(IBL_TARGET_REG),
+                                             instr_get_src(instr, 1)),
+                          instr_get_app_pc(instr)));
+            break;
+        case OP_braaz:
+        case OP_blraaz:
+            PRE(ilist, instr,
+                INSTR_XL8(INSTR_CREATE_autiza(dcontext, opnd_create_reg(IBL_TARGET_REG)),
+                          instr_get_app_pc(instr)));
+            break;
+        case OP_brabz:
+        case OP_blrabz:
+            PRE(ilist, instr,
+                INSTR_XL8(INSTR_CREATE_autizb(dcontext, opnd_create_reg(IBL_TARGET_REG)),
+                          instr_get_app_pc(instr)));
+            break;
+        default: ASSERT_NOT_REACHED();
+        }
+    } else {
+        /* If FEAT_FPAC is implemented, auti* instructions will generate a fault when
+         * authentication fails, but combined auth+branch instructions won't.
+         * We need to perform the authentication ourselves by stripping and re-signing
+         * the target pointer and comparing that to the original value.
+         * If they match the authentication passes. If they don't match the
+         * authentication has failed and we need to insert a 2-bit error code into the
+         * the address in IBL_TARGET_REG to leave it with a non-canonical value that
+         * should fault when the app tries to branch to it.
+         *
+         *     mov      scratch, IBL_TARGET_REG
+         *     xpaci    scratch                  // Remove PAC
+         *     paci*    scratch                  // Re-sign pointer
+         *     cmp      scratch, IBL_TARGET_REG  // Check addresses match
+         *     xpaci    IBL_TARGET_REG           // Remove PAC from target address
+         *     b.eq     end                      // Skip inserting error code if
+         *                                       // addresses match
+         * insert_error_code:
+         *     and      IBL_TARGET_REG, IBL_TARGET_REG, #error_code_mask
+         *     orr      IBL_TARGET_REG, IBL_TARGET_REG, #error_code
+         * end:
+         *     ...
+         */
+
+        reg_id_t modifier_reg = DR_REG_NULL;
+        switch (instr_get_opcode(instr)) {
+        case OP_braa:
+        case OP_blraa:
+        case OP_brab:
+        case OP_blrab: modifier_reg = opnd_get_reg(instr_get_src(instr, 1));
+        }
+
+        ushort slot;
+        bool should_restore;
+        reg_id_t scratch = pick_scratch_reg(dcontext, instr, IBL_TARGET_REG, modifier_reg,
+                                            DR_REG_NULL, true, &slot, &should_restore);
+        if (should_restore)
+            insert_save_to_tls_if_necessary(dcontext, ilist, instr, scratch, slot);
+
+        PRE(ilist, instr,
+            XINST_CREATE_move(dcontext, opnd_create_reg(scratch),
+                              opnd_create_reg(IBL_TARGET_REG)));
+        PRE(ilist, instr, INSTR_CREATE_xpaci(dcontext, opnd_create_reg(scratch)));
+
+        bool key_a;
+        switch (instr_get_opcode(instr)) {
+        case OP_retaa:
+            key_a = true;
+            PRE(ilist, instr,
+                INSTR_CREATE_pacia(dcontext, opnd_create_reg(scratch),
+                                   opnd_create_reg(DR_REG_SP)));
+            break;
+        case OP_retab:
+            key_a = false;
+            PRE(ilist, instr,
+                INSTR_CREATE_pacib(dcontext, opnd_create_reg(scratch),
+                                   opnd_create_reg(DR_REG_SP)));
+            break;
+        case OP_braa:
+        case OP_blraa:
+            key_a = true;
+            PRE(ilist, instr,
+                INSTR_CREATE_pacia(dcontext, opnd_create_reg(scratch),
+                                   instr_get_src(instr, 1)));
+            break;
+        case OP_brab:
+        case OP_blrab:
+            key_a = false;
+            PRE(ilist, instr,
+                INSTR_CREATE_pacib(dcontext, opnd_create_reg(scratch),
+                                   instr_get_src(instr, 1)));
+            break;
+        case OP_braaz:
+        case OP_blraaz:
+            key_a = true;
+            PRE(ilist, instr, INSTR_CREATE_paciza(dcontext, opnd_create_reg(scratch)));
+            break;
+        case OP_brabz:
+        case OP_blrabz:
+            key_a = false;
+            PRE(ilist, instr, INSTR_CREATE_pacizb(dcontext, opnd_create_reg(scratch)));
+            break;
+        default:
+            ASSERT_NOT_REACHED();
+            key_a = true; /* Quell compiler maybe-uninitialized warning. */
+        }
+
+        PRE(ilist, instr,
+            INSTR_CREATE_cmp(dcontext, opnd_create_reg(scratch),
+                             opnd_create_reg(IBL_TARGET_REG)));
+
+        PRE(ilist, instr, INSTR_CREATE_xpaci(dcontext, opnd_create_reg(IBL_TARGET_REG)));
+
+        instr_t *end_label = INSTR_CREATE_label(dcontext);
+        PRE(ilist, instr,
+            INSTR_PRED(INSTR_CREATE_bcond(dcontext, opnd_create_instr(end_label)),
+                       DR_PRED_EQ));
+
+        /* Insert the error code to make the address fault */
+        const uint64 error_code = key_a ? 1 : 2;
+        PRE(ilist, instr,
+            INSTR_CREATE_and(dcontext, opnd_create_reg(IBL_TARGET_REG),
+                             opnd_create_reg(IBL_TARGET_REG),
+                             OPND_CREATE_INT(~(3ULL << 53))));
+        PRE(ilist, instr,
+            INSTR_CREATE_orr(dcontext, opnd_create_reg(IBL_TARGET_REG),
+                             opnd_create_reg(IBL_TARGET_REG),
+                             OPND_CREATE_INT(error_code << 53)));
+
+        PRE(ilist, instr, end_label);
+
+        if (should_restore)
+            PRE(ilist, instr, instr_create_restore_from_tls(dcontext, scratch, slot));
+    }
+}
+#endif
+
 instr_t *
 mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                      instr_t *next_instr, bool mangle_calls, uint flags)
@@ -1365,12 +1565,14 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             XINST_CREATE_move(dcontext, opnd_create_reg(IBL_TARGET_REG),
                               instr_get_target(instr)));
     }
+
+    /* If the instruction is a branch with pointer authentication we need to authenticate
+     * the target pointer and restore its canonical value. */
     switch (opc) {
     case OP_blraa:
     case OP_blrab:
     case OP_blraaz:
-    case OP_blrabz:
-        PRE(ilist, instr, INSTR_CREATE_xpaci(dcontext, opnd_create_reg(IBL_TARGET_REG)));
+    case OP_blrabz: insert_authenticate_pointer(dcontext, ilist, instr);
     }
     insert_mov_immed_ptrsz(dcontext, get_call_return_address(dcontext, ilist, instr),
                            opnd_create_reg(DR_REG_X30), ilist, next_instr, NULL, NULL);
@@ -1457,8 +1659,7 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     case OP_braa:
     case OP_brab:
     case OP_braaz:
-    case OP_brabz:
-        PRE(ilist, instr, INSTR_CREATE_xpaci(dcontext, opnd_create_reg(IBL_TARGET_REG)));
+    case OP_brabz: insert_authenticate_pointer(dcontext, ilist, instr);
     }
 
     instrlist_remove(ilist, instr); /* remove OP_br or OP_ret */

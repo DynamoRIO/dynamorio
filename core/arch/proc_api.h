@@ -406,6 +406,11 @@ typedef enum {
     FEATURE_WFxT =
         DEF_FEAT(AA64ISAR2, 0, 2,
                  FEAT_EQ), /**< Wait for event / interrupt with timeout (AArch64) */
+    FEATURE_FPAC = DEF_FEAT(AA64ISAR2, 3, 4,
+                            FEAT_GR_EQ), /**< Faulting on AUTI* instructions (AArch64) */
+    FEATURE_FPACCOMBINE =
+        DEF_FEAT(AA64ISAR2, 3, 5, FEAT_GR_EQ), /**< Faulting on combined branch pointer
+                                                  authentication instructions (AArch64) */
 } feature_bit_t;
 
 #endif
