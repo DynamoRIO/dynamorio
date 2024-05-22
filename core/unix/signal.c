@@ -4909,9 +4909,9 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
         } else {
             LOG(THREAD, LOG_ASYNCH, 2, "Going to receive signal natively now\n");
             /* sc->SC_XSP is the interrupted stack pointer, not the one where the
-             * DR handler is executing.
+             * DR handler is executing. So, we cannot use it for the call below.
              */
-            execute_native_handler(dcontext, sig, frame, /*xsp=*/NULL);
+            execute_native_handler(dcontext, sig, frame, /*cur_xsp=*/NULL);
             handled = true;
         }
     } else if (safe_is_in_fcache(dcontext, pc, xsp)) {
@@ -6651,11 +6651,11 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame,
      *    thread tries to get its private dcontext.
      * D: Detacher thread wakes up each Other thread, telling it to detach.
      * O: Each Other thread wakes up, does sig_detach which reinstates the app
-     *    signal stack (if available) and the app's blocked signal set on the
-     *    signal frame (it's restored on sigreturn from DR's handler), lets the
-     *    Detacher thread know that it's done detaching and resumes native
-     *    execution. Note that at this point, DR's sigact config is still
-     *    installed (including main_signal_handler). When the Other thread
+     *    signal stack (if available), lets the Detacher thread know that it's
+     *    done detaching and resumes native execution via a sigreturn which
+     *    also restores the app's blocked signal set that was put on the
+     *    signal frame by sig_detach. Note that at this point, DR's sigact config
+     *    is still installed (including main_signal_handler). When the Other thread
      *    returns from the suspend signal, signals get unblocked automatically
      *    and may now be delivered.
      * <may be able to reuse current frame for signals delivered here>
@@ -6718,12 +6718,13 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame,
          * state currently in the frame (reg values, blocked sigmask).
          */
 
-        /* Emulate the app's sigmask for this signal, and the mask in the
+        /* Emulate the app's sigmask for the native signal delivery. This is the
+         * blocked mask for this signal and the current app sigmask in the
          * interrupted app context.
          */
         for (int i = 1; i <= MAX_SIGNUM; i++) {
             if (kernel_sigismember((kernel_sigset_t *)&our_frame->uc.uc_sigmask, i)) {
-                kernel_sigaddset((kernel_sigset_t *)&blocked, i);
+                kernel_sigaddset(&blocked, i);
             }
         }
         sigprocmask_syscall(SIG_SETMASK, &blocked, NULL, sizeof(blocked));
@@ -8575,7 +8576,7 @@ sig_detach(dcontext_t *dcontext, sigframe_rt_t *frame, KSYNCH_TYPE *detached)
 #endif
 
     /* Restore app segment registers. It is important that we do not restore the
-     * app's sigblocked mask yet. It is better to let that happen automatically
+     * app's blocked sigmask yet. It is better to let that happen automatically
      * at sigreturn since we've already set it in the signal frame.
      */
     os_thread_not_under_dynamo(dcontext, /*restore_sigblocked=*/false);
@@ -8736,7 +8737,7 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_siginfo_t *siginfo,
      *   the thread is in detach.
      * - execute_native_handler() would need to switch away from the DR signal
      *   stack and also restore the app's interrupted context on the signal
-     *   frame (in place of the DR interrupted context present currently).
+     *   frame (in place of the DR interrupted context that would be present).
      */
     if (!started_detach) {
         /* We're sitting on our sigaltstack w/ all signals blocked.  We're
