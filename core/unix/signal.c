@@ -6708,6 +6708,7 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame,
     blocked = info->sighand->action[sig]->mask;
     if (!TEST(SA_NOMASK, (info->sighand->action[sig]->flags)))
         kernel_sigaddset(&blocked, sig);
+
     RSTATS_INC(num_signals);
     RSTATS_INC(num_native_signals);
     if (reuse_cur_frame) {
@@ -8552,6 +8553,7 @@ sig_detach(dcontext_t *dcontext, sigframe_rt_t *frame, KSYNCH_TYPE *detached)
         }
         d_r_read_unlock(&detached_sigact_lock);
     }
+
     /* Update the mask of the signal frame so that the later sigreturn will
      * restore the app signal mask.
      */
@@ -8724,7 +8726,6 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_siginfo_t *siginfo,
     ASSERT(ksynch_get_value(&ostd->suspended) == 0);
     ksynch_set_value(&ostd->suspended, 1);
     ksynch_wake_all(&ostd->suspended);
-
 
     bool unblocked_sigs = false;
     /*
