@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -445,6 +445,7 @@ extern bool dynamo_all_threads_synched; /* are all other threads suspended safel
  * so this is always set on Windows.
  */
 extern bool dynamo_control_via_attach;
+extern bool started_detach;
 /* Not guarded by DR_APP_EXPORTS because later detach implementations might not
  * go through the app interface.
  */
