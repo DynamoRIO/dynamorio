@@ -6727,7 +6727,6 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame,
     blocked = info->sighand->action[sig]->mask;
     if (!TEST(SA_NOMASK, (info->sighand->action[sig]->flags)))
         kernel_sigaddset(&blocked, sig);
-
     RSTATS_INC(num_signals);
     RSTATS_INC(num_native_signals);
     if (reuse_cur_frame) {
@@ -6736,8 +6735,22 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame,
          * to the handler, without a sigreturn. This way we preserve the app
          * state currently in the frame (reg values, blocked sigmask).
          */
-        /* Emulate the app's sigmask for this signal.
+
+        /* Emulate the app's sigmask for this signal, and the mask in the
+         * interrupted app context.
          */
+        for (int i = 1; i <= MAX_SIGNUM; i++) {
+            if (kernel_sigismember(&our_frame->uc.uc_sigmask, i)) {
+                kernel_sigaddset((kernel_sigset_t *)&blocked, i);
+            }
+        }
+        kernel_sigset_t cur_sigb;
+        sigprocmask_syscall(SIG_SETMASK, NULL, &cur_sigb, sizeof(cur_sigb));
+        char tmp[100];
+        dr_snprintf(tmp, 100, "NNN cur_sigb before native deli sig=%d:", sig);
+        print_sigset(tmp, &cur_sigb);
+        dr_snprintf(tmp, 100, "NNN frame blocked before native deli sig=%d:", sig);
+        print_sigset(tmp, &our_frame->uc.uc_sigmask);
         sigprocmask_syscall(SIG_SETMASK, &blocked, NULL, sizeof(blocked));
 #ifdef DR_HOST_NOT_TARGET
         ASSERT_NOT_REACHED();
