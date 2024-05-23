@@ -217,13 +217,25 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
                 return false;
             }
             filetype_record_ord_ = memstream->get_record_ordinal();
-            if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL, memref.marker.marker_value) &&
+            /* We remove OFFLINE_FILE_TYPE_ARCH_REGDEPS from this check since
+             * DR_ISA_REGDEPS is not a real ISA and can coexist with any real
+             * architecture.
+             */
+            if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL & ~OFFLINE_FILE_TYPE_ARCH_REGDEPS,
+                        memref.marker.marker_value) &&
                 !TESTANY(build_target_arch_type(), memref.marker.marker_value)) {
                 error_string_ = std::string("Architecture mismatch: trace recorded on ") +
                     trace_arch_string(static_cast<offline_file_type_t>(
                         memref.marker.marker_value)) +
                     " but tool built for " + trace_arch_string(build_target_arch_type());
                 return false;
+            }
+            /* Set dcontext ISA mode to DR_ISA_REGDEPS if trace file type has
+             * OFFLINE_FILE_TYPE_ARCH_REGDEPS set. We need this to correctly
+             * disassemble DR_ISA_REGDEPS instructions.
+             */
+            if (TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, filetype_)) {
+                dr_set_isa_mode(dcontext_.dcontext, DR_ISA_REGDEPS, nullptr);
             }
             return true; // Do not count toward -sim_refs yet b/c we don't have tid.
         case TRACE_MARKER_TYPE_TIMESTAMP:

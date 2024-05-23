@@ -1415,21 +1415,9 @@ opnd_replace_reg(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg)
                 s, b, i, sc, d, size, opnd_is_disp_encode_zero(*opnd),
                 opnd_is_disp_force_full(*opnd), opnd_is_disp_short_addr(*opnd));
 #elif defined(RISCV64)
-            /* FIXME i#3544: RISC-V has no support for base + idx * scale + disp.
-             * We could support base + disp as long as disp == +/-1MB.
-             * If needed, instructions with this operand should be transformed
-             * to:
-             *   mul idx, idx, scale # or slli if scale is immediate
-             *   add base, base, idx
-             *   addi base, base, disp
-             */
-            CLIENT_ASSERT(false, "Not implemented");
-            /* Marking as unused to silence -Wunused-variable. */
-            (void)size;
-            (void)b;
-            (void)i;
-            (void)d;
-            return false;
+            CLIENT_ASSERT(i == DR_REG_NULL, "opnd_replace_reg: index_reg must be null");
+            bool scaled = false;
+            *opnd = opnd_create_base_disp(b, i, scaled, d, size);
 #endif
             return true;
         }

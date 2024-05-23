@@ -194,7 +194,7 @@
         IF_AARCHXX_ELSE(IF_X64_ELSE(DR_ISA_ARM_A64,                                 \
                                     (TEST(FRAG_THUMB, (flags)) ? DR_ISA_ARM_THUMB   \
                                                                : DR_ISA_ARM_A32)),  \
-                        DR_ISA_RV64IMAFDC))
+                        DR_ISA_RV64))
 
 static inline uint
 frag_flags_from_isa_mode(dr_isa_mode_t mode)
@@ -218,7 +218,7 @@ frag_flags_from_isa_mode(dr_isa_mode_t mode)
     ASSERT(mode == DR_ISA_ARM_A32);
     return 0;
 #elif defined(RISCV64)
-    ASSERT(mode == DR_ISA_RV64IMAFDC);
+    ASSERT(mode == DR_ISA_RV64);
     return 0;
 #endif
 }

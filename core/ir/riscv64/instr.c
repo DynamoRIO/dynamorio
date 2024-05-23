@@ -43,7 +43,7 @@
 bool
 instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
 {
-    if (mode != DR_ISA_RV64IMAFDC && mode != DR_ISA_REGDEPS)
+    if (mode != DR_ISA_RV64 && mode != DR_ISA_REGDEPS)
         return false;
     instr->isa_mode = mode;
     return true;
@@ -105,6 +105,12 @@ bool
 opc_is_not_a_real_memory_load(int opc)
 {
     return opc == OP_auipc;
+}
+
+bool
+opc_is_not_a_real_memory_store(int opc)
+{
+    return false;
 }
 
 uint

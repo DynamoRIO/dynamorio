@@ -282,6 +282,7 @@ set(DECODER_SRCS
   ir/isa_regdeps/encoding_common.c
   ir/isa_regdeps/encode.c
   ir/isa_regdeps/decode.c
+  ir/isa_regdeps/disassemble.c
   ir/disassemble_shared.c
   ir/${ARCH_NAME}/disassemble.c
   ir/ir_utils_shared.c
@@ -1149,8 +1150,9 @@ if (BUILD_TESTS AND
       append_property_string(TARGET unit_tests LINK_FLAGS "-Wl,${ld_entry_flag},_start")
     endif ()
     if (NOT ANDROID) # everything is inside Bionic on Android
-      target_link_libraries(unit_tests c dl m pthread)
+      target_link_libraries(unit_tests dl m pthread)
     endif ()
+    target_link_libraries(unit_tests drmemfuncs)
     set_preferred_base_start_and_end(unit_tests ${preferred_base} ON)
   else (UNIX)
     # Just like drinjectlib (see above) we need libc before ntdll

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -13,7 +13,7 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * * Neither the name of Google, Inc. nor the names of its contributors may be
+ * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
@@ -30,36 +30,20 @@
  * DAMAGE.
  */
 
-#ifndef _NULL_FILTER_H_
-#define _NULL_FILTER_H_ 1
+#ifndef _REGDEPS_DISASSEMBLE_H_
+#define _REGDEPS_DISASSEMBLE_H_ 1
 
-#include "record_filter.h"
+#include "../globals.h"
 
-namespace dynamorio {
-namespace drmemtrace {
+int
+d_r_regdeps_print_encoding_first_line(char *buf, size_t bufsz,
+                                      size_t *sofar DR_PARAM_INOUT, byte *pc,
+                                      byte *next_pc);
 
-class null_filter_t : public record_filter_t::record_filter_func_t {
-public:
-    void *
-    parallel_shard_init(memtrace_stream_t *shard_stream,
-                        bool partial_trace_filter) override
-    {
-        return nullptr;
-    }
-    bool
-    parallel_shard_filter(
-        trace_entry_t &entry, void *shard_data,
-        record_filter_t::record_filter_info_t &record_filter_info) override
-    {
-        return true;
-    }
-    bool
-    parallel_shard_exit(void *shard_data) override
-    {
-        return true;
-    }
-};
+void
+d_r_regdeps_print_encoding_second_line(char *buf, size_t bufsz,
+                                       size_t *sofar DR_PARAM_INOUT, byte *pc,
+                                       byte *next_pc, int extra_sz,
+                                       const char *extra_bytes_prefix);
 
-} // namespace drmemtrace
-} // namespace dynamorio
-#endif /* _NULL_FILTER_H_ */
+#endif /* _REGDEPS_DISASSEMBLE_H_ */

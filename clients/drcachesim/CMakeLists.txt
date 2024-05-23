@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2015-2023 Google, Inc.    All rights reserved.
+# Copyright (c) 2015-2024 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -192,12 +192,15 @@ add_exported_library(drmemtrace_simulator STATIC
   )
 
 add_exported_library(drmemtrace_record_filter STATIC
+  tools/filter/record_filter.h
   tools/filter/record_filter.cpp
   tools/filter/cache_filter.h
   tools/filter/cache_filter.cpp
   tools/filter/type_filter.h
+  tools/filter/encodings2regdeps_filter.h
   tools/filter/null_filter.h)
 target_link_libraries(drmemtrace_record_filter drmemtrace_simulator)
+configure_DynamoRIO_standalone(drmemtrace_record_filter)
 
 add_exported_library(directory_iterator STATIC common/directory_iterator.cpp)
 add_dependencies(directory_iterator api_headers)
@@ -269,28 +272,28 @@ set(drcachesim_srcs
   tracer/instru_online.cpp
   ${loader_srcs})
 
-add_executable(drcachesim ${drcachesim_srcs})
+add_executable(drmemtrace_launcher ${drcachesim_srcs})
 # In order to embed raw2trace we need to be standalone:
-configure_DynamoRIO_standalone(drcachesim)
+configure_DynamoRIO_standalone(drmemtrace_launcher)
 # Link in our tools:
-target_link_libraries(drcachesim drmemtrace_simulator drmemtrace_reuse_distance
+target_link_libraries(drmemtrace_launcher drmemtrace_simulator drmemtrace_reuse_distance
   drmemtrace_histogram drmemtrace_reuse_time drmemtrace_basic_counts
   drmemtrace_opcode_mix drmemtrace_syscall_mix drmemtrace_view drmemtrace_func_view
   drmemtrace_raw2trace directory_iterator drmemtrace_invariant_checker
   drmemtrace_schedule_stats drmemtrace_record_filter)
 if (UNIX)
-    target_link_libraries(drcachesim dl)
+    target_link_libraries(drmemtrace_launcher dl)
 endif ()
 if (libsnappy)
-  target_link_libraries(drcachesim snappy)
+  target_link_libraries(drmemtrace_launcher snappy)
 endif ()
 # To avoid dup symbol errors between drinjectlib and drdecode on Windows we have
 # to explicitly list drdecode up front:
-target_link_libraries(drcachesim drdecode drinjectlib drconfiglib drfrontendlib)
-use_DynamoRIO_extension(drcachesim droption)
+target_link_libraries(drmemtrace_launcher drdecode drinjectlib drconfiglib drfrontendlib)
+use_DynamoRIO_extension(drmemtrace_launcher droption)
 # These are also for raw2trace:
-use_DynamoRIO_extension(drcachesim drcovlib_static)
-use_DynamoRIO_extension(drcachesim drutil_static)
+use_DynamoRIO_extension(drmemtrace_launcher drcovlib_static)
+use_DynamoRIO_extension(drmemtrace_launcher drutil_static)
 
 # This is to avoid ../ and common/ in the #includes of headers that we
 # export in a single dir for 3rd-party tool integration.
@@ -357,6 +360,8 @@ install_client_nonDR_header(drmemtrace simulator/cache_simulator_create.h)
 install_client_nonDR_header(drmemtrace simulator/tlb_simulator_create.h)
 install_client_nonDR_header(drmemtrace tools/view_create.h)
 install_client_nonDR_header(drmemtrace tools/func_view_create.h)
+install_client_nonDR_header(drmemtrace tools/filter/record_filter_create.h)
+install_client_nonDR_header(drmemtrace tools/filter/record_filter.h)
 # TODO i#6412: Create a separate directory for non-tracer headers so that
 # we can more cleanly separate tracer and raw2trace code.
 install_client_nonDR_header(drmemtrace tracer/raw2trace.h)
@@ -393,8 +398,12 @@ add_executable(record_filter_launcher
   tools/record_filter_launcher.cpp
   tests/test_helpers.cpp)
 target_link_libraries(record_filter_launcher drmemtrace_analyzer drmemtrace_record_filter)
+add_dependencies(record_filter_launcher api_headers)
 append_property_list(TARGET record_filter_launcher COMPILE_DEFINITIONS "NO_HELPER_MAIN")
 use_DynamoRIO_extension(record_filter_launcher droption)
+if (NOT APPLE)
+  configure_DynamoRIO_static(record_filter_launcher)
+endif()
 
 # We want to use test_helper's disable_popups() but we have _tmain and so do not want
 # the test_helper library's main symbol: so we compile ourselves and disable.
@@ -435,7 +444,7 @@ if (NOT APPLE)
   configure_DynamoRIO_static(opcode_mix_launcher)
 endif ()
 
-target_link_libraries(drcachesim ${zlib_libs})
+target_link_libraries(drmemtrace_launcher ${zlib_libs})
 target_link_libraries(histogram_launcher ${zlib_libs})
 target_link_libraries(prefetch_analyzer_launcher ${zlib_libs})
 target_link_libraries(drmemtrace_raw2trace ${zlib_libs})
@@ -560,7 +569,7 @@ macro(restore_nonclient_flags target)
   endif ()
 endmacro()
 
-restore_nonclient_flags(drcachesim)
+restore_nonclient_flags(drmemtrace_launcher)
 restore_nonclient_flags(drraw2trace)
 restore_nonclient_flags(histogram_launcher)
 restore_nonclient_flags(record_filter_launcher)
@@ -625,7 +634,7 @@ macro(add_win32_flags target)
   endif ()
 endmacro ()
 
-add_win32_flags(drcachesim)
+add_win32_flags(drmemtrace_launcher)
 add_win32_flags(drraw2trace)
 add_win32_flags(histogram_launcher)
 add_win32_flags(record_filter_launcher)
@@ -651,7 +660,7 @@ add_win32_flags(drmemtrace_schedule_stats)
 add_win32_flags(directory_iterator)
 add_win32_flags(test_helpers)
 if (WIN32 AND DEBUG)
-  get_target_property(sim_srcs drcachesim SOURCES)
+  get_target_property(sim_srcs drmemtrace_launcher SOURCES)
   get_target_property(raw2trace_srcs drraw2trace SOURCES)
   # The client, and our standalone DR users, had /MT added so we need to override.
   # XXX: solve this by avoiding the /MT in the first place!
@@ -664,18 +673,18 @@ endif ()
 
 place_shared_lib_in_lib_dir(drmemtrace)
 
-add_dependencies(drcachesim api_headers)
+add_dependencies(drmemtrace_launcher api_headers)
 
 # Provide a hint for how to use the client
 if (NOT DynamoRIO_INTERNAL OR NOT "${CMAKE_GENERATOR}" MATCHES "Ninja")
   add_custom_command(TARGET drmemtrace
     POST_BUILD
     COMMAND ${CMAKE_COMMAND}
-    ARGS -E echo "Usage: pass to drconfig or drrun: -t drcachesim"
+    ARGS -E echo "Usage: pass to drconfig or drrun: -t drmemtrace"
     VERBATIM)
 endif ()
 
-install_target(drcachesim ${INSTALL_CLIENTS_BIN})
+install_target(drmemtrace_launcher ${INSTALL_CLIENTS_BIN})
 install_target(drraw2trace ${INSTALL_CLIENTS_BIN})
 
 set(INSTALL_DRCACHESIM_CONFIG ${INSTALL_CLIENTS_BASE})
@@ -698,8 +707,8 @@ function (write_config_file dst bindir libdir)
     set(debugopt "")
   endif ()
   file(GENERATE OUTPUT ${dst} CONTENT
-"# drcachesim tool config file\n\
-FRONTEND_REL=${bindir}/$<TARGET_FILE_NAME:drcachesim>\n\
+"# drmemtrace tracing and analysis tool config file.\n\
+FRONTEND_REL=${bindir}/$<TARGET_FILE_NAME:drmemtrace_launcher>\n\
 TOOL_OP=-dr\n\
 TOOL_OP_DR_PATH\n\
 TOOL_OP_DR_BUNDLE=-dr_ops\n\
@@ -711,11 +720,17 @@ ${debugopt}\n")
 endfunction ()
 
 if (X64)
-  set(CONFIG_INSTALL ${PROJECT_BINARY_DIR}/drcachesim.drrun64)
-  set(CONFIG_BUILD ${PROJECT_BINARY_DIR}/tools/drcachesim.drrun64)
+  set(CONFIG_INSTALL ${PROJECT_BINARY_DIR}/drmemtrace.drrun64)
+  set(CONFIG_BUILD ${PROJECT_BINARY_DIR}/tools/drmemtrace.drrun64)
+  # Support the older launcher name (i#6660 applied s/drcachesim/drmemtrace/ as
+  # "drcachesim" is just one tool and we use "drmemtrace" to refer to the framework).
+  set(CONFIG_OLD_INSTALL ${PROJECT_BINARY_DIR}/drcachesim.drrun64)
+  set(CONFIG_OLD_BUILD ${PROJECT_BINARY_DIR}/tools/drcachesim.drrun64)
 else (X64)
-  set(CONFIG_INSTALL ${PROJECT_BINARY_DIR}/drcachesim.drrun32)
-  set(CONFIG_BUILD ${PROJECT_BINARY_DIR}/tools/drcachesim.drrun32)
+  set(CONFIG_INSTALL ${PROJECT_BINARY_DIR}/drmemtrace.drrun32)
+  set(CONFIG_BUILD ${PROJECT_BINARY_DIR}/tools/drmemtrace.drrun32)
+  set(CONFIG_OLD_INSTALL ${PROJECT_BINARY_DIR}/drcachesim.drrun32)
+  set(CONFIG_OLD_BUILD ${PROJECT_BINARY_DIR}/tools/drcachesim.drrun32)
 endif (X64)
 
 set(BUILD_CLIENTS_BIN clients/${INSTALL_BIN})
@@ -723,8 +738,14 @@ set(BUILD_CLIENTS_LIB clients/${INSTALL_LIB})
 
 write_config_file(${CONFIG_INSTALL} ${INSTALL_CLIENTS_BIN} ${INSTALL_CLIENTS_LIB})
 write_config_file(${CONFIG_BUILD} ${BUILD_CLIENTS_BIN} ${BUILD_CLIENTS_LIB})
+# Support the older launcher name (i#6660 renamed it).
+write_config_file(${CONFIG_OLD_INSTALL} ${INSTALL_CLIENTS_BIN} ${INSTALL_CLIENTS_LIB})
+write_config_file(${CONFIG_OLD_BUILD} ${BUILD_CLIENTS_BIN} ${BUILD_CLIENTS_LIB})
 
 DR_install(FILES "${CONFIG_INSTALL}" DESTINATION ${INSTALL_DRCACHESIM_CONFIG})
+register_tool_file("drmemtrace")
+# Support the older launcher name (i#6660 renamed it).
+DR_install(FILES "${CONFIG_OLD_INSTALL}" DESTINATION ${INSTALL_DRCACHESIM_CONFIG})
 register_tool_file("drcachesim")
 
 if (WIN32)
@@ -735,14 +756,14 @@ if (WIN32)
   DR_install(FILES "${configlib_loc}"  DESTINATION "${INSTALL_CLIENTS_BIN}")
   DynamoRIO_get_full_path(drlib_loc dynamorio "${location_suffix}")
   DR_install(FILES "${drlib_loc}"  DESTINATION "${INSTALL_CLIENTS_BIN}")
-  add_custom_command(TARGET drcachesim POST_BUILD
+  add_custom_command(TARGET drmemtrace_launcher POST_BUILD
     COMMAND ${CMAKE_COMMAND} ARGS -E copy ${DR_LIBRARY_BASE_DIRECTORY}/drinjectlib.dll
     ${PROJECT_BINARY_DIR}/${BUILD_CLIENTS_BIN}/drinjectlib.dll VERBATIM)
-  add_custom_command(TARGET drcachesim POST_BUILD
+  add_custom_command(TARGET drmemtrace_launcher POST_BUILD
     COMMAND ${CMAKE_COMMAND} ARGS -E copy ${DR_LIBRARY_BASE_DIRECTORY}/drconfiglib.dll
     ${PROJECT_BINARY_DIR}/${BUILD_CLIENTS_BIN}/drconfiglib.dll VERBATIM)
   # Avoid dueling racy copies (i#4668).
-  add_dependencies(drcachesim client_dr_copy)
+  add_dependencies(drmemtrace_launcher client_dr_copy)
 endif ()
 
 add_subdirectory(tools/external)

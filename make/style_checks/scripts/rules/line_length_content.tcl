@@ -48,7 +48,8 @@ array set length_exempt [list {statsx.h} {1} \
                              {instr_create_api.h} {1} \
                              {decode_gen.h} {1} \
                              {encode_gen.h} {1} \
-                             {elfdefinitions.h} {1} ]
+                             {elfdefinitions.h} {1} \
+                             {view_test.cpp} {1} ]
 
 foreach fname [getSourceFileNames] {
     set nline 1

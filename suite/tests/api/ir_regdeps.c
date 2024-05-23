@@ -66,12 +66,14 @@ instr_has_only_register_operands(instr_t *instr)
 }
 
 static void
-test_instr_encode_decode_synthetic(void *dc, instr_t *instr)
+test_instr_encode_decode_disassemble_synthetic(void *dc, instr_t *instr,
+                                               const char *expected_disasm_str)
 {
     /* Encoded synthetic ISA instructions require 4 byte alignment.
      * The largest synthetic encoded instruction has 16 bytes.
      */
     byte ALIGN_VAR(REGDEPS_ALIGN_BYTES) bytes[16];
+    memset(bytes, 0, sizeof(bytes));
 
     /* Convert a real ISA instruction to a synthetic ISA (DR_ISA_REGDEPS) instruction.
      */
@@ -84,7 +86,7 @@ test_instr_encode_decode_synthetic(void *dc, instr_t *instr)
 
     /* Check that we do not have an opcode for the converted instruction.
      */
-    ASSERT(instr_get_opcode(instr_synthetic_converted) == OP_INVALID);
+    ASSERT(instr_get_opcode(instr_synthetic_converted) == OP_UNDECODED);
 
     /* Encode the synthetic instruction.
      */
@@ -104,17 +106,39 @@ test_instr_encode_decode_synthetic(void *dc, instr_t *instr)
     /* Decode the encoded synthetic instruction bytes into instr_synthetic.
      */
     byte *next_pc_decode = decode(dc, bytes, instr_synthetic_decoded);
-    dr_set_isa_mode(dc, old_isa_mode, NULL);
     ASSERT(next_pc_decode != NULL);
     ASSERT(next_pc_encode == next_pc_decode);
     /* Check for overflow.
      */
     ASSERT((next_pc_encode - bytes) <= sizeof(bytes));
     ASSERT((next_pc_decode - bytes) <= sizeof(bytes));
+
+    /* Disassemble regdeps synthetic encodings to buffer.
+     */
+    char dbuf[512];
+    int len;
+    byte *pc_disasm = disassemble_to_buffer(dc, bytes, bytes, false, true, dbuf,
+                                            BUFFER_SIZE_ELEMENTS(dbuf), &len);
+
+    /* We need dcontext ISA mode to still be DR_ISA_REGDEPS for dissassemble_to_buffer(),
+     * as it calls decode() on synthetic regdepes encodings again. We restore the old mode
+     * here, after disassembly.
+     */
+    dr_set_isa_mode(dc, old_isa_mode, NULL);
+
+    ASSERT(pc_disasm == next_pc_encode);
+    /* Check that the string representation of the disassembled regdeps instruction is
+     * what we expect (ground truth), if we have it.
+     */
+    if (expected_disasm_str[0] != '\0')
+        ASSERT(strcmp(dbuf, expected_disasm_str) == 0);
+
     /* Check that the two synthetic instructions are the same.
      */
     ASSERT(instr_same(instr_synthetic_converted, instr_synthetic_decoded));
 
+    /* Cleanup.
+     */
     instr_destroy(dc, instr);
     instr_destroy(dc, instr_synthetic_converted);
     instr_destroy(dc, instr_synthetic_decoded);
@@ -122,7 +146,7 @@ test_instr_encode_decode_synthetic(void *dc, instr_t *instr)
 
 #ifdef X86_64
 static void
-test_instr_create_encode_decode_synthetic_x86_64(void *dc)
+test_instr_create_encode_decode_disassemble_synthetic_x86_64(void *dc)
 {
     byte buf[128];
     instr_t *instr;
@@ -136,46 +160,61 @@ test_instr_create_encode_decode_synthetic_x86_64(void *dc)
     instr_encode(dc, instr, buf);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
-    test_instr_encode_decode_synthetic(dc, instr);
+    const char *expected_disasm_str_push =
+        " 00001021 26060606 store [8byte]       %rv4 %rv36 -> %rv4\n";
+    test_instr_encode_decode_disassemble_synthetic(dc, instr, expected_disasm_str_push);
 
     instr = INSTR_CREATE_pop(dc, opnd_create_reg(SEG_FS));
     instr_encode(dc, instr, buf);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
-    test_instr_encode_decode_synthetic(dc, instr);
+    const char *expected_disasm_str_pop =
+        " 00000812 06260606 load [8byte]       %rv4 -> %rv4 %rv36\n";
+    test_instr_encode_decode_disassemble_synthetic(dc, instr, expected_disasm_str_pop);
 
     opnd_t abs_addr = opnd_create_abs_addr((void *)0xdeadbeefdeadbeef, OPSZ_8);
     instr = INSTR_CREATE_mov_ld(dc, opnd_create_reg(DR_REG_RAX), abs_addr);
     instr_encode(dc, instr, buf);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
-    test_instr_encode_decode_synthetic(dc, instr);
+    const char *expected_disasm_str_mov =
+        " 00000801 00000206 load [8byte]        -> %rv0\n";
+    test_instr_encode_decode_disassemble_synthetic(dc, instr, expected_disasm_str_mov);
 
     instr = INSTR_CREATE_cmps_1(dc);
     instr_encode(dc, instr, buf);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
-    test_instr_encode_decode_synthetic(dc, instr);
+    const char *expected_disasm_str_cmps = " 00000942 08090806 load [8byte]       %rv6 "
+                                           "%rv7 %rv32 %rv35 -> %rv6 %rv7\n 00252209\n";
+    test_instr_encode_decode_disassemble_synthetic(dc, instr, expected_disasm_str_cmps);
 
     instr = INSTR_CREATE_maskmovq(dc, opnd_create_reg(DR_REG_MM0),
                                   opnd_create_reg(DR_REG_MM1));
     instr_encode(dc, instr, buf);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
-    test_instr_encode_decode_synthetic(dc, instr);
+    const char *expected_disasm_str_maskmovq =
+        " 00005040 13120906 store simd [8byte]       %rv7 %rv16 %rv17 %rv35\n 00000025\n";
+    test_instr_encode_decode_disassemble_synthetic(dc, instr,
+                                                   expected_disasm_str_maskmovq);
 
     instr =
         INSTR_CREATE_xchg(dc, opnd_create_reg(DR_REG_R8D), opnd_create_reg(DR_REG_EAX));
     instr_encode(dc, instr, buf);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
-    test_instr_encode_decode_synthetic(dc, instr);
+    const char *expected_disasm_str_xchg = " 00000022 020a0204 uncategorized [4byte]     "
+                                           "  %rv0 %rv8 -> %rv0 %rv8\n 0000000a\n";
+    test_instr_encode_decode_disassemble_synthetic(dc, instr, expected_disasm_str_xchg);
 
     instr = INSTR_CREATE_add(dc, opnd_create_reg(DR_REG_RAX), OPND_CREATE_INT32(42));
     instr_encode(dc, instr, buf);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
-    test_instr_encode_decode_synthetic(dc, instr);
+    const char *expected_disasm_str_add =
+        " 00040111 00020206 math [8byte]       %rv0 -> %rv0\n";
+    test_instr_encode_decode_disassemble_synthetic(dc, instr, expected_disasm_str_add);
 
     instr_t *tgt = INSTR_CREATE_mov_imm(dc, opnd_create_reg(DR_REG_XAX),
                                         opnd_create_immed_int(0xdeadbeef, OPSZ_PTR));
@@ -183,7 +222,9 @@ test_instr_create_encode_decode_synthetic_x86_64(void *dc)
     instr_encode(dc, instr, buf);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
-    test_instr_encode_decode_synthetic(dc, instr);
+    const char *expected_disasm_str_jmp_ind = " 00002800 load branch \n";
+    test_instr_encode_decode_disassemble_synthetic(dc, instr,
+                                                   expected_disasm_str_jmp_ind);
     instr_destroy(dc, tgt);
 
     instr =
@@ -191,7 +232,9 @@ test_instr_create_encode_decode_synthetic_x86_64(void *dc)
     instr_encode(dc, instr, buf);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
-    test_instr_encode_decode_synthetic(dc, instr);
+    const char *expected_disasm_str_bsf =
+        " 00000111 00030204 uncategorized [4byte]       %rv1 -> %rv0\n";
+    test_instr_encode_decode_disassemble_synthetic(dc, instr, expected_disasm_str_bsf);
 
     /* Containing-register IDs can be >=256, hence their value does not fit in the
      * allotted 8 bits per register operand of regdeps encoding. This was causing a
@@ -209,13 +252,21 @@ test_instr_create_encode_decode_synthetic_x86_64(void *dc)
     instr_encode(dc, instr, buf);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
-    test_instr_encode_decode_synthetic(dc, instr);
+    const char *expected_disasm_str_vdpbf16ps_mask =
+        " 00000031 65646640 uncategorized [64byte]       %rv98 %rv99 %rv102 -> %rv100\n "
+        "00000068\n";
+    test_instr_encode_decode_disassemble_synthetic(dc, instr,
+                                                   expected_disasm_str_vdpbf16ps_mask);
 }
 #endif
 
+/* FIXME i#6662.
+ * Test currently not runningin in "ci-aarchxx-cross / arm-cross-compile" because of:
+ * "/lib/ld-linux-armhf.so.3: No such file or directory".
+ */
 #ifdef ARM
 static void
-test_instr_create_encode_decode_synthetic_arm(void *dc)
+test_instr_create_encode_decode_disassemble_synthetic_arm(void *dc)
 {
     byte buf[128];
     instr_t *instr;
@@ -225,32 +276,32 @@ test_instr_create_encode_decode_synthetic_arm(void *dc)
     instr_encode(dc, instr, buf);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
-    test_instr_encode_decode_synthetic(dc, instr);
+    test_instr_encode_decode_disassemble_synthetic(dc, instr, "");
 
     instr = INSTR_CREATE_sel(dc, opnd_create_reg(DR_REG_R0), opnd_create_reg(DR_REG_R1),
                              opnd_create_reg(DR_REG_R1));
     instr_encode(dc, instr, buf);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
-    test_instr_encode_decode_synthetic(dc, instr);
+    test_instr_encode_decode_disassemble_synthetic(dc, instr, "");
 
     instr = INSTR_CREATE_movs(dc, opnd_create_reg(DR_REG_R0), OPND_CREATE_INT(4));
     instr_encode(dc, instr, buf);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
-    test_instr_encode_decode_synthetic(dc, instr);
+    test_instr_encode_decode_disassemble_synthetic(dc, instr, "");
 
     instr = INSTR_CREATE_movs(dc, opnd_create_reg(DR_REG_R0), opnd_create_reg(DR_REG_R1));
     instr_encode(dc, instr, buf);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
-    test_instr_encode_decode_synthetic(dc, instr);
+    test_instr_encode_decode_disassemble_synthetic(dc, instr, "");
 }
 #endif
 
 #ifdef AARCH64
 static void
-test_instr_create_encode_decode_synthetic_aarch64(void *dc)
+test_instr_create_encode_decode_disassemble_synthetic_aarch64(void *dc)
 {
     byte buf[128];
     instr_t *instr;
@@ -260,14 +311,18 @@ test_instr_create_encode_decode_synthetic_aarch64(void *dc)
     instr_encode(dc, instr, buf);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
-    test_instr_encode_decode_synthetic(dc, instr);
+    const char *expected_disasm_str_add =
+        " 00040021 21030206 math [8byte]       %rv1 %rv31 -> %rv0\n";
+    test_instr_encode_decode_disassemble_synthetic(dc, instr, expected_disasm_str_add);
 
     instr = INSTR_CREATE_sub(dc, opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_SP),
                              opnd_create_reg(DR_REG_X1));
     instr_encode(dc, instr, buf);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
-    test_instr_encode_decode_synthetic(dc, instr);
+    const char *expected_disasm_str_sub =
+        " 00040021 21030206 math [8byte]       %rv1 %rv31 -> %rv0\n";
+    test_instr_encode_decode_disassemble_synthetic(dc, instr, expected_disasm_str_sub);
 
     instr =
         INSTR_CREATE_adds_imm(dc, opnd_create_reg(DR_REG_W0), opnd_create_reg(DR_REG_W1),
@@ -275,14 +330,18 @@ test_instr_create_encode_decode_synthetic_aarch64(void *dc)
     instr_encode(dc, instr, buf);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
-    test_instr_encode_decode_synthetic(dc, instr);
+    const char *expected_disasm_adds_imm =
+        " 00040111 00030204 math [4byte]       %rv1 -> %rv0\n";
+    test_instr_encode_decode_disassemble_synthetic(dc, instr, expected_disasm_adds_imm);
 
     instr = INSTR_CREATE_adc(dc, opnd_create_reg(DR_REG_W0), opnd_create_reg(DR_REG_W1),
                              opnd_create_reg(DR_REG_W2));
     instr_encode(dc, instr, buf);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
-    test_instr_encode_decode_synthetic(dc, instr);
+    const char *expected_disasm_adc =
+        " 00040221 04030204 math [4byte]       %rv1 %rv2 -> %rv0\n";
+    test_instr_encode_decode_disassemble_synthetic(dc, instr, expected_disasm_adc);
 
     instr = INSTR_CREATE_ldpsw(
         dc, opnd_create_reg(DR_REG_X1), opnd_create_reg(DR_REG_X2),
@@ -292,13 +351,15 @@ test_instr_create_encode_decode_synthetic_aarch64(void *dc)
     instr_encode(dc, instr, buf);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
-    test_instr_encode_decode_synthetic(dc, instr);
+    const char *expected_disasm_str_ldpsw =
+        " 00000813 04030206 load [8byte]       %rv0 -> %rv0 %rv1 %rv2\n 00000002\n";
+    test_instr_encode_decode_disassemble_synthetic(dc, instr, expected_disasm_str_ldpsw);
 }
 #endif
 
 #ifdef RISCV64
 static void
-test_instr_create_encode_decode_synthetic_riscv64(void *dc)
+test_instr_create_encode_decode_disassemble_synthetic_riscv64(void *dc)
 {
     byte buf[128];
     instr_t *instr;
@@ -309,7 +370,9 @@ test_instr_create_encode_decode_synthetic_riscv64(void *dc)
     instr_encode(dc, instr, buf);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
-    test_instr_encode_decode_synthetic(dc, instr);
+    const char *expected_disasm_str_lwu =
+        " 00000011 00210c04 uncategorized [4byte]       %rv31 -> %rv10\n";
+    test_instr_encode_decode_disassemble_synthetic(dc, instr, expected_disasm_str_lwu);
 
     instr = INSTR_CREATE_sw(
         dc, opnd_create_base_disp(DR_REG_X31, DR_REG_NULL, 0, (1 << 11) - 1, OPSZ_4),
@@ -317,14 +380,18 @@ test_instr_create_encode_decode_synthetic_riscv64(void *dc)
     instr_encode(dc, instr, buf);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
-    test_instr_encode_decode_synthetic(dc, instr);
+    const char *expected_disasm_str_sw =
+        " 00000020 00210206 uncategorized [8byte]       %rv0 %rv31\n";
+    test_instr_encode_decode_disassemble_synthetic(dc, instr, expected_disasm_str_sw);
 
     instr = INSTR_CREATE_flw(dc, opnd_create_reg(DR_REG_F0),
                              opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_4));
     instr_encode(dc, instr, buf);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
-    test_instr_encode_decode_synthetic(dc, instr);
+    const char *expected_disasm_str_flw =
+        " 00000011 000d2304 uncategorized [4byte]       %rv11 -> %rv33\n";
+    test_instr_encode_decode_disassemble_synthetic(dc, instr, expected_disasm_str_flw);
 
     instr =
         INSTR_CREATE_lr_d(dc, opnd_create_reg(DR_REG_X0),
@@ -333,7 +400,9 @@ test_instr_create_encode_decode_synthetic_riscv64(void *dc)
     instr_encode(dc, instr, buf);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
-    test_instr_encode_decode_synthetic(dc, instr);
+    const char *expected_disasm_str_lr_d =
+        " 00000011 00210206 uncategorized [8byte]       %rv31 -> %rv0\n";
+    test_instr_encode_decode_disassemble_synthetic(dc, instr, expected_disasm_str_lr_d);
 
     instr = INSTR_CREATE_fmadd_d(dc, opnd_create_reg(DR_REG_F31),
                                  opnd_create_immed_int(0b000, OPSZ_3b),
@@ -342,7 +411,11 @@ test_instr_create_encode_decode_synthetic_riscv64(void *dc)
     instr_encode(dc, instr, buf);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
-    test_instr_encode_decode_synthetic(dc, instr);
+    const char *expected_disasm_str_fmadd_d =
+        " 00000031 25234206 uncategorized [8byte]       %rv33 %rv35 %rv36 -> %rv64\n "
+        "00000026\n";
+    test_instr_encode_decode_disassemble_synthetic(dc, instr,
+                                                   expected_disasm_str_fmadd_d);
 }
 #endif
 
@@ -654,19 +727,19 @@ main(int argc, char *argv[])
     ASSERT(!dr_running_under_dynamorio());
 
 #ifdef X86_64
-    test_instr_create_encode_decode_synthetic_x86_64(dcontext);
+    test_instr_create_encode_decode_disassemble_synthetic_x86_64(dcontext);
 #endif
 
 #ifdef ARM
-    test_instr_create_encode_decode_synthetic_arm(dcontext);
+    test_instr_create_encode_decode_disassemble_synthetic_arm(dcontext);
 #endif
 
 #ifdef AARCH64
-    test_instr_create_encode_decode_synthetic_aarch64(dcontext);
+    test_instr_create_encode_decode_disassemble_synthetic_aarch64(dcontext);
 #endif
 
 #ifdef RISCV64
-    test_instr_create_encode_decode_synthetic_riscv64(dcontext);
+    test_instr_create_encode_decode_disassemble_synthetic_riscv64(dcontext);
 #endif
 
     test_virtual_register_names(dcontext);
