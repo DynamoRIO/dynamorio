@@ -72,6 +72,7 @@
 #    define ASM_R2 "x2"
 #    define ASM_R3 "x3"
 #    define ASM_R4 "x4"
+#    define ASM_R30 "x30"
 #    define ASM_XSP "sp"
 #    define ASM_INDJMP "br"
 #elif defined(DR_HOST_ARM)
