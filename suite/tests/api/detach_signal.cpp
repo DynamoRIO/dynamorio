@@ -179,15 +179,27 @@ sideline_spinner(void *arg)
 
     /* Now sit in a signal-generating loop. */
     while (!sideline_exit) {
-        /* We generate 4 different signals to test different types. */
+        /* We generate 5 different signals to test different types. */
+        /* Has a sigaltstack configured. Native signals during detach
+         * can reuse the frame provided to DR's signal handler by the
+         * kernel.
+         */
         if (SIGSETJMP(mark) == 0) {
             *(int *)arg = 42; /* SIGSEGV */
         }
         /* Use sigreturn to return from this signal. */
         pthread_kill(pthread_self(), SIGBUS);
+        /* Does not have a sigaltstack. Native signals during detach
+         * will have to create a frame-copy.
+         */
+        if (SIGSETJMP(mark) == 0) {
+            pthread_kill(pthread_self(), SIGUSR2);
+        }
+        /* SIGURG is blocked for some part of the test. */
         if (SIGSETJMP(mark) == 0) {
             pthread_kill(pthread_self(), SIGURG);
         }
+        /* Alarm signals are ignored during detach. */
         if (SIGSETJMP(mark) == 0) {
             pthread_kill(pthread_self(), SIGALRM);
         }
@@ -245,6 +257,8 @@ main(void)
      * signal frame and not create a frame-copy.
      */
     intercept_signal_with_mask(SIGBUS, (handler_3_t)&handle_signal, true, &handler_mask);
+    intercept_signal_with_mask(SIGUSR2, (handler_3_t)&handle_signal, false,
+                               &handler_mask);
     intercept_signal_with_mask(SIGURG, (handler_3_t)&handle_signal, true, &handler_mask);
     intercept_signal_with_mask(SIGALRM, (handler_3_t)&handle_signal, false,
                                &handler_mask);
