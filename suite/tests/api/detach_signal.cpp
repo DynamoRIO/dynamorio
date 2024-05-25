@@ -96,7 +96,7 @@ handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
            memcmp(&expect_mask2, &actual_mask, sizeof(expect_mask2)) == 0);
 
     count++;
-    if (signal != SIGBUS)
+    if (signal != SIGUSR2)
         SIGLONGJMP(mark, count);
 }
 
@@ -175,7 +175,10 @@ sideline_spinner(void *arg)
         if (SIGSETJMP(mark) == 0) {
             *(int *)arg = 42; /* SIGSEGV */
         }
-        pthread_kill(pthread_self(), SIGBUS);
+        pthread_kill(pthread_self(), SIGUSR2);
+        if (SIGSETJMP(mark) == 0) {
+            pthread_kill(pthread_self(), SIGBUS);
+        }
         if (SIGSETJMP(mark) == 0) {
             pthread_kill(pthread_self(), SIGURG);
         }
@@ -232,6 +235,9 @@ main(void)
 
     /* We request an alt stack for some signals but not all to test both types. */
     intercept_signal_with_mask(SIGSEGV, (handler_3_t)&handle_signal, true, &handler_mask);
+    /* Does not have a sigaltstack. DR would have to create a frame-copy. */
+    intercept_signal_with_mask(SIGUSR2, (handler_3_t)&handle_signal, false,
+                               &handler_mask);
     intercept_signal_with_mask(SIGBUS, (handler_3_t)&handle_signal, false, &handler_mask);
     intercept_signal_with_mask(SIGURG, (handler_3_t)&handle_signal, true, &handler_mask);
     intercept_signal_with_mask(SIGALRM, (handler_3_t)&handle_signal, false,
