@@ -5664,6 +5664,7 @@ main_signal_handler_C(byte *xsp)
         return;
     }
 #endif
+
     dcontext_t *dcontext = get_thread_private_dcontext();
 
 #if defined(MACOS) && !defined(AARCH64)
