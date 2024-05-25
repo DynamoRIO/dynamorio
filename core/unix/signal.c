@@ -6561,7 +6561,7 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame,
         memcpy(&sigact_struct, &detached_sigact[sig], sizeof(sigact_struct));
         d_r_read_unlock(&detached_sigact_lock);
         memcpy(&info->app_sigblocked, &our_frame->uc.uc_sigmask,
-            sizeof(info->app_sigblocked));
+               sizeof(info->app_sigblocked));
 #ifdef HAVE_SIGALTSTACK
         thread_sig_info_t *dc_info = NULL;
         if (dcontext != NULL)
