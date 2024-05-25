@@ -100,8 +100,9 @@ handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
      * frame. For SIGBUS, we have a sigaltstack installed, and therefore do
      * not need to create a frame-copy for the detach-time native signal
      * delivery.
-     * TODO i#6828: After fixing the issue, add a test for the case where we
-     * must create a frame-copy.
+     *
+     * TODO i#6828: After fixing the blocked sigmask in the frame-copy, add a
+     * test for the case where we must create a frame-copy.
      */
     if (signal != SIGBUS)
         SIGLONGJMP(mark, count);
