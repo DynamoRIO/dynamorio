@@ -196,9 +196,7 @@ sideline_spinner(void *arg)
          * sigaltstack configured, so the sigreturn will restore the
          * blocked sigmask from the copied native signal frame.
          */
-        if (SIGSETJMP(mark) == 0) {
-            pthread_kill(pthread_self(), SIGBUS);
-        }
+        pthread_kill(pthread_self(), SIGBUS);
         /* SIGURG is blocked for some part of the test. */
         if (SIGSETJMP(mark) == 0) {
             pthread_kill(pthread_self(), SIGURG);
