@@ -96,7 +96,16 @@ handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
            memcmp(&expect_mask2, &actual_mask, sizeof(expect_mask2)) == 0);
 
     count++;
-    SIGLONGJMP(mark, count);
+    /* Verify that our detach-time sigreturn works as expected from the signal
+     * frame. For SIGUSR2, we have a sigaltstack installed, and therefore do
+     * not need to create a frame-copy for the detach-time native signal
+     * delivery.
+     *
+     * TODO i#6828: After fixing the blocked sigmask in the frame-copy, add a
+     * test for the case where we must create a frame-copy.
+     */
+    if (signal != SIGUSR2)
+        SIGLONGJMP(mark, count);
 }
 
 THREAD_FUNC_RETURN_TYPE
@@ -170,16 +179,27 @@ sideline_spinner(void *arg)
 
     /* Now sit in a signal-generating loop. */
     while (!sideline_exit) {
-        /* We generate 4 different signals to test different types. */
+        /* We generate 5 different signals to test different types. */
+        /* Has a sigaltstack configured. Native signals during detach
+         * can reuse the frame provided to DR's signal handler by the
+         * kernel.
+         */
         if (SIGSETJMP(mark) == 0) {
             *(int *)arg = 42; /* SIGSEGV */
         }
+        /* Use sigreturn to return from this signal. Also, has a
+         * sigaltstack configured.
+         */
+        pthread_kill(pthread_self(), SIGUSR2);
+        /* Does not have a sigaltstack configured. */
         if (SIGSETJMP(mark) == 0) {
             pthread_kill(pthread_self(), SIGBUS);
         }
+        /* SIGURG is blocked for some part of the test. */
         if (SIGSETJMP(mark) == 0) {
             pthread_kill(pthread_self(), SIGURG);
         }
+        /* Alarm signals are ignored during detach. */
         if (SIGSETJMP(mark) == 0) {
             pthread_kill(pthread_self(), SIGALRM);
         }
@@ -234,6 +254,10 @@ main(void)
     /* We request an alt stack for some signals but not all to test both types. */
     intercept_signal_with_mask(SIGSEGV, (handler_3_t)&handle_signal, true, &handler_mask);
     intercept_signal_with_mask(SIGBUS, (handler_3_t)&handle_signal, false, &handler_mask);
+    /* Setting sigstack=true allows SIGUSR2 native-delivery-during-detach to reuse the
+     * signal frame and not create a frame-copy.
+     */
+    intercept_signal_with_mask(SIGUSR2, (handler_3_t)&handle_signal, true, &handler_mask);
     intercept_signal_with_mask(SIGURG, (handler_3_t)&handle_signal, true, &handler_mask);
     intercept_signal_with_mask(SIGALRM, (handler_3_t)&handle_signal, false,
                                &handler_mask);
