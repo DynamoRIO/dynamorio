@@ -96,7 +96,15 @@ handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
            memcmp(&expect_mask2, &actual_mask, sizeof(expect_mask2)) == 0);
 
     count++;
-    SIGLONGJMP(mark, count);
+    /* Verify that our detach-time sigreturn works as expected from the signal
+     * frame. For SIGBUS, we have a sigaltstack installed, and therefore do
+     * not need to create a frame-copy for the detach-time native signal
+     * delivery.
+     * TODO i#6828: After fixing the issue, add a test for the case where we
+     * must create a frame-copy.
+     */
+    if (signal != SIGBUS)
+        SIGLONGJMP(mark, count);
 }
 
 THREAD_FUNC_RETURN_TYPE
@@ -174,9 +182,8 @@ sideline_spinner(void *arg)
         if (SIGSETJMP(mark) == 0) {
             *(int *)arg = 42; /* SIGSEGV */
         }
-        if (SIGSETJMP(mark) == 0) {
-            pthread_kill(pthread_self(), SIGBUS);
-        }
+        /* Use sigreturn to return from this signal. */
+        pthread_kill(pthread_self(), SIGBUS);
         if (SIGSETJMP(mark) == 0) {
             pthread_kill(pthread_self(), SIGURG);
         }
@@ -233,7 +240,10 @@ main(void)
 
     /* We request an alt stack for some signals but not all to test both types. */
     intercept_signal_with_mask(SIGSEGV, (handler_3_t)&handle_signal, true, &handler_mask);
-    intercept_signal_with_mask(SIGBUS, (handler_3_t)&handle_signal, false, &handler_mask);
+    /* Setting sigstack=true allows SIGBUS native-delivery-during-detach to reuse the
+     * signal frame and not create a frame-copy.
+     */
+    intercept_signal_with_mask(SIGBUS, (handler_3_t)&handle_signal, true, &handler_mask);
     intercept_signal_with_mask(SIGURG, (handler_3_t)&handle_signal, true, &handler_mask);
     intercept_signal_with_mask(SIGALRM, (handler_3_t)&handle_signal, false,
                                &handler_mask);
