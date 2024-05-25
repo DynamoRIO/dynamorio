@@ -254,7 +254,7 @@ main(void)
     /* We request an alt stack for some signals but not all to test both types. */
     intercept_signal_with_mask(SIGSEGV, (handler_3_t)&handle_signal, true, &handler_mask);
     intercept_signal_with_mask(SIGBUS, (handler_3_t)&handle_signal, false, &handler_mask);
-    /* Setting sigstack=true allows SIGBUS native-delivery-during-detach to reuse the
+    /* Setting sigstack=true allows SIGUSR2 native-delivery-during-detach to reuse the
      * signal frame and not create a frame-copy.
      */
     intercept_signal_with_mask(SIGUSR2, (handler_3_t)&handle_signal, true, &handler_mask);
