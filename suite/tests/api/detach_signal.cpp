@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -96,7 +96,8 @@ handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
            memcmp(&expect_mask2, &actual_mask, sizeof(expect_mask2)) == 0);
 
     count++;
-    SIGLONGJMP(mark, count);
+    if (signal != SIGBUS)
+        SIGLONGJMP(mark, count);
 }
 
 THREAD_FUNC_RETURN_TYPE
@@ -174,9 +175,7 @@ sideline_spinner(void *arg)
         if (SIGSETJMP(mark) == 0) {
             *(int *)arg = 42; /* SIGSEGV */
         }
-        if (SIGSETJMP(mark) == 0) {
-            pthread_kill(pthread_self(), SIGBUS);
-        }
+        pthread_kill(pthread_self(), SIGBUS);
         if (SIGSETJMP(mark) == 0) {
             pthread_kill(pthread_self(), SIGURG);
         }
