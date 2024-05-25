@@ -7079,8 +7079,8 @@ const instr_info_t rm_extensions[][8] = {
     {OP_enclu,  0xd70f0172, catUncategorized, "enclu", eax, ebx, eax, ebx, ecx, mrm|xop, x, exop[0xff]},
   },
   { /* rm extension 5 */
-    {OP_xsusldtrk, 0xf201e808, catUncategorized, "xsusldtrk", xx, xx, xx, xx, xx, reqp, x, END_LIST},
-    {OP_xresldtrk, 0xf201e908, catUncategorized, "xresldtrk", xx, xx, xx, xx, xx, reqp, x, END_LIST},
+    {OP_xsusldtrk, 0xf201e808, catOther, "xsusldtrk", xx, xx, xx, xx, xx, reqp, x, END_LIST},
+    {OP_xresldtrk, 0xf201e908, catOther, "xresldtrk", xx, xx, xx, xx, xx, reqp, x, END_LIST},
     {INVALID,   0x0f0131, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f0131, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f0131, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
