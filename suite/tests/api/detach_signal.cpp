@@ -187,9 +187,8 @@ sideline_spinner(void *arg)
         if (SIGSETJMP(mark) == 0) {
             *(int *)arg = 42; /* SIGSEGV */
         }
-        /* Use sigreturn to return from this signal. Also, does not
-         * have a sigaltstack. Native signals during detach will have
-         * to create a frame-copy.
+        /* Use sigreturn to return from this signal. Also, has a
+         * sigaltstack configured.
          */
         pthread_kill(pthread_self(), SIGUSR2);
         /* Does not have a sigaltstack configured. */
