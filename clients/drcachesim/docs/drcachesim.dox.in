@@ -1147,8 +1147,8 @@ $ bin64/drrun -t drmemtrace -indir drmemtrace.app.pid.xxxx.dir/
 
 The direct results of the \p -offline run are raw, compacted files, stored
 in a \p raw/ subdirectory of the \p drmemtrace.app.pid.xxxx.dir directory.
-The contents of this directory are internal to the tool.  Do not alter, add,
-or delete files here.
+The contents of \p drmemtrace.app.pid.xxxx.dir, and all its subdirectories,
+are internal to the tools.  Do not alter, add, or delete files here.
 The \p -indir option both converts the data to a canonical trace form and
 passes the resulting data to the cache simulator.  The canonical trace data
 is stored by \p -indir in a \p trace/ subdirectory inside the \p
