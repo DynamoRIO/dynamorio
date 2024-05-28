@@ -6560,6 +6560,8 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame,
         d_r_read_lock(&detached_sigact_lock);
         memcpy(&sigact_struct, &detached_sigact[sig], sizeof(sigact_struct));
         d_r_read_unlock(&detached_sigact_lock);
+        memcpy(&info->app_sigblocked, &our_frame->uc.uc_sigmask,
+               sizeof(info->app_sigblocked));
 #ifdef HAVE_SIGALTSTACK
         thread_sig_info_t *dc_info = NULL;
         if (dcontext != NULL)
@@ -6748,19 +6750,27 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame,
             /* Cannot add "rsp" as listing it in clobber list is deprecated. */
             : "rdi", "rsi", "rdx", "rcx");
 #    else
-        asm volatile(
-            "ldr " ASM_R0 ", %[sig]\n\t"
-            "ldr " ASM_R1 ", %[siginfo]\n\t"
-            "ldr " ASM_R2 ", %[ucontext]\n\t"
-            "ldr " ASM_R4 ", %[target_sp]\n\t"
-            "ldr " ASM_R3 ", %[jmp_tgt]\n\t"
-            "mov " ASM_XSP ", " ASM_R4 "\n\t"
-            "br " ASM_R3 "\n\t"
-            :
-            : [jmp_tgt] "m"(asm_jmp_tgt), [sig] "m"(sig), [siginfo] "m"(siginfo_var),
-              [ucontext] "m"(ucontext_var), [target_sp] "m"(cur_xsp)
-            /* Cannot add "sp" as listing it in clobber list is deprecated. */
-            : "x0", "x1", "x2", "x3", "x4");
+        reg_t link_reg_var;
+#        ifdef LINUX
+        if (sig_has_restorer(info, sig))
+            link_reg_var = (reg_t)info->sighand->action[sig]->restorer;
+        else
+#        endif
+            link_reg_var = (reg_t)dynamorio_sigreturn;
+        asm volatile("ldr " ASM_R0 ", %[sig]\n\t"
+                     "ldr " ASM_R1 ", %[siginfo]\n\t"
+                     "ldr " ASM_R2 ", %[ucontext]\n\t"
+                     "ldr " ASM_R4 ", %[target_sp]\n\t"
+                     "ldr " ASM_R3 ", %[jmp_tgt]\n\t"
+                     "ldr " ASM_R30 ", %[link_reg]\n\t"
+                     "mov " ASM_XSP ", " ASM_R4 "\n\t"
+                     "br " ASM_R3 "\n\t"
+                     :
+                     : [jmp_tgt] "m"(asm_jmp_tgt), [sig] "m"(sig),
+                       [siginfo] "m"(siginfo_var), [ucontext] "m"(ucontext_var),
+                       [target_sp] "m"(cur_xsp), [link_reg] "m"(link_reg_var)
+                     /* Cannot add "sp" as listing it in clobber list is deprecated. */
+                     : "x0", "x1", "x2", "x3", "x4", "x30");
 #    endif
         ASSERT_NOT_REACHED();
 #else
