@@ -3759,7 +3759,8 @@ test_direct_switch()
         make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
         make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
         make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
-        // This test focuses on direct only with nothing "unscheduled".
+        // This test focuses on direct only with nothing "unscheduled";
+        // thus, we always provide a timeout to avoid going unscheduled.
         make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, SWITCH_TIMEOUT),
         make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_C),
         make_timestamp(4001),
@@ -3791,7 +3792,8 @@ test_direct_switch()
         make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
         make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
         make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
-        // This test focuses on direct only with nothing "unscheduled".
+        // This test focuses on direct only with nothing "unscheduled";
+        // thus, we always provide a timeout to avoid going unscheduled.
         make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, SWITCH_TIMEOUT),
         make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_A),
         make_timestamp(5001),
@@ -4116,11 +4118,11 @@ test_unscheduled_fallback()
         make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
         make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
         make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
-        // Switch to a missing thread to leave us and B unscheduled,
-        // to test hang workarounds.
+        // Switch to a missing thread to leave us unscheduled; B also went
+        // unscheduled, leaving nothing scheduled, to test hang workarounds.
         make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_BASE + 4),
         make_timestamp(4402),
-        // We won't get here until the hang workaround.
+        // We won't get here until the no-scheduled-input hang workaround.
         make_instr(/*pc=*/401),
         make_exit(TID_A),
     };

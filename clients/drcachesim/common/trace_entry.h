@@ -572,11 +572,16 @@ typedef enum {
      * indefinitely unless another thread resumes it with either
      * #TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH or #TRACE_MARKER_TYPE_SYSCALL_SCHEDULE;
      * or, if a #TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT marker is present, the thread will
-     * become schedulable when that timeout expires.  This marker should generally always
-     * be after a #TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL marker as such a switch
-     * always has a chance of blocking the source thread.  See also
+     * become schedulable when that timeout expires.  This marker provides a mechanism to
+     * model these semantics while abstracting away whether the underlying system call is
+     * a custom kernel extension or a variant of "futex" or other selective wait-notify
+     * scheme.  This marker should generally always be after a
+     * #TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL marker as such a switch always has a
+     * chance of blocking the source thread.  See also
      * #TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, #TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, and
-     * #TRACE_MARKER_TYPE_SYSCALL_SCHEDULE.
+     * #TRACE_MARKER_TYPE_SYSCALL_SCHEDULE.  The scheduler only models this behavior when
+     * #dynamorio::drmemtrace::scheduler_tmpl_t::scheduler_options_t.honor_direct_switches
+     * is true.
      */
     TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH,
 
@@ -641,18 +646,30 @@ typedef enum {
      * another thread resumes it with either #TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH or
      * #TRACE_MARKER_TYPE_SYSCALL_SCHEDULE; or, if a
      * #TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT marker is present, the thread will become
-     * schedulable when that timeout expires.  This marker should generally always be
-     * after a #TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL marker as becoming unschedulable
-     * is a form of blocking and results in a context switch.
+     * schedulable when that timeout expires.  This marker provides a mechanism to model
+     * these semantics while abstracting away whether the underlying system call is a
+     * custom kernel extension or a variant of "futex" or other selective wait-notify
+     * scheme.  This marker should generally always be after a
+     * #TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL marker as becoming unschedulable is a
+     * form of blocking and results in a context switch.  The scheduler only models this
+     * behavior when
+     * #dynamorio::drmemtrace::scheduler_tmpl_t::scheduler_options_t.honor_direct_switches
+     * is true.
      */
     TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE,
 
     /**
      * This marker is emitted prior to a system call (but after the system call's
      * #TRACE_MARKER_TYPE_SYSCALL marker) that causes a target thread identified in the
-     * marker value to become schedulable again if it were currently unschedulable.  See
-     * also #TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE and
-     * #TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH.
+     * marker value to become schedulable again if it were currently unschedulable or if
+     * it is not currently unschedulable to *not* become unschedulable on its next action
+     * that would otherwise do so.  See also #TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE and
+     * #TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH.  This marker provides a mechanism to
+     * model these semantics while abstracting away whether the underlying system call is
+     * a custom kernel extension or a variant of "futex" or other selective wait-notify
+     * scheme.  The scheduler only models this behavior when
+     * #dynamorio::drmemtrace::scheduler_tmpl_t::scheduler_options_t.honor_direct_switches
+     * is true.
      */
     TRACE_MARKER_TYPE_SYSCALL_SCHEDULE,
 
@@ -660,9 +677,9 @@ typedef enum {
      * This marker is emitted prior to a system call (but after the system call's
      * #TRACE_MARKER_TYPE_SYSCALL and #TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL markers)
      * which also has a #TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH or
-     * #TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE marker.  This indicates a timeout after which
-     * the thread will become schedulable again.  The marker value holds the timeout
-     * duration in microseconds.
+     * #TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE marker.  This indicates a timeout provided
+     * by the application after which the thread will become schedulable again.  The
+     * marker value holds the timeout duration in microseconds.
      */
     TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT,
 

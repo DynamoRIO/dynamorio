@@ -931,7 +931,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
                     set_cur_input(i, INVALID_INPUT_ORDINAL);
             }
         } else {
-            // Just take the 1st N scheduled inputs (even if all from the same workload).
+            // Just take the 1st #outputs of schedulable (i.e., not "unscheduled")
+            // inputs (even if all from the same workload).
             input_ordinal_t input = 0;
             for (int i = 0; i < static_cast<output_ordinal_t>(outputs_.size()); ++i) {
                 while (input < static_cast<input_ordinal_t>(inputs_.size()) &&
@@ -2363,9 +2364,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input_as_previously(
             outputs_[output].at_eof = true;
             live_replay_output_count_.fetch_add(-1, std::memory_order_release);
         }
-        return eof_or_idle(output,
-                           options_.mapping == MAP_TO_ANY_OUTPUT ||
-                               options_.mapping == MAP_AS_PREVIOUSLY);
+        return eof_or_idle(output, need_sched_lock());
     }
     const schedule_record_t &segment =
         outputs_[output].record[outputs_[output].record_index + 1];
@@ -2487,12 +2486,18 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input_as_previously(
 }
 
 template <typename RecordType, typename ReaderType>
+bool
+scheduler_tmpl_t<RecordType, ReaderType>::need_sched_lock()
+{
+    return options_.mapping == MAP_TO_ANY_OUTPUT || options_.mapping == MAP_AS_PREVIOUSLY;
+}
+
+template <typename RecordType, typename ReaderType>
 std::unique_lock<std::mutex>
 scheduler_tmpl_t<RecordType, ReaderType>::acquire_scoped_sched_lock_if_necessary(
     bool &need_lock)
 {
-    need_lock =
-        options_.mapping == MAP_TO_ANY_OUTPUT || options_.mapping == MAP_AS_PREVIOUSLY;
+    need_lock = need_sched_lock();
     auto scoped_lock = need_lock ? std::unique_lock<std::mutex>(sched_lock_)
                                  : std::unique_lock<std::mutex>();
     return scoped_lock;
@@ -2512,6 +2517,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
     while (true) {
         ++iters;
         if (index < 0) {
+            // XXX i#6831: Refactor to use subclasses or templates to specialize
+            // scheduler code based on mapping options, to avoid these top-level
+            // conditionals in many functions?
             if (options_.mapping == MAP_AS_PREVIOUSLY) {
                 res = pick_next_input_as_previously(output, index);
                 VDO(this, 2, {
@@ -2744,6 +2752,11 @@ scheduler_tmpl_t<RecordType, ReaderType>::process_marker(input_info_t &input,
         }
         // Trigger a switch either indefinitely or until timeout.
         if (input.skip_next_unscheduled) {
+            // The underlying kernel mechanism being modeled only supports a single
+            // request: they cannot accumulate.  Timing differences in the trace could
+            // perhaps result in multiple lining up when the didn't in the real app;
+            // but changing the scheme here could also push representatives in the
+            // other direction.
             input.skip_next_unscheduled = false;
             VPRINT(this, 3,
                    "input %d unschedule request ignored due to prior schedule request "
@@ -2817,6 +2830,10 @@ scheduler_tmpl_t<RecordType, ReaderType>::process_marker(input_info_t &input,
                     add_to_ready_queue(target);
                     unscheduled_priority_.erase(target);
                 } else if (ready_priority_.find(target)) {
+                    // We assume blocked_time is from _ARG_TIMEOUT and is not from
+                    // regularly-blocking i/o.  We assume i/o getting into the mix is
+                    // rare enough or does not matter enough to try to have separate
+                    // timeouts.
                     if (target->blocked_time > 0) {
                         VPRINT(
                             this, 3,
@@ -2957,6 +2974,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
         bool preempt = false;
         uint64_t blocked_time = 0;
         uint64_t prev_time_in_quantum = 0;
+        // XXX i#6831: Refactor to use subclasses or templates to specialize
+        // scheduler code based on mapping options, to avoid these top-level
+        // conditionals in many functions?
         if (options_.mapping == MAP_AS_PREVIOUSLY) {
             assert(outputs_[output].record_index >= 0);
             if (outputs_[output].record_index >=
@@ -3279,6 +3299,9 @@ typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::eof_or_idle(output_ordinal_t output,
                                                       bool hold_sched_lock)
 {
+    // XXX i#6831: Refactor to use subclasses or templates to specialize
+    // scheduler code based on mapping options, to avoid these top-level
+    // conditionals in many functions?
     if (options_.mapping == MAP_TO_CONSISTENT_OUTPUT ||
         live_input_count_.load(std::memory_order_acquire) == 0 ||
         // While a full schedule recorded should have each input hit either its
@@ -3292,7 +3315,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::eof_or_idle(output_ordinal_t output,
         if (options_.mapping == MAP_TO_ANY_OUTPUT) {
             // Workaround to avoid hangs when _SCHEDULE and/or _DIRECT_THREAD_SWITCH
             // directives miss their targets (due to running with a subset of the
-            // original threads, or other scenarios).
+            // original threads, or other scenarios) and we end up with no scheduled
+            // inputs but a set of unscheduled inputs who will never be scheduled.
             auto scoped_lock = hold_sched_lock
                 ? std::unique_lock<std::mutex>()
                 : std::unique_lock<std::mutex>(sched_lock_);
@@ -3307,12 +3331,13 @@ scheduler_tmpl_t<RecordType, ReaderType>::eof_or_idle(output_ordinal_t output,
                     uint64_t now = get_output_time(output);
                     if (now - outputs_[output].wait_start_time >
                         options_.block_time_max) {
-                        // XXX i#6822: We may want some other options here for
-                        // what to do.  We have FIFO order in unscheduled_priority_
-                        // and could release just one input at a time (though that
-                        // may take a long time at block_time_max each); we could
-                        // declare we're done and just exit, maybe under a flag
-                        // or if we could see what % of total records we've processed.
+                        // XXX i#6822: We may want some other options here for what to
+                        // do.  We could release just one input at a time, which would be
+                        // the same scheduling order (as we have FIFO in
+                        // unscheduled_priority_) but may take a long time at
+                        // block_time_max each; we could declare we're done and just
+                        // exit, maybe under a flag or if we could see what % of total
+                        // records we've processed.
                         VPRINT(this, 1,
                                "eof_or_idle moving entire unscheduled queue to ready "
                                "queue\n");
