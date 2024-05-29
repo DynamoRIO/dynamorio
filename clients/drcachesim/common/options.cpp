@@ -982,6 +982,13 @@ droption_t<bool> op_encodings2regdeps(
     "This option is for -simulator_type " RECORD_FILTER ". When present, it converts "
     "the encoding of instructions from a real ISA to the DR_ISA_REGDEPS synthetic ISA.");
 
+droption_t<std::string>
+    op_filter_func_markers_by_value(DROPTION_SCOPE_FRONTEND,
+                                    "filter_func_markers_by_value", "",
+                                    "Comma-separated integers of function IDs to keep.",
+                                    "Preserves TRACE_MARKER_TYPE_FUNC_[ID | ARG | RETVAL "
+                                    "| RETADDR] markers for the listed function IDs.");
+
 droption_t<uint64_t> op_trim_before_timestamp(
     DROPTION_SCOPE_ALL, "trim_before_timestamp", 0, 0,
     (std::numeric_limits<uint64_t>::max)(),

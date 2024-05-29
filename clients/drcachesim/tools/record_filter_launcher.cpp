@@ -132,6 +132,13 @@ droption_t<bool> op_encodings2regdeps(
     "the encoding of instructions from a real ISA to the DR_ISA_REGDEPS synthetic ISA.");
 } // namespace
 
+droption_t<std::string>
+    op_filter_func_markers_by_value(DROPTION_SCOPE_FRONTEND,
+                                    "filter_func_markers_by_value", "",
+                                    "Comma-separated integers of function IDs to keep.",
+                                    "Preserves TRACE_MARKER_TYPE_FUNC_[ID | ARG | RETVAL "
+                                    "| RETADDR] markers for the listed function IDs.");
+
 int
 _tmain(int argc, const TCHAR *targv[])
 {
@@ -160,7 +167,7 @@ _tmain(int argc, const TCHAR *targv[])
             op_cache_filter_size.get_value(), op_remove_trace_types.get_value(),
             op_remove_marker_types.get_value(), op_trim_before_timestamp.get_value(),
             op_trim_after_timestamp.get_value(), op_encodings2regdeps.get_value(),
-            op_verbose.get_value()));
+            op_filter_func_markers_by_value.get_value(), op_verbose.get_value()));
     std::vector<record_analysis_tool_t *> tools;
     tools.push_back(record_filter.get());
 

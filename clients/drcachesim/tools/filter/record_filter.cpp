@@ -61,6 +61,7 @@
 #include "trim_filter.h"
 #include "type_filter.h"
 #include "encodings2regdeps_filter.h"
+#include "func_marker_filter.h"
 
 #undef VPRINT
 #ifdef DEBUG
@@ -107,7 +108,8 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
                           int cache_filter_size, const std::string &remove_trace_types,
                           const std::string &remove_marker_types,
                           uint64_t trim_before_timestamp, uint64_t trim_after_timestamp,
-                          bool encodings2regdeps, unsigned int verbose)
+                          bool encodings2regdeps, const std::string &keep_func_markers,
+                          unsigned int verbose)
 {
     std::vector<
         std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>>
@@ -141,6 +143,13 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
         filter_funcs.emplace_back(
             std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
                 new dynamorio::drmemtrace::encodings2regdeps_filter_t()));
+    }
+    if (!keep_func_markers.empty()) {
+        std::vector<uint64_t> keep_func_markers_list =
+            parse_string<uint64_t>(keep_func_markers);
+        filter_funcs.emplace_back(
+            std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
+                new dynamorio::drmemtrace::func_marker_filter_t(keep_func_markers_list)));
     }
 
     // TODO i#5675: Add other filters.
