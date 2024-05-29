@@ -931,15 +931,22 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
                     set_cur_input(i, INVALID_INPUT_ORDINAL);
             }
         } else {
-            // Just take the 1st N inputs (even if all from the same workload).
+            // Just take the 1st #outputs of schedulable (i.e., not "unscheduled")
+            // inputs (even if all from the same workload).
+            input_ordinal_t input = 0;
             for (int i = 0; i < static_cast<output_ordinal_t>(outputs_.size()); ++i) {
-                if (i < static_cast<input_ordinal_t>(inputs_.size()))
-                    set_cur_input(i, i);
+                while (input < static_cast<input_ordinal_t>(inputs_.size()) &&
+                       inputs_[input].unscheduled) {
+                    add_to_ready_queue(&inputs_[input]);
+                    ++input;
+                }
+                if (input < static_cast<input_ordinal_t>(inputs_.size()))
+                    set_cur_input(i, input);
                 else
                     set_cur_input(i, INVALID_INPUT_ORDINAL);
+                ++input;
             }
-            for (int i = static_cast<output_ordinal_t>(outputs_.size());
-                 i < static_cast<input_ordinal_t>(inputs_.size()); ++i) {
+            for (int i = input; i < static_cast<input_ordinal_t>(inputs_.size()); ++i) {
                 add_to_ready_queue(&inputs_[i]);
             }
         }
@@ -1475,6 +1482,20 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_switch_sequences()
 }
 
 template <typename RecordType, typename ReaderType>
+bool
+scheduler_tmpl_t<RecordType, ReaderType>::process_next_initial_record(
+    input_info_t &input, RecordType record, bool found_filetype, bool found_timestamp)
+{
+    // TODO i#6822: Always look ahead until the first instruction, looking
+    // for threads that start out with an exit from an UNSCHEDULE or DIRECT
+    // syscall so we can have them start out unscheduled: though we can't
+    // easily know whether there was a timeout unless we read way ahead past
+    // signal handlers until the syscall exits to look for -ETIMEDOUT.
+    // Should we have raw2trace look for that?
+    return !(found_filetype && found_timestamp);
+}
+
+template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::get_initial_input_content(
     bool gather_timestamps)
@@ -1491,7 +1512,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_initial_input_content(
         input_info_t &input = inputs_[i];
         bool found_filetype = false;
         bool found_timestamp = !gather_timestamps || input.next_timestamp > 0;
-        if (!found_filetype || !found_timestamp) {
+        if (process_next_initial_record(input, create_invalid_record(), found_filetype,
+                                        found_timestamp)) {
             // First, check any queued records in the input.
             // XXX: Can we create a helper to iterate the queue and then the
             // reader, and avoid the duplicated loops here?  The challenge is
@@ -1503,17 +1525,20 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_initial_input_content(
                 if (record_type_is_marker(record, marker_type, marker_value) &&
                     marker_type == TRACE_MARKER_TYPE_FILETYPE) {
                     found_filetype = true;
-                    VPRINT(this, 2, "Input %zu filetype %zu\n", i, marker_value);
+                    VPRINT(this, 2, "Input %zu filetype %zu from queue\n", i,
+                           marker_value);
                 }
                 if (record_type_is_timestamp(record, input.next_timestamp))
                     found_timestamp = true;
-                if (found_filetype && found_timestamp)
+                if (!process_next_initial_record(input, record, found_filetype,
+                                                 found_timestamp))
                     break;
             }
         }
         if (input.next_timestamp > 0)
             found_timestamp = true;
-        if (!found_filetype || !found_timestamp) {
+        if (process_next_initial_record(input, create_invalid_record(), found_filetype,
+                                        found_timestamp)) {
             // If we didn't find our targets in the queue, request new records.
             if (input.needs_init) {
                 input.reader->init();
@@ -1530,7 +1555,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_initial_input_content(
                 }
                 if (record_type_is_timestamp(record, input.next_timestamp))
                     found_timestamp = true;
-                if (found_filetype && found_timestamp)
+                if (!process_next_initial_record(input, record, found_filetype,
+                                                 found_timestamp))
                     break;
                 // Don't go too far if only looking for filetype, to avoid reaching
                 // the first instruction, which causes problems with ordinals when
@@ -1549,7 +1575,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_initial_input_content(
                 // synthetic trace in a test) or we may have to read thousands of records
                 // to find it if it were somehow missing, which we do not want to do.  We
                 // assume our queued records are few and do not include instructions when
-                // we skip (see skip_instrutions()).  Thus, we abort with an error.
+                // we skip (see skip_instructions()).  Thus, we abort with an error.
                 if (record_type_is_instr(record))
                     break;
                 input.queue.push_back(record);
@@ -1821,7 +1847,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(
                input.cur_region);
         if (input.cur_region >= static_cast<int>(input.regions_of_interest.size())) {
             if (input.at_eof)
-                return eof_or_idle(output);
+                return eof_or_idle(output, /*hold_sched_lock=*/false);
             else {
                 // We let the user know we're done.
                 if (options_.schedule_record_ostream != nullptr) {
@@ -2060,8 +2086,24 @@ scheduler_tmpl_t<RecordType, ReaderType>::ready_queue_empty()
 
 template <typename RecordType, typename ReaderType>
 void
+scheduler_tmpl_t<RecordType, ReaderType>::add_to_unscheduled_queue(input_info_t *input)
+{
+    assert(input->unscheduled &&
+           input->blocked_time == 0); // Else should be in regular queue.
+    VPRINT(this, 4, "add_to_unscheduled_queue (pre-size %zu): input %d priority %d\n",
+           unscheduled_priority_.size(), input->index, input->priority);
+    input->queue_counter = ++unscheduled_counter_;
+    unscheduled_priority_.push(input);
+}
+
+template <typename RecordType, typename ReaderType>
+void
 scheduler_tmpl_t<RecordType, ReaderType>::add_to_ready_queue(input_info_t *input)
 {
+    if (input->unscheduled && input->blocked_time == 0) {
+        add_to_unscheduled_queue(input);
+        return;
+    }
     VPRINT(
         this, 4,
         "add_to_ready_queue (pre-size %zu): input %d priority %d timestamp delta %" PRIu64
@@ -2093,6 +2135,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue(
             res = ready_priority_.top();
             ready_priority_.pop();
         }
+        assert(!res->unscheduled ||
+               res->blocked_time > 0); // Should be in unscheduled_priority_.
         if (res->binding.empty() || res->binding.find(for_output) != res->binding.end()) {
             // For blocked inputs, as we don't have interrupts or other regular
             // control points we only check for being unblocked when an input
@@ -2132,9 +2176,11 @@ scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue(
         static int heartbeat;
         // We are ok with races as the cadence is approximate.
         if (++heartbeat % 500 == 0) {
-            VPRINT(this, 1, "heartbeat[%d] %zd in queue; %d blocked => %d %d\n",
+            VPRINT(this, 1,
+                   "heartbeat[%d] %zd in queue; %d blocked; %zd unscheduled => %d %d\n",
                    for_output, ready_priority_.size(), num_blocked_,
-                   res == nullptr ? -1 : res->index, status);
+                   unscheduled_priority_.size(), res == nullptr ? -1 : res->index,
+                   status);
         }
     });
     if (res != nullptr) {
@@ -2144,9 +2190,27 @@ scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue(
                for_output, ready_priority_.size(), res->index, res->priority,
                res->reader->get_last_timestamp() - res->base_timestamp);
         res->blocked_time = 0;
+        res->unscheduled = false;
     }
     new_input = res;
     return status;
+}
+
+template <typename RecordType, typename ReaderType>
+uint64_t
+scheduler_tmpl_t<RecordType, ReaderType>::scale_blocked_time(uint64_t initial_time) const
+{
+    uint64_t scaled = static_cast<uint64_t>(static_cast<double>(initial_time) *
+                                            options_.block_time_scale);
+    if (scaled > options_.block_time_max) {
+        // We have a max to avoid outlier latencies that are already a second or
+        // more from scaling up to tens of minutes.  We assume a cap is representative
+        // as the outliers likely were not part of key dependence chains.  Without a
+        // cap the other threads all finish and the simulation waits for tens of
+        // minutes further for a couple of outliers.
+        scaled = options_.block_time_max;
+    }
+    return scaled;
 }
 
 template <typename RecordType, typename ReaderType>
@@ -2169,16 +2233,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::syscall_incurs_switch(input_info_t *in
     uint64_t threshold = input->processing_maybe_blocking_syscall
         ? options_.blocking_switch_threshold
         : options_.syscall_switch_threshold;
-    blocked_time =
-        static_cast<uint64_t>(static_cast<double>(latency) * options_.block_time_scale);
-    if (blocked_time > options_.block_time_max) {
-        // We have a max to avoid outlier latencies that are already a second or
-        // more from scaling up to tens of minutes.  We assume a cap is representative
-        // as the outliers likely were not part of key dependence chains.  Without a
-        // cap the other threads all finish and the simulation waits for tens of
-        // minutes further for a couple of outliers.
-        blocked_time = options_.block_time_max;
-    }
+    blocked_time = scale_blocked_time(latency);
     VPRINT(this, 3,
            "input %d %ssyscall latency %" PRIu64 " * scale %5.1f => blocked time %" PRIu64
            "\n",
@@ -2202,8 +2257,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_cur_input(output_ordinal_t output,
     int prev_input = outputs_[output].cur_input;
     if (prev_input >= 0) {
         if (options_.mapping == MAP_TO_ANY_OUTPUT && prev_input != input &&
-            !inputs_[prev_input].at_eof)
+            !inputs_[prev_input].at_eof) {
             add_to_ready_queue(&inputs_[prev_input]);
+        }
         if (prev_input != input && options_.schedule_record_ostream != nullptr) {
             input_info_t &prev_info = inputs_[prev_input];
             std::lock_guard<std::mutex> lock(*prev_info.lock);
@@ -2308,7 +2364,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input_as_previously(
             outputs_[output].at_eof = true;
             live_replay_output_count_.fetch_add(-1, std::memory_order_release);
         }
-        return eof_or_idle(output);
+        return eof_or_idle(output, need_sched_lock());
     }
     const schedule_record_t &segment =
         outputs_[output].record[outputs_[output].record_index + 1];
@@ -2430,21 +2486,40 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input_as_previously(
 }
 
 template <typename RecordType, typename ReaderType>
+bool
+scheduler_tmpl_t<RecordType, ReaderType>::need_sched_lock()
+{
+    return options_.mapping == MAP_TO_ANY_OUTPUT || options_.mapping == MAP_AS_PREVIOUSLY;
+}
+
+template <typename RecordType, typename ReaderType>
+std::unique_lock<std::mutex>
+scheduler_tmpl_t<RecordType, ReaderType>::acquire_scoped_sched_lock_if_necessary(
+    bool &need_lock)
+{
+    need_lock = need_sched_lock();
+    auto scoped_lock = need_lock ? std::unique_lock<std::mutex>(sched_lock_)
+                                 : std::unique_lock<std::mutex>();
+    return scoped_lock;
+}
+
+template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t output,
                                                           uint64_t blocked_time)
 {
     sched_type_t::stream_status_t res = sched_type_t::STATUS_OK;
-    bool need_lock =
-        options_.mapping == MAP_TO_ANY_OUTPUT || options_.mapping == MAP_AS_PREVIOUSLY;
-    auto scoped_lock = need_lock ? std::unique_lock<std::mutex>(sched_lock_)
-                                 : std::unique_lock<std::mutex>();
+    bool need_lock;
+    auto scoped_lock = acquire_scoped_sched_lock_if_necessary(need_lock);
     input_ordinal_t prev_index = outputs_[output].cur_input;
     input_ordinal_t index = INVALID_INPUT_ORDINAL;
     int iters = 0;
     while (true) {
         ++iters;
         if (index < 0) {
+            // XXX i#6831: Refactor to use subclasses or templates to specialize
+            // scheduler code based on mapping options, to avoid these top-level
+            // conditionals in many functions?
             if (options_.mapping == MAP_AS_PREVIOUSLY) {
                 res = pick_next_input_as_previously(output, index);
                 VDO(this, 2, {
@@ -2479,20 +2554,21 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                                output, blocked_time);
                         inputs_[prev_index].blocked_time = blocked_time;
                         inputs_[prev_index].blocked_start_time = get_output_time(output);
-                    } else {
-                        // If we looped we could have the same prev_index.
-                        assert(iters > 1);
                     }
                 }
                 if (prev_index != INVALID_INPUT_ORDINAL &&
                     inputs_[prev_index].switch_to_input != INVALID_INPUT_ORDINAL) {
                     input_info_t *target = &inputs_[inputs_[prev_index].switch_to_input];
                     inputs_[prev_index].switch_to_input = INVALID_INPUT_ORDINAL;
+                    std::lock_guard<std::mutex> lock(*target->lock);
                     // XXX i#5843: Add an invariant check that the next timestamp of the
                     // target is later than the pre-switch-syscall timestamp?
                     if (ready_priority_.find(target)) {
-                        VPRINT(this, 2, "next_record[%d]: direct switch to input %d\n",
-                               output, target->index);
+                        VPRINT(this, 2,
+                               "next_record[%d]: direct switch from input %d to input %d "
+                               "@%" PRIu64 "\n",
+                               output, prev_index, target->index,
+                               inputs_[prev_index].reader->get_last_timestamp());
                         ready_priority_.erase(target);
                         index = target->index;
                         // Erase any remaining wait time for the target.
@@ -2503,29 +2579,46 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                                    output, target->index);
                             --num_blocked_;
                             target->blocked_time = 0;
+                            target->unscheduled = false;
                         }
+                    } else if (unscheduled_priority_.find(target)) {
+                        target->unscheduled = false;
+                        unscheduled_priority_.erase(target);
+                        index = target->index;
+                        VPRINT(this, 2,
+                               "next_record[%d]: direct switch from input %d to "
+                               "was-unscheduled input %d "
+                               "@%" PRIu64 "\n",
+                               output, prev_index, target->index,
+                               inputs_[prev_index].reader->get_last_timestamp());
                     } else {
-                        // TODO i#5843: If the target is running on another output, we
-                        // need to do a forced migration by setting a flag to force a
-                        // preempt and presumably waiting (STATUS_WAIT or STATUS_IDLE?)
-                        // here until the input is available.
-                        // For now we print a message so we can notice when this
-                        // happens, but we ignore the direct switch request.
+                        // We assume that inter-input dependencies are captured in
+                        // the _DIRECT_THREAD_SWITCH, _UNSCHEDULE, and _SCHEDULE markers
+                        // and that if a switch request targets a thread running elsewhere
+                        // that means there isn't a dependence and this is really a
+                        // dynamic switch to whoever happens to be available (and
+                        // different timing between tracing and analysis has caused this
+                        // miss).
                         VPRINT(this, 1,
-                               "Direct switch target input #%d is running elsewhere and "
-                               "forced migration is NYI\n",
-                               target->index);
+                               "Direct switch (from %d) target input #%d is running "
+                               "elsewhere; picking a different target @%" PRIu64 "\n",
+                               prev_index, target->index,
+                               inputs_[prev_index].reader->get_last_timestamp());
+                        // We do ensure the missed target doesn't wait indefinitely.
+                        // XXX i#6822: It's not clear this is always the right thing to
+                        // do.
+                        target->skip_next_unscheduled = true;
                     }
                 }
                 if (index != INVALID_INPUT_ORDINAL) {
                     // We found a direct switch target above.
                 } else if (ready_queue_empty() && blocked_time == 0) {
                     if (prev_index == INVALID_INPUT_ORDINAL)
-                        return eof_or_idle(output);
+                        return eof_or_idle(output, need_lock);
                     auto lock = std::unique_lock<std::mutex>(*inputs_[prev_index].lock);
                     if (inputs_[prev_index].at_eof) {
                         lock.unlock();
-                        return eof_or_idle(output);
+                        return eof_or_idle(output, need_lock);
                     } else
                         index = prev_index; // Go back to prior.
                 } else {
@@ -2553,7 +2646,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                     }
                     if (queue_next == nullptr) {
                         assert(blocked_time == 0 || prev_index == INVALID_INPUT_ORDINAL);
-                        return eof_or_idle(output);
+                        return eof_or_idle(output, need_lock);
                     }
                     index = queue_next->index;
                 }
@@ -2568,7 +2661,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                     }
                 }
                 if (index < 0)
-                    return eof_or_idle(output);
+                    return eof_or_idle(output, need_lock);
                 VPRINT(this, 2,
                        "next_record[%d]: advancing to timestamp %" PRIu64
                        " == input #%d\n",
@@ -2615,6 +2708,155 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
 }
 
 template <typename RecordType, typename ReaderType>
+void
+scheduler_tmpl_t<RecordType, ReaderType>::process_marker(input_info_t &input,
+                                                         output_ordinal_t output,
+                                                         trace_marker_type_t marker_type,
+                                                         uintptr_t marker_value)
+{
+    switch (marker_type) {
+    case TRACE_MARKER_TYPE_SYSCALL:
+        input.processing_syscall = true;
+        input.pre_syscall_timestamp = input.reader->get_last_timestamp();
+        break;
+    case TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL:
+        input.processing_maybe_blocking_syscall = true;
+        // Generally we should already have the timestamp from a just-prior
+        // syscall marker, but we support tests and other synthetic sequences
+        // with just a maybe-blocking.
+        input.pre_syscall_timestamp = input.reader->get_last_timestamp();
+        break;
+    case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START:
+        outputs_[output].in_context_switch_code = true;
+        ANNOTATE_FALLTHROUGH;
+    case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
+        outputs_[output].in_kernel_code = true;
+        break;
+    case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END:
+        // We have to delay until the next record.
+        outputs_[output].hit_switch_code_end = true;
+        ANNOTATE_FALLTHROUGH;
+    case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
+        outputs_[output].in_kernel_code = false;
+        break;
+    case TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH: {
+        if (!options_.honor_direct_switches)
+            break;
+        memref_tid_t target_tid = marker_value;
+        auto it = tid2input_.find(workload_tid_t(input.workload, target_tid));
+        if (it == tid2input_.end()) {
+            VPRINT(this, 1, "Failed to find input for target switch thread %" PRId64 "\n",
+                   target_tid);
+        } else {
+            input.switch_to_input = it->second;
+        }
+        // Trigger a switch either indefinitely or until timeout.
+        if (input.skip_next_unscheduled) {
+            // The underlying kernel mechanism being modeled only supports a single
+            // request: they cannot accumulate.  Timing differences in the trace could
+            // perhaps result in multiple lining up when the didn't in the real app;
+            // but changing the scheme here could also push representatives in the
+            // other direction.
+            input.skip_next_unscheduled = false;
+            VPRINT(this, 3,
+                   "input %d unschedule request ignored due to prior schedule request "
+                   "@%" PRIu64 "\n",
+                   input.index, input.reader->get_last_timestamp());
+            break;
+        }
+        input.unscheduled = true;
+        if (input.syscall_timeout_arg > 0) {
+            input.blocked_time = scale_blocked_time(input.syscall_timeout_arg);
+            VPRINT(this, 3, "input %d unscheduled for %" PRIu64 " @%" PRIu64 "\n",
+                   input.index, input.blocked_time, input.reader->get_last_timestamp());
+        } else {
+            VPRINT(this, 3, "input %d unscheduled indefinitely @%" PRIu64 "\n",
+                   input.index, input.reader->get_last_timestamp());
+        }
+        break;
+    }
+    case TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT:
+        // This is cleared at the post-syscall instr.
+        input.syscall_timeout_arg = static_cast<uint64_t>(marker_value);
+        break;
+    case TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE:
+        if (!options_.honor_direct_switches)
+            break;
+        if (input.skip_next_unscheduled) {
+            input.skip_next_unscheduled = false;
+            VPRINT(this, 3,
+                   "input %d unschedule request ignored due to prior schedule request "
+                   "@%" PRIu64 "\n",
+                   input.index, input.reader->get_last_timestamp());
+            break;
+        }
+        // Trigger a switch either indefinitely or until timeout.
+        input.unscheduled = true;
+        if (input.syscall_timeout_arg > 0) {
+            input.blocked_time = scale_blocked_time(input.syscall_timeout_arg);
+            VPRINT(this, 3, "input %d unscheduled for %" PRIu64 " @%" PRIu64 "\n",
+                   input.index, input.blocked_time, input.reader->get_last_timestamp());
+        } else {
+            VPRINT(this, 3, "input %d unscheduled indefinitely @%" PRIu64 "\n",
+                   input.index, input.reader->get_last_timestamp());
+        }
+        break;
+    case TRACE_MARKER_TYPE_SYSCALL_SCHEDULE: {
+        if (!options_.honor_direct_switches)
+            break;
+        memref_tid_t target_tid = marker_value;
+        auto it = tid2input_.find(workload_tid_t(input.workload, target_tid));
+        if (it == tid2input_.end()) {
+            VPRINT(this, 1,
+                   "Failed to find input for switchto::resume target tid %" PRId64 "\n",
+                   target_tid);
+            return;
+        }
+        input_ordinal_t target_idx = it->second;
+        VPRINT(this, 3, "input %d re-scheduling input %d @%" PRIu64 "\n", input.index,
+               target_idx, input.reader->get_last_timestamp());
+        // Release the input lock before acquiring sched_lock, to meet our lock
+        // ordering convention to avoid deadlocks.
+        input.lock->unlock();
+        {
+            bool need_sched_lock;
+            auto scoped_sched_lock =
+                acquire_scoped_sched_lock_if_necessary(need_sched_lock);
+            input_info_t *target = &inputs_[target_idx];
+            std::lock_guard<std::mutex> lock(*target->lock);
+            if (target->unscheduled) {
+                target->unscheduled = false;
+                if (unscheduled_priority_.find(target)) {
+                    add_to_ready_queue(target);
+                    unscheduled_priority_.erase(target);
+                } else if (ready_priority_.find(target)) {
+                    // We assume blocked_time is from _ARG_TIMEOUT and is not from
+                    // regularly-blocking i/o.  We assume i/o getting into the mix is
+                    // rare enough or does not matter enough to try to have separate
+                    // timeouts.
+                    if (target->blocked_time > 0) {
+                        VPRINT(
+                            this, 3,
+                            "switchto::resume erasing blocked time for target input %d\n",
+                            target->index);
+                        --num_blocked_;
+                        target->blocked_time = 0;
+                    }
+                }
+            } else {
+                VPRINT(this, 3, "input %d will skip next unschedule\n", target_idx);
+                target->skip_next_unscheduled = true;
+            }
+        }
+        input.lock->lock();
+        break;
+    }
+    default: // Nothing to do.
+        break;
+    }
+}
+
+template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                                                       RecordType &record,
@@ -2657,7 +2899,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
     if (outputs_[output].cur_input < 0) {
         // This happens with more outputs than inputs.  For non-empty outputs we
         // require cur_input to be set to >=0 during init().
-        return eof_or_idle(output);
+        return eof_or_idle(output, /*hold_sched_lock=*/false);
     }
     input = &inputs_[outputs_[output].cur_input];
     auto lock = std::unique_lock<std::mutex>(*input->lock);
@@ -2732,6 +2974,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
         bool preempt = false;
         uint64_t blocked_time = 0;
         uint64_t prev_time_in_quantum = 0;
+        // XXX i#6831: Refactor to use subclasses or templates to specialize
+        // scheduler code based on mapping options, to avoid these top-level
+        // conditionals in many functions?
         if (options_.mapping == MAP_AS_PREVIOUSLY) {
             assert(outputs_[output].record_index >= 0);
             if (outputs_[output].record_index >=
@@ -2771,49 +3016,48 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
         } else if (options_.mapping == MAP_TO_ANY_OUTPUT) {
             trace_marker_type_t marker_type;
             uintptr_t marker_value;
-            // While regular traces typically always have a syscall marker when there's a
-            // maybe-blocking marker, some tests and synthetic traces have just the maybe
-            // so we check both.
+            // While regular traces typically always have a syscall marker when
+            // there's a maybe-blocking marker, some tests and synthetic traces have
+            // just the maybe so we check both.
             if (input->processing_syscall || input->processing_maybe_blocking_syscall) {
                 // Wait until we're past all the markers associated with the syscall.
-                // XXX: We may prefer to stop before the return value marker for futex,
-                // or a kernel xfer marker, but our recorded format is on instr
+                // XXX: We may prefer to stop before the return value marker for
+                // futex, or a kernel xfer marker, but our recorded format is on instr
                 // boundaries so we live with those being before the switch.
                 // XXX: Once we insert kernel traces, we may have to try harder
                 // to stop before the post-syscall records.
-                if (options_.honor_direct_switches &&
-                    record_type_is_marker(record, marker_type, marker_value) &&
-                    marker_type == TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH) {
-                    memref_tid_t target_tid = marker_value;
-                    auto it =
-                        tid2input_.find(workload_tid_t(input->workload, target_tid));
-                    if (it == tid2input_.end()) {
-                        VPRINT(this, 1,
-                               "Failed to find input for target switch thread %" PRId64
-                               "\n",
-                               target_tid);
-                    } else {
-                        input->switch_to_input = it->second;
-                    }
-                } else if (record_type_is_instr_boundary(record,
-                                                         outputs_[output].last_record)) {
-                    if (syscall_incurs_switch(input, blocked_time)) {
+                if (record_type_is_instr_boundary(record, outputs_[output].last_record)) {
+                    if (input->switch_to_input != INVALID_INPUT_ORDINAL) {
+                        // The switch request overrides any latency threshold.
+                        need_new_input = true;
+                        VPRINT(this, 3,
+                               "next_record[%d]: direct switch on low-latency "
+                               "syscall in "
+                               "input %d\n",
+                               output, input->index);
+                    } else if (input->blocked_time > 0) {
+                        // If we've found out another way that this input should
+                        // block, use that time and do a switch.
+                        need_new_input = true;
+                        blocked_time = input->blocked_time;
+                        VPRINT(this, 3,
+                               "next_record[%d]: blocked time set for input %d\n", output,
+                               input->index);
+                    } else if (input->unscheduled) {
+                        need_new_input = true;
+                        VPRINT(this, 3, "next_record[%d]: input %d going unscheduled\n",
+                               output, input->index);
+                    } else if (syscall_incurs_switch(input, blocked_time)) {
                         // Model as blocking and should switch to a different input.
                         need_new_input = true;
                         VPRINT(this, 3,
                                "next_record[%d]: hit blocking syscall in input %d\n",
                                output, input->index);
-                    } else if (input->switch_to_input != INVALID_INPUT_ORDINAL) {
-                        // The switch request overrides any latency threshold.
-                        need_new_input = true;
-                        VPRINT(this, 3,
-                               "next_record[%d]: direct switch on low-latency syscall in "
-                               "input %d\n",
-                               output, input->index);
                     }
                     input->processing_syscall = false;
                     input->processing_maybe_blocking_syscall = false;
                     input->pre_syscall_timestamp = 0;
+                    input->syscall_timeout_arg = 0;
                 }
             }
             if (outputs_[output].hit_switch_code_end) {
@@ -2827,31 +3071,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                 // we'll want to make sure skipping while in these switch and kernel
                 // sequences is handled correctly.
             }
-            if (record_type_is_marker(record, marker_type, marker_value) &&
-                marker_type == TRACE_MARKER_TYPE_SYSCALL) {
-                input->processing_syscall = true;
-                input->pre_syscall_timestamp = input->reader->get_last_timestamp();
-            } else if (record_type_is_marker(record, marker_type, marker_value) &&
-                       marker_type == TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL) {
-                input->processing_maybe_blocking_syscall = true;
-                // Generally we should already have the timestamp from a just-prior
-                // syscall marker, but we support tests and other synthetic sequences
-                // with just a maybe-blocking.
-                input->pre_syscall_timestamp = input->reader->get_last_timestamp();
-            } else if (record_type_is_marker(record, marker_type, marker_value) &&
-                       (marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_START ||
-                        marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_START)) {
-                outputs_[output].in_kernel_code = true;
-                if (marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_START)
-                    outputs_[output].in_context_switch_code = true;
-            } else if (record_type_is_marker(record, marker_type, marker_value) &&
-                       (marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END ||
-                        marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_END)) {
-                outputs_[output].in_kernel_code = false;
-                if (marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_END) {
-                    // We have to delay until the next record.
-                    outputs_[output].hit_switch_code_end = true;
-                }
+            if (record_type_is_marker(record, marker_type, marker_value)) {
+                process_marker(*input, output, marker_type, marker_value);
             }
             if (options_.quantum_unit == QUANTUM_INSTRUCTIONS &&
                 record_type_is_instr_boundary(record, outputs_[output].last_record) &&
@@ -3075,8 +3296,12 @@ scheduler_tmpl_t<RecordType, ReaderType>::mark_input_eof(input_info_t &input)
 
 template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
-scheduler_tmpl_t<RecordType, ReaderType>::eof_or_idle(output_ordinal_t output)
+scheduler_tmpl_t<RecordType, ReaderType>::eof_or_idle(output_ordinal_t output,
+                                                      bool hold_sched_lock)
 {
+    // XXX i#6831: Refactor to use subclasses or templates to specialize
+    // scheduler code based on mapping options, to avoid these top-level
+    // conditionals in many functions?
     if (options_.mapping == MAP_TO_CONSISTENT_OUTPUT ||
         live_input_count_.load(std::memory_order_acquire) == 0 ||
         // While a full schedule recorded should have each input hit either its
@@ -3087,6 +3312,49 @@ scheduler_tmpl_t<RecordType, ReaderType>::eof_or_idle(output_ordinal_t output)
         assert(options_.mapping != MAP_AS_PREVIOUSLY || outputs_[output].at_eof);
         return sched_type_t::STATUS_EOF;
     } else {
+        if (options_.mapping == MAP_TO_ANY_OUTPUT) {
+            // Workaround to avoid hangs when _SCHEDULE and/or _DIRECT_THREAD_SWITCH
+            // directives miss their targets (due to running with a subset of the
+            // original threads, or other scenarios) and we end up with no scheduled
+            // inputs but a set of unscheduled inputs who will never be scheduled.
+            auto scoped_lock = hold_sched_lock
+                ? std::unique_lock<std::mutex>()
+                : std::unique_lock<std::mutex>(sched_lock_);
+            VPRINT(this, 4,
+                   "eof_or_idle output=%d live=%d unsched=%zu runq=%zu blocked=%d\n",
+                   output, live_input_count_.load(std::memory_order_acquire),
+                   unscheduled_priority_.size(), ready_priority_.size(), num_blocked_);
+            if (ready_priority_.empty() && !unscheduled_priority_.empty()) {
+                if (outputs_[output].wait_start_time == 0) {
+                    outputs_[output].wait_start_time = get_output_time(output);
+                } else {
+                    uint64_t now = get_output_time(output);
+                    if (now - outputs_[output].wait_start_time >
+                        options_.block_time_max) {
+                        // XXX i#6822: We may want some other options here for what to
+                        // do.  We could release just one input at a time, which would be
+                        // the same scheduling order (as we have FIFO in
+                        // unscheduled_priority_) but may take a long time at
+                        // block_time_max each; we could declare we're done and just
+                        // exit, maybe under a flag or if we could see what % of total
+                        // records we've processed.
+                        VPRINT(this, 1,
+                               "eof_or_idle moving entire unscheduled queue to ready "
+                               "queue\n");
+                        while (!unscheduled_priority_.empty()) {
+                            input_info_t *tomove = unscheduled_priority_.top();
+                            std::lock_guard<std::mutex> lock(*tomove->lock);
+                            tomove->unscheduled = false;
+                            ready_priority_.push(tomove);
+                            unscheduled_priority_.pop();
+                        }
+                        outputs_[output].wait_start_time = 0;
+                    }
+                }
+            } else {
+                outputs_[output].wait_start_time = 0;
+            }
+        }
         outputs_[output].waiting = true;
         set_cur_input(output, INVALID_INPUT_ORDINAL);
         return sched_type_t::STATUS_IDLE;

@@ -200,3 +200,6 @@ OPCODE(wrpkru, wrpkru, wrpkru, 0)
 
 OPCODE(clac, clac, clac, 0)
 OPCODE(stac, stac, stac, 0)
+
+OPCODE(xsusldtrk, xsusldtrk, xsusldtrk, 0)
+OPCODE(xresldtrk, xresldtrk, xresldtrk, 0)
