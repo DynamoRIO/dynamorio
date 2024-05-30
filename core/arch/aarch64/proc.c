@@ -171,7 +171,8 @@ proc_init_arch(void)
     get_processor_specific_info();
 
     DOLOG(1, LOG_TOP, {
-        LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n ID_AA64ISAR0_EL1 = 0x%016lx\n",
+        LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n");
+        LOG(GLOBAL, LOG_TOP, 1, "ID_AA64ISAR0_EL1 = 0x%016lx\n",
             cpu_info.features.isa_features[AA64ISAR0]);
         LOG_FEATURE(FEATURE_AESX);
         LOG_FEATURE(FEATURE_PMULL);
@@ -190,38 +191,38 @@ proc_init_arch(void)
         LOG_FEATURE(FEATURE_FlagM2);
         LOG_FEATURE(FEATURE_RNG);
 
-        LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n ID_AA64ISAR1_EL1 = 0x%016lx\n",
+        LOG(GLOBAL, LOG_TOP, 1, "ID_AA64ISAR1_EL1 = 0x%016lx\n",
             cpu_info.features.isa_features[AA64ISAR1]);
         LOG_FEATURE(FEATURE_DPB);
         LOG_FEATURE(FEATURE_DPB2);
         LOG_FEATURE(FEATURE_JSCVT);
         LOG_FEATURE(FEATURE_PAUTH);
 
-        LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n ID_AA64PFR0_EL1 = 0x%016lx\n",
+        LOG(GLOBAL, LOG_TOP, 1, "ID_AA64PFR0_EL1 = 0x%016lx\n",
             cpu_info.features.isa_features[AA64PFR0]);
         LOG_FEATURE(FEATURE_FP16);
         LOG_FEATURE(FEATURE_RAS);
         LOG_FEATURE(FEATURE_SVE);
         LOG_FEATURE(FEATURE_DIT);
 
-        LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n ID_AA64MMFR1_EL1 = 0x%016lx\n",
+        LOG(GLOBAL, LOG_TOP, 1, "ID_AA64MMFR1_EL1 = 0x%016lx\n",
             cpu_info.features.isa_features[AA64MMFR1]);
         LOG_FEATURE(FEATURE_LOR);
 
-        LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n ID_AA64DFR0_EL1 = 0x%016lx\n",
+        LOG(GLOBAL, LOG_TOP, 1, "ID_AA64DFR0_EL1 = 0x%016lx\n",
             cpu_info.features.isa_features[AA64DFR0]);
         LOG_FEATURE(FEATURE_SPE);
         LOG_FEATURE(FEATURE_LRCPC);
         LOG_FEATURE(FEATURE_LRCPC2);
         LOG_FEATURE(FEATURE_FRINTTS);
 
-        LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n ID_AA64ZFR0_EL1 = 0x%016lx\n",
+        LOG(GLOBAL, LOG_TOP, 1, "ID_AA64ZFR0_EL1 = 0x%016lx\n",
             cpu_info.features.isa_features[AA64ZFR0]);
         LOG_FEATURE(FEATURE_BF16);
         LOG_FEATURE(FEATURE_I8MM);
         LOG_FEATURE(FEATURE_F64MM);
 
-        LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n ID_AA64PFR1_EL1 = 0x%016lx\n",
+        LOG(GLOBAL, LOG_TOP, 1, "ID_AA64PFR1_EL1 = 0x%016lx\n",
             cpu_info.features.isa_features[AA64PFR1]);
         LOG_FEATURE(FEATURE_MTE);
         LOG_FEATURE(FEATURE_MTE2);
@@ -229,12 +230,12 @@ proc_init_arch(void)
         LOG_FEATURE(FEATURE_SSBS);
         LOG_FEATURE(FEATURE_SSBS2);
 
-        LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n ID_AA64ISAR2_EL1 = 0x%016lx\n",
+        LOG(GLOBAL, LOG_TOP, 1, "ID_AA64ISAR2_EL1 = 0x%016lx\n",
             cpu_info.features.isa_features[AA64ISAR2]);
         LOG_FEATURE(FEATURE_PAUTH2);
         LOG_FEATURE(FEATURE_CONSTPACFIELD);
 
-        LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n ID_AA64MMFR2_EL1 = 0x%016lx\n",
+        LOG(GLOBAL, LOG_TOP, 1, "ID_AA64MMFR2_EL1 = 0x%016lx\n",
             cpu_info.features.isa_features[AA64MMFR2]);
         LOG_FEATURE(FEATURE_LSE2);
     });
