@@ -578,6 +578,10 @@ public:
          * #QUANTUM_TIME simulator time or wall-clock microseconds for
          * #QUANTUM_INSTRUCTIONS), for an input to be considered blocked for any one
          * system call.  This is applied after multiplying by #block_time_scale.
+         * This is also used as a fallback to avoid hangs when there are no scheduled
+         * inputs: if the only inputs left are "unscheduled" (see
+         * #TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE), after this amount of time those
+         * inputs are all re-scheduled.
          */
         uint64_t block_time_max = 25000000;
         // XXX: Should we share the file-to-reader code currently in the scheduler
@@ -639,13 +643,11 @@ public:
         /**
          * If true, the scheduler will attempt to switch to the recorded targets of
          * #TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH system call metadata markers
-         * regardless of system call latency.  If the target is not available, the
-         * current implementation will select the next available input in the regular
-         * scheduling queue, but in the future a forced migration may be applied for an
-         * input currently on another output. If false, the direct switch markers are
-         * ignored and only system call latency thresholds are used to determine
-         * switches (the #TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH markers remain: they
-         * are not removed from the trace).
+         * regardless of system call latency.  Furthermore, the scheduler will model
+         * "unscheduled" semantics and honor the #TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE
+         * and #TRACE_MARKER_TYPE_SYSCALL_SCHEDULE markers.  If false, these markers are
+         * ignored and only system call latency thresholds are used to determine switches
+         * (these markers remain: they are not removed from the trace).
          */
         bool honor_direct_switches = true;
     };
@@ -1205,7 +1207,9 @@ protected:
         // with schedule_t "this" access for the comparator to compile: it is not
         // simple to do so, however.)
         bool order_by_timestamp = false;
-        // Global ready queue counter used to provide FIFO for same-priority inputs.
+        // Global queue counter used to provide FIFO for same-priority inputs.
+        // This value is only valid when this input is in a queue; it is set upon
+        // being added to a queue.
         uint64_t queue_counter = 0;
         // Used to switch on the instruction *after* a long-latency syscall.
         bool processing_syscall = false;
@@ -1214,6 +1218,7 @@ protected:
         // Use for special kernel features where one thread specifies a target
         // thread to replace it.
         input_ordinal_t switch_to_input = INVALID_INPUT_ORDINAL;
+        uint64_t syscall_timeout_arg = 0;
         // Used to switch before we've read the next instruction.
         bool switching_pre_instruction = false;
         // Used for time-based quanta.
@@ -1223,6 +1228,15 @@ protected:
         // The units are us for instr quanta and simuilation time for time quanta.
         uint64_t blocked_time = 0;
         uint64_t blocked_start_time = 0;
+        // An input can be "unscheduled" and not on the ready_priority_ run queue at all
+        // with an infinite timeout until directly targeted.  Such inputs are stored
+        // in the unscheduled_priority_ queue.
+        // This field is also set to true for inputs that are "unscheduled" but with
+        // a timeout, even though that is implemented by storing them in ready_priority_
+        // (because that is our mechanism for measuring timeouts).
+        bool unscheduled = false;
+        // Causes the next unscheduled entry to abort.
+        bool skip_next_unscheduled = false;
     };
 
     // Format for recording a schedule to disk.  A separate sequence of these records
@@ -1628,8 +1642,10 @@ protected:
     void
     mark_input_eof(input_info_t &input);
 
+    // Determines whether to exit or wait for other outputs when one output
+    // runs out of things to do.  May end up scheduling new inputs.
     stream_status_t
-    eof_or_idle(output_ordinal_t output);
+    eof_or_idle(output_ordinal_t output, bool hold_sched_lock);
 
     // Returns whether the current record for the current input stream scheduled on
     // the 'output_ordinal'-th output stream is from a part of the trace corresponding
@@ -1660,13 +1676,28 @@ protected:
         }
     };
 
+    bool
+    need_sched_lock();
+
+    std::unique_lock<std::mutex>
+    acquire_scoped_sched_lock_if_necessary(bool &need_lock);
+
     // sched_lock_ must be held by the caller.
     bool
     ready_queue_empty();
 
     // sched_lock_ must be held by the caller.
+    // If input->unscheduled is true and input->blocked_time is 0, input
+    // is placed on the unscheduled_priority_ queue instead.
     void
     add_to_ready_queue(input_info_t *input);
+
+    // sched_lock_ must be held by the caller.
+    void
+    add_to_unscheduled_queue(input_info_t *input);
+
+    uint64_t
+    scale_blocked_time(uint64_t blocked_time) const;
 
     // The input's lock must be held by the caller.
     // Returns a multiplier for how long the input should be considered blocked.
@@ -1694,18 +1725,23 @@ protected:
     std::vector<output_info_t> outputs_;
     // We use a central lock for global scheduling.  We assume the synchronization
     // cost is outweighed by the simulator's overhead.  This protects concurrent
-    // access to inputs_.size(), outputs_.size(), ready_priority_, and
-    // ready_counter_.
+    // access to inputs_.size(), outputs_.size(), ready_priority_,
+    // ready_counter_, unscheduled_priority_, and unscheduled_counter_.
+    // This cannot be acquired while holding an input lock: it must
+    // be acquired first, to avoid deadlocks.
     std::mutex sched_lock_;
     // Inputs ready to be scheduled, sorted by priority and then timestamp if timestamp
     // dependencies are requested.  We use the timestamp delta from the first observed
     // timestamp in each workload in order to mix inputs from different workloads in the
     // same queue.  FIFO ordering is used for same-priority entries.
     flexible_queue_t<input_info_t *, InputTimestampComparator> ready_priority_;
+    // Inputs that are unscheduled indefinitely unless directly targeted.
+    flexible_queue_t<input_info_t *, InputTimestampComparator> unscheduled_priority_;
     // Trackes the count of blocked inputs.  Protected by sched_lock_.
     int num_blocked_ = 0;
-    // Global ready queue counter used to provide FIFO for same-priority inputs.
+    // Global queue counters used to provide FIFO for same-priority inputs.
     uint64_t ready_counter_ = 0;
+    uint64_t unscheduled_counter_ = 0;
     // Count of inputs not yet at eof.
     std::atomic<int> live_input_count_;
     // In replay mode, count of outputs not yet at the end of the replay sequence.
