@@ -70,6 +70,8 @@ public:
 
 protected:
     struct shard_data_t {
+        // Provide a virtual destructor to allow subclassing.
+        virtual ~shard_data_t() = default;
         std::unordered_map<int, int64_t> syscall_counts;
         std::unordered_map<int, int64_t> syscall_trace_counts;
         std::string error;
