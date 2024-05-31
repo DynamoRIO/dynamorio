@@ -180,6 +180,7 @@ typedef enum {
     AA64ZFR0,          /**< SVE Feature ID Register 0. */
     AA64PFR1,          /**< AArch64 Processor Feature Register 1. */
     AA64ISAR2,         /**< AArch64 Instruction Set Attribute Register 2. */
+    AA64MMFR2,         /**< AArch64 Memory Model Feature Register 2. */
     AA64_NUM_FEAT_REGS /**< Number of feature registers. */
 } feature_reg_idx_t;
 
@@ -393,6 +394,17 @@ typedef enum {
         DEF_FEAT(AA64PFR1, 0, 1, FEAT_EQ), /**< Branch Target Identification (AArch64) */
     FEATURE_PAUTH2 =
         DEF_FEAT(AA64ISAR2, 3, 3, FEAT_GR_EQ), /**< PAuth2 extension (AArch64) */
+    FEATURE_CONSTPACFIELD =
+        DEF_FEAT(AA64ISAR2, 6, 1, FEAT_EQ), /**< PAC algorithm enhancement (AArch64) */
+    FEATURE_SSBS = DEF_FEAT(AA64PFR1, 1, 1,
+                            FEAT_GR_EQ), /**< Speculative Store Bypass Safe (AArch64) */
+    FEATURE_SSBS2 = DEF_FEAT(AA64PFR1, 1, 2,
+                             FEAT_EQ), /**< MRS and MSR instructions for SSBS (AArch64) */
+    FEATURE_DIT = DEF_FEAT(
+        AA64PFR0, 12, 1, FEAT_EQ), /**< Data Independent Timing instructions (AArch64) */
+    FEATURE_LSE2 =
+        DEF_FEAT(AA64MMFR2, 8, 1,
+                 FEAT_EQ), /**< Atomicity requirements for loads and stores (AArch64) */
 } feature_bit_t;
 
 #endif
