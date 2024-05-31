@@ -48,10 +48,10 @@ static int num_opmask_registers;
 
 #    define MRS(REG, IDX, FEATS)                                                     \
         do {                                                                         \
-            if (IDX > (NUM_FEATURE_REGISTERS - 1))                                   \
+            if (IDX >= NUM_FEATURE_REGISTERS)                                        \
                 CLIENT_ASSERT(false, "Reading undefined AArch64 feature register!"); \
             asm("mrs %0, " #REG : "=r"(FEATS[IDX]));                                 \
-        } while (0);
+        } while (0)
 
 void
 read_feature_regs(uint64 isa_features[])
@@ -78,6 +78,12 @@ read_feature_regs(uint64 isa_features[])
         : "=r"(isa_features[AA64ISAR2])
         :
         : "x0");
+
+    asm(".inst 0xd5380740\n" /* mrs x0, ID_AA64MMFR2_EL1 */
+        "mov %0, x0"
+        : "=r"(isa_features[AA64MMFR2])
+        :
+        : "x0");
 }
 
 #    if !defined(MACOS) // TODO i#5383: Get this working on Mac. */
@@ -96,7 +102,8 @@ get_processor_specific_info(void)
 
     /* Reads instruction attribute and preocessor feature registers
      * ID_AA64ISAR0_EL1, ID_AA64ISAR1_EL1, ID_AA64ISAR2_EL1, ID_AA64PFR0_EL1,
-     * ID_AA64MMFR1_EL1, ID_AA64DFR0_EL1, ID_AA64ZFR0_EL1, ID_AA64PFR1_EL1.
+     * ID_AA64MMFR1_EL1, ID_AA64DFR0_EL1, ID_AA64ZFR0_EL1, ID_AA64PFR1_EL1,
+     * ID_AA64MMFR2_EL1.
      */
     read_feature_regs(cpu_info.features.isa_features);
 
@@ -164,7 +171,8 @@ proc_init_arch(void)
     get_processor_specific_info();
 
     DOLOG(1, LOG_TOP, {
-        LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n ID_AA64ISAR0_EL1 = 0x%016lx\n",
+        LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n");
+        LOG(GLOBAL, LOG_TOP, 1, "ID_AA64ISAR0_EL1 = 0x%016lx\n",
             cpu_info.features.isa_features[AA64ISAR0]);
         LOG_FEATURE(FEATURE_AESX);
         LOG_FEATURE(FEATURE_PMULL);
@@ -183,45 +191,53 @@ proc_init_arch(void)
         LOG_FEATURE(FEATURE_FlagM2);
         LOG_FEATURE(FEATURE_RNG);
 
-        LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n ID_AA64ISAR1_EL1 = 0x%016lx\n",
+        LOG(GLOBAL, LOG_TOP, 1, "ID_AA64ISAR1_EL1 = 0x%016lx\n",
             cpu_info.features.isa_features[AA64ISAR1]);
         LOG_FEATURE(FEATURE_DPB);
         LOG_FEATURE(FEATURE_DPB2);
         LOG_FEATURE(FEATURE_JSCVT);
         LOG_FEATURE(FEATURE_PAUTH);
 
-        LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n ID_AA64PFR0_EL1 = 0x%016lx\n",
+        LOG(GLOBAL, LOG_TOP, 1, "ID_AA64PFR0_EL1 = 0x%016lx\n",
             cpu_info.features.isa_features[AA64PFR0]);
         LOG_FEATURE(FEATURE_FP16);
         LOG_FEATURE(FEATURE_RAS);
         LOG_FEATURE(FEATURE_SVE);
+        LOG_FEATURE(FEATURE_DIT);
 
-        LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n ID_AA64MMFR1_EL1 = 0x%016lx\n",
+        LOG(GLOBAL, LOG_TOP, 1, "ID_AA64MMFR1_EL1 = 0x%016lx\n",
             cpu_info.features.isa_features[AA64MMFR1]);
         LOG_FEATURE(FEATURE_LOR);
 
-        LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n ID_AA64DFR0_EL1 = 0x%016lx\n",
+        LOG(GLOBAL, LOG_TOP, 1, "ID_AA64DFR0_EL1 = 0x%016lx\n",
             cpu_info.features.isa_features[AA64DFR0]);
         LOG_FEATURE(FEATURE_SPE);
         LOG_FEATURE(FEATURE_LRCPC);
         LOG_FEATURE(FEATURE_LRCPC2);
         LOG_FEATURE(FEATURE_FRINTTS);
 
-        LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n ID_AA64ZFR0_EL1 = 0x%016lx\n",
+        LOG(GLOBAL, LOG_TOP, 1, "ID_AA64ZFR0_EL1 = 0x%016lx\n",
             cpu_info.features.isa_features[AA64ZFR0]);
         LOG_FEATURE(FEATURE_BF16);
         LOG_FEATURE(FEATURE_I8MM);
         LOG_FEATURE(FEATURE_F64MM);
 
-        LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n ID_AA64PFR1_EL1 = 0x%016lx\n",
+        LOG(GLOBAL, LOG_TOP, 1, "ID_AA64PFR1_EL1 = 0x%016lx\n",
             cpu_info.features.isa_features[AA64PFR1]);
         LOG_FEATURE(FEATURE_MTE);
         LOG_FEATURE(FEATURE_MTE2);
         LOG_FEATURE(FEATURE_BTI);
+        LOG_FEATURE(FEATURE_SSBS);
+        LOG_FEATURE(FEATURE_SSBS2);
 
-        LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n ID_AA64ISAR2_EL1 = 0x%016lx\n",
+        LOG(GLOBAL, LOG_TOP, 1, "ID_AA64ISAR2_EL1 = 0x%016lx\n",
             cpu_info.features.isa_features[AA64ISAR2]);
         LOG_FEATURE(FEATURE_PAUTH2);
+        LOG_FEATURE(FEATURE_CONSTPACFIELD);
+
+        LOG(GLOBAL, LOG_TOP, 1, "ID_AA64MMFR2_EL1 = 0x%016lx\n",
+            cpu_info.features.isa_features[AA64MMFR2]);
+        LOG_FEATURE(FEATURE_LSE2);
     });
 #    endif
 #endif
@@ -259,15 +275,16 @@ void
 enable_all_test_cpu_features()
 {
     const feature_bit_t features[] = {
-        FEATURE_LSE,    FEATURE_RDM,        FEATURE_FP16,    FEATURE_DotProd,
-        FEATURE_SVE,    FEATURE_LOR,        FEATURE_FHM,     FEATURE_SM3,
-        FEATURE_SM4,    FEATURE_SHA512,     FEATURE_SHA3,    FEATURE_RAS,
-        FEATURE_SPE,    FEATURE_PAUTH,      FEATURE_LRCPC,   FEATURE_LRCPC2,
-        FEATURE_BF16,   FEATURE_I8MM,       FEATURE_F64MM,   FEATURE_FlagM,
-        FEATURE_JSCVT,  FEATURE_DPB,        FEATURE_DPB2,    FEATURE_SVE2,
-        FEATURE_SVEAES, FEATURE_SVEBitPerm, FEATURE_SVESHA3, FEATURE_SVESM4,
-        FEATURE_MTE,    FEATURE_BTI,        FEATURE_FRINTTS, FEATURE_PAUTH2,
-        FEATURE_MTE2,   FEATURE_FlagM2
+        FEATURE_LSE,    FEATURE_RDM,        FEATURE_FP16,          FEATURE_DotProd,
+        FEATURE_SVE,    FEATURE_LOR,        FEATURE_FHM,           FEATURE_SM3,
+        FEATURE_SM4,    FEATURE_SHA512,     FEATURE_SHA3,          FEATURE_RAS,
+        FEATURE_SPE,    FEATURE_PAUTH,      FEATURE_LRCPC,         FEATURE_LRCPC2,
+        FEATURE_BF16,   FEATURE_I8MM,       FEATURE_F64MM,         FEATURE_FlagM,
+        FEATURE_JSCVT,  FEATURE_DPB,        FEATURE_DPB2,          FEATURE_SVE2,
+        FEATURE_SVEAES, FEATURE_SVEBitPerm, FEATURE_SVESHA3,       FEATURE_SVESM4,
+        FEATURE_MTE,    FEATURE_BTI,        FEATURE_FRINTTS,       FEATURE_PAUTH2,
+        FEATURE_MTE2,   FEATURE_FlagM2,     FEATURE_CONSTPACFIELD, FEATURE_SSBS,
+        FEATURE_SSBS2,  FEATURE_DIT,        FEATURE_LSE2
     };
     for (int i = 0; i < BUFFER_SIZE_ELEMENTS(features); ++i) {
         proc_set_feature(features[i], true);
