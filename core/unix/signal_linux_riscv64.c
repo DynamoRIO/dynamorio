@@ -144,9 +144,8 @@ sigill_detected(void *func)
 
     kernel_sigaction_t act = { 0 };
     kernel_sigaction_t old_act;
-    act.flags = SA_ONSTACK | SA_RESTART | SA_SIGINFO;
-    act.handler = catch_sigill;
 
+    set_handler_sigact(&act, SIGILL, (handler_t)catch_sigill);
     sigaction_syscall(SIGILL, &act, &old_act);
 
     if (dr_setjmp(&jmpbuf) == 0) {
@@ -171,7 +170,7 @@ signal_arch_init(void)
     /* Detects RISC-V extensions support using SIGILL.
      * We could also use the riscv_hwprobe syscall (since kernel 6.4) or /proc/cpuinfo to
      * detect extension support, but as of year 2024, using SIGILL is still the most
-     * reliable way for varies devices and kernel versions.
+     * reliable way for various devices and kernel versions.
      *
      * Only supports the V extension detection for now.
      */
