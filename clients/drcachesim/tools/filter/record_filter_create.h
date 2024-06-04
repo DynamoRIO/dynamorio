@@ -64,9 +64,9 @@ namespace drmemtrace {
  *   whose value is greater than this parameter.
  * @param[in] encodings2regdeps  If true, converts instruction encodings from the real ISA
  *   of the input trace to the #DR_ISA_REGDEPS synthetic ISA.
- * @param[in] keep_func_markers  A comma-separated list of integers representing the
- *   function IDs of #TRACE_MARKER_TYPE_FUNC_ID (and _ARG, _RETVAL, _RETADDR) markers to
- *   preserve in the trace.
+ * @param[in] keep_func_ids  A comma-separated list of integers representing the
+ *   function IDs related to #TRACE_MARKER_TYPE_FUNC_ID (and _ARG, _RETVAL, _RETADDR)
+ *   markers to preserve in the trace.
  * @param[in] verbose  Verbosity level for notifications.
  */
 record_analysis_tool_t *
@@ -74,7 +74,7 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
                           int cache_filter_size, const std::string &remove_trace_types,
                           const std::string &remove_marker_types,
                           uint64_t trim_before_timestamp, uint64_t trim_after_timestamp,
-                          bool encodings2regdeps, const std::string &keep_func_markers,
+                          bool encodings2regdeps, const std::string &keep_func_ids,
                           unsigned int verbose);
 
 } // namespace drmemtrace
