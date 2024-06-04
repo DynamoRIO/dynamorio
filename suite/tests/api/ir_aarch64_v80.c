@@ -331,6 +331,135 @@ TEST_INSTR(wfi)
     TEST_LOOP_EXPECT(wfi, 1, INSTR_CREATE_wfi(dc), EXPECT_DISASSEMBLY("wfi"));
 }
 
+TEST_INSTR(orr)
+{
+    /* Testing ORR     <Xd|SP>, <Xn>, #<imm> */
+    static const uint64 imm13_64[6] = { 0x100000001,        0xffc7ffc7ffc7ffc7,
+                                        0xfffff807fffff807, 0x700000007,
+                                        0xffc7ffc7ffc7ffc7, 0xeeeeeeeeeeeeeeee };
+    TEST_LOOP_EXPECT(orr, 6,
+                     INSTR_CREATE_orr(dc, opnd_create_reg(Xn_six_offset_0_sp[i]),
+                                      opnd_create_reg(Xn_six_offset_1[i]),
+                                      OPND_CREATE_INT(imm13_64[i])),
+                     EXPECT_DISASSEMBLY("orr    %x0 $0x0000000100000001 -> %x0",
+                                        "orr    %x6 $0xffc7ffc7ffc7ffc7 -> %x5",
+                                        "orr    %x11 $0xfffff807fffff807 -> %x10",
+                                        "orr    %x16 $0x0000000700000007 -> %x15",
+                                        "orr    %x21 $0xffc7ffc7ffc7ffc7 -> %x20",
+                                        "orr    %x30 $0xeeeeeeeeeeeeeeee -> %sp"););
+
+    /* Testing ORR     <Wd|SP>, <Wn>, #<imm> */
+    static const reg_id_t Rd_1_0[6] = { DR_REG_W0,  DR_REG_W5,  DR_REG_W10,
+                                        DR_REG_W15, DR_REG_W20, DR_REG_WSP };
+    static const uint imm13_32[6] = { 0x1, 0xffc7ffc7, 0xfffff807,
+                                      0x7, 0xffc7ffc7, 0xeeeeeeee };
+
+    TEST_LOOP_EXPECT(
+        orr, 6,
+        INSTR_CREATE_orr(dc, opnd_create_reg(Wn_six_offset_0_sp[i]),
+                         opnd_create_reg(Wn_six_offset_1[i]),
+                         OPND_CREATE_INT32(imm13_32[i])),
+        EXPECT_DISASSEMBLY(
+            "orr    %w0 $0x00000001 -> %w0", "orr    %w6 $0xffc7ffc7 -> %w5",
+            "orr    %w11 $0xfffff807 -> %w10", "orr    %w16 $0x00000007 -> %w15",
+            "orr    %w21 $0xffc7ffc7 -> %w20", "orr    %w30 $0xeeeeeeee -> %wsp"););
+}
+
+TEST_INSTR(orr_shift)
+{
+    static const uint imm6[6] = { 0, 8, 13, 19, 24, 31 };
+
+    /* Testing ORR     <Wd>, <Wn>, <Wm>, <extend> #<imm> */
+    TEST_LOOP_EXPECT(
+        orr, 6,
+        INSTR_CREATE_orr_shift(dc, opnd_create_reg(Wn_six_offset_0[i]),
+                               opnd_create_reg(Wn_six_offset_1[i]),
+                               opnd_create_reg(Wn_six_offset_2[i]), OPND_CREATE_LSL(),
+                               opnd_create_immed_uint(imm6[i], OPSZ_6b)),
+        EXPECT_DISASSEMBLY(
+            "orr    %w0 %w0 lsl $0x00 -> %w0", "orr    %w6 %w7 lsl $0x08 -> %w5",
+            "orr    %w11 %w12 lsl $0x0d -> %w10", "orr    %w16 %w17 lsl $0x13 -> %w15",
+            "orr    %w21 %w22 lsl $0x18 -> %w20", "orr    %w30 %w30 lsl $0x1f -> %w30"););
+
+    TEST_LOOP_EXPECT(
+        orr, 6,
+        INSTR_CREATE_orr_shift(dc, opnd_create_reg(Wn_six_offset_0[i]),
+                               opnd_create_reg(Wn_six_offset_1[i]),
+                               opnd_create_reg(Wn_six_offset_2[i]), OPND_CREATE_LSR(),
+                               opnd_create_immed_uint(imm6[i], OPSZ_6b)),
+        EXPECT_DISASSEMBLY(
+            "orr    %w0 %w0 lsr $0x00 -> %w0", "orr    %w6 %w7 lsr $0x08 -> %w5",
+            "orr    %w11 %w12 lsr $0x0d -> %w10", "orr    %w16 %w17 lsr $0x13 -> %w15",
+            "orr    %w21 %w22 lsr $0x18 -> %w20", "orr    %w30 %w30 lsr $0x1f -> %w30"););
+
+    TEST_LOOP_EXPECT(
+        orr, 6,
+        INSTR_CREATE_orr_shift(dc, opnd_create_reg(Wn_six_offset_0[i]),
+                               opnd_create_reg(Wn_six_offset_1[i]),
+                               opnd_create_reg(Wn_six_offset_2[i]), OPND_CREATE_ASR(),
+                               opnd_create_immed_uint(imm6[i], OPSZ_6b)),
+        EXPECT_DISASSEMBLY(
+            "orr    %w0 %w0 asr $0x00 -> %w0", "orr    %w6 %w7 asr $0x08 -> %w5",
+            "orr    %w11 %w12 asr $0x0d -> %w10", "orr    %w16 %w17 asr $0x13 -> %w15",
+            "orr    %w21 %w22 asr $0x18 -> %w20", "orr    %w30 %w30 asr $0x1f -> %w30"););
+
+    TEST_LOOP_EXPECT(
+        orr, 6,
+        INSTR_CREATE_orr_shift(dc, opnd_create_reg(Wn_six_offset_0[i]),
+                               opnd_create_reg(Wn_six_offset_1[i]),
+                               opnd_create_reg(Wn_six_offset_2[i]), OPND_CREATE_ROR(),
+                               opnd_create_immed_uint(imm6[i], OPSZ_6b)),
+        EXPECT_DISASSEMBLY(
+            "orr    %w0 %w0 ror $0x00 -> %w0", "orr    %w6 %w7 ror $0x08 -> %w5",
+            "orr    %w11 %w12 ror $0x0d -> %w10", "orr    %w16 %w17 ror $0x13 -> %w15",
+            "orr    %w21 %w22 ror $0x18 -> %w20", "orr    %w30 %w30 ror $0x1f -> %w30"););
+
+    /* Testing ORR     <Xd>, <Xn>, <Xm>, <extend> #<imm> */
+    TEST_LOOP_EXPECT(
+        orr, 6,
+        INSTR_CREATE_orr_shift(dc, opnd_create_reg(Xn_six_offset_0[i]),
+                               opnd_create_reg(Xn_six_offset_1[i]),
+                               opnd_create_reg(Xn_six_offset_2[i]), OPND_CREATE_LSL(),
+                               opnd_create_immed_uint(imm6[i], OPSZ_6b)),
+        EXPECT_DISASSEMBLY(
+            "orr    %x0 %x0 lsl $0x00 -> %x0", "orr    %x6 %x7 lsl $0x08 -> %x5",
+            "orr    %x11 %x12 lsl $0x0d -> %x10", "orr    %x16 %x17 lsl $0x13 -> %x15",
+            "orr    %x21 %x22 lsl $0x18 -> %x20", "orr    %x30 %x30 lsl $0x1f -> %x30"););
+
+    TEST_LOOP_EXPECT(
+        orr, 6,
+        INSTR_CREATE_orr_shift(dc, opnd_create_reg(Xn_six_offset_0[i]),
+                               opnd_create_reg(Xn_six_offset_1[i]),
+                               opnd_create_reg(Xn_six_offset_2[i]), OPND_CREATE_LSR(),
+                               opnd_create_immed_uint(imm6[i], OPSZ_6b)),
+        EXPECT_DISASSEMBLY(
+            "orr    %x0 %x0 lsr $0x00 -> %x0", "orr    %x6 %x7 lsr $0x08 -> %x5",
+            "orr    %x11 %x12 lsr $0x0d -> %x10", "orr    %x16 %x17 lsr $0x13 -> %x15",
+            "orr    %x21 %x22 lsr $0x18 -> %x20", "orr    %x30 %x30 lsr $0x1f -> %x30"););
+
+    TEST_LOOP_EXPECT(
+        orr, 6,
+        INSTR_CREATE_orr_shift(dc, opnd_create_reg(Xn_six_offset_0[i]),
+                               opnd_create_reg(Xn_six_offset_1[i]),
+                               opnd_create_reg(Xn_six_offset_2[i]), OPND_CREATE_ASR(),
+                               opnd_create_immed_uint(imm6[i], OPSZ_6b)),
+        EXPECT_DISASSEMBLY(
+            "orr    %x0 %x0 asr $0x00 -> %x0", "orr    %x6 %x7 asr $0x08 -> %x5",
+            "orr    %x11 %x12 asr $0x0d -> %x10", "orr    %x16 %x17 asr $0x13 -> %x15",
+            "orr    %x21 %x22 asr $0x18 -> %x20", "orr    %x30 %x30 asr $0x1f -> %x30"););
+
+    TEST_LOOP_EXPECT(
+        orr, 6,
+        INSTR_CREATE_orr_shift(dc, opnd_create_reg(Xn_six_offset_0[i]),
+                               opnd_create_reg(Xn_six_offset_1[i]),
+                               opnd_create_reg(Xn_six_offset_2[i]), OPND_CREATE_ROR(),
+                               opnd_create_immed_uint(imm6[i], OPSZ_6b)),
+        EXPECT_DISASSEMBLY(
+            "orr    %x0 %x0 ror $0x00 -> %x0", "orr    %x6 %x7 ror $0x08 -> %x5",
+            "orr    %x11 %x12 ror $0x0d -> %x10", "orr    %x16 %x17 ror $0x13 -> %x15",
+            "orr    %x21 %x22 ror $0x18 -> %x20", "orr    %x30 %x30 ror $0x1f -> %x30"););
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -350,6 +479,9 @@ main(int argc, char *argv[])
 
     RUN_INSTR_TEST(wfe);
     RUN_INSTR_TEST(wfi);
+
+    RUN_INSTR_TEST(orr);
+    RUN_INSTR_TEST(orr_shift);
 
     print("All v8.0 tests complete.\n");
 #ifndef STANDALONE_DECODER
