@@ -195,14 +195,12 @@ typedef struct {
 
 #endif
 #ifdef RISCV64
-/* FIXME i#3544: Not implemented */
 /**
- * For RISC-V64 there are no features readable from userspace. Hence only a
- * dummy flag is there. May be replaced by actual feature flags in the future.
- * Used by proc_get_all_feature_bits().
+ * For RISC-V64 there are no features readable from userspace, so we mimic this ourselves,
+ * see signal_arch_init().  Used by proc_get_all_feature_bits().
  */
 typedef struct {
-    uint64 dummy; /**< Dummy member to keep size non-0. */
+    uint64 isa_features[1];
 } features_t;
 #endif
 
@@ -410,13 +408,15 @@ typedef enum {
 #endif
 
 #ifdef RISCV64
-/* FIXME i#3544: Not implemented */
 /**
  * Feature bits passed to proc_has_feature() to determine whether the underlying
  * processor has the feature.
+ * XXX: The enum definitions here and the bitmask of hwprobe in the kernel are kept
+ * consistent to facilitate possible switching in the future, refer to
+ * https://github.com/torvalds/linux/blob/v6.9/arch/riscv/include/uapi/asm/hwprobe.h.
  */
 typedef enum {
-    FEATURE_DUMMY = 0, /**< Dummy, non-existent feature. */
+    FEATURE_VECTOR = 2, /**< Vector extension. */
 } feature_bit_t;
 #endif
 
