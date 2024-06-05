@@ -3752,18 +3752,25 @@ encode_opnd_z3_s_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
 
 /* pstate: decode pstate from 5-7 and 16-18 */
 
+#define PSTATE_FIELDS(S)     \
+    S(UAO, 0b000, 0b011)     \
+    S(PAN, 0b000, 0b100)     \
+    S(SPSEL, 0b000, 0b101)   \
+    S(SSBS, 0b011, 0b001)    \
+    S(DIT, 0b011, 0b010)     \
+    S(TCO, 0b011, 0b100)     \
+    S(DAIFSET, 0b011, 0b110) \
+    S(DAIFCLR, 0b011, 0b111)
+
 static inline bool
 decode_opnd_pstate(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    int lower = enc >> 5 & 0b111;
-    int upper = enc >> 16 & 0b111;
-    int both = lower | upper << 3;
-
     reg_t pstate;
-    switch (both) {
-    case 0b000101: pstate = DR_REG_SPSEL; break;
-    case 0b011110: pstate = DR_REG_DAIFSET; break;
-    case 0b011111: pstate = DR_REG_DAIFCLR; break;
+    switch (enc) {
+#define CASE(name, op1, op2) \
+    case (op1 << 16) | (op2 << 5): pstate = DR_REG_##name; break;
+        PSTATE_FIELDS(CASE)
+#undef CASE
     default: return false;
     }
 
@@ -3774,29 +3781,16 @@ decode_opnd_pstate(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 static inline bool
 encode_opnd_pstate(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    int upper, lower;
     if (!opnd_is_reg(opnd))
         return false;
 
     switch (opnd_get_reg(opnd)) {
-    case DR_REG_SPSEL:
-        upper = 0b000;
-        lower = 0b101;
-        break;
-    case DR_REG_DAIFSET:
-        upper = 0b011;
-        lower = 0b110;
-        break;
-    case DR_REG_DAIFCLR:
-        upper = 0b011;
-        lower = 0b111;
-        break;
-    default: return false;
+#define CASE(name, op1, op2) \
+    case DR_REG_##name: *enc_out = (op1) << 16 | (op2) << 5; return true;
+        PSTATE_FIELDS(CASE)
+#undef CASE
     }
-
-    *enc_out = upper << 16 | lower << 5;
-
-    return true;
+    return false;
 }
 
 /* fpimm8: immediate operand for SIMD fmov */

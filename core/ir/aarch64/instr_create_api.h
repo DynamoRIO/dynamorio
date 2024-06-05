@@ -1,6 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2011-2023 Google, Inc. All rights reserved.
- * Copyright (c) 2016-2023 ARM Limited. All rights reserved.
+ * Copyright (c) 2016-2024 ARM Limited. All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc. All rights reserved.
  * **********************************************************/
 
@@ -670,8 +670,10 @@
     instr_create_1dst_3src(dc, OP_movz, rt, imm16, OPND_CREATE_LSL(), lsl)
 #define INSTR_CREATE_mrs(dc, Xt, sysreg) \
     instr_create_1dst_1src((dc), OP_mrs, (Xt), (sysreg))
-#define INSTR_CREATE_msr(dc, sysreg, Xt) \
-    instr_create_1dst_1src((dc), OP_msr, (sysreg), (Xt))
+#define INSTR_CREATE_msr(dc, sysreg, Xt_or_imm) \
+    opnd_is_immed(Xt_or_imm)?  \
+    instr_create_0dst_2src((dc), OP_msr, (sysreg), (Xt_or_imm)) : \
+    instr_create_1dst_1src((dc), OP_msr, (sysreg), (Xt_or_imm))
 #define INSTR_CREATE_nop(dc) instr_create_0dst_0src((dc), OP_nop)
 #define INSTR_CREATE_ret(dc, Rn) instr_create_0dst_1src((dc), OP_ret, (Rn))
 #define INSTR_CREATE_stp(dc, mem, rt1, rt2) \
