@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -424,6 +424,17 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             break;
         case TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH:
             std::cerr << "<marker: direct switch to thread " << memref.marker.marker_value
+                      << ">\n";
+            break;
+        case TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE:
+            std::cerr << "<marker: current thread going unscheduled\n";
+            break;
+        case TRACE_MARKER_TYPE_SYSCALL_SCHEDULE:
+            std::cerr << "<marker: re-schedule thread " << memref.marker.marker_value
+                      << ">\n";
+            break;
+        case TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT:
+            std::cerr << "<marker: syscall timeout arg " << memref.marker.marker_value
                       << ">\n";
             break;
         case TRACE_MARKER_TYPE_WINDOW_ID:

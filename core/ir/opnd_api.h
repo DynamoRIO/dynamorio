@@ -1044,7 +1044,19 @@ enum {
 
 #    ifdef AARCH64
     /* AArch64 Counter/Timer Register(s) */
-    DR_REG_CNTVCT_EL0, /**< Virtual Timer Count Register, EL0. */
+    DR_REG_CNTVCT_EL0,       /**< Virtual Timer Count Register, EL0. */
+    DR_REG_ID_AA64ISAR0_EL1, /**< The "id_aa64isar0_el1" register. */
+    DR_REG_ID_AA64ISAR1_EL1, /**< The "id_aa64isar1_el1" register. */
+    DR_REG_ID_AA64ISAR2_EL1, /**< The "id_aa64isar2_el1" register. */
+    DR_REG_ID_AA64PFR0_EL1,  /**< The "id_aa64pfr0_el1" register. */
+    DR_REG_ID_AA64MMFR1_EL1, /**< The "id_aa64mmfr1_el1" register. */
+    DR_REG_ID_AA64DFR0_EL1,  /**< The "id_aa64dfr0_el1" register. */
+    DR_REG_ID_AA64ZFR0_EL1,  /**< The "id_aa64zfr0_el1" register. */
+    DR_REG_ID_AA64PFR1_EL1,  /**< The "id_aa64pfr1_el1" register. */
+    DR_REG_ID_AA64MMFR2_EL1, /**< The "id_aa64mmfr2_el1" register. */
+    DR_REG_MIDR_EL1,         /**< The "midr_el1" register. */
+    DR_REG_MPIDR_EL1,        /**< The "mpidr_el1" register. */
+    DR_REG_REVIDR_EL1,       /**< The "revidr_el1" register. */
 #    endif
 
 /* Aliases below here: */
@@ -1105,8 +1117,8 @@ enum {
     DR_REG_CP15_C13_3 = DR_REG_TPIDRURO,        /**< User Read-Only Thread ID Register */
 
 #    ifdef AARCH64
-    DR_REG_LAST_VALID_ENUM = DR_REG_CNTVCT_EL0, /**< Last valid register enum */
-    DR_REG_LAST_ENUM = DR_REG_CNTVCT_EL0,       /**< Last value of register enums */
+    DR_REG_LAST_VALID_ENUM = DR_REG_REVIDR_EL1, /**< Last valid register enum */
+    DR_REG_LAST_ENUM = DR_REG_REVIDR_EL1,       /**< Last value of register enums */
 #    else
     DR_REG_LAST_VALID_ENUM = DR_REG_TPIDRURO, /**< Last valid register enum */
     DR_REG_LAST_ENUM = DR_REG_TPIDRURO,       /**< Last value of register enums */

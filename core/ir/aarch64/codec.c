@@ -283,6 +283,18 @@ decode_sysreg(uint imm15)
 {
     reg_t sysreg;
     switch (imm15) {
+    case 0x4000: sysreg = DR_REG_MIDR_EL1; break;
+    case 0x4005: sysreg = DR_REG_MPIDR_EL1; break;
+    case 0x4006: sysreg = DR_REG_REVIDR_EL1; break;
+    case 0x4020: sysreg = DR_REG_ID_AA64PFR0_EL1; break;
+    case 0x4021: sysreg = DR_REG_ID_AA64PFR1_EL1; break;
+    case 0x4024: sysreg = DR_REG_ID_AA64ZFR0_EL1; break;
+    case 0x4028: sysreg = DR_REG_ID_AA64DFR0_EL1; break;
+    case 0x4030: sysreg = DR_REG_ID_AA64ISAR0_EL1; break;
+    case 0x4031: sysreg = DR_REG_ID_AA64ISAR1_EL1; break;
+    case 0x4032: sysreg = DR_REG_ID_AA64ISAR2_EL1; break;
+    case 0x4039: sysreg = DR_REG_ID_AA64MMFR1_EL1; break;
+    case 0x403A: sysreg = DR_REG_ID_AA64MMFR2_EL1; break;
     case 0x5a10: sysreg = DR_REG_NZCV; break;
     case 0x5a20: sysreg = DR_REG_FPCR; break;
     case 0x5a21: sysreg = DR_REG_FPSR; break;
@@ -406,6 +418,18 @@ encode_sysreg(OUT uint *imm15, opnd_t opnd)
 {
     if (opnd_is_reg(opnd)) {
         switch (opnd_get_reg(opnd)) {
+        case DR_REG_MIDR_EL1: *imm15 = 0x4000; break;
+        case DR_REG_MPIDR_EL1: *imm15 = 0x4005; break;
+        case DR_REG_REVIDR_EL1: *imm15 = 0x4006; break;
+        case DR_REG_ID_AA64PFR0_EL1: *imm15 = 0x4020; break;
+        case DR_REG_ID_AA64PFR1_EL1: *imm15 = 0x4021; break;
+        case DR_REG_ID_AA64ZFR0_EL1: *imm15 = 0x4024; break;
+        case DR_REG_ID_AA64DFR0_EL1: *imm15 = 0x4028; break;
+        case DR_REG_ID_AA64ISAR0_EL1: *imm15 = 0x4030; break;
+        case DR_REG_ID_AA64ISAR1_EL1: *imm15 = 0x4031; break;
+        case DR_REG_ID_AA64ISAR2_EL1: *imm15 = 0x4032; break;
+        case DR_REG_ID_AA64MMFR1_EL1: *imm15 = 0x4039; break;
+        case DR_REG_ID_AA64MMFR2_EL1: *imm15 = 0x403A; break;
         case DR_REG_NZCV: *imm15 = 0x5a10; break;
         case DR_REG_FPCR: *imm15 = 0x5a20; break;
         case DR_REG_FPSR: *imm15 = 0x5a21; break;
