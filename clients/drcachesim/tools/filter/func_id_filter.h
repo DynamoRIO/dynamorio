@@ -117,7 +117,6 @@ public:
          */
         default: return true;
         }
-        return true;
     }
 
     bool
