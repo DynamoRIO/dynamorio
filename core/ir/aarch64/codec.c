@@ -9841,6 +9841,12 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
         opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_NZCV) {
         eflags |= EFLAGS_READ_NZCV;
     }
+    if (opc == OP_mrs && instr_num_srcs(instr) == 1 &&
+        opnd_is_reg(instr_get_src(instr, 0)) &&
+        (opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_RNDR ||
+         opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_RNDRRS)) {
+        eflags |= EFLAGS_WRITE_NZCV;
+    }
     if (opc == OP_msr && instr_num_dsts(instr) == 1 &&
         opnd_is_reg(instr_get_dst(instr, 0)) &&
         opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_NZCV) {
