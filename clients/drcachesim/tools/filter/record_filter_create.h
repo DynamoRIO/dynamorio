@@ -66,7 +66,7 @@ namespace drmemtrace {
  *   of the input trace to the #DR_ISA_REGDEPS synthetic ISA.
  * @param[in] keep_func_ids  A comma-separated list of integers representing the
  *   function IDs related to #TRACE_MARKER_TYPE_FUNC_ID (and _ARG, _RETVAL, _RETADDR)
- *   markers to preserve in the trace.
+ *   markers to preserve in the trace, while removing all other function markers.
  * @param[in] verbose  Verbosity level for notifications.
  */
 record_analysis_tool_t *

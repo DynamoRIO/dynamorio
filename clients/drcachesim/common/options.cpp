@@ -982,16 +982,13 @@ droption_t<bool> op_encodings2regdeps(
     "This option is for -tool " RECORD_FILTER ". When present, it converts "
     "the encoding of instructions from a real ISA to the DR_ISA_REGDEPS synthetic ISA.");
 
-/* XXX i#6369: we should partition our options by tool. This one should belong to the
- * record_filter partition. For now we add the filter_ prefix to options that should be
- * used in conjunction with record_filter.
- */
 droption_t<std::string>
     op_filter_func_ids(DROPTION_SCOPE_FRONTEND, "filter_keep_func_ids", "",
                        "Comma-separated integers of function IDs to keep.",
                        "This option is for -tool " RECORD_FILTER ". It preserves "
                        "TRACE_MARKER_TYPE_FUNC_[ID | ARG | RETVAL | RETADDR] markers "
-                       "for the listed function IDs.");
+                       "for the listed function IDs and removes those belonging to "
+                       "unlisted function IDs.");
 
 droption_t<uint64_t> op_trim_before_timestamp(
     DROPTION_SCOPE_ALL, "trim_before_timestamp", 0, 0,

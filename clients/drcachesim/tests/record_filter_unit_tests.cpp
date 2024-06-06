@@ -410,7 +410,7 @@ test_encodings2regdeps_filter()
     std::vector<std::unique_ptr<record_filter_func_t>> filters;
     auto encodings2regdeps_filter = std::unique_ptr<record_filter_func_t>(
         new dynamorio::drmemtrace::encodings2regdeps_filter_t());
-    if (encodings2regdeps_filter->get_error_string() != "") {
+    if (!encodings2regdeps_filter->get_error_string().empty()) {
         fprintf(stderr, "Couldn't construct a encodings2regdeps_filter %s",
                 encodings2regdeps_filter->get_error_string().c_str());
         return false;
@@ -467,7 +467,8 @@ test_func_id_filter()
 
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x7 } }, true, { true } },
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } }, true, { true } },
-        /* We need at least one instruction with encodings.
+        /* We need at least one instruction with encodings to make record_filter output
+         * the trace.
          */
         { { TRACE_TYPE_ENCODING, 3, { ENCODING } }, true, { true } },
         { { TRACE_TYPE_INSTR, 3, { PC } }, true, { true } },
@@ -578,7 +579,7 @@ test_func_id_filter()
     std::vector<std::unique_ptr<record_filter_func_t>> filters;
     auto func_id_filter = std::unique_ptr<record_filter_func_t>(
         new dynamorio::drmemtrace::func_id_filter_t(func_ids_to_keep));
-    if (func_id_filter->get_error_string() != "") {
+    if (!func_id_filter->get_error_string().empty()) {
         fprintf(stderr, "Couldn't construct a func_id_filter %s",
                 func_id_filter->get_error_string().c_str());
         return false;

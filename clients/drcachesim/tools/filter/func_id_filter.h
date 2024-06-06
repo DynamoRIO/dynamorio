@@ -52,9 +52,7 @@ class func_id_filter_t : public record_filter_t::record_filter_func_t {
 public:
     func_id_filter_t(std::vector<uint64_t> keep_func_ids_list)
     {
-        for (auto keep_func_id : keep_func_ids_list) {
-            keep_func_ids_set_.insert(keep_func_id);
-        }
+        keep_func_ids_set_.insert(keep_func_ids_list.cbegin(), keep_func_ids_list.cend());
     }
 
     void *
@@ -76,46 +74,48 @@ public:
         per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
 
         trace_type_t entry_type = static_cast<trace_type_t>(entry.type);
-        if (entry_type == TRACE_TYPE_MARKER) {
-            trace_marker_type_t marker_type =
-                static_cast<trace_marker_type_t>(entry.size);
-            switch (marker_type) {
-            case TRACE_MARKER_TYPE_FUNC_ID: {
-                /* Function markers follow this sequence:
-                 * TRACE_MARKER_TYPE_FUNC_ID
-                 * [TRACE_MARKER_TYPE_FUNC_RETADDR]
-                 * [TRACE_MARKER_TYPE_FUNC_ARG]*
-                 *
-                 * [entries (instructions, other function markers, etc.)]*
-                 *
-                 * TRACE_MARKER_TYPE_FUNC_ID
-                 * TRACE_MARKER_TYPE_FUNC_RETVAL
-                 *
-                 * ([] = 0 or 1, []* = 0 or more)
-                 *
-                 * Because TRACE_MARKER_TYPE_FUNC_ID always precedes the remaining
-                 * function-related markers, we can simply set
-                 * per_shard->output_func_markers based on the TRACE_MARKER_TYPE_FUNC_ID
-                 * marker value to handle nested functions.
-                 */
-                uint64_t func_id = static_cast<uint64_t>(entry.addr);
-                per_shard->output_func_markers =
-                    keep_func_ids_set_.find(func_id) != keep_func_ids_set_.end();
-                return per_shard->output_func_markers;
-            }
-            case TRACE_MARKER_TYPE_FUNC_RETADDR:
-            case TRACE_MARKER_TYPE_FUNC_ARG:
-            case TRACE_MARKER_TYPE_FUNC_RETVAL:
-                /* Output these markers only if they belong to a function whose id we want
-                 * to keep.
-                 */
-                return per_shard->output_func_markers;
-            /* In func_id_filter_t we only handle TRACE_MARKER_TYPE_FUNC_ID,
-             * TRACE_MARKER_TYPE_FUNC_ARG, TRACE_MARKER_TYPE_FUNC_RETVAL,
-             * TRACE_MARKER_TYPE_FUNC_RETADDR. By default we output all other markers.
+        /* Output any trace_entry_t that it's not a marker.
+         */
+        if (entry_type != TRACE_TYPE_MARKER)
+            return true;
+
+        trace_marker_type_t marker_type = static_cast<trace_marker_type_t>(entry.size);
+        switch (marker_type) {
+        case TRACE_MARKER_TYPE_FUNC_ID: {
+            /* Function markers follow this sequence:
+             * TRACE_MARKER_TYPE_FUNC_ID
+             * [TRACE_MARKER_TYPE_FUNC_RETADDR]
+             * [TRACE_MARKER_TYPE_FUNC_ARG]*
+             *
+             * [entries (instructions, other function markers, etc.)]*
+             *
+             * TRACE_MARKER_TYPE_FUNC_ID
+             * TRACE_MARKER_TYPE_FUNC_RETVAL
+             *
+             * ([] = 0 or 1, []* = 0 or more)
+             *
+             * Because TRACE_MARKER_TYPE_FUNC_ID always precedes the remaining
+             * function-related markers, we can simply set
+             * per_shard->output_func_markers based on the TRACE_MARKER_TYPE_FUNC_ID
+             * marker value to handle nested functions.
              */
-            default: return true;
-            }
+            uint64_t func_id = static_cast<uint64_t>(entry.addr);
+            per_shard->output_func_markers =
+                keep_func_ids_set_.find(func_id) != keep_func_ids_set_.end();
+            return per_shard->output_func_markers;
+        }
+        case TRACE_MARKER_TYPE_FUNC_ARG:
+        case TRACE_MARKER_TYPE_FUNC_RETVAL:
+        case TRACE_MARKER_TYPE_FUNC_RETADDR:
+            /* Output these markers only if they belong to a function whose ID we want
+             * to keep.
+             */
+            return per_shard->output_func_markers;
+        /* In func_id_filter_t we only handle TRACE_MARKER_TYPE_FUNC_ID,
+         * TRACE_MARKER_TYPE_FUNC_ARG, TRACE_MARKER_TYPE_FUNC_RETVAL,
+         * TRACE_MARKER_TYPE_FUNC_RETADDR. By default we output all other markers.
+         */
+        default: return true;
         }
         return true;
     }

@@ -241,8 +241,10 @@ Further non-compatibility-affecting changes include:
    trace analysis tool framework.
  - Added "-t drmemtrace" as the preferred launcher for the drmemtrace/drcachesim
    trace analysis tool framework.
- - Added func_marker_filter_t filter to #dynamorio::drmemtrace::record_filter_t to filter
-   function markers based on the "function id".
+ - Added func_id_filter_t to #dynamorio::drmemtrace::record_filter_t to filter function
+   markers based on the function ID. This filter is enabled by "-filter_keep_func_ids"
+   followed by a comma-separated list of function IDs to preserve in the output trace.
+   All function markers whose ID is not in the list are removed.
 
 **************************************************
 <hr>
