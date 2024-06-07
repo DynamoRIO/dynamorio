@@ -855,13 +855,14 @@ droption_t<bool> op_sched_order_time(DROPTION_SCOPE_ALL, "sched_order_time", tru
                                      "Whether to honor recorded timestamps for ordering");
 
 droption_t<uint64_t> op_sched_syscall_switch_us(
-    DROPTION_SCOPE_ALL, "sched_syscall_switch_us", 500,
-    "Minimum latency to consider any syscall as incurring a context switch.",
-    "Minimum latency in timestamp units (us) to consider any syscall as incurring "
-    "a context switch.  Applies to -core_sharded and -core_serial. ");
+    DROPTION_SCOPE_ALL, "sched_syscall_switch_us", 30000000,
+    "Minimum latency to consider a non-blocking syscall as incurring a context switch.",
+    "Minimum latency in timestamp units (us) to consider a non-blocking syscall as "
+    "incurring a context switch (see -sched_blocking_switch_us for maybe-blocking "
+    "syscalls).  Applies to -core_sharded and -core_serial. ");
 
 droption_t<uint64_t> op_sched_blocking_switch_us(
-    DROPTION_SCOPE_ALL, "sched_blocking_switch_us", 100,
+    DROPTION_SCOPE_ALL, "sched_blocking_switch_us", 500,
     "Minimum latency to consider a maybe-blocking syscall as incurring a context switch.",
     "Minimum latency in timestamp units (us) to consider any syscall that is marked as "
     "maybe-blocking to incur a context switch. Applies to -core_sharded and "
