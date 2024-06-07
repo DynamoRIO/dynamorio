@@ -43,9 +43,11 @@
 #include "tools/filter/trim_filter.h"
 #include "tools/filter/type_filter.h"
 #include "tools/filter/encodings2regdeps_filter.h"
+#include "tools/filter/func_id_filter.h"
 #include "trace_entry.h"
 #include "zipfile_ostream.h"
 
+#include <cstdint>
 #include <inttypes.h>
 #include <fstream>
 #include <set>
@@ -290,6 +292,8 @@ process_entries_and_check_result(test_record_filter_t *record_filter,
     return true;
 }
 
+/* Test changes in instruction encodings.
+ */
 static bool
 test_encodings2regdeps_filter()
 {
@@ -401,12 +405,12 @@ test_encodings2regdeps_filter()
         { { TRACE_TYPE_FOOTER, 0, { 0x0 } }, true, { true } },
     };
 
-    /* Construct encodings2regdeps_filter.
+    /* Construct encodings2regdeps_filter_t.
      */
     std::vector<std::unique_ptr<record_filter_func_t>> filters;
     auto encodings2regdeps_filter = std::unique_ptr<record_filter_func_t>(
         new dynamorio::drmemtrace::encodings2regdeps_filter_t());
-    if (encodings2regdeps_filter->get_error_string() != "") {
+    if (!encodings2regdeps_filter->get_error_string().empty()) {
         fprintf(stderr, "Couldn't construct a encodings2regdeps_filter %s",
                 encodings2regdeps_filter->get_error_string().c_str());
         return false;
@@ -424,6 +428,175 @@ test_encodings2regdeps_filter()
         return false;
 
     fprintf(stderr, "test_encodings2regdeps_filter passed\n");
+    return true;
+}
+
+/* Test preservation of function-related markers (TRACE_MARKER_TYPE_FUNC_[ID | RETADDR |
+ * ARG | RETVAL) based on function ID (marker value of TRACE_MARKER_TYPE_FUNC_ID).
+ */
+static bool
+test_func_id_filter()
+{
+
+    constexpr addr_t SYS_FUTEX = 202;
+    constexpr addr_t SYS_FSYNC = 74;
+    constexpr addr_t SYSCALL_BASE =
+        static_cast<addr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE);
+    constexpr addr_t SYSCALL_FUTEX_ID = SYS_FUTEX + SYSCALL_BASE;
+    constexpr addr_t SYSCALL_FSYNC_ID = SYS_FSYNC + SYSCALL_BASE;
+    constexpr addr_t FUNC_ID_TO_KEEP = 7;
+    constexpr addr_t FUNC_ID_TO_REMOVE = 8;
+    constexpr addr_t PC = 0x7f6fdd3ec360;
+    constexpr addr_t ENCODING = 0xe78948;
+    std::vector<test_case_t> entries = {
+        /* Trace shard header.
+         */
+        { { TRACE_TYPE_HEADER, 0, { 0x1 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 0x2 } }, true, { true } },
+        { { TRACE_TYPE_MARKER,
+            TRACE_MARKER_TYPE_FILETYPE,
+            { OFFLINE_FILE_TYPE_ARCH_X86_64 | OFFLINE_FILE_TYPE_ENCODINGS |
+              OFFLINE_FILE_TYPE_SYSCALL_NUMBERS | OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS } },
+          true,
+          { true } },
+        { { TRACE_TYPE_THREAD, 0, { 0x4 } }, true, { true } },
+        { { TRACE_TYPE_PID, 0, { 0x5 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 0x6 } },
+          true,
+          { true } },
+
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x7 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } }, true, { true } },
+        /* We need at least one instruction with encodings to make record_filter output
+         * the trace.
+         */
+        { { TRACE_TYPE_ENCODING, 3, { ENCODING } }, true, { true } },
+        { { TRACE_TYPE_INSTR, 3, { PC } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { SYSCALL_FUTEX_ID } },
+          true,
+          { true } },
+        /* We don't care about the arg values, we just care that they are preserved.
+         * We use some non-zero values to make sure we're not creating new, uninitialized
+         * markers.
+         * Note: SYS_futex has 6 args.
+         */
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG, { 0x1 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG, { 0x2 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG, { 0x3 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG, { 0x4 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG, { 0x5 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG, { 0x6 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { SYSCALL_FUTEX_ID } },
+          true,
+          { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_RETVAL, { 0x789 } },
+          true,
+          { true } },
+        /* Test that func_id_filter_t doesn't output any
+         * TRACE_MARKER_TYPE_FUNC_ for functions that are not SYS_futex.
+         * We use SYS_fsync in this test.
+         */
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { SYSCALL_FSYNC_ID } },
+          true,
+          { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG, { 0x1 } }, true, { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { SYSCALL_FSYNC_ID } },
+          true,
+          { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_RETVAL, { 0x234 } },
+          true,
+          { false } },
+
+        /* Nested functions. Keep outer, remove inner.
+         */
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { FUNC_ID_TO_KEEP } },
+          true,
+          { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_RETADDR, { 0xbeef } },
+          true,
+          { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG, { 0x1 } }, true, { true } },
+
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { FUNC_ID_TO_REMOVE } },
+          true,
+          { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_RETADDR, { 0xdead } },
+          true,
+          { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG, { 0x1 } }, true, { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { FUNC_ID_TO_REMOVE } },
+          true,
+          { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_RETVAL, { 0x234 } },
+          true,
+          { false } },
+
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { FUNC_ID_TO_KEEP } },
+          true,
+          { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_RETVAL, { 0x234 } },
+          true,
+          { true } },
+
+        /* Nested functions. Remove outer, keep inner.
+         */
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { FUNC_ID_TO_REMOVE } },
+          true,
+          { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_RETADDR, { 0xdead } },
+          true,
+          { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG, { 0x1 } }, true, { false } },
+
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { FUNC_ID_TO_KEEP } },
+          true,
+          { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_RETADDR, { 0xbeef } },
+          true,
+          { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG, { 0x1 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { FUNC_ID_TO_KEEP } },
+          true,
+          { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_RETVAL, { 0x234 } },
+          true,
+          { true } },
+
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { FUNC_ID_TO_REMOVE } },
+          true,
+          { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_RETVAL, { 0x234 } },
+          true,
+          { false } },
+
+        { { TRACE_TYPE_FOOTER, 0, { 0x0 } }, true, { true } },
+    };
+
+    /* Construct func_id_filter_t.
+     */
+    std::vector<uint64_t> func_ids_to_keep = { static_cast<uint64_t>(SYSCALL_FUTEX_ID),
+                                               static_cast<uint64_t>(FUNC_ID_TO_KEEP) };
+    std::vector<std::unique_ptr<record_filter_func_t>> filters;
+    auto func_id_filter = std::unique_ptr<record_filter_func_t>(
+        new dynamorio::drmemtrace::func_id_filter_t(func_ids_to_keep));
+    if (!func_id_filter->get_error_string().empty()) {
+        fprintf(stderr, "Couldn't construct a func_id_filter %s",
+                func_id_filter->get_error_string().c_str());
+        return false;
+    }
+    filters.push_back(std::move(func_id_filter));
+
+    /* Construct record_filter_t.
+     */
+    auto record_filter = std::unique_ptr<test_record_filter_t>(
+        new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
+
+    /* Run the test.
+     */
+    if (!process_entries_and_check_result(record_filter.get(), entries, 0))
+        return false;
+
+    fprintf(stderr, "test_func_id_filter passed\n");
     return true;
 }
 
@@ -1247,7 +1420,8 @@ test_main(int argc, const char *argv[])
                     droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
     }
     if (!test_cache_and_type_filter() || !test_chunk_update() || !test_trim_filter() ||
-        !test_null_filter() || !test_wait_filter() || !test_encodings2regdeps_filter())
+        !test_null_filter() || !test_wait_filter() || !test_encodings2regdeps_filter() ||
+        !test_func_id_filter())
         return 1;
     fprintf(stderr, "All done!\n");
     return 0;
