@@ -2787,7 +2787,7 @@ test_replay_skip()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_AS_PREVIOUSLY,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/4);
+                                                   /*verbosity=*/5 /*NOCHECK 4*/);
         zipfile_istream_t infile(record_fname);
         sched_ops.schedule_replay_istream = &infile;
         if (scheduler.init(sched_inputs, 1, std::move(sched_ops)) !=
@@ -3512,10 +3512,11 @@ test_replay_as_traced_from_file(const char *testdir)
     static const char *const SCHED_STRING =
         "Core #0: 1257602 \nCore #1: 1257600 \n"
         "Core #2: 1257599 => 1257604 @ <366987,87875,13331862029895453> "
-        // The ordinal is really 1 ("<1,0,0>") but with the scheduler's readahead
-        // it becomes 2; easier to just check for that as trying to avoid readahead
-        // causes other problems (i#xxxx).
-        "(<366986,87875,13331862029895453> => <2,0,0>) \n"
+        // The ordinal is really 1 ("<1,0,0>") but with the scheduler's readahead we have
+        // more records and a timestamp; easier to just check for that as trying to avoid
+        // readahead causes other problems.  Maybe the scheduler should have mediator
+        // getters for the record and timestamp that hide the readahead.
+        "(<366986,87875,13331862029895453> => <6,0,13331862029900572>) \n"
         "Core #3: 1257596 \nCore #4: 1257603 \nCore #5: 1257601 \nCore #6: 1257598 \n";
     static constexpr int NUM_OUTPUTS = 7; // Matches the actual trace's core footprint.
     scheduler_t scheduler;
@@ -4424,6 +4425,123 @@ test_unscheduled_fallback()
 }
 
 static void
+test_unscheduled_initially()
+{
+    std::cerr << "\n----------------\nTesting initially-unscheduled threads\n";
+    static constexpr int NUM_OUTPUTS = 1;
+    static constexpr int BLOCK_LATENCY = 100;
+    static constexpr double BLOCK_SCALE = 1. / (BLOCK_LATENCY);
+    static constexpr uint64_t BLOCK_TIME_MAX = 500;
+    static constexpr memref_tid_t TID_BASE = 100;
+    static constexpr memref_tid_t TID_A = TID_BASE + 0;
+    static constexpr memref_tid_t TID_B = TID_BASE + 1;
+    std::vector<trace_entry_t> refs_A = {
+        make_thread(TID_A),
+        make_pid(1),
+        make_version(TRACE_ENTRY_VERSION),
+        // A has the earliest timestamp and would start.
+        make_timestamp(1001),
+        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        // A starts out unscheduled though.
+        make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0),
+        make_timestamp(4202),
+        // B makes us scheduled again.
+        make_instr(/*pc=*/102),
+        make_exit(TID_A),
+    };
+    std::vector<trace_entry_t> refs_B = {
+        make_thread(TID_B),
+        make_pid(1),
+        make_version(TRACE_ENTRY_VERSION),
+        // B runs 2nd by timestamp.
+        make_timestamp(3001),
+        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        make_instr(/*pc=*/200),
+        make_timestamp(3002),
+        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        // B makes a long-latency blocking syscall, testing whether
+        // A is really unscheduled.
+        make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        make_timestamp(7002),
+        make_instr(/*pc=*/201),
+        // B makes A no longer unscheduled.
+        make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        make_marker(TRACE_MARKER_TYPE_SYSCALL_SCHEDULE, TID_A),
+        make_timestamp(7021),
+        make_instr(/*pc=*/202),
+        make_exit(TID_B),
+    };
+    {
+        // Test the defaults with direct switches enabled.
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
+        // We have an idle period while B is blocked and A unscheduled.
+        static const char *const CORE0_SCHED_STRING =
+            "...B.....________________________________________B....B......A.";
+
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/3);
+        sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
+        sched_ops.blocking_switch_threshold = BLOCK_LATENCY;
+        sched_ops.block_time_scale = BLOCK_SCALE;
+        sched_ops.block_time_max = BLOCK_TIME_MAX;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<std::string> sched_as_string =
+            run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE, /*send_time=*/true);
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        }
+        assert(sched_as_string[0] == CORE0_SCHED_STRING);
+    }
+    {
+        // Test disabling direct switches.
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
+        // A runs first as it being unscheduled is ignored.
+        static const char *const CORE0_SCHED_STRING =
+            ".....A....B.....________________________________________B....B.";
+
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/3);
+        // We use our mock's time==instruction count for a deterministic result.
+        sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
+        sched_ops.blocking_switch_threshold = BLOCK_LATENCY;
+        sched_ops.block_time_scale = BLOCK_SCALE;
+        sched_ops.block_time_max = BLOCK_TIME_MAX;
+        sched_ops.honor_direct_switches = false;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<std::string> sched_as_string =
+            run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE, /*send_time=*/true);
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        }
+        assert(sched_as_string[0] == CORE0_SCHED_STRING);
+    }
+}
+
+static void
 test_kernel_switch_sequences()
 {
     std::cerr << "\n----------------\nTesting kernel switch sequences\n";
@@ -4935,6 +5053,7 @@ test_main(int argc, const char *argv[])
     test_direct_switch();
     test_unscheduled();
     test_unscheduled_fallback();
+    test_unscheduled_initially();
     test_kernel_switch_sequences();
     test_random_schedule();
     test_record_scheduler();
