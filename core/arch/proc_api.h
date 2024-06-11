@@ -403,6 +403,9 @@ typedef enum {
     FEATURE_LSE2 =
         DEF_FEAT(AA64MMFR2, 8, 1,
                  FEAT_EQ), /**< Atomicity requirements for loads and stores (AArch64) */
+    FEATURE_WFxT =
+        DEF_FEAT(AA64ISAR2, 0, 2,
+                 FEAT_EQ), /**< Wait for event / interrupt with timeout (AArch64) */
 } feature_bit_t;
 
 #endif

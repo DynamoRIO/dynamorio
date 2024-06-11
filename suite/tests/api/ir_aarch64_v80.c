@@ -319,6 +319,18 @@ TEST_INSTR(msr)
         });
 }
 
+TEST_INSTR(wfe)
+{
+    /* Testing WFE */
+    TEST_LOOP_EXPECT(wfe, 1, INSTR_CREATE_wfe(dc), EXPECT_DISASSEMBLY("wfe"));
+}
+
+TEST_INSTR(wfi)
+{
+    /* Testing WFI */
+    TEST_LOOP_EXPECT(wfi, 1, INSTR_CREATE_wfi(dc), EXPECT_DISASSEMBLY("wfi"));
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -335,6 +347,9 @@ main(int argc, char *argv[])
 
     RUN_INSTR_TEST(mrs);
     RUN_INSTR_TEST(msr);
+
+    RUN_INSTR_TEST(wfe);
+    RUN_INSTR_TEST(wfi);
 
     print("All v8.0 tests complete.\n");
 #ifndef STANDALONE_DECODER
