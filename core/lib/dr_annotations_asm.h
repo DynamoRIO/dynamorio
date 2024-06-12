@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2023 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -81,11 +81,10 @@
 #    endif
 #endif
 
-#if !defined(DYNAMORIO_ANNOTATIONS_X86) || defined(__clang__)
+#if !defined(DYNAMORIO_ANNOTATIONS_X86)
 /* TODO i#1672: Add annotation support to AArchXX.
  * For now, we provide a fallback so we can build the annotation-concurrency
  * app for use with drcachesim tests.
- * We do the same for clang, which has no "asm goto".
  */
 #    define DR_ANNOTATION_OR_NATIVE(annotation, native_version, ...) /* Nothing. */
 #    define DR_DECLARE_ANNOTATION(return_type, annotation, parameters) \
