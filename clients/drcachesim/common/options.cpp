@@ -549,7 +549,8 @@ droption_t<bytesize_t> op_skip_instrs(
     "Specifies the number of instructions to skip in the beginning of the trace "
     "analysis.  For serial iteration, this number is "
     "computed just once across the interleaving sequence of all threads; for parallel "
-    "iteration, each thread skips this many insructions.  When built with zipfile "
+    "iteration, each thread skips this many insructions (see -skip_to_timestamp for "
+    "an alternative which does align all threads).  When built with zipfile "
     "support, this skipping is optimized and large instruction counts can be quickly "
     "skipped; this is not the case for -skip_refs.");
 
@@ -560,6 +561,18 @@ droption_t<bytesize_t>
                  "application execution. These memory references are dropped instead "
                  "of being simulated.  This skipping may be slow for large skip values; "
                  "consider -skip_instrs for a faster method of skipping.");
+
+droption_t<uint64_t> op_skip_to_timestamp(
+    DROPTION_SCOPE_FRONTEND, "skip_to_timestamp", 0, "Timestamp to start at",
+    "Specifies a timestamp to start at, skipping over prior records in the trace. "
+    "This is cross-cutting across all threads.  If the target timestamp is not "
+    "present as a timestamp marker, interpolation is used to approximate the "
+    "target location in each thread.  If -skip_instrs is also specified, this option "
+    "is ignored in favor of -skip_instrs. "
+    "Requires -cpu_schedule_file to also be specified as a schedule file is required "
+    "to translate the timestamp into per-thread instruction ordinals."
+    "When built with zipfile support, this skipping is optimized and large "
+    "instruction counts can be quickly skipped.");
 
 droption_t<bytesize_t> op_L0_filter_until_instrs(
     DROPTION_SCOPE_CLIENT, "L0_filter_until_instrs", 0,
@@ -903,7 +916,9 @@ droption_t<std::string>
     op_cpu_schedule_file(DROPTION_SCOPE_FRONTEND, "cpu_schedule_file", "",
                          "Path with stored as-traced schedule for replay",
                          "Applies to -core_sharded and -core_serial. "
-                         "Path with stored as-traced schedule for replay.");
+                         "Path with stored as-traced schedule for replay.  If specified "
+                         "with a non-zero -skip_to_timestamp, replay is not triggered "
+                         "an instead the file is used for the skip request.");
 #endif
 droption_t<std::string> op_sched_switch_file(
     DROPTION_SCOPE_FRONTEND, "sched_switch_file", "",

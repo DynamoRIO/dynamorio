@@ -351,6 +351,7 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
 {
     this->worker_count_ = op_jobs.get_value();
     this->skip_instrs_ = op_skip_instrs.get_value();
+    this->skip_to_timestamp_ = op_skip_to_timestamp.get_value();
     this->interval_microseconds_ = op_interval_microseconds.get_value();
     this->interval_instr_count_ = op_interval_instr_count.get_value();
     // Initial measurements show it's sometimes faster to keep the parallel model
@@ -437,6 +438,14 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
             this->parallel_ = false;
         }
         sched_ops = init_dynamic_schedule();
+    } else if (op_skip_to_timestamp.get_value() > 0) {
+#ifdef HAS_ZIP
+        if (!op_cpu_schedule_file.get_value().empty()) {
+            cpu_schedule_zip_.reset(
+                new zipfile_istream_t(op_cpu_schedule_file.get_value()));
+            sched_ops.replay_as_traced_istream = cpu_schedule_zip_.get();
+        }
+#endif
     }
 
     if (!op_indir.get_value().empty()) {
@@ -521,9 +530,11 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::init_dynamic_schedule()
         sched_ops.deps = sched_type_t::DEPENDENCY_TIMESTAMPS;
     } else if (!op_cpu_schedule_file.get_value().empty()) {
         cpu_schedule_zip_.reset(new zipfile_istream_t(op_cpu_schedule_file.get_value()));
-        sched_ops.mapping = sched_type_t::MAP_TO_RECORDED_OUTPUT;
-        sched_ops.deps = sched_type_t::DEPENDENCY_TIMESTAMPS;
         sched_ops.replay_as_traced_istream = cpu_schedule_zip_.get();
+        if (op_skip_to_timestamp.get_value() == 0) {
+            sched_ops.mapping = sched_type_t::MAP_TO_RECORDED_OUTPUT;
+            sched_ops.deps = sched_type_t::DEPENDENCY_TIMESTAMPS;
+        }
     }
 #endif
     sched_ops.kernel_switch_trace_path = op_sched_switch_file.get_value();
