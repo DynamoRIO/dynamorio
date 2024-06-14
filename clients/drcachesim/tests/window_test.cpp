@@ -90,6 +90,8 @@ post_process()
         std::cerr << "Failed to create output dir";
         assert(false);
     }
+    // TODO i#6847: This decomposes only the first window trace. We should check
+    // all window traces.
     std::string dir_err = dir.initialize(raw_dir, outdir);
     assert(dir_err.empty());
     raw2trace_t raw2trace(dir.modfile_bytes_, dir.in_files_, dir.out_files_,
