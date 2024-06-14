@@ -215,10 +215,10 @@ thread_set_mcontext(thread_record_t *tr, priv_mcontext_t *mc);
 
 /* Takes an os-specific context. Does not return. */
 void
-thread_set_self_context(void *cxt, bool is_detach_external);
+thread_set_self_context(void *cxt);
 /* Only sets the priv_mcontext_t state.  Does not return. */
 void
-thread_set_self_mcontext(priv_mcontext_t *mc, bool is_detach_external);
+thread_set_self_mcontext(priv_mcontext_t *mc);
 
 /* Assumes target thread is suspended */
 bool
