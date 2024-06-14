@@ -590,7 +590,7 @@ public:
          * Input stream for replaying the traced schedule when #MAP_TO_RECORDED_OUTPUT is
          * specified for more than one output stream (whose count must match the number
          * of traced cores).  Alternatively, if
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::#input_workload_t.times_of_interest
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::input_workload_t.times_of_interest
          * is non-empty, this stream is required for obtaining the mappings between
          * timestamps and instruction ordinals.
          */
