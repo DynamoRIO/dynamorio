@@ -338,13 +338,14 @@ public:
          * times cut across all inputs of this workload.  The times are converted into a
          * separate sequence of instruction
          * #dynamorio::drmemtrace::scheduler_tmpl_t::range_t for each input.  The end
-         * result is as though the #input_thread_info_t.regions_of_interest field were
-         * set for each input.  See the comments by that field for further details such
-         * as the marker inserted between ranges.  Although the times cut across all
-         * inputs for determining the per-input instruction-ordinal ranges, no barrier is
-         * applied to align the resulting regions of interest: i.e., one input can finish
-         * its initial region and move to its next region before all other inputs finish
-         * their initial regions.
+         * result is as though the #dynamorio::drmemtrace::scheduler_tmpl_t::
+         * input_thread_info_t.regions_of_interest
+         * field were set for each input.  See the comments by that field for further
+         * details such as the marker inserted between ranges.  Although the times cut
+         * across all inputs for determining the per-input instruction-ordinal ranges, no
+         * barrier is applied to align the resulting regions of interest: i.e., one input
+         * can finish its initial region and move to its next region before all other
+         * inputs finish their initial regions.
          *
          * If non-empty, the #input_thread_info_t.regions_of_interest field must be
          * empty for each modifier for this workload.
