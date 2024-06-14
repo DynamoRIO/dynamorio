@@ -7117,6 +7117,10 @@ main(int argc, char *argv[])
     ld3r(dcontext);
     ld4r(dcontext);
 
+    /* To add new tests for v8.0 instructions please use the TEST_LOOP*() macros and
+     * add them to ir_aarch64_v80.c
+     */
+
     test_internal_encode(dcontext);
 
     test_vector_length(dcontext);

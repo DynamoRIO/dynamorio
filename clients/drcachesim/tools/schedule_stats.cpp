@@ -102,6 +102,8 @@ schedule_stats_t::process_memref(const memref_t &memref)
         per_shard = new per_shard_t;
         per_shard->stream = serial_stream_;
         per_shard->core = serial_stream_->get_output_cpuid();
+        per_shard->filetype = static_cast<intptr_t>(serial_stream_->get_filetype());
+        per_shard->segment_start_microseconds = get_current_microseconds();
         shard_map_[per_shard->core] = per_shard;
     } else
         per_shard = lookup->second;
@@ -127,6 +129,7 @@ schedule_stats_t::parallel_shard_init_stream(int shard_index, void *worker_data,
     per_shard->stream = stream;
     per_shard->core = stream->get_output_cpuid();
     per_shard->filetype = static_cast<intptr_t>(stream->get_filetype());
+    per_shard->segment_start_microseconds = get_current_microseconds();
     shard_map_[shard_index] = per_shard;
     return reinterpret_cast<void *>(per_shard);
 }
@@ -136,13 +139,8 @@ schedule_stats_t::parallel_shard_exit(void *shard_data)
 {
     // Nothing (we read the shard data in print_results).
     per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
-    if (shard->prev_was_idle) {
-        shard->counters.idle_microseconds +=
-            get_current_microseconds() - shard->segment_start_microseconds;
-    } else if (!shard->prev_was_wait) {
-        shard->counters.cpu_microseconds +=
-            get_current_microseconds() - shard->segment_start_microseconds;
-    }
+    if (!update_state_time(shard, shard->cur_state))
+        return false;
     return true;
 }
 
@@ -160,12 +158,62 @@ schedule_stats_t::get_current_microseconds()
 }
 
 bool
+schedule_stats_t::update_state_time(per_shard_t *shard, state_t state)
+{
+    uint64_t cur = get_current_microseconds();
+    assert(cur >= shard->segment_start_microseconds);
+    assert(shard->segment_start_microseconds > 0);
+    uint64_t delta = cur - shard->segment_start_microseconds;
+    switch (state) {
+    case STATE_CPU: shard->counters.cpu_microseconds += delta; break;
+    case STATE_IDLE: shard->counters.idle_microseconds += delta; break;
+    case STATE_WAIT: shard->counters.wait_microseconds += delta; break;
+    default: return false;
+    }
+    shard->segment_start_microseconds = cur;
+    return true;
+}
+
+void
+schedule_stats_t::record_context_switch(per_shard_t *shard, int64_t tid, int64_t input_id,
+                                        int64_t letter_ord)
+{
+    // We convert to letters which only works well for <=26 inputs.
+    if (!shard->thread_sequence.empty()) {
+        ++shard->counters.total_switches;
+        if (shard->saw_syscall || shard->saw_exit)
+            ++shard->counters.voluntary_switches;
+        if (shard->direct_switch_target == tid)
+            ++shard->counters.direct_switches;
+        uint64_t instr_delta = shard->counters.instrs - shard->switch_start_instrs;
+        shard->counters.instrs_per_switch->add(instr_delta);
+        shard->switch_start_instrs = shard->counters.instrs;
+    }
+    shard->thread_sequence +=
+        THREAD_LETTER_INITIAL_START + static_cast<char>(letter_ord % 26);
+    shard->cur_segment_instrs = 0;
+    if (knob_verbose_ >= 2) {
+        std::ostringstream line;
+        line << "Core #" << std::setw(2) << shard->core << " @" << std::setw(9)
+             << shard->stream->get_record_ordinal() << " refs, " << std::setw(9)
+             << shard->stream->get_instruction_ordinal() << " instrs: input "
+             << std::setw(4) << input_id << " @" << std::setw(9)
+             << shard->stream->get_input_interface()->get_record_ordinal() << " refs, "
+             << std::setw(9)
+             << shard->stream->get_input_interface()->get_instruction_ordinal()
+             << " instrs, time "
+             << std::setw(16)
+             // TODO i#5843: For time quanta, provide some way to get the
+             // latest time and print that here instead of the timestamp?
+             << shard->stream->get_input_interface()->get_last_timestamp()
+             << " == thread " << tid << "\n";
+        std::cerr << line.str();
+    }
+}
+
+bool
 schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 {
-    static constexpr char THREAD_LETTER_INITIAL_START = 'A';
-    static constexpr char THREAD_LETTER_SUBSEQUENT_START = 'a';
-    static constexpr char WAIT_SYMBOL = '-';
-    static constexpr char IDLE_SYMBOL = '_';
     per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
     int64_t input_id = shard->stream->get_input_id();
     if (knob_verbose_ >= 4) {
@@ -188,19 +236,26 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
         std::cerr << line.str();
     }
     // Cache and reset here to ensure we reset on early return paths.
-    bool was_wait = shard->prev_was_wait;
-    bool was_idle = shard->prev_was_idle;
+    state_t prev_state = shard->cur_state;
     int64_t prev_workload_id = shard->prev_workload_id;
     int64_t prev_tid = shard->prev_tid;
-    shard->prev_was_wait = false;
-    shard->prev_was_idle = false;
     shard->prev_workload_id = -1;
     shard->prev_tid = -1;
     if (memref.marker.type == TRACE_TYPE_MARKER &&
-        memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_WAIT) {
+        memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_WAIT)
+        shard->cur_state = STATE_WAIT;
+    else if (memref.marker.type == TRACE_TYPE_MARKER &&
+             memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_IDLE)
+        shard->cur_state = STATE_IDLE;
+    else
+        shard->cur_state = STATE_CPU;
+    if (shard->cur_state != prev_state) {
+        if (!update_state_time(shard, prev_state))
+            return false;
+    }
+    if (shard->cur_state == STATE_WAIT) {
         ++shard->counters.waits;
-        shard->prev_was_wait = true;
-        if (!was_wait) {
+        if (prev_state != STATE_WAIT) {
             shard->thread_sequence += WAIT_SYMBOL;
             shard->cur_segment_instrs = 0;
         } else {
@@ -211,18 +266,11 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
             }
         }
         return true;
-    } else if (memref.marker.type == TRACE_TYPE_MARKER &&
-               memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_IDLE) {
+    } else if (shard->cur_state == STATE_IDLE) {
         ++shard->counters.idles;
-        shard->prev_was_idle = true;
-        if (!was_idle) {
+        if (prev_state != STATE_IDLE) {
             shard->thread_sequence += IDLE_SYMBOL;
             shard->cur_segment_instrs = 0;
-            if (!was_wait && shard->segment_start_microseconds > 0) {
-                shard->counters.idle_microseconds +=
-                    get_current_microseconds() - shard->segment_start_microseconds;
-            }
-            shard->segment_start_microseconds = get_current_microseconds();
         } else {
             ++shard->cur_segment_instrs;
             if (shard->cur_segment_instrs == knob_print_every_) {
@@ -242,39 +290,7 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
         ? tid
         : input_id;
     if ((workload_id != prev_workload_id || tid != prev_tid) && tid != IDLE_THREAD_ID) {
-        // We convert to letters which only works well for <=26 inputs.
-        if (!shard->thread_sequence.empty()) {
-            ++shard->counters.total_switches;
-            if (shard->saw_syscall || shard->saw_exit)
-                ++shard->counters.voluntary_switches;
-            if (shard->direct_switch_target == memref.marker.tid)
-                ++shard->counters.direct_switches;
-        }
-        shard->thread_sequence +=
-            THREAD_LETTER_INITIAL_START + static_cast<char>(letter_ord % 26);
-        shard->cur_segment_instrs = 0;
-        if (!was_wait && !was_idle && shard->segment_start_microseconds > 0) {
-            shard->counters.cpu_microseconds +=
-                get_current_microseconds() - shard->segment_start_microseconds;
-        }
-        shard->segment_start_microseconds = get_current_microseconds();
-        if (knob_verbose_ >= 2) {
-            std::ostringstream line;
-            line << "Core #" << std::setw(2) << shard->core << " @" << std::setw(9)
-                 << shard->stream->get_record_ordinal() << " refs, " << std::setw(9)
-                 << shard->stream->get_instruction_ordinal() << " instrs: input "
-                 << std::setw(4) << input_id << " @" << std::setw(9)
-                 << shard->stream->get_input_interface()->get_record_ordinal()
-                 << " refs, " << std::setw(9)
-                 << shard->stream->get_input_interface()->get_instruction_ordinal()
-                 << " instrs, time "
-                 << std::setw(16)
-                 // TODO i#5843: For time quanta, provide some way to get the
-                 // latest time and print that here instead of the the timestamp?
-                 << shard->stream->get_input_interface()->get_last_timestamp()
-                 << " == thread " << memref.instr.tid << "\n";
-            std::cerr << line.str();
-        }
+        record_context_switch(shard, tid, input_id, letter_ord);
     }
     shard->prev_workload_id = workload_id;
     shard->prev_tid = tid;
@@ -330,7 +346,18 @@ schedule_stats_t::print_percentage(double numerator, double denominator,
 void
 schedule_stats_t::print_counters(const counters_t &counters)
 {
-    std::cerr << std::setw(12) << counters.threads.size() << " threads\n";
+    std::cerr << std::setw(12) << counters.threads.size() << " threads";
+    if (!counters.threads.empty()) {
+        std::cerr << ": ";
+        auto it = counters.threads.begin();
+        while (it != counters.threads.end()) {
+            std::cerr << *it;
+            ++it;
+            if (it != counters.threads.end())
+                std::cerr << ", ";
+        }
+    }
+    std::cerr << "\n";
     std::cerr << std::setw(12) << counters.instrs << " instructions\n";
     std::cerr << std::setw(12) << counters.total_switches << " total context switches\n";
     double cspki = 0.;
@@ -363,6 +390,7 @@ schedule_stats_t::print_counters(const counters_t &counters)
                      static_cast<double>(counters.instrs + counters.idles),
                      "% cpu busy by record count\n");
     std::cerr << std::setw(12) << counters.cpu_microseconds << " cpu microseconds\n";
+    std::cerr << std::setw(12) << counters.wait_microseconds << " wait microseconds\n";
     std::cerr << std::setw(12) << counters.idle_microseconds << " idle microseconds\n";
     std::cerr << std::setw(12) << counters.idle_micros_at_last_instr
               << " idle microseconds at last instr\n";
@@ -374,6 +402,16 @@ schedule_stats_t::print_counters(const counters_t &counters)
                      static_cast<double>(counters.cpu_microseconds +
                                          counters.idle_micros_at_last_instr),
                      "% cpu busy by time, ignoring idle past last instr\n");
+    std::cerr << "  Instructions per context switch histogram:\n";
+    counters.instrs_per_switch->print();
+}
+
+void
+schedule_stats_t::aggregate_results(counters_t &total)
+{
+    for (const auto &shard : shard_map_) {
+        total += shard.second->counters;
+    }
 }
 
 bool
@@ -382,9 +420,7 @@ schedule_stats_t::print_results()
     std::cerr << TOOL_NAME << " results:\n";
     std::cerr << "Total counts:\n";
     counters_t total;
-    for (const auto &shard : shard_map_) {
-        total += shard.second->counters;
-    }
+    aggregate_results(total);
     std::cerr << std::setw(12) << shard_map_.size() << " cores\n";
     print_counters(total);
     for (const auto &shard : shard_map_) {

@@ -87,12 +87,26 @@ test_scalar_plus_vector:
         ld1b    DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, sxtw] // 2
         ld1b    DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d]       // 2
                                                                              // Total: 14
+        // ldff1b scalar+vector
+        ldff1b  DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, S_INDEX_REG.s, uxtw] // 4
+        ldff1b  DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, S_INDEX_REG.s, sxtw] // 4
+        ldff1b  DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, uxtw] // 2
+        ldff1b  DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, sxtw] // 2
+        ldff1b  DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d]       // 2
+                                                                             // Total: 14
         // ld1sb scalar+vector
         ld1sb   DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, S_INDEX_REG.s, uxtw] // 4
         ld1sb   DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, S_INDEX_REG.s, sxtw] // 4
         ld1sb   DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, uxtw] // 2
         ld1sb   DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, sxtw] // 2
         ld1sb   DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d]       // 2
+                                                                             // Total: 14
+        // ldff1sb scalar+vector
+        ldff1sb DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, S_INDEX_REG.s, uxtw] // 4
+        ldff1sb DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, S_INDEX_REG.s, sxtw] // 4
+        ldff1sb DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, uxtw] // 2
+        ldff1sb DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, sxtw] // 2
+        ldff1sb DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d]       // 2
                                                                              // Total: 14
         // ld1h scalar+vector
         ld1h    DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, S_INDEX_REG.s, uxtw #1] // 4
@@ -106,6 +120,18 @@ test_scalar_plus_vector:
         ld1h    DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, lsl #1]  // 2
         ld1h    DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d]          // 2
                                                                                 // Total: 28
+        // ldff1h scalar+vector
+        ldff1h  DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, S_INDEX_REG.s, uxtw #1] // 4
+        ldff1h  DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, S_INDEX_REG.s, sxtw #1] // 4
+        ldff1h  DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, uxtw #1] // 2
+        ldff1h  DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, sxtw #1] // 2
+        ldff1h  DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, S_INDEX_REG.s, uxtw]    // 4
+        ldff1h  DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, S_INDEX_REG.s, sxtw]    // 4
+        ldff1h  DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, uxtw]    // 2
+        ldff1h  DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, sxtw]    // 2
+        ldff1h  DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, lsl #1]  // 2
+        ldff1h  DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d]          // 2
+                                                                                // Total: 28
         // ld1sh scalar+vector
         ld1sh   DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, S_INDEX_REG.s, uxtw #1] // 4
         ld1sh   DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, S_INDEX_REG.s, sxtw #1] // 4
@@ -117,6 +143,18 @@ test_scalar_plus_vector:
         ld1sh   DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, sxtw]    // 2
         ld1sh   DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, lsl #1]  // 2
         ld1sh   DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d]          // 2
+                                                                                // Total: 28
+        // ldff1sh scalar+vector
+        ldff1sh DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, S_INDEX_REG.s, uxtw #1] // 4
+        ldff1sh DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, S_INDEX_REG.s, sxtw #1] // 4
+        ldff1sh DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, uxtw #1] // 2
+        ldff1sh DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, sxtw #1] // 2
+        ldff1sh DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, S_INDEX_REG.s, uxtw]    // 4
+        ldff1sh DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, S_INDEX_REG.s, sxtw]    // 4
+        ldff1sh DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, uxtw]    // 2
+        ldff1sh DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, sxtw]    // 2
+        ldff1sh DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, lsl #1]  // 2
+        ldff1sh DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d]          // 2
                                                                                 // Total: 28
         // ld1w scalar+vector
         ld1w    DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, S_INDEX_REG.s, uxtw #2] // 4
@@ -130,6 +168,18 @@ test_scalar_plus_vector:
         ld1w    DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, lsl #2]  // 2
         ld1w    DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d]          // 2
                                                                                 // Total: 28
+        // ldff1w scalar+vector
+        ldff1w  DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, S_INDEX_REG.s, uxtw #2] // 4
+        ldff1w  DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, S_INDEX_REG.s, sxtw #2] // 4
+        ldff1w  DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, uxtw #2] // 2
+        ldff1w  DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, sxtw #2] // 2
+        ldff1w  DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, uxtw]    // 2
+        ldff1w  DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, sxtw]    // 2
+        ldff1w  DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, S_INDEX_REG.s, uxtw]    // 4
+        ldff1w  DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, S_INDEX_REG.s, sxtw]    // 4
+        ldff1w  DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, lsl #2]  // 2
+        ldff1w  DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d]          // 2
+                                                                                // Total: 28
         // ld1sw scalar+vector
         ld1sw   DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, uxtw #2] // 2
         ld1sw   DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, sxtw #2] // 2
@@ -137,6 +187,14 @@ test_scalar_plus_vector:
         ld1sw   DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, sxtw]    // 2
         ld1sw   DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, lsl #2]  // 2
         ld1sw   DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d]          // 2
+                                                                                // Total: 12
+        // ldff1sw scalar+vector
+        ldff1sw DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, uxtw #2] // 2
+        ldff1sw DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, sxtw #2] // 2
+        ldff1sw DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, uxtw]    // 2
+        ldff1sw DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, sxtw]    // 2
+        ldff1sw DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, lsl #2]  // 2
+        ldff1sw DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d]          // 2
                                                                                 // Total: 12
         // ld1d scalar+vector
         ld1d    DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, uxtw #3] // 2
@@ -146,7 +204,17 @@ test_scalar_plus_vector:
         ld1d    DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, lsl #3]  // 2
         ld1d    DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d]          // 2
                                                                                 // Total: 12
-        // Total loads: 14 + 14 + 28 + 28 + 28 + 12 + 12 = 136
+        // ldff1d scalar+vector
+        ldff1d  DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, uxtw #3] // 2
+        ldff1d  DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, sxtw #3] // 2
+        ldff1d  DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, uxtw]    // 2
+        ldff1d  DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, sxtw]    // 2
+        ldff1d  DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d, lsl #3]  // 2
+        ldff1d  DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, D_INDEX_REG.d]          // 2
+                                                                                // Total: 12
+        // Total loads: 14 + 14 + 14 + 14 + 28 + 28 + 28 + 28 + 28 + 28
+        //                 + 12 + 12 + 12 + 12
+        //              = 272
 
         // st1b scalar+vector
         st1b    SRC_REG1.d, D_MASK_REG, [BUFFER_REG, D_INDEX_REG.d, uxtw] // 2
@@ -195,14 +263,21 @@ test_scalar_plus_vector:
 
 test_vector_plus_immediate:
         ld1b    DEST_REG1.d, D_MASK_REG/z, [Z_BASE_REG.d, #0] // 2
+        ldff1b  DEST_REG1.d, D_MASK_REG/z, [Z_BASE_REG.d, #0] // 2
         ld1sb   DEST_REG1.d, D_MASK_REG/z, [Z_BASE_REG.d, #0] // 2
+        ldff1sb DEST_REG1.d, D_MASK_REG/z, [Z_BASE_REG.d, #0] // 2
         ld1h    DEST_REG1.d, D_MASK_REG/z, [Z_BASE_REG.d, #0] // 2
+        ldff1h  DEST_REG1.d, D_MASK_REG/z, [Z_BASE_REG.d, #0] // 2
         ld1sh   DEST_REG1.d, D_MASK_REG/z, [Z_BASE_REG.d, #0] // 2
+        ldff1sh DEST_REG1.d, D_MASK_REG/z, [Z_BASE_REG.d, #0] // 2
         ld1w    DEST_REG1.d, D_MASK_REG/z, [Z_BASE_REG.d, #0] // 2
+        ldff1w  DEST_REG1.d, D_MASK_REG/z, [Z_BASE_REG.d, #0] // 2
         ld1sw   DEST_REG1.d, D_MASK_REG/z, [Z_BASE_REG.d, #0] // 2
+        ldff1sw DEST_REG1.d, D_MASK_REG/z, [Z_BASE_REG.d, #0] // 2
         ld1d    DEST_REG1.d, D_MASK_REG/z, [Z_BASE_REG.d, #0] // 2
+        ldff1d  DEST_REG1.d, D_MASK_REG/z, [Z_BASE_REG.d, #0] // 2
 
-        // Total loads: 14
+        // Total loads: 28
 
         st1b    SRC_REG1.d, D_MASK_REG, [Z_BASE_REG.d, #0] // 2
         st1h    SRC_REG1.d, D_MASK_REG, [Z_BASE_REG.d, #0] // 2
@@ -218,23 +293,39 @@ test_scalar_plus_scalar:
         ld1b     DEST_REG1.h, H_MASK_REG/z, [BUFFER_REG, X_INDEX_REG]         // 8
         ld1b     DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, X_INDEX_REG]         // 4
         ld1b     DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, X_INDEX_REG]         // 2
+        ldff1b   DEST_REG1.b, B_MASK_REG/z, [BUFFER_REG, X_INDEX_REG]         // 16
+        ldff1b   DEST_REG1.h, H_MASK_REG/z, [BUFFER_REG, X_INDEX_REG]         // 8
+        ldff1b   DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, X_INDEX_REG]         // 4
+        ldff1b   DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, X_INDEX_REG]         // 2
         ldnt1b   DEST_REG1.b, B_MASK_REG/z, [BUFFER_REG, X_INDEX_REG]         // 16
         ld1sb    DEST_REG1.h, H_MASK_REG/z, [BUFFER_REG, X_INDEX_REG]         // 8
         ld1sb    DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, X_INDEX_REG]         // 4
         ld1sb    DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, X_INDEX_REG]         // 2
+        ldff1sb  DEST_REG1.h, H_MASK_REG/z, [BUFFER_REG, X_INDEX_REG]         // 8
+        ldff1sb  DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, X_INDEX_REG]         // 4
+        ldff1sb  DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, X_INDEX_REG]         // 2
         ld1h     DEST_REG1.h, H_MASK_REG/z, [BUFFER_REG, X_INDEX_REG, lsl #1] // 8
         ld1h     DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, X_INDEX_REG, lsl #1] // 4
         ld1h     DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, X_INDEX_REG, lsl #1] // 2
+        ldff1h   DEST_REG1.h, H_MASK_REG/z, [BUFFER_REG, X_INDEX_REG, lsl #1] // 8
+        ldff1h   DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, X_INDEX_REG, lsl #1] // 4
+        ldff1h   DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, X_INDEX_REG, lsl #1] // 2
         ldnt1h   DEST_REG1.h, H_MASK_REG/z, [BUFFER_REG, X_INDEX_REG, lsl #1] // 8
         ld1sh    DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, X_INDEX_REG, lsl #1] // 4
         ld1sh    DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, X_INDEX_REG, lsl #1] // 2
+        ldff1sh  DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, X_INDEX_REG, lsl #1] // 4
+        ldff1sh  DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, X_INDEX_REG, lsl #1] // 2
         ld1w     DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, X_INDEX_REG, lsl #2] // 4
         ld1w     DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, X_INDEX_REG, lsl #2] // 2
+        ldff1w   DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, X_INDEX_REG, lsl #2] // 4
+        ldff1w   DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, X_INDEX_REG, lsl #2] // 2
         ldnt1w   DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, X_INDEX_REG, lsl #2] // 4
         ld1sw    DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, X_INDEX_REG, lsl #2] // 2
+        ldff1sw  DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, X_INDEX_REG, lsl #2] // 2
         ld1d     DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, X_INDEX_REG, lsl #3] // 2
+        ldff1d   DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, X_INDEX_REG, lsl #3] // 2
         ldnt1d   DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, X_INDEX_REG, lsl #3] // 2
-                                                                              // Total: 104
+                                                                              // Total: 178
 
         ld2b     {DEST_REG1.b, DEST_REG2.b}, B_MASK_REG/z, [BUFFER_REG, X_INDEX_REG]         // 32
         ld2h     {DEST_REG1.h, DEST_REG2.h}, H_MASK_REG/z, [BUFFER_REG, X_INDEX_REG, lsl #1] // 16
@@ -254,7 +345,7 @@ test_scalar_plus_scalar:
         ld4d     {DEST_REG1.d, DEST_REG2.d, DEST_REG3.d, DEST_REG4.d}, D_MASK_REG/z, [BUFFER_REG, X_INDEX_REG, lsl #3] // 8
                                                                                                                        // Total: 120
 
-        // Total loads: 104 + 60 + 90 + 120 = 374
+        // Total loads: 178 + 60 + 90 + 120 = 448
 
         st1b    DEST_REG1.b, B_MASK_REG, [BUFFER_REG, X_INDEX_REG]         // 16
         st1b    DEST_REG1.h, H_MASK_REG, [BUFFER_REG, X_INDEX_REG]         // 8
@@ -296,23 +387,39 @@ test_scalar_plus_immediate:
         ld1b    DEST_REG1.h, H_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 8
         ld1b    DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 4
         ld1b    DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 2
+        ldnf1b  DEST_REG1.b, B_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 16
+        ldnf1b  DEST_REG1.h, H_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 8
+        ldnf1b  DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 4
+        ldnf1b  DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 2
         ldnt1b  DEST_REG1.b, B_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 16
         ld1sb   DEST_REG1.h, H_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 8
         ld1sb   DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 4
         ld1sb   DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 2
+        ldnf1sb DEST_REG1.h, H_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 8
+        ldnf1sb DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 4
+        ldnf1sb DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 2
         ld1h    DEST_REG1.h, H_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 8
         ld1h    DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 4
         ld1h    DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 2
+        ldnf1h  DEST_REG1.h, H_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 8
+        ldnf1h  DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 4
+        ldnf1h  DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 2
         ldnt1h  DEST_REG1.h, H_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 8
         ld1sh   DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 4
         ld1sh   DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 2
+        ldnf1sh DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 4
+        ldnf1sh DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 2
         ld1w    DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 4
         ld1w    DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 2
+        ldnf1w  DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 4
+        ldnf1w  DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 2
         ldnt1w  DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 4
         ld1sw   DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 2
+        ldnf1sw DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 2
         ld1d    DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 2
+        ldnf1d  DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 2
         ldnt1d  DEST_REG1.d, D_MASK_REG/z, [BUFFER_REG, #1, mul vl] // 2
-                                                                    // Total: 104
+                                                                    // Total: 178
 
         ld2b { DEST_REG1.b, DEST_REG2.b }, B_MASK_REG/z, [BUFFER_REG, #2, mul vl] // 32
         ld2h { DEST_REG1.h, DEST_REG2.h }, H_MASK_REG/z, [BUFFER_REG, #2, mul vl] // 16
@@ -331,7 +438,8 @@ test_scalar_plus_immediate:
         ld4w { DEST_REG1.s, DEST_REG2.s, DEST_REG3.s, DEST_REG4.s }, S_MASK_REG/z, [BUFFER_REG, #4, mul vl] // 16
         ld4d { DEST_REG1.d, DEST_REG2.d, DEST_REG3.d, DEST_REG4.d }, D_MASK_REG/z, [BUFFER_REG, #4, mul vl] // 8
                                                                                                             // Total: 120
-        // Total loads: 104 + 60 + 90 + 120 = 374
+
+        // Total loads: 178 + 60 + 90 + 120 = 448
 
         st1b SRC_REG1.b, B_MASK_REG, [BUFFER_REG, #1, mul vl] // 16
         st1b SRC_REG1.h, H_MASK_REG, [BUFFER_REG, #1, mul vl] // 8
@@ -431,16 +539,16 @@ _start:
 
         // The expanded code should have one load/store per element per register.
         // The total number of loads/stores depends on the current vector length.
-        bl      test_scalar_plus_vector    // +(136 * vl_bytes/16) loads
+        bl      test_scalar_plus_vector    // +(272 * vl_bytes/16) loads
                                            // +(82 * vl_bytes/16) stores
 
-        bl      test_vector_plus_immediate // +(14 * vl_bytes/16) loads
+        bl      test_vector_plus_immediate // +(28 * vl_bytes/16) loads
                                            // +(8 * vl_bytes/16) stores
 
-        bl      test_scalar_plus_scalar    // +(374 * vl_bytes/16) loads
+        bl      test_scalar_plus_scalar    // +(448 * vl_bytes/16) loads
                                            // +(322 * vl_bytes/16) stores
 
-        bl      test_scalar_plus_immediate // +(374 * vl_bytes/16) loads
+        bl      test_scalar_plus_immediate // +(448 * vl_bytes/16) loads
                                            // +(322 * vl_bytes/16) stores
         bl      test_replicating_loads     // +60 loads
                                            // +0 stores
@@ -450,11 +558,11 @@ _start:
 #endif
         // Running total:
         // SVE only:
-        // Loads: (136 + 14 + 374 + 374) * vl_bytes/16 + 60 = 898 * vl_bytes/16 + 60
+        // Loads: (272 + 28 + 448 + 448) * vl_bytes/16 + 60 = 1196 * vl_bytes/16 + 60
         // Stores: (82 + 8 + 322 + 322) * vl_bytes/16 = 734 * vl_bytes/16
 
         // Including SVE2:
-        // Loads: ((898 + 14) * vl_bytes/16) + 60 = (912 * vl_bytes/16) + 60
+        // Loads: ((1196 + 14) * vl_bytes/16) + 60 = (1210 * vl_bytes/16) + 60
         // Stores: (734 + 8) * vl_bytes/16 = 742 * vl_bytes/16
 
         /* Run all the instructions with no active elements */
@@ -475,11 +583,11 @@ _start:
 
         // Running total (unchanged from above):
         // SVE only:
-        // Loads:  (898 * vl_bytes/16) + 60
+        // Loads:  (1196 * vl_bytes/16) + 60
         // Stores: 734 * vl_bytes/16
 
         // Including SVE2:
-        // Loads: (912 * vl_bytes/16) + 60
+        // Loads: (1210 * vl_bytes/16) + 60
         // Stores: 742 * vl_bytes/16
 
         /* Run all instructions with one active element */
@@ -488,10 +596,10 @@ _start:
         ptrue    S_MASK_REG.s, VL1
         ptrue    D_MASK_REG.d, VL1
 
-        bl      test_scalar_plus_vector    // +52 loads, +31 stores
-        bl      test_vector_plus_immediate // +7 loads,  +4 stores
-        bl      test_scalar_plus_scalar    // +56 loads, +46 stores
-        bl      test_scalar_plus_immediate // +56 loads, +46 stores
+        bl      test_scalar_plus_vector    // +104 loads, +31 stores
+        bl      test_vector_plus_immediate // +14 loads, +4 stores
+        bl      test_scalar_plus_scalar    // +72 loads, +46 stores
+        bl      test_scalar_plus_immediate // +72 loads, +46 stores
         bl      test_replicating_loads     // +8 loads, +0 stores
 #ifdef __ARM_FEATURE_SVE2
         bl      test_vector_plus_scalar    // +7 loads, +4 stores
@@ -499,39 +607,39 @@ _start:
 
         // Running total:
         // SVE only:
-        // Loads:  (898 * vl_bytes/16) + 60 + 52 + 7 + 56 + 56 + 8 = (898 * vl_bytes/16) + 239
+        // Loads:  (1196 * vl_bytes/16) + 60 + 104 + 14 + 72 + 72 + 8 = (1182 * vl_bytes/16) + 330
         // Stores: (734 * vl_bytes/16) + 41 + 4 + 46 + 46 = (734 * vl_bytes/16) + 127
 
         // Including SVE2:
-        // Loads:  (912 * vl_bytes/16) + 239 + 7 = (912 * vl_bytes/16) + 246
+        // Loads:  (1210 * vl_bytes/16) + 330 + 7 = (1210 * vl_bytes/16) + 337
         // Stores: (742 * vl_bytes/16) + 127 + 4 = (742 * vl_bytes/16) + 131
 
         // The functions in this file have the following instructions counts:
         //     _start                       40 (+3 SVE2)
-        //     test_scalar_plus_vector      84
-        //     test_vector_plus_immediate   12
-        //     test_scalar_plus_scalar      55
-        //     test_scalar_plus_immediate   55
+        //     test_scalar_plus_vector      136
+        //     test_vector_plus_immediate   19
+        //     test_scalar_plus_scalar      71
+        //     test_scalar_plus_immediate   71
         //     test_replicating_loads       9
         //     test_vector_plus_scalar      12
-        // So there are 40 + 84 + 12 + 55 + 55 + 9 = 255 unique instructions
-        // (or 255 + 12 + 3 = 270 including SVE2)
+        // So there are 40 + 136 + 19 + 71 + 71 + 9 = 346 unique instructions
+        // (or 346 + 18 + 3 = 367 including SVE2)
         // We run the test_* functions 3 times each so the total instruction executed is
-        //     ((84 + 12 + 55 + 55 + 9) * 3) + 40 = (215 * 3) + 37 = 685
-        // (or 685 + 3 + (12 * 3) = 724 including SVE2)
+        //     ((136 + 19 + 71 + 71 + 9) * 3) + 40 = (306 * 3) + 37 = 958
+        // (or 958 + 3 + (12 * 3) = 997 including SVE2)
 
         // Totals:
         // SVE only:
-        // Loads:  (898 * vl_bytes/16) + 239
+        // Loads:  (1196 * vl_bytes/16) + 330
         // Stores: (734 * vl_bytes/16) + 127
-        // Instructions: 685
-        // Unique instructions: 255
+        // Instructions: 958
+        // Unique instructions: 346
 
         // Including SVE2:
-        // Loads:  (912 * vl_bytes/16) + 246
+        // Loads:  (1210 * vl_bytes/16) + 337
         // Stores: (742 * vl_bytes/16) + 131
-        // Instructions: 724
-        // Unique instructions: 270
+        // Instructions: 997
+        // Unique instructions: 367
 
 // Exit.
         mov      w0, #1            // stdout

@@ -33,6 +33,7 @@
 #include "../globals.h"
 #include "instr.h"
 #include "encode_api.h"
+#include "codec.h"
 
 /* XXX i#6690: currently only RISCV64 is supported for instruction encoding.
  * We want to add support for RISCV64 decoding and synthetic ISA encoding as well.
@@ -42,9 +43,9 @@
 bool
 instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
 {
-    if (mode != DR_ISA_RV64IMAFDC)
+    if (mode != DR_ISA_RV64 && mode != DR_ISA_REGDEPS)
         return false;
-    instr->isa_mode = DR_ISA_RV64IMAFDC;
+    instr->isa_mode = mode;
     return true;
 }
 
@@ -106,6 +107,12 @@ opc_is_not_a_real_memory_load(int opc)
     return opc == OP_auipc;
 }
 
+bool
+opc_is_not_a_real_memory_store(int opc)
+{
+    return false;
+}
+
 uint
 instr_branch_type(instr_t *cti_instr)
 {
@@ -148,9 +155,7 @@ instr_branch_type(instr_t *cti_instr)
 const char *
 get_opcode_name(int opc)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return "<opcode>";
+    return get_instruction_info(opc)->name;
 }
 
 bool

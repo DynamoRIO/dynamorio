@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2023 Google, Inc.    All rights reserved.
+# Copyright (c) 2023-2024 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -103,17 +103,17 @@ if (X86 AND X64 AND ZIP_FOUND)
   set(trace_dir
     "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.x64.tracedir")
   add_test(NAME drcachesim.empty_load
-    COMMAND ${PROJECT_BINARY_DIR}/bin64/drrun -t drcachesim -offline
-     -simulator_type empty -indir ${trace_dir})
+    COMMAND ${PROJECT_BINARY_DIR}/bin64/drrun -t drmemtrace -offline
+     -tool empty -indir ${trace_dir})
   set(empty_regex "Empty tool created\nEmpty tool results:")
   set_tests_properties(drcachesim.empty_load
     PROPERTIES PASS_REGULAR_EXPRESSION "${empty_regex}")
 
   # Simple test to ensure non-existent tool load by drcachesim should fail.
   add_test(NAME drcachesim.non-existent_load
-    COMMAND ${PROJECT_BINARY_DIR}/bin64/drrun -t drcachesim -offline
-     -simulator_type non-existent -indir ${trace_dir})
-  set(nonexistent_regex "Usage error: unsupported analyzer type \"non-existent\". Please choose cache, miss_analyzer, TLB, histogram, reuse_distance, basic_counts, opcode_mix, syscall_mix, view, func_view, or some external analyzer.\nERROR: failed to initialize analyzer: Failed to create analysis tool:")
+    COMMAND ${PROJECT_BINARY_DIR}/bin64/drrun -t drmemtrace -offline
+     -tool non-existent -indir ${trace_dir})
+  set(nonexistent_regex "Usage error: unsupported analyzer type \"non-existent\". Please choose cache_simulator, miss_analyzer, TLB_simulator, histogram, reuse_distance, basic_counts, opcode_mix, syscall_mix, view, func_view, or some external analyzer.\nERROR: failed to initialize analyzer: Failed to create analysis tool:")
   set_tests_properties(drcachesim.non-existent_load
     PROPERTIES PASS_REGULAR_EXPRESSION "${nonexistent_regex}")
 endif ()

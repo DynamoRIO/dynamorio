@@ -52,11 +52,14 @@
 #define INSTR_INLINE extern inline
 
 #include "../globals.h"
+#include "isa_regdeps/encoding_common.h"
 #include "instr.h"
 #include "arch.h"
 #include "../link.h"
 #include "decode.h"
 #include "decode_fast.h"
+#include "opcode_api.h"
+#include "opnd.h"
 #include "instr_create_shared.h"
 /* FIXME i#1551: refactor this file and avoid this x86-specific include in base arch/ */
 #include "x86/decode_private.h"
@@ -2229,6 +2232,11 @@ instr_writes_memory(instr_t *instr)
 {
     int a;
     opnd_t curop;
+    int opc = instr_get_opcode(instr);
+
+    if (opc_is_not_a_real_memory_store(opc))
+        return false;
+
     for (a = 0; a < instr_num_dsts(instr); a++) {
         curop = instr_get_dst(instr, a);
         if (opnd_is_memory_reference(curop)) {
@@ -2989,6 +2997,166 @@ instr_uses_fp_reg(instr_t *instr)
         }
     }
     return false;
+}
+
+void
+instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
+                             instr_t *instr_regdeps_isa)
+{
+    /* Retrieve number of register destination operands from real ISA instruction.
+     * Note that a destination operand that is a memory renference should have its
+     * registers (if any) counted as source operands, since they are being read.
+     * We use [src|dst]_reg_used to keep track of registers we've seen and avoid
+     * duplicates.
+     */
+    bool src_reg_used[REGDEPS_MAX_NUM_REGS];
+    memset(src_reg_used, 0, sizeof(src_reg_used));
+    uint num_srcs = 0;
+    bool dst_reg_used[REGDEPS_MAX_NUM_REGS];
+    memset(dst_reg_used, 0, sizeof(dst_reg_used));
+    uint num_dsts = 0;
+    uint instr_real_num_dsts = (uint)instr_num_dsts(instr_real_isa);
+    for (uint dst_index = 0; dst_index < instr_real_num_dsts; ++dst_index) {
+        opnd_t dst_opnd = instr_get_dst(instr_real_isa, dst_index);
+        uint num_regs_used_by_opnd = (uint)opnd_num_regs_used(dst_opnd);
+        if (opnd_is_memory_reference(dst_opnd)) {
+            for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
+                reg_id_t reg = opnd_get_reg_used(dst_opnd, opnd_index);
+                /* Map sub-registers to their containing register.
+                 */
+                reg_id_t reg_virtual = d_r_reg_to_virtual(reg);
+                if (!src_reg_used[reg_virtual]) {
+                    ++num_srcs;
+                    src_reg_used[reg_virtual] = true;
+                }
+            }
+        } else {
+            for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
+                reg_id_t reg = opnd_get_reg_used(dst_opnd, opnd_index);
+                /* Map sub-registers to their containing register.
+                 */
+                reg_id_t reg_virtual = d_r_reg_to_virtual(reg);
+                if (!dst_reg_used[reg_virtual]) {
+                    ++num_dsts;
+                    dst_reg_used[reg_virtual] = true;
+                }
+            }
+        }
+    }
+
+    /* We use max_src_opnd_size_bytes to keep track of the size of the largest source
+     * operand.  This variable counts the number of bytes instead of using opnd_size_t to
+     * avoid relying on OPSZ_ enum values.  Later on we convert max_src_opnd_size_bytes to
+     * its corresponding OPSZ_ enum value and store it into operation_size.
+     */
+    uint max_src_opnd_size_bytes = 0;
+    /* Retrieve number of register source operands from real ISA instruction.
+     */
+    uint instr_real_num_srcs = (uint)instr_num_srcs(instr_real_isa);
+    for (uint i = 0; i < instr_real_num_srcs; ++i) {
+        opnd_t src_opnd = instr_get_src(instr_real_isa, i);
+        opnd_size_t opnd_size = opnd_get_size(src_opnd);
+        uint opnd_size_bytes = opnd_size_in_bytes(opnd_size);
+        if (opnd_size_bytes > max_src_opnd_size_bytes)
+            max_src_opnd_size_bytes = opnd_size_bytes;
+        uint num_regs_used_by_opnd = (uint)opnd_num_regs_used(src_opnd);
+        for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
+            reg_id_t reg = opnd_get_reg_used(src_opnd, opnd_index);
+            /* Map sub-registers to their containing register.
+             */
+            reg_id_t reg_virtual = d_r_reg_to_virtual(reg);
+            if (!src_reg_used[reg_virtual]) {
+                ++num_srcs;
+                src_reg_used[reg_virtual] = true;
+            }
+        }
+    }
+
+    /* Declare num of source and destination operands valid in the converted instruction.
+     */
+    instr_set_num_opnds(drcontext, instr_regdeps_isa, num_dsts, num_srcs);
+
+    /* Retrieve arithmetic flags from real ISA instruction.
+     * If the real ISA instruction reads or writes one or more arithmetic flag, all
+     * arithmetic flags will be set to read or written in the converted instruction.
+     * Note that this operation can trigger additional encoding and decoding of
+     * instr_real_isa, depending on its decoding level.
+     */
+    uint eflags_instr_real = instr_get_arith_flags(instr_real_isa, DR_QUERY_DEFAULT);
+    uint eflags_instr_regdeps = 0;
+    if (TESTANY(EFLAGS_WRITE_ARITH, eflags_instr_real))
+        eflags_instr_regdeps |= EFLAGS_WRITE_ARITH;
+    if (TESTANY(EFLAGS_READ_ARITH, eflags_instr_real))
+        eflags_instr_regdeps |= EFLAGS_READ_ARITH;
+    instr_regdeps_isa->eflags = eflags_instr_regdeps;
+    instr_set_arith_flags_valid(instr_regdeps_isa, true);
+
+    /* Retrieve category of real ISA instruction and set it directly as the category of
+     * the converted instruction.  No changes needed here.
+     */
+    instr_set_category(instr_regdeps_isa, instr_get_category(instr_real_isa));
+
+    /* Convert max_src_opnd_size_bytes from number of bytes to opnd_size_t (which holds
+     * OPSZ_ enum values).
+     */
+    opnd_size_t max_opnd_size = opnd_size_from_bytes(max_src_opnd_size_bytes);
+    instr_regdeps_isa->operation_size = max_opnd_size;
+
+    /* Set the source and destination register operands for the converted instruction.
+     */
+    if (num_dsts > 0) {
+        uint reg_counter = 0;
+        for (uint reg = 0; reg < REGDEPS_MAX_NUM_REGS; ++reg) {
+            if (dst_reg_used[reg]) {
+                opnd_t dst_opnd = opnd_create_reg((reg_id_t)reg);
+                /* Virtual registers don't have a fixed size like real ISA registers do.
+                 * So, it can happen that the same virtual register in two different
+                 * instructions may have different sizes.
+                 *
+                 * Even though querying the size of a virtual register is not supported on
+                 * purpose (a user should query the instr_t.operation_size), we set the
+                 * opnd_t.size field to be the same as instr_t.operation_size (i.e.,
+                 * max_opnd_size), so that reg_get_size() can return some meaningful
+                 * information without triggering a CLIENT_ASSERT error because the
+                 * virtual register ID is not supported (e.g., is one of the "reserved"
+                 * register IDs).
+                 *
+                 * We do the same for both src and dst register operands of DR_ISA_REGDEPS
+                 * instructions.
+                 */
+                opnd_set_size(&dst_opnd, max_opnd_size);
+                instr_set_dst(instr_regdeps_isa, reg_counter, dst_opnd);
+                ++reg_counter;
+            }
+        }
+    }
+
+    if (num_srcs > 0) {
+        uint reg_counter = 0;
+        for (uint reg = 0; reg < REGDEPS_MAX_NUM_REGS; ++reg) {
+            if (src_reg_used[reg]) {
+                opnd_t src_opnd = opnd_create_reg((reg_id_t)reg);
+                opnd_set_size(&src_opnd, max_opnd_size);
+                instr_set_src(instr_regdeps_isa, reg_counter, src_opnd);
+                ++reg_counter;
+            }
+        }
+    }
+
+    /* Declare converted instruction operands to be valid.
+     * Must be done after instr_allocate_raw_bits(), which sets operands as invalid.
+     */
+    instr_set_operands_valid(instr_regdeps_isa, true);
+
+    /* Set opcode as OP_UNDECODED, so routines like instr_valid() can still work.
+     * We can't use instr_set_opcode() because of its CLIENT_ASSERT when setting the
+     * opcode to OP_UNDECODED or OP_INVALID.
+     */
+    instr_regdeps_isa->opcode = OP_UNDECODED;
+
+    /* Set converted instruction ISA mode to be DR_ISA_REGDEPS.
+     */
+    instr_set_isa_mode(instr_regdeps_isa, DR_ISA_REGDEPS);
 }
 
 /* We place these here rather than in mangle_shared.c to avoid the work of

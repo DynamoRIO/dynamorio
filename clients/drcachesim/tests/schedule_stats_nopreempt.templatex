@@ -1,7 +1,7 @@
 Schedule stats tool results:
 Total counts:
            4 cores
-           8 threads
+           8 threads: 1257.*
       638938 instructions
            6 total context switches
    0\.0093906 CSPKI \(context switches per 1000 instructions\)
@@ -17,12 +17,16 @@ Total counts:
     *[0-9]* idles
       *[0-9\.]*% cpu busy by record count
    *[0-9]* cpu microseconds
+   *[0-9]* wait microseconds
    *[0-9]* idle microseconds
    *[0-9]* idle microseconds at last instr
       *[0-9\.]*% cpu busy by time
       *[0-9\.]*% cpu busy by time, ignoring idle past last instr
+  Instructions per context switch histogram:
+           0..   50000     2
+       50000..  100000     4
 Core #0 counts:
-           . threads
+           . threads: 1257.*
       *[0-9]* instructions
            . total context switches
    0\.0[0-9\.]* CSPKI \(context switches per 1000 instructions\)
@@ -35,15 +39,9 @@ Core #0 counts:
            . maybe-blocking system calls
            0 direct switch requests
            0 waits
-    *[0-9]* idles
-      *[0-9\.]*% cpu busy by record count
-   *[0-9]* cpu microseconds
-   *[0-9]* idle microseconds
-   *[0-9]* idle microseconds at last instr
-      *[0-9\.]*% cpu busy by time
-      *[0-9\.]*% cpu busy by time, ignoring idle past last instr
+.*
 Core #1 counts:
-           . threads
+           . threads: 1257.*
       *[0-9]* instructions
            . total context switches
    0\.0[0-9\.]* CSPKI \(context switches per 1000 instructions\)
@@ -56,15 +54,9 @@ Core #1 counts:
            . maybe-blocking system calls
            0 direct switch requests
            0 waits
-    *[0-9]* idles
-      *[0-9\.]*% cpu busy by record count
-   *[0-9]* cpu microseconds
-   *[0-9]* idle microseconds
-   *[0-9]* idle microseconds at last instr
-      *[0-9\.]*% cpu busy by time
-      *[0-9\.]*% cpu busy by time, ignoring idle past last instr
+.*
 Core #2 counts:
-           . threads
+           . threads: 1257.*
       *[0-9]* instructions
            . total context switches
    0\.0[0-9\.]* CSPKI \(context switches per 1000 instructions\)
@@ -77,15 +69,9 @@ Core #2 counts:
            . maybe-blocking system calls
            0 direct switch requests
            0 waits
-    *[0-9]* idles
-      *[0-9\.]*% cpu busy by record count
-   *[0-9]* cpu microseconds
-   *[0-9]* idle microseconds
-   *[0-9]* idle microseconds at last instr
-      *[0-9\.]*% cpu busy by time
-      *[0-9\.]*% cpu busy by time, ignoring idle past last instr
+.*
 Core #3 counts:
-           . threads
+           . threads: 1257.*
       *[0-9]* instructions
            . total context switches
    0\.0[0-9\.]* CSPKI \(context switches per 1000 instructions\)
@@ -98,13 +84,7 @@ Core #3 counts:
            . maybe-blocking system calls
            0 direct switch requests
            0 waits
-    *[0-9]* idles
-      *[0-9\.]*% cpu busy by record count
-   *[0-9]* cpu microseconds
-   *[0-9]* idle microseconds
-   *[0-9]* idle microseconds at last instr
-      *[0-9\.]*% cpu busy by time
-      *[0-9\.]*% cpu busy by time, ignoring idle past last instr
+.*
 Core #0 schedule: [A-Ha-h_]*
 Core #1 schedule: [A-Ha-h_]*
 Core #2 schedule: [A-Ha-h_]*

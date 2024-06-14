@@ -458,18 +458,18 @@ droption_t<std::string>
                           "Specifies the replacement policy for TLBs. "
                           "Supported policies: LFU (Least Frequently Used).");
 
-// TODO i#6660: Add "-tool" alias as these are not all "simulators".
 droption_t<std::string>
-    op_simulator_type(DROPTION_SCOPE_FRONTEND, "simulator_type", CPU_CACHE,
-                      "Specifies which trace analysis tool(s) to run.  Multiple tools "
-                      "can be specified, separated by a colon (\":\").",
-                      "Predefined types: " CPU_CACHE ", " MISS_ANALYZER ", " TLB
-                      ", " REUSE_DIST ", " REUSE_TIME ", " HISTOGRAM ", " BASIC_COUNTS
-                      ", " INVARIANT_CHECKER ", " SCHEDULE_STATS ", or " RECORD_FILTER
-                      ". The " RECORD_FILTER " tool cannot be combined with the others "
-                      "as it operates on raw disk records. "
-                      "To invoke an external tool: specify its name as identified by a "
-                      "name.drcachesim config file in the DR tools directory.");
+    op_tool(DROPTION_SCOPE_FRONTEND,
+            std::vector<std::string>({ "tool", "simulator_type" }), CPU_CACHE,
+            "Specifies which trace analysis tool(s) to run.  Multiple tools "
+            "can be specified, separated by a colon (\":\").",
+            "Predefined types: " CPU_CACHE ", " MISS_ANALYZER ", " TLB ", " REUSE_DIST
+            ", " REUSE_TIME ", " HISTOGRAM ", " BASIC_COUNTS ", " INVARIANT_CHECKER
+            ", " SCHEDULE_STATS ", or " RECORD_FILTER ". The " RECORD_FILTER
+            " tool cannot be combined with the others "
+            "as it operates on raw disk records. "
+            "To invoke an external tool: specify its name as identified by a "
+            "name.drcachesim config file in the DR tools directory.");
 
 droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 64,
                                     "Verbosity level",
@@ -855,13 +855,14 @@ droption_t<bool> op_sched_order_time(DROPTION_SCOPE_ALL, "sched_order_time", tru
                                      "Whether to honor recorded timestamps for ordering");
 
 droption_t<uint64_t> op_sched_syscall_switch_us(
-    DROPTION_SCOPE_ALL, "sched_syscall_switch_us", 500,
-    "Minimum latency to consider any syscall as incurring a context switch.",
-    "Minimum latency in timestamp units (us) to consider any syscall as incurring "
-    "a context switch.  Applies to -core_sharded and -core_serial. ");
+    DROPTION_SCOPE_ALL, "sched_syscall_switch_us", 30000000,
+    "Minimum latency to consider a non-blocking syscall as incurring a context switch.",
+    "Minimum latency in timestamp units (us) to consider a non-blocking syscall as "
+    "incurring a context switch (see -sched_blocking_switch_us for maybe-blocking "
+    "syscalls).  Applies to -core_sharded and -core_serial. ");
 
 droption_t<uint64_t> op_sched_blocking_switch_us(
-    DROPTION_SCOPE_ALL, "sched_blocking_switch_us", 100,
+    DROPTION_SCOPE_ALL, "sched_blocking_switch_us", 500,
     "Minimum latency to consider a maybe-blocking syscall as incurring a context switch.",
     "Minimum latency in timestamp units (us) to consider any syscall that is marked as "
     "maybe-blocking to incur a context switch. Applies to -core_sharded and "
@@ -920,6 +921,15 @@ droption_t<bool> op_sched_randomize(
     "set), and FIFO order and instead selects the next input randomly. "
     "This is intended for experimental use in sensitivity studies.");
 
+droption_t<bool> op_sched_disable_direct_switches(
+    DROPTION_SCOPE_FRONTEND, "sched_disable_direct_switches", false,
+    "Ignore direct thread switch requests",
+    "Applies to -core_sharded and -core_serial.  Disables switching to the recorded "
+    "targets of TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH system call metadata markers "
+    "and causes the associated system call to be treated like any other call with a "
+    "switch being determined by latency and the next input in the queue.  The "
+    "TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH markers are not removed from the trace.");
+
 // Schedule_stats options.
 droption_t<uint64_t>
     op_schedule_stats_print_every(DROPTION_SCOPE_ALL, "schedule_stats_print_every",
@@ -962,6 +972,28 @@ droption_t<std::string>
                            "Comma-separated integers for marker types to remove.",
                            "Comma-separated integers for marker types to remove. "
                            "See trace_marker_type_t for the list of marker types.");
+
+/* XXX i#6369: we should partition our options by tool. This one should belong to the
+ * record_filter partition. For now we add the filter_ prefix to options that should be
+ * used in conjunction with record_filter.
+ */
+droption_t<bool> op_encodings2regdeps(
+    DROPTION_SCOPE_FRONTEND, "filter_encodings2regdeps", false,
+    "Enable converting the encoding of instructions to synthetic ISA DR_ISA_REGDEPS.",
+    "This option is for -tool " RECORD_FILTER ". When present, it converts "
+    "the encoding of instructions from a real ISA to the DR_ISA_REGDEPS synthetic ISA.");
+
+/* XXX i#6369: we should partition our options by tool. This one should belong to the
+ * record_filter partition. For now we add the filter_ prefix to options that should be
+ * used in conjunction with record_filter.
+ */
+droption_t<std::string>
+    op_filter_func_ids(DROPTION_SCOPE_FRONTEND, "filter_keep_func_ids", "",
+                       "Comma-separated integers of function IDs to keep.",
+                       "This option is for -tool " RECORD_FILTER ". It preserves "
+                       "TRACE_MARKER_TYPE_FUNC_[ID | ARG | RETVAL | RETADDR] markers "
+                       "for the listed function IDs and removes those belonging to "
+                       "unlisted function IDs.");
 
 droption_t<uint64_t> op_trim_before_timestamp(
     DROPTION_SCOPE_ALL, "trim_before_timestamp", 0, 0,

@@ -173,9 +173,10 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
                    memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER) {
             ++counters->xfer_markers;
-        } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_WAIT ||
-                   memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_IDLE) {
-            // This is a synthetic record so do not increment any counts.
+        } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_IDLE) {
+            ++counters->idle_markers;
+        } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_WAIT) {
+            ++counters->wait_markers;
         } else {
             if (memref.marker.marker_type == TRACE_MARKER_TYPE_WINDOW_ID &&
                 static_cast<intptr_t>(memref.marker.marker_value) !=
@@ -308,9 +309,11 @@ basic_counts_t::print_counters(const counters_t &counters, const std::string &pr
                   << " threads\n";
     }
     std::cerr << std::setw(12) << counters.sched_markers << prefix
-              << " scheduling markers\n";
+              << " timestamp + cpuid markers\n";
+    std::cerr << std::setw(12) << counters.idle_markers << prefix << " idle markers\n";
+    std::cerr << std::setw(12) << counters.wait_markers << prefix << " wait markers\n";
     std::cerr << std::setw(12) << counters.xfer_markers << prefix
-              << " transfer markers\n";
+              << " kernel transfer markers\n";
     std::cerr << std::setw(12) << counters.func_id_markers << prefix
               << " function id markers\n";
     std::cerr << std::setw(12) << counters.func_retaddr_markers << prefix

@@ -38,7 +38,9 @@
 /* decode.c -- a full x86 decoder */
 
 #include "../globals.h"
+#include "../isa_regdeps/decode.h"
 #include "arch.h"
+#include "encode_api.h"
 #include "instr.h"
 #include "decode.h"
 #include "decode_fast.h"
@@ -127,9 +129,9 @@ bool
 is_isa_mode_legal(dr_isa_mode_t mode)
 {
 #ifdef X64
-    return (mode == DR_ISA_IA32 || mode == DR_ISA_AMD64);
+    return (mode == DR_ISA_IA32 || mode == DR_ISA_AMD64 || mode == DR_ISA_REGDEPS);
 #else
-    return (mode == DR_ISA_IA32);
+    return (mode == DR_ISA_IA32 || mode == DR_ISA_REGDEPS);
 #endif
 }
 
@@ -2579,6 +2581,14 @@ check_is_variable_size(opnd_t op)
 static byte *
 decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
 {
+    /* #DR_ISA_REGDEPS synthetic ISA has its own decoder.
+     * XXX i#1684: when DR can be built with full dynamic architecture selection we won't
+     * need to pollute the decoding of other architectures with this synthetic ISA special
+     * case.
+     */
+    if (dr_get_isa_mode(dcontext) == DR_ISA_REGDEPS)
+        return decode_isa_regdeps(dcontext, pc, instr);
+
     const instr_info_t *info;
     decode_info_t di;
     byte *next_pc;
@@ -2781,6 +2791,13 @@ const char *
 decode_opcode_name(int opcode)
 {
     const instr_info_t *info = op_instr[opcode];
+    if (info == NULL) {
+        switch (opcode) {
+        case OP_INVALID: return "<invalid>";
+        case OP_UNDECODED: return "<undecoded>";
+        default: return "<unknown>";
+        }
+    }
     return info->name;
 }
 

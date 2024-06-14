@@ -35,12 +35,13 @@
 #ifndef _OPTIONS_H_
 #define _OPTIONS_H_ 1
 
-// Tool names (for -simulator_type option).
-// TODO i#6660: When we add "-tool", add "cache_simulator" or "drcachesim"
-// instead of just "-tool cache".  Ditto for "TLB".
-#define CPU_CACHE "cache"
+// Tool names (for -tool option).
+#define CPU_CACHE_LEGACY "cache"
+#define CPU_CACHE "cache_simulator"
+#define CPU_CACHE_ALT "drcachesim"
 #define MISS_ANALYZER "miss_analyzer"
-#define TLB "TLB"
+#define TLB_LEGACY "TLB"
+#define TLB "TLB_simulator"
 #define HISTOGRAM "histogram"
 #define REUSE_DIST "reuse_distance"
 #define REUSE_TIME "reuse_time"
@@ -146,7 +147,7 @@ extern dynamorio::droption::droption_t<unsigned int> op_TLB_L1D_assoc;
 extern dynamorio::droption::droption_t<unsigned int> op_TLB_L2_entries;
 extern dynamorio::droption::droption_t<unsigned int> op_TLB_L2_assoc;
 extern dynamorio::droption::droption_t<std::string> op_TLB_replace_policy;
-extern dynamorio::droption::droption_t<std::string> op_simulator_type;
+extern dynamorio::droption::droption_t<std::string> op_tool;
 extern dynamorio::droption::droption_t<unsigned int> op_verbose;
 extern dynamorio::droption::droption_t<bool> op_show_func_trace;
 extern dynamorio::droption::droption_t<int> op_jobs;
@@ -207,12 +208,15 @@ extern dynamorio::droption::droption_t<std::string> op_cpu_schedule_file;
 #endif
 extern dynamorio::droption::droption_t<std::string> op_sched_switch_file;
 extern dynamorio::droption::droption_t<bool> op_sched_randomize;
+extern dynamorio::droption::droption_t<bool> op_sched_disable_direct_switches;
 extern dynamorio::droption::droption_t<uint64_t> op_schedule_stats_print_every;
 extern dynamorio::droption::droption_t<std::string> op_syscall_template_file;
 extern dynamorio::droption::droption_t<uint64_t> op_filter_stop_timestamp;
 extern dynamorio::droption::droption_t<int> op_filter_cache_size;
 extern dynamorio::droption::droption_t<std::string> op_filter_trace_types;
 extern dynamorio::droption::droption_t<std::string> op_filter_marker_types;
+extern dynamorio::droption::droption_t<bool> op_encodings2regdeps;
+extern dynamorio::droption::droption_t<std::string> op_filter_func_ids;
 extern dynamorio::droption::droption_t<uint64_t> op_trim_before_timestamp;
 extern dynamorio::droption::droption_t<uint64_t> op_trim_after_timestamp;
 extern dynamorio::droption::droption_t<bool> op_abort_on_invariant_error;

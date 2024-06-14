@@ -38,6 +38,7 @@
 /* file "opnd_shared.c" -- IR opnd utilities */
 
 #include "../globals.h"
+#include "encode_api.h"
 #include "opnd.h"
 #include "arch.h"
 /* FIXME i#1551: refactor this file and avoid this x86-specific include in base arch/ */
@@ -1414,21 +1415,9 @@ opnd_replace_reg(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg)
                 s, b, i, sc, d, size, opnd_is_disp_encode_zero(*opnd),
                 opnd_is_disp_force_full(*opnd), opnd_is_disp_short_addr(*opnd));
 #elif defined(RISCV64)
-            /* FIXME i#3544: RISC-V has no support for base + idx * scale + disp.
-             * We could support base + disp as long as disp == +/-1MB.
-             * If needed, instructions with this operand should be transformed
-             * to:
-             *   mul idx, idx, scale # or slli if scale is immediate
-             *   add base, base, idx
-             *   addi base, base, disp
-             */
-            CLIENT_ASSERT(false, "Not implemented");
-            /* Marking as unused to silence -Wunused-variable. */
-            (void)size;
-            (void)b;
-            (void)i;
-            (void)d;
-            return false;
+            CLIENT_ASSERT(i == DR_REG_NULL, "opnd_replace_reg: index_reg must be null");
+            bool scaled = false;
+            *opnd = opnd_create_base_disp(b, i, scaled, d, size);
 #endif
             return true;
         }
@@ -2404,9 +2393,24 @@ opnd_compute_address(opnd_t opnd, dr_mcontext_t *mc)
  ***      Register utility functions
  ***************************************************************************/
 
+/* XXX i#1684: performance matters on all getter and setter routines.  Now that we call
+ * get_thread_private_dcontext(), we add non-negligible overhead to get_register_name().
+ * Currently there are other routines that call get_thread_private_dcontext() such as:
+ * instr_get_eflags() and opnd_create_far_abs_addr().  We should revisit this and make
+ * a decision on which of these routines should take dcontext_t as input argument.
+ */
+/* XXX i#6690: here we assume that changes made by the user of this routine
+ * (and by its threads) to the global dcontext_t (and specifically its isa_mode)
+ * are guarded by locks.  We can remove this assumption once we have a completely
+ * lock-free dcontext_t.
+ */
 const char *
 get_register_name(reg_id_t reg)
 {
+    bool is_global_isa_mode_synthetic =
+        dr_get_isa_mode(get_thread_private_dcontext()) == DR_ISA_REGDEPS;
+    if (is_global_isa_mode_synthetic)
+        return d_r_reg_virtual_names[reg];
     return reg_names[reg];
 }
 
@@ -2414,6 +2418,12 @@ reg_id_t
 reg_to_pointer_sized(reg_id_t reg)
 {
     return dr_reg_fixer[reg];
+}
+
+reg_id_t
+d_r_reg_to_virtual(reg_id_t reg)
+{
+    return d_r_reg_id_to_virtual[reg];
 }
 
 reg_id_t
@@ -2770,7 +2780,7 @@ reg_get_size(reg_id_t reg)
     }
     if ((reg >= DR_REG_P0 && reg <= DR_REG_P15) || reg == DR_REG_FFR)
         return OPSZ_SVE_PREDLEN_BYTES;
-    if (reg == DR_REG_CNTVCT_EL0)
+    if (reg >= DR_REG_CNTVCT_EL0 && reg <= DR_REG_REVIDR_EL1)
         return OPSZ_8;
     if (reg >= DR_REG_NZCV && reg <= DR_REG_FPSR)
         return OPSZ_8;

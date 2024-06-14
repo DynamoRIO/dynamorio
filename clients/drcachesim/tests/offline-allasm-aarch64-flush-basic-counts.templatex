@@ -10,14 +10,8 @@ Total counts:
            1 total icache flushes
            3 total dcache flushes
            1 total threads
-           6 total scheduling markers
-           0 total transfer markers
-           0 total function id markers
-           0 total function return address markers
-           0 total function argument markers
-           0 total function return value markers
-     .* total other markers
-     .* total encodings
+           6 total timestamp \+ cpuid markers
+.*
 Thread .* counts:
           19 \(fetched\) instructions
           19 unique \(fetched\) instructions
@@ -27,11 +21,5 @@ Thread .* counts:
            0 data stores
            1 icache flushes
            3 dcache flushes
-           6 scheduling markers
-           0 transfer markers
-           0 function id markers
-           0 function return address markers
-           0 function argument markers
-           0 function return value markers
-     .* other markers
-     .* encodings
+           6 timestamp \+ cpuid markers
+.*

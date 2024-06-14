@@ -108,33 +108,57 @@ drx_mark_scatter_gather_expanded(void)
 }
 
 static bool
+is_scatter_gather_fault(void *drcontext, dr_fault_fragment_info_t *fragment_info,
+                        DR_PARAM_OUT instr_t *inst)
+{
+    if (fragment_info->cache_start_pc == NULL)
+        return false; /* fault not in cache */
+    if (dr_atomic_load32(&drx_scatter_gather_expanded) == 0) {
+        /* Nothing to do if nobody has ever called expand_scatter_gather() before. */
+        return false;
+    }
+    if (!fragment_info->app_code_consistent) {
+        /* Can't verify application code.
+         * XXX i#2985: is it better to keep searching?
+         */
+        return false;
+    }
+    byte *pc = decode(drcontext, dr_fragment_app_pc(fragment_info->tag), inst);
+    return pc != NULL && (instr_is_gather(inst) || instr_is_scatter(inst));
+}
+
+static bool
 drx_event_restore_state(void *drcontext, bool restore_memory,
                         dr_restore_state_info_t *info)
 {
     instr_t inst;
-    bool success = true;
-    if (info->fragment_info.cache_start_pc == NULL)
-        return true; /* fault not in cache */
-    if (dr_atomic_load32(&drx_scatter_gather_expanded) == 0) {
-        /* Nothing to do if nobody had never called expand_scatter_gather() before. */
-        return true;
-    }
-    if (!info->fragment_info.app_code_consistent) {
-        /* Can't verify application code.
-         * XXX i#2985: is it better to keep searching?
-         */
-        return true;
-    }
     instr_init(drcontext, &inst);
-    byte *pc = decode(drcontext, dr_fragment_app_pc(info->fragment_info.tag), &inst);
-    if (pc != NULL) {
-        if (instr_is_gather(&inst) || instr_is_scatter(&inst)) {
-            success = success && drx_scatter_gather_restore_state(drcontext, info, &inst);
-        }
-    }
+
+    const bool success =
+        !is_scatter_gather_fault(drcontext, &info->fragment_info, &inst) ||
+        drx_scatter_gather_restore_state(drcontext, info, &inst);
+
     instr_free(drcontext, &inst);
     return success;
 }
+
+#if defined(AARCH64)
+static dr_signal_action_t
+drx_event_signal(void *drcontext, dr_siginfo_t *info)
+{
+    instr_t inst;
+    instr_init(drcontext, &inst);
+
+    dr_signal_action_t action = DR_SIGNAL_DELIVER;
+
+    if (is_scatter_gather_fault(drcontext, &info->fault_fragment_info, &inst)) {
+        action = drx_scatter_gather_signal_event(drcontext, info, &inst);
+    }
+
+    instr_free(drcontext, &inst);
+    return action;
+}
+#endif
 
 /* Reserved note range values */
 enum {
@@ -161,7 +185,8 @@ drx_scatter_gather_init()
         return false;
 
     if (!drmgr_register_thread_init_event(drx_scatter_gather_thread_init) ||
-        !drmgr_register_thread_exit_event(drx_scatter_gather_thread_exit))
+        !drmgr_register_thread_exit_event(drx_scatter_gather_thread_exit)
+            IF_AARCH64(|| !drmgr_register_signal_event(drx_event_signal)))
         return false;
 
     note_base = drmgr_reserve_note_range(SG_NOTE_COUNT);
@@ -176,6 +201,7 @@ void
 drx_scatter_gather_exit()
 {
     drmgr_unregister_tls_field(drx_scatter_gather_tls_idx);
+    IF_AARCH64(drmgr_unregister_signal_event(drx_event_signal);)
 }
 
 bool

@@ -47,7 +47,9 @@ public:
         return nullptr;
     }
     bool
-    parallel_shard_filter(trace_entry_t &entry, void *shard_data) override
+    parallel_shard_filter(
+        trace_entry_t &entry, void *shard_data,
+        record_filter_t::record_filter_info_t &record_filter_info) override
     {
         return true;
     }

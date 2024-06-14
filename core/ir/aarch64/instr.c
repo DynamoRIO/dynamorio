@@ -47,9 +47,9 @@
 bool
 instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
 {
-    if (mode != DR_ISA_ARM_A64)
+    if (mode != DR_ISA_ARM_A64 && mode != DR_ISA_REGDEPS)
         return false;
-    instr->isa_mode = DR_ISA_ARM_A64;
+    instr->isa_mode = mode;
     return true;
 }
 
@@ -69,7 +69,23 @@ instr_length_arch(dcontext_t *dcontext, instr_t *instr)
 bool
 opc_is_not_a_real_memory_load(int opc)
 {
-    return (opc == OP_adr || opc == OP_adrp);
+    /* These instructions have a memref operand, but do not read memory:
+     * - adp/adrp do pc-relative address calculation.
+     * - ldg/ldgm loads the allocation tag for the referenced address.
+     */
+    return (opc == OP_adr || opc == OP_adrp || opc == OP_ldg || opc == OP_ldgm);
+}
+
+bool
+opc_is_not_a_real_memory_store(int opc)
+{
+    /* These instructions have a memref operand, but do not write memory:
+     * - stg/st2g/stgm stores the allocation tag for the referenced address.
+     *   note: other MTE tag storing instructions (stgp, stzg, etc) store memory as well
+     *         as allocation tags so they are not checked for here. stg/st2g only store a
+     *         tag.
+     */
+    return (opc == OP_stg || opc == OP_st2g || opc == OP_stgm);
 }
 
 uint
@@ -801,7 +817,7 @@ instr_compute_vector_address(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
 
     const reg_t governing_pred = opnd_get_reg(instr_get_src(instr, 1));
     ASSERT(governing_pred >= DR_REG_START_P && governing_pred <= DR_REG_STOP_P);
-    uint64 mask = mc->svep[governing_pred - DR_REG_START_P].d;
+    uint64 mask = mc->svep[governing_pred - DR_REG_START_P].u64[0];
 
     if (mask == 0) {
         return false;

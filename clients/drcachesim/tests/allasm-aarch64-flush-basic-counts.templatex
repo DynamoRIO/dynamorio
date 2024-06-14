@@ -11,8 +11,10 @@ Total counts:
            1 total icache flushes
            3 total dcache flushes
            1 total threads
-     .* total scheduling markers
-     .* total transfer markers
+     .* total timestamp \+ cpuid markers
+     .* total idle markers
+     .* total wait markers
+     .* total kernel transfer markers
      .* total function id markers
      .* total function return address markers
      .* total function argument markers
@@ -28,8 +30,10 @@ Thread .* counts:
      .* data stores
            1 icache flushes
            3 dcache flushes
-     .* scheduling markers
-     .* transfer markers
+     .* timestamp \+ cpuid markers
+     .* idle markers
+     .* wait markers
+     .* kernel transfer markers
      .* function id markers
      .* function return address markers
      .* function argument markers

@@ -69,7 +69,9 @@ public:
         return per_shard;
     }
     bool
-    parallel_shard_filter(trace_entry_t &entry, void *shard_data) override
+    parallel_shard_filter(
+        trace_entry_t &entry, void *shard_data,
+        record_filter_t::record_filter_info_t &record_filter_info) override
     {
         per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
         if (entry.type == TRACE_TYPE_MARKER &&

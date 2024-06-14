@@ -77,10 +77,10 @@ bool
 instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
 {
 #ifdef X64
-    if (mode != DR_ISA_IA32 && mode != DR_ISA_AMD64)
+    if (mode != DR_ISA_IA32 && mode != DR_ISA_AMD64 && mode != DR_ISA_REGDEPS)
         return false;
 #else
-    if (mode != DR_ISA_IA32)
+    if (mode != DR_ISA_IA32 && mode != DR_ISA_REGDEPS)
         return false;
 #endif
     instr->isa_mode = mode;
@@ -168,6 +168,12 @@ opc_is_not_a_real_memory_load(int opc)
     /* The multi-byte nop has a mem/reg source operand, but it does not read. */
     if (opc == OP_nop_modrm)
         return true;
+    return false;
+}
+
+bool
+opc_is_not_a_real_memory_store(int opc)
+{
     return false;
 }
 

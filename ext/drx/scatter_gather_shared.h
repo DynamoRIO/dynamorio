@@ -111,6 +111,11 @@ bool
 drx_scatter_gather_restore_state(void *drcontext, dr_restore_state_info_t *info,
                                  instr_t *sg_inst);
 
+#if defined(AARCH64)
+dr_signal_action_t
+drx_scatter_gather_signal_event(void *drcontext, dr_siginfo_t *info, instr_t *sg_inst);
+#endif
+
 /* Check if an instruction has been marked as a load or store that is part of a
  * scatter/gather instruction expansion.
  */

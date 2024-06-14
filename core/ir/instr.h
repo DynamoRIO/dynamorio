@@ -676,6 +676,8 @@ int
 instr_length_arch(dcontext_t *dcontext, instr_t *instr);
 bool
 opc_is_not_a_real_memory_load(int opc);
+bool
+opc_is_not_a_real_memory_store(int opc);
 
 /* Compute the index-th address for a memory operand that uses a vector register for the
  * base or index register.
@@ -691,7 +693,7 @@ instr_compute_vector_address(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
 
 uint
 instr_branch_type(instr_t *cti_instr);
-#ifdef AARCH64
+#if defined(AARCH64) || defined(RISCV64)
 const char *
 get_opcode_name(int opc);
 #endif

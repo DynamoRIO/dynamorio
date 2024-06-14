@@ -814,6 +814,23 @@ Core #1 \(traced CPU\(s\): #567800\)
 )DELIM")));
 #endif
     }
+    {
+        // Test graceful handling of too-few cpus.
+        cache_simulator_knobs_t knobs = make_test_knobs();
+        knobs.num_cores = 2;
+        cache_simulator_t sim(knobs);
+        default_memtrace_stream_t stream;
+        sim.initialize_stream(&stream);
+        std::string error = sim.initialize_shard_type(SHARD_BY_CORE);
+        assert(error.empty());
+        memref_t ref = make_memref(42);
+        stream.set_shard_index(2); // Too large for knobs.num_cores.
+        stream.set_output_cpuid(1);
+        bool res = sim.process_memref(ref);
+        // We should see graceful failure and not a crash.
+        assert(!res);
+        assert(!sim.get_error_string().empty());
+    }
 }
 
 int

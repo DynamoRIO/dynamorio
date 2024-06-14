@@ -1,0 +1,11 @@
+Hello, world!
+
+Trace invariant checks passed
+
+Output .* entries from .* entries.
+
+Opcode mix tool results:
+
+    *[0-9]* : total executed instructions
+    *[0-9]* : <undecoded>
+.*

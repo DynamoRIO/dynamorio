@@ -42,6 +42,7 @@
 #include "../ext_utils.h"
 #include "scatter_gather_shared.h"
 
+#include <signal.h>
 #include <string.h>
 #include <stddef.h> /* for offsetof */
 
@@ -1422,16 +1423,6 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, DR_PARAM_OUT bool *e
     bool res = false;
     get_scatter_gather_info(sg_instr, &sg_info);
 
-    /* Filter out instructions which are not yet supported.
-     * We return true with *expanded=false here to indicate that no error occurred but
-     * we didn't expand any instructions. This matches the behaviour of this function
-     * for architectures with no scatter/gather expansion support.
-     */
-    if (sg_info.faulting_behavior != DRX_NORMAL_FAULTING) {
-        /* TODO i#5036: Add support for first-fault and non-fault accesses. */
-        return true;
-    }
-
     const bool is_contiguous =
         !(reg_is_z(sg_info.base_reg) || reg_is_z(sg_info.index_reg));
 
@@ -1622,6 +1613,168 @@ drx_expand_scatter_gather_exit:
     return res;
 }
 
+/* Used by the signal and state_restore event handlers to detect whether a first-fault
+ * load faulted on the first active element or not.
+ */
+static bool
+loop_var_is_first_element(const scatter_gather_info_t *sg_info,
+                          const scratch_regs_t *scratch_regs, const dr_mcontext_t *mc)
+{
+    const uint vl_bytes = proc_get_vector_length_bytes();
+    const uint pl_bytes = vl_bytes / 8;
+
+    /* DynamoRIO currently supports vector lengths up to 512-bits which means a
+     * predicate register size of up to 512/8 = 64-bits.
+     */
+    DR_ASSERT(pl_bytes <= sizeof(uint64));
+
+    uint64 loop_var = 0;
+    memcpy(&loop_var, &mc->svep[scratch_regs->pred - DR_REG_P0].u64[0], pl_bytes);
+
+    uint64 governing_predicate = 0;
+    memcpy(&governing_predicate, &mc->svep[sg_info->mask_reg - DR_REG_P0].u64[0],
+           pl_bytes);
+
+    /* Make sure we only consider the governing_predicate bits used by the instruction */
+    switch (sg_info->element_size) {
+    case OPSZ_1: break;                                            /* 0b11111111 */
+    case OPSZ_2: governing_predicate &= 0x5555555555555555; break; /* 0b01010101 */
+    case OPSZ_4: governing_predicate &= 0x1111111111111111; break; /* 0b00010001 */
+    case OPSZ_8: governing_predicate &= 0x0101010101010101; break; /* 0b00000001 */
+    default: DR_ASSERT_MSG(false, "Scatter/gather instruction has invalid element size");
+    }
+
+    /* loop_var should be 1-bit mask indicating the current element */
+    DR_ASSERT(loop_var != 0);
+    DR_ASSERT(TEST(loop_var, governing_predicate));
+
+    /* If any of the governing_predicate bits lower than the loop_var bit are set, then
+     * this is not the first active element.
+     */
+    return !TESTANY(loop_var - 1, governing_predicate);
+}
+
+dr_signal_action_t
+drx_scatter_gather_signal_event(void *drcontext, dr_siginfo_t *info, instr_t *sg_inst)
+{
+    scatter_gather_info_t sg_info;
+    get_scatter_gather_info(sg_inst, &sg_info);
+
+    /* allocate_zp_registers() is deterministic so we can call it again here and find out
+     * which registers are used in the expansion.
+     */
+    spill_slot_state_t spill_slot_state;
+    init_spill_slot_state(&spill_slot_state);
+
+    scratch_regs_t scratch_regs;
+
+    allocate_zp_registers(sg_inst, &sg_info, &spill_slot_state, &scratch_regs);
+
+    if ((info->sig == SIGSEGV || info->sig == SIGBUS) &&
+        sg_info.faulting_behavior != DRX_NORMAL_FAULTING) {
+        if (reg_is_z(sg_info.base_reg) || reg_is_z(sg_info.index_reg)) {
+            DR_ASSERT(sg_info.faulting_behavior == DRX_FIRST_FAULTING);
+            app_pc addr;
+            uint address_index = 0;
+            bool found_match = false;
+            while (!found_match &&
+                   instr_compute_address_ex(sg_inst, info->mcontext, address_index, &addr,
+                                            NULL)) {
+                if (addr == info->access_address)
+                    found_match = true;
+                else
+                    address_index++;
+            }
+            if (!found_match || address_index == 0) {
+                /* For first-fault loads, the fault is not suppressed if the element that
+                 * faults is the first active element
+                 */
+                return DR_SIGNAL_DELIVER;
+            }
+        } else {
+            const app_pc load_min_addr = instr_compute_address(sg_inst, info->mcontext);
+            const app_pc load_max_addr =
+                load_min_addr + opnd_size_in_bytes(sg_info.scatter_gather_size);
+            if (info->access_address < load_min_addr ||
+                info->access_address >= load_max_addr) {
+                /* The faulting address is out of range for the expanded ldnf instruction
+                 * so the fault must have come from an instruction inserted by a client,
+                 * rather than one of the expansion loads inserted by
+                 * expand_scatter_gather() so we pass the fault on for the client to
+                 * handle.
+                 */
+                return DR_SIGNAL_DELIVER;
+            }
+
+            /* First-fault loads behave differently depending on which element faults.
+             * If the first active element faults then the fault is propagated like a
+             * normal gather instruction. If any other element faults the fault is
+             * suppressed and the instruction behaves like a non-faulting load.
+             */
+            if (sg_info.faulting_behavior == DRX_FIRST_FAULTING &&
+                loop_var_is_first_element(&sg_info, &scratch_regs, info->raw_mcontext)) {
+                return DR_SIGNAL_DELIVER;
+            }
+        }
+        /* Non-faulting loads do not generate a fault when one of the addresses it
+         * accesses faults. Instead it sets the value of the FFR to indicate which
+         * element faulted and execution continues. We implement that behaviour here
+         * by setting the FFR and redirecting to the next app instruction.
+         */
+
+        /* Skip to the next app instruction */
+        info->mcontext->pc += instr_length(drcontext, sg_inst);
+
+        /* Set the FFR value
+         *
+         * The FFR is like a special purpose predicate register. When an element access
+         * faults, the corresponding bit in the FFR is set to 0 and all the higher bits
+         * are zeroed too. All bits lower than the faulting element are preserved.
+         * We can find out which element faulted by looking at the value of the register
+         * we use as a loop variable in the expansion code. It will contain a mask where
+         * a single bit is set which corresponds to the current loop iteration (the
+         * faulting element).
+         * Essentially we do:
+         *
+         *   ffr = ffr & (loop_var - 1)
+         *
+         * but ffr is a dr_simd_t so we have to do it in 32-bit chunks.
+         */
+
+        const size_t loop_p_reg = scratch_regs.pred - DR_REG_P0;
+
+        bool found_fault = false;
+        for (size_t i = 0;
+             i < sizeof(info->mcontext->ffr.u32) / sizeof(info->mcontext->ffr.u32[0]);
+             i++) {
+            if (found_fault) {
+                /* We have passed the element that faulted, all further bits are set to 0
+                 */
+                info->mcontext->ffr.u32[i] = 0;
+            } else {
+                const uint loop_var = info->raw_mcontext->svep[loop_p_reg].u32[i];
+                if (loop_var != 0) {
+                    /* This chunk contains the bit for the faulting element so we need to
+                     * mask this chunk. All bits before the faulting element are
+                     * unchanged and bits after it are set to 0.
+                     */
+                    info->mcontext->ffr.u32[i] &= loop_var - 1;
+                    found_fault = true;
+                } else {
+                    /* We haven't passed the faulting element yet so this chunk is
+                     * unchanged.
+                     */
+                }
+            }
+        }
+        /* Suppress the signal and continue from the PC we set above (the next app
+         * instruction). */
+        return DR_SIGNAL_REDIRECT;
+    }
+
+    return DR_SIGNAL_DELIVER;
+}
+
 bool
 drx_scatter_gather_restore_state(void *drcontext, dr_restore_state_info_t *info,
                                  instr_t *sg_inst)
@@ -1682,16 +1835,23 @@ drx_scatter_gather_restore_state(void *drcontext, dr_restore_state_info_t *info,
     per_thread_t *pt =
         (per_thread_t *)drmgr_get_tls_field(drcontext, drx_scatter_gather_tls_idx);
 
+    /* Faulting element is not the first active element so we need to
+     * suppress the fault and leave the partial value in the dst reg.
+     */
+    const bool dont_restore_dst = sg_info.faulting_behavior == DRX_FIRST_FAULTING &&
+        !loop_var_is_first_element(&sg_info, &scratch_regs, info->raw_mcontext);
+
     const uint vl_bytes = proc_get_vector_length_bytes();
     const uint pl_bytes = vl_bytes / 8;
     for (uint slot = 0; slot < NUM_VECTOR_SLOTS; slot++) {
         if (spill_slot_state.vector_slots[slot].kind != SLOT_KIND_UNUSED) {
-            DR_ASSERT(spill_slot_state.vector_slots[slot].reg >= DR_REG_Z0 &&
-                      spill_slot_state.vector_slots[slot].reg <= DR_REG_Z31);
+            const reg_id_t reg = spill_slot_state.vector_slots[slot].reg;
+            DR_ASSERT(reg >= DR_REG_Z0 && reg <= DR_REG_Z31);
 
-            const size_t reg_num = spill_slot_state.vector_slots[slot].reg - DR_REG_Z0;
+            if (dont_restore_dst && reg == sg_info.gather_dst_reg)
+                continue;
 
-            memcpy(&info->mcontext->simd[reg_num],
+            memcpy(&info->mcontext->simd[reg - DR_REG_Z0],
                    &((char *)pt->scratch_vector_spill_slots_aligned)[vl_bytes * slot],
                    vl_bytes);
         }
@@ -1704,7 +1864,7 @@ drx_scatter_gather_restore_state(void *drcontext, dr_restore_state_info_t *info,
             const size_t reg_num = spill_slot_state.pred_slots[slot].reg - DR_REG_P0;
 
             memcpy(&info->mcontext->svep[reg_num],
-                   &((char *)pt->scratch_pred_spill_slots)[pl_bytes * slot], vl_bytes);
+                   &((char *)pt->scratch_pred_spill_slots)[pl_bytes * slot], pl_bytes);
         }
     }
 

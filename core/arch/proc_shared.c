@@ -85,11 +85,10 @@ cpu_info_t cpu_info = {
     CACHE_SIZE_UNKNOWN,
     CACHE_SIZE_UNKNOWN,
     CACHE_SIZE_UNKNOWN,
-#if defined(RISCV64)
-    /* FIXME i#3544: Not implemented */
-    { 0 },
+#if defined(AARCHXX) || defined(RISCV64)
+    {},
 #else
-    { 0, 0, 0, 0 },
+    { 0 },
 #endif
     { 0x6e6b6e75, 0x006e776f }
 };

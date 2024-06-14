@@ -50,6 +50,10 @@
 #
 # Thus an operand encoder may generate a bit that is read by another operand
 # encoder, but it is an error if there is a cyclic dependency.
+#
+# Note that the operands should be in alphabetical order (of the mask.)
+# The order of the operand implementation functions in codec.c should match the
+# order in this file.
 
 # Hints for understanding the operand type names:
 # In register operands (e.g. w10) the number refers to the position of the lowest bit.
@@ -228,7 +232,6 @@
 -----------xxxxxxxxx------------  mem9off     # immed offset for mem9/mem9post
 -----------xxxxxxxxx------------  mem9off_tag # Same as mem9off, but performs memory tag scaling
 -----------xxxxxxxxx--xxxxx-----  mem9q      # size is 16 bytes
------------xxxxxxxxx--xxxxx-----  mem9_ldg_tag # Same as mem9_tag but fixed at offset with 0 bytes transferred
 -----------xxxxxxxxx--xxxxx-----  prf9       # size is 0 bytes (prefetch variant of mem9)
 -----------xxxxxxxxx--xxxxx-----  memregq    # register offset, size is 16 bytes
 -----------xxxxxxxxx--xxxxx-----  prfreg     # register offset, size is 0 (prefetch)
@@ -394,6 +397,8 @@
 -x----------xxxx----------------  sd16_h_sz # D register (0-15) if bit 30 is set, else S
 -x---------xxxxx----------------  dq16       # Q register if bit 30 is set, else D
 -x---------xxxxx----------------  sd16       # D register if bit 30 is set, else S
+-x-------x-----------------xxxxx  vdq_q_sd_0  # Q register if bit 30 is set, else D. element size s or d
+-x-------x------------xxxxx-----  vdq_q_sd_5  # Q register if bit 30 is set, else D. element size s or d
 ?---------------xxxxxx----------  imm6       # shift amount
 ?---------------xxxxxx----------  imms       # bitfield immediate, checks 31
 ?---------xxxxxx----------------  immr       # bitfield immediate, checks 31

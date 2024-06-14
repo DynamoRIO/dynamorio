@@ -565,7 +565,9 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                               DR_REG_Q0, SIMD_REG_TYPE);
     }
 
-    dstack_offs += MCXT_NUM_SIMD_SLOTS * sizeof(dr_simd_t);
+    dstack_offs += (MCXT_NUM_SIMD_SVE_SLOTS * sizeof(dr_simd_t)) +
+        (MCXT_NUM_SVEP_SLOTS * sizeof(dr_svep_t)) +
+        (MCXT_NUM_FFR_SLOTS * sizeof(dr_ffr_t));
 
     /* Restore the registers we used. */
     /* ldp x0, x1, [sp] */
@@ -577,6 +579,10 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         INSTR_CREATE_ldr(dcontext, opnd_create_reg(DR_REG_X2),
                          opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
                                                REG_OFFSET(DR_REG_X2), OPSZ_8)));
+
+    /* Make dstack_offs 16-byte aligned. */
+    dstack_offs = ALIGN_FORWARD(dstack_offs, get_ABI_stack_alignment());
+
 #else
     /* vstmdb always does writeback */
     PRE(ilist, instr,
@@ -655,9 +661,9 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
 
     /* Make dstack_offs 8-byte algined, as we only accounted for 17 4-byte slots. */
     dstack_offs += XSP_SZ;
+#endif
     ASSERT(cci->skip_save_flags || cci->num_simd_skip != 0 || cci->num_regs_skip != 0 ||
            dstack_offs == (uint)get_clean_call_switch_stack_size());
-#endif
     return dstack_offs;
 }
 
@@ -678,8 +684,11 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
         XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_X0),
                           opnd_create_reg(DR_REG_SP)));
 
-    current_offs =
-        get_clean_call_switch_stack_size() - (MCXT_NUM_SIMD_SLOTS * sizeof(dr_simd_t));
+    current_offs = ALIGN_BACKWARD(get_clean_call_switch_stack_size() -
+                                      (MCXT_NUM_SIMD_SVE_SLOTS * sizeof(dr_simd_t)) -
+                                      (MCXT_NUM_SVEP_SLOTS * sizeof(dr_svep_t)) -
+                                      (MCXT_NUM_FFR_SLOTS * sizeof(dr_ffr_t)),
+                                  16);
 
     /* add x0, x0, current_offs */
     PRE(ilist, instr,

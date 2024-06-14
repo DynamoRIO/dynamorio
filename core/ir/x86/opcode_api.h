@@ -1621,6 +1621,11 @@ enum {
     /* 1438 */ OP_xsaves64,  /**< IA-32/AMD64 xsaves64 opcode. */
     /* 1439 */ OP_xrstors32, /**< IA-32/AMD64 xrstors32 opcode. */
     /* 1440 */ OP_xrstors64, /**< IA-32/AMD64 xrstors64 opcode. */
+
+    /* TSXLDTRK */
+    /* 1441 */ OP_xsusldtrk, /**< IA-32/AMD64 xsusldtrk opcode. */
+    /* 1442 */ OP_xresldtrk, /**< IA-32/AMD64 xresldtrk opcode. */
+
     OP_AFTER_LAST,
     OP_FIRST = OP_add,           /**< First real opcode. */
     OP_LAST = OP_AFTER_LAST - 1, /**< Last real opcode. */
