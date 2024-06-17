@@ -6204,6 +6204,7 @@ if (RISCV64)
     code_api|sample.bbbuf
     code_api|sample.bbcount
     code_api|sample.bbsize
+    code_api|sample.cbr
     code_api|sample.div
     code_api|sample.empty
     code_api|sample.inline
