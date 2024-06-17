@@ -81,15 +81,8 @@
 /* Possible cbr states */
 typedef enum { CBR_NEITHER = 0x00, CBR_TAKEN = 0x01, CBR_NOT_TAKEN = 0x10 } cbr_state_t;
 
-#if defined(AARCH64) || defined(RISCV64)
-/* Scratch regs for mangling stolen reg used in cbr. */
+#if defined(RISCV64)
 reg_id_t stolen_reg;
-reg_id_t scratch_for_stolen = IF_AARCHXX_ELSE(DR_REG_R0, DR_REG_X10);
-reg_id_t scratch_for_stolen_alternate = IF_AARCHXX_ELSE(DR_REG_R1, DR_REG_X11);
-#    if defined(RISCV64)
-reg_id_t scratch_for_tp = IF_AARCHXX_ELSE(DR_REG_R2, DR_REG_X12);
-reg_id_t scratch_for_tp_alternate = IF_AARCHXX_ELSE(DR_REG_R3, DR_REG_X13);
-#    endif
 #endif
 
 /* Each bucket in the hash table is a list of the following elements.
@@ -345,41 +338,36 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         app_pc fall = (app_pc)decode_next_pc(drcontext, (byte *)src);
         app_pc targ = instr_get_branch_target_pc(instr);
 
-#if defined(AARCH64) || defined(RISCV64)
-        /* For AARCH64 and RISCV, if instr uses the stolen regs, we have to replace it
+#if defined(RISCV64)
+        /* For RISCV64, if instr uses the stolen regs, we have to replace it
          * with a scratch reg here, because instr will be set meta and can not be mangled
          * later.
          *
          * We use DynamoRIO's interfaces instead of drreg extension in cbr sample,
          * because drreg is designed for linear control flow.
-         *
-         * For AARCH64, We can not use drreg_get_app_value() as DR will refuse to load
-         * into the same reg returned by dr_get_stolen_reg(). See comment in
-         * drreg_get_app_value().
          */
-        bool use_stolen_reg = instr_uses_reg(instr, stolen_reg);
-        reg_id_t scratch1 = scratch_for_stolen;
-        if (use_stolen_reg) {
+        bool uses_stolen_reg = instr_uses_reg(instr, stolen_reg);
+        reg_id_t scratch1 = DR_REG_A0;
+        if (uses_stolen_reg) {
             if (instr_uses_reg(instr, scratch1))
-                scratch1 = scratch_for_stolen_alternate;
+                scratch1 = DR_REG_A1;
 
             dr_save_reg(drcontext, bb, instr, scratch1, SPILL_SLOT_1);
             dr_insert_get_stolen_reg_value(drcontext, bb, instr, scratch1);
             instr_replace_reg_resize(instr, stolen_reg, scratch1);
         }
-#    if defined(RISCV64)
+
         /* For RISCV64, thread pointer register also should be restored. */
-        bool use_tp_reg = instr_uses_reg(instr, DR_REG_TP);
-        reg_id_t scratch2 = scratch_for_tp;
-        if (use_tp_reg) {
+        bool uses_tp_reg = instr_uses_reg(instr, DR_REG_TP);
+        reg_id_t scratch2 = DR_REG_A2;
+        if (uses_tp_reg) {
             if (instr_uses_reg(instr, scratch2))
-                scratch2 = scratch_for_tp_alternate;
+                scratch2 = DR_REG_A3;
 
             dr_save_reg(drcontext, bb, instr, scratch2, SPILL_SLOT_2);
             dr_insert_get_tp_reg_value(drcontext, bb, instr, scratch2);
             instr_replace_reg_resize(instr, DR_REG_TP, scratch2);
         }
-#    endif
 #endif
 
         /* Redirect the existing cbr to jump to a callout for
@@ -398,13 +386,12 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         }
         instr_set_target(instr, opnd_create_instr(label));
 
-#if defined(AARCH64) || defined(RISCV64)
-        if (use_stolen_reg)
+#if defined(RISCV64)
+        if (uses_stolen_reg)
             dr_restore_reg(drcontext, bb, NULL, scratch1, SPILL_SLOT_1);
-#    if defined(RISCV64)
-        if (use_tp_reg)
+
+        if (uses_tp_reg)
             dr_restore_reg(drcontext, bb, NULL, scratch2, SPILL_SLOT_2);
-#    endif
 #endif
 
         if (insert_not_taken) {
@@ -437,13 +424,12 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         /* label goes before the 'taken' callout */
         MINSERT(bb, NULL, label);
 
-#if defined(AARCH64) || defined(RISCV64)
-        if (use_stolen_reg)
+#if defined(RISCV64)
+        if (uses_stolen_reg)
             dr_restore_reg(drcontext, bb, NULL, scratch1, SPILL_SLOT_1);
-#    if defined(RISCV64)
-        if (use_tp_reg)
+
+        if (uses_tp_reg)
             dr_restore_reg(drcontext, bb, NULL, scratch2, SPILL_SLOT_2);
-#    endif
 #endif
 
         if (insert_taken) {
@@ -509,7 +495,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 
     global_table = new_table();
 
-#if defined(AARCH64) || defined(RISCV64)
+#if defined(RISCV64)
     stolen_reg = dr_get_stolen_reg();
 #endif
 
