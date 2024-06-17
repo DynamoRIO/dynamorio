@@ -234,6 +234,7 @@ proc_init_arch(void)
             cpu_info.features.isa_features[AA64ISAR2]);
         LOG_FEATURE(FEATURE_PAUTH2);
         LOG_FEATURE(FEATURE_CONSTPACFIELD);
+        LOG_FEATURE(FEATURE_WFxT);
 
         LOG(GLOBAL, LOG_TOP, 1, "ID_AA64MMFR2_EL1 = 0x%016lx\n",
             cpu_info.features.isa_features[AA64MMFR2]);
@@ -284,7 +285,7 @@ enable_all_test_cpu_features()
         FEATURE_SVEAES, FEATURE_SVEBitPerm, FEATURE_SVESHA3,       FEATURE_SVESM4,
         FEATURE_MTE,    FEATURE_BTI,        FEATURE_FRINTTS,       FEATURE_PAUTH2,
         FEATURE_MTE2,   FEATURE_FlagM2,     FEATURE_CONSTPACFIELD, FEATURE_SSBS,
-        FEATURE_SSBS2,  FEATURE_DIT,        FEATURE_LSE2
+        FEATURE_SSBS2,  FEATURE_DIT,        FEATURE_LSE2,          FEATURE_WFxT
     };
     for (int i = 0; i < BUFFER_SIZE_ELEMENTS(features); ++i) {
         proc_set_feature(features[i], true);

@@ -118,7 +118,9 @@ const char *const reg_names[] = {
     "p10", "p11", "p12", "p13", "p14", "p15",
     "ffr",
 
-    "cntvct_el0",
+    "cntvct_el0", "id_aa64isar0_el1", "id_aa64isar1_el1", "id_aa64isar2_el1",
+    "id_aa64pfr0_el1", "id_aa64mmfr1_el1", "id_aa64dfr0_el1", "id_aa64zfr0_el1",
+    "id_aa64pfr1_el1", "id_aa64mmfr2_el1", "midr_el1", "mpidr_el1", "revidr_el1",
 };
 
 
@@ -194,7 +196,10 @@ const reg_id_t dr_reg_fixer[] = { REG_NULL,
     DR_REG_P12, DR_REG_P13, DR_REG_P14, DR_REG_P15,
     DR_REG_FFR,
 
-    DR_REG_CNTVCT_EL0,
+    DR_REG_CNTVCT_EL0, DR_REG_ID_AA64ISAR0_EL1, DR_REG_ID_AA64ISAR1_EL1,
+    DR_REG_ID_AA64ISAR2_EL1, DR_REG_ID_AA64PFR0_EL1, DR_REG_ID_AA64MMFR1_EL1,
+    DR_REG_ID_AA64DFR0_EL1, DR_REG_ID_AA64ZFR0_EL1, DR_REG_ID_AA64PFR1_EL1,
+    DR_REG_ID_AA64MMFR2_EL1, DR_REG_MIDR_EL1, DR_REG_MPIDR_EL1, DR_REG_REVIDR_EL1,
 };
 
 /* Maps real ISA registers to their corresponding virtual DR_ISA_REGDEPS register.
@@ -366,6 +371,18 @@ const reg_id_t d_r_reg_id_to_virtual[] = {
     DR_REG_V195, /* DR_REG_FFR */
 
     DR_REG_V196, /* DR_REG_CNTVCT_EL0 */
+    DR_REG_V197, /* DR_REG_ID_AA64ISAR0_EL1 */
+    DR_REG_V198, /* DR_REG_ID_AA64ISAR1_EL1 */
+    DR_REG_V199, /* DR_REG_ID_AA64ISAR2_EL1 */
+    DR_REG_V200, /* DR_REG_ID_AA64PFR0_EL1 */
+    DR_REG_V201, /* DR_REG_ID_AA64MMFR1_EL1 */
+    DR_REG_V202, /* DR_REG_ID_AA64DFR0_EL1 */
+    DR_REG_V203, /* DR_REG_ID_AA64ZFR0_EL1 */
+    DR_REG_V204, /* DR_REG_ID_AA64PFR1_EL1 */
+    DR_REG_V205, /* DR_REG_ID_AA64MMFR2_EL1 */
+    DR_REG_V206, /* DR_REG_MIDR_EL1 */
+    DR_REG_V207, /* DR_REG_MPIDR_EL1 */
+    DR_REG_V208, /* DR_REG_REVIDR_EL1 */
 };
 /* clang-format on */
 

@@ -855,13 +855,14 @@ droption_t<bool> op_sched_order_time(DROPTION_SCOPE_ALL, "sched_order_time", tru
                                      "Whether to honor recorded timestamps for ordering");
 
 droption_t<uint64_t> op_sched_syscall_switch_us(
-    DROPTION_SCOPE_ALL, "sched_syscall_switch_us", 500,
-    "Minimum latency to consider any syscall as incurring a context switch.",
-    "Minimum latency in timestamp units (us) to consider any syscall as incurring "
-    "a context switch.  Applies to -core_sharded and -core_serial. ");
+    DROPTION_SCOPE_ALL, "sched_syscall_switch_us", 30000000,
+    "Minimum latency to consider a non-blocking syscall as incurring a context switch.",
+    "Minimum latency in timestamp units (us) to consider a non-blocking syscall as "
+    "incurring a context switch (see -sched_blocking_switch_us for maybe-blocking "
+    "syscalls).  Applies to -core_sharded and -core_serial. ");
 
 droption_t<uint64_t> op_sched_blocking_switch_us(
-    DROPTION_SCOPE_ALL, "sched_blocking_switch_us", 100,
+    DROPTION_SCOPE_ALL, "sched_blocking_switch_us", 500,
     "Minimum latency to consider a maybe-blocking syscall as incurring a context switch.",
     "Minimum latency in timestamp units (us) to consider any syscall that is marked as "
     "maybe-blocking to incur a context switch. Applies to -core_sharded and "
@@ -979,8 +980,20 @@ droption_t<std::string>
 droption_t<bool> op_encodings2regdeps(
     DROPTION_SCOPE_FRONTEND, "filter_encodings2regdeps", false,
     "Enable converting the encoding of instructions to synthetic ISA DR_ISA_REGDEPS.",
-    "This option is for -simulator_type " RECORD_FILTER ". When present, it converts "
+    "This option is for -tool " RECORD_FILTER ". When present, it converts "
     "the encoding of instructions from a real ISA to the DR_ISA_REGDEPS synthetic ISA.");
+
+/* XXX i#6369: we should partition our options by tool. This one should belong to the
+ * record_filter partition. For now we add the filter_ prefix to options that should be
+ * used in conjunction with record_filter.
+ */
+droption_t<std::string>
+    op_filter_func_ids(DROPTION_SCOPE_FRONTEND, "filter_keep_func_ids", "",
+                       "Comma-separated integers of function IDs to keep.",
+                       "This option is for -tool " RECORD_FILTER ". It preserves "
+                       "TRACE_MARKER_TYPE_FUNC_[ID | ARG | RETVAL | RETADDR] markers "
+                       "for the listed function IDs and removes those belonging to "
+                       "unlisted function IDs.");
 
 droption_t<uint64_t> op_trim_before_timestamp(
     DROPTION_SCOPE_ALL, "trim_before_timestamp", 0, 0,

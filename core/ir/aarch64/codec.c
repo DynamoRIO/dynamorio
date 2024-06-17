@@ -283,6 +283,18 @@ decode_sysreg(uint imm15)
 {
     reg_t sysreg;
     switch (imm15) {
+    case 0x4000: sysreg = DR_REG_MIDR_EL1; break;
+    case 0x4005: sysreg = DR_REG_MPIDR_EL1; break;
+    case 0x4006: sysreg = DR_REG_REVIDR_EL1; break;
+    case 0x4020: sysreg = DR_REG_ID_AA64PFR0_EL1; break;
+    case 0x4021: sysreg = DR_REG_ID_AA64PFR1_EL1; break;
+    case 0x4024: sysreg = DR_REG_ID_AA64ZFR0_EL1; break;
+    case 0x4028: sysreg = DR_REG_ID_AA64DFR0_EL1; break;
+    case 0x4030: sysreg = DR_REG_ID_AA64ISAR0_EL1; break;
+    case 0x4031: sysreg = DR_REG_ID_AA64ISAR1_EL1; break;
+    case 0x4032: sysreg = DR_REG_ID_AA64ISAR2_EL1; break;
+    case 0x4039: sysreg = DR_REG_ID_AA64MMFR1_EL1; break;
+    case 0x403A: sysreg = DR_REG_ID_AA64MMFR2_EL1; break;
     case 0x5a10: sysreg = DR_REG_NZCV; break;
     case 0x5a20: sysreg = DR_REG_FPCR; break;
     case 0x5a21: sysreg = DR_REG_FPSR; break;
@@ -406,6 +418,18 @@ encode_sysreg(OUT uint *imm15, opnd_t opnd)
 {
     if (opnd_is_reg(opnd)) {
         switch (opnd_get_reg(opnd)) {
+        case DR_REG_MIDR_EL1: *imm15 = 0x4000; break;
+        case DR_REG_MPIDR_EL1: *imm15 = 0x4005; break;
+        case DR_REG_REVIDR_EL1: *imm15 = 0x4006; break;
+        case DR_REG_ID_AA64PFR0_EL1: *imm15 = 0x4020; break;
+        case DR_REG_ID_AA64PFR1_EL1: *imm15 = 0x4021; break;
+        case DR_REG_ID_AA64ZFR0_EL1: *imm15 = 0x4024; break;
+        case DR_REG_ID_AA64DFR0_EL1: *imm15 = 0x4028; break;
+        case DR_REG_ID_AA64ISAR0_EL1: *imm15 = 0x4030; break;
+        case DR_REG_ID_AA64ISAR1_EL1: *imm15 = 0x4031; break;
+        case DR_REG_ID_AA64ISAR2_EL1: *imm15 = 0x4032; break;
+        case DR_REG_ID_AA64MMFR1_EL1: *imm15 = 0x4039; break;
+        case DR_REG_ID_AA64MMFR2_EL1: *imm15 = 0x403A; break;
         case DR_REG_NZCV: *imm15 = 0x5a10; break;
         case DR_REG_FPCR: *imm15 = 0x5a20; break;
         case DR_REG_FPSR: *imm15 = 0x5a21; break;
@@ -3728,18 +3752,25 @@ encode_opnd_z3_s_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
 
 /* pstate: decode pstate from 5-7 and 16-18 */
 
+#define PSTATE_FIELDS(S)     \
+    S(UAO, 0b000, 0b011)     \
+    S(PAN, 0b000, 0b100)     \
+    S(SPSEL, 0b000, 0b101)   \
+    S(SSBS, 0b011, 0b001)    \
+    S(DIT, 0b011, 0b010)     \
+    S(TCO, 0b011, 0b100)     \
+    S(DAIFSET, 0b011, 0b110) \
+    S(DAIFCLR, 0b011, 0b111)
+
 static inline bool
 decode_opnd_pstate(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    int lower = enc >> 5 & 0b111;
-    int upper = enc >> 16 & 0b111;
-    int both = lower | upper << 3;
-
     reg_t pstate;
-    switch (both) {
-    case 0b000101: pstate = DR_REG_SPSEL; break;
-    case 0b011110: pstate = DR_REG_DAIFSET; break;
-    case 0b011111: pstate = DR_REG_DAIFCLR; break;
+    switch (enc) {
+#define CASE(name, op1, op2) \
+    case (op1 << 16) | (op2 << 5): pstate = DR_REG_##name; break;
+        PSTATE_FIELDS(CASE)
+#undef CASE
     default: return false;
     }
 
@@ -3750,29 +3781,16 @@ decode_opnd_pstate(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 static inline bool
 encode_opnd_pstate(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    int upper, lower;
     if (!opnd_is_reg(opnd))
         return false;
 
     switch (opnd_get_reg(opnd)) {
-    case DR_REG_SPSEL:
-        upper = 0b000;
-        lower = 0b101;
-        break;
-    case DR_REG_DAIFSET:
-        upper = 0b011;
-        lower = 0b110;
-        break;
-    case DR_REG_DAIFCLR:
-        upper = 0b011;
-        lower = 0b111;
-        break;
-    default: return false;
+#define CASE(name, op1, op2) \
+    case DR_REG_##name: *enc_out = (op1) << 16 | (op2) << 5; return true;
+        PSTATE_FIELDS(CASE)
+#undef CASE
     }
-
-    *enc_out = upper << 16 | lower << 5;
-
-    return true;
+    return false;
 }
 
 /* fpimm8: immediate operand for SIMD fmov */
@@ -9730,6 +9748,7 @@ decode_category(uint encoding, instr_t *instr)
 #include "opnd_encode_funcs.h"
 #include "decode_gen_sve2.h"
 #include "decode_gen_sve.h"
+#include "decode_gen_v87.h"
 #include "decode_gen_v85.h"
 #include "decode_gen_v84.h"
 #include "decode_gen_v83.h"
@@ -9738,6 +9757,7 @@ decode_category(uint encoding, instr_t *instr)
 #include "decode_gen_v80.h"
 #include "encode_gen_sve2.h"
 #include "encode_gen_sve.h"
+#include "encode_gen_v87.h"
 #include "encode_gen_v85.h"
 #include "encode_gen_v84.h"
 #include "encode_gen_v83.h"
@@ -9816,6 +9836,12 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
         opnd_is_reg(instr_get_src(instr, 0)) &&
         opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_NZCV) {
         eflags |= EFLAGS_READ_NZCV;
+    }
+    if (opc == OP_mrs && instr_num_srcs(instr) == 1 &&
+        opnd_is_reg(instr_get_src(instr, 0)) &&
+        (opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_RNDR ||
+         opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_RNDRRS)) {
+        eflags |= EFLAGS_WRITE_NZCV;
     }
     if (opc == OP_msr && instr_num_dsts(instr) == 1 &&
         opnd_is_reg(instr_get_dst(instr, 0)) &&
