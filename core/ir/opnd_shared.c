@@ -2437,10 +2437,8 @@ reg_32_to_16(reg_id_t reg)
     CLIENT_ASSERT(false, "reg_32_to_16 not supported on ARM");
     return REG_NULL;
 #elif defined(RISCV64)
-    /* FIXME i#3544: There is no separate addressing for half registers.
-     * Semantics are part of the opcode.
-     */
-    return reg;
+    CLIENT_ASSERT(false, "reg_32_to_16 not supported on RISCV64");
+    return REG_NULL;
 #endif
 }
 
@@ -2464,10 +2462,8 @@ reg_32_to_8(reg_id_t reg)
     CLIENT_ASSERT(false, "reg_32_to_8 not supported on ARM");
     return REG_NULL;
 #elif defined(RISCV64)
-    /* FIXME i#3544: There is no separate addressing for half registers.
-     * Semantics are part of the opcode.
-     */
-    return reg;
+    CLIENT_ASSERT(false, "reg_32_to_8 not supported on RISCV64");
+    return REG_NULL;
 #endif
 }
 
@@ -2537,12 +2533,12 @@ reg_32_to_opsz(reg_id_t reg, opnd_size_t sz)
     if (sz == OPSZ_4)
         return reg;
     else if (sz == OPSZ_2)
-        return IF_AARCHXX_ELSE(reg, reg_32_to_16(reg));
+        return IF_AARCHXX_OR_RISCV64_ELSE(reg, reg_32_to_16(reg));
     else if (sz == OPSZ_1)
-        return IF_AARCHXX_ELSE(reg, reg_32_to_8(reg));
+        return IF_AARCHXX_OR_RISCV64_ELSE(reg, reg_32_to_8(reg));
 #ifdef X64
     else if (sz == OPSZ_8)
-        return reg_32_to_64(reg);
+        return IF_RISCV64_ELSE(reg, reg_32_to_64(reg));
 #endif
     else
         CLIENT_ASSERT(false, "reg_32_to_opsz: invalid size parameter");
@@ -2790,6 +2786,8 @@ reg_get_size(reg_id_t reg)
 #elif defined(RISCV64)
     if (reg == DR_REG_X0)
         return OPSZ_8;
+    else if (reg >= DR_REG_VR0 && reg <= DR_REG_VR31)
+        return OPSZ_RVV_VECLEN_BYTES;
 #endif
     LOG(GLOBAL, LOG_ANNOTATIONS, 2, "reg=%d, %s, last reg=%d\n", reg,
         get_register_name(reg), DR_REG_LAST_ENUM);

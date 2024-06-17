@@ -174,29 +174,37 @@ const char *const size_names[] = {
     "OPSZ_eighth_16_vex32_evex64",
 };
 
-/* AArch64 Scalable Vector Extension's vector length in bits. */
-int sve_veclen;
-int sve_veclens[] = { 128,  256,  384,  512,  640,  768,  896,  1024,
-                      1152, 1280, 1408, 1536, 1664, 1792, 1920, 2048 };
+/* AArch64 SVE or RISC-V Vector's vector length in bits. */
+int vector_length;
+
+/* AArch64 SVE valid vector lengths. */
+int sve_vector_lengths[] = { 128,  256,  384,  512,  640,  768,  896,  1024,
+                             1152, 1280, 1408, 1536, 1664, 1792, 1920, 2048 };
 
 bool
-dr_set_sve_vector_length(int vl)
+dr_set_vector_length(int vl)
 {
-    for (int i = 0; i < sizeof(sve_veclens) / sizeof(sve_veclens[0]); i++) {
-        if (vl == sve_veclens[i]) {
-            sve_veclen = vl;
+#if defined(AARCH64)
+    for (int i = 0; i < sizeof(sve_vector_lengths) / sizeof(sve_vector_lengths[0]); i++) {
+        if (vl == sve_vector_lengths[i]) {
+            vector_length = vl;
             return true;
         }
     }
+#elif defined(RISCV64)
+    if (vl >= 64 && vl <= 65536 && (vl & (vl - 1)) == 0) {
+        return true;
+    }
+#endif
     /* Make unusual values visible in case our internal uses mess up. */
     ASSERT_CURIOSITY(false);
     return false;
 }
 
 int
-dr_get_sve_vector_length(void)
+dr_get_vector_length(void)
 {
-    return sve_veclen;
+    return vector_length;
 }
 
 /* point at this when you need a canonical invalid instr

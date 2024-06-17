@@ -74,8 +74,10 @@ cpu_info_t cpu_info = {
 #else
     VENDOR_UNKNOWN,
 #endif
-#ifdef AARCHXX
+#if defined(AARCHXX)
     0,
+    0,
+#elif defined(RISCV64)
     0,
 #endif
     0,
@@ -211,6 +213,14 @@ uint
 proc_get_vector_length_bytes(void)
 {
     return cpu_info.sve_vector_length_bytes;
+}
+#endif
+
+#ifdef RISCV64
+uint
+proc_get_vector_length_bytes(void)
+{
+    return cpu_info.vlenb;
 }
 #endif
 

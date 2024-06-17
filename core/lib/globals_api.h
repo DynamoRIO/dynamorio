@@ -814,16 +814,11 @@ typedef union _dr_simd_t {
 
 #elif defined(RISCV64)
 
-/* FIXME i#3544: Not implemented. Definitions just for compiling. */
 typedef union ALIGN_VAR(16) _dr_simd_t {
-    byte b;      /**< Bottom  8 bits of Vn == Bn. */
-    ushort h;    /**< Bottom 16 bits of Vn == Hn. */
-    uint s;      /**< Bottom 32 bits of Vn == Sn. */
-    uint d[2];   /**< Bottom 64 bits of Vn == Dn as d[1]:d[0]. */
-    uint q[4];   /**< 128-bit Qn as q[3]:q[2]:q[1]:q[0]. */
-    uint u32[4]; /**< The full 128-bit register. */
+    uint u32[8];   /* 32-bit elements. */
+    uint64 u64[4]; /* 64-bit elements. */
 } dr_simd_t;
-#    define MCXT_NUM_SIMD_SLOTS 8
+#    define MCXT_NUM_SIMD_SLOTS 32
 #    define MCXT_NUM_OPMASK_SLOTS 0
 #else
 #    error NYI

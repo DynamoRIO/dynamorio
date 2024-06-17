@@ -43,6 +43,8 @@
 /* TODO i#3544: Think of a better way to represent CSR in the IR, maybe as registers? */
 /* Number of the fcsr register. */
 #define FCSR 0x003
+#define VSTART 0x008
+#define VCSR 0x00F
 
 /* TODO i#3544: Think of a better way to represent these fields in the IR. */
 /* Volume I: RISC-V Unprivileged ISA V20191213.
@@ -73,13 +75,16 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
 {
     uint dstack_offs = 0;
     int dstack_middle_offs;
+    uint vtypei;
+    opnd_t memopnd;
 
     if (cci == NULL)
         cci = &default_clean_call_info;
     ASSERT(proc_num_simd_registers() == MCXT_NUM_SIMD_SLOTS);
 
-    /* a0 is used to save and restore the pc and csr registers. */
+    /* A0 and A1 is used as scratch registers. */
     cci->reg_skip[DR_REG_A0 - DR_REG_START_GPR] = false;
+    cci->reg_skip[DR_REG_A1 - DR_REG_START_GPR] = false;
 
     /* For out-of-line clean calls, the stack pointer is adjusted before jumping to this
      * code.
@@ -101,7 +106,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         if (cci->reg_skip[i] || (out_of_line && DR_REG_START_GPR + i == DR_REG_RA))
             continue;
 
-        /* Uses c.sdsp to save space, see -max_bb_instrs option, same below. */
+        /* Uses c.[f]sdsp to save space, same below. */
         PRE(ilist, instr,
             INSTR_CREATE_c_sdsp(dcontext,
                                 opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
@@ -151,7 +156,6 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     PRE(ilist, instr,
         INSTR_CREATE_csrrs(dcontext, opnd_create_reg(DR_REG_A0),
                            opnd_create_reg(DR_REG_X0),
-                           /* FIXME i#3544: Use register. */
                            opnd_create_immed_int(FCSR, OPSZ_12b)));
 
     PRE(ilist, instr,
@@ -160,8 +164,67 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
 
     dstack_offs += XSP_SZ;
 
-    /* TODO i#3544: No support for SIMD on RISC-V so far, this is to keep the mcontext
-     * shape. */
+    if (proc_has_feature(FEATURE_VECTOR)) {
+        /* csrr a0, vstart */
+        PRE(ilist, instr,
+            INSTR_CREATE_csrrs(dcontext, opnd_create_reg(DR_REG_A0),
+                               opnd_create_reg(DR_REG_ZERO),
+                               opnd_create_immed_int(VSTART, OPSZ_12b)));
+
+        PRE(ilist, instr,
+            INSTR_CREATE_c_sdsp(dcontext, OPND_CREATE_MEM64(DR_REG_SP, dstack_offs),
+                                opnd_create_reg(DR_REG_A0)));
+    }
+
+    dstack_offs += XSP_SZ;
+
+    if (proc_has_feature(FEATURE_VECTOR)) {
+        /* csrr a0, vcsr */
+        PRE(ilist, instr,
+            INSTR_CREATE_csrrs(dcontext, opnd_create_reg(DR_REG_A0),
+                               opnd_create_reg(DR_REG_ZERO),
+                               opnd_create_immed_int(VCSR, OPSZ_12b)));
+
+        PRE(ilist, instr,
+            INSTR_CREATE_c_sdsp(dcontext, OPND_CREATE_MEM64(DR_REG_SP, dstack_offs),
+                                opnd_create_reg(DR_REG_A0)));
+    }
+
+    dstack_offs += XSP_SZ;
+
+    /* Pop vector registers. */
+    if (proc_has_feature(FEATURE_VECTOR)) {
+        /* ma:   mask agnostic
+         * ta:   tail agnostic
+         * sew:  selected element width
+         * lmul: vector register group multiplier
+         *
+         *           ma            ta         sew=8       lmul=8 */
+        vtypei = (0b1 << 7) | (0b1 << 6) | (0b000 << 3) | 0b011;
+        memopnd = opnd_create_dcontext_field_via_reg_sz(dcontext, DR_REG_A0, 0,
+                                                        reg_get_size(DR_REG_VR0));
+        PRE(ilist, instr,
+            INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_A0),
+                              opnd_create_reg(DR_REG_SP),
+                              opnd_create_immed_int(dstack_offs, OPSZ_12b)));
+        PRE(ilist, instr,
+            INSTR_CREATE_vsetvli(dcontext, opnd_create_reg(DR_REG_A1),
+                                 opnd_create_reg(DR_REG_ZERO),
+                                 opnd_create_immed_uint(vtypei, OPSZ_11b)));
+        for (int reg = DR_REG_VR0; reg <= DR_REG_VR31; reg += 8) {
+            PRE(ilist, instr,
+                INSTR_CREATE_vse8_v(dcontext, memopnd, opnd_create_reg(reg),
+                                    opnd_create_immed_int(1, OPSZ_1b) /* mask disabled */,
+                                    opnd_create_immed_int(0, OPSZ_3b) /* nfields = 1 */));
+            if (reg != DR_REG_VR24) {
+                PRE(ilist, instr,
+                    INSTR_CREATE_addi(
+                        dcontext, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A0),
+                        opnd_create_immed_int(8 * sizeof(dr_simd_t), OPSZ_12b)));
+            }
+        }
+    }
+
     dstack_offs += (proc_num_simd_registers() * sizeof(dr_simd_t));
 
     /* Restore sp. */
@@ -174,6 +237,9 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     PRE(ilist, instr,
         INSTR_CREATE_c_ldsp(dcontext, opnd_create_reg(DR_REG_A0),
                             OPND_CREATE_MEM64(DR_REG_SP, REG_OFFSET(DR_REG_A0))));
+    PRE(ilist, instr,
+        INSTR_CREATE_c_ldsp(dcontext, opnd_create_reg(DR_REG_A1),
+                            OPND_CREATE_MEM64(DR_REG_SP, REG_OFFSET(DR_REG_A1))));
 
     return dstack_offs + dstack_middle_offs;
 }
@@ -184,24 +250,85 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
 {
     if (cci == NULL)
         cci = &default_clean_call_info;
-    uint current_offs;
-    current_offs = get_clean_call_switch_stack_size() -
-        proc_num_simd_registers() * sizeof(dr_simd_t);
+    uint current_offs, vtypei;
+    opnd_t memopnd;
+    current_offs = get_clean_call_switch_stack_size();
 
     /* sp is the stack pointer, which should not be poped. */
     cci->reg_skip[DR_REG_SP - DR_REG_START_GPR] = true;
 
-    /* XXX: c.sdsp/c.fsdsp has a zero-extended 9-bit offset, which is not enough for our
-     * usage.
+    /* Pop vector registers. */
+    current_offs -= proc_num_simd_registers() * sizeof(dr_simd_t);
+    if (proc_has_feature(FEATURE_VECTOR)) {
+        /* ma:   mask agnostic
+         * ta:   tail agnostic
+         * sew:  selected element width
+         * lmul: vector register group multiplier
+         *
+         *           ma            ta         sew=8       lmul=8 */
+        vtypei = (0b1 << 7) | (0b1 << 6) | (0b000 << 3) | 0b011;
+        memopnd = opnd_create_dcontext_field_via_reg_sz(dcontext, DR_REG_A0, 0,
+                                                        reg_get_size(DR_REG_VR0));
+        PRE(ilist, instr,
+            INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_A0),
+                              opnd_create_reg(DR_REG_SP),
+                              opnd_create_immed_int(current_offs, OPSZ_12b)));
+        PRE(ilist, instr,
+            INSTR_CREATE_vsetvli(dcontext, opnd_create_reg(DR_REG_A1),
+                                 opnd_create_reg(DR_REG_ZERO),
+                                 opnd_create_immed_uint(vtypei, OPSZ_11b)));
+        for (int reg = DR_REG_VR0; reg <= DR_REG_VR31; reg += 8) {
+            PRE(ilist, instr,
+                INSTR_CREATE_vle8_v(dcontext, opnd_create_reg(reg), memopnd,
+                                    opnd_create_immed_int(1, OPSZ_1b) /* mask disabled */,
+                                    opnd_create_immed_int(0, OPSZ_3b) /* nfields = 1 */));
+            if (reg != DR_REG_VR24) {
+                PRE(ilist, instr,
+                    INSTR_CREATE_addi(
+                        dcontext, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A0),
+                        opnd_create_immed_int(8 * sizeof(dr_simd_t), OPSZ_12b)));
+            }
+        }
+    }
+
+    /* XXX: c.sdsp/c.fsdsp has a zero-extended 9-bit offset, which is not enough for
+     * our usage.
      */
-    ASSERT(current_offs >= DR_NUM_FPR_REGS * XSP_SZ);
     PRE(ilist, instr,
         INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_SP),
                           opnd_create_reg(DR_REG_SP),
                           opnd_create_immed_int(DR_NUM_FPR_REGS * XSP_SZ, OPSZ_12b)));
 
+    /* Uses c.[f]ldsp to save space, same below. */
     current_offs -= XSP_SZ;
-    /* Uses c.ldsp to save space, see -max_bb_instrs option, same below. */
+
+    if (proc_has_feature(FEATURE_VECTOR)) {
+        PRE(ilist, instr,
+            INSTR_CREATE_c_ldsp(
+                dcontext, opnd_create_reg(DR_REG_A0),
+                OPND_CREATE_MEM64(DR_REG_SP, current_offs - DR_NUM_FPR_REGS * XSP_SZ)));
+        /* csrw a0, vcsr */
+        PRE(ilist, instr,
+            INSTR_CREATE_csrrw(dcontext, opnd_create_reg(DR_REG_ZERO),
+                               opnd_create_reg(DR_REG_A0),
+                               opnd_create_immed_int(VCSR, OPSZ_12b)));
+    }
+
+    current_offs -= XSP_SZ;
+
+    if (proc_has_feature(FEATURE_VECTOR)) {
+        PRE(ilist, instr,
+            INSTR_CREATE_c_ldsp(
+                dcontext, opnd_create_reg(DR_REG_A0),
+                OPND_CREATE_MEM64(DR_REG_SP, current_offs - DR_NUM_FPR_REGS * XSP_SZ)));
+        /* csrw a0, vstart */
+        PRE(ilist, instr,
+            INSTR_CREATE_csrrw(dcontext, opnd_create_reg(DR_REG_ZERO),
+                               opnd_create_reg(DR_REG_A0),
+                               opnd_create_immed_int(VSTART, OPSZ_12b)));
+    }
+
+    current_offs -= XSP_SZ;
     PRE(ilist, instr,
         INSTR_CREATE_c_ldsp(
             dcontext, opnd_create_reg(DR_REG_A0),

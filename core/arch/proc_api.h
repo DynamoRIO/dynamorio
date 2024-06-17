@@ -578,6 +578,18 @@ uint
 proc_get_vector_length_bytes(void);
 #endif
 
+#ifdef RISCV64
+DR_API
+/**
+ * Returns the size in bytes of the RVV registers' vector length which is a design-time
+ * constant set by the hardware implementor. Length can be from 64 to 65536 bits
+ * in the power of 2.
+ * Currently DynamoRIO supports implementations of up to 256 bits.
+ */
+uint
+proc_get_vector_length_bytes(void);
+#endif
+
 DR_API
 /**
  * Returns the size in bytes needed for a buffer for saving the x87 floating point state.

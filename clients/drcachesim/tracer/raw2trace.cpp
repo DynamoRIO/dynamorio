@@ -902,8 +902,8 @@ raw2trace_t::process_marker_additionally(raw2trace_thread_data_t *tdata,
             tdata->tid, marker_val);
 
         const int new_vl_bits = marker_val * 8;
-        if (dr_get_sve_vector_length() != new_vl_bits) {
-            dr_set_sve_vector_length(new_vl_bits);
+        if (dr_get_vector_length() != new_vl_bits) {
+            dr_set_vector_length(new_vl_bits);
             // Some SVE load/store instructions have an offset which is scaled by a value
             // that depends on the vector length. These instructions will need to be
             // re-decoded after the vector length changes.

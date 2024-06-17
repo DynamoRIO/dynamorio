@@ -86,7 +86,7 @@ test_get_size()
         opsz_predlen = opnd_size_from_bytes(vl / 8);
     } else {
         /* Set vector length to 256 bits for unit tests on non-SVE hardware. */
-        ASSERT(dr_get_sve_vector_length() == 256);
+        ASSERT(dr_get_vector_length() == 256);
         opsz_veclen = OPSZ_32;
         opsz_predlen = OPSZ_4;
     }
@@ -420,8 +420,8 @@ op_mem_size(int op)
 void
 test_compute_vector_address(void *drcontext)
 {
-    const int original_vector_length = dr_get_sve_vector_length();
-    ASSERT(dr_set_sve_vector_length(256));
+    const int original_vector_length = dr_get_vector_length();
+    ASSERT(dr_set_vector_length(256));
 
 #define SCALAR_BASE_REG 0
 
@@ -747,7 +747,7 @@ test_compute_vector_address(void *drcontext)
 #undef EXPECT
 #undef VEC_ADDR_TEST
 
-    ASSERT(dr_set_sve_vector_length(original_vector_length));
+    ASSERT(dr_set_vector_length(original_vector_length));
 }
 
 void

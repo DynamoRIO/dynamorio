@@ -499,9 +499,38 @@ union __riscv_fp_state {
     struct __riscv_q_ext_state q;
 };
 
+#    define RISCV_V_MAGIC 0x53465457
+
+struct __riscv_ctx_hdr {
+    __u32 magic;
+    __u32 size;
+};
+
+struct __riscv_extra_ext_header {
+    __u32 __padding[129] __attribute__((aligned(16)));
+    __u32 reserved;
+    struct __riscv_ctx_hdr hdr;
+};
+
+struct __riscv_v_ext_state {
+    unsigned long vstart;
+    unsigned long vl;
+    unsigned long vtype;
+    unsigned long vcsr;
+    unsigned long vlenb;
+    unsigned char vdata[1024];
+};
+
+struct __sc_riscv_v_state {
+    struct __riscv_v_ext_state v_state;
+} __attribute__((aligned(16)));
+
 typedef struct _kernel_sigcontext_t {
     struct user_regs_struct sc_regs;
-    union __riscv_fp_state sc_fpregs;
+    union {
+        union __riscv_fp_state sc_fpregs;
+        struct __riscv_extra_ext_header sc_extdesc;
+    };
 } kernel_sigcontext_t;
 
 #endif /* RISCV64 */

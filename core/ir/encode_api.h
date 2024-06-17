@@ -150,21 +150,23 @@ dr_get_isa_mode(void *drcontext);
 
 DR_API
 /**
- * AArch64 Scalable Vector Extension's vector length in bits is one of:
- * 128 256 384 512 640 768 896 1024 1152 1280 1408 1536 1664 1792 1920 2048
+ * - AArch64 Scalable Vector Extension's vector length in bits is one of:
+ *   128 256 384 512 640 768 896 1024 1152 1280 1408 1536 1664 1792 1920 2048
+ * - RISC-V Vector Extension's vector length in bit is from 64 to 65536 in the
+ *   power of 2.
  * Returns whether successful.
  * TODO i#3044: This function will only allow setting vector length if not
- * running on SVE.
+ * running on SVE or RVV.
  */
 bool
-dr_set_sve_vector_length(int vl);
+dr_set_vector_length(int vl);
 
 DR_API
 /**
- * Read AArch64 Scalable Vector Extension's vector length, in bits.
+ * Read AArch64 SVE or RISC-V Vector's vector length, in bits.
  */
 int
-dr_get_sve_vector_length(void);
+dr_get_vector_length(void);
 
 enum {
 #ifdef X86
