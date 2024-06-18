@@ -2641,9 +2641,9 @@ if (UNIX)
     tobuild_ci(client.signal client-interface/signal.c "" "" "")
     link_with_pthread(client.signal)
   endif ()
-  if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
+  if (X86 OR AARCH64) # FIXME i#1551: port asm to ARM
     tobuild_ci(client.cbr-retarget client-interface/cbr-retarget.c "" "" "")
-  endif (X86)
+  endif (X86 OR AARCH64)
   tobuild_ci(client.cleancallsig client-interface/cleancallsig.c "" "" "")
   if (X64 AND NOT RISCV64) # XXX i#3173 Improve testing of emulation API functions
     # TODO i#3544: Port tests to RISC-V 64
@@ -2687,11 +2687,13 @@ if (NOT APPLE OR NOT AARCH64) # TODO i#5383: Port to Mac M1.
   tobuild_ci(client.file_io client-interface/file_io.c
     "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/file_io_data.txt" "" "")
 endif ()
-if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
+if (X86 OR AARCH64) # FIXME i#1551: port asm to ARM
   if (DEBUG) # FIXME i#1806: fails in release; also in OSX list below.
     # we add custom option to flush test based on dr ops in torun_ci()
     tobuild_ci(client.flush client-interface/flush.c "" "" "")
   endif ()
+endif ()
+if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   tobuild_ci(client.thread client-interface/thread.c "-paramx -paramy" "" "")
   tobuild_appdll(client.thread client-interface/thread.c)
   tobuild_ci(client.strace client-interface/strace.c "" "" "")
