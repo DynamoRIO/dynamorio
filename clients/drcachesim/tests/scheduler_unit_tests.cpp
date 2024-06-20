@@ -3632,6 +3632,8 @@ test_times_of_interest()
                 std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
         }
         sched_inputs.emplace_back(std::move(readers));
+        // Pick times that have adjacent corresponding instructions: 30 and 32
+        // have a time gap but no instruction gap.
         sched_inputs.back().times_of_interest = { { 25, 30 }, { 32, 33 } };
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,

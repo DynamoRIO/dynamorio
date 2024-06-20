@@ -352,6 +352,12 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
     this->worker_count_ = op_jobs.get_value();
     this->skip_instrs_ = op_skip_instrs.get_value();
     this->skip_to_timestamp_ = op_skip_to_timestamp.get_value();
+    if (this->skip_instrs_ > 0 && this->skip_to_timestamp_ > 0) {
+        this->error_string_ = "Usage error: only one of -skip_instrs and "
+                              "-skip_to_timestamp can be used at a time";
+        this->success_ = false;
+        return;
+    }
     this->interval_microseconds_ = op_interval_microseconds.get_value();
     this->interval_instr_count_ = op_interval_instr_count.get_value();
     // Initial measurements show it's sometimes faster to keep the parallel model
@@ -531,6 +537,9 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::init_dynamic_schedule()
     } else if (!op_cpu_schedule_file.get_value().empty()) {
         cpu_schedule_zip_.reset(new zipfile_istream_t(op_cpu_schedule_file.get_value()));
         sched_ops.replay_as_traced_istream = cpu_schedule_zip_.get();
+        // -cpu_schedule_file is used for two different things: actually replaying,
+        // and just input for -skip_to_timestamp.  Only if -skip_to_timestamp is 0
+        // do we actually replay.
         if (op_skip_to_timestamp.get_value() == 0) {
             sched_ops.mapping = sched_type_t::MAP_TO_RECORDED_OUTPUT;
             sched_ops.deps = sched_type_t::DEPENDENCY_TIMESTAMPS;

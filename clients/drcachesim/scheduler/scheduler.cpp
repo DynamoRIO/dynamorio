@@ -701,8 +701,10 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
         }
         if (!workload.times_of_interest.empty()) {
             for (const auto &modifiers : workload.thread_modifiers) {
-                if (!modifiers.regions_of_interest.empty())
+                if (!modifiers.regions_of_interest.empty()) {
+                    // We do not support mixing with other ROI specifiers.
                     return STATUS_ERROR_INVALID_PARAMETER;
+                }
             }
             sched_type_t::scheduler_status_t status =
                 create_regions_from_times(workload_tids, workload);
