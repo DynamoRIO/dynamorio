@@ -1146,7 +1146,7 @@ public:
     virtual int
     get_input_stream_count() const
     {
-        return valid_input_count_;
+        return static_cast<input_ordinal_t>(inputs_.size());
     }
 
     /**
@@ -1290,9 +1290,6 @@ protected:
         bool unscheduled = false;
         // Causes the next unscheduled entry to abort.
         bool skip_next_unscheduled = false;
-        // if this input is invalid, it should not be scheduled at all and is present
-        // in no queues.
-        bool valid = true;
     };
 
     // Format for recording a schedule to disk.  A separate sequence of these records
@@ -1818,8 +1815,6 @@ protected:
     // Global queue counters used to provide FIFO for same-priority inputs.
     uint64_t ready_counter_ = 0;
     uint64_t unscheduled_counter_ = 0;
-    // Total count of valid inputs (so may be < inputs_.size()).
-    int valid_input_count_;
     // Count of inputs not yet at eof.
     std::atomic<int> live_input_count_;
     // In replay mode, count of outputs not yet at the end of the replay sequence.

@@ -790,13 +790,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
             }
         }
     }
-    valid_input_count_ = static_cast<int>(inputs_.size());
-    for (const input_info_t &input : inputs_) {
-        if (!input.valid)
-            --valid_input_count_;
-    }
-    VPRINT(this, 1, "%d valid inputs\n", valid_input_count_);
-    live_input_count_.store(valid_input_count_, std::memory_order_release);
+    VPRINT(this, 1, "%zu inputs\n", inputs_.size());
+    live_input_count_.store(static_cast<int>(inputs_.size()), std::memory_order_release);
 
     sched_type_t::scheduler_status_t res = read_switch_sequences();
     if (res != sched_type_t::STATUS_SUCCESS)
@@ -859,8 +854,6 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
         // Assign the inputs up front to avoid locks once we're in parallel mode.
         // We use a simple round-robin static assignment for now.
         for (int i = 0; i < static_cast<input_ordinal_t>(inputs_.size()); ++i) {
-            if (!inputs_[i].valid)
-                continue;
             size_t index = i % outputs_.size();
             if (outputs_[index].input_indices.empty())
                 set_cur_input(static_cast<input_ordinal_t>(index), i);
@@ -893,8 +886,6 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
             uint64_t min_time = std::numeric_limits<uint64_t>::max();
             input_ordinal_t min_input = -1;
             for (int i = 0; i < static_cast<input_ordinal_t>(inputs_.size()); ++i) {
-                if (!inputs_[i].valid)
-                    continue;
                 if (inputs_[i].next_timestamp < min_time) {
                     min_time = inputs_[i].next_timestamp;
                     min_input = i;
@@ -916,8 +907,6 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
                 uint64_t min_time = std::numeric_limits<uint64_t>::max();
                 input_ordinal_t min_input = -1;
                 for (int input_idx : workload2inputs[workload_idx]) {
-                    if (!inputs_[input_idx].valid)
-                        continue;
                     if (inputs_[input_idx].next_timestamp < min_time) {
                         min_time = inputs_[input_idx].next_timestamp;
                         min_input = input_idx;
@@ -963,7 +952,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
             input_ordinal_t input = 0;
             for (int i = 0; i < static_cast<output_ordinal_t>(outputs_.size()); ++i) {
                 while (input < static_cast<input_ordinal_t>(inputs_.size()) &&
-                       (inputs_[input].unscheduled || !inputs_[input].valid)) {
+                       inputs_[input].unscheduled) {
                     add_to_ready_queue(&inputs_[input]);
                     ++input;
                 }
@@ -1288,24 +1277,24 @@ scheduler_tmpl_t<RecordType, ReaderType>::create_regions_from_times(
                     return STATUS_ERROR_INVALID_PARAMETER;
                 }
                 instr_ranges.emplace_back(instr_start, instr_end);
-                VPRINT(this, 3,
+                VPRINT(this, 2,
                        "tid %" PRIu64 " overlaps with times_of_interest [%" PRIu64
                        ", %" PRIu64 ") @ [%" PRIu64 ", %" PRIu64 ")\n",
                        tid_it.first, times.start_timestamp, times.stop_timestamp,
                        instr_start, instr_end);
             }
         }
-        if (entire_tid) {
-            // No range is needed.
-        } else if (instr_ranges.empty()) {
+        if (!entire_tid && instr_ranges.empty()) {
             // Exclude this thread completely.  We've already created its
             // inputs_ entry with cross-indices stored in other structures
-            // so instead of trying to erase it we mark it invalid.
-            inputs_[tid_it.second].valid = false;
-            inputs_[tid_it.second].at_eof = true;
-            VPRINT(this, 3,
+            // so instead of trying to erase it we give it a max start point.
+            VPRINT(this, 2,
                    "tid %" PRIu64 " has no overlap with any times_of_interest entry\n",
                    tid_it.first);
+            instr_ranges.emplace_back(std::numeric_limits<uint64_t>::max(), 0);
+        }
+        if (entire_tid) {
+            // No range is needed.
         } else {
             workload.thread_modifiers.emplace_back(instr_ranges);
             workload.thread_modifiers.back().tids.emplace_back(tid_it.first);
@@ -2056,7 +2045,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(
     if (input.in_cur_region && cur_instr >= cur_range.start_instruction - 1)
         return sched_type_t::STATUS_OK;
 
-    VPRINT(this, 2, "skipping from %" PRId64 " to %" PRId64 " instrs for ROI\n",
+    VPRINT(this, 2, "skipping from %" PRIu64 " to %" PRIu64 " instrs for ROI\n",
            cur_instr, cur_range.start_instruction);
     if (options_.schedule_record_ostream != nullptr) {
         sched_type_t::stream_status_t status = close_schedule_segment(output, input);
@@ -2111,10 +2100,17 @@ scheduler_tmpl_t<RecordType, ReaderType>::skip_instructions(output_ordinal_t out
     clear_input_queue(input);
     input.reader->skip_instructions(skip_amount);
     if (*input.reader == *input.reader_end) {
-        // Raise error because the input region is out of bounds.
-        VPRINT(this, 2, "skip_instructions: input=%d skip out of bounds\n", input.index);
         mark_input_eof(input);
-        return sched_type_t::STATUS_REGION_INVALID;
+        // Raise error because the input region is out of bounds, unless the max
+        // was used which we ourselves use internally for times_of_interest.
+        if (skip_amount >= std::numeric_limits<uint64_t>::max() - 2) {
+            VPRINT(this, 2, "skip_instructions: input=%d skip to eof\n", input.index);
+            return sched_type_t::STATUS_SKIPPED;
+        } else {
+            VPRINT(this, 2, "skip_instructions: input=%d skip out of bounds\n",
+                   input.index);
+            return sched_type_t::STATUS_REGION_INVALID;
+        }
     }
     input.in_cur_region = true;
     auto *stream = outputs_[output].stream;
@@ -2268,8 +2264,6 @@ template <typename RecordType, typename ReaderType>
 void
 scheduler_tmpl_t<RecordType, ReaderType>::add_to_ready_queue(input_info_t *input)
 {
-    if (!input->valid)
-        return;
     if (input->unscheduled && input->blocked_time == 0) {
         add_to_unscheduled_queue(input);
         return;
