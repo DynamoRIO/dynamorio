@@ -790,13 +790,13 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
             }
         }
     }
-    int input_count = static_cast<int>(inputs_.size());
+    valid_input_count_ = static_cast<int>(inputs_.size());
     for (const input_info_t &input : inputs_) {
         if (!input.valid)
-            --input_count;
+            --valid_input_count_;
     }
-    VPRINT(this, 1, "%d valid inputs\n", input_count);
-    live_input_count_.store(input_count, std::memory_order_release);
+    VPRINT(this, 1, "%d valid inputs\n", valid_input_count_);
+    live_input_count_.store(valid_input_count_, std::memory_order_release);
 
     sched_type_t::scheduler_status_t res = read_switch_sequences();
     if (res != sched_type_t::STATUS_SUCCESS)
