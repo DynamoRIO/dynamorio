@@ -182,11 +182,11 @@ public:
         {
         }
         /**
-         * The starting time in the microsecond timstamp units in the trace.
+         * The starting time in the microsecond timestamp units in the trace.
          */
         uint64_t start_timestamp;
         /**
-         * The ending time in the microsecond timstamp units in the trace.
+         * The ending time in the microsecond timestamp units in the trace.
          * The ending time is inclusive.  0 means the end of the trace.
          */
         uint64_t stop_timestamp;
