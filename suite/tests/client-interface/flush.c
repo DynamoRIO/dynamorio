@@ -74,9 +74,16 @@ main()
 START_FILE
         DECLARE_FUNC(marker)
 GLOBAL_LABEL(marker:)
+#ifdef X86
         nop
         xchg REG_XBP, REG_XBP
         ret
+#elif defined (AARCH64)
+        nop
+        yield
+        yield
+        ret
+#endif
         END_FUNC(marker)
 END_FILE
 /* clang-format on */
