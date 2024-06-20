@@ -3870,6 +3870,13 @@ if (BUILD_CLIENTS)
           "")
         set(tool.simulate_as_traced_rawtemp ON) # no preprocessor
 
+        torunonly_simtool(skip_to_timestamp ${ci_shared_app}
+          # We pick a timestamp far enough in that only 2 threads remain
+          # at that point, testing thread exclusion.
+          "-indir ${thread_trace_dir} -tool basic_counts -skip_to_timestamp 13331862029905366 -cpu_schedule_file ${cpu_sched_path}"
+          "")
+        set(tool.skip_to_timestamp_rawtemp ON) # no preprocessor
+
         set(switch_file
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/mock_switch_sequences.x64.zip")
         torunonly_simtool(switch_insertion ${ci_shared_app}

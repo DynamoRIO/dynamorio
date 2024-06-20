@@ -245,6 +245,8 @@ Further non-compatibility-affecting changes include:
    markers based on the function ID. This filter is enabled by "-filter_keep_func_ids"
    followed by a comma-separated list of function IDs to preserve in the output trace.
    All function markers whose ID is not in the list are removed.
+ - Added -skip_to_timestamp and #dynamorio::drmemtrace::scheduler_tmpl_t::
+   input_workload_t::times_of_interest to the drmemtrace scheduler.
 
 **************************************************
 <hr>

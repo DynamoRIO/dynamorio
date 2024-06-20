@@ -3556,6 +3556,163 @@ test_replay_as_traced_from_file(const char *testdir)
 }
 
 static void
+test_times_of_interest()
+{
+#ifdef HAS_ZIP
+    std::cerr << "\n----------------\nTesting times of interest\n";
+
+    static constexpr int NUM_INPUTS = 3;
+    static constexpr int NUM_OUTPUTS = 1;
+    static constexpr int NUM_TIMESTAMPS = 3;
+    static constexpr int NUM_INSTRS_PER_TIMESTAMP = 3;
+    static constexpr memref_tid_t TID_BASE = 100;
+    static constexpr addr_t PC_BASE = 42;
+    static constexpr int CPU0 = 6;
+    static constexpr int CPU1 = 9;
+    std::vector<trace_entry_t> inputs[NUM_INPUTS];
+    for (int i = 0; i < NUM_INPUTS; ++i) {
+        memref_tid_t tid = TID_BASE + i;
+        inputs[i].push_back(make_thread(tid));
+        inputs[i].push_back(make_pid(1));
+        for (int j = 0; j < NUM_TIMESTAMPS; ++j) {
+            uint64_t timestamp = i == 2 ? (1 + 5 * (j + 1)) : (10 * (j + 1) + 10 * i);
+            inputs[i].push_back(make_timestamp(timestamp));
+            for (int k = 0; k < NUM_INSTRS_PER_TIMESTAMP; ++k) {
+                inputs[i].push_back(make_instr(PC_BASE + 1 /*1-based ranges*/ +
+                                               j * NUM_INSTRS_PER_TIMESTAMP + k));
+            }
+        }
+        inputs[i].push_back(make_exit(tid));
+    }
+
+    // Synthesize a cpu-schedule file.
+    std::string cpu_fname = "tmp_test_times_of_interest.zip";
+    {
+        std::vector<schedule_entry_t> sched0;
+        std::vector<schedule_entry_t> sched1;
+        // We do not bother to interleave to make it easier to see the sequence
+        // in this test.
+        // Thread A.
+        sched0.emplace_back(TID_BASE + 0, 10, CPU0, 0);
+        sched0.emplace_back(TID_BASE + 0, 20, CPU0, 4);
+        sched0.emplace_back(TID_BASE + 0, 30, CPU0, 7);
+        // Thread B.
+        sched0.emplace_back(TID_BASE + 1, 20, CPU0, 0);
+        sched0.emplace_back(TID_BASE + 1, 30, CPU0, 4);
+        sched0.emplace_back(TID_BASE + 1, 40, CPU0, 7);
+        // Thread C.
+        sched1.emplace_back(TID_BASE + 2, 6, CPU1, 0);
+        sched1.emplace_back(TID_BASE + 2, 11, CPU1, 4);
+        sched1.emplace_back(TID_BASE + 2, 16, CPU1, 7);
+        std::ostringstream cpu0_string;
+        cpu0_string << CPU0;
+        std::ostringstream cpu1_string;
+        cpu1_string << CPU1;
+        zipfile_ostream_t outfile(cpu_fname);
+        std::string err = outfile.open_new_component(cpu0_string.str());
+        assert(err.empty());
+        if (!outfile.write(reinterpret_cast<char *>(sched0.data()),
+                           sched0.size() * sizeof(sched0[0])))
+            assert(false);
+        err = outfile.open_new_component(cpu1_string.str());
+        assert(err.empty());
+        if (!outfile.write(reinterpret_cast<char *>(sched1.data()),
+                           sched1.size() * sizeof(sched1[0])))
+            assert(false);
+    }
+
+    {
+        // Test an erroneous range request with no gap.
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        std::vector<scheduler_t::input_reader_t> readers;
+        for (int i = 0; i < NUM_INPUTS; i++) {
+            memref_tid_t tid = TID_BASE + i;
+            readers.emplace_back(
+                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
+                std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+        }
+        sched_inputs.emplace_back(std::move(readers));
+        // Pick times that have adjacent corresponding instructions: 30 and 32
+        // have a time gap but no instruction gap.
+        sched_inputs.back().times_of_interest = { { 25, 30 }, { 32, 33 } };
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/3);
+        zipfile_istream_t infile(cpu_fname);
+        sched_ops.replay_as_traced_istream = &infile;
+        scheduler_t scheduler;
+        assert(scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) ==
+               scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
+    }
+    {
+        // Test a valid range request.
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        std::vector<scheduler_t::input_reader_t> readers;
+        for (int i = 0; i < NUM_INPUTS; i++) {
+            memref_tid_t tid = TID_BASE + i;
+            readers.emplace_back(
+                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
+                std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+        }
+        sched_inputs.emplace_back(std::move(readers));
+        sched_inputs.back().times_of_interest = { { 25, 30 }, { 38, 39 } };
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/3);
+        zipfile_istream_t infile(cpu_fname);
+        sched_ops.replay_as_traced_istream = &infile;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS) {
+            std::cerr << scheduler.get_error_string() << "\n";
+            assert(false);
+        }
+        auto *stream0 = scheduler.get_stream(0);
+        auto check_next = [](scheduler_t::stream_t *stream, memref_tid_t expect_tid,
+                             trace_type_t expect_type, addr_t expect_addr = 0) {
+            memref_t record;
+            scheduler_t::stream_status_t status = stream->next_record(record);
+            assert(status == scheduler_t::STATUS_OK);
+            assert(record.instr.tid == expect_tid);
+            if (record.instr.type != expect_type) {
+                std::cerr << "Expected type " << expect_type
+                          << " != " << record.instr.type << "\n";
+                assert(false);
+            }
+            if (expect_addr != 0 && record.instr.addr != expect_addr) {
+                std::cerr << "Expected addr " << expect_addr
+                          << " != " << record.instr.addr << "\n";
+                assert(false);
+            }
+        };
+        // Range is 5 until the end.
+        check_next(stream0, TID_BASE + 0, TRACE_TYPE_INSTR, PC_BASE + 5);
+        check_next(stream0, TID_BASE + 0, TRACE_TYPE_INSTR, PC_BASE + 6);
+        check_next(stream0, TID_BASE + 0, TRACE_TYPE_MARKER);
+        check_next(stream0, TID_BASE + 0, TRACE_TYPE_INSTR, PC_BASE + 7);
+        check_next(stream0, TID_BASE + 0, TRACE_TYPE_INSTR, PC_BASE + 8);
+        check_next(stream0, TID_BASE + 0, TRACE_TYPE_INSTR, PC_BASE + 9);
+        check_next(stream0, TID_BASE + 0, TRACE_TYPE_THREAD_EXIT);
+        // Two ranges: 2-4 and 6-7.
+        check_next(stream0, TID_BASE + 1, TRACE_TYPE_INSTR, PC_BASE + 2);
+        check_next(stream0, TID_BASE + 1, TRACE_TYPE_INSTR, PC_BASE + 3);
+        check_next(stream0, TID_BASE + 1, TRACE_TYPE_MARKER);
+        check_next(stream0, TID_BASE + 1, TRACE_TYPE_INSTR, PC_BASE + 4);
+        // Window id marker in between.
+        check_next(stream0, TID_BASE + 1, TRACE_TYPE_MARKER);
+        check_next(stream0, TID_BASE + 1, TRACE_TYPE_INSTR, PC_BASE + 6);
+        check_next(stream0, TID_BASE + 1, TRACE_TYPE_MARKER);
+        check_next(stream0, TID_BASE + 1, TRACE_TYPE_INSTR, PC_BASE + 7);
+        check_next(stream0, TID_BASE + 1, TRACE_TYPE_THREAD_EXIT);
+        memref_t record;
+        assert(stream0->next_record(record) == scheduler_t::STATUS_EOF);
+    }
+#endif
+}
+
+static void
 test_inactive()
 {
 #ifdef HAS_ZIP
@@ -4773,6 +4930,7 @@ test_main(int argc, const char *argv[])
     test_replay_as_traced_i6107_workaround();
     test_replay_as_traced_dup_start();
     test_replay_as_traced_sort();
+    test_times_of_interest();
     test_inactive();
     test_direct_switch();
     test_unscheduled();
