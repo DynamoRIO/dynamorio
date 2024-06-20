@@ -241,8 +241,8 @@ add_sample_client(memtrace_simple "memtrace_simple.c;utils.c" "drmgr;drreg;druti
 add_sample_client(memval_simple   "memval_simple.c;utils.c"   "drmgr;drreg;drutil;drx")
 add_sample_client(instrace_simple "instrace_simple.c;utils.c" "drmgr;drreg;drx")
 add_sample_client(opcode_count    "opcode_count.cpp"    "drmgr;drreg;drx;droption")
-if (X86 OR RISCV64)
-add_sample_client(cbr         "cbr.c"           "drmgr")
+if (X86 OR RISCV64) # TODO i#1551, #1569: Port to AArchXX.
+add_sample_client(cbr "cbr.c" "drmgr")
 endif ()
 if (X86) # FIXME i#1551, i#1569, i#3544: port to ARM/AArch64/RISCV64
   add_sample_client(countcalls  "countcalls.c"    "drmgr;drreg")

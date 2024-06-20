@@ -1147,8 +1147,8 @@ DR_API
  * \note RISCV-only
  */
 bool
-dr_insert_get_tp_reg_value(void *drcontext, instrlist_t *ilist, instr_t *instr,
-                           reg_id_t reg);
+dr_insert_get_app_tls(void *drcontext, instrlist_t *ilist, instr_t *instr,
+                      reg_id_t tls_reg, reg_id_t reg);
 
 DR_API
 /**

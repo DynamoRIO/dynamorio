@@ -339,7 +339,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         app_pc targ = instr_get_branch_target_pc(instr);
 
 #if defined(RISCV64)
-        /* For RISCV64, if instr uses the stolen regs, we have to replace it
+        /* For RISCV64, if instr uses the stolen reg, we have to replace it
          * with a scratch reg here, because instr will be set meta and can not be mangled
          * later.
          *
@@ -365,7 +365,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                 scratch2 = DR_REG_A3;
 
             dr_save_reg(drcontext, bb, instr, scratch2, SPILL_SLOT_2);
-            dr_insert_get_tp_reg_value(drcontext, bb, instr, scratch2);
+            dr_insert_get_app_tls(drcontext, bb, instr, DR_REG_TP, scratch2);
             instr_replace_reg_resize(instr, DR_REG_TP, scratch2);
         }
 #endif
