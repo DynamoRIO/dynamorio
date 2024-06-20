@@ -1256,6 +1256,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::create_regions_from_times(
     // Finally, convert the requested time ranges into instr ordinal ranges.
     for (const auto &tid_it : workload_tids) {
         std::vector<range_t> instr_ranges;
+        bool entire_tid = false;
         for (const auto &times : workload.times_of_interest) {
             uint64_t instr_start = 0, instr_end = 0;
             bool has_start = time_tree_lookup(time_tree[tid_it.second],
@@ -1268,7 +1269,11 @@ scheduler_tmpl_t<RecordType, ReaderType>::create_regions_from_times(
                                            instr_end);
             }
             if (has_start && has_end && instr_start == instr_end) {
-                ++instr_end;
+                if (instr_start == 0 && instr_end == 0) {
+                    entire_tid = true;
+                } else {
+                    ++instr_end;
+                }
             }
             // If !has_start we'll include from 0.  The start timestamp will make it be
             // scheduled last but there will be no delay if no other thread is available.
@@ -1290,7 +1295,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::create_regions_from_times(
                        instr_start, instr_end);
             }
         }
-        if (instr_ranges.empty()) {
+        if (entire_tid) {
+            // No range is needed.
+        } else if (instr_ranges.empty()) {
             // Exclude this thread completely.  We've already created its
             // inputs_ entry with cross-indices stored in other structures
             // so instead of trying to erase it we mark it invalid.
