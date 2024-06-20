@@ -2692,7 +2692,7 @@ if (X86 OR AARCH64) # FIXME i#1551: port asm to ARM
     # we add custom option to flush test based on dr ops in torun_ci()
     tobuild_ci(client.flush client-interface/flush.c "" "" "")
   endif ()
-endif ()
+endif (X86 OR AARCH64)
 if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   tobuild_ci(client.thread client-interface/thread.c "-paramx -paramy" "" "")
   tobuild_appdll(client.thread client-interface/thread.c)

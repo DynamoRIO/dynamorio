@@ -252,12 +252,12 @@ check_for_marker(instr_t *first_inst)
             /* The test app uses two nops as a marker to identify a specific bb. Since
              * 2 nop instructions in a row aren't that uncommon on Linux (where we can't
              * restrict our search to just the test.exe module) we use an unusual nop
-             * for the second one: xchg xbp, xbp */
+             * for the second one: "xchg xbp, xbp". */
             if (instr_is_nop(second) && instr_get_opcode(second) == OP_xchg &&
                 instr_writes_to_exact_reg(second, REG_XBP, DR_QUERY_DEFAULT))
                 return true;
 #elif defined(AARCH64)
-            /* For AARCH64 look for a nop followed by two yield instructions */
+            /* For AARCH64 look for a nop followed by two yield instructions. */
             if (instr_get_opcode(second) == OP_yield) {
                 instr_t *third = instr_get_next(second);
                 if (third != NULL && instr_get_opcode(third) == OP_yield)
