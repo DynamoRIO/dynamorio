@@ -268,6 +268,8 @@ template <>
 bool
 scheduler_tmpl_t<memref_t, reader_t>::record_type_is_non_marker_header(memref_t record)
 {
+    // Non-marker trace_entry_t headers turn into markers or are
+    // hidden, so there are none in a memref_t stream.
     return false;
 }
 
