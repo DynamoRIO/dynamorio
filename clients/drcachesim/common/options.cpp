@@ -72,7 +72,8 @@ droption_t<std::string> op_ipc_name(
 droption_t<std::string> op_outdir(
     DROPTION_SCOPE_ALL, "outdir", ".", "Target directory for offline trace files",
     "For the offline analysis mode (when -offline is requested), specifies the path "
-    "to a directory where per-thread trace files will be written.");
+    "to a directory where per-thread trace files will be written.  The contents of this "
+    "directory are internal to the tool.  Do not alter, add, or delete files here.");
 
 droption_t<std::string> op_subdir_prefix(
     DROPTION_SCOPE_ALL, "subdir_prefix", "drmemtrace",
@@ -89,7 +90,9 @@ droption_t<std::string> op_indir(
     "The -offline tracing produces raw data files which are converted into final "
     "trace files on the first execution with -indir.  The raw files can also be manually "
     "converted using the drraw2trace tool.  Legacy single trace files with all threads "
-    "interleaved into one are not supported with this option: use -infile instead.");
+    "interleaved into one are not supported with this option: use -infile instead.  "
+    "The contents of this directory are internal to the tool.  Do not alter, add, or "
+    "delete files here.");
 
 droption_t<std::string> op_infile(
     DROPTION_SCOPE_ALL, "infile", "", "Offline legacy file for input to the simulator",
