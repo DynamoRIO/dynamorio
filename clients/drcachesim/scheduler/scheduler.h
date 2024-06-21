@@ -1612,6 +1612,11 @@ protected:
     bool
     record_type_is_marker(RecordType record, trace_marker_type_t &type, uintptr_t &value);
 
+    // Returns false for memref_t; for trace_entry_t returns true for the _HEADER,
+    // _THREAD, and _PID record types.
+    bool
+    record_type_is_non_marker_header(RecordType record);
+
     // If the given record is a timestamp, returns true and its fields.
     bool
     record_type_is_timestamp(RecordType record, uintptr_t &value);

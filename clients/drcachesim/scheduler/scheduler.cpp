@@ -266,6 +266,13 @@ scheduler_tmpl_t<memref_t, reader_t>::record_type_is_marker(memref_t record,
 
 template <>
 bool
+scheduler_tmpl_t<memref_t, reader_t>::record_type_is_non_marker_header(memref_t record)
+{
+    return false;
+}
+
+template <>
+bool
 scheduler_tmpl_t<memref_t, reader_t>::record_type_is_timestamp(memref_t record,
                                                                uintptr_t &value)
 {
@@ -436,6 +443,15 @@ scheduler_tmpl_t<trace_entry_t, record_reader_t>::record_type_is_marker(
     type = static_cast<trace_marker_type_t>(record.size);
     value = record.addr;
     return true;
+}
+
+template <>
+bool
+scheduler_tmpl_t<trace_entry_t, record_reader_t>::record_type_is_non_marker_header(
+    trace_entry_t record)
+{
+    return record.type == TRACE_TYPE_HEADER || record.type == TRACE_TYPE_THREAD ||
+        record.type == TRACE_TYPE_PID;
 }
 
 template <>
@@ -1654,6 +1670,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::process_next_initial_record(
     uintptr_t marker_value;
     if (record_type_is_invalid(record)) // Sentinel on first call.
         return true;                    // Keep reading.
+    if (record_type_is_non_marker_header(record))
+        return true; // Keep reading.
     if (!record_type_is_marker(record, marker_type, marker_value)) {
         VPRINT(this, 3, "Stopping initial readahead at non-marker\n");
         return false; // Stop reading.
