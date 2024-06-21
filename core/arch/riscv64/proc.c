@@ -139,11 +139,13 @@ proc_init_arch(void)
 }
 
 bool
-proc_has_feature(feature_bit_t f)
+proc_has_feature(feature_bit_t feature_bit)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+#ifdef DR_HOST_NOT_TARGET
     return false;
+#else
+    return *cpu_info.features.isa_features & (1 << feature_bit);
+#endif
 }
 
 void

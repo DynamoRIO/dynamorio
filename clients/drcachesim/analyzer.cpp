@@ -248,6 +248,9 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(
     if (only_thread != INVALID_THREAD_ID) {
         workload.only_threads.insert(only_thread);
     }
+    if (regions.empty() && skip_to_timestamp_ > 0) {
+        workload.times_of_interest.emplace_back(skip_to_timestamp_, 0);
+    }
     return init_scheduler_common(workload, std::move(options));
 }
 
@@ -308,12 +311,14 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
         }
     } else if (parallel_) {
         sched_ops = sched_type_t::make_scheduler_parallel_options(verbosity_);
+        sched_ops.replay_as_traced_istream = options.replay_as_traced_istream;
         sched_ops.read_inputs_in_init = options.read_inputs_in_init;
         if (worker_count_ <= 0)
             worker_count_ = std::thread::hardware_concurrency();
         output_count = worker_count_;
     } else {
         sched_ops = sched_type_t::make_scheduler_serial_options(verbosity_);
+        sched_ops.replay_as_traced_istream = options.replay_as_traced_istream;
         sched_ops.read_inputs_in_init = options.read_inputs_in_init;
         worker_count_ = 1;
         output_count = 1;

@@ -552,7 +552,8 @@ droption_t<bytesize_t> op_skip_instrs(
     "Specifies the number of instructions to skip in the beginning of the trace "
     "analysis.  For serial iteration, this number is "
     "computed just once across the interleaving sequence of all threads; for parallel "
-    "iteration, each thread skips this many insructions.  When built with zipfile "
+    "iteration, each thread skips this many instructions (see -skip_to_timestamp for "
+    "an alternative which does align all threads).  When built with zipfile "
     "support, this skipping is optimized and large instruction counts can be quickly "
     "skipped; this is not the case for -skip_refs.");
 
@@ -563,6 +564,17 @@ droption_t<bytesize_t>
                  "application execution. These memory references are dropped instead "
                  "of being simulated.  This skipping may be slow for large skip values; "
                  "consider -skip_instrs for a faster method of skipping.");
+
+droption_t<uint64_t> op_skip_to_timestamp(
+    DROPTION_SCOPE_FRONTEND, "skip_to_timestamp", 0, "Timestamp to start at",
+    "Specifies a timestamp to start at, skipping over prior records in the trace. "
+    "This is cross-cutting across all threads.  If the target timestamp is not "
+    "present as a timestamp marker, interpolation is used to approximate the "
+    "target location in each thread.  Only one of this and -skip_instrs can be "
+    "specified.  Requires -cpu_schedule_file to also be specified as a schedule file "
+    "is required to translate the timestamp into per-thread instruction ordinals."
+    "When built with zipfile support, this skipping is optimized and large "
+    "instruction counts can be quickly skipped.");
 
 droption_t<bytesize_t> op_L0_filter_until_instrs(
     DROPTION_SCOPE_CLIENT, "L0_filter_until_instrs", 0,
@@ -858,13 +870,14 @@ droption_t<bool> op_sched_order_time(DROPTION_SCOPE_ALL, "sched_order_time", tru
                                      "Whether to honor recorded timestamps for ordering");
 
 droption_t<uint64_t> op_sched_syscall_switch_us(
-    DROPTION_SCOPE_ALL, "sched_syscall_switch_us", 500,
-    "Minimum latency to consider any syscall as incurring a context switch.",
-    "Minimum latency in timestamp units (us) to consider any syscall as incurring "
-    "a context switch.  Applies to -core_sharded and -core_serial. ");
+    DROPTION_SCOPE_ALL, "sched_syscall_switch_us", 30000000,
+    "Minimum latency to consider a non-blocking syscall as incurring a context switch.",
+    "Minimum latency in timestamp units (us) to consider a non-blocking syscall as "
+    "incurring a context switch (see -sched_blocking_switch_us for maybe-blocking "
+    "syscalls).  Applies to -core_sharded and -core_serial. ");
 
 droption_t<uint64_t> op_sched_blocking_switch_us(
-    DROPTION_SCOPE_ALL, "sched_blocking_switch_us", 100,
+    DROPTION_SCOPE_ALL, "sched_blocking_switch_us", 500,
     "Minimum latency to consider a maybe-blocking syscall as incurring a context switch.",
     "Minimum latency in timestamp units (us) to consider any syscall that is marked as "
     "maybe-blocking to incur a context switch. Applies to -core_sharded and "
@@ -903,9 +916,11 @@ droption_t<std::string> op_replay_file(DROPTION_SCOPE_FRONTEND, "replay_file", "
                                        "Path with stored schedule for replay.");
 droption_t<std::string>
     op_cpu_schedule_file(DROPTION_SCOPE_FRONTEND, "cpu_schedule_file", "",
-                         "Path with stored as-traced schedule for replay",
+                         "Path to as-traced schedule for replay or skip-to-timestamp",
                          "Applies to -core_sharded and -core_serial. "
-                         "Path with stored as-traced schedule for replay.");
+                         "Path with stored as-traced schedule for replay.  If specified "
+                         "with a non-zero -skip_to_timestamp, there is no replay "
+                         "and instead the file is used for the skip request.");
 #endif
 droption_t<std::string> op_sched_switch_file(
     DROPTION_SCOPE_FRONTEND, "sched_switch_file", "",
@@ -982,8 +997,20 @@ droption_t<std::string>
 droption_t<bool> op_encodings2regdeps(
     DROPTION_SCOPE_FRONTEND, "filter_encodings2regdeps", false,
     "Enable converting the encoding of instructions to synthetic ISA DR_ISA_REGDEPS.",
-    "This option is for -simulator_type " RECORD_FILTER ". When present, it converts "
+    "This option is for -tool " RECORD_FILTER ". When present, it converts "
     "the encoding of instructions from a real ISA to the DR_ISA_REGDEPS synthetic ISA.");
+
+/* XXX i#6369: we should partition our options by tool. This one should belong to the
+ * record_filter partition. For now we add the filter_ prefix to options that should be
+ * used in conjunction with record_filter.
+ */
+droption_t<std::string>
+    op_filter_func_ids(DROPTION_SCOPE_FRONTEND, "filter_keep_func_ids", "",
+                       "Comma-separated integers of function IDs to keep.",
+                       "This option is for -tool " RECORD_FILTER ". It preserves "
+                       "TRACE_MARKER_TYPE_FUNC_[ID | ARG | RETVAL | RETADDR] markers "
+                       "for the listed function IDs and removes those belonging to "
+                       "unlisted function IDs.");
 
 droption_t<uint64_t> op_trim_before_timestamp(
     DROPTION_SCOPE_ALL, "trim_before_timestamp", 0, 0,

@@ -490,7 +490,7 @@ endfunction(append_link_flags)
 # TODO i#6429 Change this allowlist to a blocklist.
 set(sve_tests
       simple_app api.ir api.ir_negative api.ir_v81 api.ir_v82 api.ir_v83 api.ir_v84
-      api.ir_v85 api.ir_sve api.ir_sve2 api.ir-static api.drdecode
+      api.ir_v85 api.ir_v87 api.ir_sve api.ir_sve2 api.ir-static api.drdecode
       common.broadfun common.nzcv common.getretaddr common.segfault
       common.allasm_aarch64_isa common.allasm_aarch64_cache allasm_aarch64_prefetch
       allasm_aarch64_flush libutil.frontend_test libutil.drconfig_test
@@ -1983,7 +1983,8 @@ message(STATUS "Processing tests and generating expected output patterns")
 if (ARM)
   set(sfx "arm")
 elseif (AARCH64)
-  set(sfx "aarch64")
+  # New aarch64 ir tests are added to arch version/feature specific files.
+  set(sfx "aarch64_legacy")
 elseif (RISCV64)
   set(sfx "riscv64")
 else ()
@@ -2025,11 +2026,13 @@ if (NOT ANDROID)
 
   if (AARCH64)
     tobuild_api(api.ir_negative api/ir_aarch64_negative.c "" "" OFF OFF OFF)
+    tobuild_api(api.ir_v80 api/ir_aarch64_v80.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_v81 api/ir_aarch64_v81.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_v82 api/ir_aarch64_v82.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_v83 api/ir_aarch64_v83.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_v84 api/ir_aarch64_v84.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_v85 api/ir_aarch64_v85.c "" "" OFF OFF OFF)
+    tobuild_api(api.ir_v87 api/ir_aarch64_v87.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_sve api/ir_aarch64_sve.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_sve2 api/ir_aarch64_sve2.c "" "" OFF OFF OFF)
   endif (AARCH64)
@@ -2638,9 +2641,9 @@ if (UNIX)
     tobuild_ci(client.signal client-interface/signal.c "" "" "")
     link_with_pthread(client.signal)
   endif ()
-  if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
+  if (X86 OR AARCH64) # FIXME i#1551: port asm to ARM
     tobuild_ci(client.cbr-retarget client-interface/cbr-retarget.c "" "" "")
-  endif (X86)
+  endif (X86 OR AARCH64)
   tobuild_ci(client.cleancallsig client-interface/cleancallsig.c "" "" "")
   if (X64 AND NOT RISCV64) # XXX i#3173 Improve testing of emulation API functions
     # TODO i#3544: Port tests to RISC-V 64
@@ -2684,11 +2687,13 @@ if (NOT APPLE OR NOT AARCH64) # TODO i#5383: Port to Mac M1.
   tobuild_ci(client.file_io client-interface/file_io.c
     "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/file_io_data.txt" "" "")
 endif ()
-if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
+if (X86 OR AARCH64) # FIXME i#1551: port asm to ARM
   if (DEBUG) # FIXME i#1806: fails in release; also in OSX list below.
     # we add custom option to flush test based on dr ops in torun_ci()
     tobuild_ci(client.flush client-interface/flush.c "" "" "")
   endif ()
+endif (X86 OR AARCH64)
+if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   tobuild_ci(client.thread client-interface/thread.c "-paramx -paramy" "" "")
   tobuild_appdll(client.thread client-interface/thread.c)
   tobuild_ci(client.strace client-interface/strace.c "" "" "")
@@ -3245,6 +3250,8 @@ elseif (AARCH64)
     "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v84.txt" OFF OFF)
   torunonly_api(api.dis-a64-v85 api.dis-a64 api/dis-a64.c ""
     "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v85.txt" OFF OFF)
+  torunonly_api(api.dis-a64-v87 api.dis-a64 api/dis-a64.c ""
+    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v87.txt" OFF OFF)
   torunonly_api(api.dis-a64-sve api.dis-a64 api/dis-a64.c ""
     "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-sve.txt" OFF OFF)
   torunonly_api(api.dis-a64-sve2 api.dis-a64 api/dis-a64.c ""
@@ -3863,6 +3870,13 @@ if (BUILD_CLIENTS)
           "")
         set(tool.simulate_as_traced_rawtemp ON) # no preprocessor
 
+        torunonly_simtool(skip_to_timestamp ${ci_shared_app}
+          # We pick a timestamp far enough in that only 2 threads remain
+          # at that point, testing thread exclusion.
+          "-indir ${thread_trace_dir} -tool basic_counts -skip_to_timestamp 13331862029905366 -cpu_schedule_file ${cpu_sched_path}"
+          "")
+        set(tool.skip_to_timestamp_rawtemp ON) # no preprocessor
+
         set(switch_file
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/mock_switch_sequences.x64.zip")
         torunonly_simtool(switch_insertion ${ci_shared_app}
@@ -4432,11 +4446,23 @@ if (BUILD_CLIENTS)
       set(tool.drcacheoff.burst_traceopts_nodr ON)
       set(tool.drcacheoff.burst_traceopts_nopost ON)
       torunonly_drcacheoff(burst_traceopts tool.drcacheoff.burst_traceopts "" "" "")
+
       set(tool.drcacheoff.windows-timestamps_nodr ON)
       set(tool.drcacheoff.windows-timestamps_nopost ON)
-      torunonly_drcacheoff(windows-timestamps tool.drcacheoff.windows-timestamps "" "" "")
-      set(tool.drcacheoff.windows-timestamps-expectbase "offline-windows-timestamps")
+      torunonly_drcacheoff(windows-timestamps tool.drcacheoff.windows-timestamps
+        "" "" "-trace_after_instrs 1000 -trace_for_instrs 2500 -retrace_every_instrs 1000")
       set(tool.drcacheoff.windows-timestamps_timeout 120)
+
+      set(tool.drcacheoff.delay-ts_nodr ON)
+      set(tool.drcacheoff.delay-ts_nopost ON)
+      # -subdir_prefix should match the test name to allow the precmd to cleanup
+      # traces from previous runs of the test. For this test, the created trace
+      # path is very close to the max length allowed by Windows, so we abbreviate
+      # the test name a tad.
+      torunonly_drcacheoff(delay-ts tool.drcacheoff.windows-timestamps "" ""
+        "-trace_after_instrs 10000 -subdir_prefix drmemtrace.tool.drcacheoff.delay-ts")
+      set(tool.drcacheoff.delay-ts_expectbase "offline-windows-timestamps")
+      set(tool.drcacheoff.delay-ts_timeout 120)
 
       if (LINUX) # Futex is Linux-only.
         set(tool.drcacheoff.burst_futex_nodr ON)
@@ -6204,6 +6230,7 @@ if (RISCV64)
     code_api|sample.bbbuf
     code_api|sample.bbcount
     code_api|sample.bbsize
+    code_api|sample.cbr
     code_api|sample.div
     code_api|sample.empty
     code_api|sample.inline
@@ -6299,6 +6326,7 @@ if (UNIX AND X86 AND CPU_AMD AND NOT DR_HOST_X64)
     code_api|tool.drcacheoff.warmup-pthreads-windows-split
     code_api|tool.drcacheoff.windows-split
     code_api|tool.drcacheoff.windows-timestamps
+    code_api|tool.drcacheoff.delay-ts
     code_api|tool.drcachesim.coherence
     code_api|tool.drcachesim.delay-global
     code_api|tool.drcachesim.filter-d

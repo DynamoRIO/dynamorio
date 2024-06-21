@@ -1,6 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2011-2023 Google, Inc. All rights reserved.
- * Copyright (c) 2016-2023 ARM Limited. All rights reserved.
+ * Copyright (c) 2016-2024 ARM Limited. All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc. All rights reserved.
  * **********************************************************/
 
@@ -670,8 +670,10 @@
     instr_create_1dst_3src(dc, OP_movz, rt, imm16, OPND_CREATE_LSL(), lsl)
 #define INSTR_CREATE_mrs(dc, Xt, sysreg) \
     instr_create_1dst_1src((dc), OP_mrs, (Xt), (sysreg))
-#define INSTR_CREATE_msr(dc, sysreg, Xt) \
-    instr_create_1dst_1src((dc), OP_msr, (sysreg), (Xt))
+#define INSTR_CREATE_msr(dc, sysreg, Xt_or_imm)                       \
+    opnd_is_immed(Xt_or_imm)                                          \
+        ? instr_create_0dst_2src((dc), OP_msr, (sysreg), (Xt_or_imm)) \
+        : instr_create_1dst_1src((dc), OP_msr, (sysreg), (Xt_or_imm))
 #define INSTR_CREATE_nop(dc) instr_create_0dst_0src((dc), OP_nop)
 #define INSTR_CREATE_ret(dc, Rn) instr_create_0dst_1src((dc), OP_ret, (Rn))
 #define INSTR_CREATE_stp(dc, mem, rt1, rt2) \
@@ -18407,4 +18409,51 @@
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  */
 #define INSTR_CREATE_xaflag(dc) instr_create_0dst_0src(dc, OP_xaflag)
+
+/**
+ * Creates a WFE instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      WFE
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_wfe(dc) instr_create_0dst_0src(dc, OP_wfe)
+
+/**
+ * Creates a WFI instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      WFI
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_wfi(dc) instr_create_0dst_0src(dc, OP_wfi)
+
+/**
+ * Creates a WFET instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    WFET   <Xt>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rt   The source register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_wfet(dc, Rt) instr_create_0dst_1src(dc, OP_wfet, Rt)
+
+/**
+ * Creates a WFIT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    WFIT   <Xt>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rt   The source register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_wfit(dc, Rt) instr_create_0dst_1src(dc, OP_wfit, Rt)
+
 #endif /* DR_IR_MACROS_AARCH64_H */
