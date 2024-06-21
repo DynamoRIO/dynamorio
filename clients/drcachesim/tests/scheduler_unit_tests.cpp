@@ -2787,7 +2787,7 @@ test_replay_skip()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_AS_PREVIOUSLY,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/5 /*NOCHECK 4*/);
+                                                   /*verbosity=*/4);
         zipfile_istream_t infile(record_fname);
         sched_ops.schedule_replay_istream = &infile;
         if (scheduler.init(sched_inputs, 1, std::move(sched_ops)) !=
