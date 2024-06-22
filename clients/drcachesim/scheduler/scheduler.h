@@ -1251,7 +1251,7 @@ protected:
         bool at_eof = false;
         uintptr_t next_timestamp = 0;
         uint64_t instrs_in_quantum = 0;
-        bool recorded_in_schedule = false;
+        int instrs_pre_read = 0;
         // This is a per-workload value, stored in each input for convenience.
         uint64_t base_timestamp = 0;
         // This equals 'options_.deps == DEPENDENCY_TIMESTAMPS', stored here for
@@ -1464,7 +1464,7 @@ protected:
     // the two bool parameters are what the return value should be based on.
     virtual bool
     process_next_initial_record(input_info_t &input, RecordType record,
-                                bool found_filetype, bool found_timestamp);
+                                bool &found_filetype, bool &found_timestamp);
 
     // Opens up all the readers for each file in 'path' which may be a directory.
     // Returns a map of the thread id of each file to its index in inputs_.
@@ -1612,6 +1612,11 @@ protected:
     bool
     record_type_is_marker(RecordType record, trace_marker_type_t &type, uintptr_t &value);
 
+    // Returns false for memref_t; for trace_entry_t returns true for the _HEADER,
+    // _THREAD, and _PID record types.
+    bool
+    record_type_is_non_marker_header(RecordType record);
+
     // If the given record is a timestamp, returns true and its fields.
     bool
     record_type_is_timestamp(RecordType record, uintptr_t &value);
@@ -1690,6 +1695,11 @@ protected:
     // 'output_ordinal'-th output stream.
     uint64_t
     get_input_record_ordinal(output_ordinal_t output);
+
+    // Returns the input instruction ordinal taking into account queued records.
+    // The caller must hold the input's lock.
+    uint64_t
+    get_instr_ordinal(input_info_t &input);
 
     // Returns the first timestamp for the current input stream interface for the
     // 'output_ordinal'-th output stream.
