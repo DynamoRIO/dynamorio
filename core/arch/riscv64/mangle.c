@@ -82,7 +82,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         cci = &default_clean_call_info;
     ASSERT(proc_num_simd_registers() == MCXT_NUM_SIMD_SLOTS);
 
-    /* A0 and A1 is used as scratch registers. */
+    /* A0 and A1 are used as scratch registers. */
     cci->reg_skip[DR_REG_A0 - DR_REG_START_GPR] = false;
     cci->reg_skip[DR_REG_A1 - DR_REG_START_GPR] = false;
 
@@ -192,7 +192,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
 
     dstack_offs += XSP_SZ;
 
-    /* Pop vector registers. */
+    /* Push vector registers. */
     if (proc_has_feature(FEATURE_VECTOR)) {
         /* ma:   mask agnostic
          * ta:   tail agnostic
@@ -207,15 +207,20 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
             INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_A0),
                               opnd_create_reg(DR_REG_SP),
                               opnd_create_immed_int(dstack_offs, OPSZ_12b)));
+        /* For the following vector instructions, set the element width to 8b, and use 8
+         * registers as a group (lmul=8).
+         */
         PRE(ilist, instr,
             INSTR_CREATE_vsetvli(dcontext, opnd_create_reg(DR_REG_A1),
                                  opnd_create_reg(DR_REG_ZERO),
                                  opnd_create_immed_uint(vtypei, OPSZ_11b)));
+        /* Uses lmul=8 to copy 8 registers at a time. */
         for (int reg = DR_REG_VR0; reg <= DR_REG_VR31; reg += 8) {
             PRE(ilist, instr,
                 INSTR_CREATE_vse8_v(dcontext, memopnd, opnd_create_reg(reg),
                                     opnd_create_immed_int(1, OPSZ_1b) /* mask disabled */,
                                     opnd_create_immed_int(0, OPSZ_3b) /* nfields = 1 */));
+            /* If it's the last vector register group, no need to increase the offset. */
             if (reg != DR_REG_VR24) {
                 PRE(ilist, instr,
                     INSTR_CREATE_addi(
@@ -273,15 +278,20 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
             INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_A0),
                               opnd_create_reg(DR_REG_SP),
                               opnd_create_immed_int(current_offs, OPSZ_12b)));
+        /* For the following vector instructions, set the element width to 8b, and use 8
+         * registers as a group (lmul=8).
+         */
         PRE(ilist, instr,
             INSTR_CREATE_vsetvli(dcontext, opnd_create_reg(DR_REG_A1),
                                  opnd_create_reg(DR_REG_ZERO),
                                  opnd_create_immed_uint(vtypei, OPSZ_11b)));
+        /* Uses lmul=8 to copy 8 registers at a time. */
         for (int reg = DR_REG_VR0; reg <= DR_REG_VR31; reg += 8) {
             PRE(ilist, instr,
                 INSTR_CREATE_vle8_v(dcontext, opnd_create_reg(reg), memopnd,
                                     opnd_create_immed_int(1, OPSZ_1b) /* mask disabled */,
                                     opnd_create_immed_int(0, OPSZ_3b) /* nfields = 1 */));
+            /* If it's the last vector register group, no need to increase the offset. */
             if (reg != DR_REG_VR24) {
                 PRE(ilist, instr,
                     INSTR_CREATE_addi(

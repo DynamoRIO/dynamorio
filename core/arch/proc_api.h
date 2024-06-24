@@ -565,7 +565,7 @@ DR_API
 const char *
 proc_get_cache_size_str(cache_size_t size);
 
-#ifdef AARCHXX
+#if defined(AARCHXX)
 DR_API
 /**
  * Returns the size in bytes of the SVE registers' vector length set by the
@@ -576,9 +576,7 @@ DR_API
  */
 uint
 proc_get_vector_length_bytes(void);
-#endif
-
-#ifdef RISCV64
+#elif defined(RISCV64)
 DR_API
 /**
  * Returns the size in bytes of the RVV registers' vector length which is a design-time

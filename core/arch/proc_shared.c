@@ -202,7 +202,7 @@ proc_get_stepping(void)
     return cpu_info.stepping;
 }
 
-#ifdef AARCHXX
+#if defined(AARCHXX)
 uint
 proc_get_architecture(void)
 {
@@ -214,9 +214,7 @@ proc_get_vector_length_bytes(void)
 {
     return cpu_info.sve_vector_length_bytes;
 }
-#endif
-
-#ifdef RISCV64
+#elif defined(RISCV64)
 uint
 proc_get_vector_length_bytes(void)
 {

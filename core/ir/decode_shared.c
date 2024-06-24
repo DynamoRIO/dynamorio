@@ -192,7 +192,9 @@ dr_set_vector_length(int vl)
         }
     }
 #elif defined(RISCV64)
-    if (vl >= 64 && vl <= 65536 && (vl & (vl - 1)) == 0) {
+    const int riscv_vlen_min = 64;
+    const int riscv_vlen_max = 65536;
+    if (vl >= riscv_vlen_min && vl <= riscv_vlen_max && IS_POWER_OF_2(vl) == 0) {
         return true;
     }
 #endif

@@ -813,10 +813,16 @@ typedef union _dr_simd_t {
 #    define MCXT_NUM_OPMASK_SLOTS 8
 
 #elif defined(RISCV64)
-
+/**
+ * 256-bit RISC-V Vector extension registers.
+ * Vector register length can be from 64 to 65536 bits in the power of 2.
+ * Currently we supports implementations of up to 256 bits due to limit of DR's
+ * stack size and 12-bit signed immediate range. Also, align to 16 bytes for
+ * better performance.
+ */
 typedef union ALIGN_VAR(16) _dr_simd_t {
-    uint u32[8];   /* 32-bit elements. */
-    uint64 u64[4]; /* 64-bit elements. */
+    uint u32[8];   /**< Representation as 8 32-bit elements. */
+    uint64 u64[4]; /**< The full 256-bit register. */
 } dr_simd_t;
 #    define MCXT_NUM_SIMD_SLOTS 32
 #    define MCXT_NUM_OPMASK_SLOTS 0

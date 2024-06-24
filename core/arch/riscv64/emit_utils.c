@@ -695,15 +695,20 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
             INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_A1),
                               opnd_create_reg(REG_DCXT),
                               opnd_create_immed_int(VREG_OFFSET(DR_REG_VR0), OPSZ_12b)));
+        /* For the following vector instructions, set the element width to 8b, and use 8
+         * registers as a group (lmul=8).
+         */
         APP(ilist,
             INSTR_CREATE_vsetvli(dcontext, opnd_create_reg(DR_REG_A0),
                                  opnd_create_reg(DR_REG_ZERO),
                                  opnd_create_immed_uint(vtypei, OPSZ_11b)));
+        /* Uses lmul=8 to copy 8 registers at a time. */
         for (int reg = DR_REG_VR0; reg <= DR_REG_VR31; reg += 8) {
             APP(ilist,
                 INSTR_CREATE_vle8_v(dcontext, opnd_create_reg(reg), memopnd,
                                     opnd_create_immed_int(1, OPSZ_1b) /* mask disabled */,
                                     opnd_create_immed_int(0, OPSZ_3b) /* nfields = 1 */));
+            /* If it's the last vector register group, no need to increase the offset. */
             if (reg != DR_REG_VR24) {
                 APP(ilist,
                     INSTR_CREATE_addi(
@@ -827,15 +832,20 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
             INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_A1),
                               opnd_create_reg(REG_DCXT),
                               opnd_create_immed_int(VREG_OFFSET(DR_REG_VR0), OPSZ_12b)));
+        /* For the following vector instructions, set the element width to 8b, and use 8
+         * registers as a group (lmul=8).
+         */
         APP(ilist,
             INSTR_CREATE_vsetvli(dcontext, opnd_create_reg(DR_REG_A2),
                                  opnd_create_reg(DR_REG_ZERO),
                                  opnd_create_immed_uint(vtypei, OPSZ_11b)));
+        /* Uses lmul=8 to copy 8 registers at a time. */
         for (int reg = DR_REG_VR0; reg <= DR_REG_VR31; reg += 8) {
             APP(ilist,
                 INSTR_CREATE_vse8_v(dcontext, memopnd, opnd_create_reg(reg),
                                     opnd_create_immed_int(1, OPSZ_1b) /* mask disabled */,
                                     opnd_create_immed_int(0, OPSZ_3b) /* nfields = 1 */));
+            /* If it's the last vector register group, no need to increase the offset. */
             if (reg != DR_REG_VR24) {
                 APP(ilist,
                     INSTR_CREATE_addi(
