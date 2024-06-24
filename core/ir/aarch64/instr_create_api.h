@@ -111,7 +111,7 @@
 #define OPND_CREATE_ZR(reg) \
     opnd_create_reg(opnd_get_size(reg) == OPSZ_4 ? DR_REG_WZR : DR_REG_XZR)
 
-/** 
+/**
  * Create an operand specifying LSL (Logical Shift Left), the default shift type when
  * there is no shift.
  */
