@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -768,8 +768,6 @@ OPTION_DEFAULT(bool, fail_on_stolen_fds, true,
  * to an app crash. */
 OPTION_DEFAULT(bool, avoid_dlclose, true, "Avoid calling dlclose from DynamoRIO.")
 
-/* PR 304708: we intercept all signals for a better client interface */
-OPTION_DEFAULT(bool, intercept_all_signals, true, "intercept all signals")
 OPTION_DEFAULT(bool, reroute_alarm_signals, true,
                "reroute alarm signals arriving in a blocked-for-app thread")
 OPTION_DEFAULT(uint, max_pending_signals, 8,
