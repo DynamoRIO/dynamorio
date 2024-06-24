@@ -7453,6 +7453,28 @@ dr_insert_it_instrs(void *drcontext, instrlist_t *ilist)
 
 DR_API
 bool
+dr_insert_get_app_tls(void *drcontext, instrlist_t *ilist, instr_t *instr,
+                      reg_id_t tls_reg, reg_id_t reg)
+{
+#if defined(X86)
+    return dr_insert_get_seg_base(drcontext, ilist, instr, tls_reg, reg);
+#elif defined(RISCV64)
+    CLIENT_ASSERT(reg_is_pointer_sized(reg),
+                  "dr_insert_get_app_tls: reg has wrong size\n");
+    CLIENT_ASSERT(reg != tls_reg,
+                  "dr_insert_get_app_tls: reg should not be tls_reg itself\n");
+    instrlist_meta_preinsert(ilist, instr,
+                             instr_create_restore_from_tls(
+                                 drcontext, reg, os_get_app_tls_base_offset(tls_reg)));
+
+    return true;
+#else
+    return false;
+#endif
+}
+
+DR_API
+bool
 dr_prepopulate_cache(app_pc *tags, size_t tags_count)
 {
     /* We expect get_thread_private_dcontext() to return NULL b/c we're between

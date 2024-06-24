@@ -1059,7 +1059,7 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
         instru->clamp_unit_header_timestamp(data->buf_base + stamp_offs, min_timestamp);
     }
 
-    if (has_tracing_windows()) {
+    if (has_tracing_windows() || op_trace_after_instrs.get_value() > 0) {
         min_timestamp = retrace_start_timestamp.load(std::memory_order_acquire);
         instru->clamp_unit_header_timestamp(data->buf_base + stamp_offs, min_timestamp);
     }

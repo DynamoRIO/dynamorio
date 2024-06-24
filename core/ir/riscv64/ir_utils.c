@@ -50,9 +50,13 @@ remangle_short_rewrite(dcontext_t *dcontext, instr_t *instr, byte *pc, app_pc ta
 instr_t *
 convert_to_near_rel_arch(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return NULL;
+    int opc = instr_get_opcode(instr);
+    if (opc == OP_c_beqz)
+        instr_set_opcode(instr, OP_beq);
+    else if (opc == OP_c_bnez)
+        instr_set_opcode(instr, OP_bne);
+
+    return instr;
 }
 
 static int

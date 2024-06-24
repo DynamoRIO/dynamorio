@@ -1101,14 +1101,14 @@ protected:
                           DR_PARAM_OUT bool *flush_decode_cache);
 
     /**
-     * Performs any additional actions for the marker "marker_type" with value
-     * "marker_val", beyond writing out a marker record.  New records can be written to
-     * "buf".  Returns whether successful.
+     * Performs processing actions for the marker "marker_type" with value
+     * "marker_val", including writing out a marker record.  Further records can also
+     * be written to "buf".  Returns whether successful.
      */
     virtual bool
-    process_marker_additionally(raw2trace_thread_data_t *tdata,
-                                trace_marker_type_t marker_type, uintptr_t marker_val,
-                                byte *&buf, DR_PARAM_OUT bool *flush_decode_cache);
+    process_marker(raw2trace_thread_data_t *tdata, trace_marker_type_t marker_type,
+                   uintptr_t marker_val, byte *&buf,
+                   DR_PARAM_OUT bool *flush_decode_cache);
     /**
      * Read the header of a thread, by calling get_next_entry() successively to
      * populate the header values. The timestamp field is populated only
