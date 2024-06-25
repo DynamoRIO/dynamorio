@@ -3432,6 +3432,13 @@ raw2trace_t::insert_post_chunk_encodings(raw2trace_thread_data_t *tdata,
     return true;
 }
 
+void
+raw2trace_t::observe_entry_output(raw2trace_thread_data_t *tls,
+                                  const trace_entry_t *entry)
+{
+    // Nothing to do for us: this is for subclasses.
+}
+
 // All writes to out_file go through this function, except new chunk headers
 // and footers (to do so would cause recursion; we assume those do not need
 // extra processing here).
@@ -3461,6 +3468,7 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
         bool prev_was_encoding = false;
         int instr_ordinal = -1;
         for (const trace_entry_t *it = start; it < end; ++it) {
+            observe_entry_output(tdata, it);
             tdata->cur_chunk_ref_count += tdata->memref_counter.entry_memref_count(it);
             // We wait until we're past the final instr to write, to ensure we
             // get all its memrefs, by not stopping until we hit an instr or an
@@ -3585,6 +3593,7 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
         }
     } else {
         for (const trace_entry_t *it = start; it < end; ++it) {
+            observe_entry_output(tdata, it);
             if (type_is_instr(static_cast<trace_type_t>(it->type))) {
                 accumulate_to_statistic(tdata,
                                         RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT, 1);

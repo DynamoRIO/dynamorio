@@ -1101,6 +1101,15 @@ protected:
                           DR_PARAM_OUT bool *flush_decode_cache);
 
     /**
+     * Called for each record in an output buffer prior to writing out the buffer.
+     * The entry cannot be modified.  A subclass can override this to compute
+     * per-shard statistics which can then be used for a variety of tasks including
+     * late removal of shards for targeted filtering.
+     */
+    virtual void
+    observe_entry_output(raw2trace_thread_data_t *tls, const trace_entry_t *entry);
+
+    /**
      * Performs processing actions for the marker "marker_type" with value
      * "marker_val", including writing out a marker record.  Further records can also
      * be written to "buf".  Returns whether successful.
