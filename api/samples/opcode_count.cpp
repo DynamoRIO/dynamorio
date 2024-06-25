@@ -198,7 +198,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 
     /* Make it easy to tell, by looking at log file, which client executed. */
     dr_log(NULL, DR_LOG_ALL, 1, "Client 'opcode_count' initializing\n");
-    if (dynamorio::samples::show_results)
+    if (dynamorio::samples::show_results) {
         /* also give notification to stderr */
         if (dr_is_notify_on()) {
 #ifdef WINDOWS
@@ -209,4 +209,5 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                        "Client opcode_count is running and considering opcode: %d.\n",
                        valid_opcode);
         }
+    }
 }
