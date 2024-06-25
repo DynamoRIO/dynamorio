@@ -222,6 +222,8 @@ enum {
     OPSZ_8x16, /**< 8 or 16 bytes, but not based on rex prefix, instead dependent
                 * on 32-bit/64-bit mode.
                 */
+
+    OPSZ_256, /**< 256 bytes. Needed for RISC-V vector extension with LMUL. */
     /* Add new size here.  Also update size_names[] in decode_shared.c along with
      * the size routines in opnd_shared.c.
      */
@@ -1630,6 +1632,22 @@ typedef ushort reg_id_t; /**< The type of a DR_REG_ enum value. */
  * (checked in d_r_arch_init()).
  */
 typedef byte opnd_size_t; /**< The type of an OPSZ_ enum value. */
+
+#ifdef RISCV64
+/**
+ * The LMUL type for RISCV64 vector extension.
+ * Page 12 of RISC-V "V" Vector Extension Version 1.0.
+ */
+typedef enum {
+    RV64_LMUL_1_8 = 0b101, /**< RISC-V vector extension LMUL 1/8. */
+    RV64_LMUL_1_4 = 0b110, /**< RISC-V vector extension LMUL 1/4. */
+    RV64_LMUL_1_2 = 0b111, /**< RISC-V vector extension LMUL 1/2. */
+    RV64_LMUL_1 = 0b000,   /**< RISC-V vector extension LMUL 1. */
+    RV64_LMUL_2 = 0b001,   /**< RISC-V vector extension LMUL 2. */
+    RV64_LMUL_4 = 0b010,   /**< RISC-V vector extension LMUL 4. */
+    RV64_LMUL_8 = 0b011,   /**< RISC-V vector extension LMUL 8. */
+} lmul_t;
+#endif
 
 #ifdef X86
 /* Platform-independent full-register specifiers */
@@ -3648,6 +3666,18 @@ DR_API
  */
 opnd_size_t
 reg_get_size(reg_id_t reg);
+
+#ifdef RISCV64
+DR_API
+/**
+ * Assumes that \p reg is a DR_REG_VR constant.
+ * Returns the OPSZ_ constant corresponding to the vector register size and lmul.
+ * Returns OPSZ_NA if reg is not a DR_REG_VR constant.
+ * \note RISCV64-only.
+ */
+opnd_size_t
+reg_get_size_lmul(reg_id_t reg, lmul_t lmul);
+#endif
 
 DR_API
 /**

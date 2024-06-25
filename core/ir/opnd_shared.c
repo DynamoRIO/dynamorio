@@ -2000,6 +2000,7 @@ opnd_size_in_bytes(opnd_size_t size)
     case OPSZ_120: return 120;
     case OPSZ_124: return 124;
     case OPSZ_128: return 128;
+    case OPSZ_256: return 256;
     case OPSZ_512: return 512;
     case OPSZ_VAR_REGLIST: return 0; /* varies to match reglist operand */
     case OPSZ_xsave:
@@ -2076,6 +2077,7 @@ opnd_size_from_bytes(uint bytes)
     case 120: return OPSZ_120;
     case 124: return OPSZ_124;
     case 128: return OPSZ_128;
+    case 256: return OPSZ_256;
     case 512: return OPSZ_512;
     default: return OPSZ_NA;
     }
@@ -2794,6 +2796,30 @@ reg_get_size(reg_id_t reg)
     CLIENT_ASSERT(false, "reg_get_size: invalid register");
     return OPSZ_NA;
 }
+
+#ifdef RISCV64
+/* Returns the OPSZ_ constant corresponding to the vector register size and lmul.
+ * Page 12 of RISC-V "V" Vector Extension Version 1.0.
+ */
+opnd_size_t
+reg_get_size_lmul(reg_id_t reg, lmul_t lmul)
+{
+    if (reg >= DR_REG_VR0 && reg <= DR_REG_VR31) {
+        int power = ((int)lmul << 29) << 29;
+        opnd_size_t opsz = opnd_size_from_bytes(dr_get_vector_length() >> (3 - power));
+
+        LOG(GLOBAL, LOG_ANNOTATIONS, 2, "reg=%d, %s, last reg=%d\n", reg,
+            get_register_name(reg), DR_REG_LAST_ENUM);
+        CLIENT_ASSERT(opsz != OPSZ_NA, "reg_get_size_lmul: invalid register");
+        return opsz;
+    }
+
+    LOG(GLOBAL, LOG_ANNOTATIONS, 2, "reg=%d, %s, last reg=%d\n", reg,
+        get_register_name(reg), DR_REG_LAST_ENUM);
+    CLIENT_ASSERT(false, "reg_get_size_lmul: invalid register");
+    return OPSZ_NA;
+}
+#endif
 
 #ifndef STANDALONE_DECODER
 /****************************************************************************/
