@@ -393,8 +393,8 @@ macro (check_pauth_processor_and_compiler_support out)
   check_feature_processor_and_compiler_support(pauth
     ${CFLAGS_PAUTH}
     "int main() {
-        asm(\"paciasp\");
-        asm(\"autiasp\");
+        void *addr = NULL;
+        asm(\"paciza %[ptr]\" : [ptr] \"+r\" (addr) : :);
         return 0;
     }"
     ${out}
