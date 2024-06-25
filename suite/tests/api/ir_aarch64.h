@@ -253,6 +253,8 @@ const reg_id_t Wn_six_offset_1[6] = { DR_REG_W0,  DR_REG_W6,  DR_REG_W11,
                                       DR_REG_W16, DR_REG_W21, DR_REG_W30 };
 const reg_id_t Wn_six_offset_2[6] = { DR_REG_W0,  DR_REG_W7,  DR_REG_W12,
                                       DR_REG_W17, DR_REG_W22, DR_REG_W30 };
+const reg_id_t Wn_six_offset_0_sp[6] = { DR_REG_W0,  DR_REG_W5,  DR_REG_W10,
+                                         DR_REG_W15, DR_REG_W20, DR_REG_WSP };
 const reg_id_t Wn_six_offset_1_zr[6] = { DR_REG_W0,  DR_REG_W6,  DR_REG_W11,
                                          DR_REG_W16, DR_REG_W21, DR_REG_WZR };
 const reg_id_t Wn_six_offset_1_sp[6] = { DR_REG_W0,  DR_REG_W6,  DR_REG_W11,
