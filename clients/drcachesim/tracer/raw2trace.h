@@ -1102,6 +1102,9 @@ protected:
 
     /**
      * Called for each record in an output buffer prior to writing out the buffer.
+     * The entry cannot be modified.  A subclass can override this to compute
+     * per-shard statistics which can then be used for a variety of tasks including
+     * late removal of shards for targeted filtering.
      */
     virtual void
     observe_entry_output(raw2trace_thread_data_t *tls, const trace_entry_t *entry);
