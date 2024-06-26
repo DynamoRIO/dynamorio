@@ -111,8 +111,20 @@
 #define OPND_CREATE_ZR(reg) \
     opnd_create_reg(opnd_get_size(reg) == OPSZ_4 ? DR_REG_WZR : DR_REG_XZR)
 
-/** Create an operand specifying LSL, the default shift type when there is no shift. */
+/**
+ * Create an operand specifying LSL (Logical Shift Left), the default shift type when
+ * there is no shift.
+ */
 #define OPND_CREATE_LSL() opnd_add_flags(OPND_CREATE_INT(DR_SHIFT_LSL), DR_OPND_IS_SHIFT)
+
+/** Create an operand specifying LSR (Logical Shift Right). */
+#define OPND_CREATE_LSR() opnd_add_flags(OPND_CREATE_INT(DR_SHIFT_LSR), DR_OPND_IS_SHIFT)
+
+/** Create an operand specifying ASR (Arithmetic Shift Right). */
+#define OPND_CREATE_ASR() opnd_add_flags(OPND_CREATE_INT(DR_SHIFT_ASR), DR_OPND_IS_SHIFT)
+
+/** Create an operand specifying ROR (ROtate Right). */
+#define OPND_CREATE_ROR() opnd_add_flags(OPND_CREATE_INT(DR_SHIFT_ROR), DR_OPND_IS_SHIFT)
 
 /** Create an operand specifying MUL, a multiplier operand. */
 #define OPND_CREATE_MUL() opnd_add_flags(OPND_CREATE_INT(DR_SHIFT_MUL), DR_OPND_IS_SHIFT)
@@ -520,9 +532,28 @@
          ? instr_create_1dst_2src((dc), OP_and, (rd), (rn), (rm_or_imm))    \
          : INSTR_CREATE_and_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), \
                                   OPND_CREATE_INT(0)))
+
+/**
+ * Creates an ORR instruction with one output and two inputs.
+ * \param dc   The void * dcontext used to allocate memory for the instr_t.
+ * \param rd   The output register.
+ * \param rn   The first input register.
+ * \param rm_or_imm   The second input register or immediate.
+ */
+#define INSTR_CREATE_orr(dc, rd, rn, rm_or_imm)                             \
+    (opnd_is_immed(rm_or_imm)                                               \
+         ? instr_create_1dst_2src((dc), OP_orr, (rd), (rn), (rm_or_imm))    \
+         : INSTR_CREATE_orr_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), \
+                                  OPND_CREATE_INT(0)))
+
 /** \cond disabled_until_i4106_is_fixed */
 #define INSTR_CREATE_and_shift(dc, rd, rn, rm, sht, sha)                             \
     instr_create_1dst_4src((dc), OP_and, (rd), (rn),                                 \
+                           opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_SHIFTED), \
+                           opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha))
+
+#define INSTR_CREATE_orr_shift(dc, rd, rn, rm, sht, sha)                             \
+    instr_create_1dst_4src((dc), OP_orr, (rd), (rn),                                 \
                            opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_SHIFTED), \
                            opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha))
 /** \endcond disabled_until_i4106_is_fixed */

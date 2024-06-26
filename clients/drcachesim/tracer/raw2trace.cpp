@@ -748,9 +748,7 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                 return false;
             trace_marker_type_t marker_type =
                 static_cast<trace_marker_type_t>(in_entry->extended.valueB);
-            buf += trace_metadata_writer_t::write_marker(buf, marker_type, marker_val);
-            if (!process_marker_additionally(tdata, marker_type, marker_val, buf,
-                                             flush_decode_cache))
+            if (!process_marker(tdata, marker_type, marker_val, buf, flush_decode_cache))
                 return false;
             // If there is currently a delayed branch that has not been emitted yet,
             // delay most markers since intra-block markers can cause issues with
@@ -836,11 +834,21 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
 }
 
 bool
-raw2trace_t::process_marker_additionally(raw2trace_thread_data_t *tdata,
-                                         trace_marker_type_t marker_type,
-                                         uintptr_t marker_val, byte *&buf,
-                                         DR_PARAM_OUT bool *flush_decode_cache)
+raw2trace_t::process_marker(raw2trace_thread_data_t *tdata,
+                            trace_marker_type_t marker_type, uintptr_t marker_val,
+                            byte *&buf, DR_PARAM_OUT bool *flush_decode_cache)
 {
+    if (marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
+        uint64 stamp = static_cast<uint64>(marker_val);
+        VPRINT(2, "Thread %u timestamp 0x" ZHEX64_FORMAT_STRING "\n",
+               static_cast<uint>(tdata->tid), stamp);
+        accumulate_to_statistic(tdata, RAW2TRACE_STAT_EARLIEST_TRACE_TIMESTAMP, stamp);
+        accumulate_to_statistic(tdata, RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP, stamp);
+        tdata->last_timestamp_ = stamp;
+        buf += trace_metadata_writer_t::write_timestamp(buf, marker_val);
+        return true;
+    }
+    buf += trace_metadata_writer_t::write_marker(buf, marker_type, marker_val);
     if (marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
         log(4, "Signal/exception between bbs\n");
         // An rseq side exit may next hit a signal which is then the
@@ -1293,16 +1301,17 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
         // when it calls get_next_entry() on its own.
         offline_entry_t entry = *in_entry;
         if (entry.timestamp.type == OFFLINE_TYPE_TIMESTAMP) {
-            VPRINT(2, "Thread %u timestamp 0x" ZHEX64_FORMAT_STRING "\n",
-                   (uint)tdata->tid, (uint64)entry.timestamp.usec);
-            accumulate_to_statistic(tdata, RAW2TRACE_STAT_EARLIEST_TRACE_TIMESTAMP,
-                                    static_cast<uint64>(entry.timestamp.usec));
-            accumulate_to_statistic(tdata, RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP,
-                                    static_cast<uint64>(entry.timestamp.usec));
-            byte *buf = buf_base +
-                trace_metadata_writer_t::write_timestamp(buf_base,
-                                                         (uintptr_t)entry.timestamp.usec);
-            tdata->last_timestamp_ = entry.timestamp.usec;
+            // Give subclasses a chance for further action on a timestamp by
+            // putting our processing as thought it were a marker at the raw level.
+            bool flush_decode_cache = false;
+            byte *buf = buf_base;
+            uintptr_t value = static_cast<uintptr_t>(entry.timestamp.usec);
+            if (!process_marker(tdata, TRACE_MARKER_TYPE_TIMESTAMP, value, buf,
+                                &flush_decode_cache)) {
+                return false;
+            }
+            if (flush_decode_cache)
+                decode_cache_[tdata->worker].clear();
             if ((uint)(buf - buf_base) >= WRITE_BUFFER_SIZE) {
                 tdata->error = "Too many entries";
                 return false;
@@ -3423,6 +3432,13 @@ raw2trace_t::insert_post_chunk_encodings(raw2trace_thread_data_t *tdata,
     return true;
 }
 
+void
+raw2trace_t::observe_entry_output(raw2trace_thread_data_t *tls,
+                                  const trace_entry_t *entry)
+{
+    // Nothing to do for us: this is for subclasses.
+}
+
 // All writes to out_file go through this function, except new chunk headers
 // and footers (to do so would cause recursion; we assume those do not need
 // extra processing here).
@@ -3452,6 +3468,7 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
         bool prev_was_encoding = false;
         int instr_ordinal = -1;
         for (const trace_entry_t *it = start; it < end; ++it) {
+            observe_entry_output(tdata, it);
             tdata->cur_chunk_ref_count += tdata->memref_counter.entry_memref_count(it);
             // We wait until we're past the final instr to write, to ensure we
             // get all its memrefs, by not stopping until we hit an instr or an
@@ -3576,6 +3593,7 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
         }
     } else {
         for (const trace_entry_t *it = start; it < end; ++it) {
+            observe_entry_output(tdata, it);
             if (type_is_instr(static_cast<trace_type_t>(it->type))) {
                 accumulate_to_statistic(tdata,
                                         RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT, 1);

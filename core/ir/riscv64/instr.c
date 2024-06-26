@@ -244,10 +244,8 @@ instr_is_near_ubr(instr_t *instr)
 bool
 instr_is_cti_short(instr_t *instr)
 {
-    /* The branch with smallest reach is direct branch, with range +/- 4 KiB.
-     * We have restricted MAX_FRAGMENT_SIZE on RISCV64 accordingly.
-     */
-    return false;
+    int opc = instr_get_opcode(instr);
+    return (opc == OP_c_beqz || opc == OP_c_bnez);
 }
 
 bool

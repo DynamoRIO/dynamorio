@@ -72,7 +72,8 @@ droption_t<std::string> op_ipc_name(
 droption_t<std::string> op_outdir(
     DROPTION_SCOPE_ALL, "outdir", ".", "Target directory for offline trace files",
     "For the offline analysis mode (when -offline is requested), specifies the path "
-    "to a directory where per-thread trace files will be written.");
+    "to a directory where per-thread trace files will be written.  The contents of this "
+    "directory are internal to the tool.  Do not alter, add, or delete files here.");
 
 droption_t<std::string> op_subdir_prefix(
     DROPTION_SCOPE_ALL, "subdir_prefix", "drmemtrace",
@@ -89,7 +90,9 @@ droption_t<std::string> op_indir(
     "The -offline tracing produces raw data files which are converted into final "
     "trace files on the first execution with -indir.  The raw files can also be manually "
     "converted using the drraw2trace tool.  Legacy single trace files with all threads "
-    "interleaved into one are not supported with this option: use -infile instead.");
+    "interleaved into one are not supported with this option: use -infile instead.  "
+    "The contents of this directory are internal to the tool.  Do not alter, add, or "
+    "delete files here.");
 
 droption_t<std::string> op_infile(
     DROPTION_SCOPE_ALL, "infile", "", "Offline legacy file for input to the simulator",
@@ -549,7 +552,8 @@ droption_t<bytesize_t> op_skip_instrs(
     "Specifies the number of instructions to skip in the beginning of the trace "
     "analysis.  For serial iteration, this number is "
     "computed just once across the interleaving sequence of all threads; for parallel "
-    "iteration, each thread skips this many insructions.  When built with zipfile "
+    "iteration, each thread skips this many instructions (see -skip_to_timestamp for "
+    "an alternative which does align all threads).  When built with zipfile "
     "support, this skipping is optimized and large instruction counts can be quickly "
     "skipped; this is not the case for -skip_refs.");
 
@@ -560,6 +564,17 @@ droption_t<bytesize_t>
                  "application execution. These memory references are dropped instead "
                  "of being simulated.  This skipping may be slow for large skip values; "
                  "consider -skip_instrs for a faster method of skipping.");
+
+droption_t<uint64_t> op_skip_to_timestamp(
+    DROPTION_SCOPE_FRONTEND, "skip_to_timestamp", 0, "Timestamp to start at",
+    "Specifies a timestamp to start at, skipping over prior records in the trace. "
+    "This is cross-cutting across all threads.  If the target timestamp is not "
+    "present as a timestamp marker, interpolation is used to approximate the "
+    "target location in each thread.  Only one of this and -skip_instrs can be "
+    "specified.  Requires -cpu_schedule_file to also be specified as a schedule file "
+    "is required to translate the timestamp into per-thread instruction ordinals."
+    "When built with zipfile support, this skipping is optimized and large "
+    "instruction counts can be quickly skipped.");
 
 droption_t<bytesize_t> op_L0_filter_until_instrs(
     DROPTION_SCOPE_CLIENT, "L0_filter_until_instrs", 0,
@@ -901,9 +916,11 @@ droption_t<std::string> op_replay_file(DROPTION_SCOPE_FRONTEND, "replay_file", "
                                        "Path with stored schedule for replay.");
 droption_t<std::string>
     op_cpu_schedule_file(DROPTION_SCOPE_FRONTEND, "cpu_schedule_file", "",
-                         "Path with stored as-traced schedule for replay",
+                         "Path to as-traced schedule for replay or skip-to-timestamp",
                          "Applies to -core_sharded and -core_serial. "
-                         "Path with stored as-traced schedule for replay.");
+                         "Path with stored as-traced schedule for replay.  If specified "
+                         "with a non-zero -skip_to_timestamp, there is no replay "
+                         "and instead the file is used for the skip request.");
 #endif
 droption_t<std::string> op_sched_switch_file(
     DROPTION_SCOPE_FRONTEND, "sched_switch_file", "",
