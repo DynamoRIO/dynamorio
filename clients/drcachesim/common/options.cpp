@@ -851,7 +851,8 @@ droption_t<bool> op_core_serial(
     "of options with the prefix \"sched_\" along with -cores.");
 
 droption_t<int64_t>
-    op_sched_quantum(DROPTION_SCOPE_ALL, "sched_quantum", 1 * 1000 * 1000,
+    // We pick 6 million to match 2 instructions per nanosecond with a 3ms quantum.
+    op_sched_quantum(DROPTION_SCOPE_ALL, "sched_quantum", 6 * 1000 * 1000,
                      "Scheduling quantum",
                      "Applies to -core_sharded and -core_serial. "
                      "Scheduling quantum: in microseconds of wall-clock "
