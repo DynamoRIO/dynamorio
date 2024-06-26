@@ -816,7 +816,7 @@ typedef union _dr_simd_t {
 /**
  * 256-bit RISC-V Vector extension registers.
  * Vector register length can be from 64 to 65536 bits in the power of 2.
- * Currently we supports implementations of up to 256 bits due to limit of DR's
+ * Currently we support implementations of up to 256 bits due to limit of DR's
  * stack size and 12-bit signed immediate range. Also, align to 16 bytes for
  * better performance.
  */

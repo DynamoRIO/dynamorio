@@ -1636,7 +1636,8 @@ typedef byte opnd_size_t; /**< The type of an OPSZ_ enum value. */
 #ifdef RISCV64
 /**
  * The LMUL type for RISCV64 vector extension.
- * Page 12 of RISC-V "V" Vector Extension Version 1.0.
+ * We keep the encoding in sync with the specification, see page 12 of RISC-V "V" Vector
+ * Extension Version 1.0.
  */
 typedef enum {
     RV64_LMUL_1_8 = 0b101, /**< RISC-V vector extension LMUL 1/8. */
