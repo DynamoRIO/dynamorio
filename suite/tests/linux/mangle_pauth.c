@@ -152,25 +152,30 @@ main(int argc, const char *argv[])
             M(blrab);        \
         } while (0)
 
-#    define NON_FAULT_TEST(instr_name)            \
-        LOG("Non-fault test: " #instr_name "\n"); \
-        test_##instr_name(false)
+#    define NON_FAULT_TEST(instr_name)                \
+        do {                                          \
+            LOG("Non-fault test: " #instr_name "\n"); \
+            test_##instr_name(false);                 \
+        } while (0)
 
     FOR_EACH_TEST(NON_FAULT_TEST);
 
     intercept_signal(SIGSEGV, (handler_3_t)&handle_signal, false);
     intercept_signal(SIGILL, (handler_3_t)&handle_signal, false);
 
-#    define FAULT_TEST(instr_name)                                                     \
-        LOG("Fault test: " #instr_name "\n");                                          \
-        switch (SIGSETJMP(mark)) {                                                     \
-        default:                                                                       \
-            test_##instr_name(true);                                                   \
-            print(#instr_name " fault test failed: No fault\n");                       \
-            break;                                                                     \
-        case TEST_PC_MISMATCH: print(#instr_name " fault test failed: PC mismatch\n"); \
-        case TEST_PASS: break;                                                         \
-        }
+#    define FAULT_TEST(instr_name)                                      \
+        do {                                                            \
+            LOG("Fault test: " #instr_name "\n");                       \
+            switch (SIGSETJMP(mark)) {                                  \
+            default:                                                    \
+                test_##instr_name(true);                                \
+                print(#instr_name " fault test failed: No fault\n");    \
+                break;                                                  \
+            case TEST_PC_MISMATCH:                                      \
+                print(#instr_name " fault test failed: PC mismatch\n"); \
+            case TEST_PASS: break;                                      \
+            }                                                           \
+        } while (0)
     FOR_EACH_TEST(FAULT_TEST);
 
     print("Test complete\n");
