@@ -194,14 +194,6 @@ DECL_EXTERN(branch_instr_addr)
 DECL_EXTERN(branch_target_addr)
 DECL_EXTERN(dummy_func)
 
-#define PASTE(a, b) a##b
-
-/* Use inside a function to declare or reference a function-local label.
- * Expects FUNCNAME to be defined.
- */
-#define _LOCAL_LABEL(label, unique_id) PASTE(unique_id, label)
-#define LOCAL_LABEL(label) _LOCAL_LABEL(label, FUNCNAME)
-
 /* Write a value to the global branch_target_addr variable. */
 #define SAVE_BRANCH_TARGET_ADDR(addr_reg, tmp_reg)                    \
         AARCH64_ADRP_GOT(GLOBAL_REF(branch_target_addr), tmp_reg) @N@ \
