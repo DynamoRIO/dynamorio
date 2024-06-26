@@ -1440,12 +1440,14 @@ insert_authenticate_pointer(dcontext_t *dcontext, instrlist_t *ilist, instr_t *i
          * fault when the app tries to branch to it.
          *
          *     mov      scratch, IBL_TARGET_REG
-         *     xpaci    scratch                  // Remove PAC
-         *     paci*    scratch                  // Re-sign pointer
-         *     cmp      scratch, IBL_TARGET_REG  // Check addresses match
-         *     xpaci    IBL_TARGET_REG           // Remove PAC from target address
-         *     b.eq     end                      // Skip inserting error code if
-         *                                       // addresses match
+         *     xpaci    scratch                          ; Remove PAC
+         *     paci*    scratch                          ; Re-sign pointer
+         *     sub      scratch, scratch, IBL_TARGET_REG ; Check addresses match
+         *                                               ; (avoiding CMP so we don't
+         *                                               ; clobber the app's flags)
+         *     xpaci    IBL_TARGET_REG                   ; Remove PAC from target address
+         *     cbz      end                              ; Skip inserting error code if
+         *                                               ; addresses match
          * insert_error_code:
          *     and      IBL_TARGET_REG, IBL_TARGET_REG, #error_code_mask
          *     orr      IBL_TARGET_REG, IBL_TARGET_REG, #error_code
@@ -1517,15 +1519,15 @@ insert_authenticate_pointer(dcontext_t *dcontext, instrlist_t *ilist, instr_t *i
         }
 
         PRE(ilist, instr,
-            INSTR_CREATE_cmp(dcontext, opnd_create_reg(scratch),
+            INSTR_CREATE_sub(dcontext, opnd_create_reg(scratch), opnd_create_reg(scratch),
                              opnd_create_reg(IBL_TARGET_REG)));
 
         PRE(ilist, instr, INSTR_CREATE_xpaci(dcontext, opnd_create_reg(IBL_TARGET_REG)));
 
         instr_t *end_label = INSTR_CREATE_label(dcontext);
         PRE(ilist, instr,
-            INSTR_PRED(INSTR_CREATE_bcond(dcontext, opnd_create_instr(end_label)),
-                       DR_PRED_EQ));
+            INSTR_CREATE_cbz(dcontext, opnd_create_instr(end_label),
+                             opnd_create_reg(scratch)));
 
         /* Insert the error code to make the address fault */
         const uint64 error_code = key_a ? 1 : 2;
