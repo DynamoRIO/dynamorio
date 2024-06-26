@@ -2931,3 +2931,31 @@ opnd_create_tls_slot(int offs)
 
 #endif /* !STANDALONE_DECODER */
 /****************************************************************************/
+
+#ifdef STANDALONE_UNIT_TEST
+
+#    ifdef RISCV64
+void
+test_reg_get_size_lmul(void)
+{
+    dr_set_vector_length(256);
+    EXPECT(reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_1_8), OPSZ_4);
+    EXPECT(reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_1_4), OPSZ_8);
+    EXPECT(reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_1_2), OPSZ_16);
+    EXPECT(reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_1), OPSZ_32);
+    EXPECT(reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_2), OPSZ_64);
+    EXPECT(reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_4), OPSZ_128);
+    EXPECT(reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_8), OPSZ_256);
+}
+#    endif /* RISCV64 */
+
+void
+unit_test_opnd_shared(void)
+{
+#    ifdef RISCV64
+    test_reg_get_size_lmul();
+#    endif
+    print_file(STDERR, "done testing opnd_shared\n");
+}
+
+#endif /* STANDALONE_UNIT_TEST */

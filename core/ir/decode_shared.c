@@ -195,7 +195,8 @@ dr_set_vector_length(int vl)
 #elif defined(RISCV64)
     const int riscv_vlen_min = 64;
     const int riscv_vlen_max = 65536;
-    if (vl >= riscv_vlen_min && vl <= riscv_vlen_max && IS_POWER_OF_2(vl) == 0) {
+    if (vl >= riscv_vlen_min && vl <= riscv_vlen_max && IS_POWER_OF_2(vl)) {
+        vector_length = vl;
         return true;
     }
 #endif
