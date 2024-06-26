@@ -361,7 +361,7 @@ function (check_feature_processor_and_compiler_support
   set(CMAKE_REQUIRED_FLAGS ${c_flags})
   if (CMAKE_CROSSCOMPILING)
     # If we are cross-compiling check_c_source_runs() can't run the executable on the
-    # host to find out whether the target processor supports the featyre, so we assume it
+    # host to find out whether the target processor supports the feature, so we assume it
     # doesn't.
     set(proc_found_${feat_name}_EXITCODE 1 CACHE STRING
         "Set to 0 if target processor/emulator supports ${feat_name} to enable ${feat_name} tests"

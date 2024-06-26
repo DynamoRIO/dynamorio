@@ -1436,8 +1436,8 @@ insert_authenticate_pointer(dcontext_t *dcontext, instrlist_t *ilist, instr_t *i
          * the target pointer and comparing that to the original value.
          * If they match the authentication passes. If they don't match the
          * authentication has failed and we need to insert a 2-bit error code into the
-         * the address in IBL_TARGET_REG to leave it with a non-canonical value that
-         * should fault when the app tries to branch to it.
+         * address in IBL_TARGET_REG to leave it with a non-canonical value that should
+         * fault when the app tries to branch to it.
          *
          *     mov      scratch, IBL_TARGET_REG
          *     xpaci    scratch                  // Remove PAC
