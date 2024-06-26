@@ -2805,19 +2805,12 @@ opnd_size_t
 reg_get_size_lmul(reg_id_t reg, lmul_t lmul)
 {
     if (reg >= DR_REG_VR0 && reg <= DR_REG_VR31) {
-        /* lmul is a 3-bit signed number encoded as the shift amount:
-         * 1/8: -3
-         * 1/4: -2
-         * 1/2: -1
-         *   0:  0
-         *   1:  1
-         *   2:  2
-         *   3:  3
+        /* lmul is a 3-bit signed number encoded as the shift amount,
          * so (vlen >> (3 - lmul)) converts the hardware vector length in bits to the
          * effective vector length in bytes.
          */
-        int power = ((int)lmul << 29) >> 29;
-        opnd_size_t opsz = opnd_size_from_bytes(dr_get_vector_length() >> (3 - power));
+        ASSERT(lmul <= 3 && lmul >= -3);
+        opnd_size_t opsz = opnd_size_from_bytes(dr_get_vector_length() >> (3 - lmul));
 
         LOG(GLOBAL, LOG_ANNOTATIONS, 2, "reg=%d, %s, last reg=%d\n", reg,
             get_register_name(reg), DR_REG_LAST_ENUM);

@@ -1638,15 +1638,17 @@ typedef byte opnd_size_t; /**< The type of an OPSZ_ enum value. */
  * The LMUL type for RISCV64 vector extension.
  * We keep the encoding in sync with the specification, see page 12 of RISC-V "V" Vector
  * Extension Version 1.0.
+ * We encode the lmul as signed number that fits into 3-bits, see reg_get_size_lmul() for
+ * the usage.
  */
 typedef enum {
-    RV64_LMUL_1_8 = 0b101, /**< RISC-V vector extension LMUL 1/8. */
-    RV64_LMUL_1_4 = 0b110, /**< RISC-V vector extension LMUL 1/4. */
-    RV64_LMUL_1_2 = 0b111, /**< RISC-V vector extension LMUL 1/2. */
-    RV64_LMUL_1 = 0b000,   /**< RISC-V vector extension LMUL 1. */
-    RV64_LMUL_2 = 0b001,   /**< RISC-V vector extension LMUL 2. */
-    RV64_LMUL_4 = 0b010,   /**< RISC-V vector extension LMUL 4. */
-    RV64_LMUL_8 = 0b011,   /**< RISC-V vector extension LMUL 8. */
+    RV64_LMUL_1_8 = -3, /**< RISC-V vector extension LMUL 1/8. */
+    RV64_LMUL_1_4 = -2, /**< RISC-V vector extension LMUL 1/4. */
+    RV64_LMUL_1_2 = -1, /**< RISC-V vector extension LMUL 1/2. */
+    RV64_LMUL_1 = 0,    /**< RISC-V vector extension LMUL 1. */
+    RV64_LMUL_2 = 1,    /**< RISC-V vector extension LMUL 2. */
+    RV64_LMUL_4 = 2,    /**< RISC-V vector extension LMUL 4. */
+    RV64_LMUL_8 = 3,    /**< RISC-V vector extension LMUL 8. */
 } lmul_t;
 #endif
 
