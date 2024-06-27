@@ -3593,7 +3593,7 @@ if (BUILD_SAMPLES)
         if (AARCH64 AND proc_supports_pauth)
           # Build a simple app with pauth support and make sure it runs okay under DR and
           # we see RETAA instructions being traced.
-          add_exe(common.pauth common/pauth.c)
+          add_exe(common.pauth client-interface/simple_app.c)
           set_pauth_flags(common.pauth)
 
           # Opcode 679 is OP_retaa.

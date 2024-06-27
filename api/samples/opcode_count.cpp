@@ -68,23 +68,22 @@ static droption_t<int>
            "the instruction is executed. Default opcode is set to add.");
 
 #ifdef SHOW_RESULTS
-static droption_t<bool> show_results_(DROPTION_SCOPE_CLIENT, "show_results", true,
-                                      "Print results to STDOUT",
-                                      "Print results to STDOUT.");
+static bool show_results_default = true;
 #else
-static droption_t<bool> show_results_(DROPTION_SCOPE_CLIENT, "show_results", false,
-                                      "Print results to STDOUT",
-                                      "Print results to STDOUT.");
+static bool show_results_default = false;
 #endif
+
+static droption_t<bool> show_results(DROPTION_SCOPE_CLIENT, "show_results",
+                                      show_results_default, "Print results to STDOUT",
+                                      "Print results to STDOUT.");
 
 static uintptr_t global_opcode_count = 0;
 static uintptr_t global_total_count = 0;
-static bool show_results = false;
 
 static void
 event_exit(void)
 {
-    if (show_results) {
+    if (show_results.get_value()) {
         char msg[512];
         int len;
         len =
@@ -172,8 +171,6 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
             dynamorio::droption::DROPTION_SCOPE_CLIENT, argc, argv, NULL, NULL))
         DR_ASSERT(false);
 
-    dynamorio::samples::show_results = dynamorio::samples::show_results_.get_value();
-
     /* Get opcode and check if valid. */
     int valid_opcode = dynamorio::samples::opcode.get_value();
     if (valid_opcode < OP_FIRST || valid_opcode > OP_LAST) {
@@ -198,7 +195,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 
     /* Make it easy to tell, by looking at log file, which client executed. */
     dr_log(NULL, DR_LOG_ALL, 1, "Client 'opcode_count' initializing\n");
-    if (dynamorio::samples::show_results) {
+    if (dynamorio::samples::show_results.get_value()) {
         /* also give notification to stderr */
         if (dr_is_notify_on()) {
 #ifdef WINDOWS
