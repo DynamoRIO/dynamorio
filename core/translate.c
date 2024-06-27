@@ -558,6 +558,9 @@ translate_walk_track_post_instr(dcontext_t *tdcontext, instr_t *inst,
         else if (instr_is_ldstex_mangling(tdcontext, inst)) {
             /* nothing to do */
         }
+        else if (instr_is_pauth_branch_mangling(tdcontext, inst)) {
+            /* nothing to do. */
+        }
 #endif
         /* Single step mangling adds a nop. */
         else if (instr_is_nop(inst)) {
@@ -1087,7 +1090,7 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *s
                         "walk=%p\n",
                         walk.unsupported_mangle, walk.in_mangle_region, answer,
                         walk.translation);
-#if defined(X86)
+#ifdef X86
                     int op = instr_get_opcode(inst);
                     if (TEST(FRAG_SELFMOD_SANDBOXED, flags) &&
                         (op == OP_rep_ins || op == OP_rep_movs || op == OP_rep_stos)) {
@@ -1104,14 +1107,7 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *s
                         LOG(THREAD_GET, LOG_INTERP, 2,
                             "recreate_app -- found valid state pc " PFX "\n", answer);
                     } else
-#elif defined(AARCH64)
-                    int op = instr_get_opcode(inst);
-                    if (op == OP_autia || op == OP_autib || op == OP_autiza ||
-                        op == OP_autizb) {
-                        LOG(THREAD_GET, LOG_INTERP, 2,
-                            "recreate_app -- found valid state pc " PFX "\n", answer);
-                    } else
-#endif
+#endif /* X86 */
                     {
                         res = RECREATE_SUCCESS_PC; /* failed on full state, but pc good */
                         /* should only happen for thread synch, not a fault */

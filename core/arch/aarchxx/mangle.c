@@ -3275,6 +3275,34 @@ instr_is_ldstex_mangling(dcontext_t *dcontext, instr_t *inst)
     return false;
 }
 
+#if defined(AARCH64)
+bool instr_is_pauth_branch_mangling(dcontext_t *dcontext, instr_t *inst)
+{
+    /*
+     * Look for a mov to IBL_TARGET_REG followed by an auti* instruction.
+     */
+    if (!instr_is_our_mangling(inst))
+        return false;
+
+    /* mov is an alias of orr so we actually look for OP_orr. */
+    if (!(instr_get_opcode(inst) == OP_orr && opnd_get_reg(instr_get_dst(inst, 0)) == IBL_TARGET_REG))
+        return false;
+
+    inst = instr_get_next(inst);
+    if (!instr_is_our_mangling(inst))
+        return false;
+
+    const int op = instr_get_opcode(inst);
+    switch (op) {
+        case OP_autia:
+        case OP_autib:
+        case OP_autiza:
+        case OP_autizb: return true;
+        default: return false;
+    }
+}
+#endif
+
 static bool
 is_cbnz_available(dcontext_t *dcontext, reg_id_t reg_strex_dst)
 {
