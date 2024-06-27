@@ -1529,7 +1529,11 @@ insert_authenticate_pointer(dcontext_t *dcontext, instrlist_t *ilist, instr_t *i
             INSTR_CREATE_cbz(dcontext, opnd_create_instr(end_label),
                              opnd_create_reg(scratch)));
 
-        /* Insert the error code to make the address fault */
+        /* Insert the error code to make the address fault.
+         * To match the hardware behaviour we use a 2-bit code:
+         *  0b01 if the instruction used key A,
+         *  0b10 if the instruction used key B.
+         */
         const uint64 error_code = key_a ? 1 : 2;
         PRE(ilist, instr,
             INSTR_CREATE_and(dcontext, opnd_create_reg(IBL_TARGET_REG),
