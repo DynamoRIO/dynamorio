@@ -297,13 +297,15 @@ typedef struct _thread_record_t {
 #    define DYNAMORIO_EXPORT DR_APP_API
 #endif
 
-/* AArch64 Scalable Vector Extension's vector length in bits. This depends on
- * the hardware implementation and can be one of:
- * 128 256 384 512 640 768 896 1024 1152 1280 1408 1536 1664 1792 1920 2048
- * See https://developer.arm.com/documentation/102476/0100/Introducing-SVE
+/* - AArch64 Scalable Vector Extension's vector length in bits. This depends on
+ *   the hardware implementation and can be one of:
+ *   128 256 384 512 640 768 896 1024 1152 1280 1408 1536 1664 1792 1920 2048
+ *   See https://developer.arm.com/documentation/102476/0100/Introducing-SVE
+ * - RISC-V Vector's vector length in bits which is from 64 to 65536 in the
+ *   power of 2.
  * This variable stores the length for off-line decoding.
  */
-extern int sve_veclen;
+extern int vector_length;
 
 #include "heap.h"
 #include "options_struct.h"

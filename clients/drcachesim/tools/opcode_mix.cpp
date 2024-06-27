@@ -186,8 +186,8 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
                memref.marker.marker_type == TRACE_MARKER_TYPE_VECTOR_LENGTH) {
 #ifdef AARCH64
         const int new_vl_bits = memref.marker.marker_value * 8;
-        if (dr_get_sve_vector_length() != new_vl_bits) {
-            dr_set_sve_vector_length(new_vl_bits);
+        if (dr_get_vector_length() != new_vl_bits) {
+            dr_set_vector_length(new_vl_bits);
             // Changing the vector length can change the IR representation of some SVE
             // instructions but it will never change the opcode so we don't need to
             // flush the opcode cache.

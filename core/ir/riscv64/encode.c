@@ -47,7 +47,10 @@ const char *const reg_names[] = {
     "ft0",  "ft1",  "ft2", "ft3", "ft4", "ft5", "ft6",  "ft7",  "fs0", "fs1",
     "fa0",  "fa1",  "fa2", "fa3", "fa4", "fa5", "fa6",  "fa7",  "fs2", "fs3",
     "fs4",  "fs5",  "fs6", "fs7", "fs8", "fs9", "fs10", "fs11", "ft8", "ft9",
-    "ft10", "ft11", "fcsr",
+    "ft10", "ft11", "fcsr", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7",
+    "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16", "v17", "v18",
+    "v19", "v20", "v21", "v22", "v23", "v24", "v25", "v26", "v27", "v28", "v29",
+    "v30", "v31"
 };
 
 
@@ -67,6 +70,12 @@ const reg_id_t dr_reg_fixer[] = { REG_NULL,
     DR_REG_F18, DR_REG_F19, DR_REG_F20, DR_REG_F21, DR_REG_F22, DR_REG_F23,
     DR_REG_F24, DR_REG_F25, DR_REG_F26, DR_REG_F27, DR_REG_F28, DR_REG_F29,
     DR_REG_F30, DR_REG_F31, DR_REG_FCSR,
+    DR_REG_VR0,  DR_REG_VR1,  DR_REG_VR2,  DR_REG_VR3,  DR_REG_VR4,  DR_REG_VR5,
+    DR_REG_VR6,  DR_REG_VR7,  DR_REG_VR8,  DR_REG_VR9,  DR_REG_VR10, DR_REG_VR11,
+    DR_REG_VR12, DR_REG_VR13, DR_REG_VR14, DR_REG_VR15, DR_REG_VR16, DR_REG_VR17,
+    DR_REG_VR18, DR_REG_VR19, DR_REG_VR20, DR_REG_VR21, DR_REG_VR22, DR_REG_VR23,
+    DR_REG_VR24, DR_REG_VR25, DR_REG_VR26, DR_REG_VR27, DR_REG_VR28, DR_REG_VR29,
+    DR_REG_VR30, DR_REG_VR31,
 };
 /* clang-format on */
 
@@ -144,6 +153,39 @@ const reg_id_t d_r_reg_id_to_virtual[] = {
     DR_REG_V63, /* DR_REG_F30 */
     DR_REG_V64, /* DR_REG_F31 */
     DR_REG_V65, /* DR_REG_FCSR */
+
+    DR_REG_V66, /* DR_REG_VR0 */
+    DR_REG_V67, /* DR_REG_VR1 */
+    DR_REG_V68, /* DR_REG_VR2 */
+    DR_REG_V69, /* DR_REG_VR3 */
+    DR_REG_V70, /* DR_REG_VR4 */
+    DR_REG_V71, /* DR_REG_VR5 */
+    DR_REG_V72, /* DR_REG_VR6 */
+    DR_REG_V73, /* DR_REG_VR7 */
+    DR_REG_V74, /* DR_REG_VR8 */
+    DR_REG_V75, /* DR_REG_VR9 */
+    DR_REG_V76, /* DR_REG_VR10 */
+    DR_REG_V77, /* DR_REG_VR11 */
+    DR_REG_V78, /* DR_REG_VR12 */
+    DR_REG_V79, /* DR_REG_VR13 */
+    DR_REG_V80, /* DR_REG_VR14 */
+    DR_REG_V81, /* DR_REG_VR15 */
+    DR_REG_V82, /* DR_REG_VR16 */
+    DR_REG_V83, /* DR_REG_VR17 */
+    DR_REG_V84, /* DR_REG_VR18 */
+    DR_REG_V85, /* DR_REG_VR19 */
+    DR_REG_V86, /* DR_REG_VR20 */
+    DR_REG_V87, /* DR_REG_VR21 */
+    DR_REG_V88, /* DR_REG_VR22 */
+    DR_REG_V89, /* DR_REG_VR23 */
+    DR_REG_V90, /* DR_REG_VR24 */
+    DR_REG_V91, /* DR_REG_VR25 */
+    DR_REG_V92, /* DR_REG_VR26 */
+    DR_REG_V93, /* DR_REG_VR27 */
+    DR_REG_V94, /* DR_REG_VR28 */
+    DR_REG_V95, /* DR_REG_VR29 */
+    DR_REG_V96, /* DR_REG_VR30 */
+    DR_REG_V97, /* DR_REG_VR31 */
 };
 
 #ifdef DEBUG

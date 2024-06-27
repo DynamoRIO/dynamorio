@@ -363,7 +363,7 @@ extern reg_id_t dr_reg_stolen;
 #        define OPSZ_SVE_PREDLEN_BYTES \
             opnd_size_from_bytes(proc_get_vector_length_bytes() / 8)
 #    else
-/* SVE vector length for off-line decoder set using dr_set_sve_vector_length() or -vl
+/* SVE vector length for off-line decoder set using dr_set_vector_length() or -vl
  * option with drdisas,
  * e.g.
  * $ drdisas -vl 256 e58057a1 85865e6b
@@ -372,11 +372,21 @@ extern reg_id_t dr_reg_stolen;
  * $
  */
 /* Size of the SVE Z vector registers in bytes. */
-#        define OPSZ_SVE_VECLEN_BYTES opnd_size_from_bytes(dr_get_sve_vector_length() / 8)
+#        define OPSZ_SVE_VECLEN_BYTES opnd_size_from_bytes(dr_get_vector_length() / 8)
 /* Size of the SVE P predicate registers in bytes. */
 #        define OPSZ_SVE_PREDLEN_BYTES \
-            opnd_size_from_bytes((dr_get_sve_vector_length() / 8) / 8)
+            opnd_size_from_bytes((dr_get_vector_length() / 8) / 8)
 #    endif
 #endif /*AARCH64*/
+
+#ifdef RISCV64
+#    if !defined(DR_HOST_NOT_TARGE) && !defined(STANDALONE_DECODER) && \
+        !defined(BUILD_TESTS)
+/* Size of the RVV registers in bytes. */
+#        define OPSZ_RVV_VECLEN_BYTES opnd_size_from_bytes(proc_get_vector_length_bytes())
+#    else
+#        define OPSZ_RVV_VECLEN_BYTES opnd_size_from_bytes(dr_get_vector_length() / 8)
+#    endif
+#endif
 
 #endif /* _OPND_H_ */

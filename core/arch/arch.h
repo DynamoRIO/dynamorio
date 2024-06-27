@@ -174,6 +174,8 @@ mixed_mode_enabled(void)
 #    define REG4_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, a4)))
 #    define REG5_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, a5)))
 #    define XFLAGS_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, fcsr)))
+#    define VSTART_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, vstart)))
+#    define VCSR_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, vcsr)))
 #    define SCRATCH_REG0 DR_REG_A0
 #    define SCRATCH_REG1 DR_REG_A1
 #    define SCRATCH_REG2 DR_REG_A2
@@ -188,6 +190,9 @@ mixed_mode_enabled(void)
 #    define SCRATCH_REG5_OFFS REG5_OFFSET
 #    define REG_OFFSET(reg) (X0_OFFSET + ((reg)-DR_REG_X0) * sizeof(reg_t))
 #    define FREG_OFFSET(reg) (F0_OFFSET + ((reg)-DR_REG_F0) * sizeof(reg_t))
+#    define VREG_OFFSET(reg) \
+        ((MC_OFFS) +         \
+         (offsetof(priv_mcontext_t, simd) + ((reg)-DR_REG_VR0) * sizeof(dr_simd_t)))
 #    define CALL_SCRATCH_REG DR_REG_T6
 #    define MC_IBL_REG a2
 #    define MC_RETVAL_REG a0

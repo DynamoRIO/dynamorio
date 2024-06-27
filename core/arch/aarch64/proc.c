@@ -131,14 +131,14 @@ get_processor_specific_info(void)
             :
             : "x0");
         cpu_info.sve_vector_length_bytes = vl;
-        dr_set_sve_vector_length(vl * 8);
+        dr_set_vector_length(vl * 8);
     } else {
         cpu_info.sve_vector_length_bytes = 32;
-        dr_set_sve_vector_length(256);
+        dr_set_vector_length(256);
     }
 #        else
     /* Set SVE vector length for unit testing the off-line decoder. */
-    dr_set_sve_vector_length(256);
+    dr_set_vector_length(256);
 #        endif
 }
 #    endif
@@ -293,7 +293,7 @@ enable_all_test_cpu_features()
     for (int i = 0; i < BUFFER_SIZE_ELEMENTS(features); ++i) {
         proc_set_feature(features[i], true);
     }
-    dr_set_sve_vector_length(256);
+    dr_set_vector_length(256);
 }
 
 #ifndef DR_HOST_NOT_TARGET

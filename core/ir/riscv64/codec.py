@@ -957,8 +957,9 @@ class IslGenerator:
         elif opc in [0b0100011, 0b0100111]:  # STORE instructions
             dbg(f'fixup: {inst.name} {[f.name for f in inst.flds]}')
             if opc == 0b0100111 and funct3 in [0b000, 0b101, 0b110, 0b111]:
-                # Vector store instructions have no imm part
-                inst.flds[-2] = Field.V_S_RS1_DISP
+                # Vector store instructions have no imm part. Also swap operands
+                # to be consistent with the scalar instruction encoding.
+                inst.flds[-1], inst.flds[-2] = Field.V_S_RS1_DISP, inst.flds[-1]
             else:
                 inst.flds[2] = Field.V_S_RS1_DISP
                 inst.flds.pop(0)

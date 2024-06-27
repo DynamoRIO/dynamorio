@@ -570,7 +570,7 @@ DR_API
 const char *
 proc_get_cache_size_str(cache_size_t size);
 
-#ifdef AARCHXX
+#if defined(AARCHXX)
 DR_API
 /**
  * Returns the size in bytes of the SVE registers' vector length set by the
@@ -578,6 +578,16 @@ DR_API
  * multiples of 128 bits:
  * 128 256 384 512 640 768 896 1024 1152 1280 1408 1536 1664 1792 1920 2048
  * Currently DynamoRIO supports implementations of up to 512 bits.
+ */
+uint
+proc_get_vector_length_bytes(void);
+#elif defined(RISCV64)
+DR_API
+/**
+ * Returns the size in bytes of the RVV registers' vector length which is a design-time
+ * constant set by the hardware implementor. Length can be from 64 to 65536 bits
+ * in the power of 2.
+ * Currently DynamoRIO supports implementations of up to 256 bits.
  */
 uint
 proc_get_vector_length_bytes(void);

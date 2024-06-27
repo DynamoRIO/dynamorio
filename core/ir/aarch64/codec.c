@@ -5229,7 +5229,7 @@ decode_opnd_svemem_gpr_simm6_vl(uint enc, int opcode, byte *pc, OUT opnd_t *opnd
      * memory displacement. So when creating the address operand here, it should be
      * multiplied by the current vector register length in bytes.
      */
-    int vl_bytes = dr_get_sve_vector_length() / 8;
+    int vl_bytes = dr_get_vector_length() / 8;
     *opnd = opnd_create_base_disp(rn, DR_REG_NULL, 0, offset * vl_bytes, mem_transfer);
 
     return true;
@@ -5251,7 +5251,7 @@ encode_opnd_svemem_gpr_simm6_vl(uint enc, int opcode, byte *pc, opnd_t opnd,
      * vector length at the IR level, transformed to a vector index in the
      * encoding.
      */
-    int vl_bytes = dr_get_sve_vector_length() / 8;
+    int vl_bytes = dr_get_vector_length() / 8;
     if ((opnd_get_disp(opnd) % vl_bytes) != 0)
         return false;
     int disp = opnd_get_disp(opnd) / vl_bytes;
@@ -5381,7 +5381,7 @@ decode_opnd_svemem_gpr_simm9_vl(uint enc, int opcode, byte *pc, OUT opnd_t *opnd
      * address operand here, it should be multiplied by the current vector or
      * predicate register length in bytes.
      */
-    int vl_bytes = dr_get_sve_vector_length() / 8;
+    int vl_bytes = dr_get_vector_length() / 8;
     int pl_bytes = vl_bytes / 8;
     int mul_len = is_vector ? vl_bytes : pl_bytes;
     *opnd =
@@ -5410,7 +5410,7 @@ encode_opnd_svemem_gpr_simm9_vl(uint enc, int opcode, byte *pc, opnd_t opnd,
      * vector or predicate length at the IR level, transformed to a vector or
      * predicate index in the encoding.
      */
-    int vl_bytes = dr_get_sve_vector_length() / 8;
+    int vl_bytes = dr_get_vector_length() / 8;
     int pl_bytes = vl_bytes / 8;
     if (is_vector) {
         if ((opnd_get_disp(opnd) % vl_bytes) != 0)
@@ -8091,7 +8091,7 @@ decode_opnd_svemem_gpr_simm4_vl_xreg(uint enc, int opcode, byte *pc, OUT opnd_t 
 
     /* The offset is scaled by the size of the vector in memory.*/
     const uint register_count = BITS(enc, 22, 21) + 1;
-    const uint scale = (register_count * dr_get_sve_vector_length()) / 8;
+    const uint scale = (register_count * dr_get_vector_length()) / 8;
 
     return decode_svemem_gpr_simm4(enc, element_size, scale, opnd);
 }
@@ -8104,7 +8104,7 @@ encode_opnd_svemem_gpr_simm4_vl_xreg(uint enc, int opcode, byte *pc, opnd_t opnd
 
     /* The offset is scaled by the size of the vector in memory.*/
     const uint register_count = BITS(enc, 22, 21) + 1;
-    const uint scale = (register_count * dr_get_sve_vector_length()) / 8;
+    const uint scale = (register_count * dr_get_vector_length()) / 8;
 
     return encode_svemem_gpr_simm4(enc, element_size, scale, opnd, enc_out);
 }
