@@ -212,14 +212,24 @@ DECL_EXTERN(dummy_func)
 #define TMP2_REG x3
 #define MODIFIER_REG x4
 
+/*
+ * Corrupt the signed address in addr_reg if trigger_fault_reg contains 1.
+ * We corrupt the address by flipping one of the PAC bits so the PAC will no longer be
+ * valid. The bit that we flip can be any bit that is part of the PAC code so we
+ * arbitrarily choose bit 53.
+ *
+ * addr_reg = addr_reg ^ (trigger_fault << 53);
+ */
+#define CORRUPT_ADDR_IF_NEEDED(addr_reg, trigger_fault_reg) \
+        eor     addr_reg, addr_reg, trigger_fault_reg, lsl 53
+
 #define FUNCNAME test_retaa
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
         SAVE_BRANCH_TARGET_ADDR(x30, TMP1_REG)
         SAVE_BRANCH_INSTR_ADDR(LOCAL_LABEL(branch_instr), TMP1_REG, TMP2_REG)
         paciasp
-        /* target_addr = signed_addr ^ (trigger_fault << 53); */
-        eor     x30, x30, TRIGGER_FAULT_ARG_REG, lsl 53
+        CORRUPT_ADDR_IF_NEEDED(x30, TRIGGER_FAULT_ARG_REG)
 LOCAL_LABEL(branch_instr):
         retaa
         END_FUNC(FUNCNAME)
@@ -231,8 +241,7 @@ GLOBAL_LABEL(FUNCNAME:)
         SAVE_BRANCH_TARGET_ADDR(x30, TMP1_REG)
         SAVE_BRANCH_INSTR_ADDR(LOCAL_LABEL(branch_instr), TMP1_REG, TMP2_REG)
         pacibsp
-        /* target_addr = signed_addr ^ (trigger_fault << 53); */
-        eor     x30, x30, TRIGGER_FAULT_ARG_REG, lsl 53
+        CORRUPT_ADDR_IF_NEEDED(x30, TRIGGER_FAULT_ARG_REG)
 LOCAL_LABEL(branch_instr):
         retab
         END_FUNC(FUNCNAME)
@@ -245,8 +254,7 @@ GLOBAL_LABEL(FUNCNAME:)
         SAVE_BRANCH_TARGET_ADDR(BRANCH_TARGET_REG, TMP1_REG)
         SAVE_BRANCH_INSTR_ADDR(LOCAL_LABEL(branch_instr), TMP1_REG, TMP2_REG)
         paciza  BRANCH_TARGET_REG
-        /* target_addr = signed_addr ^ (trigger_fault << 53); */
-        eor     BRANCH_TARGET_REG, BRANCH_TARGET_REG, TRIGGER_FAULT_ARG_REG, lsl 53
+        CORRUPT_ADDR_IF_NEEDED(BRANCH_TARGET_REG, TRIGGER_FAULT_ARG_REG)
 LOCAL_LABEL(branch_instr):
         braaz   BRANCH_TARGET_REG
 LOCAL_LABEL(branch_target):
@@ -260,8 +268,7 @@ GLOBAL_LABEL(FUNCNAME:)
         SAVE_BRANCH_TARGET_ADDR(BRANCH_TARGET_REG, TMP1_REG)
         SAVE_BRANCH_INSTR_ADDR(LOCAL_LABEL(branch_instr), TMP1_REG, TMP2_REG)
         pacizb  BRANCH_TARGET_REG
-        /* target_addr = signed_addr ^ (trigger_fault << 53); */
-        eor     BRANCH_TARGET_REG, BRANCH_TARGET_REG, TRIGGER_FAULT_ARG_REG, lsl 53
+        CORRUPT_ADDR_IF_NEEDED(BRANCH_TARGET_REG, TRIGGER_FAULT_ARG_REG)
 LOCAL_LABEL(branch_instr):
         brabz   BRANCH_TARGET_REG
 LOCAL_LABEL(branch_target):
@@ -276,8 +283,7 @@ GLOBAL_LABEL(FUNCNAME:)
         SAVE_BRANCH_TARGET_ADDR(BRANCH_TARGET_REG, TMP1_REG)
         SAVE_BRANCH_INSTR_ADDR(LOCAL_LABEL(branch_instr), TMP1_REG, TMP2_REG)
         pacia   BRANCH_TARGET_REG, MODIFIER_REG
-        /* target_addr = signed_addr ^ (trigger_fault << 53); */
-        eor     BRANCH_TARGET_REG, BRANCH_TARGET_REG, TRIGGER_FAULT_ARG_REG, lsl 53
+        CORRUPT_ADDR_IF_NEEDED(BRANCH_TARGET_REG, TRIGGER_FAULT_ARG_REG)
 LOCAL_LABEL(branch_instr):
         braa    BRANCH_TARGET_REG, MODIFIER_REG
 LOCAL_LABEL(branch_target):
@@ -293,8 +299,7 @@ GLOBAL_LABEL(FUNCNAME:)
         SAVE_BRANCH_TARGET_ADDR(BRANCH_TARGET_REG, TMP1_REG)
         SAVE_BRANCH_INSTR_ADDR(LOCAL_LABEL(branch_instr), TMP1_REG, TMP2_REG)
         pacib   BRANCH_TARGET_REG, MODIFIER_REG
-        /* target_addr = signed_addr ^ (trigger_fault << 53); */
-        eor     BRANCH_TARGET_REG, BRANCH_TARGET_REG, TRIGGER_FAULT_ARG_REG, lsl 53
+        CORRUPT_ADDR_IF_NEEDED(BRANCH_TARGET_REG, TRIGGER_FAULT_ARG_REG)
 LOCAL_LABEL(branch_instr):
         brab    BRANCH_TARGET_REG, MODIFIER_REG
 LOCAL_LABEL(branch_target):
@@ -308,8 +313,7 @@ GLOBAL_LABEL(FUNCNAME:)
         SAVE_BRANCH_TARGET_ADDR(BRANCH_TARGET_REG, TMP1_REG)
         SAVE_BRANCH_INSTR_ADDR(LOCAL_LABEL(branch_instr), TMP1_REG, TMP2_REG)
         paciza  BRANCH_TARGET_REG
-        /* target_addr = signed_addr ^ (trigger_fault << 53); */
-        eor     BRANCH_TARGET_REG, BRANCH_TARGET_REG, TRIGGER_FAULT_ARG_REG, lsl 53
+        CORRUPT_ADDR_IF_NEEDED(BRANCH_TARGET_REG, TRIGGER_FAULT_ARG_REG)
         str     x30, [sp, #-16]!
 LOCAL_LABEL(branch_instr):
         blraaz  BRANCH_TARGET_REG
@@ -324,8 +328,7 @@ GLOBAL_LABEL(FUNCNAME:)
         SAVE_BRANCH_TARGET_ADDR(BRANCH_TARGET_REG, TMP1_REG)
         SAVE_BRANCH_INSTR_ADDR(LOCAL_LABEL(branch_instr), TMP1_REG, TMP2_REG)
         pacizb  BRANCH_TARGET_REG
-        /* target_addr = signed_addr ^ (trigger_fault << 53); */
-        eor     BRANCH_TARGET_REG, BRANCH_TARGET_REG, TRIGGER_FAULT_ARG_REG, lsl 53
+        CORRUPT_ADDR_IF_NEEDED(BRANCH_TARGET_REG, TRIGGER_FAULT_ARG_REG)
         str     x30, [sp, #-16]!
 LOCAL_LABEL(branch_instr):
         blrabz  BRANCH_TARGET_REG
@@ -341,8 +344,7 @@ GLOBAL_LABEL(FUNCNAME:)
         SAVE_BRANCH_INSTR_ADDR(LOCAL_LABEL(branch_instr), TMP1_REG, TMP2_REG)
         mov     MODIFIER_REG, #42
         pacia   BRANCH_TARGET_REG, MODIFIER_REG
-        /* target_addr = signed_addr ^ (trigger_fault << 53); */
-        eor     BRANCH_TARGET_REG, BRANCH_TARGET_REG, TRIGGER_FAULT_ARG_REG, lsl 53
+        CORRUPT_ADDR_IF_NEEDED(BRANCH_TARGET_REG, TRIGGER_FAULT_ARG_REG)
         str     x30, [sp, #-16]!
 LOCAL_LABEL(branch_instr):
         blraa   BRANCH_TARGET_REG, MODIFIER_REG
@@ -358,8 +360,7 @@ GLOBAL_LABEL(FUNCNAME:)
         SAVE_BRANCH_INSTR_ADDR(LOCAL_LABEL(branch_instr), TMP1_REG, TMP2_REG)
         mov     MODIFIER_REG, #42
         pacib   BRANCH_TARGET_REG, MODIFIER_REG
-        /* target_addr = signed_addr ^ (trigger_fault << 53); */
-        eor     BRANCH_TARGET_REG, BRANCH_TARGET_REG, TRIGGER_FAULT_ARG_REG, lsl 53
+        CORRUPT_ADDR_IF_NEEDED(BRANCH_TARGET_REG, TRIGGER_FAULT_ARG_REG)
         str     x30, [sp, #-16]!
 LOCAL_LABEL(branch_instr):
         blrab   BRANCH_TARGET_REG, MODIFIER_REG
