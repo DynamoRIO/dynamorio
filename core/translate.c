@@ -557,8 +557,7 @@ translate_walk_track_post_instr(dcontext_t *tdcontext, instr_t *inst,
 #if defined(AARCHXX) || defined(RISCV64)
         else if (instr_is_ldstex_mangling(tdcontext, inst)) {
             /* nothing to do */
-        }
-        else if (instr_is_pauth_branch_mangling(tdcontext, inst)) {
+        } else if (instr_is_pauth_branch_mangling(tdcontext, inst)) {
             /* nothing to do. */
         }
 #endif
