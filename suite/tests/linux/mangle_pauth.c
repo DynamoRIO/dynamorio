@@ -124,8 +124,8 @@ handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
          * failure exception and the fault PC should match the branch instruction address.
          */
         const uintptr_t fault_pc = ucxt->uc_mcontext.pc;
-        LOG("    fault_pc =             " PFX "\n", fault_pc);
-        LOG("    branch_target_addr =   " PFX "\n", branch_target_addr);
+        LOG("    fault_pc =          " PFX "\n", fault_pc);
+        LOG("    branch_instr_addr = " PFX "\n", branch_instr_addr);
         if (fault_pc == branch_instr_addr)
             SIGLONGJMP(mark, TEST_PASS);
         else
