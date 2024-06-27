@@ -393,7 +393,7 @@ macro (check_pauth_processor_and_compiler_support out)
   check_feature_processor_and_compiler_support(pauth
     ${CFLAGS_PAUTH}
     "int main() {
-        void *addr = NULL;
+        void *addr = 0;
         asm(\"paciza %[ptr]\" : [ptr] \"+r\" (addr) : :);
         return 0;
     }"
