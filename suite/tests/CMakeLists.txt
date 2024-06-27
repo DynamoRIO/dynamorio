@@ -3593,10 +3593,11 @@ if (BUILD_SAMPLES)
         if (AARCH64 AND proc_supports_pauth)
           # Build a simple app with pauth support and make sure it runs okay under DR and
           # we see RETAA instructions being traced.
-          add_exe(common.pauth client-interface/simple_app.c)
+          add_exe(common.pauth ${ci_shared_app_src})
           set_pauth_flags(common.pauth)
 
           # Opcode 679 is OP_retaa.
+          # Set the source to non-existent "common/pauth.c" so that we use our expect file.
           torunonly_ci(sample.${sample}_pauth common.pauth ${sample} common/pauth.c
               "-opcode 679 -show_results" "" "")
         endif ()

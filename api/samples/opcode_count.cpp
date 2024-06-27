@@ -74,8 +74,8 @@ static bool show_results_default = false;
 #endif
 
 static droption_t<bool> show_results(DROPTION_SCOPE_CLIENT, "show_results",
-                                      show_results_default, "Print results to STDOUT",
-                                      "Print results to STDOUT.");
+                                     show_results_default, "Print results to STDOUT",
+                                     "Print results to STDOUT.");
 
 static uintptr_t global_opcode_count = 0;
 static uintptr_t global_total_count = 0;
