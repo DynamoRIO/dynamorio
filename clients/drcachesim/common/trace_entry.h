@@ -634,7 +634,7 @@ typedef enum {
      * length value is specific to the current thread.
      * The vector length affects how some SVE instructions are decoded so any tools which
      * decode instructions should clear any cached data and set the vector length used by
-     * the decoder using dr_set_sve_vector_length().
+     * the decoder using dr_set_vector_length().
      */
     TRACE_MARKER_TYPE_VECTOR_LENGTH,
 
