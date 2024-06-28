@@ -86,7 +86,8 @@ droption_t<int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 1, 0, 64, "Verbosity l
 droption_t<int> op_num_cores(DROPTION_SCOPE_ALL, "num_cores", 4, 0, 8192,
                              "Number of cores", "Number of cores");
 
-droption_t<int64_t> op_sched_quantum(DROPTION_SCOPE_ALL, "sched_quantum", 1 * 1000 * 1000,
+// We pick 6 million to match 2 instructions per nanosecond with a 3ms quantum.
+droption_t<int64_t> op_sched_quantum(DROPTION_SCOPE_ALL, "sched_quantum", 6 * 1000 * 1000,
                                      "Scheduling quantum",
                                      "Scheduling quantum: in instructions by default; in "
                                      "miroseconds if -sched_time is set.");
