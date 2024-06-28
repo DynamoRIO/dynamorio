@@ -1583,6 +1583,10 @@ translate_x86_to_x64(dcontext_t *dcontext, instrlist_t *ilist,
 bool
 instr_is_ldstex_mangling(dcontext_t *dcontext, instr_t *inst);
 #endif
+#if defined(AARCHXX)
+bool
+instr_is_pauth_branch_mangling(dcontext_t *dcontext, instr_t *inst);
+#endif
 
 /****************************************************************************
  * Platform-independent emit_utils_shared.c
