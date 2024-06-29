@@ -272,9 +272,11 @@ protected:
 
     void *drcontext_ = dr_standalone_init();
     std::unordered_map<int, std::unique_ptr<per_shard_t>> shard_map_;
-    // This mutex is only needed in parallel_shard_init.  In all other accesses to
-    // shard_map (process_memref, print_results) we are single-threaded.
-    std::mutex shard_map_mutex_;
+    // This mutex is only needed in parallel_shard_init to initialize shard_map_ with
+    // per_shard_t data and set dcontext_t.isa_mode, which is a global resource.
+    // In all other accesses to shard_map_ (process_memref, print_results) we are
+    // single-threaded.
+    std::mutex init_mutex_;
 
     bool knob_offline_;
     unsigned int knob_verbose_;
