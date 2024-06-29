@@ -2818,9 +2818,8 @@ instr_num_memory_read_access(instr_t *instr)
     /* DR_ISA_REGDEPS instructions don't have an opcode, hence we use their category to
      * determine whether they perform at least one read.
      */
-    if (instr->isa_mode == DR_ISA_REGDEPS &&
-        TESTANY(DR_INSTR_CATEGORY_LOAD, instr_get_category(instr)))
-        return 1;
+    if (instr->isa_mode == DR_ISA_REGDEPS)
+        return TESTANY(DR_INSTR_CATEGORY_LOAD, instr_get_category(instr)) ? 1 : 0;
 
     int i;
     opnd_t curop;
@@ -2847,9 +2846,8 @@ instr_num_memory_write_access(instr_t *instr)
     /* DR_ISA_REGDEPS instructions don't have an opcode, hence we use their category to
      * determine whether they perform at least one write.
      */
-    if (instr->isa_mode == DR_ISA_REGDEPS &&
-        TESTANY(DR_INSTR_CATEGORY_STORE, instr_get_category(instr)))
-        return 1;
+    if (instr->isa_mode == DR_ISA_REGDEPS)
+        return TESTANY(DR_INSTR_CATEGORY_STORE, instr_get_category(instr)) ? 1 : 0;
 
     int i;
     opnd_t curop;
