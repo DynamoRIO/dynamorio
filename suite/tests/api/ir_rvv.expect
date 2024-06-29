@@ -28,7 +28,7 @@ vsse8.v v0 a2 0x1 0x0 -> (a1)
 vsse16.v v0 a2 0x1 0x0 -> (a1)
 vsse32.v v0 a2 0x1 0x0 -> (a1)
 vsse64.v v0 a2 0x1 0x0 -> (a1)
-vloxei8.v (a1) v2 0x1 0x0 -> v0
+vloxei8.v (a1) v1 0x1 0x0 -> v0
 vloxei16.v (a1) v1 0x1 0x0 -> v0
 vloxei32.v (a1) v1 0x1 0x0 -> v0
 vloxei64.v (a1) v1 0x1 0x0 -> v0
@@ -71,8 +71,8 @@ vfsgnjx.vf a1 v2 0x1 -> v0
 vfslide1up.vf a1 v2 0x1 -> v0
 vfslide1down.vf a1 v2 0x1 -> v0
 vfmv.s.f a1 -> v0
-vfmerge.vfm a1 v2 -> v0
 vfmv.v.f a1 -> v0
+vfmerge.vfm a1 v2 -> v0
 vmfeq.vf a1 v2 0x1 -> v0
 vmfle.vf a1 v2 0x1 -> v0
 vmflt.vf a1 v2 0x1 -> v0
@@ -87,7 +87,6 @@ vfnmadd.vf a1 v2 0x1 -> v0
 vfmsub.vf a1 v2 0x1 -> v0
 vfnmsub.vf a1 v2 0x1 -> v0
 vfmacc.vf a1 v2 0x1 -> v0
-vfmerge.vfm a1 v2 -> v0
 vfnmacc.vf a1 v2 0x1 -> v0
 vfmsac.vf a1 v2 0x1 -> v0
 vfnmsac.vf a1 v2 0x1 -> v0
@@ -112,7 +111,7 @@ vfredmax.vs v1 v2 0x1 -> v0
 vfsgnj.vv v1 v2 0x1 -> v0
 vfsgnjn.vv v1 v2 0x1 -> v0
 vfsgnjx.vv v1 v2 0x1 -> v0
-vfmv.f.s v1 -> a1
+vfmv.f.s v0 -> a1
 vmfeq.vv v1 v2 0x1 -> v0
 vmfle.vv v1 v2 0x1 -> v0
 vmflt.vv v1 v2 0x1 -> v0
@@ -133,7 +132,6 @@ vfcvt.f.xu.v v1 0x1 -> v0
 vfcvt.f.x.v v1 0x1 -> v0
 vfcvt.rtz.xu.f.v v1 0x1 -> v0
 vfcvt.rtz.x.f.v v1 0x1 -> v0
-vfcvt.xu.f.v v1 0x1 -> v0
 vfwcvt.x.f.v v1 0x1 -> v0
 vfwcvt.f.xu.v v1 0x1 -> v0
 vfwcvt.f.x.v v1 0x1 -> v0
@@ -299,7 +297,7 @@ vaaddu.vv v1 v2 0x1 -> v0
 vaadd.vv v1 v2 0x1 -> v0
 vasubu.vv v1 v2 0x1 -> v0
 vasub.vv v1 v2 0x1 -> v0
-vmv.x.s v1 -> a1
+vmv.x.s v0 -> a1
 test_MVV complete
 vaaddu.vx a1 v2 0x1 -> v0
 vaadd.vx a1 v2 0x1 -> v0
@@ -356,8 +354,8 @@ vmsof.m v1 0x1 -> v0
 vmsif.m v1 0x1 -> v0
 viota.m v1 0x1 -> v0
 vid.v  0x1 -> v0
-vcpop.m v1 0x1 -> a1
-vfirst.m v1 0x1 -> a1
+vcpop.m v0 0x1 -> a1
+vfirst.m v0 0x1 -> a1
 vdivu.vv v1 v2 0x1 -> v0
 vdiv.vv v1 v2 0x1 -> v0
 vremu.vv v1 v2 0x1 -> v0
