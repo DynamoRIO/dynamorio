@@ -816,7 +816,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 cur_instr_info.decoding.is_syscall)
                 shard->expect_syscall_marker_ = true;
             if (cur_instr_info.decoding.has_valid_decoding &&
-                !cur_instr_info.decoding.is_predicated) {
+                !cur_instr_info.decoding.is_predicated &&
+                !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_DFILTERED,
+                         shard->file_type_)) {
                 // Verify the number of read/write records matches the last
                 // operand. Skip D-filtered traces which don't have every load or
                 // store records.
