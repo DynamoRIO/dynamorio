@@ -222,6 +222,8 @@ enum {
     OPSZ_8x16, /**< 8 or 16 bytes, but not based on rex prefix, instead dependent
                 * on 32-bit/64-bit mode.
                 */
+
+    OPSZ_256, /**< 256 bytes. Needed for RISC-V vector extension with LMUL. */
     /* Add new size here.  Also update size_names[] in decode_shared.c along with
      * the size routines in opnd_shared.c.
      */
@@ -1260,6 +1262,43 @@ enum {
     DR_REG_F30,  /**< The f30(ft10) floating-point register. */
     DR_REG_F31,  /**< The f31(ft11) floating-point register. */
     DR_REG_FCSR, /**< The floating-point control and status register. */
+
+    /* Vector registers, we name the macros DR_REG_VR* to avoid conflict with virtual
+     * registers.
+     */
+    DR_REG_VR0,  /**< The v0 vector register. */
+    DR_REG_VR1,  /**< The v1 vector register. */
+    DR_REG_VR2,  /**< The v2 vector register. */
+    DR_REG_VR3,  /**< The v3 vector register. */
+    DR_REG_VR4,  /**< The v4 vector register. */
+    DR_REG_VR5,  /**< The v5 vector register. */
+    DR_REG_VR6,  /**< The v6 vector register. */
+    DR_REG_VR7,  /**< The v7 vector register. */
+    DR_REG_VR8,  /**< The v8 vector register. */
+    DR_REG_VR9,  /**< The v9 vector register. */
+    DR_REG_VR10, /**< The v10 vector register. */
+    DR_REG_VR11, /**< The v11 vector register. */
+    DR_REG_VR12, /**< The v12 vector register. */
+    DR_REG_VR13, /**< The v13 vector register. */
+    DR_REG_VR14, /**< The v14 vector register. */
+    DR_REG_VR15, /**< The v15 vector register. */
+    DR_REG_VR16, /**< The v16 vector register. */
+    DR_REG_VR17, /**< The v17 vector register. */
+    DR_REG_VR18, /**< The v18 vector register. */
+    DR_REG_VR19, /**< The v19 vector register. */
+    DR_REG_VR20, /**< The v20 vector register. */
+    DR_REG_VR21, /**< The v21 vector register. */
+    DR_REG_VR22, /**< The v22 vector register. */
+    DR_REG_VR23, /**< The v23 vector register. */
+    DR_REG_VR24, /**< The v24 vector register. */
+    DR_REG_VR25, /**< The v25 vector register. */
+    DR_REG_VR26, /**< The v26 vector register. */
+    DR_REG_VR27, /**< The v27 vector register. */
+    DR_REG_VR28, /**< The v28 vector register. */
+    DR_REG_VR29, /**< The v29 vector register. */
+    DR_REG_VR30, /**< The v30 vector register. */
+    DR_REG_VR31, /**< The v31 vector register. */
+
     /* FPR aliases */
     DR_REG_FT0 = DR_REG_F0, /**< The 1st temporary floating-point (f0) register. */
     DR_REG_FT1 = DR_REG_F1, /**< The 2nd temporary floating-point (f1) register. */
@@ -1298,8 +1337,8 @@ enum {
 
     /* FIXME i#3544: CCSRs */
 
-    DR_REG_LAST_VALID_ENUM = DR_REG_FCSR, /**< Last valid register enum. */
-    DR_REG_LAST_ENUM = DR_REG_FCSR,       /**< Last value of register enums. */
+    DR_REG_LAST_VALID_ENUM = DR_REG_VR31, /**< Last valid register enum. */
+    DR_REG_LAST_ENUM = DR_REG_VR31,       /**< Last value of register enums. */
 
     DR_REG_START_64 = DR_REG_X1,  /**< Start of 64-bit register enum values. */
     DR_REG_STOP_64 = DR_REG_F31,  /**< End of 64-bit register enum values. */
@@ -1309,11 +1348,14 @@ enum {
     DR_REG_STOP_GPR = DR_REG_X31, /**< End of general registers. */
     DR_REG_START_FPR = DR_REG_F0, /**< Start of floating-point registers. */
     DR_REG_STOP_FPR = DR_REG_F31, /**< End of floating-point registers. */
+    DR_REG_START_VR = DR_REG_VR0, /**< Start of vector registers. */
+    DR_REG_STOP_VR = DR_REG_VR31, /**< End of vector registers. */
     DR_REG_XSP = DR_REG_SP, /**< Platform-independent way to refer to stack pointer. */
 
     DR_NUM_GPR_REGS = DR_REG_STOP_GPR - DR_REG_START_GPR + 1, /**< Count of GPR regs. */
     DR_NUM_FPR_REGS = DR_REG_STOP_FPR - DR_REG_START_FPR + 1, /**< Count of FPR regs. */
-    DR_NUM_SIMD_VECTOR_REGS = 0,                              /**< Count of SIMD regs. */
+    DR_NUM_VR_REGS = DR_REG_STOP_VR - DR_REG_START_VR + 1, /**< Count of vector regs. */
+    DR_NUM_SIMD_VECTOR_REGS = 0,                           /**< Count of SIMD regs. */
 #else /* RISCV64 */
 #    error Register definitions missing for this platform.
 #endif
@@ -1590,6 +1632,25 @@ typedef ushort reg_id_t; /**< The type of a DR_REG_ enum value. */
  * (checked in d_r_arch_init()).
  */
 typedef byte opnd_size_t; /**< The type of an OPSZ_ enum value. */
+
+#ifdef RISCV64
+/**
+ * The LMUL type for RISCV64 vector extension.
+ * We keep the encoding in sync with the specification, see page 12 of RISC-V "V" Vector
+ * Extension Version 1.0.
+ * We encode the lmul as signed number that fits into 3-bits, see reg_get_size_lmul() for
+ * the usage.
+ */
+typedef enum {
+    RV64_LMUL_1_8 = -3, /**< RISC-V vector extension LMUL 1/8. */
+    RV64_LMUL_1_4 = -2, /**< RISC-V vector extension LMUL 1/4. */
+    RV64_LMUL_1_2 = -1, /**< RISC-V vector extension LMUL 1/2. */
+    RV64_LMUL_1 = 0,    /**< RISC-V vector extension LMUL 1. */
+    RV64_LMUL_2 = 1,    /**< RISC-V vector extension LMUL 2. */
+    RV64_LMUL_4 = 2,    /**< RISC-V vector extension LMUL 4. */
+    RV64_LMUL_8 = 3,    /**< RISC-V vector extension LMUL 8. */
+} lmul_t;
+#endif
 
 #ifdef X86
 /* Platform-independent full-register specifiers */
@@ -3608,6 +3669,18 @@ DR_API
  */
 opnd_size_t
 reg_get_size(reg_id_t reg);
+
+#ifdef RISCV64
+DR_API
+/**
+ * Assumes that \p reg is a DR_REG_VR constant.
+ * Returns the OPSZ_ constant corresponding to the vector register size and lmul.
+ * Returns OPSZ_NA if reg is not a DR_REG_VR constant.
+ * \note RISCV64-only.
+ */
+opnd_size_t
+reg_get_size_lmul(reg_id_t reg, lmul_t lmul);
+#endif
 
 DR_API
 /**

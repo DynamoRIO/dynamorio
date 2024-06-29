@@ -131,14 +131,14 @@ get_processor_specific_info(void)
             :
             : "x0");
         cpu_info.sve_vector_length_bytes = vl;
-        dr_set_sve_vector_length(vl * 8);
+        dr_set_vector_length(vl * 8);
     } else {
         cpu_info.sve_vector_length_bytes = 32;
-        dr_set_sve_vector_length(256);
+        dr_set_vector_length(256);
     }
 #        else
     /* Set SVE vector length for unit testing the off-line decoder. */
-    dr_set_sve_vector_length(256);
+    dr_set_vector_length(256);
 #        endif
 }
 #    endif
@@ -233,6 +233,8 @@ proc_init_arch(void)
         LOG(GLOBAL, LOG_TOP, 1, "ID_AA64ISAR2_EL1 = 0x%016lx\n",
             cpu_info.features.isa_features[AA64ISAR2]);
         LOG_FEATURE(FEATURE_PAUTH2);
+        LOG_FEATURE(FEATURE_FPAC);
+        LOG_FEATURE(FEATURE_FPACCOMBINE);
         LOG_FEATURE(FEATURE_CONSTPACFIELD);
         LOG_FEATURE(FEATURE_WFxT);
 
@@ -276,21 +278,22 @@ void
 enable_all_test_cpu_features()
 {
     const feature_bit_t features[] = {
-        FEATURE_LSE,    FEATURE_RDM,        FEATURE_FP16,          FEATURE_DotProd,
-        FEATURE_SVE,    FEATURE_LOR,        FEATURE_FHM,           FEATURE_SM3,
-        FEATURE_SM4,    FEATURE_SHA512,     FEATURE_SHA3,          FEATURE_RAS,
-        FEATURE_SPE,    FEATURE_PAUTH,      FEATURE_LRCPC,         FEATURE_LRCPC2,
-        FEATURE_BF16,   FEATURE_I8MM,       FEATURE_F64MM,         FEATURE_FlagM,
-        FEATURE_JSCVT,  FEATURE_DPB,        FEATURE_DPB2,          FEATURE_SVE2,
-        FEATURE_SVEAES, FEATURE_SVEBitPerm, FEATURE_SVESHA3,       FEATURE_SVESM4,
-        FEATURE_MTE,    FEATURE_BTI,        FEATURE_FRINTTS,       FEATURE_PAUTH2,
-        FEATURE_MTE2,   FEATURE_FlagM2,     FEATURE_CONSTPACFIELD, FEATURE_SSBS,
-        FEATURE_SSBS2,  FEATURE_DIT,        FEATURE_LSE2,          FEATURE_WFxT
+        FEATURE_LSE,    FEATURE_RDM,         FEATURE_FP16,          FEATURE_DotProd,
+        FEATURE_SVE,    FEATURE_LOR,         FEATURE_FHM,           FEATURE_SM3,
+        FEATURE_SM4,    FEATURE_SHA512,      FEATURE_SHA3,          FEATURE_RAS,
+        FEATURE_SPE,    FEATURE_PAUTH,       FEATURE_LRCPC,         FEATURE_LRCPC2,
+        FEATURE_BF16,   FEATURE_I8MM,        FEATURE_F64MM,         FEATURE_FlagM,
+        FEATURE_JSCVT,  FEATURE_DPB,         FEATURE_DPB2,          FEATURE_SVE2,
+        FEATURE_SVEAES, FEATURE_SVEBitPerm,  FEATURE_SVESHA3,       FEATURE_SVESM4,
+        FEATURE_MTE,    FEATURE_BTI,         FEATURE_FRINTTS,       FEATURE_PAUTH2,
+        FEATURE_MTE2,   FEATURE_FlagM2,      FEATURE_CONSTPACFIELD, FEATURE_SSBS,
+        FEATURE_SSBS2,  FEATURE_DIT,         FEATURE_LSE2,          FEATURE_WFxT,
+        FEATURE_FPAC,   FEATURE_FPACCOMBINE,
     };
     for (int i = 0; i < BUFFER_SIZE_ELEMENTS(features); ++i) {
         proc_set_feature(features[i], true);
     }
-    dr_set_sve_vector_length(256);
+    dr_set_vector_length(256);
 }
 
 #ifndef DR_HOST_NOT_TARGET
@@ -353,6 +356,16 @@ static uint32 feature_ids[] = {
         DEF_FEAT(AA64ISAR1, 2, 3, FEAT_GR_EQ), /* API (IMP DEF algorithm) */
     (FEATURE_I8MM << 16) |
         DEF_FEAT(AA64ISAR1, 13, 1, FEAT_EQ), /* I8MM (Int8 Matrix mul.) */
+
+    (FEATURE_FPAC << 16) |
+        DEF_FEAT(AA64ISAR1, 1, 4, FEAT_GR_EQ), /* APA (QARMA5 - FPAC) */
+    (FEATURE_FPAC << 16) |
+        DEF_FEAT(AA64ISAR1, 2, 4, FEAT_GR_EQ), /* API (IMP DEF algorithm - FPAC) */
+
+    (FEATURE_FPACCOMBINE << 16) |
+        DEF_FEAT(AA64ISAR1, 1, 5, FEAT_GR_EQ), /* APA (QARMA5 - FPACCOMBINE) */
+    (FEATURE_FPACCOMBINE << 16) |
+        DEF_FEAT(AA64ISAR1, 2, 5, FEAT_GR_EQ), /* API (IMP DEF algorithm - FPACCOMBINE) */
 };
 
 static bool

@@ -1167,7 +1167,7 @@ if (BUILD_TESTS AND
   if (APPLE)
     set_tests_properties(unit_tests PROPERTIES LABELS OSX)
   endif ()
-  if (AARCHXX)
+  if (AARCHXX OR RISCV64)
     set_tests_properties(unit_tests PROPERTIES LABELS RUNS_ON_QEMU)
   endif ()
   copy_target_to_device(unit_tests "${location_suffix}")

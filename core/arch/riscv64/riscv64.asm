@@ -42,7 +42,7 @@ START_FILE
 
 /* sizeof(priv_mcontext_t) rounded up to a multiple of 16 */
 /* The reserved space for SIMD is also included. */
-#define PRIV_MCONTEXT_SIZE 0x290
+#define PRIV_MCONTEXT_SIZE 0x620
 
 /* offset of priv_mcontext_t in dr_mcontext_t */
 #define PRIV_MCONTEXT_OFFSET 16
@@ -52,9 +52,9 @@ START_FILE
 #endif
 
 /* offsetof(dcontext_t, dstack) */
-#define dstack_OFFSET     0x2d8
+#define dstack_OFFSET 0x668
 /* offsetof(dcontext_t, is_exiting) */
-#define is_exiting_OFFSET (dstack_OFFSET+1*ARG_SZ)
+#define is_exiting_OFFSET (dstack_OFFSET + 1 * ARG_SZ)
 
 #ifndef RISCV64
 # error RISCV64 must be defined
@@ -223,7 +223,8 @@ save_priv_mcontext_helper:
         fsd      f31, 64*ARG_SZ(ARG1)
         frcsr    x3
         sd       x3,  65*ARG_SZ(ARG1)
-        /* No need to save simd registers, at least for now. */
+        /* TODO i#3544: Save vector registers too? That would require runtime detection
+         * for vector support and vlenb. */
         ret
 
         DECLARE_EXPORTED_FUNC(dr_app_start)

@@ -61,11 +61,16 @@ droption_t<std::string> op_mode(DROPTION_SCOPE_FRONTEND, "mode", "arm",
                                 "Decodes using the specified mode: 'arm' or 'thumb'.");
 #elif defined(AARCH64)
 droption_t<unsigned int>
-    op_sve_vl(DROPTION_SCOPE_FRONTEND, "vl", 128,
-              "Sets the SVE vector length to one of: 128 256 384 512 640 768 896 1024 "
-              "1152 1280 1408 1536 1664 1792 1920 2048.",
-              "Sets the SVE vector length to one of: 128 256 384 512 640 768 896 1024 "
-              "1152 1280 1408 1536 1664 1792 1920 2048.");
+    op_vl(DROPTION_SCOPE_FRONTEND, "vl", 128,
+          "Sets the SVE vector length to one of: 128 256 384 512 640 768 896 1024 "
+          "1152 1280 1408 1536 1664 1792 1920 2048.",
+          "Sets the SVE vector length to one of: 128 256 384 512 640 768 896 1024 "
+          "1152 1280 1408 1536 1664 1792 1920 2048.");
+#elif defined(RISCV64)
+droption_t<unsigned int>
+    op_vl(DROPTION_SCOPE_FRONTEND, "vl", 128,
+          "Sets the RVV vector length from 64 to 65536 in the power of 2.",
+          "Sets the RVV vector length from 64 to 65536 in the power of 2.");
 #endif
 
 droption_t<bool> op_show_bytes(DROPTION_SCOPE_FRONTEND, "show_bytes", true,
@@ -147,8 +152,8 @@ main(int argc, const char *argv[])
     }
 #endif
 
-#ifdef AARCH64
-    dr_set_sve_vector_length(op_sve_vl.get_value());
+#if defined(AARCH64) || defined(RISCV64)
+    dr_set_vector_length(op_vl.get_value());
 #endif
 
     // XXX i#4021: arm not yet supported.

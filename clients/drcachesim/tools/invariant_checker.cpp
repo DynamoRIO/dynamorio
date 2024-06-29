@@ -452,8 +452,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         "Vector length marker has invalid size");
 
         const int new_vl_bits = memref.marker.marker_value * 8;
-        if (dr_get_sve_vector_length() != new_vl_bits) {
-            dr_set_sve_vector_length(new_vl_bits);
+        if (dr_get_vector_length() != new_vl_bits) {
+            dr_set_vector_length(new_vl_bits);
             // Changing the vector length can change the IR representation of some SVE
             // instructions but it doesn't effect any of the metadata that is stored
             // in decode_cache_ so we don't need to flush the cache.
