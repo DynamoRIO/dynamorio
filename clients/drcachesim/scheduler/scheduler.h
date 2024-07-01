@@ -567,7 +567,8 @@ public:
          * specified by
          * #dynamorio::drmemtrace::scheduler_tmpl_t::scheduler_options_t::quantum_unit.
          */
-        uint64_t quantum_duration = 10 * 1000 * 1000;
+        // We pick 6 million to match 2 instructions per nanosecond with a 3ms quantum.
+        uint64_t quantum_duration = 6 * 1000 * 1000;
         /**
          * If > 0, diagnostic messages are printed to stderr.  Higher values produce
          * more frequent diagnostics.

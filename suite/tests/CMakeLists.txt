@@ -1125,6 +1125,8 @@ function(template2expect outexpect template runops key)
   elseif (DEFINED ${key}_runsve)
     set(rundefs "${rundefs} -D__ARM_FEATURE_SVE")
     set(rundefs "${rundefs} -D__ARM_FEATURE_SVE_BITS=${proc_sve_vl}")
+  elseif (DEFINED ${key}_runpauth)
+      set(rundefs "${rundefs} -D__ARM_FEATURE_PAUTH")
   endif ()
   if (CPU_AMD)
     set(rundefs "${rundefs} -DCPU_AMD")
@@ -1829,6 +1831,15 @@ macro(set_sve_flags target)
     set(${target}_runsve 1)
   endif ()
 endmacro(set_sve_flags)
+
+macro(set_pauth_flags target)
+  if (proc_supports_pauth)
+    if (TARGET ${target}) # Support calling on non-exe target.
+        append_property_string(TARGET ${target} COMPILE_FLAGS "${CFLAGS_PAUTH}")
+    endif ()
+    set(${target}_runpauth 1)
+  endif ()
+endmacro(set_pauth_flags)
 
 ###########################################################################
 
@@ -3581,6 +3592,17 @@ if (BUILD_SAMPLES)
           torunonly_ci(sample.${sample} sample.opcode_count-test ${sample}_test
             samples/opcode_count-test.asm "-opcode 5" "" "")
         endif (X86 AND (NOT X64) AND UNIX)
+        if (AARCH64 AND proc_supports_pauth)
+          # Build a simple app with pauth support and make sure it runs okay under DR and
+          # we see RETAA instructions being traced.
+          add_exe(common.pauth ${ci_shared_app_src})
+          set_pauth_flags(common.pauth)
+
+          # Opcode 679 is OP_retaa.
+          # Set the source to non-existent "common/pauth.c" so that we use our expect file.
+          torunonly_ci(sample.${sample}_pauth common.pauth ${sample} common/pauth.c
+              "-opcode 679 -show_results" "" "")
+        endif ()
       elseif (sample STREQUAL "memtrace_simple")
         if (X86 AND X64 AND UNIX)
           torunonly_ci(sample.${sample}_repstr allasm_repstr ${sample}_test
@@ -5365,6 +5387,14 @@ if (UNIX)
           ${CMAKE_CURRENT_SOURCE_DIR}/linux)
         link_with_pthread(linux.mangle_asynch)
       endif ()
+    endif ()
+
+    if (AARCH64 AND proc_supports_pauth)
+      tobuild(linux.mangle_pauth linux/mangle_pauth.c)
+      # Also run the test natively to prove that the behaviour the test checks for
+      # matches the behaviour running natively.
+      torunonly_native(
+        linux.mangle_pauth_native linux.mangle_pauth mangle_pauth linux/mangle_pauth.c "")
     endif ()
   endif ()
 

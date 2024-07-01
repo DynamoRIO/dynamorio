@@ -355,31 +355,51 @@ function (check_sve_processor_and_compiler_support out vl_out)
   endif ()
 endfunction (check_sve_processor_and_compiler_support)
 
-function (check_sve2_processor_and_compiler_support out)
+function (check_feature_processor_and_compiler_support
+          feat_name c_flags test_prog out)
   include(CheckCSourceRuns)
-  set(sve2_prog "int main() {
-                    asm(\"histcnt z0.d, p0/z, z0.d, z0.d\");
-                    return 0;
-                 }")
-  set(CMAKE_REQUIRED_FLAGS ${CFLAGS_SVE2})
+  set(CMAKE_REQUIRED_FLAGS ${c_flags})
   if (CMAKE_CROSSCOMPILING)
     # If we are cross-compiling check_c_source_runs() can't run the executable on the
-    # host to find out whether the target processor supports SVE2, so we assume it
+    # host to find out whether the target processor supports the feature, so we assume it
     # doesn't.
-    set(proc_found_sve2_EXITCODE 1 CACHE STRING
-        "Set to 0 if target processor/emulator supports SVE2 to enable SVE2 tests"
+    set(proc_found_${feat_name}_EXITCODE 1 CACHE STRING
+        "Set to 0 if target processor/emulator supports ${feat_name} to enable ${feat_name} tests"
         FORCE)
   else ()
-    check_c_source_runs("${sve2_prog}" proc_found_sve2)
+    check_c_source_runs("${test_prog}" proc_found_${feat_name})
   endif ()
-  if (proc_found_sve2)
-    message(STATUS "Compiler and processor support SVE2.")
+  if (proc_found_${feat_name})
+    message(STATUS "Compiler and processor support ${feat_name}.")
   else ()
-    message(STATUS "WARNING: Compiler or processor do not support SVE2. "
+    message(STATUS "WARNING: Compiler or processor do not support ${feat_name}. "
                    "Skipping tests")
   endif ()
-  set(${out} ${proc_found_sve2} PARENT_SCOPE)
-endfunction (check_sve2_processor_and_compiler_support)
+  set(${out} ${proc_found_${feat_name}} PARENT_SCOPE)
+endfunction (check_feature_processor_and_compiler_support)
+
+macro (check_sve2_processor_and_compiler_support out)
+  check_feature_processor_and_compiler_support(sve2
+    ${CFLAGS_SVE2}
+    "int main() {
+        asm(\"histcnt z0.d, p0/z, z0.d, z0.d\");
+        return 0;
+    }"
+    ${out}
+  )
+endmacro (check_sve2_processor_and_compiler_support)
+
+macro (check_pauth_processor_and_compiler_support out)
+  check_feature_processor_and_compiler_support(pauth
+    ${CFLAGS_PAUTH}
+    "int main() {
+        void *addr = 0;
+        asm(\"paciza %[ptr]\" : [ptr] \"+r\" (addr) : :);
+        return 0;
+    }"
+    ${out}
+  )
+endmacro (check_pauth_processor_and_compiler_support)
 
 function (get_processor_vendor out)
   set(cpu_vendor "<unknown>")
