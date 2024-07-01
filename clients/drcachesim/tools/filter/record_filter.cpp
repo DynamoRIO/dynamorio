@@ -95,7 +95,7 @@ parse_string(const std::string &s, char sep = ',')
     std::vector<T> vec;
     do {
         pos = s.find(sep, at);
-        vec.push_back(static_cast<T>(std::stoi(s.substr(at, pos))));
+        vec.push_back(static_cast<T>(std::stoll(s.substr(at, pos))));
         at = pos + 1;
     } while (pos != std::string::npos);
     return vec;
