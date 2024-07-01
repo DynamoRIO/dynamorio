@@ -95,7 +95,11 @@ static int tcls_idx;
 /* The system call number of SYS_write/NtWriteFile */
 static int write_sysnum;
 
+#ifdef WINDOWS
+static int num_syscalls;
+#else
 static _Atomic(int) num_syscalls;
+#endif
 
 static int
 get_write_sysnum(void);
@@ -203,7 +207,13 @@ static bool
 event_pre_syscall(void *drcontext, int sysnum)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_cls_field(drcontext, tcls_idx);
-    num_syscalls++;
+
+#ifdef WINDOWS
+    _InterlockedIncrement((volatile LONG *)&num_syscalls);
+#else
+    num_syscalls++; /* num_syscalls is declared as _Atomic on non-Windows systems. */
+#endif
+
 #ifdef UNIX
     if (sysnum == SYS_execve) {
         /* our stats will be re-set post-execve so display now */
