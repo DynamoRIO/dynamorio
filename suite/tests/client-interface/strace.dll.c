@@ -95,6 +95,7 @@ static int tcls_idx;
 /* The system call number of SYS_write/NtWriteFile */
 static int write_sysnum;
 
+/* XXX i#6863: Use _Atomic on Windows once we upgrade to VS2022 */
 #ifdef WINDOWS
 static int num_syscalls;
 #else
