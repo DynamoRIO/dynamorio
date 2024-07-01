@@ -157,8 +157,12 @@ invariant_checker_t::parallel_shard_init_stream(int shard_index, void *worker_da
     uint64_t filetype = shard_stream->get_filetype();
     if (TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, filetype)) {
         dr_isa_mode_t isa_mode = dr_get_isa_mode(drcontext_);
-        if (isa_mode != DR_ISA_REGDEPS)
+        if (isa_mode != DR_ISA_REGDEPS) {
             dr_set_isa_mode(drcontext_, DR_ISA_REGDEPS, nullptr);
+            std::cerr << "WARNING: invariant_checker is begin run on an "
+                         "OFFLINE_FILE_TYPE_ARCH_REGDEPS trace.\nSome invariant checks "
+                         "have been disabled.\n";
+        }
     }
     return res;
 }
