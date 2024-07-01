@@ -65,13 +65,13 @@
 static uint num_times_opcode_encountered = 0;
 
 #ifdef X86
-static const int opcode_to_instrument = OP_lea;
-static const reg_id_t general_purpose_register = DR_REG_XAX;
-static const bool save_fpstate = true;
+static const int OPCODE_TO_INSTRUMENT = OP_lea;
+static const reg_id_t GENERAL_PURPOSE_REGISTER = DR_REG_XAX;
+static const bool SAVE_FPSTATE = true;
 #elif defined(AARCH64)
-static const int opcode_to_instrument = OP_eor;
-static const reg_id_t general_purpose_register = DR_REG_X0;
-static const bool save_fpstate = false;
+static const int OPCODE_TO_INSTRUMENT = OP_eor;
+static const reg_id_t GENERAL_PURPOSE_REGISTER = DR_REG_X0;
+static const bool SAVE_FPSTATE = false;
 #endif
 
 static reg_id_t tls_seg;
@@ -150,7 +150,7 @@ at_instruction(uint opc, app_pc tag)
     /* PR 223285: test (one side of) DR_ASSERT for something we know will succeed
      * (we don't want msgboxes in regressions)
      */
-    DR_ASSERT(opc == opcode_to_instrument);
+    DR_ASSERT(opc == OPCODE_TO_INSTRUMENT);
     ASSERT((process_id_t)(ptr_uint_t)dr_get_tls_field(dr_get_current_drcontext()) ==
            dr_get_process_id() + 1 /*we added 1 inline*/);
     dr_set_tls_field(dr_get_current_drcontext(), (void *)(ptr_uint_t)dr_get_process_id());
@@ -186,18 +186,18 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 
     for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {
         next_instr = instr_get_next(instr);
-        if (instr_get_opcode(instr) == opcode_to_instrument) {
+        if (instr_get_opcode(instr) == OPCODE_TO_INSTRUMENT) {
             /* PR 200411: test inline tls access by adding 1 */
-            dr_save_reg(drcontext, bb, instr, general_purpose_register, SPILL_SLOT_1);
-            dr_insert_read_tls_field(drcontext, bb, instr, general_purpose_register);
+            dr_save_reg(drcontext, bb, instr, GENERAL_PURPOSE_REGISTER, SPILL_SLOT_1);
+            dr_insert_read_tls_field(drcontext, bb, instr, GENERAL_PURPOSE_REGISTER);
             instrlist_meta_preinsert(
                 bb, instr,
-                XINST_CREATE_add(drcontext, opnd_create_reg(general_purpose_register),
+                XINST_CREATE_add(drcontext, opnd_create_reg(GENERAL_PURPOSE_REGISTER),
                                  OPND_CREATE_INT32(1)));
 
-            dr_insert_write_tls_field(drcontext, bb, instr, general_purpose_register);
-            dr_restore_reg(drcontext, bb, instr, general_purpose_register, SPILL_SLOT_1);
-            dr_insert_clean_call(drcontext, bb, instr, at_instruction, save_fpstate, 2,
+            dr_insert_write_tls_field(drcontext, bb, instr, GENERAL_PURPOSE_REGISTER);
+            dr_restore_reg(drcontext, bb, instr, GENERAL_PURPOSE_REGISTER, SPILL_SLOT_1);
+            dr_insert_clean_call(drcontext, bb, instr, at_instruction, SAVE_FPSTATE, 2,
                                  OPND_CREATE_INT32(instr_get_opcode(instr)),
                                  OPND_CREATE_INTPTR(tag));
         }
