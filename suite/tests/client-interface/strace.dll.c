@@ -95,7 +95,7 @@ static int tcls_idx;
 /* The system call number of SYS_write/NtWriteFile */
 static int write_sysnum;
 
-_Atomic static int num_syscalls;
+static _Atomic(int) num_syscalls;
 
 static int
 get_write_sysnum(void);
