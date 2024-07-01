@@ -63,12 +63,6 @@
 /* Unlike in api sample, always print to stderr. */
 #define DISPLAY_STRING(msg) dr_fprintf(STDERR, "%s\n", msg);
 
-#ifdef WINDOWS
-#    define ATOMIC_INC(var) _InterlockedIncrement((volatile LONG *)&var)
-#else
-#    define ATOMIC_INC(var) __asm__ __volatile__("lock incl %0" : "=m"(var) : : "memory")
-#endif
-
 /* Some syscalls have more args, but this is the max we need for SYS_write/NtWriteFile */
 #ifdef WINDOWS
 #    define SYS_MAX_ARGS 9
@@ -101,7 +95,7 @@ static int tcls_idx;
 /* The system call number of SYS_write/NtWriteFile */
 static int write_sysnum;
 
-static int num_syscalls;
+_Atomic static int num_syscalls;
 
 static int
 get_write_sysnum(void);
@@ -209,7 +203,7 @@ static bool
 event_pre_syscall(void *drcontext, int sysnum)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_cls_field(drcontext, tcls_idx);
-    ATOMIC_INC(num_syscalls);
+    num_syscalls++;
 #ifdef UNIX
     if (sysnum == SYS_execve) {
         /* our stats will be re-set post-execve so display now */
