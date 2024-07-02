@@ -931,20 +931,22 @@ get_clone_record(reg_t xsp)
     /* The (size of the clone record +
      *      stack used by new_thread_start (only for setting up priv_mcontext_t) +
      *      stack used by new_thread_setup before calling get_clone_record())
-     * is less than a page for X86 and 2 pages for AArch64. This is verified by
+     * is less than a page for X86 and 2 4K pages for AArch64. This is verified by
      * the assert below. If it does exceed 1 page for X86 and 2 for AArch64, it
      * won't happen at random during runtime, but in a predictable way during
      * development, which will be caught by the assert.
      *
-     * The current usage is about 800 bytes (X86) or 1920 bytes (AArch64) for
+     * The current usage is about 800 bytes (X86) or 4400 bytes (AArch64) for
      * clone_record + sizeof(priv_mcontext_t) + few words in new_thread_setup
      * before get_clone_record() is called.
      */
+    const size_t page_size = PAGE_SIZE;
+    dstack_base = (byte *)ALIGN_FORWARD(xsp, page_size);
 #ifdef AARCH64
-    dstack_base = (byte *)ALIGN_FORWARD(xsp, PAGE_SIZE) + PAGE_SIZE;
-#else
-    dstack_base = (byte *)ALIGN_FORWARD(xsp, PAGE_SIZE);
+    if (sizeof(clone_record_t) + sizeof(priv_mcontext_t) > page_size)
+        dstack_base += page_size;
 #endif
+
     record = (clone_record_t *)(dstack_base - sizeof(clone_record_t));
 
     /* dstack_base and the dstack in the clone record should be the same. */
