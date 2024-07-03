@@ -2047,6 +2047,10 @@ if (NOT ANDROID)
     tobuild_api(api.ir_sve api/ir_aarch64_sve.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_sve2 api/ir_aarch64_sve2.c "" "" OFF OFF OFF)
   endif (AARCH64)
+
+  if (RISCV64)
+    tobuild_api(api.ir_rvv api/ir_rvv.c  "" "" ON OFF OFF)
+  endif(RISCV64)
 endif ()
 
 # test synthetic DR_ISA_REGDEPS encoding, decoding, and disassembly
@@ -6235,6 +6239,7 @@ if (RISCV64)
     code_api|api.ir
     code_api|api.ir-static
     code_api|api.ir_regdeps
+    code_api|api.ir_rvv
     code_api|client.app_args
     code_api|client.blackbox
     code_api|client.crashmsg
