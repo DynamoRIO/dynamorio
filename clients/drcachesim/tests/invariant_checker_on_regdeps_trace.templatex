@@ -4,7 +4,7 @@ Trace invariant checks passed
 
 Output .* entries from .* entries.
 
-WARNING: invariant_checker is begin run on an OFFLINE_FILE_TYPE_ARCH_REGDEPS trace.
+WARNING: invariant_checker is being run on an OFFLINE_FILE_TYPE_ARCH_REGDEPS trace.
 Some invariant checks have been disabled.
 
 Trace invariant checks passed

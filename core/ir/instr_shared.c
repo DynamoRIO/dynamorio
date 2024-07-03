@@ -2815,12 +2815,6 @@ decode_memory_reference_size(void *drcontext, app_pc pc, uint *size_in_bytes)
 uint
 instr_num_memory_read_access(instr_t *instr)
 {
-    /* DR_ISA_REGDEPS instructions don't have an opcode, hence we use their category to
-     * determine whether they perform at least one read.
-     */
-    if (instr->isa_mode == DR_ISA_REGDEPS)
-        return TESTANY(DR_INSTR_CATEGORY_LOAD, instr_get_category(instr)) ? 1 : 0;
-
     int i;
     opnd_t curop;
     int count = 0;
@@ -2843,12 +2837,6 @@ instr_num_memory_read_access(instr_t *instr)
 uint
 instr_num_memory_write_access(instr_t *instr)
 {
-    /* DR_ISA_REGDEPS instructions don't have an opcode, hence we use their category to
-     * determine whether they perform at least one write.
-     */
-    if (instr->isa_mode == DR_ISA_REGDEPS)
-        return TESTANY(DR_INSTR_CATEGORY_STORE, instr_get_category(instr)) ? 1 : 0;
-
     int i;
     opnd_t curop;
     int count = 0;

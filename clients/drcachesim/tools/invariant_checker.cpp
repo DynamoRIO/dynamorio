@@ -159,7 +159,7 @@ invariant_checker_t::parallel_shard_init_stream(int shard_index, void *worker_da
         dr_isa_mode_t isa_mode = dr_get_isa_mode(drcontext_);
         if (isa_mode != DR_ISA_REGDEPS) {
             dr_set_isa_mode(drcontext_, DR_ISA_REGDEPS, nullptr);
-            std::cerr << "WARNING: invariant_checker is begin run on an "
+            std::cerr << "WARNING: invariant_checker is being run on an "
                          "OFFLINE_FILE_TYPE_ARCH_REGDEPS trace.\nSome invariant checks "
                          "have been disabled.\n";
         }
@@ -191,7 +191,7 @@ invariant_checker_t::parallel_shard_exit(void *shard_data)
                      // shard->expected_[read | write]_records_ as we don't decrease this
                      // counter when we encounter a TRACE_TYPE_[READ | WRITE]. We cannot
                      // decrease the counter because the precise number of reads and
-                     // writes a DR_ISA_REGDEPS instruction perform cannot be determined.
+                     // writes a DR_ISA_REGDEPS instruction performs cannot be determined.
                      OFFLINE_FILE_TYPE_ARCH_REGDEPS,
                  shard->file_type_)) {
         report_if_false(shard, shard->expected_read_records_ == 0,
@@ -793,10 +793,26 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         instr_writes_memory(noalloc_instr);
                     cur_instr_info.decoding.is_predicated =
                         instr_is_predicated(noalloc_instr);
-                    cur_instr_info.decoding.num_memory_read_access =
-                        instr_num_memory_read_access(noalloc_instr);
-                    cur_instr_info.decoding.num_memory_write_access =
-                        instr_num_memory_write_access(noalloc_instr);
+                    // DR_ISA_REGDEPS instructions don't have an opcode, hence we use
+                    // their category to determine whether they perform at least one read
+                    // or write.
+                    if (instr_get_isa_mode(noalloc_instr) == DR_ISA_REGDEPS) {
+                        cur_instr_info.decoding.num_memory_read_access =
+                            TESTANY(DR_INSTR_CATEGORY_LOAD,
+                                    instr_get_category(noalloc_instr))
+                            ? 1
+                            : 0;
+                        cur_instr_info.decoding.num_memory_write_access =
+                            TESTANY(DR_INSTR_CATEGORY_STORE,
+                                    instr_get_category(noalloc_instr))
+                            ? 1
+                            : 0;
+                    } else {
+                        cur_instr_info.decoding.num_memory_read_access =
+                            instr_num_memory_read_access(noalloc_instr);
+                        cur_instr_info.decoding.num_memory_write_access =
+                            instr_num_memory_write_access(noalloc_instr);
+                    }
                     if (type_is_instr_branch(memref.instr.type) &&
                         // DR_ISA_REGDEPS instructions don't have a branch target saved as
                         // instr.src[0], so we cannot retrieve this information.
