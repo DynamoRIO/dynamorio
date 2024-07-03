@@ -2704,11 +2704,13 @@ if (X86 OR AARCH64) # FIXME i#1551: port asm to ARM
     tobuild_ci(client.flush client-interface/flush.c "" "" "")
   endif ()
 endif (X86 OR AARCH64)
+if (X86 OR AARCH64) # FIXME i#1551: port asm to ARM
+  tobuild_ci(client.strace client-interface/strace.c "" "" "")
+  use_DynamoRIO_extension(client.strace.dll drmgr)
+endif (X86 OR AARCH64)
 if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   tobuild_ci(client.thread client-interface/thread.c "-paramx -paramy" "" "")
   tobuild_appdll(client.thread client-interface/thread.c)
-  tobuild_ci(client.strace client-interface/strace.c "" "" "")
-  use_DynamoRIO_extension(client.strace.dll drmgr)
 endif (X86)
 # FIXME: PR 199115 to re-enable fragdel, get some more of the UNIX tests working
 #tobuild_ci(client.fragdel client-interface/fragdel.c "" "" "")
