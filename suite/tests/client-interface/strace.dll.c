@@ -63,12 +63,6 @@
 /* Unlike in api sample, always print to stderr. */
 #define DISPLAY_STRING(msg) dr_fprintf(STDERR, "%s\n", msg);
 
-#ifdef WINDOWS
-#    define ATOMIC_INC(var) _InterlockedIncrement((volatile LONG *)&var)
-#else
-#    define ATOMIC_INC(var) __asm__ __volatile__("lock incl %0" : "=m"(var) : : "memory")
-#endif
-
 /* Some syscalls have more args, but this is the max we need for SYS_write/NtWriteFile */
 #ifdef WINDOWS
 #    define SYS_MAX_ARGS 9
@@ -101,7 +95,12 @@ static int tcls_idx;
 /* The system call number of SYS_write/NtWriteFile */
 static int write_sysnum;
 
+/* XXX i#6863: Use _Atomic on Windows once we upgrade to VS2022 */
+#ifdef WINDOWS
 static int num_syscalls;
+#else
+static _Atomic(int) num_syscalls;
+#endif
 
 static int
 get_write_sysnum(void);
@@ -209,7 +208,13 @@ static bool
 event_pre_syscall(void *drcontext, int sysnum)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_cls_field(drcontext, tcls_idx);
-    ATOMIC_INC(num_syscalls);
+
+#ifdef WINDOWS
+    _InterlockedIncrement((volatile LONG *)&num_syscalls);
+#else
+    num_syscalls++; /* num_syscalls is declared as _Atomic on non-Windows systems. */
+#endif
+
 #ifdef UNIX
     if (sysnum == SYS_execve) {
         /* our stats will be re-set post-execve so display now */
