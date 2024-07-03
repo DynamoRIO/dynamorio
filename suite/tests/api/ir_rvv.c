@@ -67,54 +67,54 @@ static byte buf[8192];
 #define ISLOAD true
 #define ISSTORE false
 
-#define TEST_MEM_WHOLEREG(OPCODE, MEM_type)                         \
+#define TEST_MEM_WHOLEREG(opcode, mem_type)                         \
     do {                                                            \
-        if (MEM_type == ISLOAD) {                                   \
-            instr = INSTR_CREATE_##OPCODE(                          \
+        if (mem_type == ISLOAD) {                                   \
+            instr = INSTR_CREATE_##opcode(                          \
                 dc, opnd_create_reg(DR_REG_VR0),                    \
                 opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, \
                                       reg_get_size(DR_REG_VR0)));   \
         } else {                                                    \
-            instr = INSTR_CREATE_##OPCODE(                          \
+            instr = INSTR_CREATE_##opcode(                          \
                 dc,                                                 \
                 opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, \
                                       reg_get_size(DR_REG_VR0)),    \
                 opnd_create_reg(DR_REG_VR0));                       \
         }                                                           \
-        test_instr_encoding(dc, OP_##OPCODE, instr);                \
+        test_instr_encoding(dc, OP_##opcode, instr);                \
     } while (0);
 
-#define TEST_MEM_UNIT_STRIDE(OPCODE, MEM_type)                                    \
+#define TEST_MEM_UNIT_STRIDE(opcode, mem_type)                                    \
     do {                                                                          \
-        if (MEM_type == ISLOAD) {                                                 \
-            instr = INSTR_CREATE_##OPCODE(                                        \
+        if (mem_type == ISLOAD) {                                                 \
+            instr = INSTR_CREATE_##opcode(                                        \
                 dc, opnd_create_reg(DR_REG_VR0),                                  \
                 opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0,               \
                                       reg_get_size(DR_REG_VR0)),                  \
                 opnd_create_immed_int(0b1, OPSZ_1b),                              \
                 opnd_create_immed_int(0b000, OPSZ_3b));                           \
         } else {                                                                  \
-            instr = INSTR_CREATE_##OPCODE(                                        \
+            instr = INSTR_CREATE_##opcode(                                        \
                 dc,                                                               \
                 opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0,               \
                                       reg_get_size(DR_REG_VR0)),                  \
                 opnd_create_reg(DR_REG_VR0), opnd_create_immed_int(0b1, OPSZ_1b), \
                 opnd_create_immed_int(0b000, OPSZ_3b));                           \
         }                                                                         \
-        test_instr_encoding(dc, OP_##OPCODE, instr);                              \
+        test_instr_encoding(dc, OP_##opcode, instr);                              \
     } while (0);
 
-#define TEST_MEM_INDEX(OPCODE, MEM_type)                                          \
+#define TEST_MEM_INDEX(opcode, mem_type)                                          \
     do {                                                                          \
-        if (MEM_type == ISLOAD) {                                                 \
-            instr = INSTR_CREATE_##OPCODE(                                        \
+        if (mem_type == ISLOAD) {                                                 \
+            instr = INSTR_CREATE_##opcode(                                        \
                 dc, opnd_create_reg(DR_REG_VR0),                                  \
                 opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0,               \
                                       reg_get_size(DR_REG_VR0)),                  \
                 opnd_create_reg(DR_REG_VR1), opnd_create_immed_int(0b1, OPSZ_1b), \
                 opnd_create_immed_int(0b000, OPSZ_3b));                           \
         } else {                                                                  \
-            instr = INSTR_CREATE_##OPCODE(                                        \
+            instr = INSTR_CREATE_##opcode(                                        \
                 dc,                                                               \
                 opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0,               \
                                       reg_get_size(DR_REG_VR0)),                  \
@@ -122,20 +122,20 @@ static byte buf[8192];
                 opnd_create_immed_int(0b1, OPSZ_1b),                              \
                 opnd_create_immed_int(0b000, OPSZ_3b));                           \
         }                                                                         \
-        test_instr_encoding(dc, OP_##OPCODE, instr);                              \
+        test_instr_encoding(dc, OP_##opcode, instr);                              \
     } while (0);
 
-#define TEST_MEM_STRIDE(OPCODE, MEM_type)                                        \
+#define TEST_MEM_STRIDE(opcode, mem_type)                                        \
     do {                                                                         \
-        if (MEM_type == ISLOAD) {                                                \
-            instr = INSTR_CREATE_##OPCODE(                                       \
+        if (mem_type == ISLOAD) {                                                \
+            instr = INSTR_CREATE_##opcode(                                       \
                 dc, opnd_create_reg(DR_REG_VR0),                                 \
                 opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0,              \
                                       reg_get_size(DR_REG_VR0)),                 \
                 opnd_create_reg(DR_REG_A2), opnd_create_immed_int(0b1, OPSZ_1b), \
                 opnd_create_immed_int(0b000, OPSZ_3b));                          \
         } else {                                                                 \
-            instr = INSTR_CREATE_##OPCODE(                                       \
+            instr = INSTR_CREATE_##opcode(                                       \
                 dc,                                                              \
                 opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0,              \
                                       reg_get_size(DR_REG_VR0)),                 \
@@ -143,71 +143,71 @@ static byte buf[8192];
                 opnd_create_immed_int(0b1, OPSZ_1b),                             \
                 opnd_create_immed_int(0b000, OPSZ_3b));                          \
         }                                                                        \
-        test_instr_encoding(dc, OP_##OPCODE, instr);                             \
+        test_instr_encoding(dc, OP_##opcode, instr);                             \
     } while (0);
 
-#define TEST_Vd_Rs1_Vs2_vm(OPCODE)                                         \
-    instr = INSTR_CREATE_##OPCODE(                                         \
+#define TEST_Vd_Rs1_Vs2_vm(opcode)                                         \
+    instr = INSTR_CREATE_##opcode(                                         \
         dc, opnd_create_reg(DR_REG_VR0), opnd_create_reg(DR_REG_A1),       \
         opnd_create_reg(DR_REG_VR2), opnd_create_immed_int(0b1, OPSZ_1b)); \
-    test_instr_encoding(dc, OP_##OPCODE, instr);
+    test_instr_encoding(dc, OP_##opcode, instr);
 
-#define TEST_Vd_Rs1_Vs2(OPCODE)                                                         \
+#define TEST_Vd_Rs1_Vs2(opcode)                                                         \
     instr =                                                                             \
-        INSTR_CREATE_##OPCODE(dc, opnd_create_reg(DR_REG_VR0),                          \
+        INSTR_CREATE_##opcode(dc, opnd_create_reg(DR_REG_VR0),                          \
                               opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_VR2)); \
-    test_instr_encoding(dc, OP_##OPCODE, instr);
+    test_instr_encoding(dc, OP_##opcode, instr);
 
-#define TEST_Vd_Rs1(OPCODE)                                        \
-    instr = INSTR_CREATE_##OPCODE(dc, opnd_create_reg(DR_REG_VR0), \
+#define TEST_Vd_Rs1(opcode)                                        \
+    instr = INSTR_CREATE_##opcode(dc, opnd_create_reg(DR_REG_VR0), \
                                   opnd_create_reg(DR_REG_A1));     \
-    test_instr_encoding(dc, OP_##OPCODE, instr);
+    test_instr_encoding(dc, OP_##opcode, instr);
 
-#define TEST_Vd_Vs1_Vs2_vm(OPCODE)                                         \
-    instr = INSTR_CREATE_##OPCODE(                                         \
+#define TEST_Vd_Vs1_Vs2_vm(opcode)                                         \
+    instr = INSTR_CREATE_##opcode(                                         \
         dc, opnd_create_reg(DR_REG_VR0), opnd_create_reg(DR_REG_VR1),      \
         opnd_create_reg(DR_REG_VR2), opnd_create_immed_int(0b1, OPSZ_1b)); \
-    test_instr_encoding(dc, OP_##OPCODE, instr);
+    test_instr_encoding(dc, OP_##opcode, instr);
 
-#define TEST_Vd_Vs1_Vs2(OPCODE)                                                          \
+#define TEST_Vd_Vs1_Vs2(opcode)                                                          \
     instr =                                                                              \
-        INSTR_CREATE_##OPCODE(dc, opnd_create_reg(DR_REG_VR0),                           \
+        INSTR_CREATE_##opcode(dc, opnd_create_reg(DR_REG_VR0),                           \
                               opnd_create_reg(DR_REG_VR1), opnd_create_reg(DR_REG_VR2)); \
-    test_instr_encoding(dc, OP_##OPCODE, instr);
+    test_instr_encoding(dc, OP_##opcode, instr);
 
-#define TEST_Vd_IMM_Vs2_vm(OPCODE)                                                \
-    instr = INSTR_CREATE_##OPCODE(                                                \
+#define TEST_Vd_IMM_Vs2_vm(opcode)                                                \
+    instr = INSTR_CREATE_##opcode(                                                \
         dc, opnd_create_reg(DR_REG_VR0), opnd_create_immed_int(0b10100, OPSZ_5b), \
         opnd_create_reg(DR_REG_VR1), opnd_create_immed_int(0b1, OPSZ_1b));        \
-    test_instr_encoding(dc, OP_##OPCODE, instr);
+    test_instr_encoding(dc, OP_##opcode, instr);
 
-#define TEST_Vd_IMM_Vs2(OPCODE)                                            \
-    instr = INSTR_CREATE_##OPCODE(dc, opnd_create_reg(DR_REG_VR0),         \
+#define TEST_Vd_IMM_Vs2(opcode)                                            \
+    instr = INSTR_CREATE_##opcode(dc, opnd_create_reg(DR_REG_VR0),         \
                                   opnd_create_immed_int(0b10100, OPSZ_5b), \
                                   opnd_create_reg(DR_REG_VR1));            \
-    test_instr_encoding(dc, OP_##OPCODE, instr);
+    test_instr_encoding(dc, OP_##opcode, instr);
 
-#define TEST_Vd_Vs1_vm(OPCODE)                                          \
-    instr = INSTR_CREATE_##OPCODE(dc, opnd_create_reg(DR_REG_VR0),      \
+#define TEST_Vd_Vs1_vm(opcode)                                          \
+    instr = INSTR_CREATE_##opcode(dc, opnd_create_reg(DR_REG_VR0),      \
                                   opnd_create_reg(DR_REG_VR1),          \
                                   opnd_create_immed_int(0b1, OPSZ_1b)); \
-    test_instr_encoding(dc, OP_##OPCODE, instr);
+    test_instr_encoding(dc, OP_##opcode, instr);
 
-#define TEST_Vd_Vs1(OPCODE)                                        \
-    instr = INSTR_CREATE_##OPCODE(dc, opnd_create_reg(DR_REG_VR0), \
+#define TEST_Vd_Vs1(opcode)                                        \
+    instr = INSTR_CREATE_##opcode(dc, opnd_create_reg(DR_REG_VR0), \
                                   opnd_create_reg(DR_REG_VR1));    \
-    test_instr_encoding(dc, OP_##OPCODE, instr);
+    test_instr_encoding(dc, OP_##opcode, instr);
 
-#define TEST_Rd_Vs1(OPCODE)                                       \
-    instr = INSTR_CREATE_##OPCODE(dc, opnd_create_reg(DR_REG_A1), \
+#define TEST_Rd_Vs1(opcode)                                       \
+    instr = INSTR_CREATE_##opcode(dc, opnd_create_reg(DR_REG_A1), \
                                   opnd_create_reg(DR_REG_VR0));   \
-    test_instr_encoding(dc, OP_##OPCODE, instr);
+    test_instr_encoding(dc, OP_##opcode, instr);
 
-#define TEST_Rd_Vs1_vm(OPCODE)                                          \
-    instr = INSTR_CREATE_##OPCODE(dc, opnd_create_reg(DR_REG_A1),       \
+#define TEST_Rd_Vs1_vm(opcode)                                          \
+    instr = INSTR_CREATE_##opcode(dc, opnd_create_reg(DR_REG_A1),       \
                                   opnd_create_reg(DR_REG_VR0),          \
                                   opnd_create_immed_int(0b1, OPSZ_1b)); \
-    test_instr_encoding(dc, OP_##OPCODE, instr);
+    test_instr_encoding(dc, OP_##opcode, instr);
 
 instr_t *instr;
 
