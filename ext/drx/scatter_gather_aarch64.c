@@ -298,6 +298,8 @@ get_scatter_gather_info(instr_t *instr, DR_PARAM_OUT scatter_gather_info_t *sg_i
     default: DR_ASSERT_MSG(false, "Invalid scatter/gather instruction");
     }
 
+    DR_ASSERT(sg_info->scatter_gather_size != OPSZ_NA);
+
     DR_ASSERT(sg_info->mask_reg >= DR_REG_P0 && sg_info->mask_reg <= DR_REG_P15);
 }
 
