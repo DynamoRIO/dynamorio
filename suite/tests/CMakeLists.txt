@@ -4725,14 +4725,14 @@ if (BUILD_CLIENTS)
           "${drcachesim_path}@-simulator_type@record_filter@-filter_encodings2regdeps@-indir@${testname}.s*.dir/trace@-core_sharded@-cores@4@-outdir@${testname}.filtered.dir"
           # We run the opcode_mix analyzer to test econdings2regdeps filtered traces.
           "opcode_mix")
+    endif ()
 
-      # Run the invariant_checker on a regdeps filtered trace.
+    if (X86 AND NOT APPLE AND UNIX)
+        # Run the invariant_checker on a regdeps filtered trace.
         set(testname "tool.invariant_checker_on_regdeps_trace")
-        torun_record_filter("${testname}" ${ci_shared_app}
+        torun_record_filter("${testname}" ${kernel_xfer_app}
           "invariant_checker_on_regdeps_trace"
-          # We assume the app name starts with "s" here to avoid colliding with
-          # our output dir, while still letting the single precmd remove both.
-          "${drcachesim_path}@-simulator_type@record_filter@-filter_encodings2regdeps@-indir@${testname}.s*.dir/trace@-outdir@${testname}.filtered.dir@-filter_marker_types@19,25,27,28,30@-filter_keep_func_ids@4294967498"
+          "${drcachesim_path}@-simulator_type@record_filter@-filter_encodings2regdeps@-indir@${testname}.${kernel_xfer_app}.*.dir/trace@-outdir@${testname}.filtered.dir@-filter_marker_types@19,25,27,28,30@-filter_keep_func_ids@4294967498"
           # We run the invariant_checker analyzer on a regdeps filtered trace.
           # We expect no invariant errors.
           "invariant_checker")
