@@ -2000,6 +2000,7 @@ opnd_size_in_bytes(opnd_size_t size)
     case OPSZ_120: return 120;
     case OPSZ_124: return 124;
     case OPSZ_128: return 128;
+    case OPSZ_192: return 192;
     case OPSZ_256: return 256;
     case OPSZ_512: return 512;
     case OPSZ_VAR_REGLIST: return 0; /* varies to match reglist operand */
@@ -2077,6 +2078,7 @@ opnd_size_from_bytes(uint bytes)
     case 120: return OPSZ_120;
     case 124: return OPSZ_124;
     case 128: return OPSZ_128;
+    case 192: return OPSZ_192;
     case 256: return OPSZ_256;
     case 512: return OPSZ_512;
     default: return OPSZ_NA;
