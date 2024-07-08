@@ -813,7 +813,7 @@ instr_compute_vector_address(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
      * If DynamoRIO is extended in the future to support large vector lengths this
      * function will need to be updated to cope with larger predicate mask values.
      */
-    ASSERT(vl_bytes / 8 < sizeof(uint64));
+    ASSERT(vl_bytes / 8 <= sizeof(uint64));
 
     const reg_t governing_pred = opnd_get_reg(instr_get_src(instr, 1));
     ASSERT(governing_pred >= DR_REG_START_P && governing_pred <= DR_REG_STOP_P);

@@ -2047,6 +2047,10 @@ if (NOT ANDROID)
     tobuild_api(api.ir_sve api/ir_aarch64_sve.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_sve2 api/ir_aarch64_sve2.c "" "" OFF OFF OFF)
   endif (AARCH64)
+
+  if (RISCV64)
+    tobuild_api(api.ir_rvv api/ir_rvv.c  "" "" ON OFF OFF)
+  endif(RISCV64)
 endif ()
 
 # test synthetic DR_ISA_REGDEPS encoding, decoding, and disassembly
@@ -2704,12 +2708,12 @@ if (X86 OR AARCH64) # FIXME i#1551: port asm to ARM
     tobuild_ci(client.flush client-interface/flush.c "" "" "")
   endif ()
 endif (X86 OR AARCH64)
-if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
-  tobuild_ci(client.thread client-interface/thread.c "-paramx -paramy" "" "")
-  tobuild_appdll(client.thread client-interface/thread.c)
+if (X86 OR AARCH64) # FIXME i#1551: port asm to ARM
   tobuild_ci(client.strace client-interface/strace.c "" "" "")
   use_DynamoRIO_extension(client.strace.dll drmgr)
-endif (X86)
+  tobuild_ci(client.thread client-interface/thread.c "-paramx -paramy" "" "")
+  tobuild_appdll(client.thread client-interface/thread.c)
+endif (X86 OR AARCH64)
 # FIXME: PR 199115 to re-enable fragdel, get some more of the UNIX tests working
 #tobuild_ci(client.fragdel client-interface/fragdel.c "" "" "")
 if (PROGRAM_SHEPHERDING)
@@ -3466,10 +3470,10 @@ if (X86)
   endif ()
 endif ()
 
-if (X86) # FIXME i#1551, i#1569: fix bugs on ARM and AArch64
+if (X86 OR AARCH64) # FIXME i#1551: fix bugs on ARM
   tobuild_ci(client.nudge_ex client-interface/nudge_ex.c "" "" "")
   use_DynamoRIO_extension(client.nudge_ex.dll drmgr)
-endif (X86)
+endif (X86 OR AARCH64)
 
 tobuild_ci(client.app_args client-interface/app_args.c "" "" "Test;Test2;Test3")
 
@@ -6246,6 +6250,7 @@ if (RISCV64)
     code_api|api.ir
     code_api|api.ir-static
     code_api|api.ir_regdeps
+    code_api|api.ir_rvv
     code_api|client.app_args
     code_api|client.blackbox
     code_api|client.crashmsg
