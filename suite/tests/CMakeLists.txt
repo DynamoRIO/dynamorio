@@ -3470,10 +3470,10 @@ if (X86)
   endif ()
 endif ()
 
-if (X86) # FIXME i#1551, i#1569: fix bugs on ARM and AArch64
+if (X86 OR AARCH64) # FIXME i#1551: fix bugs on ARM
   tobuild_ci(client.nudge_ex client-interface/nudge_ex.c "" "" "")
   use_DynamoRIO_extension(client.nudge_ex.dll drmgr)
-endif (X86)
+endif (X86 OR AARCH64)
 
 tobuild_ci(client.app_args client-interface/app_args.c "" "" "Test;Test2;Test3")
 
