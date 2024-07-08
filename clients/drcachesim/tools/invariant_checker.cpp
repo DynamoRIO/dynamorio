@@ -159,9 +159,6 @@ invariant_checker_t::parallel_shard_init_stream(int shard_index, void *worker_da
         dr_isa_mode_t isa_mode = dr_get_isa_mode(drcontext_);
         if (isa_mode != DR_ISA_REGDEPS) {
             dr_set_isa_mode(drcontext_, DR_ISA_REGDEPS, nullptr);
-            std::cerr << "WARNING: invariant_checker is being run on an "
-                         "OFFLINE_FILE_TYPE_ARCH_REGDEPS trace.\nSome invariant checks "
-                         "have been disabled.\n";
         }
     }
     return res;
@@ -1425,6 +1422,14 @@ invariant_checker_t::print_results()
         // we do not fail or return an error exit code on
         // -no_abort_on_invariant_error even if some invariant errors were found.
         std::cerr << "Found " << total_error_count << " invariant errors\n";
+    }
+    if (!shard_map_.empty()) {
+        uint64_t filetype = shard_map_.begin()->second->file_type_;
+        if (TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, filetype)) {
+            std::cerr << "WARNING: invariant_checker is being run on an "
+                         "OFFLINE_FILE_TYPE_ARCH_REGDEPS trace.\nSome invariant checks "
+                         "have been disabled.\n";
+        }
     }
     return true;
 }
