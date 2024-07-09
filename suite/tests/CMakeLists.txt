@@ -4731,7 +4731,7 @@ if (BUILD_CLIENTS)
           "opcode_mix")
     endif ()
 
-    if (X86 AND NOT APPLE AND UNIX)
+    if (X86 AND X64 AND UNIX AND NOT APPLE)
         # Run the invariant_checker on a regdeps filtered trace.
         set(testname "tool.invariant_checker_on_regdeps_trace")
         torun_record_filter("${testname}" ${kernel_xfer_app}
