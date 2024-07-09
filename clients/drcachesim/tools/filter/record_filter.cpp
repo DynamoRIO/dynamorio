@@ -38,6 +38,7 @@
 #include <cstdio>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -95,7 +96,12 @@ parse_string(const std::string &s, char sep = ',')
     std::vector<T> vec;
     do {
         pos = s.find(sep, at);
-        vec.push_back(static_cast<T>(std::stoll(s.substr(at, pos))));
+        unsigned long long parsed_number = std::stoull(s.substr(at, pos));
+        // Check that T can hold the parsed value. Otherwise, skip it.
+        if (parsed_number >= std::numeric_limits<T>::min() &&
+            parsed_number <= std::numeric_limits<T>::max()) {
+            vec.push_back(static_cast<T>(parsed_number));
+        }
         at = pos + 1;
     } while (pos != std::string::npos);
     return vec;
