@@ -3149,9 +3149,7 @@ static instr_t *
 create_ldax_from_stex(dcontext_t *dcontext, instr_t *strex,
                       reg_id_t *dest_reg DR_PARAM_INOUT,
                       /* For a pair, we need a caller-set-up scratch reg for the 2nd. */
-                      reg_id_t dest_reg2,
-                      /* Whether to merge a pair of 4-bytes into one 8-byte. */
-                      bool merge_pair)
+                      reg_id_t dest_reg2)
 {
     /* It is challenging to know whether to use an acquire or regular load opcode
      * because we do not know what the original load opcode was, especially for
@@ -3191,16 +3189,8 @@ create_ldax_from_stex(dcontext_t *dcontext, instr_t *strex,
 #ifdef AARCH64
     case OP_stlxp:
     case OP_stxp:
-        /* We treat A64 pair-4byte as single-8byte to handle ldxr;stxp. */
-        if (merge_pair) {
-            ASSERT(opsz == OPSZ_4);
-            *dest_reg = reg_resize_to_opsz(*dest_reg, OPSZ_8);
-            return INSTR_CREATE_ldaxr(dcontext, opnd_create_reg(*dest_reg), memop);
-        } else {
-            return INSTR_CREATE_ldaxp(
-                dcontext, regop, opnd_create_reg(reg_resize_to_opsz(dest_reg2, opsz)),
-                memop);
-        }
+        return INSTR_CREATE_ldaxp(
+            dcontext, regop, opnd_create_reg(reg_resize_to_opsz(dest_reg2, opsz)), memop);
     case OP_stlxr:
     case OP_stxr: return INSTR_CREATE_ldaxr(dcontext, regop, memop);
     case OP_stlxrb:
@@ -3567,35 +3557,19 @@ mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             /* For 32-bit, pair store requires consecutive register numbers.
              * XXX: We could store the 2 values at once.
              */
-            if (IF_AARCH64_ELSE(opnd_get_size(instr_get_dst(instr, 0)) == OPSZ_PTR,
-                                false)) {
-                PRE(ilist, where,
-                    XINST_CREATE_store_pair(
-                        dcontext,
-                        opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0,
-                                              TLS_LDSTEX_VALUE2_SLOT,
-                                              IF_ARM_ELSE(OPSZ_8, OPSZ_16)),
-                        opnd_create_reg(value2_reg), opnd_create_reg(scratch)));
-            } else {
-                /* For A64, we have to treat a pair of 4-bytes as one 8-byte b/c the
-                 * strex could be a singleton.
-                 */
-                if (IF_AARCH64_ELSE(opnd_get_size(instr_get_dst(instr, 0)) == OPSZ_4,
-                                    false)) {
-                    PRE(ilist, where,
-                        XINST_CREATE_store(
-                            dcontext,
-                            opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0,
-                                                  TLS_LDSTEX_VALUE_SLOT + 4, OPSZ_4),
-                            instr_get_dst(instr, 1)));
-                } else {
-                    PRE(ilist, where,
-                        instr_create_save_to_tls(dcontext, value2_reg,
-                                                 TLS_LDSTEX_VALUE_SLOT));
-                }
-                PRE(ilist, where,
-                    instr_create_save_to_tls(dcontext, scratch, TLS_LDSTEX_SIZE_SLOT));
-            }
+#if defined(AARCH64)
+            PRE(ilist, where,
+                XINST_CREATE_store_pair(
+                    dcontext,
+                    opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0,
+                                          TLS_LDSTEX_VALUE2_SLOT, OPSZ_16),
+                    opnd_create_reg(value2_reg), opnd_create_reg(scratch)));
+#else
+            PRE(ilist, where,
+                instr_create_save_to_tls(dcontext, value2_reg, TLS_LDSTEX_VALUE2_SLOT));
+            PRE(ilist, where,
+                instr_create_save_to_tls(dcontext, scratch, TLS_LDSTEX_SIZE_SLOT));
+#endif
         } else {
             PRE(ilist, where,
                 instr_create_save_to_tls(dcontext, scratch, TLS_LDSTEX_SIZE_SLOT));
@@ -3702,10 +3676,6 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     ASSERT(opnd_is_base_disp(instr_get_dst(instr, 0)) &&
            opnd_get_index(instr_get_dst(instr, 0)) == DR_REG_NULL &&
            opnd_get_disp(instr_get_dst(instr, 0)) == 0);
-    /* We treat non-same-block A64 pair-4byte as single-8byte to handle ldxr;stxp. */
-    if (is_pair && !ldex_in_same_block &&
-        opnd_get_size(instr_get_src(instr, 1)) == OPSZ_4)
-        is_pair = false;
     reg_t reg_base = opnd_get_base(instr_get_dst(instr, 0));
     instr_t *no_match = INSTR_CREATE_label(dcontext);
 
@@ -3833,8 +3803,7 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         }
     }
     PRE(ilist, instr,
-        create_ldax_from_stex(dcontext, instr, &reg_new_ld_val, reg_new_ld_val2,
-                              !is_pair));
+        create_ldax_from_stex(dcontext, instr, &reg_new_ld_val, reg_new_ld_val2));
     reg_new_ld_val = reg_to_pointer_sized(reg_new_ld_val);
     /* Skip the value comparison if the load discarded via XZR.
      * This is not an optimization, but required to avoid an infinite loop (i#5245).

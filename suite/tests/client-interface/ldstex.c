@@ -459,44 +459,28 @@ GLOBAL_LABEL(FUNCNAME:)
         add      w2, w2, #0x1
         stxp     w3, w1, w2, [x0]
         cbnz     w3, 2b
-        /* Test pair4-single8. */
-      3:
-        ldxp     w1, w2, [x0]
-        add      w1, w1, #0x1
-        add      w2, w2, #0x1
-        orr      x1, x1, x2, lsl #32
-        stxr     w3, x1, [x0]
-        cbnz     w3, 3b
-        /* Test single8-pair4. */
-      4:
-        ldxr     x1, [x0]
-        lsr      x2, x1, #32
-        add      w1, w1, #0x1
-        add      w2, w2, #0x1
-        stxp     w3, w1, w2, [x0]
-        cbnz     w3, 4b
         /* Test store-res == load-dest (i#5247). */
-      5:
+      3:
         ldaxp    w1, w2, [x0]
         add      w4, w1, #0x1
         add      w5, w2, #0x1
         stlxp    w1, w4, w5, [x0]
-        cbnz     w1, 5b
-      6:
+        cbnz     w1, 3b
+      4:
         ldaxp    w2, w1, [x0] /* Test the other order too. */
         add      w4, w2, #0x1
         add      w5, w1, #0x1
         stlxp    w1, w4, w5, [x0]
-        cbnz     w1, 6b
-      7:
+        cbnz     w1, 4b
+      5:
         stp      x28, x29, [sp, #-16]!
         ldaxp    w2, w28, [x0] /* Test stolen reg. */
         add      w4, w2, #0x1
         add      w5, w28, #0x1
         stlxp    w28, w4, w5, [x0]
-        cbnz     w28, 7b
+        cbnz     w28, 5b
         ldp      x28, x29, [sp], #16
-        mov      w0, #7
+        mov      w0, #5
         ret
 #elif defined(ARM)
       1:
