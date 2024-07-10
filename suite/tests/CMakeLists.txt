@@ -4744,6 +4744,25 @@ if (BUILD_CLIENTS)
           "basic_counts")
     endif ()
 
+    if (X86 AND X64 AND UNIX AND NOT APPLE)
+        # Run the invariant_checker on an OFFLINE_FILE_TYPE_ARCH_REGDEPS trace.
+        set(testname "tool.invariant_checker_on_regdeps_trace")
+        torun_record_filter("${testname}" ${kernel_xfer_app}
+          "invariant_checker_on_regdeps_trace"
+          # Generate an OFFLINE_FILE_TYPE_ARCH_REGDEPS trace by running record_filter
+          # with -filter_encodings2regdeps to change instruction encodings,
+          # -filter_keep_func_ids 4294967498 (which is SYS_futex, associated to the only
+          # TRACE_MARKER_TYPE_FUNC_ markers we want to keep), and
+          # -filter_marker_types 19,25,27,28,30 (which correspond to
+          # TRACE_MARKER_TYPE_SYSCALL_IDX, TRACE_MARKER_TYPE_SYSCALL,
+          # TRACE_MARKER_TYPE_SYSCALL_TRACE_START, TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
+          # TRACE_MARKER_TYPE_SYSCALL_FAILED).
+          "${drcachesim_path}@-simulator_type@record_filter@-filter_encodings2regdeps@-indir@${testname}.${kernel_xfer_app}.*.dir/trace@-outdir@${testname}.filtered.dir@-filter_marker_types@19,25,27,28,30@-filter_keep_func_ids@4294967498"
+          # We run the invariant_checker analyzer on the REGDEPS filtered trace.
+          # We expect no invariant errors.
+          "invariant_checker")
+    endif ()
+
     if (UNIX) # Windows multi-thread tests are too slow.
       set(testname "tool.record_filter_bycore_multi")
       torun_record_filter("${testname}" pthreads.ptsig

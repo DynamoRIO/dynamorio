@@ -149,9 +149,18 @@ invariant_checker_t::parallel_shard_init_stream(int shard_index, void *worker_da
     auto per_shard = std::unique_ptr<per_shard_t>(new per_shard_t);
     per_shard->stream = shard_stream;
     void *res = reinterpret_cast<void *>(per_shard.get());
-    std::lock_guard<std::mutex> guard(shard_map_mutex_);
+    std::lock_guard<std::mutex> guard(init_mutex_);
     per_shard->tid_ = shard_stream->get_tid();
     shard_map_[shard_index] = std::move(per_shard);
+    // If we are dealing with an OFFLINE_FILE_TYPE_ARCH_REGDEPS trace, we need to set the
+    // dcontext ISA mode to the correct synthetic ISA (i.e., DR_ISA_REGDEPS).
+    uint64_t filetype = shard_stream->get_filetype();
+    if (TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, filetype)) {
+        dr_isa_mode_t isa_mode = dr_get_isa_mode(drcontext_);
+        if (isa_mode != DR_ISA_REGDEPS) {
+            dr_set_isa_mode(drcontext_, DR_ISA_REGDEPS, nullptr);
+        }
+    }
     return res;
 }
 
@@ -174,7 +183,13 @@ invariant_checker_t::parallel_shard_exit(void *shard_data)
                         // that out we disable this error for Windows online.
                         IF_WINDOWS(|| !knob_offline_),
                     "Thread is missing exit");
-    if (!TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_DFILTERED,
+    if (!TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_DFILTERED |
+                     // In OFFLINE_FILE_TYPE_ARCH_REGDEPS we can have leftover
+                     // shard->expected_[read | write]_records_ as we don't decrease this
+                     // counter when we encounter a TRACE_TYPE_[READ | WRITE]. We cannot
+                     // decrease the counter because the precise number of reads and
+                     // writes a DR_ISA_REGDEPS instruction performs cannot be determined.
+                     OFFLINE_FILE_TYPE_ARCH_REGDEPS,
                  shard->file_type_)) {
         report_if_false(shard, shard->expected_read_records_ == 0,
                         "Missing read records");
@@ -497,11 +512,15 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // Re-assign the saved value to the shard state to allow this intervening
         // maybe_blocking marker.
         shard->prev_was_syscall_marker_ = prev_was_syscall_marker_saved;
-        report_if_false(shard,
-                        shard->prev_entry_.marker.type == TRACE_TYPE_MARKER &&
-                            shard->prev_entry_.marker.marker_type ==
-                                TRACE_MARKER_TYPE_SYSCALL,
-                        "Maybe-blocking marker not preceded by syscall marker");
+        report_if_false(
+            shard,
+            (shard->prev_entry_.marker.type == TRACE_TYPE_MARKER &&
+             shard->prev_entry_.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL) ||
+                // In OFFLINE_FILE_TYPE_ARCH_REGDEPS traces we remove
+                // TRACE_MARKER_TYPE_SYSCALL markers, hence we disable this check for
+                // these traces.
+                TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, shard->file_type_),
+            "Maybe-blocking marker not preceded by syscall marker");
     }
 
     // Invariant: each chunk's instruction count must be identical and equal to
@@ -771,11 +790,30 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         instr_writes_memory(noalloc_instr);
                     cur_instr_info.decoding.is_predicated =
                         instr_is_predicated(noalloc_instr);
-                    cur_instr_info.decoding.num_memory_read_access =
-                        instr_num_memory_read_access(noalloc_instr);
-                    cur_instr_info.decoding.num_memory_write_access =
-                        instr_num_memory_write_access(noalloc_instr);
-                    if (type_is_instr_branch(memref.instr.type)) {
+                    // DR_ISA_REGDEPS instructions don't have an opcode, hence we use
+                    // their category to determine whether they perform at least one read
+                    // or write.
+                    if (instr_get_isa_mode(noalloc_instr) == DR_ISA_REGDEPS) {
+                        cur_instr_info.decoding.num_memory_read_access =
+                            TESTANY(DR_INSTR_CATEGORY_LOAD,
+                                    instr_get_category(noalloc_instr))
+                            ? 1
+                            : 0;
+                        cur_instr_info.decoding.num_memory_write_access =
+                            TESTANY(DR_INSTR_CATEGORY_STORE,
+                                    instr_get_category(noalloc_instr))
+                            ? 1
+                            : 0;
+                    } else {
+                        cur_instr_info.decoding.num_memory_read_access =
+                            instr_num_memory_read_access(noalloc_instr);
+                        cur_instr_info.decoding.num_memory_write_access =
+                            instr_num_memory_write_access(noalloc_instr);
+                    }
+                    if (type_is_instr_branch(memref.instr.type) &&
+                        // DR_ISA_REGDEPS instructions don't have a branch target saved as
+                        // instr.src[0], so we cannot retrieve this information.
+                        !TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, shard->file_type_)) {
                         const opnd_t target = instr_get_target(noalloc_instr);
                         if (opnd_is_pc(target)) {
                             cur_instr_info.decoding.branch_target =
@@ -801,17 +839,28 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 // Verify the number of read/write records matches the last
                 // operand. Skip D-filtered traces which don't have every load or
                 // store records.
-                report_if_false(shard,
-                                shard->expected_read_records_ == 0 ||
-                                    // Some prefetches did not have any corresponding
-                                    // memory access in system call trace templates
-                                    // collected on QEMU.
-                                    (shard->between_kernel_syscall_trace_markers_ &&
-                                     shard->prev_instr_.decoding.is_prefetch),
-                                "Missing read records");
+                report_if_false(
+                    shard,
+                    (shard->expected_read_records_ == 0 ||
+                     // Some prefetches did not have any corresponding
+                     // memory access in system call trace templates
+                     // collected on QEMU.
+                     (shard->between_kernel_syscall_trace_markers_ &&
+                      shard->prev_instr_.decoding.is_prefetch)) ||
+                        // We cannot check for is_predicated in
+                        // OFFLINE_FILE_TYPE_ARCH_REGDEPS traces (it's always false), so
+                        // we disable this check.
+                        TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, shard->file_type_),
+                    "Missing read records");
                 shard->expected_read_records_ = 0;
-                report_if_false(shard, shard->expected_write_records_ == 0,
-                                "Missing write records");
+                report_if_false(
+                    shard,
+                    shard->expected_write_records_ == 0 ||
+                        // We cannot check for is_predicated in
+                        // OFFLINE_FILE_TYPE_ARCH_REGDEPS traces (it's always false), so
+                        // we disable this check.
+                        TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, shard->file_type_),
+                    "Missing write records");
 
                 if (!(shard->between_kernel_syscall_trace_markers_ &&
                       TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY,
@@ -1150,7 +1199,16 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                     shard->expected_read_records_ >
                         0 IF_X86(|| relax_expected_read_count_check_for_kernel(shard)),
                     "Too many read records");
-                if (shard->expected_read_records_ > 0) {
+                if (shard->expected_read_records_ > 0 &&
+                    // We cannot decrease the shard->expected_read_records_ counter in
+                    // OFFLINE_FILE_TYPE_ARCH_REGDEPS traces because we cannot determine
+                    // the exact number of loads a DR_ISA_REGDEPS instruction performs.
+                    // If a DR_ISA_REGDEPS instruction has a DR_INSTR_CATEGORY_LOAD among
+                    // its categories, we simply set
+                    // cur_instr_info.decoding.num_memory_read_access to 1. We rely on the
+                    // next instruction to re-set shard->expected_read_records_
+                    // accordingly.
+                    !TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, shard->file_type_)) {
                     shard->expected_read_records_--;
                 }
             } else {
@@ -1160,7 +1218,16 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                     shard->expected_write_records_ >
                         0 IF_X86(|| relax_expected_write_count_check_for_kernel(shard)),
                     "Too many write records");
-                if (shard->expected_write_records_ > 0) {
+                if (shard->expected_write_records_ > 0 &&
+                    // We cannot decrease the shard->expected_write_records_ counter in
+                    // OFFLINE_FILE_TYPE_ARCH_REGDEPS traces because we cannot determine
+                    // the exact number of stores a DR_ISA_REGDEPS instruction performs.
+                    // If a DR_ISA_REGDEPS instruction has a DR_INSTR_CATEGORY_STORE among
+                    // its categories, we simply set
+                    // cur_instr_info.decoding.num_memory_write_access to 1. We rely on
+                    // the next instruction to re-set shard->expected_write_records_
+                    // accordingly.
+                    !TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, shard->file_type_)) {
                     shard->expected_write_records_--;
                 }
             }
@@ -1356,6 +1423,14 @@ invariant_checker_t::print_results()
         // -no_abort_on_invariant_error even if some invariant errors were found.
         std::cerr << "Found " << total_error_count << " invariant errors\n";
     }
+    if (!shard_map_.empty()) {
+        uint64_t filetype = shard_map_.begin()->second->file_type_;
+        if (TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, filetype)) {
+            std::cerr << "WARNING: invariant_checker is being run on an "
+                         "OFFLINE_FILE_TYPE_ARCH_REGDEPS trace.\nSome invariant checks "
+                         "have been disabled.\n";
+        }
+    }
     return true;
 }
 
@@ -1471,7 +1546,12 @@ invariant_checker_t::check_for_pc_discontinuity(
                     have_branch_target = true;
                 }
             }
-            if (have_branch_target && branch_target != cur_pc) {
+            if (have_branch_target && branch_target != cur_pc &&
+                // We cannot determine the branch target in OFFLINE_FILE_TYPE_ARCH_REGDEPS
+                // traces because next_pc != cur_pc + instr.size and
+                // indirect_branch_target is not saved in inst.src[0].
+                // So, we skip this invariant error.
+                !TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, shard->file_type_)) {
                 error_msg = "Branch does not go to the correct target";
             }
         } else if (cur_memref_info.decoding.has_valid_decoding &&
