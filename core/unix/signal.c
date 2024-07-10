@@ -928,13 +928,20 @@ get_clone_record(reg_t xsp)
     /* xsp should be in a dstack, i.e., dynamorio heap.  */
     ASSERT(is_dynamo_address((app_pc)xsp));
 
-    /* The (size of the clone record +
+
+    /* The stack usage when this is called on most platforms is less than one page so we
+     * can straightforwardly find the clone record by forward aligning xsp.
+     *
+     * However when this function is called by new_thread_setup() on AArch64 the stack
+     * usage is > 4K:
+     *     (size of the clone record +
      *      stack used by new_thread_start (only for setting up priv_mcontext_t) +
      *      stack used by new_thread_setup before calling get_clone_record())
-     * is less than a page for X86 and 2 4K pages for AArch64. This is verified by
-     * the assert below. If it does exceed 1 page for X86 and 2 for AArch64, it
-     * won't happen at random during runtime, but in a predictable way during
-     * development, which will be caught by the assert.
+     * so if we have 4k pages we need to account for the extra page we are using by
+     * adding PAGE_SIZE to dstack_base.
+     *
+     * When this function is called by client_thread_run() there is no priv_mcontext_t on
+     * the stack so we don't have to make this adjustment.
      *
      * The current usage is about 800 bytes (X86) or 4400 bytes (AArch64) for
      * clone_record + sizeof(priv_mcontext_t) + few words in new_thread_setup
@@ -942,14 +949,23 @@ get_clone_record(reg_t xsp)
      */
     const size_t page_size = PAGE_SIZE;
     dstack_base = (byte *)ALIGN_FORWARD(xsp, page_size);
-#ifdef AARCH64
-    if (sizeof(clone_record_t) + sizeof(priv_mcontext_t) > page_size)
-        dstack_base += page_size;
-#endif
 
     record = (clone_record_t *)(dstack_base - sizeof(clone_record_t));
+#ifdef AARCH64
+    if (sizeof(clone_record_t) + sizeof(priv_mcontext_t) > page_size &&
+        dstack_base != record->dstack) {
+        /* Looks like there is a priv_mcontext_t on the stack so we need to skip forward
+         * another page.
+         */
+        dstack_base += page_size;
+        record = (clone_record_t *)(dstack_base - sizeof(clone_record_t));
+    }
+#endif
 
-    /* dstack_base and the dstack in the clone record should be the same. */
+    /* dstack_base and the dstack in the clone record should be the same.
+     * This verifies the assumptions we have made above about the stack useage fitting
+     * into 1 or 2 pages.
+     */
     ASSERT(dstack_base == record->dstack);
 #ifdef MACOS
     ASSERT(record->app_thread_xsp != 0); /* else it's not in dstack */
