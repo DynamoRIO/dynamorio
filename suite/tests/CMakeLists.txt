@@ -4729,6 +4729,19 @@ if (BUILD_CLIENTS)
           "${drcachesim_path}@-simulator_type@record_filter@-filter_encodings2regdeps@-indir@${testname}.s*.dir/trace@-core_sharded@-cores@4@-outdir@${testname}.filtered.dir"
           # We run the opcode_mix analyzer to test econdings2regdeps filtered traces.
           "opcode_mix")
+
+        # Run func_id_filter to remove all function related markers
+        # (i.e., TRACE_MARKER_TYPE_FUNC_). Using function ID 4294967796 = 4294967296 + 500
+        # = TRACE_FUNC_ID_SYSCALL_BASE + non_existing_syscall_number, which doesn't exist
+        # in the test program to achieve this. We use a large function ID number to also
+        # test the parsing of large function IDs from command line.
+        set(testname "tool.record_filter_keep_func_ids")
+        torun_record_filter("${testname}" ${kernel_xfer_app}
+          "record_filter_keep_func_ids"
+          "${drcachesim_path}@-simulator_type@record_filter@-filter_keep_func_ids@4294967796@-indir@${testname}.${kernel_xfer_app}.*.dir/trace@-outdir@${testname}.filtered.dir"
+          # We run basic_counts on the filtered trace to check that there are no function
+          # related markers left.
+          "basic_counts")
     endif ()
 
     if (UNIX) # Windows multi-thread tests are too slow.
