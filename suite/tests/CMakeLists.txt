@@ -2729,10 +2729,15 @@ if (NOT ARM) # FIXME i#1551: fix bugs on ARM
     torunonly_ci(client.truncate.thread-churn-2 win32.threadchurn client.truncate.dll
       client-interface/truncate.c "2" "" "")
   endif (WIN32)
-  if (NOT AARCH64) # FIXME i#1569: get working on AArch64
-    tobuild_ci(client.dr_options client-interface/dr_options.c
-      "" "-native_exec_list foo.dll,bar.dll -opt_cleancall 3 -thread_private" "")
-  endif (NOT AARCH64)
+
+  # TODO i#1884: Add support for -thread_private caches on ARM and AArch64
+  if (AARCH64)
+    set (boolean_option "-disable_traces")
+  else ()
+    set (boolean_option "-thread_private")
+  endif (AARCH64)
+  tobuild_ci(client.dr_options client-interface/dr_options.c
+    "" "-native_exec_list foo.dll,bar.dll -opt_cleancall 3 ${boolean_option}" "")
 endif (NOT ARM)
 tobuild_ci(client.unregister client-interface/unregister.c "" "" "")
 if (NOT ARM AND NOT RISCV64) # FIXME i#2094: implement cleancall optimizations on ARM
