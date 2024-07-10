@@ -928,7 +928,6 @@ get_clone_record(reg_t xsp)
     /* xsp should be in a dstack, i.e., dynamorio heap.  */
     ASSERT(is_dynamo_address((app_pc)xsp));
 
-
     /* The stack usage when this is called on most platforms is less than one page so we
      * can straightforwardly find the clone record by forward aligning xsp.
      *
