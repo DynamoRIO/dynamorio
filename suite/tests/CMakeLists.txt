@@ -2729,10 +2729,15 @@ if (NOT ARM) # FIXME i#1551: fix bugs on ARM
     torunonly_ci(client.truncate.thread-churn-2 win32.threadchurn client.truncate.dll
       client-interface/truncate.c "2" "" "")
   endif (WIN32)
-  if (NOT AARCH64) # FIXME i#1569: get working on AArch64
-    tobuild_ci(client.dr_options client-interface/dr_options.c
-      "" "-native_exec_list foo.dll,bar.dll -opt_cleancall 3 -thread_private" "")
-  endif (NOT AARCH64)
+
+  # TODO i#1884: Add support for -thread_private caches on ARM and AArch64
+  if (AARCH64)
+    set (boolean_option "-disable_traces")
+  else ()
+    set (boolean_option "-thread_private")
+  endif (AARCH64)
+  tobuild_ci(client.dr_options client-interface/dr_options.c
+    "" "-native_exec_list foo.dll,bar.dll -opt_cleancall 3 ${boolean_option}" "")
 endif (NOT ARM)
 tobuild_ci(client.unregister client-interface/unregister.c "" "" "")
 if (NOT ARM AND NOT RISCV64) # FIXME i#2094: implement cleancall optimizations on ARM
@@ -3470,10 +3475,10 @@ if (X86)
   endif ()
 endif ()
 
-if (X86) # FIXME i#1551, i#1569: fix bugs on ARM and AArch64
+if (X86 OR AARCH64) # FIXME i#1551: fix bugs on ARM
   tobuild_ci(client.nudge_ex client-interface/nudge_ex.c "" "" "")
   use_DynamoRIO_extension(client.nudge_ex.dll drmgr)
-endif (X86)
+endif (X86 OR AARCH64)
 
 tobuild_ci(client.app_args client-interface/app_args.c "" "" "Test;Test2;Test3")
 
@@ -4729,6 +4734,38 @@ if (BUILD_CLIENTS)
           "${drcachesim_path}@-simulator_type@record_filter@-filter_encodings2regdeps@-indir@${testname}.s*.dir/trace@-core_sharded@-cores@4@-outdir@${testname}.filtered.dir"
           # We run the opcode_mix analyzer to test econdings2regdeps filtered traces.
           "opcode_mix")
+
+        # Run func_id_filter to remove all function related markers
+        # (i.e., TRACE_MARKER_TYPE_FUNC_). Using function ID 4294967796 = 4294967296 + 500
+        # = TRACE_FUNC_ID_SYSCALL_BASE + non_existing_syscall_number, which doesn't exist
+        # in the test program to achieve this. We use a large function ID number to also
+        # test the parsing of large function IDs from command line.
+        set(testname "tool.record_filter_keep_func_ids")
+        torun_record_filter("${testname}" ${kernel_xfer_app}
+          "record_filter_keep_func_ids"
+          "${drcachesim_path}@-simulator_type@record_filter@-filter_keep_func_ids@4294967796@-indir@${testname}.${kernel_xfer_app}.*.dir/trace@-outdir@${testname}.filtered.dir"
+          # We run basic_counts on the filtered trace to check that there are no function
+          # related markers left.
+          "basic_counts")
+    endif ()
+
+    if (X86 AND X64 AND UNIX AND NOT APPLE)
+        # Run the invariant_checker on an OFFLINE_FILE_TYPE_ARCH_REGDEPS trace.
+        set(testname "tool.invariant_checker_on_regdeps_trace")
+        torun_record_filter("${testname}" ${kernel_xfer_app}
+          "invariant_checker_on_regdeps_trace"
+          # Generate an OFFLINE_FILE_TYPE_ARCH_REGDEPS trace by running record_filter
+          # with -filter_encodings2regdeps to change instruction encodings,
+          # -filter_keep_func_ids 4294967498 (which is SYS_futex, associated to the only
+          # TRACE_MARKER_TYPE_FUNC_ markers we want to keep), and
+          # -filter_marker_types 19,25,27,28,30 (which correspond to
+          # TRACE_MARKER_TYPE_SYSCALL_IDX, TRACE_MARKER_TYPE_SYSCALL,
+          # TRACE_MARKER_TYPE_SYSCALL_TRACE_START, TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
+          # TRACE_MARKER_TYPE_SYSCALL_FAILED).
+          "${drcachesim_path}@-simulator_type@record_filter@-filter_encodings2regdeps@-indir@${testname}.${kernel_xfer_app}.*.dir/trace@-outdir@${testname}.filtered.dir@-filter_marker_types@19,25,27,28,30@-filter_keep_func_ids@4294967498"
+          # We run the invariant_checker analyzer on the REGDEPS filtered trace.
+          # We expect no invariant errors.
+          "invariant_checker")
     endif ()
 
     if (UNIX) # Windows multi-thread tests are too slow.
