@@ -95,7 +95,17 @@ parse_string(const std::string &s, char sep = ',')
     std::vector<T> vec;
     do {
         pos = s.find(sep, at);
-        vec.push_back(static_cast<T>(std::stoi(s.substr(at, pos))));
+        unsigned long long parsed_number = std::stoull(s.substr(at, pos));
+        // XXX: parsed_number may be truncated if T is not large enough.
+        // We could check that parsed_number is within the limits of T using
+        // std::numeric_limits<>::min()/max(), but this returns 0 on T that are enums,
+        // which we have when parsing trace_marker_type_t and trace_type_t values for
+        // type_filter. In order to make numeric_limits work on enum, we need to add
+        // std::underlying_type support to these enums.
+        // We also need to consider what should happen when T is not large enough to
+        // contain parsed_number. Should we skip that value? Output a warning? Output an
+        // error and abort?
+        vec.push_back(static_cast<T>(parsed_number));
         at = pos + 1;
     } while (pos != std::string::npos);
     return vec;
