@@ -36,7 +36,8 @@
 int
 foo(int value);
 
-extern void foo_end(void);
+extern void
+foo_end(void);
 
 int
 main(void)
