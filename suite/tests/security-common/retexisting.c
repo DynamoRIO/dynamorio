@@ -103,14 +103,15 @@ START_FILE
 DECL_EXTERN(precious)
 
 /* ring() returns to this code, at which point we have exactly 16-byte
- * alignment.  However, the ABI expects there to be a retaddr on the stack and
- * the stack to be 16-byte alinged minus 8.  We use this trampoline to push a
- * fake retaddr to match the ABI.
+ * alignment. On X86 the ABI expects there to be a retaddr on the stack and
+ * the stack to be 16-byte aligned minus 8. Push a fake retaddr to match the ABI.
  */
     DECLARE_FUNC(precious_push_fake_retaddr)
 GLOBAL_LABEL(precious_push_fake_retaddr:)
-        push     0          /* Fake retaddr, will crash if it returns. */
-        jmp      GLOBAL_REF(precious)    /* no return */
+#    ifdef X86
+        push 0 /* Fake retaddr, will crash if it returns. */
+#    endif
+        JUMP GLOBAL_REF(precious)  /* no return. */
         END_FUNC(precious_push_fake_retaddr)
 
 END_FILE

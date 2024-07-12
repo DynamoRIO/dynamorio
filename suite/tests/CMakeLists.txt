@@ -5888,13 +5888,17 @@ if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   tochcon(security-common.codemod execmem_exec_t)
   mark_execstack(security-common.codemod)
 endif (NOT RISCV64)
+
+if (X86 OR AARCH64) # FIXME i#1551: port asm to ARM
+  tobuild(security-common.retexisting security-common/retexisting.c)
+endif (X86 OR AARCH64)
+
 if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   # FIXME i#1308, i#2216: fails non-deterministically on Travis
   set(decode_bad_stack_name security-common.decode-bad-stack_FLAKY)
   tobuild(${decode_bad_stack_name} security-common/decode-bad-stack.c)
   tochcon(${decode_bad_stack_name} execmem_exec_t)
   mark_execstack(${decode_bad_stack_name})
-  tobuild(security-common.retexisting security-common/retexisting.c)
 endif (X86)
 if (PROGRAM_SHEPHERDING) # relies on being aborted on .B violation
   tobuild(security-common.jmp_from_trace security-common/jmp_from_trace.c)

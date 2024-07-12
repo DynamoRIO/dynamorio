@@ -47,7 +47,7 @@ START_FILE
         DECLARE_FUNC(memcpy)
 GLOBAL_LABEL(memcpy:)
         li       t6, 32
-        mv       t0, ARG2 /* Save dst for return. */
+        mv       t0, ARG1 /* Save dst for return. */
 copy32_:
         /* When size is greater than 32, we use 4 ld/sd pairs
          * to copy 4*8=32 bytes in each iteration.
