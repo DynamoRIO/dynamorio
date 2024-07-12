@@ -217,6 +217,12 @@ public:
             : output_binding(output_binding)
         {
         }
+        /** Convenience constructor for placing one thread on a set of cores. */
+        input_thread_info_t(memref_tid_t tid, std::set<output_ordinal_t> output_binding)
+            : tids(1, tid)
+            , output_binding(output_binding)
+        {
+        }
         /** Size of the struct for binary-compatible additions. */
         size_t struct_size = sizeof(input_thread_info_t);
         /**
