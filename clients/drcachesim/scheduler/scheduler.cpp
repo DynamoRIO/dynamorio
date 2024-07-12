@@ -944,47 +944,29 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
                     inputs_[input_idx].order_by_timestamp = true;
                 }
             }
-            // Pick the starting inputs by sorting by relative time from each workload's
-            // base_timestamp, which our queue does for us.  We want the rest of the
-            // inputs in the queue in any case so it is simplest to insert all and
-            // remove the first N rather than sorting the first N separately.
-            for (int i = 0; i < static_cast<input_ordinal_t>(inputs_.size()); ++i) {
-                add_to_ready_queue(&inputs_[i]);
-            }
-            for (int i = 0; i < static_cast<output_ordinal_t>(outputs_.size()); ++i) {
-                if (i < static_cast<input_ordinal_t>(inputs_.size())) {
-                    input_info_t *queue_next;
+            // We'll pick the starting inputs below by sorting by relative time from
+            // each workload's base_timestamp, which our queue does for us.
+        }
+        // We need to honor output bindings and possibly time ordering, which our queue
+        // does for us.  We want the rest of the inputs in the queue in any case so it is
+        // simplest to insert all and remove the first N.
+        for (int i = 0; i < static_cast<input_ordinal_t>(inputs_.size()); ++i) {
+            add_to_ready_queue(&inputs_[i]);
+        }
+        for (int i = 0; i < static_cast<output_ordinal_t>(outputs_.size()); ++i) {
+            if (i < static_cast<input_ordinal_t>(inputs_.size())) {
+                input_info_t *queue_next;
 #ifndef NDEBUG
-                    sched_type_t::stream_status_t status =
+                sched_type_t::stream_status_t status =
 #endif
-                        pop_from_ready_queue(i, queue_next);
-                    assert(status == STATUS_OK); // No blocked inputs yet.
-                    if (queue_next == nullptr)
-                        set_cur_input(i, INVALID_INPUT_ORDINAL);
-                    else
-                        set_cur_input(i, queue_next->index);
-                } else
+                    pop_from_ready_queue(i, queue_next);
+                assert(status == STATUS_OK || status == STATUS_IDLE);
+                if (queue_next == nullptr)
                     set_cur_input(i, INVALID_INPUT_ORDINAL);
-            }
-        } else {
-            // Just take the 1st #outputs of schedulable (i.e., not "unscheduled")
-            // inputs (even if all from the same workload).
-            input_ordinal_t input = 0;
-            for (int i = 0; i < static_cast<output_ordinal_t>(outputs_.size()); ++i) {
-                while (input < static_cast<input_ordinal_t>(inputs_.size()) &&
-                       inputs_[input].unscheduled) {
-                    add_to_ready_queue(&inputs_[input]);
-                    ++input;
-                }
-                if (input < static_cast<input_ordinal_t>(inputs_.size()))
-                    set_cur_input(i, input);
                 else
-                    set_cur_input(i, INVALID_INPUT_ORDINAL);
-                ++input;
-            }
-            for (int i = input; i < static_cast<input_ordinal_t>(inputs_.size()); ++i) {
-                add_to_ready_queue(&inputs_[i]);
-            }
+                    set_cur_input(i, queue_next->index);
+            } else
+                set_cur_input(i, INVALID_INPUT_ORDINAL);
         }
     }
     return STATUS_SUCCESS;

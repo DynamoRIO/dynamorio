@@ -1357,9 +1357,10 @@ test_synthetic_with_priorities()
 }
 
 static void
-test_synthetic_with_bindings()
+test_synthetic_with_bindings_time(bool time_deps)
 {
-    std::cerr << "\n----------------\nTesting synthetic with bindings\n";
+    std::cerr << "\n----------------\nTesting synthetic with bindings (deps=" << time_deps
+              << ")\n";
     static constexpr int NUM_WORKLOADS = 3;
     static constexpr int NUM_INPUTS_PER_WORKLOAD = 3;
     static constexpr int NUM_OUTPUTS = 5;
@@ -1401,11 +1402,11 @@ test_synthetic_with_bindings()
         }
         sched_inputs.back().thread_modifiers.emplace_back(cores);
     }
-
-    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
-                                               scheduler_t::DEPENDENCY_TIMESTAMPS,
-                                               scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/3);
+    scheduler_t::scheduler_options_t sched_ops(
+        scheduler_t::MAP_TO_ANY_OUTPUT,
+        time_deps ? scheduler_t::DEPENDENCY_TIMESTAMPS : scheduler_t::DEPENDENCY_IGNORE,
+        scheduler_t::SCHEDULER_DEFAULTS,
+        /*verbosity=*/3);
     sched_ops.quantum_duration = 3;
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
@@ -1493,6 +1494,14 @@ test_synthetic_with_bindings_weighted()
     assert(sched_as_string[2] == ".CC.CC.CC.CC.C..AA.AA.AA.AA.A._");
     assert(sched_as_string[3] == ".HH.HH.HH.HH.H..GG.GG.GG.GG.G.");
     assert(sched_as_string[4] == ".BB.BB.BB.BB.B._______________");
+}
+
+static void
+test_synthetic_with_bindings()
+{
+    test_synthetic_with_bindings_time(/*time_deps=*/true);
+    test_synthetic_with_bindings_time(/*time_deps=*/false);
+    test_synthetic_with_bindings_weighted();
 }
 
 static void
@@ -5033,7 +5042,6 @@ test_main(int argc, const char *argv[])
     test_synthetic_with_timestamps();
     test_synthetic_with_priorities();
     test_synthetic_with_bindings();
-    test_synthetic_with_bindings_weighted();
     test_synthetic_with_syscalls();
     test_synthetic_multi_threaded(argv[1]);
     test_speculation();
