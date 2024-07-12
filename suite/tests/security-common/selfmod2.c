@@ -69,7 +69,7 @@ START_FILE
  *   manually.
  */
 ADDRTAKEN_LABEL(bar:)
-#    ifdef X86_64
+#    ifdef X86
         mov REG_XAX, ARG1
         shl REG_XAX, 1
 #    elif defined(AARCH64)
@@ -87,7 +87,7 @@ DECLARE_GLOBAL(foo_end)
 #define FUNCNAME foo
 DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-#    ifdef X86_64
+#    ifdef X86
         mov  REG_XAX, ARG1
         /* save callee-saved regs */
         push REG_XSI
