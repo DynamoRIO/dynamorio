@@ -1,5 +1,6 @@
-i#<number> <issue-brief>: <commit-brief>
+i#<number>: <commit-brief>
 
 <commit-details>
+<If a multi-commit issue, add a brief issue description before the : on the title line and s/Fixes/Issue:/ on the footer line>
 
 Fixes #<number>

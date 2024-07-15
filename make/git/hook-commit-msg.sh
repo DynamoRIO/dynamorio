@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # **********************************************************
-# Copyright (c) 2014 Google, Inc.    All rights reserved.
+# Copyright (c) 2014-2024 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -35,7 +35,7 @@
 
 # XXX: relying on grep being on the path for now.
 # If we have devs w/ no grep we can improve this script at that point.
-grep -q -E '<number>|<issue-brief>|<commit-brief>|<commit-details>' $1
+grep -q -E '<number>|<If a multi|<commit-brief>|<commit-details>' $1
 if [ "$?" -eq "0" ]; then
     exec 1>&2
     cat <<\EOF
