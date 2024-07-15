@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -208,7 +208,8 @@ Project members should then push the new commit to the pull request via:
 git review
 ```
 
-Do not use a force push to change the history of the shared branch!  Use a new, separate commit.
+Do not use a force push to change the history of the shared branch!  Use a new,
+separate commit (these separate commits will all be squashed together upon merging).
 
 When the requested changes have been pushed, request a re-review from the reviewer so they know that the pull request is ready for another round of reviewing.
 This can be done by clicking the re-review button next to the reviewer's name at the top of the right sidebar on the pull request page.
@@ -233,58 +234,19 @@ to make changes to your code just wastes resources.  Furthermore, in some
 code review systems it corrupts the reviewer's view of the code, so it is a
 bad habit to get into.
 
-# Merging into Master and Cleaning Up the Final Commit Message
+# Merging into Master
 
-Only once the reviewer marks the proposed code changes as accepted and all
-of the continuous integration tests pass can the change be merged into
-master.  If you have merge privileges, when performing the
-squash-and-merge, **be sure to edit the final commit message** (after pressing
-the squash-and-merge button, Github presents the final message in an edit
-box) to create a clean description of the commit without the messy
-incremental steps from the multiple commits fixing small issues during the
-review process.  (You can resize the edit box by dragging the control in the
-bottom right.)  **Especially be sure to remove *all* commit message titles**
-**from the body of the final squash-and-merge message**, as the commit title is
-in a separate edit box (and defaults to the title of the first commit, so
-update it as well if the title changed during review).  Also be sure to avoid
-truncation of the commit title, as Github likes to replace the end with "...".
-
-To clarify further, here is an example of what Github will present in the
-squash-and-merge step for the message body:
-
-\verbatim
-* i#3192: move delayed branches after markers
-
-Fixes the problem of delayed branches being inserted between the
-timestamp and cpuid marker in drcachesim's offline traces by delaying
-the delayed branch until after all markers.
-
-Fixes: #3192
-
-* Fix clang warning
-
-* Address reviewer comment suggestions
-\endverbatim
-
-All the lines starting with a `*` are commit message titles from commits in the pull request branch.  They should **all** be removed, **including the first one**.  A separate single-line edit box contains the title line for the commit message, which will be added to the front of the description by Github.  Thus, the final description edit box should contain no title at all:
-
-\verbatim
-Fixes the problem of delayed branches being inserted between the
-timestamp and cpuid marker in drcachesim's offline traces by delaying
-the delayed branch until after all markers.
-
-Fixes: #3192
-\endverbatim
-
-When editing the title edit box, leave in place the pointer to the pull request, which Github automatically
-adds to the end of the commit message title, in parentheses, for its suggested final squash-and-merge title:
-
-```
-i#3192: move delayed branches after markers (#3193)
-```
-
-Re-iterating as there is a tendency to just click through the squash-and-merge: _**please edit and**_
-_**clean up the final commit message**_!
+Only once the reviewer marks the proposed code changes as accepted, all outstanding
+review comments have been marked resolved, and all of the continuous integration
+tests pass can the change be merged into the master branch.  All commits that are
+part of the pull request branch are squashed together into a single commit on the
+master branch.  The commit message title for this single commit is the pull request
+title, with "(#NNNN)" auto-appended where NNNN is the pull request number.  The
+commit message body is the initial comment at the top level of the pull request: the
+pull request description.  This can be edited after the pull request is created and
+those edits will be used in the squash-and-merge commit message.  The reviewer may
+request changes to the message, which should be performed by editing it through the
+web interface.
 
 # Deleting the Branch
 
