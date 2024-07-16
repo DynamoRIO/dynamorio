@@ -104,6 +104,7 @@ public:
         STATUS_ERROR_FILE_READ_FAILED,  /**< Error: file read failed. */
         STATUS_ERROR_NOT_IMPLEMENTED,   /**< Error: not implemented. */
         STATUS_ERROR_FILE_WRITE_FAILED, /**< Error: file write failed. */
+        STATUS_ERROR_RANGE_INVALID,     /**< Error: region of interest invalid. */
     };
 
     /**
@@ -201,6 +202,12 @@ public:
         /** Convenience constructor for common usage. */
         explicit input_thread_info_t(std::vector<range_t> regions)
             : regions_of_interest(regions)
+        {
+        }
+        /** Convenience constructor for common usage. */
+        input_thread_info_t(memref_tid_t tid, std::vector<range_t> regions)
+            : tids(1, tid)
+            , regions_of_interest(regions)
         {
         }
         /** Convenience constructor for common usage. */
@@ -1518,7 +1525,13 @@ protected:
     // Does a direct skip, unconditionally.
     // The caller must hold the input.lock.
     stream_status_t
-    skip_instructions(output_ordinal_t output, input_info_t &input, uint64_t skip_amount);
+    skip_instructions(input_info_t &input, uint64_t skip_amount);
+
+    // Records an input skip in the output's recorded schedule.
+    // The caller must hold the input.lock.
+    stream_status_t
+    record_schedule_skip(output_ordinal_t output, input_ordinal_t input,
+                         uint64_t start_instruction, uint64_t stop_instruction);
 
     scheduler_status_t
     read_and_instantiate_traced_schedule();

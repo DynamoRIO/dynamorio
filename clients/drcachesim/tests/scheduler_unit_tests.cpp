@@ -406,6 +406,10 @@ test_regions_bare_no_marker()
         /* clang-format off */
         make_thread(1),
         make_pid(1),
+        /* Avoid reader_t::pre_skip_instructions() from reading the instr and
+         * having its instr ordinal not match the scheduler's.
+         */
+        make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
         // This would not happen in a real trace, only in tests.  But it does
         // match a dynamic skip from the middle when an instruction has already
         // been read but not yet passed to the output stream.
@@ -663,14 +667,9 @@ test_regions_too_far()
     std::vector<scheduler_t::input_workload_t> sched_inputs;
     sched_inputs.emplace_back(std::move(readers));
     sched_inputs[0].thread_modifiers.push_back(scheduler_t::input_thread_info_t(regions));
-    if (scheduler.init(sched_inputs, 1,
-                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/4)) !=
-        scheduler_t::STATUS_SUCCESS)
-        assert(false);
-    auto *stream = scheduler.get_stream(0);
-    memref_t memref;
-    scheduler_t::stream_status_t status = stream->next_record(memref);
-    assert(status == scheduler_t::STATUS_REGION_INVALID);
+    auto status = scheduler.init(
+        sched_inputs, 1, scheduler_t::make_scheduler_serial_options(/*verbosity=*/4));
+    assert(status == scheduler_t::STATUS_ERROR_RANGE_INVALID);
 }
 
 static void
@@ -4608,6 +4607,125 @@ test_unscheduled_initially()
 }
 
 static void
+test_unscheduled_initially_roi()
+{
+    std::cerr
+        << "\n----------------\nTesting initially-unscheduled + time deps with ROI\n";
+    static constexpr int NUM_OUTPUTS = 1;
+    static constexpr memref_tid_t TID_BASE = 100;
+    static constexpr memref_tid_t TID_A = TID_BASE + 0;
+    static constexpr memref_tid_t TID_B = TID_BASE + 1;
+    std::vector<trace_entry_t> refs_A = {
+        make_thread(TID_A),
+        make_pid(1),
+        make_version(TRACE_ENTRY_VERSION),
+        make_timestamp(1001),
+        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        // A starts out unscheduled but we skip that.
+        make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0),
+        make_timestamp(4202),
+        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        make_instr(/*pc=*/101),
+        // We don't actually start until here.
+        make_instr(/*pc=*/102),
+        make_instr(/*pc=*/103),
+        make_exit(TID_A),
+    };
+    std::vector<trace_entry_t> refs_B = {
+        make_thread(TID_B),
+        make_pid(1),
+        make_version(TRACE_ENTRY_VERSION),
+        make_timestamp(3001),
+        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        make_instr(/*pc=*/201),
+        make_timestamp(4001),
+        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        make_instr(/*pc=*/202),
+        // B starts here, with a lower last timestamp than A.
+        make_instr(/*pc=*/203),
+        make_instr(/*pc=*/204),
+        make_exit(TID_B),
+    };
+    // Instr counts are 1-based.
+    std::vector<scheduler_t::range_t> regions_A;
+    regions_A.emplace_back(2, 0);
+    std::vector<scheduler_t::range_t> regions_B;
+    regions_B.emplace_back(3, 0);
+    // B should run first due to the lower timestamp at its ROI despite A's
+    // start-of-trace timestamp being lower.
+    static const char *const CORE0_SCHED_STRING = "..BB...AA.";
+
+    std::string record_fname = "tmp_test_unsched_ROI.zip";
+    {
+        // Record.
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        sched_inputs.back().thread_modifiers.push_back(
+            scheduler_t::input_thread_info_t(TID_A, regions_A));
+        sched_inputs.back().thread_modifiers.push_back(
+            scheduler_t::input_thread_info_t(TID_B, regions_B));
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/4);
+        zipfile_ostream_t outfile(record_fname);
+        sched_ops.schedule_record_ostream = &outfile;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<std::string> sched_as_string =
+            run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE, /*send_time=*/true);
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        }
+        assert(sched_as_string[0] == CORE0_SCHED_STRING);
+        if (scheduler.write_recorded_schedule() != scheduler_t::STATUS_SUCCESS)
+            assert(false);
+    }
+    {
+        replay_file_checker_t checker;
+        zipfile_istream_t infile(record_fname);
+        std::string res = checker.check(&infile);
+        if (!res.empty())
+            std::cerr << "replay file checker failed: " << res;
+        assert(res.empty());
+    }
+    {
+        // Test replay as it has complexities with skip records.
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        // The regions are ignored on replay so we do not specify them.
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_AS_PREVIOUSLY,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/4);
+        zipfile_istream_t infile(record_fname);
+        sched_ops.schedule_replay_istream = &infile;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<std::string> sched_as_string =
+            run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE, /*send_time=*/true);
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        }
+        assert(sched_as_string[0] == CORE0_SCHED_STRING);
+    }
+}
+
+static void
 test_kernel_switch_sequences()
 {
     std::cerr << "\n----------------\nTesting kernel switch sequences\n";
@@ -5119,6 +5237,7 @@ test_main(int argc, const char *argv[])
     test_unscheduled();
     test_unscheduled_fallback();
     test_unscheduled_initially();
+    test_unscheduled_initially_roi();
     test_kernel_switch_sequences();
     test_random_schedule();
     test_record_scheduler();
