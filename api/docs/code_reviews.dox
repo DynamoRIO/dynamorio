@@ -90,11 +90,12 @@ can also auto-close a Dr. Memory issue with "Fixes: DynamoRIO/drmemory#NNN".
 You can see other options in the [GitHub
 documentation](https://help.github.com/articles/closing-issues-via-commit-messages/).
 
-The string "Fixes: #NNNNN" in a Pull Request description will also close that
-issue, even if the final commit message does not contain that string, so be sure to
-edit the PR description if it's decided that the issue should stay open.
-
 If a commit does not fully fix an issue, include a reference to the issue with a line of the form "Issue: #NNNNN".  Use this to add links to related issues as well, in a format that makes it easier for tools to locate within messages.
+
+Use line breaks to keep commit message lines below 80 characters.
+
+Markdown can make descriptions easier to read in the web view, and is allowed.  It
+can make things harder to read in text views through so keep that in mind.
 
 An example of a single commit fixing an issue:
 
@@ -248,9 +249,7 @@ those edits will be used in the squash-and-merge commit message.  The reviewer m
 request changes to the message, which should be performed by editing it through the
 web interface.
 
-# Deleting the Branch
-
-Generally, the feature branch should be deleted from the repository using the button that Github provides immediately after merging.
+Github automatically deletes the pull request branch upon merging.
 
 # Review Delays
 
