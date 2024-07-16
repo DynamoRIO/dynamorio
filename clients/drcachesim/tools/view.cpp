@@ -333,6 +333,9 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
                           << memref.marker.marker_value << std::dec << " to handler>\n";
             }
             break;
+        case TRACE_MARKER_TYPE_SIGNAL_NUMBER:
+            std::cerr << "<marker: signal #" << memref.marker.marker_value << ">\n";
+            break;
         case TRACE_MARKER_TYPE_RSEQ_ABORT:
             std::cerr << "<marker: rseq abort from 0x" << std::hex
                       << memref.marker.marker_value << std::dec << " to handler>\n";
