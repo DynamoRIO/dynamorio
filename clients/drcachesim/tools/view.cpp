@@ -430,7 +430,7 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
                       << ">\n";
             break;
         case TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE:
-            std::cerr << "<marker: current thread going unscheduled\n";
+            std::cerr << "<marker: current thread going unscheduled>\n";
             break;
         case TRACE_MARKER_TYPE_SYSCALL_SCHEDULE:
             std::cerr << "<marker: re-schedule thread " << memref.marker.marker_value
