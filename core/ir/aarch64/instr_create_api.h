@@ -129,6 +129,9 @@
 /** Create an operand specifying MUL, a multiplier operand. */
 #define OPND_CREATE_MUL() opnd_add_flags(OPND_CREATE_INT(DR_SHIFT_MUL), DR_OPND_IS_SHIFT)
 
+/** Create an operand specifying a condition code. */
+#define OPND_CREATE_COND(code) opnd_add_flags(OPND_CREATE_INT(code), DR_OPND_IS_CONDITION)
+
 /****************************************************************************
  * Platform-independent INSTR_CREATE_* macros
  */
@@ -597,7 +600,8 @@
  * result of a comparison of its two source values if the named input condition
  * is true, or to an immediate value if the input condition is false.
  * \param dc      The void * dcontext used to allocate memory for the #instr_t.
- * \param cond    The comparison condition specified by #dr_pred_type_t, e.g. #DR_PRED_EQ.
+ * \param cond    A 4-bit immediate value created using #OPND_CREATE_COND() specifying
+ *                the condition used for the comparison
  * \param Rn      The GPR source register.
  * \param Op      Either a 5-bit immediate (use #opnd_create_immed_uint() to create
    the operand, e.g. opnd_create_immed_uint(val, #OPSZ_5b)) or a GPR source register.
@@ -606,7 +610,7 @@
  * opnd_create_immed_uint(val, #OPSZ_4b)).
  */
 #define INSTR_CREATE_ccmp(dc, Rn, Op, nzcv, cond) \
-    (INSTR_PRED(instr_create_0dst_3src(dc, OP_ccmp, Rn, Op, nzcv), (cond)))
+    instr_create_0dst_4src(dc, OP_ccmp, Rn, Op, nzcv, cond)
 
 /**
  * Creates a CCMN (Conditional Compare Negative) instruction. Sets the NZCV
@@ -615,7 +619,8 @@
  * false. The comparison is based on a negated second source value (Op) if an
  * immediate, inverted if a register.
  * \param dc      The void * dcontext used to allocate memory for the #instr_t.
- * \param cond    The comparison condition specified by #dr_pred_type_t, e.g. #DR_PRED_EQ.
+ * \param cond    A 4-bit immediate value created using #OPND_CREATE_COND() specifying
+ *                the condition used for the comparison
  * \param Rn      The GPR source register.
  * \param Op      Either a 5-bit immediate (use #opnd_create_immed_uint() to create the
  * operand, e.g. opnd_create_immed_uint(val, #OPSZ_5b)) or a GPR source register.
@@ -624,7 +629,7 @@
  * opnd_create_immed_uint(val, #OPSZ_4b)).
  */
 #define INSTR_CREATE_ccmn(dc, Rn, Op, nzcv, cond) \
-    (INSTR_PRED(instr_create_0dst_3src(dc, OP_ccmn, Rn, Op, nzcv), (cond)))
+    instr_create_0dst_4src(dc, OP_ccmn, Rn, Op, nzcv, cond)
 
 /** \cond disabled_until_i4106_is_fixed */
 #define INSTR_CREATE_adc(dc, Rd, Rn, Rm) \
@@ -4783,11 +4788,11 @@
  * \param nzcv  The 4 bit NZCV flags value used if the input condition is false.
  *              (use #opnd_create_immed_uint() to create the operand, e.g.
  *              opnd_create_immed_uint(val, #OPSZ_4b)).
- * \param condition_code   The comparison condition specified by #dr_pred_type_t,
- *              e.g. #DR_PRED_EQ.
+ * \param cond  A 4-bit immediate value created using #OPND_CREATE_COND() specifying
+ *              the condition used for the comparison
  */
-#define INSTR_CREATE_fccmp(dc, Rn, Rm, nzcv, condition_code) \
-    INSTR_PRED(instr_create_0dst_3src(dc, OP_fccmp, Rn, Rm, nzcv), (condition_code))
+#define INSTR_CREATE_fccmp(dc, Rn, Rm, nzcv, cond) \
+    instr_create_0dst_4src(dc, OP_fccmp, Rn, Rm, nzcv, cond)
 
 /**
  * Creates a FCCMPE instruction.
@@ -4806,11 +4811,11 @@
  * \param nzcv  The 4 bit NZCV flags value used if the input condition is false.
  *              (use #opnd_create_immed_uint() to create the operand, e.g.
  *              opnd_create_immed_uint(val, #OPSZ_4b)).
- * \param condition_code   The comparison condition specified by #dr_pred_type_t,
- *              e.g. #DR_PRED_EQ.
+ * \param cond  A 4-bit immediate value created using #OPND_CREATE_COND() specifying
+ *              the condition used for the comparison
  */
-#define INSTR_CREATE_fccmpe(dc, Rn, Rm, nzcv, condition_code) \
-    INSTR_PRED(instr_create_0dst_3src(dc, OP_fccmpe, Rn, Rm, nzcv), (condition_code))
+#define INSTR_CREATE_fccmpe(dc, Rn, Rm, nzcv, cond) \
+    instr_create_0dst_4src(dc, OP_fccmpe, Rn, Rm, nzcv, cond)
 
 /**
  * Creates a FCSEL instruction.
@@ -4828,11 +4833,11 @@
                H (halfword, 16 bits) or S (singleword, 32 bits)
  * \param Rm   The third source register. Can be D (doubleword, 64 bits),
                H (halfword, 16 bits) or S (singleword, 32 bits)
- * \param condition_code   The comparison condition specified by #dr_pred_type_t,
- *                         e.g. #DR_PRED_EQ.
+ * \param cond A 4-bit immediate value created using #OPND_CREATE_COND() specifying
+ *             the condition used for the comparison
  */
-#define INSTR_CREATE_fcsel(dc, Rd, Rn, Rm, condition_code) \
-    INSTR_PRED(instr_create_1dst_2src(dc, OP_fcsel, Rd, Rn, Rm), (condition_code))
+#define INSTR_CREATE_fcsel(dc, Rd, Rn, Rm, cond) \
+    instr_create_1dst_3src(dc, OP_fcsel, Rd, Rn, Rm, cond)
 
 /**
  * Creates a FCMP instruction.

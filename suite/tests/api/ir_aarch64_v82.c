@@ -2453,120 +2453,138 @@ TEST_INSTR(xar)
     }
 }
 
+/* There are 16 condition codes (excluding aliases). */
+const const size_t cond_count = 16;
+
 TEST_INSTR(fccmp)
 {
     /* Testing FCCMP   <Dn>, <Dm>, #<imm>, <cond> */
-    reg_id_t Rn_0_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
-    reg_id_t Rm_0_0[3] = { DR_REG_D0, DR_REG_D11, DR_REG_D31 };
-    uint nzcv_0_0[3] = { 0, 7, 15 };
-    dr_pred_type_t condition_code_0_0[3] = { DR_PRED_EQ, DR_PRED_HI, DR_PRED_NV };
-    const char *expected_0_0[3] = {
-        "fccmp.eq %d0 %d0 $0x00",
-        "fccmp.hi %d10 %d11 $0x07",
-        "fccmp.nv %d31 %d31 $0x0f",
-    };
-    for (int i = 0; i < 3; i++) {
-        instr = INSTR_CREATE_fccmp(
-            dc, opnd_create_reg(Rn_0_0[i]), opnd_create_reg(Rm_0_0[i]),
-            opnd_create_immed_uint(nzcv_0_0[i], OPSZ_0), condition_code_0_0[i]);
-        if (!test_instr_encoding(dc, OP_fccmp, instr, expected_0_0[i]))
-            *psuccess = false;
-        instr_destroy(dc, instr);
-    }
+    TEST_LOOP_EXPECT(
+        fccmp, cond_count,
+        INSTR_CREATE_fccmp(dc, CYCLE_REG(D, 2 * i), CYCLE_REG(D, (2 * i) + 1),
+                           opnd_create_immed_uint(i & 0xf, OPSZ_4b), OPND_CREATE_COND(i)),
+        {
+            EXPECT_DISASSEMBLY("fccmp  %d0 %d1 $0x00 eq", "fccmp  %d2 %d3 $0x01 ne",
+                               "fccmp  %d4 %d5 $0x02 cs", "fccmp  %d6 %d7 $0x03 cc",
+                               "fccmp  %d8 %d9 $0x04 mi", "fccmp  %d10 %d11 $0x05 pl",
+                               "fccmp  %d12 %d13 $0x06 vs", "fccmp  %d14 %d15 $0x07 vc",
+                               "fccmp  %d16 %d17 $0x08 hi", "fccmp  %d18 %d19 $0x09 ls",
+                               "fccmp  %d20 %d21 $0x0a ge", "fccmp  %d22 %d23 $0x0b lt",
+                               "fccmp  %d24 %d25 $0x0c gt", "fccmp  %d26 %d27 $0x0d le",
+                               "fccmp  %d28 %d29 $0x0e al", "fccmp  %d30 %d31 $0x0f nv");
+            EXPECT_TRUE(
+                TEST(EFLAGS_READ_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+            EXPECT_TRUE(
+                TEST(EFLAGS_WRITE_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+        });
+
     /* Testing FCCMP   <Hn>, <Hm>, #<imm>, <cond> */
-    reg_id_t Rn_1_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
-    reg_id_t Rm_1_0[3] = { DR_REG_H0, DR_REG_H11, DR_REG_H31 };
-    uint nzcv_1_0[3] = { 0, 7, 15 };
-    dr_pred_type_t condition_code_1_0[3] = { DR_PRED_EQ, DR_PRED_HI, DR_PRED_NV };
-    const char *expected_1_0[3] = {
-        "fccmp.eq %h0 %h0 $0x00",
-        "fccmp.hi %h10 %h11 $0x07",
-        "fccmp.nv %h31 %h31 $0x0f",
-    };
-    for (int i = 0; i < 3; i++) {
-        instr = INSTR_CREATE_fccmp(
-            dc, opnd_create_reg(Rn_1_0[i]), opnd_create_reg(Rm_1_0[i]),
-            opnd_create_immed_uint(nzcv_1_0[i], OPSZ_0), condition_code_1_0[i]);
-        if (!test_instr_encoding(dc, OP_fccmp, instr, expected_1_0[i]))
-            *psuccess = false;
-        instr_destroy(dc, instr);
-    }
+    TEST_LOOP_EXPECT(
+        fccmp, cond_count,
+        INSTR_CREATE_fccmp(dc, CYCLE_REG(H, 2 * i), CYCLE_REG(H, (2 * i) + 1),
+                           opnd_create_immed_uint(i & 0xf, OPSZ_4b), OPND_CREATE_COND(i)),
+        {
+            EXPECT_DISASSEMBLY("fccmp  %h0 %h1 $0x00 eq", "fccmp  %h2 %h3 $0x01 ne",
+                               "fccmp  %h4 %h5 $0x02 cs", "fccmp  %h6 %h7 $0x03 cc",
+                               "fccmp  %h8 %h9 $0x04 mi", "fccmp  %h10 %h11 $0x05 pl",
+                               "fccmp  %h12 %h13 $0x06 vs", "fccmp  %h14 %h15 $0x07 vc",
+                               "fccmp  %h16 %h17 $0x08 hi", "fccmp  %h18 %h19 $0x09 ls",
+                               "fccmp  %h20 %h21 $0x0a ge", "fccmp  %h22 %h23 $0x0b lt",
+                               "fccmp  %h24 %h25 $0x0c gt", "fccmp  %h26 %h27 $0x0d le",
+                               "fccmp  %h28 %h29 $0x0e al", "fccmp  %h30 %h31 $0x0f nv");
+            EXPECT_TRUE(
+                TEST(EFLAGS_READ_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+            EXPECT_TRUE(
+                TEST(EFLAGS_WRITE_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+        });
+
     /* Testing FCCMP   <Sn>, <Sm>, #<imm>, <cond> */
-    reg_id_t Rn_2_0[3] = { DR_REG_S0, DR_REG_S10, DR_REG_S31 };
-    reg_id_t Rm_2_0[3] = { DR_REG_S0, DR_REG_S11, DR_REG_S31 };
-    uint nzcv_2_0[3] = { 0, 7, 15 };
-    dr_pred_type_t condition_code_2_0[3] = { DR_PRED_EQ, DR_PRED_HI, DR_PRED_NV };
-    const char *expected_2_0[3] = {
-        "fccmp.eq %s0 %s0 $0x00",
-        "fccmp.hi %s10 %s11 $0x07",
-        "fccmp.nv %s31 %s31 $0x0f",
-    };
-    for (int i = 0; i < 3; i++) {
-        instr = INSTR_CREATE_fccmp(
-            dc, opnd_create_reg(Rn_2_0[i]), opnd_create_reg(Rm_2_0[i]),
-            opnd_create_immed_uint(nzcv_2_0[i], OPSZ_0), condition_code_2_0[i]);
-        if (!test_instr_encoding(dc, OP_fccmp, instr, expected_2_0[i]))
-            *psuccess = false;
-        instr_destroy(dc, instr);
-    }
+    TEST_LOOP_EXPECT(
+        fccmp, cond_count,
+        INSTR_CREATE_fccmp(dc, CYCLE_REG(S, 2 * i), CYCLE_REG(S, (2 * i) + 1),
+                           opnd_create_immed_uint(i & 0xf, OPSZ_4b), OPND_CREATE_COND(i)),
+        {
+            EXPECT_DISASSEMBLY("fccmp  %s0 %s1 $0x00 eq", "fccmp  %s2 %s3 $0x01 ne",
+                               "fccmp  %s4 %s5 $0x02 cs", "fccmp  %s6 %s7 $0x03 cc",
+                               "fccmp  %s8 %s9 $0x04 mi", "fccmp  %s10 %s11 $0x05 pl",
+                               "fccmp  %s12 %s13 $0x06 vs", "fccmp  %s14 %s15 $0x07 vc",
+                               "fccmp  %s16 %s17 $0x08 hi", "fccmp  %s18 %s19 $0x09 ls",
+                               "fccmp  %s20 %s21 $0x0a ge", "fccmp  %s22 %s23 $0x0b lt",
+                               "fccmp  %s24 %s25 $0x0c gt", "fccmp  %s26 %s27 $0x0d le",
+                               "fccmp  %s28 %s29 $0x0e al", "fccmp  %s30 %s31 $0x0f nv");
+            EXPECT_TRUE(
+                TEST(EFLAGS_READ_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+            EXPECT_TRUE(
+                TEST(EFLAGS_WRITE_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+        });
 }
+
 TEST_INSTR(fccmpe)
 {
     /* Testing FCCMPE  <Dn>, <Dm>, #<imm>, <cond> */
-    reg_id_t Rn_0_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
-    reg_id_t Rm_0_0[3] = { DR_REG_D0, DR_REG_D11, DR_REG_D31 };
-    uint nzcv_0_0[3] = { 0, 7, 15 };
-    dr_pred_type_t condition_code_0_0[3] = { DR_PRED_EQ, DR_PRED_HI, DR_PRED_NV };
-    const char *expected_0_0[3] = {
-        "fccmpe.eq %d0 %d0 $0x00",
-        "fccmpe.hi %d10 %d11 $0x07",
-        "fccmpe.nv %d31 %d31 $0x0f",
-    };
-    for (int i = 0; i < 3; i++) {
-        instr = INSTR_CREATE_fccmpe(
-            dc, opnd_create_reg(Rn_0_0[i]), opnd_create_reg(Rm_0_0[i]),
-            opnd_create_immed_uint(nzcv_0_0[i], OPSZ_0), condition_code_0_0[i]);
-        if (!test_instr_encoding(dc, OP_fccmpe, instr, expected_0_0[i]))
-            *psuccess = false;
-        instr_destroy(dc, instr);
-    }
+    TEST_LOOP_EXPECT(
+        fccmpe, cond_count,
+        INSTR_CREATE_fccmpe(dc, CYCLE_REG(D, 2 * i), CYCLE_REG(D, (2 * i) + 1),
+                            opnd_create_immed_uint(i & 0xf, OPSZ_4b),
+                            OPND_CREATE_COND(i)),
+        {
+            EXPECT_DISASSEMBLY("fccmpe %d0 %d1 $0x00 eq", "fccmpe %d2 %d3 $0x01 ne",
+                               "fccmpe %d4 %d5 $0x02 cs", "fccmpe %d6 %d7 $0x03 cc",
+                               "fccmpe %d8 %d9 $0x04 mi", "fccmpe %d10 %d11 $0x05 pl",
+                               "fccmpe %d12 %d13 $0x06 vs", "fccmpe %d14 %d15 $0x07 vc",
+                               "fccmpe %d16 %d17 $0x08 hi", "fccmpe %d18 %d19 $0x09 ls",
+                               "fccmpe %d20 %d21 $0x0a ge", "fccmpe %d22 %d23 $0x0b lt",
+                               "fccmpe %d24 %d25 $0x0c gt", "fccmpe %d26 %d27 $0x0d le",
+                               "fccmpe %d28 %d29 $0x0e al", "fccmpe %d30 %d31 $0x0f nv");
+            EXPECT_TRUE(
+                TEST(EFLAGS_READ_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+            EXPECT_TRUE(
+                TEST(EFLAGS_WRITE_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+        });
+
     /* Testing FCCMPE  <Hn>, <Hm>, #<imm>, <cond> */
-    reg_id_t Rn_1_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
-    reg_id_t Rm_1_0[3] = { DR_REG_H0, DR_REG_H11, DR_REG_H31 };
-    uint nzcv_1_0[3] = { 0, 7, 15 };
-    dr_pred_type_t condition_code_1_0[3] = { DR_PRED_EQ, DR_PRED_HI, DR_PRED_NV };
-    const char *expected_1_0[3] = {
-        "fccmpe.eq %h0 %h0 $0x00",
-        "fccmpe.hi %h10 %h11 $0x07",
-        "fccmpe.nv %h31 %h31 $0x0f",
-    };
-    for (int i = 0; i < 3; i++) {
-        instr = INSTR_CREATE_fccmpe(
-            dc, opnd_create_reg(Rn_1_0[i]), opnd_create_reg(Rm_1_0[i]),
-            opnd_create_immed_uint(nzcv_1_0[i], OPSZ_0), condition_code_1_0[i]);
-        if (!test_instr_encoding(dc, OP_fccmpe, instr, expected_1_0[i]))
-            *psuccess = false;
-        instr_destroy(dc, instr);
-    }
+    TEST_LOOP_EXPECT(
+        fccmpe, cond_count,
+        INSTR_CREATE_fccmpe(dc, CYCLE_REG(H, 2 * i), CYCLE_REG(H, (2 * i) + 1),
+                            opnd_create_immed_uint(i & 0xf, OPSZ_4b),
+                            OPND_CREATE_COND(i)),
+        {
+            EXPECT_DISASSEMBLY("fccmpe %h0 %h1 $0x00 eq", "fccmpe %h2 %h3 $0x01 ne",
+                               "fccmpe %h4 %h5 $0x02 cs", "fccmpe %h6 %h7 $0x03 cc",
+                               "fccmpe %h8 %h9 $0x04 mi", "fccmpe %h10 %h11 $0x05 pl",
+                               "fccmpe %h12 %h13 $0x06 vs", "fccmpe %h14 %h15 $0x07 vc",
+                               "fccmpe %h16 %h17 $0x08 hi", "fccmpe %h18 %h19 $0x09 ls",
+                               "fccmpe %h20 %h21 $0x0a ge", "fccmpe %h22 %h23 $0x0b lt",
+                               "fccmpe %h24 %h25 $0x0c gt", "fccmpe %h26 %h27 $0x0d le",
+                               "fccmpe %h28 %h29 $0x0e al", "fccmpe %h30 %h31 $0x0f nv");
+            EXPECT_TRUE(
+                TEST(EFLAGS_READ_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+            EXPECT_TRUE(
+                TEST(EFLAGS_WRITE_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+        });
+
     /* Testing FCCMPE  <Sn>, <Sm>, #<imm>, <cond> */
-    reg_id_t Rn_2_0[3] = { DR_REG_S0, DR_REG_S10, DR_REG_S31 };
-    reg_id_t Rm_2_0[3] = { DR_REG_S0, DR_REG_S11, DR_REG_S31 };
-    uint nzcv_2_0[3] = { 0, 7, 15 };
-    dr_pred_type_t condition_code_2_0[3] = { DR_PRED_EQ, DR_PRED_HI, DR_PRED_NV };
-    const char *expected_2_0[3] = {
-        "fccmpe.eq %s0 %s0 $0x00",
-        "fccmpe.hi %s10 %s11 $0x07",
-        "fccmpe.nv %s31 %s31 $0x0f",
-    };
-    for (int i = 0; i < 3; i++) {
-        instr = INSTR_CREATE_fccmpe(
-            dc, opnd_create_reg(Rn_2_0[i]), opnd_create_reg(Rm_2_0[i]),
-            opnd_create_immed_uint(nzcv_2_0[i], OPSZ_0), condition_code_2_0[i]);
-        if (!test_instr_encoding(dc, OP_fccmpe, instr, expected_2_0[i]))
-            *psuccess = false;
-        instr_destroy(dc, instr);
-    }
+    TEST_LOOP_EXPECT(
+        fccmpe, cond_count,
+        INSTR_CREATE_fccmpe(dc, CYCLE_REG(S, 2 * i), CYCLE_REG(S, (2 * i) + 1),
+                            opnd_create_immed_uint(i & 0xf, OPSZ_4b),
+                            OPND_CREATE_COND(i)),
+        {
+            EXPECT_DISASSEMBLY("fccmpe %s0 %s1 $0x00 eq", "fccmpe %s2 %s3 $0x01 ne",
+                               "fccmpe %s4 %s5 $0x02 cs", "fccmpe %s6 %s7 $0x03 cc",
+                               "fccmpe %s8 %s9 $0x04 mi", "fccmpe %s10 %s11 $0x05 pl",
+                               "fccmpe %s12 %s13 $0x06 vs", "fccmpe %s14 %s15 $0x07 vc",
+                               "fccmpe %s16 %s17 $0x08 hi", "fccmpe %s18 %s19 $0x09 ls",
+                               "fccmpe %s20 %s21 $0x0a ge", "fccmpe %s22 %s23 $0x0b lt",
+                               "fccmpe %s24 %s25 $0x0c gt", "fccmpe %s26 %s27 $0x0d le",
+                               "fccmpe %s28 %s29 $0x0e al", "fccmpe %s30 %s31 $0x0f nv");
+            EXPECT_TRUE(
+                TEST(EFLAGS_READ_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+            EXPECT_TRUE(
+                TEST(EFLAGS_WRITE_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+        });
 }
+
 TEST_INSTR(fcmp)
 {
     /* Testing FCMP    <Dn>, #0.0 */
@@ -2654,6 +2672,7 @@ TEST_INSTR(fcmp)
         instr_destroy(dc, instr);
     }
 }
+
 TEST_INSTR(fcmpe)
 {
     /* Testing FCMPE   <Dn>, #0.0 */
@@ -2744,63 +2763,68 @@ TEST_INSTR(fcmpe)
 
 TEST_INSTR(fcsel)
 {
-
     /* Testing FCSEL   <Dd>, <Dn>, <Dm>, <cond> */
-    reg_id_t Rd_0_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
-    reg_id_t Rn_0_0[3] = { DR_REG_D0, DR_REG_D11, DR_REG_D31 };
-    reg_id_t Rm_0_0[3] = { DR_REG_D0, DR_REG_D12, DR_REG_D31 };
-    dr_pred_type_t condition_code_0_0[3] = { DR_PRED_EQ, DR_PRED_HI, DR_PRED_NV };
-    const char *expected_0_0[3] = {
-        "fcsel.eq %d0 %d0 -> %d0",
-        "fcsel.hi %d11 %d12 -> %d10",
-        "fcsel.nv %d31 %d31 -> %d31",
-    };
-    for (int i = 0; i < 3; i++) {
-        instr =
-            INSTR_CREATE_fcsel(dc, opnd_create_reg(Rd_0_0[i]), opnd_create_reg(Rn_0_0[i]),
-                               opnd_create_reg(Rm_0_0[i]), condition_code_0_0[i]);
-        if (!test_instr_encoding(dc, OP_fcsel, instr, expected_0_0[i]))
-            *psuccess = false;
-        instr_destroy(dc, instr);
-    }
-
-    /* Testing FCSEL   <Hd>, <Hn>, <Hm>, <cond> */
-    reg_id_t Rd_1_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
-    reg_id_t Rn_1_0[3] = { DR_REG_H0, DR_REG_H11, DR_REG_H31 };
-    reg_id_t Rm_1_0[3] = { DR_REG_H0, DR_REG_H12, DR_REG_H31 };
-    dr_pred_type_t condition_code_1_0[3] = { DR_PRED_EQ, DR_PRED_HI, DR_PRED_NV };
-    const char *expected_1_0[3] = {
-        "fcsel.eq %h0 %h0 -> %h0",
-        "fcsel.hi %h11 %h12 -> %h10",
-        "fcsel.nv %h31 %h31 -> %h31",
-    };
-    for (int i = 0; i < 3; i++) {
-        instr =
-            INSTR_CREATE_fcsel(dc, opnd_create_reg(Rd_1_0[i]), opnd_create_reg(Rn_1_0[i]),
-                               opnd_create_reg(Rm_1_0[i]), condition_code_1_0[i]);
-        if (!test_instr_encoding(dc, OP_fcsel, instr, expected_1_0[i]))
-            *psuccess = false;
-        instr_destroy(dc, instr);
-    }
+    TEST_LOOP_EXPECT(
+        fcsel, cond_count,
+        INSTR_CREATE_fcsel(dc, CYCLE_REG(D, 2 * i), CYCLE_REG(D, (2 * i) + 1),
+                           CYCLE_REG(D, 31 - (2 * i)), OPND_CREATE_COND(i)),
+        {
+            EXPECT_DISASSEMBLY(
+                "fcsel  %d1 %d31 eq -> %d0", "fcsel  %d3 %d29 ne -> %d2",
+                "fcsel  %d5 %d27 cs -> %d4", "fcsel  %d7 %d25 cc -> %d6",
+                "fcsel  %d9 %d23 mi -> %d8", "fcsel  %d11 %d21 pl -> %d10",
+                "fcsel  %d13 %d19 vs -> %d12", "fcsel  %d15 %d17 vc -> %d14",
+                "fcsel  %d17 %d15 hi -> %d16", "fcsel  %d19 %d13 ls -> %d18",
+                "fcsel  %d21 %d11 ge -> %d20", "fcsel  %d23 %d9 lt -> %d22",
+                "fcsel  %d25 %d7 gt -> %d24", "fcsel  %d27 %d5 le -> %d26",
+                "fcsel  %d29 %d3 al -> %d28", "fcsel  %d31 %d1 nv -> %d30");
+            EXPECT_TRUE(
+                TEST(EFLAGS_READ_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+            EXPECT_FALSE(
+                TEST(EFLAGS_WRITE_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+        });
 
     /* Testing FCSEL   <Sd>, <Sn>, <Sm>, <cond> */
-    reg_id_t Rd_2_0[3] = { DR_REG_S0, DR_REG_S10, DR_REG_S31 };
-    reg_id_t Rn_2_0[3] = { DR_REG_S0, DR_REG_S11, DR_REG_S31 };
-    reg_id_t Rm_2_0[3] = { DR_REG_S0, DR_REG_S12, DR_REG_S31 };
-    dr_pred_type_t condition_code_2_0[3] = { DR_PRED_EQ, DR_PRED_HI, DR_PRED_NV };
-    const char *expected_2_0[3] = {
-        "fcsel.eq %s0 %s0 -> %s0",
-        "fcsel.hi %s11 %s12 -> %s10",
-        "fcsel.nv %s31 %s31 -> %s31",
-    };
-    for (int i = 0; i < 3; i++) {
-        instr =
-            INSTR_CREATE_fcsel(dc, opnd_create_reg(Rd_2_0[i]), opnd_create_reg(Rn_2_0[i]),
-                               opnd_create_reg(Rm_2_0[i]), condition_code_2_0[i]);
-        if (!test_instr_encoding(dc, OP_fcsel, instr, expected_2_0[i]))
-            *psuccess = false;
-        instr_destroy(dc, instr);
-    }
+    TEST_LOOP_EXPECT(
+        fcsel, cond_count,
+        INSTR_CREATE_fcsel(dc, CYCLE_REG(S, 2 * i), CYCLE_REG(S, (2 * i) + 1),
+                           CYCLE_REG(S, 31 - (2 * i)), OPND_CREATE_COND(i)),
+        {
+            EXPECT_DISASSEMBLY(
+                "fcsel  %s1 %s31 eq -> %s0", "fcsel  %s3 %s29 ne -> %s2",
+                "fcsel  %s5 %s27 cs -> %s4", "fcsel  %s7 %s25 cc -> %s6",
+                "fcsel  %s9 %s23 mi -> %s8", "fcsel  %s11 %s21 pl -> %s10",
+                "fcsel  %s13 %s19 vs -> %s12", "fcsel  %s15 %s17 vc -> %s14",
+                "fcsel  %s17 %s15 hi -> %s16", "fcsel  %s19 %s13 ls -> %s18",
+                "fcsel  %s21 %s11 ge -> %s20", "fcsel  %s23 %s9 lt -> %s22",
+                "fcsel  %s25 %s7 gt -> %s24", "fcsel  %s27 %s5 le -> %s26",
+                "fcsel  %s29 %s3 al -> %s28", "fcsel  %s31 %s1 nv -> %s30");
+            EXPECT_TRUE(
+                TEST(EFLAGS_READ_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+            EXPECT_FALSE(
+                TEST(EFLAGS_WRITE_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+        });
+
+    /* Testing FCSEL   <Hd>, <Hn>, <Hm>, <cond> */
+    TEST_LOOP_EXPECT(
+        fcsel, cond_count,
+        INSTR_CREATE_fcsel(dc, CYCLE_REG(H, 2 * i), CYCLE_REG(H, (2 * i) + 1),
+                           CYCLE_REG(H, 31 - (2 * i)), OPND_CREATE_COND(i)),
+        {
+            EXPECT_DISASSEMBLY(
+                "fcsel  %h1 %h31 eq -> %h0", "fcsel  %h3 %h29 ne -> %h2",
+                "fcsel  %h5 %h27 cs -> %h4", "fcsel  %h7 %h25 cc -> %h6",
+                "fcsel  %h9 %h23 mi -> %h8", "fcsel  %h11 %h21 pl -> %h10",
+                "fcsel  %h13 %h19 vs -> %h12", "fcsel  %h15 %h17 vc -> %h14",
+                "fcsel  %h17 %h15 hi -> %h16", "fcsel  %h19 %h13 ls -> %h18",
+                "fcsel  %h21 %h11 ge -> %h20", "fcsel  %h23 %h9 lt -> %h22",
+                "fcsel  %h25 %h7 gt -> %h24", "fcsel  %h27 %h5 le -> %h26",
+                "fcsel  %h29 %h3 al -> %h28", "fcsel  %h31 %h1 nv -> %h30");
+            EXPECT_TRUE(
+                TEST(EFLAGS_READ_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+            EXPECT_FALSE(
+                TEST(EFLAGS_WRITE_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+        });
 }
 
 TEST_INSTR(sdot_vector)
