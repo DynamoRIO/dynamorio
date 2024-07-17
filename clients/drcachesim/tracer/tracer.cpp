@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -1720,6 +1720,10 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
     }
     BUF_PTR(data->seg_base) +=
         instru->append_marker(BUF_PTR(data->seg_base), marker_type, marker_val);
+    if (info->type == DR_XFER_SIGNAL_DELIVERY) {
+        BUF_PTR(data->seg_base) += instru->append_marker(
+            BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_SIGNAL_NUMBER, info->sig);
+    }
     // Append a timestamp to provide more accurate timing information at point
     // of interest such as kernel-mediated control transfers like these.
     append_timestamp_and_cpu_marker(data);

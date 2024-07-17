@@ -1357,9 +1357,10 @@ test_synthetic_with_priorities()
 }
 
 static void
-test_synthetic_with_bindings()
+test_synthetic_with_bindings_time(bool time_deps)
 {
-    std::cerr << "\n----------------\nTesting synthetic with bindings\n";
+    std::cerr << "\n----------------\nTesting synthetic with bindings (deps=" << time_deps
+              << ")\n";
     static constexpr int NUM_WORKLOADS = 3;
     static constexpr int NUM_INPUTS_PER_WORKLOAD = 3;
     static constexpr int NUM_OUTPUTS = 5;
@@ -1401,11 +1402,14 @@ test_synthetic_with_bindings()
         }
         sched_inputs.back().thread_modifiers.emplace_back(cores);
     }
-
-    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
-                                               scheduler_t::DEPENDENCY_TIMESTAMPS,
-                                               scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/3);
+    scheduler_t::scheduler_options_t sched_ops(
+        scheduler_t::MAP_TO_ANY_OUTPUT,
+        // We expect the same output with time deps.  We include it as a regression
+        // test for i#6874 which caused threads to start out on cores not on their
+        // binding lists, which fails the schedule string checks below.
+        time_deps ? scheduler_t::DEPENDENCY_TIMESTAMPS : scheduler_t::DEPENDENCY_IGNORE,
+        scheduler_t::SCHEDULER_DEFAULTS,
+        /*verbosity=*/3);
     sched_ops.quantum_duration = 3;
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
@@ -1422,6 +1426,59 @@ test_synthetic_with_bindings()
     assert(sched_as_string[2] == ".AA.A.CC.CG.GG.C.CC.HH.H.CC.C.");
     assert(sched_as_string[3] == ".GG.G.II.IH.HH.GG.G.II.I._____");
     assert(sched_as_string[4] == ".BB.BA.AA.B.BB.AA.A.BB.B._____");
+}
+
+static void
+test_synthetic_with_bindings_more_out()
+{
+    std::cerr << "\n----------------\nTesting synthetic with bindings and #out>#in\n";
+    static constexpr int NUM_INPUTS = 3;
+    static constexpr int NUM_OUTPUTS = 4;
+    static constexpr int NUM_INSTRS = 9;
+    static constexpr memref_tid_t TID_BASE = 100;
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
+        std::vector<scheduler_t::input_reader_t> readers;
+        memref_tid_t tid = TID_BASE + input_idx;
+        std::vector<trace_entry_t> inputs;
+        inputs.push_back(make_thread(tid));
+        inputs.push_back(make_pid(1));
+        inputs.push_back(make_timestamp(10 + input_idx));
+        for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
+            inputs.push_back(make_instr(42 + instr_idx * 4));
+        }
+        inputs.push_back(make_exit(tid));
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+        sched_inputs.emplace_back(std::move(readers));
+        // Bind the 1st 2 inputs to the same core to ensure the 3rd
+        // input gets scheduled even after an initially-unscheduled input.
+        if (input_idx < 2) {
+            std::set<scheduler_t::output_ordinal_t> cores;
+            cores.insert(0);
+            scheduler_t::input_thread_info_t info(tid, cores);
+            sched_inputs.back().thread_modifiers.emplace_back(info);
+        }
+    }
+    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                               scheduler_t::DEPENDENCY_IGNORE,
+                                               scheduler_t::SCHEDULER_DEFAULTS,
+                                               /*verbosity=*/3);
+    sched_ops.quantum_duration = 3;
+    scheduler_t scheduler;
+    if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    std::vector<std::string> sched_as_string =
+        run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE);
+    for (int i = 0; i < NUM_OUTPUTS; i++) {
+        std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+    }
+    // We have {A,B} on 0 and C anywhere.
+    assert(sched_as_string[0] == ".AAA.BBBAAABBBAAA.BBB.");
+    assert(sched_as_string[1] == ".CCCCCCCCC.___________");
+    assert(sched_as_string[2] == "______________________");
+    assert(sched_as_string[3] == "______________________");
 }
 
 static void
@@ -1493,6 +1550,15 @@ test_synthetic_with_bindings_weighted()
     assert(sched_as_string[2] == ".CC.CC.CC.CC.C..AA.AA.AA.AA.A._");
     assert(sched_as_string[3] == ".HH.HH.HH.HH.H..GG.GG.GG.GG.G.");
     assert(sched_as_string[4] == ".BB.BB.BB.BB.B._______________");
+}
+
+static void
+test_synthetic_with_bindings()
+{
+    test_synthetic_with_bindings_time(/*time_deps=*/true);
+    test_synthetic_with_bindings_time(/*time_deps=*/false);
+    test_synthetic_with_bindings_more_out();
+    test_synthetic_with_bindings_weighted();
 }
 
 static void
@@ -5033,7 +5099,6 @@ test_main(int argc, const char *argv[])
     test_synthetic_with_timestamps();
     test_synthetic_with_priorities();
     test_synthetic_with_bindings();
-    test_synthetic_with_bindings_weighted();
     test_synthetic_with_syscalls();
     test_synthetic_multi_threaded(argv[1]);
     test_speculation();

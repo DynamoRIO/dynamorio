@@ -295,6 +295,8 @@ typedef enum {
      * Windows callbacks.
      * A restartable sequence abort handler is further identified by a prior
      * marker of type #TRACE_MARKER_TYPE_RSEQ_ABORT.
+     * A signal handler is optionally further identified by a subsequent marker
+     * of type #TRACE_MARKER_TYPE_SIGNAL_NUMBER.
      */
     TRACE_MARKER_TYPE_KERNEL_EVENT,
     /**
@@ -682,6 +684,13 @@ typedef enum {
      * marker value holds the timeout duration in microseconds.
      */
     TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT,
+
+    /**
+     * This marker is emitted prior to the invocation of a signal handler,
+     * after the #TRACE_MARKER_TYPE_KERNEL_EVENT record for the handler.
+     * The marker value holds the signal number.
+     */
+    TRACE_MARKER_TYPE_SIGNAL_NUMBER,
 
     // ...
     // These values are reserved for future built-in marker types.
