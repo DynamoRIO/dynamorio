@@ -61,13 +61,17 @@ static void
 test_mov_instr_addr(void)
 {
 #if !defined(DR_HOST_NOT_TARGET)
+    const uint gencode_max_size = 1024;
+    byte *generated_code =
+        (byte *)allocate_mem(gencode_max_size, ALLOW_EXEC | ALLOW_READ | ALLOW_WRITE);
+
     instrlist_t *ilist = instrlist_create(GD);
     instr_t *callee = INSTR_CREATE_label(GD);
     instrlist_append(
         ilist,
         XINST_CREATE_move(GD, opnd_create_reg(DR_REG_X1), opnd_create_reg(DR_REG_LR)));
-    instrlist_insert_mov_instr_addr(GD, callee, (byte *)ilist, opnd_create_reg(DR_REG_X0),
-                                    ilist, NULL, NULL, NULL);
+    instrlist_insert_mov_instr_addr(GD, callee, generated_code,
+                                    opnd_create_reg(DR_REG_X0), ilist, NULL, NULL, NULL);
     instrlist_append(ilist, INSTR_CREATE_blr(GD, opnd_create_reg(DR_REG_X0)));
     instrlist_append(ilist, INSTR_CREATE_ret(GD, opnd_create_reg(DR_REG_X1)));
     instrlist_append(ilist, callee);
@@ -75,9 +79,6 @@ test_mov_instr_addr(void)
                                      NULL, NULL, NULL);
     instrlist_append(ilist, XINST_CREATE_return(GD));
 
-    uint gencode_max_size = 1024;
-    byte *generated_code =
-        (byte *)allocate_mem(gencode_max_size, ALLOW_EXEC | ALLOW_READ | ALLOW_WRITE);
     assert(generated_code != NULL);
     instrlist_encode(GD, ilist, generated_code, true);
     protect_mem(generated_code, gencode_max_size, ALLOW_EXEC | ALLOW_READ);
