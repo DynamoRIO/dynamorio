@@ -3632,13 +3632,14 @@ check_regdeps(void)
             gen_exit(TID_A),
         };
         if (!run_checker(memrefs, true,
-                         { "The function ID cannot be determined for the "
-                           "TRACE_MARKER_TYPE_FUNC_ID marker",
+                         { "Cannot determine if the function ID associated with "
+                           "TRACE_MARKER_TYPE_FUNC_ID marker is allowed on an "
+                           "OFFLINE_FILE_TYPE_ARCH_REGDEPS trace",
                            /*tid=*/TID_A,
                            /*ref_ordinal=*/4, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/0 },
-                         "Failed to catch TRACE_MARKER_TYPE_FUNC_ID marker with unsafe "
-                         "function ID"))
+                         "Failed to catch TRACE_MARKER_TYPE_FUNC_ID marker with "
+                         "potentially unsafe function ID"))
             return false;
     }
 #endif

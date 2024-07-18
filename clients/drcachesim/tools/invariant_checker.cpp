@@ -1600,8 +1600,12 @@ invariant_checker_t::check_regdeps_invariants(per_shard_t *shard, const memref_t
             const app_pc encoding_addr = const_cast<app_pc>(memref.instr.encoding);
             app_pc next_pc =
                 decode_from_copy(drcontext_, encoding_addr, trace_pc, noalloc_instr);
-            // Checks for DR_ISA_REGDEPS instructions.
-            if (next_pc != nullptr) {
+            bool instr_is_decoded = next_pc != nullptr;
+            report_if_false(
+                shard, instr_is_decoded,
+                "DR_ISA_REGDEPS instructions should always succeed during decoding");
+            // We still check this condition in case we don't abort on invariant errors.
+            if (instr_is_decoded) {
                 // ISA mode should be DR_ISA_REGDEPS
                 report_if_false(shard,
                                 instr_get_isa_mode(noalloc_instr) == DR_ISA_REGDEPS,
@@ -1671,6 +1675,9 @@ invariant_checker_t::check_regdeps_invariants(per_shard_t *shard, const memref_t
                             "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot have "
                             "TRACE_MARKER_TYPE_SYSCALL_FAILED markers");
             break;
+        // This case also covers TRACE_MARKER_TYPE_FUNC_RETADDR,
+        // TRACE_MARKER_TYPE_FUNC_RETVAL, and TRACE_MARKER_TYPE_FUNC_ARG, since these
+        // markers are always preceed by TRACE_MARKER_TYPE_FUNC_ID.
         case TRACE_MARKER_TYPE_FUNC_ID:
 #ifdef LINUX
             report_if_false(
@@ -1683,60 +1690,13 @@ invariant_checker_t::check_regdeps_invariants(per_shard_t *shard, const memref_t
                 "are not SYS_futex");
 #else
             report_if_false(shard, false,
-                            "The function ID cannot be determined for the "
-                            "TRACE_MARKER_TYPE_FUNC_ID marker");
-#endif
-            break;
-        case TRACE_MARKER_TYPE_FUNC_RETADDR:
-#ifdef LINUX
-            report_if_false(
-                shard,
-                shard->prev_func_id_ ==
-                    static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) +
-                        SYS_futex,
-                "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot have "
-                "TRACE_MARKER_TYPE_FUNC_RETADDR markers related to functions that are "
-                "not SYS_futex");
-#else
-            report_if_false(shard, false,
-                            "The function ID cannot be determined for the "
-                            "TRACE_MARKER_TYPE_FUNC_RETADDR marker");
-#endif
-            break;
-        case TRACE_MARKER_TYPE_FUNC_ARG:
-#ifdef LINUX
-            report_if_false(
-                shard,
-                shard->prev_func_id_ ==
-                    static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) +
-                        SYS_futex,
-                "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot have "
-                "TRACE_MARKER_TYPE_FUNC_ARG markers related to functions that are not "
-                "SYS_futex");
-#else
-            report_if_false(shard, false,
-                            "The function ID cannot be determined for the "
-                            "TRACE_MARKER_TYPE_FUNC_ARG marker");
-#endif
-            break;
-        case TRACE_MARKER_TYPE_FUNC_RETVAL:
-#ifdef LINUX
-            report_if_false(
-                shard,
-                shard->prev_func_id_ ==
-                    static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) +
-                        SYS_futex,
-                "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot have "
-                "TRACE_MARKER_TYPE_FUNC_RETVAL markers related to functions that are not "
-                "SYS_futex");
-#else
-            report_if_false(shard, false,
-                            "The function ID cannot be determined for the "
-                            "TRACE_MARKER_TYPE_FUNC_RETVAL marker");
+                            "Cannot determine if the function ID associated with "
+                            "TRACE_MARKER_TYPE_FUNC_ID marker is allowed on an "
+                            "OFFLINE_FILE_TYPE_ARCH_REGDEPS trace");
 #endif
             break;
         default:
-            // Other markers are allowed.
+            // All other markers are allowed.
             break;
         }
     }
