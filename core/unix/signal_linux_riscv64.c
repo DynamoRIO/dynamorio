@@ -45,7 +45,6 @@
 #endif
 
 #include "arch.h"
-#include "syscall.h"
 
 static int sigill_caught = 0;
 static dr_jmp_buf_t jmpbuf;
@@ -149,17 +148,18 @@ sigill_detected(void *func)
     set_handler_sigact(&act, SIGILL, (handler_t)catch_sigill);
     sigaction_syscall(SIGILL, &act, &old_act);
 
-    /* We use dr_longjmp to exit the SIGILL handle, which skips the signal mask restoring
+    /* We use dr_longjmp to exit the SIGILL handler, which skips the signal mask restoring
      * of OS. Manually save and restore the signal mask here.
+     * XXX: Add dr_longjmp_sigmask() to make this easier?
      */
     kernel_sigset_t oset;
-    dynamorio_syscall(SYS_rt_sigprocmask, 4, SIG_SETMASK, NULL, &oset, sizeof(oset));
+    sigprocmask_syscall(SIG_SETMASK, NULL, &oset, sizeof(oset));
 
     if (dr_setjmp(&jmpbuf) == 0) {
         ((void (*)(void))func)();
     }
 
-    dynamorio_syscall(SYS_rt_sigprocmask, 4, SIG_SETMASK, &oset, NULL, sizeof(oset));
+    sigprocmask_syscall(SIG_SETMASK, &oset, NULL, sizeof(oset));
 
     sigaction_syscall(SIGILL, &old_act, NULL);
 
