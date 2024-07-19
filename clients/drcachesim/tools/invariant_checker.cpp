@@ -1678,23 +1678,20 @@ invariant_checker_t::check_regdeps_invariants(per_shard_t *shard, const memref_t
         // This case also covers TRACE_MARKER_TYPE_FUNC_RETADDR,
         // TRACE_MARKER_TYPE_FUNC_RETVAL, and TRACE_MARKER_TYPE_FUNC_ARG, since these
         // markers are always preceed by TRACE_MARKER_TYPE_FUNC_ID.
-        case TRACE_MARKER_TYPE_FUNC_ID:
+        case TRACE_MARKER_TYPE_FUNC_ID: {
+            // We currently don't handle syscalls of traces captured on an OS other than
+            // LINUX, so we set this to false and overwrite it, if DR is a LINUX build.
+            bool is_marker_allowed = false;
 #ifdef LINUX
-            report_if_false(
-                shard,
-                memref.marker.marker_value ==
-                    static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) +
-                        SYS_futex,
-                "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot have "
-                "TRACE_MARKER_TYPE_FUNC_ID markers related to functions that "
-                "are not SYS_futex");
-#else
-            report_if_false(shard, false,
-                            "Cannot determine if the function ID associated with "
-                            "TRACE_MARKER_TYPE_FUNC_ID marker is allowed on an "
-                            "OFFLINE_FILE_TYPE_ARCH_REGDEPS trace");
+            is_marker_allowed = memref.marker.marker_value ==
+                static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) +
+                    SYS_futex;
 #endif
-            break;
+            report_if_false(shard, is_marker_allowed,
+                            "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot have "
+                            "TRACE_MARKER_TYPE_FUNC_ID markers related to functions that "
+                            "are not SYS_futex");
+        } break;
         default:
             // All other markers are allowed.
             break;
