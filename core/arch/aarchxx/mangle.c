@@ -3864,6 +3864,7 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                                           opnd_create_reg(reg_orig_ld_val2), no_match);
     }
 
+#if defined(AARCH64)
     /* The exclusive store is next. To ensure the code we emit works reliably on all
      * AArch64 implementations the exclusive store must match the exclusive load created
      * by create_ldax_from_stex() above. In most cases it will automatically match
@@ -3916,6 +3917,9 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
          */
         orig_instr = instr_clone(dcontext, orig_instr);
     }
+#else
+    instr_t *orig_instr = instr_clone(dcontext, orig_instr);
+#endif
 
     instr_t *post_store = instr_get_next(instr);
     instr_t *skip_clrex = INSTR_CREATE_label(dcontext);
