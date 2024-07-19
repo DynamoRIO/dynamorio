@@ -3149,7 +3149,9 @@ static instr_t *
 create_ldax_from_stex(dcontext_t *dcontext, instr_t *strex,
                       reg_id_t *dest_reg DR_PARAM_INOUT,
                       /* For a pair, we need a caller-set-up scratch reg for the 2nd. */
-                      reg_id_t dest_reg2)
+                      reg_id_t dest_reg2,
+                      /* Whether to merge a pair of 4-bytes into one 8-byte. */
+                      bool merge_pair)
 {
     /* It is challenging to know whether to use an acquire or regular load opcode
      * because we do not know what the original load opcode was, especially for
@@ -3189,8 +3191,16 @@ create_ldax_from_stex(dcontext_t *dcontext, instr_t *strex,
 #ifdef AARCH64
     case OP_stlxp:
     case OP_stxp:
-        return INSTR_CREATE_ldaxp(
-            dcontext, regop, opnd_create_reg(reg_resize_to_opsz(dest_reg2, opsz)), memop);
+        /* We treat A64 pair-4byte as single-8byte to handle ldxr;stxp. */
+        if (merge_pair) {
+            ASSERT(opsz == OPSZ_4);
+            *dest_reg = reg_resize_to_opsz(*dest_reg, OPSZ_8);
+            return INSTR_CREATE_ldaxr(dcontext, opnd_create_reg(*dest_reg), memop);
+        } else {
+            return INSTR_CREATE_ldaxp(
+                dcontext, regop, opnd_create_reg(reg_resize_to_opsz(dest_reg2, opsz)),
+                memop);
+        }
     case OP_stlxr:
     case OP_stxr: return INSTR_CREATE_ldaxr(dcontext, regop, memop);
     case OP_stlxrb:
@@ -3385,7 +3395,8 @@ mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         if (instr_is_app(in) && instr_is_exclusive_store(in)) {
             /* Warn on a mismatched pair. */
             if (opnd_get_size(instr_get_dst(in, 0)) !=
-                opnd_get_size(instr_get_src(instr, 0))) {
+                    opnd_get_size(instr_get_src(instr, 0)) ||
+                instr_num_srcs(in) != instr_num_dsts(instr)) {
                 /* See comment below about CONSTRAINED UNPREDICTABLE. */
                 SYSLOG_INTERNAL_WARNING_ONCE(
                     "Encountered mismatched-size ldex-stex pair: behavior may not "
@@ -3557,19 +3568,35 @@ mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             /* For 32-bit, pair store requires consecutive register numbers.
              * XXX: We could store the 2 values at once.
              */
-#if defined(AARCH64)
-            PRE(ilist, where,
-                XINST_CREATE_store_pair(
-                    dcontext,
-                    opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0,
-                                          TLS_LDSTEX_VALUE2_SLOT, OPSZ_16),
-                    opnd_create_reg(value2_reg), opnd_create_reg(scratch)));
-#else
-            PRE(ilist, where,
-                instr_create_save_to_tls(dcontext, value2_reg, TLS_LDSTEX_VALUE2_SLOT));
-            PRE(ilist, where,
-                instr_create_save_to_tls(dcontext, scratch, TLS_LDSTEX_SIZE_SLOT));
-#endif
+            if (IF_AARCH64_ELSE(opnd_get_size(instr_get_dst(instr, 0)) == OPSZ_PTR,
+                                false)) {
+                PRE(ilist, where,
+                    XINST_CREATE_store_pair(
+                        dcontext,
+                        opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0,
+                                              TLS_LDSTEX_VALUE2_SLOT,
+                                              IF_ARM_ELSE(OPSZ_8, OPSZ_16)),
+                        opnd_create_reg(value2_reg), opnd_create_reg(scratch)));
+            } else {
+                /* For A64, we have to treat a pair of 4-bytes as one 8-byte b/c the
+                 * strex could be a singleton.
+                 */
+                if (IF_AARCH64_ELSE(opnd_get_size(instr_get_dst(instr, 0)) == OPSZ_4,
+                                    false)) {
+                    PRE(ilist, where,
+                        XINST_CREATE_store(
+                            dcontext,
+                            opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0,
+                                                  TLS_LDSTEX_VALUE_SLOT + 4, OPSZ_4),
+                            instr_get_dst(instr, 1)));
+                } else {
+                    PRE(ilist, where,
+                        instr_create_save_to_tls(dcontext, value2_reg,
+                                                 TLS_LDSTEX_VALUE_SLOT));
+                }
+                PRE(ilist, where,
+                    instr_create_save_to_tls(dcontext, scratch, TLS_LDSTEX_SIZE_SLOT));
+            }
         } else {
             PRE(ilist, where,
                 instr_create_save_to_tls(dcontext, scratch, TLS_LDSTEX_SIZE_SLOT));
@@ -3676,6 +3703,10 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     ASSERT(opnd_is_base_disp(instr_get_dst(instr, 0)) &&
            opnd_get_index(instr_get_dst(instr, 0)) == DR_REG_NULL &&
            opnd_get_disp(instr_get_dst(instr, 0)) == 0);
+    /* We treat non-same-block A64 pair-4byte as single-8byte to handle ldxr;stxp. */
+    if (is_pair && !ldex_in_same_block &&
+        opnd_get_size(instr_get_src(instr, 1)) == OPSZ_4)
+        is_pair = false;
     reg_t reg_base = opnd_get_base(instr_get_dst(instr, 0));
     instr_t *no_match = INSTR_CREATE_label(dcontext);
 
@@ -3803,7 +3834,8 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         }
     }
     PRE(ilist, instr,
-        create_ldax_from_stex(dcontext, instr, &reg_new_ld_val, reg_new_ld_val2));
+        create_ldax_from_stex(dcontext, instr, &reg_new_ld_val, reg_new_ld_val2,
+                              !is_pair));
     reg_new_ld_val = reg_to_pointer_sized(reg_new_ld_val);
     /* Skip the value comparison if the load discarded via XZR.
      * This is not an optimization, but required to avoid an infinite loop (i#5245).
@@ -3832,7 +3864,58 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                                           opnd_create_reg(reg_orig_ld_val2), no_match);
     }
 
-    /* <---- The original store is here. ----> */
+    /* The exclusive store is next. To ensure the code we emit works reliably on all
+     * AArch64 implementations the exclusive store must match the exclusive load created
+     * by create_ldax_from_stex() above. In most cases it will automatically match
+     * because create_ldax_from_stex() derives the load instruction from the store we are
+     * mangling, but in order to support ldxr ldx/stx pairs with mismatched numbers of
+     * registers create_ldax_from_stex() always creates an 8-byte ldxr load for 2x4-byte
+     * stxp instructions.
+     * If this is the case we need to modify the store instruction to match the load.
+     *
+     * In the AArch64 specification the behaviour of ldx/stx pairs with mismatched
+     * numbers of registers is CONSTRAINED UNPREDICTABLE so it may not work on all
+     * hardware, however it does work reliably on some AArch64 implementations so it is
+     * possible we will find it in app code and we have decided that DynamoRIO should be
+     * able to handle it.
+     */
+    instr_t *orig_instr = instr;
+    if (!is_pair && instr_num_srcs(instr) > 1) {
+        /* We are mangling a 2x4-byte stxp and we need to replace it with a 1x8-byte
+         * stxr.
+         *
+         * First we need to the combine the values of the 2 32-bit source registers into
+         * a single 64-bit source register:
+         *
+         * orr  scratch, src0, src1 lsl 32  ; scratch = src0 | (src1 << 32);
+         */
+        opnd_t src0 = opnd_create_reg(
+            reg_resize_to_opsz(opnd_get_reg(instr_get_src(instr, 0)), OPSZ_8));
+        opnd_t src1 = opnd_create_reg(
+            reg_resize_to_opsz(opnd_get_reg(instr_get_src(instr, 1)), OPSZ_8));
+        PRE(ilist, instr,
+            INSTR_CREATE_orr_shift(dcontext, opnd_create_reg(scratch), src0, src1,
+                                   OPND_CREATE_LSL(), OPND_CREATE_INT(32)));
+
+        /* Now we can can create a replacement instruction that uses the same destination
+         * operands but the single combined source register.
+         */
+        instr = INSTR_CREATE_stxr(dcontext, instr_get_dst(instr, 0),
+                                  instr_get_dst(instr, 1), opnd_create_reg(scratch));
+        PRE(ilist, orig_instr, instr);
+        /* Remove the original stxp instruction, but don't destroy it. It gets reinserted
+         * later in the no_match path below.
+         * It doesn't matter that the store on the no_match path does not match the load
+         * because it is intended to always fail anyway.
+         */
+        instrlist_remove(ilist, orig_instr);
+    } else {
+        /* Keep the original store exclusive. We don't need to emit anything because it
+         * is already in the ilist, but we do need to create a clone of the instruction
+         * to insert in the no_match path below.
+         */
+        orig_instr = instr_clone(dcontext, orig_instr);
+    }
 
     instr_t *post_store = instr_get_next(instr);
     instr_t *skip_clrex = INSTR_CREATE_label(dcontext);
@@ -3844,7 +3927,7 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      * If we don't do this, the app will likely loop back and might loop forever or
      * might fault incorrectly on the load if its base is now bad.
      */
-    PRE(ilist, post_store, instr_clone(dcontext, instr));
+    PRE(ilist, post_store, orig_instr);
     PRE(ilist, post_store, skip_clrex);
     if (should_restore) {
 #ifdef ARM
