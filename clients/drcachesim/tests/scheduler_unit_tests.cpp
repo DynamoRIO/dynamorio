@@ -4609,6 +4609,7 @@ test_unscheduled_initially()
 static void
 test_unscheduled_initially_roi()
 {
+#ifdef HAS_ZIP
     std::cerr
         << "\n----------------\nTesting initially-unscheduled + time deps with ROI\n";
     static constexpr int NUM_OUTPUTS = 1;
@@ -4723,6 +4724,7 @@ test_unscheduled_initially_roi()
         }
         assert(sched_as_string[0] == CORE0_SCHED_STRING);
     }
+#endif
 }
 
 static void
