@@ -1704,7 +1704,10 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_initial_input_content(
 
         // If the input jumps to the middle immediately, do that now so we'll have
         // the proper start timestamp.
-        if (!input.regions_of_interest.empty() && options_.mapping != MAP_AS_PREVIOUSLY) {
+        if (!input.regions_of_interest.empty() &&
+            // The docs say for replay we allow the user to pass ROI but ignore it.
+            // Maybe we should disallow it so we don't need checks like this?
+            options_.mapping != MAP_AS_PREVIOUSLY) {
             RecordType record = create_invalid_record();
             sched_type_t::stream_status_t res =
                 advance_region_of_interest(/*output=*/-1, record, input);
@@ -1715,8 +1718,10 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_initial_input_content(
                 // in the stream).
                 continue;
             }
-            if (res != sched_type_t::STATUS_OK)
+            if (res != sched_type_t::STATUS_OK) {
+                VPRINT(this, 1, "Failed to advance initial ROI with status %d\n", res);
                 return sched_type_t::STATUS_ERROR_RANGE_INVALID;
+            }
         }
 
         bool found_filetype = false;
@@ -2590,8 +2595,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_cur_input(output_ordinal_t output,
                instr_ord);
         if (!inputs_[input].regions_of_interest.empty() &&
             inputs_[input].cur_region == 0 && inputs_[input].in_cur_region &&
-            // The ord may be 1 less because we're still on the inserted timestamp.
             (instr_ord == inputs_[input].regions_of_interest[0].start_instruction ||
+             // The ord may be 1 less because we're still on the inserted timestamp.
              instr_ord + 1 == inputs_[input].regions_of_interest[0].start_instruction)) {
             // We skipped during init but didn't have an output for recording the skip:
             // record it now.

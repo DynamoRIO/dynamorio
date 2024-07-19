@@ -406,9 +406,6 @@ test_regions_bare_no_marker()
         /* clang-format off */
         make_thread(1),
         make_pid(1),
-        /* Avoid reader_t::pre_skip_instructions() from reading the instr and
-         * having its instr ordinal not match the scheduler's.
-         */
         make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
         // This would not happen in a real trace, only in tests.  But it does
         // match a dynamic skip from the middle when an instruction has already
@@ -4623,6 +4620,8 @@ test_unscheduled_initially_roi()
         make_timestamp(1001),
         make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
         // A starts out unscheduled but we skip that.
+        // (In a real trace some other thread would have to wake up A:
+        // we omit that here to keep the test small.)
         make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0),
         make_timestamp(4202),
         make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),

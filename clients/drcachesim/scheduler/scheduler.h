@@ -259,6 +259,13 @@ public:
          * separation, but it is not inserted prior to the first range.  A
          * #dynamorio::drmemtrace::TRACE_TYPE_THREAD_EXIT record is inserted after the
          * final range.  These ranges must be non-overlapping and in increasing order.
+         *
+         * Be aware that selecting a subset of code can remove inter-input
+         * communication steps that could be required for forward progress.
+         * For example, if selected subsets include #TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE
+         * with no timeout but do not include a corresponding
+         * #TRACE_MARKER_TYPE_SYSCALL_SCHEDULE for wakeup, an input could remain
+         * unscheduled.
          */
         std::vector<range_t> regions_of_interest;
     };
