@@ -154,6 +154,7 @@ void
 caching_device_stats_t::dump_miss(const memref_t &memref)
 {
     addr_t pc, addr;
+    pid_t pid;
     if (type_is_instr(memref.instr.type))
         pc = memref.instr.addr;
     else { // data ref: others shouldn't get here
@@ -163,10 +164,11 @@ caching_device_stats_t::dump_miss(const memref_t &memref)
         pc = memref.data.pc;
     }
     addr = memref.data.addr;
+    pid = memref.data.pid;
 #ifdef HAS_ZLIB
-    gzprintf(file_, "0x%zx,0x%zx\n", pc, addr);
+    gzprintf(file_, "%d,0x%zx,0x%zx\n", pid, pc, addr);
 #else
-    fprintf(file_, "0x%zx,0x%zx\n", pc, addr);
+    fprintf(file_, "%d,0x%zx,0x%zx\n", pid, pc, addr);
 #endif
 }
 
