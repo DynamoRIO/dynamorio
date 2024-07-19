@@ -3620,11 +3620,12 @@ check_regdeps(void)
             return false;
     }
 #else
-    // Incorrect: a non-LINUX DR build should always fail when checking
+    // Correct: a non-LINUX DR build should always succeed when checking
     // TRACE_MARKER_TYPE_FUNC_ID markers, as we cannot determine if the function ID of
     // the TRACE_MARKER_TYPE_FUNC_ID marker is allowed in the
     // OFFLINE_FILE_TYPE_ARCH_REGDEPS trace because we cannot determine if function ID is
-    // SYS_futex or not.
+    // SYS_futex or not. For this reason the TRACE_MARKER_TYPE_FUNC_ID invariant check is
+    // disbled, we print a warning instead.
     {
         std::vector<memref_t> memrefs = {
             gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ARCH_REGDEPS),
@@ -3634,14 +3635,7 @@ check_regdeps(void)
             gen_instr(TID_A),
             gen_exit(TID_A),
         };
-        if (!run_checker(memrefs, true,
-                         { "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot have "
-                           "TRACE_MARKER_TYPE_FUNC_ID markers related to functions that "
-                           "are not SYS_futex",
-                           /*tid=*/TID_A,
-                           /*ref_ordinal=*/4, /*last_timestamp=*/0,
-                           /*instrs_since_last_timestamp=*/0 },
-                         "Failed to catch non-allowed TRACE_MARKER_TYPE_FUNC_ID marker"))
+        if (!run_checker(memrefs, false))
             return false;
     }
 #endif

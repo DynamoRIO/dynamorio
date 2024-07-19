@@ -1679,18 +1679,25 @@ invariant_checker_t::check_regdeps_invariants(per_shard_t *shard, const memref_t
         // TRACE_MARKER_TYPE_FUNC_RETVAL, and TRACE_MARKER_TYPE_FUNC_ARG, since these
         // markers are always preceed by TRACE_MARKER_TYPE_FUNC_ID.
         case TRACE_MARKER_TYPE_FUNC_ID: {
-            // We currently don't handle syscalls of traces captured on an OS other than
-            // LINUX, so we set this to false and overwrite it, if DR is a LINUX build.
-            bool is_marker_allowed = false;
+            // In OFFLINE_FILE_TYPE_ARCH_REGDEPS traces the only TRACE_MARKER_TYPE_FUNC_
+            // markers allowed are those related to SYS_futex. We can only check that
+            // for LINUX builds of DR, otherwise we disable this check and print a
+            // warning instead.
 #ifdef LINUX
-            is_marker_allowed = memref.marker.marker_value ==
-                static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) +
-                    SYS_futex;
+            report_if_false(
+                shard,
+                memref.marker.marker_value ==
+                    static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) +
+                        SYS_futex,
+                "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot have "
+                "TRACE_MARKER_TYPE_FUNC_ID markers related to functions that "
+                "are not SYS_futex");
+#else
+            std::cerr << "WARNING: we cannot determine whether the function ID of "
+                         "TRACE_MARKER_TYPE_FUNC_ID is allowed in an "
+                         "OFFLINE_FILE_TYPE_ARCH_REGDEPS trace because DynamoRIO "
+                         "was not built on a Linux platform.\n";
 #endif
-            report_if_false(shard, is_marker_allowed,
-                            "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot have "
-                            "TRACE_MARKER_TYPE_FUNC_ID markers related to functions that "
-                            "are not SYS_futex");
         } break;
         default:
             // All other markers are allowed.
