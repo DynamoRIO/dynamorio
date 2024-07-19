@@ -648,6 +648,10 @@ sigaction_syscall(int sig, kernel_sigaction_t *act, kernel_sigaction_t *oact);
 void
 set_handler_sigact(kernel_sigaction_t *act, int sig, handler_t handler);
 
+int
+sigprocmask_syscall(int how, kernel_sigset_t *set, kernel_sigset_t *oset,
+                    size_t sigsetsize);
+
 /***************************************************************************
  * OS-SPECIFIC ROUTINES (in signal_<os>.c)
  */
