@@ -1709,7 +1709,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_initial_input_content(
             sched_type_t::stream_status_t res =
                 advance_region_of_interest(/*output=*/-1, record, input);
             if (res == sched_type_t::STATUS_SKIPPED) {
-                input.next_timestamp = input.reader->get_last_timestamp();
+                input.next_timestamp =
+                    static_cast<uintptr_t>(input.reader->get_last_timestamp());
                 // We can skip the rest of the loop here (the filetype will be there
                 // in the stream).
                 continue;
