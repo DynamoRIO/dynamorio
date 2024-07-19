@@ -1321,6 +1321,10 @@ scheduler_tmpl_t<RecordType, ReaderType>::time_tree_lookup(
     uint64_t lower_ord = it->second;
     double fraction = (time - lower_time) / static_cast<double>(upper_time - lower_time);
     double interpolate = lower_ord + fraction * (upper_ord - lower_ord);
+    // We deliberately round down to ensure we include a system call that spans
+    // the start time, so we'll get the right starting behavior for a thread that
+    // should be blocked or unscheduled at this point in time (though the blocked
+    // time might be too long as it starts before this target time).
     ordinal = static_cast<uint64_t>(interpolate);
     VPRINT(this, 3,
            "time2ordinal: time %" PRIu64 " => times [%" PRIu64 ", %" PRIu64
