@@ -456,7 +456,7 @@ setitimer_syscall(int which, struct itimerval *val, struct itimerval *old)
     return dynamorio_syscall(SYS_setitimer, 3, which, val, old);
 }
 
-static inline int
+int
 sigprocmask_syscall(int how, kernel_sigset_t *set, kernel_sigset_t *oset,
                     size_t sigsetsize)
 {
