@@ -3880,7 +3880,7 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      * possible we will find it in app code and we have decided that DynamoRIO should be
      * able to handle it.
      */
-    instr_t *orig_instr = instr;
+    instr_t *orig_instr_clone = instr;
     if (!is_pair && instr_num_srcs(instr) > 1) {
         /* We are mangling a 2x4-byte stxp and we need to replace it with a 1x8-byte
          * stxr.
@@ -3901,24 +3901,26 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         /* Now we can can create a replacement instruction that uses the same destination
          * operands but the single combined source register.
          */
-        instr = INSTR_CREATE_stxr(dcontext, instr_get_dst(instr, 0),
-                                  instr_get_dst(instr, 1), opnd_create_reg(scratch));
-        PRE(ilist, orig_instr, instr);
+        instr_t *replacement_instr =
+            INSTR_CREATE_stxr(dcontext, instr_get_dst(instr, 0), instr_get_dst(instr, 1),
+                              opnd_create_reg(scratch));
+        PRE(ilist, instr, replacement_instr);
         /* Remove the original stxp instruction, but don't destroy it. It gets reinserted
          * later in the no_match path below.
          * It doesn't matter that the store on the no_match path does not match the load
          * because it is intended to always fail anyway.
          */
-        instrlist_remove(ilist, orig_instr);
+        instrlist_remove(ilist, instr);
+        instr = replacement_instr;
     } else {
         /* Keep the original store exclusive. We don't need to emit anything because it
          * is already in the ilist, but we do need to create a clone of the instruction
          * to insert in the no_match path below.
          */
-        orig_instr = instr_clone(dcontext, orig_instr);
+        orig_instr_clone = instr_clone(dcontext, instr);
     }
 #else
-    instr_t *orig_instr = instr_clone(dcontext, orig_instr);
+    instr_t *orig_instr_clone = instr_clone(dcontext, instr);
 #endif
 
     instr_t *post_store = instr_get_next(instr);
@@ -3931,7 +3933,7 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      * If we don't do this, the app will likely loop back and might loop forever or
      * might fault incorrectly on the load if its base is now bad.
      */
-    PRE(ilist, post_store, orig_instr);
+    PRE(ilist, post_store, orig_instr_clone);
     PRE(ilist, post_store, skip_clrex);
     if (should_restore) {
 #ifdef ARM
