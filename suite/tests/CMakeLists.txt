@@ -4750,10 +4750,29 @@ if (BUILD_CLIENTS)
     endif ()
 
     if (X86 AND X64 AND UNIX AND NOT APPLE)
-        # Run the invariant_checker on an OFFLINE_FILE_TYPE_ARCH_REGDEPS trace.
-        set(testname "tool.invariant_checker_on_regdeps_trace")
+        # Run the invariant_checker on an OFFLINE_FILE_TYPE_ARCH_REGDEPS trace of
+        # ci_shared_app.
+        set(testname "tool.invariant_checker_on_regdeps_trace_ci_shared_app")
+        torun_record_filter("${testname}" ${ci_shared_app}
+          "invariant_checker_on_regdeps_trace_ci_shared_app"
+          # Generate an OFFLINE_FILE_TYPE_ARCH_REGDEPS trace by running record_filter
+          # with -filter_encodings2regdeps to change instruction encodings,
+          # -filter_keep_func_ids 4294967498 (which is SYS_futex, associated to the only
+          # TRACE_MARKER_TYPE_FUNC_ markers we want to keep), and
+          # -filter_marker_types 19,25,27,28,30 (which correspond to
+          # TRACE_MARKER_TYPE_SYSCALL_IDX, TRACE_MARKER_TYPE_SYSCALL,
+          # TRACE_MARKER_TYPE_SYSCALL_TRACE_START, TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
+          # TRACE_MARKER_TYPE_SYSCALL_FAILED).
+          "${drcachesim_path}@-simulator_type@record_filter@-filter_encodings2regdeps@-indir@${testname}.${ci_shared_app}.*.dir/trace@-outdir@${testname}.filtered.dir@-filter_marker_types@19,25,27,28,30@-filter_keep_func_ids@4294967498"
+          # We run the invariant_checker analyzer on the REGDEPS filtered trace.
+          # We expect no invariant errors.
+          "invariant_checker")
+
+        # Run the invariant_checker on an OFFLINE_FILE_TYPE_ARCH_REGDEPS trace of
+        # kernel_xfer_app.
+        set(testname "tool.invariant_checker_on_regdeps_trace_kernel_xfer_app")
         torun_record_filter("${testname}" ${kernel_xfer_app}
-          "invariant_checker_on_regdeps_trace"
+          "invariant_checker_on_regdeps_trace_kernel_xfer_app"
           # Generate an OFFLINE_FILE_TYPE_ARCH_REGDEPS trace by running record_filter
           # with -filter_encodings2regdeps to change instruction encodings,
           # -filter_keep_func_ids 4294967498 (which is SYS_futex, associated to the only
