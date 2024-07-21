@@ -332,6 +332,23 @@ online_instru_t::insert_save_type_and_size(void *drcontext, instrlist_t *ilist,
         MINSERT(ilist, where,
                 XINST_CREATE_store(drcontext, OPND_CREATE_MEM32(base, disp),
                                    opnd_create_reg(scratch)));
+#elif defined(RISCV64)
+        scratch = reg_resize_to_opsz(scratch, OPSZ_4);
+        /* li scratch, #size */
+        MINSERT(ilist, where,
+                XINST_CREATE_load_int(drcontext, opnd_create_reg(scratch),
+                                      OPND_CREATE_INT(size)));
+        /* SLLI scratch, scratch, 16 */
+        MINSERT(ilist, where,
+                INSTR_CREATE_slli(drcontext, opnd_create_reg(scratch),
+                                  opnd_create_reg(scratch), OPND_CREATE_INT8(16)));
+        /* ORI scratch, scratch, #type */
+        MINSERT(ilist, where,
+                INSTR_CREATE_ori(drcontext, opnd_create_reg(scratch),
+                                 opnd_create_reg(scratch), OPND_CREATE_INT(type)));
+        MINSERT(ilist, where,
+                XINST_CREATE_store(drcontext, OPND_CREATE_MEM32(base, disp),
+                                   opnd_create_reg(scratch)));
 #endif
     }
 }

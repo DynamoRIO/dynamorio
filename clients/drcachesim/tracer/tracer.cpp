@@ -684,6 +684,11 @@ insert_conditional_skip(void *drcontext, instrlist_t *ilist, instr_t *where,
     MINSERT(ilist, where,
             INSTR_CREATE_cbz(drcontext, opnd_create_instr(skip_label),
                              opnd_create_reg(reg_skip_if_zero)));
+#elif defined(RISCV64)
+    MINSERT(ilist, where,
+            INSTR_CREATE_beq(drcontext, opnd_create_instr(skip_label),
+                             opnd_create_reg(reg_skip_if_zero),
+                             opnd_create_reg(DR_REG_X0)));
 #endif
 }
 
