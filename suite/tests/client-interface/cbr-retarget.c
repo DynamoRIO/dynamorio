@@ -61,6 +61,10 @@ main(void)
         skip:
     }
     ;
+#elif defined(AARCH64)
+    __asm("cbnz xzr, skip");
+    __asm("bl foo");
+    __asm("skip:");
 #else
     __asm("movl $0x0, %ecx");
     __asm("cmp $0x0, %ecx");

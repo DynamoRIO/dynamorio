@@ -49,6 +49,13 @@
 namespace dynamorio {
 namespace drmemtrace {
 
+// We want to abort in release build for some cases.
+#define assert_release_too(cond) \
+    do {                         \
+        if (!(cond))             \
+            abort();             \
+    } while (0)
+
 // Work around clang-format bug: no newline after return type for single-char operator.
 // clang-format off
 const memref_t &
@@ -203,10 +210,20 @@ reader_t::process_input_entry()
                 ++cur_instr_count_;
             // Look for encoding bits that belong to this instr.
             if (last_encoding_.size > 0) {
-                if (last_encoding_.size != cur_ref_.instr.size) {
-                    ERRMSG("Encoding size %zu != instr size %zu\n", last_encoding_.size,
-                           cur_ref_.instr.size);
-                    assert(false);
+                if (last_encoding_.size != cur_ref_.instr.size &&
+                    /* OFFLINE_FILE_TYPE_ARCH_REGDEPS traces have encodings with
+                     * size != ifetch. It's a design choice, not an error, hence
+                     * we avoid this sanity check for these traces.
+                     */
+                    !TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, filetype_)) {
+                    ERRMSG(
+                        "Encoding size %zu != instr size %zu for PC 0x%zx at ord %" PRIu64
+                        " instr %" PRIu64 " last_timestamp=0x%" PRIx64 "\n",
+                        last_encoding_.size, cur_ref_.instr.size, cur_ref_.instr.addr,
+                        get_record_ordinal(), get_instruction_ordinal(),
+                        get_last_timestamp());
+                    // Encoding errors indicate serious problems so we always abort.
+                    assert_release_too(false);
                 }
                 memcpy(cur_ref_.instr.encoding, last_encoding_.bits, last_encoding_.size);
                 cur_ref_.instr.encoding_is_new = true;
@@ -216,9 +233,14 @@ reader_t::process_input_entry()
                 const auto &it = encodings_.find(cur_ref_.instr.addr);
                 if (it != encodings_.end()) {
                     memcpy(cur_ref_.instr.encoding, it->second.bits, it->second.size);
-                } else if (!expect_no_encodings_) {
+                } else if (!expect_no_encodings_ &&
+                           // A thread can migrate after encoding records are seen.
+                           // It is up to the user to properly handle encodings
+                           // in this mode.
+                           !core_sharded_) {
                     ERRMSG("Missing encoding for 0x%zx\n", cur_ref_.instr.addr);
-                    assert(false);
+                    // Encoding errors indicate serious problems so we always abort.
+                    assert_release_too(false);
                 }
             }
             last_encoding_.size = 0;
@@ -288,7 +310,9 @@ reader_t::process_input_entry()
         break;
     case TRACE_TYPE_MARKER:
         cur_ref_.marker.type = (trace_type_t)input_entry_->type;
-        assert((cur_tid_ != 0 && cur_pid_ != 0) || core_sharded_);
+        assert((cur_tid_ != 0 && cur_pid_ != 0) || core_sharded_ ||
+               // We have to wait for the filetype to see whether we're core-sharded.
+               !found_filetype_);
         cur_ref_.marker.pid = cur_pid_;
         cur_ref_.marker.tid = cur_tid_;
         cur_ref_.marker.marker_type = (trace_marker_type_t)input_entry_->size;
@@ -323,10 +347,13 @@ reader_t::process_input_entry()
                 if (first_timestamp_ == 0)
                     first_timestamp_ = last_timestamp_;
             }
-        } else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_VERSION)
+        } else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID)
+            last_cpuid_ = cur_ref_.marker.marker_value;
+        else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_VERSION)
             version_ = cur_ref_.marker.marker_value;
         else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
             filetype_ = cur_ref_.marker.marker_value;
+            found_filetype_ = true;
             if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, filetype_)) {
                 expect_no_encodings_ = false;
             }
@@ -439,6 +466,11 @@ reader_t::skip_instructions_with_timestamp(uint64_t stop_instruction_count)
         timestamp.addr = static_cast<addr_t>(last_timestamp_);
     }
     trace_entry_t cpu = {};
+    if (last_cpuid_ != 0) {
+        cpu.type = TRACE_TYPE_MARKER;
+        cpu.size = TRACE_MARKER_TYPE_CPU_ID;
+        cpu.addr = static_cast<addr_t>(last_cpuid_);
+    }
     trace_entry_t next_instr = {};
     bool prev_was_record_ord = false;
     bool found_real_timestamp = false;

@@ -67,21 +67,32 @@ static droption_t<int>
            "The opcode to consider when counting the number of times "
            "the instruction is executed. Default opcode is set to add.");
 
+#ifdef SHOW_RESULTS
+static bool show_results_default = true;
+#else
+static bool show_results_default = false;
+#endif
+
+static droption_t<bool> show_results(DROPTION_SCOPE_CLIENT, "show_results",
+                                     show_results_default, "Print results to STDOUT",
+                                     "Print results to STDOUT.");
+
 static uintptr_t global_opcode_count = 0;
 static uintptr_t global_total_count = 0;
 
 static void
 event_exit(void)
 {
-#ifdef SHOW_RESULTS
-    char msg[512];
-    int len;
-    len = dr_snprintf(msg, sizeof(msg) / sizeof(msg[0]), "%u/%u instructions executed.",
-                      global_opcode_count, global_total_count);
-    DR_ASSERT(len > 0);
-    NULL_TERMINATE(msg);
-    DISPLAY_STRING(msg);
-#endif /* SHOW_RESULTS */
+    if (show_results.get_value()) {
+        char msg[512];
+        int len;
+        len =
+            dr_snprintf(msg, sizeof(msg) / sizeof(msg[0]), "%u/%u instructions executed.",
+                        global_opcode_count, global_total_count);
+        DR_ASSERT(len > 0);
+        NULL_TERMINATE(msg);
+        DISPLAY_STRING(msg);
+    }
     drx_exit();
     drreg_exit();
     drmgr_exit();
@@ -163,10 +174,8 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     /* Get opcode and check if valid. */
     int valid_opcode = dynamorio::samples::opcode.get_value();
     if (valid_opcode < OP_FIRST || valid_opcode > OP_LAST) {
-#ifdef SHOW_RESULTS
         dr_fprintf(STDERR, "Error: give a valid opcode as a parameter.\n");
         dr_abort();
-#endif
     }
 
     drreg_options_t ops = { sizeof(ops), 1 /*max slots needed: aflags*/, false };
@@ -186,15 +195,16 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 
     /* Make it easy to tell, by looking at log file, which client executed. */
     dr_log(NULL, DR_LOG_ALL, 1, "Client 'opcode_count' initializing\n");
-#ifdef SHOW_RESULTS
-    /* also give notification to stderr */
-    if (dr_is_notify_on()) {
-#    ifdef WINDOWS
-        /* Ask for best-effort printing to cmd window. This must be called at init. */
-        dr_enable_console_printing();
-#    endif
-        dr_fprintf(STDERR, "Client opcode_count is running and considering opcode: %d.\n",
-                   valid_opcode);
-    }
+    if (dynamorio::samples::show_results.get_value()) {
+        /* also give notification to stderr */
+        if (dr_is_notify_on()) {
+#ifdef WINDOWS
+            /* Ask for best-effort printing to cmd window. This must be called at init. */
+            dr_enable_console_printing();
 #endif
+            dr_fprintf(STDERR,
+                       "Client opcode_count is running and considering opcode: %d.\n",
+                       valid_opcode);
+        }
+    }
 }

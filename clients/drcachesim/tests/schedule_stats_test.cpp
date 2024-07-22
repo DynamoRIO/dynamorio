@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021-2023 Google, LLC  All rights reserved.
+ * Copyright (c) 2021-2024 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -50,6 +50,7 @@
 
 namespace dynamorio {
 namespace drmemtrace {
+namespace {
 
 using ::dynamorio::drmemtrace::default_memtrace_stream_t;
 using ::dynamorio::drmemtrace::memref_t;
@@ -60,39 +61,49 @@ using ::dynamorio::drmemtrace::TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH;
 using ::dynamorio::drmemtrace::TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL;
 using ::dynamorio::drmemtrace::TRACE_MARKER_TYPE_SYSCALL;
 
+// Create a class for testing that has reliable timing.
+// It assumes it is only used with one thread and parallel operation
+// is emulated via lockstep serial walking, so there is no need for locks.
+class mock_schedule_stats_t : public schedule_stats_t {
+public:
+    mock_schedule_stats_t(uint64_t print_every, unsigned int verbose = 0)
+        : schedule_stats_t(print_every, verbose)
+    {
+    }
+
+    uint64_t
+    get_current_microseconds() override
+    {
+        return global_time_;
+    }
+
+    bool
+    parallel_shard_memref(void *shard_data, const memref_t &memref) override
+    {
+        // This global time with our lockstep iteration in run_schedule_stats()
+        // over-counts as it advances while threads are waiting their
+        // serial turn, but that's fine: so long as it's deterministic.
+        ++global_time_;
+        return schedule_stats_t::parallel_shard_memref(shard_data, memref);
+    }
+
+private:
+    // Start at 1 to avoid asserts about a time of 0.
+    uint64_t global_time_ = 1;
+};
+
 // Bypasses the analyzer and scheduler for a controlled test sequence.
 // Alternates the per-core memref vectors in lockstep.
 static schedule_stats_t::counters_t
-run_schedule_stats(const std::vector<std::vector<memref_t>> &memrefs,
-                   const std::unordered_map<memref_tid_t, int64_t> &tid2ord)
+run_schedule_stats(const std::vector<std::vector<memref_t>> &memrefs)
 {
-    schedule_stats_t tool(/*print_every=*/1, /*verbosity=*/2);
-    // schedule_stats_t uses get_input_id() to identify switches.
-    class mock_stream_t : public default_memtrace_stream_t {
-    public:
-        void
-        set_input_id(int64_t input_id)
-        {
-            input_id_ = input_id;
-        }
-        int64_t
-        get_input_id() const override
-        {
-            return input_id_;
-        }
-        memtrace_stream_t *
-        get_input_interface() const override
-        {
-            return const_cast<mock_stream_t *>(this);
-        }
-
-    private:
-        int64_t input_id_ = 0;
-    };
+    // At verbosity 2+ we'd need to subclass default_memtrace_stream_t
+    // and provide a non-null get_input_interface() (point at "this").
+    mock_schedule_stats_t tool(/*print_every=*/1, /*verbosity=*/1);
     struct per_core_t {
         void *worker_data;
         void *shard_data;
-        mock_stream_t stream;
+        default_memtrace_stream_t stream;
         bool finished = false;
         size_t memref_idx = 0;
     };
@@ -109,7 +120,7 @@ run_schedule_stats(const std::vector<std::vector<memref_t>> &memrefs,
             if (per_core[cpu].finished)
                 continue;
             memref_t memref = memrefs[cpu][per_core[cpu].memref_idx];
-            per_core[cpu].stream.set_input_id(tid2ord.at(memref.instr.tid));
+            per_core[cpu].stream.set_tid(memref.instr.tid);
             bool res = tool.parallel_shard_memref(per_core[cpu].shard_data, memref);
             assert(res);
             ++per_core[cpu].memref_idx;
@@ -132,10 +143,6 @@ test_basic_stats()
     static constexpr int64_t TID_A = 42;
     static constexpr int64_t TID_B = 142;
     static constexpr int64_t TID_C = 242;
-    std::unordered_map<memref_tid_t, int64_t> tid2ord;
-    tid2ord[TID_A] = 0;
-    tid2ord[TID_B] = 1;
-    tid2ord[TID_C] = 2;
     std::vector<std::vector<memref_t>> memrefs = {
         {
             gen_instr(TID_A),
@@ -168,6 +175,9 @@ test_basic_stats()
             gen_marker(TID_C, TRACE_MARKER_TYPE_TIMESTAMP, 3300),
             // Direct switch requested but failed.
             gen_instr(TID_C),
+            gen_exit(TID_C),
+            // An exit is a voluntary switch.
+            gen_exit(TID_A),
         },
         {
             gen_instr(TID_B),
@@ -185,22 +195,21 @@ test_basic_stats()
             gen_instr(TID_B),
             gen_instr(TID_B),
             gen_instr(TID_B),
+            gen_exit(TID_B),
         },
     };
-    auto result = run_schedule_stats(memrefs, tid2ord);
+    auto result = run_schedule_stats(memrefs);
     assert(result.instrs == 16);
-    assert(result.total_switches == 6);
-    assert(result.voluntary_switches == 2);
+    assert(result.total_switches == 7);
+    assert(result.voluntary_switches == 3);
     assert(result.direct_switches == 1);
     assert(result.syscalls == 4);
     assert(result.maybe_blocking_syscalls == 3);
     assert(result.direct_switch_requests == 2);
     assert(result.waits == 3);
     assert(result.idle_microseconds == 0);
-    // XXX: For Windows test VMs we see coarse time updates resulting in 0's.
-#ifndef WIN32
-    assert(result.cpu_microseconds > 0);
-#endif
+    assert(result.cpu_microseconds > 20);
+    assert(result.wait_microseconds >= 3);
     return true;
 }
 
@@ -210,10 +219,6 @@ test_idle()
     static constexpr int64_t TID_A = 42;
     static constexpr int64_t TID_B = 142;
     static constexpr int64_t TID_C = 242;
-    std::unordered_map<memref_tid_t, int64_t> tid2ord;
-    tid2ord[TID_A] = 0;
-    tid2ord[TID_B] = 1;
-    tid2ord[TID_C] = 2;
     std::vector<std::vector<memref_t>> memrefs = {
         {
             gen_instr(TID_B),
@@ -225,6 +230,7 @@ test_idle()
             gen_instr(TID_B),
             gen_instr(TID_B),
             gen_instr(TID_B),
+            gen_exit(TID_B),
         },
         {
             gen_instr(TID_C),
@@ -246,30 +252,30 @@ test_idle()
             gen_instr(TID_A),
             gen_instr(TID_A),
             gen_instr(TID_A),
+            gen_exit(TID_A),
+            // An exit is a voluntary switch.
+            gen_exit(TID_C),
         },
     };
-    auto result = run_schedule_stats(memrefs, tid2ord);
+    auto result = run_schedule_stats(memrefs);
     assert(result.instrs == 13);
-    assert(result.total_switches == 5);
-    assert(result.voluntary_switches == 0);
+    assert(result.total_switches == 6);
+    assert(result.voluntary_switches == 1);
     assert(result.direct_switches == 0);
     assert(result.syscalls == 0);
     assert(result.maybe_blocking_syscalls == 0);
     assert(result.direct_switch_requests == 0);
     assert(result.waits == 3);
     assert(result.idles == 6);
-    // It is hard to test wall-clock time precise values so we have sanity checks.
-    std::cerr << "got idle " << result.idle_microseconds << "us, cpu "
-              << result.cpu_microseconds << "us\n"; // NOCHECK
-    // XXX: For Windows test VMs we see coarse time updates resulting in 0's.
-#ifndef WIN32
-    assert(result.idle_microseconds > 0);
+    assert(result.idle_microseconds >= 6);
     assert(result.idle_micros_at_last_instr > 0 &&
            result.idle_micros_at_last_instr <= result.idle_microseconds);
-    assert(result.cpu_microseconds > 0);
-#endif
+    assert(result.cpu_microseconds > 10);
+    assert(result.wait_microseconds >= 3);
     return true;
 }
+
+} // namespace
 
 int
 test_main(int argc, const char *argv[])

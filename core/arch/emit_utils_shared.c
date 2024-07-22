@@ -5275,7 +5275,7 @@ byte *
 emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
 {
     instrlist_t ilist;
-    IF_NOT_AARCH64(IF_NOT_RISCV64(uint offset));
+    IF_NOT_AARCH64_AND_NOT_RISCV64(uint offset);
 
     /* initialize the ilist */
     instrlist_init(&ilist);
@@ -5290,14 +5290,14 @@ emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
      * new_thread_setup() will restore real app xsp.
      * We emulate x86.asm's PUSH_DR_MCONTEXT(SCRATCH_REG0) (for priv_mcontext_t.pc).
      */
-    IF_NOT_AARCH64(IF_NOT_RISCV64(offset =))
+    IF_NOT_AARCH64_AND_NOT_RISCV64(offset =)
     insert_push_all_registers(dcontext, NULL, &ilist, NULL, IF_X64_ELSE(16, 4),
                               opnd_create_reg(SCRATCH_REG0),
                               /* we have to pass in scratch to prevent
                                * use of the stolen reg, which would be
                                * a race w/ the parent's use of it!
                                */
-                              SCRATCH_REG0 _IF_AARCH64(false));
+                              SCRATCH_REG0 _IF_AARCH64_OR_RISCV64(false));
 #    if !defined AARCH64 && !defined(RISCV64)
     /* put pre-push xsp into priv_mcontext_t.xsp slot */
     ASSERT(offset == get_clean_call_switch_stack_size());
@@ -5841,7 +5841,7 @@ emit_clean_call_save(dcontext_t *dcontext, byte *pc, generated_code_t *code)
 #elif defined(RISCV64)
     /* save all registers */
     insert_push_all_registers(dcontext, NULL, &ilist, NULL, (uint)PAGE_SIZE,
-                              OPND_CREATE_INT32(0), REG_NULL);
+                              OPND_CREATE_INT32(0), REG_NULL, true);
 #endif
 
 #ifdef WINDOWS
@@ -5946,7 +5946,7 @@ emit_clean_call_restore(dcontext_t *dcontext, byte *pc, generated_code_t *code)
 
     APP(&ilist, INSTR_CREATE_br(dcontext, opnd_create_reg(DR_REG_X30)));
 #elif defined(RISCV64)
-    insert_pop_all_registers(dcontext, NULL, &ilist, NULL, (uint)PAGE_SIZE);
+    insert_pop_all_registers(dcontext, NULL, &ilist, NULL, (uint)PAGE_SIZE, true);
 
     APP(&ilist, XINST_CREATE_jump_reg(dcontext, opnd_create_reg(DR_REG_RA)));
 #else

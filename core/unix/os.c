@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -1770,7 +1770,7 @@ os_timeout(int time_in_milliseconds)
             IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                              \
             ASSERT(sizeof(var) == sizeof(void *));                              \
             __asm__ __volatile__("ld t0, %0(tp) \n\t"                           \
-                                 "add t0, t0, %2\n\t"                           \
+                                 "add t0, t0, %2 \n\t"                          \
                                  "sd %1, 0(t0) \n\t"                            \
                                  :                                              \
                                  : "i"(DR_TLS_BASE_OFFSET), "r"(var), "r"(offs) \
@@ -1781,9 +1781,9 @@ os_timeout(int time_in_milliseconds)
             IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                      \
             ASSERT(sizeof(var) == sizeof(void *));                      \
             __asm__ __volatile__("ld %0, %1(tp) \n\t"                   \
-                                 "add %0, %0, %2\n\t"                   \
+                                 "add %0, %0, %2 \n\t"                  \
                                  "ld %0, 0(%0) \n\t"                    \
-                                 : "=r"(var)                            \
+                                 : "+r"(var)                            \
                                  : "i"(DR_TLS_BASE_OFFSET), "r"(offs)); \
         } while (0)
 #endif /* X86/ARM/RISCV64 */
@@ -2092,7 +2092,7 @@ os_get_app_tls_reg_offset(reg_id_t reg)
 void *
 d_r_get_tls(ushort tls_offs)
 {
-    void *val;
+    void *val = 0;
     READ_TLS_SLOT(tls_offs, val);
     return val;
 }
@@ -2952,10 +2952,17 @@ os_thread_under_dynamo(dcontext_t *dcontext)
 }
 
 void
-os_thread_not_under_dynamo(dcontext_t *dcontext)
+os_thread_not_under_dynamo(dcontext_t *dcontext, bool restore_sigblocked)
 {
     stop_itimer(dcontext);
-    signal_swap_mask(dcontext, true /*to app*/);
+    /* The caller may not want to restore the app's sigblocked mask right now.
+     * E.g., when a thread is in DR's signal handler to handle the detach signal,
+     * it can restore the mask atomically with going native by setting it on the
+     * signal frame, which avoids races.
+     */
+    if (restore_sigblocked) {
+        signal_swap_mask(dcontext, true /*to app*/);
+    }
     os_swap_context(dcontext, true /*to app*/, DR_STATE_GO_NATIVE);
 }
 
@@ -4054,12 +4061,6 @@ client_thread_run(void)
     dcontext_t *dcontext;
     byte *xsp;
     GET_STACK_PTR(xsp);
-#    ifdef AARCH64
-    /* AArch64's Scalable Vector Extension (SVE) requires more space on the
-     * stack. Align to page boundary, similar to that in get_clone_record().
-     */
-    xsp = (app_pc)ALIGN_BACKWARD(xsp, PAGE_SIZE);
-#    endif
     void *crec = get_clone_record((reg_t)xsp);
     /* i#2335: we support setup separate from start, and we want to allow a client
      * to create a client thread during init, but we do not support that thread

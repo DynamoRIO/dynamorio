@@ -185,7 +185,7 @@ file_reader_t<zipfile_reader_t>::skip_instructions(uint64_t instruction_count)
 {
     if (instruction_count == 0)
         return *this;
-    VPRINT(this, 2, "Skipping %" PRIi64 " instrs in %s\n", instruction_count,
+    VPRINT(this, 2, "Skipping %" PRIu64 " instrs in %s\n", instruction_count,
            input_file_.path.c_str());
     if (!pre_skip_instructions())
         return *this;
@@ -199,7 +199,7 @@ file_reader_t<zipfile_reader_t>::skip_instructions(uint64_t instruction_count)
     // know the chunk names to use with a single unzLocateFile.
     uint64_t stop_count = cur_instr_count_ + instruction_count + 1;
     VPRINT(this, 2,
-           "stop=%" PRIi64 " cur=%" PRIi64 " chunk=%" PRIi64 " est=%" PRIi64 "\n",
+           "stop=%" PRIu64 " cur=%" PRIu64 " chunk=%" PRIu64 " est=%" PRIu64 "\n",
            stop_count, cur_instr_count_, chunk_instr_count_,
            cur_instr_count_ +
                (chunk_instr_count_ - (cur_instr_count_ % chunk_instr_count_)));
@@ -227,11 +227,11 @@ file_reader_t<zipfile_reader_t>::skip_instructions(uint64_t instruction_count)
             return *this;
         }
         cur_instr_count_ += chunk_instr_count_ - (cur_instr_count_ % chunk_instr_count_);
-        VPRINT(this, 2, "At %" PRIi64 " instrs at start of new chunk\n",
+        VPRINT(this, 2, "At %" PRIu64 " instrs at start of new chunk\n",
                cur_instr_count_);
         VPRINT(this, 2,
-               "zip chunk stop=%" PRIi64 " cur=%" PRIi64 " chunk=%" PRIi64
-               " end-of-chunk=%" PRIi64 "\n",
+               "zip chunk stop=%" PRIu64 " cur=%" PRIu64 " chunk=%" PRIu64
+               " end-of-chunk=%" PRIu64 "\n",
                stop_count, cur_instr_count_, chunk_instr_count_,
                cur_instr_count_ +
                    (chunk_instr_count_ - (cur_instr_count_ % chunk_instr_count_)));

@@ -175,14 +175,15 @@ analyzer_multi_t::create_invariant_checker()
     }
     return new invariant_checker_t(op_offline.get_value(), op_verbose.get_value(),
                                    op_test_mode_name.get_value(),
-                                   serial_schedule_file_.get(), cpu_schedule_file_.get());
+                                   serial_schedule_file_.get(), cpu_schedule_file_.get(),
+                                   op_abort_on_invariant_error.get_value());
 }
 
 template <>
 analysis_tool_t *
-analyzer_multi_t::create_analysis_tool_from_options(const std::string &simulator_type)
+analyzer_multi_t::create_analysis_tool_from_options(const std::string &tool)
 {
-    if (simulator_type == CPU_CACHE) {
+    if (tool == CPU_CACHE || tool == CPU_CACHE_ALT || tool == CPU_CACHE_LEGACY) {
         const std::string &config_file = op_config_file.get_value();
         if (!config_file.empty()) {
             return cache_simulator_create(config_file);
@@ -190,12 +191,12 @@ analyzer_multi_t::create_analysis_tool_from_options(const std::string &simulator
             cache_simulator_knobs_t *knobs = get_cache_simulator_knobs();
             return cache_simulator_create(*knobs);
         }
-    } else if (simulator_type == MISS_ANALYZER) {
+    } else if (tool == MISS_ANALYZER) {
         cache_simulator_knobs_t *knobs = get_cache_simulator_knobs();
         return cache_miss_analyzer_create(*knobs, op_miss_count_threshold.get_value(),
                                           op_miss_frac_threshold.get_value(),
                                           op_confidence_threshold.get_value());
-    } else if (simulator_type == TLB) {
+    } else if (tool == TLB || tool == TLB_LEGACY) {
         tlb_simulator_knobs_t knobs;
         knobs.num_cores = op_num_cores.get_value();
         knobs.page_size = op_page_size.get_value();
@@ -214,10 +215,10 @@ analyzer_multi_t::create_analysis_tool_from_options(const std::string &simulator
         knobs.cpu_scheduling = op_cpu_scheduling.get_value();
         knobs.use_physical = op_use_physical.get_value();
         return tlb_simulator_create(knobs);
-    } else if (simulator_type == HISTOGRAM) {
+    } else if (tool == HISTOGRAM) {
         return histogram_tool_create(op_line_size.get_value(), op_report_top.get_value(),
                                      op_verbose.get_value());
-    } else if (simulator_type == REUSE_DIST) {
+    } else if (tool == REUSE_DIST) {
         reuse_distance_knobs_t knobs;
         knobs.line_size = op_line_size.get_value();
         knobs.report_histogram = op_reuse_distance_histogram.get_value();
@@ -233,11 +234,11 @@ analyzer_multi_t::create_analysis_tool_from_options(const std::string &simulator
         }
         knobs.verbose = op_verbose.get_value();
         return reuse_distance_tool_create(knobs);
-    } else if (simulator_type == REUSE_TIME) {
+    } else if (tool == REUSE_TIME) {
         return reuse_time_tool_create(op_line_size.get_value(), op_verbose.get_value());
-    } else if (simulator_type == BASIC_COUNTS) {
+    } else if (tool == BASIC_COUNTS) {
         return basic_counts_tool_create(op_verbose.get_value());
-    } else if (simulator_type == OPCODE_MIX) {
+    } else if (tool == OPCODE_MIX) {
         std::string module_file_path = get_module_file_path();
         if (module_file_path.empty() && op_indir.get_value().empty() &&
             op_infile.get_value().empty() && !op_instr_encodings.get_value()) {
@@ -247,15 +248,15 @@ analyzer_multi_t::create_analysis_tool_from_options(const std::string &simulator
         }
         return opcode_mix_tool_create(module_file_path, op_verbose.get_value(),
                                       op_alt_module_dir.get_value());
-    } else if (simulator_type == SYSCALL_MIX) {
+    } else if (tool == SYSCALL_MIX) {
         return syscall_mix_tool_create(op_verbose.get_value());
-    } else if (simulator_type == VIEW) {
+    } else if (tool == VIEW) {
         std::string module_file_path = get_module_file_path();
         // The module file is optional so we don't check for emptiness.
         return view_tool_create(module_file_path, op_skip_refs.get_value(),
                                 op_sim_refs.get_value(), op_view_syntax.get_value(),
                                 op_verbose.get_value(), op_alt_module_dir.get_value());
-    } else if (simulator_type == FUNC_VIEW) {
+    } else if (tool == FUNC_VIEW) {
         std::string funclist_file_path = get_aux_file_path(
             op_funclist_file.get_value(), DRMEMTRACE_FUNCTION_LIST_FILENAME);
         if (funclist_file_path.empty()) {
@@ -264,21 +265,21 @@ analyzer_multi_t::create_analysis_tool_from_options(const std::string &simulator
         }
         return func_view_tool_create(funclist_file_path, op_show_func_trace.get_value(),
                                      op_verbose.get_value());
-    } else if (simulator_type == INVARIANT_CHECKER) {
+    } else if (tool == INVARIANT_CHECKER) {
         return create_invariant_checker();
-    } else if (simulator_type == SCHEDULE_STATS) {
+    } else if (tool == SCHEDULE_STATS) {
         return schedule_stats_tool_create(op_schedule_stats_print_every.get_value(),
                                           op_verbose.get_value());
     } else {
-        auto tool = create_external_tool(simulator_type);
-        if (tool == nullptr) {
+        auto ext_tool = create_external_tool(tool);
+        if (ext_tool == nullptr) {
             ERRMSG("Usage error: unsupported analyzer type \"%s\". "
                    "Please choose " CPU_CACHE ", " MISS_ANALYZER ", " TLB ", " HISTOGRAM
                    ", " REUSE_DIST ", " BASIC_COUNTS ", " OPCODE_MIX ", " SYSCALL_MIX
                    ", " VIEW ", " FUNC_VIEW ", or some external analyzer.\n",
-                   simulator_type.c_str());
+                   tool.c_str());
         }
-        return tool;
+        return ext_tool;
     }
 }
 
@@ -325,19 +326,19 @@ record_analyzer_multi_t::create_invariant_checker()
 
 template <>
 record_analysis_tool_t *
-record_analyzer_multi_t::create_analysis_tool_from_options(
-    const std::string &simulator_type)
+record_analyzer_multi_t::create_analysis_tool_from_options(const std::string &tool)
 {
-    if (simulator_type == RECORD_FILTER) {
+    if (tool == RECORD_FILTER) {
         return record_filter_tool_create(
             op_outdir.get_value(), op_filter_stop_timestamp.get_value(),
             op_filter_cache_size.get_value(), op_filter_trace_types.get_value(),
             op_filter_marker_types.get_value(), op_trim_before_timestamp.get_value(),
-            op_trim_after_timestamp.get_value(), op_verbose.get_value());
+            op_trim_after_timestamp.get_value(), op_encodings2regdeps.get_value(),
+            op_filter_func_ids.get_value(), op_verbose.get_value());
     }
     ERRMSG("Usage error: unsupported record analyzer type \"%s\".  Only " RECORD_FILTER
            " is supported.\n",
-           simulator_type.c_str());
+           tool.c_str());
     return nullptr;
 }
 
@@ -350,6 +351,13 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
 {
     this->worker_count_ = op_jobs.get_value();
     this->skip_instrs_ = op_skip_instrs.get_value();
+    this->skip_to_timestamp_ = op_skip_to_timestamp.get_value();
+    if (this->skip_instrs_ > 0 && this->skip_to_timestamp_ > 0) {
+        this->error_string_ = "Usage error: only one of -skip_instrs and "
+                              "-skip_to_timestamp can be used at a time";
+        this->success_ = false;
+        return;
+    }
     this->interval_microseconds_ = op_interval_microseconds.get_value();
     this->interval_instr_count_ = op_interval_instr_count.get_value();
     // Initial measurements show it's sometimes faster to keep the parallel model
@@ -436,6 +444,14 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
             this->parallel_ = false;
         }
         sched_ops = init_dynamic_schedule();
+    } else if (op_skip_to_timestamp.get_value() > 0) {
+#ifdef HAS_ZIP
+        if (!op_cpu_schedule_file.get_value().empty()) {
+            cpu_schedule_zip_.reset(
+                new zipfile_istream_t(op_cpu_schedule_file.get_value()));
+            sched_ops.replay_as_traced_istream = cpu_schedule_zip_.get();
+        }
+#endif
     }
 
     if (!op_indir.get_value().empty()) {
@@ -508,6 +524,7 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::init_dynamic_schedule()
     sched_ops.block_time_scale = op_sched_block_scale.get_value();
     sched_ops.block_time_max = op_sched_block_max_us.get_value();
     sched_ops.randomize_next_input = op_sched_randomize.get_value();
+    sched_ops.honor_direct_switches = !op_sched_disable_direct_switches.get_value();
 #ifdef HAS_ZIP
     if (!op_record_file.get_value().empty()) {
         record_schedule_zip_.reset(new zipfile_ostream_t(op_record_file.get_value()));
@@ -519,9 +536,14 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::init_dynamic_schedule()
         sched_ops.deps = sched_type_t::DEPENDENCY_TIMESTAMPS;
     } else if (!op_cpu_schedule_file.get_value().empty()) {
         cpu_schedule_zip_.reset(new zipfile_istream_t(op_cpu_schedule_file.get_value()));
-        sched_ops.mapping = sched_type_t::MAP_TO_RECORDED_OUTPUT;
-        sched_ops.deps = sched_type_t::DEPENDENCY_TIMESTAMPS;
         sched_ops.replay_as_traced_istream = cpu_schedule_zip_.get();
+        // -cpu_schedule_file is used for two different things: actually replaying,
+        // and just input for -skip_to_timestamp.  Only if -skip_to_timestamp is 0
+        // do we actually replay.
+        if (op_skip_to_timestamp.get_value() == 0) {
+            sched_ops.mapping = sched_type_t::MAP_TO_RECORDED_OUTPUT;
+            sched_ops.deps = sched_type_t::DEPENDENCY_TIMESTAMPS;
+        }
     }
 #endif
     sched_ops.kernel_switch_trace_path = op_sched_switch_file.get_value();
@@ -533,8 +555,8 @@ bool
 analyzer_multi_tmpl_t<RecordType, ReaderType>::create_analysis_tools()
 {
     this->tools_ = new analysis_tool_tmpl_t<RecordType> *[this->max_num_tools_];
-    if (!op_simulator_type.get_value().empty()) {
-        std::stringstream stream(op_simulator_type.get_value());
+    if (!op_tool.get_value().empty()) {
+        std::stringstream stream(op_tool.get_value());
         std::string type;
         while (std::getline(stream, type, ':')) {
             if (this->num_tools_ >= this->max_num_tools_ - 1) {

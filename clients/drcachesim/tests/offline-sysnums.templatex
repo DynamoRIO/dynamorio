@@ -10,6 +10,6 @@ Total counts:
     .* total icache flushes
     .* total dcache flushes
            1 total threads
-    .* total scheduling markers
+    .* total timestamp \+ cpuid markers
 .*
 Trace invariant checks passed

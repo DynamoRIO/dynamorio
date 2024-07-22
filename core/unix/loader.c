@@ -743,15 +743,21 @@ privload_os_finalize(privmod_t *privmod)
         SYSLOG_INTERNAL_WARNING("glibc 2.34+ i#5437 workaround failed: missed glro");
         return;
     }
+    int GLRO_dl_tls_static_size_OFFS;
+    int GLRO_dl_tls_static_align_OFFS;
 #    ifdef X64
-    const int GLRO_dl_tls_static_size_OFFS = 0x2a8;
-    const int GLRO_dl_tls_static_align_OFFS = 0x2b0;
+    // The offsets changed between 2.38 and 2.39.
+    if (ver[2] == '3' && ver[3] < '9') {
+        GLRO_dl_tls_static_size_OFFS = 0x2a8;
+        GLRO_dl_tls_static_align_OFFS = 0x2b0;
+    } else {
+        GLRO_dl_tls_static_size_OFFS = 0x2c8;
+        GLRO_dl_tls_static_align_OFFS = 0x2d0;
+    }
 #    else
     // The offsets changed between 2.35 and 2.36.
-    const int GLRO_dl_tls_static_size_OFFS =
-        (ver[2] == '3' && ver[3] == '5') ? 0x328 : 0x31c;
-    const int GLRO_dl_tls_static_align_OFFS =
-        (ver[2] == '3' && ver[3] == '5') ? 0x32c : 0x320;
+    GLRO_dl_tls_static_size_OFFS = (ver[2] == '3' && ver[3] == '5') ? 0x328 : 0x31c;
+    GLRO_dl_tls_static_align_OFFS = (ver[2] == '3' && ver[3] == '5') ? 0x32c : 0x320;
 #    endif
     size_t val = 4096, written;
     if (!safe_write_ex(glro + GLRO_dl_tls_static_size_OFFS, sizeof(val), &val,

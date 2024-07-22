@@ -52,10 +52,10 @@
  * dr_api.h cannot be used in the test suite because they pop up message boxes
  * on Windows.
  */
-#define ASSERT_MSG(x, msg)                                                           \
-    ((void)((!(x)) ? (dr_fprintf(STDERR, "ASSERT FAILURE: %s:%d: %s (%s)", __FILE__, \
-                                 __LINE__, #x, msg),                                 \
-                      dr_abort(), 0)                                                 \
+#define ASSERT_MSG(x, msg)                                                             \
+    ((void)((!(x)) ? (dr_fprintf(STDERR, "ASSERT FAILURE: %s:%d: %s (%s)\n", __FILE__, \
+                                 __LINE__, #x, msg),                                   \
+                      dr_abort(), 0)                                                   \
                    : 0))
 #define ASSERT(x) ASSERT_MSG(x, "")
 /* Same as ASSERT_MSG, but kept separate due to existing uses across many files. */

@@ -46,6 +46,11 @@
 
 #include "arch.h"
 
+static int sigill_caught = 0;
+static dr_jmp_buf_t jmpbuf;
+
+extern cpu_info_t cpu_info;
+
 void
 save_fpstate(dcontext_t *dcontext, sigframe_rt_t *frame)
 {
@@ -121,8 +126,64 @@ signal_frame_extra_size(bool include_alignment)
     return 0;
 }
 
+static void
+catch_sigill(int signo, kernel_siginfo_t *si, void *data)
+{
+    (void)signo;
+    (void)si;
+    (void)data;
+
+    sigill_caught = 1;
+    dr_longjmp(&jmpbuf, 1);
+}
+
+static int
+sigill_detected(void *func)
+{
+    sigill_caught = 0;
+
+    kernel_sigaction_t act = { 0 };
+    kernel_sigaction_t old_act;
+
+    set_handler_sigact(&act, SIGILL, (handler_t)catch_sigill);
+    sigaction_syscall(SIGILL, &act, &old_act);
+
+    /* We use dr_longjmp to exit the SIGILL handler, which skips the signal mask restoring
+     * of OS. Manually save and restore the signal mask here.
+     * XXX: Add dr_longjmp_sigmask() to make this easier?
+     */
+    kernel_sigset_t oset;
+    sigprocmask_syscall(SIG_SETMASK, NULL, &oset, sizeof(oset));
+
+    if (dr_setjmp(&jmpbuf) == 0) {
+        ((void (*)(void))func)();
+    }
+
+    sigprocmask_syscall(SIG_SETMASK, &oset, NULL, sizeof(oset));
+
+    sigaction_syscall(SIGILL, &old_act, NULL);
+
+    return sigill_caught;
+}
+
+static void
+func_v(void)
+{
+    /* csrr zero, vcsr */
+    asm volatile(".align 2\n.word 0xf02073");
+}
+
 void
 signal_arch_init(void)
 {
-    /* Nothing. */
+    /* Detects RISC-V extensions support using SIGILL.
+     * We could also use the riscv_hwprobe syscall (since kernel 6.4) or /proc/cpuinfo to
+     * detect extension support, but as of year 2024, using SIGILL is still the most
+     * reliable way for various devices and kernel versions.
+     *
+     * Only supports the V extension detection for now.
+     */
+    if (!sigill_detected((void *)func_v)) {
+        *cpu_info.features.isa_features |= 1 << FEATURE_VECTOR;
+    }
 }

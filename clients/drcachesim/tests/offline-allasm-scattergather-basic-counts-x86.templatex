@@ -11,7 +11,7 @@ Total counts:
            0 total icache flushes
            0 total dcache flushes
            1 total threads
-     .* total scheduling markers
+     .* total timestamp \+ cpuid markers
 .*
 Thread .* counts:
           96 \(fetched\) instructions
@@ -22,5 +22,5 @@ Thread .* counts:
            5 data stores
            0 icache flushes
            0 dcache flushes
-     .* scheduling markers
+     .* timestamp \+ cpuid markers
 .*

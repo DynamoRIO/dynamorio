@@ -919,6 +919,21 @@ test_sscanf_all_specs(void)
 #        endif
 
 typedef void (*memcpy_t)(void *dst, const void *src, size_t n);
+typedef void (*memset_t)(void *dst, int src, size_t n);
+
+/* Force compiler to not optimize away our own memcpy and memset.
+ */
+__attribute__((noinline)) static void *
+our_memcpy(void *dst, const void *src, size_t n)
+{
+    return memcpy(dst, src, n);
+}
+
+__attribute__((noinline)) static void *
+our_memset(void *dst, int src, size_t n)
+{
+    return memset(dst, src, n);
+}
 
 static void
 test_memcpy_offset_size(size_t src_offset, size_t dst_offset, size_t size)
@@ -933,7 +948,7 @@ test_memcpy_offset_size(size_t src_offset, size_t dst_offset, size_t size)
     }
     EXPECT(src_offset + size <= sizeof(src), 1);
     EXPECT(dst_offset + size <= sizeof(dst), 1);
-    memcpy(dst + dst_offset, src + src_offset, size);
+    our_memcpy(dst + dst_offset, src + src_offset, size);
     EXPECT(memcmp(dst + dst_offset, src + src_offset, size), 0);
     /* Check the bytes just out of bounds, which should still be zero. */
     if (dst_offset > 0)
@@ -961,7 +976,7 @@ test_our_memcpy(void)
         }
     }
     /* Check that memcpy returns dst. */
-    ret = memcpy(&i, &j, sizeof(i));
+    ret = our_memcpy(&i, &j, sizeof(i));
     EXPECT(ret == &i, 1);
 }
 
@@ -974,7 +989,7 @@ test_memset_offset_size(int val, int start_offs, int end_offs)
     /* Zero without memset. */
     for (i = 0; i < sizeof(buf); i++)
         buf[i] = 0;
-    memset(buf + start_offs, val, end);
+    our_memset(buf + start_offs, val, end);
     EXPECT(is_region_memset_to_char(buf + start_offs, end, val), 1);
     if (start_offs > 0)
         EXPECT(buf[start_offs - 1], 0);
@@ -997,16 +1012,14 @@ test_our_memset(void)
         }
     }
     /* Check that memset returns dst. */
-    ret = memset(&i, -1, sizeof(i));
+    ret = our_memset(&i, -1, sizeof(i));
     EXPECT(ret == &i, 1);
 }
 
 static void
 our_memcpy_vs_libc(void)
 {
-    /* Compare our memcpy with libc memcpy.
-     * XXX: Should compare on more sizes, especially small ones.
-     */
+    /* Compare our memcpy with libc memcpy. */
     size_t alloc_size = 20 * 1024;
     int loop_count = 100 * 1000;
     void *src = global_heap_alloc(alloc_size HEAPACCT(ACCT_OTHER));
@@ -1015,30 +1028,77 @@ our_memcpy_vs_libc(void)
     memcpy_t glibc_memcpy = (memcpy_t)dlsym(RTLD_NEXT, "memcpy");
     uint64 our_memcpy_start, our_memcpy_end, our_memcpy_time;
     uint64 libc_memcpy_start, libc_memcpy_end, libc_memcpy_time;
-    memset(src, -1, alloc_size);
-    memset(dst, 0, alloc_size);
+    our_memset(src, -1, alloc_size);
+    our_memset(dst, 0, alloc_size);
 
-    our_memcpy_start = query_time_millis();
-    for (i = 0; i < loop_count; i++) {
-        memcpy(src, dst, alloc_size);
+    int tests_size[] = { 1, 4, 128, 512, 8192, alloc_size };
+    int j;
+    for (j = 0; j < sizeof(tests_size) / sizeof(int); j++) {
+        our_memcpy_start = query_time_millis();
+        for (i = 0; i < loop_count; i++) {
+            our_memcpy(src, dst, tests_size[j]);
+        }
+        our_memcpy_end = query_time_millis();
+
+        libc_memcpy_start = query_time_millis();
+        for (i = 0; i < loop_count; i++) {
+            glibc_memcpy(src, dst, tests_size[j]);
+        }
+        libc_memcpy_end = query_time_millis();
+
+        our_memcpy_time = our_memcpy_end - our_memcpy_start;
+        libc_memcpy_time = libc_memcpy_end - libc_memcpy_start;
+        print_file(STDERR,
+                   "our_memcpy_time: size=" UINT64_FORMAT_STRING
+                   " time=" UINT64_FORMAT_STRING "\n",
+                   tests_size[j], our_memcpy_time);
+        print_file(STDERR,
+                   "libc_memcpy_time: size=" UINT64_FORMAT_STRING
+                   " time=" UINT64_FORMAT_STRING "\n",
+                   tests_size[j], libc_memcpy_time);
     }
-    our_memcpy_end = query_time_millis();
-
-    libc_memcpy_start = query_time_millis();
-    for (i = 0; i < loop_count; i++) {
-        glibc_memcpy(src, dst, alloc_size);
-    }
-    libc_memcpy_end = query_time_millis();
-
-    global_heap_free(src, alloc_size HEAPACCT(ACCT_OTHER));
-    global_heap_free(dst, alloc_size HEAPACCT(ACCT_OTHER));
-    our_memcpy_time = our_memcpy_end - our_memcpy_start;
-    libc_memcpy_time = libc_memcpy_end - libc_memcpy_start;
-    print_file(STDERR, "our_memcpy_time: " UINT64_FORMAT_STRING "\n", our_memcpy_time);
-    print_file(STDERR, "libc_memcpy_time: " UINT64_FORMAT_STRING "\n", libc_memcpy_time);
     /* We could assert that we're not too much slower, but that's a recipe for
      * flaky failures when the suite is run on shared VMs or in parallel.
      */
+
+    global_heap_free(src, alloc_size HEAPACCT(ACCT_OTHER));
+    global_heap_free(dst, alloc_size HEAPACCT(ACCT_OTHER));
+}
+
+static void
+our_memset_vs_libc(void)
+{
+    /* Compare our memset with libc memset. */
+    size_t alloc_size = 20 * 1024;
+    int loop_count = 100 * 1000;
+    void *src = global_heap_alloc(alloc_size HEAPACCT(ACCT_OTHER));
+    void *dst = global_heap_alloc(alloc_size HEAPACCT(ACCT_OTHER));
+    int i;
+    memset_t glibc_memset = (memset_t)dlsym(RTLD_NEXT, "memset");
+    uint64 our_memset_start, our_memset_end, our_memset_time;
+    uint64 libc_memset_start, libc_memset_end, libc_memset_time;
+
+    our_memset_start = query_time_millis();
+    for (i = 0; i < loop_count; i++) {
+        our_memset(src, -1, alloc_size);
+        our_memset(dst, 0, alloc_size);
+    }
+    our_memset_end = query_time_millis();
+
+    libc_memset_start = query_time_millis();
+    for (i = 0; i < loop_count; i++) {
+        glibc_memset(src, -1, alloc_size);
+        glibc_memset(dst, 0, alloc_size);
+    }
+    libc_memset_end = query_time_millis();
+
+    global_heap_free(src, alloc_size HEAPACCT(ACCT_OTHER));
+    global_heap_free(dst, alloc_size HEAPACCT(ACCT_OTHER));
+
+    our_memset_time = our_memset_end - our_memset_start;
+    libc_memset_time = libc_memset_end - libc_memset_start;
+    print_file(STDERR, "our_memset_time: " UINT64_FORMAT_STRING "\n", our_memset_time);
+    print_file(STDERR, "libc_memset_time: " UINT64_FORMAT_STRING "\n", libc_memset_time);
 }
 #    endif /* UNIX */
 
@@ -1187,6 +1247,7 @@ unit_test_io(void)
 
     /* memset tests */
     test_our_memset();
+    our_memset_vs_libc();
 #    endif /* UNIX */
 
     /* XXX: add more tests */

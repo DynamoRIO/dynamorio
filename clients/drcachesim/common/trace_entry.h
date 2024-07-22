@@ -295,6 +295,8 @@ typedef enum {
      * Windows callbacks.
      * A restartable sequence abort handler is further identified by a prior
      * marker of type #TRACE_MARKER_TYPE_RSEQ_ABORT.
+     * A signal handler is optionally further identified by a subsequent marker
+     * of type #TRACE_MARKER_TYPE_SIGNAL_NUMBER.
      */
     TRACE_MARKER_TYPE_KERNEL_EVENT,
     /**
@@ -567,10 +569,21 @@ typedef enum {
      * #TRACE_MARKER_TYPE_SYSCALL and #TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL markers)
      * that causes an immediate switch to another thread on the same core (with the
      * current thread entering an unscheduled state), bypassing the kernel scheduler's
-     * normal dynamic switch code based on run queues.  The marker value holds the
-     * thread id of the target thread.  This should generally always be after a
-     * #TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL marker as such a switch always
-     * has a chance of blocking if the target needs to be migrated.
+     * normal dynamic switch code based on run queues.  The marker value holds the thread
+     * id of the target thread.  The current thread will remain unschedulable
+     * indefinitely unless another thread resumes it with either
+     * #TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH or #TRACE_MARKER_TYPE_SYSCALL_SCHEDULE;
+     * or, if a #TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT marker is present, the thread will
+     * become schedulable when that timeout expires.  This marker provides a mechanism to
+     * model these semantics while abstracting away whether the underlying system call is
+     * a custom kernel extension or a variant of "futex" or other selective wait-notify
+     * scheme.  This marker should generally always be after a
+     * #TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL marker as such a switch always has a
+     * chance of blocking the source thread.  See also
+     * #TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, #TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, and
+     * #TRACE_MARKER_TYPE_SYSCALL_SCHEDULE.  The scheduler only models this behavior when
+     * #dynamorio::drmemtrace::scheduler_tmpl_t::scheduler_options_t.honor_direct_switches
+     * is true.
      */
     TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH,
 
@@ -623,9 +636,61 @@ typedef enum {
      * length value is specific to the current thread.
      * The vector length affects how some SVE instructions are decoded so any tools which
      * decode instructions should clear any cached data and set the vector length used by
-     * the decoder using dr_set_sve_vector_length().
+     * the decoder using dr_set_vector_length().
      */
     TRACE_MARKER_TYPE_VECTOR_LENGTH,
+
+    /**
+     * This marker is emitted prior to a system call (but after the system call's
+     * #TRACE_MARKER_TYPE_SYSCALL and #TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL markers)
+     * that causes the current thread to become unschedulable (removed from all queues of
+     * runnable threads).  The thread will remain unschedulable indefinitely unless
+     * another thread resumes it with either #TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH or
+     * #TRACE_MARKER_TYPE_SYSCALL_SCHEDULE; or, if a
+     * #TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT marker is present, the thread will become
+     * schedulable when that timeout expires.  This marker provides a mechanism to model
+     * these semantics while abstracting away whether the underlying system call is a
+     * custom kernel extension or a variant of "futex" or other selective wait-notify
+     * scheme.  This marker should generally always be after a
+     * #TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL marker as becoming unschedulable is a
+     * form of blocking and results in a context switch.  The scheduler only models this
+     * behavior when
+     * #dynamorio::drmemtrace::scheduler_tmpl_t::scheduler_options_t.honor_direct_switches
+     * is true.
+     */
+    TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE,
+
+    /**
+     * This marker is emitted prior to a system call (but after the system call's
+     * #TRACE_MARKER_TYPE_SYSCALL marker) that causes a target thread identified in the
+     * marker value to become schedulable again if it were currently unschedulable or if
+     * it is not currently unschedulable to *not* become unschedulable on its next action
+     * that would otherwise do so.  See also #TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE and
+     * #TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH.  This marker provides a mechanism to
+     * model these semantics while abstracting away whether the underlying system call is
+     * a custom kernel extension or a variant of "futex" or other selective wait-notify
+     * scheme.  The scheduler only models this behavior when
+     * #dynamorio::drmemtrace::scheduler_tmpl_t::scheduler_options_t.honor_direct_switches
+     * is true.
+     */
+    TRACE_MARKER_TYPE_SYSCALL_SCHEDULE,
+
+    /**
+     * This marker is emitted prior to a system call (but after the system call's
+     * #TRACE_MARKER_TYPE_SYSCALL and #TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL markers)
+     * which also has a #TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH or
+     * #TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE marker.  This indicates a timeout provided
+     * by the application after which the thread will become schedulable again.  The
+     * marker value holds the timeout duration in microseconds.
+     */
+    TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT,
+
+    /**
+     * This marker is emitted prior to the invocation of a signal handler,
+     * after the #TRACE_MARKER_TYPE_KERNEL_EVENT record for the handler.
+     * The marker value holds the signal number.
+     */
+    TRACE_MARKER_TYPE_SIGNAL_NUMBER,
 
     // ...
     // These values are reserved for future built-in marker types.
@@ -663,6 +728,18 @@ type_is_instr(const trace_type_t type)
     return (type >= TRACE_TYPE_INSTR && type <= TRACE_TYPE_INSTR_RETURN) ||
         type == TRACE_TYPE_INSTR_SYSENTER || type == TRACE_TYPE_INSTR_TAKEN_JUMP ||
         type == TRACE_TYPE_INSTR_UNTAKEN_JUMP;
+}
+
+/**
+ * Returns whether \p type represents any type of instruction record whether an
+ * instruction fetch or operation hint. This is a superset of type_is_instr() and includes
+ * #TRACE_TYPE_INSTR_NO_FETCH.
+ */
+static inline bool
+is_any_instr_type(const trace_type_t type)
+{
+    return type_is_instr(type) || type == TRACE_TYPE_INSTR_MAYBE_FETCH ||
+        type == TRACE_TYPE_INSTR_NO_FETCH;
 }
 
 /** Returns whether the type represents the fetch of a branch instruction. */
@@ -889,9 +966,6 @@ typedef enum {
     OFFLINE_FILE_TYPE_ARCH_ARM32 = 0x10,       /**< Recorded on ARM (32-bit). */
     OFFLINE_FILE_TYPE_ARCH_X86_32 = 0x20,      /**< Recorded on x86 (32-bit). */
     OFFLINE_FILE_TYPE_ARCH_X86_64 = 0x40,      /**< Recorded on x86 (64-bit). */
-    OFFLINE_FILE_TYPE_ARCH_ALL = OFFLINE_FILE_TYPE_ARCH_AARCH64 |
-        OFFLINE_FILE_TYPE_ARCH_ARM32 | OFFLINE_FILE_TYPE_ARCH_X86_32 |
-        OFFLINE_FILE_TYPE_ARCH_X86_64, /**< All possible architecture types. */
     /**
      * Instruction addresses filtered online.
      * Note: this file type may transition to non-filtered. If so, the transition is
@@ -940,9 +1014,10 @@ typedef enum {
     OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP = 0x2000,
     /**
      * Indicates an offline trace that contains trace templates for some system calls.
-     * The individual traces are separated by a #TRACE_MARKER_TYPE_SYSCALL marker which
-     * also specifies what system call the following trace belongs to. This file can be
-     * used with -syscall_template_file to raw2trace to create a
+     * The individual traces are enclosed within a pair of
+     * #TRACE_MARKER_TYPE_SYSCALL_TRACE_START and #TRACE_MARKER_TYPE_SYSCALL_TRACE_END
+     * markers which also specify what system call the contained trace belongs to. This
+     * file can be used with -syscall_template_file to raw2trace to create an
      * #OFFLINE_FILE_TYPE_KERNEL_SYSCALLS trace. See the sample file written by the
      * burst_syscall_inject.cpp test for more details on the expected format for the
      * system call template file.
@@ -967,19 +1042,36 @@ typedef enum {
      * Each trace shard represents one core and contains interleaved software threads.
      */
     OFFLINE_FILE_TYPE_CORE_SHARDED = 0x10000,
+    /**
+     * Trace filtered by the record_filter tool using -filter_encodings2regdeps.
+     * The encodings2regdeps filter replaces real ISA encodings with #DR_ISA_REGDEPS
+     * encodings. Note that these encoding changes do not update the instruction length,
+     * hence encoding size and instruction fetch size may not match.
+     */
+    OFFLINE_FILE_TYPE_ARCH_REGDEPS = 0x20000,
+    /**
+     * All possible architecture types, including synthetic ones.
+     */
+    OFFLINE_FILE_TYPE_ARCH_ALL = OFFLINE_FILE_TYPE_ARCH_AARCH64 |
+        OFFLINE_FILE_TYPE_ARCH_ARM32 | OFFLINE_FILE_TYPE_ARCH_X86_32 |
+        OFFLINE_FILE_TYPE_ARCH_X86_64 | OFFLINE_FILE_TYPE_ARCH_REGDEPS,
 } offline_file_type_t;
 
 static inline const char *
 trace_arch_string(offline_file_type_t type)
 {
-    return TESTANY(OFFLINE_FILE_TYPE_ARCH_AARCH64, type)
-        ? "aarch64"
-        : (TESTANY(OFFLINE_FILE_TYPE_ARCH_ARM32, type)
-               ? "arm"
-               : (TESTANY(OFFLINE_FILE_TYPE_ARCH_X86_32, type)
-                      ? "i386"
-                      : (TESTANY(OFFLINE_FILE_TYPE_ARCH_X86_64, type) ? "x86_64"
-                                                                      : "unspecified")));
+    if (TESTANY(OFFLINE_FILE_TYPE_ARCH_AARCH64, type))
+        return "aarch64";
+    else if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ARM32, type))
+        return "arm";
+    else if (TESTANY(OFFLINE_FILE_TYPE_ARCH_X86_32, type))
+        return "i386";
+    else if (TESTANY(OFFLINE_FILE_TYPE_ARCH_X86_64, type))
+        return "x86_64";
+    else if (TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, type))
+        return "regdeps";
+    else
+        return "unspecified";
 }
 
 /* We have non-client targets including this header that do not include API

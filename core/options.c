@@ -2785,7 +2785,17 @@ unit_test_options(void)
      * We include a smaller option to ensure we avoid printing out "0G".
      */
     get_dynamo_options_string(&dynamo_options, opstring, sizeof(opstring), true);
-    EXPECT_EQ(0, strcmp(opstring, "-vmheap_size 16G -persist_short_digest 8K "));
+#        define EXPECT_OPT(opt, val)                                                     \
+            do {                                                                         \
+                const char *start = strstr(opstring, opt);                               \
+                EXPECT_NE(start, NULL);                                                  \
+                const char expected[] = opt " " val;                                     \
+                EXPECT_STR(start, expected, sizeof(expected) / sizeof(expected[0]) - 1); \
+            } while (0)
+    EXPECT_OPT("-vmheap_size", "16G");
+    EXPECT_OPT("-persist_short_digest", "8K");
+#        undef EXPECT_OPT
+
 #    endif
 
     SELF_PROTECT_OPTIONS();

@@ -64,7 +64,7 @@ namespace drmemtrace {
 static sigjmp_buf mark;
 static int handled_sigill_count = 0;
 
-#define TO_BE_ZEROED_ARR_SIZE 512
+#define TO_BE_ZEROED_ARR_SIZE 1024
 char to_be_zeroed[TO_BE_ZEROED_ARR_SIZE];
 
 void

@@ -6932,13 +6932,13 @@ test_vector_length(void *dcontext)
     /* XXX: Make this test work when on actual SVE hardware where this API routine
      * is documented as failing.
      */
-    bool res = dr_set_sve_vector_length(new_len);
+    bool res = dr_set_vector_length(new_len);
     ASSERT(res);
-    ASSERT(dr_get_sve_vector_length() == new_len);
+    ASSERT(dr_get_vector_length() == new_len);
     /* Ensure invalid lengths return failure. */
-    ASSERT(!dr_set_sve_vector_length(0));
-    ASSERT(!dr_set_sve_vector_length(1));
-    ASSERT(!dr_set_sve_vector_length(4096));
+    ASSERT(!dr_set_vector_length(0));
+    ASSERT(!dr_set_vector_length(1));
+    ASSERT(!dr_set_vector_length(4096));
 }
 
 int
@@ -7116,6 +7116,10 @@ main(int argc, char *argv[])
     ld2r(dcontext);
     ld3r(dcontext);
     ld4r(dcontext);
+
+    /* To add new tests for v8.0 instructions please use the TEST_LOOP*() macros and
+     * add them to ir_aarch64_v80.c
+     */
 
     test_internal_encode(dcontext);
 

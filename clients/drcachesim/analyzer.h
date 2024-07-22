@@ -248,7 +248,8 @@ protected:
     // Helper for process_tasks() which calls parallel_shard_exit() in each tool.
     // Returns false if there was an error and the caller should return early.
     bool
-    process_shard_exit(analyzer_worker_data_t *worker, int shard_index);
+    process_shard_exit(analyzer_worker_data_t *worker, int shard_index,
+                       bool do_process_final_interval = true);
 
     bool
     record_has_tid(RecordType record, memref_tid_t &tid);
@@ -423,6 +424,7 @@ protected:
     int worker_count_;
     const char *output_prefix_ = "[analyzer]";
     uint64_t skip_instrs_ = 0;
+    uint64_t skip_to_timestamp_ = 0;
     uint64_t interval_microseconds_ = 0;
     uint64_t interval_instr_count_ = 0;
     int verbosity_ = 0;

@@ -68,7 +68,7 @@ enum {
 #elif defined(AARCH64)
     ISA_ARM_A64,
 #elif defined(RISCV64)
-    ISA_RV64IMAFDC,
+    ISA_RV64,
 #endif
     NUM_ISA_MODE,
 };
@@ -203,6 +203,8 @@ get_count_isa_idx(void *drcontext)
     case DR_ISA_ARM_THUMB: return ISA_ARM_THUMB;
 #elif defined(AARCH64)
     case DR_ISA_ARM_A64: return ISA_ARM_A64;
+#elif defined(RISCV64)
+    case DR_ISA_RV64: return ISA_RV64;
 #endif
     default: DR_ASSERT(false); /* NYI */
     }

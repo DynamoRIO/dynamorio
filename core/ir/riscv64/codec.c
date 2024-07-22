@@ -32,7 +32,9 @@
 #include <stdint.h>
 
 #include "../globals.h"
+#include "../isa_regdeps/decode.h"
 #include "codec.h"
+#include "encode_api.h"
 #include "trie.h"
 
 /* RISC-V extended instruction information structure.
@@ -150,6 +152,21 @@ decode_rdfp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_
     return true;
 }
 
+/* Decode the destination vector register field:
+ * |31 12|11   7|6      0|
+ * | ... |  vd  | opcode |
+ *        ^----^
+ */
+static bool
+decode_vd_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc, int idx,
+               instr_t *out)
+{
+    reg_t reg = DR_REG_VR0 + GET_FIELD(inst, 11, 7);
+    opnd_t opnd = opnd_create_reg(reg);
+    instr_set_dst(out, idx, opnd);
+    return true;
+}
+
 /* Decode the 1st source fixed-point register field:
  * |31 20|19   15|14  7|6      0|
  * | ... |  rs1  | ... | opcode |
@@ -177,6 +194,21 @@ decode_rs1fp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig
                   int idx, instr_t *out)
 {
     reg_t reg = DR_REG_F0 + GET_FIELD(inst, 19, 15);
+    opnd_t opnd = opnd_create_reg(reg);
+    instr_set_src(out, idx, opnd);
+    return true;
+}
+
+/* Decode the 1st source vector register field:
+ * |31 20|19   15|14  7|6      0|
+ * | ... |  vs1  | ... | opcode |
+ *        ^-----^
+ */
+static bool
+decode_vs1_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
+                int idx, instr_t *out)
+{
+    reg_t reg = DR_REG_VR0 + GET_FIELD(inst, 19, 15);
     opnd_t opnd = opnd_create_reg(reg);
     instr_set_src(out, idx, opnd);
     return true;
@@ -230,6 +262,21 @@ decode_rs2fp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig
     return true;
 }
 
+/* Decode the 2nd source vector register field:
+ * |31 25|24   20|19  7|6      0|
+ * | ... |  vs2  | ... | opcode |
+ *        ^-----^
+ */
+static bool
+decode_vs2_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
+                int idx, instr_t *out)
+{
+    reg_t reg = DR_REG_VR0 + GET_FIELD(inst, 24, 20);
+    opnd_t opnd = opnd_create_reg(reg);
+    instr_set_src(out, idx, opnd);
+    return true;
+}
+
 /* Decode the 3rd source fixed-point register field:
  * |31 27|26  7|6      0|
  * | rs3 | ... | opcode |
@@ -241,6 +288,21 @@ decode_rs3fp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig
                   int idx, instr_t *out)
 {
     reg_t reg = DR_REG_F0 + GET_FIELD(inst, 31, 27);
+    opnd_t opnd = opnd_create_reg(reg);
+    instr_set_src(out, idx, opnd);
+    return true;
+}
+
+/* Decode the 3rd source vector register field:
+ * |31 12|11  7|6      0|
+ * | ... | vs3 | opcode |
+ *        ^----^
+ */
+static bool
+decode_vs3_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
+                int idx, instr_t *out)
+{
+    reg_t reg = DR_REG_VR0 + GET_FIELD(inst, 11, 7);
     opnd_t opnd = opnd_create_reg(reg);
     instr_set_src(out, idx, opnd);
     return true;
@@ -1049,9 +1111,11 @@ decode_v_l_rs1_disp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc,
                          byte *orig_pc, int idx, instr_t *out)
 {
     reg_t reg = DR_REG_X0 + GET_FIELD(inst, 19, 15);
-    /* Immediate part of LR.W/D is always 0. */
-    int32_t imm =
-        GET_FIELD(inst, 6, 0) == 0b0101111 ? 0 : SIGN_EXTEND(GET_FIELD(inst, 31, 20), 12);
+    /* Immediate part of LR.W/D or vector load is always 0. */
+    bool is_vector_load = GET_FIELD(inst, 6, 0) == 0b0000111 &&
+        (GET_FIELD(inst, 14, 12) == 0 || GET_FIELD(inst, 14, 12) > 0b100);
+    bool is_lr = GET_FIELD(inst, 6, 0) == 0b0101111;
+    int32_t imm = is_vector_load || is_lr ? 0 : SIGN_EXTEND(GET_FIELD(inst, 31, 20), 12);
     opnd_t opnd = opnd_add_flags(opnd_create_base_disp(reg, DR_REG_NULL, 0, imm, op_sz),
                                  DR_OPND_IMM_PRINT_DECIMAL);
     instr_set_src(out, idx, opnd);
@@ -1074,8 +1138,11 @@ decode_v_s_rs1_disp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc,
                          byte *orig_pc, int idx, instr_t *out)
 {
     reg_t reg = DR_REG_X0 + GET_FIELD(inst, 19, 15);
-    /* Immediate part of SC.W/D is always 0. */
-    int32_t imm = GET_FIELD(inst, 6, 0) == 0b0101111
+    /* Immediate part of SC.W/D or vector store is always 0. */
+    bool is_vector_store = GET_FIELD(inst, 6, 0) == 0b0100111 &&
+        (GET_FIELD(inst, 14, 12) == 0 || GET_FIELD(inst, 14, 12) > 0b100);
+    bool is_sc = GET_FIELD(inst, 6, 0) == 0b0101111;
+    int32_t imm = is_vector_store || is_sc
         ? 0
         : (GET_FIELD(inst, 31, 25) << 5) | GET_FIELD(inst, 11, 7);
     imm = SIGN_EXTEND(imm, 12);
@@ -1196,6 +1263,96 @@ decode_icrs1___opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *or
     return true;
 }
 
+/* Decode the zimm immediate field in vsetivli instruction (V extension):
+ * |31 30|29    20|19  15|14   12|11       7|6      0|
+ * | ... | zimm10 | zimm |  ...  |    rd    | opcode |
+ *                ^------^
+ */
+static bool
+decode_zimm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
+                 int idx, instr_t *out)
+{
+    uint32_t imm = GET_FIELD(inst, 19, 15);
+    opnd_t opnd = opnd_create_immed_uint(imm, op_sz);
+    instr_set_src(out, idx, opnd);
+    return true;
+}
+
+/* Decode the zimm10 immediate field in vsetivli instruction (V extension):
+ * |31 30|29    20|19  15|14   12|11       7|6      0|
+ * | ... | zimm10 | zimm |  ...  |    rd    | opcode |
+ *       ^--------^
+ */
+static bool
+decode_zimm10_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
+                   int idx, instr_t *out)
+{
+    uint32_t imm = GET_FIELD(inst, 29, 20);
+    opnd_t opnd = opnd_create_immed_uint(imm, op_sz);
+    instr_set_src(out, idx, opnd);
+    return true;
+}
+
+/* Decode the zimm11 immediate field in vsetvli instruction (V extension):
+ * |31|30    20|19   15|14   12|11       7|6      0|
+ * |  | zimm11 |  rs1  |  ...  |    rd    | opcode |
+ *    ^--------^
+ */
+static bool
+decode_zimm11_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
+                   int idx, instr_t *out)
+{
+    uint32_t imm = GET_FIELD(inst, 30, 20);
+    opnd_t opnd = opnd_create_immed_uint(imm, op_sz);
+    instr_set_src(out, idx, opnd);
+    return true;
+}
+
+/* Decode the vm (vector mask) immediate field in vector instructions (V extension):
+ * |31 26| 25 |24  0|
+ * | ... | vm | ... |
+ *       ^----^
+ */
+static bool
+decode_vm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc, int idx,
+               instr_t *out)
+{
+    uint32_t imm = GET_FIELD(inst, 25, 25);
+    opnd_t opnd = opnd_create_immed_uint(imm, op_sz);
+    instr_set_src(out, idx, opnd);
+    return true;
+}
+
+/* Decode the nf (nfields) immediate field in vector instructions (V extension):
+ * |31  29|28  0|
+ * |  nf  | ... |
+ * ^------^
+ */
+static bool
+decode_nf_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc, int idx,
+               instr_t *out)
+{
+    uint32_t imm = GET_FIELD(inst, 31, 29);
+    opnd_t opnd = opnd_create_immed_uint(imm, op_sz);
+    instr_set_src(out, idx, opnd);
+    return true;
+}
+
+/* Decode the simm5 immediate field in vector instructions (V extension):
+ * |31    26| 25 |24 20|19   15|14 12|11 7|6      0|
+ * | funct6 | vm | vs2 | simm5 | ... | vd | opcode |
+ *                     ^-------^
+ */
+static bool
+decode_simm5_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
+                  int idx, instr_t *out)
+{
+    uint32_t imm = GET_FIELD(inst, 19, 15);
+    opnd_t opnd = opnd_create_immed_uint(imm, op_sz);
+    instr_set_src(out, idx, opnd);
+    return true;
+}
+
 /* Array of operand decode functions indexed by riscv64_fld_t.
  *
  * NOTE: After benchmarking, perhaps this could be placed in the same section as
@@ -1264,6 +1421,16 @@ opnd_dec_func_t opnd_decoders[] = {
     [RISCV64_FLD_IIMM_0] = decode_iimm_0_opnd,
     [RISCV64_FLD_ICRS1] = decode_icrs1_opnd,
     [RISCV64_FLD_ICRS1__] = decode_icrs1___opnd,
+    [RISCV64_FLD_ZIMM] = decode_zimm_opnd,
+    [RISCV64_FLD_ZIMM10] = decode_zimm10_opnd,
+    [RISCV64_FLD_ZIMM11] = decode_zimm11_opnd,
+    [RISCV64_FLD_VM] = decode_vm_opnd,
+    [RISCV64_FLD_NF] = decode_nf_opnd,
+    [RISCV64_FLD_SIMM5] = decode_simm5_opnd,
+    [RISCV64_FLD_VD] = decode_vd_opnd,
+    [RISCV64_FLD_VS1] = decode_vs1_opnd,
+    [RISCV64_FLD_VS2] = decode_vs2_opnd,
+    [RISCV64_FLD_VS3] = decode_vs3_opnd,
     [RISCV64_FLD_I_S_RS1_DISP] = decode_v_s_rs1_disp_opnd,
 };
 
@@ -1483,6 +1650,14 @@ get_instruction_info(uint opc)
 byte *
 decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
 {
+    /* #DR_ISA_REGDEPS synthetic ISA has its own decoder.
+     * XXX i#1684: when DR can be built with full dynamic architecture selection we won't
+     * need to pollute the decoding of other architectures with this synthetic ISA special
+     * case.
+     */
+    if (dr_get_isa_mode(dcontext) == DR_ISA_REGDEPS)
+        return decode_isa_regdeps(dcontext, pc, instr);
+
     /* Decode instruction width from the opcode. */
     int width = instruction_width(*(uint16_t *)pc);
     /* Start assuming a compressed instruction. Code memory should be 2b aligned. */
@@ -1642,6 +1817,20 @@ encode_rdfp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t
     return true;
 }
 
+/* Encode the destination vector register field:
+ * |31 12|11   7|6      0|
+ * | ... |  vd  | opcode |
+ *        ^----^
+ */
+static bool
+encode_vd_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
+{
+    opnd_t opnd = instr_get_dst(instr, idx);
+    uint32_t reg = opnd_get_reg(opnd) - DR_REG_VR0;
+    *out |= SET_FIELD(reg, 11, 7);
+    return true;
+}
+
 /* Encode the 1st source fixed-point register field:
  * |31 20|19   15|14  7|6      0|
  * | ... |  rs1  | ... | opcode |
@@ -1670,6 +1859,20 @@ encode_rs1fp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_
     ASSERT(opnd_get_reg(opnd) >= DR_REG_F0);
     uint32_t rd = opnd_get_reg(opnd) - DR_REG_F0;
     *out |= SET_FIELD(rd, 19, 15);
+    return true;
+}
+
+/* Encode the 1st source vector register field:
+ * |31 20|19   15|14  7|6      0|
+ * | ... |  vs1  | ... | opcode |
+ *        ^-----^
+ */
+static bool
+encode_vs1_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
+{
+    opnd_t opnd = instr_get_src(instr, idx);
+    uint32_t reg = opnd_get_reg(opnd) - DR_REG_VR0;
+    *out |= SET_FIELD(reg, 19, 15);
     return true;
 }
 
@@ -1719,6 +1922,20 @@ encode_rs2fp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_
     return true;
 }
 
+/* Encode the 2nd source vector register field:
+ * |31 25|24   20|19  7|6      0|
+ * | ... |  vs2  | ... | opcode |
+ *        ^-----^
+ */
+static bool
+encode_vs2_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
+{
+    opnd_t opnd = instr_get_src(instr, idx);
+    uint32_t reg = opnd_get_reg(opnd) - DR_REG_VR0;
+    *out |= SET_FIELD(reg, 24, 20);
+    return true;
+}
+
 /* Encode the 3rd source fixed-point register field:
  * |31 27|26  7|6      0|
  * | rs3 | ... | opcode |
@@ -1731,6 +1948,20 @@ encode_rs3fp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_
     opnd_t opnd = instr_get_src(instr, idx);
     uint32_t rd = opnd_get_reg(opnd) - DR_REG_F0;
     *out |= SET_FIELD(rd, 31, 27);
+    return true;
+}
+
+/* Encode the 3rd source vector register field:
+ * |31 12|11  7|6      0|
+ * | ... | vs3 | opcode |
+ *        ^----^
+ */
+static bool
+encode_vs3_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
+{
+    opnd_t opnd = instr_get_src(instr, idx);
+    uint32_t reg = opnd_get_reg(opnd) - DR_REG_VR0;
+    *out |= SET_FIELD(reg, 11, 7);
     return true;
 }
 
@@ -2521,6 +2752,90 @@ encode_v_s_rs1_disp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out,
     return true;
 }
 
+/* Encode the zimm immediate field in vsetivli instruction (V extension):
+ * |31 30|29    20|19  15|14   12|11       7|6      0|
+ * | ... | zimm10 | zimm |  ...  |    rd    | opcode |
+ *                ^------^
+ */
+static bool
+encode_zimm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
+{
+    opnd_t opnd = instr_get_src(instr, idx);
+    uint32_t imm = opnd_get_immed_int(opnd);
+    *out |= SET_FIELD(imm, 19, 15);
+    return true;
+}
+
+/* Encode the zimm10 immediate field in vsetivli instruction (V extension):
+ * |31 30|29    20|19  15|14   12|11       7|6      0|
+ * | ... | zimm10 | zimm |  ...  |    rd    | opcode |
+ *       ^--------^
+ */
+static bool
+encode_zimm10_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
+{
+    opnd_t opnd = instr_get_src(instr, idx);
+    uint32_t imm = opnd_get_immed_int(opnd);
+    *out |= SET_FIELD(imm, 29, 20);
+    return true;
+}
+
+/* Encode the zimm11 immediate field in vsetvli instruction (V extension):
+ * |31|30    20|19   15|14   12|11       7|6      0|
+ * |  | zimm11 |  rs1  |  ...  |    rd    | opcode |
+ *    ^--------^
+ */
+static bool
+encode_zimm11_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
+{
+    opnd_t opnd = instr_get_src(instr, idx);
+    uint32_t imm = opnd_get_immed_int(opnd);
+    *out |= SET_FIELD(imm, 30, 20);
+    return true;
+}
+
+/* Encode the vm (vector mask) immediate field in vector instructions (V extension):
+ * |31 26| 25 |24  0|
+ * | ... | vm | ... |
+ *       ^----^
+ */
+static bool
+encode_vm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
+{
+    opnd_t opnd = instr_get_src(instr, idx);
+    uint32_t imm = opnd_get_immed_int(opnd);
+    *out |= SET_FIELD(imm, 25, 25);
+    return true;
+}
+
+/* Encode the nf (nfields) immediate field in vector instructions (V extension):
+ * |31  29|28  0|
+ * |  nf  | ... |
+ * ^------^
+ */
+static bool
+encode_nf_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
+{
+    opnd_t opnd = instr_get_src(instr, idx);
+    uint32_t imm = opnd_get_immed_int(opnd);
+    *out |= SET_FIELD(imm, 31, 29);
+    return true;
+}
+
+/* Encode the simm5 immediate field in vector instructions (V extension):
+ * |31    26| 25 |24 20|19   15|14 12|11 7|6      0|
+ * | funct6 | vm | vs2 | simm5 | ... | vd | opcode |
+ *                     ^-------^
+ */
+static bool
+encode_simm5_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
+{
+    opnd_t opnd = instr_get_src(instr, idx);
+    int32_t imm = opnd_get_immed_int(opnd);
+    *out |= SET_FIELD(imm, 19, 15);
+    return true;
+}
+
 /* Array of operand encode functions indexed by riscv64_fld_t. */
 opnd_enc_func_t opnd_encoders[] = {
     [RISCV64_FLD_NONE] = encode_none_opnd,
@@ -2585,6 +2900,16 @@ opnd_enc_func_t opnd_encoders[] = {
     [RISCV64_FLD_IIMM_0] = encode_implicit_opnd,
     [RISCV64_FLD_ICRS1] = encode_implicit_opnd,
     [RISCV64_FLD_ICRS1__] = encode_implicit_opnd,
+    [RISCV64_FLD_ZIMM] = encode_zimm_opnd,
+    [RISCV64_FLD_ZIMM10] = encode_zimm10_opnd,
+    [RISCV64_FLD_ZIMM11] = encode_zimm11_opnd,
+    [RISCV64_FLD_VM] = encode_vm_opnd,
+    [RISCV64_FLD_NF] = encode_nf_opnd,
+    [RISCV64_FLD_SIMM5] = encode_simm5_opnd,
+    [RISCV64_FLD_VD] = encode_vd_opnd,
+    [RISCV64_FLD_VS1] = encode_vs1_opnd,
+    [RISCV64_FLD_VS2] = encode_vs2_opnd,
+    [RISCV64_FLD_VS3] = encode_vs3_opnd,
     [RISCV64_FLD_I_S_RS1_DISP] = encode_implicit_opnd,
 };
 

@@ -129,9 +129,10 @@ hit_instr_count_threshold(app_pc next_pc)
         return;
     }
     if (op_trace_after_instrs.get_value() > 0 &&
-        !reached_trace_after_instrs.load(std::memory_order_acquire))
+        !reached_trace_after_instrs.load(std::memory_order_acquire)) {
         NOTIFY(0, "Hit delay threshold: enabling tracing.\n");
-    else {
+        retrace_start_timestamp.store(instru_t::get_timestamp());
+    } else {
         NOTIFY(0, "Hit retrace threshold: enabling tracing for window #%zd.\n",
                tracing_window.load(std::memory_order_acquire));
         retrace_start_timestamp.store(instru_t::get_timestamp());

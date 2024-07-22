@@ -32,26 +32,22 @@
 
 #include "../globals.h"
 #include "instr.h"
+#include "encode_api.h"
 #include "decode.h"
 
-/* FIXME i#1551: add A64 and Thumb support throughout */
-
+/* XXX i#6690: currently only A32 and Thumb is supported for instruction encoding.
+ * We want to add support for A32 and Thumb decoding and synthetic ISA encoding as well.
+ * XXX i#1684: move this function to core/ir/instr_shared.c once we can support
+ * all architectures in the same build of DR.
+ */
 bool
 instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
 {
-    if (mode == DR_ISA_ARM_THUMB)
-        instr->flags |= INSTR_THUMB_MODE;
-    else if (mode == DR_ISA_ARM_A32)
-        instr->flags &= ~INSTR_THUMB_MODE;
-    else
+    if (mode != DR_ISA_ARM_THUMB && mode != DR_ISA_ARM_A32 && mode != DR_ISA_REGDEPS) {
         return false;
+    }
+    instr->isa_mode = mode;
     return true;
-}
-
-dr_isa_mode_t
-instr_get_isa_mode(instr_t *instr)
-{
-    return TEST(INSTR_THUMB_MODE, instr->flags) ? DR_ISA_ARM_THUMB : DR_ISA_ARM_A32;
 }
 
 int
@@ -76,6 +72,12 @@ instr_length_arch(dcontext_t *dcontext, instr_t *instr)
 
 bool
 opc_is_not_a_real_memory_load(int opc)
+{
+    return false;
+}
+
+bool
+opc_is_not_a_real_memory_store(int opc)
 {
     return false;
 }
@@ -913,7 +915,7 @@ DR_API
 bool
 instr_is_scatter(instr_t *instr)
 {
-    /* XXX i#3837: no scatter-store on ARM? */
+    /* No scatter-store on AArch32. */
     return false;
 }
 
@@ -921,6 +923,16 @@ DR_API
 bool
 instr_is_gather(instr_t *instr)
 {
-    /* XXX i#3837: no gather-load on ARM? */
+    /* No gather-load on AArch32. */
+    return false;
+}
+
+bool
+instr_compute_vector_address(instr_t *instr, priv_mcontext_t *mc, size_t mc_size,
+                             dr_mcontext_flags_t mc_flags, opnd_t curop, uint addr_index,
+                             DR_PARAM_OUT bool *have_addr, DR_PARAM_OUT app_pc *addr,
+                             DR_PARAM_OUT bool *write)
+{
+    CLIENT_ASSERT(false, "There are no AArch32 instructions that use vector addressing");
     return false;
 }

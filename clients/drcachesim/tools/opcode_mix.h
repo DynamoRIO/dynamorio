@@ -82,6 +82,26 @@ public:
     std::string
     parallel_shard_error(void *shard_data) override;
 
+    // Interval support.
+    interval_state_snapshot_t *
+    generate_interval_snapshot(uint64_t interval_id) override;
+    interval_state_snapshot_t *
+    combine_interval_snapshots(
+        const std::vector<const interval_state_snapshot_t *> latest_shard_snapshots,
+        uint64_t interval_end_timestamp) override;
+    bool
+    print_interval_results(
+        const std::vector<interval_state_snapshot_t *> &interval_snapshots) override;
+    bool
+    release_interval_snapshot(interval_state_snapshot_t *interval_snapshot) override;
+    interval_state_snapshot_t *
+    generate_shard_interval_snapshot(void *shard_data, uint64_t interval_id) override;
+
+    // Convert the captured cumulative snapshots to deltas.
+    bool
+    finalize_interval_snapshots(
+        std::vector<interval_state_snapshot_t *> &interval_snapshots) override;
+
 protected:
     std::string
     get_category_names(uint category);
@@ -105,6 +125,14 @@ protected:
          * to be future-proof.
          */
         uint category;
+    };
+
+    class snapshot_t : public interval_state_snapshot_t {
+    public:
+        // Snapshot the counts as cumulative stats, and then converted them to deltas in
+        // finalize_interval_snapshots().  Printed interval results are all deltas.
+        std::unordered_map<int, int64_t> opcode_counts_;
+        std::unordered_map<uint, int64_t> category_counts_;
     };
 
     struct worker_data_t {
@@ -171,6 +199,8 @@ protected:
     // For serial operation.
     worker_data_t serial_worker_;
     shard_data_t serial_shard_;
+    // To guard the setting of isa_mode in dcontext.
+    std::mutex dcontext_mutex_;
 };
 
 } // namespace drmemtrace

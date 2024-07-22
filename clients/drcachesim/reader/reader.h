@@ -254,6 +254,7 @@ protected:
     uint64_t last_timestamp_ = 0;
     uint64_t first_timestamp_ = 0;
     trace_entry_t *input_entry_ = nullptr;
+    uint64_t last_cpuid_ = 0;
     // Remember top-level headers for the memtrace_stream_t interface.
     uint64_t version_ = 0;
     uint64_t filetype_ = 0;
@@ -272,7 +273,10 @@ protected:
     };
 
     std::unordered_map<addr_t, encoding_info_t> encodings_;
+    // Whether this reader's input stream interleaves software threads and thus
+    // some thread-based checks may not apply.
     bool core_sharded_ = false;
+    bool found_filetype_ = false;
 
 private:
     memref_t cur_ref_;
