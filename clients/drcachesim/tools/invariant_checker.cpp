@@ -53,9 +53,16 @@
 #include "invariant_checker_create.h"
 #include "trace_entry.h"
 #include "utils.h"
+#ifdef LINUX
+#    include "../../core/unix/include/syscall_target.h"
+#endif
 
 namespace dynamorio {
 namespace drmemtrace {
+
+// We don't expose the alignment requirement for DR_ISA_REGDEPS instructions (4 bytes),
+// so we duplicate it here.
+#define REGDEPS_ALIGN_BYTES 4
 
 analysis_tool_t *
 invariant_checker_create(bool offline, unsigned int verbose)
@@ -1233,6 +1240,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             }
         }
     }
+    // Run additional checks for OFFLINE_FILE_TYPE_ARCH_REGDEPS traces.
+    if (TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, shard->file_type_))
+        check_regdeps_invariants(shard, memref);
+
     return true;
 }
 
@@ -1571,6 +1582,128 @@ invariant_checker_t::check_for_pc_discontinuity(
     }
 
     return error_msg;
+}
+
+void
+invariant_checker_t::check_regdeps_invariants(per_shard_t *shard, const memref_t &memref)
+{
+    // Check instructions.
+    if (type_is_instr(memref.instr.type)) {
+        const bool expect_encoding =
+            TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_);
+        if (expect_encoding) {
+            // Decode memref_t to get an instr_t we can analyze.
+            const app_pc trace_pc = reinterpret_cast<app_pc>(memref.instr.addr);
+            instr_noalloc_t noalloc;
+            instr_noalloc_init(drcontext_, &noalloc);
+            instr_t *noalloc_instr = instr_from_noalloc(&noalloc);
+            const app_pc encoding_addr = const_cast<app_pc>(memref.instr.encoding);
+            app_pc next_pc =
+                decode_from_copy(drcontext_, encoding_addr, trace_pc, noalloc_instr);
+            bool instr_is_decoded = next_pc != nullptr;
+            report_if_false(
+                shard, instr_is_decoded,
+                "DR_ISA_REGDEPS instructions should always succeed during decoding");
+            // We still check this condition in case we don't abort on invariant errors.
+            if (instr_is_decoded) {
+                // ISA mode should be DR_ISA_REGDEPS
+                report_if_false(shard,
+                                instr_get_isa_mode(noalloc_instr) == DR_ISA_REGDEPS,
+                                "DR_ISA_REGDEPS instruction has incorrect ISA mode");
+                // Only OP_UNDECODED as opcode are allowed.
+                report_if_false(shard, instr_get_opcode(noalloc_instr) == OP_UNDECODED,
+                                "DR_ISA_REGDEPS instruction opcode is not OP_UNDECODED");
+                // Only register operands are allowed.
+                int num_dsts = instr_num_dsts(noalloc_instr);
+                for (int dst_index = 0; dst_index < num_dsts; ++dst_index) {
+                    opnd_t dst_opnd = instr_get_dst(noalloc_instr, dst_index);
+                    report_if_false(shard, opnd_is_reg(dst_opnd),
+                                    "DR_ISA_REGDEPS instruction destination operand is "
+                                    "not a register");
+                }
+                int num_srcs = instr_num_srcs(noalloc_instr);
+                for (int src_index = 0; src_index < num_srcs; ++src_index) {
+                    opnd_t src_opnd = instr_get_src(noalloc_instr, src_index);
+                    report_if_false(
+                        shard, opnd_is_reg(src_opnd),
+                        "DR_ISA_REGDEPS instruction source operand is not a register");
+                }
+                // Arithmetic flags should either be 0 or all read or all written or both,
+                // but nothing in between, as we don't expose individual flags.
+                uint eflags = instr_get_arith_flags(noalloc_instr, DR_QUERY_DEFAULT);
+                report_if_false(
+                    shard,
+                    eflags == 0 || eflags == EFLAGS_WRITE_ARITH ||
+                        eflags == EFLAGS_READ_ARITH ||
+                        eflags == (EFLAGS_WRITE_ARITH | EFLAGS_READ_ARITH),
+                    "DR_ISA_REGDEPS instruction has incorrect arithmetic flags");
+                // Instruction length should be a multiple of 4 bytes
+                // (i.e., REGDEPS_ALIGN_BYTES).
+                report_if_false(
+                    shard, ((next_pc - encoding_addr) % REGDEPS_ALIGN_BYTES) == 0,
+                    "DR_ISA_REGDEPS instruction has incorrect length, it's not a "
+                    "multiple of REGDEPS_ALIGN_BYTES = 4");
+            }
+        }
+    }
+
+    // Check markers.
+    if (memref.marker.type == TRACE_TYPE_MARKER) {
+        switch (memref.marker.marker_type) {
+        case TRACE_MARKER_TYPE_SYSCALL_IDX:
+            report_if_false(shard, false,
+                            "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot have "
+                            "TRACE_MARKER_TYPE_SYSCALL_IDX markers");
+            break;
+        case TRACE_MARKER_TYPE_SYSCALL:
+            report_if_false(shard, false,
+                            "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot have "
+                            "TRACE_MARKER_TYPE_SYSCALL markers");
+            break;
+        case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
+            report_if_false(shard, false,
+                            "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot have "
+                            "TRACE_MARKER_TYPE_SYSCALL_TRACE_START markers");
+            break;
+        case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
+            report_if_false(shard, false,
+                            "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot have "
+                            "TRACE_MARKER_TYPE_SYSCALL_TRACE_END markers");
+            break;
+        case TRACE_MARKER_TYPE_SYSCALL_FAILED:
+            report_if_false(shard, false,
+                            "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot have "
+                            "TRACE_MARKER_TYPE_SYSCALL_FAILED markers");
+            break;
+        // This case also covers TRACE_MARKER_TYPE_FUNC_RETADDR,
+        // TRACE_MARKER_TYPE_FUNC_RETVAL, and TRACE_MARKER_TYPE_FUNC_ARG, since these
+        // markers are always preceed by TRACE_MARKER_TYPE_FUNC_ID.
+        case TRACE_MARKER_TYPE_FUNC_ID: {
+            // In OFFLINE_FILE_TYPE_ARCH_REGDEPS traces the only TRACE_MARKER_TYPE_FUNC_
+            // markers allowed are those related to SYS_futex. We can only check that
+            // for LINUX builds of DR, otherwise we disable this check and print a
+            // warning instead.
+#ifdef LINUX
+            report_if_false(
+                shard,
+                memref.marker.marker_value ==
+                    static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) +
+                        SYS_futex,
+                "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot have "
+                "TRACE_MARKER_TYPE_FUNC_ID markers related to functions that "
+                "are not SYS_futex");
+#else
+            std::cerr << "WARNING: we cannot determine whether the function ID of "
+                         "TRACE_MARKER_TYPE_FUNC_ID is allowed in an "
+                         "OFFLINE_FILE_TYPE_ARCH_REGDEPS trace because DynamoRIO "
+                         "was not built on a Linux platform.\n";
+#endif
+        } break;
+        default:
+            // All other markers are allowed.
+            break;
+        }
+    }
 }
 
 } // namespace drmemtrace

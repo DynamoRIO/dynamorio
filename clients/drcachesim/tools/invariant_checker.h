@@ -258,6 +258,11 @@ protected:
                                const per_shard_t::instr_info_t &cur_memref_info,
                                bool expect_encoding, bool at_kernel_event);
 
+    // Check for invariant violations related to OFFLINE_FILE_TYPE_ARCH_REGDEPS traces.
+    // Checks both instructions and markers.
+    void
+    check_regdeps_invariants(per_shard_t *shard, const memref_t &memref);
+
 #ifdef X86
     // Whether the expected write entry count check should be relaxed for the kernel
     // part of the trace.
