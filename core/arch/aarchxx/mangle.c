@@ -3885,8 +3885,8 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         /* We are mangling a 2x4-byte stxp and we need to replace it with a 1x8-byte
          * stxr.
          *
-         * First we need to the combine the values of the 2 32-bit source registers into
-         * a single 64-bit source register:
+         * First we need to combine the values of the 2 32-bit source registers into a
+         * single 64-bit source register:
          *
          * orr  scratch, src0, src1 lsl 32  ; scratch = src0 | (src1 << 32);
          */
