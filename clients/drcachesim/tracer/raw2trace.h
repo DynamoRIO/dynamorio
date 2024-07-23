@@ -71,6 +71,7 @@
 #include "raw2trace_shared.h"
 #include "reader.h"
 #include "record_file_reader.h"
+#include "schedule_file.h"
 #include "trace_entry.h"
 #include "utils.h"
 #ifdef BUILD_PT_POST_PROCESSOR
@@ -1051,8 +1052,7 @@ protected:
         bitset_hash_table_t<app_pc> encoding_emitted;
         app_pc last_encoding_emitted = nullptr;
 
-        std::vector<schedule_entry_t> sched;
-        std::unordered_map<uint64_t, std::vector<schedule_entry_t>> cpu2sched;
+        schedule_file_t::per_shard_t sched_data;
 
         // State for rolling back rseq aborts and side exits.
         bool rseq_want_rollback_ = false;
