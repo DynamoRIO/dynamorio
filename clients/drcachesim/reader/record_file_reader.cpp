@@ -39,7 +39,7 @@ namespace drmemtrace {
 /* clang-format off */ /* (make vera++ newline-after-type check happy) */
 template <>
 /* clang-format on */
-record_file_reader_t<std::ifstream>::~record_file_reader_t<std::ifstream>()
+record_file_reader_t<std::ifstream>::~record_file_reader_t()
 {
 }
 

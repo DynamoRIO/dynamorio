@@ -70,7 +70,7 @@ file_reader_t<lz4_reader_t>::file_reader_t()
 /* clang-format off */ /* (make vera++ newline-after-type check happy) */
 template <>
 /* clang-format on */
-file_reader_t<lz4_reader_t>::~file_reader_t<lz4_reader_t>()
+file_reader_t<lz4_reader_t>::~file_reader_t()
 {
     if (input_file_.file != nullptr) {
         delete input_file_.file;

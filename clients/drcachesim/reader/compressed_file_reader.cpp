@@ -91,7 +91,7 @@ file_reader_t<gzip_reader_t>::file_reader_t()
 /* clang-format off */ /* (make vera++ newline-after-type check happy) */
 template <>
 /* clang-format on */
-file_reader_t<gzip_reader_t>::~file_reader_t<gzip_reader_t>()
+file_reader_t<gzip_reader_t>::~file_reader_t()
 {
     if (input_file_.file != nullptr) {
         gzclose(input_file_.file);
@@ -134,7 +134,7 @@ file_reader_t<gzip_reader_t>::read_next_entry()
 /* clang-format off */ /* (make vera++ newline-after-type check happy) */
 template <>
 /* clang-format on */
-record_file_reader_t<gzip_reader_t>::~record_file_reader_t<gzip_reader_t>()
+record_file_reader_t<gzip_reader_t>::~record_file_reader_t()
 {
     if (input_file_ != nullptr) {
         gzclose(input_file_->file);
