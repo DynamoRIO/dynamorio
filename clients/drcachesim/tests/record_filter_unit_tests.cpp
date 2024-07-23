@@ -1356,6 +1356,22 @@ test_null_filter()
         FATAL_ERROR("Failed to run record filter: %s",
                     record_analyzer.get_error_string().c_str());
     }
+    if (!record_analyzer.print_stats()) {
+        FATAL_ERROR("Failed to print record filter stats: %s",
+                    record_analyzer.get_error_string().c_str());
+    }
+
+    // Ensure schedule files were written out.  We leave validating their contents
+    // to the end-to-end tests which run invariant_checker.
+    std::string serial_path = output_dir + DIRSEP + DRMEMTRACE_SERIAL_SCHEDULE_FILENAME;
+#ifdef HAS_ZLIB
+    serial_path += ".gz";
+#endif
+    CHECK(dr_file_exists(serial_path.c_str()), "Serial schedule file missing\n");
+#ifdef HAS_ZIP
+    std::string cpu_path = output_dir + DIRSEP + DRMEMTRACE_CPU_SCHEDULE_FILENAME;
+    CHECK(dr_file_exists(cpu_path.c_str()), "Cpu schedule file missing\n");
+#endif
 
     basic_counts_t::counters_t c1 = get_basic_counts(op_trace_dir.get_value());
     // We expect one extra marker (TRACE_MARKER_TYPE_FILTER_ENDPOINT) for each thread.
