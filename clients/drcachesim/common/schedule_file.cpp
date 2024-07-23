@@ -114,8 +114,6 @@ schedule_file_t::aggregate_schedule_data()
 {
     if (aggregated_)
         return;
-    // N.B.: When changing this comparator, update the comparator in
-    // invariant_checker_t::check_schedule_data too.
     auto schedule_entry_comparator = [](const schedule_entry_t &l,
                                         const schedule_entry_t &r) {
         if (l.timestamp != r.timestamp)
