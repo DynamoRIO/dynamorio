@@ -332,6 +332,15 @@ online_instru_t::insert_save_type_and_size(void *drcontext, instrlist_t *ilist,
         MINSERT(ilist, where,
                 XINST_CREATE_store(drcontext, OPND_CREATE_MEM32(base, disp),
                                    opnd_create_reg(scratch)));
+#elif defined(RISCV64)
+        scratch = reg_resize_to_opsz(scratch, OPSZ_4);
+        /* Load immediate 'type | (size << 16)' to the scratch reg */
+        instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)(type | (size << 16)),
+                                         opnd_create_reg(scratch), ilist, where, NULL,
+                                         NULL);
+        MINSERT(ilist, where,
+                XINST_CREATE_store(drcontext, OPND_CREATE_MEM32(base, disp),
+                                   opnd_create_reg(scratch)));
 #endif
     }
 }
