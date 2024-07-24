@@ -62,6 +62,7 @@ namespace dynamorio {  /**< General DynamoRIO namespace. */
 namespace drmemtrace { /**< DrMemtrace tracing + simulation infrastructure namespace. */
 
 typedef uintptr_t addr_t; /**< The type of a memory address. */
+typedef uint64_t process_id_t; /**< The type of a process id. */
 
 /**
  * The version number of the trace format.
