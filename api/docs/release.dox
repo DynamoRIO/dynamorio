@@ -161,7 +161,7 @@ changes:
    signature between AArch64 and RISC-V.
  - Renamed dr_get_sve_vector_length() to dr_get_vector_length() to share function
    signature between AArch64 and RISC-V.
- - Changed the -LL_miss_file option by adding a process ID field to the output. This 
+ - Changed the -LL_miss_file option by adding a process ID field to the output. This
    helps in better analyzing cache misses in multi-process environments.
 
 Further non-compatibility-affecting changes include:
