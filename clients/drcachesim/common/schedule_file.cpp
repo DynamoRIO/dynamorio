@@ -66,7 +66,6 @@ schedule_file_t::per_shard_t::record_cpu_id(memref_tid_t tid, uint64_t cpuid,
     return "";
 }
 
-// Returns the uncollapsed record sequence.
 const std::vector<schedule_entry_t> &
 schedule_file_t::get_full_serial_records()
 {
@@ -74,7 +73,7 @@ schedule_file_t::get_full_serial_records()
         aggregate_schedule_data();
     return serial_;
 }
-// Returns the record sequence with consecutive-same-thread entries collapsed.
+
 const std::vector<schedule_entry_t> &
 schedule_file_t::get_serial_records()
 {
@@ -82,6 +81,7 @@ schedule_file_t::get_serial_records()
         aggregate_schedule_data();
     return serial_redux_;
 }
+
 const std::unordered_map<uint64_t, std::vector<schedule_entry_t>> &
 schedule_file_t::get_full_cpu_records()
 {
