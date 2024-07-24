@@ -162,7 +162,7 @@ changes:
  - Renamed dr_get_sve_vector_length() to dr_get_vector_length() to share function
    signature between AArch64 and RISC-V.
  - Changed #dynamorio::drmemtrace::caching_device_stats_t::dump_miss to add a process ID
-   field to the output of the -LL_miss_file option. This helps in better analyzing cache 
+   field to the output of the -LL_miss_file option. This helps in better analyzing cache
    misses in multi-process environments.
 
 Further non-compatibility-affecting changes include:
