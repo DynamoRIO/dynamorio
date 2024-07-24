@@ -1625,67 +1625,22 @@ raw2trace_t::aggregate_and_write_schedule_files()
 {
     if (serial_schedule_file_ == nullptr && cpu_schedule_file_ == nullptr)
         return "";
-    std::vector<schedule_entry_t> serial;
-    std::unordered_map<uint64_t, std::vector<schedule_entry_t>> cpu2sched;
+    std::string err;
+    schedule_file_t sched;
     for (auto &tdata : thread_data_) {
-        serial.insert(serial.end(), tdata->sched.begin(), tdata->sched.end());
-        for (auto &keyval : tdata->cpu2sched) {
-            auto &vec = cpu2sched[keyval.first];
-            vec.insert(vec.end(), keyval.second.begin(), keyval.second.end());
-        }
-    }
-    // N.B.: When changing this comparator, update the comparator in
-    // invariant_checker_t::check_schedule_data too.
-    auto schedule_entry_comparator = [](const schedule_entry_t &l,
-                                        const schedule_entry_t &r) {
-        if (l.timestamp != r.timestamp)
-            return l.timestamp < r.timestamp;
-        if (l.cpu != r.cpu)
-            return l.cpu < r.cpu;
-        // We really need to sort by either (timestamp, cpu_id,
-        // start_instruction) or (timestamp, thread_id, start_instruction): a
-        // single thread cannot be on two CPUs at the same timestamp; also a
-        // single CPU cannot have two threads at the same timestamp. We still
-        // sort by (timestamp, cpu_id, thread_id, start_instruction) to prevent
-        // inadvertent issues with test data.
-        if (l.thread != r.thread)
-            return l.thread < r.thread;
-        // We need to consider the start_instruction since it is possible to
-        // have two entries with the same timestamp, cpu_id, and thread_id.
-        return l.start_instruction < r.start_instruction;
-    };
-
-    std::sort(serial.begin(), serial.end(), schedule_entry_comparator);
-    // Collapse same-thread entries.
-    std::vector<schedule_entry_t> serial_redux;
-    for (const auto &entry : serial) {
-        if (serial_redux.empty() || entry.thread != serial_redux.back().thread)
-            serial_redux.push_back(entry);
-    }
-    if (serial_schedule_file_ != nullptr) {
-        if (!serial_schedule_file_->write(
-                reinterpret_cast<const char *>(serial_redux.data()),
-                serial_redux.size() * sizeof(serial_redux[0])))
-            return "Failed to write to serial schedule file";
-    }
-    if (cpu_schedule_file_ == nullptr)
-        return "";
-    for (auto &keyval : cpu2sched) {
-        std::sort(keyval.second.begin(), keyval.second.end(), schedule_entry_comparator);
-        // Collapse same-thread entries.
-        std::vector<schedule_entry_t> redux;
-        for (const auto &entry : keyval.second) {
-            if (redux.empty() || entry.thread != redux.back().thread)
-                redux.push_back(entry);
-        }
-        std::ostringstream stream;
-        stream << keyval.first;
-        std::string err = cpu_schedule_file_->open_new_component(stream.str());
+        err = sched.merge_shard_data(tdata->sched_data);
         if (!err.empty())
             return err;
-        if (!cpu_schedule_file_->write(reinterpret_cast<const char *>(redux.data()),
-                                       redux.size() * sizeof(redux[0])))
-            return "Failed to write to cpu schedule file";
+    }
+    if (serial_schedule_file_ != nullptr) {
+        err = sched.write_serial_file(serial_schedule_file_);
+        if (!err.empty())
+            return err;
+    }
+    if (cpu_schedule_file_ != nullptr) {
+        err = sched.write_cpu_file(cpu_schedule_file_);
+        if (!err.empty())
+            return err;
     }
     return "";
 }
@@ -3574,20 +3529,8 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                         (tdata->chunk_count_ - 1) * chunk_instr_count_ +
                         tdata->cur_chunk_instr_count;
                     tdata->last_cpu_ = static_cast<uint>(it->addr);
-                    // Avoid identical entries, which are common with the end of the
-                    // previous buffer's timestamp followed by the start of the next.
-                    schedule_entry_t new_entry(tdata->tid, tdata->last_timestamp_,
-                                               tdata->last_cpu_, instr_count);
-                    if (tdata->sched.empty() || tdata->sched.back() != new_entry) {
-                        tdata->sched.emplace_back(tdata->tid, tdata->last_timestamp_,
-                                                  tdata->last_cpu_, instr_count);
-                    }
-                    if (tdata->cpu2sched[it->addr].empty() ||
-                        tdata->cpu2sched[it->addr].back() != new_entry) {
-                        tdata->cpu2sched[it->addr].emplace_back(
-                            tdata->tid, tdata->last_timestamp_, tdata->last_cpu_,
-                            instr_count);
-                    }
+                    tdata->sched_data.record_cpu_id(tdata->tid, tdata->last_cpu_,
+                                                    tdata->last_timestamp_, instr_count);
                 }
             }
         }

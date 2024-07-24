@@ -1031,11 +1031,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID) {
-        shard->sched_.emplace_back(shard->tid_, shard->last_timestamp_,
-                                   memref.marker.marker_value, shard->instr_count_);
-        shard->cpu2sched_[memref.marker.marker_value].emplace_back(
-            shard->tid_, shard->last_timestamp_, memref.marker.marker_value,
-            shard->instr_count_);
+        shard->sched_data_.record_cpu_id(shard->tid_, memref.marker.marker_value,
+                                         shard->last_timestamp_, shard->instr_count_);
     }
 
 #ifdef UNIX
@@ -1279,54 +1276,37 @@ invariant_checker_t::check_schedule_data(per_shard_t *global)
     auto stream = std::unique_ptr<memtrace_stream_t>(
         new default_memtrace_stream_t(&global->ref_count_));
     global->stream = stream.get();
-    std::vector<schedule_entry_t> serial;
-    std::unordered_map<uint64_t, std::vector<schedule_entry_t>> cpu2sched;
+
+    std::string err;
+    schedule_file_t sched;
     for (auto &shard_keyval : shard_map_) {
-        serial.insert(serial.end(), shard_keyval.second->sched_.begin(),
-                      shard_keyval.second->sched_.end());
-        for (auto &keyval : shard_keyval.second->cpu2sched_) {
-            auto &vec = cpu2sched[keyval.first];
-            vec.insert(vec.end(), keyval.second.begin(), keyval.second.end());
+        err = sched.merge_shard_data(shard_keyval.second->sched_data_);
+        if (!err.empty()) {
+            report_if_false(global, false, "Failed to merge schedule data: " + err);
+            return;
         }
     }
-    // N.B.: Ensure that this comparison matches the implementation in
-    // raw2trace_t::aggregate_and_write_schedule_files
-    auto schedule_entry_comparator = [](const schedule_entry_t &l,
-                                        const schedule_entry_t &r) {
-        if (l.timestamp != r.timestamp)
-            return l.timestamp < r.timestamp;
-        if (l.cpu != r.cpu)
-            return l.cpu < r.cpu;
-        // See comment in raw2trace_t::aggregate_and_write_schedule_files
-        if (l.thread != r.thread)
-            return l.thread < r.thread;
-        return l.start_instruction < r.start_instruction;
-    };
-    std::sort(serial.begin(), serial.end(), schedule_entry_comparator);
-    // After i#6299, these files collapse same-thread entries.
-    std::vector<schedule_entry_t> serial_redux;
-    for (const auto &entry : serial) {
-        if (serial_redux.empty() || entry.thread != serial_redux.back().thread)
-            serial_redux.push_back(entry);
-    }
-    // For entries with the same timestamp, the order can differ.  We could
-    // identify each such sequence and collect it into a set but it is simpler to
-    // read the whole file and sort it the same way.
     if (serial_schedule_file_ != nullptr) {
-        schedule_entry_t next(0, 0, 0, 0);
-        std::vector<schedule_entry_t> serial_file;
-        while (
-            serial_schedule_file_->read(reinterpret_cast<char *>(&next), sizeof(next))) {
-            serial_file.push_back(next);
+        const std::vector<schedule_entry_t> &serial = sched.get_full_serial_records();
+        const std::vector<schedule_entry_t> &serial_redux = sched.get_serial_records();
+        // For entries with the same timestamp, the order can differ.  We could
+        // identify each such sequence and collect it into a set but it is simpler to
+        // read the whole file and sort it the same way.
+        schedule_file_t serial_reader;
+        err = serial_reader.read_serial_file(serial_schedule_file_);
+        if (!err.empty()) {
+            report_if_false(global, false, "Failed to read serial schedule file: " + err);
+            return;
         }
-        std::sort(serial_file.begin(), serial_file.end(), schedule_entry_comparator);
+        const std::vector<schedule_entry_t> &serial_file =
+            serial_reader.get_full_serial_records();
         if (knob_verbose_ >= 1) {
             std::cerr << "Serial schedule: read " << serial_file.size()
                       << " records from the file and observed " << serial.size()
-                      << " transition in the trace\n";
+                      << " transitions in the trace\n";
         }
         // We created both types of schedule and select which to compare against.
-        std::vector<schedule_entry_t> *tomatch;
+        const std::vector<schedule_entry_t> *tomatch;
         if (serial_file.size() == serial.size())
             tomatch = &serial;
         else if (serial_file.size() == serial_redux.size())
@@ -1357,30 +1337,26 @@ invariant_checker_t::check_schedule_data(per_shard_t *global)
     }
     if (cpu_schedule_file_ == nullptr)
         return;
-    for (auto &keyval : cpu2sched) {
-        std::sort(keyval.second.begin(), keyval.second.end(), schedule_entry_comparator);
+
+    const std::unordered_map<uint64_t, std::vector<schedule_entry_t>> &cpu2sched =
+        sched.get_full_cpu_records();
+    const std::unordered_map<uint64_t, std::vector<schedule_entry_t>> &cpu2sched_redux =
+        sched.get_cpu_records();
+    schedule_file_t cpu_reader;
+    err = cpu_reader.read_cpu_file(cpu_schedule_file_);
+    if (!err.empty()) {
+        report_if_false(global, false, "Failed to read cpu schedule file: " + err);
+        return;
     }
-    // The zipfile reader will form a continuous stream from all elements in the
-    // archive.  We figure out which cpu each one is from on the fly.
-    std::unordered_map<uint64_t, std::vector<schedule_entry_t>> cpu2sched_file;
-    schedule_entry_t next(0, 0, 0, 0);
-    while (cpu_schedule_file_->read(reinterpret_cast<char *>(&next), sizeof(next))) {
-        cpu2sched_file[next.cpu].push_back(next);
-    }
-    for (auto &keyval : cpu2sched_file) {
-        std::sort(keyval.second.begin(), keyval.second.end(), schedule_entry_comparator);
-        // After i#6299, these files collapse same-thread entries.
-        // We create both types of schedule and select which to compare against.
-        std::vector<schedule_entry_t> redux;
-        for (const auto &entry : cpu2sched[keyval.first]) {
-            if (redux.empty() || entry.thread != redux.back().thread)
-                redux.push_back(entry);
-        }
-        std::vector<schedule_entry_t> *tomatch;
-        if (keyval.second.size() == cpu2sched[keyval.first].size())
-            tomatch = &cpu2sched[keyval.first];
-        else if (keyval.second.size() == redux.size())
-            tomatch = &redux;
+    const std::unordered_map<uint64_t, std::vector<schedule_entry_t>> &cpu2sched_file =
+        cpu_reader.get_full_cpu_records();
+    for (const auto &keyval : cpu2sched_file) {
+        const std::vector<schedule_entry_t> *tomatch;
+        if (keyval.second.size() == cpu2sched.find(keyval.first)->second.size())
+            tomatch = &cpu2sched.find(keyval.first)->second;
+        else if (keyval.second.size() ==
+                 cpu2sched_redux.find(keyval.first)->second.size())
+            tomatch = &cpu2sched_redux.find(keyval.first)->second;
         else {
             report_if_false(global, false,
                             "Cpu schedule entry count does not match trace");
