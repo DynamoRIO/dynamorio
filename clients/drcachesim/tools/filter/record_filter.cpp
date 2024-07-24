@@ -901,13 +901,13 @@ record_filter_t::open_cpu_schedule_file()
     std::string path = output_dir_ + DIRSEP + DRMEMTRACE_CPU_SCHEDULE_FILENAME;
 #ifdef HAS_ZIP
     cpu_schedule_file_ = std::unique_ptr<archive_ostream_t>(new zipfile_ostream_t(path));
-#else
-    return "Zipfile support is required for cpu schedule files";
-#endif
     if (!cpu_schedule_file_)
         return "Failed to open cpu schedule file " + path;
     cpu_schedule_ostream_ = cpu_schedule_file_.get();
     return "";
+#else
+    return "Zipfile support is required for cpu schedule files";
+#endif
 }
 
 std::string
