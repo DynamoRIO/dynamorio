@@ -168,9 +168,9 @@ caching_device_stats_t::dump_miss(const memref_t &memref)
     // It works most of the time but consider using a directory with individual files
     // per process as a future safer alternative.
 #ifdef HAS_ZLIB
-    gzprintf(file_, "%ld,0x%zx,0x%zx\n", memref.data.pid, pc, addr);
+    gzprintf(file_, "%lld,0x%zx,0x%zx\n", memref.data.pid, pc, addr);
 #else
-    fprintf(file_, "%ld,0x%zx,0x%zx\n", memref.data.pid, pc, addr);
+    fprintf(file_, "%lld,0x%zx,0x%zx\n", memref.data.pid, pc, addr);
 #endif
 }
 
