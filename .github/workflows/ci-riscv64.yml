@@ -77,7 +77,7 @@ jobs:
         sudo apt-get -y install doxygen vera++ cmake crossbuild-essential-riscv64 git  \
           qemu-user qemu-user-binfmt
         # We cannot use the following command here, because it will download the
-        # x86_64b binaries due to some known issue of DEB822.
+        # x86_64 binaries due to some known issue of DEB822.
         # sudo add-apt-repository 'deb [arch=riscv64] http://ports.ubuntu.com/ubuntu-ports noble main'
         echo 'deb [arch=riscv64] http://ports.ubuntu.com/ubuntu-ports noble main' | sudo tee -a /etc/apt/sources.list
         sudo apt-get update
