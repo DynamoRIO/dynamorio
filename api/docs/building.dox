@@ -258,7 +258,8 @@ $ sudo apt-get -y install doxygen vera++ cmake crossbuild-essential-riscv64 git
 Some packages may need to be manually installed for cross-compiling environment. You can also refer to our [CI workflow file](https://github.com/DynamoRIO/dynamorio/blob/master/.github/workflows/ci-riscv64.yml) for creating a RISCV64 build environment.
 
 ```
-$ sudo add-apt-repository 'deb [trusted=yes arch=riscv64] http://deb.debian.org/debian sid main'
+$ echo 'deb [arch=riscv64] http://ports.ubuntu.com/ubuntu-ports noble main' | sudo tee -a /etc/apt/sources.list
+$ sudo apt-get update
 $ apt download libunwind8:riscv64 libunwind-dev:riscv64 liblzma5:riscv64 zlib1g:riscv64 zlib1g-dev:riscv64 libsnappy1v5:riscv64 libsnappy-dev:riscv64 liblz4-1:riscv64 liblz4-dev:riscv64
 $ mkdir ../extract
 $ for i in *.deb; do dpkg-deb -x $i ../extract; done
