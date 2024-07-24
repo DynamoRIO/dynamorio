@@ -154,7 +154,6 @@ void
 caching_device_stats_t::dump_miss(const memref_t &memref)
 {
     addr_t pc, addr;
-    process_id_t pid;
     if (type_is_instr(memref.instr.type))
         pc = memref.instr.addr;
     else { // data ref: others shouldn't get here
@@ -164,15 +163,14 @@ caching_device_stats_t::dump_miss(const memref_t &memref)
         pc = memref.data.pc;
     }
     addr = memref.data.addr;
-    pid = memref.data.pid;
 
     // XXX: This writing method to the same file from multiple processes is racy.
     // It works most of the time but consider using a directory with individual files
     // per process as a future safer alternative.
 #ifdef HAS_ZLIB
-    gzprintf(file_, "%d,0x%zx,0x%zx\n", pid, pc, addr);
+    gzprintf(file_, "%ld,0x%zx,0x%zx\n", memref.data.pid, pc, addr);
 #else
-    fprintf(file_, "%d,0x%zx,0x%zx\n", pid, pc, addr);
+    fprintf(file_, "%ld,0x%zx,0x%zx\n", memref.data.pid, pc, addr);
 #endif
 }
 
