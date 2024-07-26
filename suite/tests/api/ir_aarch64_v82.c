@@ -2454,7 +2454,7 @@ TEST_INSTR(xar)
 }
 
 /* There are 16 condition codes (excluding aliases). */
-const const size_t cond_count = 16;
+const size_t cond_count = 16;
 
 TEST_INSTR(fccmp)
 {
