@@ -569,6 +569,15 @@ record_filter_t::process_markers(per_shard_t *per_shard, trace_entry_t &entry,
             if (per_shard->archive_writer &&
                 per_shard->input_entry_count - per_shard->input_count_at_ordinal == 2)
                 output = false;
+            if (output) {
+                uint64_t instr_ord = per_shard->cur_chunk_instrs +
+                    // For archives we increment chunk_ordinal up front.
+                    (per_shard->archive_writer ? per_shard->chunk_ordinal - 1
+                                               : per_shard->chunk_ordinal) *
+                        per_shard->chunk_size;
+                per_shard->sched_info.record_cpu_id(per_shard->tid, entry.addr,
+                                                    per_shard->last_timestamp, instr_ord);
+            }
             break;
         case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS:
         case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE:
@@ -861,6 +870,88 @@ record_filter_t::process_memref(const trace_entry_t &memref)
     return false;
 }
 
+std::string
+record_filter_t::open_serial_schedule_file()
+{
+    if (serial_schedule_ostream_ != nullptr)
+        return "Already opened";
+    if (output_dir_.empty())
+        return "No output directory specified";
+    std::string path = output_dir_ + DIRSEP + DRMEMTRACE_SERIAL_SCHEDULE_FILENAME;
+#ifdef HAS_ZLIB
+    path += ".gz";
+    serial_schedule_file_ = std::unique_ptr<std::ostream>(new gzip_ostream_t(path));
+#else
+    serial_schedule_file_ =
+        std::unique_ptr<std::ostream>(new std::ofstream(path, std::ofstream::binary));
+#endif
+    if (!serial_schedule_file_)
+        return "Failed to open serial schedule file " + path;
+    serial_schedule_ostream_ = serial_schedule_file_.get();
+    return "";
+}
+
+std::string
+record_filter_t::open_cpu_schedule_file()
+{
+    if (cpu_schedule_ostream_ != nullptr)
+        return "Already opened";
+    if (output_dir_.empty())
+        return "No output directory specified";
+    std::string path = output_dir_ + DIRSEP + DRMEMTRACE_CPU_SCHEDULE_FILENAME;
+#ifdef HAS_ZIP
+    cpu_schedule_file_ = std::unique_ptr<archive_ostream_t>(new zipfile_ostream_t(path));
+    if (!cpu_schedule_file_)
+        return "Failed to open cpu schedule file " + path;
+    cpu_schedule_ostream_ = cpu_schedule_file_.get();
+    return "";
+#else
+    return "Zipfile support is required for cpu schedule files";
+#endif
+}
+
+std::string
+record_filter_t::write_schedule_files()
+{
+
+    schedule_file_t sched;
+    std::string err;
+    err = open_serial_schedule_file();
+    if (!err.empty())
+        return err;
+    err = open_cpu_schedule_file();
+    if (!err.empty()) {
+#ifdef HAS_ZIP
+        return err;
+#else
+        if (starts_with(err, "Zipfile support")) {
+            // Just skip the cpu file.
+        } else {
+            return err;
+        }
+#endif
+    }
+    for (const auto &shard : shard_map_) {
+        err = sched.merge_shard_data(shard.second->sched_info);
+        if (!err.empty())
+            return err;
+    }
+    if (serial_schedule_ostream_ == nullptr)
+        return "Serial file not opened";
+    err = sched.write_serial_file(serial_schedule_ostream_);
+    if (!err.empty())
+        return err;
+    // Make the cpu file optional for !HAS_ZIP, but don't wrap this inside
+    // HAS_ZIP as some subclasses have non-minizip zip support and don't have
+    // that define.
+    if (cpu_schedule_ostream_ != nullptr) {
+        err = sched.write_cpu_file(cpu_schedule_ostream_);
+        if (!err.empty())
+            return err;
+    }
+    return "";
+}
+
 bool
 record_filter_t::print_results()
 {
@@ -878,6 +969,13 @@ record_filter_t::print_results()
     }
     std::cerr << "Output " << output_entry_count << " entries from " << input_entry_count
               << " entries.\n";
+    if (output_dir_.empty()) {
+        std::cerr << "Not writing schedule files: no output directory was specified.\n";
+        return res;
+    }
+    error_string_ = write_schedule_files();
+    if (!error_string_.empty())
+        res = false;
     return res;
 }
 

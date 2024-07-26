@@ -1331,31 +1331,59 @@ test_null_filter()
     if (!local_create_dir(output_dir.c_str())) {
         FATAL_ERROR("Failed to create filtered trace output dir %s", output_dir.c_str());
     }
-    auto null_filter =
-        std::unique_ptr<record_filter_func_t>(new dynamorio::drmemtrace::null_filter_t());
-    std::vector<std::unique_ptr<record_filter_func_t>> filter_funcs;
-    filter_funcs.push_back(std::move(null_filter));
-    // We use a very small stop_timestamp for the record filter. This is to verify that
-    // we emit the TRACE_MARKER_TYPE_FILTER_ENDPOINT marker for each thread even if it
-    // starts after the given stop_timestamp. Since the stop_timestamp is so small, all
-    // other entries are expected to stay.
-    static constexpr uint64_t stop_timestamp_us = 1;
-    auto record_filter = std::unique_ptr<dynamorio::drmemtrace::record_filter_t>(
-        new dynamorio::drmemtrace::record_filter_t(output_dir, std::move(filter_funcs),
-                                                   stop_timestamp_us,
-                                                   /*verbosity=*/0));
-    std::vector<record_analysis_tool_t *> tools;
-    tools.push_back(record_filter.get());
-    record_analyzer_t record_analyzer(op_trace_dir.get_value(), &tools[0],
-                                      static_cast<int>(tools.size()));
-    if (!record_analyzer) {
-        FATAL_ERROR("Failed to initialize record filter: %s",
-                    record_analyzer.get_error_string().c_str());
+    {
+        // New scope so the record_filter_t destructor flushes schedule files.
+        auto null_filter = std::unique_ptr<record_filter_func_t>(
+            new dynamorio::drmemtrace::null_filter_t());
+        std::vector<std::unique_ptr<record_filter_func_t>> filter_funcs;
+        filter_funcs.push_back(std::move(null_filter));
+        // We use a very small stop_timestamp for the record filter. This is to verify
+        // that we emit the TRACE_MARKER_TYPE_FILTER_ENDPOINT marker for each thread even
+        // if it starts after the given stop_timestamp. Since the stop_timestamp is so
+        // small, all other entries are expected to stay.
+        static constexpr uint64_t stop_timestamp_us = 1;
+        auto record_filter = std::unique_ptr<dynamorio::drmemtrace::record_filter_t>(
+            new dynamorio::drmemtrace::record_filter_t(
+                output_dir, std::move(filter_funcs), stop_timestamp_us,
+                /*verbosity=*/0));
+        std::vector<record_analysis_tool_t *> tools;
+        tools.push_back(record_filter.get());
+        record_analyzer_t record_analyzer(op_trace_dir.get_value(), &tools[0],
+                                          static_cast<int>(tools.size()));
+        if (!record_analyzer) {
+            FATAL_ERROR("Failed to initialize record filter: %s",
+                        record_analyzer.get_error_string().c_str());
+        }
+        if (!record_analyzer.run()) {
+            FATAL_ERROR("Failed to run record filter: %s",
+                        record_analyzer.get_error_string().c_str());
+        }
+        if (!record_analyzer.print_stats()) {
+            FATAL_ERROR("Failed to print record filter stats: %s",
+                        record_analyzer.get_error_string().c_str());
+        }
     }
-    if (!record_analyzer.run()) {
-        FATAL_ERROR("Failed to run record filter: %s",
-                    record_analyzer.get_error_string().c_str());
-    }
+
+    // Ensure schedule files were written out.  We leave validating their contents
+    // to the end-to-end tests which run invariant_checker.
+    std::string serial_path = output_dir + DIRSEP + DRMEMTRACE_SERIAL_SCHEDULE_FILENAME;
+#ifdef HAS_ZLIB
+    serial_path += ".gz";
+#endif
+    CHECK(dr_file_exists(serial_path.c_str()), "Serial schedule file missing\n");
+    file_t fd = dr_open_file(serial_path.c_str(), DR_FILE_READ);
+    CHECK(fd != INVALID_FILE, "Cannot open serial schedule file");
+    uint64 file_size;
+    CHECK(dr_file_size(fd, &file_size) && file_size > 0, "Serial schedule file empty");
+    dr_close_file(fd);
+#ifdef HAS_ZIP
+    std::string cpu_path = output_dir + DIRSEP + DRMEMTRACE_CPU_SCHEDULE_FILENAME;
+    CHECK(dr_file_exists(cpu_path.c_str()), "Cpu schedule file missing\n");
+    fd = dr_open_file(cpu_path.c_str(), DR_FILE_READ);
+    CHECK(fd != INVALID_FILE, "Cannot open cpu schedule file");
+    CHECK(dr_file_size(fd, &file_size) && file_size > 0, "Cpu schedule file empty");
+    dr_close_file(fd);
+#endif
 
     basic_counts_t::counters_t c1 = get_basic_counts(op_trace_dir.get_value());
     // We expect one extra marker (TRACE_MARKER_TYPE_FILTER_ENDPOINT) for each thread.
@@ -1419,11 +1447,13 @@ test_main(int argc, const char *argv[])
         FATAL_ERROR("Usage error: %s\nUsage:\n%s", parse_err.c_str(),
                     droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
     }
+    dr_standalone_init();
     if (!test_cache_and_type_filter() || !test_chunk_update() || !test_trim_filter() ||
         !test_null_filter() || !test_wait_filter() || !test_encodings2regdeps_filter() ||
         !test_func_id_filter())
         return 1;
     fprintf(stderr, "All done!\n");
+    dr_standalone_exit();
     return 0;
 }
 

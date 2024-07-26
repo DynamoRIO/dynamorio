@@ -48,6 +48,7 @@
 #include "memref.h"
 #include "memtrace_stream.h"
 #include "raw2trace_shared.h"
+#include "schedule_file.h"
 #include "trace_entry.h"
 
 namespace dynamorio {
@@ -179,6 +180,12 @@ public:
     std::string
     parallel_shard_error(void *shard_data) override;
 
+    // Automatically called from print_results().
+    // Calls open_serial_schedule_file() and open_cpu_schedule_file() and then
+    // writes out the file contents.
+    std::string
+    write_schedule_files();
+
 protected:
     struct dcontext_cleanup_last_t {
     public:
@@ -237,6 +244,7 @@ protected:
         // Cached value updated on context switches.
         per_input_t *per_input = nullptr;
         record_filter_info_t record_filter_info;
+        schedule_file_t::per_shard_t sched_info;
     };
 
     virtual std::string
@@ -279,6 +287,10 @@ protected:
     std::string output_ext_;
     uint64_t version_ = 0;
     uint64_t filetype_ = 0;
+    std::unique_ptr<std::ostream> serial_schedule_file_;
+    std::ostream *serial_schedule_ostream_ = nullptr;
+    std::unique_ptr<archive_ostream_t> cpu_schedule_file_;
+    archive_ostream_t *cpu_schedule_ostream_ = nullptr;
 
 private:
     virtual bool
@@ -292,6 +304,14 @@ private:
     // Sets output_path plus cross-shard output_ext_, version_, filetype_.
     virtual std::string
     initialize_shard_output(per_shard_t *per_shard, memtrace_stream_t *shard_stream);
+
+    // Sets serial_schedule_ostream_, optionally using serial_schedule_file_.
+    virtual std::string
+    open_serial_schedule_file();
+
+    // Sets cpu_schedule_ostream_, optionally using cpu_schedule_file_.
+    virtual std::string
+    open_cpu_schedule_file();
 
     bool
     write_trace_entries(per_shard_t *shard, const std::vector<trace_entry_t> &entries);
