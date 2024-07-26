@@ -201,7 +201,8 @@ add_exported_library(drmemtrace_record_filter STATIC
   tools/filter/encodings2regdeps_filter.h
   tools/filter/func_id_filter.h
   tools/filter/null_filter.h)
-target_link_libraries(drmemtrace_record_filter drmemtrace_simulator)
+target_link_libraries(drmemtrace_record_filter drmemtrace_simulator
+  drmemtrace_schedule_file)
 configure_DynamoRIO_standalone(drmemtrace_record_filter)
 
 add_exported_library(directory_iterator STATIC common/directory_iterator.cpp)
