@@ -2453,8 +2453,12 @@ TEST_INSTR(xar)
     }
 }
 
-/* There are 16 condition codes (excluding aliases). */
-const size_t cond_count = 16;
+static const dr_pred_type_t cond_codes[] = {
+    DR_PRED_EQ, DR_PRED_NE, DR_PRED_CS, DR_PRED_CC, DR_PRED_MI, DR_PRED_PL,
+    DR_PRED_VS, DR_PRED_VC, DR_PRED_HI, DR_PRED_LS, DR_PRED_GE, DR_PRED_LT,
+    DR_PRED_GT, DR_PRED_LE, DR_PRED_AL, DR_PRED_NV,
+};
+static const size_t cond_count = sizeof(cond_codes) / sizeof(cond_codes[0]);
 
 TEST_INSTR(fccmp)
 {
@@ -2462,7 +2466,8 @@ TEST_INSTR(fccmp)
     TEST_LOOP_EXPECT(
         fccmp, cond_count,
         INSTR_CREATE_fccmp(dc, CYCLE_REG(D, 2 * i), CYCLE_REG(D, (2 * i) + 1),
-                           opnd_create_immed_uint(i & 0xf, OPSZ_4b), OPND_CREATE_COND(i)),
+                           opnd_create_immed_uint(i & 0xf, OPSZ_4b),
+                           opnd_create_cond(cond_codes[i])),
         {
             EXPECT_DISASSEMBLY("fccmp  %d0 %d1 $0x00 eq", "fccmp  %d2 %d3 $0x01 ne",
                                "fccmp  %d4 %d5 $0x02 cs", "fccmp  %d6 %d7 $0x03 cc",
@@ -2482,7 +2487,8 @@ TEST_INSTR(fccmp)
     TEST_LOOP_EXPECT(
         fccmp, cond_count,
         INSTR_CREATE_fccmp(dc, CYCLE_REG(H, 2 * i), CYCLE_REG(H, (2 * i) + 1),
-                           opnd_create_immed_uint(i & 0xf, OPSZ_4b), OPND_CREATE_COND(i)),
+                           opnd_create_immed_uint(i & 0xf, OPSZ_4b),
+                           opnd_create_cond(cond_codes[i])),
         {
             EXPECT_DISASSEMBLY("fccmp  %h0 %h1 $0x00 eq", "fccmp  %h2 %h3 $0x01 ne",
                                "fccmp  %h4 %h5 $0x02 cs", "fccmp  %h6 %h7 $0x03 cc",
@@ -2502,7 +2508,8 @@ TEST_INSTR(fccmp)
     TEST_LOOP_EXPECT(
         fccmp, cond_count,
         INSTR_CREATE_fccmp(dc, CYCLE_REG(S, 2 * i), CYCLE_REG(S, (2 * i) + 1),
-                           opnd_create_immed_uint(i & 0xf, OPSZ_4b), OPND_CREATE_COND(i)),
+                           opnd_create_immed_uint(i & 0xf, OPSZ_4b),
+                           opnd_create_cond(cond_codes[i])),
         {
             EXPECT_DISASSEMBLY("fccmp  %s0 %s1 $0x00 eq", "fccmp  %s2 %s3 $0x01 ne",
                                "fccmp  %s4 %s5 $0x02 cs", "fccmp  %s6 %s7 $0x03 cc",
@@ -2526,7 +2533,7 @@ TEST_INSTR(fccmpe)
         fccmpe, cond_count,
         INSTR_CREATE_fccmpe(dc, CYCLE_REG(D, 2 * i), CYCLE_REG(D, (2 * i) + 1),
                             opnd_create_immed_uint(i & 0xf, OPSZ_4b),
-                            OPND_CREATE_COND(i)),
+                            opnd_create_cond(cond_codes[i])),
         {
             EXPECT_DISASSEMBLY("fccmpe %d0 %d1 $0x00 eq", "fccmpe %d2 %d3 $0x01 ne",
                                "fccmpe %d4 %d5 $0x02 cs", "fccmpe %d6 %d7 $0x03 cc",
@@ -2547,7 +2554,7 @@ TEST_INSTR(fccmpe)
         fccmpe, cond_count,
         INSTR_CREATE_fccmpe(dc, CYCLE_REG(H, 2 * i), CYCLE_REG(H, (2 * i) + 1),
                             opnd_create_immed_uint(i & 0xf, OPSZ_4b),
-                            OPND_CREATE_COND(i)),
+                            opnd_create_cond(cond_codes[i])),
         {
             EXPECT_DISASSEMBLY("fccmpe %h0 %h1 $0x00 eq", "fccmpe %h2 %h3 $0x01 ne",
                                "fccmpe %h4 %h5 $0x02 cs", "fccmpe %h6 %h7 $0x03 cc",
@@ -2568,7 +2575,7 @@ TEST_INSTR(fccmpe)
         fccmpe, cond_count,
         INSTR_CREATE_fccmpe(dc, CYCLE_REG(S, 2 * i), CYCLE_REG(S, (2 * i) + 1),
                             opnd_create_immed_uint(i & 0xf, OPSZ_4b),
-                            OPND_CREATE_COND(i)),
+                            opnd_create_cond(cond_codes[i])),
         {
             EXPECT_DISASSEMBLY("fccmpe %s0 %s1 $0x00 eq", "fccmpe %s2 %s3 $0x01 ne",
                                "fccmpe %s4 %s5 $0x02 cs", "fccmpe %s6 %s7 $0x03 cc",
@@ -2767,7 +2774,7 @@ TEST_INSTR(fcsel)
     TEST_LOOP_EXPECT(
         fcsel, cond_count,
         INSTR_CREATE_fcsel(dc, CYCLE_REG(D, 2 * i), CYCLE_REG(D, (2 * i) + 1),
-                           CYCLE_REG(D, 31 - (2 * i)), OPND_CREATE_COND(i)),
+                           CYCLE_REG(D, 31 - (2 * i)), opnd_create_cond(cond_codes[i])),
         {
             EXPECT_DISASSEMBLY(
                 "fcsel  %d1 %d31 eq -> %d0", "fcsel  %d3 %d29 ne -> %d2",
@@ -2788,7 +2795,7 @@ TEST_INSTR(fcsel)
     TEST_LOOP_EXPECT(
         fcsel, cond_count,
         INSTR_CREATE_fcsel(dc, CYCLE_REG(S, 2 * i), CYCLE_REG(S, (2 * i) + 1),
-                           CYCLE_REG(S, 31 - (2 * i)), OPND_CREATE_COND(i)),
+                           CYCLE_REG(S, 31 - (2 * i)), opnd_create_cond(cond_codes[i])),
         {
             EXPECT_DISASSEMBLY(
                 "fcsel  %s1 %s31 eq -> %s0", "fcsel  %s3 %s29 ne -> %s2",
@@ -2809,7 +2816,7 @@ TEST_INSTR(fcsel)
     TEST_LOOP_EXPECT(
         fcsel, cond_count,
         INSTR_CREATE_fcsel(dc, CYCLE_REG(H, 2 * i), CYCLE_REG(H, (2 * i) + 1),
-                           CYCLE_REG(H, 31 - (2 * i)), OPND_CREATE_COND(i)),
+                           CYCLE_REG(H, 31 - (2 * i)), opnd_create_cond(cond_codes[i])),
         {
             EXPECT_DISASSEMBLY(
                 "fcsel  %h1 %h31 eq -> %h0", "fcsel  %h3 %h29 ne -> %h2",

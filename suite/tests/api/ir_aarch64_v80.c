@@ -460,16 +460,21 @@ TEST_INSTR(orr_shift)
             "orr    %x21 %x22 ror $0x18 -> %x20", "orr    %x30 %x30 ror $0x1f -> %x30"););
 }
 
+static const dr_pred_type_t cond_codes[] = {
+    DR_PRED_EQ, DR_PRED_NE, DR_PRED_CS, DR_PRED_CC, DR_PRED_MI, DR_PRED_PL,
+    DR_PRED_VS, DR_PRED_VC, DR_PRED_HI, DR_PRED_LS, DR_PRED_GE, DR_PRED_LT,
+    DR_PRED_GT, DR_PRED_LE, DR_PRED_AL, DR_PRED_NV,
+};
+static const size_t cond_count = sizeof(cond_codes) / sizeof(cond_codes[0]);
+
 TEST_INSTR(ccmp)
 {
-    static const size_t cond_count = 16;
-
     /* Testing CCMP <Wn>, #<imm>, #<nzcv>, <cond> */
     TEST_LOOP_EXPECT(
         ccmp, cond_count,
-        INSTR_CREATE_ccmp(dc, CYCLE_REG(W, 2 * i),
-                          opnd_create_immed_int((2 * i) % 32, OPSZ_5b),
-                          opnd_create_immed_int(i & 0xf, OPSZ_4b), OPND_CREATE_COND(i)),
+        INSTR_CREATE_ccmp(
+            dc, CYCLE_REG(W, 2 * i), opnd_create_immed_int((2 * i) % 32, OPSZ_5b),
+            opnd_create_immed_int(i & 0xf, OPSZ_4b), opnd_create_cond(cond_codes[i])),
         {
             EXPECT_DISASSEMBLY("ccmp   %w0 $0x00 $0x00 eq", "ccmp   %w2 $0x02 $0x01 ne",
                                "ccmp   %w4 $0x04 $0x02 cs", "ccmp   %w6 $0x06 $0x03 cc",
@@ -489,9 +494,9 @@ TEST_INSTR(ccmp)
     /* Testing CCMP <Xn>, #<imm>, #<nzcv>, <cond> */
     TEST_LOOP_EXPECT(
         ccmp, cond_count,
-        INSTR_CREATE_ccmp(dc, CYCLE_REG(X, 2 * i),
-                          opnd_create_immed_int((2 * i) % 32, OPSZ_5b),
-                          opnd_create_immed_int(i & 0xf, OPSZ_4b), OPND_CREATE_COND(i)),
+        INSTR_CREATE_ccmp(
+            dc, CYCLE_REG(X, 2 * i), opnd_create_immed_int((2 * i) % 32, OPSZ_5b),
+            opnd_create_immed_int(i & 0xf, OPSZ_4b), opnd_create_cond(cond_codes[i])),
         {
             EXPECT_DISASSEMBLY("ccmp   %x0 $0x00 $0x00 eq", "ccmp   %x2 $0x02 $0x01 ne",
                                "ccmp   %x4 $0x04 $0x02 cs", "ccmp   %x6 $0x06 $0x03 cc",
@@ -512,7 +517,8 @@ TEST_INSTR(ccmp)
     TEST_LOOP_EXPECT(
         ccmp, cond_count,
         INSTR_CREATE_ccmp(dc, CYCLE_REG(W, 2 * i), CYCLE_REG(W, (2 * i) + 1),
-                          opnd_create_immed_int(i & 0xf, OPSZ_4b), OPND_CREATE_COND(i)),
+                          opnd_create_immed_int(i & 0xf, OPSZ_4b),
+                          opnd_create_cond(cond_codes[i])),
         {
             EXPECT_DISASSEMBLY("ccmp   %w0 %w1 $0x00 eq", "ccmp   %w2 %w3 $0x01 ne",
                                "ccmp   %w4 %w5 $0x02 cs", "ccmp   %w6 %w7 $0x03 cc",
@@ -532,7 +538,8 @@ TEST_INSTR(ccmp)
     TEST_LOOP_EXPECT(
         ccmp, cond_count,
         INSTR_CREATE_ccmp(dc, CYCLE_REG(X, 2 * i), CYCLE_REG(X, (2 * i) + 1),
-                          opnd_create_immed_int(i & 0xf, OPSZ_4b), OPND_CREATE_COND(i)),
+                          opnd_create_immed_int(i & 0xf, OPSZ_4b),
+                          opnd_create_cond(cond_codes[i])),
         {
             EXPECT_DISASSEMBLY("ccmp   %x0 %x1 $0x00 eq", "ccmp   %x2 %x3 $0x01 ne",
                                "ccmp   %x4 %x5 $0x02 cs", "ccmp   %x6 %x7 $0x03 cc",
@@ -551,14 +558,12 @@ TEST_INSTR(ccmp)
 
 TEST_INSTR(ccmn)
 {
-    static const size_t cond_count = 16;
-
     /* Testing CCMN <Wn>, #<imm>, #<nzcv>, <cond> */
     TEST_LOOP_EXPECT(
         ccmn, cond_count,
-        INSTR_CREATE_ccmn(dc, CYCLE_REG(W, 2 * i),
-                          opnd_create_immed_int((2 * i) % 32, OPSZ_5b),
-                          opnd_create_immed_int(i & 0xf, OPSZ_4b), OPND_CREATE_COND(i)),
+        INSTR_CREATE_ccmn(
+            dc, CYCLE_REG(W, 2 * i), opnd_create_immed_int((2 * i) % 32, OPSZ_5b),
+            opnd_create_immed_int(i & 0xf, OPSZ_4b), opnd_create_cond(cond_codes[i])),
         {
             EXPECT_DISASSEMBLY("ccmn   %w0 $0x00 $0x00 eq", "ccmn   %w2 $0x02 $0x01 ne",
                                "ccmn   %w4 $0x04 $0x02 cs", "ccmn   %w6 $0x06 $0x03 cc",
@@ -578,9 +583,9 @@ TEST_INSTR(ccmn)
     /* Testing CCMN <Xn>, #<imm>, #<nzcv>, <cond> */
     TEST_LOOP_EXPECT(
         ccmn, cond_count,
-        INSTR_CREATE_ccmn(dc, CYCLE_REG(X, 2 * i),
-                          opnd_create_immed_int((2 * i) % 32, OPSZ_5b),
-                          opnd_create_immed_int(i & 0xf, OPSZ_4b), OPND_CREATE_COND(i)),
+        INSTR_CREATE_ccmn(
+            dc, CYCLE_REG(X, 2 * i), opnd_create_immed_int((2 * i) % 32, OPSZ_5b),
+            opnd_create_immed_int(i & 0xf, OPSZ_4b), opnd_create_cond(cond_codes[i])),
         {
             EXPECT_DISASSEMBLY("ccmn   %x0 $0x00 $0x00 eq", "ccmn   %x2 $0x02 $0x01 ne",
                                "ccmn   %x4 $0x04 $0x02 cs", "ccmn   %x6 $0x06 $0x03 cc",
@@ -601,7 +606,8 @@ TEST_INSTR(ccmn)
     TEST_LOOP_EXPECT(
         ccmn, cond_count,
         INSTR_CREATE_ccmn(dc, CYCLE_REG(W, 2 * i), CYCLE_REG(W, (2 * i) + 1),
-                          opnd_create_immed_int(i & 0xf, OPSZ_4b), OPND_CREATE_COND(i)),
+                          opnd_create_immed_int(i & 0xf, OPSZ_4b),
+                          opnd_create_cond(cond_codes[i])),
         {
             EXPECT_DISASSEMBLY("ccmn   %w0 %w1 $0x00 eq", "ccmn   %w2 %w3 $0x01 ne",
                                "ccmn   %w4 %w5 $0x02 cs", "ccmn   %w6 %w7 $0x03 cc",
@@ -621,7 +627,8 @@ TEST_INSTR(ccmn)
     TEST_LOOP_EXPECT(
         ccmn, cond_count,
         INSTR_CREATE_ccmn(dc, CYCLE_REG(X, 2 * i), CYCLE_REG(X, (2 * i) + 1),
-                          opnd_create_immed_int(i & 0xf, OPSZ_4b), OPND_CREATE_COND(i)),
+                          opnd_create_immed_int(i & 0xf, OPSZ_4b),
+                          opnd_create_cond(cond_codes[i])),
         {
             EXPECT_DISASSEMBLY("ccmn   %x0 %x1 $0x00 eq", "ccmn   %x2 %x3 $0x01 ne",
                                "ccmn   %x4 %x5 $0x02 cs", "ccmn   %x6 %x7 $0x03 cc",
