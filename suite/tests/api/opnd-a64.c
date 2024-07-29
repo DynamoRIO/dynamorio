@@ -784,7 +784,7 @@ test_reg_is_simd()
 void
 test_cond()
 {
-    /* Test dr_pred_t -> cond opnd. */
+    /* Test dr_pred_type_t -> cond opnd. */
     ASSERT(opnd_get_immed_int(opnd_create_cond(DR_PRED_EQ)) == 0b0000);
     ASSERT(opnd_get_immed_int(opnd_create_cond(DR_PRED_NE)) == 0b0001);
     ASSERT(opnd_get_immed_int(opnd_create_cond(DR_PRED_CS)) == 0b0010);
@@ -816,7 +816,7 @@ test_cond()
     ASSERT(opnd_get_immed_int(opnd_create_cond(DR_PRED_SVE_TCONT)) == 0b1010);
     ASSERT(opnd_get_immed_int(opnd_create_cond(DR_PRED_SVE_TSTOP)) == 0b1011);
 
-    /* Test cond opnd -> dr_pred_t. */
+    /* Test cond opnd -> dr_pred_type_t. */
     ASSERT(opnd_get_cond(OPND_CREATE_INT(0b0000)) == DR_PRED_EQ);
     ASSERT(opnd_get_cond(OPND_CREATE_INT(0b0001)) == DR_PRED_NE);
     ASSERT(opnd_get_cond(OPND_CREATE_INT(0b0010)) == DR_PRED_CS);
