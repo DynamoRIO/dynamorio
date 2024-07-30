@@ -6344,6 +6344,7 @@ if (RISCV64)
     code_api|security-linux.trampoline
     code_api|tool.drcachesim.missfile-config-file
     code_api|tool.drcachesim.syscall-mix
+    code_api|tool.drcov.eintr
     code_api|tool.drcov.fib
     code_api|tool.drdisas
     code_api|tool.histogram
