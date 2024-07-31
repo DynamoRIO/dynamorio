@@ -36,6 +36,7 @@
 #include <stdint.h>
 
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "cache.h"
@@ -45,8 +46,8 @@ namespace dynamorio {
 namespace drmemtrace {
 
 struct coherence_table_entry_t {
-    std::vector<bool> sharers;
-    bool dirty;
+    std::unordered_set<int> sharers; // IDs of caches sharing this line.
+    bool dirty = false;
 };
 
 class snoop_filter_t {
