@@ -57,8 +57,8 @@
 0x001110010xxxxx000101xxxxxxxxxx  n   98   FP16      fadd  dq0 : dq5 dq16 h_sz
 0x101110010xxxxx000101xxxxxxxxxx  n   99   FP16     faddp  dq0 : dq5 dq16 h_sz
 0101111000110000110110xxxxxxxxxx  n   99   FP16     faddp   h0 : s5 h_sz
-00011110111xxxxxxxxx01xxxxx0xxxx  w   100  FP16     fccmp  fccm_h
-00011110111xxxxxxxxx01xxxxx1xxxx  w   101  FP16    fccmpe  fccm_h
+00011110111xxxxxxxxx01xxxxx0xxxx  rw  100  FP16     fccmp      : h5 h16 nzcv cond
+00011110111xxxxxxxxx01xxxxx1xxxx  rw  101  FP16    fccmpe      : h5 h16 nzcv cond
 0x001110010xxxxx001001xxxxxxxxxx  n   102  FP16     fcmeq  dq0 : dq5 dq16 h_sz
 0x00111011111000110110xxxxxxxxxx  n   102  FP16     fcmeq  dq0 : dq5 zero_fp_const h_sz
 01011110010xxxxx001001xxxxxxxxxx  n   102  FP16     fcmeq   h0 : h5 h16
@@ -81,7 +81,7 @@
 0001111011100000001000xxxxx11000  w   108  FP16     fcmpe      : h5 zero_fp_const
 0001111011100000001000xxxxx11000  w   108  FP16     fcmpe      : h5 zero_fp_const
 00011110111xxxxx001000xxxxx10000  w   108  FP16     fcmpe      : h5 h16
-00011110111xxxxxxxxx11xxxxxxxxxx  r   109  FP16     fcsel  fcsel_h
+00011110111xxxxxxxxx11xxxxxxxxxx  r   109  FP16     fcsel   h0 : h5 h16 cond
 0x00111001111001110010xxxxxxxxxx  n   111  FP16    fcvtas  dq0 : dq5 h_sz
 0101111001111001110010xxxxxxxxxx  n   111  FP16    fcvtas   h0 : h5
 0001111011100100000000xxxxxxxxxx  n   111  FP16    fcvtas   w0 : h5

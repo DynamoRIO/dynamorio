@@ -215,6 +215,63 @@ test_instr_encoding(void *dc, uint opcode, instr_t *instr, const char *expected)
     return result;
 }
 
+#define REG16(first)                                                                    \
+    first, first + 1, first + 2, first + 3, first + 4, first + 5, first + 6, first + 7, \
+        first + 8, first + 9, first + 10, first + 11, first + 12, first + 13,           \
+        first + 14, first + 15
+
+#define REG31(first)                                                            \
+    REG16(first), first + 16, first + 17, first + 18, first + 19, first + 20,   \
+        first + 21, first + 22, first + 23, first + 24, first + 25, first + 26, \
+        first + 27, first + 28, first + 29, first + 30
+
+#define REG32(first) REG31(first), first + 31
+
+/* All the W registers where index 31 is WZR. */
+static const reg_id_t W_registers[] = { REG31(DR_REG_W0), DR_REG_WZR };
+
+/* All the W registers where index 31 is WSP. */
+static const reg_id_t WSP_registers[] = { REG31(DR_REG_W0), DR_REG_WSP };
+
+/* All the X registers where index 31 is XZR. */
+static const reg_id_t X_registers[] = { REG31(DR_REG_X0), DR_REG_XZR };
+
+/* All the X registers where index 31 is XSP. */
+static const reg_id_t XSP_registers[] = { REG31(DR_REG_X0), DR_REG_XSP };
+
+/* All the B registers. */
+static const reg_id_t B_registers[] = { REG32(DR_REG_B0) };
+
+/* All the H registers. */
+static const reg_id_t H_registers[] = { REG32(DR_REG_H0) };
+
+/* All the S registers. */
+static const reg_id_t S_registers[] = { REG32(DR_REG_S0) };
+
+/* All the D registers. */
+static const reg_id_t D_registers[] = { REG32(DR_REG_D0) };
+
+/* All the Q registers. */
+static const reg_id_t Q_registers[] = { REG32(DR_REG_Q0) };
+
+/* All the P registers. */
+static const reg_id_t P_registers[] = { REG16(DR_REG_P0) };
+
+/* All the Z registers. */
+static const reg_id_t Z_registers[] = { REG32(DR_REG_Z0) };
+
+#define REG_COUNT(type) (sizeof(type##_registers) / sizeof(type##_registers[0]))
+
+/* Use to cycle through one of the above register lists when creating instr_t in
+ * TEST_LOOPs.
+ * `type` must we one of: X, XSP, W, WSP, B, H, S, D, Q, P, Z
+ * for example:
+ *     CYCLE_REG(Z, i * 2)
+ * cycles through every other Z register:
+ *     Z0, Z2, Z4, ..., Z28, Z30, Z0, Z2, ...
+ */
+#define CYCLE_REG(type, n) opnd_create_reg(type##_registers[(n) % REG_COUNT(type)])
+
 const reg_id_t Xn_six_offset_0[6] = { DR_REG_X0,  DR_REG_X5,  DR_REG_X10,
                                       DR_REG_X15, DR_REG_X20, DR_REG_X30 };
 const reg_id_t Xn_six_offset_1[6] = { DR_REG_X0,  DR_REG_X6,  DR_REG_X11,
