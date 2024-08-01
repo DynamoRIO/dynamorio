@@ -1186,7 +1186,7 @@ class IslGenerator:
                                               for f in flds])
                             arg_comments += '\n'
                             arg_comments += '\n'.join(
-                                [f' * \param {f.formatted_name():6}  {f.arg_cmt}' for f in flds])
+                                [f' * \\param {f.formatted_name():6}  {f.arg_cmt}' for f in flds])
                         if len(all_flds) > 0:
                             body_args += ', '
                             body_args += ', '.join([f.formatted_name(True)
@@ -1197,7 +1197,7 @@ class IslGenerator:
                             f'''/**
  * Creates a(n) {i.name} instruction.
  *
- * \param dc      The void * dcontext used to allocate memory for the instr_t.{arg_comments}
+ * \\param dc      The void * dcontext used to allocate memory for the instr_t.{arg_comments}
  */
 #define INSTR_CREATE_{i.formatted_name()}(dc{args}) \\
     instr_create_{nd}dst_{ns}src(dc, OP_{i.formatted_name()}{body_args})\n''')

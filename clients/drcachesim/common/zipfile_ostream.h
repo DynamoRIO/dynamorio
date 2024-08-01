@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -116,7 +116,7 @@ public:
         // so it's not 1980 in the file.
         if (zipOpenNewFileInZip(zip_, name.c_str(), nullptr, nullptr, 0, nullptr, 0,
                                 nullptr, Z_DEFLATED, Z_DEFAULT_COMPRESSION) != ZIP_OK) {
-            return "Failed to add new component to zipfile";
+            return "Failed to add new component " + name + " to zipfile";
         }
         return "";
     }

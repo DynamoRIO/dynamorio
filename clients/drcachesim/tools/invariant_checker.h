@@ -51,6 +51,7 @@
 #include "dr_api.h"
 #include "memref.h"
 #include "memtrace_stream.h"
+#include "schedule_file.h"
 #include "trace_entry.h"
 
 namespace dynamorio {
@@ -216,8 +217,7 @@ protected:
         uint64_t instr_count_ = 0;
         uint64_t last_timestamp_ = 0;
         uint64_t instr_count_since_last_timestamp_ = 0;
-        std::vector<schedule_entry_t> sched_;
-        std::unordered_map<uint64_t, std::vector<schedule_entry_t>> cpu2sched_;
+        schedule_file_t::per_shard_t sched_data_;
         bool skipped_instrs_ = false;
         // Rseq region state.
         bool in_rseq_region_ = false;

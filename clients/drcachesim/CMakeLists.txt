@@ -167,8 +167,9 @@ add_exported_library(drmemtrace_view STATIC tools/view.cpp)
 add_exported_library(drmemtrace_func_view STATIC tools/func_view.cpp)
 add_exported_library(drmemtrace_invariant_checker STATIC tools/invariant_checker.cpp)
 add_exported_library(drmemtrace_schedule_stats STATIC tools/schedule_stats.cpp)
+add_exported_library(drmemtrace_schedule_file STATIC common/schedule_file.cpp)
 
-target_link_libraries(drmemtrace_invariant_checker drdecode)
+target_link_libraries(drmemtrace_invariant_checker drdecode drmemtrace_schedule_file)
 
 configure_DynamoRIO_standalone(drmemtrace_opcode_mix)
 configure_DynamoRIO_standalone(drmemtrace_view)
@@ -200,7 +201,8 @@ add_exported_library(drmemtrace_record_filter STATIC
   tools/filter/encodings2regdeps_filter.h
   tools/filter/func_id_filter.h
   tools/filter/null_filter.h)
-target_link_libraries(drmemtrace_record_filter drmemtrace_simulator)
+target_link_libraries(drmemtrace_record_filter drmemtrace_simulator
+  drmemtrace_schedule_file)
 configure_DynamoRIO_standalone(drmemtrace_record_filter)
 
 add_exported_library(directory_iterator STATIC common/directory_iterator.cpp)
@@ -231,7 +233,8 @@ if (libsnappy)
 endif ()
 add_exported_library(drmemtrace_raw2trace STATIC ${raw2trace_srcs})
 configure_DynamoRIO_standalone(drmemtrace_raw2trace)
-target_link_libraries(drmemtrace_raw2trace directory_iterator drfrontendlib)
+target_link_libraries(drmemtrace_raw2trace directory_iterator drfrontendlib
+  drmemtrace_schedule_file)
 use_DynamoRIO_extension(drmemtrace_raw2trace drutil_static)
 link_with_pthread(drmemtrace_raw2trace)
 if (libsnappy)
@@ -592,6 +595,7 @@ restore_nonclient_flags(drmemtrace_record_filter)
 restore_nonclient_flags(drmemtrace_analyzer)
 restore_nonclient_flags(drmemtrace_invariant_checker)
 restore_nonclient_flags(drmemtrace_schedule_stats)
+restore_nonclient_flags(drmemtrace_schedule_file)
 
 # We need to pass /EHsc and we pull in libcmtd into drcachesim from a dep lib.
 # Thus we need to override the /MT with /MTd.
@@ -658,6 +662,7 @@ add_win32_flags(drmemtrace_record_filter)
 add_win32_flags(drmemtrace_analyzer)
 add_win32_flags(drmemtrace_invariant_checker)
 add_win32_flags(drmemtrace_schedule_stats)
+add_win32_flags(drmemtrace_schedule_file)
 add_win32_flags(directory_iterator)
 add_win32_flags(test_helpers)
 if (WIN32 AND DEBUG)
@@ -935,6 +940,15 @@ if (BUILD_TESTS)
     add_test(NAME tool.drcachesim.invariant_checker_test
              COMMAND tool.drcachesim.invariant_checker_test)
     set_tests_properties(tool.drcachesim.invariant_checker_test PROPERTIES
+      TIMEOUT ${test_seconds})
+
+    add_executable(tool.drcachesim.schedule_file_test tests/schedule_file_test.cpp)
+    add_win32_flags(tool.drcachesim.schedule_file_test)
+    target_link_libraries(tool.drcachesim.schedule_file_test
+        drmemtrace_schedule_file test_helpers)
+    add_test(NAME tool.drcachesim.schedule_file_test
+             COMMAND tool.drcachesim.schedule_file_test)
+    set_tests_properties(tool.drcachesim.schedule_file_test PROPERTIES
       TIMEOUT ${test_seconds})
 
     add_executable(tool.drcachesim.schedule_stats_test tests/schedule_stats_test.cpp)

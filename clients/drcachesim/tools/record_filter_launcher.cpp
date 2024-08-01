@@ -183,7 +183,10 @@ _tmain(int argc, const TCHAR *targv[])
         FATAL_ERROR("Failed to run trace filter: %s",
                     record_analyzer.get_error_string().c_str());
     }
-    record_analyzer.print_stats();
+    if (!record_analyzer.print_stats()) {
+        FATAL_ERROR("Failed to print stats: %s",
+                    record_analyzer.get_error_string().c_str());
+    }
 
     fprintf(stderr, "Done!\n");
     return 0;
