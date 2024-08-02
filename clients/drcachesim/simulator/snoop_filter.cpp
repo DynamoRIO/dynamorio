@@ -75,7 +75,7 @@ snoop_filter_t::snoop(addr_t tag, int id, bool is_write)
 {
     coherence_table_entry_t *coherence_entry = &coherence_table_[tag];
 
-    auto num_sharers = coherence_entry->sharers.size();
+    size_t num_sharers = coherence_entry->sharers.size();
 
     // Check that cache id is valid.
     assert(id >= 0 && id < num_snooped_caches_);
