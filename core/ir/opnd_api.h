@@ -2061,6 +2061,116 @@ typedef enum _dr_pred_constr_type_t {
     DR_PRED_CONSTR_LAST_NUMBER = DR_PRED_CONSTR_UIMM5_28,
 } dr_pred_constr_type_t;
 
+/** Triggers used for conditionally executed instructions. */
+typedef enum _dr_pred_type_t {
+    DR_PRED_NONE, /**< No predicate is present. */
+#ifdef X86
+    DR_PRED_O,   /**< x86 condition: overflow (OF=1). */
+    DR_PRED_NO,  /**< x86 condition: no overflow (OF=0). */
+    DR_PRED_B,   /**< x86 condition: below (CF=1). */
+    DR_PRED_NB,  /**< x86 condition: not below (CF=0). */
+    DR_PRED_Z,   /**< x86 condition: zero (ZF=1). */
+    DR_PRED_NZ,  /**< x86 condition: not zero (ZF=0). */
+    DR_PRED_BE,  /**< x86 condition: below or equal (CF=1 or ZF=1). */
+    DR_PRED_NBE, /**< x86 condition: not below or equal (CF=0 and ZF=0). */
+    DR_PRED_S,   /**< x86 condition: sign (SF=1). */
+    DR_PRED_NS,  /**< x86 condition: not sign (SF=0). */
+    DR_PRED_P,   /**< x86 condition: parity (PF=1). */
+    DR_PRED_NP,  /**< x86 condition: not parity (PF=0). */
+    DR_PRED_L,   /**< x86 condition: less (SF != OF). */
+    DR_PRED_NL,  /**< x86 condition: not less (SF=OF). */
+    DR_PRED_LE,  /**< x86 condition: less or equal (ZF=1 or SF != OF). */
+    DR_PRED_NLE, /**< x86 condition: not less or equal (ZF=0 and SF=OF). */
+    /**
+     * x86 condition: special opcode-specific condition that depends on the
+     * values of the source operands.  Thus, unlike all of the other conditions,
+     * the source operands will be accessed even if the condition then fails
+     * and the destinations are not touched.  Any written eflags are
+     * unconditionally written, unlike regular destination operands.
+     */
+    DR_PRED_COMPLEX,
+    /* Aliases for XINST_CREATE_jump_cond() and other cross-platform routines. */
+    DR_PRED_EQ = DR_PRED_Z,  /**< Condition code: equal. */
+    DR_PRED_NE = DR_PRED_NZ, /**< Condition code: not equal. */
+    DR_PRED_LT = DR_PRED_L,  /**< Condition code: signed less than. */
+    /* DR_PRED_LE already matches aarchxx */
+    DR_PRED_GT = DR_PRED_NLE, /**< Condition code: signed greater than. */
+    DR_PRED_GE = DR_PRED_NL,  /**< Condition code: signed greater than or equal. */
+#endif
+/* We resist using #elif here because otherwise doxygen will be unable to
+ * document both defines, for X86 and for AARCHXX.
+ */
+#ifdef AARCHXX
+    DR_PRED_EQ, /**< ARM condition: 0000 Equal                   (Z == 1)           */
+    DR_PRED_NE, /**< ARM condition: 0001 Not equal               (Z == 0)           */
+    DR_PRED_CS, /**< ARM condition: 0010 Carry set               (C == 1)           */
+    DR_PRED_CC, /**< ARM condition: 0011 Carry clear             (C == 0)           */
+    DR_PRED_MI, /**< ARM condition: 0100 Minus, negative         (N == 1)           */
+    DR_PRED_PL, /**< ARM condition: 0101 Plus, positive or zero  (N == 0)           */
+    DR_PRED_VS, /**< ARM condition: 0110 Overflow                (V == 1)           */
+    DR_PRED_VC, /**< ARM condition: 0111 No overflow             (V == 0)           */
+    DR_PRED_HI, /**< ARM condition: 1000 Unsigned higher         (C == 1 and Z == 0)*/
+    DR_PRED_LS, /**< ARM condition: 1001 Unsigned lower or same  (C == 1 or Z == 0) */
+    DR_PRED_GE, /**< ARM condition: 1010 Signed >=               (N == V)           */
+    DR_PRED_LT, /**< ARM condition: 1011 Signed less than        (N != V)           */
+    DR_PRED_GT, /**< ARM condition: 1100 Signed greater than     (Z == 0 and N == V)*/
+    DR_PRED_LE, /**< ARM condition: 1101 Signed <=               (Z == 1 or N != V) */
+    DR_PRED_AL, /**< ARM condition: 1110 Always (unconditional)                    */
+#    ifdef AARCH64
+    DR_PRED_NV,     /**< ARM condition: 1111 Never, meaning always                     */
+    DR_PRED_MASKED, /** Used for AArch64 SVE instructions with governing predicate
+                     * registers
+                     */
+#    endif
+#    ifdef ARM
+    DR_PRED_OP, /**< ARM condition: 1111 Part of opcode                            */
+#    endif
+    /* Aliases */
+    DR_PRED_HS = DR_PRED_CS, /**< ARM condition: alias for DR_PRED_CS. */
+    DR_PRED_LO = DR_PRED_CC, /**< ARM condition: alias for DR_PRED_CC. */
+#    ifdef AARCH64
+    /* Some SVE instructions use the NZCV condition flags in a different way to the base
+     * AArch64 instruction set, and SVE introduces aliases for the condition codes based
+     * on the SVE interpretation of the flags. The state of predicate registers can be
+     * used to alter control flow with condition flags being set or cleared by an explicit
+     * test of a predicate register or by instructions which generate a predicate result.
+     *
+     *  N   First   Set if the first active element was true.
+     *  Z   None    Cleared if any active element was true.
+     *  C   !Last   Cleared if the last active element was true.
+     *  V           Cleared by all flag setting SVE instructions except CTERMEQ and
+     *              CTERMNE, for scalarised loops.
+     */
+    DR_PRED_SVE_NONE = DR_PRED_EQ, /**<  0000 All active elements were false
+                                              or no active elements            (Z == 1) */
+    DR_PRED_SVE_ANY = DR_PRED_NE, /**<   0001 An active element was true       (Z == 0) */
+    DR_PRED_SVE_NLAST = DR_PRED_CS, /**< 0010 Last active element was false
+                                              or no active elements            (C == 1) */
+    DR_PRED_SVE_LAST = DR_PRED_CC, /**<  0011 Last active element was true     (C == 0) */
+    DR_PRED_SVE_FIRST = DR_PRED_MI, /**< 0100 First active element was true    (N == 1) */
+    DR_PRED_SVE_NFRST = DR_PRED_PL, /**< 0101 First active element was false
+                                              or no active elements            (N == 0) */
+    DR_PRED_SVE_PLAST = DR_PRED_LS, /**< 1001 Last active element was true,
+                                              all active elements were false,
+                                              or no active elements   (C == 1 or Z == 0)*/
+    DR_PRED_SVE_TCONT = DR_PRED_GE, /**< 1010 CTERM termination condition
+                                              not detected, continue loop      (N == V) */
+    DR_PRED_SVE_TSTOP = DR_PRED_LT, /**< 1011 CTERM termination condition
+                                              detected, terminate loop         (N != V) */
+#    endif
+#endif
+#ifdef RISCV64
+    /* FIXME i#3544: RISC-V does not have compare flag register! */
+    /* Aliases for XINST_CREATE_jump_cond() and other cross-platform routines. */
+    DR_PRED_EQ, /**< Condition code: equal. */
+    DR_PRED_NE, /**< Condition code: not equal. */
+    DR_PRED_LT, /**< Condition code: signed less than. */
+    DR_PRED_LE, /**< Condition code: signed less than or equal. */
+    DR_PRED_GT, /**< Condition code: signed greater than. */
+    DR_PRED_GE, /**< Condition code: signed greater than or equal. */
+#endif
+} dr_pred_type_t;
+
 /**
  * These flags describe operations performed on the value of a source register
  * before it is combined with other sources as part of the behavior of the
@@ -3927,5 +4037,26 @@ DR_API
  */
 bool
 reg_is_stolen(reg_id_t reg);
+
+#if defined(AARCH64)
+
+DR_API
+/**
+ * Returns an unsigned immediate integer operand that can be used as a condition code
+ * operand for instructions such as ccmp.
+ * \param cond A #dr_pred_type_t value corresponding to a condition code.
+ */
+opnd_t
+opnd_create_cond(dr_pred_type_t cond);
+
+DR_API
+/**
+ * Get the #dr_pred_type_t value for a condition code operand used in instructions such as
+ * ccmp.
+ */
+dr_pred_type_t
+opnd_get_cond(opnd_t opnd);
+
+#endif
 
 #endif /* _DR_IR_OPND_H_ */

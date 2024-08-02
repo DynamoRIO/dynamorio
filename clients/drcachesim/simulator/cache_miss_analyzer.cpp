@@ -83,6 +83,8 @@ cache_miss_stats_t::dump_miss(const memref_t &memref)
         return;
     }
 
+    // TODO i#6905: Consider incorporating PID information into the pc_cache_misses_ hash
+    // map and adjusting subsequent calculations that depend on this data.
     const addr_t pc = memref.data.pc;
     const addr_t addr = memref.data.addr / kLineSize;
     pc_cache_misses_[pc].push_back(addr);

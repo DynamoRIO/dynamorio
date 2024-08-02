@@ -2827,6 +2827,56 @@ reg_get_size_lmul(reg_id_t reg, lmul_t lmul)
 }
 #endif
 
+#if defined(AARCH64)
+
+opnd_t
+opnd_create_cond(dr_pred_type_t cond)
+{
+    switch (cond) {
+    case DR_PRED_NONE:
+        CLIENT_ASSERT(false,
+                      "opnd_create_cond: predicate must be a condition code. For"
+                      " the SVE 'none' condition code alias use DR_PRED_SVE_NONE.");
+        break;
+    case DR_PRED_EQ:
+    case DR_PRED_NE:
+    case DR_PRED_CS:
+    case DR_PRED_CC:
+    case DR_PRED_MI:
+    case DR_PRED_PL:
+    case DR_PRED_VS:
+    case DR_PRED_VC:
+    case DR_PRED_HI:
+    case DR_PRED_LS:
+    case DR_PRED_GE:
+    case DR_PRED_LT:
+    case DR_PRED_GT:
+    case DR_PRED_LE:
+    case DR_PRED_AL:
+    case DR_PRED_NV:
+        /* The dr_pred_type_t encoding of the condition codes is off-by-one compared to
+         * the instruction encoding.
+         */
+        return opnd_add_flags(opnd_create_immed_int(cond - 1, OPSZ_4b),
+                              DR_OPND_IS_CONDITION);
+    default:
+        CLIENT_ASSERT(false, "opnd_create_cond: predicate must be a condition code.");
+    }
+
+    return opnd_create_null(); /* Should be unreachable. */
+}
+
+dr_pred_type_t
+opnd_get_cond(opnd_t opnd)
+{
+    /* The dr_pred_type_t encoding of the condition codes is off-by-one compared to the
+     * instruction encoding.
+     */
+    return (dr_pred_type_t)(opnd_get_immed_int(opnd) + 1);
+}
+
+#endif
+
 #ifndef STANDALONE_DECODER
 /****************************************************************************/
 /* dcontext convenience routines */

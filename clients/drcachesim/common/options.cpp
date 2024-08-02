@@ -208,11 +208,11 @@ droption_t<std::string> op_LL_miss_file(
     "Path for dumping LLC misses or prefetching hints",
     "If non-empty, when running the cache simulator, requests that "
     "every last-level cache miss be written to a file at the specified path. Each miss "
-    "is written in text format as a <program counter, address> pair. If this tool is "
-    "linked with zlib, the file is written in gzip-compressed format. If non-empty, when "
-    "running the cache miss analyzer, requests that prefetching hints based on the miss "
-    "analysis be written to the specified file. Each hint is written in text format as a "
-    "<program counter, stride, locality level> tuple.");
+    "is written in text format as a <process id, program counter, address> tuple. If "
+    "this tool is linked with zlib, the file is written in gzip-compressed format. If "
+    "non-empty, when running the cache miss analyzer, requests that prefetching hints "
+    "based on the miss analysis be written to the specified file. Each hint is written "
+    "in text format as a <program counter, stride, locality level> tuple.");
 
 droption_t<bool> op_L0_filter_deprecated(
     DROPTION_SCOPE_CLIENT, "L0_filter", false,
