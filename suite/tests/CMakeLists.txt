@@ -3055,14 +3055,16 @@ if (NOT APPLE AND NOT RISCV64) # XXX i#1997: static DR not fully supported on Ma
   link_with_pthread(client.drwrap-test-detach)
 endif ()
 
-tobuild_appdll(client.drwrap-drreg-test client-interface/drwrap-drreg-test.c)
-get_target_path_for_execution(drwrap_drreg_libpath client.drwrap-drreg-test.appdll
-  "${location_suffix}")
-tobuild_ci(client.drwrap-drreg-test client-interface/drwrap-drreg-test.c "" ""
-  "${drwrap_drreg_libpath}")
-use_DynamoRIO_extension(client.drwrap-drreg-test.dll drwrap)
-use_DynamoRIO_extension(client.drwrap-drreg-test.dll drreg)
-use_DynamoRIO_extension(client.drwrap-drreg-test.dll drmgr)
+if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+  tobuild_appdll(client.drwrap-drreg-test client-interface/drwrap-drreg-test.c)
+  get_target_path_for_execution(drwrap_drreg_libpath client.drwrap-drreg-test.appdll
+    "${location_suffix}")
+  tobuild_ci(client.drwrap-drreg-test client-interface/drwrap-drreg-test.c "" ""
+    "${drwrap_drreg_libpath}")
+  use_DynamoRIO_extension(client.drwrap-drreg-test.dll drwrap)
+  use_DynamoRIO_extension(client.drwrap-drreg-test.dll drreg)
+  use_DynamoRIO_extension(client.drwrap-drreg-test.dll drmgr)
+endif (NOT RISCV64)
 
 if (AARCH64 AND NOT APPLE) # TODO i#5383: Port to Mac M1.
   # Create a fuzzing application for stress-testing via drstatecmp.
@@ -6158,7 +6160,6 @@ if (RISCV64)
     code_api|client.blackbox
     code_api|client.crashmsg
     code_api|client.drwrap-test-callconv
-    code_api|client.drwrap-drreg-test
     code_api|client.execfault
     code_api|client.mangle_suspend
     code_api|client.null_instrument
