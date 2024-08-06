@@ -3029,12 +3029,15 @@ if (X86 OR AARCH64)
   endif ()
 endif ()
 
-tobuild_appdll(client.drwrap-test client-interface/drwrap-test.c)
-get_target_path_for_execution(drwrap_libpath client.drwrap-test.appdll
-  "${location_suffix}")
-tobuild_ci(client.drwrap-test client-interface/drwrap-test.c "" "" "${drwrap_libpath}")
-use_DynamoRIO_extension(client.drwrap-test.dll drwrap)
-tochcon(client.drwrap-test.appdll textrel_shlib_t)
+if (NOT RISCV64)
+  # TODO i#3544: Port tests to RISC-V 64
+  tobuild_appdll(client.drwrap-test client-interface/drwrap-test.c)
+  get_target_path_for_execution(drwrap_libpath client.drwrap-test.appdll
+    "${location_suffix}")
+  tobuild_ci(client.drwrap-test client-interface/drwrap-test.c "" "" "${drwrap_libpath}")
+  use_DynamoRIO_extension(client.drwrap-test.dll drwrap)
+  tochcon(client.drwrap-test.appdll textrel_shlib_t)
+endif (NOT RISCV64)
 
 if (WIN32)
   # export from asm code
