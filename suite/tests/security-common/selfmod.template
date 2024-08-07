@@ -42,10 +42,21 @@ sandbox_last_byte: 1
 end last byte test
 start fault test
 int is 42
+Segmentation fault
+#ifdef X86
 fault bytes are 89 01 preceded by 07 00 00 00
+#else
+fault instruction is 0xf9000180 preceded by 0xd28000ec
+#endif
 int is 42
 Illegal instruction
+#ifdef X86
 fault bytes are 0f 0b preceded by c6 41 fb 05
+#else
+fault instruction is 0x00000000 preceded by 0xf90013e0
+#endif
 end fault test
 end selfmod loop test
+#ifdef X86
 end selfmod direction flag test
+#endif
