@@ -140,6 +140,7 @@ func_view_t::parallel_shard_init_stream(int shard_index, void *worker_data,
     auto shard_data = new shard_data_t;
     std::lock_guard<std::mutex> guard(shard_map_mutex_);
     shard_data->tid = stream->get_tid();
+    shard_data->filetype = stream->get_filetype();
     shard_map_[shard_index] = shard_data;
     return shard_data;
 }
@@ -170,8 +171,13 @@ func_view_t::process_memref_for_markers(void *shard_data, const memref_t &memref
         shard->last_was_syscall = memref.marker.marker_value >=
             static_cast<int64_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE);
     }
-    if (shard->last_was_syscall)
+    // OFFLINE_FILE_TYPE_ARCH_REGDEPS traces have only SYS_futex function-related (i.e.,
+    // TRACE_MARKER_TYPE_FUNC_) markers for which we do want to print "returns"
+    // statistics, so we disable this check for these traces.
+    if (shard->last_was_syscall &&
+        !TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, shard->filetype)) {
         return;
+    }
     switch (memref.marker.marker_type) {
     case TRACE_MARKER_TYPE_FUNC_ID:
         if (shard->last_func_id != -1)
@@ -208,6 +214,9 @@ func_view_t::process_memref(const memref_t &memref)
     const auto &lookup = shard_map_.find(shard_index);
     if (lookup == shard_map_.end()) {
         shard = new shard_data_t;
+        // Adds support for printing SYS_futex "returns" statistics in
+        // OFFLINE_FILE_TYPE_ARCH_REGDEPS traces even with -show_func_trace set.
+        shard->filetype = serial_stream_->get_filetype();
         shard_map_[shard_index] = shard;
     } else
         shard = lookup->second;
