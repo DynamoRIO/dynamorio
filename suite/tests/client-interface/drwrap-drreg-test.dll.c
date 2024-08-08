@@ -80,12 +80,7 @@ module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
 
         addr_two_args = (app_pc)dr_get_proc_address(mod->handle, "two_args");
         CHECK(addr_two_args != NULL, "cannot find lib export");
-#if defined(RISCV64)
-        bool ok = drwrap_wrap_ex(addr_two_args, wrap_pre, wrap_post, 0,
-                                 DRWRAP_CALLCONV_RISCV_LP64 | DRWRAP_REPLACE_RETADDR);
-#else
         bool ok = drwrap_wrap(addr_two_args, wrap_pre, wrap_post);
-#endif
         CHECK(ok, "wrap failed");
     }
 }
