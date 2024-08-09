@@ -210,8 +210,8 @@ test_mov_abs(void)
 #        else
     char *src = NULL;
 
-    /* Copy into the buffer some instructions to read the "0xdeadbeefdeadbeef" value
-     * into a register and return it.
+    /* Copy into the buffer some instructions (from the assembly below) to read the
+     * "0xdeadbeefdeadbeef" value into a register and return it.
      */
     __asm("adr %[result], start" : [result] "=r"(src));
 
@@ -219,7 +219,8 @@ test_mov_abs(void)
 
     __asm volatile("b end");
     __asm volatile("start:");
-    __asm volatile("adr x1, #-8");
+    __asm volatile("adr x1, #-8"); /* this instruction and the next two are copied by the
+                                      memcpy above. */
     __asm volatile("ldr x0, [x1]");
     __asm volatile("ret");
     __asm volatile("end:");
@@ -306,6 +307,8 @@ test_sandbox_last_byte(void)
     uint32 *first_instruction = (uint32 *)last_byte_jmp_label;
     (*first_instruction)++; /* The jump distance is encoded in number of instructions, not
                                bytes. */
+    /* On AARCH64 the instruction cache must be cleared for modifications to be reliably
+     * picked up. */
     tools_clear_icache(first_instruction, first_instruction + 4);
 #    endif
 
@@ -493,15 +496,15 @@ ADDRTAKEN_LABEL(sandbox_cross_page_no_ilt:)
         strb w0, [x1], #1
         strb w0, [x1], #1
 
-        /* modify the "movz x9, #0" instruction */
+        /* modify the "movz x9, #0" instruction. */
         adr x10, immediate_addr_plus_four - 4
         ldr w11, [x10]
-        /* set the imm16 part of the movz instruction to w0 */
-        and w11, w11, #0xffe0001f /* set imm16 to 0 */
-        orr w11, w11, w0, LSL #5
+        /* set the imm16 part of the movz instruction to w0 (the first argument.) */
+        and w11, w11, #0xffe0001f /* set imm16 to 0. */
+        orr w11, w11, w0, LSL #5 /* set imm16 to w0. */
         str w11, [x10]
 
-        /* need to invalidate the instruction cache */
+        /* need to invalidate the instruction cache. This tests explicit app icache management. */
         stp x0, x1, [sp, #-16]!
         adr x0, sandbox_cross_page
         adr x1, sandbox_cross_page_end
@@ -578,20 +581,10 @@ ALIGN_WITH_NOPS(16)
 #define FUNCNAME make_last_byte_selfmod
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-#ifdef X86
         lea      REG_XAX, SYMREF(last_byte_immed_plus_four - 4)
         mov      DWORD [REG_XAX], HEX(0)     /* selfmod write */
         mov      REG_XAX, HEX(0)             /* mov_imm to modify */
 ADDRTAKEN_LABEL(last_byte_immed_plus_four:)
-#else
-        adr x9, last_instruction - 4
-        ldr w10, [x9]
-        mov w11, #1
-        orr w10, w10, w11, LSL #5
-        str w10, [x9]
-        movz x9, #0 /* this will get updated by the code above */
-ADDRTAKEN_LABEL(last_instruction:)
-#endif
         ret
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
@@ -599,7 +592,7 @@ ADDRTAKEN_LABEL(last_instruction:)
 #define FUNCNAME make_code_page_selfmod
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        adr x9, last_instruction - 4
+        adr x9, last_instruction - 4 /* modify some code to make the page sandboxed. */
         ldr w10, [x9]
         mov w11, #1
         orr w10, w10, w11, LSL #5
@@ -651,7 +644,7 @@ ADDRTAKEN_LABEL(fault_immediate_addr_plus_four:)
         orr w10, w10, w0, LSL #5
         str w10, [x9]
 
-        /* need to invalidate the instruction cache */
+        /* need to invalidate the instruction cache. This tests explicit app icache management. */
         stp x0, x1, [sp, #-16]!
         adr x0, sandbox_fault
         adr x1, sandbox_fault_end
@@ -716,7 +709,7 @@ ADDRTAKEN_LABEL(illegal_immediate_addr_plus_four:)
         orr w10, w10, w0, LSL #5
         str w10, [x9]
 
-        /* need to invalidate the instruction cache */
+        /* need to invalidate the instruction cache. This tests explicit app icache management. */
         stp x0, x1, [sp, #-16]!
         adr x0, sandbox_illegal_instr
         adr x1, sandbox_illegal_instr_end
@@ -800,7 +793,7 @@ loop_orig_target3:
         add w10, w10, 1 /* branch to 1 instr. further. */
         str w10, [x9]
 
-        /* need to invalidate the instruction cache */
+        /* need to invalidate the instruction cache. This tests explicit app icache management. */
         adr x0, sandbox_cti_tgt
         adr x1, sandbox_cti_tgt_end
         bl tools_clear_icache
@@ -820,7 +813,7 @@ branch_orig_target:
         orr w10, w10, w11
         str w10, [x9]
 
-        /* need to invalidate the instruction cache */
+        /* need to invalidate the instruction cache. This tests explicit app icache management. */
         stp x13, x13, [sp, #-16]!
         adr x0, sandbox_cti_tgt
         adr x1, sandbox_cti_tgt_end
