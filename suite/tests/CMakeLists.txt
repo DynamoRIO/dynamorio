@@ -6307,6 +6307,7 @@ if (RISCV64)
     code_api|client.app_args
     code_api|client.blackbox
     code_api|client.crashmsg
+    code_api|client.drwrap-test-callconv
     code_api|client.execfault
     code_api|client.mangle_suspend
     code_api|client.null_instrument

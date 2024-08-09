@@ -459,6 +459,9 @@ typedef enum {
 #    ifdef AARCH64
     /** Default calling convention for the platform. */
     DRWRAP_CALLCONV_DEFAULT = DRWRAP_CALLCONV_AARCH64,
+#    elif defined(RISCV64)
+    /** Default calling convention for the platform. */
+    DRWRAP_CALLCONV_DEFAULT = DRWRAP_CALLCONV_RISCV_LP64,
 #    elif defined(UNIX) /* x64 */
     /** Default calling convention for the platform. */
     DRWRAP_CALLCONV_DEFAULT = DRWRAP_CALLCONV_AMD64,
