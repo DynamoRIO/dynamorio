@@ -51,7 +51,7 @@ jobs:
       matrix:
         # This job will run in parallel.
         include:
-          - os: ubuntu-20-arm64
+          - os: ubuntu-20-arm64-pre-sve
             sve: false
           - os: ubuntu-20-arm64-sve
             sve: true
