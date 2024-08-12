@@ -77,9 +77,10 @@ def main(dis_a64, rewrite=False):
         out_file = sys.stdout
 
     print("\n".join(header), file=out_file)
-    for test in tests:
+    for n, test in enumerate(tests):
         print("\n".join(test), file=out_file)
-        print(file=out_file)
+        if n < len(tests) - 1:
+            print(file=out_file)
     if rewrite:
         out_file.close()
 
