@@ -132,10 +132,10 @@ get_processor_specific_info(void)
          * and executed at startup time with other initialisation code.
          */
         asm volatile(".inst 0x04bf5020\n" /* rdvl x0, #1 */
-            "mov %0, x0"
-            : "=r"(vl)
-            :
-            : "x0");
+                     "mov %0, x0"
+                     : "=r"(vl)
+                     :
+                     : "x0");
         cpu_info.sve_vector_length_bytes = vl;
         dr_set_vector_length(vl * 8);
     } else {
