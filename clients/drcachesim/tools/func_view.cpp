@@ -66,9 +66,7 @@ namespace {
 std::string
 get_indent_string(int nesting_level)
 {
-    if (nesting_level < 1) {
-        return "";
-    }
+    assert(nesting_level >= 0);
     return std::string(nesting_level * 4, ' ');
 }
 } // namespace
@@ -239,8 +237,13 @@ func_view_t::process_memref(const memref_t &memref)
         assert(shard->last_func_id != -1);
         const auto &info = id2info_[shard->last_func_id];
         bool was_nested = shard->nesting_level > 0;
-        if (shard->prev_noret)
+        if (shard->prev_noret) {
+          if (was_nested) {
             --shard->nesting_level;
+          } else {
+            std::cerr << "WARNING: Unnested FUNC_RETADDR\n";
+          }
+        }
         // Print a "Tnnn" prefix so threads can be distinguished.
         std::cerr << ((was_nested && shard->prev_was_arg) ? "\n" : "") << "T" << std::dec
                   << std::left << std::setw(8) << memref.marker.tid
@@ -272,7 +275,11 @@ func_view_t::process_memref(const memref_t &memref)
         break;
     }
     case TRACE_MARKER_TYPE_FUNC_RETVAL: {
-        --shard->nesting_level;
+        if (shard->nesting_level > 0) {
+          --shard->nesting_level;
+        } else {
+          std::cerr << "WARNING: Unnested FUNC_RETVAL\n";
+        }
         if (!shard->prev_was_arg) {
             std::cerr
                 << "T" << std::dec << std::left << std::setw(8) << memref.marker.tid
