@@ -61,6 +61,18 @@
 namespace dynamorio {
 namespace drmemtrace {
 
+namespace {
+// Return an indent string for the given indent level.
+std::string
+get_indent_string(int nesting_level)
+{
+    if (nesting_level < 1) {
+        return "";
+    }
+    return std::string(nesting_level * 4, ' ');
+}
+} // namespace
+
 const std::string func_view_t::TOOL_NAME = "Function view tool";
 
 analysis_tool_t *
@@ -229,13 +241,15 @@ func_view_t::process_memref(const memref_t &memref)
         bool was_nested = shard->nesting_level > 0;
         if (shard->prev_noret)
             --shard->nesting_level;
-        std::string indent(shard->nesting_level * 4, ' ');
         // Print a "Tnnn" prefix so threads can be distinguished.
         std::cerr << ((was_nested && shard->prev_was_arg) ? "\n" : "") << "T" << std::dec
                   << std::left << std::setw(8) << memref.marker.tid
                   << std::right /*restore*/;
-        std::cerr << indent << "0x" << std::hex << memref.marker.marker_value << " => "
-                  << *id2info_[shard->last_func_id].names.begin() << "(";
+        const std::string name = info.names.empty()
+            ? "<F#" + std::to_string(shard->last_func_id) + ">"
+            : *info.names.begin();
+        std::cerr << get_indent_string(shard->nesting_level) << "0x" << std::hex
+                  << memref.marker.marker_value << " => " << name << "(";
         if (info.num_args == 0)
             std::cerr << ")";
         ++shard->nesting_level;
@@ -259,11 +273,10 @@ func_view_t::process_memref(const memref_t &memref)
     }
     case TRACE_MARKER_TYPE_FUNC_RETVAL: {
         --shard->nesting_level;
-        std::string indent;
         if (!shard->prev_was_arg) {
             std::cerr
                 << "T" << std::dec << std::left << std::setw(8) << memref.marker.tid
-                << std::right /*restore*/ << std::string(shard->nesting_level * 4, ' ');
+                << std::right /*restore*/ << get_indent_string(shard->nesting_level);
         }
         std::cerr << (shard->prev_was_arg ? " =>" : "=>") << std::hex << " 0x"
                   << memref.marker.marker_value << "\n";
