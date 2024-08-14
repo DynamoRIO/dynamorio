@@ -171,26 +171,23 @@ func_view_t::process_memref_for_markers(void *shard_data, const memref_t &memref
         shard->last_was_syscall = memref.marker.marker_value >=
             static_cast<int64_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE);
     }
-    // OFFLINE_FILE_TYPE_ARCH_REGDEPS traces have only SYS_futex function-related (i.e.,
-    // TRACE_MARKER_TYPE_FUNC_) markers for which we do want to print "returns"
-    // statistics, so we disable this check for these traces.
-    if (shard->last_was_syscall &&
-        !TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, shard->filetype)) {
-        return;
-    }
     switch (memref.marker.marker_type) {
     case TRACE_MARKER_TYPE_FUNC_ID:
-        if (shard->last_func_id != -1)
+        if (shard->last_func_id != -1 && id2info_.count(shard->last_func_id) > 0)
             shard->prev_noret = id2info_[shard->last_func_id].noret;
         shard->last_func_id = static_cast<int>(memref.marker.marker_value);
         break;
     case TRACE_MARKER_TYPE_FUNC_RETADDR:
         assert(shard->last_func_id != -1);
-        ++shard->func_map[shard->last_func_id].num_calls;
+        // Check that the function is in funclist.log.
+        if (id2info_.count(shard->last_func_id) > 0)
+            ++shard->func_map[shard->last_func_id].num_calls;
         break;
     case TRACE_MARKER_TYPE_FUNC_RETVAL:
         assert(shard->last_func_id != -1);
-        ++shard->func_map[shard->last_func_id].num_returns;
+        // Check that the function is in funclist.log.
+        if (id2info_.count(shard->last_func_id) > 0)
+            ++shard->func_map[shard->last_func_id].num_returns;
         break;
     default: break;
     }
