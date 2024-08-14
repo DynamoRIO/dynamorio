@@ -238,11 +238,11 @@ func_view_t::process_memref(const memref_t &memref)
         const auto &info = id2info_[shard->last_func_id];
         bool was_nested = shard->nesting_level > 0;
         if (shard->prev_noret) {
-          if (was_nested) {
-            --shard->nesting_level;
-          } else {
-            std::cerr << "WARNING: Unnested FUNC_RETADDR\n";
-          }
+            if (was_nested) {
+                --shard->nesting_level;
+            } else {
+                std::cerr << "WARNING: Unnested FUNC_RETADDR\n";
+            }
         }
         // Print a "Tnnn" prefix so threads can be distinguished.
         std::cerr << ((was_nested && shard->prev_was_arg) ? "\n" : "") << "T" << std::dec
@@ -276,9 +276,9 @@ func_view_t::process_memref(const memref_t &memref)
     }
     case TRACE_MARKER_TYPE_FUNC_RETVAL: {
         if (shard->nesting_level > 0) {
-          --shard->nesting_level;
+            --shard->nesting_level;
         } else {
-          std::cerr << "WARNING: Unnested FUNC_RETVAL\n";
+            std::cerr << "WARNING: Unnested FUNC_RETVAL\n";
         }
         if (!shard->prev_was_arg) {
             std::cerr
