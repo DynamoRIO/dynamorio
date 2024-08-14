@@ -231,17 +231,21 @@ func_view_t::process_memref(const memref_t &memref)
     switch (memref.marker.marker_type) {
     case TRACE_MARKER_TYPE_FUNC_RETADDR: {
         assert(shard->last_func_id != -1);
+        // The function related to this marker is not in funclist.log. Skip it.
+        if (id2info_.count(shard->last_func_id) == 0)
+            return true;
         const auto &info = id2info_[shard->last_func_id];
         bool was_nested = shard->nesting_level > 0;
         if (shard->prev_noret)
             --shard->nesting_level;
+        assert(shard->nesting_level >= 0);
         std::string indent(shard->nesting_level * 4, ' ');
         // Print a "Tnnn" prefix so threads can be distinguished.
         std::cerr << ((was_nested && shard->prev_was_arg) ? "\n" : "") << "T" << std::dec
                   << std::left << std::setw(8) << memref.marker.tid
                   << std::right /*restore*/;
         std::cerr << indent << "0x" << std::hex << memref.marker.marker_value << " => "
-                  << *id2info_[shard->last_func_id].names.begin() << "(";
+                  << *info.names.begin() << "(";
         if (info.num_args == 0)
             std::cerr << ")";
         ++shard->nesting_level;
@@ -251,6 +255,9 @@ func_view_t::process_memref(const memref_t &memref)
         break;
     }
     case TRACE_MARKER_TYPE_FUNC_ARG: {
+        // The function related to this marker is not in funclist.log. Skip it.
+        if (id2info_.count(shard->last_func_id) == 0)
+            return true;
         const auto &info = id2info_[shard->last_func_id];
         std::cerr << (shard->arg_idx > 0 ? ", " : "") << std::hex << "0x"
                   << memref.marker.marker_value;
@@ -264,9 +271,13 @@ func_view_t::process_memref(const memref_t &memref)
         break;
     }
     case TRACE_MARKER_TYPE_FUNC_RETVAL: {
+        // The function related to this marker is not in funclist.log. Skip it.
+        if (id2info_.count(shard->last_func_id) == 0)
+            return true;
         --shard->nesting_level;
         std::string indent;
         if (!shard->prev_was_arg) {
+            assert(shard->nesting_level >= 0);
             std::cerr
                 << "T" << std::dec << std::left << std::setw(8) << memref.marker.tid
                 << std::right /*restore*/ << std::string(shard->nesting_level * 4, ' ');
