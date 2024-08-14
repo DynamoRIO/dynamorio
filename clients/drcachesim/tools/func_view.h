@@ -93,7 +93,6 @@ protected:
     };
     struct shard_data_t {
         memref_tid_t tid = 0; // We only support SHARD_BY_THREAD.
-        uint64_t filetype = OFFLINE_FILE_TYPE_DEFAULT;
         std::unordered_map<int, func_stats_t> func_map;
         std::string error;
         // We use the function markers to record arguments and return

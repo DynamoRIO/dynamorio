@@ -140,7 +140,6 @@ func_view_t::parallel_shard_init_stream(int shard_index, void *worker_data,
     auto shard_data = new shard_data_t;
     std::lock_guard<std::mutex> guard(shard_map_mutex_);
     shard_data->tid = stream->get_tid();
-    shard_data->filetype = stream->get_filetype();
     shard_map_[shard_index] = shard_data;
     return shard_data;
 }
@@ -211,9 +210,6 @@ func_view_t::process_memref(const memref_t &memref)
     const auto &lookup = shard_map_.find(shard_index);
     if (lookup == shard_map_.end()) {
         shard = new shard_data_t;
-        // Adds support for printing SYS_futex "returns" statistics in
-        // OFFLINE_FILE_TYPE_ARCH_REGDEPS traces even with -show_func_trace set.
-        shard->filetype = serial_stream_->get_filetype();
         shard_map_[shard_index] = shard;
     } else
         shard = lookup->second;
