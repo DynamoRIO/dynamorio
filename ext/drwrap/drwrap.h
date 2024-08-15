@@ -421,8 +421,9 @@ typedef enum {
      * violation may be exposed to the client's dr_register_kernel_xfer_event() callback
      * if it inspects the mcontext PC on the stack; drwrap_get_retaddr_if_sentinel()
      * may be used to mitigate such cases. Use #DRWRAP_REPLACE_RETADDR at your own risk.
+     * Currently is not supported for RISC-V.
      */
-    DRWRAP_REPLACE_RETADDR = 0x04,
+    DRWRAP_REPLACE_RETADDR = 0x04, /* TODO i#3544: support flag for RISC-V 64 */
 } drwrap_wrap_flags_t;
 
 /* offset of drwrap_callconv_t in drwrap_wrap_flags_t */
