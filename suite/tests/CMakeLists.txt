@@ -5397,7 +5397,7 @@ if (UNIX)
     tobuild(linux.thread linux/thread.c)
     tobuild(linux.threadexit linux/threadexit.c)
 
-    if (DR_HOST_X64)
+    if (X64 AND DR_HOST_X64)
       tobuild(linux.threadset linux/threadset.c)
       set_avx_flags(linux.threadset)
       link_with_pthread(linux.threadset)
