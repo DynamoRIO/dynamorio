@@ -71,6 +71,7 @@
 #include "raw2trace_shared.h"
 #include "reader.h"
 #include "record_file_reader.h"
+#include "schedule_file.h"
 #include "trace_entry.h"
 #include "utils.h"
 #ifdef BUILD_PT_POST_PROCESSOR
@@ -1051,8 +1052,7 @@ protected:
         bitset_hash_table_t<app_pc> encoding_emitted;
         app_pc last_encoding_emitted = nullptr;
 
-        std::vector<schedule_entry_t> sched;
-        std::unordered_map<uint64_t, std::vector<schedule_entry_t>> cpu2sched;
+        schedule_file_t::per_shard_t sched_data;
 
         // State for rolling back rseq aborts and side exits.
         bool rseq_want_rollback_ = false;
@@ -1101,14 +1101,23 @@ protected:
                           DR_PARAM_OUT bool *flush_decode_cache);
 
     /**
-     * Performs any additional actions for the marker "marker_type" with value
-     * "marker_val", beyond writing out a marker record.  New records can be written to
-     * "buf".  Returns whether successful.
+     * Called for each record in an output buffer prior to writing out the buffer.
+     * The entry cannot be modified.  A subclass can override this to compute
+     * per-shard statistics which can then be used for a variety of tasks including
+     * late removal of shards for targeted filtering.
+     */
+    virtual void
+    observe_entry_output(raw2trace_thread_data_t *tls, const trace_entry_t *entry);
+
+    /**
+     * Performs processing actions for the marker "marker_type" with value
+     * "marker_val", including writing out a marker record.  Further records can also
+     * be written to "buf".  Returns whether successful.
      */
     virtual bool
-    process_marker_additionally(raw2trace_thread_data_t *tdata,
-                                trace_marker_type_t marker_type, uintptr_t marker_val,
-                                byte *&buf, DR_PARAM_OUT bool *flush_decode_cache);
+    process_marker(raw2trace_thread_data_t *tdata, trace_marker_type_t marker_type,
+                   uintptr_t marker_val, byte *&buf,
+                   DR_PARAM_OUT bool *flush_decode_cache);
     /**
      * Read the header of a thread, by calling get_next_entry() successively to
      * populate the header values. The timestamp field is populated only

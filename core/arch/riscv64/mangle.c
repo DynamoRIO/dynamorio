@@ -43,6 +43,8 @@
 /* TODO i#3544: Think of a better way to represent CSR in the IR, maybe as registers? */
 /* Number of the fcsr register. */
 #define FCSR 0x003
+#define VSTART 0x008
+#define VCSR 0x00F
 
 /* TODO i#3544: Think of a better way to represent these fields in the IR. */
 /* Volume I: RISC-V Unprivileged ISA V20191213.
@@ -69,35 +71,42 @@ insert_clear_eflags(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t *i
 uint
 insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                           instrlist_t *ilist, instr_t *instr, uint alignment,
-                          opnd_t push_pc, reg_id_t scratch)
+                          opnd_t push_pc, reg_id_t scratch, bool out_of_line)
 {
     uint dstack_offs = 0;
     int dstack_middle_offs;
-    int max_offs;
+    uint vtypei;
+    opnd_t memopnd;
 
     if (cci == NULL)
         cci = &default_clean_call_info;
     ASSERT(proc_num_simd_registers() == MCXT_NUM_SIMD_SLOTS);
 
-    /* a0 is used to save and restore the pc and csr registers. */
+    /* A0 and A1 are used as scratch registers. */
     cci->reg_skip[DR_REG_A0 - DR_REG_START_GPR] = false;
+    cci->reg_skip[DR_REG_A1 - DR_REG_START_GPR] = false;
 
-    max_offs = get_clean_call_switch_stack_size();
-
-    PRE(ilist, instr,
-        INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_SP),
-                          opnd_create_reg(DR_REG_SP),
-                          opnd_create_immed_int(-max_offs, OPSZ_12b)));
-
+    /* For out-of-line clean calls, the stack pointer is adjusted before jumping to this
+     * code.
+     */
+    if (!out_of_line) {
+        PRE(ilist, instr,
+            INSTR_CREATE_addi(
+                dcontext, opnd_create_reg(DR_REG_SP), opnd_create_reg(DR_REG_SP),
+                opnd_create_immed_int(-get_clean_call_switch_stack_size(), OPSZ_12b)));
+    }
     /* Skip X0 slot. */
     dstack_offs += XSP_SZ;
 
     /* Push GPRs. */
     for (int i = 0; i < DR_NUM_GPR_REGS; i++) {
-        if (cci->reg_skip[i])
+        /* For out-of-line clean calls, RA is saved before jumping to this code, because
+         * it is used for the return address.
+         */
+        if (cci->reg_skip[i] || (out_of_line && DR_REG_START_GPR + i == DR_REG_RA))
             continue;
 
-        /* Uses c.sdsp to save space, see -max_bb_instrs option, same below. */
+        /* Uses c.[f]sdsp to save space, same below. */
         PRE(ilist, instr,
             INSTR_CREATE_c_sdsp(dcontext,
                                 opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
@@ -147,7 +156,6 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     PRE(ilist, instr,
         INSTR_CREATE_csrrs(dcontext, opnd_create_reg(DR_REG_A0),
                            opnd_create_reg(DR_REG_X0),
-                           /* FIXME i#3544: Use register. */
                            opnd_create_immed_int(FCSR, OPSZ_12b)));
 
     PRE(ilist, instr,
@@ -156,8 +164,72 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
 
     dstack_offs += XSP_SZ;
 
-    /* TODO i#3544: No support for SIMD on RISC-V so far, this is to keep the mcontext
-     * shape. */
+    if (proc_has_feature(FEATURE_VECTOR)) {
+        /* csrr a0, vstart */
+        PRE(ilist, instr,
+            INSTR_CREATE_csrrs(dcontext, opnd_create_reg(DR_REG_A0),
+                               opnd_create_reg(DR_REG_ZERO),
+                               opnd_create_immed_int(VSTART, OPSZ_12b)));
+
+        PRE(ilist, instr,
+            INSTR_CREATE_c_sdsp(dcontext, OPND_CREATE_MEM64(DR_REG_SP, dstack_offs),
+                                opnd_create_reg(DR_REG_A0)));
+    }
+
+    dstack_offs += XSP_SZ;
+
+    if (proc_has_feature(FEATURE_VECTOR)) {
+        /* csrr a0, vcsr */
+        PRE(ilist, instr,
+            INSTR_CREATE_csrrs(dcontext, opnd_create_reg(DR_REG_A0),
+                               opnd_create_reg(DR_REG_ZERO),
+                               opnd_create_immed_int(VCSR, OPSZ_12b)));
+
+        PRE(ilist, instr,
+            INSTR_CREATE_c_sdsp(dcontext, OPND_CREATE_MEM64(DR_REG_SP, dstack_offs),
+                                opnd_create_reg(DR_REG_A0)));
+    }
+
+    dstack_offs += XSP_SZ;
+
+    /* Push vector registers. */
+    if (proc_has_feature(FEATURE_VECTOR)) {
+        /* ma:   mask agnostic
+         * ta:   tail agnostic
+         * sew:  selected element width
+         * lmul: vector register group multiplier
+         *
+         *           ma            ta         sew=8       lmul=8 */
+        vtypei = (0b1 << 7) | (0b1 << 6) | (0b000 << 3) | 0b011;
+        memopnd = opnd_create_dcontext_field_via_reg_sz(
+            dcontext, DR_REG_A0, 0, reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_8));
+        PRE(ilist, instr,
+            INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_A0),
+                              opnd_create_reg(DR_REG_SP),
+                              opnd_create_immed_int(dstack_offs, OPSZ_12b)));
+        /* For the following vector instructions, set the element width to 8b, and use 8
+         * registers as a group (lmul=8).
+         */
+        PRE(ilist, instr,
+            INSTR_CREATE_vsetvli(dcontext, opnd_create_reg(DR_REG_A1),
+                                 opnd_create_reg(DR_REG_ZERO),
+                                 opnd_create_immed_uint(vtypei, OPSZ_11b)));
+        /* Uses lmul=8 to copy 8 registers at a time. */
+        for (int reg = DR_REG_VR0; reg <= DR_REG_VR31; reg += 8) {
+            PRE(ilist, instr,
+                INSTR_CREATE_vse8_v(dcontext, memopnd, opnd_create_reg(reg),
+                                    opnd_create_immed_int(1, OPSZ_1b) /* mask disabled */,
+                                    opnd_create_immed_int(0, OPSZ_3b) /* nfields = 1 */));
+            /* If it's the last vector register group, no need to increase the offset. */
+            if (reg != DR_REG_VR24) {
+                PRE(ilist, instr,
+                    INSTR_CREATE_addi(
+                        dcontext, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A0),
+                        opnd_create_immed_int(8 * sizeof(dr_simd_t), OPSZ_12b)));
+            }
+        }
+    }
+
     dstack_offs += (proc_num_simd_registers() * sizeof(dr_simd_t));
 
     /* Restore sp. */
@@ -170,34 +242,103 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     PRE(ilist, instr,
         INSTR_CREATE_c_ldsp(dcontext, opnd_create_reg(DR_REG_A0),
                             OPND_CREATE_MEM64(DR_REG_SP, REG_OFFSET(DR_REG_A0))));
+    PRE(ilist, instr,
+        INSTR_CREATE_c_ldsp(dcontext, opnd_create_reg(DR_REG_A1),
+                            OPND_CREATE_MEM64(DR_REG_SP, REG_OFFSET(DR_REG_A1))));
 
     return dstack_offs + dstack_middle_offs;
 }
 
 void
 insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t *ilist,
-                         instr_t *instr, uint alignment)
+                         instr_t *instr, uint alignment, bool out_of_line)
 {
     if (cci == NULL)
         cci = &default_clean_call_info;
-    uint current_offs;
-    current_offs = get_clean_call_switch_stack_size() -
-        proc_num_simd_registers() * sizeof(dr_simd_t);
+    uint current_offs, vtypei;
+    opnd_t memopnd;
+    current_offs = get_clean_call_switch_stack_size();
 
     /* sp is the stack pointer, which should not be poped. */
     cci->reg_skip[DR_REG_SP - DR_REG_START_GPR] = true;
 
-    /* XXX: c.sdsp/c.fsdsp has a zero-extended 9-bit offset, which is not enough for our
-     * usage.
+    /* Pop vector registers. */
+    current_offs -= proc_num_simd_registers() * sizeof(dr_simd_t);
+    if (proc_has_feature(FEATURE_VECTOR)) {
+        /* ma:   mask agnostic
+         * ta:   tail agnostic
+         * sew:  selected element width
+         * lmul: vector register group multiplier
+         *
+         *           ma            ta         sew=8       lmul=8 */
+        vtypei = (0b1 << 7) | (0b1 << 6) | (0b000 << 3) | 0b011;
+        memopnd = opnd_create_dcontext_field_via_reg_sz(
+            dcontext, DR_REG_A0, 0, reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_8));
+        PRE(ilist, instr,
+            INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_A0),
+                              opnd_create_reg(DR_REG_SP),
+                              opnd_create_immed_int(current_offs, OPSZ_12b)));
+        /* For the following vector instructions, set the element width to 8b, and use 8
+         * registers as a group (lmul=8).
+         */
+        PRE(ilist, instr,
+            INSTR_CREATE_vsetvli(dcontext, opnd_create_reg(DR_REG_A1),
+                                 opnd_create_reg(DR_REG_ZERO),
+                                 opnd_create_immed_uint(vtypei, OPSZ_11b)));
+        /* Uses lmul=8 to copy 8 registers at a time. */
+        for (int reg = DR_REG_VR0; reg <= DR_REG_VR31; reg += 8) {
+            PRE(ilist, instr,
+                INSTR_CREATE_vle8_v(dcontext, opnd_create_reg(reg), memopnd,
+                                    opnd_create_immed_int(1, OPSZ_1b) /* mask disabled */,
+                                    opnd_create_immed_int(0, OPSZ_3b) /* nfields = 1 */));
+            /* If it's the last vector register group, no need to increase the offset. */
+            if (reg != DR_REG_VR24) {
+                PRE(ilist, instr,
+                    INSTR_CREATE_addi(
+                        dcontext, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A0),
+                        opnd_create_immed_int(8 * sizeof(dr_simd_t), OPSZ_12b)));
+            }
+        }
+    }
+
+    /* XXX: c.sdsp/c.fsdsp has a zero-extended 9-bit offset, which is not enough for
+     * our usage.
      */
-    ASSERT(current_offs >= DR_NUM_FPR_REGS * XSP_SZ);
     PRE(ilist, instr,
         INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_SP),
                           opnd_create_reg(DR_REG_SP),
                           opnd_create_immed_int(DR_NUM_FPR_REGS * XSP_SZ, OPSZ_12b)));
 
+    /* Uses c.[f]ldsp to save space, same below. */
     current_offs -= XSP_SZ;
-    /* Uses c.ldsp to save space, see -max_bb_instrs option, same below. */
+
+    if (proc_has_feature(FEATURE_VECTOR)) {
+        PRE(ilist, instr,
+            INSTR_CREATE_c_ldsp(
+                dcontext, opnd_create_reg(DR_REG_A0),
+                OPND_CREATE_MEM64(DR_REG_SP, current_offs - DR_NUM_FPR_REGS * XSP_SZ)));
+        /* csrw a0, vcsr */
+        PRE(ilist, instr,
+            INSTR_CREATE_csrrw(dcontext, opnd_create_reg(DR_REG_ZERO),
+                               opnd_create_reg(DR_REG_A0),
+                               opnd_create_immed_int(VCSR, OPSZ_12b)));
+    }
+
+    current_offs -= XSP_SZ;
+
+    if (proc_has_feature(FEATURE_VECTOR)) {
+        PRE(ilist, instr,
+            INSTR_CREATE_c_ldsp(
+                dcontext, opnd_create_reg(DR_REG_A0),
+                OPND_CREATE_MEM64(DR_REG_SP, current_offs - DR_NUM_FPR_REGS * XSP_SZ)));
+        /* csrw a0, vstart */
+        PRE(ilist, instr,
+            INSTR_CREATE_csrrw(dcontext, opnd_create_reg(DR_REG_ZERO),
+                               opnd_create_reg(DR_REG_A0),
+                               opnd_create_immed_int(VSTART, OPSZ_12b)));
+    }
+
+    current_offs -= XSP_SZ;
     PRE(ilist, instr,
         INSTR_CREATE_c_ldsp(
             dcontext, opnd_create_reg(DR_REG_A0),
@@ -233,7 +374,10 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
 
     /* Pop GPRs. */
     for (int i = 0; i < DR_NUM_GPR_REGS; i++) {
-        if (cci->reg_skip[i])
+        /* For out-of-line clean calls, RA is restored after jumping back from this code,
+         * because it is used for the return address.
+         */
+        if (cci->reg_skip[i] || (out_of_line && DR_REG_START_GPR + i == DR_REG_RA))
             continue;
 
         PRE(ilist, instr,
@@ -284,9 +428,56 @@ int
 insert_out_of_line_context_switch(dcontext_t *dcontext, instrlist_t *ilist,
                                   instr_t *instr, bool save, byte *encode_pc)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
+    if (save) {
+        /* Reserve stack space to push the context. We do it here instead of
+         * in insert_push_all_registers, so we can save the original value
+         * of RA on the stack before it is changed by the JALR (jump & link register)
+         * to the clean call save routine in the code cache.
+         *
+         * sub sp, sp, clean_call_switch_stack_size
+         */
+        PRE(ilist, instr,
+            XINST_CREATE_sub(dcontext, opnd_create_reg(DR_REG_SP),
+                             OPND_CREATE_INT16(get_clean_call_switch_stack_size())));
+
+        /* sd ra, ra_offset(sp)
+         *
+         * We have to save the original value of RA before using JALR to jump
+         * to the save code, because JALR will modify RA. The original value of
+         * RA is restored after the returning from the save/restore functions below.
+         */
+        PRE(ilist, instr,
+            INSTR_CREATE_sd(dcontext,
+                            opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
+                                                  REG_OFFSET(DR_REG_RA), OPSZ_8),
+                            opnd_create_reg(DR_REG_RA)));
+    }
+
+    insert_mov_immed_ptrsz(
+        dcontext,
+        (long)(save ? get_clean_call_save(dcontext) : get_clean_call_restore(dcontext)),
+        opnd_create_reg(DR_REG_RA), ilist, instr, NULL, NULL);
+    PRE(ilist, instr,
+        INSTR_CREATE_jalr(dcontext, opnd_create_reg(DR_REG_RA),
+                          opnd_create_reg(DR_REG_RA),
+                          opnd_create_immed_int(0, OPSZ_12b)));
+
+    /* Restore original value of RA, which was changed by JALR.
+     *
+     * ld ra, ra_offset(sp)
+     */
+    PRE(ilist, instr,
+        INSTR_CREATE_ld(dcontext, opnd_create_reg(DR_REG_RA),
+                        OPND_CREATE_MEM64(DR_REG_SP, REG_OFFSET(DR_REG_RA))));
+
+    if (!save) {
+        /* add sp, sp, clean_call_switch_stack_size */
+        PRE(ilist, instr,
+            XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_SP),
+                             OPND_CREATE_INT16(get_clean_call_switch_stack_size())));
+    }
+
+    return get_clean_call_switch_stack_size();
 }
 
 /*###########################################################################

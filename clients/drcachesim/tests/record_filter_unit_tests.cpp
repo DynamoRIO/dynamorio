@@ -42,8 +42,12 @@
 #include "tools/filter/record_filter.h"
 #include "tools/filter/trim_filter.h"
 #include "tools/filter/type_filter.h"
+#include "tools/filter/encodings2regdeps_filter.h"
+#include "tools/filter/func_id_filter.h"
+#include "trace_entry.h"
 #include "zipfile_ostream.h"
 
+#include <cstdint>
 #include <inttypes.h>
 #include <fstream>
 #include <set>
@@ -208,6 +212,7 @@ bool
 process_entries_and_check_result(test_record_filter_t *record_filter,
                                  const std::vector<test_case_t> &entries, int index)
 {
+    record_filter->initialize_stream(nullptr);
     auto stream = std::unique_ptr<local_stream_t>(new local_stream_t());
     void *shard_data =
         record_filter->parallel_shard_init_stream(0, nullptr, stream.get());
@@ -284,6 +289,314 @@ process_entries_and_check_result(test_record_filter_t *record_filter,
         fprintf(stderr, "\n");
         return false;
     }
+    return true;
+}
+
+/* Test changes in instruction encodings.
+ */
+static bool
+test_encodings2regdeps_filter()
+{
+    constexpr addr_t PC = 0x7f6fdd3ec360;
+    constexpr addr_t PC2 = 0x7f6fdd3eb1f7;
+    constexpr addr_t PC3 = 0x7f6fdd3eb21a;
+    constexpr addr_t ENCODING_REAL_ISA = 0xe78948;
+    constexpr addr_t ENCODING_REAL_ISA_2_PART1 = 0x841f0f66;
+    constexpr addr_t ENCODING_REAL_ISA_2_PART2 = 0x0;
+    constexpr addr_t ENCODING_REAL_ISA_3 = 0xab48f3;
+    constexpr addr_t ENCODING_REGDEPS_ISA = 0x0006090600010011;
+    constexpr addr_t ENCODING_REGDEPS_ISA_2 = 0x0000020400004010;
+    constexpr addr_t ENCODING_REGDEPS_ISA_3_PART1 = 0x0209030600001042;
+    constexpr addr_t ENCODING_REGDEPS_ISA_3_PART2 = 0x0000000000220903;
+    std::vector<test_case_t> entries = {
+        /* Trace shard header.
+         */
+        { { TRACE_TYPE_HEADER, 0, { 0x1 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 0x2 } }, true, { true } },
+        /* File type, modified by record_filter encodings2regdeps to add
+         * OFFLINE_FILE_TYPE_ARCH_REGDEPS.
+         */
+        { { TRACE_TYPE_MARKER,
+            TRACE_MARKER_TYPE_FILETYPE,
+            { OFFLINE_FILE_TYPE_ARCH_X86_64 | OFFLINE_FILE_TYPE_ENCODINGS |
+              OFFLINE_FILE_TYPE_SYSCALL_NUMBERS | OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS } },
+          true,
+          { false } },
+        { { TRACE_TYPE_MARKER,
+            TRACE_MARKER_TYPE_FILETYPE,
+            { OFFLINE_FILE_TYPE_ARCH_REGDEPS | OFFLINE_FILE_TYPE_ENCODINGS |
+              OFFLINE_FILE_TYPE_SYSCALL_NUMBERS | OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS } },
+          false,
+          { true } },
+        { { TRACE_TYPE_THREAD, 0, { 0x4 } }, true, { true } },
+        { { TRACE_TYPE_PID, 0, { 0x5 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 0x6 } },
+          true,
+          { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, { 0x3 } },
+          true,
+          { true } },
+
+        /* Chunk 1.
+         */
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x7 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } }, true, { true } },
+        /* Encoding, modified by the record_filter encodings2regdeps.
+         * encoding real ISA size == encoding regdeps ISA size
+         * (in terms of trace_entry_t).
+         */
+        { { TRACE_TYPE_ENCODING, 3, { ENCODING_REAL_ISA } }, true, { false } },
+        { { TRACE_TYPE_ENCODING, 8, { ENCODING_REGDEPS_ISA } }, false, { true } },
+        { { TRACE_TYPE_INSTR, 3, { PC } }, true, { true } },
+        { { TRACE_TYPE_INSTR, 3, { PC } }, true, { true } },
+        { { TRACE_TYPE_INSTR, 3, { PC } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER, { 0 } }, true, { true } },
+
+        /* Chunk 2.
+         */
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL, { 0xa } },
+          true,
+          { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x7 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } }, true, { true } },
+        /* Duplicated encoding across chunk boundary.
+         */
+        { { TRACE_TYPE_ENCODING, 3, { ENCODING_REAL_ISA } }, true, { false } },
+        { { TRACE_TYPE_ENCODING, 8, { ENCODING_REGDEPS_ISA } }, false, { true } },
+        { { TRACE_TYPE_INSTR, 3, { PC } }, true, { true } },
+        { { TRACE_TYPE_INSTR, 3, { PC } }, true, { true } },
+        { { TRACE_TYPE_INSTR, 3, { PC } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER, { 1 } }, true, { true } },
+
+        /* Chunk 3.
+         */
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL, { 0xe } },
+          true,
+          { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x7 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } }, true, { true } },
+        /* encoding real ISA size > encoding regdeps ISA size
+         */
+        { { TRACE_TYPE_ENCODING, 8, { ENCODING_REAL_ISA_2_PART1 } }, true, { false } },
+        { { TRACE_TYPE_ENCODING, 1, { ENCODING_REAL_ISA_2_PART2 } }, true, { false } },
+        { { TRACE_TYPE_ENCODING, 8, { ENCODING_REGDEPS_ISA_2 } }, false, { true } },
+        { { TRACE_TYPE_INSTR, 9, { PC2 } }, true, { true } },
+        { { TRACE_TYPE_INSTR, 9, { PC2 } }, true, { true } },
+        { { TRACE_TYPE_INSTR, 9, { PC2 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER, { 2 } }, true, { true } },
+
+        /* Chunk 4.
+         */
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL, { 0x12 } },
+          true,
+          { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x7 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } }, true, { true } },
+        /* encoding real ISA size < encoding regdeps ISA size
+         */
+        { { TRACE_TYPE_ENCODING, 3, { ENCODING_REAL_ISA_3 } }, true, { false } },
+        { { TRACE_TYPE_ENCODING, 8, { ENCODING_REGDEPS_ISA_3_PART1 } }, false, { true } },
+        { { TRACE_TYPE_ENCODING, 4, { ENCODING_REGDEPS_ISA_3_PART2 } }, false, { true } },
+        { { TRACE_TYPE_INSTR, 3, { PC3 } }, true, { true } },
+        { { TRACE_TYPE_INSTR, 3, { PC3 } }, true, { true } },
+
+        /* Trace shard footer.
+         */
+        { { TRACE_TYPE_FOOTER, 0, { 0x0 } }, true, { true } },
+    };
+
+    /* Construct encodings2regdeps_filter_t.
+     */
+    std::vector<std::unique_ptr<record_filter_func_t>> filters;
+    auto encodings2regdeps_filter = std::unique_ptr<record_filter_func_t>(
+        new dynamorio::drmemtrace::encodings2regdeps_filter_t());
+    if (!encodings2regdeps_filter->get_error_string().empty()) {
+        fprintf(stderr, "Couldn't construct a encodings2regdeps_filter %s",
+                encodings2regdeps_filter->get_error_string().c_str());
+        return false;
+    }
+    filters.push_back(std::move(encodings2regdeps_filter));
+
+    /* Construct record_filter_t.
+     */
+    auto record_filter = std::unique_ptr<test_record_filter_t>(
+        new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
+
+    /* Run the test.
+     */
+    if (!process_entries_and_check_result(record_filter.get(), entries, 0))
+        return false;
+
+    fprintf(stderr, "test_encodings2regdeps_filter passed\n");
+    return true;
+}
+
+/* Test preservation of function-related markers (TRACE_MARKER_TYPE_FUNC_[ID | RETADDR |
+ * ARG | RETVAL) based on function ID (marker value of TRACE_MARKER_TYPE_FUNC_ID).
+ */
+static bool
+test_func_id_filter()
+{
+
+    constexpr addr_t SYS_FUTEX = 202;
+    constexpr addr_t SYS_FSYNC = 74;
+    constexpr addr_t SYSCALL_BASE =
+        static_cast<addr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE);
+    constexpr addr_t SYSCALL_FUTEX_ID = SYS_FUTEX + SYSCALL_BASE;
+    constexpr addr_t SYSCALL_FSYNC_ID = SYS_FSYNC + SYSCALL_BASE;
+    constexpr addr_t FUNC_ID_TO_KEEP = 7;
+    constexpr addr_t FUNC_ID_TO_REMOVE = 8;
+    constexpr addr_t PC = 0x7f6fdd3ec360;
+    constexpr addr_t ENCODING = 0xe78948;
+    std::vector<test_case_t> entries = {
+        /* Trace shard header.
+         */
+        { { TRACE_TYPE_HEADER, 0, { 0x1 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 0x2 } }, true, { true } },
+        { { TRACE_TYPE_MARKER,
+            TRACE_MARKER_TYPE_FILETYPE,
+            { OFFLINE_FILE_TYPE_ARCH_X86_64 | OFFLINE_FILE_TYPE_ENCODINGS |
+              OFFLINE_FILE_TYPE_SYSCALL_NUMBERS | OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS } },
+          true,
+          { true } },
+        { { TRACE_TYPE_THREAD, 0, { 0x4 } }, true, { true } },
+        { { TRACE_TYPE_PID, 0, { 0x5 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 0x6 } },
+          true,
+          { true } },
+
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x7 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } }, true, { true } },
+        /* We need at least one instruction with encodings to make record_filter output
+         * the trace.
+         */
+        { { TRACE_TYPE_ENCODING, 3, { ENCODING } }, true, { true } },
+        { { TRACE_TYPE_INSTR, 3, { PC } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { SYSCALL_FUTEX_ID } },
+          true,
+          { true } },
+        /* We don't care about the arg values, we just care that they are preserved.
+         * We use some non-zero values to make sure we're not creating new, uninitialized
+         * markers.
+         * Note: SYS_futex has 6 args.
+         */
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG, { 0x1 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG, { 0x2 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG, { 0x3 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG, { 0x4 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG, { 0x5 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG, { 0x6 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { SYSCALL_FUTEX_ID } },
+          true,
+          { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_RETVAL, { 0x789 } },
+          true,
+          { true } },
+        /* Test that func_id_filter_t doesn't output any
+         * TRACE_MARKER_TYPE_FUNC_ for functions that are not SYS_futex.
+         * We use SYS_fsync in this test.
+         */
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { SYSCALL_FSYNC_ID } },
+          true,
+          { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG, { 0x1 } }, true, { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { SYSCALL_FSYNC_ID } },
+          true,
+          { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_RETVAL, { 0x234 } },
+          true,
+          { false } },
+
+        /* Nested functions. Keep outer, remove inner.
+         */
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { FUNC_ID_TO_KEEP } },
+          true,
+          { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_RETADDR, { 0xbeef } },
+          true,
+          { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG, { 0x1 } }, true, { true } },
+
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { FUNC_ID_TO_REMOVE } },
+          true,
+          { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_RETADDR, { 0xdead } },
+          true,
+          { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG, { 0x1 } }, true, { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { FUNC_ID_TO_REMOVE } },
+          true,
+          { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_RETVAL, { 0x234 } },
+          true,
+          { false } },
+
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { FUNC_ID_TO_KEEP } },
+          true,
+          { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_RETVAL, { 0x234 } },
+          true,
+          { true } },
+
+        /* Nested functions. Remove outer, keep inner.
+         */
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { FUNC_ID_TO_REMOVE } },
+          true,
+          { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_RETADDR, { 0xdead } },
+          true,
+          { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG, { 0x1 } }, true, { false } },
+
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { FUNC_ID_TO_KEEP } },
+          true,
+          { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_RETADDR, { 0xbeef } },
+          true,
+          { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG, { 0x1 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { FUNC_ID_TO_KEEP } },
+          true,
+          { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_RETVAL, { 0x234 } },
+          true,
+          { true } },
+
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { FUNC_ID_TO_REMOVE } },
+          true,
+          { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_RETVAL, { 0x234 } },
+          true,
+          { false } },
+
+        { { TRACE_TYPE_FOOTER, 0, { 0x0 } }, true, { true } },
+    };
+
+    /* Construct func_id_filter_t.
+     */
+    std::vector<uint64_t> func_ids_to_keep = { static_cast<uint64_t>(SYSCALL_FUTEX_ID),
+                                               static_cast<uint64_t>(FUNC_ID_TO_KEEP) };
+    std::vector<std::unique_ptr<record_filter_func_t>> filters;
+    auto func_id_filter = std::unique_ptr<record_filter_func_t>(
+        new dynamorio::drmemtrace::func_id_filter_t(func_ids_to_keep));
+    if (!func_id_filter->get_error_string().empty()) {
+        fprintf(stderr, "Couldn't construct a func_id_filter %s",
+                func_id_filter->get_error_string().c_str());
+        return false;
+    }
+    filters.push_back(std::move(func_id_filter));
+
+    /* Construct record_filter_t.
+     */
+    auto record_filter = std::unique_ptr<test_record_filter_t>(
+        new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
+
+    /* Run the test.
+     */
+    if (!process_entries_and_check_result(record_filter.get(), entries, 0))
+        return false;
+
+    fprintf(stderr, "test_func_id_filter passed\n");
     return true;
 }
 
@@ -541,7 +854,9 @@ test_chunk_update()
                 return nullptr;
             }
             bool
-            parallel_shard_filter(trace_entry_t &entry, void *shard_data) override
+            parallel_shard_filter(
+                trace_entry_t &entry, void *shard_data,
+                record_filter_t::record_filter_info_t &record_filter_info) override
             {
                 bool res = true;
                 if (type_is_instr(static_cast<trace_type_t>(entry.type))) {
@@ -1016,31 +1331,59 @@ test_null_filter()
     if (!local_create_dir(output_dir.c_str())) {
         FATAL_ERROR("Failed to create filtered trace output dir %s", output_dir.c_str());
     }
-    auto null_filter =
-        std::unique_ptr<record_filter_func_t>(new dynamorio::drmemtrace::null_filter_t());
-    std::vector<std::unique_ptr<record_filter_func_t>> filter_funcs;
-    filter_funcs.push_back(std::move(null_filter));
-    // We use a very small stop_timestamp for the record filter. This is to verify that
-    // we emit the TRACE_MARKER_TYPE_FILTER_ENDPOINT marker for each thread even if it
-    // starts after the given stop_timestamp. Since the stop_timestamp is so small, all
-    // other entries are expected to stay.
-    static constexpr uint64_t stop_timestamp_us = 1;
-    auto record_filter = std::unique_ptr<dynamorio::drmemtrace::record_filter_t>(
-        new dynamorio::drmemtrace::record_filter_t(output_dir, std::move(filter_funcs),
-                                                   stop_timestamp_us,
-                                                   /*verbosity=*/0));
-    std::vector<record_analysis_tool_t *> tools;
-    tools.push_back(record_filter.get());
-    record_analyzer_t record_analyzer(op_trace_dir.get_value(), &tools[0],
-                                      static_cast<int>(tools.size()));
-    if (!record_analyzer) {
-        FATAL_ERROR("Failed to initialize record filter: %s",
-                    record_analyzer.get_error_string().c_str());
+    {
+        // New scope so the record_filter_t destructor flushes schedule files.
+        auto null_filter = std::unique_ptr<record_filter_func_t>(
+            new dynamorio::drmemtrace::null_filter_t());
+        std::vector<std::unique_ptr<record_filter_func_t>> filter_funcs;
+        filter_funcs.push_back(std::move(null_filter));
+        // We use a very small stop_timestamp for the record filter. This is to verify
+        // that we emit the TRACE_MARKER_TYPE_FILTER_ENDPOINT marker for each thread even
+        // if it starts after the given stop_timestamp. Since the stop_timestamp is so
+        // small, all other entries are expected to stay.
+        static constexpr uint64_t stop_timestamp_us = 1;
+        auto record_filter = std::unique_ptr<dynamorio::drmemtrace::record_filter_t>(
+            new dynamorio::drmemtrace::record_filter_t(
+                output_dir, std::move(filter_funcs), stop_timestamp_us,
+                /*verbosity=*/0));
+        std::vector<record_analysis_tool_t *> tools;
+        tools.push_back(record_filter.get());
+        record_analyzer_t record_analyzer(op_trace_dir.get_value(), &tools[0],
+                                          static_cast<int>(tools.size()));
+        if (!record_analyzer) {
+            FATAL_ERROR("Failed to initialize record filter: %s",
+                        record_analyzer.get_error_string().c_str());
+        }
+        if (!record_analyzer.run()) {
+            FATAL_ERROR("Failed to run record filter: %s",
+                        record_analyzer.get_error_string().c_str());
+        }
+        if (!record_analyzer.print_stats()) {
+            FATAL_ERROR("Failed to print record filter stats: %s",
+                        record_analyzer.get_error_string().c_str());
+        }
     }
-    if (!record_analyzer.run()) {
-        FATAL_ERROR("Failed to run record filter: %s",
-                    record_analyzer.get_error_string().c_str());
-    }
+
+    // Ensure schedule files were written out.  We leave validating their contents
+    // to the end-to-end tests which run invariant_checker.
+    std::string serial_path = output_dir + DIRSEP + DRMEMTRACE_SERIAL_SCHEDULE_FILENAME;
+#ifdef HAS_ZLIB
+    serial_path += ".gz";
+#endif
+    CHECK(dr_file_exists(serial_path.c_str()), "Serial schedule file missing\n");
+    file_t fd = dr_open_file(serial_path.c_str(), DR_FILE_READ);
+    CHECK(fd != INVALID_FILE, "Cannot open serial schedule file");
+    uint64 file_size;
+    CHECK(dr_file_size(fd, &file_size) && file_size > 0, "Serial schedule file empty");
+    dr_close_file(fd);
+#ifdef HAS_ZIP
+    std::string cpu_path = output_dir + DIRSEP + DRMEMTRACE_CPU_SCHEDULE_FILENAME;
+    CHECK(dr_file_exists(cpu_path.c_str()), "Cpu schedule file missing\n");
+    fd = dr_open_file(cpu_path.c_str(), DR_FILE_READ);
+    CHECK(fd != INVALID_FILE, "Cannot open cpu schedule file");
+    CHECK(dr_file_size(fd, &file_size) && file_size > 0, "Cpu schedule file empty");
+    dr_close_file(fd);
+#endif
 
     basic_counts_t::counters_t c1 = get_basic_counts(op_trace_dir.get_value());
     // We expect one extra marker (TRACE_MARKER_TYPE_FILTER_ENDPOINT) for each thread.
@@ -1104,10 +1447,13 @@ test_main(int argc, const char *argv[])
         FATAL_ERROR("Usage error: %s\nUsage:\n%s", parse_err.c_str(),
                     droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
     }
+    dr_standalone_init();
     if (!test_cache_and_type_filter() || !test_chunk_update() || !test_trim_filter() ||
-        !test_null_filter() || !test_wait_filter())
+        !test_null_filter() || !test_wait_filter() || !test_encodings2regdeps_filter() ||
+        !test_func_id_filter())
         return 1;
     fprintf(stderr, "All done!\n");
+    dr_standalone_exit();
     return 0;
 }
 

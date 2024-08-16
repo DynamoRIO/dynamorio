@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -80,7 +80,7 @@ void
 os_thread_under_dynamo(dcontext_t *dcontext);
 /* must only be called for the executing thread */
 void
-os_thread_not_under_dynamo(dcontext_t *dcontext);
+os_thread_not_under_dynamo(dcontext_t *dcontext, bool restore_sigblocked);
 void
 os_process_under_dynamorio_initiate(dcontext_t *dcontext);
 void

@@ -529,6 +529,8 @@
 #define INSTR_CREATE_xtest(dc) instr_create_0dst_0src((dc), OP_xtest)
 #define INSTR_CREATE_clac(dc) instr_create_0dst_0src((dc), OP_clac)
 #define INSTR_CREATE_stac(dc) instr_create_0dst_0src((dc), OP_stac)
+#define INSTR_CREATE_xsusldtrk(dc) instr_create_0dst_0src((dc), OP_xsusldtrk)
+#define INSTR_CREATE_xresldtrk(dc) instr_create_0dst_0src((dc), OP_xresldtrk)
 /** @} */ /* end doxygen group */
 
 /* no destination, 1 source */

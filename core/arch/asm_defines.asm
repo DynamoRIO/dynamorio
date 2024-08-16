@@ -1086,4 +1086,12 @@ ASSUME fs:_DATA @N@\
 #define HIDDEN(x) .hidden x
 #endif
 
+#define PASTE(a, b) a##b
+
+/* Use inside a function to declare or reference a function-local label.
+ * Expects FUNCNAME to be defined.
+ */
+#define _LOCAL_LABEL(label, unique_id) PASTE(unique_id, label)
+#define LOCAL_LABEL(label) _LOCAL_LABEL(label, FUNCNAME)
+
 #endif /* _ASM_DEFINES_ASM_ */

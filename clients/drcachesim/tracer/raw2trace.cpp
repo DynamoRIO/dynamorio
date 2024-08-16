@@ -631,10 +631,12 @@ raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, byte *&buf_i
     *buf = start_entry;
     ++buf;
     // Now write any accumulated entries from before, plus the start entry.
-    size_t size = buf - buf_base;
-    if ((uint)size >= WRITE_BUFFER_SIZE) {
-        tdata->error = "Too many entries";
-        return false;
+    {
+        size_t size = buf - buf_base;
+        if ((uint)size >= WRITE_BUFFER_SIZE) {
+            tdata->error = "Too many entries";
+            return false;
+        }
     }
     if (!write(tdata, buf_base, buf)) {
         return false;
@@ -648,15 +650,20 @@ raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, byte *&buf_i
     // potentially customize some properties of the trace. E.g. the start address for the
     // kernel code section.
     for (const auto &entry : syscall_trace_templates_[syscall_num]) {
-        if (type_is_instr(static_cast<trace_type_t>(entry.type))) {
+        if (type_is_instr(static_cast<trace_type_t>(entry.type)) ||
+            // We want to write out at each repstr instance so that we do not accumulate
+            // too many buffered entries.
+            entry.type == TRACE_TYPE_INSTR_NO_FETCH) {
             if (buf != buf_base) {
                 if (!write(tdata, buf_base, buf, &saved_decode_pc, 1)) {
                     return false;
                 }
                 buf = buf_base;
             }
-            ++inserted_instr_count;
-            accumulate_to_statistic(tdata, RAW2TRACE_STAT_KERNEL_INSTR_COUNT, 1);
+            if (type_is_instr(static_cast<trace_type_t>(entry.type))) {
+                ++inserted_instr_count;
+                accumulate_to_statistic(tdata, RAW2TRACE_STAT_KERNEL_INSTR_COUNT, 1);
+            }
             saved_decode_pc = syscall_trace_template_encodings_.get_decode_pc(
                 static_cast<addr_t>(entry.addr));
             if (saved_decode_pc == nullptr) {
@@ -667,6 +674,11 @@ raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, byte *&buf_i
             } else {
                 record_encoding_emitted(tdata, saved_decode_pc);
             }
+        }
+        size_t size = buf - buf_base;
+        if ((uint)size >= WRITE_BUFFER_SIZE) {
+            tdata->error = "Too many accumulated entries";
+            return false;
         }
         *buf = entry;
         ++buf;
@@ -736,9 +748,7 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                 return false;
             trace_marker_type_t marker_type =
                 static_cast<trace_marker_type_t>(in_entry->extended.valueB);
-            buf += trace_metadata_writer_t::write_marker(buf, marker_type, marker_val);
-            if (!process_marker_additionally(tdata, marker_type, marker_val, buf,
-                                             flush_decode_cache))
+            if (!process_marker(tdata, marker_type, marker_val, buf, flush_decode_cache))
                 return false;
             // If there is currently a delayed branch that has not been emitted yet,
             // delay most markers since intra-block markers can cause issues with
@@ -824,11 +834,21 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
 }
 
 bool
-raw2trace_t::process_marker_additionally(raw2trace_thread_data_t *tdata,
-                                         trace_marker_type_t marker_type,
-                                         uintptr_t marker_val, byte *&buf,
-                                         DR_PARAM_OUT bool *flush_decode_cache)
+raw2trace_t::process_marker(raw2trace_thread_data_t *tdata,
+                            trace_marker_type_t marker_type, uintptr_t marker_val,
+                            byte *&buf, DR_PARAM_OUT bool *flush_decode_cache)
 {
+    if (marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
+        uint64 stamp = static_cast<uint64>(marker_val);
+        VPRINT(2, "Thread %u timestamp 0x" ZHEX64_FORMAT_STRING "\n",
+               static_cast<uint>(tdata->tid), stamp);
+        accumulate_to_statistic(tdata, RAW2TRACE_STAT_EARLIEST_TRACE_TIMESTAMP, stamp);
+        accumulate_to_statistic(tdata, RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP, stamp);
+        tdata->last_timestamp_ = stamp;
+        buf += trace_metadata_writer_t::write_timestamp(buf, marker_val);
+        return true;
+    }
+    buf += trace_metadata_writer_t::write_marker(buf, marker_type, marker_val);
     if (marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
         log(4, "Signal/exception between bbs\n");
         // An rseq side exit may next hit a signal which is then the
@@ -890,8 +910,8 @@ raw2trace_t::process_marker_additionally(raw2trace_thread_data_t *tdata,
             tdata->tid, marker_val);
 
         const int new_vl_bits = marker_val * 8;
-        if (dr_get_sve_vector_length() != new_vl_bits) {
-            dr_set_sve_vector_length(new_vl_bits);
+        if (dr_get_vector_length() != new_vl_bits) {
+            dr_set_vector_length(new_vl_bits);
             // Some SVE load/store instructions have an offset which is scaled by a value
             // that depends on the vector length. These instructions will need to be
             // re-decoded after the vector length changes.
@@ -1281,16 +1301,17 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
         // when it calls get_next_entry() on its own.
         offline_entry_t entry = *in_entry;
         if (entry.timestamp.type == OFFLINE_TYPE_TIMESTAMP) {
-            VPRINT(2, "Thread %u timestamp 0x" ZHEX64_FORMAT_STRING "\n",
-                   (uint)tdata->tid, (uint64)entry.timestamp.usec);
-            accumulate_to_statistic(tdata, RAW2TRACE_STAT_EARLIEST_TRACE_TIMESTAMP,
-                                    static_cast<uint64>(entry.timestamp.usec));
-            accumulate_to_statistic(tdata, RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP,
-                                    static_cast<uint64>(entry.timestamp.usec));
-            byte *buf = buf_base +
-                trace_metadata_writer_t::write_timestamp(buf_base,
-                                                         (uintptr_t)entry.timestamp.usec);
-            tdata->last_timestamp_ = entry.timestamp.usec;
+            // Give subclasses a chance for further action on a timestamp by
+            // putting our processing as thought it were a marker at the raw level.
+            bool flush_decode_cache = false;
+            byte *buf = buf_base;
+            uintptr_t value = static_cast<uintptr_t>(entry.timestamp.usec);
+            if (!process_marker(tdata, TRACE_MARKER_TYPE_TIMESTAMP, value, buf,
+                                &flush_decode_cache)) {
+                return false;
+            }
+            if (flush_decode_cache)
+                decode_cache_[tdata->worker].clear();
             if ((uint)(buf - buf_base) >= WRITE_BUFFER_SIZE) {
                 tdata->error = "Too many entries";
                 return false;
@@ -1604,67 +1625,22 @@ raw2trace_t::aggregate_and_write_schedule_files()
 {
     if (serial_schedule_file_ == nullptr && cpu_schedule_file_ == nullptr)
         return "";
-    std::vector<schedule_entry_t> serial;
-    std::unordered_map<uint64_t, std::vector<schedule_entry_t>> cpu2sched;
+    std::string err;
+    schedule_file_t sched;
     for (auto &tdata : thread_data_) {
-        serial.insert(serial.end(), tdata->sched.begin(), tdata->sched.end());
-        for (auto &keyval : tdata->cpu2sched) {
-            auto &vec = cpu2sched[keyval.first];
-            vec.insert(vec.end(), keyval.second.begin(), keyval.second.end());
-        }
-    }
-    // N.B.: When changing this comparator, update the comparator in
-    // invariant_checker_t::check_schedule_data too.
-    auto schedule_entry_comparator = [](const schedule_entry_t &l,
-                                        const schedule_entry_t &r) {
-        if (l.timestamp != r.timestamp)
-            return l.timestamp < r.timestamp;
-        if (l.cpu != r.cpu)
-            return l.cpu < r.cpu;
-        // We really need to sort by either (timestamp, cpu_id,
-        // start_instruction) or (timestamp, thread_id, start_instruction): a
-        // single thread cannot be on two CPUs at the same timestamp; also a
-        // single CPU cannot have two threads at the same timestamp. We still
-        // sort by (timestamp, cpu_id, thread_id, start_instruction) to prevent
-        // inadvertent issues with test data.
-        if (l.thread != r.thread)
-            return l.thread < r.thread;
-        // We need to consider the start_instruction since it is possible to
-        // have two entries with the same timestamp, cpu_id, and thread_id.
-        return l.start_instruction < r.start_instruction;
-    };
-
-    std::sort(serial.begin(), serial.end(), schedule_entry_comparator);
-    // Collapse same-thread entries.
-    std::vector<schedule_entry_t> serial_redux;
-    for (const auto &entry : serial) {
-        if (serial_redux.empty() || entry.thread != serial_redux.back().thread)
-            serial_redux.push_back(entry);
-    }
-    if (serial_schedule_file_ != nullptr) {
-        if (!serial_schedule_file_->write(
-                reinterpret_cast<const char *>(serial_redux.data()),
-                serial_redux.size() * sizeof(serial_redux[0])))
-            return "Failed to write to serial schedule file";
-    }
-    if (cpu_schedule_file_ == nullptr)
-        return "";
-    for (auto &keyval : cpu2sched) {
-        std::sort(keyval.second.begin(), keyval.second.end(), schedule_entry_comparator);
-        // Collapse same-thread entries.
-        std::vector<schedule_entry_t> redux;
-        for (const auto &entry : keyval.second) {
-            if (redux.empty() || entry.thread != redux.back().thread)
-                redux.push_back(entry);
-        }
-        std::ostringstream stream;
-        stream << keyval.first;
-        std::string err = cpu_schedule_file_->open_new_component(stream.str());
+        err = sched.merge_shard_data(tdata->sched_data);
         if (!err.empty())
             return err;
-        if (!cpu_schedule_file_->write(reinterpret_cast<const char *>(redux.data()),
-                                       redux.size() * sizeof(redux[0])))
-            return "Failed to write to cpu schedule file";
+    }
+    if (serial_schedule_file_ != nullptr) {
+        err = sched.write_serial_file(serial_schedule_file_);
+        if (!err.empty())
+            return err;
+    }
+    if (cpu_schedule_file_ != nullptr) {
+        err = sched.write_cpu_file(cpu_schedule_file_);
+        if (!err.empty())
+            return err;
     }
     return "";
 }
@@ -3411,6 +3387,13 @@ raw2trace_t::insert_post_chunk_encodings(raw2trace_thread_data_t *tdata,
     return true;
 }
 
+void
+raw2trace_t::observe_entry_output(raw2trace_thread_data_t *tls,
+                                  const trace_entry_t *entry)
+{
+    // Nothing to do for us: this is for subclasses.
+}
+
 // All writes to out_file go through this function, except new chunk headers
 // and footers (to do so would cause recursion; we assume those do not need
 // extra processing here).
@@ -3440,6 +3423,7 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
         bool prev_was_encoding = false;
         int instr_ordinal = -1;
         for (const trace_entry_t *it = start; it < end; ++it) {
+            observe_entry_output(tdata, it);
             tdata->cur_chunk_ref_count += tdata->memref_counter.entry_memref_count(it);
             // We wait until we're past the final instr to write, to ensure we
             // get all its memrefs, by not stopping until we hit an instr or an
@@ -3545,25 +3529,14 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                         (tdata->chunk_count_ - 1) * chunk_instr_count_ +
                         tdata->cur_chunk_instr_count;
                     tdata->last_cpu_ = static_cast<uint>(it->addr);
-                    // Avoid identical entries, which are common with the end of the
-                    // previous buffer's timestamp followed by the start of the next.
-                    schedule_entry_t new_entry(tdata->tid, tdata->last_timestamp_,
-                                               tdata->last_cpu_, instr_count);
-                    if (tdata->sched.empty() || tdata->sched.back() != new_entry) {
-                        tdata->sched.emplace_back(tdata->tid, tdata->last_timestamp_,
-                                                  tdata->last_cpu_, instr_count);
-                    }
-                    if (tdata->cpu2sched[it->addr].empty() ||
-                        tdata->cpu2sched[it->addr].back() != new_entry) {
-                        tdata->cpu2sched[it->addr].emplace_back(
-                            tdata->tid, tdata->last_timestamp_, tdata->last_cpu_,
-                            instr_count);
-                    }
+                    tdata->sched_data.record_cpu_id(tdata->tid, tdata->last_cpu_,
+                                                    tdata->last_timestamp_, instr_count);
                 }
             }
         }
     } else {
         for (const trace_entry_t *it = start; it < end; ++it) {
+            observe_entry_output(tdata, it);
             if (type_is_instr(static_cast<trace_type_t>(it->type))) {
                 accumulate_to_statistic(tdata,
                                         RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT, 1);

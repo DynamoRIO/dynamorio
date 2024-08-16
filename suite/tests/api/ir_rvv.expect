@@ -1,0 +1,386 @@
+vsetivli 0xa 0x8 -> a1
+vsetvli a2 0x8 -> a1
+vsetvl a2 a3 -> a1
+test_configuration_setting complete
+vlm.v  (a1) -> v0
+vsm.v  v0 -> (a1)
+vle8.v (a1) 0x1 0x0 -> v0
+vle16.v (a1) 0x1 0x0 -> v0
+vle32.v (a1) 0x1 0x0 -> v0
+vle64.v (a1) 0x1 0x0 -> v0
+vse8.v v0 0x1 0x0 -> (a1)
+vse16.v v0 0x1 0x0 -> (a1)
+vse32.v v0 0x1 0x0 -> (a1)
+vse64.v v0 0x1 0x0 -> (a1)
+vluxei8.v (a1) v1 0x1 0x0 -> v0
+vluxei16.v (a1) v1 0x1 0x0 -> v0
+vluxei32.v (a1) v1 0x1 0x0 -> v0
+vluxei64.v (a1) v1 0x1 0x0 -> v0
+vsuxei8.v v0 v1 0x1 0x0 -> (a1)
+vsuxei16.v v0 v1 0x1 0x0 -> (a1)
+vsuxei32.v v0 v1 0x1 0x0 -> (a1)
+vsuxei64.v v0 v1 0x1 0x0 -> (a1)
+vlse8.v (a1) a2 0x1 0x0 -> v0
+vlse16.v (a1) a2 0x1 0x0 -> v0
+vlse32.v (a1) a2 0x1 0x0 -> v0
+vlse64.v (a1) a2 0x1 0x0 -> v0
+vsse8.v v0 a2 0x1 0x0 -> (a1)
+vsse16.v v0 a2 0x1 0x0 -> (a1)
+vsse32.v v0 a2 0x1 0x0 -> (a1)
+vsse64.v v0 a2 0x1 0x0 -> (a1)
+vloxei8.v (a1) v1 0x1 0x0 -> v0
+vloxei16.v (a1) v1 0x1 0x0 -> v0
+vloxei32.v (a1) v1 0x1 0x0 -> v0
+vloxei64.v (a1) v1 0x1 0x0 -> v0
+vsoxei8.v v0 v1 0x1 0x0 -> (a1)
+vsoxei16.v v0 v1 0x1 0x0 -> (a1)
+vsoxei32.v v0 v1 0x1 0x0 -> (a1)
+vsoxei64.v v0 v1 0x1 0x0 -> (a1)
+vle8ff.v (a1) 0x1 0x0 -> v0
+vle16ff.v (a1) 0x1 0x0 -> v0
+vle32ff.v (a1) 0x1 0x0 -> v0
+vle64ff.v (a1) 0x1 0x0 -> v0
+vl1re8.v (a1) -> v0
+vl1re16.v (a1) -> v0
+vl1re32.v (a1) -> v0
+vl1re64.v (a1) -> v0
+vl2re8.v (a1) -> v0
+vl2re16.v (a1) -> v0
+vl2re32.v (a1) -> v0
+vl2re64.v (a1) -> v0
+vl4re8.v (a1) -> v0
+vl4re16.v (a1) -> v0
+vl4re32.v (a1) -> v0
+vl4re64.v (a1) -> v0
+vl8re8.v (a1) -> v0
+vl8re16.v (a1) -> v0
+vl8re32.v (a1) -> v0
+vl8re64.v (a1) -> v0
+vs1r.v v0 -> (a1)
+vs2r.v v0 -> (a1)
+vs4r.v v0 -> (a1)
+vs8r.v v0 -> (a1)
+test_load_store complete
+vfadd.vf a1 v2 0x1 -> v0
+vfsub.vf a1 v2 0x1 -> v0
+vfmin.vf a1 v2 0x1 -> v0
+vfmax.vf a1 v2 0x1 -> v0
+vfsgnj.vf a1 v2 0x1 -> v0
+vfsgnjn.vf a1 v2 0x1 -> v0
+vfsgnjx.vf a1 v2 0x1 -> v0
+vfslide1up.vf a1 v2 0x1 -> v0
+vfslide1down.vf a1 v2 0x1 -> v0
+vfmv.s.f a1 -> v0
+vfmv.v.f a1 -> v0
+vfmerge.vfm a1 v2 -> v0
+vmfeq.vf a1 v2 0x1 -> v0
+vmfle.vf a1 v2 0x1 -> v0
+vmflt.vf a1 v2 0x1 -> v0
+vmfne.vf a1 v2 0x1 -> v0
+vmfgt.vf a1 v2 0x1 -> v0
+vmfge.vf a1 v2 0x1 -> v0
+vfrdiv.vf a1 v2 0x1 -> v0
+vfmul.vf a1 v2 0x1 -> v0
+vfrsub.vf a1 v2 0x1 -> v0
+vfmadd.vf a1 v2 0x1 -> v0
+vfnmadd.vf a1 v2 0x1 -> v0
+vfmsub.vf a1 v2 0x1 -> v0
+vfnmsub.vf a1 v2 0x1 -> v0
+vfmacc.vf a1 v2 0x1 -> v0
+vfnmacc.vf a1 v2 0x1 -> v0
+vfmsac.vf a1 v2 0x1 -> v0
+vfnmsac.vf a1 v2 0x1 -> v0
+vfwadd.vf a1 v2 0x1 -> v0
+vfwsub.vf a1 v2 0x1 -> v0
+vfwadd.wf a1 v2 0x1 -> v0
+vfwsub.wf a1 v2 0x1 -> v0
+vfwmul.vf a1 v2 0x1 -> v0
+vfwmacc.vf a1 v2 0x1 -> v0
+vfwnmacc.vf a1 v2 0x1 -> v0
+vfwmsac.vf a1 v2 0x1 -> v0
+vfwnmsac.vf a1 v2 0x1 -> v0
+test_FVF complete
+vfadd.vv v1 v2 0x1 -> v0
+vfredusum.vs v1 v2 0x1 -> v0
+vfsub.vv v1 v2 0x1 -> v0
+vfredosum.vs v1 v2 0x1 -> v0
+vfmin.vv v1 v2 0x1 -> v0
+vfredmin.vs v1 v2 0x1 -> v0
+vfmax.vv v1 v2 0x1 -> v0
+vfredmax.vs v1 v2 0x1 -> v0
+vfsgnj.vv v1 v2 0x1 -> v0
+vfsgnjn.vv v1 v2 0x1 -> v0
+vfsgnjx.vv v1 v2 0x1 -> v0
+vfmv.f.s v0 -> a1
+vmfeq.vv v1 v2 0x1 -> v0
+vmfle.vv v1 v2 0x1 -> v0
+vmflt.vv v1 v2 0x1 -> v0
+vmfne.vv v1 v2 0x1 -> v0
+vfdiv.vv v1 v2 0x1 -> v0
+vfmul.vv v1 v2 0x1 -> v0
+vfmadd.vv v1 v2 0x1 -> v0
+vfnmadd.vv v1 v2 0x1 -> v0
+vfmsub.vv v1 v2 0x1 -> v0
+vfnmsub.vv v1 v2 0x1 -> v0
+vfmacc.vv v1 v2 0x1 -> v0
+vfnmacc.vv v1 v2 0x1 -> v0
+vfmsac.vv v1 v2 0x1 -> v0
+vfnmsac.vv v1 v2 0x1 -> v0
+vfcvt.xu.f.v v1 0x1 -> v0
+vfcvt.x.f.v v1 0x1 -> v0
+vfcvt.f.xu.v v1 0x1 -> v0
+vfcvt.f.x.v v1 0x1 -> v0
+vfcvt.rtz.xu.f.v v1 0x1 -> v0
+vfcvt.rtz.x.f.v v1 0x1 -> v0
+vfwcvt.x.f.v v1 0x1 -> v0
+vfwcvt.f.xu.v v1 0x1 -> v0
+vfwcvt.f.x.v v1 0x1 -> v0
+vfwcvt.f.f.v v1 0x1 -> v0
+vfwcvt.rtz.xu.f.v v1 0x1 -> v0
+vfwcvt.rtz.x.f.v v1 0x1 -> v0
+vfncvt.xu.f.w v1 0x1 -> v0
+vfncvt.x.f.w v1 0x1 -> v0
+vfncvt.f.xu.w v1 0x1 -> v0
+vfncvt.f.x.w v1 0x1 -> v0
+vfncvt.f.f.w v1 0x1 -> v0
+vfncvt.rod.f.f.w v1 0x1 -> v0
+vfncvt.rtz.xu.f.w v1 0x1 -> v0
+vfncvt.rtz.x.f.w v1 0x1 -> v0
+vfsqrt.v v1 0x1 -> v0
+vfrsqrt7.v v1 0x1 -> v0
+vfrec7.v v1 0x1 -> v0
+vfclass.v v1 0x1 -> v0
+vfwadd.vv v1 v2 0x1 -> v0
+vfwredusum.vs v1 v2 0x1 -> v0
+vfwsub.vv v1 v2 0x1 -> v0
+vfwredosum.vs v1 v2 0x1 -> v0
+vfwadd.wv v1 v2 0x1 -> v0
+vfwsub.wv v1 v2 0x1 -> v0
+vfwmul.vv v1 v2 0x1 -> v0
+vfwmacc.vv v1 v2 0x1 -> v0
+vfwnmacc.vv v1 v2 0x1 -> v0
+vfnmacc.vv v1 v2 0x1 -> v0
+vfmsac.vv v1 v2 0x1 -> v0
+vfwnmsac.vv v1 v2 0x1 -> v0
+test_FVV complete
+vadd.vx a1 v2 0x1 -> v0
+vsub.vx a1 v2 0x1 -> v0
+vrsub.vx a1 v2 0x1 -> v0
+vminu.vx a1 v2 0x1 -> v0
+vmin.vx a1 v2 0x1 -> v0
+vmaxu.vx a1 v2 0x1 -> v0
+vmax.vx a1 v2 0x1 -> v0
+vand.vx a1 v2 0x1 -> v0
+vor.vx a1 v2 0x1 -> v0
+vxor.vx a1 v2 0x1 -> v0
+vrgather.vx a1 v2 0x1 -> v0
+vslideup.vx a1 v2 0x1 -> v0
+vslidedown.vx a1 v2 0x1 -> v0
+vadc.vxm a1 v2 -> v0
+vmadc.vxm a1 v2 -> v0
+vmadc.vx a1 v2 -> v0
+vsbc.vxm a1 v2 -> v0
+vmsbc.vxm a1 v2 -> v0
+vmsbc.vx a1 v2 -> v0
+vmerge.vxm a1 v2 -> v0
+vmv.v.x a1 -> v0
+vmseq.vx a1 v2 0x1 -> v0
+vmsne.vx a1 v2 0x1 -> v0
+vmsltu.vx a1 v2 0x1 -> v0
+vmslt.vx a1 v2 0x1 -> v0
+vmsleu.vx a1 v2 0x1 -> v0
+vmsle.vx a1 v2 0x1 -> v0
+vmsgtu.vx a1 v2 0x1 -> v0
+vmsgt.vx a1 v2 0x1 -> v0
+vsaddu.vx a1 v2 0x1 -> v0
+vsadd.vx a1 v2 0x1 -> v0
+vssubu.vx a1 v2 0x1 -> v0
+vssub.vx a1 v2 0x1 -> v0
+vsll.vx a1 v2 0x1 -> v0
+vsmul.vx a1 v2 0x1 -> v0
+vsrl.vx a1 v2 0x1 -> v0
+vsra.vx a1 v2 0x1 -> v0
+vssrl.vx a1 v2 0x1 -> v0
+vssra.vx a1 v2 0x1 -> v0
+vnsrl.wx a1 v2 0x1 -> v0
+vnsra.wx a1 v2 0x1 -> v0
+vnclipu.wx a1 v2 0x1 -> v0
+vnclip.wx a1 v2 0x1 -> v0
+test_IVX complete
+vadd.vv v1 v2 0x1 -> v0
+vsub.vv v1 v2 0x1 -> v0
+vminu.vv v1 v2 0x1 -> v0
+vmin.vv v1 v2 0x1 -> v0
+vmaxu.vv v1 v2 0x1 -> v0
+vmax.vv v1 v2 0x1 -> v0
+vand.vv v1 v2 0x1 -> v0
+vor.vv v1 v2 0x1 -> v0
+vxor.vv v1 v2 0x1 -> v0
+vrgather.vv v1 v2 0x1 -> v0
+vrgatherei16.vv v1 v2 0x1 -> v0
+vadc.vvm v1 v2 -> v0
+vmadc.vvm v1 v2 -> v0
+vmadc.vv v1 v2 -> v0
+vsbc.vvm v1 v2 -> v0
+vmsbc.vvm v1 v2 -> v0
+vmsbc.vv v1 v2 -> v0
+vmerge.vvm v1 v2 -> v0
+vmv.v.v v1 -> v0
+vmseq.vv v1 v2 0x1 -> v0
+vmsne.vv v1 v2 0x1 -> v0
+vmsltu.vv v1 v2 0x1 -> v0
+vmslt.vv v1 v2 0x1 -> v0
+vmsleu.vv v1 v2 0x1 -> v0
+vmsle.vv v1 v2 0x1 -> v0
+vsaddu.vv v1 v2 0x1 -> v0
+vsadd.vv v1 v2 0x1 -> v0
+vssubu.vv v1 v2 0x1 -> v0
+vssub.vv v1 v2 0x1 -> v0
+vsll.vv v1 v2 0x1 -> v0
+vsmul.vv v1 v2 0x1 -> v0
+vsrl.vv v1 v2 0x1 -> v0
+vsra.vv v1 v2 0x1 -> v0
+vssrl.vv v1 v2 0x1 -> v0
+vssra.vv v1 v2 0x1 -> v0
+vnsrl.wv v1 v2 0x1 -> v0
+vnsra.wv v1 v2 0x1 -> v0
+vnclipu.wv v1 v2 0x1 -> v0
+vnclip.wv v1 v2 0x1 -> v0
+vwredsumu.vs v1 v2 0x1 -> v0
+vwredsum.vs v1 v2 0x1 -> v0
+test_IVV complete
+vadd.vi 0x14 v1 0x1 -> v0
+vrsub.vi 0x14 v1 0x1 -> v0
+vand.vi 0x14 v1 0x1 -> v0
+vor.vi 0x14 v1 0x1 -> v0
+vxor.vi 0x14 v1 0x1 -> v0
+vrgather.vi 0x14 v1 0x1 -> v0
+vslideup.vi 0x14 v1 0x1 -> v0
+vslidedown.vi 0x14 v1 0x1 -> v0
+vadc.vim 0x14 v1 -> v0
+vmadc.vim 0x14 v1 -> v0
+vmadc.vi 0x14 v1 -> v0
+vmerge.vim 0x14 v1 -> v0
+vmv.v.i 0x14 -> v0
+vmseq.vi 0x14 v1 0x1 -> v0
+vmsne.vi 0x14 v1 0x1 -> v0
+vmsleu.vi 0x14 v1 0x1 -> v0
+vmsle.vi 0x14 v1 0x1 -> v0
+vmsgtu.vi 0x14 v1 0x1 -> v0
+vmsgt.vi 0x14 v1 0x1 -> v0
+vsaddu.vi 0x14 v1 0x1 -> v0
+vsadd.vi 0x14 v1 0x1 -> v0
+vsll.vi 0x14 v1 0x1 -> v0
+vmv1r.v v1 -> v0
+vmv2r.v v1 -> v0
+vmv4r.v v1 -> v0
+vmv8r.v v1 -> v0
+vsaddu.vi 0x14 v1 0x1 -> v0
+vsrl.vi 0x14 v1 0x1 -> v0
+vsra.vi 0x14 v1 0x1 -> v0
+vssrl.vi 0x14 v1 0x1 -> v0
+vssra.vi 0x14 v1 0x1 -> v0
+vnsrl.wi 0x14 v1 0x1 -> v0
+vnsra.wi 0x14 v1 0x1 -> v0
+vnclipu.wi 0x14 v1 0x1 -> v0
+vnclip.wi 0x14 v1 0x1 -> v0
+test_IVI complete
+vredsum.vs v1 v2 0x1 -> v0
+vredand.vs v1 v2 0x1 -> v0
+vredor.vs v1 v2 0x1 -> v0
+vredxor.vs v1 v2 0x1 -> v0
+vredminu.vs v1 v2 0x1 -> v0
+vredmin.vs v1 v2 0x1 -> v0
+vredmaxu.vs v1 v2 0x1 -> v0
+vredmax.vs v1 v2 0x1 -> v0
+vaaddu.vv v1 v2 0x1 -> v0
+vaadd.vv v1 v2 0x1 -> v0
+vasubu.vv v1 v2 0x1 -> v0
+vasub.vv v1 v2 0x1 -> v0
+vmv.x.s v0 -> a1
+test_MVV complete
+vaaddu.vx a1 v2 0x1 -> v0
+vaadd.vx a1 v2 0x1 -> v0
+vasubu.vx a1 v2 0x1 -> v0
+vasub.vx a1 v2 0x1 -> v0
+vmv.s.x a1 -> v0
+vslide1up.vx a1 v2 0x1 -> v0
+vslide1down.vx a1 v2 0x1 -> v0
+vdivu.vx a1 v2 0x1 -> v0
+vdiv.vx a1 v2 0x1 -> v0
+vremu.vx a1 v2 0x1 -> v0
+vrem.vx a1 v2 0x1 -> v0
+vmulhu.vx a1 v2 0x1 -> v0
+vmul.vx a1 v2 0x1 -> v0
+vmulhsu.vx a1 v2 0x1 -> v0
+vmulh.vx a1 v2 0x1 -> v0
+vmadd.vx a1 v2 0x1 -> v0
+vnmsub.vx a1 v2 0x1 -> v0
+vmacc.vx a1 v2 0x1 -> v0
+vnmsac.vx a1 v2 0x1 -> v0
+vwaddu.vx a1 v2 0x1 -> v0
+vwadd.vx a1 v2 0x1 -> v0
+vwsubu.vx a1 v2 0x1 -> v0
+vwsub.vx a1 v2 0x1 -> v0
+vwaddu.wx a1 v2 0x1 -> v0
+vwadd.wx a1 v2 0x1 -> v0
+vwsubu.wx a1 v2 0x1 -> v0
+vwsub.wx a1 v2 0x1 -> v0
+vwmulu.vx a1 v2 0x1 -> v0
+vwmulsu.vx a1 v2 0x1 -> v0
+vwmul.vx a1 v2 0x1 -> v0
+vwmaccu.vx a1 v2 0x1 -> v0
+vwmacc.vx a1 v2 0x1 -> v0
+vwmaccus.vx a1 v2 0x1 -> v0
+vwmaccsu.vx a1 v2 0x1 -> v0
+test_MVX complete
+vzext.vf8 v1 0x1 -> v0
+vsext.vf8 v1 0x1 -> v0
+vzext.vf4 v1 0x1 -> v0
+vsext.vf4 v1 0x1 -> v0
+vzext.vf2 v1 0x1 -> v0
+vsext.vf2 v1 0x1 -> v0
+vcompress.vm v1 v2 -> v0
+vmandn.mm v1 v2 -> v0
+vmand.mm v1 v2 -> v0
+vmor.mm v1 v2 -> v0
+vmxor.mm v1 v2 -> v0
+vmorn.mm v1 v2 -> v0
+vmnand.mm v1 v2 -> v0
+vmnor.mm v1 v2 -> v0
+vmxnor.mm v1 v2 -> v0
+vmsbf.m v1 0x1 -> v0
+vmsof.m v1 0x1 -> v0
+vmsif.m v1 0x1 -> v0
+viota.m v1 0x1 -> v0
+vid.v  0x1 -> v0
+vcpop.m v0 0x1 -> a1
+vfirst.m v0 0x1 -> a1
+vdivu.vv v1 v2 0x1 -> v0
+vdiv.vv v1 v2 0x1 -> v0
+vremu.vv v1 v2 0x1 -> v0
+vrem.vv v1 v2 0x1 -> v0
+vmulhu.vv v1 v2 0x1 -> v0
+vmul.vv v1 v2 0x1 -> v0
+vmulhsu.vv v1 v2 0x1 -> v0
+vmulh.vv v1 v2 0x1 -> v0
+vmadd.vv v1 v2 0x1 -> v0
+vnmsub.vv v1 v2 0x1 -> v0
+vmacc.vv v1 v2 0x1 -> v0
+vnmsac.vv v1 v2 0x1 -> v0
+vnmsac.vv v1 v2 0x1 -> v0
+vwadd.vv v1 v2 0x1 -> v0
+vwsubu.vv v1 v2 0x1 -> v0
+vwsub.vv v1 v2 0x1 -> v0
+vwaddu.wv v1 v2 0x1 -> v0
+vwadd.wv v1 v2 0x1 -> v0
+vwsubu.wv v1 v2 0x1 -> v0
+vwsub.wv v1 v2 0x1 -> v0
+vwmulu.vv v1 v2 0x1 -> v0
+vwmulsu.vv v1 v2 0x1 -> v0
+vwmul.vv v1 v2 0x1 -> v0
+vwmaccu.vv v1 v2 0x1 -> v0
+vwmacc.vv v1 v2 0x1 -> v0
+vwmaccsu.vv v1 v2 0x1 -> v0
+test_int_extension complete
+All tests complete

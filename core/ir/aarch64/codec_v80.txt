@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2016-2022 ARM Limited. All rights reserved.
+# Copyright (c) 2016-2024 ARM Limited. All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -178,10 +178,10 @@ x1101010xx1xxxxxxxxxxxxxxxxxxxxx  w   30   BASE       bics            wx0 : wx5 
 0x101110011xxxxx000111xxxxxxxxxx  n   37   BASE        bsl            dq0 : dq5 dq16
 x0110101xxxxxxxxxxxxxxxxxxxxxxxx  n   54   BASE       cbnz            cbz
 x0110100xxxxxxxxxxxxxxxxxxxxxxxx  n   55   BASE        cbz            cbz
-x0111010010xxxxxxxxx00xxxxx0xxxx  w   56   BASE       ccmn            ccm
-x0111010010xxxxxxxxx10xxxxx0xxxx  w   56   BASE       ccmn            ccm
-x1111010010xxxxxxxxx00xxxxx0xxxx  w   57   BASE       ccmp            ccm
-x1111010010xxxxxxxxx10xxxxx0xxxx  w   57   BASE       ccmp            ccm
+x0111010010xxxxxxxxx00xxxxx0xxxx  rw  56   BASE       ccmn                : wx5 wx16 nzcv cond
+x0111010010xxxxxxxxx10xxxxx0xxxx  rw  56   BASE       ccmn                : wx5 imm5 nzcv cond
+x1111010010xxxxxxxxx00xxxxx0xxxx  rw  57   BASE       ccmp                : wx5 wx16 nzcv cond
+x1111010010xxxxxxxxx10xxxxx0xxxx  rw  57   BASE       ccmp                : wx5 imm5 nzcv cond
 11010101000000110011xxxx01011111  n   58   BASE      clrex                : imm4
 x101101011000000000101xxxxxxxxxx  n   59   BASE        cls            wx0 : wx5
 0x001110xx100000010010xxxxxxxxxx  n   59   BASE        cls            dq0 : dq5 bhs_sz
@@ -269,8 +269,10 @@ x1001010xx0xxxxxxxxxxxxxxxxxxxxx  n   90   BASE        eor            wx0 : wx5 
 0x1011100x1xxxxx110101xxxxxxxxxx  n   99   BASE      faddp            dq0 : dq5 dq16 sd_sz
 0111111000110000110110xxxxxxxxxx  n   99   BASE      faddp             s0 : d5 sd_sz
 0111111001110000110110xxxxxxxxxx  n   99   BASE      faddp             d0 : q5 sd_sz
-000111100x1xxxxxxxxx01xxxxx0xxxx  w   100  BASE      fccmp        fccm_sd
-000111100x1xxxxxxxxx01xxxxx1xxxx  w   101  BASE     fccmpe        fccm_sd
+00011110001xxxxxxxxx01xxxxx0xxxx  rw  100  BASE      fccmp                : s5 s16 nzcv cond
+00011110011xxxxxxxxx01xxxxx0xxxx  rw  100  BASE      fccmp                : d5 d16 nzcv cond
+00011110001xxxxxxxxx01xxxxx1xxxx  rw  101  BASE     fccmpe                : s5 s16 nzcv cond
+00011110011xxxxxxxxx01xxxxx1xxxx  rw  101  BASE     fccmpe                : d5 d16 nzcv cond
 0x0011100x1xxxxx111001xxxxxxxxxx  n   102  BASE      fcmeq            dq0 : dq5 dq16 sd_sz
 0x0011101x100000110110xxxxxxxxxx  n   102  BASE      fcmeq            dq0 : dq5 zero_fp_const sd_sz
 0101111010100000110110xxxxxxxxxx  n   102  BASE      fcmeq             s0 : s5 zero_fp_const
@@ -302,7 +304,8 @@ x1001010xx0xxxxxxxxxxxxxxxxxxxxx  n   90   BASE        eor            wx0 : wx5 
 0001111000100000001000xxxxx11000  w   108  BASE      fcmpe                : s5 zero_fp_const
 00011110011xxxxx001000xxxxx10000  w   108  BASE      fcmpe                : d5 d16
 00011110001xxxxx001000xxxxx10000  w   108  BASE      fcmpe                : s5 s16
-000111100x1xxxxxxxxx11xxxxxxxxxx  r   109  BASE      fcsel       fcsel_sd
+00011110001xxxxxxxxx11xxxxxxxxxx  r   109  BASE      fcsel             s0 : s5 s16 cond
+00011110011xxxxxxxxx11xxxxxxxxxx  r   109  BASE      fcsel             d0 : d5 d16 cond
 0001111000100010110000xxxxxxxxxx  n   110  BASE       fcvt             d0 : s5
 0001111001100010010000xxxxxxxxxx  n   110  BASE       fcvt             s0 : d5
 0001111000100011110000xxxxxxxxxx  n   110  BASE       fcvt             h0 : s5
@@ -690,9 +693,13 @@ x0011011000xxxxx0xxxxxxxxxxxxxxx  n   311  BASE       madd            wx0 : wx5 
 110100101xxxxxxxxxxxxxxxxxxxxxxx  n   317  BASE       movz             x0 : imm16 lsl imm16sh
 110101010011xxxxxxxxxxxxxxxxxxxx  er  318  BASE        mrs             x0 : sysreg
 110101010001xxxxxxxxxxxxxxxxxxxx  ew  319  BASE        msr            msr
+11010101000000000100xxxx01111111  ew  319  BASE        msr                : pstate imm4
+11010101000000000100xxxx10011111  ew  319  BASE        msr                : pstate imm4
 11010101000000000100xxxx10111111  ew  319  BASE        msr                : pstate imm4
-11010101000000110100xxxx11011111  ew  319  BASE        msr                : pstate imm4
-11010101000000110100xxxx11111111  ew  319  BASE        msr                : pstate imm4
+11010101000000110100xxxx00011111  ew  319  BASE        msr                : pstate imm4
+11010101000000110100xxxx00111111  ew  319  BASE        msr                : pstate imm4
+11010101000000110100xxxx01011111  ew  319  BASE        msr                : pstate imm4
+11010101000000110100xxxx1xx11111  ew  319  BASE        msr                : pstate imm4
 x0011011000xxxxx1xxxxxxxxxxxxxxx  n   320  BASE       msub            wx0 : wx5 wx16 wx10
 0x001110xx1xxxxx100111xxxxxxxxxx  n   321  BASE        mul            dq0 : dq5 dq16 bhs_sz
 0x001111xxxxxxxx1000x0xxxxxxxxxx  n   321  BASE        mul            dq0 : dq5 dq16_h_sz vindex_H hs_sz

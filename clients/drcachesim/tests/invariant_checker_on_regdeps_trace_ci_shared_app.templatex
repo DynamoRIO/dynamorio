@@ -1,0 +1,10 @@
+Hello, world!
+
+Trace invariant checks passed
+
+Output .* entries from .* entries.
+
+Trace invariant checks passed
+
+WARNING: invariant_checker is being run on an OFFLINE_FILE_TYPE_ARCH_REGDEPS trace.
+Some invariant checks have been disabled.

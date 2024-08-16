@@ -349,6 +349,7 @@ class Field(str, Enum):
            '',
            'The immediate field in PREFETCH instructions.'
            )
+    # Fields in compressed instructions.
     CRD = (25,
            'rd',
            True,
@@ -394,7 +395,6 @@ class Field(str, Enum):
               '',
               'The second input floating-point register in `CR`, `CSS` RVC formats (inst[6:2]).'
               )
-    # Fields in compressed instructions.
     CRD_ = (30,
             'rd',
             True,
@@ -719,6 +719,97 @@ class Field(str, Enum):
                     'imm(rs1)',
                     'The register-relative memory target location (reg+imm).'
                     )
+    # Vector extension fields.
+    ZIMM = (64,
+            'zimm',
+            False,
+            False,
+            False,
+            'OPSZ_5b',
+            '',
+            'The immediate field in the vsetivli instruction.'
+            )
+    ZIMM10 = (65,
+              'zimm10',
+              False,
+              False,
+              False,
+              'OPSZ_10b',
+              '',
+              'The vtypei field in the vsetivli instruction.'
+              )
+    ZIMM11 = (66,
+              'zimm11',
+              False,
+              False,
+              False,
+              'OPSZ_11b',
+              '',
+              'The vtypei field in the vsetvli instruction.'
+              )
+    VM = (67,
+          'vm',
+          False,
+          False,
+          False,
+          'OPSZ_1b',
+          '',
+          'The vm field in vector instructions.'
+          )
+    NF = (68,
+          'nf',
+          False,
+          False,
+          False,
+          'OPSZ_3b',
+          '',
+          'The nfields field in vector instructions.'
+          )
+    SIMM5 = (69,
+             'simm5',
+             False,
+             False,
+             False,
+             'OPSZ_5b',
+             '',
+             'The immediate field in vector instructions.'
+             )
+    VD = (70,
+          'Vd',
+          True,
+          False,
+          False,
+          'OPSZ_PTR',
+          '',
+          'The output vector register (inst[11:7]).'
+          )
+    VS1 = (71,
+           'vs1',
+           False,
+           False,
+           False,
+           'OPSZ_PTR',
+           '',
+           'The first input vector register (inst[19:15]).'
+           )
+    VS2 = (72,
+           'vs2',
+           False,
+           False,
+           False,
+           'OPSZ_PTR',
+           '',
+           'The second input vector register (inst[24:20]).'
+           )
+    VS3 = (73,
+           'vs3',
+           False,
+           False,
+           False,
+           'OPSZ_PTR',
+           '',
+           'The third input vector register (inst[11:7]).'
+           )
 
     def __str__(self) -> str:
         return self.name.lower().replace("fp", "(fp)")
@@ -856,13 +947,22 @@ class IslGenerator:
         rs3 = ((inst.match & inst.mask) >> 27) & 0x1f
         if opc in [0b0000011, 0b0000111]:  # LOAD instructions
             dbg(f'fixup: {inst.name} {[f.name for f in inst.flds]}')
-            inst.flds[0] = Field.V_L_RS1_DISP
-            inst.flds.pop(1)
+            if opc == 0b0000111 and funct3 in [0b000, 0b101, 0b110, 0b111]:
+                # Vector load instructions have no imm part
+                inst.flds[-2] = Field.V_L_RS1_DISP
+            else:
+                inst.flds[0] = Field.V_L_RS1_DISP
+                inst.flds.pop(1)
             dbg(f'    -> {" " * len(inst.name)} {[f.name for f in inst.flds]}')
         elif opc in [0b0100011, 0b0100111]:  # STORE instructions
             dbg(f'fixup: {inst.name} {[f.name for f in inst.flds]}')
-            inst.flds[2] = Field.V_S_RS1_DISP
-            inst.flds.pop(0)
+            if opc == 0b0100111 and funct3 in [0b000, 0b101, 0b110, 0b111]:
+                # Vector store instructions have no imm part. Also swap operands
+                # to be consistent with the scalar instruction encoding.
+                inst.flds[-1], inst.flds[-2] = Field.V_S_RS1_DISP, inst.flds[-1]
+            else:
+                inst.flds[2] = Field.V_S_RS1_DISP
+                inst.flds.pop(0)
             dbg(f'    -> {" " * len(inst.name)} {[f.name for f in inst.flds]}')
         elif opc == 0b0101111 and (funct3 == 0b010 or funct3 == 0b011):
             if rs3 == 0x2: # LR.W/D instructions
@@ -1086,7 +1186,7 @@ class IslGenerator:
                                               for f in flds])
                             arg_comments += '\n'
                             arg_comments += '\n'.join(
-                                [f' * \param {f.formatted_name():6}  {f.arg_cmt}' for f in flds])
+                                [f' * \\param {f.formatted_name():6}  {f.arg_cmt}' for f in flds])
                         if len(all_flds) > 0:
                             body_args += ', '
                             body_args += ', '.join([f.formatted_name(True)
@@ -1097,7 +1197,7 @@ class IslGenerator:
                             f'''/**
  * Creates a(n) {i.name} instruction.
  *
- * \param dc      The void * dcontext used to allocate memory for the instr_t.{arg_comments}
+ * \\param dc      The void * dcontext used to allocate memory for the instr_t.{arg_comments}
  */
 #define INSTR_CREATE_{i.formatted_name()}(dc{args}) \\
     instr_create_{nd}dst_{ns}src(dc, OP_{i.formatted_name()}{body_args})\n''')

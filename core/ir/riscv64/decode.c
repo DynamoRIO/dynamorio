@@ -31,6 +31,7 @@
  */
 
 #include "../globals.h"
+#include "encode_api.h"
 #include "instr.h"
 #include "decode.h"
 #include "codec.h"
@@ -38,7 +39,7 @@
 bool
 is_isa_mode_legal(dr_isa_mode_t mode)
 {
-    return (mode == DR_ISA_RV64IMAFDC);
+    return (mode == DR_ISA_RV64 || mode == DR_ISA_REGDEPS);
 }
 
 app_pc
@@ -178,9 +179,7 @@ DR_API
 const char *
 decode_opcode_name(int opcode)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return NULL;
+    return get_opcode_name(opcode);
 }
 
 opnd_size_t

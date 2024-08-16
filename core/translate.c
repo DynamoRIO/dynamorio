@@ -559,6 +559,11 @@ translate_walk_track_post_instr(dcontext_t *tdcontext, instr_t *inst,
             /* nothing to do */
         }
 #endif
+#if defined(AARCH64)
+        else if (instr_is_pauth_branch_mangling(tdcontext, inst)) {
+            /* nothing to do. */
+        }
+#endif
         /* Single step mangling adds a nop. */
         else if (instr_is_nop(inst)) {
             /* nothing to do */

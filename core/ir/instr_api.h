@@ -82,116 +82,6 @@ enum {
  *    6-entry bitfield, since not composable.
  */
 
-/** Triggers used for conditionally executed instructions. */
-typedef enum _dr_pred_type_t {
-    DR_PRED_NONE, /**< No predicate is present. */
-#ifdef X86
-    DR_PRED_O,   /**< x86 condition: overflow (OF=1). */
-    DR_PRED_NO,  /**< x86 condition: no overflow (OF=0). */
-    DR_PRED_B,   /**< x86 condition: below (CF=1). */
-    DR_PRED_NB,  /**< x86 condition: not below (CF=0). */
-    DR_PRED_Z,   /**< x86 condition: zero (ZF=1). */
-    DR_PRED_NZ,  /**< x86 condition: not zero (ZF=0). */
-    DR_PRED_BE,  /**< x86 condition: below or equal (CF=1 or ZF=1). */
-    DR_PRED_NBE, /**< x86 condition: not below or equal (CF=0 and ZF=0). */
-    DR_PRED_S,   /**< x86 condition: sign (SF=1). */
-    DR_PRED_NS,  /**< x86 condition: not sign (SF=0). */
-    DR_PRED_P,   /**< x86 condition: parity (PF=1). */
-    DR_PRED_NP,  /**< x86 condition: not parity (PF=0). */
-    DR_PRED_L,   /**< x86 condition: less (SF != OF). */
-    DR_PRED_NL,  /**< x86 condition: not less (SF=OF). */
-    DR_PRED_LE,  /**< x86 condition: less or equal (ZF=1 or SF != OF). */
-    DR_PRED_NLE, /**< x86 condition: not less or equal (ZF=0 and SF=OF). */
-    /**
-     * x86 condition: special opcode-specific condition that depends on the
-     * values of the source operands.  Thus, unlike all of the other conditions,
-     * the source operands will be accessed even if the condition then fails
-     * and the destinations are not touched.  Any written eflags are
-     * unconditionally written, unlike regular destination operands.
-     */
-    DR_PRED_COMPLEX,
-    /* Aliases for XINST_CREATE_jump_cond() and other cross-platform routines. */
-    DR_PRED_EQ = DR_PRED_Z,  /**< Condition code: equal. */
-    DR_PRED_NE = DR_PRED_NZ, /**< Condition code: not equal. */
-    DR_PRED_LT = DR_PRED_L,  /**< Condition code: signed less than. */
-    /* DR_PRED_LE already matches aarchxx */
-    DR_PRED_GT = DR_PRED_NLE, /**< Condition code: signed greater than. */
-    DR_PRED_GE = DR_PRED_NL,  /**< Condition code: signed greater than or equal. */
-#endif
-/* We resist using #elif here because otherwise doxygen will be unable to
- * document both defines, for X86 and for AARCHXX.
- */
-#ifdef AARCHXX
-    DR_PRED_EQ, /**< ARM condition: 0000 Equal                   (Z == 1)           */
-    DR_PRED_NE, /**< ARM condition: 0001 Not equal               (Z == 0)           */
-    DR_PRED_CS, /**< ARM condition: 0010 Carry set               (C == 1)           */
-    DR_PRED_CC, /**< ARM condition: 0011 Carry clear             (C == 0)           */
-    DR_PRED_MI, /**< ARM condition: 0100 Minus, negative         (N == 1)           */
-    DR_PRED_PL, /**< ARM condition: 0101 Plus, positive or zero  (N == 0)           */
-    DR_PRED_VS, /**< ARM condition: 0110 Overflow                (V == 1)           */
-    DR_PRED_VC, /**< ARM condition: 0111 No overflow             (V == 0)           */
-    DR_PRED_HI, /**< ARM condition: 1000 Unsigned higher         (C == 1 and Z == 0)*/
-    DR_PRED_LS, /**< ARM condition: 1001 Unsigned lower or same  (C == 1 or Z == 0) */
-    DR_PRED_GE, /**< ARM condition: 1010 Signed >=               (N == V)           */
-    DR_PRED_LT, /**< ARM condition: 1011 Signed less than        (N != V)           */
-    DR_PRED_GT, /**< ARM condition: 1100 Signed greater than     (Z == 0 and N == V)*/
-    DR_PRED_LE, /**< ARM condition: 1101 Signed <=               (Z == 1 or N != V) */
-    DR_PRED_AL, /**< ARM condition: 1110 Always (unconditional)                    */
-#    ifdef AARCH64
-    DR_PRED_NV,     /**< ARM condition: 1111 Never, meaning always                     */
-    DR_PRED_MASKED, /** Used for AArch64 SVE instructions with governing predicate
-                     * registers
-                     */
-#    endif
-#    ifdef ARM
-    DR_PRED_OP, /**< ARM condition: 1111 Part of opcode                            */
-#    endif
-    /* Aliases */
-    DR_PRED_HS = DR_PRED_CS, /**< ARM condition: alias for DR_PRED_CS. */
-    DR_PRED_LO = DR_PRED_CC, /**< ARM condition: alias for DR_PRED_CC. */
-#    ifdef AARCH64
-    /* Some SVE instructions use the NZCV condition flags in a different way to the base
-     * AArch64 instruction set, and SVE introduces aliases for the condition codes based
-     * on the SVE interpretation of the flags. The state of predicate registers can be
-     * used to alter control flow with condition flags being set or cleared by an explicit
-     * test of a predicate register or by instructions which generate a predicate result.
-     *
-     *  N   First   Set if the first active element was true.
-     *  Z   None    Cleared if any active element was true.
-     *  C   !Last   Cleared if the last active element was true.
-     *  V           Cleared by all flag setting SVE instructions except CTERMEQ and
-     *              CTERMNE, for scalarised loops.
-     */
-    DR_PRED_SVE_NONE = DR_PRED_EQ, /**<  0000 All active elements were false
-                                              or no active elements            (Z == 1) */
-    DR_PRED_SVE_ANY = DR_PRED_NE, /**<   0001 An active element was true       (Z == 0) */
-    DR_PRED_SVE_NLAST = DR_PRED_CS, /**< 0010 Last active element was false
-                                              or no active elements            (C == 1) */
-    DR_PRED_SVE_LAST = DR_PRED_CC, /**<  0011 Last active element was true     (C == 0) */
-    DR_PRED_SVE_FIRST = DR_PRED_MI, /**< 0100 First active element was true    (N == 1) */
-    DR_PRED_SVE_NFRST = DR_PRED_PL, /**< 0101 First active element was false
-                                              or no active elements            (N == 0) */
-    DR_PRED_SVE_PLAST = DR_PRED_LS, /**< 1001 Last active element was true,
-                                              all active elements were false,
-                                              or no active elements   (C == 1 or Z == 0)*/
-    DR_PRED_SVE_TCONT = DR_PRED_GE, /**< 1010 CTERM termination condition
-                                              not detected, continue loop      (N == V) */
-    DR_PRED_SVE_TSTOP = DR_PRED_LT, /**< 1011 CTERM termination condition
-                                              detected, terminate loop         (N != V) */
-#    endif
-#endif
-#ifdef RISCV64
-    /* FIXME i#3544: RISC-V does not have compare flag register! */
-    /* Aliases for XINST_CREATE_jump_cond() and other cross-platform routines. */
-    DR_PRED_EQ, /**< Condition code: equal. */
-    DR_PRED_NE, /**< Condition code: not equal. */
-    DR_PRED_LT, /**< Condition code: signed less than. */
-    DR_PRED_LE, /**< Condition code: signed less than or equal. */
-    DR_PRED_GT, /**< Condition code: signed greater than. */
-    DR_PRED_GE, /**< Condition code: signed greater than or equal. */
-#endif
-} dr_pred_type_t;
-
 /**
  * Specifies hints for how an instruction should be encoded if redundant encodings are
  * available. Currently, we provide a hint for x86 evex encoded instructions. It can be
@@ -298,10 +188,19 @@ struct _instr_t {
 
     uint opcode;
 
+    union {
 #    ifdef X86
-    /* PR 251479: offset into instr's raw bytes of rip-relative 4-byte displacement */
-    byte rip_rel_pos;
+        /* Offset into instr's raw bytes of rip-relative 4-byte displacement.
+         * This field is valid when instr_t isa_mode is DR_ISA_X86.
+         */
+        byte rip_rel_pos;
 #    endif
+        /* Size of source data (i.e., read) a DR_ISA_REGDEPS instruction operates on.
+         * This field is valid when instr_t isa_mode is DR_ISA_REGDEPS.
+         * Note that opnd_size_t is an alias of byte.
+         */
+        opnd_size_t operation_size;
+    };
 
     /* we dynamically allocate dst and src arrays b/c x86 instrs can have
      * up to 8 of each of them, but most have <=2 dsts and <=3 srcs, and we
@@ -1648,7 +1547,8 @@ DR_API
  * write is returned in \p is_write.  Either or both OUT variables can
  * be NULL.
  * \p mc->flags must include DR_MC_CONTROL and DR_MC_INTEGER.
- * For instructions that use vector addressing (VSIB, introduced in AVX2),
+ * For instructions that use vector addressing (x86 VSIB, introduced in AVX2, or
+ * AArch64 scatter/gather instructions introduced in SVE/SVE2),
  * mc->flags must additionally include DR_MC_MULTIMEDIA.
  *
  * Like instr_reads_memory(), this routine does not consider
@@ -2094,6 +1994,21 @@ DR_API
  */
 instr_t *
 instr_convert_short_meta_jmp_to_long(void *drcontext, instrlist_t *ilist, instr_t *instr);
+
+DR_API
+/**
+ * Converts a real ISA (e.g., #DR_ISA_AMD64) instruction \p instr_real_isa into a
+ * #DR_ISA_REGDEPS instruction and stores it into \p instr_regdeps_isa.
+ * Assumes \p instr_regdeps_isa has been allocated by the caller (e.g., using
+ * instr_create()).
+ * Assumes \p instr_real_isa is a fully-decoded or synthesized instruction of a real ISA
+ * with valid operand information.
+ * \note \p instr_regdeps_isa will contain only the information of a #DR_ISA_REGDEPS
+ * synthetic instruction.
+ */
+void
+instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
+                             instr_t *instr_regdeps_isa);
 
 DR_API
 /**

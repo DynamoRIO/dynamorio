@@ -52,6 +52,8 @@
 /* TODO i#3544: Think of a better way to represent CSR in the IR, maybe as registers? */
 /* Number of the fcsr register. */
 #define FCSR 0x003
+#define VSTART 0x008
+#define VCSR 0x00F
 
 /* Instruction fixed bits constants. */
 
@@ -648,6 +650,18 @@ append_restore_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
         INSTR_CREATE_csrrw(dcontext, opnd_create_reg(DR_REG_X0),
                            opnd_create_reg(DR_REG_A0),
                            opnd_create_immed_int(FCSR, OPSZ_12b)));
+    if (proc_has_feature(FEATURE_VECTOR)) {
+        APP(ilist, RESTORE_FROM_DC(dcontext, DR_REG_A0, VSTART_OFFSET));
+        APP(ilist,
+            INSTR_CREATE_csrrw(dcontext, opnd_create_reg(DR_REG_ZERO),
+                               opnd_create_reg(DR_REG_A0),
+                               opnd_create_immed_int(VSTART, OPSZ_12b)));
+        APP(ilist, RESTORE_FROM_DC(dcontext, DR_REG_A0, VCSR_OFFSET));
+        APP(ilist,
+            INSTR_CREATE_csrrw(dcontext, opnd_create_reg(DR_REG_ZERO),
+                               opnd_create_reg(DR_REG_A0),
+                               opnd_create_immed_int(VCSR, OPSZ_12b)));
+    }
 }
 
 /* dcontext is in REG_DCXT; other registers can be used as scratch.
@@ -656,14 +670,52 @@ void
 append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
     opnd_t memopnd;
+    uint vtypei;
 
     /* Floating-point register is not SIMD registers in RISC-V, but to be consistent with
      * other architectures, we handle them here.
      */
     for (int reg = DR_REG_F0; reg <= DR_REG_F31; reg++) {
         memopnd = opnd_create_dcontext_field_via_reg_sz(
-            dcontext, REG_NULL, REG_OFFSET(reg), reg_get_size(reg));
+            dcontext, REG_NULL, FREG_OFFSET(reg), reg_get_size(reg));
         APP(ilist, INSTR_CREATE_fld(dcontext, opnd_create_reg(reg), memopnd));
+    }
+
+    if (proc_has_feature(FEATURE_VECTOR)) {
+        /* ma:   mask agnostic
+         * ta:   tail agnostic
+         * sew:  selected element width
+         * lmul: vector register group multiplier
+         *
+         *           ma            ta         sew=8       lmul=8 */
+        vtypei = (0b1 << 7) | (0b1 << 6) | (0b000 << 3) | 0b011;
+        memopnd = opnd_create_dcontext_field_via_reg_sz(
+            dcontext, DR_REG_A1, 0, reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_8));
+        APP(ilist,
+            INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_A1),
+                              opnd_create_reg(REG_DCXT),
+                              opnd_create_immed_int(VREG_OFFSET(DR_REG_VR0), OPSZ_12b)));
+        /* For the following vector instructions, set the element width to 8b, and use 8
+         * registers as a group (lmul=8).
+         */
+        APP(ilist,
+            INSTR_CREATE_vsetvli(dcontext, opnd_create_reg(DR_REG_A0),
+                                 opnd_create_reg(DR_REG_ZERO),
+                                 opnd_create_immed_uint(vtypei, OPSZ_11b)));
+        /* Uses lmul=8 to copy 8 registers at a time. */
+        for (int reg = DR_REG_VR0; reg <= DR_REG_VR31; reg += 8) {
+            APP(ilist,
+                INSTR_CREATE_vle8_v(dcontext, opnd_create_reg(reg), memopnd,
+                                    opnd_create_immed_int(1, OPSZ_1b) /* mask disabled */,
+                                    opnd_create_immed_int(0, OPSZ_3b) /* nfields = 1 */));
+            /* If it's the last vector register group, no need to increase the offset. */
+            if (reg != DR_REG_VR24) {
+                APP(ilist,
+                    INSTR_CREATE_addi(
+                        dcontext, opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A1),
+                        opnd_create_immed_int(8 * sizeof(dr_simd_t), OPSZ_12b)));
+            }
+        }
     }
 }
 
@@ -748,21 +800,59 @@ append_save_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool ibl_end, bool abs
     APP(ilist, SAVE_TO_DC(dcontext, SCRATCH_REG1, REG_OFFSET(DR_REG_TP)));
 }
 
-/* dcontext base is held in REG_DCXT, and exit stub in X0.
+/* dcontext base is held in REG_DCXT, and exit stub in A0.
  * GPR's are already saved.
  */
 void
 append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
     opnd_t memopnd;
+    uint vtypei;
 
     /* Floating-point register is not SIMD registers in RISC-V, but to be consistent with
      * other architectures, we handle them here.
      */
     for (int reg = DR_REG_F0; reg <= DR_REG_F31; reg++) {
         memopnd = opnd_create_dcontext_field_via_reg_sz(
-            dcontext, REG_NULL, REG_OFFSET(reg), reg_get_size(reg));
+            dcontext, REG_NULL, FREG_OFFSET(reg), reg_get_size(reg));
         APP(ilist, INSTR_CREATE_fsd(dcontext, memopnd, opnd_create_reg(reg)));
+    }
+
+    if (proc_has_feature(FEATURE_VECTOR)) {
+        /* ma:   mask agnostic
+         * ta:   tail agnostic
+         * sew:  selected element width
+         * lmul: vector register group multiplier
+         *
+         *           ma            ta         sew=8       lmul=8 */
+        vtypei = (0b1 << 7) | (0b1 << 6) | (0b000 << 3) | 0b011;
+        memopnd = opnd_create_dcontext_field_via_reg_sz(
+            dcontext, DR_REG_A1, 0, reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_8));
+        APP(ilist,
+            INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_A1),
+                              opnd_create_reg(REG_DCXT),
+                              opnd_create_immed_int(VREG_OFFSET(DR_REG_VR0), OPSZ_12b)));
+        /* For the following vector instructions, set the element width to 8b, and use 8
+         * registers as a group (lmul=8).
+         */
+        APP(ilist,
+            INSTR_CREATE_vsetvli(dcontext, opnd_create_reg(DR_REG_A2),
+                                 opnd_create_reg(DR_REG_ZERO),
+                                 opnd_create_immed_uint(vtypei, OPSZ_11b)));
+        /* Uses lmul=8 to copy 8 registers at a time. */
+        for (int reg = DR_REG_VR0; reg <= DR_REG_VR31; reg += 8) {
+            APP(ilist,
+                INSTR_CREATE_vse8_v(dcontext, memopnd, opnd_create_reg(reg),
+                                    opnd_create_immed_int(1, OPSZ_1b) /* mask disabled */,
+                                    opnd_create_immed_int(0, OPSZ_3b) /* nfields = 1 */));
+            /* If it's the last vector register group, no need to increase the offset. */
+            if (reg != DR_REG_VR24) {
+                APP(ilist,
+                    INSTR_CREATE_addi(
+                        dcontext, opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A1),
+                        opnd_create_immed_int(8 * sizeof(dr_simd_t), OPSZ_12b)));
+            }
+        }
     }
 }
 
@@ -775,6 +865,19 @@ append_save_clear_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute
                            opnd_create_reg(DR_REG_X0),
                            opnd_create_immed_int(FCSR, OPSZ_12b)));
     APP(ilist, SAVE_TO_DC(dcontext, DR_REG_A1, XFLAGS_OFFSET));
+
+    if (proc_has_feature(FEATURE_VECTOR)) {
+        APP(ilist,
+            INSTR_CREATE_csrrs(dcontext, opnd_create_reg(DR_REG_A1),
+                               opnd_create_reg(DR_REG_ZERO),
+                               opnd_create_immed_int(VSTART, OPSZ_12b)));
+        APP(ilist, SAVE_TO_DC(dcontext, DR_REG_A1, VSTART_OFFSET));
+        APP(ilist,
+            INSTR_CREATE_csrrs(dcontext, opnd_create_reg(DR_REG_A1),
+                               opnd_create_reg(DR_REG_ZERO),
+                               opnd_create_immed_int(VCSR, OPSZ_12b)));
+        APP(ilist, SAVE_TO_DC(dcontext, DR_REG_A1, VCSR_OFFSET));
+    }
 }
 
 bool

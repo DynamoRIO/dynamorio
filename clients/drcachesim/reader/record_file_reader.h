@@ -284,7 +284,7 @@ protected:
     // produces an EOF object.
     bool eof_ = true;
 
-private:
+protected:
     uint64_t cur_ref_count_ = 0;
     uint64_t cur_instr_count_ = 0;
     uint64_t last_timestamp_ = 0;

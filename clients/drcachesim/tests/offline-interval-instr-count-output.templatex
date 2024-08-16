@@ -10,7 +10,7 @@ Total counts:
      [ 0-9]* total icache flushes
      [ 0-9]* total dcache flushes
            1 total threads
-     [ 0-9]* total scheduling markers
+     [ 0-9]* total timestamp \+ cpuid markers
 .*
 Thread [0-9]* counts:
      [ 0-9]* \(fetched\) instructions
@@ -21,7 +21,7 @@ Thread [0-9]* counts:
      [ 0-9]* data stores
      [ 0-9]* icache flushes
      [ 0-9]* dcache flushes
-     [ 0-9]* scheduling markers
+     [ 0-9]* timestamp \+ cpuid markers
 .*
 Printing unmerged per-shard interval results:
 Counts per trace interval for TID.*
@@ -33,5 +33,5 @@ Interval #1 ending at timestamp [0-9]*:
      [ 0-9]* interval delta data stores
      [ 0-9]* interval delta icache flushes
      [ 0-9]* interval delta dcache flushes
-     [ 0-9]* interval delta scheduling markers
+     [ 0-9]* interval delta timestamp \+ cpuid markers
 .*

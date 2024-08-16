@@ -33,6 +33,7 @@
 #include "../globals.h"
 #include "instr.h"
 #include "encode_api.h"
+#include "codec.h"
 
 /* XXX i#6690: currently only RISCV64 is supported for instruction encoding.
  * We want to add support for RISCV64 decoding and synthetic ISA encoding as well.
@@ -42,9 +43,9 @@
 bool
 instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
 {
-    if (mode != DR_ISA_RV64IMAFDC)
+    if (mode != DR_ISA_RV64 && mode != DR_ISA_REGDEPS)
         return false;
-    instr->isa_mode = DR_ISA_RV64IMAFDC;
+    instr->isa_mode = mode;
     return true;
 }
 
@@ -106,6 +107,12 @@ opc_is_not_a_real_memory_load(int opc)
     return opc == OP_auipc;
 }
 
+bool
+opc_is_not_a_real_memory_store(int opc)
+{
+    return false;
+}
+
 uint
 instr_branch_type(instr_t *cti_instr)
 {
@@ -148,9 +155,7 @@ instr_branch_type(instr_t *cti_instr)
 const char *
 get_opcode_name(int opc)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return "<opcode>";
+    return get_instruction_info(opc)->name;
 }
 
 bool
@@ -239,10 +244,8 @@ instr_is_near_ubr(instr_t *instr)
 bool
 instr_is_cti_short(instr_t *instr)
 {
-    /* The branch with smallest reach is direct branch, with range +/- 4 KiB.
-     * We have restricted MAX_FRAGMENT_SIZE on RISCV64 accordingly.
-     */
-    return false;
+    int opc = instr_get_opcode(instr);
+    return (opc == OP_c_beqz || opc == OP_c_bnez);
 }
 
 bool
@@ -514,6 +517,17 @@ instr_is_scatter(instr_t *instr)
 DR_API
 bool
 instr_is_gather(instr_t *instr)
+{
+    /* FIXME i#3544: Not implemented */
+    ASSERT_NOT_IMPLEMENTED(false);
+    return false;
+}
+
+bool
+instr_compute_vector_address(instr_t *instr, priv_mcontext_t *mc, size_t mc_size,
+                             dr_mcontext_flags_t mc_flags, opnd_t curop, uint addr_index,
+                             DR_PARAM_OUT bool *have_addr, DR_PARAM_OUT app_pc *addr,
+                             DR_PARAM_OUT bool *write)
 {
     /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);

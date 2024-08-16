@@ -39,10 +39,10 @@
 ***************************************************************************
 \page page_drcachesim Tracing and Analysis Framework
 
-\p drcachesim is a DynamoRIO client that collects instruction and
-memory access traces using its \p drmemtrace component and
+\p drmemtrace is a DynamoRIO client that collects instruction and
+memory access traces and
 feeds them to either an online or offline tool for analysis.  The default
-analysis tool is a CPU cache simulator, while other provided tools compute
+analysis tool is the \p drcachesim CPU cache simulator, while other provided tools compute
 metrics such as reuse distance.  The trace collector and simulator support
 multiple processes each with multiple threads.  The analysis tool framework
 is extensible, supporting the creation of new tools which can operate both
@@ -77,16 +77,16 @@ targets are provided up front.  These join the recent features of
 ****************************************************************************
 \page sec_drcachesim Overview
 
-\p drcachesim consists of two components: a tracer \p drmemtrace and an analyzer.
+\p drmemtrace consists of two types of components: the tracer and trace analyzers.
 The tracer collects a memory access trace from each thread within each
 application process.
-The analyzer consumes the traces (online or offline) and performs
+A trace analyzer consumes the traces (online or offline) and performs
 customized analysis.
-It is designed to be extensible, allowing users to easily implement a
-simulator for different devices, such as CPU caches, TLBs, page
+The framework is designed to be extensible, allowing users to easily extend the
+existing simulators for different devices such as CPU caches, TLBs, page
 caches, etc. (see \ref sec_drcachesim_extend), or to build arbitrary trace
 analysis tools (see \ref sec_drcachesim_newtool).
-The default analyzer simulates the architectural behavior of caching
+The default analyzer \p drcachesim simulates the architectural behavior of caching
 devices for a target application (or multiple applications).
 
 ****************************************************************************
@@ -191,12 +191,13 @@ Some of the more important markers are:
 The full set of markers is listed under the enum #dynamorio::drmemtrace::trace_marker_type_t.
 
 ****************************************************************************
-\page sec_drcachesim_run Running the Simulator
+\page sec_drcachesim_run Running the Cache Simulator
 
-To launch \p drcachesim, use the \p -t flag to \p drrun:
+To launch \p drcachesim, use the \p -t flag to \p drrun and specify the
+\p drmemtrace framework where the default tool to run is the cache simulator:
 
 \code
-$ bin64/drrun -t drcachesim -- /path/to/target/app <args> <for> <app>
+$ bin64/drrun -t drmemtrace -- /path/to/target/app <args> <for> <app>
 \endcode
 
 The target application will be launched under a DynamoRIO tracer
@@ -209,7 +210,7 @@ memory references passed to the simulator as well.
 Here is an example:
 
 \code
-$ bin64/drrun -t drcachesim -- ~/test/pi_estimator
+$ bin64/drrun -t drmemtrace -- ~/test/pi_estimator
 Estimation of pi is 3.142425985001098
 ---- <application exited with code 0> ----
 Cache simulation results:
@@ -262,7 +263,7 @@ LL stats:
 
 In addition to a CPU cache simulator, other predefined analysis tools are
 available that operate on memory address traces.  Which set of tools is used
-can be selected with the \p -simulator_type parameter.  New, custom
+can be selected with the \p -tool parameter.  New, custom
 tools can also be created, as described in \ref sec_drcachesim_newtool.
 
 - \ref sec_tool_cache_sim
@@ -282,9 +283,9 @@ tools can also be created, as described in \ref sec_drcachesim_newtool.
 
 This is the default tool.  Here is an exmample of running it on an offline trace:
 \code
-$ bin64/drrun -t drcachesim -offline -- ~/test/pi_estimator
+$ bin64/drrun -t drmemtrace -offline -- ~/test/pi_estimator
 Estimation of pi is 3.142425985001098
-$ bin64/drrun -t drcachesim -indir drmemtrace.*.dir
+$ bin64/drrun -t drmemtrace -indir drmemtrace.*.dir
 Cache simulation results:
 Core #0 (1 thread(s))
   L1I stats:
@@ -332,10 +333,10 @@ LL stats:
 
 \section sec_tool_TLB_sim TLB Simulator
 
-To simulate TLB devices instead of caches, pass \p TLB to \p -simulator_type:
+To simulate TLB devices instead of caches, pass \p TLB to \p -tool:
 
 \code
-$ bin64/drrun -t drcachesim -simulator_type TLB -- ~/test/pi_estimator
+$ bin64/drrun -t drmemtrace -tool TLB -- ~/test/pi_estimator
 Estimation of pi is 3.142425985001098
 ---- <application exited with code 0> ----
 TLB simulation results:
@@ -392,7 +393,7 @@ Core #3 (0 thread(s))
 To compute reuse distance metrics:
 
 \code
-$ bin64/drrun -t drcachesim -simulator_type reuse_distance -reuse_distance_histogram -- ~/test/pi_estimator
+$ bin64/drrun -t drmemtrace -tool reuse_distance -reuse_distance_histogram -- ~/test/pi_estimator
 Estimation of pi is 3.142425985001098
 ---- <application exited with code 0> ----
 Reuse distance tool aggregated results:
@@ -486,7 +487,7 @@ accesses (without considering uniqueness) between accesses to the same
 address:
 
 \code
-$ bin64/drrun -t drcachesim -simulator_type reuse_time -- ~/test/pi_estimator
+$ bin64/drrun -t drmemtrace -tool reuse_time -- ~/test/pi_estimator
 Estimation of pi is 3.142425985001098
 ---- <application exited with code 0> ----
 Reuse time tool aggregated results:
@@ -528,7 +529,7 @@ To simply see the counts of instructions and memory references broken down
 by thread use the basic counts tool:
 
 \code
-$ bin64/drrun -t drcachesim -simulator_type basic_counts -- ~/test/pi_estimator
+$ bin64/drrun -t drmemtrace -tool basic_counts -- ~/test/pi_estimator
 Estimation of pi is 3.142425985001098
 ---- <application exited with code 0> ----
 Basic counts tool results:
@@ -542,8 +543,10 @@ Total counts:
            0 total icache flushes
            0 total dcache flushes
            3 total threads
-        1134 total scheduling markers
-           5 total transfer markers
+        1134 total timestamp + cpuid markers
+           0 total idle markers
+           0 total wait markers
+           5 total kernel transfer markers
           10 total function id markers
            0 total function return address markers
           30 total function argument markers
@@ -563,8 +566,10 @@ Thread 64951 counts:
        12594 data stores
            0 icache flushes
            0 dcache flushes
-        1072 scheduling markers
-           5 transfer markers
+        1072 timestamp + cpuid markers
+           0 idle markers
+           0 wait markers
+           5 kernel transfer markers
            4 function id markers
            0 function return address markers
           12 function argument markers
@@ -584,8 +589,10 @@ Thread 64958 counts:
          262 data stores
            0 icache flushes
            0 dcache flushes
-          30 scheduling markers
-           0 transfer markers
+          30 timestamp + cupid markers
+           0 idle markers
+           0 wait markers
+           0 kernel transfer markers
            2 function id markers
            0 function return address markers
            6 function argument markers
@@ -605,8 +612,10 @@ Thread 64959 counts:
          266 data stores
            0 icache flushes
            0 dcache flushes
-          32 scheduling markers
-           0 transfer markers
+          32 timestamp + cpuid markers
+           0 idle markers
+           0 wait markers
+           0 kernel transfer markers
            4 function id markers
            0 function return address markers
           12 function argument markers
@@ -635,9 +644,9 @@ down by the opcodes used in DR's IR, where for x86 \p mov is split into a separa
 opcode for load and store but both have the same public string "mov":
 
 \code
-$ bin64/drrun -t drcachesim -offline -- ~/test/pi_estimator
+$ bin64/drrun -t drmemtrace -offline -- ~/test/pi_estimator
 Estimation of pi is 3.142425985001098
-$ bin64/drrun -t drcachesim -simulator_type opcode_mix -indir drmemtrace.*.dir
+$ bin64/drrun -t drmemtrace -tool opcode_mix -indir drmemtrace.*.dir
 Opcode mix tool results:
          267271 : total executed instructions
           36432 :       mov
@@ -687,7 +696,7 @@ In its first two columns, the tool displays the trace record ordinal
 and the instruction fetch ordinal.
 
 \code
-$ $ bin64/drrun -t drcachesim -simulator_type view -indir drmemtrace.*.dir -sim_refs 20
+$ $ bin64/drrun -t drmemtrace -tool view -indir drmemtrace.*.dir -sim_refs 20
 Output format:
 <--record#-> <--instr#->: <---tid---> <record details>
 ------------------------------------------------------------
@@ -785,9 +794,9 @@ function names specified at tracing time. See \ref sec_drcachesim_funcs for
 more information.
 
 \code
-$ bin64/drrun -t drcachesim -offline -record_function 'fib|1' -- ~/test/fib 5
+$ bin64/drrun -t drmemtrace -offline -record_function 'fib|1' -- ~/test/fib 5
 Estimation of pi is 3.142425985001098
-$ bin64/drrun -t drcachesim -simulator_type func_view -indir drmemtrace.*.dir
+$ bin64/drrun -t drmemtrace -tool func_view -indir drmemtrace.*.dir
 0x7fc06d2288eb => common.fib!fib(0x5)
     0x7fc06d22888e => common.fib!fib(0x4)
         0x7fc06d22888e => common.fib!fib(0x3)
@@ -821,7 +830,7 @@ Function id=0: common.fib!fib
 The top referenced cache lines are displayed by the \p histogram tool:
 
 \code
-$ bin64/drrun -t drcachesim -simulator_type histogram -- ~/test/pi_estimator
+$ bin64/drrun -t drmemtrace -tool histogram -- ~/test/pi_estimator
 Estimation of pi is 3.142425985001098
 ---- <application exited with code 0> ----
 Cache line histogram tool results:
@@ -869,7 +878,7 @@ number. This works only with traces that have these markers; that is, offline tr
 must have #dynamorio::drmemtrace::OFFLINE_FILE_TYPE_SYSCALL_NUMBERS in their file type.
 
 \code
-$ bin64/drrun -t drcachesim -indir drmemtrace.ls.*.dir -simulator_type syscall_mix
+$ bin64/drrun -t drmemtrace -indir drmemtrace.ls.*.dir -tool syscall_mix
 Syscall mix tool results:
           count : syscall_num
              17 :         9
@@ -921,7 +930,7 @@ option.
 Example of removing function markers:
 
 \code
-$ bin64/drrun -t drcachesim -indir mytracedir -simulator_type basic_counts
+$ bin64/drrun -t drmemtrace -indir mytracedir -tool basic_counts
 ...
         9009 total function id markers
         5006 total function return address markers
@@ -929,10 +938,10 @@ $ bin64/drrun -t drcachesim -indir mytracedir -simulator_type basic_counts
         4003 total function return value markers
 ...
 
-$ bin64/drrun -t drcachesim -simulator_type record_filter -filter_marker_types 4,5,6,7 -indir mytracedir -outdir newdir
+$ bin64/drrun -t drmemtrace -tool record_filter -filter_marker_types 4,5,6,7 -indir mytracedir -outdir newdir
 Output 1280800 entries from 1304825 entries.
 
-$ bin64/drrun -t drcachesim -indir newdir -simulator_type basic_counts
+$ bin64/drrun -t drmemtrace -indir newdir -tool basic_counts
 ...
            0 total function id markers
            0 total function return address markers
@@ -1126,18 +1135,20 @@ LLC {                          // LLC
 
 To dump a trace for future offline analysis, use the \p offline parameter:
 \code
-$ bin64/drrun -t drcachesim -offline -- /path/to/target/app <args> <for> <app>
+$ bin64/drrun -t drmemtrace -offline -- /path/to/target/app <args> <for> <app>
 \endcode
 
 The collected traces will be dumped into a newly created directory,
-which can be passed to drcachesim for offline cache simulation with the \p
+which can be passed to drmemtrace for offline analysis with the \p
 -indir option:
 \code
-$ bin64/drrun -t drcachesim -indir drmemtrace.app.pid.xxxx.dir/
+$ bin64/drrun -t drmemtrace -indir drmemtrace.app.pid.xxxx.dir/
 \endcode
 
 The direct results of the \p -offline run are raw, compacted files, stored
 in a \p raw/ subdirectory of the \p drmemtrace.app.pid.xxxx.dir directory.
+The contents of \p drmemtrace.app.pid.xxxx.dir, and all its subdirectories,
+are internal to the tools.  Do not alter, add, or delete files here.
 The \p -indir option both converts the data to a canonical trace form and
 passes the resulting data to the cache simulator.  The canonical trace data
 is stored by \p -indir in a \p trace/ subdirectory inside the \p
@@ -1148,7 +1159,7 @@ re-converting it.  Either the top-level directory or the \p trace/
 subdirectory may be pointed at with \p -indir:
 
 \code
-$ bin64/drrun -t drcachesim -indir drmemtrace.app.pid.xxxx.dir/trace
+$ bin64/drrun -t drmemtrace -indir drmemtrace.app.pid.xxxx.dir/trace
 \endcode
 
 If built with the zlib library, the canonical trace files are
@@ -1168,7 +1179,7 @@ Older versions of the simulator produced a single trace file containing all thre
 interleaved.  The \p -infile option supports reading these legacy files:
 \code
 $ gzip drmemtrace.app.pid.xxxx.dir/drmemtrace.trace
-$ bin64/drrun -t drcachesim -infile drmemtrace.app.pid.xxxx.dir/drmemtrace.trace.gz
+$ bin64/drrun -t drmemtrace -infile drmemtrace.app.pid.xxxx.dir/drmemtrace.trace.gz
 \endcode
 
 The same analysis tools used online are available for offline: the trace
@@ -1180,7 +1191,7 @@ with offline traces, see \ref page_debug_memtrace.
 ****************************************************************************
 \page sec_drcachesim_filter Filtered Traces
 
-Filtered traces are \p drcachesim traces filtered by an online first-level
+Filtered traces are \p drmemtrace traces filtered by an online first-level
 cache.
 
 - The \p -L0I_filter and \p -L0D_filter options can be used to enable the
@@ -1245,7 +1256,7 @@ limited in several ways:
   #dynamorio::drmemtrace::TRACE_MARKER_TYPE_WINDOW_ID markers indicate start of
   filtered records.
 
-If the application can be modified, it can be linked with the \p drcachesim
+If the application can be modified, it can be linked with the \p drmemtrace
 tracer and use DynamoRIO's start/stop API routines dr_app_setup_and_start()
 and dr_app_stop_and_cleanup() to delimit the desired trace region.  As an
 example, see <a
@@ -1258,7 +1269,7 @@ burst_static test application</a>.
 Generally, the simulator is able to be extended to model a variety of
 caching devices.  Currently, CPU caches and TLBs are implemented.  The type of
 devices to simulate can be specified by the parameter
-"-simulator_type" (see \ref sec_drcachesim_ops).
+"-tool" (see \ref sec_drcachesim_ops).
 
 The CPU cache simulator models a configurable number of cores,
 each with an L1 data cache and an L1 instruction cache.
@@ -1288,7 +1299,7 @@ running an application with many threads on a pysical machine with 8 cpus.
 The 8 cpus are mapped to the 4 simulated cores:
 
 \code
-$ bin64/drrun -t drcachesim -cpu_scheduling -- ~/test/pi_estimator 20
+$ bin64/drrun -t drmemtrace -cpu_scheduling -- ~/test/pi_estimator 20
 Estimation of pi is 3.141592653798125
 <Stopping application /home/bruening/dr/test/threadsig (213517)>
 ---- <application exited with code 0> ----
@@ -1385,7 +1396,7 @@ The cache simulator can be used to analyze the stream of last-level cache (LLC)
 miss addresses. This can be useful when looking for patterns that can be utilized
 in software prefetching. The current analyzer can only identify simple stride
 patterns, but it can be extended to search for more complex patterns.
-To invoke the miss analyzer, pass \p miss_analyzer to the \p -simulator_type
+To invoke the miss analyzer, pass \p miss_analyzer to the \p -tool
 parameter. To write the prefetching hints to a file use the \p -LL_miss_file
 parameter to specify the file's path and name.
 
@@ -1393,7 +1404,7 @@ For example, to run the analyzer on a benchmark called "my_benchmark" and store
 the prefetching recommendations in a file called "rec.csv", run the following:
 
 \code
-$ bin64/drrun -t drcachesim -simulator_type miss_analyzer -LL_miss_file rec.csv -- my_benchmark
+$ bin64/drrun -t drmemtrace -tool miss_analyzer -LL_miss_file rec.csv -- my_benchmark
 \endcode
 
 
@@ -1428,14 +1439,14 @@ is specified.
 ****************************************************************************
 \page sec_drcachesim_core Core Simulation Support
 
-The \p drcachesim trace format includes information intended for use by
+The \p drmemtrace trace format includes information intended for use by
 core simulators as well as pure cache simulators.  For traces that are not
 filtered by an online first-level cache, each data reference is preceded by
 the instruction fetch entry for the instruction that issued the data
 request, which includes the instruction encoding with the opcode and operands.
 Additionally, on x86, string loop
 instructions involve a single insruction fetch followed by a loop of loads
-and/or stores.  A \p drcachesim trace includes a special "no-fetch"
+and/or stores.  A \p drmemtrace trace includes a special "no-fetch"
 instruction entry per iteration so that core simulators have the
 instruction information to go along with each load and store, while cache
 simulators can ignore these "no-fetch" entries and avoid incorrectly
@@ -1522,7 +1533,7 @@ to record is specified for each name, using a bar character to
 separate them.  An ampersand separates functions.  Here is an example:
 
 \code
-$ bin64/drrun -t drcachesim -offline -record_function 'fib|1&calloc|2'
+$ bin64/drrun -t drmemtrace -offline -record_function 'fib|1&calloc|2'
 \endcode
 
 Within the trace, each function is identified by a numeric identifier.
@@ -1544,7 +1555,7 @@ name.
 ****************************************************************************
 \page sec_drcachesim_newtool Creating New Analysis Tools
 
-\p drcachesim provides a \p drmemtrace analysis tool framework to make it
+\p drmemtrace provides an analysis tool framework to make it
 easy to create new trace analysis tools.  A new tool should subclass
 #dynamorio::drmemtrace::analysis_tool_t.
 
@@ -1659,9 +1670,9 @@ functions.
 
 \section external_tools Separately-Built Tools
 
-\p drcachesim \p drmemtrace analysis tool framework allows to load
-non-predefined separately-built external tools. This tool can be loaded by drcachesim
-using the \p -simulator_type option.
+The \p drmemtrace analysis tool framework allows loading
+non-predefined separately-built external tools. Such tools can be loaded by \p drmemtrace
+using the \p -tool option.
 
 ## External tool package
 
@@ -1682,12 +1693,12 @@ CREATOR_BIN32=/absolute/path/to/32-bit-creator-library
 CREATOR_BIN64=/absolute/path/to/64-bit-creator-library
 \endcode
 
-This enables \p drcachesim to locate the tool's creator library.  The 32 and
+This enables \p drmemtrace to locate the tool's creator library.  The 32 and
 64 specifiers allow pointing at alternate-bitwidth paths for use if
 the target application creates a child process of a different bitwidth.
 
 For more extensive actions on launching the tool, a custom front-end
-executable can be created that replaces \p drcachesim modeled after histogram_launcher.cpp
+executable can be created that replaces \p drmemtrace modeled after histogram_launcher.cpp
 or opcode_mix_launcher.cpp.
 
 The creator dynamic library should contain 2 export functions:
@@ -1706,7 +1717,7 @@ analysis_tool_create()
 }
 \endcode
 
-which allows \p drcachesim to create an analyis tool.  As an
+which allows \p drmemtrace to create an analyis tool.  As an
 example, see <a
 href="https://github.com/DynamoRIO/dynamorio/blob/master/clients/drcachesim/tools/external/example">
 minimal external analysis tool</a>.
@@ -1753,11 +1764,11 @@ tool framework's "external iterator" interface:
 ****************************************************************************
 \page sec_drcachesim_ops Simulator Parameters
 
-\p drcachesim's behavior can be controlled through options passed after the
-\p -c \p drcachesim but prior to the "--" delimiter on the command line:
+\p drmemtrace's behavior can be controlled through options passed after the
+\p -t \p drmemtrace but prior to the "--" delimiter on the command line:
 
 \code
-$ bin64/drrun -t drcachesim <options> <to> <drcachesim> -- /path/to/target/app <args> <for> <app>
+$ bin64/drrun -t drmemtrace <options> <to> <drmemtrace> -- /path/to/target/app <args> <for> <app>
 \endcode
 
 Boolean options can be disabled using a "-no_" prefix.
@@ -1770,7 +1781,7 @@ REPLACEME_WITH_OPTION_LIST
 ****************************************************************************
 \page sec_drcachesim_limit Current Limitations
 
-The \p drcachesim tool is a work in progress.  We welcome contributions in
+The \p drmemtrace framework is a work in progress.  We welcome contributions in
 these areas of missing functionality:
 
 - Multi-process online application simulation on Windows

@@ -1,6 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2011-2023 Google, Inc. All rights reserved.
- * Copyright (c) 2016-2023 ARM Limited. All rights reserved.
+ * Copyright (c) 2016-2024 ARM Limited. All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc. All rights reserved.
  * **********************************************************/
 
@@ -111,8 +111,20 @@
 #define OPND_CREATE_ZR(reg) \
     opnd_create_reg(opnd_get_size(reg) == OPSZ_4 ? DR_REG_WZR : DR_REG_XZR)
 
-/** Create an operand specifying LSL, the default shift type when there is no shift. */
+/**
+ * Create an operand specifying LSL (Logical Shift Left), the default shift type when
+ * there is no shift.
+ */
 #define OPND_CREATE_LSL() opnd_add_flags(OPND_CREATE_INT(DR_SHIFT_LSL), DR_OPND_IS_SHIFT)
+
+/** Create an operand specifying LSR (Logical Shift Right). */
+#define OPND_CREATE_LSR() opnd_add_flags(OPND_CREATE_INT(DR_SHIFT_LSR), DR_OPND_IS_SHIFT)
+
+/** Create an operand specifying ASR (Arithmetic Shift Right). */
+#define OPND_CREATE_ASR() opnd_add_flags(OPND_CREATE_INT(DR_SHIFT_ASR), DR_OPND_IS_SHIFT)
+
+/** Create an operand specifying ROR (ROtate Right). */
+#define OPND_CREATE_ROR() opnd_add_flags(OPND_CREATE_INT(DR_SHIFT_ROR), DR_OPND_IS_SHIFT)
 
 /** Create an operand specifying MUL, a multiplier operand. */
 #define OPND_CREATE_MUL() opnd_add_flags(OPND_CREATE_INT(DR_SHIFT_MUL), DR_OPND_IS_SHIFT)
@@ -520,9 +532,28 @@
          ? instr_create_1dst_2src((dc), OP_and, (rd), (rn), (rm_or_imm))    \
          : INSTR_CREATE_and_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), \
                                   OPND_CREATE_INT(0)))
+
+/**
+ * Creates an ORR instruction with one output and two inputs.
+ * \param dc   The void * dcontext used to allocate memory for the instr_t.
+ * \param rd   The output register.
+ * \param rn   The first input register.
+ * \param rm_or_imm   The second input register or immediate.
+ */
+#define INSTR_CREATE_orr(dc, rd, rn, rm_or_imm)                             \
+    (opnd_is_immed(rm_or_imm)                                               \
+         ? instr_create_1dst_2src((dc), OP_orr, (rd), (rn), (rm_or_imm))    \
+         : INSTR_CREATE_orr_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), \
+                                  OPND_CREATE_INT(0)))
+
 /** \cond disabled_until_i4106_is_fixed */
 #define INSTR_CREATE_and_shift(dc, rd, rn, rm, sht, sha)                             \
     instr_create_1dst_4src((dc), OP_and, (rd), (rn),                                 \
+                           opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_SHIFTED), \
+                           opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha))
+
+#define INSTR_CREATE_orr_shift(dc, rd, rn, rm, sht, sha)                             \
+    instr_create_1dst_4src((dc), OP_orr, (rd), (rn),                                 \
                            opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_SHIFTED), \
                            opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha))
 /** \endcond disabled_until_i4106_is_fixed */
@@ -566,7 +597,9 @@
  * result of a comparison of its two source values if the named input condition
  * is true, or to an immediate value if the input condition is false.
  * \param dc      The void * dcontext used to allocate memory for the #instr_t.
- * \param cond    The comparison condition specified by #dr_pred_type_t, e.g. #DR_PRED_EQ.
+ * \param cond    A 4-bit immediate value created using cond_create_cond() specifying
+ *                the condition used for the comparison.
+ *                For example #opnd_create_cond(#DR_PRED_EQ).
  * \param Rn      The GPR source register.
  * \param Op      Either a 5-bit immediate (use #opnd_create_immed_uint() to create
    the operand, e.g. opnd_create_immed_uint(val, #OPSZ_5b)) or a GPR source register.
@@ -575,7 +608,7 @@
  * opnd_create_immed_uint(val, #OPSZ_4b)).
  */
 #define INSTR_CREATE_ccmp(dc, Rn, Op, nzcv, cond) \
-    (INSTR_PRED(instr_create_0dst_3src(dc, OP_ccmp, Rn, Op, nzcv), (cond)))
+    instr_create_0dst_4src(dc, OP_ccmp, Rn, Op, nzcv, cond)
 
 /**
  * Creates a CCMN (Conditional Compare Negative) instruction. Sets the NZCV
@@ -584,7 +617,9 @@
  * false. The comparison is based on a negated second source value (Op) if an
  * immediate, inverted if a register.
  * \param dc      The void * dcontext used to allocate memory for the #instr_t.
- * \param cond    The comparison condition specified by #dr_pred_type_t, e.g. #DR_PRED_EQ.
+ * \param cond    A 4-bit immediate value created using cond_create_cond() specifying
+ *                the condition used for the comparison.
+ *                For example #opnd_create_cond(#DR_PRED_EQ).
  * \param Rn      The GPR source register.
  * \param Op      Either a 5-bit immediate (use #opnd_create_immed_uint() to create the
  * operand, e.g. opnd_create_immed_uint(val, #OPSZ_5b)) or a GPR source register.
@@ -593,7 +628,7 @@
  * opnd_create_immed_uint(val, #OPSZ_4b)).
  */
 #define INSTR_CREATE_ccmn(dc, Rn, Op, nzcv, cond) \
-    (INSTR_PRED(instr_create_0dst_3src(dc, OP_ccmn, Rn, Op, nzcv), (cond)))
+    instr_create_0dst_4src(dc, OP_ccmn, Rn, Op, nzcv, cond)
 
 /** \cond disabled_until_i4106_is_fixed */
 #define INSTR_CREATE_adc(dc, Rd, Rn, Rm) \
@@ -670,8 +705,10 @@
     instr_create_1dst_3src(dc, OP_movz, rt, imm16, OPND_CREATE_LSL(), lsl)
 #define INSTR_CREATE_mrs(dc, Xt, sysreg) \
     instr_create_1dst_1src((dc), OP_mrs, (Xt), (sysreg))
-#define INSTR_CREATE_msr(dc, sysreg, Xt) \
-    instr_create_1dst_1src((dc), OP_msr, (sysreg), (Xt))
+#define INSTR_CREATE_msr(dc, sysreg, Xt_or_imm)                       \
+    opnd_is_immed(Xt_or_imm)                                          \
+        ? instr_create_0dst_2src((dc), OP_msr, (sysreg), (Xt_or_imm)) \
+        : instr_create_1dst_1src((dc), OP_msr, (sysreg), (Xt_or_imm))
 #define INSTR_CREATE_nop(dc) instr_create_0dst_0src((dc), OP_nop)
 #define INSTR_CREATE_ret(dc, Rn) instr_create_0dst_1src((dc), OP_ret, (Rn))
 #define INSTR_CREATE_stp(dc, mem, rt1, rt2) \
@@ -4750,11 +4787,12 @@
  * \param nzcv  The 4 bit NZCV flags value used if the input condition is false.
  *              (use #opnd_create_immed_uint() to create the operand, e.g.
  *              opnd_create_immed_uint(val, #OPSZ_4b)).
- * \param condition_code   The comparison condition specified by #dr_pred_type_t,
- *              e.g. #DR_PRED_EQ.
+ * \param cond  A 4-bit immediate value created using cond_create_cond() specifying
+ *              the condition used for the comparison.
+ *              For example #opnd_create_cond(#DR_PRED_EQ).
  */
-#define INSTR_CREATE_fccmp(dc, Rn, Rm, nzcv, condition_code) \
-    INSTR_PRED(instr_create_0dst_3src(dc, OP_fccmp, Rn, Rm, nzcv), (condition_code))
+#define INSTR_CREATE_fccmp(dc, Rn, Rm, nzcv, cond) \
+    instr_create_0dst_4src(dc, OP_fccmp, Rn, Rm, nzcv, cond)
 
 /**
  * Creates a FCCMPE instruction.
@@ -4773,11 +4811,12 @@
  * \param nzcv  The 4 bit NZCV flags value used if the input condition is false.
  *              (use #opnd_create_immed_uint() to create the operand, e.g.
  *              opnd_create_immed_uint(val, #OPSZ_4b)).
- * \param condition_code   The comparison condition specified by #dr_pred_type_t,
- *              e.g. #DR_PRED_EQ.
+ * \param cond  A 4-bit immediate value created using cond_create_cond() specifying
+ *              the condition used for the comparison.
+ *              For example #opnd_create_cond(#DR_PRED_EQ).
  */
-#define INSTR_CREATE_fccmpe(dc, Rn, Rm, nzcv, condition_code) \
-    INSTR_PRED(instr_create_0dst_3src(dc, OP_fccmpe, Rn, Rm, nzcv), (condition_code))
+#define INSTR_CREATE_fccmpe(dc, Rn, Rm, nzcv, cond) \
+    instr_create_0dst_4src(dc, OP_fccmpe, Rn, Rm, nzcv, cond)
 
 /**
  * Creates a FCSEL instruction.
@@ -4795,11 +4834,12 @@
                H (halfword, 16 bits) or S (singleword, 32 bits)
  * \param Rm   The third source register. Can be D (doubleword, 64 bits),
                H (halfword, 16 bits) or S (singleword, 32 bits)
- * \param condition_code   The comparison condition specified by #dr_pred_type_t,
- *                         e.g. #DR_PRED_EQ.
+ * \param cond A 4-bit immediate value created using cond_create_cond() specifying
+ *             the condition used for the comparison.
+ *             For example #opnd_create_cond(#DR_PRED_EQ).
  */
-#define INSTR_CREATE_fcsel(dc, Rd, Rn, Rm, condition_code) \
-    INSTR_PRED(instr_create_1dst_2src(dc, OP_fcsel, Rd, Rn, Rm), (condition_code))
+#define INSTR_CREATE_fcsel(dc, Rd, Rn, Rm, cond) \
+    instr_create_1dst_3src(dc, OP_fcsel, Rd, Rn, Rm, cond)
 
 /**
  * Creates a FCMP instruction.
@@ -18198,5 +18238,260 @@
  */
 #define INSTR_CREATE_mul_sve_idx(dc, Zd, Zn, Zm, index) \
     instr_create_1dst_3src(dc, OP_mul, Zd, Zn, Zm, index)
+
+/**
+ * Creates a FRINT32X instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      FRINT32X <Dd>, <Dn>
+      FRINT32X <Sd>, <Sn>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination  register. Can be D (doubleword, 64 bits) or S
+ *             (singleword, 32 bits).
+ * \param Rn   The source  register. Can be D (doubleword, 64 bits) or S
+ *             (singleword, 32 bits).
+ */
+#define INSTR_CREATE_frint32x(dc, Rd, Rn) instr_create_1dst_1src(dc, OP_frint32x, Rd, Rn)
+
+/**
+ * Creates a FRINT32X instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      FRINT32X <Vd>.2S, <Vn>.2S
+      FRINT32X <Vd>.4S, <Vn>.4S
+      FRINT32X <Vd>.2D, <Vn>.2D
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination vector register. Can be D (doubleword, 64 bits)
+ *             or Q (quadword, 128 bits).
+ * \param Rn   The source vector register. Can be D (doubleword, 64 bits) or Q
+ *             (quadword, 128 bits).
+ */
+#define INSTR_CREATE_frint32x_vector(dc, Rd, Rn) \
+    instr_create_1dst_1src(dc, OP_frint32x, Rd, Rn)
+
+/**
+ * Creates a FRINT32Z instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      FRINT32Z <Dd>, <Dn>
+      FRINT32Z <Sd>, <Sn>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination  register. Can be D (doubleword, 64 bits) or S
+ *             (singleword, 32 bits).
+ * \param Rn   The source  register. Can be D (doubleword, 64 bits) or S
+ *             (singleword, 32 bits).
+ */
+#define INSTR_CREATE_frint32z(dc, Rd, Rn) instr_create_1dst_1src(dc, OP_frint32z, Rd, Rn)
+
+/**
+ * Creates a FRINT32Z instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      FRINT32Z <Vd>.2S, <Vn>.2S
+      FRINT32Z <Vd>.4S, <Vn>.4S
+      FRINT32Z <Vd>.2D, <Vn>.2D
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination vector register. Can be D (doubleword, 64 bits)
+ *             or Q (quadword, 128 bits).
+ * \param Rn   The source vector register. Can be D (doubleword, 64 bits) or Q
+ *             (quadword, 128 bits).
+ */
+#define INSTR_CREATE_frint32z_vector(dc, Rd, Rn) \
+    instr_create_1dst_1src(dc, OP_frint32z, Rd, Rn)
+
+/**
+ * Creates a FRINT64X instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      FRINT64X <Dd>, <Dn>
+      FRINT64X <Sd>, <Sn>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination  register. Can be D (doubleword, 64 bits) or S
+ *             (singleword, 32 bits).
+ * \param Rn   The source  register. Can be D (doubleword, 64 bits) or S
+ *             (singleword, 32 bits).
+ */
+#define INSTR_CREATE_frint64x(dc, Rd, Rn) instr_create_1dst_1src(dc, OP_frint64x, Rd, Rn)
+
+/**
+ * Creates a FRINT64X instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      FRINT64X <Vd>.2S, <Vn>.2S
+      FRINT64X <Vd>.4S, <Vn>.4S
+      FRINT64X <Vd>.2D, <Vn>.2D
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination vector register. Can be D (doubleword, 64 bits)
+ *             or Q (quadword, 128 bits).
+ * \param Rn   The source vector register. Can be D (doubleword, 64 bits) or Q
+ *             (quadword, 128 bits).
+ */
+#define INSTR_CREATE_frint64x_vector(dc, Rd, Rn) \
+    instr_create_1dst_1src(dc, OP_frint64x, Rd, Rn)
+
+/**
+ * Creates a FRINT64Z instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      FRINT64Z <Dd>, <Dn>
+      FRINT64Z <Sd>, <Sn>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination  register. Can be D (doubleword, 64 bits) or S
+ *             (singleword, 32 bits).
+ * \param Rn   The source  register. Can be D (doubleword, 64 bits) or S
+ *             (singleword, 32 bits).
+ */
+#define INSTR_CREATE_frint64z(dc, Rd, Rn) instr_create_1dst_1src(dc, OP_frint64z, Rd, Rn)
+
+/**
+ * Creates a FRINT64Z instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      FRINT64Z <Vd>.2S, <Vn>.2S
+      FRINT64Z <Vd>.4S, <Vn>.4S
+      FRINT64Z <Vd>.2D, <Vn>.2D
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination vector register. Can be D (doubleword, 64 bits)
+ *             or Q (quadword, 128 bits).
+ * \param Rn   The source vector register. Can be D (doubleword, 64 bits) or Q
+ *             (quadword, 128 bits).
+ */
+#define INSTR_CREATE_frint64z_vector(dc, Rd, Rn) \
+    instr_create_1dst_1src(dc, OP_frint64z, Rd, Rn)
+
+/**
+ * Creates an STGM instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      STGM    <Xt>, [<Xn|SP>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The destination memory operand constructed with the function:
+ *             opnd_create_base_disp_aarch64(Rn, DR_REG_NULL, DR_EXTEND_UXTX, 0, 0, 0,
+ *             OPSZ_0)
+ *             Note that memory tag accesses are not treated as real/data memory
+ *             accesses by DynamoRIO, similar to prefetch and PC-relative address
+ *             manipulation instructions.
+ * \param Rt   The first source register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_stgm(dc, Rn, Rt) instr_create_1dst_1src(dc, OP_stgm, Rn, Rt)
+
+/**
+ * Creates an STZGM instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      STZGM    <Xt>, [<Xn|SP>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The destination memory operand constructed with the function:
+ *             opnd_create_base_disp_aarch64(Rn, DR_REG_NULL, DR_EXTEND_UXTX, 0, 0, 0,
+ *             OPSZ_16)
+ * \param Rt   The first source register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_stzgm(dc, Rn, Rt) instr_create_1dst_1src(dc, OP_stzgm, Rn, Rt)
+
+/**
+ * Creates an LDGM instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      LDGM    <Xt>, [<Xn|SP>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rt   The source register, X (Extended, 64 bits).
+ * \param Rn   The source base register, constructed with the function:
+ *             opnd_create_base_disp_aarch64(Rn, DR_REG_NULL, DR_EXTEND_UXTX, 0, 0, 0,
+ *             OPSZ_0)
+ *             Note that memory tag accesses are not treated as real/data memory
+ *             accesses by DynamoRIO, similar to prefetch and PC-relative address
+ *             manipulation instructions.
+ */
+#define INSTR_CREATE_ldgm(dc, Rt, Rn) instr_create_1dst_1src(dc, OP_ldgm, Rt, Rn)
+
+/**
+ * Creates an AXFLAG instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      AXFLAG
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_axflag(dc) instr_create_0dst_0src(dc, OP_axflag)
+
+/**
+ * Creates a XAFLAG instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      XAFLAG
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_xaflag(dc) instr_create_0dst_0src(dc, OP_xaflag)
+
+/**
+ * Creates a WFE instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      WFE
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_wfe(dc) instr_create_0dst_0src(dc, OP_wfe)
+
+/**
+ * Creates a WFI instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      WFI
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_wfi(dc) instr_create_0dst_0src(dc, OP_wfi)
+
+/**
+ * Creates a WFET instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    WFET   <Xt>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rt   The source register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_wfet(dc, Rt) instr_create_0dst_1src(dc, OP_wfet, Rt)
+
+/**
+ * Creates a WFIT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    WFIT   <Xt>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rt   The source register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_wfit(dc, Rt) instr_create_0dst_1src(dc, OP_wfit, Rt)
 
 #endif /* DR_IR_MACROS_AARCH64_H */

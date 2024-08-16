@@ -20,8 +20,10 @@ Total counts:
            0 total icache flushes
            0 total dcache flushes
            1 total threads
-          48 total scheduling markers
-           0 total transfer markers
+          48 total timestamp \+ cpuid markers
+           0 total idle markers
+           0 total wait markers
+           0 total kernel transfer markers
            0 total function id markers
            0 total function return address markers
            0 total function argument markers
@@ -41,8 +43,10 @@ Thread [0-9]* counts:
            5 data stores
            0 icache flushes
            0 dcache flushes
-          48 scheduling markers
-           0 transfer markers
+          48 timestamp \+ cpuid markers
+           0 idle markers
+           0 wait markers
+           0 kernel transfer markers
            0 function id markers
            0 function return address markers
            0 function argument markers

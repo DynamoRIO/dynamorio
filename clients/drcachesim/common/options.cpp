@@ -72,7 +72,8 @@ droption_t<std::string> op_ipc_name(
 droption_t<std::string> op_outdir(
     DROPTION_SCOPE_ALL, "outdir", ".", "Target directory for offline trace files",
     "For the offline analysis mode (when -offline is requested), specifies the path "
-    "to a directory where per-thread trace files will be written.");
+    "to a directory where per-thread trace files will be written.  The contents of this "
+    "directory are internal to the tool.  Do not alter, add, or delete files here.");
 
 droption_t<std::string> op_subdir_prefix(
     DROPTION_SCOPE_ALL, "subdir_prefix", "drmemtrace",
@@ -89,7 +90,9 @@ droption_t<std::string> op_indir(
     "The -offline tracing produces raw data files which are converted into final "
     "trace files on the first execution with -indir.  The raw files can also be manually "
     "converted using the drraw2trace tool.  Legacy single trace files with all threads "
-    "interleaved into one are not supported with this option: use -infile instead.");
+    "interleaved into one are not supported with this option: use -infile instead.  "
+    "The contents of this directory are internal to the tool.  Do not alter, add, or "
+    "delete files here.");
 
 droption_t<std::string> op_infile(
     DROPTION_SCOPE_ALL, "infile", "", "Offline legacy file for input to the simulator",
@@ -205,11 +208,11 @@ droption_t<std::string> op_LL_miss_file(
     "Path for dumping LLC misses or prefetching hints",
     "If non-empty, when running the cache simulator, requests that "
     "every last-level cache miss be written to a file at the specified path. Each miss "
-    "is written in text format as a <program counter, address> pair. If this tool is "
-    "linked with zlib, the file is written in gzip-compressed format. If non-empty, when "
-    "running the cache miss analyzer, requests that prefetching hints based on the miss "
-    "analysis be written to the specified file. Each hint is written in text format as a "
-    "<program counter, stride, locality level> tuple.");
+    "is written in text format as a <process id, program counter, address> tuple. If "
+    "this tool is linked with zlib, the file is written in gzip-compressed format. If "
+    "non-empty, when running the cache miss analyzer, requests that prefetching hints "
+    "based on the miss analysis be written to the specified file. Each hint is written "
+    "in text format as a <program counter, stride, locality level> tuple.");
 
 droption_t<bool> op_L0_filter_deprecated(
     DROPTION_SCOPE_CLIENT, "L0_filter", false,
@@ -458,18 +461,18 @@ droption_t<std::string>
                           "Specifies the replacement policy for TLBs. "
                           "Supported policies: LFU (Least Frequently Used).");
 
-// TODO i#6660: Add "-tool" alias as these are not all "simulators".
 droption_t<std::string>
-    op_simulator_type(DROPTION_SCOPE_FRONTEND, "simulator_type", CPU_CACHE,
-                      "Specifies which trace analysis tool(s) to run.  Multiple tools "
-                      "can be specified, separated by a colon (\":\").",
-                      "Predefined types: " CPU_CACHE ", " MISS_ANALYZER ", " TLB
-                      ", " REUSE_DIST ", " REUSE_TIME ", " HISTOGRAM ", " BASIC_COUNTS
-                      ", " INVARIANT_CHECKER ", " SCHEDULE_STATS ", or " RECORD_FILTER
-                      ". The " RECORD_FILTER " tool cannot be combined with the others "
-                      "as it operates on raw disk records. "
-                      "To invoke an external tool: specify its name as identified by a "
-                      "name.drcachesim config file in the DR tools directory.");
+    op_tool(DROPTION_SCOPE_FRONTEND,
+            std::vector<std::string>({ "tool", "simulator_type" }), CPU_CACHE,
+            "Specifies which trace analysis tool(s) to run.  Multiple tools "
+            "can be specified, separated by a colon (\":\").",
+            "Predefined types: " CPU_CACHE ", " MISS_ANALYZER ", " TLB ", " REUSE_DIST
+            ", " REUSE_TIME ", " HISTOGRAM ", " BASIC_COUNTS ", " INVARIANT_CHECKER
+            ", " SCHEDULE_STATS ", or " RECORD_FILTER ". The " RECORD_FILTER
+            " tool cannot be combined with the others "
+            "as it operates on raw disk records. "
+            "To invoke an external tool: specify its name as identified by a "
+            "name.drcachesim config file in the DR tools directory.");
 
 droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 64,
                                     "Verbosity level",
@@ -549,7 +552,8 @@ droption_t<bytesize_t> op_skip_instrs(
     "Specifies the number of instructions to skip in the beginning of the trace "
     "analysis.  For serial iteration, this number is "
     "computed just once across the interleaving sequence of all threads; for parallel "
-    "iteration, each thread skips this many insructions.  When built with zipfile "
+    "iteration, each thread skips this many instructions (see -skip_to_timestamp for "
+    "an alternative which does align all threads).  When built with zipfile "
     "support, this skipping is optimized and large instruction counts can be quickly "
     "skipped; this is not the case for -skip_refs.");
 
@@ -560,6 +564,17 @@ droption_t<bytesize_t>
                  "application execution. These memory references are dropped instead "
                  "of being simulated.  This skipping may be slow for large skip values; "
                  "consider -skip_instrs for a faster method of skipping.");
+
+droption_t<uint64_t> op_skip_to_timestamp(
+    DROPTION_SCOPE_FRONTEND, "skip_to_timestamp", 0, "Timestamp to start at",
+    "Specifies a timestamp to start at, skipping over prior records in the trace. "
+    "This is cross-cutting across all threads.  If the target timestamp is not "
+    "present as a timestamp marker, interpolation is used to approximate the "
+    "target location in each thread.  Only one of this and -skip_instrs can be "
+    "specified.  Requires -cpu_schedule_file to also be specified as a schedule file "
+    "is required to translate the timestamp into per-thread instruction ordinals."
+    "When built with zipfile support, this skipping is optimized and large "
+    "instruction counts can be quickly skipped.");
 
 droption_t<bytesize_t> op_L0_filter_until_instrs(
     DROPTION_SCOPE_CLIENT, "L0_filter_until_instrs", 0,
@@ -836,7 +851,8 @@ droption_t<bool> op_core_serial(
     "of options with the prefix \"sched_\" along with -cores.");
 
 droption_t<int64_t>
-    op_sched_quantum(DROPTION_SCOPE_ALL, "sched_quantum", 1 * 1000 * 1000,
+    // We pick 6 million to match 2 instructions per nanosecond with a 3ms quantum.
+    op_sched_quantum(DROPTION_SCOPE_ALL, "sched_quantum", 6 * 1000 * 1000,
                      "Scheduling quantum",
                      "Applies to -core_sharded and -core_serial. "
                      "Scheduling quantum: in microseconds of wall-clock "
@@ -855,13 +871,14 @@ droption_t<bool> op_sched_order_time(DROPTION_SCOPE_ALL, "sched_order_time", tru
                                      "Whether to honor recorded timestamps for ordering");
 
 droption_t<uint64_t> op_sched_syscall_switch_us(
-    DROPTION_SCOPE_ALL, "sched_syscall_switch_us", 500,
-    "Minimum latency to consider any syscall as incurring a context switch.",
-    "Minimum latency in timestamp units (us) to consider any syscall as incurring "
-    "a context switch.  Applies to -core_sharded and -core_serial. ");
+    DROPTION_SCOPE_ALL, "sched_syscall_switch_us", 30000000,
+    "Minimum latency to consider a non-blocking syscall as incurring a context switch.",
+    "Minimum latency in timestamp units (us) to consider a non-blocking syscall as "
+    "incurring a context switch (see -sched_blocking_switch_us for maybe-blocking "
+    "syscalls).  Applies to -core_sharded and -core_serial. ");
 
 droption_t<uint64_t> op_sched_blocking_switch_us(
-    DROPTION_SCOPE_ALL, "sched_blocking_switch_us", 100,
+    DROPTION_SCOPE_ALL, "sched_blocking_switch_us", 500,
     "Minimum latency to consider a maybe-blocking syscall as incurring a context switch.",
     "Minimum latency in timestamp units (us) to consider any syscall that is marked as "
     "maybe-blocking to incur a context switch. Applies to -core_sharded and "
@@ -900,9 +917,11 @@ droption_t<std::string> op_replay_file(DROPTION_SCOPE_FRONTEND, "replay_file", "
                                        "Path with stored schedule for replay.");
 droption_t<std::string>
     op_cpu_schedule_file(DROPTION_SCOPE_FRONTEND, "cpu_schedule_file", "",
-                         "Path with stored as-traced schedule for replay",
+                         "Path to as-traced schedule for replay or skip-to-timestamp",
                          "Applies to -core_sharded and -core_serial. "
-                         "Path with stored as-traced schedule for replay.");
+                         "Path with stored as-traced schedule for replay.  If specified "
+                         "with a non-zero -skip_to_timestamp, there is no replay "
+                         "and instead the file is used for the skip request.");
 #endif
 droption_t<std::string> op_sched_switch_file(
     DROPTION_SCOPE_FRONTEND, "sched_switch_file", "",
@@ -919,6 +938,15 @@ droption_t<bool> op_sched_randomize(
     "choosing the next input based on priority, timestamps (if -sched_order_time is "
     "set), and FIFO order and instead selects the next input randomly. "
     "This is intended for experimental use in sensitivity studies.");
+
+droption_t<bool> op_sched_disable_direct_switches(
+    DROPTION_SCOPE_FRONTEND, "sched_disable_direct_switches", false,
+    "Ignore direct thread switch requests",
+    "Applies to -core_sharded and -core_serial.  Disables switching to the recorded "
+    "targets of TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH system call metadata markers "
+    "and causes the associated system call to be treated like any other call with a "
+    "switch being determined by latency and the next input in the queue.  The "
+    "TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH markers are not removed from the trace.");
 
 // Schedule_stats options.
 droption_t<uint64_t>
@@ -962,6 +990,28 @@ droption_t<std::string>
                            "Comma-separated integers for marker types to remove.",
                            "Comma-separated integers for marker types to remove. "
                            "See trace_marker_type_t for the list of marker types.");
+
+/* XXX i#6369: we should partition our options by tool. This one should belong to the
+ * record_filter partition. For now we add the filter_ prefix to options that should be
+ * used in conjunction with record_filter.
+ */
+droption_t<bool> op_encodings2regdeps(
+    DROPTION_SCOPE_FRONTEND, "filter_encodings2regdeps", false,
+    "Enable converting the encoding of instructions to synthetic ISA DR_ISA_REGDEPS.",
+    "This option is for -tool " RECORD_FILTER ". When present, it converts "
+    "the encoding of instructions from a real ISA to the DR_ISA_REGDEPS synthetic ISA.");
+
+/* XXX i#6369: we should partition our options by tool. This one should belong to the
+ * record_filter partition. For now we add the filter_ prefix to options that should be
+ * used in conjunction with record_filter.
+ */
+droption_t<std::string>
+    op_filter_func_ids(DROPTION_SCOPE_FRONTEND, "filter_keep_func_ids", "",
+                       "Comma-separated integers of function IDs to keep.",
+                       "This option is for -tool " RECORD_FILTER ". It preserves "
+                       "TRACE_MARKER_TYPE_FUNC_[ID | ARG | RETVAL | RETADDR] markers "
+                       "for the listed function IDs and removes those belonging to "
+                       "unlisted function IDs.");
 
 droption_t<uint64_t> op_trim_before_timestamp(
     DROPTION_SCOPE_ALL, "trim_before_timestamp", 0, 0,

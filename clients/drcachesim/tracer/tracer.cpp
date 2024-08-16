@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -684,6 +684,11 @@ insert_conditional_skip(void *drcontext, instrlist_t *ilist, instr_t *where,
     MINSERT(ilist, where,
             INSTR_CREATE_cbz(drcontext, opnd_create_instr(skip_label),
                              opnd_create_reg(reg_skip_if_zero)));
+#elif defined(RISCV64)
+    MINSERT(ilist, where,
+            INSTR_CREATE_beq(drcontext, opnd_create_instr(skip_label),
+                             opnd_create_reg(reg_skip_if_zero),
+                             opnd_create_reg(DR_REG_ZERO)));
 #endif
 }
 
@@ -1720,6 +1725,10 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
     }
     BUF_PTR(data->seg_base) +=
         instru->append_marker(BUF_PTR(data->seg_base), marker_type, marker_val);
+    if (info->type == DR_XFER_SIGNAL_DELIVERY) {
+        BUF_PTR(data->seg_base) += instru->append_marker(
+            BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_SIGNAL_NUMBER, info->sig);
+    }
     // Append a timestamp to provide more accurate timing information at point
     // of interest such as kernel-mediated control transfers like these.
     append_timestamp_and_cpu_marker(data);

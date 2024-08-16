@@ -36,7 +36,9 @@
 #include <stdint.h>
 
 #include <cstdint>
+#include <iostream>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <unordered_set>
@@ -73,9 +75,63 @@ public:
     std::string
     parallel_shard_error(void *shard_data) override;
 
+    // Histogram interface for instrs-per-switch distribution.
+    class histogram_interface_t {
+    public:
+        virtual ~histogram_interface_t() = default;
+        virtual void
+        add(int64_t value) = 0;
+        virtual void
+        merge(const histogram_interface_t *rhs) = 0;
+        virtual void
+        print() const = 0;
+    };
+
+    // Simple binning histogram for instrs-per-switch distribution.
+    class histogram_t : public histogram_interface_t {
+    public:
+        histogram_t() = default;
+
+        void
+        add(int64_t value) override
+        {
+            // XXX: Add dynamic bin size changing.
+            // For now with relatively known data ranges we just stick
+            // with unchanging bin sizes.
+            uint64_t bin = value - (value % kInitialBinSize);
+            ++bin2count_[bin];
+        }
+
+        void
+        merge(const histogram_interface_t *rhs) override
+        {
+            const histogram_t *rhs_hist = dynamic_cast<const histogram_t *>(rhs);
+            for (const auto &keyval : rhs_hist->bin2count_) {
+                bin2count_[keyval.first] += keyval.second;
+            }
+        }
+
+        void
+        print() const override
+        {
+            for (const auto &keyval : bin2count_) {
+                std::cerr << std::setw(12) << keyval.first << ".." << std::setw(8)
+                          << keyval.first + kInitialBinSize << " " << std::setw(5)
+                          << keyval.second << "\n";
+            }
+        }
+
+    protected:
+        static constexpr uint64_t kInitialBinSize = 50000;
+
+        // Key is the inclusive lower bound of the bin.
+        std::map<uint64_t, uint64_t> bin2count_;
+    };
+
     struct counters_t {
         counters_t()
         {
+            instrs_per_switch = std::unique_ptr<histogram_interface_t>(new histogram_t);
         }
         counters_t &
         operator+=(const counters_t &rhs)
@@ -92,9 +148,11 @@ public:
             idle_microseconds += rhs.idle_microseconds;
             idle_micros_at_last_instr += rhs.idle_micros_at_last_instr;
             cpu_microseconds += rhs.cpu_microseconds;
+            wait_microseconds += rhs.wait_microseconds;
             for (const memref_tid_t tid : rhs.threads) {
                 threads.insert(tid);
             }
+            instrs_per_switch->merge(rhs.instrs_per_switch.get());
             return *this;
         }
         int64_t instrs = 0;
@@ -109,12 +167,22 @@ public:
         uint64_t idle_microseconds = 0;
         uint64_t idle_micros_at_last_instr = 0;
         uint64_t cpu_microseconds = 0;
+        uint64_t wait_microseconds = 0;
         std::unordered_set<memref_tid_t> threads;
+        std::unique_ptr<histogram_interface_t> instrs_per_switch;
     };
     counters_t
     get_total_counts();
 
 protected:
+    // We're in one of 3 states.
+    typedef enum { STATE_CPU, STATE_IDLE, STATE_WAIT } state_t;
+
+    static constexpr char THREAD_LETTER_INITIAL_START = 'A';
+    static constexpr char THREAD_LETTER_SUBSEQUENT_START = 'a';
+    static constexpr char WAIT_SYMBOL = '-';
+    static constexpr char IDLE_SYMBOL = '_';
+
     struct per_shard_t {
         std::string error;
         memtrace_stream_t *stream = nullptr;
@@ -128,12 +196,16 @@ protected:
         bool saw_exit = false;
         // A representation of the thread interleavings.
         std::string thread_sequence;
+        // The instruction count for the current activity (an active input or a wait
+        // or idle state) on this shard, since the last context switch or reset due
+        // to knob_print_every_: the time period between switches or resets we call
+        // a "segment".
         uint64_t cur_segment_instrs = 0;
-        bool prev_was_wait = false;
-        bool prev_was_idle = false;
+        state_t cur_state = STATE_CPU;
         // Computing %-idle.
         uint64_t segment_start_microseconds = 0;
         intptr_t filetype = 0;
+        uint64_t switch_start_instrs = 0;
     };
 
     void
@@ -142,8 +214,18 @@ protected:
     void
     print_counters(const counters_t &counters);
 
-    uint64_t
+    virtual uint64_t
     get_current_microseconds();
+
+    bool
+    update_state_time(per_shard_t *shard, state_t state);
+
+    void
+    record_context_switch(per_shard_t *shard, int64_t tid, int64_t input_id,
+                          int64_t letter_ord);
+
+    virtual void
+    aggregate_results(counters_t &total);
 
     uint64_t knob_print_every_ = 0;
     unsigned int knob_verbose_ = 0;

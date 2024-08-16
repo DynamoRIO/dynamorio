@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -353,6 +353,8 @@ look_for_gencode(std::string trace_dir, bool look_for_magic)
     }
     bool found_magic1 = false, found_magic2 = false;
     bool have_instr_encodings = false;
+    // Check that a signal # marker was inserted.
+    bool found_signal_marker = false;
 #ifdef ARM
     // DR will auto-switch locally to Thumb for LSB=1 but not to ARM so we start as ARM.
     dr_set_isa_mode(dr_context, DR_ISA_ARM_A32, nullptr);
@@ -362,10 +364,21 @@ look_for_gencode(std::string trace_dir, bool look_for_magic)
     for (scheduler_t::stream_status_t status = stream->next_record(memref);
          status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
         assert(status == scheduler_t::STATUS_OK);
-        if (memref.marker.type == TRACE_TYPE_MARKER &&
-            memref.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE &&
-            TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, memref.marker.marker_value)) {
-            have_instr_encodings = true;
+        if (memref.marker.type == TRACE_TYPE_MARKER) {
+            if (memref.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE &&
+                TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, memref.marker.marker_value)) {
+                have_instr_encodings = true;
+            }
+#ifdef LINUX
+            else if (memref.marker.marker_type == TRACE_MARKER_TYPE_SIGNAL_NUMBER) {
+                if (memref.marker.marker_value != SIGILL) {
+                    std::cerr << "Found unexpected signal #" << memref.marker.marker_value
+                              << "\n";
+                    return 1;
+                }
+                found_signal_marker = true;
+            }
+#endif
         }
         if (!type_is_instr(memref.instr.type)) {
             found_magic1 = false;
@@ -394,6 +407,12 @@ look_for_gencode(std::string trace_dir, bool look_for_magic)
         instr_free(dr_context, &instr);
     }
     dr_standalone_exit();
+#ifdef LINUX
+    if (!found_signal_marker) {
+        std::cerr << "Failed to find signal # marker\n";
+        return 1;
+    }
+#endif
     assert(!look_for_magic || found_magic2);
     return 0;
 }

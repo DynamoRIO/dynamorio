@@ -923,11 +923,8 @@ OPTION_DEFAULT(bool, elide_back_calls, true,
 OPTION_DEFAULT(uint, selfmod_max_writes, 5, "maximum write instrs per selfmod fragment")
 /* If this is too large, clients with heavyweight instrumentation hit the
  * "exceeded maximum size" failure.
- * On RISC-V, direct branch has a range of +/- 4 KiB -- for extreme use cases, such as
- * putting a clean call before every app instruction, 15 is a safe value to use.
  */
-OPTION_DEFAULT(uint, max_bb_instrs, IF_RISCV64_ELSE(15, 256),
-               "maximum instrs per basic block")
+OPTION_DEFAULT(uint, max_bb_instrs, 256, "maximum instrs per basic block")
 PC_OPTION_DEFAULT(bool, process_SEH_push, IF_RETURN_AFTER_CALL_ELSE(true, false),
                   "break bb's at an SEH push so we can see the frame pushed on in "
                   "interp, required for -borland_SEH_rct")

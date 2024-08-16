@@ -205,7 +205,7 @@ If you wish to run the test suite, you should enable BUILD_TESTS.
 
 ## Cross-Compiling for 64-bit ARM (AArch64) on Linux
 
-Install the cross compiler for the `gnueabihf` target:
+Install the cross compiler for the `gnu` target:
 
 ```
 $ sudo apt-get install g++-aarch64-linux-gnu
@@ -217,7 +217,7 @@ Check out the sources as normal, and point at our toolchain CMake file:
 $ git clone --recurse-submodules -j4 https://github.com/DynamoRIO/dynamorio.git
 $ mkdir build_aarch64
 $ cd build_aarch64
-$ cmake -DCMAKE_TOOLCHAIN_FILE=../dynamorio/make/toolchain-arm64.cmake ../dynamorio
+$ cmake -DCMAKE_TOOLCHAIN_FILE=../dynamorio/make/toolchain-aarch64.cmake ../dynamorio
 $ make -j
 ```
 
@@ -240,6 +240,43 @@ $ git clone --recurse-submodules -j4 https://github.com/DynamoRIO/dynamorio.git
 $ mkdir build_arm
 $ cd build_arm
 $ cmake -DCMAKE_TOOLCHAIN_FILE=../dynamorio/make/toolchain-arm32.cmake ../dynamorio
+$ make -j
+```
+
+To build a client, again use the toolchain file, as well as pointing at a DynamoRIO installation using `-DDynamoRIO_DIR=<path>` as described in the package documentation.
+
+----------------
+
+## Cross-Compiling for 64-bit RISC-V (RISCV64) on Linux
+
+Prepare cross-compiling environment for RISCV64:
+
+```
+$ sudo apt-get -y install doxygen vera++ cmake crossbuild-essential-riscv64 git
+```
+
+Some packages may need to be manually installed for cross-compiling environment. You can also refer to our [CI workflow file](https://github.com/DynamoRIO/dynamorio/blob/master/.github/workflows/ci-riscv64.yml) for creating a RISCV64 build environment.
+
+```
+$ echo 'deb [arch=riscv64] http://ports.ubuntu.com/ubuntu-ports noble main' | sudo tee -a /etc/apt/sources.list
+$ sudo apt-get update
+$ apt download libunwind8:riscv64 libunwind-dev:riscv64 liblzma5:riscv64 zlib1g:riscv64 zlib1g-dev:riscv64 libsnappy1v5:riscv64 libsnappy-dev:riscv64 liblz4-1:riscv64 liblz4-dev:riscv64
+$ mkdir ../extract
+$ for i in *.deb; do dpkg-deb -x $i ../extract; done
+$ for i in include lib; do sudo rsync -av ../extract/usr/${i}/riscv64-linux-gnu/ /usr/riscv64-linux-gnu/${i}/; done
+$ sudo rsync -av ../extract/usr/include/ /usr/riscv64-linux-gnu/include/
+$ if test -e "../extract/lib/riscv64-linux-gnu/"; then \
+    sudo rsync -av ../extract/lib/riscv64-linux-gnu/ /usr/riscv64-linux-gnu/lib/; \
+  fi
+```
+
+Check out the sources as normal, and point at our toolchain CMake file:
+
+```
+$ git clone --recurse-submodules -j4 https://github.com/DynamoRIO/dynamorio.git
+$ mkdir build_riscv64
+$ cd build_riscv64
+$ cmake -DCMAKE_TOOLCHAIN_FILE=../dynamorio/make/toolchain-riscv64.cmake ../dynamorio
 $ make -j
 ```
 

@@ -36,6 +36,9 @@
 int
 foo(int value);
 
+extern void
+foo_end(void);
+
 int
 main(void)
 {
@@ -44,6 +47,12 @@ main(void)
     protect_mem(foo, PAGE_SIZE, ALLOW_EXEC | ALLOW_WRITE | ALLOW_READ);
 
     print("foo returned %d\n", foo(10));
+#    ifdef AARCH64
+    /* On AARCH64 we need to invalidate the relevant part of the
+     * instruction cache after modifying our code.
+     */
+    tools_clear_icache(&foo, &foo_end);
+#    endif
     print("foo returned %d\n", foo(10));
 
     return 0;
@@ -60,18 +69,25 @@ START_FILE
  *   manually.
  */
 ADDRTAKEN_LABEL(bar:)
-        mov    REG_XAX, ARG1
-        shl    REG_XAX, 1
+#    ifdef X86
+        mov REG_XAX, ARG1
+        shl REG_XAX, 1
+#    elif defined(AARCH64)
+        lsl x0, x0, #1 /* x0 holds param 1 and the return value. */
+#    endif
         ret
 ADDRTAKEN_LABEL(bar_end:)
+
+DECLARE_GLOBAL(foo_end)
 
 /* int foo(int value)
  *   copies bar over the front of itself, so future invocations will
  *   run bar's code
  */
 #define FUNCNAME foo
-        DECLARE_FUNC(FUNCNAME)
+DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
+#    ifdef X86
         mov  REG_XAX, ARG1
         /* save callee-saved regs */
         push REG_XSI
@@ -86,8 +102,19 @@ GLOBAL_LABEL(FUNCNAME:)
         /* restore callee-saved regs */
         pop REG_XDI
         pop REG_XSI
+#    elif defined(AARCH64)
+        adr x9, bar
+        adr x10, bar_end
+        adr x11, foo
+loop:
+        ldr w12, [x9], #4 /* load 32 bit instruction and increment address. */
+        str w12, [x11], #4 /* write 32 bit instruction and increment address. */
+        cmp x9, x10 /* continue until bar_end. */
+        bne loop
+#    endif
         ret
-        END_FUNC(FUNCNAME)
+ADDRTAKEN_LABEL(foo_end:)
+END_FUNC(FUNCNAME)
 
 END_FILE
 /* clang-format on */

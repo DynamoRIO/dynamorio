@@ -50,26 +50,34 @@
 
 #define MINSERT instrlist_meta_preinsert
 
-static uint num_lea = 0;
+#ifdef X86
+#    ifdef X64
+#        define ASM_XAX "rax"
+#        define ASM_XDX "rdx"
+#        define ASM_SEG "gs"
+#    else
+#        define ASM_XAX "eax"
+#        define ASM_XDX "edx"
+#        define ASM_SEG "fs"
+#    endif
+#endif
+
+static uint num_times_opcode_encountered = 0;
+
+#ifdef X86
+static const int OPCODE_TO_INSTRUMENT = OP_lea;
+static const reg_id_t GENERAL_PURPOSE_REGISTER = DR_REG_XAX;
+static const bool SAVE_FPSTATE = true;
+#elif defined(AARCH64)
+static const int OPCODE_TO_INSTRUMENT = OP_eor;
+static const reg_id_t GENERAL_PURPOSE_REGISTER = DR_REG_X0;
+static const bool SAVE_FPSTATE = false;
+#endif
 
 static reg_id_t tls_seg;
 static uint tls_offs;
 #define CANARY 0xbadcab42
 #define NUM_TLS_SLOTS 4
-
-#ifdef X64
-#    define ASM_XAX "rax"
-#    define ASM_XDX "rdx"
-#    define ASM_XBP "rbp"
-#    define ASM_XSP "rsp"
-#    define ASM_SEG "gs"
-#else
-#    define ASM_XAX "eax"
-#    define ASM_XDX "edx"
-#    define ASM_XBP "ebp"
-#    define ASM_XSP "esp"
-#    define ASM_SEG "fs"
-#endif
 
 static void *child_alive;
 static void *child_continue;
@@ -137,16 +145,16 @@ thread_func(void *arg)
 }
 
 static void
-at_lea(uint opc, app_pc tag)
+at_instruction(uint opc, app_pc tag)
 {
     /* PR 223285: test (one side of) DR_ASSERT for something we know will succeed
      * (we don't want msgboxes in regressions)
      */
-    DR_ASSERT(opc == OP_lea);
+    DR_ASSERT(opc == OPCODE_TO_INSTRUMENT);
     ASSERT((process_id_t)(ptr_uint_t)dr_get_tls_field(dr_get_current_drcontext()) ==
            dr_get_process_id() + 1 /*we added 1 inline*/);
     dr_set_tls_field(dr_get_current_drcontext(), (void *)(ptr_uint_t)dr_get_process_id());
-    num_lea++;
+    num_times_opcode_encountered++;
     /* FIXME: should do some fp ops and really test the fp state preservation */
 }
 
@@ -178,18 +186,18 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 
     for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {
         next_instr = instr_get_next(instr);
-        if (instr_get_opcode(instr) == OP_lea) {
+        if (instr_get_opcode(instr) == OPCODE_TO_INSTRUMENT) {
             /* PR 200411: test inline tls access by adding 1 */
-            dr_save_reg(drcontext, bb, instr, REG_XAX, SPILL_SLOT_1);
-            dr_insert_read_tls_field(drcontext, bb, instr, REG_XAX);
+            dr_save_reg(drcontext, bb, instr, GENERAL_PURPOSE_REGISTER, SPILL_SLOT_1);
+            dr_insert_read_tls_field(drcontext, bb, instr, GENERAL_PURPOSE_REGISTER);
             instrlist_meta_preinsert(
                 bb, instr,
-                INSTR_CREATE_lea(
-                    drcontext, opnd_create_reg(REG_XAX),
-                    opnd_create_base_disp(REG_XAX, REG_NULL, 0, 1, OPSZ_lea)));
-            dr_insert_write_tls_field(drcontext, bb, instr, REG_XAX);
-            dr_restore_reg(drcontext, bb, instr, REG_XAX, SPILL_SLOT_1);
-            dr_insert_clean_call(drcontext, bb, instr, at_lea, true /*save fp*/, 2,
+                XINST_CREATE_add(drcontext, opnd_create_reg(GENERAL_PURPOSE_REGISTER),
+                                 OPND_CREATE_INT32(1)));
+
+            dr_insert_write_tls_field(drcontext, bb, instr, GENERAL_PURPOSE_REGISTER);
+            dr_restore_reg(drcontext, bb, instr, GENERAL_PURPOSE_REGISTER, SPILL_SLOT_1);
+            dr_insert_clean_call(drcontext, bb, instr, at_instruction, SAVE_FPSTATE, 2,
                                  OPND_CREATE_INT32(instr_get_opcode(instr)),
                                  OPND_CREATE_INTPTR(tag));
         }
@@ -230,7 +238,7 @@ exit_event(void)
 {
     bool success = dr_raw_tls_cfree(tls_offs, NUM_TLS_SLOTS);
     ASSERT(success);
-    ASSERT(num_lea > 0);
+    ASSERT(num_times_opcode_encountered > 0);
 #ifdef UNIX /* XXX i#2346: we should delay client threads termination on Windows too. */
     dr_fprintf(STDERR, "process is exiting\n");
     dr_event_signal(child_continue);
@@ -265,17 +273,26 @@ thread_init_event(void *drcontext)
 {
     int i;
     dr_set_tls_field(drcontext, (void *)(ptr_uint_t)dr_get_process_id());
+
+#ifdef X86
     for (i = 0; i < NUM_TLS_SLOTS; i++) {
         int idx = tls_offs + i * sizeof(void *);
         ptr_uint_t val = (ptr_uint_t)(CANARY + i);
-#ifdef WINDOWS
+#    ifdef WINDOWS
         IF_X64_ELSE(__writegsqword, __writefsdword)(idx, val);
-#else
+#    else
         asm("mov %0, %%" ASM_XAX : : "m"((val)) : ASM_XAX);
         asm("mov %0, %%edx" : : "m"((idx)) : ASM_XDX);
         asm("mov %%" ASM_XAX ", %%" ASM_SEG ":(%%" ASM_XDX ")" : : : ASM_XAX, ASM_XDX);
-#endif
+#    endif
     }
+#elif defined(AARCH64)
+    byte *tls_base = dr_get_dr_segment_base(tls_seg);
+    uint64 *tls_offset = (uint64 *)(tls_base + tls_offs);
+
+    for (i = 0; i < NUM_TLS_SLOTS; i++)
+        *tls_offset++ = CANARY + i;
+#endif
 }
 
 static void
@@ -288,24 +305,31 @@ thread_exit_event(void *drcontext)
                      instr_get_src(instrlist_first(ilist), 0)));
     instrlist_clear_and_destroy(drcontext, ilist);
 
+#ifdef X86
     for (i = 0; i < NUM_TLS_SLOTS; i++) {
         int idx = tls_offs + i * sizeof(void *);
         ptr_uint_t val;
-#ifdef WINDOWS
+#    ifdef WINDOWS
         val = IF_X64_ELSE(__readgsqword, __readfsdword)(idx);
-#else
+#    else
         asm("mov %0, %%eax" : : "m"((idx)) : ASM_XAX);
         asm("mov %%" ASM_SEG ":(%%" ASM_XAX "), %%" ASM_XAX : : : ASM_XAX);
         asm("mov %%" ASM_XAX ", %0" : "=m"((val)) : : ASM_XAX);
-#endif
+#    endif
         dr_fprintf(STDERR, "TLS slot %d is " PFX "\n", i, val);
     }
+#elif defined(AARCH64)
+    byte *tls_base = dr_get_dr_segment_base(tls_seg);
+    uint64 *tls_offset = (uint64 *)(tls_base + tls_offs);
+
+    for (i = 0; i < NUM_TLS_SLOTS; i++)
+        dr_fprintf(STDERR, "TLS slot %d is " PFX "\n", i, *tls_offset++);
+#endif
 }
 
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    bool success;
     /* PR 216931: client options */
     const char *ops = dr_get_options(id);
     dr_fprintf(STDERR, "PR 216931: client options are %s\n", ops);
@@ -318,9 +342,13 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     dr_register_thread_exit_event(thread_exit_event);
 
     /* i#108: client raw TLS */
-    success = dr_raw_tls_calloc(&tls_seg, &tls_offs, NUM_TLS_SLOTS, 0);
+    bool success = dr_raw_tls_calloc(&tls_seg, &tls_offs, NUM_TLS_SLOTS, 0);
     ASSERT(success);
+#ifdef X86
     ASSERT(tls_seg == IF_X64_ELSE(SEG_GS, SEG_FS));
+#elif defined(AARCH64)
+    ASSERT(tls_seg == dr_get_stolen_reg());
+#endif
 
     /* PR 219381: dr_get_application_name() and dr_get_process_id() */
 #ifdef WINDOWS

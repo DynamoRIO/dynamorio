@@ -1139,6 +1139,19 @@ dr_insert_it_instrs(void *drcontext, instrlist_t *ilist);
 
 DR_API
 /**
+ * Insert code to get the application value of the thread pointer register
+ * into register \p reg.
+ *
+ * \return whether successful.
+ *
+ * \note RISCV-only
+ */
+bool
+dr_insert_get_app_tls(void *drcontext, instrlist_t *ilist, instr_t *instr,
+                      reg_id_t tls_reg, reg_id_t reg);
+
+DR_API
+/**
  * Inserts into \p ilist prior to \p where meta-instruction(s) to save the
  * x87 floating point state into the 16-byte-aligned buffer referred to by
  * \p buf, which must be 512 bytes for processors with the FXSR
