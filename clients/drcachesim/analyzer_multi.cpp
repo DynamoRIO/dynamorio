@@ -68,6 +68,7 @@
 #include "tools/loader/external_tool_creator.h"
 #include "tools/filter/record_filter_create.h"
 #include "tools/access_region_create.h"
+#include "tools/reuse_pattern_create.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -277,6 +278,8 @@ analyzer_multi_t::create_analysis_tool_from_options(const std::string &tool)
                                          op_access_region_heap_start.get_value(),
                                          op_access_region_heap_end.get_value());
                                          
+    } else if (tool == REUSE_PATTERN) {
+        return reuse_pattern_tool_create();
     } else {
         auto ext_tool = create_external_tool(tool);
         if (ext_tool == nullptr) {
