@@ -9,14 +9,23 @@ namespace dynamorio {
 namespace drmemtrace {
 
 analysis_tool_t *
-access_region_tool_create(uint64_t stack_start, uint64_t stack_end, uint64_t heap_start, uint64_t heap_end)
+access_region_tool_create(uint64_t stack_start, uint64_t stack_end, uint64_t heap_start,
+                          uint64_t heap_end)
 {
     return new access_region_t(stack_start, stack_end, heap_start, heap_end);
 }
 
-access_region_t::access_region_t(uint64_t stack_start, uint64_t stack_end, uint64_t heap_start, uint64_t heap_end)
-    : stack_start(stack_start), stack_end(stack_end), heap_start(heap_start), heap_end(heap_end),
-      stack_accesses(0), heap_accesses(0), between_accesses(0), above_stack_accesses(0), below_heap_accesses(0)
+access_region_t::access_region_t(uint64_t stack_start, uint64_t stack_end,
+                                 uint64_t heap_start, uint64_t heap_end)
+    : stack_start(stack_start)
+    , stack_end(stack_end)
+    , heap_start(heap_start)
+    , heap_end(heap_end)
+    , stack_accesses(0)
+    , heap_accesses(0)
+    , between_accesses(0)
+    , above_stack_accesses(0)
+    , below_heap_accesses(0)
 {
     // Empty.
     // ASSERT(stack_start > stack_end);
@@ -41,13 +50,14 @@ access_region_t::parallel_shard_supported()
     return false;
 }
 
-void* 
-access_region_t::parallel_shard_init_stream(int shard_index, void *worker_data, memtrace_stream_t *shard_stream)
+void *
+access_region_t::parallel_shard_init_stream(int shard_index, void *worker_data,
+                                            memtrace_stream_t *shard_stream)
 {
     return shard_stream;
 }
 
-bool 
+bool
 access_region_t::parallel_shard_exit(void *shard_data)
 {
     return true;
@@ -74,9 +84,9 @@ access_region_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             stack_accesses++;
         } else if (memref.data.addr >= heap_start && memref.data.addr < heap_end) {
             heap_accesses++;
-        } else if (memref.data.addr > stack_start){
+        } else if (memref.data.addr > stack_start) {
             above_stack_accesses++;
-        } else if (memref.data.addr < heap_end){
+        } else if (memref.data.addr < heap_end) {
             below_heap_accesses++;
         } else {
             between_accesses++;
