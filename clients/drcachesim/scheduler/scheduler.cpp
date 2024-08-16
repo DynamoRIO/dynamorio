@@ -74,23 +74,21 @@
 #include "utils.h"
 
 #undef VPRINT
-#ifdef DEBUG
-#    define VPRINT(obj, level, ...)                            \
-        do {                                                   \
-            if ((obj)->verbosity_ >= (level)) {                \
-                fprintf(stderr, "%s ", (obj)->output_prefix_); \
-                fprintf(stderr, __VA_ARGS__);                  \
-            }                                                  \
-        } while (0)
-#    define VDO(obj, level, statement)        \
-        do {                                  \
-            if ((obj)->verbosity_ >= (level)) \
-                statement                     \
-        } while (0)
-#else
-#    define VPRINT(reader, level, ...)  /* Nothing. */
-#    define VDO(obj, level, statementx) /* Nothing. */
-#endif
+// We make logging available in release build to help in diagnosing issues
+// and understanding scheduler behavior.
+// We assume the extra branches do not add undue overhead.
+#define VPRINT(obj, level, ...)                            \
+    do {                                                   \
+        if ((obj)->verbosity_ >= (level)) {                \
+            fprintf(stderr, "%s ", (obj)->output_prefix_); \
+            fprintf(stderr, __VA_ARGS__);                  \
+        }                                                  \
+    } while (0)
+#define VDO(obj, level, statement)        \
+    do {                                  \
+        if ((obj)->verbosity_ >= (level)) \
+            statement                     \
+    } while (0)
 
 namespace dynamorio {
 namespace drmemtrace {
