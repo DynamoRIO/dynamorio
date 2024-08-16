@@ -3190,10 +3190,10 @@ translate_sigcontext(dcontext_t *dcontext, kernel_ucontext_t *uc, bool avoid_fai
 
 /* Takes an os-specific context */
 void
-thread_set_self_context(void *cxt, bool is_detach_external)
+thread_set_self_context(void *cxt)
 {
 #ifdef X86
-    if (!INTERNAL_OPTION(use_sigreturn_setcontext) || is_detach_external) {
+    if (!INTERNAL_OPTION(use_sigreturn_setcontext)) {
         sigcontext_t *sc = (sigcontext_t *)cxt;
         dr_jmp_buf_t buf;
         buf.xbx = sc->SC_XBX;
@@ -3240,15 +3240,14 @@ thread_set_self_context(void *cxt, bool is_detach_external)
 #endif
 #ifdef LINUX
 #    ifdef X86
-    byte *xstate = get_and_initialize_xstate_buffer(dcontext);
-    frame.uc.uc_mcontext.fpstate = &((kernel_xstate_t *)xstate)->fpstate;
+    frame.uc.uc_mcontext.fpstate = sc->fpstate;
 #    endif /* X86 */
     frame.uc.uc_mcontext = *sc;
 #endif
-    IF_ARM(ASSERT_NOT_TESTED());
 #if defined(X86)
     save_fpstate(dcontext, &frame);
 #endif
+    IF_ARM(ASSERT_NOT_TESTED());
     /* The kernel calls do_sigaltstack on sys_rt_sigreturn primarily to ensure
      * the frame is ok, but the side effect is we can mess up our own altstack
      * settings if we're not careful.  Having invalid ss_size looks good for
@@ -3335,7 +3334,7 @@ thread_set_segment_registers(sigcontext_t *sc)
 
 /* Takes a priv_mcontext_t */
 void
-thread_set_self_mcontext(priv_mcontext_t *mc, bool is_detach_external)
+thread_set_self_mcontext(priv_mcontext_t *mc)
 {
     kernel_ucontext_t ucxt;
     sig_full_cxt_t sc_full;
@@ -3349,7 +3348,7 @@ thread_set_self_mcontext(priv_mcontext_t *mc, bool is_detach_external)
     IF_ARM(
         set_pc_mode_in_cpsr(sc_full.sc, dr_get_isa_mode(get_thread_private_dcontext())));
     /* thread_set_self_context will fill in the real fp/simd state for x86 */
-    thread_set_self_context((void *)sc_full.sc, is_detach_external);
+    thread_set_self_context((void *)sc_full.sc);
     ASSERT_NOT_REACHED();
 }
 

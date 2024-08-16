@@ -2795,7 +2795,7 @@ thread_attach_setup(priv_mcontext_t *mc)
          * sets the context back).
          */
         mc->pc = data->continuation_pc;
-        thread_set_self_mcontext(mc, false);
+        thread_set_self_mcontext(mc);
         ASSERT_NOT_REACHED();
     }
     /* Preclude double takeover if we become suspended while in ntdll */
@@ -5201,7 +5201,7 @@ thread_set_context(thread_record_t *tr, CONTEXT *context)
 
 /* Takes an os-specific context */
 void
-thread_set_self_context(void *cxt, bool is_detach_external)
+thread_set_self_context(void *cxt)
 {
     /* We use NtContinue to avoid privilege issues with NtSetContext */
     nt_continue((CONTEXT *)cxt);
@@ -5210,7 +5210,7 @@ thread_set_self_context(void *cxt, bool is_detach_external)
 
 /* Takes a priv_mcontext_t */
 void
-thread_set_self_mcontext(priv_mcontext_t *mc, bool is_detach_external)
+thread_set_self_mcontext(priv_mcontext_t *mc)
 {
     /* We can't use heap for our CONTEXT as we have no opportunity to free it.
      * We assume call paths can handle a large stack buffer as size something
@@ -5232,7 +5232,7 @@ thread_set_self_mcontext(priv_mcontext_t *mc, bool is_detach_external)
         cxt = nt_initialize_context(buf, bufsz, cxt_flags);
     /* need ss and cs for setting my own context */
     mcontext_to_context(cxt, mc, true /* set_cur_seg */);
-    thread_set_self_context(cxt, false);
+    thread_set_self_context(cxt);
     ASSERT_NOT_REACHED();
 }
 
