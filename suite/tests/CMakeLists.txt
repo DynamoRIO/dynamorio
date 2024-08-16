@@ -5400,6 +5400,7 @@ if (UNIX)
     if (X86)
       tobuild(linux.threadset linux/threadset.c)
       set_avx_flags(linux.threadset)
+      link_with_pthread(linux.threadset)
 
       add_library(linux.threadsetclient SHARED linux/threadset.c)
       setup_test_client_dll_basics(linux.threadsetclient)
