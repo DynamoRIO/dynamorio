@@ -119,8 +119,8 @@ func_view_t::initialize_stream(memtrace_stream_t *serial_stream)
             auto& info = id2info_[id];
             info.names.insert(entry.back());
             if (info.num_args != num_args) {
-              std::cerr << "Warning: Inconsistent argument details for function ID "
-                        << std::to_string(id) << ".\n";
+                return "Warning: Inconsistent argument details for function ID " +
+                    std::to_string(id);
             }
             continue;
         }
