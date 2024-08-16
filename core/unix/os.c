@@ -3480,7 +3480,7 @@ os_heap_reserve(void *preferred, size_t size, heap_error_code_t *error_code,
     if (executable)
         os_flags |= MAP_JIT;
 #endif
-#ifdef LINUX
+#if defined(LINUX) && !defined(ANDROID)
     if (preferred != NULL) {
         /* We fail if we don't get the preferred address, so we use the 4.17+
          * fixed-but-no-clobber flag to ensure the kernel actually tries for our hint.
@@ -3493,7 +3493,7 @@ os_heap_reserve(void *preferred, size_t size, heap_error_code_t *error_code,
      * system and pages aren't actually committed until we touch them.
      */
     p = mmap_syscall(preferred, size, prot, os_flags, -1, 0);
-#ifdef LINUX
+#if defined(LINUX) && !defined(ANDROID)
     if (preferred != NULL && p == (void *)(-EINVAL)) {
         /* We're probably on an old pre-4.17 kernel.
          * We could have a global var but we live w/ doing this every time.
