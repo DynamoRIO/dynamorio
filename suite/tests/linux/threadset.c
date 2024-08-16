@@ -144,7 +144,7 @@ main(int argc, char *argv[])
      * saving bug :/).
      */
 
-    write(2, "Starting test.\n", 16);
+    write(2, "Starting test.\n", 15);
     thread_t flusher = create_thread(thread, NULL);
     sleep(1);
     write(2, "Saving regs.\n", 13);
