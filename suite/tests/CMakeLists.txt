@@ -5396,6 +5396,16 @@ if (UNIX)
   if (NOT APPLE)
     tobuild(linux.thread linux/thread.c)
     tobuild(linux.threadexit linux/threadexit.c)
+
+    if (X86)
+      tobuild(linux.threadset linux/threadset.c)
+      set_avx_flags(linux.threadset)
+
+      add_library(linux.threadsetclient SHARED linux/threadset.c)
+      setup_test_client_dll_basics(linux.threadsetclient)
+      append_property_string(TARGET linux.threadsetclient COMPILE_FLAGS "-DTHREADSET_CLIENT")
+    endif ()
+
     if (NOT ANDROID)
       tobuild(linux.threadexit2 linux/threadexit2.c) # XXX i#1874: hangs on Android
       tobuild(linux.signalfd linux/signalfd.c) # XXX i#1874: fails natively on Android
