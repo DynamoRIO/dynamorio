@@ -54,6 +54,7 @@
 #define SCHEDULE_STATS "schedule_stats"
 #define RECORD_FILTER "record_filter"
 #define ACCESS_REGION "access_region"
+#define REUSE_PATTERN "reuse_pattern"
 // Constants used by specific tools.
 #define REPLACE_POLICY_NON_SPECIFIED ""
 #define REPLACE_POLICY_LRU "LRU"
