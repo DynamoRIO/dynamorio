@@ -169,6 +169,10 @@ add_exported_library(drmemtrace_invariant_checker STATIC tools/invariant_checker
 add_exported_library(drmemtrace_schedule_stats STATIC tools/schedule_stats.cpp)
 add_exported_library(drmemtrace_schedule_file STATIC common/schedule_file.cpp)
 add_exported_library(drmemtrace_access_region STATIC tools/access_region.cpp)
+add_exported_library(drmemtrace_reuse_pattern STATIC tools/reuse_pattern.cpp)
+
+add_subdirectory(mirage)
+target_link_libraries(drmemtrace_reuse_pattern mirage)
 
 target_link_libraries(drmemtrace_invariant_checker drdecode drmemtrace_schedule_file)
 
@@ -213,6 +217,7 @@ target_link_libraries(directory_iterator drfrontendlib)
 if (BUILD_PT_POST_PROCESSOR)
   add_subdirectory(drpt2trace)
 endif (BUILD_PT_POST_PROCESSOR)
+
 
 set(raw2trace_srcs
   tracer/raw2trace.cpp
@@ -285,7 +290,7 @@ target_link_libraries(drmemtrace_launcher drmemtrace_simulator drmemtrace_reuse_
   drmemtrace_histogram drmemtrace_reuse_time drmemtrace_basic_counts
   drmemtrace_opcode_mix drmemtrace_syscall_mix drmemtrace_view drmemtrace_func_view
   drmemtrace_raw2trace directory_iterator drmemtrace_invariant_checker
-  drmemtrace_schedule_stats drmemtrace_record_filter drmemtrace_access_region)
+  drmemtrace_schedule_stats drmemtrace_record_filter drmemtrace_access_region drmemtrace_reuse_pattern)
 if (UNIX)
     target_link_libraries(drmemtrace_launcher dl)
 endif ()
@@ -317,6 +322,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 if (BUILD_PT_POST_PROCESSOR)
   include_directories(${CMAKE_CURRENT_SOURCE_DIR}/drpt2trace)
 endif (BUILD_PT_POST_PROCESSOR)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/mirage)
 
 add_exported_library(drmemtrace_analyzer STATIC
   analyzer.cpp
@@ -368,6 +374,7 @@ install_client_nonDR_header(drmemtrace tools/func_view_create.h)
 install_client_nonDR_header(drmemtrace tools/filter/record_filter_create.h)
 install_client_nonDR_header(drmemtrace tools/filter/record_filter.h)
 install_client_nonDR_header(drmemtrace tools/access_region_create.h)
+install_client_nonDR_header(drmemtrace tools/reuse_pattern_create.h)
 # TODO i#6412: Create a separate directory for non-tracer headers so that
 # we can more cleanly separate tracer and raw2trace code.
 install_client_nonDR_header(drmemtrace tracer/raw2trace.h)
@@ -599,6 +606,7 @@ restore_nonclient_flags(drmemtrace_invariant_checker)
 restore_nonclient_flags(drmemtrace_schedule_stats)
 restore_nonclient_flags(drmemtrace_schedule_file)
 restore_nonclient_flags(drmemtrace_access_region)
+restore_nonclient_flags(drmemtrace_reuse_pattern)
 
 # We need to pass /EHsc and we pull in libcmtd into drcachesim from a dep lib.
 # Thus we need to override the /MT with /MTd.
@@ -668,6 +676,7 @@ add_win32_flags(drmemtrace_schedule_stats)
 add_win32_flags(drmemtrace_schedule_file)
 add_win32_flags(directory_iterator)
 add_win32_flags(drmemtrace_access_region)
+add_win32_flags(drmemtrace_reuse_pattern)
 add_win32_flags(test_helpers)
 if (WIN32 AND DEBUG)
   get_target_property(sim_srcs drmemtrace_launcher SOURCES)
@@ -853,7 +862,8 @@ if (BUILD_TESTS)
     drmemtrace_histogram drmemtrace_reuse_time drmemtrace_basic_counts
     drmemtrace_opcode_mix drmemtrace_syscall_mix drmemtrace_view drmemtrace_func_view
     drmemtrace_raw2trace directory_iterator drmemtrace_invariant_checker
-    drmemtrace_schedule_stats drmemtrace_analyzer drmemtrace_record_filter drmemtrace_access_region)
+    drmemtrace_schedule_stats drmemtrace_analyzer drmemtrace_record_filter drmemtrace_access_region
+    drmemtrace_reuse_pattern)
   if (UNIX)
     target_link_libraries(tool.drcachesim.core_sharded dl)
   endif ()
