@@ -3332,7 +3332,8 @@ thread_set_self_mcontext(priv_mcontext_t *mc, bool is_detach_external)
     sig_full_initialize(&sc_full, &ucxt);
 #if defined(LINUX) && defined(X86)
     /* for mcontext_to_sigcontext to fill in with saved fp state */
-    sc_full.sc->fpstate = (kernel_fpstate_t*)get_and_initialize_xstate_buffer(get_thread_private_dcontext());
+    sc_full.sc->fpstate = (kernel_fpstate_t *)get_and_initialize_xstate_buffer(
+        get_thread_private_dcontext());
 #endif
     mcontext_to_sigcontext(&sc_full, mc, DR_MC_ALL);
     thread_set_segment_registers(sc_full.sc);
