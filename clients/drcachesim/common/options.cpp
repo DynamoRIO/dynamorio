@@ -1036,22 +1036,22 @@ droption_t<bool> op_abort_on_invariant_error(
     "affect the exit code of the analyzer.");
 
 droption_t<uint64_t> op_access_region_stack_start(
-    DROPTION_SCOPE_ALL, "access_region_stack_start", 2,
+    DROPTION_SCOPE_ALL, "access_region_stack_start", 0x8000000000000000,
     "Start of the stack region to analyze",
     "Specifies the start of the stack region");
 
 droption_t<uint64_t> op_access_region_stack_end(
-    DROPTION_SCOPE_ALL, "access_region_stack_end", 1,
+    DROPTION_SCOPE_ALL, "access_region_stack_end", 0x7000000000000000,
     "End of the stack region to analyze",
     "Specifies the end of the stack region");
 
 droption_t<uint64_t> op_access_region_heap_start(
-    DROPTION_SCOPE_ALL, "access_region_heap_start", 3, 
+    DROPTION_SCOPE_ALL, "access_region_heap_start", 0x5000000000000000, 
     "Start of the heap region to analyze",
     "Specifies the start of the heap region");
 
 droption_t<uint64_t> op_access_region_heap_end(
-    DROPTION_SCOPE_ALL, "access_region_heap_end", 4, 
+    DROPTION_SCOPE_ALL, "access_region_heap_end",  0x6000000000000000,
     "End of the heap region to analyze",
     "Specifies the end of the heap region");
 } // namespace drmemtrace
