@@ -31,7 +31,7 @@
  */
 
 /* This trace analyzer presents function call trace information, both
- * sequentially and in summary.  it optionally uses modules.log file
+ * sequentially and in summary.  It requires a modules.log file
  * to qualify function names for offline traces.
  */
 
@@ -112,15 +112,21 @@ func_view_t::initialize_stream(memtrace_stream_t *serial_stream)
         if (entry.size() < 4)
             return "Invalid funclist entry: has <4 fields.";
         int id = strtol(entry.front().c_str(), nullptr, 10);
+        int num_args = strtol(entry[1].c_str(), nullptr, 10);
         // If multiple syms have the same id, the args, noret, etc. come from
         // the first one.
         if (id2info_.find(id) != id2info_.end()) {
-            id2info_[id].names.insert(entry.back());
+            auto& info = id2info_[id];
+            info.names.insert(entry.back());
+            if (info.num_args != num_args) {
+              std::cerr << "Warning: Inconsistent argument details for function ID "
+                        << std::to_string(id) << ".\n";
+            }
             continue;
         }
         traced_info_t info;
         info.names.insert(entry.back());
-        info.num_args = strtol(entry[1].c_str(), nullptr, 10);
+        info.num_args = num_args;
         for (size_t i = 3; i < entry.size() - 1; ++i) {
             if (entry[i] == "noret")
                 info.noret = true;
@@ -185,7 +191,7 @@ func_view_t::process_memref_for_markers(void *shard_data, const memref_t &memref
     switch (memref.marker.marker_type) {
     case TRACE_MARKER_TYPE_FUNC_ID:
         if (shard->last_func_id != -1)
-            shard->prev_noret = id2info_[shard->last_func_id].noret;
+            shard->prev_noret = get_info_for_last_func_id(shard).noret;
         shard->last_func_id = static_cast<int>(memref.marker.marker_value);
         break;
     case TRACE_MARKER_TYPE_FUNC_RETADDR:
@@ -207,7 +213,7 @@ func_view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     if (memref.marker.type != TRACE_TYPE_MARKER)
         return true;
     process_memref_for_markers(shard, memref);
-    return true;
+    return shard->error.empty();  // An error message means there was a problem.
 }
 
 bool
@@ -234,8 +240,7 @@ func_view_t::process_memref(const memref_t &memref)
         return true;
     switch (memref.marker.marker_type) {
     case TRACE_MARKER_TYPE_FUNC_RETADDR: {
-        assert(shard->last_func_id != -1);
-        const auto &info = id2info_[shard->last_func_id];
+        const auto &info = get_info_for_last_func_id(shard);
         bool was_nested = shard->nesting_level > 0;
         if (shard->prev_noret) {
             if (was_nested) {
@@ -248,11 +253,9 @@ func_view_t::process_memref(const memref_t &memref)
         std::cerr << ((was_nested && shard->prev_was_arg) ? "\n" : "") << "T" << std::dec
                   << std::left << std::setw(8) << memref.marker.tid
                   << std::right /*restore*/;
-        const std::string name = info.names.empty()
-            ? "<F#" + std::to_string(shard->last_func_id) + ">"
-            : *info.names.begin();
+        assert(!info.names.empty());
         std::cerr << get_indent_string(shard->nesting_level) << "0x" << std::hex
-                  << memref.marker.marker_value << " => " << name << "(";
+                  << memref.marker.marker_value << " => " << *info.names.begin() << "(";
         if (info.num_args == 0)
             std::cerr << ")";
         ++shard->nesting_level;
@@ -262,7 +265,7 @@ func_view_t::process_memref(const memref_t &memref)
         break;
     }
     case TRACE_MARKER_TYPE_FUNC_ARG: {
-        const auto &info = id2info_[shard->last_func_id];
+        const auto &info = get_info_for_last_func_id(shard);
         std::cerr << (shard->arg_idx > 0 ? ", " : "") << std::hex << "0x"
                   << memref.marker.marker_value;
         ++shard->arg_idx;
@@ -354,6 +357,21 @@ func_view_t::print_results()
     // XXX: Should we print out a per-thread breakdown?
     return true;
 }
+
+func_view_t::traced_info_t &
+func_view_t::get_info_for_last_func_id(shard_data_t* shard) {
+  assert(shard != nullptr);
+  int id = shard->last_func_id;
+  assert(id != -1);
+  traced_info_t& info = id2info_[id];
+  // If this entry is uninitialized, it means we aren't expecting to see this
+  // function ID.  This likely means the funclist file is missing or incorrect.
+  if (info.num_args < 0 || info.names.empty()) {
+    shard->error = "Encountered unknown function ID=" + std::to_string(id);
+  }
+  return info;
+}
+
 
 } // namespace drmemtrace
 } // namespace dynamorio

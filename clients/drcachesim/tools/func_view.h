@@ -111,11 +111,16 @@ protected:
         std::string last_trace_module_name;
     };
     struct traced_info_t {
-        int id = -1;
         std::set<std::string> names;
-        int num_args = 0;
+        int num_args = -1;  // Illegal value to mark uninitialized info structs.
         bool noret = false;
     };
+
+    // Lookup the information for the shard's last_func_id and return its traced_info_t
+    // struct.  Sets shard.error if the ID is not found (but still returns a traced_info_t
+    // reference).
+    traced_info_t &
+    get_info_for_last_func_id(shard_data_t* shard);
 
     static bool
     cmp_func_stats(const std::pair<int, func_stats_t> &l,
