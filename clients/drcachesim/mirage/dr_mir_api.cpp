@@ -7,7 +7,7 @@ void dr_gen_mir_ops(instr_t *instr) {
             gen_add_op(instr);
             break;
         default:
-            printf("Unsupported opcode: %d\n", opc);
+            // printf("Unsupported opcode: %d\n", opc);
             break;
     }
 }

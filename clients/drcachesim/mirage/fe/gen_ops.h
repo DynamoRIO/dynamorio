@@ -4,8 +4,11 @@
 #include "dr_api.h"
 #include "assert.h"
 
-void gen_add_op(instr_t *instr);
+#include "list"
 
-void print_opnd_type(opnd_t opnd);
+// a helper function to get the type of an operand
+const char* get_opnd_type(opnd_t opnd);
+
+void gen_add_op(instr_t *instr);
 
 #endif // __GEN_OPS_H__
