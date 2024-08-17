@@ -781,6 +781,60 @@ test_reg_is_simd()
         ASSERT(!reg_is_simd(reg));
 }
 
+void
+test_cond()
+{
+    /* Test dr_pred_type_t -> cond opnd. */
+    ASSERT(opnd_get_immed_int(opnd_create_cond(DR_PRED_EQ)) == 0b0000);
+    ASSERT(opnd_get_immed_int(opnd_create_cond(DR_PRED_NE)) == 0b0001);
+    ASSERT(opnd_get_immed_int(opnd_create_cond(DR_PRED_CS)) == 0b0010);
+    ASSERT(opnd_get_immed_int(opnd_create_cond(DR_PRED_CC)) == 0b0011);
+    ASSERT(opnd_get_immed_int(opnd_create_cond(DR_PRED_MI)) == 0b0100);
+    ASSERT(opnd_get_immed_int(opnd_create_cond(DR_PRED_PL)) == 0b0101);
+    ASSERT(opnd_get_immed_int(opnd_create_cond(DR_PRED_VS)) == 0b0110);
+    ASSERT(opnd_get_immed_int(opnd_create_cond(DR_PRED_VC)) == 0b0111);
+    ASSERT(opnd_get_immed_int(opnd_create_cond(DR_PRED_HI)) == 0b1000);
+    ASSERT(opnd_get_immed_int(opnd_create_cond(DR_PRED_LS)) == 0b1001);
+    ASSERT(opnd_get_immed_int(opnd_create_cond(DR_PRED_GE)) == 0b1010);
+    ASSERT(opnd_get_immed_int(opnd_create_cond(DR_PRED_LT)) == 0b1011);
+    ASSERT(opnd_get_immed_int(opnd_create_cond(DR_PRED_GT)) == 0b1100);
+    ASSERT(opnd_get_immed_int(opnd_create_cond(DR_PRED_LE)) == 0b1101);
+    ASSERT(opnd_get_immed_int(opnd_create_cond(DR_PRED_AL)) == 0b1110);
+    ASSERT(opnd_get_immed_int(opnd_create_cond(DR_PRED_NV)) == 0b1111);
+
+    /* Test aliases. */
+    ASSERT(opnd_get_immed_int(opnd_create_cond(DR_PRED_HS)) == 0b0010);
+    ASSERT(opnd_get_immed_int(opnd_create_cond(DR_PRED_LO)) == 0b0011);
+
+    ASSERT(opnd_get_immed_int(opnd_create_cond(DR_PRED_SVE_NONE)) == 0b0000);
+    ASSERT(opnd_get_immed_int(opnd_create_cond(DR_PRED_SVE_ANY)) == 0b0001);
+    ASSERT(opnd_get_immed_int(opnd_create_cond(DR_PRED_SVE_NLAST)) == 0b0010);
+    ASSERT(opnd_get_immed_int(opnd_create_cond(DR_PRED_SVE_LAST)) == 0b0011);
+    ASSERT(opnd_get_immed_int(opnd_create_cond(DR_PRED_SVE_FIRST)) == 0b0100);
+    ASSERT(opnd_get_immed_int(opnd_create_cond(DR_PRED_SVE_NFRST)) == 0b0101);
+    ASSERT(opnd_get_immed_int(opnd_create_cond(DR_PRED_SVE_PLAST)) == 0b1001);
+    ASSERT(opnd_get_immed_int(opnd_create_cond(DR_PRED_SVE_TCONT)) == 0b1010);
+    ASSERT(opnd_get_immed_int(opnd_create_cond(DR_PRED_SVE_TSTOP)) == 0b1011);
+
+    /* Test cond opnd -> dr_pred_type_t. */
+    ASSERT(opnd_get_cond(OPND_CREATE_INT(0b0000)) == DR_PRED_EQ);
+    ASSERT(opnd_get_cond(OPND_CREATE_INT(0b0001)) == DR_PRED_NE);
+    ASSERT(opnd_get_cond(OPND_CREATE_INT(0b0010)) == DR_PRED_CS);
+    ASSERT(opnd_get_cond(OPND_CREATE_INT(0b0011)) == DR_PRED_CC);
+    ASSERT(opnd_get_cond(OPND_CREATE_INT(0b0100)) == DR_PRED_MI);
+    ASSERT(opnd_get_cond(OPND_CREATE_INT(0b0101)) == DR_PRED_PL);
+    ASSERT(opnd_get_cond(OPND_CREATE_INT(0b0110)) == DR_PRED_VS);
+    ASSERT(opnd_get_cond(OPND_CREATE_INT(0b0111)) == DR_PRED_VC);
+    ASSERT(opnd_get_cond(OPND_CREATE_INT(0b1000)) == DR_PRED_HI);
+    ASSERT(opnd_get_cond(OPND_CREATE_INT(0b1001)) == DR_PRED_LS);
+    ASSERT(opnd_get_cond(OPND_CREATE_INT(0b1010)) == DR_PRED_GE);
+    ASSERT(opnd_get_cond(OPND_CREATE_INT(0b1011)) == DR_PRED_LT);
+    ASSERT(opnd_get_cond(OPND_CREATE_INT(0b1100)) == DR_PRED_GT);
+    ASSERT(opnd_get_cond(OPND_CREATE_INT(0b1101)) == DR_PRED_LE);
+    ASSERT(opnd_get_cond(OPND_CREATE_INT(0b1110)) == DR_PRED_AL);
+    ASSERT(opnd_get_cond(OPND_CREATE_INT(0b1111)) == DR_PRED_NV);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -799,6 +853,8 @@ main(int argc, char *argv[])
     test_compute_vector_address(drcontext);
 
     test_reg_is_simd();
+
+    test_cond();
 
     printf("all done\n");
     return 0;

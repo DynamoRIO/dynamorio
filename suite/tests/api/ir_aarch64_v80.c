@@ -460,6 +460,191 @@ TEST_INSTR(orr_shift)
             "orr    %x21 %x22 ror $0x18 -> %x20", "orr    %x30 %x30 ror $0x1f -> %x30"););
 }
 
+static const dr_pred_type_t cond_codes[] = {
+    DR_PRED_EQ, DR_PRED_NE, DR_PRED_CS, DR_PRED_CC, DR_PRED_MI, DR_PRED_PL,
+    DR_PRED_VS, DR_PRED_VC, DR_PRED_HI, DR_PRED_LS, DR_PRED_GE, DR_PRED_LT,
+    DR_PRED_GT, DR_PRED_LE, DR_PRED_AL, DR_PRED_NV,
+};
+static const size_t cond_count = sizeof(cond_codes) / sizeof(cond_codes[0]);
+
+TEST_INSTR(ccmp)
+{
+    /* Testing CCMP <Wn>, #<imm>, #<nzcv>, <cond> */
+    TEST_LOOP_EXPECT(
+        ccmp, cond_count,
+        INSTR_CREATE_ccmp(
+            dc, CYCLE_REG(W, 2 * i), opnd_create_immed_int((2 * i) % 32, OPSZ_5b),
+            opnd_create_immed_int(i & 0xf, OPSZ_4b), opnd_create_cond(cond_codes[i])),
+        {
+            EXPECT_DISASSEMBLY("ccmp   %w0 $0x00 $0x00 eq", "ccmp   %w2 $0x02 $0x01 ne",
+                               "ccmp   %w4 $0x04 $0x02 cs", "ccmp   %w6 $0x06 $0x03 cc",
+                               "ccmp   %w8 $0x08 $0x04 mi", "ccmp   %w10 $0x0a $0x05 pl",
+                               "ccmp   %w12 $0x0c $0x06 vs", "ccmp   %w14 $0x0e $0x07 vc",
+                               "ccmp   %w16 $0x10 $0x08 hi", "ccmp   %w18 $0x12 $0x09 ls",
+                               "ccmp   %w20 $0x14 $0x0a ge", "ccmp   %w22 $0x16 $0x0b lt",
+                               "ccmp   %w24 $0x18 $0x0c gt", "ccmp   %w26 $0x1a $0x0d le",
+                               "ccmp   %w28 $0x1c $0x0e al",
+                               "ccmp   %w30 $0x1e $0x0f nv");
+            EXPECT_TRUE(
+                TEST(EFLAGS_READ_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+            EXPECT_TRUE(
+                TEST(EFLAGS_WRITE_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+        });
+
+    /* Testing CCMP <Xn>, #<imm>, #<nzcv>, <cond> */
+    TEST_LOOP_EXPECT(
+        ccmp, cond_count,
+        INSTR_CREATE_ccmp(
+            dc, CYCLE_REG(X, 2 * i), opnd_create_immed_int((2 * i) % 32, OPSZ_5b),
+            opnd_create_immed_int(i & 0xf, OPSZ_4b), opnd_create_cond(cond_codes[i])),
+        {
+            EXPECT_DISASSEMBLY("ccmp   %x0 $0x00 $0x00 eq", "ccmp   %x2 $0x02 $0x01 ne",
+                               "ccmp   %x4 $0x04 $0x02 cs", "ccmp   %x6 $0x06 $0x03 cc",
+                               "ccmp   %x8 $0x08 $0x04 mi", "ccmp   %x10 $0x0a $0x05 pl",
+                               "ccmp   %x12 $0x0c $0x06 vs", "ccmp   %x14 $0x0e $0x07 vc",
+                               "ccmp   %x16 $0x10 $0x08 hi", "ccmp   %x18 $0x12 $0x09 ls",
+                               "ccmp   %x20 $0x14 $0x0a ge", "ccmp   %x22 $0x16 $0x0b lt",
+                               "ccmp   %x24 $0x18 $0x0c gt", "ccmp   %x26 $0x1a $0x0d le",
+                               "ccmp   %x28 $0x1c $0x0e al",
+                               "ccmp   %x30 $0x1e $0x0f nv");
+            EXPECT_TRUE(
+                TEST(EFLAGS_READ_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+            EXPECT_TRUE(
+                TEST(EFLAGS_WRITE_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+        });
+
+    /* Testing CCMP <Wn>, <Wm>, #<nzcv>, <cond> */
+    TEST_LOOP_EXPECT(
+        ccmp, cond_count,
+        INSTR_CREATE_ccmp(dc, CYCLE_REG(W, 2 * i), CYCLE_REG(W, (2 * i) + 1),
+                          opnd_create_immed_int(i & 0xf, OPSZ_4b),
+                          opnd_create_cond(cond_codes[i])),
+        {
+            EXPECT_DISASSEMBLY("ccmp   %w0 %w1 $0x00 eq", "ccmp   %w2 %w3 $0x01 ne",
+                               "ccmp   %w4 %w5 $0x02 cs", "ccmp   %w6 %w7 $0x03 cc",
+                               "ccmp   %w8 %w9 $0x04 mi", "ccmp   %w10 %w11 $0x05 pl",
+                               "ccmp   %w12 %w13 $0x06 vs", "ccmp   %w14 %w15 $0x07 vc",
+                               "ccmp   %w16 %w17 $0x08 hi", "ccmp   %w18 %w19 $0x09 ls",
+                               "ccmp   %w20 %w21 $0x0a ge", "ccmp   %w22 %w23 $0x0b lt",
+                               "ccmp   %w24 %w25 $0x0c gt", "ccmp   %w26 %w27 $0x0d le",
+                               "ccmp   %w28 %w29 $0x0e al", "ccmp   %w30 %wzr $0x0f nv");
+            EXPECT_TRUE(
+                TEST(EFLAGS_READ_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+            EXPECT_TRUE(
+                TEST(EFLAGS_WRITE_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+        });
+
+    /* Testing CCMP <Xn>, <Xm>, #<nzcv>, <cond> */
+    TEST_LOOP_EXPECT(
+        ccmp, cond_count,
+        INSTR_CREATE_ccmp(dc, CYCLE_REG(X, 2 * i), CYCLE_REG(X, (2 * i) + 1),
+                          opnd_create_immed_int(i & 0xf, OPSZ_4b),
+                          opnd_create_cond(cond_codes[i])),
+        {
+            EXPECT_DISASSEMBLY("ccmp   %x0 %x1 $0x00 eq", "ccmp   %x2 %x3 $0x01 ne",
+                               "ccmp   %x4 %x5 $0x02 cs", "ccmp   %x6 %x7 $0x03 cc",
+                               "ccmp   %x8 %x9 $0x04 mi", "ccmp   %x10 %x11 $0x05 pl",
+                               "ccmp   %x12 %x13 $0x06 vs", "ccmp   %x14 %x15 $0x07 vc",
+                               "ccmp   %x16 %x17 $0x08 hi", "ccmp   %x18 %x19 $0x09 ls",
+                               "ccmp   %x20 %x21 $0x0a ge", "ccmp   %x22 %x23 $0x0b lt",
+                               "ccmp   %x24 %x25 $0x0c gt", "ccmp   %x26 %x27 $0x0d le",
+                               "ccmp   %x28 %x29 $0x0e al", "ccmp   %x30 %xzr $0x0f nv");
+            EXPECT_TRUE(
+                TEST(EFLAGS_READ_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+            EXPECT_TRUE(
+                TEST(EFLAGS_WRITE_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+        });
+}
+
+TEST_INSTR(ccmn)
+{
+    /* Testing CCMN <Wn>, #<imm>, #<nzcv>, <cond> */
+    TEST_LOOP_EXPECT(
+        ccmn, cond_count,
+        INSTR_CREATE_ccmn(
+            dc, CYCLE_REG(W, 2 * i), opnd_create_immed_int((2 * i) % 32, OPSZ_5b),
+            opnd_create_immed_int(i & 0xf, OPSZ_4b), opnd_create_cond(cond_codes[i])),
+        {
+            EXPECT_DISASSEMBLY("ccmn   %w0 $0x00 $0x00 eq", "ccmn   %w2 $0x02 $0x01 ne",
+                               "ccmn   %w4 $0x04 $0x02 cs", "ccmn   %w6 $0x06 $0x03 cc",
+                               "ccmn   %w8 $0x08 $0x04 mi", "ccmn   %w10 $0x0a $0x05 pl",
+                               "ccmn   %w12 $0x0c $0x06 vs", "ccmn   %w14 $0x0e $0x07 vc",
+                               "ccmn   %w16 $0x10 $0x08 hi", "ccmn   %w18 $0x12 $0x09 ls",
+                               "ccmn   %w20 $0x14 $0x0a ge", "ccmn   %w22 $0x16 $0x0b lt",
+                               "ccmn   %w24 $0x18 $0x0c gt", "ccmn   %w26 $0x1a $0x0d le",
+                               "ccmn   %w28 $0x1c $0x0e al",
+                               "ccmn   %w30 $0x1e $0x0f nv");
+            EXPECT_TRUE(
+                TEST(EFLAGS_READ_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+            EXPECT_TRUE(
+                TEST(EFLAGS_WRITE_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+        });
+
+    /* Testing CCMN <Xn>, #<imm>, #<nzcv>, <cond> */
+    TEST_LOOP_EXPECT(
+        ccmn, cond_count,
+        INSTR_CREATE_ccmn(
+            dc, CYCLE_REG(X, 2 * i), opnd_create_immed_int((2 * i) % 32, OPSZ_5b),
+            opnd_create_immed_int(i & 0xf, OPSZ_4b), opnd_create_cond(cond_codes[i])),
+        {
+            EXPECT_DISASSEMBLY("ccmn   %x0 $0x00 $0x00 eq", "ccmn   %x2 $0x02 $0x01 ne",
+                               "ccmn   %x4 $0x04 $0x02 cs", "ccmn   %x6 $0x06 $0x03 cc",
+                               "ccmn   %x8 $0x08 $0x04 mi", "ccmn   %x10 $0x0a $0x05 pl",
+                               "ccmn   %x12 $0x0c $0x06 vs", "ccmn   %x14 $0x0e $0x07 vc",
+                               "ccmn   %x16 $0x10 $0x08 hi", "ccmn   %x18 $0x12 $0x09 ls",
+                               "ccmn   %x20 $0x14 $0x0a ge", "ccmn   %x22 $0x16 $0x0b lt",
+                               "ccmn   %x24 $0x18 $0x0c gt", "ccmn   %x26 $0x1a $0x0d le",
+                               "ccmn   %x28 $0x1c $0x0e al",
+                               "ccmn   %x30 $0x1e $0x0f nv");
+            EXPECT_TRUE(
+                TEST(EFLAGS_READ_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+            EXPECT_TRUE(
+                TEST(EFLAGS_WRITE_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+        });
+
+    /* Testing CCMN <Wn>, <Wm>, #<nzcv>, <cond> */
+    TEST_LOOP_EXPECT(
+        ccmn, cond_count,
+        INSTR_CREATE_ccmn(dc, CYCLE_REG(W, 2 * i), CYCLE_REG(W, (2 * i) + 1),
+                          opnd_create_immed_int(i & 0xf, OPSZ_4b),
+                          opnd_create_cond(cond_codes[i])),
+        {
+            EXPECT_DISASSEMBLY("ccmn   %w0 %w1 $0x00 eq", "ccmn   %w2 %w3 $0x01 ne",
+                               "ccmn   %w4 %w5 $0x02 cs", "ccmn   %w6 %w7 $0x03 cc",
+                               "ccmn   %w8 %w9 $0x04 mi", "ccmn   %w10 %w11 $0x05 pl",
+                               "ccmn   %w12 %w13 $0x06 vs", "ccmn   %w14 %w15 $0x07 vc",
+                               "ccmn   %w16 %w17 $0x08 hi", "ccmn   %w18 %w19 $0x09 ls",
+                               "ccmn   %w20 %w21 $0x0a ge", "ccmn   %w22 %w23 $0x0b lt",
+                               "ccmn   %w24 %w25 $0x0c gt", "ccmn   %w26 %w27 $0x0d le",
+                               "ccmn   %w28 %w29 $0x0e al", "ccmn   %w30 %wzr $0x0f nv");
+            EXPECT_TRUE(
+                TEST(EFLAGS_READ_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+            EXPECT_TRUE(
+                TEST(EFLAGS_WRITE_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+        });
+
+    /* Testing CCMN <Xn>, <Xm>, #<nzcv>, <cond> */
+    TEST_LOOP_EXPECT(
+        ccmn, cond_count,
+        INSTR_CREATE_ccmn(dc, CYCLE_REG(X, 2 * i), CYCLE_REG(X, (2 * i) + 1),
+                          opnd_create_immed_int(i & 0xf, OPSZ_4b),
+                          opnd_create_cond(cond_codes[i])),
+        {
+            EXPECT_DISASSEMBLY("ccmn   %x0 %x1 $0x00 eq", "ccmn   %x2 %x3 $0x01 ne",
+                               "ccmn   %x4 %x5 $0x02 cs", "ccmn   %x6 %x7 $0x03 cc",
+                               "ccmn   %x8 %x9 $0x04 mi", "ccmn   %x10 %x11 $0x05 pl",
+                               "ccmn   %x12 %x13 $0x06 vs", "ccmn   %x14 %x15 $0x07 vc",
+                               "ccmn   %x16 %x17 $0x08 hi", "ccmn   %x18 %x19 $0x09 ls",
+                               "ccmn   %x20 %x21 $0x0a ge", "ccmn   %x22 %x23 $0x0b lt",
+                               "ccmn   %x24 %x25 $0x0c gt", "ccmn   %x26 %x27 $0x0d le",
+                               "ccmn   %x28 %x29 $0x0e al", "ccmn   %x30 %xzr $0x0f nv");
+            EXPECT_TRUE(
+                TEST(EFLAGS_READ_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+            EXPECT_TRUE(
+                TEST(EFLAGS_WRITE_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+        });
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -482,6 +667,9 @@ main(int argc, char *argv[])
 
     RUN_INSTR_TEST(orr);
     RUN_INSTR_TEST(orr_shift);
+
+    RUN_INSTR_TEST(ccmp);
+    RUN_INSTR_TEST(ccmn);
 
     print("All v8.0 tests complete.\n");
 #ifndef STANDALONE_DECODER

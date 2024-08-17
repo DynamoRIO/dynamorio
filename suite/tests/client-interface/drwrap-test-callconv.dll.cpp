@@ -48,7 +48,7 @@
 #    define PLATFORM_HAS_THISCALL 1
 #endif
 
-#if !defined(ARM) && !defined(X64)
+#if !defined(ARM) && !defined(X64) && !defined(RISCV64)
 #    define PLATFORM_HAS_FASTCALL 1
 #endif
 
