@@ -31,7 +31,7 @@
  */
 
 /* Tests resuming from check_wait_at_safe_spot => thread_set_self_context,
- * triggered by another thread performing a synch. Test based on
+ * triggered by another thread flushing (causing a synchall). Test based on
  * linux.sigcontext.
  */
 

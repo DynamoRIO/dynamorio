@@ -30,12 +30,10 @@
  * DAMAGE.
  */
 
-/* Tests resuming from check_wait_at_safe_spot => thread_set_self_context,
- * triggered by another thread performing a synch. Test based on
- * linux.sigcontext.
- */
+/* This client helpfully instruments every basic block, and flushes
+ * each block with 4% probability! It is great at causing synchalls.
+*/
 
-/* we want the latest defs so we can get at ymm state */
 #    include "dr_api.h"
 
 /* this handler gets called for every bb, and flushes the current bb
