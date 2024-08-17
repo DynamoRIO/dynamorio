@@ -1,0 +1,91 @@
+/* **********************************************************
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of VMware, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/* Tests resuming from check_wait_at_safe_spot => thread_set_self_context,
+ * triggered by another thread performing a synch. Test based on
+ * linux.sigcontext.
+ */
+
+/* we want the latest defs so we can get at ymm state */
+#    include "dr_api.h"
+
+/* this handler gets called for every bb, and flushes the current bb
+ * with 2% probability.
+ */
+static void
+bb_event(void *p)
+{
+    void *drcontext = dr_get_current_drcontext();
+    static int count = 0;
+
+    /* Avoids executing the hook twice after redirecting execution */
+    if (dr_get_tls_field(drcontext) != NULL) {
+        dr_set_tls_field(drcontext, (void *)0);
+        return;
+    }
+
+    if (++count % 25 == 0) {
+        dr_flush_region(p, 1);
+        /* if we don't sleep, we will interrupt the other thread
+         * too quickly, hitting the (count++ > 3) assert in os.c
+         */
+        dr_sleep(1); /* 1ms */
+
+        dr_mcontext_t mcontext;
+        mcontext.size = sizeof(mcontext);
+        mcontext.flags = DR_MC_ALL;
+        dr_get_mcontext(drcontext, &mcontext);
+        mcontext.pc = (app_pc)p;
+
+        dr_set_tls_field(drcontext, (void *)1);
+        dr_redirect_execution(&mcontext);
+    }
+}
+
+static dr_emit_flags_t
+instrument_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+              bool translating)
+{
+    instr_t *instr = instrlist_first(bb);
+    if (!instr_is_app(instr))
+        return DR_EMIT_DEFAULT;
+
+    dr_insert_clean_call(drcontext, bb, instr, (void *)bb_event, true /* save fpstate */,
+                         1, OPND_CREATE_INTPTR(instr_get_app_pc(instr)));
+    return DR_EMIT_DEFAULT;
+}
+
+DR_EXPORT void
+dr_client_main(client_id_t id, int argc, const char *argv[])
+{
+    dr_register_bb_event(instrument_bb);
+}

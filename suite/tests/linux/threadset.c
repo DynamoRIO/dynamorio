@@ -35,10 +35,8 @@
  * linux.sigcontext.
  */
 
-#ifndef THREADSET_CLIENT
 #    include "tools.h"
 #    include "thread.h"
-#endif
 
 /* we want the latest defs so we can get at ymm state */
 #include "../../../core/unix/include/sigcontext.h"
@@ -56,65 +54,6 @@
 #define INTS_PER_XMM 4
 #define INTS_PER_YMM 8
 #define INTS_PER_ZMM 16
-
-/* This file contains both the client and the target program */
-
-#ifdef THREADSET_CLIENT
-#    include "dr_api.h"
-
-/* this handler gets called for every bb, and flushes the current bb
- * with 2% probability.
- */
-static void
-bb_event(void *p)
-{
-    void *drcontext = dr_get_current_drcontext();
-    static int count = 0;
-
-    /* Avoids executing the hook twice after redirecting execution */
-    if (dr_get_tls_field(drcontext) != NULL) {
-        dr_set_tls_field(drcontext, (void *)0);
-        return;
-    }
-
-    if (++count % 25 == 0) {
-        dr_flush_region(p, 1);
-        /* if we don't sleep, we will interrupt the other thread
-         * too quickly, hitting the (count++ > 3) assert in os.c
-         */
-        dr_sleep(1); /* 1ms */
-
-        dr_mcontext_t mcontext;
-        mcontext.size = sizeof(mcontext);
-        mcontext.flags = DR_MC_ALL;
-        dr_get_mcontext(drcontext, &mcontext);
-        mcontext.pc = (app_pc)p;
-
-        dr_set_tls_field(drcontext, (void *)1);
-        dr_redirect_execution(&mcontext);
-    }
-}
-
-static dr_emit_flags_t
-instrument_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-              bool translating)
-{
-    instr_t *instr = instrlist_first(bb);
-    if (!instr_is_app(instr))
-        return DR_EMIT_DEFAULT;
-
-    dr_insert_clean_call(drcontext, bb, instr, (void *)bb_event, true /* save fpstate */,
-                         1, OPND_CREATE_INTPTR(instr_get_app_pc(instr)));
-    return DR_EMIT_DEFAULT;
-}
-
-DR_EXPORT void
-dr_client_main(client_id_t id, int argc, const char *argv[])
-{
-    dr_register_bb_event(instrument_bb);
-}
-
-#else
 
 __attribute__((noinline)) void
 dummy2()
@@ -404,5 +343,3 @@ main(int argc, char *argv[])
     write(2, "All done\n", 9);
     return 0;
 }
-
-#endif /* THREADSET_CLIENT */
