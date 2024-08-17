@@ -32,9 +32,9 @@
 
 /* This client helpfully instruments every basic block, and flushes
  * each block with 4% probability! It is great at causing synchalls.
-*/
+ */
 
-#    include "dr_api.h"
+#include "dr_api.h"
 
 /* this handler gets called for every bb, and flushes the current bb
  * with 2% probability.

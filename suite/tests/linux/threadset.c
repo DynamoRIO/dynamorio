@@ -35,8 +35,8 @@
  * linux.sigcontext.
  */
 
-#    include "tools.h"
-#    include "thread.h"
+#include "tools.h"
+#include "thread.h"
 
 /* we want the latest defs so we can get at ymm state */
 #include "../../../core/unix/include/sigcontext.h"
@@ -93,11 +93,11 @@ main(int argc, char *argv[])
         for (j = 0; j < INTS_PER_XMM; j++)
             buf[i * INTS_PER_XMM + j] = 0xdeadbeef << i;
     }
-#    define MOVE_TO_XMM(buf, num)                           \
-        __asm__ __volatile__("movdqu %0, %%xmm" #num        \
-                             :                              \
-                             : "m"(buf[num * INTS_PER_XMM]) \
-                             : "xmm" #num);
+#define MOVE_TO_XMM(buf, num)                           \
+    __asm__ __volatile__("movdqu %0, %%xmm" #num        \
+                         :                              \
+                         : "m"(buf[num * INTS_PER_XMM]) \
+                         : "xmm" #num);
     MOVE_TO_XMM(buf, 0)
     MOVE_TO_XMM(buf, 1)
     MOVE_TO_XMM(buf, 2)
@@ -106,7 +106,7 @@ main(int argc, char *argv[])
     MOVE_TO_XMM(buf, 5)
     MOVE_TO_XMM(buf, 6)
     MOVE_TO_XMM(buf, 7)
-#    ifdef X64
+#ifdef X64
     MOVE_TO_XMM(buf, 8)
     MOVE_TO_XMM(buf, 9)
     MOVE_TO_XMM(buf, 10)
@@ -115,37 +115,37 @@ main(int argc, char *argv[])
     MOVE_TO_XMM(buf, 13)
     MOVE_TO_XMM(buf, 14)
     MOVE_TO_XMM(buf, 15)
-#    endif
+#endif
 
-#    if defined(__AVX__) || defined(__AVX512F__)
+#if defined(__AVX__) || defined(__AVX512F__)
     {
         /* put known values in ymm regs */
-#        ifdef __AVX512F__
+#    ifdef __AVX512F__
         int buf[INTS_PER_ZMM * NUM_SIMD_AVX512_REGS];
-#        else
+#    else
         int buf[INTS_PER_YMM * NUM_SIMD_SSE_AVX_REGS];
-#        endif
+#    endif
         char *ptr = (char *)buf;
         int i, j;
 
         /* put known values in xmm regs (we assume processor has xmm) */
-#        ifdef __AVX512F__
+#    ifdef __AVX512F__
         for (i = 0; i < NUM_SIMD_AVX512_REGS; i++) {
             for (j = 0; j < INTS_PER_ZMM; j++)
                 buf[i * INTS_PER_ZMM + j] = 0xdeadbeef + i * INTS_PER_ZMM + j;
         }
-#        else
+#    else
         for (i = 0; i < NUM_SIMD_SSE_AVX_REGS; i++) {
             for (j = 0; j < INTS_PER_YMM; j++)
                 buf[i * INTS_PER_YMM + j] = 0xdeadbeef + i * INTS_PER_ZMM + j;
         }
-#        endif
-#        ifdef __AVX512F__
-#            define MOVE_TO_ZMM(buf, num)                           \
-                __asm__ __volatile__("vmovdqu64 %0, %%zmm" #num     \
-                                     :                              \
-                                     : "m"(buf[num * INTS_PER_ZMM]) \
-                                     : "zmm" #num);
+#    endif
+#    ifdef __AVX512F__
+#        define MOVE_TO_ZMM(buf, num)                           \
+            __asm__ __volatile__("vmovdqu64 %0, %%zmm" #num     \
+                                 :                              \
+                                 : "m"(buf[num * INTS_PER_ZMM]) \
+                                 : "zmm" #num);
         MOVE_TO_ZMM(buf, 0)
         MOVE_TO_ZMM(buf, 1)
         MOVE_TO_ZMM(buf, 2)
@@ -154,7 +154,7 @@ main(int argc, char *argv[])
         MOVE_TO_ZMM(buf, 5)
         MOVE_TO_ZMM(buf, 6)
         MOVE_TO_ZMM(buf, 7)
-#            ifdef X64
+#        ifdef X64
         MOVE_TO_ZMM(buf, 8)
         MOVE_TO_ZMM(buf, 9)
         MOVE_TO_ZMM(buf, 10)
@@ -179,13 +179,13 @@ main(int argc, char *argv[])
         MOVE_TO_ZMM(buf, 29)
         MOVE_TO_ZMM(buf, 30)
         MOVE_TO_ZMM(buf, 31)
-#            endif
+#        endif
         /* Re-using INTS_PER_ZMM here to get same data patterns as above. */
-#            define MOVE_TO_OPMASK(buf, num)                        \
-                __asm__ __volatile__("kmovw %0, %%k" #num           \
-                                     :                              \
-                                     : "m"(buf[num * INTS_PER_ZMM]) \
-                                     : "k" #num);
+#        define MOVE_TO_OPMASK(buf, num)                        \
+            __asm__ __volatile__("kmovw %0, %%k" #num           \
+                                 :                              \
+                                 : "m"(buf[num * INTS_PER_ZMM]) \
+                                 : "k" #num);
         MOVE_TO_OPMASK(buf, 0)
         MOVE_TO_OPMASK(buf, 1)
         MOVE_TO_OPMASK(buf, 2)
@@ -194,12 +194,12 @@ main(int argc, char *argv[])
         MOVE_TO_OPMASK(buf, 5)
         MOVE_TO_OPMASK(buf, 6)
         MOVE_TO_OPMASK(buf, 7)
-#        else
-#            define MOVE_TO_YMM(buf, num)                           \
-                __asm__ __volatile__("vmovdqu %0, %%ymm" #num       \
-                                     :                              \
-                                     : "m"(buf[num * INTS_PER_YMM]) \
-                                     : "ymm" #num);
+#    else
+#        define MOVE_TO_YMM(buf, num)                           \
+            __asm__ __volatile__("vmovdqu %0, %%ymm" #num       \
+                                 :                              \
+                                 : "m"(buf[num * INTS_PER_YMM]) \
+                                 : "ymm" #num);
         MOVE_TO_YMM(buf, 0)
         MOVE_TO_YMM(buf, 1)
         MOVE_TO_YMM(buf, 2)
@@ -208,7 +208,7 @@ main(int argc, char *argv[])
         MOVE_TO_YMM(buf, 5)
         MOVE_TO_YMM(buf, 6)
         MOVE_TO_YMM(buf, 7)
-#            ifdef X64
+#        ifdef X64
         MOVE_TO_YMM(buf, 8)
         MOVE_TO_YMM(buf, 9)
         MOVE_TO_YMM(buf, 10)
@@ -217,8 +217,8 @@ main(int argc, char *argv[])
         MOVE_TO_YMM(buf, 13)
         MOVE_TO_YMM(buf, 14)
         MOVE_TO_YMM(buf, 15)
-#            endif
 #        endif
+#    endif
 
         write(2, "before\n", 7);
 
@@ -230,16 +230,16 @@ main(int argc, char *argv[])
         write(2, "after\n", 6);
 
         /* Ensure they are preserved across the sigreturn (xref i#3812). */
-#        ifdef __AVX512F__
+#    ifdef __AVX512F__
         /* Use a new buffer to avoid the old values. We could do a custom memset
          * with rep movs in asm instead (regular memset may clobber SIMD regs).
          */
         int buf2[INTS_PER_ZMM * NUM_SIMD_AVX512_REGS];
-#            define MOVE_FROM_ZMM(buf, num)                          \
-                __asm__ __volatile__("vmovdqu64 %%zmm" #num ", %0"   \
-                                     : "=m"(buf[num * INTS_PER_ZMM]) \
-                                     :                               \
-                                     : "zmm" #num);
+#        define MOVE_FROM_ZMM(buf, num)                          \
+            __asm__ __volatile__("vmovdqu64 %%zmm" #num ", %0"   \
+                                 : "=m"(buf[num * INTS_PER_ZMM]) \
+                                 :                               \
+                                 : "zmm" #num);
         MOVE_FROM_ZMM(buf2, 0)
         MOVE_FROM_ZMM(buf2, 1)
         MOVE_FROM_ZMM(buf2, 2)
@@ -248,7 +248,7 @@ main(int argc, char *argv[])
         MOVE_FROM_ZMM(buf2, 5)
         MOVE_FROM_ZMM(buf2, 6)
         MOVE_FROM_ZMM(buf2, 7)
-#            ifdef X64
+#        ifdef X64
         MOVE_FROM_ZMM(buf2, 8)
         MOVE_FROM_ZMM(buf2, 9)
         MOVE_FROM_ZMM(buf2, 10)
@@ -273,7 +273,7 @@ main(int argc, char *argv[])
         MOVE_FROM_ZMM(buf2, 29)
         MOVE_FROM_ZMM(buf2, 30)
         MOVE_FROM_ZMM(buf2, 31)
-#            endif
+#        endif
         for (i = 0; i < NUM_SIMD_AVX512_REGS; i++) {
             for (j = 0; j < INTS_PER_ZMM; j++) {
                 if (buf2[i * INTS_PER_ZMM + j] != 0xdeadbeef + i * INTS_PER_ZMM + j) {
@@ -285,11 +285,11 @@ main(int argc, char *argv[])
 
         /* Re-using INTS_PER_ZMM here to get same data patterns as above. */
         int buf3[INTS_PER_ZMM * NUM_OPMASK_REGS];
-#            define MOVE_FROM_OPMASK(buf, num)                       \
-                __asm__ __volatile__("kmovw %%k" #num ", %0"         \
-                                     : "=m"(buf[num * INTS_PER_ZMM]) \
-                                     :                               \
-                                     : "k" #num);
+#        define MOVE_FROM_OPMASK(buf, num)                       \
+            __asm__ __volatile__("kmovw %%k" #num ", %0"         \
+                                 : "=m"(buf[num * INTS_PER_ZMM]) \
+                                 :                               \
+                                 : "k" #num);
         MOVE_FROM_OPMASK(buf3, 0)
         MOVE_FROM_OPMASK(buf3, 1)
         MOVE_FROM_OPMASK(buf3, 2)
@@ -303,13 +303,13 @@ main(int argc, char *argv[])
             short expect = (short)(0xdeadbeef + i * INTS_PER_ZMM);
             assert(bufval == expect);
         }
-#        else
+#    else
         int buf2[INTS_PER_YMM * NUM_SIMD_SSE_AVX_REGS];
-#            define MOVE_FROM_YMM(buf, num)                          \
-                __asm__ __volatile__("vmovdqu %%ymm" #num ", %0"     \
-                                     : "=m"(buf[num * INTS_PER_YMM]) \
-                                     :                               \
-                                     : "ymm" #num);
+#        define MOVE_FROM_YMM(buf, num)                          \
+            __asm__ __volatile__("vmovdqu %%ymm" #num ", %0"     \
+                                 : "=m"(buf[num * INTS_PER_YMM]) \
+                                 :                               \
+                                 : "ymm" #num);
         MOVE_FROM_YMM(buf2, 0)
         MOVE_FROM_YMM(buf2, 1)
         MOVE_FROM_YMM(buf2, 2)
@@ -318,7 +318,7 @@ main(int argc, char *argv[])
         MOVE_FROM_YMM(buf2, 5)
         MOVE_FROM_YMM(buf2, 6)
         MOVE_FROM_YMM(buf2, 7)
-#            ifdef X64
+#        ifdef X64
         MOVE_FROM_YMM(buf2, 8)
         MOVE_FROM_YMM(buf2, 9)
         MOVE_FROM_YMM(buf2, 10)
@@ -327,7 +327,7 @@ main(int argc, char *argv[])
         MOVE_FROM_YMM(buf2, 13)
         MOVE_FROM_YMM(buf2, 14)
         MOVE_FROM_YMM(buf2, 15)
-#            endif
+#        endif
         for (i = 0; i < NUM_SIMD_SSE_AVX_REGS; i++) {
             for (j = 0; j < INTS_PER_YMM; j++) {
                 if (buf2[i * INTS_PER_YMM + j] != 0xdeadbeef + i * INTS_PER_ZMM + j) {
@@ -336,9 +336,9 @@ main(int argc, char *argv[])
                 }
             }
         }
-#        endif
-    }
 #    endif
+    }
+#endif
 
     write(2, "All done\n", 9);
     return 0;
