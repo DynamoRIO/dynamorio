@@ -117,6 +117,16 @@ GLOBAL_LABEL(FUNCNAME:)
         nop
         add      r0, r1, r2
         bx       lr
+# elif defined(RISCV64)
+        mov       REG_A1, HEX(4)
+        /* The clean call writes to x7, replacing this value. */
+        mov       REG_A2, HEX(42)
+        /* The clean call is inserted after 3 nops. */
+        nop
+        nop
+        nop
+        add       REG_A0, REG_A1, REG_A2
+        ret
 # endif
         END_FUNC(FUNCNAME)
 #  undef FUNCNAME
@@ -166,6 +176,18 @@ GLOBAL_LABEL(FUNCNAME:)
         nop
         add      r0, r1, r2
         bx       lr
+# elif defined(RISCV64)
+        mov      REG_A0, ARG1 /* Used to skip clean call. */
+        mov      REG_A1, HEX(4)   /* Read in clean call. */
+        mov      REG_A2, HEX(42)
+        /* Aflags has special x86 behavior; we do not test it here. */
+        /* The clean call is inserted after 4 nops. */
+        nop
+        nop
+        nop
+        nop
+        add      REG_A0, REG_A1, REG_A2
+        ret
 # endif
         END_FUNC(FUNCNAME)
 #  undef FUNCNAME

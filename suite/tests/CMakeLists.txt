@@ -3657,7 +3657,7 @@ if (BUILD_CLIENTS)
     set(tool.drcov.fib_expectbase "tool.drcov.fib")
     DynamoRIO_get_full_path(tool.drcov.fib_postcmd drcov2lcov "${location_suffix}")
 
-    if (UNIX AND NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+    if (UNIX)
       # Test an app that executes a pipe syscall for i#5981.
       torunonly_ci(tool.drcov.eintr linux.eintr drcov linux/eintr.c "" "" "")
       set(tool.drcov.eintr_runcmp "${PROJECT_SOURCE_DIR}/clients/drcov/runtest.cmake")
@@ -6307,6 +6307,7 @@ if (RISCV64)
     code_api|client.app_args
     code_api|client.blackbox
     code_api|client.crashmsg
+    code_api|client.drwrap-test-callconv
     code_api|client.execfault
     code_api|client.mangle_suspend
     code_api|client.null_instrument
@@ -6319,6 +6320,9 @@ if (RISCV64)
     code_api|common.hello
     code_api|libutil.drconfig_test
     code_api|libutil.frontend_test
+    # TODO i#3544: code_api|linux.eintr failed under QEMU
+    # but passed on real hardware.
+    # code_api|linux.eintr
     code_api|linux.exit
     code_api|linux.infinite
     code_api|linux.longjmp
