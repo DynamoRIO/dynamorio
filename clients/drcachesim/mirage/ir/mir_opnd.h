@@ -2,6 +2,7 @@
 #define __MIR_OPND_H_
 
 #include "dr_api.h"
+#include "assert.h"
 
 enum mir_opnd_type_t {
     MIR_OPND_REG,
@@ -16,6 +17,12 @@ struct mir_opnd_t {
         int64_t imm;
     } value;
 };
+
+mir_opnd_t* mir_opnd_malloc_reg(reg_id_t reg);
+mir_opnd_t* mir_opnd_malloc_imm(int64_t imm);
+void mir_opnd_free(mir_opnd_t *opnd);
+
+const char* mir_opnd_to_str(mir_opnd_t* opnd);
 
 bool
 mir_opnd_is_reg(const mir_opnd_t *opnd);

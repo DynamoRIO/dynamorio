@@ -5,7 +5,7 @@
 
 typedef enum {
 
-    // NULL operation
+    // NULL OPERATION
     MIR_OP_NULL,
     
     // REGISTER OPERATION
@@ -56,4 +56,10 @@ typedef enum {
     MIR_OP_ST32, // store 32-bit
     MIR_OP_ST64, // store 64-bit
 
-} mir_op_t;
+} mir_opc_t;
+
+const char* mir_opc_to_str(mir_opc_t op){
+    return (const char*)mir_opc_t(op);
+}
+
+#endif // __MIR_OP_H_

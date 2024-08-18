@@ -3,7 +3,7 @@
 
 #include "dr_api.h"
 
-#include "fe/gen_ops.h"
+#include "gen_ops.h"
 
 void
 dr_gen_mir_ops(instr_t *instr);

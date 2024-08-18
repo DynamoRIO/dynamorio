@@ -1,43 +1,70 @@
 #include "mir_insn.h"
 
-mir_insn_t* mir_insn_init(void) {
-    mir_insn_t *insn = (mir_insn_t *)malloc(sizeof(mir_insn_t));
-    if (insn == NULL) {
-        return NULL;
-    }
-    insn->op = MIR_OP_NULL;
-    insn->opnd0 = mir_opnd_from_imm(0);
-    insn->opnd1 = mir_opnd_from_imm(0);
-    insn->dst = mir_opnd_from_imm(0);
+mir_insn_t* mir_insn_malloc(mir_opc_t op) {
+    mir_insn_t* insn = (mir_insn_t*)malloc(sizeof(mir_insn_t));
+    assert(insn != NULL);
+    insn->op = op;
     return insn;
 }
 
-void set_src0_reg(mir_insn_t *insn, reg_id_t reg) {
-    insn->opnd0 = mir_opnd_from_reg(reg);
+void mir_insn_free(mir_insn_t *insn) {
+    if (insn != NULL) {
+        mir_opnd_free(insn->opnd0);
+        mir_opnd_free(insn->opnd1);
+        mir_opnd_free(insn->dst);
+        free(insn);
+    }
 }
 
-void set_src0_imm(mir_insn_t *insn, imm_t imm) {
-    insn->opnd0 = mir_opnd_from_imm(imm);
+const char* mir_insn_to_str(mir_insn_t* insn) {
+    static char buffer[256];
+    const char* op_str = mir_opc_to_str(insn->op);
+    const char* opnd0_str = mir_opnd_to_str(insn->opnd0);
+    const char* opnd1_str = mir_opnd_to_str(insn->opnd1);
+    const char* dst_str = mir_opnd_to_str(insn->dst);
+
+    snprintf(buffer, sizeof(buffer), "%s %s, %s -> %s", 
+             op_str, opnd0_str, opnd1_str, dst_str);
+
+    return buffer;
 }
 
-void set_src1_reg(mir_insn_t *insn, reg_id_t reg) {
-    insn->opnd1 = mir_opnd_from_reg(reg);
+void mir_insn_set_src0_reg(mir_insn_t *insn, reg_id_t reg) {
+    insn->opnd0 = mir_opnd_malloc_reg(reg);
 }
 
-void set_src1_imm(mir_insn_t *insn, imm_t imm) {
-    insn->opnd1 = mir_opnd_from_imm(imm);
+void mir_insn_set_src0_imm(mir_insn_t *insn, int64_t imm) {
+    insn->opnd0 = mir_opnd_malloc_imm(imm);
 }
 
-void set_dst_reg(mir_insn_t *insn, reg_id_t reg) {
-    insn->dst = mir_opnd_from_reg(reg);
+void mir_insn_set_src1_reg(mir_insn_t *insn, reg_id_t reg) {
+    insn->opnd1 = mir_opnd_malloc_reg(reg);
 }
 
-void gen_load_from_basedisp(mir_insn_t *insn, opnd_t opnd) {
-    assert(opnd.type == MIR_OPND_BASEDISP);
-    reg_id_t base = opnd_get_base(opnd);
-    int32_t disp = opnd_get_disp(opnd);
-    insn->op = MIR_OP_LOAD;
-    insn->opnd0 = mir_opnd_from_reg(base);
-    insn->opnd1 = mir_opnd_from_imm(disp);
-    insn->dst = mir_alloc_tmp(); //FIXME: unimplemented
+void mir_insn_set_src1_imm(mir_insn_t *insn, int64_t imm) {
+    insn->opnd1 = mir_opnd_malloc_imm(imm);
+}
+
+void mir_insn_set_dst_reg(mir_insn_t *insn, reg_id_t reg) {
+    insn->dst = mir_opnd_malloc_reg(reg);
+}
+
+void init_mir_insn_list(mir_insn_list_t* list) {
+    list_init(list);
+}
+
+void mir_insn_push_front(mir_insn_list_t* list, mir_insn_t* insn) {
+    list_push_front(list, &insn->elem);
+}
+
+void mir_insn_push_back(mir_insn_list_t* list, mir_insn_t* insn) {
+    list_push_back(list, &insn->elem);
+}
+
+void print_mir_insn_list(mir_insn_list_t* list) {
+    struct list_elem* e;
+    for (e = list_begin(list); e != list_end(list); e = list_next(e)) {
+        mir_insn_t* insn = list_entry(e, mir_insn_t, elem);
+        printf("%s\n", mir_opc_to_str(insn->op));
+    }
 }
