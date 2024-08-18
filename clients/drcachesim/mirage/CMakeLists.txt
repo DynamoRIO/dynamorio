@@ -10,6 +10,8 @@ add_dr_defines()
 
 set(mirage_srcs
     dr_mir_api.cpp
+    # common - shared code
+    ./common/list.cpp
     # frontend - translating DRIR to MIR
     ./fe/gen_ops.cpp
     # backend - interpreting MIR
@@ -17,6 +19,14 @@ set(mirage_srcs
     # interpreter - MIR specification
     # ./ir/*.cpp
 )
+
+set(mirage_dir ${CMAKE_SOURCE_DIR}/clients/drcachesim/mirage)
+
+include_directories(${mirage_dir}/common)
+include_directories(${mirage_dir}/fe)
+include_directories(${mirage_dir}/ir)
+include_directories(${mirage_dir}/be)
+
 
 add_library(mirage STATIC ${mirage_srcs})
 configure_DynamoRIO_decoder(mirage)
