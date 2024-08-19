@@ -872,7 +872,7 @@ instrument_exit_event(void)
     /* support dr_get_mcontext() from the exit event */
     if (!standalone_library)
         get_thread_private_dcontext()->client_data->mcontext_in_dcontext = true;
-    call_all(exit_callbacks, int (*)(),
+    call_all(exit_callbacks, int (*)(void *),
              /* It seems the compiler is confused if we pass no var args
               * to the call_all macro.  Bogus NULL arg */
              NULL);
@@ -885,13 +885,13 @@ instrument_post_attach_event(void)
         ASSERT(post_attach_callbacks.num == 0);
         return;
     }
-    call_all(post_attach_callbacks, int (*)(), NULL);
+    call_all(post_attach_callbacks, int (*)(void *), NULL);
 }
 
 void
 instrument_pre_detach_event(void)
 {
-    call_all(pre_detach_callbacks, int (*)(), NULL);
+    call_all(pre_detach_callbacks, int (*)(void *), NULL);
 }
 
 void
@@ -1492,7 +1492,7 @@ instrument_fork_init(dcontext_t *dcontext)
 void
 instrument_low_on_memory()
 {
-    call_all(low_on_memory_callbacks, int (*)());
+    call_all(low_on_memory_callbacks, int (*)(void *), NULL);
 }
 
 /* PR 536058: split the exit event from thread cleanup, to provide a

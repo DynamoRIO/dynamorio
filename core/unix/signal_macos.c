@@ -157,8 +157,9 @@ sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
         return;
     mc->fpsr = fpc->__fpsr;
     mc->fpcr = fpc->__fpcr;
-    ASSERT(sizeof(mc->simd) == sizeof(fpc->__v));
-    memcpy(&mc->simd, &fpc->__v, sizeof(mc->simd));
+    for (int i = 0; i < proc_num_simd_registers(); i++) {
+        memcpy(&mc->simd[i], &fpc->__v[i], sizeof(fpc->__v[i]));
+    }
 #elif defined(X86)
     /* We assume that _STRUCT_X86_FLOAT_STATE* matches exactly the first
      * half of _STRUCT_X86_AVX_STATE*, and similarly for AVX and AVX512.
@@ -200,8 +201,9 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
         return;
     fpc->__fpsr = mc->fpsr;
     fpc->__fpcr = mc->fpcr;
-    ASSERT(sizeof(mc->simd) == sizeof(fpc->__v));
-    memcpy(&fpc->__v, &mc->simd, sizeof(mc->simd));
+    for (int i = 0; i < proc_num_simd_registers(); i++) {
+        memcpy(&fpc->__v[i], &mc->simd[i], sizeof(fpc->__v[i]));
+    }
 #elif defined(X86)
     sigcontext_t *sc = sc_full->sc;
     int i;
