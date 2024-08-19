@@ -48,6 +48,23 @@
 static SIGJMP_BUF mark;
 static int count = 0;
 
+#    ifdef AARCH64
+void
+clear_icache_if_required(void *beg, void *end)
+{
+    /* If CTR_EL0.DIC is set then the icache does not need to be cleared after code has
+     * been modified. */
+    uint64 CTR_EL0 = 0;
+    asm("mrs %0, CTR_EL0" : "=r"(CTR_EL0));
+
+    /* TODO i#5771: Enable this check when we have support for automatic icache coherence.
+     */
+    /* if ((CTR_EL0 >> 29) & 1 == 0) { */
+    tools_clear_icache(beg, end);
+    /* } */
+}
+#    endif
+
 static void
 print_fault_code(unsigned char *pc)
 {
@@ -309,7 +326,7 @@ test_sandbox_last_byte(void)
                                bytes. */
     /* On AARCH64 the instruction cache must be cleared for modifications to be reliably
      * picked up. */
-    tools_clear_icache(first_instruction, first_instruction + 4);
+    clear_icache_if_required(first_instruction, first_instruction + 4);
 #    endif
 
     r = sandbox_last_byte();
@@ -508,7 +525,7 @@ ADDRTAKEN_LABEL(sandbox_cross_page_no_ilt:)
         stp x0, x1, [sp, #-16]!
         adr x0, sandbox_cross_page
         adr x1, sandbox_cross_page_end
-        bl tools_clear_icache
+        bl clear_icache_if_required
         ldp x0, x1, [sp], #16
 
         /* More writes to split the block. */
@@ -648,7 +665,7 @@ ADDRTAKEN_LABEL(fault_immediate_addr_plus_four:)
         stp x0, x1, [sp, #-16]!
         adr x0, sandbox_fault
         adr x1, sandbox_fault_end
-        bl tools_clear_icache
+        bl clear_icache_if_required
         ldp x0, x1, [sp], #16
 
         movz x0, #0 /* this will get updated by the code above */
@@ -713,7 +730,7 @@ ADDRTAKEN_LABEL(illegal_immediate_addr_plus_four:)
         stp x0, x1, [sp, #-16]!
         adr x0, sandbox_illegal_instr
         adr x1, sandbox_illegal_instr_end
-        bl tools_clear_icache
+        bl clear_icache_if_required
         ldp x0, x1, [sp], #16
 
         movz x0, #0 /* this will get updated by the code above */
@@ -796,7 +813,7 @@ loop_orig_target3:
         /* need to invalidate the instruction cache. This tests explicit app icache management. */
         adr x0, sandbox_cti_tgt
         adr x1, sandbox_cti_tgt_end
-        bl tools_clear_icache
+        bl clear_icache_if_required
 
         b branch_orig_target
 ADDRTAKEN_LABEL(branch_target_end:)
@@ -817,7 +834,7 @@ branch_orig_target:
         stp x13, x13, [sp, #-16]!
         adr x0, sandbox_cti_tgt
         adr x1, sandbox_cti_tgt_end
-        bl tools_clear_icache
+        bl clear_icache_if_required
         ldr x13, [sp]
         add sp, sp, #16
 
