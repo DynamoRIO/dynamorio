@@ -27,7 +27,7 @@ const char* mir_opnd_to_str(mir_opnd_t* opnd) {
     if (opnd->type == MIR_OPND_REG) {
         snprintf(buffer, sizeof(buffer), "r%d", opnd->value.reg);
     } else if (opnd->type == MIR_OPND_IMM) {
-        snprintf(buffer, sizeof(buffer), "i%lld", opnd->value.imm);
+        snprintf(buffer, sizeof(buffer), "i%ld", opnd->value.imm);
     }
     return buffer;
 }

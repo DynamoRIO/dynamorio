@@ -17,18 +17,19 @@ set(mirage_srcs
     # backend - interpreting MIR
     # ./be/*.cpp
     # interpreter - MIR specification
-    # ./ir/*.cpp
+    ./ir/mir_insn.cpp
+    ./ir/mir_opnd.cpp
 )
 
-set(mirage_dir ${CMAKE_SOURCE_DIR}/clients/drcachesim/mirage)
-
-include_directories(${mirage_dir}/common)
-include_directories(${mirage_dir}/fe)
-include_directories(${mirage_dir}/ir)
-include_directories(${mirage_dir}/be)
-
-
 add_library(mirage STATIC ${mirage_srcs})
+
+target_include_directories(mirage PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/common>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/fe>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/ir>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/be>
+)
+
 configure_DynamoRIO_decoder(mirage)
 add_dependencies(mirage api_headers)
 target_link_libraries(mirage)
