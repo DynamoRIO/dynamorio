@@ -324,8 +324,6 @@ test_sandbox_last_byte(void)
     uint32 *first_instruction = (uint32 *)last_byte_jmp_label;
     (*first_instruction)++; /* The jump distance is encoded in number of instructions, not
                                bytes. */
-    /* On AARCH64 the instruction cache must be cleared for modifications to be reliably
-     * picked up. */
     clear_icache_if_required(first_instruction, first_instruction + 4);
 #    endif
 
