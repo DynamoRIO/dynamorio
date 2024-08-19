@@ -60,6 +60,9 @@
 #ifndef MAP_ANONYMOUS
 #    define MAP_ANONYMOUS MAP_ANON /* MAP_ANON on Mac */
 #endif
+#ifndef MAP_FIXED_NOREPLACE
+#    define MAP_FIXED_NOREPLACE 0x100000
+#endif
 /* for open */
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -3480,11 +3483,30 @@ os_heap_reserve(void *preferred, size_t size, heap_error_code_t *error_code,
     if (executable)
         os_flags |= MAP_JIT;
 #endif
+#if defined(LINUX) && !defined(ANDROID)
+    if (preferred != NULL) {
+        /* We fail if we don't get the preferred address, so we use the 4.17+
+         * fixed-but-no-clobber flag to ensure the kernel actually tries for our hint.
+         */
+        os_flags |= MAP_FIXED_NOREPLACE;
+    }
+#endif
 
-    /* FIXME: note that this memory is in fact still committed - see man mmap */
-    /* FIXME: case 2347 on Linux or -vm_reserve should be set to false */
-    /* FIXME: Need to actually get a mmap-ing with |MAP_NORESERVE */
+    /* We could try for |MAP_NORESERVE but usually overcommit is set on the
+     * system and pages aren't actually committed until we touch them.
+     */
     p = mmap_syscall(preferred, size, prot, os_flags, -1, 0);
+#if defined(LINUX) && !defined(ANDROID)
+    if (preferred != NULL && p == (void *)(-EINVAL)) {
+        /* We're probably on an old pre-4.17 kernel.
+         * We could have a global var but we live w/ doing this every time.
+         */
+        SYSLOG_INTERNAL_WARNING_ONCE(
+            "Got EINVAL on mmap: removing MAP_FIXED_NOREPLACE\n");
+        os_flags &= ~MAP_FIXED_NOREPLACE;
+        p = mmap_syscall(preferred, size, prot, os_flags, -1, 0);
+    }
+#endif
     if (!mmap_syscall_succeeded(p)) {
         *error_code = -(heap_error_code_t)(ptr_int_t)p;
         LOG(GLOBAL, LOG_HEAP, 4, "os_heap_reserve %d bytes failed " PFX "\n", size, p);
@@ -3497,8 +3519,8 @@ os_heap_reserve(void *preferred, size_t size, heap_error_code_t *error_code,
         os_heap_free(p, size, &dummy);
         ASSERT(dummy == HEAP_ERROR_SUCCESS);
         LOG(GLOBAL, LOG_HEAP, 4,
-            "os_heap_reserve %d bytes at " PFX " not preferred " PFX "\n", size,
-            preferred, p);
+            "os_heap_reserve %d bytes at " PFX " not preferred " PFX "\n", size, p,
+            preferred);
         return NULL;
     } else {
         *error_code = HEAP_ERROR_SUCCESS;
@@ -3564,7 +3586,8 @@ os_heap_reserve_in_region(void *start, void *end, size_t size,
         end);
 
     /* if no restriction on location use regular os_heap_reserve() */
-    if (start == (void *)PTR_UINT_0 && end == (void *)POINTER_MAX)
+    if (start == (void *)PTR_UINT_0 &&
+        end == (void *)ALIGN_BACKWARD(POINTER_MAX, PAGE_SIZE))
         return os_heap_reserve(NULL, size, error_code, executable);
 
         /* loop to handle races */
