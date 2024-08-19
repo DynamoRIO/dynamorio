@@ -116,7 +116,7 @@ func_view_t::initialize_stream(memtrace_stream_t *serial_stream)
         // If multiple syms have the same id, the args, noret, etc. come from
         // the first one.
         if (id2info_.find(id) != id2info_.end()) {
-            auto& info = id2info_[id];
+            auto &info = id2info_[id];
             info.names.insert(entry.back());
             if (info.num_args != num_args) {
                 return "Inconsistent argument details for function ID " +
@@ -213,7 +213,7 @@ func_view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     if (memref.marker.type != TRACE_TYPE_MARKER)
         return true;
     process_memref_for_markers(shard, memref);
-    return shard->error.empty();  // An error message means there was a problem.
+    return shard->error.empty(); // An error message means there was a problem.
 }
 
 bool
@@ -359,19 +359,19 @@ func_view_t::print_results()
 }
 
 func_view_t::traced_info_t &
-func_view_t::get_info_for_last_func_id(shard_data_t* shard) {
-  assert(shard != nullptr);
-  int id = shard->last_func_id;
-  assert(id != -1);
-  traced_info_t& info = id2info_[id];
-  // If this entry is uninitialized, it means we aren't expecting to see this
-  // function ID.  This likely means the funclist file is missing or incorrect.
-  if (info.num_args < 0 || info.names.empty()) {
-    shard->error = "Encountered unknown function ID=" + std::to_string(id);
-  }
-  return info;
+func_view_t::get_info_for_last_func_id(shard_data_t *shard)
+{
+    assert(shard != nullptr);
+    int id = shard->last_func_id;
+    assert(id != -1);
+    traced_info_t &info = id2info_[id];
+    // If this entry is uninitialized, it means we aren't expecting to see this
+    // function ID.  This likely means the funclist file is missing or incorrect.
+    if (info.num_args < 0 || info.names.empty()) {
+        shard->error = "Encountered unknown function ID=" + std::to_string(id);
+    }
+    return info;
 }
-
 
 } // namespace drmemtrace
 } // namespace dynamorio
