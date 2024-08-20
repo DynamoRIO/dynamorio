@@ -1154,7 +1154,7 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
 #    define RING_BUFFER_SIZE_SHIFT 8
         config.pt_raw_buffer_size =
             (1L << RING_BUFFER_SIZE_SHIFT) * sysconf(_SC_PAGESIZE);
-        if (!tdata->pt2ir.init(config, verbosity_)) {
+        if (!tdata->pt2ir.init(config, verbosity_, pt2ir_allow_recoverable_errors_)) {
             tdata->error = "Unable to initialize PT2IR";
             return false;
         }
@@ -1197,6 +1197,11 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
         pt_data->data.get(), pt_data_size, tdata->pt_decode_state_.get(),
         &syscall_decode_recoverable_error_count);
     if (pt2ir_convert_status != PT2IR_CONV_SUCCESS) {
+        if (!pt2ir_allow_recoverable_errors_) {
+            tdata->error = "Failed to convert PT raw trace to DR IR [error status: " +
+                std::to_string(pt2ir_convert_status) + "]";
+            return false;
+        }
         accumulate_to_statistic(tdata, RAW2TRACE_STAT_SYSCALL_TRACES_DECODE_FAILED, 1);
         return true;
     }
@@ -3725,7 +3730,8 @@ raw2trace_t::raw2trace_t(
     const std::string &alt_module_dir, uint64_t chunk_instr_count,
     const std::unordered_map<thread_id_t, std::istream *> &kthread_files_map,
     const std::string &kcore_path, const std::string &kallsyms_path,
-    std::unique_ptr<dynamorio::drmemtrace::record_reader_t> syscall_template_file_reader)
+    std::unique_ptr<dynamorio::drmemtrace::record_reader_t> syscall_template_file_reader,
+    bool pt2ir_allow_recoverable_errors)
     : dcontext_(dcontext == nullptr ? dr_standalone_init() : dcontext)
     , passed_dcontext_(dcontext != nullptr)
     , worker_count_(worker_count)
@@ -3742,6 +3748,7 @@ raw2trace_t::raw2trace_t(
     , kcore_path_(kcore_path)
     , kallsyms_path_(kallsyms_path)
     , syscall_template_file_reader_(std::move(syscall_template_file_reader))
+    , pt2ir_allow_recoverable_errors_(pt2ir_allow_recoverable_errors)
 {
     // Exactly one of out_files and out_archives should be non-empty.
     // If thread_files is not empty it must match the input size.

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -108,6 +108,13 @@ droption_t<std::string> op_syscall_template_file(
     "If set, system call traces will be injected from the file "
     "into the resulting trace.");
 
+static droption_t<bool> op_pt2ir_allow_recoverable_errors(
+    DROPTION_SCOPE_ALL, "pt2ir_allow_recoverable_errors", false,
+    "Whether recoverable errors are tolerated during PT trace decode using pt2ir",
+    "By default, errors in decoding the kernel syscall PT trace in pt2ir are "
+    "fatal. If this is true, some recoverable errors are allowed and their "
+    "counts are reported by raw2trace at the end.");
+
 #define FATAL_ERROR(msg, ...)                               \
     do {                                                    \
         fprintf(stderr, "ERROR: " msg "\n", ##__VA_ARGS__); \
@@ -139,12 +146,12 @@ _tmain(int argc, const TCHAR *targv[])
                                          op_trace_compress.get_value());
     if (!dir_err.empty())
         FATAL_ERROR("Directory parsing failed: %s", dir_err.c_str());
-    raw2trace_t raw2trace(dir.modfile_bytes_, dir.in_files_, dir.out_files_,
-                          dir.out_archives_, dir.encoding_file_,
-                          dir.serial_schedule_file_, dir.cpu_schedule_file_, nullptr,
-                          op_verbose.get_value(), op_jobs.get_value(),
-                          op_alt_module_dir.get_value(), op_chunk_instr_count.get_value(),
-                          dir.in_kfiles_map_, dir.kcoredir_, dir.kallsymsdir_);
+    raw2trace_t raw2trace(
+        dir.modfile_bytes_, dir.in_files_, dir.out_files_, dir.out_archives_,
+        dir.encoding_file_, dir.serial_schedule_file_, dir.cpu_schedule_file_, nullptr,
+        op_verbose.get_value(), op_jobs.get_value(), op_alt_module_dir.get_value(),
+        op_chunk_instr_count.get_value(), dir.in_kfiles_map_, dir.kcoredir_,
+        dir.kallsymsdir_, nullptr, op_pt2ir_allow_recoverable_errors.get_value());
     std::string error = raw2trace.do_conversion();
     if (!error.empty())
         FATAL_ERROR("Conversion failed: %s", error.c_str());

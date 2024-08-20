@@ -347,10 +347,13 @@ public:
      * @param pt2ir_config The configuration of PT raw trace.
      * @param verbosity  The verbosity level for notifications. If set to 0, only error
      * logs are printed. If set to 1, all logs are printed. Default value is 0.
+     * @param allow_recoverable_errors Whether recoverable errors during decoding are
+     * considered non-fatal.
      * @return true if the instance is successfully initialized.
      */
     bool
-    init(DR_PARAM_IN pt2ir_config_t &pt2ir_config, DR_PARAM_IN int verbosity = 0);
+    init(DR_PARAM_IN pt2ir_config_t &pt2ir_config, DR_PARAM_IN int verbosity = 0,
+         DR_PARAM_IN bool allow_recoverable_errors = false);
 
     /**
      * The convert function performs two processes: (1) decode the PT raw trace into
@@ -408,6 +411,9 @@ private:
 
     /* Integer value representing the verbosity level for notifications. */
     int verbosity_;
+
+    /* Whether recoverable errors are allowed during PT trace decode. */
+    bool allow_recoverable_errors_;
 };
 
 } // namespace drmemtrace

@@ -808,7 +808,8 @@ public:
         const std::unordered_map<thread_id_t, std::istream *> &kthread_files_map = {},
         const std::string &kcore_path = "", const std::string &kallsyms_path = "",
         std::unique_ptr<dynamorio::drmemtrace::record_reader_t> syscall_template_file =
-            nullptr);
+            nullptr,
+        bool pt2ir_allow_recoverable_errors = false);
     // If a nullptr dcontext_in was passed to the constructor, calls dr_standalone_exit().
     virtual ~raw2trace_t();
 
@@ -1655,6 +1656,10 @@ private:
     std::unordered_map<int, std::vector<trace_entry_t>> syscall_trace_templates_;
     memref_counter_t syscall_trace_template_encodings_;
     offline_file_type_t syscall_template_file_type_ = OFFLINE_FILE_TYPE_DEFAULT;
+
+    // Whether recoverable errors are allowed during decoding kernel system call traces
+    // in pt2ir.
+    bool pt2ir_allow_recoverable_errors_ = false;
 };
 
 } // namespace drmemtrace
