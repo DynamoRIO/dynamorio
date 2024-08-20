@@ -2,9 +2,11 @@
 
 void dr_gen_mir_ops(instr_t *instr) {
     int opc = instr_get_opcode(instr);
+    mir_insn_list_t insn_list; // TODO: on the stack for now
+    init_mir_insn_list(&insn_list);
     switch (opc) {
         case OP_add:
-            gen_add_op(instr);
+            gen_add_op(instr, &insn_list);
             break;
         default:
             // printf("Unsupported opcode: %d\n", opc);

@@ -11,6 +11,6 @@
 // a helper function to get the type of an operand
 const char* get_opnd_type(opnd_t opnd);
 
-void gen_add_op(instr_t *instr);
+void gen_add_op(instr_t *instr, mir_insn_list_t *mir_insns_list);
 
 #endif // __GEN_OPS_H__

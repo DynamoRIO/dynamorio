@@ -58,7 +58,7 @@ typedef enum {
 
 } mir_opc_t;
 
-const char* mir_opc_to_str(mir_opc_t op){
+inline const char* mir_opc_to_str(mir_opc_t op){
     return (const char*)mir_opc_t(op);
 }
 

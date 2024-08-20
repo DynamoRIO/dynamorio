@@ -4,6 +4,7 @@
 #include "dr_api.h"
 
 #include "gen_ops.h"
+#include "list.h"
 
 void
 dr_gen_mir_ops(instr_t *instr);

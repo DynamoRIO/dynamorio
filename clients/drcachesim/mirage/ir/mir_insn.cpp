@@ -49,6 +49,8 @@ void mir_insn_set_dst_reg(mir_insn_t *insn, reg_id_t reg) {
     insn->dst = mir_opnd_malloc_reg(reg);
 }
 
+// LIST operations
+
 void init_mir_insn_list(mir_insn_list_t* list) {
     list_init(list);
 }

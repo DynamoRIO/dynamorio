@@ -16,9 +16,20 @@ const char* get_opnd_type(opnd_t opnd) {
     if (opnd_is_instr(opnd)) {
         return "instr";
     }
+    if (opnd_is_null(opnd)) {
+        return "null";
+    }
+    if (opnd_is_near_rel_addr(opnd)) {
+        return "near_rel_addr";
+    }
+    if (opnd_is_far_rel_addr(opnd)) {
+        return "far_rel_addr";
+    }
     return "unknown";
 }
 
+// BASE-DISPLACEMENT
+// A helper function to generate a load instruction from a base-displacement src
 void gen_load_from_base_disp(opnd_t opnd, mir_insn_t* insn, 
                         mir_insn_list_t *mir_insns_list) {
     reg_id_t base = opnd_get_base(opnd);
@@ -30,6 +41,7 @@ void gen_load_from_base_disp(opnd_t opnd, mir_insn_t* insn,
     mir_insn_push_front(mir_insns_list, load_insn);
 }
 
+// A helper function to generate a store instruction to a base-displacement dst
 void gen_store_to_base_disp(opnd_t opnd, mir_insn_t* insn, 
                         mir_insn_list_t *mir_insns_list) {
     reg_id_t base = opnd_get_base(opnd);
@@ -41,6 +53,36 @@ void gen_store_to_base_disp(opnd_t opnd, mir_insn_t* insn,
     mir_insn_push_front(mir_insns_list, store_insn);
 }
 
+// NEAR-RELATIVE ADDRESS
+// A helper function to generate a load instruction from a near-relative to a pc src
+void gen_load_from_near_rel_addr(opnd_t opnd, mir_insn_t* insn, 
+                        mir_insn_list_t *mir_insns_list) {
+    // TODO: implement this
+    return;
+}
+
+// A helper function to generate a store instruction to a near-relative to a pc dst
+void gen_store_to_near_rel_addr(opnd_t opnd, mir_insn_t* insn, 
+                        mir_insn_list_t *mir_insns_list) {
+    // TODO: implement this
+    return;
+}
+
+// ABSOLUTE ADDRESS
+// A helper function to generate a load instruction from a absolute address src
+void gen_load_from_abs_addr(opnd_t opnd, mir_insn_t* insn, 
+                        mir_insn_list_t *mir_insns_list) {
+    // TODO: implement this
+    return;
+}
+
+// A helper function to generate a store instruction to a absolute address dst
+void gen_store_to_abs_addr(opnd_t opnd, mir_insn_t* insn, 
+                        mir_insn_list_t *mir_insns_list) {
+    // TODO: implement this
+    return;
+}
+
 void src0_set_opnd_by_type(opnd_t opnd, mir_insn_t* insn, 
                         mir_insn_list_t *mir_insns_list) {
     if (opnd_is_reg(opnd)) {
@@ -49,12 +91,26 @@ void src0_set_opnd_by_type(opnd_t opnd, mir_insn_t* insn,
     else if (opnd_is_immed(opnd)) {
         mir_insn_set_src0_imm(insn, opnd_get_immed_int(opnd));
     }
-    else if (opnd_is_base_disp(opnd)) {
-        gen_load_from_base_disp(opnd, insn, mir_insns_list);
+    else if (opnd_is_memory_reference(opnd)) {
+        printf("encountered memory reference opnd src0 type: %s\n", get_opnd_type(opnd));
+        if (opnd_is_abs_addr(opnd)) {
+            gen_load_from_abs_addr(opnd, insn, mir_insns_list);
+        }
+        else if (opnd_is_near_rel_addr(opnd)) {
+            gen_load_from_near_rel_addr(opnd, insn, mir_insns_list);
+        }
+        else if (opnd_is_base_disp(opnd)) {
+            gen_load_from_base_disp(opnd, insn, mir_insns_list);
+        }
+        else {
+            printf("unsupported memory reference opnd src0 type: %s\n", get_opnd_type(opnd));
+        }
     }
+    // else if (opnd_is_far_rel_addr(opnd)) {
+    //     gen_load_from_far_rel_addr(opnd, insn, mir_insns_list);
+    // }
     else {
-        printf("unsupported opnd src0 type\n");
-        printf("src0: %s\n", get_opnd_type(opnd));
+        printf("unsupported opnd src0 type: %s\n", get_opnd_type(opnd));
     }
 }
 
@@ -66,12 +122,11 @@ void src1_set_opnd_by_type(opnd_t opnd, mir_insn_t* insn,
     else if (opnd_is_immed(opnd)) {
         mir_insn_set_src1_imm(insn, opnd_get_immed_int(opnd));
     }
-    else if (opnd_is_base_disp(opnd)) {
-        gen_load_from_base_disp(opnd, insn, mir_insns_list);
+    else if (opnd_is_memory_reference(opnd)) {
+        printf("encountered memory reference opnd src1 type: %s\n", get_opnd_type(opnd));
     }
     else {
-        printf("unsupported opnd src1 type\n");
-        printf("src1: %s\n", get_opnd_type(opnd));
+        printf("unsupported opnd src1 type: %s\n", get_opnd_type(opnd));
     }
 }
 
@@ -80,12 +135,11 @@ void dst_set_opnd_by_type(opnd_t opnd, mir_insn_t* insn,
     if (opnd_is_reg(opnd)) {
         mir_insn_set_dst_reg(insn, opnd_get_reg(opnd));
     } 
-    else if (opnd_is_base_disp(opnd)) {
-        gen_store_to_base_disp(opnd, insn, mir_insns_list);
-    } 
+    else if (opnd_is_memory_reference(opnd)) {
+        printf("encountered memory reference opnd dst type: %s\n", get_opnd_type(opnd));
+    }
     else {
-        printf("unsupported opnd dst type\n");
-        printf("dst: %s\n", get_opnd_type(opnd));
+        printf("unsupported opnd dst type: %s\n", get_opnd_type(opnd));
     }
 }
 
