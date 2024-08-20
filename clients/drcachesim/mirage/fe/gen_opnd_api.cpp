@@ -156,7 +156,7 @@ void gen_dst_store_to_near_rel(opnd_t opnd, mir_insn_t* insn,
     int32_t disp = opnd_get_disp(opnd);
 
     // Generate the address calculation instruction
-    mir_insn_t* addr_insn = mir_insn_malloc(MIR_OP_MOV);
+    mir_insn_t* addr_insn = mir_insn_malloc(MIR_OP_ADD);
     mir_insn_malloc_src0_imm(addr_insn, disp);
     mir_insn_malloc_src1_reg(addr_insn, 0); // FIXME: do PC_REG special case since x86 EIP is not accessible
     mir_opnd_t* addr_tmp = mir_insn_malloc_dst_reg(addr_insn, 0); // FIXME: do reg allocation
@@ -210,7 +210,7 @@ void gen_dst_store_to_base_disp(opnd_t opnd, mir_insn_t* insn,
     reg_id_t base = opnd_get_base(opnd);
     int32_t disp = opnd_get_disp(opnd);
     // Generate the address calculation instruction
-    mir_insn_t* addr_insn = mir_insn_malloc(MIR_OP_MOV);
+    mir_insn_t* addr_insn = mir_insn_malloc(MIR_OP_ADD);
     mir_insn_malloc_src0_reg(addr_insn, base);
     mir_insn_malloc_src1_imm(addr_insn, disp);
     mir_opnd_t* addr_tmp = mir_insn_malloc_dst_reg(addr_insn, 0); // FIXME: do reg allocation
