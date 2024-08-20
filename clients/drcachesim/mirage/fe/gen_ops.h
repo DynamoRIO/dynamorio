@@ -11,5 +11,6 @@
 #include "gen_opnd_api.h"
 
 void gen_add_op(instr_t *instr, mir_insn_list_t *mir_insns_list);
+void gen_sub_op(instr_t *instr, mir_insn_list_t *mir_insns_list);
 
 #endif // __GEN_OPS_H__

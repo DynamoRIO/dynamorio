@@ -89,7 +89,12 @@ reuse_pattern_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         {
             // print the literal value of the pc
             printf("encountered add instruction at PC %p\n", (void*)curr_pc);
-        dr_gen_mir_ops(&curr_instr);
+            dr_gen_mir_ops(&curr_instr);
+        }
+        else if (instr_get_opcode(&curr_instr) == OP_sub)
+        {
+            printf("encountered sub instruction at PC %p\n", (void*)curr_pc);
+            dr_gen_mir_ops(&curr_instr);
         }
         return true;
     }

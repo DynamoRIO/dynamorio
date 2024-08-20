@@ -8,6 +8,9 @@ void dr_gen_mir_ops(instr_t *instr) {
         case OP_add:
             gen_add_op(instr, &insn_list);
             break;
+        case OP_sub:
+            gen_sub_op(instr, &insn_list);
+            break;
         default:
             // printf("Unsupported opcode: %d\n", opc);
             break;

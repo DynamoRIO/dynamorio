@@ -16,7 +16,7 @@ typedef enum {
     MIR_OP_ADD,  // reg-reg add
     // MIR_OP_ADDI, // reg-imm add
 
-    MIR_OP_SUB,  // reg-reg sub
+    MIR_OP_SUB,  // TODO: confirm this dst = src1 - src0
     // MIR_OP_SUBI, // reg-imm sub
 
     MIR_OP_MUL,  // reg-reg mul
