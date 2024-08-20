@@ -58,8 +58,31 @@ typedef enum {
 
 } mir_opc_t;
 
+static const char* mir_opc_str[] = {
+    "NULL",
+    "ADD",
+    "SUB",
+    "MUL",
+    "DIV",
+    "DIVU",
+    "REM",
+    "REMU",
+    "AND",
+    "OR",
+    "XOR",
+    "LD8",
+    "LD16",
+    "LD32",
+    "LD64",
+    "ST8",
+    "ST16",
+    "ST32",
+    "ST64",
+};
+
 inline const char* mir_opc_to_str(mir_opc_t op){
-    return (const char*)mir_opc_t(op);
+    // directly cast to string, not as a pointer
+    return mir_opc_str[op];
 }
 
 #endif // __MIR_OP_H_

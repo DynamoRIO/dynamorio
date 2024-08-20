@@ -12,4 +12,5 @@ void dr_gen_mir_ops(instr_t *instr) {
             // printf("Unsupported opcode: %d\n", opc);
             break;
     }
+    print_mir_insn_list(&insn_list);
 }

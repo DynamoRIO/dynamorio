@@ -24,10 +24,10 @@ void mir_opnd_free(mir_opnd_t *opnd) {
 
 const char* mir_opnd_to_str(mir_opnd_t* opnd) {
     static char buffer[256];
-    if (opnd->type == MIR_OPND_REG) {
-        snprintf(buffer, sizeof(buffer), "r%s", get_register_name(opnd->value.reg));
-    } else if (opnd->type == MIR_OPND_IMM) {
-        snprintf(buffer, sizeof(buffer), "i%ld", opnd->value.imm);
+    if (mir_opnd_is_reg(opnd)) {
+        snprintf(buffer, sizeof(buffer), "[r]%s", get_register_name(opnd->value.reg));
+    } else if (mir_opnd_is_imm(opnd)) {
+        snprintf(buffer, sizeof(buffer), "[i]%ld", opnd->value.imm);
     }
     return buffer;
 }

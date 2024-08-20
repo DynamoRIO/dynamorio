@@ -1,7 +1,5 @@
 #include "gen_ops.h"
 
-
-
 void gen_add_op(instr_t *instr, mir_insn_list_t *mir_insns_list) {
     assert(instr_num_srcs(instr) == 2);
     assert(instr_num_dsts(instr) == 1);

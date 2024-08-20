@@ -8,6 +8,7 @@
 #include "list.h"
 
 #include "assert.h"
+#include "string.h"
 
 struct mir_insn_t {
     mir_opc_t op;

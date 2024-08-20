@@ -19,13 +19,17 @@ void mir_insn_free(mir_insn_t *insn) {
 const char* mir_insn_to_str(mir_insn_t* insn) {
     static char buffer[256];
     const char* op_str = mir_opc_to_str(insn->op);
-    const char* opnd0_str = mir_opnd_to_str(insn->opnd0);
-    const char* opnd1_str = mir_opnd_to_str(insn->opnd1);
-    const char* dst_str = mir_opnd_to_str(insn->dst);
+    char* opnd0_str = strdup(mir_opnd_to_str(insn->opnd0));
+    char* opnd1_str = strdup(mir_opnd_to_str(insn->opnd1));
+    char* dst_str = strdup(mir_opnd_to_str(insn->dst));
 
     snprintf(buffer, sizeof(buffer), "%s %s, %s -> %s", 
              op_str, opnd0_str, opnd1_str, dst_str);
 
+    free(opnd0_str);
+    free(opnd1_str);
+    free(dst_str);
+    
     return buffer;
 }
 
@@ -79,6 +83,6 @@ void print_mir_insn_list(mir_insn_list_t* list) {
     struct list_elem* e;
     for (e = list_begin(list); e != list_end(list); e = list_next(e)) {
         mir_insn_t* insn = list_entry(e, mir_insn_t, elem);
-        printf("%s\n", mir_opc_to_str(insn->op));
+        printf("%s\n", mir_insn_to_str(insn));
     }
 }
