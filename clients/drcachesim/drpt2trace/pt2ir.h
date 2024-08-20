@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -359,13 +359,15 @@ public:
      * @param pt_data The PT raw trace.
      * @param pt_data_size The size of PT raw trace.
      * @param drir The drir object.
+     * @param recoverable_error_count Reference to the integer where the count of
+     * recoverable errors seen during coversion will be stored.
      * @return pt2ir_convert_status_t. If the conversion is successful, the function
      * returns #PT2IR_CONV_SUCCESS. Otherwise, the function returns the corresponding
      * error code.
      */
     pt2ir_convert_status_t
     convert(DR_PARAM_IN const uint8_t *pt_data, DR_PARAM_IN size_t pt_data_size,
-            DR_PARAM_INOUT drir_t *drir);
+            DR_PARAM_INOUT drir_t *drir, DR_PARAM_OUT uint64_t &recoverable_error_count);
 
 private:
     /* Diagnose converting errors and output diagnostic results.

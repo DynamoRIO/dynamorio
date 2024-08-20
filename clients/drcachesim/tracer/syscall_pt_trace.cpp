@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -58,7 +58,14 @@ namespace drmemtrace {
 #ifndef OUTFILE_SUFFIX_PT
 #    define OUTFILE_SUFFIX_PT "raw.pt"
 #endif
-#define RING_BUFFER_SIZE_SHIFT 8
+/* The ring buffer is assigned a size of (1 << RING_BUFFER_SIZE_SHIFT) * page_size.
+ * For apps with a high thread count, this may cause us to exceed the available
+ * memory.
+ * XXX: Configure this via a command-line arg if needed. The current value seems to
+ * work for system call traces which are not expected to be arbitrarily long.
+ * READ_RING_BUFFER_ERROR_OLD_DATA_OVERWRITTEN allows us to detect overflows.
+ */
+#define RING_BUFFER_SIZE_SHIFT 4
 
 syscall_pt_trace_t::syscall_pt_trace_t()
     : open_file_ex_func_(nullptr)

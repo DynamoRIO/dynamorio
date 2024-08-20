@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -257,7 +257,8 @@ pt2ir_t::init(DR_PARAM_IN pt2ir_config_t &pt2ir_config, DR_PARAM_IN int verbosit
 
 pt2ir_convert_status_t
 pt2ir_t::convert(DR_PARAM_IN const uint8_t *pt_data, DR_PARAM_IN size_t pt_data_size,
-                 DR_PARAM_INOUT drir_t *drir)
+                 DR_PARAM_INOUT drir_t *drir,
+                 DR_PARAM_OUT uint64_t &recoverable_error_count)
 {
     if (!pt2ir_initialized_) {
         return PT2IR_CONV_ERROR_NOT_INITIALIZED;
@@ -286,11 +287,17 @@ pt2ir_t::convert(DR_PARAM_IN const uint8_t *pt_data, DR_PARAM_IN size_t pt_data_
 
     /* This flag indicates whether manual synchronization is required. */
     bool manual_sync = true;
-
     /* PT raw data consists of many packets. And PT trace data is surrounded by Packet
      * Stream Boundary. So, in the outermost loop, this function first finds the PSB. Then
      * it decodes the trace data.
      */
+    uint64_t decoded_instr_count = 0;
+    recoverable_error_count = 0;
+    /* XXX: This is currently set based on empirical observations. We use this heuristic
+     * to detect recoverable errors: any non-consecutive error of type pte_bad_query, and
+     * errors up to this limit are attempted to recover from by retrying.
+     */
+    constexpr int kErrorLimit = 100;
     for (;;) {
         struct pt_insn insn;
         memset(&insn, 0, sizeof(insn));
@@ -373,8 +380,17 @@ pt2ir_t::convert(DR_PARAM_IN const uint8_t *pt_data, DR_PARAM_IN size_t pt_data_
 
             /* Decode PT raw trace to pt_insn. */
             status = pt_insn_next(pt_instr_decoder_, &insn, sizeof(insn));
+            if (status == -pte_bad_query && recoverable_error_count < kErrorLimit) {
+                ++recoverable_error_count;
+                /* The error may be recoverable. Try to continue past it. We may
+                 * lose an instruction entry which may show up as a PC discontinuity
+                 * in the kernel syscall trace.
+                 */
+                status = pt_insn_next(pt_instr_decoder_, &insn, sizeof(insn));
+            }
             if (status < 0) {
                 dx_decoding_error(status, "get next instruction error", insn.ip);
+                drir->clear_ilist();
                 return PT2IR_CONV_ERROR_DECODE_NEXT_INSTR;
             }
 
@@ -399,9 +415,14 @@ pt2ir_t::convert(DR_PARAM_IN const uint8_t *pt_data, DR_PARAM_IN size_t pt_data_
                 }
 #endif
             }
+            ++decoded_instr_count;
             drir->append(instr, instr_ip, insn.size, insn.raw);
         }
     }
+    VPRINT(1,
+           "libipt decoded " UINT64_FORMAT_STRING
+           " instructions with " UINT64_FORMAT_STRING " recoverable errors.\n",
+           decoded_instr_count, recoverable_error_count);
     return PT2IR_CONV_SUCCESS;
 }
 

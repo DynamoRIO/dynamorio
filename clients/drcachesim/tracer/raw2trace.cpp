@@ -1192,13 +1192,17 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
         tdata->pt_decode_state_ = std::unique_ptr<drir_t>(new drir_t(GLOBAL_DCONTEXT));
     }
     tdata->pt_decode_state_->clear_ilist();
+    uint64_t syscall_decode_recoverable_error_count = 0;
     pt2ir_convert_status_t pt2ir_convert_status = tdata->pt2ir.convert(
-        pt_data->data.get(), pt_data_size, tdata->pt_decode_state_.get());
+        pt_data->data.get(), pt_data_size, tdata->pt_decode_state_.get(),
+        syscall_decode_recoverable_error_count);
     if (pt2ir_convert_status != PT2IR_CONV_SUCCESS) {
-        tdata->error = "Failed to convert PT raw trace to DR IR [error status: " +
-            std::to_string(pt2ir_convert_status) + "]";
-        return false;
+        accumulate_to_statistic(tdata, RAW2TRACE_STAT_SYSCALL_TRACES_DECODE_FAILED, 1);
+        return true;
     }
+    accumulate_to_statistic(tdata,
+                            RAW2TRACE_STAT_SYSCALL_TRACES_DECODE_RECOVERABLE_ERROR_COUNT,
+                            syscall_decode_recoverable_error_count);
 
     /* Convert the DR IR to trace entries. */
     addr_t sysnum =
@@ -1224,8 +1228,8 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
                                 .addr = sysnum };
     entries.push_back(end_entry);
     if (entries.size() == 2) {
-        tdata->error = "No trace entries generated from PT data";
-        return false;
+        accumulate_to_statistic(tdata, RAW2TRACE_STAT_SYSCALL_TRACES_DECODE_EMPTY, 1);
+        return true;
     }
 
     accumulate_to_statistic(tdata, RAW2TRACE_STAT_SYSCALL_TRACES_DECODED, 1);
@@ -1564,6 +1568,11 @@ raw2trace_t::do_conversion()
             final_trace_instr_count_ += thread_data_[i]->final_trace_instr_count;
             kernel_instr_count_ += thread_data_[i]->kernel_instr_count;
             syscall_traces_decoded_ += thread_data_[i]->syscall_traces_decoded;
+            syscall_traces_decode_failed_ +=
+                thread_data_[i]->syscall_traces_decode_failed;
+            syscall_traces_decode_recoverable_error_count_ +=
+                thread_data_[i]->syscall_traces_decode_recoverable_error_count;
+            syscall_traces_decode_empty_ += thread_data_[i]->syscall_traces_decode_empty;
             syscall_traces_injected_ += thread_data_[i]->syscall_traces_injected;
         }
     } else {
@@ -1592,6 +1601,10 @@ raw2trace_t::do_conversion()
             final_trace_instr_count_ += tdata->final_trace_instr_count;
             kernel_instr_count_ += tdata->kernel_instr_count;
             syscall_traces_decoded_ += tdata->syscall_traces_decoded;
+            syscall_traces_decode_failed_ += tdata->syscall_traces_decode_failed;
+            syscall_traces_decode_recoverable_error_count_ +=
+                tdata->syscall_traces_decode_recoverable_error_count;
+            syscall_traces_decode_empty_ += tdata->syscall_traces_decode_empty;
             syscall_traces_injected_ += tdata->syscall_traces_injected;
         }
     }
@@ -1614,6 +1627,13 @@ raw2trace_t::do_conversion()
     VPRINT(1, "Kernel instr count " UINT64_FORMAT_STRING "\n", kernel_instr_count_);
     VPRINT(1, "System call PT traces decoded " UINT64_FORMAT_STRING "\n",
            syscall_traces_decoded_);
+    VPRINT(1, "System call PT traces decode failed " UINT64_FORMAT_STRING "\n",
+           syscall_traces_decode_failed_);
+    VPRINT(1,
+           "System call PT traces decode recoverable errors " UINT64_FORMAT_STRING "\n",
+           syscall_traces_decode_recoverable_error_count_);
+    VPRINT(1, "System call PT traces decode found empty trace " UINT64_FORMAT_STRING "\n",
+           syscall_traces_decode_empty_);
     VPRINT(1, "System call traces injected from template " UINT64_FORMAT_STRING "\n",
            syscall_traces_injected_);
     VPRINT(1, "Successfully converted %zu thread files\n", thread_data_.size());
@@ -3809,6 +3829,15 @@ raw2trace_t::accumulate_to_statistic(raw2trace_thread_data_t *tdata,
     case RAW2TRACE_STAT_SYSCALL_TRACES_DECODED:
         tdata->syscall_traces_decoded += value;
         break;
+    case RAW2TRACE_STAT_SYSCALL_TRACES_DECODE_FAILED:
+        tdata->syscall_traces_decode_failed += value;
+        break;
+    case RAW2TRACE_STAT_SYSCALL_TRACES_DECODE_RECOVERABLE_ERROR_COUNT:
+        tdata->syscall_traces_decode_recoverable_error_count += value;
+        break;
+    case RAW2TRACE_STAT_SYSCALL_TRACES_DECODE_EMPTY:
+        tdata->syscall_traces_decode_empty += value;
+        break;
     case RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED:
         tdata->syscall_traces_injected += value;
         break;
@@ -3831,6 +3860,11 @@ raw2trace_t::get_statistic(raw2trace_statistic_t stat)
     case RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT: return final_trace_instr_count_;
     case RAW2TRACE_STAT_KERNEL_INSTR_COUNT: return kernel_instr_count_;
     case RAW2TRACE_STAT_SYSCALL_TRACES_DECODED: return syscall_traces_decoded_;
+    case RAW2TRACE_STAT_SYSCALL_TRACES_DECODE_RECOVERABLE_ERROR_COUNT:
+        return syscall_traces_decode_recoverable_error_count_;
+    case RAW2TRACE_STAT_SYSCALL_TRACES_DECODE_FAILED:
+        return syscall_traces_decode_failed_;
+    case RAW2TRACE_STAT_SYSCALL_TRACES_DECODE_EMPTY: return syscall_traces_decode_empty_;
     case RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED: return syscall_traces_injected_;
     case RAW2TRACE_STAT_MAX:
     default: DR_ASSERT(false); return 0;
