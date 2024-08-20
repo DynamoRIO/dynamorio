@@ -21,6 +21,7 @@ struct mir_insn_t {
 
 mir_insn_t* mir_insn_malloc(mir_opc_t op);
 void mir_insn_free(mir_insn_t *insn);
+const char* mir_opc_to_str(mir_opc_t op);
 
 // malloc a new opnd
 void mir_insn_malloc_src0_reg(mir_insn_t *insn, reg_id_t reg);

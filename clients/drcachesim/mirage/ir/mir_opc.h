@@ -53,11 +53,10 @@ typedef enum {
     MIR_OP_LD64, // load 64-bit
 
     /*  STORE is a special case
-        SRC0 is the register to store
-        SRC1 is always [i]0
-        DST is the register containing the address to store
+        SRC0 & SRC1 compute the address
+        DST is the register containing the data to store
         Address calculation is done before invoking store */
-    // *** STORE SRC0 -> 0[DST] ***
+    // *** STORE DST -> [SRC0 + SRC1] ***
     MIR_OP_ST8,  // store 8-bit
     MIR_OP_ST16, // store 16-bit
     MIR_OP_ST32, // store 32-bit
@@ -91,6 +90,14 @@ static const char* mir_opc_str[] = {
 inline const char* mir_opc_to_str(mir_opc_t op){
     // directly cast to string, not as a pointer
     return mir_opc_str[op];
+}
+
+inline bool mir_opc_is_store(mir_opc_t op){
+    return op == MIR_OP_ST8 || op == MIR_OP_ST16 || op == MIR_OP_ST32 || op == MIR_OP_ST64;
+}
+
+inline bool mir_opc_is_load(mir_opc_t op){
+    return op == MIR_OP_LD8 || op == MIR_OP_LD16 || op == MIR_OP_LD32 || op == MIR_OP_LD64;
 }
 
 #endif // __MIR_OP_H_
