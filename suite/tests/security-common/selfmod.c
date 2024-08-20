@@ -113,6 +113,8 @@ our_top_handler(struct _EXCEPTION_POINTERS *pExceptionInfo)
         if (pExceptionInfo->ExceptionRecord->ExceptionCode ==
             EXCEPTION_ILLEGAL_INSTRUCTION)
             print("Illegal instruction\n");
+        else
+            print("Segmentation fault\n");
         print_fault_code(
             (unsigned char *)pExceptionInfo->ExceptionRecord->ExceptionAddress);
         SIGLONGJMP(mark, count++);
