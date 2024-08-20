@@ -228,7 +228,7 @@ func_view_t::process_memref(const memref_t &memref)
     } else
         shard = lookup->second;
     if (!process_memref_for_markers(shard, memref))
-      return false;
+        return false;
     if (!knob_full_trace_)
         return true;
     if (memref.data.type == TRACE_TYPE_THREAD_EXIT && shard->prev_was_arg) {
@@ -366,7 +366,7 @@ func_view_t::get_info_for_last_func_id(shard_data_t *shard)
     assert(shard != nullptr);
     int id = shard->last_func_id;
     assert(id != -1);
-    const auto& it = id2info_.find(id);
+    const auto &it = id2info_.find(id);
     if (it != id2info_.end())
         return it->second;
     // We don't have information on id, so set the error string.
