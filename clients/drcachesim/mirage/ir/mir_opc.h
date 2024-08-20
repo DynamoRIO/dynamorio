@@ -11,6 +11,7 @@ typedef enum {
     // REGISTER OPERATION
 
     // Arithmetic
+    MIR_OP_MOV,  // reg-reg move
 
     MIR_OP_ADD,  // reg-reg add
     // MIR_OP_ADDI, // reg-imm add
@@ -30,7 +31,7 @@ typedef enum {
     MIR_OP_REM,  // reg-reg rem
     // MIR_OP_REMI, // reg-imm rem
 
-    // MIR_OP_REMU, // reg-reg unsigned-rem
+    MIR_OP_REMU, // reg-reg unsigned-rem
     // MIR_OP_REMUI,// reg-imm unsigned-rem
 
     // Bitwise
@@ -51,6 +52,12 @@ typedef enum {
     MIR_OP_LD32, // load 32-bit
     MIR_OP_LD64, // load 64-bit
 
+    /*  STORE is a special case
+        SRC0 is the register to store
+        SRC1 is always [i]0
+        DST is the register containing the address to store
+        Address calculation is done before invoking store */
+    // *** STORE SRC0 -> 0[DST] ***
     MIR_OP_ST8,  // store 8-bit
     MIR_OP_ST16, // store 16-bit
     MIR_OP_ST32, // store 32-bit
@@ -60,6 +67,7 @@ typedef enum {
 
 static const char* mir_opc_str[] = {
     "NULL",
+    "MOV",
     "ADD",
     "SUB",
     "MUL",

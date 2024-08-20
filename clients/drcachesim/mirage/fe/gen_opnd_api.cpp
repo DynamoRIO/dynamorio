@@ -98,13 +98,26 @@ void gen_src1_load_from_abs_addr(opnd_t opnd, mir_insn_t* insn,
 void gen_dst_store_to_abs_addr(opnd_t opnd, mir_insn_t* insn, 
                         mir_insn_list_t *mir_insns_list) {
     void *addr = opnd_get_addr(opnd);
+
+    // Generate the address calculation instruction
+    mir_insn_t* addr_insn = mir_insn_malloc(MIR_OP_MOV);
+    mir_insn_malloc_src0_imm(addr_insn, (int64_t)addr);
+    mir_insn_malloc_src1_imm(addr_insn, 0);
+    // FIXME: do reg allocation, this register contains the address to be stored
+    mir_opnd_t* addr_tmp = mir_insn_malloc_dst_reg(addr_insn, 0); 
+    mir_insn_push_back(mir_insns_list, addr_insn);
+
+    // Patch the original instruction
+    mir_opnd_t* val_tmp = mir_insn_malloc_dst_reg(insn, 0); // FIXME: do reg allocation
+
+    // Generate the store instruction
     mir_insn_t* store_insn = mir_insn_malloc(MIR_OP_ST32);
-    mir_insn_malloc_src0_imm(store_insn, (int64_t)addr);
-    mir_insn_malloc_src1_reg(store_insn, 0); // FIXME: do reg allocation
+    mir_insn_set_src0(store_insn, val_tmp);
+    mir_insn_malloc_src1_imm(store_insn, 0); // always 0 for store
     // The tmp register is immediately stored and discarded, so we don't need to
     // save it for any future use. 
-    mir_insn_malloc_dst_reg(store_insn, 0); // FIXME: do reg allocation
-    mir_insn_push_front(mir_insns_list, store_insn);
+    mir_insn_set_dst(store_insn, addr_tmp);
+    mir_insn_push_back(mir_insns_list, store_insn);
     return;
 }
 
@@ -141,11 +154,23 @@ void gen_src1_load_from_near_rel(opnd_t opnd, mir_insn_t* insn,
 void gen_dst_store_to_near_rel(opnd_t opnd, mir_insn_t* insn, 
                         mir_insn_list_t *mir_insns_list) {
     int32_t disp = opnd_get_disp(opnd);
+
+    // Generate the address calculation instruction
+    mir_insn_t* addr_insn = mir_insn_malloc(MIR_OP_MOV);
+    mir_insn_malloc_src0_imm(addr_insn, disp);
+    mir_insn_malloc_src1_reg(addr_insn, 0); // FIXME: do PC_REG special case since x86 EIP is not accessible
+    mir_opnd_t* addr_tmp = mir_insn_malloc_dst_reg(addr_insn, 0); // FIXME: do reg allocation
+    mir_insn_push_back(mir_insns_list, addr_insn);
+
+    // Patch the original instruction
+    mir_opnd_t* val_tmp = mir_insn_malloc_dst_reg(insn, 0); // FIXME: do reg allocation
+
+    // Generate the store instruction
     mir_insn_t* store_insn = mir_insn_malloc(MIR_OP_ST32);
-    mir_insn_malloc_src0_imm(store_insn, disp);
-    mir_insn_malloc_src1_reg(store_insn, 0); // FIXME: do PC_REG special case since x86 EIP is not accessible
-    mir_insn_malloc_dst_reg(store_insn, 0); // FIXME: do reg allocation
-    mir_insn_push_front(mir_insns_list, store_insn);
+    mir_insn_set_src0(store_insn, val_tmp); 
+    mir_insn_malloc_src1_imm(store_insn, 0); // always 0 for store
+    mir_insn_set_dst(store_insn, addr_tmp);
+    mir_insn_push_back(mir_insns_list, store_insn);
     return;
 }
 
@@ -184,11 +209,23 @@ void gen_dst_store_to_base_disp(opnd_t opnd, mir_insn_t* insn,
                         mir_insn_list_t *mir_insns_list) {
     reg_id_t base = opnd_get_base(opnd);
     int32_t disp = opnd_get_disp(opnd);
+    // Generate the address calculation instruction
+    mir_insn_t* addr_insn = mir_insn_malloc(MIR_OP_MOV);
+    mir_insn_malloc_src0_reg(addr_insn, base);
+    mir_insn_malloc_src1_imm(addr_insn, disp);
+    mir_opnd_t* addr_tmp = mir_insn_malloc_dst_reg(addr_insn, 0); // FIXME: do reg allocation
+    mir_insn_push_back(mir_insns_list, addr_insn);
+
+    // Patch the original instruction
+    mir_opnd_t* val_tmp = mir_insn_malloc_dst_reg(insn, 0); // FIXME: do reg allocation
+
+    // Generate the store instruction
     mir_insn_t* store_insn = mir_insn_malloc(MIR_OP_ST32);
-    mir_insn_malloc_src0_reg(store_insn, base);
-    mir_insn_malloc_src1_imm(store_insn, disp);
-    mir_insn_malloc_dst_reg(store_insn, 0); // FIXME: do reg allocation
-    mir_insn_push_front(mir_insns_list, store_insn);
+    mir_insn_set_src0(store_insn, val_tmp);
+    mir_insn_malloc_src1_imm(store_insn, 0); // always 0 for store
+    mir_insn_set_dst(store_insn, addr_tmp);
+    mir_insn_push_back(mir_insns_list, store_insn);
+    return;
 }
 
 void src0_set_opnd_by_type(opnd_t opnd, mir_insn_t* insn, 
