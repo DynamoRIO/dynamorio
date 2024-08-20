@@ -1195,7 +1195,7 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
     uint64_t syscall_decode_recoverable_error_count = 0;
     pt2ir_convert_status_t pt2ir_convert_status = tdata->pt2ir.convert(
         pt_data->data.get(), pt_data_size, tdata->pt_decode_state_.get(),
-        syscall_decode_recoverable_error_count);
+        &syscall_decode_recoverable_error_count);
     if (pt2ir_convert_status != PT2IR_CONV_SUCCESS) {
         accumulate_to_statistic(tdata, RAW2TRACE_STAT_SYSCALL_TRACES_DECODE_FAILED, 1);
         return true;

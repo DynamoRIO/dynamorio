@@ -258,7 +258,7 @@ pt2ir_t::init(DR_PARAM_IN pt2ir_config_t &pt2ir_config, DR_PARAM_IN int verbosit
 pt2ir_convert_status_t
 pt2ir_t::convert(DR_PARAM_IN const uint8_t *pt_data, DR_PARAM_IN size_t pt_data_size,
                  DR_PARAM_INOUT drir_t *drir,
-                 DR_PARAM_OUT uint64_t &recoverable_error_count)
+                 DR_PARAM_OUT uint64_t *recoverable_error_count_out)
 {
     if (!pt2ir_initialized_) {
         return PT2IR_CONV_ERROR_NOT_INITIALIZED;
@@ -292,7 +292,7 @@ pt2ir_t::convert(DR_PARAM_IN const uint8_t *pt_data, DR_PARAM_IN size_t pt_data_
      * it decodes the trace data.
      */
     uint64_t decoded_instr_count = 0;
-    recoverable_error_count = 0;
+    uint64_t recoverable_error_count = 0;
     /* XXX: This is currently set based on empirical observations. We use this heuristic
      * to detect recoverable errors: any non-consecutive error of type pte_bad_query, and
      * errors up to this limit are attempted to recover from by retrying.
@@ -423,6 +423,8 @@ pt2ir_t::convert(DR_PARAM_IN const uint8_t *pt_data, DR_PARAM_IN size_t pt_data_
            "libipt decoded " UINT64_FORMAT_STRING
            " instructions with " UINT64_FORMAT_STRING " recoverable errors.\n",
            decoded_instr_count, recoverable_error_count);
+    if (recoverable_error_count_out != nullptr)
+        *recoverable_error_count_out = recoverable_error_count;
     return PT2IR_CONV_SUCCESS;
 }
 
