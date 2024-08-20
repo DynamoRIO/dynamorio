@@ -29,28 +29,40 @@ const char* mir_insn_to_str(mir_insn_t* insn) {
     return buffer;
 }
 
-void mir_insn_set_src0_reg(mir_insn_t *insn, reg_id_t reg) {
+void mir_insn_malloc_src0_reg(mir_insn_t *insn, reg_id_t reg) {
     insn->opnd0 = mir_opnd_malloc_reg(reg);
 }
 
-void mir_insn_set_src0_imm(mir_insn_t *insn, int64_t imm) {
+void mir_insn_malloc_src0_imm(mir_insn_t *insn, int64_t imm) {
     insn->opnd0 = mir_opnd_malloc_imm(imm);
 }
 
-void mir_insn_set_src1_reg(mir_insn_t *insn, reg_id_t reg) {
+void mir_insn_malloc_src1_reg(mir_insn_t *insn, reg_id_t reg) {
     insn->opnd1 = mir_opnd_malloc_reg(reg);
 }
 
-void mir_insn_set_src1_imm(mir_insn_t *insn, int64_t imm) {
+void mir_insn_malloc_src1_imm(mir_insn_t *insn, int64_t imm) {
     insn->opnd1 = mir_opnd_malloc_imm(imm);
 }
 
-void mir_insn_set_dst_reg(mir_insn_t *insn, reg_id_t reg) {
+mir_opnd_t* mir_insn_malloc_dst_reg(mir_insn_t *insn, reg_id_t reg) {
     insn->dst = mir_opnd_malloc_reg(reg);
+    return insn->dst;
+}
+
+void mir_insn_set_src0(mir_insn_t *insn, mir_opnd_t *opnd) {
+    insn->opnd0 = opnd;
+}
+
+void mir_insn_set_src1(mir_insn_t *insn, mir_opnd_t *opnd) {
+    insn->opnd1 = opnd;
+}
+
+void mir_insn_set_dst(mir_insn_t *insn, mir_opnd_t *opnd) {
+    insn->dst = opnd;
 }
 
 // LIST operations
-
 void init_mir_insn_list(mir_insn_list_t* list) {
     list_init(list);
 }

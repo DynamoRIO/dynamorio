@@ -8,6 +8,8 @@
 #include "mir_opnd.h"
 #include "list.h"
 
+#include "gen_opnd_api.h"
+
 // a helper function to get the type of an operand
 const char* get_opnd_type(opnd_t opnd);
 
