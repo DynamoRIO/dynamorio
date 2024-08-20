@@ -125,7 +125,8 @@ protected:
     static bool
     cmp_func_stats(const std::pair<int, func_stats_t> &l,
                    const std::pair<int, func_stats_t> &r);
-    void
+    // Process markers, return true on success.
+    bool
     process_memref_for_markers(void *shard_data, const memref_t &memref);
     std::unordered_map<int, func_stats_t>
     compute_totals();

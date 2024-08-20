@@ -31,7 +31,7 @@
  */
 
 /* This trace analyzer presents function call trace information, both
- * sequentially and in summary.  It requires a modules.log file
+ * sequentially and in summary.  It requires a funclist.log file
  * to qualify function names for offline traces.
  */
 
@@ -174,20 +174,20 @@ func_view_t::parallel_shard_error(void *shard_data)
     return shard->error;
 }
 
-void
+bool
 func_view_t::process_memref_for_markers(void *shard_data, const memref_t &memref)
 {
     shard_data_t *shard = reinterpret_cast<shard_data_t *>(shard_data);
     if (type_is_instr(memref.instr.type))
         shard->prev_pc = memref.instr.addr;
     if (memref.marker.type != TRACE_TYPE_MARKER)
-        return;
+        return true;
     if (memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_ID) {
         shard->last_was_syscall = memref.marker.marker_value >=
             static_cast<int64_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE);
     }
     if (shard->last_was_syscall)
-        return;
+        return true;
     switch (memref.marker.marker_type) {
     case TRACE_MARKER_TYPE_FUNC_ID:
         if (shard->last_func_id != -1)
@@ -204,6 +204,7 @@ func_view_t::process_memref_for_markers(void *shard_data, const memref_t &memref
         break;
     default: break;
     }
+    return shard->error.empty(); // An error message means there was a problem.
 }
 
 bool
@@ -212,8 +213,7 @@ func_view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     shard_data_t *shard = reinterpret_cast<shard_data_t *>(shard_data);
     if (memref.marker.type != TRACE_TYPE_MARKER)
         return true;
-    process_memref_for_markers(shard, memref);
-    return shard->error.empty(); // An error message means there was a problem.
+    return process_memref_for_markers(shard, memref);
 }
 
 bool
@@ -227,7 +227,8 @@ func_view_t::process_memref(const memref_t &memref)
         shard_map_[shard_index] = shard;
     } else
         shard = lookup->second;
-    process_memref_for_markers(shard, memref);
+    if (!process_memref_for_markers(shard, memref))
+      return false;
     if (!knob_full_trace_)
         return true;
     if (memref.data.type == TRACE_TYPE_THREAD_EXIT && shard->prev_was_arg) {
@@ -246,7 +247,8 @@ func_view_t::process_memref(const memref_t &memref)
             if (was_nested) {
                 --shard->nesting_level;
             } else {
-                std::cerr << "WARNING: Unnested FUNC_RETADDR\n";
+                std::cerr << "WARNING: Last function was marked noret, but no nesting"
+                          << " was present at the next function.\n";
             }
         }
         // Print a "Tnnn" prefix so threads can be distinguished.
@@ -281,7 +283,7 @@ func_view_t::process_memref(const memref_t &memref)
         if (shard->nesting_level > 0) {
             --shard->nesting_level;
         } else {
-            std::cerr << "WARNING: Unnested FUNC_RETVAL\n";
+            std::cerr << "WARNING: RETVAL found without prior RETADDR.\n";
         }
         if (!shard->prev_was_arg) {
             std::cerr
@@ -297,7 +299,7 @@ func_view_t::process_memref(const memref_t &memref)
     }
     // Reset the i/o format for subsequent tool invocations.
     std::cerr << std::dec;
-    return true;
+    return shard->error.empty(); // An error message means there was a problem.
 }
 
 bool
@@ -364,13 +366,13 @@ func_view_t::get_info_for_last_func_id(shard_data_t *shard)
     assert(shard != nullptr);
     int id = shard->last_func_id;
     assert(id != -1);
-    traced_info_t &info = id2info_[id];
-    // If this entry is uninitialized, it means we aren't expecting to see this
-    // function ID.  This likely means the funclist file is missing or incorrect.
-    if (info.num_args < 0 || info.names.empty()) {
-        shard->error = "Encountered unknown function ID=" + std::to_string(id);
-    }
-    return info;
+    const auto& it = id2info_.find(id);
+    if (it != id2info_.end())
+        return it->second;
+    // We don't have information on id, so set the error string.
+    shard->error = "Encountered unknown function ID=" + std::to_string(id);
+    // Return a default info struct.
+    return id2info_[id];
 }
 
 } // namespace drmemtrace
