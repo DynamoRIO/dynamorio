@@ -56,7 +56,7 @@ typedef enum {
         SRC0 & SRC1 compute the address
         DST is the register containing the data to store
         Address calculation is done before invoking store */
-    // *** STORE DST -> [SRC0 + SRC1] ***
+    // *** STORE DST(SRC2) -> [SRC0 + SRC1] ***
     MIR_OP_ST8,  // store 8-bit
     MIR_OP_ST16, // store 16-bit
     MIR_OP_ST32, // store 32-bit

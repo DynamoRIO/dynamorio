@@ -143,7 +143,7 @@ struct list_elem* list_tail(struct list* list) {
 /* Inserts ELEM just before BEFORE, which may be either an
    interior element or a tail.  The latter case is equivalent to
    list_push_back(). */
-void list_insert(struct list_elem* before, struct list_elem* elem) {
+void list_insert_before(struct list_elem* before, struct list_elem* elem) {
   assert(is_interior(before) || is_tail(before));
   assert(elem != NULL);
 
@@ -151,6 +151,16 @@ void list_insert(struct list_elem* before, struct list_elem* elem) {
   elem->next = before;
   before->prev->next = elem;
   before->prev = elem;
+}
+
+void list_insert_after(struct list_elem* after, struct list_elem* elem) {
+  assert(is_interior(after) || is_head(after));
+  assert(elem != NULL);
+
+  elem->prev = after;
+  elem->next = after->next;
+  after->next->prev = elem;
+  after->next = elem;
 }
 
 /* Removes elements FIRST though LAST (exclusive) from their
@@ -179,13 +189,13 @@ void list_splice(struct list_elem* before, struct list_elem* first, struct list_
 /* Inserts ELEM at the beginning of LIST, so that it becomes the
    front in LIST. */
 void list_push_front(struct list* list, struct list_elem* elem) {
-  list_insert(list_begin(list), elem);
+  list_insert_before(list_begin(list), elem);
 }
 
 /* Inserts ELEM at the end of LIST, so that it becomes the
    back in LIST. */
 void list_push_back(struct list* list, struct list_elem* elem) {
-  list_insert(list_end(list), elem);
+  list_insert_before(list_end(list), elem);
 }
 
 /* Removes ELEM from its list and returns the element that
@@ -385,7 +395,7 @@ void list_insert_ordered(struct list* list, struct list_elem* elem, list_less_fu
   for (e = list_begin(list); e != list_end(list); e = list_next(e))
     if (less(elem, e, aux))
       break;
-  return list_insert(e, elem);
+  return list_insert_before(e, elem);
 }
 
 /* Iterates through LIST and removes all but the first in each

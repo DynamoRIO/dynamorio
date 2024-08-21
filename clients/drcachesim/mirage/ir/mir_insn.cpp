@@ -39,20 +39,24 @@ const char* mir_insn_to_str(mir_insn_t* insn) {
     return buffer;
 }
 
-void mir_insn_malloc_src0_reg(mir_insn_t *insn, reg_id_t reg) {
+mir_opnd_t* mir_insn_malloc_src0_reg(mir_insn_t *insn, reg_id_t reg) {
     insn->opnd0 = mir_opnd_malloc_reg(reg);
+    return insn->opnd0;
 }
 
-void mir_insn_malloc_src0_imm(mir_insn_t *insn, int64_t imm) {
+mir_opnd_t* mir_insn_malloc_src0_imm(mir_insn_t *insn, int64_t imm) {
     insn->opnd0 = mir_opnd_malloc_imm(imm);
+    return insn->opnd0;
 }
 
-void mir_insn_malloc_src1_reg(mir_insn_t *insn, reg_id_t reg) {
+mir_opnd_t* mir_insn_malloc_src1_reg(mir_insn_t *insn, reg_id_t reg) {
     insn->opnd1 = mir_opnd_malloc_reg(reg);
+    return insn->opnd1;
 }
 
-void mir_insn_malloc_src1_imm(mir_insn_t *insn, int64_t imm) {
+mir_opnd_t* mir_insn_malloc_src1_imm(mir_insn_t *insn, int64_t imm) {
     insn->opnd1 = mir_opnd_malloc_imm(imm);
+    return insn->opnd1;
 }
 
 mir_opnd_t* mir_insn_malloc_dst_reg(mir_insn_t *insn, reg_id_t reg) {
@@ -91,4 +95,14 @@ void print_mir_insn_list(mir_insn_list_t* list) {
         mir_insn_t* insn = list_entry(e, mir_insn_t, elem);
         printf("%s\n", mir_insn_to_str(insn));
     }
+}
+
+void mir_insn_insert_before(mir_insn_t* insn, mir_insn_t* before) {
+    struct list_elem* e = &before->elem;
+    list_insert_before(e, &insn->elem);
+}
+
+void mir_insn_insert_after(mir_insn_t* insn, mir_insn_t* after) {
+    struct list_elem* e = &after->elem;
+    list_insert_after(e, &insn->elem);
 }
