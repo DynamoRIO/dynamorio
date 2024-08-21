@@ -105,9 +105,8 @@ v2p_reader_t::gen_v2p_map(std::string path_to_file,
             }
             uint64_t physical_address = std::stoull(elem, nullptr, 0);
             v2p_map[virtual_address] = physical_address;
-            virtual_address = 0;
-            continue;
         }
+        virtual_address = 0;
     }
 
     return true;
