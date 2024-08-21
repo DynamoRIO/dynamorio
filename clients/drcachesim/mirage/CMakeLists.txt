@@ -12,9 +12,11 @@ set(mirage_srcs
     dr_mir_api.cpp
     # common - shared code
     ./common/list.cpp
+    ./common/bitmap.cpp
     # frontend - translating DRIR to MIR
     ./fe/gen_ops.cpp
     ./fe/gen_opnd_api.cpp
+    ./fe/translate_context.cpp
     # backend - interpreting MIR
     # ./be/*.cpp
     # interpreter - MIR specification

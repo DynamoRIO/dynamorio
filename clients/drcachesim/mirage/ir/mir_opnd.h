@@ -3,6 +3,7 @@
 
 #include "dr_api.h"
 #include "assert.h"
+#include "translate_context.h"
 
 enum mir_opnd_type_t {
     MIR_OPND_REG,
