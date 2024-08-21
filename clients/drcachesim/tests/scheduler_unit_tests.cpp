@@ -797,8 +797,8 @@ test_only_threads()
             make_version(TRACE_ENTRY_VERSION),
             make_thread(IDLE_THREAD_ID),
             make_pid(INVALID_PID),
-            make_timestamp(-1),
-            make_marker(TRACE_MARKER_TYPE_CPU_ID, -1),
+            make_timestamp(static_cast<uint64_t>(-1)),
+            make_marker(TRACE_MARKER_TYPE_CPU_ID, static_cast<uintptr_t>(-1)),
             make_marker(TRACE_MARKER_TYPE_CORE_IDLE, 0),
             make_marker(TRACE_MARKER_TYPE_CORE_IDLE, 0),
             make_marker(TRACE_MARKER_TYPE_CORE_IDLE, 0),
@@ -826,6 +826,10 @@ test_only_threads()
              status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
             assert(status == scheduler_t::STATUS_OK);
             assert(memref.instr.tid == TID_A || memref.instr.tid == IDLE_THREAD_ID ||
+                   // In 32-bit the -1 is unsigned so the 64-bit .tid field is not
+                   // sign-extended.
+                   static_cast<uint64_t>(memref.instr.tid) ==
+                       static_cast<addr_t>(IDLE_THREAD_ID) ||
                    memref.instr.tid == INVALID_THREAD_ID);
             if (memref.marker.type == TRACE_TYPE_MARKER &&
                 memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_IDLE)
