@@ -444,9 +444,10 @@ parse_instr_intervals_file(std::string path_to_file)
     }
     file.close();
 
-    if (instr_intervals.empty())
+    if (instr_intervals.empty()) {
         FATAL("Fatal error: -trace_instr_intervals_file %s contains no intervals.\n",
               path_to_file.c_str());
+    }
 
     // Enforcing constraints on intervals:
     // 1) they need to be ordered by start time.
