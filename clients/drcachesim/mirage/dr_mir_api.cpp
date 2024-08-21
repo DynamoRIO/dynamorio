@@ -28,8 +28,11 @@ void dr_gen_mir_ops(instr_t *instr) {
         case OP_push:
             gen_push_op(instr, &insn_list, ctx);
             break;
+        case OP_pop:
+            gen_pop_op(instr, &insn_list, ctx);
+            break;
         default:
-            printf("Unsupported opcode: %d\n", opc);
+            // printf("Unsupported opcode: %d\n", opc);
             break;
     }
     print_mir_insn_list(&insn_list);

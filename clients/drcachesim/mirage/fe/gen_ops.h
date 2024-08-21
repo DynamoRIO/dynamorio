@@ -18,4 +18,5 @@ void gen_and_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translat
 void gen_xor_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx);
 
 void gen_push_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx);
+void gen_pop_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx);
 #endif // __GEN_OPS_H__
