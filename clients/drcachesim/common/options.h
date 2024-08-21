@@ -131,6 +131,7 @@ extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t>
     op_trace_for_instrs;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t>
     op_retrace_every_instrs;
+extern dynamorio::droption::droption_t<std::string> op_trace_instr_intervals_file;
 extern dynamorio::droption::droption_t<bool> op_split_windows;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t>
     op_exit_after_tracing;

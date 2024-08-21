@@ -3771,6 +3771,9 @@ if (BUILD_CLIENTS)
     torunonly_drcachesim(windows-simple ${ci_shared_app}
       "-trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K -tool basic_counts" "")
 
+    torunonly_drcachesim(irregular-windows-simple ${ci_shared_app}
+      "-trace_instr_intervals_file ${config_files_dir}/instr_intervals_example.csv -tool basic_counts" "")
+
     # Test that "Warmup hits" and "Warmup misses" are printed out
     torunonly_drcachesim(warmup-valid ${ci_shared_app} "-warmup_refs 1" "")
 

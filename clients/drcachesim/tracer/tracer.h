@@ -42,6 +42,7 @@
 #include "dr_api.h"
 #include "drmemtrace.h"
 #include "instru.h"
+#include "instr_counter.h"
 #include "named_pipe.h"
 #include "options.h"
 #include "physaddr.h"
@@ -266,7 +267,7 @@ has_tracing_windows()
     // We return true for a single-window -trace_for_instrs (without -retrace) setup
     // since we rely on having window numbers for the end-of-block buffer output check
     // used for a single-window transition away from tracing.
-    return op_trace_for_instrs.get_value() > 0 || op_retrace_every_instrs.get_value() > 0;
+    return get_trace_for_instrs_value() > 0 || get_retrace_every_instrs_value() > 0;
 }
 
 static inline bool

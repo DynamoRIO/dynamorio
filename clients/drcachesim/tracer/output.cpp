@@ -1028,7 +1028,7 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
 
     if (op_offline.get_value() && data->file == INVALID_FILE) {
         // We've delayed opening a new window file to avoid an empty final file.
-        DR_ASSERT(has_tracing_windows() || op_trace_after_instrs.get_value() > 0 ||
+        DR_ASSERT(has_tracing_windows() || get_trace_after_instrs_value() > 0 ||
                   attached_midway);
         open_new_thread_file(drcontext, get_local_window(data));
     }
@@ -1059,7 +1059,7 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
         instru->clamp_unit_header_timestamp(data->buf_base + stamp_offs, min_timestamp);
     }
 
-    if (has_tracing_windows() || op_trace_after_instrs.get_value() > 0) {
+    if (has_tracing_windows() || get_trace_after_instrs_value() > 0) {
         min_timestamp = retrace_start_timestamp.load(std::memory_order_acquire);
         instru->clamp_unit_header_timestamp(data->buf_base + stamp_offs, min_timestamp);
     }
@@ -1202,15 +1202,15 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
                 tracing_mode.store(BBDUP_MODE_TRACE, std::memory_order_release);
                 set_local_mode(data, BBDUP_MODE_TRACE);
             }
-        } else if (op_trace_for_instrs.get_value() > 0) {
+        } else if (get_trace_for_instrs_value() > 0) {
             bool hit_window_end = false;
             for (mem_ref = data->buf_base + header_size; mem_ref < buf_ptr;
                  mem_ref += instru->sizeof_entry()) {
                 if (!window_changed && !hit_window_end &&
-                    op_trace_for_instrs.get_value() > 0) {
+                    get_trace_for_instrs_value() > 0) {
                     hit_window_end =
                         count_traced_instrs(drcontext, instru->get_instr_count(mem_ref),
-                                            op_trace_for_instrs.get_value());
+                                            get_trace_for_instrs_value());
                     // We have to finish this buffer so we'll go a little beyond the
                     // precise requested window length.
                     // XXX: For small windows this may be significant: we could go
@@ -1220,6 +1220,9 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
                 }
             }
             if (hit_window_end) {
+                // Go to the next interval, if -trace_instr_intervals_file is set.
+                increment_instr_intervals_index();
+
                 if (op_offline.get_value() && op_split_windows.get_value()) {
                     size_t add =
                         instru->append_thread_exit(buf_ptr, dr_get_thread_id(drcontext));
