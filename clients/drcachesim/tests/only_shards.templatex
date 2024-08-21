@@ -1,0 +1,7 @@
+Schedule stats tool results:
+Total counts:
+           2 cores
+           4 threads: 1257600, 1257602, 1257599, 1257603
+.*
+Core #0 schedule: FJ_
+Core #1 schedule: GI

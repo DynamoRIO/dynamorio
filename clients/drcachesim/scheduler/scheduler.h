@@ -346,7 +346,8 @@ public:
         /**
          * If empty, every trace file in 'path' or every reader in 'readers' becomes
          * an enabled input.  If non-empty, only those inputs whose thread ids are
-         * in this vector are enabled and the rest are ignored.
+         * in this set are enabled and the rest are ignored.  It is an error to
+         * have both this and 'only_shards' be non-empty.
          */
         std::set<memref_tid_t> only_threads;
 
@@ -380,6 +381,16 @@ public:
          * ordinals when timestamps fall in between recorded points.
          */
         std::vector<timestamp_range_t> times_of_interest;
+
+        /**
+         * If empty, every trace file in 'path' or every reader in 'readers' becomes
+         * an enabled input.  If non-empty, only those inputs whose indices are
+         * in this set are enabled and the rest are ignored.  An index is the
+         * 0-based ordinal in the 'readers' vector or in the files opened at
+         * 'path' (which are sorted lexicographically by path).  It is an error to
+         * have both this and 'only_threads' be non-empty.
+         */
+        std::set<input_ordinal_t> only_shards;
 
         // Work around a known Visual Studio issue where it complains about deleted copy
         // constructors for unique_ptr by deleting our copies and defaulting our moves.
@@ -1466,6 +1477,19 @@ protected:
         uint64_t timestamp;
     };
 
+    // Tracks data used while opening inputs.
+    struct input_reader_info_t {
+        std::set<memref_tid_t> only_threads;
+        std::set<input_ordinal_t> only_shards;
+        // Maps each opened reader's tid to its input ordinal.
+        std::unordered_map<memref_tid_t, int> tid2input;
+        // Holds the original tids pre-filtering by only_*.
+        std::set<memref_tid_t> unfiltered_tids;
+        // The count of original pre-filtered inputs (might not match
+        // unfiltered_tids.size() for core-sharded inputs with IDLE_THREAD_ID).
+        uint64_t input_count = 0;
+    };
+
     // Called just once at initialization time to set the initial input-to-output
     // mappings and state.
     scheduler_status_t
@@ -1490,14 +1514,13 @@ protected:
     // Opens up all the readers for each file in 'path' which may be a directory.
     // Returns a map of the thread id of each file to its index in inputs_.
     scheduler_status_t
-    open_readers(const std::string &path, const std::set<memref_tid_t> &only_threads,
-                 std::unordered_map<memref_tid_t, input_ordinal_t> &workload_tids);
+    open_readers(const std::string &path, input_reader_info_t &reader_info);
 
     // Opens up a single reader for the (non-directory) file in 'path'.
     // Returns a map of the thread id of the file to its index in inputs_.
     scheduler_status_t
-    open_reader(const std::string &path, const std::set<memref_tid_t> &only_threads,
-                std::unordered_map<memref_tid_t, input_ordinal_t> &workload_tids);
+    open_reader(const std::string &path, input_ordinal_t input_ordinal,
+                input_reader_info_t &reader_info);
 
     // Creates a reader for the default file type we support.
     std::unique_ptr<ReaderType>
@@ -1603,6 +1626,10 @@ protected:
 
     std::string
     recorded_schedule_component_name(output_ordinal_t output);
+
+    bool
+    check_valid_input_limits(const input_workload_t &workload,
+                             input_reader_info_t &reader_info);
 
     // The sched_lock_ must be held when this is called.
     stream_status_t
