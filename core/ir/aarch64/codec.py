@@ -1,8 +1,8 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
 # **********************************************************
 # Copyright (c) 2021 Google, Inc.   All rights reserved.
-# Copyright (c) 2016 - 2023 ARM Limited. All rights reserved.
+# Copyright (c) 2016 - 2024 ARM Limited. All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without

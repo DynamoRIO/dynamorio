@@ -418,6 +418,9 @@ ASSUME fs:_DATA @N@\
 # define REG_R29  x29
 # define REG_R30  x30
 # define REG_R31  x31
+# define REG_A0   x10
+# define REG_A1   x11
+# define REG_A2   x12
 #else /* Intel X86 */
 # ifdef X64
 #  define REG_XAX rax

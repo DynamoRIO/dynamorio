@@ -1,7 +1,7 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # **********************************************************
-# Copyright (c) 2022-2023 Arm Limited    All rights reserved.
+# Copyright (c) 2022-2024 Arm Limited    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
