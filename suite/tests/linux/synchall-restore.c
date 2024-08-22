@@ -39,6 +39,7 @@
 
 #include "tools.h"
 #include "thread.h"
+#include "condvar.h"
 
 /* we want the latest defs so we can get at ymm state */
 #include "../../../core/unix/include/sigcontext.h"
@@ -68,9 +69,12 @@ dummy2()
     }
 }
 
+static void *child_started;
+
 void *
 thread()
 {
+    signal_cond_var(child_started);
     for (int i = 0; i < 100000; i++) {
         dummy2();
     }
@@ -85,8 +89,9 @@ main(int argc, char *argv[])
 
     print("Starting test.\n");
 
+    child_started = create_cond_var();
     thread_t flusher = create_thread(thread, NULL);
-    sleep(1);
+    wait_cond_var(child_started);
 
     print("Saving regs.\n");
 
