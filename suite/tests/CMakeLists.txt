@@ -5943,6 +5943,9 @@ endif (NOT ARM)
 if (X86 OR AARCH64) # FIXME i#1551: port asm to ARM
   tobuild(security-common.selfmod2 security-common/selfmod2.c)
   tochcon(security-common.selfmod2 textrel_shlib_t)
+
+  tobuild(security-common.selfmod security-common/selfmod.c)
+  tochcon(security-common.selfmod textrel_shlib_t)
 endif (X86 OR AARCH64)
 
 if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
@@ -5950,13 +5953,12 @@ if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
     tobuild(security-common.selfmod-big security-common/selfmod-big.c)
     tochcon(security-common.selfmod-big textrel_shlib_t)
   endif ()
-  tobuild(security-common.selfmod security-common/selfmod.c)
-  tochcon(security-common.selfmod textrel_shlib_t)
   if (NOT X64 AND NOT APPLE) # XXX i#58: port test to MacOS
     # FIXME i#125
     tobuild(security-common.vbjmp-rac-test security-common/vbjmp-rac-test.c)
   endif ()
 endif (X86)
+
 if (X64 AND NOT AARCH64 AND NOT RISCV64) # FIXME i#1569: get working on AArch64
   # Reachability tests
 
