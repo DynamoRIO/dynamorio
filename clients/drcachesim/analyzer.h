@@ -219,6 +219,7 @@ protected:
 
     bool
     init_scheduler(const std::string &trace_path,
+                   // To include all threads/shards, use empty sets.
                    const std::set<memref_tid_t> &only_threads,
                    const std::set<int> &only_shards, int verbosity,
                    typename sched_type_t::scheduler_options_t options);

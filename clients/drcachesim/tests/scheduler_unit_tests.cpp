@@ -730,11 +730,14 @@ test_only_threads()
             assert(false);
         auto *stream = scheduler.get_stream(0);
         memref_t memref;
+        bool read_something = false;
         for (scheduler_t::stream_status_t status = stream->next_record(memref);
              status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
             assert(status == scheduler_t::STATUS_OK);
             assert(memref.instr.tid == TID_B);
+            read_something = true;
         }
+        assert(read_something);
     }
     {
         // Test invalid only_threads.

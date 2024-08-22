@@ -1511,13 +1511,15 @@ protected:
     process_next_initial_record(input_info_t &input, RecordType record,
                                 bool &found_filetype, bool &found_timestamp);
 
-    // Opens up all the readers for each file in 'path' which may be a directory.
-    // Returns a map of the thread id of each file to its index in inputs_.
+    // Opens readers for each file in 'path', subject to the constraints in
+    // 'reader_info'.  'path' may be a directory.
+    // Updates the ti2dinput, unfiltered_tids, and input_count fields of 'reader_info'.
     scheduler_status_t
     open_readers(const std::string &path, input_reader_info_t &reader_info);
 
-    // Opens up a single reader for the (non-directory) file in 'path'.
-    // Returns a map of the thread id of the file to its index in inputs_.
+    // Opens a reader for the file in 'path', subject to the constraints in
+    // 'reader_info'.  'path' may not be a directory.
+    // Updates the ti2dinput, unfiltered_tids, and input_count fields of 'reader_info'.
     scheduler_status_t
     open_reader(const std::string &path, input_ordinal_t input_ordinal,
                 input_reader_info_t &reader_info);
