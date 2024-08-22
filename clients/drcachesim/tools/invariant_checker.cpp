@@ -574,11 +574,13 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         "Nested kernel syscall traces are not expected");
         if (!TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES,
                      shard->file_type_)) {
-            // XXX: PT kernel syscall traces are inserted at the
-            // TRACE_MARKER_TYPE_SYSCALL_IDX marker. The marker is deliberately added
-            // to the trace in the post-syscall callback to ensure it is emitted
-            // together with the actual PT trace and not before. This may cause it to
-            // separate from the TRACE_MARKER_TYPE_SYSCALL marker.
+            // PT kernel syscall traces are inserted at the TRACE_MARKER_TYPE_SYSCALL_IDX
+            // marker. The marker is deliberately added to the trace in the post-syscall
+            // callback to ensure it is emitted together with the actual PT trace and not
+            // before. If a signal interrupts the syscall, the TRACE_MARKER_TYPE_SYSCALL_IDX
+            // marker may separate away from the TRACE_MARKER_TYPE_SYSCALL marker.
+            // XXX: This case needs more thought. Do we pause PT tracing on entry to the
+            // signal handler? Do we discard the PT trace collected until then?
             report_if_false(shard,
                             prev_was_syscall_marker_saved ||
                                 TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY,
