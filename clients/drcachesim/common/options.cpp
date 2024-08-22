@@ -545,7 +545,25 @@ droption_t<int>
     op_only_thread(DROPTION_SCOPE_FRONTEND, "only_thread", 0,
                    "Only analyze this thread (0 means all)",
                    "Limits analyis to the single "
-                   "thread with the given identifier.  0 enables all threads.");
+                   "thread with the given identifier.  0 enables all threads.  "
+                   "Applies only to -indir, not to -infile.  "
+                   "Cannot be combined with -only_threads or -only_shards.");
+
+droption_t<std::string>
+    op_only_threads(DROPTION_SCOPE_FRONTEND, "only_threads", "",
+                    "Only analyze these comma-separated threads",
+                    "Limits analyis to the list of comma-separated thread ids.  "
+                    "Applies only to -indir, not to -infile.  "
+                    "Cannot be combined with -only_thread or -only_shards.");
+droption_t<std::string>
+    op_only_shards(DROPTION_SCOPE_FRONTEND, "only_shards", "",
+                   "Only analyze these comma-separated shard ordinals",
+                   "Limits analyis to the list of comma-separated shard ordinals. "
+                   "A shard is typically an input thread but might be a core for "
+                   "core-sharded-on-disk traces.  The ordinal is 0-based and indexes "
+                   "into the sorted order of input filenames.  "
+                   "Applies only to -indir, not to -infile.  "
+                   "Cannot be combined with -only_thread or -only_threads.");
 
 droption_t<bytesize_t> op_skip_instrs(
     DROPTION_SCOPE_FRONTEND, "skip_instrs", 0, "Number of instructions to skip",

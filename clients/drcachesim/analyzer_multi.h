@@ -92,6 +92,9 @@ protected:
     cache_simulator_knobs_t *
     get_cache_simulator_knobs();
 
+    std::string
+    set_input_limit(std::set<memref_tid_t> &only_threads, std::set<int> &only_shards);
+
     std::unique_ptr<std::istream> serial_schedule_file_;
     // This is read in a single stream by invariant_checker and so is not
     // an archive_istream_t.
