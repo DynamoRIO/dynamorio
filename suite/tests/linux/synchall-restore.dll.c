@@ -37,9 +37,11 @@
 #include "dr_api.h"
 
 static void
-bb_event(void *p)
+bb_event(void *pc)
 {
     void *drcontext = dr_get_current_drcontext();
+
+    /* Counter to only instrument every 1 in 25 bbs. Racy but don't care */
     static int count = 0;
 
     /* Avoids executing the hook twice after redirecting execution */
@@ -49,17 +51,13 @@ bb_event(void *p)
     }
 
     if (++count % 25 == 0) {
-        dr_flush_region(p, 1);
-        /* if we don't sleep, we will interrupt the other thread
-         * too quickly, hitting the (count++ > 3) assert in os.c
-         */
-        dr_sleep(1); /* 1ms */
+        dr_flush_region(pc, 1);
 
         dr_mcontext_t mcontext;
         mcontext.size = sizeof(mcontext);
         mcontext.flags = DR_MC_ALL;
         dr_get_mcontext(drcontext, &mcontext);
-        mcontext.pc = (app_pc)p;
+        mcontext.pc = (app_pc)pc;
 
         dr_set_tls_field(drcontext, (void *)1);
         dr_redirect_execution(&mcontext);

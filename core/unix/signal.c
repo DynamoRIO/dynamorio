@@ -3238,6 +3238,14 @@ thread_set_self_context(void *cxt, bool is_detach_external)
 #ifdef LINUX
     frame.uc.uc_mcontext = *sc;
 #endif
+#if defined(X86)
+    dcontext_t *dcontext = get_thread_private_dcontext();
+
+    /* This only saves X87 state. XMM state is saved in mcontext_to_sigcontext
+     * (called by thread_set_self_mcontext).
+     */
+    save_fpstate(dcontext, &frame);
+#endif
     IF_ARM(ASSERT_NOT_TESTED());
     /* The kernel calls do_sigaltstack on sys_rt_sigreturn primarily to ensure
      * the frame is ok, but the side effect is we can mess up our own altstack
@@ -3331,7 +3339,7 @@ thread_set_self_mcontext(priv_mcontext_t *mc, bool is_detach_external)
     sig_full_cxt_t sc_full;
     sig_full_initialize(&sc_full, &ucxt);
 #if defined(LINUX) && defined(X86)
-    /* for mcontext_to_sigcontext to fill in with saved fp state */
+    /* For mcontext_to_sigcontext to fill in with saved fp state */
     sc_full.sc->fpstate = (kernel_fpstate_t *)get_and_initialize_xstate_buffer(
         get_thread_private_dcontext());
 #endif

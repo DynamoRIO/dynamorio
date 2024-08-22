@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,6 +35,8 @@
  * linux.sigcontext.
  */
 
+/* XXX: This test only verifies that XMM state is restored, not X87 state. */
+
 #include "tools.h"
 #include "thread.h"
 
@@ -49,6 +51,10 @@
 
 /* For sharing NUM_*_REGS constants. */
 #include "../api/detach_state_shared.h"
+
+#ifndef X86
+#    error synchall-restore test is only supported on X86.
+#endif
 
 #define INTS_PER_XMM 4
 #define INTS_PER_YMM 8
@@ -77,30 +83,22 @@ main(int argc, char *argv[])
     char *ptr = (char *)buf;
     int i, j;
 
-    /* this test deliberately uses write() instead of the other libc calls, since those
-     * appeared to cause crashes (likely due to us accidentically triggering the xmm
-     * saving bug :/).
-     */
-
-    const char start_msg[] = "Starting test.\n";
-    const char saving_regs[] = "Saving regs.\n";
-    const char before_msg[] = "Before synchall loop.\n";
-    const char after_msg[] = "After synchall loop.\n";
-    const char assertion_failed[] = "Assertion failed.\n";
-    const char all_done[] = "All done.\n";
-
-    write(2, start_msg, sizeof(start_msg) - 1);
+    print("Starting test.\n");
 
     thread_t flusher = create_thread(thread, NULL);
     sleep(1);
 
-    write(2, saving_regs, sizeof(saving_regs) - 1);
+    print("Saving regs.\n");
 
     /* put known values in xmm regs (we assume processor has xmm) */
     for (i = 0; i < NUM_SIMD_SSE_AVX_REGS; i++) {
         for (j = 0; j < INTS_PER_XMM; j++)
             buf[i * INTS_PER_XMM + j] = 0xdeadbeef << i;
     }
+
+    /* XXX: Try to share with sigcontext.c to avoid duplicating all the
+     * SIMD filling and checking code.
+     */
 #define MOVE_TO_XMM(buf, num)                           \
     __asm__ __volatile__("movdqu %0, %%xmm" #num        \
                          :                              \
@@ -228,16 +226,24 @@ main(int argc, char *argv[])
 #        endif
 #    endif
 
-        write(2, before_msg, sizeof(before_msg) - 1);
+        /* This is the start of the critical XMM-preserving section. */
 
-        /* Sometime in this loop, we will synch with the other thread */
+        const char before_msg[] = "Before synchall loop.\n";
+        const char after_msg[] = "After synchall loop.\n";
+
+        /* print() would clobber XMM regs here, so we use write() instead. */
+        write(STDERR_FILENO, before_msg, sizeof(before_msg) - 1);
+
+        /* Sometime in this loop, we will synch with the other thread. */
         for (int i = 0; i < 100; i++) {
             dummy2();
         }
 
-        write(2, after_msg, sizeof(after_msg) - 1);
+        /* print() would clobber XMM regs here, so we use write() instead. */
+        write(STDERR_FILENO, after_msg, sizeof(after_msg) - 1);
 
-        /* Ensure they are preserved across the sigreturn (xref i#3812). */
+        /* This is the end of the critical XMM-saving section. */
+
 #    ifdef __AVX512F__
         /* Use a new buffer to avoid the old values. We could do a custom memset
          * with rep movs in asm instead (regular memset may clobber SIMD regs).
@@ -284,10 +290,7 @@ main(int argc, char *argv[])
 #        endif
         for (i = 0; i < NUM_SIMD_AVX512_REGS; i++) {
             for (j = 0; j < INTS_PER_ZMM; j++) {
-                if (buf2[i * INTS_PER_ZMM + j] != 0xdeadbeef + i * INTS_PER_ZMM + j) {
-                    write(2, assertion_failed, sizeof(assertion_failed) - 1);
-                    _exit(1);
-                }
+                assert(buf2[i * INTS_PER_ZMM + j] == 0xdeadbeef + i * INTS_PER_ZMM + j);
             }
         }
 
@@ -338,16 +341,13 @@ main(int argc, char *argv[])
 #        endif
         for (i = 0; i < NUM_SIMD_SSE_AVX_REGS; i++) {
             for (j = 0; j < INTS_PER_YMM; j++) {
-                if (buf2[i * INTS_PER_YMM + j] != 0xdeadbeef + i * INTS_PER_ZMM + j) {
-                    write(2, assertion_failed, sizeof(assertion_failed) - 1);
-                    _exit(1);
-                }
+                assert(buf2[i * INTS_PER_YMM + j] == 0xdeadbeef + i * INTS_PER_ZMM + j);
             }
         }
 #    endif
     }
 #endif
 
-    write(2, all_done, sizeof(all_done) - 1);
+    print("All done.\n");
     return 0;
 }

@@ -5398,9 +5398,9 @@ if (UNIX)
     tobuild(linux.threadexit linux/threadexit.c)
 
     if (X86 AND X64 AND DR_HOST_X86 AND DR_HOST_X64)
-      tobuild_ci(linux.threadset linux/threadset.c "" "" "")
-      set_avx_flags(linux.threadset)
-      link_with_pthread(linux.threadset)
+      tobuild_ci(linux.synchall-restore linux/synchall-restore.c "" "" "")
+      set_avx_flags(linux.synchall-restore)
+      link_with_pthread(linux.synchall-restore)
     endif ()
 
     if (NOT ANDROID)
