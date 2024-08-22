@@ -755,9 +755,14 @@ privload_os_finalize(privmod_t *privmod)
         GLRO_dl_tls_static_align_OFFS = 0x2d0;
     }
 #    else
-    // The offsets changed between 2.35 and 2.36.
-    GLRO_dl_tls_static_size_OFFS = (ver[2] == '3' && ver[3] == '5') ? 0x328 : 0x31c;
-    GLRO_dl_tls_static_align_OFFS = (ver[2] == '3' && ver[3] == '5') ? 0x32c : 0x320;
+    if (ver[2] == '3' && ver[3] >= '8') {
+        GLRO_dl_tls_static_size_OFFS = 0x324;
+        GLRO_dl_tls_static_align_OFFS = 0x320;
+    } else {
+        // The offsets changed between 2.35 and 2.36.
+        GLRO_dl_tls_static_size_OFFS = (ver[2] == '3' && ver[3] == '5') ? 0x328 : 0x31c;
+        GLRO_dl_tls_static_align_OFFS = (ver[2] == '3' && ver[3] == '5') ? 0x32c : 0x320;
+    }
 #    endif
     size_t val = 4096, written;
     if (!safe_write_ex(glro + GLRO_dl_tls_static_size_OFFS, sizeof(val), &val,
