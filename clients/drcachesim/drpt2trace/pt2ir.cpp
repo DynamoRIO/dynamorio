@@ -382,13 +382,12 @@ pt2ir_t::convert(DR_PARAM_IN const uint8_t *pt_data, DR_PARAM_IN size_t pt_data_
 
             /* Decode PT raw trace to pt_insn. */
             status = pt_insn_next(pt_instr_decoder_, &insn, sizeof(insn));
-            if (allow_recoverable_errors_ &&
-                (status == -pte_bad_query || status == -pte_no_enable) &&
+            if (allow_recoverable_errors_ && status == -pte_bad_query &&
                 recoverable_error_count < kErrorLimit) {
                 ++recoverable_error_count;
                 /* The error may be recoverable. Try to continue past it. We may
-                 * lose an instruction entry which may show up as a PC discontinuity
-                 * in the kernel syscall trace.
+                 * lose an instruction entry which may show up as a single instr
+                 * PC discontinuity in the kernel syscall trace.
                  */
                 status = pt_insn_next(pt_instr_decoder_, &insn, sizeof(insn));
             }
