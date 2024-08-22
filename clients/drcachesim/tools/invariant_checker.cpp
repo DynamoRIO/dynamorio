@@ -572,20 +572,19 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         "Found kernel syscall trace without corresponding file type");
         report_if_false(shard, !shard->between_kernel_syscall_trace_markers_,
                         "Nested kernel syscall traces are not expected");
-        if (!TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES,
+
+        // PT kernel syscall traces are inserted at the TRACE_MARKER_TYPE_SYSCALL_IDX
+        // marker. The marker is deliberately added to the trace in the post-syscall
+        // callback to ensure it is emitted together with the actual PT trace and not
+        // before. If a signal interrupts the syscall, the
+        // TRACE_MARKER_TYPE_SYSCALL_IDX marker may separate away from the
+        // TRACE_MARKER_TYPE_SYSCALL marker.
+        // XXX: This case needs more thought. Do we pause PT tracing on entry to the
+        // signal handler? Do we discard the PT trace collected until then?
+        if (!TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES |
+                         OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY,
                      shard->file_type_)) {
-            // PT kernel syscall traces are inserted at the TRACE_MARKER_TYPE_SYSCALL_IDX
-            // marker. The marker is deliberately added to the trace in the post-syscall
-            // callback to ensure it is emitted together with the actual PT trace and not
-            // before. If a signal interrupts the syscall, the
-            // TRACE_MARKER_TYPE_SYSCALL_IDX marker may separate away from the
-            // TRACE_MARKER_TYPE_SYSCALL marker.
-            // XXX: This case needs more thought. Do we pause PT tracing on entry to the
-            // signal handler? Do we discard the PT trace collected until then?
-            report_if_false(shard,
-                            prev_was_syscall_marker_saved ||
-                                TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY,
-                                        shard->file_type_),
+            report_if_false(shard, prev_was_syscall_marker_saved,
                             "System call trace found without prior syscall marker");
             report_if_false(shard,
                             shard->last_syscall_marker_value_ ==
