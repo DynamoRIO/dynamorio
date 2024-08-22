@@ -574,9 +574,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         "Nested kernel syscall traces are not expected");
         if (!TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES,
                      shard->file_type_)) {
-            report_if_false(shard, prev_was_syscall_marker_saved || TESTANY(
-                                    OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY,
-                                shard->file_type_),
+            report_if_false(shard,
+                            prev_was_syscall_marker_saved ||
+                                TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY,
+                                        shard->file_type_),
                             "System call trace found without prior syscall marker");
             report_if_false(shard,
                             shard->last_syscall_marker_value_ ==
