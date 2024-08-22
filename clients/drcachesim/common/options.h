@@ -222,6 +222,7 @@ extern dynamorio::droption::droption_t<std::string> op_filter_func_ids;
 extern dynamorio::droption::droption_t<uint64_t> op_trim_before_timestamp;
 extern dynamorio::droption::droption_t<uint64_t> op_trim_after_timestamp;
 extern dynamorio::droption::droption_t<bool> op_abort_on_invariant_error;
+extern dynamorio::droption::droption_t<bool> op_pt2ir_allow_recoverable_errors;
 
 } // namespace drmemtrace
 } // namespace dynamorio
