@@ -4988,6 +4988,11 @@ if (BUILD_CLIENTS)
                                   "@-tool@syscall_mix")
       torunonly_drcacheoff_kernel(invariant-checker ${ci_shared_app} "-raw_compress none" ""
                                   "@-tool@invariant_checker@-test_mode_name@kernel_syscall_pt_trace")
+      # We cannot decompose the trace because the kcore dump is absent. This test is useful
+      # because it verifies that kernel tracing without dumping kcore does not need superuser
+      # permissions (does not fail due to /proc/kcore not being readable).
+      torunonly_drcachesim(kernel-skip-kcore ${ci_shared_app}
+                           "-offline -enable_kernel_tracing -skip_kcore_dump" "")
     endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
   endif (proc_supports_pt)
 
