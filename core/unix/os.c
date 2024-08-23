@@ -60,6 +60,9 @@
 #ifndef MAP_ANONYMOUS
 #    define MAP_ANONYMOUS MAP_ANON /* MAP_ANON on Mac */
 #endif
+#ifndef MAP_FIXED_NOREPLACE
+#    define MAP_FIXED_NOREPLACE 0x100000
+#endif
 /* for open */
 #include <sys/stat.h>
 #include <fcntl.h>

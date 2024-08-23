@@ -204,8 +204,12 @@ std::string
 record_filter_t::get_output_basename(memtrace_stream_t *shard_stream)
 {
     if (shard_type_ == SHARD_BY_CORE) {
-        return output_dir_ + DIRSEP + "drmemtrace.core." +
-            std::to_string(shard_stream->get_shard_index()) + ".trace";
+        // Use leading 0's for the core id to ensure lexicographic sort keeps
+        // numeric core order for --only_shards.
+        std::ostringstream name;
+        name << output_dir_ << DIRSEP << "drmemtrace.core." << std::setfill('0')
+             << std::setw(6) << shard_stream->get_shard_index() << ".trace";
+        return name.str();
     } else {
         return output_dir_ + DIRSEP + shard_stream->get_stream_name();
     }

@@ -706,28 +706,139 @@ test_only_threads()
         make_instr(60),
         make_exit(TID_C),
     };
-    std::vector<scheduler_t::input_reader_t> readers;
-    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
-                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
-    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
-                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
-    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_C)),
-                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_C);
+    auto create_readers = [&]() {
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_C)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_C);
+        return readers;
+    };
 
-    scheduler_t scheduler;
-    std::vector<scheduler_t::input_workload_t> sched_inputs;
-    sched_inputs.emplace_back(std::move(readers));
-    sched_inputs[0].only_threads.insert(TID_B);
-    if (scheduler.init(sched_inputs, 1,
-                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/4)) !=
-        scheduler_t::STATUS_SUCCESS)
-        assert(false);
-    auto *stream = scheduler.get_stream(0);
-    memref_t memref;
-    for (scheduler_t::stream_status_t status = stream->next_record(memref);
-         status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
-        assert(status == scheduler_t::STATUS_OK);
-        assert(memref.instr.tid == TID_B);
+    {
+        // Test valid only_threads.
+        std::vector<scheduler_t::input_reader_t> readers = create_readers();
+        scheduler_t scheduler;
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        sched_inputs[0].only_threads.insert(TID_B);
+        if (scheduler.init(sched_inputs, 1,
+                           scheduler_t::make_scheduler_serial_options(/*verbosity=*/4)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        auto *stream = scheduler.get_stream(0);
+        memref_t memref;
+        bool read_something = false;
+        for (scheduler_t::stream_status_t status = stream->next_record(memref);
+             status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
+            assert(status == scheduler_t::STATUS_OK);
+            assert(memref.instr.tid == TID_B);
+            read_something = true;
+        }
+        assert(read_something);
+    }
+    {
+        // Test invalid only_threads.
+        std::vector<scheduler_t::input_reader_t> readers = create_readers();
+        scheduler_t scheduler;
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        sched_inputs[0].only_threads = { TID_A, TID_B + 1, TID_C };
+        if (scheduler.init(sched_inputs, 1,
+                           scheduler_t::make_scheduler_serial_options(/*verbosity=*/4)) !=
+            scheduler_t::STATUS_ERROR_INVALID_PARAMETER)
+            assert(false);
+    }
+    {
+        // Test valid only_shards.
+        std::vector<scheduler_t::input_reader_t> readers = create_readers();
+        scheduler_t scheduler;
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        sched_inputs[0].only_shards = { 0, 2 };
+        if (scheduler.init(sched_inputs, 1,
+                           scheduler_t::make_scheduler_parallel_options(
+                               /*verbosity=*/4)) != scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        auto *stream = scheduler.get_stream(0);
+        memref_t memref;
+        for (scheduler_t::stream_status_t status = stream->next_record(memref);
+             status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
+            assert(status == scheduler_t::STATUS_OK);
+            assert(memref.instr.tid == TID_A || memref.instr.tid == TID_C);
+        }
+    }
+    {
+        // Test too-large only_shards.
+        std::vector<scheduler_t::input_reader_t> readers = create_readers();
+        scheduler_t scheduler;
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        sched_inputs[0].only_shards = { 1, 3 };
+        if (scheduler.init(sched_inputs, 1,
+                           scheduler_t::make_scheduler_serial_options(/*verbosity=*/4)) !=
+            scheduler_t::STATUS_ERROR_INVALID_PARAMETER)
+            assert(false);
+    }
+    {
+        // Test too-small only_shards.
+        std::vector<scheduler_t::input_reader_t> readers = create_readers();
+        scheduler_t scheduler;
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        sched_inputs[0].only_shards = { 0, -1, 2 };
+        if (scheduler.init(sched_inputs, 1,
+                           scheduler_t::make_scheduler_serial_options(/*verbosity=*/4)) !=
+            scheduler_t::STATUS_ERROR_INVALID_PARAMETER)
+            assert(false);
+    }
+    {
+        // Test starts-idle with only_shards.
+        std::vector<trace_entry_t> refs_D = {
+            make_version(TRACE_ENTRY_VERSION),
+            make_thread(IDLE_THREAD_ID),
+            make_pid(INVALID_PID),
+            make_timestamp(static_cast<uint64_t>(-1)),
+            make_marker(TRACE_MARKER_TYPE_CPU_ID, static_cast<uintptr_t>(-1)),
+            make_marker(TRACE_MARKER_TYPE_CORE_IDLE, 0),
+            make_marker(TRACE_MARKER_TYPE_CORE_IDLE, 0),
+            make_marker(TRACE_MARKER_TYPE_CORE_IDLE, 0),
+            make_footer(),
+        };
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_D)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_C);
+        scheduler_t scheduler;
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        sched_inputs[0].only_shards = { 0, 2 };
+        if (scheduler.init(sched_inputs, 1,
+                           scheduler_t::make_scheduler_parallel_options(
+                               /*verbosity=*/4)) != scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        auto *stream = scheduler.get_stream(0);
+        memref_t memref;
+        int idle_count = 0;
+        for (scheduler_t::stream_status_t status = stream->next_record(memref);
+             status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
+            assert(status == scheduler_t::STATUS_OK);
+            assert(memref.instr.tid == TID_A || memref.instr.tid == IDLE_THREAD_ID ||
+                   // In 32-bit the -1 is unsigned so the 64-bit .tid field is not
+                   // sign-extended.
+                   static_cast<uint64_t>(memref.instr.tid) ==
+                       static_cast<addr_t>(IDLE_THREAD_ID) ||
+                   memref.instr.tid == INVALID_THREAD_ID);
+            if (memref.marker.type == TRACE_TYPE_MARKER &&
+                memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_IDLE)
+                ++idle_count;
+        }
+        assert(idle_count == 3);
     }
 }
 
