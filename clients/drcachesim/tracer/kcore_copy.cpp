@@ -446,7 +446,7 @@ kcore_copy_t::read_kallsyms()
     ASSERT(kernel_module == nullptr, "failed to find kernel module");
 
     if (!bpf_jit_symbols.empty()) {
-        constexpr int kExtraPages = 5;
+        constexpr int kExtraPages = 10;
         /* For BPF JIT code, it seems not uncommon for /proc/kallsyms to not have full
          * page-level coverage. To ensure we copy all relevant code, we dump multiple
          * page sizes' worth of contents after each bpf-related function symbol. This is
