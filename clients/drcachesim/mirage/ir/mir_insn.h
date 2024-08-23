@@ -12,9 +12,9 @@
 
 struct mir_insn_t {
     mir_opc_t op;          // The opcode of the MIR instruction
-    mir_opnd_t* opnd0;     // The first source operand of the MIR instruction
-    mir_opnd_t* opnd1;     // The second source operand of the MIR instruction
-    mir_opnd_t* dst;       // The destination operand of the MIR instruction
+    mir_opnd_t opnd0;     // The first source operand of the MIR instruction
+    mir_opnd_t opnd1;     // The second source operand of the MIR instruction
+    mir_opnd_t dst;       // The destination operand of the MIR instruction
     struct list_elem elem; // Linked list traversal element
 };
 
@@ -28,11 +28,11 @@ void mir_insn_free(mir_insn_t *insn);
 const char* mir_opc_to_str(mir_opc_t op);
 
 // malloc a new opnd
-mir_opnd_t* mir_insn_malloc_src0_reg(mir_insn_t *insn, reg_id_t reg);
-mir_opnd_t* mir_insn_malloc_src0_imm(mir_insn_t *insn, int64_t imm);
-mir_opnd_t* mir_insn_malloc_src1_reg(mir_insn_t *insn, reg_id_t reg);
-mir_opnd_t* mir_insn_malloc_src1_imm(mir_insn_t *insn, int64_t imm);
-mir_opnd_t* mir_insn_malloc_dst_reg(mir_insn_t *insn, reg_id_t reg);
+void mir_insn_set_src0_reg(mir_insn_t *insn, reg_id_t reg);
+void mir_insn_set_src0_imm(mir_insn_t *insn, int64_t imm);   
+void mir_insn_set_src1_reg(mir_insn_t *insn, reg_id_t reg);
+void mir_insn_set_src1_imm(mir_insn_t *insn, int64_t imm);
+void mir_insn_set_dst_reg(mir_insn_t *insn, reg_id_t reg);
 
 // Set the opcode of a MIR instruction
 void mir_insn_set_op(mir_insn_t *insn, mir_opc_t op);

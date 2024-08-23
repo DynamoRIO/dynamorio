@@ -21,7 +21,6 @@ set(mirage_srcs
     # ./be/*.cpp
     # interpreter - MIR specification
     ./ir/mir_insn.cpp
-    ./ir/mir_opnd.cpp
 )
 
 add_library(mirage STATIC ${mirage_srcs})

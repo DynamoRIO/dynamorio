@@ -20,6 +20,11 @@ void gen_add_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translat
     _gen_arith_op(instr, MIR_OP_ADD, mir_insns_list, ctx);
 }
 
+void gen_adc_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
+    uint eflags = instr_get_eflags(instr, DR_QUERY_INCLUDE_ALL);
+    printf("eflags: %x\n", eflags);
+}
+
 void gen_sub_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
     _gen_arith_op(instr, MIR_OP_SUB, mir_insns_list, ctx);
 }
@@ -35,6 +40,8 @@ void gen_and_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translat
 void gen_xor_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
     _gen_arith_op(instr, MIR_OP_XOR, mir_insns_list, ctx);
 }
+
+
 
 void gen_push_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
     assert(instr_num_srcs(instr) == 2);
@@ -52,9 +59,9 @@ void gen_push_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct transla
     mir_insn_t* sp_sub_insn = mir_insn_malloc(MIR_OP_SUB);
     // [sp_sub_insn]
     mir_insn_push_back(mir_insns_list, sp_sub_insn);
-    mir_insn_malloc_src0_imm(sp_sub_insn, size);
-    mir_opnd_t* src1_reg = mir_insn_malloc_src1_reg(sp_sub_insn, REG_XSP);
-    mir_insn_set_dst(sp_sub_insn, src1_reg);
+    mir_insn_set_src0_imm(sp_sub_insn, size);
+    mir_insn_set_src1_reg(sp_sub_insn, REG_XSP);
+    mir_insn_set_dst_reg(sp_sub_insn, REG_XSP);
 
     mir_opc_t store_opc;
     switch (size) {
@@ -69,8 +76,8 @@ void gen_push_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct transla
     mir_insn_t* store_insn = mir_insn_malloc(store_opc);
     mir_insn_push_back(mir_insns_list, store_insn);
     src2_set_opnd_by_type(src0, store_insn, mir_insns_list, ctx);
-    mir_insn_malloc_src0_imm(store_insn, 0);
-    mir_insn_malloc_src1_reg(store_insn, REG_XSP);
+    mir_insn_set_src0_imm(store_insn, 0);
+    mir_insn_set_src1_reg(store_insn, REG_XSP);
 }
 
 void gen_pop_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
@@ -99,14 +106,14 @@ void gen_pop_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translat
     // [load_insn]
     mir_insn_t* load_insn = mir_insn_malloc(load_opc);
     mir_insn_push_back(mir_insns_list, load_insn);
-    mir_insn_malloc_src0_imm(load_insn, 0);
-    mir_insn_malloc_src1_reg(load_insn, REG_XSP);
-    mir_insn_malloc_dst_reg(load_insn, opnd_get_reg(dst0));
+    mir_insn_set_src0_imm(load_insn, 0);
+    mir_insn_set_src1_reg(load_insn, REG_XSP);
+    mir_insn_set_dst_reg(load_insn, opnd_get_reg(dst0));
 
     // [load_insn, sp_add_insn]
     mir_insn_t* sp_add_insn = mir_insn_malloc(MIR_OP_ADD);
     mir_insn_push_back(mir_insns_list, sp_add_insn);
-    mir_insn_malloc_src0_imm(sp_add_insn, size);
-    mir_opnd_t* src1_reg = mir_insn_malloc_src1_reg(sp_add_insn, REG_XSP);
-    mir_insn_set_dst(sp_add_insn, src1_reg);
+    mir_insn_set_src0_imm(sp_add_insn, size);
+    mir_insn_set_src1_reg(sp_add_insn, REG_XSP);
+    mir_insn_set_dst_reg(sp_add_insn, REG_XSP);
 }

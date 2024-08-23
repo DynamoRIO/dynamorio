@@ -19,16 +19,4 @@ struct mir_opnd_t {
     } value;
 };
 
-mir_opnd_t* mir_opnd_malloc_reg(reg_id_t reg);
-mir_opnd_t* mir_opnd_malloc_imm(int64_t imm);
-void mir_opnd_free(mir_opnd_t *opnd);
-
-const char* mir_opnd_to_str(mir_opnd_t* opnd);
-
-bool
-mir_opnd_is_reg(const mir_opnd_t *opnd);
-
-bool
-mir_opnd_is_imm(const mir_opnd_t *opnd);
-
 #endif // __MIR_OPND_H_

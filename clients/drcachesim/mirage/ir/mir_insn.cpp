@@ -9,19 +9,46 @@ mir_insn_t* mir_insn_malloc(mir_opc_t op) {
 
 void mir_insn_free(mir_insn_t *insn) {
     if (insn != NULL) {
-        mir_opnd_free(insn->opnd0);
-        mir_opnd_free(insn->opnd1);
-        mir_opnd_free(insn->dst);
         free(insn);
     }
+}
+
+const char* get_mir_opnd_name(reg_id_t reg) {
+    if (reg >= MIR_FLAG_REG_START && reg < FLAG_REG_LAST) {
+        return get_flag_register_name(reg);
+    } else if (reg >= MIR_TMP_REG_START && reg < TMP_REG_LAST) {
+        return get_tmp_register_name(reg);
+    } else {
+        return get_register_name(reg);
+    }
+    return NULL;
 }
 
 const char* mir_insn_to_str(mir_insn_t* insn) {
     static char buffer[256];
     const char* op_str = mir_opc_to_str(insn->op);
-    char* opnd0_str = strdup(mir_opnd_to_str(insn->opnd0));
-    char* opnd1_str = strdup(mir_opnd_to_str(insn->opnd1));
-    char* dst_str = strdup(mir_opnd_to_str(insn->dst));
+
+    static char opnd0_str[256];
+    static char opnd1_str[256];
+    static char dst_str[256];
+
+    if (insn->opnd0.type == MIR_OPND_REG) {
+        snprintf(opnd0_str, sizeof(opnd0_str), "R[%s](%d)", get_mir_opnd_name(insn->opnd0.value.reg), insn->opnd0.value.reg);
+    } else if (insn->opnd0.type == MIR_OPND_IMM) {
+        snprintf(opnd0_str, sizeof(opnd0_str), "I[%ld]", insn->opnd0.value.imm);
+    }
+
+    if (insn->opnd1.type == MIR_OPND_REG) {
+        snprintf(opnd1_str, sizeof(opnd1_str), "R[%s](%d)", get_mir_opnd_name(insn->opnd1.value.reg), insn->opnd1.value.reg);
+    } else if (insn->opnd1.type == MIR_OPND_IMM) {
+        snprintf(opnd1_str, sizeof(opnd1_str), "I[%ld]", insn->opnd1.value.imm);
+    }
+
+    if (insn->dst.type == MIR_OPND_REG) {
+        snprintf(dst_str, sizeof(dst_str), "R[%s](%d)", get_mir_opnd_name(insn->dst.value.reg), insn->dst.value.reg);
+    } else if (insn->dst.type == MIR_OPND_IMM) {
+        snprintf(dst_str, sizeof(dst_str), "I[%ld]", insn->dst.value.imm);
+    }
 
     if (mir_opc_is_store(insn->op)) {
         snprintf(buffer, sizeof(buffer), "%s %s -> [%s + %s]", op_str, dst_str, opnd1_str, opnd0_str);
@@ -32,51 +59,34 @@ const char* mir_insn_to_str(mir_insn_t* insn) {
                  op_str, opnd0_str, opnd1_str, dst_str);
     }
 
-    free(opnd0_str);
-    free(opnd1_str);
-    free(dst_str);
-
     return buffer;
 }
 
-mir_opnd_t* mir_insn_malloc_src0_reg(mir_insn_t *insn, reg_id_t reg) {
-    insn->opnd0 = mir_opnd_malloc_reg(reg);
-    return insn->opnd0;
+void mir_insn_set_src0_reg(mir_insn_t *insn, reg_id_t reg) {
+    insn->opnd0.type = MIR_OPND_REG;
+    insn->opnd0.value.reg = reg;
 }
 
-mir_opnd_t* mir_insn_malloc_src0_imm(mir_insn_t *insn, int64_t imm) {
-    insn->opnd0 = mir_opnd_malloc_imm(imm);
-    return insn->opnd0;
+void mir_insn_set_src0_imm(mir_insn_t *insn, int64_t imm) {
+    insn->opnd0.type = MIR_OPND_IMM;
+    insn->opnd0.value.imm = imm;
 }
 
-mir_opnd_t* mir_insn_malloc_src1_reg(mir_insn_t *insn, reg_id_t reg) {
-    insn->opnd1 = mir_opnd_malloc_reg(reg);
-    return insn->opnd1;
+void mir_insn_set_src1_reg(mir_insn_t *insn, reg_id_t reg) {
+    insn->opnd1.type = MIR_OPND_REG;
+    insn->opnd1.value.reg = reg;
 }
 
-mir_opnd_t* mir_insn_malloc_src1_imm(mir_insn_t *insn, int64_t imm) {
-    insn->opnd1 = mir_opnd_malloc_imm(imm);
-    return insn->opnd1;
+void mir_insn_set_src1_imm(mir_insn_t *insn, int64_t imm) {
+    insn->opnd1.type = MIR_OPND_IMM;
+    insn->opnd1.value.imm = imm;
 }
 
-mir_opnd_t* mir_insn_malloc_dst_reg(mir_insn_t *insn, reg_id_t reg) {
-    insn->dst = mir_opnd_malloc_reg(reg);
-    return insn->dst;
+void mir_insn_set_dst_reg(mir_insn_t *insn, reg_id_t reg) {
+    insn->dst.type = MIR_OPND_REG;
+    insn->dst.value.reg = reg;
 }
 
-void mir_insn_set_src0(mir_insn_t *insn, mir_opnd_t *opnd) {
-    insn->opnd0 = opnd;
-}
-
-void mir_insn_set_src1(mir_insn_t *insn, mir_opnd_t *opnd) {
-    insn->opnd1 = opnd;
-}
-
-void mir_insn_set_dst(mir_insn_t *insn, mir_opnd_t *opnd) {
-    insn->dst = opnd;
-}
-
-// LIST operations
 void init_mir_insn_list(mir_insn_list_t* list) {
     list_init(list);
 }

@@ -84,8 +84,11 @@ reuse_pattern_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             // shard->error = "Failed to decode instruction " + to_hex_string(memref.instr.addr);
             return false;
         }
-        printf("encountered instruction at %p\n", curr_pc);
-        dr_gen_mir_ops(&curr_instr);
+        // TODO: debug, remove
+        // if (instr_get_opcode(&curr_instr) == OP_adc) {
+            printf("encountered instruction at %p\n", curr_pc);
+            dr_gen_mir_ops(&curr_instr);
+        // }
         return true;
     }
     return true;

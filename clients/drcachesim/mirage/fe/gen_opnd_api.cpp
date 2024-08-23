@@ -70,19 +70,20 @@ void gen_dst_to_memref(opnd_t opnd, mir_insn_t* insn, mir_insn_list_t* mir_insns
 void _gen_load_from_abs_addr(opnd_t opnd, mir_insn_t* insn, 
                         mir_insn_list_t *mir_insns_list, int src_num, struct translate_context_t *ctx) {
     void *addr = opnd_get_addr(opnd);
-    mir_insn_t* load_insn = mir_insn_malloc(MIR_OP_LD32);
-    mir_insn_malloc_src0_imm(load_insn, (int64_t)addr);
-    mir_insn_malloc_src1_reg(load_insn, DR_REG_NULL); 
-    mir_opnd_t* dst_tmp = mir_insn_malloc_dst_reg(load_insn, alloc_tmp_reg(ctx));
+    mir_insn_t* load_insn = mir_insn_malloc(MIR_OP_LD64);
+    mir_insn_set_src0_imm(load_insn, (int64_t)addr);
+    mir_insn_set_src1_reg(load_insn, DR_REG_NULL);
+    reg_id_t tmp_dst_reg = alloc_tmp_reg(ctx);
+    mir_insn_set_dst_reg(load_insn, tmp_dst_reg);
     if (src_num == 0) {
-        mir_insn_set_src0(insn, dst_tmp);
+        mir_insn_set_src0_reg(insn, tmp_dst_reg);
     }
     else if (src_num == 1) {
-        mir_insn_set_src1(insn, dst_tmp);
+        mir_insn_set_src1_reg(insn, tmp_dst_reg);
     }
     else if (src_num == 2) {
         // Useful when insn is a store instruction, where dst is the src0
-        mir_insn_set_dst(insn, dst_tmp);
+        mir_insn_set_dst_reg(insn, tmp_dst_reg);
     }
     mir_insn_insert_before(load_insn, insn);
 }
@@ -108,13 +109,14 @@ void gen_dst_store_to_abs_addr(opnd_t opnd, mir_insn_t* insn,
 
     void *addr = opnd_get_addr(opnd);
     // Patch the original instruction
-    mir_opnd_t* val_tmp = mir_insn_malloc_dst_reg(insn, alloc_tmp_reg(ctx));
+    reg_id_t tmp_dst_reg = alloc_tmp_reg(ctx);
+    mir_insn_set_dst_reg(insn, tmp_dst_reg);
 
     // Generate the store instruction
-    mir_insn_t* store_insn = mir_insn_malloc(MIR_OP_ST32);
-    mir_insn_set_dst(store_insn, val_tmp);  
-    mir_insn_malloc_src0_reg(store_insn, DR_REG_NULL);
-    mir_insn_malloc_src1_imm(store_insn, (int64_t)addr);
+    mir_insn_t* store_insn = mir_insn_malloc(MIR_OP_ST64);
+    mir_insn_set_dst_reg(store_insn, tmp_dst_reg);  
+    mir_insn_set_src0_reg(store_insn, DR_REG_NULL);
+    mir_insn_set_src1_imm(store_insn, (int64_t)addr);
     mir_insn_insert_after(store_insn, insn);
     return;
 }
@@ -125,18 +127,19 @@ void _gen_load_from_base_disp(opnd_t opnd, mir_insn_t* insn,
                         mir_insn_list_t *mir_insns_list, int src_num, struct translate_context_t *ctx) {
     reg_id_t base = opnd_get_base(opnd);
     int32_t disp = opnd_get_disp(opnd);
-    mir_insn_t* load_insn = mir_insn_malloc(MIR_OP_LD32);
-    mir_insn_malloc_src0_reg(load_insn, base);
-    mir_insn_malloc_src1_imm(load_insn, disp);
-    mir_opnd_t* dst_tmp = mir_insn_malloc_dst_reg(load_insn, alloc_tmp_reg(ctx));
+    mir_insn_t* load_insn = mir_insn_malloc(MIR_OP_LD64);
+    mir_insn_set_src0_reg(load_insn, base);
+    mir_insn_set_src1_imm(load_insn, disp);
+    reg_id_t tmp_dst_reg = alloc_tmp_reg(ctx);
+    mir_insn_set_dst_reg(load_insn, tmp_dst_reg);
     if (src_num == 0) {
-        mir_insn_set_src0(insn, dst_tmp);
+        mir_insn_set_src0_reg(insn, tmp_dst_reg);
     }
     else if (src_num == 1) {
-        mir_insn_set_src1(insn, dst_tmp);
+        mir_insn_set_src1_reg(insn, tmp_dst_reg);
     } else if (src_num == 2) {
         // Useful when insn is a store instruction, where dst is the src0
-        mir_insn_set_dst(insn, dst_tmp);
+        mir_insn_set_dst_reg(insn, tmp_dst_reg);
     }
     mir_insn_insert_before(load_insn, insn);
 }
@@ -166,13 +169,14 @@ void gen_dst_store_to_base_disp(opnd_t opnd, mir_insn_t* insn,
     int32_t disp = opnd_get_disp(opnd);
 
     // Patch the original instruction
-    mir_opnd_t* val_tmp = mir_insn_malloc_dst_reg(insn, alloc_tmp_reg(ctx));
+    reg_id_t tmp_dst_reg = alloc_tmp_reg(ctx);
+    mir_insn_set_dst_reg(insn, tmp_dst_reg);
 
     // Generate the store instruction
-    mir_insn_t* store_insn = mir_insn_malloc(MIR_OP_ST32);
-    mir_insn_set_dst(store_insn, val_tmp);
-    mir_insn_malloc_src0_reg(store_insn, base);
-    mir_insn_malloc_src1_imm(store_insn, disp);
+    mir_insn_t* store_insn = mir_insn_malloc(MIR_OP_ST64);
+    mir_insn_set_dst_reg(store_insn, tmp_dst_reg);
+    mir_insn_set_src0_reg(store_insn, base);
+    mir_insn_set_src1_imm(store_insn, disp);
     mir_insn_insert_after(store_insn, insn);
     return;
 }
@@ -180,10 +184,10 @@ void gen_dst_store_to_base_disp(opnd_t opnd, mir_insn_t* insn,
 void src0_set_opnd_by_type(opnd_t opnd, mir_insn_t* insn, 
                         mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
     if (opnd_is_reg(opnd)) {
-        mir_insn_malloc_src0_reg(insn, opnd_get_reg(opnd));
+        mir_insn_set_src0_reg(insn, opnd_get_reg(opnd));
     }
     else if (opnd_is_immed(opnd)) {
-        mir_insn_malloc_src0_imm(insn, opnd_get_immed_int(opnd));
+        mir_insn_set_src0_imm(insn, opnd_get_immed_int(opnd));
     }
     else if (opnd_is_memory_reference(opnd)) {
         gen_src0_from_memref(opnd, insn, mir_insns_list, ctx);
@@ -199,10 +203,10 @@ void src0_set_opnd_by_type(opnd_t opnd, mir_insn_t* insn,
 void src1_set_opnd_by_type(opnd_t opnd, mir_insn_t* insn, 
                         mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
     if (opnd_is_reg(opnd)) {
-        mir_insn_malloc_src1_reg(insn, opnd_get_reg(opnd));
+        mir_insn_set_src1_reg(insn, opnd_get_reg(opnd));
     }  
     else if (opnd_is_immed(opnd)) {
-        mir_insn_malloc_src1_imm(insn, opnd_get_immed_int(opnd));
+        mir_insn_set_src1_imm(insn, opnd_get_immed_int(opnd));
     }
     else if (opnd_is_memory_reference(opnd)) {
         gen_src1_from_memref(opnd, insn, mir_insns_list, ctx);
@@ -216,7 +220,7 @@ void src1_set_opnd_by_type(opnd_t opnd, mir_insn_t* insn,
 void src2_set_opnd_by_type(opnd_t opnd, mir_insn_t* insn, 
                         mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
     if (opnd_is_reg(opnd)) {
-        mir_insn_malloc_dst_reg(insn, opnd_get_reg(opnd));
+        mir_insn_set_dst_reg(insn, opnd_get_reg(opnd));
     } else if (opnd_is_memory_reference(opnd)) {
         gen_src2_from_memref(opnd, insn, mir_insns_list, ctx);
     } else {
@@ -227,7 +231,7 @@ void src2_set_opnd_by_type(opnd_t opnd, mir_insn_t* insn,
 void dst_set_opnd_by_type(opnd_t opnd, mir_insn_t* insn, 
                         mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
     if (opnd_is_reg(opnd)) {
-        mir_insn_malloc_dst_reg(insn, opnd_get_reg(opnd));
+        mir_insn_set_dst_reg(insn, opnd_get_reg(opnd));
     } 
     else if (opnd_is_memory_reference(opnd)) {
         gen_dst_to_memref(opnd, insn, mir_insns_list, ctx);
