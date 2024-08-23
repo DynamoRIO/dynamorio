@@ -446,10 +446,15 @@ kcore_copy_t::read_kallsyms()
     ASSERT(kernel_module == nullptr, "failed to find kernel module");
 
     if (!bpf_jit_symbols.empty()) {
-        /* We copy a page size worth of contents after each bpf-related function symbol
-         * in an effort to make sure that the complete function is copied. This is
-         * similar to perf adding page size to the highest kernel symbol in its own
-         * kcore copy logic.
+        constexpr int EXTRA_PAGES = 10;
+        /* For BPF JIT code, it seems not uncommon for /proc/kallsyms to not have full
+         * page-level coverage. To ensure we copy all relevant code, we dump multiple
+         * page sizes' worth of contents after each bpf-related function symbol. This is
+         * somewhat similar to perf adding page size to the highest kernel symbol in
+         * its own kcore copy logic. This does not seem to inflate the kcore dump size
+         * by too much (< 1% increase).
+         * XXX: We could potentially expose a command-line option instead of
+         * hard-coding the EXTRA_PAGES.
          */
         size_t page_size = dr_page_size();
         proc_module_t *bpf_module = nullptr;
@@ -458,7 +463,8 @@ kcore_copy_t::read_kallsyms()
             if (bpf_module == nullptr) {
                 bpf_module = (proc_module_t *)dr_global_alloc(sizeof(proc_module_t));
                 bpf_module->start = ALIGN_BACKWARD(addr, page_size);
-                bpf_module->end = ALIGN_FORWARD(addr + page_size, page_size);
+                bpf_module->end =
+                    ALIGN_FORWARD(addr + EXTRA_PAGES * page_size, page_size);
                 ++it;
                 continue;
             }
@@ -466,7 +472,8 @@ kcore_copy_t::read_kallsyms()
                 /* Just extend the last module region if the new addr falls within
                  * the last recorded range.
                  */
-                bpf_module->end = ALIGN_FORWARD(addr + page_size, page_size);
+                bpf_module->end =
+                    ALIGN_FORWARD(addr + EXTRA_PAGES * page_size, page_size);
                 ++it;
             } else {
                 bpf_module->next = modules_;
