@@ -347,6 +347,34 @@ record_analyzer_multi_t::create_analysis_tool_from_options(const std::string &to
  */
 
 template <typename RecordType, typename ReaderType>
+std::string
+analyzer_multi_tmpl_t<RecordType, ReaderType>::set_input_limit(
+    std::set<memref_tid_t> &only_threads, std::set<int> &only_shards)
+{
+    bool valid_limit = true;
+    if (op_only_thread.get_value() != 0) {
+        if (!op_only_threads.get_value().empty() || !op_only_shards.get_value().empty())
+            valid_limit = false;
+        only_threads.insert(op_only_thread.get_value());
+    } else if (!op_only_threads.get_value().empty()) {
+        if (!op_only_shards.get_value().empty())
+            valid_limit = false;
+        std::vector<std::string> tids = split_by(op_only_threads.get_value(), ",");
+        for (const std::string &tid : tids) {
+            only_threads.insert(strtol(tid.c_str(), nullptr, 10));
+        }
+    } else if (!op_only_shards.get_value().empty()) {
+        std::vector<std::string> tids = split_by(op_only_shards.get_value(), ",");
+        for (const std::string &tid : tids) {
+            only_shards.insert(strtol(tid.c_str(), nullptr, 10));
+        }
+    }
+    if (!valid_limit)
+        return "Only one of -only_thread, -only_threads, and -only_shards can be set.";
+    return "";
+}
+
+template <typename RecordType, typename ReaderType>
 analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
 {
     this->worker_count_ = op_jobs.get_value();
@@ -458,7 +486,16 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
     if (!op_indir.get_value().empty()) {
         std::string tracedir =
             raw2trace_directory_t::tracedir_from_rawdir(op_indir.get_value());
-        if (!this->init_scheduler(tracedir, op_only_thread.get_value(),
+
+        std::set<memref_tid_t> only_threads;
+        std::set<int> only_shards;
+        std::string res = set_input_limit(only_threads, only_shards);
+        if (!res.empty()) {
+            this->success_ = false;
+            this->error_string_ = res;
+            return;
+        }
+        if (!this->init_scheduler(tracedir, only_threads, only_shards,
                                   op_verbose.get_value(), std::move(sched_ops)))
             this->success_ = false;
     } else if (op_infile.get_value().empty()) {
@@ -480,9 +517,8 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
         }
     } else {
         // Legacy file.
-        if (!this->init_scheduler(op_infile.get_value(),
-                                  INVALID_THREAD_ID /*all threads*/,
-                                  op_verbose.get_value(), std::move(sched_ops)))
+        if (!this->init_scheduler(op_infile.get_value(), {}, {}, op_verbose.get_value(),
+                                  std::move(sched_ops)))
             this->success_ = false;
     }
     if (!init_analysis_tools()) {

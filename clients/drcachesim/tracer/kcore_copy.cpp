@@ -446,15 +446,15 @@ kcore_copy_t::read_kallsyms()
     ASSERT(kernel_module == nullptr, "failed to find kernel module");
 
     if (!bpf_jit_symbols.empty()) {
-        constexpr int kExtraPages = 5;
+        constexpr int EXTRA_PAGES = 10;
         /* For BPF JIT code, it seems not uncommon for /proc/kallsyms to not have full
          * page-level coverage. To ensure we copy all relevant code, we dump multiple
-         * page size worth of contents after each bpf-related function symbol. This is
+         * page sizes' worth of contents after each bpf-related function symbol. This is
          * somewhat similar to perf adding page size to the highest kernel symbol in
          * its own kcore copy logic. This does not seem to inflate the kcore dump size
-         * by too much (< 1% increase, to 20MB).
+         * by too much (< 1% increase).
          * XXX: We could potentially expose a command-line option instead of
-         * hard-coding the kExtraPages.
+         * hard-coding the EXTRA_PAGES.
          */
         size_t page_size = dr_page_size();
         proc_module_t *bpf_module = nullptr;
@@ -464,7 +464,7 @@ kcore_copy_t::read_kallsyms()
                 bpf_module = (proc_module_t *)dr_global_alloc(sizeof(proc_module_t));
                 bpf_module->start = ALIGN_BACKWARD(addr, page_size);
                 bpf_module->end =
-                    ALIGN_FORWARD(addr + kExtraPages * page_size, page_size);
+                    ALIGN_FORWARD(addr + EXTRA_PAGES * page_size, page_size);
                 ++it;
                 continue;
             }
@@ -473,7 +473,7 @@ kcore_copy_t::read_kallsyms()
                  * the last recorded range.
                  */
                 bpf_module->end =
-                    ALIGN_FORWARD(addr + kExtraPages * page_size, page_size);
+                    ALIGN_FORWARD(addr + EXTRA_PAGES * page_size, page_size);
                 ++it;
             } else {
                 bpf_module->next = modules_;

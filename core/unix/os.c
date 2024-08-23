@@ -3792,7 +3792,8 @@ os_thread_sleep(uint64 milliseconds)
          * routine sleep forever
          */
         if (count++ > 3 && !IS_CLIENT_THREAD(get_thread_private_dcontext())) {
-            ASSERT_NOT_REACHED();
+            ASSERT_CURIOSITY_ONCE(
+                false && "os_thread_sleep interrupted by signal more than 3 times.");
             break; /* paranoid */
         }
         req = remain;
