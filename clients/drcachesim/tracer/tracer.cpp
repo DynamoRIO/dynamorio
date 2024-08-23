@@ -1496,6 +1496,7 @@ exit_record_syscall()
     hashtable_delete(&syscall2args);
 }
 
+#ifdef BUILD_PT_TRACER
 static bool
 stop_cur_syscall_pt_trace(void *drcontext, per_thread_t *data)
 {
@@ -1527,6 +1528,7 @@ stop_cur_syscall_pt_trace(void *drcontext, per_thread_t *data)
     }
     return true;
 }
+#endif
 
 static bool
 event_pre_syscall(void *drcontext, int sysnum)
