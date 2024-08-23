@@ -1520,7 +1520,8 @@ stop_cur_syscall_pt_trace(void *drcontext, per_thread_t *data)
     if (!data->syscall_pt_trace.stop_syscall_pt_trace()) {
         NOTIFY(0,
                "ERROR: Failed to stop PT tracing for syscall %d of thread "
-               "T%d.\n", cur_recording_sysnum, dr_get_thread_id(drcontext));
+               "T%d.\n",
+               cur_recording_sysnum, dr_get_thread_id(drcontext));
         ASSERT(false, "Failed to stop syscall PT trace");
         return false;
     }
