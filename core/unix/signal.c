@@ -3237,12 +3237,13 @@ thread_set_self_context(void *cxt, bool is_detach_external)
     memset(&frame, 0, sizeof(frame));
 #ifdef LINUX
     frame.uc.uc_mcontext = *sc;
-#endif
-#if defined(X86)
+#    ifdef X86
     dcontext_t *dcontext = get_thread_private_dcontext();
     frame.uc.uc_mcontext.fpstate = (kernel_fpstate_t *)get_and_initialize_xstate_buffer(
         get_thread_private_dcontext());
-
+#    endif /* X86 */
+#endif     /* LINUX */
+#if defined(X86)
     /* This saves both X87 state (from fxsave) and XMM state (from mcontext) */
     save_fpstate(dcontext, &frame);
 #endif
