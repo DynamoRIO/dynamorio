@@ -857,7 +857,7 @@ droption_t<bool> op_skip_kcore_dump(
     "application with superuser permissions. However, if this option is enabled, we "
     "skip the dump, and since collecting kernel trace data using Intel-PT does not "
     "necessarily need superuser permissions, the target application can be run "
-    "as regular. This may be useful if it is not feasible to run the application "
+    "as normal. This may be useful if it is not feasible to run the application "
     "with superuser permissions and the user wants to use a different kcore "
     "dump, from a prior trace or created separately.");
 #endif

@@ -4989,9 +4989,17 @@ if (BUILD_CLIENTS)
       torunonly_drcacheoff_kernel(invariant-checker ${ci_shared_app} "-raw_compress none" ""
                                   "@-tool@invariant_checker@-test_mode_name@kernel_syscall_pt_trace")
       # We cannot decompose the trace because the kcore dump is absent. This test is useful
-      # because it verifies that kernel tracing without dumping kcore does not need superuser
-      # permissions (does not fail due to /proc/kcore not being readable).
-      torunonly_drcachesim(kernel-skip-kcore ${ci_shared_app}
+      # because it verifies that kernel tracing without dumping kcore does not need the app to be
+      # run with superuser permissions (does not fail due to /proc/kcore not being readable). Note
+      # that we still need perf_event_paranoid to be set to a favorable value prior to starting the
+      # app, which does require superuser, see command below:
+      # sudo bash -c "echo 1 > /proc/sys/kernel/perf_event_paranoid"
+      #
+      # Note that the _SUDO is only in the test name (the test app is not run with superuser here),
+      # which is to disable this test in our regular test suite to avoid a case where the test
+      # fails due to unfavorable perf_event_paranoid even when the kernel tracing code is not being
+      # changed or tested.
+      torunonly_drcachesim(kernel-skip-kcore_SUDO ${ci_shared_app}
                            "-offline -enable_kernel_tracing -skip_kcore_dump" "")
     endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
   endif (proc_supports_pt)
