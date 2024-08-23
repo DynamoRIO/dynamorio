@@ -3936,6 +3936,11 @@ if (BUILD_CLIENTS)
         torunonly_simtool(core_on_disk_schedule ${ci_shared_app}
           "-indir ${core_sharded_dir} -tool schedule_stats" "")
         set(tool.core_on_disk_schedule_rawtemp ON) # no preprocessor
+
+        # Test -only_shards on core-sharded-on-disk traces.
+        torunonly_simtool(only_shards ${ci_shared_app}
+          "-indir ${core_sharded_dir} -tool schedule_stats -only_shards 2,3" "")
+        set(tool.core_on_disk_rawtemp ON) # no preprocessor
       endif ()
     endif ()
 
