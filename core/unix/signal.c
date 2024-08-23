@@ -3339,8 +3339,8 @@ thread_set_self_mcontext(priv_mcontext_t *mc, bool is_detach_external)
     sig_full_cxt_t sc_full;
     sig_full_initialize(&sc_full, &ucxt);
 #if defined(LINUX) && defined(X86)
-    /* mcontext_to_sigcontext will NOT fill in fpstate.
-     * Instead, it will be filled in by thread_set_self_context
+    /* This prevents mcontext_to_sigcontext from filling in fpstate.
+     * Instead, it initialized by thread_set_self_context.
      */
     sc_full.sc->fpstate = NULL;
 #endif
