@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -115,7 +115,7 @@ public:
     init(void *drcontext, char *pt_dir_name,
          drmemtrace_open_file_ex_func_t open_file_ex_func,
          drmemtrace_write_file_func_t write_file_func,
-         drmemtrace_close_file_func_t close_file_func);
+         drmemtrace_close_file_func_t close_file_func, int ring_buffer_size_shift);
 
     /* Start the PT tracing for current syscall and store the sysnum of the syscall. */
     bool
@@ -198,6 +198,16 @@ private:
      * every syscall in the current thread.
      */
     file_t output_file_;
+
+    /* The ring buffer that stores the recorded PT data is assigned a size of
+     * (1 << ring_buffer_size_shift_) * page_size.
+     * For apps with a high thread count, this may cause us to exceed the available
+     * memory. But if it is configured too low, we may see errors of type
+     * READ_RING_BUFFER_ERROR_OLD_DATA_OVERWRITTEN or
+     * "get next instruction error: expected tracing enabled event" during PT trace
+     * decoding.
+     */
+    int ring_buffer_size_shift_;
 };
 
 } // namespace drmemtrace
