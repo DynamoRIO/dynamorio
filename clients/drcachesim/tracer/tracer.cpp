@@ -1568,20 +1568,6 @@ event_pre_syscall(void *drcontext, int sysnum)
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
         if (data->syscall_pt_trace.get_cur_recording_sysnum() != INVALID_SYSNUM) {
             ASSERT(false, "last tracing isn't stopped");
-            /* Write a marker to userspace raw trace. Some drmemtrace derivations
-             * may interleave the PT trace raw data with the drmemtrace user-space raw
-             * trace data (instead of outputting the PT trace data to separate files
-             * like we do here). In such cases, we want to ensure that the
-             * TRACE_MARKER_TYPE_SYSCALL_IDX does not get output before the actual
-             * PT trace data, so we output the marker when we stop and write the PT
-             * trace (instead of when we start the PT trace).
-             * Note that the order below does not matter because the actual buffer
-             * flush happens later.
-             */
-            trace_marker_type_t marker_type = TRACE_MARKER_TYPE_SYSCALL_IDX;
-            uintptr_t marker_val = data->syscall_pt_trace.get_traced_syscall_idx();
-            BUF_PTR(data->seg_base) +=
-                instru->append_marker(BUF_PTR(data->seg_base), marker_type, marker_val);
             if (!data->syscall_pt_trace.stop_syscall_pt_trace()) {
                 ASSERT(false, "failed to stop syscall pt trace");
                 return false;
@@ -1591,6 +1577,12 @@ event_pre_syscall(void *drcontext, int sysnum)
         if (!syscall_pt_trace_t::is_syscall_pt_trace_enabled(sysnum)) {
             return true;
         }
+
+        /* Write a marker to userspace raw trace. */
+        trace_marker_type_t marker_type = TRACE_MARKER_TYPE_SYSCALL_IDX;
+        uintptr_t marker_val = data->syscall_pt_trace.get_traced_syscall_idx();
+        BUF_PTR(data->seg_base) +=
+            instru->append_marker(BUF_PTR(data->seg_base), marker_type, marker_val);
 
         if (!data->syscall_pt_trace.start_syscall_pt_trace(sysnum)) {
             ASSERT(false, "failed to start syscall pt trace");
@@ -1660,21 +1652,6 @@ event_post_syscall(void *drcontext, int sysnum)
 
     ASSERT(data->syscall_pt_trace.get_cur_recording_sysnum() == sysnum,
            "last tracing isn't for the expected sysnum");
-
-    /* Write a marker to userspace raw trace. Some drmemtrace derivations
-     * may interleave the PT trace raw data with the drmemtrace user-space raw
-     * trace data (instead of outputting the PT trace data to separate files
-     * like we do here). In such cases, we want to ensure that the
-     * TRACE_MARKER_TYPE_SYSCALL_IDX does not get output before the actual
-     * PT trace data, so we output the marker when we stop and write the PT
-     * trace (instead of when we start the PT trace).
-     * Note that the order below does not matter because the actual buffer
-     * flush happens later.
-     */
-    trace_marker_type_t marker_type = TRACE_MARKER_TYPE_SYSCALL_IDX;
-    uintptr_t marker_val = data->syscall_pt_trace.get_traced_syscall_idx();
-    BUF_PTR(data->seg_base) +=
-        instru->append_marker(BUF_PTR(data->seg_base), marker_type, marker_val);
     if (!data->syscall_pt_trace.stop_syscall_pt_trace()) {
         ASSERT(false, "failed to stop syscall pt trace");
         return;
@@ -1846,21 +1823,7 @@ event_thread_exit(void *drcontext)
                        "ERROR: The last recorded syscall %d of thread T%d wasn't be "
                        "stopped.\n",
                        cur_recording_sysnum, dr_get_thread_id(drcontext));
-
-                /* Write a marker to userspace raw trace. Some drmemtrace derivations
-                 * may interleave the PT trace raw data with the drmemtrace user-space raw
-                 * trace data (instead of outputting the PT trace data to separate files
-                 * like we do here). In such cases, we want to ensure that the
-                 * TRACE_MARKER_TYPE_SYSCALL_IDX does not get output before the actual
-                 * PT trace data, so we output the marker when we stop and write the PT
-                 * trace (instead of when we start the PT trace).
-                 * Note that the order below does not matter because the actual buffer
-                 * flush happens later.
-                 */
-                trace_marker_type_t marker_type = TRACE_MARKER_TYPE_SYSCALL_IDX;
-                uintptr_t marker_val = data->syscall_pt_trace.get_traced_syscall_idx();
-                BUF_PTR(data->seg_base) += instru->append_marker(BUF_PTR(data->seg_base),
-                                                                 marker_type, marker_val);
+                ASSERT(cur_recording_sysnum, "syscall recording is not stopped");
                 if (!data->syscall_pt_trace.stop_syscall_pt_trace()) {
                     ASSERT(false, "failed to stop syscall pt trace");
                 }
