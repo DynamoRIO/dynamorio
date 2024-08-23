@@ -1915,15 +1915,17 @@ event_exit(void)
 #ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
         drpttracer_exit();
-        /* Copy kcore and kallsyms to {kernel_trace_logsubdir}. */
-        kcore_copy_t kcore_copy(
-            [](const char *fname, uint mode_flags) {
-                return file_ops_func.open_process_file(fname, mode_flags);
-            },
-            file_ops_func.write_file, file_ops_func.close_file);
-        if (!kcore_copy.copy(kcore_path, kallsyms_path)) {
-            NOTIFY(0, "WARNING: failed to copy kcore and kallsyms to %s\n",
-                   kernel_trace_logsubdir);
+        if (!op_skip_kcore_dump.get_value()) {
+            /* Copy kcore and kallsyms to {kernel_trace_logsubdir}. */
+            kcore_copy_t kcore_copy(
+                [](const char *fname, uint mode_flags) {
+                    return file_ops_func.open_process_file(fname, mode_flags);
+                },
+                file_ops_func.write_file, file_ops_func.close_file);
+            if (!kcore_copy.copy(kcore_path, kallsyms_path)) {
+                NOTIFY(0, "WARNING: failed to copy kcore and kallsyms to %s\n",
+                       kernel_trace_logsubdir);
+            }
         }
     }
 #endif
