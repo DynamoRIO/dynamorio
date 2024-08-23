@@ -849,6 +849,17 @@ droption_t<bool> op_enable_kernel_tracing(
     "syscall's PT and metadata to files in -outdir/kernel.raw/ for later offline "
     "analysis. And this feature is available only on Intel CPUs that support Intel@ "
     "Processor Trace.");
+droption_t<bool> op_skip_kcore_dump(
+    DROPTION_SCOPE_ALL, "skip_kcore_dump", false,
+    "Skip creation of the kcore dump during kernel tracing.",
+    "By default, when -enable_kernel_tracing is set, offline tracing will dump kcore "
+    "and kallsyms to the raw trace directory, which requires the user to run the target "
+    "application with superuser permissions. However, if this option is enabled, we "
+    "skip the dump, and since collecting kernel trace data using Intel-PT does not "
+    "necessarily need superuser permissions, the target application can be run "
+    "as normal. This may be useful if it is not feasible to run the application "
+    "with superuser permissions and the user wants to use a different kcore "
+    "dump, from a prior trace or created separately.");
 #endif
 
 // Core-oriented analysis.
