@@ -3243,9 +3243,7 @@ thread_set_self_context(void *cxt, bool is_detach_external)
     frame.uc.uc_mcontext.fpstate = (kernel_fpstate_t *)get_and_initialize_xstate_buffer(
         get_thread_private_dcontext());
 
-    /* This only saves X87 state. XMM state is saved in mcontext_to_sigcontext
-     * (called by thread_set_self_mcontext).
-     */
+    /* This saves both X87 state (from fxsave) and XMM state (from mcontext) */
     save_fpstate(dcontext, &frame);
 #endif
     IF_ARM(ASSERT_NOT_TESTED());
