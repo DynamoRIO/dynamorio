@@ -452,7 +452,7 @@ kcore_copy_t::read_kallsyms()
          * page sizes' worth of contents after each bpf-related function symbol. This is
          * somewhat similar to perf adding page size to the highest kernel symbol in
          * its own kcore copy logic. This does not seem to inflate the kcore dump size
-         * by too much (< 1% increase, to 20MB).
+         * by too much (< 1% increase).
          * XXX: We could potentially expose a command-line option instead of
          * hard-coding the kExtraPages.
          */
