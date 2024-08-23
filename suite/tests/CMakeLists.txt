@@ -4996,9 +4996,9 @@ if (BUILD_CLIENTS)
       # sudo bash -c "echo 1 > /proc/sys/kernel/perf_event_paranoid"
       #
       # Note that the _SUDO is only in the test name (the test app is not run with superuser here),
-      # which is to disable this test in our regular test suite to avoid a case where the test
-      # fails due to unfavorable perf_event_paranoid even when the kernel tracing code is not being
-      # changed or tested.
+      # which is to disable this test in our regular test suite to avoid confusion by the test
+      # failing due to unfavorable perf_event_paranoid which may be the case when kernel tracing code
+      # is being changed or tested.
       torunonly_drcachesim(kernel-skip-kcore_SUDO ${ci_shared_app}
                            "-offline -enable_kernel_tracing -skip_kcore_dump" "")
     endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
