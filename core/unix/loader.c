@@ -40,6 +40,7 @@
 #include "../module_shared.h"
 #include "os_private.h"
 #include "../ir/instr.h" /* SEG_GS/SEG_FS */
+#include "decode.h"
 #include "module.h"
 #include "module_private.h"
 #include "../heap.h" /* HEAPACCT */
@@ -743,27 +744,77 @@ privload_os_finalize(privmod_t *privmod)
         SYSLOG_INTERNAL_WARNING("glibc 2.34+ i#5437 workaround failed: missed glro");
         return;
     }
-    int GLRO_dl_tls_static_size_OFFS;
-    int GLRO_dl_tls_static_align_OFFS;
-#    ifdef X64
-    // The offsets changed between 2.38 and 2.39.
-    if (ver[2] == '3' && ver[3] < '9') {
-        GLRO_dl_tls_static_size_OFFS = 0x2a8;
-        GLRO_dl_tls_static_align_OFFS = 0x2b0;
-    } else {
-        GLRO_dl_tls_static_size_OFFS = 0x2c8;
-        GLRO_dl_tls_static_align_OFFS = 0x2d0;
-    }
-#    else
-    if (ver[2] == '3' && ver[3] >= '8') {
-        GLRO_dl_tls_static_size_OFFS = 0x324;
-        GLRO_dl_tls_static_align_OFFS = 0x320;
-    } else {
-        // The offsets changed between 2.35 and 2.36.
-        GLRO_dl_tls_static_size_OFFS = (ver[2] == '3' && ver[3] == '5') ? 0x328 : 0x31c;
-        GLRO_dl_tls_static_align_OFFS = (ver[2] == '3' && ver[3] == '5') ? 0x32c : 0x320;
+
+    int GLRO_dl_tls_static_size_OFFS = 0;
+    int GLRO_dl_tls_static_align_OFFS = 0;
+#    ifdef X86
+    /* Look for this pattern:
+     *    0x00007ffff7759d62 <+98>:    mov    0x2b0(%rax),%rsi
+     *    0x00007ffff7759d69 <+105>:   mov    0x2a8(%rax),%rbx
+     *    0x00007ffff7759d70 <+112>:   mov    0x18(%rax),%rcx
+     *    0x00007ffff7759d74 <+116>:   add    %rsi,%rbx
+     *    0x00007ffff7759d77 <+119>:   mov    %rbx,%rax
+     *    0x00007ffff7759d7a <+122>:   mov    %rcx,0xa7daf(%rip)        # 0x7ffff7801b30
+     *    0x00007ffff7759d81 <+129>:   sub    $0x1,%rax
+     *    0x00007ffff7759d85 <+133>:   div    %rsi
+     * We want the 0x2b0 and 0x2a8 offests prior to the OP_div.
+     * They're always pointer-sized apart; there's never a div before this in the
+     * function.  Naturally this is fragile, but it is better than updating hardcoded
+     * offsets with each release. See i#5437 for discussion of long-term possible
+     * solutions.
+     */
+    instr_noalloc_t noalloc;
+    instr_noalloc_init(GLOBAL_DCONTEXT, &noalloc);
+    instr_t *instr = instr_from_noalloc(&noalloc);
+    byte *pc = (byte *)libc_early_init;
+    int last_large_load_offs = 0;
+    const int MIN_LOAD_OFFS = 0x100;
+    const int MAX_INSTRS = 64;
+    int instr_count = 0;
+    do {
+        instr_reset(GLOBAL_DCONTEXT, instr);
+        pc = decode(GLOBAL_DCONTEXT, pc, instr);
+        if (instr_get_opcode(instr) == OP_mov_ld &&
+            opnd_is_base_disp(instr_get_src(instr, 0))) {
+            int disp = opnd_get_disp(instr_get_src(instr, 0));
+            if (disp > MIN_LOAD_OFFS)
+                last_large_load_offs = disp;
+        }
+        if (++instr_count > MAX_INSTRS)
+            break;
+    } while (instr_get_opcode(instr) != OP_div);
+    if (instr_get_opcode(instr) == OP_div && last_large_load_offs > 0) {
+        GLRO_dl_tls_static_size_OFFS = last_large_load_offs;
+        GLRO_dl_tls_static_align_OFFS = last_large_load_offs + sizeof(void *);
+        LOG(GLOBAL, LOG_LOADER, 2,
+            "%s: for glibc 2.34+ workaround found offsets 0x%x 0x%x\n", __FUNCTION__,
+            GLRO_dl_tls_static_size_OFFS, GLRO_dl_tls_static_align_OFFS);
     }
 #    endif
+    if (GLRO_dl_tls_static_size_OFFS == 0) {
+        // We have some versions hardcoded.
+#    ifdef X64
+        // The offsets changed between 2.38 and 2.39.
+        if (ver[2] == '3' && ver[3] < '9') {
+            GLRO_dl_tls_static_size_OFFS = 0x2a8;
+            GLRO_dl_tls_static_align_OFFS = 0x2b0;
+        } else {
+            GLRO_dl_tls_static_size_OFFS = 0x2c8;
+            GLRO_dl_tls_static_align_OFFS = 0x2d0;
+        }
+#    else
+        if (ver[2] == '3' && ver[3] >= '8') {
+            GLRO_dl_tls_static_size_OFFS = 0x320;
+            GLRO_dl_tls_static_align_OFFS = 0x324;
+        } else {
+            // The offsets changed between 2.35 and 2.36.
+            GLRO_dl_tls_static_size_OFFS =
+                (ver[2] == '3' && ver[3] == '5') ? 0x328 : 0x31c;
+            GLRO_dl_tls_static_align_OFFS =
+                (ver[2] == '3' && ver[3] == '5') ? 0x32c : 0x320;
+        }
+#    endif
+    }
     size_t val = 4096, written;
     if (!safe_write_ex(glro + GLRO_dl_tls_static_size_OFFS, sizeof(val), &val,
                        &written) ||
