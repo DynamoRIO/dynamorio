@@ -1681,7 +1681,7 @@ event_post_syscall(void *drcontext, int sysnum)
         } else {
             // No syscall trace is being recorded. This may be because syscall tracing
             // is not enabled for sysnum, or that we were not in tracing mode at the
-            // pre-syscall event for sysnum. There's no way to know the latter for sure.
+            // pre-syscall event for sysnum.
         }
     }
 
