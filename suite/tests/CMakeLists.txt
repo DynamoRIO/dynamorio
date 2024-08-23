@@ -5401,6 +5401,13 @@ if (UNIX)
   if (NOT APPLE)
     tobuild(linux.thread linux/thread.c)
     tobuild(linux.threadexit linux/threadexit.c)
+
+    if (X86 AND X64 AND DR_HOST_X86 AND DR_HOST_X64)
+      tobuild_ci(linux.synchall-restore linux/synchall-restore.c "" "" "")
+      set_avx_flags(linux.synchall-restore)
+      link_with_pthread(linux.synchall-restore)
+    endif ()
+
     if (NOT ANDROID)
       tobuild(linux.threadexit2 linux/threadexit2.c) # XXX i#1874: hangs on Android
       tobuild(linux.signalfd linux/signalfd.c) # XXX i#1874: fails natively on Android
