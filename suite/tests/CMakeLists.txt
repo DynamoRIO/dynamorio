@@ -4988,17 +4988,18 @@ if (BUILD_CLIENTS)
                                   "@-tool@syscall_mix")
       torunonly_drcacheoff_kernel(invariant-checker ${ci_shared_app} "-raw_compress none" ""
                                   "@-tool@invariant_checker@-test_mode_name@kernel_syscall_pt_trace")
+      # In the following test we only collect the raw trace but do not decompose it.
       # We cannot decompose the trace because the kcore dump is absent. This test is useful
-      # because it verifies that kernel tracing without dumping kcore does not need the app to be
-      # run with superuser permissions (does not fail due to /proc/kcore not being readable). Note
-      # that we still need perf_event_paranoid to be set to a favorable value prior to starting the
-      # app, which does require superuser, see command below:
+      # because it verifies that kernel tracing without dumping kcore does not need the app
+      # to be run with superuser permissions (does not fail due to /proc/kcore not being
+      # readable). Note that we still need perf_event_paranoid to be set to a favorable
+      # value prior to starting the app, which does require superuser for the command:
       # sudo bash -c "echo 1 > /proc/sys/kernel/perf_event_paranoid"
       #
-      # Note that the _SUDO is only in the test name (the test app is not run with superuser here),
-      # which is to disable this test in our regular test suite to avoid confusion by the test
-      # failing due to unfavorable perf_event_paranoid which may be the case when kernel tracing code
-      # is being changed or tested.
+      # Note that the _SUDO is only in the test name (test app is not run with superuser),
+      # which is to disable this test in our regular test suite to avoid confusion due to
+      # the test failing due to unfavorable perf_event_paranoid which may be the case when
+      # kernel tracing code is not being intentionally tested.
       torunonly_drcachesim(kernel-skip-kcore_SUDO ${ci_shared_app}
                            "-offline -enable_kernel_tracing -skip_kcore_dump" "")
     endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
