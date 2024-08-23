@@ -3241,8 +3241,8 @@ thread_set_self_context(void *cxt, bool is_detach_external)
 #ifdef LINUX
     frame.uc.uc_mcontext = *sc;
 #    ifdef X86
-    frame.uc.uc_mcontext.fpstate = (kernel_fpstate_t *)get_and_initialize_xstate_buffer(
-        get_thread_private_dcontext());
+    frame.uc.uc_mcontext.fpstate =
+        (kernel_fpstate_t *)get_and_initialize_xstate_buffer(dcontext);
 #    endif /* X86 */
 #endif     /* LINUX */
 #if defined(X86)
