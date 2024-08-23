@@ -218,10 +218,12 @@ reader_t::process_input_entry()
                     !TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, filetype_)) {
                     ERRMSG(
                         "Encoding size %zu != instr size %zu for PC 0x%zx at ord %" PRIu64
-                        " instr %" PRIu64 " last_timestamp=0x%" PRIx64 "\n",
+                        " instr %" PRIu64 " last_timestamp=0x%" PRIx64
+                        " enc: %x %x inst type: %d\n",
                         last_encoding_.size, cur_ref_.instr.size, cur_ref_.instr.addr,
                         get_record_ordinal(), get_instruction_ordinal(),
-                        get_last_timestamp());
+                        get_last_timestamp(), last_encoding_.bits[0],
+                        last_encoding_.bits[1], cur_ref_.instr.type);
                     // Encoding errors indicate serious problems so we always abort.
                     assert_release_too(false);
                 }
