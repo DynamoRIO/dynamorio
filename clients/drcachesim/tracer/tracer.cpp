@@ -1670,6 +1670,16 @@ event_post_syscall(void *drcontext, int sysnum)
 
 #ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
+        // We intentionally do not check is_in_tracing_mode here because
+        // we may be in a non-tracing mode now but may have enabled PT
+        // tracing in the pre-syscall event when we were in tracing mode.
+        // We still want to stop the PT tracing the syscall in this case.
+        // We also intentionally do not check is_syscall_pt_trace_enabled
+        // for sysnum so that we may catch a case where we were not able
+        // to see the post-syscall event for the syscall for which we
+        // started PT tracing (maybe there was a signal that interrupted
+        // that syscall); we still have a debug-build assert below for
+        // this case.
         int cur_recording_sysnum = data->syscall_pt_trace.get_cur_recording_sysnum();
         if (cur_recording_sysnum != INVALID_SYSNUM) {
             ASSERT(cur_recording_sysnum == sysnum,

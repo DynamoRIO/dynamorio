@@ -3164,6 +3164,10 @@ check_kernel_syscall_trace(void)
     }
     {
         std::vector<memref_with_IR_t> memref_setup = {
+            // OFFLINE_FILE_TYPE_KERNEL_SYSCALLS enables some extra invariant checks over
+            // OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY, which is why we use
+            // FILE_TYPE_FULL_SYSCALL_TRACE here. This is fine because this trace does
+            // not have any load or store instructions.
             { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE_FULL_SYSCALL_TRACE),
               nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
@@ -3227,6 +3231,10 @@ check_kernel_syscall_trace(void)
     }
     {
         std::vector<memref_with_IR_t> memref_setup = {
+            // OFFLINE_FILE_TYPE_KERNEL_SYSCALLS enables some extra invariant checks over
+            // OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY, which is why we use
+            // FILE_TYPE_FULL_SYSCALL_TRACE here. This is fine because this trace does
+            // not have any load or store instructions.
             { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE_FULL_SYSCALL_TRACE),
               nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
