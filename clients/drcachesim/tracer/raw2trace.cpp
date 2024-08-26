@@ -1203,6 +1203,9 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
                 std::to_string(pt2ir_convert_status) + "]";
             return false;
         }
+        /* When -pt2ir_best_effort is set, failures in the PT syscall raw
+         * trace conversion do not cause a fatal error in raw2trace.
+         */
         accumulate_to_statistic(tdata, RAW2TRACE_STAT_SYSCALL_TRACES_CONVERSION_FAILED,
                                 1);
         return true;
@@ -1235,6 +1238,8 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
                                 .addr = sysnum };
     entries.push_back(end_entry);
     if (entries.size() == 2) {
+        // XXX: Is this simply because the syscall did not end up executing because of
+        // being interrupted?
         accumulate_to_statistic(tdata, RAW2TRACE_STAT_SYSCALL_TRACES_CONVERSION_EMPTY, 1);
         return true;
     }

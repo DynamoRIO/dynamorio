@@ -103,14 +103,14 @@ pt2ir_t::~pt2ir_t()
 
 bool
 pt2ir_t::init(DR_PARAM_IN pt2ir_config_t &pt2ir_config, DR_PARAM_IN int verbosity,
-              DR_PARAM_IN bool allow_recoverable_errors)
+              DR_PARAM_IN bool allow_non_fatal_decode_errors)
 {
     verbosity_ = verbosity;
     if (pt2ir_initialized_) {
         VPRINT(0, "pt2ir_t is already initialized.\n");
         return false;
     }
-    allow_non_fatal_decode_errors_ = allow_recoverable_errors;
+    allow_non_fatal_decode_errors_ = allow_non_fatal_decode_errors;
 
     /* Init the configuration for the libipt instruction decoder. */
     struct pt_config pt_config;
@@ -289,10 +289,7 @@ pt2ir_t::convert(DR_PARAM_IN const uint8_t *pt_data, DR_PARAM_IN size_t pt_data_
 
     /* This flag indicates whether manual synchronization is required. */
     bool manual_sync = true;
-    /* PT raw data consists of many packets. And PT trace data is surrounded by Packet
-     * Stream Boundary. So, in the outermost loop, this function first finds the PSB. Then
-     * it decodes the trace data.
-     */
+
     uint64_t decoded_instr_count = 0;
     uint64_t non_fatal_decode_error_count = 0;
     /* XXX: This is currently set based on empirical observations. We use this heuristic
@@ -301,6 +298,11 @@ pt2ir_t::convert(DR_PARAM_IN const uint8_t *pt_data, DR_PARAM_IN size_t pt_data_
      * errors of type pte_bad_query.
      */
     constexpr int MAX_ERROR_COUNT = 100;
+
+    /* PT raw data consists of many packets. And PT trace data is surrounded by Packet
+     * Stream Boundary. So, in the outermost loop, this function first finds the PSB. Then
+     * it decodes the trace data.
+     */
     for (;;) {
         struct pt_insn insn;
         memset(&insn, 0, sizeof(insn));
@@ -386,9 +388,10 @@ pt2ir_t::convert(DR_PARAM_IN const uint8_t *pt_data, DR_PARAM_IN size_t pt_data_
             if (allow_non_fatal_decode_errors_ && status == -pte_bad_query &&
                 non_fatal_decode_error_count < MAX_ERROR_COUNT) {
                 ++non_fatal_decode_error_count;
-                /* The error may be recoverable. Try to continue past it. We may
-                 * lose an instruction entry which may show up as a single instr
-                 * PC discontinuity in the kernel syscall trace.
+                /* The error may be non-fatal to this syscall's PT trace
+                 * conversion. Try to continue past it. We may lose an instruction
+                 * entry which will show up as a 1-instr PC discontinuity in the
+                 * kernel syscall trace.
                  */
                 status = pt_insn_next(pt_instr_decoder_, &insn, sizeof(insn));
             }
