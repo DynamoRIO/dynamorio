@@ -14,9 +14,9 @@ set(mirage_srcs
     ./common/list.cpp
     ./common/bitmap.cpp
     # frontend - translating DRIR to MIR
-    ./fe/gen_ops.cpp
-    ./fe/gen_opnd_api.cpp
-    ./fe/translate_context.cpp
+    ./frontend/gen_ops.cpp
+    ./frontend/gen_opnd_api.cpp
+    ./frontend/translate_context.cpp
     # backend - interpreting MIR
     # ./be/*.cpp
     # interpreter - MIR specification
