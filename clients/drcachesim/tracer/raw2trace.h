@@ -111,16 +111,16 @@ typedef enum {
     RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP,
     RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT,
     RAW2TRACE_STAT_KERNEL_INSTR_COUNT,
-    RAW2TRACE_STAT_SYSCALL_TRACES_DECODED,
+    RAW2TRACE_STAT_SYSCALL_TRACES_CONVERTED,
     // Count of PT syscall traces that could not be converted and were skipped
     // in the final trace.
-    RAW2TRACE_STAT_SYSCALL_TRACES_DECODING_FAILED,
+    RAW2TRACE_STAT_SYSCALL_TRACES_CONVERSION_FAILED,
     // Count of decoding errors that were not fatal to the conversion of the
-    // RAW2TRACE_STAT_SYSCALL_TRACES_DECODED traces. These result in some
+    // RAW2TRACE_STAT_SYSCALL_TRACES_CONVERTED traces. These result in some
     // 1-instr PC discontinuities in the syscall trace (not necessarily one
     // per non-fatal error).
     RAW2TRACE_STAT_SYSCALL_TRACES_NON_FATAL_DECODING_ERROR_COUNT,
-    RAW2TRACE_STAT_SYSCALL_TRACES_DECODE_EMPTY,
+    RAW2TRACE_STAT_SYSCALL_TRACES_CONVERSION_EMPTY,
     RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED,
     // We add a MAX member so that we can iterate over all stats in unit tests.
     RAW2TRACE_STAT_MAX,
@@ -1304,10 +1304,10 @@ protected:
     uint64 latest_trace_timestamp_ = 0;
     uint64 final_trace_instr_count_ = 0;
     uint64 kernel_instr_count_ = 0;
-    uint64 syscall_traces_decoded_ = 0;
-    uint64 syscall_traces_decode_failed_ = 0;
+    uint64 syscall_traces_converted_ = 0;
+    uint64 syscall_traces_conversion_failed_ = 0;
     uint64 syscall_traces_non_fatal_decoding_error_count_ = 0;
-    uint64 syscall_traces_decode_empty_ = 0;
+    uint64 syscall_traces_conversion_empty_ = 0;
     uint64 syscall_traces_injected_ = 0;
 
     std::unique_ptr<module_mapper_t> module_mapper_;
