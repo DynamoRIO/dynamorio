@@ -424,6 +424,11 @@ pt2ir_t::dx_decoding_error(DR_PARAM_IN int errcode, DR_PARAM_IN const char *errt
         VPRINT(0, "[" HEX64_FORMAT_STRING ", IP:" HEX64_FORMAT_STRING "] %s: %s\n", pos,
                ip, errtype, pt_errstr(pt_errcode(errcode)));
     }
+    if (errcode == -pte_no_enable) {
+        VPRINT(0,
+               "Consider increasing -kernel_trace_buffer_size_shift to avoid dropping PT "
+               "trace data.");
+    }
 }
 
 } // namespace drmemtrace

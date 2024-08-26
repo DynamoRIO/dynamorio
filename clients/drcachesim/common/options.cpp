@@ -860,12 +860,13 @@ droption_t<bool> op_skip_kcore_dump(
     "as normal. This may be useful if it is not feasible to run the application "
     "with superuser permissions and the user wants to use a different kcore "
     "dump, from a prior trace or created separately.");
-droption_t<int> op_pt_ring_buffer_size_shift(
-    DROPTION_SCOPE_ALL, "pt_ring_buffer_size_shift", 8,
+droption_t<int> op_kernel_trace_buffer_size_shift(
+    DROPTION_SCOPE_ALL, "kernel_trace_buffer_size_shift", 8,
     "Size of the ring buffer used to collect PT trace data.",
     "Size of the ring buffer used to collect PT trace data. The size is computed as "
-    "(1 << pt_ring_buffer_size_shift) * page_size. Too large buffers can cause OOMs "
-    "on apps with many threads.");
+    "(1 << kernel_trace_buffer_size_shift) * page_size. Too large buffers can cause "
+    "OOMs on apps with many threads, whereas too small buffers can cause decoding "
+    "issues in raw2trace due to dropped trace data.");
 #endif
 
 // Core-oriented analysis.

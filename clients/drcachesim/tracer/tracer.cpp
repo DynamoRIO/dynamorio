@@ -1771,7 +1771,7 @@ init_thread_in_process(void *drcontext)
                                                         window_id);
                 },
                 file_ops_func.write_file, file_ops_func.close_file,
-                op_pt_ring_buffer_size_shift.get_value())) {
+                op_kernel_trace_buffer_size_shift.get_value())) {
             FATAL("Failed to init syscall_pt_trace_t for kernel raw files at %s\n",
                   kernel_trace_logsubdir);
         }
