@@ -862,9 +862,9 @@ droption_t<bool> op_skip_kcore_dump(
     "dump, from a prior trace or created separately.");
 droption_t<int> op_kernel_trace_buffer_size_shift(
     DROPTION_SCOPE_ALL, "kernel_trace_buffer_size_shift", 8,
-    "Size of the ring buffer used to collect PT trace data.",
+    "Size of the buffer used to collect kernel trace data.",
     "When -enable_kernel_tracing is set, this is used to compute the size of the "
-    "ring buffer used to collect kernel PT trace data. The size is computed as "
+    "buffer used to collect kernel trace data. The size is computed as "
     "(1 << kernel_trace_buffer_size_shift) * page_size. Too large buffers can cause "
     "OOMs on apps with many threads, whereas too small buffers can cause decoding "
     "issues in raw2trace due to dropped trace data.");
