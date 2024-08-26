@@ -1203,8 +1203,8 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
                 std::to_string(pt2ir_convert_status) + "]";
             return false;
         }
-        /* When -pt2ir_best_effort is set, failures in the PT syscall raw
-         * trace conversion do not cause a fatal error in raw2trace.
+        /* When -pt2ir_best_effort is set, we do not fail raw2trace when pt2ir is
+         * unable to convert some PT syscall trace.
          */
         accumulate_to_statistic(tdata, RAW2TRACE_STAT_SYSCALL_TRACES_CONVERSION_FAILED,
                                 1);
@@ -1638,7 +1638,7 @@ raw2trace_t::do_conversion()
     VPRINT(1, "Final trace instr count: " UINT64_FORMAT_STRING ".\n",
            final_trace_instr_count_);
     VPRINT(1, "Kernel instr count " UINT64_FORMAT_STRING "\n", kernel_instr_count_);
-    VPRINT(1, "System call PT traces conversion " UINT64_FORMAT_STRING "\n",
+    VPRINT(1, "System call PT traces converted " UINT64_FORMAT_STRING "\n",
            syscall_traces_converted_);
     VPRINT(1, "System call PT traces conversion failed " UINT64_FORMAT_STRING "\n",
            syscall_traces_conversion_failed_);
@@ -3740,7 +3740,7 @@ raw2trace_t::raw2trace_t(
     const std::unordered_map<thread_id_t, std::istream *> &kthread_files_map,
     const std::string &kcore_path, const std::string &kallsyms_path,
     std::unique_ptr<dynamorio::drmemtrace::record_reader_t> syscall_template_file_reader,
-    bool op_pt2ir_best_effort)
+    bool pt2ir_best_effort)
     : dcontext_(dcontext == nullptr ? dr_standalone_init() : dcontext)
     , passed_dcontext_(dcontext != nullptr)
     , worker_count_(worker_count)
@@ -3757,7 +3757,7 @@ raw2trace_t::raw2trace_t(
     , kcore_path_(kcore_path)
     , kallsyms_path_(kallsyms_path)
     , syscall_template_file_reader_(std::move(syscall_template_file_reader))
-    , pt2ir_best_effort_(op_pt2ir_best_effort)
+    , pt2ir_best_effort_(pt2ir_best_effort)
 {
     // Exactly one of out_files and out_archives should be non-empty.
     // If thread_files is not empty it must match the input size.

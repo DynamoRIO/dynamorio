@@ -347,8 +347,8 @@ public:
      * @param pt2ir_config The configuration of PT raw trace.
      * @param verbosity  The verbosity level for notifications. If set to 0, only error
      * logs are printed. If set to 1, all logs are printed. Default value is 0.
-     * @param allow_non_fatal_decode_errors Whether PT trace decode errors that are not
-     * fatal to the trace conversion are simply skipped past.
+     * @param allow_non_fatal_decode_errors Whether PT decode errors that are not
+     * fatal to the syscall PT trace's conversion are simply skipped past.
      * @return true if the instance is successfully initialized.
      */
     bool
@@ -363,8 +363,10 @@ public:
      * @param pt_data_size The size of PT raw trace.
      * @param drir The drir object.
      * @param non_fatal_decode_error_count_out Pointer to the integer where the count
-     * non-fatal decode errors seen during conversion will be stored. Set only if
-     * allow_non_fatal_decode_errors was set to true in the init call.
+     * non-fatal decode errors seen during conversion will be stored. Used only if
+     * allow_non_fatal_decode_errors was set to true in the init call. This is set
+     * only if we were still able to generate a converted trace, albeit with some
+     * PC discontinuities.
      * @return pt2ir_convert_status_t. If the conversion is successful, the function
      * returns #PT2IR_CONV_SUCCESS. Otherwise, the function returns the corresponding
      * error code.

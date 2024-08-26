@@ -120,6 +120,9 @@ typedef enum {
     // 1-instr PC discontinuities in the syscall trace (<= 1 per non-fatal
     // error).
     RAW2TRACE_STAT_SYSCALL_TRACES_NON_FATAL_DECODING_ERROR_COUNT,
+    // Count of PT syscall traces that turned up empty. This may have been
+    // simply because the syscall was interrupted and therefore no PT data
+    // was recorded.
     RAW2TRACE_STAT_SYSCALL_TRACES_CONVERSION_EMPTY,
     RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED,
     // We add a MAX member so that we can iterate over all stats in unit tests.
@@ -1666,7 +1669,7 @@ private:
     // Whether conversion of PT raw traces is done on a best-effort basis. This includes
     // ignoring various types of non-fatal decoding errors and still producing a syscall
     // trace where possible (which may have some PC discontinuities), and also dropping
-    // the syscall traces completely from the final trace where the PT trace could
+    // some syscall traces completely from the final trace where the PT trace could
     // not be converted.
     bool pt2ir_best_effort_ = false;
 };

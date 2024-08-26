@@ -386,7 +386,7 @@ pt2ir_t::convert(DR_PARAM_IN const uint8_t *pt_data, DR_PARAM_IN size_t pt_data_
             /* Decode PT raw trace to pt_insn. */
             status = pt_insn_next(pt_instr_decoder_, &insn, sizeof(insn));
             if (allow_non_fatal_decode_errors_ && status == -pte_bad_query &&
-                non_fatal_decode_error_count < MAX_ERROR_COUNT) {
+                non_fatal_decode_error_count <= MAX_ERROR_COUNT) {
                 ++non_fatal_decode_error_count;
                 /* The error may be non-fatal to this syscall's PT trace
                  * conversion. Try to continue past it. We may lose an instruction
