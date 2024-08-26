@@ -195,6 +195,7 @@ extern dynamorio::droption::droption_t<bool> op_enable_drstatecmp;
 #ifdef BUILD_PT_TRACER
 extern dynamorio::droption::droption_t<bool> op_enable_kernel_tracing;
 extern dynamorio::droption::droption_t<bool> op_skip_kcore_dump;
+extern dynamorio::droption::droption_t<int> op_kernel_trace_buffer_size_shift;
 #endif
 extern dynamorio::droption::droption_t<bool> op_core_sharded;
 extern dynamorio::droption::droption_t<bool> op_core_serial;
