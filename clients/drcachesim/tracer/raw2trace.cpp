@@ -1205,6 +1205,8 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
         }
         /* When -pt2ir_best_effort is set, we do not fail raw2trace when pt2ir is
          * unable to convert some PT syscall trace.
+         * TODO i#5505: Maybe the invariant checker should also report such missing
+         * syscall traces.
          */
         accumulate_to_statistic(tdata, RAW2TRACE_STAT_SYSCALL_TRACES_CONVERSION_FAILED,
                                 1);

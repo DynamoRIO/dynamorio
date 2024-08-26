@@ -363,7 +363,7 @@ public:
      * @param pt_data_size The size of PT raw trace.
      * @param drir The drir object.
      * @param non_fatal_decode_error_count_out Pointer to the integer where the count
-     * non-fatal decode errors seen during conversion will be stored. Used only if
+     * of non-fatal decode errors seen during conversion will be stored. Used only if
      * allow_non_fatal_decode_errors was set to true in the init call. This is set
      * only if we were still able to generate a converted trace, albeit with some
      * PC discontinuities.
