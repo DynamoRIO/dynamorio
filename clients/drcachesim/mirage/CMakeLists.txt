@@ -27,7 +27,7 @@ add_library(mirage STATIC ${mirage_srcs})
 
 target_include_directories(mirage PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/common>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/fe>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/frontend>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/ir>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/be>
 )
