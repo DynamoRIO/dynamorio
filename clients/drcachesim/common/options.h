@@ -53,7 +53,8 @@
 #define INVARIANT_CHECKER "invariant_checker"
 #define SCHEDULE_STATS "schedule_stats"
 #define RECORD_FILTER "record_filter"
-
+#define ACCESS_REGION "access_region"
+#define REUSE_PATTERN "reuse_pattern"
 // Constants used by specific tools.
 #define REPLACE_POLICY_NON_SPECIFIED ""
 #define REPLACE_POLICY_LRU "LRU"
@@ -226,6 +227,10 @@ extern dynamorio::droption::droption_t<uint64_t> op_trim_before_timestamp;
 extern dynamorio::droption::droption_t<uint64_t> op_trim_after_timestamp;
 extern dynamorio::droption::droption_t<bool> op_abort_on_invariant_error;
 
+extern dynamorio::droption::droption_t<uint64_t> op_access_region_stack_start;
+extern dynamorio::droption::droption_t<uint64_t> op_access_region_stack_end;
+extern dynamorio::droption::droption_t<uint64_t> op_access_region_heap_start;
+extern dynamorio::droption::droption_t<uint64_t> op_access_region_heap_end;
 } // namespace drmemtrace
 } // namespace dynamorio
 
