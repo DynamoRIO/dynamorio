@@ -117,8 +117,8 @@ typedef enum {
     RAW2TRACE_STAT_SYSCALL_TRACES_CONVERSION_FAILED,
     // Count of decoding errors that were not fatal to the conversion of the
     // RAW2TRACE_STAT_SYSCALL_TRACES_CONVERTED traces. These result in some
-    // 1-instr PC discontinuities in the syscall trace (not necessarily one
-    // per non-fatal error).
+    // 1-instr PC discontinuities in the syscall trace (<= 1 per non-fatal
+    // error).
     RAW2TRACE_STAT_SYSCALL_TRACES_NON_FATAL_DECODING_ERROR_COUNT,
     RAW2TRACE_STAT_SYSCALL_TRACES_CONVERSION_EMPTY,
     RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED,
@@ -1048,10 +1048,10 @@ protected:
         uint64 latest_trace_timestamp = 0;
         uint64 final_trace_instr_count = 0;
         uint64 kernel_instr_count = 0;
-        uint64 syscall_traces_decoded = 0;
-        uint64 syscall_traces_decode_failed = 0;
+        uint64 syscall_traces_converted = 0;
+        uint64 syscall_traces_conversion_failed = 0;
         uint64 syscall_traces_non_fatal_decoding_error_count = 0;
-        uint64 syscall_traces_decode_empty = 0;
+        uint64 syscall_traces_conversion_empty = 0;
         uint64 syscall_traces_injected = 0;
 
         uint64 cur_chunk_instr_count = 0;
@@ -1663,8 +1663,11 @@ private:
     memref_counter_t syscall_trace_template_encodings_;
     offline_file_type_t syscall_template_file_type_ = OFFLINE_FILE_TYPE_DEFAULT;
 
-    // Whether convertion of PT raw traces is done on a best-effort basis. This includes
-    // ignoring various types of decoding errors and still producing a final trace.
+    // Whether conversion of PT raw traces is done on a best-effort basis. This includes
+    // ignoring various types of non-fatal decoding errors and still producing a syscall
+    // trace where possible (which may have some PC discontinuities), and also dropping
+    // the syscall traces completely from the final trace where the PT trace could
+    // not be converted.
     bool pt2ir_best_effort_ = false;
 };
 

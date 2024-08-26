@@ -110,7 +110,7 @@ pt2ir_t::init(DR_PARAM_IN pt2ir_config_t &pt2ir_config, DR_PARAM_IN int verbosit
         VPRINT(0, "pt2ir_t is already initialized.\n");
         return false;
     }
-    allow_recoverable_errors_ = allow_recoverable_errors;
+    allow_non_fatal_decode_errors_ = allow_recoverable_errors;
 
     /* Init the configuration for the libipt instruction decoder. */
     struct pt_config pt_config;
@@ -383,7 +383,7 @@ pt2ir_t::convert(DR_PARAM_IN const uint8_t *pt_data, DR_PARAM_IN size_t pt_data_
 
             /* Decode PT raw trace to pt_insn. */
             status = pt_insn_next(pt_instr_decoder_, &insn, sizeof(insn));
-            if (allow_recoverable_errors_ && status == -pte_bad_query &&
+            if (allow_non_fatal_decode_errors_ && status == -pte_bad_query &&
                 non_fatal_decode_error_count < MAX_ERROR_COUNT) {
                 ++non_fatal_decode_error_count;
                 /* The error may be recoverable. Try to continue past it. We may

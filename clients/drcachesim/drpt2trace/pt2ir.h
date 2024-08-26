@@ -413,7 +413,7 @@ private:
     int verbosity_;
 
     /* Whether recoverable errors are allowed during PT trace decode. */
-    bool allow_recoverable_errors_;
+    bool allow_non_fatal_decode_errors_;
 };
 
 } // namespace drmemtrace

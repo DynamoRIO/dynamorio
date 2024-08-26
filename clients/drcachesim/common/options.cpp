@@ -1066,9 +1066,9 @@ droption_t<bool> op_abort_on_invariant_error(
 
 droption_t<bool> op_pt2ir_best_effort(
     DROPTION_SCOPE_ALL, "pt2ir_best_effort", false,
-    "Whether errors encountered during decoding the PT tracec in pt2ir are ignored.",
-    "By default, errors in decoding the kernel syscall PT trace in pt2ir are "
-    "fatal. If this is true, those errors do not cause failures and their counts "
+    "Whether errors encountered during PT trace conversion in pt2ir are ignored.",
+    "By default, errors in decoding the kernel syscall PT trace in pt2ir are fatal to "
+    "raw2trace. If this is true, those errors do not cause failures and their counts "
     "are reported by raw2trace at the end. This may result in a trace where not all "
     "syscalls have a trace, and the ones that do may have some PC discontinuities. "
     "These discontinuities will still be reported by the invariant checker.");

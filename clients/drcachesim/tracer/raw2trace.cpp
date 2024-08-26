@@ -1574,13 +1574,13 @@ raw2trace_t::do_conversion()
                                                thread_data_[i]->latest_trace_timestamp);
             final_trace_instr_count_ += thread_data_[i]->final_trace_instr_count;
             kernel_instr_count_ += thread_data_[i]->kernel_instr_count;
-            syscall_traces_converted_ += thread_data_[i]->syscall_traces_decoded;
+            syscall_traces_converted_ += thread_data_[i]->syscall_traces_converted;
             syscall_traces_conversion_failed_ +=
-                thread_data_[i]->syscall_traces_decode_failed;
+                thread_data_[i]->syscall_traces_conversion_failed;
             syscall_traces_non_fatal_decoding_error_count_ +=
                 thread_data_[i]->syscall_traces_non_fatal_decoding_error_count;
             syscall_traces_conversion_empty_ +=
-                thread_data_[i]->syscall_traces_decode_empty;
+                thread_data_[i]->syscall_traces_conversion_empty;
             syscall_traces_injected_ += thread_data_[i]->syscall_traces_injected;
         }
     } else {
@@ -1608,11 +1608,11 @@ raw2trace_t::do_conversion()
                 std::max(latest_trace_timestamp_, tdata->latest_trace_timestamp);
             final_trace_instr_count_ += tdata->final_trace_instr_count;
             kernel_instr_count_ += tdata->kernel_instr_count;
-            syscall_traces_converted_ += tdata->syscall_traces_decoded;
-            syscall_traces_conversion_failed_ += tdata->syscall_traces_decode_failed;
+            syscall_traces_converted_ += tdata->syscall_traces_converted;
+            syscall_traces_conversion_failed_ += tdata->syscall_traces_conversion_failed;
             syscall_traces_non_fatal_decoding_error_count_ +=
                 tdata->syscall_traces_non_fatal_decoding_error_count;
-            syscall_traces_conversion_empty_ += tdata->syscall_traces_decode_empty;
+            syscall_traces_conversion_empty_ += tdata->syscall_traces_conversion_empty;
             syscall_traces_injected_ += tdata->syscall_traces_injected;
         }
     }
@@ -3838,16 +3838,16 @@ raw2trace_t::accumulate_to_statistic(raw2trace_thread_data_t *tdata,
         break;
     case RAW2TRACE_STAT_KERNEL_INSTR_COUNT: tdata->kernel_instr_count += value; break;
     case RAW2TRACE_STAT_SYSCALL_TRACES_CONVERTED:
-        tdata->syscall_traces_decoded += value;
+        tdata->syscall_traces_converted += value;
         break;
     case RAW2TRACE_STAT_SYSCALL_TRACES_CONVERSION_FAILED:
-        tdata->syscall_traces_decode_failed += value;
+        tdata->syscall_traces_conversion_failed += value;
         break;
     case RAW2TRACE_STAT_SYSCALL_TRACES_NON_FATAL_DECODING_ERROR_COUNT:
         tdata->syscall_traces_non_fatal_decoding_error_count += value;
         break;
     case RAW2TRACE_STAT_SYSCALL_TRACES_CONVERSION_EMPTY:
-        tdata->syscall_traces_decode_empty += value;
+        tdata->syscall_traces_conversion_empty += value;
         break;
     case RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED:
         tdata->syscall_traces_injected += value;
