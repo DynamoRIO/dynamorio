@@ -1496,6 +1496,40 @@ exit_record_syscall()
     hashtable_delete(&syscall2args);
 }
 
+#ifdef BUILD_PT_TRACER
+static bool
+stop_cur_syscall_pt_trace(void *drcontext, per_thread_t *data)
+{
+    int cur_recording_sysnum = data->syscall_pt_trace.get_cur_recording_sysnum();
+    ASSERT(cur_recording_sysnum != INVALID_SYSNUM,
+           "Routine expected to be called only when PT tracing is active.");
+    /* Write a marker to the userspace raw trace that denotes where raw2trace
+     * should decode and insert the PT trace for the system call being
+     * recorded currently. Some drmemtrace derivations may interleave the PT
+     * trace raw data with the drmemtrace user-space raw trace data (instead of
+     * outputting the PT trace data to separate files like we do here). In such
+     * cases, we want to ensure that the TRACE_MARKER_TYPE_SYSCALL_IDX does not
+     * get output before the actual PT trace data, so we output the marker when
+     * we stop and write the PT trace (instead of when we start the PT trace).
+     * Note that the order below does not matter because the actual buffer
+     * flush happens later.
+     */
+    trace_marker_type_t marker_type = TRACE_MARKER_TYPE_SYSCALL_IDX;
+    uintptr_t marker_val = data->syscall_pt_trace.get_traced_syscall_idx();
+    BUF_PTR(data->seg_base) +=
+        instru->append_marker(BUF_PTR(data->seg_base), marker_type, marker_val);
+    if (!data->syscall_pt_trace.stop_syscall_pt_trace()) {
+        NOTIFY(0,
+               "ERROR: Failed to stop PT tracing for syscall %d of thread "
+               "T%d.\n",
+               cur_recording_sysnum, dr_get_thread_id(drcontext));
+        ASSERT(false, "Failed to stop syscall PT trace");
+        return false;
+    }
+    return true;
+}
+#endif
+
 static bool
 event_pre_syscall(void *drcontext, int sysnum)
 {
@@ -1567,24 +1601,21 @@ event_pre_syscall(void *drcontext, int sysnum)
 #ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
         if (data->syscall_pt_trace.get_cur_recording_sysnum() != INVALID_SYSNUM) {
-            ASSERT(false, "last tracing isn't stopped");
-            if (!data->syscall_pt_trace.stop_syscall_pt_trace()) {
-                ASSERT(false, "failed to stop syscall pt trace");
+            NOTIFY(0,
+                   "ERROR: Tracing for last syscall %d wasn't stopped when we reached "
+                   "the next one in T%d.\n",
+                   data->syscall_pt_trace.get_cur_recording_sysnum(),
+                   dr_get_thread_id(drcontext));
+            ASSERT(false,
+                   "Last syscall tracing wasn't stopped when we reached the next one");
+            // In the release build, in case we somehow did not stop the PT tracing, we
+            // try to stop it and continue.
+            if (!stop_cur_syscall_pt_trace(drcontext, data))
                 return false;
-            }
         }
 
-        if (!syscall_pt_trace_t::is_syscall_pt_trace_enabled(sysnum)) {
-            return true;
-        }
-
-        /* Write a marker to userspace raw trace. */
-        trace_marker_type_t marker_type = TRACE_MARKER_TYPE_SYSCALL_IDX;
-        uintptr_t marker_val = data->syscall_pt_trace.get_traced_syscall_idx();
-        BUF_PTR(data->seg_base) +=
-            instru->append_marker(BUF_PTR(data->seg_base), marker_type, marker_val);
-
-        if (!data->syscall_pt_trace.start_syscall_pt_trace(sysnum)) {
+        if (syscall_pt_trace_t::is_syscall_pt_trace_enabled(sysnum) &&
+            !data->syscall_pt_trace.start_syscall_pt_trace(sysnum)) {
             ASSERT(false, "failed to start syscall pt trace");
             return false;
         }
@@ -1638,24 +1669,32 @@ event_post_syscall(void *drcontext, int sysnum)
     }
 
 #ifdef BUILD_PT_TRACER
-    if (!op_offline.get_value() || !op_enable_kernel_tracing.get_value())
-        return;
-    if (!is_in_tracing_mode(tracing_mode.load(std::memory_order_acquire)))
-        return;
-    if (!syscall_pt_trace_t::is_syscall_pt_trace_enabled(sysnum))
-        return;
-
-    if (data->syscall_pt_trace.get_cur_recording_sysnum() == INVALID_SYSNUM) {
-        ASSERT(false, "last syscall is not traced");
-        return;
+    if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
+        // We intentionally do not check is_in_tracing_mode here because
+        // we may be in a non-tracing mode now but may have enabled PT
+        // tracing in the pre-syscall event when we were in tracing mode.
+        // We still want to stop the PT tracing the syscall in this case.
+        // We also intentionally do not check is_syscall_pt_trace_enabled
+        // for sysnum so that we may catch a case where we were not able
+        // to see the post-syscall event for the syscall for which we
+        // started PT tracing (maybe there was a signal that interrupted
+        // that syscall); we still have a debug-build assert below for
+        // this case.
+        int cur_recording_sysnum = data->syscall_pt_trace.get_cur_recording_sysnum();
+        if (cur_recording_sysnum != INVALID_SYSNUM) {
+            ASSERT(cur_recording_sysnum == sysnum,
+                   "Last tracing isn't for the expected sysnum");
+            ASSERT(syscall_pt_trace_t::is_syscall_pt_trace_enabled(cur_recording_sysnum),
+                   "Did not expect syscall tracing to be enabled for this syscall");
+            // Ignore return value and try to continue in release build.
+            stop_cur_syscall_pt_trace(drcontext, data);
+        } else {
+            // No syscall trace is being recorded. This may be because syscall tracing
+            // is not enabled for sysnum, or that we were not in tracing mode at the
+            // pre-syscall event for sysnum.
+        }
     }
 
-    ASSERT(data->syscall_pt_trace.get_cur_recording_sysnum() == sysnum,
-           "last tracing isn't for the expected sysnum");
-    if (!data->syscall_pt_trace.stop_syscall_pt_trace()) {
-        ASSERT(false, "failed to stop syscall pt trace");
-        return;
-    }
 #endif
 }
 
@@ -1821,13 +1860,11 @@ event_thread_exit(void *drcontext)
             int cur_recording_sysnum = data->syscall_pt_trace.get_cur_recording_sysnum();
             if (cur_recording_sysnum != INVALID_SYSNUM) {
                 NOTIFY(0,
-                       "ERROR: The last recorded syscall %d of thread T%d wasn't be "
-                       "stopped.\n",
+                       "ERROR: PT tracing for the last syscall %d of thread T%d was  "
+                       "found active at detach.\n",
                        cur_recording_sysnum, dr_get_thread_id(drcontext));
-                ASSERT(cur_recording_sysnum, "syscall recording is not stopped");
-                if (!data->syscall_pt_trace.stop_syscall_pt_trace()) {
-                    ASSERT(false, "failed to stop syscall pt trace");
-                }
+                // Ignore return value and try to continue in release build.
+                stop_cur_syscall_pt_trace(drcontext, data);
             }
         }
 #endif

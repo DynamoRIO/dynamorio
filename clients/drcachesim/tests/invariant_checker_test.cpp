@@ -3074,6 +3074,9 @@ check_kernel_syscall_trace(void)
     static constexpr addr_t BASE_ADDR = 0x123450;
     static constexpr uintptr_t FILE_TYPE = OFFLINE_FILE_TYPE_ENCODINGS |
         OFFLINE_FILE_TYPE_SYSCALL_NUMBERS | OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY;
+    static constexpr uintptr_t FILE_TYPE_FULL_SYSCALL_TRACE =
+        OFFLINE_FILE_TYPE_ENCODINGS | OFFLINE_FILE_TYPE_SYSCALL_NUMBERS |
+        OFFLINE_FILE_TYPE_KERNEL_SYSCALLS;
     bool res = true;
     {
         std::vector<memref_with_IR_t> memref_setup = {
@@ -3161,7 +3164,12 @@ check_kernel_syscall_trace(void)
     }
     {
         std::vector<memref_with_IR_t> memref_setup = {
-            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
+            // OFFLINE_FILE_TYPE_KERNEL_SYSCALLS enables some extra invariant checks over
+            // OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY, which is why we use
+            // FILE_TYPE_FULL_SYSCALL_TRACE here. This is fine because this trace does
+            // not have any load or store instructions.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE_FULL_SYSCALL_TRACE),
+              nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
             { gen_instr(TID_A), sys },
@@ -3223,7 +3231,12 @@ check_kernel_syscall_trace(void)
     }
     {
         std::vector<memref_with_IR_t> memref_setup = {
-            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
+            // OFFLINE_FILE_TYPE_KERNEL_SYSCALLS enables some extra invariant checks over
+            // OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY, which is why we use
+            // FILE_TYPE_FULL_SYSCALL_TRACE here. This is fine because this trace does
+            // not have any load or store instructions.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE_FULL_SYSCALL_TRACE),
+              nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
             { gen_instr(TID_A), sys },
@@ -3241,6 +3254,26 @@ check_kernel_syscall_trace(void)
                            /*ref_ordinal=*/7, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/1 },
                          "Failed to catch missing prior sysnum marker"))
+            res = false;
+    }
+    {
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
+            { gen_instr(TID_A), sys },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_CPU_ID, 11), nullptr },
+            // Missing prior sysnum marker does not raise an error for
+            // OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY, unlike
+            // OFFLINE_FILE_TYPE_KERNEL_SYSCALLS.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
+            { gen_instr(TID_A), move },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+            { gen_exit(TID_A), nullptr }
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, false))
             res = false;
     }
     {
