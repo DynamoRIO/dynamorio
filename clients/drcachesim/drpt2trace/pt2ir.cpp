@@ -260,7 +260,7 @@ pt2ir_t::init(DR_PARAM_IN pt2ir_config_t &pt2ir_config, DR_PARAM_IN int verbosit
 pt2ir_convert_status_t
 pt2ir_t::convert(DR_PARAM_IN const uint8_t *pt_data, DR_PARAM_IN size_t pt_data_size,
                  DR_PARAM_INOUT drir_t *drir,
-                 DR_PARAM_OUT uint64_t *recoverable_error_count_out)
+                 DR_PARAM_OUT uint64_t *non_fatal_decode_error_count_out)
 {
     if (!pt2ir_initialized_) {
         return PT2IR_CONV_ERROR_NOT_INITIALIZED;
@@ -294,12 +294,13 @@ pt2ir_t::convert(DR_PARAM_IN const uint8_t *pt_data, DR_PARAM_IN size_t pt_data_
      * it decodes the trace data.
      */
     uint64_t decoded_instr_count = 0;
-    uint64_t recoverable_error_count = 0;
+    uint64_t non_fatal_decode_error_count = 0;
     /* XXX: This is currently set based on empirical observations. We use this heuristic
-     * to detect recoverable errors: any non-consecutive error of type pte_bad_query, and
-     * errors up to this limit are attempted to recover from by retrying.
+     * to detect errors where we can still produce a trace for this syscall albeit with
+     * some PC discontinuities. Specifically: we allow MAX_ERROR_COUNT non-consecutive
+     * errors of type pte_bad_query.
      */
-    constexpr int kErrorLimit = 100;
+    constexpr int MAX_ERROR_COUNT = 100;
     for (;;) {
         struct pt_insn insn;
         memset(&insn, 0, sizeof(insn));
@@ -383,8 +384,8 @@ pt2ir_t::convert(DR_PARAM_IN const uint8_t *pt_data, DR_PARAM_IN size_t pt_data_
             /* Decode PT raw trace to pt_insn. */
             status = pt_insn_next(pt_instr_decoder_, &insn, sizeof(insn));
             if (allow_recoverable_errors_ && status == -pte_bad_query &&
-                recoverable_error_count < kErrorLimit) {
-                ++recoverable_error_count;
+                non_fatal_decode_error_count < MAX_ERROR_COUNT) {
+                ++non_fatal_decode_error_count;
                 /* The error may be recoverable. Try to continue past it. We may
                  * lose an instruction entry which may show up as a single instr
                  * PC discontinuity in the kernel syscall trace.
@@ -422,12 +423,14 @@ pt2ir_t::convert(DR_PARAM_IN const uint8_t *pt_data, DR_PARAM_IN size_t pt_data_
             drir->append(instr, instr_ip, insn.size, insn.raw);
         }
     }
+    // Note that not all non-fatal decode errors correspond to a PC discontinuity
+    // in the resulting trace.
     VPRINT(1,
            "libipt decoded " UINT64_FORMAT_STRING
-           " instructions with " UINT64_FORMAT_STRING " recoverable errors.\n",
-           decoded_instr_count, recoverable_error_count);
-    if (recoverable_error_count_out != nullptr)
-        *recoverable_error_count_out = recoverable_error_count;
+           " instructions with " UINT64_FORMAT_STRING " non-fatal decode errors.\n",
+           decoded_instr_count, non_fatal_decode_error_count);
+    if (non_fatal_decode_error_count_out != nullptr)
+        *non_fatal_decode_error_count_out = non_fatal_decode_error_count;
     return PT2IR_CONV_SUCCESS;
 }
 

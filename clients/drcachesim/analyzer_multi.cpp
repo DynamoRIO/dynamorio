@@ -451,7 +451,7 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
                 op_alt_module_dir.get_value(), op_chunk_instr_count.get_value(),
                 dir.in_kfiles_map_, dir.kcoredir_, dir.kallsymsdir_,
                 std::move(dir.syscall_template_file_reader_),
-                op_pt2ir_allow_recoverable_errors.get_value());
+                op_pt2ir_best_effort.get_value());
             std::string error = raw2trace.do_conversion();
             if (!error.empty()) {
                 this->success_ = false;

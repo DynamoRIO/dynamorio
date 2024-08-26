@@ -112,8 +112,14 @@ typedef enum {
     RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT,
     RAW2TRACE_STAT_KERNEL_INSTR_COUNT,
     RAW2TRACE_STAT_SYSCALL_TRACES_DECODED,
-    RAW2TRACE_STAT_SYSCALL_TRACES_DECODE_FAILED,
-    RAW2TRACE_STAT_SYSCALL_TRACES_DECODE_RECOVERABLE_ERROR_COUNT,
+    // Count of PT syscall traces that could not be converted and were skipped
+    // in the final trace.
+    RAW2TRACE_STAT_SYSCALL_TRACES_DECODING_FAILED,
+    // Count of decoding errors that were not fatal to the conversion of the
+    // RAW2TRACE_STAT_SYSCALL_TRACES_DECODED traces. These result in some
+    // 1-instr PC discontinuities in the syscall trace (not necessarily one
+    // per non-fatal error).
+    RAW2TRACE_STAT_SYSCALL_TRACES_NON_FATAL_DECODING_ERROR_COUNT,
     RAW2TRACE_STAT_SYSCALL_TRACES_DECODE_EMPTY,
     RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED,
     // We add a MAX member so that we can iterate over all stats in unit tests.
@@ -809,7 +815,7 @@ public:
         const std::string &kcore_path = "", const std::string &kallsyms_path = "",
         std::unique_ptr<dynamorio::drmemtrace::record_reader_t> syscall_template_file =
             nullptr,
-        bool pt2ir_allow_recoverable_errors = false);
+        bool pt2ir_best_effort = false);
     // If a nullptr dcontext_in was passed to the constructor, calls dr_standalone_exit().
     virtual ~raw2trace_t();
 
@@ -1044,7 +1050,7 @@ protected:
         uint64 kernel_instr_count = 0;
         uint64 syscall_traces_decoded = 0;
         uint64 syscall_traces_decode_failed = 0;
-        uint64 syscall_traces_decode_recoverable_error_count = 0;
+        uint64 syscall_traces_non_fatal_decoding_error_count = 0;
         uint64 syscall_traces_decode_empty = 0;
         uint64 syscall_traces_injected = 0;
 
@@ -1300,7 +1306,7 @@ protected:
     uint64 kernel_instr_count_ = 0;
     uint64 syscall_traces_decoded_ = 0;
     uint64 syscall_traces_decode_failed_ = 0;
-    uint64 syscall_traces_decode_recoverable_error_count_ = 0;
+    uint64 syscall_traces_non_fatal_decoding_error_count_ = 0;
     uint64 syscall_traces_decode_empty_ = 0;
     uint64 syscall_traces_injected_ = 0;
 
@@ -1657,9 +1663,9 @@ private:
     memref_counter_t syscall_trace_template_encodings_;
     offline_file_type_t syscall_template_file_type_ = OFFLINE_FILE_TYPE_DEFAULT;
 
-    // Whether recoverable errors are allowed during decoding kernel system call traces
-    // in pt2ir.
-    bool pt2ir_allow_recoverable_errors_ = false;
+    // Whether convertion of PT raw traces is done on a best-effort basis. This includes
+    // ignoring various types of decoding errors and still producing a final trace.
+    bool pt2ir_best_effort_ = false;
 };
 
 } // namespace drmemtrace
