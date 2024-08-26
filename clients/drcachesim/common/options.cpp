@@ -545,7 +545,25 @@ droption_t<int>
     op_only_thread(DROPTION_SCOPE_FRONTEND, "only_thread", 0,
                    "Only analyze this thread (0 means all)",
                    "Limits analyis to the single "
-                   "thread with the given identifier.  0 enables all threads.");
+                   "thread with the given identifier.  0 enables all threads.  "
+                   "Applies only to -indir, not to -infile.  "
+                   "Cannot be combined with -only_threads or -only_shards.");
+
+droption_t<std::string>
+    op_only_threads(DROPTION_SCOPE_FRONTEND, "only_threads", "",
+                    "Only analyze these comma-separated threads",
+                    "Limits analyis to the list of comma-separated thread ids.  "
+                    "Applies only to -indir, not to -infile.  "
+                    "Cannot be combined with -only_thread or -only_shards.");
+droption_t<std::string>
+    op_only_shards(DROPTION_SCOPE_FRONTEND, "only_shards", "",
+                   "Only analyze these comma-separated shard ordinals",
+                   "Limits analyis to the list of comma-separated shard ordinals. "
+                   "A shard is typically an input thread but might be a core for "
+                   "core-sharded-on-disk traces.  The ordinal is 0-based and indexes "
+                   "into the sorted order of input filenames.  "
+                   "Applies only to -indir, not to -infile.  "
+                   "Cannot be combined with -only_thread or -only_threads.");
 
 droption_t<bytesize_t> op_skip_instrs(
     DROPTION_SCOPE_FRONTEND, "skip_instrs", 0, "Number of instructions to skip",
@@ -831,6 +849,17 @@ droption_t<bool> op_enable_kernel_tracing(
     "syscall's PT and metadata to files in -outdir/kernel.raw/ for later offline "
     "analysis. And this feature is available only on Intel CPUs that support Intel@ "
     "Processor Trace.");
+droption_t<bool> op_skip_kcore_dump(
+    DROPTION_SCOPE_ALL, "skip_kcore_dump", false,
+    "Skip creation of the kcore dump during kernel tracing.",
+    "By default, when -enable_kernel_tracing is set, offline tracing will dump kcore "
+    "and kallsyms to the raw trace directory, which requires the user to run the target "
+    "application with superuser permissions. However, if this option is enabled, we "
+    "skip the dump, and since collecting kernel trace data using Intel-PT does not "
+    "necessarily need superuser permissions, the target application can be run "
+    "as normal. This may be useful if it is not feasible to run the application "
+    "with superuser permissions and the user wants to use a different kcore "
+    "dump, from a prior trace or created separately.");
 #endif
 
 // Core-oriented analysis.

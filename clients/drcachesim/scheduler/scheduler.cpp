@@ -665,6 +665,33 @@ scheduler_tmpl_t<RecordType, ReaderType>::stream_t::set_active(bool active)
  */
 
 template <typename RecordType, typename ReaderType>
+bool
+scheduler_tmpl_t<RecordType, ReaderType>::check_valid_input_limits(
+    const input_workload_t &workload, input_reader_info_t &reader_info)
+{
+    if (!workload.only_shards.empty()) {
+        for (input_ordinal_t ord : workload.only_shards) {
+            if (ord < 0 || ord >= static_cast<input_ordinal_t>(reader_info.input_count)) {
+                error_string_ = "only_shards entry " + std::to_string(ord) +
+                    " out of bounds for a shard ordinal";
+                return false;
+            }
+        }
+    }
+    if (!workload.only_threads.empty()) {
+        for (memref_tid_t tid : workload.only_threads) {
+            if (reader_info.unfiltered_tids.find(tid) ==
+                reader_info.unfiltered_tids.end()) {
+                error_string_ = "only_threads entry " + std::to_string(tid) +
+                    " not found in workload inputs";
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::init(
     std::vector<input_workload_t> &workload_inputs, int output_count,
@@ -679,15 +706,25 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
         auto &workload = workload_inputs[workload_idx];
         if (workload.struct_size != sizeof(input_workload_t))
             return STATUS_ERROR_INVALID_PARAMETER;
-        std::unordered_map<memref_tid_t, int> workload_tids;
+        if (!workload.only_threads.empty() && !workload.only_shards.empty())
+            return STATUS_ERROR_INVALID_PARAMETER;
+        input_reader_info_t reader_info;
+        reader_info.only_threads = workload.only_threads;
+        reader_info.only_shards = workload.only_shards;
         if (workload.path.empty()) {
             if (workload.readers.empty())
                 return STATUS_ERROR_INVALID_PARAMETER;
-            for (auto &reader : workload.readers) {
+            reader_info.input_count = workload.readers.size();
+            for (int i = 0; i < static_cast<int>(workload.readers.size()); ++i) {
+                auto &reader = workload.readers[i];
                 if (!reader.reader || !reader.end)
                     return STATUS_ERROR_INVALID_PARAMETER;
+                reader_info.unfiltered_tids.insert(reader.tid);
                 if (!workload.only_threads.empty() &&
                     workload.only_threads.find(reader.tid) == workload.only_threads.end())
+                    continue;
+                if (!workload.only_shards.empty() &&
+                    workload.only_shards.find(i) == workload.only_shards.end())
                     continue;
                 int index = static_cast<input_ordinal_t>(inputs_.size());
                 inputs_.emplace_back();
@@ -699,22 +736,24 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
                 input.reader = std::move(reader.reader);
                 input.reader_end = std::move(reader.end);
                 input.needs_init = true;
-                workload_tids[input.tid] = input.index;
+                reader_info.tid2input[input.tid] = input.index;
                 tid2input_[workload_tid_t(workload_idx, input.tid)] = index;
             }
         } else {
             if (!workload.readers.empty())
                 return STATUS_ERROR_INVALID_PARAMETER;
             sched_type_t::scheduler_status_t res =
-                open_readers(workload.path, workload.only_threads, workload_tids);
+                open_readers(workload.path, reader_info);
             if (res != STATUS_SUCCESS)
                 return res;
-            for (const auto &it : workload_tids) {
+            for (const auto &it : reader_info.tid2input) {
                 inputs_[it.second].workload = workload_idx;
                 workload2inputs[workload_idx].push_back(it.second);
                 tid2input_[workload_tid_t(workload_idx, it.first)] = it.second;
             }
         }
+        if (!check_valid_input_limits(workload, reader_info))
+            return STATUS_ERROR_INVALID_PARAMETER;
         if (!workload.times_of_interest.empty()) {
             for (const auto &modifiers : workload.thread_modifiers) {
                 if (!modifiers.regions_of_interest.empty()) {
@@ -723,7 +762,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
                 }
             }
             sched_type_t::scheduler_status_t status =
-                create_regions_from_times(workload_tids, workload);
+                create_regions_from_times(reader_info.tid2input, workload);
             if (status != sched_type_t::STATUS_SUCCESS)
                 return STATUS_ERROR_INVALID_PARAMETER;
         }
@@ -734,7 +773,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
             std::vector<memref_tid_t> workload_tid_vector;
             if (modifiers.tids.empty()) {
                 // Apply to all tids that have not already been modified.
-                for (const auto entry : workload_tids) {
+                for (const auto entry : reader_info.tid2input) {
                     if (!inputs_[entry.second].has_modifier)
                         workload_tid_vector.push_back(entry.first);
                 }
@@ -744,9 +783,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
             // We assume the overhead of copying the modifiers for every thread is
             // not high and the simplified code is worthwhile.
             for (memref_tid_t tid : *which_tids) {
-                if (workload_tids.find(tid) == workload_tids.end())
+                if (reader_info.tid2input.find(tid) == reader_info.tid2input.end())
                     return STATUS_ERROR_INVALID_PARAMETER;
-                int index = workload_tids[tid];
+                int index = reader_info.tid2input[tid];
                 input_info_t &input = inputs_[index];
                 input.has_modifier = true;
                 input.binding = modifiers.output_binding;
@@ -1788,9 +1827,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_initial_input_content(
 
 template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
-scheduler_tmpl_t<RecordType, ReaderType>::open_reader(
-    const std::string &path, const std::set<memref_tid_t> &only_threads,
-    std::unordered_map<memref_tid_t, int> &workload_tids)
+scheduler_tmpl_t<RecordType, ReaderType>::open_reader(const std::string &path,
+                                                      input_ordinal_t input_ordinal,
+                                                      input_reader_info_t &reader_info)
 {
     if (path.empty() || directory_iterator_t::is_directory(path))
         return STATUS_ERROR_INVALID_PARAMETER;
@@ -1803,10 +1842,13 @@ scheduler_tmpl_t<RecordType, ReaderType>::open_reader(
     inputs_.emplace_back();
     input_info_t &input = inputs_.back();
     input.index = index;
-    // We need the tid up front.  Rather than assume it's still part of the filename, we
-    // read the first record (we generalize to read until we find the first but we
+    // We need the tid up front.  Rather than assume it's still part of the filename,
+    // we read the first record (we generalize to read until we find the first but we
     // expect it to be the first after PR #5739 changed the order file_reader_t passes
     // them to reader_t) to find it.
+    // XXX: For core-sharded-on-disk traces, this tid is just the first one for
+    // this core; it would be better to read the filetype and not match any tid
+    // for such files?  Should we call get_initial_input_content() to do that?
     std::unique_ptr<ReaderType> reader_end = get_default_reader();
     memref_tid_t tid = INVALID_THREAD_ID;
     while (*reader != *reader_end) {
@@ -1820,7 +1862,18 @@ scheduler_tmpl_t<RecordType, ReaderType>::open_reader(
         error_string_ = "Failed to read " + path;
         return STATUS_ERROR_FILE_READ_FAILED;
     }
-    if (!only_threads.empty() && only_threads.find(tid) == only_threads.end()) {
+    // For core-sharded inputs that start idle the tid might be IDLE_THREAD_ID.
+    // That means the size of unfiltered_tids will not be the total input
+    // size, which is why we have a separate input_count.
+    reader_info.unfiltered_tids.insert(tid);
+    ++reader_info.input_count;
+    if (!reader_info.only_threads.empty() &&
+        reader_info.only_threads.find(tid) == reader_info.only_threads.end()) {
+        inputs_.pop_back();
+        return sched_type_t::STATUS_SUCCESS;
+    }
+    if (!reader_info.only_shards.empty() &&
+        reader_info.only_shards.find(input_ordinal) == reader_info.only_shards.end()) {
         inputs_.pop_back();
         return sched_type_t::STATUS_SUCCESS;
     }
@@ -1828,24 +1881,25 @@ scheduler_tmpl_t<RecordType, ReaderType>::open_reader(
     input.tid = tid;
     input.reader = std::move(reader);
     input.reader_end = std::move(reader_end);
-    workload_tids[tid] = index;
+    reader_info.tid2input[tid] = index;
     return sched_type_t::STATUS_SUCCESS;
 }
 
 template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
-scheduler_tmpl_t<RecordType, ReaderType>::open_readers(
-    const std::string &path, const std::set<memref_tid_t> &only_threads,
-    std::unordered_map<memref_tid_t, int> &workload_tids)
+scheduler_tmpl_t<RecordType, ReaderType>::open_readers(const std::string &path,
+                                                       input_reader_info_t &reader_info)
 {
-    if (!directory_iterator_t::is_directory(path))
-        return open_reader(path, only_threads, workload_tids);
+    if (!directory_iterator_t::is_directory(path)) {
+        return open_reader(path, 0, reader_info);
+    }
     directory_iterator_t end;
     directory_iterator_t iter(path);
     if (!iter) {
         error_string_ = "Failed to list directory " + path + ": " + iter.error_string();
         return sched_type_t::STATUS_ERROR_FILE_OPEN_FAILED;
     }
+    std::vector<std::string> files;
     for (; iter != end; ++iter) {
         const std::string fname = *iter;
         if (fname == "." || fname == ".." ||
@@ -1858,8 +1912,14 @@ scheduler_tmpl_t<RecordType, ReaderType>::open_readers(
             fname == DRMEMTRACE_ENCODING_FILENAME)
             continue;
         const std::string file = path + DIRSEP + fname;
-        sched_type_t::scheduler_status_t res =
-            open_reader(file, only_threads, workload_tids);
+        files.push_back(file);
+    }
+    // Sort so we can have reliable shard ordinals for only_shards.
+    // We assume leading 0's are used for important numbers embedded in the path,
+    // so that a regular sort keeps numeric order.
+    std::sort(files.begin(), files.end());
+    for (int i = 0; i < static_cast<int>(files.size()); ++i) {
+        sched_type_t::scheduler_status_t res = open_reader(files[i], i, reader_info);
         if (res != sched_type_t::STATUS_SUCCESS)
             return res;
     }

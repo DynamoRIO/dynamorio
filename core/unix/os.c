@@ -60,6 +60,9 @@
 #ifndef MAP_ANONYMOUS
 #    define MAP_ANONYMOUS MAP_ANON /* MAP_ANON on Mac */
 #endif
+#ifndef MAP_FIXED_NOREPLACE
+#    define MAP_FIXED_NOREPLACE 0x100000
+#endif
 /* for open */
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -3789,7 +3792,8 @@ os_thread_sleep(uint64 milliseconds)
          * routine sleep forever
          */
         if (count++ > 3 && !IS_CLIENT_THREAD(get_thread_private_dcontext())) {
-            ASSERT_NOT_REACHED();
+            ASSERT_CURIOSITY_ONCE(
+                false && "os_thread_sleep interrupted by signal more than 3 times.");
             break; /* paranoid */
         }
         req = remain;

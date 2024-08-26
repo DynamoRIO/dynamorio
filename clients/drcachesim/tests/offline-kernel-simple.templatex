@@ -3,14 +3,12 @@ Basic counts tool results:
 Total counts:
  .* total \(fetched\) instructions
  .* total unique \(fetched\) instructions
- .* total non-fetched instructions
  *[1-9][0-9]* total userspace instructions
  *[1-9][0-9]* total kernel instructions
 .*
 Thread .* counts:
  .* \(fetched\) instructions
  .* unique \(fetched\) instructions
- .* non-fetched instructions
  *[1-9][0-9]* userspace instructions
  *[1-9][0-9]* kernel instructions
 .*
