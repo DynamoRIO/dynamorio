@@ -44,7 +44,10 @@ namespace drmemtrace {
 extern std::atomic<uint64> retrace_start_timestamp;
 
 void
-increment_instr_intervals_index();
+delete_instr_window_lists();
+
+void
+increment_window_index();
 
 uint64
 get_trace_after_instrs_value();

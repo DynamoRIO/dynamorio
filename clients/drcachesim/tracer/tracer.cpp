@@ -1963,6 +1963,7 @@ event_exit(void)
     num_filter_refs_racy = 0;
 
     exit_record_syscall();
+    delete_instr_window_lists();
     exit_io();
 
     dr_mutex_destroy(mutex);

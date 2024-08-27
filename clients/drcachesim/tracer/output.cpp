@@ -1221,7 +1221,7 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
             }
             if (hit_window_end) {
                 // Go to the next interval, if -trace_instr_intervals_file is set.
-                increment_instr_intervals_index();
+                increment_window_index();
 
                 if (op_offline.get_value() && op_split_windows.get_value()) {
                     size_t add =
