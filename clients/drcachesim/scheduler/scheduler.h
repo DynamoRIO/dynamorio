@@ -1125,6 +1125,16 @@ public:
             return scheduler_->is_record_kernel(ordinal_);
         }
 
+        /**
+         * Returns the value of the specified statistic for this output stream.
+         * The values for all output stream must be summed to obtain global counts.
+         */
+        int64_t
+        get_schedule_statistic(schedule_statistic_t stat) const override
+        {
+            return scheduler_->get_statistic(ordinal_, stat);
+        }
+
     protected:
         scheduler_tmpl_t<RecordType, ReaderType> *scheduler_ = nullptr;
         int ordinal_ = -1;
@@ -1153,7 +1163,7 @@ public:
         : ready_priority_(static_cast<int>(get_time_micros()))
     {
     }
-    virtual ~scheduler_tmpl_t() = default;
+    virtual ~scheduler_tmpl_t();
 
     /**
      * Initializes the scheduler for the given inputs, count of output streams, and
@@ -1440,6 +1450,9 @@ protected:
         bool at_eof = false;
         // Used for replaying wait periods.
         uint64_t wait_start_time = 0;
+        // Exported statistics.
+        std::vector<int64_t> stats =
+            std::vector<int64_t>(memtrace_stream_t::SCHED_STAT_TYPE_COUNT);
     };
 
     // Used for reading as-traced schedules.
@@ -1791,6 +1804,11 @@ protected:
     // to kernel execution.
     bool
     is_record_kernel(output_ordinal_t output);
+
+    int64_t
+    get_statistic(output_ordinal_t output,
+                  memtrace_stream_t::schedule_statistic_t stat) const;
+
     ///////////////////////////////////////////////////////////////////////////
     // Support for ready queues for who to schedule next:
 

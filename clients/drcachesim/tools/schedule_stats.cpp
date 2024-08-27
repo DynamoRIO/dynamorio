@@ -411,6 +411,25 @@ schedule_stats_t::aggregate_results(counters_t &total)
 {
     for (const auto &shard : shard_map_) {
         total += shard.second->counters;
+        // Sanity check against the scheduler's own stats, unless the trace
+        // is pre-scheduled.
+        if (TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, shard.second->filetype))
+            continue;
+        assert(shard.second->counters.total_switches ==
+               shard.second->stream->get_schedule_statistic(
+                   memtrace_stream_t::SCHED_STAT_SWITCHES));
+        // We can only find a lower bound on preempts as the preempt stat from
+        // the scheduler includes no-switch cases.
+        assert(shard.second->counters.total_switches -
+                   shard.second->counters.voluntary_switches <=
+               shard.second->stream->get_schedule_statistic(
+                   memtrace_stream_t::SCHED_STAT_TIME_PREEMPTS));
+        assert(shard.second->counters.direct_switch_requests ==
+               shard.second->stream->get_schedule_statistic(
+                   memtrace_stream_t::SCHED_STAT_DIRECT_SWITCH_ATTEMPTS));
+        assert(shard.second->counters.direct_switches ==
+               shard.second->stream->get_schedule_statistic(
+                   memtrace_stream_t::SCHED_STAT_DIRECT_SWITCH_SUCCESSES));
     }
 }
 

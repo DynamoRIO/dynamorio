@@ -64,6 +64,26 @@ namespace drmemtrace { /**< DrMemtrace tracing + simulation infrastructure names
  */
 class memtrace_stream_t {
 public:
+    /**
+     * Statistics on the resulting schedule from interleaving and switching
+     * between the inputs.
+     */
+    enum schedule_statistic_t {
+        /** Count of switches between inputs. */
+        SCHED_STAT_SWITCHES,
+        /**
+         * Count of preempts due to time quantum expiration.  Includes instances
+         * of the quantum expiring but no switch happening.
+         */
+        SCHED_STAT_TIME_PREEMPTS,
+        /** Count of #TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH markers. */
+        SCHED_STAT_DIRECT_SWITCH_ATTEMPTS,
+        /** Count of #TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH attempts that succeeded. */
+        SCHED_STAT_DIRECT_SWITCH_SUCCESSES,
+        /** Count of statistic types. */
+        SCHED_STAT_TYPE_COUNT,
+    };
+
     /** Destructor. */
     virtual ~memtrace_stream_t()
     {
@@ -239,6 +259,17 @@ public:
     is_record_kernel() const
     {
         return false;
+    }
+
+    /**
+     * Returns the value of the specified statistic for this output stream.
+     * The values for all output stream must be summed to obtain global counts.
+     * Returns -1 if statistics are not supported for this stream.
+     */
+    virtual int64_t
+    get_schedule_statistic(schedule_statistic_t stat) const
+    {
+        return -1;
     }
 };
 
