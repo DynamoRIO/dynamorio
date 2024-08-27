@@ -1228,6 +1228,9 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
                 // Update the global window, but not the local so we can place the rest
                 // of this buffer into the same local window.
                 reached_traced_instrs_threshold(drcontext);
+
+                // Go to the next interval, if -trace_instr_intervals_file is set.
+                increment_instr_intervals_index();
             }
         }
         size_t skip = 0;
