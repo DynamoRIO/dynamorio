@@ -1644,10 +1644,10 @@ raw2trace_t::do_conversion()
            syscall_traces_converted_);
     VPRINT(1, "System call PT traces conversion failed " UINT64_FORMAT_STRING "\n",
            syscall_traces_conversion_failed_);
-    VPRINT(1, "System call PT traces conversion decode errors " UINT64_FORMAT_STRING "\n",
+    VPRINT(1, "System call PT trace conversion decode errors " UINT64_FORMAT_STRING "\n",
            syscall_traces_non_fatal_decoding_error_count_);
     VPRINT(1,
-           "System call PT traces conversion found empty trace " UINT64_FORMAT_STRING
+           "System call PT trace conversion found empty trace " UINT64_FORMAT_STRING
            "\n",
            syscall_traces_conversion_empty_);
     VPRINT(1, "System call traces injected from template " UINT64_FORMAT_STRING "\n",
