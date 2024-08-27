@@ -38,6 +38,7 @@
 #include "instr_counter.h"
 
 #include <limits.h>
+#include <limits>
 #include <stddef.h>
 
 #include <algorithm>
@@ -487,7 +488,7 @@ parse_instr_intervals_file(std::string path_to_file)
         instr_interval_t &last_interval = instr_intervals_merged.back();
         uint64 last_end = last_interval.start + last_interval.duration;
         if (interval.start <= last_end) {
-            uint64 max_end = std::max(last_end, end);
+            uint64 max_end = last_end > end ? last_end : end;
             last_interval.duration = max_end - last_interval.start;
         } else {
             instr_intervals_merged.emplace_back(interval);
