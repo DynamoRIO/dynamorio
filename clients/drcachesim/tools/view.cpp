@@ -97,6 +97,30 @@ view_t::initialize_stream(memtrace_stream_t *serial_stream)
     serial_stream_ = serial_stream;
     print_header();
     dcontext_.dcontext = dr_standalone_init();
+
+    dr_disasm_flags_t flags = IF_X86_ELSE(
+        DR_DISASM_ATT,
+        IF_AARCH64_ELSE(DR_DISASM_DR, IF_RISCV64_ELSE(DR_DISASM_RISCV, DR_DISASM_ARM)));
+    if (knob_syntax_ == "intel") {
+        flags = DR_DISASM_INTEL;
+    } else if (knob_syntax_ == "dr") {
+        flags = DR_DISASM_DR;
+    } else if (knob_syntax_ == "arm") {
+        flags = DR_DISASM_ARM;
+    } else if (knob_syntax_ == "riscv") {
+        flags = DR_DISASM_RISCV;
+    }
+    disassemble_set_syntax(flags);
+
+    // Get the filetype up front if available.
+    // We leave setting and processing filetype_ to when we see the marker.
+    if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, serial_stream->get_filetype())) {
+        // We do not need to try to find and load the binaries, so don't (as trying
+        // can result in errors if those are not present or have changed).
+        has_modules_ = false;
+        return "";
+    }
+
     if (module_file_path_.empty()) {
         has_modules_ = false;
     } else {
@@ -118,19 +142,6 @@ view_t::initialize_stream(memtrace_stream_t *serial_stream)
     std::string error = module_mapper_->get_last_error();
     if (!error.empty())
         return "Failed to load binaries: " + error;
-    dr_disasm_flags_t flags = IF_X86_ELSE(
-        DR_DISASM_ATT,
-        IF_AARCH64_ELSE(DR_DISASM_DR, IF_RISCV64_ELSE(DR_DISASM_RISCV, DR_DISASM_ARM)));
-    if (knob_syntax_ == "intel") {
-        flags = DR_DISASM_INTEL;
-    } else if (knob_syntax_ == "dr") {
-        flags = DR_DISASM_DR;
-    } else if (knob_syntax_ == "arm") {
-        flags = DR_DISASM_ARM;
-    } else if (knob_syntax_ == "riscv") {
-        flags = DR_DISASM_RISCV;
-    }
-    disassemble_set_syntax(flags);
     return "";
 }
 
@@ -236,6 +247,10 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
              */
             if (TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, filetype_)) {
                 dr_set_isa_mode(dcontext_.dcontext, DR_ISA_REGDEPS, nullptr);
+                // Ignore the requested syntax: we only support DR style.
+                // XXX i#6942: Should we return an error if the users asks for
+                // another syntax?  Should DR's libraries return an error?
+                disassemble_set_syntax(DR_DISASM_DR);
             }
             return true; // Do not count toward -sim_refs yet b/c we don't have tid.
         case TRACE_MARKER_TYPE_TIMESTAMP:
