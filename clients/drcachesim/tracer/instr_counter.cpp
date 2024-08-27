@@ -106,7 +106,7 @@ increment_window_index()
 }
 
 uint64
-get_trace_after_instrs_value()
+get_initial_trace_after_instrs_value()
 {
     if (op_trace_after_instrs.get_value() > 0)
         return (uint64)op_trace_after_instrs.get_value();
@@ -121,7 +121,7 @@ get_trace_after_instrs_value()
 }
 
 uint64
-get_trace_for_instrs_value()
+get_current_trace_for_instrs_value()
 {
     if (op_trace_for_instrs.get_value() > 0)
         return (uint64)op_trace_for_instrs.get_value();
@@ -137,7 +137,7 @@ get_trace_for_instrs_value()
 }
 
 uint64
-get_retrace_every_instrs_value()
+get_current_no_trace_for_instrs_value()
 {
     if (op_retrace_every_instrs.get_value() > 0)
         return (uint64)op_retrace_every_instrs.get_value();
@@ -155,10 +155,10 @@ get_retrace_every_instrs_value()
 static bool
 has_instr_count_threshold_to_enable_tracing()
 {
-    if (get_trace_after_instrs_value() > 0 &&
+    if (get_initial_trace_after_instrs_value() > 0 &&
         !reached_trace_after_instrs.load(std::memory_order_acquire))
         return true;
-    if (get_retrace_every_instrs_value() > 0)
+    if (get_current_no_trace_for_instrs_value() > 0)
         return true;
     return false;
 }
@@ -166,11 +166,11 @@ has_instr_count_threshold_to_enable_tracing()
 static uint64
 instr_count_threshold()
 {
-    if (get_trace_after_instrs_value() > 0 &&
+    if (get_initial_trace_after_instrs_value() > 0 &&
         !reached_trace_after_instrs.load(std::memory_order_acquire))
-        return get_trace_after_instrs_value();
-    if (get_retrace_every_instrs_value() > 0)
-        return get_retrace_every_instrs_value();
+        return get_initial_trace_after_instrs_value();
+    if (get_current_no_trace_for_instrs_value() > 0)
+        return get_current_no_trace_for_instrs_value();
     return DELAY_FOREVER_THRESHOLD;
 }
 
@@ -205,7 +205,7 @@ hit_instr_count_threshold(app_pc next_pc)
         dr_mutex_unlock(mutex);
         return;
     }
-    if (get_trace_after_instrs_value() > 0 &&
+    if (get_initial_trace_after_instrs_value() > 0 &&
         !reached_trace_after_instrs.load(std::memory_order_acquire)) {
         NOTIFY(0, "Hit delay threshold: enabling tracing.\n");
         retrace_start_timestamp.store(instru_t::get_timestamp());

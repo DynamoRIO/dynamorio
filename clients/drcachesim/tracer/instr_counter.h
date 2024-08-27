@@ -50,13 +50,13 @@ void
 increment_window_index();
 
 uint64
-get_trace_after_instrs_value();
+get_initial_trace_after_instrs_value();
 
 uint64
-get_trace_for_instrs_value();
+get_current_trace_for_instrs_value();
 
 uint64
-get_retrace_every_instrs_value();
+get_current_no_trace_for_instrs_value();
 
 dr_emit_flags_t
 event_inscount_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,

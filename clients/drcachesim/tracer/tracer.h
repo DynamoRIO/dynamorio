@@ -267,7 +267,8 @@ has_tracing_windows()
     // We return true for a single-window -trace_for_instrs (without -retrace) setup
     // since we rely on having window numbers for the end-of-block buffer output check
     // used for a single-window transition away from tracing.
-    return get_trace_for_instrs_value() > 0 || get_retrace_every_instrs_value() > 0;
+    return get_current_trace_for_instrs_value() > 0 ||
+        get_current_no_trace_for_instrs_value() > 0;
 }
 
 static inline bool

@@ -10,8 +10,8 @@ Basic counts tool results:
 .*
 Total windows: [0-9]*
 Window #0:
-.*
+       15.*
 Window #1:
-.*
+       27.*
 Window #2:
-.*
+        33.*
