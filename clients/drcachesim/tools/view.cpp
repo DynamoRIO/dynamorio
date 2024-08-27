@@ -112,6 +112,8 @@ view_t::initialize_stream(memtrace_stream_t *serial_stream)
     }
     disassemble_set_syntax(flags);
 
+    // Get the filetype up front if available.
+    // We leave setting and processing filetype_ to when we see the marker.
     if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, serial_stream->get_filetype())) {
         // We do not need to try to find and load the binaries, so don't (as trying
         // can result in errors if those are not present or have changed).
@@ -245,6 +247,10 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
              */
             if (TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, filetype_)) {
                 dr_set_isa_mode(dcontext_.dcontext, DR_ISA_REGDEPS, nullptr);
+                // Ignore the requested syntax: we only support DR style.
+                // XXX i#6942: Should we return an error if the users asks for
+                // another syntax?  Should DR's libraries return an error?
+                disassemble_set_syntax(DR_DISASM_DR);
             }
             return true; // Do not count toward -sim_refs yet b/c we don't have tid.
         case TRACE_MARKER_TYPE_TIMESTAMP:

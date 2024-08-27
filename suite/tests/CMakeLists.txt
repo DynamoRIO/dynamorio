@@ -4276,14 +4276,14 @@ if (BUILD_CLIENTS)
       torunonly_api(tool.drcacheoff.skip "${drcachesim_path}" "offline-skip" ""
         # Test invariants with global headers after skipping instrs.
         # Here the skip does not find real headers and we expect synthetic.
-        "-tool;view;-infile;${zip_path};${test_mode_flag};-skip_instrs;62;-sim_refs;10"
+        "-tool;view;-view_syntax;dr;-infile;${zip_path};${test_mode_flag};-skip_instrs;62;-sim_refs;10"
         OFF OFF)
       set(tool.drcacheoff.skip_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcacheoff.skip_rawtemp ON) # no preprocessor
       torunonly_api(tool.drcacheoff.skip2 "${drcachesim_path}" "offline-skip2" ""
         # Test invariants with global headers after skipping instrs.
         # Here the skip finds real headers and we expect no synthetic.
-        "-tool;view;-infile;${zip_path};${test_mode_flag};-skip_instrs;63;-sim_refs;10"
+        "-tool;view;-view_syntax;dr;-infile;${zip_path};${test_mode_flag};-skip_instrs;63;-sim_refs;10"
         OFF OFF)
       set(tool.drcacheoff.skip2_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcacheoff.skip2_rawtemp ON) # no preprocessor
@@ -4813,7 +4813,7 @@ if (BUILD_CLIENTS)
       file(MAKE_DIRECTORY ${srcdir})
       file(COPY ${zip_path} DESTINATION ${srcdir})
       torunonly_api(tool.drcacheoff.trim "${drcachesim_path}" "offline-trim" ""
-        "-tool;view;-indir;${outdir};${test_mode_flag}"
+        "-tool;view;-view_syntax;dr;-indir;${outdir};${test_mode_flag}"
         OFF OFF)
       set(tool.drcacheoff.trim_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
       # The filter overwrites any existing file in the dir from a prior run.
