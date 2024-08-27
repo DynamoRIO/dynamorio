@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -102,13 +102,15 @@ pt2ir_t::~pt2ir_t()
 }
 
 bool
-pt2ir_t::init(DR_PARAM_IN pt2ir_config_t &pt2ir_config, DR_PARAM_IN int verbosity)
+pt2ir_t::init(DR_PARAM_IN pt2ir_config_t &pt2ir_config, DR_PARAM_IN int verbosity,
+              DR_PARAM_IN bool allow_non_fatal_decode_errors)
 {
     verbosity_ = verbosity;
     if (pt2ir_initialized_) {
         VPRINT(0, "pt2ir_t is already initialized.\n");
         return false;
     }
+    allow_non_fatal_decode_errors_ = allow_non_fatal_decode_errors;
 
     /* Init the configuration for the libipt instruction decoder. */
     struct pt_config pt_config;
@@ -257,7 +259,8 @@ pt2ir_t::init(DR_PARAM_IN pt2ir_config_t &pt2ir_config, DR_PARAM_IN int verbosit
 
 pt2ir_convert_status_t
 pt2ir_t::convert(DR_PARAM_IN const uint8_t *pt_data, DR_PARAM_IN size_t pt_data_size,
-                 DR_PARAM_INOUT drir_t *drir)
+                 DR_PARAM_INOUT drir_t *drir,
+                 DR_PARAM_OUT uint64_t *non_fatal_decode_error_count_out)
 {
     if (!pt2ir_initialized_) {
         return PT2IR_CONV_ERROR_NOT_INITIALIZED;
@@ -286,6 +289,15 @@ pt2ir_t::convert(DR_PARAM_IN const uint8_t *pt_data, DR_PARAM_IN size_t pt_data_
 
     /* This flag indicates whether manual synchronization is required. */
     bool manual_sync = true;
+
+    uint64_t decoded_instr_count = 0;
+    uint64_t non_fatal_decode_error_count = 0;
+    /* XXX: This is currently set based on empirical observations. We use this heuristic
+     * to detect errors where we can still produce a trace for this syscall albeit with
+     * some PC discontinuities. Specifically: we allow MAX_ERROR_COUNT non-consecutive
+     * errors of type pte_bad_query.
+     */
+    constexpr int MAX_ERROR_COUNT = 100;
 
     /* PT raw data consists of many packets. And PT trace data is surrounded by Packet
      * Stream Boundary. So, in the outermost loop, this function first finds the PSB. Then
@@ -373,8 +385,19 @@ pt2ir_t::convert(DR_PARAM_IN const uint8_t *pt_data, DR_PARAM_IN size_t pt_data_
 
             /* Decode PT raw trace to pt_insn. */
             status = pt_insn_next(pt_instr_decoder_, &insn, sizeof(insn));
+            if (allow_non_fatal_decode_errors_ && status == -pte_bad_query &&
+                non_fatal_decode_error_count <= MAX_ERROR_COUNT) {
+                ++non_fatal_decode_error_count;
+                /* The error may be non-fatal to this syscall's PT trace
+                 * conversion. Try to continue past it. We may lose an instruction
+                 * entry which will show up as a 1-instr PC discontinuity in the
+                 * kernel syscall trace.
+                 */
+                status = pt_insn_next(pt_instr_decoder_, &insn, sizeof(insn));
+            }
             if (status < 0) {
                 dx_decoding_error(status, "get next instruction error", insn.ip);
+                drir->clear_ilist();
                 return PT2IR_CONV_ERROR_DECODE_NEXT_INSTR;
             }
 
@@ -399,9 +422,18 @@ pt2ir_t::convert(DR_PARAM_IN const uint8_t *pt_data, DR_PARAM_IN size_t pt_data_
                 }
 #endif
             }
+            ++decoded_instr_count;
             drir->append(instr, instr_ip, insn.size, insn.raw);
         }
     }
+    // Note that not all non-fatal decode errors correspond to a PC discontinuity
+    // in the resulting trace.
+    VPRINT(1,
+           "libipt decoded " UINT64_FORMAT_STRING
+           " instructions with " UINT64_FORMAT_STRING " non-fatal decode errors.\n",
+           decoded_instr_count, non_fatal_decode_error_count);
+    if (non_fatal_decode_error_count_out != nullptr)
+        *non_fatal_decode_error_count_out = non_fatal_decode_error_count;
     return PT2IR_CONV_SUCCESS;
 }
 

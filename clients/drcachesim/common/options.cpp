@@ -1072,5 +1072,19 @@ droption_t<bool> op_abort_on_invariant_error(
     "total invariant error count is printed at the end; a non-zero error count does not "
     "affect the exit code of the analyzer.");
 
+droption_t<bool> op_pt2ir_best_effort(
+    DROPTION_SCOPE_ALL, "pt2ir_best_effort", false,
+    "Whether errors encountered during PT trace conversion in pt2ir are ignored.",
+    "By default, errors in decoding the kernel syscall PT trace in pt2ir are fatal to "
+    "raw2trace. With -pt2ir_best_effort, those errors do not cause failures and their "
+    "counts are reported by raw2trace at the end. This may result in a trace where not "
+    "all syscalls have a trace, and the ones that do may have some PC discontinuities "
+    "due to non-fatal decoding errors (these discontinuities will still be reported by "
+    "the invariant checker). When using this option, it is prudent to check raw2trace "
+    "stats to confirm that the error counts are within expected bounds (total syscall "
+    "traces converted, syscall traces that were dropped from final trace because "
+    "conversion failed, syscall traces found to be empty, and non-fatal decode errors "
+    "seen in converted syscall traces).");
+
 } // namespace drmemtrace
 } // namespace dynamorio
