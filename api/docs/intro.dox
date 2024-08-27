@@ -589,7 +589,8 @@ observed when using the private loader.
 
 If DynamoRIO and clients are statically linked into the application,
 the private loader is not available and third-party library usage is
-no longer safe (see \ref sec_static_DR).
+generally no longer safe, unless that usage only happens during
+process-wide initialization (see \ref sec_static_DR).
 
 By default, all Windows clients link with libc.  To instead
 use the libc subset of routines forwarded from the DynamoRIO library to \p
