@@ -532,11 +532,11 @@ compute_irregular_trace_windows(std::vector<instr_interval_t> &instr_intervals)
         uint64 no_trace_for_instrs = instr_intervals[i].start -
             (instr_intervals[i - 1].start + instr_intervals[i - 1].duration);
 
-        uint64 *trace_for_instrs_ptr = (uint64 *)dr_global_alloc(sizeof(uint64));
+        trace_for_instrs_ptr = (uint64 *)dr_global_alloc(sizeof(uint64));
         *trace_for_instrs_ptr = trace_for_instrs;
         drvector_set_entry(&trace_for_instrs_list, i, trace_for_instrs_ptr);
 
-        uint64 *no_trace_for_instrs_ptr = (uint64 *)dr_global_alloc(sizeof(uint64));
+        no_trace_for_instrs_ptr = (uint64 *)dr_global_alloc(sizeof(uint64));
         *no_trace_for_instrs_ptr = no_trace_for_instrs;
         drvector_set_entry(&no_trace_for_instrs_list, i, no_trace_for_instrs_ptr);
     }
