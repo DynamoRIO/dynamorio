@@ -412,8 +412,10 @@ schedule_stats_t::aggregate_results(counters_t &total)
     for (const auto &shard : shard_map_) {
         total += shard.second->counters;
         // Sanity check against the scheduler's own stats, unless the trace
-        // is pre-scheduled.
-        if (TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, shard.second->filetype))
+        // is pre-scheduled or we're in core-serial mode where we don't have access
+        // to the separate output streams.
+        if (TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, shard.second->filetype) ||
+            serial_stream_ != nullptr)
             continue;
         assert(shard.second->counters.total_switches ==
                shard.second->stream->get_schedule_statistic(
