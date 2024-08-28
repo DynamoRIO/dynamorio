@@ -922,7 +922,7 @@ droption_t<uint64_t> op_sched_blocking_switch_us(
     "-core_serial. ");
 
 droption_t<double> op_sched_block_scale(
-    DROPTION_SCOPE_ALL, "sched_block_scale", 1000., "Input block time scale factor",
+    DROPTION_SCOPE_ALL, "sched_block_scale", 10., "Input block time scale factor",
     "The scale applied to the microsecond latency of blocking system calls.  A higher "
     "value here results in blocking syscalls keeping inputs unscheduled for longer.  "
     "This should roughly equal the slowdown of instruction record processing versus the "
@@ -934,11 +934,11 @@ droption_t<double> op_sched_block_scale(
 // finish and the simulation waits for tens of minutes further for a couple of outliers.
 // The cap remains a flag and not a constant as different length traces and different
 // speed simulators need different idle time ranges, so we need to be able to tune this
-// to achieve desired cpu usage targets.  The default value was selected while tuning
-// a 1-minute-long schedule_stats run on a 112-core 500-thread large application
-// to produce good cpu usage without unduly increasing tool runtime.
+// to achieve desired cpu usage targets.  The default value was selected to avoid unduly
+// long idle times with local analyzers; it may need to be increased with more
+// heavyweight analyzers/simulators.
 droption_t<uint64_t> op_sched_block_max_us(DROPTION_SCOPE_ALL, "sched_block_max_us",
-                                           25000000,
+                                           2500000,
                                            "Maximum blocked input time, in microseconds",
                                            "The maximum blocked time, after scaling with "
                                            "-sched_block_scale.");
