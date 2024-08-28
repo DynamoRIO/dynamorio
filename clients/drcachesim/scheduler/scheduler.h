@@ -656,8 +656,12 @@ public:
          * the slowdown of the instruction record processing versus the original
          * (untraced) application execution.  The blocked time is clamped to a maximum
          * value controlled by #block_time_max.
+         *
+         * The default value is meant to be reasonable for simple analyzers.  It may
+         * result in too much or too little idle time depending on the analyzer or
+         * simulator and its speed; it is meant to be tuned and modified.
          */
-        double block_time_scale = 1000.;
+        double block_time_scale = 10.;
         /**
          * The maximum time, in the units explained by #block_time_scale (either
          * #QUANTUM_TIME simulator time or wall-clock microseconds for
@@ -668,7 +672,7 @@ public:
          * #TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE), after this amount of time those
          * inputs are all re-scheduled.
          */
-        uint64_t block_time_max = 25000000;
+        uint64_t block_time_max = 2500000;
         // XXX: Should we share the file-to-reader code currently in the scheduler
         // with the analyzer and only then need reader interfaces and not pass paths
         // to the scheduler?
