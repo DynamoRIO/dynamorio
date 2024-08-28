@@ -2505,7 +2505,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue(
     VDO(this, 1, {
         static int heartbeat;
         // We are ok with races as the cadence is approximate.
-        if (++heartbeat % 500 == 0) {
+        if (++heartbeat % 2000 == 0) {
             VPRINT(this, 1,
                    "heartbeat[%d] %zd in queue; %d blocked; %zd unscheduled => %d %d\n",
                    for_output, ready_priority_.size(), num_blocked_,
