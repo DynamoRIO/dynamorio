@@ -32,25 +32,31 @@
 
 /* v2p_reader: reads and parses a virtual-to-physical address mapping in textproto format.
  * Creates virtual-to-physical address map in memory.
+ * The section of the textproto file that we are interested in parsing is a sequence of
+ * blocks that follow this format:
+ * address_mapping {
+    virtual_address: 0x123
+    physical_address: 0x3
+ * }
+ * In gen_v2p_map() we rely on the fact that virtual_address and physical_address are one
+ * after the other on two different lines.
  */
 
 #ifndef _V2P_READER_H_
 #define _V2P_READER_H_ 1
 
-#include <stdint.h>
-
 #include <cstdint>
-#include <unordered_map>
 #include <string>
+#include <unordered_map>
 
 namespace dynamorio {
 namespace drmemtrace {
 
 class v2p_reader_t {
 public:
-    v2p_reader_t();
+    v2p_reader_t() = default;
 
-    bool
+    std::string
     gen_v2p_map(std::string path_to_file,
                 std::unordered_map<uint64_t, uint64_t> &v2p_map);
 };

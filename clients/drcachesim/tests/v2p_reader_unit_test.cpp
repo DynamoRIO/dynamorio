@@ -43,9 +43,9 @@ check_v2p_map(const std::unordered_map<uint64_t, uint64_t> &v2p_map)
 {
     // Change the number of entries if v2p_map_example.textproto is updated.
     // Must be equal to the number of "address_mapping {...}" blocks in the textproto.
-    constexpr uint64_t num_entries = 3;
-    if (v2p_map.size() != num_entries) {
-        std::cerr << "v2p_map incorrect number of entries. Expected " << num_entries
+    constexpr uint64_t NUM_ENTRIES = 3;
+    if (v2p_map.size() != NUM_ENTRIES) {
+        std::cerr << "v2p_map incorrect number of entries. Expected " << NUM_ENTRIES
                   << " got " << v2p_map.size() << "\n";
         exit(1);
     }
@@ -76,8 +76,9 @@ unit_test_v2p_reader(const char *testdir)
     std::string file_path = std::string(testdir) + "/v2p_map_example.textproto";
 
     v2p_reader_t v2p_reader;
-    if (!v2p_reader.gen_v2p_map(file_path, v2p_map)) {
-        std::cerr << "drcachesim v2p_reader_test failed (generate v2p map error)\n";
+    std::string error_str = v2p_reader.gen_v2p_map(file_path, v2p_map);
+    if (!error_str.empty()) {
+        std::cerr << "v2p_reader failed with: " << error_str << "\n";
         exit(1);
     }
 

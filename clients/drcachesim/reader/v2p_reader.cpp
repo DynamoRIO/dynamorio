@@ -33,6 +33,7 @@
 #include "v2p_reader.h"
 
 #include <cstdint>
+#include <sstream>
 #include <stdint.h>
 
 #include <cstdlib>
@@ -40,76 +41,61 @@
 #include <fstream>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "utils.h"
 
 namespace dynamorio {
 namespace drmemtrace {
 
-v2p_reader_t::v2p_reader_t()
-{
-    /* Empty. */
-}
-
-bool
+std::string
 v2p_reader_t::gen_v2p_map(std::string path_to_file,
                           std::unordered_map<uint64_t, uint64_t> &v2p_map)
 {
+    std::stringstream error_ss;
     std::ifstream file(path_to_file);
     if (!file.is_open()) {
-        ERRMSG("ERROR: Failed to open %s\n", path_to_file.c_str());
-        return false;
+        error_ss << "ERROR: Failed to open " << path_to_file << ".";
+        return error_ss.str();
     }
 
-    constexpr char virtual_address_key[] = "virtual_address";
-    constexpr char physical_address_key[] = "physical_address";
-    // Assumes virtual_address 0 is reserved and not used in the application.
+    const std::string separator = ":";
+    const std::string virtual_address_key = "virtual_address";
+    const std::string physical_address_key = "physical_address";
+    // Assumes virtual_address 0 is not in the v2p file.
     uint64_t virtual_address = 0;
     std::string line;
     while (std::getline(file, line)) {
-        std::size_t found = line.rfind(virtual_address_key);
+        std::size_t found = line.find(virtual_address_key);
         if (found != std::string::npos) {
-            std::stringstream ss(line);
-            std::string elem;
-            if (!std::getline(ss, elem, ':')) {
-                ERRMSG("ERROR: virtual_address key not found. Found %s instead.\n",
-                       elem.c_str());
-                return false;
+            std::vector<std::string> key_val_pair = split_by(line, ":");
+            if (key_val_pair.size() != 2) {
+                error_ss << "ERROR: virtual_address key or value mismatch.";
+                return error_ss.str();
             }
-            if (!std::getline(ss, elem, ':')) {
-                ERRMSG("ERROR: virtual_address value not found. Found %s instead.\n",
-                       elem.c_str());
-                return false;
-            }
-            virtual_address = std::stoull(elem, nullptr, 0);
+            virtual_address = std::stoull(key_val_pair[1], nullptr, 0);
             continue;
         }
-        found = line.rfind(physical_address_key);
+        found = line.find(physical_address_key);
         if (found != std::string::npos) {
+            std::vector<std::string> key_val_pair = split_by(line, ":");
+            if (key_val_pair.size() != 2) {
+                error_ss << "ERROR: physical_address key or value mismatch.";
+                return error_ss.str();
+            }
             if (virtual_address == 0) {
-                ERRMSG("ERROR: no corresponding virtual_address for this "
-                       "physical_address.\n");
-                return false;
+                error_ss << "ERROR: no corresponding virtual_address for this "
+                            "physical_address "
+                         << key_val_pair[1] << ".";
+                return error_ss.str();
             }
-            std::stringstream ss(line);
-            std::string elem;
-            if (!std::getline(ss, elem, ':')) {
-                ERRMSG("ERROR: physical_address key not found. Found %s instead.\n",
-                       elem.c_str());
-                return false;
-            }
-            if (!std::getline(ss, elem, ':')) {
-                ERRMSG("ERROR: physical_address value not found. Found %s instead.\n",
-                       elem.c_str());
-                return false;
-            }
-            uint64_t physical_address = std::stoull(elem, nullptr, 0);
+            uint64_t physical_address = std::stoull(key_val_pair[1], nullptr, 0);
             v2p_map[virtual_address] = physical_address;
         }
         virtual_address = 0;
     }
 
-    return true;
+    return "";
 }
 
 } // namespace drmemtrace
