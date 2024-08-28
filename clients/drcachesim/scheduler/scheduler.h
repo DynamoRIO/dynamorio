@@ -1129,6 +1129,18 @@ public:
             return scheduler_->is_record_kernel(ordinal_);
         }
 
+        /**
+         * Returns the value of the specified statistic for this output stream.
+         * The values for all output streams must be summed to obtain global counts.
+         * These statistics are not guaranteed to be accurate when replaying a
+         * prior schedule via #MAP_TO_RECORDED_OUTPUT.
+         */
+        double
+        get_schedule_statistic(schedule_statistic_t stat) const override
+        {
+            return scheduler_->get_statistic(ordinal_, stat);
+        }
+
     protected:
         scheduler_tmpl_t<RecordType, ReaderType> *scheduler_ = nullptr;
         int ordinal_ = -1;
@@ -1157,7 +1169,7 @@ public:
         : ready_priority_(static_cast<int>(get_time_micros()))
     {
     }
-    virtual ~scheduler_tmpl_t() = default;
+    virtual ~scheduler_tmpl_t();
 
     /**
      * Initializes the scheduler for the given inputs, count of output streams, and
@@ -1444,6 +1456,9 @@ protected:
         bool at_eof = false;
         // Used for replaying wait periods.
         uint64_t wait_start_time = 0;
+        // Exported statistics. Currently all integers and cast to double on export.
+        std::vector<int64_t> stats =
+            std::vector<int64_t>(memtrace_stream_t::SCHED_STAT_TYPE_COUNT);
     };
 
     // Used for reading as-traced schedules.
@@ -1788,13 +1803,21 @@ protected:
     // Determines whether to exit or wait for other outputs when one output
     // runs out of things to do.  May end up scheduling new inputs.
     stream_status_t
-    eof_or_idle(output_ordinal_t output, bool hold_sched_lock);
+    eof_or_idle(output_ordinal_t output, bool hold_sched_lock,
+                input_ordinal_t prev_input);
 
     // Returns whether the current record for the current input stream scheduled on
     // the 'output_ordinal'-th output stream is from a part of the trace corresponding
     // to kernel execution.
     bool
     is_record_kernel(output_ordinal_t output);
+
+    // These statistics are not guaranteed to be accurate when replaying a
+    // prior schedule.
+    double
+    get_statistic(output_ordinal_t output,
+                  memtrace_stream_t::schedule_statistic_t stat) const;
+
     ///////////////////////////////////////////////////////////////////////////
     // Support for ready queues for who to schedule next:
 
