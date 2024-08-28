@@ -1129,7 +1129,7 @@ public:
          * Returns the value of the specified statistic for this output stream.
          * The values for all output stream must be summed to obtain global counts.
          */
-        int64_t
+        double
         get_schedule_statistic(schedule_statistic_t stat) const override
         {
             return scheduler_->get_statistic(ordinal_, stat);
@@ -1450,7 +1450,7 @@ protected:
         bool at_eof = false;
         // Used for replaying wait periods.
         uint64_t wait_start_time = 0;
-        // Exported statistics.
+        // Exported statistics. Currently all integers and cast to double on export.
         std::vector<int64_t> stats =
             std::vector<int64_t>(memtrace_stream_t::SCHED_STAT_TYPE_COUNT);
     };
@@ -1797,7 +1797,8 @@ protected:
     // Determines whether to exit or wait for other outputs when one output
     // runs out of things to do.  May end up scheduling new inputs.
     stream_status_t
-    eof_or_idle(output_ordinal_t output, bool hold_sched_lock);
+    eof_or_idle(output_ordinal_t output, bool hold_sched_lock,
+                input_ordinal_t prev_input);
 
     // Returns whether the current record for the current input stream scheduled on
     // the 'output_ordinal'-th output stream is from a part of the trace corresponding
@@ -1805,7 +1806,7 @@ protected:
     bool
     is_record_kernel(output_ordinal_t output);
 
-    int64_t
+    double
     get_statistic(output_ordinal_t output,
                   memtrace_stream_t::schedule_statistic_t stat) const;
 

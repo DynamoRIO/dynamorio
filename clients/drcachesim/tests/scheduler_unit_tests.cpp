@@ -131,13 +131,26 @@ memref_is_nop_instr(memref_t &record)
 }
 
 static void
-verify_scheduler_stats(scheduler_t::stream_t *stream, int64_t switches, int64_t preempts,
-                       int64_t direct_attempts, int64_t direct_successes)
+verify_scheduler_stats(scheduler_t::stream_t *stream, int64_t switch_input_to_input,
+                       int64_t switch_input_to_idle, int64_t switch_idle_to_input,
+                       int64_t switch_nop, int64_t preempts, int64_t direct_attempts,
+                       int64_t direct_successes)
 {
-    assert(stream->get_schedule_statistic(memtrace_stream_t::SCHED_STAT_SWITCHES) ==
-           switches);
-    assert(stream->get_schedule_statistic(memtrace_stream_t::SCHED_STAT_TIME_PREEMPTS) ==
-           preempts);
+    // We assume our counts fit in the get_schedule_statistic()'s double's 54-bit
+    // mantissa and thus we can safely use "==".
+    assert(stream->get_schedule_statistic(
+               memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_INPUT) ==
+           switch_input_to_input);
+    assert(stream->get_schedule_statistic(
+               memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_IDLE) ==
+           switch_input_to_idle);
+    assert(stream->get_schedule_statistic(
+               memtrace_stream_t::SCHED_STAT_SWITCH_IDLE_TO_INPUT) ==
+           switch_idle_to_input);
+    assert(stream->get_schedule_statistic(memtrace_stream_t::SCHED_STAT_SWITCH_NOP) ==
+           switch_nop);
+    assert(stream->get_schedule_statistic(
+               memtrace_stream_t::SCHED_STAT_QUANTUM_PREEMPTS) == preempts);
     assert(stream->get_schedule_statistic(
                memtrace_stream_t::SCHED_STAT_DIRECT_SWITCH_ATTEMPTS) == direct_attempts);
     assert(stream->get_schedule_statistic(
@@ -1092,12 +1105,17 @@ test_synthetic()
             std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
         }
         // Check scheduler stats.  # switches is the # of letter transitions; # preempts
-        // is the count of 3-letters-in-a-row sequences (3 is the quantum) except the
-        // last for an input (EOF doesn't count as a preempt).
-        verify_scheduler_stats(scheduler.get_stream(0), /*switches=*/10, /*preempts=*/6,
-                               /*direct_attempts=*/0, /*direct_successes=*/0);
-        verify_scheduler_stats(scheduler.get_stream(1), /*switches=*/11, /*preempts=*/8,
-                               /*direct_attempts=*/0, /*direct_successes=*/0);
+        // is the instances where the same letter appears 3 times without another letter
+        // appearing in between (and ignoring the last letter for an input: EOF doesn't
+        // count as a preempt).
+        verify_scheduler_stats(scheduler.get_stream(0), /*switch_input_to_input=*/10,
+                               /*switch_input_to_idle=*/0, /*switch_idle_to_input=*/0,
+                               /*switch_nop=*/0, /*preempts=*/6, /*direct_attempts=*/0,
+                               /*direct_successes=*/0);
+        verify_scheduler_stats(scheduler.get_stream(1), /*switch_input_to_input=*/11,
+                               /*switch_input_to_idle=*/1, /*switch_idle_to_input=*/0,
+                               /*switch_nop=*/0, /*preempts=*/8, /*direct_attempts=*/0,
+                               /*direct_successes=*/0);
 #ifndef WIN32
         // XXX: Windows microseconds on test VMs are very coarse and stay the same
         // for long periods.  Instruction quanta use wall-clock idle times, so
@@ -1279,10 +1297,14 @@ test_synthetic_time_quanta()
         if (scheduler.write_recorded_schedule() != scheduler_t::STATUS_SUCCESS)
             assert(false);
         // Check scheduler stats.
-        verify_scheduler_stats(scheduler.get_stream(0), /*switches=*/2, /*preempts=*/2,
-                               /*direct_attempts=*/0, /*direct_successes=*/0);
-        verify_scheduler_stats(scheduler.get_stream(1), /*switches=*/3, /*preempts=*/1,
-                               /*direct_attempts=*/0, /*direct_successes=*/0);
+        verify_scheduler_stats(scheduler.get_stream(0), /*switch_input_to_input=*/1,
+                               /*switch_input_to_idle=*/0, /*switch_idle_to_input=*/0,
+                               /*switch_nop=*/1, /*preempts=*/2, /*direct_attempts=*/0,
+                               /*direct_successes=*/0);
+        verify_scheduler_stats(scheduler.get_stream(1), /*switch_input_to_input=*/2,
+                               /*switch_input_to_idle=*/0, /*switch_idle_to_input=*/1,
+                               /*switch_nop=*/0, /*preempts=*/1, /*direct_attempts=*/0,
+                               /*direct_successes=*/0);
     }
     {
         replay_file_checker_t checker;
@@ -1405,12 +1427,17 @@ test_synthetic_with_timestamps()
     assert(sched_as_string[1] ==
            ".FF.F.JJ.JJ.JJ.JJ.J.CC.C.II.I..EE.EB.BB.H.HH.EE.E..AA.A.GG.GD.DD.AA.A.GG.G.");
     // Check scheduler stats.  # switches is the # of letter transitions; # preempts
-    // is the count of 3-letters-in-a-row sequences (3 is the quantum) except the
-    // last for an input (EOF doesn't count as a preempt).
-    verify_scheduler_stats(scheduler.get_stream(0), /*switches=*/14, /*preempts=*/11,
-                           /*direct_attempts=*/0, /*direct_successes=*/0);
-    verify_scheduler_stats(scheduler.get_stream(1), /*switches=*/14, /*preempts=*/9,
-                           /*direct_attempts=*/0, /*direct_successes=*/0);
+    // is the instances where the same letter appears 3 times without another letter
+    // appearing in between (and ignoring the last letter for an input: EOF doesn't
+    // count as a preempt).
+    verify_scheduler_stats(scheduler.get_stream(0), /*switch_input_to_input=*/14,
+                           /*switch_input_to_idle=*/1, /*switch_idle_to_input=*/0,
+                           /*switch_nop=*/0, /*preempts=*/11, /*direct_attempts=*/0,
+                           /*direct_successes=*/0);
+    verify_scheduler_stats(scheduler.get_stream(1), /*switch_input_to_input=*/12,
+                           /*switch_input_to_idle=*/0, /*switch_idle_to_input=*/0,
+                           /*switch_nop=*/2, /*preempts=*/9, /*direct_attempts=*/0,
+                           /*direct_successes=*/0);
 }
 
 static void
@@ -1496,12 +1523,17 @@ test_synthetic_with_priorities()
     assert(sched_as_string[1] ==
            ".EE.EB.BB.H.HH.EE.E..CC.C.II.IC.CC.F.FF.I.II.FF.F..AA.A.GG.GD.DD.AA.A.GG.G.");
     // Check scheduler stats.  # switches is the # of letter transitions; # preempts
-    // is the count of 3-letters-in-a-row sequences (3 is the quantum) except the
-    // last for an input (EOF doesn't count as a preempt).
-    verify_scheduler_stats(scheduler.get_stream(0), /*switches=*/14, /*preempts=*/9,
-                           /*direct_attempts=*/0, /*direct_successes=*/0);
-    verify_scheduler_stats(scheduler.get_stream(1), /*switches=*/14, /*preempts=*/11,
-                           /*direct_attempts=*/0, /*direct_successes=*/0);
+    // is the instances where the same letter appears 3 times without another letter
+    // appearing in between (and ignoring the last letter for an input: EOF doesn't
+    // count as a preempt).
+    verify_scheduler_stats(scheduler.get_stream(0), /*switch_input_to_input=*/12,
+                           /*switch_input_to_idle=*/1, /*switch_idle_to_input=*/0,
+                           /*switch_nop=*/2, /*preempts=*/9, /*direct_attempts=*/0,
+                           /*direct_successes=*/0);
+    verify_scheduler_stats(scheduler.get_stream(1), /*switch_input_to_input=*/14,
+                           /*switch_input_to_idle=*/0, /*switch_idle_to_input=*/0,
+                           /*switch_nop=*/0, /*preempts=*/11, /*direct_attempts=*/0,
+                           /*direct_successes=*/0);
 }
 
 static void
@@ -1823,12 +1855,17 @@ test_synthetic_with_syscalls_multiple()
            "BHHHFFFJJJJJJBEEHHHFFFBCCCEEIIIDDDBAAAGGGDDDB________B_______");
     assert(sched_as_string[1] == "EECCCIIICCCBEEJJJHHHIIIFFFEAAAGGGBDDDAAAGGG________B");
     // Check scheduler stats.  # switches is the # of letter transitions; # preempts
-    // is the count of 3-letters-in-a-row sequences (3 is the quantum) except the
-    // last for an input (EOF doesn't count as a preempt).
-    verify_scheduler_stats(scheduler.get_stream(0), /*switches=*/20, /*preempts=*/11,
-                           /*direct_attempts=*/0, /*direct_successes=*/0);
-    verify_scheduler_stats(scheduler.get_stream(1), /*switches=*/17, /*preempts=*/10,
-                           /*direct_attempts=*/0, /*direct_successes=*/0);
+    // is the instances where the same letter appears 3 times without another letter
+    // appearing in between (and ignoring the last letter for an input: EOF doesn't
+    // count as a preempt).
+    verify_scheduler_stats(scheduler.get_stream(0), /*switch_input_to_input=*/17,
+                           /*switch_input_to_idle=*/0, /*switch_idle_to_input=*/1,
+                           /*switch_nop=*/2, /*preempts=*/11, /*direct_attempts=*/0,
+                           /*direct_successes=*/0);
+    verify_scheduler_stats(scheduler.get_stream(1), /*switch_input_to_input=*/16,
+                           /*switch_input_to_idle=*/0, /*switch_idle_to_input=*/1,
+                           /*switch_nop=*/0, /*preempts=*/10, /*direct_attempts=*/0,
+                           /*direct_successes=*/0);
 }
 
 static void
@@ -4221,8 +4258,10 @@ test_direct_switch()
             std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
         }
         assert(sched_as_string[0] == CORE0_SCHED_STRING);
-        verify_scheduler_stats(scheduler.get_stream(0), /*switches=*/4, /*preempts=*/0,
-                               /*direct_attempts=*/3, /*direct_successes=*/2);
+        verify_scheduler_stats(scheduler.get_stream(0), /*switch_input_to_input=*/3,
+                               /*switch_input_to_idle=*/0, /*switch_idle_to_input=*/1,
+                               /*switch_nop=*/0, /*preempts=*/0, /*direct_attempts=*/3,
+                               /*direct_successes=*/2);
     }
     {
         // Test disabling direct switches.
@@ -4260,8 +4299,10 @@ test_direct_switch()
             std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
         }
         assert(sched_as_string[0] == CORE0_SCHED_STRING);
-        verify_scheduler_stats(scheduler.get_stream(0), /*switches=*/4, /*preempts=*/0,
-                               /*direct_attempts=*/0, /*direct_successes=*/0);
+        verify_scheduler_stats(scheduler.get_stream(0), /*switch_input_to_input=*/2,
+                               /*switch_input_to_idle=*/0, /*switch_idle_to_input=*/2,
+                               /*switch_nop=*/0, /*preempts=*/0, /*direct_attempts=*/0,
+                               /*direct_successes=*/0);
     }
 }
 
