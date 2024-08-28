@@ -526,7 +526,7 @@ can use the convenience of the \ref page_droption.
 
 Client options are not allowed to contain semicolons.  Additionally, the
 client option string combined with the path to the client library cannot
-contain all three quote characters (', ", `) simultaneously.
+contain all three quote characters (\', \", \`) simultaneously.
 
 To ensure a client is loaded into a child process of a different
 bitwidth (i.e., a 32-bit child created by a 64-bit parent), use the \c
@@ -698,6 +698,28 @@ standard libraries or startup files.  DynamoRIO's CMake support does this
 automatically, as the linker flags for shared libraries are separate from
 those for executables.
 
+
+\section sec_static_DR Statically Linking DynamoRIO
+
+Limited support is provided to statically link DynamoRIO and clients
+into the application itself.  This generally requires the start-stop
+interface (see \ref sec_startstop) in order to trigger takeover.
+
+The configure_DynamoRIO_static and use_DynamoRIO_static_client CMake
+utilities are provided to help in setting up the link steps.
+
+One significant downside of statically linking is that DynamoRIO is
+not able to provide library isolation in this mode.  This means that
+clients cannot safely use third-party library code at runtime.  It is
+considered safe to use libraries during process-wide initialization,
+as that occurs in just one thread which is at a relatively safe point
+having called something like dr_app_start().  The
+#DR_DISALLOW_UNSAFE_STATIC and dr_allow_unsafe_static_behavior()
+features are available to help detect violations of this rule, but
+they only detect these violations when using DynamoRIO in its dynamic
+library form.  Thus, the recommendation is to support both modes and
+employ regression tests which set #DR_DISALLOW_UNSAFE_STATIC in
+dynamic mode in order to catch unsafe library code being added later.
 
 ***************************************************************************
 \section sec_options DynamoRIO Runtime Options
