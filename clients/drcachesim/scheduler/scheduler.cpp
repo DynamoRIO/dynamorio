@@ -2981,6 +2981,11 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                                 if (record_status != sched_type_t::STATUS_OK)
                                     return record_status;
                             }
+                            if (prev_index != INVALID_INPUT_ORDINAL) {
+                                ++outputs_[output]
+                                      .stats[memtrace_stream_t::
+                                                 SCHED_STAT_SWITCH_INPUT_TO_IDLE];
+                            }
                         }
                         return status;
                     }
@@ -3714,7 +3719,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::eof_or_idle(output_ordinal_t output,
             }
         }
         outputs_[output].waiting = true;
-        if (prev_input > 0)
+        if (prev_input != INVALID_INPUT_ORDINAL)
             ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_IDLE];
         set_cur_input(output, INVALID_INPUT_ORDINAL);
         return sched_type_t::STATUS_IDLE;
@@ -3738,7 +3743,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_statistic(
 {
     if (stat >= memtrace_stream_t::SCHED_STAT_TYPE_COUNT)
         return -1;
-    return outputs_[output].stats[stat];
+    return static_cast<double>(outputs_[output].stats[stat]);
 }
 
 template <typename RecordType, typename ReaderType>

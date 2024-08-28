@@ -1298,11 +1298,11 @@ test_synthetic_time_quanta()
             assert(false);
         // Check scheduler stats.
         verify_scheduler_stats(scheduler.get_stream(0), /*switch_input_to_input=*/1,
-                               /*switch_input_to_idle=*/0, /*switch_idle_to_input=*/0,
+                               /*switch_input_to_idle=*/1, /*switch_idle_to_input=*/0,
                                /*switch_nop=*/1, /*preempts=*/2, /*direct_attempts=*/0,
                                /*direct_successes=*/0);
         verify_scheduler_stats(scheduler.get_stream(1), /*switch_input_to_input=*/2,
-                               /*switch_input_to_idle=*/0, /*switch_idle_to_input=*/1,
+                               /*switch_input_to_idle=*/1, /*switch_idle_to_input=*/1,
                                /*switch_nop=*/0, /*preempts=*/1, /*direct_attempts=*/0,
                                /*direct_successes=*/0);
     }
@@ -1859,11 +1859,11 @@ test_synthetic_with_syscalls_multiple()
     // appearing in between (and ignoring the last letter for an input: EOF doesn't
     // count as a preempt).
     verify_scheduler_stats(scheduler.get_stream(0), /*switch_input_to_input=*/17,
-                           /*switch_input_to_idle=*/0, /*switch_idle_to_input=*/1,
+                           /*switch_input_to_idle=*/2, /*switch_idle_to_input=*/1,
                            /*switch_nop=*/2, /*preempts=*/11, /*direct_attempts=*/0,
                            /*direct_successes=*/0);
     verify_scheduler_stats(scheduler.get_stream(1), /*switch_input_to_input=*/16,
-                           /*switch_input_to_idle=*/0, /*switch_idle_to_input=*/1,
+                           /*switch_input_to_idle=*/1, /*switch_idle_to_input=*/1,
                            /*switch_nop=*/0, /*preempts=*/10, /*direct_attempts=*/0,
                            /*direct_successes=*/0);
 }
@@ -4259,7 +4259,7 @@ test_direct_switch()
         }
         assert(sched_as_string[0] == CORE0_SCHED_STRING);
         verify_scheduler_stats(scheduler.get_stream(0), /*switch_input_to_input=*/3,
-                               /*switch_input_to_idle=*/0, /*switch_idle_to_input=*/1,
+                               /*switch_input_to_idle=*/1, /*switch_idle_to_input=*/1,
                                /*switch_nop=*/0, /*preempts=*/0, /*direct_attempts=*/3,
                                /*direct_successes=*/2);
     }
@@ -4300,7 +4300,7 @@ test_direct_switch()
         }
         assert(sched_as_string[0] == CORE0_SCHED_STRING);
         verify_scheduler_stats(scheduler.get_stream(0), /*switch_input_to_input=*/2,
-                               /*switch_input_to_idle=*/0, /*switch_idle_to_input=*/2,
+                               /*switch_input_to_idle=*/2, /*switch_idle_to_input=*/2,
                                /*switch_nop=*/0, /*preempts=*/0, /*direct_attempts=*/0,
                                /*direct_successes=*/0);
     }

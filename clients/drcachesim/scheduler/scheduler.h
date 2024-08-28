@@ -1131,7 +1131,9 @@ public:
 
         /**
          * Returns the value of the specified statistic for this output stream.
-         * The values for all output stream must be summed to obtain global counts.
+         * The values for all output streams must be summed to obtain global counts.
+         * These statistics are not guaranteed to be accurate when replaying a
+         * prior schedule via #MAP_TO_RECORDED_OUTPUT.
          */
         double
         get_schedule_statistic(schedule_statistic_t stat) const override
@@ -1810,6 +1812,8 @@ protected:
     bool
     is_record_kernel(output_ordinal_t output);
 
+    // These statistics are not guaranteed to be accurate when replaying a
+    // prior schedule.
     double
     get_statistic(output_ordinal_t output,
                   memtrace_stream_t::schedule_statistic_t stat) const;
