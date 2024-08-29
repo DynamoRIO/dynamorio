@@ -136,6 +136,12 @@ public:
         counters_t &
         operator+=(const counters_t &rhs)
         {
+            switches_input_to_input += rhs.switches_input_to_input;
+            switches_input_to_idle += rhs.switches_input_to_idle;
+            switches_idle_to_input += rhs.switches_idle_to_input;
+            switches_nop += rhs.switches_nop;
+            quantum_preempts += rhs.quantum_preempts;
+            migrations += rhs.migrations;
             instrs += rhs.instrs;
             total_switches += rhs.total_switches;
             voluntary_switches += rhs.voluntary_switches;
@@ -155,6 +161,14 @@ public:
             instrs_per_switch->merge(rhs.instrs_per_switch.get());
             return *this;
         }
+        // Statistics provided by scheduler.
+        int64_t switches_input_to_input = 0;
+        int64_t switches_input_to_idle = 0;
+        int64_t switches_idle_to_input = 0;
+        int64_t switches_nop = 0;
+        int64_t quantum_preempts = 0;
+        int64_t migrations = 0;
+        // Our own statistics.
         int64_t instrs = 0;
         int64_t total_switches = 0;
         int64_t voluntary_switches = 0;
@@ -226,6 +240,9 @@ protected:
 
     virtual void
     aggregate_results(counters_t &total);
+
+    void
+    get_scheduler_stats(memtrace_stream_t *stream, counters_t &shard);
 
     uint64_t knob_print_every_ = 0;
     unsigned int knob_verbose_ = 0;

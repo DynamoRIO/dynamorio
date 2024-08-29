@@ -2966,7 +2966,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                     if (prev_index == INVALID_INPUT_ORDINAL)
                         return eof_or_idle(output, need_lock, prev_index);
                     auto lock = std::unique_lock<std::mutex>(*inputs_[prev_index].lock);
-                    if (inputs_[prev_index].at_eof) {
+                    if (inputs_[prev_index].at_eof || inputs_[prev_index].unscheduled) {
                         lock.unlock();
                         return eof_or_idle(output, need_lock, prev_index);
                     } else

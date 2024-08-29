@@ -144,6 +144,28 @@ schedule_stats_t::parallel_shard_exit(void *shard_data)
     return true;
 }
 
+void
+schedule_stats_t::get_scheduler_stats(memtrace_stream_t *stream, counters_t &counters)
+{
+    counters.switches_input_to_input = stream->get_schedule_statistic(
+        memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_INPUT);
+    counters.switches_input_to_idle = stream->get_schedule_statistic(
+        memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_IDLE);
+    counters.switches_idle_to_input = stream->get_schedule_statistic(
+        memtrace_stream_t::SCHED_STAT_SWITCH_IDLE_TO_INPUT);
+    counters.switches_nop =
+        stream->get_schedule_statistic(memtrace_stream_t::SCHED_STAT_SWITCH_NOP);
+    counters.quantum_preempts =
+        stream->get_schedule_statistic(memtrace_stream_t::SCHED_STAT_QUANTUM_PREEMPTS);
+    counters.migrations =
+        stream->get_schedule_statistic(memtrace_stream_t::SCHED_STAT_MIGRATIONS);
+
+    // XXX: If we want to match what "perf" targeting this app would record, we
+    // should remove idle-to-input and add input-to-idle (though generally those two
+    // counts are pretty similar).  OTOH, if we want to match what "perf" systemwide
+    // would record, we would want to add input-to-idle on top of what we have.
+}
+
 std::string
 schedule_stats_t::parallel_shard_error(void *shard_data)
 {
@@ -379,6 +401,18 @@ schedule_stats_t::print_counters(const counters_t &counters)
                      "% voluntary switches\n");
     print_percentage(static_cast<double>(counters.direct_switches),
                      static_cast<double>(counters.total_switches), "% direct switches\n");
+
+    //  Statistics provided by scheduler.
+    std::cerr << std::setw(12) << counters.switches_input_to_input
+              << " switches input-to-input\n";
+    std::cerr << std::setw(12) << counters.switches_input_to_idle
+              << " switches input-to-idle\n";
+    std::cerr << std::setw(12) << counters.switches_idle_to_input
+              << " switches idle-to-input\n";
+    std::cerr << std::setw(12) << counters.switches_nop << " switches nop-ed\n";
+    std::cerr << std::setw(12) << counters.quantum_preempts << " quantum_preempts\n";
+    std::cerr << std::setw(12) << counters.migrations << " migrations\n";
+
     std::cerr << std::setw(12) << counters.syscalls << " system calls\n";
     std::cerr << std::setw(12) << counters.maybe_blocking_syscalls
               << " maybe-blocking system calls\n";
@@ -410,7 +444,11 @@ void
 schedule_stats_t::aggregate_results(counters_t &total)
 {
     for (const auto &shard : shard_map_) {
+        // First update our per-shard data with per-shard stats from the scheduler.
+        get_scheduler_stats(shard.second->stream, shard.second->counters);
+
         total += shard.second->counters;
+
         // Sanity check against the scheduler's own stats, unless the trace
         // is pre-scheduled or we're in core-serial mode where we don't have access
         // to the separate output streams.
@@ -425,12 +463,6 @@ schedule_stats_t::aggregate_results(counters_t &total)
                    memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_INPUT) +
                    shard.second->stream->get_schedule_statistic(
                        memtrace_stream_t::SCHED_STAT_SWITCH_IDLE_TO_INPUT));
-        assert(shard.second->counters.total_switches -
-                   shard.second->counters.voluntary_switches ==
-               shard.second->stream->get_schedule_statistic(
-                   memtrace_stream_t::SCHED_STAT_QUANTUM_PREEMPTS) -
-                   shard.second->stream->get_schedule_statistic(
-                       memtrace_stream_t::SCHED_STAT_SWITCH_NOP));
         assert(shard.second->counters.direct_switch_requests ==
                shard.second->stream->get_schedule_statistic(
                    memtrace_stream_t::SCHED_STAT_DIRECT_SWITCH_ATTEMPTS));
