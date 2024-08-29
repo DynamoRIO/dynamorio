@@ -93,7 +93,10 @@ public:
         SCHED_STAT_DIRECT_SWITCH_ATTEMPTS,
         /** Count of #TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH attempts that succeeded. */
         SCHED_STAT_DIRECT_SWITCH_SUCCESSES,
-        /** Count of switches where the new input's prior core != its new core. */
+        /**
+         * Counts the number of times an input switches from another core to this core:
+         * i.e., the number of input migrations to this core.
+         */
         SCHED_STAT_MIGRATIONS,
         /** Count of statistic types. */
         SCHED_STAT_TYPE_COUNT,
