@@ -134,7 +134,7 @@ static void
 verify_scheduler_stats(scheduler_t::stream_t *stream, int64_t switch_input_to_input,
                        int64_t switch_input_to_idle, int64_t switch_idle_to_input,
                        int64_t switch_nop, int64_t preempts, int64_t direct_attempts,
-                       int64_t direct_successes)
+                       int64_t direct_successes, int64_t migrations)
 {
     // We assume our counts fit in the get_schedule_statistic()'s double's 54-bit
     // mantissa and thus we can safely use "==".
@@ -156,6 +156,8 @@ verify_scheduler_stats(scheduler_t::stream_t *stream, int64_t switch_input_to_in
     assert(stream->get_schedule_statistic(
                memtrace_stream_t::SCHED_STAT_DIRECT_SWITCH_SUCCESSES) ==
            direct_successes);
+    assert(stream->get_schedule_statistic(memtrace_stream_t::SCHED_STAT_MIGRATIONS) ==
+           migrations);
 }
 
 static void
@@ -1111,11 +1113,11 @@ test_synthetic()
         verify_scheduler_stats(scheduler.get_stream(0), /*switch_input_to_input=*/10,
                                /*switch_input_to_idle=*/0, /*switch_idle_to_input=*/0,
                                /*switch_nop=*/0, /*preempts=*/6, /*direct_attempts=*/0,
-                               /*direct_successes=*/0);
+                               /*direct_successes=*/0, /*migrations=*/7);
         verify_scheduler_stats(scheduler.get_stream(1), /*switch_input_to_input=*/11,
                                /*switch_input_to_idle=*/1, /*switch_idle_to_input=*/0,
                                /*switch_nop=*/0, /*preempts=*/8, /*direct_attempts=*/0,
-                               /*direct_successes=*/0);
+                               /*direct_successes=*/0, /*migrations=*/7);
 #ifndef WIN32
         // XXX: Windows microseconds on test VMs are very coarse and stay the same
         // for long periods.  Instruction quanta use wall-clock idle times, so
@@ -1300,11 +1302,11 @@ test_synthetic_time_quanta()
         verify_scheduler_stats(scheduler.get_stream(0), /*switch_input_to_input=*/1,
                                /*switch_input_to_idle=*/1, /*switch_idle_to_input=*/0,
                                /*switch_nop=*/1, /*preempts=*/2, /*direct_attempts=*/0,
-                               /*direct_successes=*/0);
+                               /*direct_successes=*/0, /*migrations=*/0);
         verify_scheduler_stats(scheduler.get_stream(1), /*switch_input_to_input=*/2,
                                /*switch_input_to_idle=*/1, /*switch_idle_to_input=*/1,
                                /*switch_nop=*/0, /*preempts=*/1, /*direct_attempts=*/0,
-                               /*direct_successes=*/0);
+                               /*direct_successes=*/0, /*migrations=*/1);
     }
     {
         replay_file_checker_t checker;
@@ -1433,11 +1435,11 @@ test_synthetic_with_timestamps()
     verify_scheduler_stats(scheduler.get_stream(0), /*switch_input_to_input=*/14,
                            /*switch_input_to_idle=*/1, /*switch_idle_to_input=*/0,
                            /*switch_nop=*/0, /*preempts=*/11, /*direct_attempts=*/0,
-                           /*direct_successes=*/0);
+                           /*direct_successes=*/0, /*migrations=*/7);
     verify_scheduler_stats(scheduler.get_stream(1), /*switch_input_to_input=*/12,
                            /*switch_input_to_idle=*/0, /*switch_idle_to_input=*/0,
                            /*switch_nop=*/2, /*preempts=*/9, /*direct_attempts=*/0,
-                           /*direct_successes=*/0);
+                           /*direct_successes=*/0, /*migrations=*/8);
 }
 
 static void
@@ -1529,11 +1531,11 @@ test_synthetic_with_priorities()
     verify_scheduler_stats(scheduler.get_stream(0), /*switch_input_to_input=*/12,
                            /*switch_input_to_idle=*/1, /*switch_idle_to_input=*/0,
                            /*switch_nop=*/2, /*preempts=*/9, /*direct_attempts=*/0,
-                           /*direct_successes=*/0);
+                           /*direct_successes=*/0, /*migrations=*/8);
     verify_scheduler_stats(scheduler.get_stream(1), /*switch_input_to_input=*/14,
                            /*switch_input_to_idle=*/0, /*switch_idle_to_input=*/0,
                            /*switch_nop=*/0, /*preempts=*/11, /*direct_attempts=*/0,
-                           /*direct_successes=*/0);
+                           /*direct_successes=*/0, /*migrations=*/7);
 }
 
 static void
@@ -1861,11 +1863,11 @@ test_synthetic_with_syscalls_multiple()
     verify_scheduler_stats(scheduler.get_stream(0), /*switch_input_to_input=*/17,
                            /*switch_input_to_idle=*/2, /*switch_idle_to_input=*/1,
                            /*switch_nop=*/2, /*preempts=*/11, /*direct_attempts=*/0,
-                           /*direct_successes=*/0);
+                           /*direct_successes=*/0, /*migrations=*/9);
     verify_scheduler_stats(scheduler.get_stream(1), /*switch_input_to_input=*/16,
                            /*switch_input_to_idle=*/1, /*switch_idle_to_input=*/1,
                            /*switch_nop=*/0, /*preempts=*/10, /*direct_attempts=*/0,
-                           /*direct_successes=*/0);
+                           /*direct_successes=*/0, /*migrations=*/11);
 }
 
 static void
@@ -4261,7 +4263,7 @@ test_direct_switch()
         verify_scheduler_stats(scheduler.get_stream(0), /*switch_input_to_input=*/3,
                                /*switch_input_to_idle=*/1, /*switch_idle_to_input=*/1,
                                /*switch_nop=*/0, /*preempts=*/0, /*direct_attempts=*/3,
-                               /*direct_successes=*/2);
+                               /*direct_successes=*/2, /*migrations=*/0);
     }
     {
         // Test disabling direct switches.
@@ -4302,7 +4304,7 @@ test_direct_switch()
         verify_scheduler_stats(scheduler.get_stream(0), /*switch_input_to_input=*/2,
                                /*switch_input_to_idle=*/2, /*switch_idle_to_input=*/2,
                                /*switch_nop=*/0, /*preempts=*/0, /*direct_attempts=*/0,
-                               /*direct_successes=*/0);
+                               /*direct_successes=*/0, /*migrations=*/0);
     }
 }
 
