@@ -411,6 +411,32 @@ schedule_stats_t::aggregate_results(counters_t &total)
 {
     for (const auto &shard : shard_map_) {
         total += shard.second->counters;
+        // Sanity check against the scheduler's own stats, unless the trace
+        // is pre-scheduled or we're in core-serial mode where we don't have access
+        // to the separate output streams.
+        if (TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, shard.second->filetype) ||
+            serial_stream_ != nullptr)
+            continue;
+        // We assume our counts fit in the get_schedule_statistic()'s double's 54-bit
+        // mantissa and thus we can safely use "==".
+        // Currently our switch count ignores input-to-idle.
+        assert(shard.second->counters.total_switches ==
+               shard.second->stream->get_schedule_statistic(
+                   memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_INPUT) +
+                   shard.second->stream->get_schedule_statistic(
+                       memtrace_stream_t::SCHED_STAT_SWITCH_IDLE_TO_INPUT));
+        assert(shard.second->counters.total_switches -
+                   shard.second->counters.voluntary_switches ==
+               shard.second->stream->get_schedule_statistic(
+                   memtrace_stream_t::SCHED_STAT_QUANTUM_PREEMPTS) -
+                   shard.second->stream->get_schedule_statistic(
+                       memtrace_stream_t::SCHED_STAT_SWITCH_NOP));
+        assert(shard.second->counters.direct_switch_requests ==
+               shard.second->stream->get_schedule_statistic(
+                   memtrace_stream_t::SCHED_STAT_DIRECT_SWITCH_ATTEMPTS));
+        assert(shard.second->counters.direct_switches ==
+               shard.second->stream->get_schedule_statistic(
+                   memtrace_stream_t::SCHED_STAT_DIRECT_SWITCH_SUCCESSES));
     }
 }
 
