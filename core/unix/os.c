@@ -2518,8 +2518,9 @@ os_tls_calloc(DR_PARAM_OUT uint *offset, uint num_slots, uint alignment)
     d_r_mutex_lock(&client_tls_lock);
     for (i = 0; i < MAX_NUM_CLIENT_TLS; i++) {
         if (!client_tls_allocated[i] &&
-            /* ALIGNED doesn't work for 0 */
-            (alignment == 0 || ALIGNED(offs + i * sizeof(void *), alignment))) {
+            (start != -1 ||
+             /* ALIGNED doesn't work for 0 */
+             alignment == 0 || ALIGNED(offs + i * sizeof(void *), alignment))) {
             if (start == -1)
                 start = i;
             count++;
