@@ -683,6 +683,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::~scheduler_tmpl_t()
                outputs_[i].stats[memtrace_stream_t::SCHED_STAT_DIRECT_SWITCH_ATTEMPTS]);
         VPRINT(this, 1, "  %-25s: %9" PRId64 "\n", "Direct switch successes",
                outputs_[i].stats[memtrace_stream_t::SCHED_STAT_DIRECT_SWITCH_SUCCESSES]);
+        VPRINT(this, 1, "  %-25s: %9" PRId64 "\n", "Migrations",
+               outputs_[i].stats[memtrace_stream_t::SCHED_STAT_MIGRATIONS]);
     }
 }
 
@@ -2620,6 +2622,14 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_cur_input(output_ordinal_t output,
     }
 
     std::lock_guard<std::mutex> lock(*inputs_[input].lock);
+
+    if (inputs_[input].prev_output != INVALID_OUTPUT_ORDINAL &&
+        inputs_[input].prev_output != output) {
+        VPRINT(this, 3, "output[%d] migrating input %d from output %d\n", output, input,
+               inputs_[input].prev_output);
+        ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_MIGRATIONS];
+    }
+    inputs_[input].prev_output = output;
 
     if (prev_input < 0 && outputs_[output].stream->version_ == 0) {
         // Set the version and filetype up front, to let the user query at init time

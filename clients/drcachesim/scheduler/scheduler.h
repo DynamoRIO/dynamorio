@@ -1297,6 +1297,7 @@ protected:
         bool needs_advance = false;
         bool needs_roi = true;
         bool at_eof = false;
+        output_ordinal_t prev_output = INVALID_OUTPUT_ORDINAL;
         uintptr_t next_timestamp = 0;
         uint64_t instrs_in_quantum = 0;
         int instrs_pre_read = 0;
