@@ -147,18 +147,19 @@ schedule_stats_t::parallel_shard_exit(void *shard_data)
 void
 schedule_stats_t::get_scheduler_stats(memtrace_stream_t *stream, counters_t &counters)
 {
-    counters.switches_input_to_input = stream->get_schedule_statistic(
-        memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_INPUT);
-    counters.switches_input_to_idle = stream->get_schedule_statistic(
-        memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_IDLE);
-    counters.switches_idle_to_input = stream->get_schedule_statistic(
-        memtrace_stream_t::SCHED_STAT_SWITCH_IDLE_TO_INPUT);
-    counters.switches_nop =
-        stream->get_schedule_statistic(memtrace_stream_t::SCHED_STAT_SWITCH_NOP);
-    counters.quantum_preempts =
-        stream->get_schedule_statistic(memtrace_stream_t::SCHED_STAT_QUANTUM_PREEMPTS);
-    counters.migrations =
-        stream->get_schedule_statistic(memtrace_stream_t::SCHED_STAT_MIGRATIONS);
+    counters.switches_input_to_input =
+        static_cast<int64_t>(stream->get_schedule_statistic(
+            memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_INPUT));
+    counters.switches_input_to_idle = static_cast<int64_t>(stream->get_schedule_statistic(
+        memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_IDLE));
+    counters.switches_idle_to_input = static_cast<int64_t>(stream->get_schedule_statistic(
+        memtrace_stream_t::SCHED_STAT_SWITCH_IDLE_TO_INPUT));
+    counters.switches_nop = static_cast<int64_t>(
+        stream->get_schedule_statistic(memtrace_stream_t::SCHED_STAT_SWITCH_NOP));
+    counters.quantum_preempts = static_cast<int64_t>(
+        stream->get_schedule_statistic(memtrace_stream_t::SCHED_STAT_QUANTUM_PREEMPTS));
+    counters.migrations = static_cast<int64_t>(
+        stream->get_schedule_statistic(memtrace_stream_t::SCHED_STAT_MIGRATIONS));
 
     // XXX: If we want to match what "perf" targeting this app would record, we
     // should remove idle-to-input and add input-to-idle (though generally those two
