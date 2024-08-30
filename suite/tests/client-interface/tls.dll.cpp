@@ -176,9 +176,47 @@ event_exit(void)
     drmgr_exit();
 }
 
+static void test_calloc(void)
+{
+    uint previously_allocated = 0;
+    for (int i = 0; i < 100; i++) {
+        uint total_allocated = 0;
+        uint min_offset = (uint)-1;
+        /* Randomly allocate until an unaligned allocation of
+         * a single slot fails, meaning space is exhausted.
+         */
+        for (;;) {
+            uint num_slots = rand() % 4 + 1; /* 1, 2, 3, 4 */
+            uint alignment = 1 << (rand() % 4) >> 1; /* 0, 1, 2, 4 */
+            reg_id_t reg;
+            uint offset;
+            if (dr_raw_tls_calloc(&reg, &offset, num_slots, alignment)) {
+                ASSERT(alignment == 0 || ALIGNED(offset, alignment));
+                total_allocated += num_slots;
+                if (offset < min_offset)
+                    min_offset = offset;
+            } else {
+                if (num_slots == 1 && alignment <= 1)
+                    break;
+            }
+        }
+        ASSERT(total_allocated > 0);
+        if (previously_allocated == 0)
+            previously_allocated = total_allocated;
+        else
+            ASSERT(previously_allocated == total_allocated);
+        /* Free the slots. */
+        ASSERT(dr_raw_tls_cfree(min_offset, total_allocated));
+        /* Check that a second attempt to free fails. */
+        ASSERT(!dr_raw_tls_cfree(min_offset + rand() % total_allocated, 1));
+    }
+}
+
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
+    test_calloc();
+
     drmgr_init();
 
     dr_register_exit_event(event_exit);
