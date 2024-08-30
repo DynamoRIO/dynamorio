@@ -10,6 +10,12 @@ Total counts:
            0 direct context switches
       100.00% voluntary switches
         0.00% direct switches
+           4 switches input-to-input
+           0 switches input-to-idle
+           0 switches idle-to-input
+           0 switches nop-ed
+           0 quantum_preempts
+           0 migrations
          161 system calls
            2 maybe-blocking system calls
            0 direct switch requests
