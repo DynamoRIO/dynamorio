@@ -486,6 +486,11 @@ drreg_insert_restore_all(void *drcontext, instrlist_t *bb, instr_t *inst,
          (instr_is_label(inst) &&
           ((ptr_uint_t)instr_get_note(inst) == DR_NOTE_ANNOTATION ||
            (ptr_uint_t)instr_get_note(inst) == DR_NOTE_REG_BARRIER)) ||
+         /* i#6417: in case of a syscall, restore the values of registers since
+          * they may be used as input parameters for the kernel. For example,
+          * ECX is used to store the length for mmap2.
+          */
+         instr_is_syscall(inst) ||
          /* DR slots are not guaranteed across app instrs */
          (pt->aflags.slot != MAX_SPILLS &&
           pt->aflags.slot >= (int)ops.num_spill_slots))) {
@@ -531,6 +536,11 @@ drreg_insert_restore_all(void *drcontext, instrlist_t *bb, instr_t *inst,
                 (instr_is_label(inst) &&
                  ((ptr_uint_t)instr_get_note(inst) == DR_NOTE_ANNOTATION ||
                   (ptr_uint_t)instr_get_note(inst) == DR_NOTE_REG_BARRIER)) ||
+                /* i#6417: in case of a syscall, restore the values of registers since
+                 * they may be used as input parameters for the kernel. For example,
+                 * ECX is used to store the length for mmap2.
+                 */
+                instr_is_syscall(inst) ||
                 /* Treat a partial write as a read, to restore rest of reg */
                 (instr_writes_to_reg(inst, reg, DR_QUERY_INCLUDE_ALL) &&
                  !instr_writes_to_exact_reg(inst, reg, DR_QUERY_INCLUDE_ALL)) ||
@@ -1346,7 +1356,13 @@ static drreg_status_t
 drreg_restore_reg_now(void *drcontext, instrlist_t *ilist, instr_t *inst,
                       per_thread_t *pt, reg_id_t reg)
 {
-    if (pt->reg[GPR_IDX(reg)].ever_spilled) {
+    /* i#6417: in case of a syscall, restore the values of registers since
+     * they may be used as input parameters for the kernel. For example,
+     * ECX is used to store the length for mmap2. Register used to store the
+     * output of the syscall is marked as not spilled, so we need to check for
+     * syscall as well.
+     */
+    if (pt->reg[GPR_IDX(reg)].ever_spilled || instr_is_syscall(inst)) {
         if (pt->reg[GPR_IDX(reg)].xchg != DR_REG_NULL) {
             /* XXX i#511: NYI */
             return DRREG_ERROR_FEATURE_NOT_AVAILABLE;
