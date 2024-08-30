@@ -161,10 +161,12 @@ schedule_stats_t::get_scheduler_stats(memtrace_stream_t *stream, counters_t &cou
     counters.migrations = static_cast<int64_t>(
         stream->get_schedule_statistic(memtrace_stream_t::SCHED_STAT_MIGRATIONS));
 
-    // XXX: If we want to match what "perf" targeting this app would record, we
-    // should remove idle-to-input and add input-to-idle (though generally those two
-    // counts are pretty similar).  OTOH, if we want to match what "perf" systemwide
-    // would record, we would want to add input-to-idle on top of what we have.
+    // XXX: Currently, schedule_stats is measuring swap-ins to a real input.  If we
+    // want to match what "perf" targeting this app would record, which is swap-outs,
+    // we should remove idle-to-input and add input-to-idle (though generally those
+    // two counts are pretty similar).  OTOH, if we want to match what "perf"
+    // systemwide would record, we would want to add input-to-idle on top of what we
+    // have today.
 }
 
 std::string
@@ -313,6 +315,8 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
         ? tid
         : input_id;
     if ((workload_id != prev_workload_id || tid != prev_tid) && tid != IDLE_THREAD_ID) {
+        // See XXX comment in get_scheduler_stats(): this measures swap-ins, while
+        // "perf" measures swap-outs.
         record_context_switch(shard, tid, input_id, letter_ord);
     }
     shard->prev_workload_id = workload_id;
