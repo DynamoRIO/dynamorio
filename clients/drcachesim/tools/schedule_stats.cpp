@@ -451,10 +451,13 @@ schedule_stats_t::aggregate_results(counters_t &total)
         total += shard.second->counters;
 
         // Sanity check against the scheduler's own stats, unless the trace
-        // is pre-scheduled or we're in core-serial mode where we don't have access
-        // to the separate output streams.
+        // is pre-scheduled, or we're in core-serial mode where we don't have access
+        // to the separate output streams, or we're in a unit test with a mock
+        // stream and no stats.
         if (TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, shard.second->filetype) ||
-            serial_stream_ != nullptr)
+            serial_stream_ != nullptr ||
+            shard.second->stream->get_schedule_statistic(
+                memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_INPUT) < 0)
             continue;
         // We assume our counts fit in the get_schedule_statistic()'s double's 54-bit
         // mantissa and thus we can safely use "==".

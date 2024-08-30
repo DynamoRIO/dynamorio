@@ -242,7 +242,7 @@ protected:
     aggregate_results(counters_t &total);
 
     void
-    get_scheduler_stats(memtrace_stream_t *stream, counters_t &shard);
+    get_scheduler_stats(memtrace_stream_t *stream, counters_t &counters);
 
     uint64_t knob_print_every_ = 0;
     unsigned int knob_verbose_ = 0;
