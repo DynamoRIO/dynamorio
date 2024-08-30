@@ -2967,7 +2967,13 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                         return eof_or_idle(output, need_lock, prev_index);
                     auto lock = std::unique_lock<std::mutex>(*inputs_[prev_index].lock);
                     // If we can't go back to the current input, we're EOF or idle.
-                    if (inputs_[prev_index].at_eof || inputs_[prev_index].unscheduled) {
+                    // TODO i#6959: We should go the EOF/idle route if
+                    // inputs_[prev_index].unscheduled as otherwise we're ignoring its
+                    // unscheduled transition: although if there are no other threads at
+                    // all (not just an empty queue) this turns into the eof_or_idle()
+                    // all-unscheduled scenario.  Once we have some kind of early exit
+                    // option we'll add the unscheduled check here.
+                    if (inputs_[prev_index].at_eof) {
                         lock.unlock();
                         return eof_or_idle(output, need_lock, prev_index);
                     } else
