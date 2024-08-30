@@ -2969,7 +2969,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                     // If we can't go back to the current input, we're EOF or idle.
                     // TODO i#6959: We should go the EOF/idle route if
                     // inputs_[prev_index].unscheduled as otherwise we're ignoring its
-                    // uncheduled transition: although if there are no other threads at
+                    // unscheduled transition: although if there are no other threads at
                     // all (not just an empty queue) this turns into the eof_or_idle()
                     // all-unscheduled scenario.  Once we have some kind of early exit
                     // option we'll add the unscheduled check here.
