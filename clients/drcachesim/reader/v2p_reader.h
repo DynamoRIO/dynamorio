@@ -45,6 +45,8 @@
 #ifndef _V2P_READER_H_
 #define _V2P_READER_H_ 1
 
+#include "trace_entry.h"
+
 #include <cstdint>
 #include <string>
 #include <unordered_map>
@@ -52,13 +54,19 @@
 namespace dynamorio {
 namespace drmemtrace {
 
+struct v2p_info_t {
+    uint64_t page_count;
+    uint64_t bytes_mapped;
+    size_t page_size;
+    std::unordered_map<addr_t, addr_t> v2p_map;
+};
+
 class v2p_reader_t {
 public:
     v2p_reader_t() = default;
 
     std::string
-    gen_v2p_map(std::string path_to_file,
-                std::unordered_map<uint64_t, uint64_t> &v2p_map);
+    gen_v2p_map(std::string path_to_file, v2p_info_t &v2p_info);
 };
 
 } // namespace drmemtrace

@@ -30,6 +30,7 @@
  * DAMAGE.
  */
 
+#include <cstdint>
 #include <iostream>
 #include <vector>
 #include "v2p_reader_unit_test.h"
@@ -39,50 +40,73 @@ namespace dynamorio {
 namespace drmemtrace {
 
 static void
-check_v2p_map(const std::unordered_map<uint64_t, uint64_t> &v2p_map)
+check_v2p_info(v2p_info_t &v2p_info)
 {
     // Change the number of entries if v2p_map_example.textproto is updated.
     // Must be equal to the number of "address_mapping {...}" blocks in the textproto.
-    constexpr uint64_t NUM_ENTRIES = 3;
-    if (v2p_map.size() != NUM_ENTRIES) {
+    constexpr std::size_t NUM_ENTRIES = 3;
+    if (v2p_info.v2p_map.size() != NUM_ENTRIES) {
         std::cerr << "v2p_map incorrect number of entries. Expected " << NUM_ENTRIES
-                  << " got " << v2p_map.size() << "\n";
+                  << " got " << v2p_info.v2p_map.size() << ".\n";
         exit(1);
     }
 
     // Virtual and physical addresses must be aligned with v2p_map_example.textproto.
-    const std::vector<uint64_t> virtual_addresses = { 0x123, 0x456, 0x789 };
-    const std::vector<uint64_t> physical_addresses = { 0x3, 0x4, 0x5 };
+    const std::vector<addr_t> virtual_addresses = { 0x123, 0x456, 0x789 };
+    const std::vector<addr_t> physical_addresses = { 0x3, 0x4, 0x5 };
     for (int i = 0; i < virtual_addresses.size(); ++i) {
-        auto key_val = v2p_map.find(virtual_addresses[i]);
-        if (key_val != v2p_map.end()) {
+        auto key_val = v2p_info.v2p_map.find(virtual_addresses[i]);
+        if (key_val != v2p_info.v2p_map.end()) {
             if (key_val->second != physical_addresses[i]) {
                 std::cerr << "v2p_map incorrect physical address. Expected "
-                          << physical_addresses[i] << " got " << key_val->second << "\n";
+                          << physical_addresses[i] << " got " << key_val->second << ".\n";
                 exit(1);
             }
         } else {
             std::cerr << "v2p_map incorrect virtual address. Expected "
-                      << virtual_addresses[i] << " not found\n";
+                      << virtual_addresses[i] << " not found.\n";
             exit(1);
         }
+    }
+
+    // Check page_size.
+    constexpr std::size_t PAGE_SIZE = 0x200000;
+    if (v2p_info.page_size != PAGE_SIZE) {
+        std::cerr << "Incorrect page size. Expected " << PAGE_SIZE << " got "
+                  << v2p_info.page_size << ".\n";
+        exit(1);
+    }
+
+    // Check page_count.
+    constexpr uint64_t PAGE_COUNT = 0x1;
+    if (v2p_info.page_count != PAGE_COUNT) {
+        std::cerr << "Incorrect page count. Expected " << PAGE_COUNT << " got "
+                  << v2p_info.page_count << ".\n";
+        exit(1);
+    }
+
+    // Check number of bytes_mapped.
+    constexpr uint64_t BYTES_MAPPED = 0x18;
+    if (v2p_info.bytes_mapped != BYTES_MAPPED) {
+        std::cerr << "Incorrect number of bytes mapped. Expected " << BYTES_MAPPED
+                  << " got " << v2p_info.bytes_mapped << ".\n";
+        exit(1);
     }
 }
 
 void
 unit_test_v2p_reader(const char *testdir)
 {
-    std::unordered_map<uint64_t, uint64_t> v2p_map;
     std::string file_path = std::string(testdir) + "/v2p_map_example.textproto";
-
+    v2p_info_t v2p_info;
     v2p_reader_t v2p_reader;
-    std::string error_str = v2p_reader.gen_v2p_map(file_path, v2p_map);
+    std::string error_str = v2p_reader.gen_v2p_map(file_path, v2p_info);
     if (!error_str.empty()) {
         std::cerr << "v2p_reader failed with: " << error_str << "\n";
         exit(1);
     }
 
-    check_v2p_map(v2p_map);
+    check_v2p_info(v2p_info);
 }
 
 } // namespace drmemtrace

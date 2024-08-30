@@ -49,8 +49,7 @@ namespace dynamorio {
 namespace drmemtrace {
 
 std::string
-v2p_reader_t::gen_v2p_map(std::string path_to_file,
-                          std::unordered_map<uint64_t, uint64_t> &v2p_map)
+v2p_reader_t::gen_v2p_map(std::string path_to_file, v2p_info_t &v2p_info)
 {
     std::stringstream error_ss;
     std::ifstream file(path_to_file);
@@ -60,6 +59,9 @@ v2p_reader_t::gen_v2p_map(std::string path_to_file,
     }
 
     const std::string separator = ":";
+    const std::string page_size_key = "page_size";
+    const std::string page_count_key = "page_count";
+    const std::string bytes_mapped_key = "bytes_mapped";
     const std::string virtual_address_key = "virtual_address";
     const std::string physical_address_key = "physical_address";
     // Assumes virtual_address 0 is not in the v2p file.
@@ -68,31 +70,67 @@ v2p_reader_t::gen_v2p_map(std::string path_to_file,
     while (std::getline(file, line)) {
         std::size_t found = line.find(virtual_address_key);
         if (found != std::string::npos) {
-            std::vector<std::string> key_val_pair = split_by(line, ":");
+            std::vector<std::string> key_val_pair = split_by(line, separator);
             if (key_val_pair.size() != 2) {
-                error_ss << "ERROR: virtual_address key or value mismatch.";
+                error_ss << "ERROR: " << virtual_address_key
+                         << " key or value not found.";
                 return error_ss.str();
             }
             virtual_address = std::stoull(key_val_pair[1], nullptr, 0);
             continue;
         }
+
         found = line.find(physical_address_key);
         if (found != std::string::npos) {
-            std::vector<std::string> key_val_pair = split_by(line, ":");
+            std::vector<std::string> key_val_pair = split_by(line, separator);
             if (key_val_pair.size() != 2) {
-                error_ss << "ERROR: physical_address key or value mismatch.";
+                error_ss << "ERROR: " << physical_address_key
+                         << " key or value not found.";
                 return error_ss.str();
             }
             if (virtual_address == 0) {
-                error_ss << "ERROR: no corresponding virtual_address for this "
-                            "physical_address "
-                         << key_val_pair[1] << ".";
+                error_ss << "ERROR: no corresponding " << virtual_address_key
+                         << " for this " << physical_address_key << " " << key_val_pair[1]
+                         << ".";
                 return error_ss.str();
             }
             uint64_t physical_address = std::stoull(key_val_pair[1], nullptr, 0);
-            v2p_map[virtual_address] = physical_address;
+            v2p_info.v2p_map[virtual_address] = physical_address;
         }
         virtual_address = 0;
+
+        found = line.find(page_size_key);
+        if (found != std::string::npos) {
+            std::vector<std::string> key_val_pair = split_by(line, separator);
+            if (key_val_pair.size() != 2) {
+                error_ss << "ERROR: " << page_size_key << " key or value not found.";
+                return error_ss.str();
+            }
+            v2p_info.page_size = std::stoull(key_val_pair[1], nullptr, 0);
+            continue;
+        }
+
+        found = line.find(page_count_key);
+        if (found != std::string::npos) {
+            std::vector<std::string> key_val_pair = split_by(line, separator);
+            if (key_val_pair.size() != 2) {
+                error_ss << "ERROR: " << page_count_key << " key or value not found.";
+                return error_ss.str();
+            }
+            v2p_info.page_count = std::stoull(key_val_pair[1], nullptr, 0);
+            continue;
+        }
+
+        found = line.find(bytes_mapped_key);
+        if (found != std::string::npos) {
+            std::vector<std::string> key_val_pair = split_by(line, separator);
+            if (key_val_pair.size() != 2) {
+                error_ss << "ERROR: " << bytes_mapped_key << " key or value not found.";
+                return error_ss.str();
+            }
+            v2p_info.bytes_mapped = std::stoull(key_val_pair[1], nullptr, 0);
+            continue;
+        }
     }
 
     return "";
