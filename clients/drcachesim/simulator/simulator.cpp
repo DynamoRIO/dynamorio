@@ -45,6 +45,7 @@
 #include "options.h"
 #include "utils.h"
 #include "trace_entry.h"
+#include "v2p_reader.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -85,6 +86,21 @@ simulator_t::init_knobs(unsigned int num_cores, uint64_t skip_refs, uint64_t war
         success_ = false;
         return;
     }
+}
+
+void
+simulator_t::init_v2p_from_file(std::string v2p_file_path)
+{
+    v2p_reader_t v2p_reader;
+    v2p_info_t v2p_info;
+    std::string error_str = v2p_reader.init_v2p_info_from_file(v2p_file_path, v2p_info);
+    if (!error_str.empty()) {
+        ERRMSG("Error: v2p_reader failed with: %s", error_str.c_str());
+        success_ = false;
+        return;
+    }
+    virt2phys_ = v2p_info.v2p_map;
+    page_size_ = v2p_info.page_size;
 }
 
 std::string

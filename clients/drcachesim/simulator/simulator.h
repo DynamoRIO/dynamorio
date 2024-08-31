@@ -71,6 +71,9 @@ public:
     bool
     process_memref(const memref_t &memref) override;
 
+    void
+    init_v2p_from_file(std::string v2p_file);
+
 protected:
     // Initialize knobs. Success or failure is indicated by setting/resetting
     // the success variable.
@@ -78,17 +81,22 @@ protected:
     init_knobs(unsigned int num_cores, uint64_t skip_refs, uint64_t warmup_refs,
                double warmup_fraction, uint64_t sim_refs, bool cpu_scheduling,
                bool use_physical, unsigned int verbose);
+
     void
     print_core(int core) const;
+
     int
     find_emptiest_core(std::vector<int> &counts) const;
+
     virtual int
     core_for_thread(memref_tid_t tid);
+
     virtual void
     handle_thread_exit(memref_tid_t tid);
 
     addr_t
     virt2phys(addr_t virt) const;
+
     memref_t
     memref2phys(memref_t memref) const;
 
