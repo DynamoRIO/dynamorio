@@ -37,7 +37,6 @@
 #include <stdint.h>
 
 #include <cstdlib>
-#include <iostream>
 #include <fstream>
 #include <string>
 #include <unordered_map>
@@ -52,6 +51,11 @@ std::string
 v2p_reader_t::init_v2p_info_from_file(std::string path_to_file, v2p_info_t &v2p_info)
 {
     std::stringstream error_ss;
+    if (path_to_file.empty()) {
+        error_ss << "ERROR: Path to v2p.textproto is empty.";
+        return error_ss.str();
+    }
+
     std::ifstream file(path_to_file);
     if (!file.is_open()) {
         error_ss << "ERROR: Failed to open " << path_to_file << ".";
