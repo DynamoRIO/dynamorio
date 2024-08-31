@@ -100,7 +100,7 @@ unit_test_v2p_reader(const char *testdir)
     std::string file_path = std::string(testdir) + "/v2p_map_example.textproto";
     v2p_info_t v2p_info;
     v2p_reader_t v2p_reader;
-    std::string error_str = v2p_reader.gen_v2p_map(file_path, v2p_info);
+    std::string error_str = v2p_reader.init_v2p_info_from_file(file_path, v2p_info);
     if (!error_str.empty()) {
         std::cerr << "v2p_reader failed with: " << error_str << "\n";
         exit(1);

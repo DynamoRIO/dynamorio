@@ -66,7 +66,7 @@ public:
     v2p_reader_t() = default;
 
     std::string
-    gen_v2p_map(std::string path_to_file, v2p_info_t &v2p_info);
+    init_v2p_info_from_file(std::string path_to_file, v2p_info_t &v2p_info);
 };
 
 } // namespace drmemtrace

@@ -49,7 +49,7 @@ namespace dynamorio {
 namespace drmemtrace {
 
 std::string
-v2p_reader_t::gen_v2p_map(std::string path_to_file, v2p_info_t &v2p_info)
+v2p_reader_t::init_v2p_info_from_file(std::string path_to_file, v2p_info_t &v2p_info)
 {
     std::stringstream error_ss;
     std::ifstream file(path_to_file);
