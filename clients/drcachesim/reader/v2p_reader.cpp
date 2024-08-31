@@ -69,7 +69,7 @@ v2p_reader_t::init_v2p_info_from_file(std::string path_to_file, v2p_info_t &v2p_
     const std::string virtual_address_key = "virtual_address";
     const std::string physical_address_key = "physical_address";
     // Assumes virtual_address 0 is not in the v2p file.
-    uint64_t virtual_address = 0;
+    addr_t virtual_address = 0;
     std::string line;
     while (std::getline(file, line)) {
         std::size_t found = line.find(virtual_address_key);
@@ -80,7 +80,8 @@ v2p_reader_t::init_v2p_info_from_file(std::string path_to_file, v2p_info_t &v2p_
                          << " key or value not found.";
                 return error_ss.str();
             }
-            virtual_address = std::stoull(key_val_pair[1], nullptr, 0);
+            virtual_address =
+                static_cast<addr_t>(std::stoull(key_val_pair[1], nullptr, 0));
             continue;
         }
 
@@ -98,7 +99,8 @@ v2p_reader_t::init_v2p_info_from_file(std::string path_to_file, v2p_info_t &v2p_
                          << ".";
                 return error_ss.str();
             }
-            uint64_t physical_address = std::stoull(key_val_pair[1], nullptr, 0);
+            addr_t physical_address =
+                static_cast<addr_t>(std::stoull(key_val_pair[1], nullptr, 0));
             v2p_info.v2p_map[virtual_address] = physical_address;
         }
         virtual_address = 0;
@@ -110,7 +112,8 @@ v2p_reader_t::init_v2p_info_from_file(std::string path_to_file, v2p_info_t &v2p_
                 error_ss << "ERROR: " << page_size_key << " key or value not found.";
                 return error_ss.str();
             }
-            v2p_info.page_size = std::stoull(key_val_pair[1], nullptr, 0);
+            v2p_info.page_size =
+                static_cast<size_t>(std::stoull(key_val_pair[1], nullptr, 0));
             continue;
         }
 

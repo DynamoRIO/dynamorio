@@ -44,7 +44,7 @@ check_v2p_info(v2p_info_t &v2p_info)
 {
     // Change the number of entries if v2p_map_example.textproto is updated.
     // Must be equal to the number of "address_mapping {...}" blocks in the textproto.
-    constexpr std::size_t NUM_ENTRIES = 3;
+    constexpr size_t NUM_ENTRIES = 3;
     if (v2p_info.v2p_map.size() != NUM_ENTRIES) {
         std::cerr << "v2p_map incorrect number of entries. Expected " << NUM_ENTRIES
                   << " got " << v2p_info.v2p_map.size() << ".\n";
@@ -70,7 +70,7 @@ check_v2p_info(v2p_info_t &v2p_info)
     }
 
     // Check page_size.
-    constexpr std::size_t PAGE_SIZE = 0x200000;
+    constexpr size_t PAGE_SIZE = 0x200000;
     if (v2p_info.page_size != PAGE_SIZE) {
         std::cerr << "Incorrect page size. Expected " << PAGE_SIZE << " got "
                   << v2p_info.page_size << ".\n";
