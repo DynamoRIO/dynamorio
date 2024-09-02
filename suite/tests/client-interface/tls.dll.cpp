@@ -176,7 +176,8 @@ event_exit(void)
     drmgr_exit();
 }
 
-static void test_calloc(void)
+static void
+test_calloc(void)
 {
     uint previously_allocated = 0;
     for (int i = 0; i < 100; i++) {
@@ -186,7 +187,7 @@ static void test_calloc(void)
          * a single slot fails, meaning space is exhausted.
          */
         for (;;) {
-            uint num_slots = rand() % 4 + 1; /* 1, 2, 3, 4 */
+            uint num_slots = rand() % 4 + 1;         /* 1, 2, 3, 4 */
             uint alignment = 1 << (rand() % 4) >> 1; /* 0, 1, 2, 4 */
             reg_id_t reg;
             uint offset;
