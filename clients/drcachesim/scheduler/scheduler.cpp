@@ -683,6 +683,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::~scheduler_tmpl_t()
                outputs_[i].stats[memtrace_stream_t::SCHED_STAT_DIRECT_SWITCH_ATTEMPTS]);
         VPRINT(this, 1, "  %-25s: %9" PRId64 "\n", "Direct switch successes",
                outputs_[i].stats[memtrace_stream_t::SCHED_STAT_DIRECT_SWITCH_SUCCESSES]);
+        VPRINT(this, 1, "  %-25s: %9" PRId64 "\n", "Migrations",
+               outputs_[i].stats[memtrace_stream_t::SCHED_STAT_MIGRATIONS]);
     }
 }
 
@@ -2621,6 +2623,14 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_cur_input(output_ordinal_t output,
 
     std::lock_guard<std::mutex> lock(*inputs_[input].lock);
 
+    if (inputs_[input].prev_output != INVALID_OUTPUT_ORDINAL &&
+        inputs_[input].prev_output != output) {
+        VPRINT(this, 3, "output[%d] migrating input %d from output %d\n", output, input,
+               inputs_[input].prev_output);
+        ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_MIGRATIONS];
+    }
+    inputs_[input].prev_output = output;
+
     if (prev_input < 0 && outputs_[output].stream->version_ == 0) {
         // Set the version and filetype up front, to let the user query at init time
         // as documented.  Also set the other fields in case we did a skip for ROI.
@@ -2956,6 +2966,13 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                     if (prev_index == INVALID_INPUT_ORDINAL)
                         return eof_or_idle(output, need_lock, prev_index);
                     auto lock = std::unique_lock<std::mutex>(*inputs_[prev_index].lock);
+                    // If we can't go back to the current input, we're EOF or idle.
+                    // TODO i#6959: We should go the EOF/idle route if
+                    // inputs_[prev_index].unscheduled as otherwise we're ignoring its
+                    // unscheduled transition: although if there are no other threads at
+                    // all (not just an empty queue) this turns into the eof_or_idle()
+                    // all-unscheduled scenario.  Once we have some kind of early exit
+                    // option we'll add the unscheduled check here.
                     if (inputs_[prev_index].at_eof) {
                         lock.unlock();
                         return eof_or_idle(output, need_lock, prev_index);
