@@ -165,6 +165,7 @@ loader_should_call_entry(privmod_t *mod)
 void
 loader_init_prologue(void)
 {
+    /* On Unix this is done (slightly differently) in loader_init_epilogue. */
 #ifdef WINDOWS
     acquire_recursive_lock(&privload_lock);
     VMVECTOR_ALLOC_VECTOR(modlist_areas, GLOBAL_DCONTEXT,
