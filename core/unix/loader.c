@@ -1147,7 +1147,12 @@ privload_call_lib_func(dcontext_t *dcontext, privmod_t *privmod, fp_t func)
      */
     dummy_argv[0] = dummy_str;
     dummy_argv[1] = NULL;
-    func(1, dummy_argv, our_environ);
+    TRY_EXCEPT_ALLOW_NO_DCONTEXT(
+        dcontext, { func(1, dummy_argv, our_environ); },
+        { /* EXCEPT */
+          SYSLOG_INTERNAL_ERROR("Private library %s init/fini func " PFX " crashed",
+                                privmod->name, func);
+        });
 }
 
 bool
