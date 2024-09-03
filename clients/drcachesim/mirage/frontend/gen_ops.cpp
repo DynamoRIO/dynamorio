@@ -57,6 +57,39 @@ void gen_mov_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translat
     dst_set_opnd_by_type(dst0, core_insn, mir_insns_list, ctx);
 }
 
+void gen_lea_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
+    assert(instr_num_srcs(instr) == 1);
+    assert(instr_num_dsts(instr) == 1);
+
+    opnd_t src0 = instr_get_src(instr, 0);
+    opnd_t dst0 = instr_get_dst(instr, 0);
+    assert(opnd_is_reg(dst0));
+
+    // TODO: make this a helper function if more insns needs this common pattern
+    if (opnd_is_abs_addr(src0) || opnd_is_rel_addr(src0)) {
+        mir_insn_t* core_insn = mir_insn_malloc(MIR_OP_MOV);
+        mir_insn_push_front(mir_insns_list, core_insn);
+        uint64_t addr = (uint64_t)opnd_get_addr(src0);
+        mir_insn_set_src0_reg(core_insn, DR_REG_NULL);
+        mir_insn_set_src1_imm(core_insn, addr);
+        mir_insn_set_dst_reg(core_insn, DR_REG_NULL);
+    }
+    else if (opnd_is_base_disp(src0)) {
+        // ADD base, disp -> dst
+        reg_id_t base = opnd_get_base(src0);
+        int32_t disp = opnd_get_disp(src0);
+        mir_insn_t* add_insn = mir_insn_malloc(MIR_OP_ADD);
+        mir_insn_push_back(mir_insns_list, add_insn);
+        mir_insn_set_src0_reg(add_insn, base);
+        mir_insn_set_src1_imm(add_insn, disp);
+        mir_insn_set_dst_reg(add_insn, DR_REG_NULL);
+    }
+    else {
+        printf("unsupported opnd type\n");
+        assert(false);
+    }
+}
+
 // FIXME: performance optimize the assertions, or potentialy remove them
 // push -> [sp_sub_insn, store_insn]
 void gen_push_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {

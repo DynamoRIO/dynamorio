@@ -11,15 +11,7 @@ void dr_gen_mir_ops(instr_t *instr) {
 
     switch (opc) {
         
-        // All movs are handled the same way
-        case OP_mov_ld:
-        case OP_mov_st:
-        case OP_mov_imm:
-        case OP_mov_seg:
-        case OP_mov_priv:
-            gen_mov_op(instr, &insn_list, ctx);
-            break;
-            
+
         // Arithmetic & Bitwise instructions
         case OP_add:
             gen_add_op(instr, &insn_list, ctx);
@@ -39,7 +31,17 @@ void dr_gen_mir_ops(instr_t *instr) {
         case OP_xor:
             gen_xor_op(instr, &insn_list, ctx);
             break;
-        
+        // All movs are handled the same way
+        case OP_mov_ld:
+        case OP_mov_st:
+        case OP_mov_imm:
+        case OP_mov_seg:
+        case OP_mov_priv:
+            gen_mov_op(instr, &insn_list, ctx);
+            break;
+        case OP_lea:
+            gen_lea_op(instr, &insn_list, ctx);
+            break;
         // Compounded instructions
         case OP_push:
             gen_push_op(instr, &insn_list, ctx);
