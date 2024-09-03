@@ -10,6 +10,8 @@
 #include "assert.h"
 #include "string.h"
 
+#define PRINT_HEX_THRESHOLD 0x1000
+
 struct mir_insn_t {
     mir_opc_t op;          // The opcode of the MIR instruction
     mir_opnd_t opnd0;     // The first source operand of the MIR instruction

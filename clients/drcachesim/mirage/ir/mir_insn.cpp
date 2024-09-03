@@ -24,6 +24,18 @@ const char* get_mir_opnd_name(reg_id_t reg) {
     return NULL;
 }
 
+void mir_opnd_to_str(mir_opnd_t opnd, char* buffer, size_t buffer_size) {
+    if (opnd.type == MIR_OPND_REG) {
+        snprintf(buffer, buffer_size, "R[%s](%d)", get_mir_opnd_name(opnd.value.reg), opnd.value.reg);
+    } else if (opnd.type == MIR_OPND_IMM) {
+        if (opnd.value.imm < PRINT_HEX_THRESHOLD) {
+            snprintf(buffer, buffer_size, "I[%ld]", opnd.value.imm);
+        } else {
+            snprintf(buffer, buffer_size, "I[0x%lx]", opnd.value.imm);
+        }
+    }
+}
+
 const char* mir_insn_to_str(mir_insn_t* insn) {
     static char buffer[256];
     const char* op_str = mir_opc_to_str(insn->op);
@@ -32,23 +44,9 @@ const char* mir_insn_to_str(mir_insn_t* insn) {
     static char opnd1_str[256];
     static char dst_str[256];
 
-    if (insn->opnd0.type == MIR_OPND_REG) {
-        snprintf(opnd0_str, sizeof(opnd0_str), "R[%s](%d)", get_mir_opnd_name(insn->opnd0.value.reg), insn->opnd0.value.reg);
-    } else if (insn->opnd0.type == MIR_OPND_IMM) {
-        snprintf(opnd0_str, sizeof(opnd0_str), "I[%ld]", insn->opnd0.value.imm);
-    }
-
-    if (insn->opnd1.type == MIR_OPND_REG) {
-        snprintf(opnd1_str, sizeof(opnd1_str), "R[%s](%d)", get_mir_opnd_name(insn->opnd1.value.reg), insn->opnd1.value.reg);
-    } else if (insn->opnd1.type == MIR_OPND_IMM) {
-        snprintf(opnd1_str, sizeof(opnd1_str), "I[%ld]", insn->opnd1.value.imm);
-    }
-
-    if (insn->dst.type == MIR_OPND_REG) {
-        snprintf(dst_str, sizeof(dst_str), "R[%s](%d)", get_mir_opnd_name(insn->dst.value.reg), insn->dst.value.reg);
-    } else if (insn->dst.type == MIR_OPND_IMM) {
-        snprintf(dst_str, sizeof(dst_str), "I[%ld]", insn->dst.value.imm);
-    }
+    mir_opnd_to_str(insn->opnd0, opnd0_str, sizeof(opnd0_str));
+    mir_opnd_to_str(insn->opnd1, opnd1_str, sizeof(opnd1_str));
+    mir_opnd_to_str(insn->dst, dst_str, sizeof(dst_str));
 
     if (mir_opc_is_store(insn->op)) {
         snprintf(buffer, sizeof(buffer), "%s %s -> [%s + %s]", op_str, dst_str, opnd1_str, opnd0_str);
