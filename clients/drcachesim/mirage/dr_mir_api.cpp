@@ -26,6 +26,12 @@ void dr_gen_mir_ops(instr_t *instr) {
         case OP_xor:
             gen_xor_op(instr, &insn_list, ctx);
             break;
+        case OP_shl:
+            gen_shl_op(instr, &insn_list, ctx);
+            break;
+        case OP_shr:
+            gen_shr_op(instr, &insn_list, ctx);
+            break;
         // All movs are handled the same way
         case OP_mov_ld:
         case OP_mov_st:

@@ -35,7 +35,6 @@ typedef enum {
     // MIR_OP_REMUI,// reg-imm unsigned-rem
 
     // Bitwise
-
     MIR_OP_AND,  // reg-reg and
     // MIR_OP_ANDI, // reg-imm and
 
@@ -44,6 +43,9 @@ typedef enum {
 
     MIR_OP_XOR,  // reg-reg xor
     // MIR_OP_XORI, // reg-imm xor
+
+    MIR_OP_SHL,  // reg-reg shift left
+    MIR_OP_SHR,  // reg-reg shift right
 
     // Memory
 

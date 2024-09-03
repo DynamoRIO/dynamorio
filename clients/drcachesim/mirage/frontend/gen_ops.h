@@ -17,6 +17,9 @@ void gen_or_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate
 void gen_and_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx);
 void gen_xor_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx);
 
+void gen_shl_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx);
+void gen_shr_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx);
+
 void gen_mov_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx);
 void gen_lea_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx);
 

@@ -37,6 +37,14 @@ void gen_xor_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translat
     _gen_arith_op(instr, MIR_OP_XOR, mir_insns_list, ctx);
 }
 
+void gen_shl_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
+    _gen_arith_op(instr, MIR_OP_SHL, mir_insns_list, ctx);
+}
+
+void gen_shr_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
+    _gen_arith_op(instr, MIR_OP_SHR, mir_insns_list, ctx);
+}
+
 void gen_mov_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
     assert(instr_num_srcs(instr) == 1);
     assert(instr_num_dsts(instr) == 1);
