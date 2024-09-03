@@ -28,10 +28,13 @@ const char* get_opnd_type(opnd_t opnd) {
     return "unknown";
 }
 
+// Helper function to generate a load instruction from a memory reference
 void gen_src0_from_memref(opnd_t opnd, mir_insn_t* insn, mir_insn_list_t* mir_insns_list, struct translate_context_t *ctx) {
+    // statically inferable address
     if (opnd_is_abs_addr(opnd) || opnd_is_rel_addr(opnd)) {
         gen_src0_load_from_abs_addr(opnd, insn, mir_insns_list, ctx);
     }
+    // register-value dependent address
     else if (opnd_is_base_disp(opnd)) {
         gen_src0_load_from_base_disp(opnd, insn, mir_insns_list, ctx);
     } else {
@@ -39,30 +42,57 @@ void gen_src0_from_memref(opnd_t opnd, mir_insn_t* insn, mir_insn_list_t* mir_in
     }
 }
 
+// Helper function to generate a load instruction from a memory reference
 void gen_src1_from_memref(opnd_t opnd, mir_insn_t* insn, mir_insn_list_t* mir_insns_list, struct translate_context_t *ctx) {
+    // statically inferable address
     if (opnd_is_abs_addr(opnd) || opnd_is_rel_addr(opnd)) {
         gen_src1_load_from_abs_addr(opnd, insn, mir_insns_list, ctx);
     }
+    // register-value dependent address
     else if (opnd_is_base_disp(opnd)) {
         gen_src1_load_from_base_disp(opnd, insn, mir_insns_list, ctx);
     }
 }
 
+// Helper function to generate a load instruction from a memory reference
+// called on dst of a store, but generates a load (special case handling)
 void gen_src2_from_memref(opnd_t opnd, mir_insn_t* insn, mir_insn_list_t* mir_insns_list, struct translate_context_t *ctx) {
+    // statically inferable address
     if (opnd_is_abs_addr(opnd) || opnd_is_rel_addr(opnd)) {
         gen_src2_load_from_abs_addr(opnd, insn, mir_insns_list, ctx);
     }
+    // register-value dependent address
     else if (opnd_is_base_disp(opnd)) {
         gen_src2_load_from_base_disp(opnd, insn, mir_insns_list, ctx);
     }
 }
 
+// Helper function to generate a store instruction to a memory reference
 void gen_dst_to_memref(opnd_t opnd, mir_insn_t* insn, mir_insn_list_t* mir_insns_list, struct translate_context_t *ctx) {
+    // statically inferable address
     if (opnd_is_abs_addr(opnd) || opnd_is_rel_addr(opnd)) {
         gen_dst_store_to_abs_addr(opnd, insn, mir_insns_list, ctx);
     }
+    // register-value dependent address
     else if (opnd_is_base_disp(opnd)) {
         gen_dst_store_to_base_disp(opnd, insn, mir_insns_list, ctx);
+    }
+}
+
+void set_srcs_from_memref(opnd_t opnd, mir_insn_t* insn, mir_insn_list_t* mir_insns_list, struct translate_context_t *ctx) {
+    if (opnd_is_abs_addr(opnd) || opnd_is_rel_addr(opnd)) {
+        void *addr = opnd_get_addr(opnd);
+        mir_insn_set_src0_reg(insn, DR_REG_NULL);
+        mir_insn_set_src1_imm(insn, (int64_t)addr);
+        mir_insn_set_dst_reg(insn, DR_REG_NULL);
+    }
+    // base-displacement
+    else if (opnd_is_base_disp(opnd)) {
+        reg_id_t base = opnd_get_base(opnd);
+        int32_t disp = opnd_get_disp(opnd);
+        mir_insn_set_src0_reg(insn, base);
+        mir_insn_set_src1_imm(insn, disp);
+        mir_insn_set_dst_reg(insn, DR_REG_NULL);
     }
 }
 
@@ -94,16 +124,19 @@ void gen_src0_load_from_abs_addr(opnd_t opnd, mir_insn_t* insn,
     _gen_load_from_abs_addr(opnd, insn, mir_insns_list, 0, ctx);
 }
 
+// A helper function to generate a load instruction from a absolute address src
 void gen_src1_load_from_abs_addr(opnd_t opnd, mir_insn_t* insn, 
                         mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
     _gen_load_from_abs_addr(opnd, insn, mir_insns_list, 1, ctx);
 }
 
+// A helper function to generate a load instruction from a absolute address src
 void gen_src2_load_from_abs_addr(opnd_t opnd, mir_insn_t* insn, 
                         mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
     _gen_load_from_abs_addr(opnd, insn, mir_insns_list, 2, ctx);
 }
 
+// A helper function to generate a store instruction to a absolute address dst
 void gen_dst_store_to_abs_addr(opnd_t opnd, mir_insn_t* insn, 
                         mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
 
@@ -181,6 +214,10 @@ void gen_dst_store_to_base_disp(opnd_t opnd, mir_insn_t* insn,
     return;
 }
 
+// Higher-level wrapper function that distinguishes between different types of opnds
+// Register: insn->src0 = reg.opnd
+// Immediate: insn->src0 = imm.opnd
+// Memory: call gen_src0_from_memref
 void src0_set_opnd_by_type(opnd_t opnd, mir_insn_t* insn, 
                         mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
     if (opnd_is_reg(opnd)) {
@@ -200,6 +237,10 @@ void src0_set_opnd_by_type(opnd_t opnd, mir_insn_t* insn,
     }
 }
 
+// Higher-level wrapper function that distinguishes between different types of opnds
+// Register: insn->src1 = reg.opnd
+// Immediate: insn->src1 = imm.opnd
+// Memory: call gen_src1_from_memref
 void src1_set_opnd_by_type(opnd_t opnd, mir_insn_t* insn, 
                         mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
     if (opnd_is_reg(opnd)) {
@@ -228,6 +269,9 @@ void src2_set_opnd_by_type(opnd_t opnd, mir_insn_t* insn,
     }
 }
 
+// Higher-level wrapper function that distinguishes between different types of opnds
+// Register: insn->dst = reg.opnd
+// Memory: call gen_dst_to_memref
 void dst_set_opnd_by_type(opnd_t opnd, mir_insn_t* insn, 
                         mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
     if (opnd_is_reg(opnd)) {

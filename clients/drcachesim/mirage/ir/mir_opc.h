@@ -62,6 +62,9 @@ typedef enum {
     MIR_OP_ST32, // store 32-bit
     MIR_OP_ST64, // store 64-bit
 
+    // CONTROL FLOW
+    MIR_OP_JMP,
+    MIR_OP_BR,
 } mir_opc_t;
 
 static const char* mir_opc_str[] = {
@@ -85,6 +88,8 @@ static const char* mir_opc_str[] = {
     "ST16",
     "ST32",
     "ST64",
+    "JMP",
+    "BR",
 };
 
 inline const char* mir_opc_to_str(mir_opc_t op){

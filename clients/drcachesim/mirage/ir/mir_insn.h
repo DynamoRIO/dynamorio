@@ -33,14 +33,10 @@ void mir_insn_set_src0_imm(mir_insn_t *insn, int64_t imm);
 void mir_insn_set_src1_reg(mir_insn_t *insn, reg_id_t reg);
 void mir_insn_set_src1_imm(mir_insn_t *insn, int64_t imm);
 void mir_insn_set_dst_reg(mir_insn_t *insn, reg_id_t reg);
+void mir_insn_set_dst_imm(mir_insn_t *insn, int64_t imm); // useful for storing immediates
 
 // Set the opcode of a MIR instruction
 void mir_insn_set_op(mir_insn_t *insn, mir_opc_t op);
-
-// set to an existing opnd
-void mir_insn_set_src0(mir_insn_t *insn, mir_opnd_t *opnd);
-void mir_insn_set_src1(mir_insn_t *insn, mir_opnd_t *opnd);
-void mir_insn_set_dst(mir_insn_t *insn, mir_opnd_t *opnd);
 
 // LIST of MIR
 typedef struct list mir_insn_list_t;

@@ -9,10 +9,18 @@
 
 const char* get_opnd_type(opnd_t opnd);
 
+/* helpers for generating the opnds of mir_insn based on the type of the opnds
+    used when the original x86 instruction has memory reference as operand
+*/
 void gen_src0_from_memref(opnd_t opnd, mir_insn_t* insn, mir_insn_list_t* mir_insns_list, struct translate_context_t *ctx);
 void gen_src1_from_memref(opnd_t opnd, mir_insn_t* insn, mir_insn_list_t* mir_insns_list, struct translate_context_t *ctx);
 void gen_src2_from_memref(opnd_t opnd, mir_insn_t* insn, mir_insn_list_t* mir_insns_list, struct translate_context_t *ctx);
 void gen_dst_to_memref(opnd_t opnd, mir_insn_t* insn, mir_insn_list_t* mir_insns_list, struct translate_context_t *ctx);
+
+/* helpers for setting the opnds of mir_insn based on the type of the opnds
+    used when the original x86 instruction intends to jump to a memory reference
+*/
+void set_srcs_from_memref(opnd_t opnd, mir_insn_t* insn, mir_insn_list_t* mir_insns_list, struct translate_context_t *ctx);
 
 void src0_set_opnd_by_type(opnd_t opnd, mir_insn_t* insn, mir_insn_list_t* mir_insns_list, struct translate_context_t *ctx);
 void src1_set_opnd_by_type(opnd_t opnd, mir_insn_t* insn, mir_insn_list_t* mir_insns_list, struct translate_context_t *ctx);

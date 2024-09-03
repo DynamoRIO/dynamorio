@@ -1,5 +1,6 @@
 #include "gen_ops.h"
 
+   
 void _gen_arith_op(instr_t *instr, mir_opc_t op, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
     assert(instr_num_srcs(instr) == 2);
     assert(instr_num_dsts(instr) == 1);
@@ -21,8 +22,8 @@ void gen_add_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translat
 }
 
 void gen_adc_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
-    uint eflags = instr_get_eflags(instr, DR_QUERY_INCLUDE_ALL);
-    printf("eflags: %x\n", eflags);
+    uint r_eflags = instr_get_eflags(instr, DR_QUERY_INCLUDE_COND_SRCS);
+    printf("r_eflags: %x\n", r_eflags);
 }
 
 void gen_sub_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
@@ -41,28 +42,43 @@ void gen_xor_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translat
     _gen_arith_op(instr, MIR_OP_XOR, mir_insns_list, ctx);
 }
 
+void gen_mov_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
+    assert(instr_num_srcs(instr) == 1);
+    assert(instr_num_dsts(instr) == 1);
 
+    opnd_t src0 = instr_get_src(instr, 0);
+    opnd_t dst0 = instr_get_dst(instr, 0);
 
+    mir_insn_t* core_insn = mir_insn_malloc(MIR_OP_MOV);
+    mir_insn_push_front(mir_insns_list, core_insn);
+
+    src0_set_opnd_by_type(src0, core_insn, mir_insns_list, ctx);
+    mir_insn_set_src1_imm(core_insn, 0);
+    dst_set_opnd_by_type(dst0, core_insn, mir_insns_list, ctx);
+}
+
+// FIXME: performance optimize the assertions, or potentialy remove them
+// push -> [sp_sub_insn, store_insn]
 void gen_push_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
     assert(instr_num_srcs(instr) == 2);
     assert(instr_num_dsts(instr) == 2);
     // assertion: push reg must be expressed as
-    // push {reg}, sp -> sp, [sp, -size] in dr format
+    // push {reg/mem}, sp -> sp, [sp, -size] in dr format
+    opnd_t src0 = instr_get_src(instr, 0);
+    assert(opnd_is_reg(src0) || opnd_is_memory_reference(src0));
     assert(opnd_get_reg(instr_get_src(instr, 1)) == REG_XSP);
     assert(opnd_get_reg(instr_get_dst(instr, 0)) == REG_XSP);
     assert(opnd_get_base(instr_get_dst(instr, 1)) == REG_XSP);
-
-    opnd_t src0 = instr_get_src(instr, 0);
+    // setting up source operand
     uint size = opnd_size_in_bytes(opnd_get_size(src0));
     assert(opnd_get_disp(instr_get_dst(instr, 1)) == (int)(-size));
-
+    // SUB sp, sp, size
     mir_insn_t* sp_sub_insn = mir_insn_malloc(MIR_OP_SUB);
-    // [sp_sub_insn]
     mir_insn_push_back(mir_insns_list, sp_sub_insn);
     mir_insn_set_src0_imm(sp_sub_insn, size);
     mir_insn_set_src1_reg(sp_sub_insn, REG_XSP);
     mir_insn_set_dst_reg(sp_sub_insn, REG_XSP);
-
+    // setting up opcode by size
     mir_opc_t store_opc;
     switch (size) {
         case 1: store_opc = MIR_OP_ST8; break;
@@ -71,8 +87,7 @@ void gen_push_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct transla
         case 8: store_opc = MIR_OP_ST64; break;
         default: assert(false);
     }
-
-    // [sp_sub_insn, store_insn]
+    // ST src0, [sp, size]
     mir_insn_t* store_insn = mir_insn_malloc(store_opc);
     mir_insn_push_back(mir_insns_list, store_insn);
     src2_set_opnd_by_type(src0, store_insn, mir_insns_list, ctx);
@@ -80,21 +95,21 @@ void gen_push_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct transla
     mir_insn_set_src1_reg(store_insn, REG_XSP);
 }
 
+// pop -> [load_insn, sp_add_insn]
 void gen_pop_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
     assert(instr_num_srcs(instr) == 2);
     assert(instr_num_dsts(instr) == 2);
     // assertion: pop reg must be expressed as
-    // pop [sp, size], sp -> sp, {reg} in dr format
+    // pop [sp, size], sp -> sp, {reg/mem} in dr format
+    opnd_t dst0 = instr_get_dst(instr, 0);
+    assert(opnd_is_reg(dst0) || opnd_is_memory_reference(dst0));
     assert(opnd_get_reg(instr_get_src(instr, 0)) == REG_XSP);
     assert(opnd_get_base(instr_get_src(instr, 1)) == REG_XSP);
     assert(opnd_get_reg(instr_get_dst(instr, 1)) == REG_XSP);
-
-    opnd_t dst0 = instr_get_dst(instr, 0);
+    // setting up destination operand
     uint size = opnd_size_in_bytes(opnd_get_size(dst0));
-    // printf("size: %d\n", size);
-    // printf("opnd_get_disp(instr_get_src(instr, 1)): %d\n", opnd_get_disp(instr_get_src(instr, 1)));
     assert(opnd_get_disp(instr_get_src(instr, 1)) == 0);
-
+    // setting up opcode by size
     mir_opc_t load_opc;
     switch (size) {
         case 1: load_opc = MIR_OP_LD8; break;
@@ -103,17 +118,58 @@ void gen_pop_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translat
         case 8: load_opc = MIR_OP_LD64; break;
         default: assert(false);
     }
-    // [load_insn]
+    // LD [sp, size], dst0
     mir_insn_t* load_insn = mir_insn_malloc(load_opc);
     mir_insn_push_back(mir_insns_list, load_insn);
     mir_insn_set_src0_imm(load_insn, 0);
     mir_insn_set_src1_reg(load_insn, REG_XSP);
-    mir_insn_set_dst_reg(load_insn, opnd_get_reg(dst0));
-
-    // [load_insn, sp_add_insn]
+    dst_set_opnd_by_type(dst0, load_insn, mir_insns_list, ctx);
+    // ADD sp, sp, size
     mir_insn_t* sp_add_insn = mir_insn_malloc(MIR_OP_ADD);
     mir_insn_push_back(mir_insns_list, sp_add_insn);
     mir_insn_set_src0_imm(sp_add_insn, size);
     mir_insn_set_src1_reg(sp_add_insn, REG_XSP);
     mir_insn_set_dst_reg(sp_add_insn, REG_XSP);
 }
+
+// call -> [sp_sub_insn, store_insn, jmp_insn]
+void gen_call_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
+    assert(instr_num_srcs(instr) == 2);
+    assert(instr_num_dsts(instr) == 2);
+    // assertion: call reg must be expressed as
+    // call addr, sp -> sp, [sp, -size] in dr format
+    opnd_t src0 = instr_get_src(instr, 0);
+    // printf("src0 type: %s\n", get_opnd_type(src0));
+    assert(opnd_is_pc(src0));
+    assert(opnd_get_reg(instr_get_src(instr, 1)) == REG_XSP);
+    assert(opnd_get_reg(instr_get_dst(instr, 0)) == REG_XSP);
+    assert(opnd_get_base(instr_get_dst(instr, 1)) == REG_XSP);
+    // setting up source operand
+    // opnd_t src0 = instr_get_src(instr, 0);
+
+    // FIXME: use sp to get the size of the registers, check if this assumption is correct
+    opnd_t src1_sp = instr_get_src(instr, 1);
+    uint size = opnd_size_in_bytes(opnd_get_size(src1_sp));
+    // SUB sp, sp, size
+    mir_insn_t* sp_sub_insn = mir_insn_malloc(MIR_OP_SUB);
+    mir_insn_push_back(mir_insns_list, sp_sub_insn);
+    mir_insn_set_src0_imm(sp_sub_insn, size);
+    mir_insn_set_src1_reg(sp_sub_insn, REG_XSP);
+    mir_insn_set_dst_reg(sp_sub_insn, REG_XSP);
+    // ST src0, [sp, size]
+    mir_insn_t* store_insn = mir_insn_malloc(MIR_OP_ST32);
+    mir_insn_push_back(mir_insns_list, store_insn);
+    app_pc call_addr = instr_get_app_pc(instr);
+    // get the literal pointer value
+    mir_insn_set_dst_imm(store_insn, (uint64_t)call_addr);
+    mir_insn_set_src0_reg(store_insn, REG_XSP);
+    mir_insn_set_src1_imm(store_insn, size);
+    // JMP src0 - ommitted for now as it is not needed for the simulation
+    mir_insn_t* jmp_insn = mir_insn_malloc(MIR_OP_JMP);
+    mir_insn_push_back(mir_insns_list, jmp_insn);
+    app_pc jmp_addr = opnd_get_pc(src0);
+    mir_insn_set_src0_reg(jmp_insn, REG_NULL);
+    mir_insn_set_src1_imm(jmp_insn, (uint64_t)jmp_addr);
+    mir_insn_set_dst_reg(jmp_insn, REG_NULL);
+}
+

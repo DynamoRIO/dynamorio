@@ -11,6 +11,15 @@ void dr_gen_mir_ops(instr_t *instr) {
 
     switch (opc) {
         
+        // All movs are handled the same way
+        case OP_mov_ld:
+        case OP_mov_st:
+        case OP_mov_imm:
+        case OP_mov_seg:
+        case OP_mov_priv:
+            gen_mov_op(instr, &insn_list, ctx);
+            break;
+            
         // Arithmetic & Bitwise instructions
         case OP_add:
             gen_add_op(instr, &insn_list, ctx);
@@ -39,8 +48,10 @@ void dr_gen_mir_ops(instr_t *instr) {
             gen_pop_op(instr, &insn_list, ctx);
             break;
         case OP_call:
+            gen_call_op(instr, &insn_list, ctx);
+            break;
         default:
-            // printf("Unsupported opcode: %d\n", opc);
+            printf("Unsupported opcode: %d\n", opc);
             break;
     }
     print_mir_insn_list(&insn_list);

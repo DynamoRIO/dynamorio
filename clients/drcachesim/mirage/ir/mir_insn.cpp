@@ -87,6 +87,11 @@ void mir_insn_set_dst_reg(mir_insn_t *insn, reg_id_t reg) {
     insn->dst.value.reg = reg;
 }
 
+void mir_insn_set_dst_imm(mir_insn_t *insn, int64_t imm) {
+    insn->dst.type = MIR_OPND_IMM;
+    insn->dst.value.imm = imm;
+}
+
 void init_mir_insn_list(mir_insn_list_t* list) {
     list_init(list);
 }
