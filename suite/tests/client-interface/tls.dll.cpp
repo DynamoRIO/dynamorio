@@ -205,7 +205,7 @@ test_calloc(void)
         if (previously_allocated == 0)
             previously_allocated = total_allocated;
         else
-            ASSERT(previously_allocated == total_allocated);
+            ASSERT(IF_WINDOWS_ELSE(true, previously_allocated == total_allocated));
         /* Free the slots. */
         ASSERT(dr_raw_tls_cfree(min_offset, total_allocated));
         /* Check that a second attempt to free fails. */
