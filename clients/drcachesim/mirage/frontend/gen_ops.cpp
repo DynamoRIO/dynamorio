@@ -21,11 +21,6 @@ void gen_add_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translat
     _gen_arith_op(instr, MIR_OP_ADD, mir_insns_list, ctx);
 }
 
-void gen_adc_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
-    uint r_eflags = instr_get_eflags(instr, DR_QUERY_INCLUDE_COND_SRCS);
-    printf("r_eflags: %x\n", r_eflags);
-}
-
 void gen_sub_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
     _gen_arith_op(instr, MIR_OP_SUB, mir_insns_list, ctx);
 }
@@ -72,7 +67,7 @@ void gen_lea_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translat
         uint64_t addr = (uint64_t)opnd_get_addr(src0);
         mir_insn_set_src0_reg(core_insn, DR_REG_NULL);
         mir_insn_set_src1_imm(core_insn, addr);
-        mir_insn_set_dst_reg(core_insn, DR_REG_NULL);
+        mir_insn_set_dst_reg(core_insn, opnd_get_reg(dst0));
     }
     else if (opnd_is_base_disp(src0)) {
         // ADD base, disp -> dst
@@ -82,7 +77,7 @@ void gen_lea_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translat
         mir_insn_push_back(mir_insns_list, add_insn);
         mir_insn_set_src0_reg(add_insn, base);
         mir_insn_set_src1_imm(add_insn, disp);
-        mir_insn_set_dst_reg(add_insn, DR_REG_NULL);
+        mir_insn_set_dst_reg(add_insn, opnd_get_reg(dst0));
     }
     else {
         printf("unsupported opnd type\n");
@@ -206,3 +201,62 @@ void gen_call_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct transla
     mir_insn_set_dst_reg(jmp_insn, REG_NULL);
 }
 
+void gen_test_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
+    assert(instr_num_srcs(instr) == 2);
+    assert(instr_num_dsts(instr) == 0);
+    opnd_t src0 = instr_get_src(instr, 0);
+    opnd_t src1 = instr_get_src(instr, 1);
+    // AND reg0, reg1 -> tmp0
+    int tmp0 = alloc_tmp_reg(ctx);
+    mir_insn_t* and_insn = mir_insn_malloc(MIR_OP_AND);
+    mir_insn_push_back(mir_insns_list, and_insn);
+    src0_set_opnd_by_type(src0, and_insn, mir_insns_list, ctx);
+    src1_set_opnd_by_type(src1, and_insn, mir_insns_list, ctx);
+    mir_insn_set_dst_reg(and_insn, tmp0);
+    // W_FLAG tmp0
+    mir_insn_t* w_flag_insn = mir_insn_malloc(MIR_OP_W_FLAG);
+    mir_insn_push_back(mir_insns_list, w_flag_insn);
+    mir_insn_set_src0_reg(w_flag_insn, tmp0);
+    mir_insn_set_src1_reg(w_flag_insn, REG_NULL);
+    mir_insn_set_dst_reg(w_flag_insn, REG_NULL);
+}
+
+void gen_cmp_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
+    assert(instr_num_srcs(instr) == 2);
+    assert(instr_num_dsts(instr) == 0);
+    opnd_t src0 = instr_get_src(instr, 0);
+    opnd_t src1 = instr_get_src(instr, 1);
+    // SUB reg0, reg1 -> tmp0
+    int tmp0 = alloc_tmp_reg(ctx);
+    mir_insn_t* sub_insn = mir_insn_malloc(MIR_OP_SUB);
+    mir_insn_push_back(mir_insns_list, sub_insn);
+    src0_set_opnd_by_type(src0, sub_insn, mir_insns_list, ctx);
+    src1_set_opnd_by_type(src1, sub_insn, mir_insns_list, ctx);
+    mir_insn_set_dst_reg(sub_insn, tmp0);
+    // W_FLAG tmp0
+    mir_insn_t* w_flag_insn = mir_insn_malloc(MIR_OP_W_FLAG);
+    mir_insn_push_back(mir_insns_list, w_flag_insn);
+    mir_insn_set_src0_reg(w_flag_insn, tmp0);
+    mir_insn_set_src1_reg(w_flag_insn, REG_NULL);
+    mir_insn_set_dst_reg(w_flag_insn, REG_NULL);
+}
+
+void gen_adc_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
+    uint r_eflags = instr_get_eflags(instr, DR_QUERY_INCLUDE_COND_SRCS);
+    printf("adc r_eflags: %x\n", r_eflags);
+    uint w_eflags = instr_get_eflags(instr, DR_QUERY_INCLUDE_COND_DSTS);
+    printf("adc w_eflags: %x\n", w_eflags);
+}
+
+void gen_jump_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
+    assert(instr_num_srcs(instr) == 1);
+    assert(instr_num_dsts(instr) == 0);
+    opnd_t src0 = instr_get_src(instr, 0);
+    assert(opnd_is_pc(src0));
+    // JMP src0
+    mir_insn_t* jmp_insn = mir_insn_malloc(MIR_OP_JMP);
+    mir_insn_push_back(mir_insns_list, jmp_insn);
+    mir_insn_set_src0_reg(jmp_insn, REG_NULL);
+    mir_insn_set_src1_imm(jmp_insn, (uint64_t)opnd_get_pc(src0));
+    mir_insn_set_dst_reg(jmp_insn, REG_NULL);
+}

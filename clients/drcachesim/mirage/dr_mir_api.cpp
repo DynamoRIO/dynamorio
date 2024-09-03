@@ -10,14 +10,9 @@ void dr_gen_mir_ops(instr_t *instr) {
     ctx_set_curr_instr(ctx, instr);
 
     switch (opc) {
-        
-
         // Arithmetic & Bitwise instructions
         case OP_add:
             gen_add_op(instr, &insn_list, ctx);
-            break;
-        case OP_adc:
-            gen_adc_op(instr, &insn_list, ctx);
             break;
         case OP_sub:
             gen_sub_op(instr, &insn_list, ctx);
@@ -51,6 +46,50 @@ void dr_gen_mir_ops(instr_t *instr) {
             break;
         case OP_call:
             gen_call_op(instr, &insn_list, ctx);
+            break;
+        case OP_test:
+            gen_test_op(instr, &insn_list, ctx);
+            break;
+        case OP_cmp:
+            gen_cmp_op(instr, &insn_list, ctx);
+            break;
+        case OP_adc:
+            gen_adc_op(instr, &insn_list, ctx);
+            break;
+        // All jumps are trivially handled for now
+        case OP_jo_short:
+        case OP_jno_short:
+        case OP_jb_short:
+        case OP_jnb_short:
+        case OP_jz_short:
+        case OP_jnz_short:
+        case OP_jbe_short:
+        case OP_jnbe_short:
+        case OP_js_short:
+        case OP_jns_short:
+        case OP_jp_short:
+        case OP_jnp_short:
+        case OP_jl_short:
+        case OP_jnl_short:
+        case OP_jle_short:
+        case OP_jnle_short:
+        case OP_jo:
+        case OP_jno:
+        case OP_jb:
+        case OP_jnb:
+        case OP_jz:
+        case OP_jnz:
+        case OP_jbe:
+        case OP_jnbe:
+        case OP_js:
+        case OP_jns:
+        case OP_jp:
+        case OP_jnp:
+        case OP_jl:
+        case OP_jnl:
+        case OP_jle:
+        case OP_jnle:
+            gen_jump_op(instr, &insn_list, ctx);
             break;
         default:
             printf("Unsupported opcode: %d\n", opc);

@@ -65,6 +65,9 @@ typedef enum {
     // CONTROL FLOW
     MIR_OP_JMP,
     MIR_OP_BR,
+
+    // EFLAGS
+    MIR_OP_W_FLAG // set flags based on the value in src0
 } mir_opc_t;
 
 static const char* mir_opc_str[] = {
@@ -90,6 +93,7 @@ static const char* mir_opc_str[] = {
     "ST64",
     "JMP",
     "BR",
+    "W_FLAG"
 };
 
 inline const char* mir_opc_to_str(mir_opc_t op){
