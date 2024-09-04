@@ -59,7 +59,7 @@ public:
     try_lock()
     {
 #ifdef NDEBUG
-        return lock_.try_lock().
+        return lock_.try_lock();
 #else
         if (lock_.try_lock()) {
             owner_ = std::this_thread::get_id();
