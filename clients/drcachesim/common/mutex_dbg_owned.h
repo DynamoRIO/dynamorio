@@ -72,7 +72,7 @@ public:
     unlock()
     {
 #ifndef NDEBUG
-        owner_ = std::thread::id();
+        owner_ = std::thread::id(); // id() creates a no-thread sentinel value.
 #endif
         lock_.unlock();
     }
