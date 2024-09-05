@@ -64,6 +64,7 @@
 #include "flexible_queue.h"
 #include "memref.h"
 #include "memtrace_stream.h"
+#include "mutex_dbg_owned.h"
 #include "reader.h"
 #include "record_file_reader.h"
 #include "speculator.h"
@@ -1251,7 +1252,7 @@ protected:
 
     struct input_info_t {
         input_info_t()
-            : lock(new std::mutex)
+            : lock(new mutex_dbg_owned)
         {
         }
         // Returns whether the stream mixes threads (online analysis mode) yet
@@ -1270,7 +1271,7 @@ protected:
         // We use a unique_ptr to make this moveable for vector storage.
         // For inputs not actively assigned to a core but sitting in the ready_queue,
         // sched_lock_ suffices to synchronize access.
-        std::unique_ptr<std::mutex> lock;
+        std::unique_ptr<mutex_dbg_owned> lock;
         // A tid can be duplicated across workloads so we need the pair of
         // workload index + tid to identify the original input.
         int workload = -1;
@@ -1631,7 +1632,8 @@ protected:
     uint64_t
     get_output_time(output_ordinal_t output);
 
-    // The caller must hold the lock for the input.
+    // The caller must hold the lock for the input unless it's not a real
+    // input index (it's not real for VERSION, FOOTER, and IDLE).
     stream_status_t
     record_schedule_segment(
         output_ordinal_t output, typename schedule_record_t::record_type_t type,
@@ -1642,7 +1644,8 @@ protected:
         // max macro (even despite NOMINMAX defined above).
         uint64_t stop_instruction = (std::numeric_limits<uint64_t>::max)());
 
-    // The caller must hold the input.lock.
+    // The caller must hold the input.lock unless the record type
+    // is VERSION, FOOTER, or IDLE.
     stream_status_t
     close_schedule_segment(output_ordinal_t output, input_info_t &input);
 
@@ -1773,7 +1776,9 @@ protected:
     get_input_record_ordinal(output_ordinal_t output);
 
     // Returns the input instruction ordinal taking into account queued records.
-    // The caller must hold the input's lock.
+    // XXX: We need to clearly delineate where the input lock is needed: here
+    // we read the queue which shouldn't be changed by other threads; yet this
+    // routine used to claim it needed the input lock.
     uint64_t
     get_instr_ordinal(input_info_t &input);
 
@@ -1846,7 +1851,7 @@ protected:
     bool
     need_sched_lock();
 
-    std::unique_lock<std::mutex>
+    std::unique_lock<mutex_dbg_owned>
     acquire_scoped_sched_lock_if_necessary(bool &need_lock);
 
     // sched_lock_ must be held by the caller.
@@ -1896,7 +1901,7 @@ protected:
     // ready_counter_, unscheduled_priority_, and unscheduled_counter_.
     // This cannot be acquired while holding an input lock: it must
     // be acquired first, to avoid deadlocks.
-    std::mutex sched_lock_;
+    mutex_dbg_owned sched_lock_;
     // Inputs ready to be scheduled, sorted by priority and then timestamp if timestamp
     // dependencies are requested.  We use the timestamp delta from the first observed
     // timestamp in each workload in order to mix inputs from different workloads in the
