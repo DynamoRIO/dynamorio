@@ -219,9 +219,13 @@ test_calloc(void)
         for (size_t i = 0; i < num_allocs; i++) {
             bool try1 = dr_raw_tls_cfree(offsets[i], sizes[i]);
             ASSERT(try1);
-            /* Check that a second attempt to free fails. */
+#ifndef WINDOWS
+            /* FIXME: On Unix a double free just returns false, but on Windows
+             * there can be an assertion failure if this is attempted.
+             */
             bool try2 = dr_raw_tls_cfree(offsets[i], sizes[i]);
-            IF_WINDOWS_ELSE((void)try2, ASSERT(!try2));
+            ASSERT(!try2);
+#endif
         }
     }
 }
