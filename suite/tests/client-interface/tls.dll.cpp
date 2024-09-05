@@ -220,7 +220,7 @@ test_calloc(void)
             bool try1 = dr_raw_tls_cfree(offsets[i], sizes[i]);
             ASSERT(try1);
 #ifndef WINDOWS
-            /* FIXME: On Unix a double free just returns false, but on Windows
+            /* On Unix a double free returns false, but on Windows
              * there can be an assertion failure if this is attempted.
              */
             bool try2 = dr_raw_tls_cfree(offsets[i], sizes[i]);
