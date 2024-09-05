@@ -180,7 +180,7 @@ static void
 test_calloc(void)
 {
     uint previously_allocated = 0;
-    for (int i = 0; i < 100; i++) {
+    for (int round = 0; round < 100; round++) {
         uint total_allocated = 0;
         const size_t max_allocs = 100;
         uint offsets[max_allocs];
