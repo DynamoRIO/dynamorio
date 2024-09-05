@@ -221,7 +221,7 @@ test_calloc(void)
             ASSERT(try1);
             /* Check that a second attempt to free fails. */
             bool try2 = dr_raw_tls_cfree(offsets[i], sizes[i]);
-            ASSERT(IF_WINDOWS_ELSE(true, !try2));
+            IF_WINDOWS_ELSE((void)try2, ASSERT(!try2));
         }
     }
 }
