@@ -179,14 +179,15 @@ event_exit(void)
 static void
 test_calloc(void)
 {
-#ifndef WINDOWS
-    /* FIXME: Investigate why this test does not pass on Windows. */
     uint previously_allocated = 0;
     for (int i = 0; i < 100; i++) {
         uint total_allocated = 0;
-        uint min_offset = (uint)-1;
-        /* Randomly allocate until an unaligned allocation of
-         * a single slot fails, meaning space is exhausted.
+        const size_t max_allocs = 100;
+        uint offsets[max_allocs];
+        uint sizes[max_allocs];
+        size_t num_allocs = 0;
+        /* Randomly allocate until an unaligned allocation of a single slot fails,
+         * meaning space is exhausted, or max_allocs is reached.
          */
         for (;;) {
             uint num_slots = rand() % 4 + 1;         /* 1, 2, 3, 4 */
@@ -196,24 +197,33 @@ test_calloc(void)
             if (dr_raw_tls_calloc(&reg, &offset, num_slots, alignment)) {
                 ASSERT(alignment == 0 || ALIGNED(offset, alignment));
                 total_allocated += num_slots;
-                if (offset < min_offset)
-                    min_offset = offset;
+                offsets[num_allocs] = offset;
+                sizes[num_allocs] = num_slots;
+                ++num_allocs;
+                if (num_allocs == max_allocs)
+                    break;
             } else {
                 if (num_slots == 1 && alignment <= 1)
                     break;
             }
         }
         ASSERT(total_allocated > 0);
-        if (previously_allocated == 0)
-            previously_allocated = total_allocated;
-        else
-            ASSERT(previously_allocated == total_allocated);
+        /* If space was exhausted, total allocated should be the same each time. */
+        if (num_allocs < max_allocs) {
+            if (previously_allocated == 0)
+                previously_allocated = total_allocated;
+            else
+                ASSERT(previously_allocated == total_allocated);
+        }
         /* Free the slots. */
-        ASSERT(dr_raw_tls_cfree(min_offset, total_allocated));
-        /* Check that a second attempt to free fails. */
-        ASSERT(!dr_raw_tls_cfree(min_offset + rand() % total_allocated, 1));
+        for (size_t i = 0; i < num_allocs; i++) {
+            bool try1 = dr_raw_tls_cfree(offsets[i], sizes[i]);
+            ASSERT(try1);
+            /* Check that a second attempt to free fails. */
+            bool try2 = dr_raw_tls_cfree(offsets[i], sizes[i]);
+            ASSERT(!try2);
+        }
     }
-#endif
 }
 
 DR_EXPORT void
