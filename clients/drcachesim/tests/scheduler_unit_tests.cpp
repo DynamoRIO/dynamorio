@@ -5076,7 +5076,7 @@ test_kernel_switch_sequences()
                 case TRACE_MARKER_TYPE_TIMESTAMP: sched_as_string[i] += '0'; break;
                 case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END:
                     in_switch[i] = false;
-                    // Fall-through.
+                    ANNOTATE_FALLTHROUGH;
                 case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START:
                     if (memref.marker.marker_value == scheduler_t::SWITCH_PROCESS)
                         sched_as_string[i] += 'p';
