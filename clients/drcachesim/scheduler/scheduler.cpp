@@ -3488,7 +3488,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                     VPRINT(this, 4,
                            "next_record[%d]: input %d hit end of instr quantum\n", output,
                            input->index);
-                    preempt = !need_new_input;
+                    preempt = true;
                     need_new_input = true;
                     input->instrs_in_quantum = 0;
                     ++outputs_[output]
@@ -3510,10 +3510,12 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                     // in between (e.g., scatter/gather long sequence of reads/writes) by
                     // setting input->switching_pre_instruction.
                     record_type_is_instr_boundary(record, outputs_[output].last_record)) {
-                    VPRINT(this, 4,
-                           "next_record[%d]: hit end of time quantum after %" PRIu64 "\n",
-                           output, input->time_spent_in_quantum);
-                    preempt = !need_new_input;
+                    VPRINT(
+                        this, 4,
+                        "next_record[%d]: input %d hit end of time quantum after %" PRIu64
+                        "\n",
+                        output, input->index, input->time_spent_in_quantum);
+                    preempt = true;
                     need_new_input = true;
                     input->time_spent_in_quantum = 0;
                     ++outputs_[output]
@@ -3555,12 +3557,16 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                 lock.lock();
                 VPRINT(this, 5, "next_record_mid[%d]: switching from %d to %d\n", output,
                        prev_input, outputs_[output].cur_input);
-                if (!preempt) {
+                if (!preempt && // Already reset to 0 for preempt.
+                    options_.mapping == MAP_TO_ANY_OUTPUT) {
                     if (options_.quantum_unit == QUANTUM_INSTRUCTIONS &&
                         record_type_is_instr_boundary(record,
                                                       outputs_[output].last_record)) {
+                        assert(inputs_[prev_input].instrs_in_quantum > 0);
                         --inputs_[prev_input].instrs_in_quantum;
                     } else if (options_.quantum_unit == QUANTUM_TIME) {
+                        assert(inputs_[prev_input].time_spent_in_quantum >=
+                               cur_time - prev_time_in_quantum);
                         inputs_[prev_input].time_spent_in_quantum -=
                             (cur_time - prev_time_in_quantum);
                     }
