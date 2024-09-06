@@ -687,10 +687,12 @@ scheduler_tmpl_t<RecordType, ReaderType>::~scheduler_tmpl_t()
         VPRINT(this, 1, "  %-25s: %9" PRId64 "\n", "Migrations",
                outputs_[i].stats[memtrace_stream_t::SCHED_STAT_MIGRATIONS]);
     }
+#ifndef NDEBUG
     VPRINT(this, 1, "%-27s: %9" PRId64 "\n", "Schedule lock acquired",
            sched_lock_.get_count_acquired());
     VPRINT(this, 1, "%-27s: %9" PRId64 "\n", "Schedule lock contended",
            sched_lock_.get_count_contended());
+#endif
 }
 
 template <typename RecordType, typename ReaderType>
