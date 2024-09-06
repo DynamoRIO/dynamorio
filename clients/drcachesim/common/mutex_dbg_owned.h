@@ -50,9 +50,18 @@ public:
     void
     lock()
     {
+#ifdef NDEBUG
         lock_.lock();
-#ifndef NDEBUG
+#else
+        bool contended = true;
+        if (lock_.try_lock())
+            contended = false;
+        else
+            lock_.lock();
         owner_ = std::this_thread::get_id();
+        ++count_acquired_;
+        if (contended)
+            ++count_contended_;
 #endif
     }
     bool
@@ -76,6 +85,8 @@ public:
 #endif
         lock_.unlock();
     }
+
+#ifndef NDEBUG
     // This query should only be called when the lock is required to be held
     // as it is racy when the lock is not held.
     bool
@@ -84,9 +95,27 @@ public:
         return owner_ == std::this_thread::get_id();
     }
 
+    // These statistics only count lock(): they do *not* count try_lock()
+    // (we could count try_lock with std::atomic on count_contended).
+    int64_t
+    get_count_acquired()
+    {
+        return count_acquired_;
+    }
+    int64_t
+    get_count_contended()
+    {
+        return count_contended_;
+    }
+#endif
+
 private:
     std::mutex lock_;
+#ifndef NDEBUG
     std::thread::id owner_;
+    int64_t count_acquired_ = 0;
+    int64_t count_contended_ = 0;
+#endif
 };
 
 } // namespace drmemtrace
