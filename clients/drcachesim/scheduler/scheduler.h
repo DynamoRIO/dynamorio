@@ -142,6 +142,11 @@ public:
          * time for #STATUS_IDLE.
          */
         STATUS_IDLE,
+        /**
+         * Indicates an input has a binding whose outputs are all marked inactive.
+         */
+        STATUS_IMPOSSIBLE_BINDING,
+        STATUS_STOLE, /**< Used for internal scheduler purposes. */
     };
 
     /** Identifies an input stream by its index. */
@@ -780,6 +785,20 @@ public:
          */
         // TODO i#6959: Once we have -exit_if_all_unscheduled raise this.
         uint64_t block_time_max_us = 250;
+        /**
+         * The minimum time in microseconds that must have elapsed after an input last
+         * ran on an output before that input is allowed to be migrated to a different
+         * output.  This value is multiplied by #time_units_per_us to produce a value
+         * that is compared to the "cur_time" parameter to next_record().
+         */
+        uint64_t migration_threshold_us = 500;
+        /**
+         * The period in microseconds at which rebalancing is performed to keep output
+         * run queues from becoming uneven.  This value is multiplied by
+         * #time_units_per_us to produce a value that is compared to the "cur_time"
+         * parameter to next_record().
+         */
+        uint64_t rebalance_period_us = 1500000;
     };
 
     /**
@@ -1207,8 +1226,8 @@ public:
 
     /** Default constructor. */
     scheduler_tmpl_t()
-        : ready_priority_(static_cast<int>(get_time_micros()))
     {
+        last_rebalance_time_.store(0, std::memory_order_relaxed);
     }
     virtual ~scheduler_tmpl_t();
 
@@ -1308,9 +1327,11 @@ protected:
         std::unique_ptr<ReaderType> reader_end;
         // While the scheduler only hands an input to one output at a time, during
         // scheduling decisions one thread may need to access another's fields.
+        // This lock controls access to fields that are modified during scheduling.
+        // This must be accessed after any output lock.
+        // If multiple input locks are held at once, they should be acquired in
+        // increased "index" order.
         // We use a unique_ptr to make this moveable for vector storage.
-        // For inputs not actively assigned to a core but sitting in the ready_queue,
-        // sched_lock_ suffices to synchronize access.
         std::unique_ptr<mutex_dbg_owned> lock;
         // A tid can be duplicated across workloads so we need the pair of
         // workload index + tid to identify the original input.
@@ -1338,7 +1359,12 @@ protected:
         bool needs_advance = false;
         bool needs_roi = true;
         bool at_eof = false;
+        // The output whose ready queue or active run slot we are in.
+        output_ordinal_t containing_output = INVALID_OUTPUT_ORDINAL;
+        // The previous containing_output.
         output_ordinal_t prev_output = INVALID_OUTPUT_ORDINAL;
+        // The current output where we're actively running.
+        output_ordinal_t cur_output = INVALID_OUTPUT_ORDINAL;
         uintptr_t next_timestamp = 0;
         uint64_t instrs_in_quantum = 0;
         int instrs_pre_read = 0;
@@ -1380,6 +1406,7 @@ protected:
         bool unscheduled = false;
         // Causes the next unscheduled entry to abort.
         bool skip_next_unscheduled = false;
+        uint64_t last_run_time = 0;
     };
 
     // Format for recording a schedule to disk.  A separate sequence of these records
@@ -1447,16 +1474,137 @@ protected:
         uint64_t timestamp = 0;
     } END_PACKED_STRUCTURE;
 
+    ///////////////////////////////////////////////////////////////////////////
+    // Support for ready queues for who to schedule next:
+
+    // I tried using a lambda where we could capture "this" and so use int indices
+    // in the queues instead of pointers but hit problems (weird crash while running)
+    // so I'm sticking with this solution of a separate struct.
+    struct InputTimestampComparator {
+        bool
+        operator()(input_info_t *a, input_info_t *b) const
+        {
+            if (a->priority != b->priority)
+                return a->priority < b->priority; // Higher is better.
+            if (a->order_by_timestamp &&
+                (a->reader->get_last_timestamp() - a->base_timestamp) !=
+                    (b->reader->get_last_timestamp() - b->base_timestamp)) {
+                // Lower is better.
+                return (a->reader->get_last_timestamp() - a->base_timestamp) >
+                    (b->reader->get_last_timestamp() - b->base_timestamp);
+            }
+            // We use a counter to provide FIFO order for same-priority inputs.
+            return a->queue_counter > b->queue_counter; // Lower is better.
+        }
+    };
+
+    // Now that we have the lock usage narrow inside certain routines, we
+    // may want to consider making this a class and having it own the add/pop
+    // routines?  The complexity is popping for a different output.
+    struct input_queue_t {
+        explicit input_queue_t(int rand_seed = 0)
+            : lock(new mutex_dbg_owned)
+            , queue(rand_seed)
+        {
+        }
+        // Protects access to this structure.
+        // We use a unique_ptr to make this moveable for vector storage.
+        // An output's runqueue lock must be acquired *before* any input locks.
+        // Multiple output locks should be acquired in increasing output ordinal order.
+        std::unique_ptr<mutex_dbg_owned> lock;
+        // Inputs ready to be scheduled, sorted by priority and then timestamp if
+        // timestamp dependencies are requested.  We use the timestamp delta from the
+        // first observed timestamp in each workload in order to mix inputs from different
+        // workloads in the same queue.  FIFO ordering is used for same-priority entries.
+        flexible_queue_t<input_info_t *, InputTimestampComparator> queue;
+        // Queue counter used to provide FIFO for same-priority inputs.
+        uint64_t fifo_counter = 0;
+        // Tracks the count of blocked inputs.
+        int num_blocked = 0;
+    };
+
+    bool
+    need_output_lock();
+
+    std::unique_lock<mutex_dbg_owned>
+    acquire_scoped_output_lock_if_necessary(output_ordinal_t output);
+
+    bool
+    ready_queue_empty(output_ordinal_t output);
+
+    // If input->unscheduled is true and input->blocked_time is 0, input
+    // is placed on the unscheduled_priority_ queue instead.
+    // The caller cannot hold the input's lock: this routine will acquire it.
+    void
+    add_to_ready_queue(output_ordinal_t output, input_info_t *input);
+
+    // Identical to add_to_ready_queue() except the output's lock must be held by the
+    // caller.
+    // The caller must also hold the input's lock.
+    void
+    add_to_ready_queue_hold_locks(output_ordinal_t output, input_info_t *input);
+
+    // The caller must hold the input's lock.
+    void
+    add_to_unscheduled_queue(input_info_t *input);
+
+    uint64_t
+    scale_blocked_time(uint64_t blocked_time) const;
+
+    // The input's lock must be held by the caller.
+    // Returns a multiplier for how long the input should be considered blocked.
+    bool
+    syscall_incurs_switch(input_info_t *input, uint64_t &blocked_time);
+
+    // "for_output" is which output stream is looking for a new input; only an
+    // input which is able to run on that output will be selected.
+    // for_output can be INVALID_OUTPUT_ORDINAL, which will ignore bindings.
+    // If from_output != for_output (including for_output == INVALID_OUTPUT_ORDINAL)
+    // this is a migration and only migration-ready inputs will be picked.
+    stream_status_t
+    pop_from_ready_queue(output_ordinal_t from_output, output_ordinal_t for_output,
+                         input_info_t *&new_input);
+
+    // Identical to pop_from_ready_queue but the caller must hold both output locks.
+    stream_status_t
+    pop_from_ready_queue_hold_locks(output_ordinal_t from_output,
+                                    output_ordinal_t for_output, input_info_t *&new_input,
+                                    bool from_back = false);
+
+    stream_status_t
+    rebalance_queues(output_ordinal_t triggering_output,
+                     std::vector<input_ordinal_t> inputs_to_add);
+
+    void
+    print_queue_stats();
+
+    void
+    update_switch_stats(output_ordinal_t output, input_ordinal_t prev_input,
+                        input_ordinal_t new_input);
+
+    ///
+    ///////////////////////////////////////////////////////////////////////////
+
+    // We have one output_info_t per output stream, and at most one worker
+    // thread owns one output, so most fields are accessed only by one thread.
+    // The exception is "runqueue" which can be accessed by other threads;
+    // it is protected using its internal lock.
     struct output_info_t {
         output_info_t(scheduler_tmpl_t<RecordType, ReaderType> *scheduler,
                       output_ordinal_t ordinal,
                       typename spec_type_t::speculator_flags_t speculator_flags,
-                      RecordType last_record_init, int verbosity = 0)
+                      int rand_seed, RecordType last_record_init, int verbosity = 0)
             : self_stream(scheduler, ordinal, verbosity)
             , stream(&self_stream)
+            , runqueue(rand_seed)
             , speculator(speculator_flags, verbosity)
             , last_record(last_record_init)
         {
+            active = std::unique_ptr<std::atomic<bool>>(new std::atomic<bool>());
+            active->store(true, std::memory_order_relaxed);
+            cur_time =
+                std::unique_ptr<std::atomic<uint64_t>>(new std::atomic<uint64_t>());
+            cur_time->store(0, std::memory_order_relaxed);
         }
         stream_t self_stream;
         // Normally stream points to &self_stream, but for single_lockstep_output
@@ -1471,6 +1619,8 @@ protected:
         // lock for dynamically finding the next input, keeping things parallel.
         std::vector<input_ordinal_t> input_indices;
         int input_indices_index = 0;
+        // Inputs ready to be scheduled on this output.
+        input_queue_t runqueue;
         // Speculation support.
         std::stack<addr_t> speculation_stack; // Stores PC of resumption point.
         speculator_tmpl_t<RecordType> speculator;
@@ -1481,17 +1631,23 @@ protected:
         // queueing a read-ahead instruction record for start_speculation().
         addr_t prev_speculate_pc = 0;
         RecordType last_record; // Set to TRACE_TYPE_INVALID in constructor.
-        // A list of schedule segments.  These are accessed only while holding
-        // sched_lock_.
+        // A list of schedule segments. During replay, this is read by other threads,
+        // but it is only written at init time.
         std::vector<schedule_record_t> record;
         int record_index = 0;
         bool waiting = false; // Waiting or idling.
-        bool active = true;
+        // Used to limit stealing to one attempt per transition to idle.
+        bool tried_to_steal_on_idle = false;
+        // This is accessed by other outputs for stealing and rebalancing.
+        // Indirected so we can store it in our vector.
+        std::unique_ptr<std::atomic<bool>> active;
         bool in_kernel_code = false;
         bool in_context_switch_code = false;
         bool hit_switch_code_end = false;
         // Used for time-based quanta.
-        uint64_t cur_time = 0;
+        // This is accessed by other outputs for stealing and rebalancing.
+        // Indirected so we can store it in our vector.
+        std::unique_ptr<std::atomic<uint64_t>> cur_time;
         // Used for MAP_TO_RECORDED_OUTPUT get_output_cpuid().
         int64_t as_traced_cpuid = -1;
         // Used for MAP_AS_PREVIOUSLY with live_replay_output_count_.
@@ -1609,6 +1765,7 @@ protected:
 
     // Skips ahead to the next region of interest if necessary.
     // The caller must hold the input.lock.
+    // If STATUS_SKIPPED or STATUS_STOLE is returned, a new next record needs to be read.
     stream_status_t
     advance_region_of_interest(output_ordinal_t output, RecordType &record,
                                input_info_t &input);
@@ -1699,7 +1856,7 @@ protected:
     check_valid_input_limits(const input_workload_t &workload,
                              input_reader_info_t &reader_info);
 
-    // The sched_lock_ must be held when this is called.
+    // The caller cannot hold the output or input lock.
     stream_status_t
     set_cur_input(output_ordinal_t output, input_ordinal_t input);
 
@@ -1710,7 +1867,6 @@ protected:
 
     // Helper for pick_next_input() for MAP_AS_PREVIOUSLY.
     // No input_info_t lock can be held on entry.
-    // The sched_lock_ must be held on entry.
     stream_status_t
     pick_next_input_as_previously(output_ordinal_t output, input_ordinal_t &index);
 
@@ -1851,9 +2007,11 @@ protected:
 
     // Determines whether to exit or wait for other outputs when one output
     // runs out of things to do.  May end up scheduling new inputs.
+    // If STATUS_STOLE is returned, a new input was found and its next record needs
+    // to be read.
+    // Never returns STATUS_OK.
     stream_status_t
-    eof_or_idle(output_ordinal_t output, bool hold_sched_lock,
-                input_ordinal_t prev_input);
+    eof_or_idle(output_ordinal_t output, input_ordinal_t prev_input);
 
     // Returns whether the current record for the current input stream scheduled on
     // the 'output_ordinal'-th output stream is from a part of the trace corresponding
@@ -1867,67 +2025,6 @@ protected:
     get_statistic(output_ordinal_t output,
                   memtrace_stream_t::schedule_statistic_t stat) const;
 
-    ///////////////////////////////////////////////////////////////////////////
-    // Support for ready queues for who to schedule next:
-
-    // I tried using a lambda where we could capture "this" and so use int indices
-    // in the queues instead of pointers but hit problems (weird crash while running)
-    // so I'm sticking with this solution of a separate struct.
-    struct InputTimestampComparator {
-        bool
-        operator()(input_info_t *a, input_info_t *b) const
-        {
-            if (a->priority != b->priority)
-                return a->priority < b->priority; // Higher is better.
-            if (a->order_by_timestamp &&
-                (a->reader->get_last_timestamp() - a->base_timestamp) !=
-                    (b->reader->get_last_timestamp() - b->base_timestamp)) {
-                // Lower is better.
-                return (a->reader->get_last_timestamp() - a->base_timestamp) >
-                    (b->reader->get_last_timestamp() - b->base_timestamp);
-            }
-            // We use a counter to provide FIFO order for same-priority inputs.
-            return a->queue_counter > b->queue_counter; // Lower is better.
-        }
-    };
-
-    bool
-    need_sched_lock();
-
-    std::unique_lock<mutex_dbg_owned>
-    acquire_scoped_sched_lock_if_necessary(bool &need_lock);
-
-    // sched_lock_ must be held by the caller.
-    bool
-    ready_queue_empty();
-
-    // sched_lock_ must be held by the caller.
-    // If input->unscheduled is true and input->blocked_time is 0, input
-    // is placed on the unscheduled_priority_ queue instead.
-    void
-    add_to_ready_queue(input_info_t *input);
-
-    // sched_lock_ must be held by the caller.
-    void
-    add_to_unscheduled_queue(input_info_t *input);
-
-    uint64_t
-    scale_blocked_time(uint64_t blocked_time) const;
-
-    // The input's lock must be held by the caller.
-    // Returns a multiplier for how long the input should be considered blocked.
-    bool
-    syscall_incurs_switch(input_info_t *input, uint64_t &blocked_time);
-
-    // sched_lock_ must be held by the caller.
-    // "for_output" is which output stream is looking for a new input; only an
-    // input which is able to run on that output will be selected.
-    stream_status_t
-    pop_from_ready_queue(output_ordinal_t for_output, input_info_t *&new_input);
-
-    ///
-    ///////////////////////////////////////////////////////////////////////////
-
     // This has the same value as scheduler_options_t.verbosity (for use in VPRINT).
     int verbosity_ = 0;
     const char *output_prefix_ = "[scheduler]";
@@ -1936,27 +2033,17 @@ protected:
     // Each vector element has a mutex which should be held when accessing its fields.
     std::vector<input_info_t> inputs_;
     // Each vector element is accessed only by its owning thread, except the
-    // record and record_index fields which are accessed under sched_lock_.
+    // runqueue-related plus record and record_index fields which are accessed under
+    // the output's own lock.
     std::vector<output_info_t> outputs_;
-    // We use a central lock for global scheduling.  We assume the synchronization
-    // cost is outweighed by the simulator's overhead.  This protects concurrent
-    // access to inputs_.size(), outputs_.size(), ready_priority_,
-    // ready_counter_, unscheduled_priority_, and unscheduled_counter_.
-    // This cannot be acquired while holding an input lock: it must
-    // be acquired first, to avoid deadlocks.
-    mutex_dbg_owned sched_lock_;
-    // Inputs ready to be scheduled, sorted by priority and then timestamp if timestamp
-    // dependencies are requested.  We use the timestamp delta from the first observed
-    // timestamp in each workload in order to mix inputs from different workloads in the
-    // same queue.  FIFO ordering is used for same-priority entries.
-    flexible_queue_t<input_info_t *, InputTimestampComparator> ready_priority_;
-    // Inputs that are unscheduled indefinitely unless directly targeted.
-    flexible_queue_t<input_info_t *, InputTimestampComparator> unscheduled_priority_;
-    // Trackes the count of blocked inputs.  Protected by sched_lock_.
-    int num_blocked_ = 0;
-    // Global queue counters used to provide FIFO for same-priority inputs.
-    uint64_t ready_counter_ = 0;
-    uint64_t unscheduled_counter_ = 0;
+    // This lock protects unscheduled_priority_ and unscheduled_counter_.
+    // It should be acquired *after* both output or input locks: it is narrowmost.
+    mutex_dbg_owned unsched_lock_;
+    // Inputs that are unscheduled indefinitely until directly targeted.
+    input_queue_t unscheduled_priority_;
+    // Rebalancing coordination.
+    std::atomic<std::thread::id> rebalancer_;
+    std::atomic<uint64_t> last_rebalance_time_;
     // Count of inputs not yet at eof.
     std::atomic<int> live_input_count_;
     // In replay mode, count of outputs not yet at the end of the replay sequence.
