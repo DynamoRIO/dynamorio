@@ -673,7 +673,7 @@ public:
          * #TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE), after this amount of time those
          * inputs are all re-scheduled.
          */
-        uint64_t block_time_max = 2500000;
+        uint64_t block_time_max = 250000;
         // XXX: Should we share the file-to-reader code currently in the scheduler
         // with the analyzer and only then need reader interfaces and not pass paths
         // to the scheduler?
