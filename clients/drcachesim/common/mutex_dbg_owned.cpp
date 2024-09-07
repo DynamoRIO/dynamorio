@@ -43,7 +43,6 @@ mutex_dbg_owned::lock()
 #ifdef NDEBUG
     lock_.lock();
 #else
-#    error expecting NDEBUG
     bool contended = true;
     if (lock_.try_lock())
         contended = false;
