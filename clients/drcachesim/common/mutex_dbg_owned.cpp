@@ -30,52 +30,76 @@
  * DAMAGE.
  */
 
-/* mutex_dbg_owned.h: std::mutex plus an assertable owner and stats in debug builds. */
-
-#ifndef _MUTEX_DBG_OWNED_H_
-#define _MUTEX_DBG_OWNED_H_ 1
-
 #include <mutex>
 #include <thread>
+#include "mutex_dbg_owned.h"
 
 namespace dynamorio {
 namespace drmemtrace {
 
-// A wrapper around std::mutex which adds an owner field for asserts on ownership
-// when a lock is required to be held by the caller (where
-// std::unique_lock::owns_lock() cannot easily be used).
-// It also adds contention statistics.  These additional fields are only maintained
-// when NDEBUG is not defined: i.e., they are targeted for asserts and diagnostics.
-class mutex_dbg_owned {
-public:
-    void
-    lock();
-    bool
-    try_lock();
-    void
-    unlock();
-    // This query should only be called when the lock is required to be held
-    // as it is racy when the lock is not held.
-    bool
-    owned_by_cur_thread();
-    // These statistics only count lock(): they do *not* count try_lock()
-    // (we could count try_lock with std::atomic on count_contended).
-    int64_t
-    get_count_acquired();
-    int64_t
-    get_count_contended();
+void
+mutex_dbg_owned::lock()
+{
+#ifdef NDEBUG
+    lock_.lock();
+#else
+#    error expecting NDEBUG
+    bool contended = true;
+    if (lock_.try_lock())
+        contended = false;
+    else
+        lock_.lock();
+    owner_ = std::this_thread::get_id();
+    ++count_acquired_;
+    if (contended)
+        ++count_contended_;
+#endif
+}
 
-private:
-    std::mutex lock_;
-    // We do not place these under ifndef NDEBUG as it is too easy to get two
-    // compilation units with different values for NDEBUG conflicting.
-    // We thus pay the space cost in NDEBUG build.
-    std::thread::id owner_;
-    int64_t count_acquired_ = 0;
-    int64_t count_contended_ = 0;
-};
+bool
+mutex_dbg_owned::try_lock()
+{
+#ifdef NDEBUG
+    return lock_.try_lock();
+#else
+    if (lock_.try_lock()) {
+        owner_ = std::this_thread::get_id();
+        return true;
+    }
+    return false;
+#endif
+}
+
+void
+mutex_dbg_owned::unlock()
+{
+#ifndef NDEBUG
+    owner_ = std::thread::id(); // id() creates a no-thread sentinel value.
+#endif
+    lock_.unlock();
+}
+
+// This query should only be called when the lock is required to be held
+// as it is racy when the lock is not held.
+bool
+mutex_dbg_owned::owned_by_cur_thread()
+{
+    return owner_ == std::this_thread::get_id();
+}
+
+// These statistics only count lock(): they do *not* count try_lock()
+// (we could count try_lock with std::atomic on count_contended).
+int64_t
+mutex_dbg_owned::get_count_acquired()
+{
+    return count_acquired_;
+}
+
+int64_t
+mutex_dbg_owned::get_count_contended()
+{
+    return count_contended_;
+}
 
 } // namespace drmemtrace
 } // namespace dynamorio
-
-#endif /* _MUTEX_DBG_OWNED_H_ */
