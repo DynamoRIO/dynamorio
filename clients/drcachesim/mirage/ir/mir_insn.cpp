@@ -52,6 +52,8 @@ const char* mir_insn_to_str(mir_insn_t* insn) {
         snprintf(buffer, sizeof(buffer), "%s %s -> [%s + %s]", op_str, dst_str, opnd1_str, opnd0_str);
     } else if (mir_opc_is_load(insn->op)) {
         snprintf(buffer, sizeof(buffer), "%s [%s + %s] -> %s", op_str, opnd1_str, opnd0_str, dst_str);
+    } else if (mir_opc_is_wflag(insn->op)) {
+        snprintf(buffer, sizeof(buffer), "%s %s", op_str, opnd0_str);
     } else {
         snprintf(buffer, sizeof(buffer), "%s %s, %s -> %s", 
                  op_str, opnd0_str, opnd1_str, dst_str);

@@ -1,5 +1,8 @@
 #include "gen_ops.h"
 
+// Do nothing for unsupported instructions
+void gen_nop_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
+}
    
 void _gen_arith_op(instr_t *instr, mir_opc_t op, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
     assert(instr_num_srcs(instr) == 2);

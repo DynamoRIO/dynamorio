@@ -10,6 +10,10 @@ void dr_gen_mir_ops(instr_t *instr) {
     ctx_set_curr_instr(ctx, instr);
 
     switch (opc) {
+        case OP_nop_modrm:
+        case OP_rdtsc:
+            gen_nop_op(instr, &insn_list, ctx);
+            break;
         // Arithmetic & Bitwise instructions
         case OP_add:
             gen_add_op(instr, &insn_list, ctx);
@@ -63,6 +67,11 @@ void dr_gen_mir_ops(instr_t *instr) {
             gen_adc_op(instr, &insn_list, ctx);
             break;
         // All jumps are trivially handled for now
+        case OP_jmp:
+        case OP_jmp_short:
+        case OP_jmp_ind:
+        case OP_jmp_far:
+        case OP_jmp_far_ind:
         case OP_jo_short:
         case OP_jno_short:
         case OP_jb_short:
