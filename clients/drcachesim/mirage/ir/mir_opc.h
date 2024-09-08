@@ -85,6 +85,8 @@ static const char* mir_opc_str[] = {
     "AND",
     "OR",
     "XOR",
+    "SHL",
+    "SHR",
     "LD8",
     "LD16",
     "LD32",
@@ -109,6 +111,10 @@ inline bool mir_opc_is_store(mir_opc_t op){
 
 inline bool mir_opc_is_load(mir_opc_t op){
     return op == MIR_OP_LD8 || op == MIR_OP_LD16 || op == MIR_OP_LD32 || op == MIR_OP_LD64;
+}
+
+inline bool mir_opc_is_wflag(mir_opc_t op){
+    return op == MIR_OP_W_FLAG;
 }
 
 #endif // __MIR_OP_H_

@@ -26,9 +26,6 @@ mir_insn_t* mir_insn_malloc(mir_opc_t op);
 // Free a MIR instruction
 void mir_insn_free(mir_insn_t *insn);
 
-// Convert a MIR opcode to a string, for debugging
-const char* mir_opc_to_str(mir_opc_t op);
-
 // malloc a new opnd
 void mir_insn_set_src0_reg(mir_insn_t *insn, reg_id_t reg);
 void mir_insn_set_src0_imm(mir_insn_t *insn, int64_t imm);   
