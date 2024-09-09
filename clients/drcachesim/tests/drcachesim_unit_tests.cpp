@@ -39,6 +39,7 @@
 #undef NDEBUG
 #include <assert.h>
 #include "config_reader_unit_test.h"
+#include "v2p_reader_unit_test.h"
 #include "cache_replacement_policy_unit_test.h"
 #include "simulator/cache.h"
 #include "simulator/cache_lru.h"
@@ -842,6 +843,7 @@ test_main(int argc, const char *argv[])
     unit_test_exclusive_cache();
     unit_test_cache_accessors();
     unit_test_config_reader(argv[1]);
+    unit_test_v2p_reader(argv[1]);
     unit_test_cache_associativity();
     unit_test_cache_size();
     unit_test_cache_line_size();

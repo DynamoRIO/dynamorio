@@ -266,6 +266,7 @@ set(drcachesim_srcs
   ${client_and_sim_srcs}
   reader/reader.cpp
   reader/config_reader.cpp
+  reader/v2p_reader.cpp
   reader/file_reader.cpp
   reader/record_file_reader.cpp
   ${zlib_reader}
@@ -325,6 +326,7 @@ add_exported_library(drmemtrace_analyzer STATIC
   common/trace_entry.cpp
   reader/reader.cpp
   reader/config_reader.cpp
+  reader/v2p_reader.cpp
   reader/file_reader.cpp
   reader/record_file_reader.cpp
   ${zlib_reader}
@@ -802,7 +804,8 @@ if (BUILD_TESTS)
   set_tests_properties(tool.reuse_distance.unit_tests PROPERTIES TIMEOUT ${test_seconds})
 
   add_executable(tool.drcachesim.unit_tests tests/drcachesim_unit_tests.cpp
-    tests/cache_replacement_policy_unit_test.cpp tests/config_reader_unit_test.cpp)
+    tests/cache_replacement_policy_unit_test.cpp tests/config_reader_unit_test.cpp
+    tests/v2p_reader_unit_test.cpp)
   target_link_libraries(tool.drcachesim.unit_tests drmemtrace_simulator
     # Link test_helpers first, or else the zlib main takes over.
     drmemtrace_static drmemtrace_analyzer test_helpers ${zlib_libs})
