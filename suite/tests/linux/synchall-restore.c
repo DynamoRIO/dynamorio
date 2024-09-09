@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,13 +30,19 @@
  * DAMAGE.
  */
 
-/* Tests a signal handler accessing sigcontext */
+/* Tests resuming from check_wait_at_safe_spot => thread_set_self_context,
+ * triggered by another thread flushing (causing a synchall). Test based on
+ * linux.sigcontext.
+ */
+
+/* XXX: This test only verifies that XMM state is restored, not X87 state. */
 
 #include "tools.h"
+#include "thread.h"
+#include "condvar.h"
+
 /* we want the latest defs so we can get at ymm state */
 #include "../../../core/unix/include/sigcontext.h"
-#include "../../../core/unix/include/syscall.h"
-#include <assert.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <signal.h>
@@ -47,134 +53,30 @@
 /* For sharing NUM_*_REGS constants. */
 #include "../api/detach_state_shared.h"
 
-/* TODO i#1312: This test has been prepared for - and executes AVX-512 code, but doesn't
- * test any AVX-512 state yet.
- */
-
-#ifdef X64
-#    define XAX "rax"
-#else
-#    define XAX "eax"
+#ifndef X86
+#    error synchall-restore test is only supported on X86.
 #endif
+
 #define INTS_PER_XMM 4
 #define INTS_PER_YMM 8
 #define INTS_PER_ZMM 16
-#define CPUID_KMASK_COMP 5
-#define CPUID_ZMM_HI256_COMP 6
-#define CPUID_HI16_ZMM_COMP 7
 
-static int
-get_xstate_area_offs(int comp)
+NOINLINE void
+dummy2()
 {
-    int offs;
-    __asm__ __volatile__("cpuid" : "=b"(offs) : "a"(0xd), "c"(comp));
-    return offs;
+    for (int i = 0; i < 10; i++) {
+        asm volatile("add %rdi, %rdi");
+    }
 }
 
-static void
-signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
+static void *child_started;
+
+void *
+thread()
 {
-    int i, j;
-    switch (sig) {
-    case SIGUSR1: {
-        if (ucxt->uc_mcontext.fpregs == NULL) {
-            print("fpstate is NULL\n");
-        } else {
-            /* SIGUSR1 is delayable so we're testing propagation of the
-             * fpstate with xmm inside on delayed signals
-             */
-            kernel_fpstate_t *fp = (kernel_fpstate_t *)ucxt->uc_mcontext.fpregs;
-            for (i = 0; i < NUM_SIMD_SSE_AVX_REGS; i++) {
-                print("xmm[%d] = 0x%x 0x%x 0x%x 0x%x\n", i,
-#ifdef X64
-                      fp->xmm_space[i * 4], fp->xmm_space[i * 4 + 1],
-                      fp->xmm_space[i * 4 + 2], fp->xmm_space[i * 4 + 3]
-#else
-                      fp->_xmm[i].element[0], fp->_xmm[i].element[1],
-                      fp->_xmm[i].element[2], fp->_xmm[i].element[3]
-#endif
-                );
-                for (j = 0; j < INTS_PER_XMM; j++) {
-#ifdef X64
-                    assert(fp->xmm_space[i * 4 + j] == 0xdeadbeef << i);
-#else
-                    assert(fp->_xmm[i].element[j] == 0xdeadbeef << i);
-#endif
-                }
-            }
-        }
-        break;
-    }
-    case SIGUSR2: {
-        if (ucxt->uc_mcontext.fpregs == NULL) {
-            print("fpstate is NULL\n");
-        } else {
-            /* SIGUSR2 is delayable so we're testing propagation of the
-             * xstate with ymm inside on delayed signals on AVX processors
-             */
-            kernel_fpstate_t *fp = (kernel_fpstate_t *)ucxt->uc_mcontext.fpregs;
-            for (i = 0; i < NUM_SIMD_SSE_AVX_REGS; i++) {
-                print("xmm[%d] = 0x%x 0x%x 0x%x 0x%x\n", i,
-#ifdef X64
-                      fp->xmm_space[i * 4], fp->xmm_space[i * 4 + 1],
-                      fp->xmm_space[i * 4 + 2], fp->xmm_space[i * 4 + 3]
-#else
-                      fp->_xmm[i].element[0], fp->_xmm[i].element[1],
-                      fp->_xmm[i].element[2], fp->_xmm[i].element[3]
-#endif
-                );
-            }
-            kernel_xstate_t *xstate = (kernel_xstate_t *)ucxt->uc_mcontext.fpregs;
-            if (xstate->fpstate.sw_reserved.magic1 == FP_XSTATE_MAGIC1) {
-                assert(xstate->fpstate.sw_reserved.extended_size >= sizeof(*xstate));
-#ifdef __AVX__
-                for (i = 0; i < NUM_SIMD_SSE_AVX_REGS; i++) {
-                    print("ymmh[%d] = 0x%x 0x%x 0x%x 0x%x\n", i,
-                          xstate->ymmh.ymmh_space[i * 4],
-                          xstate->ymmh.ymmh_space[i * 4 + 1],
-                          xstate->ymmh.ymmh_space[i * 4 + 2],
-                          xstate->ymmh.ymmh_space[i * 4 + 3]);
-                }
-#endif
-#ifdef __AVX512F__
-#    ifdef X64
-                __u32 *xstate_kmask_offs =
-                    (__u32 *)((byte *)xstate + get_xstate_area_offs(CPUID_KMASK_COMP));
-                for (i = 0; i < NUM_OPMASK_REGS; i++) {
-                    print("kmask[%d] = 0x%x\n", i, xstate_kmask_offs[i * 2]);
-                }
-                __u32 *xstate_zmm_hi256_offs =
-                    (__u32 *)((byte *)xstate +
-                              get_xstate_area_offs(CPUID_ZMM_HI256_COMP));
-                for (i = 0; i < NUM_SIMD_SSE_AVX_REGS; i++) {
-                    print("zmm_hi256[%d] = 0x%x 0x%x 0x%x 0x%x\n", i,
-                          xstate_zmm_hi256_offs[i * 8], xstate_zmm_hi256_offs[i * 8 + 1],
-                          xstate_zmm_hi256_offs[i * 8 + 2],
-                          xstate_zmm_hi256_offs[i * 8 + 3]);
-                }
-                __u32 *xstate_hi16_zmm_offs =
-                    (__u32 *)((byte *)xstate + get_xstate_area_offs(CPUID_HI16_ZMM_COMP));
-                for (i = 0; i < NUM_SIMD_AVX512_REGS - NUM_SIMD_SSE_AVX_REGS; i++) {
-                    print("hi16_zmm[%d] = 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n", i,
-                          xstate_hi16_zmm_offs[i * 16], xstate_hi16_zmm_offs[i * 16 + 1],
-                          xstate_hi16_zmm_offs[i * 16 + 2],
-                          xstate_hi16_zmm_offs[i * 16 + 3],
-                          xstate_hi16_zmm_offs[i * 16 + 4],
-                          xstate_hi16_zmm_offs[i * 16 + 5],
-                          xstate_hi16_zmm_offs[i * 16 + 6],
-                          xstate_hi16_zmm_offs[i * 16 + 7]);
-                }
-#    else
-                /* XXX i#1312: it is unclear if and how the components are arranged in
-                 * 32-bit mode by the kernel.
-                 */
-#    endif
-#endif
-            }
-        }
-        break;
-    }
-    default: assert(0);
+    signal_cond_var(child_started);
+    for (int i = 0; i < 100000; i++) {
+        dummy2();
     }
 }
 
@@ -184,17 +86,24 @@ main(int argc, char *argv[])
     int buf[INTS_PER_XMM * NUM_SIMD_SSE_AVX_REGS];
     char *ptr = (char *)buf;
     int i, j;
-    pid_t pid = getpid();
 
-    /* do this first to avoid messing w/ xmm state */
-    intercept_signal(SIGUSR1, signal_handler, false);
-    print("Sending SIGUSR1\n");
+    print("Starting test.\n");
+
+    child_started = create_cond_var();
+    thread_t flusher = create_thread(thread, NULL);
+    wait_cond_var(child_started);
+
+    print("Saving regs.\n");
 
     /* put known values in xmm regs (we assume processor has xmm) */
     for (i = 0; i < NUM_SIMD_SSE_AVX_REGS; i++) {
         for (j = 0; j < INTS_PER_XMM; j++)
             buf[i * INTS_PER_XMM + j] = 0xdeadbeef << i;
     }
+
+    /* XXX: Try to share with sigcontext.c to avoid duplicating all the
+     * SIMD filling and checking code.
+     */
 #define MOVE_TO_XMM(buf, num)                           \
     __asm__ __volatile__("movdqu %0, %%xmm" #num        \
                          :                              \
@@ -218,8 +127,6 @@ main(int argc, char *argv[])
     MOVE_TO_XMM(buf, 14)
     MOVE_TO_XMM(buf, 15)
 #endif
-    /* we assume xmm* won't be overwritten by this library call before the signal */
-    kill(getpid(), SIGUSR1);
 
 #if defined(__AVX__) || defined(__AVX512F__)
     {
@@ -231,8 +138,6 @@ main(int argc, char *argv[])
 #    endif
         char *ptr = (char *)buf;
         int i, j;
-        intercept_signal(SIGUSR2, signal_handler, false);
-        print("Sending SIGUSR2\n");
 
         /* put known values in xmm regs (we assume processor has xmm) */
 #    ifdef __AVX512F__
@@ -325,23 +230,25 @@ main(int argc, char *argv[])
         MOVE_TO_YMM(buf, 15)
 #        endif
 #    endif
-        /* Now make sure they show up in the signal context.
-         * But, it's not safe to make a regular call, as the compiler will
-         * insert VZEROUPPER for some configurations.
-         */
-#    ifdef X64
-        __asm__ __volatile__("mov %0, %%rdi; mov %1, %%rsi; mov %2, %%rax; syscall"
-                             :
-                             : "m"(pid), "i"(SIGUSR2), "i"(SYS_kill)
-                             : "rdi", "rsi", "rax");
-#    else
-        __asm__ __volatile__("mov %0, %%ebx; mov %1, %%ecx; mov %2, %%eax; int $0x80"
-                             :
-                             : "m"(pid), "i"(SIGUSR2), "i"(SYS_kill)
-                             : "ebx", "ecx", "eax");
-#    endif
 
-        /* Ensure they are preserved across the sigreturn (xref i#3812). */
+        /* This is the start of the critical XMM-preserving section. */
+
+        const char before_msg[] = "Before synchall loop.\n";
+        const char after_msg[] = "After synchall loop.\n";
+
+        /* print() would clobber XMM regs here, so we use write() instead. */
+        write(STDERR_FILENO, before_msg, sizeof(before_msg) - 1);
+
+        /* Sometime in this loop, we will synch with the other thread. */
+        for (int i = 0; i < 100; i++) {
+            dummy2();
+        }
+
+        /* print() would clobber XMM regs here, so we use write() instead. */
+        write(STDERR_FILENO, after_msg, sizeof(after_msg) - 1);
+
+        /* This is the end of the critical XMM-saving section. */
+
 #    ifdef __AVX512F__
         /* Use a new buffer to avoid the old values. We could do a custom memset
          * with rep movs in asm instead (regular memset may clobber SIMD regs).
@@ -391,6 +298,7 @@ main(int argc, char *argv[])
                 assert(buf2[i * INTS_PER_ZMM + j] == 0xdeadbeef + i * INTS_PER_ZMM + j);
             }
         }
+
         /* Re-using INTS_PER_ZMM here to get same data patterns as above. */
         int buf3[INTS_PER_ZMM * NUM_OPMASK_REGS];
 #        define MOVE_FROM_OPMASK(buf, num)                       \
@@ -437,13 +345,14 @@ main(int argc, char *argv[])
         MOVE_FROM_YMM(buf2, 15)
 #        endif
         for (i = 0; i < NUM_SIMD_SSE_AVX_REGS; i++) {
-            for (j = 0; j < INTS_PER_YMM; j++)
+            for (j = 0; j < INTS_PER_YMM; j++) {
                 assert(buf2[i * INTS_PER_YMM + j] == 0xdeadbeef + i * INTS_PER_ZMM + j);
+            }
         }
 #    endif
     }
 #endif
 
-    print("All done\n");
+    print("All done.\n");
     return 0;
 }

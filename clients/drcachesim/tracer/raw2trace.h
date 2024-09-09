@@ -111,7 +111,19 @@ typedef enum {
     RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP,
     RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT,
     RAW2TRACE_STAT_KERNEL_INSTR_COUNT,
-    RAW2TRACE_STAT_SYSCALL_TRACES_DECODED,
+    RAW2TRACE_STAT_SYSCALL_TRACES_CONVERTED,
+    // Count of PT syscall traces that could not be converted and were skipped
+    // in the final trace.
+    RAW2TRACE_STAT_SYSCALL_TRACES_CONVERSION_FAILED,
+    // Count of decoding errors that were not fatal to the conversion of the
+    // RAW2TRACE_STAT_SYSCALL_TRACES_CONVERTED traces. These result in some
+    // 1-instr PC discontinuities in the syscall trace (<= 1 per non-fatal
+    // error).
+    RAW2TRACE_STAT_SYSCALL_TRACES_NON_FATAL_DECODING_ERROR_COUNT,
+    // Count of PT syscall traces that turned up empty. This may have been
+    // simply because the syscall was interrupted and therefore no PT data
+    // was recorded.
+    RAW2TRACE_STAT_SYSCALL_TRACES_CONVERSION_EMPTY,
     RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED,
     // We add a MAX member so that we can iterate over all stats in unit tests.
     RAW2TRACE_STAT_MAX,
@@ -805,7 +817,8 @@ public:
         const std::unordered_map<thread_id_t, std::istream *> &kthread_files_map = {},
         const std::string &kcore_path = "", const std::string &kallsyms_path = "",
         std::unique_ptr<dynamorio::drmemtrace::record_reader_t> syscall_template_file =
-            nullptr);
+            nullptr,
+        bool pt2ir_best_effort = false);
     // If a nullptr dcontext_in was passed to the constructor, calls dr_standalone_exit().
     virtual ~raw2trace_t();
 
@@ -1038,7 +1051,10 @@ protected:
         uint64 latest_trace_timestamp = 0;
         uint64 final_trace_instr_count = 0;
         uint64 kernel_instr_count = 0;
-        uint64 syscall_traces_decoded = 0;
+        uint64 syscall_traces_converted = 0;
+        uint64 syscall_traces_conversion_failed = 0;
+        uint64 syscall_traces_non_fatal_decoding_error_count = 0;
+        uint64 syscall_traces_conversion_empty = 0;
         uint64 syscall_traces_injected = 0;
 
         uint64 cur_chunk_instr_count = 0;
@@ -1291,7 +1307,10 @@ protected:
     uint64 latest_trace_timestamp_ = 0;
     uint64 final_trace_instr_count_ = 0;
     uint64 kernel_instr_count_ = 0;
-    uint64 syscall_traces_decoded_ = 0;
+    uint64 syscall_traces_converted_ = 0;
+    uint64 syscall_traces_conversion_failed_ = 0;
+    uint64 syscall_traces_non_fatal_decoding_error_count_ = 0;
+    uint64 syscall_traces_conversion_empty_ = 0;
     uint64 syscall_traces_injected_ = 0;
 
     std::unique_ptr<module_mapper_t> module_mapper_;
@@ -1646,6 +1665,13 @@ private:
     std::unordered_map<int, std::vector<trace_entry_t>> syscall_trace_templates_;
     memref_counter_t syscall_trace_template_encodings_;
     offline_file_type_t syscall_template_file_type_ = OFFLINE_FILE_TYPE_DEFAULT;
+
+    // Whether conversion of PT raw traces is done on a best-effort basis. This includes
+    // ignoring various types of non-fatal decoding errors and still producing a syscall
+    // trace where possible (which may have some PC discontinuities), and also dropping
+    // some syscall traces completely from the final trace where the PT trace could
+    // not be converted.
+    bool pt2ir_best_effort_ = false;
 };
 
 } // namespace drmemtrace

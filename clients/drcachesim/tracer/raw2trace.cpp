@@ -1154,7 +1154,7 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
 #    define RING_BUFFER_SIZE_SHIFT 8
         config.pt_raw_buffer_size =
             (1L << RING_BUFFER_SIZE_SHIFT) * sysconf(_SC_PAGESIZE);
-        if (!tdata->pt2ir.init(config, verbosity_)) {
+        if (!tdata->pt2ir.init(config, verbosity_, pt2ir_best_effort_)) {
             tdata->error = "Unable to initialize PT2IR";
             return false;
         }
@@ -1192,13 +1192,29 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
         tdata->pt_decode_state_ = std::unique_ptr<drir_t>(new drir_t(GLOBAL_DCONTEXT));
     }
     tdata->pt_decode_state_->clear_ilist();
+    uint64_t syscall_decode_non_fatal_error_count = 0;
     pt2ir_convert_status_t pt2ir_convert_status = tdata->pt2ir.convert(
-        pt_data->data.get(), pt_data_size, tdata->pt_decode_state_.get());
+        pt_data->data.get(), pt_data_size, tdata->pt_decode_state_.get(),
+        &syscall_decode_non_fatal_error_count);
     if (pt2ir_convert_status != PT2IR_CONV_SUCCESS) {
-        tdata->error = "Failed to convert PT raw trace to DR IR [error status: " +
-            std::to_string(pt2ir_convert_status) + "]";
-        return false;
+        if (!pt2ir_best_effort_ ||
+            pt2ir_convert_status != PT2IR_CONV_ERROR_DECODE_NEXT_INSTR) {
+            tdata->error = "Failed to convert PT raw trace to DR IR [error status: " +
+                std::to_string(pt2ir_convert_status) + "]";
+            return false;
+        }
+        /* When -pt2ir_best_effort is set, we do not fail raw2trace when pt2ir is
+         * unable to convert some PT syscall trace.
+         * TODO i#5505: Maybe the invariant checker should also report such missing
+         * syscall traces.
+         */
+        accumulate_to_statistic(tdata, RAW2TRACE_STAT_SYSCALL_TRACES_CONVERSION_FAILED,
+                                1);
+        return true;
     }
+    accumulate_to_statistic(tdata,
+                            RAW2TRACE_STAT_SYSCALL_TRACES_NON_FATAL_DECODING_ERROR_COUNT,
+                            syscall_decode_non_fatal_error_count);
 
     /* Convert the DR IR to trace entries. */
     addr_t sysnum =
@@ -1224,11 +1240,13 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
                                 .addr = sysnum };
     entries.push_back(end_entry);
     if (entries.size() == 2) {
-        tdata->error = "No trace entries generated from PT data";
-        return false;
+        // XXX: Is this simply because the syscall did not end up executing because of
+        // being interrupted?
+        accumulate_to_statistic(tdata, RAW2TRACE_STAT_SYSCALL_TRACES_CONVERSION_EMPTY, 1);
+        return true;
     }
 
-    accumulate_to_statistic(tdata, RAW2TRACE_STAT_SYSCALL_TRACES_DECODED, 1);
+    accumulate_to_statistic(tdata, RAW2TRACE_STAT_SYSCALL_TRACES_CONVERTED, 1);
     app_pc saved_decode_pc;
     trace_entry_t entries_with_encodings[WRITE_BUFFER_SIZE];
     trace_entry_t *buf = entries_with_encodings;
@@ -1563,7 +1581,13 @@ raw2trace_t::do_conversion()
                                                thread_data_[i]->latest_trace_timestamp);
             final_trace_instr_count_ += thread_data_[i]->final_trace_instr_count;
             kernel_instr_count_ += thread_data_[i]->kernel_instr_count;
-            syscall_traces_decoded_ += thread_data_[i]->syscall_traces_decoded;
+            syscall_traces_converted_ += thread_data_[i]->syscall_traces_converted;
+            syscall_traces_conversion_failed_ +=
+                thread_data_[i]->syscall_traces_conversion_failed;
+            syscall_traces_non_fatal_decoding_error_count_ +=
+                thread_data_[i]->syscall_traces_non_fatal_decoding_error_count;
+            syscall_traces_conversion_empty_ +=
+                thread_data_[i]->syscall_traces_conversion_empty;
             syscall_traces_injected_ += thread_data_[i]->syscall_traces_injected;
         }
     } else {
@@ -1591,7 +1615,11 @@ raw2trace_t::do_conversion()
                 std::max(latest_trace_timestamp_, tdata->latest_trace_timestamp);
             final_trace_instr_count_ += tdata->final_trace_instr_count;
             kernel_instr_count_ += tdata->kernel_instr_count;
-            syscall_traces_decoded_ += tdata->syscall_traces_decoded;
+            syscall_traces_converted_ += tdata->syscall_traces_converted;
+            syscall_traces_conversion_failed_ += tdata->syscall_traces_conversion_failed;
+            syscall_traces_non_fatal_decoding_error_count_ +=
+                tdata->syscall_traces_non_fatal_decoding_error_count;
+            syscall_traces_conversion_empty_ += tdata->syscall_traces_conversion_empty;
             syscall_traces_injected_ += tdata->syscall_traces_injected;
         }
     }
@@ -1612,8 +1640,15 @@ raw2trace_t::do_conversion()
     VPRINT(1, "Final trace instr count: " UINT64_FORMAT_STRING ".\n",
            final_trace_instr_count_);
     VPRINT(1, "Kernel instr count " UINT64_FORMAT_STRING "\n", kernel_instr_count_);
-    VPRINT(1, "System call PT traces decoded " UINT64_FORMAT_STRING "\n",
-           syscall_traces_decoded_);
+    VPRINT(1, "System call PT traces converted " UINT64_FORMAT_STRING "\n",
+           syscall_traces_converted_);
+    VPRINT(1, "System call PT traces conversion failed " UINT64_FORMAT_STRING "\n",
+           syscall_traces_conversion_failed_);
+    VPRINT(1, "System call PT trace conversion decode errors " UINT64_FORMAT_STRING "\n",
+           syscall_traces_non_fatal_decoding_error_count_);
+    VPRINT(1,
+           "System call PT trace conversion found empty trace " UINT64_FORMAT_STRING "\n",
+           syscall_traces_conversion_empty_);
     VPRINT(1, "System call traces injected from template " UINT64_FORMAT_STRING "\n",
            syscall_traces_injected_);
     VPRINT(1, "Successfully converted %zu thread files\n", thread_data_.size());
@@ -3705,7 +3740,8 @@ raw2trace_t::raw2trace_t(
     const std::string &alt_module_dir, uint64_t chunk_instr_count,
     const std::unordered_map<thread_id_t, std::istream *> &kthread_files_map,
     const std::string &kcore_path, const std::string &kallsyms_path,
-    std::unique_ptr<dynamorio::drmemtrace::record_reader_t> syscall_template_file_reader)
+    std::unique_ptr<dynamorio::drmemtrace::record_reader_t> syscall_template_file_reader,
+    bool pt2ir_best_effort)
     : dcontext_(dcontext == nullptr ? dr_standalone_init() : dcontext)
     , passed_dcontext_(dcontext != nullptr)
     , worker_count_(worker_count)
@@ -3722,6 +3758,7 @@ raw2trace_t::raw2trace_t(
     , kcore_path_(kcore_path)
     , kallsyms_path_(kallsyms_path)
     , syscall_template_file_reader_(std::move(syscall_template_file_reader))
+    , pt2ir_best_effort_(pt2ir_best_effort)
 {
     // Exactly one of out_files and out_archives should be non-empty.
     // If thread_files is not empty it must match the input size.
@@ -3806,8 +3843,17 @@ raw2trace_t::accumulate_to_statistic(raw2trace_thread_data_t *tdata,
         tdata->final_trace_instr_count += value;
         break;
     case RAW2TRACE_STAT_KERNEL_INSTR_COUNT: tdata->kernel_instr_count += value; break;
-    case RAW2TRACE_STAT_SYSCALL_TRACES_DECODED:
-        tdata->syscall_traces_decoded += value;
+    case RAW2TRACE_STAT_SYSCALL_TRACES_CONVERTED:
+        tdata->syscall_traces_converted += value;
+        break;
+    case RAW2TRACE_STAT_SYSCALL_TRACES_CONVERSION_FAILED:
+        tdata->syscall_traces_conversion_failed += value;
+        break;
+    case RAW2TRACE_STAT_SYSCALL_TRACES_NON_FATAL_DECODING_ERROR_COUNT:
+        tdata->syscall_traces_non_fatal_decoding_error_count += value;
+        break;
+    case RAW2TRACE_STAT_SYSCALL_TRACES_CONVERSION_EMPTY:
+        tdata->syscall_traces_conversion_empty += value;
         break;
     case RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED:
         tdata->syscall_traces_injected += value;
@@ -3830,7 +3876,13 @@ raw2trace_t::get_statistic(raw2trace_statistic_t stat)
     case RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP: return latest_trace_timestamp_;
     case RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT: return final_trace_instr_count_;
     case RAW2TRACE_STAT_KERNEL_INSTR_COUNT: return kernel_instr_count_;
-    case RAW2TRACE_STAT_SYSCALL_TRACES_DECODED: return syscall_traces_decoded_;
+    case RAW2TRACE_STAT_SYSCALL_TRACES_CONVERTED: return syscall_traces_converted_;
+    case RAW2TRACE_STAT_SYSCALL_TRACES_NON_FATAL_DECODING_ERROR_COUNT:
+        return syscall_traces_non_fatal_decoding_error_count_;
+    case RAW2TRACE_STAT_SYSCALL_TRACES_CONVERSION_FAILED:
+        return syscall_traces_conversion_failed_;
+    case RAW2TRACE_STAT_SYSCALL_TRACES_CONVERSION_EMPTY:
+        return syscall_traces_conversion_empty_;
     case RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED: return syscall_traces_injected_;
     case RAW2TRACE_STAT_MAX:
     default: DR_ASSERT(false); return 0;

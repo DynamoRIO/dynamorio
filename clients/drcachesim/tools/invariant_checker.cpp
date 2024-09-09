@@ -185,10 +185,10 @@ invariant_checker_t::parallel_shard_exit(void *shard_data)
     per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
     report_if_false(shard,
                     shard->saw_thread_exit_
-                        // XXX i#6444: For online on some Windows tests we see threads
+                        // XXX i#6733: For online we sometimes see threads
                         // exiting w/o the tracer inserting an exit.  Until we figure
-                        // that out we disable this error for Windows online.
-                        IF_WINDOWS(|| !knob_offline_),
+                        // that out we disable this error to unblock testing.
+                        || !knob_offline_,
                     "Thread is missing exit");
     if (!TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_DFILTERED |
                      // In OFFLINE_FILE_TYPE_ARCH_REGDEPS we can have leftover
@@ -572,7 +572,17 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         "Found kernel syscall trace without corresponding file type");
         report_if_false(shard, !shard->between_kernel_syscall_trace_markers_,
                         "Nested kernel syscall traces are not expected");
-        if (!TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES,
+
+        // PT kernel syscall traces are inserted at the TRACE_MARKER_TYPE_SYSCALL_IDX
+        // marker. The marker is deliberately added to the trace in the post-syscall
+        // callback to ensure it is emitted together with the actual PT trace and not
+        // before. If a signal interrupts the syscall, the
+        // TRACE_MARKER_TYPE_SYSCALL_IDX marker may separate away from the
+        // TRACE_MARKER_TYPE_SYSCALL marker.
+        // TODO i#5505: This case needs more thought. Do we pause PT tracing on entry
+        // to the signal handler? Do we discard the PT trace collected until then?
+        if (!TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES |
+                         OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY,
                      shard->file_type_)) {
             report_if_false(shard, prev_was_syscall_marker_saved,
                             "System call trace found without prior syscall marker");

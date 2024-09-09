@@ -10,6 +10,12 @@ Total counts:
            0 direct context switches
       100\.00% voluntary switches
         0\.00% direct switches
+           5 switches input-to-input
+           4 switches input-to-idle
+           1 switches idle-to-input
+           0 switches nop-ed
+           0 quantum_preempts
+           0 migrations
          161 system calls
            2 maybe-blocking system calls
            0 direct switch requests
@@ -35,10 +41,6 @@ Core #0 counts:
            0 direct context switches
       100\.00% voluntary switches
         0\.00% direct switches
-         *[0-9]* system calls
-           . maybe-blocking system calls
-           0 direct switch requests
-           0 waits
 .*
 Core #1 counts:
            . threads: 1257.*
@@ -50,10 +52,6 @@ Core #1 counts:
            0 direct context switches
       100\.00% voluntary switches
         0\.00% direct switches
-         *[0-9]* system calls
-           . maybe-blocking system calls
-           0 direct switch requests
-           0 waits
 .*
 Core #2 counts:
            . threads: 1257.*
@@ -65,10 +63,6 @@ Core #2 counts:
            0 direct context switches
       100\.00% voluntary switches
         0\.00% direct switches
-         *[0-9]* system calls
-           . maybe-blocking system calls
-           0 direct switch requests
-           0 waits
 .*
 Core #3 counts:
            . threads: 1257.*
@@ -80,10 +74,6 @@ Core #3 counts:
            0 direct context switches
       100\.00% voluntary switches
         0\.00% direct switches
-         *[0-9]* system calls
-           . maybe-blocking system calls
-           0 direct switch requests
-           0 waits
 .*
 Core #0 schedule: [A-Ha-h_]*
 Core #1 schedule: [A-Ha-h_]*
