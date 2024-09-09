@@ -168,6 +168,7 @@ add_exported_library(drmemtrace_func_view STATIC tools/func_view.cpp)
 add_exported_library(drmemtrace_invariant_checker STATIC tools/invariant_checker.cpp)
 add_exported_library(drmemtrace_schedule_stats STATIC tools/schedule_stats.cpp)
 add_exported_library(drmemtrace_schedule_file STATIC common/schedule_file.cpp)
+add_exported_library(drmemtrace_mutex_dbg_owned STATIC common/mutex_dbg_owned.cpp)
 
 target_link_libraries(drmemtrace_invariant_checker drdecode drmemtrace_schedule_file)
 
@@ -284,7 +285,7 @@ target_link_libraries(drmemtrace_launcher drmemtrace_simulator drmemtrace_reuse_
   drmemtrace_histogram drmemtrace_reuse_time drmemtrace_basic_counts
   drmemtrace_opcode_mix drmemtrace_syscall_mix drmemtrace_view drmemtrace_func_view
   drmemtrace_raw2trace directory_iterator drmemtrace_invariant_checker
-  drmemtrace_schedule_stats drmemtrace_record_filter)
+  drmemtrace_schedule_stats drmemtrace_record_filter drmemtrace_mutex_dbg_owned)
 if (UNIX)
     target_link_libraries(drmemtrace_launcher dl)
 endif ()
@@ -331,7 +332,7 @@ add_exported_library(drmemtrace_analyzer STATIC
   ${snappy_reader}
   ${lz4_reader}
   )
-target_link_libraries(drmemtrace_analyzer directory_iterator)
+target_link_libraries(drmemtrace_analyzer directory_iterator drmemtrace_mutex_dbg_owned)
 if (libsnappy)
   target_link_libraries(drmemtrace_analyzer snappy)
 endif ()
@@ -610,6 +611,12 @@ macro(add_win32_flags target)
   if (DEBUG AND NOT DEFINED ${target}_uses_configure)
     append_property_list(TARGET ${target} COMPILE_DEFINITIONS "DEBUG")
   endif ()
+  if (NOT DEBUG)
+    get_property(cur TARGET ${target} PROPERTY COMPILE_DEFINITIONS)
+    if (NOT "${cur}" MATCHES "NDEBUG")
+      append_property_list(TARGET ${target} COMPILE_DEFINITIONS "NDEBUG")
+    endif ()
+  endif ()
   if (WIN32)
     if (DEBUG)
       get_property(cur TARGET ${target} PROPERTY COMPILE_FLAGS)
@@ -666,6 +673,7 @@ add_win32_flags(drmemtrace_schedule_stats)
 add_win32_flags(drmemtrace_schedule_file)
 add_win32_flags(directory_iterator)
 add_win32_flags(test_helpers)
+add_win32_flags(drmemtrace_mutex_dbg_owned)
 if (WIN32 AND DEBUG)
   get_target_property(sim_srcs drmemtrace_launcher SOURCES)
   get_target_property(raw2trace_srcs drraw2trace SOURCES)
@@ -821,13 +829,13 @@ if (BUILD_TESTS)
 
   add_executable(tool.scheduler.unit_tests tests/scheduler_unit_tests.cpp)
   target_link_libraries(tool.scheduler.unit_tests drmemtrace_analyzer test_helpers)
-  add_win32_flags(tool.scheduler.unit_tests)
   if (WIN32)
     # We have a dup symbol from linking in DR.  Linking libc first doesn't help.
     append_property_string(TARGET tool.scheduler.unit_tests LINK_FLAGS
       "/force:multiple")
   endif ()
   configure_DynamoRIO_standalone(tool.scheduler.unit_tests)
+  add_win32_flags(tool.scheduler.unit_tests)
   add_test(NAME tool.scheduler.unit_tests
     COMMAND tool.scheduler.unit_tests
     ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests)
@@ -881,6 +889,7 @@ if (BUILD_TESTS)
     add_executable(tool.drcacheoff.record_filter_unit_tests
                    tests/record_filter_unit_tests.cpp)
     configure_DynamoRIO_standalone(tool.drcacheoff.record_filter_unit_tests)
+    add_win32_flags(tool.drcacheoff.record_filter_unit_tests)
     target_link_libraries(tool.drcacheoff.record_filter_unit_tests drmemtrace_analyzer
       drmemtrace_basic_counts drmemtrace_record_filter test_helpers)
     add_test(NAME tool.drcacheoff.record_filter_unit_tests
