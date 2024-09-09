@@ -3312,8 +3312,11 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
         outputs_[output].prev_speculate_pc = outputs_[output].speculate_pc;
         error_string_ = outputs_[output].speculator.next_record(
             outputs_[output].speculate_pc, record);
-        if (!error_string_.empty())
+        if (!error_string_.empty()) {
+            VPRINT(this, 1, "next_record[%d]: speculation failed: %s\n", output,
+                   error_string_.c_str());
             return sched_type_t::STATUS_INVALID;
+        }
         // Leave the cur input where it is: the ordinals will remain unchanged.
         // Also avoid the context switch checks below as we cannot switch in the
         // middle of speculating (we also don't count speculated instructions toward
