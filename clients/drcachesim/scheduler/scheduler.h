@@ -64,6 +64,7 @@
 #include "flexible_queue.h"
 #include "memref.h"
 #include "memtrace_stream.h"
+#include "mutex_dbg_owned.h"
 #include "reader.h"
 #include "record_file_reader.h"
 #include "speculator.h"
@@ -656,8 +657,12 @@ public:
          * the slowdown of the instruction record processing versus the original
          * (untraced) application execution.  The blocked time is clamped to a maximum
          * value controlled by #block_time_max.
+         *
+         * The default value is meant to be reasonable for simple analyzers.  It may
+         * result in too much or too little idle time depending on the analyzer or
+         * simulator and its speed; it is meant to be tuned and modified.
          */
-        double block_time_scale = 1000.;
+        double block_time_scale = 10.;
         /**
          * The maximum time, in the units explained by #block_time_scale (either
          * #QUANTUM_TIME simulator time or wall-clock microseconds for
@@ -668,7 +673,7 @@ public:
          * #TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE), after this amount of time those
          * inputs are all re-scheduled.
          */
-        uint64_t block_time_max = 25000000;
+        uint64_t block_time_max = 2500000;
         // XXX: Should we share the file-to-reader code currently in the scheduler
         // with the analyzer and only then need reader interfaces and not pass paths
         // to the scheduler?
@@ -1125,6 +1130,18 @@ public:
             return scheduler_->is_record_kernel(ordinal_);
         }
 
+        /**
+         * Returns the value of the specified statistic for this output stream.
+         * The values for all output streams must be summed to obtain global counts.
+         * These statistics are not guaranteed to be accurate when replaying a
+         * prior schedule via #MAP_TO_RECORDED_OUTPUT.
+         */
+        double
+        get_schedule_statistic(schedule_statistic_t stat) const override
+        {
+            return scheduler_->get_statistic(ordinal_, stat);
+        }
+
     protected:
         scheduler_tmpl_t<RecordType, ReaderType> *scheduler_ = nullptr;
         int ordinal_ = -1;
@@ -1153,7 +1170,7 @@ public:
         : ready_priority_(static_cast<int>(get_time_micros()))
     {
     }
-    virtual ~scheduler_tmpl_t() = default;
+    virtual ~scheduler_tmpl_t();
 
     /**
      * Initializes the scheduler for the given inputs, count of output streams, and
@@ -1235,7 +1252,7 @@ protected:
 
     struct input_info_t {
         input_info_t()
-            : lock(new std::mutex)
+            : lock(new mutex_dbg_owned)
         {
         }
         // Returns whether the stream mixes threads (online analysis mode) yet
@@ -1254,7 +1271,7 @@ protected:
         // We use a unique_ptr to make this moveable for vector storage.
         // For inputs not actively assigned to a core but sitting in the ready_queue,
         // sched_lock_ suffices to synchronize access.
-        std::unique_ptr<std::mutex> lock;
+        std::unique_ptr<mutex_dbg_owned> lock;
         // A tid can be duplicated across workloads so we need the pair of
         // workload index + tid to identify the original input.
         int workload = -1;
@@ -1281,6 +1298,7 @@ protected:
         bool needs_advance = false;
         bool needs_roi = true;
         bool at_eof = false;
+        output_ordinal_t prev_output = INVALID_OUTPUT_ORDINAL;
         uintptr_t next_timestamp = 0;
         uint64_t instrs_in_quantum = 0;
         int instrs_pre_read = 0;
@@ -1440,6 +1458,9 @@ protected:
         bool at_eof = false;
         // Used for replaying wait periods.
         uint64_t wait_start_time = 0;
+        // Exported statistics. Currently all integers and cast to double on export.
+        std::vector<int64_t> stats =
+            std::vector<int64_t>(memtrace_stream_t::SCHED_STAT_TYPE_COUNT);
     };
 
     // Used for reading as-traced schedules.
@@ -1611,7 +1632,8 @@ protected:
     uint64_t
     get_output_time(output_ordinal_t output);
 
-    // The caller must hold the lock for the input.
+    // The caller must hold the lock for the input unless it's not a real
+    // input index (it's not real for VERSION, FOOTER, and IDLE).
     stream_status_t
     record_schedule_segment(
         output_ordinal_t output, typename schedule_record_t::record_type_t type,
@@ -1622,7 +1644,8 @@ protected:
         // max macro (even despite NOMINMAX defined above).
         uint64_t stop_instruction = (std::numeric_limits<uint64_t>::max)());
 
-    // The caller must hold the input.lock.
+    // The caller must hold the input.lock unless the record type
+    // is VERSION, FOOTER, or IDLE.
     stream_status_t
     close_schedule_segment(output_ordinal_t output, input_info_t &input);
 
@@ -1753,7 +1776,9 @@ protected:
     get_input_record_ordinal(output_ordinal_t output);
 
     // Returns the input instruction ordinal taking into account queued records.
-    // The caller must hold the input's lock.
+    // XXX: We need to clearly delineate where the input lock is needed: here
+    // we read the queue which shouldn't be changed by other threads; yet this
+    // routine used to claim it needed the input lock.
     uint64_t
     get_instr_ordinal(input_info_t &input);
 
@@ -1784,13 +1809,21 @@ protected:
     // Determines whether to exit or wait for other outputs when one output
     // runs out of things to do.  May end up scheduling new inputs.
     stream_status_t
-    eof_or_idle(output_ordinal_t output, bool hold_sched_lock);
+    eof_or_idle(output_ordinal_t output, bool hold_sched_lock,
+                input_ordinal_t prev_input);
 
     // Returns whether the current record for the current input stream scheduled on
     // the 'output_ordinal'-th output stream is from a part of the trace corresponding
     // to kernel execution.
     bool
     is_record_kernel(output_ordinal_t output);
+
+    // These statistics are not guaranteed to be accurate when replaying a
+    // prior schedule.
+    double
+    get_statistic(output_ordinal_t output,
+                  memtrace_stream_t::schedule_statistic_t stat) const;
+
     ///////////////////////////////////////////////////////////////////////////
     // Support for ready queues for who to schedule next:
 
@@ -1818,7 +1851,7 @@ protected:
     bool
     need_sched_lock();
 
-    std::unique_lock<std::mutex>
+    std::unique_lock<mutex_dbg_owned>
     acquire_scoped_sched_lock_if_necessary(bool &need_lock);
 
     // sched_lock_ must be held by the caller.
@@ -1868,7 +1901,7 @@ protected:
     // ready_counter_, unscheduled_priority_, and unscheduled_counter_.
     // This cannot be acquired while holding an input lock: it must
     // be acquired first, to avoid deadlocks.
-    std::mutex sched_lock_;
+    mutex_dbg_owned sched_lock_;
     // Inputs ready to be scheduled, sorted by priority and then timestamp if timestamp
     // dependencies are requested.  We use the timestamp delta from the first observed
     // timestamp in each workload in order to mix inputs from different workloads in the

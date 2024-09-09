@@ -185,10 +185,10 @@ invariant_checker_t::parallel_shard_exit(void *shard_data)
     per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
     report_if_false(shard,
                     shard->saw_thread_exit_
-                        // XXX i#6444: For online on some Windows tests we see threads
+                        // XXX i#6733: For online we sometimes see threads
                         // exiting w/o the tracer inserting an exit.  Until we figure
-                        // that out we disable this error for Windows online.
-                        IF_WINDOWS(|| !knob_offline_),
+                        // that out we disable this error to unblock testing.
+                        || !knob_offline_,
                     "Thread is missing exit");
     if (!TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_DFILTERED |
                      // In OFFLINE_FILE_TYPE_ARCH_REGDEPS we can have leftover

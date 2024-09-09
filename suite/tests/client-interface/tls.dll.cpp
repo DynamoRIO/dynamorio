@@ -176,9 +176,65 @@ event_exit(void)
     drmgr_exit();
 }
 
+static void
+test_calloc(void)
+{
+    uint previously_allocated = 0;
+    for (int round = 0; round < 100; round++) {
+        uint total_allocated = 0;
+        const size_t max_allocs = 100;
+        uint offsets[max_allocs];
+        uint sizes[max_allocs];
+        size_t num_allocs = 0;
+        /* Randomly allocate until an unaligned allocation of a single slot fails,
+         * meaning space is exhausted, or max_allocs is reached.
+         */
+        for (;;) {
+            uint num_slots = rand() % 4 + 1;         /* 1, 2, 3, 4 */
+            uint alignment = 1 << (rand() % 4) >> 1; /* 0, 1, 2, 4 */
+            reg_id_t reg;
+            uint offset;
+            if (dr_raw_tls_calloc(&reg, &offset, num_slots, alignment)) {
+                ASSERT(alignment == 0 || ALIGNED(offset, alignment));
+                total_allocated += num_slots;
+                offsets[num_allocs] = offset;
+                sizes[num_allocs] = num_slots;
+                ++num_allocs;
+                if (num_allocs == max_allocs)
+                    break;
+            } else {
+                if (num_slots == 1 && alignment <= 1)
+                    break;
+            }
+        }
+        ASSERT(total_allocated > 0);
+        /* If space was exhausted, total allocated should be the same each time. */
+        if (num_allocs < max_allocs) {
+            if (previously_allocated == 0)
+                previously_allocated = total_allocated;
+            else
+                ASSERT(previously_allocated == total_allocated);
+        }
+        /* Free the slots. */
+        for (size_t i = 0; i < num_allocs; i++) {
+            bool try1 = dr_raw_tls_cfree(offsets[i], sizes[i]);
+            ASSERT(try1);
+#ifndef WINDOWS
+            /* On Unix a double free returns false, but on Windows
+             * there can be an assertion failure if this is attempted.
+             */
+            bool try2 = dr_raw_tls_cfree(offsets[i], sizes[i]);
+            ASSERT(!try2);
+#endif
+        }
+    }
+}
+
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
+    test_calloc();
+
     drmgr_init();
 
     dr_register_exit_event(event_exit);

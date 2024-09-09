@@ -90,6 +90,9 @@ The \p samples/CMakeLists.txt file in the release package serves as another
 example.  The top of \p DynamoRIOConfig.cmake contains detailed
 instructions as well.
 
+If your client uses DynamoRIO extensions like drmgr or drx be sure to call
+use_DynamoRIO_extension() in your client's CMakeLists.txt file.
+
 When configuring, the \p DynamoRIO_DIR CMake variable can be passed in to
 identify the directory that contains the \p DynamoRIOConfig.cmake file.  For
 example:

@@ -53,6 +53,7 @@
 
 #include "memref.h"
 #include "memtrace_stream.h"
+#include "mutex_dbg_owned.h"
 #include "reader.h"
 #include "record_file_reader.h"
 #include "trace_entry.h"
@@ -579,7 +580,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::stream_t::next_record(RecordType &reco
         return res;
 
     // Update our memtrace_stream_t state.
-    std::lock_guard<std::mutex> guard(*input->lock);
+    std::lock_guard<mutex_dbg_owned> guard(*input->lock);
     if (!input->reader->is_record_synthetic())
         ++cur_ref_count_;
     if (scheduler_->record_type_is_instr_boundary(record, prev_record_))
@@ -630,7 +631,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::stream_t::unread_last_record()
     if (status != sched_type_t::STATUS_OK)
         return status;
     // Restore state.  We document that get_last_timestamp() is not updated.
-    std::lock_guard<std::mutex> guard(*input->lock);
+    std::lock_guard<mutex_dbg_owned> guard(*input->lock);
     if (!input->reader->is_record_synthetic())
         --cur_ref_count_;
     if (scheduler_->record_type_is_instr(record))
@@ -663,6 +664,36 @@ scheduler_tmpl_t<RecordType, ReaderType>::stream_t::set_active(bool active)
 /***************************************************************************
  * Scheduler.
  */
+
+template <typename RecordType, typename ReaderType>
+scheduler_tmpl_t<RecordType, ReaderType>::~scheduler_tmpl_t()
+{
+    for (unsigned int i = 0; i < outputs_.size(); ++i) {
+        VPRINT(this, 1, "Stats for output #%d\n", i);
+        VPRINT(this, 1, "  %-25s: %9" PRId64 "\n", "Switch input->input",
+               outputs_[i].stats[memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_INPUT]);
+        VPRINT(this, 1, "  %-25s: %9" PRId64 "\n", "Switch input->idle",
+               outputs_[i].stats[memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_IDLE]);
+        VPRINT(this, 1, "  %-25s: %9" PRId64 "\n", "Switch idle->input",
+               outputs_[i].stats[memtrace_stream_t::SCHED_STAT_SWITCH_IDLE_TO_INPUT]);
+        VPRINT(this, 1, "  %-25s: %9" PRId64 "\n", "Switch nop",
+               outputs_[i].stats[memtrace_stream_t::SCHED_STAT_SWITCH_NOP]);
+        VPRINT(this, 1, "  %-25s: %9" PRId64 "\n", "Quantum preempts",
+               outputs_[i].stats[memtrace_stream_t::SCHED_STAT_QUANTUM_PREEMPTS]);
+        VPRINT(this, 1, "  %-25s: %9" PRId64 "\n", "Direct switch attempts",
+               outputs_[i].stats[memtrace_stream_t::SCHED_STAT_DIRECT_SWITCH_ATTEMPTS]);
+        VPRINT(this, 1, "  %-25s: %9" PRId64 "\n", "Direct switch successes",
+               outputs_[i].stats[memtrace_stream_t::SCHED_STAT_DIRECT_SWITCH_SUCCESSES]);
+        VPRINT(this, 1, "  %-25s: %9" PRId64 "\n", "Migrations",
+               outputs_[i].stats[memtrace_stream_t::SCHED_STAT_MIGRATIONS]);
+    }
+#ifndef NDEBUG
+    VPRINT(this, 1, "%-27s: %9" PRId64 "\n", "Schedule lock acquired",
+           sched_lock_.get_count_acquired());
+    VPRINT(this, 1, "%-27s: %9" PRId64 "\n", "Schedule lock contended",
+           sched_lock_.get_count_contended());
+#endif
+}
 
 template <typename RecordType, typename ReaderType>
 bool
@@ -862,6 +893,8 @@ typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
     std::unordered_map<int, std::vector<int>> &workload2inputs)
 {
+    bool need_lock;
+    auto scoped_lock = acquire_scoped_sched_lock_if_necessary(need_lock);
     // Determine whether we need to read ahead in the inputs.  There are cases where we
     // do not want to do that as it would block forever if the inputs are not available
     // (e.g., online analysis IPC readers); it also complicates ordinals so we avoid it
@@ -1023,7 +1056,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::write_recorded_schedule()
 {
     if (options_.schedule_record_ostream == nullptr)
         return STATUS_ERROR_INVALID_PARAMETER;
-    std::lock_guard<std::mutex> guard(sched_lock_);
+    std::lock_guard<mutex_dbg_owned> guard(sched_lock_);
     for (int i = 0; i < static_cast<int>(outputs_.size()); ++i) {
         sched_type_t::stream_status_t status =
             record_schedule_segment(i, schedule_record_t::FOOTER, 0, 0, 0);
@@ -1738,6 +1771,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_initial_input_content(
     // output stream(s).
     for (size_t i = 0; i < inputs_.size(); ++i) {
         input_info_t &input = inputs_[i];
+        std::lock_guard<mutex_dbg_owned> lock(*input.lock);
 
         // If the input jumps to the middle immediately, do that now so we'll have
         // the proper start timestamp.
@@ -2103,6 +2137,7 @@ typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(
     output_ordinal_t output, RecordType &record, input_info_t &input)
 {
+    assert(input.lock->owned_by_cur_thread());
     uint64_t cur_instr = get_instr_ordinal(input);
     uint64_t cur_reader_instr = input.reader->get_instruction_ordinal();
     assert(input.cur_region >= 0 &&
@@ -2117,7 +2152,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(
                input.cur_region);
         if (input.cur_region >= static_cast<int>(input.regions_of_interest.size())) {
             if (input.at_eof)
-                return eof_or_idle(output, /*hold_sched_lock=*/false);
+                return eof_or_idle(output, /*hold_sched_lock=*/false, input.index);
             else {
                 // We let the user know we're done.
                 if (options_.schedule_record_ostream != nullptr) {
@@ -2184,6 +2219,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::record_schedule_skip(output_ordinal_t 
                                                                uint64_t start_instruction,
                                                                uint64_t stop_instruction)
 {
+    assert(inputs_[input].lock->owned_by_cur_thread());
     if (options_.schedule_record_ostream == nullptr)
         return sched_type_t::STATUS_INVALID;
     sched_type_t::stream_status_t status;
@@ -2238,6 +2274,7 @@ typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::skip_instructions(input_info_t &input,
                                                             uint64_t skip_amount)
 {
+    assert(input.lock->owned_by_cur_thread());
     // reader_t::at_eof_ is true until init() is called.
     if (input.needs_init) {
         input.reader->init();
@@ -2313,6 +2350,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::record_schedule_segment(
     output_ordinal_t output, typename schedule_record_t::record_type_t type,
     input_ordinal_t input, uint64_t start_instruction, uint64_t stop_instruction)
 {
+    assert(type == schedule_record_t::VERSION || type == schedule_record_t::FOOTER ||
+           type == schedule_record_t::IDLE || inputs_[input].lock->owned_by_cur_thread());
     // We always use the current wall-clock time, as the time stored in the prior
     // next_record() call can be out of order across outputs and lead to deadlocks.
     uint64_t timestamp = get_time_micros();
@@ -2339,6 +2378,10 @@ scheduler_tmpl_t<RecordType, ReaderType>::close_schedule_segment(output_ordinal_
 {
     assert(output >= 0 && output < static_cast<output_ordinal_t>(outputs_.size()));
     assert(!outputs_[output].record.empty());
+    assert(outputs_[output].record.back().type == schedule_record_t::VERSION ||
+           outputs_[output].record.back().type == schedule_record_t::FOOTER ||
+           outputs_[output].record.back().type == schedule_record_t::IDLE ||
+           input.lock->owned_by_cur_thread());
     if (outputs_[output].record.back().type == schedule_record_t::SKIP) {
         // Skips already have a final stop value.
         return sched_type_t::STATUS_OK;
@@ -2389,6 +2432,7 @@ template <typename RecordType, typename ReaderType>
 bool
 scheduler_tmpl_t<RecordType, ReaderType>::ready_queue_empty()
 {
+    assert(!need_sched_lock() || sched_lock_.owned_by_cur_thread());
     return ready_priority_.empty();
 }
 
@@ -2396,6 +2440,7 @@ template <typename RecordType, typename ReaderType>
 void
 scheduler_tmpl_t<RecordType, ReaderType>::add_to_unscheduled_queue(input_info_t *input)
 {
+    assert(!need_sched_lock() || sched_lock_.owned_by_cur_thread());
     assert(input->unscheduled &&
            input->blocked_time == 0); // Else should be in regular queue.
     VPRINT(this, 4, "add_to_unscheduled_queue (pre-size %zu): input %d priority %d\n",
@@ -2408,6 +2453,7 @@ template <typename RecordType, typename ReaderType>
 void
 scheduler_tmpl_t<RecordType, ReaderType>::add_to_ready_queue(input_info_t *input)
 {
+    assert(!need_sched_lock() || sched_lock_.owned_by_cur_thread());
     if (input->unscheduled && input->blocked_time == 0) {
         add_to_unscheduled_queue(input);
         return;
@@ -2430,6 +2476,7 @@ typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue(
     output_ordinal_t for_output, input_info_t *&new_input)
 {
+    assert(!need_sched_lock() || sched_lock_.owned_by_cur_thread());
     std::set<input_info_t *> skipped;
     std::set<input_info_t *> blocked;
     input_info_t *res = nullptr;
@@ -2483,7 +2530,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue(
     VDO(this, 1, {
         static int heartbeat;
         // We are ok with races as the cadence is approximate.
-        if (++heartbeat % 500 == 0) {
+        if (++heartbeat % 2000 == 0) {
             VPRINT(this, 1,
                    "heartbeat[%d] %zd in queue; %d blocked; %zd unscheduled => %d %d\n",
                    for_output, ready_priority_.size(), num_blocked_,
@@ -2526,6 +2573,7 @@ bool
 scheduler_tmpl_t<RecordType, ReaderType>::syscall_incurs_switch(input_info_t *input,
                                                                 uint64_t &blocked_time)
 {
+    assert(input->lock->owned_by_cur_thread());
     uint64_t post_time = input->reader->get_last_timestamp();
     assert(input->processing_syscall || input->processing_maybe_blocking_syscall);
     if (input->reader->get_version() < TRACE_ENTRY_VERSION_FREQUENT_TIMESTAMPS) {
@@ -2556,6 +2604,7 @@ typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::set_cur_input(output_ordinal_t output,
                                                         input_ordinal_t input)
 {
+    assert(!need_sched_lock() || sched_lock_.owned_by_cur_thread());
     // XXX i#5843: Merge tracking of current inputs with ready_priority_ to better manage
     // the possible 3 states of each input (a live cur_input for an output stream, in
     // the ready_queue_, or at EOF) (4 states once we add i/o wait times).
@@ -2570,7 +2619,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_cur_input(output_ordinal_t output,
         }
         if (prev_input != input && options_.schedule_record_ostream != nullptr) {
             input_info_t &prev_info = inputs_[prev_input];
-            std::lock_guard<std::mutex> lock(*prev_info.lock);
+            std::lock_guard<mutex_dbg_owned> lock(*prev_info.lock);
             sched_type_t::stream_status_t status =
                 close_schedule_segment(output, prev_info);
             if (status != sched_type_t::STATUS_OK)
@@ -2592,12 +2641,20 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_cur_input(output_ordinal_t output,
         return STATUS_OK;
 
     int prev_workload = -1;
-    if (outputs_[output].prev_input >= 0) {
-        std::lock_guard<std::mutex> lock(*inputs_[outputs_[output].prev_input].lock);
+    if (outputs_[output].prev_input >= 0 && outputs_[output].prev_input != input) {
+        std::lock_guard<mutex_dbg_owned> lock(*inputs_[outputs_[output].prev_input].lock);
         prev_workload = inputs_[outputs_[output].prev_input].workload;
     }
 
-    std::lock_guard<std::mutex> lock(*inputs_[input].lock);
+    std::lock_guard<mutex_dbg_owned> lock(*inputs_[input].lock);
+
+    if (inputs_[input].prev_output != INVALID_OUTPUT_ORDINAL &&
+        inputs_[input].prev_output != output) {
+        VPRINT(this, 3, "output[%d] migrating input %d from output %d\n", output, input,
+               inputs_[input].prev_output);
+        ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_MIGRATIONS];
+    }
+    inputs_[input].prev_output = output;
 
     if (prev_input < 0 && outputs_[output].stream->version_ == 0) {
         // Set the version and filetype up front, to let the user query at init time
@@ -2675,13 +2732,14 @@ typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input_as_previously(
     output_ordinal_t output, input_ordinal_t &index)
 {
+    assert(!need_sched_lock() || sched_lock_.owned_by_cur_thread());
     if (outputs_[output].record_index + 1 >=
         static_cast<int>(outputs_[output].record.size())) {
         if (!outputs_[output].at_eof) {
             outputs_[output].at_eof = true;
             live_replay_output_count_.fetch_add(-1, std::memory_order_release);
         }
-        return eof_or_idle(output, need_sched_lock());
+        return eof_or_idle(output, need_sched_lock(), outputs_[output].cur_input);
     }
     const schedule_record_t &segment =
         outputs_[output].record[outputs_[output].record_index + 1];
@@ -2698,7 +2756,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input_as_previously(
            output, index, get_instr_ordinal(inputs_[index]), segment.type,
            segment.value.start_instruction, segment.stop_instruction);
     {
-        std::lock_guard<std::mutex> lock(*inputs_[index].lock);
+        std::lock_guard<mutex_dbg_owned> lock(*inputs_[index].lock);
         if (get_instr_ordinal(inputs_[index]) > segment.value.start_instruction) {
             VPRINT(this, 1,
                    "WARNING: next_record[%d]: input %d wants instr #%" PRId64
@@ -2763,7 +2821,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input_as_previously(
         }
     }
     if (segment.type == schedule_record_t::SYNTHETIC_END) {
-        std::lock_guard<std::mutex> lock(*inputs_[index].lock);
+        std::lock_guard<mutex_dbg_owned> lock(*inputs_[index].lock);
         // We're past the final region of interest and we need to insert
         // a synthetic thread exit record.  We need to first throw out the
         // queued candidate record, if any.
@@ -2776,7 +2834,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input_as_previously(
         ++outputs_[output].record_index;
         return sched_type_t::STATUS_SKIPPED;
     } else if (segment.type == schedule_record_t::SKIP) {
-        std::lock_guard<std::mutex> lock(*inputs_[index].lock);
+        std::lock_guard<mutex_dbg_owned> lock(*inputs_[index].lock);
         uint64_t cur_reader_instr = inputs_[index].reader->get_instruction_ordinal();
         VPRINT(this, 2,
                "next_record[%d]: skipping from %" PRId64 " to %" PRId64
@@ -2808,13 +2866,13 @@ scheduler_tmpl_t<RecordType, ReaderType>::need_sched_lock()
 }
 
 template <typename RecordType, typename ReaderType>
-std::unique_lock<std::mutex>
+std::unique_lock<mutex_dbg_owned>
 scheduler_tmpl_t<RecordType, ReaderType>::acquire_scoped_sched_lock_if_necessary(
     bool &need_lock)
 {
     need_lock = need_sched_lock();
-    auto scoped_lock = need_lock ? std::unique_lock<std::mutex>(sched_lock_)
-                                 : std::unique_lock<std::mutex>();
+    auto scoped_lock = need_lock ? std::unique_lock<mutex_dbg_owned>(sched_lock_)
+                                 : std::unique_lock<mutex_dbg_owned>();
     return scoped_lock;
 }
 
@@ -2862,7 +2920,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                     return res;
             } else if (options_.mapping == MAP_TO_ANY_OUTPUT) {
                 if (blocked_time > 0 && prev_index != INVALID_INPUT_ORDINAL) {
-                    std::lock_guard<std::mutex> lock(*inputs_[prev_index].lock);
+                    std::lock_guard<mutex_dbg_owned> lock(*inputs_[prev_index].lock);
                     if (inputs_[prev_index].blocked_time == 0) {
                         VPRINT(this, 2, "next_record[%d]: blocked time %" PRIu64 "\n",
                                output, blocked_time);
@@ -2874,7 +2932,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                     inputs_[prev_index].switch_to_input != INVALID_INPUT_ORDINAL) {
                     input_info_t *target = &inputs_[inputs_[prev_index].switch_to_input];
                     inputs_[prev_index].switch_to_input = INVALID_INPUT_ORDINAL;
-                    std::lock_guard<std::mutex> lock(*target->lock);
+                    std::lock_guard<mutex_dbg_owned> lock(*target->lock);
                     // XXX i#5843: Add an invariant check that the next timestamp of the
                     // target is later than the pre-switch-syscall timestamp?
                     if (ready_priority_.find(target)) {
@@ -2895,6 +2953,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                             target->blocked_time = 0;
                             target->unscheduled = false;
                         }
+                        ++outputs_[output].stats
+                              [memtrace_stream_t::SCHED_STAT_DIRECT_SWITCH_SUCCESSES];
                     } else if (unscheduled_priority_.find(target)) {
                         target->unscheduled = false;
                         unscheduled_priority_.erase(target);
@@ -2905,6 +2965,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                                "@%" PRIu64 "\n",
                                output, prev_index, target->index,
                                inputs_[prev_index].reader->get_last_timestamp());
+                        ++outputs_[output].stats
+                              [memtrace_stream_t::SCHED_STAT_DIRECT_SWITCH_SUCCESSES];
                     } else {
                         // We assume that inter-input dependencies are captured in
                         // the _DIRECT_THREAD_SWITCH, _UNSCHEDULE, and _SCHEDULE markers
@@ -2928,11 +2990,19 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                     // We found a direct switch target above.
                 } else if (ready_queue_empty() && blocked_time == 0) {
                     if (prev_index == INVALID_INPUT_ORDINAL)
-                        return eof_or_idle(output, need_lock);
-                    auto lock = std::unique_lock<std::mutex>(*inputs_[prev_index].lock);
+                        return eof_or_idle(output, need_lock, prev_index);
+                    auto lock =
+                        std::unique_lock<mutex_dbg_owned>(*inputs_[prev_index].lock);
+                    // If we can't go back to the current input, we're EOF or idle.
+                    // TODO i#6959: We should go the EOF/idle route if
+                    // inputs_[prev_index].unscheduled as otherwise we're ignoring its
+                    // unscheduled transition: although if there are no other threads at
+                    // all (not just an empty queue) this turns into the eof_or_idle()
+                    // all-unscheduled scenario.  Once we have some kind of early exit
+                    // option we'll add the unscheduled check here.
                     if (inputs_[prev_index].at_eof) {
                         lock.unlock();
-                        return eof_or_idle(output, need_lock);
+                        return eof_or_idle(output, need_lock, prev_index);
                     } else
                         index = prev_index; // Go back to prior.
                 } else {
@@ -2955,19 +3025,24 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                                 if (record_status != sched_type_t::STATUS_OK)
                                     return record_status;
                             }
+                            if (prev_index != INVALID_INPUT_ORDINAL) {
+                                ++outputs_[output]
+                                      .stats[memtrace_stream_t::
+                                                 SCHED_STAT_SWITCH_INPUT_TO_IDLE];
+                            }
                         }
                         return status;
                     }
                     if (queue_next == nullptr) {
                         assert(blocked_time == 0 || prev_index == INVALID_INPUT_ORDINAL);
-                        return eof_or_idle(output, need_lock);
+                        return eof_or_idle(output, need_lock, prev_index);
                     }
                     index = queue_next->index;
                 }
             } else if (options_.deps == DEPENDENCY_TIMESTAMPS) {
                 uint64_t min_time = std::numeric_limits<uint64_t>::max();
                 for (size_t i = 0; i < inputs_.size(); ++i) {
-                    std::lock_guard<std::mutex> lock(*inputs_[i].lock);
+                    std::lock_guard<mutex_dbg_owned> lock(*inputs_[i].lock);
                     if (!inputs_[i].at_eof && inputs_[i].next_timestamp > 0 &&
                         inputs_[i].next_timestamp < min_time) {
                         min_time = inputs_[i].next_timestamp;
@@ -2975,7 +3050,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                     }
                 }
                 if (index < 0)
-                    return eof_or_idle(output, need_lock);
+                    return eof_or_idle(output, need_lock, prev_index);
                 VPRINT(this, 2,
                        "next_record[%d]: advancing to timestamp %" PRIu64
                        " == input #%d\n",
@@ -2999,13 +3074,13 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
             } else
                 return sched_type_t::STATUS_INVALID;
             // reader_t::at_eof_ is true until init() is called.
-            std::lock_guard<std::mutex> lock(*inputs_[index].lock);
+            std::lock_guard<mutex_dbg_owned> lock(*inputs_[index].lock);
             if (inputs_[index].needs_init) {
                 inputs_[index].reader->init();
                 inputs_[index].needs_init = false;
             }
         }
-        std::lock_guard<std::mutex> lock(*inputs_[index].lock);
+        std::lock_guard<mutex_dbg_owned> lock(*inputs_[index].lock);
         if (inputs_[index].at_eof ||
             *inputs_[index].reader == *inputs_[index].reader_end) {
             VPRINT(this, 2, "next_record[%d]: input #%d at eof\n", output, index);
@@ -3017,6 +3092,16 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
         }
         break;
     }
+    // We can't easily place these stats inside set_cur_input() as we call that to
+    // temporarily give up our input.
+    if (prev_index == index)
+        ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_SWITCH_NOP];
+    else if (prev_index != INVALID_INPUT_ORDINAL && index != INVALID_INPUT_ORDINAL)
+        ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_INPUT];
+    else if (index == INVALID_INPUT_ORDINAL)
+        ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_IDLE];
+    else
+        ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_SWITCH_IDLE_TO_INPUT];
     set_cur_input(output, index);
     return res;
 }
@@ -3028,6 +3113,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::process_marker(input_info_t &input,
                                                          trace_marker_type_t marker_type,
                                                          uintptr_t marker_value)
 {
+    assert(input.lock->owned_by_cur_thread());
     switch (marker_type) {
     case TRACE_MARKER_TYPE_SYSCALL:
         input.processing_syscall = true;
@@ -3056,6 +3142,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::process_marker(input_info_t &input,
     case TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH: {
         if (!options_.honor_direct_switches)
             break;
+        ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_DIRECT_SWITCH_ATTEMPTS];
         memref_tid_t target_tid = marker_value;
         auto it = tid2input_.find(workload_tid_t(input.workload, target_tid));
         if (it == tid2input_.end()) {
@@ -3137,7 +3224,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::process_marker(input_info_t &input,
             auto scoped_sched_lock =
                 acquire_scoped_sched_lock_if_necessary(need_sched_lock);
             input_info_t *target = &inputs_[target_idx];
-            std::lock_guard<std::mutex> lock(*target->lock);
+            std::lock_guard<mutex_dbg_owned> lock(*target->lock);
             if (target->unscheduled) {
                 target->unscheduled = false;
                 if (unscheduled_priority_.find(target)) {
@@ -3213,10 +3300,10 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
     if (outputs_[output].cur_input < 0) {
         // This happens with more outputs than inputs.  For non-empty outputs we
         // require cur_input to be set to >=0 during init().
-        return eof_or_idle(output, /*hold_sched_lock=*/false);
+        return eof_or_idle(output, /*hold_sched_lock=*/false, outputs_[output].cur_input);
     }
     input = &inputs_[outputs_[output].cur_input];
-    auto lock = std::unique_lock<std::mutex>(*input->lock);
+    auto lock = std::unique_lock<mutex_dbg_owned>(*input->lock);
     // Since we do not ask for a start time, we have to check for the first record from
     // each input and set the time here.
     if (input->prev_time_in_quantum == 0)
@@ -3270,7 +3357,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                 if (res != sched_type_t::STATUS_OK && res != sched_type_t::STATUS_SKIPPED)
                     return res;
                 input = &inputs_[outputs_[output].cur_input];
-                lock = std::unique_lock<std::mutex>(*input->lock);
+                lock = std::unique_lock<mutex_dbg_owned>(*input->lock);
                 if (res == sched_type_t::STATUS_SKIPPED) {
                     // Like for the ROI below, we need the queue or a de-ref.
                     input->needs_advance = false;
@@ -3404,6 +3491,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                     preempt = !need_new_input;
                     need_new_input = true;
                     input->instrs_in_quantum = 0;
+                    ++outputs_[output]
+                          .stats[memtrace_stream_t::SCHED_STAT_QUANTUM_PREEMPTS];
                 }
             } else if (options_.quantum_unit == QUANTUM_TIME) {
                 if (cur_time == 0 || cur_time < input->prev_time_in_quantum) {
@@ -3427,6 +3516,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                     preempt = !need_new_input;
                     need_new_input = true;
                     input->time_spent_in_quantum = 0;
+                    ++outputs_[output]
+                          .stats[memtrace_stream_t::SCHED_STAT_QUANTUM_PREEMPTS];
                 }
             }
         }
@@ -3477,7 +3568,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                 if (res == sched_type_t::STATUS_WAIT)
                     return res;
                 input = &inputs_[outputs_[output].cur_input];
-                lock = std::unique_lock<std::mutex>(*input->lock);
+                lock = std::unique_lock<mutex_dbg_owned>(*input->lock);
                 continue;
             } else {
                 lock.lock();
@@ -3533,7 +3624,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::unread_last_record(output_ordinal_t ou
         return sched_type_t::STATUS_INVALID;
     record = outinfo.last_record;
     input = &inputs_[outinfo.cur_input];
-    std::lock_guard<std::mutex> lock(*input->lock);
+    std::lock_guard<mutex_dbg_owned> lock(*input->lock);
     VPRINT(this, 4, "next_record[%d]: unreading last record, from %d\n", output,
            input->index);
     input->queue.push_back(outinfo.last_record);
@@ -3601,6 +3692,7 @@ template <typename RecordType, typename ReaderType>
 void
 scheduler_tmpl_t<RecordType, ReaderType>::mark_input_eof(input_info_t &input)
 {
+    assert(input.lock->owned_by_cur_thread());
     if (input.at_eof)
         return;
     input.at_eof = true;
@@ -3613,7 +3705,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::mark_input_eof(input_info_t &input)
 template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::eof_or_idle(output_ordinal_t output,
-                                                      bool hold_sched_lock)
+                                                      bool hold_sched_lock,
+                                                      input_ordinal_t prev_input)
 {
     // XXX i#6831: Refactor to use subclasses or templates to specialize
     // scheduler code based on mapping options, to avoid these top-level
@@ -3628,14 +3721,15 @@ scheduler_tmpl_t<RecordType, ReaderType>::eof_or_idle(output_ordinal_t output,
         assert(options_.mapping != MAP_AS_PREVIOUSLY || outputs_[output].at_eof);
         return sched_type_t::STATUS_EOF;
     } else {
+        bool need_lock;
+        auto scoped_lock = hold_sched_lock
+            ? std::unique_lock<mutex_dbg_owned>()
+            : acquire_scoped_sched_lock_if_necessary(need_lock);
         if (options_.mapping == MAP_TO_ANY_OUTPUT) {
             // Workaround to avoid hangs when _SCHEDULE and/or _DIRECT_THREAD_SWITCH
             // directives miss their targets (due to running with a subset of the
             // original threads, or other scenarios) and we end up with no scheduled
             // inputs but a set of unscheduled inputs who will never be scheduled.
-            auto scoped_lock = hold_sched_lock
-                ? std::unique_lock<std::mutex>()
-                : std::unique_lock<std::mutex>(sched_lock_);
             VPRINT(this, 4,
                    "eof_or_idle output=%d live=%d unsched=%zu runq=%zu blocked=%d\n",
                    output, live_input_count_.load(std::memory_order_acquire),
@@ -3659,7 +3753,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::eof_or_idle(output_ordinal_t output,
                                "queue\n");
                         while (!unscheduled_priority_.empty()) {
                             input_info_t *tomove = unscheduled_priority_.top();
-                            std::lock_guard<std::mutex> lock(*tomove->lock);
+                            std::lock_guard<mutex_dbg_owned> lock(*tomove->lock);
                             tomove->unscheduled = false;
                             ready_priority_.push(tomove);
                             unscheduled_priority_.pop();
@@ -3672,6 +3766,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::eof_or_idle(output_ordinal_t output,
             }
         }
         outputs_[output].waiting = true;
+        if (prev_input != INVALID_INPUT_ORDINAL)
+            ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_IDLE];
         set_cur_input(output, INVALID_INPUT_ORDINAL);
         return sched_type_t::STATUS_IDLE;
     }
@@ -3688,6 +3784,16 @@ scheduler_tmpl_t<RecordType, ReaderType>::is_record_kernel(output_ordinal_t outp
 }
 
 template <typename RecordType, typename ReaderType>
+double
+scheduler_tmpl_t<RecordType, ReaderType>::get_statistic(
+    output_ordinal_t output, memtrace_stream_t::schedule_statistic_t stat) const
+{
+    if (stat >= memtrace_stream_t::SCHED_STAT_TYPE_COUNT)
+        return -1;
+    return static_cast<double>(outputs_[output].stats[stat]);
+}
+
+template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::set_output_active(output_ordinal_t output,
                                                             bool active)
@@ -3699,7 +3805,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_output_active(output_ordinal_t out
     outputs_[output].active = active;
     VPRINT(this, 2, "Output stream %d is now %s\n", output,
            active ? "active" : "inactive");
-    std::lock_guard<std::mutex> guard(sched_lock_);
+    std::lock_guard<mutex_dbg_owned> guard(sched_lock_);
     if (!active) {
         // Make the now-inactive output's input available for other cores.
         // This will reset its quantum too.
