@@ -31,15 +31,17 @@
  */
 
 /* v2p_reader: reads and parses a virtual-to-physical address mapping in textproto format.
- * Creates virtual-to-physical address map in memory.
- * The section of the textproto file that we are interested in parsing is a sequence of
+ * Creates a virtual-to-physical address map in memory.
+ * The section of the textproto file that we parse to create the mapping is a sequence of
  * blocks that follow this format:
  * address_mapping {
     virtual_address: 0x123
     physical_address: 0x3
  * }
- * In gen_v2p_map() we rely on the fact that virtual_address and physical_address are one
- * after the other on two different lines.
+ * In create_v2p_info_from_file() we rely on the fact that virtual_address and
+ * physical_address are one after the other on two different lines.
+ * The virtual-to-physical mapping along with the page size, page count, and number of
+ * bytes mapped is stored in memory in a v2p_info_t object.
  */
 
 #ifndef _V2P_READER_H_
@@ -55,9 +57,9 @@ namespace dynamorio {
 namespace drmemtrace {
 
 struct v2p_info_t {
-    uint64_t page_count;
-    uint64_t bytes_mapped;
-    size_t page_size;
+    uint64_t page_count = 0;
+    uint64_t bytes_mapped = 0;
+    uint64_t page_size = 0;
     std::unordered_map<addr_t, addr_t> v2p_map;
 };
 
@@ -66,7 +68,14 @@ public:
     v2p_reader_t() = default;
 
     std::string
-    init_v2p_info_from_file(std::string path_to_file, v2p_info_t &v2p_info);
+    create_v2p_info_from_file(std::string path_to_file, v2p_info_t &v2p_info);
+
+private:
+    std::string
+    get_value_from_line(std::string line, uint64_t &value);
+
+    std::string
+    set_value_or_fail(std::string key_str, uint64_t new_value, uint64_t &value);
 };
 
 } // namespace drmemtrace
