@@ -100,6 +100,10 @@ v2p_reader_t::create_v2p_info_from_file(std::string path_to_file, v2p_info_t &v2
     std::string error_str;
     std::string line;
     while (std::getline(file, line)) {
+        // Ignore comments in .textproto file.
+        if (starts_with(line, "#"))
+            continue;
+
         std::size_t found = line.find(virtual_address_key);
         if (found != std::string::npos) {
             error_str = get_value_from_line(line, value);
