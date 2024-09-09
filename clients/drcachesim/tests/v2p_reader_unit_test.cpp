@@ -51,7 +51,7 @@ check_v2p_info(const v2p_info_t &v2p_info)
         exit(1);
     }
 
-    // Virtual and physical addresses must be aligned with v2p_map_example.textproto.
+    // Virtual and physical addresses must be aligned with v2p_example.textproto.
     const std::vector<addr_t> virtual_addresses = { 0x123, 0x456, 0x789 };
     const std::vector<addr_t> physical_addresses = { 0x3, 0x4, 0x5 };
     for (int i = 0; i < virtual_addresses.size(); ++i) {
