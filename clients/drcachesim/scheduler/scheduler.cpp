@@ -2953,6 +2953,11 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                             target->blocked_time = 0;
                             target->unscheduled = false;
                         }
+                        if (target->prev_output != INVALID_OUTPUT_ORDINAL &&
+                            target->prev_output != output) {
+                            ++outputs_[output]
+                                  .stats[memtrace_stream_t::SCHED_STAT_MIGRATIONS];
+                        }
                         ++outputs_[output].stats
                               [memtrace_stream_t::SCHED_STAT_DIRECT_SWITCH_SUCCESSES];
                     } else if (unscheduled_priority_.find(target)) {
@@ -2965,6 +2970,11 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                                "@%" PRIu64 "\n",
                                output, prev_index, target->index,
                                inputs_[prev_index].reader->get_last_timestamp());
+                        if (target->prev_output != INVALID_OUTPUT_ORDINAL &&
+                            target->prev_output != output) {
+                            ++outputs_[output]
+                                  .stats[memtrace_stream_t::SCHED_STAT_MIGRATIONS];
+                        }
                         ++outputs_[output].stats
                               [memtrace_stream_t::SCHED_STAT_DIRECT_SWITCH_SUCCESSES];
                     } else {
