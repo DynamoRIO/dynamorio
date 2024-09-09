@@ -2392,7 +2392,8 @@ test_speculation()
             assert(memref.instr.addr == 2);
             // We realize now that we mispredicted that the branch would be taken.
             // We ask to queue this record for post-speculation.
-            stream->start_speculation(100, true);
+            status = stream->start_speculation(100, true);
+            assert(status == scheduler_t::STATUS_OK);
             // Ensure unread_last_record() fails during speculation.
             assert(stream->unread_last_record() == scheduler_t::STATUS_INVALID);
             break;
@@ -2413,7 +2414,8 @@ test_speculation()
 #elif defined(ARM)
             assert(memref.instr.addr == 102 || memref.instr.addr == 104);
 #endif
-            stream->stop_speculation();
+            status = stream->stop_speculation();
+            assert(status == scheduler_t::STATUS_OK);
             break;
         case 7:
             // Back to the trace, to the queued record
@@ -2429,7 +2431,8 @@ test_speculation()
             assert(memref.instr.addr == 4);
             // We realize now that we mispredicted that the branch would be taken.
             // This time we do *not* ask to queue this record for post-speculation.
-            stream->start_speculation(200, false);
+            status = stream->start_speculation(200, false);
+            assert(status == scheduler_t::STATUS_OK);
             break;
         case 10:
             // We should now see nops from the speculator.
@@ -2437,7 +2440,8 @@ test_speculation()
             assert(memref_is_nop_instr(memref));
             assert(memref.instr.addr == 200);
             // Test a nested start_speculation().
-            stream->start_speculation(300, false);
+            status = stream->start_speculation(300, false);
+            assert(status == scheduler_t::STATUS_OK);
             // Ensure unread_last_record() fails during nested speculation.
             assert(stream->unread_last_record() == scheduler_t::STATUS_INVALID);
             break;
@@ -2445,7 +2449,8 @@ test_speculation()
             assert(type_is_instr(memref.instr.type));
             assert(memref_is_nop_instr(memref));
             assert(memref.instr.addr == 300);
-            stream->stop_speculation();
+            status = stream->stop_speculation();
+            assert(status == scheduler_t::STATUS_OK);
             break;
         case 12:
             // Back to the outer speculation layer's next PC.
@@ -2459,13 +2464,15 @@ test_speculation()
             assert(memref.instr.addr == 202 || memref.instr.addr == 204);
 #endif
             // Test a nested start_speculation(), saving the current record.
-            stream->start_speculation(400, true);
+            status = stream->start_speculation(400, true);
+            assert(status == scheduler_t::STATUS_OK);
             break;
         case 13:
             assert(type_is_instr(memref.instr.type));
             assert(memref_is_nop_instr(memref));
             assert(memref.instr.addr == 400);
-            stream->stop_speculation();
+            status = stream->stop_speculation();
+            assert(status == scheduler_t::STATUS_OK);
             break;
         case 14:
             // Back to the outer speculation layer's prior PC.
@@ -2478,7 +2485,8 @@ test_speculation()
 #elif defined(ARM)
             assert(memref.instr.addr == 202 || memref.instr.addr == 204);
 #endif
-            stream->stop_speculation();
+            status = stream->stop_speculation();
+            assert(status == scheduler_t::STATUS_OK);
             break;
         case 15:
             // Back to the trace, but skipping what we already read.
