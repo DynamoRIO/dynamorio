@@ -40,7 +40,7 @@ namespace dynamorio {
 namespace drmemtrace {
 
 static void
-check_v2p_info(v2p_info_t &v2p_info)
+check_v2p_info(const v2p_info_t &v2p_info)
 {
     // Change the number of entries if v2p_map_example.textproto is updated.
     // Must be equal to the number of "address_mapping {...}" blocks in the textproto.
@@ -70,7 +70,7 @@ check_v2p_info(v2p_info_t &v2p_info)
     }
 
     // Check page_size.
-    constexpr size_t PAGE_SIZE = 0x200000;
+    constexpr uint64_t PAGE_SIZE = 0x200000;
     if (v2p_info.page_size != PAGE_SIZE) {
         std::cerr << "Incorrect page size. Expected " << PAGE_SIZE << " got "
                   << v2p_info.page_size << ".\n";
@@ -97,7 +97,7 @@ check_v2p_info(v2p_info_t &v2p_info)
 void
 unit_test_v2p_reader(const char *testdir)
 {
-    std::string file_path = std::string(testdir) + "/v2p_map_example.textproto";
+    std::string file_path = std::string(testdir) + "/v2p_example.textproto";
     v2p_info_t v2p_info;
     v2p_reader_t v2p_reader;
     std::string error_str = v2p_reader.create_v2p_info_from_file(file_path, v2p_info);
