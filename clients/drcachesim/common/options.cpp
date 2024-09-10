@@ -938,7 +938,7 @@ droption_t<double> op_sched_block_scale(
 // long idle times with local analyzers; it may need to be increased with more
 // heavyweight analyzers/simulators.
 droption_t<uint64_t> op_sched_block_max_us(DROPTION_SCOPE_ALL, "sched_block_max_us",
-                                           2500000,
+                                           250000,
                                            "Maximum blocked input time, in microseconds",
                                            "The maximum blocked time, after scaling with "
                                            "-sched_block_scale.");
