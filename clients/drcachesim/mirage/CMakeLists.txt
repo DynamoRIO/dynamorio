@@ -18,6 +18,7 @@ set(mirage_srcs
     ./frontend/gen_opnd_api.cpp
     ./frontend/translate_context.cpp
     # backend - interpreting MIR
+    ./backend/replayer.cpp
     # ./be/*.cpp
     # interpreter - MIR specification
     ./ir/mir_insn.cpp
@@ -29,7 +30,7 @@ target_include_directories(mirage PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/common>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/frontend>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/ir>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/be>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/backend>
 )
 
 configure_DynamoRIO_decoder(mirage)

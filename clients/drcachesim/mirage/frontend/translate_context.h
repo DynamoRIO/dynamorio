@@ -62,6 +62,18 @@ inline const char *get_flag_register_name(int reg){
     return flag_reg_names[reg - MIR_FLAG_REG_START];
 }
 
+#define IS_DR_REG_GPR(reg) ((reg) >= DR_REG_START_GPR && (reg) < DR_REG_STOP_GPR)
+#define GET_DR_REG_GPR_NUM(reg) ((reg) - DR_REG_START_GPR)
+
+#define IS_DR_REG_FP(reg) ((reg) >= DR_REG_START_FPR && (reg) < DR_REG_STOP_FPR)
+#define GET_DR_REG_FP_NUM(reg) ((reg) - DR_REG_START_FPR)
+
+#define IS_TMP_REG(reg) ((reg) >= MIR_TMP_REG_START && (reg) <= TMP_REG_LAST)
+#define GET_TMP_REG_NUM(reg) ((reg) - MIR_TMP_REG_START)
+
+#define IS_FLAG_REG(reg) ((reg) >= MIR_FLAG_REG_START && (reg) <= FLAG_REG_LAST)
+#define GET_FLAG_REG_NUM(reg) ((reg) - MIR_FLAG_REG_START)
+
 void ctx_set_curr_instr(struct translate_context_t *ctx, instr_t *instr);
 
 #endif // __TRANSLATE_CONTEXT_H__
