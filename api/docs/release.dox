@@ -253,6 +253,8 @@ Further non-compatibility-affecting changes include:
    All function markers whose ID is not in the list are removed.
  - Added -skip_to_timestamp and #dynamorio::drmemtrace::scheduler_tmpl_t::
    input_workload_t::times_of_interest to the drmemtrace scheduler.
+ - Added v2p_reader_t to parse a virtual-to-physical mapping in textproto format and
+   v2p_info_t to hold that mapping in memory.
 
 **************************************************
 <hr>
