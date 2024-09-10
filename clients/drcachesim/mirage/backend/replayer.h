@@ -18,7 +18,7 @@ class Replayer : public AbstractReplayer {
 public:
     Replayer(InitStrategy init_strategy);
     ~Replayer();
-    void replay(mir_insn_list_t *insn_list);
+    void replay(mir_insn_list_t *insn_list) override;
 
 private:
     InitStrategy init_strategy;

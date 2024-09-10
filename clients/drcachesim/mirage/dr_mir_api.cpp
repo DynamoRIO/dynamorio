@@ -1,40 +1,38 @@
 #include "dr_mir_api.h"
 
-void dr_gen_mir_ops(instr_t *instr) {
+void dr_gen_mir_ops(instr_t *instr, mir_insn_list_t *insn_list) {
 
     int opc = instr_get_opcode(instr);
 
-    mir_insn_list_t insn_list; // TODO: on the stack for now
-    init_mir_insn_list(&insn_list);
     struct translate_context_t *ctx = translate_context_create();
     ctx_set_curr_instr(ctx, instr);
 
     switch (opc) {
         case OP_nop_modrm:
         case OP_rdtsc:
-            gen_nop_op(instr, &insn_list, ctx);
+            gen_nop_op(instr, insn_list, ctx);
             break;
         // Arithmetic & Bitwise instructions
         case OP_add:
-            gen_add_op(instr, &insn_list, ctx);
+            gen_add_op(instr, insn_list, ctx);
             break;
         case OP_sub:
-            gen_sub_op(instr, &insn_list, ctx);
+            gen_sub_op(instr, insn_list, ctx);
             break;
         case OP_or:
-            gen_or_op(instr, &insn_list, ctx);
+            gen_or_op(instr, insn_list, ctx);
             break;
         case OP_and:
-            gen_and_op(instr, &insn_list, ctx);
+            gen_and_op(instr, insn_list, ctx);
             break;
         case OP_xor:
-            gen_xor_op(instr, &insn_list, ctx);
+            gen_xor_op(instr, insn_list, ctx);
             break;
         case OP_shl:
-            gen_shl_op(instr, &insn_list, ctx);
+            gen_shl_op(instr, insn_list, ctx);
             break;
         case OP_shr:
-            gen_shr_op(instr, &insn_list, ctx);
+            gen_shr_op(instr, insn_list, ctx);
             break;
         // All movs are handled the same way
         case OP_mov_ld:
@@ -42,29 +40,29 @@ void dr_gen_mir_ops(instr_t *instr) {
         case OP_mov_imm:
         case OP_mov_seg:
         case OP_mov_priv:
-            gen_mov_op(instr, &insn_list, ctx);
+            gen_mov_op(instr, insn_list, ctx);
             break;
         case OP_lea:
-            gen_lea_op(instr, &insn_list, ctx);
+            gen_lea_op(instr, insn_list, ctx);
             break;
         // Compounded instructions
         case OP_push:
-            gen_push_op(instr, &insn_list, ctx);
+            gen_push_op(instr, insn_list, ctx);
             break;
         case OP_pop:
-            gen_pop_op(instr, &insn_list, ctx);
+            gen_pop_op(instr, insn_list, ctx);
             break;
         case OP_call:
-            gen_call_op(instr, &insn_list, ctx);
+            gen_call_op(instr, insn_list, ctx);
             break;
         case OP_test:
-            gen_test_op(instr, &insn_list, ctx);
+            gen_test_op(instr, insn_list, ctx);
             break;
         case OP_cmp:
-            gen_cmp_op(instr, &insn_list, ctx);
+            gen_cmp_op(instr, insn_list, ctx);
             break;
         case OP_adc:
-            gen_adc_op(instr, &insn_list, ctx);
+            gen_adc_op(instr, insn_list, ctx);
             break;
         // All jumps are trivially handled for now
         case OP_jmp:
@@ -104,11 +102,11 @@ void dr_gen_mir_ops(instr_t *instr) {
         case OP_jnl:
         case OP_jle:
         case OP_jnle:
-            gen_jump_op(instr, &insn_list, ctx);
+            gen_jump_op(instr, insn_list, ctx);
             break;
         default:
             printf("Unsupported opcode: %d\n", opc);
             break;
     }
-    print_mir_insn_list(&insn_list);
+    print_mir_insn_list(insn_list);
 }

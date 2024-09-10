@@ -12,9 +12,7 @@ reuse_pattern_tool_create()
 
 reuse_pattern_t::reuse_pattern_t()
 {
-    // Empty.
-    // ASSERT(stack_start > stack_end);
-    // ASSERT(heap_start < heap_end);
+    replayer = new Replayer(INIT_STRATEGY_ZERO);
 }
 
 reuse_pattern_t::~reuse_pattern_t()
@@ -87,7 +85,10 @@ reuse_pattern_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         // TODO: debug, remove
         // if (instr_get_opcode(&curr_instr) == OP_adc) {
             printf("encountered instruction at %p\n", curr_pc);
-            dr_gen_mir_ops(&curr_instr);
+            mir_insn_list_t insn_list;
+            init_mir_insn_list(&insn_list);
+            dr_gen_mir_ops(&curr_instr, &insn_list);
+            replayer->replay(&insn_list);
         // }
         return true;
     }

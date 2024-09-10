@@ -5,7 +5,7 @@
 
 class AbstractReplayer {
 public:
-    virtual void step(mir_insn_list_t *insn_list) = 0;
+    virtual void replay(mir_insn_list_t *insn_list) = 0;
 };
 
 #endif // ABSTRACT_REPLAYER_H

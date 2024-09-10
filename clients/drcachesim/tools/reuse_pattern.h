@@ -8,6 +8,7 @@
 #include "memref.h"
 #include "trace_entry.h"
 #include "dr_mir_api.h"
+#include "replayer.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -67,6 +68,8 @@ protected:
 
     shard_type_t shard_type_ = SHARD_BY_THREAD;
     memtrace_stream_t *serial_stream_ = nullptr;
+
+    Replayer *replayer;
 };
 
 } // namespace drmemtrace
