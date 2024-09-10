@@ -39,3 +39,5 @@ target_link_libraries(mirage)
 install_client_nonDR_header(drmemtrace dr_mir_api.h)
 DR_export_target(mirage)
 install_exported_target(mirage ${INSTALL_CLIENTS_LIB})
+
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/tests)

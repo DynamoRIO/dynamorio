@@ -13,6 +13,10 @@ Replayer::Replayer(InitStrategy init_strategy) {
     }
 }
 
+Replayer::~Replayer() {
+    shadow_mem.clear();
+}
+
 void Replayer::replay(mir_insn_list_t *insn_list) {
     struct list_elem* e;
     for (e = list_begin(insn_list); e != list_end(insn_list); e = list_next(e)) {
@@ -134,17 +138,21 @@ void Replayer::step(mir_insn_t *insn) {
     }
 }
 
+uint64_t Replayer::get_reg_val(reg_id_t reg) {
+    if (IS_DR_REG_GPR(reg)) {
+        return gp_reg_file[GET_DR_REG_GPR_NUM(reg)];
+    } else if (IS_TMP_REG(reg)) {
+        return tmp_reg_file[GET_TMP_REG_NUM(reg)];
+    } else if (IS_FLAG_REG(reg)) {
+        return flag_reg_file[GET_FLAG_REG_NUM(reg)];
+    } else {
+        assert(false && "Invalid register encoding");
+    }
+}
+
 uint64_t Replayer::get_val_from_opnd(mir_opnd_t opnd) {
     if (opnd.type == MIR_OPND_REG) {
-        if (IS_DR_REG_GPR(opnd.value.reg)) {
-            return gp_reg_file[GET_DR_REG_GPR_NUM(opnd.value.reg)];
-        } else if (IS_TMP_REG(opnd.value.reg)) {
-            return tmp_reg_file[GET_TMP_REG_NUM(opnd.value.reg)];
-        } else if (IS_FLAG_REG(opnd.value.reg)) {
-            return flag_reg_file[GET_FLAG_REG_NUM(opnd.value.reg)];
-        } else {
-            assert(false && "Invalid register encoding");
-        }
+        return get_reg_val(opnd.value.reg);
     } else if (opnd.type == MIR_OPND_IMM) {
         return opnd.value.imm;
     }
