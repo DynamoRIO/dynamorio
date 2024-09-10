@@ -6044,6 +6044,13 @@ if (vera++_FOUND)
   set_tests_properties(vera PROPERTIES PASS_REGULAR_EXPRESSION "${vera_regex}")
 endif ()
 
+if (UNIX)
+  get_target_path_for_execution(drrun_path drrun "${location_suffix}")
+  add_test(two_clients ${drrun_path}
+    -client ../../api/bin/libbbcount.so 0 ''
+    -client ../../api/bin/libopcodes.so 1 '' -- bin/${ci_shared_app})
+endif (UNIX)
+
 ###########################################################################
 
 # Remember that we do not reach this point for DR_HOST_NOT_TARGET, so do not

@@ -1104,7 +1104,6 @@ module_lookup_symbol(ELF_SYM_TYPE *sym, os_privmod_data_t *pd)
 {
     app_pc res;
     const char *name;
-    privmod_t *mod;
     bool is_ifunc;
     dcontext_t *dcontext = get_thread_private_dcontext();
 
@@ -1133,11 +1132,21 @@ module_lookup_symbol(ELF_SYM_TYPE *sym, os_privmod_data_t *pd)
      * FIXME: i#461 We do not tell weak/global, but return on the first we see.
      */
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
-    mod = privload_first_module();
     /* FIXME i#3850: Symbols are currently looked up following the dependency chain
      * depth-first instead of breadth-first.
      */
-    while (mod != NULL) {
+    for (privmod_t *mod = privload_first_module(); mod != NULL;
+         mod = privload_next_module(mod)) {
+        /* Skip other client modules at this point because some will not be
+         * initialised and clients should be leaves of the dependency tree and
+         * not provide symbols for other modules. Skipping just the uninitialised
+         * client modules should also work but might introduce an element of
+         * unpredictability if we are unsure in what order modules will be
+         * initialised. Skipping all uninitialised modules should also work but
+         * might hide a more serious problem. See i#4501.
+         */
+        if (mod->is_client)
+            continue;
         pd = mod->os_privmod_data;
         ASSERT(pd != NULL && name != NULL);
 
@@ -1172,7 +1181,6 @@ module_lookup_symbol(ELF_SYM_TYPE *sym, os_privmod_data_t *pd)
             }
             return res;
         }
-        mod = privload_next_module(mod);
     }
     return NULL;
 }
