@@ -2337,11 +2337,7 @@ template <typename RecordType, typename ReaderType>
 uint64_t
 scheduler_tmpl_t<RecordType, ReaderType>::get_output_time(output_ordinal_t output)
 {
-    // If the user is giving us times take the most recent of those.
-    if (outputs_[output].cur_time > 0)
-        return outputs_[output].cur_time;
-    // Otherwise, use wall-clock time.
-    return get_time_micros();
+    return outputs_[output].cur_time;
 }
 
 template <typename RecordType, typename ReaderType>
