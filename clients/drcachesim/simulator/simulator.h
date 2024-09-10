@@ -72,7 +72,7 @@ public:
     process_memref(const memref_t &memref) override;
 
     void
-    init_v2p_from_file(std::string v2p_file);
+    create_v2p_from_file(std::string v2p_file);
 
 protected:
     // Initialize knobs. Success or failure is indicated by setting/resetting

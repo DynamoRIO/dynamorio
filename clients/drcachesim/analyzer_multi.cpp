@@ -222,7 +222,7 @@ analyzer_multi_t::create_analysis_tool_from_options(const std::string &tool)
             get_aux_file_path(op_v2p_file.get_value(), DRMEMTRACE_V2P_FILENAME);
         if (!v2p_file_path.empty()) {
             static_cast<tlb_simulator_t *>(tlb_simulator)
-                ->init_v2p_from_file(v2p_file_path);
+                ->create_v2p_from_file(v2p_file_path);
         }
 
         return tlb_simulator;
