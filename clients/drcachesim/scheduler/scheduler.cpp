@@ -3546,9 +3546,10 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                 res != sched_type_t::STATUS_SKIPPED)
                 return res;
             if (outputs_[output].cur_input != prev_input) {
-                // TODO i#5843: Queueing here and in a few other places gets the
-                // ordinals off: we need to undo the ordinal increases to avoid
-                // over-counting while queued and double-counting when we resume.
+                // TODO i#5843: Queueing here and in a few other places gets the stream
+                // record and instruction ordinals off: we need to undo the ordinal
+                // increases to avoid over-counting while queued and double-counting
+                // when we resume.
                 // In some cases we need to undo this on the output stream too.
                 // So we should set suppress_ref_count_ in the input to get
                 // is_record_synthetic() (and have our stream class check that
@@ -3557,8 +3558,10 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                 lock.lock();
                 VPRINT(this, 5, "next_record_mid[%d]: switching from %d to %d\n", output,
                        prev_input, outputs_[output].cur_input);
-                if (!preempt && // Already reset to 0 for preempt.
-                    options_.mapping == MAP_TO_ANY_OUTPUT) {
+                // We need to offset the {instrs,time_spent}_in_quantum values from
+                // overshooting during dynamic scheduling, unless this is a preempt when
+                // we've already reset to 0.
+                if (!preempt && options_.mapping == MAP_TO_ANY_OUTPUT) {
                     if (options_.quantum_unit == QUANTUM_INSTRUCTIONS &&
                         record_type_is_instr_boundary(record,
                                                       outputs_[output].last_record)) {
