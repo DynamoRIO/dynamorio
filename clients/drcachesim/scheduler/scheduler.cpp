@@ -2337,11 +2337,7 @@ template <typename RecordType, typename ReaderType>
 uint64_t
 scheduler_tmpl_t<RecordType, ReaderType>::get_output_time(output_ordinal_t output)
 {
-    // If the user is giving us times take the most recent of those.
-    if (outputs_[output].cur_time > 0)
-        return outputs_[output].cur_time;
-    // Otherwise, use wall-clock time.
-    return get_time_micros();
+    return outputs_[output].cur_time;
 }
 
 template <typename RecordType, typename ReaderType>
@@ -2953,6 +2949,11 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                             target->blocked_time = 0;
                             target->unscheduled = false;
                         }
+                        if (target->prev_output != INVALID_OUTPUT_ORDINAL &&
+                            target->prev_output != output) {
+                            ++outputs_[output]
+                                  .stats[memtrace_stream_t::SCHED_STAT_MIGRATIONS];
+                        }
                         ++outputs_[output].stats
                               [memtrace_stream_t::SCHED_STAT_DIRECT_SWITCH_SUCCESSES];
                     } else if (unscheduled_priority_.find(target)) {
@@ -2965,6 +2966,11 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                                "@%" PRIu64 "\n",
                                output, prev_index, target->index,
                                inputs_[prev_index].reader->get_last_timestamp());
+                        if (target->prev_output != INVALID_OUTPUT_ORDINAL &&
+                            target->prev_output != output) {
+                            ++outputs_[output]
+                                  .stats[memtrace_stream_t::SCHED_STAT_MIGRATIONS];
+                        }
                         ++outputs_[output].stats
                               [memtrace_stream_t::SCHED_STAT_DIRECT_SWITCH_SUCCESSES];
                     } else {
@@ -3314,8 +3320,11 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
         outputs_[output].prev_speculate_pc = outputs_[output].speculate_pc;
         error_string_ = outputs_[output].speculator.next_record(
             outputs_[output].speculate_pc, record);
-        if (!error_string_.empty())
+        if (!error_string_.empty()) {
+            VPRINT(this, 1, "next_record[%d]: speculation failed: %s\n", output,
+                   error_string_.c_str());
             return sched_type_t::STATUS_INVALID;
+        }
         // Leave the cur input where it is: the ordinals will remain unchanged.
         // Also avoid the context switch checks below as we cannot switch in the
         // middle of speculating (we also don't count speculated instructions toward
