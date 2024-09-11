@@ -842,6 +842,11 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
         }
     }
 
+    // Legacy field support.
+    sched_type_t::scheduler_status_t res = legacy_field_support();
+    if (res != sched_type_t::STATUS_SUCCESS)
+        return res;
+
     if (TESTANY(sched_type_t::SCHEDULER_USE_SINGLE_INPUT_ORDINALS, options_.flags) &&
         inputs_.size() == 1 && output_count == 1) {
         options_.flags = static_cast<scheduler_flags_t>(
@@ -881,11 +886,65 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
     VPRINT(this, 1, "%zu inputs\n", inputs_.size());
     live_input_count_.store(static_cast<int>(inputs_.size()), std::memory_order_release);
 
-    sched_type_t::scheduler_status_t res = read_switch_sequences();
+    res = read_switch_sequences();
     if (res != sched_type_t::STATUS_SUCCESS)
         return STATUS_ERROR_INVALID_PARAMETER;
 
     return set_initial_schedule(workload2inputs);
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
+scheduler_tmpl_t<RecordType, ReaderType>::legacy_field_support()
+{
+    if (options_.quantum_duration > 0) {
+        if (options_.struct_size > offsetof(scheduler_options_t, quantum_duration_us)) {
+            error_string_ = "quantum_duration is deprecated; use quantum_duration_us and "
+                            "time_units_per_us or quantum_duration_instrs";
+            return STATUS_ERROR_INVALID_PARAMETER;
+        }
+        if (options_.quantum_unit == QUANTUM_INSTRUCTIONS) {
+            options_.quantum_duration_instrs = options_.quantum_duration;
+        } else {
+            options_.quantum_duration_us =
+                static_cast<double>(options_.quantum_duration) /
+                options_.time_units_per_us;
+            VPRINT(this, 2,
+                   "Legacy support: setting quantum_duration_us to %" PRIu64 "\n",
+                   options_.quantum_duration_us);
+        }
+    }
+    if (options_.quantum_duration_us == 0) {
+        error_string_ = "quantum_duration_us must be > 0";
+        return STATUS_ERROR_INVALID_PARAMETER;
+    }
+    if (options_.block_time_scale > 0) {
+        if (options_.struct_size > offsetof(scheduler_options_t, block_time_multiplier)) {
+            error_string_ = "quantum_duration is deprecated; use block_time_multiplier "
+                            "and time_units_per_us";
+            return STATUS_ERROR_INVALID_PARAMETER;
+        }
+        options_.block_time_multiplier =
+            static_cast<double>(options_.block_time_scale) / options_.time_units_per_us;
+        VPRINT(this, 2, "Legacy support: setting block_time_multiplier to %6.3f\n",
+               options_.block_time_multiplier);
+    }
+    if (options_.block_time_max > 0) {
+        if (options_.struct_size > offsetof(scheduler_options_t, block_time_max_us)) {
+            error_string_ = "quantum_duration is deprecated; use block_time_max_us "
+                            "and time_units_per_us";
+            return STATUS_ERROR_INVALID_PARAMETER;
+        }
+        options_.block_time_max_us =
+            static_cast<double>(options_.block_time_max) / options_.time_units_per_us;
+        VPRINT(this, 2, "Legacy support: setting block_time_max_us to %" PRIu64 "\n",
+               options_.block_time_max_us);
+    }
+    if (options_.block_time_max_us == 0) {
+        error_string_ = "block_time_max_us must be > 0";
+        return STATUS_ERROR_INVALID_PARAMETER;
+    }
+    return STATUS_SUCCESS;
 }
 
 template <typename RecordType, typename ReaderType>
@@ -2552,14 +2611,14 @@ uint64_t
 scheduler_tmpl_t<RecordType, ReaderType>::scale_blocked_time(uint64_t initial_time) const
 {
     uint64_t scaled = static_cast<uint64_t>(static_cast<double>(initial_time) *
-                                            options_.block_time_scale);
-    if (scaled > options_.block_time_max) {
+                                            options_.block_time_multiplier);
+    if (scaled > options_.block_time_max_us) {
         // We have a max to avoid outlier latencies that are already a second or
         // more from scaling up to tens of minutes.  We assume a cap is representative
         // as the outliers likely were not part of key dependence chains.  Without a
         // cap the other threads all finish and the simulation waits for tens of
         // minutes further for a couple of outliers.
-        scaled = options_.block_time_max;
+        scaled = options_.block_time_max_us;
     }
     return scaled;
 }
@@ -2587,11 +2646,11 @@ scheduler_tmpl_t<RecordType, ReaderType>::syscall_incurs_switch(input_info_t *in
         : options_.syscall_switch_threshold;
     blocked_time = scale_blocked_time(latency);
     VPRINT(this, 3,
-           "input %d %ssyscall latency %" PRIu64 " * scale %5.1f => blocked time %" PRIu64
+           "input %d %ssyscall latency %" PRIu64 " * scale %6.3f => blocked time %" PRIu64
            "\n",
            input->index,
            input->processing_maybe_blocking_syscall ? "maybe-blocking " : "", latency,
-           options_.block_time_scale, blocked_time);
+           options_.block_time_multiplier, blocked_time);
     return latency >= threshold;
 }
 
@@ -3279,6 +3338,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
         // It's more efficient for QUANTUM_INSTRUCTIONS to get the time here instead of
         // in get_output_time().  This also makes the two more similarly behaved with
         // respect to blocking system calls.
+        // TODO i#6971: Use INSTRS_PER_US to replace .cur_time completely
+        // with a counter-based time, weighted appropriately for STATUS_IDLE.
         cur_time = get_time_micros();
     }
     outputs_[output].cur_time = cur_time; // Invalid values are checked below.
@@ -3492,7 +3553,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                 record_type_is_instr_boundary(record, outputs_[output].last_record) &&
                 !outputs_[output].in_kernel_code) {
                 ++input->instrs_in_quantum;
-                if (input->instrs_in_quantum > options_.quantum_duration) {
+                if (input->instrs_in_quantum > options_.quantum_duration_instrs) {
                     // We again prefer to switch to another input even if the current
                     // input has the oldest timestamp, prioritizing context switches
                     // over timestamp ordering.
@@ -3516,7 +3577,13 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                 input->time_spent_in_quantum += cur_time - input->prev_time_in_quantum;
                 prev_time_in_quantum = input->prev_time_in_quantum;
                 input->prev_time_in_quantum = cur_time;
-                if (input->time_spent_in_quantum >= options_.quantum_duration &&
+                double elapsed_micros =
+                    input->time_spent_in_quantum * options_.time_units_per_us;
+                VPRINT(this, 4,
+                       "next_record[%d]: input %d elapsed %6.1f vs quantum %" PRIu64 "\n",
+                       output, input->index, elapsed_micros,
+                       options_.quantum_duration_us); // NOCHECK
+                if (elapsed_micros >= options_.quantum_duration_us &&
                     // We only switch on instruction boundaries.  We could possibly switch
                     // in between (e.g., scatter/gather long sequence of reads/writes) by
                     // setting input->switching_pre_instruction.
@@ -3759,13 +3826,14 @@ scheduler_tmpl_t<RecordType, ReaderType>::eof_or_idle(output_ordinal_t output,
                     outputs_[output].wait_start_time = get_output_time(output);
                 } else {
                     uint64_t now = get_output_time(output);
-                    if (now - outputs_[output].wait_start_time >
-                        options_.block_time_max) {
+                    double elapsed_micros = (now - outputs_[output].wait_start_time) *
+                        options_.time_units_per_us;
+                    if (elapsed_micros > options_.block_time_max_us) {
                         // XXX i#6822: We may want some other options here for what to
                         // do.  We could release just one input at a time, which would be
                         // the same scheduling order (as we have FIFO in
                         // unscheduled_priority_) but may take a long time at
-                        // block_time_max each; we could declare we're done and just
+                        // block_time_max_us each; we could declare we're done and just
                         // exit, maybe under a flag or if we could see what % of total
                         // records we've processed.
                         VPRINT(this, 1,
