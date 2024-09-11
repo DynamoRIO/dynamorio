@@ -76,8 +76,8 @@ void gen_lea_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translat
         mir_insn_t* core_insn = mir_insn_malloc(MIR_OP_MOV);
         mir_insn_push_front(mir_insns_list, core_insn);
         uint64_t addr = (uint64_t)opnd_get_addr(src0);
-        mir_insn_set_src0_reg(core_insn, DR_REG_NULL);
-        mir_insn_set_src1_imm(core_insn, addr);
+        mir_insn_set_src0_imm(core_insn, addr);
+        mir_insn_set_src1_reg(core_insn, DR_REG_NULL);
         mir_insn_set_dst_reg(core_insn, opnd_get_reg(dst0));
     }
     else if (opnd_is_base_disp(src0)) {
@@ -260,14 +260,15 @@ void gen_adc_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translat
 }
 
 void gen_jump_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
-    assert(instr_num_srcs(instr) == 1);
-    assert(instr_num_dsts(instr) == 0);
-    opnd_t src0 = instr_get_src(instr, 0);
-    assert(opnd_is_pc(src0));
-    // JMP src0
-    mir_insn_t* jmp_insn = mir_insn_malloc(MIR_OP_JMP);
-    mir_insn_push_back(mir_insns_list, jmp_insn);
-    mir_insn_set_src0_reg(jmp_insn, REG_NULL);
-    mir_insn_set_src1_imm(jmp_insn, (uint64_t)opnd_get_pc(src0));
-    mir_insn_set_dst_reg(jmp_insn, REG_NULL);
+    // DO NOTHING
+    // assert(instr_num_srcs(instr) == 1);
+    // assert(instr_num_dsts(instr) == 0);
+    // opnd_t src0 = instr_get_src(instr, 0);
+    // assert(opnd_is_pc(src0));
+    // // JMP src0
+    // mir_insn_t* jmp_insn = mir_insn_malloc(MIR_OP_JMP);
+    // mir_insn_push_back(mir_insns_list, jmp_insn);
+    // mir_insn_set_src0_reg(jmp_insn, REG_NULL);
+    // mir_insn_set_src1_imm(jmp_insn, (uint64_t)opnd_get_pc(src0));
+    // mir_insn_set_dst_reg(jmp_insn, REG_NULL);
 }
