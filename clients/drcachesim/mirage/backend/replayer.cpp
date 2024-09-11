@@ -57,7 +57,7 @@ void Replayer::step(mir_insn_t *insn) {
             break;
         case MIR_OP_MOV:
             // ensure src1 is unvalued
-            assert(src1_val == 0 || insn->opnd1.value.reg == REG_NULL);
+            assert(src1_val == 0);
             set_val_to_opnd(insn->dst, src0_val);
             break;
         case MIR_OP_ADD:
@@ -130,7 +130,7 @@ void Replayer::step(mir_insn_t *insn) {
             break;
         case MIR_OP_W_FLAG:
             // assert src1 is unvalued
-            assert(src1_val == 0 || insn->opnd1.value.reg == REG_NULL);
+            assert(src1_val == 0);
             set_flag_from_value(src0_val);
             break;
         default:
@@ -139,7 +139,9 @@ void Replayer::step(mir_insn_t *insn) {
 }
 
 uint64_t Replayer::get_reg_val(reg_id_t reg) {
-    if (IS_DR_REG_GPR(reg)) {
+    if (reg == REG_NULL) {
+        return 0;
+    } else if (IS_DR_REG_GPR(reg)) {
         return gp_reg_file[GET_DR_REG_GPR_NUM(reg)];
     } else if (IS_TMP_REG(reg)) {
         return tmp_reg_file[GET_TMP_REG_NUM(reg)];
