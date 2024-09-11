@@ -299,8 +299,6 @@ int main() {
     test_replayer_mixed_length_memory();
     // test_flag_regfile();
     /* TODO: test plans:
-        - test memory operations
-        - test control flow - do nothing
         - simple assembly program - load from file
         - random testing
         - corner cases?
