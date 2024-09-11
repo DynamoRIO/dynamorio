@@ -1,0 +1,11 @@
+#ifdef AARCH64
+Opcode mix tool results:
+         126122 : total executed instructions
+          15924 :     bcond
+          15171 :       stp
+.*
+#elif defined(X86) && defined(X64)
+ERROR: failed to initialize analyzer: Directory setup failed: Failed sanity checks for thread log file .*/drmemtrace.threadsig.aarch64/raw/drmemtrace.threadsig..*.raw.gz: Architecture mismatch: trace recorded on aarch64 but tools built for x86_64
+#else
+ERROR: failed to initialize analyzer: Failed to create analysis tool: Tool failed to initialize: Failed to load binaries: Failed to map module /tmp/nonexistent/threadsig
+#endif
