@@ -307,10 +307,13 @@ _tmain(int argc, const TCHAR *targv[])
         op_honor_stamps.get_value() ? scheduler_t::DEPENDENCY_TIMESTAMPS
                                     : scheduler_t::DEPENDENCY_IGNORE,
         scheduler_t::SCHEDULER_DEFAULTS, op_verbose.get_value());
-    sched_ops.quantum_duration = op_sched_quantum.get_value();
-    if (op_sched_time.get_value())
+    if (op_sched_time.get_value()) {
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
-    sched_ops.block_time_scale = op_block_time_scale.get_value();
+        sched_ops.quantum_duration_us = op_sched_quantum.get_value();
+    } else {
+        sched_ops.quantum_duration_instrs = op_sched_quantum.get_value();
+    }
+    sched_ops.block_time_multiplier = op_block_time_scale.get_value();
 #ifdef HAS_ZIP
     std::unique_ptr<zipfile_ostream_t> record_zip;
     std::unique_ptr<zipfile_istream_t> replay_zip;
