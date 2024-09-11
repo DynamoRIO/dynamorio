@@ -2151,7 +2151,7 @@ if (DR_HOST_NOT_TARGET)
       "offline-altbindir.c" ""
       "-indir;${locdir};-tool;TLB;-alt_module_dir;${srcdir};-module_file;${locdir}/raw/modules.log;-use_physical"
       OFF OFF)
-    set(tool.drcacheoff.altbindir_basedir
+    set(tool.drcacheoff.tlb_simulator_v2p_basedir
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
   endif ()
 
