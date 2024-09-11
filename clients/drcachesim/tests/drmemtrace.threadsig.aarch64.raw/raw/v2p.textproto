@@ -1,7 +1,7 @@
 # VirtualToPhysical
 # Instance name: vm00_threadsig
 # Generated: 2024-09-10T13:31:45.379962795-07:00
-address_mapping_group 	 {
+address_mapping_group {
   page_size: 2097152
   address_mapping {
     virtual_address: 281464337858560
