@@ -212,6 +212,39 @@ void gen_call_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct transla
     mir_insn_set_dst_reg(jmp_insn, REG_NULL);
 }
 
+void gen_ret_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
+    assert(instr_num_srcs(instr) == 2);
+    assert(instr_num_dsts(instr) == 1);
+    // assertion: ret reg must be expressed as
+    // ret sp, [sp, size] -> sp, addr in dr format
+    opnd_t dst0 = instr_get_dst(instr, 0);
+    assert(opnd_is_reg(dst0) || opnd_is_memory_reference(dst0));
+    assert(opnd_get_reg(instr_get_src(instr, 0)) == REG_XSP);
+    assert(opnd_get_base(instr_get_src(instr, 1)) == REG_XSP);
+    assert(opnd_get_reg(instr_get_dst(instr, 0)) == REG_XSP);
+
+    // FIXME: fix size to 8 for now
+    // LD [sp, size], tmp0 -> we only care about the address
+    mir_insn_t* load_insn = mir_insn_malloc(MIR_OP_LD64);
+    mir_insn_push_back(mir_insns_list, load_insn);
+    mir_insn_set_src0_imm(load_insn, 0);
+    mir_insn_set_src1_reg(load_insn, REG_XSP);
+    int tmp0 = alloc_tmp_reg(ctx);
+    mir_insn_set_dst_reg(load_insn, tmp0);
+    // ADD sp, sp, size
+    mir_insn_t* sp_add_insn = mir_insn_malloc(MIR_OP_ADD);
+    mir_insn_set_src0_imm(sp_add_insn, 8);
+    mir_insn_set_src1_reg(sp_add_insn, REG_XSP);
+    mir_insn_set_dst_reg(sp_add_insn, REG_XSP);
+    mir_insn_push_back(mir_insns_list, sp_add_insn);
+    // JMP dst0
+    mir_insn_t* jmp_insn = mir_insn_malloc(MIR_OP_JMP);
+    mir_insn_push_back(mir_insns_list, jmp_insn);
+    mir_insn_set_src0_reg(jmp_insn, tmp0);
+    mir_insn_set_src1_reg(jmp_insn, REG_NULL);
+    mir_insn_set_dst_reg(jmp_insn, REG_NULL);
+}
+
 void gen_test_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx) {
     assert(instr_num_srcs(instr) == 2);
     assert(instr_num_dsts(instr) == 0);

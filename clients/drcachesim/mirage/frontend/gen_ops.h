@@ -28,6 +28,7 @@ void gen_lea_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translat
 void gen_push_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx);
 void gen_pop_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx);
 void gen_call_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx);
+void gen_ret_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx);
 
 void gen_test_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx);
 void gen_cmp_op(instr_t *instr, mir_insn_list_t *mir_insns_list, struct translate_context_t *ctx);

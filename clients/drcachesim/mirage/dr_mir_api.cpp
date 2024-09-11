@@ -55,6 +55,10 @@ void dr_gen_mir_ops(instr_t *instr, mir_insn_list_t *insn_list) {
         case OP_call:
             gen_call_op(instr, insn_list, ctx);
             break;
+        case OP_ret_far:
+        case OP_ret:
+            gen_ret_op(instr, insn_list, ctx);
+            break;
         case OP_test:
             gen_test_op(instr, insn_list, ctx);
             break;
