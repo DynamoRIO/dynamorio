@@ -2337,11 +2337,7 @@ template <typename RecordType, typename ReaderType>
 uint64_t
 scheduler_tmpl_t<RecordType, ReaderType>::get_output_time(output_ordinal_t output)
 {
-    // If the user is giving us times take the most recent of those.
-    if (outputs_[output].cur_time > 0)
-        return outputs_[output].cur_time;
-    // Otherwise, use wall-clock time.
-    return get_time_micros();
+    return outputs_[output].cur_time;
 }
 
 template <typename RecordType, typename ReaderType>
@@ -2953,6 +2949,11 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                             target->blocked_time = 0;
                             target->unscheduled = false;
                         }
+                        if (target->prev_output != INVALID_OUTPUT_ORDINAL &&
+                            target->prev_output != output) {
+                            ++outputs_[output]
+                                  .stats[memtrace_stream_t::SCHED_STAT_MIGRATIONS];
+                        }
                         ++outputs_[output].stats
                               [memtrace_stream_t::SCHED_STAT_DIRECT_SWITCH_SUCCESSES];
                     } else if (unscheduled_priority_.find(target)) {
@@ -2965,6 +2966,11 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                                "@%" PRIu64 "\n",
                                output, prev_index, target->index,
                                inputs_[prev_index].reader->get_last_timestamp());
+                        if (target->prev_output != INVALID_OUTPUT_ORDINAL &&
+                            target->prev_output != output) {
+                            ++outputs_[output]
+                                  .stats[memtrace_stream_t::SCHED_STAT_MIGRATIONS];
+                        }
                         ++outputs_[output].stats
                               [memtrace_stream_t::SCHED_STAT_DIRECT_SWITCH_SUCCESSES];
                     } else {
@@ -3168,6 +3174,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::process_marker(input_info_t &input,
         input.unscheduled = true;
         if (input.syscall_timeout_arg > 0) {
             input.blocked_time = scale_blocked_time(input.syscall_timeout_arg);
+            input.blocked_start_time = get_output_time(output);
             VPRINT(this, 3, "input %d unscheduled for %" PRIu64 " @%" PRIu64 "\n",
                    input.index, input.blocked_time, input.reader->get_last_timestamp());
         } else {
@@ -3195,6 +3202,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::process_marker(input_info_t &input,
         input.unscheduled = true;
         if (input.syscall_timeout_arg > 0) {
             input.blocked_time = scale_blocked_time(input.syscall_timeout_arg);
+            input.blocked_start_time = get_output_time(output);
             VPRINT(this, 3, "input %d unscheduled for %" PRIu64 " @%" PRIu64 "\n",
                    input.index, input.blocked_time, input.reader->get_last_timestamp());
         } else {
@@ -3491,7 +3499,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                     VPRINT(this, 4,
                            "next_record[%d]: input %d hit end of instr quantum\n", output,
                            input->index);
-                    preempt = !need_new_input;
+                    preempt = true;
                     need_new_input = true;
                     input->instrs_in_quantum = 0;
                     ++outputs_[output]
@@ -3513,10 +3521,12 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                     // in between (e.g., scatter/gather long sequence of reads/writes) by
                     // setting input->switching_pre_instruction.
                     record_type_is_instr_boundary(record, outputs_[output].last_record)) {
-                    VPRINT(this, 4,
-                           "next_record[%d]: hit end of time quantum after %" PRIu64 "\n",
-                           output, input->time_spent_in_quantum);
-                    preempt = !need_new_input;
+                    VPRINT(
+                        this, 4,
+                        "next_record[%d]: input %d hit end of time quantum after %" PRIu64
+                        "\n",
+                        output, input->index, input->time_spent_in_quantum);
+                    preempt = true;
                     need_new_input = true;
                     input->time_spent_in_quantum = 0;
                     ++outputs_[output]
@@ -3547,9 +3557,10 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                 res != sched_type_t::STATUS_SKIPPED)
                 return res;
             if (outputs_[output].cur_input != prev_input) {
-                // TODO i#5843: Queueing here and in a few other places gets the
-                // ordinals off: we need to undo the ordinal increases to avoid
-                // over-counting while queued and double-counting when we resume.
+                // TODO i#5843: Queueing here and in a few other places gets the stream
+                // record and instruction ordinals off: we need to undo the ordinal
+                // increases to avoid over-counting while queued and double-counting
+                // when we resume.
                 // In some cases we need to undo this on the output stream too.
                 // So we should set suppress_ref_count_ in the input to get
                 // is_record_synthetic() (and have our stream class check that
@@ -3558,12 +3569,18 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                 lock.lock();
                 VPRINT(this, 5, "next_record_mid[%d]: switching from %d to %d\n", output,
                        prev_input, outputs_[output].cur_input);
-                if (!preempt) {
+                // We need to offset the {instrs,time_spent}_in_quantum values from
+                // overshooting during dynamic scheduling, unless this is a preempt when
+                // we've already reset to 0.
+                if (!preempt && options_.mapping == MAP_TO_ANY_OUTPUT) {
                     if (options_.quantum_unit == QUANTUM_INSTRUCTIONS &&
                         record_type_is_instr_boundary(record,
                                                       outputs_[output].last_record)) {
+                        assert(inputs_[prev_input].instrs_in_quantum > 0);
                         --inputs_[prev_input].instrs_in_quantum;
                     } else if (options_.quantum_unit == QUANTUM_TIME) {
+                        assert(inputs_[prev_input].time_spent_in_quantum >=
+                               cur_time - prev_time_in_quantum);
                         inputs_[prev_input].time_spent_in_quantum -=
                             (cur_time - prev_time_in_quantum);
                     }

@@ -4246,7 +4246,7 @@ test_direct_switch()
         // has significant blocked time left.  But then after B is scheduled and finishes,
         // we still have to wait for C's block time so we see idle underscores:
         static const char *const CORE0_SCHED_STRING =
-            "...AA..........CC.......A....BBBB.__________C....";
+            "...AA..........CC.......A....BBBB._______________C....";
         std::vector<scheduler_t::input_workload_t> sched_inputs;
         sched_inputs.emplace_back(std::move(readers));
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
@@ -4325,7 +4325,7 @@ test_unscheduled()
     static constexpr int QUANTUM_DURATION = 100; // Never reached.
     static constexpr int BLOCK_LATENCY = 100;
     static constexpr double BLOCK_SCALE = 1. / (BLOCK_LATENCY);
-    static constexpr int SWITCH_TIMEOUT = 2000;
+    static constexpr int SWITCH_TIMEOUT = 1000;
     static constexpr memref_tid_t TID_BASE = 100;
     static constexpr memref_tid_t TID_A = TID_BASE + 0;
     static constexpr memref_tid_t TID_B = TID_BASE + 1;
@@ -4451,7 +4451,7 @@ test_unscheduled()
         // has lapsed so it runs; finally we wait idle for C's long block to finish,
         // after which C runs and *does not unschedule* b/c of B's prior request.
         static const char *const CORE0_SCHED_STRING =
-            "...AA.........B........CC.....______________B......B......B....A......BBBB."
+            "...AA.........B........CC.....________B......B......B....A......BBBB.______"
             "A._________________C......C.";
 
         std::vector<scheduler_t::input_workload_t> sched_inputs;
@@ -4626,9 +4626,10 @@ test_unscheduled_fallback()
         readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_C)),
                              std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_C);
         // This looks like the schedule in test_unscheduled() up until "..A.." when
-        // we have a BLOCK_TIME_MAX-long idle period:
+        // we have an idle period equal to the rebalance_period from the start
+        // (so BLOCK_TIME_MAX minus what was run).
         static const char *const CORE0_SCHED_STRING =
-            "...AA.........B........CC.....______________B......B....A.....______________"
+            "...AA.........B........CC.....__________________B......B....A.....__________"
             "_________C._________________________________________________________________"
             "____________________________________________________________________________"
             "____________________________________________________________________________"
@@ -5084,7 +5085,7 @@ test_kernel_switch_sequences()
                 case TRACE_MARKER_TYPE_TIMESTAMP: sched_as_string[i] += '0'; break;
                 case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END:
                     in_switch[i] = false;
-                    // Fall-through.
+                    ANNOTATE_FALLTHROUGH;
                 case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START:
                     if (memref.marker.marker_value == scheduler_t::SWITCH_PROCESS)
                         sched_as_string[i] += 'p';
