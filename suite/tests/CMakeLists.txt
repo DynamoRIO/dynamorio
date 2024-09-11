@@ -2136,6 +2136,23 @@ if (DR_HOST_NOT_TARGET)
       OFF OFF)
     set(tool.drcacheoff.altbindir_basedir
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+
+    # Test TLB simulator with a virtual to physical v2p.textproto mapping.
+    set(srcdir
+      ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.aarch64.raw)
+    set(locdir ${PROJECT_BINARY_DIR}/drmemtrace.threadsig.aarch64)
+    file(REMOVE_RECURSE ${locdir})
+    file(MAKE_DIRECTORY ${locdir})
+    file(COPY ${srcdir}/raw DESTINATION ${locdir}/)
+    get_target_path_for_execution(drcachesim_path drmemtrace_launcher
+      "${location_suffix}")
+    prefix_cmd_if_necessary(drcachesim_path ON ${drcachesim_path})
+    torunonly_api(tool.drcacheoff.altbindir "${drcachesim_path}"
+      "offline-altbindir.c" ""
+      "-indir;${locdir};-tool;TLB;-alt_module_dir;${srcdir};-module_file;${locdir}/raw/modules.log;-use_physical"
+      OFF OFF)
+    set(tool.drcacheoff.altbindir_basedir
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
   endif ()
 
   # The tests are not ported to build with host!=target.  Most will never work there,
