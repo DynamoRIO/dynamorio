@@ -2147,7 +2147,8 @@ if (DR_HOST_NOT_TARGET)
     get_target_path_for_execution(drcachesim_path drmemtrace_launcher
       "${location_suffix}")
     prefix_cmd_if_necessary(drcachesim_path ON ${drcachesim_path})
-    torunonly_api(tool.drcacheoff.tlb_simulator_v2p "${drcachesim_path}" "" ""
+    torunonly_api(tool.drcacheoff.tlb_simulator_v2p "${drcachesim_path}"
+      "offline-altbindir.c" ""
       "-indir;${locdir};-tool;TLB;-alt_module_dir;${srcdir};-module_file;${locdir}/raw/modules.log;-use_physical"
       OFF OFF)
     set(tool.drcacheoff.altbindir_basedir
