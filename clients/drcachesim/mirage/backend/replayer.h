@@ -23,6 +23,7 @@ public:
     // this is public for testing purposes
     uint64_t get_reg_val(reg_id_t reg);
 private:
+    FILE* log_file;
     InitStrategy init_strategy;
     // register file
     uint64_t gp_reg_file[DR_NUM_GPR_REGS];
