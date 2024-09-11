@@ -11,6 +11,7 @@ Replayer::Replayer(InitStrategy init_strategy) {
             gp_reg_file[i] = rand() & 0xffffffff;
         }
     }
+    log_file = fopen("replayer.log", "w");
 }
 
 Replayer::~Replayer() {
@@ -39,6 +40,7 @@ uint64_t Replayer::read_mem(uintptr_t addr, size_t size) {
             }
         }
     }
+    fprintf(log_file, "read: addr = %lx, size = %lx\n", addr, size);
     return value;
 }
 
@@ -46,6 +48,7 @@ void Replayer::write_mem(uintptr_t addr, uint64_t value, size_t size) {
     for (size_t i = 0; i < size; i++) {
         shadow_mem[addr + i] = (value >> (i * 8)) & 0xff;
     }
+    fprintf(log_file, "write: addr = %lx, size = %lx\n", addr, size);
 }
 
 void Replayer::step(mir_insn_t *insn) {
@@ -144,6 +147,14 @@ uint64_t Replayer::get_reg_val(reg_id_t reg) {
         return 0;
     } else if (IS_DR_REG_GPR(reg)) {
         return gp_reg_file[GET_DR_REG_GPR_NUM(reg)];
+    } else if (IS_DR_REG_64(reg)) {
+        return gp_reg_file[GET_DR_REG_64_NUM(reg)];
+    } else if (IS_DR_REG_32(reg)) {
+        return (uint32_t)gp_reg_file[GET_DR_REG_32_NUM(reg)];
+    } else if (IS_DR_REG_16(reg)) {
+        return (uint16_t)gp_reg_file[GET_DR_REG_16_NUM(reg)];
+    } else if (IS_DR_REG_8(reg)) {
+        return (uint8_t)gp_reg_file[GET_DR_REG_8_NUM(reg)];
     } else if (IS_TMP_REG(reg)) {
         return tmp_reg_file[GET_TMP_REG_NUM(reg)];
     } else if (IS_FLAG_REG(reg)) {
@@ -166,6 +177,14 @@ void Replayer::set_val_to_opnd(mir_opnd_t opnd, uint64_t value) {
     if (opnd.type == MIR_OPND_REG) {
         if (IS_DR_REG_GPR(opnd.value.reg)) {
             gp_reg_file[GET_DR_REG_GPR_NUM(opnd.value.reg)] = value;
+        } else if (IS_DR_REG_64(opnd.value.reg)) {
+            gp_reg_file[GET_DR_REG_64_NUM(opnd.value.reg)] = value;
+        } else if (IS_DR_REG_32(opnd.value.reg)) {
+            gp_reg_file[GET_DR_REG_32_NUM(opnd.value.reg)] = (uint32_t)value;
+        } else if (IS_DR_REG_16(opnd.value.reg)) {
+            gp_reg_file[GET_DR_REG_16_NUM(opnd.value.reg)] = (uint16_t)value;
+        } else if (IS_DR_REG_8(opnd.value.reg)) {
+            gp_reg_file[GET_DR_REG_8_NUM(opnd.value.reg)] = (uint8_t)value;
         } else if (IS_TMP_REG(opnd.value.reg)) {
             tmp_reg_file[GET_TMP_REG_NUM(opnd.value.reg)] = value;
         } 
