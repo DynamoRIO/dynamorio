@@ -32,7 +32,7 @@ void test_replayer_mov() {
     printf("passed!\n");
 }
 
-// test basic arithmetic operations like add
+// test basic arithmetic operations 
 void test_replayer_add() {
     printf("===> simple reg&imm ===> ");
     Replayer replayer(INIT_STRATEGY_ZERO);
@@ -68,10 +68,30 @@ void test_replayer_add() {
     };
     mir_insn_push_back(&insn_list, &reg_reg_add_insn);
 
+    // TEMP REG
+    // t0 <- x1 + x2
+    mir_insn_t reg_reg_add_tmp_insn = {
+        MIR_OP_ADD,
+        {MIR_OPND_REG, {.reg = DR_REG_START_GPR}}, // 3
+        {MIR_OPND_REG, {.reg = DR_REG_START_GPR + 1}}, // 6
+        {MIR_OPND_REG, {.reg = DR_REG_START_GPR + 2}} // 9
+    };
+    mir_insn_push_back(&insn_list, &reg_reg_add_tmp_insn);
+
+    // x4 <- x1 + t0
+    mir_insn_t reg_tmp_add_insn = {
+        MIR_OP_ADD,
+        {MIR_OPND_REG, {.reg = DR_REG_START_GPR}}, // 3
+        {MIR_OPND_REG, {.reg = DR_REG_START_GPR + 2}}, // 9
+        {MIR_OPND_REG, {.reg = DR_REG_START_GPR + 3}} // 12
+    };
+    mir_insn_push_back(&insn_list, &reg_tmp_add_insn);
+
     replayer.replay(&insn_list);
     assert(replayer.get_reg_val(DR_REG_START_GPR) == 3);
     assert(replayer.get_reg_val(DR_REG_START_GPR + 1) == 6);
     assert(replayer.get_reg_val(DR_REG_START_GPR + 2) == 9);
+    assert(replayer.get_reg_val(DR_REG_START_GPR + 3) == 12);
     printf("passed!\n");
 }
 
@@ -177,15 +197,48 @@ void test_replayer_logical() {
     printf("passed!\n");
 }
 
+// test flag register file
+void test_flag_regfile() {
+    printf("===> flag register file ===> ");
+    Replayer replayer(INIT_STRATEGY_ZERO);
+    mir_insn_list_t insn_list;
+    init_mir_insn_list(&insn_list);
+    
+    // mv x1, 0x0
+    mir_insn_t imm_imm_mov_insn = {
+        MIR_OP_MOV,
+        {MIR_OPND_IMM, {.imm = 0x0}},
+        {MIR_OPND_IMM, {.imm = 0x0}},
+        {MIR_OPND_REG, {.reg = DR_REG_START_GPR}}
+    };
+    mir_insn_push_back(&insn_list, &imm_imm_mov_insn);
+    
+    // set flags
+    mir_insn_t set_flag_insn = {
+        MIR_OP_W_FLAG,
+        {MIR_OPND_REG, {.reg = DR_REG_START_GPR}},
+        {MIR_OPND_IMM, {.imm = 0x0}},
+        {MIR_OPND_REG, {.reg = DR_REG_NULL}}
+    };
+    mir_insn_push_back(&insn_list, &set_flag_insn);
+
+    replayer.replay(&insn_list);
+
+    // check flags
+    assert(replayer.get_reg_val(FLAG_REG_PF) == 0x0); // parity flag
+    assert(replayer.get_reg_val(FLAG_REG_ZF) == 0x1); // zero flag
+    assert(replayer.get_reg_val(FLAG_REG_SF) == 0x0); // sign flag
+    printf("passed!\n");
+}
+
 int main() {
     printf("Running tests...\n");
     test_replayer_mov();
     test_replayer_add();
     test_replayer_arithmetic();
     test_replayer_logical();
+    // test_flag_regfile();
     /* TODO: test plans:
-        - test flags
-        - test temp registers
         - test memory operations
         - test control flow - do nothing
         - simple assembly program - load from file
