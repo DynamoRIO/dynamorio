@@ -131,7 +131,8 @@ void Replayer::step(mir_insn_t *insn) {
         case MIR_OP_W_FLAG:
             // assert src1 is unvalued
             assert(src1_val == 0);
-            set_flag_from_value(src0_val);
+            // set_flag_from_value(src0_val);
+            set_flag_hard();
             break;
         default:
             break;
@@ -174,11 +175,31 @@ void Replayer::set_val_to_opnd(mir_opnd_t opnd, uint64_t value) {
     }
 }
 
-void Replayer::set_flag_from_value(uint64_t value) {
+// void Replayer::set_flag_from_value(uint64_t value) {
     // flag_reg_file[GET_FLAG_REG_NUM(FLAG_REG_CF)] = ?;
-    flag_reg_file[GET_FLAG_REG_NUM(FLAG_REG_PF)] = value & 0x01;
+    // flag_reg_file[GET_FLAG_REG_NUM(FLAG_REG_PF)] = value & 0x01;
     // flag_reg_file[GET_FLAG_REG_NUM(FLAG_REG_AF)] = (value & 0x15) == 0x15;
-    flag_reg_file[GET_FLAG_REG_NUM(FLAG_REG_ZF)] = value == 0;
-    flag_reg_file[GET_FLAG_REG_NUM(FLAG_REG_SF)] = (value >> 63) & 1;
+    // flag_reg_file[GET_FLAG_REG_NUM(FLAG_REG_ZF)] = value == 0;
+    // flag_reg_file[GET_FLAG_REG_NUM(FLAG_REG_SF)] = (value >> 63) & 1;
     // flag_reg_file[GET_FLAG_REG_NUM(FLAG_REG_OF)] = (value >> 31) & 1;
+// }
+
+// marks a flag as being set
+void Replayer::set_flag_hard() {
+    flag_reg_file[GET_FLAG_REG_NUM(FLAG_REG_CF)] = 2;
+    flag_reg_file[GET_FLAG_REG_NUM(FLAG_REG_PF)] = 2;
+    flag_reg_file[GET_FLAG_REG_NUM(FLAG_REG_AF)] = 2;
+    flag_reg_file[GET_FLAG_REG_NUM(FLAG_REG_ZF)] = 2;
+    flag_reg_file[GET_FLAG_REG_NUM(FLAG_REG_SF)] = 2;
+    flag_reg_file[GET_FLAG_REG_NUM(FLAG_REG_OF)] = 2;
+}
+
+// marks a flag as being unset
+void Replayer::unset_flag_hard() {
+    flag_reg_file[GET_FLAG_REG_NUM(FLAG_REG_CF)] = 0;
+    flag_reg_file[GET_FLAG_REG_NUM(FLAG_REG_PF)] = 0;
+    flag_reg_file[GET_FLAG_REG_NUM(FLAG_REG_AF)] = 0;
+    flag_reg_file[GET_FLAG_REG_NUM(FLAG_REG_ZF)] = 0;
+    flag_reg_file[GET_FLAG_REG_NUM(FLAG_REG_SF)] = 0;
+    flag_reg_file[GET_FLAG_REG_NUM(FLAG_REG_OF)] = 0;
 }

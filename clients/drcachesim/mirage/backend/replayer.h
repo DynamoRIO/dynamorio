@@ -40,7 +40,9 @@ private:
     void step(mir_insn_t *insn);
     uint64_t get_val_from_opnd(mir_opnd_t opnd);
     void set_val_to_opnd(mir_opnd_t opnd, uint64_t value);
-    void set_flag_from_value(uint64_t value);
+    // void set_flag_from_value(uint64_t value);
+    void set_flag_hard();
+    void unset_flag_hard();
 };
 
 #endif // REPLAYER_H
