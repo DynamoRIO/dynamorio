@@ -197,37 +197,95 @@ void test_replayer_logical() {
     printf("passed!\n");
 }
 
-// test flag register file
-void test_flag_regfile() {
-    printf("===> flag register file ===> ");
+// test basic memory operations
+void test_replayer_memory() {
+    printf("===> memory ===> ");
     Replayer replayer(INIT_STRATEGY_ZERO);
     mir_insn_list_t insn_list;
     init_mir_insn_list(&insn_list);
     
-    // mv x1, 0x0
+    // mov x1 <- 0x12345670
     mir_insn_t imm_imm_mov_insn = {
         MIR_OP_MOV,
-        {MIR_OPND_IMM, {.imm = 0x0}},
+        {MIR_OPND_IMM, {.imm = 0x12345670}},
         {MIR_OPND_IMM, {.imm = 0x0}},
         {MIR_OPND_REG, {.reg = DR_REG_START_GPR}}
     };
     mir_insn_push_back(&insn_list, &imm_imm_mov_insn);
     
-    // set flags
-    mir_insn_t set_flag_insn = {
-        MIR_OP_W_FLAG,
-        {MIR_OPND_REG, {.reg = DR_REG_START_GPR}},
+
+    // st 0x12 -> mem[0x12345678]
+    mir_insn_t reg_imm_st_insn = {
+        MIR_OP_ST8,
+        {MIR_OPND_IMM, {.imm = 0x12345678}},
         {MIR_OPND_IMM, {.imm = 0x0}},
-        {MIR_OPND_REG, {.reg = DR_REG_NULL}}
+        {MIR_OPND_IMM, {.imm = 0x12}}
     };
-    mir_insn_push_back(&insn_list, &set_flag_insn);
+    mir_insn_push_back(&insn_list, &reg_imm_st_insn);
+    
+    // ld x2 <- mem[0x12345678]
+    mir_insn_t imm_imm_ld_insn = {
+        MIR_OP_LD8,
+        {MIR_OPND_IMM, {.imm = 0x12345678}},
+        {MIR_OPND_IMM, {.imm = 0x0}},
+        {MIR_OPND_REG, {.reg = DR_REG_START_GPR + 1}} // 0x12
+    };
+    mir_insn_push_back(&insn_list, &imm_imm_ld_insn);
 
+    // ld x3 <- [x1 + 0x8]
+    mir_insn_t reg_imm_ld_insn = {
+        MIR_OP_LD8,
+        {MIR_OPND_REG, {.reg = DR_REG_START_GPR}}, // 0x12345678
+        {MIR_OPND_IMM, {.imm = 0x8}},
+        {MIR_OPND_REG, {.reg = DR_REG_START_GPR + 2}} // 0x70
+    };
+    mir_insn_push_back(&insn_list, &reg_imm_ld_insn);
+    
     replayer.replay(&insn_list);
+    assert(replayer.get_reg_val(DR_REG_START_GPR) == 0x12345670);
+    assert(replayer.get_reg_val(DR_REG_START_GPR + 1) == 0x12);
+    assert(replayer.get_reg_val(DR_REG_START_GPR + 2) == 0x12);
+    printf("passed!\n");
+}
 
-    // check flags
-    assert(replayer.get_reg_val(FLAG_REG_PF) == 0x0); // parity flag
-    assert(replayer.get_reg_val(FLAG_REG_ZF) == 0x1); // zero flag
-    assert(replayer.get_reg_val(FLAG_REG_SF) == 0x0); // sign flag
+// test mixed length memory operations
+void test_replayer_mixed_length_memory() {
+    printf("===> mixed length memory ===> ");
+    Replayer replayer(INIT_STRATEGY_ZERO);
+    mir_insn_list_t insn_list;
+    init_mir_insn_list(&insn_list);
+    
+    // st32 0xdeadbeef -> mem[0x12345678]
+    mir_insn_t reg_imm_st_insn = {
+        MIR_OP_ST32,
+        {MIR_OPND_IMM, {.imm = 0x12345678}},
+        {MIR_OPND_IMM, {.imm = 0x0}},
+        {MIR_OPND_IMM, {.imm = 0xdeadbeef}}
+    };
+    mir_insn_push_back(&insn_list, &reg_imm_st_insn);
+
+    // ld16 x1 <- mem[0x12345678]
+    mir_insn_t imm_imm_ld_16_insn = {
+        MIR_OP_LD16,
+        {MIR_OPND_IMM, {.imm = 0x12345678}},
+        {MIR_OPND_IMM, {.imm = 0x0}},
+        {MIR_OPND_REG, {.reg = DR_REG_START_GPR}} // 0xbeef
+    };
+    mir_insn_push_back(&insn_list, &imm_imm_ld_16_insn);
+    
+
+    // ld8 x1 <- mem[0x12345678 + 2]
+    mir_insn_t imm_imm_ld_8_insn = {
+        MIR_OP_LD8,
+        {MIR_OPND_IMM, {.imm = 0x12345678}},
+        {MIR_OPND_IMM, {.imm = 0x2}},
+        {MIR_OPND_REG, {.reg = DR_REG_START_GPR + 1}} // 0xad
+    };
+    mir_insn_push_back(&insn_list, &imm_imm_ld_8_insn);
+    
+    replayer.replay(&insn_list);
+    assert(replayer.get_reg_val(DR_REG_START_GPR) == 0xbeef);
+    assert(replayer.get_reg_val(DR_REG_START_GPR + 1) == 0xad);
     printf("passed!\n");
 }
 
@@ -237,6 +295,8 @@ int main() {
     test_replayer_add();
     test_replayer_arithmetic();
     test_replayer_logical();
+    test_replayer_memory();
+    test_replayer_mixed_length_memory();
     // test_flag_regfile();
     /* TODO: test plans:
         - test memory operations
