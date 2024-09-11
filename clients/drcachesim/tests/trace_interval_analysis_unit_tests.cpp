@@ -249,7 +249,7 @@ public:
     }
     bool
     finalize_interval_snapshots(
-        std::vector<interval_state_snapshot_t *> &interval_snapshots)
+        std::vector<interval_state_snapshot_t *> &interval_snapshots) override
     {
         if (saw_serial_generate_snapshot_) {
             error_string_ = "Did not expect finalize_interval_snapshots call in serial "
