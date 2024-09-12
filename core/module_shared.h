@@ -415,7 +415,7 @@ typedef struct _privmod_t {
     bool externally_loaded;
     /* XXX: is_top_level_client could perhaps replace is_client */
     bool is_top_level_client; /* set for command-line clients */
-    bool is_client; /* set for command-line client or extension */
+    bool is_client;           /* set for command-line client or extension */
     bool called_proc_entry;
     bool called_proc_exit;
     struct _privmod_t *next;
