@@ -3647,6 +3647,17 @@ if (BUILD_SAMPLES)
         "CFLAGS=-m32;CXXFLAGS=-m32")
     endif ()
   endif ()
+  if (UNIX)
+    # XXX: Change this to go through torun() like the other tests to share
+    # output, multiplexing, _timeout, etc. features: not entirely
+    # straightforward because this test uses two clients.
+    get_target_path_for_execution(drrun_path drrun "${location_suffix}")
+    get_client_path(client1 bbcount bbcount)
+    get_client_path(client2 opcodes opcodes)
+    add_test(two_clients ${drrun_path}
+      -client ${client1} 0 ''
+      -client ${client2} 1 '' -- bin/${ci_shared_app})
+  endif (UNIX)
 endif (BUILD_SAMPLES)
 
 if (BUILD_CLIENTS)
@@ -6043,13 +6054,6 @@ if (vera++_FOUND)
     --error "${PROJECT_SOURCE_DIR}/make/style_checks/style_test.c")
   set_tests_properties(vera PROPERTIES PASS_REGULAR_EXPRESSION "${vera_regex}")
 endif ()
-
-if (UNIX)
-  get_target_path_for_execution(drrun_path drrun "${location_suffix}")
-  add_test(two_clients ${drrun_path}
-    -client ../../api/bin/libbbcount.so 0 ''
-    -client ../../api/bin/libopcodes.so 1 '' -- bin/${ci_shared_app})
-endif (UNIX)
 
 ###########################################################################
 
