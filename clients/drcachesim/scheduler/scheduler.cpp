@@ -38,6 +38,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cinttypes>
+#include <cstddef>
 #include <cstdio>
 #include <iomanip>
 #include <limits>

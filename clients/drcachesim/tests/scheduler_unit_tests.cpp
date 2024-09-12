@@ -34,14 +34,20 @@
 #undef NDEBUG
 #include <assert.h>
 #include <algorithm>
+#include <cstddef>
 #include <cstring>
 #include <iostream>
+#include <set>
+#include <string>
 #include <thread>
 #include <vector>
+#include <utility>
 
 #include "dr_api.h"
 #include "scheduler.h"
 #include "mock_reader.h"
+#include "memref.h"
+#include "trace_entry.h"
 #ifdef HAS_ZIP
 #    include "zipfile_istream.h"
 #    include "zipfile_ostream.h"
