@@ -907,8 +907,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::legacy_field_support()
             options_.quantum_duration_instrs = options_.quantum_duration;
         } else {
             options_.quantum_duration_us =
-                static_cast<double>(options_.quantum_duration) /
-                options_.time_units_per_us;
+                static_cast<uint64_t>(static_cast<double>(options_.quantum_duration) /
+                                      options_.time_units_per_us);
             VPRINT(this, 2,
                    "Legacy support: setting quantum_duration_us to %" PRIu64 "\n",
                    options_.quantum_duration_us);
@@ -929,14 +929,18 @@ scheduler_tmpl_t<RecordType, ReaderType>::legacy_field_support()
         VPRINT(this, 2, "Legacy support: setting block_time_multiplier to %6.3f\n",
                options_.block_time_multiplier);
     }
+    if (options_.block_time_multiplier == 0) {
+        error_string_ = "block_time_multiplier must != 0";
+        return STATUS_ERROR_INVALID_PARAMETER;
+    }
     if (options_.block_time_max > 0) {
         if (options_.struct_size > offsetof(scheduler_options_t, block_time_max_us)) {
             error_string_ = "quantum_duration is deprecated; use block_time_max_us "
                             "and time_units_per_us";
             return STATUS_ERROR_INVALID_PARAMETER;
         }
-        options_.block_time_max_us =
-            static_cast<double>(options_.block_time_max) / options_.time_units_per_us;
+        options_.block_time_max_us = static_cast<uint64_t>(
+            static_cast<double>(options_.block_time_max) / options_.time_units_per_us);
         VPRINT(this, 2, "Legacy support: setting block_time_max_us to %" PRIu64 "\n",
                options_.block_time_max_us);
     }
@@ -3579,10 +3583,6 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                 input->prev_time_in_quantum = cur_time;
                 double elapsed_micros =
                     input->time_spent_in_quantum * options_.time_units_per_us;
-                VPRINT(this, 4,
-                       "next_record[%d]: input %d elapsed %6.1f vs quantum %" PRIu64 "\n",
-                       output, input->index, elapsed_micros,
-                       options_.quantum_duration_us); // NOCHECK
                 if (elapsed_micros >= options_.quantum_duration_us &&
                     // We only switch on instruction boundaries.  We could possibly switch
                     // in between (e.g., scatter/gather long sequence of reads/writes) by
