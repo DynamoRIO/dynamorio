@@ -19,6 +19,7 @@ set(mirage_srcs
     ./frontend/translate_context.cpp
     # backend - interpreting MIR
     ./backend/replayer.cpp
+    ./backend/reg_analyzer.cpp
     # ./be/*.cpp
     # interpreter - MIR specification
     ./ir/mir_insn.cpp

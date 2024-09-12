@@ -12,7 +12,7 @@ reuse_pattern_tool_create()
 
 reuse_pattern_t::reuse_pattern_t()
 {
-    replayer = new Replayer(INIT_STRATEGY_ZERO);
+    replayer = new RegAnalyzer();
 }
 
 reuse_pattern_t::~reuse_pattern_t()
@@ -98,7 +98,7 @@ reuse_pattern_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 bool
 reuse_pattern_t::print_results()
 {
-    std::cerr << "Hello World\n";
+    replayer->report();
     return true;
 }
 
