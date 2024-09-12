@@ -439,7 +439,7 @@ test_legacy_fields()
     // We do not want to block for very long.
     static constexpr uint64_t BLOCK_LATENCY = 200;
     static constexpr double BLOCK_SCALE = 0.01;
-    static constexpr double BLOCK_MAX = 50;
+    static constexpr uint64_t BLOCK_MAX = 50;
     static constexpr memref_tid_t TID_BASE = 100;
     static constexpr uint64_t START_TIME = 20;
     std::vector<trace_entry_t> inputs[NUM_INPUTS];
