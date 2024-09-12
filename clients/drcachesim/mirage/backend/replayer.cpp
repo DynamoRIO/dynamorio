@@ -67,6 +67,7 @@ void Replayer::step(mir_insn_t *insn) {
             dst_val = src0_val + src1_val;
             set_val_to_opnd(insn->dst, dst_val);
             break;
+        // FIXME: check directionality!!
         case MIR_OP_SUB:
             dst_val = src0_val - src1_val;
             set_val_to_opnd(insn->dst, dst_val);
@@ -81,6 +82,10 @@ void Replayer::step(mir_insn_t *insn) {
             break;
         case MIR_OP_REM:
             dst_val = src0_val % src1_val;
+            set_val_to_opnd(insn->dst, dst_val);
+            break;
+        case MIR_OP_AND:
+            dst_val = src0_val & src1_val;
             set_val_to_opnd(insn->dst, dst_val);
             break;
         case MIR_OP_OR:

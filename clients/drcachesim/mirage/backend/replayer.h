@@ -5,7 +5,7 @@
 using std::unordered_map;
 
 #include "dr_api.h"
-#include "abstract_replayer.h"
+#include "abstract_backend.h"
 #include "translate_context.h"
 #include "mir_insn.h"
 
@@ -14,12 +14,11 @@ enum InitStrategy {
     INIT_STRATEGY_RANDOM
 };
 
-class Replayer : public AbstractReplayer {
+class Replayer : public AbstractBackend {
 public:
     Replayer(InitStrategy init_strategy);
     ~Replayer();
     void replay(mir_insn_list_t *insn_list) override;
-    
     // this is public for testing purposes
     uint64_t get_reg_val(reg_id_t reg);
 private:
