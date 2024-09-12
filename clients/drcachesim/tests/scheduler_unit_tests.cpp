@@ -437,7 +437,7 @@ test_legacy_fields()
     static constexpr int NUM_INSTRS = 9;
     static constexpr int QUANTUM_DURATION = 3;
     // We do not want to block for very long.
-    static constexpr double BLOCK_LATENCY = 200;
+    static constexpr uint64_t BLOCK_LATENCY = 200;
     static constexpr double BLOCK_SCALE = 0.01;
     static constexpr double BLOCK_MAX = 50;
     static constexpr memref_tid_t TID_BASE = 100;
