@@ -1145,7 +1145,7 @@ module_lookup_symbol(ELF_SYM_TYPE *sym, os_privmod_data_t *pd)
          * initialised. Skipping all uninitialised modules should also work but
          * might hide a more serious problem. See i#4501.
          */
-        if (mod->is_client)
+        if (mod->is_top_level_client)
             continue;
         pd = mod->os_privmod_data;
         ASSERT(pd != NULL && name != NULL);
