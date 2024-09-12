@@ -127,7 +127,7 @@ jobs:
         CI_BRANCH: ${{ github.ref }}
 
     - name: Upload Artifacts
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: linux-tarball
         path: DynamoRIO-Linux-${{ steps.version.outputs.version_number }}.tar.gz
@@ -215,7 +215,7 @@ jobs:
         CI_BRANCH: ${{ github.ref }}
 
     - name: Upload AArch64
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: aarch64-tarball
         path: DynamoRIO-AArch64-Linux-${{ steps.version.outputs.version_number }}.tar.gz
@@ -303,7 +303,7 @@ jobs:
         CI_BRANCH: ${{ github.ref }}
 
     - name: Upload ARM
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: arm-tarball
         path: DynamoRIO-ARM-Linux-EABIHF-${{ steps.version.outputs.version_number }}.tar.gz
@@ -393,7 +393,7 @@ jobs:
         CI_BRANCH: ${{ github.ref }}
 
     - name: Upload Artifacts
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: android-tarball
         path: DynamoRIO-ARM-Android-EABI-${{ steps.version.outputs.version_number }}.tar.gz
@@ -484,7 +484,7 @@ jobs:
         CI_BRANCH: ${{ github.ref }}
 
     - name: Upload Artifacts
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: windows-zip
         path: DynamoRIO-Windows-${{ steps.version.outputs.version_number }}.zip
@@ -562,7 +562,7 @@ jobs:
         prerelease: false
 
     - name: Download Linux
-      uses: actions/download-artifact@v4.1.7
+      uses: actions/download-artifact@v4
       with:
         name: linux-tarball
     - name: Upload Linux
@@ -577,7 +577,7 @@ jobs:
         asset_content_type: application/x-gzip
 
     - name: Download AArch64
-      uses: actions/download-artifact@v4.1.7
+      uses: actions/download-artifact@v4
       with:
         name: aarch64-tarball
     - name: Upload AArch64
@@ -592,7 +592,7 @@ jobs:
         asset_content_type: application/x-gzip
 
     - name: Download ARM
-      uses: actions/download-artifact@v4.1.7
+      uses: actions/download-artifact@v4
       with:
         name: arm-tarball
     - name: Upload ARM
@@ -607,7 +607,7 @@ jobs:
         asset_content_type: application/x-gzip
 
     - name: Download Android
-      uses: actions/download-artifact@v4.1.7
+      uses: actions/download-artifact@v4
       with:
         name: android-tarball
     - name: Upload Android
@@ -622,7 +622,7 @@ jobs:
         asset_content_type: application/x-gzip
 
     - name: Download Windows
-      uses: actions/download-artifact@v4.1.7
+      uses: actions/download-artifact@v4
       with:
         name: windows-zip
     - name: Upload Windows
