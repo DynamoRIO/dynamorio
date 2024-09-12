@@ -581,9 +581,9 @@ privload_process_imports(privmod_t *mod)
                     SYSLOG_INTERNAL_WARNING(
                         "private libpthread.so loaded but not fully supported (i#956)");
                 }
-                /* i#852: identify all libs that import from DR as client libs.
-                 * XXX: this code seems stale as libdynamorio.so is already loaded
-                 * (xref #3850).
+                /* i#852: Identify all libs that import from DR as client libs.
+                 * XXX i#6982: The following condition is never true as
+                 * libdynamorio.so has already been loaded (xref #3850).
                  */
                 if (impmod->base == get_dynamorio_dll_start())
                     mod->is_client = true;
