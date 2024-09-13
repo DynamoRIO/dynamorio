@@ -21,9 +21,69 @@ Core #0 \(1 thread\(s\)\)
     Local miss rate:        *[0-9,.]*%
     Child hits:                *[0-9,\.]*
     Total miss rate:                  0[,\.]..%
-Core #1 \(0 thread\(s\)\)
-Core #2 \(0 thread\(s\)\)
-Core #3 \(0 thread\(s\)\)
+Core #1 \(2 thread\(s\)\)
+  L1I stats:
+    Hits:                      *[0-9,\.]*
+    Misses:                    *[0-9,\.]*
+    Compulsory misses:         *[0-9,\.]*
+    Invalidations:             *0
+    Miss rate:                        [0-3][,\.]..%
+  L1D stats:
+    Hits:                      *[0-9,\.]*
+    Misses:                    *[0-9,\.]*
+    Compulsory misses:         *[0-9,\.]*
+    Invalidations:             *0
+    Miss rate:                 *[0-9]*[,\.]..%
+  LL stats:
+    Hits:                      *[0-9,\.]*
+    Misses:                           *[0-9]..?
+    Compulsory misses:          *[0-9,\.]*
+    Invalidations:             *0
+    Local miss rate:        *[0-9,.]*%
+    Child hits:                *[0-9,\.]*
+    Total miss rate:                  0[,\.]..%
+Core #2 \(1 thread\(s\)\)
+  L1I stats:
+    Hits:                      *[0-9,\.]*
+    Misses:                    *[0-9,\.]*
+    Compulsory misses:         *[0-9,\.]*
+    Invalidations:             *0
+    Miss rate:                        [0-3][,\.]..%
+  L1D stats:
+    Hits:                      *[0-9,\.]*
+    Misses:                    *[0-9,\.]*
+    Compulsory misses:         *[0-9,\.]*
+    Invalidations:             *0
+    Miss rate:                 *[0-9]*[,\.]..%
+  LL stats:
+    Hits:                      *[0-9,\.]*
+    Misses:                           *[0-9]..?
+    Compulsory misses:          *[0-9,\.]*
+    Invalidations:             *0
+    Local miss rate:        *[0-9,.]*%
+    Child hits:                *[0-9,\.]*
+    Total miss rate:                  0[,\.]..%
+Core #3 \(1 thread\(s\)\)
+  L1I stats:
+    Hits:                      *[0-9,\.]*
+    Misses:                    *[0-9,\.]*
+    Compulsory misses:         *[0-9,\.]*
+    Invalidations:             *0
+    Miss rate:                        [0-3][,\.]..%
+  L1D stats:
+    Hits:                      *[0-9,\.]*
+    Misses:                    *[0-9,\.]*
+    Compulsory misses:         *[0-9,\.]*
+    Invalidations:             *0
+    Miss rate:                 *[0-9]*[,\.]..%
+  LL stats:
+    Hits:                      *[0-9,\.]*
+    Misses:                           *[0-9]..?
+    Compulsory misses:          *[0-9,\.]*
+    Invalidations:             *0
+    Local miss rate:        *[0-9,.]*%
+    Child hits:                *[0-9,\.]*
+    Total miss rate:                  0[,\.]..%
 #elif defined(X86) && defined(X64)
 ERROR: failed to initialize analyzer: Directory setup failed: Failed sanity checks for thread log file .*/drmemtrace.threadsig.aarch64/raw/drmemtrace.threadsig..*.raw.gz: Architecture mismatch: trace recorded on aarch64 but tools built for x86_64
 #else
