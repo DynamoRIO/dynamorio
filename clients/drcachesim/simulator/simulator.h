@@ -40,6 +40,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <fstream>
 #include <unordered_map>
 #include <vector>
 
@@ -71,8 +72,8 @@ public:
     bool
     process_memref(const memref_t &memref) override;
 
-    void
-    create_v2p_from_file(std::string v2p_file);
+    virtual std::string
+    create_v2p_from_file(std::ifstream &v2p_file);
 
 protected:
     // Initialize knobs. Success or failure is indicated by setting/resetting
@@ -141,6 +142,8 @@ protected:
     size_t page_size_ = 0;
     std::unordered_map<addr_t, addr_t> virt2phys_;
     addr_t prior_phys_addr_ = 0;
+    // Indicates whether the simulator uses a v2p file for virtual to physical mapping.
+    bool use_v2p_file_ = false;
 };
 
 } // namespace drmemtrace

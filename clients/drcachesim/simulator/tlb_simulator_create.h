@@ -91,7 +91,8 @@ struct tlb_simulator_knobs_t {
 
 /** Creates an instance of a TLB simulator. */
 analysis_tool_t *
-tlb_simulator_create(const tlb_simulator_knobs_t &knobs);
+tlb_simulator_create(const tlb_simulator_knobs_t &knobs,
+                     const std::string &v2p_file_path);
 
 } // namespace drmemtrace
 } // namespace dynamorio

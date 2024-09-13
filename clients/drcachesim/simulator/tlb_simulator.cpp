@@ -34,6 +34,7 @@
 
 #include <stddef.h>
 
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -53,9 +54,30 @@ namespace dynamorio {
 namespace drmemtrace {
 
 analysis_tool_t *
-tlb_simulator_create(const tlb_simulator_knobs_t &knobs)
+tlb_simulator_create(const tlb_simulator_knobs_t &knobs,
+                     const std::string &v2p_file_path = "")
 {
-    return new tlb_simulator_t(knobs);
+    if (v2p_file_path.empty())
+        return new tlb_simulator_t(knobs);
+
+    std::ifstream fin;
+    fin.open(v2p_file_path);
+    if (!fin.is_open()) {
+        ERRMSG("Failed to open the v2p file '%s'\n", v2p_file_path.c_str());
+        return nullptr;
+    }
+
+    tlb_simulator_t *sim = new tlb_simulator_t(knobs);
+    std::string error_str = sim->create_v2p_from_file(fin);
+    fin.close();
+
+    if (!error_str.empty()) {
+        ERRMSG("ERROR: v2p_reader failed with: %s\n", error_str.c_str());
+        delete sim;
+        return nullptr;
+    }
+
+    return sim;
 }
 
 tlb_simulator_t::tlb_simulator_t(const tlb_simulator_knobs_t &knobs)
@@ -132,6 +154,23 @@ tlb_simulator_t::~tlb_simulator_t()
     delete[] lltlbs_;
 }
 
+std::string
+tlb_simulator_t::create_v2p_from_file(std::ifstream &v2p_file)
+{
+    // If we are not using physical addresses, we don't need a virtual to physical mapping
+    // at all.
+    if (!knobs_.use_physical)
+        return "";
+
+    std::string error_str = simulator_t::create_v2p_from_file(v2p_file);
+    if (!error_str.empty()) {
+        return error_str;
+    }
+    // Overwrite tlb_simulator_t page size with simulator_t page size.
+    knobs_.page_size = page_size_;
+    return "";
+}
+
 bool
 tlb_simulator_t::process_memref(const memref_t &memref)
 {
@@ -197,10 +236,10 @@ tlb_simulator_t::process_memref(const memref_t &memref)
     }
 
     if (knobs_.verbose >= 3) {
-        std::cerr << "::" << simref->data.pid << "." << simref->data.tid << ":: "
-                  << " @" << (void *)simref->data.pc << " "
-                  << trace_type_names[simref->data.type] << " "
-                  << (void *)simref->data.addr << " x" << simref->data.size << std::endl;
+        std::cerr << "::" << simref->data.pid << "." << simref->data.tid << ":: " << " @"
+                  << (void *)simref->data.pc << " " << trace_type_names[simref->data.type]
+                  << " " << (void *)simref->data.addr << " x" << simref->data.size
+                  << std::endl;
     }
 
     // process counters for warmup and simulated references

@@ -56,6 +56,8 @@ public:
     process_memref(const memref_t &memref) override;
     bool
     print_results() override;
+    std::string
+    create_v2p_from_file(std::ifstream &v2p_file) override;
 
 protected:
     // Create a tlb_t object with a specific replacement policy.

@@ -88,19 +88,24 @@ simulator_t::init_knobs(unsigned int num_cores, uint64_t skip_refs, uint64_t war
     }
 }
 
-void
-simulator_t::create_v2p_from_file(std::string v2p_file_path)
+std::string
+simulator_t::create_v2p_from_file(std::ifstream &v2p_file)
 {
+    // If we are not using physical addresses, we don't need a virtual to physical mapping
+    // at all.
+    if (!knob_use_physical_)
+        return "";
+
     v2p_reader_t v2p_reader;
     v2p_info_t v2p_info;
-    std::string error_str = v2p_reader.create_v2p_info_from_file(v2p_file_path, v2p_info);
+    std::string error_str = v2p_reader.create_v2p_info_from_file(v2p_file, v2p_info);
     if (!error_str.empty()) {
-        ERRMSG("Error: v2p_reader failed with: %s", error_str.c_str());
-        success_ = false;
-        return;
+        return error_str;
     }
     virt2phys_ = v2p_info.v2p_map;
     page_size_ = static_cast<size_t>(v2p_info.page_size);
+    use_v2p_file_ = false;
+    return "";
 }
 
 std::string
@@ -153,6 +158,10 @@ simulator_t::process_memref(const memref_t &memref)
         last_core_index_ = INVALID_CORE_INDEX;
     }
     if (!knob_use_physical_)
+        return true;
+    // If we already have a virtual to physical mapping in a v2p file use that one and
+    // ignore the one in the trace, if any.
+    if (use_v2p_file_)
         return true;
     if (memref.marker.marker_type == TRACE_MARKER_TYPE_PAGE_SIZE) {
         if (page_size_ != 0 && page_size_ != memref.marker.marker_value) {

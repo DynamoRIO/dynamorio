@@ -33,12 +33,10 @@
 #include "v2p_reader.h"
 
 #include <cstdint>
-#include <sstream>
-#include <stdint.h>
-
 #include <cstdlib>
 #include <fstream>
 #include <string>
+#include <sstream>
 #include <unordered_map>
 #include <vector>
 
@@ -76,19 +74,8 @@ v2p_reader_t::get_value_from_line(std::string line, uint64_t &value)
 }
 
 std::string
-v2p_reader_t::create_v2p_info_from_file(std::string path_to_file, v2p_info_t &v2p_info)
+v2p_reader_t::create_v2p_info_from_file(std::ifstream &v2p_file, v2p_info_t &v2p_info)
 {
-    if (path_to_file.empty()) {
-        return "ERROR: Path to v2p.textproto is empty.";
-    }
-
-    std::stringstream error_ss;
-    std::ifstream file(path_to_file);
-    if (!file.is_open()) {
-        error_ss << "ERROR: Failed to open " << path_to_file << ".";
-        return error_ss.str();
-    }
-
     const std::string page_size_key = "page_size";
     const std::string page_count_key = "page_count";
     const std::string bytes_mapped_key = "bytes_mapped";
@@ -98,8 +85,9 @@ v2p_reader_t::create_v2p_info_from_file(std::string path_to_file, v2p_info_t &v2
     addr_t virtual_address = 0;
     uint64_t value = 0;
     std::string error_str;
+    std::stringstream error_ss;
     std::string line;
-    while (std::getline(file, line)) {
+    while (std::getline(v2p_file, line)) {
         // Ignore comments in v2p.textproto file.
         if (starts_with(line, "#"))
             continue;
