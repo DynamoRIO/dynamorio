@@ -3812,6 +3812,30 @@ scheduler_tmpl_t<RecordType, ReaderType>::eof_or_idle(output_ordinal_t output,
         (options_.mapping == MAP_AS_PREVIOUSLY &&
          live_replay_output_count_.load(std::memory_order_acquire) == 0)) {
         assert(options_.mapping != MAP_AS_PREVIOUSLY || outputs_[output].at_eof);
+#if 1 // NOCHECK
+        for (unsigned int i = 0; i < outputs_.size(); ++i) {
+            VPRINT(this, 1, "Stats for output #%d\n", i);
+            VPRINT(
+                this, 1, "  %-25s: %9" PRId64 "\n", "Switch input->input",
+                outputs_[i].stats[memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_INPUT]);
+            VPRINT(this, 1, "  %-25s: %9" PRId64 "\n", "Switch input->idle",
+                   outputs_[i].stats[memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_IDLE]);
+            VPRINT(this, 1, "  %-25s: %9" PRId64 "\n", "Switch idle->input",
+                   outputs_[i].stats[memtrace_stream_t::SCHED_STAT_SWITCH_IDLE_TO_INPUT]);
+            VPRINT(this, 1, "  %-25s: %9" PRId64 "\n", "Switch nop",
+                   outputs_[i].stats[memtrace_stream_t::SCHED_STAT_SWITCH_NOP]);
+            VPRINT(this, 1, "  %-25s: %9" PRId64 "\n", "Quantum preempts",
+                   outputs_[i].stats[memtrace_stream_t::SCHED_STAT_QUANTUM_PREEMPTS]);
+            VPRINT(
+                this, 1, "  %-25s: %9" PRId64 "\n", "Direct switch attempts",
+                outputs_[i].stats[memtrace_stream_t::SCHED_STAT_DIRECT_SWITCH_ATTEMPTS]);
+            VPRINT(
+                this, 1, "  %-25s: %9" PRId64 "\n", "Direct switch successes",
+                outputs_[i].stats[memtrace_stream_t::SCHED_STAT_DIRECT_SWITCH_SUCCESSES]);
+            VPRINT(this, 1, "  %-25s: %9" PRId64 "\n", "Migrations",
+                   outputs_[i].stats[memtrace_stream_t::SCHED_STAT_MIGRATIONS]);
+        }
+#endif
         return sched_type_t::STATUS_EOF;
     } else {
         bool need_lock;
