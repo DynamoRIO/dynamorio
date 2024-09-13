@@ -961,6 +961,10 @@ scheduler_tmpl_t<RecordType, ReaderType>::legacy_field_support()
         error_string_ = "block_time_max_us must be > 0";
         return STATUS_ERROR_INVALID_PARAMETER;
     }
+    if (options_.time_units_per_us == 0) {
+        error_string_ = "time_units_per_us must be > 0";
+        return STATUS_ERROR_INVALID_PARAMETER;
+    }
     return STATUS_SUCCESS;
 }
 
@@ -2752,17 +2756,17 @@ template <typename RecordType, typename ReaderType>
 uint64_t
 scheduler_tmpl_t<RecordType, ReaderType>::scale_blocked_time(uint64_t initial_time) const
 {
-    uint64_t scaled = static_cast<uint64_t>(static_cast<double>(initial_time) *
-                                            options_.block_time_multiplier);
-    if (scaled > options_.block_time_max_us) {
+    uint64_t scaled_us = static_cast<uint64_t>(static_cast<double>(initial_time) *
+                                               options_.block_time_multiplier);
+    if (scaled_us > options_.block_time_max_us) {
         // We have a max to avoid outlier latencies that are already a second or
         // more from scaling up to tens of minutes.  We assume a cap is representative
         // as the outliers likely were not part of key dependence chains.  Without a
         // cap the other threads all finish and the simulation waits for tens of
         // minutes further for a couple of outliers.
-        scaled = options_.block_time_max_us;
+        scaled_us = options_.block_time_max_us;
     }
-    return scaled;
+    return static_cast<uint64_t>(scaled_us * options_.time_units_per_us);
 }
 
 template <typename RecordType, typename ReaderType>
@@ -3821,7 +3825,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                 prev_time_in_quantum = input->prev_time_in_quantum;
                 input->prev_time_in_quantum = cur_time;
                 double elapsed_micros =
-                    input->time_spent_in_quantum * options_.time_units_per_us;
+                    static_cast<double>(input->time_spent_in_quantum) /
+                    options_.time_units_per_us;
                 if (elapsed_micros >= options_.quantum_duration_us &&
                     // We only switch on instruction boundaries.  We could possibly switch
                     // in between (e.g., scatter/gather long sequence of reads/writes) by
