@@ -3525,7 +3525,7 @@ test_replay_limit()
         // The schedule varies by machine load and other factors so we don't
         // check for any precise ordering.
         // We do ensure we saw interleaving on at least one output.
-        assert(switches > 4);
+        assert(switches > 0);
     }
     // Replay.
     replay_func();

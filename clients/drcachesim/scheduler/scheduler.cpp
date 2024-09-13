@@ -3288,8 +3288,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                         return status;
                     }
                     if (queue_next == nullptr) {
-                        sched_type_t::stream_status_t status =
-                            eof_or_idle(output, prev_index);
+                        status = eof_or_idle(output, prev_index);
                         if (status != STATUS_STOLE)
                             return status;
                         index = outputs_[output].cur_input;
@@ -4257,8 +4256,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::rebalance_queues(
                 // We remove from the back to avoid penalizing the next-to-run entries
                 // at the front of the queue by putting them at the back of another
                 // queue.
-                sched_type_t::stream_status_t status = pop_from_ready_queue_hold_locks(
-                    i, INVALID_OUTPUT_ORDINAL, queue_next, /*from_back=*/true);
+                status = pop_from_ready_queue_hold_locks(i, INVALID_OUTPUT_ORDINAL,
+                                                         queue_next, /*from_back=*/true);
                 if (status == STATUS_OK && queue_next != nullptr) {
                     VPRINT(this, 3,
                            "Rebalance iteration %d: output %d giving up input %d\n",
