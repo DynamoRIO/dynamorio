@@ -127,6 +127,7 @@ jobs:
         CI_BRANCH: ${{ github.ref }}
 
     - name: Upload Artifacts
+      # This points to the latest upload-artifact v4.x.x.
       uses: actions/upload-artifact@v4
       with:
         name: linux-tarball
@@ -215,6 +216,7 @@ jobs:
         CI_BRANCH: ${{ github.ref }}
 
     - name: Upload AArch64
+      # This points to the latest upload-artifact v4.x.x.
       uses: actions/upload-artifact@v4
       with:
         name: aarch64-tarball
@@ -303,6 +305,7 @@ jobs:
         CI_BRANCH: ${{ github.ref }}
 
     - name: Upload ARM
+      # This points to the latest upload-artifact v4.x.x.
       uses: actions/upload-artifact@v4
       with:
         name: arm-tarball
@@ -393,6 +396,7 @@ jobs:
         CI_BRANCH: ${{ github.ref }}
 
     - name: Upload Artifacts
+      # This points to the latest upload-artifact v4.x.x.
       uses: actions/upload-artifact@v4
       with:
         name: android-tarball
@@ -484,6 +488,7 @@ jobs:
         CI_BRANCH: ${{ github.ref }}
 
     - name: Upload Artifacts
+      # This points to the latest upload-artifact v4.x.x.
       uses: actions/upload-artifact@v4
       with:
         name: windows-zip
@@ -562,6 +567,7 @@ jobs:
         prerelease: false
 
     - name: Download Linux
+      # This points to the latest download-artifact v4.x.x.
       uses: actions/download-artifact@v4
       with:
         name: linux-tarball
@@ -577,6 +583,7 @@ jobs:
         asset_content_type: application/x-gzip
 
     - name: Download AArch64
+      # This points to the latest download-artifact v4.x.x.
       uses: actions/download-artifact@v4
       with:
         name: aarch64-tarball
@@ -592,6 +599,7 @@ jobs:
         asset_content_type: application/x-gzip
 
     - name: Download ARM
+      # This points to the latest download-artifact v4.x.x.
       uses: actions/download-artifact@v4
       with:
         name: arm-tarball
@@ -607,6 +615,7 @@ jobs:
         asset_content_type: application/x-gzip
 
     - name: Download Android
+      # This points to the latest download-artifact v4.x.x.
       uses: actions/download-artifact@v4
       with:
         name: android-tarball
@@ -622,6 +631,7 @@ jobs:
         asset_content_type: application/x-gzip
 
     - name: Download Windows
+      # This points to the latest download-artifact v4.x.x.
       uses: actions/download-artifact@v4
       with:
         name: windows-zip
