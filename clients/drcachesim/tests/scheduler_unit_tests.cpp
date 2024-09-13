@@ -1249,6 +1249,7 @@ test_synthetic()
                                                    /*verbosity=*/3);
         sched_ops.quantum_duration_instrs = QUANTUM_DURATION;
         sched_ops.block_time_multiplier = BLOCK_SCALE;
+        sched_ops.time_units_per_us = 1.;
         // Migration is measured in wall-clock-time for instr quanta
         // so avoid non-determinism by having no threshold.
         sched_ops.migration_threshold_us = 0;
@@ -2326,6 +2327,7 @@ test_synthetic_with_syscalls_latencies()
                                                /*verbosity=*/4);
     // We use a mock time for a deterministic result.
     sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
+    sched_ops.time_units_per_us = 1.;
     sched_ops.blocking_switch_threshold = BLOCK_LATENCY;
     sched_ops.block_time_multiplier = BLOCK_SCALE;
     scheduler_t scheduler;
