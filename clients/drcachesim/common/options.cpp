@@ -928,7 +928,7 @@ droption_t<uint64_t> op_sched_blocking_switch_us(
     "-core_serial. ");
 
 droption_t<double> op_sched_block_scale(
-    DROPTION_SCOPE_ALL, "sched_block_scale", 0.01, "Input block time scale factor",
+    DROPTION_SCOPE_ALL, "sched_block_scale", 0.1, "Input block time scale factor",
     "This value is multiplied by -sched_time_per_us to produce a scale which is applied "
     "to the as-traced microsecond latency of blocking system calls to produce the block "
     "time during simulation.  A higher value here results in blocking syscalls keeping "
@@ -945,7 +945,7 @@ droption_t<double> op_sched_block_scale(
 // long idle times with local analyzers; it may need to be increased with more
 // heavyweight analyzers/simulators.
 // TODO i#6959: Once we have -exit_if_all_unscheduled raise this.
-droption_t<uint64_t> op_sched_block_max_us(DROPTION_SCOPE_ALL, "sched_block_max_us", 250,
+droption_t<uint64_t> op_sched_block_max_us(DROPTION_SCOPE_ALL, "sched_block_max_us", 2500,
                                            "Maximum blocked input time, in microseconds",
                                            "The maximum blocked time, after scaling with "
                                            "-sched_block_scale.");
@@ -991,6 +991,13 @@ droption_t<bool> op_sched_disable_direct_switches(
     "and causes the associated system call to be treated like any other call with a "
     "switch being determined by latency and the next input in the queue.  The "
     "TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH markers are not removed from the trace.");
+
+droption_t<double> op_sched_time_units_per_us(
+    DROPTION_SCOPE_ALL, "sched_time_units_per_us", 100.,
+    "Time units per simulated microsecond",
+    "Time units (currently wall-clock time) per simulated microsecond.  This scales all "
+    "of the -sched_*_us values as it concerts wall-clock time into the simulated "
+    "microseconds measured by those options.");
 
 // Schedule_stats options.
 droption_t<uint64_t>

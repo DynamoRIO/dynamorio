@@ -733,9 +733,9 @@ public:
          * picoseconds, pass one million here.  This is used to scale all of the
          * other parameters that are in microseconds (they all end in "_us": e.g.,
          * #quantum_duration_us) so that they operate on the right time scale for the
-         * passed-in simulator time.
+         * passed-in simulator time (or wall-clock microseconds if no time is passed).
          */
-        double time_units_per_us = 1000.;
+        double time_units_per_us = 100.;
         /**
          * The scheduling quantum duration for preemption, in simulated microseconds,
          * for #QUANTUM_TIME.  This value is multiplied by #time_units_per_us to
@@ -748,8 +748,8 @@ public:
          * for #QUANTUM_INSTRUCTIONS.  The time passed to next_record() is ignored
          * for purposes of quantum preempts.
          */
-        // We pick 6 million to match 2 instructions per nanosecond with a 3ms quantum.
-        uint64_t quantum_duration_instrs = 6 * 1000 * 1000;
+        // We pick 10 million to match 2 instructions per nanosecond with a 5ms quantum.
+        uint64_t quantum_duration_instrs = 10 * 1000 * 1000;
         /**
          * Controls the amount of time inputs are considered blocked at a syscall
          * whose as-traced latency (recorded in timestamp records in the trace)
@@ -767,7 +767,7 @@ public:
          * with #block_time_max_us, can be tuned to achieve a desired idle rate.
          * The default value errs on the side of less idle time.
          */
-        double block_time_multiplier = 0.01;
+        double block_time_multiplier = 0.1;
         /**
          * The maximum time in microseconds for an input to be considered blocked for
          * any one system call.  This value is multiplied by #time_units_per_us to
@@ -779,7 +779,7 @@ public:
          * after this amount of time those inputs are all re-scheduled.
          */
         // TODO i#6959: Once we have -exit_if_all_unscheduled raise this.
-        uint64_t block_time_max_us = 250;
+        uint64_t block_time_max_us = 2500;
     };
 
     /**
@@ -1364,11 +1364,11 @@ protected:
         uint64_t syscall_timeout_arg = 0;
         // Used to switch before we've read the next instruction.
         bool switching_pre_instruction = false;
-        // Used for time-based quanta.
+        // Used for time-based quanta.  The units are simulation time.
         uint64_t prev_time_in_quantum = 0;
         uint64_t time_spent_in_quantum = 0;
         // These fields model waiting at a blocking syscall.
-        // The units are us for instr quanta and simuilation time for time quanta.
+        // The units are in simuilation time.
         uint64_t blocked_time = 0;
         uint64_t blocked_start_time = 0;
         // An input can be "unscheduled" and not on the ready_priority_ run queue at all
