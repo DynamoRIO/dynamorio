@@ -1121,7 +1121,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
         for (int i = 0; i < static_cast<output_ordinal_t>(outputs_.size()); ++i) {
             input_info_t *queue_next;
 #ifndef NDEBUG
-            sched_type_t::stream_status_t status =
+            status =
 #endif
                 pop_from_ready_queue(i, i, queue_next);
             assert(status == STATUS_OK || status == STATUS_IDLE);
