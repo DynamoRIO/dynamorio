@@ -3181,9 +3181,10 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                                 target->unscheduled = false;
                             }
                             if (target->containing_output != output) {
-                                ++out.stats[memtrace_stream_t::SCHED_STAT_MIGRATIONS];
+                                ++outputs_[output]
+                                      .stats[memtrace_stream_t::SCHED_STAT_MIGRATIONS];
                             }
-                            ++out.stats
+                            ++outputs_[output].stats
                                   [memtrace_stream_t::SCHED_STAT_DIRECT_SWITCH_SUCCESSES];
                         } // Else, actively running.
                     }
