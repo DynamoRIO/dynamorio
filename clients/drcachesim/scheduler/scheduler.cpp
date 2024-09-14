@@ -3539,15 +3539,21 @@ scheduler_tmpl_t<RecordType, ReaderType>::process_marker(input_info_t &input,
                         output_ordinal_t target_output = target->containing_output;
                         // There could be no output owner if we're mid-rebalance.
                         if (target_output != INVALID_OUTPUT_ORDINAL) {
-                            auto scoped_output_lock =
-                                acquire_scoped_output_lock_if_necessary(target_output);
-                            output_info_t &out = outputs_[target_output];
-                            if (out.runqueue.queue.find(target)) {
-                                --out.runqueue.num_blocked;
+                            // We can't hold the input lock to acquire the output lock.
+                            target_lock.unlock();
+                            {
+                                auto scoped_output_lock =
+                                    acquire_scoped_output_lock_if_necessary(
+                                        target_output);
+                                output_info_t &out = outputs_[target_output];
+                                if (out.runqueue.queue.find(target)) {
+                                    --out.runqueue.num_blocked;
+                                }
+                                // Decrement this holding the lock to synch with
+                                // pop_from_ready_queue().
+                                target->blocked_time = 0;
                             }
-                            // Decerement this holding the lock to synch with
-                            // pop_from_ready_queue().
-                            target->blocked_time = 0;
+                            target_lock.lock();
                         } else
                             target->blocked_time = 0;
                     }
