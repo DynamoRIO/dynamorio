@@ -255,6 +255,9 @@ Further non-compatibility-affecting changes include:
    input_workload_t::times_of_interest to the drmemtrace scheduler.
  - Added v2p_reader_t to parse a virtual-to-physical mapping in textproto format and
    v2p_info_t to hold that mapping in memory.
+ - Added -v2p_file option to set the path to a v2p.textproto file, which provides a
+   virtual to physical mapping of addresses for a trace. -use_physical must also be set
+   to use such mapping.
 
 **************************************************
 <hr>

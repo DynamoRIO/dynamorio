@@ -291,7 +291,8 @@ droption_t<std::string> op_v2p_file(
     "Simulators like " CPU_CACHE ", " MISS_ANALYZER ", and " TLB
     " can use v2p.textproto to translate virtual addresses to physical ones. "
     "If the file is named v2p.textproto and is in the same directory as the trace file, "
-    "or a raw/ subdirectory below the trace file, this parameter can be omitted.");
+    "or a raw/ subdirectory below the trace file, this parameter can be omitted. The "
+    "option -use_physical must be set to use this mapping.");
 
 droption_t<bool> op_cpu_scheduling(
     DROPTION_SCOPE_CLIENT, "cpu_scheduling", false,
