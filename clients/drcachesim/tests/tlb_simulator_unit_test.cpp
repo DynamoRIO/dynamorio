@@ -178,7 +178,9 @@ tlb_simulator_check_addresses(const char *testdir)
 void
 unit_test_tlb_simulator(const char *testdir)
 {
+#ifdef X64
     tlb_simulator_check_addresses(testdir);
+#endif
 }
 
 } // namespace drmemtrace
