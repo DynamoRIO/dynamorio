@@ -72,8 +72,8 @@ tlb_simulator_create(const tlb_simulator_knobs_t &knobs,
     fin.close();
 
     if (!error_str.empty()) {
-        ERRMSG("ERROR: v2p_reader failed with: %s\n", error_str.c_str());
         delete sim;
+        ERRMSG("ERROR: v2p_reader failed with: %s\n", error_str.c_str());
         return nullptr;
     }
 
