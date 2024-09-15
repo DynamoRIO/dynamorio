@@ -104,7 +104,7 @@ simulator_t::create_v2p_from_file(std::ifstream &v2p_file)
     }
     virt2phys_ = v2p_info.v2p_map;
     page_size_ = static_cast<size_t>(v2p_info.page_size);
-    use_v2p_file_ = false;
+    use_v2p_file_ = true;
     return "";
 }
 
