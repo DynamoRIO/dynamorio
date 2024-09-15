@@ -40,6 +40,7 @@
 #include <assert.h>
 #include "config_reader_unit_test.h"
 #include "v2p_reader_unit_test.h"
+#include "tlb_simulator_unit_test.h"
 #include "cache_replacement_policy_unit_test.h"
 #include "simulator/cache.h"
 #include "simulator/cache_lru.h"
@@ -573,8 +574,8 @@ unit_test_cache_associativity()
                 (test_assoc <= assoc) ? BLOCKS_PER_WAY * test_assoc : read_count;
             int expected_hits = read_count - expected_misses;
             if (expected_hits != c_stats.hits || expected_misses != c_stats.misses) {
-                std::cerr << "ERROR in unit_test_cache_associativity():"
-                          << " test_assoc=" << test_assoc << " read_count=" << read_count
+                std::cerr << "ERROR in unit_test_cache_associativity():" << " test_assoc="
+                          << test_assoc << " read_count=" << read_count
                           << " expected_hits=" << expected_hits
                           << " actual_hits=" << c_stats.hits
                           << " expected_misses=" << expected_misses
@@ -617,9 +618,8 @@ unit_test_cache_size()
             int expected_hits = read_count - expected_misses;
 
             if (expected_hits != c_stats.hits || expected_misses != c_stats.misses) {
-                std::cerr << "ERROR in unit_test_cache_size():"
-                          << " cache_size=" << cache_size
-                          << " test_buffer_size=" << buffer_size
+                std::cerr << "ERROR in unit_test_cache_size():" << " cache_size="
+                          << cache_size << " test_buffer_size=" << buffer_size
                           << " num_accesses=" << read_count << " hits=" << c_stats.hits
                           << " expected_hits=" << expected_hits
                           << " misses=" << c_stats.misses
@@ -665,8 +665,8 @@ unit_test_cache_line_size()
             assert(read_count == total_cache_size / stride);
 
             if (expected_hits != c_stats.hits || expected_misses != c_stats.misses) {
-                std::cerr << "ERROR in unit_test_cache_line_size():"
-                          << " line_size=" << line_size << " stride=" << stride
+                std::cerr << "ERROR in unit_test_cache_line_size():" << " line_size="
+                          << line_size << " stride=" << stride
                           << " read_count=" << read_count << " hits=" << c_stats.hits
                           << " expected_hits=" << expected_hits
                           << " misses=" << c_stats.misses
@@ -844,6 +844,7 @@ test_main(int argc, const char *argv[])
     unit_test_cache_accessors();
     unit_test_config_reader(argv[1]);
     unit_test_v2p_reader(argv[1]);
+    unit_test_tlb_simulator(argv[1]);
     unit_test_cache_associativity();
     unit_test_cache_size();
     unit_test_cache_line_size();
