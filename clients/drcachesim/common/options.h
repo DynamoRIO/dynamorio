@@ -166,6 +166,8 @@ extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t>
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t>
     op_interval_instr_count;
 extern dynamorio::droption::droption_t<int> op_only_thread;
+extern dynamorio::droption::droption_t<std::string> op_only_threads;
+extern dynamorio::droption::droption_t<std::string> op_only_shards;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t> op_skip_instrs;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t> op_skip_refs;
 extern dynamorio::droption::droption_t<uint64_t> op_skip_to_timestamp;
@@ -193,6 +195,8 @@ extern dynamorio::droption::droption_t<double> op_confidence_threshold;
 extern dynamorio::droption::droption_t<bool> op_enable_drstatecmp;
 #ifdef BUILD_PT_TRACER
 extern dynamorio::droption::droption_t<bool> op_enable_kernel_tracing;
+extern dynamorio::droption::droption_t<bool> op_skip_kcore_dump;
+extern dynamorio::droption::droption_t<int> op_kernel_trace_buffer_size_shift;
 #endif
 extern dynamorio::droption::droption_t<bool> op_core_sharded;
 extern dynamorio::droption::droption_t<bool> op_core_serial;
@@ -222,6 +226,7 @@ extern dynamorio::droption::droption_t<std::string> op_filter_func_ids;
 extern dynamorio::droption::droption_t<uint64_t> op_trim_before_timestamp;
 extern dynamorio::droption::droption_t<uint64_t> op_trim_after_timestamp;
 extern dynamorio::droption::droption_t<bool> op_abort_on_invariant_error;
+extern dynamorio::droption::droption_t<bool> op_pt2ir_best_effort;
 
 } // namespace drmemtrace
 } // namespace dynamorio

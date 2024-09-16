@@ -1,0 +1,26 @@
+# VirtualToPhysical
+# Instance name: vm00_example_v2p
+# Generated: 2024-08-13T23:17:25.138285133+00:00
+address_mapping_group    {
+  page_size: 0x200000
+  address_mapping {
+    virtual_address: 0x123
+    physical_address: 0x3
+  }
+  address_mapping {
+    virtual_address: 0x456
+    physical_address: 0x4
+  }
+  address_mapping {
+    virtual_address: 0x789
+    physical_address: 0x5
+  }
+  information {
+    page_count: 0x1
+    bytes_mapped: 0x18
+  }
+}
+information {
+  page_count: 0x1
+  bytes_mapped: 0x18
+}

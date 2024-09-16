@@ -1164,6 +1164,9 @@ set(DynamoRIO_EXT_droption_INC ${DynamoRIO_cwd}/../ext/include)
 set(DynamoRIO_EXT_drmemtrace_static_NOLIB ON)
 
 # DynamoRIO Extensions
+# Failure to call this in your client CMakeLists.txt when using an extension like
+# drmgr or drx will result in an obscure "using undefined symbol!" runtime
+# error on Linux.
 function (use_DynamoRIO_extension target extname)
   if (NOT DynamoRIO_INTERNAL)
     # We only support Extensions as imported targets that have already

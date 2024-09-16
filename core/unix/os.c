@@ -2518,8 +2518,9 @@ os_tls_calloc(DR_PARAM_OUT uint *offset, uint num_slots, uint alignment)
     d_r_mutex_lock(&client_tls_lock);
     for (i = 0; i < MAX_NUM_CLIENT_TLS; i++) {
         if (!client_tls_allocated[i] &&
-            /* ALIGNED doesn't work for 0 */
-            (alignment == 0 || ALIGNED(offs + i * sizeof(void *), alignment))) {
+            (start != -1 ||
+             /* ALIGNED doesn't work for 0 */
+             alignment == 0 || ALIGNED(offs + i * sizeof(void *), alignment))) {
             if (start == -1)
                 start = i;
             count++;
@@ -3792,7 +3793,8 @@ os_thread_sleep(uint64 milliseconds)
          * routine sleep forever
          */
         if (count++ > 3 && !IS_CLIENT_THREAD(get_thread_private_dcontext())) {
-            ASSERT_NOT_REACHED();
+            ASSERT_CURIOSITY_ONCE(
+                false && "os_thread_sleep interrupted by signal more than 3 times.");
             break; /* paranoid */
         }
         req = remain;

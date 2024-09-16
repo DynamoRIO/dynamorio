@@ -3647,6 +3647,19 @@ if (BUILD_SAMPLES)
         "CFLAGS=-m32;CXXFLAGS=-m32")
     endif ()
   endif ()
+  if (UNIX)
+    # XXX: Change this to go through torun() like the other tests to share
+    # output, multiplexing, _timeout, etc. features: not entirely
+    # straightforward because this test uses two clients.
+    # For now, "-s 90 -quiet -killpg" is added explicitly.
+    get_target_path_for_execution(drrun_path drrun "${location_suffix}")
+    get_client_path(client1 bbcount bbcount)
+    get_client_path(client2 opcodes opcodes)
+    get_target_path_for_execution(app_path "${ci_shared_app}" "${location_suffix}")
+    add_test(two_clients ${drrun_path} -s 90 -quiet -killpg
+      -client ${client1} 0 ''
+      -client ${client2} 1 '' ${dr_test_ops} -- ${app_path})
+  endif (UNIX)
 endif (BUILD_SAMPLES)
 
 if (BUILD_CLIENTS)
@@ -3942,6 +3955,11 @@ if (BUILD_CLIENTS)
         torunonly_simtool(core_on_disk_schedule ${ci_shared_app}
           "-indir ${core_sharded_dir} -tool schedule_stats" "")
         set(tool.core_on_disk_schedule_rawtemp ON) # no preprocessor
+
+        # Test -only_shards on core-sharded-on-disk traces.
+        torunonly_simtool(only_shards ${ci_shared_app}
+          "-indir ${core_sharded_dir} -tool schedule_stats -only_shards 2,3" "")
+        set(tool.core_on_disk_rawtemp ON) # no preprocessor
       endif ()
     endif ()
 
@@ -4277,14 +4295,14 @@ if (BUILD_CLIENTS)
       torunonly_api(tool.drcacheoff.skip "${drcachesim_path}" "offline-skip" ""
         # Test invariants with global headers after skipping instrs.
         # Here the skip does not find real headers and we expect synthetic.
-        "-tool;view;-infile;${zip_path};${test_mode_flag};-skip_instrs;62;-sim_refs;10"
+        "-tool;view;-view_syntax;dr;-infile;${zip_path};${test_mode_flag};-skip_instrs;62;-sim_refs;10"
         OFF OFF)
       set(tool.drcacheoff.skip_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcacheoff.skip_rawtemp ON) # no preprocessor
       torunonly_api(tool.drcacheoff.skip2 "${drcachesim_path}" "offline-skip2" ""
         # Test invariants with global headers after skipping instrs.
         # Here the skip finds real headers and we expect no synthetic.
-        "-tool;view;-infile;${zip_path};${test_mode_flag};-skip_instrs;63;-sim_refs;10"
+        "-tool;view;-view_syntax;dr;-infile;${zip_path};${test_mode_flag};-skip_instrs;63;-sim_refs;10"
         OFF OFF)
       set(tool.drcacheoff.skip2_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcacheoff.skip2_rawtemp ON) # no preprocessor
@@ -4814,7 +4832,7 @@ if (BUILD_CLIENTS)
       file(MAKE_DIRECTORY ${srcdir})
       file(COPY ${zip_path} DESTINATION ${srcdir})
       torunonly_api(tool.drcacheoff.trim "${drcachesim_path}" "offline-trim" ""
-        "-tool;view;-indir;${outdir};${test_mode_flag}"
+        "-tool;view;-view_syntax;dr;-indir;${outdir};${test_mode_flag}"
         OFF OFF)
       set(tool.drcacheoff.trim_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
       # The filter overwrites any existing file in the dir from a prior run.
@@ -4989,6 +5007,20 @@ if (BUILD_CLIENTS)
                                   "@-tool@syscall_mix")
       torunonly_drcacheoff_kernel(invariant-checker ${ci_shared_app} "-raw_compress none" ""
                                   "@-tool@invariant_checker@-test_mode_name@kernel_syscall_pt_trace")
+      # In the following test we only collect the raw trace but do not decompose it.
+      # We cannot decompose the trace because the kcore dump is absent. This test is useful
+      # because it verifies that kernel tracing without dumping kcore does not need the app
+      # to be run with superuser permissions (does not fail due to /proc/kcore not being
+      # readable). Note that we still need perf_event_paranoid to be set to a favorable
+      # value prior to starting the app, which does require superuser for the command:
+      # sudo bash -c "echo 1 > /proc/sys/kernel/perf_event_paranoid"
+      #
+      # Note that the _SUDO is only in the test name (test app is not run with superuser),
+      # which is to disable this test in our regular test suite to avoid confusion due to
+      # the test failing due to unfavorable perf_event_paranoid which may be the case when
+      # kernel tracing code is not being intentionally tested.
+      torunonly_drcachesim(kernel-skip-kcore_SUDO ${ci_shared_app}
+                           "-offline -enable_kernel_tracing -skip_kcore_dump" "")
     endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
   endif (proc_supports_pt)
 
@@ -5402,6 +5434,13 @@ if (UNIX)
   if (NOT APPLE)
     tobuild(linux.thread linux/thread.c)
     tobuild(linux.threadexit linux/threadexit.c)
+
+    if (X86 AND X64 AND DR_HOST_X86 AND DR_HOST_X64)
+      tobuild_ci(linux.synchall-restore linux/synchall-restore.c "" "" "")
+      set_avx_flags(linux.synchall-restore)
+      link_with_pthread(linux.synchall-restore)
+    endif ()
+
     if (NOT ANDROID)
       tobuild(linux.threadexit2 linux/threadexit2.c) # XXX i#1874: hangs on Android
       tobuild(linux.signalfd linux/signalfd.c) # XXX i#1874: fails natively on Android
@@ -5944,6 +5983,9 @@ endif (NOT ARM)
 if (X86 OR AARCH64) # FIXME i#1551: port asm to ARM
   tobuild(security-common.selfmod2 security-common/selfmod2.c)
   tochcon(security-common.selfmod2 textrel_shlib_t)
+
+  tobuild(security-common.selfmod security-common/selfmod.c)
+  tochcon(security-common.selfmod textrel_shlib_t)
 endif (X86 OR AARCH64)
 
 if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
@@ -5951,13 +5993,12 @@ if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
     tobuild(security-common.selfmod-big security-common/selfmod-big.c)
     tochcon(security-common.selfmod-big textrel_shlib_t)
   endif ()
-  tobuild(security-common.selfmod security-common/selfmod.c)
-  tochcon(security-common.selfmod textrel_shlib_t)
   if (NOT X64 AND NOT APPLE) # XXX i#58: port test to MacOS
     # FIXME i#125
     tobuild(security-common.vbjmp-rac-test security-common/vbjmp-rac-test.c)
   endif ()
 endif (X86)
+
 if (X64 AND NOT AARCH64 AND NOT RISCV64) # FIXME i#1569: get working on AArch64
   # Reachability tests
 

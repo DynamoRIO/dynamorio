@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021-2023 Google, LLC  All rights reserved.
+ * Copyright (c) 2021-2024 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -190,7 +190,9 @@ add_encodings_to_memrefs(instrlist_t *ilist,
 {
     static const int MAX_DECODE_SIZE = 2048;
     byte decode_buf[MAX_DECODE_SIZE];
+#ifndef NDEBUG
     byte *pc =
+#endif
         instrlist_encode_to_copy(GLOBAL_DCONTEXT, ilist, decode_buf,
                                  reinterpret_cast<app_pc>(base_addr), nullptr, true);
     assert(pc != nullptr);

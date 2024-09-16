@@ -552,7 +552,25 @@ droption_t<int>
     op_only_thread(DROPTION_SCOPE_FRONTEND, "only_thread", 0,
                    "Only analyze this thread (0 means all)",
                    "Limits analyis to the single "
-                   "thread with the given identifier.  0 enables all threads.");
+                   "thread with the given identifier.  0 enables all threads.  "
+                   "Applies only to -indir, not to -infile.  "
+                   "Cannot be combined with -only_threads or -only_shards.");
+
+droption_t<std::string>
+    op_only_threads(DROPTION_SCOPE_FRONTEND, "only_threads", "",
+                    "Only analyze these comma-separated threads",
+                    "Limits analyis to the list of comma-separated thread ids.  "
+                    "Applies only to -indir, not to -infile.  "
+                    "Cannot be combined with -only_thread or -only_shards.");
+droption_t<std::string>
+    op_only_shards(DROPTION_SCOPE_FRONTEND, "only_shards", "",
+                   "Only analyze these comma-separated shard ordinals",
+                   "Limits analyis to the list of comma-separated shard ordinals. "
+                   "A shard is typically an input thread but might be a core for "
+                   "core-sharded-on-disk traces.  The ordinal is 0-based and indexes "
+                   "into the sorted order of input filenames.  "
+                   "Applies only to -indir, not to -infile.  "
+                   "Cannot be combined with -only_thread or -only_threads.");
 
 droption_t<bytesize_t> op_skip_instrs(
     DROPTION_SCOPE_FRONTEND, "skip_instrs", 0, "Number of instructions to skip",
@@ -838,6 +856,25 @@ droption_t<bool> op_enable_kernel_tracing(
     "syscall's PT and metadata to files in -outdir/kernel.raw/ for later offline "
     "analysis. And this feature is available only on Intel CPUs that support Intel@ "
     "Processor Trace.");
+droption_t<bool> op_skip_kcore_dump(
+    DROPTION_SCOPE_ALL, "skip_kcore_dump", false,
+    "Skip creation of the kcore dump during kernel tracing.",
+    "By default, when -enable_kernel_tracing is set, offline tracing will dump kcore "
+    "and kallsyms to the raw trace directory, which requires the user to run the target "
+    "application with superuser permissions. However, if this option is enabled, we "
+    "skip the dump, and since collecting kernel trace data using Intel-PT does not "
+    "necessarily need superuser permissions, the target application can be run "
+    "as normal. This may be useful if it is not feasible to run the application "
+    "with superuser permissions and the user wants to use a different kcore "
+    "dump, from a prior trace or created separately.");
+droption_t<int> op_kernel_trace_buffer_size_shift(
+    DROPTION_SCOPE_ALL, "kernel_trace_buffer_size_shift", 8,
+    "Size of the buffer used to collect kernel trace data.",
+    "When -enable_kernel_tracing is set, this is used to compute the size of the "
+    "buffer used to collect kernel trace data. The size is computed as "
+    "(1 << kernel_trace_buffer_size_shift) * page_size. Too large buffers can cause "
+    "OOMs on apps with many threads, whereas too small buffers can cause decoding "
+    "issues in raw2trace due to dropped trace data.");
 #endif
 
 // Core-oriented analysis.
@@ -892,7 +929,7 @@ droption_t<uint64_t> op_sched_blocking_switch_us(
     "-core_serial. ");
 
 droption_t<double> op_sched_block_scale(
-    DROPTION_SCOPE_ALL, "sched_block_scale", 1000., "Input block time scale factor",
+    DROPTION_SCOPE_ALL, "sched_block_scale", 10., "Input block time scale factor",
     "The scale applied to the microsecond latency of blocking system calls.  A higher "
     "value here results in blocking syscalls keeping inputs unscheduled for longer.  "
     "This should roughly equal the slowdown of instruction record processing versus the "
@@ -904,11 +941,11 @@ droption_t<double> op_sched_block_scale(
 // finish and the simulation waits for tens of minutes further for a couple of outliers.
 // The cap remains a flag and not a constant as different length traces and different
 // speed simulators need different idle time ranges, so we need to be able to tune this
-// to achieve desired cpu usage targets.  The default value was selected while tuning
-// a 1-minute-long schedule_stats run on a 112-core 500-thread large application
-// to produce good cpu usage without unduly increasing tool runtime.
+// to achieve desired cpu usage targets.  The default value was selected to avoid unduly
+// long idle times with local analyzers; it may need to be increased with more
+// heavyweight analyzers/simulators.
 droption_t<uint64_t> op_sched_block_max_us(DROPTION_SCOPE_ALL, "sched_block_max_us",
-                                           25000000,
+                                           250000,
                                            "Maximum blocked input time, in microseconds",
                                            "The maximum blocked time, after scaling with "
                                            "-sched_block_scale.");
@@ -1041,6 +1078,20 @@ droption_t<bool> op_abort_on_invariant_error(
     "invariant error is found. Otherwise it prints the error and continues. Also, the "
     "total invariant error count is printed at the end; a non-zero error count does not "
     "affect the exit code of the analyzer.");
+
+droption_t<bool> op_pt2ir_best_effort(
+    DROPTION_SCOPE_ALL, "pt2ir_best_effort", false,
+    "Whether errors encountered during PT trace conversion in pt2ir are ignored.",
+    "By default, errors in decoding the kernel syscall PT trace in pt2ir are fatal to "
+    "raw2trace. With -pt2ir_best_effort, those errors do not cause failures and their "
+    "counts are reported by raw2trace at the end. This may result in a trace where not "
+    "all syscalls have a trace, and the ones that do may have some PC discontinuities "
+    "due to non-fatal decoding errors (these discontinuities will still be reported by "
+    "the invariant checker). When using this option, it is prudent to check raw2trace "
+    "stats to confirm that the error counts are within expected bounds (total syscall "
+    "traces converted, syscall traces that were dropped from final trace because "
+    "conversion failed, syscall traces found to be empty, and non-fatal decode errors "
+    "seen in converted syscall traces).");
 
 } // namespace drmemtrace
 } // namespace dynamorio

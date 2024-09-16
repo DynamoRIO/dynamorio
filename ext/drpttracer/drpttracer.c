@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -164,9 +164,9 @@ read_ring_buf_to_buf(DR_PARAM_IN void *drcontext, DR_PARAM_IN uint8_t *ring_buf_
         return READ_RING_BUFFER_ERROR_INVALID_PARAMETER;
     }
     if (data_size > ring_buf_size) {
-        ASSERT(
-            false,
-            "data size is larger than the ring buffer size, and old data is overwritten");
+        ASSERT(false,
+               "Data size is larger than the ring buffer size, and old data is "
+               "overwritten. Consider increasing -kernel_trace_buffer_size_shift.");
         return READ_RING_BUFFER_ERROR_OLD_DATA_OVERWRITTEN;
     }
 
