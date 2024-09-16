@@ -166,10 +166,13 @@ verify_scheduler_stats(scheduler_t::stream_t *stream, int64_t switch_input_to_in
            migrations);
 }
 
-// Returns a string with one char per input.
+// Returns a vector of strings, one per ouput, where each string has one char per input
+// showing the order of inputs scheduled onto that output.
 // Assumes the input threads are all tid_base plus an offset < 26.
-// When send_time=true, typically time_units_per_us should be set to 1 to then have
-// instruction count for all timing measures.
+// When send_time=true, the record count is passed to the scheduler as the current
+// time, to avoid relying on wall-clock time.  For this use case of send_time=true,
+// typically time_units_per_us should be set to 1 to avoid any scaling of the record
+// count for simpler small tests.
 static std::vector<std::string>
 run_lockstep_simulation(scheduler_t &scheduler, int num_outputs, memref_tid_t tid_base,
                         bool send_time = false, bool print_markers = true)
