@@ -1028,7 +1028,7 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
 
     if (op_offline.get_value() && data->file == INVALID_FILE) {
         // We've delayed opening a new window file to avoid an empty final file.
-        DR_ASSERT(has_tracing_windows() || get_initial_trace_after_instrs_value() > 0 ||
+        DR_ASSERT(has_tracing_windows() || get_initial_no_trace_for_instrs_value() > 0 ||
                   attached_midway);
         open_new_thread_file(drcontext, get_local_window(data));
     }
@@ -1059,7 +1059,7 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
         instru->clamp_unit_header_timestamp(data->buf_base + stamp_offs, min_timestamp);
     }
 
-    if (has_tracing_windows() || get_initial_trace_after_instrs_value() > 0) {
+    if (has_tracing_windows() || get_initial_no_trace_for_instrs_value() > 0) {
         min_timestamp = retrace_start_timestamp.load(std::memory_order_acquire);
         instru->clamp_unit_header_timestamp(data->buf_base + stamp_offs, min_timestamp);
     }
@@ -1220,8 +1220,12 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
                 }
             }
             if (hit_window_end) {
-                // Go to the next interval, if -trace_instr_intervals_file is set.
-                increment_window_index();
+                // Go to the next interval, if -trace_instr_intervals_file is set and
+                // num_irregular_windows > 0.
+                // Note: we assume no tracing interval comes first, then tracing interval,
+                // then we increment irregular_window_idx when we hit the end of the
+                // tacing interval here.
+                maybe_increment_irregular_window_index();
 
                 if (op_offline.get_value() && op_split_windows.get_value()) {
                     size_t add =

@@ -3771,6 +3771,9 @@ if (BUILD_CLIENTS)
     torunonly_drcachesim(windows-simple ${ci_shared_app}
       "-trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K -tool basic_counts" "")
 
+    # The corresponding clients/drcachesim/tests/irregular-windows-simple.templatex of
+    # this test does not have precise instruction count for the irregular windows because
+    # of variation between different runs and platforms.
     torunonly_drcachesim(irregular-windows-simple ${ci_shared_app}
       "-trace_instr_intervals_file ${config_files_dir}/instr_intervals_example.csv -tool basic_counts" "")
 

@@ -47,10 +47,10 @@ void
 delete_instr_window_lists();
 
 void
-increment_window_index();
+maybe_increment_irregular_window_index();
 
 uint64
-get_initial_trace_after_instrs_value();
+get_initial_no_trace_for_instrs_value();
 
 uint64
 get_current_trace_for_instrs_value();
