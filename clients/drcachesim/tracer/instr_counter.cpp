@@ -510,8 +510,8 @@ free_trace_window_entry(void *entry)
 }
 
 // Transforms instruction intervals from <start,duration> pairs to trace and no_trace
-// number of instructions. Has the side effect of populating the read-only, global vectors
-// trace_for_instrs_list and no_trace_for_instrs_list, and the global num_windows.
+// number of instructions. Has the side effect of populating the read-only, global vector
+// irregular_windows_list, and the global num_irregular_windows.
 static void
 compute_irregular_trace_windows(std::vector<instr_interval_t> &instr_intervals)
 {
@@ -533,9 +533,9 @@ compute_irregular_trace_windows(std::vector<instr_interval_t> &instr_intervals)
     drvector_set_entry(&irregular_windows_list, 0, irregular_window_ptr);
 
     for (uint i = 1; i < num_intervals; ++i) {
-        uint64 trace_for_instrs = instr_intervals[i].duration;
         uint64 no_trace_for_instrs = instr_intervals[i].start -
             (instr_intervals[i - 1].start + instr_intervals[i - 1].duration);
+        uint64 trace_for_instrs = instr_intervals[i].duration;
 
         irregular_window_ptr =
             (irregular_window_t *)dr_global_alloc(sizeof(irregular_window_t));
@@ -574,7 +574,7 @@ init_irregular_trace_windows()
         // Parse intervals file.
         std::vector<instr_interval_t> instr_intervals =
             parse_instr_intervals_file(op_trace_instr_intervals_file.get_value());
-        // Populate the [no_]trace_for_instrs_list global vectors and num_windows.
+        // Populate the irregular_windows_list global vector and num_irregular_windows.
         compute_irregular_trace_windows(instr_intervals);
     }
 }
