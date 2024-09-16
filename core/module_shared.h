@@ -413,7 +413,9 @@ typedef struct _privmod_t {
     char path[MAXIMUM_PATH];
     uint ref_count;
     bool externally_loaded;
-    bool is_client; /* or Extension */
+    /* XXX i#6982: Perhaps replace is_client with is_top_level_client. */
+    bool is_top_level_client; /* set for command-line clients */
+    bool is_client;           /* set for command-line client or extension */
     bool called_proc_entry;
     bool called_proc_exit;
     struct _privmod_t *next;
