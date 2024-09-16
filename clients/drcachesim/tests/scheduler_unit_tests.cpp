@@ -166,7 +166,7 @@ verify_scheduler_stats(scheduler_t::stream_t *stream, int64_t switch_input_to_in
            migrations);
 }
 
-// Returns a vector of strings, one per ouput, where each string has one char per input
+// Returns a vector of strings, one per output, where each string has one char per input
 // showing the order of inputs scheduled onto that output.
 // Assumes the input threads are all tid_base plus an offset < 26.
 // When send_time=true, the record count is passed to the scheduler as the current
