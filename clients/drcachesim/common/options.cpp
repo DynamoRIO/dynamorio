@@ -362,7 +362,8 @@ droption_t<std::string> op_trace_instr_intervals_file(
     DROPTION_SCOPE_CLIENT, "trace_instr_intervals_file", "",
     "File containing instruction intervals to trace.",
     "File containing instruction intervals to trace in csv format.  "
-    "Intervals are specified as <start, duration> pairs.");
+    "Intervals are specified as a <start, duration> pair per line. Example in: "
+    "clients/drcachesim/tests/instr_intervals_example.csv");
 
 droption_t<bool> op_split_windows(
     DROPTION_SCOPE_CLIENT, "split_windows", true,
