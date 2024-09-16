@@ -3153,40 +3153,49 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                     inputs_[prev_index].switch_to_input != INVALID_INPUT_ORDINAL) {
                     input_info_t *target = &inputs_[inputs_[prev_index].switch_to_input];
                     inputs_[prev_index].switch_to_input = INVALID_INPUT_ORDINAL;
-                    std::lock_guard<mutex_dbg_owned> lock(*target->lock);
+                    std::unique_lock<mutex_dbg_owned> target_input_lock(*target->lock);
                     // XXX i#5843: Add an invariant check that the next timestamp of the
                     // target is later than the pre-switch-syscall timestamp?
                     if (target->containing_output != INVALID_OUTPUT_ORDINAL) {
+                        output_ordinal_t target_output = target->containing_output;
                         output_info_t &out = outputs_[target->containing_output];
-                        auto target_out_lock = acquire_scoped_output_lock_if_necessary(
-                            target->containing_output);
-                        if (out.runqueue.queue.find(target)) {
-                            VPRINT(this, 2,
-                                   "next_record[%d]: direct switch from input %d to "
-                                   "input %d "
-                                   "@%" PRIu64 "\n",
-                                   output, prev_index, target->index,
-                                   inputs_[prev_index].reader->get_last_timestamp());
-                            out.runqueue.queue.erase(target);
-                            index = target->index;
-                            // Erase any remaining wait time for the target.
-                            if (target->blocked_time > 0) {
-                                VPRINT(
-                                    this, 3,
-                                    "next_record[%d]: direct switch erasing blocked time "
-                                    "for input %d\n",
-                                    output, target->index);
-                                --out.runqueue.num_blocked;
-                                target->blocked_time = 0;
-                                target->unscheduled = false;
-                            }
-                            if (target->containing_output != output) {
+                        // We cannot hold an input lock when we acquire an output lock.
+                        target_input_lock.unlock();
+                        {
+                            auto target_output_lock =
+                                acquire_scoped_output_lock_if_necessary(target_output);
+                            target_input_lock.lock();
+                            if (out.runqueue.queue.find(target)) {
+                                VPRINT(this, 2,
+                                       "next_record[%d]: direct switch from input %d to "
+                                       "input %d "
+                                       "@%" PRIu64 "\n",
+                                       output, prev_index, target->index,
+                                       inputs_[prev_index].reader->get_last_timestamp());
+                                out.runqueue.queue.erase(target);
+                                index = target->index;
+                                // Erase any remaining wait time for the target.
+                                if (target->blocked_time > 0) {
+                                    VPRINT(this, 3,
+                                           "next_record[%d]: direct switch erasing "
+                                           "blocked time "
+                                           "for input %d\n",
+                                           output, target->index);
+                                    --out.runqueue.num_blocked;
+                                    target->blocked_time = 0;
+                                    target->unscheduled = false;
+                                }
+                                if (target->containing_output != output) {
+                                    ++outputs_[output].stats
+                                          [memtrace_stream_t::SCHED_STAT_MIGRATIONS];
+                                }
                                 ++outputs_[output]
-                                      .stats[memtrace_stream_t::SCHED_STAT_MIGRATIONS];
-                            }
-                            ++outputs_[output].stats
-                                  [memtrace_stream_t::SCHED_STAT_DIRECT_SWITCH_SUCCESSES];
-                        } // Else, actively running.
+                                      .stats[memtrace_stream_t::
+                                                 SCHED_STAT_DIRECT_SWITCH_SUCCESSES];
+                            } // Else, actively running.
+                            target_input_lock.unlock();
+                        }
+                        target_input_lock.lock();
                     }
                     std::lock_guard<mutex_dbg_owned> unsched_lock(
                         *unscheduled_priority_.lock);
