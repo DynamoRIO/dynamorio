@@ -200,6 +200,7 @@ extern dynamorio::droption::droption_t<int> op_kernel_trace_buffer_size_shift;
 #endif
 extern dynamorio::droption::droption_t<bool> op_core_sharded;
 extern dynamorio::droption::droption_t<bool> op_core_serial;
+extern dynamorio::droption::droption_t<double> op_sched_time_per_us;
 extern dynamorio::droption::droption_t<int64_t> op_sched_quantum;
 extern dynamorio::droption::droption_t<bool> op_sched_time;
 extern dynamorio::droption::droption_t<bool> op_sched_order_time;

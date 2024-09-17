@@ -3666,6 +3666,19 @@ if (BUILD_SAMPLES)
         "CFLAGS=-m32;CXXFLAGS=-m32")
     endif ()
   endif ()
+  if (UNIX)
+    # XXX: Change this to go through torun() like the other tests to share
+    # output, multiplexing, _timeout, etc. features: not entirely
+    # straightforward because this test uses two clients.
+    # For now, "-s 90 -quiet -killpg" is added explicitly.
+    get_target_path_for_execution(drrun_path drrun "${location_suffix}")
+    get_client_path(client1 bbcount bbcount)
+    get_client_path(client2 opcodes opcodes)
+    get_target_path_for_execution(app_path "${ci_shared_app}" "${location_suffix}")
+    add_test(two_clients ${drrun_path} -s 90 -quiet -killpg
+      -client ${client1} 0 ''
+      -client ${client2} 1 '' ${dr_test_ops} -- ${app_path})
+  endif (UNIX)
 endif (BUILD_SAMPLES)
 
 if (BUILD_CLIENTS)
