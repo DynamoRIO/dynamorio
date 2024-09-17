@@ -1509,7 +1509,7 @@ protected:
         }
         // Protects access to this structure.
         // We use a unique_ptr to make this moveable for vector storage.
-        // An output's runqueue lock must be acquired *before* any input locks.
+        // An output's ready_queue lock must be acquired *before* any input locks.
         // Multiple output locks should be acquired in increasing output ordinal order.
         std::unique_ptr<mutex_dbg_owned> lock;
         // Inputs ready to be scheduled, sorted by priority and then timestamp if
@@ -1587,7 +1587,7 @@ protected:
 
     // We have one output_info_t per output stream, and at most one worker
     // thread owns one output, so most fields are accessed only by one thread.
-    // The exception is "runqueue" which can be accessed by other threads;
+    // The exception is "ready_queue" which can be accessed by other threads;
     // it is protected using its internal lock.
     struct output_info_t {
         output_info_t(scheduler_tmpl_t<RecordType, ReaderType> *scheduler,
@@ -1596,7 +1596,7 @@ protected:
                       int rand_seed, RecordType last_record_init, int verbosity = 0)
             : self_stream(scheduler, ordinal, verbosity)
             , stream(&self_stream)
-            , runqueue(rand_seed)
+            , ready_queue(rand_seed)
             , speculator(speculator_flags, verbosity)
             , last_record(last_record_init)
         {
@@ -1620,7 +1620,7 @@ protected:
         std::vector<input_ordinal_t> input_indices;
         int input_indices_index = 0;
         // Inputs ready to be scheduled on this output.
-        input_queue_t runqueue;
+        input_queue_t ready_queue;
         // Speculation support.
         std::stack<addr_t> speculation_stack; // Stores PC of resumption point.
         speculator_tmpl_t<RecordType> speculator;
@@ -2033,7 +2033,7 @@ protected:
     // Each vector element has a mutex which should be held when accessing its fields.
     std::vector<input_info_t> inputs_;
     // Each vector element is accessed only by its owning thread, except the
-    // runqueue-related plus record and record_index fields which are accessed under
+    // ready_queue-related plus record and record_index fields which are accessed under
     // the output's own lock.
     std::vector<output_info_t> outputs_;
     // This lock protects unscheduled_priority_ and unscheduled_counter_.
