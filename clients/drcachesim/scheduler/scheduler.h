@@ -798,7 +798,7 @@ public:
          * #time_units_per_us to produce a value that is compared to the "cur_time"
          * parameter to next_record().
          */
-        uint64_t rebalance_period_us = 1500000;
+        uint64_t rebalance_period_us = 150000;
     };
 
     /**
