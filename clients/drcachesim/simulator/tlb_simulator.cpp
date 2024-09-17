@@ -54,16 +54,15 @@ namespace dynamorio {
 namespace drmemtrace {
 
 analysis_tool_t *
-tlb_simulator_create(const tlb_simulator_knobs_t &knobs,
-                     const std::string &v2p_file_path = "")
+tlb_simulator_create(const tlb_simulator_knobs_t &knobs)
 {
-    if (v2p_file_path.empty())
+    if (knobs.v2p_file.empty())
         return new tlb_simulator_t(knobs);
 
     std::ifstream fin;
-    fin.open(v2p_file_path);
+    fin.open(knobs.v2p_file);
     if (!fin.is_open()) {
-        ERRMSG("Failed to open the v2p file '%s'\n", v2p_file_path.c_str());
+        ERRMSG("Failed to open the v2p file '%s'\n", knobs.v2p_file.c_str());
         return nullptr;
     }
 
@@ -237,10 +236,10 @@ tlb_simulator_t::process_memref(const memref_t &memref)
     }
 
     if (knobs_.verbose >= 3) {
-        std::cerr << "::" << simref->data.pid << "." << simref->data.tid << ":: "
-                  << " @" << (void *)simref->data.pc << " "
-                  << trace_type_names[simref->data.type] << " "
-                  << (void *)simref->data.addr << " x" << simref->data.size << std::endl;
+        std::cerr << "::" << simref->data.pid << "." << simref->data.tid << ":: " << " @"
+                  << (void *)simref->data.pc << " " << trace_type_names[simref->data.type]
+                  << " " << (void *)simref->data.addr << " x" << simref->data.size
+                  << std::endl;
     }
 
     // process counters for warmup and simulated references

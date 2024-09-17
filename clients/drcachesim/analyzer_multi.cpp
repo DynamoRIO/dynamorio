@@ -216,9 +216,9 @@ analyzer_multi_t::create_analysis_tool_from_options(const std::string &tool)
         knobs.verbose = op_verbose.get_value();
         knobs.cpu_scheduling = op_cpu_scheduling.get_value();
         knobs.use_physical = op_use_physical.get_value();
-        std::string v2p_file_path =
+        knobs.v2p_file =
             get_aux_file_path(op_v2p_file.get_value(), DRMEMTRACE_V2P_FILENAME);
-        analysis_tool_t *tlb_simulator = tlb_simulator_create(knobs, v2p_file_path);
+        analysis_tool_t *tlb_simulator = tlb_simulator_create(knobs);
         return tlb_simulator;
     } else if (tool == HISTOGRAM) {
         return histogram_tool_create(op_line_size.get_value(), op_report_top.get_value(),
