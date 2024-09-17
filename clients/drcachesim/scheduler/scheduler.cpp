@@ -910,6 +910,10 @@ template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::legacy_field_support()
 {
+    if (options_.time_units_per_us == 0) {
+        error_string_ = "time_units_per_us must be > 0";
+        return STATUS_ERROR_INVALID_PARAMETER;
+    }
     if (options_.quantum_duration > 0) {
         if (options_.struct_size > offsetof(scheduler_options_t, quantum_duration_us)) {
             error_string_ = "quantum_duration is deprecated; use quantum_duration_us and "
@@ -959,10 +963,6 @@ scheduler_tmpl_t<RecordType, ReaderType>::legacy_field_support()
     }
     if (options_.block_time_max_us == 0) {
         error_string_ = "block_time_max_us must be > 0";
-        return STATUS_ERROR_INVALID_PARAMETER;
-    }
-    if (options_.time_units_per_us == 0) {
-        error_string_ = "time_units_per_us must be > 0";
         return STATUS_ERROR_INVALID_PARAMETER;
     }
     return STATUS_SUCCESS;

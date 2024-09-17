@@ -893,8 +893,8 @@ droption_t<double>
                          "Wall-clock microseconds per simulated microsecond.");
 
 droption_t<int64_t>
-    // We pick 6 million to match 2 instructions per nanosecond with a 3ms quantum.
-    op_sched_quantum(DROPTION_SCOPE_ALL, "sched_quantum", 6 * 1000 * 1000,
+    // We pick 10 million to match 2 instructions per nanosecond with a 5ms quantum.
+    op_sched_quantum(DROPTION_SCOPE_ALL, "sched_quantum", 10 * 1000 * 1000,
                      "Scheduling quantum",
                      "Applies to -core_sharded and -core_serial. "
                      "Scheduling quantum in instructions, unless -sched_time is set in "
@@ -929,10 +929,13 @@ droption_t<uint64_t> op_sched_blocking_switch_us(
 
 droption_t<double> op_sched_block_scale(
     DROPTION_SCOPE_ALL, "sched_block_scale", 0.1, "Input block time scale factor",
-    "This value is multiplied by -sched_time_per_us to produce a scale which is applied "
-    "to the as-traced microsecond latency of blocking system calls to produce the block "
-    "time during simulation.  A higher value here results in blocking syscalls keeping "
-    "inputs unscheduled for longer.");
+    "A system call considered to block (see -sched_blocking_switch_us) will "
+    "block in the trace scheduler for an amount of simulator time equal to its "
+    "as-traced latency in trace-time microseconds multiplied by this parameter "
+    "and by -sched_time_per_us in simulated microseconds, subject to a "
+    "maximum of --sched_block_max_us. A higher value here results in blocking "
+    "syscalls keeping inputs unscheduled for longer. There is indirect "
+    "overhead inflating the as-traced times, so a value below 1 is typical.");
 
 // We have a max to avoid outlier latencies from scaling up to extreme times.  There is
 // some inflation in the as-traced latencies and some can be inflated more than others.
@@ -996,7 +999,7 @@ droption_t<double> op_sched_time_units_per_us(
     DROPTION_SCOPE_ALL, "sched_time_units_per_us", 100.,
     "Time units per simulated microsecond",
     "Time units (currently wall-clock time) per simulated microsecond.  This scales all "
-    "of the -sched_*_us values as it concerts wall-clock time into the simulated "
+    "of the -sched_*_us values as it converts wall-clock time into the simulated "
     "microseconds measured by those options.");
 
 droption_t<uint64_t> op_sched_migration_threshold_us(

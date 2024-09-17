@@ -600,8 +600,8 @@ public:
         /** The unit of the schedule time quantum. */
         quantum_unit_t quantum_unit = QUANTUM_INSTRUCTIONS;
         /**
-         * Deprecated: use #quantum_duration_us and #time_units_per_us for #QUANTUM_TIME
-         * or #quantum_duration_instrs for #QUANTUM_INSTRUCTIONS instead.  It
+         * Deprecated: use #quantum_duration_us and #time_units_per_us for #QUANTUM_TIME,
+         * or #quantum_duration_instrs for #QUANTUM_INSTRUCTIONS, instead.  It
          * is an error to set this to a non-zero value when #struct_size includes
          * #quantum_duration_us.  When #struct_size does not include
          * #quantum_duration_us and this value is non-zero, the value in
@@ -761,7 +761,7 @@ public:
          * exceeds #syscall_switch_threshold or #blocking_switch_threshold.  The
          * as-traced syscall latency (which is in traced microseconds) is multiplied
          * by this field to produce the blocked time in simulated microseconds.  Once
-         * that many simulated microseconds has passed according to the "cur_time"
+         * that many simulated microseconds have passed according to the "cur_time"
          * value passed to next_record() (multiplied by #time_units_per_us), the
          * input will be no longer considered blocked.  The blocked time is clamped
          * to a maximum value controlled by #block_time_max.
