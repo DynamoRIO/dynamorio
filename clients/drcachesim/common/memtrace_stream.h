@@ -98,6 +98,15 @@ public:
          * i.e., the number of input migrations to this core.
          */
         SCHED_STAT_MIGRATIONS,
+        /**
+         * Counts the number of times this output's runqueue became empty and it took
+         * work from another output's runqueue.
+         */
+        SCHED_STAT_RUNQUEUE_STEALS,
+        /**
+         * Counts the number of output runqueue rebalances triggered by this output.
+         */
+        SCHED_STAT_RUNQUEUE_REBALANCES,
         /** Count of statistic types. */
         SCHED_STAT_TYPE_COUNT,
     };

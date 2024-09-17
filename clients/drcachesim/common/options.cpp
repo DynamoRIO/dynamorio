@@ -1002,6 +1002,18 @@ droption_t<double> op_sched_time_units_per_us(
     "of the -sched_*_us values as it converts wall-clock time into the simulated "
     "microseconds measured by those options.");
 
+droption_t<uint64_t> op_sched_migration_threshold_us(
+    DROPTION_SCOPE_ALL, "sched_migration_threshold_us", 500,
+    "Time in simulated microseconds before an input can be migrated across cores",
+    "The minimum time in simulated microseconds that must have elapsed since an input "
+    "last ran on a core before it can be migrated to another core.");
+
+droption_t<uint64_t> op_sched_rebalance_period_us(
+    DROPTION_SCOPE_ALL, "sched_rebalance_period_us", 1500000,
+    "Period in microseconds at which core run queues are load-balanced",
+    "The period in simulated microseconds at which per-core run queues are re-balanced "
+    "to redistribute load.");
+
 // Schedule_stats options.
 droption_t<uint64_t>
     op_schedule_stats_print_every(DROPTION_SCOPE_ALL, "schedule_stats_print_every",
