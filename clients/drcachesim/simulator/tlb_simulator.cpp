@@ -236,10 +236,10 @@ tlb_simulator_t::process_memref(const memref_t &memref)
     }
 
     if (knobs_.verbose >= 3) {
-        std::cerr << "::" << simref->data.pid << "." << simref->data.tid << ":: " << " @"
-                  << (void *)simref->data.pc << " " << trace_type_names[simref->data.type]
-                  << " " << (void *)simref->data.addr << " x" << simref->data.size
-                  << std::endl;
+        std::cerr << "::" << simref->data.pid << "." << simref->data.tid << ":: "
+                  << " @" << (void *)simref->data.pc << " "
+                  << trace_type_names[simref->data.type] << " "
+                  << (void *)simref->data.addr << " x" << simref->data.size << std::endl;
     }
 
     // process counters for warmup and simulated references
