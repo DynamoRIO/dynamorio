@@ -4092,10 +4092,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::eof_or_idle(output_ordinal_t output,
     // to avoid repeatededly grabbing other output's locks over and over.
     if (!outputs_[output].tried_to_steal_on_idle) {
         outputs_[output].tried_to_steal_on_idle = true;
-        for (unsigned int i = 0; i < outputs_.size(); ++i) {
-            output_ordinal_t target = (output + 1 + i) % outputs_.size();
-            if (target == output)
-                continue;
+        for (unsigned int i = 1; i < outputs_.size(); ++i) {
+            output_ordinal_t target = (output + i) % outputs_.size();
+            assert(target != output); // Sanity check (we won't reach "output").
             input_info_t *queue_next = nullptr;
             sched_type_t::stream_status_t status =
                 pop_from_ready_queue(target, output, queue_next);
