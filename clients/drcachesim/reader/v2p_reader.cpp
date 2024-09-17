@@ -74,7 +74,7 @@ v2p_reader_t::get_value_from_line(std::string line, uint64_t &value)
 }
 
 std::string
-v2p_reader_t::create_v2p_info_from_file(std::ifstream &v2p_file, v2p_info_t &v2p_info)
+v2p_reader_t::create_v2p_info_from_file(std::istream &v2p_file, v2p_info_t &v2p_info)
 {
     const std::string page_size_key = "page_size";
     const std::string page_count_key = "page_count";

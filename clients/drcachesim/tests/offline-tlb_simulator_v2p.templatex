@@ -1,89 +1,89 @@
 #ifdef AARCH64
 TLB simulation results:
-Core #0 \(1 thread\(s\)\)
+Core #0 (1 thread(s))
   L1I stats:
-    Hits:                      *[0-9,\.]*
-    Misses:                    *[0-9,\.]*
-    Compulsory misses:         *[0-9,\.]*
-    Invalidations:             *0
-    Miss rate:                        [0-3][,\.]..%
+    Hits:                            18577
+    Misses:                            141
+    Compulsory misses:                  50
+    Invalidations:                       0
+    Miss rate:                        0.75%
   L1D stats:
-    Hits:                      *[0-9,\.]*
-    Misses:                    *[0-9,\.]*
-    Compulsory misses:         *[0-9,\.]*
-    Invalidations:             *0
-    Miss rate:                 *[0-9]*[,\.]..%
+    Hits:                             5947
+    Misses:                            138
+    Compulsory misses:                  45
+    Invalidations:                       0
+    Miss rate:                        2.27%
   LL stats:
-    Hits:                      *[0-9,\.]*
-    Misses:                           *[0-9]..?
-    Compulsory misses:          *[0-9,\.]*
-    Invalidations:             *0
-    Local miss rate:        *[0-9,.]*%
-    Child hits:                *[0-9,\.]*
-    Total miss rate:                  0[,\.]..%
-Core #1 \(2 thread\(s\)\)
+    Hits:                              200
+    Misses:                             79
+    Compulsory misses:                  79
+    Invalidations:                       0
+    Local miss rate:                 28.32%
+    Child hits:                      24524
+    Total miss rate:                  0.32%
+Core #1 (2 thread(s))
   L1I stats:
-    Hits:                      *[0-9,\.]*
-    Misses:                    *[0-9,\.]*
-    Compulsory misses:         *[0-9,\.]*
-    Invalidations:             *0
-    Miss rate:                        [0-3][,\.]..%
+    Hits:                            53671
+    Misses:                             12
+    Compulsory misses:                  12
+    Invalidations:                       0
+    Miss rate:                        0.02%
   L1D stats:
-    Hits:                      *[0-9,\.]*
-    Misses:                    *[0-9,\.]*
-    Compulsory misses:         *[0-9,\.]*
-    Invalidations:             *0
-    Miss rate:                 *[0-9]*[,\.]..%
+    Hits:                            12261
+    Misses:                             11
+    Compulsory misses:                  11
+    Invalidations:                       0
+    Miss rate:                        0.09%
   LL stats:
-    Hits:                      *[0-9,\.]*
-    Misses:                           *[0-9]..?
-    Compulsory misses:          *[0-9,\.]*
-    Invalidations:             *0
-    Local miss rate:        *[0-9,.]*%
-    Child hits:                *[0-9,\.]*
-    Total miss rate:                  0[,\.]..%
-Core #2 \(1 thread\(s\)\)
+    Hits:                                2
+    Misses:                             21
+    Compulsory misses:                  21
+    Invalidations:                       0
+    Local miss rate:                 91.30%
+    Child hits:                      65932
+    Total miss rate:                  0.03%
+Core #2 (1 thread(s))
   L1I stats:
-    Hits:                      *[0-9,\.]*
-    Misses:                    *[0-9,\.]*
-    Compulsory misses:         *[0-9,\.]*
-    Invalidations:             *0
-    Miss rate:                        [0-3][,\.]..%
+    Hits:                            26827
+    Misses:                             12
+    Compulsory misses:                  12
+    Invalidations:                       0
+    Miss rate:                        0.04%
   L1D stats:
-    Hits:                      *[0-9,\.]*
-    Misses:                    *[0-9,\.]*
-    Compulsory misses:         *[0-9,\.]*
-    Invalidations:             *0
-    Miss rate:                 *[0-9]*[,\.]..%
+    Hits:                             6126
+    Misses:                              9
+    Compulsory misses:                   9
+    Invalidations:                       0
+    Miss rate:                        0.15%
   LL stats:
-    Hits:                      *[0-9,\.]*
-    Misses:                           *[0-9]..?
-    Compulsory misses:          *[0-9,\.]*
-    Invalidations:             *0
-    Local miss rate:        *[0-9,.]*%
-    Child hits:                *[0-9,\.]*
-    Total miss rate:                  0[,\.]..%
-Core #3 \(1 thread\(s\)\)
+    Hits:                                2
+    Misses:                             19
+    Compulsory misses:                  19
+    Invalidations:                       0
+    Local miss rate:                 90.48%
+    Child hits:                      32953
+    Total miss rate:                  0.06%
+Core #3 (1 thread(s))
   L1I stats:
-    Hits:                      *[0-9,\.]*
-    Misses:                    *[0-9,\.]*
-    Compulsory misses:         *[0-9,\.]*
-    Invalidations:             *0
-    Miss rate:                        [0-3][,\.]..%
+    Hits:                            26870
+    Misses:                             12
+    Compulsory misses:                  12
+    Invalidations:                       0
+    Miss rate:                        0.04%
   L1D stats:
-    Hits:                      *[0-9,\.]*
-    Misses:                    *[0-9,\.]*
-    Compulsory misses:         *[0-9,\.]*
-    Invalidations:             *0
-    Miss rate:                 *[0-9]*[,\.]..%
+    Hits:                             6132
+    Misses:                              9
+    Compulsory misses:                   9
+    Invalidations:                       0
+    Miss rate:                        0.15%
   LL stats:
-    Hits:                      *[0-9,\.]*
-    Misses:                           *[0-9]..?
-    Compulsory misses:          *[0-9,\.]*
-    Invalidations:             *0
-    Local miss rate:        *[0-9,.]*%
-    Child hits:                *[0-9,\.]*
-    Total miss rate:                  0[,\.]..%
+    Hits:                                2
+    Misses:                             19
+    Compulsory misses:                  19
+    Invalidations:                       0
+    Local miss rate:                 90.48%
+    Child hits:                      33002
+    Total miss rate:                  0.06%
 #elif defined(X86) && defined(X64)
 ERROR: failed to initialize analyzer: Directory setup failed: Failed sanity checks for thread log file .*/drmemtrace.threadsig.aarch64/raw/drmemtrace.threadsig..*.raw.gz: Architecture mismatch: trace recorded on aarch64 but tools built for x86_64
 #else

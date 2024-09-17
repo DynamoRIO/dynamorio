@@ -57,7 +57,7 @@ public:
     bool
     print_results() override;
     std::string
-    create_v2p_from_file(std::ifstream &v2p_file) override;
+    create_v2p_from_file(std::istream &v2p_file) override;
 
 protected:
     // Create a tlb_t object with a specific replacement policy.

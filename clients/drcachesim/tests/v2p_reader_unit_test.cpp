@@ -30,10 +30,13 @@
  * DAMAGE.
  */
 
+#include "v2p_reader_unit_test.h"
+
 #include <cstdint>
+#include <fstream>
 #include <iostream>
 #include <vector>
-#include "v2p_reader_unit_test.h"
+
 #include "reader/v2p_reader.h"
 
 namespace dynamorio {

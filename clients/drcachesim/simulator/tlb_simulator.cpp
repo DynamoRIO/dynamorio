@@ -155,7 +155,7 @@ tlb_simulator_t::~tlb_simulator_t()
 }
 
 std::string
-tlb_simulator_t::create_v2p_from_file(std::ifstream &v2p_file)
+tlb_simulator_t::create_v2p_from_file(std::istream &v2p_file)
 {
     // If we are not using physical addresses, we don't need a virtual to physical mapping
     // at all.
@@ -166,7 +166,8 @@ tlb_simulator_t::create_v2p_from_file(std::ifstream &v2p_file)
     if (!error_str.empty()) {
         return error_str;
     }
-    // Overwrite tlb_simulator_t page size with simulator_t page size.
+    // Overwrite tlb_simulator_t.knobs_.page size with simulator_t.page_size, which is
+    // set to be the page size in v2p_file.
     knobs_.page_size = page_size_;
     return "";
 }

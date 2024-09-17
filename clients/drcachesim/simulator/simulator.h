@@ -40,7 +40,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <fstream>
+#include <istream>
 #include <unordered_map>
 #include <vector>
 
@@ -73,7 +73,7 @@ public:
     process_memref(const memref_t &memref) override;
 
     virtual std::string
-    create_v2p_from_file(std::ifstream &v2p_file);
+    create_v2p_from_file(std::istream &v2p_file);
 
 protected:
     // Initialize knobs. Success or failure is indicated by setting/resetting

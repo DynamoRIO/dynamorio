@@ -37,6 +37,7 @@
 #include <stdint.h>
 
 #include <iostream>
+#include <istream>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -89,7 +90,7 @@ simulator_t::init_knobs(unsigned int num_cores, uint64_t skip_refs, uint64_t war
 }
 
 std::string
-simulator_t::create_v2p_from_file(std::ifstream &v2p_file)
+simulator_t::create_v2p_from_file(std::istream &v2p_file)
 {
     // If we are not using physical addresses, we don't need a virtual to physical mapping
     // at all.

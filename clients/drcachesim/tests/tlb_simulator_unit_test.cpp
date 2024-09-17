@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, LLC  All rights reserved.
+ * Copyright (c) 2024 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,6 +31,7 @@
  */
 
 #include <cstdint>
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <unordered_set>
@@ -96,9 +97,9 @@ generate_mem_ref(const addr_t addr, const addr_t pc)
     return memref;
 }
 
-// Checks that the addresses the tlb simulator uses (in memrefs), are the same we expect
+// Checks that the addresses the tlb simulator uses (in memrefs) are the same we expect
 // in addresses.
-std::string
+static std::string
 check_addresses(const std::vector<memref_t> &memrefs,
                 const std::unordered_set<addr_t> &addresses,
                 const std::string &v2p_file_path = "")
@@ -134,18 +135,18 @@ check_addresses(const std::vector<memref_t> &memrefs,
     return "";
 }
 
-void
+static void
 tlb_simulator_check_addresses(const char *testdir)
 {
 #ifdef X64
-    std::string v2p_file_path =
-        std::string(testdir) + "/drmemtrace.threadsig.aarch64.raw/raw/v2p.textproto";
-    std::unordered_set<addr_t> virtual_addresses = { 0x0000fffffb73da60,
-                                                     0x00000000004a7a78,
-                                                     0x00000000004a5f20 };
-    std::unordered_set<addr_t> physical_addresses = { 0x000000000133da60,
-                                                      0x00000000002a7a78,
-                                                      0x00000000002a5f20 };
+    const std::string v2p_file_path =
+        std::string(testdir) + "/drmemtrace.threadsig.aarch64.raw/v2p.textproto";
+    const std::unordered_set<addr_t> virtual_addresses = { 0x0000fffffb73da60,
+                                                           0x00000000004a7a78,
+                                                           0x00000000004a5f20 };
+    const std::unordered_set<addr_t> physical_addresses = { 0x000000000133da60,
+                                                            0x00000000002a7a78,
+                                                            0x00000000002a5f20 };
     std::vector<memref_t> memrefs;
     // We don't care about exact PC values.
     // Note: this will cause "Missing physical address marker for $PC" messages, which

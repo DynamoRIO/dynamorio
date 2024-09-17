@@ -50,7 +50,7 @@
 #include "trace_entry.h"
 
 #include <cstdint>
-#include <fstream>
+#include <istream>
 #include <string>
 #include <unordered_map>
 
@@ -69,7 +69,7 @@ public:
     v2p_reader_t() = default;
 
     std::string
-    create_v2p_info_from_file(std::ifstream &v2p_file, v2p_info_t &v2p_info);
+    create_v2p_info_from_file(std::istream &v2p_file, v2p_info_t &v2p_info);
 
 private:
     std::string
