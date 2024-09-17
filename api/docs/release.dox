@@ -255,6 +255,9 @@ Further non-compatibility-affecting changes include:
    input_workload_t::times_of_interest to the drmemtrace scheduler.
  - Added v2p_reader_t to parse a virtual-to-physical mapping in textproto format and
    v2p_info_t to hold that mapping in memory.
+ - Added -trace_instr_intervals_file option to the drmemtrace trace analysis tools
+   framework. The file must be in CSV format containing a <start,duration> tracing
+   interval per line where start and duration are expressed in number of instructions.
 
 **************************************************
 <hr>
