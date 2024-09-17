@@ -33,11 +33,13 @@
 #ifndef _TLB_SIMULATOR_UNIT_TEST_H_
 #define _TLB_SIMULATOR_UNIT_TEST_H_ 1
 
+#include <string>
+
 namespace dynamorio {
 namespace drmemtrace {
 
 void
-unit_test_tlb_simulator(const char *testdir);
+unit_test_tlb_simulator(const std::string &testdir);
 
 } // namespace drmemtrace
 } // namespace dynamorio

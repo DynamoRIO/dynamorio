@@ -65,11 +65,11 @@ check_cache(const std::map<std::string, cache_params_t> &caches, std::string nam
 }
 
 void
-unit_test_config_reader(const char *testdir)
+unit_test_config_reader(const std::string &testdir)
 {
     cache_simulator_knobs_t knobs;
     std::map<std::string, cache_params_t> caches;
-    std::string file_path = std::string(testdir) + "/single_core.conf";
+    std::string file_path = testdir + "/single_core.conf";
 
     std::ifstream file_stream;
     file_stream.open(file_path);

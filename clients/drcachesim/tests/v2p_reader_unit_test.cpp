@@ -98,9 +98,9 @@ check_v2p_info(const v2p_info_t &v2p_info)
 }
 
 void
-unit_test_v2p_reader(const char *testdir)
+unit_test_v2p_reader(const std::string &testdir)
 {
-    std::string v2p_file_path = std::string(testdir) + "/v2p_example.textproto";
+    std::string v2p_file_path = testdir + "/v2p_example.textproto";
     v2p_info_t v2p_info;
     v2p_reader_t v2p_reader;
     std::ifstream fin;

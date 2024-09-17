@@ -136,11 +136,11 @@ check_addresses(const std::vector<memref_t> &memrefs,
 }
 
 static void
-tlb_simulator_check_addresses(const char *testdir)
+tlb_simulator_check_addresses(const std::string &testdir)
 {
 #ifdef X64
     const std::string v2p_file_path =
-        std::string(testdir) + "/drmemtrace.threadsig.aarch64.raw/v2p.textproto";
+        testdir + "/drmemtrace.threadsig.aarch64.raw/v2p.textproto";
     const std::unordered_set<addr_t> virtual_addresses = { 0x0000fffffb73da60,
                                                            0x00000000004a7a78,
                                                            0x00000000004a5f20 };
@@ -179,7 +179,7 @@ tlb_simulator_check_addresses(const char *testdir)
 }
 
 void
-unit_test_tlb_simulator(const char *testdir)
+unit_test_tlb_simulator(const std::string &testdir)
 {
     tlb_simulator_check_addresses(testdir);
 }

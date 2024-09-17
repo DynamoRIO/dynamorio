@@ -33,11 +33,13 @@
 #ifndef _V2P_READER_UNIT_TEST_H_
 #define _V2P_READER_UNIT_TEST_H_ 1
 
+#include <string>
+
 namespace dynamorio {
 namespace drmemtrace {
 
 void
-unit_test_v2p_reader(const char *testdir);
+unit_test_v2p_reader(const std::string &testdir);
 
 } // namespace drmemtrace
 } // namespace dynamorio
