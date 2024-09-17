@@ -595,12 +595,15 @@ public:
         /** The unit of the schedule time quantum. */
         quantum_unit_t quantum_unit = QUANTUM_INSTRUCTIONS;
         /**
-         * The scheduling quantum duration for preemption.  The units are
-         * specified by
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::scheduler_options_t::quantum_unit.
+         * Deprecated: use #quantum_duration_us and #time_units_per_us for #QUANTUM_TIME,
+         * or #quantum_duration_instrs for #QUANTUM_INSTRUCTIONS, instead.  It
+         * is an error to set this to a non-zero value when #struct_size includes
+         * #quantum_duration_us.  When #struct_size does not include
+         * #quantum_duration_us and this value is non-zero, the value in
+         * #quantum_duration_us is replaced with this value divided by the default
+         * value of #time_units_per_us.
          */
-        // We pick 6 million to match 2 instructions per nanosecond with a 3ms quantum.
-        uint64_t quantum_duration = 6 * 1000 * 1000;
+        uint64_t quantum_duration = 0;
         /**
          * If > 0, diagnostic messages are printed to stderr.  Higher values produce
          * more frequent diagnostics.
@@ -643,37 +646,21 @@ public:
          */
         uint64_t blocking_switch_threshold = 100;
         /**
-         * Controls the amount of time inputs are considered blocked at a syscall whose
-         * latency exceeds #syscall_switch_threshold or #blocking_switch_threshold.  The
-         * syscall latency (in microseconds) is multiplied by this field to produce the
-         * blocked time.  For #QUANTUM_TIME, that blocked time in the units reported by
-         * the time parameter to next_record() must pass before the input is no longer
-         * considered blocked.  Since the system call latencies are in microseconds, this
-         * #block_time_scale should be set to the number of next_record() time units in
-         * one simulated microsecond.  For #QUANTUM_INSTRUCTIONS, the blocked time in
-         * wall-clock microseconds must pass before the input is actually selected
-         * (wall-clock time is used as there is no reasonable alternative with no other
-         * uniform notion of time); thus, the #block_time_scale value here should equal
-         * the slowdown of the instruction record processing versus the original
-         * (untraced) application execution.  The blocked time is clamped to a maximum
-         * value controlled by #block_time_max.
-         *
-         * The default value is meant to be reasonable for simple analyzers.  It may
-         * result in too much or too little idle time depending on the analyzer or
-         * simulator and its speed; it is meant to be tuned and modified.
+         * Deprecated: use #block_time_multiplier instead.  It is an error to set
+         * this to a non-zero value when #struct_size includes #block_time_multiplier.
+         * When #struct_size does not include #block_time_multiplier and this value is
+         * non-zero, the value in #block_time_multiplier is replaced with this value
+         * divided by the default value of #time_units_per_us.
          */
-        double block_time_scale = 10.;
+        double block_time_scale = 0.;
         /**
-         * The maximum time, in the units explained by #block_time_scale (either
-         * #QUANTUM_TIME simulator time or wall-clock microseconds for
-         * #QUANTUM_INSTRUCTIONS), for an input to be considered blocked for any one
-         * system call.  This is applied after multiplying by #block_time_scale.
-         * This is also used as a fallback to avoid hangs when there are no scheduled
-         * inputs: if the only inputs left are "unscheduled" (see
-         * #TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE), after this amount of time those
-         * inputs are all re-scheduled.
+         * Deprecated: use #block_time_max_us and #time_units_per_us instead.  It is
+         * an error to set this to a non-zero value when #struct_size includes
+         * #block_time_max_us.  When #struct_size does not include #block_time_max_us
+         * and this value is non-zero, the value in #block_time_max_us is replaced
+         * with this value divided by the default value of #time_units_per_us.
          */
-        uint64_t block_time_max = 250000;
+        uint64_t block_time_max = 0;
         // XXX: Should we share the file-to-reader code currently in the scheduler
         // with the analyzer and only then need reader interfaces and not pass paths
         // to the scheduler?
@@ -740,6 +727,59 @@ public:
          * (these markers remain: they are not removed from the trace).
          */
         bool honor_direct_switches = true;
+        /**
+         * How many time units for the "cur_time" value passed to next_record() are
+         * equivalent to one simulated microsecond.  E.g., if the time units are in
+         * picoseconds, pass one million here.  This is used to scale all of the
+         * other parameters that are in microseconds (they all end in "_us": e.g.,
+         * #quantum_duration_us) so that they operate on the right time scale for the
+         * passed-in simulator time (or wall-clock microseconds if no time is passed).
+         */
+        double time_units_per_us = 100.;
+        /**
+         * The scheduling quantum duration for preemption, in simulated microseconds,
+         * for #QUANTUM_TIME.  This value is multiplied by #time_units_per_us to
+         * produce a value that is compared to the "cur_time" parameter to
+         * next_record() to determine when to force a quantum switch.
+         */
+        uint64_t quantum_duration_us = 5000;
+        /**
+         * The scheduling quantum duration for preemption, in instruction count,
+         * for #QUANTUM_INSTRUCTIONS.  The time passed to next_record() is ignored
+         * for purposes of quantum preempts.
+         */
+        // We pick 10 million to match 2 instructions per nanosecond with a 5ms quantum.
+        uint64_t quantum_duration_instrs = 10 * 1000 * 1000;
+        /**
+         * Controls the amount of time inputs are considered blocked at a syscall
+         * whose as-traced latency (recorded in timestamp records in the trace)
+         * exceeds #syscall_switch_threshold or #blocking_switch_threshold.  The
+         * as-traced syscall latency (which is in traced microseconds) is multiplied
+         * by this field to produce the blocked time in simulated microseconds.  Once
+         * that many simulated microseconds have passed according to the "cur_time"
+         * value passed to next_record() (multiplied by #time_units_per_us), the
+         * input will be no longer considered blocked.  The blocked time is clamped
+         * to a maximum value controlled by #block_time_max.
+         *
+         * While there is no direct overhead during tracing, indirect overhead
+         * does result in some inflation of recorded system call latencies.
+         * Thus, a value below 0 is typically used here.  This value, in combination
+         * with #block_time_max_us, can be tuned to achieve a desired idle rate.
+         * The default value errs on the side of less idle time.
+         */
+        double block_time_multiplier = 0.1;
+        /**
+         * The maximum time in microseconds for an input to be considered blocked for
+         * any one system call.  This value is multiplied by #time_units_per_us to
+         * produce a value that is compared to the "cur_time" parameter to
+         * next_record().  If any block time (see #block_time_multiplier) exceeds
+         * this value, it is capped to this value.  This value is also used as a
+         * fallback to avoid hangs when there are no scheduled inputs: if the only
+         * inputs left are "unscheduled" (see #TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE),
+         * after this amount of time those inputs are all re-scheduled.
+         */
+        // TODO i#6959: Once we have -exit_if_all_unscheduled raise this.
+        uint64_t block_time_max_us = 2500;
     };
 
     /**
@@ -1324,11 +1364,11 @@ protected:
         uint64_t syscall_timeout_arg = 0;
         // Used to switch before we've read the next instruction.
         bool switching_pre_instruction = false;
-        // Used for time-based quanta.
+        // Used for time-based quanta.  The units are simulation time.
         uint64_t prev_time_in_quantum = 0;
         uint64_t time_spent_in_quantum = 0;
         // These fields model waiting at a blocking syscall.
-        // The units are us for instr quanta and simuilation time for time quanta.
+        // The units are in simuilation time.
         uint64_t blocked_time = 0;
         uint64_t blocked_start_time = 0;
         // An input can be "unscheduled" and not on the ready_priority_ run queue at all
@@ -1531,6 +1571,9 @@ protected:
     virtual bool
     process_next_initial_record(input_info_t &input, RecordType record,
                                 bool &found_filetype, bool &found_timestamp);
+
+    scheduler_status_t
+    legacy_field_support();
 
     // Opens readers for each file in 'path', subject to the constraints in
     // 'reader_info'.  'path' may be a directory.
