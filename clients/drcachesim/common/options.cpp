@@ -368,6 +368,13 @@ droption_t<bytesize_t> op_retrace_every_instrs(
     "TRACE_MARKER_TYPE_WINDOW_ID markers.  For -offline traces, each window is placed "
     "into its own separate set of output files, unless -no_split_windows is set.");
 
+droption_t<std::string> op_trace_instr_intervals_file(
+    DROPTION_SCOPE_CLIENT, "trace_instr_intervals_file", "",
+    "File containing instruction intervals to trace.",
+    "File containing instruction intervals to trace in csv format.  "
+    "Intervals are specified as a <start, duration> pair per line. Example in: "
+    "clients/drcachesim/tests/instr_intervals_example.csv");
+
 droption_t<bool> op_split_windows(
     DROPTION_SCOPE_CLIENT, "split_windows", true,
     "Whether -retrace_every_instrs should write separate files",
@@ -1011,6 +1018,18 @@ droption_t<double> op_sched_time_units_per_us(
     "Time units (currently wall-clock time) per simulated microsecond.  This scales all "
     "of the -sched_*_us values as it converts wall-clock time into the simulated "
     "microseconds measured by those options.");
+
+droption_t<uint64_t> op_sched_migration_threshold_us(
+    DROPTION_SCOPE_ALL, "sched_migration_threshold_us", 500,
+    "Time in simulated microseconds before an input can be migrated across cores",
+    "The minimum time in simulated microseconds that must have elapsed since an input "
+    "last ran on a core before it can be migrated to another core.");
+
+droption_t<uint64_t> op_sched_rebalance_period_us(
+    DROPTION_SCOPE_ALL, "sched_rebalance_period_us", 1500000,
+    "Period in microseconds at which core run queues are load-balanced",
+    "The period in simulated microseconds at which per-core run queues are re-balanced "
+    "to redistribute load.");
 
 // Schedule_stats options.
 droption_t<uint64_t>

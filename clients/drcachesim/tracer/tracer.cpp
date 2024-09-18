@@ -186,8 +186,9 @@ bbdup_instr_counting_enabled()
 {
     // XXX: with no other options -trace_for_instrs switches to counting mode once tracing
     // is done, so return true. Now that we have a NOP mode this could be changed.
-    return op_trace_after_instrs.get_value() > 0 || op_trace_for_instrs.get_value() > 0 ||
-        op_retrace_every_instrs.get_value() > 0;
+    return get_initial_no_trace_for_instrs_value() > 0 ||
+        get_current_trace_for_instrs_value() > 0 ||
+        get_current_no_trace_for_instrs_value() > 0;
 }
 
 static bool
@@ -470,7 +471,7 @@ instrumentation_init()
 
     if (align_attach_detach_endpoints())
         tracing_mode.store(BBDUP_MODE_NOP, std::memory_order_release);
-    else if (op_trace_after_instrs.get_value() != 0)
+    else if (get_initial_no_trace_for_instrs_value() != 0)
         tracing_mode.store(BBDUP_MODE_COUNT, std::memory_order_release);
     else if (op_L0_filter_until_instrs.get_value())
         tracing_mode.store(BBDUP_MODE_L0_FILTER, std::memory_order_release);
@@ -489,7 +490,7 @@ event_post_attach()
     uint64 timestamp = instru_t::get_timestamp();
     attached_timestamp.store(timestamp, std::memory_order_release);
     NOTIFY(1, "Fully-attached timestamp is " UINT64_FORMAT_STRING "\n", timestamp);
-    if (op_trace_after_instrs.get_value() != 0) {
+    if (get_initial_no_trace_for_instrs_value() != 0) {
         NOTIFY(1, "Switching to counting mode after attach\n");
         tracing_mode.store(BBDUP_MODE_COUNT, std::memory_order_release);
     } else if (op_L0_filter_until_instrs.get_value()) {
@@ -1582,7 +1583,7 @@ event_pre_syscall(void *drcontext, int sysnum)
     if (file_ops_func.handoff_buf == NULL &&
         (op_L0I_filter.get_value() ||
          (has_tracing_windows() &&
-          op_trace_for_instrs.get_value() < 10 * INSTRS_PER_BUFFER))) {
+          get_current_trace_for_instrs_value() < 10 * INSTRS_PER_BUFFER))) {
         process_and_output_buffer(drcontext, false);
     }
 
@@ -2003,6 +2004,7 @@ event_exit(void)
     num_filter_refs_racy = 0;
 
     exit_record_syscall();
+    delete_instr_window_lists();
     exit_io();
 
     dr_mutex_destroy(mutex);

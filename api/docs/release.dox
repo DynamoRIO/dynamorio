@@ -262,7 +262,9 @@ Further non-compatibility-affecting changes include:
    v2p.textproto. Option -use_physical (in offline mode) must also be set to use the
    mapping in v2p.textproto (note that -use_physical during tracing is not necessary, nor
    related to -use_physical offline).
-
+ - Added -trace_instr_intervals_file option to the drmemtrace trace analysis tools
+   framework. The file must be in CSV format containing a <start,duration> tracing
+   interval per line where start and duration are expressed in number of instructions.
 
 **************************************************
 <hr>
