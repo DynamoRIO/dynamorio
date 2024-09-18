@@ -36,8 +36,10 @@
 #include <stdint.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cassert>
 #include <cinttypes>
+#include <cmath>
 #include <cstddef>
 #include <cstdio>
 #include <iomanip>
@@ -53,6 +55,7 @@
 #include <utility>
 #include <vector>
 
+#include "flexible_queue.h"
 #include "memref.h"
 #include "memtrace_stream.h"
 #include "mutex_dbg_owned.h"
@@ -2549,7 +2552,6 @@ scheduler_tmpl_t<RecordType, ReaderType>::add_to_unscheduled_queue(input_info_t 
     input->containing_output = INVALID_INPUT_ORDINAL;
 }
 
-// NOCHECK get all callers to hold input lock
 template <typename RecordType, typename ReaderType>
 void
 scheduler_tmpl_t<RecordType, ReaderType>::add_to_ready_queue_hold_locks(
@@ -2560,7 +2562,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::add_to_ready_queue_hold_locks(
            outputs_[output].ready_queue.lock->owned_by_cur_thread());
     if (input->unscheduled && input->blocked_time == 0) {
         // Ensure we get prev_output set for start-unscheduled so they won't
-        // all resume on output #0 but rather on the initial round-robin assigment.
+        // all resume on output #0 but rather on the initial round-robin assignment.
         input->containing_output = output;
         add_to_unscheduled_queue(input);
         return;
@@ -2639,6 +2641,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue_hold_locks(
             } else {
                 // This input is no longer blocked.
                 res->blocked_time = 0;
+                res->unscheduled = false;
                 // We've found a candidate.  One final check if this is a migration.
                 bool found_candidate = false;
                 if (from_output == for_output)
