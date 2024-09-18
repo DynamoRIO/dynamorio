@@ -1479,6 +1479,13 @@ typedef struct _pt_data_buf_t pt_data_buf_t;
  */
 #define DRMEMTRACE_KALLSYMS_FILENAME "kallsyms"
 
+/**
+ * The name of the file in -offline mode where virtual to physical information is stored.
+ * This file contains a mapping from virtual to physical addresses, the page size used,
+ * the number of pages, and the number of bytes mapped.
+ */
+#define DRMEMTRACE_V2P_FILENAME "v2p.textproto"
+
 } // namespace drmemtrace
 } // namespace dynamorio
 

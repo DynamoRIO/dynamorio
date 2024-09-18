@@ -40,6 +40,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <istream>
 #include <unordered_map>
 #include <vector>
 
@@ -71,6 +72,9 @@ public:
     bool
     process_memref(const memref_t &memref) override;
 
+    virtual std::string
+    create_v2p_from_file(std::istream &v2p_file);
+
 protected:
     // Initialize knobs. Success or failure is indicated by setting/resetting
     // the success variable.
@@ -78,17 +82,22 @@ protected:
     init_knobs(unsigned int num_cores, uint64_t skip_refs, uint64_t warmup_refs,
                double warmup_fraction, uint64_t sim_refs, bool cpu_scheduling,
                bool use_physical, unsigned int verbose);
+
     void
     print_core(int core) const;
+
     int
     find_emptiest_core(std::vector<int> &counts) const;
+
     virtual int
     core_for_thread(memref_tid_t tid);
+
     virtual void
     handle_thread_exit(memref_tid_t tid);
 
     addr_t
     virt2phys(addr_t virt) const;
+
     memref_t
     memref2phys(memref_t memref) const;
 
@@ -133,6 +142,8 @@ protected:
     size_t page_size_ = 0;
     std::unordered_map<addr_t, addr_t> virt2phys_;
     addr_t prior_phys_addr_ = 0;
+    // Indicates whether the simulator uses a v2p file for virtual to physical mapping.
+    bool use_v2p_file_ = false;
 };
 
 } // namespace drmemtrace

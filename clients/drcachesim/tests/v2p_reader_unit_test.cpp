@@ -30,10 +30,13 @@
  * DAMAGE.
  */
 
+#include "v2p_reader_unit_test.h"
+
 #include <cstdint>
+#include <fstream>
 #include <iostream>
 #include <vector>
-#include "v2p_reader_unit_test.h"
+
 #include "reader/v2p_reader.h"
 
 namespace dynamorio {
@@ -95,12 +98,19 @@ check_v2p_info(const v2p_info_t &v2p_info)
 }
 
 void
-unit_test_v2p_reader(const char *testdir)
+unit_test_v2p_reader(const std::string &testdir)
 {
-    std::string file_path = std::string(testdir) + "/v2p_example.textproto";
+    std::string v2p_file_path = testdir + "/v2p_example.textproto";
     v2p_info_t v2p_info;
     v2p_reader_t v2p_reader;
-    std::string error_str = v2p_reader.create_v2p_info_from_file(file_path, v2p_info);
+    std::ifstream fin;
+    fin.open(v2p_file_path);
+    if (!fin.is_open()) {
+        std::cerr << "Failed to open the v2p file '" << v2p_file_path << "'\n";
+        exit(1);
+    }
+    std::string error_str = v2p_reader.create_v2p_info_from_file(fin, v2p_info);
+    fin.close();
     if (!error_str.empty()) {
         std::cerr << "v2p_reader failed with: " << error_str << "\n";
         exit(1);

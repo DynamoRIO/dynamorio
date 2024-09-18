@@ -68,6 +68,7 @@ struct tlb_simulator_knobs_t {
         , sim_refs(1ULL << 63)
         , cpu_scheduling(false)
         , use_physical(false)
+        , v2p_file("")
         , verbose(0)
     {
     }
@@ -86,6 +87,7 @@ struct tlb_simulator_knobs_t {
     uint64_t sim_refs;
     bool cpu_scheduling;
     bool use_physical;
+    std::string v2p_file;
     unsigned int verbose;
 };
 

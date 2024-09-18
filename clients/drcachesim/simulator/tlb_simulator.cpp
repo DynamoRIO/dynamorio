@@ -34,6 +34,7 @@
 
 #include <stddef.h>
 
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -55,7 +56,27 @@ namespace drmemtrace {
 analysis_tool_t *
 tlb_simulator_create(const tlb_simulator_knobs_t &knobs)
 {
-    return new tlb_simulator_t(knobs);
+    if (knobs.v2p_file.empty())
+        return new tlb_simulator_t(knobs);
+
+    std::ifstream fin;
+    fin.open(knobs.v2p_file);
+    if (!fin.is_open()) {
+        ERRMSG("Failed to open the v2p file '%s'\n", knobs.v2p_file.c_str());
+        return nullptr;
+    }
+
+    tlb_simulator_t *sim = new tlb_simulator_t(knobs);
+    std::string error_str = sim->create_v2p_from_file(fin);
+    fin.close();
+
+    if (!error_str.empty()) {
+        delete sim;
+        ERRMSG("ERROR: v2p_reader failed with: %s\n", error_str.c_str());
+        return nullptr;
+    }
+
+    return sim;
 }
 
 tlb_simulator_t::tlb_simulator_t(const tlb_simulator_knobs_t &knobs)
@@ -130,6 +151,24 @@ tlb_simulator_t::~tlb_simulator_t()
     delete[] itlbs_;
     delete[] dtlbs_;
     delete[] lltlbs_;
+}
+
+std::string
+tlb_simulator_t::create_v2p_from_file(std::istream &v2p_file)
+{
+    // If we are not using physical addresses, we don't need a virtual to physical mapping
+    // at all.
+    if (!knobs_.use_physical)
+        return "";
+
+    std::string error_str = simulator_t::create_v2p_from_file(v2p_file);
+    if (!error_str.empty()) {
+        return error_str;
+    }
+    // Overwrite tlb_simulator_t.knobs_.page size with simulator_t.page_size, which is
+    // set to be the page size in v2p_file.
+    knobs_.page_size = page_size_;
+    return "";
 }
 
 bool

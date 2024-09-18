@@ -2114,6 +2114,25 @@ if (BUILD_CLIENTS)
   endif ()
 endif ()
 
+if (AARCH64 AND UNIX AND ZLIB_FOUND)
+    # Test TLB simulator with a virtual to physical v2p.textproto mapping.
+    set(srcdir
+      ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.aarch64.raw)
+    set(locdir ${PROJECT_BINARY_DIR}/drmemtrace.threadsig.aarch64)
+    file(REMOVE_RECURSE ${locdir})
+    file(MAKE_DIRECTORY ${locdir})
+    file(COPY ${srcdir}/raw DESTINATION ${locdir}/)
+    get_target_path_for_execution(drcachesim_path drmemtrace_launcher
+      "${location_suffix}")
+    prefix_cmd_if_necessary(drcachesim_path ON ${drcachesim_path})
+    torunonly_api(tool.drcacheoff.tlb_simulator_v2p "${drcachesim_path}"
+      "offline-tlb_simulator_v2p" ""
+      "-indir;${locdir};-tool;TLB;-alt_module_dir;${srcdir};-module_file;${locdir}/raw/modules.log;-v2p_file;${srcdir}/v2p.textproto;-use_physical"
+      OFF OFF)
+    set(tool.drcacheoff.tlb_simulator_v2p_basedir
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+endif ()
+
 if (DR_HOST_NOT_TARGET)
   # i#1684,i#4318: Test postprocessing and analysis with an alternate binary directory.
   # Limited to UNIX because the checked-in modules.log is in UNIX format

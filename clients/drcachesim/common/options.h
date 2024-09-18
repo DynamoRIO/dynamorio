@@ -120,6 +120,7 @@ extern dynamorio::droption::droption_t<bool> op_instr_only_trace;
 extern dynamorio::droption::droption_t<bool> op_coherence;
 extern dynamorio::droption::droption_t<bool> op_use_physical;
 extern dynamorio::droption::droption_t<unsigned int> op_virt2phys_freq;
+extern dynamorio::droption::droption_t<std::string> op_v2p_file;
 extern dynamorio::droption::droption_t<bool> op_cpu_scheduling;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t> op_max_trace_size;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t>

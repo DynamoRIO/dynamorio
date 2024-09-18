@@ -286,6 +286,16 @@ droption_t<unsigned int> op_virt2phys_freq(
     "The units are the number of memory accesses per forced access.  A value of 0 "
     "uses the cached values for the entire application execution.");
 
+droption_t<std::string> op_v2p_file(
+    DROPTION_SCOPE_FRONTEND, "v2p_file", "", "Path to v2p.textproto for simulator tools",
+    "The " TLB " simulator can use v2p.textproto to translate virtual addresses to "
+    "physical ones during offline analysis. If the file is named v2p.textproto and is in "
+    "the same directory as the trace file, or a raw/ subdirectory below the trace file, "
+    "this parameter can be omitted. This option overwrites both -page_size and the page "
+    "size marker in the trace (if present) with the page size in v2p.textproto. The "
+    "option -use_physical (in offline mode) must be set to use the v2p.textproto "
+    "mapping. Note that -use_physical does not need to be set during tracing.");
+
 droption_t<bool> op_cpu_scheduling(
     DROPTION_SCOPE_CLIENT, "cpu_scheduling", false,
     "Map threads to cores matching recorded cpu execution",

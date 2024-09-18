@@ -805,7 +805,7 @@ if (BUILD_TESTS)
 
   add_executable(tool.drcachesim.unit_tests tests/drcachesim_unit_tests.cpp
     tests/cache_replacement_policy_unit_test.cpp tests/config_reader_unit_test.cpp
-    tests/v2p_reader_unit_test.cpp)
+    tests/v2p_reader_unit_test.cpp tests/tlb_simulator_unit_test.cpp)
   target_link_libraries(tool.drcachesim.unit_tests drmemtrace_simulator
     # Link test_helpers first, or else the zlib main takes over.
     drmemtrace_static drmemtrace_analyzer test_helpers ${zlib_libs})
