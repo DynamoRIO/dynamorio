@@ -2641,6 +2641,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue_hold_locks(
             } else {
                 // This input is no longer blocked.
                 res->blocked_time = 0;
+                res->unscheduled = false;
                 // We've found a candidate.  One final check if this is a migration.
                 bool found_candidate = false;
                 if (from_output == for_output)
