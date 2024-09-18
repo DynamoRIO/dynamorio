@@ -1549,7 +1549,7 @@ protected:
     add_to_unscheduled_queue(input_info_t *input);
 
     uint64_t
-    scale_blocked_time(uint64_t blocked_time) const;
+    scale_blocked_time(uint64_t initial_time) const;
 
     // The input's lock must be held by the caller.
     // Returns a multiplier for how long the input should be considered blocked.
