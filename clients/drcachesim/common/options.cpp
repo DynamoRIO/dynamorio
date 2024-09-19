@@ -1026,7 +1026,7 @@ droption_t<uint64_t> op_sched_migration_threshold_us(
     "last ran on a core before it can be migrated to another core.");
 
 droption_t<uint64_t> op_sched_rebalance_period_us(
-    DROPTION_SCOPE_ALL, "sched_rebalance_period_us", 1500000,
+    DROPTION_SCOPE_ALL, "sched_rebalance_period_us", 50000,
     "Period in microseconds at which core run queues are load-balanced",
     "The period in simulated microseconds at which per-core run queues are re-balanced "
     "to redistribute load.");
