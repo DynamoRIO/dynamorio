@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -92,7 +92,8 @@ static pt_metadata_t pt_shared_metadata;
  * use dr_global_free() to free the buffer.
  */
 static bool
-read_file_to_buf(IN const char *filename, OUT char **buf, OUT uint64_t *buf_size)
+read_file_to_buf(DR_PARAM_IN const char *filename, DR_PARAM_OUT char **buf,
+                 DR_PARAM_OUT uint64_t *buf_size)
 {
     ASSERT(filename != NULL, "filename is NULL");
     ASSERT(buf != NULL, "buf is NULL");
@@ -147,36 +148,39 @@ typedef enum {
  *   valid data = empty
  */
 static read_ring_buf_status_t
-read_ring_buf_to_buf(IN void *drcontext, IN uint8_t *ring_buf_base,
-                     IN uint64_t ring_buf_size, IN uint64_t head, IN uint64_t tail,
-                     OUT void **data_buf, OUT uint64_t *data_buf_size)
+read_ring_buf_to_buf(DR_PARAM_IN void *drcontext, DR_PARAM_IN uint8_t *ring_buf_base,
+                     DR_PARAM_IN uint64_t ring_buf_size, DR_PARAM_IN uint64_t head,
+                     DR_PARAM_IN uint64_t tail, DR_PARAM_IN uint64_t output_buf_size,
+                     DR_PARAM_OUT void *output_buf,
+                     DR_PARAM_OUT uint64_t *output_data_size)
 {
     if (ring_buf_base == NULL) {
         ASSERT(false, "try to read from NULL buffer");
         return READ_RING_BUFFER_ERROR_INVALID_PARAMETER;
     }
     uint64_t data_size = head - tail;
+    if (data_size > output_buf_size) {
+        ASSERT(false, "output buffer size is too small");
+        return READ_RING_BUFFER_ERROR_INVALID_PARAMETER;
+    }
     if (data_size > ring_buf_size) {
-        ASSERT(
-            false,
-            "data size is larger than the ring buffer size, and old data is overwritten");
+        ASSERT(false,
+               "Data size is larger than the ring buffer size, and old data is "
+               "overwritten. Consider increasing -kernel_trace_buffer_size_shift.");
         return READ_RING_BUFFER_ERROR_OLD_DATA_OVERWRITTEN;
     }
-    *data_buf_size = data_size;
-    if (data_size > 0) {
-        *data_buf = dr_thread_alloc(drcontext, *data_buf_size);
-    } else {
-        *data_buf = NULL;
-    }
+
+    *output_data_size = data_size;
+    ASSERT(output_buf != NULL, "output_buf is NULL");
 
     uint64_t head_offs = head % ring_buf_size;
     uint64_t tail_offs = tail % ring_buf_size;
     if (head_offs > tail_offs) {
-        memcpy((uint8_t *)*data_buf, ring_buf_base + tail_offs, data_size);
+        memcpy((uint8_t *)output_buf, ring_buf_base + tail_offs, data_size);
     } else if (head_offs < tail_offs) {
-        memcpy((uint8_t *)*data_buf, ring_buf_base + tail_offs,
+        memcpy((uint8_t *)output_buf, ring_buf_base + tail_offs,
                ring_buf_size - tail_offs);
-        memcpy((uint8_t *)*data_buf + ring_buf_size - tail_offs, ring_buf_base,
+        memcpy((uint8_t *)output_buf + ring_buf_size - tail_offs, ring_buf_base,
                head_offs);
     } else {
         /* Do nothing. */
@@ -192,7 +196,7 @@ read_ring_buf_to_buf(IN void *drcontext, IN uint8_t *ring_buf_base,
 
 /* This function is used to get the Intel PT's PMU type. */
 static bool
-parse_pt_pmu_type(OUT uint32_t *pmu_type)
+parse_pt_pmu_type(DR_PARAM_OUT uint32_t *pmu_type)
 {
     ASSERT(pmu_type != NULL, "pmu_type is NULL");
     /* Read type str from /sys/devices/intel_pt/type. */
@@ -222,7 +226,8 @@ parse_pt_pmu_type(OUT uint32_t *pmu_type)
  * sets the 'val' to the corresponding bit.
  */
 static bool
-parse_pt_pmu_event_config(IN const char *name, uint64_t val, OUT uint64_t *config)
+parse_pt_pmu_event_config(DR_PARAM_IN const char *name, uint64_t val,
+                          DR_PARAM_OUT uint64_t *config)
 {
     /* Read config str from /sys/devices/intel_pt/format/name. */
     char *buf = NULL;
@@ -291,7 +296,7 @@ parse_pt_pmu_event_config(IN const char *name, uint64_t val, OUT uint64_t *confi
  * more packets, making the decoding process more reliable.
  */
 static bool
-pt_perf_event_attr_init(bool user, bool kernel, OUT struct perf_event_attr *attr)
+pt_perf_event_attr_init(bool user, bool kernel, DR_PARAM_OUT struct perf_event_attr *attr)
 {
     ASSERT(attr != NULL, "attr is NULL");
     ASSERT(user || kernel, "user and kernel are all false");
@@ -336,8 +341,9 @@ pt_perf_event_attr_init(bool user, bool kernel, OUT struct perf_event_attr *attr
 /* This function is used to open a perf event.
  */
 static int
-perf_event_open(IN struct perf_event_attr *attr, IN pid_t pid, IN int cpu,
-                IN int group_fd, IN unsigned long flags)
+perf_event_open(DR_PARAM_IN struct perf_event_attr *attr, DR_PARAM_IN pid_t pid,
+                DR_PARAM_IN int cpu, DR_PARAM_IN int group_fd,
+                DR_PARAM_IN unsigned long flags)
 {
     errno = 0;
     int fd = syscall(SYS_perf_event_open, attr, pid, cpu, group_fd, flags);
@@ -443,9 +449,11 @@ drpttracer_exit(void)
 
 DR_EXPORT
 drpttracer_status_t
-drpttracer_create_handle(IN void *drcontext, IN drpttracer_tracing_mode_t tracing_mode,
-                         IN uint pt_size_shift, IN uint sideband_size_shift,
-                         OUT void **tracer_handle)
+drpttracer_create_handle(DR_PARAM_IN void *drcontext,
+                         DR_PARAM_IN drpttracer_tracing_mode_t tracing_mode,
+                         DR_PARAM_IN uint pt_size_shift,
+                         DR_PARAM_IN uint sideband_size_shift,
+                         DR_PARAM_OUT void **tracer_handle)
 {
     if (tracer_handle == NULL) {
         ASSERT(false, "tracer_handle is NULL");
@@ -518,7 +526,7 @@ drpttracer_create_handle(IN void *drcontext, IN drpttracer_tracing_mode_t tracin
 
 DR_EXPORT
 drpttracer_status_t
-drpttracer_destroy_handle(IN void *drcontext, INOUT void *tracer_handle)
+drpttracer_destroy_handle(DR_PARAM_IN void *drcontext, DR_PARAM_INOUT void *tracer_handle)
 {
     pttracer_handle_t *handle = (pttracer_handle_t *)tracer_handle;
     if (handle == NULL) {
@@ -550,7 +558,7 @@ drpttracer_destroy_handle(IN void *drcontext, INOUT void *tracer_handle)
 
 DR_EXPORT
 drpttracer_status_t
-drpttracer_start_tracing(IN void *drcontext, IN void *tracer_handle)
+drpttracer_start_tracing(DR_PARAM_IN void *drcontext, DR_PARAM_IN void *tracer_handle)
 {
     pttracer_handle_t *handle = (pttracer_handle_t *)tracer_handle;
     if (handle == NULL || handle->fd < 0) {
@@ -571,8 +579,8 @@ drpttracer_start_tracing(IN void *drcontext, IN void *tracer_handle)
 
 DR_EXPORT
 drpttracer_status_t
-drpttracer_stop_tracing(IN void *drcontext, IN void *tracer_handle,
-                        OUT drpttracer_output_t *output)
+drpttracer_stop_tracing(DR_PARAM_IN void *drcontext, DR_PARAM_IN void *tracer_handle,
+                        DR_PARAM_OUT drpttracer_output_t *output)
 {
     pttracer_handle_t *handle = (pttracer_handle_t *)tracer_handle;
     if (handle == NULL || handle->fd < 0) {
@@ -607,7 +615,7 @@ drpttracer_stop_tracing(IN void *drcontext, IN void *tracer_handle,
     read_ring_buf_status_t read_pt_data_status =
         read_ring_buf_to_buf(drcontext, (uint8_t *)handle->aux, handle->header->aux_size,
                              handle->header->aux_head, handle->header->aux_tail,
-                             &output->pt_buffer, &output->pt_size);
+                             output->pt_buffer_size, output->pt_buffer, &output->pt_size);
     if (read_pt_data_status != READ_RING_BUFFER_SUCCESS) {
         ERRMSG("failed to read data from ring buffer(errno:%d) \n", read_pt_data_status);
         ASSERT(false, "failed to read PT data from the ring buffer");
@@ -631,7 +639,8 @@ drpttracer_stop_tracing(IN void *drcontext, IN void *tracer_handle,
         read_ring_buf_status_t read_sd_status = read_ring_buf_to_buf(
             drcontext, (uint8_t *)handle->base + handle->header->data_offset,
             handle->header->data_size, handle->header->data_head,
-            handle->header->data_tail, &output->sideband_buffer, &output->sideband_size);
+            handle->header->data_tail, output->sideband_buffer_size,
+            output->sideband_buffer, &output->sideband_size);
         if (read_sd_status != READ_RING_BUFFER_SUCCESS) {
             ERRMSG("failed to read data from ring buffer(errno:%d) \n", read_sd_status);
             ASSERT(false, "failed to read sideband data from the ring buffer");
@@ -657,7 +666,8 @@ drpttracer_stop_tracing(IN void *drcontext, IN void *tracer_handle,
 
 DR_EXPORT
 drpttracer_status_t
-drpttracer_get_pt_metadata(IN void *tracer_handle, OUT pt_metadata_t *pt_metadata)
+drpttracer_get_pt_metadata(DR_PARAM_IN void *tracer_handle,
+                           DR_PARAM_OUT pt_metadata_t *pt_metadata)
 {
     pttracer_handle_t *handle = (pttracer_handle_t *)tracer_handle;
     if (handle == NULL || handle->fd < 0) {
@@ -686,8 +696,9 @@ drpttracer_get_pt_metadata(IN void *tracer_handle, OUT pt_metadata_t *pt_metadat
 
 DR_EXPORT
 drpttracer_status_t
-drpttracer_create_output(IN void *drcontext, IN uint pt_buf_size_shift,
-                         IN size_t sd_buf_size_shift, OUT drpttracer_output_t **output)
+drpttracer_create_output(DR_PARAM_IN void *drcontext, DR_PARAM_IN uint pt_buf_size_shift,
+                         DR_PARAM_IN size_t sd_buf_size_shift,
+                         DR_PARAM_OUT drpttracer_output_t **output)
 {
     if (output == NULL) {
         ASSERT(false, "invalid output");
@@ -704,7 +715,7 @@ drpttracer_create_output(IN void *drcontext, IN uint pt_buf_size_shift,
         ASSERT(false, "failed to allocate memory for output");
         return DRPTTRACER_ERROR_FAILED_TO_ALLOCATE_OUTPUT_BUFFER;
     }
-    (*output)->pt_buffer_size = 1 << pt_buf_size_shift;
+    (*output)->pt_buffer_size = (uint64_t)(1UL << pt_buf_size_shift) * dr_page_size();
     (*output)->pt_buffer = dr_thread_alloc(drcontext, (*output)->pt_buffer_size);
     if ((*output)->pt_buffer == NULL) {
         ASSERT(false, "failed to allocate memory for pt_buffer of output");
@@ -713,7 +724,8 @@ drpttracer_create_output(IN void *drcontext, IN uint pt_buf_size_shift,
     }
     (*output)->pt_size = 0;
     if (sd_buf_size_shift != 0) {
-        (*output)->sideband_buffer_size = 1 << sd_buf_size_shift;
+        (*output)->sideband_buffer_size =
+            (uint64_t)((1UL << sd_buf_size_shift) + 1) * dr_page_size();
         (*output)->sideband_buffer =
             dr_thread_alloc(drcontext, (*output)->sideband_buffer_size);
         if ((*output)->sideband_buffer == NULL) {
@@ -732,7 +744,8 @@ drpttracer_create_output(IN void *drcontext, IN uint pt_buf_size_shift,
 
 DR_EXPORT
 drpttracer_status_t
-drpttracer_destroy_output(IN void *drcontext, IN drpttracer_output_t *output)
+drpttracer_destroy_output(DR_PARAM_IN void *drcontext,
+                          DR_PARAM_IN drpttracer_output_t *output)
 {
     if (output == NULL) {
         ASSERT(false, "trying to free NULL output buffer");

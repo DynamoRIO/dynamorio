@@ -932,8 +932,8 @@ hide_from_rbtree(LDR_MODULE *mod)
     RTL_RB_TREE *tree;
     RTL_RB_TREE tree_local;
     RTL_BALANCED_NODE *node;
-    typedef VOID(NTAPI * RtlRbRemoveNode_t)(IN PRTL_RB_TREE Tree,
-                                            IN PRTL_BALANCED_NODE Node);
+    typedef VOID(NTAPI * RtlRbRemoveNode_t)(DR_PARAM_IN PRTL_RB_TREE Tree,
+                                            DR_PARAM_IN PRTL_BALANCED_NODE Node);
     RtlRbRemoveNode_t RtlRbRemoveNode;
     module_handle_t ntdllh;
 
@@ -2576,7 +2576,7 @@ is_module_patch_region(dcontext_t *dcontext, app_pc start, app_pc end, bool cons
 
 #define IMAGE_REL_BASED_TYPE(x) ((x) >> 12)
 #define IMAGE_REL_BASED_OFFSET_MASK 0x0FFF
-#define IMAGE_REL_BASED_OFFSET(x) ((ushort)((x)&IMAGE_REL_BASED_OFFSET_MASK))
+#define IMAGE_REL_BASED_OFFSET(x) ((ushort)((x) & IMAGE_REL_BASED_OFFSET_MASK))
 
 /* Processes a single relocation and returns the relocated address.  If
  * apply_reloc is false, the actual relocation isn't performed on the
@@ -2751,8 +2751,9 @@ add_SEH_to_rct_table(dcontext_t *dcontext, app_pc module_base)
     func_entry =
         (PIMAGE_RUNTIME_FUNCTION_ENTRY)(module_base + except_dir->VirtualAddress);
     pdata_start = (byte *)func_entry;
-    func_entry_end = (PIMAGE_RUNTIME_FUNCTION_ENTRY)(
-        module_base + except_dir->VirtualAddress + except_dir->Size);
+    func_entry_end =
+        (PIMAGE_RUNTIME_FUNCTION_ENTRY)(module_base + except_dir->VirtualAddress +
+                                        except_dir->Size);
     /* spec says func_entry must be dword-aligned */
     ASSERT_CURIOSITY(ALIGNED(func_entry, sizeof(DWORD)));
     ASSERT((app_pc)func_entry_end >= module_base &&
@@ -4097,8 +4098,9 @@ get_module_preferred_base_safe(app_pc pc)
  * caller has no obligations.
  */
 bool
-os_get_module_info(const app_pc pc, OUT uint *checksum, OUT uint *timestamp,
-                   OUT size_t *module_size, OUT const char **name, size_t *code_size,
+os_get_module_info(const app_pc pc, DR_PARAM_OUT uint *checksum,
+                   DR_PARAM_OUT uint *timestamp, DR_PARAM_OUT size_t *module_size,
+                   DR_PARAM_OUT const char **name, size_t *code_size,
                    uint64 *file_version)
 {
     bool ok = false;
@@ -4146,9 +4148,11 @@ os_get_module_info(const app_pc pc, OUT uint *checksum, OUT uint *timestamp,
  * don't to make sure that both os_get_module_info*() have a consistent interface.
  */
 bool
-os_get_module_info_all_names(const app_pc pc, OUT uint *checksum, OUT uint *timestamp,
-                             OUT size_t *module_size, OUT module_names_t **names,
-                             size_t *code_size, uint64 *file_version)
+os_get_module_info_all_names(const app_pc pc, DR_PARAM_OUT uint *checksum,
+                             DR_PARAM_OUT uint *timestamp,
+                             DR_PARAM_OUT size_t *module_size,
+                             DR_PARAM_OUT module_names_t **names, size_t *code_size,
+                             uint64 *file_version)
 {
     /* FIXME: currently just a little safer than looking up in PE itself */
     module_area_t *ma;
@@ -4999,8 +5003,8 @@ module_dump_pe_file(HANDLE new_file, app_pc module_base, size_t module_size)
  */
 static bool
 ensure_section_readable(app_pc module_base, IMAGE_SECTION_HEADER *sec,
-                        IMAGE_NT_HEADERS *nt, OUT uint *old_prot, app_pc view_start,
-                        size_t view_len)
+                        IMAGE_NT_HEADERS *nt, DR_PARAM_OUT uint *old_prot,
+                        app_pc view_start, size_t view_len)
 {
     int ok;
     app_pc intersection_start;
@@ -6351,8 +6355,9 @@ module_contains_addr(module_area_t *ma, app_pc pc)
 }
 
 bool
-module_get_tls_info(app_pc module_base, OUT void ***callbacks, OUT int **index,
-                    OUT byte **data_start, OUT byte **data_end)
+module_get_tls_info(app_pc module_base, DR_PARAM_OUT void ***callbacks,
+                    DR_PARAM_OUT int **index, DR_PARAM_OUT byte **data_start,
+                    DR_PARAM_OUT byte **data_end)
 {
     IMAGE_NT_HEADERS *nt;
     IMAGE_DATA_DIRECTORY *data_dir;

@@ -1008,8 +1008,9 @@ DR_API
  */
 void
 instrlist_insert_mov_immed_ptrsz(void *drcontext, ptr_int_t val, opnd_t dst,
-                                 instrlist_t *ilist, instr_t *where, instr_t **first OUT,
-                                 instr_t **last OUT);
+                                 instrlist_t *ilist, instr_t *where,
+                                 instr_t **first DR_PARAM_OUT,
+                                 instr_t **last DR_PARAM_OUT);
 
 DR_API
 /**
@@ -1021,8 +1022,8 @@ DR_API
  */
 void
 instrlist_insert_push_immed_ptrsz(void *drcontext, ptr_int_t val, instrlist_t *ilist,
-                                  instr_t *where, instr_t **first OUT,
-                                  instr_t **last OUT);
+                                  instr_t *where, instr_t **first DR_PARAM_OUT,
+                                  instr_t **last DR_PARAM_OUT);
 
 DR_API
 /**
@@ -1043,7 +1044,8 @@ DR_API
 void
 instrlist_insert_mov_instr_addr(void *drcontext, instr_t *src_inst, byte *encode_estimate,
                                 opnd_t dst, instrlist_t *ilist, instr_t *where,
-                                instr_t **first OUT, instr_t **last OUT);
+                                instr_t **first DR_PARAM_OUT,
+                                instr_t **last DR_PARAM_OUT);
 
 DR_API
 /**
@@ -1062,7 +1064,8 @@ DR_API
 void
 instrlist_insert_push_instr_addr(void *drcontext, instr_t *src_inst,
                                  byte *encode_estimate, instrlist_t *ilist,
-                                 instr_t *where, instr_t **first OUT, instr_t **last OUT);
+                                 instr_t *where, instr_t **first DR_PARAM_OUT,
+                                 instr_t **last DR_PARAM_OUT);
 
 DR_API
 /**
@@ -1133,6 +1136,19 @@ DR_API
  */
 int
 dr_insert_it_instrs(void *drcontext, instrlist_t *ilist);
+
+DR_API
+/**
+ * Insert code to get the application value of the thread pointer register
+ * into register \p reg.
+ *
+ * \return whether successful.
+ *
+ * \note RISCV-only
+ */
+bool
+dr_insert_get_app_tls(void *drcontext, instrlist_t *ilist, instr_t *instr,
+                      reg_id_t tls_reg, reg_id_t reg);
 
 DR_API
 /**

@@ -42,6 +42,9 @@
 
 #include "../arch/asm_defines.asm"
 #include "../arch/x86/x86_asm_defines.asm" /* PUSHGPR, POPGPR, etc. */
+#ifdef LINUX
+# include "include/syscall.h"
+#endif
 #ifdef MACOS
 # include "include/syscall_mach.h" /* SYSCALL_NUM_MARKER_* */
 #endif
@@ -753,5 +756,82 @@ GLOBAL_LABEL(load_dynamo_failure:)
         END_FUNC(load_dynamo_failure)
 
 #endif /* WINDOWS */
+
+#ifdef LINUX
+/* SYS_clone swaps the stack so we need asm support to call it.
+ * signature:
+ *   thread_id_t dynamorio_clone(uint flags, byte *newsp, void *ptid, void *tls,
+ *                               void *ctid, void (*func)(void))
+ * i#6514: If newsp is NULL then that tells the kernel to give the child the
+ * same value for SP as the parent.
+ */
+        DECLARE_FUNC(dynamorio_clone)
+GLOBAL_LABEL(dynamorio_clone:)
+        /* Save func for use post-syscall on the newsp.
+         * This is tricky because we have to handle the case of newsp == NULL.
+         */
+# ifdef X64
+        /* The syscall preserves all registers except rax, rcx, r11. */
+        push     r15
+        mov      r15, ARG6 /* Func is now in r15. */
+        and      ARG2, -FRAME_ALIGNMENT /* For glibc compatibility, align newsp. */
+        /* All args are already in syscall registers, except for rcx. */
+        mov      r10, rcx
+        mov      REG_XAX, SYS_clone
+        syscall
+# else
+        /* Fetch some args we need before we modify XSP and ARGn is no
+         * longer usable.
+         */
+        mov      REG_XCX, ARG2 /* newsp */
+        mov      REG_XDX, ARG3 /* ptid */
+        mov      REG_XAX, ARG6 /* func */
+        /* Preserve callee-saved regs. */
+        push     REG_XBX
+        push     REG_XSI
+        push     REG_XDI
+        /* Now can't use ARG* since xsp modified by pushes. */
+        mov      REG_XBX, DWORD [4*ARG_SZ + REG_XSP] /* ARG1 + 3 pushes */
+        mov      REG_XSI, DWORD [7*ARG_SZ + REG_XSP] /* ARG4 + 3 pushes */
+        mov      REG_XDI, DWORD [8*ARG_SZ + REG_XSP] /* ARG5 + 3 pushes */
+        /* i#6514: Save func on the child's stack. Remember that if newsp is
+         * NULL then the child's stack is our stack. When the syscall returns
+         * it's cumbersome to know whether newsp was NULL. To keep things simple
+         * for the parent always push func on our stack.
+         */
+        push     REG_XAX /* Xsp is misaligned at this point but kernel doesn't care. */
+        and      REG_XCX, -FRAME_ALIGNMENT /* For glibc compatibility, align newsp. */
+        jz       newsp_is_null
+        sub      REG_XCX, ARG_SZ
+        mov      [REG_XCX], REG_XAX /* Func is now on TOS of newsp. */
+newsp_is_null:
+        mov      REG_XAX, SYS_clone
+        /* PR 254280: we assume int$80 is ok even for LOL64 */
+        int      HEX(80)
+# endif
+        cmp      REG_XAX, 0
+        jne      dynamorio_clone_parent
+# ifdef X64
+        call     r15
+# else
+        pop      REG_XCX
+        call     REG_XCX
+# endif
+        /* Shouldn't return. */
+        jmp      GLOBAL_REF(unexpected_return)
+dynamorio_clone_parent:
+# ifdef X64
+        pop      r15
+# else
+        /* Restore callee-saved regs. */
+        add      REG_XSP, ARG_SZ /* Discard func. */
+        pop      REG_XDI
+        pop      REG_XSI
+        pop      REG_XBX
+# endif
+        /* Return val is in eax still. */
+        ret
+        END_FUNC(dynamorio_clone)
+#endif /* LINUX */
 
 END_FILE

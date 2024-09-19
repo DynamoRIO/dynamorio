@@ -57,26 +57,11 @@ encode_common(byte *pc, instr_t *i, decode_info_t *di);
 #define BITS(_enc, bitmax, bitmin) \
     ((((uint32)(_enc)) >> (bitmin)) & (uint32)MASK((bitmax) - (bitmin) + 1))
 
-#if !defined(DR_HOST_NOT_TARGET) && !defined(STANDALONE_DECODER)
-/* TODO i#3044: Vector length will be read from cpuinfo, e.g.
- * opnd_size_from_bytes(proc_get_vector_length()));
- * Setting to fixed size for now in order to pass unit tests.
- */
-#    define OPSZ_SVE_VL opnd_size_from_bytes(dr_get_sve_vl() / 8)
-#else
-/* SVE vector length for off-line decoder set using -vl option with drdisas,
- * e.g.
- * $ drdisas -vl 256 e58057a1 85865e6b
- *  e58057a1   str    %z1 -> +0x05(%x29)[32byte]
- *  85865e6b   ldr    +0x37(%x19)[32byte] -> %z11
- * $
- */
-#    define OPSZ_SVE_VL opnd_size_from_bytes(dr_get_sve_vl() / 8)
-#endif
-
-#define RETURN_FALSE                                           \
-    CLIENT_ASSERT(false, "Unexpected state in AArch64 codec"); \
-    return false;
+#define RETURN_FALSE                                               \
+    do {                                                           \
+        CLIENT_ASSERT(false, "Unexpected state in AArch64 codec"); \
+        return false;                                              \
+    } while (0);
 
 // Frustratingly vera++ fails if RETURN_FALSE is referenced inside this macro
 #define IF_RETURN_FALSE(condition)                                 \
@@ -84,5 +69,15 @@ encode_common(byte *pc, instr_t *i, decode_info_t *di);
         CLIENT_ASSERT(false, "Unexpected state in AArch64 codec"); \
         return false;                                              \
     }
+
+#define EXCLUDE_ELEMENT(elsz)                                                \
+    do {                                                                     \
+        if (!opnd_is_element_vector_reg(opnd))                               \
+            return false;                                                    \
+                                                                             \
+        const aarch64_reg_offset size = get_vector_element_reg_offset(opnd); \
+        if (size == NOT_A_REG || size == elsz)                               \
+            return false;                                                    \
+    } while (0);
 
 #endif /* CODEC_H */

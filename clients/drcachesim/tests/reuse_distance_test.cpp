@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, LLC  All rights reserved.
+ * Copyright (c) 2015-2024 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,7 +38,8 @@
 #include "../tools/reuse_distance_create.h"
 #include "../common/memref.h"
 
-namespace {
+namespace dynamorio {
+namespace drmemtrace {
 
 #define TEST_VERBOSE(N) (test_verbosity >= N)
 unsigned int test_verbosity = 0;
@@ -63,6 +64,8 @@ public:
         : reuse_distance_t(knobs)
     {
         test_verbosity = knobs.verbose; // Set the file verbosity.
+        stream_ = std::unique_ptr<memtrace_stream_t>(new default_memtrace_stream_t);
+        serial_stream_ = stream_.get();
     }
 
     ~reuse_distance_test_t()
@@ -84,11 +87,14 @@ public:
     using reuse_distance_t::get_aggregated_results;
     using reuse_distance_t::print_histogram;
 
-    std::unordered_map<memref_tid_t, shard_data_t *> &
+    std::unordered_map<int, shard_data_t *> &
     get_shard_map()
     {
         return shard_map_;
     }
+
+private:
+    std::unique_ptr<memtrace_stream_t> stream_;
 };
 
 // Helper class to return a non-repeating(*) sequence of addresses.
@@ -308,7 +314,7 @@ print_histogram_empty_test()
     reuse_distance_test_t reuse_distance(knobs);
 
     // Create an empty histogram vector and distance histogram.
-    std::vector<std::pair<int_least64_t, int_least64_t>> sorted;
+    std::vector<std::pair<int64_t, int64_t>> sorted;
     reuse_distance_t::distance_histogram_t distance_map_data;
 
     // Make sure print_histogram handles this case without crashing.
@@ -335,13 +341,13 @@ print_histogram_mult_1p0_test()
     reuse_distance_test_t reuse_distance(knobs);
 
     // Fill in a sorted histogram vector.
-    std::vector<std::pair<int_least64_t, int_least64_t>> sorted;
+    std::vector<std::pair<int64_t, int64_t>> sorted;
     // Also put some matching entries in a data histogram.
     reuse_distance_t::distance_histogram_t distance_map_data;
 
     constexpr int N = 100;
 
-    int_least64_t count = 0;
+    int64_t count = 0;
     for (int i = 0; i < N; ++i) {
         sorted.emplace_back(i, 1);
         count += sorted.back().second;
@@ -380,12 +386,12 @@ print_histogram_mult_1p2_test()
     reuse_distance_test_t reuse_distance(knobs);
 
     // Fill in a sorted histogram vector.
-    std::vector<std::pair<int_least64_t, int_least64_t>> sorted;
+    std::vector<std::pair<int64_t, int64_t>> sorted;
     reuse_distance_t::distance_histogram_t distance_map_data;
 
     constexpr int N = 100;
 
-    int_least64_t count = 0;
+    int64_t count = 0;
     for (int i = 0; i < N; ++i) {
         sorted.emplace_back(i, 2);
         count += sorted.back().second;
@@ -501,10 +507,8 @@ data_histogram_test()
     }
 }
 
-} // namespace
-
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
     print_histogram_empty_test();
     print_histogram_mult_1p0_test();
@@ -512,4 +516,8 @@ main(int argc, const char *argv[])
     simple_reuse_distance_test();
     reuse_distance_limit_test();
     data_histogram_test();
+    return 0;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

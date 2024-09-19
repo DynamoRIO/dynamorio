@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2012-2017 Google, Inc.    All rights reserved.
+# Copyright (c) 2012-2023 Google, Inc.    All rights reserved.
 # **********************************************************
 #
 # Redistribution and use in source and binary forms, with or without
@@ -313,3 +313,117 @@ if (UNIX)
   endfunction (set_preferred_base_start_and_end)
 
 endif (UNIX)
+
+function (check_sve_processor_and_compiler_support out vl_out)
+  include(CheckCSourceRuns)
+  set(sve_prog "#include <stdint.h>
+                #include <stdio.h>
+                int main() {
+                    uint64_t vl = 0;
+                    asm(\"rdvl %[dest], 1\" : [dest] \"=r\" (vl) : :);
+                    printf(\"%lu\", vl * 8);
+                    return 0;
+                 }")
+  set(CMAKE_REQUIRED_FLAGS ${CFLAGS_SVE})
+  if (CMAKE_CROSSCOMPILING)
+    # If we are cross-compiling check_c_source_runs() can't run the executable on the
+    # host to find out whether the target processor supports SVE, so we assume it
+    # doesn't.
+    set(proc_found_sve_EXITCODE 1 CACHE STRING
+        "Set to 0 if target processor/emulator supports SVE to enable SVE tests"
+        FORCE)
+  else ()
+    file(WRITE "${PROJECT_BINARY_DIR}/sve_check.c" "${sve_prog}\n")
+    try_run(proc_found_sve_EXITCODE proc_found_sve_COMPILED
+        ${PROJECT_BINARY_DIR}
+        ${PROJECT_BINARY_DIR}/sve_check.c
+        CMAKE_FLAGS -DCOMPILE_DEFINITIONS:STRING=${CFLAGS_SVE}
+        RUN_OUTPUT_VARIABLE sve_vl
+    )
+    if (NOT proc_found_sve_COMPILED)
+      set(proc_found_sve_EXITCODE 1)
+    endif()
+  endif ()
+  if (${proc_found_sve_EXITCODE} EQUAL 0)
+    message(STATUS "Compiler and processor support SVE (VL=${sve_vl}).")
+    set(${out} 1 PARENT_SCOPE)
+    set(${vl_out} ${sve_vl} PARENT_SCOPE)
+  else ()
+    message(STATUS "WARNING: Compiler or processor do not support SVE. "
+                   "Skipping tests")
+    set(${out} 0 PARENT_SCOPE)
+  endif ()
+endfunction (check_sve_processor_and_compiler_support)
+
+function (check_feature_processor_and_compiler_support
+          feat_name c_flags test_prog out)
+  include(CheckCSourceRuns)
+  set(CMAKE_REQUIRED_FLAGS ${c_flags})
+  if (CMAKE_CROSSCOMPILING)
+    # If we are cross-compiling check_c_source_runs() can't run the executable on the
+    # host to find out whether the target processor supports the feature, so we assume it
+    # doesn't.
+    set(proc_found_${feat_name}_EXITCODE 1 CACHE STRING
+        "Set to 0 if target processor/emulator supports ${feat_name} to enable ${feat_name} tests"
+        FORCE)
+  else ()
+    check_c_source_runs("${test_prog}" proc_found_${feat_name})
+  endif ()
+  if (proc_found_${feat_name})
+    message(STATUS "Compiler and processor support ${feat_name}.")
+  else ()
+    message(STATUS "WARNING: Compiler or processor do not support ${feat_name}. "
+                   "Skipping tests")
+  endif ()
+  set(${out} ${proc_found_${feat_name}} PARENT_SCOPE)
+endfunction (check_feature_processor_and_compiler_support)
+
+macro (check_sve2_processor_and_compiler_support out)
+  check_feature_processor_and_compiler_support(sve2
+    ${CFLAGS_SVE2}
+    "int main() {
+        asm(\"histcnt z0.d, p0/z, z0.d, z0.d\");
+        return 0;
+    }"
+    ${out}
+  )
+endmacro (check_sve2_processor_and_compiler_support)
+
+macro (check_pauth_processor_and_compiler_support out)
+  check_feature_processor_and_compiler_support(pauth
+    ${CFLAGS_PAUTH}
+    "int main() {
+        void *addr = 0;
+        asm(\"paciza %[ptr]\" : [ptr] \"+r\" (addr) : :);
+        return 0;
+    }"
+    ${out}
+  )
+endmacro (check_pauth_processor_and_compiler_support)
+
+function (get_processor_vendor out)
+  set(cpu_vendor "<unknown>")
+  if (APPLE)
+    find_program(SYSCTL NAMES sysctl PATHS /usr/sbin)
+    if (SYSCTL)
+      execute_process(COMMAND ${SYSCTL} -n machdep.cpu.vendor
+        OUTPUT_VARIABLE cpu_vendor OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_VARIABLE err)
+      if ("${cpu_vendor}" STREQUAL "")
+        execute_process(COMMAND ${SYSCTL} -n machdep.cpu.brand_string
+          OUTPUT_VARIABLE cpu_vendor OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_VARIABLE err)
+      endif ()
+    endif ()
+  elseif (WIN32)
+    get_filename_component(cpu_vendor
+      "[HKEY_LOCAL_MACHINE\\Hardware\\Description\\System\\CentralProcessor\\0;VendorIdentifier]"
+      NAME)
+  elseif (EXISTS "/proc/cpuinfo")
+    set (regex ".*vendor_id[ \t]*:[ \t]+([a-zA-Z0-9_-]+).*")
+    file(READ "/proc/cpuinfo" contents)
+    if (contents MATCHES ${regex})
+      string(REGEX REPLACE ${regex} "\\1" cpu_vendor "${contents}")
+    endif ()
+  endif ()
+  message(STATUS "Processor vendor is ${cpu_vendor}")
+  set(${out} ${cpu_vendor} PARENT_SCOPE)
+endfunction ()

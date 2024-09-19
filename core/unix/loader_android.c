@@ -233,7 +233,8 @@ privload_tls_exit(void *dr_tp)
  * Bionic's initializer, which clears the tls slot.
  */
 bool
-get_kernel_args(int *argc OUT, char ***argv OUT, char ***envp OUT)
+get_kernel_args(int *argc DR_PARAM_OUT, char ***argv DR_PARAM_OUT,
+                char ***envp DR_PARAM_OUT)
 {
     android_kernel_args_t *kargs;
     void **tls = (void **)get_segment_base(TLS_REG_LIB);

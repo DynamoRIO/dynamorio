@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2022 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2024 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -69,6 +69,8 @@ endif ()
 # we need libc b/c our elftoolchain libraries use it
 set(DynamoRIO_USE_LIBC ON)
 
+set(USE_ELFUTILS OFF)
+
 # We use our own .lib file to support VS2005 whose dbghelp.lib doesn't have some
 # routines we want to use.
 if (WIN32)
@@ -126,22 +128,108 @@ if (WIN32)
 elseif (UNIX)
   set(srcs
     drsyms_unix_frontend.c drsyms_unix_common.c
-    drsyms_dwarf.c demangle.cc drsyms_common.c)
+    demangle.cc drsyms_common.c)
   if (APPLE)
-    set(srcs ${srcs} drsyms_macho.c)
+    set(srcs ${srcs} drsyms_dwarf.c drsyms_macho.c)
     set(dwarf_libpath
       "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc-macho${ARCH}/lib${BITS}/libdwarf.a")
     set(elftc_libpath
       "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc-macho${ARCH}/lib${BITS}/libelftc.a")
-  else (APPLE)
-    set(srcs ${srcs} drsyms_elf.c)
+  elseif (ANDROID)
+    # TODO i#5926: Use elfutils for Android.  First we need to get zlib installed
+    # in our test environment.
+    set(srcs ${srcs} drsyms_dwarf.c drsyms_elf.c)
     set(dwarf_libpath
       "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc${ARCH}/lib${BITS}/libdwarf.a")
     set(elftc_libpath
       "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc${ARCH}/lib${BITS}/libelftc.a")
     set(elf_libpath
       "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc${ARCH}/lib${BITS}/libelf.a")
-  endif (APPLE)
+  else ()
+    set(elftc_libpath
+      "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc${ARCH}/lib${BITS}/libelftc.a")
+
+    message(STATUS "Using elfutils")
+    # TODO i#5926: Use elfutils everywhere.  We start out with just Linux.
+    set(USE_ELFUTILS ON)
+
+    set(elfutils_dir "${PROJECT_SOURCE_DIR}/third_party/elfutils")
+    if (NOT EXISTS "${elfutils_dir}")
+      message(FATAL_ERROR "Missing required submodule ${elfutils_dir}")
+    endif ()
+
+    # Apply patches.
+    # XXX i#5926: Better to fork the elfutils repo and apply these in the fork
+    # and have the fork be the source of our submodule?  We could store config.h
+    # there too.
+    find_program(PATCH patch DOC "patch")
+    if (NOT PATCH)
+      message(FATAL_ERROR "Unable to find patch")
+    endif ()
+    file(GLOB patches "${CMAKE_CURRENT_SOURCE_DIR}/elfutils/*.patch")
+    foreach (patch ${patches})
+      get_filename_component(patch_base ${patch} NAME)
+      string(REGEX REPLACE ".patch$" "" patch_base ${patch_base})
+      file(GLOB orig_path "${elfutils_dir}/*/${patch_base}")
+      list(LENGTH orig_path glob_count)
+      if (NOT glob_count EQUAL 1)
+        message(FATAL_ERROR "Failed to find single source for ${patch}")
+      endif ()
+      list(APPEND patch_srcs ${orig_path})
+      set(patch_path "${CMAKE_CURRENT_BINARY_DIR}/${patch_base}")
+      execute_process(COMMAND ${PATCH} -p1 -d "${elfutils_dir}" -o "${patch_path}"
+        INPUT_FILE "${patch}"
+        RESULT_VARIABLE patch_result ERROR_VARIABLE patch_err)
+      if (patch_result)
+        message(FATAL_ERROR "Failed to apply ${patch}: ${patch_err}")
+      endif ()
+    endforeach ()
+
+    # Add the elfutils library build rules we need.  We want PIC static libs.
+    foreach (lib elf;dw;dwelf;ebl)
+      file(GLOB ${lib}_files "${elfutils_dir}/lib${lib}/*.c")
+      foreach (orig_path ${patch_srcs})
+        if ("${orig_path}" IN_LIST ${lib}_files)
+          # Swap in our patched file.
+          list(REMOVE_ITEM ${lib}_files "${orig_path}")
+          get_filename_component(base ${orig_path} NAME)
+          set(patch_path "${CMAKE_CURRENT_BINARY_DIR}/${base}")
+          list(APPEND ${lib}_files "${patch_path}")
+          message(STATUS "Swapped in patched ${patch_path}")
+        endif ()
+      endforeach ()
+      add_library(${lib}_pic STATIC ${${lib}_files})
+      # We want to directly use DR's allocator instead of relying on its private loader
+      # redirecting in order to support static usage with no loader.
+      # ld is not actually used, so we can't use its -wrap=malloc feature.
+      # Instead we rely on the preprocessor.
+      set_target_properties(${lib}_pic PROPERTIES
+        # We have a presumably-widely-applicable config.h in drsyms/elfutils.
+        INCLUDE_DIRECTORIES
+        "${CMAKE_CURRENT_SOURCE_DIR}/elfutils;${elfutils_dir}/lib;${elfutils_dir}/libasm;${elfutils_dir}/libebl;${elfutils_dir}/libdwelf;${elfutils_dir}/libdwfl"
+        COMPILE_DEFINITIONS
+        "_GNU_SOURCE;HAVE_CONFIG_H;_FORTIFY_SOURCE=3;PIC;SHARED;SYMBOL_VERSIONING;malloc=__wrap_malloc;calloc=__wrap_calloc;realloc=__wrap_realloc;free=__wrap_free;strdup=__wrap_strdup"
+        COMPILE_FLAGS "-std=gnu99 -Wall -g -O2 -fPIC")
+      DR_export_target(${lib}_pic)
+      install_exported_target(${lib}_pic ${INSTALL_EXT_LIB})
+      copy_target_to_device(${lib}_pic "${location_suffix}")
+    endforeach ()
+    # libdw uses pthread_rwlock_* routines.
+    link_with_pthread(dw_pic)
+
+    include_directories("${elfutils_dir}/libelf")
+    include_directories("${elfutils_dir}/libdw")
+    set(srcs ${srcs} drsyms_dw.c drsyms_elf.c)
+    add_definitions(-DUSE_ELFUTILS)
+    if (ZLIB_FOUND)
+      add_definitions(-DHAS_ZLIB)
+      include_directories(${ZLIB_INCLUDE_DIRS})
+    else ()
+      message(FATAL_ERROR "zlib not found but required to build drsyms_static on Linux")
+    endif ()
+    # Avoid stdbool.h from libdw.h defining _Bool after dr_defines.h uses char.
+    add_definitions(-DDR__Bool_EXISTS)
+  endif ()
   set(srcs_static ${srcs})
 endif (WIN32)
 
@@ -162,6 +250,14 @@ macro(configure_drsyms_target target)
   endif ()
   # we always use the elftoolchain library when building with cmake
   append_property_list(TARGET ${target} COMPILE_DEFINITIONS "DRSYM_HAVE_LIBELFTC")
+  # For elfutils the linking is the same for shared and static so we place here.
+  if (USE_ELFUTILS)
+    target_link_libraries(${target} dw_pic)
+    if (LINUX)
+      target_link_libraries(${target} dwelf_pic elf_pic)
+    endif ()
+    target_link_libraries(${target} ebl_pic ${ZLIB_LIBRARIES})
+  endif ()
 endmacro(configure_drsyms_target)
 
 configure_drsyms_target(drsyms)
@@ -186,10 +282,13 @@ configure_extension(drsyms_static ON)
 configure_drsyms_target(drsyms_static)
 use_DynamoRIO_extension(drsyms_static drcontainers)
 
-target_link_libraries(drsyms "${dwarf_libpath}" "${elftc_libpath}")
-if (LINUX)
-  target_link_libraries(drsyms "${elf_libpath}")
+if (NOT USE_ELFUTILS)
+  target_link_libraries(drsyms dwarf)
+  if (LINUX)
+    target_link_libraries(drsyms elf)
+  endif ()
 endif ()
+target_link_libraries(drsyms elftc)
 # i#693: CMake will try to export the path to the static libs we use via
 # IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG, but they won't exist on the
 # user's machine.  Clearing this property prevents that.
@@ -197,18 +296,21 @@ endif ()
 # INTERFACE_LINK_LIBRARIES property if policy CMP0022 is NEW.
 set_target_properties(drsyms PROPERTIES INTERFACE_LINK_LIBRARIES "")
 
-# If drsyms is built static we need to include these with an exports path
+# If drsyms is built static we need to include libelftc libs with an exports path
 # in DynamoRIOTarget*.cmake and not with the source path here:
-add_library(dwarf STATIC IMPORTED)
-set_property(TARGET dwarf PROPERTY IMPORTED_LOCATION "${dwarf_libpath}")
+if (NOT USE_ELFUTILS)
+  add_library(dwarf STATIC IMPORTED)
+  set_property(TARGET dwarf PROPERTY IMPORTED_LOCATION "${dwarf_libpath}")
+  target_link_libraries(drsyms_static dwarf)
+  if (LINUX)
+    add_library(elf STATIC IMPORTED)
+    set_property(TARGET elf PROPERTY IMPORTED_LOCATION "${elf_libpath}")
+    target_link_libraries(drsyms_static elf)
+  endif (LINUX)
+endif ()
 add_library(elftc STATIC IMPORTED)
 set_property(TARGET elftc PROPERTY IMPORTED_LOCATION "${elftc_libpath}")
-target_link_libraries(drsyms_static dwarf elftc)
-if (LINUX)
-  add_library(elf STATIC IMPORTED)
-  set_property(TARGET elf PROPERTY IMPORTED_LOCATION "${elf_libpath}")
-  target_link_libraries(drsyms_static elf)
-endif (LINUX)
+target_link_libraries(drsyms_static elftc)
 if (UNIX)
   # Avoid missing symbols in static library build from g++ libs when
   # drsyms_bench is linked with gcc instead of g++ (i#715, happens w/ cmake

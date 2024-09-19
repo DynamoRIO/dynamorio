@@ -2,8 +2,8 @@
  00000000   udf    $0x0000
  f94017a0   ldr    +0x28(%x29)[8byte] -> %x0
  a9be7bfd   stp    %x29 %x30 %sp $0xffffffffffffffe0 -> -0x20(%sp)[16byte] %sp
- e58057a1   str    %z1 -> +0x05(%x29)[32byte]
- 85865e6b   ldr    +0x37(%x19)[32byte] -> %z11
+ e58057a1   str    %z1 -> +0xa0(%x29)[32byte]
+ 85865e6b   ldr    +0x06e0(%x19)[32byte] -> %z11
 disassembly failed: invalid instruction: not enough bytes: 0x88
 #elif defined(ARM) && !defined(thumb)
  f2436813   vtst.8 %d3 %d3 -> %d22
@@ -21,5 +21,12 @@ disassembly failed: invalid instruction: not enough bytes: 0x88
 # else
  c4 e2 65 90 14 80    vpgatherdd (%eax,%ymm0,4)[4byte] %ymm3 -> %ymm2 %ymm3
 # endif
+disassembly failed: invalid instruction: not enough bytes: 0x88
+#elif defined(RISCV64)
+     853e   c.mv   zero a5 -> a0
+     4581   c.li   zero 0 -> a1
+ 1d27b783   ld     +466(a5)[8byte] -> a5
+ 00f55733   srl    a0 a5 -> a4
+     9d89   c.subw a1 a0 -> a1
 disassembly failed: invalid instruction: not enough bytes: 0x88
 #endif

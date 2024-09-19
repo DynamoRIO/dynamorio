@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -914,7 +914,8 @@ test_cti_prefixes(void *dc)
 }
 
 static void
-test_cti_predicate(void *dc, byte *data, uint len, int opcode, dr_pred_type_t pred)
+test_predicate(void *dc, byte *data, uint len, int opcode, dr_pred_type_t pred,
+               uint eflags)
 {
     instr_t *instr = instr_create(dc);
     byte *end = decode(dc, data, instr);
@@ -922,6 +923,7 @@ test_cti_predicate(void *dc, byte *data, uint len, int opcode, dr_pred_type_t pr
     ASSERT(instr_get_opcode(instr) == opcode);
     ASSERT(instr_is_predicated(instr));
     ASSERT(instr_get_predicate(instr) == pred);
+    ASSERT(instr_get_opcode_eflags(opcode) == eflags);
     instr_destroy(dc, instr);
 }
 
@@ -936,9 +938,32 @@ test_cti_predicates(void *dc)
         // 0f 44 c2             cmovbe %edx,%eax
         { 0x0f, 0x46, 0xc2 },
     };
-    test_cti_predicate(dc, data[0], 2, OP_jle_short, DR_PRED_LE);
-    test_cti_predicate(dc, data[1], 6, OP_je, DR_PRED_EQ);
-    test_cti_predicate(dc, data[2], 3, OP_cmovbe, DR_PRED_BE);
+    test_predicate(dc, data[0], 2, OP_jle_short, DR_PRED_LE,
+                   EFLAGS_READ_SF | EFLAGS_READ_OF | EFLAGS_READ_ZF);
+    test_predicate(dc, data[1], 6, OP_je, DR_PRED_EQ, EFLAGS_READ_ZF);
+    test_predicate(dc, data[2], 3, OP_cmovbe, DR_PRED_BE,
+                   EFLAGS_READ_CF | EFLAGS_READ_ZF);
+}
+
+static void
+test_rep_predicates(void *dc)
+{
+    byte data[][16] = {
+        // f3 6c                rep ins
+        { 0xf3, 0x6c },
+        // f3 a4                rep movs
+        { 0xf3, 0xa4 },
+        // f3 a6                rep cmps
+        { 0xf3, 0xa6 },
+        // f2 af                repne scas
+        { 0xf2, 0xaf },
+    };
+    test_predicate(dc, data[0], 2, OP_rep_ins, DR_PRED_COMPLEX, EFLAGS_READ_DF);
+    test_predicate(dc, data[1], 2, OP_rep_movs, DR_PRED_COMPLEX, EFLAGS_READ_DF);
+    test_predicate(dc, data[2], 2, OP_rep_cmps, DR_PRED_COMPLEX,
+                   EFLAGS_WRITE_6 | EFLAGS_READ_DF | EFLAGS_READ_ZF);
+    test_predicate(dc, data[3], 2, OP_repne_scas, DR_PRED_COMPLEX,
+                   EFLAGS_WRITE_6 | EFLAGS_READ_DF | EFLAGS_READ_ZF);
 }
 
 static void
@@ -1544,6 +1569,23 @@ test_x64_vmovq(void *dc)
                               false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
     ASSERT(pc == &b2[7]);
     ASSERT(strcmp(dbuf, "vmovq  (%rdx,%rcx)[8byte] -> %xmm25\n") == 0);
+
+    const byte expected1[] = { 0x62, 0xc1, 0xfe, 0x08, 0x7e, 0x45, 0x00 };
+    const byte expected2[] = { 0x62, 0xc1, 0xfd, 0x08, 0xd6, 0x45, 0x00 };
+
+    instr_t *instr =
+        INSTR_CREATE_vmovq(dc, opnd_create_reg(DR_REG_XMM16),
+                           opnd_create_base_disp_ex(DR_REG_R13, DR_REG_NULL, 0, 0, OPSZ_8,
+                                                    true, false, false));
+    test_instr_encode(dc, instr, 7);
+    ASSERT(!memcmp(expected1, buf, 7));
+
+    instr = INSTR_CREATE_vmovq(dc,
+                               opnd_create_base_disp_ex(DR_REG_R13, DR_REG_NULL, 0, 0,
+                                                        OPSZ_8, true, false, false),
+                               opnd_create_reg_partial(DR_REG_XMM16, OPSZ_8));
+    test_instr_encode(dc, instr, 7);
+    ASSERT(!memcmp(expected2, buf, 7));
 }
 #endif
 
@@ -2828,6 +2870,8 @@ main(int argc, char *argv[])
 #else
     void *dcontext = dr_standalone_init();
 
+    ASSERT(!dr_running_under_dynamorio());
+
     /* simple test of deadlock_avoidance, etc. being disabled in standalone */
     void *x = dr_mutex_create();
     dr_mutex_lock(x);
@@ -2852,6 +2896,8 @@ main(int argc, char *argv[])
     test_cti_prefixes(dcontext);
 
     test_cti_predicates(dcontext);
+
+    test_rep_predicates(dcontext);
 
 #ifndef X64
     test_modrm16(dcontext);

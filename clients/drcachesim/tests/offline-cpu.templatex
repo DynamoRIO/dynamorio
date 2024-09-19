@@ -1,12 +1,12 @@
 Cache simulation results:
 Core #0 \(1 traced CPU\(s\): #8\)
-  L1I stats:
+  L1I0 .* stats:
     Hits:                           *35[,\.]?903
     Misses:                            666
     Compulsory misses:                 664
     Invalidations:                       0
     Miss rate:                        1[,\.]82%
-  L1D stats:
+  L1D0 .* stats:
     Hits:                            *9[,\.]?718
     Misses:                            354
     Compulsory misses:                 627
@@ -15,13 +15,13 @@ Core #0 \(1 traced CPU\(s\): #8\)
     Prefetch misses:                   280
     Miss rate:                        3[,\.]51%
 Core #1 \(1 traced CPU\(s\): #2\)
-  L1I stats:
+  L1I1 .* stats:
     Hits:                          *105[,\.]?796
     Misses:                            543
     Compulsory misses:                 543
     Invalidations:                       0
     Miss rate:                        0[,\.]51%
-  L1D stats:
+  L1D1 .* stats:
     Hits:                           *32[,\.]?672
     Misses:                          *1[,\.]?112
     Compulsory misses:               *1[,\.]?822
@@ -31,7 +31,7 @@ Core #1 \(1 traced CPU\(s\): #2\)
     Miss rate:                        3[,\.]29%
 Core #2 \(0 traced CPU\(s\)\)
 Core #3 \(0 traced CPU\(s\)\)
-LL stats:
+LL .* stats:
     Hits:                              455
     Misses:                          *2[,\.]?220
     Compulsory misses:               *3[,\.]?222

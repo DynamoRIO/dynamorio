@@ -51,6 +51,15 @@ static bool sent_self;
 
 static process_id_t child_pid;
 
+/* SYS_fork is not defined in recent Linux distributions, which use SYS_clone instead.
+ * To keep the code readable, declare a constant which we know will be defined.
+ */
+#ifdef SYS_fork
+static const int SYS_FORK_VALUE = SYS_fork;
+#else
+static const int SYS_FORK_VALUE = -1; /* Make sure the comparison fails. */
+#endif
+
 typedef struct {
     ptr_int_t saved_param;
     process_id_t child_pid;
@@ -158,7 +167,7 @@ event_post_syscall(void *drcontext, int sysnum)
     per_thread_t *data = (per_thread_t *)drmgr_get_cls_field(drcontext, cls_idx);
     /* XXX i#752: should DR provide a child creation event that gives us the pid? */
 #ifdef UNIX
-    if (sysnum == SYS_fork
+    if (sysnum == SYS_FORK_VALUE
 #    ifdef LINUX
         || (sysnum == SYS_clone && !TEST(CLONE_VM, data->saved_param))
 #    endif
@@ -217,7 +226,7 @@ event_thread_context_exit(void *drcontext, bool thread_exit)
 
 static dr_emit_flags_t
 event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                  bool translating, OUT void **user_data)
+                  bool translating, DR_PARAM_OUT void **user_data)
 {
     instr_t *instr, *next_instr, *next_next_instr;
     /* Look for 3 nops in parent code to know child is live and avoid flakiness (i#953) */

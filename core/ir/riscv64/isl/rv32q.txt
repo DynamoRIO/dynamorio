@@ -1,31 +1,31 @@
 # "Q" Standard Extension for Quad-Precision Floating-Point.
 # Version 2.2
 
-flq       | i  | i_imm rs1 rd(fp)              | .................100.....0000111
-fsq       | s  | s_imm rs2(fp) rs1             | .................100.....0100111
-fmadd.q   | r4 | rs3 rs2(fp) rs1(fp) rm rd(fp) | .....11..................1000011
-fmsub.q   | r4 | rs3 rs2(fp) rs1(fp) rm rd(fp) | .....11..................1000111
-fnmsub.q  | r4 | rs3 rs2(fp) rs1(fp) rm rd(fp) | .....11..................1001011
-fnmadd.q  | r4 | rs3 rs2(fp) rs1(fp) rm rd(fp) | .....11..................1001111
-fadd.q    | r  | rs2(fp) rs1(fp) rm rd(fp)     | 0000011..................1010011
-fsub.q    | r  | rs2(fp) rs1(fp) rm rd(fp)     | 0000111..................1010011
-fmul.q    | r  | rs2(fp) rs1(fp) rm rd(fp)     | 0001011..................1010011
-fdiv.q    | r  | rs2(fp) rs1(fp) rm rd(fp)     | 0001111..................1010011
-fsqrt.q   | r  | rs1(fp) rm rd(fp)             | 010111100000.............1010011
-fsgnj.q   | r  | rs2(fp) rs1(fp) rd(fp)        | 0010011..........000.....1010011
-fsgnjn.q  | r  | rs2(fp) rs1(fp) rd(fp)        | 0010011..........001.....1010011
-fsgnjx.q  | r  | rs2(fp) rs1(fp) rd(fp)        | 0010011..........010.....1010011
-fmin.q    | r  | rs2(fp) rs1(fp) rd(fp)        | 0010111..........000.....1010011
-fmax.q    | r  | rs2(fp) rs1(fp) rd(fp)        | 0010111..........001.....1010011
-fcvt.s.q  | r  | rs1(fp) rm rd(fp)             | 010000000011.............1010011
-fcvt.q.s  | r  | rs1(fp) rm rd(fp)             | 010001100000.............1010011
-fcvt.d.q  | r  | rs1(fp) rm rd(fp)             | 010000100011.............1010011
-fcvt.q.d  | r  | rs1(fp) rm rd(fp)             | 010001100001.............1010011
-feq.q     | r  | rs2(fp) rs1(fp) rd            | 1010011..........010.....1010011
-flt.q     | r  | rs2(fp) rs1(fp) rd            | 1010011..........001.....1010011
-fle.q     | r  | rs2(fp) rs1(fp) rd            | 1010011..........000.....1010011
-fclass.q  | r  | rs1(fp) rd                    | 111001100000.....001.....1010011
-fcvt.w.q  | r  | rs1(fp) rm rd                 | 110001100000.............1010011
-fcvt.wu.q | r  | rs1(fp) rm rd                 | 110001100001.............1010011
-fcvt.q.w  | r  | rs1 rm rd(fp)                 | 110101100000.............1010011
-fcvt.q.wu | r  | rs1 rm rd(fp)                 | 110101100001.............1010011
+flq       | i  | i_imm rs1 rd(fp)                  | .................100.....0000111
+fsq       | s  | s_imm rs2(fp) rs1                 | .................100.....0100111
+fmadd.q   | r4 | rs3(fp) rs2(fp) rs1(fp) rm rd(fp) | .....11..................1000011
+fmsub.q   | r4 | rs3(fp) rs2(fp) rs1(fp) rm rd(fp) | .....11..................1000111
+fnmsub.q  | r4 | rs3(fp) rs2(fp) rs1(fp) rm rd(fp) | .....11..................1001011
+fnmadd.q  | r4 | rs3(fp) rs2(fp) rs1(fp) rm rd(fp) | .....11..................1001111
+fadd.q    | r  | rs2(fp) rs1(fp) rm rd(fp)         | 0000011..................1010011
+fsub.q    | r  | rs2(fp) rs1(fp) rm rd(fp)         | 0000111..................1010011
+fmul.q    | r  | rs2(fp) rs1(fp) rm rd(fp)         | 0001011..................1010011
+fdiv.q    | r  | rs2(fp) rs1(fp) rm rd(fp)         | 0001111..................1010011
+fsqrt.q   | r  | rs1(fp) rm rd(fp)                 | 010111100000.............1010011
+fsgnj.q   | r  | rs2(fp) rs1(fp) rd(fp)            | 0010011..........000.....1010011
+fsgnjn.q  | r  | rs2(fp) rs1(fp) rd(fp)            | 0010011..........001.....1010011
+fsgnjx.q  | r  | rs2(fp) rs1(fp) rd(fp)            | 0010011..........010.....1010011
+fmin.q    | r  | rs2(fp) rs1(fp) rd(fp)            | 0010111..........000.....1010011
+fmax.q    | r  | rs2(fp) rs1(fp) rd(fp)            | 0010111..........001.....1010011
+fcvt.s.q  | r  | rs1(fp) rm rd(fp)                 | 010000000011.............1010011
+fcvt.q.s  | r  | rs1(fp) rm rd(fp)                 | 010001100000.............1010011
+fcvt.d.q  | r  | rs1(fp) rm rd(fp)                 | 010000100011.............1010011
+fcvt.q.d  | r  | rs1(fp) rm rd(fp)                 | 010001100001.............1010011
+feq.q     | r  | rs2(fp) rs1(fp) rd                | 1010011..........010.....1010011
+flt.q     | r  | rs2(fp) rs1(fp) rd                | 1010011..........001.....1010011
+fle.q     | r  | rs2(fp) rs1(fp) rd                | 1010011..........000.....1010011
+fclass.q  | r  | rs1(fp) rd                        | 111001100000.....001.....1010011
+fcvt.w.q  | r  | rs1(fp) rm rd                     | 110001100000.............1010011
+fcvt.wu.q | r  | rs1(fp) rm rd                     | 110001100001.............1010011
+fcvt.q.w  | r  | rs1 rm rd(fp)                     | 110101100000.............1010011
+fcvt.q.wu | r  | rs1 rm rd(fp)                     | 110101100001.............1010011

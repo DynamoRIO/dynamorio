@@ -31,6 +31,7 @@
  */
 
 #include "../globals.h"
+#include "encode_api.h"
 #include "instr.h"
 #include "decode.h"
 #include "codec.h"
@@ -38,7 +39,7 @@
 bool
 is_isa_mode_legal(dr_isa_mode_t mode)
 {
-    return (mode == DR_ISA_RV64IMAFDC);
+    return (mode == DR_ISA_RV64 || mode == DR_ISA_REGDEPS);
 }
 
 app_pc
@@ -64,9 +65,8 @@ dr_app_pc_as_load_target(dr_isa_mode_t isa_mode, app_pc pc)
 byte *
 decode_eflags_usage(void *drcontext, byte *pc, uint *usage, dr_opnd_query_flags_t flags)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return NULL;
+    *usage = 0; /* No eflags on RISC-V. */
+    return decode_next_pc(drcontext, pc);
 }
 
 byte *
@@ -86,17 +86,14 @@ decode(void *drcontext, byte *pc, instr_t *instr)
 byte *
 decode_from_copy(void *drcontext, byte *copy_pc, byte *orig_pc, instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return NULL;
+    return decode_common(drcontext, copy_pc, orig_pc, instr);
 }
 
 byte *
 decode_cti(void *drcontext, byte *pc, instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return NULL;
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
+    return decode(dcontext, pc, instr);
 }
 
 byte *
@@ -123,33 +120,21 @@ decode_raw(dcontext_t *dcontext, byte *pc, instr_t *instr)
 bool
 decode_raw_is_jmp(dcontext_t *dcontext, byte *pc)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
+    return ((*(uint *)pc & 0x7f) == 0x6f); /* JAL */
 }
 
 byte *
 decode_raw_jmp_target(dcontext_t *dcontext, byte *pc)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return NULL;
-}
-
-bool
-decode_raw_is_cond_branch_zero(dcontext_t *dcontext, byte *pc)
-{
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
-}
-
-byte *
-decode_raw_cond_branch_zero_target(dcontext_t *dcontext, byte *pc)
-{
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
+    /* Format of the J-type instruction:
+     * |   31    |30       21|   20    |19        12|11   7|6      0|
+     * | imm[20] | imm[10:1] | imm[11] | imm[19:12] |  rd  | opcode |
+     *  ^------------------------------------------^
+     */
+    uint enc = *(uint *)pc;
+    int32_t imm = (((enc >> 31) & 1) << 20) | (((enc >> 12) & 0xff) << 12) |
+        (((enc >> 20) & 1) << 11) | (((enc >> 21) & 0x3ff) << 1);
+    return pc + ((imm << 11) >> 11);
 }
 
 const instr_info_t *
@@ -194,9 +179,7 @@ DR_API
 const char *
 decode_opcode_name(int opcode)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return NULL;
+    return get_opcode_name(opcode);
 }
 
 opnd_size_t
@@ -244,8 +227,7 @@ check_encode_decode_consistency(dcontext_t *dcontext, instrlist_t *ilist)
 void
 decode_debug_checks_arch(void)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    /* FIXME i#3544: NYI */
 }
 #endif /* DEBUG */
 
@@ -256,8 +238,6 @@ decode_debug_checks_arch(void)
 int
 main()
 {
-    /* FIXME i#3544: Add decoder tests. */
-
     bool res = true;
     standalone_init();
     standalone_exit();

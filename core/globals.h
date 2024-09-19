@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -297,13 +297,15 @@ typedef struct _thread_record_t {
 #    define DYNAMORIO_EXPORT DR_APP_API
 #endif
 
-/* AArch64 Scalable Vector Extension's vector length in bits. This depends on
- * the hardware implementation and can be one of:
- * 128 256 384 512 640 768 896 1024 1152 1280 1408 1536 1664 1792 1920 2048
- * See https://developer.arm.com/documentation/102476/0100/Introducing-SVE
+/* - AArch64 Scalable Vector Extension's vector length in bits. This depends on
+ *   the hardware implementation and can be one of:
+ *   128 256 384 512 640 768 896 1024 1152 1280 1408 1536 1664 1792 1920 2048
+ *   See https://developer.arm.com/documentation/102476/0100/Introducing-SVE
+ * - RISC-V Vector's vector length in bits which is from 64 to 65536 in the
+ *   power of 2.
  * This variable stores the length for off-line decoding.
  */
-extern int sve_veclen;
+extern int vector_length;
 
 #include "heap.h"
 #include "options_struct.h"
@@ -445,6 +447,7 @@ extern bool dynamo_all_threads_synched; /* are all other threads suspended safel
  * so this is always set on Windows.
  */
 extern bool dynamo_control_via_attach;
+extern bool started_detach;
 /* Not guarded by DR_APP_EXPORTS because later detach implementations might not
  * go through the app interface.
  */
@@ -702,7 +705,7 @@ extern thread_id_t global_try_tid;
 
 typedef struct {
     /* WARNING: if you change the offsets of any of these fields,
-     * you must also change the offsets in <arch>/<arch.s>
+     * you must also change the offsets in <arch>/<arch.asm>
      */
     priv_mcontext_t mcontext; /* real machine context (in globals_shared.h + mcxtx.h) */
 #ifdef UNIX

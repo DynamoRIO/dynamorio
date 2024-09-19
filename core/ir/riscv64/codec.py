@@ -32,9 +32,8 @@
 # This script generates encoder/decoder logic for RISC-V instructions described
 # in core/ir/riscv64/isl/*.txt files. This includes:
 # - opcode_api.h - List of all opcodes supported by the encoder/decoder.
-# - opcode_names.h - Stringified names of all opcodes.
 # - instr_create_api.h - Instruction generation macros.
-# - FIXME i#3544: add a list of generated files here.
+# - instr_info_trie.h - Instruction info table and a lookup trie for known instructions.
 #
 # FIXME i#3544: To be done:
 # - Generate instruction encoding (at format + fields level?).
@@ -53,6 +52,7 @@ from readline import insert_text
 from sys import argv
 from typing import List
 from enum import Enum, unique
+from io import StringIO
 
 # Logging helpers. To enable debug logging set DEBUG=1 environment variable.
 logger = getLogger('rv64-codec')
@@ -95,6 +95,13 @@ def count_trailing_ones(n: int) -> int:
     sn = bin(n)
     return len(sn) - len(sn.rstrip('1'))
 
+def write_if_changed(file, data):
+    try:
+        if open(file, 'r').read() == data:
+            return
+    except IOError:
+        pass
+    open(file, 'w').write(data)
 
 class Field(str, Enum):
     arg_name: str
@@ -106,9 +113,11 @@ class Field(str, Enum):
     # dictionary.
     opsz_def: dict[str, str] | str
     is_dest: bool
+    is_implicit: bool
+    as_decimal: bool
 
-    def __new__(cls, value: int, arg_name: str, is_dest: bool,
-                opsz_def: dict[str, str] | str, asm_name: str,
+    def __new__(cls, value: int, arg_name: str, is_dest: bool, is_implicit: bool,
+                as_decimal, opsz_def: dict[str, str] | str, asm_name: str,
                 arg_cmt: str):
         # Take str as a base object because we need a concrete class. It won't
         # be used anyway.
@@ -119,12 +128,16 @@ class Field(str, Enum):
         obj._asm_name = asm_name if asm_name != '' else obj.arg_name
         obj.arg_cmt = arg_cmt
         obj.is_dest = is_dest
+        obj.is_implicit = is_implicit
+        obj.as_decimal = as_decimal
         return obj
 
     # Fields in uncompressed instructions.
     RD = (1,
           'rd',
           True,
+          False,
+          False,
           'OPSZ_PTR',
           '',
           'The output register (inst[11:7]).'
@@ -132,12 +145,16 @@ class Field(str, Enum):
     RDFP = (2,
             'rd',
             True,
+            False,
+            False,
             'OPSZ_PTR',
             '',
             'The output floating-point register (inst[11:7]).'
             )
     RS1 = (3,
            'rs1',
+           False,
+           False,
            False,
            'OPSZ_PTR',
            '',
@@ -146,12 +163,16 @@ class Field(str, Enum):
     RS1FP = (4,
              'rs1',
              False,
+             False,
+             False,
              'OPSZ_PTR',
              '',
              'The first input floating-point register (inst[19:15]).'
              )
     BASE = (5,
             'base',
+            False,
+            False,
             False,
             'OPSZ_0',
             '',
@@ -160,6 +181,8 @@ class Field(str, Enum):
     RS2 = (6,
            'rs2',
            False,
+           False,
+           False,
            'OPSZ_PTR',
            '',
            'The second input register (inst[24:20]).'
@@ -167,12 +190,16 @@ class Field(str, Enum):
     RS2FP = (7,
              'rs2',
              False,
+             False,
+             False,
              'OPSZ_PTR',
              '',
              'The second input floating-point register (inst[24:20]).'
              )
-    RS3 = (8,
+    RS3FP = (8,
            'rs3',
+           False,
+           False,
            False,
            'OPSZ_PTR',
            '',
@@ -181,12 +208,16 @@ class Field(str, Enum):
     FM = (9,
           'fm',
           False,
+          False,
+          False,
           'OPSZ_4b',
           '',
           'The fence semantics (inst[31:28]).'
           )
     PRED = (10,
             'pred',
+            False,
+            False,
             False,
             'OPSZ_4b',
             '',
@@ -195,12 +226,16 @@ class Field(str, Enum):
     SUCC = (11,
             'succ',
             False,
+            False,
+            False,
             'OPSZ_4b',
             '',
             'The bitmap with successor constraints for FENCE (inst[23:20]).'
             )
     AQRL = (12,
             'aqrl',
+            False,
+            False,
             False,
             'OPSZ_2b',
             '',
@@ -209,12 +244,16 @@ class Field(str, Enum):
     CSR = (13,
            'csr',
            False,
+           False,
+           False,
            'OPSZ_PTR',
            '',
            'The configuration/status register id (inst[31:20]).'
            )
     RM = (14,
           'rm',
+          False,
+          False,
           False,
           'OPSZ_3b',
           '',
@@ -223,6 +262,8 @@ class Field(str, Enum):
     SHAMT = (15,
              'shamt',
              False,
+             False,
+             True,
              'OPSZ_5b',
              '',
              'The `shamt` field (bit range is determined by XLEN).'
@@ -230,6 +271,8 @@ class Field(str, Enum):
     SHAMT5 = (16,
               'shamt',
               False,
+              False,
+              True,
               'OPSZ_6b',
               '',
               'The `shamt` field that uses only 5 bits.'
@@ -237,6 +280,8 @@ class Field(str, Enum):
     SHAMT6 = (17,
               'shamt',
               False,
+              False,
+              True,
               'OPSZ_7b',
               '',
               'The `shamt` field that uses only 6 bits.'
@@ -244,6 +289,8 @@ class Field(str, Enum):
     I_IMM = (18,
              'imm',
              False,
+             False,
+             True,
              'OPSZ_12b',
              '',
              'The immediate field in the I-type format.'
@@ -251,12 +298,16 @@ class Field(str, Enum):
     S_IMM = (19,
              'imm',
              False,
+             False,
+             True,
              'OPSZ_12b',
              '',
              'The immediate field in the S-type format.'
              )
     B_IMM = (20,
              'pc_rel',
+             False,
+             False,
              False,
              'OPSZ_2',
              '',
@@ -265,229 +316,500 @@ class Field(str, Enum):
     U_IMM = (21,
              'imm',
              False,
+             False,
+             False,
              'OPSZ_20b',
              '',
              'The 20-bit immediate field in the U-type format.'
              )
-    J_IMM = (22,
+    U_IMMPC = (22,
+               'imm',
+               False,
+               False,
+               False,
+               'OPSZ_20b',
+               '',
+               'The 20-bit immediate field in the U-type format (PC-relative).'
+               )
+    J_IMM = (23,
              'pc_rel',
+             False,
+             False,
              False,
              'OPSZ_2',
              '',
              'The immediate field in the J-type format.'
              )
-    IMM = (23,  # Used only for parsing ISA files. Concatenated into V_RS1_DISP.
+    IMM = (24,  # Used only for parsing ISA files. Concatenated into V_RS1_DISP.
            'imm',
+           False,
+           False,
            False,
            'OPSZ_12b',
            '',
            'The immediate field in PREFETCH instructions.'
            )
-    CRD = (24,
+    # Fields in compressed instructions.
+    CRD = (25,
            'rd',
            True,
+           False,
+           False,
            'OPSZ_PTR',
            '',
            'The output register in `CR`, `CI` RVC formats (inst[11:7])'
            )
-    CRDFP = (25,
+    CRDFP = (26,
              'rd',
              True,
+             False,
+             False,
              'OPSZ_PTR',
              '',
              'The output floating-point register in `CR`, `CI` RVC formats (inst[11:7])'
              )
-    CRS1 = (26,
+    CRS1 = (27,
             'rs1',
+            False,
+            False,
             False,
             'OPSZ_PTR',
             '',
             'The first input register in `CR`, `CI` RVC formats (inst[11:7]).'
             )
-    CRS2 = (27,
+    CRS2 = (28,
             'rs2',
+            False,
+            False,
             False,
             'OPSZ_PTR',
             '',
             'The second input register in `CR`, `CSS` RVC formats (inst[6:2]).'
             )
-    CRS2FP = (28,
+    CRS2FP = (29,
               'rs2',
+              False,
+              False,
               False,
               'OPSZ_PTR',
               '',
               'The second input floating-point register in `CR`, `CSS` RVC formats (inst[6:2]).'
               )
-    # Fields in compressed instructions.
-    CRD_ = (29,
+    CRD_ = (30,
             'rd',
             True,
+            False,
+            False,
             'OPSZ_PTR',
             '',
             'The output register in `CIW`, `CL` RVC formats (inst[4:2])'
             )
-    CRD_FP = (30,
+    CRD_FP = (31,
               'rd',
               True,
+              False,
+              False,
               'OPSZ_PTR',
               '',
               'The output floating-point register in `CIW`, `CL` RVC formats (inst[4:2])'
               )
-    CRS1_ = (31,
+    CRS1_ = (32,
              'rs1',
+             False,
+             False,
              False,
              'OPSZ_PTR',
              '',
              'The first input register in `CL`, `CS`, `CA`, `CB` RVC formats (inst[9:7]).'
              )
-    CRS2_ = (32,
+    CRS2_ = (33,
              'rs2',
+             False,
+             False,
              False,
              'OPSZ_PTR',
              '',
              'The second input register in `CS`, `CA` RVC formats (inst[4:2]).'
              )
-    CRS2_FP = (33,
+    CRS2_FP = (34,
                'rs2',
+               False,
+               False,
                False,
                'OPSZ_PTR',
                '',
                'The second input floating-point register in `CS`, `CA` RVC formats (inst[4:2]).'
                )
-    CRD__ = (34,
+    CRD__ = (35,
              'rd',
              True,
+             False,
+             False,
              'OPSZ_PTR',
              '',
              'The output register in `CA` RVC format (inst[9:7])'
              )
-    CSHAMT = (35,
+    CSHAMT = (36,
               'shamt',
               False,
+              False,
+              True,
               'OPSZ_6b',
               '',
               'The `shamt` field in the RVC format.'
               )
-    CSR_IMM = (36,
+    CSR_IMM = (37,
                'imm',
                False,
+               False,
+               True,
                'OPSZ_5b',
                '',
                'The immediate field in a CSR instruction.'
                )
-    CADDI16SP_IMM = (37,
+    CADDI16SP_IMM = (38,
                      'imm',
                      False,
+                     False,
+                     True,
                      'OPSZ_10b',
                      '',
                      'The immediate field in a C.ADDI16SP instruction.'
                      )
-    CLWSP_IMM = (38,
+    CLWSP_IMM = (39,
                  'sp_offset',
                  False,
+                 False,
+                 True,
                  'OPSZ_1',
                  '',
                  'The SP-relative memory location (sp+imm: imm & 0x3 == 0).'
                  )
-    CLDSP_IMM = (39,
+    CLDSP_IMM = (40,
                  'sp_offset',
                  False,
+                 False,
+                 True,
                  'OPSZ_9b',
                  '',
                  'The SP-relative memory location (sp+imm: imm & 0x7 == 0).'
                  )
-    CLUI_IMM = (40,
+    CLUI_IMM = (41,
                 'imm',
+                False,
+                False,
                 False,
                 'OPSZ_6b',
                 '',
                 'The immediate field in a C.LUI instruction.'
                 )
-    CSWSP_IMM = (41,
+    CSWSP_IMM = (42,
                  'sp_offset',
+                 True,
+                 False,
                  True,
                  'OPSZ_1',
                  '',
                  'The SP-relative memory location (sp+imm: imm & 0x3 == 0).'
                  )
-    CSDSP_IMM = (42,
+    CSDSP_IMM = (43,
                  'sp_offset',
+                 True,
+                 False,
                  True,
                  'OPSZ_9b',
                  '',
                  'The SP-relative memory location (sp+imm: imm & 0x7 == 0).'
                  )
-    CIW_IMM = (43,
+    CIW_IMM = (44,
                'imm',
                False,
+               False,
+               True,
                'OPSZ_10b',
                '',
                'The immediate field in a CIW format instruction.'
                )
-    CLW_IMM = (44,
+    CLW_IMM = (45,
                'mem',
                False,
+               False,
+               True,
                'OPSZ_7b',
-               'im(rs1)', 'The register-relative memory location (reg+imm: imm & 0x3 == 0).')
-    CLD_IMM = (45,
+               'imm(rs1)', 'The register-relative memory location (reg+imm: imm & 0x3 == 0).')
+    CLD_IMM = (46,
                'mem',
                False,
+               False,
+               True,
                'OPSZ_1',
-               'im(rs1)', 'The register-relative memory location (reg+imm: imm & 0x7 == 0).')
-    CSW_IMM = (46,
+               'imm(rs1)', 'The register-relative memory location (reg+imm: imm & 0x7 == 0).')
+    CSW_IMM = (47,
                'mem',
+               True,
+               False,
                True,
                'OPSZ_7b',
-               'im(rs1)', 'The register-relative memory location (reg+imm: imm & 0x3 == 0).')
-    CSD_IMM = (47,
+               'imm(rs1)', 'The register-relative memory location (reg+imm: imm & 0x3 == 0).')
+    CSD_IMM = (48,
                'mem',
                True,
+               False,
+               True,
                'OPSZ_1',
-               'im(rs1)', 'The register-relative memory location (reg+imm: imm & 0x7 == 0).')
-    CIMM5 = (48,
+               'imm(rs1)', 'The register-relative memory location (reg+imm: imm & 0x7 == 0).')
+    CIMM5 = (49,
              'imm',
              False,
+             False,
+             True,
              'OPSZ_6b',
              '',
              'The immediate field in a C.ADDI, C.ADDIW, C.LI, and C.ANDI instruction.'
              )
-    CB_IMM = (49,
+    CB_IMM = (50,
               'pc_rel',
+              False,
+              False,
               False,
               'OPSZ_2',
               '',
               'The immediate field in a a CB format instruction (C.BEQZ and C.BNEZ).'
               )
-    CJ_IMM = (50,
+    CJ_IMM = (51,
               'pc_rel',
+              False,
+              False,
               False,
               'OPSZ_2',
               '',
               'The immediate field in a CJ format instruction.'
               )
     # Virtual fields en/decoding special cases.
-    V_L_RS1_DISP = (51,
+    V_L_RS1_DISP = (52,
                     'mem',
                     False,
-                    {
-                        '': 'OPSZ_0', 'lb': 'OPSZ_1', 'lh': 'OPSZ_2', 'lw': 'OPSZ_4',
-                        'ld': 'OPSZ_8', 'lbu': 'OPSZ_1', 'lhu': 'OPSZ_2', 'lwu': 'OPSZ_4',
-                        'sb': 'OPSZ_1', 'sh': 'OPSZ_2', 'sw': 'OPSZ_4', 'sd': 'OPSZ_8'
-                    },
-                    'im(rs1)',
-                    'The register-relative memory source location (reg+imm).'
-                    )
-    V_S_RS1_DISP = (52,
-                    'mem',
+                    False,
                     True,
                     {
                         '': 'OPSZ_0', 'lb': 'OPSZ_1', 'lh': 'OPSZ_2', 'lw': 'OPSZ_4',
                         'ld': 'OPSZ_8', 'lbu': 'OPSZ_1', 'lhu': 'OPSZ_2', 'lwu': 'OPSZ_4',
-                        'sb': 'OPSZ_1', 'sh': 'OPSZ_2', 'sw': 'OPSZ_4', 'sd': 'OPSZ_8'
+                        'sb': 'OPSZ_1', 'sh': 'OPSZ_2', 'sw': 'OPSZ_4', 'sd': 'OPSZ_8',
+                        'flw': 'OPSZ_4', 'fld': 'OPSZ_8', 'fsw': 'OPSZ_4', 'fsd': 'OPSZ_8',
+                        'flq': 'OPSZ_16', 'fsq': 'OPSZ_16', 'lr.w': 'OPSZ_4', 'lr.d': 'OPSZ_8',
+                        'amoswap.w': 'OPSZ_4', 'amoadd.w': 'OPSZ_4', 'amoxor.w': 'OPSZ_4',
+                        'amoand.w': 'OPSZ_4', 'amoor.w': 'OPSZ_4', 'amomin.w': 'OPSZ_4',
+                        'amomax.w': 'OPSZ_4', 'amominu.w': 'OPSZ_4', 'amomaxu.w': 'OPSZ_4',
+                        'amoswap.d': 'OPSZ_8', 'amoadd.d': 'OPSZ_8', 'amoxor.d': 'OPSZ_8',
+                        'amoand.d': 'OPSZ_8', 'amoor.d': 'OPSZ_8', 'amomin.d': 'OPSZ_8',
+                        'amomax.d': 'OPSZ_8', 'amominu.d': 'OPSZ_8', 'amomaxu.d': 'OPSZ_8',
                     },
-                    'im(rs1)',
+                    'imm(rs1)',
+                    'The register-relative memory source location (reg+imm).'
+                    )
+    V_S_RS1_DISP = (53,
+                    'mem',
+                    True,
+                    False,
+                    True,
+                    {
+                        '': 'OPSZ_0', 'lb': 'OPSZ_1', 'lh': 'OPSZ_2', 'lw': 'OPSZ_4',
+                        'ld': 'OPSZ_8', 'lbu': 'OPSZ_1', 'lhu': 'OPSZ_2', 'lwu': 'OPSZ_4',
+                        'sb': 'OPSZ_1', 'sh': 'OPSZ_2', 'sw': 'OPSZ_4', 'sd': 'OPSZ_8',
+                        'flw': 'OPSZ_4', 'fld': 'OPSZ_8', 'fsw': 'OPSZ_4', 'fsd': 'OPSZ_8',
+                        'flq': 'OPSZ_16', 'fsq': 'OPSZ_16', 'sc.w': 'OPSZ_4', 'sc.d': 'OPSZ_8'
+                    },
+                    'imm(rs1)',
                     'The register-relative memory target location (reg+imm).'
                     )
+    IRS1_SP = (54,
+               'opnd_create_reg(DR_REG_SP)',
+               False,
+               True,
+               False,
+               'OPSZ_PTR',
+               'rs1',
+               'Implicit rs1, always be sp.'
+               )
+    IRS1_ZERO = (55,
+                 'opnd_create_reg(DR_REG_ZERO)',
+                 False,
+                 True,
+                 False,
+                 'OPSZ_PTR',
+                 'rs1',
+                 'Implicit rs1, always be zero.'
+                 )
+    IRS2_ZERO = (56,
+                 'opnd_create_reg(DR_REG_ZERO)',
+                 False,
+                 True,
+                 False,
+                 'OPSZ_PTR',
+                 'rs2',
+                 'Implicit rs2, always be zero.'
+                 )
+    IRD_ZERO = (57,
+                'opnd_create_reg(DR_REG_ZERO)',
+                True,
+                True,
+                False,
+                'OPSZ_PTR',
+                'rd',
+                'Implicit rd, always be zero.'
+                )
+    IRD_RA = (58,
+              'opnd_create_reg(DR_REG_RA)',
+              True,
+              True,
+              False,
+              'OPSZ_PTR',
+              'rd',
+              'Implicit rd, always be ra.'
+              )
+    IRD_SP = (59,
+              'opnd_create_reg(DR_REG_SP)',
+              True,
+              True,
+              False,
+              'OPSZ_PTR',
+              'rd',
+              'Implicit rd, always be sp.'
+              )
+    IIMM_0 = (60,
+              'opnd_create_immed_int(0, OPSZ_1)',
+              False,
+              True,
+              True,
+              'OPSZ_1',
+              'imm',
+              'Implicit imm, always be 0.'
+              )
+    ICRS1 = (61,
+             'Rd',
+             False,
+             True,
+             False,
+             'OPSZ_PTR',
+             'rs1',
+             'Implicit rs1, same as CRD.'
+             )
+    ICRS1__ = (62,
+               'Rd',
+               False,
+               True,
+               False,
+               'OPSZ_PTR',
+               'rs1',
+               'Implicit rs1, same as CRD__.',
+               )
+    I_S_RS1_DISP = (63,
+                    'Mem',
+                    True,
+                    True,
+                    True,
+                    {
+                        'amoswap.w': 'OPSZ_4', 'amoadd.w': 'OPSZ_4', 'amoxor.w': 'OPSZ_4',
+                        'amoand.w': 'OPSZ_4', 'amoor.w': 'OPSZ_4', 'amomin.w': 'OPSZ_4',
+                        'amomax.w': 'OPSZ_4', 'amominu.w': 'OPSZ_4', 'amomaxu.w': 'OPSZ_4',
+                        'amoswap.d': 'OPSZ_8', 'amoadd.d': 'OPSZ_8', 'amoxor.d': 'OPSZ_8',
+                        'amoand.d': 'OPSZ_8', 'amoor.d': 'OPSZ_8', 'amomin.d': 'OPSZ_8',
+                        'amomax.d': 'OPSZ_8', 'amominu.d': 'OPSZ_8', 'amomaxu.d': 'OPSZ_8',
+                    },
+                    'imm(rs1)',
+                    'The register-relative memory target location (reg+imm).'
+                    )
+    # Vector extension fields.
+    ZIMM = (64,
+            'zimm',
+            False,
+            False,
+            False,
+            'OPSZ_5b',
+            '',
+            'The immediate field in the vsetivli instruction.'
+            )
+    ZIMM10 = (65,
+              'zimm10',
+              False,
+              False,
+              False,
+              'OPSZ_10b',
+              '',
+              'The vtypei field in the vsetivli instruction.'
+              )
+    ZIMM11 = (66,
+              'zimm11',
+              False,
+              False,
+              False,
+              'OPSZ_11b',
+              '',
+              'The vtypei field in the vsetvli instruction.'
+              )
+    VM = (67,
+          'vm',
+          False,
+          False,
+          False,
+          'OPSZ_1b',
+          '',
+          'The vm field in vector instructions.'
+          )
+    NF = (68,
+          'nf',
+          False,
+          False,
+          False,
+          'OPSZ_3b',
+          '',
+          'The nfields field in vector instructions.'
+          )
+    SIMM5 = (69,
+             'simm5',
+             False,
+             False,
+             False,
+             'OPSZ_5b',
+             '',
+             'The immediate field in vector instructions.'
+             )
+    VD = (70,
+          'Vd',
+          True,
+          False,
+          False,
+          'OPSZ_PTR',
+          '',
+          'The output vector register (inst[11:7]).'
+          )
+    VS1 = (71,
+           'vs1',
+           False,
+           False,
+           False,
+           'OPSZ_PTR',
+           '',
+           'The first input vector register (inst[19:15]).'
+           )
+    VS2 = (72,
+           'vs2',
+           False,
+           False,
+           False,
+           'OPSZ_PTR',
+           '',
+           'The second input vector register (inst[24:20]).'
+           )
+    VS3 = (73,
+           'vs3',
+           False,
+           False,
+           False,
+           'OPSZ_PTR',
+           '',
+           'The third input vector register (inst[11:7]).'
+           )
 
     def __str__(self) -> str:
         return self.name.lower().replace("fp", "(fp)")
@@ -495,8 +817,12 @@ class Field(str, Enum):
     def asm_name(self) -> str:
         return self._asm_name if self._asm_name != '' else self.arg_name
 
-    def formatted_name(self) -> str:
-        return self.arg_name.capitalize()
+    def formatted_name(self, is_body : bool = False) -> str:
+        name = self.arg_name if self.is_implicit else self.arg_name.capitalize()
+        if is_body and self.as_decimal:
+            return f'opnd_add_flags({ name }, DR_OPND_IMM_PRINT_DECIMAL)'
+        else:
+            return name
 
     def from_str(fld: str):
         return Field[fld.upper().replace("(FP)", "FP")]
@@ -599,10 +925,13 @@ class IslGenerator:
     def __fixup_compressed_inst(self, inst: Instruction):
         opc = (inst.match & inst.mask) & 0x3
         funct3 = (inst.match & inst.mask) >> 13
-        if opc == 0 and funct3 not in [0, 0b100]:  # LOAD/STORE instructions
+        if (opc == 0b00 or opc == 0b10) and funct3 not in [0, 0b100]:  # LOAD/STORE instructions
             dbg(f'fixup: {inst.name} {[f.name for f in inst.flds]}')
             # Immediate argument will handle the base+disp.
-            inst.flds.pop(1)
+            if opc == 0b00:  # non-SP LOAD/STORE instructions
+                inst.flds.pop(1)
+            if funct3 > 0b100:  # only reverse for STORE instructions
+                inst.flds.reverse()
             dbg(f'    -> {" " * len(inst.name)} {[f.name for f in inst.flds]}')
         elif Field.CB_IMM in inst.flds:
             # Compare-and-branch instructions need their branch operand moved
@@ -614,16 +943,43 @@ class IslGenerator:
 
     def __fixup_uncompressed_inst(self, inst: Instruction):
         opc = (inst.match & inst.mask) & 0x7F
+        funct3 = ((inst.match & inst.mask) >> 12) & 0x7
+        rs3 = ((inst.match & inst.mask) >> 27) & 0x1f
         if opc in [0b0000011, 0b0000111]:  # LOAD instructions
             dbg(f'fixup: {inst.name} {[f.name for f in inst.flds]}')
-            inst.flds[0] = Field.V_L_RS1_DISP
-            inst.flds.pop(1)
+            if opc == 0b0000111 and funct3 in [0b000, 0b101, 0b110, 0b111]:
+                # Vector load instructions have no imm part
+                inst.flds[-2] = Field.V_L_RS1_DISP
+            else:
+                inst.flds[0] = Field.V_L_RS1_DISP
+                inst.flds.pop(1)
             dbg(f'    -> {" " * len(inst.name)} {[f.name for f in inst.flds]}')
         elif opc in [0b0100011, 0b0100111]:  # STORE instructions
             dbg(f'fixup: {inst.name} {[f.name for f in inst.flds]}')
-            inst.flds[0] = Field.V_S_RS1_DISP
-            inst.flds.pop(2)
+            if opc == 0b0100111 and funct3 in [0b000, 0b101, 0b110, 0b111]:
+                # Vector store instructions have no imm part. Also swap operands
+                # to be consistent with the scalar instruction encoding.
+                inst.flds[-1], inst.flds[-2] = Field.V_S_RS1_DISP, inst.flds[-1]
+            else:
+                inst.flds[2] = Field.V_S_RS1_DISP
+                inst.flds.pop(0)
             dbg(f'    -> {" " * len(inst.name)} {[f.name for f in inst.flds]}')
+        elif opc == 0b0101111 and (funct3 == 0b010 or funct3 == 0b011):
+            if rs3 == 0x2: # LR.W/D instructions
+                dbg(f'fixup: {inst.name} {[f.name for f in inst.flds]}')
+                inst.flds[1] = Field.V_L_RS1_DISP
+                dbg(f'    -> {" " * len(inst.name)} {[f.name for f in inst.flds]}')
+            elif rs3 == 0x3: # SC.W/D instructions
+                dbg(f'fixup: {inst.name} {[f.name for f in inst.flds]}')
+                inst.flds[2] = Field.V_S_RS1_DISP
+                # Swap the rd and mem operand positions so that mem becomes the
+                # first operand to be consistent with AArch64.
+                inst.flds[2], inst.flds[3] = inst.flds[3], inst.flds[2]
+                dbg(f'    -> {" " * len(inst.name)} {[f.name for f in inst.flds]}')
+            else: # AMO instructions
+                dbg(f'fixup: {inst.name} {[f.name for f in inst.flds]}')
+                inst.flds[2] = Field.V_L_RS1_DISP
+                inst.flds.append(Field.I_S_RS1_DISP)
         elif inst.mask == 0x1f07fff and inst.match in [0x6013, 0x106013, 0x306013]:
             # prefetch.[irw] instructions
             dbg(f'fixup: {inst.name} {[f.name for f in inst.flds]}')
@@ -764,7 +1120,8 @@ class IslGenerator:
         found_template_fld = False
         idx = -1
         # Replace tmpl_fld in the template_file and save as out_file.
-        with open(template_file, 'r') as tf, open(out_file, 'w') as of:
+        buf = StringIO()
+        with open(template_file, 'r') as tf:
             for line in tf:
                 if '*/ OP_' in line:
                     nmb = re.findall(r'\d+', line)
@@ -788,7 +1145,8 @@ class IslGenerator:
                         idx += 1
 
                     line = line.replace(tmpl_fld, '\n'.join(lines))
-                of.write(line)
+                buf.write(line)
+        write_if_changed(out_file, buf.getvalue())
         if not found_template_fld:
             err(f"{tmpl_fld} not found in {template_file}")
         return found_template_fld
@@ -804,7 +1162,8 @@ class IslGenerator:
             return False
         found_template_fld = False
         # Replace tmpl_fld in the template_file and save as out_file.
-        with open(template_file, 'r') as tf, open(out_file, 'w') as of:
+        buf = StringIO()
+        with open(template_file, 'r') as tf:
             for line in tf:
                 if tmpl_fld in line:
                     found_template_fld = True
@@ -814,9 +1173,12 @@ class IslGenerator:
                     #    #define INSTR_CREATE_<opcode>(dc, <arguments>) \
                     #      instr_create_<n_dst>dst_<n_src>src(dc, OP_<opcode>, <arguments>)
                     for i in self.instructions:
-                        flds = [f for f in i.flds]
+                        flds = [f for f in i.flds if not f.is_implicit]
+                        all_flds = [f for f in i.flds]
                         flds.reverse()
+                        all_flds.reverse()
                         args = ''
+                        body_args = ''
                         arg_comments = ''
                         if len(flds) > 0:
                             args += ', '
@@ -824,19 +1186,24 @@ class IslGenerator:
                                               for f in flds])
                             arg_comments += '\n'
                             arg_comments += '\n'.join(
-                                [f' * \param {f.formatted_name():6}  {f.arg_cmt}' for f in flds])
-                        nd = len([f for f in flds if f.is_dest])
-                        ns = len(flds) - nd
+                                [f' * \\param {f.formatted_name():6}  {f.arg_cmt}' for f in flds])
+                        if len(all_flds) > 0:
+                            body_args += ', '
+                            body_args += ', '.join([f.formatted_name(True)
+                                              for f in all_flds])
+                        nd = len([f for f in all_flds if f.is_dest])
+                        ns = len(all_flds) - nd
                         lines.append(
                             f'''/**
  * Creates a(n) {i.name} instruction.
  *
- * \param dc      The void * dcontext used to allocate memory for the instr_t.{arg_comments}
+ * \\param dc      The void * dcontext used to allocate memory for the instr_t.{arg_comments}
  */
 #define INSTR_CREATE_{i.formatted_name()}(dc{args}) \\
-    instr_create_{nd}dst_{ns}src(dc, OP_{i.formatted_name()}{args})\n''')
+    instr_create_{nd}dst_{ns}src(dc, OP_{i.formatted_name()}{body_args})\n''')
                     line = line.replace(tmpl_fld, '\n'.join(lines))
-                of.write(line)
+                buf.write(line)
+        write_if_changed(out_file, buf.getvalue())
         if not found_template_fld:
             err(f"{tmpl_fld} not found in {template_file}")
         return found_template_fld
@@ -966,51 +1333,53 @@ class IslGenerator:
             return False
         if len(self.instructions) == 0:
             return False
-        with open(out_file, 'w') as of:
-            # Keep the order of fields here in sync with the documentation in
-            # core/ir/riscv64/codec.c.
-            OPND_TGT = ['dst1', 'src1', 'src2', 'src3', 'dst2']
-            instr_infos = []
-            trie = []
-            # Generate the rv_instr_info_t list.
-            for i in self.instructions:
-                flds = [f for f in i.flds]
-                flds.reverse()
-                asm_args = ''
-                opnds = []
-                ndst = 0
-                nsrc = 0
-                if len(flds) > 0:
-                    asm_args += ' '
-                    asm_args += ', '.join([f.asm_name() for f in flds])
-                    isrc = 1
-                    for f in flds:
-                        if f.is_dest:
-                            oidx = 0
-                            ndst += 1
-                        else:
-                            oidx = isrc
-                            isrc += 1
-                            nsrc += 1
-                        opnds += f'''
-            .{OPND_TGT[oidx]}_type = RISCV64_FLD_{f.name},
-            .{OPND_TGT[oidx]}_size = {f.opsz(i.name)},'''
-                instr_infos.append(f'''[OP_{i.formatted_name()}] = {{ /* {i.name}{asm_args} */
-        .info = {{
-            .type = OP_{i.formatted_name()},
-            .opcode = 0x{(ndst << 31) | (nsrc << 28):08x}, /* {ndst} dst, {nsrc} src */
-            .name = "{i.name}",{''.join(opnds)}
-            .code = (((uint64){hex(i.match)}) << 32) | ({hex(i.mask)}),
-        }},
-        .ext = {i.formatted_ext()},
-    }},''')
-            # Generate the trie.
-            trie = self.construct_trie(op_offset)
-            trie = [
-                f'{{.mask = {hex(t.mask)}, .shift = {t.shift}, .index = {t.index}}},{f" /* {t.ctx} */" if len(t.ctx) > 0 else ""}' for t in trie]
-            instr_infos = '\n    '.join(instr_infos)
-            trie = '\n    '.join(trie)
-            of.write(f'''
+        buf = StringIO()
+        # Keep the order of fields here in sync with the documentation in
+        # core/ir/riscv64/codec.c.
+        OPND_TGT = ['dst1', 'src1', 'src2', 'src3', 'dst2']
+        instr_infos = []
+        trie = []
+        # Generate the rv_instr_info_t list.
+        for i in self.instructions:
+            flds = [f for f in i.flds]
+            flds.reverse()
+            asm_args = ''
+            opnds = []
+            ndst = 0
+            nsrc = 0
+            if len(flds) > 0:
+                asm_args += ' '
+                asm_args += ', '.join([f.asm_name() for f in flds])
+                isrc = 1
+                idst = 0
+                for f in flds:
+                    if f.is_dest:
+                        oidx = idst
+                        ndst += 1
+                        idst = 4
+                    else:
+                        oidx = isrc
+                        isrc += 1
+                        nsrc += 1
+                    opnds += f'''
+        .{OPND_TGT[oidx]}_type = RISCV64_FLD_{f.name},
+        .{OPND_TGT[oidx]}_size = {f.opsz(i.name)},'''
+            instr_infos.append(f'''[OP_{i.formatted_name()}] = {{ /* {i.name}{asm_args} */
+    .info = {{
+        .type = OP_{i.formatted_name()},
+        .opcode = 0x{(ndst << 30) | (nsrc << 27):08x}, /* {ndst} dst, {nsrc} src */
+        .name = "{i.name}",{''.join(opnds)}
+        .code = (((uint64){hex(i.match)}) << 32) | ({hex(i.mask)}),
+    }},
+    .ext = {i.formatted_ext()},
+}},''')
+        # Generate the trie.
+        trie = self.construct_trie(op_offset)
+        trie = [
+            f'{{.mask = {hex(t.mask)}, .shift = {t.shift}, .index = {t.index}}},{f" /* {t.ctx} */" if len(t.ctx) > 0 else ""}' for t in trie]
+        instr_infos = '\n    '.join(instr_infos)
+        trie = '\n    '.join(trie)
+        write_if_changed(out_file, f'''
 /* This file is generated by codec.py. */
 
 /** Instruction info array. */

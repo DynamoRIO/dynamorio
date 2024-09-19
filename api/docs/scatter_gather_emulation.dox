@@ -1,5 +1,6 @@
 /* ******************************************************************************
  * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2024      Arm Limited   All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -32,11 +33,13 @@
 
 /**
  ****************************************************************************
-\page page_scatter_gather_emulation Emulating x86 Scatter and Gather Instructions
+\page page_scatter_gather_emulation Emulating Scatter and Gather Instructions
 
 \tableofcontents
 
 # Background
+
+## x86
 
 The x86 gather and scatter instructions were introduced in the AVX2 and AVX512
 instruction set extensions. They allow loading or storing a subset of elements in a
@@ -71,6 +74,127 @@ register `k1`. Elements may be scattered in any order. When an element is stored
 its mask is cleared. If some store faults, all elements to its right (closer to
 LSB) will be complete.
 
+## AArch64
+
+The <a href="https://developer.arm.com/documentation/102476/latest">AArch64 SVE
+(Scalable Vector Extension)</a> introduced the first AArch64 scatter and gather
+instructions.
+
+SVE has two scatter and gather addressing modes (scalar+vector and vector+immediate)
+and two predicated contiguous load and store addressing modes (scalar+scalar and
+scalar+immediate). The SVE2 instruction set extension adds a third scatter/gather
+addressing mode: vector+scalar.
+
+The predicated contiguous instructions do not use vector based addressing but they do
+have other similarities with the scatter and gather instructions which mean DynamoRIO
+handles them in a similar way.
+
+All scatter/gather/predicated contiguous instructions access elements conditionally based
+on the mask value of a governing predicate register. Loads are always zeroing: inactive
+elements are set to 0 in the destination register.
+
+### Scalar+vector
+
+```
+ld1b (%x0,%z0.s,uxtw)[1byte] %p0/z -> %z1.s
+```
+
+Above is a scalar+vector gather load that reads 8-bit values which are zero-extended and
+written to 32-bit elements of the `z1` vector register. Addresses are calculated by
+adding the base address from the scalar `x0` register to the corresponding 32-bit element
+in the vector index register `z0`. Elements that are not active in the mask contained by
+the governing predicate register `p0` are not loaded and the corresponding element in the
+destination register `z1` is set to `0`.
+
+```
+st1h   %z17.d %p5 -> (%x19,%z20.d)[2byte]
+```
+
+Above is a scalar+vector scatter store that writes the lowest 16-bits of the 64-bit
+elements of the `z17` vector register. Addresses are calculated by adding the base
+address from the scalar `x19` register to the corresponding 64-bit element in the vector
+index register `z20`. Elements that are not active in the mask contained by the governing
+predicate register `p5` are not stored.
+
+### Vector+immediate
+
+```
+ld1sw  +0x18(%z8.d)[4byte] %p2/z -> %z6.d
+```
+Above is a vector+immediate gather load that reads 32-bit values which are sign-extended
+and written to 64-bit elements of the `z6` vector register. Addresses are calculated by
+adding the immedate value 0x18 to the corresponding 64-bit element in the vector base
+register `z8`. Elements that are not active in the mask contained by governing predicate
+register `p2` are zeroed.
+
+### Vector+scalar
+
+```
+stnt1d %z27.d %p7 -> (%z25.d,%x29)[8byte]
+```
+
+Introduced with SVE2. The above instruction is a scatter store that writes the 64-bit
+elements of the `z27` vector register. Addresses are calculated by adding the value of
+scalar register `x29` to the corresponding 64-bit element in the vector base register
+`z25`. Elements that are not active in the mask contained by the governing predicate
+register `p7` are not stored.
+
+### Scalar+scalar
+
+```
+ld1sb  (%x17,%x18)[1byte] %p5/z -> %z16.d
+```
+
+The above instruction is a scalar+scalar predicated contiguous load. 8-bit values are
+loaded and sign extended to 64-bits and written to the vector register `z16`. The address
+of the first element is calculated by adding the value of the scalar index register `x18`
+to the value of the scalar base register `x17`. Addresses for subsequent elements are
+calculated by adding the size of the loaded value (1-byte in this example) to the address
+of the previous element. Elements that are not active in the mask contained by governing
+predicate register `p5` are zeroed.
+
+### Scalar+immediate
+
+```
+st1w   %z10.s %p3 -> -0x60(%x11)[4byte]
+```
+The above instruction is a scalar+immediate predicated contiguous store that writes the
+32-bit elements of the `z10` vector register. The address for the first element is
+calculated by adding the immediate value `-0x60` to the value of the scalar base register
+`x11`. Addresses for subsequent elements are calculated by adding the size of the stored
+value (4 bytes in this example) to the address of the previous element. Elements that are
+not active in the mask contained by governing predicate register `p3` are not stored.
+
+Note that DynamoRIO IR and disassembly for scalar+immediate instructions give the offset
+in bytes, but the instruction itself uses a 4-bit signed immediate which is multiplied by
+the current SVE vector length in bytes. Arm assembly syntax uses a vector length agnostic
+representation for the offset: `#<imm4>, MUL VL`
+
+So the above instruction might be encoded as
+```
+st1w z10.s, p3, [x11, #-3, MUL VL]
+```
+if the currently vector length is 32 bytes, or
+```
+st1w z10.s, p3, [x11, #-6, MUL VL]
+```
+if it is 16 bytes, and cannot be encoded for vector lengths > 32 bytes.
+
+### Non-faulting loads
+
+Non-faulting loads (`ldnf*`) do not fault if an element read faults. Instead a special
+predicate register FFR is updated. If this happens the FFR element corresponding to the
+element that faulted, and all elements higher than that are set to 0. Elements lower than
+the faulting element are unchanged.
+Non-faulting loads support scalar+immediate addressing.
+
+### First-faulting loads
+
+First-faulting loads (`ldff*`) behave like a normal gather/load instruction if the first
+active element causes a fault, and behave like a non-faulting load if the first active
+element succeeds but a later active element read causes a fault.
+First faulting loads support scalar+scalar, scalar+vector, and vector+immediate
+addressing.
 
 # Problem Statement
 
@@ -104,10 +228,6 @@ This required the addition of new support in various DynamoRIO components, like
 drreg, drx, drmgr and core DR. Multiple contributors worked on designing and
 implementing the required changes.
 
-Note that we expect the same approach to work for other platforms too, like for the
-AArch64 SVE scatter/gather instructions.
-
-
 ## Scatter/gather Instruction Expansion
 
 Owner: [Hendrik Greving](https://github.com/hgreving2304)
@@ -120,8 +240,13 @@ num_accesses = vector_size / element_size
 for i = 0, 1, ..., (num_accesses-1), do
   extract mask for the ith access from mask reg or mask vector
   if mask is set, then
-    extract ith element of index vector
-    compute address = base + ith index element
+    if index is vector, then
+        extract ith element of index vector
+        compute address = base + ith index element
+    else // base is vector
+        extract ith element of base vector
+        compute address = ith base element + index
+    done
     if instr_is_gather, then
       load data from address into a scalar reg
       insert scalar data into destination vector
@@ -129,7 +254,9 @@ for i = 0, 1, ..., (num_accesses-1), do
       extract scalar data from source vector to scalar reg
       store data from scalar reg to address
     done
-    clear ith mask in mask reg or mask vector
+    if x86, then
+        clear ith mask in mask reg or mask vector
+    done
   done
 done
 ```
@@ -151,7 +278,7 @@ any client that needs it, including drcachesim. This support was added by
 
 As an example, the following are the expansions of some instructions.
 
-Expansion for
+Expansion for x86 gather
 ```
 vpgatherdd 0x00402039(,%xmm11,4)[4byte] %xmm13 -> %xmm12 %xmm13
 ```
@@ -258,7 +385,7 @@ vpgatherdd 0x00402039(,%xmm11,4)[4byte] %xmm13 -> %xmm12 %xmm13
 ```
 
 
-Expansion for
+Expansion for x86 scatter
 ```
 vpscatterdd {%k1} %xmm10 -> 0x00402039(,%xmm11,4)[4byte] %k1
 ```
@@ -376,9 +503,192 @@ vpscatterdd {%k1} %xmm10 -> 0x00402039(,%xmm11,4)[4byte] %k1
  +500  m4 @0x00007fdb2ac0baa0                       <label>
 ```
 
+Expansion for AArch64 gather
+```
+ldff1sb (%x1,%z2.d)[1byte] %p3/z -> %z28.d
+```
+
+
+```
+   str    %x0 -> +0x0148(%x28)[8byte]    // Save flags using drreg
+   mrs    %nzcv -> %x0
+   str    %x0 -> +0x0150(%x28)[8byte]
+   ldr    +0x0148(%x28)[8byte] -> %x0
+   str    %x0 -> +0x0148(%x28)[8byte]    // Save scratch GPR using drreg
+   ldr    +0x38(%x28)[8byte] -> %x0
+   ldr    +0x0f50(%x0)[8byte] -> %x0
+   ldr    (%x0)[8byte] -> %x0
+   ldr    +0x10(%x0)[8byte] -> %x0
+   ldr    +0x20(%x0)[8byte] -> %x0
+   str    %z28 -> (%x0)[32byte]          // Save the value of the destination register in case we
+                                         // need to restore its value on a fault.
+   ldr    +0x38(%x28)[8byte] -> %x0
+   ldr    +0x0f50(%x0)[8byte] -> %x0
+   ldr    (%x0)[8byte] -> %x0
+   ldr    +0x10(%x0)[8byte] -> %x0
+   ldr    (%x0)[8byte] -> %x0
+   str    %p0 -> (%x0)[4byte]            // Spill a predicate register to use as the loop variable mask
+   <label note=0x0000000000000001>
+   dup    $0x00 lsl $0x00 -> %z28.d      // Clear destination register
+   pfalse  -> %p0.b                      // Initialize loop variable to 0
+   pnext  %p3 %p0.d -> %p0.d             // Set loop variable to the first active element
+   b.eq   @0x0000fffda4f27518[8byte]     // If no active elements, break the loop
+   lastb  %p0 %z2.d -> %x0               // Extract the first active element index to scratch GPR
+   ldrsb  (%x1,%x0)[1byte] -> %x0        // Load the first element to scratch GPR
+   cpy    %p0/m %x0 -> %z28.d            // Copy scratch GPR to current element of destination register
+   pnext  %p3 %p0.d -> %p0.d             // Repeat for the next active element
+   b.eq   @0x0000fffda4f27518[8byte]
+   lastb  %p0 %z2.d -> %x0
+   ldrsb  (%x1,%x0)[1byte] -> %x0
+   cpy    %p0/m %x0 -> %z28.d
+   pnext  %p3 %p0.d -> %p0.d             // Repeat for the next active element
+   b.eq   @0x0000fffda4f27518[8byte]
+   lastb  %p0 %z2.d -> %x0
+   ldrsb  (%x1,%x0)[1byte] -> %x0
+   cpy    %p0/m %x0 -> %z28.d
+   pnext  %p3 %p0.d -> %p0.d             // Repeat for the next active element
+   b.eq   @0x0000fffda4f27518[8byte]
+   lastb  %p0 %z2.d -> %x0
+   ldrsb  (%x1,%x0)[1byte] -> %x0
+   cpy    %p0/m %x0 -> %z28.d
+   <label note=0x0000000000000000>
+   <label note=0x0000000000000000>
+   <label note=0x0000000000000002>
+   ldr    +0x38(%x28)[8byte] -> %x0
+   ldr    +0x0f50(%x0)[8byte] -> %x0
+   ldr    (%x0)[8byte] -> %x0
+   ldr    +0x10(%x0)[8byte] -> %x0
+   ldr    (%x0)[8byte] -> %x0
+   ldr    (%x0)[4byte] -> %p0            // Restore spilled predicate register
+   ldr    +0x0148(%x28)[8byte] -> %x0
+   str    %x0 -> +0x0148(%x28)[8byte]
+   ldr    +0x0150(%x28)[8byte] -> %x0    // Restore flags using drreg
+   msr    %x0 -> %nzcv
+   ldr    +0x0148(%x28)[8byte] -> %x0    // Restore spilled GPR
+   b      $0x00000000004001d0
+```
+
+Expansion for AArch64 predicated contiguous store
+```
+st2w   %z28.s %z29.s %p2 -> (%x1,%x2,lsl #2)[4byte]
+```
+
+
+```
+   str    %x0 -> +0x0148(%x28)[8byte]
+   mrs    %nzcv -> %x0                               // Spill flags using drreg
+   str    %x0 -> +0x0150(%x28)[8byte]
+   ldr    +0x0148(%x28)[8byte] -> %x0
+   str    %x0 -> +0x0148(%x28)[8byte]                // Spill scrach GPRs using drreg
+   str    %x3 -> +0x0158(%x28)[8byte]
+   str    %x4 -> +0x0160(%x28)[8byte]
+   ldr    +0x38(%x28)[8byte] -> %x0
+   ldr    +0x0f50(%x0)[8byte] -> %x0
+   ldr    (%x0)[8byte] -> %x0
+   ldr    +0x10(%x0)[8byte] -> %x0
+   ldr    +0x20(%x0)[8byte] -> %x0
+   str    %z0 -> (%x0)[32byte]                       // Manually spill scratch vector Z register
+   ldr    +0x38(%x28)[8byte] -> %x0
+   ldr    +0x0f50(%x0)[8byte] -> %x0
+   ldr    (%x0)[8byte] -> %x0
+   ldr    +0x10(%x0)[8byte] -> %x0
+   ldr    (%x0)[8byte] -> %x0
+   str    %p0 -> (%x0)[4byte]                        // Manually spill scratch predicate P register
+   <label note=0x0000000000000001>
+   add    %x1 %x2 uxtx $0x0000000000000002 -> %x4    // Calculate start address
+   index  $0x00 $0x02 -> %z0.s                       // Initialize vector index register with value [0, 2, 4, ..]
+   pfalse  -> %p0.b                                  // Initialize loop variable to 0
+   pnext  %p2 %p0.s -> %p0.s                         // Set loop variable to the first active element
+   b.eq   @0x0000fffdb29fe3d0[8byte]                 // If no active elements, break the loop
+   lastb  %p0 %z0.s -> %x0                           // Extract vector index to GPR
+   lastb  %p0 %z28.s -> %x3                          // Extract vector element value from first source register to GPR
+   str    %w3 -> (%x4,%x0,lsl #2)[4byte]             // Store first register element value
+   add    %x0 $0x0000000000000001 lsl $0x0000000000000000 -> %x0 // Add 1 to index value
+   lastb  %p0 %z29.s -> %x3                          // Extract vector element value from second source register to GPR
+   str    %w3 -> (%x4,%x0,lsl #2)[4byte]             // Store second register element value
+   pnext  %p2 %p0.s -> %p0.s                         // Repeat for next active element
+   b.eq   @0x0000fffdb29fe3d0[8byte]
+   lastb  %p0 %z0.s -> %x0
+   lastb  %p0 %z28.s -> %x3
+   str    %w3 -> (%x4,%x0,lsl #2)[4byte]
+   add    %x0 $0x0000000000000001 lsl $0x0000000000000000 -> %x0
+   lastb  %p0 %z29.s -> %x3
+   str    %w3 -> (%x4,%x0,lsl #2)[4byte]
+   pnext  %p2 %p0.s -> %p0.s                         // Repeat for next active element
+   b.eq   @0x0000fffdb29fe3d0[8byte]
+   lastb  %p0 %z0.s -> %x0
+   lastb  %p0 %z28.s -> %x3
+   str    %w3 -> (%x4,%x0,lsl #2)[4byte]
+   add    %x0 $0x0000000000000001 lsl $0x0000000000000000 -> %x0
+   lastb  %p0 %z29.s -> %x3
+   str    %w3 -> (%x4,%x0,lsl #2)[4byte]
+   pnext  %p2 %p0.s -> %p0.s                         // Repeat for next active element
+   b.eq   @0x0000fffdb29fe3d0[8byte]
+   lastb  %p0 %z0.s -> %x0
+   lastb  %p0 %z28.s -> %x3
+   str    %w3 -> (%x4,%x0,lsl #2)[4byte]
+   add    %x0 $0x0000000000000001 lsl $0x0000000000000000 -> %x0
+   lastb  %p0 %z29.s -> %x3
+   str    %w3 -> (%x4,%x0,lsl #2)[4byte]
+   pnext  %p2 %p0.s -> %p0.s                         // Repeat for next active element
+   b.eq   @0x0000fffdb29fe3d0[8byte]
+   lastb  %p0 %z0.s -> %x0
+   lastb  %p0 %z28.s -> %x3
+   str    %w3 -> (%x4,%x0,lsl #2)[4byte]
+   add    %x0 $0x0000000000000001 lsl $0x0000000000000000 -> %x0
+   lastb  %p0 %z29.s -> %x3
+   str    %w3 -> (%x4,%x0,lsl #2)[4byte]
+   pnext  %p2 %p0.s -> %p0.s                         // Repeat for next active element
+   b.eq   @0x0000fffdb29fe3d0[8byte]
+   lastb  %p0 %z0.s -> %x0
+   lastb  %p0 %z28.s -> %x3
+   str    %w3 -> (%x4,%x0,lsl #2)[4byte]
+   add    %x0 $0x0000000000000001 lsl $0x0000000000000000 -> %x0
+   lastb  %p0 %z29.s -> %x3
+   str    %w3 -> (%x4,%x0,lsl #2)[4byte]
+   pnext  %p2 %p0.s -> %p0.s                         // Repeat for next active element
+   b.eq   @0x0000fffdb29fe3d0[8byte]
+   lastb  %p0 %z0.s -> %x0
+   lastb  %p0 %z28.s -> %x3
+   str    %w3 -> (%x4,%x0,lsl #2)[4byte]
+   add    %x0 $0x0000000000000001 lsl $0x0000000000000000 -> %x0
+   lastb  %p0 %z29.s -> %x3
+   str    %w3 -> (%x4,%x0,lsl #2)[4byte]
+   pnext  %p2 %p0.s -> %p0.s                         // Repeat for next active element
+   b.eq   @0x0000fffdb29fe3d0[8byte]
+   lastb  %p0 %z0.s -> %x0
+   lastb  %p0 %z28.s -> %x3
+   str    %w3 -> (%x4,%x0,lsl #2)[4byte]
+   add    %x0 $0x0000000000000001 lsl $0x0000000000000000 -> %x0
+   lastb  %p0 %z29.s -> %x3
+   str    %w3 -> (%x4,%x0,lsl #2)[4byte]
+   <label note=0x0000000000000000>
+   <label note=0x0000000000000002>
+   ldr    +0x38(%x28)[8byte] -> %x0
+   ldr    +0x0f50(%x0)[8byte] -> %x0
+   ldr    (%x0)[8byte] -> %x0
+   ldr    +0x10(%x0)[8byte] -> %x0
+   ldr    +0x20(%x0)[8byte] -> %x0
+   ldr    (%x0)[32byte] -> %z0                       // Manually restore scratch vector register
+   ldr    +0x38(%x28)[8byte] -> %x0
+   ldr    +0x0f50(%x0)[8byte] -> %x0
+   ldr    (%x0)[8byte] -> %x0
+   ldr    +0x10(%x0)[8byte] -> %x0
+   ldr    (%x0)[8byte] -> %x0
+   ldr    (%x0)[4byte] -> %p0                        // Manually restore scratch predicate register
+   ldr    +0x0148(%x28)[8byte] -> %x0                // Restore GPRs using drreg
+   ldr    +0x0158(%x28)[8byte] -> %x3
+   ldr    +0x0160(%x28)[8byte] -> %x4
+   str    %x0 -> +0x0148(%x28)[8byte]
+   ldr    +0x0150(%x28)[8byte] -> %x0                // Restore flags using drreg
+   msr    %x0 -> %nzcv
+   ldr    +0x0148(%x28)[8byte] -> %x0
+```
+
+
 As shown by the above expanded scatter and gather sequences, we require scratch
 registers for the expansion. The GPR scratch registers are obtained using
-drreg, whereas the scratch `zmm` register and the scratch mask register are
+drreg, whereas the scratch vector register and the scratch mask register are
 obtained by manually spilling them.
 
 We need to make sure that we restore the application state correctly when a state
@@ -604,7 +914,7 @@ instrumentation. These were subsequently used in drcachesim as well
 
 Owner: [Abhinav Sharma](https://github.com/abhinav92003)
 
-The scatter and gather expansions requires a scratch `xmm` register, for which we
+The scatter and gather expansions require scratch vector registers, for which we
 need the capability to spill and restore vector registers. Following are the design
 choices:
 

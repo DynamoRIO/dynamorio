@@ -175,6 +175,13 @@ opnd_is_predicate_zero(opnd_t op)
     return opnd_is_predicate_reg(op) && ((op.aux.flags & DR_OPND_IS_ZERO_PREDICATE) != 0);
 }
 
+INSTR_INLINE
+bool
+opnd_is_governing(opnd_t op)
+{
+    return opnd_is_predicate_reg(op) && ((op.aux.flags & DR_OPND_IS_GOVERNING) != 0);
+}
+
 #    if defined(X64) || defined(ARM)
 #        ifdef X86
 #            define OPND_IS_REL_ADDR(op) ((op).kind == REL_ADDR_kind)
@@ -291,9 +298,11 @@ opnd_t
 opnd_create_reg_element_vector(reg_id_t r, opnd_size_t element_size)
 {
     opnd_t opnd DR_IF_DEBUG(= { 0 }); /* FIXME: Needed until i#417 is fixed. */
-    CLIENT_ASSERT(element_size == 0 || (r <= DR_REG_LAST_ENUM && r != DR_REG_INVALID),
+    CLIENT_ASSERT(element_size != OPSZ_NA &&
+                      (r <= DR_REG_LAST_ENUM && r != DR_REG_INVALID),
                   "opnd_create_reg_element_vector: invalid register or no size");
     opnd.kind = REG_kind;
+    opnd.size = 0; /* indicates full size of reg */
     opnd.value.reg_and_element_size.reg = r;
     opnd.value.reg_and_element_size.element_size = element_size;
     opnd.aux.flags = DR_OPND_IS_VECTOR;
@@ -310,7 +319,9 @@ opnd_create_predicate_reg(reg_id_t r, bool is_merge)
                   "opnd_create_predicate_reg: invalid predicate register");
 
     opnd.kind = REG_kind;
+    opnd.size = 0; /* indicates full size of reg */
     opnd.value.reg_and_element_size.reg = r;
+    opnd.value.reg_and_element_size.element_size = OPSZ_NA;
     opnd.aux.flags =
         (ushort)(is_merge ? DR_OPND_IS_MERGE_PREDICATE : DR_OPND_IS_ZERO_PREDICATE);
     return opnd;
@@ -343,12 +354,12 @@ opnd_create_pc(app_pc pc)
              .value.reg_and_element_size.reg)
 #    define opnd_get_reg OPND_GET_REG
 
-#    if defined(X86) || defined(RISCV64)
+#    if defined(X86)
 #        define OPND_GET_FLAGS(opnd)                                                     \
             (CLIENT_ASSERT_(                                                             \
                 opnd_is_reg(opnd) || opnd_is_base_disp(opnd) || opnd_is_immed_int(opnd), \
                 "opnd_get_flags called on non-reg non-base-disp non-immed-int opnd") 0)
-#    elif defined(AARCHXX)
+#    elif defined(AARCHXX) || defined(RISCV64)
 #        define OPND_GET_FLAGS(opnd)                                                   \
             (CLIENT_ASSERT_(                                                           \
                  opnd_is_reg(opnd) || opnd_is_base_disp(opnd) ||                       \

@@ -286,8 +286,17 @@ mcontexts_equal(dr_mcontext_t *mc_a, dr_mcontext_t *mc_b, int func_index)
             return false;
     }
 #elif defined(AARCH64)
-    for (i = 0; i < proc_num_simd_registers(); i++) {
-        if (memcmp(&mc_a->simd[i], &mc_b->simd[i], sizeof(dr_simd_t)) != 0)
+    size_t vl = proc_get_vector_length_bytes();
+    for (i = 0; i < MCXT_NUM_SIMD_SVE_SLOTS; i++) {
+        if (memcmp(&mc_a->simd[i], &mc_b->simd[i], vl) != 0)
+            return false;
+    }
+    if (proc_has_feature(FEATURE_SVE)) {
+        for (i = 0; i < MCXT_NUM_SVEP_SLOTS; i++) {
+            if (memcmp(&mc_a->svep[i], &mc_b->svep[i], vl / 8) != 0)
+                return false;
+        }
+        if (memcmp(&mc_a->ffr, &mc_b->ffr, vl / 8) != 0)
             return false;
     }
 #endif
@@ -312,7 +321,11 @@ dump_diff_mcontexts(void)
                    after_reg, diff_str);
     }
 
+#ifdef X86
     dr_fprintf(STDERR, "Printing XMM regs:\n");
+#elif defined(AARCH64)
+    dr_fprintf(STDERR, "Printing SIMD/SVE regs:\n");
+#endif
     /* XXX i#1312: check if test can get extended to AVX-512. */
     for (i = 0; i < proc_num_simd_registers(); i++) {
 #ifdef X86
@@ -340,15 +353,55 @@ dump_diff_mcontexts(void)
                        after_reg.u32[6], after_reg.u32[7]);
         }
 #elif defined(AARCH64)
-        dr_simd_t before_reg = before_mcontext.simd[i];
-        dr_simd_t after_reg = after_mcontext.simd[i];
-        size_t mmsz = sizeof(dr_simd_t);
-        const char *diff_str =
-            (memcmp(&before_reg, &after_reg, mmsz) == 0 ? "" : " <- DIFFERS");
-        dr_fprintf(STDERR, "xmm%2d before: %08x%08x%08x%08x", i, before_reg.u32[0],
-                   before_reg.u32[1], before_reg.u32[2], before_reg.u32[3]);
-        dr_fprintf(STDERR, " after: %08x%08x%08x%08x", after_reg.u32[0], after_reg.u32[1],
-                   after_reg.u32[2], after_reg.u32[3]);
+        const size_t veclen_bytes = proc_get_vector_length_bytes();
+        const size_t predlen_bytes = veclen_bytes / 8;
+        char reg_name[4];
+        const char *diff_str = NULL;
+        if (i >= MCXT_NUM_SIMD_SVE_SLOTS) {
+            dr_svep_t before_reg, after_reg;
+
+            if (i >= (MCXT_NUM_SIMD_SVE_SLOTS + MCXT_NUM_SVEP_SLOTS)) {
+                strncpy(reg_name, "FFR", sizeof(reg_name));
+                before_reg = before_mcontext.ffr;
+                after_reg = after_mcontext.ffr;
+            } else {
+                dr_snprintf(reg_name, 4, "P%-2d", i - MCXT_NUM_SIMD_SVE_SLOTS);
+                before_reg = before_mcontext.svep[i - MCXT_NUM_SIMD_SVE_SLOTS];
+                after_reg = after_mcontext.svep[i - MCXT_NUM_SIMD_SVE_SLOTS];
+            }
+
+            diff_str =
+                (memcmp(&before_reg, &after_reg, predlen_bytes) == 0 ? ""
+                                                                     : " <- DIFFERS");
+
+            const size_t num_elements = predlen_bytes / sizeof(before_reg.u16[0]);
+            dr_fprintf(STDERR, "%s before: ", reg_name);
+            for (int element = 0; element < num_elements; element++) {
+                dr_fprintf(STDERR, "%04x", before_reg.u16[element]);
+            }
+            dr_fprintf(STDERR, " after: ");
+            for (int element = 0; element < num_elements; element++) {
+                dr_fprintf(STDERR, "%04x", after_reg.u16[element]);
+            }
+
+        } else {
+            dr_snprintf(reg_name, 4, "Z%-2d", i);
+            dr_simd_t before_reg = before_mcontext.simd[i];
+            dr_simd_t after_reg = after_mcontext.simd[i];
+
+            diff_str =
+                (memcmp(&before_reg, &after_reg, veclen_bytes) == 0 ? "" : " <- DIFFERS");
+
+            const size_t num_elements = veclen_bytes / sizeof(before_reg.u64[0]);
+            dr_fprintf(STDERR, "%s before: ", reg_name);
+            for (size_t element = 0; element < num_elements; element++) {
+                dr_fprintf(STDERR, PFMT, before_reg.u64[element]);
+            }
+            dr_fprintf(STDERR, " after: ");
+            for (size_t element = 0; element < num_elements; element++) {
+                dr_fprintf(STDERR, PFMT, after_reg.u64[element]);
+            }
+        }
 #endif
         dr_fprintf(STDERR, "%s\n", diff_str);
     }

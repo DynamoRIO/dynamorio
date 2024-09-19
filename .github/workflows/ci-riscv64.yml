@@ -50,9 +50,10 @@ defaults:
 
 jobs:
   # RISCV64 cross-compile with gcc
-  # We use ubuntu 22.04 because the compilition here need python (3.10.x)
+  # We use ubuntu 24.04 because the compilition here need libunwind-riscv64 and
+  # it's a stable source.
   riscv64-cross-compile:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
     - uses: actions/checkout@v2
@@ -70,14 +71,16 @@ jobs:
     # Install cross-compiler for cross-compiling Linux build.
     # Unfortunately there are no libunwind or compression cross-compile
     # packages so we unpack the native versions and copy their files.
-    # Unfortunately, only kinetic (ubuntu 22.10) has linunwind-riscv64 packages.
-    # I prefer debian-ports here, it is more close to upstream.
     - name: Create Build Environment
       run: |
         sudo apt-get update
         sudo apt-get -y install doxygen vera++ cmake crossbuild-essential-riscv64 git  \
           qemu-user qemu-user-binfmt
-        sudo add-apt-repository 'deb [trusted=yes arch=riscv64] http://deb.debian.org/debian-ports sid main'
+        # We cannot use the following command here, because it will download the
+        # x86_64 binaries due to some known issue of DEB822.
+        # sudo add-apt-repository 'deb [arch=riscv64] http://ports.ubuntu.com/ubuntu-ports noble main'
+        echo 'deb [arch=riscv64] http://ports.ubuntu.com/ubuntu-ports noble main' | sudo tee -a /etc/apt/sources.list
+        sudo apt-get update
         apt download libunwind8:riscv64 libunwind-dev:riscv64 liblzma5:riscv64 \
           zlib1g:riscv64 zlib1g-dev:riscv64 libsnappy1v5:riscv64 libsnappy-dev:riscv64 \
           liblz4-1:riscv64 liblz4-dev:riscv64
@@ -85,7 +88,9 @@ jobs:
         for i in *.deb; do dpkg-deb -x $i ../extract; done
         for i in include lib; do sudo rsync -av ../extract/usr/${i}/riscv64-linux-gnu/ /usr/riscv64-linux-gnu/${i}/; done
         sudo rsync -av ../extract/usr/include/ /usr/riscv64-linux-gnu/include/
-        sudo rsync -av ../extract/lib/riscv64-linux-gnu/ /usr/riscv64-linux-gnu/lib/
+        if test -e "../extract/lib/riscv64-linux-gnu/"; then \
+          sudo rsync -av ../extract/lib/riscv64-linux-gnu/ /usr/riscv64-linux-gnu/lib/; \
+        fi
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
@@ -94,6 +99,7 @@ jobs:
         DYNAMORIO_CROSS_RISCV64_LINUX_ONLY: yes
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
+        QEMU_LD_PREFIX: /usr/riscv64-linux-gnu/
 
     - name: Send failure mail to dynamorio-devs
       if: failure() && github.ref == 'refs/heads/master'

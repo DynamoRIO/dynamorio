@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -217,13 +217,13 @@ typedef struct _clone_record_t {
     thread_sig_info_t info;
     thread_sig_info_t *parent_info;
     void *pcprofile_info;
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
     /* To ensure we have the right value as of the point of the clone, we
      * store it here (we'll have races if we try to get it during new thread
      * init).
      */
     reg_t app_stolen_value;
-#    ifndef AARCH64
+#    ifdef ARM
     dr_isa_mode_t isa_mode;
 #    endif
     /* To ensure we have the right app lib tls base in child thread,
@@ -290,7 +290,8 @@ static bool
 execute_handler_from_dispatch(dcontext_t *dcontext, int sig);
 
 static void
-execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame);
+execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame,
+                       byte *cur_xsp);
 
 /* Execute default action from code cache and may terminate the process.
  * If returns, the return value decides if caller should restore
@@ -340,7 +341,7 @@ dump_unmasked(dcontext_t *dcontext, const char *where)
     LOG(THREAD, LOG_ASYNCH, 3, "%s: threads_unmasked: ", where);
     for (int i = 1; i <= MAX_SIGNUM; i++) {
         LOG(THREAD, LOG_ASYNCH, 3, "[%d]=%d ", i, info->sighand->threads_unmasked[i]);
-        if (i % 16 == 0)
+        if (i % 16 == 0 || i == MAX_SIGNUM)
             LOG(THREAD, LOG_ASYNCH, 3, "\n");
     }
 }
@@ -455,7 +456,7 @@ setitimer_syscall(int which, struct itimerval *val, struct itimerval *old)
     return dynamorio_syscall(SYS_setitimer, 3, which, val, old);
 }
 
-static inline int
+int
 sigprocmask_syscall(int how, kernel_sigset_t *set, kernel_sigset_t *oset,
                     size_t sigsetsize)
 {
@@ -817,12 +818,18 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
              * cl_args->stack. But we expect the highest (non-inclusive)
              * in the clone record's app_thread_xsp.
              */
-            record->app_thread_xsp = dr_clone_args->stack + dr_clone_args->stack_size;
+            if (dr_clone_args->stack == 0)
+                record->app_thread_xsp = get_mcontext(dcontext)->xsp;
+            else
+                record->app_thread_xsp = dr_clone_args->stack + dr_clone_args->stack_size;
             record->clone_flags = dr_clone_args->flags;
             record->app_clone_args = app_clone_args;
         } else {
 #endif
-            record->app_thread_xsp = *app_thread_xsp;
+            if (*app_thread_xsp == 0)
+                record->app_thread_xsp = get_mcontext(dcontext)->xsp;
+            else
+                record->app_thread_xsp = *app_thread_xsp;
             record->clone_flags = dcontext->sys_param0;
             IF_LINUX(record->app_clone_args = NULL);
 #ifdef LINUX
@@ -846,9 +853,9 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
     record->info.app_sigstack.ss_flags = SS_DISABLE;
     record->parent_info = (thread_sig_info_t *)dcontext->signal_field;
     record->pcprofile_info = dcontext->pcprofile_field;
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
     record->app_stolen_value = get_stolen_reg_val(get_mcontext(dcontext));
-#    ifndef AARCH64
+#    ifdef ARM
     record->isa_mode = dr_get_isa_mode(dcontext);
 #    endif
     /* If the child thread shares the same TLS with parent by not setting
@@ -909,8 +916,8 @@ set_clone_record_fields(void *record, reg_t app_thread_xsp, app_pc continuation_
  *
  * CAUTION: don't use a lot of stack in this routine as it gets invoked on the
  *          dstack from new_thread_setup - this is because this routine assumes
- *          no more than a page of dstack has been used so far since the clone
- *          system call was done.
+ *          no more than a page of dstack for X86 and 2 pages of dstack for
+ *          AArch64 have been used so far since the clone system call was done.
  */
 void *
 get_clone_record(reg_t xsp)
@@ -921,20 +928,43 @@ get_clone_record(reg_t xsp)
     /* xsp should be in a dstack, i.e., dynamorio heap.  */
     ASSERT(is_dynamo_address((app_pc)xsp));
 
-    /* The (size of the clone record +
+    /* The stack usage when this is called on most platforms is less than one page so we
+     * can straightforwardly find the clone record by forward aligning xsp.
+     *
+     * However when this function is called by new_thread_setup() on AArch64 the stack
+     * usage is > 4K:
+     *     (size of the clone record +
      *      stack used by new_thread_start (only for setting up priv_mcontext_t) +
      *      stack used by new_thread_setup before calling get_clone_record())
-     * is less than a page.  This is verified by the assert below.  If it does
-     * exceed a page, it won't happen at random during runtime, but in a
-     * predictable way during development, which will be caught by the assert.
-     * The current usage is about 800 bytes for clone_record +
-     * sizeof(priv_mcontext_t) + few words in new_thread_setup before
-     * get_clone_record() is called.
+     * so if we have 4k pages we need to account for the extra page we are using by
+     * adding PAGE_SIZE to dstack_base.
+     *
+     * When this function is called by client_thread_run() there is no priv_mcontext_t on
+     * the stack so we don't have to make this adjustment.
+     *
+     * The current usage is about 800 bytes (X86) or 4400 bytes (AArch64) for
+     * clone_record + sizeof(priv_mcontext_t) + few words in new_thread_setup
+     * before get_clone_record() is called.
      */
-    dstack_base = (byte *)ALIGN_FORWARD(xsp, PAGE_SIZE);
-    record = (clone_record_t *)(dstack_base - sizeof(clone_record_t));
+    const size_t page_size = PAGE_SIZE;
+    dstack_base = (byte *)ALIGN_FORWARD(xsp, page_size);
 
-    /* dstack_base and the dstack in the clone record should be the same. */
+    record = (clone_record_t *)(dstack_base - sizeof(clone_record_t));
+#ifdef AARCH64
+    if (sizeof(clone_record_t) + sizeof(priv_mcontext_t) > page_size &&
+        dstack_base != record->dstack) {
+        /* Looks like there is a priv_mcontext_t on the stack so we need to skip forward
+         * another page.
+         */
+        dstack_base += page_size;
+        record = (clone_record_t *)(dstack_base - sizeof(clone_record_t));
+    }
+#endif
+
+    /* dstack_base and the dstack in the clone record should be the same.
+     * This verifies the assumptions we have made above about the stack useage fitting
+     * into 1 or 2 pages.
+     */
     ASSERT(dstack_base == record->dstack);
 #ifdef MACOS
     ASSERT(record->app_thread_xsp != 0); /* else it's not in dstack */
@@ -966,7 +996,7 @@ get_clone_record_dstack(void *record)
     return ((clone_record_t *)record)->dstack;
 }
 
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
 reg_t
 get_clone_record_stolen_value(void *record)
 {
@@ -974,7 +1004,7 @@ get_clone_record_stolen_value(void *record)
     return ((clone_record_t *)record)->app_stolen_value;
 }
 
-#    ifndef AARCH64
+#    ifdef ARM
 uint /* dr_isa_mode_t but we have a header ordering problem */
 get_clone_record_isa_mode(void *record)
 {
@@ -1978,7 +2008,7 @@ handle_clone(dcontext_t *dcontext, uint64 flags)
  */
 bool
 handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
-                 prev_sigaction_t *oact, size_t sigsetsize, OUT uint *result)
+                 prev_sigaction_t *oact, size_t sigsetsize, DR_PARAM_OUT uint *result)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     kernel_sigaction_t *save;
@@ -2218,7 +2248,7 @@ convert_kernel_sigaction_to_old(dcontext_t *dcontext, old_sigaction_t *os,
 /* Returns false (and "result") if should NOT issue syscall. */
 bool
 handle_old_sigaction(dcontext_t *dcontext, int sig, const old_sigaction_t *act,
-                     old_sigaction_t *oact, OUT uint *result)
+                     old_sigaction_t *oact, DR_PARAM_OUT uint *result)
 {
     kernel_sigaction_t kact;
     kernel_sigaction_t okact;
@@ -2272,7 +2302,7 @@ handle_post_old_sigaction(dcontext_t *dcontext, bool success, int sig,
  */
 bool
 handle_sigaltstack(dcontext_t *dcontext, const stack_t *stack, stack_t *old_stack,
-                   reg_t cur_xsp, OUT uint *result)
+                   reg_t cur_xsp, DR_PARAM_OUT uint *result)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     stack_t local_stack;
@@ -2778,6 +2808,8 @@ sig_full_initialize(sig_full_cxt_t *sc_full, kernel_ucontext_t *ucxt)
 #elif defined(AARCH64)
     sc_full->fp_simd_state =
         &ucxt->IF_MACOS64_ELSE(uc_mcontext64->__ns, uc_mcontext.__reserved);
+#elif defined(RISCV64)
+    sc_full->fp_simd_state = &ucxt->uc_mcontext.sc_fpregs;
 #else
     ASSERT_NOT_IMPLEMENTED(false);
 #endif
@@ -3043,22 +3075,36 @@ mcontext_to_ucontext(kernel_ucontext_t *uc, priv_mcontext_t *mc)
     mcontext_to_sigcontext(&sc_full, mc, DR_MC_ALL);
 }
 
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
 static void
 set_sigcxt_stolen_reg(sigcontext_t *sc, reg_t val)
 {
-    *(&sc->SC_R0 + (dr_reg_stolen - DR_REG_R0)) = val;
+    *(&sc->IF_AARCHXX_ELSE(SC_R0, SC_A0) +
+      (dr_reg_stolen - IF_AARCHXX_ELSE(DR_REG_R0, DR_REG_A0))) = val;
 }
 
-#    ifndef MACOS /* TODO i#5383: Add full signal support. */
 static reg_t
 get_sigcxt_stolen_reg(sigcontext_t *sc)
 {
-    return *(&sc->SC_R0 + (dr_reg_stolen - DR_REG_R0));
+    return *(&sc->IF_AARCHXX_ELSE(SC_R0, SC_A0) +
+             (dr_reg_stolen - IF_AARCHXX_ELSE(DR_REG_R0, DR_REG_A0)));
+}
+
+#    ifdef RISCV64
+static void
+set_sigcxt_tp_reg(sigcontext_t *sc, reg_t val)
+{
+    sc->SC_TP = val;
+}
+
+static reg_t
+get_sigcxt_tp_reg(sigcontext_t *sc)
+{
+    return sc->SC_TP;
 }
 #    endif
 
-#    ifndef AARCH64
+#    ifdef ARM
 static dr_isa_mode_t
 get_pc_mode_from_cpsr(sigcontext_t *sc)
 {
@@ -3144,10 +3190,10 @@ translate_sigcontext(dcontext_t *dcontext, kernel_ucontext_t *uc, bool avoid_fai
 
 /* Takes an os-specific context */
 void
-thread_set_self_context(void *cxt)
+thread_set_self_context(void *cxt, bool is_detach_external)
 {
 #ifdef X86
-    if (!INTERNAL_OPTION(use_sigreturn_setcontext)) {
+    if (!INTERNAL_OPTION(use_sigreturn_setcontext) || is_detach_external) {
         sigcontext_t *sc = (sigcontext_t *)cxt;
         dr_jmp_buf_t buf;
         buf.xbx = sc->SC_XBX;
@@ -3193,16 +3239,17 @@ thread_set_self_context(void *cxt)
     dcontext_t *dcontext = get_thread_private_dcontext();
 #endif
 #ifdef LINUX
-#    ifdef X86
-    byte *xstate = get_and_initialize_xstate_buffer(dcontext);
-    frame.uc.uc_mcontext.fpstate = &((kernel_xstate_t *)xstate)->fpstate;
-#    endif /* X86 */
     frame.uc.uc_mcontext = *sc;
-#endif
-    IF_ARM(ASSERT_NOT_TESTED());
+#    ifdef X86
+    frame.uc.uc_mcontext.fpstate =
+        (kernel_fpstate_t *)get_and_initialize_xstate_buffer(dcontext);
+#    endif /* X86 */
+#endif     /* LINUX */
 #if defined(X86)
+    /* This saves both X87 state (from fxsave) and XMM state (from mcontext) */
     save_fpstate(dcontext, &frame);
 #endif
+    IF_ARM(ASSERT_NOT_TESTED());
     /* The kernel calls do_sigaltstack on sys_rt_sigreturn primarily to ensure
      * the frame is ok, but the side effect is we can mess up our own altstack
      * settings if we're not careful.  Having invalid ss_size looks good for
@@ -3245,7 +3292,11 @@ thread_set_self_context(void *cxt)
 #elif defined(ARM)
     asm("ldr  " ASM_XSP ", %0" : : "m"(xsp_for_sigreturn));
     asm("b    dynamorio_sigreturn");
-#endif /* X86/AARCH64/ARM */
+#elif defined(RISCV)
+    ASSERT_NOT_TESTED();
+    asm("addi   " ASM_XSP ", %0, 0" : : "r"(xsp_for_sigreturn));
+    asm("j      dynamorio_sigreturn");
+#endif /* X86/AARCH64/ARM/RISCV64 */
     ASSERT_NOT_REACHED();
 }
 
@@ -3285,21 +3336,23 @@ thread_set_segment_registers(sigcontext_t *sc)
 
 /* Takes a priv_mcontext_t */
 void
-thread_set_self_mcontext(priv_mcontext_t *mc)
+thread_set_self_mcontext(priv_mcontext_t *mc, bool is_detach_external)
 {
     kernel_ucontext_t ucxt;
     sig_full_cxt_t sc_full;
     sig_full_initialize(&sc_full, &ucxt);
 #if defined(LINUX) && defined(X86)
-    sc_full.sc->fpstate = NULL; /* for mcontext_to_sigcontext */
+    /* This prevents mcontext_to_sigcontext from filling in fpstate.
+     * Instead, it initialized by thread_set_self_context.
+     */
+    sc_full.sc->fpstate = NULL;
 #endif
     mcontext_to_sigcontext(&sc_full, mc, DR_MC_ALL);
     thread_set_segment_registers(sc_full.sc);
     /* sigreturn takes the mode from cpsr */
     IF_ARM(
         set_pc_mode_in_cpsr(sc_full.sc, dr_get_isa_mode(get_thread_private_dcontext())));
-    /* thread_set_self_context will fill in the real fp/simd state for x86 */
-    thread_set_self_context((void *)sc_full.sc);
+    thread_set_self_context((void *)sc_full.sc, is_detach_external);
     ASSERT_NOT_REACHED();
 }
 
@@ -3326,8 +3379,7 @@ sig_has_restorer(thread_sig_info_t *info, int sig)
      */
     return false;
 #    elif defined(RISCV64)
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    /* FIXME i#3544: Is this same as AArch64? */
     return false;
 #    endif
     if (info->sighand->action[sig]->restorer == NULL)
@@ -3365,7 +3417,6 @@ sig_has_restorer(thread_sig_info_t *info, int sig)
 #    elif defined(RISCV64)
         static const byte SIGRET_NONRT[8] = { 0 }; /* unused */
         static const byte SIGRET_RT[8] = { 0 };    /* unused */
-        ;
 #    endif
         byte buf[MAX(sizeof(SIGRET_NONRT), sizeof(SIGRET_RT))] = { 0 };
         if (d_r_safe_read(info->sighand->action[sig]->restorer, sizeof(buf), buf) &&
@@ -3492,9 +3543,9 @@ get_sigstack_frame_ptr(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
 
     if (frame != NULL) {
         /* Handle DR's frame already being on the app stack.  For native delivery we
-         * could try to re-use this frame, but that doesn't work with plain vs rt.
-         * Instead we move below and live with the downsides of a potential stack
-         * overflow.
+         * already try to re-use this frame in execute_native_handler(), but that doesn't
+         * work with plain vs rt, and a few other cases. Here, we fall back to moving
+         * below and live with the downsides of a potential stack overflow.
          */
         size_t frame_sz_max = sizeof(sigframe_rt_t) + REDZONE_SIZE +
             IF_LINUX(IF_X86((sc->fpstate == NULL ? 0
@@ -4043,7 +4094,7 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, kernel_ucontext
      * still go to the private fcache_return for simplicity.
      */
     sc->SC_XIP = (ptr_uint_t)fcache_return_routine(dcontext);
-#if defined(AARCHXX) && !defined(MACOS)
+#if defined(AARCHXX) || defined(RISCV64)
     /* We do not have to set dr_reg_stolen in dcontext's mcontext here
      * because dcontext's mcontext is stale and we used the mcontext
      * created from recreate_app_state_internal with the original sigcontext.
@@ -4057,7 +4108,13 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, kernel_ucontext
     dcontext->local_state->spill_space.reg_stolen = get_sigcxt_stolen_reg(sc);
     /* Now put DR's base in the sigcontext. */
     set_sigcxt_stolen_reg(sc, (reg_t)*get_dr_tls_base_addr());
-#    ifndef AARCH64
+#    ifdef RISCV64
+    os_set_app_tls_base(dcontext, TLS_REG_LIB, (void *)get_sigcxt_tp_reg(sc));
+    /* Now put host tp in the sigcontext. */
+    set_sigcxt_tp_reg(sc, (reg_t)read_thread_register(TLS_REG_LIB));
+#    endif
+
+#    ifdef ARM
     /* We're going to our fcache_return gencode which uses DEFAULT_ISA_MODE */
     set_pc_mode_in_cpsr(sc, DEFAULT_ISA_MODE);
 #    endif
@@ -4114,6 +4171,7 @@ send_signal_to_client(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
     /* i#207: fragment tag and fcache start pc on fault. */
     si.fault_fragment_info.tag = NULL;
     si.fault_fragment_info.cache_start_pc = NULL;
+    si.fault_fragment_info.ilist = NULL;
     /* i#182/PR 449996: we provide the pre-translation context */
     if (raw_sc != NULL) {
         fragment_t wrapper;
@@ -4281,8 +4339,17 @@ abort_on_fault(dcontext_t *dcontext, uint dumpcore_flag, app_pc pc, byte *target
 #    else
 #        error NYI on AArch64
 #    endif
+#elif defined(RISCV64)
+                      "  pc=" PFX " ra=" PFX " sp =" PFX " gp =" PFX "\n"
+                      "\ttp=" PFX " t0=" PFX " t1 =" PFX " t2 =" PFX "\n"
+                      "\ts0=" PFX " s1=" PFX " a0 =" PFX " a1 =" PFX "\n"
+                      "\ta2=" PFX " a3=" PFX " a4 =" PFX " a5 =" PFX "\n"
+                      "\ta6=" PFX " a7=" PFX " s2 =" PFX " s3 =" PFX "\n"
+                      "\ts4=" PFX " s5=" PFX " s6 =" PFX " s7 =" PFX "\n"
+                      "\ts8=" PFX " s9=" PFX " s10=" PFX " s11=" PFX "\n"
+                      "\tt3=" PFX " t4=" PFX " t5 =" PFX " t6 =" PFX "\n"
 #endif /* X86/ARM */
-                      "\teflags=" PFX;
+        IF_NOT_RISCV64("\teflags=" PFX);
 
 #if defined(STATIC_LIBRARY) && defined(LINUX)
     /* i#2119: if we're invoking an app handler, disable a fatal coredump. */
@@ -4610,13 +4677,19 @@ adjust_syscall_for_restart(dcontext_t *dcontext, thread_sig_info_t *info, int si
     } else {
         ASSERT_NOT_REACHED(); /* Inlined syscalls no longer come here. */
     }
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
     /* dr_reg_stolen is holding DR's TLS on receiving a signal,
      * so we need to put the app's reg value into the ucontext instead.
      * The translation process normally does this for us, but here we're doing
      * a custom translation.
      */
     set_sigcxt_stolen_reg(sc, dcontext->local_state->spill_space.reg_stolen);
+#    ifdef RISCV64
+    /* Same for the tp register on RISC-V, here we need to put app's tp reg value
+     * into the ucontext.
+     */
+    set_sigcxt_tp_reg(sc, (reg_t)os_get_app_tls_base(dcontext, TLS_REG_LIB));
+#    endif
 #endif
     LOG(THREAD, LOG_ASYNCH, 2, "%s: sigreturn pc is now " PFX "\n", __FUNCTION__,
         sc->SC_XIP);
@@ -4718,7 +4791,8 @@ find_next_fragment_from_gencode(dcontext_t *dcontext, sigcontext_t *sc)
         if (f == NULL && sc->SC_XCX != 0)
             f = fragment_lookup(dcontext, (app_pc)sc->SC_XCX);
 #elif defined(RISCV64)
-/* FIXME i#3544: Not implemented */
+        if (f == NULL && sc->SC_A2 != 0)
+            f = fragment_lookup(dcontext, (app_pc)(sc->SC_A2));
 #else
 #    error Unsupported arch.
 #endif
@@ -4854,7 +4928,10 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
                 blocked = true;
         } else {
             LOG(THREAD, LOG_ASYNCH, 2, "Going to receive signal natively now\n");
-            execute_native_handler(dcontext, sig, frame);
+            /* sc->SC_XSP is the interrupted stack pointer, not the one where the
+             * DR handler is executing. So, we cannot use it for the call below.
+             */
+            execute_native_handler(dcontext, sig, frame, /*cur_xsp=*/NULL);
             handled = true;
         }
     } else if (safe_is_in_fcache(dcontext, pc, xsp)) {
@@ -5731,7 +5808,7 @@ main_signal_handler_C(byte *xsp)
         /* For can_always_delay[sig] we could just return and drop it, but we
          * try to perturb the app behavior less with a native signal frame:
          */
-        execute_native_handler(dcontext, sig, frame);
+        execute_native_handler(dcontext, sig, frame, xsp);
         return;
     }
 
@@ -5886,7 +5963,7 @@ main_signal_handler_C(byte *xsp)
              * it's rare, original app instructions can come here for some app
              * setups for static DR during init.  We send to the app handler.
              */
-            execute_native_handler(dcontext, sig, frame);
+            execute_native_handler(dcontext, sig, frame, xsp);
             return;
 #endif
             abort_on_fault(dcontext, DUMPCORE_CLIENT_EXCEPTION, pc, target, sig, frame,
@@ -5995,7 +6072,7 @@ main_signal_handler_C(byte *xsp)
         }
         /* pass it to the application (or client) */
         if (dcontext->currently_stopped) {
-            execute_native_handler(dcontext, sig, frame);
+            execute_native_handler(dcontext, sig, frame, xsp);
             break;
         }
         LOG(THREAD, LOG_ALL, 1,
@@ -6276,10 +6353,9 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
         dump_sigcontext(dcontext, sc);
         LOG(THREAD, LOG_ASYNCH, 3, "\n");
     }
-#    ifndef MACOS
-    IF_AARCHXX(ASSERT(get_sigcxt_stolen_reg(sc) != (reg_t)*get_dr_tls_base_addr()));
+#    if defined(AARCHXX) || defined(RISCV64)
+    ASSERT(get_sigcxt_stolen_reg(sc) != (reg_t)*get_dr_tls_base_addr());
 #    endif
-
 #endif
     /* FIXME: other state?  debug regs?
      * if no syscall allowed between main_ (when frame created) and
@@ -6384,7 +6460,17 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
     /* Set up args to handler: int sig, kernel_siginfo_t *siginfo,
      * kernel_ucontext_t *ucxt.
      */
-#if defined(MACOS64) && defined(X86)
+#if defined(MACOS64) && defined(AARCH64)
+    mcontext->r0 = (reg_t)info->sighand->action[sig]->handler;
+    int infostyle = TEST(SA_SIGINFO, info->sighand->action[sig]->flags)
+        ? SIGHAND_STYLE_UC_FLAVOR
+        : SIGHAND_STYLE_UC_TRAD;
+    mcontext->r1 = infostyle;
+    mcontext->r2 = sig;
+    mcontext->r3 = (reg_t) & ((sigframe_rt_t *)xsp)->info;
+    mcontext->r4 = (reg_t) & ((sigframe_rt_t *)xsp)->uc;
+    mcontext->lr = (reg_t)dynamorio_sigreturn;
+#elif defined(MACOS64) && defined(X86)
     mcontext->xdi = (reg_t)info->sighand->action[sig]->handler;
     int infostyle = TEST(SA_SIGINFO, info->sighand->action[sig]->flags)
         ? SIGHAND_STYLE_UC_FLAVOR
@@ -6411,15 +6497,15 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
         mcontext->lr = (reg_t)dynamorio_sigreturn;
 #elif defined(RISCV64)
     /* FIXME i#3544: Check if xsp is cast correctly? */
-    sc->SC_A0 = sig;
+    mcontext->a0 = sig;
     if (IS_RT_FOR_APP(info, sig)) {
-        sc->SC_A1 = (reg_t) & ((sigframe_rt_t *)xsp)->info;
-        sc->SC_A2 = (reg_t) & ((sigframe_rt_t *)xsp)->uc;
+        mcontext->a1 = (reg_t) & ((sigframe_rt_t *)xsp)->info;
+        mcontext->a2 = (reg_t) & ((sigframe_rt_t *)xsp)->uc;
     }
     if (sig_has_restorer(info, sig))
-        sc->SC_RA = (reg_t)info->sighand->action[sig]->restorer;
+        mcontext->ra = (reg_t)info->sighand->action[sig]->restorer;
     else
-        sc->SC_RA = (reg_t)dynamorio_sigreturn;
+        mcontext->ra = (reg_t)dynamorio_sigreturn;
 #endif
 #ifdef X86
     /* Clear eflags DF (signal handler should match function entry ABI) */
@@ -6455,9 +6541,15 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
     return true;
 }
 
-/* Sends a signal to a currently-native thread.  dcontext can be NULL. */
+/* Sends a signal to a currently-native thread.
+ * dcontext can be NULL.
+ * cur_xsp is the stack pointer initially passed to the DR signal handler. May be NULL
+ * for paths where it's not readily available. It's needed during native signal delivery
+ * during detach so must be passed in those paths.
+ */
 static void
-execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
+execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame,
+                       byte *cur_xsp)
 {
     /* If dcontext is NULL, we use a synthetic info struct where we fill in the
      * info we need: the app's sigaction and sigstack settings.
@@ -6488,6 +6580,8 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
         d_r_read_lock(&detached_sigact_lock);
         memcpy(&sigact_struct, &detached_sigact[sig], sizeof(sigact_struct));
         d_r_read_unlock(&detached_sigact_lock);
+        memcpy(&info->app_sigblocked, &our_frame->uc.uc_sigmask,
+               sizeof(info->app_sigblocked));
 #ifdef HAVE_SIGALTSTACK
         thread_sig_info_t *dc_info = NULL;
         if (dcontext != NULL)
@@ -6508,8 +6602,6 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
     }
     kernel_ucontext_t *uc = get_ucontext_from_rt_frame(our_frame);
     sigcontext_t *sc = SIGCXT_FROM_UCXT(uc);
-    kernel_sigset_t blocked;
-    byte *xsp = get_sigstack_frame_ptr(dcontext, info, sig, our_frame);
 
     /* We do not send the signal to clients as it is not a managed thread and we
      * cannot really take any action except send it to the native handler.
@@ -6563,11 +6655,153 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
     report_app_problem(dcontext, APPFAULT_FAULT, (byte *)sc->SC_XIP, (byte *)sc->SC_FP,
                        "\nSignal %d delivered to application handler.\n", sig);
 
-    copy_frame_to_stack(dcontext, info, sig, our_frame, (void *)xsp, false /*!pending*/);
+    /*
+     * For a signal that arrived when the thread is native and the process is in
+     * the middle of detaching, we should try to reuse the current DR signal
+     * frame to deliver it if possible. This is to avoid using up too much app
+     * stack, which has been seen to cause a stack overflow in the app (i#6814).
+     *
+     * Summary of relevant events when DR starts detaching:
+     * D: Detacher thread sends suspend signal to all other threads.
+     * O: each of the Other threads receive the suspend signal. Note that DR's
+     *    signal handling configuration blocks all signals except SIGSEGV and
+     *    the suspend signal. So at this point Other threads cannot receive
+     *    app signals. Other threads signal to the Detacher thread that they're
+     *    suspended and awaiting wakeup call to continue detaching (sig_detach).
+     * D: Detacher thread sets doing_detach to true. A side effect of this is
+     *    that get_thread_private_dcontext() will return NULL when any Other
+     *    thread tries to get its private dcontext.
+     * D: Detacher thread wakes up each Other thread, telling it to detach.
+     * O: Each Other thread wakes up, does sig_detach which reinstates the app
+     *    signal stack (if available), lets the Detacher thread know that it's
+     *    done detaching and resumes native execution via a sigreturn which
+     *    also restores the app's blocked signal set that was put on the
+     *    signal frame by sig_detach. Note that at this point, DR's sigact config
+     *    is still installed (including main_signal_handler). When the Other thread
+     *    returns from the suspend signal, signals get unblocked automatically
+     *    and may now be delivered.
+     * <may be able to reuse current frame for signals delivered here>
+     * D: When all threads are done detaching, the Detacher thread cleans up
+     *    each thread's drcontext for real, and also reinstates the app's
+     *    sigact in signal_thread_exit (which removes main_signal_handler).
+     *
+     * Therefore, if we arrive here and find doing_detach to be true and
+     * dcontext to be NULL, we can be certain that the current thread has
+     * completed sig_detach. This means the interrupted context stack (sc->XSP)
+     * must be the app's own stack.
+     *
+     * Also, if the thread has a signal stack at all for any signal, we will
+     * be on it (because DR sets SA_ONSTACK for all signals, and that config is
+     * still in effect), regardless of whether the signal stack was registered
+     * for sig.
+     */
+    bool reuse_cur_frame = false;
+    if (dcontext == NULL && doing_detach) {
+        ASSERT(cur_xsp != NULL);
+        reuse_cur_frame = true;
+        if (!IS_RT_FOR_APP(info, sig)) {
+            /* If the app wants a non-RT frame, we cannot reuse the DR signal frame
+             * which is RT.
+             */
+            reuse_cur_frame = false;
+        } else if (APP_HAS_SIGSTACK(info)) {
+            bool currently_on_sigstack = cur_xsp != NULL &&
+                info->app_sigstack.ss_sp < (void *)cur_xsp &&
+                (void *)cur_xsp < info->app_sigstack.ss_sp + info->app_sigstack.ss_size;
+            if (!currently_on_sigstack) {
+                /* If the app has a sigstack, we must be on it. */
+                ASSERT_NOT_REACHED();
+                /* In release build, we bail on this optimization and try to deliver the
+                 * signal using a frame copy.
+                 */
+                reuse_cur_frame = false;
+            }
+            if (!USE_APP_SIGSTACK(info, sig)) {
+                /* If the app does not want to use the signal stack, we cannot
+                 * reuse the current frame.
+                 */
+                reuse_cur_frame = false;
+            }
+        }
+    }
 
+    /* Get the signals that are supposed to be blocked during handling of sig. */
+    kernel_sigset_t blocked;
     blocked = info->sighand->action[sig]->mask;
     if (!TEST(SA_NOMASK, (info->sighand->action[sig]->flags)))
         kernel_sigaddset(&blocked, sig);
+
+    RSTATS_INC(num_signals);
+    RSTATS_INC(num_native_signals);
+    if (reuse_cur_frame) {
+        /* We've determined that we can reuse the current signal frame to
+         * deliver sig to the native signal handler. We want to simply jump
+         * to the handler, without a sigreturn. This way we preserve the app
+         * state currently in the frame (reg values, blocked sigmask).
+         */
+
+        /* Emulate the app's sigmask for the native signal delivery. This is the
+         * blocked mask for this signal and the current app sigmask in the
+         * interrupted app context.
+         */
+        for (int i = 1; i <= MAX_SIGNUM; i++) {
+            if (kernel_sigismember((kernel_sigset_t *)&our_frame->uc.uc_sigmask, i)) {
+                kernel_sigaddset(&blocked, i);
+            }
+        }
+        sigprocmask_syscall(SIG_SETMASK, &blocked, NULL, sizeof(blocked));
+#ifdef DR_HOST_NOT_TARGET
+        ASSERT_NOT_REACHED();
+#elif defined(X86_64) || defined(AARCH64)
+        void (*asm_jmp_tgt)() = SIGACT_PRIMARY_HANDLER(&sigact_struct);
+        kernel_siginfo_t *siginfo_var = &our_frame->info;
+        kernel_ucontext_t *ucontext_var = &our_frame->uc;
+#    ifdef X86_64
+        asm volatile(
+            "mov %[jmp_tgt],  %%rcx\n\t"
+            "mov     %[sig],  %%rdi\n\t"
+            "mov %[siginfo],  %%rsi\n\t"
+            "mov %[ucontext], %%rdx\n\t"
+            "mov %[target_sp], %%rsp\n\t"
+            "jmp *%%rcx\n\t"
+            :
+            : [jmp_tgt] "m"(asm_jmp_tgt), [sig] "m"(sig), [siginfo] "m"(siginfo_var),
+              [ucontext] "m"(ucontext_var), [target_sp] "m"(cur_xsp)
+            /* Cannot add "rsp" as listing it in clobber list is deprecated. */
+            : "rdi", "rsi", "rdx", "rcx");
+#    else
+        reg_t link_reg_var;
+#        ifdef LINUX
+        if (sig_has_restorer(info, sig))
+            link_reg_var = (reg_t)info->sighand->action[sig]->restorer;
+        else
+#        endif
+            link_reg_var = (reg_t)dynamorio_sigreturn;
+        asm volatile("ldr " ASM_R0 ", %[sig]\n\t"
+                     "ldr " ASM_R1 ", %[siginfo]\n\t"
+                     "ldr " ASM_R2 ", %[ucontext]\n\t"
+                     "ldr " ASM_R4 ", %[target_sp]\n\t"
+                     "ldr " ASM_R3 ", %[jmp_tgt]\n\t"
+                     "ldr " ASM_R30 ", %[link_reg]\n\t"
+                     "mov " ASM_XSP ", " ASM_R4 "\n\t"
+                     "br " ASM_R3 "\n\t"
+                     :
+                     : [jmp_tgt] "m"(asm_jmp_tgt), [sig] "m"(sig),
+                       [siginfo] "m"(siginfo_var), [ucontext] "m"(ucontext_var),
+                       [target_sp] "m"(cur_xsp), [link_reg] "m"(link_reg_var)
+                     /* Cannot add "sp" as listing it in clobber list is deprecated. */
+                     : "x0", "x1", "x2", "x3", "x4", "x30");
+#    endif
+        ASSERT_NOT_REACHED();
+#else
+        /* TODO i#6814: Add support for other envs. */
+        reuse_cur_frame = false; /* Dead store, but we reset for clarity. */
+#endif
+    }
+    /* We cannot reuse the current signal frame, therefore we create a copy. */
+    byte *new_xsp = get_sigstack_frame_ptr(dcontext, info, sig, our_frame);
+    copy_frame_to_stack(dcontext, info, sig, our_frame, (void *)new_xsp,
+                        false /*!pending*/);
     DOLOG(2, LOG_ASYNCH, {
         LOG(THREAD, LOG_ASYNCH, 3, "Pre-signal blocked signals, stored in our frame:\n");
         dump_sigset(dcontext, (kernel_sigset_t *)&our_frame->uc.uc_sigmask);
@@ -6585,17 +6819,17 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
     /* Now edit the resumption point when main_signal_handler returns to go
      * straight to the app handler.
      */
-    sc->SC_XSP = (ptr_uint_t)xsp;
+    sc->SC_XSP = (ptr_uint_t)new_xsp;
 /* Set up args to handler. */
 #ifdef X86_64
     sc->SC_XDI = sig;
-    sc->SC_XSI = (reg_t) & ((sigframe_rt_t *)xsp)->info;
-    sc->SC_XDX = (reg_t) & ((sigframe_rt_t *)xsp)->uc;
+    sc->SC_XSI = (reg_t) & ((sigframe_rt_t *)new_xsp)->info;
+    sc->SC_XDX = (reg_t) & ((sigframe_rt_t *)new_xsp)->uc;
 #elif defined(AARCHXX)
     sc->SC_R0 = sig;
     if (IS_RT_FOR_APP(info, sig)) {
-        sc->SC_R1 = (reg_t) & ((sigframe_rt_t *)xsp)->info;
-        sc->SC_R2 = (reg_t) & ((sigframe_rt_t *)xsp)->uc;
+        sc->SC_R1 = (reg_t) & ((sigframe_rt_t *)new_xsp)->info;
+        sc->SC_R2 = (reg_t) & ((sigframe_rt_t *)new_xsp)->uc;
     }
 #    ifdef LINUX
     if (sig_has_restorer(info, sig))
@@ -6604,11 +6838,11 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
 #    endif
         sc->SC_LR = (reg_t)dynamorio_sigreturn;
 #elif defined(RISCV64)
-    /* FIXME i#3544: Check if xsp is cast correctly? */
+    /* FIXME i#3544: Check if new_xsp is cast correctly? */
     sc->SC_A0 = sig;
     if (IS_RT_FOR_APP(info, sig)) {
-        sc->SC_A1 = (reg_t) & ((sigframe_rt_t *)xsp)->info;
-        sc->SC_A2 = (reg_t) & ((sigframe_rt_t *)xsp)->uc;
+        sc->SC_A1 = (reg_t) & ((sigframe_rt_t *)new_xsp)->info;
+        sc->SC_A2 = (reg_t) & ((sigframe_rt_t *)new_xsp)->uc;
     }
     if (sig_has_restorer(info, sig))
         sc->SC_RA = (reg_t)info->sighand->action[sig]->restorer;
@@ -6618,7 +6852,7 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
     sc->SC_XIP = (reg_t)SIGACT_PRIMARY_HANDLER(info->sighand->action[sig]);
 
     LOG(THREAD, LOG_ASYNCH, 2, "%s: set pc to handler %p with xsp=%p\n", __FUNCTION__,
-        SIGACT_PRIMARY_HANDLER(info->sighand->action[sig]), xsp);
+        SIGACT_PRIMARY_HANDLER(info->sighand->action[sig]), new_xsp);
 
     if (TEST(SA_ONESHOT, detached_sigact[sig].flags)) {
         /* XXX: When we remove DR's handler from the final thread we'll ignore this
@@ -7347,7 +7581,7 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
      * look like whatever would happen to the app...
      */
     ASSERT((app_pc)sc->SC_XIP != next_pc);
-#    if defined(AARCHXX) && !defined(MACOS)
+#    if defined(AARCHXX) || defined(RISCV64)
     ASSERT(get_sigcxt_stolen_reg(sc) != (reg_t)*get_dr_tls_base_addr());
     /* We're called from DR and are not yet in the cache, so we want to set the
      * mcontext slot, not the TLS slot, to set the stolen reg value.
@@ -7355,12 +7589,20 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
     set_stolen_reg_val(get_mcontext(dcontext), get_sigcxt_stolen_reg(sc));
     /* The linkstub expects DR's TLS to be in the actual register. */
     set_sigcxt_stolen_reg(sc, (reg_t)*get_dr_tls_base_addr());
-#        ifdef AARCH64
+
+#        ifdef RISCV64
+    set_tp_reg_val(get_mcontext(dcontext), get_sigcxt_tp_reg(sc));
+    set_sigcxt_tp_reg(sc, (reg_t)read_thread_register(TLS_REG_LIB));
+#        endif
+
+#        if defined(AARCH64)
     /* On entry to the do_syscall gencode, we save X1 into TLS_REG1_SLOT.
      * Then the sigreturn would redirect the flow to the fcache_return gencode.
      * In fcache_return it recovers the values of x0 and x1 from TLS_SLOT 0 and 1.
      */
     get_mcontext(dcontext)->r1 = sc->SC_FIELD_AARCH64(1);
+#        elif defined(RISCV64)
+    get_mcontext(dcontext)->a1 = sc->SC_FIELD(sc_regs.a1);
 #        else
     /* We're going to our fcache_return gencode which uses DEFAULT_ISA_MODE */
     set_pc_mode_in_cpsr(sc, DEFAULT_ISA_MODE);
@@ -7390,9 +7632,9 @@ is_signal_restorer_code(byte *pc, size_t *len)
     /* optimized we only need two uint reads, but we have to do
      * some little-endian byte-order reverses to get the right result
      */
-#define reverse(x)                                                      \
-    ((((x)&0xff) << 24) | (((x)&0xff00) << 8) | (((x)&0xff0000) >> 8) | \
-     (((x)&0xff000000) >> 24))
+#define reverse(x)                                                            \
+    ((((x) & 0xff) << 24) | (((x) & 0xff00) << 8) | (((x) & 0xff0000) >> 8) | \
+     (((x) & 0xff000000) >> 24))
 #ifdef MACOS
 #    define SYS_RT_SIGRET SYS_sigreturn
 #else
@@ -7862,10 +8104,15 @@ signal_to_itimer_type(int sig)
 static bool
 alarm_signal_has_DR_only_itimer(dcontext_t *dcontext, int signal)
 {
-    thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     int which = signal_to_itimer_type(signal);
     if (which == -1)
         return false;
+#ifdef LINUX
+    if (dcontext == GLOBAL_DCONTEXT) {
+        return false;
+    }
+#endif
+    thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     if (info->shared_itimer)
         acquire_recursive_lock(&(*info->itimer)[which].lock);
     bool DR_only =
@@ -8358,8 +8605,11 @@ sig_detach(dcontext_t *dcontext, sigframe_rt_t *frame, KSYNCH_TYPE *detached)
     ASSERT(((sigframe_rt_t *)xsp)->uc.uc_stack.ss_sp == info->app_sigstack.ss_sp);
 #endif
 
-    /* Restore app segment registers. */
-    os_thread_not_under_dynamo(dcontext);
+    /* Restore app segment registers. It is important that we do not restore the
+     * app's blocked sigmask yet. It is better to let that happen automatically
+     * at sigreturn since we've already set it in the signal frame.
+     */
+    os_thread_not_under_dynamo(dcontext, /*restore_sigblocked=*/false);
     os_tls_thread_exit(dcontext->local_state);
 
 #ifdef HAVE_SIGALTSTACK
@@ -8425,8 +8675,13 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_siginfo_t *siginfo,
 
     if (is_sigqueue_supported() && SUSPEND_SIGNAL == NUDGESIG_SIGNUM) {
         nudge_arg_t *arg = (nudge_arg_t *)siginfo;
-        if (!TEST(NUDGE_IS_SUSPEND, arg->flags))
+        if (!TEST(NUDGE_IS_SUSPEND, arg->flags)) {
+#ifdef LINUX
+            sig_full_initialize(&sc_full, ucxt);
+            ostd->nudged_sigcxt = &sc_full;
+#endif
             return handle_nudge_signal(dcontext, siginfo, ucxt);
+        }
     }
 
     /* We distinguish from an app signal further below from the rare case of an
@@ -8503,16 +8758,30 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_siginfo_t *siginfo,
     ksynch_set_value(&ostd->suspended, 1);
     ksynch_wake_all(&ostd->suspended);
 
-    /* We're sitting on our sigaltstack w/ all signals blocked.  We're
-     * going to stay here but unblock all signals so we don't lose any
-     * delivered while we're waiting.  We're at a safe enough point (now
-     * that we've set ostd->suspended: i#5779) to re-enter
-     * main_signal_handler().  We use a mutex in thread_{suspend,resume} to
-     * prevent our own re-suspension signal from arriving before we've
-     * re-blocked on the resume.
+    bool unblocked_sigs = false;
+    /*
+     * Avoid various race conditions seen at detach time if a signal is
+     * delivered here (i#6814). This gets complicated because we are on the
+     * DR signal stack here; if a signal is delivered here:
+     * - makes it harder for execute_native_handler() to know how far along
+     *   the thread is in detach.
+     * - execute_native_handler() would need to switch away from the DR signal
+     *   stack and also restore the app's interrupted context on the signal
+     *   frame (in place of the DR interrupted context that would be present).
      */
-    sigprocmask_syscall(SIG_SETMASK, SIGMASK_FROM_UCXT(ucxt), &prevmask,
-                        sizeof(ucxt->uc_sigmask));
+    if (!started_detach) {
+        /* We're sitting on our sigaltstack w/ all signals blocked.  We're
+         * going to stay here but unblock all signals so we don't lose any
+         * delivered while we're waiting.  We're at a safe enough point (now
+         * that we've set ostd->suspended: i#5779) to re-enter
+         * main_signal_handler().  We use a mutex in thread_{suspend,resume} to
+         * prevent our own re-suspension signal from arriving before we've
+         * re-blocked on the resume.
+         */
+        sigprocmask_syscall(SIG_SETMASK, SIGMASK_FROM_UCXT(ucxt), &prevmask,
+                            sizeof(ucxt->uc_sigmask));
+        unblocked_sigs = true;
+    }
 
     /* i#96/PR 295561: use futex(2) if available */
     while (ksynch_get_value(&ostd->wakeup) == 0) {
@@ -8527,8 +8796,10 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_siginfo_t *siginfo,
     }
     LOG(THREAD, LOG_ASYNCH, 2, "handle_suspend_signal: awake now\n");
 
-    /* re-block so our exit from main_signal_handler is not interrupted */
-    sigprocmask_syscall(SIG_SETMASK, &prevmask, NULL, sizeof(prevmask));
+    if (unblocked_sigs) {
+        /* re-block so our exit from main_signal_handler is not interrupted */
+        sigprocmask_syscall(SIG_SETMASK, &prevmask, NULL, sizeof(prevmask));
+    }
     ostd->suspended_sigcxt = NULL;
 
     /* Notify os_thread_resume that it can return now, which (assuming

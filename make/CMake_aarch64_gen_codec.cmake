@@ -1,6 +1,6 @@
 # **********************************************************
 # Copyright (c) 2020-2021 Google, Inc.   All rights reserved.
-# Copyright (c) 2018-2022 Arm Limited    All rights reserved.
+# Copyright (c) 2018-2024 Arm Limited    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -30,9 +30,9 @@
 # DAMAGE.
 
 # Commands to automatically create the codec files from core/arch/aarch64/codec.txt.
-find_package(PythonInterp)
+find_package(Python3)
 
-if (NOT PYTHONINTERP_FOUND)
+if (NOT PYTHON3_FOUND)
   message(FATAL_ERROR "Python interpreter not found")
 endif ()
 
@@ -44,14 +44,18 @@ set(AARCH64_CODEC_GEN_SRCS
   ${PROJECT_BINARY_DIR}/decode_gen_v81.h
   ${PROJECT_BINARY_DIR}/decode_gen_v82.h
   ${PROJECT_BINARY_DIR}/decode_gen_v83.h
-  ${PROJECT_BINARY_DIR}/decode_gen_v86.h
+  ${PROJECT_BINARY_DIR}/decode_gen_v84.h
+  ${PROJECT_BINARY_DIR}/decode_gen_v85.h
+  ${PROJECT_BINARY_DIR}/decode_gen_v87.h
   ${PROJECT_BINARY_DIR}/decode_gen_sve.h
   ${PROJECT_BINARY_DIR}/decode_gen_sve2.h
   ${PROJECT_BINARY_DIR}/encode_gen_v80.h
   ${PROJECT_BINARY_DIR}/encode_gen_v81.h
   ${PROJECT_BINARY_DIR}/encode_gen_v82.h
   ${PROJECT_BINARY_DIR}/encode_gen_v83.h
-  ${PROJECT_BINARY_DIR}/encode_gen_v86.h
+  ${PROJECT_BINARY_DIR}/encode_gen_v84.h
+  ${PROJECT_BINARY_DIR}/encode_gen_v85.h
+  ${PROJECT_BINARY_DIR}/encode_gen_v87.h
   ${PROJECT_BINARY_DIR}/encode_gen_sve.h
   ${PROJECT_BINARY_DIR}/encode_gen_sve2.h
   ${PROJECT_BINARY_DIR}/opcode_names.h
@@ -59,7 +63,7 @@ set(AARCH64_CODEC_GEN_SRCS
 set_source_files_properties(${AARCH64_CODEC_GEN_SRCS} PROPERTIES GENERATED true)
 
 execute_process(
-  COMMAND ${PYTHON_EXECUTABLE}
+  COMMAND ${PYTHON3_EXECUTABLE}
           "${PROJECT_SOURCE_DIR}/make/aarch64_check_codec_order.py"
           "${PROJECT_SOURCE_DIR}/core/ir/aarch64"
           "${PROJECT_BINARY_DIR}"
@@ -82,10 +86,12 @@ add_custom_command(
           ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/codec_v81.txt
           ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/codec_v82.txt
           ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/codec_v83.txt
-          ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/codec_v86.txt
+          ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/codec_v84.txt
+          ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/codec_v85.txt
+          ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/codec_v87.txt
           ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/codec_sve.txt
           ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/codec_sve2.txt
-  COMMAND ${PYTHON_EXECUTABLE}
+  COMMAND ${PYTHON3_EXECUTABLE}
   ARGS ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/codec.py
        ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}
        ${PROJECT_BINARY_DIR}

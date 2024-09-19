@@ -33,29 +33,38 @@
 /* instru_offline: inserts instrumentation for offline traces.
  */
 
+#include <stddef.h> /* for offsetof */
+#include <string.h> /* for strlen */
+#include <sys/types.h>
+
+#include <atomic>
+#include <cstdint>
+#include <new>
+
 #include "dr_api.h"
+#include "drcovlib.h"
 #include "drmgr.h"
 #include "drreg.h"
 #include "drutil.h"
-#include "drcovlib.h"
+#include "drvector.h"
+#include "trace_entry.h"
+#include "utils.h"
 #include "instru.h"
-#include "../common/trace_entry.h"
-#include "../common/utils.h"
-#include <new>
-#include <limits.h> /* for USHRT_MAX */
-#include <stddef.h> /* for offsetof */
-#include <string.h> /* for strlen */
+
+namespace dynamorio {
+namespace drmemtrace {
 
 static const uint MAX_INSTR_COUNT = 64 * 1024;
 
 void *(*offline_instru_t::user_load_)(module_data_t *module, int seg_idx);
 int (*offline_instru_t::user_print_)(void *data, char *dst, size_t max_len);
 void (*offline_instru_t::user_free_)(void *data);
+std::atomic<uintptr_t> offline_instru_t::vdso_modbase_;
 
 // This constructor is for use in post-processing when we just need the
 // elision utility functions.
 offline_instru_t::offline_instru_t()
-    : instru_t(nullptr, false, nullptr, sizeof(offline_entry_t))
+    : instru_t(nullptr, nullptr, sizeof(offline_entry_t))
     , write_file_func_(nullptr)
 {
     // We can't use drmgr in standalone mode, but for post-processing it's just us,
@@ -66,16 +75,17 @@ offline_instru_t::offline_instru_t()
 
 offline_instru_t::offline_instru_t(
     void (*insert_load_buf)(void *, instrlist_t *, instr_t *, reg_id_t),
-    bool memref_needs_info, drvector_t *reg_vector,
+    drvector_t *reg_vector,
     ssize_t (*write_file)(file_t file, const void *data, size_t count),
     file_t module_file, file_t encoding_file, bool disable_optimizations,
-    void (*log)(uint level, const char *fmt, ...))
-    : instru_t(insert_load_buf, memref_needs_info, reg_vector, sizeof(offline_entry_t),
+    bool instrs_are_separate, void (*log)(uint level, const char *fmt, ...))
+    : instru_t(insert_load_buf, reg_vector, sizeof(offline_entry_t),
                disable_optimizations)
     , write_file_func_(write_file)
     , modfile_(module_file)
     , log_(log)
     , encoding_file_(encoding_file)
+    , instrs_are_separate_(instrs_are_separate)
 {
     drcovlib_status_t res = drmodtrack_init();
     DR_ASSERT(res == DRCOVLIB_SUCCESS);
@@ -101,8 +111,18 @@ offline_instru_t::offline_instru_t(
     encoding_buf_start_ = reinterpret_cast<byte *>(
         dr_raw_mem_alloc(encoding_buf_sz_, DR_MEMPROT_READ | DR_MEMPROT_WRITE, nullptr));
     encoding_buf_ptr_ = encoding_buf_start_;
-    // Write out the header which is just a 64-bit version.
+    // Write out the encoding file header.
+    // 64-bit version.
     *reinterpret_cast<uint64_t *>(encoding_buf_ptr_) = ENCODING_FILE_VERSION;
+    encoding_buf_ptr_ += sizeof(uint64_t);
+    // 64-bit file type.
+    uint64_t encoding_file_type =
+        static_cast<uint64_t>(encoding_file_type_t::ENCODING_FILE_TYPE_DEFAULT);
+    if (instrs_are_separate_) {
+        encoding_file_type |= static_cast<uint64_t>(
+            encoding_file_type_t::ENCODING_FILE_TYPE_SEPARATE_NON_MOD_INSTRS);
+    }
+    *reinterpret_cast<uint64_t *>(encoding_buf_ptr_) = encoding_file_type;
     encoding_buf_ptr_ += sizeof(uint64_t);
 }
 
@@ -145,26 +165,21 @@ offline_instru_t::load_custom_module_data(module_data_t *module, int seg_idx)
     if (user_load_ != nullptr)
         user_data = (*user_load_)(module, seg_idx);
     const char *name = dr_module_preferred_name(module);
-    // For vdso we include the entire contents so we can decode it during
-    // post-processing.
-    // We use placement new for better isolation, esp w/ static linkage into the app.
-    if ((name != nullptr &&
-         (strstr(name, "linux-gate.so") == name ||
-          strstr(name, "linux-vdso.so") == name)) ||
-        (module->names.file_name != NULL && strcmp(name, "[vdso]") == 0)) {
-        void *alloc = dr_global_alloc(sizeof(custom_module_data_t));
-#ifdef WINDOWS
-        byte *start = module->start;
-        byte *end = module->end;
-#else
-        byte *start =
-            (module->num_segments > 0) ? module->segments[seg_idx].start : module->start;
-        byte *end =
-            (module->num_segments > 0) ? module->segments[seg_idx].end : module->end;
-#endif
-        return new (alloc)
-            custom_module_data_t((const char *)start, end - start, user_data);
-    } else if (user_data != nullptr) {
+    // We used to store the vdso contents, but we now use separate block encodings
+    // for vdso code.  So we just find the vdso here, and pass through the user's data
+    // for all modules.
+    if (seg_idx == 0 &&
+        ((name != nullptr &&
+          (strstr(name, "linux-gate.so") == name ||
+           strstr(name, "linux-vdso.so") == name)) ||
+         (module->names.file_name != NULL && strcmp(name, "[vdso]") == 0))) {
+        DR_ASSERT(vdso_modbase_.load(std::memory_order_acquire) == 0 ||
+                  vdso_modbase_.load(std::memory_order_acquire) ==
+                      reinterpret_cast<uintptr_t>(module->start));
+        vdso_modbase_.store(reinterpret_cast<uintptr_t>(module->start),
+                            std::memory_order_release);
+    }
+    if (user_data != nullptr) {
         void *alloc = dr_global_alloc(sizeof(custom_module_data_t));
         return new (alloc) custom_module_data_t(nullptr, 0, user_data);
     }
@@ -382,6 +397,15 @@ offline_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid,
     new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_CACHE_LINE_SIZE,
                              proc_get_cache_line_size());
     new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_PAGE_SIZE, dr_page_size());
+#if defined(AARCH64)
+    // TRACE_MARKER_TYPE_VECTOR_LENGTH is emitted in the thread header to establish the
+    // initial vector length for the thread, but the marker can also be emitted again
+    // later if the app changes the vector length.
+    if (proc_has_feature(FEATURE_SVE)) {
+        new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_VECTOR_LENGTH,
+                                 proc_get_vector_length_bytes());
+    }
+#endif
     return (int)(new_buf - buf_ptr);
 }
 
@@ -395,19 +419,25 @@ int
 offline_instru_t::append_unit_header(byte *buf_ptr, thread_id_t tid, ptr_int_t window)
 {
     byte *new_buf = buf_ptr;
-    offline_entry_t *entry = (offline_entry_t *)new_buf;
-    entry->timestamp.type = OFFLINE_TYPE_TIMESTAMP;
-    uint64 frozen = frozen_timestamp_.load(std::memory_order_acquire);
-    entry->timestamp.usec = frozen != 0 ? frozen : instru_t::get_timestamp();
-    new_buf += sizeof(*entry);
+    new_buf += append_timestamp(new_buf);
     if (window >= 0)
         new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_WINDOW_ID, (uintptr_t)window);
     new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_CPU_ID, instru_t::get_cpu_id());
     return (int)(new_buf - buf_ptr);
 }
 
+int
+offline_instru_t::append_timestamp(byte *buf_ptr)
+{
+    offline_entry_t *entry = (offline_entry_t *)buf_ptr;
+    entry->timestamp.type = OFFLINE_TYPE_TIMESTAMP;
+    uint64 frozen = frozen_timestamp_.load(std::memory_order_acquire);
+    entry->timestamp.usec = frozen != 0 ? frozen : instru_t::get_timestamp();
+    return sizeof(*entry);
+}
+
 bool
-offline_instru_t::refresh_unit_header_timestamp(byte *buf_ptr, uint64 min_timestamp)
+offline_instru_t::clamp_unit_header_timestamp(byte *buf_ptr, uint64 min_timestamp)
 {
     offline_entry_t *stamp = reinterpret_cast<offline_entry_t *>(buf_ptr);
     DR_ASSERT(stamp->timestamp.type == OFFLINE_TYPE_TIMESTAMP);
@@ -447,15 +477,6 @@ offline_instru_t::insert_save_entry(void *drcontext, instrlist_t *ilist, instr_t
     return sizeof(offline_entry_t);
 }
 
-uint64_t
-offline_instru_t::get_modoffs(void *drcontext, app_pc pc, OUT uint *modidx)
-{
-    app_pc modbase;
-    if (drmodtrack_lookup(drcontext, pc, modidx, &modbase) != DRCOVLIB_SUCCESS)
-        return 0;
-    return pc - modbase;
-}
-
 // Caller must hold the encoding_lock.
 void
 offline_instru_t::flush_instr_encodings()
@@ -476,7 +497,10 @@ offline_instru_t::record_instr_encodings(void *drcontext, app_pc tag_pc,
                                          per_block_t *per_block, instrlist_t *ilist)
 {
     dr_mutex_lock(encoding_lock_);
+    log_(3, "%s: new block id " UINT64_FORMAT_STRING " for %p\n", __FUNCTION__,
+         encoding_id_, tag_pc);
     per_block->id = encoding_id_++;
+    per_block->encoding_length_start = encoding_length_;
 
     if (encoding_buf_ptr_ + max_block_encoding_size_ >=
         encoding_buf_start_ + encoding_buf_sz_) {
@@ -515,6 +539,13 @@ offline_instru_t::record_instr_encodings(void *drcontext, app_pc tag_pc,
         DR_ASSERT(buf < encoding_buf_start_ + encoding_buf_sz_);
     }
 
+    DR_ASSERT(buf >= buf_start + sizeof(encoding_entry_t));
+    if (buf == buf_start + sizeof(encoding_entry_t)) {
+        // If the given ilist has no app instr, we skip writing anything to the
+        // encoding file.
+        dr_mutex_unlock(encoding_lock_);
+        return;
+    }
     encoding_entry_t *enc = reinterpret_cast<encoding_entry_t *>(buf_start);
     enc->length = buf - buf_start;
     enc->id = per_block->id;
@@ -523,9 +554,26 @@ offline_instru_t::record_instr_encodings(void *drcontext, app_pc tag_pc,
         dr_app_pc_as_jump_target(instr_get_isa_mode(instrlist_first(ilist)), tag_pc));
     log_(2, "%s: Recorded %zu bytes for id " UINT64_FORMAT_STRING " @ %p\n", __FUNCTION__,
          enc->length, enc->id, tag_pc);
-
+    encoding_length_ += (enc->length - sizeof(encoding_entry_t));
     encoding_buf_ptr_ += enc->length;
     dr_mutex_unlock(encoding_lock_);
+}
+
+bool
+offline_instru_t::does_pc_require_encoding(void *drcontext, app_pc pc, uint *modidx_out,
+                                           app_pc *modbase_out)
+{
+    uint modidx;
+    app_pc modbase;
+    bool res = drmodtrack_lookup(drcontext, pc, &modidx, &modbase) != DRCOVLIB_SUCCESS ||
+        // We treat the VDSO as generated code, storing its encodings.
+        reinterpret_cast<uintptr_t>(modbase) ==
+            vdso_modbase_.load(std::memory_order_acquire);
+    if (modidx_out != nullptr)
+        *modidx_out = modidx;
+    if (modbase_out != nullptr)
+        *modbase_out = modbase;
+    return res;
 }
 
 int
@@ -538,7 +586,7 @@ offline_instru_t::insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *w
     app_pc modbase;
     uint modidx;
     uint64_t modoffs;
-    if (drmodtrack_lookup(drcontext, pc, &modidx, &modbase) == DRCOVLIB_SUCCESS) {
+    if (!does_pc_require_encoding(drcontext, pc, &modidx, &modbase)) {
         // TODO i#2062: We need to also identify modified library code and record
         // its encodings.  The plan is to augment drmodtrack to track this for us;
         // for now we will incorrectly use the original bits in the trace.
@@ -550,7 +598,12 @@ offline_instru_t::insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *w
         modidx = PC_MODIDX_INVALID;
         // For generated code we store the id for matching with the encodings recorded
         // into the encoding file.
-        modoffs = per_block->id;
+        if (instrs_are_separate_) {
+            DR_ASSERT(pc >= per_block->start_pc);
+            modoffs = pc - per_block->start_pc + per_block->encoding_length_start;
+        } else {
+            modoffs = per_block->id;
+        }
     }
     // Check that the values we want to assign to the bitfields in offline_entry_t do not
     // overflow. In i#2956 we observed an overflow for the modidx field.
@@ -681,7 +734,7 @@ int
 offline_instru_t::instrument_memref(void *drcontext, void *bb_field, instrlist_t *ilist,
                                     instr_t *where, reg_id_t reg_ptr, int adjust,
                                     instr_t *app, opnd_t ref, int ref_index, bool write,
-                                    dr_pred_type_t pred)
+                                    dr_pred_type_t pred, bool memref_needs_full_info)
 {
     // Check whether we can elide this address.
     // We expect our labels to be at "where" due to drbbdup's handling of block-final
@@ -699,11 +752,11 @@ offline_instru_t::instrument_memref(void *drcontext, void *bb_field, instrlist_t
         }
     }
     // Post-processor distinguishes read, write, prefetch, flush, and finds size.
-    if (!memref_needs_full_info_) // For full info we skip this for !pred
+    if (!memref_needs_full_info) // For full info we skip this for !pred
         instrlist_set_auto_predicate(ilist, pred);
     // We allow either 0 or all 1's as the type so no need to write anything else,
     // unless a filter is in place in which case we need a PC entry.
-    if (memref_needs_full_info_) {
+    if (memref_needs_full_info) {
         per_block_t *per_block = reinterpret_cast<per_block_t *>(bb_field);
         reg_id_t reg_tmp;
         drreg_status_t res =
@@ -731,12 +784,13 @@ offline_instru_t::instrument_memref(void *drcontext, void *bb_field, instrlist_t
 int
 offline_instru_t::instrument_instr(void *drcontext, void *tag, void *bb_field,
                                    instrlist_t *ilist, instr_t *where, reg_id_t reg_ptr,
-                                   int adjust, instr_t *app)
+                                   int adjust, instr_t *app, bool memref_needs_full_info,
+                                   uintptr_t mode)
 {
     per_block_t *per_block = reinterpret_cast<per_block_t *>(bb_field);
     app_pc pc;
     reg_id_t reg_tmp;
-    if (!memref_needs_full_info_) {
+    if (!memref_needs_full_info) {
         // We write just once per bb, if not filtering.
         if (per_block->instr_count > MAX_INSTR_COUNT)
             return adjust;
@@ -750,9 +804,9 @@ offline_instru_t::instrument_instr(void *drcontext, void *tag, void *bb_field,
     DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
     adjust += insert_save_pc(
         drcontext, ilist, where, reg_ptr, reg_tmp, adjust, pc,
-        memref_needs_full_info_ ? 1 : static_cast<uint>(per_block->instr_count),
+        memref_needs_full_info ? 1 : static_cast<uint>(per_block->instr_count),
         per_block);
-    if (!memref_needs_full_info_)
+    if (!memref_needs_full_info)
         per_block->instr_count = MAX_INSTR_COUNT + 1;
     res = drreg_unreserve_register(drcontext, ilist, where, reg_tmp);
     DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
@@ -810,7 +864,8 @@ offline_instru_t::instrument_rseq_entry(void *drcontext, instrlist_t *ilist,
 
 void
 offline_instru_t::bb_analysis(void *drcontext, void *tag, void **bb_field,
-                              instrlist_t *ilist, bool repstr_expanded)
+                              instrlist_t *ilist, bool repstr_expanded,
+                              bool memref_needs_full_info)
 {
     per_block_t *per_block =
         reinterpret_cast<per_block_t *>(dr_thread_alloc(drcontext, sizeof(*per_block)));
@@ -818,10 +873,13 @@ offline_instru_t::bb_analysis(void *drcontext, void *tag, void **bb_field,
 
     per_block->instr_count = instru_t::count_app_instrs(ilist);
 
-    identify_elidable_addresses(drcontext, ilist, OFFLINE_FILE_VERSION);
-
     app_pc tag_pc = dr_fragment_app_pc(tag);
-    if (drmodtrack_lookup(drcontext, tag_pc, nullptr, nullptr) != DRCOVLIB_SUCCESS) {
+    per_block->start_pc = tag_pc;
+
+    identify_elidable_addresses(drcontext, ilist, OFFLINE_FILE_VERSION,
+                                memref_needs_full_info);
+
+    if (does_pc_require_encoding(drcontext, tag_pc, nullptr, nullptr)) {
         // For (unmodified) library code we do not need to record encodings as we
         // rely on access to the binary during post-processing.
         //
@@ -839,7 +897,7 @@ offline_instru_t::bb_analysis_cleanup(void *drcontext, void *bb_field)
 }
 
 bool
-offline_instru_t::opnd_is_elidable(opnd_t memop, OUT reg_id_t &base, int version)
+offline_instru_t::opnd_is_elidable(opnd_t memop, DR_PARAM_OUT reg_id_t &base, int version)
 {
     if (version <= OFFLINE_FILE_VERSION_NO_ELISION)
         return false;
@@ -895,9 +953,10 @@ offline_instru_t::opnd_check_elidable(void *drcontext, instrlist_t *ilist, instr
 }
 
 bool
-offline_instru_t::label_marks_elidable(instr_t *instr, OUT int *opnd_index,
-                                       OUT int *memopnd_index, OUT bool *is_write,
-                                       OUT bool *needs_base)
+offline_instru_t::label_marks_elidable(instr_t *instr, DR_PARAM_OUT int *opnd_index,
+                                       DR_PARAM_OUT int *memopnd_index,
+                                       DR_PARAM_OUT bool *is_write,
+                                       DR_PARAM_OUT bool *needs_base)
 {
     if (!instr_is_label(instr))
         return false;
@@ -918,14 +977,14 @@ offline_instru_t::label_marks_elidable(instr_t *instr, OUT int *opnd_index,
 
 void
 offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilist,
-                                              int version)
+                                              int version, bool memref_needs_full_info)
 {
     // Analysis for eliding redundant addresses we can reconstruct during
     // post-processing.
     if (disable_optimizations_)
         return;
     // We can't elide when doing filtering.
-    if (memref_needs_full_info_)
+    if (memref_needs_full_info)
         return;
     reg_id_set_t saw_base;
     for (instr_t *instr = instrlist_first(ilist); instr != NULL;
@@ -938,8 +997,7 @@ offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilis
         // view by expanding the instr in raw2trace (e.g. using
         // drx_expand_scatter_gather) when building the ilist.
         if (drutil_instr_is_stringop_loop(instr)
-            // TODO i#3837: Scatter/gather support NYI on ARM/AArch64.
-            IF_X86(|| instr_is_scatter(instr) || instr_is_gather(instr))) {
+                IF_X86_OR_AARCH64(|| instr_is_scatter(instr) || instr_is_gather(instr))) {
             return;
         }
         if (drmgr_is_emulation_start(instr) || drmgr_is_emulation_end(instr)) {
@@ -993,3 +1051,6 @@ offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilis
         }
     }
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

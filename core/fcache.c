@@ -1203,7 +1203,7 @@ fcache_fragment_pclookup(dcontext_t *dcontext, cache_pc lookup_pc, fragment_t *w
 /* This is safe to call from a signal handler. */
 dr_where_am_i_t
 fcache_refine_whereami(dcontext_t *dcontext, dr_where_am_i_t whereami, app_pc pc,
-                       OUT fragment_t **containing_fragment)
+                       DR_PARAM_OUT fragment_t **containing_fragment)
 {
     if (whereami != DR_WHERE_FCACHE) {
         if (containing_fragment != NULL)
@@ -4244,10 +4244,12 @@ fcache_reset_all_caches_proactively(uint target)
     /* no lock needed */
     dynamo_resetting = true;
 
-    IF_AARCHXX({
-        if (INTERNAL_OPTION(steal_reg_at_reset) != 0)
-            arch_reset_stolen_reg();
-    });
+#ifdef AARCHXX
+    if (INTERNAL_OPTION(steal_reg_at_reset) != 0)
+        arch_reset_stolen_reg();
+#elif defined(RISCV64)
+    ASSERT_NOT_IMPLEMENTED(false);
+#endif
 
     /* We free everything before re-init so we can free all heap units.
      * For everything to be freed, it must either be individually freed,

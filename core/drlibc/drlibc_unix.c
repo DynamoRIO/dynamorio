@@ -315,30 +315,34 @@ os_open(const char *fname, int os_open_flags)
 {
     int res;
     int flags = 0;
+    int mode = 0;
+    const int create_mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP;
+
     if (TEST(OS_OPEN_ALLOW_LARGE, os_open_flags))
         flags |= O_LARGEFILE;
-    if (TEST(OS_OPEN_WRITE_ONLY, os_open_flags))
-        res = open_syscall(fname, flags | O_WRONLY, 0);
-    else if (!TEST(OS_OPEN_WRITE, os_open_flags))
-        res = open_syscall(fname, flags | O_RDONLY, 0);
+
+    if (TEST(OS_OPEN_WRITE_ONLY, os_open_flags)) {
+        flags |= O_WRONLY | O_CREAT;
+        mode = create_mode;
+    } else if (!TEST(OS_OPEN_WRITE, os_open_flags))
+        flags |= O_RDONLY;
     else {
-        res = open_syscall(
-            fname,
-            flags | O_RDWR | O_CREAT |
-                (TEST(OS_OPEN_APPEND, os_open_flags)
-                     ?
-                     /* Currently we only support either appending
-                      * or truncating, just like Windows and the client
-                      * interface.  If we end up w/ a use case that wants
-                      * neither it could open append and then seek; if we do
-                      * add OS_TRUNCATE or sthg we'll need to add it to
-                      * any current writers who don't set OS_OPEN_REQUIRE_NEW.
-                      */
-                     O_APPEND
-                     : O_TRUNC) |
-                (TEST(OS_OPEN_REQUIRE_NEW, os_open_flags) ? O_EXCL : 0),
-            S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+        flags |= O_RDWR | O_CREAT |
+            /* Currently we only support either appending
+             * or truncating, just like Windows and the client
+             * interface.  If we end up w/ a use case that wants
+             * neither it could open append and then seek; if we do
+             * add OS_TRUNCATE or sthg we'll need to add it to
+             * any current writers who don't set OS_OPEN_REQUIRE_NEW.
+             */
+            (TEST(OS_OPEN_APPEND, os_open_flags) ? O_APPEND : O_TRUNC) |
+            (TEST(OS_OPEN_REQUIRE_NEW, os_open_flags) ? O_EXCL : 0);
+
+        mode = create_mode;
     }
+
+    res = open_syscall(fname, flags, mode);
+
     if (res < 0)
         return INVALID_FILE;
 
@@ -445,7 +449,7 @@ os_delete_mapped_file(const char *filename)
 
 /* We mark as weak so the core can override with its more complex version. */
 WEAK byte *
-os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
+os_map_file(file_t f, size_t *size DR_PARAM_INOUT, uint64 offs, app_pc addr, uint prot,
             map_flags_t map_flags)
 {
     int flags;

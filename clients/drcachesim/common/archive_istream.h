@@ -40,6 +40,9 @@
 
 #include <fstream>
 
+namespace dynamorio {
+namespace drmemtrace {
+
 class archive_istream_t : public std::istream {
 public:
     explicit archive_istream_t(std::basic_streambuf<char, std::char_traits<char>> *buf)
@@ -52,5 +55,8 @@ public:
     virtual std::string
     open_component(const std::string &name) = 0;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _ARCHIVE_ISTREAM_H_ */

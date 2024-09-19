@@ -37,6 +37,9 @@
 
 #include "analysis_tool.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 /**
  * @file drmemtrace/view_create.h
  * @brief DrMemtrace view trace analysis tool creation.
@@ -52,5 +55,8 @@ analysis_tool_t *
 view_tool_create(const std::string &module_file_path, uint64_t skip_refs,
                  uint64_t sim_refs, const std::string &syntax, unsigned int verbose = 0,
                  const std::string &alt_module_dir = "");
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _OPCODE_MIX_CREATE_H_ */

@@ -30,8 +30,16 @@
  * DAMAGE.
  */
 
-#include <fstream>
 #include "file_reader.h"
+
+#include <fstream>
+#include <string>
+
+#include "reader.h"
+#include "trace_entry.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 /* clang-format off */ /* (make vera++ newline-after-type check happy) */
 template <>
@@ -79,3 +87,6 @@ file_reader_t<std::ifstream *>::read_next_entry()
            entry_copy_.addr);
     return &entry_copy_;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

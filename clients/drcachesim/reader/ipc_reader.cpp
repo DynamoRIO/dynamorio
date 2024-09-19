@@ -36,6 +36,9 @@
 #include "../common/memref.h"
 #include "../common/utils.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 #ifdef VERBOSE
 #    include <iostream>
 #endif
@@ -119,3 +122,6 @@ ipc_reader_t::read_next_entry()
         at_eof_ = true;
     return cur_buf_;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

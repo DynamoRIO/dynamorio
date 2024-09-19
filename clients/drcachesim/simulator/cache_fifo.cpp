@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,20 @@
  */
 
 #include "cache_fifo.h"
+
 #include <assert.h>
+
+#include <vector>
+
+#include "cache.h"
+#include "caching_device.h"
+#include "caching_device_block.h"
+#include "caching_device_stats.h"
+#include "prefetcher.h"
+#include "snoop_filter.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 // For the FIFO/Round-Robin implementation, all the cache blocks in a set are organized
 // as a FIFO. The counters of a set of blocks simulate the replacement pointer.
@@ -42,8 +55,8 @@
 bool
 cache_fifo_t::init(int associativity, int block_size, int total_size,
                    caching_device_t *parent, caching_device_stats_t *stats,
-                   prefetcher_t *prefetcher, bool inclusive, bool coherent_cache, int id,
-                   snoop_filter_t *snoop_filter,
+                   prefetcher_t *prefetcher, cache_inclusion_policy_t inclusion_policy,
+                   bool coherent_cache, int id, snoop_filter_t *snoop_filter,
                    const std::vector<caching_device_t *> &children)
 {
     // Works in the same way as the base class,
@@ -51,7 +64,7 @@ cache_fifo_t::init(int associativity, int block_size, int total_size,
 
     bool ret_val =
         cache_t::init(associativity, block_size, total_size, parent, stats, prefetcher,
-                      inclusive, coherent_cache, id, snoop_filter, children);
+                      inclusion_policy, coherent_cache, id, snoop_filter, children);
     if (ret_val == false)
         return false;
 
@@ -102,3 +115,6 @@ cache_fifo_t::get_next_way_to_replace(const int block_idx) const
     assert(false);
     return 0;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

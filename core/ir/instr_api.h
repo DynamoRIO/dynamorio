@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -81,83 +81,6 @@ enum {
  *  + Add shift type for shifted source registers: 2-bit enum instead of
  *    6-entry bitfield, since not composable.
  */
-
-/** Triggers used for conditionally executed instructions. */
-typedef enum _dr_pred_type_t {
-    DR_PRED_NONE, /**< No predicate is present. */
-#ifdef X86
-    DR_PRED_O,   /**< x86 condition: overflow (OF=1). */
-    DR_PRED_NO,  /**< x86 condition: no overflow (OF=0). */
-    DR_PRED_B,   /**< x86 condition: below (CF=1). */
-    DR_PRED_NB,  /**< x86 condition: not below (CF=0). */
-    DR_PRED_Z,   /**< x86 condition: zero (ZF=1). */
-    DR_PRED_NZ,  /**< x86 condition: not zero (ZF=0). */
-    DR_PRED_BE,  /**< x86 condition: below or equal (CF=1 or ZF=1). */
-    DR_PRED_NBE, /**< x86 condition: not below or equal (CF=0 and ZF=0). */
-    DR_PRED_S,   /**< x86 condition: sign (SF=1). */
-    DR_PRED_NS,  /**< x86 condition: not sign (SF=0). */
-    DR_PRED_P,   /**< x86 condition: parity (PF=1). */
-    DR_PRED_NP,  /**< x86 condition: not parity (PF=0). */
-    DR_PRED_L,   /**< x86 condition: less (SF != OF). */
-    DR_PRED_NL,  /**< x86 condition: not less (SF=OF). */
-    DR_PRED_LE,  /**< x86 condition: less or equal (ZF=1 or SF != OF). */
-    DR_PRED_NLE, /**< x86 condition: not less or equal (ZF=0 and SF=OF). */
-    /**
-     * x86 condition: special opcode-specific condition that depends on the
-     * values of the source operands.  Thus, unlike all of the other conditions,
-     * the source operands will be accessed even if the condition then fails
-     * and the destinations are not touched.  Any written eflags are
-     * unconditionally written, unlike regular destination operands.
-     */
-    DR_PRED_COMPLEX,
-    /* Aliases for XINST_CREATE_jump_cond() and other cross-platform routines. */
-    DR_PRED_EQ = DR_PRED_Z,  /**< Condition code: equal. */
-    DR_PRED_NE = DR_PRED_NZ, /**< Condition code: not equal. */
-    DR_PRED_LT = DR_PRED_L,  /**< Condition code: signed less than. */
-    /* DR_PRED_LE already matches aarchxx */
-    DR_PRED_GT = DR_PRED_NLE, /**< Condition code: signed greater than. */
-    DR_PRED_GE = DR_PRED_NL,  /**< Condition code: signed greater than or equal. */
-#endif
-/* We resist using #elif here because otherwise doxygen will be unable to
- * document both defines, for X86 and for AARCHXX.
- */
-#ifdef AARCHXX
-    DR_PRED_EQ, /**< ARM condition: 0000 Equal                   (Z == 1)           */
-    DR_PRED_NE, /**< ARM condition: 0001 Not equal               (Z == 0)           */
-    DR_PRED_CS, /**< ARM condition: 0010 Carry set               (C == 1)           */
-    DR_PRED_CC, /**< ARM condition: 0011 Carry clear             (C == 0)           */
-    DR_PRED_MI, /**< ARM condition: 0100 Minus, negative         (N == 1)           */
-    DR_PRED_PL, /**< ARM condition: 0101 Plus, positive or zero  (N == 0)           */
-    DR_PRED_VS, /**< ARM condition: 0110 Overflow                (V == 1)           */
-    DR_PRED_VC, /**< ARM condition: 0111 No overflow             (V == 0)           */
-    DR_PRED_HI, /**< ARM condition: 1000 Unsigned higher         (C == 1 and Z == 0)*/
-    DR_PRED_LS, /**< ARM condition: 1001 Unsigned lower or same  (C == 0 or Z == 1) */
-    DR_PRED_GE, /**< ARM condition: 1010 Signed >=               (N == V)           */
-    DR_PRED_LT, /**< ARM condition: 1011 Signed less than        (N != V)           */
-    DR_PRED_GT, /**< ARM condition: 1100 Signed greater than     (Z == 0 and N == V)*/
-    DR_PRED_LE, /**< ARM condition: 1101 Signed <=               (Z == 1 or N != V) */
-    DR_PRED_AL, /**< ARM condition: 1110 Always (unconditional)                    */
-#    ifdef AARCH64
-    DR_PRED_NV, /**< ARM condition: 1111 Never, meaning always                     */
-#    endif
-#    ifdef ARM
-    DR_PRED_OP, /**< ARM condition: 1111 Part of opcode                            */
-#    endif
-    /* Aliases */
-    DR_PRED_HS = DR_PRED_CS, /**< ARM condition: alias for DR_PRED_CS. */
-    DR_PRED_LO = DR_PRED_CC, /**< ARM condition: alias for DR_PRED_CC. */
-#endif
-#ifdef RISCV64
-    /* FIXME i#3544: RISC-V does not have compare flag register! */
-    /* Aliases for XINST_CREATE_jump_cond() and other cross-platform routines. */
-    DR_PRED_EQ, /**< Condition code: equal. */
-    DR_PRED_NE, /**< Condition code: not equal. */
-    DR_PRED_LT, /**< Condition code: signed less than. */
-    DR_PRED_LE, /**< Condition code: signed less than or equal. */
-    DR_PRED_GT, /**< Condition code: signed greater than. */
-    DR_PRED_GE, /**< Condition code: signed greater than or equal. */
-#endif
-} dr_pred_type_t;
 
 /**
  * Specifies hints for how an instruction should be encoded if redundant encodings are
@@ -249,6 +172,12 @@ struct _instr_t {
      * and called when the label is freed.
      */
     uint length;
+
+    /* The category of this instr (e.g. branch, load/store, etc.) as a combination
+     * of dr_instr_category_t bit values.
+     */
+    uint category;
+
     union {
         byte *bytes;
         instr_label_callback_t label_cb;
@@ -259,10 +188,19 @@ struct _instr_t {
 
     uint opcode;
 
+    union {
 #    ifdef X86
-    /* PR 251479: offset into instr's raw bytes of rip-relative 4-byte displacement */
-    byte rip_rel_pos;
+        /* Offset into instr's raw bytes of rip-relative 4-byte displacement.
+         * This field is valid when instr_t isa_mode is DR_ISA_X86.
+         */
+        byte rip_rel_pos;
 #    endif
+        /* Size of source data (i.e., read) a DR_ISA_REGDEPS instruction operates on.
+         * This field is valid when instr_t isa_mode is DR_ISA_REGDEPS.
+         * Note that opnd_size_t is an alias of byte.
+         */
+        opnd_size_t operation_size;
+    };
 
     /* we dynamically allocate dst and src arrays b/c x86 instrs can have
      * up to 8 of each of them, but most have <=2 dsts and <=3 srcs, and we
@@ -270,6 +208,12 @@ struct _instr_t {
      */
     byte num_dsts;
     byte num_srcs;
+
+    /* Instruction ISA mode to support multiple architectures in the same build of DR
+     * (xref i#6698 i#1684).
+     * This field holds values of type #dr_isa_mode_t.
+     */
+    byte isa_mode;
 
     union {
         struct {
@@ -692,6 +636,16 @@ DR_API
 int
 instr_get_opcode(instr_t *instr);
 
+DR_API
+/**
+ * Returns \p instr's set of categories (set of DR_INSTR_CATEGORY_ constants).
+ * See #dr_instr_category_t.
+ * This API is only supported for decoded instructions, not for synthetic ones.
+ * Currently this is only supported for AArch64.
+ */
+uint
+instr_get_category(instr_t *instr);
+
 /**
  * Get the relative offset of \p instr in an encoded instruction list.
  *
@@ -707,6 +661,15 @@ DR_API
 /** Assumes \p opcode is an OP_ constant and sets it to be instr's opcode. */
 void
 instr_set_opcode(instr_t *instr, int opcode);
+
+DR_API
+/**
+ * Assumes \p category is a set of DR_INSTR_CATEGORY_ constants
+ * and sets it to be instr's category.
+ * See #dr_instr_category_t.
+ */
+void
+instr_set_category(instr_t *instr, uint category);
 
 DR_API
 INSTR_INLINE
@@ -808,6 +771,18 @@ DR_API
  */
 void
 instr_set_target(instr_t *cti_instr, opnd_t target);
+
+DR_API
+/**
+ * If \p store_instr is not a store (instr_writes_memory() returns false), returns
+ * false.  If \p store_instr is a store (instr_writes_memory() returns true), returns
+ * whether its source operand with index \p source_ordinal (as passed to
+ * instr_get_src()) is a source for the value that is stored.  (If not, it may be an
+ * address register that is updated for pre-index or post-index writeback forms, or
+ * some other source that does not directly affect the value written to memory.)
+ */
+bool
+instr_is_opnd_store_source(instr_t *store_instr, int source_ordinal);
 
 INSTR_INLINE_INTERNALLY
 DR_API
@@ -1472,11 +1447,20 @@ bool
 instr_zeroes_zmmh(instr_t *instr);
 
 DR_API
-/** Returns true if \p instr's opcode is #OP_xsave32, #OP_xsaveopt32, #OP_xsave64,
- * #OP_xsaveopt64, #OP_xsavec32 or #OP_xsavec64.
+/**
+ * Returns true if \p instr's opcode is #OP_xsave32, #OP_xsaveopt32, #OP_xsave64,
+ * #OP_xsaveopt64, #OP_xsavec32, #OP_xsavec64, #OP_xsaves32, or #OP_xsaves64.
  */
 bool
 instr_is_xsave(instr_t *instr);
+
+DR_API
+/**
+ * Returns true if \p instr's opcode is #OP_xrstor32, #OP_xrstor64, #OP_xrstors32,
+ * or #OP_xrstors64.
+ */
+bool
+instr_is_xrstor(instr_t *instr);
 #endif
 
 DR_API
@@ -1563,7 +1547,8 @@ DR_API
  * write is returned in \p is_write.  Either or both OUT variables can
  * be NULL.
  * \p mc->flags must include DR_MC_CONTROL and DR_MC_INTEGER.
- * For instructions that use vector addressing (VSIB, introduced in AVX2),
+ * For instructions that use vector addressing (x86 VSIB, introduced in AVX2, or
+ * AArch64 scatter/gather instructions introduced in SVE/SVE2),
  * mc->flags must additionally include DR_MC_MULTIMEDIA.
  *
  * Like instr_reads_memory(), this routine does not consider
@@ -1571,8 +1556,8 @@ DR_API
  * instruction's source operand, to be memory references.
  */
 bool
-instr_compute_address_ex(instr_t *instr, dr_mcontext_t *mc, uint index, OUT app_pc *addr,
-                         OUT bool *write);
+instr_compute_address_ex(instr_t *instr, dr_mcontext_t *mc, uint index,
+                         DR_PARAM_OUT app_pc *addr, DR_PARAM_OUT bool *write);
 
 DR_API
 /**
@@ -1588,7 +1573,8 @@ DR_API
  */
 bool
 instr_compute_address_ex_pos(instr_t *instr, dr_mcontext_t *mc, uint index,
-                             OUT app_pc *addr, OUT bool *is_write, OUT uint *pos);
+                             DR_PARAM_OUT app_pc *addr, DR_PARAM_OUT bool *is_write,
+                             DR_PARAM_OUT uint *pos);
 
 DR_API
 /**
@@ -1600,6 +1586,20 @@ DR_API
  */
 uint
 instr_memory_reference_size(instr_t *instr);
+
+DR_API
+/**
+ * Returns the number of memory read accesses of the instruction.
+ */
+uint
+instr_num_memory_read_access(instr_t *instr);
+
+DR_API
+/**
+ * Returns the number of memory write accesses of the instruction.
+ */
+uint
+instr_num_memory_write_access(instr_t *instr);
 
 DR_API
 /**
@@ -1825,10 +1825,30 @@ bool
 instr_is_rep_string_op(instr_t *instr);
 
 /**
- * Indicates which type of floating-point operation and instruction performs.
+ * Indicates which category the instruction corresponds to.
+ * Update instr_get_category_name() in core/ir/instr_shared.c
+ * when adding new categories in this enum.
  */
 typedef enum {
-    DR_FP_STATE,   /**< Loads, stores, or queries general floating point state. */
+    DR_INSTR_CATEGORY_UNCATEGORIZED = 0x0, /**< Uncategorized. */
+    DR_INSTR_CATEGORY_FP = 0x1,            /**< Floating-Point operations. */
+    DR_INSTR_CATEGORY_LOAD = 0x2,          /**< Loads. */
+    DR_INSTR_CATEGORY_STORE = 0x4,         /**< Stores. */
+    DR_INSTR_CATEGORY_BRANCH = 0x8,        /**< Branches. */
+    DR_INSTR_CATEGORY_SIMD = 0x10,    /**< Operations with vector registers (SIMD). */
+    DR_INSTR_CATEGORY_STATE = 0x20,   /**< Saves, restores, or queries processor state. */
+    DR_INSTR_CATEGORY_MOVE = 0x40,    /**< Moves value from one location to another. */
+    DR_INSTR_CATEGORY_CONVERT = 0x80, /**< Converts to or from value. */
+    DR_INSTR_CATEGORY_MATH = 0x100, /**< Performs arithmetic or conditional operations. */
+    DR_INSTR_CATEGORY_OTHER = 0x200 /**< Other types of instructions. */
+} dr_instr_category_t;
+
+/**
+ * Indicates which type of floating-point operation and instruction performs.
+ * \deprecated Replaced by the more general #dr_instr_category_t.
+ */
+typedef enum {
+    DR_FP_STATE,   /**< Saves, restores, or queries processor state. */
     DR_FP_MOVE,    /**< Moves floating point values from one location to another. */
     DR_FP_CONVERT, /**< Converts to or from floating point values. */
     DR_FP_MATH,    /**< Performs arithmetic or conditional operations. */
@@ -1836,10 +1856,31 @@ typedef enum {
 
 DR_API
 /**
+ * Assumes \p category is a DR_INSTR_CATEGORY_ constant.
+ * See #dr_instr_category_t.
+ * Returns \p category name in string format.
+ */
+const char *
+instr_get_category_name(dr_instr_category_t category);
+
+DR_API
+/**
  * Returns true iff \p instr is a floating point instruction.
  * @param[in] instr  The instruction to query
  * @param[out] type  If the return value is true and \p type is
  *   non-NULL, the type of the floating point operation is written to \p type.
+ */
+bool
+instr_is_floating_type(instr_t *instr, dr_instr_category_t *type);
+
+DR_API
+/**
+ * Returns true iff \p instr is a floating point instruction.
+ * @param[in] instr  The instruction to query
+ * @param[out] type  If the return value is true and \p type is
+ *   non-NULL, the type of the floating point operation is written to \p type.
+ * \deprecated Prefer instr_is_floating_type() which uses the more general
+ * #dr_instr_category_t.
  */
 bool
 instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type);
@@ -1953,6 +1994,21 @@ DR_API
  */
 instr_t *
 instr_convert_short_meta_jmp_to_long(void *drcontext, instrlist_t *ilist, instr_t *instr);
+
+DR_API
+/**
+ * Converts a real ISA (e.g., #DR_ISA_AMD64) instruction \p instr_real_isa into a
+ * #DR_ISA_REGDEPS instruction and stores it into \p instr_regdeps_isa.
+ * Assumes \p instr_regdeps_isa has been allocated by the caller (e.g., using
+ * instr_create()).
+ * Assumes \p instr_real_isa is a fully-decoded or synthesized instruction of a real ISA
+ * with valid operand information.
+ * \note \p instr_regdeps_isa will contain only the information of a #DR_ISA_REGDEPS
+ * synthetic instruction.
+ */
+void
+instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
+                             instr_t *instr_regdeps_isa);
 
 DR_API
 /**
@@ -2413,8 +2469,9 @@ DR_API
  * the stolen register base, or the thread-private context area.
  */
 bool
-instr_is_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls OUT,
-                              bool *spill OUT, reg_id_t *reg OUT, uint *offs OUT);
+instr_is_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls DR_PARAM_OUT,
+                              bool *spill DR_PARAM_OUT, reg_id_t *reg DR_PARAM_OUT,
+                              uint *offs DR_PARAM_OUT);
 
 /****************************************************************************
  * EFLAGS/CONDITION CODES
@@ -2426,17 +2483,18 @@ instr_is_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls OUT,
 /* we only care about these 11 flags, and mostly only about the first 6
  * we consider an undefined effect on a flag to be a write
  */
-#    define EFLAGS_READ_CF 0x00000001  /**< Reads CF (Carry Flag). */
-#    define EFLAGS_READ_PF 0x00000002  /**< Reads PF (Parity Flag). */
-#    define EFLAGS_READ_AF 0x00000004  /**< Reads AF (Auxiliary Carry Flag). */
-#    define EFLAGS_READ_ZF 0x00000008  /**< Reads ZF (Zero Flag). */
-#    define EFLAGS_READ_SF 0x00000010  /**< Reads SF (Sign Flag). */
-#    define EFLAGS_READ_TF 0x00000020  /**< Reads TF (Trap Flag). */
-#    define EFLAGS_READ_IF 0x00000040  /**< Reads IF (Interrupt Enable Flag). */
-#    define EFLAGS_READ_DF 0x00000080  /**< Reads DF (Direction Flag). */
-#    define EFLAGS_READ_OF 0x00000100  /**< Reads OF (Overflow Flag). */
-#    define EFLAGS_READ_NT 0x00000200  /**< Reads NT (Nested Task). */
-#    define EFLAGS_READ_RF 0x00000400  /**< Reads RF (Resume Flag). */
+#    define EFLAGS_READ_CF 0x00000001 /**< Reads CF (Carry Flag). */
+#    define EFLAGS_READ_PF 0x00000002 /**< Reads PF (Parity Flag). */
+#    define EFLAGS_READ_AF 0x00000004 /**< Reads AF (Auxiliary Carry Flag). */
+#    define EFLAGS_READ_ZF 0x00000008 /**< Reads ZF (Zero Flag). */
+#    define EFLAGS_READ_SF 0x00000010 /**< Reads SF (Sign Flag). */
+#    define EFLAGS_READ_TF 0x00000020 /**< Reads TF (Trap Flag). */
+#    define EFLAGS_READ_IF 0x00000040 /**< Reads IF (Interrupt Enable Flag). */
+#    define EFLAGS_READ_DF 0x00000080 /**< Reads DF (Direction Flag). */
+#    define EFLAGS_READ_OF 0x00000100 /**< Reads OF (Overflow Flag). */
+#    define EFLAGS_READ_NT 0x00000200 /**< Reads NT (Nested Task). */
+#    define EFLAGS_READ_RF 0x00000400 /**< Reads RF (Resume Flag). */
+
 #    define EFLAGS_WRITE_CF 0x00000800 /**< Writes CF (Carry Flag). */
 #    define EFLAGS_WRITE_PF 0x00001000 /**< Writes PF (Parity Flag). */
 #    define EFLAGS_WRITE_AF 0x00002000 /**< Writes AF (Auxiliary Carry Flag). */
@@ -2449,9 +2507,18 @@ instr_is_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls OUT,
 #    define EFLAGS_WRITE_NT 0x00100000 /**< Writes NT (Nested Task). */
 #    define EFLAGS_WRITE_RF 0x00200000 /**< Writes RF (Resume Flag). */
 
-#    define EFLAGS_READ_ALL 0x000007ff           /**< Reads all flags. */
+/* TODO i#6485: Re-number the following when a major binary compatibility break
+ * is more convenient.
+ */
+/* OP_clac and OP_stac both write the AC flag. Even though we do not have an
+ * opcode that reads it, we still add EFLAGS_READ_AC for parity.
+ */
+#    define EFLAGS_READ_AC 0x00400000  /**< Reads AC (Alignment Check Flag). */
+#    define EFLAGS_WRITE_AC 0x00800000 /**< Writes AC (Alignment Check Flag). */
+
+#    define EFLAGS_READ_ALL 0x004007ff           /**< Reads all flags. */
 #    define EFLAGS_READ_NON_PRED EFLAGS_READ_ALL /**< Flags not read by predicates. */
-#    define EFLAGS_WRITE_ALL 0x003ff800          /**< Writes all flags. */
+#    define EFLAGS_WRITE_ALL 0x00bff800          /**< Writes all flags. */
 /* 6 most common flags ("arithmetic flags"): CF, PF, AF, ZF, SF, OF */
 /** Reads all 6 arithmetic flags (CF, PF, AF, ZF, SF, OF). */
 #    define EFLAGS_READ_6 0x0000011f
@@ -2464,9 +2531,13 @@ instr_is_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls OUT,
 #    define EFLAGS_WRITE_ARITH EFLAGS_WRITE_6
 
 /** Converts an EFLAGS_WRITE_* value to the corresponding EFLAGS_READ_* value. */
-#    define EFLAGS_WRITE_TO_READ(x) ((x) >> 11)
+#    define EFLAGS_WRITE_TO_READ(x)                                  \
+        ((((x) & ((EFLAGS_WRITE_ALL) & ~(EFLAGS_WRITE_AC))) >> 11) | \
+         (((x) & (EFLAGS_WRITE_AC)) >> 1))
 /** Converts an EFLAGS_READ_* value to the corresponding EFLAGS_WRITE_* value. */
-#    define EFLAGS_READ_TO_WRITE(x) ((x) << 11)
+#    define EFLAGS_READ_TO_WRITE(x)                                \
+        ((((x) & ((EFLAGS_READ_ALL) & ~(EFLAGS_READ_AC))) << 11) | \
+         (((x) & (EFLAGS_READ_AC)) << 1))
 
 /**
  * The actual bits in the eflags register that we care about:\n<pre>

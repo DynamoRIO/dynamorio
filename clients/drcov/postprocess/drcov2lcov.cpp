@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -65,9 +65,20 @@
 #    pragma comment(lib, "User32.lib")
 #endif
 
+namespace dynamorio {
+namespace drcov {
+namespace {
+
+using ::dynamorio::droption::DROPTION_FLAG_INTERNAL;
+using ::dynamorio::droption::droption_parser_t;
+using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+using ::dynamorio::droption::DROPTION_SCOPE_FRONTEND;
+using ::dynamorio::droption::droption_t;
+using ::dynamorio::droption::twostring_t;
+
 #define PRINT(lvl, ...)                                         \
     do {                                                        \
-        if (op_verbose.get_value() >= lvl) {                    \
+        if (dynamorio::drcov::op_verbose.get_value() >= lvl) {  \
             fprintf(stdout, "[DRCOV2LCOV] INFO(%d):    ", lvl); \
             fprintf(stdout, __VA_ARGS__);                       \
         }                                                       \
@@ -75,7 +86,7 @@
 
 #define WARN(lvl, ...)                                          \
     do {                                                        \
-        if (op_warning.get_value() >= lvl) {                    \
+        if (dynamorio::drcov::op_warning.get_value() >= lvl) {  \
             fprintf(stderr, "[DRCOV2LCOV] WARNING(%d): ", lvl); \
             fprintf(stderr, __VA_ARGS__);                       \
         }                                                       \
@@ -910,8 +921,8 @@ read_file_header(const char *buf)
 }
 
 static file_t
-open_input_file(const char *fname, const char **map_out OUT, size_t *map_size OUT,
-                uint64 *file_sz OUT)
+open_input_file(const char *fname, const char **map_out DR_PARAM_OUT,
+                size_t *map_size DR_PARAM_OUT, uint64 *file_sz DR_PARAM_OUT)
 {
     uint64 file_size;
     char *map;
@@ -1367,6 +1378,10 @@ option_init(int argc, const char *argv[])
     return true;
 }
 
+} // namespace
+} // namespace drcov
+} // namespace dynamorio
+
 /****************************************************************************
  * Main Function
  */
@@ -1374,7 +1389,7 @@ option_init(int argc, const char *argv[])
 int
 main(int argc, const char *argv[])
 {
-    if (!option_init(argc, argv))
+    if (!dynamorio::drcov::option_init(argc, argv))
         return 1;
 
     dr_standalone_init();
@@ -1382,36 +1397,37 @@ main(int argc, const char *argv[])
         ASSERT(false, "Unable to initialize symbol translation");
         return 1;
     }
-    hashtable_init_ex(&line_htable, LINE_HASH_TABLE_BITS, HASH_STRING, true /* strdup */,
-                      false /* !synch */, line_table_delete /* free */, NULL /* hash */,
+    hashtable_init_ex(&dynamorio::drcov::line_htable, LINE_HASH_TABLE_BITS, HASH_STRING,
+                      true /* strdup */, false /* !synch */,
+                      dynamorio::drcov::line_table_delete /* free */, NULL /* hash */,
                       NULL /* cmp */);
 
     PRINT(1, "Reading input files...\n");
-    if (!read_drcov_input()) {
+    if (!dynamorio::drcov::read_drcov_input()) {
         ASSERT(false, "Failed to read input files\n");
         return 1;
     }
 
     PRINT(1, "Enumerating line info...\n");
-    if (!enumerate_line_info()) {
+    if (!dynamorio::drcov::enumerate_line_info()) {
         ASSERT(false, "Failed to enumerate line info\n");
         return 1;
     }
 
     PRINT(1, "Writing output file...\n");
-    if (!write_lcov_output()) {
+    if (!dynamorio::drcov::write_lcov_output()) {
         ASSERT(false, "Failed to write output file\n");
         return 1;
     }
 
-    module_vec_delete();
-    hashtable_delete(&line_htable);
+    dynamorio::drcov::module_vec_delete();
+    hashtable_delete(&dynamorio::drcov::line_htable);
     if (drsym_exit() != DRSYM_SUCCESS) {
         ASSERT(false, "Failed to clean up symbol library\n");
         return 1;
     }
-    if (set_log != INVALID_FILE)
-        dr_close_file(set_log);
+    if (dynamorio::drcov::set_log != INVALID_FILE)
+        dr_close_file(dynamorio::drcov::set_log);
     dr_standalone_exit();
     return 0;
 }

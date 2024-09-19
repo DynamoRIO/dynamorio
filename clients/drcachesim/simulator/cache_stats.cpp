@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,9 +30,20 @@
  * DAMAGE.
  */
 
-#include <iostream>
-#include <iomanip>
 #include "cache_stats.h"
+
+#include <iomanip>
+#include <iostream>
+#include <map>
+#include <string>
+
+#include "memref.h"
+#include "caching_device_block.h"
+#include "caching_device_stats.h"
+#include "trace_entry.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 cache_stats_t::cache_stats_t(int block_size, const std::string &miss_file,
                              bool warmup_enabled, bool is_coherent)
@@ -98,3 +109,6 @@ cache_stats_t::reset()
     num_prefetch_hits_ = 0;
     num_prefetch_misses_ = 0;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

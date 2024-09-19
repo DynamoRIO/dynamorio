@@ -36,6 +36,9 @@
 #include "simulator/cache.h"
 #include "simulator/cache_simulator_create.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 static void
 check_cache(const std::map<std::string, cache_params_t> &caches, std::string name,
             std::string type, int core, uint64_t size, unsigned int assoc, bool inclusive,
@@ -62,11 +65,11 @@ check_cache(const std::map<std::string, cache_params_t> &caches, std::string nam
 }
 
 void
-unit_test_config_reader(const char *testdir)
+unit_test_config_reader(const std::string &testdir)
 {
     cache_simulator_knobs_t knobs;
     std::map<std::string, cache_params_t> caches;
-    std::string file_path = std::string(testdir) + "/single_core.conf";
+    std::string file_path = testdir + "/single_core.conf";
 
     std::ifstream file_stream;
     file_stream.open(file_path);
@@ -108,3 +111,6 @@ unit_test_config_reader(const char *testdir)
         }
     }
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

@@ -102,7 +102,7 @@ typedef struct _module_names_t {
                             * section. Will be NULL if the module has no resource section
                             * or doesn't set this field within it. */
 #else                      /* UNIX */
-    uint64 inode;      /**< The inode of the module file mapped in. */
+    uint64 inode; /**< The inode of the module file mapped in. */
 #endif
 } module_names_t;
 
@@ -174,7 +174,7 @@ struct _module_data_t {
      * by the start address of each segment.
      */
     module_segment_data_t *segments;
-    uint timestamp;             /**< Timestamp from ELF Mach-O headers. */
+    uint timestamp; /**< Timestamp from ELF Mach-O headers. */
 #    ifdef MACOS
     uint current_version;       /**< Current version from Mach-O headers. */
     uint compatibility_version; /**< Compatibility version from Mach-O headers. */
@@ -599,7 +599,7 @@ DR_API
  * examines the specified module.
  */
 bool
-dr_get_proc_address_ex(module_handle_t lib, const char *name, dr_export_info_t *info OUT,
-                       size_t info_len);
+dr_get_proc_address_ex(module_handle_t lib, const char *name,
+                       dr_export_info_t *info DR_PARAM_OUT, size_t info_len);
 
 #endif /* _DR_MODULES_H_ */

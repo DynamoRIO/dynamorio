@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -50,6 +50,9 @@
 #    include <process.h>
 #endif
 #include "../../../suite/tests/condvar.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 static const int num_threads = 8;
 static const int burst_owner = 4;
@@ -202,7 +205,7 @@ void *
 }
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
 #ifdef UNIX
     pthread_t thread[num_threads];
@@ -248,3 +251,6 @@ main(int argc, const char *argv[])
     destroy_cond_var(burst_owner_finished);
     return 0;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

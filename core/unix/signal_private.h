@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -214,7 +214,11 @@ typedef _STRUCT_UCONTEXT /* == __darwin_ucontext */ kernel_ucontext_t;
  * (these are from /usr/src/linux/arch/i386/kernel/signal.c for kernel 2.4.17)
  */
 
-#    define RETCODE_SIZE 8
+#    if defined(X86)
+#        define RETCODE_SIZE 8
+#    elif defined(ARM)
+#        define RETCODE_SIZE 16
+#    endif
 
 typedef struct sigframe {
 #    ifdef X86
@@ -280,15 +284,20 @@ typedef struct rt_sigframe {
 #    elif defined(AARCHXX)
     kernel_siginfo_t info;
     kernel_ucontext_t uc;
+#        ifdef ARM
     char retcode[RETCODE_SIZE];
+#        endif
 #    elif defined(RISCV64)
     kernel_siginfo_t info;
     kernel_ucontext_t uc;
-    char retcode[RETCODE_SIZE];
 #    endif
 
 #elif defined(MACOS)
-#    ifdef X64
+#    ifdef AARCH64
+    kernel_siginfo_t info;
+    struct __darwin_ucontext64 uc;
+    struct __darwin_mcontext64 mc;
+#    elif defined(X64)
     /* Kernel places padding to align to 16 (via an inefficient alignment macro!),
      * and then skips the retaddr slot to align to 8.
      */
@@ -299,13 +308,9 @@ typedef struct rt_sigframe {
      * like on Linux?  We would get the size by counting from "info".
      * Also, should we change this to sigcontext_t.
      */
-#        if defined(AARCH64)
-    struct __darwin_mcontext64 mc;
-#        else
     struct __darwin_mcontext_avx64 mc; /* sigcontext, "struct mcontext_avx64" to kernel */
-#        endif
-    kernel_siginfo_t info;         /* matches user-mode sys/signal.h struct */
-    struct __darwin_ucontext64 uc; /* "struct user_ucontext64" to kernel */
+    kernel_siginfo_t info;             /* matches user-mode sys/signal.h struct */
+    struct __darwin_ucontext64 uc;     /* "struct user_ucontext64" to kernel */
 #    else
     app_pc retaddr;
     app_pc handler;
@@ -642,6 +647,10 @@ sigaction_syscall(int sig, kernel_sigaction_t *act, kernel_sigaction_t *oact);
 
 void
 set_handler_sigact(kernel_sigaction_t *act, int sig, handler_t handler);
+
+int
+sigprocmask_syscall(int how, kernel_sigset_t *set, kernel_sigset_t *oset,
+                    size_t sigsetsize);
 
 /***************************************************************************
  * OS-SPECIFIC ROUTINES (in signal_<os>.c)

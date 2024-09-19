@@ -1,0 +1,47 @@
+Basic counts tool results:
+Total counts:
+       46166 total \(fetched\) instructions
+        4327 total unique \(fetched\) instructions
+       46166 total userspace instructions
+           0 total kernel instructions
+       27090 total non-fetched instructions
+       27090 total non-fetched userspace instructions
+           0 total non-fetched kernel instructions
+           0 total prefetches
+       37530 total data loads
+       38316 total data stores
+           0 total icache flushes
+           0 total dcache flushes
+           2 total threads
+         514 total timestamp \+ cpuid markers
+.*
+Thread 1257602 counts:
+       30351 \(fetched\) instructions
+         309 unique \(fetched\) instructions
+       30351 userspace instructions
+           0 kernel instructions
+       27090 non-fetched instructions
+       27090 non-fetched userspace instructions
+           0 non-fetched kernel instructions
+           0 prefetches
+       33202 data loads
+       35737 data stores
+           0 icache flushes
+           0 dcache flushes
+          52 timestamp \+ cpuid markers
+.*
+Thread 1257596 counts:
+       15815 \(fetched\) instructions
+        4074 unique \(fetched\) instructions
+       15815 userspace instructions
+           0 kernel instructions
+           0 non-fetched instructions
+           0 non-fetched userspace instructions
+           0 non-fetched kernel instructions
+           0 prefetches
+        4328 data loads
+        2579 data stores
+           0 icache flushes
+           0 dcache flushes
+         462 timestamp \+ cpuid markers
+.*

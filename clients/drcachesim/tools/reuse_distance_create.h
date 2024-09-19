@@ -37,6 +37,9 @@
 
 #include "analysis_tool.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 /**
  * @file drmemtrace/reuse_distance_create.h
  * @brief DrMemtrace reuse distance tool creation.
@@ -74,5 +77,8 @@ struct reuse_distance_knobs_t {
 /** Creates an analysis tool which computes reuse distance. */
 analysis_tool_t *
 reuse_distance_tool_create(const reuse_distance_knobs_t &knobs);
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _REUSE_DISTANCE_CREATE_H_ */

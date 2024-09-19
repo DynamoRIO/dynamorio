@@ -71,6 +71,11 @@ typedef struct _cpu_info_t {
     uint vendor;
 #ifdef AARCHXX
     uint architecture;
+    uint sve_vector_length_bytes;
+#endif
+#ifdef RISCV64
+    /* Vector length in bytes. */
+    uint vlenb;
 #endif
     uint family;
     uint type;

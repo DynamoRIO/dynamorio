@@ -1,0 +1,29 @@
+Output 288 entries from 329 entries.
+Output format:
+<--record#-> <--instr#->: <---tid---> <record details>
+------------------------------------------------------------
+           1           0:     1992554 <marker: version 6>
+           2           0:     1992554 <marker: filetype 0xe40>
+           3           0:     1992554 <marker: cache line size 64>
+           4           0:     1992554 <marker: chunk instruction count 20>
+           5           0:     1992554 <marker: page size 4096>
+           6           0:     1992554 <marker: timestamp 13352268558646120>
+.*
+         207         112:     1992554 <marker: timestamp 13352268558646661>
+         208         112:     1992554 <marker: tid 1992554 on core 10>
+         209         113:     1992554 ifetch       4 byte\(s\) @ 0x0000000000401028 48 83 eb 01          sub    \$0x0000000000000001 %rbx -> %rbx
+         210         114:     1992554 ifetch       4 byte\(s\) @ 0x000000000040102c 48 83 fb 00          cmp    %rbx \$0x0000000000000000
+         211         115:     1992554 ifetch       2 byte\(s\) @ 0x0000000000401030 75 d9                jnz    \$0x000000000040100b \(taken\)
+         212         116:     1992554 ifetch       7 byte\(s\) @ 0x000000000040100b 48 c7 c7 01 00 00 00 mov    \$0x0000000000000001 -> %rdi
+         213         117:     1992554 ifetch       8 byte\(s\) @ 0x0000000000401012 48 8d 34 25 00 20 40 lea    0x00402000 -> %rsi
+         213         117:     1992554                                             00
+         214         118:     1992554 ifetch       7 byte\(s\) @ 0x000000000040101a 48 c7 c2 0d 00 00 00 mov    \$0x000000000000000d -> %rdx
+         215         119:     1992554 ifetch       5 byte\(s\) @ 0x0000000000401021 b8 01 00 00 00       mov    \$0x00000001 -> %eax
+         216         120:     1992554 ifetch       2 byte\(s\) @ 0x0000000000401026 0f 05                syscall  -> %rcx %r11
+         217         120:     1992554 <marker: chunk footer #5>
+         218         120:     1992554 <thread 1992554 exited>
+View tool results:
+            120 : total instructions
+
+===========================================================================
+Trace invariant checks passed

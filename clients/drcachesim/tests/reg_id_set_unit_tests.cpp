@@ -38,6 +38,9 @@
 #include <assert.h>
 #include "tracer/instru.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 void
 reg_id_set_unit_tests()
 {
@@ -87,3 +90,6 @@ reg_id_set_unit_tests()
     find_res = set.find(DR_REG_START_GPR + 3);
     assert(find_res == set.end());
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

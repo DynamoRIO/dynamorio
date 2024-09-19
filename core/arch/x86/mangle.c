@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -2320,8 +2320,15 @@ float_pc_update(dcontext_t *dcontext)
 
 void
 mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                instr_t *next_instr, uint *flags INOUT)
+                instr_t *next_instr, uint *flags DR_PARAM_OUT)
 {
+    /* XXX i#2267: AMD processors don't provide the last PC when there was no
+     * exception.  Recent processors seem to zero it out.  Should we do the same,
+     * and not supply it for intra-block cases?  For now we do supply it, and
+     * we try (but fail) for inter-block for -translate_fpu_pc (we expect failure
+     * in our floatpc_xl8all test template for AMD).
+     */
+
     /* If there is a prior non-control float instr, we can inline the pc update.
      * Otherwise, we go back to d_r_dispatch.  In the latter case we do not support
      * building traces across the float pc save: we assume it's rare.
@@ -2341,10 +2348,10 @@ mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         instr_t *prev;
         for (prev = instr_get_prev_expanded(dcontext, ilist, instr); prev != NULL;
              prev = instr_get_prev_expanded(dcontext, ilist, prev)) {
-            dr_fp_type_t type;
-            if (instr_is_app(prev) && instr_is_floating_ex(prev, &type)) {
+            dr_instr_category_t type;
+            if (instr_is_app(prev) && instr_is_floating_type(prev, &type)) {
                 bool control_instr = false;
-                if (type == DR_FP_STATE /* quick check */ &&
+                if (TEST(DR_INSTR_CATEGORY_STATE, type) /* quick check */ &&
                     /* Check the list from Intel Vol 1 8.1.8 */
                     (op == OP_fnclex || op == OP_fldcw || op == OP_fnstcw ||
                      op == OP_fnstsw || op == OP_fnstenv || op == OP_fldenv ||

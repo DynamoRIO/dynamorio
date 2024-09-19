@@ -1,5 +1,5 @@
 /* ***************************************************************************
- * Copyright (c) 2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2013 Branden Clark  All rights reserved.
  * ***************************************************************************/
 
@@ -62,6 +62,9 @@
 #include "drgui_tool_interface.h"
 #include "drgui_options_window.h"
 #include "drgui_main_window.h"
+
+namespace dynamorio {
+namespace drgui {
 
 /* Public
  * Constructor, everything begins here
@@ -561,3 +564,6 @@ drgui_main_window_t::new_tool_instance(QWidget *tool, QString tool_name)
 {
     tab_area->setCurrentIndex(tab_area->addTab(tool, tool_name));
 }
+
+} // namespace drgui
+} // namespace dynamorio

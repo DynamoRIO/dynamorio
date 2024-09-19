@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,14 +30,27 @@
  * DAMAGE.
  */
 
+#include "reuse_time.h"
+
+#include <stdint.h>
+
 #include <algorithm>
 #include <iomanip>
 #include <iostream>
 #include <memory>
+#include <mutex>
+#include <string>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
-#include "reuse_time.h"
-#include "../common/utils.h"
+#include "analysis_tool.h"
+#include "memref.h"
+#include "trace_entry.h"
+#include "utils.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 #ifdef DEBUG
 #    define DEBUG_VERBOSE(level) (knob_verbose_ >= (level))
@@ -67,6 +80,20 @@ reuse_time_t::~reuse_time_t()
     }
 }
 
+std::string
+reuse_time_t::initialize_stream(memtrace_stream_t *serial_stream)
+{
+    serial_stream_ = serial_stream;
+    return "";
+}
+
+std::string
+reuse_time_t::initialize_shard_type(shard_type_t shard_type)
+{
+    shard_type_ = shard_type;
+    return "";
+}
+
 bool
 reuse_time_t::parallel_shard_supported()
 {
@@ -74,10 +101,13 @@ reuse_time_t::parallel_shard_supported()
 }
 
 void *
-reuse_time_t::parallel_shard_init(int shard_index, void *worker_data)
+reuse_time_t::parallel_shard_init_stream(int shard_index, void *worker_data,
+                                         memtrace_stream_t *stream)
 {
     auto shard = new shard_data_t();
     std::lock_guard<std::mutex> guard(shard_map_mutex_);
+    shard->core = stream->get_output_cpuid();
+    shard->tid = stream->get_tid();
     shard_map_[shard_index] = shard;
     return reinterpret_cast<void *>(shard);
 }
@@ -113,11 +143,6 @@ reuse_time_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         std::cerr << std::endl;
     }
 
-    if (memref.data.type == TRACE_TYPE_THREAD_EXIT) {
-        shard->tid = memref.exit.tid;
-        return true;
-    }
-
     // Only care about data for now.
     if (type_is_instr(memref.instr.type)) {
         shard->total_instructions++;
@@ -133,7 +158,7 @@ reuse_time_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     shard->time_stamp++;
     addr_t line = memref.data.addr >> line_size_bits_;
     if (shard->time_map.count(line) > 0) {
-        int_least64_t reuse_time = shard->time_stamp - shard->time_map[line];
+        int64_t reuse_time = shard->time_stamp - shard->time_map[line];
         if (DEBUG_VERBOSE(3)) {
             std::cerr << "Reuse " << reuse_time << std::endl;
         }
@@ -146,12 +171,14 @@ reuse_time_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 bool
 reuse_time_t::process_memref(const memref_t &memref)
 {
-    // For serial operation we index using the tid.
     shard_data_t *shard;
-    const auto &lookup = shard_map_.find(memref.data.tid);
+    int shard_index = serial_stream_->get_shard_index();
+    const auto &lookup = shard_map_.find(shard_index);
     if (lookup == shard_map_.end()) {
         shard = new shard_data_t();
-        shard_map_[memref.data.tid] = shard;
+        shard->core = serial_stream_->get_output_cpuid();
+        shard->tid = serial_stream_->get_tid();
+        shard_map_[shard_index] = shard;
     } else
         shard = lookup->second;
     if (!parallel_shard_memref(reinterpret_cast<void *>(shard), memref)) {
@@ -162,8 +189,7 @@ reuse_time_t::process_memref(const memref_t &memref)
 }
 
 static bool
-cmp_dist_key(const std::pair<int_least64_t, int_least64_t> &l,
-             const std::pair<int_least64_t, int_least64_t> &r)
+cmp_dist_key(const std::pair<int64_t, int64_t> &l, const std::pair<int64_t, int64_t> &r)
 {
     return (l.first < r.first);
 }
@@ -176,8 +202,8 @@ reuse_time_t::print_shard_results(const shard_data_t *shard)
     std::cerr.precision(2);
     std::cerr.setf(std::ios::fixed);
 
-    int_least64_t count = 0;
-    int_least64_t sum = 0;
+    int64_t count = 0;
+    int64_t sum = 0;
     for (const auto &it : shard->reuse_time_histogram) {
         count += it.second;
         sum += it.first * it.second;
@@ -189,12 +215,19 @@ reuse_time_t::print_shard_results(const shard_data_t *shard)
               << "Percent" << std::setw(12) << "Cumulative";
     std::cerr << std::endl;
     double cum_percent = 0.0;
-    std::vector<std::pair<int_least64_t, int_least64_t>> sorted(
-        shard->reuse_time_histogram.size());
+    std::vector<std::pair<int64_t, int64_t>> sorted(shard->reuse_time_histogram.size());
     std::partial_sort_copy(shard->reuse_time_histogram.begin(),
                            shard->reuse_time_histogram.end(), sorted.begin(),
                            sorted.end(), cmp_dist_key);
+    // Limit the output to make it readable and avoid stressing CMake's regex
+    // in our tests, unless the user requested verbosity.
+    const int max_print = knob_verbose_ > 0 ? 0 : 10;
+    int print_count = 0;
     for (auto it = sorted.begin(); it != sorted.end(); ++it) {
+        if (max_print > 0 && ++print_count > max_print) {
+            std::cerr << "... (increase verbosity to see entire histogram)\n";
+            break;
+        }
         double percent = it->second / static_cast<double>(count);
         cum_percent += percent;
         std::cerr << std::setw(8) << it->first << std::setw(12) << it->second
@@ -230,11 +263,18 @@ reuse_time_t::print_results()
         });
         for (const auto &shard : sorted) {
             std::cerr << "\n==================================================\n"
-                      << TOOL_NAME << " results for shard " << shard.first << " (thread "
-                      << shard.second->tid << "):\n";
+                      << TOOL_NAME << " results for shard " << shard.first;
+            if (shard_type_ == SHARD_BY_THREAD)
+                std::cerr << " (thread " << shard.second->tid;
+            else
+                std::cerr << " (core " << shard.second->core;
+            std::cerr << "):\n";
             print_shard_results(shard.second);
         }
     }
 
     return true;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

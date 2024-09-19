@@ -320,6 +320,13 @@ if (NOT "${TARGET_ARCH}" STREQUAL "${CMAKE_SYSTEM_PROCESSOR}")
   endif ()
 endif ()
 
+get_processor_vendor(CPU_VENDOR)
+if ("${CPU_VENDOR}" STREQUAL "GenuineIntel")
+  set(CPU_INTEL ON)
+elseif ("${CPU_VENDOR}" STREQUAL "AuthenticAMD")
+  set(CPU_AMD ON)
+endif ()
+
 # Support for running cross-compiled tests under emulation.
 if (CMAKE_CROSSCOMPILING AND DEFINED CMAKE_FIND_ROOT_PATH)
   find_program(QEMU_BINARY qemu-${CMAKE_SYSTEM_PROCESSOR} DOC "QEMU emulation tool")
@@ -568,7 +575,7 @@ endif (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
 
 # N.B.: When updating this, update all the default versions in ci-package.yml
 # and ci-docs.yml.  We should find a way to share (xref i#1565).
-set(VERSION_NUMBER_DEFAULT "9.93.${VERSION_NUMBER_PATCHLEVEL}")
+set(VERSION_NUMBER_DEFAULT "10.93.${VERSION_NUMBER_PATCHLEVEL}")
 # do not store the default VERSION_NUMBER in the cache to prevent a stale one
 # from preventing future version updates in a pre-existing build dir
 set(VERSION_NUMBER "" CACHE STRING "Version number: leave empty for default")
@@ -621,6 +628,20 @@ if (X86 AND UNIX)
   check_avx512_processor_and_compiler_support(proc_supports_avx512)
 endif ()
 
+set(proc_supports_sve OFF)
+set(proc_supports_sve2 OFF)
+set(proc_supports_pauth OFF)
+if (AARCH64 AND UNIX)
+  set(CFLAGS_SVE "-march=armv8-a+sve")
+  set(CFLAGS_SVE2 "-march=armv8-a+sve2")
+  set(CFLAGS_PAUTH "-march=armv8.3-a -mbranch-protection=standard")
+  set(ASMFLAGS_SVE "-march=armv8-a+sve")
+  set(ASMFLAGS_SVE2 "-march=armv8-a+sve2")
+  check_sve_processor_and_compiler_support(proc_supports_sve proc_sve_vl)
+  check_sve2_processor_and_compiler_support(proc_supports_sve2)
+  check_pauth_processor_and_compiler_support(proc_supports_pauth)
+endif ()
+
 # Ensure that _AMD64_ or _X86_ are defined on Microsoft Windows, as otherwise
 # um/winnt.h provided since Windows 10.0.22000 will error.
 if (NOT UNIX)
@@ -650,11 +671,9 @@ set(cpp2asm_newline_script_path "${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake")
 include(make/cpp2asm_support.cmake)
 if (UNIX)
   # We require gas >= 2.18.50 for --32, --64, and the new -msyntax=intel, etc.
-  # Since this is pretty recent we include a copy (built vs as old a glibc
-  # as was convenient)
   if (NOT CMAKE_ASM_SUPPORTS_INTEL_SYNTAX)
-    message("${CMAKE_ASM_COMPILER} too old: using ${PROJECT_SOURCE_DIR}/make/as-2.18.50")
-    set(CMAKE_ASM_COMPILER "${PROJECT_SOURCE_DIR}/make/as-2.18.50")
+    message(FATAL_ERROR
+      "${CMAKE_ASM_COMPILER} is too old and does not support -msyntax=intel")
   endif (NOT CMAKE_ASM_SUPPORTS_INTEL_SYNTAX)
 endif (UNIX)
 
@@ -882,6 +901,12 @@ if (UNIX)
       set(WARN "${WARN} -Wno-stringop-overflow")
     endif (stringop_overflow_avail)
     CHECK_C_COMPILER_FLAG("-Wtype-limits" HAVE_TYPELIMITS_CONTROL)
+    CHECK_C_COMPILER_FLAG("-Wdangling-pointer" dangling_pointer_avail)
+    if (dangling_pointer_avail)
+      # XXX i#6337: It is difficult to rewrite the TRY macros to avoid this gcc
+      # warning, which is innocuous, so we disable.
+      set(WARN "${WARN} -Wno-dangling-pointer")
+    endif ()
   else (NOT CMAKE_COMPILER_IS_CLANG)
     # clang turns off color when it's writing to a pipe, but the user may still
     # wish to force color if it eventually goes to a terminal.
@@ -1371,19 +1396,8 @@ string(REGEX REPLACE
 math(EXPR VERSION_NUMBER_INTEGER
   "${VERSION_NUMBER_MAJOR}*100 + ${VERSION_NUMBER_MINOR}")
 
-# Every release since has had minor compat breakages.
-# 8.xx broke backcompat by reordering the AArch64 opcode enum an changing
-#   drcachesim field names, drmodtrack callbacks,
-#   emulated_instr_t fields, drcov output, drcachesim view counting, and
-#   drcachesim child statistics.
-# 7.92 broke backcompat by changing 32-bit stack alignment to 16.
-# 7.91 broke backcompat by adding a field to instr_t .
-# 7.90 broke backcompat in DR_REG_ enums and OPSZ_ enums.
-# 6.0 broke backcompat in Linux injection, mod load event, etc.
-# 5.0 broke backcompat in drsyms and xmm opnd sizes
-# 4.1 broke backcompat in drsyms + 64-bit core (opcodes + reachability)
-# 4.0 broke backcompat in drmgr, drsyms, drinjectlib, and dr_get_milliseconds()
-set(OLDEST_COMPATIBLE_VERSION_DEFAULT "990")
+# Every release since has had minor compat breakages: see api/docs/release.dox.
+set(OLDEST_COMPATIBLE_VERSION_DEFAULT "1000")
 set(OLDEST_COMPATIBLE_VERSION "" CACHE STRING
   "Oldest compatible version: leave empty for default")
 if ("${OLDEST_COMPATIBLE_VERSION}" STREQUAL "")

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,13 +33,17 @@
 /* instru: instrumentation utilities.
  */
 
+#include "instru.h"
+
+#include <stddef.h>
+
 #include "dr_api.h"
+#include "drmgr.h"
 #include "drreg.h"
 #include "drutil.h"
-#include "instru.h"
-#include "../common/trace_entry.h"
+#include "trace_entry.h"
+
 #ifdef LINUX
-#    include <sched.h>
 #    ifndef _GNU_SOURCE
 #        define _GNU_SOURCE // For syscall()
 #    endif
@@ -49,6 +53,9 @@
 #ifdef WINDOWS
 #    include <intrin.h>
 #endif
+
+namespace dynamorio {
+namespace drmemtrace {
 
 unsigned short
 instru_t::instr_to_instr_type(instr_t *instr, bool repstr_expanded)
@@ -250,7 +257,7 @@ instru_t::instr_to_flush_type(instr_t *instr)
 void
 instru_t::insert_obtain_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
                              reg_id_t reg_addr, reg_id_t reg_scratch, opnd_t ref,
-                             OUT bool *scratch_used)
+                             DR_PARAM_OUT bool *scratch_used)
 {
     bool ok;
     bool we_used_scratch = false;
@@ -338,7 +345,7 @@ instru_t::count_app_instrs(instrlist_t *ilist)
             ++count;
         }
         if (!in_emulation_region && instr_is_app(inst)) {
-            // Hooked native functions end up with an artifical jump whose translation
+            // Hooked native functions end up with an artificial jump whose translation
             // is its target.  We do not want to count these.
             if (!(instr_is_ubr(inst) && opnd_is_pc(instr_get_target(inst)) &&
                   opnd_get_pc(instr_get_target(inst)) == instr_get_app_pc(inst)))
@@ -349,3 +356,6 @@ instru_t::count_app_instrs(instrlist_t *ilist)
     }
     return count;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

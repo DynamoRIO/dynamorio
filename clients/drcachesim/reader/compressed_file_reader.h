@@ -36,8 +36,13 @@
 #define _COMPRESSED_FILE_READER_H_ 1
 
 #include <zlib.h>
+
 #include "file_reader.h"
 #include "record_file_reader.h"
+#include "trace_entry.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 struct gzip_reader_t {
     gzip_reader_t()
@@ -60,5 +65,8 @@ struct gzip_reader_t {
 typedef file_reader_t<gzip_reader_t> compressed_file_reader_t;
 typedef dynamorio::drmemtrace::record_file_reader_t<gzip_reader_t>
     compressed_record_file_reader_t;
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _COMPRESSED_FILE_READER_H_ */

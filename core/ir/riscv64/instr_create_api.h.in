@@ -39,15 +39,12 @@
 /** @name Platform-independent macros */
 /** @{ */ /* doxygen start group */
 
-/* FIXME i#3544: Check and implement all INSTR_CREATE_ and XINST_CREATE_ macros. For now
- * all unimplemented instructions use OP_c_nop which is effectively a no-op. */
-
 /**
  * This platform-independent macro creates an instr_t for a debug trap
  * instruction, automatically supplying any implicit operands.
  * \param dc The void * dcontext used to allocate memory for the instr_t.
  */
-#define XINST_CREATE_debug_instr(dc) instr_create_0dst_0src(dc, OP_c_nop)
+#define XINST_CREATE_debug_instr(dc) INSTR_CREATE_ebreak(dc)
 
 /**
  * This platform-independent macro creates an instr_t for a 4-byte
@@ -56,7 +53,9 @@
  * \param r   The destination register opnd.
  * \param m   The source memory opnd.
  */
-#define XINST_CREATE_load(dc, r, m) instr_create_1dst_1src(dc, OP_c_nop, r, m)
+#define XINST_CREATE_load(dc, r, m)                            \
+    ((opnd_get_size(m) == OPSZ_4) ? INSTR_CREATE_lwu(dc, r, m) \
+                                  : INSTR_CREATE_ld(dc, r, m))
 
 /**
  * This platform-independent macro creates an instr_t which loads 1 byte
@@ -66,7 +65,7 @@
  * \param r   The destination register opnd.
  * \param m   The source memory opnd.
  */
-#define XINST_CREATE_load_1byte_zext4(dc, r, m) instr_create_1dst_1src(dc, OP_c_nop, r, m)
+#define XINST_CREATE_load_1byte_zext4(dc, r, m) INSTR_CREATE_lbu(dc, r, m)
 
 /**
  * This platform-independent macro creates an instr_t for a 1-byte
@@ -75,7 +74,7 @@
  * \param r   The destination register opnd.
  * \param m   The source memory opnd.
  */
-#define XINST_CREATE_load_1byte(dc, r, m) instr_create_1dst_1src(dc, OP_c_nop, r, m)
+#define XINST_CREATE_load_1byte(dc, r, m) INSTR_CREATE_lbu(dc, r, m)
 
 /**
  * This platform-independent macro creates an instr_t for a 2-byte
@@ -84,7 +83,7 @@
  * \param r   The destination register opnd.
  * \param m   The source memory opnd.
  */
-#define XINST_CREATE_load_2bytes(dc, r, m) instr_create_1dst_1src(dc, OP_c_nop, r, m)
+#define XINST_CREATE_load_2bytes(dc, r, m) INSTR_CREATE_lhu(dc, r, m)
 
 /**
  * This platform-independent macro creates an instr_t for a 4-byte
@@ -93,7 +92,8 @@
  * \param m   The destination memory opnd.
  * \param r   The source register opnd.
  */
-#define XINST_CREATE_store(dc, m, r) instr_create_1dst_1src(dc, OP_c_nop, m, r)
+#define XINST_CREATE_store(dc, m, r) \
+    ((opnd_get_size(m) == OPSZ_4) ? INSTR_CREATE_sw(dc, m, r) : INSTR_CREATE_sd(dc, m, r))
 
 /**
  * This platform-independent macro creates an instr_t for a 1-byte
@@ -102,7 +102,7 @@
  * \param m   The destination memory opnd.
  * \param r   The source register opnd.
  */
-#define XINST_CREATE_store_1byte(dc, m, r) instr_create_1dst_1src(dc, OP_c_nop, m, r)
+#define XINST_CREATE_store_1byte(dc, m, r) INSTR_CREATE_sb(dc, m, r)
 
 /**
  * This platform-independent macro creates an instr_t for a 2-byte
@@ -111,7 +111,7 @@
  * \param m   The destination memory opnd.
  * \param r   The source register opnd.
  */
-#define XINST_CREATE_store_2bytes(dc, m, r) instr_create_1dst_1src(dc, OP_c_nop, m, r)
+#define XINST_CREATE_store_2bytes(dc, m, r) INSTR_CREATE_sh(dc, m, r)
 
 /**
  * This platform-independent macro creates an instr_t for a register
@@ -120,16 +120,19 @@
  * \param d   The destination register opnd.
  * \param s   The source register opnd.
  */
-#define XINST_CREATE_move(dc, d, s) instr_create_1dst_1src(dc, OP_c_nop, d, s)
-
+#define XINST_CREATE_move(dc, d, s) \
+    INSTR_CREATE_addi(dc, d, s, opnd_create_immed_int(0, OPSZ_12b))
 /**
  * This platform-independent macro creates an instr_t for a multimedia
  * register load instruction.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
  * \param r   The destination register opnd.
  * \param m   The source memory opnd.
+ *
+ * FIXME i#3544: Serve as a placeholder for now. Add a proper implementation once it makes
+ * sense.
  */
-#define XINST_CREATE_load_simd(dc, r, m) instr_create_1dst_1src(dc, OP_c_nop, r, m)
+#define XINST_CREATE_load_simd(dc, r, m) XINST_CREATE_load(dc, r, m)
 
 /**
  * This platform-independent macro creates an instr_t for a multimedia
@@ -137,18 +140,11 @@
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
  * \param m   The destination memory opnd.
  * \param r   The source register opnd.
+ *
+ * FIXME i#3544: Serve as a placeholder for now. Add a proper implementation once it makes
+ * sense.
  */
-#define XINST_CREATE_store_simd(dc, m, r) instr_create_1dst_1src(dc, OP_c_nop, m, r)
-
-/**
- * This platform-independent macro creates an instr_t for an indirect
- * jump through memory instruction.  For AArch32, the memory address
- * must be aligned to 4.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
- * \param m   The memory opnd holding the target.
- */
-#define XINST_CREATE_jump_mem(dc, m) \
-    instr_create_0dst_2src(dc, OP_c_nop, opnd_create_reg(DR_REG_PC), (m))
+#define XINST_CREATE_store_simd(dc, m, r) XINST_CREATE_store(dc, m, r)
 
 /**
  * This platform-independent macro creates an instr_t for an indirect
@@ -156,7 +152,9 @@
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
  * \param r   The register opnd holding the target.
  */
-#define XINST_CREATE_jump_reg(dc, r) instr_create_0dst_1src(dc, OP_c_nop, r)
+#define XINST_CREATE_jump_reg(dc, r)                       \
+    INSTR_CREATE_jalr(dc, opnd_create_reg(DR_REG_ZERO), r, \
+                      opnd_create_immed_int(0, OPSZ_12b))
 
 /**
  * This platform-independent macro creates an instr_t for an immediate
@@ -165,13 +163,16 @@
  * \param r   The destination register opnd.
  * \param i   The source immediate integer opnd.
  */
-#define XINST_CREATE_load_int(dc, r, i) instr_create_1dst_1src(dc, OP_c_nop, r, i)
+#define XINST_CREATE_load_int(dc, r, i) \
+    INSTR_CREATE_addi(dc, r, opnd_create_reg(DR_REG_ZERO), i)
 
 /**
  * This platform-independent macro creates an instr_t for a return instruction.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
  */
-#define XINST_CREATE_return(dc) instr_create_0dst_0src(dc, OP_c_nop)
+#define XINST_CREATE_return(dc)                                                     \
+    INSTR_CREATE_jalr(dc, opnd_create_reg(DR_REG_ZERO), opnd_create_reg(DR_REG_RA), \
+                      opnd_create_immed_int(0, OPSZ_12b))
 
 /**
  * This platform-independent macro creates an instr_t for an unconditional
@@ -183,7 +184,7 @@
  * the target (a pc operand is not suitable for most uses unless you know
  * precisely where this instruction will be encoded).
  */
-#define XINST_CREATE_jump(dc, t) instr_create_0dst_1src(dc, OP_c_nop, t)
+#define XINST_CREATE_jump(dc, t) INSTR_CREATE_jal(dc, opnd_create_reg(DR_REG_ZERO), t)
 
 /**
  * This platform-independent macro creates an instr_t for an unconditional
@@ -195,7 +196,8 @@
  * the target (a pc operand is not suitable for most uses unless you know
  * precisely where this instruction will be encoded).
  */
-#define XINST_CREATE_jump_short(dc, t) instr_create_0dst_1src(dc, OP_c_nop, t)
+#define XINST_CREATE_jump_short(dc, t) \
+    INSTR_CREATE_jal(dc, opnd_create_reg(DR_REG_ZERO), t)
 
 /**
  * This platform-independent macro creates an instr_t for an unconditional
@@ -207,22 +209,7 @@
  * the target (a pc operand is not suitable for most uses unless you know
  * precisely where this instruction will be encoded).
  */
-#define XINST_CREATE_call(dc, t) instr_create_0dst_1src(dc, OP_c_nop, t)
-
-/**
- * This platform-independent macro creates an instr_t for a conditional
- * branch instruction that branches if the previously-set condition codes
- * indicate the condition indicated by \p pred.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
- * \param pred  The #dr_pred_type_t condition to match.
- * \param t   The opnd_t target operand for the instruction, which can be
- * either a pc (opnd_create_pc)()) or an instr_t (opnd_create_instr()).
- * Be sure to ensure that the limited reach of this short branch will reach
- * the target (a pc operand is not suitable for most uses unless you know
- * precisely where this instruction will be encoded).
- */
-#define XINST_CREATE_jump_cond(dc, pred, t) \
-    (INSTR_PRED(instr_create_0dst_1src(dc, OP_c_nop, t), (pred)))
+#define XINST_CREATE_call(dc, t) INSTR_CREATE_jal(dc, opnd_create_reg(DR_REG_RA), t)
 
 /**
  * This platform-independent macro creates an instr_t for an addition
@@ -231,7 +218,7 @@
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
-#define XINST_CREATE_add(dc, d, s) instr_create_1dst_2src(dc, OP_c_nop, d, d, s)
+#define XINST_CREATE_add(dc, d, s) XINST_CREATE_add_2src(dc, d, d, s)
 
 /**
  * This platform-independent macro creates an instr_t for an addition
@@ -245,33 +232,7 @@
  * can be either a register or an immediate integer.
  */
 #define XINST_CREATE_add_2src(dc, d, s1, s2) \
-    instr_create_1dst_2src(dc, OP_c_nop, d, s1, s2)
-
-/**
- * This platform-independent macro creates an instr_t for an addition
- * instruction that does not affect the status flags and takes two register sources
- * plus a destination, with one source being shifted logically left by
- * an immediate amount that is limited to either 0, 1, 2, or 3.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
- * \param d  The opnd_t explicit destination operand for the instruction.
- * \param s1  The opnd_t explicit first source operand for the instruction.  This
- * must be a register.
- * \param s2_toshift  The opnd_t explicit source operand for the instruction.  This
- * must be a register.
- * \param shift_amount  An integer value that must be either 0, 1, 2, or 3.
- */
-#define XINST_CREATE_add_sll(dc, d, s1, s2_toshift, shift_amount) \
-    instr_create_1dst_3src(dc, OP_c_nop, d, s1, s2_toshift,        \
-                           opnd_create_immed_int(shift_amount, OPSZ_1))
-
-/**
- * This platform-independent macro creates an instr_t for an addition
- * instruction that does affect the status flags.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
- * \param d  The opnd_t explicit destination operand for the instruction.
- * \param s  The opnd_t explicit source operand for the instruction.
- */
-#define XINST_CREATE_add_s(dc, d, s) instr_create_1dst_2src(dc, OP_c_nop, d, d, s)
+    opnd_is_reg(s2) ? INSTR_CREATE_add(dc, d, s1, s2) : INSTR_CREATE_addi(dc, d, s1, s2)
 
 /**
  * This platform-independent macro creates an instr_t for a subtraction
@@ -280,38 +241,11 @@
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
-/* FIXME: How to handle a lack of flags register? */
-#define XINST_CREATE_sub(dc, d, s) instr_create_1dst_2src(dc, OP_c_nop, d, d, s)
-
-/**
- * This platform-independent macro creates an instr_t for a subtraction
- * instruction that does affect the status flags.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
- * \param d  The opnd_t explicit destination operand for the instruction.
- * \param s  The opnd_t explicit source operand for the instruction.
- */
-/* FIXME: How to handle a lack of flags register? */
-#define XINST_CREATE_sub_s(dc, d, s) instr_create_1dst_2src(dc, OP_c_nop, d, d, s)
-
-/**
- * This platform-independent macro creates an instr_t for a bitwise and
- * instruction that does affect the status flags.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
- * \param d  The opnd_t explicit destination operand for the instruction.
- * \param s  The opnd_t explicit source operand for the instruction.
- */
-/* FIXME: How to handle a lack of flags register? */
-#define XINST_CREATE_and_s(dc, d, s) instr_create_1dst_2src(dc, OP_c_nop, d, d, s)
-
-/**
- * This platform-independent macro creates an instr_t for a comparison
- * instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
- * \param s1  The opnd_t explicit source operand for the instruction.
- * \param s2  The opnd_t explicit source operand for the instruction.
- */
-/* FIXME: How to handle a lack of flags register? */
-#define XINST_CREATE_cmp(dc, s1, s2) instr_create_0dst_2src(dc, OP_c_nop, s1, s2)
+#define XINST_CREATE_sub(dc, d, s)      \
+    opnd_is_reg(s)                      \
+        ? INSTR_CREATE_sub(dc, d, d, s) \
+        : INSTR_CREATE_addi(dc, d, d,   \
+                            opnd_create_immed_int(-opnd_get_immed_int(s), OPSZ_12b))
 
 /**
  * This platform-independent macro creates an instr_t for a software
@@ -319,17 +253,7 @@
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
  * \param i   The source integer constant opnd_t operand.
  */
-#define XINST_CREATE_interrupt(dc, i) instr_create_0dst_1src(dc, OP_c_nop, i)
-
-/**
- * This platform-independent macro creates an instr_t for a logical right shift
- * instruction that does affect the status flags.
- * \param dc         The void * dcontext used to allocate memory for the instr_t.
- * \param d          The opnd_t explicit destination operand for the instruction.
- * \param rm_or_imm  The opnd_t explicit source operand for the instruction.
- */
-#define XINST_CREATE_slr_s(dc, d, rm_or_imm) \
-    instr_create_1dst_1src(dc, OP_c_nop, d, rm_or_imm)
+#define XINST_CREATE_interrupt(dc, i) INSTR_CREATE_ebreak(dc)
 
 /**
  * This platform-independent macro creates an instr_t for a nop instruction.
@@ -344,7 +268,9 @@
  * \param r   The opnd_t explicit source operand for the instruction. This should
  * be a reg_id_t operand with the address of the subroutine.
  */
-#define XINST_CREATE_call_reg(dc, r) instr_create_0dst_1src(dc, OP_c_nop, r)
+#define XINST_CREATE_call_reg(dc, r)                     \
+    INSTR_CREATE_jalr(dc, opnd_create_reg(DR_REG_RA), r, \
+                      opnd_create_immed_int(0, OPSZ_12b))
 
 /**
  * Create an absolute address operand encoded as pc-relative.
@@ -352,6 +278,12 @@
  * reach for the architecture.
  */
 #define OPND_CREATE_ABSMEM(addr, size) opnd_create_rel_addr(addr, size)
+
+/**
+ * Create an immediate integer operand. For RISCV64 the size of an immediate
+ * is ignored when encoding, so there is no need to specify the final size.
+ */
+#define OPND_CREATE_INT(val) OPND_CREATE_INTPTR(val)
 
 /** @} */ /* end doxygen group */
 
@@ -368,7 +300,9 @@
  * \param dc The void * dcontext used to allocate memory for the instr_t.
  */
 /* Auto-generated by codec.py. */
+// clang-format off
 @INSTR_MACROS@
+// clang-format on
 /** @} */ /* end doxygen group */
 
 #endif /* _DR_IR_MACROS_RISCV64_H_ */

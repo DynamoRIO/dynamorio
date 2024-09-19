@@ -22,8 +22,8 @@ Adios world!
 Hit tracing window #5 limit: disabling tracing.
 Basic counts tool results:
 Total counts:
-          53 total \(fetched\) instructions
-          21 total unique \(fetched\) instructions
+          55 total \(fetched\) instructions
+          23 total unique \(fetched\) instructions
            4 total non-fetched instructions
            0 total prefetches
            7 total data loads
@@ -31,16 +31,20 @@ Total counts:
            0 total icache flushes
            0 total dcache flushes
            1 total threads
-          14 total scheduling markers
-           0 total transfer markers
+          36 total timestamp \+ cpuid markers
+           0 total idle markers
+           0 total wait markers
+           0 total kernel transfer markers
            0 total function id markers
            0 total function return address markers
            0 total function argument markers
            0 total function return value markers
            0 total physical address \+ virtual address marker pairs
            0 total physical address unavailable markers
+           6 total system call number markers
+           6 total blocking system call markers
           12 total other markers
-          21 total encodings
+          23 total encodings
 Total windows: 7
 Window #0:
           15 window \(fetched\) instructions
@@ -51,14 +55,18 @@ Window #0:
            5 window data stores
            0 window icache flushes
            0 window dcache flushes
-           3 window scheduling markers
-           0 window transfer markers
+           5 window timestamp \+ cpuid markers
+           0 window idle markers
+           0 window wait markers
+           0 window kernel transfer markers
            0 window function id markers
            0 window function return address markers
            0 window function argument markers
            0 window function return value markers
            0 window physical address \+ virtual address marker pairs
            0 window physical address unavailable markers
+           1 window system call number markers
+           1 window blocking system call markers
            6 window other markers
           15 window encodings
 Window #1:
@@ -70,14 +78,18 @@ Window #1:
            0 window data stores
            0 window icache flushes
            0 window dcache flushes
-           2 window scheduling markers
-           0 window transfer markers
+           6 window timestamp \+ cpuid markers
+           0 window idle markers
+           0 window wait markers
+           0 window kernel transfer markers
            0 window function id markers
            0 window function return address markers
            0 window function argument markers
            0 window function return value markers
            0 window physical address \+ virtual address marker pairs
            0 window physical address unavailable markers
+           1 window system call number markers
+           1 window blocking system call markers
            1 window other markers
            3 window encodings
 Window #2:
@@ -89,14 +101,18 @@ Window #2:
            0 window data stores
            0 window icache flushes
            0 window dcache flushes
-           2 window scheduling markers
-           0 window transfer markers
+           6 window timestamp \+ cpuid markers
+           0 window idle markers
+           0 window wait markers
+           0 window kernel transfer markers
            0 window function id markers
            0 window function return address markers
            0 window function argument markers
            0 window function return value markers
            0 window physical address \+ virtual address marker pairs
            0 window physical address unavailable markers
+           1 window system call number markers
+           1 window blocking system call markers
            1 window other markers
            0 window encodings
 Window #3:
@@ -108,14 +124,18 @@ Window #3:
            0 window data stores
            0 window icache flushes
            0 window dcache flushes
-           2 window scheduling markers
-           0 window transfer markers
+           6 window timestamp \+ cpuid markers
+           0 window idle markers
+           0 window wait markers
+           0 window kernel transfer markers
            0 window function id markers
            0 window function return address markers
            0 window function argument markers
            0 window function return value markers
            0 window physical address \+ virtual address marker pairs
            0 window physical address unavailable markers
+           1 window system call number markers
+           1 window blocking system call markers
            1 window other markers
            0 window encodings
 Window #4:
@@ -127,35 +147,43 @@ Window #4:
            0 window data stores
            0 window icache flushes
            0 window dcache flushes
-           2 window scheduling markers
-           0 window transfer markers
+           6 window timestamp \+ cpuid markers
+           0 window idle markers
+           0 window wait markers
+           0 window kernel transfer markers
            0 window function id markers
            0 window function return address markers
            0 window function argument markers
            0 window function return value markers
            0 window physical address \+ virtual address marker pairs
            0 window physical address unavailable markers
+           1 window system call number markers
+           1 window blocking system call markers
            1 window other markers
            0 window encodings
 Window #5:
-           6 window \(fetched\) instructions
-           6 window unique \(fetched\) instructions
+           8 window \(fetched\) instructions
+           8 window unique \(fetched\) instructions
            0 window non-fetched instructions
            0 window prefetches
            0 window data loads
            0 window data stores
            0 window icache flushes
            0 window dcache flushes
-           2 window scheduling markers
-           0 window transfer markers
+           6 window timestamp \+ cpuid markers
+           0 window idle markers
+           0 window wait markers
+           0 window kernel transfer markers
            0 window function id markers
            0 window function return address markers
            0 window function argument markers
            0 window function return value markers
            0 window physical address \+ virtual address marker pairs
            0 window physical address unavailable markers
+           1 window system call number markers
+           1 window blocking system call markers
            1 window other markers
-           3 window encodings
+           5 window encodings
 Window #6:
            0 window \(fetched\) instructions
            0 window unique \(fetched\) instructions
@@ -165,14 +193,18 @@ Window #6:
            0 window data stores
            0 window icache flushes
            0 window dcache flushes
-           1 window scheduling markers
-           0 window transfer markers
+           1 window timestamp \+ cpuid markers
+           0 window idle markers
+           0 window wait markers
+           0 window kernel transfer markers
            0 window function id markers
            0 window function return address markers
            0 window function argument markers
            0 window function return value markers
            0 window physical address \+ virtual address marker pairs
            0 window physical address unavailable markers
+           0 window system call number markers
+           0 window blocking system call markers
            1 window other markers
            0 window encodings
 Thread [0-9]* counts:
@@ -184,13 +216,17 @@ Thread [0-9]* counts:
            5 data stores
            0 icache flushes
            0 dcache flushes
-           3 scheduling markers
-           0 transfer markers
+           5 timestamp \+ cpuid markers
+           0 idle markers
+           0 wait markers
+           0 kernel transfer markers
            0 function id markers
            0 function return address markers
            0 function argument markers
            0 function return value markers
            0 physical address \+ virtual address marker pairs
            0 physical address unavailable markers
+           1 system call number markers
+           1 blocking system call markers
            6 other markers
           15 encodings

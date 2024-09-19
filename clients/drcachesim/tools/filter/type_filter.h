@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -45,16 +45,16 @@
 // OSX particularly. In C++14, std::hash works as expected for enums
 // too: https://cplusplus.com/forum/general/238538/.
 namespace std {
-template <> struct hash<trace_type_t> {
+template <> struct hash<dynamorio::drmemtrace::trace_type_t> {
     size_t
-    operator()(trace_type_t t) const
+    operator()(dynamorio::drmemtrace::trace_type_t t) const
     {
         return static_cast<size_t>(t);
     }
 };
-template <> struct hash<trace_marker_type_t> {
+template <> struct hash<dynamorio::drmemtrace::trace_marker_type_t> {
     size_t
-    operator()(trace_marker_type_t t) const
+    operator()(dynamorio::drmemtrace::trace_marker_type_t t) const
     {
         return static_cast<size_t>(t);
     }
@@ -86,11 +86,13 @@ public:
         return per_shard;
     }
     bool
-    parallel_shard_filter(trace_entry_t &entry, void *shard_data) override
+    parallel_shard_filter(
+        trace_entry_t &entry, void *shard_data,
+        record_filter_t::record_filter_info_t &record_filter_info) override
     {
         per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
         if (entry.type == TRACE_TYPE_MARKER && entry.size == TRACE_MARKER_TYPE_FILETYPE) {
-            if (TESTANY(entry.addr, OFFLINE_FILE_TYPE_ENCODINGS) &&
+            if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, entry.addr) &&
                 !per_shard->partial_trace_filter &&
                 remove_trace_types_.find(TRACE_TYPE_ENCODING) !=
                     remove_trace_types_.end()) {

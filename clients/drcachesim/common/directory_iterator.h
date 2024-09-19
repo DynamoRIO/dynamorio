@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,7 +37,9 @@
 #define _DIRECTORY_ITERATOR_H_ 1
 
 #include <assert.h>
+
 #include <iterator>
+#include <string>
 #ifdef WINDOWS
 #    define UNICODE
 #    define _UNICODE
@@ -48,6 +50,9 @@
 #endif
 
 #include "utils.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 // Iterates over files: skips sub-directories.
 // Returns the basenames of the files (i.e., not absolute paths).
@@ -67,7 +72,8 @@ public:
         return error_descr_;
     }
 
-    virtual const std::string &operator*();
+    virtual const std::string &
+    operator*();
 
     // To avoid double-dispatch (requires listing all derived types in the base here)
     // and RTTI in trying to get the right operators called for subclasses, we
@@ -88,7 +94,8 @@ public:
     virtual directory_iterator_t &
     operator++();
 
-    virtual bool operator!()
+    virtual bool
+    operator!()
     {
         return at_eof_;
     }
@@ -116,5 +123,8 @@ private:
     struct dirent *ent_ = nullptr;
 #endif
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _DIRECTORY_ITERATOR_H_ */

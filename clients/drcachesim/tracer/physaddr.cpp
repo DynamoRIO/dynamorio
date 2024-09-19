@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,16 +31,27 @@
  */
 
 #ifdef LINUX
+#    include <fcntl.h>
 #    include <sys/types.h>
 #    include <unistd.h>
-#    include <sys/stat.h>
-#    include <fcntl.h>
 #    include <linux/capability.h>
 #    include <fstream>
 #endif
 #include "physaddr.h"
-#include "../common/options.h"
-#include "../common/utils.h"
+
+#include <atomic>
+#include <cstdio>
+#include <cstring>
+#include <string>
+
+#include "dr_api.h"
+#include "options.h"
+#include "trace_entry.h"
+#include "utils.h"
+#include "droption.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 #if defined(X86_32) || defined(ARM_32)
 #    define IF_X64_ELSE(x, y) y
@@ -177,8 +188,8 @@ physaddr_t::init()
 }
 
 bool
-physaddr_t::virtual2physical(void *drcontext, addr_t virt, OUT addr_t *phys,
-                             OUT bool *from_cache)
+physaddr_t::virtual2physical(void *drcontext, addr_t virt, DR_PARAM_OUT addr_t *phys,
+                             DR_PARAM_OUT bool *from_cache)
 {
 #ifdef LINUX
     if (phys == nullptr)
@@ -273,3 +284,6 @@ physaddr_t::virtual2physical(void *drcontext, addr_t virt, OUT addr_t *phys,
     return false;
 #endif
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

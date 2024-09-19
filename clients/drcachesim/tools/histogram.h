@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,12 +36,19 @@
 #ifndef _HISTOGRAM_H_
 #define _HISTOGRAM_H_ 1
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <mutex>
 #include <string>
 #include <unordered_map>
 
 #include "analysis_tool.h"
 #include "memref.h"
+#include "trace_entry.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 class histogram_t : public analysis_tool_t {
 public:
@@ -82,7 +89,7 @@ protected:
     unsigned int knob_report_top_; /* most accessed lines */
     size_t line_size_bits_;
     static const std::string TOOL_NAME;
-    std::unordered_map<memref_tid_t, shard_data_t *> shard_map_;
+    std::unordered_map<int, shard_data_t *> shard_map_;
     // This mutex is only needed in parallel_shard_init.  In all other accesses to
     // shard_map (process_memref, print_results) we are single-threaded.
     std::mutex shard_map_mutex_;
@@ -90,5 +97,8 @@ protected:
     // The combined data from all the shards.
     shard_data_t reduced_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _HISTOGRAM_H_ */

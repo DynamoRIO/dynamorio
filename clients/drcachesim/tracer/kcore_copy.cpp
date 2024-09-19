@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,21 +30,29 @@
  * DAMAGE.
  */
 
-#include <inttypes.h>
-#include <string.h>
-#include <stdio.h>
-#include <fstream>
-
-#include "../common/utils.h"
-#include "dr_api.h"
 #include "kcore_copy.h"
+
+#include <elf.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/types.h>
+
+#include <fstream>
+#include <set>
+#include <string>
+
+#include "dr_api.h"
+#include "trace_entry.h"
+#include "utils.h"
+#include "drmemtrace.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 #define MODULES_FILE_NAME "modules"
 #define MODULES_FILE_PATH "/proc/" MODULES_FILE_NAME
-#define KALLSYMS_FILE_NAME "kallsyms"
-#define KALLSYMS_FILE_PATH "/proc/" KALLSYMS_FILE_NAME
-#define KCORE_FILE_NAME "kcore"
-#define KCORE_FILE_PATH "/proc/" KCORE_FILE_NAME
+#define KALLSYMS_FILE_PATH "/proc/" DRMEMTRACE_KALLSYMS_FILENAME
+#define KCORE_FILE_PATH "/proc/" DRMEMTRACE_KCORE_FILENAME
 
 #define KERNEL_SYMBOL_MAX_LEN 300
 
@@ -118,7 +126,7 @@ public:
     }
 
     bool
-    write(IN const void *buf, IN size_t count)
+    write(DR_PARAM_IN const void *buf, DR_PARAM_IN size_t count)
     {
         if (fd_ == INVALID_FILE || write_file_func_ == NULL) {
             return false;
@@ -128,7 +136,7 @@ public:
     }
 
     ssize_t
-    read(INOUT void *buf, IN size_t count)
+    read(DR_PARAM_OUT void *buf, DR_PARAM_IN size_t count)
     {
         if (fd_ == INVALID_FILE || read_file_func_ == NULL) {
             return -1;
@@ -137,7 +145,7 @@ public:
     }
 
     bool
-    seek(IN int64 offset, IN int origin)
+    seek(DR_PARAM_IN int64 offset, DR_PARAM_IN int origin)
     {
         if (fd_ == INVALID_FILE || seek_file_func_ == NULL) {
             return false;
@@ -189,18 +197,18 @@ kcore_copy_t::~kcore_copy_t()
 }
 
 bool
-kcore_copy_t::copy(const char *to_dir)
+kcore_copy_t::copy(const char *kcore_path, const char *kallsyms_path)
 {
     if (!read_code_segments()) {
         ASSERT(false, "failed to read code segments");
         return false;
     }
-    if (!copy_kcore(to_dir)) {
-        ASSERT(false, "failed to copy kcore");
+    if (!copy_kcore(kcore_path)) {
+        ASSERT(false, "failed to copy " DRMEMTRACE_KCORE_FILENAME);
         return false;
     }
-    if (!copy_kallsyms(to_dir)) {
-        ASSERT(false, "failed to copy kallsyms");
+    if (!copy_kallsyms(kallsyms_path)) {
+        ASSERT(false, "failed to copy " DRMEMTRACE_KALLSYMS_FILENAME);
         return false;
     }
     return true;
@@ -222,19 +230,15 @@ kcore_copy_t::read_code_segments()
 }
 
 bool
-kcore_copy_t::copy_kcore(const char *to_dir)
+kcore_copy_t::copy_kcore(const char *to_kcore_path)
 {
-    char to_kcore_path[MAXIMUM_PATH];
-    dr_snprintf(to_kcore_path, BUFFER_SIZE_ELEMENTS(to_kcore_path), "%s/%s", to_dir,
-                KCORE_FILE_NAME);
-    NULL_TERMINATE_BUFFER(to_kcore_path);
     /* We use drmemtrace file operations functions to dump out code segments in kcore. */
     file_autoclose_t fd(to_kcore_path, DR_FILE_WRITE_OVERWRITE, open_file_func_,
                         close_file_func_, nullptr /*read_file_func*/, write_file_func_,
                         nullptr /* seek_file_func */);
 
     if (!fd.is_open()) {
-        ASSERT(false, "failed to open " KCORE_FILE_NAME " for writing");
+        ASSERT(false, "failed to open " DRMEMTRACE_KCORE_FILENAME " for writing");
         return false;
     }
 
@@ -256,7 +260,7 @@ kcore_copy_t::copy_kcore(const char *to_dir)
 
     uint64_t offset = 0;
     if (!fd.write(&to_ehdr, sizeof(Elf64_Ehdr))) {
-        ASSERT(false, "failed to write " KCORE_FILE_NAME " header");
+        ASSERT(false, "failed to write " DRMEMTRACE_KCORE_FILENAME " header");
         return false;
     }
     offset += sizeof(Elf64_Ehdr);
@@ -276,7 +280,7 @@ kcore_copy_t::copy_kcore(const char *to_dir)
         code_segment_offset += to_phdrs[i].p_filesz;
     }
     if (!fd.write(to_phdrs, sizeof(Elf64_Phdr) * kcore_code_segments_num_)) {
-        ASSERT(false, "failed to write the program header to " KCORE_FILE_NAME);
+        ASSERT(false, "failed to write the program header to " DRMEMTRACE_KCORE_FILENAME);
         dr_global_free(to_phdrs, sizeof(Elf64_Phdr) * kcore_code_segments_num_);
         return false;
     }
@@ -285,7 +289,9 @@ kcore_copy_t::copy_kcore(const char *to_dir)
 
     for (int i = 0; i < kcore_code_segments_num_; ++i) {
         if (!fd.write(kcore_code_segments_[i].buf, kcore_code_segments_[i].len)) {
-            ASSERT(false, "failed to write the kernel code segment to " KCORE_FILE_NAME);
+            ASSERT(
+                false,
+                "failed to write the kernel code segment to " DRMEMTRACE_KCORE_FILENAME);
             return false;
         }
     }
@@ -294,9 +300,9 @@ kcore_copy_t::copy_kcore(const char *to_dir)
 }
 
 bool
-kcore_copy_t::copy_kallsyms(const char *to_dir)
+kcore_copy_t::copy_kallsyms(const char *to_kallsyms_path)
 {
-    /* We use DynamoRIO defult file operations functions to open and read /proc/kallsyms.
+    /* We use DynamoRIO default file operations functions to open and read /proc/kallsyms.
      */
     file_autoclose_t from_kallsyms_fd(
         KALLSYMS_FILE_PATH, DR_FILE_READ, dr_open_file, dr_close_file, dr_read_file,
@@ -306,17 +312,12 @@ kcore_copy_t::copy_kallsyms(const char *to_dir)
         return false;
     }
 
-    char to_kallsyms_file_path[MAXIMUM_PATH];
-    dr_snprintf(to_kallsyms_file_path, BUFFER_SIZE_ELEMENTS(to_kallsyms_file_path),
-                "%s%s%s", to_dir, DIRSEP, KALLSYMS_FILE_NAME);
-    NULL_TERMINATE_BUFFER(to_kallsyms_file_path);
-
     /* We use drmemtrace file operations functions to store the output kallsyms. */
     file_autoclose_t to_kallsyms_fd(
-        to_kallsyms_file_path, DR_FILE_WRITE_OVERWRITE, open_file_func_, close_file_func_,
+        to_kallsyms_path, DR_FILE_WRITE_OVERWRITE, open_file_func_, close_file_func_,
         nullptr /* read_file_func */, write_file_func_, nullptr /* seek_file_func */);
     if (!to_kallsyms_fd.is_open()) {
-        ASSERT(false, "failed to open " KALLSYMS_FILE_NAME " for writing");
+        ASSERT(false, "failed to open " DRMEMTRACE_KALLSYMS_FILENAME " for writing");
         return false;
     }
 
@@ -324,7 +325,7 @@ kcore_copy_t::copy_kallsyms(const char *to_dir)
     ssize_t bytes_read;
     while ((bytes_read = from_kallsyms_fd.read(buf, sizeof(buf))) > 0) {
         if (!to_kallsyms_fd.write(buf, bytes_read)) {
-            ASSERT(false, "failed to copy data to " KALLSYMS_FILE_NAME);
+            ASSERT(false, "failed to copy data to " DRMEMTRACE_KALLSYMS_FILENAME);
             return false;
         }
     }
@@ -374,6 +375,14 @@ kcore_copy_t::read_modules()
     return true;
 }
 
+static bool
+is_function_symbol(char type)
+{
+    // From man nm, "t"/"T" are symbols from the code section,
+    // and "w"/"W" are weak symbols.
+    return toupper(type) == 'T' || toupper(type) == 'W';
+}
+
 bool
 kcore_copy_t::read_kallsyms()
 {
@@ -384,12 +393,32 @@ kcore_copy_t::read_kallsyms()
     }
     proc_module_t *kernel_module = nullptr;
     std::string line;
+
+    /* i#6486: Kernel JIT code like eBPF is not included in /proc/modules, but they have
+     * entries in /proc/kallsyms if /proc/sys/net/core/bpf_jit_harden and
+     * /proc/sys/net/core/bpf_jit_kallsyms are set appropriately (see
+     * docs.kernel.org/admin-guide/sysctl/net.html#proc-sys-net-core-network-core-options
+     * for more details).
+     * Perf's kcore copy logic does not copy JIT code but somehow includes JIT encodings
+     * and symbols in perf.data/data itself (not sure how yet). However, we use a
+     * different approach and copy the BPF JIT code to our kcore dump. If we find that
+     * the kernel executes other JIT code (indicated by "no memory mapped at this
+     * address" errors during libipt decoding), we would need to extend this logic to
+     * somehow identify those other /proc/kcore JIT regions.
+     */
+    std::set<uint64_t> bpf_jit_symbols;
+#define BPF_JIT_MODULE_NAME "[bpf]"
+
     while (std::getline(f, line)) {
         char name[KERNEL_SYMBOL_MAX_LEN];
+        char module[KERNEL_SYMBOL_MAX_LEN];
+        char type;
         uint64_t addr;
-        if (dr_sscanf(line.c_str(), HEX64_FORMAT_STRING " %*1c %299s [%*99s", &addr,
-                      name) < 2)
+        int n_read = dr_sscanf(line.c_str(), HEX64_FORMAT_STRING " %c %299s %299s", &addr,
+                               &type, name, module);
+        if (n_read < 3)
             continue;
+        bool has_module = n_read > 3;
         if (strcmp(name, "_stext") == 0) {
             if (kernel_module != nullptr) {
                 ASSERT(false, "multiple kernel modules found");
@@ -409,9 +438,56 @@ kcore_copy_t::read_kallsyms()
             kcore_code_segments_num_++;
             modules_ = kernel_module;
             kernel_module = nullptr;
+        } else if (has_module && strcmp(module, BPF_JIT_MODULE_NAME) == 0 &&
+                   is_function_symbol(type)) {
+            bpf_jit_symbols.insert(addr);
         }
     }
     ASSERT(kernel_module == nullptr, "failed to find kernel module");
+
+    if (!bpf_jit_symbols.empty()) {
+        constexpr int EXTRA_PAGES = 10;
+        /* For BPF JIT code, it seems not uncommon for /proc/kallsyms to not have full
+         * page-level coverage. To ensure we copy all relevant code, we dump multiple
+         * page sizes' worth of contents after each bpf-related function symbol. This is
+         * somewhat similar to perf adding page size to the highest kernel symbol in
+         * its own kcore copy logic. This does not seem to inflate the kcore dump size
+         * by too much (< 1% increase).
+         * XXX: We could potentially expose a command-line option instead of
+         * hard-coding the EXTRA_PAGES.
+         */
+        size_t page_size = dr_page_size();
+        proc_module_t *bpf_module = nullptr;
+        for (auto it = bpf_jit_symbols.begin(); it != bpf_jit_symbols.end();) {
+            uint64_t addr = *it;
+            if (bpf_module == nullptr) {
+                bpf_module = (proc_module_t *)dr_global_alloc(sizeof(proc_module_t));
+                bpf_module->start = ALIGN_BACKWARD(addr, page_size);
+                bpf_module->end =
+                    ALIGN_FORWARD(addr + EXTRA_PAGES * page_size, page_size);
+                ++it;
+                continue;
+            }
+            if (bpf_module->end >= addr) {
+                /* Just extend the last module region if the new addr falls within
+                 * the last recorded range.
+                 */
+                bpf_module->end =
+                    ALIGN_FORWARD(addr + EXTRA_PAGES * page_size, page_size);
+                ++it;
+            } else {
+                bpf_module->next = modules_;
+                kcore_code_segments_num_++;
+                modules_ = bpf_module;
+                /* Create a new module region for `addr` in the next iteration. */
+                bpf_module = nullptr;
+            }
+        }
+        ASSERT(bpf_module != nullptr, "Did not expect nullptr");
+        bpf_module->next = modules_;
+        kcore_code_segments_num_++;
+        modules_ = bpf_module;
+    }
     f.close();
     return true;
 }
@@ -509,3 +585,6 @@ kcore_copy_t::read_kcore()
 
     return true;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

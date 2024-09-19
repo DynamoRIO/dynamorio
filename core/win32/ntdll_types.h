@@ -25,6 +25,10 @@
 /* allow nameless struct/union */
 #pragma warning(disable : 4201)
 
+#ifndef DR_PARAM_IN
+#    define DR_PARAM_IN
+#endif
+
 typedef unsigned int uint;
 typedef LONG NTSTATUS;
 /* make sure to cast to signed in case passed reg_t */
@@ -431,12 +435,13 @@ typedef enum _EVENT_TYPE {
     *PEVENT_TYPE;
 
 /* we don't actually use this but for cleanliness sake, is from ntddk.h */
-typedef VOID(NTAPI *PIO_APC_ROUTINE)(IN PVOID ApcContext,
-                                     IN PIO_STATUS_BLOCK IoStatusBlock,
-                                     IN ULONG Reserved);
+typedef VOID(NTAPI *PIO_APC_ROUTINE)(DR_PARAM_IN PVOID ApcContext,
+                                     DR_PARAM_IN PIO_STATUS_BLOCK IoStatusBlock,
+                                     DR_PARAM_IN ULONG Reserved);
 
-typedef VOID(NTAPI *PKNORMAL_ROUTINE)(IN PVOID NormalContext, IN PVOID SystemArgument1,
-                                      IN PVOID SystemArgument2);
+typedef VOID(NTAPI *PKNORMAL_ROUTINE)(DR_PARAM_IN PVOID NormalContext,
+                                      DR_PARAM_IN PVOID SystemArgument1,
+                                      DR_PARAM_IN PVOID SystemArgument2);
 
 /* From http://undocumented.ntinternals.net/UserMode/Structures/
  * RTL_USER_PROCESS_PARAMETERS.html

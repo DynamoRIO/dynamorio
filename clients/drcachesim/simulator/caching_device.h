@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,13 +37,18 @@
 #define _CACHING_DEVICE_H_ 1
 
 #include <functional>
+#include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "caching_device_block.h"
 #include "caching_device_stats.h"
 #include "memref.h"
-#include "prefetcher.h"
+#include "trace_entry.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 // Statistics collection is abstracted out into the caching_device_stats_t class.
 
@@ -54,14 +59,20 @@
 // not need to synchronize data access.
 
 class snoop_filter_t;
+class prefetcher_t;
+
+// NON_INC_NON_EXC = Non-Inclusive Non-Exclusive, aka NINE.
+enum class cache_inclusion_policy_t { NON_INC_NON_EXC, INCLUSIVE, EXCLUSIVE };
 
 class caching_device_t {
 public:
-    caching_device_t();
+    explicit caching_device_t(const std::string &name = "caching_device");
     virtual bool
     init(int associativity, int block_size, int num_blocks, caching_device_t *parent,
          caching_device_stats_t *stats, prefetcher_t *prefetcher = nullptr,
-         bool inclusive = false, bool coherent_cache = false, int id_ = -1,
+         cache_inclusion_policy_t inclusion_policy =
+             cache_inclusion_policy_t::NON_INC_NON_EXC,
+         bool coherent_cache = false, int id_ = -1,
          snoop_filter_t *snoop_filter_ = nullptr,
          const std::vector<caching_device_t *> &children = {});
     virtual ~caching_device_t();
@@ -85,6 +96,9 @@ public:
     set_stats(caching_device_stats_t *stats)
     {
         stats_ = stats;
+        if (stats != nullptr) {
+            stats->set_caching_device(this);
+        }
     }
     prefetcher_t *
     get_prefetcher() const
@@ -123,6 +137,56 @@ public:
         return block_idx;
     }
 
+    // Accessors for cache parameters.
+    virtual int
+    get_associativity() const
+    {
+        return associativity_;
+    }
+    virtual int
+    get_block_size() const
+    {
+        return block_size_;
+    }
+    virtual int
+    get_num_blocks() const
+    {
+        return num_blocks_;
+    }
+    virtual bool
+    is_inclusive() const
+    {
+        return inclusion_policy_ == cache_inclusion_policy_t::INCLUSIVE;
+    }
+    virtual bool
+    is_exclusive() const
+    {
+        return inclusion_policy_ == cache_inclusion_policy_t::EXCLUSIVE;
+    }
+    virtual bool
+    is_coherent() const
+    {
+        return coherent_cache_;
+    }
+    virtual int
+    get_size_bytes() const
+    {
+        return num_blocks_ * block_size_;
+    }
+    virtual std::string
+    get_replace_policy() const
+    {
+        return "LFU";
+    }
+    virtual const std::string &
+    get_name() const
+    {
+        return name_;
+    }
+    // Return a one-line string describing the cache configuration.
+    virtual std::string
+    get_description() const;
+
 protected:
     virtual void
     access_update(int block_idx, int way);
@@ -133,6 +197,8 @@ protected:
     virtual void
     record_access_stats(const memref_t &memref, bool hit,
                         caching_device_block_t *cache_block);
+    virtual void
+    insert_tag(addr_t tag, bool is_write, int way, int block_idx);
 
     inline addr_t
     compute_tag(addr_t addr) const
@@ -194,8 +260,8 @@ protected:
 
     snoop_filter_t *snoop_filter_;
 
-    // If true, this device is inclusive of its children.
-    bool inclusive_;
+    // Cache inclusion policy for multi-level caches.
+    cache_inclusion_policy_t inclusion_policy_;
 
     // This should be an array of caching_device_block_t pointers, otherwise
     // an extended block class which has its own member variables cannot be indexed
@@ -209,7 +275,8 @@ protected:
     caching_device_stats_t *stats_;
     prefetcher_t *prefetcher_;
 
-    // Optimization: remember last tag
+    // Optimization: remember last tag and its location in the cache, to
+    // fast-path request processing for repeated accesses.
     addr_t last_tag_;
     int last_way_;
     int last_block_idx_;
@@ -223,6 +290,12 @@ protected:
                        std::function<unsigned long(addr_t)>>
         tag2block;
     bool use_tag2block_table_ = false;
+
+    // Name for this cache.
+    const std::string name_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _CACHING_DEVICE_H_ */

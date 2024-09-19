@@ -32,7 +32,17 @@
 
 #include "compressed_file_reader.h"
 
-namespace {
+#include <zlib.h>
+
+#include <memory>
+#include <string>
+
+#include "file_reader.h"
+#include "record_file_reader.h"
+#include "trace_entry.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 /**************************************************************************
  * Common logic used in the gzip_reader_t specializations for file_reader_t
@@ -51,7 +61,7 @@ read_next_entry_common(gzip_reader_t *gzip, bool *eof)
 {
     if (gzip->cur_buf >= gzip->max_buf) {
         int len = gzread(gzip->file, gzip->buf, sizeof(gzip->buf));
-        // Returns less than asked-for for end of file, or –1 for error.
+        // Returns less than asked-for if at end of file, or –1 for error.
         // We should always get a multiple of the record size.
         if (len < static_cast<int>(sizeof(trace_entry_t)) ||
             len % static_cast<int>(sizeof(trace_entry_t)) != 0) {
@@ -65,8 +75,6 @@ read_next_entry_common(gzip_reader_t *gzip, bool *eof)
     ++gzip->cur_buf;
     return res;
 }
-
-} // namespace
 
 /**************************************************
  * gzip_reader_t specializations for file_reader_t.
@@ -83,7 +91,7 @@ file_reader_t<gzip_reader_t>::file_reader_t()
 /* clang-format off */ /* (make vera++ newline-after-type check happy) */
 template <>
 /* clang-format on */
-file_reader_t<gzip_reader_t>::~file_reader_t<gzip_reader_t>()
+file_reader_t<gzip_reader_t>::~file_reader_t()
 {
     if (input_file_.file != nullptr) {
         gzclose(input_file_.file);
@@ -119,9 +127,6 @@ file_reader_t<gzip_reader_t>::read_next_entry()
     return &entry_copy_;
 }
 
-namespace dynamorio {
-namespace drmemtrace {
-
 /*********************************************************
  * gzip_reader_t specializations for record_file_reader_t.
  */
@@ -129,7 +134,7 @@ namespace drmemtrace {
 /* clang-format off */ /* (make vera++ newline-after-type check happy) */
 template <>
 /* clang-format on */
-record_file_reader_t<gzip_reader_t>::~record_file_reader_t<gzip_reader_t>()
+record_file_reader_t<gzip_reader_t>::~record_file_reader_t()
 {
     if (input_file_ != nullptr) {
         gzclose(input_file_->file);

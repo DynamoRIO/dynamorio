@@ -190,7 +190,7 @@ nop_pad_ilist(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist, bool emit
     return 0;
 }
 
-size_t
+static size_t
 get_fcache_return_tls_offs(dcontext_t *dcontext, uint flags)
 {
     /* ARM always uses shared gencode so we ignore FRAG_DB_SHARED(flags) */

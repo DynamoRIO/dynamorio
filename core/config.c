@@ -736,7 +736,7 @@ get_unqualified_parameter(const char *name, char *value, int maxlen)
  */
 bool
 should_inject_from_rununder(const char *runstr, bool app_specific, bool from_env,
-                            bool *rununder_on OUT)
+                            bool *rununder_on DR_PARAM_OUT)
 {
     int rununder;
     *rununder_on = false;

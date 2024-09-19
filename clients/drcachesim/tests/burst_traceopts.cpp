@@ -50,12 +50,6 @@
 #    include <stdlib.h>
 #    include <string.h>
 
-using namespace dynamorio::drmemtrace;
-
-/* Unit tests for classes used for trace optimizations. */
-void
-reg_id_set_unit_tests();
-
 /* Asm routines. */
 extern "C" {
 void
@@ -63,6 +57,13 @@ test_disp_elision();
 void
 test_base_elision();
 };
+
+namespace dynamorio {
+namespace drmemtrace {
+
+/* Unit tests for classes used for trace optimizations. */
+void
+reg_id_set_unit_tests();
 
 std::string
 compare_memref(void *dcontext, int64 entry_count, const memref_t &memref1,
@@ -217,7 +218,7 @@ gather_trace(const std::string &tracer_ops, const std::string &out_subdir)
 }
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
     reg_id_set_unit_tests();
 
@@ -287,6 +288,10 @@ main(int argc, const char *argv[])
     std::cerr << "all done\n";
     return 0;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio
+
 #else /* asm code *************************************************************/
 /* Avoid warnings from defines passed to the C++ side from configuring it as a client.
  * Is there a better way?  Reset the flags for the client?

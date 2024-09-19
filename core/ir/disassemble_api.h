@@ -86,6 +86,12 @@ typedef enum {
      * \p -syntax_arm.  Implicit operands are not displayed.
      */
     DR_DISASM_ARM = 0x10,
+    /**
+     * Requests RISC-V assembler syntax for disassembly. This set the same option that
+     * is controlled by the runtime option \p -syntax_riscv. Implicit oprands are not
+     * displayed.
+     */
+    DR_DISASM_RISCV = 0x20,
 } dr_disasm_flags_t;
 /* TODO i#4382: Add DR_DISASM_AARCH64. */
 
@@ -93,8 +99,8 @@ DR_API
 /**
  * Sets the disassembly style and decoding options.
  * The default is to use DR's custom syntax, unless one of the \ref op_syntax_intel
- * "-syntax_intel", \ref op_syntax_att "-syntax_att", or \ref op_syntax_arm
- * "-syntax_arm" runtime options is specified.
+ * "-syntax_intel", \ref op_syntax_att "-syntax_att", \ref op_syntax_arm
+ * "-syntax_arm", or \ref op_syntax_riscv "-syntax_riscv" runtime options is specified.
  */
 void
 disassemble_set_syntax(dr_disasm_flags_t flags);
@@ -155,7 +161,8 @@ DR_API
  */
 byte *
 disassemble_to_buffer(void *drcontext, byte *pc, byte *orig_pc, bool show_pc,
-                      bool show_bytes, char *buf, size_t bufsz, int *printed OUT);
+                      bool show_bytes, char *buf, size_t bufsz,
+                      int *printed DR_PARAM_OUT);
 
 DR_API
 /**

@@ -1,4 +1,5 @@
 /* ***************************************************************************
+ * Copyright (c) 2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2013 Branden Clark  All rights reserved.
  * ***************************************************************************/
 
@@ -40,6 +41,9 @@
 
 #include <QWidget>
 
+namespace dynamorio {
+namespace drgui {
+
 /**
  * Interface for tools' options pages that are to be accessed by drgui's
  * preferences dialog. The page will be accessed by drgui's preferences dialog
@@ -77,6 +81,10 @@ public:
 
 #define DrGUI_OptionsInterface_iid "DynamoRIO.DrGUI.OptionsInterface"
 
-Q_DECLARE_INTERFACE(drgui_options_interface_t, DrGUI_OptionsInterface_iid)
+} // namespace drgui
+} // namespace dynamorio
+
+Q_DECLARE_INTERFACE(dynamorio::drgui::drgui_options_interface_t,
+                    DrGUI_OptionsInterface_iid)
 
 #endif

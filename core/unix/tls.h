@@ -120,7 +120,7 @@ typedef struct _our_modify_ldt_t {
                          : "m"((val))                                                 \
                          : ASM_XAX);                                                  \
         } while (0)
-#elif defined(AARCHXX)
+#elif defined(AARCHXX) || defined(RISCV64)
 #    define WRITE_DR_SEG(val) ASSERT_NOT_REACHED()
 #    define WRITE_LIB_SEG(val) ASSERT_NOT_REACHED()
 #    define TLS_SLOT_VAL_EXITED ((byte *)PTR_UINT_MINUS_1)
@@ -201,7 +201,7 @@ read_thread_register(reg_id_t reg)
     return sel;
 }
 
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
 static inline bool
 write_thread_register(void *val)
 {
@@ -210,6 +210,9 @@ write_thread_register(void *val)
     return false;
 #    elif defined(AARCH64)
     asm volatile("msr " IF_MACOS_ELSE("tpidrro_el0", "tpidr_el0") ", %0" : : "r"(val));
+    return true;
+#    elif defined(RISCV64)
+    asm volatile("mv tp, %0" : : "r"(val));
     return true;
 #    else
     return (dynamorio_syscall(SYS_set_tls, 1, val) == 0);
@@ -314,7 +317,7 @@ tls_thread_preinit();
 void
 tls_thread_free(tls_type_t tls_type, int index);
 
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
 byte **
 get_dr_tls_base_addr(void);
 #endif
@@ -354,10 +357,11 @@ tls_set_fs_gs_segment_base(tls_type_t tls_type, uint seg,
                            byte *base, our_modify_ldt_t *desc);
 
 void
-tls_init_descriptor(our_modify_ldt_t *desc OUT, void *base, size_t size, uint index);
+tls_init_descriptor(our_modify_ldt_t *desc DR_PARAM_OUT, void *base, size_t size,
+                    uint index);
 
 bool
-tls_get_descriptor(int index, our_modify_ldt_t *desc OUT);
+tls_get_descriptor(int index, our_modify_ldt_t *desc DR_PARAM_OUT);
 
 bool
 tls_clear_descriptor(int index);

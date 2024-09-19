@@ -1,0 +1,13 @@
+#ifdef WINDOWS
+Hit delay threshold: enabling tracing.
+Exiting process after .* references.
+#else
+Hello, world!
+#endif
+Trace invariant checks passed
+#ifndef WINDOWS
+<unable to determine lib path for cross-arch execve>
+#endif
+Output .* entries from .* entries.
+Done!
+Trace invariant checks passed

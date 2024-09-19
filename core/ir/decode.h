@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -83,6 +83,9 @@ typedef struct instr_info_t {
      * stored here varies by arch.
      */
     uint opcode;
+#ifdef X86
+    uint category;
+#endif
     const char *name;
     /* Operands: each has a type and a size.
      * The opnd_size_t will instead be reg_id_t for TYPE_*REG*.
@@ -200,6 +203,13 @@ enum {
 #endif
 
 /* in encode.c, not exported to non-ir/ files */
+/* This returns encoding information that may not be accurate as
+ * it is not given the final PC and that may affect which encoding
+ * template is used.  Callers should only use this when the
+ * differences between templates with respect to reachability
+ * do not matter.  One known difference is the absolute address
+ * immediate templates on x86.
+ */
 const instr_info_t *
 get_encoding_info(instr_t *instr);
 const instr_info_t *

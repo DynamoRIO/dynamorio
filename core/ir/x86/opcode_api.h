@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1609,6 +1609,22 @@ enum {
     /* 1430 */ OP_vcvtne2ps2bf16, /**< IA-32/AMD64 vcvtne2ps2bf16 opcode. */
     /* 1431 */ OP_vcvtneps2bf16,  /**< IA-32/AMD64 vcvtneps2bf16 opcode. */
     /* 1432 */ OP_vdpbf16ps,      /**< IA-32/AMD64 vdpbf16ps opcode. */
+
+    /* AVX512 VPOPCNTDQ */
+    /* 1433 */ OP_vpopcntd, /**< IA-32/AMD64 vpopcntd opcode. */
+    /* 1434 */ OP_vpopcntq, /**< IA-32/AMD64 vpopcntd opcode. */
+
+    /* Supervisor Mode Access Prevention (SMAP) */
+    /* 1435 */ OP_clac,      /**< IA-32/AMD64 clac opcode. */
+    /* 1436 */ OP_stac,      /**< IA-32/AMD64 stac opcode. */
+    /* 1437 */ OP_xsaves32,  /**< IA-32/AMD64 xsaves32 opcode. */
+    /* 1438 */ OP_xsaves64,  /**< IA-32/AMD64 xsaves64 opcode. */
+    /* 1439 */ OP_xrstors32, /**< IA-32/AMD64 xrstors32 opcode. */
+    /* 1440 */ OP_xrstors64, /**< IA-32/AMD64 xrstors64 opcode. */
+
+    /* TSXLDTRK */
+    /* 1441 */ OP_xsusldtrk, /**< IA-32/AMD64 xsusldtrk opcode. */
+    /* 1442 */ OP_xresldtrk, /**< IA-32/AMD64 xresldtrk opcode. */
 
     OP_AFTER_LAST,
     OP_FIRST = OP_add,           /**< First real opcode. */

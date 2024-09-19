@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -89,6 +89,9 @@ configure_DynamoRIO_client(myclient)
 The \p samples/CMakeLists.txt file in the release package serves as another
 example.  The top of \p DynamoRIOConfig.cmake contains detailed
 instructions as well.
+
+If your client uses DynamoRIO extensions like drmgr or drx be sure to call
+use_DynamoRIO_extension() in your client's CMakeLists.txt file.
 
 When configuring, the \p DynamoRIO_DIR CMake variable can be passed in to
 identify the directory that contains the \p DynamoRIOConfig.cmake file.  For
@@ -221,6 +224,12 @@ feature and is not yet as well-supported as launching a new process:
 bin32/drrun.exe -attach <notepad_pid> -c samples/bin32/bbsize.dll
 \endcode
 
+Then, you can also detach DynamoRIO from the process of \c notepad.exe
+without affecting the normal execution of \c notepad.exe.
+\code
+bin32/drconfig.exe -detach <notepad_pid>
+\endcode
+
 To use system-wide injection, allowing for an application to be run
 under DynamoRIO regardless of how it is invoked, configure the application
 first (-syswide_on requires administrative privileges):
@@ -312,7 +321,7 @@ There are two methods for invoking an application under DynamoRIO:
 As an example of the simpler method, the following command runs \c ls
 under DynamoRIO with the bbsize sample client:
 \code
-% bin32/drrun -c samples/bin32/libbbsize.so -- ls
+% bin64/drrun -c samples/bin64/libbbsize.so -- ls
 \endcode
 
 Alternatively, you can first run the target, and then use \c drrun
@@ -322,13 +331,19 @@ In particular, if the application is in the middle of a blocking syscall,
 DynamoRIO will wait for that to finish.  To instead force interruption of
 the syscall, additionally pass -skip_syscall.
 \code
-% bin32/drrun -attach <target_pid> -c samples/bin32/libbbsize.so
+% bin64/drrun -attach <target_pid> -c samples/bin64/libbbsize.so
 \endcode
 
 This attach feature requires ptrace capabilities, which can be enabled
 with this command:
 \code
 % echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
+\endcode
+
+Then, you can also detach DynamoRIO from the target process
+without affecting the normal execution of the application.
+\code
+% bin64/drconfig -detach <target_pid>
 \endcode
 
 Run \c drrun with no options to get a list of the options and
@@ -378,7 +393,7 @@ To \ref sec_comm "nudge" a process with pid \c targetpid running under
 DynamoRIO and pass argument "5" to the nudge callback, use the \c
 drnudgeunix tool:
 \code
-bin32/drnudgeunix -pid targetpid -client 0 5
+bin64/drnudgeunix -pid targetpid -client 0 5
 \endcode
 This will result in a nudge event with argument=5 delivered to the
 client callback registered with dr_register_nudge_event() in the
@@ -514,7 +529,7 @@ can use the convenience of the \ref page_droption.
 
 Client options are not allowed to contain semicolons.  Additionally, the
 client option string combined with the path to the client library cannot
-contain all three quote characters (', ", `) simultaneously.
+contain all three quote characters (\', \", \`) simultaneously.
 
 To ensure a client is loaded into a child process of a different
 bitwidth (i.e., a 32-bit child created by a 64-bit parent), use the \c
@@ -686,6 +701,28 @@ standard libraries or startup files.  DynamoRIO's CMake support does this
 automatically, as the linker flags for shared libraries are separate from
 those for executables.
 
+
+\section sec_static_DR Statically Linking DynamoRIO
+
+Limited support is provided to statically link DynamoRIO and clients
+into the application itself.  This generally requires the start-stop
+interface (see \ref sec_startstop) in order to trigger takeover.
+
+The configure_DynamoRIO_static and use_DynamoRIO_static_client CMake
+utilities are provided to help in setting up the link steps.
+
+One significant downside of statically linking is that DynamoRIO is
+not able to provide library isolation in this mode.  This means that
+clients cannot safely use third-party library code at runtime.  It is
+considered safe to use libraries during process-wide initialization,
+as that occurs in just one thread which is at a relatively safe point
+having called something like dr_app_start().  The
+#DR_DISALLOW_UNSAFE_STATIC and dr_allow_unsafe_static_behavior()
+features are available to help detect violations of this rule, but
+they only detect these violations when using DynamoRIO in its dynamic
+library form.  Thus, the recommendation is to support both modes and
+employ regression tests which set #DR_DISALLOW_UNSAFE_STATIC in
+dynamic mode in order to catch unsafe library code being added later.
 
 ***************************************************************************
 \section sec_options DynamoRIO Runtime Options
@@ -918,6 +955,11 @@ they want to shrink memory usage
  - \b -syntax_arm: \anchor op_syntax_arm
     This option causes DynamoRIO to output all disassembly using standard
     ARM assembler syntax rather than the default show-implicit-operands
+    syntax.  This can also be set using disassemble_set_syntax().
+
+ - \b -syntax_riscv: \anchor op_syntax_riscv
+    This option causes DynamoRIO to output all disassembly using
+    RISC-V assembler syntax rather than the default show-implicit-operands
     syntax.  This can also be set using disassemble_set_syntax().
 
  - \b -disasm_mask:

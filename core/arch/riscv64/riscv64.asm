@@ -42,7 +42,7 @@ START_FILE
 
 /* sizeof(priv_mcontext_t) rounded up to a multiple of 16 */
 /* The reserved space for SIMD is also included. */
-#define PRIV_MCONTEXT_SIZE 0x290
+#define PRIV_MCONTEXT_SIZE 0x620
 
 /* offset of priv_mcontext_t in dr_mcontext_t */
 #define PRIV_MCONTEXT_OFFSET 16
@@ -52,9 +52,9 @@ START_FILE
 #endif
 
 /* offsetof(dcontext_t, dstack) */
-#define dstack_OFFSET     0x458
+#define dstack_OFFSET 0x668
 /* offsetof(dcontext_t, is_exiting) */
-#define is_exiting_OFFSET (dstack_OFFSET+1*ARG_SZ)
+#define is_exiting_OFFSET (dstack_OFFSET + 1 * ARG_SZ)
 
 #ifndef RISCV64
 # error RISCV64 must be defined
@@ -95,7 +95,9 @@ call_dispatch_alt_stack_no_free:
         jalr     ARG3
         /* Switch stack back. */
         mv       sp, s0
-        beqz     s1, GLOBAL_LABEL(unexpected_return)
+        bnez     s1, call_dispatch_alt_stack_ok_return
+        jal      GLOBAL_LABEL(unexpected_return)
+call_dispatch_alt_stack_ok_return:
         /* Restore the stack. */
         ld       s1, 0 (sp)
         ld       s0, 8 (sp)
@@ -221,7 +223,8 @@ save_priv_mcontext_helper:
         fsd      f31, 64*ARG_SZ(ARG1)
         frcsr    x3
         sd       x3,  65*ARG_SZ(ARG1)
-        /* No need to save simd registers, at least for now. */
+        /* TODO i#3544: Save vector registers too? That would require runtime detection
+         * for vector support and vlenb. */
         ret
 
         DECLARE_EXPORTED_FUNC(dr_app_start)
@@ -300,30 +303,85 @@ GLOBAL_LABEL(dynamorio_app_take_over:)
  *                       int sysnum,                      // A1
  *                       ptr_uint_t sys_arg1/param_base,  // A2
  *                       ptr_uint_t sys_arg2,             // A3
- *                       bool exitproc,                   // A4
- *                       (2 more args that are ignored: Mac-only))
+ *                       bool exitproc)                   // A4
  *
  * See decl in arch_exports.h for description.
  */
         DECLARE_FUNC(cleanup_and_terminate)
 GLOBAL_LABEL(cleanup_and_terminate:)
-/* FIXME i#3544: Not implemented */
-        jal       GLOBAL_REF(unexpected_return)
+        /* Move argument registers to callee saved registers. */
+        mv       s0, ARG1  /* dcontext ptr size */
+        mv       s1, ARG2  /* sysnum */
+        mv       s2, ARG3  /* sys_arg1 */
+        mv       s3, ARG4  /* sys_arg2 */
+        mv       s4, ARG5  /* exitproc */
+                          /* s5 reserved for dstack ptr */
+                          /* s6 reserved for syscall ptr */
+
+        li       a1, 1
+        /* Inc exiting_thread_count to avoid being killed once off all_threads list. */
+        la       a0, GLOBAL_REF(exiting_thread_count)
+        amoadd.w zero, a1, (a0)
+
+        /* Save dcontext->dstack for freeing later and set dcontext->is_exiting. */
+        sw       a1, is_exiting_OFFSET(s0) /* dcontext->is_exiting = 1 */
+        CALLC1(GLOBAL_REF(is_currently_on_dstack), s0)
+        bnez     a0, cat_save_dstack
+        li       s5, 0
+        j        cat_done_saving_dstack
+cat_save_dstack:
+        ld       s5, dstack_OFFSET(s0)
+cat_done_saving_dstack:
+        CALLC0(GLOBAL_REF(get_cleanup_and_terminate_global_do_syscall_entry))
+        mv       s6, a0
+        beqz     s4, cat_thread_only
+        CALLC0(GLOBAL_REF(dynamo_process_exit))
+        j        cat_no_thread
+cat_thread_only:
+        CALLC0(GLOBAL_REF(dynamo_thread_exit))
+cat_no_thread:
+        /* Switch to d_r_initstack for cleanup of dstack. */
+        la       s7, GLOBAL_REF(initstack_mutex)
+cat_spin:
+        /* We don't have a YIELD-like hint instruction like what's available on
+         * Aarch64, so we use a plain spin lock here.
+         */
+        li       a0, 1
+        amoswap.w a0, a0, (s7)
+        bnez     a0, cat_spin
+
+        /* We have the spin lock. */
+
+        /* Switch stack. */
+        la       a0, GLOBAL_REF(d_r_initstack)
+        ld       sp, 0(a0)
+
+        /* Free dstack and call the EXIT_DR_HOOK. */
+        CALLC1(GLOBAL_REF(dynamo_thread_stack_free_and_exit), s5) /* pass dstack */
+
+        /* Give up initstack_mutex. */
+        la       a0, GLOBAL_REF(initstack_mutex)
+        sd       zero, 0(a0)
+
+        /* Dec exiting_thread_count (allows another thread to kill us). */
+        la       a0, GLOBAL_REF(exiting_thread_count)
+        li       a1, -1
+        amoadd.w zero, a1, (a0)
+
+        /* Put system call number in a7. */
+        mv       a0, s2 /* sys_arg1 */
+        mv       a1, s3 /* sys_arg2 */
+        mv       SYSNUM_REG, s1 /* sys_call */
+
+        jr       s6  /* Go do the syscall! */
+        jal      GLOBAL_REF(unexpected_return)
         END_FUNC(cleanup_and_terminate)
 
 #endif /* NOT_DYNAMORIO_CORE_PROPER */
 
-        /* void atomic_add(int *adr, int val) */
-        DECLARE_FUNC(atomic_add)
-GLOBAL_LABEL(atomic_add:)
-        amoadd.d       ARG2, ARG2, 0 (ARG1)
-        ret
-        END_FUNC(atomic_add)
-
         DECLARE_FUNC(global_do_syscall_int)
 GLOBAL_LABEL(global_do_syscall_int:)
-/* FIXME i#3544: Not implemented */
-        jal       GLOBAL_REF(unexpected_return)
+        ecall
         END_FUNC(global_do_syscall_int)
 
 DECLARE_GLOBAL(safe_read_asm_pre)
@@ -443,7 +501,7 @@ GLOBAL_LABEL(dr_longjmp:)
         /* int atomic_swap(int *adr, int val) */
         DECLARE_FUNC(atomic_swap)
 GLOBAL_LABEL(atomic_swap:)
-        amoswap.d      ARG2, ARG2, 0 (ARG1)
+        amoswap.w       ARG1, ARG2, (ARG1)
         ret
         END_FUNC(atomic_swap)
 
@@ -468,25 +526,6 @@ GLOBAL_LABEL(_dynamorio_runtime_resolve:)
 #endif /* UNIX */
 
 #ifdef LINUX
-/*
- * thread_id_t dynamorio_clone(uint flags, byte *newsp, void *ptid, void *tls,
- *                             void *ctid, void (*func)(void))
- */
-        DECLARE_FUNC(dynamorio_clone)
-GLOBAL_LABEL(dynamorio_clone:)
-        addi     ARG2, ARG2, -16 /* Description: newsp = newsp - 16. */
-        sd       ARG6, 0 (ARG2) /* The func is now on TOS of newsp. */
-        li       SYSNUM_REG, SYS_clone /* All args are already in syscall registers.*/
-        ecall
-        bnez     ARG1, dynamorio_clone_parent
-        ld       ARG1, 0 (sp)
-        addi     sp, sp, 16
-        jalr     ARG1
-        jal      GLOBAL_REF(unexpected_return)
-dynamorio_clone_parent:
-        ret
-        END_FUNC(dynamorio_clone)
-
         DECLARE_FUNC(dynamorio_sigreturn)
 GLOBAL_LABEL(dynamorio_sigreturn:)
         li       SYSNUM_REG, SYS_rt_sigreturn

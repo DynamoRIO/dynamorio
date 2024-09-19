@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,7 +33,13 @@
 #include "snappy_consts.h"
 #include "crc32c.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 constexpr size_t snappy_consts_t::max_block_size_;
 constexpr size_t snappy_consts_t::max_compressed_size_;
 constexpr size_t snappy_consts_t::checksum_size_;
 constexpr char snappy_consts_t::magic_[];
+
+} // namespace drmemtrace
+} // namespace dynamorio

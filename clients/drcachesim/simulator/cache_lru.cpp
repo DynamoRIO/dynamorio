@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -32,6 +32,18 @@
 
 #include "cache_lru.h"
 
+#include <vector>
+
+#include "cache.h"
+#include "caching_device.h"
+#include "caching_device_block.h"
+#include "caching_device_stats.h"
+#include "prefetcher.h"
+#include "snoop_filter.h"
+
+namespace dynamorio {
+namespace drmemtrace {
+
 // For LRU implementation, we use the cache line counter to represent
 // how recently a cache line is accessed.
 // The count value 0 means the most recent access, and the cache line with the
@@ -40,8 +52,8 @@
 bool
 cache_lru_t::init(int associativity, int block_size, int total_size,
                   caching_device_t *parent, caching_device_stats_t *stats,
-                  prefetcher_t *prefetcher, bool inclusive, bool coherent_cache, int id,
-                  snoop_filter_t *snoop_filter,
+                  prefetcher_t *prefetcher, cache_inclusion_policy_t inclusion_policy,
+                  bool coherent_cache, int id, snoop_filter_t *snoop_filter,
                   const std::vector<caching_device_t *> &children)
 {
     // Works in the same way as the base class,
@@ -49,7 +61,7 @@ cache_lru_t::init(int associativity, int block_size, int total_size,
 
     bool ret_val =
         cache_t::init(associativity, block_size, total_size, parent, stats, prefetcher,
-                      inclusive, coherent_cache, id, snoop_filter, children);
+                      inclusion_policy, coherent_cache, id, snoop_filter, children);
     if (ret_val == false)
         return false;
 
@@ -102,3 +114,6 @@ cache_lru_t::get_next_way_to_replace(int block_idx) const
     }
     return max_way;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

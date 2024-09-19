@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,15 +30,26 @@
  * DAMAGE.
  */
 
-#include <iostream>
-#include <iterator>
+#include "simulator.h"
+
 #include <assert.h>
 #include <limits.h>
-#include "../common/memref.h"
-#include "../common/options.h"
-#include "../common/utils.h"
-#include "droption.h"
-#include "simulator.h"
+#include <stdint.h>
+
+#include <iostream>
+#include <istream>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+#include "memref.h"
+#include "options.h"
+#include "utils.h"
+#include "trace_entry.h"
+#include "v2p_reader.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 simulator_t::simulator_t(unsigned int num_cores, uint64_t skip_refs, uint64_t warmup_refs,
                          double warmup_fraction, uint64_t sim_refs, bool cpu_scheduling,
@@ -65,11 +76,11 @@ simulator_t::init_knobs(unsigned int num_cores, uint64_t skip_refs, uint64_t war
     knob_cpu_scheduling_ = cpu_scheduling;
     knob_use_physical_ = use_physical;
     knob_verbose_ = verbose;
-    last_thread_ = 0;
-    last_core_ = 0;
-    cpu_counts_.resize(knob_num_cores_, 0);
-    thread_counts_.resize(knob_num_cores_, 0);
-    thread_ever_counts_.resize(knob_num_cores_, 0);
+    if (shard_type_ == SHARD_BY_THREAD) {
+        cpu_counts_.resize(knob_num_cores_, 0);
+        thread_counts_.resize(knob_num_cores_, 0);
+        thread_ever_counts_.resize(knob_num_cores_, 0);
+    }
 
     if (knob_warmup_refs_ > 0 && (knob_warmup_fraction_ > 0.0)) {
         ERRMSG("Usage error: Either warmup_refs OR warmup_fraction can be set");
@@ -78,13 +89,52 @@ simulator_t::init_knobs(unsigned int num_cores, uint64_t skip_refs, uint64_t war
     }
 }
 
+std::string
+simulator_t::create_v2p_from_file(std::istream &v2p_file)
+{
+    // If we are not using physical addresses, we don't need a virtual to physical mapping
+    // at all.
+    if (!knob_use_physical_)
+        return "";
+
+    v2p_reader_t v2p_reader;
+    v2p_info_t v2p_info;
+    std::string error_str = v2p_reader.create_v2p_info_from_file(v2p_file, v2p_info);
+    if (!error_str.empty()) {
+        return error_str;
+    }
+    virt2phys_ = v2p_info.v2p_map;
+    page_size_ = static_cast<size_t>(v2p_info.page_size);
+    use_v2p_file_ = true;
+    return "";
+}
+
+std::string
+simulator_t::initialize_stream(memtrace_stream_t *serial_stream)
+{
+    serial_stream_ = serial_stream;
+    return "";
+}
+
+std::string
+simulator_t::initialize_shard_type(shard_type_t shard_type)
+{
+    shard_type_ = shard_type;
+    if (shard_type_ == SHARD_BY_CORE && knob_cpu_scheduling_) {
+        return "Usage error: -cpu_scheduling not supported with -core_serial; use "
+               "-cpu_schedule_file with -core_serial instead";
+    }
+    return "";
+}
+
 bool
 simulator_t::process_memref(const memref_t &memref)
 {
     if (memref.marker.type != TRACE_TYPE_MARKER)
         return true;
     if (memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID && knob_cpu_scheduling_) {
-        int cpu = (int)(intptr_t)memref.marker.marker_value;
+        assert(shard_type_ == SHARD_BY_THREAD);
+        int64_t cpu = static_cast<int64_t>(memref.marker.marker_value);
         if (cpu < 0)
             return true;
         int min_core;
@@ -105,10 +155,14 @@ simulator_t::process_memref(const memref_t &memref)
         thread2core_[memref.marker.tid] = min_core;
         ++thread_counts_[min_core];
         ++thread_ever_counts_[min_core];
-        last_thread_ = -1;
-        last_core_ = -1;
+        last_thread_ = INVALID_THREAD_ID;
+        last_core_index_ = INVALID_CORE_INDEX;
     }
     if (!knob_use_physical_)
+        return true;
+    // If we already have a virtual to physical mapping in a v2p file use that one and
+    // ignore the one in the trace, if any.
+    if (use_v2p_file_)
         return true;
     if (memref.marker.marker_type == TRACE_MARKER_TYPE_PAGE_SIZE) {
         if (page_size_ != 0 && page_size_ != memref.marker.marker_value) {
@@ -209,6 +263,17 @@ simulator_t::find_emptiest_core(std::vector<int> &counts) const
 int
 simulator_t::core_for_thread(memref_tid_t tid)
 {
+    if (shard_type_ == SHARD_BY_CORE) {
+        int core_index = serial_stream_->get_shard_index();
+        if (core_index != last_core_index_) {
+            // Track the cpuid<->ordinal relationship for our results printout.
+            int64_t cpu = serial_stream_->get_output_cpuid();
+            if (cpu2core_.find(cpu) == cpu2core_.end())
+                cpu2core_[cpu] = core_index;
+        }
+        last_core_index_ = core_index;
+        return core_index;
+    }
     auto exists = thread2core_.find(tid);
     if (exists != thread2core_.end())
         return exists->second;
@@ -233,6 +298,8 @@ simulator_t::core_for_thread(memref_tid_t tid)
 void
 simulator_t::handle_thread_exit(memref_tid_t tid)
 {
+    if (shard_type_ == SHARD_BY_CORE)
+        return;
     std::unordered_map<memref_tid_t, int>::iterator exists = thread2core_.find(tid);
     assert(exists != thread2core_.end());
     assert(thread_counts_[exists->second] > 0);
@@ -247,17 +314,20 @@ simulator_t::handle_thread_exit(memref_tid_t tid)
 void
 simulator_t::print_core(int core) const
 {
-    if (!knob_cpu_scheduling_) {
+    if (!knob_cpu_scheduling_ && shard_type_ == SHARD_BY_THREAD) {
         std::cerr << "Core #" << core << " (" << thread_ever_counts_[core]
                   << " thread(s))" << std::endl;
     } else {
         std::cerr << "Core #" << core;
-        if (cpu_counts_[core] == 0) {
+        if (shard_type_ == SHARD_BY_THREAD && cpu_counts_[core] == 0) {
             // We keep the "(s)" mainly to simplify test templates.
             std::cerr << " (0 traced CPU(s))" << std::endl;
             return;
         }
-        std::cerr << " (" << cpu_counts_[core] << " traced CPU(s): ";
+        std::cerr << " (";
+        if (shard_type_ == SHARD_BY_THREAD) // Always 1:1 for SHARD_BY_CORE.
+            std::cerr << cpu_counts_[core] << " ";
+        std::cerr << "traced CPU(s): ";
         bool need_comma = false;
         for (auto iter = cpu2core_.begin(); iter != cpu2core_.end(); ++iter) {
             if (iter->second == core) {
@@ -270,3 +340,6 @@ simulator_t::print_core(int core) const
         std::cerr << ")" << std::endl;
     }
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

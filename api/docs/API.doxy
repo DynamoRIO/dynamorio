@@ -239,7 +239,6 @@ DOT_IMAGE_FORMAT       = png
 DOT_PATH               =
 DOTFILE_DIRS           =
 MAX_DOT_GRAPH_DEPTH    = 1000
-DOT_TRANSPARENT        = NO
 DOT_MULTI_TARGETS      = NO
 GENERATE_LEGEND        = YES
 DOT_CLEANUP            = YES

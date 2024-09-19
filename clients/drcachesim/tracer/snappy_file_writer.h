@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -59,6 +59,9 @@
 #include "snappy_consts.h"
 #include "dr_api.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 class snappy_file_writer_t : snappy_consts_t {
 public:
     snappy_file_writer_t(file_t f,
@@ -85,5 +88,8 @@ private:
     ssize_t (*write_func_)(file_t file, const void *data, size_t count);
     bool include_checksums_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _SNAPPY_FILE_WRITER_H_ */

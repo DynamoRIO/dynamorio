@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,9 +40,42 @@
 #include "intel-pt.h"
 #include "libipt-sb.h"
 
-#include "../common/utils.h"
 #include "elf_loader.h"
 #include "pt2ir.h"
+
+namespace dynamorio {
+namespace drmemtrace {
+
+#undef VPRINT_HEADER
+#define VPRINT_HEADER()               \
+    do {                              \
+        fprintf(stderr, "drpt2ir: "); \
+    } while (0)
+
+#undef VPRINT
+#define VPRINT(level, ...)                 \
+    do {                                   \
+        if (this->verbosity_ >= (level)) { \
+            VPRINT_HEADER();               \
+            fprintf(stderr, __VA_ARGS__);  \
+            fflush(stderr);                \
+        }                                  \
+    } while (0)
+
+pt_iscache_autoclean_t::pt_iscache_autoclean_t()
+{
+    iscache = pt_iscache_alloc(nullptr);
+}
+
+pt_iscache_autoclean_t::~pt_iscache_autoclean_t()
+{
+    if (iscache != nullptr) {
+        pt_iscache_free(iscache);
+        iscache = nullptr;
+    }
+}
+
+pt_iscache_autoclean_t pt2ir_t::share_iscache_;
 
 #define ERRMSG_HEADER "[drpt2ir] "
 
@@ -53,6 +86,7 @@ pt2ir_t::pt2ir_t()
     , pt_sb_iscache_(nullptr)
     , pt_sb_session_(nullptr)
     , pt_raw_buffer_data_size_(0)
+    , verbosity_(0)
 {
 }
 
@@ -68,13 +102,15 @@ pt2ir_t::~pt2ir_t()
 }
 
 bool
-pt2ir_t::init(IN pt2ir_config_t &pt2ir_config,
-              IN struct pt_image_section_cache *shared_iscache)
+pt2ir_t::init(DR_PARAM_IN pt2ir_config_t &pt2ir_config, DR_PARAM_IN int verbosity,
+              DR_PARAM_IN bool allow_non_fatal_decode_errors)
 {
+    verbosity_ = verbosity;
     if (pt2ir_initialized_) {
-        ERRMSG(ERRMSG_HEADER "pt2ir_t is already initialized.\n");
+        VPRINT(0, "pt2ir_t is already initialized.\n");
         return false;
     }
+    allow_non_fatal_decode_errors_ = allow_non_fatal_decode_errors;
 
     /* Init the configuration for the libipt instruction decoder. */
     struct pt_config pt_config;
@@ -93,8 +129,7 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config,
     if (pt_config.cpu.vendor == pcv_intel) {
         int errcode = pt_cpu_errata(&pt_config.errata, &pt_config.cpu);
         if (errcode < 0) {
-            ERRMSG(ERRMSG_HEADER "Failed to get cpu errata: %s.\n",
-                   pt_errstr(pt_errcode(errcode)));
+            VPRINT(0, "Failed to get cpu errata: %s.\n", pt_errstr(pt_errcode(errcode)));
             return false;
         }
     }
@@ -104,15 +139,16 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config,
     pt_config.end = pt_raw_buffer_.get() + pt_raw_buffer_size_;
     pt_instr_decoder_ = pt_insn_alloc_decoder(&pt_config);
     if (pt_instr_decoder_ == nullptr) {
-        ERRMSG(ERRMSG_HEADER "Failed to create libipt instruction decoder.\n");
+        VPRINT(0, "Failed to create libipt instruction decoder.\n");
         return false;
     }
 
     /* If an ELF file is provided, load it into the image of the instruction decoder. */
-    if (!pt2ir_config.elf_file_path.empty() && shared_iscache != nullptr) {
+    if (!pt2ir_config.elf_file_path.empty() && share_iscache_.iscache != nullptr) {
         if (!elf_loader_t::load(pt2ir_config.elf_file_path.c_str(), pt2ir_config.elf_base,
-                                shared_iscache, pt_insn_get_image(pt_instr_decoder_))) {
-            ERRMSG("Failed to load ELF file(%s) to.\n",
+                                share_iscache_.iscache,
+                                pt_insn_get_image(pt_instr_decoder_))) {
+            VPRINT(0, "Failed to load ELF file(%s) to.\n",
                    pt2ir_config.elf_file_path.c_str());
             return false;
         }
@@ -125,12 +161,12 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config,
     /* Init the sideband image section cache and session. */
     pt_sb_iscache_ = pt_iscache_alloc(nullptr);
     if (pt_sb_iscache_ == nullptr) {
-        ERRMSG(ERRMSG_HEADER "Failed to allocate sideband image section cache.\n");
+        VPRINT(0, "Failed to allocate sideband image section cache.\n");
         return false;
     }
     pt_sb_session_ = pt_sb_alloc(pt_sb_iscache_);
     if (pt_sb_session_ == nullptr) {
-        ERRMSG(ERRMSG_HEADER "Failed to allocate sb session.\n");
+        VPRINT(0, "Failed to allocate sb session.\n");
         return false;
     }
 
@@ -171,8 +207,7 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config,
         sb_primary_config.end = (size_t)0;
         int errcode = pt_sb_alloc_pevent_decoder(pt_sb_session_, &sb_primary_config);
         if (errcode < 0) {
-            ERRMSG(ERRMSG_HEADER
-                   "Failed to allocate primary sideband perf event decoder: %s.\n",
+            VPRINT(0, "Failed to allocate primary sideband perf event decoder: %s.\n",
                    pt_errstr(pt_errcode(errcode)));
             return false;
         }
@@ -188,7 +223,7 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config,
             int errcode =
                 pt_sb_alloc_pevent_decoder(pt_sb_session_, &sb_secondary_config);
             if (errcode < 0) {
-                ERRMSG(ERRMSG_HEADER
+                VPRINT(0,
                        "Failed to allocate secondary sideband perf event decoder: %s.\n",
                        pt_errstr(pt_errcode(errcode)));
                 return false;
@@ -202,8 +237,7 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config,
     if (!pt2ir_config.sb_kcore_path.empty()) {
         if (!elf_loader_t::load(pt2ir_config.sb_kcore_path.c_str(), 0, pt_sb_iscache_,
                                 pt_sb_kernel_image(pt_sb_session_))) {
-            ERRMSG(ERRMSG_HEADER
-                   "Failed to load kcore(%s) to sideband image sections cache.\n",
+            VPRINT(0, "Failed to load kcore(%s) to sideband image sections cache.\n",
                    pt2ir_config.sb_kcore_path.c_str());
             return false;
         }
@@ -214,7 +248,7 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config,
      */
     int errcode = pt_sb_init_decoders(pt_sb_session_);
     if (errcode < 0) {
-        ERRMSG(ERRMSG_HEADER "Failed to initialize sideband session: %s.\n",
+        VPRINT(0, "Failed to initialize sideband session: %s.\n",
                pt_errstr(pt_errcode(errcode)));
         return false;
     }
@@ -224,13 +258,15 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config,
 }
 
 pt2ir_convert_status_t
-pt2ir_t::convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t &drir)
+pt2ir_t::convert(DR_PARAM_IN const uint8_t *pt_data, DR_PARAM_IN size_t pt_data_size,
+                 DR_PARAM_INOUT drir_t *drir,
+                 DR_PARAM_OUT uint64_t *non_fatal_decode_error_count_out)
 {
     if (!pt2ir_initialized_) {
         return PT2IR_CONV_ERROR_NOT_INITIALIZED;
     }
 
-    if (pt_data == nullptr || pt_data_size <= 0) {
+    if (pt_data == nullptr || pt_data_size <= 0 || drir == nullptr) {
         return PT2IR_CONV_ERROR_INVALID_INPUT;
     }
 
@@ -253,6 +289,15 @@ pt2ir_t::convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t
 
     /* This flag indicates whether manual synchronization is required. */
     bool manual_sync = true;
+
+    uint64_t decoded_instr_count = 0;
+    uint64_t non_fatal_decode_error_count = 0;
+    /* XXX: This is currently set based on empirical observations. We use this heuristic
+     * to detect errors where we can still produce a trace for this syscall albeit with
+     * some PC discontinuities. Specifically: we allow MAX_ERROR_COUNT non-consecutive
+     * errors of type pte_bad_query.
+     */
+    constexpr int MAX_ERROR_COUNT = 100;
 
     /* PT raw data consists of many packets. And PT trace data is surrounded by Packet
      * Stream Boundary. So, in the outermost loop, this function first finds the PSB. Then
@@ -340,49 +385,61 @@ pt2ir_t::convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t
 
             /* Decode PT raw trace to pt_insn. */
             status = pt_insn_next(pt_instr_decoder_, &insn, sizeof(insn));
+            if (allow_non_fatal_decode_errors_ && status == -pte_bad_query &&
+                non_fatal_decode_error_count <= MAX_ERROR_COUNT) {
+                ++non_fatal_decode_error_count;
+                /* The error may be non-fatal to this syscall's PT trace
+                 * conversion. Try to continue past it. We may lose an instruction
+                 * entry which will show up as a 1-instr PC discontinuity in the
+                 * kernel syscall trace.
+                 */
+                status = pt_insn_next(pt_instr_decoder_, &insn, sizeof(insn));
+            }
             if (status < 0) {
                 dx_decoding_error(status, "get next instruction error", insn.ip);
+                drir->clear_ilist();
                 return PT2IR_CONV_ERROR_DECODE_NEXT_INSTR;
             }
 
             /* Use drdecode to decode insn(pt_insn) to instr_t. */
-            instr_t *instr = instr_create(drir.get_drcontext());
-            instr_init(drir.get_drcontext(), instr);
+            instr_t *instr = instr_create(drir->get_drcontext());
+            instr_init(drir->get_drcontext(), instr);
             instr_set_isa_mode(instr,
                                insn.mode == ptem_32bit ? DR_ISA_IA32 : DR_ISA_AMD64);
-            bool instr_valid = false;
-            if (decode(drir.get_drcontext(), insn.raw, instr) != nullptr)
-                instr_valid = true;
-            instr_set_translation(instr, (app_pc)insn.ip);
-            instr_allocate_raw_bits(drir.get_drcontext(), instr, insn.size);
-            /* TODO i#2103: Currently, the PT raw data may contain 'STAC' and 'CLAC'
-             * instructions that are not supported by Dynamorio.
-             */
-            if (!instr_valid) {
-                /* The decode() function will not correctly identify the raw bits for
-                 * invalid instruction. So we need to set the raw bits of instr manually.
-                 */
-                instr_free_raw_bits(drir.get_drcontext(), instr);
-                instr_set_raw_bits(instr, insn.raw, insn.size);
-                instr_allocate_raw_bits(drir.get_drcontext(), instr, insn.size);
+            app_pc instr_ip = reinterpret_cast<app_pc>(insn.ip);
+            if (decode_from_copy(drir->get_drcontext(), insn.raw, instr_ip, instr) ==
+                nullptr) {
 #ifdef DEBUG
-                /* Print the invalid instruction‘s PC and raw bytes in DEBUG mode. */
-                dr_fprintf(STDOUT, "<INVALID> <raw " PFX "-" PFX " ==", (app_pc)insn.ip,
-                           (app_pc)insn.ip + insn.size);
-                for (int i = 0; i < insn.size; i++) {
-                    dr_fprintf(STDOUT, " %02x", insn.raw[i]);
+                /* Print the invalid instruction‘s PC and raw bytes in DEBUG builds. */
+                if (verbosity_ >= 1) {
+                    fprintf(stderr,
+                            "drpt2ir: <INVALID> <raw " PFX "-" PFX " ==", (app_pc)insn.ip,
+                            (app_pc)insn.ip + insn.size);
+                    for (int i = 0; i < insn.size; i++) {
+                        fprintf(stderr, " %02x", insn.raw[i]);
+                    }
+                    fprintf(stderr, ">\n");
                 }
-                dr_fprintf(STDOUT, ">\n");
 #endif
             }
-            drir.append(instr);
+            ++decoded_instr_count;
+            drir->append(instr, instr_ip, insn.size, insn.raw);
         }
     }
+    // Note that not all non-fatal decode errors correspond to a PC discontinuity
+    // in the resulting trace.
+    VPRINT(1,
+           "libipt decoded " UINT64_FORMAT_STRING
+           " instructions with " UINT64_FORMAT_STRING " non-fatal decode errors.\n",
+           decoded_instr_count, non_fatal_decode_error_count);
+    if (non_fatal_decode_error_count_out != nullptr)
+        *non_fatal_decode_error_count_out = non_fatal_decode_error_count;
     return PT2IR_CONV_SUCCESS;
 }
 
 void
-pt2ir_t::dx_decoding_error(IN int errcode, IN const char *errtype, IN uint64_t ip)
+pt2ir_t::dx_decoding_error(DR_PARAM_IN int errcode, DR_PARAM_IN const char *errtype,
+                           DR_PARAM_IN uint64_t ip)
 {
     int err = -pte_internal;
     uint64_t pos = 0;
@@ -392,13 +449,19 @@ pt2ir_t::dx_decoding_error(IN int errcode, IN const char *errtype, IN uint64_t i
      */
     err = pt_insn_get_offset(pt_instr_decoder_, &pos);
     if (err < 0) {
-        ERRMSG(ERRMSG_HEADER "Could not determine offset: %s\n",
-               pt_errstr(pt_errcode(err)));
-        ERRMSG(ERRMSG_HEADER "[?, " HEX64_FORMAT_STRING "] %s: %s\n", ip, errtype,
+        VPRINT(0, "Could not determine offset: %s\n", pt_errstr(pt_errcode(err)));
+        VPRINT(0, "[?, " HEX64_FORMAT_STRING "] %s: %s\n", ip, errtype,
                pt_errstr(pt_errcode(errcode)));
     } else {
-        ERRMSG(ERRMSG_HEADER "[" HEX64_FORMAT_STRING ", IP:" HEX64_FORMAT_STRING
-                             "] %s: %s\n",
-               pos, ip, errtype, pt_errstr(pt_errcode(errcode)));
+        VPRINT(0, "[" HEX64_FORMAT_STRING ", IP:" HEX64_FORMAT_STRING "] %s: %s\n", pos,
+               ip, errtype, pt_errstr(pt_errcode(errcode)));
+    }
+    if (errcode == -pte_no_enable) {
+        VPRINT(0,
+               "Consider increasing -kernel_trace_buffer_size_shift to avoid dropping PT "
+               "trace data.");
     }
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

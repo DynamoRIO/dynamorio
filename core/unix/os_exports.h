@@ -152,10 +152,11 @@
  * limited interoperability w/ code targeting the Windows x64 ABI. We steal slot 6
  * for our own use.
  */
-#    define SEG_TLS_BASE_OFFSET 28 /* offset from pthread_t struct to segment base */
-#    define DR_TLS_BASE_SLOT 6     /* the TLS slot for DR's TLS base */
+/* XXX i#5383: This is used as *8 so it's really a slot not a byte offset. */
+#    define SEG_TLS_BASE_SLOT 28 /* offset from pthread_t struct to segment base */
+#    define DR_TLS_BASE_SLOT 6   /* the TLS slot for DR's TLS base */
 /* offset from pthread_t struct to slot 6 */
-#    define DR_TLS_BASE_OFFSET (SEG_TLS_BASE_OFFSET + DR_TLS_BASE_SLOT)
+#    define DR_TLS_BASE_OFFSET (sizeof(void *) * (SEG_TLS_BASE_SLOT + DR_TLS_BASE_SLOT))
 #endif
 
 #if defined(AARCHXX) && !defined(MACOS64)
@@ -193,14 +194,16 @@ extern uint android_tls_base_offs;
 #endif
 
 #ifdef RISCV64
-/* FIXME i#3544: We might need to re-use ARM's approach and store DR TLS in
- * tcb_head_t::private field: typedef struct
+/* Re-using ARM's approach and store DR TLS in tcb_head_t::private,
+ * with the only difference being tp register points at the end of TCB.
+ *
+ * typedef struct
  *   {
  *     dtv_t *dtv;
  *     void *private;
  *   } tcb_head_t;
  */
-#    define DR_TLS_BASE_OFFSET IF_X64_ELSE(8, 4) /* skip dtv */
+#    define DR_TLS_BASE_OFFSET IF_X64_ELSE(-8, -4) /* tcb->private, skip dtv */
 #endif
 
 #ifdef LINUX
@@ -243,6 +246,11 @@ ushort
 os_get_app_tls_reg_offset(reg_id_t seg);
 void *
 os_get_app_tls_base(dcontext_t *dcontext, reg_id_t seg);
+
+#if defined(AARCHXX) || defined(RISCV64)
+bool
+os_set_app_tls_base(dcontext_t *dcontext, reg_id_t reg, void *base);
+#endif
 
 #ifdef DEBUG
 void
@@ -528,11 +536,11 @@ get_clone_record_app_xsp(void *record);
 byte *
 get_clone_record_dstack(void *record);
 
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
 reg_t
 get_clone_record_stolen_value(void *record);
 
-#    ifndef AARCH64
+#    ifdef ARM
 uint /* dr_isa_mode_t but we have a header ordering problem */
 get_clone_record_isa_mode(void *record);
 #    endif
@@ -598,8 +606,9 @@ at_dl_runtime_resolve_ret(dcontext_t *dcontext, app_pc source_fragment, int *ret
 extern vm_area_vector_t *d_r_rseq_areas;
 
 bool
-rseq_get_region_info(app_pc pc, app_pc *start OUT, app_pc *end OUT, app_pc *handler OUT,
-                     bool **reg_written OUT, int *reg_written_size OUT);
+rseq_get_region_info(app_pc pc, app_pc *start DR_PARAM_OUT, app_pc *end DR_PARAM_OUT,
+                     app_pc *handler DR_PARAM_OUT, bool **reg_written DR_PARAM_OUT,
+                     int *reg_written_size DR_PARAM_OUT);
 
 bool
 rseq_set_final_instr_pc(app_pc start, app_pc final_instr_pc);
@@ -614,7 +623,7 @@ int
 rseq_get_rseq_cs_alignment(void);
 
 byte *
-rseq_get_rseq_cs_alloc(byte **rseq_cs_aligned OUT);
+rseq_get_rseq_cs_alloc(byte **rseq_cs_aligned DR_PARAM_OUT);
 
 /* The first parameter is the value returned by rseq_get_rseq_cs_alloc(). */
 void

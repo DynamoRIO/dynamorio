@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,24 +33,31 @@
 // func_trace.cpp: module for recording function traces
 
 #define NOMINMAX // Avoid windows.h messing up std::min.
-#include <algorithm>
-#include <string>
-#include <vector>
-#include <set>
-#include "dr_api.h"
-#include "drsyms.h"
-#include "drwrap.h"
-#include "drmgr.h"
-#include "drvector.h"
-#include "hashtable.h"
-#include "trace_entry.h"
-#include "../common/options.h"
 #include "func_trace.h"
 
-// The expected pattern for a single_op_value is:
-//     function_name|function_id|arguments_num
-// where function_name can contain spaces (for instance, C++ namespace prefix)
-#define PATTERN_SEPARATOR "|"
+#include <sys/types.h>
+
+#include <algorithm>
+#include <cstdint>
+#include <cstdlib>
+#include <cstring>
+#include <set>
+#include <string>
+#include <vector>
+
+#include "dr_api.h"
+#include "drmgr.h"
+#include "drvector.h"
+#include "options.h"
+#include "hashtable.h"
+#include "droption.h"
+#include "drsyms.h"
+#include "drwrap.h"
+#include "trace_entry.h"
+#include "utils.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 #define NOTIFY(level, ...)                     \
     do {                                       \
@@ -116,7 +123,7 @@ free_func_entry(void *entry)
 // NOTE: try to avoid invoking any code that could be traced by func_pre_hook
 //       (e.g., STL, libc, etc.)
 static void
-func_pre_hook(void *wrapcxt, INOUT void **user_data)
+func_pre_hook(void *wrapcxt, DR_PARAM_INOUT void **user_data)
 {
     void *drcontext = drwrap_get_drcontext(wrapcxt);
     if (drcontext == NULL)
@@ -225,7 +232,16 @@ instru_funcs_module_load(void *drcontext, const module_data_t *mod, bool loaded)
 {
     if (drcontext == NULL || mod == NULL)
         return;
-
+#ifndef DRMEMTRACE_STATIC
+    // Skip DR itself and the client and its libraries as symbol lookup is slow
+    // on Windows and the fewer libs we check the better (i#6342), unless we're
+    // statically linked (when the app itself might be excluded here).
+    if (dr_memory_is_dr_internal(mod->start) || dr_memory_is_in_client(mod->start)) {
+        NOTIFY(1, "Not looking for symbols in DR/client library %s\n",
+               get_module_basename(mod));
+        return;
+    }
+#endif
     uint64 ms_start = dr_get_milliseconds();
     const char *mod_name = get_module_basename(mod);
     NOTIFY(2, "instru_funcs_module_load for %s\n", mod_name);
@@ -318,6 +334,11 @@ instru_funcs_module_unload(void *drcontext, const module_data_t *mod)
 {
     if (drcontext == NULL || mod == NULL)
         return;
+#ifndef DRMEMTRACE_STATIC
+    // As for module load, skip DR itself and the client and its libraries.
+    if (dr_memory_is_dr_internal(mod->start) || dr_memory_is_in_client(mod->start))
+        return;
+#endif
     const char *mod_name = get_module_basename(mod);
     for (size_t i = 0; i < func_names.entries; i++) {
         func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&func_names, (uint)i);
@@ -356,19 +377,6 @@ func_trace_disabled_instrument_event(void *drcontext, void *tag, instrlist_t *bb
         return DR_EMIT_DEFAULT;
     return drwrap_invoke_insert_cleanup_only(drcontext, tag, bb, instr, where, for_trace,
                                              translating, user_data);
-}
-
-static std::vector<std::string>
-split_by(std::string s, std::string sep)
-{
-    size_t pos;
-    std::vector<std::string> vec;
-    do {
-        pos = s.find(sep);
-        vec.push_back(s.substr(0, pos));
-        s.erase(0, pos + sep.length());
-    } while (pos != std::string::npos);
-    return vec;
 }
 
 static void
@@ -413,7 +421,7 @@ func_trace_init(func_trace_append_entry_vec_t append_entry_vec_,
                 ssize_t (*write_file)(file_t file, const void *data, size_t count),
                 file_t funclist_file)
 {
-    // Online is not supported as we have no mechanism to pass the funclist_file
+    // i#6376: Online is not supported as we have no mechanism to pass the funclist_file
     // data to the simulator.
     if (!op_offline.get_value())
         return false;
@@ -566,3 +574,6 @@ func_trace_exit()
     }
     drwrap_exit();
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,10 +30,21 @@
  * DAMAGE.
  */
 
+#ifndef _CRC32_H_
+#define _CRC32_H_ 1
+
 #include <cstdint>
+
+namespace dynamorio {
+namespace drmemtrace {
 
 // Calculate the CRC32-C checksum for a buffer.
 // Note that this implements CRC32-C, which is a different variant from crc32() in
 // core/utils.h.
 uint32_t
 crc32c(const char *buf, const uint32_t len);
+
+} // namespace drmemtrace
+} // namespace dynamorio
+
+#endif /* _CRC32_H_ */

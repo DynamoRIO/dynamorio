@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited.  All rights reserved.
  * **********************************************************/
 
@@ -61,13 +61,17 @@ static void
 test_mov_instr_addr(void)
 {
 #if !defined(DR_HOST_NOT_TARGET)
+    const uint gencode_max_size = 1024;
+    byte *generated_code =
+        (byte *)allocate_mem(gencode_max_size, ALLOW_EXEC | ALLOW_READ | ALLOW_WRITE);
+
     instrlist_t *ilist = instrlist_create(GD);
     instr_t *callee = INSTR_CREATE_label(GD);
     instrlist_append(
         ilist,
         XINST_CREATE_move(GD, opnd_create_reg(DR_REG_X1), opnd_create_reg(DR_REG_LR)));
-    instrlist_insert_mov_instr_addr(GD, callee, (byte *)ilist, opnd_create_reg(DR_REG_X0),
-                                    ilist, NULL, NULL, NULL);
+    instrlist_insert_mov_instr_addr(GD, callee, generated_code,
+                                    opnd_create_reg(DR_REG_X0), ilist, NULL, NULL, NULL);
     instrlist_append(ilist, INSTR_CREATE_blr(GD, opnd_create_reg(DR_REG_X0)));
     instrlist_append(ilist, INSTR_CREATE_ret(GD, opnd_create_reg(DR_REG_X1)));
     instrlist_append(ilist, callee);
@@ -75,9 +79,6 @@ test_mov_instr_addr(void)
                                      NULL, NULL, NULL);
     instrlist_append(ilist, XINST_CREATE_return(GD));
 
-    uint gencode_max_size = 1024;
-    byte *generated_code =
-        (byte *)allocate_mem(gencode_max_size, ALLOW_EXEC | ALLOW_READ | ALLOW_WRITE);
     assert(generated_code != NULL);
     instrlist_encode(GD, ilist, generated_code, true);
     protect_mem(generated_code, gencode_max_size, ALLOW_EXEC | ALLOW_READ);
@@ -86,13 +87,14 @@ test_mov_instr_addr(void)
      * can lead to SEGFAULTs or SIGILLS on the subsequent attempted
      * execution (i#5033)
      */
-    __builtin___clear_cache(generated_code, generated_code + gencode_max_size);
+    __builtin___clear_cache((char *)generated_code,
+                            (char *)generated_code + gencode_max_size);
 
     uint written = ((uint(*)(void))generated_code)();
     ASSERT(written == 0xdeadbeef);
 
     instrlist_clear_and_destroy(GD, ilist);
-    free_mem(generated_code, gencode_max_size);
+    free_mem((char *)generated_code, gencode_max_size);
 #endif
 }
 
@@ -129,6 +131,118 @@ test_noalloc(void)
      */
 }
 
+static void
+test_categories(void)
+{
+    const uint raw[] = {
+        0x00000000, /* no category, udf $0x0000 */
+        0x12020000, /* int, and %w0 $0x40000000 -> %w0 */
+        0x0b010000, /* int, add %w0 %w1 lsl $0x00 -> %w0 */
+        0x1E680821, /* fp, fmul %d1 %d8 -> %d1 */
+        0xF8620621, /* load, ldraa -0x0f00(%x17)[8byte] -> %x1 */
+        0x39000000, /* store, strb %w0 -> (%x0)[1byte] */
+        0x3D800000, /* store, str %q0 -> (%x0)[16byte] */
+        0x39C00000, /* load, ldrsb (%x0)[1byte] -> %w0 */
+        0x28000911, /* store, stnp %w17 %w2 -> (%x8)[8byte]*/
+        0x28401241, /* load, ldnp (%x18)[8byte] -> %w1 %w4 */
+        0x2C402020, /* load simd, ldnp (%x1)[8byte] -> %s0 %s8 */
+        0x1C000600, /* load, ldr <rel> 0x0000ffffffffe814[4byte] -> %s0 */
+        0x19400128, /* load, ldapurb (%x9)[1byte] -> %w8 */
+        0x59000144, /* store, stlurh %w4 -> (%x10)[2byte] */
+        0xD9600148, /* load, ldg %x8 (%x10) -> %x8 */
+        0xD9E00144, /* load, ldgm */
+        0xD9600544, /* store, stzg %x4 %x10 $0x0000000000000000 -> (%x10)[16byte] %x10*/
+        0xd65f03c0, /* branch, ret %x30 */
+        0x80800002, /* sme, fmopa */
+        0xc5d57c04, /* sve2, ldff1d (%x0,%z21.d,sxtw)[32byte] %p7/z -> %z4.d */
+        0xc700c000, /* other */
+        0x02000000  /* other */
+    };
+
+    size_t instr_count = sizeof(raw) / sizeof(uint);
+    const uint categories[] = {
+        DR_INSTR_CATEGORY_UNCATEGORIZED,
+        DR_INSTR_CATEGORY_MATH,
+        DR_INSTR_CATEGORY_MATH,
+        DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH,
+        DR_INSTR_CATEGORY_LOAD,
+        DR_INSTR_CATEGORY_STORE,
+        DR_INSTR_CATEGORY_STORE | DR_INSTR_CATEGORY_SIMD | DR_INSTR_CATEGORY_FP,
+        DR_INSTR_CATEGORY_LOAD,
+        DR_INSTR_CATEGORY_STORE,
+        DR_INSTR_CATEGORY_LOAD,
+        DR_INSTR_CATEGORY_LOAD | DR_INSTR_CATEGORY_SIMD | DR_INSTR_CATEGORY_FP,
+        DR_INSTR_CATEGORY_LOAD | DR_INSTR_CATEGORY_SIMD | DR_INSTR_CATEGORY_FP,
+        DR_INSTR_CATEGORY_LOAD,
+        DR_INSTR_CATEGORY_STORE,
+        DR_INSTR_CATEGORY_LOAD,
+        DR_INSTR_CATEGORY_LOAD,
+        DR_INSTR_CATEGORY_STORE,
+        DR_INSTR_CATEGORY_BRANCH,
+        DR_INSTR_CATEGORY_SIMD,
+        DR_INSTR_CATEGORY_SIMD,
+        DR_INSTR_CATEGORY_OTHER,
+        DR_INSTR_CATEGORY_OTHER
+    };
+    byte *pc = (byte *)raw;
+    for (size_t i = 0; i < instr_count; i++) {
+        instr_t instr;
+        instr_init(GD, &instr);
+        instr_set_raw_bits(&instr, pc, 4);
+        uint cat = instr_get_category(&instr);
+        ASSERT(cat == categories[i]);
+        pc += 4;
+    }
+
+    /* Test for synthetic instruction */
+    instr_t *load = INSTR_CREATE_ldr(GD, opnd_create_reg(DR_REG_R0),
+                                     OPND_CREATE_ABSMEM((void *)(1024ULL), OPSZ_4));
+
+    uint cat = instr_get_category(load);
+    ASSERT(cat == DR_INSTR_CATEGORY_UNCATEGORIZED);
+}
+
+static void
+test_store_source(void)
+{
+    instr_t *in = XINST_CREATE_store(GD, OPND_CREATE_MEMPTR(DR_REG_R0, 42),
+                                     opnd_create_reg(DR_REG_R1));
+    ASSERT(!instr_is_opnd_store_source(in, -1)); /* Out of bounds. */
+    ASSERT(instr_is_opnd_store_source(in, 0));   /* r1. */
+    ASSERT(!instr_is_opnd_store_source(in, 1));  /* Out of bounds. */
+    instr_destroy(GD, in);
+
+    in = INSTR_CREATE_str_imm(GD, OPND_CREATE_MEMPTR(DR_REG_R0, 16),
+                              opnd_create_reg(DR_REG_R1), opnd_create_reg(DR_REG_R0),
+                              OPND_CREATE_INT(16));
+    ASSERT(instr_is_opnd_store_source(in, 0));  /* r1. */
+    ASSERT(!instr_is_opnd_store_source(in, 1)); /* r0. */
+    ASSERT(!instr_is_opnd_store_source(in, 2)); /* immed. */
+    instr_destroy(GD, in);
+
+    /* Test data==addr reg. */
+    in = INSTR_CREATE_str_imm(GD, OPND_CREATE_MEMPTR(DR_REG_R0, 16),
+                              opnd_create_reg(DR_REG_R0), opnd_create_reg(DR_REG_R0),
+                              OPND_CREATE_INT(16));
+    ASSERT(instr_is_opnd_store_source(in, 0));  /* r0. */
+    ASSERT(!instr_is_opnd_store_source(in, 1)); /* r0 address. */
+    ASSERT(!instr_is_opnd_store_source(in, 2)); /* immed. */
+    instr_destroy(GD, in);
+
+    in = INSTR_CREATE_stp(GD, OPND_CREATE_MEMPTR(DR_REG_R0, 0),
+                          opnd_create_reg(DR_REG_R1), opnd_create_reg(DR_REG_R2));
+    ASSERT(instr_is_opnd_store_source(in, 0)); /* r1. */
+    ASSERT(instr_is_opnd_store_source(in, 1)); /* r2. */
+    instr_destroy(GD, in);
+
+    /* Test data==addr reg. */
+    in = INSTR_CREATE_stp(GD, OPND_CREATE_MEMPTR(DR_REG_R0, 0),
+                          opnd_create_reg(DR_REG_R0), opnd_create_reg(DR_REG_R1));
+    ASSERT(instr_is_opnd_store_source(in, 0)); /* r0. */
+    ASSERT(instr_is_opnd_store_source(in, 1)); /* r1. */
+    instr_destroy(GD, in);
+}
+
 int
 main()
 {
@@ -137,6 +251,10 @@ main()
     test_noalloc();
 
     test_mov_instr_addr();
+
+    test_categories();
+
+    test_store_source();
 
     print("done\n");
 

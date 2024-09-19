@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,16 +36,37 @@
 #ifndef _CACHE_FIFO_H_
 #define _CACHE_FIFO_H_ 1
 
+#include <string>
+#include <vector>
+
 #include "cache.h"
+#include "prefetcher.h"
+
+namespace dynamorio {
+namespace drmemtrace {
+
+class snoop_filter_t;
 
 class cache_fifo_t : public cache_t {
 public:
+    explicit cache_fifo_t(const std::string &name = "cache_fifo")
+        : cache_t(name)
+    {
+    }
     bool
     init(int associativity, int line_size, int total_size, caching_device_t *parent,
          caching_device_stats_t *stats, prefetcher_t *prefetcher = nullptr,
-         bool inclusive = false, bool coherent_cache = false, int id_ = -1,
+         cache_inclusion_policy_t inclusion_policy =
+             cache_inclusion_policy_t::NON_INC_NON_EXC,
+         bool coherent_cache = false, int id_ = -1,
          snoop_filter_t *snoop_filter_ = nullptr,
          const std::vector<caching_device_t *> &children = {}) override;
+
+    std::string
+    get_replace_policy() const override
+    {
+        return "FIFO";
+    }
 
 protected:
     void
@@ -55,5 +76,8 @@ protected:
     int
     get_next_way_to_replace(const int block_idx) const override;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _CACHE_FIFO_H_ */

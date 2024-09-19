@@ -283,6 +283,8 @@ main(int argc, char *argv[])
     bool test_result;
     instr_t *instr;
 
+    enable_all_test_cpu_features();
+
     /* ARMv8.4-RCPC */
     RUN_INSTR_TEST(ldapur);
     RUN_INSTR_TEST(ldapurb);

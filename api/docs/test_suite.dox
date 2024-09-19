@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -71,7 +71,76 @@ Our CI setups provide "trybot" functionality for nearly every platform via pull 
 
 ## Debugging Tests on Github Actions Runner
 
-Test failures that happen only on Github Actions and are not reproducible locally can be hard to debug. Fortunately, there's a way to SSH into a Github Actions runner to debug the test. This can be done using `tmate`: https://github.com/marketplace/actions/debugging-with-tmate. Follow instructions on the page to make a temporary change to the Github Actions workflow config in your branch, and use the link output by `tmate` to ssh into the runner. You can install `gdb` if needed on the runner. `tmate` also allows web shell access; note that you may need to press `q` one time if the web page doesn't show anything.
+Test failures that happen only on Github Actions and are not reproducible
+locally can be hard to debug. Fortunately, there's a way to SSH into a Github
+Actions runner to debug the test. This can be done using `tmate`:
+https://github.com/marketplace/actions/debugging-with-tmate.
+
+Using tmate requires sudo on the Actions runners which is only available with
+pull requests on branches within the repository; it will not work with pull
+requests created from external forks of the repository.
+
+First, identify the Actions workflow file which contains the job with the
+failure.  From the Actions run page with the failing test (usually reached from
+the links in the job runs for a pull request), click on "Workflow file" in the
+bottom of the left sidebar.  It will present the file contents with its path at
+the top.  It will be something like ".github/workflows/ci-windows.yml".  That is
+the path within the git repository.
+
+Next, go and edit that file in your branch.  Delete all jobs except the failing
+one (just remove those lines from the file).  For the failing one, add these 3
+lines as a new step right after the "Run Suite" step but before the "Send
+failure email step".  Be sure to match the surrounding indentation as
+indentation matters for .yml files.
+
+    - name: Setup tmate session
+      if: failure()
+      uses: mxschmitt/action-tmate@v3
+
+Next, delete all the other workflow files in the ".github/workflows/" directory.
+This will save you time and save resources in general, to only run the single
+target job.
+
+You can see an example of these workflow file deletions and edits in this
+commit:
+https://github.com/DynamoRIO/dynamorio/pull/6414/commits/08b96200cdb9fd4d39a4c89e2aa9eafed92027f4
+
+If you want to focus on just one test, you can use a label like the
+`TMATE_DEBUG` label in the linked commit to run only that one test, but that is
+not necessary.  Pasting the key lines for that here:
+
+In runsuite.cmake after the arg parsing:
+
+```
+set(extra_ctest_args INCLUDE_LABEL TMATE_DEBUG) # TEMPORARY
+```
+
+At the bottom of suite/tests/CMakeLists.txt, add the label to the target test:
+
+```
+set_tests_properties(code_api|tool.drcacheoff.burst_traceopts PROPERTIES
+    LABELS TMATE_DEBUG) # TEMPORARY
+```
+
+Commit these changes with a title that starts with "DO NOT COMMIT" so it’s clear
+these are temporary debugging changes, and send to Github with `git review`.
+
+Now go to your pull request page and click on the details for the target
+workflow.  Wait for it to reach the "Setup tmate session" step (this may take
+from a few minutes to 15-20 minutes depending on the job; you can look at prior
+instances of jobs to see how long they typically take).  It will print a command
+like " ssh JhJp879nThXEKUAPWEGuatJ3J@sfo2.tmate.io".  Run that command and you
+will have an interactive shell in the base build directory.
+
+By default, it may start the ssh in tmux review mode.  You would need to quit
+out of that to get to the terminal.  The shell should last until the action
+times out which is after 6 hours, or until you terminate the initial connection.
+
+The connection is through tmux, so you can create new panes and shells using
+tmux commands.  You can install `gdb` if needed.
+
+`tmate` also allows web shell access; note that you may need to press `q` one
+time if the web page doesn't show anything.
 
 # Regression Test Suite
 
@@ -314,6 +383,18 @@ The comments at the top of runsuite_ssh.cmake describe additional options.
 ## Test Failures
 
 Unfortunately our test suite is not as clean as it could be.  Some tests can be flaky and while they pass on the machines of the existing developers and on our automated test machines, they may fail occasionally on a new machine.  Please search the issue tracker before filing a new issue to see if a test failure has already been seen once before.  We welcome contributions to fix flaky tests.
+
+Flaky tests are marked in one of two ways:
+
+ - Append "_FLAKY" to the test's name
+    - See [suite/tests/CMakeLists.txt](https://github.com/DynamoRIO/dynamorio/blob/master/suite/tests/CMakeLists.txt) for examples
+ - Mention the test in runsuite_wrapper.pl
+    - See [suite/runsuite_wrapper.pl](https://github.com/DynamoRIO/dynamorio/blob/master/suite/runsuite_wrapper.pl) for examples
+
+In both cases make sure an issue is filed to fix the test and mention the issue
+at the place the test is marked as flaky.
+
+The latter is preferred for tests that should be fixed first.
 
 ## Missing Tests
 

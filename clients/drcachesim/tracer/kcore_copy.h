@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,10 +38,15 @@
 #define _KCORE_COPY_H_ 1
 
 #include <elf.h>
+
+#include "dr_api.h"
 #include "drmemtrace.h"
 
-struct proc_module_t;
+namespace dynamorio {
+namespace drmemtrace {
+
 struct proc_kcore_code_segment_t;
+struct proc_module_t;
 
 /* This class is used to copy kernel code segments and copy kallsyms.
  */
@@ -55,7 +60,7 @@ public:
     /* This function is used to copy kcore and kallsyms to the directory passed in.
      */
     bool
-    copy(const char *to_dir);
+    copy(const char *kcore_path, const char *kallsyms_path);
 
 private:
     /* Read the kernel code segments from /proc/kcore to buffer.
@@ -70,12 +75,12 @@ private:
      * kcore.
      */
     bool
-    copy_kcore(const char *to_dir);
+    copy_kcore(const char *to_kcore_path);
 
-    /* Copy kallsyms to the directory.
+    /* Copy kallsyms to the given path.
      */
     bool
-    copy_kallsyms(const char *to_dir);
+    copy_kallsyms(const char *to_kallsyms_path);
 
     /* Read the module information to module list from /proc/modules.
      */
@@ -114,5 +119,8 @@ private:
     /* The ELF header of '/proc/kcore'. */
     Elf64_Ehdr proc_kcore_ehdr_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _KCORE_COPY_H_ */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,16 +38,26 @@
 #define _READER_H_ 1
 
 #include <assert.h>
+#include <stddef.h>
+#include <stdint.h>
+
 #include <iterator>
 #include <queue>
 #include <unordered_map>
 #include <unordered_set>
+
 // For exporting we avoid "../common" and rely on -I.
 #include "memref.h"
 #include "memtrace_stream.h"
+#include "trace_entry.h"
 #include "utils.h"
 
-#define OUT /* just a marker */
+namespace dynamorio {
+namespace drmemtrace {
+
+#ifndef DR_PARAM_OUT
+#    define DR_PARAM_OUT /* just a marker */
+#endif
 
 #ifdef DEBUG
 #    define VPRINT(reader, level, ...)                            \
@@ -62,10 +72,10 @@
 #endif
 
 /**
- * Iterator over #memref_t trace entries. This class converts a trace
- * (offline or online) into a stream of #memref_t entries. It also
- * provides more information about the trace using the
- * #memtrace_stream_t API.
+ * Iterator over #dynamorio::drmemtrace::memref_t trace entries. This class converts a
+ * trace (offline or online) into a stream of #dynamorio::drmemtrace::memref_t entries. It
+ * also provides more information about the trace using the
+ * #dynamorio::drmemtrace::memtrace_stream_t API.
  */
 class reader_t : public std::iterator<std::input_iterator_tag, memref_t>,
                  public memtrace_stream_t {
@@ -116,6 +126,8 @@ public:
     // observed.  This generally should call pre_skip_instructions() to observe the
     // headers, perform any fast skipping, and then should call
     // skip_instructions_with_timestamp() to properly duplicate the prior timestamp.
+    // Skipping 0 instructions is supported and will skip ahead to right before the
+    // next instruction.
     virtual reader_t &
     skip_instructions(uint64_t instruction_count);
 
@@ -178,8 +190,20 @@ public:
         return page_size_;
     }
     bool
+    is_record_kernel() const override
+    {
+        return in_kernel_trace_;
+    }
+    bool
     is_record_synthetic() const override
     {
+        if (cur_ref_.marker.type == TRACE_TYPE_MARKER &&
+            (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CORE_WAIT ||
+             cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CORE_IDLE)) {
+            // These are synthetic records not part of the input and not
+            // counting toward ordinals.
+            return true;
+        }
         return suppress_ref_count_ >= 0;
     }
 
@@ -230,6 +254,7 @@ protected:
     uint64_t last_timestamp_ = 0;
     uint64_t first_timestamp_ = 0;
     trace_entry_t *input_entry_ = nullptr;
+    uint64_t last_cpuid_ = 0;
     // Remember top-level headers for the memtrace_stream_t interface.
     uint64_t version_ = 0;
     uint64_t filetype_ = 0;
@@ -242,12 +267,18 @@ protected:
     std::queue<trace_entry_t> queue_;
     trace_entry_t entry_copy_; // For use in returning a queue entry.
 
-private:
     struct encoding_info_t {
         size_t size = 0;
         unsigned char bits[MAX_ENCODING_LENGTH];
     };
 
+    std::unordered_map<addr_t, encoding_info_t> encodings_;
+    // Whether this reader's input stream interleaves software threads and thus
+    // some thread-based checks may not apply.
+    bool core_sharded_ = false;
+    bool found_filetype_ = false;
+
+private:
     memref_t cur_ref_;
     memref_tid_t cur_tid_ = 0;
     memref_pid_t cur_pid_ = 0;
@@ -258,7 +289,11 @@ private:
     std::unordered_map<memref_tid_t, memref_pid_t> tid2pid_;
     bool expect_no_encodings_ = true;
     encoding_info_t last_encoding_;
-    std::unordered_map<addr_t, encoding_info_t> encodings_;
+    addr_t last_branch_target_ = 0;
+    bool in_kernel_trace_ = false;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _READER_H_ */

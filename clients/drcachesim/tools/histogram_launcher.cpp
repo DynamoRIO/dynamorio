@@ -45,7 +45,18 @@
 #include "histogram_create.h"
 #include "../tools/invariant_checker.h"
 
-using namespace dynamorio::drmemtrace;
+using ::dynamorio::drmemtrace::analysis_tool_t;
+using ::dynamorio::drmemtrace::analyzer_t;
+using ::dynamorio::drmemtrace::histogram_tool_create;
+using ::dynamorio::drmemtrace::invariant_checker_t;
+using ::dynamorio::drmemtrace::memref_t;
+using ::dynamorio::drmemtrace::scheduler_t;
+using ::dynamorio::droption::droption_parser_t;
+using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+using ::dynamorio::droption::DROPTION_SCOPE_FRONTEND;
+using ::dynamorio::droption::droption_t;
+
+namespace {
 
 #define FATAL_ERROR(msg, ...)                               \
     do {                                                    \
@@ -83,6 +94,8 @@ droption_t<bool> op_test_mode(DROPTION_SCOPE_ALL, "test_mode", false, "Run tests
 droption_t<std::string> op_test_mode_name(DROPTION_SCOPE_ALL, "test_mode_name", "",
                                           "Test name",
                                           "Name of extra analyses for testing.");
+
+} // namespace
 
 int
 _tmain(int argc, const TCHAR *targv[])

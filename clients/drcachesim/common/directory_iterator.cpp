@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,10 +30,21 @@
  * DAMAGE.
  */
 
-#include <algorithm>
 #include "directory_iterator.h"
-#include "utils.h"
+
+#ifdef WINDOWS
+#    include <algorithm>
+#else
+#    include <dirent.h>
+#endif
+
+#include <string>
+
 #include "dr_frontend.h"
+#include "utils.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 // Following typical stream iterator convention, the default constructor
 // produces an EOF object.
@@ -150,3 +161,6 @@ directory_iterator_t::create_directory(const std::string &path_in)
     }
     return drfront_create_dir(path.c_str()) == DRFRONT_SUCCESS;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

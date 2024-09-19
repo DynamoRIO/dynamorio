@@ -55,8 +55,8 @@
 int drfrontend_verbosity = 0;
 
 drfront_status_t
-drfront_bufprint(char *buf, size_t bufsz, INOUT size_t *sofar, OUT ssize_t *len,
-                 const char *fmt, ...)
+drfront_bufprint(char *buf, size_t bufsz, DR_PARAM_INOUT size_t *sofar,
+                 DR_PARAM_OUT ssize_t *len, const char *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
@@ -79,7 +79,7 @@ drfront_bufprint(char *buf, size_t bufsz, INOUT size_t *sofar, OUT ssize_t *len,
  * No conversion on UNIX, just copy the data.
  */
 drfront_status_t
-drfront_convert_args(const TCHAR **targv, OUT char ***argv, int argc)
+drfront_convert_args(const TCHAR **targv, DR_PARAM_OUT char ***argv, int argc)
 {
     int i = 0;
     drfront_status_t ret = DRFRONT_ERROR;
@@ -123,8 +123,8 @@ drfront_is_system_install_dir(const char *dir)
 #endif
 
 drfront_status_t
-drfront_appdata_logdir(const char *root, const char *subdir, OUT bool *use_root,
-                       OUT char *buf, size_t buflen /*# elements*/)
+drfront_appdata_logdir(const char *root, const char *subdir, DR_PARAM_OUT bool *use_root,
+                       DR_PARAM_OUT char *buf, size_t buflen /*# elements*/)
 {
     drfront_status_t res = DRFRONT_ERROR;
     bool writable = false;
@@ -205,7 +205,7 @@ drfront_appdata_logdir(const char *root, const char *subdir, OUT bool *use_root,
 }
 
 void
-drfront_string_replace_character(OUT char *str, char old_char, char new_char)
+drfront_string_replace_character(DR_PARAM_OUT char *str, char old_char, char new_char)
 {
     while (*str != '\0') {
         if (*str == old_char) {
@@ -216,7 +216,8 @@ drfront_string_replace_character(OUT char *str, char old_char, char new_char)
 }
 
 void
-drfront_string_replace_character_wide(OUT TCHAR *str, TCHAR old_char, TCHAR new_char)
+drfront_string_replace_character_wide(DR_PARAM_OUT TCHAR *str, TCHAR old_char,
+                                      TCHAR new_char)
 {
     while (*str != _T('\0')) {
         if (*str == old_char) {

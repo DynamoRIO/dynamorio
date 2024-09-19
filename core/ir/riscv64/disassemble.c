@@ -38,8 +38,9 @@
 #include "codec.h"
 
 int
-print_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, byte *pc,
-                      byte *next_pc, instr_t *instr)
+d_r_print_encoding_first_line_to_buffer(char *buf, size_t bufsz,
+                                        size_t *sofar DR_PARAM_INOUT, byte *pc,
+                                        byte *next_pc, instr_t *instr)
 {
     if (instruction_width(*(int16_t *)pc) == 2)
         print_to_buffer(buf, bufsz, sofar, "     %04x   ", *(uint16_t *)pc);
@@ -49,43 +50,33 @@ print_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, byte *pc,
 }
 
 void
-print_extra_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, byte *pc,
-                            byte *next_pc, int extra_sz, const char *extra_bytes_prefix)
+d_r_print_encoding_second_line_to_buffer(char *buf, size_t bufsz,
+                                         size_t *sofar DR_PARAM_INOUT, byte *pc,
+                                         byte *next_pc, int extra_sz,
+                                         const char *extra_bytes_prefix)
 {
     /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
 }
 
 void
-opnd_base_disp_scale_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
+opnd_base_disp_scale_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
                                  opnd_t opnd)
 {
     /* There is no scaled addressing on RISC-V */
     ASSERT_NOT_REACHED();
 }
 
-static inline const char *
-immed_prefix(void)
-{
-    return (TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask))
-                ? ""
-                : (TEST(DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask)) ? "#" : "$"));
-}
-
 bool
-opnd_disassemble_arch(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t opnd)
+opnd_disassemble_arch(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT, opnd_t opnd)
 {
     switch (opnd.kind) {
     case IMMED_INTEGER_kind: {
         /* Immediates are sign-extended at the decode time. */
         ptr_int_t val = opnd_get_immed_int(opnd);
-        const char *sign = val < 0 ? "-" : "";
-        if (val < 0)
-            val = -val;
-        /* FIXME i#3544: objdump shows some immediates in decimal (i.e. addi).
-         * Should we try to differentiate those here too?
-         */
-        print_to_buffer(buf, bufsz, sofar, "%s%s0x%x", immed_prefix(), sign, val);
+        const char *fmt =
+            TEST(opnd_get_flags(opnd), DR_OPND_IMM_PRINT_DECIMAL) ? "%d" : "0x%x";
+        print_to_buffer(buf, bufsz, sofar, fmt, val);
         return true;
     }
     }
@@ -93,10 +84,10 @@ opnd_disassemble_arch(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t opnd)
 }
 
 bool
-opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
+opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
                             dcontext_t *dcontext, instr_t *instr, byte optype,
                             opnd_t opnd, bool prev, bool multiple_encodings, bool dst,
-                            int *idx INOUT)
+                            int *idx DR_PARAM_OUT)
 {
     /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
@@ -105,15 +96,13 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
 
 void
 print_instr_prefixes(dcontext_t *dcontext, instr_t *instr, char *buf, size_t bufsz,
-                     size_t *sofar INOUT)
+                     size_t *sofar DR_PARAM_OUT)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
 }
 
 void
 print_opcode_name(instr_t *instr, const char *name, char *buf, size_t bufsz,
-                  size_t *sofar INOUT)
+                  size_t *sofar DR_PARAM_OUT)
 {
     print_to_buffer(buf, bufsz, sofar, "%s", name);
 }

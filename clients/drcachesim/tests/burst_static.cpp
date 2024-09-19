@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -44,6 +44,9 @@
 #include <math.h>
 #include <stdlib.h>
 
+namespace dynamorio {
+namespace drmemtrace {
+
 bool
 my_setenv(const char *var, const char *value)
 {
@@ -66,7 +69,7 @@ do_some_work(int arg)
 }
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
     static int outer_iters = 2048;
     /* We trace a 4-iter burst of execution. */
@@ -131,3 +134,6 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 }
 #    endif
 #endif /* UNIX && TEST_APP_DR_CLIENT_MAIN */
+
+} // namespace drmemtrace
+} // namespace dynamorio

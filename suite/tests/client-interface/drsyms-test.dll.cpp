@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -580,7 +580,7 @@ lookup_dll_syms(void *dc, const module_data_t *dll_data, bool loaded)
     dll_base = dll_data->start;
 
 #ifdef UNIX
-    if (strstr(dll_path, "/libc-")) {
+    if (strstr(dll_path, "/libc-") != nullptr || strstr(dll_path, "/libc.") != nullptr) {
         lookup_glibc_syms(dc, dll_data);
         return;
     }
@@ -888,7 +888,6 @@ static void
 lookup_glibc_syms(void *dc, const module_data_t *dll_data)
 {
     const char *libc_path;
-    app_pc libc_base;
     size_t malloc_offs;
     size_t gi_malloc_offs;
     drsym_error_t r;
@@ -903,7 +902,6 @@ lookup_glibc_syms(void *dc, const module_data_t *dll_data)
     already_called = true;
 
     libc_path = dll_data->full_path;
-    libc_base = dll_data->start;
 
     /* FIXME: When drsyms can read .dynsym we should always find malloc. */
     malloc_offs = 0;

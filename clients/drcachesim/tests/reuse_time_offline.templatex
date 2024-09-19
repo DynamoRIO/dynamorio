@@ -1,21 +1,21 @@
 Reuse time tool aggregated results:
-Total accesses: 1402971
-Total instructions: 639301
-Mean reuse time: 29.91
+Total accesses: 1402859
+Total instructions: 638938
+Mean reuse time: 29.90
 Reuse time histogram:
 Distance       Count  Percent  Cumulative
-       1      119325    8.51%       8.51%
-       2      990161   70.62%      79.13%
-       3        9549    0.68%      79.81%
+       1      119228    8.50%       8.50%
+       2      990254   70.63%      79.14%
+       3        9484    0.68%      79.81%
 .*
 ==================================================
-Reuse time tool results for shard [0-9]+ \(thread 3018559\):
+Reuse time tool results for shard [0-9]+ \(thread 1257603\):
 Total accesses: 200214
-Total instructions: 87890
-Mean reuse time: 29.97
+Total instructions: 87891
+Mean reuse time: 29.98
 Reuse time histogram:
 Distance       Count  Percent  Cumulative
-       1       16330    8.16%       8.16%
-       2      142522   71.20%      79.36%
+       1       16328    8.16%       8.16%
+       2      142521   71.20%      79.36%
        3        1273    0.64%      80.00%
 .*

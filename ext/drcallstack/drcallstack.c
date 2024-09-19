@@ -77,7 +77,7 @@ drcallstack_exit(void)
 }
 
 drcallstack_status_t
-drcallstack_init_walk(dr_mcontext_t *mc, OUT drcallstack_walk_t **walk_out)
+drcallstack_init_walk(dr_mcontext_t *mc, DR_PARAM_OUT drcallstack_walk_t **walk_out)
 {
     if (!TESTALL(DR_MC_CONTROL | DR_MC_INTEGER, mc->flags))
         return DRCALLSTACK_ERROR_INVALID_PARAMETER;
@@ -125,6 +125,13 @@ drcallstack_init_walk(dr_mcontext_t *mc, OUT drcallstack_walk_t **walk_out)
 #    elif defined(ARM)
     /* libunwind defines its own struct of 16 regs. */
     memcpy(&walk->uc.regs[0], &mc->r0, 16 * sizeof(walk->uc.regs[0]));
+#    elif defined(RISCV64)
+    /* unw_context_t is an alias of ucontext_t. */
+    sigcontext_t *sc = SIGCXT_FROM_UCXT(&walk->uc);
+    sc->SC_XIP = (ptr_uint_t)mc->pc;
+    /* x1..x31 is in the same order with no padding. */
+    memcpy(&sc->SC_RA, &mc->ra, 31 * sizeof(sc->SC_RA));
+    sc->SC_XSP = mc->xsp;
 #    else
     return DRCALLSTACK_ERROR_FEATURE_NOT_AVAILABLE;
 #    endif
@@ -152,7 +159,7 @@ drcallstack_cleanup_walk(drcallstack_walk_t *walk)
 }
 
 drcallstack_status_t
-drcallstack_next_frame(drcallstack_walk_t *walk, OUT drcallstack_frame_t *frame)
+drcallstack_next_frame(drcallstack_walk_t *walk, DR_PARAM_OUT drcallstack_frame_t *frame)
 {
     if (frame->struct_size != sizeof(*frame))
         return DRCALLSTACK_ERROR_INVALID_PARAMETER;

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -494,7 +494,7 @@ dispatch_enter_fcache(dcontext_t *dcontext, fragment_t *targetf)
         (fcache_enter_func_t)
         /* DEFAULT_ISA_MODE as we want the ISA mode of our gencode */
         convert_data_to_function(PC_AS_JMP_TGT(DEFAULT_ISA_MODE, (app_pc)fcache_enter)),
-#ifdef AARCH64
+#if defined(AARCH64) || defined(RISCV64)
         /* Entry to fcache requires indirect branch. */
         PC_AS_JMP_TGT(FRAG_ISA_MODE(targetf->flags), FCACHE_PREFIX_ENTRY_PC(targetf))
 #else
@@ -2098,6 +2098,10 @@ handle_system_call(dcontext_t *dcontext)
              * These are nearly all non-blocking so this should not be an issue with
              * signal delay from blocking.  Sigreturn and clone will come back to
              * d_r_dispatch so there's no worry about unbounded delay.
+             *
+             * TODO i#6105: A signal arriving between the pre-syscall event and the
+             * syscall can cause problems for clients.  We should interrupt the
+             * syscall with EINTR in that case for non-ignorable syscalls.
              */
             ASSERT((!is_sigreturn_syscall(dcontext) &&
                     !was_thread_create_syscall(dcontext)) ||

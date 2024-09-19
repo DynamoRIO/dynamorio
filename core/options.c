@@ -1233,9 +1233,9 @@ static bool
 check_option_compatibility_helper(int recurse_count)
 {
     bool changed_options = false;
-#    ifdef AARCH64
+#    if defined(AARCH64) || defined(RISCV64)
     if (!DYNAMO_OPTION(bb_prefixes)) {
-        USAGE_ERROR("bb_prefixes must be true on AArch64");
+        USAGE_ERROR("bb_prefixes must be true on AArch64/RISCV64");
         dynamo_options.bb_prefixes = true;
         changed_options = true;
     }
@@ -2654,7 +2654,7 @@ is_string_type(enum option_type_t type)
 /* i#771: Allow the client to query all DR runtime options. */
 DR_API
 bool
-dr_get_string_option(const char *option_name, char *buf OUT, size_t len)
+dr_get_string_option(const char *option_name, char *buf DR_PARAM_OUT, size_t len)
 {
     bool found = false;
     CLIENT_ASSERT(buf != NULL, "invalid parameter");
@@ -2679,7 +2679,7 @@ dr_get_string_option(const char *option_name, char *buf OUT, size_t len)
 
 DR_API
 bool
-dr_get_integer_option(const char *option_name, uint64 *val OUT)
+dr_get_integer_option(const char *option_name, uint64 *val DR_PARAM_OUT)
 {
     CLIENT_ASSERT(val != NULL, "invalid parameter");
     *val = 0;
@@ -2785,7 +2785,17 @@ unit_test_options(void)
      * We include a smaller option to ensure we avoid printing out "0G".
      */
     get_dynamo_options_string(&dynamo_options, opstring, sizeof(opstring), true);
-    EXPECT_EQ(0, strcmp(opstring, "-vmheap_size 16G -persist_short_digest 8K "));
+#        define EXPECT_OPT(opt, val)                                                     \
+            do {                                                                         \
+                const char *start = strstr(opstring, opt);                               \
+                EXPECT_NE(start, NULL);                                                  \
+                const char expected[] = opt " " val;                                     \
+                EXPECT_STR(start, expected, sizeof(expected) / sizeof(expected[0]) - 1); \
+            } while (0)
+    EXPECT_OPT("-vmheap_size", "16G");
+    EXPECT_OPT("-persist_short_digest", "8K");
+#        undef EXPECT_OPT
+
 #    endif
 
     SELF_PROTECT_OPTIONS();

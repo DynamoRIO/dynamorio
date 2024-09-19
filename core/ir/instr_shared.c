@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -52,11 +52,14 @@
 #define INSTR_INLINE extern inline
 
 #include "../globals.h"
+#include "isa_regdeps/encoding_common.h"
 #include "instr.h"
 #include "arch.h"
 #include "../link.h"
 #include "decode.h"
 #include "decode_fast.h"
+#include "opcode_api.h"
+#include "opnd.h"
 #include "instr_create_shared.h"
 /* FIXME i#1551: refactor this file and avoid this x86-specific include in base arch/ */
 #include "x86/decode_private.h"
@@ -84,16 +87,19 @@
 instr_t *
 instr_create(void *drcontext)
 {
+    bool is_instr_isa_mode_set = false;
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *instr = (instr_t *)heap_alloc(dcontext, sizeof(instr_t) HEAPACCT(ACCT_IR));
     /* everything initializes to 0, even flags, to indicate
      * an uninitialized instruction */
     memset((void *)instr, 0, sizeof(instr_t));
 #if defined(X86) && defined(X64)
-    instr_set_isa_mode(instr, X64_CACHE_MODE_DC(dcontext) ? DR_ISA_AMD64 : DR_ISA_IA32);
-#elif defined(ARM)
-    instr_set_isa_mode(instr, dr_get_isa_mode(dcontext));
+    is_instr_isa_mode_set = instr_set_isa_mode(
+        instr, X64_CACHE_MODE_DC(dcontext) ? DR_ISA_AMD64 : DR_ISA_IA32);
+#else
+    is_instr_isa_mode_set = instr_set_isa_mode(instr, dr_get_isa_mode(dcontext));
 #endif
+    CLIENT_ASSERT(is_instr_isa_mode_set, "setting instruction ISA mode unsuccessful");
     return instr;
 }
 
@@ -377,11 +383,17 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
     if (nxt == NULL) {
         nxt = instr_encode_ignore_reachability(dcontext, instr, buf);
         if (nxt == NULL) {
+#ifdef AARCH64
+            /* We do not use instr_info_t encoding info on AArch64. FIXME i#1569 */
+            SYSLOG_INTERNAL_WARNING("cannot encode %s",
+                                    get_opcode_name(instr_get_opcode(instr)));
+#else
             SYSLOG_INTERNAL_WARNING("cannot encode %s",
                                     opcode_to_encoding_info(instr->opcode,
                                                             instr_get_isa_mode(instr)
                                                                 _IF_ARM(false))
                                         ->name);
+#endif
             if (!TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags))
                 heap_reachable_free(dcontext, buf, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
             return 0;
@@ -436,6 +448,12 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
     return len;
 }
 
+dr_isa_mode_t
+instr_get_isa_mode(instr_t *instr)
+{
+    return (dr_isa_mode_t)instr->isa_mode;
+}
+
 #define inlined_instr_get_opcode(instr)                                           \
     (IF_DEBUG_(CLIENT_ASSERT(sizeof(*instr) == sizeof(instr_t), "invalid type"))( \
         ((instr)->opcode == OP_UNDECODED)                                         \
@@ -449,6 +467,40 @@ instr_get_opcode(instr_t *instr)
 /* in rest of file, directly de-reference for performance (PR 622253) */
 #define instr_get_opcode inlined_instr_get_opcode
 
+/* XXX i#6238: This API is not yet supported for synthetic instructions */
+#define inlined_instr_get_category(instr)                                         \
+    (IF_DEBUG_(CLIENT_ASSERT(sizeof(*instr) == sizeof(instr_t), "invalid type"))( \
+        ((instr)->category == DR_INSTR_CATEGORY_UNCATEGORIZED ||                  \
+         !instr_operands_valid(instr))                                            \
+            ? (instr_decode_with_current_dcontext(instr), (instr)->category)      \
+            : (instr)->category))
+uint
+instr_get_category(instr_t *instr)
+{
+    return inlined_instr_get_category(instr);
+}
+/* in rest of file, directly de-reference for performance (PR 622253) */
+#define instr_get_category inlined_instr_get_category
+
+const char *
+instr_get_category_name(dr_instr_category_t category)
+{
+    switch (category) {
+    case DR_INSTR_CATEGORY_UNCATEGORIZED: return "uncategorized";
+    case DR_INSTR_CATEGORY_FP: return "fp";
+    case DR_INSTR_CATEGORY_LOAD: return "load";
+    case DR_INSTR_CATEGORY_STORE: return "store";
+    case DR_INSTR_CATEGORY_BRANCH: return "branch";
+    case DR_INSTR_CATEGORY_SIMD: return "simd";
+    case DR_INSTR_CATEGORY_STATE: return "state";
+    case DR_INSTR_CATEGORY_MOVE: return "move";
+    case DR_INSTR_CATEGORY_CONVERT: return "convert";
+    case DR_INSTR_CATEGORY_MATH: return "math";
+    case DR_INSTR_CATEGORY_OTHER: return "other";
+    default: return "";
+    }
+}
+
 static inline void
 instr_being_modified(instr_t *instr, bool raw_bits_valid)
 {
@@ -458,6 +510,12 @@ instr_being_modified(instr_t *instr, bool raw_bits_valid)
     }
     /* PR 214962: if client changes our mangling, un-mark to avoid bad translation */
     instr_set_our_mangling(instr, false);
+}
+
+void
+instr_set_category(instr_t *instr, uint category)
+{
+    instr->category = category;
 }
 
 void
@@ -724,6 +782,100 @@ instr_set_target(instr_t *instr, opnd_t target)
     instr_set_operands_valid(instr, true);
 }
 
+bool
+instr_is_opnd_store_source(instr_t *store_instr, int source_ordinal)
+{
+    /* We generally do not model data movement in our IR, especially for complex
+     * SIMD swaps and shuffles: we just have flat lists of sources and dests.
+     * Taint trackers or other dataflow tools are expected to dispatch on opcode
+     * for cases where some sources map to a subset of the dests.  However,
+     * identifying which sources flow into the (typically unique) memory
+     * destination is a key piece of information we do try to provide.  We do
+     * not yet go as far as labeling this in the IR decoding codec/table info
+     * sources and thus rely on operand ordering conventions.  If these heuristics
+     * prove too fragile we can move toward more direct support, but by
+     * providing an official helper function here now we at least get all users
+     * using the same code we can update later.
+     */
+    if (store_instr == NULL || source_ordinal < 0 ||
+        source_ordinal >= instr_num_srcs(store_instr))
+        return false;
+    /* First, find the (first) store. */
+    opnd_t memop = opnd_create_null();
+    for (int i = 0; i < instr_num_dsts(store_instr); i++) {
+        memop = instr_get_dst(store_instr, i);
+        if (opnd_is_memory_reference(memop))
+            break;
+    }
+    if (opnd_is_null(memop))
+        return false;
+#ifdef X86
+    /* First, handle exceptional cases. */
+    if (instr_get_opcode(store_instr) == OP_cmpxchg8b) {
+        /* Our table has xcx:xbx in later slots. */
+        return source_ordinal == 3 || source_ordinal == 4;
+    }
+#endif
+    /* A convention in our IR is to always list the primary data source as
+     * the first source operand.
+     */
+    if (source_ordinal == 0)
+        return true;
+#ifdef X86
+    /* XXX: Are there other atomics on x86 or other arches we need to list here too? */
+    if (instr_get_opcode(store_instr) == OP_cmpxchg)
+        return false;
+#endif
+    /* CISC ALU ops have the target listed as a (non-first) source memop. */
+    if (opnd_same(memop, instr_get_src(store_instr, source_ordinal)))
+        return true;
+    /* Now we need to distinuish additional register data sources from an
+     * address register update.  There can be many additional data sources
+     * (x86 OP_pusha, aarch32 register lists).  But an address register update
+     * will always be listed as both a source and a dest, at the end, even if this
+     * duplicates a data source.  E.g.:
+     *
+     *   e92dffff   stmdb  %r0 %r1 %r2 %r3 %r4 %r5 %r6 %r7 %r8 %r9 %r10 %r11 %r12 %sp %lr
+     * %pc %sp -> -0x40(%sp)[64byte] %sp
+     *
+     * There can be an immediate before (aarch32) or after (aarch64) the source for
+     * cases where the adjustment is not fixed: e.g., AArch64 INSTR_CREATE_str_imm().
+     *
+     * Our OP_pusha entry violates the address register convention below by listing
+     * xsp first but not duplicating it at the end: but that means we need take no
+     * further action here as all sources are data sources.
+     */
+    if (instr_num_srcs(store_instr) > 1 && instr_num_dsts(store_instr) > 1) {
+        /* Is the last dest an address register? */
+        opnd_t last_dst = instr_get_dst(store_instr, instr_num_dsts(store_instr) - 1);
+        if (opnd_is_reg(last_dst) &&
+            /* See whether the memory operation uses the last dest reg. */
+            opnd_uses_reg(memop, opnd_get_reg(last_dst))) {
+            /* Is there an identical source operand register, at the end or prior to
+             * an immed that is at the end?
+             */
+            opnd_t last_src = instr_get_src(store_instr, instr_num_srcs(store_instr) - 1);
+            /* Move prior to an immed if there are enough srcs for reg, reg, imm. */
+            bool has_immed = false;
+            if (opnd_is_immed_int(last_src) && instr_num_srcs(store_instr) > 2) {
+                has_immed = true;
+                last_src = instr_get_src(store_instr, instr_num_srcs(store_instr) - 2);
+            } else if (instr_num_srcs(store_instr) > 2 &&
+                       opnd_is_immed_int(
+                           instr_get_src(store_instr, instr_num_srcs(store_instr) - 2))) {
+                has_immed = true;
+            }
+            if (opnd_same(last_dst, last_src)) {
+                /* Fits pattern of address register. */
+                if (source_ordinal == instr_num_srcs(store_instr) - 1 ||
+                    (has_immed && source_ordinal == instr_num_srcs(store_instr) - 2))
+                    return false;
+            }
+        }
+    }
+    return true;
+}
+
 instr_t *
 instr_set_prefix_flag(instr_t *instr, uint prefix)
 {
@@ -910,8 +1062,7 @@ instr_get_eflags(instr_t *instr, dr_opnd_query_flags_t flags)
             encoded = true;
             len = private_instr_encode(dcontext, instr, true /*cache*/);
             if (len == 0) {
-                if (!instr_is_label(instr))
-                    CLIENT_ASSERT(false, "instr_get_eflags: invalid instr");
+                CLIENT_ASSERT(instr_is_label(instr), "instr_get_eflags: invalid instr");
                 return 0;
             }
         }
@@ -1747,6 +1898,10 @@ instr_shrink_to_16_bits(instr_t *instr)
     const instr_info_t *info;
     byte optype;
     CLIENT_ASSERT(instr_operands_valid(instr), "instr_shrink_to_16_bits: invalid opnds");
+    /* Our use of get_encoding_info() with no final PC specified works
+     * as there are no encoding template choices involving reachability
+     * which affect whether an operand has an indirect register.
+     */
     info = get_encoding_info(instr);
     for (i = 0; i < instr_num_dsts(instr); i++) {
         opnd = instr_get_dst(instr, i);
@@ -1801,6 +1956,35 @@ instr_uses_reg(instr_t *instr, reg_id_t reg)
 bool
 instr_reg_in_dst(instr_t *instr, reg_id_t reg)
 {
+#ifdef AARCH64
+    /* FFR does not appear in any operand, it is implicit upon the instruction type or
+     * accessed via SVE predicate registers.
+     */
+    if (reg == DR_REG_FFR) {
+        switch (instr_get_opcode(instr)) {
+        case OP_setffr:
+        case OP_rdffr:
+
+        case OP_ldff1b:
+        case OP_ldff1d:
+        case OP_ldff1h:
+        case OP_ldff1sb:
+        case OP_ldff1sh:
+        case OP_ldff1sw:
+        case OP_ldff1w:
+
+        case OP_ldnf1b:
+        case OP_ldnf1d:
+        case OP_ldnf1h:
+        case OP_ldnf1sb:
+        case OP_ldnf1sh:
+        case OP_ldnf1sw:
+        case OP_ldnf1w: return true;
+        default: break;
+        }
+    }
+#endif
+
     int i;
     for (i = 0; i < instr_num_dsts(instr); i++) {
         if (opnd_uses_reg(instr_get_dst(instr, i), reg))
@@ -1817,6 +2001,19 @@ instr_reg_in_src(instr_t *instr, reg_id_t reg)
     /* special case (we don't want all of instr_is_nop() special-cased: just this one) */
     if (instr_get_opcode(instr) == OP_nop_modrm)
         return false;
+#endif
+
+#ifdef AARCH64
+    /* FFR does not appear in any operand, it is implicit upon the instruction type or
+     * accessed via SVE predicate registers.
+     */
+    if (reg == DR_REG_FFR) {
+        switch (instr_get_opcode(instr)) {
+        case OP_wrffr:
+        case OP_rdffrs: return true;
+        default: break;
+        }
+    }
 #endif
     for (i = 0; i < instr_num_srcs(instr); i++) {
         if (opnd_uses_reg(instr_get_src(instr, i), reg))
@@ -2035,6 +2232,11 @@ instr_writes_memory(instr_t *instr)
 {
     int a;
     opnd_t curop;
+    int opc = instr_get_opcode(instr);
+
+    if (opc_is_not_a_real_memory_store(opc))
+        return false;
+
     for (a = 0; a < instr_num_dsts(instr); a++) {
         curop = instr_get_dst(instr, a);
         if (opnd_is_memory_reference(curop)) {
@@ -2050,6 +2252,10 @@ bool
 instr_zeroes_ymmh(instr_t *instr)
 {
     int i;
+    /* Our use of get_encoding_info() with no final PC specified works
+     * as there are no encoding template choices involving reachability
+     * which affect whether ymmh is zeroed.
+     */
     const instr_info_t *info = get_encoding_info(instr);
     if (info == NULL)
         return false;
@@ -2104,7 +2310,18 @@ instr_is_xsave(instr_t *instr)
 {
     int opcode = instr_get_opcode(instr); /* force decode */
     if (opcode == OP_xsave32 || opcode == OP_xsaveopt32 || opcode == OP_xsave64 ||
-        opcode == OP_xsaveopt64 || opcode == OP_xsavec32 || opcode == OP_xsavec64)
+        opcode == OP_xsaveopt64 || opcode == OP_xsavec32 || opcode == OP_xsavec64 ||
+        opcode == OP_xsaves32 || opcode == OP_xsaves64)
+        return true;
+    return false;
+}
+
+bool
+instr_is_xrstor(instr_t *instr)
+{
+    int opcode = instr_get_opcode(instr); /* force decode */
+    if (opcode == OP_xrstor32 || opcode == OP_xrstor64 || opcode == OP_xrstors32 ||
+        opcode == OP_xrstors64)
         return true;
     return false;
 }
@@ -2407,13 +2624,28 @@ instr_set_translation_mangling_epilogue(dcontext_t *dcontext, instrlist_t *ilist
     return instr;
 }
 
+#ifdef AARCH64
+void
+instr_set_has_register_predication(instr_t *instr)
+{
+    instr_set_predicate(instr, DR_PRED_MASKED);
+}
+
+bool
+instr_has_register_predication(instr_t *instr)
+{
+    return instr_get_predicate(instr) == DR_PRED_MASKED;
+}
+#endif
+
 /* Emulates instruction to find the address of the index-th memory operand.
  * Either or both OUT variables can be NULL.
  */
 static bool
 instr_compute_address_helper(instr_t *instr, priv_mcontext_t *mc, size_t mc_size,
-                             dr_mcontext_flags_t mc_flags, uint index, OUT app_pc *addr,
-                             OUT bool *is_write, OUT uint *pos)
+                             dr_mcontext_flags_t mc_flags, uint index,
+                             DR_PARAM_OUT app_pc *addr, DR_PARAM_OUT bool *is_write,
+                             DR_PARAM_OUT uint *pos)
 {
     /* for string instr, even w/ rep prefix, assume want value at point of
      * register snapshot passed in
@@ -2431,20 +2663,16 @@ instr_compute_address_helper(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
     for (i = 0; i < instr_num_dsts(instr); i++) {
         curop = instr_get_dst(instr, i);
         if (opnd_is_memory_reference(curop)) {
-            if (opnd_is_vsib(curop)) {
-#ifdef X86
-                if (instr_compute_address_VSIB(instr, mc, mc_size, mc_flags, curop, index,
-                                               &have_addr, addr, &write)) {
-                    CLIENT_ASSERT(
-                        write,
-                        "VSIB found in destination but instruction is not a scatter");
+            if (opnd_is_vector_base_disp(curop)) {
+                if (instr_compute_vector_address(instr, mc, mc_size, mc_flags, curop,
+                                                 index, &have_addr, addr, &write)) {
+                    CLIENT_ASSERT(write,
+                                  "Vector address found in destination but instruction "
+                                  "is not a scatter");
                     break;
                 } else {
                     return false;
                 }
-#else
-                CLIENT_ASSERT(false, "VSIB should be x86-only");
-#endif
             }
             memcount++;
             if (memcount == (int)index) {
@@ -2459,16 +2687,12 @@ instr_compute_address_helper(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
         for (i = 0; i < instr_num_srcs(instr); i++) {
             curop = instr_get_src(instr, i);
             if (opnd_is_memory_reference(curop)) {
-                if (opnd_is_vsib(curop)) {
-#ifdef X86
-                    if (instr_compute_address_VSIB(instr, mc, mc_size, mc_flags, curop,
-                                                   index, &have_addr, addr, &write))
+                if (opnd_is_vector_base_disp(curop)) {
+                    if (instr_compute_vector_address(instr, mc, mc_size, mc_flags, curop,
+                                                     index, &have_addr, addr, &write))
                         break;
                     else
                         return false;
-#else
-                    CLIENT_ASSERT(false, "VSIB should be x86-only");
-#endif
                 }
                 memcount++;
                 if (memcount == (int)index)
@@ -2491,7 +2715,8 @@ instr_compute_address_helper(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
 
 bool
 instr_compute_address_ex_priv(instr_t *instr, priv_mcontext_t *mc, uint index,
-                              OUT app_pc *addr, OUT bool *is_write, OUT uint *pos)
+                              DR_PARAM_OUT app_pc *addr, DR_PARAM_OUT bool *is_write,
+                              DR_PARAM_OUT uint *pos)
 {
     return instr_compute_address_helper(instr, mc, sizeof(*mc), DR_MC_ALL, index, addr,
                                         is_write, pos);
@@ -2499,8 +2724,8 @@ instr_compute_address_ex_priv(instr_t *instr, priv_mcontext_t *mc, uint index,
 
 DR_API
 bool
-instr_compute_address_ex(instr_t *instr, dr_mcontext_t *mc, uint index, OUT app_pc *addr,
-                         OUT bool *is_write)
+instr_compute_address_ex(instr_t *instr, dr_mcontext_t *mc, uint index,
+                         DR_PARAM_OUT app_pc *addr, DR_PARAM_OUT bool *is_write)
 {
     return instr_compute_address_helper(instr, dr_mcontext_as_priv_mcontext(mc), mc->size,
                                         mc->flags, index, addr, is_write, NULL);
@@ -2510,7 +2735,8 @@ instr_compute_address_ex(instr_t *instr, dr_mcontext_t *mc, uint index, OUT app_
 DR_API
 bool
 instr_compute_address_ex_pos(instr_t *instr, dr_mcontext_t *mc, uint index,
-                             OUT app_pc *addr, OUT bool *is_write, OUT uint *pos)
+                             DR_PARAM_OUT app_pc *addr, DR_PARAM_OUT bool *is_write,
+                             DR_PARAM_OUT uint *pos)
 {
     return instr_compute_address_helper(instr, dr_mcontext_as_priv_mcontext(mc), mc->size,
                                         mc->flags, index, addr, is_write, pos);
@@ -2582,6 +2808,46 @@ decode_memory_reference_size(void *drcontext, app_pc pc, uint *size_in_bytes)
     *size_in_bytes = instr_memory_reference_size(&instr);
     instr_free(dcontext, &instr);
     return next_pc;
+}
+
+/* Returns the number of memory read accesses of the instruction.
+ */
+uint
+instr_num_memory_read_access(instr_t *instr)
+{
+    int i;
+    opnd_t curop;
+    int count = 0;
+    const int opc = instr_get_opcode(instr);
+
+    if (opc_is_not_a_real_memory_load(opc))
+        return 0;
+
+    for (i = 0; i < instr_num_srcs(instr); i++) {
+        curop = instr_get_src(instr, i);
+        if (opnd_is_memory_reference(curop)) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+/* Returns the number of memory write accesses of the instruction.
+ */
+uint
+instr_num_memory_write_access(instr_t *instr)
+{
+    int i;
+    opnd_t curop;
+    int count = 0;
+
+    for (i = 0; i < instr_num_dsts(instr); i++) {
+        curop = instr_get_dst(instr, i);
+        if (opnd_is_memory_reference(curop)) {
+            ++count;
+        }
+    }
+    return count;
 }
 
 DR_API
@@ -2731,6 +2997,166 @@ instr_uses_fp_reg(instr_t *instr)
         }
     }
     return false;
+}
+
+void
+instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
+                             instr_t *instr_regdeps_isa)
+{
+    /* Retrieve number of register destination operands from real ISA instruction.
+     * Note that a destination operand that is a memory renference should have its
+     * registers (if any) counted as source operands, since they are being read.
+     * We use [src|dst]_reg_used to keep track of registers we've seen and avoid
+     * duplicates.
+     */
+    bool src_reg_used[REGDEPS_MAX_NUM_REGS];
+    memset(src_reg_used, 0, sizeof(src_reg_used));
+    uint num_srcs = 0;
+    bool dst_reg_used[REGDEPS_MAX_NUM_REGS];
+    memset(dst_reg_used, 0, sizeof(dst_reg_used));
+    uint num_dsts = 0;
+    uint instr_real_num_dsts = (uint)instr_num_dsts(instr_real_isa);
+    for (uint dst_index = 0; dst_index < instr_real_num_dsts; ++dst_index) {
+        opnd_t dst_opnd = instr_get_dst(instr_real_isa, dst_index);
+        uint num_regs_used_by_opnd = (uint)opnd_num_regs_used(dst_opnd);
+        if (opnd_is_memory_reference(dst_opnd)) {
+            for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
+                reg_id_t reg = opnd_get_reg_used(dst_opnd, opnd_index);
+                /* Map sub-registers to their containing register.
+                 */
+                reg_id_t reg_virtual = d_r_reg_to_virtual(reg);
+                if (!src_reg_used[reg_virtual]) {
+                    ++num_srcs;
+                    src_reg_used[reg_virtual] = true;
+                }
+            }
+        } else {
+            for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
+                reg_id_t reg = opnd_get_reg_used(dst_opnd, opnd_index);
+                /* Map sub-registers to their containing register.
+                 */
+                reg_id_t reg_virtual = d_r_reg_to_virtual(reg);
+                if (!dst_reg_used[reg_virtual]) {
+                    ++num_dsts;
+                    dst_reg_used[reg_virtual] = true;
+                }
+            }
+        }
+    }
+
+    /* We use max_src_opnd_size_bytes to keep track of the size of the largest source
+     * operand.  This variable counts the number of bytes instead of using opnd_size_t to
+     * avoid relying on OPSZ_ enum values.  Later on we convert max_src_opnd_size_bytes to
+     * its corresponding OPSZ_ enum value and store it into operation_size.
+     */
+    uint max_src_opnd_size_bytes = 0;
+    /* Retrieve number of register source operands from real ISA instruction.
+     */
+    uint instr_real_num_srcs = (uint)instr_num_srcs(instr_real_isa);
+    for (uint i = 0; i < instr_real_num_srcs; ++i) {
+        opnd_t src_opnd = instr_get_src(instr_real_isa, i);
+        opnd_size_t opnd_size = opnd_get_size(src_opnd);
+        uint opnd_size_bytes = opnd_size_in_bytes(opnd_size);
+        if (opnd_size_bytes > max_src_opnd_size_bytes)
+            max_src_opnd_size_bytes = opnd_size_bytes;
+        uint num_regs_used_by_opnd = (uint)opnd_num_regs_used(src_opnd);
+        for (uint opnd_index = 0; opnd_index < num_regs_used_by_opnd; ++opnd_index) {
+            reg_id_t reg = opnd_get_reg_used(src_opnd, opnd_index);
+            /* Map sub-registers to their containing register.
+             */
+            reg_id_t reg_virtual = d_r_reg_to_virtual(reg);
+            if (!src_reg_used[reg_virtual]) {
+                ++num_srcs;
+                src_reg_used[reg_virtual] = true;
+            }
+        }
+    }
+
+    /* Declare num of source and destination operands valid in the converted instruction.
+     */
+    instr_set_num_opnds(drcontext, instr_regdeps_isa, num_dsts, num_srcs);
+
+    /* Retrieve arithmetic flags from real ISA instruction.
+     * If the real ISA instruction reads or writes one or more arithmetic flag, all
+     * arithmetic flags will be set to read or written in the converted instruction.
+     * Note that this operation can trigger additional encoding and decoding of
+     * instr_real_isa, depending on its decoding level.
+     */
+    uint eflags_instr_real = instr_get_arith_flags(instr_real_isa, DR_QUERY_DEFAULT);
+    uint eflags_instr_regdeps = 0;
+    if (TESTANY(EFLAGS_WRITE_ARITH, eflags_instr_real))
+        eflags_instr_regdeps |= EFLAGS_WRITE_ARITH;
+    if (TESTANY(EFLAGS_READ_ARITH, eflags_instr_real))
+        eflags_instr_regdeps |= EFLAGS_READ_ARITH;
+    instr_regdeps_isa->eflags = eflags_instr_regdeps;
+    instr_set_arith_flags_valid(instr_regdeps_isa, true);
+
+    /* Retrieve category of real ISA instruction and set it directly as the category of
+     * the converted instruction.  No changes needed here.
+     */
+    instr_set_category(instr_regdeps_isa, instr_get_category(instr_real_isa));
+
+    /* Convert max_src_opnd_size_bytes from number of bytes to opnd_size_t (which holds
+     * OPSZ_ enum values).
+     */
+    opnd_size_t max_opnd_size = opnd_size_from_bytes(max_src_opnd_size_bytes);
+    instr_regdeps_isa->operation_size = max_opnd_size;
+
+    /* Set the source and destination register operands for the converted instruction.
+     */
+    if (num_dsts > 0) {
+        uint reg_counter = 0;
+        for (uint reg = 0; reg < REGDEPS_MAX_NUM_REGS; ++reg) {
+            if (dst_reg_used[reg]) {
+                opnd_t dst_opnd = opnd_create_reg((reg_id_t)reg);
+                /* Virtual registers don't have a fixed size like real ISA registers do.
+                 * So, it can happen that the same virtual register in two different
+                 * instructions may have different sizes.
+                 *
+                 * Even though querying the size of a virtual register is not supported on
+                 * purpose (a user should query the instr_t.operation_size), we set the
+                 * opnd_t.size field to be the same as instr_t.operation_size (i.e.,
+                 * max_opnd_size), so that reg_get_size() can return some meaningful
+                 * information without triggering a CLIENT_ASSERT error because the
+                 * virtual register ID is not supported (e.g., is one of the "reserved"
+                 * register IDs).
+                 *
+                 * We do the same for both src and dst register operands of DR_ISA_REGDEPS
+                 * instructions.
+                 */
+                opnd_set_size(&dst_opnd, max_opnd_size);
+                instr_set_dst(instr_regdeps_isa, reg_counter, dst_opnd);
+                ++reg_counter;
+            }
+        }
+    }
+
+    if (num_srcs > 0) {
+        uint reg_counter = 0;
+        for (uint reg = 0; reg < REGDEPS_MAX_NUM_REGS; ++reg) {
+            if (src_reg_used[reg]) {
+                opnd_t src_opnd = opnd_create_reg((reg_id_t)reg);
+                opnd_set_size(&src_opnd, max_opnd_size);
+                instr_set_src(instr_regdeps_isa, reg_counter, src_opnd);
+                ++reg_counter;
+            }
+        }
+    }
+
+    /* Declare converted instruction operands to be valid.
+     * Must be done after instr_allocate_raw_bits(), which sets operands as invalid.
+     */
+    instr_set_operands_valid(instr_regdeps_isa, true);
+
+    /* Set opcode as OP_UNDECODED, so routines like instr_valid() can still work.
+     * We can't use instr_set_opcode() because of its CLIENT_ASSERT when setting the
+     * opcode to OP_UNDECODED or OP_INVALID.
+     */
+    instr_regdeps_isa->opcode = OP_UNDECODED;
+
+    /* Set converted instruction ISA mode to be DR_ISA_REGDEPS.
+     */
+    instr_set_isa_mode(instr_regdeps_isa, DR_ISA_REGDEPS);
 }
 
 /* We place these here rather than in mangle_shared.c to avoid the work of
@@ -3586,8 +4012,8 @@ instr_create_save_immed_to_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg, in
 instr_t *
 instr_create_jump_via_dcontext(dcontext_t *dcontext, int offs)
 {
-#    ifdef AARCH64
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+#    if defined(AARCH64) || defined(RISCV64)
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 i#3544 */
     return 0;
 #    else
     opnd_t memopnd = opnd_create_dcontext_field(dcontext, offs);
@@ -3678,12 +4104,8 @@ instr_check_tls_spill_restore(instr_t *instr, bool *spill, reg_id_t *reg, int *o
 #    ifdef X86
         opnd_is_far_base_disp(memop) && opnd_get_segment(memop) == SEG_TLS &&
         opnd_is_abs_base_disp(memop)
-#    elif defined(AARCHXX)
+#    elif defined(AARCHXX) || defined(RISCV64)
         opnd_is_base_disp(memop) && opnd_get_base(memop) == dr_reg_stolen &&
-        opnd_get_index(memop) == DR_REG_NULL
-#    elif defined(RISCV64)
-        /* FIXME i#3544: Check if valid. */
-        opnd_is_base_disp(memop) && opnd_get_base(memop) == DR_REG_TP &&
         opnd_get_index(memop) == DR_REG_NULL
 #    endif
     ) {
@@ -3815,7 +4237,7 @@ instr_is_reg_spill_or_restore_ex(void *drcontext, instr_t *instr, bool DR_only, 
               check_disp == os_tls_offset((ushort)TLS_REG1_SLOT) ||
               check_disp == os_tls_offset((ushort)TLS_REG2_SLOT) ||
               check_disp == os_tls_offset((ushort)TLS_REG3_SLOT)
-#    ifdef AARCHXX
+#    if defined(AARCHXX) || defined(RISCV64)
               || check_disp == os_tls_offset((ushort)TLS_REG4_SLOT) ||
               check_disp == os_tls_offset((ushort)TLS_REG5_SLOT)
 #    endif

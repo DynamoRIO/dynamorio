@@ -294,7 +294,7 @@ new_thread_setup(priv_mcontext_t *mc)
     mc->IF_X86_ELSE(xax, IF_RISCV64_ELSE(a0, r0)) = 0;
     /* clear pc */
     mc->pc = 0;
-#    ifdef AARCHXX
+#    if defined(AARCHXX) || defined(RISCV64)
     /* set the stolen register's app value */
     set_stolen_reg_val(mc, get_clone_record_stolen_value(crec));
     /* set the thread register if necessary */
@@ -306,7 +306,7 @@ new_thread_setup(priv_mcontext_t *mc)
     ASSERT(rc != -1); /* this better be a new thread */
     dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL);
-#    ifdef AARCHXX
+#    if defined(AARCHXX) || defined(RISCV64)
     set_app_lib_tls_base_from_clone_record(dcontext, crec);
 #    endif
 #    ifdef ARM

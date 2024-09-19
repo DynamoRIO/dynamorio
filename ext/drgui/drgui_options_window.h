@@ -47,6 +47,9 @@ class QHBoxLayout;
 class QVBoxLayout;
 class QActionGroup;
 
+namespace dynamorio {
+namespace drgui {
+
 class drgui_options_window_t : public QDialog {
     Q_OBJECT
 
@@ -87,5 +90,8 @@ private:
 
     QActionGroup *tool_action_group;
 };
+
+} // namespace drgui
+} // namespace dynamorio
 
 #endif

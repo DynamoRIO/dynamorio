@@ -1,7 +1,7 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # **********************************************************
-# Copyright (c) 2022-2023 Arm Limited    All rights reserved.
+# Copyright (c) 2022-2024 Arm Limited    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -40,7 +40,7 @@ import os
 import re
 import difflib
 
-
+# XXX: This assumes a single line for a function signature!
 def filter_lines(path, regex, ignore_until=''):
     with open(path) as f:
         patterns = []
@@ -56,7 +56,14 @@ def filter_lines(path, regex, ignore_until=''):
         return patterns
 
 
-def check(l1, l2):
+def check(l1, l2, duplicate_check=False):
+    if duplicate_check:
+        for item in l1:
+            if l1.count(item) > 1:
+                raise Exception("l1 has duplicate entry: {}".format(item))
+        for item in l2:
+            if l2.count(item) > 1:
+                raise Exception("l2 has duplicate entry: {}".format(item))
     if len(l1) != len(l2):
         raise Exception(
             "Lists of different length.\n"
@@ -95,15 +102,15 @@ def main():
         os.path.join( src_dir, 'opnd_defs.txt'),
         re.compile(r'^[x\-\?\+]+  ([a-z0-9A-Z_]+).+#.+'))
     op_names_c = filter_lines(os.path.join(src_dir, 'codec.c'), re.compile(
-        r'^decode_opnd_([^\(]+).+'), ignore_until='each type of operand')
+        r'^decode_opnd_([^\(]+)?(\(.*\)[^;])'), ignore_until='each type of operand')
     print('Checking if operand order in opnd_defs.txt matches codec.c')
-    check(op_names_txt, op_names_c)
+    check(op_names_txt, op_names_c, duplicate_check=True)
     print('  OK!')
 
     # The Arm AArch64's architecture versions supported by the DynamoRIO codec.
-    # Currently, v8.0 is fully supported, while v8.1, v8.2, v8.3, v8.4, v8.6, SVE,
-    # and SVE2 are partially supported.
-    isa_versions = ['v80', 'v81', 'v82', 'v83', 'v84', 'v86', 'sve', 'sve2']
+    # Currently, v8.0 is fully supported, while v8.1, v8.2, v8.3, v8.4, v8.5,
+    # SVE, and SVE2 are partially supported.
+    isa_versions = ['v80', 'v81', 'v82', 'v83', 'v84', 'v85', 'v87', 'sve', 'sve2']
 
     codecsort_py = os.path.join(src_dir, "codecsort.py")
 

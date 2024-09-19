@@ -1,0 +1,32 @@
+Hello world!
+Hello world!
+Hello world!
+Hello world!
+Hello world!
+Hello world!
+Hello world!
+Hello world!
+Hello world!
+Hello world!
+Hello world!
+Hello world!
+Hello world!
+Hello world!
+Hello world!
+Hello world!
+Opcode mix tool results:
+            133 : total executed instructions
+             34 :       mov
+             17 :       mov
+             17 :   syscall
+             16 :       sub
+             16 :       cmp
+             16 :       jnz
+             16 :       lea
+              1 :       and
+
+              4 : sets of categories
+             51 :      move
+             33 :    branch
+             33 :      math
+             16 :      load

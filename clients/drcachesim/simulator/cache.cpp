@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,13 +31,31 @@
  */
 
 #include "cache.h"
-#include "../common/utils.h"
-#include <assert.h>
+
+#include <stddef.h>
+
+#include <utility>
+#include <vector>
+
+#include "memref.h"
+#include "cache_line.h"
+#include "cache_stats.h"
+#include "caching_device.h"
+#include "caching_device_block.h"
+#include "caching_device_stats.h"
+#include "prefetcher.h"
+#include "trace_entry.h"
+
+namespace dynamorio {
+namespace drmemtrace {
+
+class snoop_filter_t;
 
 bool
 cache_t::init(int associativity, int line_size, int total_size, caching_device_t *parent,
-              caching_device_stats_t *stats, prefetcher_t *prefetcher, bool inclusive,
-              bool coherent_cache, int id, snoop_filter_t *snoop_filter,
+              caching_device_stats_t *stats, prefetcher_t *prefetcher,
+              cache_inclusion_policy_t inclusion_policy, bool coherent_cache, int id,
+              snoop_filter_t *snoop_filter,
               const std::vector<caching_device_t *> &children)
 {
     // Check line_size to avoid divide-by-0.
@@ -47,8 +65,8 @@ cache_t::init(int associativity, int line_size, int total_size, caching_device_t
     int num_lines = total_size / line_size;
 
     return caching_device_t::init(associativity, line_size, num_lines, parent, stats,
-                                  prefetcher, inclusive, coherent_cache, id, snoop_filter,
-                                  children);
+                                  prefetcher, inclusion_policy, coherent_cache, id,
+                                  snoop_filter, children);
 }
 
 void
@@ -85,3 +103,6 @@ cache_t::flush(const memref_t &memref)
     if (stats_ != NULL)
         ((cache_stats_t *)stats_)->flush(memref);
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

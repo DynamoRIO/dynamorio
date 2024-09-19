@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,6 +40,9 @@
 
 #include <fstream>
 
+namespace dynamorio {
+namespace drmemtrace {
+
 class archive_ostream_t : public std::ostream {
 public:
     explicit archive_ostream_t(std::basic_streambuf<char, std::char_traits<char>> *buf)
@@ -52,5 +55,8 @@ public:
     virtual std::string
     open_new_component(const std::string &name) = 0;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _ARCHIVE_OSTREAM_H_ */

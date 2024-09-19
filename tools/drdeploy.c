@@ -52,6 +52,10 @@
 #    include <sys/wait.h>
 #endif
 
+#ifdef LINUX
+#    include <sys/syscall.h>
+#endif
+
 #include <string.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -63,6 +67,15 @@
 #include "dr_config.h" /* MUST be before share.h (it sets HOT_PATCHING_INTERFACE) */
 #include "dr_inject.h"
 #include "dr_frontend.h"
+
+#ifdef LINUX
+/* XXX: It would be cleaner to have a header for this and have nudgesig.c be in its
+ * own static library instead of compiled separately for the core and drdeploy.
+ */
+extern bool
+create_nudge_signal_payload(siginfo_t *info DR_PARAM_OUT, uint action_mask,
+                            client_id_t client_id, uint flags, uint64 client_arg);
+#endif
 
 typedef enum _action_t {
     action_none,
@@ -240,8 +253,10 @@ const char *options_list_str =
 #endif
 #ifdef DRCONFIG
     "\n"
+    "       -detach <pid> \n"
+    "                         Detach from the process with the given pid.\n"
+    "\n"
 #    ifdef WINDOWS
-    "       Note that nudging 64-bit processes is not yet supported.\n"
     "       -nudge <process> <client ID> <argument>\n"
     "                          Nudge the client with ID <client ID> in all running\n"
     "                          processes with name <process>, and pass <argument>\n"
@@ -476,8 +491,8 @@ unregister_proc(const char *process, process_id_t pid, bool global,
  */
 static bool
 expand_dr_root(const char *dr_root, bool debug, dr_platform_t dr_platform, bool preinject,
-               bool report, OUT char *dr_lib_path, size_t dr_lib_path_sz,
-               OUT char *dr_alt_lib_path, size_t dr_alt_lib_path_sz)
+               bool report, DR_PARAM_OUT char *dr_lib_path, size_t dr_lib_path_sz,
+               DR_PARAM_OUT char *dr_alt_lib_path, size_t dr_alt_lib_path_sz)
 {
     int i;
     char buf[MAXIMUM_PATH];
@@ -922,7 +937,8 @@ read_tool_file(const char *toolname, const char *dr_root, const char *dr_toolcon
                dr_platform_t dr_platform, char *client, size_t client_size,
                char *alt_client, size_t alt_size, char *ops, size_t ops_size,
                size_t *ops_sofar, char *tool_ops, size_t tool_ops_size,
-               size_t *tool_ops_sofar, char *native_path OUT, size_t native_path_size)
+               size_t *tool_ops_sofar, char *native_path DR_PARAM_OUT,
+               size_t native_path_size)
 {
     FILE *f;
     char config_file[MAXIMUM_PATH];
@@ -1060,7 +1076,7 @@ read_tool_file(const char *toolname, const char *dr_root, const char *dr_toolcon
  * Caller should continue iterating until *token == NULL.
  */
 static char *
-split_option_token(char *s, char **token OUT, bool split)
+split_option_token(char *s, char **token DR_PARAM_OUT, bool split)
 {
     bool quoted = false;
     char endquote = '\0';
@@ -1179,6 +1195,7 @@ _tmain(int argc, TCHAR *targv[])
     uint64 nudge_arg = 0;
     bool list_registered = false;
     uint nudge_timeout = INFINITE;
+    uint detach_timeout = DETACH_RECOMMENDED_TIMEOUT;
     bool syswide_on = false;
     bool syswide_off = false;
 #endif /* WINDOWS */
@@ -1205,6 +1222,11 @@ _tmain(int argc, TCHAR *targv[])
     void *inject_data;
     bool success;
     bool exit0 = false;
+#endif
+#if defined(DRCONFIG)
+#    if defined(WINDOWS) || defined(LINUX)
+    process_id_t detach_pid = 0;
+#    endif
 #endif
     char *drlib_path = NULL;
 #if defined(DRCONFIG) || defined(DRRUN)
@@ -1499,6 +1521,20 @@ _tmain(int argc, TCHAR *targv[])
                 nudge_all = true;
             nudge_id = strtoul(argv[++i], NULL, 16);
             nudge_arg = _strtoui64(argv[++i], NULL, 16);
+        }
+#    endif
+#    if defined(WINDOWS) || defined(LINUX)
+        else if (strcmp(argv[i], "-detach") == 0) {
+            if (i + 1 >= argc)
+                usage(false, "detach requires a process id");
+            const char *pid_str = argv[++i];
+            process_id_t pid = strtoul(pid_str, NULL, 10);
+            if (pid == ULONG_MAX)
+                usage(false, "detach expects an integer pid: '%s'", pid_str);
+            if (pid == 0) {
+                usage(false, "detach passed an invalid pid: '%s'", pid_str);
+            }
+            detach_pid = pid;
         }
 #    endif
 #endif
@@ -1816,12 +1852,32 @@ done_with_options:
         if (!unregister_proc(process, 0, global, dr_platform))
             die();
     }
+#    if defined(WINDOWS) || defined(LINUX)
+    else if (detach_pid != 0) {
+#        ifdef WINDOWS
+        dr_config_status_t res = detach(detach_pid, TRUE, detach_timeout);
+        if (res != DR_SUCCESS)
+            error("unable to detach: check pid and system ptrace permissions");
+#        else
+        siginfo_t info;
+        uint action_mask = NUDGE_FREE_ARG;
+        client_id_t client_id = 0;
+        uint64 client_arg = 0;
+        bool success =
+            create_nudge_signal_payload(&info, action_mask, 0, client_id, client_arg);
+        assert(success); /* failure means kernel's sigqueueinfo has changed */
+        /* send the nudge */
+        i = syscall(SYS_rt_sigqueueinfo, detach_pid, NUDGESIG_SIGNUM, &info);
+        if (i < 0)
+            fprintf(stderr, "nudge FAILED with error %d\n", i);
+#        endif
+    }
+#    endif
 #    ifndef WINDOWS
     else {
         usage(false, "no action specified");
     }
 #    else /* WINDOWS */
-    /* FIXME i#840: Nudge NYI on Linux. */
     else if (action == action_nudge) {
         int count = 1;
         dr_config_status_t res = DR_SUCCESS;

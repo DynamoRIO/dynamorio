@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -44,6 +44,9 @@
 #include <fstream>
 #include <zlib.h>
 #include <iostream>
+
+namespace dynamorio {
+namespace drmemtrace {
 
 /* We need to override the stream buffer class which is where the file
  * reads happen.  The stream buffer base class reads from eback()..egptr()
@@ -140,5 +143,8 @@ public:
         delete rdbuf();
     }
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _ZLIB_ISTREAM_H_ */

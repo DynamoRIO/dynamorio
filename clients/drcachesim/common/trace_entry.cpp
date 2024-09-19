@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,6 +31,9 @@
  */
 
 #include "trace_entry.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 const char *const trace_type_names[] = {
     "read",
@@ -81,4 +84,9 @@ const char *const trace_type_names[] = {
     "prefetch_write_l3",
     "prefetch_write_l3_nt",
     "encoding",
+    "taken_jump",
+    "untaken_jump",
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio

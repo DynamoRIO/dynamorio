@@ -32,6 +32,7 @@
  */
 
 #include "../globals.h"
+#include "encode_api.h"
 #include "instr.h"
 #include "decode.h"
 #include "decode_fast.h" /* ensure we export decode_next_pc, decode_sizeof */
@@ -41,7 +42,7 @@
 bool
 is_isa_mode_legal(dr_isa_mode_t mode)
 {
-    return (mode == DR_ISA_ARM_A64);
+    return (mode == DR_ISA_ARM_A64 || mode == DR_ISA_REGDEPS);
 }
 
 app_pc
@@ -185,7 +186,7 @@ decode_first_opcode_byte(int opcode)
 const instr_info_t *
 opcode_to_encoding_info(uint opc, dr_isa_mode_t isa_mode)
 {
-    /* We do not use instr_info_t encoding info on AArch64. */
+    /* We do not use instr_info_t encoding info on AArch64. FIXME i#1569 */
     ASSERT_NOT_REACHED();
     return NULL;
 }

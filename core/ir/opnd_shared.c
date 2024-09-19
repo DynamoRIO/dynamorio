@@ -38,6 +38,7 @@
 /* file "opnd_shared.c" -- IR opnd utilities */
 
 #include "../globals.h"
+#include "encode_api.h"
 #include "opnd.h"
 #include "arch.h"
 /* FIXME i#1551: refactor this file and avoid this x86-specific include in base arch/ */
@@ -184,6 +185,13 @@ opnd_is_vsib(opnd_t op)
 }
 
 bool
+opnd_is_vector_base_disp(opnd_t op)
+{
+    return opnd_is_base_disp(op) &&
+        (reg_is_simd(opnd_get_base(op)) || reg_is_simd(opnd_get_index(op)));
+}
+
+bool
 opnd_is_reg_32bit(opnd_t opnd)
 {
     if (opnd_is_reg(opnd))
@@ -232,7 +240,15 @@ bool
 reg_is_pointer_sized(reg_id_t reg)
 {
 #ifdef X64
+#    ifdef AARCH64
+    /* XXX i#6750: We need to generalize reg_{to,is}_pointer_sized() for non-GPR
+     * registers. Change names or add new keeping old or update docs?
+     */
+    return (reg >= DR_REG_Z0 && reg <= DR_REG_Z31) ||
+        (reg >= REG_START_64 && reg <= REG_STOP_64);
+#    else
     return (reg >= REG_START_64 && reg <= REG_STOP_64);
+#    endif
 #else
     return (reg >= REG_START_32 && reg <= REG_STOP_32);
 #endif
@@ -892,7 +908,7 @@ opnd_get_segment(opnd_t opnd)
 
 #ifdef ARM
 dr_shift_type_t
-opnd_get_index_shift(opnd_t opnd, uint *amount OUT)
+opnd_get_index_shift(opnd_t opnd, uint *amount DR_PARAM_OUT)
 {
     if (amount != NULL)
         *amount = 0;
@@ -976,7 +992,7 @@ opnd_size_to_shift_amount(opnd_size_t size)
 }
 
 dr_extend_type_t
-opnd_get_index_extend(opnd_t opnd, OUT bool *scaled, OUT uint *amount)
+opnd_get_index_extend(opnd_t opnd, DR_PARAM_OUT bool *scaled, DR_PARAM_OUT uint *amount)
 {
     dr_extend_type_t extend = DR_EXTEND_UXTX;
     bool scaled_out = false;
@@ -1168,7 +1184,7 @@ bool
 opnd_is_memory_reference(opnd_t opnd)
 {
     return (opnd_is_base_disp(opnd) IF_X86_64(|| opnd_is_abs_addr(opnd)) ||
-#if defined(X64) || defined(ARM)
+#if (defined(X64) || defined(ARM)) && !defined(RISCV64)
             opnd_is_rel_addr(opnd) ||
 #endif
             opnd_is_mem_instr(opnd));
@@ -1399,21 +1415,9 @@ opnd_replace_reg(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg)
                 s, b, i, sc, d, size, opnd_is_disp_encode_zero(*opnd),
                 opnd_is_disp_force_full(*opnd), opnd_is_disp_short_addr(*opnd));
 #elif defined(RISCV64)
-            /* FIXME i#3544: RISC-V has no support for base + idx * scale + disp.
-             * We could support base + disp as long as disp == +/-1MB.
-             * If needed, instructions with this operand should be transformed
-             * to:
-             *   mul idx, idx, scale # or slli if scale is immediate
-             *   add base, base, idx
-             *   addi base, base, disp
-             */
-            CLIENT_ASSERT(false, "Not implemented");
-            /* Marking as unused to silence -Wunused-variable. */
-            (void)size;
-            (void)b;
-            (void)i;
-            (void)d;
-            return false;
+            CLIENT_ASSERT(i == DR_REG_NULL, "opnd_replace_reg: index_reg must be null");
+            bool scaled = false;
+            *opnd = opnd_create_base_disp(b, i, scaled, d, size);
 #endif
             return true;
         }
@@ -1496,6 +1500,7 @@ opnd_create_increment_reg(opnd_t opnd, uint increment)
         opnd.value.reg_and_element_size.element_size;
     inc_opnd.size = opnd.size; /* indicates full size of reg */
     inc_opnd.aux.flags = opnd.aux.flags;
+    inc_opnd.aux.flags |= DR_OPND_IMPLICIT;
     return inc_opnd;
 }
 
@@ -1995,6 +2000,8 @@ opnd_size_in_bytes(opnd_size_t size)
     case OPSZ_120: return 120;
     case OPSZ_124: return 124;
     case OPSZ_128: return 128;
+    case OPSZ_192: return 192;
+    case OPSZ_256: return 256;
     case OPSZ_512: return 512;
     case OPSZ_VAR_REGLIST: return 0; /* varies to match reglist operand */
     case OPSZ_xsave:
@@ -2071,6 +2078,8 @@ opnd_size_from_bytes(uint bytes)
     case 120: return OPSZ_120;
     case 124: return OPSZ_124;
     case 128: return OPSZ_128;
+    case 192: return OPSZ_192;
+    case 256: return OPSZ_256;
     case 512: return OPSZ_512;
     default: return OPSZ_NA;
     }
@@ -2185,7 +2194,7 @@ reg_get_value(reg_id_t reg, dr_mcontext_t *mc)
 DR_API
 /* Supports all but floating-point */
 bool
-reg_get_value_ex(reg_id_t reg, dr_mcontext_t *mc, OUT byte *val)
+reg_get_value_ex(reg_id_t reg, dr_mcontext_t *mc, DR_PARAM_OUT byte *val)
 {
 #ifdef X86
     if (reg >= DR_REG_START_MMX && reg <= DR_REG_STOP_MMX) {
@@ -2206,6 +2215,21 @@ reg_get_value_ex(reg_id_t reg, dr_mcontext_t *mc, OUT byte *val)
         if (!TEST(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
             return false;
         memcpy(val, &mc->opmask[reg - DR_REG_START_OPMASK], OPMASK_AVX512BW_REG_SIZE);
+    } else {
+        reg_t regval = reg_get_value(reg, mc);
+        *(reg_t *)val = regval;
+    }
+#elif defined(AARCH64)
+    if (reg >= DR_REG_START_Z && reg <= DR_REG_STOP_Z) {
+        if (!TEST(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
+            return false;
+        memcpy(val, &mc->simd[reg - DR_REG_START_Z],
+               opnd_size_in_bytes(reg_get_size(reg)));
+    } else if (reg >= DR_REG_START_P && reg <= DR_REG_STOP_P) {
+        if (!TEST(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
+            return false;
+        memcpy(val, &mc->svep[reg - DR_REG_START_P],
+               opnd_size_in_bytes(reg_get_size(reg)));
     } else {
         reg_t regval = reg_get_value(reg, mc);
         *(reg_t *)val = regval;
@@ -2270,7 +2294,7 @@ reg_set_value(reg_id_t reg, dr_mcontext_t *mc, reg_t value)
 
 DR_API
 bool
-reg_set_value_ex(reg_id_t reg, dr_mcontext_t *mc, IN byte *val_buf)
+reg_set_value_ex(reg_id_t reg, dr_mcontext_t *mc, DR_PARAM_IN byte *val_buf)
 {
     return reg_set_value_ex_priv(reg, dr_mcontext_as_priv_mcontext(mc), val_buf);
 }
@@ -2333,30 +2357,8 @@ opnd_compute_address_priv(opnd_t opnd, priv_mcontext_t *mc)
         ptr_int_t scale = opnd_get_scale(opnd);
         scaled_index = scale * reg_get_value_priv(index, mc);
 #elif defined(AARCH64)
-        bool scaled = false;
-        uint amount = 0;
-        dr_extend_type_t type = opnd_get_index_extend(opnd, &scaled, &amount);
-        reg_t index_val = reg_get_value_priv(index, mc);
-        reg_t extended = 0;
-        uint msb = 0;
-        switch (type) {
-        default: CLIENT_ASSERT(false, "Unsupported extend type"); return NULL;
-        case DR_EXTEND_UXTW: extended = (index_val << (63u - 31u)) >> (63u - 31u); break;
-        case DR_EXTEND_SXTW:
-            extended = (index_val << (63u - 31u)) >> (63u - 31u);
-            msb = extended >> 31u;
-            if (msb == 1) {
-                extended = ((~0ull) << 32u) | extended;
-            }
-            break;
-        case DR_EXTEND_UXTX:
-        case DR_EXTEND_SXTX: extended = index_val; break;
-        }
-        if (scaled) {
-            scaled_index = extended << amount;
-        } else {
-            scaled_index = extended;
-        }
+        scaled_index =
+            d_r_compute_scaled_index_aarch64(opnd, reg_get_value_priv(index, mc));
 #elif defined(ARM)
         uint amount;
         dr_shift_type_t type = opnd_get_index_shift(opnd, &amount);
@@ -2376,11 +2378,8 @@ opnd_compute_address_priv(opnd_t opnd, priv_mcontext_t *mc)
         default: scaled_index = index_val;
         }
 #elif defined(RISCV64)
-        /* FIXME i#3544: Not implemented */
         /* Marking as unused to silence -Wunused-variable. */
-        CLIENT_ASSERT(false, "Not implemented");
         (void)index;
-        return NULL;
 #endif
     }
     return opnd_compute_address_helper(opnd, mc, scaled_index);
@@ -2398,9 +2397,24 @@ opnd_compute_address(opnd_t opnd, dr_mcontext_t *mc)
  ***      Register utility functions
  ***************************************************************************/
 
+/* XXX i#1684: performance matters on all getter and setter routines.  Now that we call
+ * get_thread_private_dcontext(), we add non-negligible overhead to get_register_name().
+ * Currently there are other routines that call get_thread_private_dcontext() such as:
+ * instr_get_eflags() and opnd_create_far_abs_addr().  We should revisit this and make
+ * a decision on which of these routines should take dcontext_t as input argument.
+ */
+/* XXX i#6690: here we assume that changes made by the user of this routine
+ * (and by its threads) to the global dcontext_t (and specifically its isa_mode)
+ * are guarded by locks.  We can remove this assumption once we have a completely
+ * lock-free dcontext_t.
+ */
 const char *
 get_register_name(reg_id_t reg)
 {
+    bool is_global_isa_mode_synthetic =
+        dr_get_isa_mode(get_thread_private_dcontext()) == DR_ISA_REGDEPS;
+    if (is_global_isa_mode_synthetic)
+        return d_r_reg_virtual_names[reg];
     return reg_names[reg];
 }
 
@@ -2408,6 +2422,12 @@ reg_id_t
 reg_to_pointer_sized(reg_id_t reg)
 {
     return dr_reg_fixer[reg];
+}
+
+reg_id_t
+d_r_reg_to_virtual(reg_id_t reg)
+{
+    return d_r_reg_id_to_virtual[reg];
 }
 
 reg_id_t
@@ -2421,10 +2441,8 @@ reg_32_to_16(reg_id_t reg)
     CLIENT_ASSERT(false, "reg_32_to_16 not supported on ARM");
     return REG_NULL;
 #elif defined(RISCV64)
-    /* FIXME i#3544: There is no separate addressing for half registers.
-     * Semantics are part of the opcode.
-     */
-    return reg;
+    CLIENT_ASSERT(false, "reg_32_to_16 not supported on RISCV64");
+    return REG_NULL;
 #endif
 }
 
@@ -2448,10 +2466,8 @@ reg_32_to_8(reg_id_t reg)
     CLIENT_ASSERT(false, "reg_32_to_8 not supported on ARM");
     return REG_NULL;
 #elif defined(RISCV64)
-    /* FIXME i#3544: There is no separate addressing for half registers.
-     * Semantics are part of the opcode.
-     */
-    return reg;
+    CLIENT_ASSERT(false, "reg_32_to_8 not supported on RISCV64");
+    return REG_NULL;
 #endif
 }
 
@@ -2521,12 +2537,12 @@ reg_32_to_opsz(reg_id_t reg, opnd_size_t sz)
     if (sz == OPSZ_4)
         return reg;
     else if (sz == OPSZ_2)
-        return IF_AARCHXX_ELSE(reg, reg_32_to_16(reg));
+        return IF_AARCHXX_OR_RISCV64_ELSE(reg, reg_32_to_16(reg));
     else if (sz == OPSZ_1)
-        return IF_AARCHXX_ELSE(reg, reg_32_to_8(reg));
+        return IF_AARCHXX_OR_RISCV64_ELSE(reg, reg_32_to_8(reg));
 #ifdef X64
     else if (sz == OPSZ_8)
-        return reg_32_to_64(reg);
+        return IF_RISCV64_ELSE(reg, reg_32_to_64(reg));
 #endif
     else
         CLIENT_ASSERT(false, "reg_32_to_opsz: invalid size parameter");
@@ -2759,23 +2775,107 @@ reg_get_size(reg_id_t reg)
         return OPSZ_4;
     if (reg >= DR_REG_MDCCSR_EL0 && reg <= DR_REG_SPSR_FIQ)
         return OPSZ_8;
-    if (reg >= DR_REG_Z0 && reg <= DR_REG_Z31)
-        return OPSZ_SCALABLE;
+    if (reg >= DR_REG_Z0 && reg <= DR_REG_Z31) {
+        return OPSZ_SVE_VECLEN_BYTES;
+    }
     if ((reg >= DR_REG_P0 && reg <= DR_REG_P15) || reg == DR_REG_FFR)
-        return OPSZ_SCALABLE_PRED;
-    if (reg == DR_REG_CNTVCT_EL0)
+        return OPSZ_SVE_PREDLEN_BYTES;
+    if (reg >= DR_REG_CNTVCT_EL0 && reg <= DR_REG_REVIDR_EL1)
         return OPSZ_8;
     if (reg >= DR_REG_NZCV && reg <= DR_REG_FPSR)
         return OPSZ_8;
 #    endif
     if (reg == DR_REG_TPIDRURW || reg == DR_REG_TPIDRURO)
         return OPSZ_PTR;
+#elif defined(RISCV64)
+    if (reg == DR_REG_X0)
+        return OPSZ_8;
+    else if (reg >= DR_REG_VR0 && reg <= DR_REG_VR31)
+        return OPSZ_RVV_VECLEN_BYTES;
 #endif
     LOG(GLOBAL, LOG_ANNOTATIONS, 2, "reg=%d, %s, last reg=%d\n", reg,
         get_register_name(reg), DR_REG_LAST_ENUM);
     CLIENT_ASSERT(false, "reg_get_size: invalid register");
     return OPSZ_NA;
 }
+
+#ifdef RISCV64
+/* Returns the OPSZ_ constant corresponding to the vector register size and lmul.
+ * Page 12 of RISC-V "V" Vector Extension Version 1.0.
+ */
+opnd_size_t
+reg_get_size_lmul(reg_id_t reg, lmul_t lmul)
+{
+    if (reg >= DR_REG_VR0 && reg <= DR_REG_VR31) {
+        /* lmul is a 3-bit signed number encoded as the shift amount,
+         * so (vlen >> (3 - lmul)) converts the hardware vector length in bits to the
+         * effective vector length in bytes.
+         */
+        ASSERT(lmul <= 3 && lmul >= -3);
+        opnd_size_t opsz = opnd_size_from_bytes(dr_get_vector_length() >> (3 - lmul));
+
+        LOG(GLOBAL, LOG_ANNOTATIONS, 2, "reg=%d, %s, last reg=%d\n", reg,
+            get_register_name(reg), DR_REG_LAST_ENUM);
+        CLIENT_ASSERT(opsz != OPSZ_NA, "reg_get_size_lmul: invalid register");
+        return opsz;
+    }
+
+    LOG(GLOBAL, LOG_ANNOTATIONS, 2, "reg=%d, %s, last reg=%d\n", reg,
+        get_register_name(reg), DR_REG_LAST_ENUM);
+    CLIENT_ASSERT(false, "reg_get_size_lmul: invalid register");
+    return OPSZ_NA;
+}
+#endif
+
+#if defined(AARCH64)
+
+opnd_t
+opnd_create_cond(dr_pred_type_t cond)
+{
+    switch (cond) {
+    case DR_PRED_NONE:
+        CLIENT_ASSERT(false,
+                      "opnd_create_cond: predicate must be a condition code. For"
+                      " the SVE 'none' condition code alias use DR_PRED_SVE_NONE.");
+        break;
+    case DR_PRED_EQ:
+    case DR_PRED_NE:
+    case DR_PRED_CS:
+    case DR_PRED_CC:
+    case DR_PRED_MI:
+    case DR_PRED_PL:
+    case DR_PRED_VS:
+    case DR_PRED_VC:
+    case DR_PRED_HI:
+    case DR_PRED_LS:
+    case DR_PRED_GE:
+    case DR_PRED_LT:
+    case DR_PRED_GT:
+    case DR_PRED_LE:
+    case DR_PRED_AL:
+    case DR_PRED_NV:
+        /* The dr_pred_type_t encoding of the condition codes is off-by-one compared to
+         * the instruction encoding.
+         */
+        return opnd_add_flags(opnd_create_immed_int(cond - 1, OPSZ_4b),
+                              DR_OPND_IS_CONDITION);
+    default:
+        CLIENT_ASSERT(false, "opnd_create_cond: predicate must be a condition code.");
+    }
+
+    return opnd_create_null(); /* Should be unreachable. */
+}
+
+dr_pred_type_t
+opnd_get_cond(opnd_t opnd)
+{
+    /* The dr_pred_type_t encoding of the condition codes is off-by-one compared to the
+     * instruction encoding.
+     */
+    return (dr_pred_type_t)(opnd_get_immed_int(opnd) + 1);
+}
+
+#endif
 
 #ifndef STANDALONE_DECODER
 /****************************************************************************/
@@ -2876,3 +2976,31 @@ opnd_create_tls_slot(int offs)
 
 #endif /* !STANDALONE_DECODER */
 /****************************************************************************/
+
+#ifdef STANDALONE_UNIT_TEST
+
+#    ifdef RISCV64
+void
+test_reg_get_size_lmul(void)
+{
+    dr_set_vector_length(256);
+    EXPECT(reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_1_8), OPSZ_4);
+    EXPECT(reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_1_4), OPSZ_8);
+    EXPECT(reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_1_2), OPSZ_16);
+    EXPECT(reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_1), OPSZ_32);
+    EXPECT(reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_2), OPSZ_64);
+    EXPECT(reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_4), OPSZ_128);
+    EXPECT(reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_8), OPSZ_256);
+}
+#    endif /* RISCV64 */
+
+void
+unit_test_opnd_shared(void)
+{
+#    ifdef RISCV64
+    test_reg_get_size_lmul();
+#    endif
+    print_file(STDERR, "done testing opnd_shared\n");
+}
+
+#endif /* STANDALONE_UNIT_TEST */

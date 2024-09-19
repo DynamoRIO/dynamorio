@@ -38,7 +38,6 @@ endif ()
 
 set(RISCV64_CODEC_GEN_SRCS
   ${PROJECT_BINARY_DIR}/opcode_api.h
-  ${PROJECT_BINARY_DIR}/opcode_names.h
   ${PROJECT_BINARY_DIR}/instr_create_api.h
   ${PROJECT_BINARY_DIR}/instr_info_trie.h
 )
@@ -73,6 +72,9 @@ add_custom_command(
           ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/isl/rvc.txt
           ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/isl/svinval.txt
           ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/isl/system.txt
+          ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/isl/v.txt
+          ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/isl/xtheadcmo.txt
+          ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/isl/xtheadsync.txt
           ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/isl/zicbom.txt
           ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/isl/zicbop.txt
           ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/isl/zicboz.txt

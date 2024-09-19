@@ -227,6 +227,12 @@ elseif (UNIX)
     # No 64-bit support yet.
     # Some tests and libgcc/arm use deprecated instructions, disable warnings.
     set(ASM_FLAGS "${ASM_FLAGS} -mfpu=neon -mno-warn-deprecated")
+  elseif (DR_HOST_AARCH64)
+    if (proc_supports_sve2)
+        set(ASM_FLAGS "${ASM_FLAGS} ${ASMFLAGS_SVE2}")
+    elseif (proc_supports_sve)
+        set(ASM_FLAGS "${ASM_FLAGS} ${ASMFLAGS_SVE}")
+    endif ()
   endif ()
   set(ASM_FLAGS "${ASM_FLAGS} --noexecstack")
   if (DEBUG)
@@ -281,8 +287,9 @@ if (UNIX AND NOT APPLE)
   endif (asm_result OR asm_error)
   # turn the flags into a vector
   string(REGEX REPLACE " " ";" flags_needed "${ASM_FLAGS}")
-  # -mfpu= does not list the possibilities
+  # -mfpu= and -march do not list the possibilities
   string(REGEX REPLACE "-mfpu=[a-z]*" "-mfpu" flags_needed "${flags_needed}")
+  string(REGEX REPLACE "-march=[+-a-z]*" "-march" flags_needed "${flags_needed}")
   # we want "-mmnemonic=intel" to match "-mmnemonic=[att|intel]"
   string(REGEX REPLACE "=" ".*" flags_needed "${flags_needed}")
   set(flag_present 1)
@@ -318,6 +325,10 @@ elseif (proc_supports_avx2)
   set(rule_flags "${rule_flags} ${CFLAGS_AVX2}")
 elseif (proc_supports_avx)
   set(rule_flags "${rule_flags} ${CFLAGS_AVX}")
+elseif (proc_supports_sve2)
+  set(rule_flags "${rule_flags} ${CFLAGS_SVE2}")
+elseif (proc_supports_sve)
+  set(rule_flags "${rule_flags} ${CFLAGS_SVE}")
 endif ()
 
 # Include a define that can be used to identify asm code.

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,10 +36,17 @@
 #ifndef _PHYSADDR_H_
 #define _PHYSADDR_H_ 1
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <atomic>
+
 #include "dr_api.h"
 #include "hashtable.h"
-#include "../common/trace_entry.h"
+#include "trace_entry.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 // This class is not thread-safe: the caller should create a separate instance
 // per thread.
@@ -57,8 +64,8 @@ public:
     // Returns in "from_cache" whether the physical address had been queried before
     // and was available in a local cache (which is cleared at -virt2phys_freq).
     bool
-    virtual2physical(void *drcontext, addr_t virt, OUT addr_t *phys,
-                     OUT bool *from_cache = nullptr);
+    virtual2physical(void *drcontext, addr_t virt, DR_PARAM_OUT addr_t *phys,
+                     DR_PARAM_OUT bool *from_cache = nullptr);
 
     // This must be called once prior to any instance variables.
     // (If this class weren't used in a DR client context we could use a C++
@@ -111,5 +118,8 @@ private:
     static std::atomic<bool> has_privileges_;
 #endif
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _PHYSADDR_H_ */

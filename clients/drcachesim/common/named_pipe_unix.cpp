@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,14 +30,19 @@
  * DAMAGE.
  */
 
-#include <string>
-#include <sys/types.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <limits.h> /* for PIPE_BUF */
+#include <stddef.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <limits.h> /* for PIPE_BUF */
+
+#include <string>
+
 #include "named_pipe.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 // XXX: should read from /proc/sys/fs/pipe-max-size instead of hardcoding here.
 // This is the max size an unprivileged process can request.
@@ -187,7 +192,7 @@ named_pipe_t::set_fd(int fd)
 }
 
 ssize_t
-named_pipe_t::read(void *buf OUT, size_t sz)
+named_pipe_t::read(void *buf DR_PARAM_OUT, size_t sz)
 {
     int res = -1;
     while (true) {
@@ -206,7 +211,7 @@ named_pipe_t::read(void *buf OUT, size_t sz)
 }
 
 ssize_t
-named_pipe_t::write(const void *buf IN, size_t sz)
+named_pipe_t::write(const void *buf DR_PARAM_IN, size_t sz)
 {
     int res = -1;
     while (true) {
@@ -223,3 +228,6 @@ named_pipe_t::get_atomic_write_size() const
 {
     return PIPE_BUF;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

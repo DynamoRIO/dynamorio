@@ -219,7 +219,7 @@ DR_EXPORT
  * build, this routine always fails.
  */
 drreg_status_t
-drreg_max_slots_used(OUT uint *max);
+drreg_max_slots_used(DR_PARAM_OUT uint *max);
 
 /***************************************************************************
  * ARITHMETIC FLAGS
@@ -266,7 +266,7 @@ DR_EXPORT
  * @return whether successful or an error code on failure.
  */
 drreg_status_t
-drreg_aflags_liveness(void *drcontext, instr_t *inst, OUT uint *value);
+drreg_aflags_liveness(void *drcontext, instr_t *inst, DR_PARAM_OUT uint *value);
 
 DR_EXPORT
 /**
@@ -382,7 +382,7 @@ DR_EXPORT
  */
 drreg_status_t
 drreg_reserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
-                       drvector_t *reg_allowed, OUT reg_id_t *reg);
+                       drvector_t *reg_allowed, DR_PARAM_OUT reg_id_t *reg);
 
 DR_EXPORT
 /**
@@ -393,7 +393,7 @@ DR_EXPORT
  */
 drreg_status_t
 drreg_reserve_dead_register(void *drcontext, instrlist_t *ilist, instr_t *where,
-                            drvector_t *reg_allowed, OUT reg_id_t *reg);
+                            drvector_t *reg_allowed, DR_PARAM_OUT reg_id_t *reg);
 
 DR_EXPORT
 /**
@@ -471,7 +471,7 @@ DR_EXPORT
  */
 drreg_status_t
 drreg_restore_app_values(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t opnd,
-                         INOUT reg_id_t *swap);
+                         DR_PARAM_INOUT reg_id_t *swap);
 
 DR_EXPORT
 /**
@@ -521,7 +521,8 @@ DR_EXPORT
 drreg_status_t
 drreg_statelessly_restore_app_value(void *drcontext, instrlist_t *ilist, reg_id_t reg,
                                     instr_t *where_restore, instr_t *where_respill,
-                                    bool *restore_needed OUT, bool *respill_needed OUT);
+                                    bool *restore_needed DR_PARAM_OUT,
+                                    bool *respill_needed DR_PARAM_OUT);
 
 DR_EXPORT
 /**
@@ -533,8 +534,8 @@ DR_EXPORT
  */
 drreg_status_t
 drreg_statelessly_restore_all(void *drcontext, instrlist_t *ilist, instr_t *where_restore,
-                              instr_t *where_respill, bool *restore_needed OUT,
-                              bool *respill_needed OUT);
+                              instr_t *where_respill, bool *restore_needed DR_PARAM_OUT,
+                              bool *respill_needed DR_PARAM_OUT);
 
 DR_EXPORT
 /**
@@ -558,8 +559,8 @@ DR_EXPORT
  * @return whether successful or an error code on failure.
  */
 drreg_status_t
-drreg_reservation_info(void *drcontext, reg_id_t reg, opnd_t *opnd OUT,
-                       bool *is_dr_slot OUT, uint *tls_offs OUT);
+drreg_reservation_info(void *drcontext, reg_id_t reg, opnd_t *opnd DR_PARAM_OUT,
+                       bool *is_dr_slot DR_PARAM_OUT, uint *tls_offs DR_PARAM_OUT);
 
 /**
  * Contains information about a register's reservation and restoration status.
@@ -610,7 +611,8 @@ DR_EXPORT
  * @return whether successful or an error code on failure.
  */
 drreg_status_t
-drreg_reservation_info_ex(void *drcontext, reg_id_t reg, drreg_reserve_info_t *info OUT);
+drreg_reservation_info_ex(void *drcontext, reg_id_t reg,
+                          drreg_reserve_info_t *info DR_PARAM_OUT);
 
 DR_EXPORT
 /**
@@ -659,8 +661,9 @@ DR_EXPORT
  * @return whether successful or an error code on failure.
  */
 drreg_status_t
-drreg_is_instr_spill_or_restore(void *drcontext, instr_t *instr, bool *spill OUT,
-                                bool *restore OUT, reg_id_t *reg_spilled OUT);
+drreg_is_instr_spill_or_restore(void *drcontext, instr_t *instr, bool *spill DR_PARAM_OUT,
+                                bool *restore DR_PARAM_OUT,
+                                reg_id_t *reg_spilled DR_PARAM_OUT);
 
 /**@}*/ /* end doxygen group */
 

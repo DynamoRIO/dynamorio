@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -50,7 +50,19 @@ The source code is available:
 
 For the very latest changes since the last official release, you can download \ref page_weekly_builds.
 
-The [9.0.1 release](https://github.com/DynamoRIO/dynamorio/releases/tag/release_9.0.1):
+The [10.0.0 release](https://github.com/DynamoRIO/dynamorio/releases/tag/release_10.0.0):
+
+  - [DynamoRIO-Windows-10.0.0.zip](https://github.com/DynamoRIO/dynamorio/releases/download/release_10.0.0/DynamoRIO-Windows-10.0.0.zip)
+
+  - [DynamoRIO-Linux-10.0.0.tar.gz](https://github.com/DynamoRIO/dynamorio/releases/download/release_10.0.0/DynamoRIO-Linux-10.0.0.tar.gz)
+
+  - [DynamoRIO-ARM-Linux-EABIHF-10.0.0.tar.gz](https://github.com/DynamoRIO/dynamorio/releases/download/release_10.0.0/DynamoRIO-ARM-Linux-EABIHF-10.0.0.tar.gz)
+
+  - [DynamoRIO-ARM-Android-EABI-10.0.0.tar.gz](https://github.com/DynamoRIO/dynamorio/releases/download/release_10.0.0/DynamoRIO-ARM-Android-EABI-10.0.0.tar.gz)
+
+  - [DynamoRIO-AArch64-Linux-10.0.0.tar.gz](https://github.com/DynamoRIO/dynamorio/releases/download/release_10.0.0/DynamoRIO-AArch64-Linux-10.0.0.tar.gz)
+
+The prior [9.0.1 release](https://github.com/DynamoRIO/dynamorio/releases/tag/release_9.0.1):
 
   - [DynamoRIO-Windows-9.0.1.zip](https://github.com/DynamoRIO/dynamorio/releases/download/release_9.0.1/DynamoRIO-Windows-9.0.1.zip)
 
@@ -61,32 +73,6 @@ The [9.0.1 release](https://github.com/DynamoRIO/dynamorio/releases/tag/release_
   - [DynamoRIO-ARM-Android-EABI-9.0.1.tar.gz](https://github.com/DynamoRIO/dynamorio/releases/download/release_9.0.1/DynamoRIO-ARM-Android-EABI-9.0.1.tar.gz)
 
   - [DynamoRIO-AArch64-Linux-9.0.1.tar.gz](https://github.com/DynamoRIO/dynamorio/releases/download/release_9.0.1/DynamoRIO-AArch64-Linux-9.0.1.tar.gz)
-
-The prior [8.0.0 release](https://github.com/DynamoRIO/dynamorio/releases/tag/release_8.0.0-1):
-
-  - [DynamoRIO-Windows-8.0.0-1.zip](https://github.com/DynamoRIO/dynamorio/releases/download/release_8.0.0-1/DynamoRIO-Windows-8.0.0-1.zip)
-
-  - [DynamoRIO-Linux-8.0.0-1.tar.gz](https://github.com/DynamoRIO/dynamorio/releases/download/release_8.0.0-1/DynamoRIO-Linux-8.0.0-1.tar.gz)
-
-  - [DynamoRIO-ARM-Linux-EABIHF-8.0.0-1.tar.gz](https://github.com/DynamoRIO/dynamorio/releases/download/release_8.0.0-1/DynamoRIO-ARM-Linux-EABIHF-8.0.0-1.tar.gz)
-
-  - [DynamoRIO-ARM-Android-EABI-8.0.0-1.tar.gz](https://github.com/DynamoRIO/dynamorio/releases/download/release_8.0.0-1/DynamoRIO-ARM-Android-EABI-8.0.0-1.tar.gz)
-
-  - [DynamoRIO-AArch64-Linux-8.0.0-1.tar.gz](https://github.com/DynamoRIO/dynamorio/releases/download/release_8.0.0-1/DynamoRIO-AArch64-Linux-8.0.0-1.tar.gz)
-
-Please note that older releases than 8.0.0 do not support recent operating systems, in particular recent Windows versions from Windows 10 1809 onward.
-
-The prior [7.1.0 release](https://github.com/DynamoRIO/dynamorio/releases/tag/release_7.1.0):
-
-  - [DynamoRIO-Windows-7.1.0-1.zip](https://github.com/DynamoRIO/dynamorio/releases/download/release_7.1.0/DynamoRIO-Windows-7.1.0-1.zip)
-
-  - [DynamoRIO-Linux-7.1.0-1.tar.gz](https://github.com/DynamoRIO/dynamorio/releases/download/release_7.1.0/DynamoRIO-Linux-7.1.0-1.tar.gz)
-
-  - [DynamoRIO-ARM-Linux-EABIHF-7.1.0-1.tar.gz](https://github.com/DynamoRIO/dynamorio/releases/download/release_7.1.0/DynamoRIO-ARM-Linux-EABIHF-7.1.0-1.tar.gz)
-
-  - [DynamoRIO-ARM-Android-EABI-7.1.0-1.tar.gz](https://github.com/DynamoRIO/dynamorio/releases/download/release_7.1.0/DynamoRIO-ARM-Android-EABI-7.1.0-1.tar.gz)
-
-  - [DynamoRIO-AArch64-Linux-7.1.0-1.tar.gz](https://github.com/DynamoRIO/dynamorio/releases/download/release_7.1.0/DynamoRIO-AArch64-Linux-7.1.0-1.tar.gz)
 
 
 ***************************************************************************

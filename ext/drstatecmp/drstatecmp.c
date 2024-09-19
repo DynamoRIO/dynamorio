@@ -188,7 +188,7 @@ drstatecmp_aflags_must_be_dead(instrlist_t *bb)
 
 static dr_emit_flags_t
 drstatecmp_app2app_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                         bool translating, OUT void **user_data)
+                         bool translating, DR_PARAM_OUT void **user_data)
 {
     /* Allocate space for user_data. */
     drstatecmp_user_data_t *data = (drstatecmp_user_data_t *)dr_thread_alloc(
@@ -483,7 +483,8 @@ drstatecmp_check_simd_value
 #elif defined(AARCHXX)
     (void *tag, dr_simd_t *value, dr_simd_t *expected)
 {
-    if (memcmp(value, expected, sizeof(dr_simd_t)))
+    size_t vl = proc_get_vector_length_bytes();
+    if (memcmp(value, expected, vl))
         drstatecmp_report_error("SIMD mismatch", tag);
 }
 #elif defined(RISCV64)
@@ -616,7 +617,11 @@ drstatecmp_check_machine_state(dr_mcontext_t *mc_instrumented, dr_mcontext_t *mc
 #endif
 
     drstatecmp_check_gpr_value("xsp", tag, mc_instrumented->xsp, mc_expected->xsp);
+#ifdef AARCH64
+    for (int i = 0; i < MCXT_NUM_SIMD_SVE_SLOTS; i++) {
+#else
     for (int i = 0; i < MCXT_NUM_SIMD_SLOTS; i++) {
+#endif
         drstatecmp_check_simd_value(tag, &mc_instrumented->simd[i],
                                     &mc_expected->simd[i]);
     }

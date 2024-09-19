@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,8 +37,12 @@
 #define _TLB_H_ 1
 
 #include "caching_device.h"
+#include "memref.h"
 #include "tlb_entry.h"
 #include "tlb_stats.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 class tlb_t : public caching_device_t {
 public:
@@ -56,5 +60,8 @@ protected:
     // Optimization: remember last pid in addition to last tag
     memref_pid_t last_pid_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _TLB_H_ */

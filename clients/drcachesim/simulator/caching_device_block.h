@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,6 +39,9 @@
 #include <stdint.h>
 #include "memref.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 // Assuming a block of a caching device represents a memory space of at least 4-byte,
 // e.g., a CPU cache line or a virtual/physical page, we can use special value
 // that cannot be computed from valid address as special tag for
@@ -61,10 +64,13 @@ public:
 
     addr_t tag_;
 
-    // XXX: using int_least64_t here results in a ~4% slowdown for 32-bit apps.
+    // XXX: using int64_t here results in a ~4% slowdown for 32-bit apps.
     // A 32-bit counter should be sufficient but we may want to revisit.
-    // We already have stdint.h so we can reinstate int_least64_t easily.
+    // We already have stdint.h so we can reinstate int64_t easily.
     int counter_; // for use by replacement policies
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _CACHING_DEVICE_BLOCK_H_ */

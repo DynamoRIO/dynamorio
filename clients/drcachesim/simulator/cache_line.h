@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,6 +38,9 @@
 
 #include "caching_device_block.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 class cache_line_t : public caching_device_block_t {
 
     // Currently, "cache_line_t" is identical to caching_device_block_t; however,
@@ -45,5 +48,8 @@ class cache_line_t : public caching_device_block_t {
     // and functions, e.g., coherency-related ones. Therefore, it is
     // reasonable to keep two identical classes now rather than use one instead.
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _CACHE_LINE_H_ */

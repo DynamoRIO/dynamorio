@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,16 @@
  */
 
 #include "cache_filter.h"
+
+#include <string>
+
 #include "cache_lru.h"
+#include "memref.h"
+#include "memtrace_stream.h"
+#include "cache_stats.h"
+#include "caching_device_block.h"
+#include "caching_device_stats.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -78,7 +87,9 @@ cache_filter_t::parallel_shard_init(memtrace_stream_t *shard_stream,
     return per_shard;
 }
 bool
-cache_filter_t::parallel_shard_filter(trace_entry_t &entry, void *shard_data)
+cache_filter_t::parallel_shard_filter(
+    trace_entry_t &entry, void *shard_data,
+    record_filter_t::record_filter_info_t &record_filter_info)
 {
     if (entry.type == TRACE_TYPE_MARKER && entry.size == TRACE_MARKER_TYPE_FILETYPE) {
         if (filter_instrs_)

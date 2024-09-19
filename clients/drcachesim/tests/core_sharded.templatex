@@ -1,0 +1,56 @@
+Reuse time tool aggregated results:
+Total accesses: 1402859
+Total instructions: 638938
+.*
+==================================================
+Reuse time tool results for shard [0-9] \(core [0-9]\):
+Total accesses: .*
+.*
+==================================================
+Reuse time tool results for shard [0-9] \(core [0-9]\):
+Total accesses: .*
+.*
+==================================================
+Reuse time tool results for shard [0-9] \(core [0-9]\):
+Total accesses: .*
+.*
+==================================================
+Reuse time tool results for shard [0-9] \(core [0-9]\):
+Total accesses: .*
+.*
+===========================================================================
+Reuse distance tool aggregated results:
+Total accesses: 2041797
+Instruction accesses: 638938
+.*
+==================================================
+Reuse distance tool results for shard [0-9] \(core [0-9]\):
+Total accesses: .*
+.*
+==================================================
+Reuse distance tool results for shard [0-9] \(core [0-9]\):
+Total accesses: .*
+.*
+==================================================
+Reuse distance tool results for shard [0-9] \(core [0-9]\):
+Total accesses: .*
+.*
+==================================================
+Reuse distance tool results for shard [0-9] \(core [0-9]\):
+Total accesses: .*
+.*
+===========================================================================
+Cache line histogram tool results:
+icache: 618 unique cache lines
+dcache: 695 unique cache lines
+.*
+===========================================================================
+Opcode mix tool results:
+        1185523 : total executed instructions
+         555262 :  rep movs
+.*
+===========================================================================
+Syscall mix tool results:
+  syscall count : syscall_num
+             84 :        15
+.*

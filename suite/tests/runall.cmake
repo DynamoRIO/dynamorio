@@ -91,6 +91,12 @@ else (UNIX)
 endif (UNIX)
 
 if (UNIX)
+  set(detach_cmd drconfig)
+else ()
+  set(detach_cmd drconfig.exe)
+endif()
+
+if (UNIX)
   set(MAX_ITERS 50000)
 else ()
   # Sleeping in longer units.
@@ -212,6 +218,23 @@ elseif ("${nudge}" MATCHES "<attach>")
     kill_background_process(ON)
     message(FATAL_ERROR "*** ${nudge_cmd} failed (${nudge_result}): ${nudge_err}***\n")
   endif (nudge_result)
+elseif ("${nudge}" MATCHES "<detach>")
+  set(nudge_cmd run_in_bg)
+  string(REGEX REPLACE "<detach>"
+    "${toolbindir}/drrun@-attach@${pid}@-takeover_sleep@-takeovers@1000"
+    nudge "${nudge}")
+  string(REGEX REPLACE "@" ";" nudge "${nudge}")
+  execute_process(COMMAND "${toolbindir}/${nudge_cmd}" ${nudge}
+    RESULT_VARIABLE nudge_result
+    ERROR_VARIABLE nudge_err
+    OUTPUT_VARIABLE nudge_out
+    )
+  # Combine out and err.
+  set(nudge_err "${nudge_out}${nudge_err}")
+  if (nudge_result)
+    kill_background_process(ON)
+    message(FATAL_ERROR "*** ${nudge_cmd} failed (${nudge_result}): ${nudge_err}***\n")
+  endif (nudge_result)
 else ()
   # drnudgeunix and drconfig have different syntax:
   if (WIN32)
@@ -250,19 +273,8 @@ if ("${orig_nudge}" MATCHES "-client")
       message(FATAL_ERROR "Timed out waiting for more output")
     endif ()
   endwhile()
-elseif ("${orig_nudge}" MATCHES "<attach>")
-  # wait until attached
-  set(iters 0)
-  while (NOT "${output}" MATCHES "attach\n")
-    do_sleep(0.1)
-    file(READ "${out}" output)
-    math(EXPR iters "${iters}+1")
-    if (${iters} GREATER ${MAX_ITERS})
-      kill_background_process(ON)
-      message(FATAL_ERROR "Timed out waiting for attach")
-    endif ()
-  endwhile()
-  # wait until thread init
+elseif ("${orig_nudge}" MATCHES "<attach>" OR "${orig_nudge}" MATCHES "<detach>")
+  # Wait until thread init.
   set(iters 0)
   while (NOT "${output}" MATCHES "thread init\n")
     do_sleep(0.1)
@@ -270,7 +282,7 @@ elseif ("${orig_nudge}" MATCHES "<attach>")
     math(EXPR iters "${iters}+1")
     if (${iters} GREATER ${MAX_ITERS})
       kill_background_process(ON)
-      message(FATAL_ERROR "Timed out waiting for attach")
+      message(FATAL_ERROR "Timed out waiting for thread init")
     endif ()
   endwhile()
 else ()
@@ -278,6 +290,28 @@ else ()
   # so we have to guess how long to wait.
   # FIXME: should we instead turn on stderr_mask?
   do_sleep(0.5)
+endif ()
+
+if ("${orig_nudge}" MATCHES "<detach>")
+  execute_process(COMMAND "${toolbindir}/${detach_cmd}" "-detach" ${pid}
+    RESULT_VARIABLE detach_result
+    ERROR_VARIABLE  detach_err
+    OUTPUT_VARIABLE detach_out)
+  set(detach_err "${detach_out}${detach_err}")
+  if (detach_result)
+    message(FATAL_ERROR "*** detach failed (${detach_result}): ${detach_err}***\n")
+  endif (detach_result)
+  # Wait until detach.
+  set(iters 0)
+  while (NOT "${output}" MATCHES "detach\n")
+    do_sleep(0.1)
+    file(READ "${out}" output)
+    math(EXPR iters "${iters}+1")
+    if (${iters} GREATER ${MAX_ITERS})
+      kill_background_process(ON)
+      message(FATAL_ERROR "Timed out waiting for detach")
+    endif ()
+  endwhile()
 endif ()
 
 kill_background_process(OFF)
@@ -306,11 +340,10 @@ endwhile()
 string(REGEX REPLACE "[ \n]+$" "" output "${output}")
 message("${output}")
 
+# Sometimes infloop keeps running: FIXME: figure out why.
 if (UNIX)
-  # sometimes infloop keeps running: FIXME: figure out why
   execute_process(COMMAND "${KILL}" -9 ${pid} ERROR_QUIET OUTPUT_QUIET)
   # we can't run pkill b/c there are other tests running infloop (i#1341)
 else ()
-  # We could run "${toolbindir}/DRkill.exe" -pid ${pid} but we shouldn't need to
-  # as the app itself has a timeout.
+  execute_process(COMMAND "${toolbindir}/DRkill.exe" -pid ${pid} ERROR_QUIET OUTPUT_QUIET)
 endif ()

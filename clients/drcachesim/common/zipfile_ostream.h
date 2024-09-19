@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -42,6 +42,9 @@
 #include <fstream>
 #include <sstream>
 #include "minizip/zip.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 // We need to override the stream buffer class which is where the file
 // writes happen.  We go ahead and use a simple buffer.  The stream
@@ -113,7 +116,7 @@ public:
         // so it's not 1980 in the file.
         if (zipOpenNewFileInZip(zip_, name.c_str(), nullptr, nullptr, 0, nullptr, 0,
                                 nullptr, Z_DEFLATED, Z_DEFAULT_COMPRESSION) != ZIP_OK) {
-            return "Failed to add new component to zipfile";
+            return "Failed to add new component " + name + " to zipfile";
         }
         return "";
     }
@@ -146,5 +149,8 @@ public:
         return zbuf->open_new_component(name);
     }
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _ZIPFILE_OSTREAM_H_ */

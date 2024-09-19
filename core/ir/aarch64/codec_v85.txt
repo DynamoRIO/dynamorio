@@ -1,0 +1,78 @@
+# **********************************************************
+# Copyright (c) 2024 ARM Limited. All rights reserved.
+# **********************************************************
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+#
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+#
+# * Neither the name of ARM Limited nor the names of its contributors may be
+#   used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL ARM LIMITED OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+# DAMAGE.
+
+# This file defines instruction encodings for v8.5 instructions.
+
+# See header comments in codec_v80.txt and opnd_defs.txt to understand how
+# instructions are defined for the purposes of decode and encode code
+# generation.
+
+# Instruction definitions:
+
+1001000110xxxxxx^^xxxxxxxxxxxxxx  n   1207 MTE      addg           x0sp : x5sp imm6_16_tag imm4_10
+11010101000000000100^^^^01011111  rw  1219 FlagM2   axflag                :
+110101010000001100100100xx011111  n   1211 BTI       bti                : imm2_6
+0x1011100x100001111010xxxxxxxxxx  n   1212 FRINTTS frint32x     vdq_q_sd_0 : vdq_q_sd_5
+0001111001101000110000xxxxxxxxxx  n   1212 FRINTTS frint32x             d0 : d5
+0001111000101000110000xxxxxxxxxx  n   1212 FRINTTS frint32x             s0 : s5
+0x0011100x100001111010xxxxxxxxxx  n   1213 FRINTTS frint32z     vdq_q_sd_0 : vdq_q_sd_5
+0001111001101000010000xxxxxxxxxx  n   1213 FRINTTS frint32z             d0 : d5
+0001111000101000010000xxxxxxxxxx  n   1213 FRINTTS frint32z             s0 : s5
+0x1011100x100001111110xxxxxxxxxx  n   1214 FRINTTS frint64x     vdq_q_sd_0 : vdq_q_sd_5
+0001111001101001110000xxxxxxxxxx  n   1214 FRINTTS frint64x             d0 : d5
+0001111000101001110000xxxxxxxxxx  n   1214 FRINTTS frint64x             s0 : s5
+0x0011100x100001111110xxxxxxxxxx  n   1215 FRINTTS frint64z     vdq_q_sd_0 : vdq_q_sd_5
+0001111001101001010000xxxxxxxxxx  n   1215 FRINTTS frint64z             d0 : d5
+0001111000101001010000xxxxxxxxxx  n   1215 FRINTTS frint64z             s0 : s5
+10011010110xxxxx000101xxxxxxxxxx  n   1203 MTE       gmi             x0 : x5sp x16
+10011010110xxxxx000100xxxxxxxxxx  n   1204 MTE       irg           x0sp : x5sp x16
+11011001011xxxxxxxxx00xxxxxxxxxx  n   1201 MTE       ldg             x0 : x0 mem9_tag
+1101100111100000000000xxxxxxxxxx  n   1218 MTE2     ldgm             x0 : mem9_tag
+11011001101xxxxxxxxx01xxxxxxxxxx  n   1197 MTE      st2g  mem9post_tag x5sp : x0sp x5sp mem9off_tag
+11011001101xxxxxxxxx11xxxxxxxxxx  n   1197 MTE      st2g  mem9_tag x5sp : x0sp x5sp mem9off_tag
+11011001101xxxxxxxxx10xxxxxxxxxx  n   1197 MTE      st2g       mem9_tag : x0sp
+11011001001xxxxxxxxx01xxxxxxxxxx  n   1198 MTE       stg  mem9post_tag x5sp : x0sp x5sp mem9off_tag
+11011001001xxxxxxxxx11xxxxxxxxxx  n   1198 MTE       stg  mem9_tag x5sp : x0sp x5sp mem9off_tag
+11011001001xxxxxxxxx10xxxxxxxxxx  n   1198 MTE       stg       mem9_tag : x0sp
+1101100110100000000000xxxxxxxxxx  n   1216 MTE2     stgm       mem9_tag : x0
+0110100010xxxxxxxxxxxxxxxxxxxxxx  n   1202 MTE      stgp  mem7post_tag x5sp : x0 x10 x5sp mem7off_tag
+0110100110xxxxxxxxxxxxxxxxxxxxxx  n   1202 MTE      stgp  mem7_tag x5sp : x0 x10 x5sp mem7off_tag
+0110100100xxxxxxxxxxxxxxxxxxxxxx  n   1202 MTE      stgp       mem7_tag : x0 x10
+11011001111xxxxxxxxx01xxxxxxxxxx  n   1199 MTE     stz2g  mem9post_tag x5sp : x0sp x5sp mem9off_tag
+11011001111xxxxxxxxx11xxxxxxxxxx  n   1199 MTE     stz2g  mem9_tag x5sp : x0sp x5sp mem9off_tag
+11011001111xxxxxxxxx10xxxxxxxxxx  n   1199 MTE     stz2g       mem9_tag : x0sp
+11011001011xxxxxxxxx01xxxxxxxxxx  n   1200 MTE      stzg  mem9post_tag x5sp : x0sp x5sp mem9off_tag
+11011001011xxxxxxxxx11xxxxxxxxxx  n   1200 MTE      stzg  mem9_tag x5sp : x0sp x5sp mem9off_tag
+11011001011xxxxxxxxx10xxxxxxxxxx  n   1200 MTE      stzg       mem9_tag : x0sp
+1101100100100000000000xxxxxxxxxx  n   1217 MTE2    stzgm       mem9_tag : x0
+1101000110xxxxxx^^xxxxxxxxxxxxxx  n   1208 MTE      subg           x0sp : x5sp imm6_16_tag imm4_10
+10011010110xxxxx000000xxxxxxxxxx  n   1205 MTE      subp             x0 : x5sp x16sp
+10111010110xxxxx000000xxxxxxxxxx  n   1206 MTE     subps             x0 : x5sp x16sp
+11010101000000000100^^^^00111111  rw  1220 FlagM2   xaflag                :

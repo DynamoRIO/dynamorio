@@ -90,7 +90,9 @@
 
 /* indexed by enum */
 extern const char *const reg_names[];
+extern const char *const d_r_reg_virtual_names[];
 extern const reg_id_t dr_reg_fixer[];
+extern const reg_id_t d_r_reg_id_to_virtual[];
 
 #ifdef X86
 #    define REG_START_SPILL DR_REG_XAX
@@ -178,6 +180,13 @@ opnd_get_reg_dcontext_offs(reg_id_t reg);
 int
 opnd_get_reg_mcontext_offs(reg_id_t reg);
 
+/* Assumes that \p reg is a DR_REG_ 32-bit register constant.
+ * Returns the corresponding DR_ISA_REGDEPS virtual register of \p reg, which holds 8-bit
+ * DR_REG_V values.
+ */
+reg_id_t
+d_r_reg_to_virtual(reg_id_t reg);
+
 /* internal version */
 reg_t
 reg_get_value_priv(reg_id_t reg, priv_mcontext_t *mc);
@@ -195,6 +204,12 @@ opnd_compute_address_helper(opnd_t opnd, priv_mcontext_t *mc, ptr_int_t scaled_i
 
 bool
 opnd_is_abs_base_disp(opnd_t opnd);
+
+#if defined(AARCH64)
+/* Internal function shared with vector address calculation */
+ptr_int_t
+d_r_compute_scaled_index_aarch64(opnd_t opnd, reg_t index_val);
+#endif
 
 #ifndef STANDALONE_DECODER
 opnd_t
@@ -325,8 +340,53 @@ opnd_immed_float_arch(uint opcode);
 #ifdef AARCHXX
 #    define DR_REG_STOLEN_MIN IF_X64_ELSE(DR_REG_X9, DR_REG_R8) /* DR_REG_SYSNUM + 1 */
 #    define DR_REG_STOLEN_MAX IF_X64_ELSE(DR_REG_X29, DR_REG_R12)
-/* DR's stolen register for TLS access */
+/* DR's stolen register for TLS access. */
 extern reg_id_t dr_reg_stolen;
+#elif defined(RISCV64)
+#    define DR_REG_STOLEN_MIN DR_REG_X18 /* DR_REG_SYSNUM + 1 */
+#    define DR_REG_STOLEN_MAX DR_REG_X31
+/* DR's stolen register for TLS access. */
+extern reg_id_t dr_reg_stolen;
+#elif defined(RISCV64)
+/* DR's stolen register for TLS access */
+#    define DR_REG_STOLEN_MIN DR_REG_X18 /* DR_REG_SYSNUM + 1 */
+#    define DR_REG_STOLEN_MAX DR_REG_X31
+extern reg_id_t dr_reg_stolen;
+#endif
+
+#ifdef AARCH64
+#    if !defined(DR_HOST_NOT_TARGET) && !defined(STANDALONE_DECODER) && \
+        !defined(BUILD_TESTS)
+/* Size of the SVE Z vector registers in bytes. */
+#        define OPSZ_SVE_VECLEN_BYTES opnd_size_from_bytes(proc_get_vector_length_bytes())
+/* Size of the SVE P predicate registers in bytes. */
+#        define OPSZ_SVE_PREDLEN_BYTES \
+            opnd_size_from_bytes(proc_get_vector_length_bytes() / 8)
+#    else
+/* SVE vector length for off-line decoder set using dr_set_vector_length() or -vl
+ * option with drdisas,
+ * e.g.
+ * $ drdisas -vl 256 e58057a1 85865e6b
+ *  e58057a1   str    %z1 -> +0x05(%x29)[32byte]
+ *  85865e6b   ldr    +0x37(%x19)[32byte] -> %z11
+ * $
+ */
+/* Size of the SVE Z vector registers in bytes. */
+#        define OPSZ_SVE_VECLEN_BYTES opnd_size_from_bytes(dr_get_vector_length() / 8)
+/* Size of the SVE P predicate registers in bytes. */
+#        define OPSZ_SVE_PREDLEN_BYTES \
+            opnd_size_from_bytes((dr_get_vector_length() / 8) / 8)
+#    endif
+#endif /*AARCH64*/
+
+#ifdef RISCV64
+#    if !defined(DR_HOST_NOT_TARGE) && !defined(STANDALONE_DECODER) && \
+        !defined(BUILD_TESTS)
+/* Size of the RVV registers in bytes. */
+#        define OPSZ_RVV_VECLEN_BYTES opnd_size_from_bytes(proc_get_vector_length_bytes())
+#    else
+#        define OPSZ_RVV_VECLEN_BYTES opnd_size_from_bytes(dr_get_vector_length() / 8)
+#    endif
 #endif
 
 #endif /* _OPND_H_ */

@@ -13,12 +13,12 @@ pre-DR detach
 all done
 Cache simulation results:
 Core #0 \([0-9] traced CPU\(s\): [#0-9, ]+\)
-  L1I stats:
+  L1I0 .* stats:
     Hits:                       *[0-9,\.]*
     Misses:                     *[0-9,\.]*
     Compulsory misses:          *[0-9,\.]*
     Invalidations:              *0.*
-  L1D stats:
+  L1D0 .* stats:
     Hits:                       *[0-9,\.]*
     Misses:                     *[0-9,\.]*
     Compulsory misses:          *[0-9,\.]*
@@ -26,7 +26,7 @@ Core #0 \([0-9] traced CPU\(s\): [#0-9, ]+\)
 Core #1 \([0-9] traced CPU\(s\).*
 Core #2 \([0-9] traced CPU\(s\).*
 Core #3 \([0-9] traced CPU\(s\).*
-LL stats:
+LL .* stats:
     Hits:                       *[0-9,\.]*
     Misses:                     *[0-9,\.]*
     Compulsory misses:          *[0-9,\.]*

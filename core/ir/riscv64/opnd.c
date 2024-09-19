@@ -34,6 +34,8 @@
 #include "instr.h"
 #include "arch.h"
 
+reg_id_t dr_reg_stolen = DR_REG_NULL;
+
 uint
 opnd_immed_float_arch(uint opcode)
 {
@@ -46,12 +48,10 @@ DR_API
 bool
 reg_is_stolen(reg_id_t reg)
 {
+    if (dr_reg_fixer[reg] == dr_reg_stolen && dr_reg_fixer[reg] != DR_REG_NULL)
+        return true;
     return false;
 }
-
-#define X0_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, x0)))
-#define X1_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, x1)))
-#define F0_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, f0)))
 
 int
 opnd_get_reg_dcontext_offs(reg_id_t reg)
@@ -69,8 +69,7 @@ opnd_get_reg_dcontext_offs(reg_id_t reg)
 opnd_t
 opnd_create_sized_tls_slot(int offs, opnd_size_t size)
 {
-    /* FIXME i#3544: Check if this is actual TP or one stolen by DynamoRIO? */
-    return opnd_create_base_disp(DR_REG_TP, REG_NULL, 0, offs, size);
+    return opnd_create_base_disp(dr_reg_stolen, REG_NULL, 0, offs, size);
 }
 
 #endif /* !STANDALONE_DECODER */

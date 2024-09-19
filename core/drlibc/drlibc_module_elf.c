@@ -130,7 +130,8 @@ is_elf_so_header_common(app_pc base, size_t size, bool memory)
         ASSERT_CURIOSITY(!memory ||
 #ifdef X64
                          elf_header.e_machine == EM_X86_64 ||
-                         elf_header.e_machine == EM_AARCH64
+                         elf_header.e_machine == EM_AARCH64 ||
+                         elf_header.e_machine == EM_RISCV
 #else
                          elf_header.e_machine == EM_386 || elf_header.e_machine == EM_ARM
 #endif
@@ -171,7 +172,8 @@ module_segment_prot_to_osprot(ELF_PROGRAM_HEADER_TYPE *prog_hdr)
  */
 app_pc
 module_vaddr_from_prog_header(app_pc prog_header, uint num_segments,
-                              OUT app_pc *out_first_end, OUT app_pc *out_max_end)
+                              DR_PARAM_OUT app_pc *out_first_end,
+                              DR_PARAM_OUT app_pc *out_max_end)
 {
     uint i;
     app_pc min_vaddr = (app_pc)POINTER_MAX;

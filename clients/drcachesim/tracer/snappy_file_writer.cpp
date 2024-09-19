@@ -33,6 +33,9 @@
 #include "snappy_file_writer.h"
 #include <string.h>
 
+namespace dynamorio {
+namespace drmemtrace {
+
 bool
 snappy_file_writer_t::write_file_header()
 {
@@ -93,3 +96,6 @@ snappy_file_writer_t::compress_and_write(const void *buf, size_t count)
         return count;
     }
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

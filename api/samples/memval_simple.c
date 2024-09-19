@@ -322,14 +322,14 @@ handle_post_write(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t 
      * this.
      */
     for (i = 0; i < instr_num_dsts(prev_instr); ++i) {
-        if (opnd_is_memory_reference(instr_get_dst(prev_instr, i))) {
+        const opnd_t dst = instr_get_dst(prev_instr, i);
+        if (opnd_is_memory_reference(dst)) {
             if (seen_memref) {
                 DR_ASSERT_MSG(false, "Found inst with multiple memory destinations");
                 break;
             }
             seen_memref = true;
-            instrument_post_write(drcontext, ilist, where, instr_get_dst(prev_instr, i),
-                                  prev_instr, reg_addr);
+            instrument_post_write(drcontext, ilist, where, dst, prev_instr, reg_addr);
         }
     }
 }
@@ -377,14 +377,14 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *wher
          * we assume no instruction has multiple distinct memory destination operands.
          */
         for (i = 0; i < instr_num_dsts(instr_operands); ++i) {
-            if (opnd_is_memory_reference(instr_get_dst(instr_operands, i))) {
+            const opnd_t dst = instr_get_dst(instr_operands, i);
+            if (opnd_is_memory_reference(dst)) {
                 if (seen_memref) {
                     DR_ASSERT_MSG(false, "Found inst with multiple memory destinations");
                     break;
                 }
-                data->reg_addr = instrument_pre_write(drcontext, bb, where,
-                                                      data->last_opcode, instr_operands,
-                                                      instr_get_dst(instr_operands, i));
+                data->reg_addr = instrument_pre_write(
+                    drcontext, bb, where, data->last_opcode, instr_operands, dst);
                 seen_memref = true;
             }
         }

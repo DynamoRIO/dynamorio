@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2010-2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -380,8 +380,8 @@ char_is_quote(char c)
 }
 
 static void
-parse_option_array(client_id_t client_id, const char *opstr, int *argc OUT,
-                   const char ***argv OUT, size_t max_token_size)
+parse_option_array(client_id_t client_id, const char *opstr, int *argc DR_PARAM_OUT,
+                   const char ***argv DR_PARAM_OUT, size_t max_token_size)
 {
     const char **a;
     int cnt;
@@ -1885,8 +1885,8 @@ instrument_restore_state(dcontext_t *dcontext, bool restore_memory,
  */
 bool
 instrument_restore_nonfcache_state_prealloc(dcontext_t *dcontext, bool restore_memory,
-                                            INOUT priv_mcontext_t *mcontext,
-                                            OUT dr_mcontext_t *client_mcontext)
+                                            DR_PARAM_INOUT priv_mcontext_t *mcontext,
+                                            DR_PARAM_OUT dr_mcontext_t *client_mcontext)
 {
     if (!dr_xl8_hook_exists())
         return true;
@@ -1911,7 +1911,7 @@ instrument_restore_nonfcache_state_prealloc(dcontext_t *dcontext, bool restore_m
  */
 bool
 instrument_restore_nonfcache_state(dcontext_t *dcontext, bool restore_memory,
-                                   INOUT priv_mcontext_t *mcontext)
+                                   DR_PARAM_INOUT priv_mcontext_t *mcontext)
 {
     dr_mcontext_t client_mcontext;
     return instrument_restore_nonfcache_state_prealloc(dcontext, restore_memory, mcontext,
@@ -2510,6 +2510,13 @@ dr_using_all_private_caches(void)
 }
 
 DR_API
+bool
+dr_running_under_dynamorio(void)
+{
+    return !standalone_library;
+}
+
+DR_API
 void
 dr_request_synchronized_exit(void)
 {
@@ -2599,7 +2606,8 @@ dr_get_options(client_id_t id)
 
 DR_API
 bool
-dr_get_option_array(client_id_t id, int *argc OUT, const char ***argv OUT)
+dr_get_option_array(client_id_t id, int *argc DR_PARAM_OUT,
+                    const char ***argv DR_PARAM_OUT)
 {
     size_t i;
     for (i = 0; i < num_client_libs; i++) {
@@ -2703,14 +2711,14 @@ dr_num_app_args(void)
 }
 
 int
-dr_get_app_args(OUT dr_app_arg_t *args_array, int args_count)
+dr_get_app_args(DR_PARAM_OUT dr_app_arg_t *args_array, int args_count)
 {
     /* XXX i#2662: Add support for Windows. */
     return get_app_args(args_array, (int)args_count);
 }
 
 const char *
-dr_app_arg_as_cstring(IN dr_app_arg_t *app_arg, char *buf, int buf_size)
+dr_app_arg_as_cstring(DR_PARAM_IN dr_app_arg_t *app_arg, char *buf, int buf_size)
 {
     if (app_arg == NULL) {
         set_client_error_code(NULL, DR_ERROR_INVALID_PARAMETER);
@@ -3343,7 +3351,7 @@ dr_query_memory(const byte *pc, byte **base_pc, size_t *size, uint *prot)
 
 DR_API
 bool
-dr_query_memory_ex(const byte *pc, OUT dr_mem_info_t *info)
+dr_query_memory_ex(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info)
 {
     bool res;
 #if defined(UNIX) && defined(HAVE_MEMINFO)
@@ -3936,7 +3944,7 @@ dr_atomic_store64(volatile int64 *dest, int64 val)
 
 byte *
 dr_map_executable_file(const char *filename, dr_map_executable_flags_t flags,
-                       size_t *size OUT)
+                       size_t *size DR_PARAM_OUT)
 {
 #ifdef MACOS
     /* XXX i#1285: implement private loader on Mac */
@@ -4141,14 +4149,15 @@ dr_dup_file_handle(file_t f)
 
 DR_API
 bool
-dr_file_size(file_t fd, OUT uint64 *size)
+dr_file_size(file_t fd, DR_PARAM_OUT uint64 *size)
 {
     return os_get_file_size_by_handle(fd, size);
 }
 
 DR_API
 void *
-dr_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot, uint flags)
+dr_map_file(file_t f, size_t *size DR_PARAM_INOUT, uint64 offs, app_pc addr, uint prot,
+            uint flags)
 {
     return (void *)d_r_map_file(
         f, size, offs, addr, prot,
@@ -4631,9 +4640,9 @@ dr_set_tls_field(void *drcontext, void *value)
 }
 
 DR_API void *
-dr_get_dr_segment_base(IN reg_id_t seg)
+dr_get_dr_segment_base(DR_PARAM_IN reg_id_t seg)
 {
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
     if (seg == dr_reg_stolen)
         return os_get_dr_tls_base(get_thread_private_dcontext());
     else
@@ -4645,12 +4654,12 @@ dr_get_dr_segment_base(IN reg_id_t seg)
 
 DR_API
 bool
-dr_raw_tls_calloc(OUT reg_id_t *tls_register, OUT uint *offset, IN uint num_slots,
-                  IN uint alignment)
+dr_raw_tls_calloc(DR_PARAM_OUT reg_id_t *tls_register, DR_PARAM_OUT uint *offset,
+                  DR_PARAM_IN uint num_slots, DR_PARAM_IN uint alignment)
 {
     CLIENT_ASSERT(tls_register != NULL, "dr_raw_tls_calloc: tls_register cannot be NULL");
     CLIENT_ASSERT(offset != NULL, "dr_raw_tls_calloc: offset cannot be NULL");
-    *tls_register = IF_X86_ELSE(SEG_TLS, IF_RISCV64_ELSE(DR_REG_TP, dr_reg_stolen));
+    *tls_register = IF_X86_ELSE(SEG_TLS, dr_reg_stolen);
     if (num_slots == 0)
         return true;
     return os_tls_calloc(offset, num_slots, alignment);
@@ -4782,8 +4791,10 @@ dr_client_thread_set_suspendable(bool suspendable)
 
 DR_API
 bool
-dr_suspend_all_other_threads_ex(OUT void ***drcontexts, OUT uint *num_suspended,
-                                OUT uint *num_unsuspended, dr_suspend_flags_t flags)
+dr_suspend_all_other_threads_ex(DR_PARAM_OUT void ***drcontexts,
+                                DR_PARAM_OUT uint *num_suspended,
+                                DR_PARAM_OUT uint *num_unsuspended,
+                                dr_suspend_flags_t flags)
 {
     uint out_suspended = 0, out_unsuspended = 0;
     thread_record_t **threads;
@@ -4878,14 +4889,15 @@ dr_suspend_all_other_threads_ex(OUT void ***drcontexts, OUT uint *num_suspended,
 
 DR_API
 bool
-dr_suspend_all_other_threads(OUT void ***drcontexts, OUT uint *num_suspended,
-                             OUT uint *num_unsuspended)
+dr_suspend_all_other_threads(DR_PARAM_OUT void ***drcontexts,
+                             DR_PARAM_OUT uint *num_suspended,
+                             DR_PARAM_OUT uint *num_unsuspended)
 {
     return dr_suspend_all_other_threads_ex(drcontexts, num_suspended, num_unsuspended, 0);
 }
 
 bool
-dr_resume_all_other_threads(IN void **drcontexts, IN uint num_suspended)
+dr_resume_all_other_threads(DR_PARAM_IN void **drcontexts, DR_PARAM_IN uint num_suspended)
 {
     thread_record_t **threads;
     int num_threads;
@@ -4981,7 +4993,7 @@ dr_is_tracking_where_am_i(void)
 
 DR_API
 dr_where_am_i_t
-dr_where_am_i(void *drcontext, app_pc pc, OUT void **tag_out)
+dr_where_am_i(void *drcontext, app_pc pc, DR_PARAM_OUT void **tag_out)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     CLIENT_ASSERT(drcontext != NULL, "invalid param");
@@ -6492,15 +6504,22 @@ dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *
     else if (TEST(DR_MC_CONTROL, dmc->flags))
         dmc->xsp = get_mcontext(dcontext)->xsp;
 
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
     if (mc != NULL || TEST(DR_MC_INTEGER, dmc->flags)) {
         /* get the stolen register's app value */
         if (mc != NULL) {
             set_stolen_reg_val(mc,
                                (reg_t)d_r_get_tls(os_tls_offset(TLS_REG_STOLEN_SLOT)));
+#    ifdef RISCV64
+            set_tp_reg_val(mc, (reg_t)os_get_app_tls_base(dcontext, TLS_REG_LIB));
+#    endif
         } else {
             set_stolen_reg_val(dr_mcontext_as_priv_mcontext(dmc),
                                (reg_t)d_r_get_tls(os_tls_offset(TLS_REG_STOLEN_SLOT)));
+#    ifdef RISCV64
+            set_tp_reg_val(dr_mcontext_as_priv_mcontext(dmc),
+                           (reg_t)os_get_app_tls_base(dcontext, TLS_REG_LIB));
+#    endif
         }
     }
 #endif
@@ -6525,7 +6544,8 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
 {
     priv_mcontext_t *state;
     dcontext_t *dcontext = (dcontext_t *)drcontext;
-    IF_AARCHXX(reg_t reg_val = 0 /* silence the compiler warning */;)
+    IF_AARCHXX_OR_RISCV64(reg_t stolen_reg_val = 0 /* silence the compiler warning */;)
+    IF_RISCV64(reg_t tp_reg_val = 0;)
     CLIENT_ASSERT(!TEST(SELFPROT_DCONTEXT, DYNAMO_OPTION(protect_mask)),
                   "DR context protection NYI");
     CLIENT_ASSERT(context != NULL, "invalid context");
@@ -6556,7 +6576,7 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
      * will override any save_fpstate xmm values, as desired.
      */
     state = get_priv_mcontext_from_dstack(dcontext);
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
     if (TEST(DR_MC_INTEGER, context->flags)) {
         /* Set the stolen register's app value in TLS, not on stack (we rely
          * on our stolen reg retaining its value on the stack)
@@ -6564,15 +6584,21 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
         priv_mcontext_t *mc = dr_mcontext_as_priv_mcontext(context);
         d_r_set_tls(os_tls_offset(TLS_REG_STOLEN_SLOT), (void *)get_stolen_reg_val(mc));
         /* save the reg val on the stack to be clobbered by the the copy below */
-        reg_val = get_stolen_reg_val(state);
+        stolen_reg_val = get_stolen_reg_val(state);
+#    ifdef RISCV64
+        tp_reg_val = get_tp_reg_val(state);
+#    endif
     }
 #endif
     if (!dr_mcontext_to_priv_mcontext(state, context))
         return false;
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
     if (TEST(DR_MC_INTEGER, context->flags)) {
         /* restore the reg val on the stack clobbered by the copy above */
-        set_stolen_reg_val(state, reg_val);
+        set_stolen_reg_val(state, stolen_reg_val);
+#    ifdef RISCV64
+        set_tp_reg_val(state, tp_reg_val);
+#    endif
     }
 #endif
 
@@ -7352,7 +7378,7 @@ DR_API
 reg_id_t
 dr_get_stolen_reg()
 {
-    return IF_AARCHXX_ELSE(dr_reg_stolen, REG_NULL);
+    return IF_X86_ELSE(DR_REG_NULL, dr_reg_stolen);
 }
 
 DR_API
@@ -7365,7 +7391,7 @@ dr_insert_get_stolen_reg_value(void *drcontext, instrlist_t *ilist, instr_t *ins
                   "dr_insert_get_stolen_reg: reg has wrong size\n");
     CLIENT_ASSERT(!reg_is_stolen(reg),
                   "dr_insert_get_stolen_reg: reg is used by DynamoRIO\n");
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
     instrlist_meta_preinsert(
         ilist, instr, instr_create_restore_from_tls(drcontext, reg, TLS_REG_STOLEN_SLOT));
 #endif
@@ -7382,7 +7408,7 @@ dr_insert_set_stolen_reg_value(void *drcontext, instrlist_t *ilist, instr_t *ins
                   "dr_insert_set_stolen_reg: reg has wrong size\n");
     CLIENT_ASSERT(!reg_is_stolen(reg),
                   "dr_insert_set_stolen_reg: reg is used by DynamoRIO\n");
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
     instrlist_meta_preinsert(
         ilist, instr, instr_create_save_to_tls(drcontext, reg, TLS_REG_STOLEN_SLOT));
 #endif
@@ -7422,6 +7448,28 @@ dr_insert_it_instrs(void *drcontext, instrlist_t *ilist)
         return 0;
     return reinstate_it_blocks((dcontext_t *)drcontext, ilist, instrlist_first(ilist),
                                NULL);
+#endif
+}
+
+DR_API
+bool
+dr_insert_get_app_tls(void *drcontext, instrlist_t *ilist, instr_t *instr,
+                      reg_id_t tls_reg, reg_id_t reg)
+{
+#if defined(X86)
+    return dr_insert_get_seg_base(drcontext, ilist, instr, tls_reg, reg);
+#elif defined(RISCV64)
+    CLIENT_ASSERT(reg_is_pointer_sized(reg),
+                  "dr_insert_get_app_tls: reg has wrong size\n");
+    CLIENT_ASSERT(reg != tls_reg,
+                  "dr_insert_get_app_tls: reg should not be tls_reg itself\n");
+    instrlist_meta_preinsert(ilist, instr,
+                             instr_create_restore_from_tls(
+                                 drcontext, reg, os_get_app_tls_base_offset(tls_reg)));
+
+    return true;
+#else
+    return false;
 #endif
 }
 
@@ -7733,12 +7781,11 @@ instrument_persist_patch(dcontext_t *dcontext, void *perscxt, byte *bb_start,
 
 DR_API
 bool
-dr_register_persist_ro(size_t (*func_size)(void *drcontext, void *perscxt,
-                                           size_t file_offs, void **user_data OUT),
-                       bool (*func_persist)(void *drcontext, void *perscxt, file_t fd,
-                                            void *user_data),
-                       bool (*func_resurrect)(void *drcontext, void *perscxt,
-                                              byte **map INOUT))
+dr_register_persist_ro(
+    size_t (*func_size)(void *drcontext, void *perscxt, size_t file_offs,
+                        void **user_data DR_PARAM_OUT),
+    bool (*func_persist)(void *drcontext, void *perscxt, file_t fd, void *user_data),
+    bool (*func_resurrect)(void *drcontext, void *perscxt, byte **map DR_PARAM_OUT))
 {
     if (func_size == NULL || func_persist == NULL || func_resurrect == NULL)
         return false;
@@ -7750,12 +7797,11 @@ dr_register_persist_ro(size_t (*func_size)(void *drcontext, void *perscxt,
 
 DR_API
 bool
-dr_unregister_persist_ro(size_t (*func_size)(void *drcontext, void *perscxt,
-                                             size_t file_offs, void **user_data OUT),
-                         bool (*func_persist)(void *drcontext, void *perscxt, file_t fd,
-                                              void *user_data),
-                         bool (*func_resurrect)(void *drcontext, void *perscxt,
-                                                byte **map INOUT))
+dr_unregister_persist_ro(
+    size_t (*func_size)(void *drcontext, void *perscxt, size_t file_offs,
+                        void **user_data DR_PARAM_OUT),
+    bool (*func_persist)(void *drcontext, void *perscxt, file_t fd, void *user_data),
+    bool (*func_resurrect)(void *drcontext, void *perscxt, byte **map DR_PARAM_OUT))
 {
     bool res = true;
     if (func_size != NULL) {
@@ -7781,12 +7827,11 @@ dr_unregister_persist_ro(size_t (*func_size)(void *drcontext, void *perscxt,
 
 DR_API
 bool
-dr_register_persist_rx(size_t (*func_size)(void *drcontext, void *perscxt,
-                                           size_t file_offs, void **user_data OUT),
-                       bool (*func_persist)(void *drcontext, void *perscxt, file_t fd,
-                                            void *user_data),
-                       bool (*func_resurrect)(void *drcontext, void *perscxt,
-                                              byte **map INOUT))
+dr_register_persist_rx(
+    size_t (*func_size)(void *drcontext, void *perscxt, size_t file_offs,
+                        void **user_data DR_PARAM_OUT),
+    bool (*func_persist)(void *drcontext, void *perscxt, file_t fd, void *user_data),
+    bool (*func_resurrect)(void *drcontext, void *perscxt, byte **map DR_PARAM_OUT))
 {
     if (func_size == NULL || func_persist == NULL || func_resurrect == NULL)
         return false;
@@ -7798,12 +7843,11 @@ dr_register_persist_rx(size_t (*func_size)(void *drcontext, void *perscxt,
 
 DR_API
 bool
-dr_unregister_persist_rx(size_t (*func_size)(void *drcontext, void *perscxt,
-                                             size_t file_offs, void **user_data OUT),
-                         bool (*func_persist)(void *drcontext, void *perscxt, file_t fd,
-                                              void *user_data),
-                         bool (*func_resurrect)(void *drcontext, void *perscxt,
-                                                byte **map INOUT))
+dr_unregister_persist_rx(
+    size_t (*func_size)(void *drcontext, void *perscxt, size_t file_offs,
+                        void **user_data DR_PARAM_OUT),
+    bool (*func_persist)(void *drcontext, void *perscxt, file_t fd, void *user_data),
+    bool (*func_resurrect)(void *drcontext, void *perscxt, byte **map DR_PARAM_OUT))
 {
     bool res = true;
     if (func_size != NULL) {
@@ -7829,12 +7873,11 @@ dr_unregister_persist_rx(size_t (*func_size)(void *drcontext, void *perscxt,
 
 DR_API
 bool
-dr_register_persist_rw(size_t (*func_size)(void *drcontext, void *perscxt,
-                                           size_t file_offs, void **user_data OUT),
-                       bool (*func_persist)(void *drcontext, void *perscxt, file_t fd,
-                                            void *user_data),
-                       bool (*func_resurrect)(void *drcontext, void *perscxt,
-                                              byte **map INOUT))
+dr_register_persist_rw(
+    size_t (*func_size)(void *drcontext, void *perscxt, size_t file_offs,
+                        void **user_data DR_PARAM_OUT),
+    bool (*func_persist)(void *drcontext, void *perscxt, file_t fd, void *user_data),
+    bool (*func_resurrect)(void *drcontext, void *perscxt, byte **map DR_PARAM_OUT))
 {
     if (func_size == NULL || func_persist == NULL || func_resurrect == NULL)
         return false;
@@ -7846,12 +7889,11 @@ dr_register_persist_rw(size_t (*func_size)(void *drcontext, void *perscxt,
 
 DR_API
 bool
-dr_unregister_persist_rw(size_t (*func_size)(void *drcontext, void *perscxt,
-                                             size_t file_offs, void **user_data OUT),
-                         bool (*func_persist)(void *drcontext, void *perscxt, file_t fd,
-                                              void *user_data),
-                         bool (*func_resurrect)(void *drcontext, void *perscxt,
-                                                byte **map INOUT))
+dr_unregister_persist_rw(
+    size_t (*func_size)(void *drcontext, void *perscxt, size_t file_offs,
+                        void **user_data DR_PARAM_OUT),
+    bool (*func_persist)(void *drcontext, void *perscxt, file_t fd, void *user_data),
+    bool (*func_resurrect)(void *drcontext, void *perscxt, byte **map DR_PARAM_OUT))
 {
     bool res = true;
     if (func_size != NULL) {

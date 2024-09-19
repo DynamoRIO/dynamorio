@@ -211,8 +211,8 @@ elf_dt_abs_addr(ELF_DYNAMIC_ENTRY_TYPE *dyn, app_pc base, size_t size, size_t vi
 static bool
 module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
                     app_pc mod_base, app_pc mod_max_end, app_pc base, size_t view_size,
-                    bool at_map, bool dyn_reloc, ptr_int_t load_delta, OUT char **soname,
-                    OUT os_module_data_t *out_data)
+                    bool at_map, bool dyn_reloc, ptr_int_t load_delta,
+                    DR_PARAM_OUT char **soname, DR_PARAM_OUT os_module_data_t *out_data)
 {
     /* if at_map use file offset as segments haven't been remapped yet and
      * the dynamic section isn't usually in the first segment (XXX: in
@@ -346,10 +346,11 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
  */
 bool
 module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn_reloc,
-                            OUT app_pc *out_base /* relative pc */,
-                            OUT app_pc *out_first_end /* relative pc */,
-                            OUT app_pc *out_max_end /* relative pc */,
-                            OUT char **out_soname, OUT os_module_data_t *out_data)
+                            DR_PARAM_OUT app_pc *out_base /* relative pc */,
+                            DR_PARAM_OUT app_pc *out_first_end /* relative pc */,
+                            DR_PARAM_OUT app_pc *out_max_end /* relative pc */,
+                            DR_PARAM_OUT char **out_soname,
+                            DR_PARAM_OUT os_module_data_t *out_data)
 {
     app_pc mod_base = NULL, first_end = NULL, max_end = NULL;
     char *soname = NULL;
@@ -504,9 +505,10 @@ os_module_update_dynamic_info(app_pc base, size_t size, bool at_map)
 
 bool
 module_read_program_header(app_pc base, uint segment_num,
-                           OUT app_pc *segment_base /* relative pc */,
-                           OUT app_pc *segment_end /* relative pc */,
-                           OUT uint *segment_prot, OUT size_t *segment_align)
+                           DR_PARAM_OUT app_pc *segment_base /* relative pc */,
+                           DR_PARAM_OUT app_pc *segment_end /* relative pc */,
+                           DR_PARAM_OUT uint *segment_prot,
+                           DR_PARAM_OUT size_t *segment_align)
 {
     ELF_HEADER_TYPE *elf_hdr = (ELF_HEADER_TYPE *)base;
     ELF_PROGRAM_HEADER_TYPE *prog_hdr;
@@ -623,7 +625,7 @@ elf_gnu_hash(const char *name)
 
 static bool
 elf_sym_matches(ELF_SYM_TYPE *sym, char *strtab, const char *name,
-                bool *is_indirect_code OUT)
+                bool *is_indirect_code DR_PARAM_OUT)
 {
     /* i#248/PR 510905: FC12 libc strlen has this type */
     bool is_ifunc = (ELF_ST_TYPE(sym->st_info) == STT_GNU_IFUNC);
@@ -726,7 +728,7 @@ elf_hash_lookup(const char *name, ptr_int_t load_delta, ELF_SYM_TYPE *symtab,
 /* get the address by using the hashtable information in os_module_data_t */
 app_pc
 get_proc_address_from_os_data(os_module_data_t *os_data, ptr_int_t load_delta,
-                              const char *name, OUT bool *is_indirect_code)
+                              const char *name, DR_PARAM_OUT bool *is_indirect_code)
 {
     if (os_data->hashtab != NULL) {
         Elf_Symndx *buckets = (Elf_Symndx *)os_data->buckets;
@@ -754,7 +756,8 @@ get_proc_address_from_os_data(os_module_data_t *os_data, ptr_int_t load_delta,
  * and use it here
  */
 generic_func_t
-get_proc_address_ex(module_base_t lib, const char *name, bool *is_indirect_code OUT)
+get_proc_address_ex(module_base_t lib, const char *name,
+                    bool *is_indirect_code DR_PARAM_OUT)
 {
     app_pc res = NULL;
     module_area_t *ma;
@@ -900,8 +903,8 @@ module_get_section_with_name(app_pc image, size_t img_size, const char *sec_name
 
 /* fills os_data and initializes the hash table. */
 bool
-module_read_os_data(app_pc base, bool dyn_reloc, OUT ptr_int_t *load_delta,
-                    OUT os_module_data_t *os_data, OUT char **soname)
+module_read_os_data(app_pc base, bool dyn_reloc, DR_PARAM_OUT ptr_int_t *load_delta,
+                    DR_PARAM_OUT os_module_data_t *os_data, DR_PARAM_OUT char **soname)
 {
     app_pc v_base, v_end;
     ELF_HEADER_TYPE *elf_hdr = (ELF_HEADER_TYPE *)base;
@@ -998,7 +1001,7 @@ module_init_os_privmod_data_from_dyn(os_privmod_data_t *opd, ELF_DYNAMIC_ENTRY_T
  */
 void
 module_get_os_privmod_data(app_pc base, size_t size, bool dyn_reloc,
-                           OUT os_privmod_data_t *pd)
+                           DR_PARAM_OUT os_privmod_data_t *pd)
 {
     app_pc mod_base, mod_end;
     ELF_HEADER_TYPE *elf_hdr = (ELF_HEADER_TYPE *)base;
@@ -1078,7 +1081,8 @@ module_find_phdr(app_pc base, uint phdr_type)
 }
 
 bool
-module_get_relro(app_pc base, OUT app_pc *relro_base, OUT size_t *relro_size)
+module_get_relro(app_pc base, DR_PARAM_OUT app_pc *relro_base,
+                 DR_PARAM_OUT size_t *relro_size)
 {
     ELF_PROGRAM_HEADER_TYPE *phdr = module_find_phdr(base, PT_GNU_RELRO);
     app_pc mod_base;
@@ -1100,7 +1104,6 @@ module_lookup_symbol(ELF_SYM_TYPE *sym, os_privmod_data_t *pd)
 {
     app_pc res;
     const char *name;
-    privmod_t *mod;
     bool is_ifunc;
     dcontext_t *dcontext = get_thread_private_dcontext();
 
@@ -1129,11 +1132,21 @@ module_lookup_symbol(ELF_SYM_TYPE *sym, os_privmod_data_t *pd)
      * FIXME: i#461 We do not tell weak/global, but return on the first we see.
      */
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
-    mod = privload_first_module();
     /* FIXME i#3850: Symbols are currently looked up following the dependency chain
      * depth-first instead of breadth-first.
      */
-    while (mod != NULL) {
+    for (privmod_t *mod = privload_first_module(); mod != NULL;
+         mod = privload_next_module(mod)) {
+        /* Skip other client modules at this point because some will not be
+         * initialised and clients should be leaves of the dependency tree and
+         * not provide symbols for other modules. Skipping just the uninitialised
+         * client modules should also work but might introduce an element of
+         * unpredictability if we are unsure in what order modules will be
+         * initialised. Skipping all uninitialised modules should also work but
+         * might hide a more serious problem. See i#4501.
+         */
+        if (mod->is_top_level_client)
+            continue;
         pd = mod->os_privmod_data;
         ASSERT(pd != NULL && name != NULL);
 
@@ -1168,7 +1181,6 @@ module_lookup_symbol(ELF_SYM_TYPE *sym, os_privmod_data_t *pd)
             }
             return res;
         }
-        mod = privload_next_module(mod);
     }
     return NULL;
 }

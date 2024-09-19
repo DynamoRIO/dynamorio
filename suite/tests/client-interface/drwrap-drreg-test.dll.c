@@ -45,7 +45,7 @@ static int load_count;
 static app_pc addr_two_args;
 
 static void
-wrap_pre(void *wrapcxt, OUT void **user_data)
+wrap_pre(void *wrapcxt, DR_PARAM_OUT void **user_data)
 {
     bool ok;
     CHECK(wrapcxt != NULL && user_data != NULL, "invalid arg");
@@ -104,8 +104,9 @@ clean_call_rw(void)
     mc.flags = DR_MC_CONTROL | DR_MC_INTEGER;
     bool ok = dr_get_mcontext(drcontext, &mc);
     CHECK(ok, "dr_get_mcontext failed");
-    CHECK(IF_X86_ELSE(mc.xdx, mc.r1) == 4, "app reg val not restored for clean call");
-    IF_X86_ELSE(mc.xcx, mc.r2) = 3;
+    CHECK(IF_X86_ELSE(mc.xdx, IF_AARCHXX_ELSE(mc.r1, mc.a1)) == 4,
+          "app reg val not restored for clean call");
+    IF_X86_ELSE(mc.xcx, IF_AARCHXX_ELSE(mc.r2, mc.a2)) = 3;
     ok = dr_set_mcontext(drcontext, &mc);
     CHECK(ok, "dr_set_mcontext failed");
 }
@@ -121,9 +122,9 @@ clean_call_check_rw(reg_t reg1, reg_t reg2)
     mc.flags = DR_MC_CONTROL | DR_MC_INTEGER;
     bool ok = dr_get_mcontext(drcontext, &mc);
     CHECK(ok, "dr_get_mcontext failed");
-    CHECK(IF_X86_ELSE(mc.xdx, mc.r1) == SENTINEL,
+    CHECK(IF_X86_ELSE(mc.xdx, IF_AARCHXX_ELSE(mc.r1, mc.a1)) == SENTINEL,
           "tool val1 in mc not restored after call");
-    CHECK(IF_X86_ELSE(mc.xdi, mc.r4) == SENTINEL,
+    CHECK(IF_X86_ELSE(mc.xdi, IF_AARCHXX_ELSE(mc.r4, mc.a4)) == SENTINEL,
           "tool val2 in mc not restored after call");
 }
 
@@ -136,7 +137,8 @@ clean_call_multipath(void)
     mc.flags = DR_MC_CONTROL | DR_MC_INTEGER;
     bool ok = dr_get_mcontext(drcontext, &mc);
     CHECK(ok, "dr_get_mcontext failed");
-    CHECK(IF_X86_ELSE(mc.xdx, mc.r1) == 4, "app reg val not restored for clean call");
+    CHECK(IF_X86_ELSE(mc.xdx, IF_AARCHXX_ELSE(mc.r1, mc.a1)) == 4,
+          "app reg val not restored for clean call");
 #ifdef X86
     /* This tests the drreg_statelessly_restore_app_value() respill which only
      * happens with aflags in xax.
@@ -149,7 +151,7 @@ clean_call_multipath(void)
 
 static dr_emit_flags_t
 event_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-               bool translating, OUT void **user_data)
+               bool translating, DR_PARAM_OUT void **user_data)
 {
     int *nop_count = (int *)dr_thread_alloc(drcontext, sizeof(*nop_count));
     *user_data = nop_count;
@@ -169,6 +171,10 @@ clobber_key_regs(void *drcontext, instrlist_t *bb, instr_t *inst)
     drreg_set_vector_entry(&allowed, DR_REG_XAX, true);
     drreg_set_vector_entry(&allowed, DR_REG_XDI, true);
     drreg_set_vector_entry(&allowed, DR_REG_XSI, true);
+#elif defined(RISCV64)
+    drreg_set_vector_entry(&allowed, DR_REG_A0, true);
+    drreg_set_vector_entry(&allowed, DR_REG_A1, true);
+    drreg_set_vector_entry(&allowed, DR_REG_A2, true);
 #else
     drreg_set_vector_entry(&allowed, DR_REG_R0, true);
     drreg_set_vector_entry(&allowed, DR_REG_R1, true);
@@ -218,6 +224,9 @@ insert_rw_call(void *drcontext, instrlist_t *bb, instr_t *inst)
 #ifdef X86
     drreg_set_vector_entry(&allowed, DR_REG_XDX, true);
     drreg_set_vector_entry(&allowed, DR_REG_XDI, true);
+#elif defined(RISCV64)
+    drreg_set_vector_entry(&allowed, DR_REG_A1, true);
+    drreg_set_vector_entry(&allowed, DR_REG_A4, true);
 #else
     drreg_set_vector_entry(&allowed, DR_REG_R1, true);
     drreg_set_vector_entry(&allowed, DR_REG_R4, true);
@@ -267,6 +276,8 @@ insert_multipath_call(void *drcontext, instrlist_t *bb, instr_t *inst)
     /* Clobber the reg we check in clean_call_multipath(). */
 #ifdef X86
     drreg_set_vector_entry(&allowed, DR_REG_XDX, true);
+#elif defined(RISCV64)
+    drreg_set_vector_entry(&allowed, DR_REG_A1, true);
 #else
     drreg_set_vector_entry(&allowed, DR_REG_R1, true);
 #endif
@@ -283,6 +294,12 @@ insert_multipath_call(void *drcontext, instrlist_t *bb, instr_t *inst)
 
     instr_t *skip_call = INSTR_CREATE_label(drcontext);
     /* The app executes twice and sets rcx/r0 to 0 for one of them. */
+#if defined(RISCV64)
+    instrlist_meta_preinsert(bb, inst,
+                             INSTR_CREATE_beq(drcontext, opnd_create_instr(skip_call),
+                                              opnd_create_reg(DR_REG_A0),
+                                              OPND_CREATE_INT32(0)));
+#else
     instrlist_meta_preinsert(
         bb, inst,
         XINST_CREATE_cmp(drcontext, opnd_create_reg(IF_X86_ELSE(DR_REG_XCX, DR_REG_R0)),
@@ -290,6 +307,7 @@ insert_multipath_call(void *drcontext, instrlist_t *bb, instr_t *inst)
     instrlist_meta_preinsert(
         bb, inst,
         XINST_CREATE_jump_cond(drcontext, DR_PRED_EQ, opnd_create_instr(skip_call)));
+#endif
     dr_insert_clean_call_ex(drcontext, bb, inst, clean_call_multipath,
                             DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_MULTIPATH, 0);
     instrlist_meta_preinsert(bb, inst, skip_call);
@@ -331,7 +349,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     /* Look for nop;nop;nop in reg_val_test() and 4 nops in multipath_test(). */
     if (instr_is_app(inst)) {
         int *nop_count = (int *)user_data;
-        if (instr_get_opcode(inst) == OP_nop IF_ARM(|| instr_is_mov_nop(inst))) {
+        if (instr_is_nop(inst) IF_ARM(|| instr_is_mov_nop(inst))) {
             ++(*nop_count);
         } else {
             if (*nop_count == 3) {

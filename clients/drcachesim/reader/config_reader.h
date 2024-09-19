@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2020 Google, LLC  All rights reserved.
+ * Copyright (c) 2018-2023 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,15 +37,19 @@
 #ifndef _CONFIG_READER_H_
 #define _CONFIG_READER_H_ 1
 
+#include <stdint.h>
+
 #include <fstream>
 #include <map>
 #include <string>
+#include <vector>
 
-#include "../common/options.h"
-#include "../simulator/cache.h"
-#include "../simulator/cache_simulator_create.h"
+#include "options.h"
+#include "cache.h"
+#include "cache_simulator_create.h"
 
-using namespace std;
+namespace dynamorio {
+namespace drmemtrace {
 
 // Cache configuration settings.
 struct cache_params_t {
@@ -55,6 +59,7 @@ struct cache_params_t {
         , size(0)
         , assoc(0)
         , inclusive(false)
+        , exclusive(false)
         , parent(CACHE_PARENT_MEMORY)
         , replace_policy(REPLACE_POLICY_LRU)
         , prefetcher(PREFETCH_POLICY_NONE)
@@ -75,6 +80,8 @@ struct cache_params_t {
     unsigned int assoc;
     // Is the cache inclusive of its children.
     bool inclusive;
+    // Is the cache exclusive of its children.
+    bool exclusive;
     // Name of the cache's parent. LLC's parent is main memory
     // (CACHE_PARENT_MEMORY).
     std::string parent;
@@ -115,5 +122,8 @@ private:
         return false;
     }
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _CONFIG_READER_H_ */

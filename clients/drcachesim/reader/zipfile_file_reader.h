@@ -38,6 +38,10 @@
 #include <zlib.h>
 #include "minizip/unzip.h"
 #include "file_reader.h"
+#include "record_file_reader.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 struct zipfile_reader_t {
     zipfile_reader_t()
@@ -48,6 +52,11 @@ struct zipfile_reader_t {
         : file(file)
     {
     }
+    zipfile_reader_t(unzFile file, const std::string &path)
+        : file(file)
+        , path(path)
+    {
+    }
     unzFile file;
     // Without our own buffering, reading one trace_entry_t record at a time
     // is 60% slower.  This buffer size was picked through experimentation to
@@ -55,9 +64,14 @@ struct zipfile_reader_t {
     trace_entry_t buf[4096];
     trace_entry_t *cur_buf = buf;
     trace_entry_t *max_buf = buf;
+    // Store the path and component names for debug messages.
+    std::string path;
+    char name[128];
+    int verbosity = 0;
 };
 
 typedef file_reader_t<zipfile_reader_t> zipfile_file_reader_t;
+typedef record_file_reader_t<zipfile_reader_t> zipfile_record_file_reader_t;
 
 /* Declare this so the compiler knows not to use the default implementation in the
  * class declaration.
@@ -65,5 +79,8 @@ typedef file_reader_t<zipfile_reader_t> zipfile_file_reader_t;
 template <>
 reader_t &
 file_reader_t<zipfile_reader_t>::skip_instructions(uint64_t instruction_count);
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _ZIPFILE_FILE_READER_H_ */

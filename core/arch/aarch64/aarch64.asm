@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2022 Google, Inc. All rights reserved.
+ * Copyright (c) 2019-2024 Google, Inc. All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -47,14 +47,7 @@ START_FILE
 #endif
 
 /* sizeof(priv_mcontext_t) rounded up to a multiple of 16 */
-#define PRIV_MCONTEXT_SIZE 800
-
-/* offset of priv_mcontext_t in dr_mcontext_t */
-#define PRIV_MCONTEXT_OFFSET 16
-
-#if PRIV_MCONTEXT_OFFSET < 16 || PRIV_MCONTEXT_OFFSET % 16 != 0
-# error PRIV_MCONTEXT_OFFSET
-#endif
+#define PRIV_MCONTEXT_SIZE 2480
 
 /* offsetof(spill_state_t, r0) */
 #define spill_state_r0_OFFSET 0
@@ -76,7 +69,7 @@ START_FILE
 /* offsetof(priv_mcontext_t, simd) */
 #define simd_OFFSET (16 * ARG_SZ*2 + 32)
 /* offsetof(dcontext_t, dstack) */
-#define dstack_OFFSET     0x368
+#define dstack_OFFSET     0x9f8
 /* offsetof(dcontext_t, is_exiting) */
 #define is_exiting_OFFSET (dstack_OFFSET+1*ARG_SZ)
 /* offsetof(struct tlsdesc_t, arg) */
@@ -105,18 +98,11 @@ DECL_EXTERN(dr_setjmp_sigmask)
 
 DECL_EXTERN(d_r_internal_error)
 
-/* For debugging: report an error if the function called by call_switch_stack()
- * unexpectedly returns.  Also used elsewhere.
- */
-        DECLARE_FUNC(unexpected_return)
-GLOBAL_LABEL(unexpected_return:)
-        CALLC3(GLOBAL_REF(d_r_internal_error), HEX(0), HEX(0), HEX(0))
-        /* d_r_internal_error normally never returns */
-        /* Infinite loop is intentional.  Can we do better in release build?
-         * XXX: why not a debug instr?
-         */
-        JUMP  GLOBAL_REF(unexpected_return)
-        END_FUNC(unexpected_return)
+DECL_EXTERN(exiting_thread_count)
+DECL_EXTERN(d_r_initstack)
+DECL_EXTERN(initstack_mutex)
+DECL_EXTERN(icache_op_struct)
+DECL_EXTERN(linkstub_selfmod)
 
 /* bool mrs_id_reg_supported(void)
  * Checks for kernel support of the MRS instr when reading system registers
@@ -159,7 +145,9 @@ call_dispatch_alt_stack_no_free:
         /* Switch stack back. */
         mov      sp, x19
         /* Test return_on_return. */
-        cbz      w20, GLOBAL_REF(unexpected_return)
+        cbnz     w20, call_dispatch_alt_stack_ok_return
+        bl       GLOBAL_REF(unexpected_return)
+call_dispatch_alt_stack_ok_return:
         /* Restore and return. */
         ldr      x19, [sp, #16]
         ldp      x20, x30, [sp], #32
@@ -238,14 +226,43 @@ save_priv_mcontext_helper:
         str      w2, [x0, #(16 * ARG_SZ*2 + 12)]
         str      w3, [x0, #(16 * ARG_SZ*2 + 16)]
         add      x4, x0, #simd_OFFSET
-        st1      {v0.2d-v3.2d}, [x4], #64
-        st1      {v4.2d-v7.2d}, [x4], #64
-        st1      {v8.2d-v11.2d}, [x4], #64
-        st1      {v12.2d-v15.2d}, [x4], #64
-        st1      {v16.2d-v19.2d}, [x4], #64
-        st1      {v20.2d-v23.2d}, [x4], #64
-        st1      {v24.2d-v27.2d}, [x4], #64
-        st1      {v28.2d-v31.2d}, [x4], #64
+
+        /* Registers Q0-Q31 map directly to registers V0-V31. */
+        str      q0, [x4], #64
+        str      q1, [x4], #64
+        str      q2, [x4], #64
+        str      q3, [x4], #64
+        str      q4, [x4], #64
+        str      q5, [x4], #64
+        str      q6, [x4], #64
+        str      q7, [x4], #64
+        str      q8, [x4], #64
+        str      q9, [x4], #64
+        str      q10, [x4], #64
+        str      q11, [x4], #64
+        str      q12, [x4], #64
+        str      q13, [x4], #64
+        str      q14, [x4], #64
+        str      q15, [x4], #64
+        str      q16, [x4], #64
+        str      q17, [x4], #64
+        str      q18, [x4], #64
+        str      q19, [x4], #64
+        str      q20, [x4], #64
+        str      q21, [x4], #64
+        str      q22, [x4], #64
+        str      q23, [x4], #64
+        str      q24, [x4], #64
+        str      q25, [x4], #64
+        str      q26, [x4], #64
+        str      q27, [x4], #64
+        str      q28, [x4], #64
+        str      q29, [x4], #64
+        str      q30, [x4], #64
+        str      q31, [x4], #64
+        /* TODO i#5365, i#5036: Save Z/P regs as well? Will require runtime
+         * check of ID_AA64PFR0_EL1 for FEAT_SVE.
+         */
         ret
 
         DECLARE_EXPORTED_FUNC(dr_app_start)
@@ -325,7 +342,7 @@ GLOBAL_LABEL(cleanup_and_terminate:)
 #endif
 
         /* inc exiting_thread_count to avoid being killed once off all_threads list */
-        AARCH64_ADRP_GOT_LDR(GLOBAL_REF(exiting_thread_count), x0)
+        AARCH64_ADRP_GOT(GLOBAL_REF(exiting_thread_count), x0)
         CALLC2(GLOBAL_REF(atomic_add), x0, #1)
 
         /* save dcontext->dstack for freeing later and set dcontext->is_exiting */
@@ -349,7 +366,7 @@ cat_thread_only:
         CALLC0(GLOBAL_REF(dynamo_thread_exit))
 cat_no_thread:
         /* switch to d_r_initstack for cleanup of dstack */
-        AARCH64_ADRP_GOT_LDR(GLOBAL_REF(initstack_mutex), x26)
+        AARCH64_ADRP_GOT(GLOBAL_REF(initstack_mutex), x26)
 cat_spin:
         CALLC2(GLOBAL_REF(atomic_swap), x26, #1)
         cbz      w0, cat_have_lock
@@ -358,7 +375,7 @@ cat_spin:
 
 cat_have_lock:
         /* switch stack */
-        AARCH64_ADRP_GOT_LDR(GLOBAL_REF(d_r_initstack), x0)
+        AARCH64_ADRP_GOT(GLOBAL_REF(d_r_initstack), x0)
         ldr      x0, [x0]
         mov      sp, x0
 
@@ -366,12 +383,12 @@ cat_have_lock:
         CALLC1(GLOBAL_REF(dynamo_thread_stack_free_and_exit), x24) /* pass dstack */
 
         /* give up initstack_mutex */
-        AARCH64_ADRP_GOT_LDR(GLOBAL_REF(initstack_mutex), x0)
+        AARCH64_ADRP_GOT(GLOBAL_REF(initstack_mutex), x0)
         mov      x1, #0
         str      x1, [x0]
 
         /* dec exiting_thread_count (allows another thread to kill us) */
-        AARCH64_ADRP_GOT_LDR(GLOBAL_REF(exiting_thread_count), x0)
+        AARCH64_ADRP_GOT(GLOBAL_REF(exiting_thread_count), x0)
         CALLC2(GLOBAL_REF(atomic_add), x0, #-1)
 
         /* put system call number in x8 */
@@ -401,7 +418,6 @@ GLOBAL_LABEL(atomic_add:)
         DECLARE_FUNC(global_do_syscall_int)
 GLOBAL_LABEL(global_do_syscall_int:)
 #ifdef MACOS
-        mov      x16, #0
         svc      #0x80
 #else
         /* FIXME i#1569: NYI on AArch64 */
@@ -531,23 +547,6 @@ GLOBAL_LABEL(_dynamorio_runtime_resolve:)
 #endif /* UNIX */
 
 #ifdef LINUX
-/* thread_id_t dynamorio_clone(uint flags, byte *newsp, void *ptid, void *tls,
- *                             void *ctid, void (*func)(void))
- */
-        DECLARE_FUNC(dynamorio_clone)
-GLOBAL_LABEL(dynamorio_clone:)
-        stp      ARG6, x0, [ARG2, #-16]! /* func is now on TOS of newsp */
-        /* All args are already in syscall registers. */
-        mov      SYSNUM_REG, #SYS_clone
-        svc      #0
-        cbnz     x0, dynamorio_clone_parent
-        ldp      x0, x1, [sp], #16
-        blr      x0
-        bl       GLOBAL_REF(unexpected_return)
-dynamorio_clone_parent:
-        ret
-        END_FUNC(dynamorio_clone)
-
         DECLARE_FUNC(dynamorio_sigreturn)
 GLOBAL_LABEL(dynamorio_sigreturn:)
         mov      SYSNUM_REG, #SYS_rt_sigreturn
@@ -582,14 +581,14 @@ GLOBAL_LABEL(main_signal_handler:)
 #if defined(MACOS) && defined(AARCH64)
         DECLARE_FUNC(dynamorio_sigreturn)
 GLOBAL_LABEL(dynamorio_sigreturn:)
-        /* TODO i#5383: Get correct syscall number for svc. */
-        brk 0xb001 /* For now we break with a unique code. */
+        mov      w16, #184 /* SYS_sigreturn. */
+        svc      #0x80
         END_FUNC(dynamorio_sigreturn)
 
         DECLARE_FUNC(dynamorio_sys_exit)
 GLOBAL_LABEL(dynamorio_sys_exit:)
-        /* TODO i#5383: Get correct syscall number for svc. */
-        brk 0xb002 /* For now we break with a unique code. */
+        mov      w16, #1 /* SYS_exit. */
+        svc      #0x80
         END_FUNC(dynamorio_sys_exit)
 
         DECLARE_FUNC(new_bsdthread_intercept)
@@ -602,9 +601,17 @@ GLOBAL_LABEL(new_bsdthread_intercept:)
 #ifdef MACOS
         DECLARE_FUNC(main_signal_handler)
 GLOBAL_LABEL(main_signal_handler:)
-        /* see sendsig_set_thread_state64 in unix_signal.c */
-        mov      ARG6, sp
-        b        GLOBAL_REF(main_signal_handler_C) /* chain call */
+        /* See sendsig_set_thread_state64 in unix_signal.c */
+        mov      ARG7, sp
+        /* Save 3 args (ucxt=5th, style=2nd, token=6th) for sigreturn. */
+        stp      ARG5, ARG6, [sp, #-32]!
+        str      ARG2, [sp, #16]
+        mov      ARG6, ARG7
+        bl       GLOBAL_REF(main_signal_handler_C)
+        ldr      ARG2, [sp, #16]
+        ldp      ARG1, ARG3, [sp], #32
+        CALLC0(GLOBAL_REF(dynamorio_sigreturn))
+        bl       GLOBAL_REF(unexpected_return)
         END_FUNC(main_signal_handler)
 #endif
 

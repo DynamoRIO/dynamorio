@@ -1,4 +1,5 @@
 /* ***************************************************************************
+ * Copyright (c) 2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2013 Branden Clark  All rights reserved.
  * ***************************************************************************/
 
@@ -45,6 +46,9 @@
 #    define DRGUI_TOOL_INTERFACE_H
 
 #    include "drgui_options_interface.h"
+
+namespace dynamorio {
+namespace drgui {
 
 /**
  * Interface for drgui to interact with its loaded tools.
@@ -101,6 +105,9 @@ signals:
 
 #    define DrGUI_ToolInterface_iid "DynamoRIO.DrGUI.ToolInterface"
 
-Q_DECLARE_INTERFACE(drgui_tool_interface_t, DrGUI_ToolInterface_iid)
+} // namespace drgui
+} // namespace dynamorio
+
+Q_DECLARE_INTERFACE(dynamorio::drgui::drgui_tool_interface_t, DrGUI_ToolInterface_iid)
 
 #endif

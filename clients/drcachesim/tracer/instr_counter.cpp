@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -35,21 +35,35 @@
  * Instruction counting mode where we do not record any trace data.
  */
 
-#include <limits.h>
-#include <atomic>
-#include "dr_api.h"
-#include "drmgr.h"
-#include "drmemtrace.h"
-#include "drreg.h"
-#include "drx.h"
-#include "droption.h"
 #include "instr_counter.h"
-#include "instru.h"
-#include "tracer.h"
+
+#include <limits>
+#include <stddef.h>
+#include <atomic>
+#include <cstdint>
+
+// These libraries are safe to use during initialization only.
+// See api/docs/deployment.dox sec_static_DR.
+#include <algorithm>
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <vector>
+
+#include "dr_api.h"
+#include "dr_defines.h"
+#include "drmgr.h"
+#include "drreg.h"
+#include "options.h"
+#include "utils.h"
+#include "drmemtrace.h"
 #include "func_trace.h"
+#include "instru.h"
 #include "output.h"
-#include "../common/options.h"
-#include "../common/utils.h"
+#include "tracer.h"
+#include "droption.h"
+#include "drx.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -67,15 +81,88 @@ static uint64 instr_count;
 // but to avoid the complexity of different instrumentation we need a threshold.
 #define DELAY_FOREVER_THRESHOLD (1024 * 1024 * 1024)
 
-static std::atomic<bool> reached_trace_after_instrs;
+static std::atomic<bool> reached_trace_after_instrs(false);
+std::atomic<uint64> retrace_start_timestamp;
+
+static std::atomic<uint> irregular_window_idx(0);
+static drvector_t irregular_windows_list;
+static uint num_irregular_windows = 0;
+
+void
+delete_instr_window_lists()
+{
+    if (num_irregular_windows == 0)
+        return;
+    if (!drvector_delete(&irregular_windows_list))
+        FATAL("Fatal error: irregular_windows_list global vector was not deleted.");
+}
+
+void
+maybe_increment_irregular_window_index()
+{
+    if (irregular_window_idx.load(std::memory_order_acquire) < num_irregular_windows)
+        irregular_window_idx.fetch_add(1, std::memory_order_release);
+}
+
+struct irregular_window_t {
+    uint64 no_trace_for_instrs = 0;
+    uint64 trace_for_instrs = 0;
+};
+
+uint64
+get_initial_no_trace_for_instrs_value()
+{
+    if (op_trace_after_instrs.get_value() > 0)
+        return (uint64)op_trace_after_instrs.get_value();
+    if (num_irregular_windows > 0) {
+        void *irregular_window_ptr = drvector_get_entry(&irregular_windows_list, 0);
+        if (irregular_window_ptr == nullptr)
+            FATAL("Fatal error: irregular window not found at index 0.");
+        return ((irregular_window_t *)irregular_window_ptr)->no_trace_for_instrs;
+    }
+    return 0;
+}
+
+uint64
+get_current_trace_for_instrs_value()
+{
+    if (op_trace_for_instrs.get_value() > 0)
+        return (uint64)op_trace_for_instrs.get_value();
+    if (num_irregular_windows > 0) {
+        uint i = irregular_window_idx.load(std::memory_order_acquire);
+        void *irregular_window_ptr = drvector_get_entry(&irregular_windows_list, i);
+        if (irregular_window_ptr == nullptr)
+            FATAL("Fatal error: irregular window not found at index %d.", i);
+        return ((irregular_window_t *)irregular_window_ptr)->trace_for_instrs;
+    }
+    return 0;
+}
+
+// This function returns the no_trace interval for all windows except the first one.
+// The no_trace interval for the first window is returned by
+// get_initial_no_trace_for_instrs_value().
+uint64
+get_current_no_trace_for_instrs_value()
+{
+    if (op_retrace_every_instrs.get_value() > 0)
+        return (uint64)op_retrace_every_instrs.get_value();
+    if (num_irregular_windows > 0) {
+        uint i = irregular_window_idx.load(std::memory_order_acquire);
+        void *irregular_window_ptr = drvector_get_entry(&irregular_windows_list, i);
+        if (irregular_window_ptr == nullptr)
+            FATAL("Fatal error: irregular window not found at index %d.", i);
+        return ((irregular_window_t *)irregular_window_ptr)->no_trace_for_instrs;
+    }
+    return 0;
+}
 
 static bool
 has_instr_count_threshold_to_enable_tracing()
 {
-    if (op_trace_after_instrs.get_value() > 0 &&
+    if (get_initial_no_trace_for_instrs_value() > 0 &&
         !reached_trace_after_instrs.load(std::memory_order_acquire))
         return true;
-    if (op_retrace_every_instrs.get_value() > 0)
+    if (get_current_no_trace_for_instrs_value() > 0)
         return true;
     return false;
 }
@@ -83,11 +170,13 @@ has_instr_count_threshold_to_enable_tracing()
 static uint64
 instr_count_threshold()
 {
-    if (op_trace_after_instrs.get_value() > 0 &&
+    uint64 initial_no_trace_for_instrs = get_initial_no_trace_for_instrs_value();
+    if (initial_no_trace_for_instrs > 0 &&
         !reached_trace_after_instrs.load(std::memory_order_acquire))
-        return op_trace_after_instrs.get_value();
-    if (op_retrace_every_instrs.get_value() > 0)
-        return op_retrace_every_instrs.get_value();
+        return initial_no_trace_for_instrs;
+    uint64 current_no_trace_for_instrs = get_current_no_trace_for_instrs_value();
+    if (current_no_trace_for_instrs > 0)
+        return current_no_trace_for_instrs;
     return DELAY_FOREVER_THRESHOLD;
 }
 
@@ -97,6 +186,7 @@ instr_count_threshold()
 static void
 hit_instr_count_threshold(app_pc next_pc)
 {
+    uintptr_t mode;
     if (!has_instr_count_threshold_to_enable_tracing())
         return;
 #ifdef DELAYED_CHECK_INLINED
@@ -116,17 +206,19 @@ hit_instr_count_threshold(app_pc next_pc)
     }
 #endif
     dr_mutex_lock(mutex);
-    if (tracing_mode.load(std::memory_order_acquire) == BBDUP_MODE_TRACE) {
+    if (is_in_tracing_mode(tracing_mode.load(std::memory_order_acquire))) {
         // Another thread already changed the mode.
         dr_mutex_unlock(mutex);
         return;
     }
-    if (op_trace_after_instrs.get_value() > 0 &&
-        !reached_trace_after_instrs.load(std::memory_order_acquire))
+    if (get_initial_no_trace_for_instrs_value() > 0 &&
+        !reached_trace_after_instrs.load(std::memory_order_acquire)) {
         NOTIFY(0, "Hit delay threshold: enabling tracing.\n");
-    else {
+        retrace_start_timestamp.store(instru_t::get_timestamp());
+    } else {
         NOTIFY(0, "Hit retrace threshold: enabling tracing for window #%zd.\n",
                tracing_window.load(std::memory_order_acquire));
+        retrace_start_timestamp.store(instru_t::get_timestamp());
         if (op_offline.get_value())
             open_new_window_dir(tracing_window.load(std::memory_order_acquire));
     }
@@ -142,7 +234,12 @@ hit_instr_count_threshold(app_pc next_pc)
     instr_count = 0;
 #endif
     DR_ASSERT(tracing_mode.load(std::memory_order_acquire) == BBDUP_MODE_COUNT);
-    tracing_mode.store(BBDUP_MODE_TRACE, std::memory_order_release);
+
+    if (op_L0_filter_until_instrs.get_value())
+        mode = BBDUP_MODE_L0_FILTER;
+    else
+        mode = BBDUP_MODE_TRACE;
+    tracing_mode.store(mode, std::memory_order_release);
     dr_mutex_unlock(mutex);
 }
 
@@ -333,9 +430,159 @@ event_inscount_thread_init(void *drcontext)
         DELAY_COUNTDOWN_UNIT;
 }
 
+// Represents an interval as a <start,duration> pair in terms of number of instructions.
+struct instr_interval_t {
+    instr_interval_t(uint64 start, uint64 duration)
+        : start(start)
+        , duration(duration)
+    {
+    }
+
+    uint64 start = 0;
+    uint64 duration = 0;
+};
+
+// Function to order instruction intervals by start time in ascending order.
+static bool
+cmp_start_instr(const instr_interval_t &l, const instr_interval_t &r)
+{
+    return l.start < r.start;
+}
+
+static std::vector<instr_interval_t>
+parse_instr_intervals_file(std::string path_to_file)
+{
+    std::vector<instr_interval_t> instr_intervals;
+    std::ifstream file(path_to_file);
+    if (!file.is_open())
+        FATAL("Fatal error: failed to open file %s.\n", path_to_file.c_str());
+
+    std::string line;
+    while (std::getline(file, line)) {
+        // Ignore empty lines, if any.
+        if (line.empty())
+            continue;
+        std::stringstream ss(line);
+        std::string elem;
+        if (!std::getline(ss, elem, ','))
+            FATAL("Fatal error: start instruction not found.\n");
+        uint64 start = std::stoull(elem);
+        if (!std::getline(ss, elem, ','))
+            FATAL("Fatal error: instruction duration not found.\n");
+        uint64 duration = std::stoull(elem);
+        // Ignore the remaining comma-separated elements, if any.
+
+        instr_intervals.emplace_back(start, duration);
+    }
+    file.close();
+
+    if (instr_intervals.empty()) {
+        FATAL("Fatal error: -trace_instr_intervals_file %s contains no intervals.\n",
+              path_to_file.c_str());
+    }
+
+    // Enforcing constraints on intervals:
+    // 1) They need to be ordered by start time.
+    std::sort(instr_intervals.begin(), instr_intervals.end(), cmp_start_instr);
+
+    // 2) Overlapping intervals must be merged.
+    std::vector<instr_interval_t> instr_intervals_merged;
+    instr_intervals_merged.emplace_back(instr_intervals[0]);
+    for (instr_interval_t &interval : instr_intervals) {
+        uint64 end = interval.start + interval.duration;
+        instr_interval_t &last_interval = instr_intervals_merged.back();
+        uint64 last_end = last_interval.start + last_interval.duration;
+        if (interval.start <= last_end) {
+            uint64 max_end = last_end > end ? last_end : end;
+            last_interval.duration = max_end - last_interval.start;
+        } else {
+            instr_intervals_merged.emplace_back(interval);
+        }
+    }
+
+    return instr_intervals_merged;
+}
+
+static void
+free_trace_window_entry(void *entry)
+{
+    dr_global_free(entry, sizeof(irregular_window_t));
+}
+
+// Transforms instruction intervals from <start,duration> pairs to trace and no_trace
+// number of instructions. Has the side effect of populating the read-only, global vector
+// irregular_windows_list, and the global num_irregular_windows.
+static void
+compute_irregular_trace_windows(std::vector<instr_interval_t> &instr_intervals)
+{
+    if (instr_intervals.empty())
+        return;
+
+    uint num_intervals = (uint)instr_intervals.size();
+    num_irregular_windows = num_intervals + 1;
+
+    // We don't need to synch accesses because this global vector is initialized here and
+    // then it's only read.
+    drvector_init(&irregular_windows_list, num_irregular_windows, /* synch = */ false,
+                  free_trace_window_entry);
+
+    irregular_window_t *irregular_window_ptr =
+        (irregular_window_t *)dr_global_alloc(sizeof(irregular_window_t));
+    irregular_window_ptr->no_trace_for_instrs = instr_intervals[0].start;
+    irregular_window_ptr->trace_for_instrs = instr_intervals[0].duration;
+    drvector_set_entry(&irregular_windows_list, 0, irregular_window_ptr);
+
+    for (uint i = 1; i < num_intervals; ++i) {
+        uint64 no_trace_for_instrs = instr_intervals[i].start -
+            (instr_intervals[i - 1].start + instr_intervals[i - 1].duration);
+        uint64 trace_for_instrs = instr_intervals[i].duration;
+
+        irregular_window_ptr =
+            (irregular_window_t *)dr_global_alloc(sizeof(irregular_window_t));
+        irregular_window_ptr->no_trace_for_instrs = no_trace_for_instrs;
+        irregular_window_ptr->trace_for_instrs = trace_for_instrs;
+        drvector_set_entry(&irregular_windows_list, i, irregular_window_ptr);
+    }
+
+    // Last window. We are done setting all the irregular windows of the csv file. We
+    // generate one last non-tracing window in case the target program is still running.
+    // If the user wants to finish with a tracing window, the last window in the csv file
+    // must have a duration long enough to cover the end of the program.
+    irregular_window_ptr =
+        (irregular_window_t *)dr_global_alloc(sizeof(irregular_window_t));
+    // DELAY_FOREVER_THRESHOLD might be too small for long traces, but it doesn't matter
+    // because we trace_for_instrs = 0, so no window is created anyway.
+    irregular_window_ptr->no_trace_for_instrs = DELAY_FOREVER_THRESHOLD;
+    irregular_window_ptr->trace_for_instrs = 0;
+    drvector_set_entry(&irregular_windows_list, num_intervals, irregular_window_ptr);
+}
+
+static void
+init_irregular_trace_windows()
+{
+    std::string path_to_file = op_trace_instr_intervals_file.get_value();
+    if (!path_to_file.empty()) {
+        // Other instruction interval options (i.e., -trace_after_instrs,
+        // -trace_for_instrs, -retrace_every_instrs) are not compatible with
+        // -trace_instr_intervals_file. Check that they are not set.
+        if (op_trace_after_instrs.get_value() > 0 ||
+            op_trace_for_instrs.get_value() > 0 ||
+            op_retrace_every_instrs.get_value() > 0) {
+            FATAL("Fatal error: -trace_instr_intervals_file cannot be used with "
+                  "-trace_after_instrs, -trace_for_instrs, or -retrace_every_instrs.\n");
+        }
+        // Parse intervals file.
+        std::vector<instr_interval_t> instr_intervals =
+            parse_instr_intervals_file(op_trace_instr_intervals_file.get_value());
+        // Populate the irregular_windows_list global vector and num_irregular_windows.
+        compute_irregular_trace_windows(instr_intervals);
+    }
+}
+
 void
 event_inscount_init()
 {
+    init_irregular_trace_windows();
     DR_ASSERT(std::atomic_is_lock_free(&reached_trace_after_instrs));
 }
 

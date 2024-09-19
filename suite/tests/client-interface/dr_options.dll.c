@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,6 +38,15 @@
 
 #include <string.h>
 
+// TODO i#1884: Add support for -thread_private caches on ARM and AArch64
+#ifdef AARCH64
+static const char *BOOLEAN_OPTION = "disable_traces";
+static const bool USING_PRIVATE_CACHES = false;
+#else
+static const char *BOOLEAN_OPTION = "thread_private";
+static const bool USING_PRIVATE_CACHES = true;
+#endif
+
 DR_EXPORT void
 dr_init(client_id_t client_id)
 {
@@ -56,13 +65,16 @@ dr_init(client_id_t client_id)
     ASSERT(int_option == 3);
 
     /* Query existing boolean option. */
-    success = dr_get_integer_option("thread_private", &int_option);
+    success = dr_get_integer_option(BOOLEAN_OPTION, &int_option);
     ASSERT(success);
     ASSERT(int_option == 1);
+
     /* For major behavior changing options, we expose dedicated query APIs which
      * should match the value read from the arbitrary query API.
      */
-    ASSERT(dr_using_all_private_caches());
+    ASSERT(dr_using_all_private_caches() == USING_PRIVATE_CACHES);
+
+    ASSERT(dr_running_under_dynamorio());
 
     /* Query non-existent options. */
     int_option = 1;

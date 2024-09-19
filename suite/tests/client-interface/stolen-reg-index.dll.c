@@ -113,6 +113,15 @@ insert_get_addr(void *drcontext, instrlist_t *ilist, instr_t *instr, opnd_t mref
     return true;
 }
 
+static bool
+prev_is_mov_0(instr_t *inst, reg_id_t dst_reg)
+{
+    instr_t *prev = instr_get_prev(inst);
+    ptr_int_t value = ~0;
+    return prev != NULL && instr_is_mov_constant(prev, &value) && value == 0 &&
+        opnd_get_reg(instr_get_dst(prev, 0)) == dst_reg;
+}
+
 static dr_emit_flags_t
 event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                       bool for_trace, bool translating, void *user_data)
@@ -128,9 +137,11 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     if (instr_writes_memory(inst)) {
         opnd = instr_get_dst(inst, 0);
         if (opnd_is_memory_reference(opnd) && opnd_is_base_disp(opnd)) {
-            if (opnd_get_index(opnd) == stolen && opnd_get_base(opnd) == DR_REG_X0)
+            if (opnd_get_index(opnd) == stolen && opnd_get_base(opnd) == DR_REG_X0 &&
+                prev_is_mov_0(inst, stolen))
                 dr_printf("store memref with index reg X28\n");
-            if (opnd_get_index(opnd) == DR_REG_W28 && opnd_get_base(opnd) == DR_REG_X0)
+            if (opnd_get_index(opnd) == DR_REG_W28 && opnd_get_base(opnd) == DR_REG_X0 &&
+                prev_is_mov_0(inst, DR_REG_W28))
                 dr_printf("store memref with index reg W28\n");
             if (insert_get_addr(drcontext, bb, inst, instr_get_dst(inst, 0)))
                 return DR_EMIT_DEFAULT;
@@ -145,9 +156,11 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     if (instr_reads_memory(inst)) {
         opnd = instr_get_src(inst, 0);
         if (opnd_is_memory_reference(opnd) && opnd_is_base_disp(opnd)) {
-            if (opnd_get_index(opnd) == stolen && opnd_get_base(opnd) == DR_REG_X0)
+            if (opnd_get_index(opnd) == stolen && opnd_get_base(opnd) == DR_REG_X0 &&
+                prev_is_mov_0(inst, stolen))
                 dr_printf("load memref with index reg X28\n");
-            if (opnd_get_index(opnd) == DR_REG_W28 && opnd_get_base(opnd) == DR_REG_X0)
+            if (opnd_get_index(opnd) == DR_REG_W28 && opnd_get_base(opnd) == DR_REG_X0 &&
+                prev_is_mov_0(inst, DR_REG_W28))
                 dr_printf("load memref with index reg W28\n");
             if (insert_get_addr(drcontext, bb, inst, instr_get_src(inst, 0)))
                 return DR_EMIT_DEFAULT;

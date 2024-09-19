@@ -302,7 +302,7 @@ get_spilled_value(void *drcontext, uint slot)
 }
 
 drreg_status_t
-drreg_max_slots_used(OUT uint *max)
+drreg_max_slots_used(DR_PARAM_OUT uint *max)
 {
 #ifdef DEBUG
     if (max == NULL)
@@ -345,7 +345,7 @@ count_app_uses(per_thread_t *pt, opnd_t opnd)
  */
 static dr_emit_flags_t
 drreg_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                        bool translating, OUT void **user_data)
+                        bool translating, DR_PARAM_OUT void **user_data)
 {
     per_thread_t *pt = get_tls_data(drcontext);
     instr_t *inst;
@@ -465,7 +465,7 @@ drreg_event_bb_instru2instru_late(void *drcontext, void *tag, instrlist_t *bb,
 /* 'regs_restored' holds one slot per GPR using GPR_IDX() (no aflags slot). */
 static drreg_status_t
 drreg_insert_restore_all(void *drcontext, instrlist_t *bb, instr_t *inst,
-                         bool force_restore, OUT bool *regs_restored)
+                         bool force_restore, DR_PARAM_OUT bool *regs_restored)
 {
     per_thread_t *pt = get_tls_data(drcontext);
     reg_id_t reg;
@@ -956,7 +956,7 @@ drreg_set_vector_entry(drvector_t *vec, reg_id_t reg, bool allowed)
 static drreg_status_t
 drreg_reserve_reg_internal(void *drcontext, instrlist_t *ilist, instr_t *where,
                            drvector_t *reg_allowed, bool only_if_no_spill,
-                           OUT reg_id_t *reg_out)
+                           DR_PARAM_OUT reg_id_t *reg_out)
 {
     per_thread_t *pt = get_tls_data(drcontext);
     uint slot = MAX_SPILLS;
@@ -998,6 +998,7 @@ drreg_reserve_reg_internal(void *drcontext, instrlist_t *ilist, instr_t *where,
                 continue;
             if (reg ==
                 dr_get_stolen_reg() IF_ARM(|| reg == DR_REG_PC)
+                    IF_RISCV64(|| reg == DR_REG_TP)
                 /* Avoid xsp, even if it appears dead in things like OP_sysenter.
                  * On AArch64 use of SP is very restricted.
                  */
@@ -1078,7 +1079,7 @@ drreg_reserve_reg_internal(void *drcontext, instrlist_t *ilist, instr_t *where,
 
 drreg_status_t
 drreg_reserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
-                       drvector_t *reg_allowed, OUT reg_id_t *reg_out)
+                       drvector_t *reg_allowed, DR_PARAM_OUT reg_id_t *reg_out)
 {
     dr_pred_type_t pred = instrlist_get_auto_predicate(ilist);
     drreg_status_t res;
@@ -1098,7 +1099,7 @@ drreg_reserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
 
 drreg_status_t
 drreg_reserve_dead_register(void *drcontext, instrlist_t *ilist, instr_t *where,
-                            drvector_t *reg_allowed, OUT reg_id_t *reg_out)
+                            drvector_t *reg_allowed, DR_PARAM_OUT reg_id_t *reg_out)
 {
     dr_pred_type_t pred = instrlist_get_auto_predicate(ilist);
     drreg_status_t res;
@@ -1198,7 +1199,7 @@ drreg_get_app_value(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_
 
 drreg_status_t
 drreg_restore_app_values(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t opnd,
-                         INOUT reg_id_t *swap)
+                         DR_PARAM_INOUT reg_id_t *swap)
 {
     drreg_status_t res;
     bool no_app_value = false;
@@ -1249,7 +1250,8 @@ drreg_restore_app_values(void *drcontext, instrlist_t *ilist, instr_t *where, op
 drreg_status_t
 drreg_statelessly_restore_app_value(void *drcontext, instrlist_t *ilist, reg_id_t reg,
                                     instr_t *where_restore, instr_t *where_respill,
-                                    bool *restore_needed OUT, bool *respill_needed OUT)
+                                    bool *restore_needed DR_PARAM_OUT,
+                                    bool *respill_needed DR_PARAM_OUT)
 {
     per_thread_t *pt = get_tls_data(drcontext);
     drreg_status_t res;
@@ -1308,8 +1310,8 @@ drreg_statelessly_restore_app_value(void *drcontext, instrlist_t *ilist, reg_id_
 
 drreg_status_t
 drreg_statelessly_restore_all(void *drcontext, instrlist_t *ilist, instr_t *where_restore,
-                              instr_t *where_respill, bool *restore_needed OUT,
-                              bool *respill_needed OUT)
+                              instr_t *where_respill, bool *restore_needed DR_PARAM_OUT,
+                              bool *respill_needed DR_PARAM_OUT)
 {
     bool restored_any = false, respilled_any = false;
     bool restored = false, respilled = false;
@@ -1395,8 +1397,8 @@ drreg_unreserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
 }
 
 drreg_status_t
-drreg_reservation_info(void *drcontext, reg_id_t reg, opnd_t *opnd OUT,
-                       bool *is_dr_slot OUT, uint *tls_offs OUT)
+drreg_reservation_info(void *drcontext, reg_id_t reg, opnd_t *opnd DR_PARAM_OUT,
+                       bool *is_dr_slot DR_PARAM_OUT, uint *tls_offs DR_PARAM_OUT)
 {
     drreg_reserve_info_t info = {
         sizeof(info),
@@ -1420,7 +1422,8 @@ drreg_reservation_info(void *drcontext, reg_id_t reg, opnd_t *opnd OUT,
 }
 
 drreg_status_t
-drreg_reservation_info_ex(void *drcontext, reg_id_t reg, drreg_reserve_info_t *info OUT)
+drreg_reservation_info_ex(void *drcontext, reg_id_t reg,
+                          drreg_reserve_info_t *info DR_PARAM_OUT)
 {
     per_thread_t *pt;
     reg_info_t *reg_info;
@@ -1838,7 +1841,7 @@ drreg_unreserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
 }
 
 drreg_status_t
-drreg_aflags_liveness(void *drcontext, instr_t *inst, OUT uint *value)
+drreg_aflags_liveness(void *drcontext, instr_t *inst, DR_PARAM_OUT uint *value)
 {
     per_thread_t *pt = get_tls_data(drcontext);
     if (value == NULL)
@@ -1893,8 +1896,9 @@ drreg_restore_app_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
  */
 
 static bool
-is_our_spill_or_restore(void *drcontext, instr_t *instr, bool *spill OUT,
-                        reg_id_t *reg_spilled OUT, uint *slot_out OUT, uint *offs_out OUT)
+is_our_spill_or_restore(void *drcontext, instr_t *instr, bool *spill DR_PARAM_OUT,
+                        reg_id_t *reg_spilled DR_PARAM_OUT, uint *slot_out DR_PARAM_OUT,
+                        uint *offs_out DR_PARAM_OUT)
 {
     bool tls;
     uint slot, offs;
@@ -1997,8 +2001,9 @@ is_aflags_restore(instr_t *inst)
 }
 
 drreg_status_t
-drreg_is_instr_spill_or_restore(void *drcontext, instr_t *instr, bool *spill OUT,
-                                bool *restore OUT, reg_id_t *reg_spilled OUT)
+drreg_is_instr_spill_or_restore(void *drcontext, instr_t *instr, bool *spill DR_PARAM_OUT,
+                                bool *restore DR_PARAM_OUT,
+                                reg_id_t *reg_spilled DR_PARAM_OUT)
 {
     bool is_spill;
     if (!is_our_spill_or_restore(drcontext, instr, &is_spill, reg_spilled, NULL, NULL)) {

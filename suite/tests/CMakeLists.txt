@@ -1,7 +1,7 @@
 # **********************************************************
-# Copyright (c) 2010-2023 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2024 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
-# Copyright (c) 2016-2022 ARM Limited.    All rights reserved.
+# Copyright (c) 2016-2023 ARM Limited.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -190,6 +190,7 @@ if (RUN_LONG_SUITE OR ("$ENV{CI_TRIGGER}" STREQUAL "push" AND
                        "$ENV{CI_BRANCH}" STREQUAL "refs/heads/master"))
   set(TEST_LONG ON)
 endif ()
+
 ###########################################################################
 # BUILDING
 
@@ -278,6 +279,9 @@ if (UNIX)
   string(REGEX REPLACE "-Wall" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
   # some tests rely on specific "nop;nop" patterns that optimization ruins
   # we should probably move the -O from top level into core/CMakeLists.txt
+  #
+  # -O3 is selectively re-added to some tests using the add_sve_flags() or
+  # optimize() functions
   string(REGEX REPLACE "-O[0-9]? " " " CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 else (UNIX)
   # W2 is default (we're using W3).  We should also replace
@@ -473,6 +477,70 @@ function(append_link_flags target newflags)
     LINK_FLAGS "${cur_ldflags} ${newflags}")
 endfunction(append_link_flags)
 
+# It would be nice to get rid of the
+# string(REGEX REPLACE "-O[0-9]? " " " CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+# line above and instead selectively remove -O3 from tests that cannot
+# support it.
+# This was investigated and proved to be non trivial as the client tests
+# use _DR_set_compile_flags() to set the compile flags whereas the core
+# tests use set_cflags(). _DR_set_compile_flags() is a public function and we
+# didn't want to add a blocklist in there.
+# For now we create a list of tests that can be built with -O3.
+# This is for AARCH64 UNIX only.
+# TODO i#6429 Change this allowlist to a blocklist.
+set(sve_tests
+      simple_app api.ir api.ir_negative api.ir_v81 api.ir_v82 api.ir_v83 api.ir_v84
+      api.ir_v85 api.ir_v87 api.ir_sve api.ir_sve2 api.ir-static api.drdecode
+      common.broadfun common.nzcv common.getretaddr common.segfault
+      common.allasm_aarch64_isa common.allasm_aarch64_cache allasm_aarch64_prefetch
+      allasm_aarch64_flush libutil.frontend_test libutil.drconfig_test
+      client.call-retarget client.modules client.annotation-concurrency
+      client.partial_module_map client.execfault client.events client.events_cpp
+      client.timer client.mangle_suspend client.syscall-mod client.signal
+      client.cleancallsig client.file_io client.cleancall-opt-1 client.inline
+      client.null_instrument client.large_options client.stolen-reg-index
+      client.gonative client.drmgr-test client.drx_buf-test
+      client.drbbdup-drwrap-test client.drbbdup-emul-test client.process-id
+      client.drreg-test client.low_on_memory client.tls client.drwrap-test
+      client.drwrap-drreg-test drstatecmp-fuzz-app client.drutil-test client.stolen-reg
+      client.ldstex client.drsyms-test client.drwrap-test-detach api.dis-a64
+      api.reenc-a64 api.opnd api.detach api.detach_state api.detach_signal
+      api.detach_spawn api.detach_spawn_stress_FLAKY api.detach_spawn_quick_exit
+      api.ibl-stress api.ibl-stress-aarch64-far-link_LONG api.static_startstop
+      api.static_noclient api.static_noinit api.static_detach api.static_prepop
+      api.static_reattach_client_flags api.static_crash api.static_sideline_FLAKY
+      api.static_symbols api.static_maps_mixup_yesvars
+      api.static_maps_mixup_novars_FLAKY api.thread_churn client.app_args
+      client.destructor builtin_prefetch stride_benchmark
+      tool.heap_test tool.drcacheoff.gencode
+      linux.execve-sub linux.execve-null linux.execve-config linux.execv
+      linux.execve-rec linux.exit linux.fork linux.fork-sleep linux.infinite
+      linux.longjmp linux.prctl linux.mmap linux.zero-length-mem-ranges
+      linux.sigaction linux.syscall_pwait linux.sigaction_nosignals linux.thread
+      linux.threadexit linux.threadexit2 linux.signalfd linux.alarm
+      linux.signal_racesys linux.signal_pre_syscall linux.bad-signal-stack
+      linux.sigsuspend linux.sigmask linux.mangle_asynch linux.app_tls
+      linux.readlink linux.vfork
+      pthreads.pthreads pthreads.pthreads_exit pthreads.ptsig
+      pthreads.pthreads_fork_FLAKY security-linux.trampoline linux.infloop
+      linux.rseq_disable security-common.codemod security-common.ret_noncall_trace
+      security-common.retnonexisting security-common.TestAllocWE
+      security-common.TestMemProtChg_FLAKY client.drx-test
+     )
+
+function(add_sve_flags target)
+  if (proc_supports_sve)
+    if (target IN_LIST sve_tests)
+      target_compile_options(${target} PRIVATE
+        -march=armv8.4-a+crypto+rcpc+sha3+sm4+sve+rng+ssbs+nodotprod
+        # Reinstate the -03 flag which is removed with the
+        # string(REGEX REPLACE "-O[0-9]? " " " CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+        # line above.
+        -O3)
+    endif()
+  endif()
+endfunction(add_sve_flags)
+
 function(add_exe test source)
   get_filename_component(srcbase ${source} NAME_WE)
   get_filename_component(srcpath ${source} PATH)
@@ -552,6 +620,10 @@ function(add_exe test source)
       "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     add_dependencies(${test} ${gen_asm_tgt})
   endif ()
+
+  # AARCH64 AND UNIX only
+  add_sve_flags(${test})
+
 endfunction(add_exe)
 
 # normal app
@@ -629,11 +701,14 @@ endfunction (setup_test_client_dll_basics)
 # and calls this one w/ "" "" "" b/c the PARENT_SCOPE won't make
 # it all the way back then: would need to chain.
 function(tobuild_ci test source client_ops dr_ops exe_ops)
-  string(REGEX REPLACE "\\.(c|cpp)$" ".dll.\\1" client_source "${source}")
-  string(REGEX REPLACE "\\.runall$" ".dll.c" client_source "${client_source}")
-  if (NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${client_source}")
-    string(REGEX REPLACE "\\.c$" ".cpp" client_source "${client_source}")
-  endif ()
+  if (NOT DEFINED ${test}_client_source)
+    string(REGEX REPLACE "\\.(c|cpp)$" ".dll.\\1" client_source "${source}")
+    string(REGEX REPLACE "\\.runall$" ".dll.c" client_source "${client_source}")
+    if (NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${client_source}")
+      string(REGEX REPLACE "\\.c$" ".cpp" client_source "${client_source}")
+    endif ()
+    set(${test}_client_source ${client_source})
+  endif()
 
   if (NOT "${source}" MATCHES "\\.runall$")
     # Many client tests don't care about the app that's run.  To save time
@@ -660,11 +735,12 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
     endif ()
   endif ()
 
-  add_library(${test}.dll SHARED ${client_source})
-  if (NOT "${source}" MATCHES "cpp\\.cpp")
+  add_library(${test}.dll SHARED ${${test}_client_source})
+  if (NOT DEFINED ${test}_no_reg_compat AND
+      NOT "${source}" MATCHES "cpp\\.cpp")
     # to avoid changing all the REG_ constants we ask for compatibility
     set(DynamoRIO_REG_COMPATIBILITY ON)
-  endif (NOT "${source}" MATCHES "cpp\\.cpp")
+  endif ()
   setup_test_client_dll_basics(${test}.dll)
   get_client_path(client_path ${test}.dll ${test})
 
@@ -714,6 +790,7 @@ function(configure_app_api_build_flags test decoder use_static_DR)
   string(REGEX REPLACE "DR_HOST_AARCH64" "" prop_defs "${prop_defs}")
   string(REGEX REPLACE "DR_HOST_X86" "" prop_defs "${prop_defs}")
   string(REGEX REPLACE "DR_HOST_X64" "" prop_defs "${prop_defs}")
+  string(REGEX REPLACE "DR_HOST_RISCV64" "" prop_defs "${prop_defs}")
   string(REGEX REPLACE "DR_HOST_NOT_TARGET" "" prop_defs "${prop_defs}")
   # Append to properties set by configure_DynamoRIO_standalone.
   get_target_property(prop_cflags ${test} COMPILE_FLAGS)
@@ -907,11 +984,15 @@ endmacro(tobuild_csharp)
 macro(append_pure_asm_app_link_flags target)
   set_target_properties(${target} PROPERTIES LINKER_LANGUAGE C)
   append_link_flags(${target} "-nostartfiles -nodefaultlibs -static")
-  append_property_string(TARGET ${target} LINK_FLAGS
-    # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic, which
-    # with some tool chains (such as SUSE GCC 6.2) results in an executable that
-    # is not properly static. Adding --no-export-dynamic avoids the problem.
-    "-Wl,--no-export-dynamic")
+  if (APPLE)
+    append_property_string(TARGET ${target} LINK_FLAGS "-e _start")
+  else ()
+    append_property_string(TARGET ${target} LINK_FLAGS
+      # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic, which
+      # with some tool chains (such as SUSE GCC 6.2) results in an executable that
+      # is not properly static. Adding --no-export-dynamic avoids the problem.
+      "-Wl,--no-export-dynamic")
+  endif ()
 endmacro(append_pure_asm_app_link_flags)
 
 function(tobind target)
@@ -1037,6 +1118,20 @@ function(template2expect outexpect template runops key)
     set(rundefs "${rundefs} -D__AVX__ -D__AVX512F__")
   elseif (DEFINED ${key}_runavx)
     set(rundefs "${rundefs} -D__AVX__")
+  elseif (DEFINED ${key}_runsve2)
+    set(rundefs "${rundefs} -D__ARM_FEATURE_SVE")
+    set(rundefs "${rundefs} -D__ARM_FEATURE_SVE2")
+    set(rundefs "${rundefs} -D__ARM_FEATURE_SVE_BITS=${proc_sve_vl}")
+  elseif (DEFINED ${key}_runsve)
+    set(rundefs "${rundefs} -D__ARM_FEATURE_SVE")
+    set(rundefs "${rundefs} -D__ARM_FEATURE_SVE_BITS=${proc_sve_vl}")
+  elseif (DEFINED ${key}_runpauth)
+      set(rundefs "${rundefs} -D__ARM_FEATURE_PAUTH")
+  endif ()
+  if (CPU_AMD)
+    set(rundefs "${rundefs} -DCPU_AMD")
+  elseif (CPU_INTEL)
+    set(rundefs "${rundefs} -DCPU_INTEL")
   endif ()
 
   if (DEFINED ${key}_test_sample_client)
@@ -1214,8 +1309,13 @@ function(runtest_cmd outcmd outops key native standalone_dr dr_ops_aux separate_
     prefix_cmd_if_necessary(cmd OFF ${cmd})
     # We set LD_LIBRARY_PATH for native api/ apps since we're not setting
     # rpath (to make it easier to try different trees)
-    set(cmd ${cmd} -env LD_LIBRARY_PATH
-      "${MAIN_LIBRARY_OUTPUT_DIRECTORY}:${EXT_LIBRARY_OUTPUT_DIRECTORY}:$ENV{LD_LIBRARY_PATH}")
+    if (APPLE)
+      set(libvar "DYLD_LIBRARY_PATH")
+    else ()
+      set(libvar "LD_LIBRARY_PATH")
+    endif ()
+    set(cmd ${cmd} -env ${libvar}
+      "${MAIN_LIBRARY_OUTPUT_DIRECTORY}:${EXT_LIBRARY_OUTPUT_DIRECTORY}:$ENV{${libvar}}")
     # add dr_ops last to avoid needing extra \ on ;
     string(REPLACE ";" " " dr_ops_string "${dr_ops}")
     set(${outcmd} ${cmd} -env DYNAMORIO_OPTIONS "${dr_ops_string}" PARENT_SCOPE)
@@ -1317,11 +1417,19 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
         # is failing).
         set(exe_ops "${exe_ops};-v;-attach")
       endif ()
+      if ("${runall}" MATCHES "<detach>")
+        set(exe_ops "${exe_ops};-v;")
+      endif ()
       if ("${runall}" MATCHES "<block>")
         set(exe_ops "${exe_ops};-block")
       endif ()
     else ()
-      if ("${runall}" MATCHES "<attach>")
+      if ("${runall}" MATCHES "<attach>" OR "${runall}" MATCHES "<detach>")
+        # For detach we use attachee to attach firstly, and "-detach" option is used
+        # for differentiating between attach and detach.
+        if ("${runall}" MATCHES "<detach>")
+          set(exe_ops "${exe_ops};-detach")
+        endif ()
         # For attach we use attachee, which is identical to infloop, aside for writing
         # a starting message to the output file. This allows us to detect when it is
         # up and running and we can start the attach process.
@@ -1374,6 +1482,14 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
       string(REGEX REPLACE ";" "@" nudge_arg "${nudge_arg}")
       # clear client from dr command and run native
       string(REGEX REPLACE ";-quiet;(.*);--" ";-no_inject;--;" rundr "${rundr}")
+    elseif ("${runall}" MATCHES "<detach>")
+      # Move params to nudge.
+      string(REGEX MATCH ";-quiet;(.*);--" nudge_arg "${rundr}")
+      string(REGEX REPLACE ";--" "" nudge_arg "${nudge_arg}")
+      string(PREPEND nudge_arg "<detach>")
+      string(REGEX REPLACE ";" "@" nudge_arg "${nudge_arg}")
+      # Clear client from dr command and run native.
+      string(REGEX REPLACE ";-quiet;(.*);--" ";-no_inject;--;" rundr "${rundr}")
     endif ()
     set(cmd_with_at ${rundr} ${app_path} ${exe_ops})
     # we pass intra-arg spaces via @@ and inter-arg via @ and ; via !
@@ -1425,10 +1541,12 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
       -D postcmd=${${key}_postcmd}
       -D postcmd2=${${key}_postcmd2}
       -D postcmd3=${${key}_postcmd3}
+      -D postcmd4=${${key}_postcmd4}
       -D failok=${${key}_failok}
       -D cmp=${CMAKE_CURRENT_BINARY_DIR}/${expectbase}.expect
       -D code=${${key}_code}
       -D capture=${${key}_runcmp_capture}
+      -D ignore_matching_lines=${${key}_runcmp_ignore_matching_lines}
       -P ${runcmp_script})
     # No support for regex here (ctest can't handle large regex)
     set(ALREADY_REGEX ON)
@@ -1516,8 +1634,17 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
     # Though we mostly use drrun's -s we set this too in case the requested
     # value is higher than ctest's default.
     set_tests_properties(${test} PROPERTIES TIMEOUT ${${key}_timeout})
+  elseif (is_runcmp OR is_runall)
+    # Runcmp/runall generally don't use drrun or runstats so we need a ctest timeout.
+    set_tests_properties(${test} PROPERTIES TIMEOUT ${TEST_SECONDS})
+  else ()
+    # Even though we expect drrun -s to enforce a timeout, set one in ctest just
+    # in case, but give time for drrun first.
+    math(EXPR timeout "${TEST_SECONDS}+30")
+    set_tests_properties(${test} PROPERTIES TIMEOUT ${timeout})
   endif ()
 
+  # Though we use drrun and runstats -s timeout parameters, we have
   if (pass_opts_via_env)
     string(REPLACE ";" " " runops_string "${runops}")
     set_tests_properties(${test} PROPERTIES ENVIRONMENT "DYNAMORIO_OPTIONS=${runops_string}")
@@ -1627,6 +1754,10 @@ function(torunonly_native name realexe expect source exe_ops)
   strings2lists(${name} ops)
   set(${name}_expectbase ${expect})
   set(${name}_realtest ${realexe})
+  if (NOT DEFINED ${test}_timeout)
+    # We're not going through drrun with its timeout, so set the ctest timeout.
+    set(${test}_timeout ${TEST_SECONDS})
+  endif ()
   torun(${name} ${name} ${source} ON OFF "" "${exe_ops}" added OFF)
 endfunction(torunonly_native)
 
@@ -1660,7 +1791,11 @@ function(use_MD_not_MTd source_file)
   endif ()
 endfunction()
 
-# optimize the target
+# The -O3 flag is removed above with the
+# string(REGEX REPLACE "-O[0-9]? " " " CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+# line. -O3 is then selectively re-added with this function or add_sve_flags().
+# It will be desirable to one day remove the "REGEX REPLACE" line and just
+# remove -O3 for targets that cannot support it.
 function(optimize target)
   if (UNIX)
     append_property_string(TARGET ${target} COMPILE_FLAGS "-O3")
@@ -1682,6 +1817,29 @@ macro(set_avx_flags target)
     set(${target}_runavx 1)
   endif ()
 endmacro(set_avx_flags)
+
+macro(set_sve_flags target)
+  if (proc_supports_sve2)
+    if (TARGET ${target}) # Support calling on non-exe target.
+      append_property_string(TARGET ${target} COMPILE_FLAGS "${CFLAGS_SVE2}")
+    endif ()
+    set(${target}_runsve2 1)
+  elseif (proc_supports_sve)
+    if (TARGET ${target}) # Support calling on non-exe target.
+      append_property_string(TARGET ${target} COMPILE_FLAGS "${CFLAGS_SVE}")
+    endif ()
+    set(${target}_runsve 1)
+  endif ()
+endmacro(set_sve_flags)
+
+macro(set_pauth_flags target)
+  if (proc_supports_pauth)
+    if (TARGET ${target}) # Support calling on non-exe target.
+        append_property_string(TARGET ${target} COMPILE_FLAGS "${CFLAGS_PAUTH}")
+    endif ()
+    set(${target}_runpauth 1)
+  endif ()
+endmacro(set_pauth_flags)
 
 ###########################################################################
 
@@ -1836,22 +1994,23 @@ message(STATUS "Processing tests and generating expected output patterns")
 if (ARM)
   set(sfx "arm")
 elseif (AARCH64)
-  set(sfx "aarch64")
+  # New aarch64 ir tests are added to arch version/feature specific files.
+  set(sfx "aarch64_legacy")
 elseif (RISCV64)
   set(sfx "riscv64")
 else ()
   set(sfx "x86")
 endif ()
-if (NOT ANDROID AND NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+if (NOT ANDROID)
   # XXX i#1874: get working on Android
   tobuild_api(api.ir api/ir_${sfx}.c "" "" OFF OFF OFF)
-  if (AARCH64)
-    # The ir_aarch64.expect file is too large for CMake's regexes.
+  if (AARCH64 OR RISCV64)
+    # The ir_{aarch64,riscv64}.expect file is too large for CMake's regexes.
     set(api.ir_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake")
     set(api.ir_runcmp_capture "stderr")
   endif ()
   # XXX i#1686: add ARM's headers too once they are all created
-  if (NOT ARM AND NOT AARCH64 AND "${CMAKE_GENERATOR}" MATCHES "Unix Makefiles")
+  if (NOT ARM AND NOT AARCH64 AND NOT RISCV64 AND "${CMAKE_GENERATOR}" MATCHES "Unix Makefiles")
     # CMake's Unix Makefiles dependence analysis doesn't run the preprocessor
     # and so doesn't find headers named via macros
     # (http://www.cmake.org/Bug/view.php?id=13718)
@@ -1878,25 +2037,37 @@ if (NOT ANDROID AND NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
 
   if (AARCH64)
     tobuild_api(api.ir_negative api/ir_aarch64_negative.c "" "" OFF OFF OFF)
+    tobuild_api(api.ir_v80 api/ir_aarch64_v80.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_v81 api/ir_aarch64_v81.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_v82 api/ir_aarch64_v82.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_v83 api/ir_aarch64_v83.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_v84 api/ir_aarch64_v84.c "" "" OFF OFF OFF)
-    tobuild_api(api.ir_v86 api/ir_aarch64_v86.c "" "" OFF OFF OFF)
+    tobuild_api(api.ir_v85 api/ir_aarch64_v85.c "" "" OFF OFF OFF)
+    tobuild_api(api.ir_v87 api/ir_aarch64_v87.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_sve api/ir_aarch64_sve.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_sve2 api/ir_aarch64_sve2.c "" "" OFF OFF OFF)
   endif (AARCH64)
+
+  if (RISCV64)
+    tobuild_api(api.ir_rvv api/ir_rvv.c  "" "" ON OFF OFF)
+  endif(RISCV64)
 endif ()
 
+# test synthetic DR_ISA_REGDEPS encoding, decoding, and disassembly
+tobuild_api(api.ir_regdeps api/ir_regdeps.c "" "" OFF OFF OFF)
+
 # test static decoder library
-if (NOT RISCV64)
-  # TODO i#3544: Port tests to RISC-V 64
-  tobuild_api(api.ir-static api/ir_${sfx}.c "" "" ON OFF OFF)
-endif (NOT RISCV64)
+tobuild_api(api.ir-static api/ir_${sfx}.c "" "" ON OFF OFF)
 if (AARCH64)
   # The ir_aarch64.expect file is too large for CMake's regexes.
   set(api.ir-static_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake")
   set(api.ir-static_runcmp_capture "stderr")
+elseif (RISCV64)
+  # The ir_riscv64.expect file is too large for CMake's regexes.
+  set(api.ir-static_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake")
+  set(api.ir-static_runcmp_capture "stderr")
+  # Internal error lines are ignored as they are not printed in static builds.
+  set(api.ir-static_runcmp_ignore_matching_lines "^<.+>")
 endif ()
 
 if (ARM)
@@ -1921,6 +2092,8 @@ if (BUILD_CLIENTS)
     set(drdisas_args "-vl" "256" "00000000" "f94017a0" "a9be7bfd" "e58057a1" "85865e6b" "88")
   elseif (ARM)
     set(drdisas_args "6813" "f243" "42c8" "b2db" "88")
+  elseif (RISCV64)
+    set(drdisas_args "853e" "4581" "1d27b783" "00f55733" "9d89" "88")
   else ()
     set(drdisas_args "-syntax" "dr" "66" "90" "c4" "e2" "65" "90" "14" "80" "88")
   endif ()
@@ -1941,6 +2114,25 @@ if (BUILD_CLIENTS)
   endif ()
 endif ()
 
+if (AARCH64 AND UNIX AND ZLIB_FOUND)
+    # Test TLB simulator with a virtual to physical v2p.textproto mapping.
+    set(srcdir
+      ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.aarch64.raw)
+    set(locdir ${PROJECT_BINARY_DIR}/drmemtrace.threadsig.aarch64)
+    file(REMOVE_RECURSE ${locdir})
+    file(MAKE_DIRECTORY ${locdir})
+    file(COPY ${srcdir}/raw DESTINATION ${locdir}/)
+    get_target_path_for_execution(drcachesim_path drmemtrace_launcher
+      "${location_suffix}")
+    prefix_cmd_if_necessary(drcachesim_path ON ${drcachesim_path})
+    torunonly_api(tool.drcacheoff.tlb_simulator_v2p "${drcachesim_path}"
+      "offline-tlb_simulator_v2p" ""
+      "-indir;${locdir};-tool;TLB;-alt_module_dir;${srcdir};-module_file;${locdir}/raw/modules.log;-v2p_file;${srcdir}/v2p.textproto;-use_physical"
+      OFF OFF)
+    set(tool.drcacheoff.tlb_simulator_v2p_basedir
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+endif ()
+
 if (DR_HOST_NOT_TARGET)
   # i#1684,i#4318: Test postprocessing and analysis with an alternate binary directory.
   # Limited to UNIX because the checked-in modules.log is in UNIX format
@@ -1954,11 +2146,12 @@ if (DR_HOST_NOT_TARGET)
     set(locdir ${PROJECT_BINARY_DIR}/drmemtrace.threadsig.aarch64)
     file(MAKE_DIRECTORY ${locdir})
     file(COPY ${srcdir}/raw DESTINATION ${locdir}/)
-    get_target_path_for_execution(drcachesim_path drcachesim "${location_suffix}")
+    get_target_path_for_execution(drcachesim_path drmemtrace_launcher
+      "${location_suffix}")
     prefix_cmd_if_necessary(drcachesim_path ON ${drcachesim_path})
     torunonly_api(tool.drcacheoff.altbindir "${drcachesim_path}"
       "offline-altbindir.c" ""
-      "-indir;${locdir};-simulator_type;opcode_mix;-alt_module_dir;${srcdir};-module_file;${locdir}/raw/modules.log"
+      "-indir;${locdir};-tool;opcode_mix;-alt_module_dir;${srcdir};-module_file;${locdir}/raw/modules.log"
       OFF OFF)
     set(tool.drcacheoff.altbindir_basedir
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -2003,10 +2196,11 @@ if (X86)
   set(control_flags "eflags")
 elseif (AARCHXX)
   set(control_flags "nzcv")
+elseif (RISCV64)
+  # XXX: RISC-V does not have control flags, so a dummy test is used.
+  set(control_flags "hello")
 endif ()
-if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
-  tobuild(common.${control_flags} common/${control_flags}.c)
-endif ()
+tobuild(common.${control_flags} common/${control_flags}.c)
 
 if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   tobuild(common.floatpc common/floatpc.c)
@@ -2101,11 +2295,13 @@ if (DR_HOST_ARM AND NOT ANDROID)
 endif ()
 
 if (DR_HOST_AARCH64)
-  tobuild_ops(common.allasm_aarch64_isa common/allasm_aarch64_isa.asm
-    "-early_inject" "") # FIXME i#1569: -enable_traces here
-  set_target_properties(common.allasm_aarch64_isa PROPERTIES LINKER_LANGUAGE C)
-  append_link_flags(common.allasm_aarch64_isa
-    "-nostartfiles -nodefaultlibs -static")
+  if (NOT APPLE) # TODO i#5383: Port to Mac M1.
+    tobuild_ops(common.allasm_aarch64_isa common/allasm_aarch64_isa.asm
+      "-early_inject" "") # FIXME i#1569: -enable_traces here
+    set_target_properties(common.allasm_aarch64_isa PROPERTIES LINKER_LANGUAGE C)
+    append_link_flags(common.allasm_aarch64_isa
+      "-nostartfiles -nodefaultlibs -static")
+  endif ()
 
   tobuild_ops(common.allasm_aarch64_cache common/allasm_aarch64_cache.asm
     "-early_inject" "")
@@ -2437,6 +2633,9 @@ endif (ANNOTATIONS AND NOT ARM)
 
 if (NOT ANDROID) # TODO i#38: Port test to Android.
   tobuild_ci(client.attach_test client-interface/attach_test.runall "" "" "")
+  if ((LINUX OR WIN32) AND NOT RISCV64)
+    tobuild_ci(client.detach_test client-interface/detach_test.runall "" "" "")
+  endif ()
   if (UNIX)
     # Test attaching during a blocking syscall.
     torunonly_ci(client.attach_blocking linux.infloop client.attach_test.dll
@@ -2476,9 +2675,9 @@ if (UNIX)
     tobuild_ci(client.signal client-interface/signal.c "" "" "")
     link_with_pthread(client.signal)
   endif ()
-  if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
+  if (X86 OR AARCH64) # FIXME i#1551: port asm to ARM
     tobuild_ci(client.cbr-retarget client-interface/cbr-retarget.c "" "" "")
-  endif (X86)
+  endif (X86 OR AARCH64)
   tobuild_ci(client.cleancallsig client-interface/cleancallsig.c "" "" "")
   if (X64 AND NOT RISCV64) # XXX i#3173 Improve testing of emulation API functions
     # TODO i#3544: Port tests to RISC-V 64
@@ -2518,18 +2717,22 @@ else (UNIX)
 
   tobuild_ci(client.winxfer client-interface/winxfer.c "" "" "")
 endif (UNIX)
-tobuild_ci(client.file_io client-interface/file_io.c
-  "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/file_io_data.txt" "" "")
-if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
+if (NOT APPLE OR NOT AARCH64) # TODO i#5383: Port to Mac M1.
+  tobuild_ci(client.file_io client-interface/file_io.c
+    "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/file_io_data.txt" "" "")
+endif ()
+if (X86 OR AARCH64) # FIXME i#1551: port asm to ARM
   if (DEBUG) # FIXME i#1806: fails in release; also in OSX list below.
     # we add custom option to flush test based on dr ops in torun_ci()
     tobuild_ci(client.flush client-interface/flush.c "" "" "")
   endif ()
-  tobuild_ci(client.thread client-interface/thread.c "-paramx -paramy" "" "")
-  tobuild_appdll(client.thread client-interface/thread.c)
+endif (X86 OR AARCH64)
+if (X86 OR AARCH64) # FIXME i#1551: port asm to ARM
   tobuild_ci(client.strace client-interface/strace.c "" "" "")
   use_DynamoRIO_extension(client.strace.dll drmgr)
-endif (X86)
+  tobuild_ci(client.thread client-interface/thread.c "-paramx -paramy" "" "")
+  tobuild_appdll(client.thread client-interface/thread.c)
+endif (X86 OR AARCH64)
 # FIXME: PR 199115 to re-enable fragdel, get some more of the UNIX tests working
 #tobuild_ci(client.fragdel client-interface/fragdel.c "" "" "")
 if (PROGRAM_SHEPHERDING)
@@ -2545,10 +2748,15 @@ if (NOT ARM) # FIXME i#1551: fix bugs on ARM
     torunonly_ci(client.truncate.thread-churn-2 win32.threadchurn client.truncate.dll
       client-interface/truncate.c "2" "" "")
   endif (WIN32)
-  if (NOT AARCH64) # FIXME i#1569: get working on AArch64
-    tobuild_ci(client.dr_options client-interface/dr_options.c
-      "" "-native_exec_list foo.dll,bar.dll -opt_cleancall 3 -thread_private" "")
-  endif (NOT AARCH64)
+
+  # TODO i#1884: Add support for -thread_private caches on ARM and AArch64
+  if (AARCH64)
+    set (boolean_option "-disable_traces")
+  else ()
+    set (boolean_option "-thread_private")
+  endif (AARCH64)
+  tobuild_ci(client.dr_options client-interface/dr_options.c
+    "" "-native_exec_list foo.dll,bar.dll -opt_cleancall 3 ${boolean_option}" "")
 endif (NOT ARM)
 tobuild_ci(client.unregister client-interface/unregister.c "" "" "")
 if (NOT ARM AND NOT RISCV64) # FIXME i#2094: implement cleancall optimizations on ARM
@@ -2740,12 +2948,14 @@ if (UNIX)
 endif (UNIX)
 
 if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+  if (NOT APPLE OR NOT AARCH64) # TODO i#5383: Port to Mac M1.
   tobuild_ci(client.drreg-test client-interface/drreg-test.c "" "" "")
   use_DynamoRIO_extension(client.drreg-test.dll drmgr)
   use_DynamoRIO_extension(client.drreg-test.dll drreg)
   use_DynamoRIO_extension(client.drreg-test.dll drx)
   target_include_directories(client.drreg-test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
+  endif ()
 
   tobuild_ci(client.drreg-end-restore client-interface/drreg-end-restore.c "" "" "")
   use_DynamoRIO_extension(client.drreg-end-restore.dll drmgr)
@@ -2780,44 +2990,90 @@ if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   use_DynamoRIO_extension(client.tls.dll drmgr)
 endif (NOT RISCV64)
 
-if (X86)
+if (X86 OR AARCH64)
   if (NOT MACOS)
     # XXX i#2985: The test's asm doesn't build with MacOS's clang.
-    tobuild_ci(client.drx-scattergather client-interface/drx-scattergather.c "" "" "")
+    set(client.drx-scattergather_client_source "client-interface/drx-scattergather.dll.c")
+    if (X86)
+      tobuild_ci(client.drx-scattergather "client-interface/drx-scattergather-x86.c"
+        "" "" "")
+      set_avx_flags(client.drx-scattergather)
+    elseif (AARCH64)
+      tobuild_ci(client.drx-scattergather "client-interface/drx-scattergather-aarch64.cpp"
+        "" "" "")
+      set_sve_flags(client.drx-scattergather)
+
+      if (proc_supports_sve OR proc_supports_sve2)
+        # Run the tests natively as well to confirm the test reference data is correct.
+        if (proc_supports_sve2)
+          set(client.drx-scattergather-native_runsve2 1)
+        else ()
+          set(client.drx-scattergather-native_runsve 1)
+        endif ()
+        set(client.drx-scattergather-native_test_sample_client 1)
+        torunonly_native(client.drx-scattergather-native client.drx-scattergather
+          drx-scattergather-aarch64 "client-interface/drx-scattergather-aarch64.cpp" "")
+      endif()
+    endif()
     target_include_directories(client.drx-scattergather PRIVATE
       ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
     use_DynamoRIO_extension(client.drx-scattergather.dll drmgr)
     use_DynamoRIO_extension(client.drx-scattergather.dll drx)
     use_DynamoRIO_extension(client.drx-scattergather.dll drreg)
-    set_avx_flags(client.drx-scattergather)
 
     # Our scattergather drbbdup test uses the same app as the base test.
     set(client.drx-scattergather-bbdup_realtest client.drx-scattergather)
-    set(client.drx-scattergather-bbdup_expectbase "drx-scattergather")
+    set(client.drx-scattergather-bbdup_expectbase "drx-scattergather-${ARCH_NAME}")
     tobuild_ci(client.drx-scattergather-bbdup client-interface/drx-scattergather-bbdup.c
       "" "" "")
+    if (X86)
+      set_avx_flags(client.drx-scattergather-bbdup)
+    elseif (AARCH64)
+      set_sve_flags(client.drx-scattergather-bbdup)
+    endif()
     target_include_directories(client.drx-scattergather PRIVATE
       ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
     use_DynamoRIO_extension(client.drx-scattergather-bbdup.dll drmgr)
     use_DynamoRIO_extension(client.drx-scattergather-bbdup.dll drx)
     use_DynamoRIO_extension(client.drx-scattergather-bbdup.dll drreg)
     use_DynamoRIO_extension(client.drx-scattergather-bbdup.dll drbbdup)
-    set_avx_flags(client.drx-scattergather-bbdup)
 
-    if (X64 AND UNIX)
-      if (proc_supports_avx)
-        add_exe(allasm_scattergather
-          ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_scattergather.asm
-          "-early_inject" "")
-        append_pure_asm_app_link_flags(allasm_scattergather)
+    if (AARCH64)
+      set(client.drx-scattergather-instrumentation-fault_realtest client.drx-scattergather)
+      set(client.drx-scattergather-instrumentation-fault_expectbase "drx-scattergather-${ARCH_NAME}")
+      tobuild_ci(client.drx-scattergather-instrumentation-fault
+        client-interface/drx-scattergather-instrumentation-fault.c "" "" "")
+      set_sve_flags(client.drx-scattergather-instrumentation-fault)
+      target_include_directories(client.drx-scattergather PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
+      use_DynamoRIO_extension(client.drx-scattergather-instrumentation-fault.dll drmgr)
+      use_DynamoRIO_extension(client.drx-scattergather-instrumentation-fault.dll drx)
+      use_DynamoRIO_extension(client.drx-scattergather-instrumentation-fault.dll drreg)
+      # drx-scattergather-instrumentation-fault.dll isn't really a sample client but it is
+      # a stripped down version of memval_simple and gives the same output so we want the
+      # templatex file to be processed the same way as it is for sample clients.
+      set(client.drx-scattergather-instrumentation-fault_test_sample_client 1)
+    endif ()
+
+    if (UNIX AND ((X86 AND X64 AND proc_supports_avx) OR (AARCH64 AND proc_supports_sve)))
+      add_exe(allasm_scattergather
+        ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_scattergather_${ARCH_NAME}.asm
+        "-early_inject" "")
+      append_pure_asm_app_link_flags(allasm_scattergather)
+      if (X86)
         set_avx_flags(allasm_scattergather)
-      endif (proc_supports_avx)
+      elseif (AARCH64)
+        set_sve_flags(allasm_scattergather)
+      endif ()
+    endif ()
+
+    if (X86 AND X64 AND UNIX)
       add_exe(allasm_repstr
         ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_repstr.asm
         "-early_inject" "")
       append_pure_asm_app_link_flags(allasm_repstr)
-    endif (X64 AND UNIX)
-  endif()
+    endif ()
+  endif ()
 endif ()
 
 if (NOT RISCV64)
@@ -2860,7 +3116,7 @@ if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   use_DynamoRIO_extension(client.drwrap-drreg-test.dll drmgr)
 endif (NOT RISCV64)
 
-if (AARCH64)
+if (AARCH64 AND NOT APPLE) # TODO i#5383: Port to Mac M1.
   # Create a fuzzing application for stress-testing via drstatecmp.
   add_api_exe(drstatecmp-fuzz-app client-interface/drstatecmp-fuzz-app.c ON OFF)
 endif ()
@@ -2884,17 +3140,40 @@ endif ()
 
 if (NOT ANDROID AND NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   # XXX i#1874: get working on Android
-  tobuild_appdll(client.drsyms-test client-interface/drsyms-test.cpp)
-  get_target_path_for_execution(drsyms_libpath client.drsyms-test.appdll "${location_suffix}")
-  tobuild_ci(client.drsyms-test client-interface/drsyms-test.cpp ""
-    "" "${drsyms_libpath}")
-  # Disable optimizations for the exe and appdll to allow stack tracing.
-  disable_optimizations_for_file(client-interface/drsyms-test.cpp)
-  disable_optimizations_for_file(client-interface/drsyms-test.appdll.cpp)
-  # Debug libc seems to mess up the test.
-  use_MT_not_MTd(client-interface/drsyms-test.appdll.cpp)
-  use_DynamoRIO_extension(client.drsyms-test.dll drsyms)
-  use_DynamoRIO_extension(client.drsyms-test.dll drwrap)  # Makes testing easy
+  macro (add_drsyms_test suffix flag)
+    tobuild_appdll(client.drsyms${suffix}-test client-interface/drsyms-test.cpp)
+    get_target_path_for_execution(drsyms_libpath client.drsyms${suffix}-test.appdll
+      "${location_suffix}")
+    tobuild_ci(client.drsyms${suffix}-test client-interface/drsyms-test.cpp ""
+      "" "${drsyms_libpath}")
+    # Disable optimizations for the exe and appdll to allow stack tracing.
+    disable_optimizations_for_file(client-interface/drsyms-test.cpp)
+    disable_optimizations_for_file(client-interface/drsyms-test.appdll.cpp)
+    # Debug libc seems to mess up the test.
+    use_MT_not_MTd(client-interface/drsyms-test.appdll.cpp)
+    use_DynamoRIO_extension(client.drsyms${suffix}-test.dll drsyms)
+    use_DynamoRIO_extension(client.drsyms${suffix}-test.dll drwrap)  # Makes testing easy
+    if (NOT "${flag}" STREQUAL "")
+      append_property_string(TARGET client.drsyms${suffix}-test
+        COMPILE_FLAGS "${flag}")
+      append_property_string(TARGET client.drsyms${suffix}-test.appdll
+        COMPILE_FLAGS "${flag}")
+    endif ()
+  endmacro ()
+
+  add_drsyms_test("" "")
+  if (LINUX)
+    # We don't try to figure out the default: we just try each variant in addition to
+    # whatever the default is.
+    CHECK_C_COMPILER_FLAG("-gdwarf-4" gdwarf4_avail)
+    if (gdwarf4_avail)
+      add_drsyms_test("-dwarf4" "-gdwarf-4")
+    endif ()
+    CHECK_C_COMPILER_FLAG("-gdwarf-5" gdwarf5_avail)
+    if (gdwarf5_avail)
+      add_drsyms_test("-dwarf5" "-gdwarf-5")
+    endif ()
+  endif ()
 
   # TODO i#2414: Port to Windows, Mac, and Android.
   if (LINUX AND HAVE_LIBUNWIND_H)
@@ -2968,10 +3247,12 @@ if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
   set(DynamoRIO_SET_PREFERRED_BASE OFF)
 endif (X86)
 
-if (AARCHXX)
+if (AARCHXX OR RISCV64)
   tobuild_ci(client.stolen-reg client-interface/stolen-reg.c "" "" "")
   link_with_pthread(client.stolen-reg)
+endif ()
 
+if (AARCHXX)
   tobuild_ci(client.ldstex client-interface/ldstex.c "" "" "")
   link_with_pthread(client.ldstex)
 endif ()
@@ -3006,8 +3287,10 @@ elseif (AARCH64)
     "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v83.txt" OFF OFF)
   torunonly_api(api.dis-a64-v84 api.dis-a64 api/dis-a64.c ""
     "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v84.txt" OFF OFF)
-  torunonly_api(api.dis-a64-v86 api.dis-a64 api/dis-a64.c ""
-    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v86.txt" OFF OFF)
+  torunonly_api(api.dis-a64-v85 api.dis-a64 api/dis-a64.c ""
+    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v85.txt" OFF OFF)
+  torunonly_api(api.dis-a64-v87 api.dis-a64 api/dis-a64.c ""
+    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v87.txt" OFF OFF)
   torunonly_api(api.dis-a64-sve api.dis-a64 api/dis-a64.c ""
     "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-sve.txt" OFF OFF)
   torunonly_api(api.dis-a64-sve2 api.dis-a64 api/dis-a64.c ""
@@ -3211,10 +3494,10 @@ if (X86)
   endif ()
 endif ()
 
-if (X86) # FIXME i#1551, i#1569: fix bugs on ARM and AArch64
+if (X86 OR AARCH64) # FIXME i#1551: fix bugs on ARM
   tobuild_ci(client.nudge_ex client-interface/nudge_ex.c "" "" "")
   use_DynamoRIO_extension(client.nudge_ex.dll drmgr)
-endif (X86)
+endif (X86 OR AARCH64)
 
 tobuild_ci(client.app_args client-interface/app_args.c "" "" "Test;Test2;Test3")
 
@@ -3305,14 +3588,23 @@ if (BUILD_SAMPLES)
               client-interface/memval-test.c "" "" "")
 
           torunonly_ci(sample.${sample}_scattergather client.drx-scattergather ${sample}
-              client-interface/drx-scattergather.c "" "" "")
+              client-interface/drx-scattergather-x86.c "" "" "")
           set(sample.${sample}_scattergather_test_sample_client 1)
           if (proc_supports_avx512)
             set(sample.${sample}_scattergather_runavx512 1)
           elseif (proc_supports_avx)
             set(sample.${sample}_scattergather_runavx 1)
           endif ()
-        endif (X86 AND UNIX)
+        elseif (AARCH64)
+          torunonly_ci(sample.${sample}_scattergather client.drx-scattergather ${sample}
+              client-interface/drx-scattergather-aarch64.cpp "" "" "")
+          set(sample.${sample}_scattergather_test_sample_client 1)
+          if (proc_supports_sve2)
+            set(sample.${sample}_scattergather_runsve2 1)
+          elseif (proc_supports_sve)
+            set(sample.${sample}_scattergather_runsve 1)
+          endif ()
+        endif ()
       elseif (sample STREQUAL "opcode_count")
         # We do not do a simple sanity test for opcode_count, but a normal test
         # that checks the sample's output.
@@ -3326,13 +3618,24 @@ if (BUILD_SAMPLES)
           torunonly_ci(sample.${sample} sample.opcode_count-test ${sample}_test
             samples/opcode_count-test.asm "-opcode 5" "" "")
         endif (X86 AND (NOT X64) AND UNIX)
+        if (AARCH64 AND proc_supports_pauth)
+          # Build a simple app with pauth support and make sure it runs okay under DR and
+          # we see RETAA instructions being traced.
+          add_exe(common.pauth ${ci_shared_app_src})
+          set_pauth_flags(common.pauth)
+
+          # Opcode 679 is OP_retaa.
+          # Set the source to non-existent "common/pauth.c" so that we use our expect file.
+          torunonly_ci(sample.${sample}_pauth common.pauth ${sample} common/pauth.c
+              "-opcode 679 -show_results" "" "")
+        endif ()
       elseif (sample STREQUAL "memtrace_simple")
         if (X86 AND X64 AND UNIX)
           torunonly_ci(sample.${sample}_repstr allasm_repstr ${sample}_test
             samples/${sample}_repstr "-log_to_stderr" "" "")
         endif ()
       elseif (sample STREQUAL "callstack")
-        set(sample.${sample}_expectbase "sample.callstack.control_flags")
+        set(sample.${sample}_expectbase "sample.callstack")
       endif()
     endforeach ()
   endif (NOT ANDROID)
@@ -3363,6 +3666,19 @@ if (BUILD_SAMPLES)
         "CFLAGS=-m32;CXXFLAGS=-m32")
     endif ()
   endif ()
+  if (UNIX)
+    # XXX: Change this to go through torun() like the other tests to share
+    # output, multiplexing, _timeout, etc. features: not entirely
+    # straightforward because this test uses two clients.
+    # For now, "-s 90 -quiet -killpg" is added explicitly.
+    get_target_path_for_execution(drrun_path drrun "${location_suffix}")
+    get_client_path(client1 bbcount bbcount)
+    get_client_path(client2 opcodes opcodes)
+    get_target_path_for_execution(app_path "${ci_shared_app}" "${location_suffix}")
+    add_test(two_clients ${drrun_path} -s 90 -quiet -killpg
+      -client ${client1} 0 ''
+      -client ${client2} 1 '' ${dr_test_ops} -- ${app_path})
+  endif (UNIX)
 endif (BUILD_SAMPLES)
 
 if (BUILD_CLIENTS)
@@ -3372,6 +3688,14 @@ if (BUILD_CLIENTS)
     set(tool.drcov.fib_runcmp "${PROJECT_SOURCE_DIR}/clients/drcov/runtest.cmake")
     set(tool.drcov.fib_expectbase "tool.drcov.fib")
     DynamoRIO_get_full_path(tool.drcov.fib_postcmd drcov2lcov "${location_suffix}")
+
+    if (UNIX)
+      # Test an app that executes a pipe syscall for i#5981.
+      torunonly_ci(tool.drcov.eintr linux.eintr drcov linux/eintr.c "" "" "")
+      set(tool.drcov.eintr_runcmp "${PROJECT_SOURCE_DIR}/clients/drcov/runtest.cmake")
+      set(tool.drcov.eintr_expectbase "tool.drcov.eintr")
+      DynamoRIO_get_full_path(tool.drcov.eintr_postcmd drcov2lcov "${location_suffix}")
+    endif ()
   endif ()
 
   ###########################################################################
@@ -3387,11 +3711,11 @@ if (BUILD_CLIENTS)
     endif ()
 
     macro (torunonly_drcachesim testname exetgt sim_ops app_args)
-      torunonly_ci(tool.drcachesim.${testname} ${exetgt} drcachesim
+      torunonly_ci(tool.drcachesim.${testname} ${exetgt} drmemtrace_launcher
         "${testname}.c" # for templatex basename
         "-ipc_name ${IPC_PREFIX}drtestpipe_${testname} ${sim_ops}"
         "" "${app_args}")
-      set(tool.drcachesim.${testname}_toolname "drcachesim")
+      set(tool.drcachesim.${testname}_toolname "drmemtrace")
       set(tool.drcachesim.${testname}_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcachesim.${testname}_rawtemp ON) # no preprocessor
@@ -3410,7 +3734,7 @@ if (BUILD_CLIENTS)
       "")
 
     # TLB simulator's single-thread sanity check
-    torunonly_drcachesim(TLB-simple ${ci_shared_app} "-simulator_type TLB" "")
+    torunonly_drcachesim(TLB-simple ${ci_shared_app} "-tool TLB" "")
 
     # Test that -LL_miss_file at least doesn't crash.  It's not easy to test
     # much further.
@@ -3447,14 +3771,14 @@ if (BUILD_CLIENTS)
         "-L0_filter -test_mode -test_mode_name filter_asm_instr_count" "")
     endif ()
     torunonly_drcachesim(filter-no-i ${ci_shared_app}
-      "-L0I_filter -L0I_size 0 -simulator_type basic_counts ${test_mode_flag}" "")
+      "-L0I_filter -L0I_size 0 -tool basic_counts ${test_mode_flag}" "")
     torunonly_drcachesim(filter-i ${ci_shared_app}
-      "-L0I_filter -L0I_size 1024 -simulator_type basic_counts ${test_mode_flag}" "")
+      "-L0I_filter -L0I_size 1024 -tool basic_counts ${test_mode_flag}" "")
     set(tool.drcachesim.filter-i_expectbase "basic-counts-generic")
     torunonly_drcachesim(filter-no-d ${ci_shared_app}
-      "-L0D_filter -L0D_size 0 -simulator_type basic_counts ${test_mode_flag}" "")
+      "-L0D_filter -L0D_size 0 -tool basic_counts ${test_mode_flag}" "")
     torunonly_drcachesim(filter-d ${ci_shared_app}
-      "-L0D_filter -L0D_size 1024 -simulator_type basic_counts ${test_mode_flag}" "")
+      "-L0D_filter -L0D_size 1024 -tool basic_counts ${test_mode_flag}" "")
     set(tool.drcachesim.filter-d_expectbase "basic-counts-generic")
 
     torunonly_drcachesim(instr-only-trace ${ci_shared_app} "-instr_only_trace" "")
@@ -3462,7 +3786,7 @@ if (BUILD_CLIENTS)
     # __builtin_prefetch used in the test is not defined on MSVC.
     if (NOT MSVC)
       add_exe(builtin_prefetch ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/builtin_prefetch.c)
-      torunonly_drcachesim(builtin-prefetch-basic-counts builtin_prefetch "-simulator_type basic_counts" "")
+      torunonly_drcachesim(builtin-prefetch-basic-counts builtin_prefetch "-tool basic_counts" "")
       unset(tool.drcachesim.builtin-prefetch-basic-counts_rawtemp) # use preprocessor
     endif ()
 
@@ -3473,11 +3797,17 @@ if (BUILD_CLIENTS)
     # 1 thread, testing the thread ignore logic.  The max should be small enough
     # to not be flaky on any platform.
     torunonly_drcachesim(delay-global client.annotation-concurrency
-      "-simulator_type basic_counts -trace_after_instrs 20K -max_global_trace_refs 10K"
+      "-tool basic_counts -trace_after_instrs 20K -max_global_trace_refs 10K"
       "${annotation_test_args_shorter}")
 
     torunonly_drcachesim(windows-simple ${ci_shared_app}
-      "-trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K -simulator_type basic_counts" "")
+      "-trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K -tool basic_counts" "")
+
+    # The corresponding clients/drcachesim/tests/irregular-windows-simple.templatex of
+    # this test does not have precise instruction count for the irregular windows because
+    # of variation between different runs and platforms.
+    torunonly_drcachesim(irregular-windows-simple ${ci_shared_app}
+      "-trace_instr_intervals_file ${config_files_dir}/instr_intervals_example.csv -tool basic_counts" "")
 
     # Test that "Warmup hits" and "Warmup misses" are printed out
     torunonly_drcachesim(warmup-valid ${ci_shared_app} "-warmup_refs 1" "")
@@ -3508,7 +3838,7 @@ if (BUILD_CLIENTS)
 
     # TLB simulator's multi-thread sanity check
     torunonly_drcachesim(TLB-threads client.annotation-concurrency
-      "-simulator_type TLB -cpu_scheduling" "${annotation_test_args_shorter}")
+      "-tool TLB -cpu_scheduling" "${annotation_test_args_shorter}")
     # i#2063: this test can time out.
     set(tool.drcachesim.TLB-threads_timeout 150)
 
@@ -3524,10 +3854,10 @@ if (BUILD_CLIENTS)
         "-data_prefetcher none" "")
 
       torunonly_drcachesim(allasm-aarch64-prefetch-basic-counts allasm_aarch64_prefetch
-        "-simulator_type basic_counts" "")
+        "-tool basic_counts" "")
 
       torunonly_drcachesim(allasm-aarch64-flush-basic-counts allasm_aarch64_flush
-        "-simulator_type basic_counts" "")
+        "-tool basic_counts" "")
     endif ()
 
     # XXX i#1703: add more dedicated tests (in suite/tests/clients/) for which
@@ -3545,28 +3875,28 @@ if (BUILD_CLIENTS)
       add_exe(stride_benchmark
         ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/stride_benchmark.cpp)
       torunonly_drcachesim(miss_analyzer stride_benchmark
-        "-simulator_type miss_analyzer -miss_count_threshold 5000 -miss_frac_threshold 0.25" "")
+        "-tool miss_analyzer -miss_count_threshold 5000 -miss_frac_threshold 0.25" "")
     endif ()
 
     # Test other analysis tools
     macro (torunonly_simtool testname exetgt sim_ops app_args)
-      torunonly_ci(tool.${testname} ${exetgt} drcachesim
+      torunonly_ci(tool.${testname} ${exetgt} drmemtrace_launcher
         "${testname}.c" # for templatex basename
         "-ipc_name ${IPC_PREFIX}drtestpipe_${testname} ${sim_ops}" "" "${app_args}")
-      set(tool.${testname}_toolname "drcachesim")
+      set(tool.${testname}_toolname "drmemtrace")
       set(tool.${testname}_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
     endmacro (torunonly_simtool)
 
     torunonly_simtool(histogram ${ci_shared_app}
-      "-simulator_type histogram -report_top 20" "")
+      "-tool histogram -report_top 20" "")
 
     torunonly_simtool(reuse_distance ${ci_shared_app}
-      "-simulator_type reuse_distance -reuse_distance_threshold 256" "")
+      "-tool reuse_distance -reuse_distance_threshold 256" "")
 
     # We run common.decode-bad to test markers for faults
     if (X86) # decode-bad is x86-only
       torunonly_simtool(basic_counts common.decode-bad
-        "-simulator_type basic_counts" "")
+        "-tool basic_counts" "")
     endif ()
 
     if (X86 AND X64) # We only bother with a sample trace for x86_64.
@@ -3574,24 +3904,81 @@ if (BUILD_CLIENTS)
       set(small_trace_file
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.small.x64.trace")
       torunonly_simtool(reuse_offline ${ci_shared_app}
-        "-infile ${small_trace_file} -simulator_type reuse_distance -reuse_distance_histogram" "")
+        "-infile ${small_trace_file} -tool reuse_distance -reuse_distance_histogram" "")
 
       # Our multi-threaded sample trace is larger so we require gzip.
       if (ZLIB_FOUND)
         set(thread_trace_dir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.x64.tracedir")
         torunonly_simtool(reuse_offline_threads ${ci_shared_app}
-          "-indir ${thread_trace_dir} -simulator_type reuse_distance -reuse_distance_histogram" "")
+          "-indir ${thread_trace_dir} -tool reuse_distance -reuse_distance_histogram" "")
         set(tool.reuse_offline_threads_rawtemp ON) # no preprocessor
 
         torunonly_simtool(reuse_time_offline ${ci_shared_app}
-          "-indir ${thread_trace_dir} -simulator_type reuse_time" "")
+          "-indir ${thread_trace_dir} -tool reuse_time" "")
         set(tool.reuse_time_offline_rawtemp ON) # no preprocessor
 
         torunonly_simtool(counts_only_thread ${ci_shared_app}
-          "-indir ${thread_trace_dir} -simulator_type basic_counts -only_thread 3018559"
+          "-indir ${thread_trace_dir} -tool basic_counts -only_thread 1257604"
           "")
         set(tool.counts_only_thread_rawtemp ON) # no preprocessor
+
+        torunonly_simtool(schedule_stats_nopreempt ${ci_shared_app}
+          "-indir ${thread_trace_dir} -tool schedule_stats -core_sharded -sched_quantum 10000000"
+          "")
+        set(tool.schedule_stats_nopreempt_rawtemp ON) # no preprocessor
+
+        torunonly_simtool(core_serial ${ci_shared_app}
+          "-indir ${thread_trace_dir} -tool schedule_stats:basic_counts -core_serial"
+          "")
+        set(tool.core_serial_rawtemp ON) # no preprocessor
+
+        set(cpu_sched_path "${thread_trace_dir}/cpu_schedule.bin.zip")
+        torunonly_simtool(simulate_as_traced ${ci_shared_app}
+          "-indir ${thread_trace_dir} -core_serial -cpu_schedule_file ${cpu_sched_path} -cores 7"
+          "")
+        set(tool.simulate_as_traced_rawtemp ON) # no preprocessor
+
+        torunonly_simtool(skip_to_timestamp ${ci_shared_app}
+          # We pick a timestamp far enough in that only 2 threads remain
+          # at that point, testing thread exclusion.
+          "-indir ${thread_trace_dir} -tool basic_counts -skip_to_timestamp 13331862029905366 -cpu_schedule_file ${cpu_sched_path}"
+          "")
+        set(tool.skip_to_timestamp_rawtemp ON) # no preprocessor
+
+        set(switch_file
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/mock_switch_sequences.x64.zip")
+        torunonly_simtool(switch_insertion ${ci_shared_app}
+          "-indir ${thread_trace_dir} -tool basic_counts -core_sharded -sched_quantum 1000 -sched_switch_file ${switch_file}"
+          "")
+        set(tool.switch_insertion_rawtemp ON) # no preprocessor
+
+        torunonly_simtool(switch_file_invariants ${ci_shared_app}
+          "-infile ${switch_file} -tool invariant_checker"
+          "")
+        set(tool.switch_file_invariants_rawtemp ON) # no preprocessor
+
+        # Sanity test that core-sharded at least runs without errors on our other tools.
+        torunonly_simtool(core_sharded ${ci_shared_app}
+          "-indir ${thread_trace_dir} -tool reuse_time:reuse_distance:histogram:opcode_mix:syscall_mix -core_sharded"
+          "")
+        set(tool.core_sharded_rawtemp ON) # no preprocessor
+
+        # Test analysis of core-sharded-on-disk traces.
+        set(core_sharded_dir
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig-core-sharded.x64.tracedir")
+        torunonly_simtool(core_on_disk ${ci_shared_app}
+          "-indir ${core_sharded_dir} -tool basic_counts" "")
+        set(tool.core_on_disk_rawtemp ON) # no preprocessor
+
+        torunonly_simtool(core_on_disk_schedule ${ci_shared_app}
+          "-indir ${core_sharded_dir} -tool schedule_stats" "")
+        set(tool.core_on_disk_schedule_rawtemp ON) # no preprocessor
+
+        # Test -only_shards on core-sharded-on-disk traces.
+        torunonly_simtool(only_shards ${ci_shared_app}
+          "-indir ${core_sharded_dir} -tool schedule_stats -only_shards 2,3" "")
+        set(tool.core_on_disk_rawtemp ON) # no preprocessor
       endif ()
     endif ()
 
@@ -3620,14 +4007,23 @@ if (BUILD_CLIENTS)
       set(tool.drcachesim.invariants_timeout 180)
     endif ()
 
-    if (NOT MACOS AND X86)
-      torunonly_drcachesim(scattergather client.drx-scattergather
-        "-simulator_type basic_counts" "")
-      unset(tool.drcachesim.scattergather_rawtemp) # use preprocessor
+    if ((NOT MACOS) AND (X86 OR AARCH64))
+        torunonly_drcachesim(scattergather-${ARCH_NAME} client.drx-scattergather
+        "-tool invariant_checker -test_mode_name scattergather" "")
+      unset(tool.drcachesim.scattergather-${ARCH_NAME}_rawtemp) # use preprocessor
+      if (AARCH64)
+          # The AArch64 version of the test tests a lot of instruction variants and can
+          # take >100s.
+          set(tool.drcachesim.scattergather-${ARCH_NAME}_timeout 180)
+      endif ()
       if (proc_supports_avx512)
-        set(tool.drcachesim.scattergather_runavx512 1)
+        set(tool.drcachesim.scattergather-${ARCH_NAME}_runavx512 1)
       elseif (proc_supports_avx)
-        set(tool.drcachesim.scattergather_runavx 1)
+        set(tool.drcachesim.scattergather-${ARCH_NAME}_runavx 1)
+      elseif (proc_supports_sve2)
+        set(tool.drcachesim.scattergather-${ARCH_NAME}_runsve2 1)
+      elseif (proc_supports_sve)
+        set(tool.drcachesim.scattergather-${ARCH_NAME}_runsve 1)
       endif ()
     endif ()
 
@@ -3636,13 +4032,14 @@ if (BUILD_CLIENTS)
       # XXX: we could exclude the pipe files and build the offline trace
       # support by itself for Android.
       # TODO i#3544: Port tests to RISC-V 64
-      get_target_path_for_execution(drcachesim_path drcachesim "${location_suffix}")
+      get_target_path_for_execution(drcachesim_path drmemtrace_launcher
+        "${location_suffix}")
       prefix_cmd_if_necessary(drcachesim_path ON ${drcachesim_path})
       get_target_path_for_execution(drraw2trace_path drraw2trace "${location_suffix}")
       prefix_cmd_if_necessary(drraw2trace_path ON ${drraw2trace_path})
 
       torunonly_drcachesim(opcode_mix ${ci_shared_app}
-        "-instr_encodings -simulator_type opcode_mix" "")
+        "-instr_encodings -tool opcode_mix" "")
     endif (NOT RISCV64)
     # The sim_atops should start with @ and be in @-as-space format (hence "atops").
     # If the exetgt has drcachesim statically linked in, the _nodr property must be
@@ -3661,12 +4058,12 @@ if (BUILD_CLIENTS)
         # Shrink test times on Appveyor.
         set(extra_ops "-max_trace_size 1M")
       endif ()
-      torunonly_ci(tool.drcacheoff.${testname} ${exetgt} drcachesim
+      torunonly_ci(tool.drcacheoff.${testname} ${exetgt} drmemtrace_launcher
         "offline-${testname}.c" # for templatex basename
         # Set a test-unique prefix to avoid races removing/finding output.
         "-offline -subdir_prefix ${testname_full} ${extra_ops} ${tracer_ops}"
         "" "${app_args}")
-      set(${testname_full}_toolname "drcachesim")
+      set(${testname_full}_toolname "drmemtrace")
       set(${testname_full}_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(${testname_full}_rawtemp ON) # no preprocessor
       set(${testname_full}_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
@@ -3727,11 +4124,19 @@ if (BUILD_CLIENTS)
     torunonly_drcacheoff(raw-none ${ci_shared_app} "-raw_compress none" "" "")
     set(tool.drcacheoff.raw-none_expectbase "offline-simple")
 
+    # Test that malloc & co. are not invoked.
+    # We disable the lz4 default as both lz4 and snappy call
+    # dr_allow_unsafe_static_behavior().
+    # We enable function tracing for a non-library-exported function to exercise drsyms.
+    torunonly_drcacheoff(check-malloc ${ci_shared_app}
+      "-raw_compress none -record_function 'main|2'" "" "")
+    set(tool.drcacheoff.check-malloc_expectbase "offline-simple")
+
     # Test reading a trace in sharded snappy-compressed files.
     if (libsnappy)
       # with a parallel tool (basic_counts)
       torunonly_api(tool.drcacheoff.snappy "${drcachesim_path}" "offline-snappy.c" ""
-        "-indir;${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.chase-snappy.x64.tracedir;-simulator_type;basic_counts"
+        "-indir;${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.chase-snappy.x64.tracedir;-tool;basic_counts"
         OFF OFF)
 
       # with a legacy serial tool (full simulator)
@@ -3752,27 +4157,42 @@ if (BUILD_CLIENTS)
 
     torunonly_drcacheoff(filter ${ci_shared_app} "-L0_filter ${test_mode_flag}" "" "")
     torunonly_drcacheoff(filter-no-i ${ci_shared_app}
-      "-L0I_filter -L0I_size 0 ${test_mode_flag}" "@-simulator_type@basic_counts" "")
+      "-L0I_filter -L0I_size 0 ${test_mode_flag}" "@-tool@basic_counts" "")
     torunonly_drcacheoff(filter-i ${ci_shared_app}
-      "-L0I_filter -L0I_size 1024 ${test_mode_flag}" "@-simulator_type@basic_counts" "")
+      "-L0I_filter -L0I_size 1024 ${test_mode_flag}" "@-tool@basic_counts" "")
     set(tool.drcacheoff.filter-i_expectbase "offline-basic-counts-generic")
     torunonly_drcacheoff(filter-no-d ${ci_shared_app}
-      "-L0D_filter -L0D_size 0 ${test_mode_flag}" "@-simulator_type@basic_counts" "")
+      "-L0D_filter -L0D_size 0 ${test_mode_flag}" "@-tool@basic_counts" "")
     torunonly_drcacheoff(filter-d ${ci_shared_app}
-      "-L0D_filter -L0D_size 1024 ${test_mode_flag}" "@-simulator_type@basic_counts" "")
+      "-L0D_filter -L0D_size 1024 ${test_mode_flag}" "@-tool@basic_counts" "")
     set(tool.drcacheoff.filter-d_expectbase "offline-basic-counts-generic")
 
     torunonly_drcacheoff(instr-only-trace ${ci_shared_app} "-instr_only_trace" "" "")
     torunonly_drcacheoff(filter-and-instr-only-trace ${ci_shared_app} "-instr_only_trace -L0_filter" "" "")
 
-    torunonly_drcacheoff(interval-count-output ${ci_shared_app} ""
-      "@-simulator_type@basic_counts@-interval_microseconds@1M" "")
+    if (LINUX) # Test uses Linux-specific timer code.
+      if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+        torunonly_drcacheoff(sysnums linux.signal_pre_syscall ""
+          "@-tool@basic_counts@${test_mode_flag}" "")
+      endif ()
+    endif ()
+
+    torunonly_drcacheoff(interval-microseconds-count-output ${ci_shared_app} ""
+      "@-tool@basic_counts@-interval_microseconds@1M" "")
+
+    torunonly_drcacheoff(interval-instr-count-output ${ci_shared_app} ""
+      "@-tool@basic_counts@-interval_instr_count@10000" "")
+
+    torunonly_drcacheoff(interval-opcode-mix-output ${ci_shared_app} ""
+      "@-tool@opcode_mix@-interval_instr_count@10000" "")
 
     # As for the online test, we check that only 1 thread is in the final trace.
     torunonly_drcacheoff(max-global client.annotation-concurrency
       # Include function tracing to sanity test combining with delay and max.
-      "-trace_after_instrs 20K -max_global_trace_refs 10K -record_heap"
-      "@-simulator_type@basic_counts" "${annotation_test_args_shorter}")
+      # We don't use '-record_heap' as it is slow on Windows (i#6342).
+      "-trace_after_instrs 20K -max_global_trace_refs 10K -record_function malloc|1"
+      "@-tool@basic_counts" "${annotation_test_args_shorter}")
+    set(tool.drcacheoff.max-global_timeout 240) # Can take >120s.
 
     torunonly_drcacheoff(delay-func ${ci_shared_app}
       # Delay enough that zero data should be logged to test that function
@@ -3784,52 +4204,106 @@ if (BUILD_CLIENTS)
       # This is also large enough to test the (non-triggering portion of) the
       # per-thread counter feature (i#5026).
       "-trace_after_instrs 200M -record_heap"
-      "@-simulator_type@basic_counts" "")
+      "@-tool@basic_counts" "")
     # There is now no data file at all: which we test by echoing the glob.
     set(tool.drcacheoff.delay-func_nopost ON)
     set(tool.drcacheoff.delay-func_postcmd
       "${CMAKE_COMMAND}@-E@echo@${dir_prefix}.*.dir/raw/*raw*")
+    set(tool.drcacheoff.delay-func_timeout 240) # Can take >90s.
 
     torunonly_drcacheoff(windows-simple ${ci_shared_app}
       "-no_split_windows -trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
-      "@-simulator_type@basic_counts" "")
+      "@-tool@basic_counts" "")
     if (ZLIB_FOUND)
       torunonly_drcacheoff(windows-zlib ${ci_shared_app}
         "-raw_compress zlib -no_split_windows -trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
-        "@-simulator_type@basic_counts" "")
+        "@-tool@basic_counts" "")
       set(tool.drcacheoff.windows-zlib_expectbase "offline-windows-simple")
       torunonly_drcacheoff(windows-gzip ${ci_shared_app}
         "-raw_compress gzip -no_split_windows -trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
-        "@-simulator_type@basic_counts" "")
+        "@-tool@basic_counts" "")
       set(tool.drcacheoff.windows-gzip_expectbase "offline-windows-simple")
     endif ()
     # lz4 is on by default so we test no compression here.
     torunonly_drcacheoff(windows-none ${ci_shared_app}
       "-raw_compress none -no_split_windows -trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
-      "@-simulator_type@basic_counts" "")
+      "@-tool@basic_counts" "")
     set(tool.drcacheoff.windows-none_expectbase "offline-windows-simple")
     # Ensure the invariant checker handles window transitions.
     torunonly_drcacheoff(windows-invar ${ci_shared_app}
       "-no_split_windows -trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
-      "@-simulator_type@invariant_checker" "")
+      "@-tool@invariant_checker" "")
     if (X86 AND X64 AND UNIX)
       torunonly_drcacheoff(windows-asm allasm_repstr
         "-no_split_windows -trace_after_instrs 3 -trace_for_instrs 4 -retrace_every_instrs 4"
-        "@-simulator_type@basic_counts" "")
+        "@-tool@basic_counts" "")
     endif ()
     # Test split-file windows.
     torunonly_drcacheoff(windows-split ${ci_shared_app}
       "-trace_after_instrs 20K -trace_for_instrs 10K -retrace_every_instrs 30K"
-      "@-simulator_type@basic_counts" "")
+      "@-tool@basic_counts" "")
     # The first postcmd did window #0.  There should be at least 2 more windows.
     set(tool.drcacheoff.windows-split_postcmd2
-      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0001@-simulator_type@basic_counts")
+      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0001@-tool@basic_counts")
     set(tool.drcacheoff.windows-split_postcmd3
-      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0002@-simulator_type@basic_counts")
+      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0002@-tool@basic_counts")
+
+    # Test L0_filter_until_instrs
+    torunonly_drcacheoff(L0-filter-until-instrs-windows-split ${ci_shared_app}
+        "-trace_after_instrs 10K -L0_filter_until_instrs 10K -trace_for_instrs 10K -retrace_every_instrs 10K"
+      "@-tool@basic_counts" "")
+    # The first postcmd did window #0.  There should be at least 2 more windows.
+    set(tool.drcacheoff.L0-filter-until-instrs-windows-split_postcmd2
+      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0001@-tool@basic_counts")
+    set(tool.drcacheoff.L0-filter-until-instrs-windows-split_postcmd3
+      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0002@-tool@basic_counts")
+
+    torunonly_drcacheoff(L0-filter-until-instrs-2 ${ci_shared_app}
+        "-trace_after_instrs 10 -L0_filter_until_instrs 10K -trace_for_instrs 10K -retrace_every_instrs 10K"
+      "@-tool@basic_counts" "")
+
+    torunonly_drcacheoff(L0-filter-until-instrs-exit-after ${ci_shared_app}
+        "-trace_after_instrs 10K -L0_filter_until_instrs 10K -exit_after_tracing 10K"
+      "@-tool@basic_counts" "")
+
+    torunonly_drcacheoff(L0-filter-until-instrs-max-refs ${ci_shared_app}
+        "-trace_after_instrs 10K -L0_filter_until_instrs 10K -max_global_trace_refs 10K"
+      "@-tool@basic_counts" "")
+
+    torunonly_drcacheoff(L0-filter-until-instrs-max-trace-size ${ci_shared_app}
+        "-trace_after_instrs 10K -L0_filter_until_instrs 10K -max_trace_size 10K"
+      "@-tool@basic_counts" "")
+
+    # pthreads not available with MSVC
+    if (NOT MSVC)
+    set(ci_pthreads_app pthreads.pthreads)
+    # pthreads tests
+    torunonly_drcacheoff(warmup-pthreads-windows-split ${ci_pthreads_app}
+        "-trace_after_instrs 10K -L0_filter_until_instrs 100K -trace_for_instrs 10K -retrace_every_instrs 10K"
+      "@-tool@basic_counts" "")
+    # The first postcmd did window #0.  There should be at least 2 more windows.
+    set(tool.drcacheoff.warmup-pthreads-windows-split_postcmd2
+      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0001@-tool@basic_counts")
+    set(tool.drcacheoff.warmup-pthreads-windows-split_postcmd3
+      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0002@-tool@basic_counts")
+
+    torunonly_drcacheoff(warmup-pthreads-2 ${ci_pthreads_app}
+        "-trace_after_instrs 10 -L0_filter_until_instrs 10K -trace_for_instrs 10K -retrace_every_instrs 10K"
+      "@-tool@basic_counts" "")
+
+    torunonly_drcacheoff(warmup-pthreads-max-refs ${ci_pthreads_app}
+        "-trace_after_instrs 10K -L0_filter_until_instrs 10K -max_global_trace_refs 300K"
+      "@-tool@basic_counts" "20000")
+
+    torunonly_drcacheoff(warmup-pthreads-max-trace-size ${ci_pthreads_app}
+        "-trace_after_instrs 10K -L0_filter_until_instrs 10K -max_trace_size 100K"
+      "@-tool@basic_counts" "")
+    endif ()
+
 
     # __builtin_prefetch used in the test is not defined on MSVC.
     if (NOT MSVC)
-      torunonly_drcacheoff(builtin-prefetch-basic-counts builtin_prefetch "" "@-simulator_type@basic_counts" "")
+      torunonly_drcacheoff(builtin-prefetch-basic-counts builtin_prefetch "" "@-tool@basic_counts" "")
       unset(tool.drcacheoff.builtin-prefetch-basic-counts_rawtemp) # use preprocessor
     endif ()
 
@@ -3840,14 +4314,14 @@ if (BUILD_CLIENTS)
       torunonly_api(tool.drcacheoff.skip "${drcachesim_path}" "offline-skip" ""
         # Test invariants with global headers after skipping instrs.
         # Here the skip does not find real headers and we expect synthetic.
-        "-simulator_type;view;-infile;${zip_path};${test_mode_flag};-skip_instrs;62;-sim_refs;10"
+        "-tool;view;-view_syntax;dr;-infile;${zip_path};${test_mode_flag};-skip_instrs;62;-sim_refs;10"
         OFF OFF)
       set(tool.drcacheoff.skip_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcacheoff.skip_rawtemp ON) # no preprocessor
       torunonly_api(tool.drcacheoff.skip2 "${drcachesim_path}" "offline-skip2" ""
         # Test invariants with global headers after skipping instrs.
         # Here the skip finds real headers and we expect no synthetic.
-        "-simulator_type;view;-infile;${zip_path};${test_mode_flag};-skip_instrs;63;-sim_refs;10"
+        "-tool;view;-view_syntax;dr;-infile;${zip_path};${test_mode_flag};-skip_instrs;63;-sim_refs;10"
         OFF OFF)
       set(tool.drcacheoff.skip2_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcacheoff.skip2_rawtemp ON) # no preprocessor
@@ -3869,29 +4343,36 @@ if (BUILD_CLIENTS)
       # kernel transfer events.
       set(tool.drcacheoff.basic_counts_full_run ON)
       torunonly_drcacheoff(basic_counts common.decode-bad ""
-        "@-simulator_type@basic_counts" "")
+        "@-tool@basic_counts" "")
       unset(tool.drcacheoff.basic_counts_rawtemp)
     endif ()
     if (NOT RISCV64)
       # TODO i#3544: Port tests to RISC-V 64
       torunonly_drcacheoff(opcode_mix ${ci_shared_app} ""
-        "@-simulator_type@opcode_mix" "")
+        "@-tool@opcode_mix" "")
       # Ensure the tool works without the raw/ subdir.
       set(tool.drcacheoff.opcode_mix_postcmd
         "firstglob@${drraw2trace_path}@-indir@${dir_prefix}.*.dir")
       set(tool.drcacheoff.opcode_mix_postcmd2
         "foreach@${CMAKE_COMMAND}@-E@remove_directory@${dir_prefix}.*.dir/raw")
       set(tool.drcacheoff.opcode_mix_postcmd3
-        "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir@-simulator_type@opcode_mix")
+        "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir@-tool@opcode_mix")
 
       torunonly_drcacheoff(view ${ci_shared_app} ""
-        "@-simulator_type@view@-sim_refs@16384" "")
+        "@-tool@view@-sim_refs@16384" "")
+      unset(tool.drcacheoff.view_rawtemp) # Use preprocessor
+      if (AARCH64 AND proc_supports_sve)
+        set(tool.drcacheoff.view_runsve 1)
+      endif ()
 
       set(tool.drcacheoff.func_view_full_run ON) # Fails on Windows if truncated.
       torunonly_drcacheoff(func_view common.fib "-record_function fib|1"
-        "@-simulator_type@func_view" "only_5")
+        "@-tool@func_view" "only_5")
     endif (NOT RISCV64)
     if (DR_HOST_X86 AND DR_HOST_X64 AND LINUX)
+      torunonly_drcacheoff(opcode_categories allasm_x86_64 ""
+        "@-tool@opcode_mix" "")
+
       # Requires sudo to access pagemap.
       # XXX: Should we not enable this outside of the Github suite where we know
       # we have passwordless sudo?  The pause for a password may cause problems
@@ -3899,11 +4380,11 @@ if (BUILD_CLIENTS)
       set(tool.drcacheoff.phys_SUDO_sudo ON)
       set(tool.drcacheoff.phys_SUDO_expectbase "offline-phys")
       torunonly_drcacheoff(phys_SUDO allasm_repstr
-        "-use_physical" "@${test_mode_flag}@-simulator_type@view" "")
+        "-use_physical" "@${test_mode_flag}@-tool@view" "")
       set(tool.drcacheoff.phys_nopriv_failok ON)
       set(tool.drcacheoff.phys_nopriv_nopost ON)
       torunonly_drcacheoff(phys_nopriv allasm_x86_64
-        "-use_physical" "@${test_mode_flag}@-simulator_type@view" "")
+        "-use_physical" "@${test_mode_flag}@-tool@view" "")
     endif ()
 
     if (UNIX AND ZLIB_FOUND)
@@ -3913,18 +4394,18 @@ if (BUILD_CLIENTS)
       # We could run this like so, but with threads the output is non-deterministic:
       #    torunonly_drcacheoff(func_view_noret tool.fib_plus
       #      "-record_function fib|1&noret_func|2|noret&noargs|0"
-      #      "@-simulator_type@func_view" "")
+      #      "@-tool@func_view" "")
       # Thus we run this manually and check in the resulting trace.  I ran with
       # a delay to shrink the size, since we are not interesting in the main thread's
       # pre-main() init:
-      #     $ bin64/drrun -t drcachesim -offline -trace_after_instrs 210K \
+      #     $ bin64/drrun -t drmemtrace -offline -trace_after_instrs 210K \
       #       -record_function 'fib|1&noret_func|2|noret&noargs|0' -- \
       #       suite/tests/bin/tool.fib_plus
-      #     $ bin64/drrun -t drcachesim -simulator_type func_view -indir \
+      #     $ bin64/drrun -t drmemtrace -tool func_view -indir \
       #       drmemtrace*.dir/
       torunonly_api(tool.drcacheoff.func_view_noret "${drcachesim_path}"
         "offline-func_view_noret.c" ""
-        "-indir;${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/offline-func-trace;-simulator_type;func_view"
+        "-indir;${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/offline-func-trace;-tool;func_view"
         OFF OFF)
       set(tool.drcacheoff.func_view_noret_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -3947,7 +4428,7 @@ if (BUILD_CLIENTS)
           COMPILE_FLAGS "${ORIG_CMAKE_CXX_FLAGS} -std=c++17 -Wno-unused-function")
       endif ()
       torunonly_drcacheoff(func_view_heap tool.heap_test
-        "-record_heap" "@-simulator_type@func_view@-no_show_func_trace" "")
+        "-record_heap" "@-tool@func_view@-no_show_func_trace" "")
       unset(tool.drcacheoff.func_view_heap_rawtemp) # use preprocessor
     endif ()
 
@@ -3971,7 +4452,7 @@ if (BUILD_CLIENTS)
     if (AARCH64)
       set(tool.drcacheoff.burst_aarch64_sys_nodr ON)
       torunonly_drcacheoff(burst_aarch64_sys tool.drcacheoff.burst_aarch64_sys ""
-        "@-simulator_type@basic_counts" "")
+        "@-tool@basic_counts" "")
     endif ()
 
     if (NOT APPLE AND NOT RISCV64) # XXX i#1997: static DR not fully supported on Mac yet
@@ -3984,7 +4465,7 @@ if (BUILD_CLIENTS)
       use_DynamoRIO_static_client(tool.drcacheoff.gencode drmemtrace_static)
       use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.gencode)
       target_link_libraries(tool.drcacheoff.gencode drmemtrace_raw2trace
-        drmemtrace_analyzer)
+        drmemtrace_analyzer test_helpers)
       target_include_directories(tool.drcacheoff.gencode PUBLIC
         "${PROJECT_SOURCE_DIR}/clients/drcachesim"
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/common"
@@ -3993,8 +4474,16 @@ if (BUILD_CLIENTS)
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/scheduler")
       set(tool.drcacheoff.gencode_nodr ON)
       torunonly_drcacheoff(gencode tool.drcacheoff.gencode
-        "" "@-simulator_type@opcode_mix" "")
+        "" "@-tool@opcode_mix" "")
       unset(tool.drcacheoff.gencode_rawtemp) # Use preprocessor on template.
+
+      set(tool.drcacheoff.gencode_filtered_nodr ON)
+      torunonly_drcacheoff(gencode_filtered tool.drcacheoff.gencode
+        "" "@-tool@opcode_mix"
+        "-L0_filter -subdir_prefix drmemtrace.tool.drcacheoff.gencode_filtered")
+
+      # TODO i#6474, i#2062: Add a similar gencode test with
+      # -L0_filter_until_instrs when i#6474 is fixed.
     endif ()
 
     # XXX i#1551: startstop API is NYI on ARM
@@ -4010,7 +4499,7 @@ if (BUILD_CLIENTS)
 
       set(tool.drcacheoff.burst_replaceall_nodr ON)
       torunonly_drcacheoff(burst_replaceall tool.drcacheoff.burst_replaceall ""
-        "@-simulator_type@basic_counts" "")
+        "@-tool@basic_counts" "")
       unset(tool.drcacheoff.burst_replaceall_rawtemp) # use preprocessor
 
       if (X64 AND UNIX)
@@ -4021,10 +4510,39 @@ if (BUILD_CLIENTS)
         set(tool.drcacheoff.burst_maps_nodr ON)
         torunonly_drcacheoff(burst_maps tool.drcacheoff.burst_maps "" "" "")
       endif ()
+      if (LINUX)
+        set(tool.drcacheoff.burst_syscall_inject_nodr ON)
+        torunonly_drcacheoff(burst_syscall_inject tool.drcacheoff.burst_syscall_inject ""
+          "@-tool@invariant_checker@-syscall_template_file@drmemtrace.tool.drcacheoff.burst_syscall_inject.*.dir/raw/syscall_trace_template"
+          "")
+      endif ()
 
       set(tool.drcacheoff.burst_traceopts_nodr ON)
       set(tool.drcacheoff.burst_traceopts_nopost ON)
       torunonly_drcacheoff(burst_traceopts tool.drcacheoff.burst_traceopts "" "" "")
+
+      set(tool.drcacheoff.windows-timestamps_nodr ON)
+      set(tool.drcacheoff.windows-timestamps_nopost ON)
+      torunonly_drcacheoff(windows-timestamps tool.drcacheoff.windows-timestamps
+        "" "" "-trace_after_instrs 1000 -trace_for_instrs 2500 -retrace_every_instrs 1000")
+      set(tool.drcacheoff.windows-timestamps_timeout 120)
+
+      set(tool.drcacheoff.delay-ts_nodr ON)
+      set(tool.drcacheoff.delay-ts_nopost ON)
+      # -subdir_prefix should match the test name to allow the precmd to cleanup
+      # traces from previous runs of the test. For this test, the created trace
+      # path is very close to the max length allowed by Windows, so we abbreviate
+      # the test name a tad.
+      torunonly_drcacheoff(delay-ts tool.drcacheoff.windows-timestamps "" ""
+        "-trace_after_instrs 10000 -subdir_prefix drmemtrace.tool.drcacheoff.delay-ts")
+      set(tool.drcacheoff.delay-ts_expectbase "offline-windows-timestamps")
+      set(tool.drcacheoff.delay-ts_timeout 120)
+
+      if (LINUX) # Futex is Linux-only.
+        set(tool.drcacheoff.burst_futex_nodr ON)
+        set(tool.drcacheoff.burst_futex_nopost ON)
+        torunonly_drcacheoff(burst_futex tool.drcacheoff.burst_futex "" "" "")
+      endif ()
 
       if (UNIX)
         # FIXME i#2040: this hits static client issues on Windows
@@ -4035,26 +4553,26 @@ if (BUILD_CLIENTS)
 
         set(tool.drcacheoff.burst_threads_counts_nodr ON)
         torunonly_drcacheoff(burst_threads_counts tool.drcacheoff.burst_threads
-          "" "@-simulator_type@basic_counts"
+          "" "@-tool@basic_counts"
           # This test uses the same app as the one above, so set a new dir name.
           "-subdir_prefix drmemtrace.tool.drcacheoff.burst_threads_counts")
 
         set(tool.drcacheoff.burst_malloc_nodr ON)
         torunonly_drcacheoff(burst_malloc tool.drcacheoff.burst_malloc
-          "" "@-simulator_type@basic_counts" "")
+          "" "@-tool@basic_counts" "")
 
         set(tool.drcacheoff.burst_reattach_nodr ON)
         torunonly_drcacheoff(burst_reattach tool.drcacheoff.burst_reattach
-          "" "@-simulator_type@basic_counts" "")
+          "" "@-tool@basic_counts" "")
 
         set(tool.drcacheoff.burst_threadfilter_nodr ON)
         torunonly_drcacheoff(burst_threadfilter tool.drcacheoff.burst_threadfilter
-          "" "@-simulator_type@basic_counts" "")
+          "" "@-tool@basic_counts" "")
         # This test uses the same app as the one above, so we do not set _nodr
         # so we'll get a custom -subdir_prefix.  We have to pass that in as an
         # app arg here.
         torunonly_drcacheoff(burst_threadL0filter tool.drcacheoff.burst_threadfilter
-          "" "@-simulator_type@basic_counts"
+          "" "@-tool@basic_counts"
           "-L0_filter -L0I_size 0 -subdir_prefix tool.drcacheoff.burst_threadL0filter")
         set(tool.drcacheoff.burst_threadL0filter_nodr ON)
 
@@ -4065,13 +4583,13 @@ if (BUILD_CLIENTS)
           prefix_cmd_if_necessary(raw2trace_io_path ON ${raw2trace_io_path})
           macro (torunonly_raw2trace testname exetgt extra_ops app_args)
             set(testname_full "tool.raw2trace.${testname}")
-            torunonly_ci(tool.raw2trace.${testname} ${exetgt} drcachesim
+            torunonly_ci(tool.raw2trace.${testname} ${exetgt} drmemtrace_launcher
               "raw2trace-${testname}.c" # for templatex basename
               # Disable compression, since we need to seek and our compression
               # readers do not support seeking.
               "-offline -raw_compress none -subdir_prefix ${testname_full} ${extra_ops}"
               "" "${app_args}")
-            set(${testname_full}_toolname "drcachesim")
+            set(${testname_full}_toolname "drmemtrace")
             set(${testname_full}_basedir
               "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
             set(${testname_full}_rawtemp ON) # no preprocessor
@@ -4091,34 +4609,77 @@ if (BUILD_CLIENTS)
       endif ()
     endif ()
 
-    if (UNIX AND X86 AND X64)
-      if (proc_supports_avx)
-        torunonly_drcacheoff(allasm-scattergather-basic-counts allasm_scattergather
-          "" "@-simulator_type@basic_counts" "")
-        unset(tool.drcacheoff.allasm-scattergather-basic-counts_rawtemp) # use preprocessor
-        if (proc_supports_avx512)
-          set(tool.drcacheoff.allasm-scattergather-basic-counts_runavx512 1)
-        endif (proc_supports_avx512)
-        torunonly_drcachesim(allasm-scattergather-basic-counts allasm_scattergather
-          "-simulator_type basic_counts" "")
-        unset(tool.drcachesim.allasm-scattergather-basic-counts_rawtemp) # use preprocessor
-        if (proc_supports_avx512)
-          set(tool.drcachesim.allasm-scattergather-basic-counts_runavx512 1)
-        endif (proc_supports_avx512)
-      endif (proc_supports_avx)
+    if (UNIX AND ((X86 AND X64 AND proc_supports_avx) OR (AARCH64 AND proc_supports_sve)))
+      torunonly_drcacheoff(allasm-scattergather-basic-counts allasm_scattergather
+        "" "@-tool@basic_counts" "")
+      unset(tool.drcacheoff.allasm-scattergather-basic-counts_rawtemp) # use preprocessor
+      if (X86 AND proc_supports_avx512)
+        set(tool.drcacheoff.allasm-scattergather-basic-counts_runavx512 1)
+      elseif (AARCH64)
+        if (proc_supports_sve2)
+          set(tool.drcacheoff.allasm-scattergather-basic-counts_runsve2 1)
+        elseif (proc_supports_sve)
+          set(tool.drcacheoff.allasm-scattergather-basic-counts_runsve 1)
+        endif ()
+      endif ()
+      set(tool.drcacheoff.allasm-scattergather-basic-counts_expectbase
+        "offline-allasm-scattergather-basic-counts-${ARCH_NAME}")
 
+      torunonly_drcachesim(allasm-scattergather-basic-counts allasm_scattergather
+        "-tool basic_counts" "")
+      unset(tool.drcachesim.allasm-scattergather-basic-counts_rawtemp) # use preprocessor
+      if (X86 AND proc_supports_avx512)
+        set(tool.drcachesim.allasm-scattergather-basic-counts_runavx512 1)
+      elseif (AARCH64)
+        if (proc_supports_sve2)
+          set(tool.drcachesim.allasm-scattergather-basic-counts_runsve2 1)
+        elseif (proc_supports_sve)
+          set(tool.drcachesim.allasm-scattergather-basic-counts_runsve 1)
+        endif ()
+      endif ()
+      set(tool.drcachesim.allasm-scattergather-basic-counts_expectbase
+            "allasm-scattergather-basic-counts-${ARCH_NAME}")
+    endif ()
+
+    if (UNIX AND AARCH64 AND proc_supports_sve)
+      torunonly_drcacheoff(allasm-scattergather-vl-view allasm_scattergather
+        "" "@-tool@view" "")
+      unset(tool.drcacheoff.allasm-scattergather-vl-view_rawtemp) # use preprocessor
+      set(tool.drcacheoff.allasm-scattergather-vl-view_runsve 1)
+      set(tool.drcacheoff.allasm-scattergather-vl-view_expectbase
+        "offline-allasm-scattergather-vl-view-${ARCH_NAME}")
+
+      torunonly_drcachesim(allasm-scattergather-vl-view allasm_scattergather
+        "-tool view" "")
+      unset(tool.drcachesim.allasm-scattergather-vl-view_rawtemp) # use preprocessor
+      set(tool.drcachesim.allasm-scattergather-vl-view_runsve 1)
+      set(tool.drcachesim.allasm-scattergather-vl-view_expectbase
+            "allasm-scattergather-vl-view-${ARCH_NAME}")
+    endif ()
+
+    if (UNIX AND X86 AND X64)
       torunonly_drcacheoff(allasm-repstr-basic-counts allasm_repstr
-        "" "@-simulator_type@basic_counts" "")
+        "" "@-tool@basic_counts" "")
       unset(tool.drcacheoff.allasm-repstr-basic-counts_rawtemp) # use preprocessor
       torunonly_drcachesim(allasm-repstr-basic-counts allasm_repstr
         # We test counting encodings for online.
-        "-instr_encodings -simulator_type basic_counts" "")
+        "-instr_encodings -tool basic_counts" "")
       unset(tool.drcachesim.allasm-repstr-basic-counts_rawtemp) # use preprocessor
+
+      # Test -record_syscall on SYS_write == #1 with 3 args.
+      torunonly_drcacheoff(allasm-record-syscall allasm_repstr
+        "-record_syscall 1|3" "@-tool@view" "")
     endif (UNIX AND X86 AND X64)
 
     torunonly_drcacheoff(invariant_checker ${ci_shared_app}
       # We pass a small instr count to test multiple chunks in a zipfile.
-      "" "@-chunk_instr_count@1000@-simulator_type@invariant_checker" "")
+      "" "@-chunk_instr_count@1000@-tool@invariant_checker" "")
+
+    # pthreads not available with MSVC
+    if (NOT MSVC)
+      torunonly_drcacheoff(invariant_checker_pthreads ${ci_pthreads_app}
+        "" "@-tool@invariant_checker" "")
+    endif ()
 
     # Test the standalone histogram tool.
     # ${ci_shared_app} is already used for an offline test, so we run other apps
@@ -4138,10 +4699,10 @@ if (BUILD_CLIENTS)
       set(histo_ops "")
     endif ()
     set(testname_full "tool.histogram.offline")
-    torunonly_ci(${testname_full} ${histo_app} drcachesim
+    torunonly_ci(${testname_full} ${histo_app} drmemtrace_launcher
       "histogram-offline.c"
       "-offline -subdir_prefix ${testname_full} ${histo_ops}" "" "")
-    set(${testname_full}_toolname "drcachesim")
+    set(${testname_full}_toolname "drmemtrace")
     set(${testname_full}_basedir
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
     set(${testname_full}_rawtemp ON) # no preprocessor
@@ -4156,12 +4717,190 @@ if (BUILD_CLIENTS)
     set(${testname_full}_postcmd2
       "${histo_path}@-test_mode@-test_mode_name@kernel_xfer_app@-trace_dir@${testname_full}.*.dir/trace")
 
+    # Test the standalone record filter tool (beyond its unit tests).
+    # Assumes the record filter output dir is named "${testname}.filtered.dir".
+    macro (torun_record_filter testname exename template_name launch_cmd analyzer)
+      if (WIN32)
+        # Speed the test up (takes 1+ minutes otherwise).
+        set(extra_ops "-trace_after_instrs 5K -exit_after_tracing 50K")
+      else ()
+        set(extra_ops "")
+      endif ()
+      torunonly_ci(${testname} ${exename} drmemtrace_launcher
+        "${template_name}.c"
+        "-offline -subdir_prefix ${testname} ${extra_ops}" "" "")
+      set(${testname}_toolname "drmemtrace")
+      set(${testname}_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(outdir "${testname}.filtered.dir")
+      set(${testname}_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+      set(${testname}_precmd
+        "foreach@${CMAKE_COMMAND}@-E@remove_directory@${testname}.*.dir")
+      # Post-process the trace and sanity check it.
+      # Use a smaller chunk threshold to test multiple chunks.
+      set(${testname}_postcmd
+        "${drcachesim_path}@-chunk_instr_count@1000@-indir@${testname}.*.dir@-tool@invariant_checker")
+      # Run the record filter tool with a null filter.
+      set(${testname}_postcmd2 "${CMAKE_COMMAND}@-E@make_directory@${outdir}")
+      set(${testname}_postcmd3 ${launch_cmd})
+      # Run the analyzer on the result.
+      set(${testname}_postcmd4
+        "${drcachesim_path}@-indir@${outdir}@-tool@${analyzer}")
+    endmacro ()
+
+    set(testname "tool.record_filter")
+    get_target_path_for_execution(filter_path record_filter_launcher "${location_suffix}")
+    prefix_cmd_if_necessary(filter_path ON ${filter_path})
+    torun_record_filter("${testname}" ${ci_shared_app} "record_filter-offline"
+      # We assume the app name starts with "s" here to avoid colliding with
+      # our output dir, while still letting the single precmd remove both.
+      "${filter_path}@-trace_dir@${testname}.s*.dir/trace@-output_dir@${testname}.filtered.dir"
+      "invariant_checker")
+
+    # Single-threaded app on 4 cores to test start-idle cores.
+    set(testname "tool.record_filter_bycore_uni")
+    torun_record_filter("${testname}" ${ci_shared_app}
+      "record_filter_bycore_uni"
+      # We assume the app name starts with "s" here to avoid colliding with
+      # our output dir, while still letting the single precmd remove both.
+      "${drcachesim_path}@-tool@record_filter@-indir@${testname}.s*.dir/trace@-core_sharded@-cores@4@-outdir@${testname}.filtered.dir"
+      # We run opcode_mix to test encodings.
+      # XXX i#6684: Once we have invariant_checker support, run it here (and ensure
+      # it checks encodings).
+      "opcode_mix")
+
+    if (X86 AND X64 AND ZLIB_FOUND)
+        set(testname "tool.record_filter_encodings2regdeps")
+        torun_record_filter("${testname}" ${ci_shared_app}
+          "record_filter_encodings2regdeps"
+          # We assume the app name starts with "s" here to avoid colliding with
+          # our output dir, while still letting the single precmd remove both.
+          "${drcachesim_path}@-simulator_type@record_filter@-filter_encodings2regdeps@-indir@${testname}.s*.dir/trace@-core_sharded@-cores@4@-outdir@${testname}.filtered.dir"
+          # We run the opcode_mix analyzer to test econdings2regdeps filtered traces.
+          "opcode_mix")
+
+        # Run func_id_filter to remove all function related markers
+        # (i.e., TRACE_MARKER_TYPE_FUNC_). Using function ID 4294967796 = 4294967296 + 500
+        # = TRACE_FUNC_ID_SYSCALL_BASE + non_existing_syscall_number, which doesn't exist
+        # in the test program to achieve this. We use a large function ID number to also
+        # test the parsing of large function IDs from command line.
+        set(testname "tool.record_filter_keep_func_ids")
+        torun_record_filter("${testname}" ${kernel_xfer_app}
+          "record_filter_keep_func_ids"
+          "${drcachesim_path}@-simulator_type@record_filter@-filter_keep_func_ids@4294967796@-indir@${testname}.${kernel_xfer_app}.*.dir/trace@-outdir@${testname}.filtered.dir"
+          # We run basic_counts on the filtered trace to check that there are no function
+          # related markers left.
+          "basic_counts")
+    endif ()
+
+    if (X86 AND X64 AND UNIX AND NOT APPLE)
+        # Run the invariant_checker on an OFFLINE_FILE_TYPE_ARCH_REGDEPS trace of
+        # ci_shared_app.
+        set(testname "tool.invariant_checker_on_regdeps_trace_ci_shared_app")
+        torun_record_filter("${testname}" ${ci_shared_app}
+          "invariant_checker_on_regdeps_trace_ci_shared_app"
+          # Generate an OFFLINE_FILE_TYPE_ARCH_REGDEPS trace by running record_filter
+          # with -filter_encodings2regdeps to change instruction encodings,
+          # -filter_keep_func_ids 4294967498 (which is SYS_futex, associated to the only
+          # TRACE_MARKER_TYPE_FUNC_ markers we want to keep), and
+          # -filter_marker_types 19,25,27,28,30 (which correspond to
+          # TRACE_MARKER_TYPE_SYSCALL_IDX, TRACE_MARKER_TYPE_SYSCALL,
+          # TRACE_MARKER_TYPE_SYSCALL_TRACE_START, TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
+          # TRACE_MARKER_TYPE_SYSCALL_FAILED).
+          "${drcachesim_path}@-simulator_type@record_filter@-filter_encodings2regdeps@-indir@${testname}.${ci_shared_app}.*.dir/trace@-outdir@${testname}.filtered.dir@-filter_marker_types@19,25,27,28,30@-filter_keep_func_ids@4294967498"
+          # We run the invariant_checker analyzer on the REGDEPS filtered trace.
+          # We expect no invariant errors.
+          "invariant_checker")
+
+        # Run the invariant_checker on an OFFLINE_FILE_TYPE_ARCH_REGDEPS trace of
+        # kernel_xfer_app.
+        set(testname "tool.invariant_checker_on_regdeps_trace_kernel_xfer_app")
+        torun_record_filter("${testname}" ${kernel_xfer_app}
+          "invariant_checker_on_regdeps_trace_kernel_xfer_app"
+          # Generate an OFFLINE_FILE_TYPE_ARCH_REGDEPS trace by running record_filter
+          # with -filter_encodings2regdeps to change instruction encodings,
+          # -filter_keep_func_ids 4294967498 (which is SYS_futex, associated to the only
+          # TRACE_MARKER_TYPE_FUNC_ markers we want to keep), and
+          # -filter_marker_types 19,25,27,28,30 (which correspond to
+          # TRACE_MARKER_TYPE_SYSCALL_IDX, TRACE_MARKER_TYPE_SYSCALL,
+          # TRACE_MARKER_TYPE_SYSCALL_TRACE_START, TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
+          # TRACE_MARKER_TYPE_SYSCALL_FAILED).
+          "${drcachesim_path}@-simulator_type@record_filter@-filter_encodings2regdeps@-indir@${testname}.${kernel_xfer_app}.*.dir/trace@-outdir@${testname}.filtered.dir@-filter_marker_types@19,25,27,28,30@-filter_keep_func_ids@4294967498"
+          # We run the invariant_checker analyzer on the REGDEPS filtered trace.
+          # We expect no invariant errors.
+          "invariant_checker")
+    endif ()
+
+    if (UNIX) # Windows multi-thread tests are too slow.
+      set(testname "tool.record_filter_bycore_multi")
+      torun_record_filter("${testname}" pthreads.ptsig
+        "record_filter_bycore_multi"
+        # We use the app name start char "p" here to avoid colliding with
+        # our output dir, while still letting the single precmd remove both.
+        "${drcachesim_path}@-tool@record_filter@-indir@${testname}.p*.dir/trace@-core_sharded@-cores@3@-outdir@${testname}.filtered.dir"
+        "schedule_stats")
+    endif ()
+
+    if (X86 AND X64 AND ZLIB_FOUND)
+      # Test the trim filter.
+      set(zip_path
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.allasm_x86_64.trace.zip")
+      set(outdir ${PROJECT_BINARY_DIR}/trim_filter)
+      file(MAKE_DIRECTORY ${outdir})
+      # The filter launcher doesn't have an -infile parameter.
+      set(srcdir ${PROJECT_BINARY_DIR}/trim_filter_src)
+      file(MAKE_DIRECTORY ${srcdir})
+      file(COPY ${zip_path} DESTINATION ${srcdir})
+      torunonly_api(tool.drcacheoff.trim "${drcachesim_path}" "offline-trim" ""
+        "-tool;view;-view_syntax;dr;-indir;${outdir};${test_mode_flag}"
+        OFF OFF)
+      set(tool.drcacheoff.trim_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+      # The filter overwrites any existing file in the dir from a prior run.
+      set(tool.drcacheoff.trim_precmd
+        "${drcachesim_path}@-tool@record_filter@-trim_before_timestamp@13352268558646120@-trim_after_timestamp@13352268558646661@-indir@${srcdir}@-outdir@${outdir}")
+      set(tool.drcacheoff.trim_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.drcacheoff.trim_rawtemp ON) # no preprocessor
+
+      # Test the record_filter in as-traced mode.
+      set(trace_dir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.x64.tracedir")
+      set(sched_file "${trace_dir}/cpu_schedule.bin.zip")
+      set(outdir ${CMAKE_CURRENT_BINARY_DIR}/filter_as_traced)
+      file(MAKE_DIRECTORY ${outdir})
+      torunonly_api(tool.record_filter_as_traced "${drcachesim_path}"
+        "record_filter_as_traced"
+        "" "-tool;schedule_stats;-indir;${outdir}" OFF OFF)
+      set(tool.record_filter_as_traced_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+      set(tool.record_filter_as_traced_precmd
+        "${drcachesim_path}@-tool@record_filter@-cpu_schedule_file@${sched_file}@-core_sharded@-cores@7@-indir@${trace_dir}@-outdir@${outdir}")
+      set(tool.record_filter_as_traced_basedir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.record_filter_as_traced_rawtemp ON) # no preprocessor
+
+      # Test the record_filter in as-traced mode with start-idle cores.
+      # This checked-in partial-hello,world-trace ran on 4 different cores.
+      set(trace_dir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.as_traced.x64.tracedir")
+      set(sched_file "${trace_dir}/cpu_schedule.bin.zip")
+      set(outdir ${CMAKE_CURRENT_BINARY_DIR}/filter_start_idle)
+      file(MAKE_DIRECTORY ${outdir})
+      torunonly_api(tool.record_filter_start_idle "${drcachesim_path}"
+        "record_filter_start_idle"
+        "" "-tool;schedule_stats;-indir;${outdir}" OFF OFF)
+      set(tool.record_filter_start_idle_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+      set(tool.record_filter_start_idle_precmd
+        "${drcachesim_path}@-tool@record_filter@-cpu_schedule_file@${sched_file}@-core_sharded@-cores@4@-indir@${trace_dir}@-outdir@${outdir}")
+      set(tool.record_filter_start_idle_basedir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.record_filter_start_idle_rawtemp ON) # no preprocessor
+
+    endif ()
+
     if (AARCH64)
       set(testname_full "tool.drcacheoff.allasm-aarch64-prefetch-counts")
-      torunonly_ci(${testname_full} allasm_aarch64_prefetch drcachesim
+      torunonly_ci(${testname_full} allasm_aarch64_prefetch drmemtrace_launcher
         "offline-allasm-aarch64-prefetch-counts"
         "-offline -subdir_prefix ${testname_full}" "" "")
-      set(${testname_full}_toolname "drcachesim")
+      set(${testname_full}_toolname "drmemtrace")
       set(${testname_full}_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(${testname_full}_rawtemp ON) # no preprocessor
@@ -4172,7 +4911,7 @@ if (BUILD_CLIENTS)
       set(${testname_full}_precmd
         "foreach@${CMAKE_COMMAND}@-E@remove_directory@${testname_full}.*.dir")
       set(${testname_full}_postcmd
-        "${drcachesim_path}@-indir@${testname_full}.*.dir@-simulator_type@basic_counts")
+        "${drcachesim_path}@-indir@${testname_full}.*.dir@-tool@basic_counts")
       set(${testname_full}_postcmd2
         "${prefetch_analyzer_path}@-trace_dir@${testname_full}.*.dir/trace")
     endif ()
@@ -4188,8 +4927,12 @@ if (BUILD_CLIENTS)
         "-trace_after_instrs 20000 -enable_drstatecmp" "")
       torunonly_drcacheoff(drstatecmp-delay-simple ${ci_shared_app}
         "-trace_after_instrs 20000 -enable_drstatecmp"
-        "@-simulator_type@basic_counts" "")
+        "@-tool@basic_counts" "")
     endif (NOT WIN32)
+
+    # Test syscall_mix.
+    torunonly_drcachesim(syscall-mix ${ci_shared_app} "-tool syscall_mix" "")
+    torunonly_drcacheoff(syscall-mix ${ci_shared_app} "" "@-tool@syscall_mix" "")
 
   endif (NOT ANDROID)
 
@@ -4227,7 +4970,7 @@ if (BUILD_CLIENTS)
     file(COPY ${srcdir}/raw DESTINATION ${locdir}/)
     torunonly_api(tool.drcacheoff.altbindir "${drcachesim_path}"
       "offline-altbindir.c" ""
-      "-indir;${locdir};-simulator_type;opcode_mix;-alt_module_dir;${srcdir};-module_file;${locdir}/raw/modules.log"
+      "-indir;${locdir};-tool;opcode_mix;-alt_module_dir;${srcdir};-module_file;${locdir}/raw/modules.log"
       OFF OFF)
     set(tool.drcacheoff.altbindir_basedir
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -4243,7 +4986,7 @@ if (BUILD_CLIENTS)
     file(COPY ${srcdir}/raw DESTINATION ${locdir}/)
     torunonly_api(tool.drcacheoff.legacy-int-offs "${drcachesim_path}"
       "offline-legacy-int-offs.c" ""
-      "-indir;${locdir};-simulator_type;basic_counts;-alt_module_dir;${srcdir};-module_file;${locdir}/raw/modules.log"
+      "-indir;${locdir};-tool;basic_counts;-alt_module_dir;${srcdir};-module_file;${locdir}/raw/modules.log"
       OFF OFF)
     set(tool.drcacheoff.legacy-int-offs_basedir
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -4252,18 +4995,15 @@ if (BUILD_CLIENTS)
   if (proc_supports_pt)
     if (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
       get_target_path_for_execution(drpt2trace_path drpt2trace "${location_suffix}")
-      # TODO i#5505: This test collects a PT trace using drmemtrace, and then decodes
-      # using pt2trace. When we have the raw2trace support this should decode using
-      # raw2trace.
-      macro (torunonly_drcacheoff_kernel testname exetgt extra_ops app_args)
+      macro (torunonly_drcacheoff_kernel testname exetgt extra_ops app_args sim_atops)
         set(testname_full "tool.drcacheoff.kernel.${testname}_SUDO")
-        torunonly_ci(${testname_full} ${exetgt} drcachesim
+        torunonly_ci(${testname_full} ${exetgt} drmemtrace_launcher
           "offline-kernel-${testname}.c" # for templatex basename
           "-offline -enable_kernel_tracing -subdir_prefix ${testname_full} ${extra_ops}"
           "" "${app_args}")
         set(${testname_full}_sudo ON)
         set(${testname_full}_self_serial ON)
-        set(${testname_full}_toolname "drcachesim")
+        set(${testname_full}_toolname "drmemtrace")
         set(${testname_full}_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
         set(${testname_full}_rawtemp ON) # no preprocessor
         set(${testname_full}_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
@@ -4271,14 +5011,43 @@ if (BUILD_CLIENTS)
         set(cmd_pfx "sudo@")
         set(${testname_full}_precmd
           "foreach@${cmd_pfx}${CMAKE_COMMAND}@-E@remove_directory@${testname_full}.*.dir")
-        set (${testname_full}_postcmd
-          "${cmd_pfx}chmod@777@-R@${testname_full}.*.dir")
-        set(${testname_full}_postcmd2
-          "firstglob@${cmd_pfx}${drpt2trace_path}@-mode@ELF@-raw_pt_format@DRMEMTRACE@-raw_pt@${testname_full}.*.dir/kernel.raw/*.pt@-elf@${testname_full}.*.dir/kernel.raw/kcore")
+        set(${testname_full}_postcmd
+          "firstglob@${cmd_pfx}${drcachesim_path}@-indir@${testname_full}.*.dir${sim_atops}")
       endmacro ()
-      torunonly_drcacheoff_kernel(simple ${ci_shared_app} "" "" "")
+      # We use '-raw_compress none' because when snappy or lz4 is used for raw traces,
+      # the check that complains about malloc use in the client is disabled by invoking
+      # dr_allow_unsafe_static_behavior. We want to perform this check on the kernel
+      # tracing flow.
+      torunonly_drcacheoff_kernel(simple ${ci_shared_app} "-raw_compress none" ""
+                                  "@-tool@basic_counts")
+      torunonly_drcacheoff_kernel(opcode-mix ${ci_shared_app} "-raw_compress none" ""
+                                  "@-tool@opcode_mix")
+      torunonly_drcacheoff_kernel(syscall-mix ${ci_shared_app} "-raw_compress none" ""
+                                  "@-tool@syscall_mix")
+      torunonly_drcacheoff_kernel(invariant-checker ${ci_shared_app} "-raw_compress none" ""
+                                  "@-tool@invariant_checker@-test_mode_name@kernel_syscall_pt_trace")
+      # In the following test we only collect the raw trace but do not decompose it.
+      # We cannot decompose the trace because the kcore dump is absent. This test is useful
+      # because it verifies that kernel tracing without dumping kcore does not need the app
+      # to be run with superuser permissions (does not fail due to /proc/kcore not being
+      # readable). Note that we still need perf_event_paranoid to be set to a favorable
+      # value prior to starting the app, which does require superuser for the command:
+      # sudo bash -c "echo 1 > /proc/sys/kernel/perf_event_paranoid"
+      #
+      # Note that the _SUDO is only in the test name (test app is not run with superuser),
+      # which is to disable this test in our regular test suite to avoid confusion due to
+      # the test failing due to unfavorable perf_event_paranoid which may be the case when
+      # kernel tracing code is not being intentionally tested.
+      torunonly_drcachesim(kernel-skip-kcore_SUDO ${ci_shared_app}
+                           "-offline -enable_kernel_tracing -skip_kcore_dump" "")
     endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
   endif (proc_supports_pt)
+
+  if ((AARCHXX AND NOT ANDROID) OR X86)
+    torunonly_drcacheoff(getretaddr_record_replace_retaddr common.getretaddr
+            "-record_replace_retaddr -record_function tailcall_with_retaddr|1&foo|1"
+            "@-tool@invariant_checker" "")
+  endif ()
 
   ###########################################################################
   # drcpusim tests
@@ -4397,7 +5166,7 @@ if (BUILD_CLIENTS)
       "-sb_sysroot"
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw")
     torunonly_api(tool.drpt2trace.sideband drpt2trace
-      "../../clients/drcachesim/drpt2trace/test_simple.expect"
+      "../../clients/drcachesim/drpt2trace/test_simple.templatex"
       "" "${drpt2trace_sideband_args}" ON OFF)
     set(drpt2trace_elf_args ${drpt2trace_commong}
       "-mode" "ELF"
@@ -4405,7 +5174,7 @@ if (BUILD_CLIENTS)
       "-elf"
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/hello")
     torunonly_api(tool.drpt2trace.elf drpt2trace
-      "../../clients/drcachesim/drpt2trace/test_simple.expect"
+      "../../clients/drcachesim/drpt2trace/test_simple.templatex"
       "" "${drpt2trace_elf_args}" ON OFF)
   endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
 endif (BUILD_CLIENTS)
@@ -4684,6 +5453,13 @@ if (UNIX)
   if (NOT APPLE)
     tobuild(linux.thread linux/thread.c)
     tobuild(linux.threadexit linux/threadexit.c)
+
+    if (X86 AND X64 AND DR_HOST_X86 AND DR_HOST_X64)
+      tobuild_ci(linux.synchall-restore linux/synchall-restore.c "" "" "")
+      set_avx_flags(linux.synchall-restore)
+      link_with_pthread(linux.synchall-restore)
+    endif ()
+
     if (NOT ANDROID)
       tobuild(linux.threadexit2 linux/threadexit2.c) # XXX i#1874: hangs on Android
       tobuild(linux.signalfd linux/signalfd.c) # XXX i#1874: fails natively on Android
@@ -4699,16 +5475,17 @@ if (UNIX)
     endif ()
     tobuild(linux.signal_racesys linux/signal_racesys.c)
     target_link_libraries(linux.signal_racesys rt)
+
+    tobuild(linux.signal_pre_syscall linux/signal_pre_syscall.c)
+    target_link_libraries(linux.signal_pre_syscall rt)
   endif ()
 
-  if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
-    tobuild(linux.bad-signal-stack linux/bad-signal-stack.c)
+  tobuild(linux.bad-signal-stack linux/bad-signal-stack.c)
 
-    # i#1145: test re-starting syscalls, both inlined and from dispatch
-    tobuild(linux.eintr linux/eintr.c)
-    link_with_pthread(linux.eintr)
-    torunonly(linux.eintr-noinline linux.eintr linux/eintr.c "-no_ignore_syscalls" "")
-  endif (NOT RISCV64)
+  # i#1145: test re-starting syscalls, both inlined and from dispatch
+  tobuild(linux.eintr linux/eintr.c)
+  link_with_pthread(linux.eintr)
+  torunonly(linux.eintr-noinline linux.eintr linux/eintr.c "-no_ignore_syscalls" "")
 
   if (NOT ANDROID AND NOT RISCV64) # XXX i#1874: get working on Android
     # TODO i#3544: Port tests to RISC-V 64
@@ -4732,6 +5509,14 @@ if (UNIX)
           ${CMAKE_CURRENT_SOURCE_DIR}/linux)
         link_with_pthread(linux.mangle_asynch)
       endif ()
+    endif ()
+
+    if (AARCH64 AND proc_supports_pauth)
+      tobuild(linux.mangle_pauth linux/mangle_pauth.c)
+      # Also run the test natively to prove that the behaviour the test checks for
+      # matches the behaviour running natively.
+      torunonly_native(
+        linux.mangle_pauth_native linux.mangle_pauth mangle_pauth linux/mangle_pauth.c "")
     endif ()
   endif ()
 
@@ -4856,17 +5641,18 @@ if (UNIX)
     # The rseq kernel feature is Linux-only.
     # TODO i#2350: Port the assembly in the test to 32-bit x86 and to ARM.
     # TODO i#3544: Port tests to RISC-V 64
-    tobuild(linux.rseq linux/rseq.c)
+    set(linux.rseq_no_reg_compat)
+    tobuild(linux.rseq linux/rseq.cpp)
     # Test the other sections.  Unfortunately we need a separate binary for each.
-    tobuild(linux.rseq_table linux/rseq.c)
+    tobuild(linux.rseq_table linux/rseq.cpp)
     append_property_list(TARGET linux.rseq_table
       COMPILE_DEFINITIONS "RSEQ_TEST_USE_OLD_SECTION_NAME")
-    tobuild(linux.rseq_noarray linux/rseq.c)
+    tobuild(linux.rseq_noarray linux/rseq.cpp)
     append_property_list(TARGET linux.rseq_noarray
       COMPILE_DEFINITIONS "RSEQ_TEST_USE_NO_ARRAY")
     # Test attaching, which has a separate lazy rseq check.
     # We build with static DR to also test client interactions.
-    tobuild_api(api.rseq linux/rseq.c "" "" OFF ON OFF)
+    tobuild_api(api.rseq linux/rseq.cpp "" "" OFF ON OFF)
     link_with_pthread(api.rseq)
     append_property_list(TARGET api.rseq COMPILE_DEFINITIONS "RSEQ_TEST_ATTACH")
     use_DynamoRIO_static_client(api.rseq drmemtrace_static)
@@ -5185,13 +5971,17 @@ if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   tochcon(security-common.codemod execmem_exec_t)
   mark_execstack(security-common.codemod)
 endif (NOT RISCV64)
+
+if (X86 OR AARCH64) # FIXME i#1551: port asm to ARM
+  tobuild(security-common.retexisting security-common/retexisting.c)
+endif (X86 OR AARCH64)
+
 if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   # FIXME i#1308, i#2216: fails non-deterministically on Travis
   set(decode_bad_stack_name security-common.decode-bad-stack_FLAKY)
   tobuild(${decode_bad_stack_name} security-common/decode-bad-stack.c)
   tochcon(${decode_bad_stack_name} execmem_exec_t)
   mark_execstack(${decode_bad_stack_name})
-  tobuild(security-common.retexisting security-common/retexisting.c)
 endif (X86)
 if (PROGRAM_SHEPHERDING) # relies on being aborted on .B violation
   tobuild(security-common.jmp_from_trace security-common/jmp_from_trace.c)
@@ -5208,20 +5998,26 @@ if (NOT ARM) # FIXME i#1551: fix bugs on ARM
     tobuild(security-common.retnonexisting security-common/retnonexisting.c)
   endif ()
 endif (NOT ARM)
-if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
+
+if (X86 OR AARCH64) # FIXME i#1551: port asm to ARM
   tobuild(security-common.selfmod2 security-common/selfmod2.c)
   tochcon(security-common.selfmod2 textrel_shlib_t)
+
+  tobuild(security-common.selfmod security-common/selfmod.c)
+  tochcon(security-common.selfmod textrel_shlib_t)
+endif (X86 OR AARCH64)
+
+if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   if (NOT APPLE) # XXX i#58: port test to MacOS
     tobuild(security-common.selfmod-big security-common/selfmod-big.c)
     tochcon(security-common.selfmod-big textrel_shlib_t)
   endif ()
-  tobuild(security-common.selfmod security-common/selfmod.c)
-  tochcon(security-common.selfmod textrel_shlib_t)
   if (NOT X64 AND NOT APPLE) # XXX i#58: port test to MacOS
     # FIXME i#125
     tobuild(security-common.vbjmp-rac-test security-common/vbjmp-rac-test.c)
   endif ()
 endif (X86)
+
 if (X64 AND NOT AARCH64 AND NOT RISCV64) # FIXME i#1569: get working on AArch64
   # Reachability tests
 
@@ -5328,6 +6124,7 @@ if (APPLE)
     code_api|sample.signal
     code_api|api.ir
     code_api|api.ir-static
+    code_api|api.ir_regdeps
     code_api|api.drdecode
     code_api|linux.sigaction
     no_code_api,no_intercept_all_signals|linux.sigaction
@@ -5447,7 +6244,6 @@ if (NOT ANDROID AND AARCHXX)
   if (AARCH64)
     set_tests_properties(
       code_api|common.allasm_aarch64_cache
-      code_api|common.allasm_aarch64_isa
       code_api|linux.mangle_asynch
       code_api|linux.mmap
       code_api|pthreads.pthreads_exit
@@ -5461,7 +6257,6 @@ if (NOT ANDROID AND AARCHXX)
       code_api|client.drreg-cross
       code_api|client.drreg-end-restore
       code_api|client.drreg-flow
-      code_api|client.drreg-test
       code_api|client.drutil-test
       code_api|client.drx_buf-test
       code_api|client.emulation_api_simple
@@ -5481,6 +6276,12 @@ if (NOT ANDROID AND AARCHXX)
       code_api|sample.memtrace_simple
       code_api|sample.memval_simple
       PROPERTIES LABELS RUNS_ON_QEMU)
+    if (NOT APPLE) # TODO i#5383: Port to Mac M1.
+      set_tests_properties(
+        code_api|common.allasm_aarch64_isa
+        code_api|client.drreg-test
+        PROPERTIES LABELS RUNS_ON_QEMU)
+    endif ()
     if (NOT CMAKE_COMPILER_IS_CLANG)
       set_tests_properties(
         code_api|security-linux.trampoline
@@ -5559,4 +6360,157 @@ if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64) # TODO i#3544: Port tests to RI
     code_api|linux.rseq_table
     code_api|tool.drcacheoff.rseq
     PROPERTIES LABELS UBUNTU_22)
+endif ()
+
+# XXX i#3544: Support for running RISC-V Linux tests under QEMU.
+# Currently about 1/6 of the compiled tests pass.
+if (RISCV64)
+  set_tests_properties(
+    code_api|api.ir
+    code_api|api.ir-static
+    code_api|api.ir_regdeps
+    code_api|api.ir_rvv
+    code_api|client.app_args
+    code_api|client.blackbox
+    code_api|client.crashmsg
+    code_api|client.drwrap-test-callconv
+    code_api|client.execfault
+    code_api|client.mangle_suspend
+    code_api|client.null_instrument
+    code_api|client.option_parse
+    code_api|client.partial_module_map
+    code_api|client.stack-overflow
+    code_api|client.truncate
+    code_api|client.unregister
+    code_api|common.broadfun
+    code_api|common.hello
+    code_api|libutil.drconfig_test
+    code_api|libutil.frontend_test
+    # TODO i#3544: code_api|linux.eintr failed under QEMU
+    # but passed on real hardware.
+    # code_api|linux.eintr
+    code_api|linux.exit
+    code_api|linux.infinite
+    code_api|linux.longjmp
+    code_api|linux.prctl
+    code_api|linux.signalfd
+    code_api|pthreads.pthreads
+    code_api|pthreads.pthreads_exit
+    code_api|sample.bbbuf
+    code_api|sample.bbcount
+    code_api|sample.bbsize
+    code_api|sample.cbr
+    code_api|sample.div
+    code_api|sample.empty
+    code_api|sample.inline
+    code_api|sample.inscount
+    code_api|sample.inscount.cleancall
+    code_api|sample.inscount.prof-pcs.cleancall
+    code_api|sample.opcode_count
+    code_api|sample.opcodes
+    code_api|sample.signal
+    code_api|sample.stl_test
+    code_api|sample.syscall
+    code_api|security-linux.trampoline
+    code_api|tool.drcachesim.missfile-config-file
+    code_api|tool.drcachesim.syscall-mix
+    code_api|tool.drcov.fib
+    code_api|tool.drdisas
+    code_api|tool.histogram
+    code_api|tool.reuse_distance
+    no_code_api,no_intercept_all_signals|linux.sigaction
+    PROPERTIES LABELS RUNS_ON_QEMU)
+  if (DEBUG)
+    set_tests_properties(
+      code_api|common.logstderr
+      PROPERTIES LABELS RUNS_ON_QEMU)
+  endif ()
+endif ()
+
+# Set a LABEL property on a list of tests, ignoring any listed tests that
+# don't exist.
+macro(set_labels_on_known_tests LABEL)
+  foreach (testname ${ARGN})
+    if (TEST ${testname})
+      set_tests_properties(${testname} PROPERTIES LABELS ${LABEL})
+    else ()
+      message(DEBUG "Not applying ${LABEL} to non-existing test ${testname}")
+    endif ()
+  endforeach ()
+endmacro()
+
+# TODO i#6417: The switch to AMD VM's for GA CI has broken many of our tests.
+# This includes timeouts which increase suite length.
+# The following tests are excluded until they are fixed.
+# LINUX_XARCH_TEST is defined only for x86-64 linux.xarch test which don't
+# have the following tests, so we need to skip set_tests_properties.
+if (UNIX AND X86 AND CPU_AMD AND NOT DR_HOST_X64)
+  set_labels_on_known_tests(AMD_X32_DENYLIST
+    code_api|api.detach
+    code_api|api.detach_spawn_quick_exit
+    code_api|api.ibl-stress
+    code_api|api.startstop
+    code_api|api.static_detach
+    code_api|api.static_prepop
+    code_api|api.static_signal
+    code_api|api.thread_churn
+    code_api|client.alloc
+    code_api|client.attach_blocking
+    code_api|client.attach_test
+    code_api|client.detach_test
+    code_api|client.drwrap-test-detach
+    code_api|client.flush
+    code_api|client.strace
+    code_api|common.decode-stress
+    code_api|linux.eintr
+    code_api|linux.eintr-noinline
+    code_api|tool.basic_counts
+    code_api|tool.drcacheoff.altbindir
+    code_api|tool.drcacheoff.burst_client
+    code_api|tool.drcacheoff.basic_counts
+    code_api|tool.drcacheoff.burst_futex
+    code_api|tool.drcacheoff.burst_malloc
+    code_api|tool.drcacheoff.burst_maps
+    code_api|tool.drcacheoff.burst_reattach
+    code_api|tool.drcacheoff.burst_replace
+    code_api|tool.drcacheoff.burst_replaceall
+    code_api|tool.drcacheoff.burst_static
+    code_api|tool.drcacheoff.burst_syscall_inject
+    code_api|tool.drcacheoff.burst_threadfilter
+    code_api|tool.drcacheoff.burst_threads
+    code_api|tool.drcacheoff.burst_threads_counts
+    code_api|tool.drcacheoff.burst_threadL0filter
+    code_api|tool.drcacheoff.func_view_noret
+    code_api|tool.drcacheoff.gencode
+    code_api|tool.drcacheoff.gencode_filtered
+    code_api|tool.drcacheoff.getretaddr_record_replace_retaddr
+    code_api|tool.drcacheoff.invariant_checker
+    code_api|tool.drcacheoff.invariant_checker_pthreads
+    code_api|tool.drcacheoff.legacy
+    code_api|tool.drcacheoff.max-global
+    code_api|tool.drcacheoff.sysnums
+    code_api|tool.drcacheoff.warmup-pthreads-2
+    code_api|tool.drcacheoff.warmup-pthreads-max-refs
+    code_api|tool.drcacheoff.warmup-pthreads-max-trace-size
+    code_api|tool.drcacheoff.warmup-pthreads-windows-split
+    code_api|tool.drcacheoff.windows-split
+    code_api|tool.drcacheoff.windows-timestamps
+    code_api|tool.drcacheoff.delay-ts
+    code_api|tool.drcachesim.coherence
+    code_api|tool.drcachesim.delay-global
+    code_api|tool.drcachesim.filter-d
+    code_api|tool.drcachesim.filter-no-d
+    code_api|tool.drcachesim.invariants
+    code_api|tool.drcachesim.miss_analyzer
+    code_api|tool.drcachesim.phys-threads_SUDO
+    code_api|tool.drcachesim.scattergather-x86
+    code_api|tool.drcachesim.threads
+    code_api|tool.drcachesim.threads-with-config-file
+    code_api|tool.drcachesim.windows-simple
+    code_api|tool.drcachesim.TLB-threads
+    code_api|tool.drcov.eintr
+    code_api|tool.histogram.offline
+    code_api|tool.record_filter
+    code_api|tool.record_filter_bycore_multi
+    code_api|tool.record_filter_bycore_uni)
 endif ()

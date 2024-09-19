@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,16 +33,27 @@
 #ifndef _REUSE_TIME_H_
 #define _REUSE_TIME_H_ 1
 
+#include <stdint.h>
+
 #include <mutex>
-#include <unordered_map>
 #include <string>
+#include <unordered_map>
 
 #include "analysis_tool.h"
+#include "memref.h"
+#include "trace_entry.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 class reuse_time_t : public analysis_tool_t {
 public:
     reuse_time_t(unsigned int line_size, unsigned int verbose);
     ~reuse_time_t() override;
+    std::string
+    initialize_stream(memtrace_stream_t *serial_stream) override;
+    std::string
+    initialize_shard_type(shard_type_t shard_type) override;
     bool
     process_memref(const memref_t &memref) override;
     bool
@@ -50,7 +61,8 @@ public:
     bool
     parallel_shard_supported() override;
     void *
-    parallel_shard_init(int shard_index, void *worker_data) override;
+    parallel_shard_init_stream(int shard_index, void *worker_data,
+                               memtrace_stream_t *stream) override;
     bool
     parallel_shard_exit(void *shard_data) override;
     bool
@@ -62,11 +74,12 @@ protected:
     // Just like for reuse_distance_t, we assume that the shard unit is the unit over
     // which we should measure time.  By default this is a traced thread.
     struct shard_data_t {
-        std::unordered_map<addr_t, int_least64_t> time_map;
-        int_least64_t time_stamp = 0;
-        int_least64_t total_instructions = 0;
-        std::unordered_map<int_least64_t, int_least64_t> reuse_time_histogram;
-        memref_tid_t tid;
+        std::unordered_map<addr_t, int64_t> time_map;
+        int64_t time_stamp = 0;
+        int64_t total_instructions = 0;
+        std::unordered_map<int64_t, int64_t> reuse_time_histogram;
+        memref_tid_t tid = 0; // For SHARD_BY_THREAD.
+        int64_t core = 0;     // For SHARD_BY_CORE.
         std::string error;
     };
 
@@ -79,11 +92,15 @@ protected:
 
     static const std::string TOOL_NAME;
 
-    // In parallel operation the keys are "shard indices": just ints.
-    std::unordered_map<memref_tid_t, shard_data_t *> shard_map_;
+    std::unordered_map<int, shard_data_t *> shard_map_;
     // This mutex is only needed in parallel_shard_init.  In all other accesses to
     // shard_map (process_memref, print_results) we are single-threaded.
     std::mutex shard_map_mutex_;
+    shard_type_t shard_type_ = SHARD_BY_THREAD;
+    memtrace_stream_t *serial_stream_ = nullptr;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _REUSE_TIME_H_ */

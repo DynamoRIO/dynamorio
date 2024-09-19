@@ -1,0 +1,404 @@
+#ifdef __ARM_FEATURE_SVE
+ld1b scalar\+vector 32bit unscaled offset uxtw: PASS
+ld1b scalar\+vector 32bit unscaled offset sxtw: PASS
+ld1b scalar\+vector 32bit unpacked unscaled offset uxtw: PASS
+ld1b scalar\+vector 32bit unpacked unscaled offset sxtw: PASS
+ld1b scalar\+vector 64bit unscaled offset: PASS
+ld1b scalar\+vector 64bit unscaled offset Zt==Zm: PASS
+ld1sb scalar\+vector 32bit unscaled offset uxtw: PASS
+ld1sb scalar\+vector 32bit unscaled offset sxtw: PASS
+ld1sb scalar\+vector 32bit unpacked unscaled offset uxtw: PASS
+ld1sb scalar\+vector 32bit unpacked unscaled offset sxtw: PASS
+ld1sb scalar\+vector 64bit unscaled offset: PASS
+ld1sb scalar\+vector 64bit unscaled offset: PASS
+ld1h scalar\+vector 32bit scaled offset uxtw: PASS
+ld1h scalar\+vector 32bit scaled offset sxtw: PASS
+ld1h scalar\+vector 32bit unpacked scaled offset uxtw: PASS
+ld1h scalar\+vector 32bit unpacked scaled offset sxtw: PASS
+ld1h scalar\+vector 32bit unpacked unscaled offset uxtw: PASS
+ld1h scalar\+vector 32bit unpacked unscaled offset sxtw: PASS
+ld1h scalar\+vector 32bit unscaled offset uxtw: PASS
+ld1h scalar\+vector 32bit unscaled offset sxtw: PASS
+ld1h scalar\+vector 64bit scaled offset: PASS
+ld1h scalar\+vector 64bit unscaled offset: PASS
+ld1h scalar\+vector 64bit unscaled offset Zt==Zm: PASS
+ld1sh scalar\+vector 32bit scaled offset uxtw: PASS
+ld1sh scalar\+vector 32bit scaled offset sxtw: PASS
+ld1sh scalar\+vector 32bit unpacked scaled offset uxtw: PASS
+ld1sh scalar\+vector 32bit unpacked scaled offset sxtw: PASS
+ld1sh scalar\+vector 32bit unpacked unscaled offset uxtw: PASS
+ld1sh scalar\+vector 32bit unpacked unscaled offset sxtw: PASS
+ld1sh scalar\+vector 32bit unscaled offset uxtw: PASS
+ld1sh scalar\+vector 32bit unscaled offset sxtw: PASS
+ld1sh scalar\+vector 64bit scaled offset: PASS
+ld1sh scalar\+vector 64bit unscaled offset: PASS
+ld1sh scalar\+vector 64bit unscaled offset Zt==Zm: PASS
+ld1w scalar\+vector 32bit scaled offset uxtw: PASS
+ld1w scalar\+vector 32bit scaled offset sxtw: PASS
+ld1w scalar\+vector 32bit unpacked scaled offset uxtw: PASS
+ld1w scalar\+vector 32bit unpacked scaled offset sxtw: PASS
+ld1w scalar\+vector 32bit unpacked unscaled offset uxtw: PASS
+ld1w scalar\+vector 32bit unpacked unscaled offset sxtw: PASS
+ld1w scalar\+vector 32bit unscaled offset uxtw: PASS
+ld1w scalar\+vector 32bit unscaled offset sxtw: PASS
+ld1w scalar\+vector 64bit scaled offset: PASS
+ld1w scalar\+vector 64bit unscaled offset: PASS
+ld1w scalar\+vector 64bit unscaled offset Zt==Zm: PASS
+ld1sw scalar\+vector 32bit unpacked scaled offset uxtw: PASS
+ld1sw scalar\+vector 32bit unpacked scaled offset sxtw: PASS
+ld1sw scalar\+vector 32bit unpacked unscaled offset uxtw: PASS
+ld1sw scalar\+vector 32bit unpacked unscaled offset sxtw: PASS
+ld1sw scalar\+vector 64bit scaled offset: PASS
+ld1sw scalar\+vector 64bit unscaled offset: PASS
+ld1sw scalar\+vector 64bit unscaled offset Zt==Zm: PASS
+ld1d scalar\+vector 32bit unpacked scaled offset uxtw: PASS
+ld1d scalar\+vector 32bit unpacked scaled offset sxtw: PASS
+ld1d scalar\+vector 32bit unpacked unscaled offset uxtw: PASS
+ld1d scalar\+vector 32bit unpacked unscaled offset sxtw: PASS
+ld1d scalar\+vector 64bit scaled offset: PASS
+ld1d scalar\+vector 64bit unscaled offset: PASS
+ld1d scalar\+vector 64bit unscaled offset Zt==Zm: PASS
+ldff1b scalar\+vector 32bit unscaled offset uxtw: PASS
+ldff1b scalar\+vector 32bit unscaled offset sxtw: PASS
+ldff1b scalar\+vector 32bit unpacked unscaled offset uxtw: PASS
+ldff1b scalar\+vector 32bit unpacked unscaled offset sxtw: PASS
+ldff1b scalar\+vector 64bit unscaled offset: PASS
+ldff1b scalar\+vector 64bit unscaled offset Zt==Zm: PASS
+ldff1sb scalar\+vector 32bit unscaled offset uxtw: PASS
+ldff1sb scalar\+vector 32bit unscaled offset sxtw: PASS
+ldff1sb scalar\+vector 32bit unpacked unscaled offset uxtw: PASS
+ldff1sb scalar\+vector 32bit unpacked unscaled offset sxtw: PASS
+ldff1sb scalar\+vector 64bit unscaled offset: PASS
+ldff1sb scalar\+vector 64bit unscaled offset: PASS
+ldff1h scalar\+vector 32bit scaled offset uxtw: PASS
+ldff1h scalar\+vector 32bit scaled offset sxtw: PASS
+ldff1h scalar\+vector 32bit unpacked scaled offset uxtw: PASS
+ldff1h scalar\+vector 32bit unpacked scaled offset sxtw: PASS
+ldff1h scalar\+vector 32bit unpacked unscaled offset uxtw: PASS
+ldff1h scalar\+vector 32bit unpacked unscaled offset sxtw: PASS
+ldff1h scalar\+vector 32bit unscaled offset uxtw: PASS
+ldff1h scalar\+vector 32bit unscaled offset sxtw: PASS
+ldff1h scalar\+vector 64bit scaled offset: PASS
+ldff1h scalar\+vector 64bit unscaled offset: PASS
+ldff1h scalar\+vector 64bit unscaled offset Zt==Zm: PASS
+ldff1sh scalar\+vector 32bit scaled offset uxtw: PASS
+ldff1sh scalar\+vector 32bit scaled offset sxtw: PASS
+ldff1sh scalar\+vector 32bit unpacked scaled offset uxtw: PASS
+ldff1sh scalar\+vector 32bit unpacked scaled offset sxtw: PASS
+ldff1sh scalar\+vector 32bit unpacked unscaled offset uxtw: PASS
+ldff1sh scalar\+vector 32bit unpacked unscaled offset sxtw: PASS
+ldff1sh scalar\+vector 32bit unscaled offset uxtw: PASS
+ldff1sh scalar\+vector 32bit unscaled offset sxtw: PASS
+ldff1sh scalar\+vector 64bit scaled offset: PASS
+ldff1sh scalar\+vector 64bit unscaled offset: PASS
+ldff1sh scalar\+vector 64bit unscaled offset Zt==Zm: PASS
+ldff1w scalar\+vector 32bit scaled offset uxtw: PASS
+ldff1w scalar\+vector 32bit scaled offset sxtw: PASS
+ldff1w scalar\+vector 32bit unpacked scaled offset uxtw: PASS
+ldff1w scalar\+vector 32bit unpacked scaled offset sxtw: PASS
+ldff1w scalar\+vector 32bit unpacked unscaled offset uxtw: PASS
+ldff1w scalar\+vector 32bit unpacked unscaled offset sxtw: PASS
+ldff1w scalar\+vector 32bit unscaled offset uxtw: PASS
+ldff1w scalar\+vector 32bit unscaled offset sxtw: PASS
+ldff1w scalar\+vector 64bit scaled offset: PASS
+ldff1w scalar\+vector 64bit unscaled offset: PASS
+ldff1w scalar\+vector 64bit unscaled offset Zt==Zm: PASS
+ldff1sw scalar\+vector 32bit unpacked scaled offset uxtw: PASS
+ldff1sw scalar\+vector 32bit unpacked scaled offset sxtw: PASS
+ldff1sw scalar\+vector 32bit unpacked unscaled offset uxtw: PASS
+ldff1sw scalar\+vector 32bit unpacked unscaled offset sxtw: PASS
+ldff1sw scalar\+vector 64bit scaled offset: PASS
+ldff1sw scalar\+vector 64bit unscaled offset: PASS
+ldff1sw scalar\+vector 64bit unscaled offset Zt==Zm: PASS
+ldff1d scalar\+vector 32bit unpacked scaled offset uxtw: PASS
+ldff1d scalar\+vector 32bit unpacked scaled offset sxtw: PASS
+ldff1d scalar\+vector 32bit unpacked unscaled offset uxtw: PASS
+ldff1d scalar\+vector 32bit unpacked unscaled offset sxtw: PASS
+ldff1d scalar\+vector 64bit scaled offset: PASS
+ldff1d scalar\+vector 64bit unscaled offset: PASS
+ldff1d scalar\+vector 64bit unscaled offset Zt==Zm: PASS
+st1b scalar\+vector 32bit unpacked unscaled offset uxtw: PASS
+st1b scalar\+vector 32bit unpacked unscaled offset sxtw: PASS
+st1b scalar\+vector 32bit unscaled offset uxtw: PASS
+st1b scalar\+vector 32bit unscaled offset sxtw: PASS
+st1b scalar\+vector 32bit unscaled offset sxtw \(repeated offset\): PASS
+st1b scalar\+vector 64bit unscaled offset: PASS
+st1b scalar\+vector 64bit unscaled offset \(repeated offset\): PASS
+st1h scalar\+vector 32bit scaled offset uxtw: PASS
+st1h scalar\+vector 32bit scaled offset sxtw: PASS
+st1h scalar\+vector 32bit unpacked scaled offset uxtw: PASS
+st1h scalar\+vector 32bit unpacked scaled offset sxtw: PASS
+st1h scalar\+vector 32bit unpacked unscaled offset uxtw: PASS
+st1h scalar\+vector 32bit unpacked unscaled offset sxtw: PASS
+st1h scalar\+vector 32bit unscaled offset uxtw: PASS
+st1h scalar\+vector 32bit unscaled offset sxtw: PASS
+st1h scalar\+vector 32bit unscaled offset sxtw: PASS
+st1h scalar\+vector 32bit unscaled offset sxtw \(repeated offset\): PASS
+st1h scalar\+vector 64bit scaled offset: PASS
+st1h scalar\+vector 64bit unscaled offset: PASS
+st1h scalar\+vector 64bit unscaled offset \(repeated offset\): PASS
+st1w scalar\+vector 32bit scaled offset uxtw: PASS
+st1w scalar\+vector 32bit scaled offset sxtw: PASS
+st1w scalar\+vector 32bit unpacked scaled offset uxtw: PASS
+st1w scalar\+vector 32bit unpacked scaled offset sxtw: PASS
+st1w scalar\+vector 32bit unpacked unscaled offset uxtw: PASS
+st1w scalar\+vector 32bit unpacked unscaled offset sxtw: PASS
+st1w scalar\+vector 32bit unscaled offset uxtw: PASS
+st1w scalar\+vector 32bit unscaled offset sxtw: PASS
+st1w scalar\+vector 32bit unscaled offset sxtw \(repeated offset\): PASS
+st1w scalar\+vector 64bit scaled offset: PASS
+st1w scalar\+vector 64bit unscaled offset: PASS
+st1w scalar\+vector 64bit unscaled offset \(repeated offset\): PASS
+st1d scalar\+vector 32bit unpacked scaled offset uxtw: PASS
+st1d scalar\+vector 32bit unpacked scaled offset sxtw: PASS
+st1d scalar\+vector 32bit unpacked unscaled offset uxtw: PASS
+st1d scalar\+vector 32bit unpacked unscaled offset sxtw: PASS
+st1d scalar\+vector 64bit scaled offset: PASS
+st1d scalar\+vector 64bit unscaled offset: PASS
+st1d scalar\+vector 64bit unscaled offset \(repeated offset\): PASS
+ld1b vector\+immediate 64bit element: PASS
+ld1b vector\+immediate 64bit element \(max index\): PASS
+ld1sb vector\+immediate 64bit element: PASS
+ld1sb vector\+immediate 64bit element \(max index\): PASS
+ld1h vector\+immediate 64bit element: PASS
+ld1h vector\+immediate 64bit element \(max index\): PASS
+ld1sh vector\+immediate 64bit element: PASS
+ld1sh vector\+immediate 64bit element \(max index\): PASS
+ld1w vector\+immediate 64bit element: PASS
+ld1w vector\+immediate 64bit element \(max index\): PASS
+ld1sw vector\+immediate 64bit element: PASS
+ld1sw vector\+immediate 64bit element \(max index\): PASS
+ld1d vector\+immediate 64bit element: PASS
+ld1d vector\+immediate 64bit element \(max index\): PASS
+ld1d vector\+immediate 64bit element Zt==Zn: PASS
+ldff1b vector\+immediate 64bit element: PASS
+ldff1b vector\+immediate 64bit element \(max index\): PASS
+ldff1sb vector\+immediate 64bit element: PASS
+ldff1sb vector\+immediate 64bit element \(max index\): PASS
+ldff1h vector\+immediate 64bit element: PASS
+ldff1h vector\+immediate 64bit element \(max index\): PASS
+ldff1sh vector\+immediate 64bit element: PASS
+ldff1sh vector\+immediate 64bit element \(max index\): PASS
+ldff1w vector\+immediate 64bit element: PASS
+ldff1w vector\+immediate 64bit element \(max index\): PASS
+ldff1sw vector\+immediate 64bit element: PASS
+ldff1sw vector\+immediate 64bit element \(max index\): PASS
+ldff1d vector\+immediate 64bit element: PASS
+ldff1d vector\+immediate 64bit element \(max index\): PASS
+ldff1d vector\+immediate 64bit element Zt==Zn: PASS
+st1b vector\+immediate 64bit element: PASS
+st1b vector\+immediate 64bit element \(max index\): PASS
+st1b vector\+immediate 64bit element \(repeated base\): PASS
+st1h vector\+immediate 64bit element: PASS
+st1h vector\+immediate 64bit element \(max index\): PASS
+st1h vector\+immediate 64bit element \(repeated base\): PASS
+st1w vector\+immediate 64bit element: PASS
+st1w vector\+immediate 64bit element \(max index\): PASS
+st1w vector\+immediate 64bit element \(repeated base\): PASS
+st1d vector\+immediate 64bit element: PASS
+st1d vector\+immediate 64bit element \(max index\): PASS
+st1d vector\+immediate 64bit element \(repeated base\): PASS
+ld1b scalar\+scalar 8bit element: PASS
+ld1b scalar\+scalar 16bit element: PASS
+ld1b scalar\+scalar 32bit element: PASS
+ld1b scalar\+scalar 64bit element: PASS
+ldnt1b scalar\+scalar: PASS
+ld1sb scalar\+scalar 16bit element: PASS
+ld1sb scalar\+scalar 32bit element: PASS
+ld1sb scalar\+scalar 64bit element: PASS
+ld1h scalar\+scalar 16bit element: PASS
+ld1h scalar\+scalar 32bit element: PASS
+ld1h scalar\+scalar 64bit element: PASS
+ldnt1h scalar\+scalar: PASS
+ld1sh scalar\+scalar 32bit element: PASS
+ld1sh scalar\+scalar 64bit element: PASS
+ld1w scalar\+scalar 32bit element: PASS
+ld1w scalar\+scalar 64bit element: PASS
+ldnt1w scalar\+scalar: PASS
+ld1sw scalar\+scalar: PASS
+ld1d scalar\+scalar: PASS
+ldnt1d scalar\+scalar: PASS
+ld1rqb scalar\+scalar: PASS
+ld1rqh scalar\+scalar: PASS
+ld1rqw scalar\+scalar: PASS
+ld1rqd scalar\+scalar: PASS
+ldff1b scalar\+scalar 8bit element: PASS
+ldff1b scalar\+scalar 16bit element: PASS
+ldff1b scalar\+scalar 32bit element: PASS
+ldff1b scalar\+scalar 64bit element: PASS
+ldff1sb scalar\+scalar 16bit element: PASS
+ldff1sb scalar\+scalar 32bit element: PASS
+ldff1sb scalar\+scalar 64bit element: PASS
+ldff1h scalar\+scalar 16bit element: PASS
+ldff1h scalar\+scalar 32bit element: PASS
+ldff1h scalar\+scalar 64bit element: PASS
+ldff1sh scalar\+scalar 32bit element: PASS
+ldff1sh scalar\+scalar 64bit element: PASS
+ldff1w scalar\+scalar 32bit element: PASS
+ldff1w scalar\+scalar 64bit element: PASS
+ldff1sw scalar\+scalar: PASS
+ldff1d scalar\+scalar: PASS
+ld2b scalar\+scalar: PASS
+ld2h scalar\+scalar: PASS
+ld2w scalar\+scalar: PASS
+ld2d scalar\+scalar: PASS
+ld3b scalar\+scalar: PASS
+ld3h scalar\+scalar: PASS
+ld3w scalar\+scalar: PASS
+ld3d scalar\+scalar: PASS
+ld4b scalar\+scalar: PASS
+ld4h scalar\+scalar: PASS
+ld4w scalar\+scalar: PASS
+ld4d scalar\+scalar: PASS
+st1b scalar\+scalar 8bit element: PASS
+st1b scalar\+scalar 16bit element: PASS
+st1b scalar\+scalar 32bit element: PASS
+st1b scalar\+scalar 64bit element: PASS
+st1h scalar\+scalar 16bit element: PASS
+st1h scalar\+scalar 32bit element: PASS
+st1h scalar\+scalar 64bit element: PASS
+st1w scalar\+scalar 32bit element: PASS
+st1w scalar\+scalar 64bit element: PASS
+st1d scalar\+scalar: PASS
+st2b scalar\+scalar: PASS
+st2h scalar\+scalar: PASS
+st2w scalar\+scalar: PASS
+st2d scalar\+scalar: PASS
+st3b scalar\+scalar: PASS
+st3h scalar\+scalar: PASS
+st3w scalar\+scalar: PASS
+st3d scalar\+scalar: PASS
+st4b scalar\+scalar: PASS
+st4h scalar\+scalar: PASS
+st4w scalar\+scalar: PASS
+st4d scalar\+scalar: PASS
+ld1b scalar\+immediate 8bit element: PASS
+ld1b scalar\+immediate 16bit element: PASS
+ld1b scalar\+immediate 32bit element: PASS
+ld1b scalar\+immediate 64bit element: PASS
+ld1b scalar\+immediate 64bit element \(min index\): PASS
+ld1b scalar\+immediate 64bit element \(max index\): PASS
+ldnt1b scalar\+immediate 8bit element: PASS
+ld1sb scalar\+immediate 16bit element: PASS
+ld1sb scalar\+immediate 32bit element: PASS
+ld1sb scalar\+immediate 64bit element: PASS
+ld1sb scalar\+immediate 64bit element \(min index\): PASS
+ld1sb scalar\+immediate 64bit element \(max index\): PASS
+ld1h scalar\+immediate 16bit element: PASS
+ld1h scalar\+immediate 32bit element: PASS
+ld1h scalar\+immediate 64bit element: PASS
+ld1h scalar\+immediate 64bit element \(min index\): PASS
+ld1h scalar\+immediate 64bit element \(max index\): PASS
+ldnt1h scalar\+immediate 16bit element: PASS
+ld1sh scalar\+immediate 32bit element: PASS
+ld1sh scalar\+immediate 64bit element: PASS
+ld1sh scalar\+immediate 64bit element \(min index\): PASS
+ld1sh scalar\+immediate 64bit element \(max index\): PASS
+ld1w scalar\+immediate 32bit element: PASS
+ld1w scalar\+immediate 64bit element: PASS
+ld1w scalar\+immediate 64bit element \(min index\): PASS
+ld1w scalar\+immediate 64bit element \(max index\): PASS
+ldnt1w scalar\+immediate 32bit element: PASS
+ld1sw scalar\+immediate 64bit element: PASS
+ld1sw scalar\+immediate 64bit element \(min index\): PASS
+ld1sw scalar\+immediate 64bit element \(max index\): PASS
+ld1d scalar\+immediate 64bit element: PASS
+ld1d scalar\+immediate 64bit element \(min index\): PASS
+ld1d scalar\+immediate 64bit element \(max index\): PASS
+ldnt1d scalar\+immediate 64bit element: PASS
+ld1rqb scalar\+immediate: PASS
+ld1rqh scalar\+immediate: PASS
+ld1rqw scalar\+immediate: PASS
+ld1rqd scalar\+immediate: PASS
+ld1rqd scalar\+immediate \(min index\): PASS
+ld1rqd scalar\+immediate \(max index\): PASS
+ldnf1b scalar\+immediate 8bit element: PASS
+ldnf1b scalar\+immediate 16bit element: PASS
+ldnf1b scalar\+immediate 32bit element: PASS
+ldnf1b scalar\+immediate 64bit element: PASS
+ldnf1sb scalar\+immediate 16bit element: PASS
+ldnf1sb scalar\+immediate 32bit element: PASS
+ldnf1sb scalar\+immediate 64bit element: PASS
+ldnf1h scalar\+immediate 16bit element: PASS
+ldnf1h scalar\+immediate 32bit element: PASS
+ldnf1h scalar\+immediate 64bit element: PASS
+ldnf1sh scalar\+immediate 32bit element: PASS
+ldnf1sh scalar\+immediate 64bit element: PASS
+ldnf1w scalar\+immediate 32bit element: PASS
+ldnf1w scalar\+immediate 64bit element: PASS
+ldnf1sw scalar\+immediate 64bit element: PASS
+ldnf1d scalar\+immediate 64bit element: PASS
+ld2b scalar\+immediate: PASS
+ld2h scalar\+immediate: PASS
+ld2w scalar\+immediate: PASS
+ld2d scalar\+immediate: PASS
+ld2d scalar\+immediate \(min index\): PASS
+ld2d scalar\+immediate \(max index\): PASS
+ld3b scalar\+immediate: PASS
+ld3h scalar\+immediate: PASS
+ld3w scalar\+immediate: PASS
+ld3d scalar\+immediate: PASS
+ld3d scalar\+immediate \(min index\): PASS
+ld3d scalar\+immediate \(max index\): PASS
+ld4b scalar\+immediate: PASS
+ld4h scalar\+immediate: PASS
+ld4w scalar\+immediate: PASS
+ld4d scalar\+immediate: PASS
+ld4d scalar\+immediate \(min index\): PASS
+ld4d scalar\+immediate \(max index\): PASS
+st1b scalar\+immediate 8bit element: PASS
+st1b scalar\+immediate 16bit element: PASS
+st1b scalar\+immediate 32bit element: PASS
+st1b scalar\+immediate 64bit element: PASS
+st1b scalar\+immediate 64bit element \(min index\): PASS
+st1b scalar\+immediate 64bit element \(max index\): PASS
+st1h scalar\+immediate 16bit element: PASS
+st1h scalar\+immediate 32bit element: PASS
+st1h scalar\+immediate 64bit element: PASS
+st1h scalar\+immediate 64bit element \(min index\): PASS
+st1h scalar\+immediate 64bit element \(max index\): PASS
+st1w scalar\+immediate 32bit element: PASS
+st1w scalar\+immediate 64bit element: PASS
+st1w scalar\+immediate 64bit element \(min index\): PASS
+st1w scalar\+immediate 64bit element \(max index\): PASS
+st1d scalar\+immediate 64bit element: PASS
+st1d scalar\+immediate 64bit element \(min index\): PASS
+st1d scalar\+immediate 64bit element \(max index\): PASS
+st2b scalar\+immediate: PASS
+st2h scalar\+immediate: PASS
+st2w scalar\+immediate: PASS
+st2d scalar\+immediate: PASS
+st2d scalar\+immediate \(min index\): PASS
+st2d scalar\+immediate \(max index\): PASS
+st3b scalar\+immediate: PASS
+st3h scalar\+immediate: PASS
+st3w scalar\+immediate: PASS
+st3d scalar\+immediate: PASS
+st3d scalar\+immediate \(min index\): PASS
+st3d scalar\+immediate \(max index\): PASS
+st4b scalar\+immediate: PASS
+st4h scalar\+immediate: PASS
+st4w scalar\+immediate: PASS
+st4d scalar\+immediate: PASS
+st4d scalar\+immediate \(min index\): PASS
+st4d scalar\+immediate \(max index\): PASS
+#endif /* __ARM_FEATURE_SVE */
+#ifdef __ARM_FEATURE_SVE2
+ldnt1b vector\+scalar 64bit unscaled offset: PASS
+ldnt1sb vector\+scalar 64bit unscaled offset: PASS
+ldnt1h vector\+scalar 64bit unscaled offset: PASS
+ldnt1sh vector\+scalar 64bit unscaled offset: PASS
+ldnt1w vector\+scalar 64bit unscaled offset: PASS
+ldnt1sw vector\+scalar 64bit unscaled offset: PASS
+ldnt1d vector\+scalar 64bit unscaled offset: PASS
+stnt1b vector\+scalar 64bit unscaled offset: PASS
+stnt1b vector\+scalar 64bit unscaled offset \(repeated base\): PASS
+stnt1h vector\+scalar 64bit unscaled offset: PASS
+stnt1h vector\+scalar 64bit unscaled offset \(repeated base\): PASS
+stnt1w vector\+scalar 64bit unscaled offset: PASS
+stnt1w vector\+scalar 64bit unscaled offset \(repeated base\): PASS
+stnt1d vector\+scalar 64bit unscaled offset: PASS
+stnt1d vector\+scalar 64bit unscaled offset \(repeated base\): PASS
+#endif /* __ARM_FEATURE_SVE2 */
+---- <application exited with code 0> ----
+Trace invariant checks passed

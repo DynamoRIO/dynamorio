@@ -178,6 +178,7 @@ loader_init_prologue(void)
         privmod_t *mod =
             privload_insert(NULL, privmod_static[i].base, privmod_static[i].size,
                             privmod_static[i].name, privmod_static[i].path);
+        mod->is_top_level_client = true;
         mod->is_client = true;
     }
 
@@ -520,6 +521,7 @@ privload_insert(privmod_t *after, app_pc base, size_t size, const char *name,
     }
     mod->ref_count = 1;
     mod->externally_loaded = false;
+    mod->is_top_level_client = false; /* up to caller to set later */
     mod->is_client = false; /* up to caller to set later */
     mod->called_proc_entry = false;
     mod->called_proc_exit = false;
@@ -974,7 +976,7 @@ redirect_malloc(size_t size)
  * wrapped-malloc-layer pointer from a client/privlib.
  */
 static inline size_t
-redirect_malloc_size_and_start(void *mem, OUT void **start_out)
+redirect_malloc_size_and_start(void *mem, DR_PARAM_OUT void **start_out)
 {
     size_t *size_ptr = (size_t *)((ptr_uint_t)mem - sizeof(size_t));
     size_t size = *((size_t *)size_ptr);

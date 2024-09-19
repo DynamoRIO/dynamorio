@@ -42,17 +42,21 @@
  */
 
 #include <vector>
+#include <mutex>
 #include "drir.h"
-#include "../common/trace_entry.h"
+#include "trace_entry.h"
 
-#ifndef IN
-#    define IN // nothing
+namespace dynamorio {
+namespace drmemtrace {
+
+#ifndef DR_PARAM_IN
+#    define DR_PARAM_IN // nothing
 #endif
-#ifndef OUT
-#    define OUT // nothing
+#ifndef DR_PARAM_OUT
+#    define DR_PARAM_OUT // nothing
 #endif
-#ifndef INOUT
-#    define INOUT // nothing
+#ifndef DR_PARAM_INOUT
+#    define DR_PARAM_INOUT // nothing
 #endif
 
 /**
@@ -79,14 +83,20 @@ public:
 
     /**
      * Converts DynamoRIO's IR format to trace entries.
-     * \param[in] drir DynamoRIO's IR format.
-     * \param[out] trace The converted trace entries.
-     * \return ir2trace_convert_status_t If the conversion is successful, the function
+     * @param drir DynamoRIO's IR format.
+     * @param trace The converted trace entries.
+     * @param verbosity  The verbosity level for notifications. If set to 0, only error
+     * logs are printed. If set to 1, all logs are printed. Default value is 0.
+     * @return ir2trace_convert_status_t If the conversion is successful, the function
      * returns #IR2TRACE_CONV_SUCCESS. Otherwise, the function returns the corresponding
      * error code.
      */
     static ir2trace_convert_status_t
-    convert(IN drir_t &drir, OUT std::vector<trace_entry_t> &trace);
+    convert(DR_PARAM_IN drir_t *drir, DR_PARAM_INOUT std::vector<trace_entry_t> &trace,
+            DR_PARAM_IN int verbosity = 0);
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _IR2TRACE_H_ */

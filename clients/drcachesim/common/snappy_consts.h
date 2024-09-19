@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -42,6 +42,9 @@
 #include <cstddef>
 #include "crc32c.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 class snappy_consts_t {
 protected:
     enum chunk_type_t : unsigned char {
@@ -79,5 +82,8 @@ protected:
     // Magic string identifying the snappy chunked format.
     static constexpr char magic_[] = "sNaPpY";
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _SNAPPY_CONSTS_H_ */

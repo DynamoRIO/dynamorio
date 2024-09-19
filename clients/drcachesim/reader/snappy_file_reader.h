@@ -43,11 +43,13 @@
 #include <memory>
 #include <string>
 #include <vector>
-
 #include <snappy.h>
 #include <snappy-sinksource.h>
 #include "snappy_consts.h"
 #include "file_reader.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 class snappy_reader_t : snappy_consts_t {
 public:
@@ -56,7 +58,7 @@ public:
 
     // Read 'size' bytes into the 'to'.
     int
-    read(size_t size, OUT void *to);
+    read(size_t size, DR_PARAM_OUT void *to);
 
     bool
     eof()
@@ -95,5 +97,8 @@ private:
 };
 
 typedef file_reader_t<snappy_reader_t> snappy_file_reader_t;
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _SNAPPY_FILE_READER_H_ */

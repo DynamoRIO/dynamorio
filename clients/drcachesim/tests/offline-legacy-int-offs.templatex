@@ -12,14 +12,18 @@ Total counts:
            0 total icache flushes
            0 total dcache flushes
            3 total threads
-         136 total scheduling markers
-          11 total transfer markers
+         136 total timestamp \+ cpuid markers
+           0 total idle markers
+           0 total wait markers
+          11 total kernel transfer markers
            0 total function id markers
            0 total function return address markers
            0 total function argument markers
            0 total function return value markers
            0 total physical address \+ virtual address marker pairs
            0 total physical address unavailable markers
+           0 total system call number markers
+           0 total blocking system call markers
           12 total other markers
         8429 total encodings
 Thread 552306 counts:
@@ -31,14 +35,18 @@ Thread 552306 counts:
         4442 data stores
            0 icache flushes
            0 dcache flushes
-         110 scheduling markers
-          11 transfer markers
+         110 timestamp \+ cpuid markers
+           0 idle markers
+           0 wait markers
+          11 kernel transfer markers
            0 function id markers
            0 function return address markers
            0 function argument markers
            0 function return value markers
            0 physical address \+ virtual address marker pairs
            0 physical address unavailable markers
+           0 system call number markers
+           0 blocking system call markers
            4 other markers
         6393 encodings
 Thread 552323 counts:
@@ -50,14 +58,18 @@ Thread 552323 counts:
          651 data stores
            0 icache flushes
            0 dcache flushes
-          14 scheduling markers
-           0 transfer markers
+          14 timestamp \+ cpuid markers
+           0 idle markers
+           0 wait markers
+           0 kernel transfer markers
            0 function id markers
            0 function return address markers
            0 function argument markers
            0 function return value markers
            0 physical address \+ virtual address marker pairs
            0 physical address unavailable markers
+           0 system call number markers
+           0 blocking system call markers
            4 other markers
         1028 encodings
 Thread 552324 counts:
@@ -69,14 +81,18 @@ Thread 552324 counts:
          451 data stores
            0 icache flushes
            0 dcache flushes
-          12 scheduling markers
-           0 transfer markers
+          12 timestamp \+ cpuid markers
+           0 idle markers
+           0 wait markers
+           0 kernel transfer markers
            0 function id markers
            0 function return address markers
            0 function argument markers
            0 function return value markers
            0 physical address \+ virtual address marker pairs
            0 physical address unavailable markers
+           0 system call number markers
+           0 blocking system call markers
            4 other markers
         1008 encodings
 #else

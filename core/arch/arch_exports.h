@@ -135,7 +135,7 @@ typedef struct _table_stat_state_t {
 #endif
 } table_stat_state_t;
 
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
 typedef struct _ibl_entry_pc_t {
     byte *ibl;
     byte *unlinked;
@@ -157,10 +157,16 @@ typedef struct _spill_state_t {
     reg_t reg_stolen; /* slot for the stolen register */
 #elif defined(RISCV64)
     reg_t a0, a1, a2, a3;
+    /* These are needed for LR/SC mangling. */
+    reg_t a4, a5;
+    /* Slots for the stolen register. Similar to AArch64, we use reg_stolen slot to hold
+     * the app's stolen reg value.
+     */
+    reg_t reg_stolen;
 #endif
     /* XXX: move this below the tables to fit more on cache line */
     dcontext_t *dcontext;
-#ifdef AARCHXX
+#if defined(RISCV64) || defined(AARCHXX)
     /* We store addresses here so we can load pointer-sized addresses into
      * registers with a single instruction in our exit stubs and gencode.
      */
@@ -168,6 +174,8 @@ typedef struct _spill_state_t {
     byte *fcache_return;
     ibl_entry_pc_t trace_ibl[IBL_BRANCH_TYPE_END];
     ibl_entry_pc_t bb_ibl[IBL_BRANCH_TYPE_END];
+#endif
+#ifdef AARCHXX
     /* State for converting exclusive monitors into compare-and-swap (-ldstex2cas). */
     ptr_uint_t ldstex_addr;
     ptr_uint_t ldstex_value;
@@ -178,6 +186,11 @@ typedef struct _spill_state_t {
     reg_t ldstex_flags;
 #    endif
     /* TODO i#1575: coarse-grain NYI on ARM */
+#elif defined(RISCV64)
+    /* State for converting LR/SC pair into compare-and-swap (-ldstex2cas). */
+    ptr_uint_t lrsc_addr;
+    ptr_uint_t lrsc_value;
+    ptr_uint_t lrsc_size;
 #endif
 } spill_state_t;
 
@@ -227,10 +240,16 @@ typedef struct _local_state_extended_t {
 #    define TLS_REG1_SLOT ((ushort)offsetof(spill_state_t, a1))
 #    define TLS_REG2_SLOT ((ushort)offsetof(spill_state_t, a2))
 #    define TLS_REG3_SLOT ((ushort)offsetof(spill_state_t, a3))
+#    define TLS_REG4_SLOT ((ushort)offsetof(spill_state_t, a4))
+#    define TLS_REG5_SLOT ((ushort)offsetof(spill_state_t, a5))
+#    define TLS_REG_STOLEN_SLOT ((ushort)offsetof(spill_state_t, reg_stolen))
 #    define SCRATCH_REG0 DR_REG_A0
 #    define SCRATCH_REG1 DR_REG_A1
 #    define SCRATCH_REG2 DR_REG_A2
 #    define SCRATCH_REG3 DR_REG_A3
+#    define SCRATCH_REG4 DR_REG_A4
+#    define SCRATCH_REG5 DR_REG_A5
+#    define SCRATCH_REG_LAST DR_REG_A5
 #endif /* X86/ARM */
 #define IBL_TARGET_REG SCRATCH_REG2
 #define IBL_TARGET_SLOT TLS_REG2_SLOT
@@ -244,6 +263,11 @@ typedef struct _local_state_extended_t {
 #    ifdef ARM
 #        define TLS_LDSTEX_FLAGS_SLOT ((ushort)offsetof(spill_state_t, ldstex_flags))
 #    endif
+#elif defined(RISCV64)
+#    define TLS_FCACHE_RETURN_SLOT ((ushort)offsetof(spill_state_t, fcache_return))
+#    define TLS_LRSC_ADDR_SLOT ((ushort)offsetof(spill_state_t, lrsc_addr))
+#    define TLS_LRSC_VALUE_SLOT ((ushort)offsetof(spill_state_t, lrsc_value))
+#    define TLS_LRSC_SIZE_SLOT ((ushort)offsetof(spill_state_t, lrsc_size))
 #endif
 
 #define TABLE_OFFSET (offsetof(local_state_extended_t, table_space))
@@ -441,11 +465,17 @@ void
 dr_mcontext_init(dr_mcontext_t *mc);
 void
 dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml);
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
 reg_t
 get_stolen_reg_val(priv_mcontext_t *context);
 void
 set_stolen_reg_val(priv_mcontext_t *mc, reg_t newval);
+#    ifdef RISCV64
+reg_t
+get_tp_reg_val(priv_mcontext_t *mc);
+void
+set_tp_reg_val(priv_mcontext_t *mc, reg_t newval);
+#    endif
 #endif
 const char *
 get_branch_type_name(ibl_branch_type_t branch_type);
@@ -680,9 +710,6 @@ dynamorio_condvar_wake_and_jmp(KSYNCH_TYPE *ksynch /*in xax/r0*/,
 void
 dynamorio_nonrt_sigreturn(void);
 #        endif
-thread_id_t
-dynamorio_clone(uint flags, byte *newsp, void *ptid, void *tls, void *ctid,
-                void (*func)(void));
 void
 xfer_to_new_libdr(app_pc entry, void **init_sp, byte *cur_dr_map, size_t cur_dr_size);
 #    endif
@@ -833,18 +860,20 @@ use_addr_prefix_on_short_disp(void)
 #include "encode_api.h"
 
 /* static version for drdecodelib */
-#define DEFAULT_ISA_MODE_STATIC                         \
-    IF_X86_ELSE(IF_X64_ELSE(DR_ISA_AMD64, DR_ISA_IA32), \
-                IF_X64_ELSE(DR_ISA_ARM_A64, DR_ISA_ARM_THUMB))
+#define DEFAULT_ISA_MODE_STATIC                 \
+    IF_X86_ELSE(                                \
+        IF_X64_ELSE(DR_ISA_AMD64, DR_ISA_IA32), \
+        IF_AARCHXX_ELSE(IF_X64_ELSE(DR_ISA_ARM_A64, DR_ISA_ARM_THUMB), DR_ISA_RV64))
 
 /* Use this one in DR proper.
  * This one is now static as well after we removed the runtime option that
  * used to be here: but I'm leaving the split to make it easier to add
  * an option in the future.
  */
-#define DEFAULT_ISA_MODE                                \
-    IF_X86_ELSE(IF_X64_ELSE(DR_ISA_AMD64, DR_ISA_IA32), \
-                IF_X64_ELSE(DR_ISA_ARM_A64, DR_ISA_ARM_THUMB))
+#define DEFAULT_ISA_MODE                        \
+    IF_X86_ELSE(                                \
+        IF_X64_ELSE(DR_ISA_AMD64, DR_ISA_IA32), \
+        IF_AARCHXX_ELSE(IF_X64_ELSE(DR_ISA_ARM_A64, DR_ISA_ARM_THUMB), DR_ISA_RV64))
 
 /* For converting back from PC_AS_JMP_TGT on Thumb */
 #ifdef ARM
@@ -1051,18 +1080,25 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
 #    define PC_LOAD_ADDR_ALIGN 4
 
 #elif defined(RISCV64)
-/* FIXME i#3544: This can be 2B in C. */
+/* Instructions from C extensions are 2 bytes in size and we will never use this macro on
+ * these instructions. */
 #    define RISCV64_INSTR_SIZE 4
-/* FIXME i#3544: Not implemented */
-#    define FRAGMENT_BASE_PREFIX_SIZE(flags) RISCV64_INSTR_SIZE
-/* FIXME i#3544: Not implemented */
+#    define RISCV64_INSTR_COMPRESSED_SIZE 2
+#    define FRAGMENT_BASE_PREFIX_SIZE(flags) RISCV64_INSTR_SIZE * 2
 #    define DIRECT_EXIT_STUB_SIZE(flags) \
-        (10 * RISCV64_INSTR_SIZE) /* see insert_exit_stub_other_flags */
+        (13 * RISCV64_INSTR_SIZE) +      \
+            DIRECT_EXIT_STUB_DATA_SZ /* See insert_exit_stub_other_flags(). */
 #    define FRAG_IS_32(flags) false
 #    define PC_AS_JMP_TGT(isa_mode, pc) pc
 #    define PC_AS_LOAD_TGT(isa_mode, pc) pc
-/* FIXME i#3544: Not implemented */
-#    define DIRECT_EXIT_STUB_DATA_SZ 0
+/* Size of data slot used to store address of linked fragment or fcache return routine.
+ * We reserve 16 bytes for the 8 byte address, so that we can store it in an 8-byte
+ * aligned address (unlike AArch64, 12 bytes is not enough as RISC-V instructions can
+ * be 2 bytes long). This is required for atomicity of write operations.
+ */
+#    define DIRECT_EXIT_STUB_DATA_SLOT_ALIGNMENT_PADDING 8
+#    define DIRECT_EXIT_STUB_DATA_SZ \
+        (sizeof(app_pc) + DIRECT_EXIT_STUB_DATA_SLOT_ALIGNMENT_PADDING)
 #    define STUB_COARSE_DIRECT_SIZE(flags) (ASSERT_NOT_IMPLEMENTED(false), 0)
 #    define SET_TO_NOPS(isa_mode, addr, size) fill_with_nops(isa_mode, addr, size)
 #    define SET_TO_DEBUG(addr, size) ASSERT_NOT_IMPLEMENTED(false)
@@ -1752,7 +1788,7 @@ get_mcontext_frame_ptr(dcontext_t *dcontext, priv_mcontext_t *mc)
 #elif defined(AARCH64)
     case DR_ISA_ARM_A64: reg = mc->r29; break;
 #elif defined(RISCV64)
-    case DR_ISA_RV64IMAFDC: reg = mc->x8; break;
+    case DR_ISA_RV64: reg = mc->x8; break;
 #endif /* X86/ARM/AARCH64 */
     default: ASSERT_NOT_REACHED(); reg = 0;
     }

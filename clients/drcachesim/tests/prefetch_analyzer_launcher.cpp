@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,6 +36,18 @@
 #include "dr_frontend.h"
 #include "../analyzer.h"
 #include "prefetch_analyzer.h"
+#include "test_helpers.h"
+
+using ::dynamorio::drmemtrace::analysis_tool_t;
+using ::dynamorio::drmemtrace::analyzer_t;
+using ::dynamorio::drmemtrace::disable_popups;
+using ::dynamorio::drmemtrace::prefetch_analyzer_t;
+using ::dynamorio::droption::droption_parser_t;
+using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+using ::dynamorio::droption::DROPTION_SCOPE_FRONTEND;
+using ::dynamorio::droption::droption_t;
+
+namespace {
 
 #define FATAL_ERROR(msg, ...)                               \
     do {                                                    \
@@ -49,9 +61,13 @@ static droption_t<std::string>
                  "[Required] Trace input directory",
                  "Specifies the directory containing the trace files to be analyzed.");
 
+} // namespace
+
 int
-main(int argc, const TCHAR *targv[])
+_tmain(int argc, const TCHAR *targv[])
 {
+    disable_popups();
+
     // Convert to UTF-8 if necessary
     char **argv;
     drfront_status_t sc = drfront_convert_args(targv, &argv, argc);

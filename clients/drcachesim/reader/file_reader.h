@@ -31,7 +31,7 @@
  */
 
 /* file_reader: obtains memory streams from DR clients running in
- * application processes and presents them via an interator interface
+ * application processes and presents them via an iterator interface
  * to the cache simulator.
  */
 
@@ -39,15 +39,22 @@
 #define _FILE_READER_H_ 1
 
 #include <inttypes.h>
+#include <stdint.h>
 #include <string.h>
+
 #include <fstream>
 #include <queue>
+#include <string>
 #include <vector>
-#include "reader.h"
-#include "memref.h"
+
 #include "directory_iterator.h"
+#include "memref.h"
+#include "reader.h"
 #include "trace_entry.h"
 #include "utils.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 #ifndef ZHEX64_FORMAT_STRING
 /* We avoid dr_defines.h to keep this code separated and simpler for using with
@@ -174,5 +181,8 @@ protected:
 private:
     std::string input_path_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _FILE_READER_H_ */

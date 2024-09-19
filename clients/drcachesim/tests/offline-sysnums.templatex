@@ -1,0 +1,15 @@
+all done
+Basic counts tool results:
+Total counts:
+    .* total \(fetched\) instructions
+    .* total unique \(fetched\) instructions
+    .* total non-fetched instructions
+    .* total prefetches
+    .* total data loads
+    .* total data stores
+    .* total icache flushes
+    .* total dcache flushes
+           1 total threads
+    .* total timestamp \+ cpuid markers
+.*
+Trace invariant checks passed

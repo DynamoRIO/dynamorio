@@ -61,7 +61,7 @@ static void
 event_exit(void);
 static dr_emit_flags_t
 event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                  bool translating, OUT void **user_data);
+                  bool translating, DR_PARAM_OUT void **user_data);
 
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
@@ -110,7 +110,7 @@ event_exit(void)
 
 static dr_emit_flags_t
 event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                  bool translating, OUT void **user_data)
+                  bool translating, DR_PARAM_OUT void **user_data)
 {
     int cur_size = 0;
 

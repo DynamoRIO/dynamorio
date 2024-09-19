@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * **********************************************************/
 
@@ -35,6 +35,7 @@
 #define _OUTPUT_ 1
 
 #include "dr_api.h"
+#include "tracer.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -62,6 +63,17 @@ init_io();
 
 void
 exit_io();
+
+// Returns true for an empty new (non-initial) buffer for a tracing window
+// with no instructions traced yet in the window.
+inline bool
+is_new_window_buffer_empty(per_thread_t *data)
+{
+    // Since it's non-initial we do not add init_header_size.
+    return has_tracing_windows() &&
+        BUF_PTR(data->seg_base) == data->buf_base + buf_hdr_slots_size &&
+        data->cur_window_instr_count == 0;
+}
 
 } // namespace drmemtrace
 } // namespace dynamorio

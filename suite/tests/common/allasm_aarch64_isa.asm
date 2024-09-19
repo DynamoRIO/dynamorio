@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -126,10 +127,10 @@
         .endm
 
         // Write n-byte string from X0, adding '\n'.
-        .macro  printn n
+        .macro  printn c
         mov     w1, #'\n'
-        strb    w1, [x0, #\n]
-        mov     x1, #(\n + 1)
+        strb    w1, [x0, #\c]
+        mov     x1, #(\c + 1)
         write
         .endm
 

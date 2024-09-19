@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,13 +33,21 @@
 #ifndef _SNOOP_FILTER_H_
 #define _SNOOP_FILTER_H_ 1
 
-#include "cache.h"
+#include <stdint.h>
+
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
+#include "cache.h"
+#include "trace_entry.h"
+
+namespace dynamorio {
+namespace drmemtrace {
+
 struct coherence_table_entry_t {
-    std::vector<bool> sharers;
-    bool dirty;
+    std::unordered_set<int> sharers; // IDs of caches sharing this line.
+    bool dirty = false;
 };
 
 class snoop_filter_t {
@@ -56,15 +64,38 @@ public:
     snoop_eviction(addr_t tag, int id);
     void
     print_stats(void);
+    int64_t
+    get_num_snooped_caches(void)
+    {
+        return num_snooped_caches_;
+    }
+    int64_t
+    get_num_writes(void)
+    {
+        return num_writes_;
+    }
+    int64_t
+    get_num_writebacks(void)
+    {
+        return num_writebacks_;
+    }
+    int64_t
+    get_num_invalidates(void)
+    {
+        return num_invalidates_;
+    }
 
 protected:
     // XXX: This initial coherence implementation uses a perfect snoop filter.
     std::unordered_map<addr_t, coherence_table_entry_t> coherence_table_;
     cache_t **caches_;
     int num_snooped_caches_;
-    int_least64_t num_writes_;
-    int_least64_t num_writebacks_;
-    int_least64_t num_invalidates_;
+    int64_t num_writes_;
+    int64_t num_writebacks_;
+    int64_t num_invalidates_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _SNOOP_FILTER_H_ */

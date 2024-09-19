@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,24 +30,53 @@
  * DAMAGE.
  */
 
-#include <iostream>
-#include <iterator>
-#include <string>
-#include <assert.h>
-#include <limits.h>
-#include <stdint.h> /* for supporting 64-bit integers*/
-#include "../common/memref.h"
-#include "../common/options.h"
-#include "../common/utils.h"
-#include "droption.h"
-#include "tlb_stats.h"
-#include "tlb.h"
 #include "tlb_simulator.h"
+
+#include <stddef.h>
+
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <vector>
+
+#include "analysis_tool.h"
+#include "memref.h"
+#include "options.h"
+#include "utils.h"
+#include "caching_device_stats.h"
+#include "simulator.h"
+#include "tlb.h"
+#include "tlb_simulator_create.h"
+#include "tlb_stats.h"
+#include "trace_entry.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 analysis_tool_t *
 tlb_simulator_create(const tlb_simulator_knobs_t &knobs)
 {
-    return new tlb_simulator_t(knobs);
+    if (knobs.v2p_file.empty())
+        return new tlb_simulator_t(knobs);
+
+    std::ifstream fin;
+    fin.open(knobs.v2p_file);
+    if (!fin.is_open()) {
+        ERRMSG("Failed to open the v2p file '%s'\n", knobs.v2p_file.c_str());
+        return nullptr;
+    }
+
+    tlb_simulator_t *sim = new tlb_simulator_t(knobs);
+    std::string error_str = sim->create_v2p_from_file(fin);
+    fin.close();
+
+    if (!error_str.empty()) {
+        delete sim;
+        ERRMSG("ERROR: v2p_reader failed with: %s\n", error_str.c_str());
+        return nullptr;
+    }
+
+    return sim;
 }
 
 tlb_simulator_t::tlb_simulator_t(const tlb_simulator_knobs_t &knobs)
@@ -124,6 +153,24 @@ tlb_simulator_t::~tlb_simulator_t()
     delete[] lltlbs_;
 }
 
+std::string
+tlb_simulator_t::create_v2p_from_file(std::istream &v2p_file)
+{
+    // If we are not using physical addresses, we don't need a virtual to physical mapping
+    // at all.
+    if (!knobs_.use_physical)
+        return "";
+
+    std::string error_str = simulator_t::create_v2p_from_file(v2p_file);
+    if (!error_str.empty()) {
+        return error_str;
+    }
+    // Overwrite tlb_simulator_t.knobs_.page size with simulator_t.page_size, which is
+    // set to be the page size in v2p_file.
+    knobs_.page_size = page_size_;
+    return "";
+}
+
 bool
 tlb_simulator_t::process_memref(const memref_t &memref)
 {
@@ -150,13 +197,13 @@ tlb_simulator_t::process_memref(const memref_t &memref)
     // We use a static scheduling of threads to cores, as it is
     // not practical to measure which core each thread actually
     // ran on for each memref.
-    int core;
+    int core_index;
     if (memref.data.tid == last_thread_)
-        core = last_core_;
+        core_index = last_core_index_;
     else {
-        core = core_for_thread(memref.data.tid);
+        core_index = core_for_thread(memref.data.tid);
         last_thread_ = memref.data.tid;
-        last_core_ = core;
+        last_core_index_ = core_index;
     }
 
     // To support swapping to physical addresses without modifying the passed-in
@@ -170,10 +217,10 @@ tlb_simulator_t::process_memref(const memref_t &memref)
     }
 
     if (type_is_instr(simref->instr.type))
-        itlbs_[core]->request(*simref);
+        itlbs_[core_index]->request(*simref);
     else if (simref->data.type == TRACE_TYPE_READ ||
              simref->data.type == TRACE_TYPE_WRITE)
-        dtlbs_[core]->request(*simref);
+        dtlbs_[core_index]->request(*simref);
     else if (simref->exit.type == TRACE_TYPE_THREAD_EXIT) {
         handle_thread_exit(simref->exit.tid);
         last_thread_ = 0;
@@ -234,8 +281,8 @@ tlb_t *
 tlb_simulator_t::create_tlb(std::string policy)
 {
     // XXX: how to implement different replacement policies?
-    // Should we extend tlb_t to tlb_XXX_t so as to avoid multiple inheritence?
-    // Or should we adopt multiple inheritence to have caching_device_XXX_t as one base
+    // Should we extend tlb_t to tlb_XXX_t so as to avoid multiple inheritance?
+    // Or should we adopt multiple inheritance to have caching_device_XXX_t as one base
     // and tlb_t as another base class?
     if (policy == REPLACE_POLICY_NON_SPECIFIED || // default LFU
         policy == REPLACE_POLICY_LFU)             // set to LFU
@@ -246,3 +293,6 @@ tlb_simulator_t::create_tlb(std::string policy)
            "Please choose " REPLACE_POLICY_LFU ".\n");
     return NULL;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

@@ -32,51 +32,121 @@
 
 #include "../globals.h"
 #include "instr.h"
+#include "encode_api.h"
+#include "codec.h"
 
+/* XXX i#6690: currently only RISCV64 is supported for instruction encoding.
+ * We want to add support for RISCV64 decoding and synthetic ISA encoding as well.
+ * XXX i#1684: move this function to core/ir/instr_shared.c once we can support
+ * all architectures in the same build of DR.
+ */
 bool
 instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
 {
-    return (mode == DR_ISA_RV64IMAFDC);
-}
-
-dr_isa_mode_t
-instr_get_isa_mode(instr_t *instr)
-{
-    return DR_ISA_RV64IMAFDC;
+    if (mode != DR_ISA_RV64 && mode != DR_ISA_REGDEPS)
+        return false;
+    instr->isa_mode = mode;
+    return true;
 }
 
 int
 instr_length_arch(dcontext_t *dcontext, instr_t *instr)
 {
-    /* FIXME i#3544: Compressed Instructions ISA extension has a shorter instruction
-     * length. */
-    return RISCV64_INSTR_SIZE;
+    int opcode = instr_get_opcode(instr);
+    switch (opcode) {
+    case OP_LABEL: return 0;
+    case OP_c_flwsp:
+    case OP_c_fswsp:
+    case OP_c_flw:
+    case OP_c_fsw:
+    case OP_c_jal:
+    case OP_c_ldsp:
+    case OP_c_sdsp:
+    case OP_c_ld:
+    case OP_c_sd:
+    case OP_c_addiw:
+    case OP_c_addw:
+    case OP_c_subw:
+    case OP_c_lwsp:
+    case OP_c_fldsp:
+    case OP_c_swsp:
+    case OP_c_fsdsp:
+    case OP_c_lw:
+    case OP_c_fld:
+    case OP_c_sw:
+    case OP_c_fsd:
+    case OP_c_j:
+    case OP_c_jr:
+    case OP_c_jalr:
+    case OP_c_beqz:
+    case OP_c_bnez:
+    case OP_c_li:
+    case OP_c_lui:
+    case OP_c_addi:
+    case OP_c_addi16sp:
+    case OP_c_addi4spn:
+    case OP_c_slli:
+    case OP_c_srli:
+    case OP_c_srai:
+    case OP_c_andi:
+    case OP_c_mv:
+    case OP_c_add:
+    case OP_c_and:
+    case OP_c_or:
+    case OP_c_xor:
+    case OP_c_sub:
+    case OP_c_nop:
+    case OP_c_ebreak: return RISCV64_INSTR_COMPRESSED_SIZE;
+    default: return RISCV64_INSTR_SIZE;
+    }
 }
 
 bool
 opc_is_not_a_real_memory_load(int opc)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return opc == OP_auipc;
+}
+
+bool
+opc_is_not_a_real_memory_store(int opc)
+{
+    return false;
 }
 
 uint
 instr_branch_type(instr_t *cti_instr)
 {
-    /* FIXME i#3544: The branch type depends on JAL(R) operands. More details
-     * are provided in Table 2.1 of the The RISC-V Instruction Set Manual Volume I:
-     * Unprivileged ISA (page 22 in version 20191213). */
     int opcode = instr_get_opcode(cti_instr);
     switch (opcode) {
-    case OP_jal: return LINK_DIRECT | LINK_CALL;
-    case OP_jalr: return LINK_INDIRECT | LINK_CALL;
+    case OP_jal:
+    case OP_c_jal: /* C.JAL expands to JAL ra, offset, which is direct call. */
+    case OP_c_j:   /* C.J expands to JAL zero, offset, which is a direct jump. */
+        /* JAL non-zero, offset is a dierct call. */
+        if (opnd_get_reg(instr_get_dst(cti_instr, 0)) != DR_REG_ZERO)
+            return LINK_DIRECT | LINK_CALL;
+        else
+            return LINK_DIRECT | LINK_JMP;
+    case OP_jalr:
+    case OP_c_jr:   /* C.JR expands to JALR zero, 0(rs1). */
+    case OP_c_jalr: /* C.JALR expands to JALR ra, 0(rs1) */
+        /* JALR zero, 0(ra) is a return. */
+        if (opnd_get_reg(instr_get_dst(cti_instr, 0)) == DR_REG_ZERO &&
+            opnd_get_reg(instr_get_src(cti_instr, 0)) == DR_REG_RA &&
+            opnd_get_immed_int(instr_get_src(cti_instr, 1)) == 0)
+            return LINK_INDIRECT | LINK_RETURN;
+        /* JALR non-zero, offset(rs1) is an indirect call. */
+        else if (opnd_get_reg(instr_get_dst(cti_instr, 0)) != DR_REG_ZERO)
+            return LINK_INDIRECT | LINK_CALL;
+        else
+            return LINK_INDIRECT | LINK_JMP;
     case OP_beq:
     case OP_bne:
     case OP_blt:
     case OP_bltu:
     case OP_bge:
-    case OP_bgeu: return LINK_DIRECT | LINK_JMP;
+    case OP_bgeu:
+    case OP_c_beqz:
+    case OP_c_bnez: return LINK_DIRECT | LINK_JMP;
     }
     CLIENT_ASSERT(false, "instr_branch_type: unknown opcode");
     return LINK_INDIRECT;
@@ -85,9 +155,7 @@ instr_branch_type(instr_t *cti_instr)
 const char *
 get_opcode_name(int opc)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return "<opcode>";
+    return get_instruction_info(opc)->name;
 }
 
 bool
@@ -101,47 +169,41 @@ instr_is_mov(instr_t *instr)
 bool
 instr_is_call_arch(instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
+    int opc = instr_get_opcode(instr);
+    return ((opc == OP_jal || opc == OP_jalr || opc == OP_c_jal || opc == OP_c_jalr) &&
+            opnd_get_reg(instr_get_dst(instr, 0)) != DR_REG_ZERO);
 }
 
 bool
 instr_is_call_direct(instr_t *instr)
 {
-    /* FIXME i#3544: Check if valid */
     int opc = instr_get_opcode(instr);
-    return (opc == OP_jal);
+    return ((opc == OP_jal || opc == OP_c_jal) &&
+            opnd_get_reg(instr_get_dst(instr, 0)) != DR_REG_ZERO);
 }
 
 bool
 instr_is_near_call_direct(instr_t *instr)
 {
-    /* FIXME i#3544: Check if valid */
-    int opc = instr_get_opcode(instr);
-    return (opc == OP_jal);
+    return instr_is_call_direct(instr);
 }
 
 bool
 instr_is_call_indirect(instr_t *instr)
 {
-    /* FIXME i#3544: Check if valid */
     int opc = instr_get_opcode(instr);
-    return (opc == OP_jalr);
+    return ((opc == OP_jalr || opc == OP_c_jalr) &&
+            opnd_get_reg(instr_get_dst(instr, 0)) != DR_REG_ZERO);
 }
 
 bool
 instr_is_return(instr_t *instr)
 {
-    /* FIXME i#3544: Check if valid */
     int opc = instr_get_opcode(instr);
-    if (instr_num_srcs(instr) < 1 || instr_num_dsts(instr) < 1)
-        return false;
-    opnd_t rd = instr_get_dst(instr, 0);
-    opnd_t rs = instr_get_src(instr, 0);
-    return (opc == OP_jalr && opnd_get_reg(rd) == DR_REG_X0 &&
-            opnd_is_memory_reference(rs) && opnd_get_base(rs) == DR_REG_X1 &&
-            opnd_get_disp(rs) == 0);
+    return ((opc == OP_c_jr || opc == OP_jalr) &&
+            opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_X0 &&
+            opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_RA &&
+            opnd_get_immed_int(instr_get_src(instr, 1)) == 0);
 }
 
 bool
@@ -149,22 +211,19 @@ instr_is_cbr_arch(instr_t *instr)
 {
     int opc = instr_get_opcode(instr);
     return opc == OP_beq || opc == OP_bne || opc == OP_blt || opc == OP_bltu ||
-        opc == OP_bge || opc == OP_bgeu;
+        opc == OP_bge || opc == OP_bgeu || opc == OP_c_beqz || opc == OP_c_bnez;
 }
 
 bool
 instr_is_mbr_arch(instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
+    int opc = instr_get_opcode(instr);
+    return (opc == OP_jalr || opc == OP_c_jr || opc == OP_c_jalr);
 }
 
 bool
 instr_is_far_cti(instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
@@ -172,7 +231,8 @@ bool
 instr_is_ubr_arch(instr_t *instr)
 {
     int opc = instr_get_opcode(instr);
-    return opc == OP_jal || opc == OP_jalr;
+    return ((opc == OP_jal || opc == OP_c_j) &&
+            opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_ZERO);
 }
 
 bool
@@ -184,39 +244,32 @@ instr_is_near_ubr(instr_t *instr)
 bool
 instr_is_cti_short(instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
+    int opc = instr_get_opcode(instr);
+    return (opc == OP_c_beqz || opc == OP_c_bnez);
 }
 
 bool
 instr_is_cti_loop(instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 instr_is_cti_short_rewrite(instr_t *instr, byte *pc)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 instr_is_interrupt(instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
+    int opc = instr_get_opcode(instr);
+    return (opc == OP_ecall);
 }
 
 bool
 instr_is_syscall(instr_t *instr)
 {
-    /* FIXME i#3544: Check if valid */
     int opc = instr_get_opcode(instr);
     return (opc == OP_ecall);
 }
@@ -224,40 +277,46 @@ instr_is_syscall(instr_t *instr)
 bool
 instr_is_mov_constant(instr_t *instr, ptr_int_t *value)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    uint opc = instr_get_opcode(instr);
+
+    if (opc == OP_addi || opc == OP_addiw || opc == OP_c_addi || opc == OP_c_addiw ||
+        opc == OP_c_addi4spn || opc == OP_c_addi16sp || opc == OP_c_li) {
+        opnd_t op1 = instr_get_src(instr, 0);
+        opnd_t op2 = instr_get_src(instr, 1);
+        if (opnd_is_reg(op1) && opnd_get_reg(op1) == DR_REG_X0) {
+            *value = opnd_get_immed_int(op2);
+            return true;
+        }
+    }
     return false;
 }
 
 bool
 instr_is_prefetch(instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
+    switch (instr_get_opcode(instr)) {
+    case OP_prefetch_i:
+    case OP_prefetch_r:
+    case OP_prefetch_w: return true;
+    default: return false;
+    }
 }
 
 bool
 instr_is_string_op(instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 instr_is_rep_string_op(instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 instr_saves_float_pc(instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
@@ -274,20 +333,16 @@ instr_invert_cbr(instr_t *instr)
 {
     int opc = instr_get_opcode(instr);
     CLIENT_ASSERT(instr_is_cbr(instr), "instr_invert_cbr: instr not a cbr");
-    if (opc == OP_beq) {
-        instr_set_opcode(instr, OP_bne);
-    } else if (opc == OP_bne) {
-        instr_set_opcode(instr, OP_beq);
-    } else if (opc == OP_blt) {
-        instr_set_opcode(instr, OP_bge);
-    } else if (opc == OP_bltu) {
-        instr_set_opcode(instr, OP_bgeu);
-    } else if (opc == OP_bge) {
-        instr_set_opcode(instr, OP_blt);
-    } else if (opc == OP_bgeu) {
-        instr_set_opcode(instr, OP_bltu);
-    } else {
-        CLIENT_ASSERT(false, "instr_invert_cbr: unknown opcode");
+    switch (opc) {
+    case OP_beq: instr_set_opcode(instr, OP_bne); break;
+    case OP_bne: instr_set_opcode(instr, OP_beq); break;
+    case OP_blt: instr_set_opcode(instr, OP_bge); break;
+    case OP_bltu: instr_set_opcode(instr, OP_bgeu); break;
+    case OP_bge: instr_set_opcode(instr, OP_blt); break;
+    case OP_bgeu: instr_set_opcode(instr, OP_bltu); break;
+    case OP_c_beqz: instr_set_opcode(instr, OP_c_bnez); break;
+    case OP_c_bnez: instr_set_opcode(instr, OP_c_beqz); break;
+    default: CLIENT_ASSERT(false, "instr_invert_cbr: unknown opcode");
     }
 }
 
@@ -316,8 +371,6 @@ instr_predicate_writes_eflags(dr_pred_type_t pred)
 bool
 instr_predicate_is_cond(dr_pred_type_t pred)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
@@ -330,88 +383,66 @@ reg_is_gpr(reg_id_t reg)
 bool
 reg_is_simd(reg_id_t reg)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 reg_is_vector_simd(reg_id_t reg)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 reg_is_opmask(reg_id_t reg)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 reg_is_bnd(reg_id_t reg)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 reg_is_strictly_zmm(reg_id_t reg)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 reg_is_ymm(reg_id_t reg)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 reg_is_strictly_ymm(reg_id_t reg)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 reg_is_xmm(reg_id_t reg)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 reg_is_strictly_xmm(reg_id_t reg)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 reg_is_mmx(reg_id_t reg)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 instr_is_opmask(instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
@@ -427,6 +458,8 @@ bool
 instr_is_nop(instr_t *instr)
 {
     uint opc = instr_get_opcode(instr);
+    if (opc == OP_c_nop)
+        return true;
     if (instr_num_srcs(instr) < 2 || instr_num_dsts(instr) < 1)
         return false;
     opnd_t rd = instr_get_dst(instr, 0);
@@ -439,9 +472,7 @@ instr_is_nop(instr_t *instr)
 bool
 opnd_same_sizes_ok(opnd_size_t s1, opnd_size_t s2, bool is_reg)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
+    return (s1 == s2);
 }
 
 instr_t *
@@ -456,8 +487,10 @@ DR_API
 bool
 instr_is_exclusive_load(instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    switch (instr_get_opcode(instr)) {
+    case OP_lr_w:
+    case OP_lr_d: return true;
+    }
     return false;
 }
 
@@ -465,8 +498,10 @@ DR_API
 bool
 instr_is_exclusive_store(instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    switch (instr_get_opcode(instr)) {
+    case OP_sc_w:
+    case OP_sc_d: return true;
+    }
     return false;
 }
 
@@ -489,7 +524,10 @@ instr_is_gather(instr_t *instr)
 }
 
 bool
-instr_is_jump_mem(instr_t *instr)
+instr_compute_vector_address(instr_t *instr, priv_mcontext_t *mc, size_t mc_size,
+                             dr_mcontext_flags_t mc_flags, opnd_t curop, uint addr_index,
+                             DR_PARAM_OUT bool *have_addr, DR_PARAM_OUT app_pc *addr,
+                             DR_PARAM_OUT bool *write)
 {
     /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);

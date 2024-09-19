@@ -44,14 +44,21 @@
 #include <fstream>
 #include <vector>
 
-#ifndef IN
-#    define IN // nothing
+// libipt global types.
+struct pt_image;
+struct pt_image_section_cache;
+
+namespace dynamorio {
+namespace drmemtrace {
+
+#ifndef DR_PARAM_IN
+#    define DR_PARAM_IN // nothing
 #endif
-#ifndef OUT
-#    define OUT // nothing
+#ifndef DR_PARAM_OUT
+#    define DR_PARAM_OUT // nothing
 #endif
-#ifndef INOUT
-#    define INOUT // nothing
+#ifndef DR_PARAM_INOUT
+#    define DR_PARAM_INOUT // nothing
 #endif
 
 class elf_loader_t {
@@ -73,8 +80,9 @@ public:
      * @return true if the ELF file is loaded successfully.
      */
     static bool
-    load(IN const char *name, IN uint64_t base,
-         INOUT struct pt_image_section_cache *iscache, INOUT struct pt_image *image);
+    load(DR_PARAM_IN const char *name, DR_PARAM_IN uint64_t base,
+         DR_PARAM_INOUT struct pt_image_section_cache *iscache,
+         DR_PARAM_INOUT struct pt_image *image);
 
 private:
     /* The template function for loading the ELF file into either the pt_image instance or
@@ -84,16 +92,22 @@ private:
      */
     template <typename Elf_Ehdr, typename Elf_Half, typename Elf_Phdr>
     static bool
-    load_elf(IN std::ifstream &f, IN const char *name, IN uint64_t base,
-             INOUT struct pt_image_section_cache *iscache, INOUT struct pt_image *image);
+    load_elf(DR_PARAM_IN std::ifstream &f, DR_PARAM_IN const char *name,
+             DR_PARAM_IN uint64_t base,
+             DR_PARAM_INOUT struct pt_image_section_cache *iscache,
+             DR_PARAM_INOUT struct pt_image *image);
 
     /* Load a single section into either the pt_image instance or the
      * pt_image_section_cache instance.
      */
     static bool
-    load_section(IN const char *name, IN uint64_t offset, IN uint64_t size,
-                 IN uint64_t vaddr, INOUT struct pt_image_section_cache *iscache,
-                 INOUT struct pt_image *image);
+    load_section(DR_PARAM_IN const char *name, DR_PARAM_IN uint64_t offset,
+                 DR_PARAM_IN uint64_t size, DR_PARAM_IN uint64_t vaddr,
+                 DR_PARAM_INOUT struct pt_image_section_cache *iscache,
+                 DR_PARAM_INOUT struct pt_image *image);
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _ELF_LOADER_H_ */

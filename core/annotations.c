@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2014-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2023 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -41,8 +41,8 @@
 #ifdef ANNOTATIONS /* around whole file */
 
 #    if !(defined(WINDOWS) && defined(X64))
-#        include "../third_party/valgrind/valgrind.h"
-#        include "../third_party/valgrind/memcheck.h"
+#        include "valgrind.h"
+#        include "memcheck.h"
 #    endif
 
 /* Macros for identifying an annotation head and extracting the pointer to its name.
@@ -227,11 +227,11 @@ valgrind_running_on_valgrind(dr_vg_client_request_t *request);
 #    endif
 
 static bool
-is_annotation_tag(dcontext_t *dcontext, IN OUT app_pc *start_pc, instr_t *scratch,
-                  OUT const char **name);
+is_annotation_tag(dcontext_t *dcontext, DR_PARAM_INOUT app_pc *start_pc,
+                  instr_t *scratch, DR_PARAM_OUT const char **name);
 
 static void
-identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
+identify_annotation(dcontext_t *dcontext, DR_PARAM_INOUT annotation_layout_t *layout,
                     instr_t *scratch);
 
 /* Create argument operands for the instrumented clean call */
@@ -315,8 +315,9 @@ annotation_exit()
 }
 
 bool
-instrument_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc,
-                      OUT instr_t **substitution _IF_WINDOWS_X64(IN bool hint_is_safe))
+instrument_annotation(dcontext_t *dcontext, DR_PARAM_INOUT app_pc *start_pc,
+                      DR_PARAM_OUT instr_t **substitution
+                          _IF_WINDOWS_X64(DR_PARAM_IN bool hint_is_safe))
 {
     annotation_layout_t layout = { 0 };
     /* This instr_t is used for analytical decoding throughout the detection functions.
@@ -845,8 +846,8 @@ valgrind_running_on_valgrind(dr_vg_client_request_t *request)
  * See https://dynamorio.org/page_annotations.html for complete examples.
  */
 static inline bool
-is_annotation_tag(dcontext_t *dcontext, IN OUT app_pc *cur_pc, instr_t *scratch,
-                  OUT const char **name)
+is_annotation_tag(dcontext_t *dcontext, DR_PARAM_INOUT app_pc *cur_pc, instr_t *scratch,
+                  DR_PARAM_OUT const char **name)
 {
     app_pc start_pc = *cur_pc;
 
@@ -923,7 +924,7 @@ is_annotation_tag(dcontext_t *dcontext, IN OUT app_pc *cur_pc, instr_t *scratch,
  *            (note that the Statement annotation concludes with a special case).
  */
 static inline void
-identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
+identify_annotation(dcontext_t *dcontext, DR_PARAM_INOUT annotation_layout_t *layout,
                     instr_t *scratch)
 {
     app_pc cur_pc = layout->start_pc, last_call = NULL;
@@ -990,13 +991,13 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
  *   (step 7) advance the label pointer to the name token.
  */
 static inline void
-identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
+identify_annotation(dcontext_t *dcontext, DR_PARAM_INOUT annotation_layout_t *layout,
                     instr_t *scratch)
 {
     app_pc cur_pc = layout->start_pc;
     if (is_annotation_tag(dcontext, &cur_pc, scratch, &layout->name)) { /* step 1 */
 #        ifdef WINDOWS
-        if (*(cur_pc++) == RAW_OPCODE_pop_eax) {                        /* step 2 */
+        if (*(cur_pc++) == RAW_OPCODE_pop_eax) { /* step 2 */
 #        else
         if (instr_get_opcode(scratch) == OP_bsf) { /* step 2 */
 #        endif

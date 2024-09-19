@@ -35,6 +35,8 @@
 
 #include <stdint.h>
 
+#include "decode_private.h"
+
 #include "decode.h"
 
 /* Interface to the RISC-V instruction codec (encoder/decoder).
@@ -44,6 +46,8 @@
  * extensions (i.e. C.ADDI or C.SLLI) and execute as NOP or HINT instructions
  * (which might be used as vendor ISA extensions).
  */
+
+#define ENCFAIL (uint)0x0 /* An invalid instruction (a.k.a c.unimp). */
 
 /* List of ISA extensions handled by the codec. */
 typedef enum {
@@ -77,6 +81,9 @@ typedef enum {
     RISCV64_ISA_EXT_ZICBOZ,
     RISCV64_ISA_EXT_ZICSR,
     RISCV64_ISA_EXT_ZIFENCEI,
+    RISCV64_ISA_EXT_XTHEADCMO,
+    RISCV64_ISA_EXT_XTHEADSYNC,
+    RISCV64_ISA_EXT_V,
     RISCV64_ISA_EXT_CNT, /* Keep this last */
 } riscv64_isa_ext_t;
 
@@ -192,7 +199,7 @@ typedef enum {
     RISCV64_FLD_BASE,
     RISCV64_FLD_RS2,
     RISCV64_FLD_RS2FP,
-    RISCV64_FLD_RS3,
+    RISCV64_FLD_RS3FP,
     RISCV64_FLD_FM,
     RISCV64_FLD_PRED,
     RISCV64_FLD_SUCC,
@@ -206,6 +213,7 @@ typedef enum {
     RISCV64_FLD_S_IMM,
     RISCV64_FLD_B_IMM,
     RISCV64_FLD_U_IMM,
+    RISCV64_FLD_U_IMMPC,
     RISCV64_FLD_J_IMM,
     /* Compressed instruction fields */
     RISCV64_FLD_CRD,
@@ -238,14 +246,37 @@ typedef enum {
     /* Virtual fields - en/decode special cases, i.e. base+disp combination */
     RISCV64_FLD_V_L_RS1_DISP,
     RISCV64_FLD_V_S_RS1_DISP,
+    /* Implicit fields - encode is nop. */
+    RISCV64_FLD_IRS1_SP,
+    RISCV64_FLD_IRS1_ZERO,
+    RISCV64_FLD_IRS2_ZERO,
+    RISCV64_FLD_IRD_ZERO,
+    RISCV64_FLD_IRD_RA,
+    RISCV64_FLD_IRD_SP,
+    RISCV64_FLD_IIMM_0,
+    RISCV64_FLD_ICRS1,
+    RISCV64_FLD_ICRS1__,
+    RISCV64_FLD_I_S_RS1_DISP,
+    /* Vector extension fields. */
+    RISCV64_FLD_ZIMM,
+    RISCV64_FLD_ZIMM10,
+    RISCV64_FLD_ZIMM11,
+    RISCV64_FLD_VM,
+    RISCV64_FLD_NF,
+    RISCV64_FLD_SIMM5,
+    RISCV64_FLD_VD,
+    RISCV64_FLD_VS1,
+    RISCV64_FLD_VS2,
+    RISCV64_FLD_VS3,
     RISCV64_FLD_CNT, /* Keep this last */
 } riscv64_fld_t;
 
 #define BIT(v, b) (((v) >> b) & 1)
 #define GET_FIELD(v, high, low) (((v) >> low) & ((1ULL << (high - low + 1)) - 1))
+#define SET_FIELD(v, high, low) (((v) & ((1ULL << (high - low + 1)) - 1)) << low)
 #define SIGN_EXTEND(val, val_sz) (((int32_t)(val) << (32 - (val_sz))) >> (32 - (val_sz)))
 
-/* Calculate instruction width.
+/* Calculate instruction width, see page 8 of Volume I: RISC-V Unprivileged ISA V20191213.
  *
  * Returns a negative number on an invalid instruction width.
  */
@@ -264,12 +295,13 @@ instruction_width(uint16_t lower16b)
     /* ...xxxxxxxxx0111111 -> 64-bit */
     else if (TESTALL(0b0111111, GET_FIELD(lower16b, 6, 0)))
         return 8;
-    /* ...xnnnxxxxx1111111 -> nnn != 0b111 */
+    /* ...xnnnxxxxx1111111 -> (80+16*nnn)-bit (nnn != 111) */
     else if (TESTALL(0b1111111, GET_FIELD(lower16b, 6, 0)) &&
              !TESTALL(0b111, GET_FIELD(lower16b, 14, 12)))
-        return 80 + 16 * GET_FIELD(lower16b, 14, 12);
+        return (10 + 2 * GET_FIELD(lower16b, 14, 12));
+    /* Reserved for ≥192-bits. */
     else
-        return 0;
+        return -1;
 }
 
 /* Return instr_info_t for a given opcode. */
@@ -278,5 +310,7 @@ get_instruction_info(uint opc);
 
 byte *
 decode_common(dcontext_t *dc, byte *pc, byte *orig_pc, instr_t *instr);
+uint
+encode_common(byte *pc, instr_t *i, decode_info_t *di);
 
 #endif /* CODEC_H */

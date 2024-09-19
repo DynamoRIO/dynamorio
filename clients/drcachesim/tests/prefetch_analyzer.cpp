@@ -34,6 +34,9 @@
 #include "prefetch_analyzer.h"
 #include <iostream>
 
+namespace dynamorio {
+namespace drmemtrace {
+
 bool
 prefetch_analyzer_t::process_memref(const memref_t &memref)
 {
@@ -53,3 +56,6 @@ prefetch_analyzer_t::print_results()
     }
     return true;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

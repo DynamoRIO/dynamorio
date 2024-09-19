@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -56,7 +57,13 @@ loop2:  // The inner loop steps through the region writing zeroes.
 
         // Exit.
         mov      w0, #1            // stdout
+        // XXX: Use asm_defines.asm AARCH64_ADR_GOT()?
+#ifdef __APPLE__
+        adrp     x1, alldone@PAGE
+        add      x1, x1, alldone@PAGEOFF
+#else
         adr      x1, alldone
+#endif
         mov      w2, #9            // sizeof(alldone)
         mov      w8, #64           // SYS_write
         svc      #0

@@ -35,6 +35,7 @@
 
 #include "configure.h"
 #include "dr_api.h"
+
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
@@ -259,6 +260,8 @@ main(int argc, char *argv[])
         dr_standalone_exit();
         return 0;
     }
+
+    enable_all_test_cpu_features();
 
     if (strcmp(argv[1], "-d") == 0) {
         run_decode(dc, argv[2]);

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,22 +39,28 @@
 
 #include <string>
 #ifdef WINDOWS
-#    ifdef X64
-typedef __int64 ssize_t;
-#    else
-typedef int ssize_t;
-#    endif
 #    define WIN32_LEAN_AND_MEAN
 #    include <windows.h>
 #else
 #    include <unistd.h> // for ssize_t
 #endif
 
-#ifndef OUT
-#    define OUT // nothing
+namespace dynamorio {
+namespace drmemtrace {
+
+#ifdef WINDOWS
+#    ifdef X64
+typedef __int64 ssize_t;
+#    else
+typedef int ssize_t;
+#    endif
 #endif
-#ifndef IN
-#    define IN // nothing
+
+#ifndef DR_PARAM_OUT
+#    define DR_PARAM_OUT // nothing
+#endif
+#ifndef DR_PARAM_IN
+#    define DR_PARAM_IN // nothing
 #endif
 
 // Usage is as follows:
@@ -92,12 +98,12 @@ public:
     // Returns < 0 on EOF or an error.
     // On success (or partial read) returns number of bytes read.
     ssize_t
-    read(void *buf OUT, size_t sz);
+    read(void *buf DR_PARAM_OUT, size_t sz);
 
     // Returns < 0 on an error.
     // On success (or partial write) returns number of bytes written.
     ssize_t
-    write(const void *buf IN, size_t sz);
+    write(const void *buf DR_PARAM_IN, size_t sz);
 
 #ifdef UNIX
     // On UNIX, rather than calling open_for_{read,write}, The caller
@@ -122,5 +128,8 @@ private:
 #endif
     std::string pipe_name_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _NAMED_PIPE_H_ */

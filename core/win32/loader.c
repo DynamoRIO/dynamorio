@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -115,8 +115,9 @@ static void
 privload_init_search_paths(void);
 
 static bool
-privload_get_import_descriptor(privmod_t *mod, IMAGE_IMPORT_DESCRIPTOR **imports OUT,
-                               app_pc *imports_end OUT);
+privload_get_import_descriptor(privmod_t *mod,
+                               IMAGE_IMPORT_DESCRIPTOR **imports DR_PARAM_OUT,
+                               app_pc *imports_end DR_PARAM_OUT);
 
 static bool
 privload_process_one_import(privmod_t *mod, privmod_t *impmod, IMAGE_THUNK_DATA *lookup,
@@ -189,7 +190,8 @@ os_loader_init_prologue(void)
          * to get info.PebBaseAddress: we assume they don't do that.  It's not
          * exposed in any WinAPI routine.
          */
-        GET_NTDLL(RtlInitializeCriticalSection, (OUT RTL_CRITICAL_SECTION * crit));
+        GET_NTDLL(RtlInitializeCriticalSection,
+                  (DR_PARAM_OUT RTL_CRITICAL_SECTION * crit));
         PEB *own_peb = get_own_peb();
         /* FIXME: does it need to be page-aligned? */
         private_peb = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, PEB, ACCT_OTHER, UNPROTECTED);
@@ -253,13 +255,17 @@ os_loader_init_prologue(void)
             LOG(GLOBAL, LOG_LOADER, 2, "initial thread TEB->NlsCache=" PFX "\n",
                 pre_nls_cache);
         }
-        if (should_swap_teb_static_tls()) {
-            pre_static_tls = d_r_get_tls(STATIC_TLS_TIB_OFFSET);
-            d_r_set_tls(STATIC_TLS_TIB_OFFSET, NULL);
-            LOG(GLOBAL, LOG_LOADER, 2,
-                "initial thread TEB->ThreadLocalStoragePointer=" PFX "\n",
-                pre_static_tls);
-        }
+        /* FIX: i#6024: when kernelbase.dll has TLS or client which will lead to
+         * crash. Solution is to always save pre_static_tls but do not set
+         * ThreadLocalStoragePointer to NULL. If we set it to NULL, it will lead to
+         * crash when application uses ThreadLocalStoragePointer (eg. __declspec(thread)
+         * is used), but client or kernelbase.dll (Win11/Win22H2) or client doesn't
+         * have TLS which will fail to restore TheadLocalStoragePointer later in
+         * calls to should_swap_teb_static_tls() as tlx_next_idx is 0
+         */
+        pre_static_tls = d_r_get_tls(STATIC_TLS_TIB_OFFSET);
+        LOG(GLOBAL, LOG_LOADER, 2,
+            "initial thread TEB->ThreadLocalStoragePointer=" PFX "\n", pre_static_tls);
     }
 
     drwinapi_init();
@@ -981,7 +987,8 @@ privload_unload_imports(privmod_t *mod)
 
 /* if anything fails, undoes the mapping and returns NULL */
 app_pc
-privload_map_and_relocate(const char *filename, size_t *size OUT, modload_flags_t flags)
+privload_map_and_relocate(const char *filename, size_t *size DR_PARAM_OUT,
+                          modload_flags_t flags)
 {
     file_t fd;
     app_pc map;
@@ -1258,8 +1265,9 @@ privload_process_imports(privmod_t *mod)
 }
 
 static bool
-privload_get_import_descriptor(privmod_t *mod, IMAGE_IMPORT_DESCRIPTOR **imports OUT,
-                               app_pc *imports_end OUT)
+privload_get_import_descriptor(privmod_t *mod,
+                               IMAGE_IMPORT_DESCRIPTOR **imports DR_PARAM_OUT,
+                               app_pc *imports_end DR_PARAM_OUT)
 {
     IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *)mod->base;
     IMAGE_NT_HEADERS *nt = (IMAGE_NT_HEADERS *)(mod->base + dos->e_lfanew);
@@ -1493,7 +1501,11 @@ privload_call_entry(dcontext_t *dcontext, privmod_t *privmod, uint reason)
              /* i#2221: combase's entry fails on win10.  So far ignoring it
               * hasn't cause any problems with simple clients.
               */
-             str_case_prefix(privmod->name, "combase"))) {
+             str_case_prefix(privmod->name, "combase") ||
+             /* i#6570: bcrypt's entry suddenly started failing.  Ignoring it
+              * is working so far; if that changes we'll have to dig into it.
+              */
+             str_case_prefix(privmod->name, "bcrypt"))) {
             LOG(GLOBAL, LOG_LOADER, 1, "%s: ignoring failure of %s entry\n", __FUNCTION__,
                 privmod->name);
             res = TRUE;
@@ -2088,7 +2100,7 @@ return success;
  * The solution here would be to monitor such attempts by the app and free the console
  * that is setup here.
  */
-typedef BOOL(WINAPI *kernel32_AttachConsole_t)(IN DWORD);
+typedef BOOL(WINAPI *kernel32_AttachConsole_t)(DR_PARAM_IN DWORD);
 static kernel32_AttachConsole_t kernel32_AttachConsole;
 
 bool
@@ -2573,8 +2585,9 @@ privload_add_windbg_cmds_post_init(privmod_t *mod)
  * or sthg that is checked on every LOG or ASSERT.
  */
 
-typedef NTSTATUS(NTAPI *nt_protect_t)(IN HANDLE, IN OUT PVOID *, IN OUT PSIZE_T, IN ULONG,
-                                      OUT PULONG);
+typedef NTSTATUS(NTAPI *nt_protect_t)(DR_PARAM_IN HANDLE, DR_PARAM_INOUT PVOID *,
+                                      DR_PARAM_INOUT PSIZE_T, DR_PARAM_IN ULONG,
+                                      DR_PARAM_OUT PULONG);
 static nt_protect_t bootstrap_ProtectVirtualMemory;
 
 /* exported for earliest_inject_init() */

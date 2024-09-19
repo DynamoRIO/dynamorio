@@ -33,15 +33,24 @@
 #ifndef _VIEW_H_
 #define _VIEW_H_ 1
 
+#include <stdint.h>
+
 #include <iomanip>
 #include <iostream>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 
+#include "dr_api.h" // Must be before trace_entry.h from analysis_tool.h.
 #include "analysis_tool.h"
+#include "memref.h"
+#include "memtrace_stream.h"
 #include "raw2trace.h"
 #include "raw2trace_directory.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 class view_t : public analysis_tool_t {
 public:
@@ -158,5 +167,8 @@ private:
     static constexpr int INSTR_COLUMN_WIDTH = 12;
     static constexpr int TID_COLUMN_WIDTH = 11;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _VIEW_H_ */

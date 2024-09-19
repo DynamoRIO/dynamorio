@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2020 Google, LLC  All rights reserved.
+ * Copyright (c) 2018-2023 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -32,8 +32,22 @@
 
 #include "config_reader.h"
 
+#include <stdint.h>
+
+#include <cstdlib>
 #include <iostream>
-using namespace std;
+#include <iterator>
+#include <map>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "options.h"
+#include "cache_simulator_create.h"
+#include "utils.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 config_reader_t::config_reader_t()
 {
@@ -50,7 +64,7 @@ config_reader_t::configure(std::istream *config_file, cache_simulator_knobs_t &k
     while (!fin_->eof()) {
         std::string param;
 
-        if (!(*fin_ >> ws >> param)) {
+        if (!(*fin_ >> std::ws >> param)) {
             ERRMSG("Unable to read from the configuration file\n");
             return false;
         }
@@ -133,7 +147,7 @@ config_reader_t::configure(std::istream *config_file, cache_simulator_knobs_t &k
                 ERRMSG("Error reading verbose from the configuration file\n");
                 return false;
             }
-        } else if (param == "coherence") {
+        } else if (param == "coherence" || param == "coherent") {
             // Whether to simulate coherence
             std::string bool_val;
             if (!(*fin_ >> bool_val)) {
@@ -167,7 +181,7 @@ config_reader_t::configure(std::istream *config_file, cache_simulator_knobs_t &k
             caches[cache.name] = cache;
         }
 
-        if (!(*fin_ >> ws)) {
+        if (!(*fin_ >> std::ws)) {
             ERRMSG("Unable to read from the configuration file\n");
             return false;
         }
@@ -184,18 +198,18 @@ config_reader_t::configure_cache(cache_params_t &cache)
     std::string error_msg;
 
     char c;
-    if (!(*fin_ >> ws >> c)) {
+    if (!(*fin_ >> std::ws >> c)) {
         ERRMSG("Unable to read from the configuration file\n");
         return false;
     }
     if (c != '{') {
-        ERRMSG("Expected '{' before cache params\n");
+        ERRMSG("Expected '{' between '%s' and cache params\n", cache.name.c_str());
         return false;
     }
 
     while (!fin_->eof()) {
         std::string param;
-        if (!(*fin_ >> ws >> param)) {
+        if (!(*fin_ >> std::ws >> param)) {
             ERRMSG("Unable to read from the configuration file\n");
             return false;
         }
@@ -259,14 +273,35 @@ config_reader_t::configure_cache(cache_params_t &cache)
             // Is the cache inclusive of its children.
             std::string bool_val;
             if (!(*fin_ >> bool_val)) {
-                ERRMSG("Error reading cache inclusivity from "
+                ERRMSG("Error reading inclusive cache policy from "
                        "the configuration file\n");
                 return false;
             }
             if (is_true(bool_val)) {
+                if (cache.exclusive) {
+                    ERRMSG("Cache cannot be both inclusive AND exclusive.\n");
+                    return false;
+                }
                 cache.inclusive = true;
             } else {
                 cache.inclusive = false;
+            }
+        } else if (param == "exclusive") {
+            // Is the cache exclusive of its children.
+            std::string bool_val;
+            if (!(*fin_ >> bool_val)) {
+                ERRMSG("Error reading exclusive cache policy from "
+                       "the configuration file\n");
+                return false;
+            }
+            if (is_true(bool_val)) {
+                if (cache.inclusive) {
+                    ERRMSG("Cache cannot be both inclusive AND exclusive.\n");
+                    return false;
+                }
+                cache.exclusive = true;
+            } else {
+                cache.exclusive = false;
             }
         } else if (param == "parent") {
             // Name of the cache's parent. LLC's parent is main memory
@@ -316,7 +351,7 @@ config_reader_t::configure_cache(cache_params_t &cache)
             return false;
         }
 
-        if (!(*fin_ >> ws)) {
+        if (!(*fin_ >> std::ws)) {
             ERRMSG("Unable to read from the configuration file\n");
             return false;
         }
@@ -437,3 +472,6 @@ config_reader_t::convert_string_to_size(const std::string &s, uint64_t &size)
     }
     return true;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

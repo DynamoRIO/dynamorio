@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -38,7 +38,9 @@
 /* decode.c -- a full x86 decoder */
 
 #include "../globals.h"
+#include "../isa_regdeps/decode.h"
 #include "arch.h"
+#include "encode_api.h"
 #include "instr.h"
 #include "decode.h"
 #include "decode_fast.h"
@@ -80,30 +82,56 @@
 
 /* used for VEX decoding */
 #define xx TYPE_NONE, OPSZ_NA
-static const instr_info_t escape_instr = { ESCAPE, 0x000000, "(bad)", xx, xx, xx,
-                                           xx,     xx,       0,       0,  0 };
-static const instr_info_t escape_38_instr = {
-    ESCAPE_3BYTE_38, 0x000000, "(bad)", xx, xx, xx, xx, xx, 0, 0, 0
+static const instr_info_t escape_instr = {
+    ESCAPE, 0x000000, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, 0,
+    0,      0
 };
-static const instr_info_t escape_3a_instr = {
-    ESCAPE_3BYTE_3a, 0x000000, "(bad)", xx, xx, xx, xx, xx, 0, 0, 0
-};
+static const instr_info_t escape_38_instr = { ESCAPE_3BYTE_38,
+                                              0x000000,
+                                              DR_INSTR_CATEGORY_UNCATEGORIZED,
+                                              "(bad)",
+                                              xx,
+                                              xx,
+                                              xx,
+                                              xx,
+                                              xx,
+                                              0,
+                                              0,
+                                              0 };
+static const instr_info_t escape_3a_instr = { ESCAPE_3BYTE_3a,
+                                              0x000000,
+                                              DR_INSTR_CATEGORY_UNCATEGORIZED,
+                                              "(bad)",
+                                              xx,
+                                              xx,
+                                              xx,
+                                              xx,
+                                              xx,
+                                              0,
+                                              0,
+                                              0 };
 /* used for XOP decoding */
-static const instr_info_t xop_8_instr = { XOP_8_EXT, 0x000000, "(bad)", xx, xx, xx,
-                                          xx,        xx,       0,       0,  0 };
-static const instr_info_t xop_9_instr = { XOP_9_EXT, 0x000000, "(bad)", xx, xx, xx,
-                                          xx,        xx,       0,       0,  0 };
-static const instr_info_t xop_a_instr = { XOP_A_EXT, 0x000000, "(bad)", xx, xx, xx,
-                                          xx,        xx,       0,       0,  0 };
+static const instr_info_t xop_8_instr = {
+    XOP_8_EXT, 0x000000, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, 0,
+    0,         0
+};
+static const instr_info_t xop_9_instr = {
+    XOP_9_EXT, 0x000000, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, 0,
+    0,         0
+};
+static const instr_info_t xop_a_instr = {
+    XOP_A_EXT, 0x000000, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, 0,
+    0,         0
+};
 #undef xx
 
 bool
 is_isa_mode_legal(dr_isa_mode_t mode)
 {
 #ifdef X64
-    return (mode == DR_ISA_IA32 || mode == DR_ISA_AMD64);
+    return (mode == DR_ISA_IA32 || mode == DR_ISA_AMD64 || mode == DR_ISA_REGDEPS);
 #else
-    return (mode == DR_ISA_IA32);
+    return (mode == DR_ISA_IA32 || mode == DR_ISA_REGDEPS);
 #endif
 }
 
@@ -634,7 +662,7 @@ read_modrm(byte *pc, decode_info_t *di)
  */
 static byte *
 read_vex(byte *pc, decode_info_t *di, byte instr_byte,
-         const instr_info_t **ret_info INOUT, bool *is_vex /*or xop*/)
+         const instr_info_t **ret_info DR_PARAM_INOUT, bool *is_vex /*or xop*/)
 {
     int idx = 0;
     const instr_info_t *info;
@@ -761,7 +789,7 @@ read_vex(byte *pc, decode_info_t *di, byte instr_byte,
  */
 static byte *
 read_evex(byte *pc, decode_info_t *di, byte instr_byte,
-          const instr_info_t **ret_info INOUT, bool *is_evex)
+          const instr_info_t **ret_info DR_PARAM_INOUT, bool *is_evex)
 {
     const instr_info_t *info;
     byte prefix_byte = 0, evex_pp = 0;
@@ -2410,6 +2438,34 @@ decode_get_tuple_type_input_size(const instr_info_t *info, decode_info_t *di)
         di->input_size = OPSZ_NA;
 }
 
+/* TODO i#6238: Not all opcodes have been reviewed.
+ * In case an opcode has not been reviewed,
+ * the default category assigned to it is DR_INSTR_CATEGORY_UNCATEGORIZED.
+ */
+static inline void
+decode_category(instr_t *instr)
+{
+    if (instr != NULL) {
+        if (op_instr[instr->opcode] != NULL) {
+            uint category = op_instr[instr->opcode]->category;
+            if (instr_operands_valid(instr)) {
+                if (instr_reads_memory(instr)) {
+                    category |= DR_INSTR_CATEGORY_LOAD;
+                    category &= ~DR_INSTR_CATEGORY_MOVE;
+                }
+                if (instr_writes_memory(instr)) {
+                    category |= DR_INSTR_CATEGORY_STORE;
+                    category &= ~DR_INSTR_CATEGORY_MOVE;
+                }
+            }
+            instr_set_category(instr, category);
+        } else {
+            /* nonvalid opcode */
+            instr_set_category(instr, DR_INSTR_CATEGORY_UNCATEGORIZED);
+        }
+    }
+}
+
 /****************************************************************************
  * Exported routines
  */
@@ -2525,6 +2581,14 @@ check_is_variable_size(opnd_t op)
 static byte *
 decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
 {
+    /* #DR_ISA_REGDEPS synthetic ISA has its own decoder.
+     * XXX i#1684: when DR can be built with full dynamic architecture selection we won't
+     * need to pollute the decoding of other architectures with this synthetic ISA special
+     * case.
+     */
+    if (dr_get_isa_mode(dcontext) == DR_ISA_REGDEPS)
+        return decode_isa_regdeps(dcontext, pc, instr);
+
     const instr_info_t *info;
     decode_info_t di;
     byte *next_pc;
@@ -2685,6 +2749,8 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
         instr_set_rip_rel_pos(instr, (int)(di.disp_abs - di.start_pc));
     }
 
+    decode_category(instr);
+
     return next_pc;
 
 decode_invalid:
@@ -2725,6 +2791,13 @@ const char *
 decode_opcode_name(int opcode)
 {
     const instr_info_t *info = op_instr[opcode];
+    if (info == NULL) {
+        switch (opcode) {
+        case OP_INVALID: return "<invalid>";
+        case OP_UNDECODED: return "<undecoded>";
+        default: return "<unknown>";
+        }
+    }
     return info->name;
 }
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,12 +30,15 @@
  * DAMAGE.
  */
 
-/* basic-counts tool creation */
+/* opcode-mix tool creation */
 
 #ifndef _OPCODE_MIX_CREATE_H_
 #define _OPCODE_MIX_CREATE_H_ 1
 
 #include "analysis_tool.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 /**
  * @file drmemtrace/opcode_mix_create.h
@@ -52,5 +55,8 @@
 analysis_tool_t *
 opcode_mix_tool_create(const std::string &module_file_path, unsigned int verbose = 0,
                        const std::string &alt_module_dir = "");
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _OPCODE_MIX_CREATE_H_ */

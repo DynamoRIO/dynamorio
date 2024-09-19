@@ -1,5 +1,5 @@
  /* **********************************************************
- * Copyright (c) 2021-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2021-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -71,6 +71,13 @@ repeat:
         dec      ebx
         cmp      ebx, 0
         jnz      repeat
+
+        // Test a syscall failure.
+        mov      rdi, 42          // Invalid file descriptor.
+        lea      rsi, hello_str
+        mov      rdx, 13          // sizeof(hello_str)
+        mov      eax, 1           // SYS_write
+        syscall
 
         // Exit.
         mov      rdi, 0           // exit code

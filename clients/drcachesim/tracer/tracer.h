@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * **********************************************************/
 
@@ -34,14 +34,21 @@
 #ifndef _TRACER_
 #define _TRACER_ 1
 
+#include <stddef.h>
+
 #include <atomic>
+#include <cstdint>
+
 #include "dr_api.h"
-#include "physaddr.h"
+#include "drmemtrace.h"
 #include "instru.h"
-#include "../common/options.h"
-#include "../common/named_pipe.h"
+#include "instr_counter.h"
+#include "named_pipe.h"
+#include "options.h"
+#include "physaddr.h"
 #ifdef HAS_SNAPPY
 #    include <snappy.h>
+
 #    include "snappy_file_writer.h"
 #endif
 #ifdef HAS_ZLIB
@@ -132,6 +139,9 @@ enum {
     // For has_tracing_windows(), this is the ordinal of the tracing window at
     // the start of the current trace buffer.  It is -1 if windows are not enabled.
     MEMTRACE_TLS_OFFS_WINDOW,
+    // For -L0_filter_until_instrs, this is used for triggering mode switch in other
+    // threads when a thread changes tracing_mode.
+    MEMTRACE_TLS_OFFS_MODE,
     MEMTRACE_TLS_COUNT, /* total number of TLS slots allocated */
 };
 
@@ -168,6 +178,7 @@ enum {
     BBDUP_MODE_COUNT = 1,     /* Instr counting for delayed tracing or trace windows. */
     BBDUP_MODE_FUNC_ONLY = 2, /* Function tracing during no-full-trace periods. */
     BBDUP_MODE_NOP = 3,       /* No tracing or counting for pre-attach or post-detach. */
+    BBDUP_MODE_L0_FILTER = 4, /* Address tracing with L0_filter. */
 };
 
 #if defined(X86_64) || defined(AARCH64)
@@ -223,6 +234,8 @@ struct file_ops_func_t {
 extern struct file_ops_func_t file_ops_func;
 
 extern uint64 num_refs_racy; /* racy global memory reference count */
+extern uint64
+    num_filter_refs_racy; /* racy global memory reference count in warmup mode */
 extern char logsubdir[MAXIMUM_PATH];
 extern char subdir_prefix[MAXIMUM_PATH]; /* Holds op_subdir_prefix. */
 extern size_t trace_buf_size;
@@ -238,7 +251,7 @@ static inline bool
 is_num_refs_beyond_global_max(void)
 {
     return op_max_global_trace_refs.get_value() > 0 &&
-        num_refs_racy > op_max_global_trace_refs.get_value();
+        (num_refs_racy - num_filter_refs_racy) > op_max_global_trace_refs.get_value();
 }
 
 static inline bool
@@ -254,7 +267,8 @@ has_tracing_windows()
     // We return true for a single-window -trace_for_instrs (without -retrace) setup
     // since we rely on having window numbers for the end-of-block buffer output check
     // used for a single-window transition away from tracing.
-    return op_trace_for_instrs.get_value() > 0 || op_retrace_every_instrs.get_value() > 0;
+    return get_current_trace_for_instrs_value() > 0 ||
+        get_current_no_trace_for_instrs_value() > 0;
 }
 
 static inline bool
@@ -262,6 +276,16 @@ align_attach_detach_endpoints()
 {
     return attached_midway && op_align_endpoints.get_value();
 }
+
+static inline bool
+is_in_tracing_mode(uintptr_t mode)
+{
+    return (mode == BBDUP_MODE_TRACE || mode == BBDUP_MODE_L0_FILTER);
+}
+
+void
+get_L0_filters_enabled(uintptr_t mode, DR_PARAM_OUT bool *l0i_enabled,
+                       DR_PARAM_OUT bool *l0d_enabled);
 
 } // namespace drmemtrace
 } // namespace dynamorio

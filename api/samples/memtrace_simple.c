@@ -314,13 +314,17 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *wher
     DR_ASSERT(instr_is_app(instr_operands));
 
     for (i = 0; i < instr_num_srcs(instr_operands); i++) {
-        if (opnd_is_memory_reference(instr_get_src(instr_operands, i)))
-            instrument_mem(drcontext, bb, where, instr_get_src(instr_operands, i), false);
+        const opnd_t src = instr_get_src(instr_operands, i);
+        if (opnd_is_memory_reference(src)) {
+            instrument_mem(drcontext, bb, where, src, false);
+        }
     }
 
     for (i = 0; i < instr_num_dsts(instr_operands); i++) {
-        if (opnd_is_memory_reference(instr_get_dst(instr_operands, i)))
-            instrument_mem(drcontext, bb, where, instr_get_dst(instr_operands, i), true);
+        const opnd_t dst = instr_get_dst(instr_operands, i);
+        if (opnd_is_memory_reference(dst)) {
+            instrument_mem(drcontext, bb, where, dst, true);
+        }
     }
 
     /* insert code to call clean_call for processing the buffer */
@@ -334,7 +338,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *wher
          * Using a fault to handle a full buffer should be more robust, and the
          * forthcoming buffer filling API (i#513) will provide that.
          */
-        IF_AARCHXX_ELSE(!instr_is_exclusive_store(instr_operands), true))
+        IF_AARCHXX_OR_RISCV64_ELSE(!instr_is_exclusive_store(instr_operands), true))
         dr_insert_clean_call(drcontext, bb, where, (void *)clean_call, false, 0);
 
     return DR_EMIT_DEFAULT;

@@ -1,0 +1,91 @@
+#ifdef AARCH64
+TLB simulation results:
+Core #0 \(1 thread\(s\)\)
+  L1I stats:
+    Hits:                           *18[,\.]?577
+    Misses:                            141
+    Compulsory misses:                  50
+    Invalidations:                       0
+    Miss rate:                        0.75%
+  L1D stats:
+    Hits:                            *5[,\.]?947
+    Misses:                            138
+    Compulsory misses:                  45
+    Invalidations:                       0
+    Miss rate:                        2.27%
+  LL stats:
+    Hits:                              200
+    Misses:                             79
+    Compulsory misses:                  79
+    Invalidations:                       0
+    Local miss rate:                 28.32%
+    Child hits:                     *24[,\.]?524
+    Total miss rate:                  0.32%
+Core #1 \(2 thread\(s\)\)
+  L1I stats:
+    Hits:                           *53[,\.]?671
+    Misses:                             12
+    Compulsory misses:                  12
+    Invalidations:                       0
+    Miss rate:                        0.02%
+  L1D stats:
+    Hits:                           *12[,\.]?261
+    Misses:                             11
+    Compulsory misses:                  11
+    Invalidations:                       0
+    Miss rate:                        0.09%
+  LL stats:
+    Hits:                                2
+    Misses:                             21
+    Compulsory misses:                  21
+    Invalidations:                       0
+    Local miss rate:                 91.30%
+    Child hits:                     *65[,\.]?932
+    Total miss rate:                  0.03%
+Core #2 \(1 thread\(s\)\)
+  L1I stats:
+    Hits:                           *26[,\.]?827
+    Misses:                             12
+    Compulsory misses:                  12
+    Invalidations:                       0
+    Miss rate:                        0.04%
+  L1D stats:
+    Hits:                            *6[,\.]?126
+    Misses:                              9
+    Compulsory misses:                   9
+    Invalidations:                       0
+    Miss rate:                        0.15%
+  LL stats:
+    Hits:                                2
+    Misses:                             19
+    Compulsory misses:                  19
+    Invalidations:                       0
+    Local miss rate:                 90.48%
+    Child hits:                     *32[,\.]?953
+    Total miss rate:                  0.06%
+Core #3 \(1 thread\(s\)\)
+  L1I stats:
+    Hits:                           *26[,\.]?870
+    Misses:                             12
+    Compulsory misses:                  12
+    Invalidations:                       0
+    Miss rate:                        0.04%
+  L1D stats:
+    Hits:                            *6[,\.]?132
+    Misses:                              9
+    Compulsory misses:                   9
+    Invalidations:                       0
+    Miss rate:                        0.15%
+  LL stats:
+    Hits:                                2
+    Misses:                             19
+    Compulsory misses:                  19
+    Invalidations:                       0
+    Local miss rate:                 90.48%
+    Child hits:                     *33[,\.]?002
+    Total miss rate:                  0.06%
+#elif defined(X86) && defined(X64)
+ERROR: failed to initialize analyzer: Directory setup failed: Failed sanity checks for thread log file .*/drmemtrace.threadsig.aarch64/raw/drmemtrace.threadsig..*.raw.gz: Architecture mismatch: trace recorded on aarch64 but tools built for x86_64
+#else
+ERROR: failed to initialize analyzer: Failed to create analysis tool: Tool failed to initialize: Failed to load binaries: Failed to map module /tmp/nonexistent/threadsig
+#endif

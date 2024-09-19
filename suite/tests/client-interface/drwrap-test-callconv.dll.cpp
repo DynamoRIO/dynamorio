@@ -48,7 +48,7 @@
 #    define PLATFORM_HAS_THISCALL 1
 #endif
 
-#if !defined(ARM) && !defined(X64)
+#if !defined(ARM) && !defined(X64) && !defined(RISCV64)
 #    define PLATFORM_HAS_FASTCALL 1
 #endif
 
@@ -112,7 +112,7 @@ check_fastcall(void *wrapcxt)
 #endif
 
 static void
-wrap_pre(void *wrapcxt, OUT void **user_data)
+wrap_pre(void *wrapcxt, DR_PARAM_OUT void **user_data)
 {
     CHECK(wrapcxt != NULL && user_data != NULL, "invalid arg");
     CHECK(drwrap_get_arg(wrapcxt, 0) != NULL, "\"this\" pointer is NULL");

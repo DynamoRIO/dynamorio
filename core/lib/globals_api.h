@@ -379,7 +379,7 @@ typedef struct {
 #    ifdef X64
     uint black_box_uint[28];
 #    else
-    uint black_box_uint[18];
+    uint black_box_uint[19];
 #    endif
 } instr_t;
 #else
@@ -389,14 +389,14 @@ struct _instr_t;
 typedef struct _instr_t instr_t;
 #endif
 
-#ifndef IN
-#    define IN /* marks input param */
+#ifndef DR_PARAM_IN
+#    define DR_PARAM_IN /* marks input param */
 #endif
-#ifndef OUT
-#    define OUT /* marks output param */
+#ifndef DR_PARAM_OUT
+#    define DR_PARAM_OUT /* marks output param */
 #endif
-#ifndef INOUT
-#    define INOUT /* marks input+output param */
+#ifndef DR_PARAM_INOUT
+#    define DR_PARAM_INOUT /* marks input+output param */
 #endif
 
 #ifdef X86
@@ -481,6 +481,38 @@ typedef struct _instr_t instr_t;
 #    define _IF_NOT_RISCV64(x) , x
 #endif
 
+#if defined(AARCHXX) || defined(RISCV64)
+#    define IF_AARCHXX_OR_RISCV64(x) x
+#    define IF_AARCHXX_OR_RISCV64_ELSE(x, y) x
+#    define IF_AARCHXX_OR_RISCV64_(x) x,
+#    define _IF_AARCHXX_OR_RISCV64(x) , x
+#    define IF_NOT_AARCHXX_AND_NOT_RISCV64(x)
+#    define _IF_NOT_AARCHXX_AND_NOT_RISCV64(x)
+#else
+#    define IF_AARCHXX_OR_RISCV64(x)
+#    define IF_AARCHXX_OR_RISCV64_ELSE(x, y) y
+#    define IF_AARCHXX_OR_RISCV64_(x)
+#    define _IF_AARCHXX_OR_RISCV64(x)
+#    define IF_NOT_AARCHXX_AND_NOT_RISCV64(x) x
+#    define _IF_NOT_AARCHXX_AND_NOT_RISCV64(x) , x
+#endif
+
+#if defined(AARCH64) || defined(RISCV64)
+#    define IF_AARCH64_OR_RISCV64(x) x
+#    define IF_AARCH64_OR_RISCV64_ELSE(x, y) x
+#    define IF_AARCH64_OR_RISCV64_(x) x,
+#    define _IF_AARCH64_OR_RISCV64(x) , x
+#    define IF_NOT_AARCH64_AND_NOT_RISCV64(x)
+#    define _IF_NOT_AARCH64_AND_NOT_RISCV64(x)
+#else
+#    define IF_AARCH64_OR_RISCV64(x)
+#    define IF_AARCH64_OR_RISCV64_ELSE(x, y) y
+#    define IF_AARCH64_OR_RISCV64_(x)
+#    define _IF_AARCH64_OR_RISCV64(x)
+#    define IF_NOT_AARCH64_AND_NOT_RISCV64(x) x
+#    define _IF_NOT_AARCH64_AND_NOT_RISCV64(x) , x
+#endif
+
 #ifdef ANDROID
 #    define IF_ANDROID(x) x
 #    define IF_ANDROID_ELSE(x, y) x
@@ -535,6 +567,14 @@ typedef struct _instr_t instr_t;
 #else
 #    define IF_X64_OR_ARM(x)
 #    define IF_NOT_X64_OR_ARM(x) x
+#endif
+
+#if defined(X86) || defined(AARCH64)
+#    define IF_X86_OR_AARCH64(x) x
+#    define IF_NOT_X86_OR_AARCH64(x)
+#else
+#    define IF_X86_OR_AARCH64(x)
+#    define IF_NOT_X86_OR_AARCH64(x) x
 #endif
 
 /* Convenience defines for cross-platform printing.
@@ -664,20 +704,45 @@ typedef uint64 dr_opmask_t;
 
 #if defined(AARCHXX)
 /**
- * 128-bit ARM SIMD Vn register.
- * In AArch64, align to 16 bytes for better performance.
- * In AArch32, we're not using any uint64 fields here to avoid alignment
- * padding in sensitive structs. We could alternatively use pragma pack.
+ * 512-bit ARM Scalable Vector Extension (SVE) vector registers Zn.
+ * Low 128 bits of Zn overlap with existing ARM Advanced SIMD (NEON) Vn registers.
+ * The SVE specification defines the following valid vector lengths:
+ * 128 256 384 512 640 768 896 1024 1152 1280 1408 1536 1664 1792 1920 2048
+ * We currently support 512-bit maximum due to DR's stack size limitation,
+ * (machine context stored in the stack). In AArch64, align to 16 bytes for
+ * better performance. In AArch32, we're not using any uint64 fields here to
+ * avoid alignment padding in sensitive structs. We could alternatively use
+ * pragma pack.
  */
 #    ifdef X64
 typedef union ALIGN_VAR(16) _dr_simd_t {
-    byte b;      /**< Bottom  8 bits of Vn == Bn. */
-    ushort h;    /**< Bottom 16 bits of Vn == Hn. */
-    uint s;      /**< Bottom 32 bits of Vn == Sn. */
-    uint d[2];   /**< Bottom 64 bits of Vn == Dn as d[1]:d[0]. */
-    uint q[4];   /**< 128-bit Qn as q[3]:q[2]:q[1]:q[0]. */
-    uint u32[4]; /**< The full 128-bit register. */
+    byte b;        /**< Byte (8 bit, Bn) scalar element of Vn, Zn, or Pn.        */
+    ushort h;      /**< Halfword (16 bit, Hn) scalar element of Vn, Zn and Pn.   */
+    uint s;        /**< Singleword (32 bit, Sn) scalar element of Vn, Zn and Pn. */
+    uint64 d;      /**< Doubleword (64 bit, Dn) scalar element of Vn, Zn and Pn. */
+    uint q[4];     /**< The full 128 bit Vn register, Qn as q[3]:q[2]:q[1]:q[0]. */
+    uint u32[16];  /**< The full 512 bit Zn register as Singleword (32-bit) elements. */
+    uint64 u64[8]; /**< The full 512 bit Zn register as Doubleword (64-bit) elements. */
 } dr_simd_t;
+
+/**
+ * 64-bit Arm Scalable Vector Extension (SVE) predicate register Pn.
+ * SVE Pn registers are used to hold mask values that control the operation of some SVE
+ * instructions. Pn registers have one bit for every byte of a Zn register to the size
+ * of a Pn register is always 1/8 the size of a Zn register.
+ * DynamoRIO currently supports up to 512-bit Zn registers and 64-bit Pn registers.
+ */
+typedef union _dr_svep_t {
+    ushort u16[4]; /**< The full 64-bit Pn or FFR register as 16-bit elements. */
+    uint u32[2];   /**< The full 64-bit Pn or FFR register as 32-bit elements. */
+    uint64 u64[1]; /**< The full 64-bit Pn or FFR register as 64-bit elements. */
+} dr_svep_t;
+
+/**
+ * 64-bit Arm Scalable Vector Extension (SVE) First Fault Register (FFR).
+ * FFR is a special purpose predicate register used by some SVE instructions.
+ */
+typedef dr_svep_t dr_ffr_t;
 #    else
 typedef union _dr_simd_t {
     uint s[4];   /**< Representation as 4 32-bit Sn elements. */
@@ -686,16 +751,26 @@ typedef union _dr_simd_t {
 } dr_simd_t;
 #    endif
 #    ifdef X64
-#        define MCXT_NUM_SIMD_SLOTS                                  \
-            32 /**< Number of 128-bit SIMD Vn slots in dr_mcontext_t \
+#        define MCXT_NUM_SIMD_SVE_SLOTS                                  \
+            32 /**< Number of 512-bit SIMD Vn/Zn slots in dr_mcontext_t. \
                 */
+#        define MCXT_NUM_SVEP_SLOTS 16 /**< Number of SIMD Pn slots in dr_mcontext_t. */
+#        define MCXT_NUM_FFR_SLOTS \
+            1 /**< Number of first-fault register slots in dr_mcontext_t. */
+              /** Total number of SIMD register slots in dr_mcontext_t. */
+#        define MCXT_NUM_SIMD_SLOTS \
+            (MCXT_NUM_SIMD_SVE_SLOTS + MCXT_NUM_SVEP_SLOTS + MCXT_NUM_FFR_SLOTS)
 #    else
-#        define MCXT_NUM_SIMD_SLOTS                                  \
-            16 /**< Number of 128-bit SIMD Vn slots in dr_mcontext_t \
+#        define MCXT_NUM_SIMD_SLOTS                                   \
+            16 /**< Number of 128-bit SIMD Vn slots in dr_mcontext_t. \
                 */
+/* 32bit ARM does not have these slots, but they are defined for compatibility.
+ */
+#        define MCXT_NUM_SVEP_SLOTS 0
+#        define MCXT_NUM_FFR_SLOTS 0
 #    endif
-#    define PRE_SIMD_PADDING                                       \
-        0 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots \
+#    define PRE_SIMD_PADDING                                        \
+        0 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots. \
            */
 #    define MCXT_NUM_OPMASK_SLOTS                                    \
         0 /**< Number of 16-64-bit OpMask Kn slots in dr_mcontext_t, \
@@ -738,17 +813,18 @@ typedef union _dr_simd_t {
 #    define MCXT_NUM_OPMASK_SLOTS 8
 
 #elif defined(RISCV64)
-
-/* FIXME i#3544: Not implemented. Definitions just for compiling. */
+/**
+ * 256-bit RISC-V Vector extension registers.
+ * Vector register length can be from 64 to 65536 bits in the power of 2.
+ * Currently we support implementations of up to 256 bits due to limit of DR's
+ * stack size and 12-bit signed immediate range. Also, align to 16 bytes for
+ * better performance.
+ */
 typedef union ALIGN_VAR(16) _dr_simd_t {
-    byte b;      /**< Bottom  8 bits of Vn == Bn. */
-    ushort h;    /**< Bottom 16 bits of Vn == Hn. */
-    uint s;      /**< Bottom 32 bits of Vn == Sn. */
-    uint d[2];   /**< Bottom 64 bits of Vn == Dn as d[1]:d[0]. */
-    uint q[4];   /**< 128-bit Qn as q[3]:q[2]:q[1]:q[0]. */
-    uint u32[4]; /**< The full 128-bit register. */
+    uint u32[8];   /**< Representation as 8 32-bit elements. */
+    uint64 u64[4]; /**< The full 256-bit register. */
 } dr_simd_t;
-#    define MCXT_NUM_SIMD_SLOTS 8
+#    define MCXT_NUM_SIMD_SLOTS 32
 #    define MCXT_NUM_OPMASK_SLOTS 0
 #else
 #    error NYI
