@@ -53,8 +53,20 @@ public:
     virtual void
     prefetch(caching_device_t *cache, const memref_t &memref);
 
-private:
+protected:
     int block_size_;
+};
+
+class prefetcher_factory_t {
+public:
+    virtual prefetcher_t *
+    create_prefetcher(int block_size)
+    {
+        return nullptr;
+    }
+    virtual ~prefetcher_factory_t()
+    {
+    }
 };
 
 } // namespace drmemtrace
