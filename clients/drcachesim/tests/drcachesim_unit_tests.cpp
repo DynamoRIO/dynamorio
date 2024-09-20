@@ -45,6 +45,7 @@
 #include "simulator/cache.h"
 #include "simulator/cache_lru.h"
 #include "simulator/cache_simulator.h"
+#include "simulator/prefetcher.h"
 #include "../common/memref.h"
 #include "../common/utils.h"
 
@@ -272,7 +273,84 @@ unit_test_compulsory_misses()
     assert(cache_sim.get_cache_metric(metric_name_t::MISSES, 1, 0,
                                       cache_split_t::INSTRUCTION) == 6);
 }
+void
+unit_test_nextline_prefetcher()
+{
+    // Test all misses without a prefetcher.
+    cache_simulator_knobs_t knobs = make_test_knobs();
+    cache_simulator_t cache_sim(knobs);
 
+    for (int i = 0; i < 6; i++) {
+        if (!cache_sim.process_memref(make_memref(i * 64))) {
+            std::cerr << "drcachesim unit_test_nextline_prefetcher failed: "
+                      << cache_sim.get_error_string() << "\n";
+            exit(1);
+        }
+    }
+
+    assert(cache_sim.get_cache_metric(metric_name_t::MISSES, 1, 0) == 6);
+
+    // Test that every other miss is prevented with a nextline prefetcher.
+    knobs.data_prefetcher = "nextline";
+    cache_simulator_t nextline_cache_sim(knobs);
+    for (int i = 0; i < 6; i++) {
+        if (!nextline_cache_sim.process_memref(make_memref(i * 64))) {
+            std::cerr << "drcachesim unit_test_nextline_prefetcher failed: "
+                      << nextline_cache_sim.get_error_string() << "\n";
+            exit(1);
+        }
+    }
+
+    assert(nextline_cache_sim.get_cache_metric(metric_name_t::MISSES, 1, 0) == 3);
+}
+
+class next2line_prefetcher_factory_t : public prefetcher_factory_t {
+public:
+    prefetcher_t *
+    create_prefetcher(int block_size) override
+    {
+        return new next2line_prefetcher_t(block_size);
+    }
+
+private:
+    class next2line_prefetcher_t : public prefetcher_t {
+    public:
+        next2line_prefetcher_t(int block_size)
+            : prefetcher_t(block_size)
+        {
+        }
+        void
+        prefetch(caching_device_t *cache, const memref_t &memref_in)
+        {
+            // We implement a simple 2 next-line prefetcher.
+            memref_t memref = memref_in;
+            memref.data.addr += block_size_;
+            memref.data.type = TRACE_TYPE_HARDWARE_PREFETCH;
+            cache->request(memref);
+            memref.data.addr += block_size_;
+            cache->request(memref);
+        }
+    };
+};
+
+void
+unit_test_custom_prefetcher()
+{
+    cache_simulator_knobs_t knobs = make_test_knobs();
+    knobs.data_prefetcher = "custom";
+    next2line_prefetcher_factory_t next2line_prefetcher_factory;
+    cache_simulator_t nextline_cache_sim(knobs, &next2line_prefetcher_factory);
+    // Test that every 2/3 misses are prevented with a next2line prefetcher.
+    for (int i = 0; i < 6; i++) {
+        if (!nextline_cache_sim.process_memref(make_memref(i * 64))) {
+            std::cerr << "drcachesim unit_test_custom_prefetcher failed: "
+                      << nextline_cache_sim.get_error_string() << "\n";
+            exit(1);
+        }
+    }
+
+    assert(nextline_cache_sim.get_cache_metric(metric_name_t::MISSES, 1, 0) == 2);
+}
 void
 unit_test_child_hits()
 {
@@ -858,6 +936,8 @@ test_main(int argc, const char *argv[])
     unit_test_child_hits();
     unit_test_cache_replacement_policy();
     unit_test_core_sharded();
+    unit_test_nextline_prefetcher();
+    unit_test_custom_prefetcher();
     return 0;
 }
 
