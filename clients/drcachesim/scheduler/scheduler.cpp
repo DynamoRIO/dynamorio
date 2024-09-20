@@ -2829,14 +2829,15 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_cur_input(output_ordinal_t output,
                 if (status != sched_type_t::STATUS_OK)
                     return status;
             }
-            // Now that we've updated prev_info, add it to the ready queue (once on the
-            // queues others can see it and pop it off, though they can't access/modify
-            // its fields (for identifying if it can be migrated, e.g.) until we release
-            // the input lock, so it should be safe to add first, but this order is more
-            // straightforward).
-            if (options_.mapping == MAP_TO_ANY_OUTPUT && !inputs_[prev_input].at_eof) {
-                add_to_ready_queue(output, &inputs_[prev_input]);
-            }
+        }
+        // Now that we've updated prev_info, add it to the ready queue (once on the
+        // queues others can see it and pop it off, though they can't access/modify its
+        // fields (for identifying if it can be migrated, e.g.) until we release the
+        // input lock, so it should be safe to add first, but this order is more
+        // straightforward).
+        if (options_.mapping == MAP_TO_ANY_OUTPUT && prev_input != input &&
+            !inputs_[prev_input].at_eof) {
+            add_to_ready_queue(output, &inputs_[prev_input]);
         }
     } else if (options_.schedule_record_ostream != nullptr &&
                outputs_[output].record.back().type == schedule_record_t::IDLE) {
