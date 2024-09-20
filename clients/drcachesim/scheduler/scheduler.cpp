@@ -3002,8 +3002,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input_as_previously(
             if (i == output)
                 continue;
             // Do an atomic load once and use it to de-reference if it's not at the end.
-            // If the target advances to the end concurrently with us that's fine:
-            // an extra wait will just come back here and then continue.
+            // This is safe because if the target advances to the end concurrently it
+            // will only cause an extra wait that will just come back here and then
+            // continue.
             int other_index = outputs_[i].record_index->load(std::memory_order_acquire);
             if (other_index + 1 < static_cast<int>(outputs_[i].record.size()) &&
                 segment.timestamp > outputs_[i].record[other_index + 1].timestamp) {
