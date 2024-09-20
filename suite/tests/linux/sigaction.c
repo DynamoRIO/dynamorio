@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -152,6 +152,7 @@ test_sigprocmask()
                             /*sizeof(kernel_sigset_t)*/ 8) == 0);
     assert(make_sigprocmask(~0, NULL, &original, 8) == 0);
 
+#if 1 // TODO: Not sure how to adapt this to fixing i#5261.
     /* Success cases.
      * The following should come before other tests so that some
      * signals that DR intercepts are blocked, which would require
@@ -162,6 +163,7 @@ test_sigprocmask()
     assert(make_sigprocmask(SIG_SETMASK, &new, NULL, 8) == 0);
     assert(make_sigprocmask(~0, NULL, &old, 8) == 0);
     assert(new == old);
+#endif // TODO
 
     /* EFAULT cases. */
     /* sigprocmask on MacOS does not fail when the old sigset is not
