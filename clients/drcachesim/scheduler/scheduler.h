@@ -1605,6 +1605,8 @@ protected:
             cur_time =
                 std::unique_ptr<std::atomic<uint64_t>>(new std::atomic<uint64_t>());
             cur_time->store(0, std::memory_order_relaxed);
+            record_index = std::unique_ptr<std::atomic<int>>(new std::atomic<int>());
+            record_index->store(0, std::memory_order_relaxed);
         }
         stream_t self_stream;
         // Normally stream points to &self_stream, but for single_lockstep_output
@@ -1634,7 +1636,8 @@ protected:
         // A list of schedule segments. During replay, this is read by other threads,
         // but it is only written at init time.
         std::vector<schedule_record_t> record;
-        int record_index = 0;
+        // This index is written later so we use atomic operations.
+        std::unique_ptr<std::atomic<int>> record_index;
         bool waiting = false; // Waiting or idling.
         // Used to limit stealing to one attempt per transition to idle.
         bool tried_to_steal_on_idle = false;
