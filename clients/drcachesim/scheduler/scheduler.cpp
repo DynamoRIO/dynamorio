@@ -2618,6 +2618,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue_hold_locks(
             res = outputs_[from_output].ready_queue.queue.top();
             outputs_[from_output].ready_queue.queue.pop();
         }
+        std::lock_guard<mutex_dbg_owned> input_lock(*res->lock);
         assert(!res->unscheduled ||
                res->blocked_time > 0); // Should be in unscheduled_priority_.
         if (res->binding.empty() || for_output == INVALID_OUTPUT_ORDINAL ||
@@ -2691,6 +2692,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue_hold_locks(
         std::lock_guard<mutex_dbg_owned> input_lock(*save->lock);
         add_to_ready_queue_hold_locks(from_output, save);
     }
+    auto res_lock = (res == nullptr) ? std::unique_lock<mutex_dbg_owned>()
+                                     : std::unique_lock<mutex_dbg_owned>(*res->lock);
     VDO(this, 1, {
         static int output_heartbeat;
         // We are ok with races as the cadence is approximate.
@@ -2815,10 +2818,6 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_cur_input(output_ordinal_t output,
     assert(input < static_cast<input_ordinal_t>(inputs_.size()));
     int prev_input = outputs_[output].cur_input;
     if (prev_input >= 0) {
-        if (options_.mapping == MAP_TO_ANY_OUTPUT && prev_input != input &&
-            !inputs_[prev_input].at_eof) {
-            add_to_ready_queue(output, &inputs_[prev_input]);
-        }
         if (prev_input != input) {
             input_info_t &prev_info = inputs_[prev_input];
             std::lock_guard<mutex_dbg_owned> lock(*prev_info.lock);
@@ -2830,6 +2829,10 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_cur_input(output_ordinal_t output,
                 if (status != sched_type_t::STATUS_OK)
                     return status;
             }
+        }
+        if (options_.mapping == MAP_TO_ANY_OUTPUT && prev_input != input &&
+            !inputs_[prev_input].at_eof) {
+            add_to_ready_queue(output, &inputs_[prev_input]);
         }
     } else if (options_.schedule_record_ostream != nullptr &&
                outputs_[output].record.back().type == schedule_record_t::IDLE) {
