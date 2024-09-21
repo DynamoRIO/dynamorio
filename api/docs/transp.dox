@@ -86,7 +86,6 @@ Windows, the system call interface (\e c in the figure) must be used,
 rather than the API layer.
 
   \image html windows.png
-  \image rtf windows.png
   \image latex windows.eps "Native API" width=10cm
 
 DynamoRIO provides access to resources to clients via a cross-platform

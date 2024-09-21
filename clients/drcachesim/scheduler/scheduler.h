@@ -1587,8 +1587,11 @@ protected:
 
     // We have one output_info_t per output stream, and at most one worker
     // thread owns one output, so most fields are accessed only by one thread.
-    // The exception is "ready_queue" which can be accessed by other threads;
+    // One exception is .ready_queue which can be accessed by other threads;
     // it is protected using its internal lock.
+    // Another exception is .record, which is read-only after initialization.
+    // A few other fields are concurrently accessed and are of type std::atomic to allow
+    // that.
     struct output_info_t {
         output_info_t(scheduler_tmpl_t<RecordType, ReaderType> *scheduler,
                       output_ordinal_t ordinal,
@@ -1605,6 +1608,8 @@ protected:
             cur_time =
                 std::unique_ptr<std::atomic<uint64_t>>(new std::atomic<uint64_t>());
             cur_time->store(0, std::memory_order_relaxed);
+            record_index = std::unique_ptr<std::atomic<int>>(new std::atomic<int>());
+            record_index->store(0, std::memory_order_relaxed);
         }
         stream_t self_stream;
         // Normally stream points to &self_stream, but for single_lockstep_output
@@ -1634,7 +1639,9 @@ protected:
         // A list of schedule segments. During replay, this is read by other threads,
         // but it is only written at init time.
         std::vector<schedule_record_t> record;
-        int record_index = 0;
+        // This index into the .record vector is read by other threads and also written
+        // during execution, so it requires atomic accesses.
+        std::unique_ptr<std::atomic<int>> record_index;
         bool waiting = false; // Waiting or idling.
         // Used to limit stealing to one attempt per transition to idle.
         bool tried_to_steal_on_idle = false;
