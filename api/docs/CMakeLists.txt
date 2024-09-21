@@ -153,7 +153,7 @@ macro (generate_html name dest_dir embeddable)
     VERBATIM # recommended: p260
     )
   set_directory_properties(PROPERTIES
-    ADDITIONAL_MAKE_CLEAN_FILES "html;latex;rtf")
+    ADDITIONAL_MAKE_CLEAN_FILES "html;latex")
 
   add_custom_target(${name} ALL
     DEPENDS ${doxyfile}
