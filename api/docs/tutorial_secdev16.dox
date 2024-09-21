@@ -119,13 +119,13 @@ mailing list.
 
 # References
 
--# <a name="ref1"></a>Derek Bruening and Qin Zhao.  ["Practical Memory Checking with Dr. Memory"](http://www.burningcutlery.com/derek/docs/drmem-CGO11.pdf). International Symposium on Code Generation and Optimization (CGO-11), April 2011.
+-# \anchor ref1 Derek Bruening and Qin Zhao.  ["Practical Memory Checking with Dr. Memory"](http://www.burningcutlery.com/derek/docs/drmem-CGO11.pdf). International Symposium on Code Generation and Optimization (CGO-11), April 2011.
 
--# <a name="ref2"></a>Derek Bruening, Timothy Garnett, and Saman Amarasinghe.  ["An Infrastructure for Adaptive Dynamic Optimization"](http://www.burningcutlery.com/derek/docs/adaptive-CGO03.pdf). International Symposium on Code Generation and Optimization (CGO-03), March 2003. 10 years later named the Most Influential Paper from CGO 2003.
+-# \anchor ref2 Derek Bruening, Timothy Garnett, and Saman Amarasinghe.  ["An Infrastructure for Adaptive Dynamic Optimization"](http://www.burningcutlery.com/derek/docs/adaptive-CGO03.pdf). International Symposium on Code Generation and Optimization (CGO-03), March 2003. 10 years later named the Most Influential Paper from CGO 2003.
 
--# <a name="ref3"></a>Vladimir Kiriansky, Derek Bruening, and Saman Amarasinghe. ["Secure Execution Via Program Shepherding"](http://www.burningcutlery.com/derek/docs/security-usenix.pdf). 11th USENIX Security Symposium, August 2002.
+-# \anchor ref3 Vladimir Kiriansky, Derek Bruening, and Saman Amarasinghe. ["Secure Execution Via Program Shepherding"](http://www.burningcutlery.com/derek/docs/security-usenix.pdf). 11th USENIX Security Symposium, August 2002.
 
--# <a name="ref4"></a>[http://drmemory.org](http://drmemory.org) and [http://dynamorio.org](http://dynamorio.org)
+-# \anchor ref4 [http://drmemory.org](http://drmemory.org) and [http://dynamorio.org](http://dynamorio.org)
 
 
  ****************************************************************************
