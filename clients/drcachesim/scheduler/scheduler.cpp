@@ -1368,7 +1368,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_and_instantiate_traced_schedule()
             VPRINT(this, 1, "Initial input for output #%d is: wait state\n", output_idx);
             set_cur_input(output_idx, INVALID_INPUT_ORDINAL);
             outputs_[output_idx].waiting = true;
-            outputs_[output_idx].record_index = -1;
+            outputs_[output_idx].record_index->store(-1, std::memory_order_release);
         } else {
             VPRINT(this, 1, "Initial input for output #%d is %d\n", output_idx,
                    outputs_[output_idx].record[0].key.input);
@@ -2618,6 +2618,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue_hold_locks(
             res = outputs_[from_output].ready_queue.queue.top();
             outputs_[from_output].ready_queue.queue.pop();
         }
+        std::lock_guard<mutex_dbg_owned> input_lock(*res->lock);
         assert(!res->unscheduled ||
                res->blocked_time > 0); // Should be in unscheduled_priority_.
         if (res->binding.empty() || for_output == INVALID_OUTPUT_ORDINAL ||
@@ -2691,6 +2692,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue_hold_locks(
         std::lock_guard<mutex_dbg_owned> input_lock(*save->lock);
         add_to_ready_queue_hold_locks(from_output, save);
     }
+    auto res_lock = (res == nullptr) ? std::unique_lock<mutex_dbg_owned>()
+                                     : std::unique_lock<mutex_dbg_owned>(*res->lock);
     VDO(this, 1, {
         static int output_heartbeat;
         // We are ok with races as the cadence is approximate.
@@ -2815,10 +2818,6 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_cur_input(output_ordinal_t output,
     assert(input < static_cast<input_ordinal_t>(inputs_.size()));
     int prev_input = outputs_[output].cur_input;
     if (prev_input >= 0) {
-        if (options_.mapping == MAP_TO_ANY_OUTPUT && prev_input != input &&
-            !inputs_[prev_input].at_eof) {
-            add_to_ready_queue(output, &inputs_[prev_input]);
-        }
         if (prev_input != input) {
             input_info_t &prev_info = inputs_[prev_input];
             std::lock_guard<mutex_dbg_owned> lock(*prev_info.lock);
@@ -2830,6 +2829,15 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_cur_input(output_ordinal_t output,
                 if (status != sched_type_t::STATUS_OK)
                     return status;
             }
+        }
+        // Now that we've updated prev_info, add it to the ready queue (once on the
+        // queues others can see it and pop it off, though they can't access/modify its
+        // fields (for identifying if it can be migrated, e.g.) until we release the
+        // input lock, so it should be safe to add first, but this order is more
+        // straightforward).
+        if (options_.mapping == MAP_TO_ANY_OUTPUT && prev_input != input &&
+            !inputs_[prev_input].at_eof) {
+            add_to_ready_queue(output, &inputs_[prev_input]);
         }
     } else if (options_.schedule_record_ostream != nullptr &&
                outputs_[output].record.back().type == schedule_record_t::IDLE) {
@@ -2934,20 +2942,20 @@ typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input_as_previously(
     output_ordinal_t output, input_ordinal_t &index)
 {
-    if (outputs_[output].record_index + 1 >=
-        static_cast<int>(outputs_[output].record.size())) {
+    // Our own index is only modified by us so we can cache it here.
+    int record_index = outputs_[output].record_index->load(std::memory_order_acquire);
+    if (record_index + 1 >= static_cast<int>(outputs_[output].record.size())) {
         if (!outputs_[output].at_eof) {
             outputs_[output].at_eof = true;
             live_replay_output_count_.fetch_add(-1, std::memory_order_release);
         }
         return eof_or_idle(output, outputs_[output].cur_input);
     }
-    const schedule_record_t &segment =
-        outputs_[output].record[outputs_[output].record_index + 1];
+    const schedule_record_t &segment = outputs_[output].record[record_index + 1];
     if (segment.type == schedule_record_t::IDLE) {
         outputs_[output].waiting = true;
         outputs_[output].wait_start_time = get_output_time(output);
-        ++outputs_[output].record_index;
+        outputs_[output].record_index->fetch_add(1, std::memory_order_release);
         return sched_type_t::STATUS_IDLE;
     }
     index = segment.key.input;
@@ -2969,11 +2977,10 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input_as_previously(
             // Don't wait for an ROI that starts at the beginning.
             segment.value.start_instruction > 1 &&
             // The output may have begun in the wait state.
-            (outputs_[output].record_index == -1 ||
+            (record_index == -1 ||
              // When we skip our separator+timestamp markers are at the
              // prior instr ord so do not wait for that.
-             (outputs_[output].record[outputs_[output].record_index].type !=
-                  schedule_record_t::SKIP &&
+             (outputs_[output].record[record_index].type != schedule_record_t::SKIP &&
               // Don't wait if we're at the end and just need the end record.
               segment.type != schedule_record_t::SYNTHETIC_END))) {
             // Some other output stream has not advanced far enough, and we do
@@ -3000,11 +3007,15 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input_as_previously(
     // enforce finer-grained timing replay.
     if (options_.deps == DEPENDENCY_TIMESTAMPS) {
         for (int i = 0; i < static_cast<output_ordinal_t>(outputs_.size()); ++i) {
-            if (i != output &&
-                outputs_[i].record_index + 1 <
-                    static_cast<int>(outputs_[i].record.size()) &&
-                segment.timestamp >
-                    outputs_[i].record[outputs_[i].record_index + 1].timestamp) {
+            if (i == output)
+                continue;
+            // Do an atomic load once and use it to de-reference if it's not at the end.
+            // This is safe because if the target advances to the end concurrently it
+            // will only cause an extra wait that will just come back here and then
+            // continue.
+            int other_index = outputs_[i].record_index->load(std::memory_order_acquire);
+            if (other_index + 1 < static_cast<int>(outputs_[i].record.size()) &&
+                segment.timestamp > outputs_[i].record[other_index + 1].timestamp) {
                 VPRINT(this, 3,
                        "next_record[%d]: waiting because timestamp %" PRIu64
                        " is ahead of output %d\n",
@@ -3032,7 +3043,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input_as_previously(
         VPRINT(this, 2, "early end for input %d\n", index);
         // We're done with this entry but we need the queued record to be read,
         // so we do not move past the entry.
-        ++outputs_[output].record_index;
+        outputs_[output].record_index->fetch_add(1, std::memory_order_release);
         return sched_type_t::STATUS_SKIPPED;
     } else if (segment.type == schedule_record_t::SKIP) {
         std::lock_guard<mutex_dbg_owned> lock(*inputs_[index].lock);
@@ -3049,13 +3060,13 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input_as_previously(
         if (status != sched_type_t::STATUS_SKIPPED)
             return sched_type_t::STATUS_INVALID;
         // We're done with the skip so move to and past it.
-        outputs_[output].record_index += 2;
+        outputs_[output].record_index->fetch_add(2, std::memory_order_release);
         return sched_type_t::STATUS_SKIPPED;
     } else {
         VPRINT(this, 2, "next_record[%d]: advancing to input %d instr #%" PRId64 "\n",
                output, index, segment.value.start_instruction);
     }
-    ++outputs_[output].record_index;
+    outputs_[output].record_index->fetch_add(1, std::memory_order_release);
     return sched_type_t::STATUS_OK;
 }
 
@@ -3096,11 +3107,13 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
             if (options_.mapping == MAP_AS_PREVIOUSLY) {
                 res = pick_next_input_as_previously(output, index);
                 VDO(this, 2, {
-                    if (outputs_[output].record_index >= 0 &&
-                        outputs_[output].record_index <
-                            static_cast<int>(outputs_[output].record.size())) {
+                    // Our own index is only modified by us so we can cache it here.
+                    int record_index =
+                        outputs_[output].record_index->load(std::memory_order_acquire);
+                    if (record_index >= 0 &&
+                        record_index < static_cast<int>(outputs_[output].record.size())) {
                         const schedule_record_t &segment =
-                            outputs_[output].record[outputs_[output].record_index];
+                            outputs_[output].record[record_index];
                         int input = segment.key.input;
                         VPRINT(this,
                                (res == sched_type_t::STATUS_IDLE ||
@@ -3619,7 +3632,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
         if (options_.mapping == MAP_AS_PREVIOUSLY &&
             outputs_[output].wait_start_time > 0) {
             uint64_t duration = outputs_[output]
-                                    .record[outputs_[output].record_index]
+                                    .record[outputs_[output].record_index->load(
+                                        std::memory_order_acquire)]
                                     .value.idle_duration;
             uint64_t now = get_output_time(output);
             if (now - outputs_[output].wait_start_time < duration) {
@@ -3729,21 +3743,22 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
         // could also be put into output_info_t, promoting it to a class and
         // subclassing it per mapping mode.
         if (options_.mapping == MAP_AS_PREVIOUSLY) {
-            assert(outputs_[output].record_index >= 0);
-            if (outputs_[output].record_index >=
-                static_cast<int>(outputs_[output].record.size())) {
+            // Our own index is only modified by us so we can cache it here.
+            int record_index =
+                outputs_[output].record_index->load(std::memory_order_acquire);
+            assert(record_index >= 0);
+            if (record_index >= static_cast<int>(outputs_[output].record.size())) {
                 // We're on the last record.
                 VPRINT(this, 4, "next_record[%d]: on last record\n", output);
-            } else if (outputs_[output].record[outputs_[output].record_index].type ==
+            } else if (outputs_[output].record[record_index].type ==
                        schedule_record_t::SKIP) {
                 VPRINT(this, 5, "next_record[%d]: need new input after skip\n", output);
                 need_new_input = true;
-            } else if (outputs_[output].record[outputs_[output].record_index].type ==
+            } else if (outputs_[output].record[record_index].type ==
                        schedule_record_t::SYNTHETIC_END) {
                 VPRINT(this, 5, "next_record[%d]: at synthetic end\n", output);
             } else {
-                const schedule_record_t &segment =
-                    outputs_[output].record[outputs_[output].record_index];
+                const schedule_record_t &segment = outputs_[output].record[record_index];
                 assert(segment.type == schedule_record_t::DEFAULT);
                 uint64_t start = segment.value.start_instruction;
                 uint64_t stop = segment.stop_instruction;
