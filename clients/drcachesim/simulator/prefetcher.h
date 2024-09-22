@@ -60,13 +60,8 @@ protected:
 class prefetcher_factory_t {
 public:
     virtual prefetcher_t *
-    create_prefetcher(int block_size)
-    {
-        return nullptr;
-    }
-    virtual ~prefetcher_factory_t()
-    {
-    }
+    create_prefetcher(int block_size) = 0;
+    virtual ~prefetcher_factory_t() = default;
 };
 
 } // namespace drmemtrace

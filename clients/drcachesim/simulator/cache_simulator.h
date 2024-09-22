@@ -70,20 +70,13 @@ public:
     // This constructor is used when the cache hierarchy is configured
     // using a set of knobs. It assumes a 2-level cache hierarchy with
     // private L1 data and instruction caches and a shared LLC.
-    cache_simulator_t(const cache_simulator_knobs_t &knobs)
-        : cache_simulator_t(knobs, nullptr) {};
+    cache_simulator_t(const cache_simulator_knobs_t &knobs,
+                      prefetcher_factory_t *custom_prefetcher_factory=nullptr);
 
     // This constructor is used when the arbitrary cache hierarchy is
     // defined in a configuration file.
-    cache_simulator_t(std::istream *config_file)
-        : cache_simulator_t(config_file, nullptr) {};
-
-    // Additional constructors that allow the user to specify a custom
-    // prefetcher.
-    cache_simulator_t(const cache_simulator_knobs_t &knobs,
-                      prefetcher_factory_t *custom_prefetcher_factory);
     cache_simulator_t(std::istream *config_file,
-                      prefetcher_factory_t *custom_prefetcher_factory);
+                      prefetcher_factory_t *custom_prefetcher_factory=nullptr);
 
     virtual ~cache_simulator_t();
     bool
