@@ -579,7 +579,7 @@ cache_simulator_t::get_prefetcher(std::string prefetcher_name)
         return new prefetcher_t((int)knobs_.line_size);
     }
     if (prefetcher_name == PREFETCH_POLICY_CUSTOM) {
-        assert(custom_prefetcher_factor_ != nullptr);
+        assert(custom_prefetcher_factory_ != nullptr);
         return custom_prefetcher_factory_->create_prefetcher((int)knobs_.line_size);
     }
     return nullptr;
