@@ -279,7 +279,7 @@ unit_test_nextline_prefetcher()
     const int LINE_SIZE = 64;
     const int TEST_ACCESSES = 6;
     const int EXPECTED_MISSES_NO_PREFETCHER = TEST_ACCESSES;
-    const int EXPECTED_MISSES_NEXTLINE_PREFETCHER = TEST_ACCESSES/2;
+    const int EXPECTED_MISSES_NEXTLINE_PREFETCHER = TEST_ACCESSES / 2;
 
     // Test all misses without a prefetcher.
     cache_simulator_knobs_t knobs = make_test_knobs();
@@ -293,8 +293,8 @@ unit_test_nextline_prefetcher()
         }
     }
 
-    assert(cache_sim.get_cache_metric(metric_name_t::MISSES, 1, 0)
-           == EXPECTED_MISSES_NO_PREFETCHER);
+    assert(cache_sim.get_cache_metric(metric_name_t::MISSES, 1, 0) ==
+           EXPECTED_MISSES_NO_PREFETCHER);
 
     // Test that every other miss is prevented with a nextline prefetcher.
     knobs.data_prefetcher = "nextline";
@@ -307,8 +307,8 @@ unit_test_nextline_prefetcher()
         }
     }
 
-    assert(nextline_cache_sim.get_cache_metric(metric_name_t::MISSES, 1, 0)
-           == EXPECTED_MISSES_NEXTLINE_PREFETCHER);
+    assert(nextline_cache_sim.get_cache_metric(metric_name_t::MISSES, 1, 0) ==
+           EXPECTED_MISSES_NEXTLINE_PREFETCHER);
 }
 
 class next2line_prefetcher_factory_t : public prefetcher_factory_t {
@@ -345,7 +345,7 @@ unit_test_custom_prefetcher()
 {
     const int LINE_SIZE = 64;
     const int TEST_ACCESSES = 6;
-    const int EXPECTED_MISSES_NEXT2LINE_PREFETCHER = TEST_ACCESSES/3;
+    const int EXPECTED_MISSES_NEXT2LINE_PREFETCHER = TEST_ACCESSES / 3;
     cache_simulator_knobs_t knobs = make_test_knobs();
     knobs.data_prefetcher = "custom";
     next2line_prefetcher_factory_t next2line_prefetcher_factory;
@@ -359,8 +359,8 @@ unit_test_custom_prefetcher()
         }
     }
 
-    assert(nextline_cache_sim.get_cache_metric(metric_name_t::MISSES, 1, 0)
-           == EXPECTED_MISSES_NEXT2LINE_PREFETCHER);
+    assert(nextline_cache_sim.get_cache_metric(metric_name_t::MISSES, 1, 0) ==
+           EXPECTED_MISSES_NEXT2LINE_PREFETCHER);
 }
 void
 unit_test_child_hits()
