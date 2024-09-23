@@ -449,6 +449,7 @@ test_legacy_fields()
     static constexpr int QUANTUM_DURATION = 3;
     // We do not want to block for very long.
     static constexpr uint64_t BLOCK_LATENCY = 200;
+    static constexpr uint64_t BLOCK_THRESHOLD = 100;
     static constexpr double BLOCK_SCALE = 0.01;
     static constexpr uint64_t BLOCK_MAX = 50;
     static constexpr memref_tid_t TID_BASE = 100;
@@ -540,6 +541,9 @@ test_legacy_fields()
         sched_ops.struct_size =
             offsetof(scheduler_t::scheduler_options_t, time_units_per_us);
         sched_ops.quantum_duration_us = QUANTUM_DURATION;
+        // This was tuned with a 100us threshold: so avoid scheduler.h defaults
+        // changes from affecting our output.
+        sched_ops.blocking_switch_threshold = BLOCK_THRESHOLD;
         sched_ops.block_time_scale = BLOCK_SCALE;
         sched_ops.block_time_max = BLOCK_MAX;
         // To do our test we use instrs-as-time for deterministic block times.
@@ -1200,6 +1204,7 @@ test_synthetic()
     static constexpr int QUANTUM_DURATION = 3;
     // We do not want to block for very long.
     static constexpr double BLOCK_SCALE = 0.01;
+    static constexpr uint64_t BLOCK_THRESHOLD = 100;
     static constexpr memref_tid_t TID_BASE = 100;
     std::vector<trace_entry_t> inputs[NUM_INPUTS];
     for (int i = 0; i < NUM_INPUTS; i++) {
@@ -1251,6 +1256,9 @@ test_synthetic()
                                                    scheduler_t::SCHEDULER_DEFAULTS,
                                                    /*verbosity=*/3);
         sched_ops.quantum_duration_instrs = QUANTUM_DURATION;
+        // This was tuned with a 100us threshold: so avoid scheduler.h defaults
+        // changes from affecting our output.
+        sched_ops.blocking_switch_threshold = BLOCK_THRESHOLD;
         sched_ops.block_time_multiplier = BLOCK_SCALE;
         sched_ops.time_units_per_us = 1.;
         // Migration is measured in wall-clock-time for instr quanta
@@ -1324,6 +1332,9 @@ test_synthetic()
                                                    /*verbosity=*/3);
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
         sched_ops.time_units_per_us = 1.;
+        // This was tuned with a 100us threshold: so avoid scheduler.h defaults
+        // changes from affecting our output.
+        sched_ops.blocking_switch_threshold = BLOCK_THRESHOLD;
         sched_ops.quantum_duration_us = QUANTUM_DURATION;
         sched_ops.block_time_multiplier = BLOCK_SCALE;
         sched_ops.migration_threshold_us = 0;
@@ -1352,6 +1363,7 @@ test_synthetic_time_quanta()
     static constexpr memref_tid_t TID_C = TID_A + 2;
     static constexpr int NUM_OUTPUTS = 2;
     static constexpr int NUM_INPUTS = 3;
+    static constexpr uint64_t BLOCK_THRESHOLD = 100;
     static constexpr int PRE_BLOCK_TIME = 20;
     static constexpr int POST_BLOCK_TIME = 220;
     std::vector<trace_entry_t> refs[NUM_INPUTS];
@@ -1390,6 +1402,9 @@ test_synthetic_time_quanta()
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
         sched_ops.time_units_per_us = 1.;
         sched_ops.quantum_duration_us = 3;
+        // This was tuned with a 100us threshold: so avoid scheduler.h defaults
+        // changes from affecting our output.
+        sched_ops.blocking_switch_threshold = BLOCK_THRESHOLD;
         // Ensure it waits 10 steps.
         sched_ops.block_time_multiplier = 10. / (POST_BLOCK_TIME - PRE_BLOCK_TIME);
         // Ensure steals happen in this short test.
@@ -2183,19 +2198,22 @@ test_synthetic_with_syscalls_precise()
     static constexpr memref_tid_t TID_A = 42;
     static constexpr memref_tid_t TID_B = 99;
     static constexpr int SYSNUM = 202;
+    static constexpr uint64_t INITIAL_TIMESTAMP = 20;
+    static constexpr uint64_t PRE_SYS_TIMESTAMP = 120;
+    static constexpr uint64_t BLOCK_THRESHOLD = 500;
     std::vector<trace_entry_t> refs_A = {
         /* clang-format off */
         make_thread(TID_A),
         make_pid(1),
         make_version(TRACE_ENTRY_VERSION),
-        make_timestamp(20),
+        make_timestamp(INITIAL_TIMESTAMP),
         make_instr(10),
-        make_timestamp(120),
+        make_timestamp(PRE_SYS_TIMESTAMP),
         make_marker(TRACE_MARKER_TYPE_SYSCALL, SYSNUM),
         make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
         make_marker(TRACE_MARKER_TYPE_FUNC_ID, 100),
         make_marker(TRACE_MARKER_TYPE_FUNC_ARG, 42),
-        make_timestamp(250),
+        make_timestamp(PRE_SYS_TIMESTAMP + BLOCK_THRESHOLD),
         make_marker(TRACE_MARKER_TYPE_CPU_ID, 1),
         make_marker(TRACE_MARKER_TYPE_FUNC_ID, 100),
         make_marker(TRACE_MARKER_TYPE_FUNC_RETVAL, 0),
@@ -2225,6 +2243,7 @@ test_synthetic_with_syscalls_precise()
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
                                                /*verbosity=*/4);
+    sched_ops.blocking_switch_threshold = BLOCK_THRESHOLD;
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, 1, std::move(sched_ops)) !=
         scheduler_t::STATUS_SUCCESS)
@@ -5484,18 +5503,22 @@ test_record_scheduler()
     static constexpr int NUM_OUTPUTS = 1;
     static constexpr addr_t ENCODING_SIZE = 2;
     static constexpr addr_t ENCODING_IGNORE = 0xfeed;
+    static constexpr uint64_t INITIAL_TIMESTAMP_A = 10;
+    static constexpr uint64_t INITIAL_TIMESTAMP_B = 20;
+    static constexpr uint64_t PRE_SYS_TIMESTAMP = 20;
+    static constexpr uint64_t BLOCK_THRESHOLD = 500;
     std::vector<trace_entry_t> refs_A = {
         /* clang-format off */
         make_thread(TID_A),
         make_pid(PID_A),
         make_version(TRACE_ENTRY_VERSION),
-        make_timestamp(10),
+        make_timestamp(INITIAL_TIMESTAMP_A),
         make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
         make_instr(10),
-        make_timestamp(20),
+        make_timestamp(PRE_SYS_TIMESTAMP),
         make_marker(TRACE_MARKER_TYPE_SYSCALL, 42),
         make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
-        make_timestamp(120),
+        make_timestamp(PRE_SYS_TIMESTAMP + BLOCK_THRESHOLD),
         make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
         make_instr(30),
         make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
@@ -5508,7 +5531,7 @@ test_record_scheduler()
         make_thread(TID_B),
         make_pid(PID_B),
         make_version(TRACE_ENTRY_VERSION),
-        make_timestamp(20),
+        make_timestamp(INITIAL_TIMESTAMP_B),
         make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
         make_instr(20),
         make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
@@ -5538,6 +5561,7 @@ test_record_scheduler()
         /*verbosity=*/4);
     sched_ops.quantum_duration_instrs = 2;
     sched_ops.block_time_multiplier = 0.001; // Do not stay blocked.
+    sched_ops.blocking_switch_threshold = BLOCK_THRESHOLD;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
         record_scheduler_t::STATUS_SUCCESS)
         assert(false);
