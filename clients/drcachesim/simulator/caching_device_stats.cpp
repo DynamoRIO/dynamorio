@@ -38,6 +38,7 @@
 #    include <zlib.h>
 #endif
 
+#include <inttypes.h>
 #include <iomanip>
 #include <iostream>
 #include <locale>
@@ -170,9 +171,9 @@ caching_device_stats_t::dump_miss(const memref_t &memref)
     // It works most of the time but consider using a directory with individual files
     // per process as a future safer alternative.
 #ifdef HAS_ZLIB
-    gzprintf(file_, "%lld,0x%zx,0x%zx\n", pid, pc, addr);
+    gzprintf(file_, "%" PRId64 ",0x%zx,0x%zx\n", pid, pc, addr);
 #else
-    fprintf(file_, "%lld,0x%zx,0x%zx\n", pid, pc, addr);
+    fprintf(file_, "%" PRId64 ",0x%zx,0x%zx\n", pid, pc, addr);
 #endif
 }
 
