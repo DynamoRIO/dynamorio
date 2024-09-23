@@ -38,7 +38,6 @@
 #include "memref.h"
 #include "caching_device.h"
 #include "trace_entry.h"
-
 namespace dynamorio {
 namespace drmemtrace {
 
@@ -57,6 +56,5 @@ prefetcher_t::prefetch(caching_device_t *cache, const memref_t &memref_in)
     memref.data.type = TRACE_TYPE_HARDWARE_PREFETCH;
     cache->request(memref);
 }
-
 } // namespace drmemtrace
 } // namespace dynamorio
