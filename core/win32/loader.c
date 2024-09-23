@@ -1489,25 +1489,26 @@ privload_call_entry(dcontext_t *dcontext, privmod_t *privmod, uint reason)
               res = FALSE;
             });
 
-        if (!res && get_os_version() >= WINDOWS_VERSION_7 &&
-            /* i#364: win7 _BaseDllInitialize fails to initialize a new console
-             * (0xc0000041 (3221225537) - The NtConnectPort request is refused)
-             * which we ignore for now.  DR always had trouble writing to the
-             * console anyway (xref i#261).
-             * Update: for i#440, this should now succeed, but we leave this
-             * in place just in case.
+        if (!res) {
+            /* We have had multiple cases of initializers failing without fatal
+             * consequences, and given that we do not have resources to track
+             * down every detail it is best to note the failure and move on.
+             *
+             * Past examples include:
+             * + i#364: win7 _BaseDllInitialize fails to initialize a new console
+             *   (0xc0000041 (3221225537) - The NtConnectPort request is refused)
+             *   which we ignore for now.  DR always had trouble writing to the
+             *   console anyway (xref i#261).
+             *   Update: for i#440, this should now succeed, but we leave this
+             *   in place just in case.
+             * + i#2221: combase's entry fails on win10.  So far ignoring it
+             *   hasn't cause any problems with simple clients.
+             * + i#6570: bcrypt's entry suddenly started failing.  Ignoring it
+             * is working so far; if that changes we'll have to dig into it.
              */
-            (str_case_prefix(privmod->name, "kernel") ||
-             /* i#2221: combase's entry fails on win10.  So far ignoring it
-              * hasn't cause any problems with simple clients.
-              */
-             str_case_prefix(privmod->name, "combase") ||
-             /* i#6570: bcrypt's entry suddenly started failing.  Ignoring it
-              * is working so far; if that changes we'll have to dig into it.
-              */
-             str_case_prefix(privmod->name, "bcrypt"))) {
-            LOG(GLOBAL, LOG_LOADER, 1, "%s: ignoring failure of %s entry\n", __FUNCTION__,
-                privmod->name);
+            SYSLOG_INTERNAL_WARNING(
+                "ignoring failure of private library %s entry (call reason=%d)\n",
+                privmod->name, reason);
             res = TRUE;
         }
         return_val = CAST_TO_bool(res);
