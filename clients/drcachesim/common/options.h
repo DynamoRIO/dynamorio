@@ -61,6 +61,7 @@
 #define REPLACE_POLICY_FIFO "FIFO"
 #define PREFETCH_POLICY_NEXTLINE "nextline"
 #define PREFETCH_POLICY_NONE "none"
+#define PREFETCH_POLICY_CUSTOM "custom"
 #define CACHE_TYPE_INSTRUCTION "instruction"
 #define CACHE_TYPE_DATA "data"
 #define CACHE_TYPE_UNIFIED "unified"
