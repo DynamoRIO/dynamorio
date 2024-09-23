@@ -8,8 +8,10 @@
 #include "memref.h"
 #include "trace_entry.h"
 #include "dr_mir_api.h"
-// #include "replayer.h"
+#include "replayer.h"
 #include "reg_analyzer.h"
+// #include "abstract_replayer.h"
+
 namespace dynamorio {
 namespace drmemtrace {
 
@@ -42,6 +44,8 @@ public:
     print_results() override;
 
 
+
+
 protected:
 
     struct dcontext_cleanup_last_t {
@@ -69,7 +73,15 @@ protected:
     shard_type_t shard_type_ = SHARD_BY_THREAD;
     memtrace_stream_t *serial_stream_ = nullptr;
 
-    RegAnalyzer *replayer;
+    Replayer *replayer;
+
+    bool tracing_flag;
+
+    bool
+    check_start_pattern(byte *raw_instr, int length);
+
+    bool
+    check_end_pattern(byte *raw_instr, int length);
 };
 
 } // namespace drmemtrace

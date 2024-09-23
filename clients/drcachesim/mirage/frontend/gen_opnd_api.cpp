@@ -160,8 +160,33 @@ void _gen_load_from_base_disp(opnd_t opnd, mir_insn_t* insn,
                         mir_insn_list_t *mir_insns_list, int src_num, struct translate_context_t *ctx) {
     reg_id_t base = opnd_get_base(opnd);
     int32_t disp = opnd_get_disp(opnd);
+    reg_id_t index = opnd_get_index(opnd);
+    int32_t scale = opnd_get_scale(opnd);
+    printf("base: %d, disp: %d, index: %d, scale: %d\n", base, disp, index, scale);
+    int mul_tmp_reg = DR_REG_NULL;
+    if (index != DR_REG_NULL && scale != 0) {
+        // mul = index * scale
+        mir_insn_t* mul_insn = mir_insn_malloc(MIR_OP_MUL);
+        mir_insn_set_src0_reg(mul_insn, index);
+        mir_insn_set_src1_imm(mul_insn, scale);
+        mir_insn_insert_before(mul_insn, insn);
+        mul_tmp_reg = alloc_tmp_reg(ctx);
+        mir_insn_set_dst_reg(mul_insn, mul_tmp_reg);
+        mir_insn_insert_before(mul_insn, insn);
+        // addr = base + mul
+        mir_insn_t* add_insn = mir_insn_malloc(MIR_OP_ADD);
+        mir_insn_set_src0_reg(add_insn, base);
+        mir_insn_set_src1_reg(add_insn, mul_tmp_reg);
+        mir_insn_set_dst_reg(add_insn, mul_tmp_reg);
+        mir_insn_insert_before(add_insn, insn);
+    }
+    // addr = base + disp
     mir_insn_t* load_insn = mir_insn_malloc(MIR_OP_LD64);
-    mir_insn_set_src0_reg(load_insn, base);
+    if (mul_tmp_reg != DR_REG_NULL) {
+        mir_insn_set_src0_reg(load_insn, mul_tmp_reg);
+    } else {
+        mir_insn_set_src0_reg(load_insn, base);
+    }
     mir_insn_set_src1_imm(load_insn, disp);
     reg_id_t tmp_dst_reg = alloc_tmp_reg(ctx);
     mir_insn_set_dst_reg(load_insn, tmp_dst_reg);

@@ -21,6 +21,7 @@ public:
     void replay(mir_insn_list_t *insn_list) override;
     // this is public for testing purposes
     uint64_t get_reg_val(reg_id_t reg);
+    void report();
 private:
     FILE* log_file;
     InitStrategy init_strategy;

@@ -20,6 +20,7 @@ Replayer::~Replayer() {
 
 void Replayer::replay(mir_insn_list_t *insn_list) {
     struct list_elem* e;
+    printf("replaying...\n");
     for (e = list_begin(insn_list); e != list_end(insn_list); e = list_next(e)) {
         mir_insn_t* insn = list_entry(e, mir_insn_t, elem);
         step(insn);
@@ -41,6 +42,7 @@ uint64_t Replayer::read_mem(uintptr_t addr, size_t size) {
         }
     }
     fprintf(log_file, "read: addr = %lx, size = %lx\n", addr, size);
+    printf("read: addr = %lx, size = %lx\n", addr, size);
     return value;
 }
 
@@ -49,11 +51,14 @@ void Replayer::write_mem(uintptr_t addr, uint64_t value, size_t size) {
         shadow_mem[addr + i] = (value >> (i * 8)) & 0xff;
     }
     fprintf(log_file, "write: addr = %lx, size = %lx\n", addr, size);
+    printf("write: addr = %lx, size = %lx\n", addr, size);
 }
 
 void Replayer::step(mir_insn_t *insn) {
     uint64_t src0_val = get_val_from_opnd(insn->opnd0);
+    printf("src0: %lx\n", src0_val);
     uint64_t src1_val = get_val_from_opnd(insn->opnd1);
+    printf("src1: %lx\n", src1_val);
     uint64_t dst_val;
     switch (insn->op) {
         case MIR_OP_NULL:
@@ -179,6 +184,7 @@ uint64_t Replayer::get_val_from_opnd(mir_opnd_t opnd) {
 }
 
 void Replayer::set_val_to_opnd(mir_opnd_t opnd, uint64_t value) {
+    printf("setting opnd %d to %lx\n", opnd.value.reg, value);
     if (opnd.type == MIR_OPND_REG) {
         if (IS_DR_REG_GPR(opnd.value.reg)) {
             gp_reg_file[GET_DR_REG_GPR_NUM(opnd.value.reg)] = value;
@@ -226,4 +232,8 @@ void Replayer::unset_flag_hard() {
     flag_reg_file[GET_FLAG_REG_NUM(FLAG_REG_ZF)] = 0;
     flag_reg_file[GET_FLAG_REG_NUM(FLAG_REG_SF)] = 0;
     flag_reg_file[GET_FLAG_REG_NUM(FLAG_REG_OF)] = 0;
+}
+
+void Replayer::report() {
+    printf("replayer report\n");
 }

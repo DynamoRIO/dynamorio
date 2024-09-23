@@ -19,12 +19,17 @@ void RegAnalyzer::replay(mir_insn_list_t *insn_list) {
 }
 
 void RegAnalyzer::report() {
+    printf("--> Memory Access Report -->\n");
     for (auto it = mem_access_pattern.begin(); it != mem_access_pattern.end(); it++) {
         if (it->first == 0) {
             printf("constant memory access: %lu\n", it->second);
         } else {
             printf("variable memory access for 0x%lx : %lu times\n", it->first, it->second);
         }
+    }
+    printf("--> Register State Report -->\n");
+    for (int i = 0; i < DR_NUM_GPR_REGS; i++) {
+        printf("register %d: %lx\n", i, gp_reg_file[i]);
     }
 }
 
@@ -124,7 +129,15 @@ uint64_t RegAnalyzer::get_val_from_opnd(mir_opnd_t opnd) {
 
 void RegAnalyzer::set_val_to_opnd(mir_opnd_t opnd, uint64_t value) {
     if (opnd.type == MIR_OPND_REG) {
-        if (IS_DR_REG_GPR(opnd.value.reg)) {
+        //debug
+        // if (opnd.value.reg == REG_XSP && value != 0x10) {
+        //     printf("setting reg xsp to %lx\n", value);
+        //     volatile uint64_t xsp = get_reg_val(REG_XSP);
+        //     printf("xsp: %lx\n", xsp);
+        // }
+        if (opnd.value.reg == REG_NULL) {
+            return;
+        } else if (IS_DR_REG_GPR(opnd.value.reg)) {
             gp_reg_file[GET_DR_REG_GPR_NUM(opnd.value.reg)] = value;
         } else if (IS_DR_REG_64(opnd.value.reg)) {
             gp_reg_file[GET_DR_REG_64_NUM(opnd.value.reg)] = value;

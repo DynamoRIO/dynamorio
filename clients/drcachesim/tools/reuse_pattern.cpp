@@ -12,7 +12,9 @@ reuse_pattern_tool_create()
 
 reuse_pattern_t::reuse_pattern_t()
 {
-    replayer = new RegAnalyzer();
+    // replayer = new RegAnalyzer();
+    replayer = new Replayer(INIT_STRATEGY_RANDOM);
+    tracing_flag = false;
 }
 
 reuse_pattern_t::~reuse_pattern_t()
@@ -82,14 +84,23 @@ reuse_pattern_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             // shard->error = "Failed to decode instruction " + to_hex_string(memref.instr.addr);
             return false;
         }
-        // TODO: debug, remove
-        // if (instr_get_opcode(&curr_instr) == OP_adc) {
+        // read the raw instruction bytes
+        byte *raw_instr = instr_get_raw_bits(&curr_instr);
+        int length = instr_length(dcontext_.dcontext, &curr_instr);
+        if (tracing_flag) {
+            printf("\n");
             printf("encountered instruction at %p\n", curr_pc);
             mir_insn_list_t insn_list;
             init_mir_insn_list(&insn_list);
             dr_gen_mir_ops(&curr_instr, &insn_list);
             replayer->replay(&insn_list);
-        // }
+        }
+        // set tracing flag after the first pattern is found
+        if (!tracing_flag && check_start_pattern(raw_instr, length)) {
+            tracing_flag = true;
+        } else if (tracing_flag && check_end_pattern(raw_instr, length)) {
+            tracing_flag = false;
+        }
         return true;
     }
     return true;
@@ -102,5 +113,30 @@ reuse_pattern_t::print_results()
     return true;
 }
 
+// mov 1ceb00da, %rax
+bool
+reuse_pattern_t::check_start_pattern(byte *raw_instr, int length)
+{
+    if (length == 5) {
+        if (raw_instr[0] == 0xb8 && raw_instr[1] == 0xda && raw_instr[2] == 0x00 && raw_instr[3] == 0xeb && raw_instr[4] == 0x1c) {
+            printf("start pattern found\n");
+            return true;
+        }
+    }
+    return false;
+}
+
+// mov babecafe, %rax
+bool
+reuse_pattern_t::check_end_pattern(byte *raw_instr, int length)
+{
+    if (length == 5) {
+        if (raw_instr[0] == 0xb8 && raw_instr[1] == 0xfe && raw_instr[2] == 0xca && raw_instr[3] == 0xbe && raw_instr[4] == 0xba) {
+            printf("end pattern found\n");
+            return true;
+        }
+    }
+    return false;
+}
 } // namespace drmemtrace
 } // namespace dynamorio

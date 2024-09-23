@@ -40,6 +40,7 @@ void dr_gen_mir_ops(instr_t *instr, mir_insn_list_t *insn_list) {
         case OP_mov_imm:
         case OP_mov_seg:
         case OP_mov_priv:
+        case OP_cwde:
             gen_mov_op(instr, insn_list, ctx);
             break;
         case OP_lea:
