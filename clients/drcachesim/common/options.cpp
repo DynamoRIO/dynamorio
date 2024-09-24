@@ -1008,7 +1008,7 @@ droption_t<bool> op_sched_disable_direct_switches(
     "TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH markers are not removed from the trace.");
 
 droption_t<double> op_sched_time_units_per_us(
-    DROPTION_SCOPE_ALL, "sched_time_units_per_us", 100.,
+    DROPTION_SCOPE_ALL, "sched_time_units_per_us", 1000.,
     "Time units per simulated microsecond",
     "Time units (currently wall-clock time) per simulated microsecond.  This scales all "
     "of the -sched_*_us values as it converts wall-clock time into the simulated "
@@ -1025,6 +1025,12 @@ droption_t<uint64_t> op_sched_rebalance_period_us(
     "Period in microseconds at which core run queues are load-balanced",
     "The period in simulated microseconds at which per-core run queues are re-balanced "
     "to redistribute load.");
+
+droption_t<double> op_sched_time_units_per_idle(
+    DROPTION_SCOPE_ALL, "sched_time_units_per_idle", 5.,
+    "Idle count assumed to equal one instruction",
+    "Idle count assumed to equal one instruction when an estimated simulated time is "
+    "constructed from the instruction count. Applies to -core_sharded and -core_serial.");
 
 // Schedule_stats options.
 droption_t<uint64_t>

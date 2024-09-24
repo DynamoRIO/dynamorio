@@ -219,6 +219,7 @@ extern dynamorio::droption::droption_t<bool> op_sched_randomize;
 extern dynamorio::droption::droption_t<bool> op_sched_disable_direct_switches;
 extern dynamorio::droption::droption_t<uint64_t> op_sched_migration_threshold_us;
 extern dynamorio::droption::droption_t<uint64_t> op_sched_rebalance_period_us;
+extern dynamorio::droption::droption_t<double> op_sched_time_units_per_idle;
 extern dynamorio::droption::droption_t<double> op_sched_time_units_per_us;
 extern dynamorio::droption::droption_t<uint64_t> op_schedule_stats_print_every;
 extern dynamorio::droption::droption_t<std::string> op_syscall_template_file;

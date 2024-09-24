@@ -739,8 +739,11 @@ public:
          * other parameters that are in microseconds (they all end in "_us": e.g.,
          * #quantum_duration_us) so that they operate on the right time scale for the
          * passed-in simulator time (or wall-clock microseconds if no time is passed).
+         * The default value is a rough estimate when no accurate simulated time is
+         * available: the instruction count is used in that case, and we assume 1000
+         * instructions per microsecond for a 2GHz clock at 0.5 IPC.
          */
-        double time_units_per_us = 100.;
+        double time_units_per_us = 1000.;
         /**
          * The scheduling quantum duration for preemption, in simulated microseconds,
          * for #QUANTUM_TIME.  This value is multiplied by #time_units_per_us to
@@ -799,6 +802,14 @@ public:
          * parameter to next_record().
          */
         uint64_t rebalance_period_us = 50000;
+        /**
+         * If no time is passed to next_record() (typically with #QUANTUM_INSTRUCTIONS),
+         * the instruction count is added to the product of the idle count and this
+         * factor.  This can account for a different relative speed of processing an idle
+         * result as opposed to an actual instruction or can account for a yield or
+         * other action taken in response to an idle result.
+         */
+        double time_units_per_idle = 5.;
     };
 
     /**
@@ -864,11 +875,12 @@ public:
         /**
          * Advances to the next record in the stream.  Returns a status code on whether
          * and how to continue.  Supplies the current time for #QUANTUM_TIME.  The time
-         * should be considered to be the time prior to processing the returned record.
-         * The time is unitless but needs to be a globally consistent increasing value
-         * across all output streams.  #STATUS_INVALID is returned if 0 or a value smaller
-         * than the start time of the current input's quantum is passed in when
-         * #QUANTUM_TIME and #MAP_TO_ANY_OUTPUT are specified.
+         * should be considered to be the simulated time prior to processing the returned
+         * record.  The time's units can be chosen by the caller, with
+         * #scheduler_options_t.time_units_per_us
+         * providing the conversion to simulated microseconds.  #STATUS_INVALID is
+         * returned if 0 or a value smaller than the start time of the current input's
+         * quantum is passed in when #QUANTUM_TIME and #MAP_TO_ANY_OUTPUT are specified.
          */
         virtual stream_status_t
         next_record(RecordType &record, uint64_t cur_time);
@@ -976,6 +988,15 @@ public:
             if (TESTANY(sched_type_t::SCHEDULER_USE_INPUT_ORDINALS,
                         scheduler_->options_.flags))
                 return scheduler_->get_input_stream(ordinal_)->get_instruction_ordinal();
+            return cur_instr_count_;
+        }
+        /**
+         * Identical to get_instruction_ordinal() but ignores the
+         * #SCHEDULER_USE_INPUT_ORDINALS flag.
+         */
+        uint64_t
+        get_output_instruction_ordinal() const
+        {
             return cur_instr_count_;
         }
         /**
@@ -1664,6 +1685,7 @@ protected:
         // Exported statistics. Currently all integers and cast to double on export.
         std::vector<int64_t> stats =
             std::vector<int64_t>(memtrace_stream_t::SCHED_STAT_TYPE_COUNT);
+        uint64_t idle_count = 0;
     };
 
     // Used for reading as-traced schedules.

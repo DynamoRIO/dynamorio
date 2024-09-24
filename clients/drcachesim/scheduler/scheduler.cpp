@@ -2631,9 +2631,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue_hold_locks(
                 --outputs_[from_output].ready_queue.num_blocked;
             }
             if (res->blocked_time > 0 &&
-                // XXX i#6966: We have seen wall-clock time go backward, which
-                // underflows here and then always unblocks the input.
-                cur_time - res->blocked_start_time < res->blocked_time) {
+                // Guard against time going backward (happens for wall-clock: i#6966).
+                (cur_time < res->blocked_start_time ||
+                 cur_time - res->blocked_start_time < res->blocked_time)) {
                 VPRINT(this, 4, "pop queue: %d still blocked for %" PRIu64 "\n",
                        res->index,
                        res->blocked_time - (cur_time - res->blocked_start_time));
@@ -2643,6 +2643,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue_hold_locks(
                 // This input is no longer blocked.
                 res->blocked_time = 0;
                 res->unscheduled = false;
+                VPRINT(this, 4, "pop queue: %d @ %" PRIu64 " no longer blocked\n",
+                       res->index, cur_time);
                 // We've found a candidate.  One final check if this is a migration.
                 bool found_candidate = false;
                 if (from_output == for_output)
@@ -2655,7 +2657,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue_hold_locks(
                            from_output, for_output, cur_time, res->last_run_time,
                            cur_time - res->last_run_time,
                            options_.migration_threshold_us);
-                    // Guard against time going backward, which happens: i#6966.
+                    // Guard against time going backward (happens for wall-clock: i#6966).
                     if (options_.migration_threshold_us == 0 || res->last_run_time == 0 ||
                         (cur_time > res->last_run_time &&
                          cur_time - res->last_run_time >=
@@ -2681,6 +2683,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue_hold_locks(
     if (res == nullptr && !blocked.empty()) {
         // Do not hand out EOF thinking we're done: we still have inputs blocked
         // on i/o, so just wait and retry.
+        if (for_output != INVALID_OUTPUT_ORDINAL)
+            ++outputs_[for_output].idle_count;
         status = STATUS_IDLE;
     }
     // Re-add the ones we skipped, but without changing their counters so we preserve
@@ -2956,6 +2960,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input_as_previously(
         outputs_[output].waiting = true;
         outputs_[output].wait_start_time = get_output_time(output);
         outputs_[output].record_index->fetch_add(1, std::memory_order_release);
+        ++outputs_[output].idle_count;
         return sched_type_t::STATUS_IDLE;
     }
     index = segment.key.input;
@@ -3620,17 +3625,24 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
     // do return an error on a time smaller than an input's current start time when we
     // check for quantum end.
     if (cur_time == 0) {
-        // It's more efficient for QUANTUM_INSTRUCTIONS to get the time here instead of
-        // in get_output_time().  This also makes the two more similarly behaved with
-        // respect to blocking system calls.
-        // TODO i#6971: Use INSTRS_PER_US to replace .cur_time completely
-        // with a counter-based time, weighted appropriately for STATUS_IDLE.
-        cur_time = get_time_micros();
+        if (options_.mapping == MAP_AS_PREVIOUSLY) {
+            // XXX: Should we instead store the replay time (whether passed in or our
+            // instr-based formula below) in the records and do away with wall-clock
+            // time altogether?  Either way, we should make it clear in the docs
+            // whether the user/simulator has to pass in the time on replay.
+            cur_time = get_time_micros();
+        } else {
+            cur_time = 1 + outputs_[output].stream->get_output_instruction_ordinal() +
+                static_cast<uint64_t>(options_.time_units_per_idle *
+                                      outputs_[output].idle_count);
+        }
     }
     // Invalid values for cur_time are checked below.
     outputs_[output].cur_time->store(cur_time, std::memory_order_release);
-    if (!outputs_[output].active->load(std::memory_order_acquire))
+    if (!outputs_[output].active->load(std::memory_order_acquire)) {
+        ++outputs_[output].idle_count;
         return sched_type_t::STATUS_IDLE;
+    }
     if (outputs_[output].waiting) {
         if (options_.mapping == MAP_AS_PREVIOUSLY &&
             outputs_[output].wait_start_time > 0) {
@@ -4136,6 +4148,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::eof_or_idle(output_ordinal_t output,
     if (prev_input != INVALID_INPUT_ORDINAL)
         ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_IDLE];
     set_cur_input(output, INVALID_INPUT_ORDINAL);
+    ++outputs_[output].idle_count;
     return sched_type_t::STATUS_IDLE;
 }
 
