@@ -574,6 +574,7 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::init_dynamic_schedule()
     sched_ops.rebalance_period_us = op_sched_rebalance_period_us.get_value();
     sched_ops.randomize_next_input = op_sched_randomize.get_value();
     sched_ops.honor_direct_switches = !op_sched_disable_direct_switches.get_value();
+    sched_ops.exit_if_fraction_left = op_sched_exit_if_fraction_left.get_value();
 #ifdef HAS_ZIP
     if (!op_record_file.get_value().empty()) {
         record_schedule_zip_.reset(new zipfile_ostream_t(op_record_file.get_value()));
