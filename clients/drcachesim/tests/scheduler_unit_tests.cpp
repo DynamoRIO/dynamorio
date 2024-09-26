@@ -4836,7 +4836,7 @@ test_unscheduled_fallback()
         make_exit(TID_C),
     };
     {
-        // Test the defaults with direct switches enabled.
+        // Test with direct switches enabled and infinite timeouts.
         std::vector<scheduler_t::input_reader_t> readers;
         readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
                              std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
@@ -4871,6 +4871,47 @@ test_unscheduled_fallback()
         sched_ops.block_time_multiplier = BLOCK_SCALE;
         sched_ops.block_time_max_us = BLOCK_TIME_MAX;
         sched_ops.rebalance_period_us = BLOCK_TIME_MAX;
+        sched_ops.honor_infinite_timeouts = true;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<std::string> sched_as_string =
+            run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE, /*send_time=*/true);
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        }
+        assert(sched_as_string[0] == CORE0_SCHED_STRING);
+    }
+    {
+        // Test disabling infinite timeouts.
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_C)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_C);
+        // Here we see much shorter idle time before A and B finish.
+        static const char *const CORE0_SCHED_STRING =
+            "...AA.........B........CC.....__A....._____A._________B......B...._____BBBB."
+            "___________C.";
+
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/3);
+        sched_ops.quantum_duration_us = QUANTUM_DURATION;
+        // We use our mock's time==instruction count for a deterministic result.
+        sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
+        sched_ops.time_units_per_us = 1.;
+        sched_ops.blocking_switch_threshold = BLOCK_LATENCY;
+        sched_ops.block_time_multiplier = BLOCK_SCALE;
+        sched_ops.block_time_max_us = BLOCK_TIME_MAX;
+        sched_ops.rebalance_period_us = BLOCK_TIME_MAX;
+        sched_ops.honor_infinite_timeouts = false;
         scheduler_t scheduler;
         if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
             scheduler_t::STATUS_SUCCESS)
@@ -4974,7 +5015,7 @@ test_unscheduled_initially()
         make_exit(TID_B),
     };
     {
-        // Test the defaults with direct switches enabled.
+        // Test with infinite timeouts and direct switches enabled.
         std::vector<scheduler_t::input_reader_t> readers;
         readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
                              std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
@@ -4995,6 +5036,41 @@ test_unscheduled_initially()
         sched_ops.blocking_switch_threshold = BLOCK_LATENCY;
         sched_ops.block_time_multiplier = BLOCK_SCALE;
         sched_ops.block_time_max_us = BLOCK_TIME_MAX;
+        sched_ops.honor_infinite_timeouts = true;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<std::string> sched_as_string =
+            run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE, /*send_time=*/true);
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        }
+        assert(sched_as_string[0] == CORE0_SCHED_STRING);
+    }
+    {
+        // Test without infinite timeouts.
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
+        // We have a medium idle period before A becomes scheduleable.
+        static const char *const CORE0_SCHED_STRING =
+            "...B....._____.....A.__________________________________B....B.";
+
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/3);
+        sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
+        sched_ops.time_units_per_us = 1.;
+        sched_ops.blocking_switch_threshold = BLOCK_LATENCY;
+        sched_ops.block_time_multiplier = BLOCK_SCALE;
+        sched_ops.block_time_max_us = BLOCK_TIME_MAX;
+        sched_ops.honor_infinite_timeouts = false;
         scheduler_t scheduler;
         if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
             scheduler_t::STATUS_SUCCESS)
@@ -5230,6 +5306,7 @@ test_unscheduled_no_alternative()
     std::cerr << "\n----------------\nTesting unscheduled no alternative (i#6959)\n";
     static constexpr int NUM_OUTPUTS = 1;
     static constexpr uint64_t REBALANCE_PERIOD_US = 50;
+    static constexpr uint64_t BLOCK_TIME_MAX = 200;
     static constexpr memref_tid_t TID_A = 100;
     std::vector<trace_entry_t> refs_A = {
         make_thread(TID_A),
@@ -5249,6 +5326,7 @@ test_unscheduled_no_alternative()
         make_exit(TID_A),
     };
     {
+        // Test infinite timeouts.
         std::vector<scheduler_t::input_reader_t> readers;
         readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
                              std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
@@ -5265,6 +5343,38 @@ test_unscheduled_no_alternative()
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
         sched_ops.time_units_per_us = 1.;
         sched_ops.rebalance_period_us = REBALANCE_PERIOD_US;
+        sched_ops.block_time_max_us = BLOCK_TIME_MAX;
+        sched_ops.honor_infinite_timeouts = true;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<std::string> sched_as_string =
+            run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_A, /*send_time=*/true);
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        }
+        assert(sched_as_string[0] == CORE0_SCHED_STRING);
+    }
+    {
+        // Test finite timeouts.
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
+        static const char *const CORE0_SCHED_STRING = "...A......____________________A.";
+
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/3);
+        // We use our mock's time==instruction count for a deterministic result.
+        sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
+        sched_ops.time_units_per_us = 1.;
+        sched_ops.rebalance_period_us = REBALANCE_PERIOD_US;
+        sched_ops.block_time_max_us = BLOCK_TIME_MAX;
+        sched_ops.honor_infinite_timeouts = false;
         scheduler_t scheduler;
         if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
             scheduler_t::STATUS_SUCCESS)
@@ -5785,6 +5895,8 @@ test_rebalancing()
     static constexpr int NUM_INSTRS = QUANTUM_DURATION * 3;
     static constexpr int REBALANCE_PERIOD = NUM_OUTPUTS * 20 * NUM_INPUTS_UNSCHED;
     static constexpr int MIGRATION_THRESHOLD = QUANTUM_DURATION;
+    // Keep unscheduled for longer.
+    static constexpr uint64_t BLOCK_TIME_MAX = 250000;
     static constexpr memref_tid_t TID_BASE = 100;
     static constexpr memref_tid_t TID_A = TID_BASE + 0;
     static constexpr memref_tid_t TID_B = TID_BASE + 1;
@@ -5865,6 +5977,7 @@ test_rebalancing()
     sched_ops.block_time_multiplier = BLOCK_SCALE;
     sched_ops.migration_threshold_us = MIGRATION_THRESHOLD;
     sched_ops.rebalance_period_us = REBALANCE_PERIOD;
+    sched_ops.block_time_max_us = BLOCK_TIME_MAX;
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
         scheduler_t::STATUS_SUCCESS)
