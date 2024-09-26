@@ -463,12 +463,12 @@
  * they just need to know whether they need to preserve the app's flags, so maybe
  * we can just document that this may not write them.
  */
-#define XINST_CREATE_slr_s(dc, d, rm_or_imm)                                          \
-    (opnd_is_reg(rm_or_imm)                                                           \
-         ? instr_create_1dst_2src(dc, OP_lsrv, d, d, rm_or_imm)                       \
-         : instr_create_1dst_3src(dc, OP_ubfm, d, d, rm_or_imm,                       \
-                                  reg_is_32bit(opnd_get_reg(d)) ? OPND_CREATE_INT(31) \
-                                                                : OPND_CREATE_INT(63)))
+#define XINST_CREATE_slr_s(dc, d, rm_or_imm)                                     \
+    (opnd_is_reg(rm_or_imm)                                                      \
+         ? instr_create_1dst_2src(dc, OP_lsrv, d, d, rm_or_imm)                  \
+         : INSTR_CREATE_ubfm(dc, d, d, rm_or_imm,                                \
+                             reg_is_32bit(opnd_get_reg(d)) ? OPND_CREATE_INT(31) \
+                                                           : OPND_CREATE_INT(63)))
 
 /**
  * This platform-independent macro creates an instr_t for a nop instruction.
@@ -658,6 +658,15 @@
     instr_create_0dst_3src((dc), OP_tbnz, (pc), (reg), (imm))
 #define INSTR_CREATE_cmp(dc, rn, rm_or_imm) \
     INSTR_CREATE_subs(dc, OPND_CREATE_ZR(rn), rn, rm_or_imm)
+
+/**
+ * Creates an EOR instruction with one output and two inputs. For simplicity, the first
+ * input reuses the output register.
+ *
+ * \param dc        The void * dcontext used to allocate memory for the instr_t.
+ * \param d         The output register and the first input register.
+ * \param s_or_imm  The second input register or immediate.
+ */
 #define INSTR_CREATE_eor(dc, d, s_or_imm)                                            \
     opnd_is_immed(s_or_imm)                                                          \
         ? instr_create_1dst_2src(dc, OP_eor, d, d, s_or_imm)                         \
@@ -667,10 +676,30 @@
     instr_create_1dst_4src(dc, OP_eor, rd, rn,                                       \
                            opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_SHIFTED), \
                            opnd_add_flags(sht, DR_OPND_IS_SHIFT), sha)
+
+/**
+ * Creates a CSINC instruction with one output and three inputs.
+ *
+ * \param dc   The void * dcontext used to allocate memory for the instr_t.
+ * \param rd   The output register.
+ * \param rn   The first input register.
+ * \param rm   The second input register.
+ * \param cond The third input condition code.
+ */
 #define INSTR_CREATE_csinc(dc, rd, rn, rm, cond) \
     instr_create_1dst_3src(dc, OP_csinc, rd, rn, rm, cond)
-#define INSTR_CREATE_ubfm(dc, rd, rn, lsb, width) \
-    instr_create_1dst_3src(dc, OP_ubfm, rd, rn, lsb, width)
+
+/**
+ * Creates an UBFM instruction with one output and three inputs.
+ *
+ * \param dc   The void * dcontext used to allocate memory for the instr_t.
+ * \param rd   The output register.
+ * \param rn   The first input register.
+ * \param immr The second input immediate.
+ * \param imms The third input immediate.
+ */
+#define INSTR_CREATE_ubfm(dc, rd, rn, immr, imms) \
+    instr_create_1dst_3src(dc, OP_ubfm, rd, rn, immr, imms)
 
 #define INSTR_CREATE_ldp(dc, rt1, rt2, mem) \
     instr_create_2dst_1src(dc, OP_ldp, rt1, rt2, mem)
