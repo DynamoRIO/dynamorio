@@ -3478,6 +3478,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::process_marker(input_info_t &input,
         input.unscheduled = true;
         if (input.syscall_timeout_arg > 0) {
             input.blocked_time = scale_blocked_time(input.syscall_timeout_arg);
+            // Clamp at 1 since 0 means an infinite timeout for unscheduled=true.
+            if (input.blocked_time == 0)
+                input.blocked_time = 1;
             input.blocked_start_time = get_output_time(output);
             VPRINT(this, 3, "input %d unscheduled for %" PRIu64 " @%" PRIu64 "\n",
                    input.index, input.blocked_time, input.reader->get_last_timestamp());
@@ -3506,6 +3509,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::process_marker(input_info_t &input,
         input.unscheduled = true;
         if (input.syscall_timeout_arg > 0) {
             input.blocked_time = scale_blocked_time(input.syscall_timeout_arg);
+            // Clamp at 1 since 0 means an infinite timeout for unscheduled=true.
+            if (input.blocked_time == 0)
+                input.blocked_time = 1;
             input.blocked_start_time = get_output_time(output);
             VPRINT(this, 3, "input %d unscheduled for %" PRIu64 " @%" PRIu64 "\n",
                    input.index, input.blocked_time, input.reader->get_last_timestamp());
