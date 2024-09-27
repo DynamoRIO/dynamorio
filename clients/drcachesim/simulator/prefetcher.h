@@ -51,7 +51,7 @@ public:
     {
     }
     virtual void
-    prefetch(caching_device_t *cache, const memref_t &memref);
+    prefetch(caching_device_t *cache, const memref_t &memref, bool missed);
 
 protected:
     int block_size_;

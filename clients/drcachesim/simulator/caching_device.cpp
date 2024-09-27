@@ -240,8 +240,8 @@ caching_device_t::request(const memref_t &memref_in)
 
         // Issue a hardware prefetch, if any, before we remember the last tag,
         // so we remember this line and not the prefetched line.
-        if (missed && !type_is_prefetch(memref.data.type) && prefetcher_ != nullptr)
-            prefetcher_->prefetch(this, memref);
+        if (prefetcher_ != nullptr)
+            prefetcher_->prefetch(this, memref, missed);
 
         if (tag + 1 <= final_tag) {
             addr_t next_addr = (tag + 1) << block_size_bits_;

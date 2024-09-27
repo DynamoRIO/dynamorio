@@ -48,13 +48,15 @@ prefetcher_t::prefetcher_t(int block_size)
 }
 
 void
-prefetcher_t::prefetch(caching_device_t *cache, const memref_t &memref_in)
+prefetcher_t::prefetch(caching_device_t *cache, const memref_t &memref_in, const bool missed)
 {
     // We implement a simple next-line prefetcher.
-    memref_t memref = memref_in;
-    memref.data.addr += block_size_;
-    memref.data.type = TRACE_TYPE_HARDWARE_PREFETCH;
-    cache->request(memref);
+    if (missed && !type_is_prefetch(memref_in.data.type)) {
+      memref_t memref = memref_in;
+      memref.data.addr += block_size_;
+      memref.data.type = TRACE_TYPE_HARDWARE_PREFETCH;
+      cache->request(memref);
+    }
 }
 } // namespace drmemtrace
 } // namespace dynamorio

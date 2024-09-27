@@ -327,15 +327,17 @@ private:
         {
         }
         void
-        prefetch(caching_device_t *cache, const memref_t &memref_in)
+        prefetch(caching_device_t *cache, const memref_t &memref_in, const bool missed)
         {
-            // We implement a simple 2 next-line prefetcher.
-            memref_t memref = memref_in;
-            memref.data.addr += block_size_;
-            memref.data.type = TRACE_TYPE_HARDWARE_PREFETCH;
-            cache->request(memref);
-            memref.data.addr += block_size_;
-            cache->request(memref);
+            // We implement a simple 2 next-line prefetcher.i
+            if (missed && !type_is_prefetch(memref_in.data.type)) {
+              memref_t memref = memref_in;
+              memref.data.addr += block_size_;
+              memref.data.type = TRACE_TYPE_HARDWARE_PREFETCH;
+              cache->request(memref);
+              memref.data.addr += block_size_;
+              cache->request(memref);
+            }
         }
     };
 };
