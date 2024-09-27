@@ -91,7 +91,7 @@ jobs:
 
     # Use a newer cmake to avoid 32-bit toolchain problems (i#4830).
     - name: Setup newer cmake
-      uses: jwlawson/actions-setup-cmake@v1.8
+      uses: jwlawson/actions-setup-cmake@v2
       with:
         cmake-version: '3.19.7'
 
