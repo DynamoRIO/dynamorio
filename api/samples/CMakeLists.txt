@@ -265,10 +265,12 @@ if (X86) # FIXME i#1551, i#1569, i#3544: port to ARM/AArch64/RISCV64
   add_sample_client(modxfer     "modxfer.c;utils.c"     "drmgr;drreg;drx")
   add_sample_client(modxfer_app2lib "modxfer_app2lib.c" "drmgr")
   add_sample_client(instrcalls  "instrcalls.c;utils.c"  "drmgr;drsyms;drx")
-  # dr_insert_cbr_instrument_ex is NYI
-  add_sample_client(cbrtrace    "cbrtrace.c;utils.c"    "drmgr;drx")
   add_sample_client(hot_bbcount "hot_bbcount.c"         "drmgr;drreg;drbbdup;drx")
 endif (X86)
+if (X86 OR AARCH64)
+  # dr_insert_cbr_instrument_ex is NYI
+  add_sample_client(cbrtrace    "cbrtrace.c;utils.c"    "drmgr;drx")
+endif (X86 OR AARCH64)
 add_sample_client(wrap        "wrap.c"          "drmgr;drwrap")
 add_sample_client(signal      "signal.c"        "drmgr")
 add_sample_client(syscall     "syscall.c"       "drmgr")
