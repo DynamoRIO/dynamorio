@@ -5172,7 +5172,8 @@ test_unscheduled_small_timeout()
     // Test that a small timeout scaled to 0 does not turn into an infinite timeout.
     std::cerr << "\n----------------\nTesting unscheduled input with small timeout\n";
     static constexpr int NUM_OUTPUTS = 1;
-    static constexpr int WAIT_TIMEOUT = 5;
+    // 4*0.1 rounds to 0 (the scheduler's cast rounds any fraction down).
+    static constexpr int WAIT_TIMEOUT = 4;
     static constexpr double BLOCK_SCALE = 0.1;
     static constexpr memref_tid_t TID_A = 100;
     std::vector<trace_entry_t> refs_A = {
