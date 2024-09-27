@@ -558,7 +558,7 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::init_dynamic_schedule()
         op_sched_order_time.get_value() ? sched_type_t::DEPENDENCY_TIMESTAMPS
                                         : sched_type_t::DEPENDENCY_IGNORE,
         sched_type_t::SCHEDULER_DEFAULTS, op_verbose.get_value());
-    sched_ops.time_units_per_us = op_sched_time_per_us.get_value();
+    sched_ops.time_units_per_us = op_sched_time_units_per_us.get_value();
     if (op_sched_time.get_value()) {
         sched_ops.quantum_unit = sched_type_t::QUANTUM_TIME;
         sched_ops.quantum_duration_us = op_sched_quantum.get_value();
@@ -571,7 +571,6 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::init_dynamic_schedule()
     sched_ops.block_time_max_us = op_sched_block_max_us.get_value();
     sched_ops.migration_threshold_us = op_sched_migration_threshold_us.get_value();
     sched_ops.rebalance_period_us = op_sched_rebalance_period_us.get_value();
-    sched_ops.time_units_per_us = op_sched_time_units_per_us.get_value();
     sched_ops.randomize_next_input = op_sched_randomize.get_value();
     sched_ops.honor_direct_switches = !op_sched_disable_direct_switches.get_value();
 #ifdef HAS_ZIP
