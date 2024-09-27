@@ -6411,6 +6411,7 @@ dr_insert_cbr_instrumentation_help(void *drcontext, instrlist_t *ilist, instr_t 
     /* Compute branch direction. */
     opc = instr_get_opcode(instr);
     if (opc == OP_cbnz || opc == OP_cbz) {
+        /* XXX: which is faster, additional conditional branch or cmp + csinc? */
         opnd_t reg_op = instr_get_src(instr, 1);
         reg_id_t reg = opnd_get_reg(reg_op);
         /* Use dir register to compute direction. */
