@@ -690,7 +690,7 @@
     instr_create_1dst_3src(dc, OP_csinc, rd, rn, rm, cond)
 
 /**
- * Creates an UBFM instruction with one output and three inputs.
+ * Creates a UBFM instruction with one output and three inputs.
  *
  * \param dc   The void * dcontext used to allocate memory for the instr_t.
  * \param rd   The output register.
