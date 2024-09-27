@@ -51,6 +51,7 @@ main()
 #else /* asm code *************************************************************/
 #    include "asm_defines.asm"
 /* clang-format off */
+#ifdef X86
 START_FILE
 
 #define FUNCNAME test_jecxz
@@ -95,5 +96,35 @@ GLOBAL_LABEL(FUNCNAME:)
 
 
 END_FILE
+#elif defined(AARCH64)
+START_FILE
+
+#define FUNCNAME test_jecxz
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        mov      x1, ARG1
+        END_PROLOG
+
+        /* test cbnz */
+        mov      x1, 0
+        cbz      x1, jecxz_taken
+        nop
+     jecxz_taken:
+        mov      x1, 1
+        cbz      x1, jecxz_taken
+        nop
+     jecxz_not_taken:
+        nop
+
+        /* test x0 being preserved */
+        ldr      x1, =0xabcd1234
+        str      x1, [x0]
+
+        ret
+        END_FUNC(FUNCNAME)
+
+
+END_FILE
+#endif
 /* clang-format on */
 #endif
