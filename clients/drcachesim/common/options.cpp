@@ -904,11 +904,6 @@ droption_t<bool> op_core_serial(
     "How the scheduling is performed is controlled by a set "
     "of options with the prefix \"sched_\" along with -cores.");
 
-droption_t<double>
-    op_sched_time_per_us(DROPTION_SCOPE_ALL, "sched_time_per_us", 1000.,
-                         "Wall-clock microseconds per simulated microsecond",
-                         "Wall-clock microseconds per simulated microsecond.");
-
 droption_t<int64_t>
     // We pick 10 million to match 2 instructions per nanosecond with a 5ms quantum.
     op_sched_quantum(DROPTION_SCOPE_ALL, "sched_quantum", 10 * 1000 * 1000,
