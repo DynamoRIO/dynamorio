@@ -313,13 +313,6 @@ unit_test_nextline_prefetcher()
 
 class next2line_prefetcher_factory_t : public prefetcher_factory_t {
 public:
-    prefetcher_t *
-    create_prefetcher(int block_size) override
-    {
-        return new next2line_prefetcher_t(block_size);
-    }
-
-private:
     class next2line_prefetcher_t : public prefetcher_t {
     public:
         next2line_prefetcher_t(int block_size)
@@ -329,17 +322,31 @@ private:
         void
         prefetch(caching_device_t *cache, const memref_t &memref_in, const bool missed)
         {
-            // We implement a simple 2 next-line prefetcher.i
-            if (missed && !type_is_prefetch(memref_in.data.type)) {
+            // We implement a simple 2 next-line prefetcher.
+            // We also track whether inputs are hits or misses for testing.
+            if (missed) {
+                misses_++;
                 memref_t memref = memref_in;
                 memref.data.addr += block_size_;
                 memref.data.type = TRACE_TYPE_HARDWARE_PREFETCH;
                 cache->request(memref);
                 memref.data.addr += block_size_;
                 cache->request(memref);
+            } else {
+                hits_++;
             }
         }
+      int hits_ = 0;
+      int misses_ = 0;
     };
+
+    next2line_prefetcher_t *
+    create_prefetcher(int block_size) override
+    {
+        prefetcher_ = new next2line_prefetcher_t(block_size);
+        return prefetcher_;
+    }
+    next2line_prefetcher_t * prefetcher_;
 };
 
 void
@@ -363,6 +370,8 @@ unit_test_custom_prefetcher()
 
     assert(nextline_cache_sim.get_cache_metric(metric_name_t::MISSES, 1, 0) ==
            EXPECTED_MISSES_NEXT2LINE_PREFETCHER);
+    assert(next2line_prefetcher_factory.prefetcher_->hits_ == 4);
+    assert(next2line_prefetcher_factory.prefetcher_->misses_ == 2);
 }
 void
 unit_test_child_hits()

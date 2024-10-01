@@ -240,7 +240,7 @@ caching_device_t::request(const memref_t &memref_in)
 
         // Issue a hardware prefetch, if any, before we remember the last tag,
         // so we remember this line and not the prefetched line.
-        if (prefetcher_ != nullptr)
+        if (prefetcher_ != nullptr && !type_is_prefetch(memref_in.data.type))
             prefetcher_->prefetch(this, memref, missed);
 
         if (tag + 1 <= final_tag) {

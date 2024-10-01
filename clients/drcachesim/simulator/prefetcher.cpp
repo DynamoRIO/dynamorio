@@ -52,7 +52,7 @@ prefetcher_t::prefetch(caching_device_t *cache, const memref_t &memref_in,
                        const bool missed)
 {
     // We implement a simple next-line prefetcher.
-    if (missed && !type_is_prefetch(memref_in.data.type)) {
+    if (missed) {
         memref_t memref = memref_in;
         memref.data.addr += block_size_;
         memref.data.type = TRACE_TYPE_HARDWARE_PREFETCH;
