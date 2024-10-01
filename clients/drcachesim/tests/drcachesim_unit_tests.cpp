@@ -336,8 +336,8 @@ public:
                 hits_++;
             }
         }
-      int hits_ = 0;
-      int misses_ = 0;
+        int hits_ = 0;
+        int misses_ = 0;
     };
 
     next2line_prefetcher_t *
@@ -346,7 +346,7 @@ public:
         prefetcher_ = new next2line_prefetcher_t(block_size);
         return prefetcher_;
     }
-    next2line_prefetcher_t * prefetcher_;
+    next2line_prefetcher_t *prefetcher_;
 };
 
 void
