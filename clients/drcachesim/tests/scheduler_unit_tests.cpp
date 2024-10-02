@@ -2481,103 +2481,6 @@ test_synthetic_with_syscalls_idle()
 }
 
 static void
-test_synthetic_with_syscalls_idle_factor()
-{
-    std::cerr << "\n----------------\nTesting idle factor\n";
-    static constexpr int NUM_INPUTS = 3;
-    static constexpr int NUM_OUTPUTS = 2;
-    static constexpr int NUM_INSTRS = 9;
-    static constexpr memref_tid_t TID_BASE = 100;
-    static constexpr uint64_t START_TIME = 100;
-    static constexpr int BLOCK_WAIT = 1000;
-    static constexpr double BLOCK_SCALE = 50. / (BLOCK_WAIT);
-    std::vector<trace_entry_t> inputs[NUM_INPUTS];
-    for (int i = 0; i < NUM_INPUTS; i++) {
-        memref_tid_t tid = TID_BASE + i;
-        inputs[i].push_back(make_thread(tid));
-        inputs[i].push_back(make_pid(1));
-        inputs[i].push_back(make_version(TRACE_ENTRY_VERSION));
-        inputs[i].push_back(make_timestamp(START_TIME)); // All the same time priority.
-        for (int j = 0; j < NUM_INSTRS; j++) {
-            inputs[i].push_back(make_instr(42 + j * 4));
-            // Include blocking syscalls.
-            if (j == 1) {
-                inputs[i].push_back(make_timestamp(START_TIME * 2));
-                inputs[i].push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, 42));
-                inputs[i].push_back(
-                    make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0));
-                inputs[i].push_back(make_timestamp(START_TIME * 2 + BLOCK_WAIT));
-            }
-        }
-        inputs[i].push_back(make_exit(tid));
-    }
-    {
-        // Test one idle == one time unit.
-        std::vector<scheduler_t::input_workload_t> sched_inputs;
-        std::vector<scheduler_t::input_reader_t> readers;
-        for (int i = 0; i < NUM_INPUTS; i++) {
-            readers.emplace_back(
-                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
-                std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_BASE + i);
-        }
-        sched_inputs.emplace_back(std::move(readers));
-        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
-                                                   scheduler_t::DEPENDENCY_IGNORE,
-                                                   scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
-        sched_ops.block_time_multiplier = BLOCK_SCALE;
-        sched_ops.time_units_per_us = 1.;
-        sched_ops.time_units_per_idle = 1.;
-        scheduler_t scheduler;
-        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
-            scheduler_t::STATUS_SUCCESS)
-            assert(false);
-        std::vector<std::string> sched_as_string =
-            run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE);
-        for (int i = 0; i < NUM_OUTPUTS; i++) {
-            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
-        }
-        assert(sched_as_string[0] ==
-               "..AA......CC....________________________________________________AAAAAAA."
-               "CCCCCCC.");
-        assert(sched_as_string[1] ==
-               "..BB....__________________________________________________BBBBBBB._______"
-               "_______");
-    }
-    {
-        // Now test one idle == multiple time units.
-        std::vector<scheduler_t::input_workload_t> sched_inputs;
-        std::vector<scheduler_t::input_reader_t> readers;
-        for (int i = 0; i < NUM_INPUTS; i++) {
-            readers.emplace_back(
-                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
-                std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_BASE + i);
-        }
-        sched_inputs.emplace_back(std::move(readers));
-        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
-                                                   scheduler_t::DEPENDENCY_IGNORE,
-                                                   scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
-        sched_ops.block_time_multiplier = BLOCK_SCALE;
-        sched_ops.time_units_per_us = 1.;
-        sched_ops.time_units_per_idle = 5.;
-        scheduler_t scheduler;
-        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
-            scheduler_t::STATUS_SUCCESS)
-            assert(false);
-        std::vector<std::string> sched_as_string =
-            run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE);
-        for (int i = 0; i < NUM_OUTPUTS; i++) {
-            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
-        }
-        // Time now moves more quickly when idle, resulting in fewer idle entries
-        // than above.
-        assert(sched_as_string[0] == "..AA......CC....__________AAAAAAA.CCCCCCC.");
-        assert(sched_as_string[1] == "..BB....__________BBBBBBB.________________");
-    }
-}
-
-static void
 test_synthetic_with_syscalls()
 {
     test_synthetic_with_syscalls_multiple();
@@ -2585,7 +2488,6 @@ test_synthetic_with_syscalls()
     test_synthetic_with_syscalls_precise();
     test_synthetic_with_syscalls_latencies();
     test_synthetic_with_syscalls_idle();
-    test_synthetic_with_syscalls_idle_factor();
 }
 
 #if (defined(X86_64) || defined(ARM_64)) && defined(HAS_ZIP)

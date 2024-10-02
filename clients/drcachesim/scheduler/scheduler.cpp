@@ -3665,8 +3665,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
             cur_time = get_time_micros();
         } else {
             cur_time = 1 + outputs_[output].stream->get_output_instruction_ordinal() +
-                static_cast<uint64_t>(options_.time_units_per_idle *
-                                      outputs_[output].idle_count);
+                outputs_[output].idle_count;
         }
     }
     // Invalid values for cur_time are checked below.

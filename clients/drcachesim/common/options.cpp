@@ -1034,12 +1034,6 @@ droption_t<uint64_t> op_sched_rebalance_period_us(
     "The period in simulated microseconds at which per-core run queues are re-balanced "
     "to redistribute load.");
 
-droption_t<double> op_sched_time_units_per_idle(
-    DROPTION_SCOPE_ALL, "sched_time_units_per_idle", 5.,
-    "Idle count assumed to equal one instruction",
-    "Idle count assumed to equal one instruction when an estimated simulated time is "
-    "constructed from the instruction count. Applies to -core_sharded and -core_serial.");
-
 // Schedule_stats options.
 droption_t<uint64_t>
     op_schedule_stats_print_every(DROPTION_SCOPE_ALL, "schedule_stats_print_every",

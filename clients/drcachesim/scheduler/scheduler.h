@@ -740,8 +740,8 @@ public:
          * #quantum_duration_us) so that they operate on the right time scale for the
          * passed-in simulator time (or wall-clock microseconds if no time is passed).
          * The default value is a rough estimate when no accurate simulated time is
-         * available: the instruction count is used in that case, and we assume 1000
-         * instructions per microsecond for a 2GHz clock at 0.5 IPC.
+         * available: the instruction count is used in that case, and we use the
+         * instructions per microsecond for a 2GHz clock at 0.5 IPC as our default.
          */
         double time_units_per_us = 1000.;
         /**
@@ -808,14 +808,6 @@ public:
          * (#block_time_max_us) scaled by #block_time_multiplier.
          */
         bool honor_infinite_timeouts = false;
-        /**
-         * If no time is passed to next_record() (typically with #QUANTUM_INSTRUCTIONS),
-         * the instruction count is added to the product of the idle count and this
-         * factor.  This can account for a different relative speed of processing an idle
-         * result as opposed to an actual instruction or can account for a yield or
-         * other action taken in response to an idle result.
-         */
-        double time_units_per_idle = 5.;
     };
 
     /**
@@ -873,7 +865,8 @@ public:
         // diminished.
         /**
          * Advances to the next record in the stream.  Returns a status code on whether
-         * and how to continue.
+         * and how to continue.  Uses the instruction count plus idle count to this point
+         * as the time; use the variant that takes "cur_time" to instead provide a time.
          */
         virtual stream_status_t
         next_record(RecordType &record);
@@ -883,7 +876,7 @@ public:
          * and how to continue.  Supplies the current time for #QUANTUM_TIME.  The time
          * should be considered to be the simulated time prior to processing the returned
          * record.  The time's units can be chosen by the caller, with
-         * #scheduler_options_t.time_units_per_us
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::scheduler_options_t.time_units_per_us
          * providing the conversion to simulated microseconds.  #STATUS_INVALID is
          * returned if 0 or a value smaller than the start time of the current input's
          * quantum is passed in when #QUANTUM_TIME and #MAP_TO_ANY_OUTPUT are specified.
