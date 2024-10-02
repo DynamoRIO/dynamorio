@@ -424,6 +424,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                                    'code_api|tool.drcacheoff.burst_threadL0filter' => 1,
                                    'code_api|tool.drcacheoff.burst_threadfilter' => 1,
                                    'code_api|api.static_signal' => 1,
+                                   'code_api|tool.drcachesim.drstatecmp-fuzz' => 1, # i#6944
                                    );
             # Establish if tests are running on SVE hardware.
             system('cat /proc/cpuinfo | grep Features | head -1 | grep sve > /dev/null');
