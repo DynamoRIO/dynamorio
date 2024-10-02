@@ -1009,11 +1009,11 @@ droption_t<bool> op_sched_disable_direct_switches(
 
 droption_t<bool> op_sched_infinite_timeouts(
     DROPTION_SCOPE_FRONTEND, "sched_infinite_timeouts", false,
-    "Whether unscheduled-indefinitely means infinite",
+    "Whether unscheduled-indefinitely means never scheduled",
     "Applies to -core_sharded and -core_serial.  Determines whether an "
-    "unscheduled-indefinitely input really is unscheduled for an infinite time, or "
-    "instead is treated as blocked for the maxiumim time (scaled by the regualr block "
-    "scale).");
+    "unscheduled-indefinitely input really is never scheduled (set to true), or instead "
+    "is treated as blocked for the maximum time (scaled by the regular block scale) "
+    "(set to false).");
 
 droption_t<double> op_sched_time_units_per_us(
     DROPTION_SCOPE_ALL, "sched_time_units_per_us", 100.,
