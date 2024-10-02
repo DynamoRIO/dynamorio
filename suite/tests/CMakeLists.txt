@@ -6514,3 +6514,11 @@ if (UNIX AND X86 AND CPU_AMD AND NOT DR_HOST_X64)
     code_api|tool.record_filter_bycore_multi
     code_api|tool.record_filter_bycore_uni)
 endif ()
+
+# TODO i#6944: drcachesim.drstatecmp-fuzz randomizes the last 8 bits of
+# instructions which results in invalid instructions causing illegal
+# instruction error. Skip the test until we have a fix for it.
+if (UNIX AND AARCH64)
+  set_labels_on_known_tests(AARCH64_DENYLIST
+    code_api|tool.drcachesim.drstatecmp-fuzz)
+endif ()
