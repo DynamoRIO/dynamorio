@@ -569,6 +569,7 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::init_dynamic_schedule()
     sched_ops.blocking_switch_threshold = op_sched_blocking_switch_us.get_value();
     sched_ops.block_time_multiplier = op_sched_block_scale.get_value();
     sched_ops.block_time_max_us = op_sched_block_max_us.get_value();
+    sched_ops.honor_infinite_timeouts = op_sched_infinite_timeouts.get_value();
     sched_ops.migration_threshold_us = op_sched_migration_threshold_us.get_value();
     sched_ops.rebalance_period_us = op_sched_rebalance_period_us.get_value();
     sched_ops.randomize_next_input = op_sched_randomize.get_value();

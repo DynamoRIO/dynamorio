@@ -1007,6 +1007,14 @@ droption_t<bool> op_sched_disable_direct_switches(
     "switch being determined by latency and the next input in the queue.  The "
     "TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH markers are not removed from the trace.");
 
+droption_t<bool> op_sched_infinite_timeouts(
+    DROPTION_SCOPE_FRONTEND, "sched_infinite_timeouts", false,
+    "Whether unscheduled-indefinitely means never scheduled",
+    "Applies to -core_sharded and -core_serial.  Determines whether an "
+    "unscheduled-indefinitely input really is never scheduled (set to true), or instead "
+    "is treated as blocked for the maximum time (scaled by the regular block scale) "
+    "(set to false).");
+
 droption_t<double> op_sched_time_units_per_us(
     DROPTION_SCOPE_ALL, "sched_time_units_per_us", 100.,
     "Time units per simulated microsecond",
