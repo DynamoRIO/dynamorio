@@ -725,8 +725,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::print_configuration()
            options_.rebalance_period_us);
     VPRINT(this, 1, "  %-25s : %d\n", "honor_infinite_timeouts",
            options_.honor_infinite_timeouts);
-    VPRINT(this, 1, "  %-25s : %f\n", "exit_if_fraction_left",
-           options_.exit_if_fraction_left);
+    VPRINT(this, 1, "  %-25s : %f\n", "exit_if_fraction_inputs_left",
+           options_.exit_if_fraction_inputs_left);
 }
 
 template <typename RecordType, typename ReaderType>
@@ -1029,8 +1029,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::legacy_field_support()
         error_string_ = "block_time_max_us must be > 0";
         return STATUS_ERROR_INVALID_PARAMETER;
     }
-    if (options_.exit_if_fraction_left < 0. || options_.exit_if_fraction_left > 1.) {
-        error_string_ = "exit_if_fraction_left must be 0..1";
+    if (options_.exit_if_fraction_inputs_left < 0. ||
+        options_.exit_if_fraction_inputs_left > 1.) {
+        error_string_ = "exit_if_fraction_inputs_left must be 0..1";
         return STATUS_ERROR_INVALID_PARAMETER;
     }
     return STATUS_SUCCESS;
@@ -4194,14 +4195,15 @@ scheduler_tmpl_t<RecordType, ReaderType>::mark_input_eof(input_info_t &input)
     if (input.at_eof)
         return sched_type_t::STATUS_OK;
     input.at_eof = true;
-    assert(live_input_count_.load(std::memory_order_acquire) > 0);
-    live_input_count_.fetch_add(-1, std::memory_order_release);
+    int old_count = live_input_count_.fetch_add(-1, std::memory_order_release);
+    assert(old_count > 0);
     int live_inputs = live_input_count_.load(std::memory_order_acquire);
     VPRINT(this, 2, "input %d at eof; %d live inputs left\n", input.index, live_inputs);
     if (options_.mapping == MAP_TO_ANY_OUTPUT &&
         live_inputs <=
-            static_cast<int>(inputs_.size() * options_.exit_if_fraction_left)) {
-        VPRINT(this, 1, "exiting early at input %d\n", input.index);
+            static_cast<int>(inputs_.size() * options_.exit_if_fraction_inputs_left)) {
+        VPRINT(this, 1, "exiting early at input %d with %d live inputs left\n",
+               input.index, live_inputs);
         return sched_type_t::STATUS_EOF;
     }
     return sched_type_t::STATUS_OK;
@@ -4227,8 +4229,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::eof_or_idle(output_ordinal_t output,
     }
     if (options_.mapping == MAP_TO_ANY_OUTPUT &&
         live_inputs <=
-            static_cast<int>(inputs_.size() * options_.exit_if_fraction_left)) {
-        VPRINT(this, 1, "output %d exiting early\n", output);
+            static_cast<int>(inputs_.size() * options_.exit_if_fraction_inputs_left)) {
+        VPRINT(this, 1, "output %d exiting early with %d live inputs left\n", output,
+               live_inputs);
         return sched_type_t::STATUS_EOF;
     }
     // Before going idle, try to steal work from another output.
