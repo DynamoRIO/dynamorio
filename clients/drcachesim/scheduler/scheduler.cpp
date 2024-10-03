@@ -671,6 +671,63 @@ scheduler_tmpl_t<RecordType, ReaderType>::stream_t::set_active(bool active)
  */
 
 template <typename RecordType, typename ReaderType>
+void
+scheduler_tmpl_t<RecordType, ReaderType>::print_configuration()
+{
+    VPRINT(this, 1, "Scheduler configuration:\n");
+    VPRINT(this, 1, "  %-25s : %zu\n", "Inputs", inputs_.size());
+    VPRINT(this, 1, "  %-25s : %zu\n", "Outputs", outputs_.size());
+    VPRINT(this, 1, "  %-25s : %d\n", "mapping", options_.mapping);
+    VPRINT(this, 1, "  %-25s : %d\n", "deps", options_.deps);
+    VPRINT(this, 1, "  %-25s : 0x%08x\n", "flags", options_.flags);
+    VPRINT(this, 1, "  %-25s : %d\n", "quantum_unit", options_.quantum_unit);
+    VPRINT(this, 1, "  %-25s : %" PRIu64 "\n", "quantum_duration",
+           options_.quantum_duration);
+    VPRINT(this, 1, "  %-25s : %d\n", "verbosity", options_.verbosity);
+    VPRINT(this, 1, "  %-25s : %p\n", "schedule_record_ostream",
+           options_.schedule_record_ostream);
+    VPRINT(this, 1, "  %-25s : %p\n", "schedule_replay_istream",
+           options_.schedule_replay_istream);
+    VPRINT(this, 1, "  %-25s : %p\n", "replay_as_traced_istream",
+           options_.replay_as_traced_istream);
+    VPRINT(this, 1, "  %-25s : %" PRIu64 "\n", "syscall_switch_threshold",
+           options_.syscall_switch_threshold);
+    VPRINT(this, 1, "  %-25s : %" PRIu64 "\n", "blocking_switch_threshold",
+           options_.blocking_switch_threshold);
+    VPRINT(this, 1, "  %-25s : %f\n", "block_time_scale", options_.block_time_scale);
+    VPRINT(this, 1, "  %-25s : %" PRIu64 "\n", "block_time_max", options_.block_time_max);
+    VPRINT(this, 1, "  %-25s : %s\n", "kernel_switch_trace_path",
+           options_.kernel_switch_trace_path.c_str());
+    VPRINT(this, 1, "  %-25s : %p\n", "kernel_switch_reader",
+           options_.kernel_switch_reader.get());
+    VPRINT(this, 1, "  %-25s : %p\n", "kernel_switch_reader_end",
+           options_.kernel_switch_reader_end.get());
+    VPRINT(this, 1, "  %-25s : %d\n", "single_lockstep_output",
+           options_.single_lockstep_output);
+    VPRINT(this, 1, "  %-25s : %d\n", "randomize_next_input",
+           options_.randomize_next_input);
+    VPRINT(this, 1, "  %-25s : %d\n", "read_inputs_in_init",
+           options_.read_inputs_in_init);
+    VPRINT(this, 1, "  %-25s : %d\n", "honor_direct_switches",
+           options_.honor_direct_switches);
+    VPRINT(this, 1, "  %-25s : %f\n", "time_units_per_us", options_.time_units_per_us);
+    VPRINT(this, 1, "  %-25s : %" PRIu64 "\n", "quantum_duration_us",
+           options_.quantum_duration_us);
+    VPRINT(this, 1, "  %-25s : %" PRIu64 "\n", "quantum_duration_instrs",
+           options_.quantum_duration_instrs);
+    VPRINT(this, 1, "  %-25s : %f\n", "block_time_multiplier",
+           options_.block_time_multiplier);
+    VPRINT(this, 1, "  %-25s : %" PRIu64 "\n", "block_time_max_us",
+           options_.block_time_max_us);
+    VPRINT(this, 1, "  %-25s : %" PRIu64 "\n", "migration_threshold_us",
+           options_.migration_threshold_us);
+    VPRINT(this, 1, "  %-25s : %" PRIu64 "\n", "rebalance_period_us",
+           options_.rebalance_period_us);
+    VPRINT(this, 1, "  %-25s : %d\n", "honor_infinite_timeouts",
+           options_.honor_infinite_timeouts);
+}
+
+template <typename RecordType, typename ReaderType>
 scheduler_tmpl_t<RecordType, ReaderType>::~scheduler_tmpl_t()
 {
     for (unsigned int i = 0; i < outputs_.size(); ++i) {
@@ -900,7 +957,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
         }
     }
 
-    VPRINT(this, 1, "%zu inputs\n", inputs_.size());
+    VDO(this, 1, { print_configuration(); });
 
     live_input_count_.store(static_cast<int>(inputs_.size()), std::memory_order_release);
 
