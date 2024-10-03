@@ -1598,6 +1598,8 @@ test_synthetic_with_timestamps()
                                                scheduler_t::SCHEDULER_DEFAULTS,
                                                /*verbosity=*/3);
     sched_ops.quantum_duration_instrs = 3;
+    // Test dropping a final "_" from core0.
+    sched_ops.exit_if_fraction_left = 0.1;
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
         scheduler_t::STATUS_SUCCESS)
@@ -1698,6 +1700,8 @@ test_synthetic_with_priorities()
                                                scheduler_t::SCHEDULER_DEFAULTS,
                                                /*verbosity=*/3);
     sched_ops.quantum_duration_instrs = 3;
+    // Test dropping a final "_" from core0.
+    sched_ops.exit_if_fraction_left = 0.1;
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
         scheduler_t::STATUS_SUCCESS)
@@ -2030,6 +2034,8 @@ test_synthetic_with_syscalls_multiple()
     sched_ops.time_units_per_us = 1.;
     sched_ops.blocking_switch_threshold = BLOCK_LATENCY;
     sched_ops.block_time_multiplier = BLOCK_SCALE;
+    // Test dropping a bunch of final "_" from core1.
+    sched_ops.exit_if_fraction_left = 0.1;
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
         scheduler_t::STATUS_SUCCESS)
