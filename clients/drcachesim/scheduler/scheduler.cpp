@@ -4195,7 +4195,10 @@ scheduler_tmpl_t<RecordType, ReaderType>::mark_input_eof(input_info_t &input)
     if (input.at_eof)
         return sched_type_t::STATUS_OK;
     input.at_eof = true;
-    int old_count = live_input_count_.fetch_add(-1, std::memory_order_release);
+#ifndef NDEBUG
+    int old_count =
+#endif
+        live_input_count_.fetch_add(-1, std::memory_order_release);
     assert(old_count > 0);
     int live_inputs = live_input_count_.load(std::memory_order_acquire);
     VPRINT(this, 2, "input %d at eof; %d live inputs left\n", input.index, live_inputs);
