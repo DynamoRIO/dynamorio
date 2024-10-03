@@ -814,6 +814,7 @@ public:
          * fraction of the total instructions left in those inputs.
          */
         double exit_if_fraction_left = 0.1;
+        // When adding new options, also add to print_configuration().
     };
 
     /**
@@ -1590,6 +1591,7 @@ protected:
     rebalance_queues(output_ordinal_t triggering_output,
                      std::vector<input_ordinal_t> inputs_to_add);
 
+    // Up to the caller to check verbosity before calling.
     void
     print_queue_stats();
 
@@ -1740,6 +1742,10 @@ protected:
     // read to feed to the user's first requests.
     scheduler_status_t
     get_initial_input_content(bool gather_timestamps);
+
+    // Dumps the options, for diagnostics.
+    void
+    print_configuration();
 
     // Allow subclasses to perform custom initial marker processing during
     // get_initial_input_content().  Returns whether to keep reading.
