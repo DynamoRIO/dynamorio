@@ -808,6 +808,7 @@ public:
          * (#block_time_max_us) scaled by #block_time_multiplier.
          */
         bool honor_infinite_timeouts = false;
+        // When adding new options, also add to print_configuration().
     };
 
     /**
@@ -1746,6 +1747,10 @@ protected:
     // read to feed to the user's first requests.
     scheduler_status_t
     get_initial_input_content(bool gather_timestamps);
+
+    // Dumps the options, for diagnostics.
+    void
+    print_configuration();
 
     // Allow subclasses to perform custom initial marker processing during
     // get_initial_input_content().  Returns whether to keep reading.
