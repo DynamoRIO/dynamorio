@@ -99,11 +99,6 @@ if (UNIX AND NOT APPLE AND NOT ANDROID AND NOT cross_riscv64_linux_only)
     # This includes timeouts which increases suite length.
     # Until we get ths x86-32 job back green, we drop back to a small set of tests.
     set(extra_ctest_args EXCLUDE_LABEL AMD_X32_DENYLIST)
-  elseif (arg_64_only)
-    # TODO i#6944: drcachesim.drstatecmp-fuzz randomizes the last 8 bits of
-    # instructions which results in invalid instructions causing illegal
-    # instruction error. Skip the test until we have a fix for it.
-    set(extra_ctest_args ${extra_ctest_args} EXCLUDE_LABEL AARCH64_DENYLIST)
   endif ()
 endif ()
 
