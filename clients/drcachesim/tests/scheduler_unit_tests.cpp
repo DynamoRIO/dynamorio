@@ -5055,7 +5055,7 @@ test_unscheduled_initially()
                              std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
         readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
                              std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
-        // We have a medium idle period before A becomes scheduleable.
+        // We have a medium idle period before A becomes schedulable.
         static const char *const CORE0_SCHED_STRING =
             "...B....._____.....A.__________________________________B....B.";
 

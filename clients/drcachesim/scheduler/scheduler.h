@@ -1596,6 +1596,7 @@ protected:
     rebalance_queues(output_ordinal_t triggering_output,
                      std::vector<input_ordinal_t> inputs_to_add);
 
+    // Up to the caller to check verbosity before calling.
     void
     print_queue_stats();
 
