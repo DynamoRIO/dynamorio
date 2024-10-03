@@ -1850,7 +1850,15 @@ scheduler_tmpl_t<RecordType, ReaderType>::process_next_initial_record(
         }
     } else if (marker_type == TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE) {
         if (options_.honor_direct_switches && options_.mapping != MAP_AS_PREVIOUSLY) {
+            VPRINT(this, 2, "Input %d starting unscheduled\n", input.index);
             input.unscheduled = true;
+            if (!options_.honor_infinite_timeouts) {
+                input.blocked_time = scale_blocked_time(options_.block_time_max_us);
+                // Clamp at 1 since 0 means an infinite timeout for unscheduled=true.
+                if (input.blocked_time == 0)
+                    input.blocked_time = 1;
+                // blocked_start_time will be set when we first pop this off a queue.
+            }
             // Ignore this marker during regular processing.
             input.skip_next_unscheduled = true;
         }
@@ -2627,12 +2635,22 @@ scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue_hold_locks(
             // control points we only check for being unblocked when an input
             // would be chosen to run.  We thus keep blocked inputs in the ready queue.
             if (res->blocked_time > 0) {
-                assert(cur_time > 0);
                 --outputs_[from_output].ready_queue.num_blocked;
+                if (!options_.honor_infinite_timeouts) {
+                    // cur_time can be 0 at initialization time.
+                    if (res->blocked_start_time == 0 && cur_time > 0) {
+                        // This was a start-unscheduled input: we didn't have a valid
+                        // time at initialization.
+                        res->blocked_start_time = cur_time;
+                    }
+                } else
+                    assert(cur_time > 0);
             }
             if (res->blocked_time > 0 &&
-                // Guard against time going backward (happens for wall-clock: i#6966).
-                (cur_time < res->blocked_start_time ||
+                // cur_time can be 0 at initialization time.
+                (cur_time == 0 ||
+                 // Guard against time going backward (happens for wall-clock: i#6966).
+                 cur_time < res->blocked_start_time ||
                  cur_time - res->blocked_start_time < res->blocked_time)) {
                 VPRINT(this, 4, "pop queue: %d still blocked for %" PRIu64 "\n",
                        res->index,
@@ -3478,6 +3496,13 @@ scheduler_tmpl_t<RecordType, ReaderType>::process_marker(input_info_t &input,
             break;
         }
         input.unscheduled = true;
+        if (!options_.honor_infinite_timeouts && input.syscall_timeout_arg == 0) {
+            // As our scheduling is imperfect we do not risk things being blocked
+            // indefinitely: we instead have a timeout, but the maximum value.
+            input.syscall_timeout_arg = options_.block_time_max_us;
+            if (input.syscall_timeout_arg == 0)
+                input.syscall_timeout_arg = 1;
+        }
         if (input.syscall_timeout_arg > 0) {
             input.blocked_time = scale_blocked_time(input.syscall_timeout_arg);
             // Clamp at 1 since 0 means an infinite timeout for unscheduled=true.
@@ -3509,6 +3534,13 @@ scheduler_tmpl_t<RecordType, ReaderType>::process_marker(input_info_t &input,
         }
         // Trigger a switch either indefinitely or until timeout.
         input.unscheduled = true;
+        if (!options_.honor_infinite_timeouts && input.syscall_timeout_arg == 0) {
+            // As our scheduling is imperfect we do not risk things being blocked
+            // indefinitely: we instead have a timeout, but the maximum value.
+            input.syscall_timeout_arg = options_.block_time_max_us;
+            if (input.syscall_timeout_arg == 0)
+                input.syscall_timeout_arg = 1;
+        }
         if (input.syscall_timeout_arg > 0) {
             input.blocked_time = scale_blocked_time(input.syscall_timeout_arg);
             // Clamp at 1 since 0 means an infinite timeout for unscheduled=true.

@@ -803,6 +803,12 @@ public:
          */
         uint64_t rebalance_period_us = 50000;
         /**
+         * Determines whether an unscheduled-indefinitely input really is unscheduled for
+         * an infinite time, or instead is treated as blocked for the maxiumim time
+         * (#block_time_max_us) scaled by #block_time_multiplier.
+         */
+        bool honor_infinite_timeouts = false;
+        /**
          * If no time is passed to next_record() (typically with #QUANTUM_INSTRUCTIONS),
          * the instruction count is added to the product of the idle count and this
          * factor.  This can account for a different relative speed of processing an idle
