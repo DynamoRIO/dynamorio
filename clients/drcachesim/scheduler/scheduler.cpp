@@ -4244,7 +4244,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::print_queue_stats()
     int live = live_input_count_.load(std::memory_order_acquire);
     // Make our multi-line output more atomic.
     std::ostringstream ostr;
-    ostr << "Queue snapshot: inputs: " << live - unsched_size << " scheduleable, "
+    ostr << "Queue snapshot: inputs: " << live - unsched_size << " schedulable, "
          << unsched_size << " unscheduled, " << inputs_.size() - live << " eof\n";
     for (unsigned int i = 0; i < outputs_.size(); ++i) {
         auto lock = acquire_scoped_output_lock_if_necessary(i);
@@ -4269,7 +4269,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::print_queue_stats()
         for (input_info_t *add : readd)
             outputs_[i].ready_queue.queue.push(add);
     }
-    VPRINT(this, 1, "%s\n", ostr.str().c_str());
+    VPRINT(this, 0, "%s\n", ostr.str().c_str());
 }
 
 template <typename RecordType, typename ReaderType>
