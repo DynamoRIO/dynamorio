@@ -3735,10 +3735,11 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
     // check for quantum end.
     if (cur_time == 0) {
         if (options_.mapping == MAP_AS_PREVIOUSLY) {
-            // XXX: Should we instead store the replay time (whether passed in or our
-            // instr-based formula below) in the records and do away with wall-clock
-            // time altogether?  Either way, we should make it clear in the docs
-            // whether the user/simulator has to pass in the time on replay.
+            // XXX i#7023: We should instead store the simulator's time (whether
+            // passed in or our instr-based formula below) in the records and do away
+            // with wall-clock time for idle measurement.  Either way, we should make
+            // it clear in the docs whether the user/simulator has to pass in the
+            // time on replay.
             cur_time = get_time_micros();
         } else {
             // We add 1 to avoid an invalid value of 0.
@@ -3764,6 +3765,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                 VPRINT(this, 4,
                        "next_record[%d]: elapsed %" PRIu64 " < duration %" PRIu64 "\n",
                        output, now - outputs_[output].wait_start_time, duration);
+                // XXX i#7023: This should always be STATUS_IDLE, right?
                 return sched_type_t::STATUS_WAIT;
             } else
                 outputs_[output].wait_start_time = 0;
