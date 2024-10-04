@@ -524,7 +524,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
     while (true) {
         RecordType record;
         // The current time is used for time quanta; for instr quanta, it's ignored and
-        // we pass 0.
+        // we pass 0 and let the scheduler use instruction + idle counts.
         uint64_t cur_micros = sched_by_time_ ? get_current_microseconds() : 0;
         typename sched_type_t::stream_status_t status =
             worker.stream->next_record(record, cur_micros);
