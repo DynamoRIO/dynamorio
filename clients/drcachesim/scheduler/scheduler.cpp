@@ -3741,6 +3741,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
             // whether the user/simulator has to pass in the time on replay.
             cur_time = get_time_micros();
         } else {
+            // We add 1 to avoid an invalid value of 0.
             cur_time = 1 + outputs_[output].stream->get_output_instruction_ordinal() +
                 outputs_[output].idle_count;
         }

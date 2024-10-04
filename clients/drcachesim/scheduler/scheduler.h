@@ -1697,6 +1697,8 @@ protected:
         // Exported statistics. Currently all integers and cast to double on export.
         std::vector<int64_t> stats =
             std::vector<int64_t>(memtrace_stream_t::SCHED_STAT_TYPE_COUNT);
+        // When no simulation time is passed to us, we use the idle count plus
+        // instruction count to measure time.
         uint64_t idle_count = 0;
     };
 
