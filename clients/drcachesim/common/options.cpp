@@ -1034,6 +1034,18 @@ droption_t<uint64_t> op_sched_rebalance_period_us(
     "The period in simulated microseconds at which per-core run queues are re-balanced "
     "to redistribute load.");
 
+droption_t<double> op_sched_exit_if_fraction_inputs_left(
+    DROPTION_SCOPE_FRONTEND, "sched_exit_if_fraction_inputs_left", 0.05,
+    "Exit if non-EOF inputs left are <= this fraction of the total",
+    "Applies to -core_sharded and -core_serial.  When an input reaches EOF, if the "
+    "number of non-EOF inputs left as a fraction of the original inputs is equal to or "
+    "less than this value then the scheduler exits (sets all outputs to EOF) rather than "
+    "finishing off the final inputs.  This helps avoid long sequences of idles during "
+    "staggered endings with fewer inputs left than cores and only a small fraction of "
+    "the total instructions left in those inputs.  Since the remaining instruction "
+    "count is not considered (as it is not available), use discretion when raising "
+    "this value on uneven inputs.");
+
 // Schedule_stats options.
 droption_t<uint64_t>
     op_schedule_stats_print_every(DROPTION_SCOPE_ALL, "schedule_stats_print_every",
