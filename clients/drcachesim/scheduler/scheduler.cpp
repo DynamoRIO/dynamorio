@@ -725,6 +725,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::print_configuration()
            options_.rebalance_period_us);
     VPRINT(this, 1, "  %-25s : %d\n", "honor_infinite_timeouts",
            options_.honor_infinite_timeouts);
+    VPRINT(this, 1, "  %-25s : %f\n", "exit_if_fraction_inputs_left",
+           options_.exit_if_fraction_inputs_left);
 }
 
 template <typename RecordType, typename ReaderType>
@@ -1025,6 +1027,11 @@ scheduler_tmpl_t<RecordType, ReaderType>::legacy_field_support()
     }
     if (options_.block_time_max_us == 0) {
         error_string_ = "block_time_max_us must be > 0";
+        return STATUS_ERROR_INVALID_PARAMETER;
+    }
+    if (options_.exit_if_fraction_inputs_left < 0. ||
+        options_.exit_if_fraction_inputs_left > 1.) {
+        error_string_ = "exit_if_fraction_inputs_left must be 0..1";
         return STATUS_ERROR_INVALID_PARAMETER;
     }
     return STATUS_SUCCESS;
@@ -2339,7 +2346,11 @@ scheduler_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(
                         return status;
                 }
                 input.queue.push_back(create_thread_exit(input.tid));
-                mark_input_eof(input);
+                sched_type_t::stream_status_t status = mark_input_eof(input);
+                // For early EOF we still need our synthetic exit so do not return it yet.
+                if (status != sched_type_t::STATUS_OK &&
+                    status != sched_type_t::STATUS_EOF)
+                    return status;
                 return sched_type_t::STATUS_SKIPPED;
             }
         }
@@ -2466,7 +2477,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::skip_instructions(input_info_t &input,
         input.instrs_pre_read = 0;
     }
     if (*input.reader == *input.reader_end) {
-        mark_input_eof(input);
+        sched_type_t::stream_status_t status = mark_input_eof(input);
+        if (status != sched_type_t::STATUS_OK)
+            return status;
         // Raise error because the input region is out of bounds, unless the max
         // was used which we ourselves use internally for times_of_interest.
         if (skip_amount >= std::numeric_limits<uint64_t>::max() - 2) {
@@ -3109,11 +3122,13 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input_as_previously(
         // queued candidate record, if any.
         clear_input_queue(inputs_[index]);
         inputs_[index].queue.push_back(create_thread_exit(inputs_[index].tid));
-        mark_input_eof(inputs_[index]);
         VPRINT(this, 2, "early end for input %d\n", index);
         // We're done with this entry but we need the queued record to be read,
         // so we do not move past the entry.
         outputs_[output].record_index->fetch_add(1, std::memory_order_release);
+        sched_type_t::stream_status_t status = mark_input_eof(inputs_[index]);
+        if (status != sched_type_t::STATUS_OK)
+            return status;
         return sched_type_t::STATUS_SKIPPED;
     } else if (segment.type == schedule_record_t::SKIP) {
         std::lock_guard<mutex_dbg_owned> lock(*inputs_[index].lock);
@@ -3456,8 +3471,11 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
         if (inputs_[index].at_eof ||
             *inputs_[index].reader == *inputs_[index].reader_end) {
             VPRINT(this, 2, "next_record[%d]: input #%d at eof\n", output, index);
-            if (!inputs_[index].at_eof)
-                mark_input_eof(inputs_[index]);
+            if (!inputs_[index].at_eof) {
+                sched_type_t::stream_status_t status = mark_input_eof(inputs_[index]);
+                if (status != sched_type_t::STATUS_OK)
+                    return status;
+            }
             index = INVALID_INPUT_ORDINAL;
             // Loop and pick next thread.
             continue;
@@ -3802,8 +3820,11 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                 input->needs_advance = true;
             }
             if (input->at_eof || *input->reader == *input->reader_end) {
-                if (!input->at_eof)
-                    mark_input_eof(*input);
+                if (!input->at_eof) {
+                    sched_type_t::stream_status_t status = mark_input_eof(*input);
+                    if (status != sched_type_t::STATUS_OK)
+                        return status;
+                }
                 lock.unlock();
                 VPRINT(this, 5, "next_record[%d]: need new input (cur=%d eof)\n", output,
                        input->index);
@@ -4167,17 +4188,28 @@ scheduler_tmpl_t<RecordType, ReaderType>::stop_speculation(output_ordinal_t outp
 }
 
 template <typename RecordType, typename ReaderType>
-void
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::mark_input_eof(input_info_t &input)
 {
     assert(input.lock->owned_by_cur_thread());
     if (input.at_eof)
-        return;
+        return sched_type_t::STATUS_OK;
     input.at_eof = true;
-    assert(live_input_count_.load(std::memory_order_acquire) > 0);
-    live_input_count_.fetch_add(-1, std::memory_order_release);
-    VPRINT(this, 2, "input %d at eof; %d live inputs left\n", input.index,
-           live_input_count_.load(std::memory_order_acquire));
+#ifndef NDEBUG
+    int old_count =
+#endif
+        live_input_count_.fetch_add(-1, std::memory_order_release);
+    assert(old_count > 0);
+    int live_inputs = live_input_count_.load(std::memory_order_acquire);
+    VPRINT(this, 2, "input %d at eof; %d live inputs left\n", input.index, live_inputs);
+    if (options_.mapping == MAP_TO_ANY_OUTPUT &&
+        live_inputs <=
+            static_cast<int>(inputs_.size() * options_.exit_if_fraction_inputs_left)) {
+        VPRINT(this, 1, "exiting early at input %d with %d live inputs left\n",
+               input.index, live_inputs);
+        return sched_type_t::STATUS_EOF;
+    }
+    return sched_type_t::STATUS_OK;
 }
 
 template <typename RecordType, typename ReaderType>
@@ -4188,14 +4220,21 @@ scheduler_tmpl_t<RecordType, ReaderType>::eof_or_idle(output_ordinal_t output,
     // XXX i#6831: Refactor to use subclasses or templates to specialize
     // scheduler code based on mapping options, to avoid these top-level
     // conditionals in many functions?
-    if (options_.mapping == MAP_TO_CONSISTENT_OUTPUT ||
-        live_input_count_.load(std::memory_order_acquire) == 0 ||
+    int live_inputs = live_input_count_.load(std::memory_order_acquire);
+    if (options_.mapping == MAP_TO_CONSISTENT_OUTPUT || live_inputs == 0 ||
         // While a full schedule recorded should have each input hit either its
         // EOF or ROI end, we have a fallback to avoid hangs for possible recorded
         // schedules that end an input early deliberately without an ROI.
         (options_.mapping == MAP_AS_PREVIOUSLY &&
          live_replay_output_count_.load(std::memory_order_acquire) == 0)) {
         assert(options_.mapping != MAP_AS_PREVIOUSLY || outputs_[output].at_eof);
+        return sched_type_t::STATUS_EOF;
+    }
+    if (options_.mapping == MAP_TO_ANY_OUTPUT &&
+        live_inputs <=
+            static_cast<int>(inputs_.size() * options_.exit_if_fraction_inputs_left)) {
+        VPRINT(this, 1, "output %d exiting early with %d live inputs left\n", output,
+               live_inputs);
         return sched_type_t::STATUS_EOF;
     }
     // Before going idle, try to steal work from another output.

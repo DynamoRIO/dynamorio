@@ -805,6 +805,17 @@ public:
          * (#block_time_max_us) scaled by #block_time_multiplier.
          */
         bool honor_infinite_timeouts = false;
+        /**
+         * For #MAP_TO_ANY_OUTPUT, when an input reaches EOF, if the number of non-EOF
+         * inputs left as a fraction of the original inputs is equal to or less than
+         * this value then the scheduler exits (sets all outputs to EOF) rather than
+         * finishing off the final inputs.  This helps avoid long sequences of idles
+         * during staggered endings with fewer inputs left than cores and only a small
+         * fraction of the total instructions left in those inputs.  Since the remaining
+         * instruction count is not considered (as it is not available), use discretion
+         * when raising this value on uneven inputs.
+         */
+        double exit_if_fraction_inputs_left = 0.05;
         // When adding new options, also add to print_configuration().
     };
 
@@ -2021,7 +2032,10 @@ protected:
     set_output_active(output_ordinal_t output, bool active);
 
     // Caller must hold the input's lock.
-    void
+    // The return value is STATUS_EOF if a global exit is now happening (an
+    // early exit); otherwise STATUS_OK is returned on success but only a
+    // local EOF.
+    stream_status_t
     mark_input_eof(input_info_t &input);
 
     // Determines whether to exit or wait for other outputs when one output
