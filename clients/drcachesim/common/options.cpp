@@ -1035,7 +1035,7 @@ droption_t<uint64_t> op_sched_rebalance_period_us(
     "to redistribute load.");
 
 droption_t<double> op_sched_exit_if_fraction_inputs_left(
-    DROPTION_SCOPE_FRONTEND, "sched_exit_if_fraction_inputs_left", 0.05,
+    DROPTION_SCOPE_FRONTEND, "sched_exit_if_fraction_inputs_left", 0.1,
     "Exit if non-EOF inputs left are <= this fraction of the total",
     "Applies to -core_sharded and -core_serial.  When an input reaches EOF, if the "
     "number of non-EOF inputs left as a fraction of the original inputs is equal to or "

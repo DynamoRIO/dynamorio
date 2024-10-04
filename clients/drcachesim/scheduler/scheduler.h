@@ -818,7 +818,7 @@ public:
          * instruction count is not considered (as it is not available), use discretion
          * when raising this value on uneven inputs.
          */
-        double exit_if_fraction_inputs_left = 0.05;
+        double exit_if_fraction_inputs_left = 0.1;
         // When adding new options, also add to print_configuration().
     };
 
