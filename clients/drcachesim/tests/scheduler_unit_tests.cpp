@@ -1598,6 +1598,8 @@ test_synthetic_with_timestamps()
                                                scheduler_t::SCHEDULER_DEFAULTS,
                                                /*verbosity=*/3);
     sched_ops.quantum_duration_instrs = 3;
+    // Test dropping a final "_" from core0.
+    sched_ops.exit_if_fraction_inputs_left = 0.1;
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
         scheduler_t::STATUS_SUCCESS)
@@ -1615,9 +1617,8 @@ test_synthetic_with_timestamps()
     // thus core0 has C,I,B,H,D and core1 has F,J,E,A,G.
     // We should interleave within each group -- except once we reach J
     // we should completely finish it.  There should be no migrations.
-    assert(
-        sched_as_string[0] ==
-        ".CC.C.II.IC.CC.I.II.CC.C.II.I..BB.B.HH.HB.BB.H.HH.BB.B.HH.H..DD.DD.DD.DD.D._");
+    assert(sched_as_string[0] ==
+           ".CC.C.II.IC.CC.I.II.CC.C.II.I..BB.B.HH.HB.BB.H.HH.BB.B.HH.H..DD.DD.DD.DD.D.");
     assert(sched_as_string[1] ==
            ".FF.F.JJ.JJ.JJ.JJ.J.F.FF.FF.F..EE.EE.EE.EE.E..AA.A.GG.GA.AA.G.GG.AA.A.GG.G.");
     // Check scheduler stats.  # switches is the # of letter transitions; # preempts
@@ -1625,7 +1626,7 @@ test_synthetic_with_timestamps()
     // appearing in between (and ignoring the last letter for an input: EOF doesn't
     // count as a preempt).
     verify_scheduler_stats(scheduler.get_stream(0), /*switch_input_to_input=*/12,
-                           /*switch_input_to_idle=*/1, /*switch_idle_to_input=*/0,
+                           /*switch_input_to_idle=*/0, /*switch_idle_to_input=*/0,
                            /*switch_nop=*/2, /*preempts=*/10, /*direct_attempts=*/0,
                            /*direct_successes=*/0, /*migrations=*/0);
     verify_scheduler_stats(scheduler.get_stream(1), /*switch_input_to_input=*/9,
@@ -1699,6 +1700,8 @@ test_synthetic_with_priorities()
                                                scheduler_t::SCHEDULER_DEFAULTS,
                                                /*verbosity=*/3);
     sched_ops.quantum_duration_instrs = 3;
+    // Test dropping a final "_" from core0.
+    sched_ops.exit_if_fraction_inputs_left = 0.1;
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
         scheduler_t::STATUS_SUCCESS)
@@ -1711,9 +1714,8 @@ test_synthetic_with_priorities()
     // See the test_synthetic_with_timestamps() test which has our base sequence.
     // We've elevated B, E, and H to higher priorities so they go
     // first.  J remains uninterrupted due to lower timestamps.
-    assert(
-        sched_as_string[0] ==
-        ".BB.B.HH.HB.BB.H.HH.BB.B.HH.H..FF.F.JJ.JJ.JJ.JJ.J.F.FF.FF.F..DD.DD.DD.DD.D._");
+    assert(sched_as_string[0] ==
+           ".BB.B.HH.HB.BB.H.HH.BB.B.HH.H..FF.F.JJ.JJ.JJ.JJ.J.F.FF.FF.F..DD.DD.DD.DD.D.");
     assert(sched_as_string[1] ==
            ".EE.EE.EE.EE.E..CC.C.II.IC.CC.I.II.CC.C.II.I..AA.A.GG.GA.AA.G.GG.AA.A.GG.G.");
     // Check scheduler stats.  # switches is the # of letter transitions; # preempts
@@ -1721,7 +1723,7 @@ test_synthetic_with_priorities()
     // appearing in between (and ignoring the last letter for an input: EOF doesn't
     // count as a preempt).
     verify_scheduler_stats(scheduler.get_stream(0), /*switch_input_to_input=*/9,
-                           /*switch_input_to_idle=*/1, /*switch_idle_to_input=*/0,
+                           /*switch_input_to_idle=*/0, /*switch_idle_to_input=*/0,
                            /*switch_nop=*/5, /*preempts=*/10, /*direct_attempts=*/0,
                            /*direct_successes=*/0, /*migrations=*/0);
     verify_scheduler_stats(scheduler.get_stream(1), /*switch_input_to_input=*/12,
@@ -2032,6 +2034,8 @@ test_synthetic_with_syscalls_multiple()
     sched_ops.time_units_per_us = 1.;
     sched_ops.blocking_switch_threshold = BLOCK_LATENCY;
     sched_ops.block_time_multiplier = BLOCK_SCALE;
+    // Test dropping a bunch of final "_" from core1.
+    sched_ops.exit_if_fraction_inputs_left = 0.1;
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
         scheduler_t::STATUS_SUCCESS)
@@ -2054,9 +2058,8 @@ test_synthetic_with_syscalls_multiple()
     // explains why the two strings are different lengths.
     assert(sched_as_string[0] ==
            "BHHHFFFJJJJJJBHHHJJJFFFFFFBHHHDDDDDDDDDB__________B__________B__________B____"
-           "______B_______B");
-    assert(sched_as_string[1] ==
-           "EECCCIIICCCIIIEECCCIIIAAAGGGEEAAAGGEEGAAEGGAG_________");
+           "______B__________B");
+    assert(sched_as_string[1] == "EECCCIIICCCIIIEECCCIIIAAAGGGEEAAAGGEEGAAEGGAG");
     // Check scheduler stats.  # switches is the # of letter transitions; # preempts
     // is the instances where the same letter appears 3 times without another letter
     // appearing in between (and ignoring the last letter for an input: EOF doesn't
@@ -2066,7 +2069,7 @@ test_synthetic_with_syscalls_multiple()
                            /*switch_nop=*/4, /*preempts=*/10, /*direct_attempts=*/0,
                            /*direct_successes=*/0, /*migrations=*/0);
     verify_scheduler_stats(scheduler.get_stream(1), /*switch_input_to_input=*/19,
-                           /*switch_input_to_idle=*/1, /*switch_idle_to_input=*/0,
+                           /*switch_input_to_idle=*/0, /*switch_idle_to_input=*/0,
                            /*switch_nop=*/3, /*preempts=*/16, /*direct_attempts=*/0,
                            /*direct_successes=*/0, /*migrations=*/0);
 }
@@ -5055,7 +5058,7 @@ test_unscheduled_initially()
                              std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
         readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
                              std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
-        // We have a medium idle period before A becomes scheduleable.
+        // We have a medium idle period before A becomes schedulable.
         static const char *const CORE0_SCHED_STRING =
             "...B....._____.....A.__________________________________B....B.";
 
@@ -6001,6 +6004,114 @@ test_rebalancing()
     }
 }
 
+static void
+test_exit_early()
+{
+    std::cerr << "\n----------------\nTesting exiting early\n";
+    static constexpr int NUM_INPUTS = 12;
+    static constexpr int NUM_OUTPUTS = 2;
+    static constexpr int NUM_INSTRS = 9;
+    static constexpr int QUANTUM_DURATION = 3;
+    static constexpr memref_tid_t TID_BASE = 100;
+    static constexpr uint64_t TIMESTAMP = 101;
+    static constexpr uint64_t BLOCK_LATENCY = 1500;
+    std::vector<trace_entry_t> inputs[NUM_INPUTS];
+    for (int i = 0; i < NUM_INPUTS; i++) {
+        memref_tid_t tid = TID_BASE + i;
+        inputs[i].push_back(make_thread(tid));
+        inputs[i].push_back(make_pid(1));
+        inputs[i].push_back(make_version(TRACE_ENTRY_VERSION));
+        inputs[i].push_back(make_timestamp(TIMESTAMP)); // All the same time priority.
+        for (int j = 0; j < NUM_INSTRS; j++) {
+            inputs[i].push_back(make_instr(42 + j * 4));
+            // One input has a long blocking syscall toward the end.
+            if (i == 0 && j == NUM_INSTRS - 2) {
+                inputs[i].push_back(make_timestamp(TIMESTAMP));
+                inputs[i].push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, 42));
+                inputs[i].push_back(
+                    make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0));
+                inputs[i].push_back(make_timestamp(TIMESTAMP + BLOCK_LATENCY));
+            }
+        }
+        inputs[i].push_back(make_exit(tid));
+    }
+    {
+        // Run without any early exit.
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        for (int i = 0; i < NUM_INPUTS; i++) {
+            std::vector<scheduler_t::input_reader_t> readers;
+            readers.emplace_back(
+                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
+                std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_BASE + i);
+            sched_inputs.emplace_back(std::move(readers));
+        }
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_IGNORE,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/2);
+        // We use our mock's time==instruction count for a deterministic result.
+        sched_ops.time_units_per_us = 1.;
+        sched_ops.quantum_duration_instrs = QUANTUM_DURATION;
+        sched_ops.blocking_switch_threshold = BLOCK_LATENCY;
+        sched_ops.exit_if_fraction_inputs_left = 0.;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<std::string> sched_as_string =
+            run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE, /*send_time=*/true);
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        }
+        // We have a long idle wait just to execute A's final instruction.
+        static const char *const CORE0_SCHED_STRING =
+            "..AAA..CCC..EEE..GGG..III..KKKAAACCCEEEGGGIIIKKKAA....CCC.EEE.GGG.III.KKK.__"
+            "_________________________________________________________________A.";
+        static const char *const CORE1_SCHED_STRING =
+            "..BBB..DDD..FFF..HHH..JJJ..LLLBBBDDDFFFHHHJJJLLLBBB.DDD.FFF.HHH.JJJ.LLL.____"
+            "___________________________________________________________________";
+        assert(sched_as_string[0] == CORE0_SCHED_STRING);
+        assert(sched_as_string[1] == CORE1_SCHED_STRING);
+    }
+    {
+        // Run with any early exit.
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        for (int i = 0; i < NUM_INPUTS; i++) {
+            std::vector<scheduler_t::input_reader_t> readers;
+            readers.emplace_back(
+                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
+                std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_BASE + i);
+            sched_inputs.emplace_back(std::move(readers));
+        }
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_IGNORE,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/2);
+        // We use our mock's time==instruction count for a deterministic result.
+        sched_ops.time_units_per_us = 1.;
+        sched_ops.quantum_duration_instrs = QUANTUM_DURATION;
+        sched_ops.blocking_switch_threshold = BLOCK_LATENCY;
+        // NUM_INPUTS=11 * 0.1 = 1.1 so we'll exit with 1 input left.
+        sched_ops.exit_if_fraction_inputs_left = 0.1;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<std::string> sched_as_string =
+            run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE, /*send_time=*/true);
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        }
+        // Now we exit after K and never execute the 9th A.
+        static const char *const CORE0_SCHED_STRING =
+            "..AAA..CCC..EEE..GGG..III..KKKAAACCCEEEGGGIIIKKKAA....CCC.EEE.GGG.III.KKK.";
+        static const char *const CORE1_SCHED_STRING =
+            "..BBB..DDD..FFF..HHH..JJJ..LLLBBBDDDFFFHHHJJJLLLBBB.DDD.FFF.HHH.JJJ.LLL.__";
+        assert(sched_as_string[0] == CORE0_SCHED_STRING);
+        assert(sched_as_string[1] == CORE1_SCHED_STRING);
+    }
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -6042,6 +6153,7 @@ test_main(int argc, const char *argv[])
     test_random_schedule();
     test_record_scheduler();
     test_rebalancing();
+    test_exit_early();
 
     dr_standalone_exit();
     return 0;
