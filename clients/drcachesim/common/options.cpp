@@ -908,17 +908,17 @@ droption_t<int64_t>
     // We pick 10 million to match 2 instructions per nanosecond with a 5ms quantum.
     op_sched_quantum(DROPTION_SCOPE_ALL, "sched_quantum", 10 * 1000 * 1000,
                      "Scheduling quantum",
-                     "Applies to -core_sharded and -core_serial. "
-                     "Scheduling quantum in instructions, unless -sched_time is set in "
-                     "which case this value is multiplied by -sched_time_per_us to "
-                     "produce a quantum in wall-clock microseconds.");
+                     "Applies to -core_sharded and -core_serial.  Scheduling quantum in "
+                     "instructions, unless -sched_time is set in which case this value "
+                     "is the quantum in simulated microseconds (equal to wall-clock "
+                     "microseconds multiplied by -sched_time_per_us).");
 
 droption_t<bool>
     op_sched_time(DROPTION_SCOPE_ALL, "sched_time", false,
                   "Whether to use time for the scheduling quantum",
-                  "Applies to -core_sharded and -core_serial. "
-                  "Whether to use wall-clock time for the scheduling quantum, with a "
-                  "value equal to -sched_quantum in microseconds of wall-clock time.");
+                  "Applies to -core_sharded and -core_serial.  Whether to use wall-clock "
+                  "time (multiplied by -sched_time_per_us) for measuring idle time and "
+                  "for the scheduling quantum (see -sched_quantum).");
 
 droption_t<bool> op_sched_order_time(DROPTION_SCOPE_ALL, "sched_order_time", true,
                                      "Whether to honor recorded timestamps for ordering",
@@ -1016,11 +1016,12 @@ droption_t<bool> op_sched_infinite_timeouts(
     "(set to false).");
 
 droption_t<double> op_sched_time_units_per_us(
-    DROPTION_SCOPE_ALL, "sched_time_units_per_us", 100.,
+    DROPTION_SCOPE_ALL, "sched_time_units_per_us", 1000.,
     "Time units per simulated microsecond",
-    "Time units (currently wall-clock time) per simulated microsecond.  This scales all "
-    "of the -sched_*_us values as it converts wall-clock time into the simulated "
-    "microseconds measured by those options.");
+    "Time units per simulated microsecond.  The units are either the instruction count "
+    "plus the idle count (the default) or if -sched_time is selected wall-clock "
+    "microseconds.  This option value scales all of the -sched_*_us values as it "
+    "converts time units into the simulated microseconds measured by those options.");
 
 droption_t<uint64_t> op_sched_migration_threshold_us(
     DROPTION_SCOPE_ALL, "sched_migration_threshold_us", 500,
@@ -1035,7 +1036,7 @@ droption_t<uint64_t> op_sched_rebalance_period_us(
     "to redistribute load.");
 
 droption_t<double> op_sched_exit_if_fraction_inputs_left(
-    DROPTION_SCOPE_FRONTEND, "sched_exit_if_fraction_inputs_left", 0.05,
+    DROPTION_SCOPE_FRONTEND, "sched_exit_if_fraction_inputs_left", 0.1,
     "Exit if non-EOF inputs left are <= this fraction of the total",
     "Applies to -core_sharded and -core_serial.  When an input reaches EOF, if the "
     "number of non-EOF inputs left as a fraction of the original inputs is equal to or "

@@ -2245,7 +2245,7 @@ test_synthetic_with_syscalls_precise()
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/4);
+                                               /*verbosity=*/3);
     sched_ops.blocking_switch_threshold = BLOCK_THRESHOLD;
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, 1, std::move(sched_ops)) !=
@@ -2349,7 +2349,7 @@ test_synthetic_with_syscalls_latencies()
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/4);
+                                               /*verbosity=*/3);
     // We use a mock time for a deterministic result.
     sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
     sched_ops.time_units_per_us = 1.;
