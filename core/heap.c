@@ -786,6 +786,8 @@ vmm_place_vmcode(vm_heap_t *vmh, /*INOUT*/ size_t *size, heap_error_code_t *erro
 {
     ptr_uint_t preferred = 0;
 #ifdef X64
+    LOG(GLOBAL, LOG_HEAP, 1, "%s: allowed range " PFX "-" PFX "\n", __FUNCTION__,
+        heap_allowable_region_start, heap_allowable_region_end);
     /* -heap_in_lower_4GB takes top priority and has already set heap_allowable_region_*.
      * Next comes -vm_base_near_app.  It will fail for -vm_size=2G, which we document.
      */
@@ -838,20 +840,24 @@ vmm_place_vmcode(vm_heap_t *vmh, /*INOUT*/ size_t *size, heap_error_code_t *erro
 
     /* Next we try the -vm_base value plus a random offset. */
     if (vmh->start_addr == NULL) {
-        /* Out of 32 bits = 12 bits are page offset, windows wastes 4 more
-         * since its allocation base is 64KB, and if we want to stay
-         * safely in say 0x20000000-0x2fffffff we're left with only 12
-         * bits of randomness - which may be too little.  On the other
-         * hand changing any of the lower 16 bits will make our bugs
-         * non-deterministic. */
-        /* Make sure we don't waste the lower bits from our random number */
-        preferred = (DYNAMO_OPTION(vm_base) +
-                     get_random_offset(DYNAMO_OPTION(vm_max_offset) /
-                                       DYNAMO_OPTION(vmm_block_size)) *
-                         DYNAMO_OPTION(vmm_block_size));
-        preferred = ALIGN_FORWARD(preferred, OS_ALLOC_GRANULARITY);
-        /* overflow check: w/ vm_base shouldn't happen so debug-only check */
-        ASSERT(!POINTER_OVERFLOW_ON_ADD(preferred, *size));
+        if (DYNAMO_OPTION(vm_base) == 0) {
+            /* Let the OS pick where. */
+        } else {
+            /* Out of 32 bits = 12 bits are page offset, windows wastes 4 more
+             * since its allocation base is 64KB, and if we want to stay
+             * safely in say 0x20000000-0x2fffffff we're left with only 12
+             * bits of randomness - which may be too little.  On the other
+             * hand changing any of the lower 16 bits will make our bugs
+             * non-deterministic. */
+            /* Make sure we don't waste the lower bits from our random number */
+            preferred = (DYNAMO_OPTION(vm_base) +
+                         get_random_offset(DYNAMO_OPTION(vm_max_offset) /
+                                           DYNAMO_OPTION(vmm_block_size)) *
+                             DYNAMO_OPTION(vmm_block_size));
+            preferred = ALIGN_FORWARD(preferred, OS_ALLOC_GRANULARITY);
+            /* overflow check: w/ vm_base shouldn't happen so debug-only check */
+            ASSERT(!POINTER_OVERFLOW_ON_ADD(preferred, *size));
+        }
         /* let's assume a single chunk is sufficient to reserve */
 #ifdef X64
         if ((byte *)preferred < heap_allowable_region_start ||
@@ -866,8 +872,9 @@ vmm_place_vmcode(vm_heap_t *vmh, /*INOUT*/ size_t *size, heap_error_code_t *erro
                 os_heap_reserve((void *)preferred, *size, error_code, true /*+x*/);
             vmh->start_addr = vmh->alloc_start;
             LOG(GLOBAL, LOG_HEAP, 1,
-                "vmm_heap_unit_init preferred=" PFX " got start_addr=" PFX "\n",
-                preferred, vmh->start_addr);
+                "vmm_heap_unit_init preferred=" PFX " size=" PIFX " => start_addr=" PFX
+                " (code=0x%08x)\n",
+                preferred, *size, vmh->start_addr, *error_code);
 #ifdef X64
         }
 #endif
