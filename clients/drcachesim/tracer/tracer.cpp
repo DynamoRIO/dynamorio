@@ -1505,17 +1505,16 @@ stop_cur_syscall_pt_trace(void *drcontext, per_thread_t *data, bool dump_to_trac
     ASSERT(cur_recording_sysnum != INVALID_SYSNUM,
            "Routine expected to be called only when PT tracing is active.");
     if (dump_to_trace) {
-        /* Write a marker to the userspace raw trace that denotes where raw2trace
-         * should decode and insert the PT trace for the system call being
-         * recorded currently. Some drmemtrace derivations may interleave the PT
-         * trace raw data with the drmemtrace user-space raw trace data (instead of
-         * outputting the PT trace data to separate files like we do here). In such
-         * cases, we want to ensure that the TRACE_MARKER_TYPE_SYSCALL_IDX does not
-         * get output before the actual PT trace data, so we output the marker when
-         * we stop and write the PT trace (instead of when we start the PT trace).
-         * Note that the order below does not matter because the actual buffer
-         * flush happens later.
-         */
+        // Write a marker to the userspace raw trace that denotes where raw2trace
+        // should decode and insert the PT trace for the system call being
+        // recorded currently. Some drmemtrace derivations may interleave the PT
+        // trace raw data with the drmemtrace user-space raw trace data (instead of
+        // outputting the PT trace data to separate files like we do here). In such
+        // cases, we want to ensure that the TRACE_MARKER_TYPE_SYSCALL_IDX does not
+        // get output before the actual PT trace data, so we output the marker when
+        // we stop and write the PT trace (instead of when we start the PT trace).
+        // Note that the order below does not matter because the actual buffer
+        // flush happens later.
         trace_marker_type_t marker_type = TRACE_MARKER_TYPE_SYSCALL_IDX;
         uintptr_t marker_val = data->syscall_pt_trace.get_traced_syscall_idx();
         BUF_PTR(data->seg_base) +=
