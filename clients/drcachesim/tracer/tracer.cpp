@@ -1616,9 +1616,9 @@ event_pre_syscall(void *drcontext, int sysnum)
             // XXX: Something didn't go as expected as the last syscall PT trace was
             // not stopped yet. We may need to find other control points where PT
             // tracing needs to be stopped. E.g., PT tracing for syscalls interrupted by
-            // signals may need to be stopped in main_signal_handler. We may also want to
-            // skip dumping the trace at the control point below, as it may result in a
-            // PT trace that decodes incorrectly.
+            // signals may need to be stopped in main_signal_handler. Though it has
+            // not been observed yet, the traces dumped below may have issues during
+            // decoding.
             if (!stop_cur_syscall_pt_trace(drcontext, data, /*dump_to_trace=*/true))
                 return false;
         }
