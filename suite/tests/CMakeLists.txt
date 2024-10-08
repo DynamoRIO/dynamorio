@@ -2419,13 +2419,15 @@ if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
         client-interface/cleancall.c "" "-thread_private -prof_pcs -opt_cleancall 0" "")
     endif (NOT X64)
   endif (UNIX)
+  tobuild_ci(client.syscall client-interface/syscall.c "" "-no_follow_children" "")
+  tobuild_ci(client.count-bbs client-interface/count-bbs.c "" "" "")
+endif (X86)
+if (X86 OR AARCH64)
   tobuild_ci(client.count-ctis client-interface/count-ctis.c "" "" "")
   # check dr_insert_cbr_instrumentation with out-of-line clean call
   torunonly_ci(client.count-ctis-noopt client.count-ctis client.count-ctis.dll
     client-interface/count-ctis.c "" "-opt_cleancall 0" "")
-  tobuild_ci(client.syscall client-interface/syscall.c "" "-no_follow_children" "")
-  tobuild_ci(client.count-bbs client-interface/count-bbs.c "" "" "")
-endif (X86)
+endif (X86 OR AARCH64)
 if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   tobuild_ci(client.cleancallparams client-interface/cleancallparams.c "" "" "")
   tobuild_ci(client.app_inscount client-interface/app_inscount.c "" "" "")
