@@ -265,6 +265,10 @@ Further non-compatibility-affecting changes include:
  - Added -trace_instr_intervals_file option to the drmemtrace trace analysis tools
    framework. The file must be in CSV format containing a <start,duration> tracing
    interval per line where start and duration are expressed in number of instructions.
+ - Added invalidate_cpu_filter_t to #dynamorio::drmemtrace::record_filter_t to invalidate
+   the value of markers #dynamorio::drmemtrace::TRACE_MARKER_TYPE_CPU_ID. When
+   -filter_invalidate_cpu is used, the value of those markers is set to (uintptr_t)-1,
+   which means "undefined".
 
 **************************************************
 <hr>

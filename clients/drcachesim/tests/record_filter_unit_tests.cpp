@@ -44,6 +44,7 @@
 #include "tools/filter/type_filter.h"
 #include "tools/filter/encodings2regdeps_filter.h"
 #include "tools/filter/func_id_filter.h"
+#include "tools/filter/invalidate_cpu_filter.h"
 #include "trace_entry.h"
 #include "zipfile_ostream.h"
 
@@ -597,6 +598,70 @@ test_func_id_filter()
         return false;
 
     fprintf(stderr, "test_func_id_filter passed\n");
+    return true;
+}
+
+static bool
+test_invalidate_cpu_filter()
+{
+    constexpr addr_t PC = 0x7f6fdd3ec360;
+    constexpr addr_t ENCODING = 0xe78948;
+    std::vector<test_case_t> entries = {
+        /* Trace shard header.
+         */
+        { { TRACE_TYPE_HEADER, 0, { 0x1 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 0x2 } }, true, { true } },
+        { { TRACE_TYPE_MARKER,
+            TRACE_MARKER_TYPE_FILETYPE,
+            { OFFLINE_FILE_TYPE_ARCH_X86_64 | OFFLINE_FILE_TYPE_ENCODINGS |
+              OFFLINE_FILE_TYPE_SYSCALL_NUMBERS | OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS } },
+          true,
+          { true } },
+        { { TRACE_TYPE_THREAD, 0, { 0x4 } }, true, { true } },
+        { { TRACE_TYPE_PID, 0, { 0x5 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 0x6 } },
+          true,
+          { true } },
+
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x7 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } }, true, { false } },
+        // invalidate_cpu_filter overwrites the value of TRACE_MARKER_TYPE_CPU_ID with
+        // (uintptr_t)-1.
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0xffffffffffffffff } },
+          false,
+          { true } },
+        /* We need at least one instruction with encodings to make record_filter output
+         * the trace.
+         */
+        { { TRACE_TYPE_ENCODING, 3, { ENCODING } }, true, { true } },
+        { { TRACE_TYPE_INSTR, 3, { PC } }, true, { true } },
+
+        { { TRACE_TYPE_FOOTER, 0, { 0x0 } }, true, { true } },
+    };
+
+    /* Construct invalidate_cpu_filter_t.
+     */
+    std::vector<std::unique_ptr<record_filter_func_t>> filters;
+    auto invalidate_cpu_filter = std::unique_ptr<record_filter_func_t>(
+        new dynamorio::drmemtrace::invalidate_cpu_filter_t());
+    if (!invalidate_cpu_filter->get_error_string().empty()) {
+        fprintf(stderr, "Couldn't construct an invalidate_cpu_filter %s",
+                invalidate_cpu_filter->get_error_string().c_str());
+        return false;
+    }
+    filters.push_back(std::move(invalidate_cpu_filter));
+
+    /* Construct record_filter_t.
+     */
+    auto record_filter = std::unique_ptr<test_record_filter_t>(
+        new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
+
+    /* Run the test.
+     */
+    if (!process_entries_and_check_result(record_filter.get(), entries, 0))
+        return false;
+
+    fprintf(stderr, "test_invalidate_cpu_filter passed\n");
     return true;
 }
 
@@ -1450,7 +1515,7 @@ test_main(int argc, const char *argv[])
     dr_standalone_init();
     if (!test_cache_and_type_filter() || !test_chunk_update() || !test_trim_filter() ||
         !test_null_filter() || !test_wait_filter() || !test_encodings2regdeps_filter() ||
-        !test_func_id_filter())
+        !test_func_id_filter() || !test_invalidate_cpu_filter())
         return 1;
     fprintf(stderr, "All done!\n");
     dr_standalone_exit();

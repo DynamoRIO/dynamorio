@@ -1112,6 +1112,11 @@ droption_t<std::string>
                        "for the listed function IDs and removes those belonging to "
                        "unlisted function IDs.");
 
+droption_t<bool> op_invalidate_cpu(
+    DROPTION_SCOPE_FRONTEND, "filter_invalidate_cpu", false,
+    "Invalidate TRACE_MARKER_TYPE_CPU_ID",
+    "Invalidate TRACE_MARKER_TYPE_CPU_ID by setting its value to (uintptr_t)-1.");
+
 droption_t<uint64_t> op_trim_before_timestamp(
     DROPTION_SCOPE_ALL, "trim_before_timestamp", 0, 0,
     (std::numeric_limits<uint64_t>::max)(),

@@ -67,6 +67,8 @@ namespace drmemtrace {
  * @param[in] keep_func_ids  A comma-separated list of integers representing the
  *   function IDs related to #TRACE_MARKER_TYPE_FUNC_ID (and _ARG, _RETVAL, _RETADDR)
  *   markers to preserve in the trace, while removing all other function markers.
+ * @param[in] invalidate_cpu  Set value of TRACE_MARKER_TYPE_CPU_ID to (uintptr_t)-1,
+ *   which represents CPU unknown.
  * @param[in] verbose  Verbosity level for notifications.
  */
 record_analysis_tool_t *
@@ -75,7 +77,7 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
                           const std::string &remove_marker_types,
                           uint64_t trim_before_timestamp, uint64_t trim_after_timestamp,
                           bool encodings2regdeps, const std::string &keep_func_ids,
-                          unsigned int verbose);
+                          bool invalidate_cpu, unsigned int verbose);
 
 } // namespace drmemtrace
 } // namespace dynamorio

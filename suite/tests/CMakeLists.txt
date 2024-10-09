@@ -4790,6 +4790,14 @@ if (BUILD_CLIENTS)
           # We run basic_counts on the filtered trace to check that there are no function
           # related markers left.
           "basic_counts")
+
+        set(testname "tool.record_filter_invalidate_cpu")
+        torun_record_filter("${testname}" ${kernel_xfer_app}
+          "record_filter_invalidate_cpu"
+          "${drcachesim_path}@-simulator_type@record_filter@-filter_invalidate_cpu@-indir@${testname}.${kernel_xfer_app}.*.dir/trace@-outdir@${testname}.filtered.dir"
+          # We run basic_counts on the filtered trace to check that there are no function
+          # related markers left.
+          "view")
     endif ()
 
     if (X86 AND X64 AND UNIX AND NOT APPLE)
