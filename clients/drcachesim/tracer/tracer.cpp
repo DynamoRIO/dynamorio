@@ -1499,27 +1499,28 @@ exit_record_syscall()
 
 #ifdef BUILD_PT_TRACER
 static bool
-stop_cur_syscall_pt_trace(void *drcontext, per_thread_t *data)
+stop_cur_syscall_pt_trace(void *drcontext, per_thread_t *data, bool dump_to_trace)
 {
     int cur_recording_sysnum = data->syscall_pt_trace.get_cur_recording_sysnum();
     ASSERT(cur_recording_sysnum != INVALID_SYSNUM,
            "Routine expected to be called only when PT tracing is active.");
-    /* Write a marker to the userspace raw trace that denotes where raw2trace
-     * should decode and insert the PT trace for the system call being
-     * recorded currently. Some drmemtrace derivations may interleave the PT
-     * trace raw data with the drmemtrace user-space raw trace data (instead of
-     * outputting the PT trace data to separate files like we do here). In such
-     * cases, we want to ensure that the TRACE_MARKER_TYPE_SYSCALL_IDX does not
-     * get output before the actual PT trace data, so we output the marker when
-     * we stop and write the PT trace (instead of when we start the PT trace).
-     * Note that the order below does not matter because the actual buffer
-     * flush happens later.
-     */
-    trace_marker_type_t marker_type = TRACE_MARKER_TYPE_SYSCALL_IDX;
-    uintptr_t marker_val = data->syscall_pt_trace.get_traced_syscall_idx();
-    BUF_PTR(data->seg_base) +=
-        instru->append_marker(BUF_PTR(data->seg_base), marker_type, marker_val);
-    if (!data->syscall_pt_trace.stop_syscall_pt_trace()) {
+    if (dump_to_trace) {
+        // Write a marker to the userspace raw trace that denotes where raw2trace
+        // should decode and insert the PT trace for the system call being
+        // recorded currently. Some drmemtrace derivations may interleave the PT
+        // trace raw data with the drmemtrace user-space raw trace data (instead of
+        // outputting the PT trace data to separate files like we do here). In such
+        // cases, we want to ensure that the TRACE_MARKER_TYPE_SYSCALL_IDX does not
+        // get output before the actual PT trace data, so we output the marker when
+        // we stop and write the PT trace (instead of when we start the PT trace).
+        // Note that the order below does not matter because the actual buffer
+        // flush happens later.
+        trace_marker_type_t marker_type = TRACE_MARKER_TYPE_SYSCALL_IDX;
+        uintptr_t marker_val = data->syscall_pt_trace.get_traced_syscall_idx();
+        BUF_PTR(data->seg_base) +=
+            instru->append_marker(BUF_PTR(data->seg_base), marker_type, marker_val);
+    }
+    if (!data->syscall_pt_trace.stop_syscall_pt_trace(dump_to_trace)) {
         NOTIFY(0,
                "ERROR: Failed to stop PT tracing for syscall %d of thread "
                "T%d.\n",
@@ -1611,7 +1612,13 @@ event_pre_syscall(void *drcontext, int sysnum)
                    "Last syscall tracing wasn't stopped when we reached the next one");
             // In the release build, in case we somehow did not stop the PT tracing, we
             // try to stop it and continue.
-            if (!stop_cur_syscall_pt_trace(drcontext, data))
+            // XXX: Something didn't go as expected as the last syscall PT trace was
+            // not stopped yet. We may need to find other control points where PT
+            // tracing needs to be stopped. E.g., PT tracing for syscalls interrupted by
+            // signals may need to be stopped in main_signal_handler. Though it has
+            // not been observed yet, the traces dumped below may have issues during
+            // decoding.
+            if (!stop_cur_syscall_pt_trace(drcontext, data, /*dump_to_trace=*/true))
                 return false;
         }
 
@@ -1688,7 +1695,7 @@ event_post_syscall(void *drcontext, int sysnum)
             ASSERT(syscall_pt_trace_t::is_syscall_pt_trace_enabled(cur_recording_sysnum),
                    "Did not expect syscall tracing to be enabled for this syscall");
             // Ignore return value and try to continue in release build.
-            stop_cur_syscall_pt_trace(drcontext, data);
+            stop_cur_syscall_pt_trace(drcontext, data, /*dump_to_trace=*/true);
         } else {
             // No syscall trace is being recorded. This may be because syscall tracing
             // is not enabled for sysnum, or that we were not in tracing mode at the
@@ -1865,7 +1872,13 @@ event_thread_exit(void *drcontext)
                        "found active at detach.\n",
                        cur_recording_sysnum, dr_get_thread_id(drcontext));
                 // Ignore return value and try to continue in release build.
-                stop_cur_syscall_pt_trace(drcontext, data);
+                // We skip dumping the trace because the syscall was likely interrupted
+                // by the detach signal and does not represent the real app behavior.
+                // XXX: Can we somehow figure out how much of the PT trace we can keep?
+                // Such PT syscall traces at the thread's end have been seen to not
+                // decode successfully in libipt, particularly for syscalls like futex,
+                // and epoll_wait.
+                stop_cur_syscall_pt_trace(drcontext, data, /*dump_to_trace=*/false);
             }
         }
 #endif
