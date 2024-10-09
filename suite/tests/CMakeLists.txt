@@ -1402,9 +1402,12 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
     string(REGEX REPLACE "/drrun;" "/drrun;-32;" rundr "${rundr}")
   endif ()
 
-  set(cmd_prefix "")
   if (DEFINED ${key}_sudo)
-    set(cmd_prefix "sudo")
+    if (DEFINED ${key}_nodr)
+      set(exepath "sudo;${exepath}")
+    else ()
+      set(rundr "sudo;${rundr}")
+    endif ()
   endif ()
 
   if (is_runall)
@@ -1492,7 +1495,7 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
       # Clear client from dr command and run native.
       string(REGEX REPLACE ";-quiet;(.*);--" ";-no_inject;--;" rundr "${rundr}")
     endif ()
-    set(cmd_with_at ${cmd_prefix} ${rundr} ${app_path} ${exe_ops})
+    set(cmd_with_at ${rundr} ${app_path} ${exe_ops})
     # we pass intra-arg spaces via @@ and inter-arg via @ and ; via !
     # to get around the pain of trying to quote everything just right:
     # much simpler this way.
@@ -1517,9 +1520,9 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
     # doing its built-in regex cmp so we use a separate script.
     # We also use this approach for tests that need custom success tests.
     if (DEFINED ${key}_nodr)
-      set(cmd_with_at ${cmd_prefix} ${exepath} ${exe_ops})
+      set(cmd_with_at ${exepath} ${exe_ops})
     else ()
-      set(cmd_with_at ${cmd_prefix} ${rundr} ${exepath} ${exe_ops})
+      set(cmd_with_at ${rundr} ${exepath} ${exe_ops})
     endif ()
     # we pass intra-arg spaces via @@ and inter-arg via @ and ; via !
     # to get around the pain of trying to quote everything just right:
