@@ -627,7 +627,7 @@ test_invalidate_cpu_filter()
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } }, true, { false } },
         // invalidate_cpu_filter overwrites the value of TRACE_MARKER_TYPE_CPU_ID with
         // (uintptr_t)-1.
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0xffffffffffffffff } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { INVALID_CPU_MARKER_VALUE } },
           false,
           { true } },
         /* We need at least one instruction with encodings to make record_filter output

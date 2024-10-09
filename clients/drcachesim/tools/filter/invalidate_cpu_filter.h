@@ -38,7 +38,7 @@
 
 #include <cstring>
 
-#define INVALID_CPU_MARKER_VALUE ~((addr_t)0UL)
+#define INVALID_CPU_MARKER_VALUE ((uintptr_t) - 1)
 
 namespace dynamorio {
 namespace drmemtrace {
