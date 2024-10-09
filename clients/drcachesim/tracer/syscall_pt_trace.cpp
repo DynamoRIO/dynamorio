@@ -176,7 +176,7 @@ syscall_pt_trace_t::stop_syscall_pt_trace(bool dump_to_trace)
             return false;
         }
 
-        traced_syscall_idx_++;
+        ++traced_syscall_idx_;
     }
     cur_recording_sysnum_ = -1;
 
