@@ -84,7 +84,7 @@ static void
 parent_futex_wake()
 {
     /* The child would be waiting at the other futex by now.
-     * iX: Note that the child thread undergoes detach while it is waiting
+     * i#7034: Note that the child thread undergoes detach while it is waiting
      * on futex_var_other. There is a bug at this point due to a possible
      * transparency violation. When the child thread restarts futex after
      * being interrupted by the detach signal, it seems like it resumes
