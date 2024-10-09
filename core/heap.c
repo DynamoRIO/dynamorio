@@ -786,7 +786,7 @@ vmm_place_vmcode(vm_heap_t *vmh, /*INOUT*/ size_t *size, heap_error_code_t *erro
 {
     ptr_uint_t preferred = 0;
 #ifdef X64
-    LOG(GLOBAL, LOG_HEAP, 1, "%s: allowed range " PFX "-" PFX "\n", __FUNCTION__,
+    LOG(GLOBAL, LOG_HEAP, 1, "%s: vm heap allowed range " PFX "-" PFX "\n", __FUNCTION__,
         heap_allowable_region_start, heap_allowable_region_end);
     /* -heap_in_lower_4GB takes top priority and has already set heap_allowable_region_*.
      * Next comes -vm_base_near_app.  It will fail for -vm_size=2G, which we document.
