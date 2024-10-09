@@ -1861,7 +1861,7 @@ event_thread_exit(void *drcontext)
             int cur_recording_sysnum = data->syscall_pt_trace.get_cur_recording_sysnum();
             if (cur_recording_sysnum != INVALID_SYSNUM) {
                 NOTIFY(0,
-                       "ERROR: PT tracing for the last syscall %d of thread T%d was  "
+                       "ERROR: PT tracing for the last syscall %d of thread T%d was "
                        "found active at detach.\n",
                        cur_recording_sysnum, dr_get_thread_id(drcontext));
                 // Ignore return value and try to continue in release build.
