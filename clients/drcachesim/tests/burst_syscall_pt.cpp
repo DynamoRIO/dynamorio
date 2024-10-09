@@ -196,8 +196,7 @@ public:
         if (shard->syscall_count > 1 && !shard->any_syscall_had_trace) {
             std::cerr << "No syscall had a trace\n";
         }
-        // iX: Invert the second condition below after #7027 is merged.
-        if (shard->prev_was_futex_marker && shard->prev_syscall_had_trace) {
+        if (shard->prev_was_futex_marker && !shard->prev_syscall_had_trace) {
             found_final_futex_without_trace_ = true;
         }
         if (shard->kernel_instr_count > 0) {
@@ -227,15 +226,15 @@ public:
                 }
                 break;
             }
-            if (shard->in_syscall_trace) {
-                ++shard->kernel_instr_count;
-                return true;
-            }
-            if (type_is_instr(memref.data.type)) {
-                shard->prev_was_futex_marker = false;
-                shard->prev_syscall_had_trace = false;
-            }
         }
+        if (!type_is_instr(memref.data.type))
+            return true;
+        if (shard->in_syscall_trace) {
+            ++shard->kernel_instr_count;
+            return true;
+        }
+        shard->prev_was_futex_marker = false;
+        shard->prev_syscall_had_trace = false;
         return true;
     }
     bool
