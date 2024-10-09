@@ -1877,8 +1877,8 @@ event_thread_exit(void *drcontext)
                 // XXX: Can we somehow figure out how much of the PT trace we can
                 // keep?
                 // Such PT syscall traces at the thread's end have been seen to not
-                // decode successfully, particularly for syscalls like futex,
-                // epoll_wait.
+                // decode successfully, particularly for syscalls like switchto, futex,
+                // and epoll_wait.
                 stop_cur_syscall_pt_trace(drcontext, data, /*dump_to_trace=*/false);
             }
         }
