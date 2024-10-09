@@ -163,13 +163,118 @@ postprocess(void *dr_context)
     return outdir;
 }
 
-static basic_counts_t::counters_t
-get_basic_counts(const std::string &trace_dir)
+// Trace analysis tool that allows us to verify properties of the generated PT trace.
+class pt_analysis_tool_t : public analysis_tool_t {
+public:
+    pt_analysis_tool_t()
+    {
+    }
+    bool
+    process_memref(const memref_t &memref) override
+    {
+        FATAL_ERROR("Expected to use sharded mode");
+        return true;
+    }
+    bool
+    parallel_shard_supported() override
+    {
+        return true;
+    }
+    void *
+    parallel_shard_init(int shard_index, void *worker_data) override
+    {
+        auto per_shard = new per_shard_t;
+        return reinterpret_cast<void *>(per_shard);
+    }
+    bool
+    parallel_shard_exit(void *shard_data) override
+    {
+        std::lock_guard<std::mutex> guard(shard_exit_mutex_);
+        per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
+        if (shard->syscall_count == 0)
+            return true;
+        if (shard->syscall_count > 1 && !shard->any_syscall_had_trace) {
+            std::cerr << "No syscall had a trace\n";
+        }
+        // iX: Invert the second condition below after #7027 is merged.
+        if (shard->prev_was_futex_marker && shard->prev_syscall_had_trace) {
+            found_final_futex_without_trace_ = true;
+        }
+        if (shard->kernel_instr_count > 0) {
+            found_some_kernel_instrs_ = true;
+        }
+        return true;
+    }
+    bool
+    parallel_shard_memref(void *shard_data, const memref_t &memref) override
+    {
+        per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
+        if (memref.marker.type == TRACE_TYPE_MARKER) {
+            switch (memref.marker.marker_type) {
+            case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
+                shard->in_syscall_trace = true;
+                break;
+            case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
+                shard->in_syscall_trace = false;
+                shard->prev_syscall_had_trace = true;
+                shard->any_syscall_had_trace = true;
+                break;
+            case TRACE_MARKER_TYPE_SYSCALL:
+                ++shard->syscall_count;
+                shard->prev_syscall_had_trace = false;
+                if (memref.marker.marker_value == SYS_futex) {
+                    shard->prev_was_futex_marker = true;
+                }
+                break;
+            }
+            if (shard->in_syscall_trace) {
+                ++shard->kernel_instr_count;
+                return true;
+            }
+            if (type_is_instr(memref.data.type)) {
+                shard->prev_was_futex_marker = false;
+                shard->prev_syscall_had_trace = false;
+            }
+        }
+        return true;
+    }
+    bool
+    print_results() override
+    {
+        if (!found_final_futex_without_trace_) {
+            std::cerr
+                << "Did not find any thread trace with final futex without PT trace\n";
+        } else {
+            std::cerr << "Found matching signature in a thread\n";
+        }
+        if (!found_some_kernel_instrs_) {
+            std::cerr << "Did not find any kernel instrs\n";
+        }
+        return true;
+    }
+
+private:
+    // Data tracked per shard.
+    struct per_shard_t {
+        bool prev_was_futex_marker = false;
+        bool prev_syscall_had_trace = false;
+        bool any_syscall_had_trace = false;
+        int syscall_count = 0;
+        bool in_syscall_trace = false;
+        int kernel_instr_count = 0;
+    };
+
+    bool found_final_futex_without_trace_ = false;
+    bool found_some_kernel_instrs_ = false;
+    std::mutex shard_exit_mutex_;
+};
+
+static bool
+run_pt_analysis(const std::string &trace_dir)
 {
-    auto basic_counts_tool =
-        std::unique_ptr<basic_counts_t>(new basic_counts_t(/*verbose=*/0));
+    auto pt_analysis_tool = std::unique_ptr<pt_analysis_tool_t>(new pt_analysis_tool_t());
     std::vector<analysis_tool_t *> tools;
-    tools.push_back(basic_counts_tool.get());
+    tools.push_back(pt_analysis_tool.get());
     analyzer_t analyzer(trace_dir, &tools[0], static_cast<int>(tools.size()));
     if (!analyzer) {
         FATAL_ERROR("failed to initialize analyzer: %s",
@@ -178,7 +283,10 @@ get_basic_counts(const std::string &trace_dir)
     if (!analyzer.run()) {
         FATAL_ERROR("failed to run analyzer: %s", analyzer.get_error_string().c_str());
     }
-    return basic_counts_tool->get_total_counts();
+    if (!analyzer.print_stats()) {
+        FATAL_ERROR("failed to print stats: %s", analyzer.get_error_string().c_str());
+    }
+    return true;
 }
 
 static void
@@ -215,12 +323,8 @@ static int
 test_pt_trace(void *dr_context)
 {
     std::string trace_dir = postprocess(dr_context);
-    basic_counts_t::counters_t final_trace_counts = get_basic_counts(trace_dir);
-    if (final_trace_counts.kernel_instrs == 0) {
-        std::cerr << "Unexpected kernel instr count in the final trace ("
-                  << final_trace_counts.kernel_instrs << ")\n";
+    if (!run_pt_analysis(trace_dir))
         return 1;
-    }
     return 0;
 }
 
