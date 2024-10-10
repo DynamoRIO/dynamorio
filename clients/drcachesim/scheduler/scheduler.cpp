@@ -1312,7 +1312,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_recorded_schedule()
             outputs_[i].waiting = true;
             if (outputs_[i].record[0].type == schedule_record_t::IDLE) {
                 // Convert a legacy idle duration from microseconds to record counts.
-                outputs_[i].record[0].value.idle_duration *= options_.time_units_per_us;
+                outputs_[i].record[0].value.idle_duration =
+                    static_cast<uint64_t>(options_.time_units_per_us *
+                                          outputs_[i].record[0].value.idle_duration);
             }
             outputs_[i].idle_start_count = -1; // Updated on first next_record().
             VPRINT(this, 3, "output %d starting out idle\n", i);
@@ -3061,7 +3063,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input_as_previously(
         outputs_[output].waiting = true;
         if (segment.type == schedule_record_t::IDLE) {
             // Convert a legacy idle duration from microseconds to record counts.
-            segment.value.idle_duration *= options_.time_units_per_us;
+            segment.value.idle_duration = static_cast<uint64_t>(
+                options_.time_units_per_us * segment.value.idle_duration);
         }
         outputs_[output].idle_start_count = outputs_[output].idle_count;
         outputs_[output].record_index->fetch_add(1, std::memory_order_release);
