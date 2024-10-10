@@ -4790,6 +4790,16 @@ if (BUILD_CLIENTS)
           # We run basic_counts on the filtered trace to check that there are no function
           # related markers left.
           "basic_counts")
+
+        # Run invalidate_cpu_filter to overwrite the values of TRACE_MARKER_TYPE_CPU_ID
+        # markers with (uintptr_t)-1, which represents CPU unknown.
+        set(testname "tool.record_filter_invalidate_cpu")
+        torun_record_filter("${testname}" ${kernel_xfer_app}
+          "record_filter_invalidate_cpu"
+          "${drcachesim_path}@-simulator_type@record_filter@-filter_invalidate_cpu@-indir@${testname}.${kernel_xfer_app}.*.dir/trace@-outdir@${testname}.filtered.dir"
+          # We run view on the filtered trace to check that the value of the first
+          # TRACE_MARKER_TYPE_CPU_ID is (uintptr_t)-1.
+          "view")
     endif ()
 
     if (X86 AND X64 AND UNIX AND NOT APPLE)
