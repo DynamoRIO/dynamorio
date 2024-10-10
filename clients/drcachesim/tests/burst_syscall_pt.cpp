@@ -86,11 +86,11 @@ parent_futex_wake()
     /* The child would be waiting at the other futex by now.
      * i#7034: Note that the child thread undergoes detach while it is waiting
      * on futex_var_other. There is a bug at this point due to a possible
-     * transparency violation. When the child thread restarts futex after
-     * being interrupted by the detach signal, it seems like it resumes
+     * transparency violation in DR. When the child thread restarts futex after
+     * being interrupted by DR's detach signal, it is found to resume
      * waiting at the original futex_var instead of futex_var_other.
-     * If we modify this code to do detach after this call, then the child
-     * is found to be waiting at futex_var_other, as expected.
+     * If we modify this app to do detach after parent_futex_wake returns, then
+     * the child is found to be waiting at futex_var_other as expected.
      */
     uint32_t *child_waiting_at_futex = &futex_var;
     long res = syscall(SYS_futex, child_waiting_at_futex, FUTEX_WAKE, /*#wakeup=*/1,
@@ -105,7 +105,8 @@ parent_futex_reque()
     do {
         /* Repeat until the child is surely waiting at the futex. We'll know this
          * when the following call returns a 1, which means the child was
-         * transferred to the other futex var.
+         * transferred to futex_var_other. This is to ensure that the child thread
+         * is inside the futex syscall when DR detaches.
          */
         res = syscall(SYS_futex, &futex_var, FUTEX_CMP_REQUEUE, /*#wakeup_max=*/0,
                       /*#requeue_max=*/1, /*uaddr2=*/&futex_var_other, /*val3=*/0xf00d);
@@ -156,6 +157,7 @@ postprocess(void *dr_context)
         FATAL_ERROR("raw2trace failed: %s\n", error.c_str());
     uint64 decoded_syscall_count =
         raw2trace.get_statistic(RAW2TRACE_STAT_SYSCALL_TRACES_CONVERTED);
+    // We should see atleast the getpid, gettid, and futex syscalls made by the parent.
     if (decoded_syscall_count <= 2) {
         std::cerr << "Incorrect decoded syscall count (found: " << decoded_syscall_count
                   << " vs expected > 2)\n";
@@ -193,6 +195,8 @@ public:
         per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
         if (shard->syscall_count == 0)
             return true;
+        // In case the child has just the one futex syscall which was skipped
+        // from the trace.
         if (shard->syscall_count > 1 && !shard->any_syscall_had_trace) {
             std::cerr << "No syscall had a trace\n";
         }
