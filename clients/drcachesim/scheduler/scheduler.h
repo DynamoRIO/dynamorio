@@ -1459,6 +1459,9 @@ protected:
             // Indicates that the output is idle.  The value.idle_duration field holds
             // a duration in microseconds.
             IDLE,
+            // Indicates that the output is idle.  The value.idle_duration field holds
+            // a duration as a count of idle records.
+            IDLE_BY_COUNT,
         };
         static constexpr int VERSION_CURRENT = 0;
         schedule_record_t() = default;
@@ -1493,6 +1496,7 @@ protected:
             {
             }
             // For record_type_t::IDLE, the duration in microseconds of the idling.
+            // For record_type_t::IDLE_BY_COUNT, the duration as a count of idle records.
             uint64_t idle_duration;
             // Input stream ordinal of starting point, for non-IDLE types.
             uint64_t start_instruction = 0;
@@ -1692,8 +1696,8 @@ protected:
         int64_t as_traced_cpuid = -1;
         // Used for MAP_AS_PREVIOUSLY with live_replay_output_count_.
         bool at_eof = false;
-        // Used for replaying wait periods.
-        uint64_t wait_start_time = 0;
+        // Used for recording and replaying idle periods.
+        int64_t idle_start_count = -1;
         // Exported statistics. Currently all integers and cast to double on export.
         std::vector<int64_t> stats =
             std::vector<int64_t>(memtrace_stream_t::SCHED_STAT_TYPE_COUNT);
