@@ -4201,8 +4201,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::update_next_record(output_ordinal_t ou
         }
         uint64_t instr_ord = outputs_[output].stream->get_instruction_ordinal();
         uint64_t idle_count = outputs_[output].idle_count;
-        uintptr_t new_time =
-            outputs_[output].base_timestamp + (instr_ord + idle_count) / INSTRS_PER_US;
+        uintptr_t new_time = static_cast<uintptr_t>(
+            outputs_[output].base_timestamp + (instr_ord + idle_count) / INSTRS_PER_US);
         VPRINT(this, 4,
                "New time in output %d: %zu from base %zu and instrs %" PRIu64
                " idles %" PRIu64 "\n",
