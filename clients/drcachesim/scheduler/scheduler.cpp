@@ -4196,7 +4196,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::update_next_record(output_ordinal_t ou
                 record_type_is_timestamp(record, outputs_[output].base_timestamp);
             assert(ok);
             assert(outputs_[output].base_timestamp != 0);
-            VPRINT(this, 2, "output %d base timestamp = %" PRIu64 "\n", output,
+            VPRINT(this, 2, "output %d base timestamp = %zu\n", output,
                    outputs_[output].base_timestamp);
         }
         uint64_t instr_ord = outputs_[output].stream->get_instruction_ordinal();
