@@ -280,6 +280,17 @@ scheduler_tmpl_t<memref_t, reader_t>::record_type_is_non_marker_header(memref_t 
 
 template <>
 bool
+scheduler_tmpl_t<memref_t, reader_t>::record_type_set_marker_value(memref_t &record,
+                                                                   uintptr_t value)
+{
+    if (record.marker.type != TRACE_TYPE_MARKER)
+        return false;
+    record.marker.marker_value = value;
+    return true;
+}
+
+template <>
+bool
 scheduler_tmpl_t<memref_t, reader_t>::record_type_is_timestamp(memref_t record,
                                                                uintptr_t &value)
 {
@@ -471,6 +482,17 @@ scheduler_tmpl_t<trace_entry_t, record_reader_t>::record_type_is_instr_boundary(
     return (record_type_is_instr(record) ||
             record_reader_t::record_is_pre_instr(&record)) &&
         !record_reader_t::record_is_pre_instr(&prev_record);
+}
+
+template <>
+bool
+scheduler_tmpl_t<trace_entry_t, record_reader_t>::record_type_set_marker_value(
+    trace_entry_t &record, uintptr_t value)
+{
+    if (record.type != TRACE_TYPE_MARKER)
+        return false;
+    record.addr = value;
+    return true;
 }
 
 template <>
@@ -4138,12 +4160,65 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
     }
     VPRINT(this, 4, "next_record[%d]: from %d @%" PRId64 ": ", output, input->index,
            cur_time);
+    update_next_record(output, record);
     VDO(this, 4, print_record(record););
 
     outputs_[output].last_record = record;
     record_type_has_tid(record, input->last_record_tid);
     record_type_has_pid(record, input->pid);
     return sched_type_t::STATUS_OK;
+}
+
+template <typename RecordType, typename ReaderType>
+void
+scheduler_tmpl_t<RecordType, ReaderType>::update_next_record(output_ordinal_t output,
+                                                             RecordType &record)
+{
+    if (options_.mapping != MAP_TO_ANY_OUTPUT && options_.mapping != MAP_AS_PREVIOUSLY)
+        return; // Nothing to do.
+    if (options_.replay_as_traced_istream != nullptr) {
+        // Do not modify MAP_TO_RECORDED_OUTPUT (turned into MAP_AS_PREVIOUSLY).
+        return;
+    }
+    // For a dynamic schedule, the as-traced cpuids and timestamps no longer
+    // apply and are just confusing (causing problems like interval analysis
+    // failures), so we replace them.
+    trace_marker_type_t type;
+    uintptr_t value;
+    if (!record_type_is_marker(record, type, value))
+        return; // Nothing to do.
+    if (type == TRACE_MARKER_TYPE_TIMESTAMP) {
+        if (outputs_[output].base_timestamp == 0) {
+            // Record the first input's first timestamp, as a base value.
+#ifndef NDEBUG
+            bool ok =
+#endif
+                record_type_is_timestamp(record, outputs_[output].base_timestamp);
+            assert(ok);
+            assert(outputs_[output].base_timestamp != 0);
+            VPRINT(this, 2, "output %d base timestamp = %zu\n", output,
+                   outputs_[output].base_timestamp);
+        }
+        uint64_t instr_ord = outputs_[output].stream->get_instruction_ordinal();
+        uint64_t idle_count = outputs_[output].idle_count;
+        uintptr_t new_time = static_cast<uintptr_t>(
+            outputs_[output].base_timestamp + (instr_ord + idle_count) / INSTRS_PER_US);
+        VPRINT(this, 4,
+               "New time in output %d: %zu from base %zu and instrs %" PRIu64
+               " idles %" PRIu64 "\n",
+               output, new_time, outputs_[output].base_timestamp, instr_ord, idle_count);
+#ifndef NDEBUG
+        bool ok =
+#endif
+            record_type_set_marker_value(record, new_time);
+        assert(ok);
+    } else if (type == TRACE_MARKER_TYPE_CPU_ID) {
+#ifndef NDEBUG
+        bool ok =
+#endif
+            record_type_set_marker_value(record, get_shard_index(output));
+        assert(ok);
+    }
 }
 
 template <typename RecordType, typename ReaderType>

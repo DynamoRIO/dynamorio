@@ -38,6 +38,7 @@
 #include <cstddef>
 #include <cstring>
 #include <iostream>
+#include <random>
 #include <set>
 #include <string>
 #include <thread>
@@ -3294,7 +3295,8 @@ test_replay_skip()
             case 1:
                 assert(memref.marker.type == TRACE_TYPE_MARKER);
                 assert(memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID);
-                assert(memref.marker.marker_value == 1);
+                // The value should be replaced by the shard id == 0.
+                assert(memref.marker.marker_value == 0);
                 break;
             case 2:
                 assert(type_is_instr(memref.instr.type));
@@ -3308,12 +3310,14 @@ test_replay_skip()
             case 4:
                 assert(memref.marker.type == TRACE_TYPE_MARKER);
                 assert(memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP);
-                assert(memref.marker.marker_value == 40);
+                // The value should be replaced by a synthetic value: the initial (10)
+                // won't have advanced to the next microsecond.
+                assert(memref.marker.marker_value == 10);
                 break;
             case 5:
                 assert(memref.marker.type == TRACE_TYPE_MARKER);
                 assert(memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID);
-                assert(memref.marker.marker_value == 4);
+                assert(memref.marker.marker_value == 0);
                 break;
             case 6:
                 assert(type_is_instr(memref.instr.type));
@@ -3322,12 +3326,12 @@ test_replay_skip()
             case 7:
                 assert(memref.marker.type == TRACE_TYPE_MARKER);
                 assert(memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP);
-                assert(memref.marker.marker_value == 50);
+                assert(memref.marker.marker_value == 10);
                 break;
             case 8:
                 assert(memref.marker.type == TRACE_TYPE_MARKER);
                 assert(memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID);
-                assert(memref.marker.marker_value == 5);
+                assert(memref.marker.marker_value == 0);
                 break;
             case 9:
                 assert(type_is_instr(memref.instr.type));
@@ -6112,6 +6116,93 @@ test_exit_early()
     }
 }
 
+static void
+test_marker_updates()
+{
+    std::cerr << "\n----------------\nTesting marker updates\n";
+    static constexpr int NUM_INPUTS = 5;
+    static constexpr int NUM_OUTPUTS = 3;
+    // We need at least enough instrs to cover INSTRS_PER_US==2000.
+    static constexpr int NUM_INSTRS = 10000;
+    static constexpr memref_tid_t TID_BASE = 100;
+    static constexpr uint64_t TIMESTAMP_BASE = 12340000;
+
+    std::vector<trace_entry_t> inputs[NUM_INPUTS];
+
+    std::minstd_rand rand_gen;
+    rand_gen.seed(static_cast<int>(reinterpret_cast<int64_t>(&inputs[0])));
+
+    for (int i = 0; i < NUM_INPUTS; i++) {
+        memref_tid_t tid = TID_BASE + i;
+        inputs[i].push_back(make_thread(tid));
+        inputs[i].push_back(make_pid(1));
+        inputs[i].push_back(make_version(TRACE_ENTRY_VERSION));
+        // Add a randomly-increasing-value timestamp.
+        uint64_t cur_timestamp = TIMESTAMP_BASE;
+        cur_timestamp += rand_gen();
+        inputs[i].push_back(make_timestamp(cur_timestamp));
+        // Add a cpuid with a random value.
+        inputs[i].push_back(make_marker(TRACE_MARKER_TYPE_CPU_ID, rand_gen()));
+        for (int j = 0; j < NUM_INSTRS; j++) {
+            inputs[i].push_back(make_instr(42 + j * 4));
+            // Add a randomly-increasing-value timestamp.
+            cur_timestamp += rand_gen();
+            inputs[i].push_back(make_timestamp(cur_timestamp));
+            // Add a cpuid with a random value.
+            inputs[i].push_back(make_marker(TRACE_MARKER_TYPE_CPU_ID, rand_gen()));
+        }
+        inputs[i].push_back(make_exit(tid));
+    }
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    for (int i = 0; i < NUM_INPUTS; i++) {
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()),
+                             TID_BASE + i);
+        sched_inputs.emplace_back(std::move(readers));
+    }
+    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                               scheduler_t::DEPENDENCY_IGNORE,
+                                               scheduler_t::SCHEDULER_DEFAULTS,
+                                               /*verbosity=*/2);
+    scheduler_t scheduler;
+    if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    std::vector<scheduler_t::stream_t *> outputs(NUM_OUTPUTS, nullptr);
+    std::vector<uintptr_t> last_timestamp(NUM_OUTPUTS, 0);
+    std::vector<bool> eof(NUM_OUTPUTS, false);
+    for (int i = 0; i < NUM_OUTPUTS; i++)
+        outputs[i] = scheduler.get_stream(i);
+    int num_eof = 0;
+    while (num_eof < NUM_OUTPUTS) {
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            if (eof[i])
+                continue;
+            memref_t memref;
+            scheduler_t::stream_status_t status = outputs[i]->next_record(memref);
+            if (status == scheduler_t::STATUS_EOF) {
+                ++num_eof;
+                eof[i] = true;
+                continue;
+            }
+            if (status == scheduler_t::STATUS_IDLE)
+                continue;
+            assert(status == scheduler_t::STATUS_OK);
+            if (memref.marker.type != TRACE_TYPE_MARKER)
+                continue;
+            // Make sure the random values have some order now, satisfying invariants.
+            if (memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
+                assert(memref.marker.marker_value >= last_timestamp[i]);
+                last_timestamp[i] = memref.marker.marker_value;
+            } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID) {
+                assert(memref.marker.marker_value ==
+                       static_cast<uintptr_t>(outputs[i]->get_shard_index()));
+            }
+        }
+    }
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -6154,6 +6245,7 @@ test_main(int argc, const char *argv[])
     test_record_scheduler();
     test_rebalancing();
     test_exit_early();
+    test_marker_updates();
 
     dr_standalone_exit();
     return 0;
