@@ -6201,6 +6201,11 @@ test_marker_updates()
             }
         }
     }
+    // Ensure we didn't short-circuit or exit early.
+    uint64_t instrs_seen = 0;
+    for (int i = 0; i < NUM_OUTPUTS; i++)
+        instrs_seen += outputs[i]->get_instruction_ordinal();
+    assert(instrs_seen == NUM_INPUTS * NUM_INSTRS);
 }
 
 int
