@@ -2780,6 +2780,12 @@ scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue_hold_locks(
                     found_candidate = true;
                 else {
                     assert(cur_time > 0 || res->last_run_time == 0);
+                    if (res->last_run_time == 0) {
+                        // For never-executed inputs we consider their last execution
+                        // to be the very first simulation time, which we can't
+                        // easily initialize until here.
+                        res->last_run_time = outputs_[from_output].initial_cur_time;
+                    }
                     VPRINT(this, 5,
                            "migration check %d to %d: cur=%" PRIu64 " last=%" PRIu64
                            " delta=%" PRId64 " vs thresh %" PRIu64 "\n",
@@ -2787,15 +2793,20 @@ scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue_hold_locks(
                            cur_time - res->last_run_time,
                            options_.migration_threshold_us);
                     // Guard against time going backward (happens for wall-clock: i#6966).
-                    if (options_.migration_threshold_us == 0 || res->last_run_time == 0 ||
+                    if (options_.migration_threshold_us == 0 ||
+                        // Allow free movement for the initial load balance at init time.
+                        cur_time == 0 ||
                         (cur_time > res->last_run_time &&
                          cur_time - res->last_run_time >=
                              static_cast<uint64_t>(options_.migration_threshold_us *
                                                    options_.time_units_per_us))) {
                         VPRINT(this, 2, "migrating %d to %d\n", from_output, for_output);
                         found_candidate = true;
-                        ++outputs_[from_output]
-                              .stats[memtrace_stream_t::SCHED_STAT_MIGRATIONS];
+                        // Do not count an initial rebalance as a migration.
+                        if (cur_time > 0) {
+                            ++outputs_[from_output]
+                                  .stats[memtrace_stream_t::SCHED_STAT_MIGRATIONS];
+                        }
                     }
                 }
                 if (found_candidate)
@@ -3788,6 +3799,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
         // We add 1 to avoid an invalid value of 0.
         cur_time = 1 + outputs_[output].stream->get_output_instruction_ordinal() +
             outputs_[output].idle_count;
+    }
+    if (outputs_[output].initial_cur_time == 0) {
+        outputs_[output].initial_cur_time = cur_time;
     }
     // Invalid values for cur_time are checked below.
     outputs_[output].cur_time->store(cur_time, std::memory_order_release);

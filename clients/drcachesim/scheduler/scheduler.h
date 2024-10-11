@@ -1692,6 +1692,8 @@ protected:
         // This is accessed by other outputs for stealing and rebalancing.
         // Indirected so we can store it in our vector.
         std::unique_ptr<std::atomic<uint64_t>> cur_time;
+        // The first simulation time passed to this output.
+        uint64_t initial_cur_time = 0;
         // Used for MAP_TO_RECORDED_OUTPUT get_output_cpuid().
         int64_t as_traced_cpuid = -1;
         // Used for MAP_AS_PREVIOUSLY with live_replay_output_count_.
