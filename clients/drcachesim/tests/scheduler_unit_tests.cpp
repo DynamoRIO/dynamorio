@@ -6009,6 +6009,95 @@ test_rebalancing()
 }
 
 static void
+test_initial_migrate()
+{
+    std::cerr << "\n----------------\nTesting initial migrations\n";
+    // We want to ensures migration thresholds are applied to never-executed inputs.
+    static constexpr int NUM_OUTPUTS = 2;
+    static constexpr memref_tid_t TID_BASE = 100;
+    static constexpr memref_tid_t TID_A = TID_BASE + 0;
+    static constexpr memref_tid_t TID_B = TID_BASE + 1;
+    static constexpr memref_tid_t TID_C = TID_BASE + 2;
+    static constexpr uint64_t TIMESTAMP_START = 10;
+
+    // We have 3 inputs and 2 outputs. We expect a round-robin initial assignment
+    // to put A and C on output #0 and B on #1.
+    // B will finish #1 and then try to steal C from A but should fail if initial
+    // migrations have to wait for the threshold as though the input just ran
+    // right before the trace started, which is how we treat them now.
+    std::vector<trace_entry_t> refs_A = {
+        /* clang-format off */
+        make_thread(TID_A),
+        make_pid(1),
+        make_version(4),
+        make_timestamp(TIMESTAMP_START),
+        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        make_instr(10),
+        make_instr(11),
+        make_instr(12),
+        make_instr(13),
+        make_instr(14),
+        make_instr(15),
+        make_exit(TID_A),
+        /* clang-format on */
+    };
+    std::vector<trace_entry_t> refs_B = {
+        /* clang-format off */
+        make_thread(TID_B),
+        make_pid(1),
+        make_version(4),
+        make_timestamp(TIMESTAMP_START),
+        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        make_instr(20),
+        make_exit(TID_B),
+        /* clang-format on */
+    };
+    std::vector<trace_entry_t> refs_C = {
+        /* clang-format off */
+        make_thread(TID_C),
+        make_pid(1),
+        make_version(4),
+        make_timestamp(TIMESTAMP_START + 10),
+        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        make_instr(30),
+        make_instr(31),
+        make_instr(32),
+        make_exit(TID_C),
+        /* clang-format on */
+    };
+
+    std::vector<scheduler_t::input_reader_t> readers;
+    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
+                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
+    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
+                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
+    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_C)),
+                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_C);
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    sched_inputs.emplace_back(std::move(readers));
+    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                               scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                               scheduler_t::SCHEDULER_DEFAULTS,
+                                               /*verbosity=*/3);
+    scheduler_t scheduler;
+    if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    std::vector<std::string> sched_as_string =
+        run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE, /*send_time=*/true);
+    // We should see zero migrations since output #1 failed to steal C from output #0.
+    static const char *const CORE0_SCHED_STRING = "...AAAAAA....CCC.";
+    static const char *const CORE1_SCHED_STRING = "...B.____________";
+    for (int i = 0; i < NUM_OUTPUTS; i++) {
+        assert(scheduler.get_stream(i)->get_schedule_statistic(
+                   memtrace_stream_t::SCHED_STAT_MIGRATIONS) == 0);
+        std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+    }
+    assert(sched_as_string[0] == CORE0_SCHED_STRING);
+    assert(sched_as_string[1] == CORE1_SCHED_STRING);
+}
+
+static void
 test_exit_early()
 {
     std::cerr << "\n----------------\nTesting exiting early\n";
@@ -6249,6 +6338,7 @@ test_main(int argc, const char *argv[])
     test_random_schedule();
     test_record_scheduler();
     test_rebalancing();
+    test_initial_migrate();
     test_exit_early();
     test_marker_updates();
 
