@@ -6022,7 +6022,9 @@ test_initial_migrate()
 
     // We have 3 inputs and 2 outputs. We expect a round-robin initial assignment
     // to put A and C on output #0 and B on #1.
-    // B will finish #1 and then try to steal C from A.
+    // B will finish #1 and then try to steal C from A but should fail if initial
+    // migrations have to wait for the threshold as though the input just ran
+    // right before the trace started, which is how we treat them now.
     std::vector<trace_entry_t> refs_A = {
         /* clang-format off */
         make_thread(TID_A),
@@ -6083,7 +6085,7 @@ test_initial_migrate()
         assert(false);
     std::vector<std::string> sched_as_string =
         run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE, /*send_time=*/true);
-    // We should see zero migrations.
+    // We should see zero migrations since output #1 failed to steal C from output #0.
     static const char *const CORE0_SCHED_STRING = "...AAAAAA....CCC.";
     static const char *const CORE1_SCHED_STRING = "...B.____________";
     for (int i = 0; i < NUM_OUTPUTS; i++) {
