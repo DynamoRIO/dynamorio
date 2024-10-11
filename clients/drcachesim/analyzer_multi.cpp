@@ -472,8 +472,53 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
         return;
     }
 
+    bool offline = !op_indir.get_value().empty() || !op_infile.get_value().empty();
+    // TODO i#7040: Add core-sharded support for online tools.
+    if (offline && !op_core_sharded.specified() && !op_core_serial.specified() &&
+        !op_cpu_scheduling.get_value()) {
+        bool switch_to_core_sharded = true;
+        bool one_prefers_core_sharded = false;
+        for (int i = 0; i < this->num_tools_; ++i) {
+            if (this->tools_[i]->preferred_shard_type() == SHARD_BY_CORE) {
+                one_prefers_core_sharded = true;
+            } else {
+                switch_to_core_sharded = false;
+                break;
+            }
+            if (this->parallel_ && !this->tools_[i]->parallel_shard_supported()) {
+                this->parallel_ = false;
+            }
+        }
+        if (switch_to_core_sharded) {
+            // XXX i#6949: Ideally we could detect a core-sharded-on-disk input
+            // here and avoid this but that's not simple so we rely on the user
+            // to pass -no_core_sharded for such inputs.
+            if (this->parallel_) {
+                if (op_verbose.get_value() > 0)
+                    fprintf(stderr, "Enabling -core_sharded as all tools prefer it\n");
+                op_core_sharded.set_value(true);
+            } else {
+                if (op_verbose.get_value() > 0)
+                    fprintf(stderr, "Enabling -core_serial as all tools prefer it\n");
+                op_core_serial.set_value(true);
+            }
+        } else if (one_prefers_core_sharded) {
+            if (op_verbose.get_value() > 0) {
+                fprintf(stderr,
+                        "Some tool(s) prefer core-sharded: consider re-running with "
+                        "-core_sharded or -core_serial enabled for best results.\n");
+            }
+        }
+    }
+
     typename sched_type_t::scheduler_options_t sched_ops;
     if (op_core_sharded.get_value() || op_core_serial.get_value()) {
+        if (!offline) {
+            // TODO i#7040: Add core-sharded support for online tools.
+            this->success_ = false;
+            this->error_string_ = "Core-sharded is not yet supported for online analysis";
+            return;
+        }
         if (op_core_serial.get_value()) {
             this->parallel_ = false;
         }

@@ -3246,7 +3246,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
     VDO(this, 1, {
         static int global_heartbeat;
         // We are ok with races as the cadence is approximate.
-        if (++global_heartbeat % 10000 == 0) {
+        if (++global_heartbeat % 50000 == 0) {
             print_queue_stats();
         }
     });

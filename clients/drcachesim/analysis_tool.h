@@ -156,6 +156,16 @@ public:
     {
         return "";
     }
+    /**
+     * Identifies the preferred shard type for this analysis.  If every tool requests
+     * #SHARD_BY_CORE, the framework may decided to use that mode even if the user
+     * left the default thread-sharded mode in place.
+     */
+    virtual shard_type_t
+    preferred_shard_type()
+    {
+        return SHARD_BY_THREAD;
+    }
     /** Returns whether the tool was created successfully. */
     virtual bool
     operator!()

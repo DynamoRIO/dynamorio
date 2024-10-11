@@ -3976,7 +3976,8 @@ if (BUILD_CLIENTS)
         set(tool.core_on_disk_rawtemp ON) # no preprocessor
 
         torunonly_simtool(core_on_disk_schedule ${ci_shared_app}
-          "-indir ${core_sharded_dir} -tool schedule_stats" "")
+          # Avoid the default core-sharded from re-scheduling the trace.
+          "-indir ${core_sharded_dir} -tool schedule_stats -no_core_sharded" "")
         set(tool.core_on_disk_schedule_rawtemp ON) # no preprocessor
 
         # Test -only_shards on core-sharded-on-disk traces.
@@ -4100,10 +4101,10 @@ if (BUILD_CLIENTS)
       torunonly_drcacheoff(fork linux.fork "" "" "")
     endif ()
 
-    # Test reading a legacy pre-interleaved file.
+    # Test reading a legacy pre-interleaved file in thread-sharded mode.
     if (ZLIB_FOUND)
       torunonly_api(tool.drcacheoff.legacy "${drcachesim_path}" "offline-legacy.c" ""
-        "-infile;${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/offline-legacy-trace.gz"
+        "-infile;${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/offline-legacy-trace.gz;-no_core_serial"
         OFF OFF)
       set(tool.drcacheoff.legacy_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -4139,16 +4140,20 @@ if (BUILD_CLIENTS)
     # Test reading a trace in sharded snappy-compressed files.
     if (libsnappy)
       # with a parallel tool (basic_counts)
-      torunonly_api(tool.drcacheoff.snappy "${drcachesim_path}" "offline-snappy.c" ""
+      torunonly_api(tool.drcacheoff.snappy_parallel "${drcachesim_path}" "offline-snappy.c" ""
         "-indir;${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.chase-snappy.x64.tracedir;-tool;basic_counts"
         OFF OFF)
-
-      # with a legacy serial tool (full simulator)
-      torunonly_api(tool.drcacheoff.snappy "${drcachesim_path}" "offline-snappy-serial.c" ""
-        "-indir;${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.chase-snappy.x64.tracedir"
-        OFF OFF)
-      set(tool.drcacheoff.snappy_basedir
+      set(tool.drcacheoff.snappy_parallel_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.drcacheoff.snappy_parallel_expectbase "offline-snappy")
+
+      # With a legacy serial tool (full simulator) in thread-sharded mode.
+      torunonly_api(tool.drcacheoff.snappy_serial "${drcachesim_path}" "offline-snappy-serial.c" ""
+        "-indir;${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.chase-snappy.x64.tracedir;-no_core_serial"
+        OFF OFF)
+      set(tool.drcacheoff.snappy_serial_basedir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.drcacheoff.snappy_serial_expectbase "offline-snappy-serial")
     endif()
 
     if (UNIX) # Enable on Windows once i#1727 is fixed.
