@@ -96,7 +96,9 @@ parse_string(const std::string &s, char sep = ',')
     std::vector<T> vec;
     do {
         pos = s.find(sep, at);
-        unsigned long long parsed_number = std::stoull(s.substr(at, pos));
+        // base = 0 allows to handle both decimal and hex numbers.
+        unsigned long long parsed_number =
+            std::stoull(s.substr(at, pos), nullptr, /*base = */ 0);
         // XXX: parsed_number may be truncated if T is not large enough.
         // We could check that parsed_number is within the limits of T using
         // std::numeric_limits<>::min()/max(), but this returns 0 on T that are enums,

@@ -4797,7 +4797,7 @@ if (BUILD_CLIENTS)
         set(testname "tool.record_filter_modify_marker_value")
         torun_record_filter("${testname}" ${kernel_xfer_app}
           "record_filter_modify_marker_value"
-          "${drcachesim_path}@-simulator_type@record_filter@-filter_modify_marker_value@3,18446744073709551615,18,2048@-indir@${testname}.${kernel_xfer_app}.*.dir/trace@-outdir@${testname}.filtered.dir"
+          "${drcachesim_path}@-simulator_type@record_filter@-filter_modify_marker_value@3,0xffffffffffffffff,18,2048@-indir@${testname}.${kernel_xfer_app}.*.dir/trace@-outdir@${testname}.filtered.dir"
           # We run view on the filtered trace to check that the value of the first
           # TRACE_MARKER_TYPE_CPU_ID is (uintptr_t)-1 and the value of
           # TRACE_MARKER_TYPE_PAGE_SIZE is 2k.
