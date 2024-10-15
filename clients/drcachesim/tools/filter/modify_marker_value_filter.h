@@ -91,7 +91,7 @@ public:
             return true;
 
         // Overwrite marker value.
-        entry.addr = it->second;
+        entry.addr = static_cast<addr_t>(it->second);
 
         return true;
     }
