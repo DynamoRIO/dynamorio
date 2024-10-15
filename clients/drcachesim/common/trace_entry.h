@@ -700,7 +700,7 @@ typedef enum {
 } trace_marker_type_t;
 
 // As documented in TRACE_MARKER_TYPE_CPU_ID, this value indicates an unknown CPU.
-#define INVALID_CPU_MARKER_VALUE ((uintptr_t) - 1)
+#define INVALID_CPU_MARKER_VALUE static_cast<uintptr_t>(-1)
 
 /** Constants related to function or system call parameter tracing. */
 enum class func_trace_t : uint64_t { // VS2019 won't infer 64-bit with "enum {".
