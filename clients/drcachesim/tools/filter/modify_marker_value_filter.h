@@ -49,7 +49,7 @@ class modify_marker_value_filter_t : public record_filter_t::record_filter_func_
 public:
     modify_marker_value_filter_t(std::vector<uint64_t> modify_marker_value_pairs_list)
     {
-        int list_size = modify_marker_value_pairs_list.size();
+        size_t list_size = modify_marker_value_pairs_list.size();
         if (list_size == 0) {
             error_string_ = "List of <TRACE_MARKER_TYPE_,new_value> pairs is empty.";
         } else if (list_size % 2 != 0) {
