@@ -56,7 +56,7 @@ public:
             error_string_ = "List of <TRACE_MARKER_TYPE_,new_value> pairs is missing "
                             "part of a pair as its size is not even";
         } else {
-            for (int i = 0; i < list_size; i += 2) {
+            for (size_t i = 0; i < list_size; i += 2) {
                 trace_marker_type_t marker_type =
                     static_cast<trace_marker_type_t>(modify_marker_value_pairs_list[i]);
                 uint64_t new_value = modify_marker_value_pairs_list[i + 1];
