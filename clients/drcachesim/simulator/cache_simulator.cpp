@@ -632,8 +632,7 @@ cache_simulator_t::print_results()
     std::cerr << "Cache simulation results:\n";
     // Print core and associated L1 cache stats first.
     for (unsigned int i = 0; i < knobs_.num_cores; i++) {
-        bool non_empty = print_core(i);
-        if (non_empty) {
+        if (print_core(i)) {
             if (l1_icaches_[i] != l1_dcaches_[i]) {
                 std::cerr << "  " << l1_icaches_[i]->get_name() << " ("
                           << l1_icaches_[i]->get_description() << ") stats:" << std::endl;
