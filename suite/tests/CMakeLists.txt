@@ -3972,6 +3972,7 @@ if (BUILD_CLIENTS)
         set(core_sharded_dir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig-core-sharded.x64.tracedir")
         torunonly_simtool(core_on_disk ${ci_shared_app}
+          # Avoid the default core-sharded from re-scheduling the trace.
           "-indir ${core_sharded_dir} -tool basic_counts" "")
         set(tool.core_on_disk_rawtemp ON) # no preprocessor
 
@@ -3982,7 +3983,8 @@ if (BUILD_CLIENTS)
 
         # Test -only_shards on core-sharded-on-disk traces.
         torunonly_simtool(only_shards ${ci_shared_app}
-          "-indir ${core_sharded_dir} -tool schedule_stats -only_shards 2,3" "")
+          # Avoid the default core-sharded from re-scheduling the trace.
+          "-indir ${core_sharded_dir} -tool schedule_stats -only_shards 2,3 -no_core_sharded" "")
         set(tool.core_on_disk_rawtemp ON) # no preprocessor
       endif ()
     endif ()
@@ -4751,9 +4753,9 @@ if (BUILD_CLIENTS)
       # Run the record filter tool with a null filter.
       set(${testname}_postcmd2 "${CMAKE_COMMAND}@-E@make_directory@${outdir}")
       set(${testname}_postcmd3 ${launch_cmd})
-      # Run the analyzer on the result.
+      # Run the analyzer on the result.  Avoid double-core-sharding.
       set(${testname}_postcmd4
-        "${drcachesim_path}@-indir@${outdir}@-tool@${analyzer}")
+        "${drcachesim_path}@-indir@${outdir}@-tool@${analyzer}@-no_core_sharded")
     endmacro ()
 
     set(testname "tool.record_filter")
@@ -4877,7 +4879,7 @@ if (BUILD_CLIENTS)
       file(MAKE_DIRECTORY ${outdir})
       torunonly_api(tool.record_filter_as_traced "${drcachesim_path}"
         "record_filter_as_traced"
-        "" "-tool;schedule_stats;-indir;${outdir}" OFF OFF)
+        "" "-tool;schedule_stats;-no_core_sharded;-indir;${outdir}" OFF OFF)
       set(tool.record_filter_as_traced_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
       set(tool.record_filter_as_traced_precmd
         "${drcachesim_path}@-tool@record_filter@-cpu_schedule_file@${sched_file}@-core_sharded@-cores@7@-indir@${trace_dir}@-outdir@${outdir}")
@@ -4894,7 +4896,7 @@ if (BUILD_CLIENTS)
       file(MAKE_DIRECTORY ${outdir})
       torunonly_api(tool.record_filter_start_idle "${drcachesim_path}"
         "record_filter_start_idle"
-        "" "-tool;schedule_stats;-indir;${outdir}" OFF OFF)
+        "" "-tool;schedule_stats;-indir;${outdir};-no_core_sharded" OFF OFF)
       set(tool.record_filter_start_idle_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
       set(tool.record_filter_start_idle_precmd
         "${drcachesim_path}@-tool@record_filter@-cpu_schedule_file@${sched_file}@-core_sharded@-cores@4@-indir@${trace_dir}@-outdir@${outdir}")
