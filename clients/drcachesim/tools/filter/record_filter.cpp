@@ -62,7 +62,7 @@
 #include "type_filter.h"
 #include "encodings2regdeps_filter.h"
 #include "func_id_filter.h"
-#include "invalidate_cpu_filter.h"
+#include "modify_marker_value_filter.h"
 
 #undef VPRINT
 #ifdef DEBUG
@@ -120,7 +120,7 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
                           const std::string &remove_marker_types,
                           uint64_t trim_before_timestamp, uint64_t trim_after_timestamp,
                           bool encodings2regdeps, const std::string &keep_func_ids,
-                          bool invalidate_cpu, unsigned int verbose)
+                          const std::string &modify_marker_value, unsigned int verbose)
 {
     std::vector<
         std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>>
@@ -161,10 +161,13 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
             std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
                 new dynamorio::drmemtrace::func_id_filter_t(keep_func_ids_list)));
     }
-    if (invalidate_cpu) {
+    if (!modify_marker_value.empty()) {
+        std::vector<uint64_t> modify_marker_value_pairs_list =
+            parse_string<uint64_t>(modify_marker_value);
         filter_funcs.emplace_back(
             std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
-                new dynamorio::drmemtrace::invalidate_cpu_filter_t()));
+                new dynamorio::drmemtrace::modify_marker_value_filter_t(
+                    modify_marker_value_pairs_list)));
     }
 
     // TODO i#5675: Add other filters.

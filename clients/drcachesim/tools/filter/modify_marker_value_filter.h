@@ -30,26 +30,40 @@
  * DAMAGE.
  */
 
-#ifndef _INVALIDATE_CPU_FILTER_H_
-#define _INVALIDATE_CPU_FILTER_H_ 1
+#ifndef _MODIFY_MARKER_VALUE_FILTER_H_
+#define _MODIFY_MARKER_VALUE_FILTER_H_ 1
 
 #include "record_filter.h"
 #include "trace_entry.h"
 
 #include <cstring>
-
-#define INVALID_CPU_MARKER_VALUE (uintptr_t) - 1
+#include <unordered_map>
 
 namespace dynamorio {
 namespace drmemtrace {
 
-/* This filter invalidates the value of TRACE_MARKER_TYPE_CPU_ID by setting its value to
- * (uintptr_t)-1, which indicates that the CPU could not be determined.
+/* This filter takes a list of <TRACE_MARKER_TYPE_,new_value> pairs and modifies the value
+ * of all listed markers in the trace with the given new_value.
  */
-class invalidate_cpu_filter_t : public record_filter_t::record_filter_func_t {
+class modify_marker_value_filter_t : public record_filter_t::record_filter_func_t {
 public:
-    invalidate_cpu_filter_t()
+    modify_marker_value_filter_t(std::vector<uint64_t> modify_marker_value_pairs_list)
     {
+        int list_size = modify_marker_value_pairs_list.size();
+        if (list_size == 0) {
+            error_string_ = "List of <TRACE_MARKER_TYPE_,new_value> pairs is empty.";
+        } else if (list_size % 2 != 0) {
+            error_string_ = "List of <TRACE_MARKER_TYPE_,new_value> pairs is missing "
+                            "part of a pair as its size is not even";
+        } else {
+            for (int i = 0; i < list_size; i += 2) {
+                trace_marker_type_t marker_type =
+                    static_cast<trace_marker_type_t>(modify_marker_value_pairs_list[i]);
+                uint64_t new_value = modify_marker_value_pairs_list[i + 1];
+                // We ignore duplicate pairs and use the last pair in the list.
+                marker_to_value_map_[marker_type] = new_value;
+            }
+        }
     }
 
     void *
@@ -69,13 +83,15 @@ public:
         if (entry_type != TRACE_TYPE_MARKER)
             return true;
 
+        // Check if the TRACE_TYPE_MARKER_ is in the list of markers for which we want to
+        // overwrite their value. If not, output the marker unchanged.
         trace_marker_type_t marker_type = static_cast<trace_marker_type_t>(entry.size);
-        // Output any trace_entry_t that it's not a CPU marker.
-        if (marker_type != TRACE_MARKER_TYPE_CPU_ID)
+        const auto &it = marker_to_value_map_.find(marker_type);
+        if (it == marker_to_value_map_.end())
             return true;
 
-        // Invalidate CPU marker value.
-        entry.addr = INVALID_CPU_MARKER_VALUE;
+        // Overwrite marker value.
+        entry.addr = it->second;
 
         return true;
     }
@@ -85,8 +101,11 @@ public:
     {
         return true;
     }
+
+private:
+    std::unordered_map<trace_marker_type_t, uint64_t> marker_to_value_map_;
 };
 
 } // namespace drmemtrace
 } // namespace dynamorio
-#endif /* _INCALIDATE_CPU_FILTER_H_ */
+#endif /* _MODIFY_MARKER_VALUE_FILTER_H_ */

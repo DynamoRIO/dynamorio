@@ -14,11 +14,7 @@ Output format:
            2           0: +[0-9]+ <marker: filetype 0x[0-9a-f]*>
            3           0: +[0-9]+ <marker: cache line size [0-9]*>
            4           0: +[0-9]+ <marker: chunk instruction count [0-9]*>
-           5           0: +[0-9]+ <marker: page size [0-9]*>
+           5           0: +[0-9]+ <marker: page size 2048>
            6           0: +[0-9]+ <marker: timestamp [0-9]*>
-#ifdef X64
-           7           0: +[0-9]+ <marker: tid [0-9]* on core 18446744073709551615>
-#else
-           7           0: +[0-9]+ <marker: tid [0-9]* on core 4294967295>
-#endif
+           7           0: +[0-9]+ <marker: tid [0-9]* on core unknown>
 .*

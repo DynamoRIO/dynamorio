@@ -139,10 +139,14 @@ droption_t<std::string>
                        "markers for the listed function IDs and removed those "
                        "belonging to unlisted function IDs.");
 
-droption_t<bool> op_invalidate_cpu(
-    DROPTION_SCOPE_FRONTEND, "filter_invalidate_cpu", false,
-    "Invalidate TRACE_MARKER_TYPE_CPU_ID.",
-    "Invalidate TRACE_MARKER_TYPE_CPU_ID by setting its value to (uintptr_t)-1.");
+droption_t<std::string> op_modify_marker_value(
+    DROPTION_SCOPE_FRONTEND, "filter_modify_marker_value", "",
+    "Comma-separated pairs of integers representing <TRACE_MARKER_TYPE_, new_value>.",
+    "This option is for -tool record_filter. It modifies the value of all listed "
+    "TRACE_MARKER_TYPE_ markers in the trace with their corresponding new_value. "
+    "The list must have an even size. Example: -filter_modify_marker_value 3,24,18,2048 "
+    "sets all TRACE_MARKER_TYPE_CPU_ID == 3 in the trace to core 24 and "
+    "TRACE_MARKER_TYPE_PAGE_SIZE == 18 to 2k.");
 
 } // namespace
 
@@ -174,7 +178,7 @@ _tmain(int argc, const TCHAR *targv[])
             op_cache_filter_size.get_value(), op_remove_trace_types.get_value(),
             op_remove_marker_types.get_value(), op_trim_before_timestamp.get_value(),
             op_trim_after_timestamp.get_value(), op_encodings2regdeps.get_value(),
-            op_filter_func_ids.get_value(), op_invalidate_cpu.get_value(),
+            op_filter_func_ids.get_value(), op_modify_marker_value.get_value(),
             op_verbose.get_value()));
     std::vector<record_analysis_tool_t *> tools;
     tools.push_back(record_filter.get());

@@ -201,7 +201,7 @@ add_exported_library(drmemtrace_record_filter STATIC
   tools/filter/type_filter.h
   tools/filter/encodings2regdeps_filter.h
   tools/filter/func_id_filter.h
-  tools/filter/invalidate_cpu_filter.h
+  tools/filter/modify_marker_value_filter.h
   tools/filter/null_filter.h)
 target_link_libraries(drmemtrace_record_filter drmemtrace_simulator
   drmemtrace_schedule_file)
