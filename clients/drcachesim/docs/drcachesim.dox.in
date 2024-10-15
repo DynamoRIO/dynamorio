@@ -179,9 +179,9 @@ Some of the more important markers are:
 
 - #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_XFER - This identifies a system call that changes control flow, such as a signal return.
 
-- #dynamorio::drmemtrace::TRACE_MARKER_TYPE_TIMESTAMP - The marker value provides a timestamp for this point of the trace (in units of microseconds since Jan 1, 1601 UTC). This value can be used to synchronize records from different threads as well as analyze latencies (however, tracing overhead inflates time unevenly, so time deltas should not be considered perfectly representative). It is used in the sequential analysis of a multi-threaded trace.
+- #dynamorio::drmemtrace::TRACE_MARKER_TYPE_TIMESTAMP - The marker value provides a timestamp for this point of the trace (in units of microseconds since Jan 1, 1601 UTC). This value can be used to synchronize records from different threads as well as analyze latencies (however, tracing overhead inflates time unevenly, so time deltas should not be considered perfectly representative). It is used in the sequential analysis of a multi-threaded trace.  When dynamic scheduling is performed (see \ref sec_drcachesim_sched), the original timestamp value is replaced with a synthetic value in order to maintain relative ordering.
 
-- #dynamorio::drmemtrace::TRACE_MARKER_TYPE_CPU_ID - The marker value contains the CPU identifier on which the subsequent records were collected.  It can be used to identify the "as traced" schedule, indicating which threads were on which cores at which times.  However, this schedule is not representative and should not be treated as indicating how the application behaves without tracing.  See \ref sec_drcachesim_as_traced for further information.
+- #dynamorio::drmemtrace::TRACE_MARKER_TYPE_CPU_ID - The marker value contains the CPU identifier on which the subsequent records were collected.  It can be used to identify the "as traced" schedule, indicating which threads were on which cores at which times.  However, this schedule is not representative and should not be treated as indicating how the application behaves without tracing.  See \ref sec_drcachesim_as_traced for further information.  When dynamic scheduling is performed (see \ref sec_drcachesim_sched), the original value of this marker is replaced with the new virtual core identifier.
 
 - #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_ID, #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_RETADDR, #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_ARG, #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_RETVAL - These markers are used to capture information about function calls.  Which functions to capture must be explicitly selected at tracing time.  Typical candiates are heap allocation and freeing functions.  See \ref sec_drcachesim_funcs.
 
@@ -1469,8 +1469,9 @@ While we suggest keeping traces stored as thread-sharded and using the dynamic s
 in each run, there is support for running the scheduler once and creating a new set of
 stored traces in core-sharded format: essentially switching to hardware-thread-oriented
 traces.  This is done using the \ref sec_tool_record_filter tool in `-core_sharded` mode.
-The #dynamorio::drmemtrace::TRACE_MARKER_TYPE_CPU_ID markers are not modified by the
-dynamic scheduler, and should be ignored in a newly created core-sharded trace.
+The #dynamorio::drmemtrace::TRACE_MARKER_TYPE_TIMESTAMP and
+#dynamorio::drmemtrace::TRACE_MARKER_TYPE_CPU_ID markers are modified by the
+dynamic scheduler to reflect the new schedule.
 
 Traces also include markers indicating disruptions in user mode control
 flow such as signal handler entry and exit.
