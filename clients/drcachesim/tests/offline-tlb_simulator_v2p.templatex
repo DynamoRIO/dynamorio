@@ -1,6 +1,6 @@
 #ifdef AARCH64
 TLB simulation results:
-Core #0 \(traced CPU\(s\): #0\)
+Core #0 \(1 thread\(s\)\)
   L1I stats:
     Hits:                           *18[,\.]?577
     Misses:                            141
@@ -21,7 +21,7 @@ Core #0 \(traced CPU\(s\): #0\)
     Local miss rate:                 28.32%
     Child hits:                     *24[,\.]?524
     Total miss rate:                  0.32%
-Core #1 \(traced CPU\(s\): #1\)
+Core #1 \(2 thread\(s\)\)
   L1I stats:
     Hits:                           *53[,\.]?671
     Misses:                             12
@@ -42,7 +42,7 @@ Core #1 \(traced CPU\(s\): #1\)
     Local miss rate:                 91.30%
     Child hits:                     *65[,\.]?932
     Total miss rate:                  0.03%
-Core #2 \(traced CPU\(s\): #2\)
+Core #2 \(1 thread\(s\)\)
   L1I stats:
     Hits:                           *26[,\.]?827
     Misses:                             12
@@ -63,7 +63,7 @@ Core #2 \(traced CPU\(s\): #2\)
     Local miss rate:                 90.48%
     Child hits:                     *32[,\.]?953
     Total miss rate:                  0.06%
-Core #3 \(traced CPU\(s\): #3\)
+Core #3 \(1 thread\(s\)\)
   L1I stats:
     Hits:                           *26[,\.]?870
     Misses:                             12
