@@ -1,0 +1,9 @@
+ERROR: PT tracing for the last syscall .* of thread .* was found active at detach.
+Child released from futex
+Post-processing the trace
+Found matching signature in a thread
+Syscall mix tool results:
+  syscall count : syscall_num
+.*
+ syscall trace count : syscall_num
+.*

@@ -118,7 +118,8 @@ replay_file_checker_t::check(archive_istream_t *infile)
     scheduler_t::schedule_record_t record;
     bool prev_was_idle = false;
     while (infile->read(reinterpret_cast<char *>(&record), sizeof(record))) {
-        if (record.type == scheduler_t::schedule_record_t::IDLE) {
+        if (record.type == scheduler_t::schedule_record_t::IDLE ||
+            record.type == scheduler_t::schedule_record_t::IDLE_BY_COUNT) {
             if (prev_was_idle)
                 return "Error: consecutive idle records";
             prev_was_idle = true;
@@ -275,6 +276,17 @@ scheduler_tmpl_t<memref_t, reader_t>::record_type_is_non_marker_header(memref_t 
     // Non-marker trace_entry_t headers turn into markers or are
     // hidden, so there are none in a memref_t stream.
     return false;
+}
+
+template <>
+bool
+scheduler_tmpl_t<memref_t, reader_t>::record_type_set_marker_value(memref_t &record,
+                                                                   uintptr_t value)
+{
+    if (record.marker.type != TRACE_TYPE_MARKER)
+        return false;
+    record.marker.marker_value = value;
+    return true;
 }
 
 template <>
@@ -470,6 +482,17 @@ scheduler_tmpl_t<trace_entry_t, record_reader_t>::record_type_is_instr_boundary(
     return (record_type_is_instr(record) ||
             record_reader_t::record_is_pre_instr(&record)) &&
         !record_reader_t::record_is_pre_instr(&prev_record);
+}
+
+template <>
+bool
+scheduler_tmpl_t<trace_entry_t, record_reader_t>::record_type_set_marker_value(
+    trace_entry_t &record, uintptr_t value)
+{
+    if (record.type != TRACE_TYPE_MARKER)
+        return false;
+    record.addr = value;
+    return true;
 }
 
 template <>
@@ -1305,10 +1328,17 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_recorded_schedule()
             VPRINT(this, 1, "output %d empty: returning eof up front\n", i);
             set_cur_input(i, INVALID_INPUT_ORDINAL);
             outputs_[i].at_eof = true;
-        } else if (outputs_[i].record[0].type == schedule_record_t::IDLE) {
+        } else if (outputs_[i].record[0].type == schedule_record_t::IDLE ||
+                   outputs_[i].record[0].type == schedule_record_t::IDLE_BY_COUNT) {
             set_cur_input(i, INVALID_INPUT_ORDINAL);
             outputs_[i].waiting = true;
-            outputs_[i].wait_start_time = 0; // Updated on first next_record().
+            if (outputs_[i].record[0].type == schedule_record_t::IDLE) {
+                // Convert a legacy idle duration from microseconds to record counts.
+                outputs_[i].record[0].value.idle_duration =
+                    static_cast<uint64_t>(options_.time_units_per_us *
+                                          outputs_[i].record[0].value.idle_duration);
+            }
+            outputs_[i].idle_start_count = -1; // Updated on first next_record().
             VPRINT(this, 3, "output %d starting out idle\n", i);
         } else {
             assert(outputs_[i].record[0].type == schedule_record_t::DEFAULT);
@@ -2531,17 +2561,25 @@ scheduler_tmpl_t<RecordType, ReaderType>::record_schedule_segment(
     input_ordinal_t input, uint64_t start_instruction, uint64_t stop_instruction)
 {
     assert(type == schedule_record_t::VERSION || type == schedule_record_t::FOOTER ||
-           type == schedule_record_t::IDLE || inputs_[input].lock->owned_by_cur_thread());
+           // ::IDLE is a legacy type we should not see in new recordings.
+           type == schedule_record_t::IDLE_BY_COUNT ||
+           inputs_[input].lock->owned_by_cur_thread());
     // We always use the current wall-clock time, as the time stored in the prior
     // next_record() call can be out of order across outputs and lead to deadlocks.
     uint64_t timestamp = get_time_micros();
-    if (type == schedule_record_t::IDLE &&
-        outputs_[output].record.back().type == schedule_record_t::IDLE) {
+    if (type == schedule_record_t::IDLE_BY_COUNT &&
+        outputs_[output].record.back().type == schedule_record_t::IDLE_BY_COUNT) {
         // Merge.  We don't need intermediate timestamps when idle, and consecutive
         // idle records quickly balloon the file.
         return sched_type_t::STATUS_OK;
     }
-    VPRINT(this, 4,
+    if (type == schedule_record_t::IDLE_BY_COUNT) {
+        // Start prior to this idle.
+        outputs_[output].idle_start_count = outputs_[output].idle_count - 1;
+        // That is what we'll record in the value union shared w/ start_instruction.
+        assert(start_instruction == outputs_[output].idle_count - 1);
+    }
+    VPRINT(this, 3,
            "recording out=%d type=%d input=%d start=%" PRIu64 " stop=%" PRIu64
            " time=%" PRIu64 "\n",
            output, type, input, start_instruction, stop_instruction, timestamp);
@@ -2560,24 +2598,25 @@ scheduler_tmpl_t<RecordType, ReaderType>::close_schedule_segment(output_ordinal_
     assert(!outputs_[output].record.empty());
     assert(outputs_[output].record.back().type == schedule_record_t::VERSION ||
            outputs_[output].record.back().type == schedule_record_t::FOOTER ||
-           outputs_[output].record.back().type == schedule_record_t::IDLE ||
+           // ::IDLE is for legacy recordings, not new ones.
+           outputs_[output].record.back().type == schedule_record_t::IDLE_BY_COUNT ||
            input.lock->owned_by_cur_thread());
     if (outputs_[output].record.back().type == schedule_record_t::SKIP) {
         // Skips already have a final stop value.
         return sched_type_t::STATUS_OK;
     }
-    if (outputs_[output].record.back().type == schedule_record_t::IDLE) {
-        // Just like in record_schedule_segment() we use wall-clock time for recording
-        // replay timestamps.
-        uint64_t end = get_time_micros();
-        assert(end >= outputs_[output].record.back().timestamp);
+    if (outputs_[output].record.back().type == schedule_record_t::IDLE_BY_COUNT) {
+        uint64_t end_idle_count = outputs_[output].idle_count;
+        assert(outputs_[output].idle_start_count >= 0);
+        assert(end_idle_count >=
+               static_cast<uint64_t>(outputs_[output].idle_start_count));
         outputs_[output].record.back().value.idle_duration =
-            end - outputs_[output].record.back().timestamp;
+            end_idle_count - outputs_[output].idle_start_count;
         VPRINT(this, 3,
-               "close_schedule_segment: idle duration %" PRIu64 " = %" PRIu64
+               "close_schedule_segment[%d]: idle duration %" PRIu64 " = %" PRIu64
                " - %" PRIu64 "\n",
-               outputs_[output].record.back().value.idle_duration, end,
-               outputs_[output].record.back().timestamp);
+               output, outputs_[output].record.back().value.idle_duration, end_idle_count,
+               outputs_[output].idle_start_count);
         return sched_type_t::STATUS_OK;
     }
     uint64_t instr_ord = get_instr_ordinal(input);
@@ -2596,9 +2635,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::close_schedule_segment(output_ordinal_
         ++instr_ord;
     }
     VPRINT(this, 3,
-           "close_schedule_segment: input=%d type=%d start=%" PRIu64 " stop=%" PRIu64
+           "close_schedule_segment[%d]: input=%d type=%d start=%" PRIu64 " stop=%" PRIu64
            "\n",
-           input.index, outputs_[output].record.back().type,
+           output, input.index, outputs_[output].record.back().type,
            outputs_[output].record.back().value.start_instruction, instr_ord);
     // Check for empty default entries, except the starter 0,0 ones.
     assert(outputs_[output].record.back().type != schedule_record_t::DEFAULT ||
@@ -2741,6 +2780,12 @@ scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue_hold_locks(
                     found_candidate = true;
                 else {
                     assert(cur_time > 0 || res->last_run_time == 0);
+                    if (res->last_run_time == 0) {
+                        // For never-executed inputs we consider their last execution
+                        // to be the very first simulation time, which we can't
+                        // easily initialize until here.
+                        res->last_run_time = outputs_[from_output].initial_cur_time;
+                    }
                     VPRINT(this, 5,
                            "migration check %d to %d: cur=%" PRIu64 " last=%" PRIu64
                            " delta=%" PRId64 " vs thresh %" PRIu64 "\n",
@@ -2748,15 +2793,20 @@ scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue_hold_locks(
                            cur_time - res->last_run_time,
                            options_.migration_threshold_us);
                     // Guard against time going backward (happens for wall-clock: i#6966).
-                    if (options_.migration_threshold_us == 0 || res->last_run_time == 0 ||
+                    if (options_.migration_threshold_us == 0 ||
+                        // Allow free movement for the initial load balance at init time.
+                        cur_time == 0 ||
                         (cur_time > res->last_run_time &&
                          cur_time - res->last_run_time >=
                              static_cast<uint64_t>(options_.migration_threshold_us *
                                                    options_.time_units_per_us))) {
                         VPRINT(this, 2, "migrating %d to %d\n", from_output, for_output);
                         found_candidate = true;
-                        ++outputs_[from_output]
-                              .stats[memtrace_stream_t::SCHED_STAT_MIGRATIONS];
+                        // Do not count an initial rebalance as a migration.
+                        if (cur_time > 0) {
+                            ++outputs_[from_output]
+                                  .stats[memtrace_stream_t::SCHED_STAT_MIGRATIONS];
+                        }
                     }
                 }
                 if (found_candidate)
@@ -2927,7 +2977,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_cur_input(output_ordinal_t output,
             add_to_ready_queue(output, &inputs_[prev_input]);
         }
     } else if (options_.schedule_record_ostream != nullptr &&
-               outputs_[output].record.back().type == schedule_record_t::IDLE) {
+               (outputs_[output].record.back().type == schedule_record_t::IDLE ||
+                outputs_[output].record.back().type ==
+                    schedule_record_t::IDLE_BY_COUNT)) {
         input_info_t unused;
         sched_type_t::stream_status_t status = close_schedule_segment(output, unused);
         if (status != sched_type_t::STATUS_OK)
@@ -3038,19 +3090,27 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input_as_previously(
         }
         return eof_or_idle(output, outputs_[output].cur_input);
     }
-    const schedule_record_t &segment = outputs_[output].record[record_index + 1];
-    if (segment.type == schedule_record_t::IDLE) {
+    schedule_record_t &segment = outputs_[output].record[record_index + 1];
+    if (segment.type == schedule_record_t::IDLE ||
+        segment.type == schedule_record_t::IDLE_BY_COUNT) {
         outputs_[output].waiting = true;
-        outputs_[output].wait_start_time = get_output_time(output);
+        if (segment.type == schedule_record_t::IDLE) {
+            // Convert a legacy idle duration from microseconds to record counts.
+            segment.value.idle_duration = static_cast<uint64_t>(
+                options_.time_units_per_us * segment.value.idle_duration);
+        }
+        outputs_[output].idle_start_count = outputs_[output].idle_count;
         outputs_[output].record_index->fetch_add(1, std::memory_order_release);
         ++outputs_[output].idle_count;
+        VPRINT(this, 5, "%s[%d]: next replay segment idle for %" PRIu64 "\n",
+               __FUNCTION__, output, segment.value.idle_duration);
         return sched_type_t::STATUS_IDLE;
     }
     index = segment.key.input;
     VPRINT(this, 5,
-           "pick_next_input_as_previously[%d]: next replay segment in=%d (@%" PRId64
-           ") type=%d start=%" PRId64 " end=%" PRId64 "\n",
-           output, index, get_instr_ordinal(inputs_[index]), segment.type,
+           "%s[%d]: next replay segment in=%d (@%" PRId64 ") type=%d start=%" PRId64
+           " end=%" PRId64 "\n",
+           __FUNCTION__, output, index, get_instr_ordinal(inputs_[index]), segment.type,
            segment.value.start_instruction, segment.stop_instruction);
     {
         std::lock_guard<mutex_dbg_owned> lock(*inputs_[index].lock);
@@ -3404,7 +3464,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                             if (options_.schedule_record_ostream != nullptr) {
                                 sched_type_t::stream_status_t record_status =
                                     record_schedule_segment(
-                                        output, schedule_record_t::IDLE, 0, 0, 0);
+                                        output, schedule_record_t::IDLE_BY_COUNT, 0,
+                                        // Start prior to this idle.
+                                        outputs_[output].idle_count - 1, 0);
                                 if (record_status != sched_type_t::STATUS_OK)
                                     return record_status;
                             }
@@ -3734,18 +3796,12 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
     // do return an error on a time smaller than an input's current start time when we
     // check for quantum end.
     if (cur_time == 0) {
-        if (options_.mapping == MAP_AS_PREVIOUSLY) {
-            // XXX i#7023: We should instead store the simulator's time (whether
-            // passed in or our instr-based formula below) in the records and do away
-            // with wall-clock time for idle measurement.  Either way, we should make
-            // it clear in the docs whether the user/simulator has to pass in the
-            // time on replay.
-            cur_time = get_time_micros();
-        } else {
-            // We add 1 to avoid an invalid value of 0.
-            cur_time = 1 + outputs_[output].stream->get_output_instruction_ordinal() +
-                outputs_[output].idle_count;
-        }
+        // We add 1 to avoid an invalid value of 0.
+        cur_time = 1 + outputs_[output].stream->get_output_instruction_ordinal() +
+            outputs_[output].idle_count;
+    }
+    if (outputs_[output].initial_cur_time == 0) {
+        outputs_[output].initial_cur_time = cur_time;
     }
     // Invalid values for cur_time are checked below.
     outputs_[output].cur_time->store(cur_time, std::memory_order_release);
@@ -3755,22 +3811,24 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
     }
     if (outputs_[output].waiting) {
         if (options_.mapping == MAP_AS_PREVIOUSLY &&
-            outputs_[output].wait_start_time > 0) {
+            outputs_[output].idle_start_count >= 0) {
             uint64_t duration = outputs_[output]
                                     .record[outputs_[output].record_index->load(
                                         std::memory_order_acquire)]
                                     .value.idle_duration;
-            uint64_t now = get_output_time(output);
-            if (now - outputs_[output].wait_start_time < duration) {
+            uint64_t now = outputs_[output].idle_count;
+            if (now - outputs_[output].idle_start_count < duration) {
                 VPRINT(this, 4,
                        "next_record[%d]: elapsed %" PRIu64 " < duration %" PRIu64 "\n",
-                       output, now - outputs_[output].wait_start_time, duration);
-                // XXX i#7023: This should always be STATUS_IDLE, right?
-                return sched_type_t::STATUS_WAIT;
+                       output, now - outputs_[output].idle_start_count, duration);
+                ++outputs_[output].idle_count;
+                return sched_type_t::STATUS_IDLE;
             } else
-                outputs_[output].wait_start_time = 0;
+                outputs_[output].idle_start_count = -1;
         }
-        VPRINT(this, 5, "next_record[%d]: need new input (cur=waiting)\n", output);
+        VPRINT(this, 5,
+               "next_record[%d]: need new input (cur=waiting; idles=%" PRIu64 ")\n",
+               output, outputs_[output].idle_count);
         sched_type_t::stream_status_t res = pick_next_input(output, 0);
         if (res != sched_type_t::STATUS_OK && res != sched_type_t::STATUS_SKIPPED)
             return res;
@@ -4116,12 +4174,65 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
     }
     VPRINT(this, 4, "next_record[%d]: from %d @%" PRId64 ": ", output, input->index,
            cur_time);
+    update_next_record(output, record);
     VDO(this, 4, print_record(record););
 
     outputs_[output].last_record = record;
     record_type_has_tid(record, input->last_record_tid);
     record_type_has_pid(record, input->pid);
     return sched_type_t::STATUS_OK;
+}
+
+template <typename RecordType, typename ReaderType>
+void
+scheduler_tmpl_t<RecordType, ReaderType>::update_next_record(output_ordinal_t output,
+                                                             RecordType &record)
+{
+    if (options_.mapping != MAP_TO_ANY_OUTPUT && options_.mapping != MAP_AS_PREVIOUSLY)
+        return; // Nothing to do.
+    if (options_.replay_as_traced_istream != nullptr) {
+        // Do not modify MAP_TO_RECORDED_OUTPUT (turned into MAP_AS_PREVIOUSLY).
+        return;
+    }
+    // For a dynamic schedule, the as-traced cpuids and timestamps no longer
+    // apply and are just confusing (causing problems like interval analysis
+    // failures), so we replace them.
+    trace_marker_type_t type;
+    uintptr_t value;
+    if (!record_type_is_marker(record, type, value))
+        return; // Nothing to do.
+    if (type == TRACE_MARKER_TYPE_TIMESTAMP) {
+        if (outputs_[output].base_timestamp == 0) {
+            // Record the first input's first timestamp, as a base value.
+#ifndef NDEBUG
+            bool ok =
+#endif
+                record_type_is_timestamp(record, outputs_[output].base_timestamp);
+            assert(ok);
+            assert(outputs_[output].base_timestamp != 0);
+            VPRINT(this, 2, "output %d base timestamp = %zu\n", output,
+                   outputs_[output].base_timestamp);
+        }
+        uint64_t instr_ord = outputs_[output].stream->get_instruction_ordinal();
+        uint64_t idle_count = outputs_[output].idle_count;
+        uintptr_t new_time = static_cast<uintptr_t>(
+            outputs_[output].base_timestamp + (instr_ord + idle_count) / INSTRS_PER_US);
+        VPRINT(this, 4,
+               "New time in output %d: %zu from base %zu and instrs %" PRIu64
+               " idles %" PRIu64 "\n",
+               output, new_time, outputs_[output].base_timestamp, instr_ord, idle_count);
+#ifndef NDEBUG
+        bool ok =
+#endif
+            record_type_set_marker_value(record, new_time);
+        assert(ok);
+    } else if (type == TRACE_MARKER_TYPE_CPU_ID) {
+#ifndef NDEBUG
+        bool ok =
+#endif
+            record_type_set_marker_value(record, get_shard_index(output));
+        assert(ok);
+    }
 }
 
 template <typename RecordType, typename ReaderType>

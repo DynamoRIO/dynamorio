@@ -1459,6 +1459,9 @@ protected:
             // Indicates that the output is idle.  The value.idle_duration field holds
             // a duration in microseconds.
             IDLE,
+            // Indicates that the output is idle.  The value.idle_duration field holds
+            // a duration as a count of idle records.
+            IDLE_BY_COUNT,
         };
         static constexpr int VERSION_CURRENT = 0;
         schedule_record_t() = default;
@@ -1493,6 +1496,7 @@ protected:
             {
             }
             // For record_type_t::IDLE, the duration in microseconds of the idling.
+            // For record_type_t::IDLE_BY_COUNT, the duration as a count of idle records.
             uint64_t idle_duration;
             // Input stream ordinal of starting point, for non-IDLE types.
             uint64_t start_instruction = 0;
@@ -1688,18 +1692,22 @@ protected:
         // This is accessed by other outputs for stealing and rebalancing.
         // Indirected so we can store it in our vector.
         std::unique_ptr<std::atomic<uint64_t>> cur_time;
+        // The first simulation time passed to this output.
+        uint64_t initial_cur_time = 0;
         // Used for MAP_TO_RECORDED_OUTPUT get_output_cpuid().
         int64_t as_traced_cpuid = -1;
         // Used for MAP_AS_PREVIOUSLY with live_replay_output_count_.
         bool at_eof = false;
-        // Used for replaying wait periods.
-        uint64_t wait_start_time = 0;
+        // Used for recording and replaying idle periods.
+        int64_t idle_start_count = -1;
         // Exported statistics. Currently all integers and cast to double on export.
         std::vector<int64_t> stats =
             std::vector<int64_t>(memtrace_stream_t::SCHED_STAT_TYPE_COUNT);
         // When no simulation time is passed to us, we use the idle count plus
         // instruction count to measure time.
         uint64_t idle_count = 0;
+        // The first timestamp (pre-update_next_record()) seen on the first input.
+        uintptr_t base_timestamp = 0;
     };
 
     // Used for reading as-traced schedules.
@@ -1749,6 +1757,9 @@ protected:
         // unfiltered_tids.size() for core-sharded inputs with IDLE_THREAD_ID).
         uint64_t input_count = 0;
     };
+
+    // We assume a 2GHz clock and IPC=1.
+    static constexpr uint64_t INSTRS_PER_US = 2000;
 
     // Called just once at initialization time to set the initial input-to-output
     // mappings and state.
@@ -1947,6 +1958,9 @@ protected:
     record_type_is_timestamp(RecordType record, uintptr_t &value);
 
     bool
+    record_type_set_marker_value(RecordType &record, uintptr_t value);
+
+    bool
     record_type_is_invalid(RecordType record);
 
     bool
@@ -1970,6 +1984,9 @@ protected:
     // The lock for 'input' is held by the caller.
     void
     insert_switch_tid_pid(input_info_t &input);
+
+    void
+    update_next_record(output_ordinal_t output, RecordType &record);
 
     // Used for diagnostics: prints record fields to stderr.
     void

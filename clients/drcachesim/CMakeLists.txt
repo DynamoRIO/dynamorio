@@ -1087,6 +1087,17 @@ if (BUILD_TESTS)
       use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_syscall_inject)
     endif ()
 
+    if (LINUX AND BUILD_PT_POST_PROCESSOR AND BUILD_PT_TRACER)
+      add_executable(tool.drcacheoff.burst_syscall_pt_SUDO tests/burst_syscall_pt.cpp)
+      configure_DynamoRIO_static(tool.drcacheoff.burst_syscall_pt_SUDO)
+      use_DynamoRIO_static_client(tool.drcacheoff.burst_syscall_pt_SUDO drmemtrace_static)
+      target_link_libraries(tool.drcacheoff.burst_syscall_pt_SUDO drmemtrace_raw2trace
+          drmemtrace_analyzer test_helpers drmemtrace_basic_counts)
+      add_win32_flags(tool.drcacheoff.burst_syscall_pt_SUDO)
+      use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_syscall_pt_SUDO)
+      link_with_pthread(tool.drcacheoff.burst_syscall_pt_SUDO)
+    endif ()
+
     if (UNIX)
       if (X86 AND NOT APPLE) # This test is x86-specific.
         # uses ptrace and looks for linux-specific syscalls

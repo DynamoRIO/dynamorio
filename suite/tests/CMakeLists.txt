@@ -1403,7 +1403,11 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
   endif ()
 
   if (DEFINED ${key}_sudo)
-    set(rundr "sudo;${rundr}")
+    if (DEFINED ${key}_nodr)
+      set(exepath "sudo;${exepath}")
+    else ()
+      set(rundr "sudo;${rundr}")
+    endif ()
   endif ()
 
   if (is_runall)
@@ -5052,6 +5056,13 @@ if (BUILD_CLIENTS)
       # kernel tracing code is not being intentionally tested.
       torunonly_drcachesim(kernel-skip-kcore_SUDO ${ci_shared_app}
                            "-offline -enable_kernel_tracing -skip_kcore_dump" "")
+
+      if (LINUX)
+        set(tool.drcacheoff.burst_syscall_pt_SUDO_nodr ON)
+        set(tool.drcacheoff.burst_syscall_pt_SUDO_sudo ON)
+        torunonly_drcacheoff(burst_syscall_pt_SUDO tool.drcacheoff.burst_syscall_pt_SUDO
+          "" "@-tool@syscall_mix" "")
+      endif ()
     endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
   endif (proc_supports_pt)
 
