@@ -79,7 +79,7 @@ public:
         record_filter_t::record_filter_info_t &record_filter_info) override
     {
         trace_type_t entry_type = static_cast<trace_type_t>(entry.type);
-        // Output any trace_entry_t that it's not a marker.
+        // Output any trace_entry_t that's not a marker.
         if (entry_type != TRACE_TYPE_MARKER)
             return true;
 

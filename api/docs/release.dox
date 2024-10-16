@@ -267,7 +267,7 @@ Further non-compatibility-affecting changes include:
    interval per line where start and duration are expressed in number of instructions.
  - Added modify_marker_value_filter_t to #dynamorio::drmemtrace::record_filter_t to modify
    the value of TRACE_MARKER_TYPE_ markers. This filter takes a list of
-   <TRACE_MARKER_TYPE_,new_value> and changes every listed markers in the trace to its
+   <TRACE_MARKER_TYPE_,new_value> and changes every listed marker in the trace to its
    corresponding new_value.
 
 **************************************************
