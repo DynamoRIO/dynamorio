@@ -2784,7 +2784,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue_hold_locks(
                         // For never-executed inputs we consider their last execution
                         // to be the very first simulation time, which we can't
                         // easily initialize until here.
-                        res->last_run_time = outputs_[from_output].initial_cur_time;
+                        res->last_run_time = outputs_[from_output].initial_cur_time->load(
+                            std::memory_order_acquire);
                     }
                     VPRINT(this, 5,
                            "migration check %d to %d: cur=%" PRIu64 " last=%" PRIu64
@@ -3800,8 +3801,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
         cur_time = 1 + outputs_[output].stream->get_output_instruction_ordinal() +
             outputs_[output].idle_count;
     }
-    if (outputs_[output].initial_cur_time == 0) {
-        outputs_[output].initial_cur_time = cur_time;
+    if (outputs_[output].initial_cur_time->load(std::memory_order_acquire) == 0) {
+        outputs_[output].initial_cur_time->store(cur_time, std::memory_order_release);
     }
     // Invalid values for cur_time are checked below.
     outputs_[output].cur_time->store(cur_time, std::memory_order_release);

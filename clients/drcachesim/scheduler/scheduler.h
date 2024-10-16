@@ -1645,6 +1645,9 @@ protected:
             cur_time =
                 std::unique_ptr<std::atomic<uint64_t>>(new std::atomic<uint64_t>());
             cur_time->store(0, std::memory_order_relaxed);
+            initial_cur_time =
+                std::unique_ptr<std::atomic<uint64_t>>(new std::atomic<uint64_t>());
+            initial_cur_time->store(0, std::memory_order_relaxed);
             record_index = std::unique_ptr<std::atomic<int>>(new std::atomic<int>());
             record_index->store(0, std::memory_order_relaxed);
         }
@@ -1693,7 +1696,9 @@ protected:
         // Indirected so we can store it in our vector.
         std::unique_ptr<std::atomic<uint64_t>> cur_time;
         // The first simulation time passed to this output.
-        uint64_t initial_cur_time = 0;
+        // This is accessed by other outputs for stealing and rebalancing.
+        // Indirected so we can store it in our vector.
+        std::unique_ptr<std::atomic<uint64_t>> initial_cur_time;
         // Used for MAP_TO_RECORDED_OUTPUT get_output_cpuid().
         int64_t as_traced_cpuid = -1;
         // Used for MAP_AS_PREVIOUSLY with live_replay_output_count_.
