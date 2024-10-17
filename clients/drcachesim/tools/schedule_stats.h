@@ -65,6 +65,11 @@ public:
     print_results() override;
     bool
     parallel_shard_supported() override;
+    shard_type_t
+    preferred_shard_type() override
+    {
+        return SHARD_BY_CORE;
+    }
     void *
     parallel_shard_init_stream(int shard_index, void *worker_data,
                                memtrace_stream_t *stream) override;
