@@ -342,8 +342,11 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
                 if (i == 0 && shard_type_ == SHARD_BY_CORE) {
                     // This is almost certainly user error.
                     // Better to exit than risk user confusion.
-                    // Ideally this could be detected in analyzer_multi but that is
-                    // not simple so today the user has to re-run.
+                    // XXX i#7045: Ideally this could be reported as an error by the
+                    // scheduler, and also detected early in analyzer_multi to auto-fix
+                    // (when no mode is specified: if the user specifies core-sharding
+                    // there could be config differences and this should be an error),
+                    // but neither is simple so today the user has to re-run.
                     error_string_ =
                         "Re-scheduling a core-sharded-on-disk trace is generally a "
                         "mistake; re-run with -no_core_sharded.\n";
