@@ -1124,6 +1124,15 @@ droption_t<std::string>
                        "for the listed function IDs and removes those belonging to "
                        "unlisted function IDs.");
 
+droption_t<std::string> op_modify_marker_value(
+    DROPTION_SCOPE_FRONTEND, "filter_modify_marker_value", "",
+    "Comma-separated pairs of integers representing <TRACE_MARKER_TYPE_, new_value>.",
+    "This option is for -tool " RECORD_FILTER ". It modifies the value of all listed "
+    "TRACE_MARKER_TYPE_ markers in the trace with their corresponding new_value. "
+    "The list must have an even size. Example: -filter_modify_marker_value 3,24,18,2048 "
+    "sets all TRACE_MARKER_TYPE_CPU_ID == 3 in the trace to core 24 and "
+    "TRACE_MARKER_TYPE_PAGE_SIZE == 18 to 2k.");
+
 droption_t<uint64_t> op_trim_before_timestamp(
     DROPTION_SCOPE_ALL, "trim_before_timestamp", 0, 0,
     (std::numeric_limits<uint64_t>::max)(),
