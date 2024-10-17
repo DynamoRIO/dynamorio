@@ -3244,9 +3244,14 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                                                           uint64_t blocked_time)
 {
     VDO(this, 1, {
-        static int global_heartbeat;
+        static int64_t global_heartbeat;
+        // 10K is too frequent for simple analyzer runs: it is too noisy with
+        // the new core-sharded-by-default for new users using defaults.
+        // 50K is a reasonable compromise.
+        // XXX: Add a runtime option to tweak this.
+        static constexpr int64_t GLOBAL_HEARTBEAT_CADENCE = 50000;
         // We are ok with races as the cadence is approximate.
-        if (++global_heartbeat % 50000 == 0) {
+        if (++global_heartbeat % GLOBAL_HEARTBEAT_CADENCE == 0) {
             print_queue_stats();
         }
     });

@@ -461,6 +461,7 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
             if (!error.empty()) {
                 this->success_ = false;
                 this->error_string_ = "raw2trace failed: " + error;
+                return;
             }
         }
     }
@@ -472,27 +473,29 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
         return;
     }
 
-    bool offline = !op_indir.get_value().empty() || !op_infile.get_value().empty();
+    bool sharding_specified = op_core_sharded.specified() || op_core_serial.specified() ||
+        // -cpu_scheduling implies thread-sharded.
+        op_cpu_scheduling.get_value();
     // TODO i#7040: Add core-sharded support for online tools.
-    if (offline && !op_core_sharded.specified() && !op_core_serial.specified() &&
-        !op_cpu_scheduling.get_value()) {
-        bool switch_to_core_sharded = true;
-        bool one_prefers_core_sharded = false;
+    bool offline = !op_indir.get_value().empty() || !op_infile.get_value().empty();
+    if (offline && !sharding_specified) {
+        bool all_prefer_thread_sharded = true;
+        bool all_prefer_core_sharded = true;
         for (int i = 0; i < this->num_tools_; ++i) {
-            if (this->tools_[i]->preferred_shard_type() == SHARD_BY_CORE) {
-                one_prefers_core_sharded = true;
-            } else {
-                switch_to_core_sharded = false;
-                break;
+            if (this->tools_[i]->preferred_shard_type() == SHARD_BY_THREAD) {
+                all_prefer_core_sharded = false;
+            } else if (this->tools_[i]->preferred_shard_type() == SHARD_BY_CORE) {
+                all_prefer_thread_sharded = false;
             }
             if (this->parallel_ && !this->tools_[i]->parallel_shard_supported()) {
                 this->parallel_ = false;
             }
         }
-        if (switch_to_core_sharded) {
+        if (all_prefer_core_sharded) {
             // XXX i#6949: Ideally we could detect a core-sharded-on-disk input
-            // here and avoid this but that's not simple so we rely on the user
-            // to pass -no_core_sharded for such inputs.
+            // here and avoid this but that's not simple so currently we have a
+            // fatal error from the analyzer and the user must re-run with
+            // -no_core_sharded for such inputs.
             if (this->parallel_) {
                 if (op_verbose.get_value() > 0)
                     fprintf(stderr, "Enabling -core_sharded as all tools prefer it\n");
@@ -502,12 +505,11 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
                     fprintf(stderr, "Enabling -core_serial as all tools prefer it\n");
                 op_core_serial.set_value(true);
             }
-        } else if (one_prefers_core_sharded) {
-            if (op_verbose.get_value() > 0) {
-                fprintf(stderr,
-                        "Some tool(s) prefer core-sharded: consider re-running with "
-                        "-core_sharded or -core_serial enabled for best results.\n");
-            }
+        } else if (!all_prefer_thread_sharded) {
+            this->success_ = false;
+            this->error_string_ = "Selected tools differ in preferred sharding: please "
+                                  "re-run with -[no_]core_sharded or -[no_]core_serial";
+            return;
         }
     }
 

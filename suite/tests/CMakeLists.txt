@@ -2132,7 +2132,7 @@ if (AARCH64 AND UNIX AND ZLIB_FOUND)
     torunonly_api(tool.drcacheoff.tlb_simulator_v2p "${drcachesim_path}"
       "offline-tlb_simulator_v2p" ""
       # Do not use core-sharded scheduling, so we'll have a deterministic result.
-      "-indir;${locdir};-tool;TLB;-alt_module_dir;${srcdir};-module_file;${locdir}/raw/modules.log;-v2p_file;${srcdir}/v2p.textproto;-use_physical;-no_core_serial"
+      "-indir;${locdir};-tool;TLB;-alt_module_dir;${srcdir};-module_file;${locdir}/raw/modules.log;-v2p_file;${srcdir}/v2p.textproto;-use_physical;-no_core_sharded"
       OFF OFF)
     set(tool.drcacheoff.tlb_simulator_v2p_basedir
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -3973,7 +3973,6 @@ if (BUILD_CLIENTS)
         set(core_sharded_dir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig-core-sharded.x64.tracedir")
         torunonly_simtool(core_on_disk ${ci_shared_app}
-          # Avoid the default core-sharded from re-scheduling the trace.
           "-indir ${core_sharded_dir} -tool basic_counts" "")
         set(tool.core_on_disk_rawtemp ON) # no preprocessor
 
@@ -4107,7 +4106,7 @@ if (BUILD_CLIENTS)
     # Test reading a legacy pre-interleaved file in thread-sharded mode.
     if (ZLIB_FOUND)
       torunonly_api(tool.drcacheoff.legacy "${drcachesim_path}" "offline-legacy.c" ""
-        "-infile;${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/offline-legacy-trace.gz;-no_core_serial"
+        "-infile;${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/offline-legacy-trace.gz;-no_core_sharded"
         OFF OFF)
       set(tool.drcacheoff.legacy_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -4152,7 +4151,7 @@ if (BUILD_CLIENTS)
 
       # With a legacy serial tool (full simulator) in thread-sharded mode.
       torunonly_api(tool.drcacheoff.snappy_serial "${drcachesim_path}" "offline-snappy-serial.c" ""
-        "-indir;${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.chase-snappy.x64.tracedir;-no_core_serial"
+        "-indir;${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.chase-snappy.x64.tracedir;-no_core_sharded"
         OFF OFF)
       set(tool.drcacheoff.snappy_serial_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -4449,15 +4448,16 @@ if (BUILD_CLIENTS)
         # Run with -trace_after_instrs to ensure we test the
         # drbbdup + rseq combo (i#5658, i#5659).
         "-trace_after_instrs 5K"
-        "@${test_mode_flag}@-test_mode_name@rseq_app" "")
+        # Run thread-sharded for the invariant checker.
+        "@${test_mode_flag}@-test_mode_name@rseq_app@-no_core_sharded" "")
       # Test filtering.
       torunonly_drcacheoff(rseq-filter linux.rseq
         "-trace_after_instrs 5K -L0_filter"
-        "@${test_mode_flag}@-test_mode_name@rseq_app" "")
+        "@${test_mode_flag}@-test_mode_name@rseq_app@-no_core_sharded" "")
       set(tool.drcacheoff.rseq-filter_expectbase "offline-rseq")
       torunonly_drcacheoff(rseq-dfilter linux.rseq
         "-trace_after_instrs 5K -L0D_filter"
-        "@${test_mode_flag}@-test_mode_name@rseq_app" "")
+        "@${test_mode_flag}@-test_mode_name@rseq_app@-no_core_sharded" "")
       set(tool.drcacheoff.rseq-dfilter_expectbase "offline-rseq")
     endif ()
 
