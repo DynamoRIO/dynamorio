@@ -1403,7 +1403,11 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
   endif ()
 
   if (DEFINED ${key}_sudo)
-    set(rundr "sudo;${rundr}")
+    if (DEFINED ${key}_nodr)
+      set(exepath "sudo;${exepath}")
+    else ()
+      set(rundr "sudo;${rundr}")
+    endif ()
   endif ()
 
   if (is_runall)
@@ -2127,7 +2131,8 @@ if (AARCH64 AND UNIX AND ZLIB_FOUND)
     prefix_cmd_if_necessary(drcachesim_path ON ${drcachesim_path})
     torunonly_api(tool.drcacheoff.tlb_simulator_v2p "${drcachesim_path}"
       "offline-tlb_simulator_v2p" ""
-      "-indir;${locdir};-tool;TLB;-alt_module_dir;${srcdir};-module_file;${locdir}/raw/modules.log;-v2p_file;${srcdir}/v2p.textproto;-use_physical"
+      # Do not use core-sharded scheduling, so we'll have a deterministic result.
+      "-indir;${locdir};-tool;TLB;-alt_module_dir;${srcdir};-module_file;${locdir}/raw/modules.log;-v2p_file;${srcdir}/v2p.textproto;-use_physical;-no_core_sharded"
       OFF OFF)
     set(tool.drcacheoff.tlb_simulator_v2p_basedir
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -3972,12 +3977,14 @@ if (BUILD_CLIENTS)
         set(tool.core_on_disk_rawtemp ON) # no preprocessor
 
         torunonly_simtool(core_on_disk_schedule ${ci_shared_app}
-          "-indir ${core_sharded_dir} -tool schedule_stats" "")
+          # Avoid the default core-sharded from re-scheduling the trace.
+          "-indir ${core_sharded_dir} -tool schedule_stats -no_core_sharded" "")
         set(tool.core_on_disk_schedule_rawtemp ON) # no preprocessor
 
         # Test -only_shards on core-sharded-on-disk traces.
         torunonly_simtool(only_shards ${ci_shared_app}
-          "-indir ${core_sharded_dir} -tool schedule_stats -only_shards 2,3" "")
+          # Avoid the default core-sharded from re-scheduling the trace.
+          "-indir ${core_sharded_dir} -tool schedule_stats -only_shards 2,3 -no_core_sharded" "")
         set(tool.core_on_disk_rawtemp ON) # no preprocessor
       endif ()
     endif ()
@@ -4096,10 +4103,10 @@ if (BUILD_CLIENTS)
       torunonly_drcacheoff(fork linux.fork "" "" "")
     endif ()
 
-    # Test reading a legacy pre-interleaved file.
+    # Test reading a legacy pre-interleaved file in thread-sharded mode.
     if (ZLIB_FOUND)
       torunonly_api(tool.drcacheoff.legacy "${drcachesim_path}" "offline-legacy.c" ""
-        "-infile;${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/offline-legacy-trace.gz"
+        "-infile;${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/offline-legacy-trace.gz;-no_core_sharded"
         OFF OFF)
       set(tool.drcacheoff.legacy_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -4135,16 +4142,20 @@ if (BUILD_CLIENTS)
     # Test reading a trace in sharded snappy-compressed files.
     if (libsnappy)
       # with a parallel tool (basic_counts)
-      torunonly_api(tool.drcacheoff.snappy "${drcachesim_path}" "offline-snappy.c" ""
+      torunonly_api(tool.drcacheoff.snappy_parallel "${drcachesim_path}" "offline-snappy.c" ""
         "-indir;${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.chase-snappy.x64.tracedir;-tool;basic_counts"
         OFF OFF)
-
-      # with a legacy serial tool (full simulator)
-      torunonly_api(tool.drcacheoff.snappy "${drcachesim_path}" "offline-snappy-serial.c" ""
-        "-indir;${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.chase-snappy.x64.tracedir"
-        OFF OFF)
-      set(tool.drcacheoff.snappy_basedir
+      set(tool.drcacheoff.snappy_parallel_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.drcacheoff.snappy_parallel_expectbase "offline-snappy")
+
+      # With a legacy serial tool (full simulator) in thread-sharded mode.
+      torunonly_api(tool.drcacheoff.snappy_serial "${drcachesim_path}" "offline-snappy-serial.c" ""
+        "-indir;${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.chase-snappy.x64.tracedir;-no_core_sharded"
+        OFF OFF)
+      set(tool.drcacheoff.snappy_serial_basedir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.drcacheoff.snappy_serial_expectbase "offline-snappy-serial")
     endif()
 
     if (UNIX) # Enable on Windows once i#1727 is fixed.
@@ -4437,15 +4448,16 @@ if (BUILD_CLIENTS)
         # Run with -trace_after_instrs to ensure we test the
         # drbbdup + rseq combo (i#5658, i#5659).
         "-trace_after_instrs 5K"
-        "@${test_mode_flag}@-test_mode_name@rseq_app" "")
+        # Run thread-sharded for the invariant checker.
+        "@${test_mode_flag}@-test_mode_name@rseq_app@-no_core_sharded" "")
       # Test filtering.
       torunonly_drcacheoff(rseq-filter linux.rseq
         "-trace_after_instrs 5K -L0_filter"
-        "@${test_mode_flag}@-test_mode_name@rseq_app" "")
+        "@${test_mode_flag}@-test_mode_name@rseq_app@-no_core_sharded" "")
       set(tool.drcacheoff.rseq-filter_expectbase "offline-rseq")
       torunonly_drcacheoff(rseq-dfilter linux.rseq
         "-trace_after_instrs 5K -L0D_filter"
-        "@${test_mode_flag}@-test_mode_name@rseq_app" "")
+        "@${test_mode_flag}@-test_mode_name@rseq_app@-no_core_sharded" "")
       set(tool.drcacheoff.rseq-dfilter_expectbase "offline-rseq")
     endif ()
 
@@ -4742,9 +4754,9 @@ if (BUILD_CLIENTS)
       # Run the record filter tool with a null filter.
       set(${testname}_postcmd2 "${CMAKE_COMMAND}@-E@make_directory@${outdir}")
       set(${testname}_postcmd3 ${launch_cmd})
-      # Run the analyzer on the result.
+      # Run the analyzer on the result.  Avoid double-core-sharding.
       set(${testname}_postcmd4
-        "${drcachesim_path}@-indir@${outdir}@-tool@${analyzer}")
+        "${drcachesim_path}@-indir@${outdir}@-tool@${analyzer}@-no_core_sharded")
     endmacro ()
 
     set(testname "tool.record_filter")
@@ -4790,6 +4802,18 @@ if (BUILD_CLIENTS)
           # We run basic_counts on the filtered trace to check that there are no function
           # related markers left.
           "basic_counts")
+
+        # Run modify_marker_value_filter to overwrite the values of
+        # TRACE_MARKER_TYPE_CPU_ID markers with (uintptr_t)-1, which represents an unknown
+        # CPU, and TRACE_MARKER_TYPE_PAGE_SIZE to 2k.
+        set(testname "tool.record_filter_modify_marker_value")
+        torun_record_filter("${testname}" ${kernel_xfer_app}
+          "record_filter_modify_marker_value"
+          "${drcachesim_path}@-simulator_type@record_filter@-filter_modify_marker_value@3,0xffffffffffffffff,18,2048@-indir@${testname}.${kernel_xfer_app}.*.dir/trace@-outdir@${testname}.filtered.dir"
+          # We run view on the filtered trace to check that the value of the first
+          # TRACE_MARKER_TYPE_CPU_ID is (uintptr_t)-1 and the value of
+          # TRACE_MARKER_TYPE_PAGE_SIZE is 2k.
+          "view")
     endif ()
 
     if (X86 AND X64 AND UNIX AND NOT APPLE)
@@ -4868,7 +4892,7 @@ if (BUILD_CLIENTS)
       file(MAKE_DIRECTORY ${outdir})
       torunonly_api(tool.record_filter_as_traced "${drcachesim_path}"
         "record_filter_as_traced"
-        "" "-tool;schedule_stats;-indir;${outdir}" OFF OFF)
+        "" "-tool;schedule_stats;-no_core_sharded;-indir;${outdir}" OFF OFF)
       set(tool.record_filter_as_traced_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
       set(tool.record_filter_as_traced_precmd
         "${drcachesim_path}@-tool@record_filter@-cpu_schedule_file@${sched_file}@-core_sharded@-cores@7@-indir@${trace_dir}@-outdir@${outdir}")
@@ -4885,7 +4909,7 @@ if (BUILD_CLIENTS)
       file(MAKE_DIRECTORY ${outdir})
       torunonly_api(tool.record_filter_start_idle "${drcachesim_path}"
         "record_filter_start_idle"
-        "" "-tool;schedule_stats;-indir;${outdir}" OFF OFF)
+        "" "-tool;schedule_stats;-indir;${outdir};-no_core_sharded" OFF OFF)
       set(tool.record_filter_start_idle_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
       set(tool.record_filter_start_idle_precmd
         "${drcachesim_path}@-tool@record_filter@-cpu_schedule_file@${sched_file}@-core_sharded@-cores@4@-indir@${trace_dir}@-outdir@${outdir}")
@@ -5040,6 +5064,13 @@ if (BUILD_CLIENTS)
       # kernel tracing code is not being intentionally tested.
       torunonly_drcachesim(kernel-skip-kcore_SUDO ${ci_shared_app}
                            "-offline -enable_kernel_tracing -skip_kcore_dump" "")
+
+      if (LINUX)
+        set(tool.drcacheoff.burst_syscall_pt_SUDO_nodr ON)
+        set(tool.drcacheoff.burst_syscall_pt_SUDO_sudo ON)
+        torunonly_drcacheoff(burst_syscall_pt_SUDO tool.drcacheoff.burst_syscall_pt_SUDO
+          "" "@-tool@syscall_mix" "")
+      endif ()
     endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
   endif (proc_supports_pt)
 

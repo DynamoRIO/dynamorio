@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2011-2022 Google, Inc.    All rights reserved.
+# Copyright (c) 2011-2024 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -164,9 +164,14 @@ set(base_cache "
   BUILD_NUMBER:STRING=${arg_build}
   UNIQUE_BUILD_NUMBER:STRING=${arg_ubuild}
   BUILD_PACKAGE:BOOL=ON
-  AUTOMATED_TESTING:BOOL=ON
   ${arg_cacheappend}
   ")
+
+if (WIN32)
+  # TODO i#5767: Install a working zlib package on our Windows GA CI images.
+  set(base_cache "${base_cache}
+    DISABLE_ZLIB:BOOL=ON")
+endif()
 
 # version is optional
 if (arg_version)

@@ -20,7 +20,7 @@ DynamoRIO statistics:
 .*
 all done
 Cache simulation results:
-Core #0 \(1 thread\(s\)\)
+Core #0 \(traced CPU\(s\): #0\)
   L1I0 .* stats:
     Hits:                         *[0-9,\.]*
     Misses:                       *[0-9,\.]*
@@ -33,9 +33,9 @@ Core #0 \(1 thread\(s\)\)
     Compulsory misses:            *[0-9,\.]*
     Invalidations:                *0
 .*   Miss rate:                        [0-3][,\.]..%
-Core #1 \(0 thread\(s\)\)
-Core #2 \(0 thread\(s\)\)
-Core #3 \(0 thread\(s\)\)
+Core #1 \(traced CPU\(s\): \)
+Core #2 \(traced CPU\(s\): \)
+Core #3 \(traced CPU\(s\): \)
 LL .* stats:
     Hits:                         *[0-9,\.]*
     Misses:                       *[0-9,\.]*

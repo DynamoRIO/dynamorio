@@ -122,9 +122,11 @@ public:
     bool
     start_syscall_pt_trace(DR_PARAM_IN int sysnum);
 
-    /* Stop the PT tracing for current syscall and dump the output data to one file. */
+    /* Stop the PT tracing for current syscall and dump the output data to the trace
+     * if dump_to_trace is set.
+     */
     bool
-    stop_syscall_pt_trace();
+    stop_syscall_pt_trace(bool dump_to_trace);
 
     /* Get the sysnum of current recording syscall. */
     int

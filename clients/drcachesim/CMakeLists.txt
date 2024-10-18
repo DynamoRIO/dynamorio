@@ -201,6 +201,7 @@ add_exported_library(drmemtrace_record_filter STATIC
   tools/filter/type_filter.h
   tools/filter/encodings2regdeps_filter.h
   tools/filter/func_id_filter.h
+  tools/filter/modify_marker_value_filter.h
   tools/filter/null_filter.h)
 target_link_libraries(drmemtrace_record_filter drmemtrace_simulator
   drmemtrace_schedule_file)
@@ -1084,6 +1085,17 @@ if (BUILD_TESTS)
           drmemtrace_analyzer test_helpers drmemtrace_basic_counts)
       add_win32_flags(tool.drcacheoff.burst_syscall_inject)
       use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_syscall_inject)
+    endif ()
+
+    if (LINUX AND BUILD_PT_POST_PROCESSOR AND BUILD_PT_TRACER)
+      add_executable(tool.drcacheoff.burst_syscall_pt_SUDO tests/burst_syscall_pt.cpp)
+      configure_DynamoRIO_static(tool.drcacheoff.burst_syscall_pt_SUDO)
+      use_DynamoRIO_static_client(tool.drcacheoff.burst_syscall_pt_SUDO drmemtrace_static)
+      target_link_libraries(tool.drcacheoff.burst_syscall_pt_SUDO drmemtrace_raw2trace
+          drmemtrace_analyzer test_helpers drmemtrace_basic_counts)
+      add_win32_flags(tool.drcacheoff.burst_syscall_pt_SUDO)
+      use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_syscall_pt_SUDO)
+      link_with_pthread(tool.drcacheoff.burst_syscall_pt_SUDO)
     endif ()
 
     if (UNIX)

@@ -69,6 +69,13 @@ public:
     std::string
     initialize_shard_type(shard_type_t shard_type) override;
 
+    shard_type_t
+    preferred_shard_type() override
+    {
+        // We prefer a dynamic schedule with more realistic thread interleavings.
+        return SHARD_BY_CORE;
+    }
+
     bool
     process_memref(const memref_t &memref) override;
 
@@ -83,7 +90,8 @@ protected:
                double warmup_fraction, uint64_t sim_refs, bool cpu_scheduling,
                bool use_physical, unsigned int verbose);
 
-    void
+    // Returns whether the core was ever non-empty.
+    bool
     print_core(int core) const;
 
     int

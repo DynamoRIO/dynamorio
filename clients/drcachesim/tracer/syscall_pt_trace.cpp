@@ -157,7 +157,7 @@ syscall_pt_trace_t::start_syscall_pt_trace(DR_PARAM_IN int sysnum)
 }
 
 bool
-syscall_pt_trace_t::stop_syscall_pt_trace()
+syscall_pt_trace_t::stop_syscall_pt_trace(bool dump_to_trace)
 {
     ASSERT(is_initialized_, "syscall_pt_trace_t is not initialized");
     ASSERT(drcontext_ != nullptr, "drcontext_ is nullptr");
@@ -171,11 +171,13 @@ syscall_pt_trace_t::stop_syscall_pt_trace()
         return false;
     }
 
-    if (!trace_data_dump(pttracer_output_buffer_)) {
-        return false;
-    }
+    if (dump_to_trace) {
+        if (!trace_data_dump(pttracer_output_buffer_)) {
+            return false;
+        }
 
-    traced_syscall_idx_++;
+        ++traced_syscall_idx_;
+    }
     cur_recording_sysnum_ = -1;
 
     /* Reset the pttracer handle for next syscall.

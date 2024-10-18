@@ -1235,7 +1235,8 @@ reserve_pred_register(instr_t *sg_instr, spill_slot_state_t *slot_state)
             break;
         }
     }
-    DR_ASSERT(slot_state->pred_slots[slot].kind == SLOT_KIND_UNUSED);
+    DR_ASSERT(slot < NUM_PRED_SLOTS &&
+              slot_state->pred_slots[slot].kind == SLOT_KIND_UNUSED);
 
     /* Some instructions require the predicate to be in the range p0 - p7. This includes
      * LASTB which we use to extract elements from the vector register.
@@ -1261,7 +1262,8 @@ reserve_vector_register(instr_t *sg_instr, spill_slot_state_t *slot_state)
             break;
         }
     }
-    DR_ASSERT(slot_state->vector_slots[slot].kind == SLOT_KIND_UNUSED);
+    DR_ASSERT(slot < NUM_VECTOR_SLOTS &&
+              slot_state->vector_slots[slot].kind == SLOT_KIND_UNUSED);
 
     reg_id_t min_reg = DR_REG_Z0;
     /* Skip over any registers that have already been allocated. */
@@ -1314,8 +1316,9 @@ unreserve_pred_register(void *drcontext, instrlist_t *bb, instr_t *where,
             break;
         }
     }
-    DR_ASSERT(slot_state->pred_slots[slot].kind == SLOT_KIND_SPILL);
-    DR_ASSERT(slot_state->pred_slots[slot].reg == scratch_pred);
+    DR_ASSERT(slot < NUM_PRED_SLOTS &&
+              slot_state->pred_slots[slot].kind == SLOT_KIND_SPILL);
+    DR_ASSERT(slot < NUM_PRED_SLOTS && slot_state->pred_slots[slot].reg == scratch_pred);
 
     unreserve_sve_register(drcontext, bb, where, scratch_gpr0, scratch_pred,
                            offsetof(per_thread_t, scratch_pred_spill_slots),
@@ -1337,7 +1340,8 @@ unreserve_vector_register(void *drcontext, instrlist_t *bb, instr_t *where,
             break;
         }
     }
-    DR_ASSERT(slot_state->vector_slots[slot].reg == scratch_vec);
+    DR_ASSERT(slot < NUM_VECTOR_SLOTS &&
+              slot_state->vector_slots[slot].reg == scratch_vec);
 
     unreserve_sve_register(drcontext, bb, where, scratch_gpr0, scratch_vec,
                            offsetof(per_thread_t, scratch_vector_spill_slots_aligned),

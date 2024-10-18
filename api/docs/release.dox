@@ -265,6 +265,16 @@ Further non-compatibility-affecting changes include:
  - Added -trace_instr_intervals_file option to the drmemtrace trace analysis tools
    framework. The file must be in CSV format containing a <start,duration> tracing
    interval per line where start and duration are expressed in number of instructions.
+ - Added modify_marker_value_filter_t to #dynamorio::drmemtrace::record_filter_t to modify
+   the value of TRACE_MARKER_TYPE_ markers. This filter takes a list of
+   <TRACE_MARKER_TYPE_,new_value> and changes every listed marker in the trace to its
+   corresponding new_value.
+ - Added trace_analysis_tool::preferred_shard_type() to the drmemtrace framework to
+   allow switching to core-sharded by default if all tools prefer that mode.
+ - For the drmemtrace framework, if only core-sharded-preferring tools are enabled
+   (these include cache and TLB simulators and the schedule_stats tool), -core_sharded or
+   -core_serial is automatically turned on for offline analysis to enable more
+   representative simulated software thread scheduling onto virtual cores.
 
 **************************************************
 <hr>

@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2023 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2024 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2018 Arm Limited          All rights reserved.
 # **********************************************************
@@ -1840,7 +1840,8 @@ endfunction ()
 # TODO i#5767: Install an explicit zlib package on our Windows GA CI images
 # (this find_package finds a strawberry perl zlib which causes 32-bit build
 # and 64-bit private loader issues).
-if (WIN32 AND AUTOMATED_TESTING)
+option(DISABLE_ZLIB "Disable looking for and using zlib" OFF)
+if (WIN32 AND NOT DISABLE_ZLIB)
   set(ZLIB_FOUND OFF)
 else ()
   find_package(ZLIB)

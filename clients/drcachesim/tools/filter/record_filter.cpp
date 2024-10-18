@@ -62,6 +62,7 @@
 #include "type_filter.h"
 #include "encodings2regdeps_filter.h"
 #include "func_id_filter.h"
+#include "modify_marker_value_filter.h"
 
 #undef VPRINT
 #ifdef DEBUG
@@ -95,7 +96,9 @@ parse_string(const std::string &s, char sep = ',')
     std::vector<T> vec;
     do {
         pos = s.find(sep, at);
-        unsigned long long parsed_number = std::stoull(s.substr(at, pos));
+        // base = 0 allows to handle both decimal and hex numbers.
+        unsigned long long parsed_number =
+            std::stoull(s.substr(at, pos), nullptr, /*base = */ 0);
         // XXX: parsed_number may be truncated if T is not large enough.
         // We could check that parsed_number is within the limits of T using
         // std::numeric_limits<>::min()/max(), but this returns 0 on T that are enums,
@@ -119,7 +122,7 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
                           const std::string &remove_marker_types,
                           uint64_t trim_before_timestamp, uint64_t trim_after_timestamp,
                           bool encodings2regdeps, const std::string &keep_func_ids,
-                          unsigned int verbose)
+                          const std::string &modify_marker_value, unsigned int verbose)
 {
     std::vector<
         std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>>
@@ -159,6 +162,14 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
         filter_funcs.emplace_back(
             std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
                 new dynamorio::drmemtrace::func_id_filter_t(keep_func_ids_list)));
+    }
+    if (!modify_marker_value.empty()) {
+        std::vector<uint64_t> modify_marker_value_pairs_list =
+            parse_string<uint64_t>(modify_marker_value);
+        filter_funcs.emplace_back(
+            std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
+                new dynamorio::drmemtrace::modify_marker_value_filter_t(
+                    modify_marker_value_pairs_list)));
     }
 
     // TODO i#5675: Add other filters.
