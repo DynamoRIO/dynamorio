@@ -341,6 +341,12 @@ typedef enum {
      * \note Windows only.
      */
     DR_MEMORY_DUMP_LDMP = 0x0001,
+    /**
+     * Memory dump in Executable and Linkable Format.
+     *
+     * \note Linux and X64 only.
+     */
+    DR_MEMORY_DUMP_ELF = 0x0002,
 } dr_memory_dump_flags_t;
 
 /** Indicates the type of memory dump for dr_create_memory_dump(). */
