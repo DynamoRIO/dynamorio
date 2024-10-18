@@ -299,13 +299,19 @@ droption_t<std::string> op_v2p_file(
 droption_t<bool> op_cpu_scheduling(
     DROPTION_SCOPE_CLIENT, "cpu_scheduling", false,
     "Map threads to cores matching recorded cpu execution",
-    "By default, the simulator schedules threads to simulated cores in a static "
+    "By default for online analysis, the simulator schedules threads to simulated cores "
+    "in a static "
     "round-robin fashion.  This option causes the scheduler to instead use the recorded "
     "cpu that each thread executed on (at a granularity of the trace buffer size) "
     "for scheduling, mapping traced cpu's to cores and running each segment of each "
     "thread on the core that owns the recorded cpu for that segment. "
     "This option is not supported with -core_serial; use "
-    "-cpu_schedule_file with -core_serial instead.");
+    "-cpu_schedule_file with -core_serial instead.  For offline analysis, the "
+    "recommendation is to not recreate the as-traced schedule (as it is not accurate due "
+    "to overhead) and instead use a dynamic schedule via -core_serial.  If only "
+    "core-sharded-preferring tools are enabled (e.g., " CPU_CACHE ", " TLB
+    ", " SCHEDULE_STATS
+    "), -core_serial is automatically turned on for offline analysis.");
 
 droption_t<bytesize_t> op_max_trace_size(
     DROPTION_SCOPE_CLIENT, "max_trace_size", 0,
@@ -890,11 +896,16 @@ droption_t<int> op_kernel_trace_buffer_size_shift(
 // Core-oriented analysis.
 droption_t<bool> op_core_sharded(
     DROPTION_SCOPE_ALL, "core_sharded", false, "Analyze per-core in parallel.",
-    "By default, the input trace is analyzed in parallel across shards equal to "
-    "software threads.  This option instead schedules those threads onto virtual cores "
+    "By default, the sharding mode is determined by the preferred shard type of the"
+    "tools selected (unless overridden, the default preferred type is thread-sharded). "
+    "This option enables core-sharded, overriding tool defaults.  Core-sharded "
+    "anlysis schedules the input software threads onto virtual cores "
     "and analyzes each core in parallel.  Thus, each shard consists of pieces from "
     "many software threads.  How the scheduling is performed is controlled by a set "
-    "of options with the prefix \"sched_\" along with -cores.");
+    "of options with the prefix \"sched_\" along with -cores.  If only "
+    "core-sharded-preferring tools are enabled (e.g., " CPU_CACHE ", " TLB
+    ", " SCHEDULE_STATS ") and they all support parallel operation, -core_sharded is "
+    "automatically turned on for offline analysis.");
 
 droption_t<bool> op_core_serial(
     DROPTION_SCOPE_ALL, "core_serial", false, "Analyze per-core in serial.",
@@ -902,7 +913,10 @@ droption_t<bool> op_core_serial(
     "However, the resulting schedule is acted upon by a single analysis thread"
     "which walks the N cores in lockstep in round robin fashion. "
     "How the scheduling is performed is controlled by a set "
-    "of options with the prefix \"sched_\" along with -cores.");
+    "of options with the prefix \"sched_\" along with -cores.  If only "
+    "core-sharded-preferring tools are enabled (e.g., " CPU_CACHE ", " TLB
+    ", " SCHEDULE_STATS ") and not all of them support parallel operation, "
+    "-core_serial is automatically turned on for offline analysis.");
 
 droption_t<int64_t>
     // We pick 10 million to match 2 instructions per nanosecond with a 5ms quantum.

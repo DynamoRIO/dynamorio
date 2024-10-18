@@ -156,6 +156,19 @@ public:
     {
         return "";
     }
+    /**
+     * Identifies the preferred shard type for this analysis.  This only applies when
+     * the user does not specify a shard type for a run.  In that case, if every tool
+     * being run prefers #SHARD_BY_CORE, the framework uses that mode.  If tools
+     * disagree then an error is raised.  This is ignored if the user specifies a
+     * shard type via one of -core_sharded, -core_serial, -no_core_sharded,
+     * -no_core_serial, or -cpu_scheduling.
+     */
+    virtual shard_type_t
+    preferred_shard_type()
+    {
+        return SHARD_BY_THREAD;
+    }
     /** Returns whether the tool was created successfully. */
     virtual bool
     operator!()

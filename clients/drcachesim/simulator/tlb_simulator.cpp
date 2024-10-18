@@ -264,8 +264,7 @@ tlb_simulator_t::print_results()
 {
     std::cerr << "TLB simulation results:\n";
     for (unsigned int i = 0; i < knobs_.num_cores; i++) {
-        print_core(i);
-        if (thread_ever_counts_[i] > 0) {
+        if (print_core(i)) {
             std::cerr << "  L1I stats:" << std::endl;
             itlbs_[i]->get_stats()->print_stats("    ");
             std::cerr << "  L1D stats:" << std::endl;
