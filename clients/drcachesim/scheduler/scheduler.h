@@ -1920,8 +1920,11 @@ protected:
                              input_reader_info_t &reader_info);
 
     // The caller cannot hold the output or input lock.
+    // The caller can hold the output's current input's lock but must pass
+    // true for the 3rd parameter in that case.
     stream_status_t
-    set_cur_input(output_ordinal_t output, input_ordinal_t input);
+    set_cur_input(output_ordinal_t output, input_ordinal_t input,
+                  bool hold_cur_input_lock = false);
 
     // Finds the next input stream for the 'output_ordinal'-th output stream.
     // No input_info_t lock can be held on entry.
