@@ -549,8 +549,10 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
             return;
         }
         if (!this->init_scheduler(tracedir, only_threads, only_shards,
-                                  op_verbose.get_value(), std::move(sched_ops)))
+                                  op_verbose.get_value(), std::move(sched_ops))) {
             this->success_ = false;
+            return;
+        }
     } else if (op_infile.get_value().empty()) {
         // XXX i#3323: Add parallel analysis support for online tools.
         this->parallel_ = false;
@@ -567,12 +569,15 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
         if (!this->init_scheduler(std::move(reader), std::move(end),
                                   op_verbose.get_value(), std::move(sched_ops))) {
             this->success_ = false;
+            return;
         }
     } else {
         // Legacy file.
         if (!this->init_scheduler(op_infile.get_value(), {}, {}, op_verbose.get_value(),
-                                  std::move(sched_ops)))
+                                  std::move(sched_ops))) {
             this->success_ = false;
+            return;
+        }
     }
     if (!init_analysis_tools()) {
         this->success_ = false;

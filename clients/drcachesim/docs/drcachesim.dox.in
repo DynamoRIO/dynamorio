@@ -1304,14 +1304,12 @@ representative.  Instead, we recommend using offline traces and dynamic
 re-scheduling in core-sharded mode as explained in \ref sec_drcachesim_sched_dynamic
 using the
 `-core_serial` parameter.  In offline mode, `-core_serial` is the default for
-these simulators unless additional tools that do not prefer core-sharded operation
-are run at the same time.  It is best to explicitly request `-core_serial` as
-in this example:
+these simulators.
 
 \code
 $ bin64/drrun -t drmemtrace -offline -- ~/test/pi_estimator 8 20
 Estimation of pi is 3.141592653798125
-$ bin64/drrun -t drcachesim -core_serial -cores 3 -indir drmemtrace.pi_estimator.*.dir
+$ bin64/drrun -t drcachesim -cores 3 -indir drmemtrace.pi_estimator.*.dir
 Cache simulation results:
 Core #0 (traced CPU(s): #0)
   L1I0 (size=32768, assoc=8, block=64, LRU) stats:
@@ -1477,8 +1475,9 @@ The #dynamorio::drmemtrace::TRACE_MARKER_TYPE_TIMESTAMP and
 #dynamorio::drmemtrace::TRACE_MARKER_TYPE_CPU_ID markers are modified by the dynamic
 scheduler to reflect the new schedule.  The new timestamps maintain relative ordering
 but should not be relied upon to indicate accurate durations between events.
-When analyzing core-sharded-on-disk traces, be sure to pass `-no_core_sharded` when
-using core-sharded-preferring tools to avoid the trace being re-scheduled yet again.
+When analyzing core-sharded-on-disk traces, `-no_core_sharded` must be passed when
+using core-sharded-preferring tools to avoid an error from the framework attempting
+to re-schedule the already-scheduled trace.
 
 Traces also include markers indicating disruptions in user mode control
 flow such as signal handler entry and exit.

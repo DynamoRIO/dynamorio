@@ -339,6 +339,7 @@ simulator_t::print_core(int core) const
             }
         }
         std::cerr << ")" << std::endl;
+        // If anything ran on this core, need_comma will be true.
         return need_comma;
     }
 }
