@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -1627,8 +1627,11 @@ OPTION_DEFAULT(uint_size, vmheap_size_wow64, 128 * 1024 * 1024,
                "capacity of virtual memory region reserved for unreachable heap "
                "on WoW64 processes")
 #endif
-/* We hardcode an address in the mmap_text region here, but verify via
- * in vmk_init().
+/* We hardcode a default vmcode base address, to which we add a random offset
+ * up to vm_max_offset.
+ * If -vm_base is set to 0, and -vm_base_near_app is off, we let the OS pick
+ * the base and do not apply any offset.
+ * For the default:
  * For Linux we start higher to avoid limiting the brk (i#766), but with our
  * new default -vm_size of 0x20000000 we want to stay below our various
  * preferred addresses of 0x7xxx0000 so we keep the base plus offset plus

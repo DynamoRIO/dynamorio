@@ -299,13 +299,19 @@ droption_t<std::string> op_v2p_file(
 droption_t<bool> op_cpu_scheduling(
     DROPTION_SCOPE_CLIENT, "cpu_scheduling", false,
     "Map threads to cores matching recorded cpu execution",
-    "By default, the simulator schedules threads to simulated cores in a static "
+    "By default for online analysis, the simulator schedules threads to simulated cores "
+    "in a static "
     "round-robin fashion.  This option causes the scheduler to instead use the recorded "
     "cpu that each thread executed on (at a granularity of the trace buffer size) "
     "for scheduling, mapping traced cpu's to cores and running each segment of each "
     "thread on the core that owns the recorded cpu for that segment. "
     "This option is not supported with -core_serial; use "
-    "-cpu_schedule_file with -core_serial instead.");
+    "-cpu_schedule_file with -core_serial instead.  For offline analysis, the "
+    "recommendation is to not recreate the as-traced schedule (as it is not accurate due "
+    "to overhead) and instead use a dynamic schedule via -core_serial.  If only "
+    "core-sharded-preferring tools are enabled (e.g., " CPU_CACHE ", " TLB
+    ", " SCHEDULE_STATS
+    "), -core_serial is automatically turned on for offline analysis.");
 
 droption_t<bytesize_t> op_max_trace_size(
     DROPTION_SCOPE_CLIENT, "max_trace_size", 0,
@@ -890,11 +896,16 @@ droption_t<int> op_kernel_trace_buffer_size_shift(
 // Core-oriented analysis.
 droption_t<bool> op_core_sharded(
     DROPTION_SCOPE_ALL, "core_sharded", false, "Analyze per-core in parallel.",
-    "By default, the input trace is analyzed in parallel across shards equal to "
-    "software threads.  This option instead schedules those threads onto virtual cores "
+    "By default, the sharding mode is determined by the preferred shard type of the"
+    "tools selected (unless overridden, the default preferred type is thread-sharded). "
+    "This option enables core-sharded, overriding tool defaults.  Core-sharded "
+    "anlysis schedules the input software threads onto virtual cores "
     "and analyzes each core in parallel.  Thus, each shard consists of pieces from "
     "many software threads.  How the scheduling is performed is controlled by a set "
-    "of options with the prefix \"sched_\" along with -cores.");
+    "of options with the prefix \"sched_\" along with -cores.  If only "
+    "core-sharded-preferring tools are enabled (e.g., " CPU_CACHE ", " TLB
+    ", " SCHEDULE_STATS ") and they all support parallel operation, -core_sharded is "
+    "automatically turned on for offline analysis.");
 
 droption_t<bool> op_core_serial(
     DROPTION_SCOPE_ALL, "core_serial", false, "Analyze per-core in serial.",
@@ -902,23 +913,26 @@ droption_t<bool> op_core_serial(
     "However, the resulting schedule is acted upon by a single analysis thread"
     "which walks the N cores in lockstep in round robin fashion. "
     "How the scheduling is performed is controlled by a set "
-    "of options with the prefix \"sched_\" along with -cores.");
+    "of options with the prefix \"sched_\" along with -cores.  If only "
+    "core-sharded-preferring tools are enabled (e.g., " CPU_CACHE ", " TLB
+    ", " SCHEDULE_STATS ") and not all of them support parallel operation, "
+    "-core_serial is automatically turned on for offline analysis.");
 
 droption_t<int64_t>
     // We pick 10 million to match 2 instructions per nanosecond with a 5ms quantum.
     op_sched_quantum(DROPTION_SCOPE_ALL, "sched_quantum", 10 * 1000 * 1000,
                      "Scheduling quantum",
-                     "Applies to -core_sharded and -core_serial. "
-                     "Scheduling quantum in instructions, unless -sched_time is set in "
-                     "which case this value is multiplied by -sched_time_per_us to "
-                     "produce a quantum in wall-clock microseconds.");
+                     "Applies to -core_sharded and -core_serial.  Scheduling quantum in "
+                     "instructions, unless -sched_time is set in which case this value "
+                     "is the quantum in simulated microseconds (equal to wall-clock "
+                     "microseconds multiplied by -sched_time_per_us).");
 
 droption_t<bool>
     op_sched_time(DROPTION_SCOPE_ALL, "sched_time", false,
                   "Whether to use time for the scheduling quantum",
-                  "Applies to -core_sharded and -core_serial. "
-                  "Whether to use wall-clock time for the scheduling quantum, with a "
-                  "value equal to -sched_quantum in microseconds of wall-clock time.");
+                  "Applies to -core_sharded and -core_serial.  Whether to use wall-clock "
+                  "time (multiplied by -sched_time_per_us) for measuring idle time and "
+                  "for the scheduling quantum (see -sched_quantum).");
 
 droption_t<bool> op_sched_order_time(DROPTION_SCOPE_ALL, "sched_order_time", true,
                                      "Whether to honor recorded timestamps for ordering",
@@ -1016,11 +1030,12 @@ droption_t<bool> op_sched_infinite_timeouts(
     "(set to false).");
 
 droption_t<double> op_sched_time_units_per_us(
-    DROPTION_SCOPE_ALL, "sched_time_units_per_us", 100.,
+    DROPTION_SCOPE_ALL, "sched_time_units_per_us", 1000.,
     "Time units per simulated microsecond",
-    "Time units (currently wall-clock time) per simulated microsecond.  This scales all "
-    "of the -sched_*_us values as it converts wall-clock time into the simulated "
-    "microseconds measured by those options.");
+    "Time units per simulated microsecond.  The units are either the instruction count "
+    "plus the idle count (the default) or if -sched_time is selected wall-clock "
+    "microseconds.  This option value scales all of the -sched_*_us values as it "
+    "converts time units into the simulated microseconds measured by those options.");
 
 droption_t<uint64_t> op_sched_migration_threshold_us(
     DROPTION_SCOPE_ALL, "sched_migration_threshold_us", 500,
@@ -1033,6 +1048,18 @@ droption_t<uint64_t> op_sched_rebalance_period_us(
     "Period in microseconds at which core run queues are load-balanced",
     "The period in simulated microseconds at which per-core run queues are re-balanced "
     "to redistribute load.");
+
+droption_t<double> op_sched_exit_if_fraction_inputs_left(
+    DROPTION_SCOPE_FRONTEND, "sched_exit_if_fraction_inputs_left", 0.1,
+    "Exit if non-EOF inputs left are <= this fraction of the total",
+    "Applies to -core_sharded and -core_serial.  When an input reaches EOF, if the "
+    "number of non-EOF inputs left as a fraction of the original inputs is equal to or "
+    "less than this value then the scheduler exits (sets all outputs to EOF) rather than "
+    "finishing off the final inputs.  This helps avoid long sequences of idles during "
+    "staggered endings with fewer inputs left than cores and only a small fraction of "
+    "the total instructions left in those inputs.  Since the remaining instruction "
+    "count is not considered (as it is not available), use discretion when raising "
+    "this value on uneven inputs.");
 
 // Schedule_stats options.
 droption_t<uint64_t>
@@ -1098,6 +1125,15 @@ droption_t<std::string>
                        "TRACE_MARKER_TYPE_FUNC_[ID | ARG | RETVAL | RETADDR] markers "
                        "for the listed function IDs and removes those belonging to "
                        "unlisted function IDs.");
+
+droption_t<std::string> op_modify_marker_value(
+    DROPTION_SCOPE_FRONTEND, "filter_modify_marker_value", "",
+    "Comma-separated pairs of integers representing <TRACE_MARKER_TYPE_, new_value>.",
+    "This option is for -tool " RECORD_FILTER ". It modifies the value of all listed "
+    "TRACE_MARKER_TYPE_ markers in the trace with their corresponding new_value. "
+    "The list must have an even size. Example: -filter_modify_marker_value 3,24,18,2048 "
+    "sets all TRACE_MARKER_TYPE_CPU_ID == 3 in the trace to core 24 and "
+    "TRACE_MARKER_TYPE_PAGE_SIZE == 18 to 2k.");
 
 droption_t<uint64_t> op_trim_before_timestamp(
     DROPTION_SCOPE_ALL, "trim_before_timestamp", 0, 0,

@@ -311,18 +311,19 @@ simulator_t::handle_thread_exit(memref_tid_t tid)
     thread2core_.erase(tid);
 }
 
-void
+bool
 simulator_t::print_core(int core) const
 {
     if (!knob_cpu_scheduling_ && shard_type_ == SHARD_BY_THREAD) {
         std::cerr << "Core #" << core << " (" << thread_ever_counts_[core]
                   << " thread(s))" << std::endl;
+        return thread_ever_counts_[core] > 0;
     } else {
         std::cerr << "Core #" << core;
         if (shard_type_ == SHARD_BY_THREAD && cpu_counts_[core] == 0) {
             // We keep the "(s)" mainly to simplify test templates.
             std::cerr << " (0 traced CPU(s))" << std::endl;
-            return;
+            return false;
         }
         std::cerr << " (";
         if (shard_type_ == SHARD_BY_THREAD) // Always 1:1 for SHARD_BY_CORE.
@@ -338,6 +339,8 @@ simulator_t::print_core(int core) const
             }
         }
         std::cerr << ")" << std::endl;
+        // If anything ran on this core, need_comma will be true.
+        return need_comma;
     }
 }
 

@@ -339,6 +339,19 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
             uint64_t filetype = scheduler_.get_stream(i)->get_filetype();
             VPRINT(this, 2, "Worker %d filetype %" PRIx64 "\n", i, filetype);
             if (TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, filetype)) {
+                if (i == 0 && shard_type_ == SHARD_BY_CORE) {
+                    // This is almost certainly user error.
+                    // Better to exit than risk user confusion.
+                    // XXX i#7045: Ideally this could be reported as an error by the
+                    // scheduler, and also detected early in analyzer_multi to auto-fix
+                    // (when no mode is specified: if the user specifies core-sharding
+                    // there could be config differences and this should be an error),
+                    // but neither is simple so today the user has to re-run.
+                    error_string_ =
+                        "Re-scheduling a core-sharded-on-disk trace is generally a "
+                        "mistake; re-run with -no_core_sharded.\n";
+                    return false;
+                }
                 shard_type_ = SHARD_BY_CORE;
             }
         }
@@ -524,7 +537,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
     while (true) {
         RecordType record;
         // The current time is used for time quanta; for instr quanta, it's ignored and
-        // we pass 0.
+        // we pass 0 and let the scheduler use instruction + idle counts.
         uint64_t cur_micros = sched_by_time_ ? get_current_microseconds() : 0;
         typename sched_type_t::stream_status_t status =
             worker.stream->next_record(record, cur_micros);

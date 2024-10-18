@@ -739,8 +739,11 @@ public:
          * other parameters that are in microseconds (they all end in "_us": e.g.,
          * #quantum_duration_us) so that they operate on the right time scale for the
          * passed-in simulator time (or wall-clock microseconds if no time is passed).
+         * The default value is a rough estimate when no accurate simulated time is
+         * available: the instruction count is used in that case, and we use the
+         * instructions per microsecond for a 2GHz clock at 0.5 IPC as our default.
          */
-        double time_units_per_us = 100.;
+        double time_units_per_us = 1000.;
         /**
          * The scheduling quantum duration for preemption, in simulated microseconds,
          * for #QUANTUM_TIME.  This value is multiplied by #time_units_per_us to
@@ -805,6 +808,17 @@ public:
          * (#block_time_max_us) scaled by #block_time_multiplier.
          */
         bool honor_infinite_timeouts = false;
+        /**
+         * For #MAP_TO_ANY_OUTPUT, when an input reaches EOF, if the number of non-EOF
+         * inputs left as a fraction of the original inputs is equal to or less than
+         * this value then the scheduler exits (sets all outputs to EOF) rather than
+         * finishing off the final inputs.  This helps avoid long sequences of idles
+         * during staggered endings with fewer inputs left than cores and only a small
+         * fraction of the total instructions left in those inputs.  Since the remaining
+         * instruction count is not considered (as it is not available), use discretion
+         * when raising this value on uneven inputs.
+         */
+        double exit_if_fraction_inputs_left = 0.1;
         // When adding new options, also add to print_configuration().
     };
 
@@ -863,7 +877,8 @@ public:
         // diminished.
         /**
          * Advances to the next record in the stream.  Returns a status code on whether
-         * and how to continue.
+         * and how to continue.  Uses the instruction count plus idle count to this point
+         * as the time; use the variant that takes "cur_time" to instead provide a time.
          */
         virtual stream_status_t
         next_record(RecordType &record);
@@ -871,11 +886,12 @@ public:
         /**
          * Advances to the next record in the stream.  Returns a status code on whether
          * and how to continue.  Supplies the current time for #QUANTUM_TIME.  The time
-         * should be considered to be the time prior to processing the returned record.
-         * The time is unitless but needs to be a globally consistent increasing value
-         * across all output streams.  #STATUS_INVALID is returned if 0 or a value smaller
-         * than the start time of the current input's quantum is passed in when
-         * #QUANTUM_TIME and #MAP_TO_ANY_OUTPUT are specified.
+         * should be considered to be the simulated time prior to processing the returned
+         * record.  The time's units can be chosen by the caller, with
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::scheduler_options_t.time_units_per_us
+         * providing the conversion to simulated microseconds.  #STATUS_INVALID is
+         * returned if 0 or a value smaller than the start time of the current input's
+         * quantum is passed in when #QUANTUM_TIME and #MAP_TO_ANY_OUTPUT are specified.
          */
         virtual stream_status_t
         next_record(RecordType &record, uint64_t cur_time);
@@ -983,6 +999,15 @@ public:
             if (TESTANY(sched_type_t::SCHEDULER_USE_INPUT_ORDINALS,
                         scheduler_->options_.flags))
                 return scheduler_->get_input_stream(ordinal_)->get_instruction_ordinal();
+            return cur_instr_count_;
+        }
+        /**
+         * Identical to get_instruction_ordinal() but ignores the
+         * #SCHEDULER_USE_INPUT_ORDINALS flag.
+         */
+        uint64_t
+        get_output_instruction_ordinal() const
+        {
             return cur_instr_count_;
         }
         /**
@@ -1434,6 +1459,9 @@ protected:
             // Indicates that the output is idle.  The value.idle_duration field holds
             // a duration in microseconds.
             IDLE,
+            // Indicates that the output is idle.  The value.idle_duration field holds
+            // a duration as a count of idle records.
+            IDLE_BY_COUNT,
         };
         static constexpr int VERSION_CURRENT = 0;
         schedule_record_t() = default;
@@ -1468,6 +1496,7 @@ protected:
             {
             }
             // For record_type_t::IDLE, the duration in microseconds of the idling.
+            // For record_type_t::IDLE_BY_COUNT, the duration as a count of idle records.
             uint64_t idle_duration;
             // Input stream ordinal of starting point, for non-IDLE types.
             uint64_t start_instruction = 0;
@@ -1616,6 +1645,9 @@ protected:
             cur_time =
                 std::unique_ptr<std::atomic<uint64_t>>(new std::atomic<uint64_t>());
             cur_time->store(0, std::memory_order_relaxed);
+            initial_cur_time =
+                std::unique_ptr<std::atomic<uint64_t>>(new std::atomic<uint64_t>());
+            initial_cur_time->store(0, std::memory_order_relaxed);
             record_index = std::unique_ptr<std::atomic<int>>(new std::atomic<int>());
             record_index->store(0, std::memory_order_relaxed);
         }
@@ -1663,15 +1695,24 @@ protected:
         // This is accessed by other outputs for stealing and rebalancing.
         // Indirected so we can store it in our vector.
         std::unique_ptr<std::atomic<uint64_t>> cur_time;
+        // The first simulation time passed to this output.
+        // This is accessed by other outputs for stealing and rebalancing.
+        // Indirected so we can store it in our vector.
+        std::unique_ptr<std::atomic<uint64_t>> initial_cur_time;
         // Used for MAP_TO_RECORDED_OUTPUT get_output_cpuid().
         int64_t as_traced_cpuid = -1;
         // Used for MAP_AS_PREVIOUSLY with live_replay_output_count_.
         bool at_eof = false;
-        // Used for replaying wait periods.
-        uint64_t wait_start_time = 0;
+        // Used for recording and replaying idle periods.
+        int64_t idle_start_count = -1;
         // Exported statistics. Currently all integers and cast to double on export.
         std::vector<int64_t> stats =
             std::vector<int64_t>(memtrace_stream_t::SCHED_STAT_TYPE_COUNT);
+        // When no simulation time is passed to us, we use the idle count plus
+        // instruction count to measure time.
+        uint64_t idle_count = 0;
+        // The first timestamp (pre-update_next_record()) seen on the first input.
+        uintptr_t base_timestamp = 0;
     };
 
     // Used for reading as-traced schedules.
@@ -1721,6 +1762,9 @@ protected:
         // unfiltered_tids.size() for core-sharded inputs with IDLE_THREAD_ID).
         uint64_t input_count = 0;
     };
+
+    // We assume a 2GHz clock and IPC=1.
+    static constexpr uint64_t INSTRS_PER_US = 2000;
 
     // Called just once at initialization time to set the initial input-to-output
     // mappings and state.
@@ -1919,6 +1963,9 @@ protected:
     record_type_is_timestamp(RecordType record, uintptr_t &value);
 
     bool
+    record_type_set_marker_value(RecordType &record, uintptr_t value);
+
+    bool
     record_type_is_invalid(RecordType record);
 
     bool
@@ -1942,6 +1989,9 @@ protected:
     // The lock for 'input' is held by the caller.
     void
     insert_switch_tid_pid(input_info_t &input);
+
+    void
+    update_next_record(output_ordinal_t output, RecordType &record);
 
     // Used for diagnostics: prints record fields to stderr.
     void
@@ -2021,7 +2071,10 @@ protected:
     set_output_active(output_ordinal_t output, bool active);
 
     // Caller must hold the input's lock.
-    void
+    // The return value is STATUS_EOF if a global exit is now happening (an
+    // early exit); otherwise STATUS_OK is returned on success but only a
+    // local EOF.
+    stream_status_t
     mark_input_eof(input_info_t &input);
 
     // Determines whether to exit or wait for other outputs when one output
