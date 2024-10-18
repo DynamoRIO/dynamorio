@@ -4368,29 +4368,34 @@ scheduler_tmpl_t<RecordType, ReaderType>::eof_or_idle(output_ordinal_t output,
                live_inputs);
         return sched_type_t::STATUS_EOF;
     }
-    // Before going idle, try to steal work from another output.
-    // We start with us+1 to avoid everyone stealing from the low-numbered outputs.
-    // We only try when we first transition to idle; we rely on rebalancing after that,
-    // to avoid repeatededly grabbing other output's locks over and over.
-    if (!outputs_[output].tried_to_steal_on_idle) {
-        outputs_[output].tried_to_steal_on_idle = true;
-        for (unsigned int i = 1; i < outputs_.size(); ++i) {
-            output_ordinal_t target = (output + i) % outputs_.size();
-            assert(target != output); // Sanity check (we won't reach "output").
-            input_info_t *queue_next = nullptr;
-            sched_type_t::stream_status_t status =
-                pop_from_ready_queue(target, output, queue_next);
-            if (status == STATUS_OK && queue_next != nullptr) {
-                set_cur_input(output, queue_next->index);
-                ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_RUNQUEUE_STEALS];
-                VPRINT(this, 2,
-                       "eof_or_idle: output %d stole input %d from %d's ready_queue\n",
-                       output, queue_next->index, target);
-                return STATUS_STOLE;
+    if (options_.mapping == MAP_TO_ANY_OUTPUT) {
+        //  Before going idle, try to steal work from another output.
+        //  We start with us+1 to avoid everyone stealing from the low-numbered outputs.
+        //  We only try when we first transition to idle; we rely on rebalancing after
+        //  that, to avoid repeatededly grabbing other output's locks over and over.
+        if (!outputs_[output].tried_to_steal_on_idle) {
+            outputs_[output].tried_to_steal_on_idle = true;
+            for (unsigned int i = 1; i < outputs_.size(); ++i) {
+                output_ordinal_t target = (output + i) % outputs_.size();
+                assert(target != output); // Sanity check (we won't reach "output").
+                input_info_t *queue_next = nullptr;
+                sched_type_t::stream_status_t status =
+                    pop_from_ready_queue(target, output, queue_next);
+                if (status == STATUS_OK && queue_next != nullptr) {
+                    set_cur_input(output, queue_next->index);
+                    ++outputs_[output]
+                          .stats[memtrace_stream_t::SCHED_STAT_RUNQUEUE_STEALS];
+                    VPRINT(
+                        this, 2,
+                        "eof_or_idle: output %d stole input %d from %d's ready_queue\n",
+                        output, queue_next->index, target);
+                    return STATUS_STOLE;
+                }
+                // We didn't find anything; loop and check another output.
             }
-            // We didn't find anything; loop and check another output.
+            VPRINT(this, 3, "eof_or_idle: output %d failed to steal from anyone\n",
+                   output);
         }
-        VPRINT(this, 3, "eof_or_idle: output %d failed to steal from anyone\n", output);
     }
     // We rely on rebalancing to handle the case of every input being unscheduled.
     outputs_[output].waiting = true;
