@@ -58,6 +58,65 @@ ld1d scalar\+vector 32bit unpacked unscaled offset sxtw: PASS
 ld1d scalar\+vector 64bit scaled offset: PASS
 ld1d scalar\+vector 64bit unscaled offset: PASS
 ld1d scalar\+vector 64bit unscaled offset Zt==Zm: PASS
+ldff1b scalar\+vector 32bit unscaled offset uxtw: PASS
+ldff1b scalar\+vector 32bit unscaled offset sxtw: PASS
+ldff1b scalar\+vector 32bit unpacked unscaled offset uxtw: PASS
+ldff1b scalar\+vector 32bit unpacked unscaled offset sxtw: PASS
+ldff1b scalar\+vector 64bit unscaled offset: PASS
+ldff1b scalar\+vector 64bit unscaled offset Zt==Zm: PASS
+ldff1sb scalar\+vector 32bit unscaled offset uxtw: PASS
+ldff1sb scalar\+vector 32bit unscaled offset sxtw: PASS
+ldff1sb scalar\+vector 32bit unpacked unscaled offset uxtw: PASS
+ldff1sb scalar\+vector 32bit unpacked unscaled offset sxtw: PASS
+ldff1sb scalar\+vector 64bit unscaled offset: PASS
+ldff1sb scalar\+vector 64bit unscaled offset: PASS
+ldff1h scalar\+vector 32bit scaled offset uxtw: PASS
+ldff1h scalar\+vector 32bit scaled offset sxtw: PASS
+ldff1h scalar\+vector 32bit unpacked scaled offset uxtw: PASS
+ldff1h scalar\+vector 32bit unpacked scaled offset sxtw: PASS
+ldff1h scalar\+vector 32bit unpacked unscaled offset uxtw: PASS
+ldff1h scalar\+vector 32bit unpacked unscaled offset sxtw: PASS
+ldff1h scalar\+vector 32bit unscaled offset uxtw: PASS
+ldff1h scalar\+vector 32bit unscaled offset sxtw: PASS
+ldff1h scalar\+vector 64bit scaled offset: PASS
+ldff1h scalar\+vector 64bit unscaled offset: PASS
+ldff1h scalar\+vector 64bit unscaled offset Zt==Zm: PASS
+ldff1sh scalar\+vector 32bit scaled offset uxtw: PASS
+ldff1sh scalar\+vector 32bit scaled offset sxtw: PASS
+ldff1sh scalar\+vector 32bit unpacked scaled offset uxtw: PASS
+ldff1sh scalar\+vector 32bit unpacked scaled offset sxtw: PASS
+ldff1sh scalar\+vector 32bit unpacked unscaled offset uxtw: PASS
+ldff1sh scalar\+vector 32bit unpacked unscaled offset sxtw: PASS
+ldff1sh scalar\+vector 32bit unscaled offset uxtw: PASS
+ldff1sh scalar\+vector 32bit unscaled offset sxtw: PASS
+ldff1sh scalar\+vector 64bit scaled offset: PASS
+ldff1sh scalar\+vector 64bit unscaled offset: PASS
+ldff1sh scalar\+vector 64bit unscaled offset Zt==Zm: PASS
+ldff1w scalar\+vector 32bit scaled offset uxtw: PASS
+ldff1w scalar\+vector 32bit scaled offset sxtw: PASS
+ldff1w scalar\+vector 32bit unpacked scaled offset uxtw: PASS
+ldff1w scalar\+vector 32bit unpacked scaled offset sxtw: PASS
+ldff1w scalar\+vector 32bit unpacked unscaled offset uxtw: PASS
+ldff1w scalar\+vector 32bit unpacked unscaled offset sxtw: PASS
+ldff1w scalar\+vector 32bit unscaled offset uxtw: PASS
+ldff1w scalar\+vector 32bit unscaled offset sxtw: PASS
+ldff1w scalar\+vector 64bit scaled offset: PASS
+ldff1w scalar\+vector 64bit unscaled offset: PASS
+ldff1w scalar\+vector 64bit unscaled offset Zt==Zm: PASS
+ldff1sw scalar\+vector 32bit unpacked scaled offset uxtw: PASS
+ldff1sw scalar\+vector 32bit unpacked scaled offset sxtw: PASS
+ldff1sw scalar\+vector 32bit unpacked unscaled offset uxtw: PASS
+ldff1sw scalar\+vector 32bit unpacked unscaled offset sxtw: PASS
+ldff1sw scalar\+vector 64bit scaled offset: PASS
+ldff1sw scalar\+vector 64bit unscaled offset: PASS
+ldff1sw scalar\+vector 64bit unscaled offset Zt==Zm: PASS
+ldff1d scalar\+vector 32bit unpacked scaled offset uxtw: PASS
+ldff1d scalar\+vector 32bit unpacked scaled offset sxtw: PASS
+ldff1d scalar\+vector 32bit unpacked unscaled offset uxtw: PASS
+ldff1d scalar\+vector 32bit unpacked unscaled offset sxtw: PASS
+ldff1d scalar\+vector 64bit scaled offset: PASS
+ldff1d scalar\+vector 64bit unscaled offset: PASS
+ldff1d scalar\+vector 64bit unscaled offset Zt==Zm: PASS
 st1b scalar\+vector 32bit unpacked unscaled offset uxtw: PASS
 st1b scalar\+vector 32bit unpacked unscaled offset sxtw: PASS
 st1b scalar\+vector 32bit unscaled offset uxtw: PASS
@@ -112,6 +171,21 @@ ld1sw vector\+immediate 64bit element \(max index\): PASS
 ld1d vector\+immediate 64bit element: PASS
 ld1d vector\+immediate 64bit element \(max index\): PASS
 ld1d vector\+immediate 64bit element Zt==Zn: PASS
+ldff1b vector\+immediate 64bit element: PASS
+ldff1b vector\+immediate 64bit element \(max index\): PASS
+ldff1sb vector\+immediate 64bit element: PASS
+ldff1sb vector\+immediate 64bit element \(max index\): PASS
+ldff1h vector\+immediate 64bit element: PASS
+ldff1h vector\+immediate 64bit element \(max index\): PASS
+ldff1sh vector\+immediate 64bit element: PASS
+ldff1sh vector\+immediate 64bit element \(max index\): PASS
+ldff1w vector\+immediate 64bit element: PASS
+ldff1w vector\+immediate 64bit element \(max index\): PASS
+ldff1sw vector\+immediate 64bit element: PASS
+ldff1sw vector\+immediate 64bit element \(max index\): PASS
+ldff1d vector\+immediate 64bit element: PASS
+ldff1d vector\+immediate 64bit element \(max index\): PASS
+ldff1d vector\+immediate 64bit element Zt==Zn: PASS
 st1b vector\+immediate 64bit element: PASS
 st1b vector\+immediate 64bit element \(max index\): PASS
 st1b vector\+immediate 64bit element \(repeated base\): PASS
@@ -148,6 +222,22 @@ ld1rqb scalar\+scalar: PASS
 ld1rqh scalar\+scalar: PASS
 ld1rqw scalar\+scalar: PASS
 ld1rqd scalar\+scalar: PASS
+ldff1b scalar\+scalar 8bit element: PASS
+ldff1b scalar\+scalar 16bit element: PASS
+ldff1b scalar\+scalar 32bit element: PASS
+ldff1b scalar\+scalar 64bit element: PASS
+ldff1sb scalar\+scalar 16bit element: PASS
+ldff1sb scalar\+scalar 32bit element: PASS
+ldff1sb scalar\+scalar 64bit element: PASS
+ldff1h scalar\+scalar 16bit element: PASS
+ldff1h scalar\+scalar 32bit element: PASS
+ldff1h scalar\+scalar 64bit element: PASS
+ldff1sh scalar\+scalar 32bit element: PASS
+ldff1sh scalar\+scalar 64bit element: PASS
+ldff1w scalar\+scalar 32bit element: PASS
+ldff1w scalar\+scalar 64bit element: PASS
+ldff1sw scalar\+scalar: PASS
+ldff1d scalar\+scalar: PASS
 ld2b scalar\+scalar: PASS
 ld2h scalar\+scalar: PASS
 ld2w scalar\+scalar: PASS
@@ -312,9 +402,9 @@ stnt1d vector\+scalar 64bit unscaled offset \(repeated base\): PASS
 #endif /* __ARM_FEATURE_SVE2 */
 #ifndef TEST_SAMPLE_CLIENT
 #if defined(__ARM_FEATURE_SVE2)
-event_exit, 3936 scatter/gather instructions
+event_exit, 5144 scatter/gather instructions
 #elif defined( __ARM_FEATURE_SVE)
-event_exit, 3756 scatter/gather instructions
+event_exit, 4964 scatter/gather instructions
 #else
 event_exit, 0 scatter/gather instructions
 #endif /* __ARM_FEATURE_SVE */

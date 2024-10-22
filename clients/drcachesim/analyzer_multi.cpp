@@ -30,11 +30,13 @@
  * DAMAGE.
  */
 
+#include "analysis_tool.h"
 #include "analyzer.h"
 #include "analyzer_multi.h"
 #include "common/options.h"
 #include "common/utils.h"
 #include "common/directory_iterator.h"
+#include "tlb_simulator.h"
 #include "tracer/raw2trace_directory.h"
 #include "tracer/raw2trace.h"
 #include "reader/file_reader.h"
@@ -182,9 +184,9 @@ analyzer_multi_t::create_invariant_checker()
 
 template <>
 analysis_tool_t *
-analyzer_multi_t::create_analysis_tool_from_options(const std::string &simulator_type)
+analyzer_multi_t::create_analysis_tool_from_options(const std::string &tool)
 {
-    if (simulator_type == CPU_CACHE) {
+    if (tool == CPU_CACHE || tool == CPU_CACHE_ALT || tool == CPU_CACHE_LEGACY) {
         const std::string &config_file = op_config_file.get_value();
         if (!config_file.empty()) {
             return cache_simulator_create(config_file);
@@ -192,12 +194,12 @@ analyzer_multi_t::create_analysis_tool_from_options(const std::string &simulator
             cache_simulator_knobs_t *knobs = get_cache_simulator_knobs();
             return cache_simulator_create(*knobs);
         }
-    } else if (simulator_type == MISS_ANALYZER) {
+    } else if (tool == MISS_ANALYZER) {
         cache_simulator_knobs_t *knobs = get_cache_simulator_knobs();
         return cache_miss_analyzer_create(*knobs, op_miss_count_threshold.get_value(),
                                           op_miss_frac_threshold.get_value(),
                                           op_confidence_threshold.get_value());
-    } else if (simulator_type == TLB) {
+    } else if (tool == TLB || tool == TLB_LEGACY) {
         tlb_simulator_knobs_t knobs;
         knobs.num_cores = op_num_cores.get_value();
         knobs.page_size = op_page_size.get_value();
@@ -215,11 +217,14 @@ analyzer_multi_t::create_analysis_tool_from_options(const std::string &simulator
         knobs.verbose = op_verbose.get_value();
         knobs.cpu_scheduling = op_cpu_scheduling.get_value();
         knobs.use_physical = op_use_physical.get_value();
-        return tlb_simulator_create(knobs);
-    } else if (simulator_type == HISTOGRAM) {
+        knobs.v2p_file =
+            get_aux_file_path(op_v2p_file.get_value(), DRMEMTRACE_V2P_FILENAME);
+        analysis_tool_t *tlb_simulator = tlb_simulator_create(knobs);
+        return tlb_simulator;
+    } else if (tool == HISTOGRAM) {
         return histogram_tool_create(op_line_size.get_value(), op_report_top.get_value(),
                                      op_verbose.get_value());
-    } else if (simulator_type == REUSE_DIST) {
+    } else if (tool == REUSE_DIST) {
         reuse_distance_knobs_t knobs;
         knobs.line_size = op_line_size.get_value();
         knobs.report_histogram = op_reuse_distance_histogram.get_value();
@@ -235,11 +240,11 @@ analyzer_multi_t::create_analysis_tool_from_options(const std::string &simulator
         }
         knobs.verbose = op_verbose.get_value();
         return reuse_distance_tool_create(knobs);
-    } else if (simulator_type == REUSE_TIME) {
+    } else if (tool == REUSE_TIME) {
         return reuse_time_tool_create(op_line_size.get_value(), op_verbose.get_value());
-    } else if (simulator_type == BASIC_COUNTS) {
+    } else if (tool == BASIC_COUNTS) {
         return basic_counts_tool_create(op_verbose.get_value());
-    } else if (simulator_type == OPCODE_MIX) {
+    } else if (tool == OPCODE_MIX) {
         std::string module_file_path = get_module_file_path();
         if (module_file_path.empty() && op_indir.get_value().empty() &&
             op_infile.get_value().empty() && !op_instr_encodings.get_value()) {
@@ -249,15 +254,15 @@ analyzer_multi_t::create_analysis_tool_from_options(const std::string &simulator
         }
         return opcode_mix_tool_create(module_file_path, op_verbose.get_value(),
                                       op_alt_module_dir.get_value());
-    } else if (simulator_type == SYSCALL_MIX) {
+    } else if (tool == SYSCALL_MIX) {
         return syscall_mix_tool_create(op_verbose.get_value());
-    } else if (simulator_type == VIEW) {
+    } else if (tool == VIEW) {
         std::string module_file_path = get_module_file_path();
         // The module file is optional so we don't check for emptiness.
         return view_tool_create(module_file_path, op_skip_refs.get_value(),
                                 op_sim_refs.get_value(), op_view_syntax.get_value(),
                                 op_verbose.get_value(), op_alt_module_dir.get_value());
-    } else if (simulator_type == FUNC_VIEW) {
+    } else if (tool == FUNC_VIEW) {
         std::string funclist_file_path = get_aux_file_path(
             op_funclist_file.get_value(), DRMEMTRACE_FUNCTION_LIST_FILENAME);
         if (funclist_file_path.empty()) {
@@ -266,21 +271,21 @@ analyzer_multi_t::create_analysis_tool_from_options(const std::string &simulator
         }
         return func_view_tool_create(funclist_file_path, op_show_func_trace.get_value(),
                                      op_verbose.get_value());
-    } else if (simulator_type == INVARIANT_CHECKER) {
+    } else if (tool == INVARIANT_CHECKER) {
         return create_invariant_checker();
-    } else if (simulator_type == SCHEDULE_STATS) {
+    } else if (tool == SCHEDULE_STATS) {
         return schedule_stats_tool_create(op_schedule_stats_print_every.get_value(),
                                           op_verbose.get_value());
     } else {
-        auto tool = create_external_tool(simulator_type);
-        if (tool == nullptr) {
+        auto ext_tool = create_external_tool(tool);
+        if (ext_tool == nullptr) {
             ERRMSG("Usage error: unsupported analyzer type \"%s\". "
                    "Please choose " CPU_CACHE ", " MISS_ANALYZER ", " TLB ", " HISTOGRAM
                    ", " REUSE_DIST ", " BASIC_COUNTS ", " OPCODE_MIX ", " SYSCALL_MIX
                    ", " VIEW ", " FUNC_VIEW ", or some external analyzer.\n",
-                   simulator_type.c_str());
+                   tool.c_str());
         }
-        return tool;
+        return ext_tool;
     }
 }
 
@@ -327,22 +332,23 @@ record_analyzer_multi_t::create_invariant_checker()
 
 template <>
 record_analysis_tool_t *
-record_analyzer_multi_t::create_analysis_tool_from_options(
-    const std::string &simulator_type)
+record_analyzer_multi_t::create_analysis_tool_from_options(const std::string &tool)
 {
-    if (simulator_type == RECORD_FILTER) {
+    if (tool == RECORD_FILTER) {
         return record_filter_tool_create(
             op_outdir.get_value(), op_filter_stop_timestamp.get_value(),
             op_filter_cache_size.get_value(), op_filter_trace_types.get_value(),
             op_filter_marker_types.get_value(), op_trim_before_timestamp.get_value(),
-            op_trim_after_timestamp.get_value(), op_verbose.get_value());
+            op_trim_after_timestamp.get_value(), op_encodings2regdeps.get_value(),
+            op_filter_func_ids.get_value(), op_modify_marker_value.get_value(),
+            op_verbose.get_value());
     } else if (simulator_type == INTERNAL_RECORD_VIEW) {
         return internal_record_view_tool_create(op_skip_refs.get_value(),
                                                 op_sim_refs.get_value());
     }
     ERRMSG("Usage error: unsupported record analyzer type \"%s\".  Only " RECORD_FILTER
            " is supported.\n",
-           simulator_type.c_str());
+           tool.c_str());
     return nullptr;
 }
 
@@ -351,10 +357,45 @@ record_analyzer_multi_t::create_analysis_tool_from_options(
  */
 
 template <typename RecordType, typename ReaderType>
+std::string
+analyzer_multi_tmpl_t<RecordType, ReaderType>::set_input_limit(
+    std::set<memref_tid_t> &only_threads, std::set<int> &only_shards)
+{
+    bool valid_limit = true;
+    if (op_only_thread.get_value() != 0) {
+        if (!op_only_threads.get_value().empty() || !op_only_shards.get_value().empty())
+            valid_limit = false;
+        only_threads.insert(op_only_thread.get_value());
+    } else if (!op_only_threads.get_value().empty()) {
+        if (!op_only_shards.get_value().empty())
+            valid_limit = false;
+        std::vector<std::string> tids = split_by(op_only_threads.get_value(), ",");
+        for (const std::string &tid : tids) {
+            only_threads.insert(strtol(tid.c_str(), nullptr, 10));
+        }
+    } else if (!op_only_shards.get_value().empty()) {
+        std::vector<std::string> tids = split_by(op_only_shards.get_value(), ",");
+        for (const std::string &tid : tids) {
+            only_shards.insert(strtol(tid.c_str(), nullptr, 10));
+        }
+    }
+    if (!valid_limit)
+        return "Only one of -only_thread, -only_threads, and -only_shards can be set.";
+    return "";
+}
+
+template <typename RecordType, typename ReaderType>
 analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
 {
     this->worker_count_ = op_jobs.get_value();
     this->skip_instrs_ = op_skip_instrs.get_value();
+    this->skip_to_timestamp_ = op_skip_to_timestamp.get_value();
+    if (this->skip_instrs_ > 0 && this->skip_to_timestamp_ > 0) {
+        this->error_string_ = "Usage error: only one of -skip_instrs and "
+                              "-skip_to_timestamp can be used at a time";
+        this->success_ = false;
+        return;
+    }
     this->interval_microseconds_ = op_interval_microseconds.get_value();
     this->interval_instr_count_ = op_interval_instr_count.get_value();
     // Initial measurements show it's sometimes faster to keep the parallel model
@@ -419,11 +460,13 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
                 nullptr, op_verbose.get_value(), op_jobs.get_value(),
                 op_alt_module_dir.get_value(), op_chunk_instr_count.get_value(),
                 dir.in_kfiles_map_, dir.kcoredir_, dir.kallsymsdir_,
-                std::move(dir.syscall_template_file_reader_));
+                std::move(dir.syscall_template_file_reader_),
+                op_pt2ir_best_effort.get_value());
             std::string error = raw2trace.do_conversion();
             if (!error.empty()) {
                 this->success_ = false;
                 this->error_string_ = "raw2trace failed: " + error;
+                return;
             }
         }
     }
@@ -435,20 +478,85 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
         return;
     }
 
+    bool sharding_specified = op_core_sharded.specified() || op_core_serial.specified() ||
+        // -cpu_scheduling implies thread-sharded.
+        op_cpu_scheduling.get_value();
+    // TODO i#7040: Add core-sharded support for online tools.
+    bool offline = !op_indir.get_value().empty() || !op_infile.get_value().empty();
+    if (offline && !sharding_specified) {
+        bool all_prefer_thread_sharded = true;
+        bool all_prefer_core_sharded = true;
+        for (int i = 0; i < this->num_tools_; ++i) {
+            if (this->tools_[i]->preferred_shard_type() == SHARD_BY_THREAD) {
+                all_prefer_core_sharded = false;
+            } else if (this->tools_[i]->preferred_shard_type() == SHARD_BY_CORE) {
+                all_prefer_thread_sharded = false;
+            }
+            if (this->parallel_ && !this->tools_[i]->parallel_shard_supported()) {
+                this->parallel_ = false;
+            }
+        }
+        if (all_prefer_core_sharded) {
+            // XXX i#6949: Ideally we could detect a core-sharded-on-disk input
+            // here and avoid this but that's not simple so currently we have a
+            // fatal error from the analyzer and the user must re-run with
+            // -no_core_sharded for such inputs.
+            if (this->parallel_) {
+                if (op_verbose.get_value() > 0)
+                    fprintf(stderr, "Enabling -core_sharded as all tools prefer it\n");
+                op_core_sharded.set_value(true);
+            } else {
+                if (op_verbose.get_value() > 0)
+                    fprintf(stderr, "Enabling -core_serial as all tools prefer it\n");
+                op_core_serial.set_value(true);
+            }
+        } else if (!all_prefer_thread_sharded) {
+            this->success_ = false;
+            this->error_string_ = "Selected tools differ in preferred sharding: please "
+                                  "re-run with -[no_]core_sharded or -[no_]core_serial";
+            return;
+        }
+    }
+
     typename sched_type_t::scheduler_options_t sched_ops;
     if (op_core_sharded.get_value() || op_core_serial.get_value()) {
+        if (!offline) {
+            // TODO i#7040: Add core-sharded support for online tools.
+            this->success_ = false;
+            this->error_string_ = "Core-sharded is not yet supported for online analysis";
+            return;
+        }
         if (op_core_serial.get_value()) {
             this->parallel_ = false;
         }
         sched_ops = init_dynamic_schedule();
+    } else if (op_skip_to_timestamp.get_value() > 0) {
+#ifdef HAS_ZIP
+        if (!op_cpu_schedule_file.get_value().empty()) {
+            cpu_schedule_zip_.reset(
+                new zipfile_istream_t(op_cpu_schedule_file.get_value()));
+            sched_ops.replay_as_traced_istream = cpu_schedule_zip_.get();
+        }
+#endif
     }
 
     if (!op_indir.get_value().empty()) {
         std::string tracedir =
             raw2trace_directory_t::tracedir_from_rawdir(op_indir.get_value());
-        if (!this->init_scheduler(tracedir, op_only_thread.get_value(),
-                                  op_verbose.get_value(), std::move(sched_ops)))
+
+        std::set<memref_tid_t> only_threads;
+        std::set<int> only_shards;
+        std::string res = set_input_limit(only_threads, only_shards);
+        if (!res.empty()) {
             this->success_ = false;
+            this->error_string_ = res;
+            return;
+        }
+        if (!this->init_scheduler(tracedir, only_threads, only_shards,
+                                  op_verbose.get_value(), std::move(sched_ops))) {
+            this->success_ = false;
+            return;
+        }
     } else if (op_infile.get_value().empty()) {
         // XXX i#3323: Add parallel analysis support for online tools.
         this->parallel_ = false;
@@ -465,13 +573,15 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
         if (!this->init_scheduler(std::move(reader), std::move(end),
                                   op_verbose.get_value(), std::move(sched_ops))) {
             this->success_ = false;
+            return;
         }
     } else {
         // Legacy file.
-        if (!this->init_scheduler(op_infile.get_value(),
-                                  INVALID_THREAD_ID /*all threads*/,
-                                  op_verbose.get_value(), std::move(sched_ops)))
+        if (!this->init_scheduler(op_infile.get_value(), {}, {}, op_verbose.get_value(),
+                                  std::move(sched_ops))) {
             this->success_ = false;
+            return;
+        }
     }
     if (!init_analysis_tools()) {
         this->success_ = false;
@@ -505,15 +615,24 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::init_dynamic_schedule()
         op_sched_order_time.get_value() ? sched_type_t::DEPENDENCY_TIMESTAMPS
                                         : sched_type_t::DEPENDENCY_IGNORE,
         sched_type_t::SCHEDULER_DEFAULTS, op_verbose.get_value());
-    sched_ops.quantum_duration = op_sched_quantum.get_value();
-    if (op_sched_time.get_value())
+    sched_ops.time_units_per_us = op_sched_time_units_per_us.get_value();
+    if (op_sched_time.get_value()) {
         sched_ops.quantum_unit = sched_type_t::QUANTUM_TIME;
+        sched_ops.quantum_duration_us = op_sched_quantum.get_value();
+    } else {
+        sched_ops.quantum_duration_instrs = op_sched_quantum.get_value();
+    }
     sched_ops.syscall_switch_threshold = op_sched_syscall_switch_us.get_value();
     sched_ops.blocking_switch_threshold = op_sched_blocking_switch_us.get_value();
-    sched_ops.block_time_scale = op_sched_block_scale.get_value();
-    sched_ops.block_time_max = op_sched_block_max_us.get_value();
+    sched_ops.block_time_multiplier = op_sched_block_scale.get_value();
+    sched_ops.block_time_max_us = op_sched_block_max_us.get_value();
+    sched_ops.honor_infinite_timeouts = op_sched_infinite_timeouts.get_value();
+    sched_ops.migration_threshold_us = op_sched_migration_threshold_us.get_value();
+    sched_ops.rebalance_period_us = op_sched_rebalance_period_us.get_value();
     sched_ops.randomize_next_input = op_sched_randomize.get_value();
     sched_ops.honor_direct_switches = !op_sched_disable_direct_switches.get_value();
+    sched_ops.exit_if_fraction_inputs_left =
+        op_sched_exit_if_fraction_inputs_left.get_value();
 #ifdef HAS_ZIP
     if (!op_record_file.get_value().empty()) {
         record_schedule_zip_.reset(new zipfile_ostream_t(op_record_file.get_value()));
@@ -525,9 +644,14 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::init_dynamic_schedule()
         sched_ops.deps = sched_type_t::DEPENDENCY_TIMESTAMPS;
     } else if (!op_cpu_schedule_file.get_value().empty()) {
         cpu_schedule_zip_.reset(new zipfile_istream_t(op_cpu_schedule_file.get_value()));
-        sched_ops.mapping = sched_type_t::MAP_TO_RECORDED_OUTPUT;
-        sched_ops.deps = sched_type_t::DEPENDENCY_TIMESTAMPS;
         sched_ops.replay_as_traced_istream = cpu_schedule_zip_.get();
+        // -cpu_schedule_file is used for two different things: actually replaying,
+        // and just input for -skip_to_timestamp.  Only if -skip_to_timestamp is 0
+        // do we actually replay.
+        if (op_skip_to_timestamp.get_value() == 0) {
+            sched_ops.mapping = sched_type_t::MAP_TO_RECORDED_OUTPUT;
+            sched_ops.deps = sched_type_t::DEPENDENCY_TIMESTAMPS;
+        }
     }
 #endif
     sched_ops.kernel_switch_trace_path = op_sched_switch_file.get_value();
@@ -539,8 +663,8 @@ bool
 analyzer_multi_tmpl_t<RecordType, ReaderType>::create_analysis_tools()
 {
     this->tools_ = new analysis_tool_tmpl_t<RecordType> *[this->max_num_tools_];
-    if (!op_simulator_type.get_value().empty()) {
-        std::stringstream stream(op_simulator_type.get_value());
+    if (!op_tool.get_value().empty()) {
+        std::stringstream stream(op_tool.get_value());
         std::string type;
         while (std::getline(stream, type, ':')) {
             if (this->num_tools_ >= this->max_num_tools_ - 1) {

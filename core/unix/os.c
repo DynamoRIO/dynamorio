@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -59,6 +59,9 @@
 #endif
 #ifndef MAP_ANONYMOUS
 #    define MAP_ANONYMOUS MAP_ANON /* MAP_ANON on Mac */
+#endif
+#ifndef MAP_FIXED_NOREPLACE
+#    define MAP_FIXED_NOREPLACE 0x100000
 #endif
 /* for open */
 #include <sys/stat.h>
@@ -2515,8 +2518,9 @@ os_tls_calloc(DR_PARAM_OUT uint *offset, uint num_slots, uint alignment)
     d_r_mutex_lock(&client_tls_lock);
     for (i = 0; i < MAX_NUM_CLIENT_TLS; i++) {
         if (!client_tls_allocated[i] &&
-            /* ALIGNED doesn't work for 0 */
-            (alignment == 0 || ALIGNED(offs + i * sizeof(void *), alignment))) {
+            (start != -1 ||
+             /* ALIGNED doesn't work for 0 */
+             alignment == 0 || ALIGNED(offs + i * sizeof(void *), alignment))) {
             if (start == -1)
                 start = i;
             count++;
@@ -2952,10 +2956,17 @@ os_thread_under_dynamo(dcontext_t *dcontext)
 }
 
 void
-os_thread_not_under_dynamo(dcontext_t *dcontext)
+os_thread_not_under_dynamo(dcontext_t *dcontext, bool restore_sigblocked)
 {
     stop_itimer(dcontext);
-    signal_swap_mask(dcontext, true /*to app*/);
+    /* The caller may not want to restore the app's sigblocked mask right now.
+     * E.g., when a thread is in DR's signal handler to handle the detach signal,
+     * it can restore the mask atomically with going native by setting it on the
+     * signal frame, which avoids races.
+     */
+    if (restore_sigblocked) {
+        signal_swap_mask(dcontext, true /*to app*/);
+    }
     os_swap_context(dcontext, true /*to app*/, DR_STATE_GO_NATIVE);
 }
 
@@ -3473,11 +3484,30 @@ os_heap_reserve(void *preferred, size_t size, heap_error_code_t *error_code,
     if (executable)
         os_flags |= MAP_JIT;
 #endif
+#if defined(LINUX) && !defined(ANDROID)
+    if (preferred != NULL) {
+        /* We fail if we don't get the preferred address, so we use the 4.17+
+         * fixed-but-no-clobber flag to ensure the kernel actually tries for our hint.
+         */
+        os_flags |= MAP_FIXED_NOREPLACE;
+    }
+#endif
 
-    /* FIXME: note that this memory is in fact still committed - see man mmap */
-    /* FIXME: case 2347 on Linux or -vm_reserve should be set to false */
-    /* FIXME: Need to actually get a mmap-ing with |MAP_NORESERVE */
+    /* We could try for |MAP_NORESERVE but usually overcommit is set on the
+     * system and pages aren't actually committed until we touch them.
+     */
     p = mmap_syscall(preferred, size, prot, os_flags, -1, 0);
+#if defined(LINUX) && !defined(ANDROID)
+    if (preferred != NULL && p == (void *)(-EINVAL)) {
+        /* We're probably on an old pre-4.17 kernel.
+         * We could have a global var but we live w/ doing this every time.
+         */
+        SYSLOG_INTERNAL_WARNING_ONCE(
+            "Got EINVAL on mmap: removing MAP_FIXED_NOREPLACE\n");
+        os_flags &= ~MAP_FIXED_NOREPLACE;
+        p = mmap_syscall(preferred, size, prot, os_flags, -1, 0);
+    }
+#endif
     if (!mmap_syscall_succeeded(p)) {
         *error_code = -(heap_error_code_t)(ptr_int_t)p;
         LOG(GLOBAL, LOG_HEAP, 4, "os_heap_reserve %d bytes failed " PFX "\n", size, p);
@@ -3490,8 +3520,8 @@ os_heap_reserve(void *preferred, size_t size, heap_error_code_t *error_code,
         os_heap_free(p, size, &dummy);
         ASSERT(dummy == HEAP_ERROR_SUCCESS);
         LOG(GLOBAL, LOG_HEAP, 4,
-            "os_heap_reserve %d bytes at " PFX " not preferred " PFX "\n", size,
-            preferred, p);
+            "os_heap_reserve %d bytes at " PFX " not preferred " PFX "\n", size, p,
+            preferred);
         return NULL;
     } else {
         *error_code = HEAP_ERROR_SUCCESS;
@@ -3557,7 +3587,8 @@ os_heap_reserve_in_region(void *start, void *end, size_t size,
         end);
 
     /* if no restriction on location use regular os_heap_reserve() */
-    if (start == (void *)PTR_UINT_0 && end == (void *)POINTER_MAX)
+    if (start == (void *)PTR_UINT_0 &&
+        end == (void *)ALIGN_BACKWARD(POINTER_MAX, PAGE_SIZE))
         return os_heap_reserve(NULL, size, error_code, executable);
 
         /* loop to handle races */
@@ -3762,7 +3793,8 @@ os_thread_sleep(uint64 milliseconds)
          * routine sleep forever
          */
         if (count++ > 3 && !IS_CLIENT_THREAD(get_thread_private_dcontext())) {
-            ASSERT_NOT_REACHED();
+            ASSERT_CURIOSITY_ONCE(
+                false && "os_thread_sleep interrupted by signal more than 3 times.");
             break; /* paranoid */
         }
         req = remain;
@@ -4054,12 +4086,6 @@ client_thread_run(void)
     dcontext_t *dcontext;
     byte *xsp;
     GET_STACK_PTR(xsp);
-#    ifdef AARCH64
-    /* AArch64's Scalable Vector Extension (SVE) requires more space on the
-     * stack. Align to page boundary, similar to that in get_clone_record().
-     */
-    xsp = (app_pc)ALIGN_BACKWARD(xsp, PAGE_SIZE);
-#    endif
     void *crec = get_clone_record((reg_t)xsp);
     /* i#2335: we support setup separate from start, and we want to allow a client
      * to create a client thread during init, but we do not support that thread

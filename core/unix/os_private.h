@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -71,6 +71,8 @@
 #    define ASM_R1 "x1"
 #    define ASM_R2 "x2"
 #    define ASM_R3 "x3"
+#    define ASM_R4 "x4"
+#    define ASM_R30 "x30"
 #    define ASM_XSP "sp"
 #    define ASM_INDJMP "br"
 #elif defined(DR_HOST_ARM)
@@ -78,6 +80,7 @@
 #    define ASM_R1 "r1"
 #    define ASM_R2 "r2"
 #    define ASM_R3 "r3"
+#    define ASM_R4 "r4"
 #    define ASM_XSP "sp"
 #    define ASM_INDJMP "bx"
 #elif defined(DR_HOST_RISCV64)
@@ -85,6 +88,7 @@
 #    define ASM_R1 "a1"
 #    define ASM_R2 "a2"
 #    define ASM_R3 "a3"
+#    define ASM_R4 "a4"
 #    define ASM_XSP "sp"
 #    define ASM_INDJMP "jr"
 #endif /* X86/ARM */

@@ -52,6 +52,8 @@ void
 unit_test_vmareas(void);
 void
 unit_test_utils(void);
+void
+unit_test_opnd_shared(void);
 #ifdef WINDOWS
 void
 unit_test_drwinapi(void);
@@ -79,6 +81,7 @@ main(int argc, char **argv, char **envp)
     unit_test_memquery();
 #endif
     unit_test_utils();
+    unit_test_opnd_shared();
     unit_test_options();
     unit_test_vmareas();
 #ifdef WINDOWS

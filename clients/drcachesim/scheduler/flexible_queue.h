@@ -108,6 +108,15 @@ public:
         return entries_[rand_gen_() % size()]; // Undefined if empty.
     }
 
+    // Returns an entry from the back -- or at least not from the front; it's not
+    // guaranteed to be the lowest priority, just not the highest.
+    T
+    back()
+    {
+        assert(!empty());
+        return entries_.back();
+    }
+
     bool
     empty() const
     {

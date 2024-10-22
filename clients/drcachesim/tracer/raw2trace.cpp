@@ -748,9 +748,7 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                 return false;
             trace_marker_type_t marker_type =
                 static_cast<trace_marker_type_t>(in_entry->extended.valueB);
-            buf += trace_metadata_writer_t::write_marker(buf, marker_type, marker_val);
-            if (!process_marker_additionally(tdata, marker_type, marker_val, buf,
-                                             flush_decode_cache))
+            if (!process_marker(tdata, marker_type, marker_val, buf, flush_decode_cache))
                 return false;
             // If there is currently a delayed branch that has not been emitted yet,
             // delay most markers since intra-block markers can cause issues with
@@ -836,11 +834,21 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
 }
 
 bool
-raw2trace_t::process_marker_additionally(raw2trace_thread_data_t *tdata,
-                                         trace_marker_type_t marker_type,
-                                         uintptr_t marker_val, byte *&buf,
-                                         DR_PARAM_OUT bool *flush_decode_cache)
+raw2trace_t::process_marker(raw2trace_thread_data_t *tdata,
+                            trace_marker_type_t marker_type, uintptr_t marker_val,
+                            byte *&buf, DR_PARAM_OUT bool *flush_decode_cache)
 {
+    if (marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
+        uint64 stamp = static_cast<uint64>(marker_val);
+        VPRINT(2, "Thread %u timestamp 0x" ZHEX64_FORMAT_STRING "\n",
+               static_cast<uint>(tdata->tid), stamp);
+        accumulate_to_statistic(tdata, RAW2TRACE_STAT_EARLIEST_TRACE_TIMESTAMP, stamp);
+        accumulate_to_statistic(tdata, RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP, stamp);
+        tdata->last_timestamp_ = stamp;
+        buf += trace_metadata_writer_t::write_timestamp(buf, marker_val);
+        return true;
+    }
+    buf += trace_metadata_writer_t::write_marker(buf, marker_type, marker_val);
     if (marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
         log(4, "Signal/exception between bbs\n");
         // An rseq side exit may next hit a signal which is then the
@@ -902,8 +910,8 @@ raw2trace_t::process_marker_additionally(raw2trace_thread_data_t *tdata,
             tdata->tid, marker_val);
 
         const int new_vl_bits = marker_val * 8;
-        if (dr_get_sve_vector_length() != new_vl_bits) {
-            dr_set_sve_vector_length(new_vl_bits);
+        if (dr_get_vector_length() != new_vl_bits) {
+            dr_set_vector_length(new_vl_bits);
             // Some SVE load/store instructions have an offset which is scaled by a value
             // that depends on the vector length. These instructions will need to be
             // re-decoded after the vector length changes.
@@ -1146,7 +1154,7 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
 #    define RING_BUFFER_SIZE_SHIFT 8
         config.pt_raw_buffer_size =
             (1L << RING_BUFFER_SIZE_SHIFT) * sysconf(_SC_PAGESIZE);
-        if (!tdata->pt2ir.init(config, verbosity_)) {
+        if (!tdata->pt2ir.init(config, verbosity_, pt2ir_best_effort_)) {
             tdata->error = "Unable to initialize PT2IR";
             return false;
         }
@@ -1184,13 +1192,29 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
         tdata->pt_decode_state_ = std::unique_ptr<drir_t>(new drir_t(GLOBAL_DCONTEXT));
     }
     tdata->pt_decode_state_->clear_ilist();
+    uint64_t syscall_decode_non_fatal_error_count = 0;
     pt2ir_convert_status_t pt2ir_convert_status = tdata->pt2ir.convert(
-        pt_data->data.get(), pt_data_size, tdata->pt_decode_state_.get());
+        pt_data->data.get(), pt_data_size, tdata->pt_decode_state_.get(),
+        &syscall_decode_non_fatal_error_count);
     if (pt2ir_convert_status != PT2IR_CONV_SUCCESS) {
-        tdata->error = "Failed to convert PT raw trace to DR IR [error status: " +
-            std::to_string(pt2ir_convert_status) + "]";
-        return false;
+        if (!pt2ir_best_effort_ ||
+            pt2ir_convert_status != PT2IR_CONV_ERROR_DECODE_NEXT_INSTR) {
+            tdata->error = "Failed to convert PT raw trace to DR IR [error status: " +
+                std::to_string(pt2ir_convert_status) + "]";
+            return false;
+        }
+        /* When -pt2ir_best_effort is set, we do not fail raw2trace when pt2ir is
+         * unable to convert some PT syscall trace.
+         * TODO i#5505: Maybe the invariant checker should also report such missing
+         * syscall traces.
+         */
+        accumulate_to_statistic(tdata, RAW2TRACE_STAT_SYSCALL_TRACES_CONVERSION_FAILED,
+                                1);
+        return true;
     }
+    accumulate_to_statistic(tdata,
+                            RAW2TRACE_STAT_SYSCALL_TRACES_NON_FATAL_DECODING_ERROR_COUNT,
+                            syscall_decode_non_fatal_error_count);
 
     /* Convert the DR IR to trace entries. */
     addr_t sysnum =
@@ -1216,11 +1240,13 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
                                 .addr = sysnum };
     entries.push_back(end_entry);
     if (entries.size() == 2) {
-        tdata->error = "No trace entries generated from PT data";
-        return false;
+        // XXX: Is this simply because the syscall did not end up executing because of
+        // being interrupted?
+        accumulate_to_statistic(tdata, RAW2TRACE_STAT_SYSCALL_TRACES_CONVERSION_EMPTY, 1);
+        return true;
     }
 
-    accumulate_to_statistic(tdata, RAW2TRACE_STAT_SYSCALL_TRACES_DECODED, 1);
+    accumulate_to_statistic(tdata, RAW2TRACE_STAT_SYSCALL_TRACES_CONVERTED, 1);
     app_pc saved_decode_pc;
     trace_entry_t entries_with_encodings[WRITE_BUFFER_SIZE];
     trace_entry_t *buf = entries_with_encodings;
@@ -1293,16 +1319,17 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
         // when it calls get_next_entry() on its own.
         offline_entry_t entry = *in_entry;
         if (entry.timestamp.type == OFFLINE_TYPE_TIMESTAMP) {
-            VPRINT(2, "Thread %u timestamp 0x" ZHEX64_FORMAT_STRING "\n",
-                   (uint)tdata->tid, (uint64)entry.timestamp.usec);
-            accumulate_to_statistic(tdata, RAW2TRACE_STAT_EARLIEST_TRACE_TIMESTAMP,
-                                    static_cast<uint64>(entry.timestamp.usec));
-            accumulate_to_statistic(tdata, RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP,
-                                    static_cast<uint64>(entry.timestamp.usec));
-            byte *buf = buf_base +
-                trace_metadata_writer_t::write_timestamp(buf_base,
-                                                         (uintptr_t)entry.timestamp.usec);
-            tdata->last_timestamp_ = entry.timestamp.usec;
+            // Give subclasses a chance for further action on a timestamp by
+            // putting our processing as thought it were a marker at the raw level.
+            bool flush_decode_cache = false;
+            byte *buf = buf_base;
+            uintptr_t value = static_cast<uintptr_t>(entry.timestamp.usec);
+            if (!process_marker(tdata, TRACE_MARKER_TYPE_TIMESTAMP, value, buf,
+                                &flush_decode_cache)) {
+                return false;
+            }
+            if (flush_decode_cache)
+                decode_cache_[tdata->worker].clear();
             if ((uint)(buf - buf_base) >= WRITE_BUFFER_SIZE) {
                 tdata->error = "Too many entries";
                 return false;
@@ -1554,7 +1581,13 @@ raw2trace_t::do_conversion()
                                                thread_data_[i]->latest_trace_timestamp);
             final_trace_instr_count_ += thread_data_[i]->final_trace_instr_count;
             kernel_instr_count_ += thread_data_[i]->kernel_instr_count;
-            syscall_traces_decoded_ += thread_data_[i]->syscall_traces_decoded;
+            syscall_traces_converted_ += thread_data_[i]->syscall_traces_converted;
+            syscall_traces_conversion_failed_ +=
+                thread_data_[i]->syscall_traces_conversion_failed;
+            syscall_traces_non_fatal_decoding_error_count_ +=
+                thread_data_[i]->syscall_traces_non_fatal_decoding_error_count;
+            syscall_traces_conversion_empty_ +=
+                thread_data_[i]->syscall_traces_conversion_empty;
             syscall_traces_injected_ += thread_data_[i]->syscall_traces_injected;
         }
     } else {
@@ -1582,7 +1615,11 @@ raw2trace_t::do_conversion()
                 std::max(latest_trace_timestamp_, tdata->latest_trace_timestamp);
             final_trace_instr_count_ += tdata->final_trace_instr_count;
             kernel_instr_count_ += tdata->kernel_instr_count;
-            syscall_traces_decoded_ += tdata->syscall_traces_decoded;
+            syscall_traces_converted_ += tdata->syscall_traces_converted;
+            syscall_traces_conversion_failed_ += tdata->syscall_traces_conversion_failed;
+            syscall_traces_non_fatal_decoding_error_count_ +=
+                tdata->syscall_traces_non_fatal_decoding_error_count;
+            syscall_traces_conversion_empty_ += tdata->syscall_traces_conversion_empty;
             syscall_traces_injected_ += tdata->syscall_traces_injected;
         }
     }
@@ -1603,8 +1640,15 @@ raw2trace_t::do_conversion()
     VPRINT(1, "Final trace instr count: " UINT64_FORMAT_STRING ".\n",
            final_trace_instr_count_);
     VPRINT(1, "Kernel instr count " UINT64_FORMAT_STRING "\n", kernel_instr_count_);
-    VPRINT(1, "System call PT traces decoded " UINT64_FORMAT_STRING "\n",
-           syscall_traces_decoded_);
+    VPRINT(1, "System call PT traces converted " UINT64_FORMAT_STRING "\n",
+           syscall_traces_converted_);
+    VPRINT(1, "System call PT traces conversion failed " UINT64_FORMAT_STRING "\n",
+           syscall_traces_conversion_failed_);
+    VPRINT(1, "System call PT trace conversion decode errors " UINT64_FORMAT_STRING "\n",
+           syscall_traces_non_fatal_decoding_error_count_);
+    VPRINT(1,
+           "System call PT trace conversion found empty trace " UINT64_FORMAT_STRING "\n",
+           syscall_traces_conversion_empty_);
     VPRINT(1, "System call traces injected from template " UINT64_FORMAT_STRING "\n",
            syscall_traces_injected_);
     VPRINT(1, "Successfully converted %zu thread files\n", thread_data_.size());
@@ -1616,67 +1660,22 @@ raw2trace_t::aggregate_and_write_schedule_files()
 {
     if (serial_schedule_file_ == nullptr && cpu_schedule_file_ == nullptr)
         return "";
-    std::vector<schedule_entry_t> serial;
-    std::unordered_map<uint64_t, std::vector<schedule_entry_t>> cpu2sched;
+    std::string err;
+    schedule_file_t sched;
     for (auto &tdata : thread_data_) {
-        serial.insert(serial.end(), tdata->sched.begin(), tdata->sched.end());
-        for (auto &keyval : tdata->cpu2sched) {
-            auto &vec = cpu2sched[keyval.first];
-            vec.insert(vec.end(), keyval.second.begin(), keyval.second.end());
-        }
-    }
-    // N.B.: When changing this comparator, update the comparator in
-    // invariant_checker_t::check_schedule_data too.
-    auto schedule_entry_comparator = [](const schedule_entry_t &l,
-                                        const schedule_entry_t &r) {
-        if (l.timestamp != r.timestamp)
-            return l.timestamp < r.timestamp;
-        if (l.cpu != r.cpu)
-            return l.cpu < r.cpu;
-        // We really need to sort by either (timestamp, cpu_id,
-        // start_instruction) or (timestamp, thread_id, start_instruction): a
-        // single thread cannot be on two CPUs at the same timestamp; also a
-        // single CPU cannot have two threads at the same timestamp. We still
-        // sort by (timestamp, cpu_id, thread_id, start_instruction) to prevent
-        // inadvertent issues with test data.
-        if (l.thread != r.thread)
-            return l.thread < r.thread;
-        // We need to consider the start_instruction since it is possible to
-        // have two entries with the same timestamp, cpu_id, and thread_id.
-        return l.start_instruction < r.start_instruction;
-    };
-
-    std::sort(serial.begin(), serial.end(), schedule_entry_comparator);
-    // Collapse same-thread entries.
-    std::vector<schedule_entry_t> serial_redux;
-    for (const auto &entry : serial) {
-        if (serial_redux.empty() || entry.thread != serial_redux.back().thread)
-            serial_redux.push_back(entry);
-    }
-    if (serial_schedule_file_ != nullptr) {
-        if (!serial_schedule_file_->write(
-                reinterpret_cast<const char *>(serial_redux.data()),
-                serial_redux.size() * sizeof(serial_redux[0])))
-            return "Failed to write to serial schedule file";
-    }
-    if (cpu_schedule_file_ == nullptr)
-        return "";
-    for (auto &keyval : cpu2sched) {
-        std::sort(keyval.second.begin(), keyval.second.end(), schedule_entry_comparator);
-        // Collapse same-thread entries.
-        std::vector<schedule_entry_t> redux;
-        for (const auto &entry : keyval.second) {
-            if (redux.empty() || entry.thread != redux.back().thread)
-                redux.push_back(entry);
-        }
-        std::ostringstream stream;
-        stream << keyval.first;
-        std::string err = cpu_schedule_file_->open_new_component(stream.str());
+        err = sched.merge_shard_data(tdata->sched_data);
         if (!err.empty())
             return err;
-        if (!cpu_schedule_file_->write(reinterpret_cast<const char *>(redux.data()),
-                                       redux.size() * sizeof(redux[0])))
-            return "Failed to write to cpu schedule file";
+    }
+    if (serial_schedule_file_ != nullptr) {
+        err = sched.write_serial_file(serial_schedule_file_);
+        if (!err.empty())
+            return err;
+    }
+    if (cpu_schedule_file_ != nullptr) {
+        err = sched.write_cpu_file(cpu_schedule_file_);
+        if (!err.empty())
+            return err;
     }
     return "";
 }
@@ -3423,6 +3422,13 @@ raw2trace_t::insert_post_chunk_encodings(raw2trace_thread_data_t *tdata,
     return true;
 }
 
+void
+raw2trace_t::observe_entry_output(raw2trace_thread_data_t *tls,
+                                  const trace_entry_t *entry)
+{
+    // Nothing to do for us: this is for subclasses.
+}
+
 // All writes to out_file go through this function, except new chunk headers
 // and footers (to do so would cause recursion; we assume those do not need
 // extra processing here).
@@ -3452,6 +3458,7 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
         bool prev_was_encoding = false;
         int instr_ordinal = -1;
         for (const trace_entry_t *it = start; it < end; ++it) {
+            observe_entry_output(tdata, it);
             tdata->cur_chunk_ref_count += tdata->memref_counter.entry_memref_count(it);
             // We wait until we're past the final instr to write, to ensure we
             // get all its memrefs, by not stopping until we hit an instr or an
@@ -3557,25 +3564,14 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                         (tdata->chunk_count_ - 1) * chunk_instr_count_ +
                         tdata->cur_chunk_instr_count;
                     tdata->last_cpu_ = static_cast<uint>(it->addr);
-                    // Avoid identical entries, which are common with the end of the
-                    // previous buffer's timestamp followed by the start of the next.
-                    schedule_entry_t new_entry(tdata->tid, tdata->last_timestamp_,
-                                               tdata->last_cpu_, instr_count);
-                    if (tdata->sched.empty() || tdata->sched.back() != new_entry) {
-                        tdata->sched.emplace_back(tdata->tid, tdata->last_timestamp_,
-                                                  tdata->last_cpu_, instr_count);
-                    }
-                    if (tdata->cpu2sched[it->addr].empty() ||
-                        tdata->cpu2sched[it->addr].back() != new_entry) {
-                        tdata->cpu2sched[it->addr].emplace_back(
-                            tdata->tid, tdata->last_timestamp_, tdata->last_cpu_,
-                            instr_count);
-                    }
+                    tdata->sched_data.record_cpu_id(tdata->tid, tdata->last_cpu_,
+                                                    tdata->last_timestamp_, instr_count);
                 }
             }
         }
     } else {
         for (const trace_entry_t *it = start; it < end; ++it) {
+            observe_entry_output(tdata, it);
             if (type_is_instr(static_cast<trace_type_t>(it->type))) {
                 accumulate_to_statistic(tdata,
                                         RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT, 1);
@@ -3744,7 +3740,8 @@ raw2trace_t::raw2trace_t(
     const std::string &alt_module_dir, uint64_t chunk_instr_count,
     const std::unordered_map<thread_id_t, std::istream *> &kthread_files_map,
     const std::string &kcore_path, const std::string &kallsyms_path,
-    std::unique_ptr<dynamorio::drmemtrace::record_reader_t> syscall_template_file_reader)
+    std::unique_ptr<dynamorio::drmemtrace::record_reader_t> syscall_template_file_reader,
+    bool pt2ir_best_effort)
     : dcontext_(dcontext == nullptr ? dr_standalone_init() : dcontext)
     , passed_dcontext_(dcontext != nullptr)
     , worker_count_(worker_count)
@@ -3761,6 +3758,7 @@ raw2trace_t::raw2trace_t(
     , kcore_path_(kcore_path)
     , kallsyms_path_(kallsyms_path)
     , syscall_template_file_reader_(std::move(syscall_template_file_reader))
+    , pt2ir_best_effort_(pt2ir_best_effort)
 {
     // Exactly one of out_files and out_archives should be non-empty.
     // If thread_files is not empty it must match the input size.
@@ -3845,8 +3843,17 @@ raw2trace_t::accumulate_to_statistic(raw2trace_thread_data_t *tdata,
         tdata->final_trace_instr_count += value;
         break;
     case RAW2TRACE_STAT_KERNEL_INSTR_COUNT: tdata->kernel_instr_count += value; break;
-    case RAW2TRACE_STAT_SYSCALL_TRACES_DECODED:
-        tdata->syscall_traces_decoded += value;
+    case RAW2TRACE_STAT_SYSCALL_TRACES_CONVERTED:
+        tdata->syscall_traces_converted += value;
+        break;
+    case RAW2TRACE_STAT_SYSCALL_TRACES_CONVERSION_FAILED:
+        tdata->syscall_traces_conversion_failed += value;
+        break;
+    case RAW2TRACE_STAT_SYSCALL_TRACES_NON_FATAL_DECODING_ERROR_COUNT:
+        tdata->syscall_traces_non_fatal_decoding_error_count += value;
+        break;
+    case RAW2TRACE_STAT_SYSCALL_TRACES_CONVERSION_EMPTY:
+        tdata->syscall_traces_conversion_empty += value;
         break;
     case RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED:
         tdata->syscall_traces_injected += value;
@@ -3869,7 +3876,13 @@ raw2trace_t::get_statistic(raw2trace_statistic_t stat)
     case RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP: return latest_trace_timestamp_;
     case RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT: return final_trace_instr_count_;
     case RAW2TRACE_STAT_KERNEL_INSTR_COUNT: return kernel_instr_count_;
-    case RAW2TRACE_STAT_SYSCALL_TRACES_DECODED: return syscall_traces_decoded_;
+    case RAW2TRACE_STAT_SYSCALL_TRACES_CONVERTED: return syscall_traces_converted_;
+    case RAW2TRACE_STAT_SYSCALL_TRACES_NON_FATAL_DECODING_ERROR_COUNT:
+        return syscall_traces_non_fatal_decoding_error_count_;
+    case RAW2TRACE_STAT_SYSCALL_TRACES_CONVERSION_FAILED:
+        return syscall_traces_conversion_failed_;
+    case RAW2TRACE_STAT_SYSCALL_TRACES_CONVERSION_EMPTY:
+        return syscall_traces_conversion_empty_;
     case RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED: return syscall_traces_injected_;
     case RAW2TRACE_STAT_MAX:
     default: DR_ASSERT(false); return 0;

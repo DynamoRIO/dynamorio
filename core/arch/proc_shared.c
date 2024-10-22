@@ -74,8 +74,10 @@ cpu_info_t cpu_info = {
 #else
     VENDOR_UNKNOWN,
 #endif
-#ifdef AARCHXX
+#if defined(AARCHXX)
     0,
+    0,
+#elif defined(RISCV64)
     0,
 #endif
     0,
@@ -85,11 +87,10 @@ cpu_info_t cpu_info = {
     CACHE_SIZE_UNKNOWN,
     CACHE_SIZE_UNKNOWN,
     CACHE_SIZE_UNKNOWN,
-#if defined(RISCV64)
-    /* FIXME i#3544: Not implemented */
-    { 0 },
+#if defined(AARCHXX) || defined(RISCV64)
+    {},
 #else
-    { 0, 0, 0, 0 },
+    { 0 },
 #endif
     { 0x6e6b6e75, 0x006e776f }
 };
@@ -201,7 +202,7 @@ proc_get_stepping(void)
     return cpu_info.stepping;
 }
 
-#ifdef AARCHXX
+#if defined(AARCHXX)
 uint
 proc_get_architecture(void)
 {
@@ -212,6 +213,12 @@ uint
 proc_get_vector_length_bytes(void)
 {
     return cpu_info.sve_vector_length_bytes;
+}
+#elif defined(RISCV64)
+uint
+proc_get_vector_length_bytes(void)
+{
+    return cpu_info.vlenb;
 }
 #endif
 

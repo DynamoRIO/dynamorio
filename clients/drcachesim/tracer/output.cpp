@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -731,12 +731,12 @@ create_v2p_buffer(per_thread_t *data)
 }
 
 static bool
-is_ok_to_split_before(trace_type_t type, size_t size)
+is_ok_to_split_before(trace_type_t type, size_t size, trace_type_t prev_type)
 {
     // We can split before the start of each sequence: we don't want to split
-    // an <encoding, instruction, address> combination.
+    // an <encoding [encoding,*], instruction, address> combination.
     return (op_instr_encodings.get_value()
-                ? type == TRACE_TYPE_ENCODING
+                ? (type == TRACE_TYPE_ENCODING && prev_type != TRACE_TYPE_ENCODING)
                 : (type_is_instr(type) || type == TRACE_TYPE_INSTR_MAYBE_FETCH)) ||
         // Don't split a timestamp;cpuid pair.
         (type == TRACE_TYPE_MARKER && size != TRACE_MARKER_TYPE_CPU_ID) ||
@@ -753,6 +753,7 @@ output_buffer(void *drcontext, per_thread_t *data, byte *buf_base, byte *buf_ptr
         byte *last_ok_to_split_ref = nullptr;
         // Pipe split headers are just the tid.
         header_size = instru->sizeof_entry();
+        trace_type_t prev_type = TRACE_TYPE_HEADER;
         for (byte *mem_ref = post_header; mem_ref < buf_ptr;
              mem_ref += instru->sizeof_entry()) {
             // Split up the buffer into multiple writes to ensure atomic pipe writes.
@@ -762,7 +763,7 @@ output_buffer(void *drcontext, per_thread_t *data, byte *buf_base, byte *buf_ptr
             // traces we'll need to not split after a branch: either split before
             // it or one instr after.
             if (is_ok_to_split_before(instru->get_entry_type(mem_ref),
-                                      instru->get_entry_size(mem_ref))) {
+                                      instru->get_entry_size(mem_ref), prev_type)) {
                 // We check the end of this entry + the max # of delay entries to
                 // avoid splitting an instr from its subsequent bundle entry.
                 // An alternative is to have the reader use per-thread state.
@@ -770,7 +771,9 @@ output_buffer(void *drcontext, per_thread_t *data, byte *buf_base, byte *buf_ptr
                      pipe_start) > ipc_pipe.get_atomic_write_size()) {
                     DR_ASSERT(is_ok_to_split_before(
                         instru->get_entry_type(pipe_start + header_size),
-                        instru->get_entry_size(pipe_start + header_size)));
+                        instru->get_entry_size(pipe_start + header_size),
+                        instru->get_entry_type(pipe_start + header_size -
+                                               instru->sizeof_entry())));
                     // Check if we went over the edge waiting for enough entries to
                     // write. If we did, we simply write till the last ok-to-split ref.
                     if (mem_ref - pipe_start > ipc_pipe.get_atomic_write_size()) {
@@ -790,6 +793,7 @@ output_buffer(void *drcontext, per_thread_t *data, byte *buf_base, byte *buf_ptr
                     last_ok_to_split_ref = mem_ref;
                 }
             }
+            prev_type = instru->get_entry_type(mem_ref);
         }
         // Write the rest to pipe
         // The last few entries (e.g., instr + refs) may exceed the atomic write size,
@@ -800,7 +804,9 @@ output_buffer(void *drcontext, per_thread_t *data, byte *buf_base, byte *buf_ptr
         if ((buf_ptr - pipe_start) > ipc_pipe.get_atomic_write_size()) {
             DR_ASSERT(
                 is_ok_to_split_before(instru->get_entry_type(pipe_start + header_size),
-                                      instru->get_entry_size(pipe_start + header_size)));
+                                      instru->get_entry_size(pipe_start + header_size),
+                                      instru->get_entry_type(pipe_start + header_size -
+                                                             instru->sizeof_entry())));
             DR_ASSERT_MSG(last_ok_to_split_ref != nullptr,
                           "Found too many entries without an ok-to-split point");
             pipe_start = atomic_pipe_write(drcontext, pipe_start, last_ok_to_split_ref,
@@ -809,7 +815,9 @@ output_buffer(void *drcontext, per_thread_t *data, byte *buf_base, byte *buf_ptr
         if ((buf_ptr - pipe_start) > (ssize_t)buf_hdr_slots_size) {
             DR_ASSERT(
                 is_ok_to_split_before(instru->get_entry_type(pipe_start + header_size),
-                                      instru->get_entry_size(pipe_start + header_size)));
+                                      instru->get_entry_size(pipe_start + header_size),
+                                      instru->get_entry_type(pipe_start + header_size -
+                                                             instru->sizeof_entry())));
             atomic_pipe_write(drcontext, pipe_start, buf_ptr, get_local_window(data));
         }
     } else {
@@ -1028,7 +1036,7 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
 
     if (op_offline.get_value() && data->file == INVALID_FILE) {
         // We've delayed opening a new window file to avoid an empty final file.
-        DR_ASSERT(has_tracing_windows() || op_trace_after_instrs.get_value() > 0 ||
+        DR_ASSERT(has_tracing_windows() || get_initial_no_trace_for_instrs_value() > 0 ||
                   attached_midway);
         open_new_thread_file(drcontext, get_local_window(data));
     }
@@ -1059,7 +1067,7 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
         instru->clamp_unit_header_timestamp(data->buf_base + stamp_offs, min_timestamp);
     }
 
-    if (has_tracing_windows()) {
+    if (has_tracing_windows() || get_initial_no_trace_for_instrs_value() > 0) {
         min_timestamp = retrace_start_timestamp.load(std::memory_order_acquire);
         instru->clamp_unit_header_timestamp(data->buf_base + stamp_offs, min_timestamp);
     }
@@ -1202,15 +1210,15 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
                 tracing_mode.store(BBDUP_MODE_TRACE, std::memory_order_release);
                 set_local_mode(data, BBDUP_MODE_TRACE);
             }
-        } else if (op_trace_for_instrs.get_value() > 0) {
+        } else if (get_current_trace_for_instrs_value() > 0) {
             bool hit_window_end = false;
             for (mem_ref = data->buf_base + header_size; mem_ref < buf_ptr;
                  mem_ref += instru->sizeof_entry()) {
                 if (!window_changed && !hit_window_end &&
-                    op_trace_for_instrs.get_value() > 0) {
+                    get_current_trace_for_instrs_value() > 0) {
                     hit_window_end =
                         count_traced_instrs(drcontext, instru->get_instr_count(mem_ref),
-                                            op_trace_for_instrs.get_value());
+                                            get_current_trace_for_instrs_value());
                     // We have to finish this buffer so we'll go a little beyond the
                     // precise requested window length.
                     // XXX: For small windows this may be significant: we could go
@@ -1220,6 +1228,13 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
                 }
             }
             if (hit_window_end) {
+                // Go to the next interval, if -trace_instr_intervals_file is set and
+                // num_irregular_windows > 0.
+                // Note: we assume no tracing interval comes first, then tracing interval,
+                // then we increment irregular_window_idx when we hit the end of the
+                // tacing interval here.
+                maybe_increment_irregular_window_index();
+
                 if (op_offline.get_value() && op_split_windows.get_value()) {
                     size_t add =
                         instru->append_thread_exit(buf_ptr, dr_get_thread_id(drcontext));

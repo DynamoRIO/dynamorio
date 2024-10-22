@@ -39,10 +39,10 @@
 ***************************************************************************
 \page page_drcachesim Tracing and Analysis Framework
 
-\p drcachesim is a DynamoRIO client that collects instruction and
-memory access traces using its \p drmemtrace component and
+\p drmemtrace is a DynamoRIO client that collects instruction and
+memory access traces and
 feeds them to either an online or offline tool for analysis.  The default
-analysis tool is a CPU cache simulator, while other provided tools compute
+analysis tool is the \p drcachesim CPU cache simulator, while other provided tools compute
 metrics such as reuse distance.  The trace collector and simulator support
 multiple processes each with multiple threads.  The analysis tool framework
 is extensible, supporting the creation of new tools which can operate both
@@ -66,6 +66,7 @@ targets are provided up front.  These join the recent features of
  - \subpage sec_drcachesim_analyzer
  - \subpage sec_drcachesim_phys
  - \subpage sec_drcachesim_core
+ - \subpage sec_drcachesim_sched
  - \subpage sec_drcachesim_extend
  - \subpage sec_drcachesim_tracer
  - \subpage sec_drcachesim_funcs
@@ -77,16 +78,16 @@ targets are provided up front.  These join the recent features of
 ****************************************************************************
 \page sec_drcachesim Overview
 
-\p drcachesim consists of two components: a tracer \p drmemtrace and an analyzer.
+\p drmemtrace consists of two types of components: the tracer and trace analyzers.
 The tracer collects a memory access trace from each thread within each
 application process.
-The analyzer consumes the traces (online or offline) and performs
+A trace analyzer consumes the traces (online or offline) and performs
 customized analysis.
-It is designed to be extensible, allowing users to easily implement a
-simulator for different devices, such as CPU caches, TLBs, page
+The framework is designed to be extensible, allowing users to easily extend the
+existing simulators for different devices such as CPU caches, TLBs, page
 caches, etc. (see \ref sec_drcachesim_extend), or to build arbitrary trace
 analysis tools (see \ref sec_drcachesim_newtool).
-The default analyzer simulates the architectural behavior of caching
+The default analyzer \p drcachesim simulates the architectural behavior of caching
 devices for a target application (or multiple applications).
 
 ****************************************************************************
@@ -178,9 +179,9 @@ Some of the more important markers are:
 
 - #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_XFER - This identifies a system call that changes control flow, such as a signal return.
 
-- #dynamorio::drmemtrace::TRACE_MARKER_TYPE_TIMESTAMP - The marker value provides a timestamp for this point of the trace (in units of microseconds since Jan 1, 1601 UTC). This value can be used to synchronize records from different threads as well as analyze latencies (however, tracing overhead inflates time unevenly, so time deltas should not be considered perfectly representative). It is used in the sequential analysis of a multi-threaded trace.
+- #dynamorio::drmemtrace::TRACE_MARKER_TYPE_TIMESTAMP - The marker value provides a timestamp for this point of the trace (in units of microseconds since Jan 1, 1601 UTC). This value can be used to synchronize records from different threads as well as analyze latencies (however, tracing overhead inflates time unevenly, so time deltas should not be considered perfectly representative). It is used in the sequential analysis of a multi-threaded trace.  When dynamic scheduling is performed (see \ref sec_drcachesim_sched_dynamic), the original timestamp value is replaced with a synthetic value in order to maintain relative ordering (though the new values should not be relied upon to indicate accurate durations between events).
 
-- #dynamorio::drmemtrace::TRACE_MARKER_TYPE_CPU_ID - The marker value contains the CPU identifier on which the subsequent records were collected. It is useful to help track thread migrations occurring during execution. This marker is written to the header of each trace buffer when the buffer is flushed. Note that if the thread migrates to a different CPU due to preemption by the kernel before a buffer is full, we do not output a separate #dynamorio::drmemtrace::TRACE_MARKER_TYPE_CPU_ID marker to capture the previous CPU identifier. However, we expect such cases to be rare.
+- #dynamorio::drmemtrace::TRACE_MARKER_TYPE_CPU_ID - The marker value contains the CPU identifier on which the subsequent records were collected.  It can be used to identify the "as traced" schedule, indicating which threads were on which cores at which times.  However, this schedule is not representative and should not be treated as indicating how the application behaves without tracing.  See \ref sec_drcachesim_as_traced for further information.  When dynamic scheduling is performed (see \ref sec_drcachesim_sched_dynamic), the original value of this marker is replaced with the new virtual core identifier.
 
 - #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_ID, #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_RETADDR, #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_ARG, #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_RETVAL - These markers are used to capture information about function calls.  Which functions to capture must be explicitly selected at tracing time.  Typical candiates are heap allocation and freeing functions.  See \ref sec_drcachesim_funcs.
 
@@ -188,15 +189,20 @@ Some of the more important markers are:
 
 - #dynamorio::drmemtrace::TRACE_MARKER_TYPE_SYSCALL - This identifies a system call.  A timestamp is inserted in the trace before and after marker of this type.  This marker should be considered to be the actual system call invocation by the kernel, rather than the prior system call gateway instruction fetch record.  Thus, these timestamps provide the system call latency.
 
+- #dynamorio::drmemtrace::TRACE_MARKER_TYPE_CORE_IDLE - This is inserted by the trace scheduler (see \ref sec_drcachesim_sched) when there is no work available on a core in core-sharded mode.  This is meant to simulate actual idle time on a core.
+
+- #dynamorio::drmemtrace::TRACE_MARKER_TYPE_CORE_WAIT - This is inserted by the trace scheduler (see \ref sec_drcachesim_sched) during replay of a previously recorded schedule when one core gets too far ahead of another according to the recorded timestamps.  This is an artificial wait to keep the replay on track, as opposed to the natural idle time of #dynamorio::drmemtrace::TRACE_MARKER_TYPE_CORE_IDLE.
+
 The full set of markers is listed under the enum #dynamorio::drmemtrace::trace_marker_type_t.
 
 ****************************************************************************
-\page sec_drcachesim_run Running the Simulator
+\page sec_drcachesim_run Running Tools
 
-To launch \p drcachesim, use the \p -t flag to \p drrun:
+To launch \p drmemtrace, use the \p -t flag to \p drrun and specify the
+\p drmemtrace framework where the default tool to run is the cache simulator:
 
 \code
-$ bin64/drrun -t drcachesim -- /path/to/target/app <args> <for> <app>
+$ bin64/drrun -t drmemtrace -- /path/to/target/app <args> <for> <app>
 \endcode
 
 The target application will be launched under a DynamoRIO tracer
@@ -209,7 +215,7 @@ memory references passed to the simulator as well.
 Here is an example:
 
 \code
-$ bin64/drrun -t drcachesim -- ~/test/pi_estimator
+$ bin64/drrun -t drmemtrace -- ~/test/pi_estimator
 Estimation of pi is 3.142425985001098
 ---- <application exited with code 0> ----
 Cache simulation results:
@@ -262,7 +268,7 @@ LL stats:
 
 In addition to a CPU cache simulator, other predefined analysis tools are
 available that operate on memory address traces.  Which set of tools is used
-can be selected with the \p -simulator_type parameter.  New, custom
+can be selected with the \p -tool parameter.  New, custom
 tools can also be created, as described in \ref sec_drcachesim_newtool.
 
 - \ref sec_tool_cache_sim
@@ -282,9 +288,9 @@ tools can also be created, as described in \ref sec_drcachesim_newtool.
 
 This is the default tool.  Here is an exmample of running it on an offline trace:
 \code
-$ bin64/drrun -t drcachesim -offline -- ~/test/pi_estimator
+$ bin64/drrun -t drmemtrace -offline -- ~/test/pi_estimator
 Estimation of pi is 3.142425985001098
-$ bin64/drrun -t drcachesim -indir drmemtrace.*.dir
+$ bin64/drrun -t drmemtrace -indir drmemtrace.*.dir
 Cache simulation results:
 Core #0 (1 thread(s))
   L1I stats:
@@ -332,10 +338,10 @@ LL stats:
 
 \section sec_tool_TLB_sim TLB Simulator
 
-To simulate TLB devices instead of caches, pass \p TLB to \p -simulator_type:
+To simulate TLB devices instead of caches, pass \p TLB to \p -tool:
 
 \code
-$ bin64/drrun -t drcachesim -simulator_type TLB -- ~/test/pi_estimator
+$ bin64/drrun -t drmemtrace -tool TLB -- ~/test/pi_estimator
 Estimation of pi is 3.142425985001098
 ---- <application exited with code 0> ----
 TLB simulation results:
@@ -392,7 +398,7 @@ Core #3 (0 thread(s))
 To compute reuse distance metrics:
 
 \code
-$ bin64/drrun -t drcachesim -simulator_type reuse_distance -reuse_distance_histogram -- ~/test/pi_estimator
+$ bin64/drrun -t drmemtrace -tool reuse_distance -reuse_distance_histogram -- ~/test/pi_estimator
 Estimation of pi is 3.142425985001098
 ---- <application exited with code 0> ----
 Reuse distance tool aggregated results:
@@ -486,7 +492,7 @@ accesses (without considering uniqueness) between accesses to the same
 address:
 
 \code
-$ bin64/drrun -t drcachesim -simulator_type reuse_time -- ~/test/pi_estimator
+$ bin64/drrun -t drmemtrace -tool reuse_time -- ~/test/pi_estimator
 Estimation of pi is 3.142425985001098
 ---- <application exited with code 0> ----
 Reuse time tool aggregated results:
@@ -528,7 +534,7 @@ To simply see the counts of instructions and memory references broken down
 by thread use the basic counts tool:
 
 \code
-$ bin64/drrun -t drcachesim -simulator_type basic_counts -- ~/test/pi_estimator
+$ bin64/drrun -t drmemtrace -tool basic_counts -- ~/test/pi_estimator
 Estimation of pi is 3.142425985001098
 ---- <application exited with code 0> ----
 Basic counts tool results:
@@ -643,9 +649,9 @@ down by the opcodes used in DR's IR, where for x86 \p mov is split into a separa
 opcode for load and store but both have the same public string "mov":
 
 \code
-$ bin64/drrun -t drcachesim -offline -- ~/test/pi_estimator
+$ bin64/drrun -t drmemtrace -offline -- ~/test/pi_estimator
 Estimation of pi is 3.142425985001098
-$ bin64/drrun -t drcachesim -simulator_type opcode_mix -indir drmemtrace.*.dir
+$ bin64/drrun -t drmemtrace -tool opcode_mix -indir drmemtrace.*.dir
 Opcode mix tool results:
          267271 : total executed instructions
           36432 :       mov
@@ -695,7 +701,7 @@ In its first two columns, the tool displays the trace record ordinal
 and the instruction fetch ordinal.
 
 \code
-$ $ bin64/drrun -t drcachesim -simulator_type view -indir drmemtrace.*.dir -sim_refs 20
+$ $ bin64/drrun -t drmemtrace -tool view -indir drmemtrace.*.dir -sim_refs 20
 Output format:
 <--record#-> <--instr#->: <---tid---> <record details>
 ------------------------------------------------------------
@@ -793,9 +799,9 @@ function names specified at tracing time. See \ref sec_drcachesim_funcs for
 more information.
 
 \code
-$ bin64/drrun -t drcachesim -offline -record_function 'fib|1' -- ~/test/fib 5
+$ bin64/drrun -t drmemtrace -offline -record_function 'fib|1' -- ~/test/fib 5
 Estimation of pi is 3.142425985001098
-$ bin64/drrun -t drcachesim -simulator_type func_view -indir drmemtrace.*.dir
+$ bin64/drrun -t drmemtrace -tool func_view -indir drmemtrace.*.dir
 0x7fc06d2288eb => common.fib!fib(0x5)
     0x7fc06d22888e => common.fib!fib(0x4)
         0x7fc06d22888e => common.fib!fib(0x3)
@@ -829,7 +835,7 @@ Function id=0: common.fib!fib
 The top referenced cache lines are displayed by the \p histogram tool:
 
 \code
-$ bin64/drrun -t drcachesim -simulator_type histogram -- ~/test/pi_estimator
+$ bin64/drrun -t drmemtrace -tool histogram -- ~/test/pi_estimator
 Estimation of pi is 3.142425985001098
 ---- <application exited with code 0> ----
 Cache line histogram tool results:
@@ -866,7 +872,7 @@ on program counter continuity and guarantees around kernel control
 transfer interruptions.  It optionally checks for restricted behavior
 that technically is legal but is not expected to happen in the target
 trace, helping to identify tracing problems and suitability for use of
-a trace for core simulation.
+a trace for core simulation (see \ref sec_drcachesim_core).
 
 \section sec_tool_syscall_mix System Call Mix
 
@@ -877,7 +883,7 @@ number. This works only with traces that have these markers; that is, offline tr
 must have #dynamorio::drmemtrace::OFFLINE_FILE_TYPE_SYSCALL_NUMBERS in their file type.
 
 \code
-$ bin64/drrun -t drcachesim -indir drmemtrace.ls.*.dir -simulator_type syscall_mix
+$ bin64/drrun -t drmemtrace -indir drmemtrace.ls.*.dir -tool syscall_mix
 Syscall mix tool results:
           count : syscall_num
              17 :         9
@@ -929,7 +935,7 @@ option.
 Example of removing function markers:
 
 \code
-$ bin64/drrun -t drcachesim -indir mytracedir -simulator_type basic_counts
+$ bin64/drrun -t drmemtrace -indir mytracedir -tool basic_counts
 ...
         9009 total function id markers
         5006 total function return address markers
@@ -937,10 +943,10 @@ $ bin64/drrun -t drcachesim -indir mytracedir -simulator_type basic_counts
         4003 total function return value markers
 ...
 
-$ bin64/drrun -t drcachesim -simulator_type record_filter -filter_marker_types 4,5,6,7 -indir mytracedir -outdir newdir
+$ bin64/drrun -t drmemtrace -tool record_filter -filter_marker_types 4,5,6,7 -indir mytracedir -outdir newdir
 Output 1280800 entries from 1304825 entries.
 
-$ bin64/drrun -t drcachesim -indir newdir -simulator_type basic_counts
+$ bin64/drrun -t drmemtrace -indir newdir -tool basic_counts
 ...
            0 total function id markers
            0 total function return address markers
@@ -1134,18 +1140,20 @@ LLC {                          // LLC
 
 To dump a trace for future offline analysis, use the \p offline parameter:
 \code
-$ bin64/drrun -t drcachesim -offline -- /path/to/target/app <args> <for> <app>
+$ bin64/drrun -t drmemtrace -offline -- /path/to/target/app <args> <for> <app>
 \endcode
 
 The collected traces will be dumped into a newly created directory,
-which can be passed to drcachesim for offline cache simulation with the \p
+which can be passed to drmemtrace for offline analysis with the \p
 -indir option:
 \code
-$ bin64/drrun -t drcachesim -indir drmemtrace.app.pid.xxxx.dir/
+$ bin64/drrun -t drmemtrace -indir drmemtrace.app.pid.xxxx.dir/
 \endcode
 
 The direct results of the \p -offline run are raw, compacted files, stored
 in a \p raw/ subdirectory of the \p drmemtrace.app.pid.xxxx.dir directory.
+The contents of \p drmemtrace.app.pid.xxxx.dir, and all its subdirectories,
+are internal to the tools.  Do not alter, add, or delete files here.
 The \p -indir option both converts the data to a canonical trace form and
 passes the resulting data to the cache simulator.  The canonical trace data
 is stored by \p -indir in a \p trace/ subdirectory inside the \p
@@ -1156,7 +1164,7 @@ re-converting it.  Either the top-level directory or the \p trace/
 subdirectory may be pointed at with \p -indir:
 
 \code
-$ bin64/drrun -t drcachesim -indir drmemtrace.app.pid.xxxx.dir/trace
+$ bin64/drrun -t drmemtrace -indir drmemtrace.app.pid.xxxx.dir/trace
 \endcode
 
 If built with the zlib library, the canonical trace files are
@@ -1176,7 +1184,7 @@ Older versions of the simulator produced a single trace file containing all thre
 interleaved.  The \p -infile option supports reading these legacy files:
 \code
 $ gzip drmemtrace.app.pid.xxxx.dir/drmemtrace.trace
-$ bin64/drrun -t drcachesim -infile drmemtrace.app.pid.xxxx.dir/drmemtrace.trace.gz
+$ bin64/drrun -t drmemtrace -infile drmemtrace.app.pid.xxxx.dir/drmemtrace.trace.gz
 \endcode
 
 The same analysis tools used online are available for offline: the trace
@@ -1188,7 +1196,7 @@ with offline traces, see \ref page_debug_memtrace.
 ****************************************************************************
 \page sec_drcachesim_filter Filtered Traces
 
-Filtered traces are \p drcachesim traces filtered by an online first-level
+Filtered traces are \p drmemtrace traces filtered by an online first-level
 cache.
 
 - The \p -L0I_filter and \p -L0D_filter options can be used to enable the
@@ -1253,7 +1261,7 @@ limited in several ways:
   #dynamorio::drmemtrace::TRACE_MARKER_TYPE_WINDOW_ID markers indicate start of
   filtered records.
 
-If the application can be modified, it can be linked with the \p drcachesim
+If the application can be modified, it can be linked with the \p drmemtrace
 tracer and use DynamoRIO's start/stop API routines dr_app_setup_and_start()
 and dr_app_stop_and_cleanup() to delimit the desired trace region.  As an
 example, see <a
@@ -1266,7 +1274,7 @@ burst_static test application</a>.
 Generally, the simulator is able to be extended to model a variety of
 caching devices.  Currently, CPU caches and TLBs are implemented.  The type of
 devices to simulate can be specified by the parameter
-"-simulator_type" (see \ref sec_drcachesim_ops).
+"-tool" (see \ref sec_drcachesim_ops).
 
 The CPU cache simulator models a configurable number of cores,
 each with an L1 data cache and an L1 instruction cache.
@@ -1283,76 +1291,81 @@ are user-specified (see \ref sec_drcachesim_ops).
 Neither simulator has a simple way to know which core any particular thread
 executed on for each of its instructions.  The tracer records which core a
 thread is on each time it writes out a full trace buffer, giving an
-approximation of the actual scheduling (at the granularity of the trace
-buffer size).  By default, these cache and TLB simulators ignore that
+approximation of the actual scheduling: but this is not representative
+due to overhead (see \ref sec_drcachesim_as_traced).  For online analysis, by default,
+these cache and TLB simulators ignore that
 information and schedule threads to simulated cores in a static round-robin
 fashion with load balancing to fill in gaps with new threads after threads
 exit.  The option "-cpu_scheduling" (see \ref sec_drcachesim_ops) can be
 used to instead map each physical cpu to a simulated core and use the
 recorded cpu that each segment of thread execution occurred on to schedule
-execution in a manner that more closely resembles the traced execution on
-the physical machine.  Below is an example of the output using this option
-running an application with many threads on a pysical machine with 8 cpus.
-The 8 cpus are mapped to the 4 simulated cores:
+execution following the "as traced" schedule, but as just noted this is not
+representative.  Instead, we recommend using offline traces and dynamic
+re-scheduling in core-sharded mode as explained in \ref sec_drcachesim_sched_dynamic
+using the
+`-core_serial` parameter.  In offline mode, `-core_serial` is the default for
+these simulators.
 
 \code
-$ bin64/drrun -t drcachesim -cpu_scheduling -- ~/test/pi_estimator 20
+$ bin64/drrun -t drmemtrace -offline -- ~/test/pi_estimator 8 20
 Estimation of pi is 3.141592653798125
-<Stopping application /home/bruening/dr/test/threadsig (213517)>
----- <application exited with code 0> ----
+$ bin64/drrun -t drcachesim -cores 3 -indir drmemtrace.pi_estimator.*.dir
 Cache simulation results:
-Core #0 (2 traced CPU(s): #2, #5)
-  L1I stats:
-    Hits:                        2,756,429
-    Misses:                          1,190
-    Miss rate:                        0.04%
-  L1D stats:
-    Hits:                        1,747,822
-    Misses:                         13,511
-    Prefetch hits:                   2,354
-    Prefetch misses:                11,157
-    Miss rate:                        0.77%
-Core #1 (2 traced CPU(s): #4, #0)
-  L1I stats:
-    Hits:                          472,948
-    Misses:                            299
-    Miss rate:                        0.06%
-  L1D stats:
-    Hits:                          895,099
-    Misses:                          1,224
-    Prefetch hits:                     253
-    Prefetch misses:                   971
+Core #0 (traced CPU(s): #0)
+  L1I0 (size=32768, assoc=8, block=64, LRU) stats:
+    Hits:                        1,853,727
+    Misses:                          2,152
+    Compulsory misses:               2,045
+    Invalidations:                       0
+    Miss rate:                        0.12%
+  L1D0 (size=32768, assoc=8, block=64, LRU) stats:
+    Hits:                          605,114
+    Misses:                         11,973
+    Compulsory misses:               9,845
+    Invalidations:                       0
+    Prefetch hits:                   1,880
+    Prefetch misses:                10,093
+    Miss rate:                        1.94%
+Core #1 (traced CPU(s): #1)
+  L1I1 (size=32768, assoc=8, block=64, LRU) stats:
+    Hits:                          942,992
+    Misses:                            461
+    Compulsory misses:                 366
+    Invalidations:                       0
+    Miss rate:                        0.05%
+  L1D1 (size=32768, assoc=8, block=64, LRU) stats:
+    Hits:                          385,134
+    Misses:                            534
+    Compulsory misses:                 775
+    Invalidations:                       0
+    Prefetch hits:                     144
+    Prefetch misses:                   390
     Miss rate:                        0.14%
-Core #2 (2 traced CPU(s): #1, #7)
-  L1I stats:
-    Hits:                          448,581
-    Misses:                            649
+Core #2 (traced CPU(s): #2)
+  L1I2 (size=32768, assoc=8, block=64, LRU) stats:
+    Hits:                          944,622
+    Misses:                            453
+    Compulsory misses:                 365
+    Invalidations:                       0
+    Miss rate:                        0.05%
+  L1D2 (size=32768, assoc=8, block=64, LRU) stats:
+    Hits:                          385,808
+    Misses:                            537
+    Compulsory misses:                 791
+    Invalidations:                       0
+    Prefetch hits:                     140
+    Prefetch misses:                   397
     Miss rate:                        0.14%
-  L1D stats:
-    Hits:                          811,483
-    Misses:                          1,723
-    Prefetch hits:                     378
-    Prefetch misses:                 1,345
-    Miss rate:                        0.21%
-Core #3 (2 traced CPU(s): #6, #3)
-  L1I stats:
-    Hits:                          275,192
-    Misses:                            154
-    Miss rate:                        0.06%
-  L1D stats:
-    Hits:                          522,655
-    Misses:                            850
-    Prefetch hits:                     173
-    Prefetch misses:                   677
-    Miss rate:                        0.16%
-LL stats:
-    Hits:                           12,491
-    Misses:                          7,109
-    Prefetch hits:                   8,922
-    Prefetch misses:                 5,228
-    Local miss rate:                 36.27%
-    Child hits:                  7,933,367
-    Total miss rate:                  0.09%
+LL (size=8388608, assoc=16, block=64, LRU) stats:
+    Hits:                            8,091
+    Misses:                          8,019
+    Compulsory misses:              13,173
+    Invalidations:                       0
+    Prefetch hits:                   5,693
+    Prefetch misses:                 5,187
+    Local miss rate:                 49.78%
+    Child hits:                  5,119,561
+    Total miss rate:                  0.16%
 \endcode
 
 The memory access traces contain some optimizations that combine references
@@ -1393,7 +1406,7 @@ The cache simulator can be used to analyze the stream of last-level cache (LLC)
 miss addresses. This can be useful when looking for patterns that can be utilized
 in software prefetching. The current analyzer can only identify simple stride
 patterns, but it can be extended to search for more complex patterns.
-To invoke the miss analyzer, pass \p miss_analyzer to the \p -simulator_type
+To invoke the miss analyzer, pass \p miss_analyzer to the \p -tool
 parameter. To write the prefetching hints to a file use the \p -LL_miss_file
 parameter to specify the file's path and name.
 
@@ -1401,7 +1414,7 @@ For example, to run the analyzer on a benchmark called "my_benchmark" and store
 the prefetching recommendations in a file called "rec.csv", run the following:
 
 \code
-$ bin64/drrun -t drcachesim -simulator_type miss_analyzer -LL_miss_file rec.csv -- my_benchmark
+$ bin64/drrun -t drmemtrace -tool miss_analyzer -LL_miss_file rec.csv -- my_benchmark
 \endcode
 
 
@@ -1436,22 +1449,35 @@ is specified.
 ****************************************************************************
 \page sec_drcachesim_core Core Simulation Support
 
-The \p drcachesim trace format includes information intended for use by
+The \p drmemtrace trace format includes information intended for use by
 core simulators as well as pure cache simulators.  For traces that are not
 filtered by an online first-level cache, each data reference is preceded by
 the instruction fetch entry for the instruction that issued the data
 request, which includes the instruction encoding with the opcode and operands.
 Additionally, on x86, string loop
 instructions involve a single insruction fetch followed by a loop of loads
-and/or stores.  A \p drcachesim trace includes a special "no-fetch"
+and/or stores.  A \p drmemtrace trace includes a special "no-fetch"
 instruction entry per iteration so that core simulators have the
 instruction information to go along with each load and store, while cache
 simulators can ignore these "no-fetch" entries and avoid incorrectly
 inflating instruction fetch statistics.
 
-Traces include scheduling markers providing the timestamp and hardware
-thread identifier on each thread transition, allowing a simulator to more
-closely match the actual hardware if so desired.
+Traces include scheduling markers providing the timestamp and hardware thread identifier
+on each thread transition, allowing a simulator to more closely match the actual
+hardware if so desired: but be aware that this "as-traced" schedule is not
+representative, as shown in \ref sec_drcachesim_as_traced.  We recommend instead using
+dynamic re-scheduling of the software threads: see \ref sec_drcachesim_sched_dynamic.
+While we suggest keeping traces stored as thread-sharded and using the dynamic scheduler
+in each run, there is support for running the scheduler once and creating a new set of
+stored traces in core-sharded format: essentially switching to hardware-thread-oriented
+traces.  This is done using the \ref sec_tool_record_filter tool in `-core_sharded` mode.
+The #dynamorio::drmemtrace::TRACE_MARKER_TYPE_TIMESTAMP and
+#dynamorio::drmemtrace::TRACE_MARKER_TYPE_CPU_ID markers are modified by the dynamic
+scheduler to reflect the new schedule.  The new timestamps maintain relative ordering
+but should not be relied upon to indicate accurate durations between events.
+When analyzing core-sharded-on-disk traces, `-no_core_sharded` must be passed when
+using core-sharded-preferring tools to avoid an error from the framework attempting
+to re-schedule the already-scheduled trace.
 
 Traces also include markers indicating disruptions in user mode control
 flow such as signal handler entry and exit.
@@ -1476,6 +1502,174 @@ Filtered traces (filtered via -L0_filter) include the dynamic
 (pre-filtered) per-thread instruction count in a
 #dynamorio::drmemtrace::TRACE_MARKER_TYPE_INSTRUCTION_COUNT marker at
 each thread buffer boundary and at thread exit.
+
+
+****************************************************************************
+\page sec_drcachesim_sched Trace Scheduler
+
+In addition to the analysis tool framework, which targets running
+multiple tools at once either in parallel across all traced threads or
+in a serial fashion, we provide a scheduler which will map inputs to a
+given set of outputs in a specified manner.  This allows a tool such
+as a core simulator, or just a tool wanting its own control over
+advancing the trace stream (unlike the analysis tool framework where
+the framework controls the iteration), to request the next trace
+record for each output on its own.  This scheduling is also available to any analysis tool
+when the input traces are sharded by core (see the `-core_sharded` and `-core_serial`
+and various `-sched_*` option documentation under \ref sec_drcachesim_ops as well as
+core-sharded notes when \ref sec_drcachesim_newtool), and in fact is the
+default when all tools prefer core-sharded operation via
+#dynamorio::drmemtrace::analysis_tool_t::preferred_shard_type().
+
+********************
+\section sec_drcachesim_as_traced As-Traced Schedule Limitations
+
+During tracing, marker records (see \ref sec_drcachesim_format_other) of type
+#dynamorio::drmemtrace::TRACE_MARKER_TYPE_CPU_ID record the "as traced" schedule,
+indicating which threads were on which cores at which times.  However, this schedule is
+not representative and should not be treated as indicating how the application behaves
+without tracing.  In addition to only containing coarse-grain information at the top and
+bottom of trace buffers and missing any context switches occurring in the between, the
+indicated switches do not always correlate with where the untraced application would
+switch.  This is due to tracing overhead, where heavyweight instrumentation is
+interspersed with application code and heavyweight i/o operations to write out the trace
+data cause delays.  This extra overhead causes additional quantum preempts and additional
+switches due to blocking system calls for i/o.  The resulting as-traced schedule can
+contain from 2x to 10x as many context switches as the untraced
+application.  Consequently, we do not recommend using the as-traced schedule to study the
+application itself, though our scheduler does support replaying the as-traced schedule
+through the -cpu_schedule_file option.
+
+********************
+\section sec_drcachesim_sched_dynamic Dynamic Scheduling
+
+Instead of using the as-traced schedule, we recommend re-scheduling the traced software
+threads using our trace scheduler in
+#dynamorio::drmemtrace::scheduler_t::MAP_TO_ANY_OUTPUT mode.
+Our scheduler essentially serves as an operating
+system scheduler for this purpose, though using simpler schemes.  It models separate
+runqueues per core with support for binding inputs to certain cores, priorities, idle
+time from blocking system calls, migration thresholds, rebalancing runqueues, etc.  It
+exposes a number of knobs in the form of -sched_* parameters for the command-line \p
+drmemtrace launcher or programmatically through the #dynamorio::drmemtrace::scheduler_t
+API.
+
+Dynamic scheduling provides the following benefits:
+
+- Deflation of the as-traced context switch rate (see \ref sec_drcachesim_as_traced) to
+  provide a representative context switch rate.
+
+- Support for different numbers of cores than were present during tracing.
+
+- Multi-tenant support where separately traced applications are combined, with the
+  dynamic scheduler interleaving them.  This simulates a multi-tenant machine with a mix
+  of processes running.
+
+The downsides include:
+
+- Risk of incorrect ordering between application software threads.  Today, our scheduler
+  does use the in-trace timestamps (when requested via
+  #dynamorio::drmemtrace::scheduler_t::DEPENDENCY_TIMESTAMPS) to keep things in relative
+  order.  However, enforcing representative context switch rates is considered more
+  important that honoring precise trace-buffer-based timestamp inter-input dependencies:
+  thus, timestamp ordering will be followed at context switch points for picking the
+  next input, but timestamps will not preempt an input.
+
+The #dynamorio::drmemtrace::TRACE_MARKER_TYPE_TIMESTAMP and
+#dynamorio::drmemtrace::TRACE_MARKER_TYPE_CPU_ID markers are modified by the dynamic
+scheduler to reflect the new schedule.  The new timestamps maintain relative ordering
+but should not be relied upon to indicate accurate durations between events.
+
+********************
+\section sec_drcachesim_sched_time Simulated Time
+
+As the simulator, rather than the scheduler, tracks simulated time, yet the scheduler
+needs to make some decisions based on time (such as when to preempt, when to migrate
+across cores, etc.), the simulator should pass in the current time when it queries the
+scheduler for the next record.  The simulator tells the scheduler how many units of this
+simulated time comprise one microsecond so that the scheduler can scale its other
+parameters appropriately.
+
+********************
+\section sec_drcachesim_sched_idle Idle Time
+
+The dynamic scheduler inserts markers of type
+#dynamorio::drmemtrace::TRACE_MARKER_TYPE_CORE_IDLE when there is no work available on a
+core, simulating actual idle time.  This can happen even when there are inputs
+potentially available as the scheduler simulates i/o by blocking inputs from executing
+for a period of time when they make blocking system calls.  This time is based on the
+system call latency recorded in the trace, but since this can be indirectly inflated due
+to tracing overhead the scheduler provides parameters to scale this time, exposed as
+`-sched_block_scale` and `-sched_block_max_us` to the \p drmemtrace launcher.  These can
+be modified to try to achieve a desired level of idle time during simulation.
+
+********************
+\section sec_drcachesim_sched_replay Record and Replay
+
+The scheduler supports recording a schedule and replaying it later, allowing for
+repeated execution of the same schedule.  Timestamps in the recorded schedule help to
+align the cores during replay.  If one gets too far ahead, markers of type
+#dynamorio::drmemtrace::TRACE_MARKER_TYPE_CORE_WAIT are inserted to indicate an
+artificial wait in order for the replay to get back on track.
+
+********************
+\section sec_drcachesim_sched_roi Regions of Interest
+
+The scheduler supports running a subset of each input.  A list of start and stop
+endpoints delimiting the regions of interest can be supplied with each input.  The end
+result is as though the inputs had been edited to remove all content not inside the
+target regions.
+
+********************
+\section sec_drcachesim_sched_speculation Speculation Support
+
+The scheduler contains preliminary speculation support for wrong-path execution.
+Currently it only feeds nops, but future versions plan to fill in content based on prior
+trace paths.
+
+********************
+\section sec_drcachesim_sched_ex Scheduler Interface Example
+
+Here is a simple example of using the scheduler interface directly.
+
+\code
+void
+simulate_core(scheduler_t::stream_t *stream)
+{
+    memref_t record;
+    for (scheduler_t::stream_status_t status = stream->next_record(record);
+         status != scheduler_t::STATUS_EOF; status = stream->next_record(record)) {
+        if (status == scheduler_t::STATUS_WAIT || status == scheduler_t::STATUS_IDLE) {
+            std::this_thread::yield();
+            continue;
+        }
+        assert(status == scheduler_t::STATUS_OK);
+        // Process "record" here.
+    }
+}
+
+void
+run_scheduler(const std::string &trace_directory)
+{
+    scheduler_t scheduler;
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    sched_inputs.emplace_back(trace_directory);
+    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                               scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                               scheduler_t::SCHEDULER_DEFAULTS);
+    constexpr int NUM_CORES = 4;
+    if (scheduler.init(sched_inputs, NUM_CORES, std::move(sched_ops)) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    std::vector<std::thread> threads;
+    threads.reserve(NUM_CORES);
+    for (int i = 0; i < NUM_CORES; ++i) {
+        threads.emplace_back(std::thread(&simulate_core, scheduler.get_stream(i)));
+    }
+    for (std::thread &thread : threads)
+        thread.join();
+}
+\endcode
 
 ****************************************************************************
 \page sec_drcachesim_extend Extending the Simulator
@@ -1530,7 +1724,7 @@ to record is specified for each name, using a bar character to
 separate them.  An ampersand separates functions.  Here is an example:
 
 \code
-$ bin64/drrun -t drcachesim -offline -record_function 'fib|1&calloc|2'
+$ bin64/drrun -t drmemtrace -offline -record_function 'fib|1&calloc|2'
 \endcode
 
 Within the trace, each function is identified by a numeric identifier.
@@ -1552,7 +1746,7 @@ name.
 ****************************************************************************
 \page sec_drcachesim_newtool Creating New Analysis Tools
 
-\p drcachesim provides a \p drmemtrace analysis tool framework to make it
+\p drmemtrace provides an analysis tool framework to make it
 easy to create new trace analysis tools.  A new tool should subclass
 #dynamorio::drmemtrace::analysis_tool_t.
 
@@ -1667,9 +1861,9 @@ functions.
 
 \section external_tools Separately-Built Tools
 
-\p drcachesim \p drmemtrace analysis tool framework allows to load
-non-predefined separately-built external tools. This tool can be loaded by drcachesim
-using the \p -simulator_type option.
+The \p drmemtrace analysis tool framework allows loading
+non-predefined separately-built external tools. Such tools can be loaded by \p drmemtrace
+using the \p -tool option.
 
 ## External tool package
 
@@ -1690,12 +1884,12 @@ CREATOR_BIN32=/absolute/path/to/32-bit-creator-library
 CREATOR_BIN64=/absolute/path/to/64-bit-creator-library
 \endcode
 
-This enables \p drcachesim to locate the tool's creator library.  The 32 and
+This enables \p drmemtrace to locate the tool's creator library.  The 32 and
 64 specifiers allow pointing at alternate-bitwidth paths for use if
 the target application creates a child process of a different bitwidth.
 
 For more extensive actions on launching the tool, a custom front-end
-executable can be created that replaces \p drcachesim modeled after histogram_launcher.cpp
+executable can be created that replaces \p drmemtrace modeled after histogram_launcher.cpp
 or opcode_mix_launcher.cpp.
 
 The creator dynamic library should contain 2 export functions:
@@ -1714,58 +1908,19 @@ analysis_tool_create()
 }
 \endcode
 
-which allows \p drcachesim to create an analyis tool.  As an
+which allows \p drmemtrace to create an analyis tool.  As an
 example, see <a
 href="https://github.com/DynamoRIO/dynamorio/blob/master/clients/drcachesim/tools/external/example">
 minimal external analysis tool</a>.
 
-\section sec_drcachesim_sched Scheduler
-
-In addition to the analysis tool framework, which targets running
-multiple tools at once either in parallel across all traced threads or
-in a serial fashion, we provide a scheduler which will map inputs to a
-given set of outputs in a specified manner.  This allows a tool such
-as a core simulator, or just a tool wanting its own control over
-advancing the trace stream (unlike the analysis tool framework where
-the framework controls the iteration), to request the next trace
-record for each output on its own.  This scheduling is also available to any analysis tool
-when the input traces are sharded by core (see the `-core_sharding` option documentation
-under \ref sec_drcachesim_ops as well as \ref sec_drcachesim_newtool).
-
-Here is a simple example of a single-output, serial stream.  This also
-serves as an example of how to replace the now-removed old analysis
-tool framework's "external iterator" interface:
-
-\code
-    scheduler_t scheduler;
-    std::vector<scheduler_t::input_workload_t> sched_inputs;
-    sched_inputs.emplace_back(trace_directory);
-    if (scheduler.init(sched_inputs, 1, scheduler_t::make_scheduler_serial_options()) !=
-        scheduler_t::STATUS_SUCCESS) {
-        FATAL_ERROR("failed to initialize scheduler: %s",
-                    scheduler.get_error_string().c_str());
-    }
-    auto *stream = scheduler.get_stream(0);
-    memref_t record;
-    for (scheduler_t::stream_status_t status = stream->next_record(record);
-         status != scheduler_t::STATUS_EOF; status = stream->next_record(record)) {
-        if (status != scheduler_t::STATUS_OK)
-            FATAL_ERROR("scheduler failed to advance: %d", status);
-        if (!my_tool->process_memref(record)) {
-            FATAL_ERROR("tool failed to process entire trace: %s",
-                        my_tool->get_error_string().c_str());
-        }
-    }
-\endcode
-
 ****************************************************************************
 \page sec_drcachesim_ops Simulator Parameters
 
-\p drcachesim's behavior can be controlled through options passed after the
-\p -c \p drcachesim but prior to the "--" delimiter on the command line:
+\p drmemtrace's behavior can be controlled through options passed after the
+\p -t \p drmemtrace but prior to the "--" delimiter on the command line:
 
 \code
-$ bin64/drrun -t drcachesim <options> <to> <drcachesim> -- /path/to/target/app <args> <for> <app>
+$ bin64/drrun -t drmemtrace <options> <to> <drmemtrace> -- /path/to/target/app <args> <for> <app>
 \endcode
 
 Boolean options can be disabled using a "-no_" prefix.
@@ -1778,7 +1933,7 @@ REPLACEME_WITH_OPTION_LIST
 ****************************************************************************
 \page sec_drcachesim_limit Current Limitations
 
-The \p drcachesim tool is a work in progress.  We welcome contributions in
+The \p drmemtrace framework is a work in progress.  We welcome contributions in
 these areas of missing functionality:
 
 - Multi-process online application simulation on Windows

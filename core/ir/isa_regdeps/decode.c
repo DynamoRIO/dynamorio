@@ -98,6 +98,22 @@ decode_isa_regdeps(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
     for (uint i = 0; i < num_dsts; ++i) {
         reg_id_t dst = (reg_id_t)encoded_instr[i + REGDEPS_OPND_INDEX];
         opnd_t dst_opnd = opnd_create_reg((reg_id_t)dst);
+        /* Virtual registers don't have a fixed size like real ISA registers do.
+         * So, it can happen that the same virtual register in two different
+         * instructions may have different sizes.
+         *
+         * Even though querying the size of a virtual register is not supported on
+         * purpose (a user should query the instr_t.operation_size), we set the
+         * opnd_t.size field to be the same as instr_t.operation_size (i.e.,
+         * max_opnd_size), so that reg_get_size() can return some meaningful
+         * information without triggering a CLIENT_ASSERT error because the
+         * virtual register ID is not supported (e.g., is one of the "reserved"
+         * register IDs).
+         *
+         * We do the same for both src and dst register operands of DR_ISA_REGDEPS
+         * instructions.
+         */
+        opnd_set_size(&dst_opnd, max_opnd_size);
         instr_set_dst(instr, i, dst_opnd);
     }
 
@@ -106,6 +122,7 @@ decode_isa_regdeps(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
     for (uint i = 0; i < num_srcs; ++i) {
         reg_id_t src = (reg_id_t)encoded_instr[i + REGDEPS_OPND_INDEX + num_dsts];
         opnd_t src_opnd = opnd_create_reg((reg_id_t)src);
+        opnd_set_size(&src_opnd, max_opnd_size);
         instr_set_src(instr, i, src_opnd);
     }
 
@@ -126,6 +143,12 @@ decode_isa_regdeps(dcontext_t *dcontext, byte *encoded_instr, instr_t *instr)
     /* Declare the operands to be valid.
      */
     instr_set_operands_valid(instr, true);
+
+    /* Set opcode as OP_UNDECODED, so routines like instr_valid() can still work.
+     * We can't use instr_set_opcode() because of its CLIENT_ASSERT when setting the
+     * opcode to OP_UNDECODED or OP_INVALID.
+     */
+    instr->opcode = OP_UNDECODED;
 
     /* Set decoded instruction ISA mode to be synthetic.
      */

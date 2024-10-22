@@ -50,11 +50,21 @@ public:
     virtual ~prefetcher_t()
     {
     }
+    // prefetch() will be called for all demand accesses, even those that
+    // hit in the cache. The missed parameter indicates whether the
+    // memref.data.addr is already in the cache or not.
     virtual void
-    prefetch(caching_device_t *cache, const memref_t &memref);
+    prefetch(caching_device_t *cache, const memref_t &memref, bool missed);
 
-private:
+protected:
     int block_size_;
+};
+
+class prefetcher_factory_t {
+public:
+    virtual prefetcher_t *
+    create_prefetcher(int block_size) = 0;
+    virtual ~prefetcher_factory_t() = default;
 };
 
 } // namespace drmemtrace

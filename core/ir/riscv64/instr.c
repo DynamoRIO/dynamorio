@@ -43,7 +43,7 @@
 bool
 instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
 {
-    if (mode != DR_ISA_RV64IMAFDC && mode != DR_ISA_REGDEPS)
+    if (mode != DR_ISA_RV64 && mode != DR_ISA_REGDEPS)
         return false;
     instr->isa_mode = mode;
     return true;
@@ -105,6 +105,12 @@ bool
 opc_is_not_a_real_memory_load(int opc)
 {
     return opc == OP_auipc;
+}
+
+bool
+opc_is_not_a_real_memory_store(int opc)
+{
+    return false;
 }
 
 uint
@@ -238,10 +244,8 @@ instr_is_near_ubr(instr_t *instr)
 bool
 instr_is_cti_short(instr_t *instr)
 {
-    /* The branch with smallest reach is direct branch, with range +/- 4 KiB.
-     * We have restricted MAX_FRAGMENT_SIZE on RISCV64 accordingly.
-     */
-    return false;
+    int opc = instr_get_opcode(instr);
+    return (opc == OP_c_beqz || opc == OP_c_bnez);
 }
 
 bool

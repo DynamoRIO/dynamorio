@@ -431,16 +431,21 @@ if (NOT DynamoRIO_INTERNAL)
   endif ()
 
   # if we were built w/ static drsyms, clients need dependent static libs too
-  if (UNIX AND EXISTS "${DynamoRIO_cwd}/../ext/lib${_DR_bits}/${_DR_type}/libdwarf.a")
-    add_library(elf STATIC IMPORTED)
-    set_property(TARGET elf PROPERTY
-      IMPORTED_LOCATION "${DynamoRIO_cwd}/../ext/lib${_DR_bits}/${_DR_type}/libelf.a")
-    add_library(dwarf STATIC IMPORTED)
-    set_property(TARGET dwarf PROPERTY
-      IMPORTED_LOCATION "${DynamoRIO_cwd}/../ext/lib${_DR_bits}/${_DR_type}/libdwarf.a")
-    add_library(elftc STATIC IMPORTED)
-    set_property(TARGET elftc PROPERTY
-      IMPORTED_LOCATION "${DynamoRIO_cwd}/../ext/lib${_DR_bits}/${_DR_type}/libelftc.a")
+  if (UNIX)
+    # i#6909: Handle libelftc separately because libdwarf and libelf are optional.
+    if (EXISTS "${DynamoRIO_cwd}/../ext/lib${_DR_bits}/${_DR_type}/libelftc.a")
+      add_library(elftc STATIC IMPORTED)
+      set_property(TARGET elftc PROPERTY
+        IMPORTED_LOCATION "${DynamoRIO_cwd}/../ext/lib${_DR_bits}/${_DR_type}/libelftc.a")
+    endif()
+    if (EXISTS "${DynamoRIO_cwd}/../ext/lib${_DR_bits}/${_DR_type}/libdwarf.a")
+      add_library(elf STATIC IMPORTED)
+      set_property(TARGET elf PROPERTY
+        IMPORTED_LOCATION "${DynamoRIO_cwd}/../ext/lib${_DR_bits}/${_DR_type}/libelf.a")
+      add_library(dwarf STATIC IMPORTED)
+      set_property(TARGET dwarf PROPERTY
+        IMPORTED_LOCATION "${DynamoRIO_cwd}/../ext/lib${_DR_bits}/${_DR_type}/libdwarf.a")
+    endif ()
   endif ()
   if (WIN32 AND EXISTS "${DynamoRIO_cwd}/../ext/lib${_DR_bits}/${_DR_type}/dwarf.lib")
     add_library(dwarf STATIC IMPORTED)
@@ -1159,6 +1164,9 @@ set(DynamoRIO_EXT_droption_INC ${DynamoRIO_cwd}/../ext/include)
 set(DynamoRIO_EXT_drmemtrace_static_NOLIB ON)
 
 # DynamoRIO Extensions
+# Failure to call this in your client CMakeLists.txt when using an extension like
+# drmgr or drx will result in an obscure "using undefined symbol!" runtime
+# error on Linux.
 function (use_DynamoRIO_extension target extname)
   if (NOT DynamoRIO_INTERNAL)
     # We only support Extensions as imported targets that have already

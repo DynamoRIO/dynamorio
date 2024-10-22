@@ -48,6 +48,7 @@
 #include "memref.h"
 #include "memtrace_stream.h"
 #include "raw2trace_shared.h"
+#include "schedule_file.h"
 #include "trace_entry.h"
 
 namespace dynamorio {
@@ -61,6 +62,28 @@ namespace drmemtrace {
  */
 class record_filter_t : public record_analysis_tool_t {
 public:
+    /**
+     * Interface for the record_filter to share data with its filters.
+     */
+    struct record_filter_info_t {
+        /**
+         * Stores the encoding of an instructions, which may be split among more than one
+         * #trace_entry_t, hence the vector.
+         */
+        std::vector<trace_entry_t> *last_encoding;
+
+        /**
+         * Gives filters access to dcontext_t.
+         * Note that dcontext_t is not entirely thread-safe. AArch32 encoding and
+         * decoding is problematic as the global encode_state_t and decode_state_t are
+         * used for GLOBAL_DCONTEXT. Furthermore, modifying the ISA mode can lead to data
+         * races.
+         */
+        /* xref i#6690 i#1595: multi-dcontext_t solution.
+         */
+        void *dcontext;
+    };
+
     /**
      * The base class for a single filter.
      */
@@ -86,17 +109,20 @@ public:
         /**
          * Invoked for each #trace_entry_t in the shard. It returns
          * whether or not this \p entry should be included in the result
-         * trace. \p shard_data is same as what was returned by
-         * parallel_shard_init(). The given \p entry is included in the result
-         * trace iff all provided #record_filter_func_t return true. The
-         * \p entry parameter can also be modified by the record_filter_func_t.
+         * trace. \p shard_data is same as what was returned by parallel_shard_init().
+         * The given \p entry is included in the result trace iff all provided
+         * #dynamorio::drmemtrace::record_filter_t::record_filter_func_t return true.
+         * The \p entry parameter can also be modified by the record_filter_func_t.
          * The passed \p entry is not guaranteed to be the original one from
          * the trace if other filter tools are present, and may include changes
          * made by other tools.
          * An error is indicated by setting error_string_ to a non-empty value.
+         * \p record_filter_info is the interface used by record_filter to
+         * share data with its filters.
          */
         virtual bool
-        parallel_shard_filter(trace_entry_t &entry, void *shard_data) = 0;
+        parallel_shard_filter(trace_entry_t &entry, void *shard_data,
+                              record_filter_info_t &record_filter_info) = 0;
         /**
          * Invoked when all #trace_entry_t in a shard have been processed
          * by parallel_shard_filter(). \p shard_data is same as what was
@@ -114,6 +140,17 @@ public:
             return error_string_;
         }
 
+        /**
+         * If a filter modifies the file type of a trace, its changes should be made here,
+         * so they are visible to the record_filter even if the #trace_entry_t containing
+         * the file type marker is not modified directly by the filter.
+         */
+        virtual uint64_t
+        update_filetype(uint64_t filetype)
+        {
+            return filetype;
+        }
+
     protected:
         std::string error_string_;
     };
@@ -123,6 +160,8 @@ public:
                     std::vector<std::unique_ptr<record_filter_func_t>> filters,
                     uint64_t stop_timestamp, unsigned int verbose);
     ~record_filter_t() override;
+    std::string
+    initialize_stream(memtrace_stream_t *serial_stream) override;
     bool
     process_memref(const trace_entry_t &entry) override;
     bool
@@ -141,7 +180,23 @@ public:
     std::string
     parallel_shard_error(void *shard_data) override;
 
+    // Automatically called from print_results().
+    // Calls open_serial_schedule_file() and open_cpu_schedule_file() and then
+    // writes out the file contents.
+    std::string
+    write_schedule_files();
+
 protected:
+    struct dcontext_cleanup_last_t {
+    public:
+        ~dcontext_cleanup_last_t()
+        {
+            if (dcontext != nullptr)
+                dr_standalone_exit();
+        }
+        void *dcontext = nullptr;
+    };
+
     // For core-sharded we need to remember encodings for an input that were
     // seen on a different core, as there is no reader_t remembering them for us.
     // XXX i#6635: Is this something the scheduler should help us with?
@@ -188,6 +243,8 @@ protected:
         trace_entry_t last_written_record;
         // Cached value updated on context switches.
         per_input_t *per_input = nullptr;
+        record_filter_info_t record_filter_info;
+        schedule_file_t::per_shard_t sched_info;
     };
 
     virtual std::string
@@ -213,6 +270,8 @@ protected:
     virtual std::string
     get_output_basename(memtrace_stream_t *shard_stream);
 
+    dcontext_cleanup_last_t dcontext_;
+
     std::unordered_map<int, per_shard_t *> shard_map_;
     // This mutex is only needed in parallel_shard_init. In all other accesses
     // to shard_map (print_results) we are single-threaded.
@@ -228,6 +287,10 @@ protected:
     std::string output_ext_;
     uint64_t version_ = 0;
     uint64_t filetype_ = 0;
+    std::unique_ptr<std::ostream> serial_schedule_file_;
+    std::ostream *serial_schedule_ostream_ = nullptr;
+    std::unique_ptr<archive_ostream_t> cpu_schedule_file_;
+    archive_ostream_t *cpu_schedule_ostream_ = nullptr;
 
 private:
     virtual bool
@@ -242,17 +305,28 @@ private:
     virtual std::string
     initialize_shard_output(per_shard_t *per_shard, memtrace_stream_t *shard_stream);
 
+    // Sets serial_schedule_ostream_, optionally using serial_schedule_file_.
+    virtual std::string
+    open_serial_schedule_file();
+
+    // Sets cpu_schedule_ostream_, optionally using cpu_schedule_file_.
+    virtual std::string
+    open_cpu_schedule_file();
+
     bool
     write_trace_entries(per_shard_t *shard, const std::vector<trace_entry_t> &entries);
 
     inline uint64_t
     add_to_filetype(uint64_t filetype)
     {
-        if (stop_timestamp_ != 0) {
+        if (stop_timestamp_ != 0)
             filetype |= OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP;
-        }
-        if (shard_type_ == SHARD_BY_CORE) {
+        if (shard_type_ == SHARD_BY_CORE)
             filetype |= OFFLINE_FILE_TYPE_CORE_SHARDED;
+        /* If filters modify the file type, add their changes here.
+         */
+        for (auto &filter : filters_) {
+            filetype = filter->update_filetype(filetype);
         }
         return filetype;
     }

@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2023 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2024 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2018 Arm Limited          All rights reserved.
 # **********************************************************
@@ -575,7 +575,7 @@ endif (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
 
 # N.B.: When updating this, update all the default versions in ci-package.yml
 # and ci-docs.yml.  We should find a way to share (xref i#1565).
-set(VERSION_NUMBER_DEFAULT "10.0.${VERSION_NUMBER_PATCHLEVEL}")
+set(VERSION_NUMBER_DEFAULT "10.93.${VERSION_NUMBER_PATCHLEVEL}")
 # do not store the default VERSION_NUMBER in the cache to prevent a stale one
 # from preventing future version updates in a pre-existing build dir
 set(VERSION_NUMBER "" CACHE STRING "Version number: leave empty for default")
@@ -630,13 +630,16 @@ endif ()
 
 set(proc_supports_sve OFF)
 set(proc_supports_sve2 OFF)
+set(proc_supports_pauth OFF)
 if (AARCH64 AND UNIX)
   set(CFLAGS_SVE "-march=armv8-a+sve")
   set(CFLAGS_SVE2 "-march=armv8-a+sve2")
+  set(CFLAGS_PAUTH "-march=armv8.3-a -mbranch-protection=standard")
   set(ASMFLAGS_SVE "-march=armv8-a+sve")
   set(ASMFLAGS_SVE2 "-march=armv8-a+sve2")
   check_sve_processor_and_compiler_support(proc_supports_sve proc_sve_vl)
   check_sve2_processor_and_compiler_support(proc_supports_sve2)
+  check_pauth_processor_and_compiler_support(proc_supports_pauth)
 endif ()
 
 # Ensure that _AMD64_ or _X86_ are defined on Microsoft Windows, as otherwise
@@ -1837,7 +1840,8 @@ endfunction ()
 # TODO i#5767: Install an explicit zlib package on our Windows GA CI images
 # (this find_package finds a strawberry perl zlib which causes 32-bit build
 # and 64-bit private loader issues).
-if (WIN32 AND AUTOMATED_TESTING)
+option(DISABLE_ZLIB "Disable looking for and using zlib" OFF)
+if (WIN32 AND NOT DISABLE_ZLIB)
   set(ZLIB_FOUND OFF)
 else ()
   find_package(ZLIB)

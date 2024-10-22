@@ -70,11 +70,13 @@ public:
     // This constructor is used when the cache hierarchy is configured
     // using a set of knobs. It assumes a 2-level cache hierarchy with
     // private L1 data and instruction caches and a shared LLC.
-    cache_simulator_t(const cache_simulator_knobs_t &knobs);
+    cache_simulator_t(const cache_simulator_knobs_t &knobs,
+                      prefetcher_factory_t *custom_prefetcher_factory = nullptr);
 
     // This constructor is used when the arbitrary cache hierarchy is
     // defined in a configuration file.
-    cache_simulator_t(std::istream *config_file);
+    cache_simulator_t(std::istream *config_file,
+                      prefetcher_factory_t *custom_prefetcher_factory = nullptr);
 
     virtual ~cache_simulator_t();
     bool
@@ -111,6 +113,8 @@ protected:
     // Create a cache_t object with a specific replacement policy.
     virtual cache_t *
     create_cache(const std::string &name, const std::string &policy);
+    prefetcher_t *
+    get_prefetcher(std::string prefetcher_name);
 
     cache_simulator_knobs_t knobs_;
 
@@ -131,6 +135,9 @@ protected:
 
     // Snoop filter tracks ownership of cache lines across private caches.
     snoop_filter_t *snoop_filter_ = nullptr;
+
+    // Used to get prefetcher instances if the dataprefetcher knob is "custom".
+    prefetcher_factory_t *custom_prefetcher_factory_ = nullptr;
 
 private:
     bool is_warmed_up_;

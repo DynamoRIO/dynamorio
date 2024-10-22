@@ -51,6 +51,7 @@
 #include "dr_api.h"
 #include "memref.h"
 #include "memtrace_stream.h"
+#include "schedule_file.h"
 #include "trace_entry.h"
 
 namespace dynamorio {
@@ -216,8 +217,7 @@ protected:
         uint64_t instr_count_ = 0;
         uint64_t last_timestamp_ = 0;
         uint64_t instr_count_since_last_timestamp_ = 0;
-        std::vector<schedule_entry_t> sched_;
-        std::unordered_map<uint64_t, std::vector<schedule_entry_t>> cpu2sched_;
+        schedule_file_t::per_shard_t sched_data_;
         bool skipped_instrs_ = false;
         // Rseq region state.
         bool in_rseq_region_ = false;
@@ -258,6 +258,11 @@ protected:
                                const per_shard_t::instr_info_t &cur_memref_info,
                                bool expect_encoding, bool at_kernel_event);
 
+    // Check for invariant violations related to OFFLINE_FILE_TYPE_ARCH_REGDEPS traces.
+    // Checks both instructions and markers.
+    void
+    check_regdeps_invariants(per_shard_t *shard, const memref_t &memref);
+
 #ifdef X86
     // Whether the expected write entry count check should be relaxed for the kernel
     // part of the trace.
@@ -272,9 +277,11 @@ protected:
 
     void *drcontext_ = dr_standalone_init();
     std::unordered_map<int, std::unique_ptr<per_shard_t>> shard_map_;
-    // This mutex is only needed in parallel_shard_init.  In all other accesses to
-    // shard_map (process_memref, print_results) we are single-threaded.
-    std::mutex shard_map_mutex_;
+    // This mutex is only needed in parallel_shard_init to initialize shard_map_ with
+    // per_shard_t data and set dcontext_t.isa_mode, which is a global resource.
+    // In all other accesses to shard_map_ (process_memref, print_results) we are
+    // single-threaded.
+    std::mutex init_mutex_;
 
     bool knob_offline_;
     unsigned int knob_verbose_;

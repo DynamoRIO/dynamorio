@@ -122,6 +122,24 @@ get_cache_line_size(DR_PARAM_OUT size_t *dcache_line_size,
     return false;
 }
 
+static void
+get_processor_specific_info(void)
+{
+#ifndef DR_HOST_NOT_TARGET
+    if (proc_has_feature(FEATURE_VECTOR)) {
+        uint64 vlenb = 0;
+        __asm__ __volatile__("csrr %0, 0xc22\n" : "=r"(vlenb));
+        cpu_info.vlenb = vlenb;
+        dr_set_vector_length(vlenb * 8);
+    } else {
+        cpu_info.vlenb = 32;
+        dr_set_vector_length(256);
+    }
+#else
+    dr_set_vector_length(256);
+#endif
+}
+
 void
 proc_init_arch(void)
 {
@@ -136,14 +154,20 @@ proc_init_arch(void)
                              /* icache_line_size= */ NULL)) {
         LOG(GLOBAL, LOG_TOP, 1, "Unable to obtain cache line size");
     }
+
+#ifndef DR_HOST_NOT_TARGET
+    get_processor_specific_info();
+#endif
 }
 
 bool
-proc_has_feature(feature_bit_t f)
+proc_has_feature(feature_bit_t feature_bit)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+#ifdef DR_HOST_NOT_TARGET
     return false;
+#else
+    return *cpu_info.features.isa_features & (1 << feature_bit);
+#endif
 }
 
 void

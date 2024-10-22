@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -347,10 +347,13 @@ public:
      * @param pt2ir_config The configuration of PT raw trace.
      * @param verbosity  The verbosity level for notifications. If set to 0, only error
      * logs are printed. If set to 1, all logs are printed. Default value is 0.
+     * @param allow_non_fatal_decode_errors Whether PT decode errors that are not
+     * fatal to the syscall PT trace's conversion are simply skipped past.
      * @return true if the instance is successfully initialized.
      */
     bool
-    init(DR_PARAM_IN pt2ir_config_t &pt2ir_config, DR_PARAM_IN int verbosity = 0);
+    init(DR_PARAM_IN pt2ir_config_t &pt2ir_config, DR_PARAM_IN int verbosity = 0,
+         DR_PARAM_IN bool allow_non_fatal_decode_errors = false);
 
     /**
      * The convert function performs two processes: (1) decode the PT raw trace into
@@ -359,13 +362,19 @@ public:
      * @param pt_data The PT raw trace.
      * @param pt_data_size The size of PT raw trace.
      * @param drir The drir object.
+     * @param non_fatal_decode_error_count_out Pointer to the integer where the count
+     * of non-fatal decode errors seen during conversion will be stored. Used only if
+     * allow_non_fatal_decode_errors was set to true in the init call. This is set
+     * only if we were still able to generate a converted trace, albeit with some
+     * PC discontinuities.
      * @return pt2ir_convert_status_t. If the conversion is successful, the function
      * returns #PT2IR_CONV_SUCCESS. Otherwise, the function returns the corresponding
      * error code.
      */
     pt2ir_convert_status_t
     convert(DR_PARAM_IN const uint8_t *pt_data, DR_PARAM_IN size_t pt_data_size,
-            DR_PARAM_INOUT drir_t *drir);
+            DR_PARAM_INOUT drir_t *drir,
+            DR_PARAM_OUT uint64_t *non_fatal_decode_error_count_out = nullptr);
 
 private:
     /* Diagnose converting errors and output diagnostic results.
@@ -405,6 +414,9 @@ private:
 
     /* Integer value representing the verbosity level for notifications. */
     int verbosity_;
+
+    /* Whether non-fatal errors are allowed during PT trace decode. */
+    bool allow_non_fatal_decode_errors_;
 };
 
 } // namespace drmemtrace

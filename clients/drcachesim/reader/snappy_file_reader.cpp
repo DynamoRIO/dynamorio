@@ -208,7 +208,7 @@ snappy_reader_t::read(size_t size, DR_PARAM_OUT void *to)
 /* clang-format off */ /* (make vera++ newline-after-type check happy) */
 template <>
 /* clang-format on */
-file_reader_t<snappy_reader_t>::~file_reader_t<snappy_reader_t>()
+file_reader_t<snappy_reader_t>::~file_reader_t()
 {
     // Empty.
 }

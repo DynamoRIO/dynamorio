@@ -35,12 +35,13 @@
 #ifndef _OPTIONS_H_
 #define _OPTIONS_H_ 1
 
-// Tool names (for -simulator_type option).
-// TODO i#6660: When we add "-tool", add "cache_simulator" or "drcachesim"
-// instead of just "-tool cache".  Ditto for "TLB".
-#define CPU_CACHE "cache"
+// Tool names (for -tool option).
+#define CPU_CACHE_LEGACY "cache"
+#define CPU_CACHE "cache_simulator"
+#define CPU_CACHE_ALT "drcachesim"
 #define MISS_ANALYZER "miss_analyzer"
-#define TLB "TLB"
+#define TLB_LEGACY "TLB"
+#define TLB "TLB_simulator"
 #define HISTOGRAM "histogram"
 #define REUSE_DIST "reuse_distance"
 #define REUSE_TIME "reuse_time"
@@ -61,6 +62,7 @@
 #define REPLACE_POLICY_FIFO "FIFO"
 #define PREFETCH_POLICY_NEXTLINE "nextline"
 #define PREFETCH_POLICY_NONE "none"
+#define PREFETCH_POLICY_CUSTOM "custom"
 #define CACHE_TYPE_INSTRUCTION "instruction"
 #define CACHE_TYPE_DATA "data"
 #define CACHE_TYPE_UNIFIED "unified"
@@ -120,6 +122,7 @@ extern dynamorio::droption::droption_t<bool> op_instr_only_trace;
 extern dynamorio::droption::droption_t<bool> op_coherence;
 extern dynamorio::droption::droption_t<bool> op_use_physical;
 extern dynamorio::droption::droption_t<unsigned int> op_virt2phys_freq;
+extern dynamorio::droption::droption_t<std::string> op_v2p_file;
 extern dynamorio::droption::droption_t<bool> op_cpu_scheduling;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t> op_max_trace_size;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t>
@@ -131,6 +134,7 @@ extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t>
     op_trace_for_instrs;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t>
     op_retrace_every_instrs;
+extern dynamorio::droption::droption_t<std::string> op_trace_instr_intervals_file;
 extern dynamorio::droption::droption_t<bool> op_split_windows;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t>
     op_exit_after_tracing;
@@ -147,7 +151,7 @@ extern dynamorio::droption::droption_t<unsigned int> op_TLB_L1D_assoc;
 extern dynamorio::droption::droption_t<unsigned int> op_TLB_L2_entries;
 extern dynamorio::droption::droption_t<unsigned int> op_TLB_L2_assoc;
 extern dynamorio::droption::droption_t<std::string> op_TLB_replace_policy;
-extern dynamorio::droption::droption_t<std::string> op_simulator_type;
+extern dynamorio::droption::droption_t<std::string> op_tool;
 extern dynamorio::droption::droption_t<unsigned int> op_verbose;
 extern dynamorio::droption::droption_t<bool> op_show_func_trace;
 extern dynamorio::droption::droption_t<int> op_jobs;
@@ -165,8 +169,11 @@ extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t>
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t>
     op_interval_instr_count;
 extern dynamorio::droption::droption_t<int> op_only_thread;
+extern dynamorio::droption::droption_t<std::string> op_only_threads;
+extern dynamorio::droption::droption_t<std::string> op_only_shards;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t> op_skip_instrs;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t> op_skip_refs;
+extern dynamorio::droption::droption_t<uint64_t> op_skip_to_timestamp;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t> op_warmup_refs;
 extern dynamorio::droption::droption_t<double> op_warmup_fraction;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t> op_sim_refs;
@@ -191,6 +198,8 @@ extern dynamorio::droption::droption_t<double> op_confidence_threshold;
 extern dynamorio::droption::droption_t<bool> op_enable_drstatecmp;
 #ifdef BUILD_PT_TRACER
 extern dynamorio::droption::droption_t<bool> op_enable_kernel_tracing;
+extern dynamorio::droption::droption_t<bool> op_skip_kcore_dump;
+extern dynamorio::droption::droption_t<int> op_kernel_trace_buffer_size_shift;
 #endif
 extern dynamorio::droption::droption_t<bool> op_core_sharded;
 extern dynamorio::droption::droption_t<bool> op_core_serial;
@@ -209,15 +218,24 @@ extern dynamorio::droption::droption_t<std::string> op_cpu_schedule_file;
 extern dynamorio::droption::droption_t<std::string> op_sched_switch_file;
 extern dynamorio::droption::droption_t<bool> op_sched_randomize;
 extern dynamorio::droption::droption_t<bool> op_sched_disable_direct_switches;
+extern dynamorio::droption::droption_t<bool> op_sched_infinite_timeouts;
+extern dynamorio::droption::droption_t<uint64_t> op_sched_migration_threshold_us;
+extern dynamorio::droption::droption_t<uint64_t> op_sched_rebalance_period_us;
+extern dynamorio::droption::droption_t<double> op_sched_time_units_per_us;
+extern dynamorio::droption::droption_t<double> op_sched_exit_if_fraction_inputs_left;
 extern dynamorio::droption::droption_t<uint64_t> op_schedule_stats_print_every;
 extern dynamorio::droption::droption_t<std::string> op_syscall_template_file;
 extern dynamorio::droption::droption_t<uint64_t> op_filter_stop_timestamp;
 extern dynamorio::droption::droption_t<int> op_filter_cache_size;
 extern dynamorio::droption::droption_t<std::string> op_filter_trace_types;
 extern dynamorio::droption::droption_t<std::string> op_filter_marker_types;
+extern dynamorio::droption::droption_t<bool> op_encodings2regdeps;
+extern dynamorio::droption::droption_t<std::string> op_filter_func_ids;
+extern dynamorio::droption::droption_t<std::string> op_modify_marker_value;
 extern dynamorio::droption::droption_t<uint64_t> op_trim_before_timestamp;
 extern dynamorio::droption::droption_t<uint64_t> op_trim_after_timestamp;
 extern dynamorio::droption::droption_t<bool> op_abort_on_invariant_error;
+extern dynamorio::droption::droption_t<bool> op_pt2ir_best_effort;
 
 } // namespace drmemtrace
 } // namespace dynamorio

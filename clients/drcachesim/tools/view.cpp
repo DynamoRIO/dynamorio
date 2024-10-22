@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -97,6 +97,30 @@ view_t::initialize_stream(memtrace_stream_t *serial_stream)
     serial_stream_ = serial_stream;
     print_header();
     dcontext_.dcontext = dr_standalone_init();
+
+    dr_disasm_flags_t flags = IF_X86_ELSE(
+        DR_DISASM_ATT,
+        IF_AARCH64_ELSE(DR_DISASM_DR, IF_RISCV64_ELSE(DR_DISASM_RISCV, DR_DISASM_ARM)));
+    if (knob_syntax_ == "intel") {
+        flags = DR_DISASM_INTEL;
+    } else if (knob_syntax_ == "dr") {
+        flags = DR_DISASM_DR;
+    } else if (knob_syntax_ == "arm") {
+        flags = DR_DISASM_ARM;
+    } else if (knob_syntax_ == "riscv") {
+        flags = DR_DISASM_RISCV;
+    }
+    disassemble_set_syntax(flags);
+
+    // Get the filetype up front if available.
+    // We leave setting and processing filetype_ to when we see the marker.
+    if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, serial_stream->get_filetype())) {
+        // We do not need to try to find and load the binaries, so don't (as trying
+        // can result in errors if those are not present or have changed).
+        has_modules_ = false;
+        return "";
+    }
+
     if (module_file_path_.empty()) {
         has_modules_ = false;
     } else {
@@ -118,19 +142,6 @@ view_t::initialize_stream(memtrace_stream_t *serial_stream)
     std::string error = module_mapper_->get_last_error();
     if (!error.empty())
         return "Failed to load binaries: " + error;
-    dr_disasm_flags_t flags = IF_X86_ELSE(
-        DR_DISASM_ATT,
-        IF_AARCH64_ELSE(DR_DISASM_DR, IF_RISCV64_ELSE(DR_DISASM_RISCV, DR_DISASM_ARM)));
-    if (knob_syntax_ == "intel") {
-        flags = DR_DISASM_INTEL;
-    } else if (knob_syntax_ == "dr") {
-        flags = DR_DISASM_DR;
-    } else if (knob_syntax_ == "arm") {
-        flags = DR_DISASM_ARM;
-    } else if (knob_syntax_ == "riscv") {
-        flags = DR_DISASM_RISCV;
-    }
-    disassemble_set_syntax(flags);
     return "";
 }
 
@@ -217,13 +228,29 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
                 return false;
             }
             filetype_record_ord_ = memstream->get_record_ordinal();
-            if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL, memref.marker.marker_value) &&
+            /* We remove OFFLINE_FILE_TYPE_ARCH_REGDEPS from this check since
+             * DR_ISA_REGDEPS is not a real ISA and can coexist with any real
+             * architecture.
+             */
+            if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL & ~OFFLINE_FILE_TYPE_ARCH_REGDEPS,
+                        memref.marker.marker_value) &&
                 !TESTANY(build_target_arch_type(), memref.marker.marker_value)) {
                 error_string_ = std::string("Architecture mismatch: trace recorded on ") +
                     trace_arch_string(static_cast<offline_file_type_t>(
                         memref.marker.marker_value)) +
                     " but tool built for " + trace_arch_string(build_target_arch_type());
                 return false;
+            }
+            /* Set dcontext ISA mode to DR_ISA_REGDEPS if trace file type has
+             * OFFLINE_FILE_TYPE_ARCH_REGDEPS set. We need this to correctly
+             * disassemble DR_ISA_REGDEPS instructions.
+             */
+            if (TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, filetype_)) {
+                dr_set_isa_mode(dcontext_.dcontext, DR_ISA_REGDEPS, nullptr);
+                // Ignore the requested syntax: we only support DR style.
+                // XXX i#6942: Should we return an error if the users asks for
+                // another syntax?  Should DR's libraries return an error?
+                disassemble_set_syntax(DR_DISASM_DR);
             }
             return true; // Do not count toward -sim_refs yet b/c we don't have tid.
         case TRACE_MARKER_TYPE_TIMESTAMP:
@@ -316,8 +343,13 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             // see a cpuid marker on a thread switch.  To avoid that assumption
             // we would want to track the prior tid and print out a thread switch
             // message whenever it changes.
-            std::cerr << "<marker: tid " << memref.marker.tid << " on core "
-                      << memref.marker.marker_value << ">\n";
+            if (memref.marker.marker_value == INVALID_CPU_MARKER_VALUE) {
+                std::cerr << "<marker: tid " << memref.marker.tid
+                          << " on core unknown>\n";
+            } else {
+                std::cerr << "<marker: tid " << memref.marker.tid << " on core "
+                          << memref.marker.marker_value << ">\n";
+            }
             break;
         case TRACE_MARKER_TYPE_KERNEL_EVENT:
             if (trace_version_ <= TRACE_ENTRY_VERSION_NO_KERNEL_PC) {
@@ -329,6 +361,10 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
                           << memref.marker.marker_value << std::dec << " to handler>\n";
             }
             break;
+        // TODO: handle this case in trace_marker_type_value_as_string().
+        case TRACE_MARKER_TYPE_SIGNAL_NUMBER:
+            std::cerr << "<marker: signal #" << memref.marker.marker_value << ">\n";
+            break;
         case TRACE_MARKER_TYPE_KERNEL_XFER:
             if (trace_version_ <= TRACE_ENTRY_VERSION_NO_KERNEL_PC) {
                 // Legacy traces just have the module offset.
@@ -339,10 +375,19 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
                           << memref.marker.marker_value << std::dec << ">\n";
             }
             break;
-        case TRACE_MARKER_TYPE_SPLIT_VALUE:
-        case TRACE_MARKER_TYPE_SYSCALL_IDX:
-            std::cerr << "<marker: type " << memref.marker.marker_type << "; value "
-                      << memref.marker.marker_value << ">\n";
+        // TODO: handle this case in trace_marker_type_value_as_string().
+        case TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE:
+            std::cerr << "<marker: current thread going unscheduled>\n";
+            break;
+        // TODO: handle this case in trace_marker_type_value_as_string().
+        case TRACE_MARKER_TYPE_SYSCALL_SCHEDULE:
+            std::cerr << "<marker: re-schedule thread " << memref.marker.marker_value
+                      << ">\n";
+            break;
+        // TODO: handle this case in trace_marker_type_value_as_string().
+        case TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT:
+            std::cerr << "<marker: syscall timeout arg " << memref.marker.marker_value
+                      << ">\n";
             break;
         default:
             /* The previous cases have state and require extra processing.  Here we print

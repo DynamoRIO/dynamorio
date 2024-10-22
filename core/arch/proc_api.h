@@ -166,38 +166,41 @@ typedef struct {
  * document both defines, for X86 and for AARCHXX. See also i#5496.
  */
 #ifdef AARCHXX
+
 /**
- * For AArch64 this struct holds features registers' values read by MRS instructions.
- * Used by proc_get_all_feature_bits().
+ * For AArch64 this enum represents the feature registers read by MRS
+ * instructions. Used by proc_has_feature().
+ */
+typedef enum {
+    AA64ISAR0,         /**< AArch64 Instruction Set Attribute Register 0. */
+    AA64ISAR1,         /**< AArch64 Instruction Set Attribute Register 1. */
+    AA64PFR0,          /**< AArch64 Processor Feature Register 0. */
+    AA64MMFR1,         /**< AArch64 Memory Model Feature Register 1. */
+    AA64DFR0,          /**< AArch64 Debug Feature Register 0. */
+    AA64ZFR0,          /**< SVE Feature ID Register 0. */
+    AA64PFR1,          /**< AArch64 Processor Feature Register 1. */
+    AA64ISAR2,         /**< AArch64 Instruction Set Attribute Register 2. */
+    AA64MMFR2,         /**< AArch64 Memory Model Feature Register 2. */
+    AA64_NUM_FEAT_REGS /**< Number of feature registers. */
+} feature_reg_idx_t;
+
+/**
+ * For AArch64 this struct contains an array of ints which cache the values of AArch64
+ * attribute registers.
  */
 typedef struct {
-    uint64 flags_aa64isar0; /**< AArch64 feature flags stored in ID_AA64ISAR0_EL1 */
-    uint64 flags_aa64isar1; /**< AArch64 feature flags stored in ID_AA64ISAR1_EL1 */
-    uint64 flags_aa64pfr0;  /**< AArch64 feature flags stored in ID_AA64PFR0_EL1 */
-    uint64 flags_aa64mmfr1; /**< AArch64 feature flags stored in ID_AA64MMFR1_EL1 */
-    uint64 flags_aa64dfr0;  /**< AArch64 feature flags stored in ID_AA64DFR0_EL1 */
-    uint64 flags_aa64zfr0;  /**< AArch64 feature flags stored in ID_AA64ZFR0_EL1 */
-    uint64 flags_aa64pfr1;  /**< AArch64 feature flags stored in ID_AA64PFR1_EL1 */
+    /** Array of ints representing attribute registers. */
+    uint64 isa_features[AA64_NUM_FEAT_REGS];
 } features_t;
-typedef enum {
-    AA64ISAR0 = 0,
-    AA64ISAR1 = 1,
-    AA64PFR0 = 2,
-    AA64MMFR1 = 3,
-    AA64DFR0 = 4,
-    AA64ZFR0 = 5,
-    AA64PFR1 = 6,
-} feature_reg_idx_t;
+
 #endif
 #ifdef RISCV64
-/* FIXME i#3544: Not implemented */
 /**
- * For RISC-V64 there are no features readable from userspace. Hence only a
- * dummy flag is there. May be replaced by actual feature flags in the future.
- * Used by proc_get_all_feature_bits().
+ * For RISC-V64 there are no features readable from userspace, so we mimic this ourselves,
+ * see signal_arch_init().  Used by proc_get_all_feature_bits().
  */
 typedef struct {
-    uint64 dummy; /**< Dummy member to keep size non-0. */
+    uint64 isa_features[1];
 } features_t;
 #endif
 
@@ -312,66 +315,116 @@ typedef enum {
  * - The values can range from 0 to 15. In most cases 0 means a feature is not
  *   supported at all but in some cases 15 means a feature is not supported at
  *   all, NSFLAG.
- * The helper macro below packs feature data into 16 bits (ushort).
+ * - If FEAT_EQ is set then the nibble value should match exactly, otherwise reg
+ *   values greater than or equal to the feature nibble are considered a match. The helper
+ *   macro below packs feature data into 16 bits (ushort).
+ *
+ * Bit 15: Set if a nibble value of 15 indicates feature not set.
+ * Bit 14: Exact match flag.
+ * Bits 8-13: Register ID in feature_reg_idx_t.
+ * Bits 4-7: Nibble index in register.
+ * Bits 0-3: Value to check for.
  */
-#    define DEF_FEAT(FREG, NIBPOS, FVAL, NSFLAG) \
-        ((ushort)((NSFLAG << 15) | (FREG << 8) | (NIBPOS << 4) | FVAL))
+#    define DEF_FEAT(FREG, NIBPOS, FVAL, flags) \
+        ((ushort)((flags) | (FREG << 8) | (NIBPOS << 4) | FVAL))
+#    define FEAT_NS (1 << 15)
+#    define FEAT_EQ (1 << 14)
+#    define FEAT_GR_EQ 0
 /**
- * Feature bits returned by cpuid for X86 and mrs for AArch64. Pass one of
- * these values to proc_has_feature() to determine whether the underlying
- * processor has the feature.
+ * Feature bits returned by mrs for AArch64. Pass one of these values to
+ * proc_has_feature() to determine whether the underlying processor has the feature.
  */
 typedef enum {
-    /* Feature values returned in ID_AA64ISAR0_EL1 Instruction Set Attribute
-     * Register 0
-     */
-    FEATURE_AESX = DEF_FEAT(AA64ISAR0, 1, 1, 0),     /**< AES<x> (AArch64) */
-    FEATURE_PMULL = DEF_FEAT(AA64ISAR0, 1, 2, 0),    /**< PMULL/PMULL2 (AArch64) */
-    FEATURE_SHA1 = DEF_FEAT(AA64ISAR0, 2, 1, 0),     /**< SHA1<x> (AArch64) */
-    FEATURE_SHA256 = DEF_FEAT(AA64ISAR0, 3, 1, 0),   /**< SHA256<x> (AArch64) */
-    FEATURE_SHA512 = DEF_FEAT(AA64ISAR0, 3, 2, 0),   /**< SHA512<x> (AArch64) */
-    FEATURE_CRC32 = DEF_FEAT(AA64ISAR0, 4, 1, 0),    /**< CRC32<x> (AArch64) */
-    FEATURE_LSE = DEF_FEAT(AA64ISAR0, 5, 2, 0),      /**< Atomic instructions (AArch64) */
-    FEATURE_RDM = DEF_FEAT(AA64ISAR0, 7, 1, 0),      /**< SQRDMLAH,SQRDMLSH (AArch64) */
-    FEATURE_SHA3 = DEF_FEAT(AA64ISAR0, 8, 1, 0),     /**< EOR3,RAX1,XAR,BCAX (AArch64) */
-    FEATURE_SM3 = DEF_FEAT(AA64ISAR0, 9, 1, 0),      /**< SM3<x> (AArch64) */
-    FEATURE_SM4 = DEF_FEAT(AA64ISAR0, 10, 1, 0),     /**< SM4E, SM4EKEY (AArch64) */
-    FEATURE_DotProd = DEF_FEAT(AA64ISAR0, 11, 1, 0), /**< UDOT, SDOT (AArch64) */
-    FEATURE_FHM = DEF_FEAT(AA64ISAR0, 12, 1, 0),     /**< FMLAL, FMLSL (AArch64) */
-    FEATURE_FlagM = DEF_FEAT(AA64ISAR0, 13, 1, 0),   /**< CFINV,RMIF,SETF<x> (AArch64) */
-    FEATURE_FlagM2 = DEF_FEAT(AA64ISAR0, 13, 2, 0),  /**< AXFLAG, XAFLAG (AArch64) */
-    FEATURE_RNG = DEF_FEAT(AA64ISAR0, 15, 1, 0),     /**< RNDR, RNDRRS (AArch64) */
-    FEATURE_DPB = DEF_FEAT(AA64ISAR1, 0, 1, 0),      /**< DC CVAP (AArch64) */
-    FEATURE_DPB2 = DEF_FEAT(AA64ISAR1, 0, 2, 0),     /**< DC CVAP, DC CVADP (AArch64) */
-    FEATURE_JSCVT = DEF_FEAT(AA64ISAR1, 3, 1, 0),    /**< FJCVTZS (AArch64) */
-    FEATURE_FP16 = DEF_FEAT(AA64PFR0, 4, 1, 1),      /**< Half-precision FP (AArch64) */
-    FEATURE_RAS = DEF_FEAT(AA64PFR0, 7, 1, 0),       /**< RAS extension (AArch64) */
-    FEATURE_SVE = DEF_FEAT(AA64PFR0, 8, 1, 0),       /**< Scalable Vectors (AArch64) */
-    FEATURE_LOR = DEF_FEAT(AA64MMFR1, 4, 1, 0),    /**< Limited order regions (AArch64) */
-    FEATURE_SPE = DEF_FEAT(AA64DFR0, 8, 1, 0),     /**< Profiling extension (AArch64) */
-    FEATURE_PAUTH = DEF_FEAT(AA64ISAR1, 2, 1, 0),  /**< PAuth extension (AArch64) */
-    FEATURE_LRCPC = DEF_FEAT(AA64ISAR1, 5, 1, 0),  /**< LDAPR, LDAPRB, LDAPRH (AArch64) */
-    FEATURE_LRCPC2 = DEF_FEAT(AA64ISAR1, 5, 2, 0), /**< LDAPUR*, STLUR* (AArch64) */
-    FEATURE_BF16 = DEF_FEAT(AA64ZFR0, 5, 1, 0),    /**< SVE BFloat16 */
-    FEATURE_I8MM = DEF_FEAT(AA64ZFR0, 11, 1, 0),   /**< SVE Int8 matrix multiplication */
-    FEATURE_F64MM = DEF_FEAT(AA64ZFR0, 14, 1, 0),  /**< SVE FP64 matrix multiplication */
-    FEATURE_SVE2 = DEF_FEAT(AA64ZFR0, 0, 1, 0),    /**< Scalable vectors 2 (AArch64) */
-    FEATURE_SVEAES = DEF_FEAT(AA64ZFR0, 1, 1, 0),  /**< SVE2 + AES(AArch64) */
-    FEATURE_SVESHA3 = DEF_FEAT(AA64ZFR0, 8, 1, 0), /**< SVE2 + SHA3(AArch64) */
-    FEATURE_SVESM4 = DEF_FEAT(AA64ZFR0, 10, 1, 0), /**< SVE2 + SM4(AArch64) */
-    FEATURE_SVEBitPerm = DEF_FEAT(AA64ZFR0, 4, 1, 0), /**< SVE2 + BitPerm(AArch64) */
-    FEATURE_MTE = DEF_FEAT(AA64PFR1, 2, 1, 0),        /**< Memory Tagging Extension */
-    FEATURE_BTI = DEF_FEAT(AA64PFR1, 0, 1, 0),        /**< Branch Target Identification*/
+    /*                      Register NibblePos FeatVal Flags */
+    FEATURE_AESX = DEF_FEAT(AA64ISAR0, 1, 1, FEAT_GR_EQ),   /**< AES<x> (AArch64) */
+    FEATURE_PMULL = DEF_FEAT(AA64ISAR0, 1, 2, FEAT_EQ),     /**< PMULL/PMULL2 (AArch64) */
+    FEATURE_SHA1 = DEF_FEAT(AA64ISAR0, 2, 1, FEAT_EQ),      /**< SHA1<x> (AArch64) */
+    FEATURE_SHA256 = DEF_FEAT(AA64ISAR0, 3, 1, FEAT_GR_EQ), /**< SHA256<x> (AArch64) */
+    FEATURE_SHA512 = DEF_FEAT(AA64ISAR0, 3, 2, FEAT_EQ),    /**< SHA512<x> (AArch64) */
+    FEATURE_CRC32 = DEF_FEAT(AA64ISAR0, 4, 1, FEAT_EQ),     /**< CRC32<x> (AArch64) */
+    FEATURE_LSE = DEF_FEAT(AA64ISAR0, 5, 1, FEAT_GR_EQ),    /**< Atomics (AArch64) */
+    FEATURE_RDM = DEF_FEAT(AA64ISAR0, 7, 1, FEAT_EQ), /**< SQRDMLAH,SQRDMLSH (AArch64) */
+    FEATURE_SHA3 =
+        DEF_FEAT(AA64ISAR0, 8, 1, FEAT_EQ),           /**< EOR3,RAX1,XAR,BCAX (AArch64) */
+    FEATURE_SM3 = DEF_FEAT(AA64ISAR0, 9, 1, FEAT_EQ), /**< SM3<x> (AArch64) */
+    FEATURE_SM4 = DEF_FEAT(AA64ISAR0, 10, 1, FEAT_EQ),     /**< SM4E, SM4EKEY (AArch64) */
+    FEATURE_DotProd = DEF_FEAT(AA64ISAR0, 11, 1, FEAT_EQ), /**< UDOT, SDOT (AArch64) */
+    FEATURE_FHM = DEF_FEAT(AA64ISAR0, 12, 1, FEAT_EQ),     /**< FMLAL, FMLSL (AArch64) */
+    FEATURE_FlagM =
+        DEF_FEAT(AA64ISAR0, 13, 1, FEAT_GR_EQ), /**< CFINV,RMIF,SETF<x> (AArch64) */
+    FEATURE_FlagM2 = DEF_FEAT(AA64ISAR0, 13, 2, FEAT_EQ), /**< AXFLAG, XAFLAG (AArch64) */
+    FEATURE_RNG = DEF_FEAT(AA64ISAR0, 15, 1, FEAT_EQ),    /**< RNDR, RNDRRS (AArch64) */
+    FEATURE_DPB = DEF_FEAT(AA64ISAR1, 0, 1, FEAT_GR_EQ),  /**< DC CVAP (AArch64) */
+    FEATURE_DPB2 = DEF_FEAT(AA64ISAR1, 0, 2, FEAT_EQ), /**< DC CVAP, DC CVADP (AArch64) */
+    FEATURE_JSCVT = DEF_FEAT(AA64ISAR1, 3, 1, FEAT_EQ), /**< FJCVTZS (AArch64) */
+    FEATURE_FP16 = DEF_FEAT(AA64PFR0, 4, 1, FEAT_NS), /**< Half-precision FP (AArch64) */
+    FEATURE_RAS = DEF_FEAT(AA64PFR0, 7, 1, FEAT_GR_EQ), /**< RAS extension (AArch64) */
+    FEATURE_SVE = DEF_FEAT(AA64PFR0, 8, 1, FEAT_EQ),    /**< Scalable Vectors (AArch64) */
+    FEATURE_LOR =
+        DEF_FEAT(AA64MMFR1, 4, 1, FEAT_EQ), /**< Limited order regions (AArch64) */
+    FEATURE_SPE =
+        DEF_FEAT(AA64DFR0, 8, 1, FEAT_GR_EQ), /**< Profiling extension (AArch64) */
+    FEATURE_PAUTH =
+        DEF_FEAT(AA64ISAR1, 2, 1, FEAT_GR_EQ), /**< PAuth extension (AArch64) */
+    FEATURE_LRCPC =
+        DEF_FEAT(AA64ISAR1, 5, 1, FEAT_GR_EQ), /**< LDAPR, LDAPRB, LDAPRH (AArch64) */
+    FEATURE_LRCPC2 =
+        DEF_FEAT(AA64ISAR1, 5, 2, FEAT_GR_EQ), /**< LDAPUR*, STLUR* (AArch64) */
+    FEATURE_FRINTTS =
+        DEF_FEAT(AA64ISAR1, 8, 1, FEAT_EQ), /**< FRINT(32/64)(X/Z) (AArch64) */
+    FEATURE_BF16 = DEF_FEAT(AA64ZFR0, 5, 1, FEAT_GR_EQ), /**< SVE BFloat16 (AArch64) */
+    FEATURE_I8MM = DEF_FEAT(AA64ZFR0, 11, 1,
+                            FEAT_EQ), /**< SVE Int8 matrix multiplication (AArch64) */
+    FEATURE_F64MM = DEF_FEAT(AA64ZFR0, 14, 1,
+                             FEAT_EQ), /**< SVE FP64 matrix multiplication (AArch64) */
+    FEATURE_SVE2 =
+        DEF_FEAT(AA64ZFR0, 0, 1, FEAT_GR_EQ), /**< Scalable vectors 2 (AArch64) */
+    FEATURE_SVEAES = DEF_FEAT(AA64ZFR0, 1, 1, FEAT_GR_EQ), /**< SVE2 + AES (AArch64) */
+    FEATURE_SVESHA3 = DEF_FEAT(AA64ZFR0, 8, 1, FEAT_EQ),   /**< SVE2 + SHA3 (AArch64) */
+    FEATURE_SVESM4 = DEF_FEAT(AA64ZFR0, 10, 1, FEAT_EQ),   /**< SVE2 + SM4 (AArch64) */
+    FEATURE_SVEBitPerm =
+        DEF_FEAT(AA64ZFR0, 4, 1, FEAT_EQ), /**< SVE2 + BitPerm (AArch64) */
+    FEATURE_MTE = DEF_FEAT(AA64PFR1, 2, 1,
+                           FEAT_GR_EQ), /**< Instruction-only Memory Tagging (AArch64) */
+    FEATURE_MTE2 =
+        DEF_FEAT(AA64PFR1, 2, 2, FEAT_GR_EQ), /**< Full Memory Tagging (AArch64) */
+    FEATURE_BTI =
+        DEF_FEAT(AA64PFR1, 0, 1, FEAT_EQ), /**< Branch Target Identification (AArch64) */
+    FEATURE_PAUTH2 =
+        DEF_FEAT(AA64ISAR2, 3, 3, FEAT_GR_EQ), /**< PAuth2 extension (AArch64) */
+    FEATURE_CONSTPACFIELD =
+        DEF_FEAT(AA64ISAR2, 6, 1, FEAT_EQ), /**< PAC algorithm enhancement (AArch64) */
+    FEATURE_SSBS = DEF_FEAT(AA64PFR1, 1, 1,
+                            FEAT_GR_EQ), /**< Speculative Store Bypass Safe (AArch64) */
+    FEATURE_SSBS2 = DEF_FEAT(AA64PFR1, 1, 2,
+                             FEAT_EQ), /**< MRS and MSR instructions for SSBS (AArch64) */
+    FEATURE_DIT = DEF_FEAT(
+        AA64PFR0, 12, 1, FEAT_EQ), /**< Data Independent Timing instructions (AArch64) */
+    FEATURE_LSE2 =
+        DEF_FEAT(AA64MMFR2, 8, 1,
+                 FEAT_EQ), /**< Atomicity requirements for loads and stores (AArch64) */
+    FEATURE_WFxT =
+        DEF_FEAT(AA64ISAR2, 0, 2,
+                 FEAT_EQ), /**< Wait for event / interrupt with timeout (AArch64) */
+    FEATURE_FPAC = DEF_FEAT(AA64ISAR2, 3, 4,
+                            FEAT_GR_EQ), /**< Faulting on AUTI* instructions (AArch64) */
+    FEATURE_FPACCOMBINE =
+        DEF_FEAT(AA64ISAR2, 3, 5, FEAT_GR_EQ), /**< Faulting on combined branch pointer
+                                                  authentication instructions (AArch64) */
 } feature_bit_t;
+
 #endif
+
 #ifdef RISCV64
-/* FIXME i#3544: Not implemented */
 /**
  * Feature bits passed to proc_has_feature() to determine whether the underlying
  * processor has the feature.
+ * XXX: The enum definitions here and the bitmask of hwprobe in the kernel are kept
+ * consistent to facilitate possible switching in the future, refer to
+ * https://github.com/torvalds/linux/blob/v6.9/arch/riscv/include/uapi/asm/hwprobe.h.
  */
 typedef enum {
-    FEATURE_DUMMY = 0, /**< Dummy, non-existent feature. */
+    FEATURE_VECTOR = 2, /**< Vector extension. */
 } feature_bit_t;
 #endif
 
@@ -517,7 +570,7 @@ DR_API
 const char *
 proc_get_cache_size_str(cache_size_t size);
 
-#ifdef AARCHXX
+#if defined(AARCHXX)
 DR_API
 /**
  * Returns the size in bytes of the SVE registers' vector length set by the
@@ -525,6 +578,16 @@ DR_API
  * multiples of 128 bits:
  * 128 256 384 512 640 768 896 1024 1152 1280 1408 1536 1664 1792 1920 2048
  * Currently DynamoRIO supports implementations of up to 512 bits.
+ */
+uint
+proc_get_vector_length_bytes(void);
+#elif defined(RISCV64)
+DR_API
+/**
+ * Returns the size in bytes of the RVV registers' vector length which is a design-time
+ * constant set by the hardware implementor. Length can be from 64 to 65536 bits
+ * in the power of 2.
+ * Currently DynamoRIO supports implementations of up to 256 bits.
  */
 uint
 proc_get_vector_length_bytes(void);

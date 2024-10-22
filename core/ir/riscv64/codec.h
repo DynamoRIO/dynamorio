@@ -83,6 +83,7 @@ typedef enum {
     RISCV64_ISA_EXT_ZIFENCEI,
     RISCV64_ISA_EXT_XTHEADCMO,
     RISCV64_ISA_EXT_XTHEADSYNC,
+    RISCV64_ISA_EXT_V,
     RISCV64_ISA_EXT_CNT, /* Keep this last */
 } riscv64_isa_ext_t;
 
@@ -256,6 +257,17 @@ typedef enum {
     RISCV64_FLD_ICRS1,
     RISCV64_FLD_ICRS1__,
     RISCV64_FLD_I_S_RS1_DISP,
+    /* Vector extension fields. */
+    RISCV64_FLD_ZIMM,
+    RISCV64_FLD_ZIMM10,
+    RISCV64_FLD_ZIMM11,
+    RISCV64_FLD_VM,
+    RISCV64_FLD_NF,
+    RISCV64_FLD_SIMM5,
+    RISCV64_FLD_VD,
+    RISCV64_FLD_VS1,
+    RISCV64_FLD_VS2,
+    RISCV64_FLD_VS3,
     RISCV64_FLD_CNT, /* Keep this last */
 } riscv64_fld_t;
 

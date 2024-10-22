@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -923,15 +923,8 @@ OPTION_DEFAULT(bool, elide_back_calls, true,
 OPTION_DEFAULT(uint, selfmod_max_writes, 5, "maximum write instrs per selfmod fragment")
 /* If this is too large, clients with heavyweight instrumentation hit the
  * "exceeded maximum size" failure.
- * On RISC-V, direct branch has a range of +/- 4 KiB -- for extreme use cases, such as
- * putting a clean call before every app instruction, 15 is a safe value to use.
- *
- * TODO i#3544: For use cases heavier than one clean call per instruction, this number
- * may need to be even lower on RISC-V, for example memtrace_simple must be set to 8 to
- * work properly. State this in the documentation.
  */
-OPTION_DEFAULT(uint, max_bb_instrs, IF_RISCV64_ELSE(15, 256),
-               "maximum instrs per basic block")
+OPTION_DEFAULT(uint, max_bb_instrs, 256, "maximum instrs per basic block")
 PC_OPTION_DEFAULT(bool, process_SEH_push, IF_RETURN_AFTER_CALL_ELSE(true, false),
                   "break bb's at an SEH push so we can see the frame pushed on in "
                   "interp, required for -borland_SEH_rct")
@@ -1634,8 +1627,11 @@ OPTION_DEFAULT(uint_size, vmheap_size_wow64, 128 * 1024 * 1024,
                "capacity of virtual memory region reserved for unreachable heap "
                "on WoW64 processes")
 #endif
-/* We hardcode an address in the mmap_text region here, but verify via
- * in vmk_init().
+/* We hardcode a default vmcode base address, to which we add a random offset
+ * up to vm_max_offset.
+ * If -vm_base is set to 0, and -vm_base_near_app is off, we let the OS pick
+ * the base and do not apply any offset.
+ * For the default:
  * For Linux we start higher to avoid limiting the brk (i#766), but with our
  * new default -vm_size of 0x20000000 we want to stay below our various
  * preferred addresses of 0x7xxx0000 so we keep the base plus offset plus

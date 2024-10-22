@@ -85,13 +85,15 @@ cache_simulator_create(const std::string &config_file)
     return sim;
 }
 
-cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs)
+cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs,
+                                     prefetcher_factory_t *custom_prefetcher_factory)
     : simulator_t(knobs.num_cores, knobs.skip_refs, knobs.warmup_refs,
                   knobs.warmup_fraction, knobs.sim_refs, knobs.cpu_scheduling,
                   knobs.use_physical, knobs.verbose)
     , knobs_(knobs)
     , l1_icaches_(NULL)
     , l1_dcaches_(NULL)
+    , custom_prefetcher_factory_(custom_prefetcher_factory)
     , is_warmed_up_(false)
 {
     // XXX i#1703: get defaults from hardware being run on.
@@ -110,10 +112,19 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs)
 
     if (knobs_.data_prefetcher != PREFETCH_POLICY_NEXTLINE &&
         knobs_.data_prefetcher != PREFETCH_POLICY_NONE) {
-        // Unknown value.
-        error_string_ = " unknown data_prefetcher: '" + knobs_.data_prefetcher + "'";
-        success_ = false;
-        return;
+        if (knobs_.data_prefetcher == PREFETCH_POLICY_CUSTOM) {
+            if (custom_prefetcher_factory_ == nullptr) {
+                error_string_ =
+                    "custom prefetcher was requested but no factory was provided.";
+                success_ = false;
+                return;
+            }
+        } else {
+            // Unknown value.
+            error_string_ = " unknown data_prefetcher: '" + knobs_.data_prefetcher + "'";
+            success_ = false;
+            return;
+        }
     }
 
     bool warmup_enabled_ = ((knobs_.warmup_refs > 0) || (knobs_.warmup_fraction > 0.0));
@@ -165,9 +176,7 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs)
                 knobs_.L1D_assoc, (int)knobs_.line_size, (int)knobs_.L1D_size, llc,
                 new cache_stats_t((int)knobs_.line_size, "", warmup_enabled_,
                                   knobs_.model_coherence),
-                knobs_.data_prefetcher == PREFETCH_POLICY_NEXTLINE
-                    ? new prefetcher_t((int)knobs_.line_size)
-                    : nullptr,
+                get_prefetcher(knobs_.data_prefetcher),
                 cache_inclusion_policy_t::NON_INC_NON_EXC, knobs_.model_coherence,
                 (2 * i) + 1, snoop_filter_)) {
             error_string_ = "Usage error: failed to initialize L1 caches.  Ensure sizes "
@@ -189,12 +198,14 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs)
     }
 }
 
-cache_simulator_t::cache_simulator_t(std::istream *config_file)
+cache_simulator_t::cache_simulator_t(std::istream *config_file,
+                                     prefetcher_factory_t *custom_prefetcher_factory)
     : simulator_t()
     , l1_icaches_(NULL)
     , l1_dcaches_(NULL)
     , snooped_caches_(NULL)
     , snoop_filter_(NULL)
+    , custom_prefetcher_factory_(custom_prefetcher_factory)
     , is_warmed_up_(false)
 {
     std::map<std::string, cache_params_t> cache_params;
@@ -211,9 +222,19 @@ cache_simulator_t::cache_simulator_t(std::istream *config_file)
 
     if (knobs_.data_prefetcher != PREFETCH_POLICY_NEXTLINE &&
         knobs_.data_prefetcher != PREFETCH_POLICY_NONE) {
-        // Unknown prefetcher type.
-        success_ = false;
-        return;
+        if (knobs_.data_prefetcher == PREFETCH_POLICY_CUSTOM) {
+            if (custom_prefetcher_factory_ == nullptr) {
+                error_string_ = "custom prefetcher was requested but no factory was "
+                                "provided.";
+                success_ = false;
+                return;
+            }
+        } else {
+            // Unknown value.
+            error_string_ = " unknown data_prefetcher: '" + knobs_.data_prefetcher + "'";
+            success_ = false;
+            return;
+        }
     }
 
     bool warmup_enabled_ = ((knobs_.warmup_refs > 0) || (knobs_.warmup_fraction > 0.0));
@@ -337,10 +358,8 @@ cache_simulator_t::cache_simulator_t(std::istream *config_file)
                          (int)cache_config.size, parent_,
                          new cache_stats_t((int)knobs_.line_size, cache_config.miss_file,
                                            warmup_enabled_, is_coherent_),
-                         cache_config.prefetcher == PREFETCH_POLICY_NEXTLINE
-                             ? new prefetcher_t((int)knobs_.line_size)
-                             : nullptr,
-                         inclusion_policy, is_coherent_, is_snooped ? snoop_id : -1,
+                         get_prefetcher(cache_config.prefetcher), inclusion_policy,
+                         is_coherent_, is_snooped ? snoop_id : -1,
                          is_snooped ? snoop_filter_ : nullptr, children)) {
             error_string_ = "Usage error: failed to initialize the cache " + cache_name;
             success_ = false;
@@ -469,6 +488,11 @@ cache_simulator_t::process_memref(const memref_t &memref)
         }
     } else
         core_index = core_for_thread(memref.data.tid);
+    if (core_index >= static_cast<int>(knobs_.num_cores)) {
+        error_string_ = "Too-small core count " + std::to_string(knobs_.num_cores) +
+            " for trace core #" + std::to_string(core_index);
+        return false;
+    }
 
     // To support swapping to physical addresses without modifying the passed-in
     // memref (which is also passed to other tools run at the same time) we use
@@ -548,6 +572,19 @@ cache_simulator_t::process_memref(const memref_t &memref)
     return true;
 }
 
+prefetcher_t *
+cache_simulator_t::get_prefetcher(std::string prefetcher_name)
+{
+    if (prefetcher_name == PREFETCH_POLICY_NEXTLINE) {
+        return new prefetcher_t((int)knobs_.line_size);
+    }
+    if (prefetcher_name == PREFETCH_POLICY_CUSTOM) {
+        assert(custom_prefetcher_factory_ != nullptr);
+        return custom_prefetcher_factory_->create_prefetcher((int)knobs_.line_size);
+    }
+    return nullptr;
+}
+
 // Return true if the number of warmup references have been executed or if
 // specified fraction of the llcaches_ has been loaded. Also return true if the
 // cache has already been warmed up. When there are multiple last level caches
@@ -595,8 +632,7 @@ cache_simulator_t::print_results()
     std::cerr << "Cache simulation results:\n";
     // Print core and associated L1 cache stats first.
     for (unsigned int i = 0; i < knobs_.num_cores; i++) {
-        print_core(i);
-        if (shard_type_ == SHARD_BY_CORE || thread_ever_counts_[i] > 0) {
+        if (print_core(i)) {
             if (l1_icaches_[i] != l1_dcaches_[i]) {
                 std::cerr << "  " << l1_icaches_[i]->get_name() << " ("
                           << l1_icaches_[i]->get_description() << ") stats:" << std::endl;

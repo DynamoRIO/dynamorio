@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2882,7 +2882,7 @@ dynamo_thread_not_under_dynamo(dcontext_t *dcontext)
     LOG(THREAD, LOG_ASYNCH, 2, "thread %d not under DR control\n",
         dcontext->owning_thread);
     dcontext->currently_stopped = true;
-    os_thread_not_under_dynamo(dcontext);
+    os_thread_not_under_dynamo(dcontext, /*restore_sigblocked=*/true);
 #ifdef SIDELINE
     /* FIXME: if # active threads is 0, then put sideline thread to sleep! */
     if (dynamo_options.sideline) {

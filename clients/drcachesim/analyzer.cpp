@@ -40,6 +40,7 @@
 #include <iostream>
 #include <limits>
 #include <memory>
+#include <set>
 #include <string>
 #include <thread>
 #include <utility>
@@ -228,7 +229,8 @@ analyzer_tmpl_t<RecordType, ReaderType>::analyzer_tmpl_t()
 template <typename RecordType, typename ReaderType>
 bool
 analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(
-    const std::string &trace_path, memref_tid_t only_thread, int verbosity,
+    const std::string &trace_path, const std::set<memref_tid_t> &only_threads,
+    const std::set<int> &only_shards, int verbosity,
     typename sched_type_t::scheduler_options_t options)
 {
     verbosity_ = verbosity;
@@ -245,8 +247,10 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(
         regions.emplace_back(skip_instrs_ + 1, 0);
     }
     typename sched_type_t::input_workload_t workload(trace_path, regions);
-    if (only_thread != INVALID_THREAD_ID) {
-        workload.only_threads.insert(only_thread);
+    workload.only_threads = only_threads;
+    workload.only_shards = only_shards;
+    if (regions.empty() && skip_to_timestamp_ > 0) {
+        workload.times_of_interest.emplace_back(skip_to_timestamp_, 0);
     }
     return init_scheduler_common(workload, std::move(options));
 }
@@ -308,12 +312,14 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
         }
     } else if (parallel_) {
         sched_ops = sched_type_t::make_scheduler_parallel_options(verbosity_);
+        sched_ops.replay_as_traced_istream = options.replay_as_traced_istream;
         sched_ops.read_inputs_in_init = options.read_inputs_in_init;
         if (worker_count_ <= 0)
             worker_count_ = std::thread::hardware_concurrency();
         output_count = worker_count_;
     } else {
         sched_ops = sched_type_t::make_scheduler_serial_options(verbosity_);
+        sched_ops.replay_as_traced_istream = options.replay_as_traced_istream;
         sched_ops.read_inputs_in_init = options.read_inputs_in_init;
         worker_count_ = 1;
         output_count = 1;
@@ -333,6 +339,19 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
             uint64_t filetype = scheduler_.get_stream(i)->get_filetype();
             VPRINT(this, 2, "Worker %d filetype %" PRIx64 "\n", i, filetype);
             if (TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, filetype)) {
+                if (i == 0 && shard_type_ == SHARD_BY_CORE) {
+                    // This is almost certainly user error.
+                    // Better to exit than risk user confusion.
+                    // XXX i#7045: Ideally this could be reported as an error by the
+                    // scheduler, and also detected early in analyzer_multi to auto-fix
+                    // (when no mode is specified: if the user specifies core-sharding
+                    // there could be config differences and this should be an error),
+                    // but neither is simple so today the user has to re-run.
+                    error_string_ =
+                        "Re-scheduling a core-sharded-on-disk trace is generally a "
+                        "mistake; re-run with -no_core_sharded.\n";
+                    return false;
+                }
                 shard_type_ = SHARD_BY_CORE;
             }
         }
@@ -364,7 +383,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::analyzer_tmpl_t(
     // The scheduler will call reader_t::init() for each input file.  We assume
     // that won't block (analyzer_multi_t separates out IPC readers).
     typename sched_type_t::scheduler_options_t sched_ops;
-    if (!init_scheduler(trace_path, INVALID_THREAD_ID, verbosity, std::move(sched_ops))) {
+    if (!init_scheduler(trace_path, {}, {}, verbosity, std::move(sched_ops))) {
         success_ = false;
         error_string_ = "Failed to create scheduler";
         return;
@@ -518,7 +537,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
     while (true) {
         RecordType record;
         // The current time is used for time quanta; for instr quanta, it's ignored and
-        // we pass 0.
+        // we pass 0 and let the scheduler use instruction + idle counts.
         uint64_t cur_micros = sched_by_time_ ? get_current_microseconds() : 0;
         typename sched_type_t::stream_status_t status =
             worker.stream->next_record(record, cur_micros);
@@ -571,26 +590,34 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
 template <typename RecordType, typename ReaderType>
 bool
 analyzer_tmpl_t<RecordType, ReaderType>::process_shard_exit(
-    analyzer_worker_data_t *worker, int shard_index)
+    analyzer_worker_data_t *worker, int shard_index, bool do_process_final_interval)
 {
     VPRINT(this, 1, "Worker %d finished trace shard %s\n", worker->index,
            worker->stream->get_stream_name().c_str());
     worker->shard_data[shard_index].exited = true;
-    if ((interval_microseconds_ != 0 || interval_instr_count_ != 0) &&
-        (!process_interval(worker->shard_data[shard_index].cur_interval_index,
-                           worker->shard_data[shard_index].cur_interval_init_instr_count,
-                           worker,
-                           /*parallel=*/true, /*at_instr_record=*/false, shard_index) ||
-         !finalize_interval_snapshots(worker, /*parallel=*/true, shard_index)))
-        return false;
+    if (interval_microseconds_ != 0 || interval_instr_count_ != 0) {
+        if (!do_process_final_interval) {
+            ERRMSG("i#6793: Skipping process_interval for final interval of shard index "
+                   "%d\n",
+                   shard_index);
+        } else if (!process_interval(
+                       worker->shard_data[shard_index].cur_interval_index,
+                       worker->shard_data[shard_index].cur_interval_init_instr_count,
+                       worker,
+                       /*parallel=*/true, /*at_instr_record=*/false, shard_index)) {
+            return false;
+        }
+        if (!finalize_interval_snapshots(worker, /*parallel=*/true, shard_index)) {
+            return false;
+        }
+    }
     for (int i = 0; i < num_tools_; ++i) {
         if (!tools_[i]->parallel_shard_exit(
                 worker->shard_data[shard_index].tool_data[i].shard_data)) {
             worker->error = tools_[i]->parallel_shard_error(
                 worker->shard_data[shard_index].tool_data[i].shard_data);
-            VPRINT(this, 1, "Worker %d hit shard exit error %s on trace shard %s\n",
-                   worker->index, worker->error.c_str(),
-                   worker->stream->get_stream_name().c_str());
+            VPRINT(this, 1, "Worker %d hit shard exit error %s on trace shard index %d\n",
+                   worker->index, worker->error.c_str(), shard_index);
             return false;
         }
     }
@@ -693,9 +720,18 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks_internal(
             }
         }
     }
+    // i#6444: Fallback for cases where there is a missing thread final record in
+    // non-core-sharded traces, in which case we have not yet invoked
+    // process_shard_exit.
     for (const auto &keyval : worker->shard_data) {
         if (!keyval.second.exited) {
-            if (!process_shard_exit(worker, keyval.second.shard_index)) {
+            // i#6793: We skip processing the final interval for shards exited here
+            // if the stream has already moved on and cannot provide the state for
+            // the shard anymore.
+            bool do_process_final_interval =
+                keyval.second.shard_index == worker->stream->get_shard_index();
+            if (!process_shard_exit(worker, keyval.second.shard_index,
+                                    do_process_final_interval)) {
                 return false;
             }
         }

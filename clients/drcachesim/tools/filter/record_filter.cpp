@@ -60,6 +60,9 @@
 #include "cache_filter.h"
 #include "trim_filter.h"
 #include "type_filter.h"
+#include "encodings2regdeps_filter.h"
+#include "func_id_filter.h"
+#include "modify_marker_value_filter.h"
 
 #undef VPRINT
 #ifdef DEBUG
@@ -83,13 +86,6 @@ namespace drmemtrace {
 
 namespace {
 
-bool
-is_any_instr_type(trace_type_t type)
-{
-    return type_is_instr(type) || type == TRACE_TYPE_INSTR_MAYBE_FETCH ||
-        type == TRACE_TYPE_INSTR_NO_FETCH;
-}
-
 template <typename T>
 std::vector<T>
 parse_string(const std::string &s, char sep = ',')
@@ -100,7 +96,19 @@ parse_string(const std::string &s, char sep = ',')
     std::vector<T> vec;
     do {
         pos = s.find(sep, at);
-        vec.push_back(static_cast<T>(std::stoi(s.substr(at, pos))));
+        // base = 0 allows to handle both decimal and hex numbers.
+        unsigned long long parsed_number =
+            std::stoull(s.substr(at, pos), nullptr, /*base = */ 0);
+        // XXX: parsed_number may be truncated if T is not large enough.
+        // We could check that parsed_number is within the limits of T using
+        // std::numeric_limits<>::min()/max(), but this returns 0 on T that are enums,
+        // which we have when parsing trace_marker_type_t and trace_type_t values for
+        // type_filter. In order to make numeric_limits work on enum, we need to add
+        // std::underlying_type support to these enums.
+        // We also need to consider what should happen when T is not large enough to
+        // contain parsed_number. Should we skip that value? Output a warning? Output an
+        // error and abort?
+        vec.push_back(static_cast<T>(parsed_number));
         at = pos + 1;
     } while (pos != std::string::npos);
     return vec;
@@ -113,7 +121,8 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
                           int cache_filter_size, const std::string &remove_trace_types,
                           const std::string &remove_marker_types,
                           uint64_t trim_before_timestamp, uint64_t trim_after_timestamp,
-                          unsigned int verbose)
+                          bool encodings2regdeps, const std::string &keep_func_ids,
+                          const std::string &modify_marker_value, unsigned int verbose)
 {
     std::vector<
         std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>>
@@ -143,6 +152,26 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
                 new dynamorio::drmemtrace::trim_filter_t(trim_before_timestamp,
                                                          trim_after_timestamp)));
     }
+    if (encodings2regdeps) {
+        filter_funcs.emplace_back(
+            std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
+                new dynamorio::drmemtrace::encodings2regdeps_filter_t()));
+    }
+    if (!keep_func_ids.empty()) {
+        std::vector<uint64_t> keep_func_ids_list = parse_string<uint64_t>(keep_func_ids);
+        filter_funcs.emplace_back(
+            std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
+                new dynamorio::drmemtrace::func_id_filter_t(keep_func_ids_list)));
+    }
+    if (!modify_marker_value.empty()) {
+        std::vector<uint64_t> modify_marker_value_pairs_list =
+            parse_string<uint64_t>(modify_marker_value);
+        filter_funcs.emplace_back(
+            std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
+                new dynamorio::drmemtrace::modify_marker_value_filter_t(
+                    modify_marker_value_pairs_list)));
+    }
+
     // TODO i#5675: Add other filters.
 
     return new dynamorio::drmemtrace::record_filter_t(output_dir, std::move(filter_funcs),
@@ -186,8 +215,12 @@ std::string
 record_filter_t::get_output_basename(memtrace_stream_t *shard_stream)
 {
     if (shard_type_ == SHARD_BY_CORE) {
-        return output_dir_ + DIRSEP + "drmemtrace.core." +
-            std::to_string(shard_stream->get_shard_index()) + ".trace";
+        // Use leading 0's for the core id to ensure lexicographic sort keeps
+        // numeric core order for --only_shards.
+        std::ostringstream name;
+        name << output_dir_ << DIRSEP << "drmemtrace.core." << std::setfill('0')
+             << std::setw(6) << shard_stream->get_shard_index() << ".trace";
+        return name.str();
     } else {
         return output_dir_ + DIRSEP + shard_stream->get_stream_name();
     }
@@ -347,6 +380,13 @@ record_filter_t::open_new_chunk(per_shard_t *shard)
     return "";
 }
 
+std::string
+record_filter_t::initialize_stream(memtrace_stream_t *serial_stream)
+{
+    dcontext_.dcontext = dr_standalone_init();
+    return "";
+}
+
 void *
 record_filter_t::parallel_shard_init_stream(int shard_index, void *worker_data,
                                             memtrace_stream_t *shard_stream)
@@ -386,6 +426,8 @@ record_filter_t::parallel_shard_init_stream(int shard_index, void *worker_data,
             success_ = false;
         }
     }
+    per_shard->record_filter_info.last_encoding = &per_shard->last_encoding;
+    per_shard->record_filter_info.dcontext = dcontext_.dcontext;
     std::lock_guard<std::mutex> guard(shard_map_mutex_);
     shard_map_[shard_index] = per_shard;
     return reinterpret_cast<void *>(per_shard);
@@ -542,6 +584,15 @@ record_filter_t::process_markers(per_shard_t *per_shard, trace_entry_t &entry,
             if (per_shard->archive_writer &&
                 per_shard->input_entry_count - per_shard->input_count_at_ordinal == 2)
                 output = false;
+            if (output) {
+                uint64_t instr_ord = per_shard->cur_chunk_instrs +
+                    // For archives we increment chunk_ordinal up front.
+                    (per_shard->archive_writer ? per_shard->chunk_ordinal - 1
+                                               : per_shard->chunk_ordinal) *
+                        per_shard->chunk_size;
+                per_shard->sched_info.record_cpu_id(per_shard->tid, entry.addr,
+                                                    per_shard->last_timestamp, instr_ord);
+            }
             break;
         case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS:
         case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE:
@@ -588,7 +639,10 @@ record_filter_t::process_chunk_encodings(per_shard_t *per_shard, trace_entry_t &
         // XXX: What if there is a filter removing all encodings but only
         // to the stop point, so a partial remove that does not change
         // the filetype?  For now we do not support that, and we re-add
-        // encodings at chunk boundaries regardless.
+        // encodings at chunk boundaries regardless. Note that filters that modify
+        // encodings (even if they add or remove trace_entry_t records) do not incur in
+        // this problem and we don't need support for partial removal of encodings in this
+        // case. An example of such filters is encodings2regdeps_filter_t.
         if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, per_shard->filetype) &&
             per_shard->cur_chunk_pcs.find(entry.addr) == per_shard->cur_chunk_pcs.end()) {
             if (per_shard->per_input == nullptr)
@@ -605,14 +659,19 @@ record_filter_t::process_chunk_encodings(per_shard_t *per_shard, trace_entry_t &
                    per_shard->chunk_ordinal, per_shard->cur_refs);
             // Sanity check that the encoding size is correct.
             const auto &enc = per_shard->per_input->pc2encoding[entry.addr];
-            size_t enc_sz = 0;
-            // Since all but the last entry are fixed-size we could avoid a loop
-            // but the loop is easier to read and we have just 1 or 2 iters.
-            for (const auto &record : enc)
-                enc_sz += record.size;
-            if (enc_sz != entry.size) {
-                return "New-chunk encoding size " + std::to_string(enc_sz) +
-                    " != instr size " + std::to_string(entry.size);
+            /* OFFLINE_FILE_TYPE_ARCH_REGDEPS traces have encodings with size != ifetch.
+             * It's a design choice, not an error, hence we avoid this sanity check.
+             */
+            if (!TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, per_shard->filetype)) {
+                size_t enc_sz = 0;
+                // Since all but the last entry are fixed-size we could avoid a loop
+                // but the loop is easier to read and we have just 1 or 2 iters.
+                for (const auto &record : enc)
+                    enc_sz += record.size;
+                if (enc_sz != entry.size) {
+                    return "New-chunk encoding size " + std::to_string(enc_sz) +
+                        " != instr size " + std::to_string(entry.size);
+                }
             }
             if (!write_trace_entries(per_shard, enc)) {
                 return "Failed to write";
@@ -641,7 +700,10 @@ record_filter_t::process_delayed_encodings(per_shard_t *per_shard, trace_entry_t
     } else if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, per_shard->filetype)) {
         // Output if we have encodings that haven't yet been output, and
         // there is no filter removing all encodings (we don't support
-        // partial encoding removal).
+        // partial encoding removal). Note that filters that modify encodings (even if
+        // they add or remove trace_entry_t records) do not incur in this problem and we
+        // don't need support for partial removal of encodings in this case. An example
+        // of such filters is encodings2regdeps_filter_t.
         // We check prev_was_output to rule out filtered-out encodings
         // (we record all encodings for new-chunk insertion).
         if (!per_shard->last_encoding.empty() && per_shard->prev_was_output) {
@@ -739,7 +801,8 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &in
     if (per_shard->enabled) {
         for (int i = 0; i < static_cast<int>(filters_.size()); ++i) {
             if (!filters_[i]->parallel_shard_filter(entry,
-                                                    per_shard->filter_shard_data[i])) {
+                                                    per_shard->filter_shard_data[i],
+                                                    per_shard->record_filter_info)) {
                 output = false;
             }
             if (!filters_[i]->get_error_string().empty()) {
@@ -822,6 +885,88 @@ record_filter_t::process_memref(const trace_entry_t &memref)
     return false;
 }
 
+std::string
+record_filter_t::open_serial_schedule_file()
+{
+    if (serial_schedule_ostream_ != nullptr)
+        return "Already opened";
+    if (output_dir_.empty())
+        return "No output directory specified";
+    std::string path = output_dir_ + DIRSEP + DRMEMTRACE_SERIAL_SCHEDULE_FILENAME;
+#ifdef HAS_ZLIB
+    path += ".gz";
+    serial_schedule_file_ = std::unique_ptr<std::ostream>(new gzip_ostream_t(path));
+#else
+    serial_schedule_file_ =
+        std::unique_ptr<std::ostream>(new std::ofstream(path, std::ofstream::binary));
+#endif
+    if (!serial_schedule_file_)
+        return "Failed to open serial schedule file " + path;
+    serial_schedule_ostream_ = serial_schedule_file_.get();
+    return "";
+}
+
+std::string
+record_filter_t::open_cpu_schedule_file()
+{
+    if (cpu_schedule_ostream_ != nullptr)
+        return "Already opened";
+    if (output_dir_.empty())
+        return "No output directory specified";
+    std::string path = output_dir_ + DIRSEP + DRMEMTRACE_CPU_SCHEDULE_FILENAME;
+#ifdef HAS_ZIP
+    cpu_schedule_file_ = std::unique_ptr<archive_ostream_t>(new zipfile_ostream_t(path));
+    if (!cpu_schedule_file_)
+        return "Failed to open cpu schedule file " + path;
+    cpu_schedule_ostream_ = cpu_schedule_file_.get();
+    return "";
+#else
+    return "Zipfile support is required for cpu schedule files";
+#endif
+}
+
+std::string
+record_filter_t::write_schedule_files()
+{
+
+    schedule_file_t sched;
+    std::string err;
+    err = open_serial_schedule_file();
+    if (!err.empty())
+        return err;
+    err = open_cpu_schedule_file();
+    if (!err.empty()) {
+#ifdef HAS_ZIP
+        return err;
+#else
+        if (starts_with(err, "Zipfile support")) {
+            // Just skip the cpu file.
+        } else {
+            return err;
+        }
+#endif
+    }
+    for (const auto &shard : shard_map_) {
+        err = sched.merge_shard_data(shard.second->sched_info);
+        if (!err.empty())
+            return err;
+    }
+    if (serial_schedule_ostream_ == nullptr)
+        return "Serial file not opened";
+    err = sched.write_serial_file(serial_schedule_ostream_);
+    if (!err.empty())
+        return err;
+    // Make the cpu file optional for !HAS_ZIP, but don't wrap this inside
+    // HAS_ZIP as some subclasses have non-minizip zip support and don't have
+    // that define.
+    if (cpu_schedule_ostream_ != nullptr) {
+        err = sched.write_cpu_file(cpu_schedule_ostream_);
+        if (!err.empty())
+            return err;
+    }
+    return "";
+}
+
 bool
 record_filter_t::print_results()
 {
@@ -839,6 +984,13 @@ record_filter_t::print_results()
     }
     std::cerr << "Output " << output_entry_count << " entries from " << input_entry_count
               << " entries.\n";
+    if (output_dir_.empty()) {
+        std::cerr << "Not writing schedule files: no output directory was specified.\n";
+        return res;
+    }
+    error_string_ = write_schedule_files();
+    if (!error_string_.empty())
+        res = false;
     return res;
 }
 

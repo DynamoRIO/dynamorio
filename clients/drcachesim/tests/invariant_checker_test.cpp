@@ -43,6 +43,9 @@
 #include "../tools/invariant_checker.h"
 #include "../common/memref.h"
 #include "memref_gen.h"
+#ifdef LINUX
+#    include "../../core/unix/include/syscall_target.h"
+#endif
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -3071,6 +3074,9 @@ check_kernel_syscall_trace(void)
     static constexpr addr_t BASE_ADDR = 0x123450;
     static constexpr uintptr_t FILE_TYPE = OFFLINE_FILE_TYPE_ENCODINGS |
         OFFLINE_FILE_TYPE_SYSCALL_NUMBERS | OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY;
+    static constexpr uintptr_t FILE_TYPE_FULL_SYSCALL_TRACE =
+        OFFLINE_FILE_TYPE_ENCODINGS | OFFLINE_FILE_TYPE_SYSCALL_NUMBERS |
+        OFFLINE_FILE_TYPE_KERNEL_SYSCALLS;
     bool res = true;
     {
         std::vector<memref_with_IR_t> memref_setup = {
@@ -3158,7 +3164,12 @@ check_kernel_syscall_trace(void)
     }
     {
         std::vector<memref_with_IR_t> memref_setup = {
-            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
+            // OFFLINE_FILE_TYPE_KERNEL_SYSCALLS enables some extra invariant checks over
+            // OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY, which is why we use
+            // FILE_TYPE_FULL_SYSCALL_TRACE here. This is fine because this trace does
+            // not have any load or store instructions.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE_FULL_SYSCALL_TRACE),
+              nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
             { gen_instr(TID_A), sys },
@@ -3220,7 +3231,12 @@ check_kernel_syscall_trace(void)
     }
     {
         std::vector<memref_with_IR_t> memref_setup = {
-            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
+            // OFFLINE_FILE_TYPE_KERNEL_SYSCALLS enables some extra invariant checks over
+            // OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY, which is why we use
+            // FILE_TYPE_FULL_SYSCALL_TRACE here. This is fine because this trace does
+            // not have any load or store instructions.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE_FULL_SYSCALL_TRACE),
+              nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
             { gen_instr(TID_A), sys },
@@ -3238,6 +3254,26 @@ check_kernel_syscall_trace(void)
                            /*ref_ordinal=*/7, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/1 },
                          "Failed to catch missing prior sysnum marker"))
+            res = false;
+    }
+    {
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
+            { gen_instr(TID_A), sys },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_CPU_ID, 11), nullptr },
+            // Missing prior sysnum marker does not raise an error for
+            // OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY, unlike
+            // OFFLINE_FILE_TYPE_KERNEL_SYSCALLS.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
+            { gen_instr(TID_A), move },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+            { gen_exit(TID_A), nullptr }
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, false))
             res = false;
     }
     {
@@ -3532,6 +3568,114 @@ check_has_instructions(void)
     return true;
 }
 
+bool
+check_regdeps(void)
+{
+    std::cerr << "Testing regdeps traces\n";
+    // Incorrect: TRACE_MARKER_TYPE_SYSCALL_IDX not allowed.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ARCH_REGDEPS),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_IDX, 102),
+            gen_instr(TID_A),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(
+                memrefs, true,
+                { "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot have "
+                  "TRACE_MARKER_TYPE_SYSCALL_IDX markers",
+                  /*tid=*/TID_A,
+                  /*ref_ordinal=*/4, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/0 },
+                "Failed to catch non-allowed TRACE_MARKER_TYPE_SYSCALL_IDX marker"))
+            return false;
+    }
+
+    // Incorrect: TRACE_MARKER_TYPE_SYSCALL not allowed.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE,
+                       OFFLINE_FILE_TYPE_SYSCALL_NUMBERS |
+                           OFFLINE_FILE_TYPE_ARCH_REGDEPS),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 102),
+            gen_instr(TID_A),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, true,
+                         { "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot have "
+                           "TRACE_MARKER_TYPE_SYSCALL markers",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/4, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/0 },
+                         "Failed to catch non-allowed TRACE_MARKER_TYPE_SYSCALL marker"))
+            return false;
+    }
+
+#ifdef LINUX
+    // Incorrect: non SYS_futex TRACE_MARKER_TYPE_FUNC_ID not allowed.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ARCH_REGDEPS),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FUNC_ID, 102),
+            gen_instr(TID_A),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, true,
+                         { "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot have "
+                           "TRACE_MARKER_TYPE_FUNC_ID markers related to functions that "
+                           "are not SYS_futex",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/4, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/0 },
+                         "Failed to catch non-allowed TRACE_MARKER_TYPE_FUNC_ID marker"))
+            return false;
+    }
+
+    // Correct: SYS_futex TRACE_MARKER_TYPE_FUNC_ID allowed.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ARCH_REGDEPS),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FUNC_ID,
+                       static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) +
+                           SYS_futex),
+            gen_instr(TID_A),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+#else
+    // Correct: a non-LINUX DR build should always succeed when checking
+    // TRACE_MARKER_TYPE_FUNC_ID markers, as we cannot determine if the function ID of
+    // the TRACE_MARKER_TYPE_FUNC_ID marker is allowed in the
+    // OFFLINE_FILE_TYPE_ARCH_REGDEPS trace because we cannot determine if function ID is
+    // SYS_futex or not. For this reason the TRACE_MARKER_TYPE_FUNC_ID invariant check is
+    // disbled, we print a warning instead.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ARCH_REGDEPS),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FUNC_ID, 102),
+            gen_instr(TID_A),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+#endif
+
+    return true;
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -3543,7 +3687,7 @@ test_main(int argc, const char *argv[])
         check_timestamps_increase_monotonically() &&
         check_read_write_records_match_operands() && check_exit_found() &&
         check_kernel_syscall_trace() && check_has_instructions() &&
-        check_kernel_context_switch_trace()) {
+        check_kernel_context_switch_trace() && check_regdeps()) {
         std::cerr << "invariant_checker_test passed\n";
         return 0;
     }

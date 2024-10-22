@@ -86,7 +86,8 @@ droption_t<int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 1, 0, 64, "Verbosity l
 droption_t<int> op_num_cores(DROPTION_SCOPE_ALL, "num_cores", 4, 0, 8192,
                              "Number of cores", "Number of cores");
 
-droption_t<int64_t> op_sched_quantum(DROPTION_SCOPE_ALL, "sched_quantum", 1 * 1000 * 1000,
+// We pick 6 million to match 2 instructions per nanosecond with a 3ms quantum.
+droption_t<int64_t> op_sched_quantum(DROPTION_SCOPE_ALL, "sched_quantum", 6 * 1000 * 1000,
                                      "Scheduling quantum",
                                      "Scheduling quantum: in instructions by default; in "
                                      "miroseconds if -sched_time is set.");
@@ -306,10 +307,13 @@ _tmain(int argc, const TCHAR *targv[])
         op_honor_stamps.get_value() ? scheduler_t::DEPENDENCY_TIMESTAMPS
                                     : scheduler_t::DEPENDENCY_IGNORE,
         scheduler_t::SCHEDULER_DEFAULTS, op_verbose.get_value());
-    sched_ops.quantum_duration = op_sched_quantum.get_value();
-    if (op_sched_time.get_value())
+    if (op_sched_time.get_value()) {
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
-    sched_ops.block_time_scale = op_block_time_scale.get_value();
+        sched_ops.quantum_duration_us = op_sched_quantum.get_value();
+    } else {
+        sched_ops.quantum_duration_instrs = op_sched_quantum.get_value();
+    }
+    sched_ops.block_time_multiplier = op_block_time_scale.get_value();
 #ifdef HAS_ZIP
     std::unique_ptr<zipfile_ostream_t> record_zip;
     std::unique_ptr<zipfile_istream_t> replay_zip;

@@ -147,6 +147,22 @@ changes:
    users sub-classing analyzer_tmpl_t).
  - Converted #dynamorio::drmemtrace::analysis_tool_tmpl_t::interval_state_snapshot_t
    into a class with all its data members marked private with public accessor functions.
+ - Changed the type of the AArch64 #dr_mcontext_t members svep and ffr to #dr_svep_t.
+   This breaks binary compatibility with clients that were built against versions of
+   DynamoRIO before this change.
+ - Changed #dynamorio::drmemtrace::record_filter_t::record_filter_func_t
+   parallel_shard_filter() interface.  Added a new parameter of type
+   #dynamorio::drmemtrace::record_filter_t::record_filter_info_t that allows
+   #dynamorio::drmemtrace::record_filter_t to share data with its filters.
+ - Changed the way we cache the feature register values on AArch64. We now use an array of
+   uint64 values rather than individual variables for each feature register. This
+   allows the code to be more readable and easier to maintain.
+ - Renamed dr_set_sve_vector_length() to dr_set_vector_length() to share function
+   signature between AArch64 and RISC-V.
+ - Renamed dr_get_sve_vector_length() to dr_get_vector_length() to share function
+   signature between AArch64 and RISC-V.
+ - Changed the drcachesim -LL_miss_file option by adding a process ID field to the output.
+   This helps in better analyzing cache misses in multi-process environments.
 
 Further non-compatibility-affecting changes include:
  - Added DWARF-5 support to the drsyms library by linking in 4 static libraries
@@ -223,7 +239,42 @@ Further non-compatibility-affecting changes include:
    purpose of preserving register dependencies.
  - Added instr_convert_to_isa_regdeps() API that converts an #instr_t from a real ISA
    (e.g., #DR_ISA_AMD64) to the #DR_ISA_REGDEPS synthetic ISA.
-
+ - Added encodings2regdeps_filter_t filter to #dynamorio::drmemtrace::record_filter_t to
+   generate #DR_ISA_REGDEPS traces.
+ - Added #dynamorio::drmemtrace::OFFLINE_FILE_TYPE_ARCH_REGDEPS file type for
+   #DR_ISA_REGDEPS traces.
+ - Added -tool as the preferred alias for -simulator_type for the drmemtrace/drcachesim
+   trace analysis tool framework.
+ - Added "-t drmemtrace" as the preferred launcher for the drmemtrace/drcachesim
+   trace analysis tool framework.
+ - Added func_id_filter_t to #dynamorio::drmemtrace::record_filter_t to filter function
+   markers based on the function ID. This filter is enabled by "-filter_keep_func_ids"
+   followed by a comma-separated list of function IDs to preserve in the output trace.
+   All function markers whose ID is not in the list are removed.
+ - Added -skip_to_timestamp and #dynamorio::drmemtrace::scheduler_tmpl_t::
+   input_workload_t::times_of_interest to the drmemtrace scheduler.
+ - Added v2p_reader_t to parse a virtual-to-physical mapping in textproto format and
+   v2p_info_t to hold that mapping in memory.
+ - Added -v2p_file option to drcachesim TLB tool to set the path to a v2p.textproto file,
+   which provides a virtual to physical mapping of addresses for an offline trace. This
+   option overwrites both -page_size and
+   #dynamorio::drmemtrace::TRACE_MARKER_TYPE_PAGE_SIZE (if present) with the page size in
+   v2p.textproto. Option -use_physical (in offline mode) must also be set to use the
+   mapping in v2p.textproto (note that -use_physical during tracing is not necessary, nor
+   related to -use_physical offline).
+ - Added -trace_instr_intervals_file option to the drmemtrace trace analysis tools
+   framework. The file must be in CSV format containing a <start,duration> tracing
+   interval per line where start and duration are expressed in number of instructions.
+ - Added modify_marker_value_filter_t to #dynamorio::drmemtrace::record_filter_t to modify
+   the value of TRACE_MARKER_TYPE_ markers. This filter takes a list of
+   <TRACE_MARKER_TYPE_,new_value> and changes every listed marker in the trace to its
+   corresponding new_value.
+ - Added trace_analysis_tool::preferred_shard_type() to the drmemtrace framework to
+   allow switching to core-sharded by default if all tools prefer that mode.
+ - For the drmemtrace framework, if only core-sharded-preferring tools are enabled
+   (these include cache and TLB simulators and the schedule_stats tool), -core_sharded or
+   -core_serial is automatically turned on for offline analysis to enable more
+   representative simulated software thread scheduling onto virtual cores.
 
 **************************************************
 <hr>

@@ -210,13 +210,20 @@ reader_t::process_input_entry()
                 ++cur_instr_count_;
             // Look for encoding bits that belong to this instr.
             if (last_encoding_.size > 0) {
-                if (last_encoding_.size != cur_ref_.instr.size) {
+                if (last_encoding_.size != cur_ref_.instr.size &&
+                    /* OFFLINE_FILE_TYPE_ARCH_REGDEPS traces have encodings with
+                     * size != ifetch. It's a design choice, not an error, hence
+                     * we avoid this sanity check for these traces.
+                     */
+                    !TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, filetype_)) {
                     ERRMSG(
                         "Encoding size %zu != instr size %zu for PC 0x%zx at ord %" PRIu64
-                        " instr %" PRIu64 " last_timestamp=0x%" PRIx64 "\n",
+                        " instr %" PRIu64 " last_timestamp=0x%" PRIx64
+                        " enc: %x %x inst type: %d\n",
                         last_encoding_.size, cur_ref_.instr.size, cur_ref_.instr.addr,
                         get_record_ordinal(), get_instruction_ordinal(),
-                        get_last_timestamp());
+                        get_last_timestamp(), last_encoding_.bits[0],
+                        last_encoding_.bits[1], cur_ref_.instr.type);
                     // Encoding errors indicate serious problems so we always abort.
                     assert_release_too(false);
                 }
@@ -342,7 +349,9 @@ reader_t::process_input_entry()
                 if (first_timestamp_ == 0)
                     first_timestamp_ = last_timestamp_;
             }
-        } else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_VERSION)
+        } else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID)
+            last_cpuid_ = cur_ref_.marker.marker_value;
+        else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_VERSION)
             version_ = cur_ref_.marker.marker_value;
         else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
             filetype_ = cur_ref_.marker.marker_value;
@@ -459,6 +468,11 @@ reader_t::skip_instructions_with_timestamp(uint64_t stop_instruction_count)
         timestamp.addr = static_cast<addr_t>(last_timestamp_);
     }
     trace_entry_t cpu = {};
+    if (last_cpuid_ != 0) {
+        cpu.type = TRACE_TYPE_MARKER;
+        cpu.size = TRACE_MARKER_TYPE_CPU_ID;
+        cpu.addr = static_cast<addr_t>(last_cpuid_);
+    }
     trace_entry_t next_instr = {};
     bool prev_was_record_ord = false;
     bool found_real_timestamp = false;
