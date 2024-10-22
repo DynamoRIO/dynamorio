@@ -618,7 +618,7 @@ enum {
 #    elif defined(MACOS)
     LOCK_RANK(memquery_backing_lock),
 #    endif
-#    ifdef WINDOWS
+#    if defined(WINDOWS) || defined(LINUX)
     LOCK_RANK(dump_core_lock),
 #    endif
 
