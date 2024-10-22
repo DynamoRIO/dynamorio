@@ -1924,7 +1924,7 @@ protected:
     // true for the 3rd parameter in that case.
     stream_status_t
     set_cur_input(output_ordinal_t output, input_ordinal_t input,
-                  bool hold_cur_input_lock = false);
+                  bool caller_holds_cur_input_lock = false);
 
     // Finds the next input stream for the 'output_ordinal'-th output stream.
     // No input_info_t lock can be held on entry.

@@ -2947,7 +2947,7 @@ template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::set_cur_input(output_ordinal_t output,
                                                         input_ordinal_t input,
-                                                        bool hold_cur_input_lock)
+                                                        bool caller_holds_cur_input_lock)
 {
     // XXX i#5843: Merge tracking of current inputs with ready_queue.queue to better
     // manage the possible 3 states of each input (a live cur_input for an output stream,
@@ -2959,7 +2959,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_cur_input(output_ordinal_t output,
     if (prev_input >= 0) {
         if (prev_input != input) {
             input_info_t &prev_info = inputs_[prev_input];
-            auto scoped_lock = hold_cur_input_lock
+            auto scoped_lock = caller_holds_cur_input_lock
                 ? std::unique_lock<mutex_dbg_owned>()
                 : std::unique_lock<mutex_dbg_owned>(*prev_info.lock);
             prev_info.cur_output = INVALID_OUTPUT_ORDINAL;
@@ -3150,7 +3150,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input_as_previously(
             // Give up this input and go into a wait state.
             // We'll come back here on the next next_record() call.
             set_cur_input(output, INVALID_INPUT_ORDINAL,
-                          // Avoid livelock if prev input == cur input.
+                          // Avoid livelock if prev input == cur input which happens
+                          // with back-to-back segments with the same input.
                           index == outputs_[output].cur_input);
             outputs_[output].waiting = true;
             return sched_type_t::STATUS_WAIT;
