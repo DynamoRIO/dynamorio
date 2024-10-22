@@ -342,7 +342,7 @@ record_analyzer_multi_t::create_analysis_tool_from_options(const std::string &to
             op_trim_after_timestamp.get_value(), op_encodings2regdeps.get_value(),
             op_filter_func_ids.get_value(), op_modify_marker_value.get_value(),
             op_verbose.get_value());
-    } else if (simulator_type == INTERNAL_RECORD_VIEW) {
+    } else if (tool == INTERNAL_RECORD_VIEW) {
         return internal_record_view_tool_create(op_skip_refs.get_value(),
                                                 op_sim_refs.get_value());
     }
