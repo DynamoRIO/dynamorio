@@ -417,7 +417,8 @@ locks_not_closed()
                     cur_lock->rank ==
                         LOCK_RANK(options_lock)
                         /* This lock can be used parallel to detach cleanup. */
-                        IF_UNIX(|| cur_lock->rank == LOCK_RANK(detached_sigact_lock)))) {
+                        IF_UNIX(|| cur_lock->rank == LOCK_RANK(detached_sigact_lock))
+                            IF_LINUX(|| cur_lock->rank == LOCK_RANK(dump_core_lock)))) {
             /* i#1058: curiosities during exit re-acquire these locks. */
             ignored++;
         } else {
