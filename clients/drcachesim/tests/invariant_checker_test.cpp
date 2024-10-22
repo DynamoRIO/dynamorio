@@ -2794,6 +2794,33 @@ check_read_write_records_match_operands()
                          "Fail to catch missing write records"))
             return false;
     }
+    // Correct: skip read and write records check when the previous instruction was
+    // preempted.
+    {
+        instr_t *nop = XINST_CREATE_nop(GLOBAL_DCONTEXT);
+        instr_t *store = XINST_CREATE_store(
+            GLOBAL_DCONTEXT, OPND_CREATE_MEMPTR(REG2, /*disp=*/0), opnd_create_reg(REG1));
+        instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
+        instrlist_append(ilist, store);
+        instrlist_append(ilist, nop);
+
+        std::vector<memref_with_IR_t> memref_instr_vec = {
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
+            { gen_instr(TID_A), store },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, 2), nop },
+            { gen_exit(TID_A), nullptr }
+        };
+
+        static constexpr addr_t BASE_ADDR = 0xeba4ad4;
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_instr_vec, BASE_ADDR);
+        instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
 #if defined(X86_64) || defined(X86_32)
     // Correct: number of read and write records matches the operand.
     {
