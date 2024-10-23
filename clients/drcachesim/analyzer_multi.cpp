@@ -66,6 +66,7 @@
 #include "tools/reuse_distance_create.h"
 #include "tools/reuse_time_create.h"
 #include "tools/view_create.h"
+#include "tools/internal_record_view_create.h"
 #include "tools/loader/external_config_file.h"
 #include "tools/loader/external_tool_creator.h"
 #include "tools/filter/record_filter_create.h"
@@ -341,6 +342,9 @@ record_analyzer_multi_t::create_analysis_tool_from_options(const std::string &to
             op_trim_after_timestamp.get_value(), op_encodings2regdeps.get_value(),
             op_filter_func_ids.get_value(), op_modify_marker_value.get_value(),
             op_verbose.get_value());
+    } else if (tool == INTERNAL_RECORD_VIEW) {
+        return internal_record_view_tool_create(op_skip_refs.get_value(),
+                                                op_sim_refs.get_value());
     }
     ERRMSG("Usage error: unsupported record analyzer type \"%s\".  Only " RECORD_FILTER
            " is supported.\n",

@@ -50,6 +50,7 @@
 #define SYSCALL_MIX "syscall_mix"
 #define VIEW "view"
 #define FUNC_VIEW "func_view"
+#define INTERNAL_RECORD_VIEW "internal_record_view"
 #define INVARIANT_CHECKER "invariant_checker"
 #define SCHEDULE_STATS "schedule_stats"
 #define RECORD_FILTER "record_filter"

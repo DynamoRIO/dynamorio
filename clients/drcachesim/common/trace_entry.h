@@ -44,6 +44,8 @@
 #define _TRACE_ENTRY_H_ 1
 
 #include <memory>
+#include <sstream>
+#include <string>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -720,6 +722,8 @@ enum class func_trace_t : uint64_t { // VS2019 won't infer 64-bit with "enum {".
 };
 
 extern const char *const trace_type_names[];
+extern const char *const trace_version_names[];
+extern const char *const trace_marker_names[];
 
 /**
  * Returns whether the type represents an instruction fetch.
@@ -1075,6 +1079,120 @@ trace_arch_string(offline_file_type_t type)
         return "regdeps";
     else
         return "unspecified";
+}
+
+/* Returns a string representation of marker type and corresponding marker value (if any)
+ * together.
+ */
+static inline std::string
+trace_marker_type_value_as_string(trace_marker_type_t marker_type, uintptr_t marker_value)
+{
+    std::stringstream ss;
+    const char *marker_name = trace_marker_names[marker_type];
+    switch (marker_type) {
+    /* Handle all the cases where marker_value doesn't matter.
+     */
+    case TRACE_MARKER_TYPE_FILTER_ENDPOINT:
+    case TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL:
+    case TRACE_MARKER_TYPE_CORE_WAIT:
+    case TRACE_MARKER_TYPE_CORE_IDLE: ss << "<" << marker_name << ">\n"; break;
+    /* Handle all the cases where we simply print <marker_type marker_value>.
+     */
+    case TRACE_MARKER_TYPE_TIMESTAMP:
+    case TRACE_MARKER_TYPE_CPU_ID:
+    case TRACE_MARKER_TYPE_INSTRUCTION_COUNT:
+    case TRACE_MARKER_TYPE_CACHE_LINE_SIZE:
+    case TRACE_MARKER_TYPE_PAGE_SIZE:
+    case TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT:
+    case TRACE_MARKER_TYPE_SYSCALL:
+    case TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH:
+    case TRACE_MARKER_TYPE_WINDOW_ID:
+    case TRACE_MARKER_TYPE_SYSCALL_IDX:
+        ss << "<" << marker_name << " " << marker_value << ">\n";
+        break;
+    /* Handle all the cases where we simply print <marker_type 0xmarker_value>.
+     */
+    case TRACE_MARKER_TYPE_FUNC_RETADDR:
+    case TRACE_MARKER_TYPE_FUNC_ARG:
+    case TRACE_MARKER_TYPE_FUNC_RETVAL:
+    case TRACE_MARKER_TYPE_RECORD_ORDINAL:
+    case TRACE_MARKER_TYPE_SPLIT_VALUE:
+    case TRACE_MARKER_TYPE_BRANCH_TARGET:
+        ss << "<" << marker_name << " 0x" << std::hex << marker_value << std::dec
+           << ">\n";
+        break;
+    /* Handle all remaining cases where we want to print a more informative output.
+     */
+    case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
+    case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
+        ss << "<" << marker_name << " number " << marker_value << ">\n";
+        break;
+    case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START:
+    case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END:
+        ss << "<" << marker_name << " type " << marker_value << ">\n";
+        break;
+    /* We don't have a way to know the trace version here.  This might be an offset,
+     * but we don't make any distinction.
+     */
+    case TRACE_MARKER_TYPE_KERNEL_XFER:
+    case TRACE_MARKER_TYPE_KERNEL_EVENT:
+        ss << "<" << marker_name << " from 0x" << std::hex << marker_value << std::dec
+           << ">\n";
+        break;
+    case TRACE_MARKER_TYPE_VERSION:
+        ss << "<" << marker_name << " " << static_cast<int>(marker_value) << " "
+           << trace_version_names[marker_value] << ">\n";
+        break;
+    case TRACE_MARKER_TYPE_FILETYPE:
+        ss << "<" << marker_name << " 0x" << std::hex
+           << static_cast<intptr_t>(marker_value) << std::dec << " "
+           << trace_arch_string((offline_file_type_t)marker_value) << ">\n";
+        break;
+    case TRACE_MARKER_TYPE_RSEQ_ABORT:
+        ss << "<" << marker_name << " from 0x" << std::hex << marker_value << std::dec
+           << " to handler>\n";
+        break;
+    case TRACE_MARKER_TYPE_RSEQ_ENTRY:
+        ss << "<" << marker_name << " with end at 0x" << std::hex << marker_value
+           << std::dec << ">\n";
+        break;
+    case TRACE_MARKER_TYPE_CHUNK_FOOTER:
+        ss << "<" << marker_name << " #" << marker_value << ">\n";
+        break;
+    case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS:
+        ss << "<" << marker_name << " for following virtual: 0x" << std::hex
+           << marker_value << std::dec << ">\n";
+        break;
+    case TRACE_MARKER_TYPE_VIRTUAL_ADDRESS:
+        ss << "<" << marker_name << " for prior physical: 0x" << std::hex << marker_value
+           << std::dec << ">\n";
+        break;
+    case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE:
+        ss << "<" << marker_name << " for 0x" << std::hex << marker_value << std::dec
+           << ">\n";
+        break;
+    case TRACE_MARKER_TYPE_FUNC_ID:
+        if (marker_value >=
+            static_cast<intptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE)) {
+            ss << "<" << marker_name << "==syscall #"
+               << (marker_value -
+                   static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE))
+               << ">\n";
+        } else {
+            ss << "<" << marker_name << " #" << marker_value << ">\n";
+        }
+        break;
+    case TRACE_MARKER_TYPE_SYSCALL_FAILED:
+        ss << "<" << marker_name << ": " << marker_value << ">\n";
+        break;
+    case TRACE_MARKER_TYPE_VECTOR_LENGTH:
+        ss << "<" << marker_name << " " << marker_value << " bytes>\n";
+        break;
+    default:
+        ss << "<marker: type " << marker_type << "; value " << marker_value << ">\n";
+        break;
+    }
+    return ss.str();
 }
 
 /* We have non-client targets including this header that do not include API

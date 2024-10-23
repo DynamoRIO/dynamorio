@@ -276,14 +276,15 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         if (trace_version_ != -1) { // Old versions may not have a version marker.
             if (!should_skip(memstream, memref)) {
                 print_prefix(memstream, memref, version_record_ord_);
-                std::cerr << "<marker: version " << trace_version_ << ">\n";
+                std::cerr << "<" << trace_marker_names[TRACE_MARKER_TYPE_VERSION] << " "
+                          << trace_version_ << ">\n";
             }
         }
         if (filetype_ != -1) { // Handle old/malformed versions.
             if (!should_skip(memstream, memref)) {
                 print_prefix(memstream, memref, filetype_record_ord_);
-                std::cerr << "<marker: filetype 0x" << std::hex << filetype_ << std::dec
-                          << ">\n";
+                std::cerr << "<" << trace_marker_names[TRACE_MARKER_TYPE_FILETYPE]
+                          << " 0x" << std::hex << filetype_ << std::dec << ">\n";
             }
         }
     }
@@ -301,16 +302,19 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
                              -1); // Already incremented for timestamp above.
             }
             if (timestamp_ > 0) {
-                std::cerr << "<marker: timestamp " << timestamp_ << ">\n";
+                std::cerr << "<" << trace_marker_names[TRACE_MARKER_TYPE_TIMESTAMP] << " "
+                          << timestamp_ << ">\n";
                 timestamp_ = 0;
                 print_prefix(memstream, memref);
             }
-            std::cerr << "<marker: window " << memref.marker.marker_value << ">\n";
+            std::cerr << "<" << trace_marker_names[TRACE_MARKER_TYPE_WINDOW_ID] << " "
+                      << memref.marker.marker_value << ">\n";
             last_window_[memref.marker.tid] = memref.marker.marker_value;
         }
         if (timestamp_ > 0) {
             print_prefix(memstream, memref, timestamp_record_ord_);
-            std::cerr << "<marker: timestamp " << timestamp_ << ">\n";
+            std::cerr << "<" << trace_marker_names[TRACE_MARKER_TYPE_TIMESTAMP] << " "
+                      << timestamp_ << ">\n";
             timestamp_ = 0;
         }
     }
@@ -320,6 +324,7 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     }
 
     if (memref.marker.type == TRACE_TYPE_MARKER) {
+        const char *marker_name = trace_marker_names[memref.marker.marker_type];
         switch (memref.marker.marker_type) {
         case TRACE_MARKER_TYPE_VERSION:
             // Handled above.
@@ -328,6 +333,9 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             // Handled above.
             break;
         case TRACE_MARKER_TYPE_TIMESTAMP:
+            // Handled above.
+            break;
+        case TRACE_MARKER_TYPE_WINDOW_ID:
             // Handled above.
             break;
         case TRACE_MARKER_TYPE_CPU_ID:
@@ -346,156 +354,48 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         case TRACE_MARKER_TYPE_KERNEL_EVENT:
             if (trace_version_ <= TRACE_ENTRY_VERSION_NO_KERNEL_PC) {
                 // Legacy traces just have the module offset.
-                std::cerr << "<marker: kernel xfer from module offset +0x" << std::hex
+                std::cerr << "<" << marker_name << " from module offset +0x" << std::hex
                           << memref.marker.marker_value << std::dec << " to handler>\n";
             } else {
-                std::cerr << "<marker: kernel xfer from 0x" << std::hex
+                std::cerr << "<" << marker_name << " from 0x" << std::hex
                           << memref.marker.marker_value << std::dec << " to handler>\n";
             }
             break;
+        // TODO: handle this case in trace_marker_type_value_as_string().
         case TRACE_MARKER_TYPE_SIGNAL_NUMBER:
             std::cerr << "<marker: signal #" << memref.marker.marker_value << ">\n";
-            break;
-        case TRACE_MARKER_TYPE_RSEQ_ABORT:
-            std::cerr << "<marker: rseq abort from 0x" << std::hex
-                      << memref.marker.marker_value << std::dec << " to handler>\n";
-            break;
-        case TRACE_MARKER_TYPE_RSEQ_ENTRY:
-            std::cerr << "<marker: rseq entry with end at 0x" << std::hex
-                      << memref.marker.marker_value << std::dec << ">\n";
             break;
         case TRACE_MARKER_TYPE_KERNEL_XFER:
             if (trace_version_ <= TRACE_ENTRY_VERSION_NO_KERNEL_PC) {
                 // Legacy traces just have the module offset.
-                std::cerr << "<marker: syscall xfer from module offset +0x" << std::hex
+                std::cerr << "<" << marker_name << " from module offset +0x" << std::hex
                           << memref.marker.marker_value << std::dec << ">\n";
             } else {
-                std::cerr << "<marker: syscall xfer from 0x" << std::hex
+                std::cerr << "<" << marker_name << " from 0x" << std::hex
                           << memref.marker.marker_value << std::dec << ">\n";
             }
             break;
-        case TRACE_MARKER_TYPE_INSTRUCTION_COUNT:
-            std::cerr << "<marker: instruction count " << memref.marker.marker_value
-                      << ">\n";
-            break;
-        case TRACE_MARKER_TYPE_CACHE_LINE_SIZE:
-            std::cerr << "<marker: cache line size " << memref.marker.marker_value
-                      << ">\n";
-            break;
-        case TRACE_MARKER_TYPE_PAGE_SIZE:
-            std::cerr << "<marker: page size " << memref.marker.marker_value << ">\n";
-            break;
-        case TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT:
-            std::cerr << "<marker: chunk instruction count " << memref.marker.marker_value
-                      << ">\n";
-            break;
-        case TRACE_MARKER_TYPE_CHUNK_FOOTER:
-            std::cerr << "<marker: chunk footer #" << memref.marker.marker_value << ">\n";
-            break;
-        case TRACE_MARKER_TYPE_FILTER_ENDPOINT:
-            std::cerr << "<marker: filter endpoint>\n";
-            break;
-        case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS:
-            std::cerr << "<marker: physical address for following virtual: 0x" << std::hex
-                      << memref.marker.marker_value << std::dec << ">\n";
-            break;
-        case TRACE_MARKER_TYPE_VIRTUAL_ADDRESS:
-            std::cerr << "<marker: virtual address for prior physical: 0x" << std::hex
-                      << memref.marker.marker_value << std::dec << ">\n";
-            break;
-        case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE:
-            std::cerr << "<marker: physical address not available for 0x" << std::hex
-                      << memref.marker.marker_value << std::dec << ">\n";
-            break;
-        case TRACE_MARKER_TYPE_FUNC_ID:
-            if (memref.marker.marker_value >=
-                static_cast<intptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE)) {
-                std::cerr << "<marker: function==syscall #"
-                          << (memref.marker.marker_value -
-                              static_cast<uintptr_t>(
-                                  func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE))
-                          << ">\n";
-            } else {
-                std::cerr << "<marker: function #" << memref.marker.marker_value << ">\n";
-            }
-            break;
-        case TRACE_MARKER_TYPE_FUNC_RETADDR:
-            std::cerr << "<marker: function return address 0x" << std::hex
-                      << memref.marker.marker_value << std::dec << ">\n";
-            break;
-        case TRACE_MARKER_TYPE_FUNC_ARG:
-            std::cerr << "<marker: function argument 0x" << std::hex
-                      << memref.marker.marker_value << std::dec << ">\n";
-            break;
-        case TRACE_MARKER_TYPE_FUNC_RETVAL:
-            std::cerr << "<marker: function return value 0x" << std::hex
-                      << memref.marker.marker_value << std::dec << ">\n";
-            break;
-        case TRACE_MARKER_TYPE_SYSCALL_FAILED:
-            std::cerr << "<marker: system call failed: " << memref.marker.marker_value
-                      << ">\n";
-            break;
-        case TRACE_MARKER_TYPE_RECORD_ORDINAL:
-            std::cerr << "<marker: record ordinal 0x" << std::hex
-                      << memref.marker.marker_value << std::dec << ">\n";
-            break;
-        case TRACE_MARKER_TYPE_SYSCALL:
-            std::cerr << "<marker: system call " << memref.marker.marker_value << ">\n";
-            break;
-        case TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL:
-            std::cerr << "<marker: maybe-blocking system call>\n";
-            break;
-        case TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH:
-            std::cerr << "<marker: direct switch to thread " << memref.marker.marker_value
-                      << ">\n";
-            break;
+        // TODO: handle this case in trace_marker_type_value_as_string().
         case TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE:
             std::cerr << "<marker: current thread going unscheduled>\n";
             break;
+        // TODO: handle this case in trace_marker_type_value_as_string().
         case TRACE_MARKER_TYPE_SYSCALL_SCHEDULE:
             std::cerr << "<marker: re-schedule thread " << memref.marker.marker_value
                       << ">\n";
             break;
+        // TODO: handle this case in trace_marker_type_value_as_string().
         case TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT:
             std::cerr << "<marker: syscall timeout arg " << memref.marker.marker_value
                       << ">\n";
             break;
-        case TRACE_MARKER_TYPE_WINDOW_ID:
-            // Handled above.
-            break;
-        case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
-            std::cerr << "<marker: trace start for system call number "
-                      << memref.marker.marker_value << ">\n";
-            break;
-        case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
-            std::cerr << "<marker: trace end for system call number "
-                      << memref.marker.marker_value << ">\n";
-            break;
-        case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START:
-            std::cerr << "<marker: trace start for context switch type "
-                      << memref.marker.marker_value << ">\n";
-            break;
-        case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END:
-            std::cerr << "<marker: trace end for context switch type "
-                      << memref.marker.marker_value << ">\n";
-            break;
-        case TRACE_MARKER_TYPE_BRANCH_TARGET:
-            // These are not expected to be visible (since the reader adds them
-            // to memref.instr.indirect_branch_target) but we handle nonetheless.
-            std::cerr << "<marker: indirect branch target 0x" << std::hex
-                      << memref.marker.marker_value << std::dec << ">\n";
-            break;
-        case TRACE_MARKER_TYPE_CORE_WAIT:
-            std::cerr << "<marker: wait for another core>\n";
-            break;
-        case TRACE_MARKER_TYPE_CORE_IDLE: std::cerr << "<marker: core is idle>\n"; break;
-        case TRACE_MARKER_TYPE_VECTOR_LENGTH:
-            std::cerr << "<marker: vector length " << memref.marker.marker_value
-                      << " bytes>\n";
-            break;
         default:
-            std::cerr << "<marker: type " << memref.marker.marker_type << "; value "
-                      << memref.marker.marker_value << ">\n";
+            /* The previous cases have state and require extra processing.  Here we print
+             * all the remaining cases that do not need that extra processing and
+             * bookkeeping.
+             */
+            std::cerr << trace_marker_type_value_as_string(memref.marker.marker_type,
+                                                           memref.marker.marker_value);
             break;
         }
         return true;
