@@ -1068,6 +1068,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 shard->prev_entry_.marker.marker_type != TRACE_MARKER_TYPE_RSEQ_ABORT) {
                 shard->retaddr_stack_.push(0);
             }
+            // Reset read/write record count when the previous instruction was
+            // preempted.
+            shard->expected_read_records_ = 0;
+            shard->expected_write_records_ = 0;
         }
 #ifdef UNIX
         report_if_false(shard, memref.marker.marker_value != 0,
