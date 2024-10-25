@@ -495,10 +495,10 @@ schedule_stats_t::aggregate_results(counters_t &total)
         // If the scheduler is counting migrations, it may see more due to inputs
         // not yet executed moving among runqueues.
 #ifndef NDEBUG
-        int64_t sched_migrations = shard.second->stream->get_schedule_statistic(
+        double sched_migrations = shard.second->stream->get_schedule_statistic(
             memtrace_stream_t::SCHED_STAT_MIGRATIONS);
 #endif
-        assert(sched_migrations == 0 ||
+        assert(sched_migrations == 0. ||
                sched_migrations > shard.second->counters.observed_migrations);
     }
 }
