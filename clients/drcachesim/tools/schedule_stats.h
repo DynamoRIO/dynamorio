@@ -41,6 +41,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -154,6 +155,7 @@ public:
             syscalls += rhs.syscalls;
             maybe_blocking_syscalls += rhs.maybe_blocking_syscalls;
             direct_switch_requests += rhs.direct_switch_requests;
+            observed_migrations += rhs.observed_migrations;
             waits += rhs.waits;
             idles += rhs.idles;
             idle_microseconds += rhs.idle_microseconds;
@@ -181,6 +183,12 @@ public:
         int64_t syscalls = 0;
         int64_t maybe_blocking_syscalls = 0;
         int64_t direct_switch_requests = 0;
+        // Our observed migrations will be <= the scheduler's reported migrations
+        // for a dynamic schedule as we don't know the initial runqueue allocation
+        // and so can't see the migration of an input that didn't execute in the
+        // trace yet. For replayed (including core-sharded-on-disk) the scheduler
+        // does not provide any data and so this stat is required there.
+        int64_t observed_migrations = 0;
         int64_t waits = 0;
         int64_t idles = 0;
         uint64_t idle_microseconds = 0;
@@ -190,6 +198,36 @@ public:
         std::unordered_set<memref_tid_t> threads;
         std::unique_ptr<histogram_interface_t> instrs_per_switch;
     };
+
+    struct workload_tid_t {
+        workload_tid_t(int64_t workload, int64_t thread)
+            : workload_id(workload)
+            , tid(thread)
+        {
+        }
+        bool
+        operator==(const workload_tid_t &rhs) const
+        {
+            return workload_id == rhs.workload_id && tid == rhs.tid;
+        }
+
+        bool
+        operator!=(const workload_tid_t &rhs) const
+        {
+            return !(*this == rhs);
+        }
+        int64_t workload_id;
+        int64_t tid;
+    };
+
+    struct workload_tid_hash_t {
+        std::size_t
+        operator()(const workload_tid_t &wt) const
+        {
+            return std::hash<int>()(wt.workload_id) ^ std::hash<memref_tid_t>()(wt.tid);
+        }
+    };
+
     counters_t
     get_total_counts();
 
@@ -240,8 +278,8 @@ protected:
     update_state_time(per_shard_t *shard, state_t state);
 
     void
-    record_context_switch(per_shard_t *shard, int64_t tid, int64_t input_id,
-                          int64_t letter_ord);
+    record_context_switch(per_shard_t *shard, int64_t workload_id, int64_t tid,
+                          int64_t input_id, int64_t letter_ord);
 
     virtual void
     aggregate_results(counters_t &total);
@@ -259,6 +297,10 @@ protected:
     std::mutex shard_map_mutex_;
     static const std::string TOOL_NAME;
     memtrace_stream_t *serial_stream_ = nullptr;
+    // To track migrations we unfortunately need a global synchronized map to
+    // remember the last core for each input.
+    std::unordered_map<workload_tid_t, int64_t, workload_tid_hash_t> prev_core_;
+    std::mutex prev_core_mutex_;
 };
 
 } // namespace drmemtrace
