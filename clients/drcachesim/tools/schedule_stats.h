@@ -224,7 +224,8 @@ public:
         std::size_t
         operator()(const workload_tid_t &wt) const
         {
-            return std::hash<int>()(wt.workload_id) ^ std::hash<memref_tid_t>()(wt.tid);
+            return std::hash<size_t>()(wt.workload_id) ^
+                std::hash<memref_tid_t>()(wt.tid);
         }
     };
 
