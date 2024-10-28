@@ -190,8 +190,10 @@ GLOBAL_LABEL(FUNCNAME:)
 #define FUNCNAME test_signal_midbb
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        /* prefetcht2's address is the instr count until a signal */
-        prefetcht2 [3]
+        /* prefetcht2's address is the instr count until a signal not counting
+         * the preempted instr.
+         */
+        prefetcht2 [2]
         nop
         nop
         ud2
@@ -205,8 +207,10 @@ GLOBAL_LABEL(FUNCNAME:)
 #define FUNCNAME test_signal_startbb
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        /* prefetcht2's address is the instr count until a signal */
-        prefetcht2 [2]
+        /* prefetcht2's address is the instr count until a signal not counting
+         * the preempted instr.
+         */
+        prefetcht2 [1]
         jmp      new_bb
     new_bb:
         ud2
@@ -221,10 +225,14 @@ GLOBAL_LABEL(FUNCNAME:)
          * XXX i#3958: Today the 2nd movs memref is incorrectly included *before*
          * the fault.
          */
-        /* prefetcht2's address is the instr count until a signal */
-        prefetcht2 [5]
-        /* prefetcht1's address is the memref count until a signal */
-        prefetcht1 [3]
+        /* prefetcht2's address is the instr count until a signal not counting
+         * the preempted instr.
+         */
+        prefetcht2 [4]
+        /* prefetcht1's address is the memref count until a signal not counting
+         * the preempted memref.
+         */
+        prefetcht1 [1]
         mov      REG_XSI, HEX(42)
         mov      REG_XDI, REG_XSP
         push     REG_XAX
