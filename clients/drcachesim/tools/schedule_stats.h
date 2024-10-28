@@ -224,7 +224,9 @@ public:
         std::size_t
         operator()(const workload_tid_t &wt) const
         {
-            return std::hash<size_t>()(wt.workload_id) ^
+            // Ensure {workload_id=X, tid=Y} doesn't always hash the same as
+            // {workload_id=Y, tid=X} by avoiding a simple symmetric wid^tid.
+            return std::hash<size_t>()(wt.workload_id ^ wt.tid) ^
                 std::hash<memref_tid_t>()(wt.tid);
         }
     };

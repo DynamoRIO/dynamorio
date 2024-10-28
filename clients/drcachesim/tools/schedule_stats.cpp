@@ -499,7 +499,7 @@ schedule_stats_t::aggregate_results(counters_t &total)
             memtrace_stream_t::SCHED_STAT_MIGRATIONS);
 #endif
         assert(sched_migrations == 0. ||
-               sched_migrations > shard.second->counters.observed_migrations);
+               sched_migrations >= shard.second->counters.observed_migrations);
     }
 }
 
