@@ -21,6 +21,7 @@ Total counts:
          161 system calls
            2 maybe-blocking system calls
            0 direct switch requests
+           0 observed migrations
            0 waits
       345686 idles
        64.89% cpu busy by record count
