@@ -148,6 +148,8 @@ public:
             switches_nop += rhs.switches_nop;
             quantum_preempts += rhs.quantum_preempts;
             migrations += rhs.migrations;
+            steals += rhs.steals;
+            rebalances += rhs.rebalances;
             instrs += rhs.instrs;
             total_switches += rhs.total_switches;
             voluntary_switches += rhs.voluntary_switches;
@@ -175,6 +177,8 @@ public:
         int64_t switches_nop = 0;
         int64_t quantum_preempts = 0;
         int64_t migrations = 0;
+        int64_t steals = 0;
+        int64_t rebalances = 0;
         // Our own statistics.
         int64_t instrs = 0;
         int64_t total_switches = 0;

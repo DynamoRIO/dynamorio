@@ -16,6 +16,8 @@ Total counts:
            0 switches nop-ed
            0 quantum_preempts
            0 migrations
+           0 work steals
+           1 rebalances
          161 system calls
            2 maybe-blocking system calls
            0 direct switch requests
