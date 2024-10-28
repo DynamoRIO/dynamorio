@@ -1488,6 +1488,13 @@ private:
     analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 modidx,
                                uint64 modoffs, app_pc start_pc, uint instr_count);
 
+    // Returns true if a kernel interrupt happened at cur_pc. The check skips
+    // memrefs to search for a kernel event marker. If the kernel event marker has
+    // the value of cur_pc, it returns true.
+    bool
+    preempted_by_kernel_event(raw2trace_thread_data_t *tdata, uint64_t cur_pc,
+                              uint64_t cur_offs);
+
     bool
     process_memref(raw2trace_thread_data_t *tdata, trace_entry_t **buf_in,
                    const instr_summary_t *instr, instr_summary_t::memref_summary_t memref,

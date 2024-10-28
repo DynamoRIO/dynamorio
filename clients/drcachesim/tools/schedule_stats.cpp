@@ -160,6 +160,10 @@ schedule_stats_t::get_scheduler_stats(memtrace_stream_t *stream, counters_t &cou
         stream->get_schedule_statistic(memtrace_stream_t::SCHED_STAT_QUANTUM_PREEMPTS));
     counters.migrations = static_cast<int64_t>(
         stream->get_schedule_statistic(memtrace_stream_t::SCHED_STAT_MIGRATIONS));
+    counters.steals = static_cast<int64_t>(
+        stream->get_schedule_statistic(memtrace_stream_t::SCHED_STAT_RUNQUEUE_STEALS));
+    counters.rebalances = static_cast<int64_t>(stream->get_schedule_statistic(
+        memtrace_stream_t::SCHED_STAT_RUNQUEUE_REBALANCES));
 
     // XXX: Currently, schedule_stats is measuring swap-ins to a real input.  If we
     // want to match what "perf" targeting this app would record, which is swap-outs,
@@ -417,6 +421,8 @@ schedule_stats_t::print_counters(const counters_t &counters)
     std::cerr << std::setw(12) << counters.switches_nop << " switches nop-ed\n";
     std::cerr << std::setw(12) << counters.quantum_preempts << " quantum_preempts\n";
     std::cerr << std::setw(12) << counters.migrations << " migrations\n";
+    std::cerr << std::setw(12) << counters.steals << " work steals\n";
+    std::cerr << std::setw(12) << counters.rebalances << " rebalances\n";
 
     std::cerr << std::setw(12) << counters.syscalls << " system calls\n";
     std::cerr << std::setw(12) << counters.maybe_blocking_syscalls
