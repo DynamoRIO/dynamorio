@@ -2114,6 +2114,8 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             buf->addr = (addr_t)orig_pc;
             ++buf;
             log(4, "Appended instr fetch for original %p\n", orig_pc);
+        } else {
+            log(0, "Skipped preempted instruction.\n");
         }
         decode_pc = pc;
         if (tdata->rseq_past_end_) {
