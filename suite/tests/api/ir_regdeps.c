@@ -222,7 +222,7 @@ test_instr_create_encode_decode_disassemble_synthetic_x86_64(void *dc)
     instr_encode(dc, instr, buf);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
-    const char *expected_disasm_str_jmp_ind = " 00002800 load branch \n";
+    const char *expected_disasm_str_jmp_ind = " 00002800          load branch \n";
     test_instr_encode_decode_disassemble_synthetic(dc, instr,
                                                    expected_disasm_str_jmp_ind);
     instr_destroy(dc, tgt);
