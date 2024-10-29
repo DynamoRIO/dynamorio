@@ -502,9 +502,9 @@ schedule_stats_t::aggregate_results(counters_t &total)
     // Our observed_migrations are counted on the destination core, while
     // the scheduler reports migrations away from a source core: so we only
     // check the aggregate. For non-dynamic schedules the scheduler-reported
-    // will be 0; otherwise, the scheduler may see more migrations due to inputs
-    // not yet executed moving among runqueues.
-    assert(total.migrations == 0. || total.migrations >= total.observed_migrations);
+    // will be 0; for mock streams in tests it will be < 0; otherwise, the scheduler
+    // may see more migrations due to inputs not yet executed moving among runqueues.
+    assert(total.migrations <= 0. || total.migrations >= total.observed_migrations);
 }
 
 bool
@@ -531,9 +531,7 @@ schedule_stats_t::counters_t
 schedule_stats_t::get_total_counts()
 {
     counters_t total;
-    for (const auto &shard : shard_map_) {
-        total += shard.second->counters;
-    }
+    aggregate_results(total);
     return total;
 }
 
