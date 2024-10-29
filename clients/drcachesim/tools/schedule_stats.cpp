@@ -498,15 +498,13 @@ schedule_stats_t::aggregate_results(counters_t &total)
         assert(shard.second->counters.direct_switches ==
                shard.second->stream->get_schedule_statistic(
                    memtrace_stream_t::SCHED_STAT_DIRECT_SWITCH_SUCCESSES));
-        // If the scheduler is counting migrations, it may see more due to inputs
-        // not yet executed moving among runqueues.
-#ifndef NDEBUG
-        double sched_migrations = shard.second->stream->get_schedule_statistic(
-            memtrace_stream_t::SCHED_STAT_MIGRATIONS);
-#endif
-        assert(sched_migrations == 0. ||
-               sched_migrations >= shard.second->counters.observed_migrations);
     }
+    // Our observed_migrations are counted on the destination core, while
+    // the scheduler reports migrations away from a source core: so we only
+    // check the aggregate. For non-dynamic schedules the scheduler-reported
+    // will be 0; otherwise, the scheduler may see more migrations due to inputs
+    // not yet executed moving among runqueues.
+    assert(total.migrations == 0. || total.migrations >= total.observed_migrations);
 }
 
 bool
