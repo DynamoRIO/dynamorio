@@ -44,6 +44,7 @@
 #include "../reader/file_reader.h"
 #include "../scheduler/scheduler.h"
 #include "memref_gen.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -599,11 +600,13 @@ run_regdeps_test(void *drcontext)
     constexpr addr_t PC_vpmovmskb = 0x00007f6fdc76cb35;
     constexpr addr_t PC_vmovdqu = 0x00007f6fdc76cb2d;
     constexpr addr_t PC_lock_cmpxchg = 0x00007f86ef03d107;
+    constexpr addr_t PC_branch = 0x00005605ec276c4d;
     constexpr addr_t ENCODING_REGDEPS_ISA_mov = 0x0006090600010011;
     constexpr addr_t ENCODING_REGDEPS_ISA_vpmovmskb = 0x004e032100004011;
     constexpr addr_t ENCODING_REGDEPS_ISA_vmovdqu = 0x0009492100004811;
     constexpr addr_t ENCODING_REGDEPS_ISA_lock_cmpxchg_1 = 0x0402020400001931;
     constexpr addr_t ENCODING_REGDEPS_ISA_lock_cmpxchg_2 = 0x00000026;
+    constexpr addr_t ENCODING_REGDEPS_ISA_branch = 0x00002200;
     std::vector<std::vector<trace_entry_t>> entries = { {
         { TRACE_TYPE_HEADER, 0, { 0x1 } },
         { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 3 } },
@@ -614,7 +617,7 @@ run_regdeps_test(void *drcontext)
         { TRACE_TYPE_THREAD, 0, { t1 } },
         { TRACE_TYPE_PID, 0, { t1 } },
         { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 64 } },
-        { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, { 4 } },
+        { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, { 5 } },
         { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 1002 } },
         { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 2 } },
         { TRACE_TYPE_ENCODING, 8, { ENCODING_REGDEPS_ISA_mov } },
@@ -626,6 +629,8 @@ run_regdeps_test(void *drcontext)
         { TRACE_TYPE_ENCODING, 8, { ENCODING_REGDEPS_ISA_lock_cmpxchg_1 } },
         { TRACE_TYPE_ENCODING, 4, { ENCODING_REGDEPS_ISA_lock_cmpxchg_2 } },
         { TRACE_TYPE_INSTR, 10, { PC_lock_cmpxchg } },
+        { TRACE_TYPE_ENCODING, 4, { ENCODING_REGDEPS_ISA_branch } },
+        { TRACE_TYPE_INSTR_TAKEN_JUMP, 2, { PC_branch } },
         { TRACE_TYPE_FOOTER, 0, { 0 } },
     } };
 
@@ -634,7 +639,7 @@ run_regdeps_test(void *drcontext)
         std::string(R"DELIM(           1           0:           3 <marker: version 3>
            2           0:           3 <marker: filetype 0x20e00>
            3           0:           3 <marker: cache line size 64>
-           4           0:           3 <marker: chunk instruction count 4>
+           4           0:           3 <marker: chunk instruction count 5>
            5           0:           3 <marker: timestamp 1002>
            6           0:           3 <marker: tid 3 on core 2>
            7           1:           3 ifetch       3 byte(s) @ 0x00007f6fdd3ec360 00010011 00060906 move [8byte]       %rv4 -> %rv7
@@ -642,6 +647,7 @@ run_regdeps_test(void *drcontext)
            9           3:           3 ifetch       4 byte(s) @ 0x00007f6fdc76cb2d 00004811 00094921 load simd [32byte]       %rv7 -> %rv71
           10           4:           3 ifetch      10 byte(s) @ 0x00007f86ef03d107 00001931 04020204 load store [4byte]       %rv0 %rv2 %rv36 -> %rv0
           10           4:           3                                             00000026
+          11           5:           3 ifetch       2 byte(s) @ 0x00005605ec276c4d 00002200          branch  (taken)
 )DELIM");
     /* clang-format on */
 

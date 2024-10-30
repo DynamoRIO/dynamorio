@@ -160,6 +160,10 @@ schedule_stats_t::get_scheduler_stats(memtrace_stream_t *stream, counters_t &cou
         stream->get_schedule_statistic(memtrace_stream_t::SCHED_STAT_QUANTUM_PREEMPTS));
     counters.migrations = static_cast<int64_t>(
         stream->get_schedule_statistic(memtrace_stream_t::SCHED_STAT_MIGRATIONS));
+    counters.steals = static_cast<int64_t>(
+        stream->get_schedule_statistic(memtrace_stream_t::SCHED_STAT_RUNQUEUE_STEALS));
+    counters.rebalances = static_cast<int64_t>(stream->get_schedule_statistic(
+        memtrace_stream_t::SCHED_STAT_RUNQUEUE_REBALANCES));
 
     // XXX: Currently, schedule_stats is measuring swap-ins to a real input.  If we
     // want to match what "perf" targeting this app would record, which is swap-outs,
@@ -200,11 +204,14 @@ schedule_stats_t::update_state_time(per_shard_t *shard, state_t state)
 }
 
 void
-schedule_stats_t::record_context_switch(per_shard_t *shard, int64_t tid, int64_t input_id,
-                                        int64_t letter_ord)
+schedule_stats_t::record_context_switch(per_shard_t *shard, int64_t workload_id,
+                                        int64_t tid, int64_t input_id, int64_t letter_ord)
 {
     // We convert to letters which only works well for <=26 inputs.
-    if (!shard->thread_sequence.empty()) {
+    if (shard->thread_sequence.empty()) {
+        std::lock_guard<std::mutex> lock(prev_core_mutex_);
+        prev_core_[workload_tid_t(workload_id, tid)] = shard->core;
+    } else {
         ++shard->counters.total_switches;
         if (shard->saw_syscall || shard->saw_exit)
             ++shard->counters.voluntary_switches;
@@ -213,6 +220,16 @@ schedule_stats_t::record_context_switch(per_shard_t *shard, int64_t tid, int64_t
         uint64_t instr_delta = shard->counters.instrs - shard->switch_start_instrs;
         shard->counters.instrs_per_switch->add(instr_delta);
         shard->switch_start_instrs = shard->counters.instrs;
+
+        // Tracking migrations requires a global lock but just once per context
+        // switch seems to have negligible performance impact on parallel analysis.
+        std::lock_guard<std::mutex> lock(prev_core_mutex_);
+        workload_tid_t workload_tid(workload_id, tid);
+        auto it = prev_core_.find(workload_tid);
+        if (it != prev_core_.end() && it->second != shard->core) {
+            ++shard->counters.observed_migrations;
+        }
+        prev_core_[workload_tid] = shard->core;
     }
     shard->thread_sequence +=
         THREAD_LETTER_INITIAL_START + static_cast<char>(letter_ord % 26);
@@ -317,7 +334,7 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
     if ((workload_id != prev_workload_id || tid != prev_tid) && tid != IDLE_THREAD_ID) {
         // See XXX comment in get_scheduler_stats(): this measures swap-ins, while
         // "perf" measures swap-outs.
-        record_context_switch(shard, tid, input_id, letter_ord);
+        record_context_switch(shard, workload_id, tid, input_id, letter_ord);
     }
     shard->prev_workload_id = workload_id;
     shard->prev_tid = tid;
@@ -417,12 +434,16 @@ schedule_stats_t::print_counters(const counters_t &counters)
     std::cerr << std::setw(12) << counters.switches_nop << " switches nop-ed\n";
     std::cerr << std::setw(12) << counters.quantum_preempts << " quantum_preempts\n";
     std::cerr << std::setw(12) << counters.migrations << " migrations\n";
+    std::cerr << std::setw(12) << counters.steals << " work steals\n";
+    std::cerr << std::setw(12) << counters.rebalances << " rebalances\n";
 
     std::cerr << std::setw(12) << counters.syscalls << " system calls\n";
     std::cerr << std::setw(12) << counters.maybe_blocking_syscalls
               << " maybe-blocking system calls\n";
     std::cerr << std::setw(12) << counters.direct_switch_requests
               << " direct switch requests\n";
+    std::cerr << std::setw(12) << counters.observed_migrations
+              << " observed migrations\n";
     std::cerr << std::setw(12) << counters.waits << " waits\n";
     std::cerr << std::setw(12) << counters.idles << " idles\n";
     print_percentage(static_cast<double>(counters.instrs),
@@ -478,6 +499,12 @@ schedule_stats_t::aggregate_results(counters_t &total)
                shard.second->stream->get_schedule_statistic(
                    memtrace_stream_t::SCHED_STAT_DIRECT_SWITCH_SUCCESSES));
     }
+    // Our observed_migrations are counted on the destination core, while
+    // the scheduler reports migrations away from a source core: so we only
+    // check the aggregate. For non-dynamic schedules the scheduler-reported
+    // will be 0; for mock streams in tests it will be < 0; otherwise, the scheduler
+    // may see more migrations due to inputs not yet executed moving among runqueues.
+    assert(total.migrations <= 0. || total.migrations >= total.observed_migrations);
 }
 
 bool
@@ -504,9 +531,7 @@ schedule_stats_t::counters_t
 schedule_stats_t::get_total_counts()
 {
     counters_t total;
-    for (const auto &shard : shard_map_) {
-        total += shard.second->counters;
-    }
+    aggregate_results(total);
     return total;
 }
 

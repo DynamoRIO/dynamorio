@@ -649,6 +649,10 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks_internal(
             // We synthesize a record here.  If we wanted this to count toward output
             // stream ordinals we would need to add a scheduler API to inject it.
             record = create_wait_marker();
+            if (parallel_) {
+                // Don't spin on this artificial wait; retry later.
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
         } else if (status == sched_type_t::STATUS_IDLE) {
             assert(shard_type_ == SHARD_BY_CORE);
             // We let tools know about idle time so they can analyze cpu usage.

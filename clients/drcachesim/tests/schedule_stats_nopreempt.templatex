@@ -16,9 +16,12 @@ Total counts:
            0 switches nop-ed
            0 quantum_preempts
            0 migrations
+           0 work steals
+           1 rebalances
          161 system calls
            2 maybe-blocking system calls
            0 direct switch requests
+           0 observed migrations
            0 waits
     *[0-9]* idles
       *[0-9\.]*% cpu busy by record count

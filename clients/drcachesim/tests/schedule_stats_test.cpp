@@ -110,6 +110,7 @@ run_schedule_stats(const std::vector<std::vector<memref_t>> &memrefs)
     std::vector<per_core_t> per_core(memrefs.size());
     for (int cpu = 0; cpu < static_cast<int>(memrefs.size()); ++cpu) {
         per_core[cpu].worker_data = tool.parallel_worker_init(cpu);
+        per_core[cpu].stream.set_output_cpuid(cpu);
         per_core[cpu].shard_data = tool.parallel_shard_init_stream(
             cpu, per_core[cpu].worker_data, &per_core[cpu].stream);
     }
@@ -121,6 +122,7 @@ run_schedule_stats(const std::vector<std::vector<memref_t>> &memrefs)
                 continue;
             memref_t memref = memrefs[cpu][per_core[cpu].memref_idx];
             per_core[cpu].stream.set_tid(memref.instr.tid);
+            per_core[cpu].stream.set_output_cpuid(cpu);
             bool res = tool.parallel_shard_memref(per_core[cpu].shard_data, memref);
             assert(res);
             ++per_core[cpu].memref_idx;
@@ -206,6 +208,8 @@ test_basic_stats()
     assert(result.syscalls == 4);
     assert(result.maybe_blocking_syscalls == 3);
     assert(result.direct_switch_requests == 2);
+    // 5 migrations: A 0->1; B 1->0; A 1->0; C 0->1; B 0->1.
+    assert(result.observed_migrations == 5);
     assert(result.waits == 3);
     assert(result.idle_microseconds == 0);
     assert(result.cpu_microseconds > 20);
@@ -265,6 +269,7 @@ test_idle()
     assert(result.syscalls == 0);
     assert(result.maybe_blocking_syscalls == 0);
     assert(result.direct_switch_requests == 0);
+    assert(result.observed_migrations == 0);
     assert(result.waits == 3);
     assert(result.idles == 6);
     assert(result.idle_microseconds >= 6);

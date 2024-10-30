@@ -41,6 +41,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -147,6 +148,8 @@ public:
             switches_nop += rhs.switches_nop;
             quantum_preempts += rhs.quantum_preempts;
             migrations += rhs.migrations;
+            steals += rhs.steals;
+            rebalances += rhs.rebalances;
             instrs += rhs.instrs;
             total_switches += rhs.total_switches;
             voluntary_switches += rhs.voluntary_switches;
@@ -154,6 +157,7 @@ public:
             syscalls += rhs.syscalls;
             maybe_blocking_syscalls += rhs.maybe_blocking_syscalls;
             direct_switch_requests += rhs.direct_switch_requests;
+            observed_migrations += rhs.observed_migrations;
             waits += rhs.waits;
             idles += rhs.idles;
             idle_microseconds += rhs.idle_microseconds;
@@ -173,6 +177,8 @@ public:
         int64_t switches_nop = 0;
         int64_t quantum_preempts = 0;
         int64_t migrations = 0;
+        int64_t steals = 0;
+        int64_t rebalances = 0;
         // Our own statistics.
         int64_t instrs = 0;
         int64_t total_switches = 0;
@@ -181,6 +187,12 @@ public:
         int64_t syscalls = 0;
         int64_t maybe_blocking_syscalls = 0;
         int64_t direct_switch_requests = 0;
+        // Our observed migrations will be <= the scheduler's reported migrations
+        // for a dynamic schedule as we don't know the initial runqueue allocation
+        // and so can't see the migration of an input that didn't execute in the
+        // trace yet. For replayed (including core-sharded-on-disk) the scheduler
+        // does not provide any data and so this stat is required there.
+        int64_t observed_migrations = 0;
         int64_t waits = 0;
         int64_t idles = 0;
         uint64_t idle_microseconds = 0;
@@ -190,6 +202,39 @@ public:
         std::unordered_set<memref_tid_t> threads;
         std::unique_ptr<histogram_interface_t> instrs_per_switch;
     };
+
+    struct workload_tid_t {
+        workload_tid_t(int64_t workload, int64_t thread)
+            : workload_id(workload)
+            , tid(thread)
+        {
+        }
+        bool
+        operator==(const workload_tid_t &rhs) const
+        {
+            return workload_id == rhs.workload_id && tid == rhs.tid;
+        }
+
+        bool
+        operator!=(const workload_tid_t &rhs) const
+        {
+            return !(*this == rhs);
+        }
+        int64_t workload_id;
+        int64_t tid;
+    };
+
+    struct workload_tid_hash_t {
+        std::size_t
+        operator()(const workload_tid_t &wt) const
+        {
+            // Ensure {workload_id=X, tid=Y} doesn't always hash the same as
+            // {workload_id=Y, tid=X} by avoiding a simple symmetric wid^tid.
+            return std::hash<size_t>()(static_cast<size_t>(wt.workload_id ^ wt.tid)) ^
+                std::hash<memref_tid_t>()(wt.tid);
+        }
+    };
+
     counters_t
     get_total_counts();
 
@@ -240,8 +285,8 @@ protected:
     update_state_time(per_shard_t *shard, state_t state);
 
     void
-    record_context_switch(per_shard_t *shard, int64_t tid, int64_t input_id,
-                          int64_t letter_ord);
+    record_context_switch(per_shard_t *shard, int64_t workload_id, int64_t tid,
+                          int64_t input_id, int64_t letter_ord);
 
     virtual void
     aggregate_results(counters_t &total);
@@ -259,6 +304,10 @@ protected:
     std::mutex shard_map_mutex_;
     static const std::string TOOL_NAME;
     memtrace_stream_t *serial_stream_ = nullptr;
+    // To track migrations we unfortunately need a global synchronized map to
+    // remember the last core for each input.
+    std::unordered_map<workload_tid_t, int64_t, workload_tid_hash_t> prev_core_;
+    std::mutex prev_core_mutex_;
 };
 
 } // namespace drmemtrace
