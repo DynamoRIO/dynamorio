@@ -70,11 +70,15 @@ d_r_regdeps_print_encoding_first_line(char *buf, size_t bufsz,
      */
     print_to_buffer(buf, bufsz, sofar, " %08x", *((uint *)pc));
 
-    /* Print second 4 byte word, if any.
+    /* Print second 4 byte word, if any. Otherwise, print an equivalent number of spaces
+     * to align single-word instructions categories after their encodings (total of
+     * 9 spaces: 1 separator from the first word + 8 to substitute the second word).
      */
     if (sz > REGDEPS_BYTES_PER_WORD) {
         print_to_buffer(buf, bufsz, sofar, " %08x",
                         *((uint *)(pc + REGDEPS_BYTES_PER_WORD)));
+    } else {
+        print_to_buffer(buf, bufsz, sofar, "         ");
     }
 
     /* Add a space at the end.
