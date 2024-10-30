@@ -29,31 +29,27 @@
 #include <elf.h>
 #include <sys/mman.h>
 #include "../globals.h"
+
+#include <stdio.h>
+
 #include "../os_shared.h"
 #include "../hashtable.h"
 #include "memquery.h"
+#include "elf_defines.h"
 
+#define MAX_SECTION_HEADERS 200
 #define MAX_SECTION_NAME_BUFFER_SIZE 8192
 #define SECTION_HEADER_TABLE ".shstrtab"
 #define VVAR_SECTION "[vvar]"
 
-#ifdef X64
-#    define ELF_HEADER_TYPE Elf64_Ehdr
-#    define ELF_PROGRAM_HEADER_TYPE Elf64_Phdr
-#    define ELF_SECTION_HEADER_TYPE Elf64_Shdr
-#    define ELF_ADDR Elf64_Addr
-#    define ELF_WORD Elf64_Xword
-#    define ELF_OFF Elf64_Word
-#else
-#    define ELF_HEADER_TYPE Elf32_Ehdr
-#    define ELF_PROGRAM_HEADER_TYPE Elf32_Phdr
-#    define ELF_SECTION_HEADER_TYPE Elf32_Shdr
-#    define ELF_ADDR Elf32_Addr
-#    define ELF_WORD Elf32_Word
-#    define ELF_OFF Elf32_Word
-#endif
-
 DECLARE_CXTSWPROT_VAR(static mutex_t dump_core_lock, INIT_LOCK_FREE(dump_core_lock));
+
+typedef struct _section_header_info_t {
+    app_pc vm_start;
+    app_pc vm_end;
+    uint prot;
+    ELF_ADDR name_offset;
+} section_header_info_t;
 
 /*
  * Writes an ELF header to the file. Returns true if the ELF header is written to the core
@@ -72,7 +68,7 @@ write_elf_header(DR_PARAM_IN file_t elf_file, DR_PARAM_IN ELF_ADDR entry_point,
     ehdr.e_ident[2] = ELFMAG2;
     ehdr.e_ident[3] = ELFMAG3;
     ehdr.e_ident[EI_CLASS] = ELFCLASS64;
-    ehdr.e_ident[EI_DATA] = IF_AARCHXX_ELSE(ELFDATA2MSB, ELFDATA2LSB);
+    ehdr.e_ident[EI_DATA] = ELFDATA2LSB;
     ehdr.e_ident[EI_VERSION] = EV_CURRENT;
     ehdr.e_ident[EI_OSABI] = ELFOSABI_LINUX;
     ehdr.e_ident[EI_ABIVERSION] = 0;
@@ -101,8 +97,7 @@ write_elf_header(DR_PARAM_IN file_t elf_file, DR_PARAM_IN ELF_ADDR entry_point,
      */
     ehdr.e_shstrndx = section_string_table_index;
 
-    return os_write(elf_file, (void *)&ehdr, sizeof(ELF_HEADER_TYPE)) ==
-        sizeof(ELF_HEADER_TYPE);
+    return os_write(elf_file, (void *)&ehdr, sizeof(ehdr)) == sizeof(ehdr);
 }
 
 /*
@@ -110,24 +105,24 @@ write_elf_header(DR_PARAM_IN file_t elf_file, DR_PARAM_IN ELF_ADDR entry_point,
  * the core dump file, false otherwise.
  */
 static bool
-write_phdrs(DR_PARAM_IN file_t elf_file, DR_PARAM_IN ELF_WORD type,
-            DR_PARAM_IN ELF_WORD flags, DR_PARAM_IN ELF_OFF offset,
-            DR_PARAM_IN ELF_ADDR virtual_address, DR_PARAM_IN ELF_ADDR physical_address,
-            DR_PARAM_IN ELF_WORD file_size, DR_PARAM_IN ELF_WORD memory_size,
-            DR_PARAM_IN ELF_WORD alignment)
+write_program_header(DR_PARAM_IN file_t elf_file, DR_PARAM_IN ELF_WORD type,
+                     DR_PARAM_IN ELF_WORD flags, DR_PARAM_IN ELF_OFF offset,
+                     DR_PARAM_IN ELF_ADDR virtual_address,
+                     DR_PARAM_IN ELF_ADDR physical_address,
+                     DR_PARAM_IN ELF_WORD file_size, DR_PARAM_IN ELF_WORD memory_size,
+                     DR_PARAM_IN ELF_WORD alignment)
 {
     ELF_PROGRAM_HEADER_TYPE phdr;
-    phdr.p_type = type;              /* Segment type */
-    phdr.p_flags = flags;            /* Segment flags */
-    phdr.p_offset = offset;          /* Segment file offset */
-    phdr.p_vaddr = virtual_address;  /* Segment virtual address */
-    phdr.p_paddr = physical_address; /* Segment physical address */
-    phdr.p_filesz = file_size;       /* Segment size in file */
-    phdr.p_memsz = memory_size;      /* Segment size in memory */
-    phdr.p_align = alignment;        /* Segment alignment */
+    phdr.p_type = type;              /* Segment type. */
+    phdr.p_flags = flags;            /* Segment flags. */
+    phdr.p_offset = offset;          /* Segment file offset. */
+    phdr.p_vaddr = virtual_address;  /* Segment virtual address. */
+    phdr.p_paddr = physical_address; /* Segment physical address. */
+    phdr.p_filesz = file_size;       /* Segment size in file. */
+    phdr.p_memsz = memory_size;      /* Segment size in memory. */
+    phdr.p_align = alignment;        /* Segment alignment. */
 
-    return os_write(elf_file, (void *)&phdr, sizeof(ELF_PROGRAM_HEADER_TYPE)) ==
-        sizeof(ELF_PROGRAM_HEADER_TYPE);
+    return os_write(elf_file, (void *)&phdr, sizeof(phdr)) == sizeof(phdr);
 }
 
 /*
@@ -135,27 +130,26 @@ write_phdrs(DR_PARAM_IN file_t elf_file, DR_PARAM_IN ELF_WORD type,
  * the core dump file, false otherwise.
  */
 static bool
-write_shdr(DR_PARAM_IN file_t elf_file, DR_PARAM_IN ELF_WORD string_table_offset,
-           DR_PARAM_IN ELF_WORD type, DR_PARAM_IN ELF_WORD flags,
-           DR_PARAM_IN ELF_ADDR virtual_address, DR_PARAM_IN ELF_OFF offset,
-           DR_PARAM_IN ELF_WORD section_size, DR_PARAM_IN ELF_WORD link,
-           DR_PARAM_IN ELF_WORD info, DR_PARAM_IN ELF_WORD alignment,
-           DR_PARAM_IN ELF_WORD entry_size)
+write_section_header(DR_PARAM_IN file_t elf_file,
+                     DR_PARAM_IN ELF_WORD string_table_offset, DR_PARAM_IN ELF_WORD type,
+                     DR_PARAM_IN ELF_WORD flags, DR_PARAM_IN ELF_ADDR virtual_address,
+                     DR_PARAM_IN ELF_OFF offset, DR_PARAM_IN ELF_WORD section_size,
+                     DR_PARAM_IN ELF_WORD link, DR_PARAM_IN ELF_WORD info,
+                     DR_PARAM_IN ELF_WORD alignment, DR_PARAM_IN ELF_WORD entry_size)
 {
     ELF_SECTION_HEADER_TYPE shdr;
-    shdr.sh_name = string_table_offset; /* Section name (string tbl index) */
-    shdr.sh_type = type;                /* Section type */
-    shdr.sh_flags = flags;              /* Section flags */
-    shdr.sh_addr = virtual_address;     /* Section virtual addr at execution */
-    shdr.sh_offset = offset;            /* Section file offset */
-    shdr.sh_size = section_size;        /* Section size in bytes */
-    shdr.sh_link = link;                /* Link to another section */
-    shdr.sh_info = info;                /* Additional section information */
-    shdr.sh_addralign = alignment;      /* Section alignment */
-    shdr.sh_entsize = entry_size;       /* Entry size if section holds table */
+    shdr.sh_name = string_table_offset; /* Section name (string tbl index). */
+    shdr.sh_type = type;                /* Section type. */
+    shdr.sh_flags = flags;              /* Section flags. */
+    shdr.sh_addr = virtual_address;     /* Section virtual addr at execution. */
+    shdr.sh_offset = offset;            /* Section file offset. */
+    shdr.sh_size = section_size;        /* Section size in bytes. */
+    shdr.sh_link = link;                /* Link to another section. */
+    shdr.sh_info = info;                /* Additional section information. */
+    shdr.sh_addralign = alignment;      /* Section alignment. */
+    shdr.sh_entsize = entry_size;       /* Entry size if section holds table. */
 
-    return os_write(elf_file, (void *)&shdr, sizeof(ELF_SECTION_HEADER_TYPE)) ==
-        sizeof(ELF_SECTION_HEADER_TYPE);
+    return os_write(elf_file, (void *)&shdr, sizeof(shdr)) == sizeof(shdr);
 }
 
 /*
@@ -171,54 +165,65 @@ os_dump_core_internal(void)
 
     // Insert a null string at the beginning for sections with no comment.
     char string_table[MAX_SECTION_NAME_BUFFER_SIZE];
+    // Reserve the first byte for sections without a name.
     string_table[0] = '\0';
-    string_table[1] = '\0';
     ELF_ADDR string_table_offset = 1;
     ELF_OFF section_count = 0;
-    ELF_OFF seciion_data_size = 0;
+    ELF_OFF section_data_size = 0;
+    // Reserve a section for the section name string table.
+    section_header_info_t section_header_info[MAX_SECTION_HEADERS + 1];
+
     memquery_iter_t iter;
-    if (memquery_iterator_start(&iter, NULL, /*may_alloc=*/false)) {
-        while (memquery_iterator_next(&iter)) {
-            // Skip non-readable section.
-            if (iter.prot == MEMPROT_NONE || strcmp(iter.comment, VVAR_SECTION) == 0) {
-                continue;
-            }
-            ELF_ADDR offset = 0;
-            if (iter.comment != NULL && iter.comment[0] != '\0') {
-                offset = (ELF_ADDR)strhash_hash_lookup(GLOBAL_DCONTEXT, string_htable,
-                                                       iter.comment);
-                if (offset == 0 &&
-                    (string_table[1] == '\0' ||
-                     d_r_strcmp(string_table, iter.comment) != 0)) {
-                    strhash_hash_add(GLOBAL_DCONTEXT, string_htable, iter.comment,
-                                     (void *)string_table_offset);
-                    offset = string_table_offset;
-                    const size_t comment_len = d_r_strlen(iter.comment);
-                    if (comment_len + string_table_offset >
-                        MAX_SECTION_NAME_BUFFER_SIZE) {
-                        SYSLOG_INTERNAL_ERROR("Section name table is too small to store "
-                                              "all the section names.");
-                        return false;
-                    }
-                    d_r_strncpy(&string_table[string_table_offset], iter.comment,
-                                comment_len);
-                    string_table_offset += comment_len + 1;
-                    string_table[string_table_offset - 1] = '\0';
-                }
-            }
-            seciion_data_size += iter.vm_end - iter.vm_start;
-            ++section_count;
-        }
-        // Add the string table section. Append the section name ".shstrtab" to the
-        // section names table.
-        const int section_header_table_len = d_r_strlen(SECTION_HEADER_TABLE) + 1;
-        d_r_strncpy(&string_table[string_table_offset], SECTION_HEADER_TABLE,
-                    section_header_table_len);
-        string_table_offset += section_header_table_len;
-        ++section_count;
-        seciion_data_size += string_table_offset;
-        memquery_iterator_stop(&iter);
+    if (!memquery_iterator_start(&iter, NULL, /*may_alloc=*/false)) {
+        SYSLOG_INTERNAL_ERROR("Too many section headers.");
+        return false;
     }
+    while (memquery_iterator_next(&iter)) {
+        // Skip non-readable section.
+        if (iter.prot == MEMPROT_NONE || strcmp(iter.comment, VVAR_SECTION) == 0) {
+            continue;
+        }
+        ELF_ADDR offset = 0;
+        if (iter.comment != NULL && iter.comment[0] != '\0') {
+            offset = (ELF_ADDR)strhash_hash_lookup(GLOBAL_DCONTEXT, string_htable,
+                                                   iter.comment);
+            if (offset == 0) {
+                strhash_hash_add(GLOBAL_DCONTEXT, string_htable, iter.comment,
+                                 (void *)string_table_offset);
+                const size_t comment_len = d_r_strlen(iter.comment);
+                if (comment_len + string_table_offset > MAX_SECTION_NAME_BUFFER_SIZE) {
+                    SYSLOG_INTERNAL_ERROR("Section name table is too small to store "
+                                          "all the section names.");
+                    return false;
+                }
+                offset = string_table_offset;
+                d_r_strncpy(&string_table[string_table_offset], iter.comment,
+                            comment_len);
+                string_table_offset += comment_len + 1;
+                string_table[string_table_offset - 1] = '\0';
+            }
+        }
+        section_header_info[section_count].vm_start = iter.vm_start;
+        section_header_info[section_count].vm_end = iter.vm_end;
+        section_header_info[section_count].prot = iter.prot;
+        section_header_info[section_count].name_offset = offset;
+        section_data_size += iter.vm_end - iter.vm_start;
+        ++section_count;
+        if (section_count > MAX_SECTION_HEADERS) {
+            SYSLOG_INTERNAL_ERROR("Too many section headers.");
+            return false;
+        }
+    }
+    memquery_iterator_stop(&iter);
+
+    // Add the string table section. Append the section name ".shstrtab" to the
+    // section names table.
+    const size_t section_header_table_len = d_r_strlen(SECTION_HEADER_TABLE) + 1;
+    d_r_strncpy(&string_table[string_table_offset], SECTION_HEADER_TABLE,
+                section_header_table_len);
+    string_table_offset += section_header_table_len;
+    ++section_count;
+    section_data_size += string_table_offset;
 
     file_t elf_file;
     char dump_core_file_name[MAXIMUM_PATH];
@@ -233,7 +238,7 @@ os_dump_core_internal(void)
                           /*section_header_table_offset*/ sizeof(ELF_HEADER_TYPE) +
                               1 /*program_header_count*/ *
                                   sizeof(ELF_PROGRAM_HEADER_TYPE) +
-                              seciion_data_size,
+                              section_data_size,
                           /*flags=*/0,
                           /*program_header_count=*/1,
                           /*section_header_count=*/section_count,
@@ -242,77 +247,68 @@ os_dump_core_internal(void)
         return false;
     }
     // TODO i#7046: Fill the program header with valid data.
-    if (!write_phdrs(elf_file, PT_NULL, PF_X, /*offset=*/0, /*virtual_address=*/0,
-                     /*physical_address=*/0,
-                     /*file_size=*/0, /*memory_size=*/0, /*alignment=*/0)) {
+    if (!write_program_header(elf_file, PT_NULL, PF_X, /*offset=*/0,
+                              /*virtual_address=*/0,
+                              /*physical_address=*/0,
+                              /*file_size=*/0, /*memory_size=*/0, /*alignment=*/0)) {
         os_close(elf_file);
         return false;
     }
-    int total = 0;
-    if (memquery_iterator_start(&iter, NULL, /*may_alloc=*/false)) {
-        while (memquery_iterator_next(&iter)) {
-            // Skip non-readable sections.
-            if (iter.prot == MEMPROT_NONE || strcmp(iter.comment, VVAR_SECTION) == 0) {
-                continue;
-            }
-            const size_t length = iter.vm_end - iter.vm_start;
-            const int written = os_write(elf_file, (void *)iter.vm_start, length);
-            if (written != length) {
-                SYSLOG_INTERNAL_ERROR("Failed to write the requested memory content into "
-                                      "the core dump file.");
-                os_close(elf_file);
-                return false;
-            }
-            total += length;
-        }
-        // Write the section names section.
-        if (os_write(elf_file, (void *)string_table, string_table_offset) !=
-            string_table_offset) {
+    // Write memory content to the core dump file.
+    for (int section_index = 0; section_index < section_count - 1; ++section_index) {
+        const size_t length = section_header_info[section_index].vm_end -
+            section_header_info[section_index].vm_start;
+        const size_t written = os_write(
+            elf_file, (void *)section_header_info[section_index].vm_start, length);
+        if (written != length) {
+            SYSLOG_INTERNAL_ERROR("Failed to write the requested memory content into "
+                                  "the core dump file.");
             os_close(elf_file);
             return false;
         }
-        memquery_iterator_stop(&iter);
+    }
+    // Write the section names section.
+    if (os_write(elf_file, (void *)string_table, string_table_offset) !=
+        string_table_offset) {
+        SYSLOG_INTERNAL_ERROR("Failed to write section name string table into the "
+                              "core dump file.");
+        os_close(elf_file);
+        return false;
+    }
+    // Write section headers to the core dump file.
+    // TODO i#7046: Handle multiple program headers.
+    ELF_OFF file_offset = sizeof(ELF_HEADER_TYPE) +
+        1 /*program_header_count*/ * sizeof(ELF_PROGRAM_HEADER_TYPE);
+    for (int section_index = 0; section_index < section_count - 1; ++section_index) {
+        ELF_WORD flags = SHF_ALLOC | SHF_MERGE;
+        if (section_header_info[section_index].prot & PROT_WRITE) {
+            flags |= SHF_WRITE;
+        }
+        if (!write_section_header(
+                elf_file, section_header_info[section_index].name_offset, SHT_PROGBITS,
+                flags, (ELF_ADDR)section_header_info[section_index].vm_start, file_offset,
+                section_header_info[section_index].vm_end -
+                    section_header_info[section_index].vm_start,
+                /*link=*/0,
+                /*info=*/0, /*alignment=*/sizeof(ELF_WORD),
+                /*entry_size=*/0)) {
+            os_close(elf_file);
+            return false;
+        }
+        file_offset += section_header_info[section_index].vm_end -
+            section_header_info[section_index].vm_start;
+    }
+    // Write the section names section.
+    if (!write_section_header(
+            elf_file, string_table_offset - strlen(SECTION_HEADER_TABLE), SHT_STRTAB,
+            /*flags=*/0, /*virtual_address=*/0, file_offset,
+            /*section_size=*/string_table_offset, /*link=*/0,
+            /*info=*/0, /*alignment=*/1,
+            /*entry_size=*/0)) {
+        os_close(elf_file);
+        return false;
     }
 
-    if (memquery_iterator_start(&iter, NULL, /*may_alloc=*/false)) {
-        // TODO i#7046: Handle multiple program headers.
-        ELF_OFF file_offset = sizeof(ELF_HEADER_TYPE) +
-            1 /*program_header_count*/ * sizeof(ELF_PROGRAM_HEADER_TYPE);
-        while (memquery_iterator_next(&iter)) {
-            // Skip non-readable section.
-            if (iter.prot == MEMPROT_NONE || strcmp(iter.comment, VVAR_SECTION) == 0) {
-                continue;
-            }
-            ELF_WORD flags = SHF_ALLOC | SHF_MERGE;
-            if (iter.prot & PROT_WRITE) {
-                flags |= SHF_WRITE;
-            }
-            ELF_ADDR name_offset = 0;
-            if (iter.comment != NULL && iter.comment[0] != '\0') {
-                name_offset = (ELF_ADDR)strhash_hash_lookup(GLOBAL_DCONTEXT,
-                                                            string_htable, iter.comment);
-            }
-            if (!write_shdr(elf_file, name_offset, SHT_PROGBITS, flags,
-                            (ELF_ADDR)iter.vm_start, file_offset,
-                            iter.vm_end - iter.vm_start, /*link=*/0,
-                            /*info=*/0, /*alignment=*/sizeof(ELF_WORD),
-                            /*entry_size=*/0)) {
-                os_close(elf_file);
-                return false;
-            }
-            file_offset += iter.vm_end - iter.vm_start;
-        }
-        memquery_iterator_stop(&iter);
-        // Write the section names section.
-        if (!write_shdr(elf_file, string_table_offset - strlen(".shstrtab"), SHT_STRTAB,
-                        /*flags=*/0, /*virtual_address=*/0, file_offset,
-                        /*section_size=*/string_table_offset, /*link=*/0,
-                        /*info=*/0, /*alignment=*/1,
-                        /*entry_size=*/0)) {
-            os_close(elf_file);
-            return false;
-        }
-    }
     os_close(elf_file);
     strhash_hash_destroy(GLOBAL_DCONTEXT, string_htable);
     return true;
@@ -337,15 +333,17 @@ os_dump_core_live(void)
     }
 
 #ifdef DEADLOCK_AVOIDANCE
-    /* first turn off deadlock avoidance for this thread (needed for live dump
-     * to try to grab all_threads and thread_initexit locks) */
+    /* First turn off deadlock avoidance for this thread (needed for live dump
+     * to try to grab all_threads and thread_initexit locks).
+     */
     if (dcontext != NULL) {
         old_thread_owned_locks = dcontext->thread_owned_locks;
         dcontext->thread_owned_locks = NULL;
     }
 #endif
-    /* only allow one thread to dumpcore at a time, also protects static
-     * buffers and current_dumping_thread_id */
+    /* Only allow one thread to dumpcore at a time, also protects static
+     * buffers and current_dumping_thread_id.
+     */
     d_r_mutex_lock(&dump_core_lock);
     current_dumping_thread_id = current_id;
     const bool ret = os_dump_core_internal();
@@ -353,7 +351,7 @@ os_dump_core_live(void)
     d_r_mutex_unlock(&dump_core_lock);
 
 #ifdef DEADLOCK_AVOIDANCE
-    /* restore deadlock avoidance for this thread */
+    /* Restore deadlock avoidance for this thread. */
     if (dcontext != NULL) {
         dcontext->thread_owned_locks = old_thread_owned_locks;
     }

@@ -2947,6 +2947,7 @@ get_unique_logfile(const char *file_type, char *filename_buffer, uint maxlen,
     if (NULL != filename_buffer) {
         strncpy(filename_buffer, buf, maxlen);
         filename_buffer[maxlen - 1] = '\0'; /* NULL terminate */
+        LOG(GLOBAL, LOG_ALL, 0, "dump core file name is %s\n", buf);
     }
 
     return success;

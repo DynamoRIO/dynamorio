@@ -344,7 +344,7 @@ typedef enum {
     /**
      * Memory dump in Executable and Linkable Format.
      *
-     * \note Linux and X64 only.
+     * \note X64 Linux only.
      */
     DR_MEMORY_DUMP_ELF = 0x0002,
 } dr_memory_dump_flags_t;

@@ -163,6 +163,7 @@ changes:
    signature between AArch64 and RISC-V.
  - Changed the drcachesim -LL_miss_file option by adding a process ID field to the output.
    This helps in better analyzing cache misses in multi-process environments.
+ - Added X64 Linux only support to dr_create_memory_dump.
 
 Further non-compatibility-affecting changes include:
  - Added DWARF-5 support to the drsyms library by linking in 4 static libraries
