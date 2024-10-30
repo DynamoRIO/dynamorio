@@ -1825,13 +1825,6 @@ init_thread_in_process(void *drcontext)
     }
 #endif
     // XXX i#1729: gather and store an initial callstack for the thread.
-#ifdef LINUX
-    // kyluk: DO NOT COMMIT
-    dr_memory_dump_spec_t dump_spec;
-    dump_spec.flags = DR_MEMORY_DUMP_ELF;
-    dump_spec.size = sizeof(dump_spec);
-    dr_create_memory_dump(&dump_spec);
-#endif
 }
 
 static void
