@@ -30,7 +30,7 @@
  * DAMAGE.
  */
 
-/* Keep this array (d_r_reg_virtual_names[]) and DR_REG_V enum in core/ir/opnd_api.h
+/* Keep this array (d_r_reg_virtual_names[]) and DR_REG_VIRT enum in core/ir/opnd_api.h
  * synched.
  */
 const char *const d_r_reg_virtual_names[] = {
