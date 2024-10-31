@@ -1361,17 +1361,18 @@ enum {
 #endif
 };
 
-/* We need a seprate DR_REG_VIRT enum from DR_REG_ so we can start counting virtual registers
- * from lower values.  Otherwise, the DR_REG_ enum values won't fit in the 1 byte operand
- * size of #DR_ISA_REGDEPS encoding.  Note that DR_REG_VIRT skips both values of
- * DR_REG_INVALID to avoid issues with opnd_t operations.
+/* We need a seprate DR_REG_VIRT enum from DR_REG_ so we can start counting virtual
+ * registers from lower values.  Otherwise, the DR_REG_ enum values won't fit in the 1
+ * byte operand size of #DR_ISA_REGDEPS encoding.  Note that DR_REG_VIRT skips both values
+ * of DR_REG_INVALID to avoid issues with opnd_t operations.
  */
 /** Virtual register identifiers for #DR_ISA_REGDEPS. */
 enum {
     /**
      * The first virtual register.  Note that all virtual registers named here are valid.
      */
-    DR_REG_VIRT0 = DR_REG_NULL + 2, /* Start from 2. Skip DR_REG_INVALID == 1 for non-x86. */
+    DR_REG_VIRT0 =
+        DR_REG_NULL + 2, /* Start from 2. Skip DR_REG_INVALID == 1 for non-x86. */
     DR_REG_VIRT1,
     DR_REG_VIRT2,
     DR_REG_VIRT3,
@@ -3453,8 +3454,8 @@ DR_API
  * Assumes that \p reg is a DR_REG_ 32-bit register constant.
  * Returns the string name for \p reg.
  * \note It uses the global dcontext_t to determine the ISA mode.  If the ISA mode is a
- * synthetic one (e.g., #DR_ISA_REGDEPS), it returns the name of a #DR_REG_VIRT0 etc. virtual
- * register.
+ * synthetic one (e.g., #DR_ISA_REGDEPS), it returns the name of a #DR_REG_VIRT0 etc.
+ * virtual register.
  */
 const char *
 get_register_name(reg_id_t reg);
