@@ -644,14 +644,14 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 
 static reg_id_t
 pick_scratch_reg(dcontext_t *dcontext, instr_t *instr, reg_id_t do_not_pick,
-                 ushort *scratch_slot DR_PARAM_OUT)
+                 reg_id_t do_not_pick_2, ushort *scratch_slot DR_PARAM_OUT)
 {
     reg_id_t reg = REG_NULL;
     ushort slot = 0;
 
     for (reg = SCRATCH_REG0, slot = TLS_REG0_SLOT; reg <= SCRATCH_REG_LAST;
          reg++, slot += sizeof(reg_t)) {
-        if (!instr_uses_reg(instr, reg) && reg != do_not_pick)
+        if (!instr_uses_reg(instr, reg) && reg != do_not_pick && reg != do_not_pick_2)
             break;
     }
 
@@ -682,7 +682,7 @@ mangle_stolen_reg_and_tp_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
      * likewise, if it's only used for dst, do not restore it from app's TLS.
      */
     if (instr_uses_reg(instr, DR_REG_TP)) {
-        scratch_reg = pick_scratch_reg(dcontext, instr, DR_REG_NULL, &slot);
+        scratch_reg = pick_scratch_reg(dcontext, instr, DR_REG_NULL, DR_REG_NULL, &slot);
         PRE(ilist, instr, instr_create_save_to_tls(dcontext, scratch_reg, slot));
         PRE(ilist, instr,
             instr_create_restore_from_tls(dcontext, scratch_reg,
@@ -725,7 +725,7 @@ mangle_stolen_reg_and_tp_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
      * TLS; likewise, if it's only used for dst, do not restore it from app's TLS.
      */
     if (instr_uses_reg(instr, dr_reg_stolen)) {
-        scratch_reg = pick_scratch_reg(dcontext, instr, scratch_reg, &slot);
+        scratch_reg = pick_scratch_reg(dcontext, instr, scratch_reg, DR_REG_NULL, &slot);
         PRE(ilist, instr, instr_create_save_to_tls(dcontext, scratch_reg, slot));
         PRE(ilist, instr,
             instr_create_restore_from_tls(dcontext, scratch_reg, TLS_REG_STOLEN_SLOT));
@@ -793,7 +793,8 @@ mangle_cbr_stolen_reg_and_tp_reg(dcontext_t *dcontext, instrlist_t *ilist, instr
     bool instr_uses_reg_stolen = instr_uses_reg(instr, dr_reg_stolen);
 
     if (instr_uses_tp) {
-        scratch_reg1 = pick_scratch_reg(dcontext, instr, DR_REG_NULL, &slot1);
+        scratch_reg1 =
+            pick_scratch_reg(dcontext, instr, DR_REG_NULL, DR_REG_NULL, &slot1);
         PRE(ilist, instr, instr_create_save_to_tls(dcontext, scratch_reg1, slot1));
         PRE(ilist, instr,
             instr_create_restore_from_tls(dcontext, scratch_reg1,
@@ -801,7 +802,8 @@ mangle_cbr_stolen_reg_and_tp_reg(dcontext_t *dcontext, instrlist_t *ilist, instr
     }
 
     if (instr_uses_reg_stolen) {
-        scratch_reg2 = pick_scratch_reg(dcontext, instr, scratch_reg1, &slot2);
+        scratch_reg2 =
+            pick_scratch_reg(dcontext, instr, scratch_reg1, DR_REG_NULL, &slot2);
         PRE(ilist, instr, instr_create_save_to_tls(dcontext, scratch_reg2, slot2));
         PRE(ilist, instr,
             instr_create_restore_from_tls(dcontext, scratch_reg2, TLS_REG_STOLEN_SLOT));
@@ -910,31 +912,40 @@ static instr_t *
 mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                       instr_t *next_instr)
 {
-    /* TODO i#3544: Not implemented.  */
-    ASSERT_NOT_IMPLEMENTED(!instr_uses_reg(instr, DR_REG_TP));
-
-    reg_id_t scratch_reg1 = DR_REG_NULL, scratch_reg2 = DR_REG_NULL;
-    ushort slot1, slot2;
+    reg_id_t scratch_reg1 = DR_REG_NULL, scratch_reg2 = DR_REG_NULL,
+             scratch_reg3 = DR_REG_NULL;
+    ushort slot1, slot2, slot3;
     int aqrl, opcode;
     opnd_t dst, src0;
     opnd_size_t opsz;
-    bool uses_reg_stolen;
+    bool uses_reg_stolen, uses_reg_tp;
     ASSERT(instr_is_exclusive_load(instr));
     ASSERT(instr_num_dsts(instr) == 1 && instr_num_srcs(instr) == 2 &&
            opnd_is_immed_int(instr_get_src(instr, 1)));
 
     aqrl = opnd_get_immed_int(instr_get_src(instr, 1));
     uses_reg_stolen = instr_uses_reg(instr, dr_reg_stolen);
+    uses_reg_tp = instr_uses_reg(instr, DR_REG_TP);
 
     /* Pick and spill scratch register(s). */
-    scratch_reg1 = pick_scratch_reg(dcontext, instr, DR_REG_NULL, &slot1);
+    scratch_reg1 = pick_scratch_reg(dcontext, instr, DR_REG_NULL, DR_REG_NULL, &slot1);
     PRE(ilist, instr, instr_create_save_to_tls(dcontext, scratch_reg1, slot1));
 
     if (uses_reg_stolen) {
-        scratch_reg2 = pick_scratch_reg(dcontext, instr, scratch_reg1, &slot2);
+        scratch_reg2 =
+            pick_scratch_reg(dcontext, instr, scratch_reg1, DR_REG_NULL, &slot2);
         PRE(ilist, instr, instr_create_save_to_tls(dcontext, scratch_reg2, slot2));
         PRE(ilist, instr,
             instr_create_restore_from_tls(dcontext, scratch_reg2, TLS_REG_STOLEN_SLOT));
+    }
+    if (uses_reg_tp) {
+        scratch_reg3 =
+            pick_scratch_reg(dcontext, instr, scratch_reg1, scratch_reg2, &slot3);
+        PRE(ilist, instr, instr_create_save_to_tls(dcontext, scratch_reg3, slot3));
+        PRE(ilist, instr,
+            instr_create_restore_from_tls(
+                dcontext, scratch_reg3,
+                os_tls_offset(os_get_app_tls_base_offset(TLS_REG_LIB))));
     }
 
     /* Keep the release semantics if needed. */
@@ -953,11 +964,17 @@ mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     opcode = instr_get_opcode(instr) == OP_lr_d ? OP_ld : OP_lw;
     opsz = opcode == OP_ld ? OPSZ_8 : OPSZ_4;
     ASSERT(opnd_is_reg(dst) && opnd_is_base_disp(src0));
+    /* XXX: Simplify this with instr_replace_reg_resize after opnd_replace_reg_resize is
+     * implemented */
     if (opnd_get_reg(dst) == dr_reg_stolen) {
         opnd_replace_reg(&dst, dr_reg_stolen, scratch_reg2);
+    } else if (opnd_get_reg(dst) == DR_REG_TP) {
+        opnd_replace_reg(&dst, DR_REG_TP, scratch_reg3);
     }
     if (opnd_get_base(src0) == dr_reg_stolen) {
         opnd_replace_reg(&src0, dr_reg_stolen, scratch_reg2);
+    } else if (opnd_get_base(src0) == DR_REG_TP) {
+        opnd_replace_reg(&src0, DR_REG_TP, scratch_reg3);
     }
     instr_reset(dcontext, instr);
     instr_set_opcode(instr, opcode);
@@ -996,6 +1013,14 @@ mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         PRE(ilist, next_instr,
             instr_create_restore_from_tls(dcontext, scratch_reg2, slot2));
     }
+    if (uses_reg_tp) {
+        PRE(ilist, next_instr,
+            instr_create_save_to_tls(
+                dcontext, scratch_reg3,
+                os_tls_offset(os_get_app_tls_base_offset(TLS_REG_LIB))));
+        PRE(ilist, next_instr,
+            instr_create_restore_from_tls(dcontext, scratch_reg3, slot3));
+    }
     return next_instr;
 }
 
@@ -1021,8 +1046,8 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     dst1 = instr_get_dst(instr, 1);
     ASSERT(opnd_is_base_disp(dst0));
     opsz = instr_get_opcode(instr) == OP_sc_d ? OPSZ_8 : OPSZ_4;
-    scratch_reg1 = pick_scratch_reg(dcontext, instr, DR_REG_NULL, &slot1);
-    scratch_reg2 = pick_scratch_reg(dcontext, instr, scratch_reg1, &slot2);
+    scratch_reg1 = pick_scratch_reg(dcontext, instr, DR_REG_NULL, DR_REG_NULL, &slot1);
+    scratch_reg2 = pick_scratch_reg(dcontext, instr, scratch_reg1, DR_REG_NULL, &slot2);
 
     /* Spill scratch registers. */
     PRE(ilist, instr, instr_create_save_to_tls(dcontext, scratch_reg1, slot1));
