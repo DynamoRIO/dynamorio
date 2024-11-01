@@ -417,8 +417,7 @@ locks_not_closed()
                     cur_lock->rank ==
                         LOCK_RANK(options_lock)
                         /* This lock can be used parallel to detach cleanup. */
-                        IF_UNIX(|| cur_lock->rank == LOCK_RANK(detached_sigact_lock))
-                            IF_LINUX(|| cur_lock->rank == LOCK_RANK(dump_core_lock)))) {
+                        IF_UNIX(|| cur_lock->rank == LOCK_RANK(detached_sigact_lock)))) {
             /* i#1058: curiosities during exit re-acquire these locks. */
             ignored++;
         } else {
@@ -2947,7 +2946,6 @@ get_unique_logfile(const char *file_type, char *filename_buffer, uint maxlen,
     if (NULL != filename_buffer) {
         strncpy(filename_buffer, buf, maxlen);
         filename_buffer[maxlen - 1] = '\0'; /* NULL terminate */
-        LOG(GLOBAL, LOG_ALL, 0, "dump core file name is %s\n", buf);
     }
 
     return success;

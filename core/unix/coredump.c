@@ -32,17 +32,16 @@
 
 #include <stdio.h>
 
-#include "../os_shared.h"
 #include "../hashtable.h"
-#include "memquery.h"
+#include "../os_shared.h"
+#include "dr_tools.h"
 #include "elf_defines.h"
+#include "memquery.h"
 
-#define MAX_SECTION_HEADERS 200
+#define MAX_SECTION_HEADERS 300
 #define MAX_SECTION_NAME_BUFFER_SIZE 8192
 #define SECTION_HEADER_TABLE ".shstrtab"
 #define VVAR_SECTION "[vvar]"
-
-DECLARE_CXTSWPROT_VAR(static mutex_t dump_core_lock, INIT_LOCK_FREE(dump_core_lock));
 
 typedef struct _section_header_info_t {
     app_pc vm_start;
@@ -175,9 +174,16 @@ os_dump_core_internal(void)
 
     memquery_iter_t iter;
     if (!memquery_iterator_start(&iter, NULL, /*may_alloc=*/false)) {
-        SYSLOG_INTERNAL_ERROR("Too many section headers.");
+        SYSLOG_INTERNAL_ERROR("memquery_iterator_start failed.");
         return false;
     }
+    // Iterate through memory regions to store the start, end, protection, and
+    // the offset to the section name string table. The first byte of the
+    // section name table is a null character for regions without a comment. The
+    // section name table is built based on the name of the memory region stored
+    // in iter.comment. Region names are stored in the section name table
+    // without duplications. An offset is used in the section header to locate
+    // the section name in the section name table.
     while (memquery_iterator_next(&iter)) {
         // Skip non-readable section.
         if (iter.prot == MEMPROT_NONE || strcmp(iter.comment, VVAR_SECTION) == 0) {
@@ -217,7 +223,7 @@ os_dump_core_internal(void)
     memquery_iterator_stop(&iter);
 
     // Add the string table section. Append the section name ".shstrtab" to the
-    // section names table.
+    // section name table.
     const size_t section_header_table_len = d_r_strlen(SECTION_HEADER_TABLE) + 1;
     d_r_strncpy(&string_table[string_table_offset], SECTION_HEADER_TABLE,
                 section_header_table_len);
@@ -267,7 +273,7 @@ os_dump_core_internal(void)
             return false;
         }
     }
-    // Write the section names section.
+    // Write the section name section.
     if (os_write(elf_file, (void *)string_table, string_table_offset) !=
         string_table_offset) {
         SYSLOG_INTERNAL_ERROR("Failed to write section name string table into the "
@@ -279,9 +285,12 @@ os_dump_core_internal(void)
     // TODO i#7046: Handle multiple program headers.
     ELF_OFF file_offset = sizeof(ELF_HEADER_TYPE) +
         1 /*program_header_count*/ * sizeof(ELF_PROGRAM_HEADER_TYPE);
+    // The section_count includes the section name section, so we need to skip
+    // it in the loop. The section name section is handled differently after
+    // this loop.
     for (int section_index = 0; section_index < section_count - 1; ++section_index) {
         ELF_WORD flags = SHF_ALLOC | SHF_MERGE;
-        if (section_header_info[section_index].prot & PROT_WRITE) {
+        if (TEST(PROT_WRITE, section_header_info[section_index].prot)) {
             flags |= SHF_WRITE;
         }
         if (!write_section_header(
@@ -298,7 +307,7 @@ os_dump_core_internal(void)
         file_offset += section_header_info[section_index].vm_end -
             section_header_info[section_index].vm_start;
     }
-    // Write the section names section.
+    // Write the section name section.
     if (!write_section_header(
             elf_file, string_table_offset - strlen(SECTION_HEADER_TABLE), SHT_STRTAB,
             /*flags=*/0, /*virtual_address=*/0, file_offset,
@@ -320,41 +329,17 @@ os_dump_core_internal(void)
 bool
 os_dump_core_live(void)
 {
-    static thread_id_t current_dumping_thread_id VAR_IN_SECTION(NEVER_PROTECTED_SECTION) =
-        0;
-    thread_id_t current_id = d_r_get_thread_id();
-#ifdef DEADLOCK_AVOIDANCE
-    dcontext_t *dcontext = get_thread_private_dcontext();
-    thread_locks_t *old_thread_owned_locks = NULL;
-#endif
-
-    if (current_id == current_dumping_thread_id) {
-        return false; /* avoid infinite loop */
+    uint num_threads;
+    void **drcontexts = NULL;
+    // Suspend all threads including native threads to ensure the memory regions
+    // do not change in the middle of the core dump.
+    if (!dr_suspend_all_other_threads_ex(&drcontexts, &num_threads, NULL,
+                                         DR_SUSPEND_NATIVE)) {
+        return false;
     }
-
-#ifdef DEADLOCK_AVOIDANCE
-    /* First turn off deadlock avoidance for this thread (needed for live dump
-     * to try to grab all_threads and thread_initexit locks).
-     */
-    if (dcontext != NULL) {
-        old_thread_owned_locks = dcontext->thread_owned_locks;
-        dcontext->thread_owned_locks = NULL;
-    }
-#endif
-    /* Only allow one thread to dumpcore at a time, also protects static
-     * buffers and current_dumping_thread_id.
-     */
-    d_r_mutex_lock(&dump_core_lock);
-    current_dumping_thread_id = current_id;
     const bool ret = os_dump_core_internal();
-    current_dumping_thread_id = 0;
-    d_r_mutex_unlock(&dump_core_lock);
-
-#ifdef DEADLOCK_AVOIDANCE
-    /* Restore deadlock avoidance for this thread. */
-    if (dcontext != NULL) {
-        dcontext->thread_owned_locks = old_thread_owned_locks;
+    if (!dr_resume_all_other_threads(drcontexts, num_threads)) {
+        return false;
     }
-#endif
     return ret;
 }
