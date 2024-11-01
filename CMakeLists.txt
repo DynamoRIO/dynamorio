@@ -575,7 +575,7 @@ endif (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
 
 # N.B.: When updating this, update all the default versions in ci-package.yml
 # and ci-docs.yml.  We should find a way to share (xref i#1565).
-set(VERSION_NUMBER_DEFAULT "10.93.${VERSION_NUMBER_PATCHLEVEL}")
+set(VERSION_NUMBER_DEFAULT "11.0.${VERSION_NUMBER_PATCHLEVEL}")
 # do not store the default VERSION_NUMBER in the cache to prevent a stale one
 # from preventing future version updates in a pre-existing build dir
 set(VERSION_NUMBER "" CACHE STRING "Version number: leave empty for default")
@@ -1397,7 +1397,7 @@ math(EXPR VERSION_NUMBER_INTEGER
   "${VERSION_NUMBER_MAJOR}*100 + ${VERSION_NUMBER_MINOR}")
 
 # Every release since has had minor compat breakages: see api/docs/release.dox.
-set(OLDEST_COMPATIBLE_VERSION_DEFAULT "1000")
+set(OLDEST_COMPATIBLE_VERSION_DEFAULT "1100")
 set(OLDEST_COMPATIBLE_VERSION "" CACHE STRING
   "Oldest compatible version: leave empty for default")
 if ("${OLDEST_COMPATIBLE_VERSION}" STREQUAL "")
