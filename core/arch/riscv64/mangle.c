@@ -964,6 +964,8 @@ mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     opcode = instr_get_opcode(instr) == OP_lr_d ? OP_ld : OP_lw;
     opsz = opcode == OP_ld ? OPSZ_8 : OPSZ_4;
     ASSERT(opnd_is_reg(dst) && opnd_is_base_disp(src0));
+    /* XXX: Simplify this with instr_replace_reg_resize after opnd_replace_reg_resize is
+     * implemented */
     if (opnd_get_reg(dst) == dr_reg_stolen) {
         opnd_replace_reg(&dst, dr_reg_stolen, scratch_reg2);
     } else if (opnd_get_reg(dst) == DR_REG_TP) {
