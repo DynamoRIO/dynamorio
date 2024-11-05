@@ -62,7 +62,6 @@ DR_EXPORT
 void
 dr_init(client_id_t id)
 {
-    void *drcontext = dr_get_current_drcontext();
     dr_register_exit_event(dr_exit);
     dr_register_thread_init_event(dr_thread_init);
     dr_fprintf(STDERR, "thank you for testing memory dump\n");

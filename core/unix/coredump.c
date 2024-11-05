@@ -30,10 +30,8 @@
 #include <sys/mman.h>
 #include "../globals.h"
 
-#include <stdio.h>
-
-#include "../hashtable.h"
 #include "../os_shared.h"
+#include "../synch.h"
 #include "dr_tools.h"
 #include "elf_defines.h"
 #include "memquery.h"
@@ -158,14 +156,11 @@ write_section_header(DR_PARAM_IN file_t elf_file,
 static bool
 os_dump_core_internal(void)
 {
-    strhash_table_t *string_htable =
-        strhash_hash_create(GLOBAL_DCONTEXT, /*bits=*/8, /*load_factor_percent=*/80,
-                            /*table_flags=*/0, NULL _IF_DEBUG("mmap-string-table"));
-
     // Insert a null string at the beginning for sections with no comment.
     char string_table[MAX_SECTION_NAME_BUFFER_SIZE];
     // Reserve the first byte for sections without a name.
     string_table[0] = '\0';
+    string_table[1] = '\0';
     ELF_ADDR string_table_offset = 1;
     ELF_OFF section_count = 0;
     ELF_OFF section_data_size = 0;
@@ -191,11 +186,11 @@ os_dump_core_internal(void)
         }
         ELF_ADDR offset = 0;
         if (iter.comment != NULL && iter.comment[0] != '\0') {
-            offset = (ELF_ADDR)strhash_hash_lookup(GLOBAL_DCONTEXT, string_htable,
-                                                   iter.comment);
+            const char *pos = strstr(&string_table[1], iter.comment);
+            if (pos != NULL) {
+                offset = pos - string_table;
+            }
             if (offset == 0) {
-                strhash_hash_add(GLOBAL_DCONTEXT, string_htable, iter.comment,
-                                 (void *)string_table_offset);
                 const size_t comment_len = d_r_strlen(iter.comment);
                 if (comment_len + string_table_offset > MAX_SECTION_NAME_BUFFER_SIZE) {
                     SYSLOG_INTERNAL_ERROR("Section name table is too small to store "
@@ -319,7 +314,6 @@ os_dump_core_internal(void)
     }
 
     os_close(elf_file);
-    strhash_hash_destroy(GLOBAL_DCONTEXT, string_htable);
     return true;
 }
 
@@ -329,17 +323,23 @@ os_dump_core_internal(void)
 bool
 os_dump_core_live(void)
 {
-    uint num_threads;
-    void **drcontexts = NULL;
     // Suspend all threads including native threads to ensure the memory regions
     // do not change in the middle of the core dump.
-    if (!dr_suspend_all_other_threads_ex(&drcontexts, &num_threads, NULL,
-                                         DR_SUSPEND_NATIVE)) {
+    int num_threads;
+    thread_record_t **threads;
+    if (!synch_with_all_threads(THREAD_SYNCH_SUSPENDED_VALID_MCONTEXT_OR_NO_XFER,
+                                &threads, &num_threads, THREAD_SYNCH_NO_LOCKS_NO_XFER,
+                                /* If we fail to suspend a thread, there is a
+                                 * risk of deadlock in the child, so it's worth
+                                 * retrying on failure.
+                                 */
+                                THREAD_SYNCH_SUSPEND_FAILURE_IGNORE)) {
         return false;
     }
+
     const bool ret = os_dump_core_internal();
-    if (!dr_resume_all_other_threads(drcontexts, num_threads)) {
-        return false;
-    }
+
+    end_synch_with_all_threads(threads, num_threads,
+                               /*resume=*/true);
     return ret;
 }
