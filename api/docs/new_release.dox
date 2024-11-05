@@ -90,7 +90,7 @@ Once the build is finished and posted to https://github.com/DynamoRIO/dynamorio/
 
 Also point at the changelog, as was done in this past release:
 
-https://github.com/DynamoRIO/dynamorio/releases/tag/release_10.0.0
+https://github.com/DynamoRIO/dynamorio/releases/tag/release_11.0.0
 
 We generally edit the title to simplify it: e.g., from `release_8.0.0-1` to just `8.0.0`.
 
