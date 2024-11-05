@@ -124,8 +124,17 @@ Dr. Memory Framework (DRMF) in the same package as DynamoRIO.  DRMF
 provides the umbra, drsyscall, and drsymcache Extensions for use by
 clients.
 
-The changes between version \DR_VERSION and 10.0.0 include the following compatibility
+The changes between version \DR_VERSION and 11.0.0 include the following compatibility
 changes:
+ - No compatibility changes.
+
+Further non-compatibility-affecting changes include:
+ - No changes yet.
+
+**************************************************
+<hr>
+
+The changes between version 11.0.0 and 10.0.0 include the following compatibility
  - Marked x86 rep instructions as predicated.
  - The #dr_instr_category_t enum underwent changes to support new categories
    such as STATE, MOVE, CONVERT, and MATH.
