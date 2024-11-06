@@ -33,10 +33,30 @@
 #include "dr_api.h"
 #include "client_tools.h"
 
-#include "dr_api.h"
-#include "client_tools.h"
+#define NUDGE_ARG_DUMP_MEMORY 1
 
 static bool saw_thread_init_event = false;
+static client_id_t client_id = 0;
+
+static void
+event_nudge(void *drcontext, uint64 arg)
+{
+    dr_fprintf(STDERR, "nudge delivered %d\n", (uint)arg);
+    if (arg == NUDGE_ARG_DUMP_MEMORY) {
+        dr_memory_dump_spec_t spec;
+        spec.size = sizeof(dr_memory_dump_spec_t);
+#ifdef WINDOWS
+        spec.flags = DR_MEMORY_DUMP_LDMP;
+#else
+        spec.flags = DR_MEMORY_DUMP_ELF;
+#endif
+        if (!dr_create_memory_dump(&spec))
+            dr_fprintf(STDERR, "Error: failed to create memory dump.\n");
+        // TODO i#7046: Verify the content of the output file.
+        return;
+    }
+    dr_fprintf(STDERR, "Error: unexpected nudge event!\n");
+}
 
 static void
 dr_exit(void)
@@ -51,18 +71,17 @@ dr_thread_init(void *drcontext)
     dr_fprintf(STDERR, "thread init\n");
     saw_thread_init_event = true;
 
-    dr_memory_dump_spec_t spec;
-    spec.size = sizeof(dr_memory_dump_spec_t);
-    spec.flags = DR_MEMORY_DUMP_ELF;
-    if (!dr_create_memory_dump(&spec))
-        dr_fprintf(STDERR, "Error: failed to create memory dump.\n");
+    if (!dr_nudge_client(client_id, NUDGE_ARG_DUMP_MEMORY))
+        dr_fprintf(STDERR, "Error: failed to nudge client!\n");
 }
 
 DR_EXPORT
 void
 dr_init(client_id_t id)
 {
+    client_id = id;
     dr_register_exit_event(dr_exit);
     dr_register_thread_init_event(dr_thread_init);
+    dr_register_nudge_event(event_nudge, id);
     dr_fprintf(STDERR, "thank you for testing memory dump\n");
 }
