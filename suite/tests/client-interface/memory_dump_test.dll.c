@@ -40,11 +40,7 @@
 
 static bool saw_thread_init_event = false;
 static client_id_t client_id = 0;
-
-#ifdef WINDOWS
-static thread_id_t injection_tid;
-static bool first_thread = true;
-#endif
+static thread_id_t thread_id = 0;
 
 static void
 event_nudge(void *drcontext, uint64 arg)
@@ -79,18 +75,11 @@ dr_exit(void)
 static void
 dr_thread_init(void *drcontext)
 {
-#ifdef WINDOWS
     thread_id_t tid = dr_get_thread_id(drcontext);
-    // On Windows there is an additional thread used for attach injection.
-    if (tid != injection_tid && first_thread) {
-        first_thread = false;
-        dr_fprintf(STDERR, "thread init\n");
-    } else {
+    if (tid != thread_id)
         return;
-    }
-#else
+
     dr_fprintf(STDERR, "thread init\n");
-#endif
     saw_thread_init_event = true;
 
     if (!dr_nudge_client(client_id, NUDGE_ARG_DUMP_MEMORY))
@@ -101,10 +90,9 @@ DR_EXPORT
 void
 dr_init(client_id_t id)
 {
-#ifdef WINDOWS
     void *drcontext = dr_get_current_drcontext();
-    injection_tid = dr_get_thread_id(drcontext);
-#endif
+    thread_id = dr_get_thread_id(drcontext);
+
     client_id = id;
     dr_register_exit_event(dr_exit);
     dr_register_thread_init_event(dr_thread_init);
