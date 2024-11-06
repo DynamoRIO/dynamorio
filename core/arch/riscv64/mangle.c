@@ -619,10 +619,10 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     instr_get_rel_data_or_instr_target(instr, &tgt);
     ASSERT(opnd_is_reg(dst));
     ASSERT(opnd_is_rel_addr(instr_get_src(instr, 0)));
+    bool uses_reg_stolen = instr_uses_reg(instr, dr_reg_stolen),
+         uses_reg_tp = instr_uses_reg(instr, DR_REG_TP);
 
-    ASSERT_NOT_IMPLEMENTED(!instr_uses_reg(instr, DR_REG_TP));
-
-    if (instr_uses_reg(instr, dr_reg_stolen)) {
+    if (uses_reg_stolen || uses_reg_tp) {
         dst = opnd_create_reg(DR_REG_A0);
         PRE(ilist, next_instr,
             instr_create_save_to_tls(dcontext, DR_REG_A0, TLS_REG0_SLOT));
@@ -630,9 +630,16 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 
     insert_mov_immed_ptrsz(dcontext, (ptr_int_t)tgt, dst, ilist, next_instr, NULL, NULL);
 
-    if (instr_uses_reg(instr, dr_reg_stolen)) {
+    if (uses_reg_stolen) {
         PRE(ilist, next_instr,
             instr_create_save_to_tls(dcontext, DR_REG_A0, TLS_REG_STOLEN_SLOT));
+        PRE(ilist, next_instr,
+            instr_create_restore_from_tls(dcontext, DR_REG_A0, TLS_REG0_SLOT));
+    } else if (uses_reg_tp) {
+        PRE(ilist, next_instr,
+            instr_create_save_to_tls(
+                dcontext, DR_REG_A0,
+                os_tls_offset(os_get_app_tls_base_offset(TLS_REG_LIB))));
         PRE(ilist, next_instr,
             instr_create_restore_from_tls(dcontext, DR_REG_A0, TLS_REG0_SLOT));
     }
