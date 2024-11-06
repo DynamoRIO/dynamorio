@@ -2647,6 +2647,7 @@ if (NOT ANDROID) # TODO i#38: Port test to Android.
       client-interface/attach_blocking.runall "" "" "")
   endif ()
   if (LINUX AND X64)
+    # TODO i#7046: Verify the content of the output file.
     tobuild_ci(client.memory_dump_test client-interface/memory_dump_test.c "" "" "")
   endif ()
 endif ()
