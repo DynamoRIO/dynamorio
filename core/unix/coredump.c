@@ -40,6 +40,7 @@
 #define MAX_SECTION_NAME_BUFFER_SIZE 8192
 #define SECTION_HEADER_TABLE ".shstrtab"
 #define VVAR_SECTION "[vvar]"
+#define VSYSCALL_SECTION "[vsyscall]"
 
 typedef struct _section_header_info_t {
     app_pc vm_start;
@@ -181,7 +182,8 @@ os_dump_core_internal(void)
     // the section name in the section name table.
     while (memquery_iterator_next(&iter)) {
         // Skip non-readable section.
-        if (iter.prot == MEMPROT_NONE || strcmp(iter.comment, VVAR_SECTION) == 0) {
+        if (iter.prot == MEMPROT_NONE || strcmp(iter.comment, VVAR_SECTION) == 0 ||
+            strcmp(iter.comment, VSYSCALL_SECTION) == 0) {
             continue;
         }
         ELF_ADDR offset = 0;
