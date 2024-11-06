@@ -264,6 +264,10 @@ os_dump_core_internal(void)
         if (written != length) {
             SYSLOG_INTERNAL_ERROR("Failed to write the requested memory content into "
                                   "the core dump file.");
+            SYSLOG_INTERNAL_ERROR(
+                "section: %s, prot: %x, length: %d, written: %d\n",
+                &string_table[section_header_info[section_index].name_offset],
+                section_header_info[section_index].prot, length, written);
             os_close(elf_file);
             return false;
         }
