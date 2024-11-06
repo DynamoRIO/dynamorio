@@ -67,9 +67,6 @@ dr_exit(void)
 {
     if (!saw_thread_init_event)
         dr_fprintf(STDERR, "Error: never saw thread init event!\n");
-#ifdef WINDOWS
-    dr_fprintf(STDERR, "done\n");
-#endif
 }
 
 static void

@@ -2646,7 +2646,7 @@ if (NOT ANDROID) # TODO i#38: Port test to Android.
     torunonly_ci(client.attach_blocking linux.infloop client.attach_test.dll
       client-interface/attach_blocking.runall "" "" "")
   endif ()
-  if ((LINUX AND X64) OR WIN32)
+  if (X64 AND (LINUX OR WIN32))
     tobuild_ci(client.memory_dump_test client-interface/memory_dump_test.c "" "" "")
   endif ()
 endif ()
