@@ -178,9 +178,9 @@ os_dump_core_internal(void)
     ASSERT(d_r_get_num_threads() == 1);
     // All other threads have been suspended, we can make it a shared table with
     // lock.
-    strhash_table_t *string_htable =
-        strhash_hash_create(GLOBAL_DCONTEXT, /*bits=*/8, /*load_factor_percent=*/80,
-                            /*table_flags=*/HASHTABLE_SHARED, NULL _IF_DEBUG("mmap-string-table"));
+    strhash_table_t *string_htable = strhash_hash_create(
+        GLOBAL_DCONTEXT, /*bits=*/8, /*load_factor_percent=*/80,
+        /*table_flags=*/HASHTABLE_SHARED, NULL _IF_DEBUG("mmap-string-table"));
 
     // Iterate through memory regions to store the start, end, protection, and
     // the offset to the section name string table. The first byte of the
