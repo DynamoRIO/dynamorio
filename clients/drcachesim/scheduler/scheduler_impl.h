@@ -66,6 +66,24 @@
 #include "trace_entry.h"
 #include "utils.h"
 
+#undef VPRINT
+// We make logging available in release build to help in diagnosing issues
+// and understanding scheduler behavior.
+// We assume the extra branches do not add undue overhead.
+#define VPRINT(obj, level, ...)                            \
+    do {                                                   \
+        if ((obj)->verbosity_ >= (level)) {                \
+            fprintf(stderr, "%s ", (obj)->output_prefix_); \
+            fprintf(stderr, __VA_ARGS__);                  \
+        }                                                  \
+    } while (0)
+#define VDO(obj, level, statement)          \
+    do {                                    \
+        if ((obj)->verbosity_ >= (level)) { \
+            statement                       \
+        }                                   \
+    } while (0)
+
 namespace dynamorio {
 namespace drmemtrace {
 
@@ -734,10 +752,16 @@ protected:
     stream_status_t
     pick_next_input(output_ordinal_t output, uint64_t blocked_time);
 
-    // Helper for pick_next_input() for MAP_AS_PREVIOUSLY.
+    // Helper for pick_next_input() specialized by mode.
     // No input_info_t lock can be held on entry.
-    stream_status_t
-    pick_next_input_as_previously(output_ordinal_t output, input_ordinal_t &index);
+    virtual stream_status_t
+    pick_next_input_try(output_ordinal_t output, uint64_t blocked_time,
+                        input_ordinal_t prev_index, input_ordinal_t &index)
+    {
+        // Return an error, rather than being pure virtual, to make subclassing
+        // in tests easier.
+        return sched_type_t::STATUS_NOT_IMPLEMENTED;
+    }
 
     // If the given record has a thread id field, returns true and the value.
     bool
@@ -975,6 +999,56 @@ typedef scheduler_impl_tmpl_t<memref_t, reader_t> scheduler_impl_t;
 
 typedef scheduler_impl_tmpl_t<trace_entry_t, dynamorio::drmemtrace::record_reader_t>
     record_scheduler_impl_t;
+
+template <typename RecordType, typename ReaderType>
+class scheduler_dynamic_tmpl_t : public scheduler_impl_tmpl_t<RecordType, ReaderType> {
+private:
+    using sched_type_t = scheduler_tmpl_t<RecordType, ReaderType>;
+    using input_ordinal_t = typename sched_type_t::input_ordinal_t;
+    using output_ordinal_t = typename sched_type_t::output_ordinal_t;
+    using stream_status_t = typename sched_type_t::stream_status_t;
+    using input_info_t =
+        typename scheduler_impl_tmpl_t<RecordType, ReaderType>::input_info_t;
+    using output_info_t =
+        typename scheduler_impl_tmpl_t<RecordType, ReaderType>::output_info_t;
+    using schedule_record_t =
+        typename scheduler_impl_tmpl_t<RecordType, ReaderType>::schedule_record_t;
+
+protected:
+    stream_status_t
+    pick_next_input_try(output_ordinal_t output, uint64_t blocked_time,
+                        input_ordinal_t prev_index, input_ordinal_t &index) override;
+};
+
+template <typename RecordType, typename ReaderType>
+class scheduler_replay_tmpl_t : public scheduler_impl_tmpl_t<RecordType, ReaderType> {
+private:
+    using sched_type_t = scheduler_tmpl_t<RecordType, ReaderType>;
+    using input_ordinal_t = typename sched_type_t::input_ordinal_t;
+    using output_ordinal_t = typename sched_type_t::output_ordinal_t;
+    using stream_status_t = typename sched_type_t::stream_status_t;
+    using schedule_record_t =
+        typename scheduler_impl_tmpl_t<RecordType, ReaderType>::schedule_record_t;
+
+protected:
+    stream_status_t
+    pick_next_input_try(output_ordinal_t output, uint64_t blocked_time,
+                        input_ordinal_t prev_index, input_ordinal_t &index) override;
+};
+
+template <typename RecordType, typename ReaderType>
+class scheduler_fixed_tmpl_t : public scheduler_impl_tmpl_t<RecordType, ReaderType> {
+private:
+    using sched_type_t = scheduler_tmpl_t<RecordType, ReaderType>;
+    using input_ordinal_t = typename sched_type_t::input_ordinal_t;
+    using output_ordinal_t = typename sched_type_t::output_ordinal_t;
+    using stream_status_t = typename sched_type_t::stream_status_t;
+
+protected:
+    stream_status_t
+    pick_next_input_try(output_ordinal_t output, uint64_t blocked_time,
+                        input_ordinal_t prev_index, input_ordinal_t &index) override;
+};
 
 /* For testing, where schedule_record_t is not accessible. */
 class replay_file_checker_t {
