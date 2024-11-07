@@ -30,6 +30,7 @@
 #include <sys/mman.h>
 #include "../globals.h"
 
+#include "../hashtable.h"
 #include "../os_shared.h"
 #include "../synch.h"
 #include "dr_tools.h"
@@ -169,10 +170,18 @@ os_dump_core_internal(void)
     section_header_info_t section_header_info[MAX_SECTION_HEADERS + 1];
 
     memquery_iter_t iter;
-    if (!memquery_iterator_start(&iter, NULL, /*may_alloc=*/false)) {
+    if (!memquery_iterator_start(&iter, NULL, /*may_alloc=*/true)) {
         SYSLOG_INTERNAL_ERROR("memquery_iterator_start failed.");
         return false;
     }
+
+    ASSERT(d_r_get_num_threads() == 1);
+    // All other threads have been suspended, we can make it a shared table with
+    // lock.
+    strhash_table_t *string_htable =
+        strhash_hash_create(GLOBAL_DCONTEXT, /*bits=*/8, /*load_factor_percent=*/80,
+                            /*table_flags=*/HASHTABLE_SHARED, NULL _IF_DEBUG("mmap-string-table"));
+
     // Iterate through memory regions to store the start, end, protection, and
     // the offset to the section name string table. The first byte of the
     // section name table is a null character for regions without a comment. The
@@ -188,11 +197,12 @@ os_dump_core_internal(void)
         }
         ELF_ADDR offset = 0;
         if (iter.comment != NULL && iter.comment[0] != '\0') {
-            const char *pos = strstr(&string_table[1], iter.comment);
-            if (pos != NULL) {
-                offset = pos - string_table;
-            }
+            TABLE_RWLOCK(string_htable, write, lock);
+            offset = (ELF_ADDR)strhash_hash_lookup(GLOBAL_DCONTEXT, string_htable,
+                                                   iter.comment);
             if (offset == 0) {
+                strhash_hash_add(GLOBAL_DCONTEXT, string_htable, iter.comment,
+                                 (void *)string_table_offset);
                 const size_t comment_len = d_r_strlen(iter.comment);
                 if (comment_len + string_table_offset > MAX_SECTION_NAME_BUFFER_SIZE) {
                     SYSLOG_INTERNAL_ERROR("Section name table is too small to store "
@@ -205,6 +215,7 @@ os_dump_core_internal(void)
                 string_table_offset += comment_len + 1;
                 string_table[string_table_offset - 1] = '\0';
             }
+            TABLE_RWLOCK(string_htable, write, unlock);
         }
         section_header_info[section_count].vm_start = iter.vm_start;
         section_header_info[section_count].vm_end = iter.vm_end;
@@ -217,6 +228,7 @@ os_dump_core_internal(void)
             return false;
         }
     }
+    strhash_hash_destroy(GLOBAL_DCONTEXT, string_htable);
     memquery_iterator_stop(&iter);
 
     // Add the string table section. Append the section name ".shstrtab" to the
