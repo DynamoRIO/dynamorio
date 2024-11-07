@@ -48,6 +48,7 @@
 #include "instrlist.h"
 #include "decode.h"
 #include "disassemble.h"
+#include "dr_tools.h"
 #include "ir_utils.h"
 #include "../fragment.h"
 #include "../fcache.h"
@@ -62,6 +63,9 @@
 #ifdef UNIX
 #    include <sys/time.h>       /* ITIMER_* */
 #    include "../unix/module.h" /* redirect_* functions */
+#    include "../unix/os_exports.h"
+#elif defined(WINDOWS)
+#    include "../win32/os_export.h"
 #endif
 
 /* in utils.c, not exported to everyone */
