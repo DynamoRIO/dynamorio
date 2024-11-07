@@ -1,27 +1,6 @@
 ===========================================================================
 ACKNOWLEDGEMENTS / AUTHORS OF DYNAMORIO
 
-The bulk of the DynamoRIO code base, at the point of open-sourcing in 2009,
-was written by:
-
-  * Derek Bruening
-  * Vladimir Kiriansky
-  * Timothy Garnett
-
-The new post-0.9.4 API was designed and implemented with key contributions
-from:
-
-  * Samuel Larsen
-  * Bharath Chandramohan
-
-After open-sourcing, the majority of new code was written by:
-
-  * Derek Bruening
-  * Reid Kleckner
-  * Qin Zhao
-
---------------------------------------------------
-
 The following is a partial list of the people who have contributed to the
 DynamoRIO effort over the years, with each group in alphabetical
 order. Many others have provided invaluable insights, suggestions, and
@@ -30,24 +9,85 @@ constructive criticism.
 As an open source project, 2009-present:
 
   * Philippe Antoine
-  * Derek Bruening
-  * Hyoun Kyu Cho
+  * Sotiris Apostolakis (Google)
+  * Nahome Bete (Google)
+  * Derek Bruening (Google)
+  * Hongyi Chen
   * Branden Clark
+  * Brett Coon (Google)
+  * Enrico Deiana (Google)
   * Shawn M. Denbow
+  * Connal de Souza (Google)
+  * Victor Derks
+  * Matthew Devereau (Arm)
+  * Pavel Durov
+  * Yuri Ershov
+  * Doug Evans (Google)
   * Peter Feiner
-  * Peter Goodman
+  * Vasilis Flouris
+  * John F.X. Galea
+  * Jack Gallagher (Arm)
+  * Peter Goodman (Google)
+  * Ryan Goulden
+  * Al Grant (Arm)
+  * Hendrik Greving (Google)
+  * Edmund Grimley Evans (Arm)
+  * Sahil Guptah (Google)
+  * Florian Hahn (Arm)
+  * Jivan Hakobyan
+  * Assad Hashmi (Arm)
   * Byron Hawkins
-  * Timur Iskhodzhanov
+  * Yang Hu
+  * Kyle Huey
+  * Timur Iskhodzhanov (Google)
+  * Mateusz Kalinowski (Arm)
+  * Svilen Kanev (Google)
+  * Stanislaw Kardach
   * Piyus Kedia
-  * Reid Kleckner
+  * Mazen Kharbutli (Google)
+  * Dhiru Kholia
+  * Yury Khrustalev
+  * Reid Kleckner (Google)
+  * Snehasish Kumar (Google)
+  * Daniel Kuts
+  * Hyoun Kyu Cho
   * Ilya Leoshkevich
+  * Cheng Li
+  * Junxuan Liao
+  * Yang Liu
+  * Shuntian Liu
+  * Kaiyeung Luk (Google)
+  * Kevin Malachowski (Google)
+  * Cam Mannett (Arm)
+  * Felix Moessbauer
+  * Wenlong Mu
+  * Maks Naumov
   * Adrian Negreanu
+  * Vadim Petrochenkov
   * Toshi Piazza
+  * Phil Ramsey (Arm)
+  * Prasun Ratn
+  * Cullen Rhodes (Arm)
+  * Edward J. Schwartz
+  * Abhinav Anil Sharma (Google)
   * Maxim Shudrak
-  * Yang Tang
+  * George Steed (Arm)
+  * Yang Tang (Google)
   * Dimitrios Tatsis
+  * Mircea Trofin (Google)
+  * Nilay Vaish
+  * S.J.R. van Schaik
+  * Alexey Vishnyakov
+  * Dmitry Vyukov (Google)
+  * Joshua Warburton (Arm)
+  * Peter Wei
+  * William Woodruff
+  * Louis Ye (Google)
+  * Jerry Youxin
   * Mingwei Zhang
-  * Qin Zhao
+  * Qidong Zhao (Google)
+  * Qin Zhao (Google)
+  * Kevin Zhou (Arm)
 
 At VMware, 2007-2009:
 
