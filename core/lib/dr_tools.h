@@ -343,7 +343,7 @@ typedef enum {
     DR_MEMORY_DUMP_LDMP = 0x0001,
     /**
      * Memory dump in Executable and Linkable Format. This API has the same
-     * restriction as dr_suspend_all_other_threads_ex().
+     * restrictions in where it can be called from as dr_suspend_all_other_threads_ex().
      *
      * \note X64 Linux only.
      */
