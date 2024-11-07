@@ -48,6 +48,7 @@
 
 #include "dr_api.h"
 #include "scheduler.h"
+#include "scheduler_impl.h"
 #include "mock_reader.h"
 #include "memref.h"
 #include "trace_entry.h"
@@ -2964,8 +2965,8 @@ test_replay_multi_threaded(const char *testdir)
 }
 
 #ifdef HAS_ZIP
-// We subclass scheduler_t to access its record struct and functions.
-class test_scheduler_t : public scheduler_t {
+// We subclass scheduler_impl_t to access its record struct and functions.
+class test_scheduler_t : public scheduler_impl_t {
 public:
     void
     write_test_schedule(std::string record_fname)
@@ -2974,31 +2975,31 @@ public:
         // scheduling quantum.
         // The 1st output's consumer was very slow and only managed 2 segments.
         scheduler_t scheduler;
-        std::vector<schedule_record_t> sched0;
-        sched0.emplace_back(scheduler_t::schedule_record_t::VERSION, 0, 0, 0, 0);
-        sched0.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 0, 0, 4, 11);
+        std::vector<scheduler_impl_t::schedule_record_t> sched0;
+        sched0.emplace_back(scheduler_impl_t::schedule_record_t::VERSION, 0, 0, 0, 0);
+        sched0.emplace_back(scheduler_impl_t::schedule_record_t::DEFAULT, 0, 0, 4, 11);
         // There is a huge time gap here.
-        sched0.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 2, 7,
+        sched0.emplace_back(scheduler_impl_t::schedule_record_t::DEFAULT, 2, 7,
                             0xffffffffffffffffUL, 91);
-        sched0.emplace_back(scheduler_t::schedule_record_t::FOOTER, 0, 0, 0, 0);
+        sched0.emplace_back(scheduler_impl_t::schedule_record_t::FOOTER, 0, 0, 0, 0);
         std::vector<schedule_record_t> sched1;
-        sched1.emplace_back(scheduler_t::schedule_record_t::VERSION, 0, 0, 0, 0);
-        sched1.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 1, 0, 4, 10);
-        sched1.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 2, 0, 4, 20);
+        sched1.emplace_back(scheduler_impl_t::schedule_record_t::VERSION, 0, 0, 0, 0);
+        sched1.emplace_back(scheduler_impl_t::schedule_record_t::DEFAULT, 1, 0, 4, 10);
+        sched1.emplace_back(scheduler_impl_t::schedule_record_t::DEFAULT, 2, 0, 4, 20);
         // Input 2 advances early so core 0 is no longer waiting on it but only
         // the timestamp.
-        sched1.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 2, 4, 7, 60);
-        sched1.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 3, 0, 4, 30);
-        sched1.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 0, 4, 7, 40);
-        sched1.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 1, 4, 7, 50);
-        sched1.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 3, 4, 7, 70);
-        sched1.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 0, 7,
+        sched1.emplace_back(scheduler_impl_t::schedule_record_t::DEFAULT, 2, 4, 7, 60);
+        sched1.emplace_back(scheduler_impl_t::schedule_record_t::DEFAULT, 3, 0, 4, 30);
+        sched1.emplace_back(scheduler_impl_t::schedule_record_t::DEFAULT, 0, 4, 7, 40);
+        sched1.emplace_back(scheduler_impl_t::schedule_record_t::DEFAULT, 1, 4, 7, 50);
+        sched1.emplace_back(scheduler_impl_t::schedule_record_t::DEFAULT, 3, 4, 7, 70);
+        sched1.emplace_back(scheduler_impl_t::schedule_record_t::DEFAULT, 0, 7,
                             0xffffffffffffffffUL, 80);
-        sched1.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 1, 7,
+        sched1.emplace_back(scheduler_impl_t::schedule_record_t::DEFAULT, 1, 7,
                             0xffffffffffffffffUL, 90);
-        sched1.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 3, 7,
+        sched1.emplace_back(scheduler_impl_t::schedule_record_t::DEFAULT, 3, 7,
                             0xffffffffffffffffUL, 110);
-        sched1.emplace_back(scheduler_t::schedule_record_t::FOOTER, 0, 0, 0, 0);
+        sched1.emplace_back(scheduler_impl_t::schedule_record_t::FOOTER, 0, 0, 0, 0);
         zipfile_ostream_t outfile(record_fname);
         std::string err = outfile.open_new_component(recorded_schedule_component_name(0));
         assert(err.empty());
@@ -3075,8 +3076,8 @@ test_replay_timestamps()
 }
 
 #ifdef HAS_ZIP
-// We subclass scheduler_t to access its record struct and functions.
-class test_noeof_scheduler_t : public scheduler_t {
+// We subclass scheduler_impl_t to access its record struct and functions.
+class test_noeof_scheduler_t : public scheduler_impl_t {
 public:
     void
     write_test_schedule(std::string record_fname)
@@ -3084,33 +3085,33 @@ public:
         // We duplicate test_scheduler_t but we have one input ending early before
         // eof.
         scheduler_t scheduler;
-        std::vector<schedule_record_t> sched0;
-        sched0.emplace_back(scheduler_t::schedule_record_t::VERSION, 0, 0, 0, 0);
-        sched0.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 0, 0, 4, 11);
+        std::vector<scheduler_impl_t::schedule_record_t> sched0;
+        sched0.emplace_back(scheduler_impl_t::schedule_record_t::VERSION, 0, 0, 0, 0);
+        sched0.emplace_back(scheduler_impl_t::schedule_record_t::DEFAULT, 0, 0, 4, 11);
         // There is a huge time gap here.
         // Max numeric value means continue until EOF.
-        sched0.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 2, 7,
+        sched0.emplace_back(scheduler_impl_t::schedule_record_t::DEFAULT, 2, 7,
                             0xffffffffffffffffUL, 91);
-        sched0.emplace_back(scheduler_t::schedule_record_t::FOOTER, 0, 0, 0, 0);
+        sched0.emplace_back(scheduler_impl_t::schedule_record_t::FOOTER, 0, 0, 0, 0);
         std::vector<schedule_record_t> sched1;
-        sched1.emplace_back(scheduler_t::schedule_record_t::VERSION, 0, 0, 0, 0);
-        sched1.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 1, 0, 4, 10);
-        sched1.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 2, 0, 4, 20);
+        sched1.emplace_back(scheduler_impl_t::schedule_record_t::VERSION, 0, 0, 0, 0);
+        sched1.emplace_back(scheduler_impl_t::schedule_record_t::DEFAULT, 1, 0, 4, 10);
+        sched1.emplace_back(scheduler_impl_t::schedule_record_t::DEFAULT, 2, 0, 4, 20);
         // Input 2 advances early so core 0 is no longer waiting on it but only
         // the timestamp.
-        sched1.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 2, 4, 7, 60);
-        sched1.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 3, 0, 4, 30);
-        sched1.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 0, 4, 7, 40);
-        sched1.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 1, 4, 7, 50);
-        sched1.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 3, 4, 7, 70);
-        sched1.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 0, 7,
+        sched1.emplace_back(scheduler_impl_t::schedule_record_t::DEFAULT, 2, 4, 7, 60);
+        sched1.emplace_back(scheduler_impl_t::schedule_record_t::DEFAULT, 3, 0, 4, 30);
+        sched1.emplace_back(scheduler_impl_t::schedule_record_t::DEFAULT, 0, 4, 7, 40);
+        sched1.emplace_back(scheduler_impl_t::schedule_record_t::DEFAULT, 1, 4, 7, 50);
+        sched1.emplace_back(scheduler_impl_t::schedule_record_t::DEFAULT, 3, 4, 7, 70);
+        sched1.emplace_back(scheduler_impl_t::schedule_record_t::DEFAULT, 0, 7,
                             0xffffffffffffffffUL, 80);
-        sched1.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 1, 7,
+        sched1.emplace_back(scheduler_impl_t::schedule_record_t::DEFAULT, 1, 7,
                             0xffffffffffffffffUL, 90);
         // Input 3 never reaches EOF (end is exclusive: so it stops at 8 with the
         // real end at 9).
-        sched1.emplace_back(scheduler_t::schedule_record_t::DEFAULT, 3, 7, 9, 110);
-        sched1.emplace_back(scheduler_t::schedule_record_t::FOOTER, 0, 0, 0, 0);
+        sched1.emplace_back(scheduler_impl_t::schedule_record_t::DEFAULT, 3, 7, 9, 110);
+        sched1.emplace_back(scheduler_impl_t::schedule_record_t::FOOTER, 0, 0, 0, 0);
         zipfile_ostream_t outfile(record_fname);
         std::string err = outfile.open_new_component(recorded_schedule_component_name(0));
         assert(err.empty());
