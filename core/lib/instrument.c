@@ -63,9 +63,6 @@
 #ifdef UNIX
 #    include <sys/time.h>       /* ITIMER_* */
 #    include "../unix/module.h" /* redirect_* functions */
-#    include "../unix/os_exports.h"
-#elif defined(WINDOWS)
-#    include "../win32/os_exports.h"
 #endif
 
 /* in utils.c, not exported to everyone */
