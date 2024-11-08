@@ -24,7 +24,7 @@ Total counts:
            0 total physical address unavailable markers
            0 total system call number markers
            0 total blocking system call markers
-          12 total other markers
+          16 total other markers
         8426 total encodings
 Thread 552306 counts:
       101045 \(fetched\) instructions
@@ -47,7 +47,7 @@ Thread 552306 counts:
            0 physical address unavailable markers
            0 system call number markers
            0 blocking system call markers
-           4 other markers
+           8 other markers
         6390 encodings
 Thread 552323 counts:
         4674 \(fetched\) instructions

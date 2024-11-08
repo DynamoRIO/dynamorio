@@ -321,7 +321,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         shard->file_type_) ||
                     (memref.marker.type == TRACE_TYPE_MARKER &&
                      (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
-                      memref.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT)) ||
+                      memref.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT ||
+                      memref.marker.marker_type == TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION)) ||
                     // TODO i#3937: Online instr bundles currently violate this.
                     !knob_offline_,
                 "Interruption marker mis-placed");
