@@ -436,10 +436,9 @@ test_branch_delays(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
         check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
         check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER,
-                    TRACE_MARKER_TYPE_CACHE_LINE_SIZE) && // 5 type: 28 size: 10 val: 64
-        check_entry(entries, idx, TRACE_TYPE_MARKER,
-                    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) && // 10000000
+                    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
         // Both branches should be delayed until after the timestamp+cpu markers:
@@ -3167,12 +3166,12 @@ test_asynchronous_signal(void *drcontext)
         instrlist_t *ilist = instrlist_create(drcontext);
         // raw2trace doesn't like offsets of 0 so we shift with a nop.
         instr_t *nop = XINST_CREATE_nop(drcontext);
-        instr_t *move =
+        instr_t *move1 =
             XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
         instr_t *move2 =
             XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
         instrlist_append(ilist, nop);
-        instrlist_append(ilist, move);
+        instrlist_append(ilist, move1);
         instrlist_append(ilist, move2);
         size_t offs_nop = 0;
         size_t offs_move1 = offs_nop + instr_length(drcontext, nop);
@@ -3184,7 +3183,7 @@ test_asynchronous_signal(void *drcontext)
         raw.push_back(make_line_size());
         raw.push_back(make_timestamp());
         raw.push_back(make_core());
-        raw.push_back(make_block(offs_move1, 1));
+        raw.push_back(make_block(offs_move1, 2));
         raw.push_back(make_marker(TRACE_MARKER_TYPE_KERNEL_EVENT, offs_move1));
         raw.push_back(make_exit());
 
@@ -3204,7 +3203,9 @@ test_asynchronous_signal(void *drcontext)
                         TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
             check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
             check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
-            // The move instruction is removed because of the asynchronous signal.
+            // The move1 instruction is removed because of the asynchronous signal.
+            check_entry(entries, idx, TRACE_TYPE_MARKER,
+                        TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION) &&
             check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_EVENT,
                         offs_move1) &&
             check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
@@ -3216,20 +3217,29 @@ test_asynchronous_signal(void *drcontext)
         instrlist_t *ilist = instrlist_create(drcontext);
         // raw2trace doesn't like offsets of 0 so we shift with a nop.
         instr_t *nop = XINST_CREATE_nop(drcontext);
-        instr_t *move =
-            XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+#ifdef AARCH64
+        // XXX i#5628: opnd_create_mem_instr is not supported yet on AArch64.
+        instr_t *load = INSTR_CREATE_ldr(
+            drcontext, opnd_create_reg(REG1),
+            // Our addresses are 0-based so we pick a low value that a
+            // PC-relative offset can reach.
+            OPND_CREATE_ABSMEM(reinterpret_cast<void *>(1024ULL), OPSZ_PTR));
+#else
+        instr_t *load = XINST_CREATE_load(drcontext, opnd_create_reg(REG1),
+                                          opnd_create_mem_instr(nop, 0, OPSZ_PTR));
+#endif
         instr_t *store = XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(REG2, 0),
                                             opnd_create_reg(REG1));
-        instr_t *move2 =
+        instr_t *move =
             XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
         instrlist_append(ilist, nop);
-        instrlist_append(ilist, move);
+        instrlist_append(ilist, load);
         instrlist_append(ilist, store);
-        instrlist_append(ilist, move2);
+        instrlist_append(ilist, move);
         size_t offs_nop = 0;
-        size_t offs_move1 = offs_nop + instr_length(drcontext, nop);
-        size_t offs_store = offs_move1 + instr_length(drcontext, move);
-        size_t offs_move2 = offs_store + instr_length(drcontext, store);
+        size_t offs_load = offs_nop + instr_length(drcontext, nop);
+        size_t offs_store = offs_load + instr_length(drcontext, load);
+        size_t offs_move = offs_store + instr_length(drcontext, store);
 
         std::vector<offline_entry_t> raw;
         raw.push_back(make_header());
@@ -3238,10 +3248,10 @@ test_asynchronous_signal(void *drcontext)
         raw.push_back(make_line_size());
         raw.push_back(make_timestamp());
         raw.push_back(make_core());
-        raw.push_back(make_block(offs_move1, 2));
+        raw.push_back(make_block(offs_load, 3));
         raw.push_back(make_memref(42));
         raw.push_back(make_marker(TRACE_MARKER_TYPE_KERNEL_EVENT, offs_store));
-        raw.push_back(make_block(offs_move2, 1));
+        raw.push_back(make_block(offs_move, 1));
         raw.push_back(make_exit());
 
         std::vector<uint64_t> stats;
@@ -3261,14 +3271,21 @@ test_asynchronous_signal(void *drcontext)
                          TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
-             // The move instruction.
+             // The load instruction.
              check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-             check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move1) &&
+#ifdef X86_32
+             // An extra encoding entry is needed.
+             check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#endif
+             check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_load) &&
+             check_entry(entries, idx, TRACE_TYPE_READ, -1) &&
              // The store instruction and the memref are removed.
+             check_entry(entries, idx, TRACE_TYPE_MARKER,
+                         TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION) &&
              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_EVENT,
                          offs_store) &&
              check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-             check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move2) &&
+             check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move) &&
              check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
              check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
     }

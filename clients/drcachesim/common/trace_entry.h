@@ -692,6 +692,17 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_SIGNAL_NUMBER,
 
+    /**
+     * This marker is used to indicate an instruction started to execute but
+     * didn't retire. The instruction was either preempted by an asynchronous
+     * signal or caused a fault. The instruction and corresponding memrefs
+     * are removed from the trace.
+     *
+     * The marker value is the raw encoding bytes of the instruction up to the
+     * length of a pointer.
+     */
+    TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION,
+
     // ...
     // These values are reserved for future built-in marker types.
     // ...

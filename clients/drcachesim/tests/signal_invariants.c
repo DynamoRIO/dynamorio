@@ -191,7 +191,7 @@ GLOBAL_LABEL(FUNCNAME:)
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
         /* prefetcht2's address is the instr count until a signal not counting
-         * the preempted instr.
+         * the faulting instr.
          */
         prefetcht2 [2]
         nop
@@ -208,7 +208,7 @@ GLOBAL_LABEL(FUNCNAME:)
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
         /* prefetcht2's address is the instr count until a signal not counting
-         * the preempted instr.
+         * the faulting instr.
          */
         prefetcht2 [1]
         jmp      new_bb
@@ -226,11 +226,11 @@ GLOBAL_LABEL(FUNCNAME:)
          * the fault.
          */
         /* prefetcht2's address is the instr count until a signal not counting
-         * the preempted instr.
+         * the faulting instr.
          */
         prefetcht2 [4]
         /* prefetcht1's address is the memref count until a signal not counting
-         * the preempted memref.
+         * the faulting memref.
          */
         prefetcht1 [1]
         mov      REG_XSI, HEX(42)

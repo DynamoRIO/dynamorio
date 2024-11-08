@@ -1839,24 +1839,31 @@ raw2trace_t::preempted_by_kernel_event(raw2trace_thread_data_t *tdata, uint64_t 
             next_entry = get_next_entry(tdata);
             continue;
         }
-        if (next_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
-            next_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
-            uintptr_t marker_val = 0;
-            if (!get_marker_value(tdata, &next_entry, &marker_val)) {
-                return false;
+        if (next_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER) {
+            if (next_entry->extended.valueB == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS ||
+                next_entry->extended.valueB == TRACE_MARKER_TYPE_VIRTUAL_ADDRESS ||
+                next_entry->extended.valueB ==
+                    TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE) {
+                next_entry = get_next_entry(tdata);
+                continue;
             }
-            // A signal/exception marker in the next entry could be at any point
-            // among non-memref instrs, or it could be after this bb.
-            // We check the stored PC.
-            int version = get_version(tdata);
-            if (version < OFFLINE_FILE_VERSION_KERNEL_INT_PC) {
-                // We have only the offs, so we can't handle differing modules for
-                // the source and target for legacy traces.
-                if (marker_val == cur_offs)
-                    is_preempted = true;
-            } else {
-                if (marker_val == cur_pc)
-                    is_preempted = true;
+
+            if (next_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+                uintptr_t marker_val = 0;
+                if (!get_marker_value(tdata, &next_entry, &marker_val)) {
+                    return false;
+                }
+                // Check the stored PC against cur_offs or cur_pc based on version.
+                int version = get_version(tdata);
+                if (version < OFFLINE_FILE_VERSION_KERNEL_INT_PC) {
+                    // We have only the offs, so we can't handle differing modules for
+                    // the source and target for legacy traces.
+                    if (marker_val == cur_offs)
+                        is_preempted = true;
+                } else {
+                    if (marker_val == cur_pc)
+                        is_preempted = true;
+                }
             }
         }
         break;
@@ -1867,24 +1874,6 @@ raw2trace_t::preempted_by_kernel_event(raw2trace_thread_data_t *tdata, uint64_t 
         pre_read_buffer.pop_front();
     }
     return is_preempted;
-}
-
-bool
-raw2trace_t::process_memref(raw2trace_thread_data_t *tdata, trace_entry_t **buf_in,
-                            const instr_summary_t *instr,
-                            instr_summary_t::memref_summary_t memref, bool write,
-                            std::unordered_map<reg_id_t, addr_t> &reg_vals,
-                            uint64_t cur_pc, uint64_t cur_offs, bool instrs_are_separate,
-                            DR_PARAM_OUT bool *reached_end_of_memrefs,
-                            DR_PARAM_OUT bool *interrupted)
-{
-    if (*interrupted) {
-        // Flush the memref entry.
-        get_next_entry(tdata);
-        return true;
-    }
-    return append_memref(tdata, buf_in, instr, memref, write, reg_vals,
-                         reached_end_of_memrefs);
 }
 
 bool
@@ -2077,11 +2066,27 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                 }
             }
         }
-        // i#7050: remove instructions which were preempted by a kernel event.
+        // i#7050: remove instructions which were preempted by a kernel event,
+        // or caused a fault.
         // The trace is recording instruction retirement, premmpted instructions
         // and the corresponding memrefs are removed.
-        bool preempted = preempted_by_kernel_event(tdata, cur_pc, cur_offs);
-        if (!preempted) {
+        const bool preempted = preempted_by_kernel_event(tdata, cur_pc, cur_offs);
+        if (preempted) {
+            // Insert the TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION marker to
+            // indicate an instruction has been removed fron the trace.
+            trace_entry_t trace_entry;
+            trace_entry.addr = 0;
+            trace_entry_t *trace_entry_ptr = &trace_entry;
+            if (!append_encoding(tdata, decode_pc,
+                                 std::min(static_cast<size_t>(instr->length()),
+                                          sizeof(trace_entry.addr)),
+                                 trace_entry_ptr, &trace_entry))
+                return false;
+            trace_metadata_writer_t::write_marker(
+                       reinterpret_cast<byte *>(buf),
+                       TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION, trace_entry.addr);
+            buf++;
+        } else {
             if (!skip_icache && record_encoding_emitted(tdata, decode_pc)) {
                 if (!append_encoding(tdata, decode_pc, instr->length(), buf, buf_start))
                     return false;
@@ -2117,13 +2122,15 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         }
         decode_pc = pc;
         if (tdata->rseq_past_end_) {
-            // In case handle_kernel_interrupt_and_markers() calls
+            // In case handle_rseq_abort_marker() calls
             // adjust_and_emit_rseq_buffer() we need to have written this instr to the
             // rseq buffer.
             if (!write(tdata, buf_start, buf, &saved_decode_pc, 1))
                 return false;
             buf = buf_start;
         }
+        // We need to interleave instrs with memrefs.
+        // There is no following memref for (instrs_are_separate && !skip_icache).
         if (!preempted && (!instrs_are_separate || skip_icache) &&
             // Rule out OP_lea.
             (instr->reads_memory() || instr->writes_memory()) &&
@@ -2143,58 +2150,48 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                 while (!reached_end_of_memrefs) {
                     // XXX: Add sanity check for max count of store/load memrefs
                     // possible for a given scatter/gather instr.
-                    if (!process_memref(
+                    if (!append_memref(
                             tdata, &buf, instr,
-                            // These memrefs were output by multiple store/load instrs in
+                            // These memrefs were output by multiple store/lo0ad instrs in
                             // the expanded scatter/gather sequence. In raw2trace we see
                             // only the original app instr though. So we use the 0th
                             // dest/src of the original scatter/gather instr for all.
                             is_scatter ? instr->mem_dest_at(0) : instr->mem_src_at(0),
-                            is_scatter, reg_vals, cur_pc, cur_offs, instrs_are_separate,
-                            &reached_end_of_memrefs, &preempted))
+                            is_scatter, reg_vals, &reached_end_of_memrefs))
                         return false;
-                    if (preempted)
-                        break;
                 }
             } else {
                 for (uint j = 0; j < instr->num_mem_srcs(); j++) {
-                    if (!process_memref(tdata, &buf, instr, instr->mem_src_at(j), false,
-                                        reg_vals, cur_pc, cur_offs, instrs_are_separate,
-                                        nullptr, &preempted))
+                    if (!append_memref(tdata, &buf, instr, instr->mem_src_at(j), false,
+                                       reg_vals, nullptr))
                         return false;
-                    if (preempted)
-                        break;
                 }
                 // We break before subsequent memrefs on an interrupt, though with
                 // today's tracer that will never happen (i#3958).
                 for (uint j = 0; !preempted && j < instr->num_mem_dests(); j++) {
-                    if (!process_memref(tdata, &buf, instr, instr->mem_dest_at(j), true,
-                                        reg_vals, cur_pc, cur_offs, instrs_are_separate,
-                                        nullptr, &preempted))
+                    if (!append_memref(tdata, &buf, instr, instr->mem_src_at(j), true,
+                                       reg_vals, nullptr))
                         return false;
-                    if (preempted)
-                        break;
                 }
             }
         } else {
-            // Flush memref entries.
+            // Flush memref entries. We do not try to indicate which memref
+            // might have casued a fault, we omit them all along with the
+            // instruction fetch.
             if (preempted) {
                 const offline_entry_t *next_entry = get_next_entry(tdata);
-                while (next_entry != nullptr) {
-                    if (next_entry->addr.type != OFFLINE_TYPE_MEMREF &&
-                        next_entry->addr.type != OFFLINE_TYPE_MEMREF_HIGH)
-                        break;
+                while (next_entry != nullptr &&
+                       (next_entry->addr.type == OFFLINE_TYPE_MEMREF ||
+                        next_entry->addr.type == OFFLINE_TYPE_MEMREF_HIGH)) {
                     next_entry = get_next_entry(tdata);
                 }
                 if (next_entry != nullptr)
-                    tdata->pre_read.push_front(*next_entry);
+                    unread_last_entry(tdata);
             }
         }
         // Check for a signal *after* the instruction.
         bool interrupted = false;
-        if (!handle_kernel_interrupt_and_markers(tdata, &buf, cur_pc, cur_offs,
-                                                 instr->length(), instrs_are_separate,
-                                                 &interrupted))
+        if (!handle_rseq_abort_marker(tdata, &buf, cur_pc, cur_offs, &interrupted))
             return false;
 
         cur_pc += instr->length();
@@ -2223,14 +2220,14 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             if (!write(tdata, buf_start, buf, &saved_decode_pc, 1))
                 return false;
         }
-        if (interrupted)
+        if (interrupted || preempted)
             break;
     }
     *handled = true;
     return true;
 }
 
-// Returns true if a kernel interrupt happened at cur_pc.
+// Returns true if an rseq abort happened at cur_pc.
 // Outputs a kernel interrupt if this is the right location.
 // Outputs any other markers observed if !instrs_are_separate, since they
 // are part of this block and need to be inserted now. Inserts all
@@ -2239,12 +2236,10 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
 // handled at a higher level (process_offline_entry()) and are never
 // inserted here.
 bool
-raw2trace_t::handle_kernel_interrupt_and_markers(raw2trace_thread_data_t *tdata,
-                                                 DR_PARAM_INOUT trace_entry_t **buf_in,
-                                                 uint64_t cur_pc, uint64_t cur_offs,
-                                                 int instr_length,
-                                                 bool instrs_are_separate,
-                                                 DR_PARAM_OUT bool *interrupted)
+raw2trace_t::handle_rseq_abort_marker(raw2trace_thread_data_t *tdata,
+                                      DR_PARAM_INOUT trace_entry_t **buf_in,
+                                      uint64_t cur_pc, uint64_t cur_offs,
+                                      DR_PARAM_OUT bool *interrupted)
 {
     // To avoid having to backtrack later, we read ahead to ensure we insert
     // an interrupt at the right place between memrefs or between instructions.
@@ -2269,8 +2264,7 @@ raw2trace_t::handle_kernel_interrupt_and_markers(raw2trace_thread_data_t *tdata,
         if (!get_marker_value(tdata, &in_entry, &marker_val))
             return false;
         // An abort always ends a block.
-        if (in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT ||
-            in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT) {
+        if (in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT) {
             // A signal/exception marker in the next entry could be at any point
             // among non-memref instrs, or it could be after this bb.
             // We check the stored PC.
@@ -2291,7 +2285,6 @@ raw2trace_t::handle_kernel_interrupt_and_markers(raw2trace_thread_data_t *tdata,
             // rseq aborts with timestamps (i#5954) nor rseq side exits (i#5953) for
             // such traces but we can at least fix up typical aborts.
             if (!tdata->rseq_ever_saw_entry_ &&
-                in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT &&
                 // I-filtered don't have every instr so we can't roll back.
                 !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
                          get_file_type(tdata))) {
@@ -2308,10 +2301,7 @@ raw2trace_t::handle_kernel_interrupt_and_markers(raw2trace_thread_data_t *tdata,
             if (marker_val == 0 || at_interrupted_pc || legacy_rseq_rollback) {
                 log(4, "Signal/exception interrupted the bb @ %p\n", cur_pc);
                 if (tdata->rseq_past_end_) {
-                    addr_t rseq_abort_pc =
-                        in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT
-                        ? marker_val
-                        : 0;
+                    addr_t rseq_abort_pc = marker_val;
                     if (!adjust_and_emit_rseq_buffer(tdata, static_cast<addr_t>(cur_pc),
                                                      rseq_abort_pc))
                         return false;
@@ -2354,7 +2344,7 @@ raw2trace_t::handle_kernel_interrupt_and_markers(raw2trace_thread_data_t *tdata,
                 // not-inside-a-block main loop.
             }
         } else {
-            // Other than kernel event markers checked above, markers should be
+            // Other than the rseq abort marker checked above, markers should be
             // only at block boundaries, as we cannot figure out where they should go
             // (and could easily insert them in the middle of this block instead
             // of between this and the next block, with implicit instructions added).
