@@ -2083,8 +2083,8 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                                  trace_entry_ptr, &trace_entry))
                 return false;
             trace_metadata_writer_t::write_marker(
-                       reinterpret_cast<byte *>(buf),
-                       TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION, trace_entry.addr);
+                reinterpret_cast<byte *>(buf), TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION,
+                trace_entry.addr);
             buf++;
         } else {
             if (!skip_icache && record_encoding_emitted(tdata, decode_pc)) {
