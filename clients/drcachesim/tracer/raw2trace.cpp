@@ -2069,11 +2069,13 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         // i#7050: remove instructions which were preempted by a kernel event,
         // or caused a fault.
         // The trace is recording instruction retirement, premmpted instructions
-        // and the corresponding memrefs are removed.
+        // and the corresponding memrefs, and instructions casuing a fault are
+        // removed.
         const bool preempted = preempted_by_kernel_event(tdata, cur_pc, cur_offs);
         if (preempted) {
             // Insert the TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION marker to
-            // indicate an instruction has been removed fron the trace.
+            // indicate an instruction is removed from the trace because it was
+            // preempted by an asynchronous signal or caused a fault.
             trace_entry_t trace_entry;
             trace_entry.addr = 0;
             trace_entry_t *trace_entry_ptr = &trace_entry;
@@ -2169,7 +2171,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                 // We break before subsequent memrefs on an interrupt, though with
                 // today's tracer that will never happen (i#3958).
                 for (uint j = 0; !preempted && j < instr->num_mem_dests(); j++) {
-                    if (!append_memref(tdata, &buf, instr, instr->mem_src_at(j), true,
+                    if (!append_memref(tdata, &buf, instr, instr->mem_dest_at(j), true,
                                        reg_vals, nullptr))
                         return false;
                 }
