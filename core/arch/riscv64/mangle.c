@@ -623,8 +623,7 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     ASSERT(opnd_is_reg(dst));
     ASSERT(opnd_is_rel_addr(instr_get_src(instr, 0)));
 
-    insert_mov_immed_ptrsz(dcontext, (ptr_int_t)tgt, dst, ilist, instr_get_next(instr),
-                           NULL, NULL);
+    insert_mov_immed_ptrsz(dcontext, (ptr_int_t)tgt, dst, ilist, instr, NULL, NULL);
 
     instrlist_remove(ilist, instr);
     instr_destroy(dcontext, instr);
