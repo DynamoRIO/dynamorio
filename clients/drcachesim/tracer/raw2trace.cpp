@@ -2191,7 +2191,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                     unread_last_entry(tdata);
             }
         }
-        // Check for a signal *after* the instruction.
+        // Check for rseq abort *after* the instruction.
         bool interrupted = false;
         if (!handle_rseq_abort_marker(tdata, &buf, cur_pc, cur_offs, &interrupted))
             return false;
