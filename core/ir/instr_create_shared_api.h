@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -44,17 +44,17 @@
 
 #ifndef DYNAMORIO_INTERNAL
 #    ifdef X86
-#        include "dr_ir_macros_x86.h"
+#        include "dr_ir_macros_x86.h" // IWYU pragma: export
 #    elif defined(AARCH64)
-#        include "dr_ir_macros_aarch64.h"
+#        include "dr_ir_macros_aarch64.h" // IWYU pragma: export
 #    elif defined(ARM)
-#        include "dr_ir_macros_arm.h"
+#        include "dr_ir_macros_arm.h" // IWYU pragma: export
 #    elif defined(RISCV64)
-#        include "dr_ir_macros_riscv64.h"
+#        include "dr_ir_macros_riscv64.h" // IWYU pragma: export
 #    endif
-#    include "dr_ir_opnd.h"
-#    include "dr_ir_instr.h"
-#    include "dr_ir_utils.h"
+#    include "dr_ir_opnd.h"  // IWYU pragma: export
+#    include "dr_ir_instr.h" // IWYU pragma: export
+#    include "dr_ir_utils.h" // IWYU pragma: export
 #endif
 #include <limits.h> /* For SCHAR_MAX, SCHAR_MIN. */
 
