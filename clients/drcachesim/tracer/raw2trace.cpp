@@ -1817,10 +1817,10 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
 }
 
 bool
-raw2trace_t::preempted_by_kernel_event(raw2trace_thread_data_t *tdata, uint64_t cur_pc,
-                                       uint64_t cur_offs)
+raw2trace_t::interrupted_by_kernel_event(raw2trace_thread_data_t *tdata, uint64_t cur_pc,
+                                         uint64_t cur_offs)
 {
-    bool is_preempted = false;
+    bool is_interrupted = false;
     std::deque<offline_entry_t> pre_read_buffer;
 
     const offline_entry_t *next_entry = get_next_entry(tdata);
@@ -1859,10 +1859,10 @@ raw2trace_t::preempted_by_kernel_event(raw2trace_thread_data_t *tdata, uint64_t 
                     // We have only the offs, so we can't handle differing modules for
                     // the source and target for legacy traces.
                     if (marker_val == cur_offs)
-                        is_preempted = true;
+                        is_interrupted = true;
                 } else {
                     if (marker_val == cur_pc)
-                        is_preempted = true;
+                        is_interrupted = true;
                 }
             }
         }
@@ -1873,7 +1873,7 @@ raw2trace_t::preempted_by_kernel_event(raw2trace_thread_data_t *tdata, uint64_t 
         tdata->pre_read.push_front(pre_read_buffer.front());
         pre_read_buffer.pop_front();
     }
-    return is_preempted;
+    return is_interrupted;
 }
 
 bool
@@ -2066,16 +2066,16 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                 }
             }
         }
-        // i#7050: remove instructions which were preempted by a kernel event,
+        // i#7050: remove instructions which were interrupted by a kernel event,
         // or caused a fault.
         // The trace is recording instruction retirement, premmpted instructions
         // and the corresponding memrefs, and instructions casuing a fault are
         // removed.
-        const bool preempted = preempted_by_kernel_event(tdata, cur_pc, cur_offs);
-        if (preempted) {
+        const bool interrupted = interrupted_by_kernel_event(tdata, cur_pc, cur_offs);
+        if (interrupted) {
             // Insert the TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION marker to
             // indicate an instruction is removed from the trace because it was
-            // preempted by an asynchronous signal or caused a fault.
+            // interrupted by an asynchronous signal or caused a fault.
             trace_entry_t trace_entry;
             trace_entry.addr = 0;
             trace_entry_t *trace_entry_ptr = &trace_entry;
@@ -2133,7 +2133,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         }
         // We need to interleave instrs with memrefs.
         // There is no following memref for (instrs_are_separate && !skip_icache).
-        if (!preempted && (!instrs_are_separate || skip_icache) &&
+        if (!interrupted && (!instrs_are_separate || skip_icache) &&
             // Rule out OP_lea.
             (instr->reads_memory() || instr->writes_memory()) &&
             // No following memref for instruction-only trace type.
@@ -2170,7 +2170,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                 }
                 // We break before subsequent memrefs on an interrupt, though with
                 // today's tracer that will never happen (i#3958).
-                for (uint j = 0; !preempted && j < instr->num_mem_dests(); j++) {
+                for (uint j = 0; !interrupted && j < instr->num_mem_dests(); j++) {
                     if (!append_memref(tdata, &buf, instr, instr->mem_dest_at(j), true,
                                        reg_vals, nullptr))
                         return false;
@@ -2180,7 +2180,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             // Flush memref entries. We do not try to indicate which memref
             // might have casued a fault, we omit them all along with the
             // instruction fetch.
-            if (preempted) {
+            if (interrupted) {
                 const offline_entry_t *next_entry = get_next_entry(tdata);
                 while (next_entry != nullptr &&
                        (next_entry->addr.type == OFFLINE_TYPE_MEMREF ||
@@ -2192,8 +2192,8 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             }
         }
         // Check for rseq abort *after* the instruction.
-        bool interrupted = false;
-        if (!handle_rseq_abort_marker(tdata, &buf, cur_pc, cur_offs, &interrupted))
+        bool rseq_aborted = false;
+        if (!handle_rseq_abort_marker(tdata, &buf, cur_pc, cur_offs, &rseq_aborted))
             return false;
 
         cur_pc += instr->length();
@@ -2222,7 +2222,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             if (!write(tdata, buf_start, buf, &saved_decode_pc, 1))
                 return false;
         }
-        if (interrupted || preempted)
+        if (rseq_aborted || interrupted)
             break;
     }
     *handled = true;
@@ -2241,11 +2241,11 @@ bool
 raw2trace_t::handle_rseq_abort_marker(raw2trace_thread_data_t *tdata,
                                       DR_PARAM_INOUT trace_entry_t **buf_in,
                                       uint64_t cur_pc, uint64_t cur_offs,
-                                      DR_PARAM_OUT bool *interrupted)
+                                      DR_PARAM_OUT bool *rseq_aborted)
 {
     // To avoid having to backtrack later, we read ahead to ensure we insert
     // an interrupt at the right place between memrefs or between instructions.
-    *interrupted = false;
+    *rseq_aborted = false;
     bool append = false;
     trace_entry_t *buf_start = get_write_buffer(tdata);
     do {
@@ -2312,7 +2312,7 @@ raw2trace_t::handle_rseq_abort_marker(raw2trace_thread_data_t *tdata,
                         return false;
                 }
                 append = true;
-                *interrupted = true;
+                *rseq_aborted = true;
                 if (legacy_rseq_rollback) {
                     // This happens on rseq native aborts, where the trace instru
                     // includes the rseq committing store before the native rseq

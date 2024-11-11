@@ -1492,8 +1492,8 @@ private:
     // memrefs to search for a kernel event marker. If the kernel event marker has
     // the value of cur_pc, it returns true.
     bool
-    preempted_by_kernel_event(raw2trace_thread_data_t *tdata, uint64_t cur_pc,
-                              uint64_t cur_offs);
+    interrupted_by_kernel_event(raw2trace_thread_data_t *tdata, uint64_t cur_pc,
+                                uint64_t cur_offs);
 
     bool
     append_bb_entries(raw2trace_thread_data_t *tdata, const offline_entry_t *in_entry,

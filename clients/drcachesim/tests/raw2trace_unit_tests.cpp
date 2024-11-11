@@ -3239,7 +3239,6 @@ test_asynchronous_signal(void *drcontext)
         size_t offs_nop = 0;
         size_t offs_load = offs_nop + instr_length(drcontext, nop);
         size_t offs_store = offs_load + instr_length(drcontext, load);
-        size_t offs_move = offs_store + instr_length(drcontext, store);
 
         std::vector<offline_entry_t> raw;
         raw.push_back(make_header());
@@ -3251,7 +3250,6 @@ test_asynchronous_signal(void *drcontext)
         raw.push_back(make_block(offs_load, 3));
         raw.push_back(make_memref(42));
         raw.push_back(make_marker(TRACE_MARKER_TYPE_KERNEL_EVENT, offs_store));
-        raw.push_back(make_block(offs_move, 1));
         raw.push_back(make_exit());
 
         std::vector<uint64_t> stats;
@@ -3284,8 +3282,6 @@ test_asynchronous_signal(void *drcontext)
                          TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION) &&
              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_EVENT,
                          offs_store) &&
-             check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-             check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move) &&
              check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
              check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
     }
@@ -3314,6 +3310,10 @@ test_asynchronous_signal(void *drcontext)
         raw.push_back(make_core());
         raw.push_back(make_block(offs_rep_stos, 1));
         raw.push_back(make_memref(42));
+        raw.push_back(make_block(offs_rep_stos, 1));
+        raw.push_back(make_memref(46));
+        raw.push_back(make_block(offs_rep_stos, 1));
+        raw.push_back(make_memref(50));
         raw.push_back(make_block(offs_move, 1));
         raw.push_back(make_exit());
 
@@ -3336,6 +3336,10 @@ test_asynchronous_signal(void *drcontext)
             // The rep_stos instruction.
             check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
             check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_rep_stos) &&
+            check_entry(entries, idx, TRACE_TYPE_WRITE, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_INSTR_NO_FETCH, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_WRITE, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_INSTR_NO_FETCH, -1) &&
             check_entry(entries, idx, TRACE_TYPE_WRITE, -1) &&
             check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
             check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move) &&
@@ -3366,6 +3370,10 @@ test_asynchronous_signal(void *drcontext)
         raw.push_back(make_core());
         raw.push_back(make_block(offs_rep_stos, 1));
         raw.push_back(make_memref(42));
+        raw.push_back(make_block(offs_rep_stos, 1));
+        raw.push_back(make_memref(46));
+        raw.push_back(make_block(offs_rep_stos, 1));
+        raw.push_back(make_memref(50));
         raw.push_back(make_marker(TRACE_MARKER_TYPE_KERNEL_EVENT, offs_rep_stos));
         raw.push_back(make_exit());
 
@@ -3385,8 +3393,14 @@ test_asynchronous_signal(void *drcontext)
                         TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
             check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
             check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
-            // The rep_stos instruction and the write record are removed because of the
-            // asynchronous signal.
+            // The rep_stos instruction.
+            check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_rep_stos) &&
+            check_entry(entries, idx, TRACE_TYPE_WRITE, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_INSTR_NO_FETCH, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_WRITE, -1) &&
+            // The last rep_stos instruction and the write record are removed because of
+            // the asynchronous signal.
             check_entry(entries, idx, TRACE_TYPE_MARKER,
                         TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION) &&
             check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_EVENT,
