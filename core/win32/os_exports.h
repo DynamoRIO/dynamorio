@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -42,8 +42,8 @@
 #ifndef _OS_EXPORTS_H_
 #define _OS_EXPORTS_H_ 1
 
-#include "os_public.h"
-#include "../os_shared.h"
+#include "os_public.h"    // IWYU pragma: export
+#include "../os_shared.h" // IWYU pragma: export
 #include "arch_exports.h" /* for priv_mcontext_t */
 #include "aslr.h"         /* for aslr_context */
 
