@@ -42,7 +42,7 @@
 #ifndef _GLOBALS_H_
 #define _GLOBALS_H_ 1
 
-#include "configure.h"
+#include "configure.h" // IWYU pragma: export
 
 #ifdef WINDOWS
 /* Vista SDK compiler default is to set NTDDI_VERSION to NTDDI_LONGHORN, causing
@@ -90,7 +90,7 @@
 
 #endif
 
-#include "globals_shared.h"
+#include "globals_shared.h" // IWYU pragma: export
 
 /* currently we always export statistics structure */
 #define DYNAMORIO_STATS_EXPORTS 1
@@ -291,7 +291,7 @@ typedef struct _thread_record_t {
 /* We don't include dr_api.h, that's for external use. */
 #ifdef DR_APP_EXPORTS
 /* we only export app interface if DR_APP_EXPORTS is defined */
-#    include "dr_app.h"
+#    include "dr_app.h" // IWYU pragma: export
 /* a few always-exported routines are part of the app interface */
 #    undef DYNAMORIO_EXPORT
 #    define DYNAMORIO_EXPORT DR_APP_API
@@ -307,18 +307,18 @@ typedef struct _thread_record_t {
  */
 extern int vector_length;
 
-#include "heap.h"
-#include "options_struct.h"
-#include "utils.h"
-#include "options.h"
-#include "os_exports.h"
-#include "arch_exports.h"
-#include "drlibc.h"
-#include "vmareas.h"
-#include "instrlist.h"
-#include "dispatch.h"
+#include "heap.h"           // IWYU pragma: export
+#include "options_struct.h" // IWYU pragma: export
+#include "utils.h"          // IWYU pragma: export
+#include "options.h"        // IWYU pragma: export
+#include "os_exports.h"     // IWYU pragma: export
+#include "arch_exports.h"   // IWYU pragma: export
+#include "drlibc.h"         // IWYU pragma: export
+#include "vmareas.h"        // IWYU pragma: export
+#include "instrlist.h"      // IWYU pragma: export
+#include "dispatch.h"       // IWYU pragma: export
 
-#include "dr_stats.h"
+#include "dr_stats.h" // IWYU pragma: export
 
 /* did the client request a premature exit at a potentially awkward spot
  * (nudge handler, signal handler)?
