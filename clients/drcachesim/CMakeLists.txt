@@ -261,6 +261,7 @@ set(loader_srcs
 set(drcachesim_srcs
   launcher.cpp
   scheduler/scheduler.cpp
+  scheduler/scheduler_impl.cpp
   scheduler/speculator.cpp
   analyzer.cpp
   analyzer_multi.cpp
@@ -323,6 +324,7 @@ endif (BUILD_PT_POST_PROCESSOR)
 add_exported_library(drmemtrace_analyzer STATIC
   analyzer.cpp
   scheduler/scheduler.cpp
+  scheduler/scheduler_impl.cpp
   scheduler/speculator.cpp
   common/trace_entry.cpp
   reader/reader.cpp
