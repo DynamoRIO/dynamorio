@@ -608,28 +608,6 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     return next_instr;
 }
 
-instr_t *
-mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                instr_t *next_instr)
-{
-    app_pc tgt;
-    ASSERT(instr_get_opcode(instr) == OP_auipc);
-    ASSERT(instr_has_rel_addr_reference(instr));
-    instr_get_rel_data_or_instr_target(instr, &tgt);
-
-    mangle_special_registers(dcontext, ilist, instr, next_instr);
-
-    opnd_t dst = instr_get_dst(instr, 0);
-    ASSERT(opnd_is_reg(dst));
-    ASSERT(opnd_is_rel_addr(instr_get_src(instr, 0)));
-
-    insert_mov_immed_ptrsz(dcontext, (ptr_int_t)tgt, dst, ilist, instr, NULL, NULL);
-
-    instrlist_remove(ilist, instr);
-    instr_destroy(dcontext, instr);
-    return NULL;
-}
-
 static reg_id_t
 pick_scratch_reg(dcontext_t *dcontext, instr_t *instr, reg_id_t do_not_pick,
                  reg_id_t do_not_pick_2, ushort *scratch_slot DR_PARAM_OUT)
@@ -852,6 +830,29 @@ mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
     }
 
     return next_instr;
+}
+
+instr_t *
+mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                instr_t *next_instr)
+{
+    app_pc tgt;
+    ASSERT(instr_get_opcode(instr) == OP_auipc);
+    ASSERT(instr_has_rel_addr_reference(instr));
+    instr_get_rel_data_or_instr_target(instr, &tgt);
+
+    if (instr_uses_reg(instr, dr_reg_stolen) || instr_uses_reg(instr, DR_REG_TP))
+        mangle_stolen_reg_and_tp_reg(dcontext, ilist, instr, next_instr);
+
+    opnd_t dst = instr_get_dst(instr, 0);
+    ASSERT(opnd_is_reg(dst));
+    ASSERT(opnd_is_rel_addr(instr_get_src(instr, 0)));
+
+    insert_mov_immed_ptrsz(dcontext, (ptr_int_t)tgt, dst, ilist, instr, NULL, NULL);
+
+    instrlist_remove(ilist, instr);
+    instr_destroy(dcontext, instr);
+    return NULL;
 }
 
 /***************************************************************************
