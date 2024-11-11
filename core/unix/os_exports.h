@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -43,8 +43,8 @@
 #define _OS_EXPORTS_H_ 1
 
 #include <stdarg.h>
-#include "../os_shared.h"
-#include "os_public.h"
+#include "../os_shared.h" // IWYU pragma: export
+#include "os_public.h"    // IWYU pragma: export
 /* arch_exports.h exports opnd.h, but relies on kernel_sigset_t from this header.
  * We thus directly include opnd.h here for reg_id_t to resolve the circular
  * dependence (cleaner than having to use ushort instead of reg_id_t).

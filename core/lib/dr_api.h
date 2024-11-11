@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -44,62 +44,62 @@ extern "C" {
 #endif
 
 /* Defines and type definitions */
-#include "dr_defines.h"
+#include "dr_defines.h" // IWYU pragma: export
 
 /* Event registration routines */
-#include "dr_events.h"
+#include "dr_events.h" // IWYU pragma: export
 
 /* Application start/stop interface */
-#include "dr_app.h"
+#include "dr_app.h" // IWYU pragma: export
 
 /* opnd_t (instruction operand) routines */
-#include "dr_ir_opnd.h"
+#include "dr_ir_opnd.h" // IWYU pragma: export
 
 /* Application module (library) information. */
-#include "dr_modules.h"
+#include "dr_modules.h" // IWYU pragma: export
 
 /* Operating-system-specific queries. */
-#include "dr_os_utils.h"
+#include "dr_os_utils.h" // IWYU pragma: export
 
 /* High-level routines: memory allocation, mutex support, file
  * support, printing, thread support, adaptive optimization,
  * custom traces, processor-specific utilities, trace dumping.
  */
-#include "dr_tools.h"
+#include "dr_tools.h" // IWYU pragma: export
 
 /* Utility routines for identifying features of the processor. */
-#include "dr_proc.h"
+#include "dr_proc.h" // IWYU pragma: export
 
 /* Encoding routines. */
-#include "dr_ir_encode.h"
+#include "dr_ir_encode.h" // IWYU pragma: export
 
 /* instr_t routines */
-#include "dr_ir_instr.h"
-#include "dr_ir_instr_inline.h"
+#include "dr_ir_instr.h"        // IWYU pragma: export
+#include "dr_ir_instr_inline.h" // IWYU pragma: export
 
 /* Decoding routines. */
-#include "dr_ir_decode.h"
+#include "dr_ir_decode.h" // IWYU pragma: export
 
 /* Disassembly routines. */
-#include "dr_ir_disassemble.h"
+#include "dr_ir_disassemble.h" // IWYU pragma: export
 
 /* Instrumentation support */
-#include "dr_ir_utils.h"
+#include "dr_ir_utils.h" // IWYU pragma: export
 
 /* instrlist_t routines */
-#include "dr_ir_instrlist.h"
+#include "dr_ir_instrlist.h" // IWYU pragma: export
 
 /* opcode OP_ constants and opcode-only routines */
-#include "dr_ir_opcodes.h"
+#include "dr_ir_opcodes.h" // IWYU pragma: export
 
 /* CREATE_INSTR_ macros */
-#include "dr_ir_macros.h"
+#include "dr_ir_macros.h" // IWYU pragma: export
 
 /* Binary trace dump format. */
-#include "dr_tracedump.h"
+#include "dr_tracedump.h" // IWYU pragma: export
 
 /* Annotation handler registration routines */
-#include "dr_annotation.h"
+#include "dr_annotation.h" // IWYU pragma: export
 
 #ifndef DYNAMORIO_STANDALONE
 /**

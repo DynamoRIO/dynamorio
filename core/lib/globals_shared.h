@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -74,14 +74,14 @@
 #    define RISCV_64
 #endif
 
-#include "globals_api.h"
+#include "globals_api.h" // IWYU pragma: export
 
 #include <limits.h> /* for USHRT_MAX */
 #ifdef UNIX
 #    include <signal.h>
 #endif
 
-#include "c_defines.h"
+#include "c_defines.h" // IWYU pragma: export
 
 #ifdef X64
 #    define POINTER_MAX ULLONG_MAX
@@ -954,9 +954,9 @@ typedef struct {
     uint flags : 2;
     int ignored2; /* siginfo_t.si_code: has meaning to kernel so we avoid using */
 #else
-    uint version;                   /* version number for future proofing */
-    uint nudge_action_mask;         /* drawn from NUDGE_DEFS above */
-    uint flags;                     /* flags drawn from above enum */
+    uint version;           /* version number for future proofing */
+    uint nudge_action_mask; /* drawn from NUDGE_DEFS above */
+    uint flags;             /* flags drawn from above enum */
 #endif
     client_id_t client_id; /* unique ID identifying client */
     uint64 client_arg;     /* argument for a client nudge */
@@ -988,7 +988,7 @@ typedef struct {
  */
 #    define HOTP_POLICY_ID_LENGTH 9
 
-#    include "probe_api.h"
+#    include "probe_api.h" // IWYU pragma: export
 
 typedef dr_probe_status_t hotp_inject_status_t;
 
@@ -1103,7 +1103,7 @@ enum {
 
 /* Internal machine context structure */
 typedef struct _priv_mcontext_t {
-#include "mcxtx_api.h"
+#include "mcxtx_api.h" // IWYU pragma: export
 } priv_mcontext_t;
 
 #endif /* _GLOBALS_SHARED_H_ */
