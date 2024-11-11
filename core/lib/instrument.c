@@ -48,6 +48,7 @@
 #include "instrlist.h"
 #include "decode.h"
 #include "disassemble.h"
+#include "dr_tools.h"
 #include "ir_utils.h"
 #include "../fragment.h"
 #include "../fcache.h"
