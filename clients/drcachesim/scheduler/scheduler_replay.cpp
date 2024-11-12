@@ -194,19 +194,19 @@ scheduler_replay_tmpl_t<RecordType, ReaderType>::pick_next_input_try(
     this->outputs_[output].record_index->fetch_add(1, std::memory_order_release);
     VDO(this, 2, {
         // Our own index is only modified by us so we can cache it here.
-        int record_index =
+        int local_index =
             this->outputs_[output].record_index->load(std::memory_order_acquire);
-        if (record_index >= 0 &&
-            record_index < static_cast<int>(this->outputs_[output].record.size())) {
-            const schedule_record_t &segment =
-                this->outputs_[output].record[record_index];
-            int input = segment.key.input;
+        if (local_index >= 0 &&
+            local_index < static_cast<int>(this->outputs_[output].record.size())) {
+            const schedule_record_t &local_segment =
+                this->outputs_[output].record[local_index];
+            int input = local_segment.key.input;
             VPRINT(this, 2,
                    "next_record[%d]: replay segment in=%d (@%" PRId64
                    ") type=%d start=%" PRId64 " end=%" PRId64 "\n",
                    output, input, this->get_instr_ordinal(this->inputs_[input]),
-                   segment.type, segment.value.start_instruction,
-                   segment.stop_instruction);
+                   local_segment.type, local_segment.value.start_instruction,
+                   local_segment.stop_instruction);
         }
     });
     return sched_type_t::STATUS_OK;
