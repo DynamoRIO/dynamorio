@@ -45,7 +45,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
     std::vector<input_workload_t> &workload_inputs, int output_count,
     scheduler_options_t options)
 {
-    // TODO i#6831: Split up scheduler_impl_tmpl_t by mode and create the
+    // TODO i#6831: Split up scheduler_impl_tmpl_t by mapping_t mode and create the
     // mode-appropriate subclass here.
     impl_ = std::unique_ptr<scheduler_impl_tmpl_t<RecordType, ReaderType>,
                             scheduler_impl_deleter_t>(
