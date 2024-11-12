@@ -87,6 +87,18 @@ scheduler_fixed_tmpl_t<RecordType, ReaderType>::pick_next_input_for_mode(
     return sched_type_t::STATUS_OK;
 }
 
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
+scheduler_fixed_tmpl_t<RecordType, ReaderType>::process_next_record_candidate(
+    output_ordinal_t output, RecordType &record, input_info_t *input, uint64_t cur_time,
+    bool &need_new_input, bool &preempt, uint64_t &blocked_time)
+{
+    if (this->options_.deps == sched_type_t::DEPENDENCY_TIMESTAMPS &&
+        this->record_type_is_timestamp(record, input->next_timestamp))
+        need_new_input = true;
+    return sched_type_t::STATUS_OK;
+}
+
 template class scheduler_fixed_tmpl_t<memref_t, reader_t>;
 template class scheduler_fixed_tmpl_t<trace_entry_t,
                                       dynamorio::drmemtrace::record_reader_t>;
