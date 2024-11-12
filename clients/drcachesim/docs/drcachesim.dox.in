@@ -193,6 +193,8 @@ Some of the more important markers are:
 
 - #dynamorio::drmemtrace::TRACE_MARKER_TYPE_CORE_WAIT - This is inserted by the trace scheduler (see \ref sec_drcachesim_sched) during replay of a previously recorded schedule when one core gets too far ahead of another according to the recorded timestamps.  This is an artificial wait to keep the replay on track, as opposed to the natural idle time of #dynamorio::drmemtrace::TRACE_MARKER_TYPE_CORE_IDLE.
 
+- #dynamorio::drmemtrace::TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION - This is inserted when an uncompleted instruction and its corresponding memory records are removed. The marker value contains the encoding of the removed instruction up to the length of a pointer. The encoding will be incomplete for instructions with long encodings. It is best-effort to help understand the sequence for generated code where encodings are not available offline. The PC of this instruction is available in a subsequent TRACE_MARKER_TYPE_KERNEL_EVENT marker.
+
 The full set of markers is listed under the enum #dynamorio::drmemtrace::trace_marker_type_t.
 
 ****************************************************************************

@@ -699,7 +699,11 @@ typedef enum {
      * are removed from the trace.
      *
      * The marker value is the raw encoding bytes of the instruction up to the
-     * length of a pointer.
+     * length of a pointer. The encoding will be incomplete for instructions
+     * with long encodings. It is best-effort to help understand the sequence of
+     * generated code where encodings are not available online. The PC of this
+     * instruction is available in a subsequent TRACE_MARKER_TYPE_KERNEL_EVENT
+     * marker.
      */
     TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION,
 
