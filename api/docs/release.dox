@@ -132,7 +132,7 @@ changes:
    #dynamorio::drmemtrace::TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION was added to
    indicate an uncompleted instruction was removed. The value of the marker is the
    encoding of the removed instruction up to a pointer's length. Added
-   #OFFLINE_FILE_VERSION_RETIRED_INSTRUCTIONS_ONLY to
+   #dynamorio::drmemtrace::OFFLINE_FILE_VERSION_RETIRED_INSTRUCTIONS_ONLY to
    increase the trace version for drmemtraces with uncompleted instructions
    removed.
 
