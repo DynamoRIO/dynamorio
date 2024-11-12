@@ -69,6 +69,10 @@
 namespace dynamorio {
 namespace drmemtrace {
 
+// We do not subclass scheduler_tmpl_t to avoid a compile-time dependence between
+// them (part of the pImpl idiom) and to let us embed a dynamically chosen subclass
+// of scheduler_impl_tmpl_t inside the same unchanging-type outer class created by
+// the user.
 template <typename RecordType, typename ReaderType> class scheduler_impl_tmpl_t {
 private:
     using sched_type_t = scheduler_tmpl_t<RecordType, ReaderType>;
