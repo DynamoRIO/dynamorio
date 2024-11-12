@@ -3910,7 +3910,8 @@ is_on_stack(dcontext_t *dcontext, app_pc pc, vm_area_t *area)
         ok = get_memory_info(esp, &esp_base, &size, NULL);
         if (!ok) {
             /* This can happen with dr_prepopulate_cache(). */
-            ASSERT(!dynamo_started);
+            if (dynamo_started)
+                SYSLOG_INTERNAL_WARNING("Stack pointer has unexpected value");
             return false;
         }
         LOG(THREAD, LOG_VMAREAS, 3,
