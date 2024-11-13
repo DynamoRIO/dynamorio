@@ -31,6 +31,7 @@
  */
 
 #include "scheduler.h"
+#include "scheduler_impl.h"
 
 #include <inttypes.h>
 #include <stdint.h>
@@ -61,7 +62,6 @@
 #include "mutex_dbg_owned.h"
 #include "reader.h"
 #include "record_file_reader.h"
-#include "scheduler_impl.h"
 #include "trace_entry.h"
 #ifdef HAS_LZ4
 #    include "lz4_file_reader.h"

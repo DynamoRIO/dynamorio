@@ -35,7 +35,17 @@
 #include "scheduler.h"
 #include "scheduler_impl.h"
 
+#include <atomic>
 #include <cinttypes>
+#include <cstdint>
+#include <mutex>
+#include <thread>
+
+#include "memref.h"
+#include "mutex_dbg_owned.h"
+#include "reader.h"
+#include "record_file_reader.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {
