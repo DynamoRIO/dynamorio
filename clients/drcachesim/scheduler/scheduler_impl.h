@@ -92,7 +92,7 @@ namespace drmemtrace {
 // of scheduler_impl_tmpl_t inside the same unchanging-type outer class created by
 // the user.
 template <typename RecordType, typename ReaderType> class scheduler_impl_tmpl_t {
-private:
+protected:
     using sched_type_t = scheduler_tmpl_t<RecordType, ReaderType>;
     using input_ordinal_t = typename sched_type_t::input_ordinal_t;
     using output_ordinal_t = typename sched_type_t::output_ordinal_t;
@@ -752,11 +752,11 @@ protected:
     stream_status_t
     pick_next_input(output_ordinal_t output, uint64_t blocked_time);
 
-    // Helper for pick_next_input() specialized by mode.
+    // Helper for pick_next_input() specialized by mapping_t mode.
     // No input_info_t lock can be held on entry.
     virtual stream_status_t
-    pick_next_input_try(output_ordinal_t output, uint64_t blocked_time,
-                        input_ordinal_t prev_index, input_ordinal_t &index)
+    pick_next_input_for_mode(output_ordinal_t output, uint64_t blocked_time,
+                             input_ordinal_t prev_index, input_ordinal_t &index)
     {
         // Return an error, rather than being pure virtual, to make subclassing
         // in tests easier.
@@ -1000,6 +1000,7 @@ typedef scheduler_impl_tmpl_t<memref_t, reader_t> scheduler_impl_t;
 typedef scheduler_impl_tmpl_t<trace_entry_t, dynamorio::drmemtrace::record_reader_t>
     record_scheduler_impl_t;
 
+// Specialized code for dynamic schedules (MAP_TO_ANY_OUTPUT).
 template <typename RecordType, typename ReaderType>
 class scheduler_dynamic_tmpl_t : public scheduler_impl_tmpl_t<RecordType, ReaderType> {
 private:
@@ -1016,10 +1017,12 @@ private:
 
 protected:
     stream_status_t
-    pick_next_input_try(output_ordinal_t output, uint64_t blocked_time,
-                        input_ordinal_t prev_index, input_ordinal_t &index) override;
+    pick_next_input_for_mode(output_ordinal_t output, uint64_t blocked_time,
+                             input_ordinal_t prev_index, input_ordinal_t &index) override;
 };
 
+// Specialized code for replaying schedules: either a recorded dynamic schedule
+// or an as-traced schedule.
 template <typename RecordType, typename ReaderType>
 class scheduler_replay_tmpl_t : public scheduler_impl_tmpl_t<RecordType, ReaderType> {
 private:
@@ -1032,10 +1035,12 @@ private:
 
 protected:
     stream_status_t
-    pick_next_input_try(output_ordinal_t output, uint64_t blocked_time,
-                        input_ordinal_t prev_index, input_ordinal_t &index) override;
+    pick_next_input_for_mode(output_ordinal_t output, uint64_t blocked_time,
+                             input_ordinal_t prev_index, input_ordinal_t &index) override;
 };
 
+// Specialized code for fixed "schedules": typically serial or parallel analyzer
+// modes.
 template <typename RecordType, typename ReaderType>
 class scheduler_fixed_tmpl_t : public scheduler_impl_tmpl_t<RecordType, ReaderType> {
 private:
@@ -1046,8 +1051,8 @@ private:
 
 protected:
     stream_status_t
-    pick_next_input_try(output_ordinal_t output, uint64_t blocked_time,
-                        input_ordinal_t prev_index, input_ordinal_t &index) override;
+    pick_next_input_for_mode(output_ordinal_t output, uint64_t blocked_time,
+                             input_ordinal_t prev_index, input_ordinal_t &index) override;
 };
 
 /* For testing, where schedule_record_t is not accessible. */

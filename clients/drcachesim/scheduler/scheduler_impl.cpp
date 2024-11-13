@@ -3009,7 +3009,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t 
     while (true) {
         ++iters;
         if (index < 0) {
-            res = pick_next_input_try(output, blocked_time, prev_index, index);
+            res = pick_next_input_for_mode(output, blocked_time, prev_index, index);
             if (res == sched_type_t::STATUS_SKIPPED)
                 break;
             if (res != sched_type_t::STATUS_OK)
