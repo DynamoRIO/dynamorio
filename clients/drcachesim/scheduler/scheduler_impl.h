@@ -753,15 +753,18 @@ protected:
     pick_next_input(output_ordinal_t output, uint64_t blocked_time);
 
     // Helper for pick_next_input() specialized by mapping_t mode.
+    // This is called when check_for_input_switch() indicates a switch is needed.
     // No input_info_t lock can be held on entry.
     virtual stream_status_t
     pick_next_input_for_mode(output_ordinal_t output, uint64_t blocked_time,
                              input_ordinal_t prev_index, input_ordinal_t &index) = 0;
 
-    // Helper for pick_next_input() specialized by mapping_t mode: determines
-    // whether to switch to a new input (returned in "need_new_input"; if so, whether it's
-    // a preempt is in "preempt" and if this current input should be blocked then that
-    // time should be set in "blocked_time").
+    // Helper for next_record() specialized by mapping_t mode: called on every record
+    // before it's passed to the user.  Determines whether to switch to a new input
+    // (returned in "need_new_input"; if so, whether it's a preempt is in "preempt"
+    // and if this current input should be blocked then that time should be set in
+    // "blocked_time").  If this returns true for "need_new_input",
+    // pick_next_input_for_mode() is called.
     virtual stream_status_t
     check_for_input_switch(output_ordinal_t output, RecordType &record,
                            input_info_t *input, uint64_t cur_time, bool &need_new_input,
