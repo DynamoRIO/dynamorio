@@ -3012,6 +3012,19 @@ public:
                            sched1.size() * sizeof(sched1[0])))
             assert(false);
     }
+    stream_status_t
+    pick_next_input_for_mode(output_ordinal_t output, uint64_t blocked_time,
+                             input_ordinal_t prev_index, input_ordinal_t &index) override
+    {
+        return sched_type_t::STATUS_NOT_IMPLEMENTED;
+    }
+    stream_status_t
+    check_for_input_switch(output_ordinal_t output, memref_t &record, input_info_t *input,
+                           uint64_t cur_time, bool &need_new_input, bool &preempt,
+                           uint64_t &blocked_time) override
+    {
+        return sched_type_t::STATUS_NOT_IMPLEMENTED;
+    }
 };
 #endif
 
@@ -3123,6 +3136,19 @@ public:
         if (!outfile.write(reinterpret_cast<char *>(sched1.data()),
                            sched1.size() * sizeof(sched1[0])))
             assert(false);
+    }
+    stream_status_t
+    pick_next_input_for_mode(output_ordinal_t output, uint64_t blocked_time,
+                             input_ordinal_t prev_index, input_ordinal_t &index) override
+    {
+        return sched_type_t::STATUS_NOT_IMPLEMENTED;
+    }
+    stream_status_t
+    check_for_input_switch(output_ordinal_t output, memref_t &record, input_info_t *input,
+                           uint64_t cur_time, bool &need_new_input, bool &preempt,
+                           uint64_t &blocked_time) override
+    {
+        return sched_type_t::STATUS_NOT_IMPLEMENTED;
     }
 };
 #endif

@@ -214,7 +214,7 @@ scheduler_replay_tmpl_t<RecordType, ReaderType>::pick_next_input_for_mode(
 
 template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
-scheduler_replay_tmpl_t<RecordType, ReaderType>::process_next_record_candidate(
+scheduler_replay_tmpl_t<RecordType, ReaderType>::check_for_input_switch(
     output_ordinal_t output, RecordType &record, input_info_t *input, uint64_t cur_time,
     bool &need_new_input, bool &preempt, uint64_t &blocked_time)
 {
