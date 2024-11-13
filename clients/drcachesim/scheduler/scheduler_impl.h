@@ -753,15 +753,22 @@ protected:
     pick_next_input(output_ordinal_t output, uint64_t blocked_time);
 
     // Helper for pick_next_input() specialized by mapping_t mode.
+    // This is called when check_for_input_switch() indicates a switch is needed.
     // No input_info_t lock can be held on entry.
     virtual stream_status_t
     pick_next_input_for_mode(output_ordinal_t output, uint64_t blocked_time,
-                             input_ordinal_t prev_index, input_ordinal_t &index)
-    {
-        // Return an error, rather than being pure virtual, to make subclassing
-        // in tests easier.
-        return sched_type_t::STATUS_NOT_IMPLEMENTED;
-    }
+                             input_ordinal_t prev_index, input_ordinal_t &index) = 0;
+
+    // Helper for next_record() specialized by mapping_t mode: called on every record
+    // before it's passed to the user.  Determines whether to switch to a new input
+    // (returned in "need_new_input"; if so, whether it's a preempt is in "preempt"
+    // and if this current input should be blocked then that time should be set in
+    // "blocked_time").  If this returns true for "need_new_input",
+    // pick_next_input_for_mode() is called.
+    virtual stream_status_t
+    check_for_input_switch(output_ordinal_t output, RecordType &record,
+                           input_info_t *input, uint64_t cur_time, bool &need_new_input,
+                           bool &preempt, uint64_t &blocked_time) = 0;
 
     // If the given record has a thread id field, returns true and the value.
     bool
@@ -1019,6 +1026,10 @@ protected:
     stream_status_t
     pick_next_input_for_mode(output_ordinal_t output, uint64_t blocked_time,
                              input_ordinal_t prev_index, input_ordinal_t &index) override;
+    stream_status_t
+    check_for_input_switch(output_ordinal_t output, RecordType &record,
+                           input_info_t *input, uint64_t cur_time, bool &need_new_input,
+                           bool &preempt, uint64_t &blocked_time) override;
 };
 
 // Specialized code for replaying schedules: either a recorded dynamic schedule
@@ -1032,11 +1043,17 @@ private:
     using stream_status_t = typename sched_type_t::stream_status_t;
     using schedule_record_t =
         typename scheduler_impl_tmpl_t<RecordType, ReaderType>::schedule_record_t;
+    using input_info_t =
+        typename scheduler_impl_tmpl_t<RecordType, ReaderType>::input_info_t;
 
 protected:
     stream_status_t
     pick_next_input_for_mode(output_ordinal_t output, uint64_t blocked_time,
                              input_ordinal_t prev_index, input_ordinal_t &index) override;
+    stream_status_t
+    check_for_input_switch(output_ordinal_t output, RecordType &record,
+                           input_info_t *input, uint64_t cur_time, bool &need_new_input,
+                           bool &preempt, uint64_t &blocked_time) override;
 };
 
 // Specialized code for fixed "schedules": typically serial or parallel analyzer
@@ -1048,11 +1065,17 @@ private:
     using input_ordinal_t = typename sched_type_t::input_ordinal_t;
     using output_ordinal_t = typename sched_type_t::output_ordinal_t;
     using stream_status_t = typename sched_type_t::stream_status_t;
+    using input_info_t =
+        typename scheduler_impl_tmpl_t<RecordType, ReaderType>::input_info_t;
 
 protected:
     stream_status_t
     pick_next_input_for_mode(output_ordinal_t output, uint64_t blocked_time,
                              input_ordinal_t prev_index, input_ordinal_t &index) override;
+    stream_status_t
+    check_for_input_switch(output_ordinal_t output, RecordType &record,
+                           input_info_t *input, uint64_t cur_time, bool &need_new_input,
+                           bool &preempt, uint64_t &blocked_time) override;
 };
 
 /* For testing, where schedule_record_t is not accessible. */

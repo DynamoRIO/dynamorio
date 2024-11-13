@@ -222,6 +222,51 @@ scheduler_replay_tmpl_t<RecordType, ReaderType>::pick_next_input_for_mode(
     return sched_type_t::STATUS_OK;
 }
 
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
+scheduler_replay_tmpl_t<RecordType, ReaderType>::check_for_input_switch(
+    output_ordinal_t output, RecordType &record, input_info_t *input, uint64_t cur_time,
+    bool &need_new_input, bool &preempt, uint64_t &blocked_time)
+{
+    // Our own index is only modified by us so we can cache it here.
+    int record_index =
+        this->outputs_[output].record_index->load(std::memory_order_acquire);
+    assert(record_index >= 0);
+    if (record_index >= static_cast<int>(this->outputs_[output].record.size())) {
+        // We're on the last record.
+        VPRINT(this, 4, "next_record[%d]: on last record\n", output);
+    } else if (this->outputs_[output].record[record_index].type ==
+               schedule_record_t::SKIP) {
+        VPRINT(this, 5, "next_record[%d]: need new input after skip\n", output);
+        need_new_input = true;
+    } else if (this->outputs_[output].record[record_index].type ==
+               schedule_record_t::SYNTHETIC_END) {
+        VPRINT(this, 5, "next_record[%d]: at synthetic end\n", output);
+    } else {
+        const schedule_record_t &segment = this->outputs_[output].record[record_index];
+        assert(segment.type == schedule_record_t::DEFAULT);
+        uint64_t start = segment.value.start_instruction;
+        uint64_t stop = segment.stop_instruction;
+        // The stop is exclusive.  0 does mean to do nothing (easiest
+        // to have an empty record to share the next-entry for a start skip
+        // or other cases).
+        // Only check for stop when we've exhausted the queue, or we have
+        // a starter schedule with a 0,0 entry prior to a first skip entry
+        // (as just mentioned, it is easier to have a seemingly-redundant entry
+        // to get into the trace reading loop and then do something like a skip
+        // from the start rather than adding logic into the setup code).
+        if (this->get_instr_ordinal(*input) >= stop &&
+            (!input->cur_from_queue || (start == 0 && stop == 0))) {
+            VPRINT(this, 5,
+                   "next_record[%d]: need new input: at end of segment in=%d "
+                   "stop=%" PRId64 "\n",
+                   output, input->index, stop);
+            need_new_input = true;
+        }
+    }
+    return sched_type_t::STATUS_OK;
+}
+
 template class scheduler_replay_tmpl_t<memref_t, reader_t>;
 template class scheduler_replay_tmpl_t<trace_entry_t,
                                        dynamorio::drmemtrace::record_reader_t>;
