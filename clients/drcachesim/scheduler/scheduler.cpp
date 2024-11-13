@@ -48,11 +48,23 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
     std::vector<input_workload_t> &workload_inputs, int output_count,
     scheduler_options_t options)
 {
-    // TODO i#6831: Split up scheduler_impl_tmpl_t by mapping_t mode and create the
-    // mode-appropriate subclass here.
-    impl_ = std::unique_ptr<scheduler_impl_tmpl_t<RecordType, ReaderType>,
-                            scheduler_impl_deleter_t>(
-        new scheduler_impl_tmpl_t<RecordType, ReaderType>);
+    if (options.mapping == sched_type_t::MAP_TO_ANY_OUTPUT) {
+        impl_ = std::unique_ptr<scheduler_impl_tmpl_t<RecordType, ReaderType>,
+                                scheduler_impl_deleter_t>(
+            new scheduler_dynamic_tmpl_t<RecordType, ReaderType>);
+    } else if (options.mapping == sched_type_t::MAP_AS_PREVIOUSLY ||
+               (options.mapping == sched_type_t::MAP_TO_RECORDED_OUTPUT &&
+                options.replay_as_traced_istream != nullptr)) {
+        impl_ = std::unique_ptr<scheduler_impl_tmpl_t<RecordType, ReaderType>,
+                                scheduler_impl_deleter_t>(
+            new scheduler_replay_tmpl_t<RecordType, ReaderType>);
+    } else {
+        // Non-dynamic and non-replay fixed modes such as analyzer serial and
+        // parallel modes.
+        impl_ = std::unique_ptr<scheduler_impl_tmpl_t<RecordType, ReaderType>,
+                                scheduler_impl_deleter_t>(
+            new scheduler_fixed_tmpl_t<RecordType, ReaderType>);
+    }
     return impl_->init(workload_inputs, output_count, std::move(options));
 }
 

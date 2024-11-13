@@ -262,6 +262,9 @@ set(drcachesim_srcs
   launcher.cpp
   scheduler/scheduler.cpp
   scheduler/scheduler_impl.cpp
+  scheduler/scheduler_dynamic.cpp
+  scheduler/scheduler_replay.cpp
+  scheduler/scheduler_fixed.cpp
   scheduler/speculator.cpp
   analyzer.cpp
   analyzer_multi.cpp
@@ -325,6 +328,9 @@ add_exported_library(drmemtrace_analyzer STATIC
   analyzer.cpp
   scheduler/scheduler.cpp
   scheduler/scheduler_impl.cpp
+  scheduler/scheduler_dynamic.cpp
+  scheduler/scheduler_replay.cpp
+  scheduler/scheduler_fixed.cpp
   scheduler/speculator.cpp
   common/trace_entry.cpp
   reader/reader.cpp
