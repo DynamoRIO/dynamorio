@@ -3422,7 +3422,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
             VPRINT(this, 5, "next_record[%d]: queuing candidate record\n", output);
             input->queue.push_back(record);
             lock.unlock();
-            stream_status_t res = pick_next_input(output, blocked_time);
+            res = pick_next_input(output, blocked_time);
             if (res != sched_type_t::STATUS_OK && res != sched_type_t::STATUS_WAIT &&
                 res != sched_type_t::STATUS_SKIPPED)
                 return res;
@@ -3477,7 +3477,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
         if (input->needs_roi && options_.mapping != sched_type_t::MAP_AS_PREVIOUSLY &&
             !input->regions_of_interest.empty()) {
             input_ordinal_t prev_input = input->index;
-            stream_status_t res = advance_region_of_interest(output, record, *input);
+            res = advance_region_of_interest(output, record, *input);
             if (res == sched_type_t::STATUS_SKIPPED) {
                 // We need either the queue or to re-de-ref the reader so we loop,
                 // but we do not want to come back here.
