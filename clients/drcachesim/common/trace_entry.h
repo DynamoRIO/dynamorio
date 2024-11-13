@@ -961,7 +961,8 @@ typedef enum {
 #define OFFLINE_FILE_VERSION_KERNEL_INT_PC 4
 #define OFFLINE_FILE_VERSION_HEADER_FIELDS_SWAP 5
 #define OFFLINE_FILE_VERSION_ENCODINGS 6
-#define OFFLINE_FILE_VERSION_XFER_ABS_PC 7
+#define OFFLINE_FILE_VERSION_XFER_ABS_PC \
+    7 /**< Use the absolute PC for kernel interruption PC for 64-bit mode.*/
 #define OFFLINE_FILE_VERSION_RETIRED_INSTRUCTIONS_ONLY \
     8 /**< Trace version which has only retired instructions in drmemtraces.*/
 #define OFFLINE_FILE_VERSION OFFLINE_FILE_VERSION_RETIRED_INSTRUCTIONS_ONLY
