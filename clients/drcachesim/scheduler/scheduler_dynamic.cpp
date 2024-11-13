@@ -249,6 +249,123 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::pick_next_input_for_mode(
     return sched_type_t::STATUS_OK;
 }
 
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
+scheduler_dynamic_tmpl_t<RecordType, ReaderType>::check_for_input_switch(
+    output_ordinal_t output, RecordType &record, input_info_t *input, uint64_t cur_time,
+    bool &need_new_input, bool &preempt, uint64_t &blocked_time)
+{
+    trace_marker_type_t marker_type;
+    uintptr_t marker_value;
+    // While regular traces typically always have a syscall marker when
+    // there's a maybe-blocking marker, some tests and synthetic traces have
+    // just the maybe so we check both.
+    if (input->processing_syscall || input->processing_maybe_blocking_syscall) {
+        // Wait until we're past all the markers associated with the syscall.
+        // XXX: We may prefer to stop before the return value marker for
+        // futex, or a kernel xfer marker, but our recorded format is on instr
+        // boundaries so we live with those being before the switch.
+        // XXX: Once we insert kernel traces, we may have to try harder
+        // to stop before the post-syscall records.
+        if (this->record_type_is_instr_boundary(record,
+                                                this->outputs_[output].last_record)) {
+            if (input->switch_to_input != sched_type_t::INVALID_INPUT_ORDINAL) {
+                // The switch request overrides any latency threshold.
+                need_new_input = true;
+                VPRINT(this, 3,
+                       "next_record[%d]: direct switch on low-latency "
+                       "syscall in "
+                       "input %d\n",
+                       output, input->index);
+            } else if (input->blocked_time > 0) {
+                // If we've found out another way that this input should
+                // block, use that time and do a switch.
+                need_new_input = true;
+                blocked_time = input->blocked_time;
+                VPRINT(this, 3, "next_record[%d]: blocked time set for input %d\n",
+                       output, input->index);
+            } else if (input->unscheduled) {
+                need_new_input = true;
+                VPRINT(this, 3, "next_record[%d]: input %d going unscheduled\n", output,
+                       input->index);
+            } else if (this->syscall_incurs_switch(input, blocked_time)) {
+                // Model as blocking and should switch to a different input.
+                need_new_input = true;
+                VPRINT(this, 3, "next_record[%d]: hit blocking syscall in input %d\n",
+                       output, input->index);
+            }
+            input->processing_syscall = false;
+            input->processing_maybe_blocking_syscall = false;
+            input->pre_syscall_timestamp = 0;
+            input->syscall_timeout_arg = 0;
+        }
+    }
+    if (this->outputs_[output].hit_switch_code_end) {
+        // We have to delay so the end marker is still in_context_switch_code.
+        this->outputs_[output].in_context_switch_code = false;
+        this->outputs_[output].hit_switch_code_end = false;
+        // We're now back "on the clock".
+        if (this->options_.quantum_unit == sched_type_t::QUANTUM_TIME)
+            input->prev_time_in_quantum = cur_time;
+        // XXX: If we add a skip feature triggered on the output stream,
+        // we'll want to make sure skipping while in these switch and kernel
+        // sequences is handled correctly.
+    }
+    if (this->record_type_is_marker(record, marker_type, marker_value)) {
+        this->process_marker(*input, output, marker_type, marker_value);
+    }
+    if (this->options_.quantum_unit == sched_type_t::QUANTUM_INSTRUCTIONS &&
+        this->record_type_is_instr_boundary(record, this->outputs_[output].last_record) &&
+        !this->outputs_[output].in_kernel_code) {
+        ++input->instrs_in_quantum;
+        if (input->instrs_in_quantum > this->options_.quantum_duration_instrs) {
+            // We again prefer to switch to another input even if the current
+            // input has the oldest timestamp, prioritizing context switches
+            // over timestamp ordering.
+            VPRINT(this, 4, "next_record[%d]: input %d hit end of instr quantum\n",
+                   output, input->index);
+            preempt = true;
+            need_new_input = true;
+            input->instrs_in_quantum = 0;
+            ++this->outputs_[output]
+                  .stats[memtrace_stream_t::SCHED_STAT_QUANTUM_PREEMPTS];
+        }
+    } else if (this->options_.quantum_unit == sched_type_t::QUANTUM_TIME) {
+        if (cur_time == 0 || cur_time < input->prev_time_in_quantum) {
+            VPRINT(this, 1,
+                   "next_record[%d]: invalid time %" PRIu64 " vs start %" PRIu64 "\n",
+                   output, cur_time, input->prev_time_in_quantum);
+            return sched_type_t::STATUS_INVALID;
+        }
+        input->time_spent_in_quantum += cur_time - input->prev_time_in_quantum;
+        input->prev_time_in_quantum = cur_time;
+        double elapsed_micros = static_cast<double>(input->time_spent_in_quantum) /
+            this->options_.time_units_per_us;
+        if (elapsed_micros >= this->options_.quantum_duration_us &&
+            // We only switch on instruction boundaries.  We could possibly switch
+            // in between (e.g., scatter/gather long sequence of reads/writes) by
+            // setting input->switching_pre_instruction.
+            this->record_type_is_instr_boundary(record,
+                                                this->outputs_[output].last_record)) {
+            VPRINT(this, 4,
+                   "next_record[%d]: input %d hit end of time quantum after %" PRIu64
+                   "\n",
+                   output, input->index, input->time_spent_in_quantum);
+            preempt = true;
+            need_new_input = true;
+            input->time_spent_in_quantum = 0;
+            ++this->outputs_[output]
+                  .stats[memtrace_stream_t::SCHED_STAT_QUANTUM_PREEMPTS];
+        }
+    }
+    // For sched_type_t::DEPENDENCY_TIMESTAMPS: enforcing asked-for
+    // context switch rates is more important that honoring precise
+    // trace-buffer-based timestamp inter-input dependencies so we do not end a
+    // quantum early due purely to timestamps.
+
+    return sched_type_t::STATUS_OK;
+}
+
 template class scheduler_dynamic_tmpl_t<memref_t, reader_t>;
 template class scheduler_dynamic_tmpl_t<trace_entry_t,
                                         dynamorio::drmemtrace::record_reader_t>;
