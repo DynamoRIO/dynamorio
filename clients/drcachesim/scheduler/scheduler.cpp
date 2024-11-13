@@ -60,7 +60,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
             new scheduler_replay_tmpl_t<RecordType, ReaderType>);
     } else {
         // Non-dynamic and non-replay fixed modes such as analyzer serial and
-        // parallel modes.
+        // parallel modes.  Although serial does do interleaving by timestamp
+        // it is closer to parallel mode than the file-based replay modes.
         impl_ = std::unique_ptr<scheduler_impl_tmpl_t<RecordType, ReaderType>,
                                 scheduler_impl_deleter_t>(
             new scheduler_fixed_tmpl_t<RecordType, ReaderType>);

@@ -2966,7 +2966,30 @@ test_replay_multi_threaded(const char *testdir)
 
 #ifdef HAS_ZIP
 // We subclass scheduler_impl_t to access its record struct and functions.
-class test_scheduler_t : public scheduler_impl_t {
+// First we fill in pure-virtuals to share with a similar class below:
+class test_scheduler_base_t : public scheduler_impl_t {
+public:
+    scheduler_status_t
+    set_initial_schedule(
+        std::unordered_map<int, std::vector<int>> &workload2inputs) override
+    {
+        return sched_type_t::STATUS_ERROR_NOT_IMPLEMENTED;
+    }
+    stream_status_t
+    pick_next_input_for_mode(output_ordinal_t output, uint64_t blocked_time,
+                             input_ordinal_t prev_index, input_ordinal_t &index) override
+    {
+        return sched_type_t::STATUS_NOT_IMPLEMENTED;
+    }
+    stream_status_t
+    check_for_input_switch(output_ordinal_t output, memref_t &record, input_info_t *input,
+                           uint64_t cur_time, bool &need_new_input, bool &preempt,
+                           uint64_t &blocked_time) override
+    {
+        return sched_type_t::STATUS_NOT_IMPLEMENTED;
+    }
+};
+class test_scheduler_t : public test_scheduler_base_t {
 public:
     void
     write_test_schedule(std::string record_fname)
@@ -3011,19 +3034,6 @@ public:
         if (!outfile.write(reinterpret_cast<char *>(sched1.data()),
                            sched1.size() * sizeof(sched1[0])))
             assert(false);
-    }
-    stream_status_t
-    pick_next_input_for_mode(output_ordinal_t output, uint64_t blocked_time,
-                             input_ordinal_t prev_index, input_ordinal_t &index) override
-    {
-        return sched_type_t::STATUS_NOT_IMPLEMENTED;
-    }
-    stream_status_t
-    check_for_input_switch(output_ordinal_t output, memref_t &record, input_info_t *input,
-                           uint64_t cur_time, bool &need_new_input, bool &preempt,
-                           uint64_t &blocked_time) override
-    {
-        return sched_type_t::STATUS_NOT_IMPLEMENTED;
     }
 };
 #endif
@@ -3090,7 +3100,8 @@ test_replay_timestamps()
 
 #ifdef HAS_ZIP
 // We subclass scheduler_impl_t to access its record struct and functions.
-class test_noeof_scheduler_t : public scheduler_impl_t {
+// We subclass scheduler_impl_t to access its record struct and functions.
+class test_noeof_scheduler_t : public test_scheduler_base_t {
 public:
     void
     write_test_schedule(std::string record_fname)
@@ -3136,19 +3147,6 @@ public:
         if (!outfile.write(reinterpret_cast<char *>(sched1.data()),
                            sched1.size() * sizeof(sched1[0])))
             assert(false);
-    }
-    stream_status_t
-    pick_next_input_for_mode(output_ordinal_t output, uint64_t blocked_time,
-                             input_ordinal_t prev_index, input_ordinal_t &index) override
-    {
-        return sched_type_t::STATUS_NOT_IMPLEMENTED;
-    }
-    stream_status_t
-    check_for_input_switch(output_ordinal_t output, memref_t &record, input_info_t *input,
-                           uint64_t cur_time, bool &need_new_input, bool &preempt,
-                           uint64_t &blocked_time) override
-    {
-        return sched_type_t::STATUS_NOT_IMPLEMENTED;
     }
 };
 #endif
