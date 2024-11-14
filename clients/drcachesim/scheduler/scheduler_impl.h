@@ -107,10 +107,7 @@ protected:
     using switch_type_t = typename sched_type_t::switch_type_t;
 
 public:
-    scheduler_impl_tmpl_t()
-    {
-        last_rebalance_time_.store(0, std::memory_order_relaxed);
-    }
+    scheduler_impl_tmpl_t() = default;
     virtual ~scheduler_impl_tmpl_t();
 
     virtual scheduler_status_t
@@ -428,10 +425,6 @@ protected:
                                     output_ordinal_t for_output, input_info_t *&new_input,
                                     bool from_back = false);
 
-    stream_status_t
-    rebalance_queues(output_ordinal_t triggering_output,
-                     std::vector<input_ordinal_t> inputs_to_add);
-
     // Up to the caller to check verbosity before calling.
     void
     print_queue_stats();
@@ -587,10 +580,63 @@ protected:
     // We assume a 2GHz clock and IPC=1.
     static constexpr uint64_t INSTRS_PER_US = 2000;
 
+    ///////////////////////////////////////////////////////////////////////////
+    /// Virtual methods.
+    /// XXX i#6831: These interfaces between the main class the subclasses could be
+    /// more clearly separated and crystalized.  One goal is to avoid conditionals
+    // in scheduler_impl_tmpl_t based on options_mapping or possibly on options_
+    // at all (possibly only storing options_ in the subclasses).
+
     // Called just once at initialization time to set the initial input-to-output
-    // mappings and state.
-    scheduler_status_t
-    set_initial_schedule(std::unordered_map<int, std::vector<int>> &workload2inputs);
+    // mappings and state for the particular mapping_t mode.
+    // Should call set_cur_input() for all outputs with initial inputs.
+    virtual scheduler_status_t
+    set_initial_schedule(std::unordered_map<int, std::vector<int>> &workload2inputs) = 0;
+
+    // Allow subclasses to perform custom initial marker processing during
+    // get_initial_input_content().  Returns whether to keep reading.
+    // The caller will stop calling when an instruction record is reached.
+    // The 'record' may have TRACE_TYPE_INVALID in some calls in which case
+    // the two bool parameters are what the return value should be based on.
+    virtual bool
+    process_next_initial_record(input_info_t &input, RecordType record,
+                                bool &found_filetype, bool &found_timestamp);
+
+    // Helper for pick_next_input() specialized by mapping_t mode.
+    // This is called when check_for_input_switch() indicates a switch is needed.
+    // No input_info_t lock can be held on entry.
+    virtual stream_status_t
+    pick_next_input_for_mode(output_ordinal_t output, uint64_t blocked_time,
+                             input_ordinal_t prev_index, input_ordinal_t &index) = 0;
+
+    // Helper for next_record() specialized by mapping_t mode: called on every record
+    // before it's passed to the user.  Determines whether to switch to a new input
+    // (returned in "need_new_input"; if so, whether it's a preempt is in "preempt"
+    // and if this current input should be blocked then that time should be set in
+    // "blocked_time").  If this returns true for "need_new_input",
+    // pick_next_input_for_mode() is called.
+    virtual stream_status_t
+    check_for_input_switch(output_ordinal_t output, RecordType &record,
+                           input_info_t *input, uint64_t cur_time, bool &need_new_input,
+                           bool &preempt, uint64_t &blocked_time) = 0;
+
+    // Process each marker seen for MAP_TO_ANY_OUTPUT during next_record().
+    // The input's lock must be held by the caller.
+    virtual void
+    process_marker(input_info_t &input, output_ordinal_t output,
+                   trace_marker_type_t marker_type, uintptr_t marker_value);
+
+    // The external interface lets a user request that an output go inactive when
+    // doing dynamic scheduling.
+    virtual stream_status_t
+    set_output_active(output_ordinal_t output, bool active)
+    {
+        // Only supported in scheduler_dynamic_tmpl_t subclass.
+        return sched_type_t::STATUS_INVALID;
+    }
+
+    ///
+    ///////////////////////////////////////////////////////////////////////////
 
     // Assumed to only be called at initialization time.
     // Reads ahead in each input to find its filetype, and if "gather_timestamps"
@@ -602,15 +648,6 @@ protected:
     // Dumps the options, for diagnostics.
     void
     print_configuration();
-
-    // Allow subclasses to perform custom initial marker processing during
-    // get_initial_input_content().  Returns whether to keep reading.
-    // The caller will stop calling when an instruction record is reached.
-    // The 'record' may have TRACE_TYPE_INVALID in some calls in which case
-    // the two bool parameters are what the return value should be based on.
-    virtual bool
-    process_next_initial_record(input_info_t &input, RecordType record,
-                                bool &found_filetype, bool &found_timestamp);
 
     scheduler_status_t
     legacy_field_support();
@@ -671,9 +708,6 @@ protected:
                          uint64_t start_instruction, uint64_t stop_instruction);
 
     scheduler_status_t
-    read_and_instantiate_traced_schedule();
-
-    scheduler_status_t
     create_regions_from_times(const std::unordered_map<memref_tid_t, int> &workload_tids,
                               input_workload_t &workload);
 
@@ -703,9 +737,6 @@ protected:
         std::vector<std::vector<schedule_input_tracker_t>> &input_sched,
         std::vector<std::set<uint64_t>> &start2stop,
         std::vector<std::vector<schedule_output_tracker_t>> &all_sched);
-
-    scheduler_status_t
-    read_recorded_schedule();
 
     scheduler_status_t
     read_switch_sequences();
@@ -751,24 +782,6 @@ protected:
     // No input_info_t lock can be held on entry.
     stream_status_t
     pick_next_input(output_ordinal_t output, uint64_t blocked_time);
-
-    // Helper for pick_next_input() specialized by mapping_t mode.
-    // This is called when check_for_input_switch() indicates a switch is needed.
-    // No input_info_t lock can be held on entry.
-    virtual stream_status_t
-    pick_next_input_for_mode(output_ordinal_t output, uint64_t blocked_time,
-                             input_ordinal_t prev_index, input_ordinal_t &index) = 0;
-
-    // Helper for next_record() specialized by mapping_t mode: called on every record
-    // before it's passed to the user.  Determines whether to switch to a new input
-    // (returned in "need_new_input"; if so, whether it's a preempt is in "preempt"
-    // and if this current input should be blocked then that time should be set in
-    // "blocked_time").  If this returns true for "need_new_input",
-    // pick_next_input_for_mode() is called.
-    virtual stream_status_t
-    check_for_input_switch(output_ordinal_t output, RecordType &record,
-                           input_info_t *input, uint64_t cur_time, bool &need_new_input,
-                           bool &preempt, uint64_t &blocked_time) = 0;
 
     // If the given record has a thread id field, returns true and the value.
     bool
@@ -834,12 +847,6 @@ protected:
     void
     print_record(const RecordType &record);
 
-    // Process each marker seen for MAP_TO_ANY_OUTPUT during next_record().
-    // The input's lock must be held by the caller.
-    virtual void
-    process_marker(input_info_t &input, output_ordinal_t output,
-                   trace_marker_type_t marker_type, uintptr_t marker_value);
-
     // Returns the get_stream_name() value for the current input stream scheduled on
     // the 'output_ordinal'-th output stream.
     std::string
@@ -904,9 +911,6 @@ protected:
     stream_status_t
     stop_speculation(output_ordinal_t output);
 
-    stream_status_t
-    set_output_active(output_ordinal_t output, bool active);
-
     // Caller must hold the input's lock.
     // The return value is STATUS_EOF if a global exit is now happening (an
     // early exit); otherwise STATUS_OK is returned on success but only a
@@ -950,9 +954,6 @@ protected:
     mutex_dbg_owned unsched_lock_;
     // Inputs that are unscheduled indefinitely until directly targeted.
     input_queue_t unscheduled_priority_;
-    // Rebalancing coordination.
-    std::atomic<std::thread::id> rebalancer_;
-    std::atomic<uint64_t> last_rebalance_time_;
     // Count of inputs not yet at eof.
     std::atomic<int> live_input_count_;
     // In replay mode, count of outputs not yet at the end of the replay sequence.
@@ -1010,26 +1011,53 @@ typedef scheduler_impl_tmpl_t<trace_entry_t, dynamorio::drmemtrace::record_reade
 // Specialized code for dynamic schedules (MAP_TO_ANY_OUTPUT).
 template <typename RecordType, typename ReaderType>
 class scheduler_dynamic_tmpl_t : public scheduler_impl_tmpl_t<RecordType, ReaderType> {
+public:
+    scheduler_dynamic_tmpl_t()
+    {
+        last_rebalance_time_.store(0, std::memory_order_relaxed);
+    }
+
 private:
     using sched_type_t = scheduler_tmpl_t<RecordType, ReaderType>;
     using input_ordinal_t = typename sched_type_t::input_ordinal_t;
     using output_ordinal_t = typename sched_type_t::output_ordinal_t;
+    using scheduler_status_t = typename sched_type_t::scheduler_status_t;
     using stream_status_t = typename sched_type_t::stream_status_t;
-    using input_info_t =
-        typename scheduler_impl_tmpl_t<RecordType, ReaderType>::input_info_t;
-    using output_info_t =
-        typename scheduler_impl_tmpl_t<RecordType, ReaderType>::output_info_t;
-    using schedule_record_t =
-        typename scheduler_impl_tmpl_t<RecordType, ReaderType>::schedule_record_t;
+    using typename scheduler_impl_tmpl_t<RecordType, ReaderType>::input_info_t;
+    using typename scheduler_impl_tmpl_t<RecordType, ReaderType>::output_info_t;
+    using typename scheduler_impl_tmpl_t<RecordType, ReaderType>::schedule_record_t;
+    using
+        typename scheduler_impl_tmpl_t<RecordType, ReaderType>::InputTimestampComparator;
+    using scheduler_impl_tmpl_t<RecordType, ReaderType>::options_;
+    using scheduler_impl_tmpl_t<RecordType, ReaderType>::outputs_;
+    using scheduler_impl_tmpl_t<RecordType, ReaderType>::inputs_;
+    using scheduler_impl_tmpl_t<RecordType, ReaderType>::error_string_;
+    using scheduler_impl_tmpl_t<RecordType, ReaderType>::unscheduled_priority_;
+    using scheduler_impl_tmpl_t<RecordType, ReaderType>::set_cur_input;
 
 protected:
+    scheduler_status_t
+    set_initial_schedule(
+        std::unordered_map<int, std::vector<int>> &workload2inputs) override;
+
     stream_status_t
     pick_next_input_for_mode(output_ordinal_t output, uint64_t blocked_time,
                              input_ordinal_t prev_index, input_ordinal_t &index) override;
+
     stream_status_t
     check_for_input_switch(output_ordinal_t output, RecordType &record,
                            input_info_t *input, uint64_t cur_time, bool &need_new_input,
                            bool &preempt, uint64_t &blocked_time) override;
+    stream_status_t
+    set_output_active(output_ordinal_t output, bool active) override;
+
+    stream_status_t
+    rebalance_queues(output_ordinal_t triggering_output,
+                     std::vector<input_ordinal_t> inputs_to_add);
+
+    // Rebalancing coordination.
+    std::atomic<std::thread::id> rebalancer_;
+    std::atomic<uint64_t> last_rebalance_time_;
 };
 
 // Specialized code for replaying schedules: either a recorded dynamic schedule
@@ -1040,20 +1068,38 @@ private:
     using sched_type_t = scheduler_tmpl_t<RecordType, ReaderType>;
     using input_ordinal_t = typename sched_type_t::input_ordinal_t;
     using output_ordinal_t = typename sched_type_t::output_ordinal_t;
+    using scheduler_status_t = typename sched_type_t::scheduler_status_t;
     using stream_status_t = typename sched_type_t::stream_status_t;
-    using schedule_record_t =
-        typename scheduler_impl_tmpl_t<RecordType, ReaderType>::schedule_record_t;
-    using input_info_t =
-        typename scheduler_impl_tmpl_t<RecordType, ReaderType>::input_info_t;
+    using typename scheduler_impl_tmpl_t<RecordType, ReaderType>::schedule_record_t;
+    using typename scheduler_impl_tmpl_t<RecordType, ReaderType>::input_info_t;
+    using
+        typename scheduler_impl_tmpl_t<RecordType, ReaderType>::schedule_output_tracker_t;
+    using
+        typename scheduler_impl_tmpl_t<RecordType, ReaderType>::schedule_input_tracker_t;
+    using scheduler_impl_tmpl_t<RecordType, ReaderType>::options_;
+    using scheduler_impl_tmpl_t<RecordType, ReaderType>::outputs_;
+    using scheduler_impl_tmpl_t<RecordType, ReaderType>::inputs_;
+    using scheduler_impl_tmpl_t<RecordType, ReaderType>::error_string_;
+    using scheduler_impl_tmpl_t<RecordType, ReaderType>::set_cur_input;
 
 protected:
+    scheduler_status_t
+    set_initial_schedule(
+        std::unordered_map<int, std::vector<int>> &workload2inputs) override;
+
     stream_status_t
     pick_next_input_for_mode(output_ordinal_t output, uint64_t blocked_time,
                              input_ordinal_t prev_index, input_ordinal_t &index) override;
+
     stream_status_t
     check_for_input_switch(output_ordinal_t output, RecordType &record,
                            input_info_t *input, uint64_t cur_time, bool &need_new_input,
                            bool &preempt, uint64_t &blocked_time) override;
+    scheduler_status_t
+    read_recorded_schedule();
+
+    scheduler_status_t
+    read_and_instantiate_traced_schedule();
 };
 
 // Specialized code for fixed "schedules": typically serial or parallel analyzer
@@ -1064,14 +1110,24 @@ private:
     using sched_type_t = scheduler_tmpl_t<RecordType, ReaderType>;
     using input_ordinal_t = typename sched_type_t::input_ordinal_t;
     using output_ordinal_t = typename sched_type_t::output_ordinal_t;
+    using scheduler_status_t = typename sched_type_t::scheduler_status_t;
     using stream_status_t = typename sched_type_t::stream_status_t;
-    using input_info_t =
-        typename scheduler_impl_tmpl_t<RecordType, ReaderType>::input_info_t;
+    using typename scheduler_impl_tmpl_t<RecordType, ReaderType>::input_info_t;
+    using scheduler_impl_tmpl_t<RecordType, ReaderType>::options_;
+    using scheduler_impl_tmpl_t<RecordType, ReaderType>::outputs_;
+    using scheduler_impl_tmpl_t<RecordType, ReaderType>::inputs_;
+    using scheduler_impl_tmpl_t<RecordType, ReaderType>::error_string_;
+    using scheduler_impl_tmpl_t<RecordType, ReaderType>::set_cur_input;
 
 protected:
+    scheduler_status_t
+    set_initial_schedule(
+        std::unordered_map<int, std::vector<int>> &workload2inputs) override;
+
     stream_status_t
     pick_next_input_for_mode(output_ordinal_t output, uint64_t blocked_time,
                              input_ordinal_t prev_index, input_ordinal_t &index) override;
+
     stream_status_t
     check_for_input_switch(output_ordinal_t output, RecordType &record,
                            input_info_t *input, uint64_t cur_time, bool &need_new_input,
