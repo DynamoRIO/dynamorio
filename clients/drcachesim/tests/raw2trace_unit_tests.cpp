@@ -3262,10 +3262,6 @@ test_asynchronous_signal(void *drcontext)
              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
              // The load instruction.
              check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-#ifdef X86_32
-             // An extra encoding entry is needed.
-             check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-#endif
              check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_load) &&
              check_entry(entries, idx, TRACE_TYPE_READ, -1) &&
              // The store instruction and the memref are removed.
