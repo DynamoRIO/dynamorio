@@ -871,6 +871,35 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
     if (res != sched_type_t::STATUS_SUCCESS)
         return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
 
+    // Determine whether we need to read ahead in the inputs.  There are cases where we
+    // do not want to do that as it would block forever if the inputs are not available
+    // (e.g., online analysis IPC readers); it also complicates ordinals so we avoid it
+    // if we can and enumerate all the cases that do need it.
+    bool gather_timestamps = false;
+    if (((options_.mapping == sched_type_t::MAP_AS_PREVIOUSLY ||
+          options_.mapping == sched_type_t::MAP_TO_ANY_OUTPUT) &&
+         options_.deps == sched_type_t::DEPENDENCY_TIMESTAMPS) ||
+        (options_.mapping == sched_type_t::MAP_TO_RECORDED_OUTPUT &&
+         options_.replay_as_traced_istream == nullptr && inputs_.size() > 1)) {
+        gather_timestamps = true;
+        if (!options_.read_inputs_in_init) {
+            error_string_ = "Timestamp dependencies require read_inputs_in_init";
+            return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
+        }
+    }
+    // The filetype, if present, is before the first timestamp.  If we only need the
+    // filetype we avoid going as far as the timestamp.
+    bool gather_filetype = options_.read_inputs_in_init;
+    if (gather_filetype || gather_timestamps) {
+        res = this->get_initial_input_content(gather_timestamps);
+        if (res != sched_type_t::STATUS_SUCCESS) {
+            error_string_ = "Failed to read initial input contents for filetype";
+            if (gather_timestamps)
+                error_string_ += " and initial timestamps";
+            return res;
+        }
+    }
+
     return set_initial_schedule(workload2inputs);
 }
 
@@ -942,176 +971,6 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::legacy_field_support()
 }
 
 template <typename RecordType, typename ReaderType>
-typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
-scheduler_impl_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
-    std::unordered_map<int, std::vector<int>> &workload2inputs)
-{
-    // Determine whether we need to read ahead in the inputs.  There are cases where we
-    // do not want to do that as it would block forever if the inputs are not available
-    // (e.g., online analysis IPC readers); it also complicates ordinals so we avoid it
-    // if we can and enumerate all the cases that do need it.
-    bool gather_timestamps = false;
-    if (((options_.mapping == sched_type_t::MAP_AS_PREVIOUSLY ||
-          options_.mapping == sched_type_t::MAP_TO_ANY_OUTPUT) &&
-         options_.deps == sched_type_t::DEPENDENCY_TIMESTAMPS) ||
-        (options_.mapping == sched_type_t::MAP_TO_RECORDED_OUTPUT &&
-         options_.replay_as_traced_istream == nullptr && inputs_.size() > 1)) {
-        gather_timestamps = true;
-        if (!options_.read_inputs_in_init) {
-            error_string_ = "Timestamp dependencies require read_inputs_in_init";
-            return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
-        }
-    }
-    // The filetype, if present, is before the first timestamp.  If we only need the
-    // filetype we avoid going as far as the timestamp.
-    bool gather_filetype = options_.read_inputs_in_init;
-    if (gather_filetype || gather_timestamps) {
-        scheduler_status_t res = get_initial_input_content(gather_timestamps);
-        if (res != sched_type_t::STATUS_SUCCESS) {
-            error_string_ = "Failed to read initial input contents for filetype";
-            if (gather_timestamps)
-                error_string_ += " and initial timestamps";
-            return res;
-        }
-    }
-
-    if (options_.mapping == sched_type_t::MAP_AS_PREVIOUSLY) {
-        live_replay_output_count_.store(static_cast<int>(outputs_.size()),
-                                        std::memory_order_release);
-        if (options_.schedule_replay_istream == nullptr ||
-            options_.schedule_record_ostream != nullptr)
-            return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
-        scheduler_status_t status = read_recorded_schedule();
-        if (status != sched_type_t::STATUS_SUCCESS)
-            return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
-        if (options_.deps == sched_type_t::DEPENDENCY_TIMESTAMPS) {
-            // Match the ordinals from the original run by pre-reading the timestamps.
-            assert(gather_timestamps);
-        }
-    } else if (options_.schedule_replay_istream != nullptr) {
-        return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
-    } else if (options_.mapping == sched_type_t::MAP_TO_CONSISTENT_OUTPUT) {
-        // Assign the inputs up front to avoid locks once we're in parallel mode.
-        // We use a simple round-robin static assignment for now.
-        for (int i = 0; i < static_cast<input_ordinal_t>(inputs_.size()); ++i) {
-            size_t index = i % outputs_.size();
-            if (outputs_[index].input_indices.empty())
-                set_cur_input(static_cast<input_ordinal_t>(index), i);
-            outputs_[index].input_indices.push_back(i);
-            VPRINT(this, 2, "Assigning input #%d to output #%zd\n", i, index);
-        }
-    } else if (options_.mapping == sched_type_t::MAP_TO_RECORDED_OUTPUT) {
-        if (options_.replay_as_traced_istream != nullptr) {
-            // Even for just one output we honor a request to replay the schedule
-            // (although it should match the analyzer serial mode so there's no big
-            // benefit to reading the schedule file.  The analyzer serial mode or other
-            // special cases of one output don't set the replay_as_traced_istream
-            // field.)
-            scheduler_status_t status = read_and_instantiate_traced_schedule();
-            if (status != sched_type_t::STATUS_SUCCESS)
-                return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
-            // Now leverage the regular replay code.
-            options_.mapping = sched_type_t::MAP_AS_PREVIOUSLY;
-        } else if (outputs_.size() > 1) {
-            return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
-        } else if (inputs_.size() == 1) {
-            set_cur_input(0, 0);
-        } else {
-            // The old file_reader_t interleaving would output the top headers for every
-            // thread first and then pick the oldest timestamp once it reached a
-            // timestamp. We instead queue those headers so we can start directly with the
-            // oldest timestamp's thread.
-            assert(gather_timestamps);
-            uint64_t min_time = std::numeric_limits<uint64_t>::max();
-            input_ordinal_t min_input = -1;
-            for (int i = 0; i < static_cast<input_ordinal_t>(inputs_.size()); ++i) {
-                if (inputs_[i].next_timestamp < min_time) {
-                    min_time = inputs_[i].next_timestamp;
-                    min_input = i;
-                }
-            }
-            if (min_input < 0)
-                return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
-            set_cur_input(0, static_cast<input_ordinal_t>(min_input));
-        }
-    } else {
-        // Assign initial inputs.
-        if (options_.deps == sched_type_t::DEPENDENCY_TIMESTAMPS) {
-            assert(gather_timestamps);
-            // Compute the min timestamp (==base_timestamp) per workload and sort
-            // all inputs by relative time from the base.
-            for (int workload_idx = 0;
-                 workload_idx < static_cast<int>(workload2inputs.size());
-                 ++workload_idx) {
-                uint64_t min_time = std::numeric_limits<uint64_t>::max();
-                input_ordinal_t min_input = -1;
-                for (int input_idx : workload2inputs[workload_idx]) {
-                    if (inputs_[input_idx].next_timestamp < min_time) {
-                        min_time = inputs_[input_idx].next_timestamp;
-                        min_input = input_idx;
-                    }
-                }
-                if (min_input < 0)
-                    return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
-                for (int input_idx : workload2inputs[workload_idx]) {
-                    VPRINT(this, 4,
-                           "workload %d: setting input %d base_timestamp to %" PRIu64
-                           " vs next_timestamp %zu\n",
-                           workload_idx, input_idx, min_time,
-                           inputs_[input_idx].next_timestamp);
-                    inputs_[input_idx].base_timestamp = min_time;
-                    inputs_[input_idx].order_by_timestamp = true;
-                }
-            }
-            // We'll pick the starting inputs below by sorting by relative time from
-            // each workload's base_timestamp, which our queue does for us.
-        }
-        // First, put all inputs into a temporary queue to sort by priority and
-        // time for us.
-        flexible_queue_t<input_info_t *, InputTimestampComparator> allq;
-        for (int i = 0; i < static_cast<input_ordinal_t>(inputs_.size()); ++i) {
-            inputs_[i].queue_counter = i;
-            allq.push(&inputs_[i]);
-        }
-        // Now assign round-robin to the outputs.  We have to obey bindings here: we
-        // just take the first.  This isn't guaranteed to be perfect if there are
-        // many bindings, but we run a rebalancing afterward.
-        output_ordinal_t output = 0;
-        while (!allq.empty()) {
-            input_info_t *input = allq.top();
-            allq.pop();
-            output_ordinal_t target = output;
-            if (!input->binding.empty())
-                target = *input->binding.begin();
-            else
-                output = (output + 1) % outputs_.size();
-            add_to_ready_queue(target, input);
-        }
-        stream_status_t status = rebalance_queues(0, {});
-        if (status != sched_type_t::STATUS_OK) {
-            VPRINT(this, 0, "Failed to rebalance with status %d\n", status);
-            return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
-        }
-        for (int i = 0; i < static_cast<output_ordinal_t>(outputs_.size()); ++i) {
-            input_info_t *queue_next;
-#ifndef NDEBUG
-            status =
-#endif
-                pop_from_ready_queue(i, i, queue_next);
-            assert(status == sched_type_t::STATUS_OK ||
-                   status == sched_type_t::STATUS_IDLE);
-            if (queue_next == nullptr)
-                set_cur_input(i, sched_type_t::INVALID_INPUT_ORDINAL);
-            else
-                set_cur_input(i, queue_next->index);
-        }
-        VPRINT(this, 2, "Initial queues:\n");
-        VDO(this, 2, { print_queue_stats(); });
-    }
-    return sched_type_t::STATUS_SUCCESS;
-}
-
-template <typename RecordType, typename ReaderType>
 std::string
 scheduler_impl_tmpl_t<RecordType, ReaderType>::recorded_schedule_component_name(
     output_ordinal_t output)
@@ -1145,211 +1004,6 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::write_recorded_schedule()
                 reinterpret_cast<char *>(outputs_[i].record.data()),
                 outputs_[i].record.size() * sizeof(outputs_[i].record[0])))
             return sched_type_t::STATUS_ERROR_FILE_WRITE_FAILED;
-    }
-    return sched_type_t::STATUS_SUCCESS;
-}
-
-template <typename RecordType, typename ReaderType>
-typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
-scheduler_impl_tmpl_t<RecordType, ReaderType>::read_recorded_schedule()
-{
-    if (options_.schedule_replay_istream == nullptr)
-        return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
-
-    schedule_record_t record;
-    // We assume we can easily fit the whole context switch sequence in memory.
-    // If that turns out not to be the case for very long traces, we deliberately
-    // used an archive format so we could do parallel incremental reads.
-    // (Conversely, if we want to commit to storing in memory, we could use a
-    // non-archive format and store the output ordinal in the version record.)
-    for (int i = 0; i < static_cast<int>(outputs_.size()); ++i) {
-        std::string err = options_.schedule_replay_istream->open_component(
-            recorded_schedule_component_name(i));
-        if (!err.empty()) {
-            error_string_ = "Failed to open schedule_replay_istream component " +
-                recorded_schedule_component_name(i) + ": " + err;
-            return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
-        }
-        // XXX: This could be made more efficient if we stored the record count
-        // in the version field's stop_instruction field or something so we can
-        // size the vector up front.  As this only happens once we do not bother
-        // and live with a few vector resizes.
-        bool saw_footer = false;
-        while (options_.schedule_replay_istream->read(reinterpret_cast<char *>(&record),
-                                                      sizeof(record))) {
-            if (record.type == schedule_record_t::VERSION) {
-                if (record.key.version != schedule_record_t::VERSION_CURRENT)
-                    return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
-            } else if (record.type == schedule_record_t::FOOTER) {
-                saw_footer = true;
-                break;
-            } else
-                outputs_[i].record.push_back(record);
-        }
-        if (!saw_footer) {
-            error_string_ = "Record file missing footer";
-            return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
-        }
-        VPRINT(this, 1, "Read %zu recorded records for output #%d\n",
-               outputs_[i].record.size(), i);
-    }
-    // See if there was more data in the file (we do this after reading to not
-    // mis-report i/o or path errors as this error).
-    std::string err = options_.schedule_replay_istream->open_component(
-        recorded_schedule_component_name(static_cast<output_ordinal_t>(outputs_.size())));
-    if (err.empty()) {
-        error_string_ = "Not enough output streams for recorded file";
-        return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
-    }
-    for (int i = 0; i < static_cast<output_ordinal_t>(outputs_.size()); ++i) {
-        if (outputs_[i].record.empty()) {
-            // XXX i#6630: We should auto-set the output count and avoid
-            // having extra outputs; these complicate idle computations, etc.
-            VPRINT(this, 1, "output %d empty: returning eof up front\n", i);
-            set_cur_input(i, sched_type_t::INVALID_INPUT_ORDINAL);
-            outputs_[i].at_eof = true;
-        } else if (outputs_[i].record[0].type == schedule_record_t::IDLE ||
-                   outputs_[i].record[0].type == schedule_record_t::IDLE_BY_COUNT) {
-            set_cur_input(i, sched_type_t::INVALID_INPUT_ORDINAL);
-            outputs_[i].waiting = true;
-            if (outputs_[i].record[0].type == schedule_record_t::IDLE) {
-                // Convert a legacy idle duration from microseconds to record counts.
-                outputs_[i].record[0].value.idle_duration =
-                    static_cast<uint64_t>(options_.time_units_per_us *
-                                          outputs_[i].record[0].value.idle_duration);
-            }
-            outputs_[i].idle_start_count = -1; // Updated on first next_record().
-            VPRINT(this, 3, "output %d starting out idle\n", i);
-        } else {
-            assert(outputs_[i].record[0].type == schedule_record_t::DEFAULT);
-            set_cur_input(i, outputs_[i].record[0].key.input);
-        }
-    }
-    return sched_type_t::STATUS_SUCCESS;
-}
-
-template <typename RecordType, typename ReaderType>
-typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
-scheduler_impl_tmpl_t<RecordType, ReaderType>::read_and_instantiate_traced_schedule()
-{
-    std::vector<std::set<uint64_t>> start2stop(inputs_.size());
-    // We also want to collapse same-cpu consecutive records so we start with
-    // a temporary local vector.
-    std::vector<std::vector<schedule_output_tracker_t>> all_sched(outputs_.size());
-    // Work around i#6107 by tracking counts sorted by timestamp for each input.
-    std::vector<std::vector<schedule_input_tracker_t>> input_sched(inputs_.size());
-    // These hold entries added in the on-disk (unsorted) order.
-    std::vector<output_ordinal_t> disk_ord2index; // Initially [i] holds i.
-    std::vector<uint64_t> disk_ord2cpuid;         // [i] holds cpuid for entry i.
-    scheduler_status_t res = read_traced_schedule(input_sched, start2stop, all_sched,
-                                                  disk_ord2index, disk_ord2cpuid);
-    if (res != sched_type_t::STATUS_SUCCESS)
-        return res;
-    // Sort by cpuid to get a more natural ordering.
-    // Probably raw2trace should do this in the first place, but we have many
-    // schedule files already out there so we still need a sort here.
-    // If we didn't have cross-indices pointing at all_sched from input_sched, we
-    // would just sort all_sched: but instead we have to construct a separate
-    // ordering structure.
-    std::sort(disk_ord2index.begin(), disk_ord2index.end(),
-              [disk_ord2cpuid](const output_ordinal_t &l, const output_ordinal_t &r) {
-                  return disk_ord2cpuid[l] < disk_ord2cpuid[r];
-              });
-    // disk_ord2index[i] used to hold i; now after sorting it holds the ordinal in
-    // the disk file that has the ith largest cpuid.  We need to turn that into
-    // the output_idx ordinal for the cpu at ith ordinal in the disk file, for
-    // which we use a new vector disk_ord2output.
-    // E.g., if the original file was in this order disk_ord2cpuid = {6,2,3,7},
-    // disk_ord2index after sorting would hold {1,2,0,3}, which we want to turn
-    // into disk_ord2output = {2,0,1,3}.
-    std::vector<output_ordinal_t> disk_ord2output(disk_ord2index.size());
-    for (size_t i = 0; i < disk_ord2index.size(); ++i) {
-        disk_ord2output[disk_ord2index[i]] = static_cast<output_ordinal_t>(i);
-    }
-    for (int disk_idx = 0; disk_idx < static_cast<output_ordinal_t>(outputs_.size());
-         ++disk_idx) {
-        if (disk_idx >= static_cast<int>(disk_ord2index.size())) {
-            // XXX i#6630: We should auto-set the output count and avoid
-            // having extra ouputs; these complicate idle computations, etc.
-            VPRINT(this, 1, "Output %d empty: returning eof up front\n", disk_idx);
-            outputs_[disk_idx].at_eof = true;
-            set_cur_input(disk_idx, sched_type_t::INVALID_INPUT_ORDINAL);
-            continue;
-        }
-        output_ordinal_t output_idx = disk_ord2output[disk_idx];
-        VPRINT(this, 1, "Read %zu as-traced records for output #%d\n",
-               all_sched[disk_idx].size(), output_idx);
-        outputs_[output_idx].as_traced_cpuid = disk_ord2cpuid[disk_idx];
-        VPRINT(this, 1, "Output #%d is as-traced CPU #%" PRId64 "\n", output_idx,
-               outputs_[output_idx].as_traced_cpuid);
-        // Update the stop_instruction field and collapse consecutive entries while
-        // inserting into the final location.
-        int start_consec = -1;
-        for (int sched_idx = 0; sched_idx < static_cast<int>(all_sched[disk_idx].size());
-             ++sched_idx) {
-            auto &segment = all_sched[disk_idx][sched_idx];
-            if (!segment.valid)
-                continue;
-            auto find = start2stop[segment.input].find(segment.start_instruction);
-            ++find;
-            if (find == start2stop[segment.input].end())
-                segment.stop_instruction = std::numeric_limits<uint64_t>::max();
-            else
-                segment.stop_instruction = *find;
-            VPRINT(this, 4,
-                   "as-read segment #%d: input=%d start=%" PRId64 " stop=%" PRId64
-                   " time=%" PRId64 "\n",
-                   sched_idx, segment.input, segment.start_instruction,
-                   segment.stop_instruction, segment.timestamp);
-            if (sched_idx + 1 < static_cast<int>(all_sched[disk_idx].size()) &&
-                segment.input == all_sched[disk_idx][sched_idx + 1].input &&
-                segment.stop_instruction >
-                    all_sched[disk_idx][sched_idx + 1].start_instruction) {
-                // A second sanity check.
-                error_string_ = "Invalid decreasing start field in schedule file";
-                return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
-            } else if (sched_idx + 1 < static_cast<int>(all_sched[disk_idx].size()) &&
-                       segment.input == all_sched[disk_idx][sched_idx + 1].input &&
-                       segment.stop_instruction ==
-                           all_sched[disk_idx][sched_idx + 1].start_instruction) {
-                // Collapse into next.
-                if (start_consec == -1)
-                    start_consec = sched_idx;
-            } else {
-                schedule_output_tracker_t &toadd = start_consec >= 0
-                    ? all_sched[disk_idx][start_consec]
-                    : all_sched[disk_idx][sched_idx];
-                outputs_[output_idx].record.emplace_back(
-                    schedule_record_t::DEFAULT, toadd.input, toadd.start_instruction,
-                    all_sched[disk_idx][sched_idx].stop_instruction, toadd.timestamp);
-                start_consec = -1;
-                VDO(this, 3, {
-                    auto &added = outputs_[output_idx].record.back();
-                    VPRINT(this, 3,
-                           "segment #%zu: input=%d start=%" PRId64 " stop=%" PRId64
-                           " time=%" PRId64 "\n",
-                           outputs_[output_idx].record.size() - 1, added.key.input,
-                           added.value.start_instruction, added.stop_instruction,
-                           added.timestamp);
-                });
-            }
-        }
-        VPRINT(this, 1, "Collapsed duplicates for %zu as-traced records for output #%d\n",
-               outputs_[output_idx].record.size(), output_idx);
-        if (outputs_[output_idx].record.empty()) {
-            error_string_ = "Empty as-traced schedule";
-            return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
-        }
-        if (outputs_[output_idx].record[0].value.start_instruction != 0) {
-            VPRINT(this, 1, "Initial input for output #%d is: wait state\n", output_idx);
-            set_cur_input(output_idx, sched_type_t::INVALID_INPUT_ORDINAL);
-            outputs_[output_idx].waiting = true;
-            outputs_[output_idx].record_index->store(-1, std::memory_order_release);
-        } else {
-            VPRINT(this, 1, "Initial input for output #%d is %d\n", output_idx,
-                   outputs_[output_idx].record[0].key.input);
-            set_cur_input(output_idx, outputs_[output_idx].record[0].key.input);
-        }
     }
     return sched_type_t::STATUS_SUCCESS;
 }
@@ -3750,45 +3404,6 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::get_statistic(
 }
 
 template <typename RecordType, typename ReaderType>
-typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
-scheduler_impl_tmpl_t<RecordType, ReaderType>::set_output_active(output_ordinal_t output,
-                                                                 bool active)
-{
-    if (options_.mapping != sched_type_t::MAP_TO_ANY_OUTPUT)
-        return sched_type_t::STATUS_INVALID;
-    if (outputs_[output].active->load(std::memory_order_acquire) == active)
-        return sched_type_t::STATUS_OK;
-    outputs_[output].active->store(active, std::memory_order_release);
-    VPRINT(this, 2, "Output stream %d is now %s\n", output,
-           active ? "active" : "inactive");
-    std::vector<input_ordinal_t> ordinals;
-    if (!active) {
-        // Make the now-inactive output's input available for other cores.
-        // This will reset its quantum too.
-        // We aren't switching on a just-read instruction not passed to the consumer,
-        // if the queue is empty.
-        input_ordinal_t cur_input = outputs_[output].cur_input;
-        if (cur_input != sched_type_t::INVALID_INPUT_ORDINAL) {
-            if (inputs_[cur_input].queue.empty())
-                inputs_[cur_input].switching_pre_instruction = true;
-            set_cur_input(output, sched_type_t::INVALID_INPUT_ORDINAL);
-        }
-        // Move the ready_queue to other outputs.
-        {
-            auto lock = acquire_scoped_output_lock_if_necessary(output);
-            while (!outputs_[output].ready_queue.queue.empty()) {
-                input_info_t *tomove = outputs_[output].ready_queue.queue.top();
-                ordinals.push_back(tomove->index);
-                outputs_[output].ready_queue.queue.pop();
-            }
-        }
-    } else {
-        outputs_[output].waiting = true;
-    }
-    return rebalance_queues(output, ordinals);
-}
-
-template <typename RecordType, typename ReaderType>
 void
 scheduler_impl_tmpl_t<RecordType, ReaderType>::print_queue_stats()
 {
@@ -3826,147 +3441,6 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::print_queue_stats()
             outputs_[i].ready_queue.queue.push(add);
     }
     VPRINT(this, 0, "%s\n", ostr.str().c_str());
-}
-
-template <typename RecordType, typename ReaderType>
-typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
-scheduler_impl_tmpl_t<RecordType, ReaderType>::rebalance_queues(
-    output_ordinal_t triggering_output, std::vector<input_ordinal_t> inputs_to_add)
-{
-    std::thread::id nobody;
-    if (!rebalancer_.compare_exchange_weak(nobody, std::this_thread::get_id(),
-                                           std::memory_order_release,
-                                           std::memory_order_relaxed)) {
-        // Someone else is rebalancing.
-        return sched_type_t::STATUS_OK;
-    }
-    stream_status_t status = sched_type_t::STATUS_OK;
-    assert(options_.mapping == sched_type_t::MAP_TO_ANY_OUTPUT);
-    VPRINT(this, 1, "Output %d triggered a rebalance @%" PRIu64 ":\n", triggering_output,
-           get_output_time(triggering_output));
-    // First, update the time to avoid more threads coming here.
-    last_rebalance_time_.store(get_output_time(triggering_output),
-                               std::memory_order_release);
-    VPRINT(this, 2, "Before rebalance:\n");
-    VDO(this, 2, { print_queue_stats(); });
-    ++outputs_[triggering_output]
-          .stats[memtrace_stream_t::SCHED_STAT_RUNQUEUE_REBALANCES];
-
-    // Workaround to avoid hangs when _SCHEDULE and/or _DIRECT_THREAD_SWITCH
-    // directives miss their targets (due to running with a subset of the
-    // original threads, or other scenarios) and we end up with no scheduled
-    // inputs but a set of unscheduled inputs who will never be scheduled.
-    // TODO i#6959: Just exit early instead, maybe under a flag.
-    // It would help to see what % of total records we've processed.
-    size_t unsched_size = 0;
-    {
-        std::lock_guard<mutex_dbg_owned> unsched_lock(*unscheduled_priority_.lock);
-        unsched_size = unscheduled_priority_.queue.size();
-    }
-    if (live_input_count_.load(std::memory_order_acquire) ==
-        static_cast<int>(unsched_size)) {
-        VPRINT(
-            this, 1,
-            "rebalancing moving entire unscheduled queue (%zu entries) to ready_queues\n",
-            unsched_size);
-        {
-            std::lock_guard<mutex_dbg_owned> unsched_lock(*unscheduled_priority_.lock);
-            while (!unscheduled_priority_.queue.empty()) {
-                input_info_t *tomove = unscheduled_priority_.queue.top();
-                inputs_to_add.push_back(tomove->index);
-                unscheduled_priority_.queue.pop();
-            }
-        }
-        for (input_ordinal_t input : inputs_to_add) {
-            std::lock_guard<mutex_dbg_owned> lock(*inputs_[input].lock);
-            inputs_[input].unscheduled = false;
-        }
-    }
-
-    int live_inputs = live_input_count_.load(std::memory_order_acquire);
-    int live_outputs = 0;
-    for (unsigned int i = 0; i < outputs_.size(); ++i) {
-        if (outputs_[i].active->load(std::memory_order_acquire))
-            ++live_outputs;
-    }
-    double avg_per_output = live_inputs / static_cast<double>(live_outputs);
-    unsigned int avg_ceiling = static_cast<int>(std::ceil(avg_per_output));
-    unsigned int avg_floor = static_cast<int>(std::floor(avg_per_output));
-    int iteration = 0;
-    do {
-        // Walk the outputs, filling too-short queues from inputs_to_add and
-        // shrinking too-long queues into inputs_to_add.  We may need a 2nd pass
-        // for this; and a 3rd pass if bindings prevent even splitting.
-        VPRINT(
-            this, 3,
-            "Rebalance iteration %d inputs_to_add size=%zu avg_per_output=%4.1f %d-%d\n",
-            iteration, inputs_to_add.size(), avg_per_output, avg_floor, avg_ceiling);
-        // We're giving up the output locks as we go, so there may be some stealing
-        // in the middle of our operation, but the rebalancing is approximate anyway.
-        for (unsigned int i = 0; i < outputs_.size(); ++i) {
-            if (!outputs_[i].active->load(std::memory_order_acquire))
-                continue;
-            auto lock = acquire_scoped_output_lock_if_necessary(i);
-            // Only remove on the 1st iteration; later we can exceed due to binding
-            // constraints.
-            while (iteration == 0 && outputs_[i].ready_queue.queue.size() > avg_ceiling) {
-                input_info_t *queue_next = nullptr;
-                // We use our regular pop_from_ready_queue which means we leave
-                // blocked inputs on the queue: those do not get rebalanced.
-                // XXX: Should we revisit that?
-                //
-                // We remove from the back to avoid penalizing the next-to-run entries
-                // at the front of the queue by putting them at the back of another
-                // queue.
-                status = pop_from_ready_queue_hold_locks(
-                    i, sched_type_t::INVALID_OUTPUT_ORDINAL, queue_next,
-                    /*from_back=*/true);
-                if (status == sched_type_t::STATUS_OK && queue_next != nullptr) {
-                    VPRINT(this, 3,
-                           "Rebalance iteration %d: output %d giving up input %d\n",
-                           iteration, i, queue_next->index);
-                    inputs_to_add.push_back(queue_next->index);
-                } else
-                    break;
-            }
-            std::vector<input_ordinal_t> incompatible_inputs;
-            // If we reach the 3rd iteration, we have fussy inputs with bindings.
-            // Try to add them to every output.
-            while (
-                (outputs_[i].ready_queue.queue.size() < avg_ceiling || iteration > 1) &&
-                !inputs_to_add.empty()) {
-                input_ordinal_t ordinal = inputs_to_add.back();
-                inputs_to_add.pop_back();
-                input_info_t &input = inputs_[ordinal];
-                std::lock_guard<mutex_dbg_owned> input_lock(*input.lock);
-                if (input.binding.empty() ||
-                    input.binding.find(i) != input.binding.end()) {
-                    VPRINT(this, 3, "Rebalance iteration %d: output %d taking input %d\n",
-                           iteration, i, ordinal);
-                    add_to_ready_queue_hold_locks(i, &input);
-                } else {
-                    incompatible_inputs.push_back(ordinal);
-                }
-            }
-            inputs_to_add.insert(inputs_to_add.end(), incompatible_inputs.begin(),
-                                 incompatible_inputs.end());
-        }
-        ++iteration;
-        if (iteration >= 3 && !inputs_to_add.empty()) {
-            // This is possible with bindings limited to inactive outputs.
-            // XXX: Rather than return an error, we could add to the unscheduled queue,
-            // but do not mark the input unscheduled.  Then when an output is
-            // marked active, we could walk the unscheduled queue and take
-            // inputs not marked unscheduled.
-            VPRINT(this, 1, "Rebalance hit impossible binding\n");
-            status = sched_type_t::STATUS_IMPOSSIBLE_BINDING;
-            break;
-        }
-    } while (!inputs_to_add.empty());
-    VPRINT(this, 2, "After:\n");
-    VDO(this, 2, { print_queue_stats(); });
-    rebalancer_.store(std::thread::id(), std::memory_order_release);
-    return status;
 }
 
 template class scheduler_impl_tmpl_t<memref_t, reader_t>;
