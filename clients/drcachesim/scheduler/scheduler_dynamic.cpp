@@ -37,9 +37,14 @@
 
 #include <atomic>
 #include <cinttypes>
+#include <cmath>
+#include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <mutex>
 #include <thread>
+#include <unordered_map>
+#include <vector>
 
 #include "flexible_queue.h"
 #include "memref.h"

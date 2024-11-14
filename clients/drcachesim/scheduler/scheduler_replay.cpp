@@ -36,9 +36,16 @@
 #include "scheduler_impl.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cinttypes>
+#include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <mutex>
+#include <set>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 #include "memref.h"
 #include "mutex_dbg_owned.h"

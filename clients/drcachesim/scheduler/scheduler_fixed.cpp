@@ -36,8 +36,12 @@
 #include "scheduler_impl.h"
 
 #include <cinttypes>
+#include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <mutex>
+#include <unordered_map>
+#include <vector>
 
 #include "memref.h"
 #include "mutex_dbg_owned.h"
