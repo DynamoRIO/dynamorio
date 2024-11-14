@@ -99,6 +99,23 @@ scheduler_fixed_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
 
 template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
+scheduler_fixed_tmpl_t<RecordType, ReaderType>::swap_out_input(
+    output_ordinal_t output, input_ordinal_t input, int workload,
+    bool caller_holds_input_lock)
+{
+    return sched_type_t::STATUS_OK;
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
+scheduler_fixed_tmpl_t<RecordType, ReaderType>::swap_in_input(output_ordinal_t output,
+                                                              input_ordinal_t input)
+{
+    return sched_type_t::STATUS_OK;
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_fixed_tmpl_t<RecordType, ReaderType>::pick_next_input_for_mode(
     output_ordinal_t output, uint64_t blocked_time, input_ordinal_t prev_index,
     input_ordinal_t &index)
