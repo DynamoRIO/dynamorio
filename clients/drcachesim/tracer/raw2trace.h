@@ -1510,7 +1510,7 @@ private:
     bool
     handle_rseq_abort_marker(raw2trace_thread_data_t *tdata,
                              DR_PARAM_INOUT trace_entry_t **buf_in, uint64_t cur_pc,
-                             uint64_t cur_offs, DR_PARAM_OUT bool *interrupted);
+                             uint64_t cur_offs, DR_PARAM_OUT bool *rseq_aborted);
 
     bool
     get_marker_value(raw2trace_thread_data_t *tdata,
