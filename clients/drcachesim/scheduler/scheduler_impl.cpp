@@ -2892,6 +2892,9 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::eof_or_idle(output_ordinal_t outp
                                                            input_ordinal_t prev_input)
 {
     stream_status_t res = eof_or_idle_for_mode(output, prev_input);
+    // We should either get STATUS_IDLE (success, and we continue below) or
+    // STATUS_EOF (success, and we exit this funcion) or some error (and we exit).
+    // A return value of STATUS_OK is not allowed, as documented.
     assert(res != sched_type_t::STATUS_OK);
     if (res != sched_type_t::STATUS_IDLE)
         return res;

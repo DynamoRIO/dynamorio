@@ -606,8 +606,10 @@ protected:
         return sched_type_t::STATUS_INVALID;
     }
 
-    // mapping_t-mode specific actions when one output runs out of things to do.
-    // Success return values are either STATUS_IDLE or STATUS_EOF.
+    // mapping_t-mode specific actions when one output runs out of things to do
+    // (pick_next_input_for_mode() has nothing left in this output's queue).
+    // Success return values are either STATUS_IDLE (asking the user to keep
+    // polling as more work may show up in the future) or STATUS_EOF.
     virtual stream_status_t
     eof_or_idle_for_mode(output_ordinal_t output, input_ordinal_t prev_input) = 0;
 
@@ -1043,6 +1045,7 @@ protected:
 
     // Process each marker seen during next_record().
     // The input's lock must be held by the caller.
+    // Virtual to allow further subclasses to customize behavior here.
     virtual void
     process_marker(input_info_t &input, output_ordinal_t output,
                    trace_marker_type_t marker_type, uintptr_t marker_value);
