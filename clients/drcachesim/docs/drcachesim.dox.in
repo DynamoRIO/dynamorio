@@ -193,6 +193,8 @@ Some of the more important markers are:
 
 - #dynamorio::drmemtrace::TRACE_MARKER_TYPE_CORE_WAIT - This is inserted by the trace scheduler (see \ref sec_drcachesim_sched) during replay of a previously recorded schedule when one core gets too far ahead of another according to the recorded timestamps.  This is an artificial wait to keep the replay on track, as opposed to the natural idle time of #dynamorio::drmemtrace::TRACE_MARKER_TYPE_CORE_IDLE.
 
+- #dynamorio::drmemtrace::TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION - This is inserted when an uncompleted instruction and its corresponding memory records are removed. The marker value contains the encoding of the removed instruction up to the length of a pointer. The encoding will be incomplete for instructions with long encodings. It is best-effort to help understand the sequence for generated code where encodings are not available offline. The PC of this instruction is available in a subsequent #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_EVENT marker.
+
 The full set of markers is listed under the enum #dynamorio::drmemtrace::trace_marker_type_t.
 
 ****************************************************************************
@@ -790,6 +792,46 @@ untaken conditional branch:
       801375      601842:     1159769 <marker: timestamp 13335923552684029>
       801376      601842:     1159769 <marker: tid 1159769 on core 7>
       801377      601843:     1159769 ifetch       4 byte(s) @ 0x00007fc2c3aa5c72 48 83 c4 48          add    $0x48, %rsp
+\endcode
+
+Here is an illustration of what a trace would look like when an uncompleted
+instruction (mov) is interrupted by an asynchronous signal and the instruction
+is not removed (The following trace is for demonstration purpose only):
+
+\code
+
+    46914793    33950158:     3767811 ifetch       5 byte(s) @ 0x000055f52911b75e c4 42 f8 f5 e8       bzhi   %r8, %rax, %r13
+    46914794    33950159:     3767811 ifetch       5 byte(s) @ 0x000055f52911b763 c4 62 f8 f5 c3       bzhi   %rbx, %rax, %r8
+    46914795    33950160:     3767811 ifetch       4 byte(s) @ 0x000055f52911b768 48 c1 eb 33          shr    $0x33, %rbx
+    46914796    33950161:     3767811 ifetch       3 byte(s) @ 0x000055f52911b76c 48 01 f3             add    %rsi, %rbx
+    46914797    33950162:     3767811 ifetch       5 byte(s) @ 0x000055f52911b76f b8 04 00 00 00       mov    $0x00000004, %eax
+    (The line below is for demonstration purpose only and will not appear in a real drmemtrace.)
+    46914798    33950163:     3767811 ifetch       6 byte(s) @ 0x000055f52911b774 89 85 68 ff ff ff    mov    %eax, -0x98(%rbp)
+    46914799    33950163:     3767811 <marker: kernel xfer from 0x55f52911b774 to handler>
+    46914800    33950163:     3767811 <marker: signal #27>
+    46914801    33950163:     3767811 <marker: timestamp 13373506292215933>
+    46914802    33950163:     3767811 <marker: tid 3767811 on core 4139>
+    46914803    33950164:     3767811 ifetch       1 byte(s) @ 0x000055f5298f7500 55                   push   %rbp
+    46914804    33950164:     3767811 write        8 byte(s) @ 0x00007fd98bd2f210 by PC 0x000055f5298f7500
+\endcode
+
+When the uncompleted mov instruction is removed, a
+#dynamorio::drmemtrace::TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION marker is placed to indicate an
+instruction has been removed:
+
+\code
+    46914793    33950158:     3767811 ifetch       5 byte(s) @ 0x000055f52911b75e c4 42 f8 f5 e8       bzhi   %r8, %rax, %r13
+    46914794    33950159:     3767811 ifetch       5 byte(s) @ 0x000055f52911b763 c4 62 f8 f5 c3       bzhi   %rbx, %rax, %r8
+    46914795    33950160:     3767811 ifetch       4 byte(s) @ 0x000055f52911b768 48 c1 eb 33          shr    $0x33, %rbx
+    46914796    33950161:     3767811 ifetch       3 byte(s) @ 0x000055f52911b76c 48 01 f3             add    %rsi, %rbx
+    46914797    33950162:     3767811 ifetch       5 byte(s) @ 0x000055f52911b76f b8 04 00 00 00       mov    $0x00000004, %eax
+    46914798    33950163:     3767811 <marker: uncompleted instruction, encoding 0x898568ff>
+    46914799    33950163:     3767811 <marker: kernel xfer from 0x55f52911b774 to handler>
+    46914800    33950163:     3767811 <marker: signal #27>
+    46914801    33950163:     3767811 <marker: timestamp 13373506292215933>
+    46914802    33950163:     3767811 <marker: tid 3767811 on core 4139>
+    46914803    33950164:     3767811 ifetch       1 byte(s) @ 0x000055f5298f7500 55                   push   %rbp
+    46914804    33950164:     3767811 write        8 byte(s) @ 0x00007fd98bd2f210 by PC 0x000055f5298f7500
 \endcode
 
 \section sec_tool_func_view View Function Calls

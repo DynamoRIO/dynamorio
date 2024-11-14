@@ -1488,19 +1488,18 @@ private:
     analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 modidx,
                                uint64 modoffs, app_pc start_pc, uint instr_count);
 
+    // Returns true if a kernel interrupt happened at cur_pc. The check skips
+    // memrefs to search for a kernel event marker. If the kernel event marker has
+    // the value of cur_pc, it returns true.
     bool
-    process_memref(raw2trace_thread_data_t *tdata, trace_entry_t **buf_in,
-                   const instr_summary_t *instr, instr_summary_t::memref_summary_t memref,
-                   bool write, std::unordered_map<reg_id_t, addr_t> &reg_vals,
-                   uint64_t cur_pc, uint64_t cur_offs, bool instrs_are_separate,
-                   DR_PARAM_OUT bool *reached_end_of_memrefs,
-                   DR_PARAM_OUT bool *interrupted);
+    interrupted_by_kernel_event(raw2trace_thread_data_t *tdata, uint64_t cur_pc,
+                                uint64_t cur_offs);
 
     bool
     append_bb_entries(raw2trace_thread_data_t *tdata, const offline_entry_t *in_entry,
                       DR_PARAM_OUT bool *handled);
 
-    // Returns true if a kernel interrupt happened at cur_pc.
+    // Returns true if an rseq abort happened at cur_pc.
     // Outputs a kernel interrupt if this is the right location.
     // Outputs any other markers observed if !instrs_are_separate, since they
     // are part of this block and need to be inserted now. Inserts all
@@ -1509,11 +1508,9 @@ private:
     // handled at a higher level (process_offline_entry()) and are never
     // inserted here.
     bool
-    handle_kernel_interrupt_and_markers(raw2trace_thread_data_t *tdata,
-                                        DR_PARAM_INOUT trace_entry_t **buf_in,
-                                        uint64_t cur_pc, uint64_t cur_offs,
-                                        int instr_length, bool instrs_are_separate,
-                                        DR_PARAM_OUT bool *interrupted);
+    handle_rseq_abort_marker(raw2trace_thread_data_t *tdata,
+                             DR_PARAM_INOUT trace_entry_t **buf_in, uint64_t cur_pc,
+                             uint64_t cur_offs, DR_PARAM_OUT bool *interrupted);
 
     bool
     get_marker_value(raw2trace_thread_data_t *tdata,
