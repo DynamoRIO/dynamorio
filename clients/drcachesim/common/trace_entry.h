@@ -692,6 +692,21 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_SIGNAL_NUMBER,
 
+    /**
+     * This marker is used to indicate an instruction started to execute but
+     * didn't retire. The instruction was either preempted by an asynchronous
+     * signal or caused a fault. The instruction and corresponding memrefs
+     * are removed from the trace.
+     *
+     * The marker value is the raw encoding bytes of the instruction up to the
+     * length of a pointer. The encoding will be incomplete for instructions
+     * with long encodings. It is best-effort to help understand the sequence of
+     * generated code where encodings are not available offline. The PC of this
+     * instruction is available in a subsequent
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_EVENT marker.
+     */
+    TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION,
+
     // ...
     // These values are reserved for future built-in marker types.
     // ...
@@ -946,8 +961,11 @@ typedef enum {
 #define OFFLINE_FILE_VERSION_KERNEL_INT_PC 4
 #define OFFLINE_FILE_VERSION_HEADER_FIELDS_SWAP 5
 #define OFFLINE_FILE_VERSION_ENCODINGS 6
-#define OFFLINE_FILE_VERSION_XFER_ABS_PC 7
-#define OFFLINE_FILE_VERSION OFFLINE_FILE_VERSION_XFER_ABS_PC
+#define OFFLINE_FILE_VERSION_XFER_ABS_PC \
+    7 /**< Use the absolute PC for kernel interruption PC for 64-bit mode.*/
+#define OFFLINE_FILE_VERSION_RETIRED_INSTRUCTIONS_ONLY \
+    8 /**< Trace version which has only retired instructions in drmemtraces.*/
+#define OFFLINE_FILE_VERSION OFFLINE_FILE_VERSION_RETIRED_INSTRUCTIONS_ONLY
 
 /**
  * Bitfields used to describe the high-level characteristics of both an

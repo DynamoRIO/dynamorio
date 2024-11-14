@@ -3156,6 +3156,249 @@ test_ifiltered(void *drcontext)
 #endif
 }
 
+/* Tests asynchronous signal handling (i#7050). */
+bool
+test_asynchronous_signal(void *drcontext)
+{
+    bool res = true;
+    {
+        std::cerr << "\n===============\nTesting instr removal by async signal\n";
+        instrlist_t *ilist = instrlist_create(drcontext);
+        // raw2trace doesn't like offsets of 0 so we shift with a nop.
+        instr_t *nop = XINST_CREATE_nop(drcontext);
+        instr_t *move1 =
+            XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+        instr_t *move2 =
+            XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
+        instrlist_append(ilist, nop);
+        instrlist_append(ilist, move1);
+        instrlist_append(ilist, move2);
+        size_t offs_nop = 0;
+        size_t offs_move1 = offs_nop + instr_length(drcontext, nop);
+
+        std::vector<offline_entry_t> raw;
+        raw.push_back(make_header());
+        raw.push_back(make_tid());
+        raw.push_back(make_pid());
+        raw.push_back(make_line_size());
+        raw.push_back(make_timestamp());
+        raw.push_back(make_core());
+        raw.push_back(make_block(offs_move1, 2));
+        raw.push_back(make_marker(TRACE_MARKER_TYPE_KERNEL_EVENT, offs_move1));
+        raw.push_back(make_exit());
+
+        std::vector<uint64_t> stats;
+        std::vector<trace_entry_t> entries;
+        if (!run_raw2trace(drcontext, raw, ilist, entries, &stats))
+            return false;
+        int idx = 0;
+        res = check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+            check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER,
+                        TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER,
+                        TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+            // The move1 instruction is removed because of the asynchronous signal.
+            check_entry(entries, idx, TRACE_TYPE_MARKER,
+                        TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_EVENT,
+                        offs_move1) &&
+            check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_FOOTER, -1);
+    }
+    {
+        std::cerr
+            << "\n===============\nTesting instr and memref removal by async signal\n";
+        instrlist_t *ilist = instrlist_create(drcontext);
+        // raw2trace doesn't like offsets of 0 so we shift with a nop.
+        instr_t *nop = XINST_CREATE_nop(drcontext);
+        instr_t *load = XINST_CREATE_load(drcontext, opnd_create_reg(REG1),
+                                          OPND_CREATE_MEMPTR(REG2, 0));
+        instr_t *store = XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(REG2, 0),
+                                            opnd_create_reg(REG1));
+        instr_t *move =
+            XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
+        instrlist_append(ilist, nop);
+        instrlist_append(ilist, load);
+        instrlist_append(ilist, store);
+        instrlist_append(ilist, move);
+        size_t offs_nop = 0;
+        size_t offs_load = offs_nop + instr_length(drcontext, nop);
+        size_t offs_store = offs_load + instr_length(drcontext, load);
+
+        std::vector<offline_entry_t> raw;
+        raw.push_back(make_header());
+        raw.push_back(make_tid());
+        raw.push_back(make_pid());
+        raw.push_back(make_line_size());
+        raw.push_back(make_timestamp());
+        raw.push_back(make_core());
+        raw.push_back(make_block(offs_load, 3));
+        raw.push_back(make_memref(42));
+        raw.push_back(make_marker(TRACE_MARKER_TYPE_KERNEL_EVENT, offs_store));
+        raw.push_back(make_exit());
+
+        std::vector<uint64_t> stats;
+        std::vector<trace_entry_t> entries;
+        if (!run_raw2trace(drcontext, raw, ilist, entries, &stats))
+            return false;
+        int idx = 0;
+        res &=
+            (check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+             check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+             check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+             check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+             check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+             check_entry(entries, idx, TRACE_TYPE_MARKER,
+                         TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+             check_entry(entries, idx, TRACE_TYPE_MARKER,
+                         TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+             check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+             check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+             // The load instruction.
+             check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+             check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_load) &&
+             check_entry(entries, idx, TRACE_TYPE_READ, -1) &&
+             // The store instruction and the memref are removed.
+             check_entry(entries, idx, TRACE_TYPE_MARKER,
+                         TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION) &&
+             check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_EVENT,
+                         offs_store) &&
+             check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+             check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+    }
+#ifdef X86
+    {
+        std::cerr << "\n===============\nTesting rep string instr without async signal\n";
+        instrlist_t *ilist = instrlist_create(drcontext);
+        // raw2trace doesn't like offsets of 0 so we shift with a nop.
+        instr_t *nop = XINST_CREATE_nop(drcontext);
+        instr_t *rep_stos = INSTR_CREATE_rep_stos_4(drcontext);
+        instr_t *move =
+            XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
+        instrlist_append(ilist, nop);
+        instrlist_append(ilist, rep_stos);
+        instrlist_append(ilist, move);
+        size_t offs_nop = 0;
+        size_t offs_rep_stos = offs_nop + instr_length(drcontext, nop);
+        size_t offs_move = offs_rep_stos + instr_length(drcontext, rep_stos);
+
+        std::vector<offline_entry_t> raw;
+        raw.push_back(make_header());
+        raw.push_back(make_tid());
+        raw.push_back(make_pid());
+        raw.push_back(make_line_size());
+        raw.push_back(make_timestamp());
+        raw.push_back(make_core());
+        raw.push_back(make_block(offs_rep_stos, 1));
+        raw.push_back(make_memref(42));
+        raw.push_back(make_block(offs_rep_stos, 1));
+        raw.push_back(make_memref(46));
+        raw.push_back(make_block(offs_rep_stos, 1));
+        raw.push_back(make_memref(50));
+        raw.push_back(make_block(offs_move, 1));
+        raw.push_back(make_exit());
+
+        std::vector<uint64_t> stats;
+        std::vector<trace_entry_t> entries;
+        if (!run_raw2trace(drcontext, raw, ilist, entries, &stats))
+            return false;
+        int idx = 0;
+        res &= check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+            check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER,
+                        TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER,
+                        TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+            // The rep_stos instruction.
+            check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_rep_stos) &&
+            check_entry(entries, idx, TRACE_TYPE_WRITE, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_INSTR_NO_FETCH, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_WRITE, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_INSTR_NO_FETCH, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_WRITE, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move) &&
+            check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_FOOTER, -1);
+    }
+    {
+        std::cerr
+            << "\n===============\nTesting rep string instr removal by async signal\n";
+        instrlist_t *ilist = instrlist_create(drcontext);
+        // raw2trace doesn't like offsets of 0 so we shift with a nop.
+        instr_t *nop = XINST_CREATE_nop(drcontext);
+        instr_t *rep_stos = INSTR_CREATE_rep_stos_4(drcontext);
+        instr_t *move =
+            XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
+        instrlist_append(ilist, nop);
+        instrlist_append(ilist, rep_stos);
+        instrlist_append(ilist, move);
+        size_t offs_nop = 0;
+        size_t offs_rep_stos = offs_nop + instr_length(drcontext, nop);
+
+        std::vector<offline_entry_t> raw;
+        raw.push_back(make_header());
+        raw.push_back(make_tid());
+        raw.push_back(make_pid());
+        raw.push_back(make_line_size());
+        raw.push_back(make_timestamp());
+        raw.push_back(make_core());
+        raw.push_back(make_block(offs_rep_stos, 1));
+        raw.push_back(make_memref(42));
+        raw.push_back(make_block(offs_rep_stos, 1));
+        raw.push_back(make_memref(46));
+        raw.push_back(make_block(offs_rep_stos, 1));
+        raw.push_back(make_memref(50));
+        raw.push_back(make_marker(TRACE_MARKER_TYPE_KERNEL_EVENT, offs_rep_stos));
+        raw.push_back(make_exit());
+
+        std::vector<uint64_t> stats;
+        std::vector<trace_entry_t> entries;
+        if (!run_raw2trace(drcontext, raw, ilist, entries, &stats))
+            return false;
+        int idx = 0;
+        res &= check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+            check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER,
+                        TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER,
+                        TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+            // The rep_stos instruction.
+            check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_rep_stos) &&
+            check_entry(entries, idx, TRACE_TYPE_WRITE, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_INSTR_NO_FETCH, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_WRITE, -1) &&
+            // The last rep_stos instruction and the write record are removed because of
+            // the asynchronous signal.
+            check_entry(entries, idx, TRACE_TYPE_MARKER,
+                        TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_EVENT,
+                        offs_rep_stos) &&
+            check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_FOOTER, -1);
+    }
+#endif
+    return res;
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -3177,7 +3420,8 @@ test_main(int argc, const char *argv[])
         !test_xfer_modoffs(drcontext) || !test_xfer_absolute(drcontext) ||
         !test_branch_decoration(drcontext) ||
         !test_stats_timestamp_instr_count(drcontext) ||
-        !test_is_maybe_blocking_syscall(drcontext) || !test_ifiltered(drcontext))
+        !test_is_maybe_blocking_syscall(drcontext) || !test_ifiltered(drcontext) ||
+        !test_asynchronous_signal(drcontext))
         return 1;
     return 0;
 }

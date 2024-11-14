@@ -13,7 +13,7 @@ Total counts:
      .* total data loads
      .* total data stores
            1 total icache flushes
-           4 total dcache flushes
+           3 total dcache flushes
            1 total threads
      .* total timestamp \+ cpuid markers
 .*
@@ -25,6 +25,6 @@ Thread .* counts:
      .* data loads
      .* data stores
            1 icache flushes
-           4 dcache flushes
+           3 dcache flushes
      .* timestamp \+ cpuid markers
 .*
