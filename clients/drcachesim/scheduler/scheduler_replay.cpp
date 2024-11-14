@@ -495,6 +495,24 @@ scheduler_replay_tmpl_t<RecordType, ReaderType>::check_for_input_switch(
     return sched_type_t::STATUS_OK;
 }
 
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
+scheduler_replay_tmpl_t<RecordType, ReaderType>::eof_or_idle_for_mode(
+    output_ordinal_t output, input_ordinal_t prev_input)
+{
+    if (this->live_input_count_.load(std::memory_order_acquire) == 0 ||
+        // While a full schedule recorded should have each input hit either its
+        // EOF or ROI end, we have a fallback to avoid hangs for possible recorded
+        // schedules that end an input early deliberately without an ROI.
+        (options_.mapping == sched_type_t::MAP_AS_PREVIOUSLY &&
+         this->live_replay_output_count_.load(std::memory_order_acquire) == 0)) {
+        assert(options_.mapping != sched_type_t::MAP_AS_PREVIOUSLY ||
+               outputs_[output].at_eof);
+        return sched_type_t::STATUS_EOF;
+    }
+    return sched_type_t::STATUS_IDLE;
+}
+
 template class scheduler_replay_tmpl_t<memref_t, reader_t>;
 template class scheduler_replay_tmpl_t<trace_entry_t,
                                        dynamorio::drmemtrace::record_reader_t>;

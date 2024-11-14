@@ -2988,6 +2988,11 @@ public:
     {
         return sched_type_t::STATUS_NOT_IMPLEMENTED;
     }
+    stream_status_t
+    eof_or_idle_for_mode(output_ordinal_t output, input_ordinal_t prev_input) override
+    {
+        return sched_type_t::STATUS_NOT_IMPLEMENTED;
+    }
 };
 class test_scheduler_t : public test_scheduler_base_t {
 public:
