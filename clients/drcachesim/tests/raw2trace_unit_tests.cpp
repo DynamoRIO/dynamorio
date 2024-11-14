@@ -3217,17 +3217,8 @@ test_asynchronous_signal(void *drcontext)
         instrlist_t *ilist = instrlist_create(drcontext);
         // raw2trace doesn't like offsets of 0 so we shift with a nop.
         instr_t *nop = XINST_CREATE_nop(drcontext);
-#ifdef AARCH64
-        // XXX i#5628: opnd_create_mem_instr is not supported yet on AArch64.
-        instr_t *load = INSTR_CREATE_ldr(
-            drcontext, opnd_create_reg(REG1),
-            // Our addresses are 0-based so we pick a low value that a
-            // PC-relative offset can reach.
-            OPND_CREATE_ABSMEM(reinterpret_cast<void *>(1024ULL), OPSZ_PTR));
-#else
         instr_t *load = XINST_CREATE_load(drcontext, opnd_create_reg(REG1),
-                                          opnd_create_mem_instr(nop, 0, OPSZ_PTR));
-#endif
+                                          OPND_CREATE_MEMPTR(REG2, 0));
         instr_t *store = XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(REG2, 0),
                                             opnd_create_reg(REG1));
         instr_t *move =
