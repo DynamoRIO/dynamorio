@@ -891,7 +891,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
     // filetype we avoid going as far as the timestamp.
     bool gather_filetype = options_.read_inputs_in_init;
     if (gather_filetype || gather_timestamps) {
-        scheduler_status_t res = this->get_initial_input_content(gather_timestamps);
+        res = this->get_initial_input_content(gather_timestamps);
         if (res != sched_type_t::STATUS_SUCCESS) {
             error_string_ = "Failed to read initial input contents for filetype";
             if (gather_timestamps)
