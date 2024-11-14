@@ -41,6 +41,7 @@
 #include <mutex>
 #include <thread>
 
+#include "flexible_queue.h"
 #include "memref.h"
 #include "memtrace_stream.h"
 #include "mutex_dbg_owned.h"

@@ -2925,15 +2925,6 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::get_statistic(
 }
 
 template <typename RecordType, typename ReaderType>
-typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
-scheduler_impl_tmpl_t<RecordType, ReaderType>::set_output_active(output_ordinal_t output,
-                                                                 bool active)
-{
-    // Only supported in scheduler_dynamic_tmpl_t subclass.
-    return sched_type_t::STATUS_INVALID;
-}
-
-template <typename RecordType, typename ReaderType>
 void
 scheduler_impl_tmpl_t<RecordType, ReaderType>::print_queue_stats()
 {
