@@ -3100,7 +3100,6 @@ test_replay_timestamps()
 
 #ifdef HAS_ZIP
 // We subclass scheduler_impl_t to access its record struct and functions.
-// We subclass scheduler_impl_t to access its record struct and functions.
 class test_noeof_scheduler_t : public test_scheduler_base_t {
 public:
     void

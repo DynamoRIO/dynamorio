@@ -580,10 +580,63 @@ protected:
     // We assume a 2GHz clock and IPC=1.
     static constexpr uint64_t INSTRS_PER_US = 2000;
 
+    ///////////////////////////////////////////////////////////////////////////
+    /// Virtual methods.
+    /// XXX i#6831: These interfaces between the main class the subclasses could be
+    /// more clearly separated and crystalized.  One goal is to avoid conditionals
+    // in scheduler_impl_tmpl_t based on options_mapping or possibly on options_
+    // at all (possibly only storing options_ in the subclasses).
+
     // Called just once at initialization time to set the initial input-to-output
     // mappings and state for the particular mapping_t mode.
+    // Should call set_cur_input() for all outputs with initial inputs.
     virtual scheduler_status_t
     set_initial_schedule(std::unordered_map<int, std::vector<int>> &workload2inputs) = 0;
+
+    // Allow subclasses to perform custom initial marker processing during
+    // get_initial_input_content().  Returns whether to keep reading.
+    // The caller will stop calling when an instruction record is reached.
+    // The 'record' may have TRACE_TYPE_INVALID in some calls in which case
+    // the two bool parameters are what the return value should be based on.
+    virtual bool
+    process_next_initial_record(input_info_t &input, RecordType record,
+                                bool &found_filetype, bool &found_timestamp);
+
+    // Helper for pick_next_input() specialized by mapping_t mode.
+    // This is called when check_for_input_switch() indicates a switch is needed.
+    // No input_info_t lock can be held on entry.
+    virtual stream_status_t
+    pick_next_input_for_mode(output_ordinal_t output, uint64_t blocked_time,
+                             input_ordinal_t prev_index, input_ordinal_t &index) = 0;
+
+    // Helper for next_record() specialized by mapping_t mode: called on every record
+    // before it's passed to the user.  Determines whether to switch to a new input
+    // (returned in "need_new_input"; if so, whether it's a preempt is in "preempt"
+    // and if this current input should be blocked then that time should be set in
+    // "blocked_time").  If this returns true for "need_new_input",
+    // pick_next_input_for_mode() is called.
+    virtual stream_status_t
+    check_for_input_switch(output_ordinal_t output, RecordType &record,
+                           input_info_t *input, uint64_t cur_time, bool &need_new_input,
+                           bool &preempt, uint64_t &blocked_time) = 0;
+
+    // Process each marker seen for MAP_TO_ANY_OUTPUT during next_record().
+    // The input's lock must be held by the caller.
+    virtual void
+    process_marker(input_info_t &input, output_ordinal_t output,
+                   trace_marker_type_t marker_type, uintptr_t marker_value);
+
+    // The external interface lets a user request that an output go inactive when
+    // doing dynamic scheduling.
+    virtual stream_status_t
+    set_output_active(output_ordinal_t output, bool active)
+    {
+        // Only supported in scheduler_dynamic_tmpl_t subclass.
+        return sched_type_t::STATUS_INVALID;
+    }
+
+    ///
+    ///////////////////////////////////////////////////////////////////////////
 
     // Assumed to only be called at initialization time.
     // Reads ahead in each input to find its filetype, and if "gather_timestamps"
@@ -595,15 +648,6 @@ protected:
     // Dumps the options, for diagnostics.
     void
     print_configuration();
-
-    // Allow subclasses to perform custom initial marker processing during
-    // get_initial_input_content().  Returns whether to keep reading.
-    // The caller will stop calling when an instruction record is reached.
-    // The 'record' may have TRACE_TYPE_INVALID in some calls in which case
-    // the two bool parameters are what the return value should be based on.
-    virtual bool
-    process_next_initial_record(input_info_t &input, RecordType record,
-                                bool &found_filetype, bool &found_timestamp);
 
     scheduler_status_t
     legacy_field_support();
@@ -739,24 +783,6 @@ protected:
     stream_status_t
     pick_next_input(output_ordinal_t output, uint64_t blocked_time);
 
-    // Helper for pick_next_input() specialized by mapping_t mode.
-    // This is called when check_for_input_switch() indicates a switch is needed.
-    // No input_info_t lock can be held on entry.
-    virtual stream_status_t
-    pick_next_input_for_mode(output_ordinal_t output, uint64_t blocked_time,
-                             input_ordinal_t prev_index, input_ordinal_t &index) = 0;
-
-    // Helper for next_record() specialized by mapping_t mode: called on every record
-    // before it's passed to the user.  Determines whether to switch to a new input
-    // (returned in "need_new_input"; if so, whether it's a preempt is in "preempt"
-    // and if this current input should be blocked then that time should be set in
-    // "blocked_time").  If this returns true for "need_new_input",
-    // pick_next_input_for_mode() is called.
-    virtual stream_status_t
-    check_for_input_switch(output_ordinal_t output, RecordType &record,
-                           input_info_t *input, uint64_t cur_time, bool &need_new_input,
-                           bool &preempt, uint64_t &blocked_time) = 0;
-
     // If the given record has a thread id field, returns true and the value.
     bool
     record_type_has_tid(RecordType record, memref_tid_t &tid);
@@ -821,12 +847,6 @@ protected:
     void
     print_record(const RecordType &record);
 
-    // Process each marker seen for MAP_TO_ANY_OUTPUT during next_record().
-    // The input's lock must be held by the caller.
-    virtual void
-    process_marker(input_info_t &input, output_ordinal_t output,
-                   trace_marker_type_t marker_type, uintptr_t marker_value);
-
     // Returns the get_stream_name() value for the current input stream scheduled on
     // the 'output_ordinal'-th output stream.
     std::string
@@ -890,9 +910,6 @@ protected:
 
     stream_status_t
     stop_speculation(output_ordinal_t output);
-
-    virtual stream_status_t
-    set_output_active(output_ordinal_t output, bool active);
 
     // Caller must hold the input's lock.
     // The return value is STATUS_EOF if a global exit is now happening (an
