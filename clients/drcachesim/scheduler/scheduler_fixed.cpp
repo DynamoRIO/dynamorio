@@ -36,8 +36,12 @@
 #include "scheduler_impl.h"
 
 #include <cinttypes>
+#include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <mutex>
+#include <unordered_map>
+#include <vector>
 
 #include "memref.h"
 #include "mutex_dbg_owned.h"
@@ -149,6 +153,18 @@ scheduler_fixed_tmpl_t<RecordType, ReaderType>::check_for_input_switch(
         this->record_type_is_timestamp(record, input->next_timestamp))
         need_new_input = true;
     return sched_type_t::STATUS_OK;
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
+scheduler_fixed_tmpl_t<RecordType, ReaderType>::eof_or_idle_for_mode(
+    output_ordinal_t output, input_ordinal_t prev_input)
+{
+    if (options_.mapping == sched_type_t::MAP_TO_CONSISTENT_OUTPUT ||
+        this->live_input_count_.load(std::memory_order_acquire) == 0) {
+        return sched_type_t::STATUS_EOF;
+    }
+    return sched_type_t::STATUS_IDLE;
 }
 
 template class scheduler_fixed_tmpl_t<memref_t, reader_t>;

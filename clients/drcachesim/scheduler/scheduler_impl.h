@@ -383,9 +383,6 @@ protected:
     std::unique_lock<mutex_dbg_owned>
     acquire_scoped_output_lock_if_necessary(output_ordinal_t output);
 
-    bool
-    ready_queue_empty(output_ordinal_t output);
-
     // If input->unscheduled is true and input->blocked_time is 0, input
     // is placed on the unscheduled_priority_ queue instead.
     // The caller cannot hold the input's lock: this routine will acquire it.
@@ -404,26 +401,6 @@ protected:
 
     uint64_t
     scale_blocked_time(uint64_t initial_time) const;
-
-    // The input's lock must be held by the caller.
-    // Returns a multiplier for how long the input should be considered blocked.
-    bool
-    syscall_incurs_switch(input_info_t *input, uint64_t &blocked_time);
-
-    // "for_output" is which output stream is looking for a new input; only an
-    // input which is able to run on that output will be selected.
-    // for_output can be INVALID_OUTPUT_ORDINAL, which will ignore bindings.
-    // If from_output != for_output (including for_output == INVALID_OUTPUT_ORDINAL)
-    // this is a migration and only migration-ready inputs will be picked.
-    stream_status_t
-    pop_from_ready_queue(output_ordinal_t from_output, output_ordinal_t for_output,
-                         input_info_t *&new_input);
-
-    // Identical to pop_from_ready_queue but the caller must hold both output locks.
-    stream_status_t
-    pop_from_ready_queue_hold_locks(output_ordinal_t from_output,
-                                    output_ordinal_t for_output, input_info_t *&new_input,
-                                    bool from_back = false);
 
     // Up to the caller to check verbosity before calling.
     void
@@ -581,7 +558,7 @@ protected:
     static constexpr uint64_t INSTRS_PER_US = 2000;
 
     ///////////////////////////////////////////////////////////////////////////
-    /// Virtual methods.
+    /// Protected virtual methods.
     /// XXX i#6831: These interfaces between the main class the subclasses could be
     /// more clearly separated and crystalized.  One goal is to avoid conditionals
     // in scheduler_impl_tmpl_t based on options_mapping or possibly on options_
@@ -620,12 +597,6 @@ protected:
                            input_info_t *input, uint64_t cur_time, bool &need_new_input,
                            bool &preempt, uint64_t &blocked_time) = 0;
 
-    // Process each marker seen for MAP_TO_ANY_OUTPUT during next_record().
-    // The input's lock must be held by the caller.
-    virtual void
-    process_marker(input_info_t &input, output_ordinal_t output,
-                   trace_marker_type_t marker_type, uintptr_t marker_value);
-
     // The external interface lets a user request that an output go inactive when
     // doing dynamic scheduling.
     virtual stream_status_t
@@ -634,6 +605,13 @@ protected:
         // Only supported in scheduler_dynamic_tmpl_t subclass.
         return sched_type_t::STATUS_INVALID;
     }
+
+    // mapping_t-mode specific actions when one output runs out of things to do
+    // (pick_next_input_for_mode() has nothing left in this output's queue).
+    // Success return values are either STATUS_IDLE (asking the user to keep
+    // polling as more work may show up in the future) or STATUS_EOF.
+    virtual stream_status_t
+    eof_or_idle_for_mode(output_ordinal_t output, input_ordinal_t prev_input) = 0;
 
     ///
     ///////////////////////////////////////////////////////////////////////////
@@ -1028,12 +1006,17 @@ private:
     using typename scheduler_impl_tmpl_t<RecordType, ReaderType>::schedule_record_t;
     using
         typename scheduler_impl_tmpl_t<RecordType, ReaderType>::InputTimestampComparator;
+    using typename scheduler_impl_tmpl_t<RecordType, ReaderType>::workload_tid_t;
     using scheduler_impl_tmpl_t<RecordType, ReaderType>::options_;
     using scheduler_impl_tmpl_t<RecordType, ReaderType>::outputs_;
     using scheduler_impl_tmpl_t<RecordType, ReaderType>::inputs_;
     using scheduler_impl_tmpl_t<RecordType, ReaderType>::error_string_;
     using scheduler_impl_tmpl_t<RecordType, ReaderType>::unscheduled_priority_;
     using scheduler_impl_tmpl_t<RecordType, ReaderType>::set_cur_input;
+    using scheduler_impl_tmpl_t<RecordType,
+                                ReaderType>::acquire_scoped_output_lock_if_necessary;
+    using scheduler_impl_tmpl_t<RecordType, ReaderType>::get_output_time;
+    using scheduler_impl_tmpl_t<RecordType, ReaderType>::scale_blocked_time;
 
 protected:
     scheduler_status_t
@@ -1048,12 +1031,46 @@ protected:
     check_for_input_switch(output_ordinal_t output, RecordType &record,
                            input_info_t *input, uint64_t cur_time, bool &need_new_input,
                            bool &preempt, uint64_t &blocked_time) override;
+
+    stream_status_t
+    eof_or_idle_for_mode(output_ordinal_t output, input_ordinal_t prev_input) override;
+
     stream_status_t
     set_output_active(output_ordinal_t output, bool active) override;
+
+    // The input's lock must be held by the caller.
+    // Returns a multiplier for how long the input should be considered blocked.
+    bool
+    syscall_incurs_switch(input_info_t *input, uint64_t &blocked_time);
+
+    // Process each marker seen during next_record().
+    // The input's lock must be held by the caller.
+    // Virtual to allow further subclasses to customize behavior here.
+    virtual void
+    process_marker(input_info_t &input, output_ordinal_t output,
+                   trace_marker_type_t marker_type, uintptr_t marker_value);
 
     stream_status_t
     rebalance_queues(output_ordinal_t triggering_output,
                      std::vector<input_ordinal_t> inputs_to_add);
+
+    bool
+    ready_queue_empty(output_ordinal_t output);
+
+    // "for_output" is which output stream is looking for a new input; only an
+    // input which is able to run on that output will be selected.
+    // for_output can be INVALID_OUTPUT_ORDINAL, which will ignore bindings.
+    // If from_output != for_output (including for_output == INVALID_OUTPUT_ORDINAL)
+    // this is a migration and only migration-ready inputs will be picked.
+    stream_status_t
+    pop_from_ready_queue(output_ordinal_t from_output, output_ordinal_t for_output,
+                         input_info_t *&new_input);
+
+    // Identical to pop_from_ready_queue but the caller must hold both output locks.
+    stream_status_t
+    pop_from_ready_queue_hold_locks(output_ordinal_t from_output,
+                                    output_ordinal_t for_output, input_info_t *&new_input,
+                                    bool from_back = false);
 
     // Rebalancing coordination.
     std::atomic<std::thread::id> rebalancer_;
@@ -1095,6 +1112,10 @@ protected:
     check_for_input_switch(output_ordinal_t output, RecordType &record,
                            input_info_t *input, uint64_t cur_time, bool &need_new_input,
                            bool &preempt, uint64_t &blocked_time) override;
+
+    stream_status_t
+    eof_or_idle_for_mode(output_ordinal_t output, input_ordinal_t prev_input) override;
+
     scheduler_status_t
     read_recorded_schedule();
 
@@ -1132,6 +1153,8 @@ protected:
     check_for_input_switch(output_ordinal_t output, RecordType &record,
                            input_info_t *input, uint64_t cur_time, bool &need_new_input,
                            bool &preempt, uint64_t &blocked_time) override;
+    stream_status_t
+    eof_or_idle_for_mode(output_ordinal_t output, input_ordinal_t prev_input) override;
 };
 
 /* For testing, where schedule_record_t is not accessible. */
