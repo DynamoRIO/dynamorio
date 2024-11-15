@@ -183,6 +183,7 @@ protected:
         // increased "index" order.
         // We use a unique_ptr to make this moveable for vector storage.
         std::unique_ptr<mutex_dbg_owned> lock;
+        // Index into workloads_ vector.
         // A tid can be duplicated across workloads so we need the pair of
         // workload index + tid to identify the original input.
         int workload = -1;
@@ -259,6 +260,20 @@ protected:
         // Causes the next unscheduled entry to abort.
         bool skip_next_unscheduled = false;
         uint64_t last_run_time = 0;
+    };
+
+    // XXX i#6831: Should this live entirely inside the dynamic subclass?
+    // We would need to make part of ini() virtual with subclass overrides.
+    struct workload_info_t {
+        explicit workload_info_t(int output_limit)
+            : output_limit(output_limit)
+        {
+            live_outputs = std::unique_ptr<std::atomic<int>>(new std::atomic<int>());
+            live_outputs->store(0, std::memory_order_relaxed);
+        }
+        int output_limit;
+        std::unique_ptr<std::atomic<int>> live_outputs;
+        std::vector<input_ordinal_t> inputs;
     };
 
     // Format for recording a schedule to disk.  A separate sequence of these records
@@ -552,7 +567,7 @@ protected:
     // mappings and state for the particular mapping_t mode.
     // Should call set_cur_input() for all outputs with initial inputs.
     virtual scheduler_status_t
-    set_initial_schedule(std::unordered_map<int, std::vector<int>> &workload2inputs) = 0;
+    set_initial_schedule() = 0;
 
     // When an output's input changes from a valid (not INVALID_INPUT_ORDINAL) input to
     // something else, swap_out_input() is called on the outgoing input (whose lock is
@@ -921,6 +936,7 @@ protected:
     const char *output_prefix_ = "[scheduler]";
     std::string error_string_;
     scheduler_options_t options_;
+    std::vector<workload_info_t> workloads_;
     // Each vector element has a mutex which should be held when accessing its fields.
     std::vector<input_info_t> inputs_;
     // Each vector element is accessed only by its owning thread, except the
@@ -999,6 +1015,7 @@ private:
     using stream_status_t = typename sched_type_t::stream_status_t;
     using typename scheduler_impl_tmpl_t<RecordType, ReaderType>::input_info_t;
     using typename scheduler_impl_tmpl_t<RecordType, ReaderType>::output_info_t;
+    using typename scheduler_impl_tmpl_t<RecordType, ReaderType>::workload_info_t;
     using typename scheduler_impl_tmpl_t<RecordType, ReaderType>::schedule_record_t;
     using
         typename scheduler_impl_tmpl_t<RecordType, ReaderType>::InputTimestampComparator;
@@ -1007,6 +1024,7 @@ private:
     using scheduler_impl_tmpl_t<RecordType, ReaderType>::options_;
     using scheduler_impl_tmpl_t<RecordType, ReaderType>::outputs_;
     using scheduler_impl_tmpl_t<RecordType, ReaderType>::inputs_;
+    using scheduler_impl_tmpl_t<RecordType, ReaderType>::workloads_;
     using scheduler_impl_tmpl_t<RecordType, ReaderType>::error_string_;
     using scheduler_impl_tmpl_t<RecordType, ReaderType>::set_cur_input;
     using scheduler_impl_tmpl_t<RecordType,
@@ -1016,8 +1034,7 @@ private:
 
 protected:
     scheduler_status_t
-    set_initial_schedule(
-        std::unordered_map<int, std::vector<int>> &workload2inputs) override;
+    set_initial_schedule() override;
 
     stream_status_t
     swap_out_input(output_ordinal_t output, input_ordinal_t input, int workload,
@@ -1128,8 +1145,7 @@ private:
 
 protected:
     scheduler_status_t
-    set_initial_schedule(
-        std::unordered_map<int, std::vector<int>> &workload2inputs) override;
+    set_initial_schedule() override;
 
     stream_status_t
     swap_out_input(output_ordinal_t output, input_ordinal_t input, int workload,
@@ -1175,8 +1191,7 @@ private:
 
 protected:
     scheduler_status_t
-    set_initial_schedule(
-        std::unordered_map<int, std::vector<int>> &workload2inputs) override;
+    set_initial_schedule() override;
 
     stream_status_t
     swap_out_input(output_ordinal_t output, input_ordinal_t input, int workload,

@@ -393,6 +393,14 @@ public:
          */
         std::set<input_ordinal_t> only_shards;
 
+        /**
+         * If greater than zero, imposes a maximum number of outputs that the inputs
+         * comprising this workload can execute upon simultaneously.  If an input would
+         * be executed next but would exceed this cap, a different input is selected
+         * instead or the output goes idle if none are found.
+         */
+        int output_limit = 0;
+
         // Work around a known Visual Studio issue where it complains about deleted copy
         // constructors for unique_ptr by deleting our copies and defaulting our moves.
         input_workload_t(const input_workload_t &) = delete;

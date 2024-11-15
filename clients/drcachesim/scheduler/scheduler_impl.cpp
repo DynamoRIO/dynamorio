@@ -656,6 +656,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::~scheduler_impl_tmpl_t()
                outputs_[i].stats[memtrace_stream_t::SCHED_STAT_RUNQUEUE_STEALS]);
         VPRINT(this, 1, "  %-35s: %9" PRId64 "\n", "Runqueue rebalances",
                outputs_[i].stats[memtrace_stream_t::SCHED_STAT_RUNQUEUE_REBALANCES]);
+        VPRINT(this, 1, "  %-35s: %9" PRId64 "\n", "Ouput limits hit",
+               outputs_[i].stats[memtrace_stream_t::SCHED_STAT_HIT_OUTPUT_LIMIT]);
 #ifndef NDEBUG
         VPRINT(this, 1, "  %-35s: %9" PRId64 "\n", "Runqueue lock acquired",
                outputs_[i].ready_queue.lock->get_count_acquired());
@@ -704,7 +706,6 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
     options_ = std::move(options);
     verbosity_ = options_.verbosity;
     // workload_inputs is not const so we can std::move readers out of it.
-    std::unordered_map<int, std::vector<int>> workload2inputs(workload_inputs.size());
     for (int workload_idx = 0; workload_idx < static_cast<int>(workload_inputs.size());
          ++workload_idx) {
         auto &workload = workload_inputs[workload_idx];
@@ -712,6 +713,10 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
             return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
         if (!workload.only_threads.empty() && !workload.only_shards.empty())
             return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
+        int output_limit = 0;
+        if (workload.struct_size > offsetof(workload_info_t, output_limit))
+            output_limit = workload.output_limit;
+        workloads_.emplace_back(output_limit);
         input_reader_info_t reader_info;
         reader_info.only_threads = workload.only_threads;
         reader_info.only_shards = workload.only_shards;
@@ -735,7 +740,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
                 input_info_t &input = inputs_.back();
                 input.index = index;
                 input.workload = workload_idx;
-                workload2inputs[workload_idx].push_back(index);
+                workloads_.back().inputs.push_back(index);
                 input.tid = reader.tid;
                 input.reader = std::move(reader.reader);
                 input.reader_end = std::move(reader.end);
@@ -751,7 +756,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
                 return res;
             for (const auto &it : reader_info.tid2input) {
                 inputs_[it.second].workload = workload_idx;
-                workload2inputs[workload_idx].push_back(it.second);
+                workloads_.back().inputs.push_back(it.second);
                 tid2input_[workload_tid_t(workload_idx, it.first)] = it.second;
             }
         }
@@ -894,7 +899,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
         }
     }
 
-    return set_initial_schedule(workload2inputs);
+    return set_initial_schedule();
 }
 
 template <typename RecordType, typename ReaderType>

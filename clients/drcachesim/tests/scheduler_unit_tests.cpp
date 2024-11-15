@@ -2543,6 +2543,79 @@ test_synthetic_multi_threaded(const char *testdir)
 }
 
 static void
+test_synthetic_with_output_limit()
+{
+    std::cerr << "\n----------------\nTesting synthetic with output limits\n";
+    static constexpr int NUM_WORKLOADS = 3;
+    static constexpr int NUM_INPUTS_PER_WORKLOAD = 4;
+    static constexpr int NUM_OUTPUTS = 8;
+    static constexpr int NUM_INSTRS = 6;
+    static constexpr memref_tid_t TID_BASE = 100;
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    auto get_tid = [&](int workload_idx, int input_idx) {
+        return TID_BASE + workload_idx * NUM_INPUTS_PER_WORKLOAD + input_idx;
+    };
+    for (int workload_idx = 0; workload_idx < NUM_WORKLOADS; workload_idx++) {
+        std::vector<scheduler_t::input_reader_t> readers;
+        for (int input_idx = 0; input_idx < NUM_INPUTS_PER_WORKLOAD; input_idx++) {
+            memref_tid_t tid = get_tid(workload_idx, input_idx);
+            std::vector<trace_entry_t> inputs;
+            inputs.push_back(make_thread(tid));
+            inputs.push_back(make_pid(1));
+            for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
+                // Sprinkle timestamps every other instruction.
+                if (instr_idx % 2 == 0) {
+                    // Like test_synthetic_with_priorities(), we have different base
+                    // timestamps per workload, and we have the later-ordered inputs in
+                    // each with the earlier timestamps to better test scheduler ordering.
+                    inputs.push_back(make_timestamp(
+                        1000 * workload_idx +
+                        100 * (NUM_INPUTS_PER_WORKLOAD - input_idx) + 10 * instr_idx));
+                }
+                inputs.push_back(make_instr(42 + instr_idx * 4));
+            }
+            inputs.push_back(make_exit(tid));
+            readers.emplace_back(
+                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
+                std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+        }
+        sched_inputs.emplace_back(std::move(readers));
+        // Set a cap on some of the workloads.
+        sched_inputs.back().output_limit = workload_idx;
+    }
+    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                               scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                               scheduler_t::SCHEDULER_DEFAULTS,
+                                               /*verbosity=*/2);
+    // Run everything.
+    sched_ops.exit_if_fraction_inputs_left = 0.;
+    scheduler_t scheduler;
+    if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    std::vector<std::string> sched_as_string =
+        run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE);
+    int64_t limits = 0;
+    for (int i = 0; i < NUM_OUTPUTS; i++) {
+        std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        limits += scheduler.get_stream(i)->get_schedule_statistic(
+            memtrace_stream_t::SCHED_STAT_HIT_OUTPUT_LIMIT);
+    }
+    assert(limits > 0);
+    // We have ABCD with no limits so they all run at once.
+    // EFGH have a max 1 core so they run serially.
+    // IJKL have a max of 2: we see KL, then IJ.
+    assert(sched_as_string[0] == ".DD.DD.DD._.JJ.JJ.JJ.____________________");
+    assert(sched_as_string[1] == ".HH.HH.HH._______________________________");
+    assert(sched_as_string[2] == ".LL.LL.LL..EE.EE.EE._____________________");
+    assert(sched_as_string[3] == ".CC.CC.CC..II.II.II._____________________");
+    assert(sched_as_string[4] == ".KK.KK.KK.__________.GG.GG.GG.___________");
+    assert(sched_as_string[5] == ".BB.BB.BB._______________________________");
+    assert(sched_as_string[6] == ".AA.AA.AA._______________________________");
+    assert(sched_as_string[7] == "______________________________.FF.FF.FF.");
+}
+
+static void
 test_speculation()
 {
     std::cerr << "\n----------------\nTesting speculation\n";
@@ -2970,8 +3043,7 @@ test_replay_multi_threaded(const char *testdir)
 class test_scheduler_base_t : public scheduler_impl_t {
 public:
     scheduler_status_t
-    set_initial_schedule(
-        std::unordered_map<int, std::vector<int>> &workload2inputs) override
+    set_initial_schedule() override
     {
         return sched_type_t::STATUS_ERROR_NOT_IMPLEMENTED;
     }
@@ -6358,6 +6430,7 @@ test_main(int argc, const char *argv[])
     test_synthetic_with_bindings();
     test_synthetic_with_syscalls();
     test_synthetic_multi_threaded(argv[1]);
+    test_synthetic_with_output_limit();
     test_speculation();
     test_replay();
     test_replay_multi_threaded(argv[1]);
