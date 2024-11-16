@@ -493,6 +493,14 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             std::cerr << "<marker: vector length " << memref.marker.marker_value
                       << " bytes>\n";
             break;
+        case TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION:
+            // The value stores the encoding of the uncompleted instruction up
+            // to the length of a pointer. The encoding may not be complete so
+            // we do not try to print it in the regular encoding style of the
+            // ISA.
+            std::cerr << "<marker: uncompleted instruction, encoding 0x" << std::hex
+                      << memref.marker.marker_value << std::dec << ">\n";
+            break;
         default:
             std::cerr << "<marker: type " << memref.marker.marker_type << "; value "
                       << memref.marker.marker_value << ">\n";

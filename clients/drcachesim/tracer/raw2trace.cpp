@@ -1817,20 +1817,63 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
 }
 
 bool
-raw2trace_t::process_memref(raw2trace_thread_data_t *tdata, trace_entry_t **buf_in,
-                            const instr_summary_t *instr,
-                            instr_summary_t::memref_summary_t memref, bool write,
-                            std::unordered_map<reg_id_t, addr_t> &reg_vals,
-                            uint64_t cur_pc, uint64_t cur_offs, bool instrs_are_separate,
-                            DR_PARAM_OUT bool *reached_end_of_memrefs,
-                            DR_PARAM_OUT bool *interrupted)
+raw2trace_t::interrupted_by_kernel_event(raw2trace_thread_data_t *tdata, uint64_t cur_pc,
+                                         uint64_t cur_offs)
 {
-    if (!append_memref(tdata, buf_in, instr, memref, write, reg_vals,
-                       reached_end_of_memrefs))
-        return false;
-    return handle_kernel_interrupt_and_markers(tdata, buf_in, cur_pc, cur_offs,
-                                               instr->length(), instrs_are_separate,
-                                               interrupted);
+    bool is_interrupted = false;
+    std::deque<offline_entry_t> pre_read_buffer;
+
+    const offline_entry_t *next_entry = get_next_entry(tdata);
+    while (next_entry != NULL) {
+        pre_read_buffer.push_front(*next_entry);
+        if (next_entry->addr.type == OFFLINE_TYPE_MEMREF ||
+            next_entry->addr.type == OFFLINE_TYPE_MEMREF_HIGH) {
+            next_entry = get_next_entry(tdata);
+            continue;
+        }
+
+        if (next_entry->extended.type != OFFLINE_TYPE_EXTENDED) {
+            break;
+        }
+        if (next_entry->extended.ext == OFFLINE_EXT_TYPE_MEMINFO) {
+            next_entry = get_next_entry(tdata);
+            continue;
+        }
+        if (next_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER) {
+            if (next_entry->extended.valueB == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS ||
+                next_entry->extended.valueB == TRACE_MARKER_TYPE_VIRTUAL_ADDRESS ||
+                next_entry->extended.valueB ==
+                    TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE) {
+                next_entry = get_next_entry(tdata);
+                continue;
+            }
+
+            if (next_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+                uintptr_t marker_val = 0;
+                if (!get_marker_value(tdata, &next_entry, &marker_val)) {
+                    return false;
+                }
+                // Check the stored PC against cur_offs or cur_pc based on version.
+                int version = get_version(tdata);
+                if (version < OFFLINE_FILE_VERSION_KERNEL_INT_PC) {
+                    // We have only the offs, so we can't handle differing modules for
+                    // the source and target for legacy traces.
+                    if (marker_val == cur_offs)
+                        is_interrupted = true;
+                } else {
+                    if (marker_val == cur_pc)
+                        is_interrupted = true;
+                }
+            }
+        }
+        break;
+    }
+    // Move the entries back to the pre_read queues.
+    while (!pre_read_buffer.empty()) {
+        tdata->pre_read.push_front(pre_read_buffer.front());
+        pre_read_buffer.pop_front();
+    }
+    return is_interrupted;
 }
 
 bool
@@ -2023,57 +2066,70 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                 }
             }
         }
-        if (!skip_icache && record_encoding_emitted(tdata, decode_pc)) {
-            if (!append_encoding(tdata, decode_pc, instr->length(), buf, buf_start))
+        // i#7050: remove instructions which were interrupted by a kernel event,
+        // or caused a fault.
+        // The trace is recording instruction retirement, premmpted instructions
+        // and the corresponding memrefs, and instructions casuing a fault are
+        // removed.
+        const bool interrupted = interrupted_by_kernel_event(tdata, cur_pc, cur_offs);
+        if (interrupted) {
+            // Insert the TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION marker to
+            // indicate an instruction is removed from the trace because it was
+            // interrupted by an asynchronous signal or caused a fault.
+            trace_entry_t trace_entry;
+            trace_entry.addr = 0;
+            trace_entry_t *trace_entry_ptr = &trace_entry;
+            if (!append_encoding(tdata, decode_pc,
+                                 std::min(static_cast<size_t>(instr->length()),
+                                          sizeof(trace_entry.addr)),
+                                 trace_entry_ptr, &trace_entry))
                 return false;
-        }
-
-        // XXX i#1729: make bundles via lazy accum until hit memref/end, if
-        // we don't need encodings.
-        buf->type = instr->type();
-        if (buf->type == TRACE_TYPE_INSTR_MAYBE_FETCH) {
-            // We want it to look like the original rep string, with just one instr
-            // fetch for the whole loop, instead of the drutil-expanded loop.
-            // We fix up the maybe-fetch here so our offline file doesn't have to
-            // rely on our own reader.
-            if (!was_prev_instr_rep_string(tdata)) {
-                set_prev_instr_rep_string(tdata, true);
-                buf->type = TRACE_TYPE_INSTR;
-            } else {
-                log(3, "Skipping instr fetch for " PFX "\n", (ptr_uint_t)decode_pc);
-                // We still include the instr to make it easier for core simulators
-                // (i#2051).
-                buf->type = TRACE_TYPE_INSTR_NO_FETCH;
+            trace_metadata_writer_t::write_marker(
+                reinterpret_cast<byte *>(buf), TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION,
+                trace_entry.addr);
+            buf++;
+        } else {
+            if (!skip_icache && record_encoding_emitted(tdata, decode_pc)) {
+                if (!append_encoding(tdata, decode_pc, instr->length(), buf, buf_start))
+                    return false;
             }
-        } else
-            set_prev_instr_rep_string(tdata, false);
-        if (instr->is_syscall())
-            set_last_pc_if_syscall(tdata, orig_pc);
-        else
-            set_last_pc_if_syscall(tdata, 0);
-        buf->size = (ushort)(skip_icache ? 0 : instr->length());
-        buf->addr = (addr_t)orig_pc;
-        ++buf;
-        log(4, "Appended instr fetch for original %p\n", orig_pc);
+
+            // XXX i#1729: make bundles via lazy accum until hit memref/end, if
+            // we don't need encodings.
+            buf->type = instr->type();
+            if (buf->type == TRACE_TYPE_INSTR_MAYBE_FETCH) {
+                // We want it to look like the original rep string, with just one instr
+                // fetch for the whole loop, instead of the drutil-expanded loop.
+                // We fix up the maybe-fetch here so our offline file doesn't have to
+                // rely on our own reader.
+                if (!was_prev_instr_rep_string(tdata)) {
+                    set_prev_instr_rep_string(tdata, true);
+                    buf->type = TRACE_TYPE_INSTR;
+                } else {
+                    log(3, "Skipping instr fetch for " PFX "\n", (ptr_uint_t)decode_pc);
+                    // We still include the instr to make it easier for core simulators
+                    // (i#2051).
+                    buf->type = TRACE_TYPE_INSTR_NO_FETCH;
+                }
+            } else
+                set_prev_instr_rep_string(tdata, false);
+            if (instr->is_syscall())
+                set_last_pc_if_syscall(tdata, orig_pc);
+            else
+                set_last_pc_if_syscall(tdata, 0);
+            buf->size = (ushort)(skip_icache ? 0 : instr->length());
+            buf->addr = (addr_t)orig_pc;
+            ++buf;
+            log(4, "Appended instr fetch for original %p\n", orig_pc);
+        }
         decode_pc = pc;
         if (tdata->rseq_past_end_) {
-            // In case handle_kernel_interrupt_and_markers() calls
+            // In case handle_rseq_abort_marker() calls
             // adjust_and_emit_rseq_buffer() we need to have written this instr to the
             // rseq buffer.
             if (!write(tdata, buf_start, buf, &saved_decode_pc, 1))
                 return false;
             buf = buf_start;
-        }
-        // Check for a signal *after* the instruction.  The trace is recording
-        // instruction *fetches*, not instruction retirement, and we want to
-        // include a faulting instruction before its raised signal.
-        bool interrupted = false;
-        if (!handle_kernel_interrupt_and_markers(tdata, &buf, cur_pc, cur_offs,
-                                                 instr->length(), instrs_are_separate,
-                                                 &interrupted))
-            return false;
-        if (interrupted) {
-            log(3, "Stopping bb at kernel interruption point %p\n", cur_pc);
         }
         // We need to interleave instrs with memrefs.
         // There is no following memref for (instrs_are_separate && !skip_icache).
@@ -2096,40 +2152,50 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                 while (!reached_end_of_memrefs) {
                     // XXX: Add sanity check for max count of store/load memrefs
                     // possible for a given scatter/gather instr.
-                    if (!process_memref(
+                    if (!append_memref(
                             tdata, &buf, instr,
-                            // These memrefs were output by multiple store/load instrs in
+                            // These memrefs were output by multiple store/lo0ad instrs in
                             // the expanded scatter/gather sequence. In raw2trace we see
                             // only the original app instr though. So we use the 0th
                             // dest/src of the original scatter/gather instr for all.
                             is_scatter ? instr->mem_dest_at(0) : instr->mem_src_at(0),
-                            is_scatter, reg_vals, cur_pc, cur_offs, instrs_are_separate,
-                            &reached_end_of_memrefs, &interrupted))
+                            is_scatter, reg_vals, &reached_end_of_memrefs))
                         return false;
-                    if (interrupted)
-                        break;
                 }
             } else {
                 for (uint j = 0; j < instr->num_mem_srcs(); j++) {
-                    if (!process_memref(tdata, &buf, instr, instr->mem_src_at(j), false,
-                                        reg_vals, cur_pc, cur_offs, instrs_are_separate,
-                                        nullptr, &interrupted))
+                    if (!append_memref(tdata, &buf, instr, instr->mem_src_at(j), false,
+                                       reg_vals, nullptr))
                         return false;
-                    if (interrupted)
-                        break;
                 }
                 // We break before subsequent memrefs on an interrupt, though with
                 // today's tracer that will never happen (i#3958).
                 for (uint j = 0; !interrupted && j < instr->num_mem_dests(); j++) {
-                    if (!process_memref(tdata, &buf, instr, instr->mem_dest_at(j), true,
-                                        reg_vals, cur_pc, cur_offs, instrs_are_separate,
-                                        nullptr, &interrupted))
+                    if (!append_memref(tdata, &buf, instr, instr->mem_dest_at(j), true,
+                                       reg_vals, nullptr))
                         return false;
-                    if (interrupted)
-                        break;
                 }
             }
+        } else {
+            // Flush memref entries. We do not try to indicate which memref
+            // might have casued a fault, we omit them all along with the
+            // instruction fetch.
+            if (interrupted) {
+                const offline_entry_t *next_entry = get_next_entry(tdata);
+                while (next_entry != nullptr &&
+                       (next_entry->addr.type == OFFLINE_TYPE_MEMREF ||
+                        next_entry->addr.type == OFFLINE_TYPE_MEMREF_HIGH)) {
+                    next_entry = get_next_entry(tdata);
+                }
+                if (next_entry != nullptr)
+                    unread_last_entry(tdata);
+            }
         }
+        // Check for rseq abort *after* the instruction.
+        bool rseq_aborted = false;
+        if (!handle_rseq_abort_marker(tdata, &buf, cur_pc, cur_offs, &rseq_aborted))
+            return false;
+
         cur_pc += instr->length();
         cur_offs += instr->length();
         if ((size_t)(buf - buf_start) >= WRITE_BUFFER_SIZE) {
@@ -2156,14 +2222,14 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             if (!write(tdata, buf_start, buf, &saved_decode_pc, 1))
                 return false;
         }
-        if (interrupted)
+        if (rseq_aborted || interrupted)
             break;
     }
     *handled = true;
     return true;
 }
 
-// Returns true if a kernel interrupt happened at cur_pc.
+// Returns true if an rseq abort happened at cur_pc.
 // Outputs a kernel interrupt if this is the right location.
 // Outputs any other markers observed if !instrs_are_separate, since they
 // are part of this block and need to be inserted now. Inserts all
@@ -2172,16 +2238,14 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
 // handled at a higher level (process_offline_entry()) and are never
 // inserted here.
 bool
-raw2trace_t::handle_kernel_interrupt_and_markers(raw2trace_thread_data_t *tdata,
-                                                 DR_PARAM_INOUT trace_entry_t **buf_in,
-                                                 uint64_t cur_pc, uint64_t cur_offs,
-                                                 int instr_length,
-                                                 bool instrs_are_separate,
-                                                 DR_PARAM_OUT bool *interrupted)
+raw2trace_t::handle_rseq_abort_marker(raw2trace_thread_data_t *tdata,
+                                      DR_PARAM_INOUT trace_entry_t **buf_in,
+                                      uint64_t cur_pc, uint64_t cur_offs,
+                                      DR_PARAM_OUT bool *rseq_aborted)
 {
     // To avoid having to backtrack later, we read ahead to ensure we insert
     // an interrupt at the right place between memrefs or between instructions.
-    *interrupted = false;
+    *rseq_aborted = false;
     bool append = false;
     trace_entry_t *buf_start = get_write_buffer(tdata);
     do {
@@ -2202,8 +2266,7 @@ raw2trace_t::handle_kernel_interrupt_and_markers(raw2trace_thread_data_t *tdata,
         if (!get_marker_value(tdata, &in_entry, &marker_val))
             return false;
         // An abort always ends a block.
-        if (in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT ||
-            in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT) {
+        if (in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT) {
             // A signal/exception marker in the next entry could be at any point
             // among non-memref instrs, or it could be after this bb.
             // We check the stored PC.
@@ -2224,7 +2287,6 @@ raw2trace_t::handle_kernel_interrupt_and_markers(raw2trace_thread_data_t *tdata,
             // rseq aborts with timestamps (i#5954) nor rseq side exits (i#5953) for
             // such traces but we can at least fix up typical aborts.
             if (!tdata->rseq_ever_saw_entry_ &&
-                in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT &&
                 // I-filtered don't have every instr so we can't roll back.
                 !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
                          get_file_type(tdata))) {
@@ -2241,10 +2303,7 @@ raw2trace_t::handle_kernel_interrupt_and_markers(raw2trace_thread_data_t *tdata,
             if (marker_val == 0 || at_interrupted_pc || legacy_rseq_rollback) {
                 log(4, "Signal/exception interrupted the bb @ %p\n", cur_pc);
                 if (tdata->rseq_past_end_) {
-                    addr_t rseq_abort_pc =
-                        in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT
-                        ? marker_val
-                        : 0;
+                    addr_t rseq_abort_pc = marker_val;
                     if (!adjust_and_emit_rseq_buffer(tdata, static_cast<addr_t>(cur_pc),
                                                      rseq_abort_pc))
                         return false;
@@ -2253,7 +2312,7 @@ raw2trace_t::handle_kernel_interrupt_and_markers(raw2trace_thread_data_t *tdata,
                         return false;
                 }
                 append = true;
-                *interrupted = true;
+                *rseq_aborted = true;
                 if (legacy_rseq_rollback) {
                     // This happens on rseq native aborts, where the trace instru
                     // includes the rseq committing store before the native rseq
@@ -2287,7 +2346,7 @@ raw2trace_t::handle_kernel_interrupt_and_markers(raw2trace_thread_data_t *tdata,
                 // not-inside-a-block main loop.
             }
         } else {
-            // Other than kernel event markers checked above, markers should be
+            // Other than the rseq abort marker checked above, markers should be
             // only at block boundaries, as we cannot figure out where they should go
             // (and could easily insert them in the middle of this block instead
             // of between this and the next block, with implicit instructions added).

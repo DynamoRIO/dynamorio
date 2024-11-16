@@ -27,6 +27,7 @@
  */
 
 #include <elf.h>
+#include <stddef.h>
 #include <sys/mman.h>
 #include <sys/procfs.h>
 #include "../globals.h"
@@ -34,7 +35,11 @@
 #include "../hashtable.h"
 #include "../os_shared.h"
 #include "../synch.h"
+#include "../utils.h"
 #include "../lib/dr_ir_utils.h"
+#include "../lib/globals_api.h"
+#include "../lib/globals_shared.h"
+
 #include "dr_tools.h"
 #include "elf_defines.h"
 #include "memquery.h"
