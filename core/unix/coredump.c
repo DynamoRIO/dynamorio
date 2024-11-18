@@ -70,8 +70,9 @@ typedef struct _section_header_info_t {
 
 /*
  * Please reference
- * https://www.intel.com/content/www/us/en/docs/cpp-compiler/developer-guide-reference/2021-8/intrinsics-to-save-and-restore-ext-proc-states.html
- * for the memory layout used by fxsave64.
+ * https://www.intel.com/content/www/us/en/docs/cpp-compiler/developer-guide-reference/
+ * 2021-8/intrinsics-to-save-and-restore-ext-proc-states.html for the memory layout
+ * used by fxsave64.
  */
 typedef struct _fxsave64_map_t {
     unsigned short fcw;
