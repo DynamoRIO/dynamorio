@@ -566,7 +566,10 @@ os_dump_core_internal(void)
 bool
 os_dump_core_live(void)
 {
-#ifndef DR_HOST_NOT_TARGET
+#ifdef DR_HOST_NOT_TARGET
+    // Memory dump is supported only when the host and the target are the same.
+    return false;
+#endif
     // Suspend all threads including native threads to ensure the memory regions
     // do not change in the middle of the core dump.
     int num_threads;
@@ -586,7 +589,4 @@ os_dump_core_live(void)
     end_synch_with_all_threads(threads, num_threads,
                                /*resume=*/true);
     return ret;
-#else
-    return false;
-#endif
 }
