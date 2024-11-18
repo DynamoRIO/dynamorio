@@ -201,7 +201,9 @@ static void
 mcontext_to_user_regs(DR_PARAM_IN dr_mcontext_t *mcontext,
                       DR_PARAM_OUT struct user_regs_struct *regs)
 {
-#ifdef X86
+#ifdef DR_HOST_NOT_TARGET
+    return;
+#elif defined(X86)
     regs->rax = mcontext->rax;
     regs->rcx = mcontext->rcx;
     regs->rdx = mcontext->rdx;
@@ -296,7 +298,9 @@ static bool
 get_floating_point_registers(DR_PARAM_IN dr_mcontext_t *mc,
                              DR_PARAM_OUT elf_fpregset_t *regs)
 {
-#ifdef X86
+#ifdef DR_HOST_NOT_TARGET
+    return false;
+#elif defined(X86)
     byte fpstate_buf[MAX_FP_STATE_SIZE];
     fxsave64_map_t *fpstate = (fxsave64_map_t *)ALIGN_FORWARD(fpstate_buf, 16);
     if (proc_save_fpstate((byte *)fpstate) != DR_FPSTATE_BUF_SIZE) {
@@ -562,6 +566,7 @@ os_dump_core_internal(void)
 bool
 os_dump_core_live(void)
 {
+#ifndef DR_HOST_NOT_TARGET
     // Suspend all threads including native threads to ensure the memory regions
     // do not change in the middle of the core dump.
     int num_threads;
@@ -581,4 +586,7 @@ os_dump_core_live(void)
     end_synch_with_all_threads(threads, num_threads,
                                /*resume=*/true);
     return ret;
+#else
+    return false;
+#endif
 }
