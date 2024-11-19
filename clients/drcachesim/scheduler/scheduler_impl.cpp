@@ -2315,6 +2315,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::set_cur_input(
 
     int prev_workload = -1;
     if (outputs_[output].prev_input >= 0 && outputs_[output].prev_input != input) {
+        // If the caller already holds the lock, do not re-acquire as that will hang.
         auto scoped_lock =
             (caller_holds_cur_input_lock && prev_input == outputs_[output].prev_input)
             ? std::unique_lock<mutex_dbg_owned>()
