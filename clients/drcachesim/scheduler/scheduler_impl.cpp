@@ -2292,7 +2292,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::set_cur_input(
         // straightforward).
         if (options_.mapping == sched_type_t::MAP_TO_ANY_OUTPUT && prev_input != input &&
             !inputs_[prev_input].at_eof) {
-            // This is unsafe if the caller holds this input lock: we disallow it.
+            // The caller should never hold the input lock for MAP_TO_ANY_OUTPUT.
             assert(!caller_holds_cur_input_lock);
             add_to_ready_queue(output, &inputs_[prev_input]);
         }
