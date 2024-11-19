@@ -2598,8 +2598,8 @@ test_synthetic_with_output_limit()
     int64_t limits = 0;
     for (int i = 0; i < NUM_OUTPUTS; i++) {
         std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
-        limits += scheduler.get_stream(i)->get_schedule_statistic(
-            memtrace_stream_t::SCHED_STAT_HIT_OUTPUT_LIMIT);
+        limits += static_cast<int64_t>(scheduler.get_stream(i)->get_schedule_statistic(
+            memtrace_stream_t::SCHED_STAT_HIT_OUTPUT_LIMIT));
     }
     assert(limits > 0);
     // We have ABCD with no limits so they all run at once.
