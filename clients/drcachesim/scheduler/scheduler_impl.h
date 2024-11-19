@@ -751,7 +751,8 @@ protected:
 
     // The caller cannot hold the output or input lock.
     // The caller can hold the output's current input's lock but must pass
-    // true for the 3rd parameter in that case.
+    // true for the 3rd parameter in that case; holding the lock is not
+    // allowed for MAP_TO_ANY_OUTPUT.
     stream_status_t
     set_cur_input(output_ordinal_t output, input_ordinal_t input,
                   bool caller_holds_cur_input_lock = false);
