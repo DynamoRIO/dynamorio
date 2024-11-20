@@ -3048,7 +3048,7 @@ public:
         return sched_type_t::STATUS_ERROR_NOT_IMPLEMENTED;
     }
     stream_status_t
-    swap_out_input(output_ordinal_t output, input_ordinal_t input, int workload,
+    swap_out_input(output_ordinal_t output, input_ordinal_t input,
                    bool caller_holds_input_lock) override
     {
         return sched_type_t::STATUS_NOT_IMPLEMENTED;

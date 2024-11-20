@@ -154,16 +154,25 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::set_initial_schedule()
 template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_dynamic_tmpl_t<RecordType, ReaderType>::swap_out_input(
-    output_ordinal_t output, input_ordinal_t input, int workload,
-    bool caller_holds_input_lock)
+    output_ordinal_t output, input_ordinal_t input, bool caller_holds_input_lock)
 {
-    // Our add_to_ready_queue() call is unsafe if the caller holds
-    // this input lock: we disallow it here and in the parent's
-    // set_cur_input().
+    // We disallow the caller holding the input lock as that precludes our call to
+    // add_to_ready_queue().
     assert(!caller_holds_input_lock);
-    // Now that the caller has updated prev_info, add it to the ready queue (once on
-    // the queue others can see it and pop it off).
-    if (!inputs_[input].at_eof) {
+    if (input == sched_type_t::INVALID_INPUT_ORDINAL)
+        return sched_type_t::STATUS_OK;
+    bool at_eof = false;
+    int workload = -1;
+    {
+        std::lock_guard<mutex_dbg_owned> lock(*inputs_[input].lock);
+        at_eof = inputs_[input].at_eof;
+        assert(inputs_[input].cur_output == sched_type_t::INVALID_OUTPUT_ORDINAL);
+        workload = inputs_[input].workload;
+    }
+    // Now that the caller has updated the outgoing input's fields (we assert that
+    // cur_output was changed above), add it to the ready queue (once on the queue others
+    // can see it and pop it off).
+    if (!at_eof) {
         add_to_ready_queue(output, &inputs_[input]);
     }
     if (workloads_[workload].output_limit > 0)
@@ -176,6 +185,8 @@ typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_dynamic_tmpl_t<RecordType, ReaderType>::swap_in_input(output_ordinal_t output,
                                                                 input_ordinal_t input)
 {
+    if (input == sched_type_t::INVALID_INPUT_ORDINAL)
+        return sched_type_t::STATUS_OK;
     workload_info_t &workload = workloads_[inputs_[input].workload];
     if (workload.output_limit > 0)
         workload.live_outputs->fetch_add(1, std::memory_order_release);
@@ -1207,8 +1218,8 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue(
     {
         std::unique_lock<mutex_dbg_owned> from_lock;
         std::unique_lock<mutex_dbg_owned> for_lock;
-        // If we need both locks, acquire in increasing output order to avoid
-        // deadlocks if two outputs try to steal from each other.
+        // If we need both locks, acquire in increasing output order to avoid deadlocks if
+        // two outputs try to steal from each other.
         if (from_output == for_output ||
             for_output == sched_type_t::INVALID_OUTPUT_ORDINAL) {
             from_lock = acquire_scoped_output_lock_if_necessary(from_output);

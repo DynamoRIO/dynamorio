@@ -298,8 +298,7 @@ scheduler_replay_tmpl_t<RecordType, ReaderType>::read_and_instantiate_traced_sch
 template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_replay_tmpl_t<RecordType, ReaderType>::swap_out_input(
-    output_ordinal_t output, input_ordinal_t input, int workload,
-    bool caller_holds_input_lock)
+    output_ordinal_t output, input_ordinal_t input, bool caller_holds_input_lock)
 {
     return sched_type_t::STATUS_OK;
 }
