@@ -1,0 +1,27 @@
+Schedule stats tool results:
+Total counts:
+           4 cores
+.*
+      *[1-9][0-9]* output limits hit
+.*
+Core #0 counts:
+.*
+      *[1-9][0-9]* output limits hit
+.*
+Core #1 counts:
+.*
+      *[1-9][0-9]* output limits hit
+.*
+Core #2 counts:
+.*
+      *[1-9][0-9]* output limits hit
+.*
+Core #3 counts:
+.*
+      *[1-9][0-9]* output limits hit
+.*
+// Ensure 2 cores start idle.
+Core #0 schedule: [A-H][A-Ha-h_]*
+Core #1 schedule: [A-Z][A-Ha-h_]*
+Core #2 schedule: _[A-Ha-h_]*
+Core #3 schedule: _[A-Ha-h_]*
