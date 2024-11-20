@@ -36,25 +36,38 @@
 #include "../os_shared.h"
 #include "../synch.h"
 #include "../utils.h"
+#include "../ir/decode.h"
 #include "../lib/dr_ir_utils.h"
 #include "../lib/globals_api.h"
 #include "../lib/globals_shared.h"
+#include "../lib/instrument.h"
 
 #include "dr_tools.h"
 #include "elf_defines.h"
 #include "memquery.h"
+
+/* Only X64 is supported. */
+#ifndef X64
+#    error Unsupported architecture
+#endif
 
 #define MAX_SECTION_HEADERS 300
 #define MAX_SECTION_NAME_BUFFER_SIZE 8192
 #define SECTION_HEADER_TABLE ".shstrtab"
 #define VVAR_SECTION "[vvar]"
 #define VSYSCALL_SECTION "[vsyscall]"
-// The name of the note owner including the terminating null character needs to
-// be 4 byte aligned.
+/*
+ * The length of the name has to be a multiple of eight (for X64) to ensure the next
+ * field (descriptor) is 8-byte aligned. Null characters are added at the end as
+ * padding to increase the length to eight. The name CORE is used following the example
+ * of core dump files.
+ */
 #define NOTE_OWNER "CORE\0\0\0\0"
 #define NOTE_OWNER_LENGTH 8
-// Two notes, NT_PRSTATUS (prstatus structure) and NT_FPREGSET (floating point registers),
-// are written to the output file.
+/*
+ * Two notes, NT_PRSTATUS (prstatus structure) and NT_FPREGSET (floating point registers),
+ * are written to the output file.
+ */
 #define PROGRAM_HEADER_NOTE_LENGTH                                                    \
     (sizeof(ELF_NOTE_HEADER_TYPE) + NOTE_OWNER_LENGTH + sizeof(struct elf_prstatus) + \
      sizeof(ELF_NOTE_HEADER_TYPE) + NOTE_OWNER_LENGTH + sizeof(elf_fpregset_t))
@@ -198,7 +211,7 @@ write_section_header(DR_PARAM_IN file_t elf_file,
  * Copy dr_mcontext_t register values to user_regs_struct.
  */
 static void
-mcontext_to_user_regs(DR_PARAM_IN dr_mcontext_t *mcontext,
+mcontext_to_user_regs(DR_PARAM_IN priv_mcontext_t *mcontext,
                       DR_PARAM_OUT struct user_regs_struct *regs)
 {
 #ifdef DR_HOST_NOT_TARGET
@@ -256,6 +269,8 @@ mcontext_to_user_regs(DR_PARAM_IN dr_mcontext_t *mcontext,
     regs->regs[30] = mcontext->r30;
     regs->sp = mcontext->sp;
     regs->pc = (uint64_t)mcontext->pc;
+#else
+#    error Unsupported architecture
 #endif
 }
 
@@ -264,17 +279,11 @@ mcontext_to_user_regs(DR_PARAM_IN dr_mcontext_t *mcontext,
  * the file, false otherwise.
  */
 static bool
-write_prstatus_note(DR_PARAM_IN file_t elf_file)
+write_prstatus_note(DR_PARAM_IN priv_mcontext_t *mc, DR_PARAM_IN file_t elf_file)
 {
-    void *drcontext = dr_get_current_drcontext();
-    dr_mcontext_t mcontext;
-    mcontext.size = sizeof(mcontext);
-    mcontext.flags = DR_MC_ALL;
-    dr_get_mcontext(drcontext, &mcontext);
-
     struct elf_prstatus prstatus;
     struct user_regs_struct *regs = (struct user_regs_struct *)&prstatus.pr_reg;
-    mcontext_to_user_regs(&mcontext, regs);
+    mcontext_to_user_regs(mc, regs);
 
     ELF_NOTE_HEADER_TYPE nhdr;
     // Add one to include the terminating null character.
@@ -295,14 +304,20 @@ write_prstatus_note(DR_PARAM_IN file_t elf_file)
  * X86, copy the floating point registers from the output of fxsave64.
  */
 static bool
-get_floating_point_registers(DR_PARAM_IN dr_mcontext_t *mc,
+get_floating_point_registers(DR_PARAM_IN dcontext_t *dcontext,
+                             DR_PARAM_IN priv_mcontext_t *mc,
                              DR_PARAM_OUT elf_fpregset_t *regs)
 {
 #ifdef DR_HOST_NOT_TARGET
     return false;
 #elif defined(X86)
+    // Fast FP save and restore support is required.
+    ASSERT(proc_has_feature(FEATURE_FXSR));
+    // Mixed mode is not supported.
+    ASSERT(X64_MODE_DC(dcontext));
     byte fpstate_buf[MAX_FP_STATE_SIZE];
-    fxsave64_map_t *fpstate = (fxsave64_map_t *)ALIGN_FORWARD(fpstate_buf, 16);
+    fxsave64_map_t *fpstate =
+        (fxsave64_map_t *)ALIGN_FORWARD(fpstate_buf, DR_FPSTATE_ALIGN);
     if (proc_save_fpstate((byte *)fpstate) != DR_FPSTATE_BUF_SIZE) {
         return false;
     }
@@ -339,16 +354,11 @@ get_floating_point_registers(DR_PARAM_IN dr_mcontext_t *mc,
  * the file, false otherwise.
  */
 static bool
-write_fpregset_note(DR_PARAM_IN file_t elf_file)
+write_fpregset_note(DR_PARAM_IN dcontext_t *dcontext, DR_PARAM_IN priv_mcontext_t *mc,
+                    DR_PARAM_IN file_t elf_file)
 {
-    void *drcontext = dr_get_current_drcontext();
-    dr_mcontext_t mcontext;
-    mcontext.size = sizeof(mcontext);
-    mcontext.flags = DR_MC_ALL;
-    dr_get_mcontext(drcontext, &mcontext);
-
     elf_fpregset_t fpregset;
-    if (!get_floating_point_registers(&mcontext, &fpregset)) {
+    if (!get_floating_point_registers(dcontext, mc, &fpregset)) {
         return false;
     }
 
@@ -371,7 +381,7 @@ write_fpregset_note(DR_PARAM_IN file_t elf_file)
  * false otherwise.
  */
 static bool
-os_dump_core_internal(void)
+os_dump_core_internal(dcontext_t *dcontext, priv_mcontext_t *mc)
 {
     // Insert a null string at the beginning for sections with no comment.
     char string_table[MAX_SECTION_NAME_BUFFER_SIZE];
@@ -486,11 +496,11 @@ os_dump_core_internal(void)
         os_close(elf_file);
         return false;
     }
-    if (!write_prstatus_note(elf_file)) {
+    if (!write_prstatus_note(mc, elf_file)) {
         os_close(elf_file);
         return false;
     }
-    if (!write_fpregset_note(elf_file)) {
+    if (!write_fpregset_note(dcontext, mc, elf_file)) {
         os_close(elf_file);
         return false;
     }
@@ -564,7 +574,7 @@ os_dump_core_internal(void)
  * Returns true if a core dump file is written, false otherwise.
  */
 bool
-os_dump_core_live(void)
+os_dump_core_live(dcontext_t *dcontext, priv_mcontext_t *mc)
 {
 #ifdef DR_HOST_NOT_TARGET
     // Memory dump is supported only when the host and the target are the same.
@@ -584,7 +594,7 @@ os_dump_core_live(void)
         return false;
     }
 
-    const bool ret = os_dump_core_internal();
+    const bool ret = os_dump_core_internal(dcontext, mc);
 
     end_synch_with_all_threads(threads, num_threads,
                                /*resume=*/true);

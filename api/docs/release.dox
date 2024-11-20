@@ -137,7 +137,9 @@ changes:
 
 Further non-compatibility-affecting changes include:
  - Added X64 Linux support to dr_create_memory_dump(). This API has the same
-   restriction as dr_suspend_all_other_threads_ex().
+   restriction as dr_suspend_all_other_threads_ex(). For X86_64 platform, the feature is
+   supported only when fast FP save and restore is supported. And mixed mode is not
+   supported.
 
 **************************************************
 <hr>

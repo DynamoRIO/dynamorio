@@ -246,8 +246,10 @@ ushort
 os_get_app_tls_reg_offset(reg_id_t seg);
 void *
 os_get_app_tls_base(dcontext_t *dcontext, reg_id_t seg);
+#ifdef X64
 bool
-os_dump_core_live(void);
+os_dump_core_live(dcontext_t *dcontext, priv_mcontext_t *mc);
+#endif
 
 #if defined(AARCHXX) || defined(RISCV64)
 bool
