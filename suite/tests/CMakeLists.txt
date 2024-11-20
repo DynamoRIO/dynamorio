@@ -3936,6 +3936,11 @@ if (BUILD_CLIENTS)
           "")
         set(tool.schedule_stats_nopreempt_rawtemp ON) # no preprocessor
 
+        torunonly_simtool(schedule_stats_maxcores ${ci_shared_app}
+          "-indir ${thread_trace_dir} -tool schedule_stats -core_sharded -sched_max_cores 2"
+          "")
+        set(tool.schedule_stats_nopreempt_rawtemp ON) # no preprocessor
+
         torunonly_simtool(core_serial ${ci_shared_app}
           "-indir ${thread_trace_dir} -tool schedule_stats:basic_counts -core_serial"
           "")

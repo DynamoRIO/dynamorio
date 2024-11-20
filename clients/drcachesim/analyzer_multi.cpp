@@ -549,7 +549,8 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
             return;
         }
         if (!this->init_scheduler(tracedir, only_threads, only_shards,
-                                  op_verbose.get_value(), std::move(sched_ops))) {
+                                  op_sched_max_cores.get_value(), op_verbose.get_value(),
+                                  std::move(sched_ops))) {
             this->success_ = false;
             return;
         }
@@ -573,7 +574,8 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
         }
     } else {
         // Legacy file.
-        if (!this->init_scheduler(op_infile.get_value(), {}, {}, op_verbose.get_value(),
+        if (!this->init_scheduler(op_infile.get_value(), {}, {},
+                                  op_sched_max_cores.get_value(), op_verbose.get_value(),
                                   std::move(sched_ops))) {
             this->success_ = false;
             return;
