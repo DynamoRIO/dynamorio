@@ -2292,6 +2292,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::set_cur_input(
         // straightforward).
         if (options_.mapping == sched_type_t::MAP_TO_ANY_OUTPUT && prev_input != input &&
             !inputs_[prev_input].at_eof) {
+            // The caller should never hold the input lock for MAP_TO_ANY_OUTPUT.
+            assert(!caller_holds_cur_input_lock);
             add_to_ready_queue(output, &inputs_[prev_input]);
         }
     } else if (options_.schedule_record_ostream != nullptr &&
@@ -2313,7 +2315,12 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::set_cur_input(
 
     int prev_workload = -1;
     if (outputs_[output].prev_input >= 0 && outputs_[output].prev_input != input) {
-        std::lock_guard<mutex_dbg_owned> lock(*inputs_[outputs_[output].prev_input].lock);
+        // If the caller already holds the lock, do not re-acquire as that will hang.
+        auto scoped_lock =
+            (caller_holds_cur_input_lock && prev_input == outputs_[output].prev_input)
+            ? std::unique_lock<mutex_dbg_owned>()
+            : std::unique_lock<mutex_dbg_owned>(
+                  *inputs_[outputs_[output].prev_input].lock);
         prev_workload = inputs_[outputs_[output].prev_input].workload;
     }
 
