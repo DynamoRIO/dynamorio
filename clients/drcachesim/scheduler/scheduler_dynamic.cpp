@@ -151,15 +151,23 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
 template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_dynamic_tmpl_t<RecordType, ReaderType>::swap_out_input(
-    output_ordinal_t output, input_ordinal_t input, int workload,
-    bool caller_holds_input_lock)
+    output_ordinal_t output, input_ordinal_t input, bool caller_holds_input_lock)
 {
-    // Now that the caller has updated prev_info, add it to the ready queue (once on
-    // the queue others can see it and pop it off).
-    if (!inputs_[input].at_eof) {
-        // This is unsafe if the caller holds this input lock: we disallow it here
-        // and in the parent's set_cur_input().
-        assert(!caller_holds_input_lock);
+    // We disallow the caller holding the input lock as that precludes our call to
+    // add_to_ready_queue().
+    assert(!caller_holds_input_lock);
+    if (input == sched_type_t::INVALID_INPUT_ORDINAL)
+        return sched_type_t::STATUS_OK;
+    bool at_eof = false;
+    {
+        std::lock_guard<mutex_dbg_owned> lock(*inputs_[input].lock);
+        at_eof = inputs_[input].at_eof;
+        assert(inputs_[input].cur_output == sched_type_t::INVALID_OUTPUT_ORDINAL);
+    }
+    // Now that the caller has updated the outgoing input's fields (we assert that
+    // cur_output was changed above), add it to the ready queue (once on the queue others
+    // can see it and pop it off).
+    if (!at_eof) {
         add_to_ready_queue(output, &inputs_[input]);
     }
     // TODO i#7067: Track peak live core usage per workload here.

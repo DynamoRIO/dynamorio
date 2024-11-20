@@ -554,18 +554,20 @@ protected:
     virtual scheduler_status_t
     set_initial_schedule(std::unordered_map<int, std::vector<int>> &workload2inputs) = 0;
 
-    // When an output's input changes from a valid (not INVALID_INPUT_ORDINAL) input to
-    // something else, swap_out_input() is called on the outgoing input (whose lock is
-    // held if "caller_holds_input_lock" is true; it will never be true for
-    // MAP_TO_ANY_OUTPUT).  This is called after the input's fields (such as cur_output
-    // and last_run_time) have been updated.
+    // When an output's input changes (whether between two valid inputs, from a valid to
+    // INVALID_INPUT_ORDINAL, or vice versa), swap_out_input() is called on the outgoing
+    // input (whose lock is held if "caller_holds_input_lock" is true; it will never be
+    // true for MAP_TO_ANY_OUTPUT).  This is called after the input's fields (such as
+    // cur_output and last_run_time) have been updated, if it was a valid input.
+    // This should return STATUS_OK if there is nothing to do; errors are propagated.
     virtual stream_status_t
-    swap_out_input(output_ordinal_t output, input_ordinal_t input, int workload,
+    swap_out_input(output_ordinal_t output, input_ordinal_t input,
                    bool caller_holds_input_lock) = 0;
 
-    // When an output's input changes to a valid (not INVALID_INPUT_ORDINAL) input
+    // When an output's input changes (to a valid input or to INVALID_INPUT_ORDINAL)
     // different from the previous input, swap_in_input() is called on the incoming
-    // input (whose lock is always held by the caller).
+    // input (whose lock is always held by the caller, if a valid input).
+    // This should return STATUS_OK if there is nothing to do; errors are propagated.
     virtual stream_status_t
     swap_in_input(output_ordinal_t output, input_ordinal_t input) = 0;
 
@@ -1020,7 +1022,7 @@ protected:
         std::unordered_map<int, std::vector<int>> &workload2inputs) override;
 
     stream_status_t
-    swap_out_input(output_ordinal_t output, input_ordinal_t input, int workload,
+    swap_out_input(output_ordinal_t output, input_ordinal_t input,
                    bool caller_holds_input_lock) override;
     stream_status_t
     swap_in_input(output_ordinal_t output, input_ordinal_t input) override;
@@ -1132,7 +1134,7 @@ protected:
         std::unordered_map<int, std::vector<int>> &workload2inputs) override;
 
     stream_status_t
-    swap_out_input(output_ordinal_t output, input_ordinal_t input, int workload,
+    swap_out_input(output_ordinal_t output, input_ordinal_t input,
                    bool caller_holds_input_lock) override;
     stream_status_t
     swap_in_input(output_ordinal_t output, input_ordinal_t input) override;
@@ -1179,7 +1181,7 @@ protected:
         std::unordered_map<int, std::vector<int>> &workload2inputs) override;
 
     stream_status_t
-    swap_out_input(output_ordinal_t output, input_ordinal_t input, int workload,
+    swap_out_input(output_ordinal_t output, input_ordinal_t input,
                    bool caller_holds_input_lock) override;
     stream_status_t
     swap_in_input(output_ordinal_t output, input_ordinal_t input) override;

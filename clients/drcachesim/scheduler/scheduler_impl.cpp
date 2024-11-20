@@ -2214,9 +2214,6 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::set_cur_input(
     if (prev_input >= 0) {
         if (prev_input != input) {
             input_info_t &prev_info = inputs_[prev_input];
-            // This is different from prev_workload below: that waits for a valid
-            // new workload (so swap-in trigger).
-            int workload = -1;
             {
                 auto scoped_lock = caller_holds_cur_input_lock
                     ? std::unique_lock<mutex_dbg_owned>()
@@ -2228,13 +2225,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::set_cur_input(
                     if (status != sched_type_t::STATUS_OK)
                         return status;
                 }
-                workload = prev_info.workload;
             }
-            // Let subclasses act on the outgoing input.
-            stream_status_t res =
-                swap_out_input(output, prev_input, workload, caller_holds_cur_input_lock);
-            if (res != sched_type_t::STATUS_OK)
-                return res;
         }
     } else if (options_.schedule_record_ostream != nullptr &&
                (outputs_[output].record.back().type == schedule_record_t::IDLE ||
@@ -2245,13 +2236,22 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::set_cur_input(
         if (status != sched_type_t::STATUS_OK)
             return status;
     }
+    if (prev_input != input) {
+        // Let subclasses act on the outgoing input.
+        stream_status_t res =
+            swap_out_input(output, prev_input, caller_holds_cur_input_lock);
+        if (res != sched_type_t::STATUS_OK)
+            return res;
+    }
     if (outputs_[output].cur_input >= 0)
         outputs_[output].prev_input = outputs_[output].cur_input;
     outputs_[output].cur_input = input;
-    if (input < 0)
-        return sched_type_t::STATUS_OK;
     if (prev_input == input)
         return sched_type_t::STATUS_OK;
+    if (input < 0) {
+        // Let subclasses act on the switch to idle.
+        return swap_in_input(output, input);
+    }
 
     int prev_workload = -1;
     if (outputs_[output].prev_input >= 0 && outputs_[output].prev_input != input) {
