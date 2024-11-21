@@ -263,17 +263,19 @@ protected:
     };
 
     // XXX i#6831: Should this live entirely inside the dynamic subclass?
-    // We would need to make part of ini() virtual with subclass overrides.
+    // We would need to make part of init() virtual with subclass overrides.
     struct workload_info_t {
-        explicit workload_info_t(int output_limit)
+        explicit workload_info_t(int output_limit, std::vector<input_ordinal_t> inputs)
             : output_limit(output_limit)
+            , inputs(std::move(inputs))
         {
-            live_outputs = std::unique_ptr<std::atomic<int>>(new std::atomic<int>());
-            live_outputs->store(0, std::memory_order_relaxed);
+            live_output_count = std::unique_ptr<std::atomic<int>>(new std::atomic<int>());
+            live_output_count->store(0, std::memory_order_relaxed);
         }
-        int output_limit; // Read-only after constructed.
-        std::unique_ptr<std::atomic<int>> live_outputs;
-        std::vector<input_ordinal_t> inputs; // Read-only after constructed.
+        const int output_limit; // No lock needed since read-only.
+        // We use a unique_ptr to make this moveable for vector storage.
+        std::unique_ptr<std::atomic<int>> live_output_count;
+        const std::vector<input_ordinal_t> inputs; // No lock needed: read-only post-init.
     };
 
     // Format for recording a schedule to disk.  A separate sequence of these records
@@ -582,6 +584,7 @@ protected:
     // When an output's input changes (to a valid input or to INVALID_INPUT_ORDINAL)
     // different from the previous input, swap_in_input() is called on the incoming
     // input (whose lock is always held by the caller, if a valid input).
+    // This is properly ordered with respect to swap_out_input().
     // This should return STATUS_OK if there is nothing to do; errors are propagated.
     virtual stream_status_t
     swap_in_input(output_ordinal_t output, input_ordinal_t input) = 0;

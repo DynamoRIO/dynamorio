@@ -713,10 +713,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
             return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
         if (!workload.only_threads.empty() && !workload.only_shards.empty())
             return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
-        int output_limit = 0;
-        if (workload.struct_size > offsetof(workload_info_t, output_limit))
-            output_limit = workload.output_limit;
-        workloads_.emplace_back(output_limit);
+        std::vector<input_ordinal_t> inputs_in_workload;
         input_reader_info_t reader_info;
         reader_info.only_threads = workload.only_threads;
         reader_info.only_shards = workload.only_shards;
@@ -740,7 +737,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
                 input_info_t &input = inputs_.back();
                 input.index = index;
                 input.workload = workload_idx;
-                workloads_.back().inputs.push_back(index);
+                inputs_in_workload.push_back(index);
                 input.tid = reader.tid;
                 input.reader = std::move(reader.reader);
                 input.reader_end = std::move(reader.end);
@@ -756,10 +753,14 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
                 return res;
             for (const auto &it : reader_info.tid2input) {
                 inputs_[it.second].workload = workload_idx;
-                workloads_.back().inputs.push_back(it.second);
+                inputs_in_workload.push_back(it.second);
                 tid2input_[workload_tid_t(workload_idx, it.first)] = it.second;
             }
         }
+        int output_limit = 0;
+        if (workload.struct_size > offsetof(workload_info_t, output_limit))
+            output_limit = workload.output_limit;
+        workloads_.emplace_back(output_limit, std::move(inputs_in_workload));
         if (!check_valid_input_limits(workload, reader_info))
             return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
         if (!workload.times_of_interest.empty()) {

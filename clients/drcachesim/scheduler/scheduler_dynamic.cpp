@@ -113,7 +113,9 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::set_initial_schedule()
     }
     // Now assign round-robin to the outputs.  We have to obey bindings here: we
     // just take the first.  This isn't guaranteed to be perfect if there are
-    // many bindings (or output limits), but we run a rebalancing afterward.
+    // many bindings (or output limits), but we run a rebalancing afterward
+    // (to construct it up front would take similar code to the rebalance so we
+    // leverage that code).
     output_ordinal_t output = 0;
     while (!allq.empty()) {
         input_info_t *input = allq.top();
@@ -139,7 +141,7 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::set_initial_schedule()
         assert(status == sched_type_t::STATUS_OK || status == sched_type_t::STATUS_IDLE);
         if (queue_next == nullptr) {
             // Try to steal, as the initial round-robin layout and rebalancing ignores
-            // ouput_limit and other factors.
+            // output_limit and other factors.
             status = eof_or_idle_for_mode(i, sched_type_t::INVALID_INPUT_ORDINAL);
             if (status != sched_type_t::STATUS_STOLE)
                 set_cur_input(i, sched_type_t::INVALID_INPUT_ORDINAL);
@@ -177,7 +179,7 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::swap_out_input(
         add_to_ready_queue(output, &inputs_[input]);
     }
     if (workloads_[workload].output_limit > 0)
-        workloads_[workload].live_outputs->fetch_add(-1, std::memory_order_release);
+        workloads_[workload].live_output_count->fetch_add(-1, std::memory_order_release);
     return sched_type_t::STATUS_OK;
 }
 
@@ -190,7 +192,7 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::swap_in_input(output_ordinal_t
         return sched_type_t::STATUS_OK;
     workload_info_t &workload = workloads_[inputs_[input].workload];
     if (workload.output_limit > 0)
-        workload.live_outputs->fetch_add(1, std::memory_order_release);
+        workload.live_output_count->fetch_add(1, std::memory_order_release);
     return sched_type_t::STATUS_OK;
 }
 
@@ -926,7 +928,7 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::eof_or_idle_for_mode(
             output_ordinal_t target = (output + i) % outputs_.size();
             assert(target != output); // Sanity check (we won't reach "output").
             input_info_t *queue_next = nullptr;
-            VPRINT(this, 2, // NOCHECK 4
+            VPRINT(this, 4,
                    "eof_or_idle: output %d trying to steal from %d's ready_queue\n",
                    output, target);
             stream_status_t status = pop_from_ready_queue(target, output, queue_next);
@@ -1109,7 +1111,7 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue_hold_lock
                 // We've found a potential candidate.  Is it under its output limit?
                 workload_info_t &workload = workloads_[res->workload];
                 if (workload.output_limit > 0 &&
-                    workload.live_outputs->load(std::memory_order_acquire) >=
+                    workload.live_output_count->load(std::memory_order_acquire) >=
                         workload.output_limit) {
                     VPRINT(this, 2, "output[%d]: not running input %d: at output limit\n",
                            for_output, res->index);

@@ -172,6 +172,8 @@ public:
             return *this;
         }
         // Statistics provided by scheduler.
+        // XXX: Should we change all of these to uint64_t? Never negative: but signed
+        // ints are generally recommended as better for the compiler.
         int64_t switches_input_to_input = 0;
         int64_t switches_input_to_idle = 0;
         int64_t switches_idle_to_input = 0;
