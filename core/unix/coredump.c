@@ -485,7 +485,6 @@ os_dump_core_internal(dcontext_t *dcontext, priv_mcontext_t *mc)
         os_close(elf_file);
         return false;
     }
-    // TODO i#7046: Fill the program header with valid data.
     if (!write_program_header(elf_file, PT_NOTE, /*flags=*/0,
                               /*offset=*/sizeof(ELF_HEADER_TYPE) +
                                   sizeof(ELF_PROGRAM_HEADER_TYPE),
@@ -594,6 +593,7 @@ os_dump_core_live(dcontext_t *dcontext, priv_mcontext_t *mc)
         return false;
     }
 
+    // TODO i#7046: Add support to save register values for all threads.
     const bool ret = os_dump_core_internal(dcontext, mc);
 
     end_synch_with_all_threads(threads, num_threads,
