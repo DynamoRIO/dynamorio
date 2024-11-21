@@ -42,6 +42,7 @@
 #include <cstdint>
 #include <limits>
 #include <mutex>
+#include <sstream>
 #include <thread>
 #include <unordered_map>
 #include <vector>
@@ -70,8 +71,7 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::~scheduler_dynamic_tmpl_t()
 
 template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
-scheduler_dynamic_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
-    std::unordered_map<int, std::vector<int>> &workload2inputs)
+scheduler_dynamic_tmpl_t<RecordType, ReaderType>::set_initial_schedule()
 {
     if (options_.mapping != sched_type_t::MAP_TO_ANY_OUTPUT)
         return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
@@ -79,11 +79,11 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
     if (options_.deps == sched_type_t::DEPENDENCY_TIMESTAMPS) {
         // Compute the min timestamp (==base_timestamp) per workload and sort
         // all inputs by relative time from the base.
-        for (int workload_idx = 0;
-             workload_idx < static_cast<int>(workload2inputs.size()); ++workload_idx) {
+        for (int workload_idx = 0; workload_idx < static_cast<int>(workloads_.size());
+             ++workload_idx) {
             uint64_t min_time = std::numeric_limits<uint64_t>::max();
             input_ordinal_t min_input = -1;
-            for (int input_idx : workload2inputs[workload_idx]) {
+            for (int input_idx : workloads_[workload_idx].inputs) {
                 if (inputs_[input_idx].next_timestamp < min_time) {
                     min_time = inputs_[input_idx].next_timestamp;
                     min_input = input_idx;
@@ -91,7 +91,7 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
             }
             if (min_input < 0)
                 return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
-            for (int input_idx : workload2inputs[workload_idx]) {
+            for (int input_idx : workloads_[workload_idx].inputs) {
                 VPRINT(this, 4,
                        "workload %d: setting input %d base_timestamp to %" PRIu64
                        " vs next_timestamp %zu\n",
@@ -113,7 +113,9 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
     }
     // Now assign round-robin to the outputs.  We have to obey bindings here: we
     // just take the first.  This isn't guaranteed to be perfect if there are
-    // many bindings, but we run a rebalancing afterward.
+    // many bindings (or output limits), but we run a rebalancing afterward
+    // (to construct it up front would take similar code to the rebalance so we
+    // leverage that code).
     output_ordinal_t output = 0;
     while (!allq.empty()) {
         input_info_t *input = allq.top();
@@ -137,9 +139,13 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
 #endif
             pop_from_ready_queue(i, i, queue_next);
         assert(status == sched_type_t::STATUS_OK || status == sched_type_t::STATUS_IDLE);
-        if (queue_next == nullptr)
-            set_cur_input(i, sched_type_t::INVALID_INPUT_ORDINAL);
-        else
+        if (queue_next == nullptr) {
+            // Try to steal, as the initial round-robin layout and rebalancing ignores
+            // output_limit and other factors.
+            status = eof_or_idle_for_mode(i, sched_type_t::INVALID_INPUT_ORDINAL);
+            if (status != sched_type_t::STATUS_STOLE)
+                set_cur_input(i, sched_type_t::INVALID_INPUT_ORDINAL);
+        } else
             set_cur_input(i, queue_next->index);
     }
     VPRINT(this, 2, "Initial queues:\n");
@@ -159,10 +165,12 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::swap_out_input(
     if (input == sched_type_t::INVALID_INPUT_ORDINAL)
         return sched_type_t::STATUS_OK;
     bool at_eof = false;
+    int workload = -1;
     {
         std::lock_guard<mutex_dbg_owned> lock(*inputs_[input].lock);
         at_eof = inputs_[input].at_eof;
         assert(inputs_[input].cur_output == sched_type_t::INVALID_OUTPUT_ORDINAL);
+        workload = inputs_[input].workload;
     }
     // Now that the caller has updated the outgoing input's fields (we assert that
     // cur_output was changed above), add it to the ready queue (once on the queue others
@@ -170,7 +178,8 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::swap_out_input(
     if (!at_eof) {
         add_to_ready_queue(output, &inputs_[input]);
     }
-    // TODO i#7067: Track peak live core usage per workload here.
+    if (workloads_[workload].output_limit > 0)
+        workloads_[workload].live_output_count->fetch_add(-1, std::memory_order_release);
     return sched_type_t::STATUS_OK;
 }
 
@@ -179,7 +188,11 @@ typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_dynamic_tmpl_t<RecordType, ReaderType>::swap_in_input(output_ordinal_t output,
                                                                 input_ordinal_t input)
 {
-    // TODO i#7067: Track peak live core usage per workload here.
+    if (input == sched_type_t::INVALID_INPUT_ORDINAL)
+        return sched_type_t::STATUS_OK;
+    workload_info_t &workload = workloads_[inputs_[input].workload];
+    if (workload.output_limit > 0)
+        workload.live_output_count->fetch_add(1, std::memory_order_release);
     return sched_type_t::STATUS_OK;
 }
 
@@ -915,6 +928,9 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::eof_or_idle_for_mode(
             output_ordinal_t target = (output + i) % outputs_.size();
             assert(target != output); // Sanity check (we won't reach "output").
             input_info_t *queue_next = nullptr;
+            VPRINT(this, 4,
+                   "eof_or_idle: output %d trying to steal from %d's ready_queue\n",
+                   output, target);
             stream_status_t status = pop_from_ready_queue(target, output, queue_next);
             if (status == sched_type_t::STATUS_OK && queue_next != nullptr) {
                 set_cur_input(output, queue_next->index);
@@ -1091,11 +1107,20 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue_hold_lock
                 res->unscheduled = false;
                 VPRINT(this, 4, "pop queue: %d @ %" PRIu64 " no longer blocked\n",
                        res->index, cur_time);
-                // We've found a candidate.  One final check if this is a migration.
                 bool found_candidate = false;
-                if (from_output == for_output)
+                // We've found a potential candidate.  Is it under its output limit?
+                workload_info_t &workload = workloads_[res->workload];
+                if (workload.output_limit > 0 &&
+                    workload.live_output_count->load(std::memory_order_acquire) >=
+                        workload.output_limit) {
+                    VPRINT(this, 2, "output[%d]: not running input %d: at output limit\n",
+                           for_output, res->index);
+                    ++outputs_[from_output]
+                          .stats[memtrace_stream_t::SCHED_STAT_HIT_OUTPUT_LIMIT];
+                } else if (from_output == for_output) {
                     found_candidate = true;
-                else {
+                } else {
+                    // One final check if this is a migration.
                     assert(cur_time > 0 || res->last_run_time == 0);
                     if (res->last_run_time == 0) {
                         // For never-executed inputs we consider their last execution

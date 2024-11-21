@@ -58,8 +58,7 @@ namespace drmemtrace {
 
 template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
-scheduler_replay_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
-    std::unordered_map<int, std::vector<int>> &workload2inputs)
+scheduler_replay_tmpl_t<RecordType, ReaderType>::set_initial_schedule()
 {
     if (options_.mapping == sched_type_t::MAP_AS_PREVIOUSLY) {
         this->live_replay_output_count_.store(static_cast<int>(outputs_.size()),

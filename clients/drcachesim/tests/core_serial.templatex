@@ -18,6 +18,7 @@ Total counts:
            0 migrations
            0 work steals
            0 rebalances
+           0 output limits hit
          161 system calls
            2 maybe-blocking system calls
            0 direct switch requests

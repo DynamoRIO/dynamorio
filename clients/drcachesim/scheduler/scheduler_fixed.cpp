@@ -54,8 +54,7 @@ namespace drmemtrace {
 
 template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
-scheduler_fixed_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
-    std::unordered_map<int, std::vector<int>> &workload2inputs)
+scheduler_fixed_tmpl_t<RecordType, ReaderType>::set_initial_schedule()
 {
     if (options_.mapping == sched_type_t::MAP_TO_CONSISTENT_OUTPUT) {
         // Assign the inputs up front to avoid locks once we're in parallel mode.

@@ -1061,6 +1061,12 @@ droption_t<double> op_sched_exit_if_fraction_inputs_left(
     "count is not considered (as it is not available), use discretion when raising "
     "this value on uneven inputs.");
 
+droption_t<int> op_sched_max_cores(
+    DROPTION_SCOPE_ALL, "sched_max_cores", 0,
+    "Limit scheduling to this many peak live cores",
+    "If non-zero, only this many live cores can be scheduled at any one time.  "
+    "Other cores will remain idle.");
+
 // Schedule_stats options.
 droption_t<uint64_t>
     op_schedule_stats_print_every(DROPTION_SCOPE_ALL, "schedule_stats_print_every",

@@ -230,7 +230,7 @@ template <typename RecordType, typename ReaderType>
 bool
 analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(
     const std::string &trace_path, const std::set<memref_tid_t> &only_threads,
-    const std::set<int> &only_shards, int verbosity,
+    const std::set<int> &only_shards, int output_limit, int verbosity,
     typename sched_type_t::scheduler_options_t options)
 {
     verbosity_ = verbosity;
@@ -249,6 +249,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(
     typename sched_type_t::input_workload_t workload(trace_path, regions);
     workload.only_threads = only_threads;
     workload.only_shards = only_shards;
+    workload.output_limit = output_limit;
     if (regions.empty() && skip_to_timestamp_ > 0) {
         workload.times_of_interest.emplace_back(skip_to_timestamp_, 0);
     }
@@ -383,7 +384,8 @@ analyzer_tmpl_t<RecordType, ReaderType>::analyzer_tmpl_t(
     // The scheduler will call reader_t::init() for each input file.  We assume
     // that won't block (analyzer_multi_t separates out IPC readers).
     typename sched_type_t::scheduler_options_t sched_ops;
-    if (!init_scheduler(trace_path, {}, {}, verbosity, std::move(sched_ops))) {
+    if (!init_scheduler(trace_path, {}, {}, /*output_limit=*/0, verbosity,
+                        std::move(sched_ops))) {
         success_ = false;
         error_string_ = "Failed to create scheduler";
         return;
