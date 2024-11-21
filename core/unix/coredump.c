@@ -381,8 +381,12 @@ write_fpregset_note(DR_PARAM_IN dcontext_t *dcontext, DR_PARAM_IN priv_mcontext_
  * false otherwise.
  */
 static bool
-os_dump_core_internal(dcontext_t *dcontext, priv_mcontext_t *mc)
+os_dump_core_internal(dcontext_t *dcontext)
 {
+    priv_mcontext_t mc;
+    if (!dr_get_mcontext_priv(dcontext, NULL, &mc))
+        return false;
+
     // Insert a null string at the beginning for sections with no comment.
     char string_table[MAX_SECTION_NAME_BUFFER_SIZE];
     // Reserve the first byte for sections without a name.
@@ -495,11 +499,11 @@ os_dump_core_internal(dcontext_t *dcontext, priv_mcontext_t *mc)
         os_close(elf_file);
         return false;
     }
-    if (!write_prstatus_note(mc, elf_file)) {
+    if (!write_prstatus_note(&mc, elf_file)) {
         os_close(elf_file);
         return false;
     }
-    if (!write_fpregset_note(dcontext, mc, elf_file)) {
+    if (!write_fpregset_note(dcontext, &mc, elf_file)) {
         os_close(elf_file);
         return false;
     }
@@ -573,7 +577,7 @@ os_dump_core_internal(dcontext_t *dcontext, priv_mcontext_t *mc)
  * Returns true if a core dump file is written, false otherwise.
  */
 bool
-os_dump_core_live(dcontext_t *dcontext, priv_mcontext_t *mc)
+os_dump_core_live(dcontext_t *dcontext)
 {
 #ifdef DR_HOST_NOT_TARGET
     // Memory dump is supported only when the host and the target are the same.
@@ -594,7 +598,7 @@ os_dump_core_live(dcontext_t *dcontext, priv_mcontext_t *mc)
     }
 
     // TODO i#7046: Add support to save register values for all threads.
-    const bool ret = os_dump_core_internal(dcontext, mc);
+    const bool ret = os_dump_core_internal(dcontext);
 
     end_synch_with_all_threads(threads, num_threads,
                                /*resume=*/true);
