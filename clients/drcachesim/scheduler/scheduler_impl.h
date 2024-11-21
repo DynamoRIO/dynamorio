@@ -271,9 +271,9 @@ protected:
             live_outputs = std::unique_ptr<std::atomic<int>>(new std::atomic<int>());
             live_outputs->store(0, std::memory_order_relaxed);
         }
-        int output_limit;
+        int output_limit; // Read-only after constructed.
         std::unique_ptr<std::atomic<int>> live_outputs;
-        std::vector<input_ordinal_t> inputs;
+        std::vector<input_ordinal_t> inputs; // Read-only after constructed.
     };
 
     // Format for recording a schedule to disk.  A separate sequence of these records
