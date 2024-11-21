@@ -150,6 +150,7 @@ public:
             migrations += rhs.migrations;
             steals += rhs.steals;
             rebalances += rhs.rebalances;
+            at_output_limit += rhs.at_output_limit;
             instrs += rhs.instrs;
             total_switches += rhs.total_switches;
             voluntary_switches += rhs.voluntary_switches;
@@ -171,6 +172,8 @@ public:
             return *this;
         }
         // Statistics provided by scheduler.
+        // XXX: Should we change all of these to uint64_t? Never negative: but signed
+        // ints are generally recommended as better for the compiler.
         int64_t switches_input_to_input = 0;
         int64_t switches_input_to_idle = 0;
         int64_t switches_idle_to_input = 0;
@@ -179,6 +182,7 @@ public:
         int64_t migrations = 0;
         int64_t steals = 0;
         int64_t rebalances = 0;
+        int64_t at_output_limit = 0;
         // Our own statistics.
         int64_t instrs = 0;
         int64_t total_switches = 0;

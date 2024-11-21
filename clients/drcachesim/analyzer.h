@@ -221,7 +221,7 @@ protected:
     init_scheduler(const std::string &trace_path,
                    // To include all threads/shards, use empty sets.
                    const std::set<memref_tid_t> &only_threads,
-                   const std::set<int> &only_shards, int verbosity,
+                   const std::set<int> &only_shards, int output_limit, int verbosity,
                    typename sched_type_t::scheduler_options_t options);
 
     // For core-sharded, worker_count_ must be set prior to calling this; for parallel

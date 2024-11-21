@@ -107,6 +107,11 @@ public:
          * Counts the number of output runqueue rebalances triggered by this output.
          */
         SCHED_STAT_RUNQUEUE_REBALANCES,
+        /**
+         * Counts the instances where a workload's output limit prevented one of its
+         * inputs from being scheduled onto an output.
+         */
+        SCHED_STAT_HIT_OUTPUT_LIMIT,
         /** Count of statistic types. */
         SCHED_STAT_TYPE_COUNT,
     };
