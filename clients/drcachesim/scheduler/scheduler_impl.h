@@ -247,6 +247,8 @@ protected:
         // The units are in simuilation time.
         uint64_t blocked_time = 0;
         uint64_t blocked_start_time = 0;
+        // XXX i#6831: Move fields like this to be specific to subclasses by changing
+        // inputs_ to a vector of unique_ptr and then subclassing input_info_t.
         // An input can be "unscheduled" and not on the ready_priority_ run queue at all
         // with an infinite timeout until directly targeted.  Such inputs are stored
         // in the unscheduled_priority_ queue.
@@ -383,28 +385,8 @@ protected:
     std::unique_lock<mutex_dbg_owned>
     acquire_scoped_output_lock_if_necessary(output_ordinal_t output);
 
-    // If input->unscheduled is true and input->blocked_time is 0, input
-    // is placed on the unscheduled_priority_ queue instead.
-    // The caller cannot hold the input's lock: this routine will acquire it.
-    void
-    add_to_ready_queue(output_ordinal_t output, input_info_t *input);
-
-    // Identical to add_to_ready_queue() except the output's lock must be held by the
-    // caller.
-    // The caller must also hold the input's lock.
-    void
-    add_to_ready_queue_hold_locks(output_ordinal_t output, input_info_t *input);
-
-    // The caller must hold the input's lock.
-    void
-    add_to_unscheduled_queue(input_info_t *input);
-
     uint64_t
     scale_blocked_time(uint64_t initial_time) const;
-
-    // Up to the caller to check verbosity before calling.
-    void
-    print_queue_stats();
 
     void
     update_switch_stats(output_ordinal_t output, input_ordinal_t prev_input,
@@ -451,6 +433,8 @@ protected:
         input_ordinal_t cur_input = sched_type_t::INVALID_INPUT_ORDINAL;
         // Holds the prior non-invalid input.
         input_ordinal_t prev_input = sched_type_t::INVALID_INPUT_ORDINAL;
+        // XXX i#6831: Move fields like this to be specific to subclasses by changing
+        // inputs_ to a vector of unique_ptr and then subclassing output_info_t.
         // For static schedules we can populate this up front and avoid needing a
         // lock for dynamically finding the next input, keeping things parallel.
         std::vector<input_ordinal_t> input_indices;
@@ -569,6 +553,23 @@ protected:
     // Should call set_cur_input() for all outputs with initial inputs.
     virtual scheduler_status_t
     set_initial_schedule(std::unordered_map<int, std::vector<int>> &workload2inputs) = 0;
+
+    // When an output's input changes (whether between two valid inputs, from a valid to
+    // INVALID_INPUT_ORDINAL, or vice versa), swap_out_input() is called on the outgoing
+    // input (whose lock is held if "caller_holds_input_lock" is true; it will never be
+    // true for MAP_TO_ANY_OUTPUT).  This is called after the input's fields (such as
+    // cur_output and last_run_time) have been updated, if it was a valid input.
+    // This should return STATUS_OK if there is nothing to do; errors are propagated.
+    virtual stream_status_t
+    swap_out_input(output_ordinal_t output, input_ordinal_t input,
+                   bool caller_holds_input_lock) = 0;
+
+    // When an output's input changes (to a valid input or to INVALID_INPUT_ORDINAL)
+    // different from the previous input, swap_in_input() is called on the incoming
+    // input (whose lock is always held by the caller, if a valid input).
+    // This should return STATUS_OK if there is nothing to do; errors are propagated.
+    virtual stream_status_t
+    swap_in_input(output_ordinal_t output, input_ordinal_t input) = 0;
 
     // Allow subclasses to perform custom initial marker processing during
     // get_initial_input_content().  Returns whether to keep reading.
@@ -928,11 +929,6 @@ protected:
     // ready_queue-related plus record and record_index fields which are accessed under
     // the output's own lock.
     std::vector<output_info_t> outputs_;
-    // This lock protects unscheduled_priority_ and unscheduled_counter_.
-    // It should be acquired *after* both output or input locks: it is narrowmost.
-    mutex_dbg_owned unsched_lock_;
-    // Inputs that are unscheduled indefinitely until directly targeted.
-    input_queue_t unscheduled_priority_;
     // Count of inputs not yet at eof.
     std::atomic<int> live_input_count_;
     // In replay mode, count of outputs not yet at the end of the replay sequence.
@@ -995,6 +991,7 @@ public:
     {
         last_rebalance_time_.store(0, std::memory_order_relaxed);
     }
+    ~scheduler_dynamic_tmpl_t();
 
 private:
     using sched_type_t = scheduler_tmpl_t<RecordType, ReaderType>;
@@ -1008,11 +1005,11 @@ private:
     using
         typename scheduler_impl_tmpl_t<RecordType, ReaderType>::InputTimestampComparator;
     using typename scheduler_impl_tmpl_t<RecordType, ReaderType>::workload_tid_t;
+    using typename scheduler_impl_tmpl_t<RecordType, ReaderType>::input_queue_t;
     using scheduler_impl_tmpl_t<RecordType, ReaderType>::options_;
     using scheduler_impl_tmpl_t<RecordType, ReaderType>::outputs_;
     using scheduler_impl_tmpl_t<RecordType, ReaderType>::inputs_;
     using scheduler_impl_tmpl_t<RecordType, ReaderType>::error_string_;
-    using scheduler_impl_tmpl_t<RecordType, ReaderType>::unscheduled_priority_;
     using scheduler_impl_tmpl_t<RecordType, ReaderType>::set_cur_input;
     using scheduler_impl_tmpl_t<RecordType,
                                 ReaderType>::acquire_scoped_output_lock_if_necessary;
@@ -1023,6 +1020,12 @@ protected:
     scheduler_status_t
     set_initial_schedule(
         std::unordered_map<int, std::vector<int>> &workload2inputs) override;
+
+    stream_status_t
+    swap_out_input(output_ordinal_t output, input_ordinal_t input,
+                   bool caller_holds_input_lock) override;
+    stream_status_t
+    swap_in_input(output_ordinal_t output, input_ordinal_t input) override;
 
     stream_status_t
     pick_next_input_for_mode(output_ordinal_t output, uint64_t blocked_time,
@@ -1058,6 +1061,22 @@ protected:
     bool
     ready_queue_empty(output_ordinal_t output);
 
+    // If input->unscheduled is true and input->blocked_time is 0, input
+    // is placed on the unscheduled_priority_ queue instead.
+    // The caller cannot hold the input's lock: this routine will acquire it.
+    void
+    add_to_ready_queue(output_ordinal_t output, input_info_t *input);
+
+    // Identical to add_to_ready_queue() except the output's lock must be held by the
+    // caller.
+    // The caller must also hold the input's lock.
+    void
+    add_to_ready_queue_hold_locks(output_ordinal_t output, input_info_t *input);
+
+    // The caller must hold the input's lock.
+    void
+    add_to_unscheduled_queue(input_info_t *input);
+
     // "for_output" is which output stream is looking for a new input; only an
     // input which is able to run on that output will be selected.
     // for_output can be INVALID_OUTPUT_ORDINAL, which will ignore bindings.
@@ -1073,9 +1092,18 @@ protected:
                                     output_ordinal_t for_output, input_info_t *&new_input,
                                     bool from_back = false);
 
+    // Up to the caller to check verbosity before calling.
+    void
+    print_queue_stats();
+
     // Rebalancing coordination.
     std::atomic<std::thread::id> rebalancer_;
     std::atomic<uint64_t> last_rebalance_time_;
+    // This lock protects unscheduled_priority_ and unscheduled_counter_.
+    // It should be acquired *after* both output or input locks: it is narrowmost.
+    mutex_dbg_owned unsched_lock_;
+    // Inputs that are unscheduled indefinitely until directly targeted.
+    input_queue_t unscheduled_priority_;
 };
 
 // Specialized code for replaying schedules: either a recorded dynamic schedule
@@ -1104,6 +1132,12 @@ protected:
     scheduler_status_t
     set_initial_schedule(
         std::unordered_map<int, std::vector<int>> &workload2inputs) override;
+
+    stream_status_t
+    swap_out_input(output_ordinal_t output, input_ordinal_t input,
+                   bool caller_holds_input_lock) override;
+    stream_status_t
+    swap_in_input(output_ordinal_t output, input_ordinal_t input) override;
 
     stream_status_t
     pick_next_input_for_mode(output_ordinal_t output, uint64_t blocked_time,
@@ -1145,6 +1179,12 @@ protected:
     scheduler_status_t
     set_initial_schedule(
         std::unordered_map<int, std::vector<int>> &workload2inputs) override;
+
+    stream_status_t
+    swap_out_input(output_ordinal_t output, input_ordinal_t input,
+                   bool caller_holds_input_lock) override;
+    stream_status_t
+    swap_in_input(output_ordinal_t output, input_ordinal_t input) override;
 
     stream_status_t
     pick_next_input_for_mode(output_ordinal_t output, uint64_t blocked_time,

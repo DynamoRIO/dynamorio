@@ -298,6 +298,22 @@ scheduler_replay_tmpl_t<RecordType, ReaderType>::read_and_instantiate_traced_sch
 
 template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
+scheduler_replay_tmpl_t<RecordType, ReaderType>::swap_out_input(
+    output_ordinal_t output, input_ordinal_t input, bool caller_holds_input_lock)
+{
+    return sched_type_t::STATUS_OK;
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
+scheduler_replay_tmpl_t<RecordType, ReaderType>::swap_in_input(output_ordinal_t output,
+                                                               input_ordinal_t input)
+{
+    return sched_type_t::STATUS_OK;
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_replay_tmpl_t<RecordType, ReaderType>::pick_next_input_for_mode(
     output_ordinal_t output, uint64_t blocked_time, input_ordinal_t prev_index,
     input_ordinal_t &index)
