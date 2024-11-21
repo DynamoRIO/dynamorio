@@ -586,23 +586,6 @@ protected:
     virtual stream_status_t
     swap_in_input(output_ordinal_t output, input_ordinal_t input) = 0;
 
-    // When an output's input changes (whether between two valid inputs, from a valid to
-    // INVALID_INPUT_ORDINAL, or vice versa), swap_out_input() is called on the outgoing
-    // input (whose lock is held if "caller_holds_input_lock" is true; it will never be
-    // true for MAP_TO_ANY_OUTPUT).  This is called after the input's fields (such as
-    // cur_output and last_run_time) have been updated, if it was a valid input.
-    // This should return STATUS_OK if there is nothing to do; errors are propagated.
-    virtual stream_status_t
-    swap_out_input(output_ordinal_t output, input_ordinal_t input,
-                   bool caller_holds_input_lock) = 0;
-
-    // When an output's input changes (to a valid input or to INVALID_INPUT_ORDINAL)
-    // different from the previous input, swap_in_input() is called on the incoming
-    // input (whose lock is always held by the caller, if a valid input).
-    // This should return STATUS_OK if there is nothing to do; errors are propagated.
-    virtual stream_status_t
-    swap_in_input(output_ordinal_t output, input_ordinal_t input) = 0;
-
     // Allow subclasses to perform custom initial marker processing during
     // get_initial_input_content().  Returns whether to keep reading.
     // The caller will stop calling when an instruction record is reached.
@@ -1062,12 +1045,6 @@ protected:
     swap_in_input(output_ordinal_t output, input_ordinal_t input) override;
 
     stream_status_t
-    swap_out_input(output_ordinal_t output, input_ordinal_t input,
-                   bool caller_holds_input_lock) override;
-    stream_status_t
-    swap_in_input(output_ordinal_t output, input_ordinal_t input) override;
-
-    stream_status_t
     pick_next_input_for_mode(output_ordinal_t output, uint64_t blocked_time,
                              input_ordinal_t prev_index, input_ordinal_t &index) override;
 
@@ -1179,12 +1156,6 @@ protected:
     swap_in_input(output_ordinal_t output, input_ordinal_t input) override;
 
     stream_status_t
-    swap_out_input(output_ordinal_t output, input_ordinal_t input,
-                   bool caller_holds_input_lock) override;
-    stream_status_t
-    swap_in_input(output_ordinal_t output, input_ordinal_t input) override;
-
-    stream_status_t
     pick_next_input_for_mode(output_ordinal_t output, uint64_t blocked_time,
                              input_ordinal_t prev_index, input_ordinal_t &index) override;
 
@@ -1223,12 +1194,6 @@ private:
 protected:
     scheduler_status_t
     set_initial_schedule() override;
-
-    stream_status_t
-    swap_out_input(output_ordinal_t output, input_ordinal_t input,
-                   bool caller_holds_input_lock) override;
-    stream_status_t
-    swap_in_input(output_ordinal_t output, input_ordinal_t input) override;
 
     stream_status_t
     swap_out_input(output_ordinal_t output, input_ordinal_t input,

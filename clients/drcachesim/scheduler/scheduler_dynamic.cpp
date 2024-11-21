@@ -42,6 +42,7 @@
 #include <cstdint>
 #include <limits>
 #include <mutex>
+#include <sstream>
 #include <thread>
 #include <unordered_map>
 #include <vector>
