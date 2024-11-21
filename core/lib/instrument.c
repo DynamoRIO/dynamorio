@@ -2498,7 +2498,7 @@ dr_create_memory_dump(dr_memory_dump_spec_t *spec)
 #ifdef WINDOWS
     if (TEST(DR_MEMORY_DUMP_LDMP, spec->flags))
         return os_dump_core_live(spec->label, spec->ldmp_path, spec->ldmp_path_size);
-#elif defined(LINUX) && defined(X64)
+#elif defined(LINUX) && ((defined(X64) && defined(X86)) || defined(AARCH64))
     if (TEST(DR_MEMORY_DUMP_ELF, spec->flags)) {
         priv_mcontext_t mc;
         dcontext_t *dcontext = get_thread_private_dcontext();
