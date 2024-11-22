@@ -380,7 +380,11 @@ DR_API
  *
  * \return whether successful.
  *
- * \note this function is only supported on Windows for now.
+ * \note this function is only supported on Windows and X64 Linux only. For X64
+ * Linux, this API has the same restriction as
+ * dr_suspend_all_other_threads_ex(). For X86_64 platform, fast FP save and
+ * restore (fxsave64) support is required. And mixed mode (a process mixing
+ * 64-bit and 32-bit code) is not supported.
  */
 bool
 dr_create_memory_dump(dr_memory_dump_spec_t *spec);

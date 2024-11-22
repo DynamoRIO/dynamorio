@@ -246,8 +246,14 @@ ushort
 os_get_app_tls_reg_offset(reg_id_t seg);
 void *
 os_get_app_tls_base(dcontext_t *dcontext, reg_id_t seg);
+#if defined(AARCH64) || (defined(X64) && defined(X86))
+/* os_dump_core_live has the same restriction as dr_suspend_all_other_threads_ex().
+ * For X86_64 platform, fast FP save and restore (fxsave64) support is required. And mixed
+ * mode (a process mixing 64-bit and 32-bit code) is not supported.
+ */
 bool
-os_dump_core_live(void);
+os_dump_core_live(dcontext_t *dcontext);
+#endif
 
 #if defined(AARCHXX) || defined(RISCV64)
 bool

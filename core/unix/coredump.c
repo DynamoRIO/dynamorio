@@ -29,22 +29,50 @@
 #include <elf.h>
 #include <stddef.h>
 #include <sys/mman.h>
+#include <sys/procfs.h>
 #include "../globals.h"
 
 #include "../hashtable.h"
 #include "../os_shared.h"
 #include "../synch.h"
 #include "../utils.h"
+#include "../ir/decode.h"
+#include "../lib/dr_ir_utils.h"
 #include "../lib/globals_api.h"
 #include "../lib/globals_shared.h"
+#include "../lib/instrument.h"
+
+#include "dr_tools.h"
 #include "elf_defines.h"
 #include "memquery.h"
+
+/* Only X64 is supported. */
+#ifndef X64
+#    error Unsupported architecture
+#endif
 
 #define MAX_SECTION_HEADERS 300
 #define MAX_SECTION_NAME_BUFFER_SIZE 8192
 #define SECTION_HEADER_TABLE ".shstrtab"
 #define VVAR_SECTION "[vvar]"
 #define VSYSCALL_SECTION "[vsyscall]"
+/*
+ * The length of the name has to be a multiple of eight (for X64) to ensure the next
+ * field (descriptor) is 8-byte aligned. Null characters are added at the end as
+ * padding to increase the length to eight. The name CORE is used following the example
+ * of core dump files.
+ */
+#define NOTE_OWNER "CORE\0\0\0\0"
+#define NOTE_OWNER_LENGTH 8
+/*
+ * Two notes, NT_PRSTATUS (prstatus structure) and NT_FPREGSET (floating point registers),
+ * are written to the output file.
+ */
+#define PROGRAM_HEADER_NOTE_LENGTH                                                    \
+    (sizeof(ELF_NOTE_HEADER_TYPE) + NOTE_OWNER_LENGTH + sizeof(struct elf_prstatus) + \
+     sizeof(ELF_NOTE_HEADER_TYPE) + NOTE_OWNER_LENGTH + sizeof(elf_fpregset_t))
+#define PROGRAM_HEADER_LENGTH \
+    (sizeof(ELF_PROGRAM_HEADER_TYPE) + PROGRAM_HEADER_NOTE_LENGTH)
 
 typedef struct _section_header_info_t {
     app_pc vm_start;
@@ -52,6 +80,31 @@ typedef struct _section_header_info_t {
     uint prot;
     ELF_ADDR name_offset;
 } section_header_info_t;
+
+/*
+ * Please reference
+ * https://www.intel.com/content/www/us/en/docs/cpp-compiler/developer-guide-reference/
+ * 2021-8/intrinsics-to-save-and-restore-ext-proc-states.html for the memory layout
+ * used by fxsave64.
+ */
+typedef struct _fxsave64_map_t {
+    unsigned short fcw;
+    unsigned short fsw;
+    unsigned short ftw;
+    unsigned short reserved1;
+    unsigned short fop;
+    unsigned int fip;
+    unsigned short fcs;
+    unsigned short reserved2;
+    unsigned int fdp;
+    unsigned int fds;
+    unsigned short reserved3;
+    unsigned short mxcsr;
+    unsigned short mxcsr_mask;
+    unsigned int st_space[32];
+    unsigned int xmm_space[64];
+    unsigned int padding[24];
+} fxsave64_map_t;
 
 /*
  * Writes an ELF header to the file. Returns true if the ELF header is written to the core
@@ -155,12 +208,185 @@ write_section_header(DR_PARAM_IN file_t elf_file,
 }
 
 /*
+ * Copy dr_mcontext_t register values to user_regs_struct.
+ */
+static void
+mcontext_to_user_regs(DR_PARAM_IN priv_mcontext_t *mcontext,
+                      DR_PARAM_OUT struct user_regs_struct *regs)
+{
+#ifdef DR_HOST_NOT_TARGET
+    return;
+#elif defined(X86)
+    regs->rax = mcontext->rax;
+    regs->rcx = mcontext->rcx;
+    regs->rdx = mcontext->rdx;
+    regs->rbx = mcontext->rbx;
+    regs->rsp = mcontext->rsp;
+    regs->rbp = mcontext->rbp;
+    regs->rsi = mcontext->rsi;
+    regs->rdi = mcontext->rdi;
+    regs->r8 = mcontext->r8;
+    regs->r9 = mcontext->r9;
+    regs->r10 = mcontext->r10;
+    regs->r11 = mcontext->r11;
+    regs->r12 = mcontext->r12;
+    regs->r13 = mcontext->r13;
+    regs->r14 = mcontext->r14;
+    regs->r15 = mcontext->r15;
+    regs->rip = (uint64_t)mcontext->rip;
+    regs->eflags = mcontext->rflags;
+#elif defined(AARCH64)
+    regs->regs[0] = mcontext->r0;
+    regs->regs[1] = mcontext->r1;
+    regs->regs[2] = mcontext->r2;
+    regs->regs[3] = mcontext->r3;
+    regs->regs[4] = mcontext->r4;
+    regs->regs[5] = mcontext->r5;
+    regs->regs[6] = mcontext->r6;
+    regs->regs[7] = mcontext->r7;
+    regs->regs[8] = mcontext->r8;
+    regs->regs[9] = mcontext->r9;
+    regs->regs[10] = mcontext->r10;
+    regs->regs[11] = mcontext->r11;
+    regs->regs[12] = mcontext->r12;
+    regs->regs[13] = mcontext->r13;
+    regs->regs[14] = mcontext->r14;
+    regs->regs[15] = mcontext->r15;
+    regs->regs[16] = mcontext->r16;
+    regs->regs[17] = mcontext->r17;
+    regs->regs[18] = mcontext->r18;
+    regs->regs[19] = mcontext->r19;
+    regs->regs[20] = mcontext->r20;
+    regs->regs[21] = mcontext->r21;
+    regs->regs[22] = mcontext->r22;
+    regs->regs[23] = mcontext->r23;
+    regs->regs[24] = mcontext->r24;
+    regs->regs[25] = mcontext->r25;
+    regs->regs[26] = mcontext->r26;
+    regs->regs[27] = mcontext->r27;
+    regs->regs[28] = mcontext->r28;
+    regs->regs[29] = mcontext->r29;
+    regs->regs[30] = mcontext->r30;
+    regs->sp = mcontext->sp;
+    regs->pc = (uint64_t)mcontext->pc;
+#else
+#    error Unsupported architecture
+#endif
+}
+
+/*
+ * Write prstatus structure to the file. Returns true if the note is written to
+ * the file, false otherwise.
+ */
+static bool
+write_prstatus_note(DR_PARAM_IN priv_mcontext_t *mc, DR_PARAM_IN file_t elf_file)
+{
+    struct elf_prstatus prstatus;
+    struct user_regs_struct *regs = (struct user_regs_struct *)&prstatus.pr_reg;
+    mcontext_to_user_regs(mc, regs);
+
+    ELF_NOTE_HEADER_TYPE nhdr;
+    // Add one to include the terminating null character.
+    nhdr.n_namesz = strlen(NOTE_OWNER) + 1;
+    nhdr.n_descsz = sizeof(prstatus);
+    nhdr.n_type = NT_PRSTATUS;
+    if (os_write(elf_file, &nhdr, sizeof(nhdr)) != sizeof(nhdr)) {
+        return false;
+    }
+    if (os_write(elf_file, NOTE_OWNER, NOTE_OWNER_LENGTH) != NOTE_OWNER_LENGTH) {
+        return false;
+    }
+    return os_write(elf_file, &prstatus, sizeof(prstatus)) == sizeof(prstatus);
+}
+
+/*
+ * Copy register values from dr_mcontext_t to elf_fpregset_t for AARCH64. For
+ * X86, copy the floating point registers from the output of fxsave64.
+ */
+static bool
+get_floating_point_registers(DR_PARAM_IN dcontext_t *dcontext,
+                             DR_PARAM_IN priv_mcontext_t *mc,
+                             DR_PARAM_OUT elf_fpregset_t *regs)
+{
+#ifdef DR_HOST_NOT_TARGET
+    return false;
+#elif defined(X86)
+    // Fast FP save and restore support is required.
+    ASSERT(proc_has_feature(FEATURE_FXSR));
+    // Mixed mode is not supported.
+    ASSERT(X64_MODE_DC(dcontext));
+    byte fpstate_buf[MAX_FP_STATE_SIZE];
+    fxsave64_map_t *fpstate =
+        (fxsave64_map_t *)ALIGN_FORWARD(fpstate_buf, DR_FPSTATE_ALIGN);
+    if (proc_save_fpstate((byte *)fpstate) != DR_FPSTATE_BUF_SIZE) {
+        return false;
+    }
+
+    regs->cwd = fpstate->fcw;
+    regs->swd = fpstate->fsw;
+    regs->ftw = fpstate->ftw;
+    regs->fop = fpstate->fop;
+    regs->mxcsr = fpstate->mxcsr;
+    regs->mxcr_mask = fpstate->mxcsr;
+    /* 8*16 bytes for each FP-reg = 128 bytes */
+    for (int i = 0; i < 32; ++i) {
+        regs->st_space[i] = fpstate->st_space[i];
+    }
+    /* 16*16 bytes for each XMM-reg = 256 bytes */
+    for (int i = 0; i < 64; ++i) {
+        regs->xmm_space[i] = fpstate->xmm_space[i];
+    }
+    return true;
+#elif defined(AARCH64)
+    regs->fpsr = mc->fpsr;
+    regs->fpcr = mc->fpcr;
+    for (int i = 0; i < MCXT_NUM_SIMD_SVE_SLOTS; ++i) {
+        memcpy(&regs->vregs[i], &mc->simd[i].q, sizeof(mc->simd[i].q));
+    }
+    return true;
+#else
+    return false;
+#endif
+}
+
+/*
+ * Write floating point registers to the file. Returns true if the note is written to
+ * the file, false otherwise.
+ */
+static bool
+write_fpregset_note(DR_PARAM_IN dcontext_t *dcontext, DR_PARAM_IN priv_mcontext_t *mc,
+                    DR_PARAM_IN file_t elf_file)
+{
+    elf_fpregset_t fpregset;
+    if (!get_floating_point_registers(dcontext, mc, &fpregset)) {
+        return false;
+    }
+
+    ELF_NOTE_HEADER_TYPE nhdr;
+    // Add one to include the terminating null character.
+    nhdr.n_namesz = strlen(NOTE_OWNER) + 1;
+    nhdr.n_descsz = sizeof(fpregset);
+    nhdr.n_type = NT_FPREGSET;
+    if (os_write(elf_file, &nhdr, sizeof(nhdr)) != sizeof(nhdr)) {
+        return false;
+    }
+    if (os_write(elf_file, NOTE_OWNER, NOTE_OWNER_LENGTH) != NOTE_OWNER_LENGTH) {
+        return false;
+    }
+    return os_write(elf_file, &fpregset, sizeof(fpregset)) == sizeof(fpregset);
+}
+
+/*
  * Writes a memory dump file in ELF format. Returns true if a core dump file is written,
  * false otherwise.
  */
 static bool
-os_dump_core_internal(void)
+os_dump_core_internal(dcontext_t *dcontext)
 {
+    priv_mcontext_t mc;
+    if (!dr_get_mcontext_priv(dcontext, NULL, &mc))
+        return false;
+
     // Insert a null string at the beginning for sections with no comment.
     char string_table[MAX_SECTION_NAME_BUFFER_SIZE];
     // Reserve the first byte for sections without a name.
@@ -255,9 +481,7 @@ os_dump_core_internal(void)
 
     if (!write_elf_header(elf_file, /*entry_point=*/0,
                           /*section_header_table_offset*/ sizeof(ELF_HEADER_TYPE) +
-                              1 /*program_header_count*/ *
-                                  sizeof(ELF_PROGRAM_HEADER_TYPE) +
-                              section_data_size,
+                              PROGRAM_HEADER_LENGTH + section_data_size,
                           /*flags=*/0,
                           /*program_header_count=*/1,
                           /*section_header_count=*/section_count,
@@ -265,11 +489,21 @@ os_dump_core_internal(void)
         os_close(elf_file);
         return false;
     }
-    // TODO i#7046: Fill the program header with valid data.
-    if (!write_program_header(elf_file, PT_NULL, PF_X, /*offset=*/0,
+    if (!write_program_header(elf_file, PT_NOTE, /*flags=*/0,
+                              /*offset=*/sizeof(ELF_HEADER_TYPE) +
+                                  sizeof(ELF_PROGRAM_HEADER_TYPE),
                               /*virtual_address=*/0,
                               /*physical_address=*/0,
-                              /*file_size=*/0, /*memory_size=*/0, /*alignment=*/0)) {
+                              /*file_size=*/PROGRAM_HEADER_NOTE_LENGTH,
+                              /*memory_size=*/0, /*alignment=*/4)) {
+        os_close(elf_file);
+        return false;
+    }
+    if (!write_prstatus_note(&mc, elf_file)) {
+        os_close(elf_file);
+        return false;
+    }
+    if (!write_fpregset_note(dcontext, &mc, elf_file)) {
         os_close(elf_file);
         return false;
     }
@@ -300,8 +534,8 @@ os_dump_core_internal(void)
     }
     // Write section headers to the core dump file.
     // TODO i#7046: Handle multiple program headers.
-    ELF_OFF file_offset = sizeof(ELF_HEADER_TYPE) +
-        1 /*program_header_count*/ * sizeof(ELF_PROGRAM_HEADER_TYPE);
+    ELF_OFF file_offset = sizeof(ELF_HEADER_TYPE) + PROGRAM_HEADER_LENGTH;
+
     // The section_count includes the section name section, so we need to skip
     // it in the loop. The section name section is handled differently after
     // this loop.
@@ -343,8 +577,12 @@ os_dump_core_internal(void)
  * Returns true if a core dump file is written, false otherwise.
  */
 bool
-os_dump_core_live(void)
+os_dump_core_live(dcontext_t *dcontext)
 {
+#ifdef DR_HOST_NOT_TARGET
+    // Memory dump is supported only when the host and the target are the same.
+    return false;
+#endif
     // Suspend all threads including native threads to ensure the memory regions
     // do not change in the middle of the core dump.
     int num_threads;
@@ -359,7 +597,8 @@ os_dump_core_live(void)
         return false;
     }
 
-    const bool ret = os_dump_core_internal();
+    // TODO i#7046: Add support to save register values for all threads.
+    const bool ret = os_dump_core_internal(dcontext);
 
     end_synch_with_all_threads(threads, num_threads,
                                /*resume=*/true);
