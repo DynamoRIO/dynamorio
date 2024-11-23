@@ -42,13 +42,6 @@ Program Headers:
   NOTE.*
  Section to Segment mapping:
   Segment Sections.*
-There is no dynamic section in this file.
-.*
-There are no relocations in this file.
-No processor specific unwind information to decode
-.*
-No version information found in this file.
-.*
 Displaying notes found at file offset 0x[0-9a-f]+ with length 0x[0-9a-f]+:
   Owner.*Data size.*Description
   CORE.*NT_PRSTATUS.*\(prstatus structure\)
