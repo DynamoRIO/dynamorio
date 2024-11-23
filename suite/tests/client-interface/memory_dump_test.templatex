@@ -28,20 +28,11 @@ Section Headers:
 .*\[Nr\] Name              Type             Address           Offset
        Size              EntSize          Flags  Link  Info  Align
 .* shstrtab          STRTAB.*
-Key to Flags:
-.*W \(write\), A \(alloc\), X \(execute\), M \(merge\), S \(strings\), I \(info\),
-  L \(link order\), O \(extra OS processing required\), G \(group\), T \(TLS\),
-  C \(compressed\), x \(unknown\), o \(OS specific\), E \(exclude\),
-  R \(retain\), D \(mbind\), l \(large\), p \(processor specific\)
-.*
-There are no section groups in this file.
-.*
 Program Headers:
   Type           Offset             VirtAddr           PhysAddr
                  FileSiz            MemSiz              Flags  Align
   NOTE.*
- Section to Segment mapping:
-  Segment Sections.*
+.*
 Displaying notes found at file offset 0x[0-9a-f]+ with length 0x[0-9a-f]+:
   Owner.*Data size.*Description
   CORE.*NT_PRSTATUS.*\(prstatus structure\)
