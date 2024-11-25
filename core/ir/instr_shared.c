@@ -94,12 +94,12 @@ instr_create(void *drcontext)
     memset((void *)instr, 0, sizeof(instr_t));
 #ifdef DEBUG
     bool is_instr_isa_mode_set = false;
-#if defined(X86) && defined(X64)
+#    if defined(X86) && defined(X64)
     is_instr_isa_mode_set = instr_set_isa_mode(
         instr, X64_CACHE_MODE_DC(dcontext) ? DR_ISA_AMD64 : DR_ISA_IA32);
-#else
+#    else
     is_instr_isa_mode_set = instr_set_isa_mode(instr, dr_get_isa_mode(dcontext));
-#endif
+#    endif
     CLIENT_ASSERT(is_instr_isa_mode_set, "setting instruction ISA mode unsuccessful");
 #endif
     return instr;
@@ -4048,9 +4048,9 @@ instr_raw_is_tls_spill(byte *pc, reg_id_t reg, ushort offs)
         *(pc + 3) == MODRM_BYTE(0 /*mod*/, reg_get_bits(reg), 4 /*rm*/) &&
         *(pc + 4) == 0x25 && *((uint *)(pc + 5)) == (uint)os_tls_offset(offs))
         return true;
-        /* we also check for 32-bit.  we could take in flags and only check for one
-         * version, but we're not worried about false positives.
-         */
+    /* we also check for 32-bit.  we could take in flags and only check for one
+     * version, but we're not worried about false positives.
+     */
 #        endif
     /* looking for:   67 64 89 1e e4 0e    addr16 mov    %ebx -> %fs:0xee4   */
     /* ASSUMPTION: when addr16 prefix is used, prefix order is fixed */
