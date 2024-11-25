@@ -64,8 +64,14 @@ run_analyzer(int argc, const char *args[])
     assert(!!analyzer);
     bool res = analyzer.run();
     assert(res);
+    if (!res) {
+        std::cerr << "analyzer.run() failed\n";
+    }
     res = analyzer.print_stats();
     assert(res);
+    if (!res) {
+        std::cerr << "analyzer.print_stats() failed\n";
+    }
 
     std::cerr.rdbuf(prev_buf);
 
