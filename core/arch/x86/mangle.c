@@ -3947,9 +3947,10 @@ set_selfmod_sandbox_offsets(dcontext_t *dcontext)
                 }
                 len = encode_with_patch_list(dcontext, &patch, &ilist, buf);
                 ASSERT(len < BUFFER_SIZE_BYTES(buf));
-                if (len < BUFFER_SIZE_BYTES(buf))
+                if (len < BUFFER_SIZE_BYTES(buf)) {
                     LOG(THREAD, LOG_EMIT, 3, "len: %d, buffer size:i %d\n", len,
                         BUFFER_SIZE_BYTES(buf));
+                }
                 IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint(start_pc - buf)));
                 selfmod_copy_start_offs[i][j] IF_X64([k]) = (uint)(start_pc - buf);
                 IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint(end_pc - buf)));
