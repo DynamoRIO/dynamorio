@@ -806,7 +806,9 @@ read_evex(byte *pc, decode_info_t *di, byte instr_byte,
             return pc;
         }
         *is_evex = true;
+#ifdef DEBUG
         info = &evex_prefix_extensions[0][1];
+#endif
     } else {
         /* not evex */
         *is_evex = false;
