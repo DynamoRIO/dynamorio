@@ -354,7 +354,7 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
         shard->saw_exit = false;
     }
     if (memref.instr.tid != INVALID_THREAD_ID)
-        shard->counters.threads.insert(memref.instr.tid);
+        shard->counters.threads.insert(workload_tid_t(workload_id, memref.instr.tid));
     if (memref.marker.type == TRACE_TYPE_MARKER) {
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL) {
             ++shard->counters.syscalls;
@@ -397,7 +397,7 @@ schedule_stats_t::print_counters(const counters_t &counters)
         std::cerr << ": ";
         auto it = counters.threads.begin();
         while (it != counters.threads.end()) {
-            std::cerr << *it;
+            std::cerr << it->workload_id << "." << it->tid;
             ++it;
             if (it != counters.threads.end())
                 std::cerr << ", ";
@@ -467,16 +467,26 @@ schedule_stats_t::print_counters(const counters_t &counters)
                      "% cpu busy by time, ignoring idle past last instr\n");
     std::cerr << "  Instructions per context switch histogram:\n";
     counters.instrs_per_switch->print();
+    if (!counters.cores_per_thread->empty()) {
+        std::cerr << "  Cores per thread:\n";
+        counters.cores_per_thread->print();
+    }
 }
 
 void
 schedule_stats_t::aggregate_results(counters_t &total)
 {
+    std::unordered_map<workload_tid_t, std::unordered_set<int64_t>, workload_tid_hash_t>
+        cpu_footprint;
     for (const auto &shard : shard_map_) {
         // First update our per-shard data with per-shard stats from the scheduler.
         get_scheduler_stats(shard.second->stream, shard.second->counters);
 
         total += shard.second->counters;
+
+        for (const workload_tid_t wid : shard.second->counters.threads) {
+            cpu_footprint[wid].insert(shard.second->core);
+        }
 
         // Sanity check against the scheduler's own stats, unless the trace
         // is pre-scheduled, or we're in core-serial mode where we don't have access
@@ -508,6 +518,10 @@ schedule_stats_t::aggregate_results(counters_t &total)
     // will be 0; for mock streams in tests it will be < 0; otherwise, the scheduler
     // may see more migrations due to inputs not yet executed moving among runqueues.
     assert(total.migrations <= 0. || total.migrations >= total.observed_migrations);
+
+    for (const auto &entry : cpu_footprint) {
+        total.cores_per_thread->add(entry.second.size());
+    }
 }
 
 bool

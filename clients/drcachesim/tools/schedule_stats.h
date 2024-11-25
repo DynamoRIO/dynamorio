@@ -89,14 +89,21 @@ public:
         add(int64_t value) = 0;
         virtual void
         merge(const histogram_interface_t *rhs) = 0;
+        virtual std::string
+        to_string() const = 0;
         virtual void
         print() const = 0;
+        virtual bool
+        empty() const = 0;
     };
 
     // Simple binning histogram for instrs-per-switch distribution.
     class histogram_t : public histogram_interface_t {
     public:
-        histogram_t() = default;
+        explicit histogram_t(uint64_t bin_size)
+            : bin_size_(bin_size)
+        {
+        }
 
         void
         add(int64_t value) override
@@ -104,7 +111,7 @@ public:
             // XXX: Add dynamic bin size changing.
             // For now with relatively known data ranges we just stick
             // with unchanging bin sizes.
-            uint64_t bin = value - (value % kInitialBinSize);
+            uint64_t bin = value - (value % bin_size_);
             ++bin2count_[bin];
         }
 
@@ -117,27 +124,78 @@ public:
             }
         }
 
+        std::string
+        to_string() const override
+        {
+            std::ostringstream stream;
+            for (const auto &keyval : bin2count_) {
+                stream << std::setw(12) << keyval.first << ".." << std::setw(8)
+                       << keyval.first + bin_size_ << " " << std::setw(5) << keyval.second
+                       << "\n";
+            }
+            return stream.str();
+        }
+
         void
         print() const override
         {
-            for (const auto &keyval : bin2count_) {
-                std::cerr << std::setw(12) << keyval.first << ".." << std::setw(8)
-                          << keyval.first + kInitialBinSize << " " << std::setw(5)
-                          << keyval.second << "\n";
-            }
+            std::cerr << to_string();
+        }
+
+        bool
+        empty() const override
+        {
+            return bin2count_.empty();
         }
 
     protected:
-        static constexpr uint64_t kInitialBinSize = 50000;
+        uint64_t bin_size_;
 
         // Key is the inclusive lower bound of the bin.
         std::map<uint64_t, uint64_t> bin2count_;
     };
 
+    struct workload_tid_t {
+        workload_tid_t(int64_t workload, int64_t thread)
+            : workload_id(workload)
+            , tid(thread)
+        {
+        }
+        bool
+        operator==(const workload_tid_t &rhs) const
+        {
+            return workload_id == rhs.workload_id && tid == rhs.tid;
+        }
+
+        bool
+        operator!=(const workload_tid_t &rhs) const
+        {
+            return !(*this == rhs);
+        }
+        int64_t workload_id;
+        int64_t tid;
+    };
+
+    struct workload_tid_hash_t {
+        std::size_t
+        operator()(const workload_tid_t &wt) const
+        {
+            // Ensure {workload_id=X, tid=Y} doesn't always hash the same as
+            // {workload_id=Y, tid=X} by avoiding a simple symmetric wid^tid.
+            return std::hash<size_t>()(static_cast<size_t>(wt.workload_id ^ wt.tid)) ^
+                std::hash<memref_tid_t>()(wt.tid);
+        }
+    };
+
     struct counters_t {
         counters_t()
         {
-            instrs_per_switch = std::unique_ptr<histogram_interface_t>(new histogram_t);
+            static constexpr uint64_t kSwitchBinSize = 50000;
+            static constexpr uint64_t kCoresBinSize = 1;
+            instrs_per_switch =
+                std::unique_ptr<histogram_interface_t>(new histogram_t(kSwitchBinSize));
+            cores_per_thread =
+                std::unique_ptr<histogram_interface_t>(new histogram_t(kCoresBinSize));
         }
         counters_t &
         operator+=(const counters_t &rhs)
@@ -165,10 +223,13 @@ public:
             idle_micros_at_last_instr += rhs.idle_micros_at_last_instr;
             cpu_microseconds += rhs.cpu_microseconds;
             wait_microseconds += rhs.wait_microseconds;
-            for (const memref_tid_t tid : rhs.threads) {
+            for (const workload_tid_t tid : rhs.threads) {
                 threads.insert(tid);
             }
             instrs_per_switch->merge(rhs.instrs_per_switch.get());
+            // We do not track this incrementally but for completeness we include
+            // aggregation code for it.
+            cores_per_thread->merge(rhs.cores_per_thread.get());
             return *this;
         }
         // Statistics provided by scheduler.
@@ -203,40 +264,13 @@ public:
         uint64_t idle_micros_at_last_instr = 0;
         uint64_t cpu_microseconds = 0;
         uint64_t wait_microseconds = 0;
-        std::unordered_set<memref_tid_t> threads;
+        std::unordered_set<workload_tid_t, workload_tid_hash_t> threads;
         std::unique_ptr<histogram_interface_t> instrs_per_switch;
-    };
-
-    struct workload_tid_t {
-        workload_tid_t(int64_t workload, int64_t thread)
-            : workload_id(workload)
-            , tid(thread)
-        {
-        }
-        bool
-        operator==(const workload_tid_t &rhs) const
-        {
-            return workload_id == rhs.workload_id && tid == rhs.tid;
-        }
-
-        bool
-        operator!=(const workload_tid_t &rhs) const
-        {
-            return !(*this == rhs);
-        }
-        int64_t workload_id;
-        int64_t tid;
-    };
-
-    struct workload_tid_hash_t {
-        std::size_t
-        operator()(const workload_tid_t &wt) const
-        {
-            // Ensure {workload_id=X, tid=Y} doesn't always hash the same as
-            // {workload_id=Y, tid=X} by avoiding a simple symmetric wid^tid.
-            return std::hash<size_t>()(static_cast<size_t>(wt.workload_id ^ wt.tid)) ^
-                std::hash<memref_tid_t>()(wt.tid);
-        }
+        // CPU footprint of each thread. This is computable during aggregation from
+        // the .threads field above so we don't bother to track this incrementally.
+        // We still store it inside counters_t as this structure is assumed in
+        // several places to hold all aggregated statistics.
+        std::unique_ptr<histogram_interface_t> cores_per_thread;
     };
 
     counters_t

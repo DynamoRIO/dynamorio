@@ -122,6 +122,7 @@ run_schedule_stats(const std::vector<std::vector<memref_t>> &memrefs)
                 continue;
             memref_t memref = memrefs[cpu][per_core[cpu].memref_idx];
             per_core[cpu].stream.set_tid(memref.instr.tid);
+            per_core[cpu].stream.set_workload_id(memref.instr.pid);
             per_core[cpu].stream.set_output_cpuid(cpu);
             bool res = tool.parallel_shard_memref(per_core[cpu].shard_data, memref);
             assert(res);
@@ -280,12 +281,55 @@ test_idle()
     return true;
 }
 
+static bool
+test_cpu_footprint()
+{
+    static constexpr int64_t PID_X = 0;
+    static constexpr int64_t PID_Y = 1;
+    static constexpr int64_t TID_A = 42;
+    static constexpr int64_t TID_B = 142;
+    static constexpr int64_t TID_C = 242;
+    static constexpr addr_t INSTR_PC = 1001;
+    static constexpr size_t INSTR_SIZE = 4;
+    std::vector<std::vector<memref_t>> memrefs = {
+        {
+            gen_instr(TID_A, INSTR_PC, INSTR_SIZE, PID_X),
+            gen_instr(TID_B, INSTR_PC, INSTR_SIZE, PID_X),
+            // Test identical tids in different workloads.
+            gen_instr(TID_A, INSTR_PC, INSTR_SIZE, PID_Y),
+        },
+        {
+            gen_instr(TID_A, INSTR_PC, INSTR_SIZE, PID_Y),
+        },
+        {
+            gen_instr(TID_C, INSTR_PC, INSTR_SIZE, PID_Y),
+            gen_instr(TID_A, INSTR_PC, INSTR_SIZE, PID_X),
+        },
+        {
+            gen_instr(TID_C, INSTR_PC, INSTR_SIZE, PID_Y),
+        },
+        {
+            gen_instr(TID_C, INSTR_PC, INSTR_SIZE, PID_Y),
+        },
+    };
+    auto result = run_schedule_stats(memrefs);
+    assert(result.instrs == 8);
+    std::string hist = result.cores_per_thread->to_string();
+    std::cerr << "Cores-per-thread histogram:\n" << hist << "\n";
+    // We expect X.A=2, X.B=1, Y.A=2, Y.C=3:
+    assert(hist ==
+           "           1..       2     1\n"
+           "           2..       3     2\n"
+           "           3..       4     1\n");
+    return true;
+}
+
 } // namespace
 
 int
 test_main(int argc, const char *argv[])
 {
-    if (test_basic_stats() && test_idle()) {
+    if (test_basic_stats() && test_idle() && test_cpu_footprint()) {
         std::cerr << "schedule_stats_test passed\n";
         return 0;
     }
