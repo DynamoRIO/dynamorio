@@ -816,6 +816,7 @@ read_evex(byte *pc, decode_info_t *di, byte instr_byte,
         *ret_info = &evex_prefix_extensions[0][0];
         return pc;
     }
+
     CLIENT_ASSERT(info->code == PREFIX_EVEX, "internal evex decoding error");
     if (info->type != EVEX_PREFIX_EXT) {
         LOG(THREAD_GET, LOG_ALL, 4, "internal evex decoding error, info->type = %d\n",
@@ -832,6 +833,7 @@ read_evex(byte *pc, decode_info_t *di, byte instr_byte,
         *ret_info = &invalid_instr;
         return pc;
     }
+
     CLIENT_ASSERT(info->type == PREFIX, "internal evex decoding error");
     if (info->type != EVEX_PREFIX_EXT) {
         LOG(THREAD_GET, LOG_ALL, 4, "internal evex decoding error, info->type = %d\n",

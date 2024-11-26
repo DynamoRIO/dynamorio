@@ -344,14 +344,14 @@ new_bsdthread_setup(priv_mcontext_t *mc)
 
     crec = (void *)mc->xax; /* placed there by new_bsdthread_intercept */
     func_arg = (void *)get_clone_record_thread_arg(crec);
-    LOG(GLOBAL, LOG_INTERP, 1,
+    LOG(GLOBAL, LOG_INTERP, 4,
         "new_thread_setup: thread " TIDFMT ", dstack " PFX " clone record " PFX "\n",
         d_r_get_thread_id(), get_clone_record_dstack(crec), crec);
 
     rc = dynamo_thread_init(get_clone_record_dstack(crec), mc, crec, false);
     ASSERT(rc != -1); /* this better be a new thread */
     if (rc == -1)
-        LOG(GLOBAL, LOG_INTERP, 1, "dynamo_thread_init() returns -1.\n");
+        LOG(GLOBAL, LOG_INTERP, 4, "dynamo_thread_init() returns -1.\n");
     dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL);
     crec = NULL; /* now freed */

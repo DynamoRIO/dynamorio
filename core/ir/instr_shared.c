@@ -101,7 +101,7 @@ instr_create(void *drcontext)
 #endif
     CLIENT_ASSERT(is_instr_isa_mode_set, "setting instruction ISA mode unsuccessful");
     if (!is_instr_isa_mode_set) {
-        SYSLOG_INTERNAL_WARNING("setting instruction ISA mode unsuccessful");
+        LOG(THREAD, LOG_ALL, 4, "setting instruction ISA mode unsuccessful\n");
     }
     return instr;
 }
