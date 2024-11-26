@@ -284,8 +284,8 @@ test_idle()
 static bool
 test_cpu_footprint()
 {
-    static constexpr int64_t PID_X = 0;
-    static constexpr int64_t PID_Y = 1;
+    static constexpr int64_t PID_X = 1234;
+    static constexpr int64_t PID_Y = 5678;
     static constexpr int64_t TID_A = 42;
     static constexpr int64_t TID_B = 142;
     static constexpr int64_t TID_C = 242;

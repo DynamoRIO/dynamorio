@@ -1,7 +1,7 @@
 Schedule stats tool results:
 Total counts:
            4 cores
-           8 threads: 0.1257.*
+           8 threads: W0.T1257.*
       638938 instructions
            6 total context switches
    0\.0093906 CSPKI \(context switches per 1000 instructions\)
@@ -38,7 +38,7 @@ Total counts:
   Cores per thread:
            1..       2     8
 Core #0 counts:
-           . threads: 0.1257.*
+           . threads: W0.T1257.*
       *[0-9]* instructions
            . total context switches
    0\.0[0-9\.]* CSPKI \(context switches per 1000 instructions\)
@@ -49,7 +49,7 @@ Core #0 counts:
         0\.00% direct switches
 .*
 Core #1 counts:
-           . threads: 0.1257.*
+           . threads: W0.T1257.*
       *[0-9]* instructions
            . total context switches
    0\.0[0-9\.]* CSPKI \(context switches per 1000 instructions\)
@@ -60,7 +60,7 @@ Core #1 counts:
         0\.00% direct switches
 .*
 Core #2 counts:
-           . threads: 0.1257.*
+           . threads: W0.T1257.*
       *[0-9]* instructions
            . total context switches
    0\.0[0-9\.]* CSPKI \(context switches per 1000 instructions\)
@@ -71,7 +71,7 @@ Core #2 counts:
         0\.00% direct switches
 .*
 Core #3 counts:
-           . threads: 0.1257.*
+           . threads: W0.T1257.*
       *[0-9]* instructions
            . total context switches
    0\.0[0-9\.]* CSPKI \(context switches per 1000 instructions\)

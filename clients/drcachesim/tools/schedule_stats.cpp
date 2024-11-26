@@ -397,7 +397,7 @@ schedule_stats_t::print_counters(const counters_t &counters)
         std::cerr << ": ";
         auto it = counters.threads.begin();
         while (it != counters.threads.end()) {
-            std::cerr << it->workload_id << "." << it->tid;
+            std::cerr << "W" << it->workload_id << ".T" << it->tid;
             ++it;
             if (it != counters.threads.end())
                 std::cerr << ", ";
@@ -484,8 +484,8 @@ schedule_stats_t::aggregate_results(counters_t &total)
 
         total += shard.second->counters;
 
-        for (const workload_tid_t wid : shard.second->counters.threads) {
-            cpu_footprint[wid].insert(shard.second->core);
+        for (const workload_tid_t wtid : shard.second->counters.threads) {
+            cpu_footprint[wtid].insert(shard.second->core);
         }
 
         // Sanity check against the scheduler's own stats, unless the trace
@@ -519,6 +519,8 @@ schedule_stats_t::aggregate_results(counters_t &total)
     // may see more migrations due to inputs not yet executed moving among runqueues.
     assert(total.migrations <= 0. || total.migrations >= total.observed_migrations);
 
+    // The += had no data to add as we do not update cores_per_thread incrementally
+    // and instead derive it from counters_t.threads via cpu_footprint here.
     for (const auto &entry : cpu_footprint) {
         total.cores_per_thread->add(entry.second.size());
     }
