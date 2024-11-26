@@ -1291,8 +1291,7 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 #ifdef CHECK_RETURNS_SSE2
         target = opnd_get_pc(instr_get_target(instr));
 #endif
-    }
-    else if (opnd_is_instr(instr_get_target(instr))) {
+    } else if (opnd_is_instr(instr_get_target(instr))) {
 #ifdef CHECK_RETURNS_SSE2
         instr_t *tgt = opnd_get_instr(instr_get_target(instr));
         /* assumption: target's raw bits are meaningful */
