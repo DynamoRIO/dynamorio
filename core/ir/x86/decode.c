@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -791,13 +791,16 @@ static byte *
 read_evex(byte *pc, decode_info_t *di, byte instr_byte,
           const instr_info_t **ret_info DR_PARAM_INOUT, bool *is_evex)
 {
+    const instr_info_t *info;
     byte prefix_byte = 0, evex_pp = 0;
     ASSERT(ret_info != NULL && *ret_info != NULL && is_evex != NULL);
-#ifdef DEBUG
-    const instr_info_t *info;
     info = *ret_info;
+
     CLIENT_ASSERT(info->type == EVEX_PREFIX_EXT, "internal evex decoding error");
-#endif
+    if (info->type != EVEX_PREFIX_EXT) {
+        LOG(THREAD_GET, LOG_ALL, 4, "internal evex decoding error, info->type = %d\n",
+            info->type);
+    }
     /* If 32-bit mode and mod selects for memory, this is not evex */
     if (X64_MODE(di) || TESTALL(MODRM_BYTE(3, 0, 0), *pc)) {
         /* P[3:2] must be 0 and P[10] must be 1, otherwise #UD */
@@ -806,18 +809,18 @@ read_evex(byte *pc, decode_info_t *di, byte instr_byte,
             return pc;
         }
         *is_evex = true;
-#ifdef DEBUG
         info = &evex_prefix_extensions[0][1];
-#endif
     } else {
         /* not evex */
         *is_evex = false;
         *ret_info = &evex_prefix_extensions[0][0];
         return pc;
     }
-#ifdef DEBUG
     CLIENT_ASSERT(info->code == PREFIX_EVEX, "internal evex decoding error");
-#endif
+    if (info->type != EVEX_PREFIX_EXT) {
+        LOG(THREAD_GET, LOG_ALL, 4, "internal evex decoding error, info->type = %d\n",
+            info->type);
+    }
     /* read 2nd evex byte */
     instr_byte = *pc;
     prefix_byte = instr_byte;
@@ -829,9 +832,11 @@ read_evex(byte *pc, decode_info_t *di, byte instr_byte,
         *ret_info = &invalid_instr;
         return pc;
     }
-#ifdef DEBUG
     CLIENT_ASSERT(info->type == PREFIX, "internal evex decoding error");
-#endif
+    if (info->type != EVEX_PREFIX_EXT) {
+        LOG(THREAD_GET, LOG_ALL, 4, "internal evex decoding error, info->type = %d\n",
+            info->type);
+    }
     /* Fields are: R, X, B, R', 00, mm.  R, X, B and R' are inverted. Intel's
      * Software Developer's Manual Vol-2A 2.6 AVX-512 ENCODING fails to mention
      * explicitly the fact that the bits are inverted in order to make the prefix
