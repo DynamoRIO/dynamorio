@@ -1577,6 +1577,10 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
         if (reg > DR_REG_STOP_BND - DR_REG_START_BND)
             return REG_NULL;
         return DR_REG_START_BND + reg;
+    case TYPE_G_ES: {
+        opsize = resolve_addr_size(di);
+        break;
+    }
     case TYPE_E:
     case TYPE_G:
     case TYPE_R:
@@ -1632,7 +1636,13 @@ decode_modrm(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *reg_opn
         if (reg == REG_NULL)
             return false;
         *reg_opnd = opnd_create_reg(reg);
-        opnd_set_size(reg_opnd, resolve_variable_size(di, opsize, true /*is reg*/));
+        opnd_size_t ressize;
+        if (optype == TYPE_G_ES) {
+          ressize = resolve_addr_size(di);
+        } else {
+          ressize = resolve_variable_size(di, opsize, true /*is reg*/);
+        }
+        opnd_set_size(reg_opnd, ressize);
     }
 
     if (rm_opnd != NULL) {
@@ -1999,7 +2009,8 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
     case TYPE_V:
     case TYPE_S:
     case TYPE_C:
-    case TYPE_D: return decode_modrm(di, optype, opsize, opnd, NULL);
+    case TYPE_D:
+    case TYPE_G_ES: return decode_modrm(di, optype, opsize, opnd, NULL);
     case TYPE_I:
         *opnd = opnd_create_immed_int(get_immed(di, opsize), ressize);
         return true;

@@ -119,6 +119,7 @@ const char *const type_names[] = {
     "TYPE_K_EVEX",
     "TYPE_T_REG",
     "TYPE_T_MODRM",
+    "TYPE_G_ES",
 };
 
 /* order corresponds to enum of REG_ and SEG_ constants */
@@ -1562,8 +1563,9 @@ opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opn
     case TYPE_G:
     case TYPE_R:
     case TYPE_B:
+    case TYPE_G_ES:
         return (opnd_is_reg(opnd) &&
-                reg_size_ok(di, opnd_get_reg(opnd), optype, opsize, false /*!addr*/) &&
+                reg_size_ok(di, opnd_get_reg(opnd), optype, opsize, optype == TYPE_G_ES) &&
                 reg_is_gpr(opnd_get_reg(opnd)));
     case TYPE_P:
     case TYPE_V:
@@ -2493,7 +2495,8 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
     case TYPE_V:
     case TYPE_S:
     case TYPE_C:
-    case TYPE_D: {
+    case TYPE_D:
+    case TYPE_G_ES: {
         CLIENT_ASSERT(opnd_is_reg(opnd), "encode error: operand must be a register");
         if (di->reg < 8) {
             /* already set (by a dst equal to src, probably) */

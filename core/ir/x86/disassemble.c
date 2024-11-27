@@ -204,6 +204,7 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOU
     case TYPE_K_EVEX:
     case TYPE_T_REG:
     case TYPE_T_MODRM:
+    case TYPE_G_ES:
         if (prev)
             print_to_buffer(buf, bufsz, sofar, ", ");
         internal_opnd_disassemble(buf, bufsz, sofar, dcontext, opnd, false);
