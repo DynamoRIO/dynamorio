@@ -1282,31 +1282,8 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                    instr_t *next_instr, bool mangle_calls, uint flags)
 {
     ptr_uint_t retaddr;
-#ifdef CHECK_RETURNS_SSE2
-    app_pc target = NULL;
-#endif
     opnd_t pushop = instr_get_dst(instr, 1);
     opnd_size_t pushsz = stack_entry_size(instr, opnd_get_size(pushop));
-    if (opnd_is_near_pc(instr_get_target(instr))) {
-#ifdef CHECK_RETURNS_SSE2
-        target = opnd_get_pc(instr_get_target(instr));
-#endif
-    } else if (opnd_is_instr(instr_get_target(instr))) {
-#ifdef CHECK_RETURNS_SSE2
-        instr_t *tgt = opnd_get_instr(instr_get_target(instr));
-        /* assumption: target's raw bits are meaningful */
-        target = instr_get_raw_bits(tgt);
-        ASSERT(target != 0);
-        /* FIXME case 6962: for far instr, we ignore the segment and
-         * assume it matches current cs */
-#endif
-    } else if (opnd_is_far_pc(instr_get_target(instr))) {
-#ifdef CHECK_RETURNS_SSE2
-        target = opnd_get_pc(instr_get_target(instr));
-        /* FIXME case 6962: we ignore the segment and assume it matches current cs */
-#endif
-    } else
-        ASSERT_NOT_REACHED();
 
     if (!mangle_calls) {
         /* off-trace call that will be executed natively */
@@ -1318,6 +1295,22 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     retaddr = get_call_return_address(dcontext, ilist, instr);
 
 #ifdef CHECK_RETURNS_SSE2
+    app_pc target = NULL;
+    if (opnd_is_near_pc(instr_get_target(instr))) {
+        target = opnd_get_pc(instr_get_target(instr));
+    } else if (opnd_is_instr(instr_get_target(instr))) {
+        instr_t *tgt = opnd_get_instr(instr_get_target(instr));
+        /* assumption: target's raw bits are meaningful */
+        target = instr_get_raw_bits(tgt);
+        ASSERT(target != 0);
+        /* FIXME case 6962: for far instr, we ignore the segment and
+         * assume it matches current cs */
+    } else if (opnd_is_far_pc(instr_get_target(instr))) {
+        target = opnd_get_pc(instr_get_target(instr));
+        /* FIXME case 6962: we ignore the segment and assume it matches current cs */
+    } else
+        ASSERT_NOT_REACHED();
+
     /* ASSUMPTION: a call to the next instr is not going to ever have a
      * matching ret! */
     if (target == (app_pc)retaddr) {
@@ -3921,7 +3914,6 @@ set_selfmod_sandbox_offsets(dcontext_t *dcontext)
     instrlist_t ilist;
     patch_list_t patch;
     static byte buf[256];
-    uint len;
     /* We assume this is called at init, when .data is +w and we need no
      * synch on accessing buf */
     ASSERT(!dynamo_initialized);
@@ -3952,12 +3944,9 @@ set_selfmod_sandbox_offsets(dcontext_t *dcontext)
                         instr_set_target(inst, opnd_create_pc(buf));
                     }
                 }
-                len = encode_with_patch_list(dcontext, &patch, &ilist, buf);
+                IF_DEBUG(uint len =)
+                encode_with_patch_list(dcontext, &patch, &ilist, buf);
                 ASSERT(len < BUFFER_SIZE_BYTES(buf));
-                if (len >= BUFFER_SIZE_BYTES(buf)) {
-                    LOG(THREAD, LOG_EMIT, 3, "len: %d >= buffer size: %d\n", len,
-                        BUFFER_SIZE_BYTES(buf));
-                }
                 IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint(start_pc - buf)));
                 selfmod_copy_start_offs[i][j] IF_X64([k]) = (uint)(start_pc - buf);
                 IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint(end_pc - buf)));

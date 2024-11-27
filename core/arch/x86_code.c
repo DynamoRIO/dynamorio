@@ -336,7 +336,6 @@ new_bsdthread_setup(priv_mcontext_t *mc)
 {
     dcontext_t *dcontext;
     void *crec, *func_arg;
-    int rc;
     /* this is where a new thread first touches other than the dstack,
      * so we "enter" DR here
      */
@@ -348,10 +347,8 @@ new_bsdthread_setup(priv_mcontext_t *mc)
         "new_thread_setup: thread " TIDFMT ", dstack " PFX " clone record " PFX "\n",
         d_r_get_thread_id(), get_clone_record_dstack(crec), crec);
 
-    rc = dynamo_thread_init(get_clone_record_dstack(crec), mc, crec, false);
+    IF_DEBUG(int rc =) dynamo_thread_init(get_clone_record_dstack(crec), mc, crec, false);
     ASSERT(rc != -1); /* this better be a new thread */
-    if (rc == -1)
-        LOG(GLOBAL, LOG_INTERP, 4, "dynamo_thread_init() returns -1.\n");
     dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL);
     crec = NULL; /* now freed */
