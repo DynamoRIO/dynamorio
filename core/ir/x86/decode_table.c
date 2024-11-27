@@ -1642,6 +1642,12 @@ const instr_info_t * const op_instr[] =
 
     /* SERIALIZE */
     /* OP_serialize */ &prefix_extensions[191][0],
+
+    /* MOVDIRI */
+    /* OP_movdiri */ &third_byte_38[173],
+
+    /* MOVDIR64B */
+    /* OP_movdir64b */ &prefix_extensions[192][2],
 };
 
 
@@ -5905,6 +5911,19 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0xf301e808, catUncategorized, "(bad)"  , xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0x6601e808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf201e808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+  },{ /* prefix extension 192 */
+    {INVALID,        0x38f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf338f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {OP_movdir64b, 0x6638f808, catMove, "movdir64b",   Gv, xx, Moq, xx, xx, no, x, END_LIST},
+    {INVALID,      0xf238f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,        0x38f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf338f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x6638f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf238f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,        0x38f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf338f808, catUncategorized, "(bad)"  , xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x6638f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf238f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }
 };
 /****************************************************************************
@@ -7313,7 +7332,7 @@ const byte third_byte_38_index[256] = {
      0,  0,  0,  0, 155,  0,163,164, 154,165,131,132, 152,153,  0,  0,  /* C */
      0,  0,  0,  0,   0,  0,  0,  0,   0,  0,  0, 51,  52, 53, 54, 55,  /* D */
      0,  0,  0,  0,   0,  0,  0,  0,   0,  0,  0,  0,   0,  0,  0,  0,  /* E */
-    47, 48,100, 99,   0,101,102, 98,   0,  0,  0,  0,   0,  0,  0,  0   /* F */
+    47, 48,100, 99,   0,101,102, 98, 172,173,  0,  0,   0,  0,  0,  0   /* F */
 };
 
 const instr_info_t third_byte_38[] = {
@@ -7508,7 +7527,9 @@ const instr_info_t third_byte_38[] = {
   {E_VEX_EXT, 0x66385308, catUncategorized, "(e_vex ext 152)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 152},/*169*/
   {PREFIX_EXT, 0x387208, catUncategorized, "(prefix ext 190)", xx, xx, xx, xx, xx, mrm|evex, x, 190},/*170*/
   /* AVX512 VPOPCNTDQ */
-  {EVEX_Wb_EXT, 0x66385518, catUncategorized, "(evex_Wb ext 274)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 274}/*171*/
+  {EVEX_Wb_EXT, 0x66385518, catUncategorized, "(evex_Wb ext 274)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 274},/*171*/
+  {PREFIX_EXT, 0x38f808, catUncategorized, "(prefix ext 192)", xx, xx, xx, xx, xx, mrm, x, 192},/*172*/
+  {OP_movdiri, 0x38f908, catMove, "movdiri", My, xx, Gy, xx, xx, mrm, x, END_LIST},/*173*/
 };
 
 /* N.B.: every 0x3a instr so far has an immediate.  If a version w/o an immed

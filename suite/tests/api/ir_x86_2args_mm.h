@@ -325,3 +325,12 @@ OPCODE(bndldx_b0ld, bndldx, bndldx, 0, REGARG(BND0), MEMARG(OPSZ_bnd))
 OPCODE(bndldx_b3ld, bndldx, bndldx, 0, REGARG(BND3), MEMARG(OPSZ_bnd))
 OPCODE(bndstx_b0st, bndstx, bndstx, 0, MEMARG(OPSZ_bnd), REGARG(BND0))
 OPCODE(bndstx_b3st, bndstx, bndstx, 0, MEMARG(OPSZ_bnd), REGARG(BND3))
+
+/* MOVDIRI */
+OPCODE(movdiri32, movdiri, movdiri, 0, MEMARG(OPSZ_4), REGARG(EAX))
+OPCODE(movdiri64, movdiri, movdiri, X64_ONLY, MEMARG(OPSZ_8), REGARG(RAX))
+
+/* MOVDIR64B */
+OPCODE(movdir64b16, movdir64b, movdir64b, X86_ONLY, MEMARG(OPSZ_512), REGARG(AX))
+OPCODE(movdir64b32, movdir64b, movdir64b, 0, MEMARG(OPSZ_512), REGARG(EAX))
+OPCODE(movdir64b64, movdir64b, movdir64b, X64_ONLY, MEMARG(OPSZ_512), REGARG(RAX))

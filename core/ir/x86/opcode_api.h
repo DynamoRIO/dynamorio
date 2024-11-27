@@ -1629,6 +1629,12 @@ enum {
     /* SERIALIZE */
     /* 1443 */ OP_serialize, /**< IA-32/AMD64 serialize opcode. */
 
+    /* MOVDIRI */
+    /* 1444 */ OP_movdiri, /**< IA-32/AMD64 movdiri opcode. */
+
+    /* MOVDIR64B */
+    /* 1445 */ OP_movdir64b, /**< IA-32/AMD64 movdir64b opcode. */
+
     OP_AFTER_LAST,
     OP_FIRST = OP_add,           /**< First real opcode. */
     OP_LAST = OP_AFTER_LAST - 1, /**< Last real opcode. */

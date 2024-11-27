@@ -1578,6 +1578,10 @@
 #define INSTR_CREATE_bndmk(dc, d, s) instr_create_1dst_1src((dc), OP_bndmk, (d), (s))
 #define INSTR_CREATE_bndldx(dc, d, s) instr_create_1dst_1src((dc), OP_bndldx, (d), (s))
 #define INSTR_CREATE_bndstx(dc, d, s) instr_create_1dst_1src((dc), OP_bndstx, (d), (s))
+/* MOVDIRI */
+#define INSTR_CREATE_movdiri(dc, d, s) instr_create_1dst_1src((dc), OP_movdiri, (d), (s))
+/* MOVDIR64B */
+#define INSTR_CREATE_movdir64b(dc, d, s) instr_create_1dst_1src((dc), OP_movdir64b, (d), (s))
 /** @} */ /* end doxygen group */
 
 /* 1 destination, 1 implicit source */
