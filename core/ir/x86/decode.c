@@ -1638,9 +1638,9 @@ decode_modrm(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *reg_opn
         *reg_opnd = opnd_create_reg(reg);
         opnd_size_t ressize;
         if (optype == TYPE_G_ES) {
-          ressize = resolve_addr_size(di);
+            ressize = resolve_addr_size(di);
         } else {
-          ressize = resolve_variable_size(di, opsize, true /*is reg*/);
+            ressize = resolve_variable_size(di, opsize, true /*is reg*/);
         }
         opnd_set_size(reg_opnd, ressize);
     }

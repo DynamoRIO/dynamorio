@@ -1564,9 +1564,10 @@ opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opn
     case TYPE_R:
     case TYPE_B:
     case TYPE_G_ES:
-        return (opnd_is_reg(opnd) &&
-                reg_size_ok(di, opnd_get_reg(opnd), optype, opsize, optype == TYPE_G_ES) &&
-                reg_is_gpr(opnd_get_reg(opnd)));
+        return (
+            opnd_is_reg(opnd) &&
+            reg_size_ok(di, opnd_get_reg(opnd), optype, opsize, optype == TYPE_G_ES) &&
+            reg_is_gpr(opnd_get_reg(opnd)));
     case TYPE_P:
     case TYPE_V:
     case TYPE_P_MODRM:

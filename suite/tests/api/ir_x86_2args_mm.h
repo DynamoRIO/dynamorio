@@ -332,7 +332,9 @@ OPCODE(movdiri64, movdiri, movdiri, X64_ONLY, MEMARG(OPSZ_8), REGARG(RAX))
 
 /* MOVDIR64B */
 /* NB: Can't use MEMARG because it doesn't work with addr16 prefix. */
-OPCODE(movdir64b16, movdir64b, movdir64b, X86_ONLY, REGARG(AX), opnd_create_base_disp(DR_REG_SI, DR_REG_NULL, 0, memarg_disp, OPSZ_512))
+OPCODE(movdir64b16, movdir64b, movdir64b, X86_ONLY, REGARG(AX),
+       opnd_create_base_disp(DR_REG_SI, DR_REG_NULL, 0, memarg_disp, OPSZ_512))
 /* NB: Can't use MEMARG because the base register needs to be the size of EAX. */
-OPCODE(movdir64b32, movdir64b, movdir64b, 0, REGARG(EAX), opnd_create_base_disp(DR_REG_ECX, DR_REG_NULL, 0, memarg_disp, OPSZ_512))
+OPCODE(movdir64b32, movdir64b, movdir64b, 0, REGARG(EAX),
+       opnd_create_base_disp(DR_REG_ECX, DR_REG_NULL, 0, memarg_disp, OPSZ_512))
 OPCODE(movdir64b64, movdir64b, movdir64b, X64_ONLY, REGARG(RAX), MEMARG(OPSZ_512))
