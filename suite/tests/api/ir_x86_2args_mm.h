@@ -331,6 +331,6 @@ OPCODE(movdiri32, movdiri, movdiri, 0, MEMARG(OPSZ_4), REGARG(EAX))
 OPCODE(movdiri64, movdiri, movdiri, X64_ONLY, MEMARG(OPSZ_8), REGARG(RAX))
 
 /* MOVDIR64B */
-OPCODE(movdir64b16, movdir64b, movdir64b, X86_ONLY, MEMARG(OPSZ_512), REGARG(AX))
-OPCODE(movdir64b32, movdir64b, movdir64b, 0, MEMARG(OPSZ_512), REGARG(EAX))
-OPCODE(movdir64b64, movdir64b, movdir64b, X64_ONLY, MEMARG(OPSZ_512), REGARG(RAX))
+OPCODE(movdir64b16, movdir64b, movdir64b, X86_ONLY, REGARG(AX), MEMARG(OPSZ_512))
+OPCODE(movdir64b32, movdir64b, movdir64b, 0, REGARG(EAX), MEMARG(OPSZ_512))
+OPCODE(movdir64b64, movdir64b, movdir64b, X64_ONLY, REGARG(RAX), MEMARG(OPSZ_512))
