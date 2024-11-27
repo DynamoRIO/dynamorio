@@ -813,6 +813,7 @@ read_evex(byte *pc, decode_info_t *di, byte instr_byte,
     }
 
     CLIENT_ASSERT(info->code == PREFIX_EVEX, "internal evex decoding error");
+
     /* read 2nd evex byte */
     instr_byte = *pc;
     prefix_byte = instr_byte;

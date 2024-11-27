@@ -343,7 +343,7 @@ new_bsdthread_setup(priv_mcontext_t *mc)
 
     crec = (void *)mc->xax; /* placed there by new_bsdthread_intercept */
     func_arg = (void *)get_clone_record_thread_arg(crec);
-    LOG(GLOBAL, LOG_INTERP, 4,
+    LOG(GLOBAL, LOG_INTERP, 1,
         "new_thread_setup: thread " TIDFMT ", dstack " PFX " clone record " PFX "\n",
         d_r_get_thread_id(), get_clone_record_dstack(crec), crec);
 
