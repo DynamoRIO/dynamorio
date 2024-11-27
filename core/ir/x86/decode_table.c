@@ -1637,8 +1637,11 @@ const instr_info_t * const op_instr[] =
     /* OP_xrstors64 */  &rex_w_extensions[7][1],
 
     /* TSXLDTRK */
-    /* OP_xsusldtrk */ &rm_extensions[5][0],
+    /* OP_xsusldtrk */ &prefix_extensions[191][3],
     /* OP_xresldtrk */ &rm_extensions[5][1],
+
+    /* SERIALIZE */
+    /* OP_serialize */ &prefix_extensions[191][0],
 };
 
 
@@ -5876,7 +5879,7 @@ const instr_info_t prefix_extensions[][12] = {
     {EVEX_Wb_EXT,0xf3385218, catUncategorized, "(evex_Wb ext 273)",   xx, xx, xx, xx, xx, no, x, 273},
     {EVEX_Wb_EXT,0x66385218, catUncategorized, "(evex_Wb ext 269)",   xx, xx, xx, xx, xx, no, x, 269},
     {INVALID,    0xf2385218, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-  } , { /* prefix extension 190 */
+  }, { /* prefix extension 190 */
     {INVALID,      0x387218, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0xf3387218, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0x66387218, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5889,6 +5892,19 @@ const instr_info_t prefix_extensions[][12] = {
     {EVEX_Wb_EXT,0xf3387208, catUncategorized, "(evex_Wb ext 272)", xx, xx, xx, xx, xx, mrm|evex|ttnone, x, 272},
     {INVALID,    0x66387218, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {EVEX_Wb_EXT,0xf2387218, catUncategorized, "(evex_Wb ext 271)",   xx, xx, xx, xx, xx, mrm|evex|ttnone, x, 271},
+  }, { /* prefix extension 191 */
+    {OP_serialize,   0x01e808, catOther, "serialize", xx, xx, xx, xx, xx, reqp, x, END_LIST},
+    {INVALID,      0xf301e808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x6601e808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {OP_xsusldtrk, 0xf201e808, catOther, "xsusldtrk", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {INVALID,        0x01e808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf301e808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x6601e808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf201e808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,        0x01e808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf301e808, catUncategorized, "(bad)"  , xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x6601e808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf201e808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }
 };
 /****************************************************************************
@@ -7079,7 +7095,7 @@ const instr_info_t rm_extensions[][8] = {
     {OP_enclu,  0xd70f0172, catUncategorized, "enclu", eax, ebx, eax, ebx, ecx, mrm|xop, x, exop[0xff]},
   },
   { /* rm extension 5 */
-    {OP_xsusldtrk, 0xf201e808, catOther, "xsusldtrk", xx, xx, xx, xx, xx, reqp, x, END_LIST},
+    {PREFIX_EXT, 0x01e808, catUncategorized, "(prefix ext 191)", xx, xx, xx, xx, xx, no, x, 191},
     {OP_xresldtrk, 0xf201e908, catOther, "xresldtrk", xx, xx, xx, xx, xx, reqp, x, END_LIST},
     {INVALID,   0x0f0131, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f0131, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},

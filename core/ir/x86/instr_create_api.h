@@ -531,6 +531,7 @@
 #define INSTR_CREATE_stac(dc) instr_create_0dst_0src((dc), OP_stac)
 #define INSTR_CREATE_xsusldtrk(dc) instr_create_0dst_0src((dc), OP_xsusldtrk)
 #define INSTR_CREATE_xresldtrk(dc) instr_create_0dst_0src((dc), OP_xresldtrk)
+#define INSTR_CREATE_serialize(dc) instr_create_0dst_0src((dc), OP_serialize)
 /** @} */ /* end doxygen group */
 
 /* no destination, 1 source */

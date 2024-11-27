@@ -56,7 +56,6 @@ event_nudge(void *drcontext, uint64 arg)
 #endif
         if (!dr_create_memory_dump(&spec))
             dr_fprintf(STDERR, "Error: failed to create memory dump.\n");
-        // TODO i#7046: Verify the content of the output file.
         return;
     }
     dr_fprintf(STDERR, "Error: unexpected nudge event!\n");
