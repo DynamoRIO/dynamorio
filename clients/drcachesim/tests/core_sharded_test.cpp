@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -62,9 +62,9 @@ run_analyzer(int argc, const char *args[])
     }
     analyzer_multi_t analyzer;
     assert(!!analyzer);
-    bool res = analyzer.run();
+    IF_DEBUG(bool res =) analyzer.run();
     assert(res);
-    res = analyzer.print_stats();
+    IF_DEBUG(res =) analyzer.print_stats();
     assert(res);
 
     std::cerr.rdbuf(prev_buf);

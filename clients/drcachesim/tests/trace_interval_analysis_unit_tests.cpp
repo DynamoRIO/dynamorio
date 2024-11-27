@@ -481,7 +481,7 @@ public:
     }
     bool
     finalize_interval_snapshots(
-        std::vector<interval_state_snapshot_t *> &interval_snapshots)
+        std::vector<interval_state_snapshot_t *> &interval_snapshots) override
     {
         for (auto snapshot : interval_snapshots) {
             if (snapshot == nullptr) {
