@@ -1626,6 +1626,9 @@ enum {
     /* 1441 */ OP_xsusldtrk, /**< IA-32/AMD64 xsusldtrk opcode. */
     /* 1442 */ OP_xresldtrk, /**< IA-32/AMD64 xresldtrk opcode. */
 
+    /* SERIALIZE */
+    /* 1443 */ OP_serialize, /**< IA-32/AMD64 serialize opcode. */
+
     OP_AFTER_LAST,
     OP_FIRST = OP_add,           /**< First real opcode. */
     OP_LAST = OP_AFTER_LAST - 1, /**< Last real opcode. */

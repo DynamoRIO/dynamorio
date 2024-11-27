@@ -203,3 +203,5 @@ OPCODE(stac, stac, stac, 0)
 
 OPCODE(xsusldtrk, xsusldtrk, xsusldtrk, 0)
 OPCODE(xresldtrk, xresldtrk, xresldtrk, 0)
+
+OPCODE(serialize, serialize, serialize, 0)
