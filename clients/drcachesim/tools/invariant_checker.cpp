@@ -895,8 +895,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // variable is not cached as it can dynamically vary based on data values.
         cur_instr_info.memref = memref;
         if (knob_verbose_ >= 3) {
-            std::cerr << "::" << memref.data.pid << ":" << memref.data.tid
-                      << ":: " << " @" << (void *)memref.instr.addr
+            std::cerr << "::" << memref.data.pid << ":" << memref.data.tid << ":: "
+                      << " @" << (void *)memref.instr.addr
                       << ((memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH)
                               ? " non-fetched"
                               : "")
@@ -1008,8 +1008,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // Clear window transitions on instrs.
         shard->window_transition_ = false;
     } else if (knob_verbose_ >= 3) {
-        std::cerr << "::" << memref.data.pid << ":" << memref.data.tid
-                  << ":: " << " type " << memref.instr.type << "\n";
+        std::cerr << "::" << memref.data.pid << ":" << memref.data.tid << ":: "
+                  << " type " << memref.instr.type << "\n";
     }
 
     if (memref.marker.type == TRACE_TYPE_MARKER &&
@@ -1037,8 +1037,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // Reset this since we just saw a timestamp marker.
         shard->instr_count_since_last_timestamp_ = 0;
         if (knob_verbose_ >= 3) {
-            std::cerr << "::" << memref.data.pid << ":" << memref.data.tid
-                      << ":: " << " timestamp " << memref.marker.marker_value << "\n";
+            std::cerr << "::" << memref.data.pid << ":" << memref.data.tid << ":: "
+                      << " timestamp " << memref.marker.marker_value << "\n";
         }
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
@@ -1056,10 +1056,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
          memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER)) {
         if (knob_verbose_ >= 3) {
-            std::cerr << "::" << memref.data.pid << ":" << memref.data.tid
-                      << ":: " << "marker type " << memref.marker.marker_type
-                      << " value 0x" << std::hex << memref.marker.marker_value << std::dec
-                      << "\n";
+            std::cerr << "::" << memref.data.pid << ":" << memref.data.tid << ":: "
+                      << "marker type " << memref.marker.marker_type << " value 0x"
+                      << std::hex << memref.marker.marker_value << std::dec << "\n";
         }
         // Zero is pushed as a sentinel. This push matches the return used by post
         // signal handler to run the restorer code. It is assumed that all signal

@@ -44,6 +44,7 @@
 #include "../common/memref.h"
 #include "memref_gen.h"
 #include "trace_entry.h"
+
 #ifdef LINUX
 #    include "../../core/unix/include/syscall_target.h"
 #endif
