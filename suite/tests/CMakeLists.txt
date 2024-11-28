@@ -2054,6 +2054,7 @@ if (NOT ANDROID)
 
   if (RISCV64)
     tobuild_api(api.ir_rvv api/ir_rvv.c  "" "" ON OFF OFF)
+    tobuild_api(api.ir_rv64_addr api/ir_rv64_addr.c  "" "" OFF OFF OFF)
   endif(RISCV64)
 endif ()
 
@@ -6415,6 +6416,7 @@ if (RISCV64)
     code_api|api.ir-static
     code_api|api.ir_regdeps
     code_api|api.ir_rvv
+    code_api|api.ir_rv64_addr
     code_api|client.app_args
     code_api|client.blackbox
     code_api|client.crashmsg
