@@ -1670,7 +1670,7 @@ static const redirect_import_t redirect_debug_imports[] = {
 #endif
 
 bool
-privload_redirect_sym(os_privmod_data_t *opd, ELF_ADDR *r_addr, const char *name)
+privload_redirect_sym(os_privmod_data_t *opd, ptr_uint_t *r_addr, const char *name)
 {
     int i;
     /* iterate over all symbols and redirect syms when necessary, e.g. malloc */
@@ -1678,7 +1678,7 @@ privload_redirect_sym(os_privmod_data_t *opd, ELF_ADDR *r_addr, const char *name
     if (disallow_unsafe_static_calls) {
         for (i = 0; i < REDIRECT_DEBUG_IMPORTS_NUM; i++) {
             if (strcmp(redirect_debug_imports[i].name, name) == 0) {
-                *r_addr = (ELF_ADDR)redirect_debug_imports[i].func;
+                *r_addr = (ptr_uint_t)redirect_debug_imports[i].func;
                 return true;
             }
         }
@@ -1687,9 +1687,9 @@ privload_redirect_sym(os_privmod_data_t *opd, ELF_ADDR *r_addr, const char *name
     for (i = 0; i < REDIRECT_IMPORTS_NUM; i++) {
         if (strcmp(redirect_imports[i].name, name) == 0) {
             if (opd->use_app_imports && redirect_imports[i].app_func != NULL)
-                *r_addr = (ELF_ADDR)redirect_imports[i].app_func;
+                *r_addr = (ptr_uint_t)redirect_imports[i].app_func;
             else
-                *r_addr = (ELF_ADDR)redirect_imports[i].func;
+                *r_addr = (ptr_uint_t)redirect_imports[i].func;
             return true;
         }
     }

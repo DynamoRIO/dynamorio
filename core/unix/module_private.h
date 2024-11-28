@@ -126,7 +126,7 @@ get_proc_address_from_os_data(os_module_data_t *os_data, ptr_int_t delta,
                               const char *name, bool *is_indirect_code DR_PARAM_OUT);
 
 bool
-privload_redirect_sym(os_privmod_data_t *opd, ELF_ADDR *r_addr, const char *name);
+privload_redirect_sym(os_privmod_data_t *opd, ptr_uint_t *r_addr, const char *name);
 
 #ifdef LINUX
 void
