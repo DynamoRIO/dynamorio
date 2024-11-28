@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2013,14 +2013,6 @@ check_option_compatibility_helper(int recurse_count)
         dynamo_options.use_persisted = false;
         changed_options = true;
     }
-#    ifdef UNIX
-    /* PR 304708: we intercept all signals for a better client interface */
-    if (DYNAMO_OPTION(code_api) && !DYNAMO_OPTION(intercept_all_signals)) {
-        USAGE_ERROR("-code_api requires -intercept_all_signals");
-        dynamo_options.intercept_all_signals = true;
-        changed_options = true;
-    }
-#    endif
 #    ifdef UNIX
     if (DYNAMO_OPTION(max_pending_signals) < 1) {
         USAGE_ERROR("-max_pending_signals must be at least 1");
