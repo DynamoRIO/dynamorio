@@ -394,6 +394,11 @@ public:
     {
         return shard_;
     }
+    int64_t
+    get_workload_id() const override
+    {
+        return workload_id_;
+    }
     // Also sets the shard index to the dynamic-discovery-order tid ordinal.
     void
     set_tid(int64_t tid)
@@ -413,12 +418,18 @@ public:
     {
         return tid_;
     }
+    void
+    set_workload_id(int64_t id)
+    {
+        workload_id_ = id;
+    }
 
 private:
     uint64_t *record_ordinal_ = nullptr;
     int64_t cpuid_ = 0;
     int shard_ = 0;
     int64_t tid_ = 0;
+    int64_t workload_id_ = 0;
     // To let a test set just the tid and get a shard index for free.
     std::unordered_map<int64_t, int> tid2shard_;
 };

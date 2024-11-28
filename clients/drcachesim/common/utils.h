@@ -74,8 +74,10 @@ namespace drmemtrace {
 // XXX i#4399: DR should define a DEBUG-only assert.
 #ifdef DEBUG
 #    define ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
+#    define IF_DEBUG(x) x
 #else
 #    define ASSERT(x, msg) /* Nothing. */
+#    define IF_DEBUG(x)    /* Nothing. */
 #endif
 
 #define BUFFER_SIZE_BYTES(buf) sizeof(buf)

@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -431,9 +431,6 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, app_pc pc,
     opnd_t ref, opnd1, opnd2;
     reg_id_t reg1, reg2;
     drvector_t allowed;
-    per_thread_t *data;
-
-    data = drmgr_get_tls_field(drcontext, tls_index);
 
     /* Steal two scratch registers.
      * reg2 must be ECX or RCX for jecxz.
@@ -467,7 +464,6 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, app_pc pc,
      *    clean_call();
      */
     drmgr_insert_read_tls_field(drcontext, tls_index, ilist, where, reg2);
-    /* Load data->buf_ptr into reg2 */
     opnd1 = opnd_create_reg(reg2);
     opnd2 = OPND_CREATE_MEMPTR(reg2, offsetof(per_thread_t, buf_ptr));
     instr = INSTR_CREATE_mov_ld(drcontext, opnd1, opnd2);
@@ -507,7 +503,6 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, app_pc pc,
     instr = INSTR_CREATE_lea(drcontext, opnd1, opnd2);
     instrlist_meta_preinsert(ilist, where, instr);
 
-    /* Update the data->buf_ptr */
     drmgr_insert_read_tls_field(drcontext, tls_index, ilist, where, reg1);
     opnd1 = OPND_CREATE_MEMPTR(reg1, offsetof(per_thread_t, buf_ptr));
     opnd2 = opnd_create_reg(reg2);

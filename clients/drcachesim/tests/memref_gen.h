@@ -85,11 +85,12 @@ gen_data(memref_tid_t tid, bool load, addr_t addr, size_t size)
 
 inline memref_t
 gen_instr_type(trace_type_t type, memref_tid_t tid, addr_t pc = 1, size_t size = 1,
-               addr_t indirect_branch_target = 0)
+               addr_t indirect_branch_target = 0, memref_pid_t pid = 0)
 {
     memref_t memref = {};
     memref.instr.type = type;
     memref.instr.tid = tid;
+    memref.instr.pid = pid;
     memref.instr.addr = pc;
     memref.instr.size = size;
     memref.instr.indirect_branch_target = indirect_branch_target;
@@ -97,9 +98,10 @@ gen_instr_type(trace_type_t type, memref_tid_t tid, addr_t pc = 1, size_t size =
 }
 
 inline memref_t
-gen_instr(memref_tid_t tid, addr_t pc = 1, size_t size = 1)
+gen_instr(memref_tid_t tid, addr_t pc = 1, size_t size = 1, memref_pid_t pid = 0)
 {
-    return gen_instr_type(TRACE_TYPE_INSTR, tid, pc, size);
+    return gen_instr_type(TRACE_TYPE_INSTR, tid, pc, size, /*indirect_branch_target=*/0,
+                          pid);
 }
 
 inline memref_t
