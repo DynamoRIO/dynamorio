@@ -3582,7 +3582,7 @@ check_regdeps(void)
                        OFFLINE_FILE_TYPE_ARCH_REGDEPS | OFFLINE_FILE_TYPE_ARCH_AARCH64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_CPU_ID, -1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CPU_ID, INVALID_CPU_MARKER_VALUE),
             gen_instr(TID_A),
             gen_exit(TID_A),
         };
