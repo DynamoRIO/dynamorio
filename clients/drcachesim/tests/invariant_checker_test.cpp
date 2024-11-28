@@ -43,6 +43,7 @@
 #include "../tools/invariant_checker.h"
 #include "../common/memref.h"
 #include "memref_gen.h"
+#include "trace_entry.h"
 #ifdef LINUX
 #    include "../../core/unix/include/syscall_target.h"
 #endif
@@ -3572,6 +3573,48 @@ bool
 check_regdeps(void)
 {
     std::cerr << "Testing regdeps traces\n";
+
+    // Incorrect: OFFLINE_FILE_TYPE_ARCH_AARCH64 not allowed.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE,
+                       OFFLINE_FILE_TYPE_ARCH_REGDEPS | OFFLINE_FILE_TYPE_ARCH_AARCH64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CPU_ID, -1),
+            gen_instr(TID_A),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, true,
+                         { "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot contain "
+                           "OFFLINE_FILE_TYPE_ARCH_AARCH64",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/1, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/0 },
+                         "Failed to catch non-allowed OFFLINE_FILE_TYPE_ARCH_AARCH64"))
+            return false;
+    }
+
+    // Incorrect: TRACE_MARKER_TYPE_CPU_ID with value other than -1 not allowed.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ARCH_REGDEPS),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CPU_ID, 1),
+            gen_instr(TID_A),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, true,
+                         { "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot have a valid "
+                           "TRACE_MARKER_TYPE_CPU_ID",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/4, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/0 },
+                         "Failed to catch non-allowed TRACE_MARKER_TYPE_CPU_ID marker"))
+            return false;
+    }
+
     // Incorrect: TRACE_MARKER_TYPE_SYSCALL_IDX not allowed.
     {
         std::vector<memref_t> memrefs = {
