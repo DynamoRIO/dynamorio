@@ -151,6 +151,26 @@ function (_DR_check_if_linker_is_gnu_gold var_out)
   set(${var_out} ${is_gold} PARENT_SCOPE)
 endfunction (_DR_check_if_linker_is_gnu_gold)
 
+function (_DR_check_if_linker_is_llvm_lld var_out)
+  if (WIN32)
+    # We don't support lld on Windows.  We only support the MSVC toolchain.
+    set(is_lld OFF)
+  else ()
+    set(linkver ${CMAKE_LINKER};-v)
+    execute_process(COMMAND ${linkver}
+      RESULT_VARIABLE ld_result
+      ERROR_QUIET
+      OUTPUT_VARIABLE ld_out)
+    set(is_lld OFF)
+    if (ld_result)
+      message("failed to get linker version, assuming ld.bfd (${ld_result})")
+    elseif ("${ld_out}" MATCHES "LLD ")
+      set(is_lld ON)
+    endif ()
+  endif ()
+  set(${var_out} ${is_lld} PARENT_SCOPE)
+endfunction (_DR_check_if_linker_is_llvm_lld)
+
 # Takes in a target and returns the expected full target path incl. output name.
 #
 # XXX i#1557: DynamoRIO cmake files used to query the LOCATION target property at

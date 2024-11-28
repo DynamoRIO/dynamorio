@@ -49,7 +49,7 @@
 
 /* Define to 1 if you have the declaration of `rawmemchr', and to 0 if you
    don't. */
-#define HAVE_DECL_RAWMEMCHR 1
+#define HAVE_DECL_RAWMEMCHR 0
 
 /* Define to 1 if you have the declaration of `reallocarray', and to 0 if you
    don't. */
@@ -208,4 +208,4 @@
 /* Define for large files, on AIX-style hosts. */
 /* #undef _LARGE_FILES */
 
-#include <eu-config.h>
+#include <eu-config-patched.h>

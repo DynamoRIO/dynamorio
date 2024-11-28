@@ -59,7 +59,11 @@ if (DR_HOST_ARM)
 endif()
 
 if (DR_HOST_AARCH64)
-  set(ARCH "-aarch64")
+  if (ANDROID)
+    set(ARCH "-android64")
+  else ()
+    set(ARCH "-aarch64")
+  endif ()
 endif ()
 
 if (DR_HOST_RISCV64)
@@ -135,7 +139,7 @@ elseif (UNIX)
       "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc-macho${ARCH}/lib${BITS}/libdwarf.a")
     set(elftc_libpath
       "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc-macho${ARCH}/lib${BITS}/libelftc.a")
-  elseif (ANDROID)
+  elseif (ANDROID32)
     # TODO i#5926: Use elfutils for Android.  First we need to get zlib installed
     # in our test environment.
     set(srcs ${srcs} drsyms_dwarf.c drsyms_elf.c)
@@ -185,6 +189,11 @@ elseif (UNIX)
       endif ()
     endforeach ()
 
+    # Rename the patched config file so the linker does not find the old version
+    # that will cause an error. config.h in drsyms/elfutils will also look for
+    # this renamed file
+    file(RENAME "${CMAKE_CURRENT_BINARY_DIR}/eu-config.h" "${CMAKE_CURRENT_BINARY_DIR}/eu-config-patched.h")
+
     # Add the elfutils library build rules we need.  We want PIC static libs.
     foreach (lib elf;dw;dwelf;ebl)
       file(GLOB ${lib}_files "${elfutils_dir}/lib${lib}/*.c")
@@ -206,7 +215,7 @@ elseif (UNIX)
       set_target_properties(${lib}_pic PROPERTIES
         # We have a presumably-widely-applicable config.h in drsyms/elfutils.
         INCLUDE_DIRECTORIES
-        "${CMAKE_CURRENT_SOURCE_DIR}/elfutils;${elfutils_dir}/lib;${elfutils_dir}/libasm;${elfutils_dir}/libebl;${elfutils_dir}/libdwelf;${elfutils_dir}/libdwfl"
+        "${CMAKE_CURRENT_SOURCE_DIR}/elfutils;${elfutils_dir}/lib;${elfutils_dir}/libasm;${elfutils_dir}/libebl;${elfutils_dir}/libdwelf;${elfutils_dir}/libdwfl;${CMAKE_CURRENT_BINARY_DIR}"
         COMPILE_DEFINITIONS
         "_GNU_SOURCE;HAVE_CONFIG_H;_FORTIFY_SOURCE=3;PIC;SHARED;SYMBOL_VERSIONING;malloc=__wrap_malloc;calloc=__wrap_calloc;realloc=__wrap_realloc;free=__wrap_free;strdup=__wrap_strdup"
         COMPILE_FLAGS "-std=gnu99 -Wall -g -O2 -fPIC")

@@ -165,12 +165,8 @@
  * pthread_internal_t. However, its offset varies by Android version, requiring
  * indirection through a variable.
  */
-#        ifdef AARCH64
-#            error NYI
-#        else
 extern uint android_tls_base_offs;
-#            define DR_TLS_BASE_OFFSET android_tls_base_offs
-#        endif
+#        define DR_TLS_BASE_OFFSET android_tls_base_offs
 #    else
 /* The TLS slot for DR's TLS base.
  * On ARM, we use the 'private' field of the tcbhead_t to store DR TLS base,
@@ -246,7 +242,7 @@ ushort
 os_get_app_tls_reg_offset(reg_id_t seg);
 void *
 os_get_app_tls_base(dcontext_t *dcontext, reg_id_t seg);
-#if defined(AARCH64) || (defined(X64) && defined(X86))
+#if (defined(AARCH64) && !defined(ANDROID64)) || (defined(X64) && defined(X86))
 /* os_dump_core_live has the same restriction as dr_suspend_all_other_threads_ex().
  * For X86_64 platform, fast FP save and restore (fxsave64) support is required. And mixed
  * mode (a process mixing 64-bit and 32-bit code) is not supported.
@@ -455,16 +451,20 @@ is_DR_segment_reader_entry(app_pc pc);
 #define SIGARRAY_SIZE (MAX_SIGNUM + 1)
 
 /* size of long */
-#ifdef X64
-#    define _NSIG_BPW 64
-#else
-#    define _NSIG_BPW 32
+#ifndef _NSIG_BPW
+#    ifdef X64
+#        define _NSIG_BPW 64
+#    else
+#        define _NSIG_BPW 32
+#    endif
 #endif
 
-#ifdef LINUX
-#    define _NSIG_WORDS (MAX_SIGNUM / _NSIG_BPW)
-#else
-#    define _NSIG_WORDS 1 /* avoid 0 */
+#ifndef _NSIG_WORDS
+#    ifdef LINUX
+#        define _NSIG_WORDS (MAX_SIGNUM / _NSIG_BPW)
+#    else
+#        define _NSIG_WORDS 1 /* avoid 0 */
+#    endif
 #endif
 
 /* kernel's sigset_t packs info into bits, while glibc's uses a short for
