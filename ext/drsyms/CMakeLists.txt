@@ -56,7 +56,7 @@ if (DR_HOST_ARM)
       set(BITS "${BITS}-eabihf")
     endif ()
   endif ()
-endif()
+endif ()
 
 if (DR_HOST_AARCH64)
   set(ARCH "-aarch64")
@@ -73,7 +73,7 @@ set(USE_ELFUTILS OFF)
 
 # We use our own .lib file to support VS2005 whose dbghelp.lib doesn't have some
 # routines we want to use.
-if (WIN32)
+if (WIN32 AND MSVC)
   # XXX: if we add any more of these .lib files we should share this code
   # (currently we have make/ntdll_imports.cmake and here).
   find_program(LIB_EXECUTABLE lib.exe HINTS "${cl_path}" DOC "path to lib.exe")
@@ -93,8 +93,8 @@ if (WIN32)
     DEPENDS "${dbghelp_src}" "${dbghelp_def}"
     COMMAND "${CMAKE_C_COMPILER}" ARGS /nologo /c /Ob0 ${dbghelp_src}
     COMMAND "${LIB_EXECUTABLE}" ARGS
-      /nologo /name:dbghelp.dll /def:${dbghelp_def}
-      ${CMAKE_CURRENT_BINARY_DIR}/dbghelp_imports.obj
+    /nologo /name:dbghelp.dll /def:${dbghelp_def}
+    ${CMAKE_CURRENT_BINARY_DIR}/dbghelp_imports.obj
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     VERBATIM # recommended: p260 of cmake book
     )
@@ -125,7 +125,8 @@ if (WIN32)
   configure_file("${dwarf_dir}/elftc.pdb"
     "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/elftc.pdb" COPYONLY)
 
-elseif (UNIX)
+else ()
+  # Unix or Windows MSYS2/MinGW toolchain
   set(srcs
     drsyms_unix_frontend.c drsyms_unix_common.c
     demangle.cc drsyms_common.c)
@@ -231,7 +232,7 @@ elseif (UNIX)
     add_definitions(-DDR__Bool_EXISTS)
   endif ()
   set(srcs_static ${srcs})
-endif (WIN32)
+endif ()
 
 # while private loader means preferred base is not required, more efficient
 # to avoid rebase so we avoid conflict w/ client and other exts
@@ -241,7 +242,7 @@ add_library(drsyms SHARED ${srcs})
 configure_extension(drsyms OFF)
 
 macro(configure_drsyms_target target)
-  if (WIN32)
+  if (WIN32 AND MSVC)
     target_link_libraries(${target} dbghelp ${dbghelp_flags})
     if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
       # for parallel build correctness we need a target dependence
@@ -326,12 +327,12 @@ if (WIN32)
 endif (WIN32)
 DR_install(FILES "${dwarf_libpath}" "${elf_libpath}" "${elftc_libpath}"
   DESTINATION ${INSTALL_EXT_LIB})
-if (WIN32)
- DR_install(FILES "${dwarf_dir}/dwarf.pdb" "${dwarf_dir}/elftc.pdb"
+if (WIN32 AND MSVC)
+  DR_install(FILES "${dwarf_dir}/dwarf.pdb" "${dwarf_dir}/elftc.pdb"
     DESTINATION ${INSTALL_EXT_LIB}
     PERMISSIONS ${owner_access} OWNER_EXECUTE GROUP_READ GROUP_EXECUTE
     WORLD_READ WORLD_EXECUTE)
-endif (WIN32)
+endif ()
 
 add_executable(drsyms_bench drsyms_bench.c)
 configure_DynamoRIO_standalone(drsyms_bench)
@@ -343,7 +344,7 @@ set_target_properties(drsyms_bench PROPERTIES
 # documentation is put into main DR docs/ dir
 install_ext_header(drsyms.h)
 
-if (WIN32)
+if (WIN32 AND MSVC)
   # We need separate 32-bit and 64-bit versions so we put into lib dir.
   # We put into base dir and not ext for easy sharing w/ including clients.
   DR_install(FILES ${dbghelp_lib} DESTINATION ${INSTALL_LIB_BASE})
@@ -354,4 +355,4 @@ if (WIN32)
       COPYONLY)
     DR_install(FILES "${dbghelp_path}" DESTINATION ${INSTALL_EXT_LIB})
   endif ()
-endif (WIN32)
+endif ()
