@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2014-2016 Google, Inc.    All rights reserved.
+# Copyright (c) 2014-2024 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -29,20 +29,20 @@
 # DAMAGE.
 
 # For cross compiling for 64-bit arm Android using the Android LLVM toolchain:
-# - Download toolchain, and install the standalone toolchain
+# - Download toolchain, and install the standalone toolchain:
 #   https://developer.android.com/ndk/downloads/revision_history
-#   $/PATH/TO/ANDROID_NDK/toolchains/llvm/prebuilt/<build>/bin
-# - Build ZLIB with the Android toolchain (included in third_party/zlib)
-#   $AR=/TOOLCHAIN/INSTALL/PATH/llvm-ar \
+#   $ /PATH/TO/ANDROID_NDK/toolchains/llvm/prebuilt/<build>/bin
+# - Build ZLIB with the Android toolchain (included in third_party/zlib):
+#   $ AR=/TOOLCHAIN/INSTALL/PATH/llvm-ar \
 #   CC=/TOOLCHAIN/INSTALL/PATH/aarch64-linux-android<chosen-version>-clang \
 #   CFLAGS="-fPIC -O" ./configure --static && make install prefix=$HOME/zlib
-# - cross-compiling config with ANDROID_TOOLCHAIN
-#   $cmake -DCMAKE_TOOLCHAIN_FILE=../dynamorio/make/toolchain-android-aarch64.cmake \
+# - Cross-compiling config with ANDROID_TOOLCHAIN:
+#   $ cmake -DCMAKE_TOOLCHAIN_FILE=../dynamorio/make/toolchain-android-aarch64.cmake \
 #     -DANDROID_TOOLCHAIN=/TOOLCHAIN/INSTALL/PATH -DTOOLCHAIN_VERSION=<chosen-version> \
 #     -DZLIB_LIBRARY=$HOME/zlib/lib/libz.a -DZLIB_INCLUDE_DIR=$HOME/zlib/include \
 #     ../dynamorio
 
-# Target system
+# Target system.
 set(CMAKE_SYSTEM_NAME Android)
 set(CMAKE_SYSTEM_VERSION 1)
 
@@ -54,7 +54,7 @@ if (TARGET_ABI MATCHES "^aarch64")
   set(CMAKE_SYSTEM_PROCESSOR aarch64)
 endif ()
 
-# specify the cross compiler
+# Specify the cross compiler.
 if (NOT DEFINED ANDROID_TOOLCHAIN)
   set(toolchain_bin_path "")
 else ()
@@ -82,16 +82,16 @@ SET(CMAKE_STRIP        ${toolchain_bin_path}llvm-strip
 SET(CMAKE_CPP          ${toolchain_bin_path}${TARGET_ABI}${TOOLCHAIN_VERSION}-clang
   CACHE FILEPATH "cmake_cpp")
 
-# specify sysroot
+# Specify sysroot.
 if (NOT DEFINED ANDROID_SYSROOT)
-  # assuming default android standalone toolchain directory layout
+  # Assuming default android standalone toolchain directory layout.
   find_path(compiler_path ${CMAKE_C_COMPILER})
   set(ANDROID_SYSROOT "${compiler_path}/../sysroot")
 endif ()
 
 SET(CMAKE_FIND_ROOT_PATH ${ANDROID_SYSROOT})
-# search for programs in the build host directories
+# Search for programs in the build host directories.
 SET(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
-# for libraries and headers in the target directories
+# For libraries and headers in the target directories.
 SET(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 SET(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)

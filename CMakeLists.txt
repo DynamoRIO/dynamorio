@@ -916,16 +916,23 @@ if (UNIX)
       set(WARN "${WARN} -Wno-dangling-pointer")
     endif ()
   else (NOT CMAKE_COMPILER_IS_CLANG)
-    # clang turns off color when it's writing to a pipe, but the user may still
-    # wish to force color if it eventually goes to a terminal.
+    # Clang emits this warning when a function is used without a defined
+    # prototype, however clang can't find function prototpes in #define macros.
+    # If function prototypes are moved out of #define macros then this warning
+    # can be re-enabled.
     CHECK_C_COMPILER_FLAG("-Wno-deprecated-non-prototype" nodeprecated_prototype_avail)
     if (nodeprecated_prototype_avail)
       set(WARN "${WARN} -Wno-deprecated-non-prototype")
     endif (nodeprecated_prototype_avail)
+    # Clang emits this warning due to the assembly shared between arm and
+    # aarch64 in os.c not specifying register widths. If the shared code is
+    # split into arm and aarch64 versions, then this warning can be re-enabled.
     CHECK_C_COMPILER_FLAG("-Wno-asm-operand-widths" noasm_operand_widths)
     if (noasm_operand_widths)
       set(WARN "${WARN} -Wno-asm-operand-widths")
     endif (noasm_operand_widths)
+    # clang turns off color when it's writing to a pipe, but the user may still
+    # wish to force color if it eventually goes to a terminal.
     option(CLANG_COLOR_DIAGNOSTICS "force colored clang diagnostics" OFF)
     set(clang_args "")
     if (CLANG_COLOR_DIAGNOSTICS)

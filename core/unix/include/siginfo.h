@@ -30,6 +30,9 @@ typedef siginfo_t kernel_siginfo_t;
  */
 #    ifdef ANDROID
 typedef clock_t __clock_t;
+#        ifndef __WORDSIZE
+#            define __WORDSIZE 32
+#        endif
 #    else
 #        include <bits/wordsize.h>
 #    endif

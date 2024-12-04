@@ -16,7 +16,7 @@ We have to stick with r3530 until
 https://sourceforge.net/p/elftoolchain/tickets/581/ is fixed.
 $ svn co -r 3530 svn://svn.code.sf.net/p/elftoolchain/code/trunk "${elftc_dir}"
 
-Apply the libelftc-android.patch.
+Apply the libelftc-android64.patch.
 
 Now build 64-bit:
 $ export CC=/PATH/TO/ANDROID/NDK/TOOLCHAIN/bin/aarch64-linux-android<version number>-clang
