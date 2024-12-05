@@ -290,8 +290,8 @@ suppress_memory_size_annotations(instr_t *instr)
      * TYPE_G_ES_VAR_REG_SIZE but this is sufficient for now.
      */
     switch (instr_get_opcode(instr)) {
-    case OP_movdir64b: return false;
-    default: return true;
+    case OP_movdir64b: return true;
+    default: return false;
     }
 }
 
