@@ -1648,6 +1648,10 @@ const instr_info_t * const op_instr[] =
 
     /* MOVDIR64B */
     /* OP_movdir64b */ &prefix_extensions[192][2],
+
+    /* ENQCMD */
+    /* OP_enqcmd */ &mod_extensions[122][0],
+    /* OP_enqcmds */ &mod_extensions[121][0],
 };
 
 
@@ -5915,9 +5919,9 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0xf201e808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   },{ /* prefix extension 192 */
     {INVALID,        0x38f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,      0xf338f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {MOD_EXT,      0xf338f808, catUncategorized, "(mod ext 121)", xx, xx, xx, xx, xx, no, x, 121},
     {OP_movdir64b, 0x6638f808, catMove, "movdir64b", GesvS_oq, xx, Moq, xx, xx, mrm, x, END_LIST},
-    {INVALID,      0xf238f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {MOD_EXT,      0xf238f808, catUncategorized, "(mod ext 122)", xx, xx, xx, xx, xx, no, x, 122},
     {INVALID,        0x38f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf338f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0x6638f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -7055,6 +7059,14 @@ const instr_info_t mod_extensions[][2] = {
   { /* mod extension 120 */
     {INVALID, 0x0f0135, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {RM_EXT,  0x0f0175, catUncategorized, "(group 7 mod + rm ext 5)", xx, xx, xx, xx, xx, mrm, x, 5},
+  },
+  { /* mod extension 121 */
+    {OP_enqcmds, 0xf338f808, catUncategorized, "enqcmds", GesvS_oq, xx, Moq, xx, xx, mrm, fW6, END_LIST},
+    {INVALID,    0xf338f808, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+  },
+  { /* mod extension 122 */
+    {OP_enqcmd,  0xf238f808, catUncategorized, "enqcmd", GesvS_oq, xx, Moq, xx, xx, mrm, fW6, END_LIST},
+    {INVALID,    0xf238f808, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
   },
 };
 

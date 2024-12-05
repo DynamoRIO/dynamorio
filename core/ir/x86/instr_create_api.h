@@ -1583,6 +1583,10 @@
 /* MOVDIR64B */
 #define INSTR_CREATE_movdir64b(dc, d, s) \
     instr_create_1dst_1src((dc), OP_movdir64b, (d), (s))
+/* ENQCMD */
+#define INSTR_CREATE_enqcmd(dc, d, s) instr_create_1dst_1src((dc), OP_enqcmd, (d), (s))
+#define INSTR_CREATE_enqcmds(dc, d, s) instr_create_1dst_1src((dc), OP_enqcmds, (d), (s))
+
 /** @} */ /* end doxygen group */
 
 /* 1 destination, 1 implicit source */
