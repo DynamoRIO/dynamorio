@@ -1646,22 +1646,12 @@ invariant_checker_t::check_regdeps_invariants(per_shard_t *shard, const memref_t
                 "TRACE_MARKER_TYPE_FILETYPE and shard file type are not the same");
             // Check that the file type does not contain any architecture specific
             // information except OFFLINE_FILE_TYPE_ARCH_REGDEPS.
-            report_if_false(shard,
-                            !TESTANY(OFFLINE_FILE_TYPE_ARCH_AARCH64, shard->file_type_),
-                            "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot contain "
-                            "OFFLINE_FILE_TYPE_ARCH_AARCH64");
-            report_if_false(shard,
-                            !TESTANY(OFFLINE_FILE_TYPE_ARCH_ARM32, shard->file_type_),
-                            "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot contain "
-                            "OFFLINE_FILE_TYPE_ARCH_ARM32");
-            report_if_false(shard,
-                            !TESTANY(OFFLINE_FILE_TYPE_ARCH_X86_32, shard->file_type_),
-                            "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot contain "
-                            "OFFLINE_FILE_TYPE_ARCH_X86_32");
-            report_if_false(shard,
-                            !TESTANY(OFFLINE_FILE_TYPE_ARCH_X86_64, shard->file_type_),
-                            "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot contain "
-                            "OFFLINE_FILE_TYPE_ARCH_X86_64");
+            report_if_false(
+                shard,
+                !TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL & ~OFFLINE_FILE_TYPE_ARCH_REGDEPS,
+                         shard->file_type_),
+                "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot have other"
+                "OFFLINE_FILE_TYPE_ARCH_*");
             break;
         case TRACE_MARKER_TYPE_CPU_ID:
             report_if_false(shard, memref.marker.marker_value == INVALID_CPU_MARKER_VALUE,

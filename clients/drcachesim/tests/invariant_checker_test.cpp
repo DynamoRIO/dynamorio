@@ -3587,8 +3587,8 @@ check_regdeps(void)
             gen_exit(TID_A),
         };
         if (!run_checker(memrefs, true,
-                         { "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot contain "
-                           "OFFLINE_FILE_TYPE_ARCH_AARCH64",
+                         { "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot have other"
+                           "OFFLINE_FILE_TYPE_ARCH_*",
                            /*tid=*/TID_A,
                            /*ref_ordinal=*/1, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/0 },
