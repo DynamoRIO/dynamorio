@@ -187,6 +187,18 @@ if (APPLE)
   set(OLDEST_OSX_SUPPPORTED "11.7")
 elseif (UNIX)
   set(LINUX 1)
+  find_program(LDD ldd DOC "util for examing shared object dependency")
+  if (NOT LDD)
+    message(STATUS "Unable to find ldd: assume glibc")
+  else ()
+    execute_process(COMMAND ${LDD}
+      RESULT_VARIABLE ldd_result
+      ERROR_VARIABLE ldd_err
+      OUTPUT_VARIABLE ldd_out)
+      if (ldd_err MATCHES "^musl libc")
+        set(MUSL 1)
+      endif ()
+  endif ()
 endif (APPLE)
 if (WIN32)
   set(WINDOWS 1)
