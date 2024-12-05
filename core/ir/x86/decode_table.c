@@ -1906,7 +1906,7 @@ const instr_info_t * const op_instr[] =
 #define c1  TYPE_1, OPSZ_0
 /* we pick the right constant based on the opcode */
 #define cF  TYPE_FLOATCONST, OPSZ_0
-#define Ges_sv TYPE_G_ES, OPSZ_4x8_short2
+#define GesvS_oq TYPE_G_ES_VAR_REG_SIZE, OPSZ_512
 
 /* registers that are base 32 but vary down or up */
 #define eAX TYPE_VAR_REG, REG_EAX
@@ -5915,7 +5915,7 @@ const instr_info_t prefix_extensions[][12] = {
   },{ /* prefix extension 192 */
     {INVALID,        0x38f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf338f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    {OP_movdir64b, 0x6638f808, catMove, "movdir64b", Ges_sv, xx, Moq, xx, xx, mrm, x, END_LIST},
+    {OP_movdir64b, 0x6638f808, catMove, "movdir64b", GesvS_oq, xx, Moq, xx, xx, mrm, x, END_LIST},
     {INVALID,      0xf238f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,        0x38f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf338f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},

@@ -194,7 +194,8 @@ is_variable_size(opnd_size_t sz)
     case OPSZ_16_vex32:
     case OPSZ_16_vex32_evex64:
     case OPSZ_vex32_evex64:
-    case OPSZ_8x16: return true;
+    case OPSZ_8x16:
+    case OPSZ_addr: return true;
     default: return false;
     }
 }
@@ -316,6 +317,9 @@ resolve_variable_size(decode_info_t *di /*IN: x86_mode, prefixes*/, opnd_size_t 
                     ? OPSZ_8
                     : (TEST(PREFIX_VEX_L, di->prefixes) ? OPSZ_4 : OPSZ_2));
     case OPSZ_8x16: return IF_X64_ELSE(OPSZ_16, OPSZ_8);
+    case OPSZ_addr:
+        return (TEST(PREFIX_ADDR, di->prefixes) ? (X64_MODE(di) ? OPSZ_4 : OPSZ_2)
+                                                : (X64_MODE(di) ? OPSZ_8 : OPSZ_4));
     }
 
     return sz;
@@ -1577,10 +1581,6 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
         if (reg > DR_REG_STOP_BND - DR_REG_START_BND)
             return REG_NULL;
         return DR_REG_START_BND + reg;
-    case TYPE_G_ES: {
-        opsize = resolve_addr_size(di);
-        break;
-    }
     case TYPE_E:
     case TYPE_G:
     case TYPE_R:
@@ -1590,6 +1590,10 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
     case TYPE_FLOATMEM:
         /* GPR: fall-through since variable subset of full register */
         break;
+    case TYPE_G_ES_VAR_REG_SIZE: {
+        opsize = OPSZ_addr;
+        break;
+    }
     default: CLIENT_ASSERT(false, "internal unknown reg error");
     }
 
@@ -1632,17 +1636,14 @@ decode_modrm(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *reg_opn
     bool addr16 = !X64_MODE(di) && TEST(PREFIX_ADDR, di->prefixes);
 
     if (reg_opnd != NULL) {
-        reg_id_t reg = decode_reg(DECODE_REG_REG, di, optype, opsize);
+        opnd_size_t regsize = opsize;
+        if (optype == TYPE_G_ES_VAR_REG_SIZE)
+            regsize = OPSZ_addr;
+        reg_id_t reg = decode_reg(DECODE_REG_REG, di, optype, regsize);
         if (reg == REG_NULL)
             return false;
         *reg_opnd = opnd_create_reg(reg);
-        opnd_size_t ressize;
-        if (optype == TYPE_G_ES) {
-            ressize = resolve_addr_size(di);
-        } else {
-            ressize = resolve_variable_size(di, opsize, true /*is reg*/);
-        }
-        opnd_set_size(reg_opnd, ressize);
+        opnd_set_size(reg_opnd, resolve_variable_size(di, opsize, true /*is reg*/));
     }
 
     if (rm_opnd != NULL) {
@@ -2009,8 +2010,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
     case TYPE_V:
     case TYPE_S:
     case TYPE_C:
-    case TYPE_D:
-    case TYPE_G_ES: return decode_modrm(di, optype, opsize, opnd, NULL);
+    case TYPE_D: return decode_modrm(di, optype, opsize, opnd, NULL);
     case TYPE_I:
         *opnd = opnd_create_immed_int(get_immed(di, opsize), ressize);
         return true;
@@ -2226,6 +2226,15 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
         return true;
     }
     case TYPE_T_MODRM: return decode_modrm(di, optype, opsize, NULL, opnd);
+    case TYPE_G_ES_VAR_REG_SIZE: {
+        if (!decode_modrm(di, optype, opsize, opnd, NULL)) {
+            return false;
+        }
+        reg_id_t reg = opnd_get_reg(*opnd);
+        opnd_size_t size = opnd_get_size(*opnd);
+        *opnd = opnd_create_far_base_disp(DR_SEG_ES, reg, REG_NULL, 0, 0, size);
+        return true;
+    }
     default:
         /* ok to assert, types coming only from instr_info_t */
         CLIENT_ASSERT(false, "decode error: unknown operand type");
