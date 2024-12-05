@@ -122,6 +122,9 @@ OPCODE(xsaveopt32, xsaveopt32, xsaveopt32, 0, MEMARG(OPSZ_xsave))
 OPCODE(xsaveopt64, xsaveopt64, xsaveopt64, X64_ONLY, MEMARG(OPSZ_xsave))
 OPCODE(xsavec32, xsavec32, xsavec32, 0, MEMARG(OPSZ_xsave))
 OPCODE(xsavec64, xsavec64, xsavec64, X64_ONLY, MEMARG(OPSZ_xsave))
+OPCODE(clflushopt, clflushopt, clflushopt, 0, MEMARG(OPSZ_clflush))
+OPCODE(clwb, clwb, clwb, 0, MEMARG(OPSZ_clflush))
+OPCODE(cldemote, cldemote, cldemote, 0, MEMARG(OPSZ_clflush))
 
 /****************************************************************************/
 /* single immed argument */
