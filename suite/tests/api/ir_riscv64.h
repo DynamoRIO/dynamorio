@@ -64,6 +64,6 @@ byte *
 test_instr_decoding_failure(void *dc, uint raw_instr);
 
 #define test_instr_encoding(dc, opcode, instr) \
-    test_instr_encoding_copy(dc, opcode, (app_pc) & buf, instr)
+    test_instr_encoding_copy(dc, opcode, (app_pc)&buf, instr)
 
 #endif /* IR_RISCV64_H */
