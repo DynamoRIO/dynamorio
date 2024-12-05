@@ -140,6 +140,7 @@ Further non-compatibility-affecting changes include:
    restriction as dr_suspend_all_other_threads_ex(). For X86_64 platform, the feature is
    supported only when fast FP save and restore is supported. And mixed mode is not
    supported.
+ - Added the AArch64 FPMR register as DR_REG_FPMR.
 
 **************************************************
 <hr>
