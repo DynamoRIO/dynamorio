@@ -56,6 +56,7 @@ test_jump_and_branch(void *dc)
     byte *pc = (byte *)&buf;
     instr_t *instr;
 
+    /* (3 << 12) is a random offset with lowest 12 bits zeroed (see notes below) */
     instr = INSTR_CREATE_auipc(dc, opnd_create_reg(DR_REG_A0),
                                OPND_CREATE_ABSMEM(pc + (3 << 12), OPSZ_0));
     test_instr_encoding_copy(dc, OP_auipc, pc, instr);
@@ -67,7 +68,8 @@ test_jump_and_branch(void *dc)
     instr = INSTR_CREATE_auipc(dc, opnd_create_reg(DR_REG_A0),
                                OPND_CREATE_ABSMEM(pc + (3 << 12), OPSZ_0));
     /* This is expected to fail since we are using an unaligned PC (i.e. target_pc -
-     * instr_encode_pc has non-zero lower 12 bits). */
+     * instr_encode_pc has non-zero lower 12 bits, which cannot be encoded in a
+     * single auipc instruction). */
     test_instr_encoding_failure(dc, OP_auipc, pc + 4, instr);
 
     instr = INSTR_CREATE_jal(dc, opnd_create_reg(DR_REG_A0), opnd_create_pc(pc));
