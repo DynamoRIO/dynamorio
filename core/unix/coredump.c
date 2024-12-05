@@ -71,8 +71,7 @@
 #define PROGRAM_HEADER_NOTE_LENGTH                                                    \
     (sizeof(ELF_NOTE_HEADER_TYPE) + NOTE_OWNER_LENGTH + sizeof(struct elf_prstatus) + \
      sizeof(ELF_NOTE_HEADER_TYPE) + NOTE_OWNER_LENGTH + sizeof(elf_fpregset_t))
-#define PROGRAM_HEADER_LENGTH \
-    (sizeof(ELF_PROGRAM_HEADER_TYPE) + PROGRAM_HEADER_NOTE_LENGTH)
+#define PROGRAM_HEADER_LOAD_ALIGNMENT 0x1000
 
 typedef struct _section_header_info_t {
     app_pc vm_start;
@@ -269,6 +268,23 @@ mcontext_to_user_regs(DR_PARAM_IN priv_mcontext_t *mcontext,
     regs->regs[30] = mcontext->r30;
     regs->sp = mcontext->sp;
     regs->pc = (uint64_t)mcontext->pc;
+#else
+#    error Unsupported architecture
+#endif
+}
+
+/*
+ * Return the entry point of the program.
+ */
+uint64_t
+get_entry_point(DR_PARAM_IN priv_mcontext_t *mcontext)
+{
+#ifdef DR_HOST_NOT_TARGET
+    return 0;
+#elif defined(X86)
+    return (uint64_t)mcontext->rip;
+#elif defined(AARCH64)
+    return (uint64_t)mcontext->pc;
 #else
 #    error Unsupported architecture
 #endif
@@ -479,25 +495,61 @@ os_dump_core_internal(dcontext_t *dcontext)
         return false;
     }
 
-    if (!write_elf_header(elf_file, /*entry_point=*/0,
+    if (!write_elf_header(elf_file, /*entry_point=*/get_entry_point(&mc),
                           /*section_header_table_offset*/ sizeof(ELF_HEADER_TYPE) +
-                              PROGRAM_HEADER_LENGTH + section_data_size,
+                              PROGRAM_HEADER_NOTE_LENGTH +
+                              sizeof(ELF_PROGRAM_HEADER_TYPE) * section_count +
+                              section_data_size,
                           /*flags=*/0,
-                          /*program_header_count=*/1,
+                          /*program_header_count=*/section_count,
                           /*section_header_count=*/section_count,
                           /*section_string_table_index=*/section_count - 1)) {
         os_close(elf_file);
         return false;
     }
+    // Write program header table entry.
     if (!write_program_header(elf_file, PT_NOTE, /*flags=*/0,
                               /*offset=*/sizeof(ELF_HEADER_TYPE) +
-                                  sizeof(ELF_PROGRAM_HEADER_TYPE),
+                                  sizeof(ELF_PROGRAM_HEADER_TYPE) * section_count,
                               /*virtual_address=*/0,
                               /*physical_address=*/0,
                               /*file_size=*/PROGRAM_HEADER_NOTE_LENGTH,
-                              /*memory_size=*/0, /*alignment=*/4)) {
+                              /*memory_size=*/PROGRAM_HEADER_NOTE_LENGTH,
+                              /*alignment=*/sizeof(ELF_HALF))) {
         os_close(elf_file);
         return false;
+    }
+    // Write loadable program segment program headers.
+    ELF_OFF file_offset = sizeof(ELF_HEADER_TYPE) +
+        sizeof(ELF_PROGRAM_HEADER_TYPE) * section_count + PROGRAM_HEADER_NOTE_LENGTH;
+    // TODO i#7046: Merge adjacent sections with the same prot values.
+    for (int section_index = 0; section_index < section_count - 1; ++section_index) {
+        ELF_WORD flags = 0;
+        if (TEST(PROT_EXEC, section_header_info[section_index].prot)) {
+            flags |= PF_X;
+        }
+        if (TEST(PROT_WRITE, section_header_info[section_index].prot)) {
+            flags |= PF_W;
+        }
+        if (TEST(PROT_READ, section_header_info[section_index].prot)) {
+            flags |= PF_R;
+        }
+        const ELF_WORD size = section_header_info[section_index].vm_end -
+            section_header_info[section_index].vm_start;
+        if (!write_program_header(
+                elf_file, PT_LOAD, flags,
+                /*offset=*/file_offset,
+                /*virtual_address=*/(ELF_ADDR)section_header_info[section_index].vm_start,
+                /*physical_address=*/
+                (ELF_ADDR)section_header_info[section_index].vm_start,
+                /*file_size=*/size,
+                /*memory_size=*/size,
+                /*alignment=*/PROGRAM_HEADER_LOAD_ALIGNMENT)) {
+            os_close(elf_file);
+            return false;
+        }
+        file_offset += section_header_info[section_index].vm_end -
+            section_header_info[section_index].vm_start;
     }
     if (!write_prstatus_note(&mc, elf_file)) {
         os_close(elf_file);
@@ -533,8 +585,8 @@ os_dump_core_internal(dcontext_t *dcontext)
         return false;
     }
     // Write section headers to the core dump file.
-    // TODO i#7046: Handle multiple program headers.
-    ELF_OFF file_offset = sizeof(ELF_HEADER_TYPE) + PROGRAM_HEADER_LENGTH;
+    file_offset = sizeof(ELF_HEADER_TYPE) +
+        sizeof(ELF_PROGRAM_HEADER_TYPE) * section_count + PROGRAM_HEADER_NOTE_LENGTH;
 
     // The section_count includes the section name section, so we need to skip
     // it in the loop. The section name section is handled differently after
@@ -543,6 +595,9 @@ os_dump_core_internal(dcontext_t *dcontext)
         ELF_WORD flags = SHF_ALLOC | SHF_MERGE;
         if (TEST(PROT_WRITE, section_header_info[section_index].prot)) {
             flags |= SHF_WRITE;
+        }
+        if (TEST(PROT_EXEC, section_header_info[section_index].prot)) {
+            flags |= SHF_EXECINSTR;
         }
         if (!write_section_header(
                 elf_file, section_header_info[section_index].name_offset, SHT_PROGBITS,
