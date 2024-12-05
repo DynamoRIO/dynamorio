@@ -298,6 +298,7 @@ decode_sysreg(uint imm15)
     case 0x5a10: sysreg = DR_REG_NZCV; break;
     case 0x5a20: sysreg = DR_REG_FPCR; break;
     case 0x5a21: sysreg = DR_REG_FPSR; break;
+    case 0x5a22: sysreg = DR_REG_FPMR; break;
     case 0x1808: sysreg = DR_REG_MDCCSR_EL0; break;
     case 0x1820: sysreg = DR_REG_DBGDTR_EL0; break;
     case 0x1828: sysreg = DR_REG_DBGDTRRX_EL0; break;
@@ -433,6 +434,7 @@ encode_sysreg(OUT uint *imm15, opnd_t opnd)
         case DR_REG_NZCV: *imm15 = 0x5a10; break;
         case DR_REG_FPCR: *imm15 = 0x5a20; break;
         case DR_REG_FPSR: *imm15 = 0x5a21; break;
+        case DR_REG_FPMR: *imm15 = 0x5a22; break;
         case DR_REG_MDCCSR_EL0: *imm15 = 0x1808; break;
         case DR_REG_DBGDTR_EL0: *imm15 = 0x1820; break;
         case DR_REG_DBGDTRRX_EL0: *imm15 = 0x1828; break;
