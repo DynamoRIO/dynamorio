@@ -2055,6 +2055,9 @@ if (NOT ANDROID)
   if (RISCV64)
     tobuild_api(api.ir_rvv api/ir_rvv.c  "" "" ON OFF OFF)
     tobuild_api(api.ir_rv64_addr api/ir_rv64_addr.c  "" "" OFF OFF OFF)
+
+    target_sources(api.ir PRIVATE api/ir_riscv64_common.c)
+    target_sources(api.ir_rv64_addr PRIVATE api/ir_riscv64_common.c)
   endif(RISCV64)
 endif ()
 
@@ -2068,6 +2071,8 @@ if (AARCH64)
   set(api.ir-static_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake")
   set(api.ir-static_runcmp_capture "stderr")
 elseif (RISCV64)
+  target_sources(api.ir-static PRIVATE api/ir_riscv64_common.c)
+
   # The ir_riscv64.expect file is too large for CMake's regexes.
   set(api.ir-static_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake")
   set(api.ir-static_runcmp_capture "stderr")

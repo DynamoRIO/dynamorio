@@ -1,4 +1,3 @@
-lui    0x2a -> a0
 auipc  <rel> 0x[0-9a-f]+ -> a0
 auipc  <rel> 0x[0-9a-f]+ -> a0
 <Internal Error: Failed to encode instruction: 'auipc  <rel> 0x[0-9a-f]+ -> a0'>

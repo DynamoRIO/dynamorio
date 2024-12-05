@@ -50,50 +50,19 @@
 
 #include "ir_riscv64.h"
 
-static byte *
-test_instr_encoding_auipc(void *dc, uint opcode, app_pc instr_pc, instr_t *instr)
-{
-    instr_t *decin;
-    byte *pc, *next_pc;
-
-    ASSERT(instr_get_opcode(instr) == opcode);
-    instr_disassemble(dc, instr, STDERR);
-    print("\n");
-    ASSERT(instr_is_encoding_possible(instr));
-    pc = instr_encode_to_copy(dc, instr, buf, instr_pc);
-    ASSERT(pc != NULL);
-    decin = instr_create(dc);
-    next_pc = decode_from_copy(dc, buf, instr_pc, decin);
-    ASSERT(next_pc != NULL);
-    if (!instr_same(instr, decin)) {
-        print("Disassembled as:\n");
-        instr_disassemble(dc, decin, STDERR);
-        print("\n");
-        ASSERT(instr_same(instr, decin));
-    }
-
-    instr_destroy(dc, instr);
-    instr_destroy(dc, decin);
-    return pc;
-}
-
 static void
 test_jump_and_branch(void *dc)
 {
-    byte *pc;
+    byte *pc = (byte *)&buf;
     instr_t *instr;
 
-    instr = INSTR_CREATE_lui(dc, opnd_create_reg(DR_REG_A0),
-                             opnd_create_immed_int(42, OPSZ_20b));
-    pc = test_instr_encoding(dc, OP_lui, instr);
+    instr = INSTR_CREATE_auipc(dc, opnd_create_reg(DR_REG_A0),
+                               OPND_CREATE_ABSMEM(pc + (3 << 12), OPSZ_0));
+    test_instr_encoding_copy(dc, OP_auipc, pc, instr);
 
     instr = INSTR_CREATE_auipc(dc, opnd_create_reg(DR_REG_A0),
                                OPND_CREATE_ABSMEM(pc + (3 << 12), OPSZ_0));
-    test_instr_encoding_auipc(dc, OP_auipc, pc, instr);
-
-    instr = INSTR_CREATE_auipc(dc, opnd_create_reg(DR_REG_A0),
-                               OPND_CREATE_ABSMEM(pc + (3 << 12), OPSZ_0));
-    test_instr_encoding_auipc(dc, OP_auipc, pc, instr);
+    test_instr_encoding_copy(dc, OP_auipc, pc, instr);
 
     instr = INSTR_CREATE_auipc(dc, opnd_create_reg(DR_REG_A0),
                                OPND_CREATE_ABSMEM(pc + (3 << 12), OPSZ_0));

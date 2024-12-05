@@ -31,39 +31,58 @@
  * DAMAGE.
  */
 
-#ifndef IR_RISCV64_H
-#define IR_RISCV64_H
+#include "ir_riscv64.h"
 
-#include "configure.h"
-#include "dr_api.h"
-#include "tools.h"
-#include "dr_ir_utils.h"
-#include "dr_defines.h"
-
-#ifdef STANDALONE_DECODER
-#    define ASSERT(x)                                                                 \
-        ((void)((!(x)) ? (fprintf(stderr, "ASSERT FAILURE (standalone): %s:%d: %s\n", \
-                                  __FILE__, __LINE__, #x),                            \
-                          abort(), 0)                                                 \
-                       : 0))
-#else
-#    define ASSERT(x)                                                                \
-        ((void)((!(x)) ? (dr_fprintf(STDERR, "ASSERT FAILURE (client): %s:%d: %s\n", \
-                                     __FILE__, __LINE__, #x),                        \
-                          dr_abort(), 0)                                             \
-                       : 0))
-#endif
-
-extern byte buf[8192];
+byte buf[8192];
 
 byte *
-test_instr_encoding_copy(void *dc, uint opcode, app_pc instr_pc, instr_t *instr);
+test_instr_encoding_copy(void *dc, uint opcode, app_pc instr_pc, instr_t *instr)
+{
+    instr_t *decin;
+    byte *pc, *next_pc;
+
+    ASSERT(instr_get_opcode(instr) == opcode);
+    instr_disassemble(dc, instr, STDERR);
+    print("\n");
+    ASSERT(instr_is_encoding_possible(instr));
+    pc = instr_encode_to_copy(dc, instr, buf, instr_pc);
+    ASSERT(pc != NULL);
+    decin = instr_create(dc);
+    next_pc = decode_from_copy(dc, buf, instr_pc, decin);
+    ASSERT(next_pc != NULL);
+    if (!instr_same(instr, decin)) {
+        print("Disassembled as:\n");
+        instr_disassemble(dc, decin, STDERR);
+        print("\n");
+        ASSERT(instr_same(instr, decin));
+    }
+
+    instr_destroy(dc, instr);
+    instr_destroy(dc, decin);
+    return pc;
+}
+
 void
-test_instr_encoding_failure(void *dc, uint opcode, app_pc instr_pc, instr_t *instr);
+test_instr_encoding_failure(void *dc, uint opcode, app_pc instr_pc, instr_t *instr)
+{
+    byte *pc;
+
+    pc = instr_encode_to_copy(dc, instr, buf, instr_pc);
+    ASSERT(pc == NULL);
+    instr_destroy(dc, instr);
+}
+
 byte *
-test_instr_decoding_failure(void *dc, uint raw_instr);
+test_instr_decoding_failure(void *dc, uint raw_instr)
+{
+    instr_t *decin;
+    byte *pc;
 
-#define test_instr_encoding(dc, opcode, instr) \
-    test_instr_encoding_copy(dc, opcode, (app_pc) & buf, instr)
-
-#endif /* IR_RISCV64_H */
+    *(uint *)buf = raw_instr;
+    decin = instr_create(dc);
+    pc = decode(dc, buf, decin);
+    /* Returns NULL on failure. */
+    ASSERT(pc == NULL);
+    instr_destroy(dc, decin);
+    return pc;
+}
