@@ -1131,6 +1131,7 @@
 #define INSTR_CREATE_fxsave64(dc, d) instr_create_1dst_0src((dc), OP_fxsave64, (d))
 #define INSTR_CREATE_stmxcsr(dc, d) instr_create_1dst_0src((dc), OP_stmxcsr, (d))
 #define INSTR_CREATE_vstmxcsr(dc, d) instr_create_1dst_0src((dc), OP_vstmxcsr, (d))
+#define INSTR_CREATE_rdpid(dc, d) instr_create_1dst_0src((dc), OP_rdpid, (d))
 /** @} */ /* end doxygen group */
 
 /* floating-point */
