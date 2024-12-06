@@ -1638,6 +1638,26 @@ invariant_checker_t::check_regdeps_invariants(per_shard_t *shard, const memref_t
     // Check markers.
     if (memref.marker.type == TRACE_TYPE_MARKER) {
         switch (memref.marker.marker_type) {
+        case TRACE_MARKER_TYPE_FILETYPE:
+            report_if_false(
+                shard,
+                static_cast<offline_file_type_t>(memref.marker.marker_value) ==
+                    shard->file_type_,
+                "TRACE_MARKER_TYPE_FILETYPE and shard file type are not the same");
+            // Check that the file type does not contain any architecture specific
+            // information except OFFLINE_FILE_TYPE_ARCH_REGDEPS.
+            report_if_false(
+                shard,
+                !TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL & ~OFFLINE_FILE_TYPE_ARCH_REGDEPS,
+                         shard->file_type_),
+                "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot have other"
+                "OFFLINE_FILE_TYPE_ARCH_*");
+            break;
+        case TRACE_MARKER_TYPE_CPU_ID:
+            report_if_false(shard, memref.marker.marker_value == INVALID_CPU_MARKER_VALUE,
+                            "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot have a valid "
+                            "TRACE_MARKER_TYPE_CPU_ID");
+            break;
         case TRACE_MARKER_TYPE_SYSCALL_IDX:
             report_if_false(shard, false,
                             "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot have "

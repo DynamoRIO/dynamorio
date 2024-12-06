@@ -224,6 +224,7 @@ enum {
                 */
     OPSZ_256,  /**< 256 bytes. Needed for RISC-V vector extension with LMUL. */
     OPSZ_192,  /**< 192 bytes. The size of 3 512-bit SVE Z registers. */
+    OPSZ_addr, /**< OPSZ_4x8 but varies by the address prefix, not the data prefix. */
     /* Add new size here.  Also update size_names[] in decode_shared.c along with
      * the size routines in opnd_shared.c.
      */
@@ -1059,6 +1060,7 @@ enum {
     DR_REG_MIDR_EL1,         /**< The "midr_el1" register. */
     DR_REG_MPIDR_EL1,        /**< The "mpidr_el1" register. */
     DR_REG_REVIDR_EL1,       /**< The "revidr_el1" register. */
+    DR_REG_FPMR,             /**< The "fpmr" register. */
 #    endif
 
 /* Aliases below here: */
@@ -1115,12 +1117,12 @@ enum {
     /** Thread Pointer/ID Register, Read-Only, EL0. */
     DR_REG_TPIDRRO_EL0 = DR_REG_TPIDRURO,
     /* ARMv7 Thread Registers */
-    DR_REG_CP15_C13_2 = DR_REG_TPIDRURW,        /**< User Read/Write Thread ID Register */
-    DR_REG_CP15_C13_3 = DR_REG_TPIDRURO,        /**< User Read-Only Thread ID Register */
+    DR_REG_CP15_C13_2 = DR_REG_TPIDRURW,  /**< User Read/Write Thread ID Register */
+    DR_REG_CP15_C13_3 = DR_REG_TPIDRURO,  /**< User Read-Only Thread ID Register */
 
 #    ifdef AARCH64
-    DR_REG_LAST_VALID_ENUM = DR_REG_REVIDR_EL1, /**< Last valid register enum */
-    DR_REG_LAST_ENUM = DR_REG_REVIDR_EL1,       /**< Last value of register enums */
+    DR_REG_LAST_VALID_ENUM = DR_REG_FPMR, /**< Last valid register enum */
+    DR_REG_LAST_ENUM = DR_REG_FPMR,       /**< Last value of register enums */
 #    else
     DR_REG_LAST_VALID_ENUM = DR_REG_TPIDRURO, /**< Last valid register enum */
     DR_REG_LAST_ENUM = DR_REG_TPIDRURO,       /**< Last value of register enums */

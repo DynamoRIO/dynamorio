@@ -208,6 +208,13 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOU
             print_to_buffer(buf, bufsz, sofar, ", ");
         internal_opnd_disassemble(buf, bufsz, sofar, dcontext, opnd, false);
         return true;
+    case TYPE_G_ES_VAR_REG_SIZE: {
+        if (prev)
+            print_to_buffer(buf, bufsz, sofar, ", ");
+        reg_id_t reg = opnd_get_base(opnd);
+        reg_disassemble(buf, bufsz, sofar, reg, 0, "", "");
+        return true;
+    }
     case TYPE_X:
     case TYPE_XLAT:
     case TYPE_MASKMOVQ:
@@ -276,6 +283,18 @@ instr_opcode_name(instr_t *instr)
     return NULL;
 }
 
+static bool
+suppress_memory_size_annotations(instr_t *instr)
+{
+    /* A more principled approach would be to examine all operands for the presence of
+     * TYPE_G_ES_VAR_REG_SIZE but this is sufficient for now.
+     */
+    switch (instr_get_opcode(instr)) {
+    case OP_movdir64b: return true;
+    default: return false;
+    }
+}
+
 static const char *
 instr_opcode_name_suffix(instr_t *instr)
 {
@@ -336,7 +355,8 @@ instr_opcode_name_suffix(instr_t *instr)
          * and then go back and add the suffix.  This will do for now.
          */
         if (instr_num_srcs(instr) > 0 && !opnd_is_reg(instr_get_src(instr, 0)) &&
-            instr_num_dsts(instr) > 0 && !opnd_is_reg(instr_get_dst(instr, 0))) {
+            instr_num_dsts(instr) > 0 && !opnd_is_reg(instr_get_dst(instr, 0)) &&
+            !suppress_memory_size_annotations(instr)) {
             uint sz = instr_memory_reference_size(instr);
             if (sz == 1)
                 return "b";
@@ -382,7 +402,8 @@ print_instr_prefixes(dcontext_t *dcontext, instr_t *instr, char *buf, size_t buf
     if (!TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask))) {
         if (TEST(PREFIX_DATA, instr->prefixes))
             print_to_buffer(buf, bufsz, sofar, "data16 ");
-        if (TEST(PREFIX_ADDR, instr->prefixes)) {
+        if (TEST(PREFIX_ADDR, instr->prefixes) &&
+            !suppress_memory_size_annotations(instr)) {
             print_to_buffer(buf, bufsz, sofar,
                             X64_MODE_DC(dcontext) ? "addr32 " : "addr16 ");
         }

@@ -1642,6 +1642,12 @@ const instr_info_t * const op_instr[] =
 
     /* SERIALIZE */
     /* OP_serialize */ &prefix_extensions[191][0],
+
+    /* MOVDIRI */
+    /* OP_movdiri */ &third_byte_38[173],
+
+    /* MOVDIR64B */
+    /* OP_movdir64b */ &prefix_extensions[192][2],
 };
 
 
@@ -1858,7 +1864,8 @@ const instr_info_t * const op_instr[] =
 #define My  TYPE_M, OPSZ_4_rex8
 #define Mw  TYPE_M, OPSZ_2
 #define Mm  TYPE_M, OPSZ_lea
-#define Moq  TYPE_M, OPSZ_512
+#define Moq  TYPE_M, OPSZ_64
+#define M512  TYPE_M, OPSZ_512
 #define Mxsave TYPE_M, OPSZ_xsave
 #define Mps  TYPE_M, OPSZ_16
 #define Mpd  TYPE_M, OPSZ_16
@@ -1900,6 +1907,7 @@ const instr_info_t * const op_instr[] =
 #define c1  TYPE_1, OPSZ_0
 /* we pick the right constant based on the opcode */
 #define cF  TYPE_FLOATCONST, OPSZ_0
+#define GesvS_oq TYPE_G_ES_VAR_REG_SIZE, OPSZ_64
 
 /* registers that are base 32 but vary down or up */
 #define eAX TYPE_VAR_REG, REG_EAX
@@ -5905,6 +5913,19 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0xf301e808, catUncategorized, "(bad)"  , xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0x6601e808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf201e808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+  },{ /* prefix extension 192 */
+    {INVALID,        0x38f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf338f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {OP_movdir64b, 0x6638f808, catMove, "movdir64b", GesvS_oq, xx, Moq, xx, xx, mrm, x, END_LIST},
+    {INVALID,      0xf238f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,        0x38f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf338f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x6638f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf238f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,        0x38f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf338f808, catUncategorized, "(bad)"  , xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x6638f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf238f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }
 };
 /****************************************************************************
@@ -7243,12 +7264,12 @@ const instr_info_t rex_b_extensions[][2] = {
  */
 const instr_info_t rex_w_extensions[][2] = {
   { /* rex.w extension 0 */
-    {OP_fxsave32, 0x0fae30, catFP | catState, "fxsave",   Moq, xx, xx, xx, xx, mrm, x, END_LIST},
-    {OP_fxsave64, 0x0fae30, catFP | catState, "fxsave64", Moq, xx, xx, xx, xx, mrm|rex, x, END_LIST},
+    {OP_fxsave32, 0x0fae30, catFP | catState, "fxsave",   M512, xx, xx, xx, xx, mrm, x, END_LIST},
+    {OP_fxsave64, 0x0fae30, catFP | catState, "fxsave64", M512, xx, xx, xx, xx, mrm|rex, x, END_LIST},
   },
   { /* rex.w extension 1 */
-    {OP_fxrstor32, 0x0fae31, catFP | catState, "fxrstor",   xx, xx, Moq, xx, xx, mrm, x, END_LIST},
-    {OP_fxrstor64, 0x0fae31, catFP | catState, "fxrstor64", xx, xx, Moq, xx, xx, mrm|rex, o64, END_LIST},
+    {OP_fxrstor32, 0x0fae31, catFP | catState, "fxrstor",   xx, xx, M512, xx, xx, mrm, x, END_LIST},
+    {OP_fxrstor64, 0x0fae31, catFP | catState, "fxrstor64", xx, xx, M512, xx, xx, mrm|rex, o64, END_LIST},
   },
   { /* rex.w extension 2 */
     {OP_xsave32,   0x0fae34, catFP | catState, "xsave",   Mxsave, xx, edx, eax, xx, mrm, x, END_LIST},
@@ -7313,7 +7334,7 @@ const byte third_byte_38_index[256] = {
      0,  0,  0,  0, 155,  0,163,164, 154,165,131,132, 152,153,  0,  0,  /* C */
      0,  0,  0,  0,   0,  0,  0,  0,   0,  0,  0, 51,  52, 53, 54, 55,  /* D */
      0,  0,  0,  0,   0,  0,  0,  0,   0,  0,  0,  0,   0,  0,  0,  0,  /* E */
-    47, 48,100, 99,   0,101,102, 98,   0,  0,  0,  0,   0,  0,  0,  0   /* F */
+    47, 48,100, 99,   0,101,102, 98, 172,173,  0,  0,   0,  0,  0,  0   /* F */
 };
 
 const instr_info_t third_byte_38[] = {
@@ -7508,7 +7529,9 @@ const instr_info_t third_byte_38[] = {
   {E_VEX_EXT, 0x66385308, catUncategorized, "(e_vex ext 152)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 152},/*169*/
   {PREFIX_EXT, 0x387208, catUncategorized, "(prefix ext 190)", xx, xx, xx, xx, xx, mrm|evex, x, 190},/*170*/
   /* AVX512 VPOPCNTDQ */
-  {EVEX_Wb_EXT, 0x66385518, catUncategorized, "(evex_Wb ext 274)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 274}/*171*/
+  {EVEX_Wb_EXT, 0x66385518, catUncategorized, "(evex_Wb ext 274)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 274},/*171*/
+  {PREFIX_EXT, 0x38f808, catUncategorized, "(prefix ext 192)", xx, xx, xx, xx, xx, mrm, x, 192},/*172*/
+  {OP_movdiri, 0x38f908, catMove, "movdiri", My, xx, Gy, xx, xx, mrm, x, END_LIST},/*173*/
 };
 
 /* N.B.: every 0x3a instr so far has an immediate.  If a version w/o an immed

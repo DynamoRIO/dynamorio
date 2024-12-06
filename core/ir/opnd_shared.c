@@ -1920,6 +1920,7 @@ opnd_size_in_bytes(opnd_size_t size)
     case OPSZ_4x8:           /* default size */
     case OPSZ_4x8_short2:    /* default size */
     case OPSZ_4x8_short2xi8: /* default size */
+    case OPSZ_addr:          /* default size */
 #endif
     case OPSZ_4_short2xi4:   /* default size */
     case OPSZ_4_rex8_short2: /* default size */
@@ -1940,6 +1941,7 @@ opnd_size_in_bytes(opnd_size_t size)
     case OPSZ_4x8:           /* default size */
     case OPSZ_4x8_short2:    /* default size */
     case OPSZ_4x8_short2xi8: /* default size */
+    case OPSZ_addr:          /* default size */
 #endif
     case OPSZ_8_rex16:        /* default size */
     case OPSZ_8_rex16_short4: /* default size */
@@ -2780,7 +2782,7 @@ reg_get_size(reg_id_t reg)
     }
     if ((reg >= DR_REG_P0 && reg <= DR_REG_P15) || reg == DR_REG_FFR)
         return OPSZ_SVE_PREDLEN_BYTES;
-    if (reg >= DR_REG_CNTVCT_EL0 && reg <= DR_REG_REVIDR_EL1)
+    if (reg >= DR_REG_CNTVCT_EL0 && reg <= DR_REG_FPMR)
         return OPSZ_8;
     if (reg >= DR_REG_NZCV && reg <= DR_REG_FPSR)
         return OPSZ_8;

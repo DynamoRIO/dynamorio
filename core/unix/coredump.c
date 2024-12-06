@@ -71,8 +71,6 @@
 #define PROGRAM_HEADER_NOTE_LENGTH                                                    \
     (sizeof(ELF_NOTE_HEADER_TYPE) + NOTE_OWNER_LENGTH + sizeof(struct elf_prstatus) + \
      sizeof(ELF_NOTE_HEADER_TYPE) + NOTE_OWNER_LENGTH + sizeof(elf_fpregset_t))
-#define PROGRAM_HEADER_LENGTH \
-    (sizeof(ELF_PROGRAM_HEADER_TYPE) + PROGRAM_HEADER_NOTE_LENGTH)
 
 typedef struct _section_header_info_t {
     app_pc vm_start;
@@ -478,26 +476,72 @@ os_dump_core_internal(dcontext_t *dcontext)
         SYSLOG_INTERNAL_ERROR("Unable to open the core dump file.");
         return false;
     }
-
-    if (!write_elf_header(elf_file, /*entry_point=*/0,
+    // We use two types of program headers. NOTE is used to store prstatus
+    // structure and floating point registers. LOAD is used to specify loadable
+    // segments. All but one section (shstrtab which stores section names)
+    // require a corresponding LOAD program header. The total number of
+    // program headers equals the number of NOTE program header (1) and the number
+    // of LOAD program header (number of sections minus one since shstrtab does not
+    // require a LOAD header).
+    const ELF_OFF program_header_count = section_count;
+    if (!write_elf_header(elf_file, /*entry_point=*/(uint64_t)mc.pc,
                           /*section_header_table_offset*/ sizeof(ELF_HEADER_TYPE) +
-                              PROGRAM_HEADER_LENGTH + section_data_size,
+                              PROGRAM_HEADER_NOTE_LENGTH +
+                              sizeof(ELF_PROGRAM_HEADER_TYPE) * program_header_count +
+                              section_data_size,
                           /*flags=*/0,
-                          /*program_header_count=*/1,
+                          /*program_header_count=*/program_header_count,
                           /*section_header_count=*/section_count,
                           /*section_string_table_index=*/section_count - 1)) {
         os_close(elf_file);
         return false;
     }
+    // Write program header table entry.
     if (!write_program_header(elf_file, PT_NOTE, /*flags=*/0,
                               /*offset=*/sizeof(ELF_HEADER_TYPE) +
-                                  sizeof(ELF_PROGRAM_HEADER_TYPE),
+                                  sizeof(ELF_PROGRAM_HEADER_TYPE) * program_header_count,
                               /*virtual_address=*/0,
                               /*physical_address=*/0,
                               /*file_size=*/PROGRAM_HEADER_NOTE_LENGTH,
-                              /*memory_size=*/0, /*alignment=*/4)) {
+                              /*memory_size=*/PROGRAM_HEADER_NOTE_LENGTH,
+                              /*alignment=*/sizeof(ELF_HALF))) {
         os_close(elf_file);
         return false;
+    }
+    // Write loadable program segment program headers.
+    ELF_OFF file_offset = sizeof(ELF_HEADER_TYPE) +
+        sizeof(ELF_PROGRAM_HEADER_TYPE) * program_header_count +
+        PROGRAM_HEADER_NOTE_LENGTH;
+    // TODO i#7046: Merge adjacent sections with the same prot values.
+    // The last section is shstrtab which stores the section names and it does
+    // not require a LOAD program header.
+    for (int section_index = 0; section_index < section_count - 1; ++section_index) {
+        ELF_WORD flags = 0;
+        if (TEST(PROT_EXEC, section_header_info[section_index].prot)) {
+            flags |= PF_X;
+        }
+        if (TEST(PROT_WRITE, section_header_info[section_index].prot)) {
+            flags |= PF_W;
+        }
+        if (TEST(PROT_READ, section_header_info[section_index].prot)) {
+            flags |= PF_R;
+        }
+        const ELF_WORD size = section_header_info[section_index].vm_end -
+            section_header_info[section_index].vm_start;
+        if (!write_program_header(
+                elf_file, PT_LOAD, flags,
+                /*offset=*/file_offset,
+                /*virtual_address=*/(ELF_ADDR)section_header_info[section_index].vm_start,
+                /*physical_address=*/
+                (ELF_ADDR)section_header_info[section_index].vm_start,
+                /*file_size=*/size,
+                /*memory_size=*/size,
+                /*alignment=*/os_page_size())) {
+            os_close(elf_file);
+            return false;
+        }
+        file_offset += section_header_info[section_index].vm_end -
+            section_header_info[section_index].vm_start;
     }
     if (!write_prstatus_note(&mc, elf_file)) {
         os_close(elf_file);
@@ -533,8 +577,9 @@ os_dump_core_internal(dcontext_t *dcontext)
         return false;
     }
     // Write section headers to the core dump file.
-    // TODO i#7046: Handle multiple program headers.
-    ELF_OFF file_offset = sizeof(ELF_HEADER_TYPE) + PROGRAM_HEADER_LENGTH;
+    file_offset = sizeof(ELF_HEADER_TYPE) +
+        sizeof(ELF_PROGRAM_HEADER_TYPE) * program_header_count +
+        PROGRAM_HEADER_NOTE_LENGTH;
 
     // The section_count includes the section name section, so we need to skip
     // it in the loop. The section name section is handled differently after
@@ -543,6 +588,9 @@ os_dump_core_internal(dcontext_t *dcontext)
         ELF_WORD flags = SHF_ALLOC | SHF_MERGE;
         if (TEST(PROT_WRITE, section_header_info[section_index].prot)) {
             flags |= SHF_WRITE;
+        }
+        if (TEST(PROT_EXEC, section_header_info[section_index].prot)) {
+            flags |= SHF_EXECINSTR;
         }
         if (!write_section_header(
                 elf_file, section_header_info[section_index].name_offset, SHT_PROGBITS,
