@@ -1636,10 +1636,7 @@ decode_modrm(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *reg_opn
     bool addr16 = !X64_MODE(di) && TEST(PREFIX_ADDR, di->prefixes);
 
     if (reg_opnd != NULL) {
-        opnd_size_t regsize = opsize;
-        if (optype == TYPE_G_ES_VAR_REG_SIZE)
-            regsize = OPSZ_addr;
-        reg_id_t reg = decode_reg(DECODE_REG_REG, di, optype, regsize);
+        reg_id_t reg = decode_reg(DECODE_REG_REG, di, optype, opsize);
         if (reg == REG_NULL)
             return false;
         *reg_opnd = opnd_create_reg(reg);
@@ -2227,12 +2224,12 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
     }
     case TYPE_T_MODRM: return decode_modrm(di, optype, opsize, NULL, opnd);
     case TYPE_G_ES_VAR_REG_SIZE: {
-        if (!decode_modrm(di, optype, opsize, opnd, NULL)) {
+        /* NB: we want the register size to match the address size, not opsize. */
+        if (!decode_modrm(di, optype, OPSZ_addr, opnd, NULL)) {
             return false;
         }
         reg_id_t reg = opnd_get_reg(*opnd);
-        opnd_size_t size = opnd_get_size(*opnd);
-        *opnd = opnd_create_far_base_disp(DR_SEG_ES, reg, REG_NULL, 0, 0, size);
+        *opnd = opnd_create_far_base_disp(DR_SEG_ES, reg, REG_NULL, 0, 0, opsize);
         return true;
     }
     default:
