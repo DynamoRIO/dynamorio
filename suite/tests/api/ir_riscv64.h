@@ -58,12 +58,11 @@ extern byte buf[8192];
 
 byte *
 test_instr_encoding_copy(void *dc, uint opcode, app_pc instr_pc, instr_t *instr);
+byte *
+test_instr_encoding(void *dc, uint opcode, instr_t *instr);
 void
 test_instr_encoding_failure(void *dc, uint opcode, app_pc instr_pc, instr_t *instr);
 byte *
 test_instr_decoding_failure(void *dc, uint raw_instr);
-
-#define test_instr_encoding(dc, opcode, instr) \
-    test_instr_encoding_copy(dc, opcode, (app_pc)&buf, instr)
 
 #endif /* IR_RISCV64_H */

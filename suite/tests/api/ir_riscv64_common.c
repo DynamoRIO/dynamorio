@@ -62,6 +62,12 @@ test_instr_encoding_copy(void *dc, uint opcode, app_pc instr_pc, instr_t *instr)
     return pc;
 }
 
+byte *
+test_instr_encoding(void *dc, uint opcode, instr_t *instr)
+{
+    return test_instr_encoding_copy(dc, opcode, (app_pc)&buf, instr);
+}
+
 void
 test_instr_encoding_failure(void *dc, uint opcode, app_pc instr_pc, instr_t *instr)
 {
