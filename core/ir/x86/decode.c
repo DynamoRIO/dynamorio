@@ -194,7 +194,8 @@ is_variable_size(opnd_size_t sz)
     case OPSZ_16_vex32:
     case OPSZ_16_vex32_evex64:
     case OPSZ_vex32_evex64:
-    case OPSZ_8x16: return true;
+    case OPSZ_8x16:
+    case OPSZ_addr: return true;
     default: return false;
     }
 }
@@ -316,6 +317,9 @@ resolve_variable_size(decode_info_t *di /*IN: x86_mode, prefixes*/, opnd_size_t 
                     ? OPSZ_8
                     : (TEST(PREFIX_VEX_L, di->prefixes) ? OPSZ_4 : OPSZ_2));
     case OPSZ_8x16: return IF_X64_ELSE(OPSZ_16, OPSZ_8);
+    case OPSZ_addr:
+        return (TEST(PREFIX_ADDR, di->prefixes) ? (X64_MODE(di) ? OPSZ_4 : OPSZ_2)
+                                                : (X64_MODE(di) ? OPSZ_8 : OPSZ_4));
     }
 
     return sz;
@@ -1585,6 +1589,10 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
     case TYPE_FLOATMEM:
         /* GPR: fall-through since variable subset of full register */
         break;
+    case TYPE_G_ES_VAR_REG_SIZE: {
+        opsize = OPSZ_addr;
+        break;
+    }
     default: CLIENT_ASSERT(false, "internal unknown reg error");
     }
 
@@ -2214,6 +2222,15 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
         return true;
     }
     case TYPE_T_MODRM: return decode_modrm(di, optype, opsize, NULL, opnd);
+    case TYPE_G_ES_VAR_REG_SIZE: {
+        /* NB: we want the register size to match the address size, not opsize. */
+        if (!decode_modrm(di, optype, OPSZ_addr, opnd, NULL)) {
+            return false;
+        }
+        reg_id_t reg = opnd_get_reg(*opnd);
+        *opnd = opnd_create_far_base_disp(DR_SEG_ES, reg, REG_NULL, 0, 0, opsize);
+        return true;
+    }
     default:
         /* ok to assert, types coming only from instr_info_t */
         CLIENT_ASSERT(false, "decode error: unknown operand type");

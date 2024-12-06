@@ -153,6 +153,7 @@ const char *const size_names[] = {
     "OPSZ_8x16",
     "OPSZ_256",
     "OPSZ_192",
+    "OPSZ_addr",
     "OPSZ_1_of_4",
     "OPSZ_2_of_4",
     "OPSZ_1_of_8",

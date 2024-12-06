@@ -119,6 +119,7 @@ const char *const type_names[] = {
     "TYPE_K_EVEX",
     "TYPE_T_REG",
     "TYPE_T_MODRM",
+    "TYPE_G_ES_VAR_REG_SIZE",
 };
 
 /* order corresponds to enum of REG_ and SEG_ constants */
@@ -689,7 +690,7 @@ type_uses_evex_aaa_bits(int type)
     }
 }
 
-/* Helper routine that sets/checks rex.w or data prefix, if necessary, for
+/* Helper routine that sets/checks rex.w, data, or addr prefix, if necessary, for
  * variable-sized OPSZ_ constants that the user asks for.  We try to be flexible
  * setting/checking only enough prefix flags to ensure that the final template size
  * is one of the possible sizes in the request.
@@ -943,12 +944,12 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
     /* for OPSZ_4x8_short2, does the addr prefix select 4 instead of 2 bytes? */
     bool addr_short4 = X64_MODE(di) && addr;
     /* Assumption: the only addr-specified operands that can be short
-     * are OPSZ_4x8_short2 and OPSZ_4x8_short2xi8, or
+     * are OPSZ_4x8_short2, OPSZ_4x8_short2xi8 and OPSZ_addr, or
      * OPSZ_4_short2 for x86 mode on x64.
      * Stack memrefs can pass addr==true and OPSZ_4x8.
      */
     CLIENT_ASSERT(!addr || size_template == OPSZ_4x8 ||
-                      size_template == OPSZ_4x8_short2xi8 ||
+                      size_template == OPSZ_4x8_short2xi8 || size_template == OPSZ_addr ||
                       size_template ==
                           OPSZ_4x8_short2 IF_X64(
                               || (!X64_MODE(di) && size_template == OPSZ_4_short2)),
@@ -980,6 +981,10 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
             }
             return false;
         case OPSZ_2:
+            if (!X64_MODE(di) && size_template == OPSZ_addr) {
+                di->prefixes |= prefix_data_addr;
+                return true;
+            }
             if (size_template == OPSZ_2_short1)
                 return !TEST(prefix_data_addr, di->prefixes);
             if (size_template == OPSZ_4_short2 || size_template == OPSZ_8_short2) {
@@ -1000,6 +1005,12 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
             }
             return false;
         case OPSZ_4:
+            if (size_template == OPSZ_addr) {
+                if (!X64_MODE(di))
+                    return !TEST(prefix_data_addr, di->prefixes);
+                di->prefixes |= prefix_data_addr;
+                return true;
+            }
             if (size_template == OPSZ_4_short2)
                 return !TEST(prefix_data_addr, di->prefixes);
             if (size_template == OPSZ_4_rex8_short2)
@@ -1053,7 +1064,8 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
                 di->prefixes |= PREFIX_REX_W; /* rex.w trumps data prefix */
                 return true;
             }
-            if (size_template == OPSZ_8_short4 || size_template == OPSZ_8_short2)
+            if ((X64_MODE(di) && size_template == OPSZ_addr) ||
+                size_template == OPSZ_8_short4 || size_template == OPSZ_8_short2)
                 return !TEST(prefix_data_addr, di->prefixes);
             if (size_template == OPSZ_8_rex16 || size_template == OPSZ_8_rex16_short4)
                 return !TESTANY(prefix_data_addr | PREFIX_REX_W, di->prefixes);
@@ -1806,6 +1818,11 @@ opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opn
         return (opnd_is_reg(opnd) &&
                 reg_size_ok(di, opnd_get_reg(opnd), optype, opsize, false /*!addr*/) &&
                 reg_is_bnd(opnd_get_reg(opnd)));
+    case TYPE_G_ES_VAR_REG_SIZE:
+        return (opnd_is_far_base_disp(opnd) && opnd_get_segment(opnd) == DR_SEG_ES &&
+                opnd_get_disp(opnd) == 0 && opnd_get_index(opnd) == REG_NULL &&
+                reg_is_gpr(opnd_get_base(opnd)) &&
+                reg_size_ok(di, opnd_get_base(opnd), optype, OPSZ_addr, true /*addr*/));
     default:
         CLIENT_ASSERT(false, "encode error: type ok: unknown operand type");
         return false;
@@ -2727,6 +2744,24 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
         di->evex_aaa = (byte)(reg - DR_REG_START_OPMASK);
         return;
     }
+    case TYPE_G_ES_VAR_REG_SIZE:
+        CLIENT_ASSERT(opnd_is_memory_reference(opnd),
+                      "encode error: operand must be a memory reference");
+        CLIENT_ASSERT(opnd_is_far_base_disp(opnd),
+                      "encode error: operand must be a far base disp");
+        /* NB: We don't actually set di->seg_override because the ES segment is
+         * inherent to the operand type.
+         */
+        CLIENT_ASSERT(opnd_get_segment(opnd) == DR_SEG_ES,
+                      "encode error: operand must be ES-relative");
+        CLIENT_ASSERT(opnd_get_disp(opnd) == 0, "encode error: operand must have 0 disp");
+        CLIENT_ASSERT(opnd_get_index(opnd) == REG_NULL,
+                      "encode error: operand must not have an index");
+        reg_id_t reg = opnd_get_base(opnd);
+        CLIENT_ASSERT(reg_is_gpr(reg), "encode error: base reg must be GPR");
+        encode_reg_ext_prefixes(di, reg, PREFIX_REX_R);
+        di->reg = reg_get_bits(reg);
+        return;
 
     default: CLIENT_ASSERT(false, "encode error: unknown operand type");
     }
