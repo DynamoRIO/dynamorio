@@ -1864,7 +1864,8 @@ const instr_info_t * const op_instr[] =
 #define My  TYPE_M, OPSZ_4_rex8
 #define Mw  TYPE_M, OPSZ_2
 #define Mm  TYPE_M, OPSZ_lea
-#define Moq  TYPE_M, OPSZ_512
+#define Moq  TYPE_M, OPSZ_64
+#define M512  TYPE_M, OPSZ_512
 #define Mxsave TYPE_M, OPSZ_xsave
 #define Mps  TYPE_M, OPSZ_16
 #define Mpd  TYPE_M, OPSZ_16
@@ -1906,7 +1907,7 @@ const instr_info_t * const op_instr[] =
 #define c1  TYPE_1, OPSZ_0
 /* we pick the right constant based on the opcode */
 #define cF  TYPE_FLOATCONST, OPSZ_0
-#define GesvS_oq TYPE_G_ES_VAR_REG_SIZE, OPSZ_512
+#define GesvS_oq TYPE_G_ES_VAR_REG_SIZE, OPSZ_64
 
 /* registers that are base 32 but vary down or up */
 #define eAX TYPE_VAR_REG, REG_EAX
@@ -7263,12 +7264,12 @@ const instr_info_t rex_b_extensions[][2] = {
  */
 const instr_info_t rex_w_extensions[][2] = {
   { /* rex.w extension 0 */
-    {OP_fxsave32, 0x0fae30, catFP | catState, "fxsave",   Moq, xx, xx, xx, xx, mrm, x, END_LIST},
-    {OP_fxsave64, 0x0fae30, catFP | catState, "fxsave64", Moq, xx, xx, xx, xx, mrm|rex, x, END_LIST},
+    {OP_fxsave32, 0x0fae30, catFP | catState, "fxsave",   M512, xx, xx, xx, xx, mrm, x, END_LIST},
+    {OP_fxsave64, 0x0fae30, catFP | catState, "fxsave64", M512, xx, xx, xx, xx, mrm|rex, x, END_LIST},
   },
   { /* rex.w extension 1 */
-    {OP_fxrstor32, 0x0fae31, catFP | catState, "fxrstor",   xx, xx, Moq, xx, xx, mrm, x, END_LIST},
-    {OP_fxrstor64, 0x0fae31, catFP | catState, "fxrstor64", xx, xx, Moq, xx, xx, mrm|rex, o64, END_LIST},
+    {OP_fxrstor32, 0x0fae31, catFP | catState, "fxrstor",   xx, xx, M512, xx, xx, mrm, x, END_LIST},
+    {OP_fxrstor64, 0x0fae31, catFP | catState, "fxrstor64", xx, xx, M512, xx, xx, mrm|rex, o64, END_LIST},
   },
   { /* rex.w extension 2 */
     {OP_xsave32,   0x0fae34, catFP | catState, "xsave",   Mxsave, xx, edx, eax, xx, mrm, x, END_LIST},
