@@ -140,6 +140,7 @@ Further non-compatibility-affecting changes include:
    restriction as dr_suspend_all_other_threads_ex(). For X86_64 platform, the feature is
    supported only when fast FP save and restore is supported. And mixed mode is not
    supported.
+ - Added the AArch64 FPMR register as DR_REG_FPMR.
  - Added OPSZ_addr which chooses the appropriate operand size on X86 from 2/4/8 based
    on the 32/64 bit mode and the presence or absence of the address size prefix.
 

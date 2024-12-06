@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -1282,12 +1282,23 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                    instr_t *next_instr, bool mangle_calls, uint flags)
 {
     ptr_uint_t retaddr;
-    app_pc target = NULL;
     opnd_t pushop = instr_get_dst(instr, 1);
     opnd_size_t pushsz = stack_entry_size(instr, opnd_get_size(pushop));
-    if (opnd_is_near_pc(instr_get_target(instr)))
+
+    if (!mangle_calls) {
+        /* off-trace call that will be executed natively */
+        /* relative target must be re-encoded */
+        instr_set_raw_bits_valid(instr, false);
+        return next_instr;
+    }
+
+    retaddr = get_call_return_address(dcontext, ilist, instr);
+
+#ifdef CHECK_RETURNS_SSE2
+    app_pc target = NULL;
+    if (opnd_is_near_pc(instr_get_target(instr))) {
         target = opnd_get_pc(instr_get_target(instr));
-    else if (opnd_is_instr(instr_get_target(instr))) {
+    } else if (opnd_is_instr(instr_get_target(instr))) {
         instr_t *tgt = opnd_get_instr(instr_get_target(instr));
         /* assumption: target's raw bits are meaningful */
         target = instr_get_raw_bits(tgt);
@@ -1300,16 +1311,6 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     } else
         ASSERT_NOT_REACHED();
 
-    if (!mangle_calls) {
-        /* off-trace call that will be executed natively */
-        /* relative target must be re-encoded */
-        instr_set_raw_bits_valid(instr, false);
-        return next_instr;
-    }
-
-    retaddr = get_call_return_address(dcontext, ilist, instr);
-
-#ifdef CHECK_RETURNS_SSE2
     /* ASSUMPTION: a call to the next instr is not going to ever have a
      * matching ret! */
     if (target == (app_pc)retaddr) {
@@ -2633,7 +2634,7 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 {
     uint opc = instr_get_opcode(instr);
     app_pc tgt;
-    opnd_t dst, src;
+    opnd_t dst;
     ASSERT(instr_has_rel_addr_reference(instr));
     instr_get_rel_addr_target(instr, &tgt);
     STATS_INC(rip_rel_instrs);
@@ -2650,10 +2651,9 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             /* segment overrides are ignored on lea */
             opnd_t immed;
             dst = instr_get_dst(instr, 0);
-            src = instr_get_src(instr, 0);
             ASSERT(opnd_is_reg(dst));
-            ASSERT(opnd_is_rel_addr(src));
-            ASSERT(opnd_get_addr(src) == tgt);
+            ASSERT(opnd_is_rel_addr(instr_get_src(instr, 0)));
+            ASSERT(opnd_get_addr(instr_get_src(instr, 0)) == tgt);
             /* Replace w/ an absolute immed of the target app address, following Intel
              * Table 3-59 "64-bit Mode LEA Operation with Address and Operand Size
              * Attributes" */
@@ -3914,7 +3914,6 @@ set_selfmod_sandbox_offsets(dcontext_t *dcontext)
     instrlist_t ilist;
     patch_list_t patch;
     static byte buf[256];
-    uint len;
     /* We assume this is called at init, when .data is +w and we need no
      * synch on accessing buf */
     ASSERT(!dynamo_initialized);
@@ -3945,7 +3944,8 @@ set_selfmod_sandbox_offsets(dcontext_t *dcontext)
                         instr_set_target(inst, opnd_create_pc(buf));
                     }
                 }
-                len = encode_with_patch_list(dcontext, &patch, &ilist, buf);
+                IF_DEBUG(uint len =)
+                encode_with_patch_list(dcontext, &patch, &ilist, buf);
                 ASSERT(len < BUFFER_SIZE_BYTES(buf));
                 IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint(start_pc - buf)));
                 selfmod_copy_start_offs[i][j] IF_X64([k]) = (uint)(start_pc - buf);
