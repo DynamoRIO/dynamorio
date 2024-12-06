@@ -14,13 +14,13 @@ ELF Header:
   Type:                              CORE \(Core file\)
   Machine:                           .*
   Version:                           0x1
-  Entry point address:               0x0
+  Entry point address:               0x[0-9a-f]+
   Start of program headers:          64 \(bytes into file\)
   Start of section headers:          [0-9]+ \(bytes into file\)
   Flags:                             0x0
   Size of this header:               64 \(bytes\)
   Size of program headers:           56 \(bytes\)
-  Number of program headers:         1
+  Number of program headers:         [0-9]+
   Size of section headers:           64 \(bytes\)
   Number of section headers:         [0-9]+
   Section header string table index: [0-9]+
@@ -33,6 +33,7 @@ Program Headers:
   Type           Offset             VirtAddr           PhysAddr
                  FileSiz            MemSiz              Flags  Align
   NOTE.*
+  LOAD.*
 .*
 Displaying notes found at file offset 0x[0-9a-f]+ with length 0x[0-9a-f]+:
   Owner.*Data size.*Description

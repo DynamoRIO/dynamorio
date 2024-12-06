@@ -478,6 +478,11 @@ enum {
                                   * memory in 32-bit mode, or 16 bytes memory in 64-bit
                                   * mode.
                                   */
+    TYPE_G_ES_VAR_REG_SIZE,      /* modrm.reg selects register (like TYPE_G)
+                                  * containing an offset from ES, but (unlike TYPE_G)
+                                  * treated as a memory operand, with size controlled
+                                  * by PREFIX_ADDR.
+                                  */
     /* when adding new types, update type_names[] in encode.c */
     TYPE_BEYOND_LAST_ENUM,
 };

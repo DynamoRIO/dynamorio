@@ -261,6 +261,7 @@ opnd_size_suffix_intel(opnd_t opnd)
     case 12: return "";
     case 16: return "oword";
     case 32: return "yword";
+    case 64: return "zword";
     }
     return "";
 }
