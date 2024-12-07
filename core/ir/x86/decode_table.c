@@ -5934,7 +5934,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0x6638f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf238f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   },{ /* prefix extension 193 */
-    {OP_rdseed,      0x0fc737, catUncategorized, "rdseed", Rv, xx, xx, xx, xx, mrm, fW6, END_LIST},
+    {OP_rdseed,      0x0fc737, catOther, "rdseed", Rv, xx, xx, xx, xx, mrm, fW6, END_LIST},
     {OP_rdpid,     0xf30fc737, catState, "rdpid", Rr, xx, xx, xx, xx, mrm, x, END_LIST},
     {INVALID,      0x660fc737, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf20fc737, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
