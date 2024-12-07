@@ -195,3 +195,9 @@ OPCODE(slwpcb, slwpcb, slwpcb, 0, REGARG(EAX))
 OPCODE(ptwrite_r32, ptwrite, ptwrite, X86_ONLY, REGARG(EAX))
 OPCODE(ptwrite_r64, ptwrite, ptwrite, X64_ONLY, REGARG(RAX))
 OPCODE(ptwrite_mem, ptwrite, ptwrite, 0, MEMARG(OPSZ_ptwrite))
+
+/****************************************************************************/
+/* RDPID */
+OPCODE(rdpid_32, rdpid, rdpid, X86_ONLY, REGARG(EAX))
+OPCODE(rdpid_64lo, rdpid, rdpid, X64_ONLY, REGARG(RAX))
+OPCODE(rdpid_64hi, rdpid, rdpid, X64_ONLY, REGARG(R15))
