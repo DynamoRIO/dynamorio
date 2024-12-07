@@ -2897,7 +2897,7 @@
 +0x1ca0   3a f5                cmp    dh, ch
 +0x1ca2   48 bf 79 0f c9 63 6d mov    rdi, 0x77705d6d63c90f79
  5d 70 77
-+0x1cac   0f 1c 4f 65          nop    dword ptr [rdi+0x65]
++0x1cac   0f 1c 4f 65          cldemote byte ptr [rdi+0x65]
 +0x1cb0   74 2a                jz     0x0000000010001cdc
 +0x1cb2   12 cc                adc    cl, ah
 +0x1cb4   37...??              <INVALID>
