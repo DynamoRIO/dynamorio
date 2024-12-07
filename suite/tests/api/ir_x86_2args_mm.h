@@ -353,3 +353,49 @@ OPCODE(movdir64b64, movdir64b, movdir64b, X64_ONLY,
 OPCODE(movdir64b64lohi, movdir64b, movdir64b, X64_ONLY,
        opnd_create_far_base_disp(DR_SEG_ES, DR_REG_R9, DR_REG_NULL, 0, 0, OPSZ_64),
        MEMARG(OPSZ_64))
+
+/* ENQCMD */
+/* NB: We can never use MEMARG for the dst because we need the segment selector. */
+/* NB: Can't use MEMARG for the src because it doesn't work with addr16 prefix. */
+OPCODE(enqcmd16, enqcmd, enqcmd, X86_ONLY,
+       opnd_create_far_base_disp(DR_SEG_ES, DR_REG_AX, DR_REG_NULL, 0, 0, OPSZ_64),
+       opnd_create_base_disp(DR_REG_SI, DR_REG_NULL, 0, memarg_disp, OPSZ_64))
+/* NB: Can't use MEMARG for the src because the base register needs to be the size of EAX.
+ */
+OPCODE(enqcmd32, enqcmd, enqcmd, 0,
+       opnd_create_far_base_disp(DR_SEG_ES, DR_REG_EAX, DR_REG_NULL, 0, 0, OPSZ_64),
+       opnd_create_base_disp(DR_REG_ECX, DR_REG_NULL, 0, memarg_disp, OPSZ_64))
+OPCODE(enqcmd32lohi, enqcmd, enqcmd, X64_ONLY,
+       opnd_create_far_base_disp(DR_SEG_ES, DR_REG_R8D, DR_REG_NULL, 0, 0, OPSZ_64),
+       opnd_create_base_disp(DR_REG_ECX, DR_REG_NULL, 0, memarg_disp, OPSZ_64))
+OPCODE(enqcmd32hilo, enqcmd, enqcmd, X64_ONLY,
+       opnd_create_far_base_disp(DR_SEG_ES, DR_REG_EAX, DR_REG_NULL, 0, 0, OPSZ_64),
+       opnd_create_base_disp(DR_REG_R9D, DR_REG_NULL, 0, memarg_disp, OPSZ_64))
+OPCODE(enqcmd64, enqcmd, enqcmd, X64_ONLY,
+       opnd_create_far_base_disp(DR_SEG_ES, DR_REG_RAX, DR_REG_NULL, 0, 0, OPSZ_64),
+       MEMARG(OPSZ_64))
+OPCODE(enqcmd64lohi, enqcmd, enqcmd, X64_ONLY,
+       opnd_create_far_base_disp(DR_SEG_ES, DR_REG_R9, DR_REG_NULL, 0, 0, OPSZ_64),
+       MEMARG(OPSZ_64))
+
+/* NB: Can't use MEMARG for the src because it doesn't work with addr16 prefix. */
+OPCODE(enqcmds16, enqcmds, enqcmds, X86_ONLY,
+       opnd_create_far_base_disp(DR_SEG_ES, DR_REG_AX, DR_REG_NULL, 0, 0, OPSZ_64),
+       opnd_create_base_disp(DR_REG_SI, DR_REG_NULL, 0, memarg_disp, OPSZ_64))
+/* NB: Can't use MEMARG for the src because the base register needs to be the size of EAX.
+ */
+OPCODE(enqcmds32, enqcmds, enqcmds, 0,
+       opnd_create_far_base_disp(DR_SEG_ES, DR_REG_EAX, DR_REG_NULL, 0, 0, OPSZ_64),
+       opnd_create_base_disp(DR_REG_ECX, DR_REG_NULL, 0, memarg_disp, OPSZ_64))
+OPCODE(enqcmds32lohi, enqcmds, enqcmds, X64_ONLY,
+       opnd_create_far_base_disp(DR_SEG_ES, DR_REG_R8D, DR_REG_NULL, 0, 0, OPSZ_64),
+       opnd_create_base_disp(DR_REG_ECX, DR_REG_NULL, 0, memarg_disp, OPSZ_64))
+OPCODE(enqcmds32hilo, enqcmds, enqcmds, X64_ONLY,
+       opnd_create_far_base_disp(DR_SEG_ES, DR_REG_EAX, DR_REG_NULL, 0, 0, OPSZ_64),
+       opnd_create_base_disp(DR_REG_R9D, DR_REG_NULL, 0, memarg_disp, OPSZ_64))
+OPCODE(enqcmds64, enqcmds, enqcmds, X64_ONLY,
+       opnd_create_far_base_disp(DR_SEG_ES, DR_REG_RAX, DR_REG_NULL, 0, 0, OPSZ_64),
+       MEMARG(OPSZ_64))
+OPCODE(enqcmds64lohi, enqcmds, enqcmds, X64_ONLY,
+       opnd_create_far_base_disp(DR_SEG_ES, DR_REG_R9, DR_REG_NULL, 0, 0, OPSZ_64),
+       MEMARG(OPSZ_64))
