@@ -7061,11 +7061,11 @@ const instr_info_t mod_extensions[][2] = {
     {RM_EXT,  0x0f0175, catUncategorized, "(group 7 mod + rm ext 5)", xx, xx, xx, xx, xx, mrm, x, 5},
   },
   { /* mod extension 121 */
-    {OP_enqcmds, 0xf338f808, catUncategorized, "enqcmds", GesvS_oq, xx, Moq, xx, xx, mrm, fW6, END_LIST},
+    {OP_enqcmds, 0xf338f808, catMove | catOther, "enqcmds", GesvS_oq, xx, Moq, xx, xx, mrm, fW6, END_LIST},
     {INVALID,    0xf338f808, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
   },
   { /* mod extension 122 */
-    {OP_enqcmd,  0xf238f808, catUncategorized, "enqcmd", GesvS_oq, xx, Moq, xx, xx, mrm, fW6, END_LIST},
+    {OP_enqcmd,  0xf238f808, catMove | catOther, "enqcmd", GesvS_oq, xx, Moq, xx, xx, mrm, fW6, END_LIST},
     {INVALID,    0xf238f808, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
   },
 };
