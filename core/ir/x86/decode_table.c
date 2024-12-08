@@ -1106,7 +1106,7 @@ const instr_info_t * const op_instr[] =
     /* OP_wrgsbase      */   &mod_extensions[17][1],
 
     /* coming in the future but adding now since enough details are known */
-    /* OP_rdseed        */   &mod_extensions[13][1],
+    /* OP_rdseed        */   &prefix_extensions[193][0],
 
     /* AMD FMA4 */
     /* OP_vfmaddsubps   */   &vex_W_extensions[30][0],
@@ -1648,6 +1648,13 @@ const instr_info_t * const op_instr[] =
 
     /* MOVDIR64B */
     /* OP_movdir64b */ &prefix_extensions[192][2],
+
+    /* ENQCMD */
+    /* OP_enqcmd */ &mod_extensions[122][0],
+    /* OP_enqcmds */ &mod_extensions[121][0],
+
+    /* RDPID */
+    /* OP_rdpid */ &prefix_extensions[193][1],
 };
 
 
@@ -5915,9 +5922,9 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0xf201e808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   },{ /* prefix extension 192 */
     {INVALID,        0x38f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,      0xf338f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {MOD_EXT,      0xf338f808, catUncategorized, "(mod ext 121)", xx, xx, xx, xx, xx, no, x, 121},
     {OP_movdir64b, 0x6638f808, catMove, "movdir64b", GesvS_oq, xx, Moq, xx, xx, mrm, x, END_LIST},
-    {INVALID,      0xf238f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {MOD_EXT,      0xf238f808, catUncategorized, "(mod ext 122)", xx, xx, xx, xx, xx, no, x, 122},
     {INVALID,        0x38f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf338f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0x6638f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5926,6 +5933,19 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0xf338f808, catUncategorized, "(bad)"  , xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0x6638f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf238f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+  },{ /* prefix extension 193 */
+    {OP_rdseed,      0x0fc737, catOther, "rdseed", Rv, xx, xx, xx, xx, mrm, fW6, END_LIST},
+    {OP_rdpid,     0xf30fc737, catState, "rdpid", Rr, xx, xx, xx, xx, mrm, x, END_LIST},
+    {INVALID,      0x660fc737, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf20fc737, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,        0x0fc737, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf30fc737, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x660fc737, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf20fc737, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,        0x0fc737, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf30fc737, catUncategorized, "(bad)"  , xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x660fc737, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf20fc737, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }
 };
 /****************************************************************************
@@ -6621,7 +6641,7 @@ const instr_info_t mod_extensions[][2] = {
      * explicitly encoding that until we have more information.
      */
     {OP_vmptrst, 0x0fc737, catUncategorized, "vmptrst", Mq, xx, xx, xx, xx, mrm|o64, x, END_LIST},
-    {OP_rdseed,  0x0fc737, catUncategorized, "rdseed", Rv, xx, xx, xx, xx, mrm, fW6, END_LIST},
+    {PREFIX_EXT, 0x0fc737, catUncategorized, "(prefix ext 193)", xx, xx, xx, xx, xx, no, x, 193},
   },
   { /* mod extension 14 */
     {REX_W_EXT,  0x0fae30, catUncategorized, "(rex.w ext 0)", xx, xx, xx, xx, xx, mrm, x, 0},
@@ -7055,6 +7075,14 @@ const instr_info_t mod_extensions[][2] = {
   { /* mod extension 120 */
     {INVALID, 0x0f0135, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {RM_EXT,  0x0f0175, catUncategorized, "(group 7 mod + rm ext 5)", xx, xx, xx, xx, xx, mrm, x, 5},
+  },
+  { /* mod extension 121 */
+    {OP_enqcmds, 0xf338f808, catMove | catOther, "enqcmds", GesvS_oq, xx, Moq, xx, xx, mrm, fW6, END_LIST},
+    {INVALID,    0xf338f808, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+  },
+  { /* mod extension 122 */
+    {OP_enqcmd,  0xf238f808, catMove | catOther, "enqcmd", GesvS_oq, xx, Moq, xx, xx, mrm, fW6, END_LIST},
+    {INVALID,    0xf238f808, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
   },
 };
 

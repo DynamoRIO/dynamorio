@@ -1635,6 +1635,13 @@ enum {
     /* MOVDIR64B */
     /* 1445 */ OP_movdir64b, /**< IA-32/AMD64 movdir64b opcode. */
 
+    /* ENQCMD */
+    /* 1446 */ OP_enqcmd,  /**< IA-32/AMD64 enqcmd opcode. */
+    /* 1447 */ OP_enqcmds, /**< IA-32/AMD64 enqcmds opcode. */
+
+    /* RDPID */
+    /* 1448 */ OP_rdpid, /**< IA-32/AMD64 rdpid opcode. */
+
     OP_AFTER_LAST,
     OP_FIRST = OP_add,           /**< First real opcode. */
     OP_LAST = OP_AFTER_LAST - 1, /**< Last real opcode. */
