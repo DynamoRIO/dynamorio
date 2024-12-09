@@ -193,7 +193,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     }
 
     dstack_offs += XSP_SZ;
-    
+
     /*
      * The code below is contributed and copyrighted by FORTH
      * Copyright (c) 2024 Foundation of Research and Technology, Hellas. All other rights reserved.
