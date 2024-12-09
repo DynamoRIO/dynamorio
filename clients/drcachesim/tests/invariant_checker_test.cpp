@@ -89,7 +89,7 @@ public:
                 parallel_shard_exit(keyval.second.get());
             }
         }
-        per_shard_t global;
+        per_shard_t global(drcontext_);
         check_schedule_data(&global);
         return true;
     }

@@ -49,6 +49,7 @@
 
 #include "analysis_tool.h"
 #include "dr_api.h"
+#include "instr_decode_cache.h"
 #include "memref.h"
 #include "memtrace_stream.h"
 #include "schedule_file.h"
@@ -117,7 +118,8 @@ protected:
     // Most checks are thread-local; for thread switch checks we rely
     // on identifying thread switch points via timestamp entries.
     struct per_shard_t {
-        per_shard_t()
+        per_shard_t(void *dcontext)
+            : decode_cache_(dcontext)
         {
             // We need a sentinel different from type 0.
             prev_xfer_marker_.marker.marker_type = TRACE_MARKER_TYPE_VERSION;
@@ -140,7 +142,46 @@ protected:
 #ifdef X86
         uint64_t instrs_since_sti = 0;
 #endif
-        struct decoding_info_t {
+        class decoding_info_t : public decode_info_base_t {
+        public:
+            bool
+            set_decode_info(void *dcontext,
+                            const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
+                            instr_t *instr) override
+            {
+                has_valid_decoding = true;
+                is_prefetch = instr_is_prefetch(instr);
+                opcode = instr_get_opcode(instr);
+#ifdef X86
+                is_xsave = instr_is_xsave(instr);
+                is_xrstor = instr_is_xrstor(instr);
+#endif
+                is_syscall = instr_is_syscall(instr);
+                writes_memory = instr_writes_memory(instr);
+                is_predicated = instr_is_predicated(instr);
+                // DR_ISA_REGDEPS instructions don't have an opcode, hence we use
+                // their category to determine whether they perform at least one read
+                // or write.
+                if (instr_get_isa_mode(instr) == DR_ISA_REGDEPS) {
+                    num_memory_read_access =
+                        TESTANY(DR_INSTR_CATEGORY_LOAD, instr_get_category(instr)) ? 1
+                                                                                   : 0;
+                    num_memory_write_access =
+                        TESTANY(DR_INSTR_CATEGORY_STORE, instr_get_category(instr)) ? 1
+                                                                                    : 0;
+                } else {
+                    num_memory_read_access = instr_num_memory_read_access(instr);
+                    num_memory_write_access = instr_num_memory_write_access(instr);
+                }
+                if (type_is_instr_branch(memref_instr.type)) {
+                    const opnd_t target = instr_get_target(instr);
+                    if (opnd_is_pc(target)) {
+                        branch_target = reinterpret_cast<addr_t>(opnd_get_pc(target));
+                    }
+                }
+                return true;
+            }
+
             bool has_valid_decoding = false;
             bool is_syscall = false;
             bool writes_memory = false;
@@ -157,9 +198,9 @@ protected:
         };
         struct instr_info_t {
             memref_t memref = {};
-            decoding_info_t decoding;
+            decoding_info_t *decoding = nullptr;
         };
-        std::unordered_map<app_pc, decoding_info_t> decode_cache_;
+        instr_decode_cache_t<decoding_info_t> decode_cache_;
         // On UNIX generally last_instr_in_cur_context_ should be used instead.
         instr_info_t prev_instr_;
 #ifdef UNIX

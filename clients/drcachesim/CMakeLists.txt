@@ -165,7 +165,10 @@ add_exported_library(drmemtrace_opcode_mix STATIC tools/opcode_mix.cpp)
 add_exported_library(drmemtrace_syscall_mix STATIC tools/syscall_mix.cpp)
 add_exported_library(drmemtrace_view STATIC tools/view.cpp)
 add_exported_library(drmemtrace_func_view STATIC tools/func_view.cpp)
-add_exported_library(drmemtrace_invariant_checker STATIC tools/invariant_checker.cpp)
+add_exported_library(drmemtrace_invariant_checker STATIC
+  tools/invariant_checker.cpp
+  tools/instr_decode_cache.h
+  )
 add_exported_library(drmemtrace_schedule_stats STATIC tools/schedule_stats.cpp)
 add_exported_library(drmemtrace_schedule_file STATIC common/schedule_file.cpp)
 add_exported_library(drmemtrace_mutex_dbg_owned STATIC common/mutex_dbg_owned.cpp)
