@@ -673,8 +673,7 @@ append_restore_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
         APP(ilist, RESTORE_FROM_DC(dcontext, DR_REG_A1, VTYPE_OFFSET));
         APP(ilist,
             INSTR_CREATE_vsetvl(dcontext, opnd_create_reg(DR_REG_A0),
-                                 opnd_create_reg(DR_REG_A0),
-                                 opnd_create_reg(DR_REG_A1)));
+                                opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1)));
         /*
          * End of FORTH copyrighted section
          */

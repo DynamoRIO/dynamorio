@@ -352,7 +352,7 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
                           opnd_create_reg(DR_REG_SP),
                           opnd_create_immed_int(DR_NUM_FPR_REGS * XSP_SZ, OPSZ_12b)));
 
-    current_offs -= 2*XSP_SZ;
+    current_offs -= 2 * XSP_SZ;
 
     /* Uses c.[f]ldsp for some reason beyond my comprehension, same below. */
     if (proc_has_feature(FEATURE_VECTOR)) {
@@ -366,12 +366,11 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
             INSTR_CREATE_c_ldsp(
                 dcontext, opnd_create_reg(DR_REG_A1),
                 OPND_CREATE_MEM64(DR_REG_SP,
-                                 current_offs + XSP_SZ - DR_NUM_FPR_REGS * XSP_SZ)));
+                                  current_offs + XSP_SZ - DR_NUM_FPR_REGS * XSP_SZ)));
         /* vsetvl a0, a0, a1 */
         PRE(ilist, instr,
             INSTR_CREATE_vsetvl(dcontext, opnd_create_reg(DR_REG_A0),
-                                 opnd_create_reg(DR_REG_A0),
-                                 opnd_create_reg(DR_REG_A1)));
+                                opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1)));
     }
 
     /* Uses c.[f]ldsp to save space, same below. */
