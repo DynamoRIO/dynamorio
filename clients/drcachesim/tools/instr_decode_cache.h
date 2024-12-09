@@ -90,18 +90,26 @@ private:
     void *dcontext_ = nullptr;
 };
 
+/**
+ * A cache to store decode info for instructions per observed app pc. The template arg
+ * DecodeInfo is a class derived from \p decode_info_base_t which implements the
+ * set_decode_info() function that derives the required decode info from an \p instr_t
+ * object provided by \p instr_decode_cache_t. This class handles the heavy-lifting of
+ * actually producing the decoded \p instr_t.
+ */
 template <class DecodeInfo> class instr_decode_cache_t {
     static_assert(std::is_base_of<decode_info_base_t, DecodeInfo>::value,
                   "Derived not derived from decode_info_base_t");
 
 public:
     instr_decode_cache_t(void *dcontext)
-        : dcontext_(dcontext) { };
+        : dcontext_(dcontext) {};
 
     /**
-     * Returns a pointer to the DecodeInfo available for the instruction at pc. Returns
-     * nullptr if no instruction is known at that pc. Returns the default-constructed
-     * DecodeInfo if there was a decoding error for the instruction at the pc.
+     * Returns a pointer to the DecodeInfo available for the instruction at \p pc.
+     * Returns nullptr if no instruction is known at that \t pc. Returns the
+     * default-constructed DecodeInfo if there was a decoding error for the
+     * instruction.
      */
     DecodeInfo *
     get_decode_info(app_pc pc)
@@ -113,7 +121,7 @@ public:
         return &it->second;
     }
     /**
-     * Adds decode info for the given memref.instr if it is not yet recorded.
+     * Adds decode info for the given \p memref_instr if it is not yet recorded.
      */
     void
     add_decode_info(app_pc pc, const dynamorio::drmemtrace::_memref_instr_t &memref_instr)
@@ -130,7 +138,6 @@ public:
             dcontext_, const_cast<app_pc>(memref_instr.encoding), trace_pc, instr);
         decode_cache_[trace_pc] = DecodeInfo();
         if (next_pc == nullptr || !instr_valid(instr)) {
-            std::cerr << "AAA error in decoding\n";
             return;
         }
         bool destroy_instr =

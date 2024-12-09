@@ -159,24 +159,27 @@ protected:
                 is_syscall = instr_is_syscall(instr);
                 writes_memory = instr_writes_memory(instr);
                 is_predicated = instr_is_predicated(instr);
-                // DR_ISA_REGDEPS instructions don't have an opcode, hence we use
-                // their category to determine whether they perform at least one read
-                // or write.
                 if (instr_get_isa_mode(instr) == DR_ISA_REGDEPS) {
+                    // DR_ISA_REGDEPS instructions don't have an opcode, hence we use
+                    // their category to determine whether they perform at least one read
+                    // or write.
                     num_memory_read_access =
                         TESTANY(DR_INSTR_CATEGORY_LOAD, instr_get_category(instr)) ? 1
                                                                                    : 0;
                     num_memory_write_access =
                         TESTANY(DR_INSTR_CATEGORY_STORE, instr_get_category(instr)) ? 1
                                                                                     : 0;
+                    // DR_ISA_REGDEPS instructions don't have a branch target saved as
+                    // instr.src[0], so we cannot retrieve this information.
+                    branch_target = 0;
                 } else {
                     num_memory_read_access = instr_num_memory_read_access(instr);
                     num_memory_write_access = instr_num_memory_write_access(instr);
-                }
-                if (type_is_instr_branch(memref_instr.type)) {
-                    const opnd_t target = instr_get_target(instr);
-                    if (opnd_is_pc(target)) {
-                        branch_target = reinterpret_cast<addr_t>(opnd_get_pc(target));
+                    if (type_is_instr_branch(memref_instr.type)) {
+                        const opnd_t target = instr_get_target(instr);
+                        if (opnd_is_pc(target)) {
+                            branch_target = reinterpret_cast<addr_t>(opnd_get_pc(target));
+                        }
                     }
                 }
                 return true;
