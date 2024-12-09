@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -6632,7 +6632,10 @@ const instr_info_t mod_extensions[][2] = {
   },
   { /* mod extension 3 */
     {PREFIX_EXT, 0x0fae37, catUncategorized, "(prefix ext 194)", xx, xx, xx, xx, xx, no, x, 194},
-    {OP_sfence,  0xf80fae77, catStore | catSIMD, "sfence",  xx, xx, xx, xx, xx, mrm, x, END_LIST},
+    // If we add an "atomic" category we'd put this there.
+    // Without it, "state" might best be interpreted as a barrier, so we use it for
+    // all the OP_*fence opcodes.
+    {OP_sfence,  0xf80fae77, catState, "sfence",  xx, xx, xx, xx, xx, mrm, x, END_LIST},
   },
   { /* mod extension 4 */
     {OP_lidt,   0x0f0133, catLoad, "lidt",  xx, xx, Ms, xx, xx, mrm, x, END_LIST},
@@ -6645,11 +6648,11 @@ const instr_info_t mod_extensions[][2] = {
   { /* mod extension 6 */
     {REX_W_EXT, 0x0fae35, catUncategorized, "(rex.w ext 3)", xx, xx, xx, xx, xx, mrm, x, 3},
     /* note that gdb thinks e9-ef are "lfence (bad)" (PR 239920) */
-    {OP_lfence, 0xe80fae75, catLoad, "lfence", xx, xx, xx, xx, xx, mrm, x, END_LIST},
+    {OP_lfence, 0xe80fae75, catState, "lfence", xx, xx, xx, xx, xx, mrm, x, END_LIST},
   },
   { /* mod extension 7 */
     {PREFIX_EXT,  0x0fae36, catUncategorized, "(prefix ext 195)", xx, xx, xx, xx, xx, no, x, 195},
-    {OP_mfence,   0xf00fae76, catUncategorized, "mfence", xx, xx, xx, xx, xx, mrm, x, END_LIST},
+    {OP_mfence,   0xf00fae76, catState, "mfence", xx, xx, xx, xx, xx, mrm, x, END_LIST},
   },
   { /* mod extension 8 */
     {OP_vmovss,  0xf30f1010, catFP | catMove | catSIMD, "vmovss",  Vdq, xx, Wss,  xx, xx, mrm|vex, x, modx[10][0]},
