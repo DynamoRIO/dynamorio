@@ -45,6 +45,8 @@
 #define FCSR 0x003
 #define VSTART 0x008
 #define VCSR 0x00F
+#define VL 0xC20
+#define VTYPE 0xC21
 
 /* TODO i#3544: Think of a better way to represent these fields in the IR. */
 /* Volume I: RISC-V Unprivileged ISA V20191213.
@@ -191,6 +193,45 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     }
 
     dstack_offs += XSP_SZ;
+    
+    /*
+     * The code below is contributed and copyrighted by FORTH
+     * Copyright (c) 2024 Foundation of Research and Technology, Hellas. All other rights reserved.
+     */
+    if (proc_has_feature(FEATURE_VECTOR)) {
+        /* csrr a0, vl */
+        PRE(ilist, instr,
+            INSTR_CREATE_csrrs(dcontext, opnd_create_reg(DR_REG_A0),
+                               opnd_create_reg(DR_REG_ZERO),
+                               opnd_create_immed_int(VL, OPSZ_12b)));
+
+        PRE(ilist, instr,
+            INSTR_CREATE_c_sdsp(dcontext, OPND_CREATE_MEM64(DR_REG_SP, dstack_offs),
+                                opnd_create_reg(DR_REG_A0)));
+    }
+
+    dstack_offs += XSP_SZ;
+
+    /*
+     * The code below is contributed and copyrighted by FORTH
+     * Copyright (c) 2024 Foundation of Research and Technology, Hellas. All other rights reserved.
+     */
+    if (proc_has_feature(FEATURE_VECTOR)) {
+        /* csrr a0, vtype */
+        PRE(ilist, instr,
+            INSTR_CREATE_csrrs(dcontext, opnd_create_reg(DR_REG_A0),
+                               opnd_create_reg(DR_REG_ZERO),
+                               opnd_create_immed_int(VTYPE, OPSZ_12b)));
+
+        PRE(ilist, instr,
+            INSTR_CREATE_c_sdsp(dcontext, OPND_CREATE_MEM64(DR_REG_SP, dstack_offs),
+                                opnd_create_reg(DR_REG_A0)));
+    }
+
+    dstack_offs += 2*XSP_SZ;
+    /*
+     * End of FORTH copyrighted section
+     */
 
     /* Push vector registers. */
     if (proc_has_feature(FEATURE_VECTOR)) {
@@ -308,6 +349,27 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
         INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_SP),
                           opnd_create_reg(DR_REG_SP),
                           opnd_create_immed_int(DR_NUM_FPR_REGS * XSP_SZ, OPSZ_12b)));
+
+    current_offs -= 2*XSP_SZ;
+
+    /* Uses c.[f]ldsp for some reason beyond my comprehension, same below. */
+    if (proc_has_feature(FEATURE_VECTOR)) {
+        /* a0 = vl*/
+        PRE(ilist, instr,
+            INSTR_CREATE_c_ldsp(
+                dcontext, opnd_create_reg(DR_REG_A0),
+                OPND_CREATE_MEM64(DR_REG_SP, current_offs - DR_NUM_FPR_REGS * XSP_SZ)));
+        /* a1 = vtype*/
+        PRE(ilist, instr,
+            INSTR_CREATE_c_ldsp(
+                dcontext, opnd_create_reg(DR_REG_A1),
+                OPND_CREATE_MEM64(DR_REG_SP, current_offs + XSP_SZ - DR_NUM_FPR_REGS * XSP_SZ)));
+        /* vsetvl a0, a0, a1 */
+        PRE(ilist, instr,
+            INSTR_CREATE_vsetvl(dcontext, opnd_create_reg(DR_REG_A0),
+                                 opnd_create_reg(DR_REG_A0),
+                                 opnd_create_reg(DR_REG_A1)));
+    }
 
     /* Uses c.[f]ldsp to save space, same below. */
     current_offs -= XSP_SZ;
