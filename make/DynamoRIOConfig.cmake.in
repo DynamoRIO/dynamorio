@@ -1057,7 +1057,12 @@ function (configure_DynamoRIO_standalone target)
   # flags removed.  Usually the target LINK_FLAGS is empty at this point anyway.
   set(extra_flags "-DDYNAMORIO_STANDALONE")
   if (ANDROID)
-    set(extra_flags ${extra_flags} "-fPIE")
+    set(extra_flags "${extra_flags} -fPIE")
+    # Clang complains that -pie is an unused option here, so only add it for
+    # 32-bit Android which uses GCC.
+    if (ANDROID32)
+      set(extra_flags "${extra_flags} -pie")
+    endif(ANDROID32)
   endif (ANDROID)
   _DR_set_compile_flags(${target} OFF "${extra_flags}")
 
