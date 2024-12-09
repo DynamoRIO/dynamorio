@@ -196,7 +196,8 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
 
     /*
      * The code below is contributed and copyrighted by FORTH
-     * Copyright (c) 2024 Foundation of Research and Technology, Hellas. All other rights reserved.
+     * Copyright (c) 2024 Foundation of Research and Technology, Hellas.
+     * All other rights reserved.
      */
     if (proc_has_feature(FEATURE_VECTOR)) {
         /* csrr a0, vl */
@@ -214,7 +215,8 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
 
     /*
      * The code below is contributed and copyrighted by FORTH
-     * Copyright (c) 2024 Foundation of Research and Technology, Hellas. All other rights reserved.
+     * Copyright (c) 2024 Foundation of Research and Technology, Hellas.
+     * All other rights reserved.
      */
     if (proc_has_feature(FEATURE_VECTOR)) {
         /* csrr a0, vtype */
@@ -363,7 +365,8 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
         PRE(ilist, instr,
             INSTR_CREATE_c_ldsp(
                 dcontext, opnd_create_reg(DR_REG_A1),
-                OPND_CREATE_MEM64(DR_REG_SP, current_offs + XSP_SZ - DR_NUM_FPR_REGS * XSP_SZ)));
+                OPND_CREATE_MEM64(DR_REG_SP,
+                                 current_offs + XSP_SZ - DR_NUM_FPR_REGS * XSP_SZ)));
         /* vsetvl a0, a0, a1 */
         PRE(ilist, instr,
             INSTR_CREATE_vsetvl(dcontext, opnd_create_reg(DR_REG_A0),

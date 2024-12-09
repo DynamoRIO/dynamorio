@@ -666,7 +666,8 @@ append_restore_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 
         /*
          * The code below is contributed and copyrighted by FORTH
-         * Copyright (c) 2024 Foundation of Research and Technology, Hellas. All other rights reserved.
+         * Copyright (c) 2024 Foundation of Research and Technology, Hellas.
+         * All other rights reserved.
          */
         APP(ilist, RESTORE_FROM_DC(dcontext, DR_REG_A0, VL_OFFSET));
         APP(ilist, RESTORE_FROM_DC(dcontext, DR_REG_A1, VTYPE_OFFSET));
@@ -896,7 +897,8 @@ append_save_clear_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute
 
         /*
          * The code below is contributed and copyrighted by FORTH
-         * Copyright (c) 2024 Foundation of Research and Technology, Hellas. All other rights reserved.
+         * Copyright (c) 2024 Foundation of Research and Technology, Hellas.
+         * All other rights reserved.
          */
         APP(ilist,
             INSTR_CREATE_csrrs(dcontext, opnd_create_reg(DR_REG_A1),
