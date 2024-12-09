@@ -674,7 +674,7 @@ append_restore_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
             INSTR_CREATE_vsetvl(dcontext, opnd_create_reg(DR_REG_A0),
                                  opnd_create_reg(DR_REG_A0),
                                  opnd_create_reg(DR_REG_A1)));
-	/*
+        /*
          * End of FORTH copyrighted section
          */
     }
@@ -908,7 +908,7 @@ append_save_clear_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute
                                opnd_create_reg(DR_REG_ZERO),
                                opnd_create_immed_int(VTYPE, OPSZ_12b)));
         APP(ilist, SAVE_TO_DC(dcontext, DR_REG_A1, VTYPE_OFFSET));
-	/*
+        /*
          * End of FORTH copyrighted section
          */
     }
