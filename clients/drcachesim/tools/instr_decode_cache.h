@@ -82,20 +82,11 @@ public:
  */
 class instr_decode_info_t : public decode_info_base_t {
 public:
-    ~instr_decode_info_t()
-    {
-        if (instr_ != nullptr) {
-            instr_destroy(dcontext_, instr_);
-        }
-    }
+    ~instr_decode_info_t();
     void
     set_decode_info(void *dcontext,
                     const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
-                    instr_t *instr) override
-    {
-        dcontext_ = dcontext;
-        instr_ = instr;
-    }
+                    instr_t *instr) override;
 
     instr_t *instr_ = nullptr;
 

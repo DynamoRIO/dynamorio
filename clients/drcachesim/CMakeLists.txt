@@ -168,8 +168,8 @@ add_exported_library(drmemtrace_func_view STATIC tools/func_view.cpp)
 add_exported_library(drmemtrace_invariant_checker STATIC tools/invariant_checker.cpp)
 add_exported_library(drmemtrace_schedule_stats STATIC tools/schedule_stats.cpp)
 
-add_exported_library(drmemtrace_instr_decode_cache STATIC tools/instr_decode_cache.h)
-set_target_properties(drmemtrace_instr_decode_cache PROPERTIES LINKER_LANGUAGE CXX)
+add_exported_library(drmemtrace_instr_decode_cache STATIC
+                     tools/instr_decode_cache.cpp)
 
 add_exported_library(drmemtrace_schedule_file STATIC common/schedule_file.cpp)
 add_exported_library(drmemtrace_mutex_dbg_owned STATIC common/mutex_dbg_owned.cpp)
