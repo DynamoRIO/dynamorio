@@ -1664,6 +1664,11 @@ const instr_info_t * const op_instr[] =
 
     /* CLDEMOTE */
     /* OP_cldemote */ &second_byte[0x1c],
+
+    /* AVX512_BITALG */
+    /* OP_vpopcntb */ &evex_Wb_extensions[275][0],
+    /* OP_vpopcntw */ &evex_Wb_extensions[275][2],
+    /* OP_vpshufbitqmb */ &evex_Wb_extensions[276][0],
 };
 
 
@@ -7394,10 +7399,10 @@ const byte third_byte_38_index[256] = {
     20, 21, 22, 23,  24, 25,148,149,  26, 27, 28, 29,  92, 93, 94, 95,  /* 2 */
     30, 31, 32, 33,  34, 35,112, 36,  37, 38, 39, 40,  41, 42, 43, 44,  /* 3 */
     45, 46,142,143, 156,113,114,115,   0,  0,  0,  0, 129,130,150,151,  /* 4 */
-   166,167,168,169,   0,171,  0,  0, 118,119,108,138,   0,  0,  0,  0,  /* 5 */
+   166,167,168,169, 174,171,  0,  0, 118,119,108,138,   0,  0,  0,  0,  /* 5 */
      0,  0,  0,  0, 145,139,144,  0,   0,  0,  0,  0,   0,  0,  0,  0,  /* 6 */
      0,  0,170,  0,   0,123,122,121, 116,117,135,136, 137,124,125,126,  /* 7 */
-    49, 50,103,  0,   0,  0,  0,  0, 141,147,140,146, 109,120,110,  0,  /* 8 */
+    49, 50,103,  0,   0,  0,  0,  0, 141,147,140,146, 109,120,110,175,  /* 8 */
    104,105,106,107,   0,  0, 58, 59,  60, 61, 62, 63,  64, 65, 66, 67,  /* 9 */
    159,160,161,162,   0,  0, 68, 69,  70, 71, 72, 73,  74, 75, 76, 77,  /* A */
      0,  0,  0,  0, 157,158, 78, 79,  80, 81, 82, 83,  84, 85, 86, 87,  /* B */
@@ -7602,6 +7607,9 @@ const instr_info_t third_byte_38[] = {
   {EVEX_Wb_EXT, 0x66385518, catUncategorized, "(evex_Wb ext 274)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 274},/*171*/
   {PREFIX_EXT, 0x38f808, catUncategorized, "(prefix ext 192)", xx, xx, xx, xx, xx, mrm, x, 192},/*172*/
   {OP_movdiri, 0x38f908, catMove, "movdiri", My, xx, Gy, xx, xx, mrm, x, END_LIST},/*173*/
+  /* AVX512_BITALG */
+  {EVEX_Wb_EXT, 0x66385418, catUncategorized, "(evex_Wb ext 275)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 275},/*174*/
+  {EVEX_Wb_EXT, 0x66388f18, catUncategorized, "(evex_Wb ext 276)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 276},/*175*/
 };
 
 /* N.B.: every 0x3a instr so far has an immediate.  If a version w/o an immed
@@ -9517,6 +9525,16 @@ const instr_info_t evex_Wb_extensions[][4] = {
     {OP_vpopcntd, 0x66385518, catUncategorized, "vpopcntd", Ve, xx, KEd, Md, xx, mrm|evex|ttfv|reqp, x, END_LIST},
     {OP_vpopcntq, 0x66385548, catUncategorized, "vpopcntq", Ve, xx, KEq, We, xx, mrm|evex|ttfv|reqp, x, tevexwb[274][3]},
     {OP_vpopcntq, 0x66385558, catUncategorized, "vpopcntq", Ve, xx, KEq, Mq, xx, mrm|evex|ttfv|reqp, x, END_LIST},
+  },{ /* evex_W_ext 275 */
+    {OP_vpopcntb, 0x66385408, catSIMD, "vpopcntb", Ve, xx, KEd, We, xx, mrm|evex|ttfv|reqp, x, END_LIST},
+    {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vpopcntw, 0x66385448, catSIMD, "vpopcntw", Ve, xx, KEq, We, xx, mrm|evex|ttfv|reqp, x, END_LIST},
+    {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  },{ /* evex_W_ext 276 */
+    {OP_vpshufbitqmb, 0x66388f08, catSIMD, "vpshufbitqmb", KPq, xx, KEd, He, We, mrm|evex|ttfv|reqp, x, END_LIST},
+    {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   },
 };
 
