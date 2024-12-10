@@ -48,11 +48,8 @@ namespace drmemtrace {
 
 /**
  * Base class for storing instruction decode info. Users should sub-class this
- * base class and implement set_decode_info() to derive and store the decode info
- * they need.
- *
- * Derived classes must provide a default constructor to make objects
- * corresponding to an invalid decoding.
+ * base class and implement set_decode_info_derived() to derive and store the decode
+ * info they need.
  */
 class decode_info_base_t {
 public:
@@ -71,8 +68,8 @@ public:
         is_valid_ = true;
     }
     /**
-     * Indicates whether the decode info stored in this object is valid. It may
-     * not be if the object is default-constructed without a subsequent
+     * Indicates whether the decode info stored in this object is valid. It won't be
+     * valid if the object is default-constructed without a subsequent
      * set_decode_info() call. When used with \p instr_decode_cache_t, this indicates
      * that an invalid instruction was observed at some pc.
      */
@@ -84,7 +81,7 @@ public:
 
 private:
     /**
-     * Sets the decoding info fields as required by derived class, based on the
+     * Sets the decoding info fields as required by the derived class, based on the
      * provided instr_t which was allocated using the provided opaque \p dcontext
      * for the provided \p memref_instr. Derived classes must implement this virtual
      * function. Note that this cannot be invoked directly as it is private, but
@@ -115,10 +112,7 @@ class instr_decode_info_t : public decode_info_base_t {
 public:
     ~instr_decode_info_t();
     instr_t *
-    get_decoded_instr()
-    {
-        return instr_;
-    }
+    get_decoded_instr();
 
 private:
     void
@@ -133,11 +127,11 @@ private:
 /**
  * A cache to store decode info for instructions per observed app pc. The template arg
  * DecodeInfo is a class derived from \p decode_info_base_t which implements the
- * set_decode_info() function that derives the required decode info from an \p instr_t
- * object provided by \p instr_decode_cache_t. This class handles the heavylifting of
- * actually producing the decoded \p instr_t. The decoded \p instr_t may be made to
- * persist beyond the set_decode_info() calls by constructing the
- * \p instr_decode_cache_t objects with \p persist_decoded_instrs_ set to true.
+ * set_decode_info_derived() function that derives the required decode info from an
+ * \p instr_t object when invoked by \p instr_decode_cache_t. This class handles the
+ * heavylifting of actually producing the decoded \p instr_t. The decoded \p instr_t
+ * may be made to persist beyond the set_decode_info() calls by constructing the
+ * \p instr_decode_cache_t object with \p persist_decoded_instrs_ set to true.
  *
  * This should be used only with traces that have \p OFFLINE_FILE_TYPE_ENCODINGS set
  * in their \p TRACE_MARKER_TYPE_FILETYPE marker, as only those traces have instr

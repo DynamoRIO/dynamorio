@@ -136,6 +136,7 @@ protected:
     };
 
     struct worker_data_t {
+        // TODO i#7113: Cache the required decoded info using instr_decode_cache_t.
         std::unordered_map<app_pc, opcode_data_t> opcode_data_cache;
     };
 

@@ -51,5 +51,11 @@ instr_decode_info_t::set_decode_info_derived(
     instr_ = instr;
 }
 
+instr_t *
+instr_decode_info_t::get_decoded_instr()
+{
+    return instr_;
+}
+
 } // namespace drmemtrace
 } // namespace dynamorio

@@ -784,6 +784,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             per_shard_t::decoding_info_t *decode_info =
                 shard->decode_cache_.get_decode_info(trace_pc);
             if (decode_info != nullptr) {
+                // If the decode info returned is nullptr, we let
+                // cur_instr_info.decoding be the default-constructed object, which
+                // has the intended defaults and returns is_valid() = false.
                 cur_instr_info.decoding = *decode_info;
             }
 #ifdef X86
