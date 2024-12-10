@@ -125,7 +125,7 @@ if ($ENV{DYNAMORIO_CROSS_ANDROID_ONLY} MATCHES "yes")
     set(arg_cacheappend "${arg_cacheappend}
       PACKAGE_PLATFORM:STRING=ARM-
       PACKAGE_SUBSYS:STRING=-EABI
-      CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-android.cmake
+      CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-android-arm32.cmake
       ANDROID_TOOLCHAIN:PATH=$ENV{DYNAMORIO_ANDROID_TOOLCHAIN}")
   else ()
     message(FATAL_ERROR "Android is only supported as 32_only")
