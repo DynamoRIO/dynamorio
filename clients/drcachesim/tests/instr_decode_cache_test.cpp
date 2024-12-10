@@ -30,7 +30,7 @@
  * DAMAGE.
  */
 
-/* Test for the instr_decode_cache_t library. */
+/* Tests for the instr_decode_cache_t library. */
 
 #include <iostream>
 #include <vector>
@@ -38,7 +38,6 @@
 #include "../tools/instr_decode_cache.h"
 #include "../common/memref.h"
 #include "memref_gen.h"
-#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -51,10 +50,10 @@ public:
                     instr_t *instr) override
     {
         is_nop = instr_is_nop(instr);
-        is_move = instr_is_mov(instr);
+        is_ret = instr_is_return(instr);
     }
     bool is_nop = false;
-    bool is_move = false;
+    bool is_ret = false;
 };
 
 std::string
@@ -63,14 +62,13 @@ check_decode_caching_without_instr()
     static constexpr addr_t BASE_ADDR = 0x123450;
     static constexpr addr_t TID_A = 1;
     instr_t *nop = XINST_CREATE_nop(GLOBAL_DCONTEXT);
-    instr_t *move =
-        XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *ret = XINST_CREATE_return(GLOBAL_DCONTEXT);
     instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
     instrlist_append(ilist, nop);
-    instrlist_append(ilist, move);
+    instrlist_append(ilist, ret);
     std::vector<memref_with_IR_t> memref_setup = {
         { gen_instr(TID_A), nop },
-        { gen_instr(TID_A), move },
+        { gen_instr(TID_A), ret },
         { gen_instr(TID_A), nop },
     };
     auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
@@ -89,10 +87,10 @@ check_decode_caching_without_instr()
         return "Unexpected decode info for nop instr";
     }
     decode_cache.add_decode_info(memrefs[1].instr);
-    test_decode_info_t *decode_info_move =
+    test_decode_info_t *decode_info_ret =
         decode_cache.get_decode_info(reinterpret_cast<app_pc>(memrefs[1].instr.addr));
-    if (decode_info_move == nullptr || !decode_info_move->is_move) {
-        return "Unexpected decode info for move instr";
+    if (decode_info_ret == nullptr || !decode_info_ret->is_ret) {
+        return "Unexpected decode info for ret instr";
     }
     decode_cache.add_decode_info(memrefs[2].instr);
     test_decode_info_t *decode_info_nop_2 =
@@ -102,7 +100,7 @@ check_decode_caching_without_instr()
     }
 
     instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
-    std::cerr << "check_decode_caching passed\n";
+    std::cerr << "check_decode_caching_without_instr passed\n";
     return "";
 }
 
@@ -112,14 +110,13 @@ check_instr_decode_caching()
     static constexpr addr_t BASE_ADDR = 0x123450;
     static constexpr addr_t TID_A = 1;
     instr_t *nop = XINST_CREATE_nop(GLOBAL_DCONTEXT);
-    instr_t *move1 =
-        XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *ret = XINST_CREATE_return(GLOBAL_DCONTEXT);
     instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
     instrlist_append(ilist, nop);
-    instrlist_append(ilist, move1);
+    instrlist_append(ilist, ret);
     std::vector<memref_with_IR_t> memref_setup = {
         { gen_instr(TID_A), nop },
-        { gen_instr(TID_A), move1 },
+        { gen_instr(TID_A), ret },
         { gen_instr(TID_A), nop },
     };
     auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
@@ -136,10 +133,10 @@ check_instr_decode_caching()
     if (decode_info_nop == nullptr || !instr_is_nop(decode_info_nop->instr_)) {
         return "Unexpected decode info for nop instr";
     }
-    instr_decode_info_t *decode_info_move =
+    instr_decode_info_t *decode_info_ret =
         decode_cache.get_decode_info(reinterpret_cast<app_pc>(memrefs[1].instr.addr));
-    if (decode_info_move == nullptr || !instr_is_mov(decode_info_move->instr_)) {
-        return "Unexpected decode info for move instr";
+    if (decode_info_ret == nullptr || !instr_is_return(decode_info_ret->instr_)) {
+        return "Unexpected decode info for ret instr";
     }
     instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
     std::cerr << "check_instr_decode_info passed\n";
