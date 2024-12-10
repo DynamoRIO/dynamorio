@@ -165,15 +165,17 @@ add_exported_library(drmemtrace_opcode_mix STATIC tools/opcode_mix.cpp)
 add_exported_library(drmemtrace_syscall_mix STATIC tools/syscall_mix.cpp)
 add_exported_library(drmemtrace_view STATIC tools/view.cpp)
 add_exported_library(drmemtrace_func_view STATIC tools/func_view.cpp)
-add_exported_library(drmemtrace_invariant_checker STATIC
-  tools/invariant_checker.cpp
-  tools/instr_decode_cache.h
-  )
+add_exported_library(drmemtrace_invariant_checker STATIC tools/invariant_checker.cpp)
 add_exported_library(drmemtrace_schedule_stats STATIC tools/schedule_stats.cpp)
+
+add_exported_library(drmemtrace_instr_decode_cache STATIC tools/instr_decode_cache.h)
+set_target_properties(drmemtrace_instr_decode_cache PROPERTIES LINKER_LANGUAGE CXX)
+
 add_exported_library(drmemtrace_schedule_file STATIC common/schedule_file.cpp)
 add_exported_library(drmemtrace_mutex_dbg_owned STATIC common/mutex_dbg_owned.cpp)
 
-target_link_libraries(drmemtrace_invariant_checker drdecode drmemtrace_schedule_file)
+target_link_libraries(drmemtrace_invariant_checker drdecode drmemtrace_schedule_file
+                      drmemtrace_instr_decode_cache)
 
 configure_DynamoRIO_standalone(drmemtrace_opcode_mix)
 configure_DynamoRIO_standalone(drmemtrace_view)
@@ -612,6 +614,7 @@ restore_nonclient_flags(drmemtrace_analyzer)
 restore_nonclient_flags(drmemtrace_invariant_checker)
 restore_nonclient_flags(drmemtrace_schedule_stats)
 restore_nonclient_flags(drmemtrace_schedule_file)
+restore_nonclient_flags(drmemtrace_instr_decode_cache)
 
 # We need to pass /EHsc and we pull in libcmtd into drcachesim from a dep lib.
 # Thus we need to override the /MT with /MTd.
@@ -685,6 +688,7 @@ add_win32_flags(drmemtrace_analyzer)
 add_win32_flags(drmemtrace_invariant_checker)
 add_win32_flags(drmemtrace_schedule_stats)
 add_win32_flags(drmemtrace_schedule_file)
+add_win32_flags(drmemtrace_instr_decode_cache)
 add_win32_flags(directory_iterator)
 add_win32_flags(test_helpers)
 add_win32_flags(drmemtrace_mutex_dbg_owned)
@@ -942,6 +946,17 @@ if (BUILD_TESTS)
     use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_aarch64_sys)
     add_win32_flags(tool.drcacheoff.burst_aarch64_sys)
   endif ()
+
+  add_executable(tool.drcachesim.instr_decode_cache_test
+                 tests/instr_decode_cache_test.cpp)
+  configure_DynamoRIO_standalone(tool.drcachesim.instr_decode_cache_test)
+  add_win32_flags(tool.drcachesim.instr_decode_cache_test)
+  target_link_libraries(tool.drcachesim.instr_decode_cache_test
+      drmemtrace_static drmemtrace_instr_decode_cache test_helpers)
+  add_test(NAME tool.drcachesim.instr_decode_cache_test
+           COMMAND tool.drcachesim.instr_decode_cache_test)
+  set_tests_properties(tool.drcachesim.instr_decode_cache_test PROPERTIES
+    TIMEOUT ${test_seconds})
 
   # XXX i#1997: dynamorio_static is not supported on Mac yet
   # FIXME i#2949: gcc 7.3 fails to link certain configs

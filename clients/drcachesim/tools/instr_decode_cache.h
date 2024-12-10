@@ -36,6 +36,8 @@
 #include "dr_api.h"
 #include "memref.h"
 
+#include <unordered_map>
+
 namespace dynamorio {
 namespace drmemtrace {
 
@@ -53,19 +55,24 @@ public:
      * was allocated using the provided opaque dcontext_t for the provided
      * memref_instr.
      *
-     * Returns whether the provided instr_t should be destroyed by the caller. If
-     * the stored decode info includes the provided instr, it should be not be
-     * destroyed by the caller, and the derived class should call instr_destroy on
-     * it when done using it.
+     * This is meant for use with \p instr_decode_cache_t, which will invoke
+     * set_decode_info() for each new decoded instruction.
+     *
+     * The responsibility for invoking instr_destroy() on the provided \p instr
+     * lies with this \p decode_info_base_t object, unless
+     * \p instr_decode_cache_t was constructed with \p persist_decoded_instrs_
+     * set to false, in which case no heap allocation takes place.
      */
-    virtual bool
+    virtual void
     set_decode_info(void *dcontext,
                     const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
                     instr_t *instr) = 0;
 };
 
 /**
- * Decode info including the full decoded instr_t.
+ * Decode info including the full decoded instr_t. This should be used with a
+ * \p instr_decode_cache_t constructed with \p persist_decoded_instrs_ set to
+ * true.
  */
 class instr_decode_info_t : public decode_info_base_t {
 public:
@@ -75,18 +82,18 @@ public:
             instr_destroy(dcontext_, instr_);
         }
     }
-    bool
+    void
     set_decode_info(void *dcontext,
                     const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
                     instr_t *instr) override
     {
         dcontext_ = dcontext;
         instr_ = instr;
-        return true;
     }
 
-private:
     instr_t *instr_ = nullptr;
+
+private:
     void *dcontext_ = nullptr;
 };
 
@@ -95,15 +102,18 @@ private:
  * DecodeInfo is a class derived from \p decode_info_base_t which implements the
  * set_decode_info() function that derives the required decode info from an \p instr_t
  * object provided by \p instr_decode_cache_t. This class handles the heavy-lifting of
- * actually producing the decoded \p instr_t.
+ * actually producing the decoded \p instr_t. The decoded \p instr_t may be made to
+ * persist beyond the set_decode_info() calls by constructing the
+ * \p instr_decode_cache_t objects with \p persist_decoded_instrs_ set to true.
  */
 template <class DecodeInfo> class instr_decode_cache_t {
     static_assert(std::is_base_of<decode_info_base_t, DecodeInfo>::value,
                   "Derived not derived from decode_info_base_t");
 
 public:
-    instr_decode_cache_t(void *dcontext)
-        : dcontext_(dcontext) {};
+    instr_decode_cache_t(void *dcontext, bool persist_decoded_instrs)
+        : dcontext_(dcontext)
+        , persist_decoded_instrs_(persist_decoded_instrs) { };
 
     /**
      * Returns a pointer to the DecodeInfo available for the instruction at \p pc.
@@ -124,7 +134,7 @@ public:
      * Adds decode info for the given \p memref_instr if it is not yet recorded.
      */
     void
-    add_decode_info(app_pc pc, const dynamorio::drmemtrace::_memref_instr_t &memref_instr)
+    add_decode_info(const dynamorio::drmemtrace::_memref_instr_t &memref_instr)
     {
         const app_pc trace_pc = reinterpret_cast<app_pc>(memref_instr.addr);
         if (memref_instr.encoding_is_new) {
@@ -133,23 +143,30 @@ public:
         if (decode_cache_.find(trace_pc) != decode_cache_.end()) {
             return;
         }
-        instr_t *instr = instr_create(dcontext_);
+        decode_cache_[trace_pc] = DecodeInfo();
+        instr_t *instr = nullptr;
+        instr_noalloc_t noalloc;
+        if (persist_decoded_instrs_) {
+            instr = instr_create(dcontext_);
+        } else {
+            instr_noalloc_init(dcontext_, &noalloc);
+            instr = instr_from_noalloc(&noalloc);
+        }
         app_pc next_pc = decode_from_copy(
             dcontext_, const_cast<app_pc>(memref_instr.encoding), trace_pc, instr);
-        decode_cache_[trace_pc] = DecodeInfo();
         if (next_pc == nullptr || !instr_valid(instr)) {
+            if (persist_decoded_instrs_) {
+                instr_destroy(dcontext_, instr);
+            }
             return;
         }
-        bool destroy_instr =
-            decode_cache_[trace_pc].set_decode_info(dcontext_, memref_instr, instr);
-        if (destroy_instr) {
-            instr_destroy(dcontext_, instr);
-        }
+        decode_cache_[trace_pc].set_decode_info(dcontext_, memref_instr, instr);
     }
 
 private:
     std::unordered_map<app_pc, DecodeInfo> decode_cache_;
     void *dcontext_;
+    bool persist_decoded_instrs_;
 };
 
 } // namespace drmemtrace

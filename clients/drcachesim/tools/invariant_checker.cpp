@@ -782,7 +782,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_);
         if (expect_encoding) {
             const app_pc trace_pc = reinterpret_cast<app_pc>(memref.instr.addr);
-            shard->decode_cache_.add_decode_info(trace_pc, memref.instr);
+            shard->decode_cache_.add_decode_info(memref.instr);
             cur_instr_info.decoding = shard->decode_cache_.get_decode_info(trace_pc);
 #ifdef X86
             if (cur_instr_info.decoding->opcode == OP_sti)

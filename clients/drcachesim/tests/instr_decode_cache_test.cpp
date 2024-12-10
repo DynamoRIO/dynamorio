@@ -1,0 +1,181 @@
+/* **********************************************************
+ * Copyright (c) 2024 Google, LLC  All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, LLC OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/* Test for the instr_decode_cache_t library. */
+
+#include <iostream>
+#include <vector>
+
+#include "../tools/instr_decode_cache.h"
+#include "../common/memref.h"
+#include "memref_gen.h"
+#include "trace_entry.h"
+
+namespace dynamorio {
+namespace drmemtrace {
+
+class test_decode_info_t : public decode_info_base_t {
+public:
+    void
+    set_decode_info(void *dcontext,
+                    const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
+                    instr_t *instr) override
+    {
+        // Valid only if used with a instr_decode_cache_t constructed with
+        // persist_decoded_instr_ set to true.
+        decoded_instr_ = instr;
+
+        is_nop = instr_is_nop(instr);
+        is_move = instr_is_mov(instr);
+    }
+    bool is_nop = false;
+    bool is_move = false;
+    instr_t *decoded_instr_ = nullptr;
+};
+
+std::string
+check_decode_caching(bool persist_decoded_instrs)
+{
+    static constexpr addr_t BASE_ADDR = 0x123450;
+    static constexpr addr_t TID_A = 1;
+    instr_t *nop = XINST_CREATE_nop(GLOBAL_DCONTEXT);
+    instr_t *move1 =
+        XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
+    instrlist_append(ilist, nop);
+    instrlist_append(ilist, move1);
+    std::vector<memref_with_IR_t> memref_setup = {
+        { gen_instr(TID_A), nop },
+        { gen_instr(TID_A), move1 },
+        { gen_instr(TID_A), nop },
+    };
+    auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+
+    instr_decode_cache_t<test_decode_info_t> decode_cache(GLOBAL_DCONTEXT,
+                                                          persist_decoded_instrs);
+    if (decode_cache.get_decode_info(reinterpret_cast<app_pc>(memrefs[0].instr.addr)) !=
+        nullptr) {
+        return "Unexpected decode info for never-seen pc";
+    }
+    decode_cache.add_decode_info(memrefs[0].instr);
+    test_decode_info_t *decode_info_nop =
+        decode_cache.get_decode_info(reinterpret_cast<app_pc>(memrefs[0].instr.addr));
+    if (decode_info_nop == nullptr || !decode_info_nop->is_nop) {
+        return "Unexpected decode info for nop instr";
+    }
+    decode_cache.add_decode_info(memrefs[1].instr);
+    test_decode_info_t *decode_info_move =
+        decode_cache.get_decode_info(reinterpret_cast<app_pc>(memrefs[1].instr.addr));
+    if (decode_info_move == nullptr || !decode_info_move->is_move) {
+        return "Unexpected decode info for move instr";
+    }
+    decode_cache.add_decode_info(memrefs[2].instr);
+    test_decode_info_t *decode_info_nop_2 =
+        decode_cache.get_decode_info(reinterpret_cast<app_pc>(memrefs[2].instr.addr));
+    if (decode_info_nop_2 != decode_info_nop) {
+        return "Did not see same decode info instance for second instance of nop";
+    }
+
+    // Cleanup.
+    if (persist_decoded_instrs) {
+        instr_destroy(GLOBAL_DCONTEXT, decode_info_nop->decoded_instr_);
+        instr_destroy(GLOBAL_DCONTEXT, decode_info_move->decoded_instr_);
+    }
+    instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
+    std::cerr << "check_decode_caching passed with persist_decoded_instrs: "
+              << persist_decoded_instrs << "\n";
+    return "";
+}
+
+std::string
+check_instr_decode_info()
+{
+    static constexpr addr_t BASE_ADDR = 0x123450;
+    static constexpr addr_t TID_A = 1;
+    instr_t *nop = XINST_CREATE_nop(GLOBAL_DCONTEXT);
+    instr_t *move1 =
+        XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
+    instrlist_append(ilist, nop);
+    instrlist_append(ilist, move1);
+    std::vector<memref_with_IR_t> memref_setup = {
+        { gen_instr(TID_A), nop },
+        { gen_instr(TID_A), move1 },
+        { gen_instr(TID_A), nop },
+    };
+    auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+
+    instr_decode_cache_t<instr_decode_info_t> decode_cache(
+        GLOBAL_DCONTEXT,
+        /*persist_decoded_instr=*/true);
+    for (const memref_t &memref : memrefs) {
+        decode_cache.add_decode_info(memref.instr);
+    }
+
+    instr_decode_info_t *decode_info_nop =
+        decode_cache.get_decode_info(reinterpret_cast<app_pc>(memrefs[0].instr.addr));
+    if (decode_info_nop == nullptr || !instr_is_nop(decode_info_nop->instr_)) {
+        return "Unexpected decode info for nop instr";
+    }
+    instr_decode_info_t *decode_info_move =
+        decode_cache.get_decode_info(reinterpret_cast<app_pc>(memrefs[1].instr.addr));
+    if (decode_info_move == nullptr || !instr_is_mov(decode_info_move->instr_)) {
+        return "Unexpected decode info for move instr";
+    }
+    instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
+    std::cerr << "check_instr_decode_info passed\n";
+    return "";
+}
+
+int
+test_main(int argc, const char *argv[])
+{
+    std::string err = check_decode_caching(false);
+    if (err != "") {
+        std::cerr << err << "\n";
+        exit(1);
+    }
+    err = check_decode_caching(true);
+    if (err != "") {
+        std::cerr << err << "\n";
+        exit(1);
+    }
+    err = check_instr_decode_info();
+    if (err != "") {
+        std::cerr << err << "\n";
+        exit(1);
+    }
+    return 0;
+}
+
+} // namespace drmemtrace
+} // namespace dynamorio

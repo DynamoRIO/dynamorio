@@ -119,7 +119,7 @@ protected:
     // on identifying thread switch points via timestamp entries.
     struct per_shard_t {
         per_shard_t(void *dcontext)
-            : decode_cache_(dcontext)
+            : decode_cache_(dcontext, /*persist_decoded_instrs=*/false)
         {
             // We need a sentinel different from type 0.
             prev_xfer_marker_.marker.marker_type = TRACE_MARKER_TYPE_VERSION;
@@ -144,7 +144,7 @@ protected:
 #endif
         class decoding_info_t : public decode_info_base_t {
         public:
-            bool
+            void
             set_decode_info(void *dcontext,
                             const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
                             instr_t *instr) override
@@ -182,7 +182,6 @@ protected:
                         }
                     }
                 }
-                return true;
             }
 
             bool has_valid_decoding = false;
