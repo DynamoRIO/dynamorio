@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -224,7 +224,7 @@ instru_t::instr_is_flush(instr_t *instr)
 {
     // Assuming we won't see any privileged instructions.
 #ifdef X86
-    if (instr_get_opcode(instr) == OP_clflush)
+    if (instr_get_opcode(instr) == OP_clflush || instr_get_opcode(instr) == OP_clflushopt)
         return true;
 #endif
 #ifdef AARCH64
@@ -239,9 +239,9 @@ instru_t::instr_to_flush_type(instr_t *instr)
 {
     DR_ASSERT(instr_is_flush(instr));
 #ifdef X86
-    // XXX: OP_clflush invalidates all levels of the processor cache
-    // hierarchy (data and instruction)
-    if (instr_get_opcode(instr) == OP_clflush)
+    // XXX: OP_clflush* invalidates all levels of the processor cache
+    // hierarchy (data and instruction).
+    if (instr_get_opcode(instr) == OP_clflush || instr_get_opcode(instr) == OP_clflushopt)
         return TRACE_TYPE_DATA_FLUSH;
 #endif
 #ifdef AARCH64
