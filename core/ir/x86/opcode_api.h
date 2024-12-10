@@ -1642,6 +1642,15 @@ enum {
     /* RDPID */
     /* 1448 */ OP_rdpid, /**< IA-32/AMD64 rdpid opcode. */
 
+    /* Not really part of CLWB but never got added earlier. */
+    /* 1449 */ OP_clflushopt, /**< IA-32/AMD64 clflushopt opcode. */
+
+    /* CLWB */
+    /* 1450 */ OP_clwb, /**< IA-32/AMD64 clwb opcode. */
+
+    /* CLDEMOTE */
+    /* 1451 */ OP_cldemote, /**< IA-32/AMD64 cldemote opcode. */
+
     OP_AFTER_LAST,
     OP_FIRST = OP_add,           /**< First real opcode. */
     OP_LAST = OP_AFTER_LAST - 1, /**< Last real opcode. */
