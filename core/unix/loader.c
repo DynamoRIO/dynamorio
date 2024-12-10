@@ -787,8 +787,9 @@ privload_os_finalize(privmod_t *privmod)
         GLRO_dl_tls_static_size_OFFS = last_large_load_offs;
         GLRO_dl_tls_static_align_OFFS = last_large_load_offs + sizeof(void *);
         LOG(GLOBAL, LOG_LOADER, 2,
-            "%s: for glibc 2.34+ workaround found offsets 0x%x 0x%x\n", __FUNCTION__,
-            GLRO_dl_tls_static_size_OFFS, GLRO_dl_tls_static_align_OFFS);
+            "%s: for glibc 2.34+ workaround found offsets 0x%x 0x%x for glro %p\n",
+            __FUNCTION__, GLRO_dl_tls_static_size_OFFS, GLRO_dl_tls_static_align_OFFS,
+            glro);
     }
 #    endif
     if (GLRO_dl_tls_static_size_OFFS == 0) {
@@ -827,7 +828,8 @@ privload_os_finalize(privmod_t *privmod)
         LOG(GLOBAL, LOG_LOADER, 2, "%s: glibc 2.34+ workaround succeeded\n",
             __FUNCTION__);
     }
-    LOG(GLOBAL, LOG_LOADER, 2, "%s: calling %s\n", __FUNCTION__, LIBC_EARLY_INIT_NAME);
+    LOG(GLOBAL, LOG_LOADER, 2, "%s: calling %s @%p\n", __FUNCTION__, LIBC_EARLY_INIT_NAME,
+        libc_early_init);
     (*libc_early_init)(true);
 #endif /* LINUX */
 }
