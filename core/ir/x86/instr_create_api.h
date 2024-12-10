@@ -2722,6 +2722,11 @@
     instr_create_1dst_2src((dc), OP_vpopcntd, (d), (k), (s))
 #define INSTR_CREATE_vpopcntq_mask(dc, d, k, s) \
     instr_create_1dst_2src((dc), OP_vpopcntq, (d), (k), (s))
+/* AVX512 BITALG */
+#define INSTR_CREATE_vpopcntb_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpopcntb, (d), (k), (s))
+#define INSTR_CREATE_vpopcntw_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpopcntw, (d), (k), (s))
 
 /** @} */ /* end doxygen group */
 
@@ -3829,6 +3834,9 @@
     instr_create_1dst_3src((dc), OP_vsqrtss, (d), (k), (s1), (s2))
 #define INSTR_CREATE_vsqrtsd_mask(dc, d, k, s1, s2) \
     instr_create_1dst_3src((dc), OP_vsqrtsd, (d), (k), (s1), (s2))
+/* AVX512 BITALG */
+#define INSTR_CREATE_vpshufbitqmb_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpshufbitqmb, (d), (k), (s1), (s2))
 /** @} */ /* end doxygen group */
 
 /** @name 1 destination, 3 sources including one immediate */
