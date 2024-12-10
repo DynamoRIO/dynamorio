@@ -5961,7 +5961,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0x660fc737, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf20fc737, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   },{ /* prefix extension 194 */
-    {OP_clflush,      0x0fae37, catSIMD, "clflush", xx, xx, Mb, xx, xx, mrm, x, END_LIST},
+    {OP_clflush,      0x0fae37, catOther, "clflush", xx, xx, Mb, xx, xx, mrm, x, END_LIST},
     {INVALID,       0xf30fae37, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {OP_clflushopt, 0x660fae37, catOther, "clflushopt", xx, xx, Mb, xx, xx, mrm, x, END_LIST},
     {INVALID,       0xf20fae37, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
