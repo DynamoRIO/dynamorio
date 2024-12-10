@@ -1656,6 +1656,14 @@ enum {
     /* 1453 */ OP_vpopcntw,     /**< IA-32/AMD64 vpopcntw opcode. */
     /* 1454 */ OP_vpshufbitqmb, /**< IA-32/AMD64 vpshufbitqmb opcode. */
 
+    /* GFNI */
+    /* 1455 */ OP_gf2p8mulb,         /**< IA-32/AMD64 gf2p8mulb opcode. */
+    /* 1456 */ OP_gf2p8affineqb,     /**< IA-32/AMD64 gf2p8affineqb opcode. */
+    /* 1457 */ OP_gf2p8affineinvqb,  /**< IA-32/AMD64 gf2p8affineinvqb opcode. */
+    /* 1458 */ OP_vgf2p8mulb,        /**< IA-32/AMD64 vgf2p8mulb opcode. */
+    /* 1459 */ OP_vgf2p8affineqb,    /**< IA-32/AMD64 vgf2p8affineqb opcode. */
+    /* 1460 */ OP_vgf2p8affineinvqb, /**< IA-32/AMD64 vgf2p8affineinvqb opcode. */
+
     OP_AFTER_LAST,
     OP_FIRST = OP_add,           /**< First real opcode. */
     OP_LAST = OP_AFTER_LAST - 1, /**< Last real opcode. */
