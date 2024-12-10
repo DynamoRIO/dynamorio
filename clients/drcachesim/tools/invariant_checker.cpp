@@ -1662,5 +1662,43 @@ invariant_checker_t::check_regdeps_invariants(per_shard_t *shard, const memref_t
     }
 }
 
+void
+invariant_checker_t::per_shard_t::decoding_info_t::set_decode_info(
+    void *dcontext, const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
+    instr_t *instr)
+{
+    has_valid_decoding = true;
+    is_prefetch = instr_is_prefetch(instr);
+    opcode = instr_get_opcode(instr);
+#ifdef X86
+    is_xsave = instr_is_xsave(instr);
+    is_xrstor = instr_is_xrstor(instr);
+#endif
+    is_syscall = instr_is_syscall(instr);
+    writes_memory = instr_writes_memory(instr);
+    is_predicated = instr_is_predicated(instr);
+    if (instr_get_isa_mode(instr) == DR_ISA_REGDEPS) {
+        // DR_ISA_REGDEPS instructions don't have an opcode, hence we use
+        // their category to determine whether they perform at least one read
+        // or write.
+        num_memory_read_access =
+            TESTANY(DR_INSTR_CATEGORY_LOAD, instr_get_category(instr)) ? 1 : 0;
+        num_memory_write_access =
+            TESTANY(DR_INSTR_CATEGORY_STORE, instr_get_category(instr)) ? 1 : 0;
+        // DR_ISA_REGDEPS instructions don't have a branch target saved as
+        // instr.src[0], so we cannot retrieve this information.
+        branch_target = 0;
+    } else {
+        num_memory_read_access = instr_num_memory_read_access(instr);
+        num_memory_write_access = instr_num_memory_write_access(instr);
+        if (type_is_instr_branch(memref_instr.type)) {
+            const opnd_t target = instr_get_target(instr);
+            if (opnd_is_pc(target)) {
+                branch_target = reinterpret_cast<addr_t>(opnd_get_pc(target));
+            }
+        }
+    }
+}
+
 } // namespace drmemtrace
 } // namespace dynamorio

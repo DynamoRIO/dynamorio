@@ -30,6 +30,11 @@
  * DAMAGE.
  */
 
+/**
+ * instr_decode_cache.h: Library that supports caching of instruction decode
+ * information.
+ */
+
 #ifndef _INSTR_DECODE_CACHE_H_
 #define _INSTR_DECODE_CACHE_H_ 1
 
@@ -42,8 +47,9 @@ namespace dynamorio {
 namespace drmemtrace {
 
 /**
- * Base class for decode info. Users should derive from this class and implement
- * set_decode_info() to derive and store the decode info they need.
+ * Base class for storing instruction decode info. Users should sub-class this
+ * base class and implement set_decode_info() to derive and store the decode info
+ * they need.
  *
  * Derived classes must provide a default constructor to make objects
  * corresponding to an invalid decoding.
@@ -108,7 +114,7 @@ private:
  */
 template <class DecodeInfo> class instr_decode_cache_t {
     static_assert(std::is_base_of<decode_info_base_t, DecodeInfo>::value,
-                  "Derived not derived from decode_info_base_t");
+                  "DecodeInfo not derived from decode_info_base_t");
 
 public:
     instr_decode_cache_t(void *dcontext, bool persist_decoded_instrs)
