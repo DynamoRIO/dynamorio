@@ -144,28 +144,31 @@ protected:
 #endif
         class decoding_info_t : public decode_info_base_t {
         public:
-            void
-            set_decode_info(void *dcontext,
-                            const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
-                            instr_t *instr) override;
-
-            bool has_valid_decoding = false;
-            bool is_syscall = false;
-            bool writes_memory = false;
-            bool is_predicated = false;
-            uint num_memory_read_access = 0;
-            uint num_memory_write_access = 0;
-            addr_t branch_target = 0;
-            bool is_prefetch = false;
-            int opcode = 0;
+            bool is_syscall_ = false;
+            bool writes_memory_ = false;
+            bool is_predicated_ = false;
+            uint num_memory_read_access_ = 0;
+            uint num_memory_write_access_ = 0;
+            addr_t branch_target_ = 0;
+            bool is_prefetch_ = false;
+            int opcode_ = 0;
 #ifdef X86
-            bool is_xsave = false;
-            bool is_xrstor = false;
+            bool is_xsave_ = false;
+            bool is_xrstor_ = false;
 #endif
+        private:
+            void
+            set_decode_info_derived(
+                void *dcontext,
+                const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
+                instr_t *instr) override;
         };
         struct instr_info_t {
             memref_t memref = {};
-            decoding_info_t *decoding = nullptr;
+            // We let this stay the default if we are unable to get decoding info for
+            // the instruction. The data member defaults and is_valid() allow
+            // simplifying various conditional checks.
+            decoding_info_t decoding;
         };
         instr_decode_cache_t<decoding_info_t> decode_cache_;
         // On UNIX generally last_instr_in_cur_context_ should be used instead.

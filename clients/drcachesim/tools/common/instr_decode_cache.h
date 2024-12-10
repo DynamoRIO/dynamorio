@@ -57,9 +57,38 @@ namespace drmemtrace {
 class decode_info_base_t {
 public:
     /**
-     * Sets the required decoding info fields based on the provided instr_t which
-     * was allocated using the provided opaque dcontext_t for the provided
-     * memref_instr.
+     * Sets the decode info for the provided \p instr which was allocated using the
+     * provided \p dcontext for the provided \p memref_instr. This is done using
+     * the set_decode_info_derived() provided by the derived class. Additionally,
+     * this does other required bookkeeping.
+     */
+    void
+    set_decode_info(void *dcontext,
+                    const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
+                    instr_t *instr)
+    {
+        set_decode_info_derived(dcontext, memref_instr, instr);
+        is_valid_ = true;
+    }
+    /**
+     * Indicates whether the decode info stored in this object is valid. It may
+     * not be if the object is default-constructed without a subsequent
+     * set_decode_info() call. When used with \p instr_decode_cache_t, this indicates
+     * that an invalid instruction was observed at some pc.
+     */
+    bool
+    is_valid() const
+    {
+        return is_valid_;
+    }
+
+private:
+    /**
+     * Sets the decoding info fields as required by derived class, based on the
+     * provided instr_t which was allocated using the provided opaque \p dcontext
+     * for the provided \p memref_instr. Derived classes must implement this virtual
+     * function. Note that this cannot be invoked directly as it is private, but
+     * only through set_decode_info() which does other required bookkeeping.
      *
      * This is meant for use with \p instr_decode_cache_t, which will invoke
      * set_decode_info() for each new decoded instruction.
@@ -70,27 +99,34 @@ public:
      * set to false, in which case no heap allocation takes place.
      */
     virtual void
-    set_decode_info(void *dcontext,
-                    const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
-                    instr_t *instr) = 0;
+    set_decode_info_derived(void *dcontext,
+                            const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
+                            instr_t *instr) = 0;
+
+    bool is_valid_ = false;
 };
 
 /**
- * Decode info including the full decoded instr_t. This should be used with a
+ * Decode info including the full decoded instr_t. This should be used with an
  * \p instr_decode_cache_t constructed with \p persist_decoded_instrs_ set to
  * true.
  */
 class instr_decode_info_t : public decode_info_base_t {
 public:
     ~instr_decode_info_t();
-    void
-    set_decode_info(void *dcontext,
-                    const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
-                    instr_t *instr) override;
-
-    instr_t *instr_ = nullptr;
+    instr_t *
+    get_decoded_instr()
+    {
+        return instr_;
+    }
 
 private:
+    void
+    set_decode_info_derived(void *dcontext,
+                            const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
+                            instr_t *instr) override;
+
+    instr_t *instr_ = nullptr;
     void *dcontext_ = nullptr;
 };
 
@@ -98,10 +134,14 @@ private:
  * A cache to store decode info for instructions per observed app pc. The template arg
  * DecodeInfo is a class derived from \p decode_info_base_t which implements the
  * set_decode_info() function that derives the required decode info from an \p instr_t
- * object provided by \p instr_decode_cache_t. This class handles the heavy-lifting of
+ * object provided by \p instr_decode_cache_t. This class handles the heavylifting of
  * actually producing the decoded \p instr_t. The decoded \p instr_t may be made to
  * persist beyond the set_decode_info() calls by constructing the
  * \p instr_decode_cache_t objects with \p persist_decoded_instrs_ set to true.
+ *
+ * This should be used only with traces that have \p OFFLINE_FILE_TYPE_ENCODINGS set
+ * in their \p TRACE_MARKER_TYPE_FILETYPE marker, as only those traces have instr
+ * encodings embedded in them.
  */
 template <class DecodeInfo> class instr_decode_cache_t {
     static_assert(std::is_base_of<decode_info_base_t, DecodeInfo>::value,
@@ -114,7 +154,7 @@ public:
 
     /**
      * Returns a pointer to the DecodeInfo available for the instruction at \p pc.
-     * Returns nullptr if no instruction is known at that \t pc. Returns the
+     * Returns nullptr if no instruction is known at that \p pc. Returns the
      * default-constructed DecodeInfo if there was a decoding error for the
      * instruction.
      */

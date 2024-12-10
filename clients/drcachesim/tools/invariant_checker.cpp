@@ -233,7 +233,7 @@ invariant_checker_t::relax_expected_write_count_check_for_kernel(per_shard_t *sh
         // XXX: Perhaps we can query the expected size using cpuid and add it as a
         // marker in the system call trace template, and then adjust it according to the
         // cpuid value for the trace being injected into.
-        shard->prev_instr_.decoding->is_xsave;
+        shard->prev_instr_.decoding.is_xsave_;
     return relax;
 }
 
@@ -250,20 +250,20 @@ invariant_checker_t::relax_expected_read_count_check_for_kernel(per_shard_t *sha
         // difference in iret behavior can be detected in the decoder and perhaps be
         // accounted for here in a way better than relying on
         // between_kernel_syscall_trace_markers_.
-        shard->prev_instr_.decoding->opcode == OP_iret
+        shard->prev_instr_.decoding.opcode_ == OP_iret
 
         // Xrstor does multiple reads. Read count cannot be determined using the
         // decoder. System call trace templates collected on QEMU would show all reads.
         // XXX: Perhaps we can query the expected size using cpuid and add it as a
         // marker in the system call trace template, and then adjust it according to the
         // cpuid value for the trace being injected into.
-        || shard->prev_instr_.decoding->is_xrstor
+        || shard->prev_instr_.decoding.is_xrstor_
 
         // xsave variants also read some fields from the xsave header
         // (https://www.felixcloutier.com/x86/xsaveopt).
         // XXX, i#6769: Same as above, can we store any metadata in the trace to allow
         // us to adapt the decoder to expect this?
-        || shard->prev_instr_.decoding->is_xsave;
+        || shard->prev_instr_.decoding.is_xsave_;
     return relax;
 }
 #endif
@@ -493,9 +493,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // TODO i#5949: For WOW64 instr_is_syscall() always returns false here as it
         // tries to check adjacent instrs; we disable this check until that is solved.
 #if !defined(WINDOWS) || defined(X64)
-        if (shard->prev_instr_.decoding != nullptr &&
-            shard->prev_instr_.decoding->has_valid_decoding) {
-            report_if_false(shard, shard->prev_instr_.decoding->is_syscall,
+        if (shard->prev_instr_.decoding.is_valid()) {
+            report_if_false(shard, shard->prev_instr_.decoding.is_syscall_,
                             "Syscall marker not placed after syscall instruction");
         }
 #endif
@@ -595,8 +594,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             "Mismatching syscall num in trace start and syscall marker");
             report_if_false(shard,
                             !TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_) ||
-                                (shard->prev_instr_.decoding != nullptr &&
-                                 shard->prev_instr_.decoding->is_syscall),
+                                shard->prev_instr_.decoding.is_syscall_,
                             "prev_instr at syscall trace start is not a syscall");
         }
         shard->pre_syscall_trace_instr_ = shard->prev_instr_;
@@ -783,19 +781,22 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         if (expect_encoding) {
             const app_pc trace_pc = reinterpret_cast<app_pc>(memref.instr.addr);
             shard->decode_cache_.add_decode_info(memref.instr);
-            cur_instr_info.decoding = shard->decode_cache_.get_decode_info(trace_pc);
+            per_shard_t::decoding_info_t *decode_info =
+                shard->decode_cache_.get_decode_info(trace_pc);
+            if (decode_info != nullptr) {
+                cur_instr_info.decoding = *decode_info;
+            }
 #ifdef X86
-            if (cur_instr_info.decoding->opcode == OP_sti)
+            if (cur_instr_info.decoding.opcode_ == OP_sti)
                 shard->instrs_since_sti = 0;
             else
                 ++shard->instrs_since_sti;
 #endif
             if (TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, shard->file_type_) &&
-                cur_instr_info.decoding->is_syscall)
+                cur_instr_info.decoding.is_syscall_)
                 shard->expect_syscall_marker_ = true;
-            if (cur_instr_info.decoding != nullptr &&
-                cur_instr_info.decoding->has_valid_decoding &&
-                !cur_instr_info.decoding->is_predicated &&
+            if (cur_instr_info.decoding.is_valid() &&
+                !cur_instr_info.decoding.is_predicated_ &&
                 !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_DFILTERED,
                          shard->file_type_)) {
                 // Verify the number of read/write records matches the last
@@ -808,7 +809,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                      // memory access in system call trace templates
                      // collected on QEMU.
                      (shard->between_kernel_syscall_trace_markers_ &&
-                      shard->prev_instr_.decoding->is_prefetch)) ||
+                      shard->prev_instr_.decoding.is_prefetch_)) ||
                         // We cannot check for is_predicated in
                         // OFFLINE_FILE_TYPE_ARCH_REGDEPS traces (it's always false), so
                         // we disable this check.
@@ -828,9 +829,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                       TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY,
                               shard->file_type_))) {
                     shard->expected_read_records_ =
-                        cur_instr_info.decoding->num_memory_read_access;
+                        cur_instr_info.decoding.num_memory_read_access_;
                     shard->expected_write_records_ =
-                        cur_instr_info.decoding->num_memory_write_access;
+                        cur_instr_info.decoding.num_memory_write_access_;
                 }
             }
         }
@@ -1144,11 +1145,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     if (type_is_instr_branch(shard->prev_entry_.instr.type))
         shard->last_branch_ = shard->prev_entry_;
 
-    if (type_is_data(memref.data.type) && shard->prev_instr_.decoding != nullptr &&
-        shard->prev_instr_.decoding->has_valid_decoding) {
+    if (type_is_data(memref.data.type) && shard->prev_instr_.decoding.is_valid()) {
         // If the instruction is predicated, the check is skipped since we do
         // not have the data to determine how many memory accesses to expect.
-        if (!shard->prev_instr_.decoding->is_predicated &&
+        if (!shard->prev_instr_.decoding.is_predicated_ &&
             !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_DFILTERED,
                      shard->file_type_)) {
             if (type_is_read(memref.data.type)) {
@@ -1164,7 +1164,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                     // the exact number of loads a DR_ISA_REGDEPS instruction performs.
                     // If a DR_ISA_REGDEPS instruction has a DR_INSTR_CATEGORY_LOAD among
                     // its categories, we simply set
-                    // cur_instr_info.decoding->num_memory_read_access to 1. We rely on
+                    // cur_instr_info.decoding.num_memory_read_access_ to 1. We rely on
                     // the next instruction to re-set shard->expected_read_records_
                     // accordingly.
                     !TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, shard->file_type_)) {
@@ -1183,7 +1183,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                     // the exact number of stores a DR_ISA_REGDEPS instruction performs.
                     // If a DR_ISA_REGDEPS instruction has a DR_INSTR_CATEGORY_STORE among
                     // its categories, we simply set
-                    // cur_instr_info.decoding->num_memory_write_access to 1. We rely on
+                    // cur_instr_info.decoding.num_memory_write_access_ to 1. We rely on
                     // the next instruction to re-set shard->expected_write_records_
                     // accordingly.
                     !TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, shard->file_type_)) {
@@ -1396,15 +1396,14 @@ invariant_checker_t::check_for_pc_discontinuity(
     }
     // We do not bother to support legacy traces without encodings.
     if (expect_encoding && type_is_instr_direct_branch(prev_instr.instr.type)) {
-        if (shard->prev_instr_.decoding == nullptr ||
-            !prev_instr_info.decoding->has_valid_decoding) {
+        if (!prev_instr_info.decoding.is_valid()) {
             // Neither condition should happen but they could on an invalid
             // encoding from raw2trace or the reader so we report an
             // invariant rather than asserting.
             report_if_false(shard, false, "Branch target is not decodeable");
         } else {
             have_branch_target = true;
-            branch_target = prev_instr_info.decoding->branch_target;
+            branch_target = prev_instr_info.decoding.branch_target_;
         }
     }
     // Check for all valid transitions except taken branches. We consider taken
@@ -1468,7 +1467,7 @@ invariant_checker_t::check_for_pc_discontinuity(
                 (shard->between_kernel_syscall_trace_markers_ &&
                  // hlt suspends processing until the next interrupt, which may be
                  // handled at a discontinuous PC.
-                 (shard->prev_instr_.decoding->opcode == OP_hlt ||
+                 (shard->prev_instr_.decoding.opcode_ == OP_hlt ||
                   // After interrupts are enabled, we may be interrupted. The tolerance
                   // of 2-instrs was found empirically on some x86 QEMU system call
                   // trace templates.
@@ -1497,17 +1496,14 @@ invariant_checker_t::check_for_pc_discontinuity(
                 !TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, shard->file_type_)) {
                 error_msg = "Branch does not go to the correct target";
             }
-        } else if (cur_memref_info.decoding != nullptr &&
-                   prev_instr_info.decoding != nullptr &&
-                   cur_memref_info.decoding->has_valid_decoding &&
-                   prev_instr_info.decoding->has_valid_decoding &&
-                   cur_memref_info.decoding->is_syscall &&
+        } else if (cur_memref_info.decoding.is_valid() &&
+                   prev_instr_info.decoding.is_valid() &&
+                   cur_memref_info.decoding.is_syscall_ &&
                    cur_pc == prev_instr_trace_pc &&
-                   prev_instr_info.decoding->is_syscall) {
+                   prev_instr_info.decoding.is_syscall_) {
             error_msg = "Duplicate syscall instrs with the same PC";
-        } else if (prev_instr_info.decoding != nullptr &&
-                   prev_instr_info.decoding->has_valid_decoding &&
-                   prev_instr_info.decoding->writes_memory &&
+        } else if (prev_instr_info.decoding.is_valid() &&
+                   prev_instr_info.decoding.writes_memory_ &&
                    type_is_instr_conditional_branch(shard->last_branch_.instr.type)) {
             // This sequence happens when an rseq side exit occurs which
             // results in missing instruction in the basic block.
@@ -1663,38 +1659,37 @@ invariant_checker_t::check_regdeps_invariants(per_shard_t *shard, const memref_t
 }
 
 void
-invariant_checker_t::per_shard_t::decoding_info_t::set_decode_info(
+invariant_checker_t::per_shard_t::decoding_info_t::set_decode_info_derived(
     void *dcontext, const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
     instr_t *instr)
 {
-    has_valid_decoding = true;
-    is_prefetch = instr_is_prefetch(instr);
-    opcode = instr_get_opcode(instr);
+    is_prefetch_ = instr_is_prefetch(instr);
+    opcode_ = instr_get_opcode(instr);
 #ifdef X86
-    is_xsave = instr_is_xsave(instr);
-    is_xrstor = instr_is_xrstor(instr);
+    is_xsave_ = instr_is_xsave(instr);
+    is_xrstor_ = instr_is_xrstor(instr);
 #endif
-    is_syscall = instr_is_syscall(instr);
-    writes_memory = instr_writes_memory(instr);
-    is_predicated = instr_is_predicated(instr);
+    is_syscall_ = instr_is_syscall(instr);
+    writes_memory_ = instr_writes_memory(instr);
+    is_predicated_ = instr_is_predicated(instr);
     if (instr_get_isa_mode(instr) == DR_ISA_REGDEPS) {
         // DR_ISA_REGDEPS instructions don't have an opcode, hence we use
         // their category to determine whether they perform at least one read
         // or write.
-        num_memory_read_access =
+        num_memory_read_access_ =
             TESTANY(DR_INSTR_CATEGORY_LOAD, instr_get_category(instr)) ? 1 : 0;
-        num_memory_write_access =
+        num_memory_write_access_ =
             TESTANY(DR_INSTR_CATEGORY_STORE, instr_get_category(instr)) ? 1 : 0;
         // DR_ISA_REGDEPS instructions don't have a branch target saved as
         // instr.src[0], so we cannot retrieve this information.
-        branch_target = 0;
+        branch_target_ = 0;
     } else {
-        num_memory_read_access = instr_num_memory_read_access(instr);
-        num_memory_write_access = instr_num_memory_write_access(instr);
+        num_memory_read_access_ = instr_num_memory_read_access(instr);
+        num_memory_write_access_ = instr_num_memory_write_access(instr);
         if (type_is_instr_branch(memref_instr.type)) {
             const opnd_t target = instr_get_target(instr);
             if (opnd_is_pc(target)) {
-                branch_target = reinterpret_cast<addr_t>(opnd_get_pc(target));
+                branch_target_ = reinterpret_cast<addr_t>(opnd_get_pc(target));
             }
         }
     }

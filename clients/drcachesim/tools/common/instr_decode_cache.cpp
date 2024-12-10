@@ -43,7 +43,7 @@ instr_decode_info_t::~instr_decode_info_t()
 }
 
 void
-instr_decode_info_t::set_decode_info(
+instr_decode_info_t::set_decode_info_derived(
     void *dcontext, const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
     instr_t *instr)
 {
