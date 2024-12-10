@@ -72,6 +72,8 @@ check_decode_caching_without_instr()
         { gen_instr(TID_A), nop },
     };
     auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+    // Set up the second nop memref to reuse the same encoding as the first nop.
+    memrefs[2].instr.encoding_is_new = false;
 
     instr_decode_cache_t<test_decode_info_t> decode_cache(
         GLOBAL_DCONTEXT,
@@ -120,6 +122,8 @@ check_instr_decode_caching()
         { gen_instr(TID_A), nop },
     };
     auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+    // Set up the second nop memref to reuse the same encoding as the first nop.
+    memrefs[2].instr.encoding_is_new = false;
 
     instr_decode_cache_t<instr_decode_info_t> decode_cache(
         GLOBAL_DCONTEXT,
