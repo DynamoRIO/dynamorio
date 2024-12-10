@@ -113,7 +113,7 @@ template <class DecodeInfo> class instr_decode_cache_t {
 public:
     instr_decode_cache_t(void *dcontext, bool persist_decoded_instrs)
         : dcontext_(dcontext)
-        , persist_decoded_instrs_(persist_decoded_instrs) { };
+        , persist_decoded_instrs_(persist_decoded_instrs) {};
 
     /**
      * Returns a pointer to the DecodeInfo available for the instruction at \p pc.

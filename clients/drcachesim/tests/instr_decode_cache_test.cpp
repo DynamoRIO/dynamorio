@@ -50,38 +50,34 @@ public:
                     const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
                     instr_t *instr) override
     {
-        // Valid only if used with a instr_decode_cache_t constructed with
-        // persist_decoded_instr_ set to true.
-        decoded_instr_ = instr;
-
         is_nop = instr_is_nop(instr);
         is_move = instr_is_mov(instr);
     }
     bool is_nop = false;
     bool is_move = false;
-    instr_t *decoded_instr_ = nullptr;
 };
 
 std::string
-check_decode_caching(bool persist_decoded_instrs)
+check_decode_caching_without_instr()
 {
     static constexpr addr_t BASE_ADDR = 0x123450;
     static constexpr addr_t TID_A = 1;
     instr_t *nop = XINST_CREATE_nop(GLOBAL_DCONTEXT);
-    instr_t *move1 =
+    instr_t *move =
         XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1), opnd_create_reg(REG2));
     instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
     instrlist_append(ilist, nop);
-    instrlist_append(ilist, move1);
+    instrlist_append(ilist, move);
     std::vector<memref_with_IR_t> memref_setup = {
         { gen_instr(TID_A), nop },
-        { gen_instr(TID_A), move1 },
+        { gen_instr(TID_A), move },
         { gen_instr(TID_A), nop },
     };
     auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
 
-    instr_decode_cache_t<test_decode_info_t> decode_cache(GLOBAL_DCONTEXT,
-                                                          persist_decoded_instrs);
+    instr_decode_cache_t<test_decode_info_t> decode_cache(
+        GLOBAL_DCONTEXT,
+        /*persist_decoded_instrs=*/false);
     if (decode_cache.get_decode_info(reinterpret_cast<app_pc>(memrefs[0].instr.addr)) !=
         nullptr) {
         return "Unexpected decode info for never-seen pc";
@@ -105,19 +101,13 @@ check_decode_caching(bool persist_decoded_instrs)
         return "Did not see same decode info instance for second instance of nop";
     }
 
-    // Cleanup.
-    if (persist_decoded_instrs) {
-        instr_destroy(GLOBAL_DCONTEXT, decode_info_nop->decoded_instr_);
-        instr_destroy(GLOBAL_DCONTEXT, decode_info_move->decoded_instr_);
-    }
     instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
-    std::cerr << "check_decode_caching passed with persist_decoded_instrs: "
-              << persist_decoded_instrs << "\n";
+    std::cerr << "check_decode_caching passed\n";
     return "";
 }
 
 std::string
-check_instr_decode_info()
+check_instr_decode_caching()
 {
     static constexpr addr_t BASE_ADDR = 0x123450;
     static constexpr addr_t TID_A = 1;
@@ -159,17 +149,12 @@ check_instr_decode_info()
 int
 test_main(int argc, const char *argv[])
 {
-    std::string err = check_decode_caching(false);
+    std::string err = check_decode_caching_without_instr();
     if (err != "") {
         std::cerr << err << "\n";
         exit(1);
     }
-    err = check_decode_caching(true);
-    if (err != "") {
-        std::cerr << err << "\n";
-        exit(1);
-    }
-    err = check_instr_decode_info();
+    err = check_instr_decode_caching();
     if (err != "") {
         std::cerr << err << "\n";
         exit(1);
