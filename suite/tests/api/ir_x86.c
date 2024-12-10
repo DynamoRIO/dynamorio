@@ -1293,9 +1293,10 @@ test_hint_nops(void *dc)
     /* other types of hintable nop [eax] */
     buf[2] = 0x00;
     for (buf[1] = 0x19; buf[1] <= 0x1f; buf[1]++) {
-        /* Intel is using these encodings now for the MPX instructions bndldx and bndstx.
+        /* Intel is using these encodings now for the MPX instructions bndldx and bndstx,
+         * and cldemote.
          */
-        if (buf[1] == 0x1a || buf[1] == 0x1b)
+        if (buf[1] == 0x1a || buf[1] == 0x1b || buf[1] == 0x1c)
             continue;
         pc = decode(dc, buf, instr);
         ASSERT(instr_get_opcode(instr) == OP_nop_modrm);

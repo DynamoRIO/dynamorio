@@ -2960,7 +2960,7 @@
 +0x1ca8   6d                   insd
 +0x1ca9   5d                   pop    ebp
 +0x1caa   70 77                jo     0x10001d23
-+0x1cac   0f 1c 4f 65          nop    dword ptr [edi+0x65]
++0x1cac   0f 1c 4f 65          cldemote byte ptr [edi+0x65]
 +0x1cb0   74 2a                jz     0x10001cdc
 +0x1cb2   12 cc                adc    cl, ah
 +0x1cb4   37                   aaa
