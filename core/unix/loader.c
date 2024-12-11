@@ -1215,8 +1215,8 @@ privload_relocate_symbol(ELF_REL_TYPE *rel, os_privmod_data_t *opd, bool is_rela
     uint r_type;
     reg_t addend;
 
-    /* XXX: we assume ELF_REL_TYPE and ELF_RELA_TYPE only differ at the end,
-     * i.e. with or without r_addend.
+    /* ELF_REL_TYPE and ELF_RELA_TYPE differ in where the addend comes from:
+     * stored in the target location, or in rel->r_addend.
      */
     if (is_rela)
         addend = ((ELF_RELA_TYPE *)rel)->r_addend;
