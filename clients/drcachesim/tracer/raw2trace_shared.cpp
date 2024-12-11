@@ -143,5 +143,30 @@ drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size
     return DRMEMTRACE_SUCCESS;
 }
 
+std::string
+read_module_file_bytes(const std::string &modfilename, file_t &modfile,
+                       char *&modfile_bytes)
+{
+    modfile = dr_open_file(modfilename.c_str(), DR_FILE_READ);
+    if (modfile == INVALID_FILE)
+        return "Failed to open module file " + modfilename;
+    uint64 modfile_size;
+    if (!dr_file_size(modfile, &modfile_size)) {
+        dr_close_file(modfile);
+        modfile = INVALID_FILE;
+        return "Failed to get module file size: " + modfilename;
+    }
+    size_t modfile_size_ = (size_t)modfile_size;
+    modfile_bytes = new char[modfile_size_];
+    if (dr_read_file(modfile, modfile_bytes, modfile_size_) < (ssize_t)modfile_size_) {
+        dr_close_file(modfile);
+        delete[] modfile_bytes;
+        modfile = INVALID_FILE;
+        modfile_bytes = nullptr;
+        return "Didn't read whole module file " + modfilename;
+    }
+    return "";
+}
+
 } // namespace drmemtrace
 } // namespace dynamorio

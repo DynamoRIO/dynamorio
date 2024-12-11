@@ -92,13 +92,18 @@ opcode_mix_t::initialize()
         return "";
     // Legacy trace support where binaries are needed.
     // We do not support non-module code for such traces.
-    std::string error = directory_.initialize_module_file(module_file_path_);
-    if (!error.empty())
-        return "Failed to initialize directory: " + error;
+    file_t modfile;
+    char *modfile_bytes;
+    std::string error = read_module_file_bytes(module_file_path_, modfile, modfile_bytes);
+    if (!error.empty()) {
+        return "Failed to read module file: " + error;
+    }
     module_mapper_ =
-        module_mapper_t::create(directory_.modfile_bytes_, nullptr, nullptr, nullptr,
-                                nullptr, knob_verbose_, knob_alt_module_dir_);
+        module_mapper_t::create(modfile_bytes, nullptr, nullptr, nullptr, nullptr,
+                                knob_verbose_, knob_alt_module_dir_);
     module_mapper_->get_loaded_modules();
+    delete[] modfile_bytes;
+    dr_close_file(modfile);
     error = module_mapper_->get_last_error();
     if (!error.empty())
         return "Failed to load binaries: " + error;

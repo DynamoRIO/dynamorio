@@ -154,6 +154,18 @@ private:
     std::list<trace_entry_t> list_;
 };
 
+/**
+ * Reads the module file at the given \p modfilename path. Returns an
+ * empty string if successful, or the error string if not.
+ *
+ * If successful, the returned \p modfile must be closed using
+ * \p dr_close_file, and the returned \p modefilebytes must be freed
+ * using a delete[].
+ */
+std::string
+read_module_file_bytes(const std::string &modfilename, file_t &modfile,
+                       char *&modfile_bytes);
+
 } // namespace drmemtrace
 } // namespace dynamorio
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -55,6 +55,7 @@
 #include "directory_iterator.h"
 #include "dr_api.h"              // Must be after windows.h.
 #include "raw2trace_directory.h" // Includes dr_api.h which must be after windows.h.
+#include "raw2trace_shared.h"
 #include "reader.h"
 #include "raw2trace.h"
 #include "record_file_reader.h"
@@ -435,17 +436,7 @@ raw2trace_directory_t::open_cpu_schedule_file()
 std::string
 raw2trace_directory_t::read_module_file(const std::string &modfilename)
 {
-    modfile_ = dr_open_file(modfilename.c_str(), DR_FILE_READ);
-    if (modfile_ == INVALID_FILE)
-        return "Failed to open module file " + modfilename;
-    uint64 modfile_size;
-    if (!dr_file_size(modfile_, &modfile_size))
-        return "Failed to get module file size: " + modfilename;
-    size_t modfile_size_ = (size_t)modfile_size;
-    modfile_bytes_ = new char[modfile_size_];
-    if (dr_read_file(modfile_, modfile_bytes_, modfile_size_) < (ssize_t)modfile_size_)
-        return "Didn't read whole module file " + modfilename;
-    return "";
+    return read_module_file_bytes(modfilename, modfile_, modfile_bytes_);
 }
 
 bool
