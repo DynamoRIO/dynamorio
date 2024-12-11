@@ -166,7 +166,6 @@ drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size
     return DRMEMTRACE_SUCCESS;
 }
 
-
 // The output range is really a segment and not the whole module.
 app_pc
 module_mapper_t::find_mapped_trace_bounds(app_pc trace_address,
@@ -228,7 +227,6 @@ module_mapper_t::write_module_data(char *buf, size_t buf_size,
     user_print_ = nullptr;
     return res;
 }
-
 
 // Maps each module into the address space.
 // There are several types of mapping entries in the module list:
@@ -336,7 +334,6 @@ module_mapper_t::read_and_map_modules()
     }
     VPRINT(1, "Successfully read %zu modules\n", modlist_.size());
 }
-
 
 std::string
 module_mapper_t::do_module_parsing()
@@ -474,9 +471,9 @@ int
 module_mapper_t::print_custom_module_data(void *data, char *dst, size_t max_len)
 {
     custom_module_data_t *custom_data = (custom_module_data_t *)data;
-    return print_module_data_fields(
-        dst, max_len, custom_data->contents, custom_data->contents_size, user_print_,
-        custom_data->user_data);
+    return print_module_data_fields(dst, max_len, custom_data->contents,
+                                    custom_data->contents_size, user_print_,
+                                    custom_data->user_data);
 }
 
 void
@@ -557,9 +554,10 @@ module_mapper_t::~module_mapper_t()
 }
 
 int
-print_module_data_fields(
-    char *dst, size_t max_len, const void *custom_data, size_t custom_size,
-    int (*user_print_cb)(void *data, char *dst, size_t max_len), void *user_cb_data)
+print_module_data_fields(char *dst, size_t max_len, const void *custom_data,
+                         size_t custom_size,
+                         int (*user_print_cb)(void *data, char *dst, size_t max_len),
+                         void *user_cb_data)
 {
     char *cur = dst;
     int len = dr_snprintf(dst, max_len, "v#%d,%zu,", CUSTOM_MODULE_VERSION, custom_size);

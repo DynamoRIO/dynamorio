@@ -175,7 +175,6 @@ raw2trace_t::read_and_map_modules()
     return module_mapper_->get_last_error();
 }
 
-
 std::string
 raw2trace_t::do_module_parsing_and_mapping()
 {

@@ -159,7 +159,6 @@ private:
     std::list<trace_entry_t> list_;
 };
 
-
 struct module_t {
     module_t(const char *path, app_pc orig, byte *map, size_t offs, size_t size,
              size_t total_size, bool external = false)
@@ -452,9 +451,10 @@ protected:
 };
 
 int
-print_module_data_fields(
-    char *dst, size_t max_len, const void *custom_data, size_t custom_size,
-    int (*user_print_cb)(void *data, char *dst, size_t max_len), void *user_cb_data);
+print_module_data_fields(char *dst, size_t max_len, const void *custom_data,
+                         size_t custom_size,
+                         int (*user_print_cb)(void *data, char *dst, size_t max_len),
+                         void *user_cb_data);
 
 /**
  * Subclasses module_mapper_t and replaces the module loading with a buffer
@@ -490,7 +490,6 @@ private:
     static const int MAX_DECODE_SIZE = 1024;
     byte decode_buf_[MAX_DECODE_SIZE];
 };
-
 
 } // namespace drmemtrace
 } // namespace dynamorio
