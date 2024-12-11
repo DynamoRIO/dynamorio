@@ -56,7 +56,7 @@
 #include "dr_api.h"
 #include "memref.h"
 #include "raw2trace.h"
-#include "raw2trace_directory.h"
+#include "raw2trace_shared.h"
 #include "reader.h"
 #include "trace_entry.h"
 #include "utils.h"

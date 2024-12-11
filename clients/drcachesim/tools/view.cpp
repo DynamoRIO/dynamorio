@@ -53,7 +53,7 @@
 #include "memref.h"
 #include "memtrace_stream.h"
 #include "raw2trace.h"
-#include "raw2trace_directory.h"
+#include "raw2trace_shared.h"
 #include "trace_entry.h"
 #include "utils.h"
 
@@ -136,9 +136,12 @@ view_t::initialize_stream(memtrace_stream_t *serial_stream)
             delete[] modfile_bytes;
             dr_close_file(modfile);
             error = module_mapper_->get_last_error();
-        }
-        if (!error.empty())
+            if (!error.empty()) {
+                return "Failed to load binaries: " + error;
+            }
+        } else {
             has_modules_ = false;
+        }
     }
     return "";
 }
