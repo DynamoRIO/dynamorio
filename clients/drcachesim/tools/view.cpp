@@ -127,24 +127,25 @@ view_t::initialize_stream(memtrace_stream_t *serial_stream)
         file_t modfile;
         std::string error =
             read_module_file_bytes(module_file_path_, modfile, modfile_bytes_);
-        if (error.empty()) {
-            // Legacy trace support where binaries are needed.
-            // We do not support non-module code for such traces.
-            module_mapper_ =
-                module_mapper_t::create(modfile_bytes_, nullptr, nullptr, nullptr,
-                                        nullptr, knob_verbose_, knob_alt_module_dir_);
-            module_mapper_->get_loaded_modules();
-            dr_close_file(modfile);
-            error = module_mapper_->get_last_error();
-            if (!error.empty()) {
-                return "Failed to load binaries: " + error;
-            }
-        } else {
-            // Continue but omit disassembly to support cases where binaries are
-            // not available and OFFLINE_FILE_TYPE_ENCODINGS is not present.
+        if (!error.empty())
             has_modules_ = false;
-        }
+        else
+            dr_close_file(modfile);
     }
+    if (!has_modules_) {
+        // Continue but omit disassembly to support cases where binaries are
+        // not available and OFFLINE_FILE_TYPE_ENCODINGS is not present.
+        return "";
+    }
+    // Legacy trace support where binaries are needed.
+    // We do not support non-module code for such traces.
+    module_mapper_ =
+        module_mapper_t::create(modfile_bytes_, nullptr, nullptr, nullptr, nullptr,
+                                knob_verbose_, knob_alt_module_dir_);
+    module_mapper_->get_loaded_modules();
+    std::string error = module_mapper_->get_last_error();
+    if (!error.empty())
+        return "Failed to load binaries: " + error;
     return "";
 }
 
