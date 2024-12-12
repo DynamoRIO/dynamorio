@@ -852,7 +852,6 @@ function (configure_static_core_lib name hide_symbols)
 
     set(disable_pie_flag)
     # Older versions of GCC do not understand "-no-pie". See i#2083.
-    CHECK_C_COMPILER_FLAG("-no-pie" no_pie_avail)
     if (no_pie_avail)
       # If the compiler's default is "-pie", we must specify "-no-pie" when using "-r"
       # to avoid the error "-r and -pie may not be used together". See i#2083.

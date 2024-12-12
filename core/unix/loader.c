@@ -82,6 +82,11 @@ static const char *const system_lib_paths[] = {
     "/usr/local/lib", /* Ubuntu: /etc/ld.so.conf.d/libc.conf */
 #ifdef ANDROID
     "/system/lib",
+#    ifdef ANDROID64
+    "/system/lib64",
+#    elif defined(ANDROID32)
+    "/system/lib32",
+#    endif
 #endif
 #ifndef X64
     "/usr/lib32",

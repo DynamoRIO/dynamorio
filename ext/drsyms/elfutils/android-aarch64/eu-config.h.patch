@@ -1,0 +1,16 @@
+diff --git a/lib/eu-config.h b/lib/eu-config.h
+index feb079db..aebabf80 100644
+--- a/lib/eu-config.h
++++ b/lib/eu-config.h
+@@ -59,10 +59,9 @@
+ # define once(once_control, init_routine)    init_routine()
+ #endif /* USE_LOCKS */
+
+-#include <libintl.h>
+ /* gettext helper macros.  */
+ #define N_(Str) Str
+-#define _(Str) dgettext ("elfutils", Str)
++#define _(Str) Str
+
+ /* Compiler-specific definitions.  */
+ #define strong_alias(name, aliasname) \
