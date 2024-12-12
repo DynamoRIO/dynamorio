@@ -224,10 +224,16 @@ if (TARGET_ARCH MATCHES "^arm64" OR TARGET_ARCH MATCHES "^aarch64")
   set(AARCH64 1)
   set(X64 1)
   message(STATUS "Building for AArch64")
+  if (ANDROID)
+    set(ANDROID64 1)
+  endif ()
 elseif (TARGET_ARCH MATCHES "^arm")
   set(ARM 1) # This means AArch32.
   set(X64 OFF)
   message(STATUS "Building for ARM")
+  if (ANDROID)
+    set(ANDROID32 1)
+  endif ()
 elseif (TARGET_ARCH MATCHES "^riscv64")
   set(RISCV64 1)
   set(X64 1)
@@ -692,6 +698,7 @@ if (UNIX)
   endif (NOT CMAKE_COMPILER_IS_GNUCC)
 
   check_if_linker_is_gnu_gold(LINKER_IS_GNU_GOLD)
+  check_if_linker_is_llvm_lld(LINKER_IS_LLVM_LLD)
 
   # FIXME i#2949: static 32-bit release-build linking with gcc 7.3.1 fails when
   # static C++ clients like drmemtrace or drmemtrace_raw2trace are linked in.
@@ -821,6 +828,7 @@ if (UNIX)
   # (see i#1034 where this caused problems in the past).
   set(BASE_CFLAGS "${BASE_CFLAGS} -funsigned-char")
   # Ubuntu defaults to -fstack-protector these days, which depends on app TLS.
+  CHECK_C_COMPILER_FLAG("-no-pie" no_pie_avail)
   CHECK_C_COMPILER_FLAG("-fno-stack-protector" no_stack_protector_avail)
   if (no_stack_protector_avail)
     set(BASE_CFLAGS "${BASE_CFLAGS} -fno-stack-protector")
@@ -875,14 +883,14 @@ if (UNIX)
   endif ()
   # there's no cmake warning control so we hardcode it
   set(WARN "-Wall -Werror -Wwrite-strings -Wvla")
+  CHECK_C_COMPILER_FLAG("-Wno-unused-but-set-variable" nounused_avail)
+  if (nounused_avail)
+    set(WARN "${WARN} -Wno-unused-but-set-variable")
+  endif (nounused_avail)
   if (NOT CMAKE_COMPILER_IS_CLANG)
     # Old gcc's ignore unknown -W flags, but -Wall -Werror causes clang to
     # complain that it doesn't recognize it.
     # Actually this is not true: gcc 4.1.2 aborts on unknown -W so we check
-    CHECK_C_COMPILER_FLAG("-Wno-unused-but-set-variable" nounused_avail)
-    if (nounused_avail)
-      set(WARN "${WARN} -Wno-unused-but-set-variable")
-    endif (nounused_avail)
     # XXX i#3792: DynamoRIO manages '\0' termination and error states itself in
     # too many places. In order to activate this warning, this code needs to get
     # re-factored for no good reason.
@@ -908,6 +916,21 @@ if (UNIX)
       set(WARN "${WARN} -Wno-dangling-pointer")
     endif ()
   else (NOT CMAKE_COMPILER_IS_CLANG)
+    # Clang emits this warning when a function is used without a defined
+    # prototype, however clang can't find function prototpes in #define macros.
+    # If function prototypes are moved out of #define macros then this warning
+    # can be re-enabled.
+    CHECK_C_COMPILER_FLAG("-Wno-deprecated-non-prototype" nodeprecated_prototype_avail)
+    if (nodeprecated_prototype_avail)
+      set(WARN "${WARN} -Wno-deprecated-non-prototype")
+    endif (nodeprecated_prototype_avail)
+    # Clang emits this warning due to the assembly shared between arm and
+    # aarch64 in os.c not specifying register widths. If the shared code is
+    # split into arm and aarch64 versions, then this warning can be re-enabled.
+    CHECK_C_COMPILER_FLAG("-Wno-asm-operand-widths" noasm_operand_widths)
+    if (noasm_operand_widths)
+      set(WARN "${WARN} -Wno-asm-operand-widths")
+    endif (noasm_operand_widths)
     # clang turns off color when it's writing to a pipe, but the user may still
     # wish to force color if it eventually goes to a terminal.
     option(CLANG_COLOR_DIAGNOSTICS "force colored clang diagnostics" OFF)

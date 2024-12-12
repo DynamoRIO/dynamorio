@@ -1,0 +1,33 @@
+How To Build libelftc.a for aarch64 Android
+by Felix Conway, based on instructions from Qin Zhao
+
+I built on Ubuntu 22.04
+
+I have Android NDK cross compiler aarch64-unknown-linux-android35 Android clang verions 18.0.3
+$ ./aarch64-linux-android35-clang --version
+Android (12470979, +pgo, +bolt, +lto, +mlgo, based on r522817c) clang version 18.0.3 (https://android.googlesource.com/toolchain/llvm-project d8003a456d14a3deb8054cdaa529ffbf02d9b262)
+Target: aarch64-unknown-linux-android35
+
+Install required packages:
+$ sudo apt-get install bison build-essential flex libarchive-dev m4 bmake zlib1g-dev
+
+Check out the sources.
+We have to stick with r3530 until
+https://sourceforge.net/p/elftoolchain/tickets/581/ is fixed.
+$ svn co -r 3530 svn://svn.code.sf.net/p/elftoolchain/code/trunk "${elftc_dir}"
+
+Apply the libelftc-android64.patch.
+
+Now build 64-bit:
+$ export CC=/PATH/TO/ANDROID/NDK/TOOLCHAIN/bin/aarch64-linux-android<version number>-clang
+$ export LD=/PATH/TO/ANDROID/NDK/TOOLCHAIN/bin/ld.lld
+$ export AR=/PATH/TO/ANDROID/NDK/TOOLCHAIN/bin/llvm-ar
+$ export RANLIB=/PATH/TO/ANDROID/NDK/TOOLCHAIN/bin/llvm-ranlib
+$ REDIR="-Dmalloc=__wrap_malloc -Dcalloc=__wrap_calloc -Drealloc=__wrap_realloc -Dfree=__wrap_free -Dstrdup=__wrap_strdup"
+$ cd common
+$ cp /PATH/TO/DYNAMORIO/ext/drsyms/libelftc-android/native-elf-format.h native-elf-format.h
+$ cd ../libelftc
+$ CFLAGS="-O2 -g -fPIC ${REDIR}" pmake libelftc.a
+
+Then copy the resulting libelftc.a into the DR source tree
+in ext/drsyms/libelftc-android64/lib64/.

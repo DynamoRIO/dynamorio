@@ -47,15 +47,13 @@
 #include "dr_allocator.h"
 #include "dr_api.h"
 #include "drvector.h"
+#include "raw2trace_shared.h"
 #include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {
 
 #define MINSERT instrlist_meta_preinsert
-
-// Versioning for our drmodtrack custom module fields.
-#define CUSTOM_MODULE_VERSION 1
 
 // A std::unordered_set, even using dr_allocator_t, raises transparency risks when
 // statically linked on Windows (from lock functions and other non-allocator
@@ -499,11 +497,6 @@ public:
     label_marks_elidable(instr_t *instr, DR_PARAM_OUT int *opnd_index,
                          DR_PARAM_OUT int *memopnd_index, DR_PARAM_OUT bool *is_write,
                          DR_PARAM_OUT bool *needs_base);
-    static int
-    print_module_data_fields(char *dst, size_t max_len, const void *custom_data,
-                             size_t custom_size,
-                             int (*user_print_cb)(void *data, char *dst, size_t max_len),
-                             void *user_cb_data);
 
 private:
     struct custom_module_data_t {
