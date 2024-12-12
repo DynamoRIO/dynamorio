@@ -1677,6 +1677,27 @@ const instr_info_t * const op_instr[] =
     /* OP_vgf2p8mulb */ &vex_W_extensions[114][0],
     /* OP_vgf2p8affineqb */ &vex_W_extensions[115][1],
     /* OP_vgf2p8affineinvqb */ &vex_W_extensions[116][1],
+
+    /* Missing opcode from AVX512_VBMI */
+    /* OP_vpmultishiftqb */ &evex_Wb_extensions[280][2],
+
+    /* AVX512_VBMI2 */
+    /* OP_vpcompressb */ &evex_Wb_extensions[282][0],
+    /* OP_vpcompressw */ &evex_Wb_extensions[282][2],
+    /* OP_vpexpandb */ &evex_Wb_extensions[281][0],
+    /* OP_vpexpandw */ &evex_Wb_extensions[281][2],
+    /* OP_vpshldw */ &evex_Wb_extensions[283][2],
+    /* OP_vpshldd */ &evex_Wb_extensions[284][0],
+    /* OP_vpshldq */ &evex_Wb_extensions[284][2],
+    /* OP_vpshldvw */ &evex_Wb_extensions[287][2],
+    /* OP_vpshldvd */ &evex_Wb_extensions[288][0],
+    /* OP_vpshldvq */ &evex_Wb_extensions[288][2],
+    /* OP_vpshrdw */ &evex_Wb_extensions[285][2],
+    /* OP_vpshrdd */ &evex_Wb_extensions[286][0],
+    /* OP_vpshrdq */ &evex_Wb_extensions[286][2],
+    /* OP_vpshrdvw */ &evex_Wb_extensions[289][2],
+    /* OP_vpshrdvd */ &evex_Wb_extensions[290][0],
+    /* OP_vpshrdvq */ &evex_Wb_extensions[290][2],
 };
 
 
@@ -5927,7 +5948,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf2387218, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0x387218, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {EVEX_Wb_EXT,0xf3387208, catUncategorized, "(evex_Wb ext 272)", xx, xx, xx, xx, xx, mrm|evex|ttnone, x, 272},
-    {INVALID,    0x66387218, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {EVEX_Wb_EXT,0x66387248, catUncategorized, "(evex_Wb ext 289)", xx, xx, xx, xx, xx, mrm|evex, x, 289},
     {EVEX_Wb_EXT,0xf2387218, catUncategorized, "(evex_Wb ext 271)",   xx, xx, xx, xx, xx, mrm|evex|ttnone, x, 271},
   }, { /* prefix extension 191 */
     {OP_serialize,   0x01e808, catOther, "serialize", xx, xx, xx, xx, xx, reqp, x, END_LIST},
@@ -7420,9 +7441,9 @@ const byte third_byte_38_index[256] = {
     30, 31, 32, 33,  34, 35,112, 36,  37, 38, 39, 40,  41, 42, 43, 44,  /* 3 */
     45, 46,142,143, 156,113,114,115,   0,  0,  0,  0, 129,130,150,151,  /* 4 */
    166,167,168,169, 174,171,  0,  0, 118,119,108,138,   0,  0,  0,  0,  /* 5 */
-     0,  0,  0,  0, 145,139,144,  0,   0,  0,  0,  0,   0,  0,  0,  0,  /* 6 */
-     0,  0,170,  0,   0,123,122,121, 116,117,135,136, 137,124,125,126,  /* 7 */
-    49, 50,103,  0,   0,  0,  0,  0, 141,147,140,146, 109,120,110,175,  /* 8 */
+     0,  0,178,179, 145,139,144,  0,   0,  0,  0,  0,   0,  0,  0,  0,  /* 6 */
+   180,181,170,182,   0,123,122,121, 116,117,135,136, 137,124,125,126,  /* 7 */
+    49, 50,103,177,   0,  0,  0,  0, 141,147,140,146, 109,120,110,175,  /* 8 */
    104,105,106,107,   0,  0, 58, 59,  60, 61, 62, 63,  64, 65, 66, 67,  /* 9 */
    159,160,161,162,   0,  0, 68, 69,  70, 71, 72, 73,  74, 75, 76, 77,  /* A */
      0,  0,  0,  0, 157,158, 78, 79,  80, 81, 82, 83,  84, 85, 86, 87,  /* B */
@@ -7631,7 +7652,15 @@ const instr_info_t third_byte_38[] = {
   {EVEX_Wb_EXT, 0x66385418, catUncategorized, "(evex_Wb ext 275)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 275},/*174*/
   {EVEX_Wb_EXT, 0x66388f18, catUncategorized, "(evex_Wb ext 276)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 276},/*175*/
   /* GFNI */
-  {E_VEX_EXT, 0x6638cf08, catUncategorized, "(e_vex ext 153)", xx, xx, xx, xx, xx, mrm, x, 153}/*176*/
+  {E_VEX_EXT, 0x6638cf08, catUncategorized, "(e_vex ext 153)", xx, xx, xx, xx, xx, mrm, x, 153},/*176*/
+  /* AVX512_VBMI */
+  {EVEX_Wb_EXT, 0x66388308, catUncategorized, "(evex_Wb ext 280)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 280},/*177*/
+  /* AVX512_VBMI2 */
+  {EVEX_Wb_EXT, 0x66386208, catUncategorized, "(evex_Wb ext 281)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 281},/*178*/
+  {EVEX_Wb_EXT, 0x66386308, catUncategorized, "(evex_Wb ext 282)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 282},/*179*/
+  {EVEX_Wb_EXT, 0x66387008, catUncategorized, "(evex_Wb ext 287)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 287},/*180*/
+  {EVEX_Wb_EXT, 0x66387108, catUncategorized, "(evex_Wb ext 288)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 288},/*181*/
+  {EVEX_Wb_EXT, 0x66387308, catUncategorized, "(evex_Wb ext 290)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 290},/*182*/
 };
 
 /* N.B.: every 0x3a instr so far has an immediate.  If a version w/o an immed
@@ -7646,7 +7675,7 @@ const byte third_byte_3a_index[256] = {
     16,17,18,76, 23, 0,62, 0, 54,55,25,26, 27, 0, 0, 0,  /* 4 */
     82,83, 0, 0, 78,79,84,85,  0, 0, 0, 0, 34,35,36,37,  /* 5 */
     19,20,21,22,  0, 0,86,87, 38,39,40,41, 42,43,44,45,  /* 6 */
-     0, 0, 0, 0,  0, 0, 0, 0, 46,47,48,49, 50,51,52,53,  /* 7 */
+    92,93,94,95,  0, 0, 0, 0, 46,47,48,49, 50,51,52,53,  /* 7 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 8 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 9 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* A */
@@ -7763,6 +7792,11 @@ const instr_info_t third_byte_3a[] = {
   /* GFNI */
   {E_VEX_EXT, 0x663ace08, catUncategorized, "(e_vex ext 154)", xx, xx, xx, xx, xx, mrm, x, 154},/*90*/
   {E_VEX_EXT, 0x663acf08, catUncategorized, "(e_vex ext 155)", xx, xx, xx, xx, xx, mrm, x, 155},/*91*/
+  /* AVX-512 VBMI2 */
+  {EVEX_Wb_EXT, 0x663a7008, catUncategorized, "(evex_Wb ext 283)", xx, xx, xx, xx, xx, mrm, x, 283},/*92*/
+  {EVEX_Wb_EXT, 0x663a7108, catUncategorized, "(evex_Wb ext 284)", xx, xx, xx, xx, xx, mrm, x, 284},/*93*/
+  {EVEX_Wb_EXT, 0x663a7208, catUncategorized, "(evex_Wb ext 285)", xx, xx, xx, xx, xx, mrm, x, 285},/*94*/
+  {EVEX_Wb_EXT, 0x663a7308, catUncategorized, "(evex_Wb ext 286)", xx, xx, xx, xx, xx, mrm, x, 286},/*95*/
 };
 
 /****************************************************************************
@@ -9584,6 +9618,61 @@ const instr_info_t evex_Wb_extensions[][4] = {
     {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vgf2p8affineinvqb, 0x663acf48, catMath | catSIMD, "vgf2p8affineinvqb", Ve, xx, KEb, Ib, He, mrm|evex|ttfvm|reqp|xop, x, exop[259]},
     {OP_vgf2p8affineinvqb, 0x663acf58, catMath | catSIMD, "vgf2p8affineinvqb", Ve, xx, KEb, Ib, He, mrm|evex|ttfvm|reqp|xop, x, exop[260]},
+  },{ /* evex_W_ext 280 */
+    {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vpmultishiftqb, 0x66388348, catSIMD, "vpmultishiftqb", Ve, xx, KEq, He, We, mrm|evex|ttfv|reqp, x, tevexwb[280][3]},
+    {OP_vpmultishiftqb, 0x66388358, catSIMD, "vpmultishiftqb", Ve, xx, KEq, He, Mq, mrm|evex|ttfv|reqp, x, END_LIST},
+  },{ /* evex_W_ext 281 */
+    {OP_vpexpandb, 0x66386208, catSIMD, "vpexpandb", Ve, xx, KEq, We, xx, mrm|evex|ttt1s|reqp, x, END_LIST},
+    {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vpexpandw, 0x66386248, catSIMD, "vpexpandw", Ve, xx, KEd, We, xx, mrm|evex|ttt1s|reqp, x, END_LIST},
+    {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  },{ /* evex_W_ext 282 */
+    {OP_vpcompressb, 0x66386308, catSIMD, "vpcompressb", We, xx, KEq, Ve, xx, mrm|evex|ttt1s|reqp, x, END_LIST},
+    {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vpcompressw, 0x66386348, catSIMD, "vpcompressw", We, xx, KEd, Ve, xx, mrm|evex|ttt1s|reqp, x, END_LIST},
+    {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  },{ /* evex_W_ext 283 */
+    {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vpshldw, 0x663a7048, catSIMD, "vpshldw", Ve, xx, KEd, Ib, He, mrm|evex|ttfvm|reqp|xop, x, exop[261]},
+    {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  },{ /* evex_W_ext 284 */
+    {OP_vpshldd, 0x663a7108, catSIMD, "vpshldd", Ve, xx, KEw, Ib, He, mrm|evex|ttfv|reqp|xop, x, exop[262]},
+    {OP_vpshldd, 0x663a7118, catSIMD, "vpshldd", Ve, xx, KEw, Ib, He, mrm|evex|ttfv|reqp|xop, x, exop[263]},
+    {OP_vpshldq, 0x663a7148, catSIMD, "vpshldq", Ve, xx, KEb, Ib, He, mrm|evex|ttfv|reqp|xop, x, exop[264]},
+    {OP_vpshldq, 0x663a7158, catSIMD, "vpshldq", Ve, xx, KEb, Ib, He, mrm|evex|ttfv|reqp|xop, x, exop[265]},
+  },{ /* evex_W_ext 285 */
+    {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vpshrdw, 0x663a7248, catSIMD, "vpshrdw", Ve, xx, KEd, Ib, He, mrm|evex|ttfvm|reqp|xop, x, exop[266]},
+    {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  },{ /* evex_W_ext 286 */
+    {OP_vpshrdd, 0x663a7308, catSIMD, "vpshrdd", Ve, xx, KEw, Ib, He, mrm|evex|ttfv|reqp|xop, x, exop[267]},
+    {OP_vpshrdd, 0x663a7318, catSIMD, "vpshrdd", Ve, xx, KEw, Ib, He, mrm|evex|ttfv|reqp|xop, x, exop[268]},
+    {OP_vpshrdq, 0x663a7348, catSIMD, "vpshrdq", Ve, xx, KEb, Ib, He, mrm|evex|ttfv|reqp|xop, x, exop[269]},
+    {OP_vpshrdq, 0x663a7358, catSIMD, "vpshrdq", Ve, xx, KEb, Ib, He, mrm|evex|ttfv|reqp|xop, x, exop[270]},
+  },{ /* evex_W_ext 287 */
+    {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vpshldvw, 0x66387048, catSIMD, "vpshldvw", Ve, xx, KEd, He, We, mrm|evex|ttfvm|reqp|xop, x, exop[271]},
+    {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  },{ /* evex_W_ext 288 */
+    {OP_vpshldvd, 0x66387108, catSIMD, "vpshldvd", Ve, xx, KEw, He, We, mrm|evex|ttfv|reqp|xop, x, exop[272]},
+    {OP_vpshldvd, 0x66387118, catSIMD, "vpshldvd", Ve, xx, KEw, He, Md, mrm|evex|ttfv|reqp|xop, x, exop[273]},
+    {OP_vpshldvq, 0x66387148, catSIMD, "vpshldvq", Ve, xx, KEb, He, We, mrm|evex|ttfv|reqp|xop, x, exop[274]},
+    {OP_vpshldvq, 0x66387158, catSIMD, "vpshldvq", Ve, xx, KEb, He, Mq, mrm|evex|ttfv|reqp|xop, x, exop[275]},
+  },{ /* evex_W_ext 289 */
+    {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vpshrdvw, 0x66387248, catSIMD, "vpshrdvw", Ve, xx, KEd, He, We, mrm|evex|ttfvm|xop, x, exop[276]},
+    {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  },{ /* evex_W_ext 290 */
+    {OP_vpshrdvd, 0x66387308, catSIMD, "vpshrdvd", Ve, xx, KEw, He, We, mrm|evex|ttfv|reqp|xop, x, exop[277]},
+    {OP_vpshrdvd, 0x66387318, catSIMD, "vpshrdvd", Ve, xx, KEw, He, Md, mrm|evex|ttfv|reqp|xop, x, exop[278]},
+    {OP_vpshrdvq, 0x66387348, catSIMD, "vpshrdvq", Ve, xx, KEb, He, We, mrm|evex|ttfv|reqp|xop, x, exop[279]},
+    {OP_vpshrdvq, 0x66387358, catSIMD, "vpshrdvq", Ve, xx, KEb, He, Mq, mrm|evex|ttfv|reqp|xop, x, exop[280]},
   },
 };
 
@@ -10923,6 +11012,36 @@ const instr_info_t extra_operands[] =
     {OP_CONTD, 0x663acf48, catMath | catSIMD, "<vgf2p8affineinvqb cont'd>", xx, xx, We, xx, xx, mrm|evex|ttfvm|reqp, x, tevexwb[279][3]},
     /* 260 */
     {OP_CONTD, 0x663acf58, catMath | catSIMD, "<vgf2p8affineinvqb cont'd>", xx, xx, Mq, xx, xx, mrm|evex|ttfvm|reqp, x, END_LIST},
+    {OP_CONTD, 0x663a7048, catSIMD, "<vpshldw cont'd>", xx, xx, We, xx, xx, mrm|evex|ttfvm|reqp, x, END_LIST},
+    /* 262 */
+    {OP_CONTD, 0x663a7108, catSIMD, "<vpshldd cont'd>", xx, xx, We, xx, xx, mrm|evex|ttfv|reqp, x, tevexwb[284][1]},
+    {OP_CONTD, 0x663a7118, catSIMD, "<vpshldd cont'd>", xx, xx, Md, xx, xx, mrm|evex|ttfv|reqp, x, END_LIST},
+    /* 264 */
+    {OP_CONTD, 0x663a7148, catSIMD, "<vpshldq cont'd>", xx, xx, We, xx, xx, mrm|evex|ttfv|reqp, x, tevexwb[284][3]},
+    {OP_CONTD, 0x663a7158, catSIMD, "<vpshldq cont'd>", xx, xx, Mq, xx, xx, mrm|evex|ttfv|reqp, x, END_LIST},
+    /* 266 */
+    {OP_CONTD, 0x663a7248, catSIMD, "<vpshrdw cont'd>", xx, xx, We, xx, xx, mrm|evex|ttfvm|reqp, x, END_LIST},
+    {OP_CONTD, 0x663a7308, catSIMD, "<vpshrdd cont'd>", xx, xx, We, xx, xx, mrm|evex|ttfv|reqp, x, tevexwb[286][1]},
+    /* 268 */
+    {OP_CONTD, 0x663a7318, catSIMD, "<vpshrdd cont'd>", xx, xx, Md, xx, xx, mrm|evex|ttfv|reqp, x, END_LIST},
+    {OP_CONTD, 0x663a7348, catSIMD, "<vpshrdq cont'd>", xx, xx, We, xx, xx, mrm|evex|ttfv|reqp, x, tevexwb[286][3]},
+    /* 270 */
+    {OP_CONTD, 0x663a7358, catSIMD, "<vpshrdq cont'd>", xx, xx, Mq, xx, xx, mrm|evex|ttfv|reqp, x, END_LIST},
+    {OP_CONTD, 0x66387048, catSIMD, "<vpshldvw cont'd>", xx, xx, Ve, xx, xx, mrm|evex|ttfvm|reqp, x, END_LIST},
+    /* 272 */
+    {OP_CONTD, 0x66387108, catSIMD, "<vpshldvd cont'd>", xx, xx, Ve, xx, xx, mrm|evex|ttfv|reqp, x, tevexwb[288][1]},
+    {OP_CONTD, 0x66387118, catSIMD, "<vpshldvd cont'd>", xx, xx, Ve, xx, xx, mrm|evex|ttfv|reqp, x, END_LIST},
+    /* 274 */
+    {OP_CONTD, 0x66387148, catSIMD, "<vpshldvq cont'd>", xx, xx, Ve, xx, xx, mrm|evex|ttfv|reqp, x, tevexwb[288][3]},
+    {OP_CONTD, 0x66387158, catSIMD, "<vpshldvq cont'd>", xx, xx, Ve, xx, xx, mrm|evex|ttfv|reqp, x, END_LIST},
+    /* 276 */
+    {OP_CONTD, 0x66387248, catSIMD, "<vpshrdvw cont'd>", xx, xx, Ve, xx, xx, mrm|evex|ttfvm|reqp, x, END_LIST},
+    {OP_CONTD, 0x66387308, catSIMD, "<vpshrdvd cont'd>", xx, xx, Ve, xx, xx, mrm|evex|ttfv|reqp, x, tevexwb[290][1]},
+    /* 278 */
+    {OP_CONTD, 0x66387318, catSIMD, "<vpshrdvd cont'd>", xx, xx, Ve, xx, xx, mrm|evex|ttfv|reqp, x, END_LIST},
+    {OP_CONTD, 0x66387348, catSIMD, "<vpshrdvq cont'd>", xx, xx, Ve, xx, xx, mrm|evex|ttfv|reqp, x, tevexwb[290][3]},
+    /* 280 */
+    {OP_CONTD, 0x66387358, catSIMD, "<vpshrdvq cont'd>", xx, xx, Ve, xx, xx, mrm|evex|ttfv|reqp, x, END_LIST},
 };
 
 /* clang-format on */
