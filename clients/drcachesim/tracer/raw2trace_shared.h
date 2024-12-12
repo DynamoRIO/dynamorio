@@ -171,7 +171,6 @@ std::string
 read_module_file_bytes(const std::string &modfilename, file_t &modfile,
                        char *&modfile_bytes);
 
-
 struct module_t {
     module_t(const char *path, app_pc orig, byte *map, size_t offs, size_t size,
              size_t total_size, bool external = false)

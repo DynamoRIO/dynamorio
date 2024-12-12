@@ -129,8 +129,8 @@ view_t::initialize_stream(memtrace_stream_t *serial_stream)
             read_module_file_bytes(module_file_path_, modfile, modfile_bytes_);
         if (error.empty()) {
             module_mapper_ =
-                module_mapper_t::create(modfile_bytes_, nullptr, nullptr, nullptr, nullptr,
-                                        knob_verbose_, knob_alt_module_dir_);
+                module_mapper_t::create(modfile_bytes_, nullptr, nullptr, nullptr,
+                                        nullptr, knob_verbose_, knob_alt_module_dir_);
             module_mapper_->get_loaded_modules();
             dr_close_file(modfile);
             error = module_mapper_->get_last_error();
