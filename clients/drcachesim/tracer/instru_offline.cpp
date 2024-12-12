@@ -47,6 +47,7 @@
 #include "drreg.h"
 #include "drutil.h"
 #include "drvector.h"
+#include "raw2trace_shared.h"
 #include "trace_entry.h"
 #include "utils.h"
 #include "instru.h"
@@ -184,31 +185,6 @@ offline_instru_t::load_custom_module_data(module_data_t *module, int seg_idx)
         return new (alloc) custom_module_data_t(nullptr, 0, user_data);
     }
     return nullptr;
-}
-
-int
-offline_instru_t::print_module_data_fields(
-    char *dst, size_t max_len, const void *custom_data, size_t custom_size,
-    int (*user_print_cb)(void *data, char *dst, size_t max_len), void *user_cb_data)
-{
-    char *cur = dst;
-    int len = dr_snprintf(dst, max_len, "v#%d,%zu,", CUSTOM_MODULE_VERSION, custom_size);
-    if (len < 0)
-        return -1;
-    cur += len;
-    if (cur - dst + custom_size > max_len)
-        return -1;
-    if (custom_size > 0) {
-        memcpy(cur, custom_data, custom_size);
-        cur += custom_size;
-    }
-    if (user_print_cb != nullptr) {
-        int res = (*user_print_cb)(user_cb_data, cur, max_len - (cur - dst));
-        if (res == -1)
-            return -1;
-        cur += res;
-    }
-    return (int)(cur - dst);
 }
 
 int
