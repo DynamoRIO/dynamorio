@@ -6409,10 +6409,14 @@ cleanup_after_vfork_execve(dcontext_t *dcontext)
 }
 
 static void
-set_stdfile_fileno(stdfile_t **stdfile, file_t file_no)
+set_stdfile_fileno(stdfile_t **stdfile, file_t old_fd, file_t file_no)
 {
 #ifdef STDFILE_FILENO
+#    ifdef ANDROID64
+    fcntl_syscall(old_fd, F_DUPFD, file_no);
+#    else
     (*stdfile)->STDFILE_FILENO = file_no;
+#    endif
 #else
 #    warning stdfile_t is opaque; DynamoRIO will not set fds of libc FILEs.
     /* i#1973: musl libc support (and potentially other non-glibcs) */
@@ -6461,7 +6465,7 @@ handle_close_generic_pre(dcontext_t *dcontext, file_t fd, bool set_return_val)
             fd, our_stdout);
         if (privmod_stdout != NULL && INTERNAL_OPTION(private_loader)) {
             /* update the privately loaded libc's stdout _fileno. */
-            set_stdfile_fileno(privmod_stdout, our_stdout);
+            set_stdfile_fileno(privmod_stdout, fd, our_stdout);
         }
     }
     if (DYNAMO_OPTION(dup_stderr_on_close) && fd == STDERR) {
@@ -6477,7 +6481,7 @@ handle_close_generic_pre(dcontext_t *dcontext, file_t fd, bool set_return_val)
             fd, our_stderr);
         if (privmod_stderr != NULL && INTERNAL_OPTION(private_loader)) {
             /* update the privately loaded libc's stderr _fileno. */
-            set_stdfile_fileno(privmod_stderr, our_stderr);
+            set_stdfile_fileno(privmod_stderr, fd, our_stderr);
         }
     }
     if (DYNAMO_OPTION(dup_stdin_on_close) && fd == STDIN) {
@@ -6493,7 +6497,7 @@ handle_close_generic_pre(dcontext_t *dcontext, file_t fd, bool set_return_val)
             fd, our_stdin);
         if (privmod_stdin != NULL && INTERNAL_OPTION(private_loader)) {
             /* update the privately loaded libc's stdout _fileno. */
-            set_stdfile_fileno(privmod_stdin, our_stdin);
+            set_stdfile_fileno(privmod_stdin, fd, our_stdin);
         }
     }
     return true;

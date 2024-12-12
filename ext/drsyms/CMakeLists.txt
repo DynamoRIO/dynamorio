@@ -59,7 +59,11 @@ if (DR_HOST_ARM)
 endif()
 
 if (DR_HOST_AARCH64)
-  set(ARCH "-aarch64")
+  if (ANDROID)
+    set(ARCH "-android64")
+  else ()
+    set(ARCH "-aarch64")
+  endif ()
 endif ()
 
 if (DR_HOST_RISCV64)
@@ -135,7 +139,7 @@ elseif (UNIX)
       "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc-macho${ARCH}/lib${BITS}/libdwarf.a")
     set(elftc_libpath
       "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc-macho${ARCH}/lib${BITS}/libelftc.a")
-  elseif (ANDROID)
+  elseif (ANDROID32)
     # TODO i#5926: Use elfutils for Android.  First we need to get zlib installed
     # in our test environment.
     set(srcs ${srcs} drsyms_dwarf.c drsyms_elf.c)
@@ -167,6 +171,11 @@ elseif (UNIX)
       message(FATAL_ERROR "Unable to find patch")
     endif ()
     file(GLOB patches "${CMAKE_CURRENT_SOURCE_DIR}/elfutils/*.patch")
+    if (ANDROID64)
+      file(GLOB android64_patches
+        "${CMAKE_CURRENT_SOURCE_DIR}/elfutils/android-aarch64/*.patch")
+      list(APPEND patches ${android64_patches})
+    endif(ANDROID64)
     foreach (patch ${patches})
       get_filename_component(patch_base ${patch} NAME)
       string(REGEX REPLACE ".patch$" "" patch_base ${patch_base})
@@ -199,6 +208,12 @@ elseif (UNIX)
         endif ()
       endforeach ()
       add_library(${lib}_pic STATIC ${${lib}_files})
+      # We need a different config.h and eu-config.h for aarch64 Android to
+      # disable GCC functions that are not implemented in clang.
+      if (ANDROID64)
+        set(extra_dirs
+          "${CMAKE_CURRENT_SOURCE_DIR}/elfutils/android-aarch64;${CMAKE_CURRENT_BINARY_DIR}")
+      endif (ANDROID64)
       # We want to directly use DR's allocator instead of relying on its private loader
       # redirecting in order to support static usage with no loader.
       # ld is not actually used, so we can't use its -wrap=malloc feature.
@@ -206,7 +221,7 @@ elseif (UNIX)
       set_target_properties(${lib}_pic PROPERTIES
         # We have a presumably-widely-applicable config.h in drsyms/elfutils.
         INCLUDE_DIRECTORIES
-        "${CMAKE_CURRENT_SOURCE_DIR}/elfutils;${elfutils_dir}/lib;${elfutils_dir}/libasm;${elfutils_dir}/libebl;${elfutils_dir}/libdwelf;${elfutils_dir}/libdwfl"
+        "${extra_dirs};${CMAKE_CURRENT_SOURCE_DIR}/elfutils;${elfutils_dir}/lib;${elfutils_dir}/libasm;${elfutils_dir}/libebl;${elfutils_dir}/libdwelf;${elfutils_dir}/libdwfl;"
         COMPILE_DEFINITIONS
         "_GNU_SOURCE;HAVE_CONFIG_H;_FORTIFY_SOURCE=3;PIC;SHARED;SYMBOL_VERSIONING;malloc=__wrap_malloc;calloc=__wrap_calloc;realloc=__wrap_realloc;free=__wrap_free;strdup=__wrap_strdup"
         COMPILE_FLAGS "-std=gnu99 -Wall -g -O2 -fPIC")

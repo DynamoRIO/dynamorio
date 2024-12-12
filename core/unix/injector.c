@@ -56,7 +56,7 @@
 #include "dr_inject.h"
 
 #include <assert.h>
-#ifndef MACOS
+#if !(defined(MACOS) || defined(ANDROID64))
 /* If we don't define _EXTERNALIZE_CTYPE_INLINES_*, we get errors vs tolower
  * in globals.h; if we do, we get errors on isspace missing.  We solve that
  * by just by supplying our own isspace.
@@ -93,13 +93,15 @@ typedef enum {
     PLATFORM_UNKNOWN,
 } platform_status_t;
 
-#ifdef MACOS
+#if defined(MACOS) || defined(ANDROID64)
 /* The type is just "int", and the values are different, so we use the Linux
  * type name to match the Linux constant names.
  */
 #    ifndef PT_ATTACHEXC /* New replacement for PT_ATTACH */
 #        define PT_ATTACHEXC PT_ATTACH
 #    endif
+
+#    ifdef MACOS
 enum __ptrace_request {
     PTRACE_TRACEME = PT_TRACE_ME,
     PTRACE_CONT = PT_CONTINUE,
@@ -108,6 +110,7 @@ enum __ptrace_request {
     PTRACE_DETACH = PT_DETACH,
     PTRACE_SINGLESTEP = PT_STEP,
 };
+#    endif
 
 /* clang-format off */ /* (work around clang-format bug) */
 static int inline
