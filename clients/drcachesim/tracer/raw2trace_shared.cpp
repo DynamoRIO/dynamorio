@@ -187,6 +187,9 @@ read_module_file_bytes(const std::string &modfilename, file_t &modfile,
         modfile = INVALID_FILE;
         modfile_bytes = nullptr;
         return "Didn't read whole module file " + modfilename;
+    }
+    return "";
+}
 
 // The output range is really a segment and not the whole module.
 app_pc
