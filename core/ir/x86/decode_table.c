@@ -8995,9 +8995,9 @@ const instr_info_t evex_Wb_extensions[][4] = {
     {OP_vpcompressq, 0x66388b48, catSIMD, "vpcompressq", We, xx, KEb, Ve, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
     {INVALID, 0x66388b58, catUncategorized, "(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 168 */
-    {OP_vpexpandd, 0x66388908, catSIMD, "vpexpandd", We, xx, KEw, Ve, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {OP_vpexpandd, 0x66388908, catSIMD, "vpexpandd", Ve, xx, KEw, We, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
     {INVALID, 0x66388918, catUncategorized, "(bad)", xx,xx,xx,xx,xx,no,x,NA},
-    {OP_vpexpandq, 0x66388948, catSIMD, "vpexpandq", We, xx, KEb, Ve, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {OP_vpexpandq, 0x66388948, catSIMD, "vpexpandq", Ve, xx, KEb, We, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
     {INVALID, 0x66388958, catUncategorized, "(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 169 */
     {OP_vptestmb, 0x66382608, catSIMD, "vptestmb", KPq, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
