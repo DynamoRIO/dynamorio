@@ -1,0 +1,18 @@
+auipc  <rel> 0x[0-9a-f]+ -> a0
+auipc  <rel> 0x[0-9a-f]+ -> a0
+<Internal Error: Failed to encode instruction: 'auipc  <rel> 0x[0-9a-f]+ -> a0'>
+jal    0x[0-9a-f]+ -> a0
+beq    0x[0-9a-f]+ a0 a1
+bne    0x[0-9a-f]+ a0 a1
+blt    0x[0-9a-f]+ a0 a1
+bge    0x[0-9a-f]+ a0 a1
+bltu   0x[0-9a-f]+ a0 a1
+bgeu   0x[0-9a-f]+ a0 a1
+c.j    0x[0-9a-f]+ -> zero
+test_jump_and_branch complete
+lui    0x2a -> a0
+jal    0x[0-9a-f]+ -> zero
+jal    0x[0-9a-f]+ -> zero
+jal    0x[0-9a-f]+ -> ra
+test_xinst complete
+All tests complete

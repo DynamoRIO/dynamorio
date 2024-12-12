@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2012-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -1466,8 +1466,8 @@ module_relocate_symbol(ELF_REL_TYPE *rel, os_privmod_data_t *pd, bool is_rela)
     const char *name;
     bool resolved;
 
-    /* XXX: we assume ELF_REL_TYPE and ELF_RELA_TYPE only differ at the end,
-     * i.e. with or without r_addend.
+    /* ELF_REL_TYPE and ELF_RELA_TYPE differ in where the addend comes from:
+     * stored in the target location, or in rel->r_addend.
      */
     if (is_rela)
         addend = ((ELF_RELA_TYPE *)rel)->r_addend;
@@ -1486,7 +1486,8 @@ module_relocate_symbol(ELF_REL_TYPE *rel, os_privmod_data_t *pd, bool is_rela)
                      ".so has relocation inside PT_DYNAMIC section");
     r_type = (uint)ELF_R_TYPE(rel->r_info);
 
-    LOG(GLOBAL, LOG_LOADER, 5, "%s: reloc @ %p type=%d\n", r_addr, r_type);
+    LOG(GLOBAL, LOG_LOADER, 5, "%s: reloc @ %p type=%d is_rela=%d addend=0x%zx\n",
+        __FUNCTION__, r_addr, r_type, is_rela, addend);
 
     /* handle the most common case, i.e. ELF_R_RELATIVE */
     if (r_type == ELF_R_RELATIVE) {
@@ -1582,7 +1583,18 @@ module_relocate_symbol(ELF_REL_TYPE *rel, os_privmod_data_t *pd, bool is_rela)
 #ifndef RISCV64 /* FIXME i#3544: Check whether ELF_R_DIRECT with !is_rela is OK */
     case ELF_R_GLOB_DAT:
 #endif
-    case ELF_R_JUMP_SLOT: *r_addr = (reg_t)res + addend; break;
+    case ELF_R_JUMP_SLOT:
+        // Neither aarch64 nor x86_64 add the addend for these types, yet riscv does.
+        // This is not obvious and not well documented; we have to just behave like
+        // existing loaders behave from experimentation/examination.
+        // Yet another reason to possibly invert the private loader and let
+        // the private copy of ld.so do all the loading and relocating: i#5437.
+#if defined(AARCH64) || defined(X86)
+        *r_addr = (reg_t)res;
+#else
+        *r_addr = (reg_t)res + addend;
+#endif
+        break;
     case ELF_R_DIRECT: *r_addr = (reg_t)res + (is_rela ? addend : *r_addr); break;
     case ELF_R_COPY:
         if (sym != NULL)

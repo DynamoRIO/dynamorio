@@ -122,6 +122,9 @@ OPCODE(xsaveopt32, xsaveopt32, xsaveopt32, 0, MEMARG(OPSZ_xsave))
 OPCODE(xsaveopt64, xsaveopt64, xsaveopt64, X64_ONLY, MEMARG(OPSZ_xsave))
 OPCODE(xsavec32, xsavec32, xsavec32, 0, MEMARG(OPSZ_xsave))
 OPCODE(xsavec64, xsavec64, xsavec64, X64_ONLY, MEMARG(OPSZ_xsave))
+OPCODE(clflushopt, clflushopt, clflushopt, 0, MEMARG(OPSZ_clflush))
+OPCODE(clwb, clwb, clwb, 0, MEMARG(OPSZ_clflush))
+OPCODE(cldemote, cldemote, cldemote, 0, MEMARG(OPSZ_clflush))
 
 /****************************************************************************/
 /* single immed argument */
@@ -195,3 +198,9 @@ OPCODE(slwpcb, slwpcb, slwpcb, 0, REGARG(EAX))
 OPCODE(ptwrite_r32, ptwrite, ptwrite, X86_ONLY, REGARG(EAX))
 OPCODE(ptwrite_r64, ptwrite, ptwrite, X64_ONLY, REGARG(RAX))
 OPCODE(ptwrite_mem, ptwrite, ptwrite, 0, MEMARG(OPSZ_ptwrite))
+
+/****************************************************************************/
+/* RDPID */
+OPCODE(rdpid_32, rdpid, rdpid, X86_ONLY, REGARG(EAX))
+OPCODE(rdpid_64lo, rdpid, rdpid, X64_ONLY, REGARG(RAX))
+OPCODE(rdpid_64hi, rdpid, rdpid, X64_ONLY, REGARG(R15))

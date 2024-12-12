@@ -1635,6 +1635,35 @@ enum {
     /* MOVDIR64B */
     /* 1445 */ OP_movdir64b, /**< IA-32/AMD64 movdir64b opcode. */
 
+    /* ENQCMD */
+    /* 1446 */ OP_enqcmd,  /**< IA-32/AMD64 enqcmd opcode. */
+    /* 1447 */ OP_enqcmds, /**< IA-32/AMD64 enqcmds opcode. */
+
+    /* RDPID */
+    /* 1448 */ OP_rdpid, /**< IA-32/AMD64 rdpid opcode. */
+
+    /* Not really part of CLWB but never got added earlier. */
+    /* 1449 */ OP_clflushopt, /**< IA-32/AMD64 clflushopt opcode. */
+
+    /* CLWB */
+    /* 1450 */ OP_clwb, /**< IA-32/AMD64 clwb opcode. */
+
+    /* CLDEMOTE */
+    /* 1451 */ OP_cldemote, /**< IA-32/AMD64 cldemote opcode. */
+
+    /* AVX512_BITALG */
+    /* 1452 */ OP_vpopcntb,     /**< IA-32/AMD64 vpopcntb opcode. */
+    /* 1453 */ OP_vpopcntw,     /**< IA-32/AMD64 vpopcntw opcode. */
+    /* 1454 */ OP_vpshufbitqmb, /**< IA-32/AMD64 vpshufbitqmb opcode. */
+
+    /* GFNI */
+    /* 1455 */ OP_gf2p8mulb,         /**< IA-32/AMD64 gf2p8mulb opcode. */
+    /* 1456 */ OP_gf2p8affineqb,     /**< IA-32/AMD64 gf2p8affineqb opcode. */
+    /* 1457 */ OP_gf2p8affineinvqb,  /**< IA-32/AMD64 gf2p8affineinvqb opcode. */
+    /* 1458 */ OP_vgf2p8mulb,        /**< IA-32/AMD64 vgf2p8mulb opcode. */
+    /* 1459 */ OP_vgf2p8affineqb,    /**< IA-32/AMD64 vgf2p8affineqb opcode. */
+    /* 1460 */ OP_vgf2p8affineinvqb, /**< IA-32/AMD64 vgf2p8affineinvqb opcode. */
+
     OP_AFTER_LAST,
     OP_FIRST = OP_add,           /**< First real opcode. */
     OP_LAST = OP_AFTER_LAST - 1, /**< Last real opcode. */

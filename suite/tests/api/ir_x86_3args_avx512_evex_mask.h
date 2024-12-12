@@ -3369,3 +3369,28 @@ OPCODE(vpopcntq_zhik7mem, vpopcntq, vpopcntq_mask, X64_ONLY, REGARG(ZMM16), REGA
        MEMARG(OPSZ_64))
 OPCODE(vpopcntq_zlok7bcst, vpopcntq, vpopcntq_mask, 0, REGARG(ZMM1), REGARG(K7),
        MEMARG(OPSZ_8))
+/* AVX 512 BITALG */
+OPCODE(vpopcntb_xlok7xlo, vpopcntb, vpopcntb_mask, 0, REGARG(XMM6), REGARG(K7),
+       REGARG(XMM0))
+OPCODE(vpopcntb_xhik7mem, vpopcntb, vpopcntb_mask, X64_ONLY, REGARG(XMM16), REGARG(K7),
+       MEMARG(OPSZ_16))
+OPCODE(vpopcntb_ylok7xlo, vpopcntb, vpopcntb_mask, 0, REGARG(YMM6), REGARG(K7),
+       REGARG(YMM0))
+OPCODE(vpopcntb_yhik7mem, vpopcntb, vpopcntb_mask, X64_ONLY, REGARG(YMM16), REGARG(K7),
+       MEMARG(OPSZ_32))
+OPCODE(vpopcntb_zlok7xlo, vpopcntb, vpopcntb_mask, 0, REGARG(ZMM6), REGARG(K7),
+       REGARG(ZMM0))
+OPCODE(vpopcntb_zhik7mem, vpopcntb, vpopcntb_mask, X64_ONLY, REGARG(ZMM16), REGARG(K7),
+       MEMARG(OPSZ_64))
+OPCODE(vpopcntw_xlok7xlo, vpopcntw, vpopcntw_mask, 0, REGARG(XMM6), REGARG(K7),
+       REGARG(XMM0))
+OPCODE(vpopcntw_xhik7mem, vpopcntw, vpopcntw_mask, X64_ONLY, REGARG(XMM16), REGARG(K7),
+       MEMARG(OPSZ_16))
+OPCODE(vpopcntw_ylok7xlo, vpopcntw, vpopcntw_mask, 0, REGARG(YMM6), REGARG(K7),
+       REGARG(YMM0))
+OPCODE(vpopcntw_yhik7mem, vpopcntw, vpopcntw_mask, X64_ONLY, REGARG(YMM16), REGARG(K7),
+       MEMARG(OPSZ_32))
+OPCODE(vpopcntw_zlok7xlo, vpopcntw, vpopcntw_mask, 0, REGARG(ZMM6), REGARG(K7),
+       REGARG(ZMM0))
+OPCODE(vpopcntw_zhik7mem, vpopcntw, vpopcntw_mask, X64_ONLY, REGARG(ZMM16), REGARG(K7),
+       MEMARG(OPSZ_64))

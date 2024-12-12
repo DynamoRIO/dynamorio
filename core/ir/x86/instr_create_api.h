@@ -698,6 +698,30 @@
  */
 #define INSTR_CREATE_clflush(dc, s) instr_create_0dst_1src((dc), OP_clflush, (s))
 /**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param s The opnd_t explicit source operand for the instruction, which can be
+ * created with OPND_CREATE_MEM_clflush() to get the appropriate operand size.
+ */
+#define INSTR_CREATE_clflushopt(dc, s) instr_create_0dst_1src((dc), OP_clflushopt, (s))
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param s The opnd_t explicit source operand for the instruction, which can be
+ * created with OPND_CREATE_MEM_clflush() to get the appropriate operand size.
+ */
+#define INSTR_CREATE_clwb(dc, s) instr_create_0dst_1src((dc), OP_clwb, (s))
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param s The opnd_t explicit source operand for the instruction, which can be
+ * created with OPND_CREATE_MEM_clflush() to get the appropriate operand size.
+ */
+#define INSTR_CREATE_cldemote(dc, s) instr_create_0dst_1src((dc), OP_cldemote, (s))
+/**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
  * given explicit operands, automatically supplying any implicit operands.
  * \param dc The void * dcontext used to allocate memory for the instr_t.
@@ -1131,6 +1155,7 @@
 #define INSTR_CREATE_fxsave64(dc, d) instr_create_1dst_0src((dc), OP_fxsave64, (d))
 #define INSTR_CREATE_stmxcsr(dc, d) instr_create_1dst_0src((dc), OP_stmxcsr, (d))
 #define INSTR_CREATE_vstmxcsr(dc, d) instr_create_1dst_0src((dc), OP_vstmxcsr, (d))
+#define INSTR_CREATE_rdpid(dc, d) instr_create_1dst_0src((dc), OP_rdpid, (d))
 /** @} */ /* end doxygen group */
 
 /* floating-point */
@@ -1583,6 +1608,10 @@
 /* MOVDIR64B */
 #define INSTR_CREATE_movdir64b(dc, d, s) \
     instr_create_1dst_1src((dc), OP_movdir64b, (d), (s))
+/* ENQCMD */
+#define INSTR_CREATE_enqcmd(dc, d, s) instr_create_1dst_1src((dc), OP_enqcmd, (d), (s))
+#define INSTR_CREATE_enqcmds(dc, d, s) instr_create_1dst_1src((dc), OP_enqcmds, (d), (s))
+
 /** @} */ /* end doxygen group */
 
 /* 1 destination, 1 implicit source */
@@ -2426,6 +2455,9 @@
     instr_create_1dst_2src((dc), OP_vpdpwssd, (d), (s1), (s2))
 #define INSTR_CREATE_vpdpwssds(dc, d, s1, s2) \
     instr_create_1dst_2src((dc), OP_vpdpwssds, (d), (s1), (s2))
+/* GFNI */
+#define INSTR_CREATE_vgf2p8mulb(dc, d, s1, s2) \
+    instr_create_1dst_2src((dc), OP_vgf2p8mulb, (d), (s1), (s2))
 /** @} */ /* end doxygen group */
 
 /** @name 1 destination, 1 mask, and 1 non-immediate source */
@@ -2693,6 +2725,11 @@
     instr_create_1dst_2src((dc), OP_vpopcntd, (d), (k), (s))
 #define INSTR_CREATE_vpopcntq_mask(dc, d, k, s) \
     instr_create_1dst_2src((dc), OP_vpopcntq, (d), (k), (s))
+/* AVX512 BITALG */
+#define INSTR_CREATE_vpopcntb_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpopcntb, (d), (k), (s))
+#define INSTR_CREATE_vpopcntw_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpopcntw, (d), (k), (s))
 
 /** @} */ /* end doxygen group */
 
@@ -2977,6 +3014,9 @@
     instr_create_1dst_2src((dc), OP_sha256msg1, (d), (s), (d))
 #define INSTR_CREATE_sha256msg2(dc, d, s) \
     instr_create_1dst_2src((dc), OP_sha256msg2, (d), (s), (d))
+/* GFNI */
+#define INSTR_CREATE_gf2p8mulb(dc, d, s) \
+    instr_create_1dst_2src((dc), OP_gf2p8mulb, (d), (s), (d))
 /** @} */ /* end doxygen group */
 
 /** @name 1 destination, 1 explicit register-or-immediate source */
@@ -3800,6 +3840,12 @@
     instr_create_1dst_3src((dc), OP_vsqrtss, (d), (k), (s1), (s2))
 #define INSTR_CREATE_vsqrtsd_mask(dc, d, k, s1, s2) \
     instr_create_1dst_3src((dc), OP_vsqrtsd, (d), (k), (s1), (s2))
+/* AVX512 BITALG */
+#define INSTR_CREATE_vpshufbitqmb_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpshufbitqmb, (d), (k), (s1), (s2))
+/* GFNI */
+#define INSTR_CREATE_vgf2p8mulb_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vgf2p8mulb, (d), (k), (s1), (s2))
 /** @} */ /* end doxygen group */
 
 /** @name 1 destination, 3 sources including one immediate */
@@ -3861,6 +3907,11 @@
     instr_create_1dst_3src((dc), OP_vperm2f128, (d), (s1), (s2), (i))
 #define INSTR_CREATE_vinsertf128(dc, d, s1, s2, i) \
     instr_create_1dst_3src((dc), OP_vinsertf128, (d), (s1), (s2), (i))
+/* GFNI */
+#define INSTR_CREATE_vgf2p8affineqb(dc, d, s1, s2, i) \
+    instr_create_1dst_3src((dc), OP_vgf2p8affineqb, (d), (s1), (s2), (i))
+#define INSTR_CREATE_vgf2p8affineinvqb(dc, d, s1, s2, i) \
+    instr_create_1dst_3src((dc), OP_vgf2p8affineinvqb, (d), (s1), (s2), (i))
 /** @} */ /* end doxygen group */
 
 /* 1 destination, 3 sources: 1 implicit */
@@ -3936,6 +3987,11 @@
 /* SHA */
 #define INSTR_CREATE_sha1rnds4(dc, d, s, i) \
     instr_create_1dst_3src((dc), OP_sha1rnds4, (d), (s), (i), (d))
+/* GFNI */
+#define INSTR_CREATE_gf2p8affineqb(dc, d, s, i) \
+    instr_create_1dst_3src((dc), OP_gf2p8affineqb, (d), (s), (i), (d))
+#define INSTR_CREATE_gf2p8affineinvqb(dc, d, s, i) \
+    instr_create_1dst_3src((dc), OP_gf2p8affineinvqb, (d), (s), (i), (d))
 /** @} */ /* end doxygen group */
 
 /** @name 1 explicit destination, 2 explicit sources, dest is implicit source */
@@ -4437,6 +4493,11 @@
     instr_create_1dst_4src((dc), OP_vpternlogd, (d), (k), (i), (s1), (s2))
 #define INSTR_CREATE_vpternlogq_mask(dc, d, k, i, s1, s2) \
     instr_create_1dst_4src((dc), OP_vpternlogq, (d), (k), (i), (s1), (s2))
+/* GFNI */
+#define INSTR_CREATE_vgf2p8affineqb_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vgf2p8affineqb, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vgf2p8affineinvqb_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vgf2p8affineinvqb, (d), (k), (i), (s1), (s2))
 /** @} */ /* end doxygen group */
 
 /** @name 1 destination, 3 sources where 2 are implicit */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -380,7 +380,7 @@ const instr_info_t * const op_instr[] =
     /* OP_stmxcsr      */   &e_vex_extensions[62][0],
     /* OP_lfence       */   &mod_extensions[6][1],
     /* OP_mfence       */   &mod_extensions[7][1],
-    /* OP_clflush      */   &mod_extensions[3][0],
+    /* OP_clflush      */   &prefix_extensions[194][0],
     /* OP_sfence       */   &mod_extensions[3][1],
     /* OP_prefetchnta  */   &base_extensions[23][0],
     /* OP_prefetcht0   */   &base_extensions[23][1],
@@ -1106,7 +1106,7 @@ const instr_info_t * const op_instr[] =
     /* OP_wrgsbase      */   &mod_extensions[17][1],
 
     /* coming in the future but adding now since enough details are known */
-    /* OP_rdseed        */   &mod_extensions[13][1],
+    /* OP_rdseed        */   &prefix_extensions[193][0],
 
     /* AMD FMA4 */
     /* OP_vfmaddsubps   */   &vex_W_extensions[30][0],
@@ -1648,6 +1648,35 @@ const instr_info_t * const op_instr[] =
 
     /* MOVDIR64B */
     /* OP_movdir64b */ &prefix_extensions[192][2],
+
+    /* ENQCMD */
+    /* OP_enqcmd */ &mod_extensions[122][0],
+    /* OP_enqcmds */ &mod_extensions[121][0],
+
+    /* RDPID */
+    /* OP_rdpid */ &prefix_extensions[193][1],
+
+    /* Not really part of CLWB but never got added earlier. */
+    /* OP_clflushopt */ &prefix_extensions[194][2],
+
+    /* CLWB */
+    /* OP_clwb */ &mod_extensions[123][0],
+
+    /* CLDEMOTE */
+    /* OP_cldemote */ &second_byte[0x1c],
+
+    /* AVX512_BITALG */
+    /* OP_vpopcntb */ &evex_Wb_extensions[275][0],
+    /* OP_vpopcntw */ &evex_Wb_extensions[275][2],
+    /* OP_vpshufbitqmb */ &evex_Wb_extensions[276][0],
+
+    /* GFNI */
+    /* OP_gf2p8mulb */ &e_vex_extensions[153][0],
+    /* OP_gf2p8affineqb */ &e_vex_extensions[154][0],
+    /* OP_gf2p8affineinvqb */ &e_vex_extensions[155][0],
+    /* OP_vgf2p8mulb */ &vex_W_extensions[114][0],
+    /* OP_vgf2p8affineqb */ &vex_W_extensions[115][1],
+    /* OP_vgf2p8affineinvqb */ &vex_W_extensions[116][1],
 };
 
 
@@ -2510,7 +2539,7 @@ const instr_info_t second_byte[] = {
   {OP_nop_modrm, 0x0f1910, catSIMD, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
   {PREFIX_EXT, 0x0f1a10, catUncategorized, "(prefix ext 186)", xx, xx, xx, xx, xx, mrm, x, 186},
   {PREFIX_EXT, 0x0f1b10, catUncategorized, "(prefix ext 187)", xx, xx, xx, xx, xx, mrm, x, 187},
-  {OP_nop_modrm, 0x0f1c10, catSIMD, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
+  {OP_cldemote, 0x0f1c30, catOther, "cldemote", xx, xx, Mb, xx, xx, mrm|reqp, x, END_LIST},
   {OP_nop_modrm, 0x0f1d10, catSIMD, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
   {OP_nop_modrm, 0x0f1e10, catSIMD, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
   {OP_nop_modrm, 0x0f1f10, catSIMD, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
@@ -5915,9 +5944,9 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0xf201e808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   },{ /* prefix extension 192 */
     {INVALID,        0x38f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,      0xf338f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {MOD_EXT,      0xf338f808, catUncategorized, "(mod ext 121)", xx, xx, xx, xx, xx, no, x, 121},
     {OP_movdir64b, 0x6638f808, catMove, "movdir64b", GesvS_oq, xx, Moq, xx, xx, mrm, x, END_LIST},
-    {INVALID,      0xf238f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {MOD_EXT,      0xf238f808, catUncategorized, "(mod ext 122)", xx, xx, xx, xx, xx, no, x, 122},
     {INVALID,        0x38f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf338f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0x6638f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5926,6 +5955,45 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0xf338f808, catUncategorized, "(bad)"  , xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0x6638f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf238f808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+  },{ /* prefix extension 193 */
+    {OP_rdseed,      0x0fc737, catOther, "rdseed", Rv, xx, xx, xx, xx, mrm, fW6, END_LIST},
+    {OP_rdpid,     0xf30fc737, catState, "rdpid", Rr, xx, xx, xx, xx, mrm, x, END_LIST},
+    {INVALID,      0x660fc737, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf20fc737, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,        0x0fc737, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf30fc737, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x660fc737, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf20fc737, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,        0x0fc737, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf30fc737, catUncategorized, "(bad)"  , xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x660fc737, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf20fc737, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+  },{ /* prefix extension 194 */
+    {OP_clflush,      0x0fae37, catOther, "clflush", xx, xx, Mb, xx, xx, mrm, x, END_LIST},
+    {INVALID,       0xf30fae37, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {OP_clflushopt, 0x660fae37, catOther, "clflushopt", xx, xx, Mb, xx, xx, mrm, x, END_LIST},
+    {INVALID,       0xf20fae37, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,         0x0fae37, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,       0xf30fae37, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,       0x660fae37, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,       0xf20fae37, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,         0x0fae37, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,       0xf30fae37, catUncategorized, "(bad)"  , xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,       0x660fae37, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,       0xf20fae37, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+  },{ /* prefix extension 195 */
+    {REX_W_EXT,       0x0fae36, catUncategorized, "(rex.w ext 4)", xx, xx, xx, xx, xx, mrm, x, 4},
+    {INVALID,       0xf30fae36, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {MOD_EXT,       0x660fae36, catUncategorized, "(mod ext 123)", xx, xx, xx, xx, xx, mrm, x, 123},
+    {INVALID,       0xf20fae36, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,         0x0fae36, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,       0xf30fae36, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,       0x660fae36, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,       0xf20fae36, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,         0x0fae36, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,       0xf30fae36, catUncategorized, "(bad)"  , xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,       0x660fae36, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,       0xf20fae36, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }
 };
 /****************************************************************************
@@ -6553,6 +6621,18 @@ const instr_info_t e_vex_extensions[][3] = {
     {INVALID, 0x385308, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT, 0x385308, catUncategorized, "(vex_W ext 113)", xx, xx, xx, xx, xx, mrm|vex|reqp|ttfvm, x, 113},
     {EVEX_Wb_EXT, 0x385308, catUncategorized, "(evex_Wb ext 270)", xx, xx, xx, xx, xx, mrm|reqp, x, 270},
+  }, { /* e_vex ext 153 */
+    {OP_gf2p8mulb, 0x6638cf08, catMath | catSIMD, "gf2p8mulb", Vdq, xx, Wdq, Vdq, xx, mrm|reqp, x, END_LIST},
+    {VEX_W_EXT, 0x6638cf08, catUncategorized, "(vex_W ext 114)", xx, xx, xx, xx, xx, mrm|vex|reqp, x, 114},
+    {EVEX_Wb_EXT, 0x6638cf08, catUncategorized, "(evex_Wb ext 277)", xx, xx, xx, xx, xx, mrm|reqp, x, 277},
+  }, { /* e_vex ext 154 */
+    {OP_gf2p8affineqb, 0x663ace08, catMath | catSIMD, "gf2p8affineqb", Vdq, xx, Wdq, Ib, Vdq, mrm|reqp, x, END_LIST},
+    {VEX_W_EXT, 0x663ace08, catUncategorized, "(vex_W ext 115)", xx, xx, xx, xx, xx, mrm|vex|reqp, x, 115},
+    {EVEX_Wb_EXT, 0x663ace08, catUncategorized, "(evex_Wb ext 278)", xx, xx, xx, xx, xx, mrm|reqp, x, 278}
+  }, { /* e_vex ext 155 */
+    {OP_gf2p8affineinvqb, 0x663acf08, catMath | catSIMD, "gf2p8affineinvqb", Vdq, xx, Wdq, Ib, Vdq, mrm|reqp, x, END_LIST},
+    {VEX_W_EXT, 0x663acf08, catUncategorized, "(vex_W ext 116)", xx, xx, xx, xx, xx, mrm|vex|reqp, x, 116},
+    {EVEX_Wb_EXT, 0x663acf08, catUncategorized, "(evex_Wb ext 279)", xx, xx, xx, xx, xx, mrm|reqp, x, 279}
   },
 };
 
@@ -6576,8 +6656,11 @@ const instr_info_t mod_extensions[][2] = {
     {RM_EXT,    0x0f0177, catUncategorized, "(group 7 mod + rm ext 2)", xx, xx, xx, xx, xx, mrm, x, 2},
   },
   { /* mod extension 3 */
-    {OP_clflush, 0x0fae37, catSIMD, "clflush", xx, xx, Mb, xx, xx, mrm, x, END_LIST},
-    {OP_sfence,  0xf80fae77, catStore | catSIMD, "sfence",  xx, xx, xx, xx, xx, mrm, x, END_LIST},
+    {PREFIX_EXT, 0x0fae37, catUncategorized, "(prefix ext 194)", xx, xx, xx, xx, xx, no, x, 194},
+    // If we add an "atomic" category we'd put this there.
+    // Without it, "state" might best be interpreted as a barrier, so we use it for
+    // all the OP_*fence opcodes.
+    {OP_sfence,  0xf80fae77, catState, "sfence",  xx, xx, xx, xx, xx, mrm, x, END_LIST},
   },
   { /* mod extension 4 */
     {OP_lidt,   0x0f0133, catLoad, "lidt",  xx, xx, Ms, xx, xx, mrm, x, END_LIST},
@@ -6590,11 +6673,11 @@ const instr_info_t mod_extensions[][2] = {
   { /* mod extension 6 */
     {REX_W_EXT, 0x0fae35, catUncategorized, "(rex.w ext 3)", xx, xx, xx, xx, xx, mrm, x, 3},
     /* note that gdb thinks e9-ef are "lfence (bad)" (PR 239920) */
-    {OP_lfence, 0xe80fae75, catLoad, "lfence", xx, xx, xx, xx, xx, mrm, x, END_LIST},
+    {OP_lfence, 0xe80fae75, catState, "lfence", xx, xx, xx, xx, xx, mrm, x, END_LIST},
   },
   { /* mod extension 7 */
-    {REX_W_EXT,   0x0fae36, catUncategorized, "(rex.w ext 4)", xx, xx, xx, xx, xx, mrm, x, 4},
-    {OP_mfence,   0xf00fae76, catUncategorized, "mfence", xx, xx, xx, xx, xx, mrm, x, END_LIST},
+    {PREFIX_EXT,  0x0fae36, catUncategorized, "(prefix ext 195)", xx, xx, xx, xx, xx, no, x, 195},
+    {OP_mfence,   0xf00fae76, catState, "mfence", xx, xx, xx, xx, xx, mrm, x, END_LIST},
   },
   { /* mod extension 8 */
     {OP_vmovss,  0xf30f1010, catFP | catMove | catSIMD, "vmovss",  Vdq, xx, Wss,  xx, xx, mrm|vex, x, modx[10][0]},
@@ -6621,7 +6704,7 @@ const instr_info_t mod_extensions[][2] = {
      * explicitly encoding that until we have more information.
      */
     {OP_vmptrst, 0x0fc737, catUncategorized, "vmptrst", Mq, xx, xx, xx, xx, mrm|o64, x, END_LIST},
-    {OP_rdseed,  0x0fc737, catUncategorized, "rdseed", Rv, xx, xx, xx, xx, mrm, fW6, END_LIST},
+    {PREFIX_EXT, 0x0fc737, catUncategorized, "(prefix ext 193)", xx, xx, xx, xx, xx, no, x, 193},
   },
   { /* mod extension 14 */
     {REX_W_EXT,  0x0fae30, catUncategorized, "(rex.w ext 0)", xx, xx, xx, xx, xx, mrm, x, 0},
@@ -7056,6 +7139,18 @@ const instr_info_t mod_extensions[][2] = {
     {INVALID, 0x0f0135, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {RM_EXT,  0x0f0175, catUncategorized, "(group 7 mod + rm ext 5)", xx, xx, xx, xx, xx, mrm, x, 5},
   },
+  { /* mod extension 121 */
+    {OP_enqcmds, 0xf338f808, catMove | catOther, "enqcmds", GesvS_oq, xx, Moq, xx, xx, mrm, fW6, END_LIST},
+    {INVALID,    0xf338f808, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+  },
+  { /* mod extension 122 */
+    {OP_enqcmd,  0xf238f808, catMove | catOther, "enqcmd", GesvS_oq, xx, Moq, xx, xx, mrm, fW6, END_LIST},
+    {INVALID,    0xf238f808, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+  },
+  { /* mod extension 123 */
+    {OP_clwb,    0x660fae36, catOther, "clwb", xx, xx, Mb, xx, xx, mrm, no, END_LIST},
+    {INVALID,    0x660fae36, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+  },
 };
 
 /* Naturally all of these have modrm bytes even if they have no explicit operands */
@@ -7324,14 +7419,14 @@ const byte third_byte_38_index[256] = {
     20, 21, 22, 23,  24, 25,148,149,  26, 27, 28, 29,  92, 93, 94, 95,  /* 2 */
     30, 31, 32, 33,  34, 35,112, 36,  37, 38, 39, 40,  41, 42, 43, 44,  /* 3 */
     45, 46,142,143, 156,113,114,115,   0,  0,  0,  0, 129,130,150,151,  /* 4 */
-   166,167,168,169,   0,171,  0,  0, 118,119,108,138,   0,  0,  0,  0,  /* 5 */
+   166,167,168,169, 174,171,  0,  0, 118,119,108,138,   0,  0,  0,  0,  /* 5 */
      0,  0,  0,  0, 145,139,144,  0,   0,  0,  0,  0,   0,  0,  0,  0,  /* 6 */
      0,  0,170,  0,   0,123,122,121, 116,117,135,136, 137,124,125,126,  /* 7 */
-    49, 50,103,  0,   0,  0,  0,  0, 141,147,140,146, 109,120,110,  0,  /* 8 */
+    49, 50,103,  0,   0,  0,  0,  0, 141,147,140,146, 109,120,110,175,  /* 8 */
    104,105,106,107,   0,  0, 58, 59,  60, 61, 62, 63,  64, 65, 66, 67,  /* 9 */
    159,160,161,162,   0,  0, 68, 69,  70, 71, 72, 73,  74, 75, 76, 77,  /* A */
      0,  0,  0,  0, 157,158, 78, 79,  80, 81, 82, 83,  84, 85, 86, 87,  /* B */
-     0,  0,  0,  0, 155,  0,163,164, 154,165,131,132, 152,153,  0,  0,  /* C */
+     0,  0,  0,  0, 155,  0,163,164, 154,165,131,132, 152,153,  0,176,  /* C */
      0,  0,  0,  0,   0,  0,  0,  0,   0,  0,  0, 51,  52, 53, 54, 55,  /* D */
      0,  0,  0,  0,   0,  0,  0,  0,   0,  0,  0,  0,   0,  0,  0,  0,  /* E */
     47, 48,100, 99,   0,101,102, 98, 172,173,  0,  0,   0,  0,  0,  0   /* F */
@@ -7532,6 +7627,11 @@ const instr_info_t third_byte_38[] = {
   {EVEX_Wb_EXT, 0x66385518, catUncategorized, "(evex_Wb ext 274)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 274},/*171*/
   {PREFIX_EXT, 0x38f808, catUncategorized, "(prefix ext 192)", xx, xx, xx, xx, xx, mrm, x, 192},/*172*/
   {OP_movdiri, 0x38f908, catMove, "movdiri", My, xx, Gy, xx, xx, mrm, x, END_LIST},/*173*/
+  /* AVX512_BITALG */
+  {EVEX_Wb_EXT, 0x66385418, catUncategorized, "(evex_Wb ext 275)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 275},/*174*/
+  {EVEX_Wb_EXT, 0x66388f18, catUncategorized, "(evex_Wb ext 276)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 276},/*175*/
+  /* GFNI */
+  {E_VEX_EXT, 0x6638cf08, catUncategorized, "(e_vex ext 153)", xx, xx, xx, xx, xx, mrm, x, 153}/*176*/
 };
 
 /* N.B.: every 0x3a instr so far has an immediate.  If a version w/o an immed
@@ -7551,7 +7651,7 @@ const byte third_byte_3a_index[256] = {
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 9 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* A */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* B */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0, 89, 0, 0, 0,  /* C */
+     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0, 89, 0,90,91,  /* C */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0,24,  /* D */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* E */
     56, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0   /* F */
@@ -7660,6 +7760,9 @@ const instr_info_t third_byte_3a[] = {
   {EVEX_Wb_EXT, 0x663a2518, catUncategorized, "(evex_Wb ext 188)", xx, xx, xx, xx, xx, mrm, x, 188},/*88*/
   /* SHA */
   {OP_sha1rnds4, 0x3acc18, catUncategorized, "sha1rnds4", Vdq, xx, Wdq, Ib, Vdq, mrm|reqp, x, END_LIST},/*89*/
+  /* GFNI */
+  {E_VEX_EXT, 0x663ace08, catUncategorized, "(e_vex ext 154)", xx, xx, xx, xx, xx, mrm, x, 154},/*90*/
+  {E_VEX_EXT, 0x663acf08, catUncategorized, "(e_vex ext 155)", xx, xx, xx, xx, xx, mrm, x, 155},/*91*/
 };
 
 /****************************************************************************
@@ -8013,6 +8116,15 @@ const instr_info_t vex_W_extensions[][2] = {
   }, { /* vex_W_ext 113 */
     {OP_vpdpwssds, 0x66385308, catUncategorized, "vpdpwssds", Ve, xx, He, We, xx, mrm|vex|ttfvm|reqp, x, tevexwb[270][0]},
     {INVALID,    0x663850, catUncategorized,   "(bad)", xx,xx, xx,  xx,xx,     no,x,NA},
+  }, { /* vex_W_ext 114 */
+    {OP_vgf2p8mulb, 0x6638cf08, catMath | catSIMD, "vgf2p8mulb", Vx, xx, Hx, Wx, xx, mrm|vex|reqp, x, tevexwb[277][0]},
+    {INVALID,    0x6638cf48, catUncategorized,   "(bad)", xx,xx, xx,  xx,xx,     no,x,NA},
+  }, { /* vex_W_ext 115 */
+    {INVALID,    0x663ace08, catUncategorized,   "(bad)", xx,xx, xx,  xx,xx,     no,x,NA},
+    {OP_vgf2p8affineqb, 0x663ace48, catMath | catSIMD, "vgf2p8affineqb", Vx, xx, Hx, Wx, Ib, mrm|vex|reqp, x, tevexwb[278][2]},
+  }, { /* vex_W_ext 116 */
+    {INVALID,    0x663acf08, catUncategorized,   "(bad)", xx,xx, xx,  xx,xx,     no,x,NA},
+    {OP_vgf2p8affineinvqb, 0x663acf48, catMath | catSIMD, "vgf2p8affineinvqb", Vx, xx, Hx, Wx, Ib, mrm|vex|reqp, x, tevexwb[279][2]},
   },
 };
 
@@ -9447,6 +9559,31 @@ const instr_info_t evex_Wb_extensions[][4] = {
     {OP_vpopcntd, 0x66385518, catUncategorized, "vpopcntd", Ve, xx, KEd, Md, xx, mrm|evex|ttfv|reqp, x, END_LIST},
     {OP_vpopcntq, 0x66385548, catUncategorized, "vpopcntq", Ve, xx, KEq, We, xx, mrm|evex|ttfv|reqp, x, tevexwb[274][3]},
     {OP_vpopcntq, 0x66385558, catUncategorized, "vpopcntq", Ve, xx, KEq, Mq, xx, mrm|evex|ttfv|reqp, x, END_LIST},
+  },{ /* evex_W_ext 275 */
+    {OP_vpopcntb, 0x66385408, catSIMD, "vpopcntb", Ve, xx, KEd, We, xx, mrm|evex|ttfv|reqp, x, END_LIST},
+    {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vpopcntw, 0x66385448, catSIMD, "vpopcntw", Ve, xx, KEq, We, xx, mrm|evex|ttfv|reqp, x, END_LIST},
+    {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  },{ /* evex_W_ext 276 */
+    {OP_vpshufbitqmb, 0x66388f08, catSIMD, "vpshufbitqmb", KPq, xx, KEd, He, We, mrm|evex|ttfv|reqp, x, END_LIST},
+    {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  },{ /* evex_W_ext 277 */
+    {OP_vgf2p8mulb, 0x6638cf08, catMath | catSIMD, "vgf2p8mulb", Ve, xx, KEb, He, We, mrm|evex|ttfvm|reqp, x, END_LIST},
+    {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  },{ /* evex_W_ext 278 */
+    {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vgf2p8affineqb, 0x663ace48, catMath | catSIMD, "vgf2p8affineqb", Ve, xx, KEb, Ib, He, mrm|evex|ttfvm|reqp|xop, x, exop[257]},
+    {OP_vgf2p8affineqb, 0x663ace58, catMath | catSIMD, "vgf2p8affineqb", Ve, xx, KEb, Ib, He, mrm|evex|ttfvm|reqp|xop, x, exop[258]},
+  },{ /* evex_W_ext 279 */
+    {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vgf2p8affineinvqb, 0x663acf48, catMath | catSIMD, "vgf2p8affineinvqb", Ve, xx, KEb, Ib, He, mrm|evex|ttfvm|reqp|xop, x, exop[259]},
+    {OP_vgf2p8affineinvqb, 0x663acf58, catMath | catSIMD, "vgf2p8affineinvqb", Ve, xx, KEb, Ib, He, mrm|evex|ttfvm|reqp|xop, x, exop[260]},
   },
 };
 
@@ -10778,7 +10915,14 @@ const instr_info_t extra_operands[] =
     /* 254 */
     {OP_CONTD, 0xcf0f0171, catUncategorized, "<encls cont'd>", ecx, edx, edx, xx, xx, mrm, x, END_LIST},
     {OP_CONTD, 0xd70f0172, catUncategorized, "<enclu cont'd>", ecx, edx, edx, xx, xx, mrm, x, END_LIST},
+    /* 256 */
     {OP_CONTD, 0xc00f0171, catUncategorized, "<enclv cont'd>", ecx, edx, edx, xx, xx, mrm, x, END_LIST},
+    {OP_CONTD, 0x663ace48, catMath | catSIMD, "<vgf2p8affineqb cont'd>", xx, xx, We, xx, xx, mrm|evex|ttfvm|reqp, x, tevexwb[278][3]},
+    /* 258 */
+    {OP_CONTD, 0x663ace58, catMath | catSIMD, "<vgf2p8affineqb cont'd>", xx, xx, Mq, xx, xx, mrm|evex|ttfvm|reqp, x, END_LIST},
+    {OP_CONTD, 0x663acf48, catMath | catSIMD, "<vgf2p8affineinvqb cont'd>", xx, xx, We, xx, xx, mrm|evex|ttfvm|reqp, x, tevexwb[279][3]},
+    /* 260 */
+    {OP_CONTD, 0x663acf58, catMath | catSIMD, "<vgf2p8affineinvqb cont'd>", xx, xx, Mq, xx, xx, mrm|evex|ttfvm|reqp, x, END_LIST},
 };
 
 /* clang-format on */
