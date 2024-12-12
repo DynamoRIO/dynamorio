@@ -143,6 +143,8 @@ Further non-compatibility-affecting changes include:
  - Added the AArch64 FPMR register as DR_REG_FPMR.
  - Added OPSZ_addr which chooses the appropriate operand size on X86 from 2/4/8 based
    on the 32/64 bit mode and the presence or absence of the address size prefix.
+ - Fixed the order of operands for the vpexpandd/vpexpandq opcodes (previously the
+   source and destination operands were reversed).
 
 **************************************************
 <hr>
