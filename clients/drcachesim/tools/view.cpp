@@ -125,15 +125,13 @@ view_t::initialize_stream(memtrace_stream_t *serial_stream)
         has_modules_ = false;
     } else {
         file_t modfile;
-        char *modfile_bytes;
         std::string error =
-            read_module_file_bytes(module_file_path_, modfile, modfile_bytes);
+            read_module_file_bytes(module_file_path_, modfile, modfile_bytes_);
         if (error.empty()) {
             module_mapper_ =
-                module_mapper_t::create(modfile_bytes, nullptr, nullptr, nullptr, nullptr,
+                module_mapper_t::create(modfile_bytes_, nullptr, nullptr, nullptr, nullptr,
                                         knob_verbose_, knob_alt_module_dir_);
             module_mapper_->get_loaded_modules();
-            delete[] modfile_bytes;
             dr_close_file(modfile);
             error = module_mapper_->get_last_error();
             if (!error.empty()) {
@@ -661,6 +659,13 @@ view_t::print_results()
     std::cerr << TOOL_NAME << " results:\n";
     std::cerr << std::setw(15) << num_disasm_instrs_ << " : total instructions\n";
     return true;
+}
+
+view_t::~view_t()
+{
+    if (modfile_bytes_ != nullptr) {
+        delete[] modfile_bytes_;
+    }
 }
 
 } // namespace drmemtrace

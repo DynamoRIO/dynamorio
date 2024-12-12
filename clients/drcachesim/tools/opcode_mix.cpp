@@ -93,16 +93,15 @@ opcode_mix_t::initialize()
     // Legacy trace support where binaries are needed.
     // We do not support non-module code for such traces.
     file_t modfile;
-    char *modfile_bytes;
-    std::string error = read_module_file_bytes(module_file_path_, modfile, modfile_bytes);
+    std::string error =
+        read_module_file_bytes(module_file_path_, modfile, modfile_bytes_);
     if (!error.empty()) {
         return "Failed to read module file: " + error;
     }
     module_mapper_ =
-        module_mapper_t::create(modfile_bytes, nullptr, nullptr, nullptr, nullptr,
+        module_mapper_t::create(modfile_bytes_, nullptr, nullptr, nullptr, nullptr,
                                 knob_verbose_, knob_alt_module_dir_);
     module_mapper_->get_loaded_modules();
-    delete[] modfile_bytes;
     dr_close_file(modfile);
     error = module_mapper_->get_last_error();
     if (!error.empty())
@@ -114,6 +113,9 @@ opcode_mix_t::~opcode_mix_t()
 {
     for (auto &iter : shard_map_) {
         delete iter.second;
+    }
+    if (modfile_bytes_ != nullptr) {
+        delete[] modfile_bytes_;
     }
 }
 

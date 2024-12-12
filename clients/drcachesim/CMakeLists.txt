@@ -1202,7 +1202,7 @@ if (BUILD_TESTS)
     add_executable(tool.drcacheoff.skip_unit_tests tests/skip_unit_tests.cpp)
     configure_DynamoRIO_standalone(tool.drcacheoff.skip_unit_tests)
     target_link_libraries(tool.drcacheoff.skip_unit_tests drmemtrace_analyzer
-      drmemtrace_view drmemtrace_raw2trace test_helpers)
+      drmemtrace_view drmemtrace_raw2trace test_helpers ${zlib_libs})
     add_win32_flags(tool.drcacheoff.skip_unit_tests)
     use_DynamoRIO_extension(tool.drcacheoff.skip_unit_tests drreg_static)
     use_DynamoRIO_extension(tool.drcacheoff.skip_unit_tests drcovlib_static)
