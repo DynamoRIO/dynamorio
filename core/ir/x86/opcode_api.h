@@ -1664,6 +1664,27 @@ enum {
     /* 1459 */ OP_vgf2p8affineqb,    /**< IA-32/AMD64 vgf2p8affineqb opcode. */
     /* 1460 */ OP_vgf2p8affineinvqb, /**< IA-32/AMD64 vgf2p8affineinvqb opcode. */
 
+    /* Missing opcode from AVX512_VBMI */
+    /* 1461 */ OP_vpmultishiftqb, /**< IA-32/AMD64 vpmultishiftqb opcode. */
+
+    /* AVX512_VBMI2 */
+    /* 1462 */ OP_vpcompressb, /**< IA-32/AMD64 vpcompressb opcode. */
+    /* 1463 */ OP_vpcompressw, /**< IA-32/AMD64 vpcompressw opcode. */
+    /* 1464 */ OP_vpexpandb,   /**< IA-32/AMD64 vpexpandb opcode. */
+    /* 1465 */ OP_vpexpandw,   /**< IA-32/AMD64 vpexpandw opcode. */
+    /* 1466 */ OP_vpshldw,     /**< IA-32/AMD64 vpshldw opcode. */
+    /* 1467 */ OP_vpshldd,     /**< IA-32/AMD64 vpshldd opcode. */
+    /* 1468 */ OP_vpshldq,     /**< IA-32/AMD64 vpshldq opcode. */
+    /* 1469 */ OP_vpshldvw,    /**< IA-32/AMD64 vpshldvw opcode. */
+    /* 1470 */ OP_vpshldvd,    /**< IA-32/AMD64 vpshldvd opcode. */
+    /* 1471 */ OP_vpshldvq,    /**< IA-32/AMD64 vpshldvq opcode. */
+    /* 1472 */ OP_vpshrdw,     /**< IA-32/AMD64 vpshrdw opcode. */
+    /* 1473 */ OP_vpshrdd,     /**< IA-32/AMD64 vpshrdd opcode. */
+    /* 1474 */ OP_vpshrdq,     /**< IA-32/AMD64 vpshrdq opcode. */
+    /* 1475 */ OP_vpshrdvw,    /**< IA-32/AMD64 vpshrdvw opcode. */
+    /* 1476 */ OP_vpshrdvd,    /**< IA-32/AMD64 vpshrdvd opcode. */
+    /* 1477 */ OP_vpshrdvq,    /**< IA-32/AMD64 vpshrdvq opcode. */
+
     OP_AFTER_LAST,
     OP_FIRST = OP_add,           /**< First real opcode. */
     OP_LAST = OP_AFTER_LAST - 1, /**< Last real opcode. */
