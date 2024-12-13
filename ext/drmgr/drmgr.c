@@ -2694,7 +2694,7 @@ static bool
 drmgr_unreserve_tls_cls_field(bool *taken, int idx)
 {
     bool res = false;
-    if (idx < 0 || idx > MAX_NUM_TLS)
+    if (idx < 0 || idx >= MAX_NUM_TLS)
         return false;
     dr_mutex_lock(tls_lock);
     if (taken[idx]) {
@@ -2726,7 +2726,7 @@ drmgr_get_tls_field(void *drcontext, int idx)
 {
     tls_array_t *tls = (tls_array_t *)dr_get_tls_field(drcontext);
     /* no need to check for tls_taken since would return NULL anyway (i#484) */
-    if (idx < 0 || idx > MAX_NUM_TLS || tls == NULL)
+    if (idx < 0 || idx >= MAX_NUM_TLS || tls == NULL)
         return NULL;
     return tls->tls[idx];
 }
@@ -2736,7 +2736,7 @@ bool
 drmgr_set_tls_field(void *drcontext, int idx, void *value)
 {
     tls_array_t *tls = (tls_array_t *)dr_get_tls_field(drcontext);
-    if (idx < 0 || idx > MAX_NUM_TLS || tls == NULL)
+    if (idx < 0 || idx >= MAX_NUM_TLS || tls == NULL)
         return false;
     /* going DR's traditional route of efficiency over safety: making this
      * a debug-only check to avoid cost in release build
@@ -2752,7 +2752,7 @@ drmgr_insert_read_tls_field(void *drcontext, int idx, instrlist_t *ilist, instr_
                             reg_id_t reg)
 {
     tls_array_t *tls = (tls_array_t *)dr_get_tls_field(drcontext);
-    if (idx < 0 || idx > MAX_NUM_TLS || !tls_taken[idx] || tls == NULL)
+    if (idx < 0 || idx >= MAX_NUM_TLS || !tls_taken[idx] || tls == NULL)
         return false;
     if (!reg_is_gpr(reg) || !reg_is_pointer_sized(reg))
         return false;
@@ -2771,7 +2771,7 @@ drmgr_insert_write_tls_field(void *drcontext, int idx, instrlist_t *ilist, instr
                              reg_id_t reg, reg_id_t scratch)
 {
     tls_array_t *tls = (tls_array_t *)dr_get_tls_field(drcontext);
-    if (idx < 0 || idx > MAX_NUM_TLS || !tls_taken[idx] || tls == NULL)
+    if (idx < 0 || idx >= MAX_NUM_TLS || !tls_taken[idx] || tls == NULL)
         return false;
     if (!reg_is_gpr(reg) || !reg_is_pointer_sized(reg) || !reg_is_gpr(scratch) ||
         !reg_is_pointer_sized(scratch))
@@ -3073,7 +3073,7 @@ void *
 drmgr_get_cls_field(void *drcontext, int idx)
 {
     tls_array_t *tls = (tls_array_t *)dr_get_tls_field(drcontext);
-    if (idx < 0 || idx > MAX_NUM_TLS || !cls_taken[idx] || tls == NULL)
+    if (idx < 0 || idx >= MAX_NUM_TLS || !cls_taken[idx] || tls == NULL)
         return NULL;
     return tls->cls[idx];
 }
@@ -3083,7 +3083,7 @@ bool
 drmgr_set_cls_field(void *drcontext, int idx, void *value)
 {
     tls_array_t *tls = (tls_array_t *)dr_get_tls_field(drcontext);
-    if (idx < 0 || idx > MAX_NUM_TLS || !cls_taken[idx] || tls == NULL)
+    if (idx < 0 || idx >= MAX_NUM_TLS || !cls_taken[idx] || tls == NULL)
         return false;
     tls->cls[idx] = value;
     return true;
@@ -3094,7 +3094,7 @@ void *
 drmgr_get_parent_cls_field(void *drcontext, int idx)
 {
     tls_array_t *tls = (tls_array_t *)dr_get_tls_field(drcontext);
-    if (idx < 0 || idx > MAX_NUM_TLS || !cls_taken[idx] || tls == NULL)
+    if (idx < 0 || idx >= MAX_NUM_TLS || !cls_taken[idx] || tls == NULL)
         return NULL;
     if (tls->prev != NULL)
         return tls->prev->cls[idx];
@@ -3107,7 +3107,7 @@ drmgr_insert_read_cls_field(void *drcontext, int idx, instrlist_t *ilist, instr_
                             reg_id_t reg)
 {
     tls_array_t *tls = (tls_array_t *)dr_get_tls_field(drcontext);
-    if (idx < 0 || idx > MAX_NUM_TLS || !cls_taken[idx] || tls == NULL)
+    if (idx < 0 || idx >= MAX_NUM_TLS || !cls_taken[idx] || tls == NULL)
         return false;
     if (!reg_is_gpr(reg) || !reg_is_pointer_sized(reg))
         return false;
@@ -3126,7 +3126,7 @@ drmgr_insert_write_cls_field(void *drcontext, int idx, instrlist_t *ilist, instr
                              reg_id_t reg, reg_id_t scratch)
 {
     tls_array_t *tls = (tls_array_t *)dr_get_tls_field(drcontext);
-    if (idx < 0 || idx > MAX_NUM_TLS || !cls_taken[idx] || tls == NULL)
+    if (idx < 0 || idx >= MAX_NUM_TLS || !cls_taken[idx] || tls == NULL)
         return false;
     if (!reg_is_gpr(reg) || !reg_is_pointer_sized(reg) || !reg_is_gpr(scratch) ||
         !reg_is_pointer_sized(scratch))
