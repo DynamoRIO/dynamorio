@@ -459,3 +459,10 @@ OPCODE(vpabsd, vpabsd, vpabsd, 0, REGARG(XMM1), MEMARG(OPSZ_16))
 OPCODE(vpabsb_256, vpabsb, vpabsb, 0, REGARG(YMM1), MEMARG(OPSZ_32))
 OPCODE(vpabsw_256, vpabsw, vpabsw, 0, REGARG(YMM1), MEMARG(OPSZ_32))
 OPCODE(vpabsd_256, vpabsd, vpabsd, 0, REGARG(YMM1), MEMARG(OPSZ_32))
+
+/****************************************************************************/
+/* GFNI */
+OPCODE(gf2p8mulb_regreg, gf2p8mulb, gf2p8mulb, 0, REGARG(XMM0), REGARG(XMM1))
+OPCODE(gf2p8mulb_regmem, gf2p8mulb, gf2p8mulb, 0, REGARG(XMM0), MEMARG(OPSZ_16))
+OPCODE(gf2p8mulb_reghireg, gf2p8mulb, gf2p8mulb, X64_ONLY, REGARG(XMM0), REGARG(XMM8))
+OPCODE(gf2p8mulb_hiregreg, gf2p8mulb, gf2p8mulb, X64_ONLY, REGARG(XMM8), REGARG(XMM0))

@@ -43,6 +43,7 @@
 #    include <windows.h>
 #endif
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
