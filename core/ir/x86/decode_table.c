@@ -6260,8 +6260,8 @@ const instr_info_t e_vex_extensions[][3] = {
     {INVALID, 0x663a6318, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* e_vex ext 57 */
     {OP_pclmulqdq, 0x663a4418, catSIMD, "pclmulqdq", Vdq, xx, Wdq, Ib, Vdq, mrm|reqp, x, END_LIST},
-    {OP_vpclmulqdq,0x663a4418, catSIMD, "vpclmulqdq", Vx, xx, Hx, Wx, Ib, mrm|vex|reqp, x, END_LIST},
-    {INVALID, 0x663a4418, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vpclmulqdq,0x663a4418, catSIMD, "vpclmulqdq", Vx, xx, Hx, Wx, Ib, mrm|vex|reqp, x, tvex[57][2]},
+    {OP_vpclmulqdq,0x663a4418, catSIMD, "vpclmulqdq", Ve, xx, He, We, Ib, mrm|evex|reqp|ttfvm, x, END_LIST},
   }, { /* e_vex ext 58 */
     {OP_aeskeygenassist, 0x663adf18, catSIMD, "aeskeygenassist",Vdq,xx,Wdq,Ib,xx,mrm|reqp,x,END_LIST},
     {OP_vaeskeygenassist,0x663adf18, catSIMD, "vaeskeygenassist",Vdq,xx,Wdq,Ib,xx,mrm|vex|reqp,x,END_LIST},
