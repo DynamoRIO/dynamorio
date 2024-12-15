@@ -125,8 +125,7 @@ view_t::initialize_stream(memtrace_stream_t *serial_stream)
         has_modules_ = false;
     } else {
         file_t modfile;
-        std::string error =
-            read_module_file_bytes(module_file_path_, modfile, modfile_bytes_);
+        std::string error = read_module_file(module_file_path_, modfile, modfile_bytes_);
         if (!error.empty())
             has_modules_ = false;
         else

@@ -537,7 +537,7 @@ raw2trace_directory_t::initialize(const std::string &indir, const std::string &o
     }
     std::string modfilename =
         modfile_dir + std::string(DIRSEP) + DRMEMTRACE_MODULE_LIST_FILENAME;
-    std::string err = read_module_file(modfilename);
+    std::string err = read_module_file(modfilename, modfile_, modfile_bytes_);
     if (!err.empty())
         return err;
 

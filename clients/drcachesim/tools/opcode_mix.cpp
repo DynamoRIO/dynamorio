@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -93,8 +93,7 @@ opcode_mix_t::initialize()
     // Legacy trace support where binaries are needed.
     // We do not support non-module code for such traces.
     file_t modfile;
-    std::string error =
-        read_module_file_bytes(module_file_path_, modfile, modfile_bytes_);
+    std::string error = read_module_file(module_file_path_, modfile, modfile_bytes_);
     if (!error.empty()) {
         return "Failed to read module file: " + error;
     }

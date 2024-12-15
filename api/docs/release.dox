@@ -134,10 +134,9 @@ changes:
    is the encoding of the removed instruction up to a pointer's length. Added
    #OFFLINE_FILE_VERSION_RETIRED_INSTRUCTIONS_ONLY to increase the trace version
    for drmemtraces with uncompleted instructions removed.
- - Moved module file read logic into read_module_file_bytes() in raw2trace_shared.h.
-   Also removed raw2trace_directory_t::initialize_module_file() and marked
-   raw2trace_directory_t::modfile_bytes_ as a private data member since the
-   read_module_file_bytes() can be directly used without having to pull in the whole
+ - Moved module file read logic into read_module_file() in raw2trace_shared.h.
+   Also removed raw2trace_directory_t::initialize_module_file() since the
+   read_module_file() can be directly used without having to pull in the whole
    raw2trace_directory_t.
 
 Further non-compatibility-affecting changes include:

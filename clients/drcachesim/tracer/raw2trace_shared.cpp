@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -167,8 +167,7 @@ drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size
 }
 
 std::string
-read_module_file_bytes(const std::string &modfilename, file_t &modfile,
-                       char *&modfile_bytes)
+read_module_file(const std::string &modfilename, file_t &modfile, char *&modfile_bytes)
 {
     modfile = dr_open_file(modfilename.c_str(), DR_FILE_READ);
     if (modfile == INVALID_FILE)

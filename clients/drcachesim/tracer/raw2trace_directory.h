@@ -60,8 +60,8 @@ namespace drmemtrace {
 class raw2trace_directory_t {
 public:
     raw2trace_directory_t(unsigned int verbosity = 0)
-        : encoding_file_(INVALID_FILE)
-        , modfile_bytes_(nullptr)
+        : modfile_bytes_(nullptr)
+        , encoding_file_(INVALID_FILE)
         , modfile_(INVALID_FILE)
         , indir_("")
         , outdir_("")
@@ -94,6 +94,7 @@ public:
     static bool
     is_window_subdir(const std::string &dir);
 
+    char *modfile_bytes_;
     file_t encoding_file_;
     std::vector<std::istream *> in_files_;
     std::vector<std::ostream *> out_files_;
@@ -122,7 +123,6 @@ private:
     std::string
     open_kthread_files();
 #endif
-    char *modfile_bytes_;
     file_t modfile_;
     std::string kernel_indir_;
     std::string indir_;

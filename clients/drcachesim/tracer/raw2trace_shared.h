@@ -167,7 +167,7 @@ private:
  * attempt to isolate implementation that uses DR file APIs to
  * raw2trace_directory_t, and have raw2trace and raw2trace_shared
  * deal only with file streams, but we make an exception here. This
- * is acceptable because no current users of read_module_file_bytes
+ * is acceptable because no current users of read_module_file
  * need to read it from a stream. Also, this is a simple convenience
  * routine that only reads the file without any module file specific
  * logic.
@@ -177,8 +177,7 @@ private:
  * using a delete[].
  */
 std::string
-read_module_file_bytes(const std::string &modfilename, file_t &modfile,
-                       char *&modfile_bytes);
+read_module_file(const std::string &modfilename, file_t &modfile, char *&modfile_bytes);
 
 struct module_t {
     module_t(const char *path, app_pc orig, byte *map, size_t offs, size_t size,
