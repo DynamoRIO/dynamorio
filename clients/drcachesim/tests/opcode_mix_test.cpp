@@ -30,7 +30,7 @@
  * DAMAGE.
  */
 
-/* Tests for opcode_mix_t library. */
+/* Tests for the opcode_mix_t analysis tool. */
 
 #include <iostream>
 #include <vector>
@@ -47,8 +47,7 @@ class test_opcode_mix_t : public opcode_mix_t {
 public:
     // Pass a non-nullptr instrlist_t if the module mapper must be used.
     test_opcode_mix_t(instrlist_t *instrs)
-        : opcode_mix_t(instrs == nullptr ? "" : "use_mod_map", /*verbose=*/
-                       0,
+        : opcode_mix_t(/*module_file_path=*/"some_file", /*verbose=*/0,
                        /*alt_module_dir=*/"")
         , instrs_(instrs)
     {
@@ -68,9 +67,9 @@ protected:
     {
         shard->decode_cache = std::unique_ptr<decode_cache_t<opcode_data_t>>(
             new test_decode_cache_t<opcode_data_t>(dcontext, false, instrs_));
-        if (!module_file_path.empty()) {
-            std::string err =
-                shard->decode_cache->use_module_mapper(module_file_path, alt_module_dir);
+        if (instrs_ != nullptr) {
+            std::string err = shard->decode_cache->use_module_mapper(
+                /*module_file_path=*/"", /*alt_module_dir=*/"");
             if (err != "")
                 return err;
         }
@@ -127,11 +126,11 @@ check_opcode_mix(bool use_module_mapper)
     if (mix.size() != 2) {
         return "Found incorrect count of opcodes";
     }
-    int nop_count = mix[instr_get_opcode(nop)];
+    int64_t nop_count = mix[instr_get_opcode(nop)];
     if (nop_count != 2) {
         return "Found incorrect nop count";
     }
-    int ret_count = mix[instr_get_opcode(ret)];
+    int64_t ret_count = mix[instr_get_opcode(ret)];
     if (ret_count != 1) {
         return "Found incorrect ret count";
     }

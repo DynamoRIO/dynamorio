@@ -951,8 +951,7 @@ if (BUILD_TESTS)
     add_win32_flags(tool.drcacheoff.burst_aarch64_sys)
   endif ()
 
-  add_executable(tool.drcachesim.decode_cache_test
-                 tests/decode_cache_test.cpp)
+  add_executable(tool.drcachesim.decode_cache_test tests/decode_cache_test.cpp)
   configure_DynamoRIO_standalone(tool.drcachesim.decode_cache_test)
   add_win32_flags(tool.drcachesim.decode_cache_test)
   target_link_libraries(tool.drcachesim.decode_cache_test
@@ -962,8 +961,7 @@ if (BUILD_TESTS)
   set_tests_properties(tool.drcachesim.decode_cache_test PROPERTIES
     TIMEOUT ${test_seconds})
 
-  add_executable(tool.drcacheoff.opcode_mix_test
-                 tests/opcode_mix_test.cpp)
+  add_executable(tool.drcacheoff.opcode_mix_test tests/opcode_mix_test.cpp)
   configure_DynamoRIO_standalone(tool.drcacheoff.opcode_mix_test)
   add_win32_flags(tool.drcacheoff.opcode_mix_test)
   target_link_libraries(tool.drcacheoff.opcode_mix_test
@@ -1020,7 +1018,7 @@ if (BUILD_TESTS)
     configure_DynamoRIO_standalone(tool.drcacheoff.view_test)
     add_win32_flags(tool.drcacheoff.view_test)
     target_link_libraries(tool.drcacheoff.view_test drmemtrace_view drmemtrace_raw2trace
-      drmemtrace_analyzer drmemtrace_decode_cache test_helpers)
+      drmemtrace_analyzer test_helpers)
     use_DynamoRIO_extension(tool.drcacheoff.view_test drreg_static)
     use_DynamoRIO_extension(tool.drcacheoff.view_test drcovlib_static)
     use_DynamoRIO_extension(tool.drcacheoff.view_test drdecode)

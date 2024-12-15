@@ -38,7 +38,6 @@
 #ifndef _DECODE_CACHE_H_
 #define _DECODE_CACHE_H_ 1
 
-#include "dr_api.h"
 #include "memref.h"
 #include "tracer/raw2trace_shared.h"
 
@@ -324,7 +323,7 @@ public:
      * marker. The user may call this API also if they deliberately need to use
      * the module mapper instead of the embedded encodings.
      *
-     * It is left up to the user to determine if and when the need to call this API.
+     * It is left up to the user to determine if and when this API is needed.
      * It is important to note that the trace filetype may be obtained using the
      * get_filetype() API on a \p memtrace_stream_t. However, not all instances of
      * \p memtrace_stream_t have the filetype available at init time (before the
