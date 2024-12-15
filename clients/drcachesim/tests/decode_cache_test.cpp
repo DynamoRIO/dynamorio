@@ -42,6 +42,8 @@
 namespace dynamorio {
 namespace drmemtrace {
 
+static constexpr addr_t TID_A = 1;
+
 class test_decode_info_t : public decode_info_base_t {
 public:
     bool is_nop = false;
@@ -62,7 +64,6 @@ std::string
 check_decode_caching(bool persist_instrs, bool use_module_mapper)
 {
     static constexpr addr_t BASE_ADDR = 0x123450;
-    static constexpr addr_t TID_A = 1;
     instr_t *nop = XINST_CREATE_nop(GLOBAL_DCONTEXT);
     instr_t *ret = XINST_CREATE_return(GLOBAL_DCONTEXT);
     instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
@@ -175,6 +176,25 @@ check_decode_caching(bool persist_instrs, bool use_module_mapper)
     return "";
 }
 
+std::string
+check_missing_module_mapper()
+{
+    memref_t instr = gen_instr(TID_A);
+    test_decode_cache_t<instr_decode_info_t> decode_cache(
+        GLOBAL_DCONTEXT,
+        /*persist_decoded_instr=*/true, /*ilist_for_test_module_mapper=*/nullptr);
+    instr_decode_info_t *decode_info;
+    std::string err = decode_cache.add_decode_info(instr.instr, decode_info);
+    if (err == "") {
+        return "Expected error but did not get any";
+    }
+    if (err.find("use_module_mapper") == std::string::npos) {
+        return "Unexpected error description: " + err;
+    }
+    std::cerr << "check_missing_module_mapper passed\n";
+    return "";
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -199,6 +219,12 @@ test_main(int argc, const char *argv[])
         std::cerr << err << "\n";
         exit(1);
     }
+    err = check_missing_module_mapper();
+    if (err != "") {
+        std::cerr << err << "\n";
+        exit(1);
+    }
+
     return 0;
 }
 

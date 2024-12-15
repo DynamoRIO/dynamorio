@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -80,7 +80,8 @@ struct _memref_instr_t {
      * Indicates whether the encoding field is the first instance of its kind for this
      * address.  This can be used to determine when to invalidate cached decoding
      * information.  This field may be set to true on internal file divisions and
-     * not only when application code actually changed.
+     * not only when application code actually changed.  It was remain false if the
+     * trace does not have embedded encodings.
      */
     bool encoding_is_new;
     /**

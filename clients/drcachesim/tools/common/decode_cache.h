@@ -251,13 +251,28 @@ public:
                     DecodeInfo *&decode_info)
     {
         const app_pc trace_pc = reinterpret_cast<app_pc>(memref_instr.addr);
-        if (memref_instr.encoding_is_new) {
+        if (!use_module_mapper_ && memref_instr.encoding_is_new) {
+            // If the user asked to use the module mapper despite having
+            // embedded encodings in the trace, we don't invalidate the
+            // cached encoding.
             decode_cache_.erase(trace_pc);
         }
         auto it = decode_cache_.find(trace_pc);
         if (it != decode_cache_.end()) {
             decode_info = &it->second;
             return "";
+        }
+        if (!use_module_mapper_ && !memref_instr.encoding_is_new) {
+            // If we're looking at embedded encodings, we must either have
+            // a cached encoding already, or this encoding must be new.
+            // If neither is true, it is likely that this trace actually
+            // doesn't have embedded encodings, and the user forgot to
+            // call use_module_mapper(). This may also be a reader_t issue
+            // which caused a missing encoding on the first instance of
+            // the instruction.
+            return "First instance of an instruction was found without an "
+                   "encoding. Remember to use_module_mapper() if trace does not "
+                   "have embedded encodings.";
         }
         decode_cache_[trace_pc] = DecodeInfo();
         decode_info = &decode_cache_[trace_pc];
@@ -289,8 +304,30 @@ public:
         decode_cache_[trace_pc].set_decode_info(dcontext_, memref_instr, instr);
         return "";
     }
-    // TODO: maybe a good idea to get filetype here. Or alternatively the
-    // encoding_is_new check.
+    /**
+     * Instructs the \p decode_cache_t object that it should look for the instr
+     * encodings in the application binaries using a \p module_mapper_t. A
+     * \p module_mapper_t is instantiated only one time and reused for all objects
+     * of \p decode_cache_t (of any template type).
+     *
+     * The user must call this API if decoding instructions from a trace that does
+     * not have embedded instruction encodings in it, as indicated by absence of
+     * the \p OFFLINE_FILE_TYPE_ENCODINGS bit in the \p TRACE_MARKER_TYPE_FILETYPE
+     * marker. The user may call this API also if they deliberately need to use
+     * the module mapper instead of the embedded encodings.
+     *
+     * It is left up to the user to determine if and when the need to call this API.
+     * It is important to note that the trace filetype may be obtained using the
+     * get_filetype() API on a \p memtrace_stream_t. However, not all instances of
+     * \p memtrace_stream_t have the filetype available at init time (before the
+     * \p TRACE_MARKER_TYPE_FILETYPE is actually returned by the stream).
+     * Particularly, the \p stream_t provided by the \p scheduler_t to analysis
+     * tools provides the file type at init time when #dynamorio::drmemtrace::
+     * scheduler_tmpl_t::scheduler_options_t.read_inputs_in_init is set. In other
+     * cases, the user may call this API after init time when the
+     * \p TRACE_MARKER_TYPE_FILETYPE marker is seen (still before any instr
+     * record).
+     */
     std::string
     use_module_mapper(const std::string &module_file_path,
                       const std::string &alt_module_dir)
@@ -329,10 +366,10 @@ public:
     // The ilist arg is required only for testing the module_mapper_t
     // decoding strategy.
     test_decode_cache_t(void *dcontext, bool persist_decoded_instrs,
-                        instrlist_t *ilist = nullptr)
+                        instrlist_t *ilist_for_test_module_mapper = nullptr)
         : decode_cache_t<DecodeInfo>(dcontext, persist_decoded_instrs)
         , dcontext_(dcontext)
-        , ilist_(ilist)
+        , ilist_for_test_module_mapper_(ilist_for_test_module_mapper)
     {
     }
 
@@ -340,10 +377,10 @@ public:
     init_module_mapper(const std::string &unused_module_file_path,
                        const std::string &unused_alt_module_dir) override
     {
-        if (ilist_ == nullptr)
+        if (ilist_for_test_module_mapper_ == nullptr)
             return "No ilist to init test_module_mapper_t";
-        module_mapper_ =
-            std::unique_ptr<module_mapper_t>(new test_module_mapper_t(ilist_, dcontext_));
+        module_mapper_ = std::unique_ptr<module_mapper_t>(
+            new test_module_mapper_t(ilist_for_test_module_mapper_, dcontext_));
         module_mapper_->get_loaded_modules();
         std::string error = module_mapper_->get_last_error();
         if (!error.empty())
@@ -353,7 +390,7 @@ public:
 
 private:
     void *dcontext_;
-    instrlist_t *ilist_;
+    instrlist_t *ilist_for_test_module_mapper_;
 };
 
 } // namespace drmemtrace
