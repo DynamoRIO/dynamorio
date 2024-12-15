@@ -46,7 +46,6 @@
 #include "analysis_tool.h"
 #include "memref.h"
 #include "raw2trace.h"
-#include "raw2trace_directory.h"
 #include "trace_entry.h"
 
 namespace dynamorio {
@@ -186,9 +185,9 @@ protected:
     std::string module_file_path_;
     std::unique_ptr<module_mapper_t> module_mapper_;
     std::mutex mapper_mutex_;
-    // We reference directory.modfile_bytes throughout operation, so its lifetime
-    // must match ours.
-    raw2trace_directory_t directory_;
+    // XXX: Perhaps module_mapper_t should be made to own the cleanup of
+    // modfile_bytes_.
+    char *modfile_bytes_ = nullptr;
 
     std::unordered_map<int, shard_data_t *> shard_map_;
     // This mutex is only needed in parallel_shard_init.  In all other accesses to
