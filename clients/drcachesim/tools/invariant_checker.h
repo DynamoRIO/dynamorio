@@ -49,7 +49,7 @@
 
 #include "analysis_tool.h"
 #include "dr_api.h"
-#include "instr_decode_cache.h"
+#include "decode_cache.h"
 #include "memref.h"
 #include "memtrace_stream.h"
 #include "schedule_file.h"
@@ -170,7 +170,7 @@ protected:
             // simplifying various conditional checks.
             decoding_info_t decoding;
         };
-        instr_decode_cache_t<decoding_info_t> decode_cache_;
+        decode_cache_t<decoding_info_t> decode_cache_;
         // On UNIX generally last_instr_in_cur_context_ should be used instead.
         instr_info_t prev_instr_;
 #ifdef UNIX

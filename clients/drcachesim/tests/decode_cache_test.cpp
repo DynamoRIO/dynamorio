@@ -30,12 +30,12 @@
  * DAMAGE.
  */
 
-/* Tests for the instr_decode_cache_t library. */
+/* Tests for the decode_cache_t library. */
 
 #include <iostream>
 #include <vector>
 
-#include "instr_decode_cache.h"
+#include "decode_cache.h"
 #include "../common/memref.h"
 #include "memref_gen.h"
 
@@ -81,7 +81,7 @@ check_decode_caching(bool persist_instrs, bool use_module_mapper)
         memrefs = add_encodings_to_memrefs(ilist, memref_setup, 0,
                                            /*set_only_instr_addr=*/true);
         // We pass the instrs to construct the test_module_mapper_t in the
-        // test_instr_decode_cache_t;
+        // test_decode_cache_t;
         ilist_for_test_decode_cache = ilist;
     } else {
         memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
@@ -100,7 +100,7 @@ check_decode_caching(bool persist_instrs, bool use_module_mapper)
         // the instr_t correctly.
         // Tests for instr_decode_cache_t are done when persist_instrs = false (see
         // the else part below).
-        test_instr_decode_cache_t<instr_decode_info_t> decode_cache(
+        test_decode_cache_t<instr_decode_info_t> decode_cache(
             GLOBAL_DCONTEXT,
             /*persist_decoded_instr=*/true, ilist_for_test_decode_cache);
         if (use_module_mapper) {
@@ -128,7 +128,7 @@ check_decode_caching(bool persist_instrs, bool use_module_mapper)
     } else {
         // These are tests to verify the operation of instr_decode_cache_t: that it caches
         // decode info correctly.
-        test_instr_decode_cache_t<test_decode_info_t> decode_cache(
+        test_decode_cache_t<test_decode_info_t> decode_cache(
             GLOBAL_DCONTEXT,
             /*persist_decoded_instrs=*/false, ilist_for_test_decode_cache);
 

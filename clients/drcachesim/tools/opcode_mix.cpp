@@ -86,9 +86,9 @@ opcode_mix_t::init_decode_cache(shard_data_t *shard, void *dcontext,
                                 const std::string &module_file_path,
                                 const std::string &alt_module_dir)
 {
-    shard->decode_cache = std::unique_ptr<instr_decode_cache_t<opcode_data_t>>(
-        new instr_decode_cache_t<opcode_data_t>(dcontext,
-                                                /*persist_decoded_instrs=*/false));
+    shard->decode_cache = std::unique_ptr<decode_cache_t<opcode_data_t>>(
+        new decode_cache_t<opcode_data_t>(dcontext,
+                                          /*persist_decoded_instrs=*/false));
     if (!module_file_path.empty()) {
         std::string err =
             shard->decode_cache->use_module_mapper(module_file_path, alt_module_dir);

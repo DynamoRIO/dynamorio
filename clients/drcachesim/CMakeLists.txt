@@ -167,19 +167,19 @@ add_exported_library(drmemtrace_view STATIC tools/view.cpp)
 add_exported_library(drmemtrace_func_view STATIC tools/func_view.cpp)
 add_exported_library(drmemtrace_invariant_checker STATIC tools/invariant_checker.cpp)
 add_exported_library(drmemtrace_schedule_stats STATIC tools/schedule_stats.cpp)
-add_exported_library(drmemtrace_instr_decode_cache STATIC
-                     tools/common/instr_decode_cache.cpp
+add_exported_library(drmemtrace_decode_cache STATIC
+                     tools/common/decode_cache.cpp
                      tracer/raw2trace_shared.cpp)
 add_exported_library(drmemtrace_schedule_file STATIC common/schedule_file.cpp)
 add_exported_library(drmemtrace_mutex_dbg_owned STATIC common/mutex_dbg_owned.cpp)
 
 target_link_libraries(drmemtrace_invariant_checker drdecode drmemtrace_schedule_file
-                      drmemtrace_instr_decode_cache)
-target_link_libraries(drmemtrace_instr_decode_cache drcovlib_static)
-target_link_libraries(drmemtrace_opcode_mix drmemtrace_instr_decode_cache)
-target_link_libraries(drmemtrace_view drmemtrace_instr_decode_cache)
+                      drmemtrace_decode_cache)
+target_link_libraries(drmemtrace_decode_cache drcovlib_static)
+target_link_libraries(drmemtrace_opcode_mix drmemtrace_decode_cache)
+target_link_libraries(drmemtrace_view drmemtrace_decode_cache)
 
-configure_DynamoRIO_standalone(drmemtrace_instr_decode_cache)
+configure_DynamoRIO_standalone(drmemtrace_decode_cache)
 configure_DynamoRIO_standalone(drmemtrace_opcode_mix)
 configure_DynamoRIO_standalone(drmemtrace_view)
 configure_DynamoRIO_standalone(drmemtrace_invariant_checker)
@@ -618,7 +618,7 @@ restore_nonclient_flags(drmemtrace_analyzer)
 restore_nonclient_flags(drmemtrace_invariant_checker)
 restore_nonclient_flags(drmemtrace_schedule_stats)
 restore_nonclient_flags(drmemtrace_schedule_file)
-restore_nonclient_flags(drmemtrace_instr_decode_cache)
+restore_nonclient_flags(drmemtrace_decode_cache)
 
 # We need to pass /EHsc and we pull in libcmtd into drcachesim from a dep lib.
 # Thus we need to override the /MT with /MTd.
@@ -692,7 +692,7 @@ add_win32_flags(drmemtrace_analyzer)
 add_win32_flags(drmemtrace_invariant_checker)
 add_win32_flags(drmemtrace_schedule_stats)
 add_win32_flags(drmemtrace_schedule_file)
-add_win32_flags(drmemtrace_instr_decode_cache)
+add_win32_flags(drmemtrace_decode_cache)
 add_win32_flags(directory_iterator)
 add_win32_flags(test_helpers)
 add_win32_flags(drmemtrace_mutex_dbg_owned)
@@ -951,15 +951,15 @@ if (BUILD_TESTS)
     add_win32_flags(tool.drcacheoff.burst_aarch64_sys)
   endif ()
 
-  add_executable(tool.drcachesim.instr_decode_cache_test
-                 tests/instr_decode_cache_test.cpp)
-  configure_DynamoRIO_standalone(tool.drcachesim.instr_decode_cache_test)
-  add_win32_flags(tool.drcachesim.instr_decode_cache_test)
-  target_link_libraries(tool.drcachesim.instr_decode_cache_test
-      drmemtrace_static drmemtrace_instr_decode_cache test_helpers)
-  add_test(NAME tool.drcachesim.instr_decode_cache_test
-           COMMAND tool.drcachesim.instr_decode_cache_test)
-  set_tests_properties(tool.drcachesim.instr_decode_cache_test PROPERTIES
+  add_executable(tool.drcachesim.decode_cache_test
+                 tests/decode_cache_test.cpp)
+  configure_DynamoRIO_standalone(tool.drcachesim.decode_cache_test)
+  add_win32_flags(tool.drcachesim.decode_cache_test)
+  target_link_libraries(tool.drcachesim.decode_cache_test
+      drmemtrace_static drmemtrace_decode_cache test_helpers)
+  add_test(NAME tool.drcachesim.decode_cache_test
+           COMMAND tool.drcachesim.decode_cache_test)
+  set_tests_properties(tool.drcachesim.decode_cache_test PROPERTIES
     TIMEOUT ${test_seconds})
 
   add_executable(tool.drcacheoff.opcode_mix_test
@@ -1020,7 +1020,7 @@ if (BUILD_TESTS)
     configure_DynamoRIO_standalone(tool.drcacheoff.view_test)
     add_win32_flags(tool.drcacheoff.view_test)
     target_link_libraries(tool.drcacheoff.view_test drmemtrace_view drmemtrace_raw2trace
-      drmemtrace_analyzer drmemtrace_instr_decode_cache test_helpers)
+      drmemtrace_analyzer drmemtrace_decode_cache test_helpers)
     use_DynamoRIO_extension(tool.drcacheoff.view_test drreg_static)
     use_DynamoRIO_extension(tool.drcacheoff.view_test drcovlib_static)
     use_DynamoRIO_extension(tool.drcacheoff.view_test drdecode)

@@ -35,7 +35,7 @@
 #include <iostream>
 #include <vector>
 
-#include "instr_decode_cache.h"
+#include "decode_cache.h"
 #include "tools/opcode_mix.h"
 #include "../common/memref.h"
 #include "memref_gen.h"
@@ -66,8 +66,8 @@ protected:
                       const std::string &module_file_path,
                       const std::string &alt_module_dir) override
     {
-        shard->decode_cache = std::unique_ptr<instr_decode_cache_t<opcode_data_t>>(
-            new test_instr_decode_cache_t<opcode_data_t>(dcontext, false, instrs_));
+        shard->decode_cache = std::unique_ptr<decode_cache_t<opcode_data_t>>(
+            new test_decode_cache_t<opcode_data_t>(dcontext, false, instrs_));
         if (!module_file_path.empty()) {
             std::string err =
                 shard->decode_cache->use_module_mapper(module_file_path, alt_module_dir);
@@ -108,7 +108,7 @@ check_opcode_mix(bool use_module_mapper)
         memrefs = add_encodings_to_memrefs(ilist, memref_setup, 0,
                                            /*set_only_instr_addr=*/true);
         // We pass the instrs to construct the test_module_mapper_t in the
-        // test_instr_decode_cache_t;
+        // test_decode_cache_t;
         ilist_for_test = ilist;
     } else {
         memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);

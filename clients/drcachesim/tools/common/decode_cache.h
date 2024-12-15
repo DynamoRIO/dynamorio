@@ -31,12 +31,12 @@
  */
 
 /**
- * instr_decode_cache.h: Library that supports caching of instruction decode
+ * decode_cache.h: Library that supports caching of instruction decode
  * information.
  */
 
-#ifndef _INSTR_DECODE_CACHE_H_
-#define _INSTR_DECODE_CACHE_H_ 1
+#ifndef _DECODE_CACHE_H_
+#define _DECODE_CACHE_H_ 1
 
 #include "dr_api.h"
 #include "memref.h"
@@ -73,7 +73,7 @@ public:
     /**
      * Indicates whether the decode info stored in this object is valid. It won't be
      * valid if the object is default-constructed without a subsequent
-     * set_decode_info() call. When used with \p instr_decode_cache_t, this indicates
+     * set_decode_info() call. When used with \p decode_cache_t, this indicates
      * that an invalid instruction was observed at some pc.
      */
     bool
@@ -90,12 +90,12 @@ private:
      * function. Note that this cannot be invoked directly as it is private, but
      * only through set_decode_info() which does other required bookkeeping.
      *
-     * This is meant for use with \p instr_decode_cache_t, which will invoke
+     * This is meant for use with \p decode_cache_t, which will invoke
      * set_decode_info() for each new decoded instruction.
      *
      * The responsibility for invoking instr_destroy() on the provided \p instr
      * lies with this \p decode_info_base_t object, unless
-     * \p instr_decode_cache_t was constructed with \p persist_decoded_instrs_
+     * \p decode_cache_t was constructed with \p persist_decoded_instrs_
      * set to false, in which case no heap allocation takes place.
      */
     virtual void
@@ -108,7 +108,7 @@ private:
 
 /**
  * Decode info including the full decoded instr_t. This should be used with an
- * \p instr_decode_cache_t constructed with \p persist_decoded_instrs_ set to
+ * \p decode_cache_t constructed with \p persist_decoded_instrs_ set to
  * true.
  */
 class instr_decode_info_t : public decode_info_base_t {
@@ -128,19 +128,19 @@ private:
 };
 
 /**
- * Base class for \p instr_decode_cache_t.
+ * Base class for \p decode_cache_t.
  *
  * This is used to allow sharing the static data members among all template instances
- * of \p instr_decode_cache_t.
+ * of \p decode_cache_t.
  */
-class instr_decode_cache_base_t {
+class decode_cache_base_t {
 protected:
     /**
      * Constructor for the base class, intentionally declared as protected so
-     * \p instr_decode_cache_base_t cannot be instantiated directly but only via
+     * \p decode_cache_base_t cannot be instantiated directly but only via
      * a derived class.
      */
-    instr_decode_cache_base_t() = default;
+    decode_cache_base_t() = default;
 
     // XXX: Maybe the ownership and destruction responsibility for the modfile bytes
     // should be given to module_mapper_t instead.
@@ -168,7 +168,7 @@ public:
         if (module_mapper_ != nullptr) {
             // We want only a single module_mapper_t instance to be
             // initialized that is shared among all instances of
-            // instr_decode_cache_base_t.
+            // decode_cache_base_t.
             return "";
         }
         // Legacy trace support where binaries are needed.
@@ -207,25 +207,24 @@ public:
  * A cache to store decode info for instructions per observed app pc. The template arg
  * DecodeInfo is a class derived from \p decode_info_base_t which implements the
  * set_decode_info_derived() function that derives the required decode info from an
- * \p instr_t object when invoked by \p instr_decode_cache_t. This class handles the
+ * \p instr_t object when invoked by \p decode_cache_t. This class handles the
  * heavylifting of actually producing the decoded \p instr_t. The decoded \p instr_t
  * may be made to persist beyond the set_decode_info() calls by constructing the
- * \p instr_decode_cache_t object with \p persist_decoded_instrs_ set to true.
+ * \p decode_cache_t object with \p persist_decoded_instrs_ set to true.
  *
  * This should be used only with traces that have \p OFFLINE_FILE_TYPE_ENCODINGS set
  * in their \p TRACE_MARKER_TYPE_FILETYPE marker, as only those traces have instr
  * encodings embedded in them.
  */
-template <class DecodeInfo>
-class instr_decode_cache_t : public instr_decode_cache_base_t {
+template <class DecodeInfo> class decode_cache_t : public decode_cache_base_t {
     static_assert(std::is_base_of<decode_info_base_t, DecodeInfo>::value,
                   "DecodeInfo not derived from decode_info_base_t");
 
 public:
-    instr_decode_cache_t(void *dcontext, bool persist_decoded_instrs)
+    decode_cache_t(void *dcontext, bool persist_decoded_instrs)
         : dcontext_(dcontext)
-        , persist_decoded_instrs_(persist_decoded_instrs) {};
-    virtual ~instr_decode_cache_t()
+        , persist_decoded_instrs_(persist_decoded_instrs) { };
+    virtual ~decode_cache_t()
     {
     }
 
@@ -310,7 +309,7 @@ private:
     //
     // Note that we store our instr encoding lookup strategy as a non-static
     // data member, unlike module_mapper_t which is static and shared between
-    // all instr_decode_cache_t instances (even of different template types).
+    // all decode_cache_t instances (even of different template types).
     // Some analysis tools may deliberately want to look at instr encodings
     // from the module mappings, but that strategy does not provide JIT
     // encodings which are present only as embedded-encodings in the trace.
@@ -320,18 +319,18 @@ private:
 };
 
 /**
- *  An \p instr_decode_cache_t for testing which uses a \p test_module_mapper_t.
+ *  An \p decode_cache_t for testing which uses a \p test_module_mapper_t.
  */
 template <class DecodeInfo>
-class test_instr_decode_cache_t : public instr_decode_cache_t<DecodeInfo> {
+class test_decode_cache_t : public decode_cache_t<DecodeInfo> {
 public:
-    using instr_decode_cache_base_t::module_mapper_;
+    using decode_cache_base_t::module_mapper_;
 
     // The ilist arg is required only for testing the module_mapper_t
     // decoding strategy.
-    test_instr_decode_cache_t(void *dcontext, bool persist_decoded_instrs,
-                              instrlist_t *ilist = nullptr)
-        : instr_decode_cache_t<DecodeInfo>(dcontext, persist_decoded_instrs)
+    test_decode_cache_t(void *dcontext, bool persist_decoded_instrs,
+                        instrlist_t *ilist = nullptr)
+        : decode_cache_t<DecodeInfo>(dcontext, persist_decoded_instrs)
         , dcontext_(dcontext)
         , ilist_(ilist)
     {

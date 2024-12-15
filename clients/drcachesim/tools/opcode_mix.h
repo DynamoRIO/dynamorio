@@ -44,7 +44,7 @@
 
 #include "dr_api.h" // Must be before trace_entry.h from analysis_tool.h.
 #include "analysis_tool.h"
-#include "instr_decode_cache.h"
+#include "decode_cache.h"
 #include "memref.h"
 #include "raw2trace.h"
 #include "trace_entry.h"
@@ -156,7 +156,7 @@ protected:
         app_pc last_trace_module_start;
         size_t last_trace_module_size;
         app_pc last_mapped_module_start;
-        std::unique_ptr<instr_decode_cache_t<opcode_data_t>> decode_cache;
+        std::unique_ptr<decode_cache_t<opcode_data_t>> decode_cache;
         offline_file_type_t filetype = OFFLINE_FILE_TYPE_DEFAULT;
     };
 

@@ -30,7 +30,7 @@
  * DAMAGE.
  */
 
-#include "instr_decode_cache.h"
+#include "decode_cache.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -59,9 +59,9 @@ instr_decode_info_t::get_decoded_instr()
 
 // Must be in cpp and not the header, else the linker will complain about multiple
 // definitions.
-std::mutex instr_decode_cache_base_t::module_mapper_mutex_;
-std::unique_ptr<module_mapper_t> instr_decode_cache_base_t::module_mapper_;
-instr_decode_cache_base_t::modfile_bytes_t instr_decode_cache_base_t::modfile_bytes_;
+std::mutex decode_cache_base_t::module_mapper_mutex_;
+std::unique_ptr<module_mapper_t> decode_cache_base_t::module_mapper_;
+decode_cache_base_t::modfile_bytes_t decode_cache_base_t::modfile_bytes_;
 
 } // namespace drmemtrace
 } // namespace dynamorio
