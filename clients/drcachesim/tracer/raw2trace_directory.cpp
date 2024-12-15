@@ -433,12 +433,6 @@ raw2trace_directory_t::open_cpu_schedule_file()
 #endif
 }
 
-std::string
-raw2trace_directory_t::read_module_file(const std::string &modfilename)
-{
-    return read_module_file_bytes(modfilename, modfile_, modfile_bytes_);
-}
-
 bool
 raw2trace_directory_t::is_window_subdir(const std::string &dir)
 {
@@ -592,12 +586,6 @@ raw2trace_directory_t::initialize(const std::string &indir, const std::string &o
         return err;
 
     return open_thread_files();
-}
-
-std::string
-raw2trace_directory_t::initialize_module_file(const std::string &module_file_path)
-{
-    return read_module_file(module_file_path);
 }
 
 std::string

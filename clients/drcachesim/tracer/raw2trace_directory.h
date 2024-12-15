@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -60,8 +60,8 @@ namespace drmemtrace {
 class raw2trace_directory_t {
 public:
     raw2trace_directory_t(unsigned int verbosity = 0)
-        : modfile_bytes_(nullptr)
-        , encoding_file_(INVALID_FILE)
+        : encoding_file_(INVALID_FILE)
+        , modfile_bytes_(nullptr)
         , modfile_(INVALID_FILE)
         , indir_("")
         , outdir_("")
@@ -78,11 +78,6 @@ public:
     initialize(const std::string &indir, const std::string &outdir,
                const std::string &compress = DEFAULT_TRACE_COMPRESSION_TYPE,
                const std::string &syscall_template_file = "");
-    // Use this instead of initialize() to only fill in modfile_bytes, for
-    // constructing a module_mapper_t.  Returns "" on success or an error message on
-    // failure.
-    std::string
-    initialize_module_file(const std::string &module_file_path);
     // Use this instead of initialize() to only read the funcion map file.
     // Returns "" on success or an error message on failure.
     // On success, pushes the parsed entries from the file into "entries".
@@ -99,7 +94,6 @@ public:
     static bool
     is_window_subdir(const std::string &dir);
 
-    char *modfile_bytes_;
     file_t encoding_file_;
     std::vector<std::istream *> in_files_;
     std::vector<std::ostream *> out_files_;
@@ -115,8 +109,6 @@ private:
     std::string
     trace_suffix();
     std::string
-    read_module_file(const std::string &modfilename);
-    std::string
     open_thread_files();
     std::string
     open_thread_log_file(const char *basename);
@@ -130,6 +122,7 @@ private:
     std::string
     open_kthread_files();
 #endif
+    char *modfile_bytes_;
     file_t modfile_;
     std::string kernel_indir_;
     std::string indir_;

@@ -1039,7 +1039,7 @@ function (configure_DynamoRIO_client target)
         # -dT is preferred, available on ld 2.18+: we could check for it
         set(LD_SCRIPT_OPTION "-T")
         set(PREFERRED_BASE_FLAGS "-Xlinker ${LD_SCRIPT_OPTION} -Xlinker \"${LD_SCRIPT}\"")
-      endif (LINKER_IS_GNU_GOLD)
+      endif (LINKER_IS_GNU_GOLD OR LINKER_IS_LLVM_LLD)
     else (APPLE)
       set(PREFERRED_BASE_FLAGS "/base:${PREFERRED_BASE} /dynamicbase:no")
     endif (APPLE)
