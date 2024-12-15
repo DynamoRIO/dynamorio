@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -56,7 +56,7 @@
 #include "dr_api.h"
 #include "memref.h"
 #include "raw2trace.h"
-#include "raw2trace_directory.h"
+#include "raw2trace_shared.h"
 #include "reader.h"
 #include "trace_entry.h"
 #include "utils.h"
@@ -92,13 +92,16 @@ opcode_mix_t::initialize()
         return "";
     // Legacy trace support where binaries are needed.
     // We do not support non-module code for such traces.
-    std::string error = directory_.initialize_module_file(module_file_path_);
-    if (!error.empty())
-        return "Failed to initialize directory: " + error;
+    file_t modfile;
+    std::string error = read_module_file(module_file_path_, modfile, modfile_bytes_);
+    if (!error.empty()) {
+        return "Failed to read module file: " + error;
+    }
     module_mapper_ =
-        module_mapper_t::create(directory_.modfile_bytes_, nullptr, nullptr, nullptr,
-                                nullptr, knob_verbose_, knob_alt_module_dir_);
+        module_mapper_t::create(modfile_bytes_, nullptr, nullptr, nullptr, nullptr,
+                                knob_verbose_, knob_alt_module_dir_);
     module_mapper_->get_loaded_modules();
+    dr_close_file(modfile);
     error = module_mapper_->get_last_error();
     if (!error.empty())
         return "Failed to load binaries: " + error;
@@ -109,6 +112,9 @@ opcode_mix_t::~opcode_mix_t()
 {
     for (auto &iter : shard_map_) {
         delete iter.second;
+    }
+    if (modfile_bytes_ != nullptr) {
+        delete[] modfile_bytes_;
     }
 }
 
