@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -78,11 +78,6 @@ public:
     initialize(const std::string &indir, const std::string &outdir,
                const std::string &compress = DEFAULT_TRACE_COMPRESSION_TYPE,
                const std::string &syscall_template_file = "");
-    // Use this instead of initialize() to only fill in modfile_bytes, for
-    // constructing a module_mapper_t.  Returns "" on success or an error message on
-    // failure.
-    std::string
-    initialize_module_file(const std::string &module_file_path);
     // Use this instead of initialize() to only read the funcion map file.
     // Returns "" on success or an error message on failure.
     // On success, pushes the parsed entries from the file into "entries".
@@ -114,8 +109,6 @@ public:
 private:
     std::string
     trace_suffix();
-    std::string
-    read_module_file(const std::string &modfilename);
     std::string
     open_thread_files();
     std::string

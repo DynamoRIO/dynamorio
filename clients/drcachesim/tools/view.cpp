@@ -53,7 +53,7 @@
 #include "memref.h"
 #include "memtrace_stream.h"
 #include "raw2trace.h"
-#include "raw2trace_directory.h"
+#include "raw2trace_shared.h"
 #include "trace_entry.h"
 #include "utils.h"
 
@@ -124,9 +124,12 @@ view_t::initialize_stream(memtrace_stream_t *serial_stream)
     if (module_file_path_.empty()) {
         has_modules_ = false;
     } else {
-        std::string error = directory_.initialize_module_file(module_file_path_);
+        file_t modfile;
+        std::string error = read_module_file(module_file_path_, modfile, modfile_bytes_);
         if (!error.empty())
             has_modules_ = false;
+        else
+            dr_close_file(modfile);
     }
     if (!has_modules_) {
         // Continue but omit disassembly to support cases where binaries are
@@ -136,8 +139,8 @@ view_t::initialize_stream(memtrace_stream_t *serial_stream)
     // Legacy trace support where binaries are needed.
     // We do not support non-module code for such traces.
     module_mapper_ =
-        module_mapper_t::create(directory_.modfile_bytes_, nullptr, nullptr, nullptr,
-                                nullptr, knob_verbose_, knob_alt_module_dir_);
+        module_mapper_t::create(modfile_bytes_, nullptr, nullptr, nullptr, nullptr,
+                                knob_verbose_, knob_alt_module_dir_);
     module_mapper_->get_loaded_modules();
     std::string error = module_mapper_->get_last_error();
     if (!error.empty())
@@ -660,6 +663,13 @@ view_t::print_results()
     std::cerr << TOOL_NAME << " results:\n";
     std::cerr << std::setw(15) << num_disasm_instrs_ << " : total instructions\n";
     return true;
+}
+
+view_t::~view_t()
+{
+    if (modfile_bytes_ != nullptr) {
+        delete[] modfile_bytes_;
+    }
 }
 
 } // namespace drmemtrace
