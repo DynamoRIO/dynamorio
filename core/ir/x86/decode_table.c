@@ -6159,20 +6159,20 @@ const instr_info_t e_vex_extensions[][3] = {
     {INVALID, 0x6638db18, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* e_vex ext 32 */
     {OP_aesenc,  0x6638dc18, catSIMD, "aesenc",  Vdq, xx, Wdq,Vdq, xx, mrm|reqp, x, END_LIST},
-    {OP_vaesenc, 0x6638dc18, catSIMD, "vaesenc",  Vx, xx, Hx,Wx, xx, mrm|vex|reqp, x, END_LIST},
-    {INVALID, 0x6638dc18, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vaesenc, 0x6638dc18, catSIMD, "vaesenc",  Vx, xx, Hx,Wx, xx, mrm|vex|reqp, x, tvex[32][2]},
+    {OP_vaesenc, 0x6638dc18, catSIMD, "vaesenc",  Ve, xx, He,We, xx, mrm|evex|reqp|ttfvm, x, END_LIST},
   }, { /* e_vex ext 33 */
     {OP_aesenclast,  0x6638dd18, catSIMD, "aesenclast",Vdq,xx,Wdq,Vdq,xx, mrm|reqp, x, END_LIST},
-    {OP_vaesenclast, 0x6638dd18, catSIMD, "vaesenclast",Vx,xx,Hx,Wx,xx, mrm|vex|reqp, x, END_LIST},
-    {INVALID, 0x6638dd18, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vaesenclast, 0x6638dd18, catSIMD, "vaesenclast",Vx,xx,Hx,Wx,xx, mrm|vex|reqp, x, tvex[33][2]},
+    {OP_vaesenclast, 0x6638dd18, catSIMD, "vaesenclast",Ve,xx,He,We,xx, mrm|evex|reqp|ttfvm, x, END_LIST},
   }, { /* e_vex ext 34 */
     {OP_aesdec,  0x6638de18, catSIMD, "aesdec",  Vdq, xx, Wdq,Vdq, xx, mrm|reqp, x, END_LIST},
-    {OP_vaesdec, 0x6638de18, catSIMD, "vaesdec",  Vx, xx, Hx,Wx, xx, mrm|vex|reqp, x, END_LIST},
-    {INVALID, 0x6638de18, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vaesdec, 0x6638de18, catSIMD, "vaesdec",  Vx, xx, Hx,Wx, xx, mrm|vex|reqp, x, tvex[34][2]},
+    {OP_vaesdec, 0x6638de18, catSIMD, "vaesdec",  Ve, xx, He,We, xx, mrm|evex|reqp|ttfvm, x, END_LIST},
   }, { /* e_vex ext 35 */
     {OP_aesdeclast,  0x6638df18, catSIMD, "aesdeclast",Vdq,xx,Wdq,Vdq,xx, mrm|reqp, x, END_LIST},
-    {OP_vaesdeclast, 0x6638df18, catSIMD, "vaesdeclast",Vx,xx,Hx,Wx,xx, mrm|vex|reqp, x, END_LIST},
-    {INVALID, 0x6638df18, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vaesdeclast, 0x6638df18, catSIMD, "vaesdeclast",Vx,xx,Hx,Wx,xx, mrm|vex|reqp, x, tvex[35][2]},
+    {OP_vaesdeclast, 0x6638df18, catSIMD, "vaesdeclast",Ve,xx,He,We,xx, mrm|evex|reqp|ttfvm, x, END_LIST},
   }, { /* e_vex ext 36 */
     {OP_pextrb,   0x663a1418, catSIMD, "pextrb", Rd_Mb, xx, Vb_dq, Ib, xx, mrm|reqp, x, END_LIST},
     {OP_vpextrb,  0x663a1418, catSIMD, "vpextrb", Rd_Mb, xx, Vb_dq, Ib, xx, mrm|vex|reqp, x, tvex[36][2]},
