@@ -59,7 +59,7 @@ private:
 };
 
 std::string
-check_decode_caching(bool persist_instrs)
+check_decode_caching(bool persist_instrs, bool use_module_mapper)
 {
     static constexpr addr_t BASE_ADDR = 0x123450;
     static constexpr addr_t TID_A = 1;
@@ -73,7 +73,19 @@ check_decode_caching(bool persist_instrs)
         { gen_instr(TID_A), ret },
         { gen_instr(TID_A), nop },
     };
-    auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+    std::vector<memref_t> memrefs;
+    instrlist_t *ilist_for_test_decode_cache = nullptr;
+
+    if (use_module_mapper) {
+        // This does not set encodings in the memref.instr.
+        memrefs = add_encodings_to_memrefs(ilist, memref_setup, 0,
+                                           /*set_only_instr_addr=*/true);
+        // We pass the instrs to construct the test_module_mapper_t in the
+        // test_instr_decode_cache_t;
+        ilist_for_test_decode_cache = ilist;
+    } else {
+        memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+    }
     // Set up the second nop memref to reuse the same encoding as the first nop.
     memrefs[2].instr.encoding_is_new = false;
 
@@ -82,16 +94,24 @@ check_decode_caching(bool persist_instrs)
         return "Unexpected valid default-constructed decode info";
     }
 
+#define NOT_NEEDED_IN_TEST ""
     if (persist_instrs) {
         // These are tests to verify the operation of instr_decode_info_t: that it stores
         // the instr_t correctly.
         // Tests for instr_decode_cache_t are done when persist_instrs = false (see
         // the else part below).
-        instr_decode_cache_t<instr_decode_info_t> decode_cache(
+        test_instr_decode_cache_t<instr_decode_info_t> decode_cache(
             GLOBAL_DCONTEXT,
-            /*persist_decoded_instr=*/true);
+            /*persist_decoded_instr=*/true, ilist_for_test_decode_cache);
+        if (use_module_mapper) {
+            decode_cache.use_module_mapper(NOT_NEEDED_IN_TEST, NOT_NEEDED_IN_TEST);
+        }
         for (const memref_t &memref : memrefs) {
-            decode_cache.add_decode_info(memref.instr);
+            instr_decode_info_t *decode_info_unused;
+            std::string err =
+                decode_cache.add_decode_info(memref.instr, decode_info_unused);
+            if (err != "")
+                return err;
         }
         instr_decode_info_t *decode_info_nop =
             decode_cache.get_decode_info(reinterpret_cast<app_pc>(memrefs[0].instr.addr));
@@ -108,28 +128,41 @@ check_decode_caching(bool persist_instrs)
     } else {
         // These are tests to verify the operation of instr_decode_cache_t: that it caches
         // decode info correctly.
-        instr_decode_cache_t<test_decode_info_t> decode_cache(
+        test_instr_decode_cache_t<test_decode_info_t> decode_cache(
             GLOBAL_DCONTEXT,
-            /*persist_decoded_instrs=*/false);
+            /*persist_decoded_instrs=*/false, ilist_for_test_decode_cache);
+
+        if (use_module_mapper) {
+            decode_cache.use_module_mapper(NOT_NEEDED_IN_TEST, NOT_NEEDED_IN_TEST);
+        }
         if (decode_cache.get_decode_info(
                 reinterpret_cast<app_pc>(memrefs[0].instr.addr)) != nullptr) {
             return "Unexpected decode info for never-seen pc";
         }
-        decode_cache.add_decode_info(memrefs[0].instr);
+        test_decode_info_t *decode_info;
+        std::string err = decode_cache.add_decode_info(memrefs[0].instr, decode_info);
+        if (err != "")
+            return err;
         test_decode_info_t *decode_info_nop =
             decode_cache.get_decode_info(reinterpret_cast<app_pc>(memrefs[0].instr.addr));
-        if (decode_info_nop == nullptr || !decode_info_nop->is_valid() ||
-            !decode_info_nop->is_nop) {
-            return "Unexpected decode info for nop instr";
+        if (decode_info_nop != decode_info || decode_info_nop == nullptr ||
+            !decode_info_nop->is_valid() || !decode_info_nop->is_nop) {
+            return "Unexpected decode info for nop instr: " +
+                std::to_string(reinterpret_cast<uint64_t>(decode_info_nop)) + "\n";
         }
-        decode_cache.add_decode_info(memrefs[1].instr);
+        err = decode_cache.add_decode_info(memrefs[1].instr, decode_info);
+        if (err != "")
+            return err;
         test_decode_info_t *decode_info_ret =
             decode_cache.get_decode_info(reinterpret_cast<app_pc>(memrefs[1].instr.addr));
         if (decode_info_ret == nullptr || !decode_info_ret->is_valid() ||
             !decode_info_ret->is_ret) {
-            return "Unexpected decode info for ret instr";
+            return "Unexpected decode info for ret instr: " +
+                std::to_string(reinterpret_cast<uint64_t>(decode_info_ret)) + "\n";
         }
-        decode_cache.add_decode_info(memrefs[2].instr);
+        err = decode_cache.add_decode_info(memrefs[2].instr, decode_info);
+        if (err != "")
+            return err;
         test_decode_info_t *decode_info_nop_2 =
             decode_cache.get_decode_info(reinterpret_cast<app_pc>(memrefs[2].instr.addr));
         if (decode_info_nop_2 != decode_info_nop) {
@@ -138,19 +171,30 @@ check_decode_caching(bool persist_instrs)
     }
     instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
     std::cerr << "check_decode_caching with persist_instrs: " << persist_instrs
-              << " passed\n";
+              << ", use_module_mapper: " << use_module_mapper << " passed\n";
     return "";
 }
 
 int
 test_main(int argc, const char *argv[])
 {
-    std::string err = check_decode_caching(/*persist_instrs=*/false);
+    std::string err =
+        check_decode_caching(/*persist_instrs=*/false, /*use_module_mapper=*/false);
     if (err != "") {
         std::cerr << err << "\n";
         exit(1);
     }
-    err = check_decode_caching(/*persist_instrs=*/true);
+    err = check_decode_caching(/*persist_instrs=*/true, /*use_module_mapper=*/false);
+    if (err != "") {
+        std::cerr << err << "\n";
+        exit(1);
+    }
+    err = check_decode_caching(/*persist_instrs=*/false, /*use_module_mapper=*/true);
+    if (err != "") {
+        std::cerr << err << "\n";
+        exit(1);
+    }
+    err = check_decode_caching(/*persist_instrs=*/true, /*use_module_mapper=*/true);
     if (err != "") {
         std::cerr << err << "\n";
         exit(1);

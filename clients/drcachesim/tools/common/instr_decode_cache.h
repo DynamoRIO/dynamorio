@@ -40,7 +40,10 @@
 
 #include "dr_api.h"
 #include "memref.h"
+#include "tracer/raw2trace_shared.h"
 
+#include <cstring>
+#include <mutex>
 #include <unordered_map>
 
 namespace dynamorio {
@@ -125,6 +128,82 @@ private:
 };
 
 /**
+ * Base class for \p instr_decode_cache_t.
+ *
+ * This is used to allow sharing the static data members among all template instances
+ * of \p instr_decode_cache_t.
+ */
+class instr_decode_cache_base_t {
+protected:
+    /**
+     * Constructor for the base class, intentionally declared as protected so
+     * \p instr_decode_cache_base_t cannot be instantiated directly but only via
+     * a derived class.
+     */
+    instr_decode_cache_base_t() = default;
+
+    // XXX: Maybe the ownership and destruction responsibility for the modfile bytes
+    // should be given to module_mapper_t instead.
+    struct modfile_bytes_t {
+        char *bytes = nullptr;
+        ~modfile_bytes_t()
+        {
+            if (bytes != nullptr) {
+                delete[] bytes;
+            }
+        }
+    };
+
+    static std::mutex module_mapper_mutex_;
+    static std::unique_ptr<module_mapper_t> module_mapper_;
+    static modfile_bytes_t modfile_bytes_;
+
+public:
+    // Non-static to allow test sub-classes to override.
+    virtual std::string
+    init_module_mapper(const std::string &module_file_path,
+                       const std::string &alt_module_dir)
+    {
+        std::lock_guard<std::mutex> guard(module_mapper_mutex_);
+        if (module_mapper_ != nullptr) {
+            // We want only a single module_mapper_t instance to be
+            // initialized that is shared among all instances of
+            // instr_decode_cache_base_t.
+            return "";
+        }
+        // Legacy trace support where binaries are needed.
+        // We do not support non-module code for such traces.
+        file_t modfile;
+        std::string error =
+            read_module_file(module_file_path, modfile, modfile_bytes_.bytes);
+        if (!error.empty()) {
+            return "Failed to read module file: " + error;
+        }
+        dr_close_file(modfile);
+        module_mapper_ =
+            module_mapper_t::create(modfile_bytes_.bytes, nullptr, nullptr, nullptr,
+                                    nullptr, /*verbose=*/0, alt_module_dir);
+        module_mapper_->get_loaded_modules();
+        error = module_mapper_->get_last_error();
+        if (!error.empty())
+            return "Failed to load binaries: " + error;
+        return "";
+    }
+
+    static std::string
+    find_mapped_trace_address(app_pc trace_pc, app_pc &decode_pc)
+    {
+        std::lock_guard<std::mutex> guard(module_mapper_mutex_);
+        decode_pc = module_mapper_->find_mapped_trace_address(trace_pc);
+        if (!module_mapper_->get_last_error().empty()) {
+            return "Failed to find mapped address for " + to_hex_string(trace_pc) + ": " +
+                module_mapper_->get_last_error();
+        }
+        return "";
+    }
+};
+
+/**
  * A cache to store decode info for instructions per observed app pc. The template arg
  * DecodeInfo is a class derived from \p decode_info_base_t which implements the
  * set_decode_info_derived() function that derives the required decode info from an
@@ -137,7 +216,8 @@ private:
  * in their \p TRACE_MARKER_TYPE_FILETYPE marker, as only those traces have instr
  * encodings embedded in them.
  */
-template <class DecodeInfo> class instr_decode_cache_t {
+template <class DecodeInfo>
+class instr_decode_cache_t : public instr_decode_cache_base_t {
     static_assert(std::is_base_of<decode_info_base_t, DecodeInfo>::value,
                   "DecodeInfo not derived from decode_info_base_t");
 
@@ -145,6 +225,9 @@ public:
     instr_decode_cache_t(void *dcontext, bool persist_decoded_instrs)
         : dcontext_(dcontext)
         , persist_decoded_instrs_(persist_decoded_instrs) {};
+    virtual ~instr_decode_cache_t()
+    {
+    }
 
     /**
      * Returns a pointer to the DecodeInfo available for the instruction at \p pc.
@@ -164,17 +247,21 @@ public:
     /**
      * Adds decode info for the given \p memref_instr if it is not yet recorded.
      */
-    void
-    add_decode_info(const dynamorio::drmemtrace::_memref_instr_t &memref_instr)
+    std::string
+    add_decode_info(const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
+                    DecodeInfo *&decode_info)
     {
         const app_pc trace_pc = reinterpret_cast<app_pc>(memref_instr.addr);
         if (memref_instr.encoding_is_new) {
             decode_cache_.erase(trace_pc);
         }
-        if (decode_cache_.find(trace_pc) != decode_cache_.end()) {
-            return;
+        auto it = decode_cache_.find(trace_pc);
+        if (it != decode_cache_.end()) {
+            decode_info = &it->second;
+            return "";
         }
         decode_cache_[trace_pc] = DecodeInfo();
+        decode_info = &decode_cache_[trace_pc];
         instr_t *instr = nullptr;
         instr_noalloc_t noalloc;
         if (persist_decoded_instrs_) {
@@ -183,21 +270,91 @@ public:
             instr_noalloc_init(dcontext_, &noalloc);
             instr = instr_from_noalloc(&noalloc);
         }
-        app_pc next_pc = decode_from_copy(
-            dcontext_, const_cast<app_pc>(memref_instr.encoding), trace_pc, instr);
+
+        app_pc decode_pc;
+        if (!use_module_mapper_) {
+            decode_pc = const_cast<app_pc>(memref_instr.encoding);
+        } else {
+            // Legacy trace support where we need the binaries.
+            std::string err = find_mapped_trace_address(trace_pc, decode_pc);
+            if (err != "")
+                return err;
+        }
+        app_pc next_pc = decode_from_copy(dcontext_, decode_pc, trace_pc, instr);
         if (next_pc == nullptr || !instr_valid(instr)) {
             if (persist_decoded_instrs_) {
                 instr_destroy(dcontext_, instr);
             }
-            return;
+            return "decode_from_copy failed";
         }
         decode_cache_[trace_pc].set_decode_info(dcontext_, memref_instr, instr);
+        return "";
+    }
+    // TODO: maybe a good idea to get filetype here. Or alternatively the
+    // encoding_is_new check.
+    std::string
+    use_module_mapper(const std::string &module_file_path,
+                      const std::string &alt_module_dir)
+    {
+        use_module_mapper_ = true;
+        return init_module_mapper(module_file_path, alt_module_dir);
     }
 
 private:
     std::unordered_map<app_pc, DecodeInfo> decode_cache_;
+    void *dcontext_ = nullptr;
+    bool persist_decoded_instrs_ = false;
+    // use_module_mapper_ describes whether we lookup the instr encodings
+    // from the module map, or alternatively from embedded-encodings in the
+    // trace.
+    //
+    // Note that we store our instr encoding lookup strategy as a non-static
+    // data member, unlike module_mapper_t which is static and shared between
+    // all instr_decode_cache_t instances (even of different template types).
+    // Some analysis tools may deliberately want to look at instr encodings
+    // from the module mappings, but that strategy does not provide JIT
+    // encodings which are present only as embedded-encodings in the trace.
+    // In such a case, other concurrently running analysis tools should still
+    // be able to see encodings for JIT code.
+    bool use_module_mapper_ = false;
+};
+
+/**
+ *  An \p instr_decode_cache_t for testing which uses a \p test_module_mapper_t.
+ */
+template <class DecodeInfo>
+class test_instr_decode_cache_t : public instr_decode_cache_t<DecodeInfo> {
+public:
+    using instr_decode_cache_base_t::module_mapper_;
+
+    // The ilist arg is required only for testing the module_mapper_t
+    // decoding strategy.
+    test_instr_decode_cache_t(void *dcontext, bool persist_decoded_instrs,
+                              instrlist_t *ilist = nullptr)
+        : instr_decode_cache_t<DecodeInfo>(dcontext, persist_decoded_instrs)
+        , dcontext_(dcontext)
+        , ilist_(ilist)
+    {
+    }
+
+    std::string
+    init_module_mapper(const std::string &unused_module_file_path,
+                       const std::string &unused_alt_module_dir) override
+    {
+        if (ilist_ == nullptr)
+            return "No ilist to init test_module_mapper_t";
+        module_mapper_ =
+            std::unique_ptr<module_mapper_t>(new test_module_mapper_t(ilist_, dcontext_));
+        module_mapper_->get_loaded_modules();
+        std::string error = module_mapper_->get_last_error();
+        if (!error.empty())
+            return "Failed to load binaries: " + error;
+        return "";
+    }
+
+private:
     void *dcontext_;
-    bool persist_decoded_instrs_;
+    instrlist_t *ilist_;
 };
 
 } // namespace drmemtrace

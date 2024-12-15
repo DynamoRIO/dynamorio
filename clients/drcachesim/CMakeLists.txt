@@ -161,22 +161,25 @@ add_exported_library(drmemtrace_reuse_distance STATIC tools/reuse_distance.cpp)
 add_exported_library(drmemtrace_histogram STATIC tools/histogram.cpp)
 add_exported_library(drmemtrace_reuse_time STATIC tools/reuse_time.cpp)
 add_exported_library(drmemtrace_basic_counts STATIC tools/basic_counts.cpp)
-add_exported_library(drmemtrace_opcode_mix STATIC
-                     tools/opcode_mix.cpp tracer/raw2trace_shared.cpp)
+add_exported_library(drmemtrace_opcode_mix STATIC tools/opcode_mix.cpp)
 add_exported_library(drmemtrace_syscall_mix STATIC tools/syscall_mix.cpp)
-add_exported_library(drmemtrace_view STATIC
-                     tools/view.cpp tracer/raw2trace_shared.cpp)
+add_exported_library(drmemtrace_view STATIC tools/view.cpp)
 add_exported_library(drmemtrace_func_view STATIC tools/func_view.cpp)
 add_exported_library(drmemtrace_invariant_checker STATIC tools/invariant_checker.cpp)
 add_exported_library(drmemtrace_schedule_stats STATIC tools/schedule_stats.cpp)
 add_exported_library(drmemtrace_instr_decode_cache STATIC
-                     tools/common/instr_decode_cache.cpp)
+                     tools/common/instr_decode_cache.cpp
+                     tracer/raw2trace_shared.cpp)
 add_exported_library(drmemtrace_schedule_file STATIC common/schedule_file.cpp)
 add_exported_library(drmemtrace_mutex_dbg_owned STATIC common/mutex_dbg_owned.cpp)
 
 target_link_libraries(drmemtrace_invariant_checker drdecode drmemtrace_schedule_file
                       drmemtrace_instr_decode_cache)
+target_link_libraries(drmemtrace_instr_decode_cache drcovlib_static)
+target_link_libraries(drmemtrace_opcode_mix drmemtrace_instr_decode_cache)
+target_link_libraries(drmemtrace_view drmemtrace_instr_decode_cache)
 
+configure_DynamoRIO_standalone(drmemtrace_instr_decode_cache)
 configure_DynamoRIO_standalone(drmemtrace_opcode_mix)
 configure_DynamoRIO_standalone(drmemtrace_view)
 configure_DynamoRIO_standalone(drmemtrace_invariant_checker)
@@ -959,6 +962,17 @@ if (BUILD_TESTS)
   set_tests_properties(tool.drcachesim.instr_decode_cache_test PROPERTIES
     TIMEOUT ${test_seconds})
 
+  add_executable(tool.drcacheoff.opcode_mix_test
+                 tests/opcode_mix_test.cpp)
+  configure_DynamoRIO_standalone(tool.drcacheoff.opcode_mix_test)
+  add_win32_flags(tool.drcacheoff.opcode_mix_test)
+  target_link_libraries(tool.drcacheoff.opcode_mix_test
+      drmemtrace_static drmemtrace_opcode_mix test_helpers)
+  add_test(NAME tool.drcacheoff.opcode_mix_test
+           COMMAND tool.drcacheoff.opcode_mix_test)
+  set_tests_properties(tool.drcacheoff.opcode_mix_test PROPERTIES
+    TIMEOUT ${test_seconds})
+
   # XXX i#1997: dynamorio_static is not supported on Mac yet
   # FIXME i#2949: gcc 7.3 fails to link certain configs
   # TODO i#3544: Port tests to RISC-V 64
@@ -1006,7 +1020,7 @@ if (BUILD_TESTS)
     configure_DynamoRIO_standalone(tool.drcacheoff.view_test)
     add_win32_flags(tool.drcacheoff.view_test)
     target_link_libraries(tool.drcacheoff.view_test drmemtrace_view drmemtrace_raw2trace
-      drmemtrace_analyzer test_helpers)
+      drmemtrace_analyzer drmemtrace_instr_decode_cache test_helpers)
     use_DynamoRIO_extension(tool.drcacheoff.view_test drreg_static)
     use_DynamoRIO_extension(tool.drcacheoff.view_test drcovlib_static)
     use_DynamoRIO_extension(tool.drcacheoff.view_test drdecode)
