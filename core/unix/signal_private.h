@@ -286,9 +286,6 @@ typedef struct rt_sigframe {
 #    elif defined(AARCHXX)
     kernel_siginfo_t info;
     kernel_ucontext_t uc;
-#        ifdef ARM
-    char retcode[RETCODE_SIZE];
-#        endif
 #    elif defined(RISCV64)
     kernel_siginfo_t info;
     kernel_ucontext_t uc;
