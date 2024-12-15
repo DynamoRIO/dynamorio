@@ -223,7 +223,7 @@ template <class DecodeInfo> class decode_cache_t : public decode_cache_base_t {
 public:
     decode_cache_t(void *dcontext, bool persist_decoded_instrs)
         : dcontext_(dcontext)
-        , persist_decoded_instrs_(persist_decoded_instrs) { };
+        , persist_decoded_instrs_(persist_decoded_instrs) {};
     virtual ~decode_cache_t()
     {
     }
