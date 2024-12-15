@@ -161,7 +161,7 @@ scheduler_impl_tmpl_t<memref_t, reader_t>::get_reader(const std::string &path,
             // Skip the auxiliary files.
             if (fname == DRMEMTRACE_MODULE_LIST_FILENAME ||
                 fname == DRMEMTRACE_FUNCTION_LIST_FILENAME ||
-                fname == DRMEMTRACE_ENCODING_FILENAME)
+                fname == DRMEMTRACE_ENCODING_FILENAME || fname == DRMEMTRACE_V2P_FILENAME)
                 continue;
 #    ifdef HAS_SNAPPY
             if (ends_with(*iter, ".sz")) {
