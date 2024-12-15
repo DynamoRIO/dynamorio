@@ -779,16 +779,15 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         const bool expect_encoding =
             TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_);
         if (expect_encoding) {
-            per_shard_t::decoding_info_t *decode_info;
-            shard->error_ =
-                shard->decode_cache_.add_decode_info(memref.instr, decode_info);
+            shard->error_ = shard->decode_cache_.add_decode_info(memref.instr);
             if (shard->error_ != "") {
                 return false;
             }
-            // The decode_info returned from add_decode_info will never be
-            // nullptr. If there was some error in decode, it will be the
-            // default-constructed object, which has the intended defaults and
-            // returns is_valid() = false.
+            per_shard_t::decoding_info_t *decode_info =
+                shard->decode_cache_.get_decode_info(
+                    reinterpret_cast<app_pc>(memref.instr.addr));
+            // The decode_info returned from get_decode_info will never be nullptr
+            // since we return if the prior add_decode_info returned an error.
             cur_instr_info.decoding = *decode_info;
 
 #ifdef X86

@@ -233,6 +233,9 @@ public:
      * Returns nullptr if no instruction is known at that \p pc. Returns the
      * default-constructed DecodeInfo if there was a decoding error for the
      * instruction.
+     *
+     * Guaranteed to be non-nullptr if the prior add_decode_info for that pc
+     * returned no error.
      */
     DecodeInfo *
     get_decode_info(app_pc pc)
@@ -245,10 +248,17 @@ public:
     }
     /**
      * Adds decode info for the given \p memref_instr if it is not yet recorded.
+     *
+     * Uses the embedded encodings in the trace or, if use_module_mapper() was
+     * called before, the encodings from the instantiated module_mapper_t.
+     *
+     * If there is a decoding failure, the default-constructed DecodeInfo that
+     * returns is_valid() = false will be added to the cache.
+     *
+     * Returns the error string, or an empty string if there was no error.
      */
     std::string
-    add_decode_info(const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
-                    DecodeInfo *&decode_info)
+    add_decode_info(const dynamorio::drmemtrace::_memref_instr_t &memref_instr)
     {
         const app_pc trace_pc = reinterpret_cast<app_pc>(memref_instr.addr);
         if (!use_module_mapper_ && memref_instr.encoding_is_new) {
@@ -258,8 +268,7 @@ public:
             decode_cache_.erase(trace_pc);
         }
         auto it = decode_cache_.find(trace_pc);
-        if (it != decode_cache_.end()) {
-            decode_info = &it->second;
+        if (it != decode_cache_.end() && it->second.is_valid()) {
             return "";
         }
         if (!use_module_mapper_ && !memref_instr.encoding_is_new) {
@@ -275,7 +284,6 @@ public:
                    "have embedded encodings.";
         }
         decode_cache_[trace_pc] = DecodeInfo();
-        decode_info = &decode_cache_[trace_pc];
         instr_t *instr = nullptr;
         instr_noalloc_t noalloc;
         if (persist_decoded_instrs_) {

@@ -108,9 +108,7 @@ check_decode_caching(bool persist_instrs, bool use_module_mapper)
             decode_cache.use_module_mapper(NOT_NEEDED_IN_TEST, NOT_NEEDED_IN_TEST);
         }
         for (const memref_t &memref : memrefs) {
-            instr_decode_info_t *decode_info_unused;
-            std::string err =
-                decode_cache.add_decode_info(memref.instr, decode_info_unused);
+            std::string err = decode_cache.add_decode_info(memref.instr);
             if (err != "")
                 return err;
         }
@@ -140,18 +138,17 @@ check_decode_caching(bool persist_instrs, bool use_module_mapper)
                 reinterpret_cast<app_pc>(memrefs[0].instr.addr)) != nullptr) {
             return "Unexpected decode info for never-seen pc";
         }
-        test_decode_info_t *decode_info;
-        std::string err = decode_cache.add_decode_info(memrefs[0].instr, decode_info);
+        std::string err = decode_cache.add_decode_info(memrefs[0].instr);
         if (err != "")
             return err;
         test_decode_info_t *decode_info_nop =
             decode_cache.get_decode_info(reinterpret_cast<app_pc>(memrefs[0].instr.addr));
-        if (decode_info_nop != decode_info || decode_info_nop == nullptr ||
-            !decode_info_nop->is_valid() || !decode_info_nop->is_nop) {
+        if (decode_info_nop == nullptr || !decode_info_nop->is_valid() ||
+            !decode_info_nop->is_nop) {
             return "Unexpected decode info for nop instr: " +
                 std::to_string(reinterpret_cast<uint64_t>(decode_info_nop)) + "\n";
         }
-        err = decode_cache.add_decode_info(memrefs[1].instr, decode_info);
+        err = decode_cache.add_decode_info(memrefs[1].instr);
         if (err != "")
             return err;
         test_decode_info_t *decode_info_ret =
@@ -161,7 +158,7 @@ check_decode_caching(bool persist_instrs, bool use_module_mapper)
             return "Unexpected decode info for ret instr: " +
                 std::to_string(reinterpret_cast<uint64_t>(decode_info_ret)) + "\n";
         }
-        err = decode_cache.add_decode_info(memrefs[2].instr, decode_info);
+        err = decode_cache.add_decode_info(memrefs[2].instr);
         if (err != "")
             return err;
         test_decode_info_t *decode_info_nop_2 =
@@ -183,13 +180,17 @@ check_missing_module_mapper()
     test_decode_cache_t<instr_decode_info_t> decode_cache(
         GLOBAL_DCONTEXT,
         /*persist_decoded_instr=*/true, /*ilist_for_test_module_mapper=*/nullptr);
-    instr_decode_info_t *decode_info;
-    std::string err = decode_cache.add_decode_info(instr.instr, decode_info);
+    std::string err = decode_cache.add_decode_info(instr.instr);
     if (err == "") {
         return "Expected error but did not get any";
     }
     if (err.find("use_module_mapper") == std::string::npos) {
         return "Unexpected error description: " + err;
+    }
+    instr_decode_info_t *decode_info =
+        decode_cache.get_decode_info(reinterpret_cast<app_pc>(instr.instr.addr));
+    if (decode_info != nullptr) {
+        return "Did not expected any decode info to be added";
     }
     std::cerr << "check_missing_module_mapper passed\n";
     return "";
