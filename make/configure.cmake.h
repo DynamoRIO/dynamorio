@@ -56,6 +56,8 @@
 #cmakedefine VMKERNEL
 #cmakedefine MACOS
 #cmakedefine ANDROID
+#cmakedefine ANDROID64
+#cmakedefine ANDROID32
 #if defined(MACOS) || defined (LINUX) || defined(VMKERNEL) || defined(ANDROID)
 # define UNIX
 #endif

@@ -91,6 +91,11 @@ function (check_if_linker_is_gnu_gold var_out)
   set(${var_out} ${is_gold} PARENT_SCOPE)
 endfunction (check_if_linker_is_gnu_gold)
 
+function (check_if_linker_is_llvm_lld var_out)
+  _DR_check_if_linker_is_llvm_lld(is_lld)
+  set(${var_out} ${is_lld} PARENT_SCOPE)
+endfunction (check_if_linker_is_llvm_lld)
+
 # disable known warnings
 function (disable_compiler_warnings)
   if (WIN32)
@@ -269,7 +274,7 @@ if (UNIX)
     endif ()
     if (APPLE)
       set(ldflags "-image_base ${base}")
-    elseif (NOT LINKER_IS_GNU_GOLD)
+    elseif (NOT LINKER_IS_GNU_GOLD AND NOT LINKER_IS_LLVM_LLD)
       set(ld_script ${CMAKE_CURRENT_BINARY_DIR}/${target}.ldscript)
       set_directory_properties(PROPERTIES
         ADDITIONAL_MAKE_CLEAN_FILES "${ld_script}")

@@ -137,7 +137,9 @@ struct _prev_sigaction_t {
 #endif
 
 #ifdef LINUX
+#    ifndef ANDROID64
 typedef unsigned int old_sigset_t;
+#    endif
 
 struct _old_sigaction_t {
     handler_t handler;
@@ -284,9 +286,6 @@ typedef struct rt_sigframe {
 #    elif defined(AARCHXX)
     kernel_siginfo_t info;
     kernel_ucontext_t uc;
-#        ifdef ARM
-    char retcode[RETCODE_SIZE];
-#        endif
 #    elif defined(RISCV64)
     kernel_siginfo_t info;
     kernel_ucontext_t uc;
@@ -618,7 +617,7 @@ static inline bool
 libc_sigismember(const sigset_t *set, int _sig)
 {
     int sig = _sig - 1; /* go to 0-based */
-#if defined(MACOS) || defined(ANDROID)
+#if defined(MACOS) || defined(ANDROID32)
     /* sigset_t is just a uint32 */
     return TEST(1UL << sig, *set);
 #else
