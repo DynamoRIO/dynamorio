@@ -53,6 +53,7 @@
 #include <iostream>
 #include <string>
 #include <sys/syscall.h>
+#include <sys/types.h>
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -71,6 +72,12 @@ static instr_t *instr_in_gettid = nullptr;
         fflush(stderr);                                     \
         exit(1);                                            \
     } while (0)
+
+static pid_t
+gettid(void)
+{
+    return syscall(SYS_gettid);
+}
 
 static int
 do_some_syscalls()
