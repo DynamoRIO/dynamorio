@@ -83,15 +83,17 @@ opcode_mix_t::opcode_mix_t(const std::string &module_file_path, unsigned int ver
 
 std::string
 opcode_mix_t::init_decode_cache(shard_data_t *shard, void *dcontext,
-                                const std::string &module_file_path,
-                                const std::string &alt_module_dir)
+                                offline_file_type_t filetype)
 {
     shard->decode_cache = std::unique_ptr<decode_cache_t<opcode_data_t>>(
         new decode_cache_t<opcode_data_t>(dcontext,
                                           /*persist_decoded_instrs=*/false));
-    if (!module_file_path.empty()) {
-        std::string err =
-            shard->decode_cache->use_module_mapper(module_file_path, alt_module_dir);
+    if (!TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, filetype)) {
+        if (module_file_path_.empty()) {
+            return "Module file path is missing and trace has no embedded encodings";
+        }
+        std::string err = shard->decode_cache->use_module_mapper(module_file_path_,
+                                                                 knob_alt_module_dir_);
         if (err != "")
             return err;
     }
@@ -102,12 +104,6 @@ std::string
 opcode_mix_t::initialize_stream(memtrace_stream_t *serial_stream)
 {
     dcontext_.dcontext = dr_standalone_init();
-    if (serial_stream != nullptr) {
-        std::string err = init_decode_cache(&serial_shard_, dcontext_.dcontext,
-                                            module_file_path_, knob_alt_module_dir_);
-        if (err != "")
-            return err;
-    }
     return "";
 }
 
@@ -133,12 +129,6 @@ opcode_mix_t::parallel_shard_init_stream(
     dynamorio::drmemtrace::memtrace_stream_t *shard_stream)
 {
     auto shard = new shard_data_t();
-    std::string err = init_decode_cache(shard, dcontext_.dcontext, module_file_path_,
-                                        knob_alt_module_dir_);
-    if (err != "") {
-        shard->error = err;
-        return nullptr;
-    }
     std::lock_guard<std::mutex> guard(shard_map_mutex_);
     shard_map_[shard_index] = shard;
     return reinterpret_cast<void *>(shard);
@@ -217,11 +207,10 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     if (shard->filetype == OFFLINE_FILE_TYPE_DEFAULT) {
         shard->error = "No file type found in this shard";
         return false;
-    } else {
-        if (!TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->filetype) &&
-            module_file_path_.empty()) {
-            shard->error =
-                "Module file path is missing and trace has no embedded encodings";
+    } else if (shard->decode_cache == nullptr) {
+        std::string err = init_decode_cache(shard, dcontext_.dcontext, shard->filetype);
+        if (err != "") {
+            shard->error = err;
             return false;
         }
     }

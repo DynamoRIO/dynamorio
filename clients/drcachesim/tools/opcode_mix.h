@@ -171,9 +171,7 @@ protected:
     };
 
     virtual std::string
-    init_decode_cache(shard_data_t *shard, void *dcontext,
-                      const std::string &module_file_path,
-                      const std::string &alt_module_dir);
+    init_decode_cache(shard_data_t *shard, void *dcontext, offline_file_type_t filetype);
 
     /* We make this the first field so that dr_standalone_exit() is called after
      * destroying the other fields which may use DR heap.

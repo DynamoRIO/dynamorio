@@ -220,10 +220,15 @@ public:
             decode_cache_.erase(trace_pc);
         }
         auto it = decode_cache_.find(trace_pc);
-        if (it != decode_cache_.end() && it->second.is_valid()) {
-            return "";
+        bool already_cached = false;
+        if (it != decode_cache_.end()) {
+            already_cached = true;
+            // If the prior cached info was invalid, we try again.
+            if (it->second.is_valid()) {
+                return "";
+            }
         }
-        if (!use_module_mapper_ && !memref_instr.encoding_is_new) {
+        if (!use_module_mapper_ && !already_cached && !memref_instr.encoding_is_new) {
             // If we're looking at embedded encodings, we must either have
             // a cached encoding already, or this encoding must be new.
             // If neither is true, it is likely that this trace actually

@@ -62,8 +62,7 @@ public:
 protected:
     std::string
     init_decode_cache(shard_data_t *shard, void *dcontext,
-                      const std::string &module_file_path,
-                      const std::string &alt_module_dir) override
+                      offline_file_type_t filetype) override
     {
         shard->decode_cache = std::unique_ptr<decode_cache_t<opcode_data_t>>(
             new test_decode_cache_t<opcode_data_t>(dcontext, false, instrs_));
