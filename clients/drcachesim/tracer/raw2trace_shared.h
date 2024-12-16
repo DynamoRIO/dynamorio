@@ -159,6 +159,26 @@ private:
     std::list<trace_entry_t> list_;
 };
 
+/**
+ * Reads the module file at the given \p modfilename path. Returns an
+ * empty string if successful, or the error string if not.
+ *
+ * This uses the DR file APIs to read the module file. Generally we
+ * attempt to isolate implementation that uses DR file APIs to
+ * raw2trace_directory_t, and have raw2trace and raw2trace_shared
+ * deal only with file streams, but we make an exception here. This
+ * is acceptable because no current users of read_module_file
+ * need to read it from a stream. Also, this is a simple convenience
+ * routine that only reads the file without any module file specific
+ * logic.
+ *
+ * If successful, the returned \p modfile must be closed using
+ * \p dr_close_file, and the returned \p modefilebytes must be freed
+ * using a delete[].
+ */
+std::string
+read_module_file(const std::string &modfilename, file_t &modfile, char *&modfile_bytes);
+
 struct module_t {
     module_t(const char *path, app_pc orig, byte *map, size_t offs, size_t size,
              size_t total_size, bool external = false)
