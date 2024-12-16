@@ -164,9 +164,7 @@ public:
  * may be made to persist beyond the set_decode_info() calls by constructing the
  * \p decode_cache_t object with \p persist_decoded_instrs_ set to true.
  *
- * This should be used only with traces that have \p OFFLINE_FILE_TYPE_ENCODINGS set
- * in their \p TRACE_MARKER_TYPE_FILETYPE marker, as only those traces have instr
- * encodings embedded in them.
+ * Usage note: after constructing an object, init() must be called.
  */
 template <class DecodeInfo> class decode_cache_t : public decode_cache_base_t {
     static_assert(std::is_base_of<decode_info_base_t, DecodeInfo>::value,
@@ -201,8 +199,9 @@ public:
     /**
      * Adds decode info for the given \p memref_instr if it is not yet recorded.
      *
-     * Uses the embedded encodings in the trace or, if use_module_mapper() was
-     * called before, the encodings from the instantiated module_mapper_t.
+     * Uses the embedded encodings in the trace or, if init() was invoked with
+     * a module file path, the encodings from the instantiated
+     * \p module_mapper_t.
      *
      * If there is a decoding failure, the default-constructed DecodeInfo that
      * returns is_valid() = false will be added to the cache.
@@ -212,6 +211,9 @@ public:
     std::string
     add_decode_info(const dynamorio::drmemtrace::_memref_instr_t &memref_instr)
     {
+        if (!init_done_) {
+            return "init() must be called first";
+        }
         const app_pc trace_pc = reinterpret_cast<app_pc>(memref_instr.addr);
         if (!use_module_mapper_ && memref_instr.encoding_is_new) {
             // If the user asked to use the module mapper despite having
@@ -220,25 +222,9 @@ public:
             decode_cache_.erase(trace_pc);
         }
         auto it = decode_cache_.find(trace_pc);
-        bool already_cached = false;
-        if (it != decode_cache_.end()) {
-            already_cached = true;
-            // If the prior cached info was invalid, we try again.
-            if (it->second.is_valid()) {
-                return "";
-            }
-        }
-        if (!use_module_mapper_ && !already_cached && !memref_instr.encoding_is_new) {
-            // If we're looking at embedded encodings, we must either have
-            // a cached encoding already, or this encoding must be new.
-            // If neither is true, it is likely that this trace actually
-            // doesn't have embedded encodings, and the user forgot to
-            // call use_module_mapper(). This may also be a reader_t issue
-            // which caused a missing encoding on the first instance of
-            // the instruction.
-            return "First instance of an instruction was found without an "
-                   "encoding. Remember to use_module_mapper() if trace does not "
-                   "have embedded encodings.";
+        // If the prior cached info was invalid, we try again.
+        if (it != decode_cache_.end() && it->second.is_valid()) {
+            return "";
         }
         decode_cache_[trace_pc] = DecodeInfo();
         instr_t *instr = nullptr;
@@ -269,19 +255,12 @@ public:
         decode_cache_[trace_pc].set_decode_info(dcontext_, memref_instr, instr);
         return "";
     }
+
     /**
-     * Instructs the \p decode_cache_t object that it should look for the instr
-     * encodings in the application binaries using a \p module_mapper_t. A
-     * \p module_mapper_t is instantiated only one time and reused for all objects
-     * of \p decode_cache_t (of any template type).
+     * Performs initialization tasks such as verifying whether the given trace
+     * indeed has embedded encodings or not, and initializing the
+     * \p module_mapper_t if the module path is provided.
      *
-     * The user must call this API if decoding instructions from a trace that does
-     * not have embedded instruction encodings in it, as indicated by absence of
-     * the \p OFFLINE_FILE_TYPE_ENCODINGS bit in the \p TRACE_MARKER_TYPE_FILETYPE
-     * marker. The user may call this API also if they deliberately need to use
-     * the module mapper instead of the embedded encodings.
-     *
-     * It is left up to the user to determine if and when this API is needed.
      * It is important to note that the trace filetype may be obtained using the
      * get_filetype() API on a \p memtrace_stream_t. However, not all instances of
      * \p memtrace_stream_t have the filetype available at init time (before the
@@ -292,11 +271,33 @@ public:
      * cases, the user may call this API after init time when the
      * \p TRACE_MARKER_TYPE_FILETYPE marker is seen (still before any instr
      * record).
+     *
+     * If the provided \p module_file_path is empty, the cache object uses
+     * the encodings embedded in the trace records.
+     *
+     * If the \p module_file_path parameter is not empty, it instructs the
+     * \p decode_cache_t object that it should look for the instr encodings in the
+     * application binaries using a \p module_mapper_t. A \p module_mapper_t is
+     * instantiated only one time and reused for all objects
+     * of \p decode_cache_t (of any template type). The user must provide a valid
+     * \p module_file_path if decoding instructions from a trace that does not
+     * have embedded instruction encodings in it, as indicated by absence of
+     * the \p OFFLINE_FILE_TYPE_ENCODINGS bit in the \p TRACE_MARKER_TYPE_FILETYPE
+     * marker. The user may provide a \p module_file_path also if they
+     * deliberately need to use the module mapper instead of the embedded
+     * encodings.
      */
     std::string
-    use_module_mapper(const std::string &module_file_path,
-                      const std::string &alt_module_dir)
+    init(offline_file_type_t filetype, const std::string &module_file_path = "",
+         const std::string &alt_module_dir = "")
     {
+        init_done_ = true;
+        if (!TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, filetype) && module_file_path.empty()) {
+            return "Trace does not have embedded encodings, and no module_file_path "
+                   "provided";
+        }
+        if (module_file_path.empty())
+            return "";
         use_module_mapper_ = true;
         return init_module_mapper(module_file_path, alt_module_dir);
     }
@@ -318,6 +319,11 @@ private:
     // In such a case, other concurrently running analysis tools should still
     // be able to see encodings for JIT code.
     bool use_module_mapper_ = false;
+
+    // Describes whether init() was invoked.
+    // This helps in detecting cases where a module mapper was not specified
+    // when decoding a trace without embedded encodings.
+    bool init_done_ = false;
 };
 
 /**

@@ -153,7 +153,7 @@ void *
 invariant_checker_t::parallel_shard_init_stream(int shard_index, void *worker_data,
                                                 memtrace_stream_t *shard_stream)
 {
-    auto per_shard = std::unique_ptr<per_shard_t>(new per_shard_t(drcontext_));
+    auto per_shard = std::unique_ptr<per_shard_t>(new per_shard_t());
     per_shard->stream = shard_stream;
     void *res = reinterpret_cast<void *>(per_shard.get());
     std::lock_guard<std::mutex> guard(init_mutex_);
@@ -779,12 +779,22 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         const bool expect_encoding =
             TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_);
         if (expect_encoding) {
-            shard->error_ = shard->decode_cache_.add_decode_info(memref.instr);
+            if (shard->decode_cache_ == nullptr) {
+                shard->decode_cache_ =
+                    std::unique_ptr<decode_cache_t<per_shard_t::decoding_info_t>>(
+                        new decode_cache_t<per_shard_t::decoding_info_t>(
+                            drcontext_,
+                            /*persist_decoded_instrs=*/false));
+                shard->error_ = shard->decode_cache_->init(shard->file_type_);
+                if (shard->error_ != "")
+                    return false;
+            }
+            shard->error_ = shard->decode_cache_->add_decode_info(memref.instr);
             if (shard->error_ != "") {
                 return false;
             }
             per_shard_t::decoding_info_t *decode_info =
-                shard->decode_cache_.get_decode_info(
+                shard->decode_cache_->get_decode_info(
                     reinterpret_cast<app_pc>(memref.instr.addr));
             // The decode_info returned from get_decode_info will never be nullptr
             // since we return if the prior add_decode_info returned an error.
@@ -1210,7 +1220,7 @@ invariant_checker_t::process_memref(const memref_t &memref)
     int shard_index = serial_stream_->get_shard_index();
     const auto &lookup = shard_map_.find(shard_index);
     if (lookup == shard_map_.end()) {
-        auto per_shard_unique = std::unique_ptr<per_shard_t>(new per_shard_t(drcontext_));
+        auto per_shard_unique = std::unique_ptr<per_shard_t>(new per_shard_t());
         per_shard = per_shard_unique.get();
         per_shard->stream = serial_stream_;
         per_shard->tid_ = serial_stream_->get_tid();
@@ -1342,7 +1352,7 @@ invariant_checker_t::print_results()
             parallel_shard_exit(keyval.second.get());
         }
     }
-    per_shard_t global(drcontext_);
+    per_shard_t global;
     check_schedule_data(&global);
     uint64_t total_error_count = global.error_count_;
     if (!abort_on_invariant_error_) {

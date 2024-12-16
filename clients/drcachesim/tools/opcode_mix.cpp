@@ -81,22 +81,28 @@ opcode_mix_t::opcode_mix_t(const std::string &module_file_path, unsigned int ver
 {
 }
 
-std::string
-opcode_mix_t::init_decode_cache(shard_data_t *shard, void *dcontext,
-                                offline_file_type_t filetype)
+void
+opcode_mix_t::make_decode_cache(shard_data_t *shard, void *dcontext)
 {
     shard->decode_cache = std::unique_ptr<decode_cache_t<opcode_data_t>>(
         new decode_cache_t<opcode_data_t>(dcontext,
                                           /*persist_decoded_instrs=*/false));
+}
+
+std::string
+opcode_mix_t::init_decode_cache(shard_data_t *shard, void *dcontext,
+                                offline_file_type_t filetype)
+{
+    make_decode_cache(shard, dcontext);
+    std::string err;
     if (!TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, filetype)) {
-        if (module_file_path_.empty()) {
-            return "Module file path is missing and trace has no embedded encodings";
-        }
-        std::string err = shard->decode_cache->use_module_mapper(module_file_path_,
-                                                                 knob_alt_module_dir_);
-        if (err != "")
-            return err;
+        err =
+            shard->decode_cache->init(filetype, module_file_path_, knob_alt_module_dir_);
+    } else {
+        err = shard->decode_cache->init(filetype);
     }
+    if (err != "")
+        return err;
     return "";
 }
 

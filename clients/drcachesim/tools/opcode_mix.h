@@ -170,7 +170,10 @@ protected:
         void *dcontext = nullptr;
     };
 
-    virtual std::string
+    virtual void
+    make_decode_cache(shard_data_t *shard, void *dcontext);
+
+    std::string
     init_decode_cache(shard_data_t *shard, void *dcontext, offline_file_type_t filetype);
 
     /* We make this the first field so that dr_standalone_exit() is called after

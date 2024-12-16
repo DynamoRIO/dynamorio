@@ -60,19 +60,11 @@ public:
     }
 
 protected:
-    std::string
-    init_decode_cache(shard_data_t *shard, void *dcontext,
-                      offline_file_type_t filetype) override
+    void
+    make_decode_cache(shard_data_t *shard, void *dcontext) override
     {
         shard->decode_cache = std::unique_ptr<decode_cache_t<opcode_data_t>>(
             new test_decode_cache_t<opcode_data_t>(dcontext, false, instrs_));
-        if (instrs_ != nullptr) {
-            std::string err = shard->decode_cache->use_module_mapper(
-                /*module_file_path=*/"", /*alt_module_dir=*/"");
-            if (err != "")
-                return err;
-        }
-        return "";
     }
 
 private:

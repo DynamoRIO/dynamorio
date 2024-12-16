@@ -118,8 +118,7 @@ protected:
     // Most checks are thread-local; for thread switch checks we rely
     // on identifying thread switch points via timestamp entries.
     struct per_shard_t {
-        per_shard_t(void *dcontext)
-            : decode_cache_(dcontext, /*persist_decoded_instrs=*/false)
+        per_shard_t()
         {
             // We need a sentinel different from type 0.
             prev_xfer_marker_.marker.marker_type = TRACE_MARKER_TYPE_VERSION;
@@ -170,7 +169,7 @@ protected:
             // simplifying various conditional checks.
             decoding_info_t decoding;
         };
-        decode_cache_t<decoding_info_t> decode_cache_;
+        std::unique_ptr<decode_cache_t<decoding_info_t>> decode_cache_;
         // On UNIX generally last_instr_in_cur_context_ should be used instead.
         instr_info_t prev_instr_;
 #ifdef UNIX
