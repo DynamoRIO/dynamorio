@@ -143,7 +143,19 @@ protected:
     static char *modfile_bytes_;
     static int module_mapper_use_count_;
 
-    bool uses_module_mapper_ = 0;
+    // use_module_mapper_ describes whether we lookup the instr encodings
+    // from the module map, or alternatively from embedded-encodings in the
+    // trace.
+    //
+    // Note that we store our instr encoding lookup strategy as a non-static
+    // data member, unlike module_mapper_t which is static and shared between
+    // all decode_cache_t instances (even of different template types).
+    // Some analysis tools may deliberately want to look at instr encodings
+    // from the module mappings, but that strategy does not provide JIT
+    // encodings which are present only as embedded-encodings in the trace.
+    // In such a case, other concurrently running analysis tools should still
+    // be able to see encodings for JIT code.
+    bool use_module_mapper_ = 0;
 
 public:
     // Initializes the module_mapper_ object using make_module_mapper() and performs
@@ -308,7 +320,6 @@ public:
         }
         if (module_file_path.empty())
             return "";
-        use_module_mapper_ = true;
         return init_module_mapper(module_file_path, alt_module_dir);
     }
 
@@ -316,19 +327,6 @@ private:
     std::unordered_map<app_pc, DecodeInfo> decode_cache_;
     void *dcontext_ = nullptr;
     bool persist_decoded_instrs_ = false;
-    // use_module_mapper_ describes whether we lookup the instr encodings
-    // from the module map, or alternatively from embedded-encodings in the
-    // trace.
-    //
-    // Note that we store our instr encoding lookup strategy as a non-static
-    // data member, unlike module_mapper_t which is static and shared between
-    // all decode_cache_t instances (even of different template types).
-    // Some analysis tools may deliberately want to look at instr encodings
-    // from the module mappings, but that strategy does not provide JIT
-    // encodings which are present only as embedded-encodings in the trace.
-    // In such a case, other concurrently running analysis tools should still
-    // be able to see encodings for JIT code.
-    bool use_module_mapper_ = false;
 
     // Describes whether init() was invoked.
     // This helps in detecting cases where a module mapper was not specified

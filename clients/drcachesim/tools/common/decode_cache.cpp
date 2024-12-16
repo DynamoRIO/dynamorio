@@ -60,7 +60,7 @@ instr_decode_info_t::~instr_decode_info_t()
 decode_cache_base_t::~decode_cache_base_t()
 {
     std::lock_guard<std::mutex> guard(module_mapper_mutex_);
-    if (uses_module_mapper_) {
+    if (use_module_mapper_) {
         --module_mapper_use_count_;
         if (module_mapper_use_count_ == 0) {
             // We cannot wait for the static module_mapper_ to be destroyed
@@ -78,7 +78,7 @@ decode_cache_base_t::init_module_mapper(const std::string &module_file_path,
                                         const std::string &alt_module_dir)
 {
     std::lock_guard<std::mutex> guard(module_mapper_mutex_);
-    uses_module_mapper_ = true;
+    use_module_mapper_ = true;
     ++module_mapper_use_count_;
     if (module_mapper_ != nullptr) {
         // We want only a single module_mapper_t instance to be
