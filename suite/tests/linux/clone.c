@@ -345,25 +345,24 @@ make_clone3_syscall(void *clone_args, ulong clone_args_size, void (*fcn)(void))
      * list of clobbered registers. So we clobber R8 and R9, instead,
      * with R7 being saved and restored.
      */
-    asm volatile(
-                ".arch armv7-a\n\t"
-                ".syntax unified\n\t"
-                "mov r8, %[sys_clone3]\n\t"
-                "ldr r0, %[clone_args]\n\t"
-                "ldr r1, %[clone_args_size]\n\t"
-                "ldr r2, %[fcn]\n\t"
-                "mov r9, r7\n\t"
-                "mov r7, r8\n\t"
-                "svc #0\n\t"
-                "mov r7, r9\n\t"
-                "cbnz r0, 1f\n\t"
-                "blx r2\n\t"
-                "1:\n\t"
-                "str r0, %[result]\n\t"
-                : [result] "=m"(result)
-                : [sys_clone3] "i"(CLONE3_SYSCALL_NUM), [clone_args] "m"(clone_args),
-                  [clone_args_size] "m"(clone_args_size), [fcn] "m"(fcn)
-                : "r0", "r1", "r2", "r8", "r9", "memory");
+    asm volatile(".arch armv7-a\n\t"
+                 ".syntax unified\n\t"
+                 "mov r8, %[sys_clone3]\n\t"
+                 "ldr r0, %[clone_args]\n\t"
+                 "ldr r1, %[clone_args_size]\n\t"
+                 "ldr r2, %[fcn]\n\t"
+                 "mov r9, r7\n\t"
+                 "mov r7, r8\n\t"
+                 "svc #0\n\t"
+                 "mov r7, r9\n\t"
+                 "cbnz r0, 1f\n\t"
+                 "blx r2\n\t"
+                 "1:\n\t"
+                 "str r0, %[result]\n\t"
+                 : [result] "=m"(result)
+                 : [sys_clone3] "i"(CLONE3_SYSCALL_NUM), [clone_args] "m"(clone_args),
+                   [clone_args_size] "m"(clone_args_size), [fcn] "m"(fcn)
+                 : "r0", "r1", "r2", "r8", "r9", "memory");
 #else
 #    error Unsupported architecture
 #endif
