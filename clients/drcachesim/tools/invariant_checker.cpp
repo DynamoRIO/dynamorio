@@ -809,26 +809,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         instr_writes_memory(noalloc_instr);
                     cur_instr_info.decoding.is_predicated =
                         instr_is_predicated(noalloc_instr);
-                    // DR_ISA_REGDEPS instructions don't have an opcode, hence we use
-                    // their category to determine whether they perform at least one read
-                    // or write.
-                    if (instr_get_isa_mode(noalloc_instr) == DR_ISA_REGDEPS) {
-                        cur_instr_info.decoding.num_memory_read_access =
-                            TESTANY(DR_INSTR_CATEGORY_LOAD,
-                                    instr_get_category(noalloc_instr))
-                            ? 1
-                            : 0;
-                        cur_instr_info.decoding.num_memory_write_access =
-                            TESTANY(DR_INSTR_CATEGORY_STORE,
-                                    instr_get_category(noalloc_instr))
-                            ? 1
-                            : 0;
-                    } else {
-                        cur_instr_info.decoding.num_memory_read_access =
-                            instr_num_memory_read_access(noalloc_instr);
-                        cur_instr_info.decoding.num_memory_write_access =
-                            instr_num_memory_write_access(noalloc_instr);
-                    }
+                    cur_instr_info.decoding.num_memory_read_access =
+                        instr_num_memory_read_access(noalloc_instr);
+                    cur_instr_info.decoding.num_memory_write_access =
+                        instr_num_memory_write_access(noalloc_instr);
                     if (type_is_instr_branch(memref.instr.type) &&
                         // DR_ISA_REGDEPS instructions don't have a branch target saved as
                         // instr.src[0], so we cannot retrieve this information.
@@ -1213,18 +1197,15 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 report_if_false(
                     shard,
                     shard->expected_read_records_ >
-                        0 IF_X86(|| relax_expected_read_count_check_for_kernel(shard)),
+                            0 IF_X86(||
+                                     relax_expected_read_count_check_for_kernel(shard)) ||
+                        // We cannot check the shard->expected_read_records_ counter in
+                        // OFFLINE_FILE_TYPE_ARCH_REGDEPS traces because we cannot
+                        // determine the exact number of loads a DR_ISA_REGDEPS
+                        // instruction performs.
+                        TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, shard->file_type_),
                     "Too many read records");
-                if (shard->expected_read_records_ > 0 &&
-                    // We cannot decrease the shard->expected_read_records_ counter in
-                    // OFFLINE_FILE_TYPE_ARCH_REGDEPS traces because we cannot determine
-                    // the exact number of loads a DR_ISA_REGDEPS instruction performs.
-                    // If a DR_ISA_REGDEPS instruction has a DR_INSTR_CATEGORY_LOAD among
-                    // its categories, we simply set
-                    // cur_instr_info.decoding.num_memory_read_access to 1. We rely on the
-                    // next instruction to re-set shard->expected_read_records_
-                    // accordingly.
-                    !TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, shard->file_type_)) {
+                if (shard->expected_read_records_ > 0) {
                     shard->expected_read_records_--;
                 }
             } else {
@@ -1232,18 +1213,15 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 report_if_false(
                     shard,
                     shard->expected_write_records_ >
-                        0 IF_X86(|| relax_expected_write_count_check_for_kernel(shard)),
+                            0 IF_X86(
+                                || relax_expected_write_count_check_for_kernel(shard)) ||
+                        // We cannot check the shard->expected_write_records_ counter in
+                        // OFFLINE_FILE_TYPE_ARCH_REGDEPS traces because we cannot
+                        // determine the exact number of stores a DR_ISA_REGDEPS
+                        // instruction performs.
+                        TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, shard->file_type_),
                     "Too many write records");
-                if (shard->expected_write_records_ > 0 &&
-                    // We cannot decrease the shard->expected_write_records_ counter in
-                    // OFFLINE_FILE_TYPE_ARCH_REGDEPS traces because we cannot determine
-                    // the exact number of stores a DR_ISA_REGDEPS instruction performs.
-                    // If a DR_ISA_REGDEPS instruction has a DR_INSTR_CATEGORY_STORE among
-                    // its categories, we simply set
-                    // cur_instr_info.decoding.num_memory_write_access to 1. We rely on
-                    // the next instruction to re-set shard->expected_write_records_
-                    // accordingly.
-                    !TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, shard->file_type_)) {
+                if (shard->expected_write_records_ > 0) {
                     shard->expected_write_records_--;
                 }
             }
