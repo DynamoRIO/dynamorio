@@ -561,9 +561,9 @@ def read_codec_file(path):
                     # Syntax: pattern opcode opndtype* : opndtype*
                     pattern, nzcv_rw_flag, enum, feat, opcode, args = line.split(None, 5)
                     dsts, srcs = [a.split() for a in args.split(':')]
-                    opcode_bits = int(re.sub('[\^x]', '0', pattern), 2)
-                    opnd_bits = int(re.sub('x', '1', re.sub('[1\^]', '0', pattern)), 2)
-                    high_soft_bits = int(re.sub('\^', '1', re.sub('[10x]', '0', pattern)), 2)
+                    opcode_bits = int(re.sub(r'[\^x]', '0', pattern), 2)
+                    opnd_bits = int(re.sub('x', '1', re.sub(r'[1\^]', '0', pattern)), 2)
+                    high_soft_bits = int(re.sub(r'\^', '1', re.sub('[10x]', '0', pattern)), 2)
                     patterns.append(Pattern(pattern, opcode_bits, opnd_bits, high_soft_bits, opcode, (dsts, srcs), enum, feat))
                     opc_props[opcode] = Opcode(opcode, nzcv_rw_flag, feat)
                     continue
@@ -572,7 +572,7 @@ def read_codec_file(path):
                     pattern, nzcv_rw_flag, enum, feat, opcode, opndset = line.split()
                     opcode_bits = int(re.sub('x', '0', pattern), 2)
                     opnd_bits = int(re.sub('x', '1', re.sub('1', '0', pattern)), 2)
-                    high_soft_bits = int(re.sub('\^', '1', re.sub('[10x]', '0', pattern)), 2)
+                    high_soft_bits = int(re.sub(r'\^', '1', re.sub('[10x]', '0', pattern)), 2)
                     patterns.append(Pattern(pattern, opcode_bits, opnd_bits, high_soft_bits, opcode, opndset, enum, feat))
                     opc_props[opcode] = Opcode(opcode, nzcv_rw_flag, feat)
                     continue
