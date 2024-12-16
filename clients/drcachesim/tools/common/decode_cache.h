@@ -143,36 +143,44 @@ protected:
     static char *modfile_bytes_;
     static int module_mapper_use_count_;
 
-    // use_module_mapper_ describes whether we lookup the instr encodings
-    // from the module map, or alternatively from embedded-encodings in the
-    // trace.
-    //
-    // Note that we store our instr encoding lookup strategy as a non-static
-    // data member, unlike module_mapper_t which is static and shared between
-    // all decode_cache_t instances (even of different template types).
-    // Some analysis tools may deliberately want to look at instr encodings
-    // from the module mappings, but that strategy does not provide JIT
-    // encodings which are present only as embedded-encodings in the trace.
-    // In such a case, other concurrently running analysis tools should still
-    // be able to see encodings for JIT code.
+    /**
+     * use_module_mapper_ describes whether we lookup the instr encodings
+     * from the module map, or alternatively from embedded-encodings in the
+     * trace.
+     *
+     * Note that we store our instr encoding lookup strategy as a non-static
+     * data member, unlike module_mapper_t which is static and shared between
+     * all decode_cache_t instances (even of different template types).
+     * Some analysis tools may deliberately want to look at instr encodings
+     * from the module mappings, but that strategy does not provide JIT
+     * encodings which are present only as embedded-encodings in the trace.
+     * In such a case, other concurrently running analysis tools should still
+     * be able to see encodings for JIT code.
+     */
     bool use_module_mapper_ = 0;
 
 public:
-    // Initializes the module_mapper_ object using make_module_mapper() and performs
-    // other bookkeeping and prerequisites.
+    /**
+     * Initializes the module_mapper_ object using make_module_mapper() and performs
+     * other bookkeeping and prerequisites.
+     */
     std::string
     init_module_mapper(const std::string &module_file_path,
                        const std::string &alt_module_dir);
 
-    // Creates a module_mapper_t. This does not need to worry about races as the
-    // module_mapper_mutex_ will be acquired before calling.
-    // Non-static to allow test sub-classes to override.
+    /**
+     * Creates a module_mapper_t. This does not need to worry about races as the
+     * module_mapper_mutex_ will be acquired before calling.
+     * Non-static to allow test sub-classes to override.
+     */
     virtual std::string
     make_module_mapper(const std::string &module_file_path,
                        const std::string &alt_module_dir);
 
-    // Returns the address where the encoding for the instruction at trace_pc can
-    // be found.
+    /**
+     * Returns the address where the encoding for the instruction at trace_pc can
+     * be found.
+     */
     static std::string
     find_mapped_trace_address(app_pc trace_pc, app_pc &decode_pc);
 };
