@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -56,6 +56,7 @@
 #include "directory_iterator.h"
 #include "dr_api.h"              // Must be after windows.h.
 #include "raw2trace_directory.h" // Includes dr_api.h which must be after windows.h.
+#include "raw2trace_shared.h"
 #include "reader.h"
 #include "raw2trace.h"
 #include "record_file_reader.h"
@@ -433,22 +434,6 @@ raw2trace_directory_t::open_cpu_schedule_file()
 #endif
 }
 
-std::string
-raw2trace_directory_t::read_module_file(const std::string &modfilename)
-{
-    modfile_ = dr_open_file(modfilename.c_str(), DR_FILE_READ);
-    if (modfile_ == INVALID_FILE)
-        return "Failed to open module file " + modfilename;
-    uint64 modfile_size;
-    if (!dr_file_size(modfile_, &modfile_size))
-        return "Failed to get module file size: " + modfilename;
-    size_t modfile_size_ = (size_t)modfile_size;
-    modfile_bytes_ = new char[modfile_size_];
-    if (dr_read_file(modfile_, modfile_bytes_, modfile_size_) < (ssize_t)modfile_size_)
-        return "Didn't read whole module file " + modfilename;
-    return "";
-}
-
 bool
 raw2trace_directory_t::is_window_subdir(const std::string &dir)
 {
@@ -553,7 +538,7 @@ raw2trace_directory_t::initialize(const std::string &indir, const std::string &o
     }
     std::string modfilename =
         modfile_dir + std::string(DIRSEP) + DRMEMTRACE_MODULE_LIST_FILENAME;
-    std::string err = read_module_file(modfilename);
+    std::string err = read_module_file(modfilename, modfile_, modfile_bytes_);
     if (!err.empty())
         return err;
 
@@ -602,12 +587,6 @@ raw2trace_directory_t::initialize(const std::string &indir, const std::string &o
         return err;
 
     return open_thread_files();
-}
-
-std::string
-raw2trace_directory_t::initialize_module_file(const std::string &module_file_path)
-{
-    return read_module_file(module_file_path);
 }
 
 std::string
