@@ -45,7 +45,6 @@ namespace drmemtrace {
 static constexpr addr_t TID_A = 1;
 static constexpr offline_file_type_t ENCODING_FILE_TYPE =
     static_cast<offline_file_type_t>(OFFLINE_FILE_VERSION_ENCODINGS);
-static constexpr char MOD_FILE[] = "some_mod_file";
 
 class test_decode_info_t : public decode_info_base_t {
 public:
@@ -79,7 +78,7 @@ check_decode_caching(bool persist_instrs, bool use_module_mapper)
     };
     std::vector<memref_t> memrefs;
     instrlist_t *ilist_for_test_decode_cache = nullptr;
-
+    std::string module_file_for_test_decode_cache = "";
     if (use_module_mapper) {
         // This does not set encodings in the memref.instr.
         memrefs = add_encodings_to_memrefs(ilist, memref_setup, 0,
@@ -87,6 +86,7 @@ check_decode_caching(bool persist_instrs, bool use_module_mapper)
         // We pass the instrs to construct the test_module_mapper_t in the
         // test_decode_cache_t;
         ilist_for_test_decode_cache = ilist;
+        module_file_for_test_decode_cache = "some_mod_file";
     } else {
         memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
     }
@@ -98,7 +98,6 @@ check_decode_caching(bool persist_instrs, bool use_module_mapper)
         return "Unexpected valid default-constructed decode info";
     }
 
-#define NOT_NEEDED_IN_TEST ""
     if (persist_instrs) {
         // These are tests to verify the operation of instr_decode_info_t: that it stores
         // the instr_t correctly.
@@ -107,7 +106,7 @@ check_decode_caching(bool persist_instrs, bool use_module_mapper)
         test_decode_cache_t<instr_decode_info_t> decode_cache(
             GLOBAL_DCONTEXT,
             /*persist_decoded_instr=*/true, ilist_for_test_decode_cache);
-        decode_cache.init(ENCODING_FILE_TYPE, use_module_mapper ? MOD_FILE : "", "");
+        decode_cache.init(ENCODING_FILE_TYPE, module_file_for_test_decode_cache, "");
         for (const memref_t &memref : memrefs) {
             std::string err = decode_cache.add_decode_info(memref.instr);
             if (err != "")
@@ -131,7 +130,7 @@ check_decode_caching(bool persist_instrs, bool use_module_mapper)
         test_decode_cache_t<test_decode_info_t> decode_cache(
             GLOBAL_DCONTEXT,
             /*persist_decoded_instrs=*/false, ilist_for_test_decode_cache);
-        decode_cache.init(ENCODING_FILE_TYPE, use_module_mapper ? MOD_FILE : "", "");
+        decode_cache.init(ENCODING_FILE_TYPE, module_file_for_test_decode_cache, "");
         if (decode_cache.get_decode_info(
                 reinterpret_cast<app_pc>(memrefs[0].instr.addr)) != nullptr) {
             return "Unexpected test_decode_info_t for never-seen pc";

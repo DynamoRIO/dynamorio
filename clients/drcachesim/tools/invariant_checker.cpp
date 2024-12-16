@@ -153,7 +153,7 @@ void *
 invariant_checker_t::parallel_shard_init_stream(int shard_index, void *worker_data,
                                                 memtrace_stream_t *shard_stream)
 {
-    auto per_shard = std::unique_ptr<per_shard_t>(new per_shard_t());
+    auto per_shard = std::unique_ptr<per_shard_t>(new per_shard_t);
     per_shard->stream = shard_stream;
     void *res = reinterpret_cast<void *>(per_shard.get());
     std::lock_guard<std::mutex> guard(init_mutex_);
@@ -1220,7 +1220,7 @@ invariant_checker_t::process_memref(const memref_t &memref)
     int shard_index = serial_stream_->get_shard_index();
     const auto &lookup = shard_map_.find(shard_index);
     if (lookup == shard_map_.end()) {
-        auto per_shard_unique = std::unique_ptr<per_shard_t>(new per_shard_t());
+        auto per_shard_unique = std::unique_ptr<per_shard_t>(new per_shard_t);
         per_shard = per_shard_unique.get();
         per_shard->stream = serial_stream_;
         per_shard->tid_ = serial_stream_->get_tid();
