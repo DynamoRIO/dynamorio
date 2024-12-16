@@ -955,7 +955,7 @@ if (BUILD_TESTS)
   configure_DynamoRIO_standalone(tool.drcachesim.decode_cache_test)
   add_win32_flags(tool.drcachesim.decode_cache_test)
   target_link_libraries(tool.drcachesim.decode_cache_test
-      drmemtrace_static drmemtrace_decode_cache test_helpers)
+    drmemtrace_decode_cache test_helpers)
   add_test(NAME tool.drcachesim.decode_cache_test
            COMMAND tool.drcachesim.decode_cache_test)
   set_tests_properties(tool.drcachesim.decode_cache_test PROPERTIES
@@ -965,7 +965,7 @@ if (BUILD_TESTS)
   configure_DynamoRIO_standalone(tool.drcacheoff.opcode_mix_test)
   add_win32_flags(tool.drcacheoff.opcode_mix_test)
   target_link_libraries(tool.drcacheoff.opcode_mix_test
-      drmemtrace_static drmemtrace_opcode_mix test_helpers)
+    drmemtrace_opcode_mix drmemtrace_decode_cache test_helpers)
   add_test(NAME tool.drcacheoff.opcode_mix_test
            COMMAND tool.drcacheoff.opcode_mix_test)
   set_tests_properties(tool.drcacheoff.opcode_mix_test PROPERTIES
