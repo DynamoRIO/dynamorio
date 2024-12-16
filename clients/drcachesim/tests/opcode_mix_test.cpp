@@ -106,7 +106,7 @@ check_opcode_mix(void *drcontext, bool use_module_mapper)
     // Set up the second nop memref to reuse the same encoding as the first nop.
     memrefs[3].instr.encoding_is_new = false;
     test_opcode_mix_t opcode_mix(ilist_for_test);
-    opcode_mix.initialize_stream(nullptr);
+    opcode_mix.initialize();
     void *shard_data = opcode_mix.parallel_shard_init_stream(0, nullptr, nullptr);
     for (const memref_t &memref : memrefs) {
         if (!opcode_mix.parallel_shard_memref(shard_data, memref)) {

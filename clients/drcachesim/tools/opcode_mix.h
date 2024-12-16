@@ -62,7 +62,7 @@ public:
                  const std::string &alt_module_dir = "");
     virtual ~opcode_mix_t();
     std::string
-    initialize_stream(memtrace_stream_t *serial_stream) override;
+    initialize() override;
     bool
     process_memref(const memref_t &memref) override;
     bool

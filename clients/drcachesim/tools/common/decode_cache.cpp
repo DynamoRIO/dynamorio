@@ -86,6 +86,13 @@ decode_cache_base_t::init_module_mapper(const std::string &module_file_path,
         // decode_cache_base_t.
         return "";
     }
+    return make_module_mapper(module_file_path, alt_module_dir);
+}
+
+std::string
+decode_cache_base_t::make_module_mapper(const std::string &module_file_path,
+                                        const std::string &alt_module_dir)
+{
     // Legacy trace support where binaries are needed.
     // We do not support non-module code for such traces.
     file_t modfile;

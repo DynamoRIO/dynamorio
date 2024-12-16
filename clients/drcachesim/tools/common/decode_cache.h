@@ -146,11 +146,21 @@ protected:
     bool uses_module_mapper_ = 0;
 
 public:
-    // Non-static to allow test sub-classes to override.
-    virtual std::string
+    // Initializes the module_mapper_ object using make_module_mapper() and performs
+    // other bookkeeping and prerequisites.
+    std::string
     init_module_mapper(const std::string &module_file_path,
                        const std::string &alt_module_dir);
 
+    // Creates a module_mapper_t. This does not need to worry about races as the
+    // module_mapper_mutex_ will be acquired before calling.
+    // Non-static to allow test sub-classes to override.
+    virtual std::string
+    make_module_mapper(const std::string &module_file_path,
+                       const std::string &alt_module_dir);
+
+    // Returns the address where the encoding for the instruction at trace_pc can
+    // be found.
     static std::string
     find_mapped_trace_address(app_pc trace_pc, app_pc &decode_pc);
 };
@@ -345,7 +355,7 @@ public:
     }
 
     std::string
-    init_module_mapper(const std::string &unused_module_file_path,
+    make_module_mapper(const std::string &unused_module_file_path,
                        const std::string &unused_alt_module_dir) override
     {
         if (ilist_for_test_module_mapper_ == nullptr)

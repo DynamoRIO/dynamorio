@@ -107,7 +107,7 @@ opcode_mix_t::init_decode_cache(shard_data_t *shard, void *dcontext,
 }
 
 std::string
-opcode_mix_t::initialize_stream(memtrace_stream_t *serial_stream)
+opcode_mix_t::initialize()
 {
     dcontext_.dcontext = dr_standalone_init();
     return "";
