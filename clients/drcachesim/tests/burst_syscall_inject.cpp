@@ -54,6 +54,9 @@
 #include <string>
 #include <sys/syscall.h>
 #include <sys/types.h>
+#ifndef LINUX
+#    error Only Linux is supported
+#endif
 
 namespace dynamorio {
 namespace drmemtrace {
