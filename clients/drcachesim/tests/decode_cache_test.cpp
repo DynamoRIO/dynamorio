@@ -63,12 +63,12 @@ private:
 };
 
 std::string
-check_decode_caching(bool persist_instrs, bool use_module_mapper)
+check_decode_caching(void *drcontext, bool persist_instrs, bool use_module_mapper)
 {
     static constexpr addr_t BASE_ADDR = 0x123450;
-    instr_t *nop = XINST_CREATE_nop(GLOBAL_DCONTEXT);
-    instr_t *ret = XINST_CREATE_return(GLOBAL_DCONTEXT);
-    instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
+    instr_t *nop = XINST_CREATE_nop(drcontext);
+    instr_t *ret = XINST_CREATE_return(drcontext);
+    instrlist_t *ilist = instrlist_create(drcontext);
     instrlist_append(ilist, nop);
     instrlist_append(ilist, ret);
     std::vector<memref_with_IR_t> memref_setup = {
@@ -104,7 +104,7 @@ check_decode_caching(bool persist_instrs, bool use_module_mapper)
         // Tests for instr_decode_cache_t are done when persist_instrs = false (see
         // the else part below).
         test_decode_cache_t<instr_decode_info_t> decode_cache(
-            GLOBAL_DCONTEXT,
+            drcontext,
             /*persist_decoded_instr=*/true, ilist_for_test_decode_cache);
         decode_cache.init(ENCODING_FILE_TYPE, module_file_for_test_decode_cache, "");
         for (const memref_t &memref : memrefs) {
@@ -128,7 +128,7 @@ check_decode_caching(bool persist_instrs, bool use_module_mapper)
         // These are tests to verify the operation of instr_decode_cache_t: that it caches
         // decode info correctly.
         test_decode_cache_t<test_decode_info_t> decode_cache(
-            GLOBAL_DCONTEXT,
+            drcontext,
             /*persist_decoded_instrs=*/false, ilist_for_test_decode_cache);
         decode_cache.init(ENCODING_FILE_TYPE, module_file_for_test_decode_cache, "");
         if (decode_cache.get_decode_info(
@@ -162,18 +162,18 @@ check_decode_caching(bool persist_instrs, bool use_module_mapper)
             return "Did not see same decode info instance for second instance of nop";
         }
     }
-    instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
+    instrlist_clear_and_destroy(drcontext, ilist);
     std::cerr << "check_decode_caching with persist_instrs: " << persist_instrs
               << ", use_module_mapper: " << use_module_mapper << " passed\n";
     return "";
 }
 
 std::string
-check_missing_module_mapper_and_no_encoding()
+check_missing_module_mapper_and_no_encoding(void *drcontext)
 {
     memref_t instr = gen_instr(TID_A);
     test_decode_cache_t<instr_decode_info_t> decode_cache(
-        GLOBAL_DCONTEXT,
+        drcontext,
         /*persist_decoded_instr=*/true, /*ilist_for_test_module_mapper=*/nullptr);
     std::string err = decode_cache.add_decode_info(instr.instr);
     if (err == "") {
@@ -191,28 +191,32 @@ check_missing_module_mapper_and_no_encoding()
 int
 test_main(int argc, const char *argv[])
 {
-    std::string err =
-        check_decode_caching(/*persist_instrs=*/false, /*use_module_mapper=*/false);
+    void *drcontext = dr_standalone_init();
+    std::string err = check_decode_caching(drcontext, /*persist_instrs=*/false,
+                                           /*use_module_mapper=*/false);
     if (err != "") {
         std::cerr << err << "\n";
         exit(1);
     }
-    err = check_decode_caching(/*persist_instrs=*/true, /*use_module_mapper=*/false);
+    err = check_decode_caching(drcontext, /*persist_instrs=*/true,
+                               /*use_module_mapper=*/false);
     if (err != "") {
         std::cerr << err << "\n";
         exit(1);
     }
-    err = check_decode_caching(/*persist_instrs=*/false, /*use_module_mapper=*/true);
+    err = check_decode_caching(drcontext, /*persist_instrs=*/false,
+                               /*use_module_mapper=*/true);
     if (err != "") {
         std::cerr << err << "\n";
         exit(1);
     }
-    err = check_decode_caching(/*persist_instrs=*/true, /*use_module_mapper=*/true);
+    err = check_decode_caching(drcontext, /*persist_instrs=*/true,
+                               /*use_module_mapper=*/true);
     if (err != "") {
         std::cerr << err << "\n";
         exit(1);
     }
-    err = check_missing_module_mapper_and_no_encoding();
+    err = check_missing_module_mapper_and_no_encoding(drcontext);
     if (err != "") {
         std::cerr << err << "\n";
         exit(1);

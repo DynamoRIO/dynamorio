@@ -72,13 +72,13 @@ private:
 };
 
 std::string
-check_opcode_mix(bool use_module_mapper)
+check_opcode_mix(void *drcontext, bool use_module_mapper)
 {
     static constexpr addr_t BASE_ADDR = 0x123450;
     static constexpr addr_t TID_A = 1;
-    instr_t *nop = XINST_CREATE_nop(GLOBAL_DCONTEXT);
-    instr_t *ret = XINST_CREATE_return(GLOBAL_DCONTEXT);
-    instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
+    instr_t *nop = XINST_CREATE_nop(drcontext);
+    instr_t *ret = XINST_CREATE_return(drcontext);
+    instrlist_t *ilist = instrlist_create(drcontext);
     instrlist_append(ilist, nop);
     instrlist_append(ilist, ret);
     std::vector<memref_with_IR_t> memref_setup = {
@@ -133,12 +133,13 @@ check_opcode_mix(bool use_module_mapper)
 int
 test_main(int argc, const char *argv[])
 {
-    std::string err = check_opcode_mix(/*use_module_mapper=*/false);
+    void *drcontext = dr_standalone_init();
+    std::string err = check_opcode_mix(drcontext, /*use_module_mapper=*/false);
     if (err != "") {
         std::cerr << err << "\n";
         exit(1);
     }
-    err = check_opcode_mix(/*use_module_mapper=*/true);
+    err = check_opcode_mix(drcontext, /*use_module_mapper=*/true);
     if (err != "") {
         std::cerr << err << "\n";
         exit(1);
