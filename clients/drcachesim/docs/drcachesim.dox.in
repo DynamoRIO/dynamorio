@@ -1077,18 +1077,23 @@ described above (e.g., the instruction opcode with instr_get_opcode()) will retu
 the zeroed value set by instr_create() or instr_init() when the #instr_t was
 created (e.g., instr_get_opcode() would return OP_UNDECODED).
 
-On top of instructions and memory acceses, traces also have #trace_marker_type_t
-markers. All markers of the original trace are present, except for:
-#TRACE_MARKER_TYPE_SYSCALL_IDX #TRACE_MARKER_TYPE_SYSCALL
-#TRACE_MARKER_TYPE_SYSCALL_TRACE_START #TRACE_MARKER_TYPE_SYSCALL_TRACE_END
-#TRACE_MARKER_TYPE_SYSCALL_FAILED, which have been removed.
+On top of instructions and memory acceses, traces also have
+#dynamorio::drmemtrace::trace_marker_type_t markers.
+All markers of the original trace are present, except for:
+#dynamorio::drmemtrace::TRACE_MARKER_TYPE_SYSCALL_IDX
+#dynamorio::drmemtrace::TRACE_MARKER_TYPE_SYSCALL
+#dynamorio::drmemtrace::TRACE_MARKER_TYPE_SYSCALL_TRACE_START
+#dynamorio::drmemtrace::TRACE_MARKER_TYPE_SYSCALL_TRACE_END
+#dynamorio::drmemtrace::TRACE_MARKER_TYPE_SYSCALL_FAILED, which have been removed.
 Because tracing overhead results into inflated context switches, the
-#TRACE_MARKER_TYPE_CPU_ID values have been modified to "unknown CPU" to avoid
-confusion. We recommend users to use our scheduler for a realistic schedule of
-a trace threads. Also, the only #TRACE_MARKER_TYPE_FUNC_ID
-#TRACE_MARKER_TYPE_FUNC_ARG #TRACE_MARKER_TYPE_FUNC_RETVAL
-#TRACE_MARKER_TYPE_FUNC_RETADDR markers preserved are those related to SYS_futex
-functions.
+#dynamorio::drmemtrace::TRACE_MARKER_TYPE_CPU_ID values have been modified to
+"unknown CPU" to avoid confusion. We recommend users to use our scheduler for a
+realistic schedule of a trace threads. Also, the only
+#dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_ID
+#dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_ARG
+#dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_RETVAL
+#dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_RETADDR markers preserved are those
+related to SYS_futex functions.
 
 Finally, every trace has a v2p.textproto file associated to it, which provides a
 plausible virtual to physical mapping of the virtual addresses present in a trace
