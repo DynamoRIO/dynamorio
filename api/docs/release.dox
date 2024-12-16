@@ -149,6 +149,8 @@ Further non-compatibility-affecting changes include:
    on the 32/64 bit mode and the presence or absence of the address size prefix.
  - Fixed the order of operands for the vpexpandd/vpexpandq opcodes (previously the
    source and destination operands were reversed).
+ - Fixed the VEX-encoded forms of vaesdec/vaesdeclast/vaesenc/vaesenclast/vpclmulqdq
+   to obey VEX.L, which they previously ignored.
 
 **************************************************
 <hr>
