@@ -163,7 +163,8 @@ add_exported_library(drmemtrace_reuse_time STATIC tools/reuse_time.cpp)
 add_exported_library(drmemtrace_basic_counts STATIC tools/basic_counts.cpp)
 add_exported_library(drmemtrace_opcode_mix STATIC tools/opcode_mix.cpp)
 add_exported_library(drmemtrace_syscall_mix STATIC tools/syscall_mix.cpp)
-add_exported_library(drmemtrace_view STATIC tools/view.cpp)
+add_exported_library(drmemtrace_view STATIC
+                     tools/view.cpp tracer/raw2trace_shared.cpp)
 add_exported_library(drmemtrace_func_view STATIC tools/func_view.cpp)
 add_exported_library(drmemtrace_invariant_checker STATIC tools/invariant_checker.cpp)
 add_exported_library(drmemtrace_schedule_stats STATIC tools/schedule_stats.cpp)
@@ -177,7 +178,6 @@ target_link_libraries(drmemtrace_invariant_checker drdecode drmemtrace_schedule_
                       drmemtrace_decode_cache)
 target_link_libraries(drmemtrace_decode_cache drcovlib_static)
 target_link_libraries(drmemtrace_opcode_mix drmemtrace_decode_cache)
-target_link_libraries(drmemtrace_view drmemtrace_decode_cache)
 
 configure_DynamoRIO_standalone(drmemtrace_decode_cache)
 configure_DynamoRIO_standalone(drmemtrace_opcode_mix)
