@@ -344,10 +344,13 @@ make_clone3_syscall(void *clone_args, ulong clone_args_size, void (*fcn)(void))
      * pointer, which means that we are not allowed to include R7 in the
      * list of clobbered registers. So we clobber R8 and R9, instead,
      * with R7 being saved and restored.
+     * We use a local variable for sys_clone3 as the intermediate value
+     * is out of range for ARMv5.
      */
+    long sys_clone3 = CLONE3_SYSCALL_NUM;
     asm volatile(".arch armv7-a\n\t"
                  ".syntax unified\n\t"
-                 "mov r8, %[sys_clone3]\n\t"
+                 "ldr r8, %[sys_clone3]\n\t"
                  "ldr r0, %[clone_args]\n\t"
                  "ldr r1, %[clone_args_size]\n\t"
                  "ldr r2, %[fcn]\n\t"
@@ -360,7 +363,7 @@ make_clone3_syscall(void *clone_args, ulong clone_args_size, void (*fcn)(void))
                  "1:\n\t"
                  "str r0, %[result]\n\t"
                  : [result] "=m"(result)
-                 : [sys_clone3] "i"(CLONE3_SYSCALL_NUM), [clone_args] "m"(clone_args),
+                 : [sys_clone3] "m"(sys_clone3), [clone_args] "m"(clone_args),
                    [clone_args_size] "m"(clone_args_size), [fcn] "m"(fcn)
                  : "r0", "r1", "r2", "r8", "r9", "memory");
 #else
