@@ -64,11 +64,8 @@ public:
     void
     set_decode_info(void *dcontext,
                     const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
-                    instr_t *instr)
-    {
-        set_decode_info_derived(dcontext, memref_instr, instr);
-        is_valid_ = true;
-    }
+                    instr_t *instr);
+
     /**
      * Indicates whether the decode info stored in this object is valid. It won't be
      * valid if the object is default-constructed without a subsequent
@@ -76,10 +73,7 @@ public:
      * that an invalid instruction was observed at some pc.
      */
     bool
-    is_valid() const
-    {
-        return is_valid_;
-    }
+    is_valid() const;
 
 private:
     /**
@@ -140,21 +134,7 @@ protected:
      * a derived class.
      */
     decode_cache_base_t() = default;
-    virtual ~decode_cache_base_t()
-    {
-        std::lock_guard<std::mutex> guard(module_mapper_mutex_);
-        if (uses_module_mapper_) {
-            --module_mapper_use_count_;
-            if (module_mapper_use_count_ == 0) {
-                // We cannot wait for the static module_mapper_ to be destroyed
-                // automatically because we want to do it before DR's global resource
-                // accounting is done at the end.
-                module_mapper_.reset(nullptr);
-                delete[] modfile_bytes_;
-                modfile_bytes_ = nullptr;
-            }
-        }
-    }
+    virtual ~decode_cache_base_t();
 
     static std::mutex module_mapper_mutex_;
     static std::unique_ptr<module_mapper_t> module_mapper_;
@@ -169,46 +149,10 @@ public:
     // Non-static to allow test sub-classes to override.
     virtual std::string
     init_module_mapper(const std::string &module_file_path,
-                       const std::string &alt_module_dir)
-    {
-        std::lock_guard<std::mutex> guard(module_mapper_mutex_);
-        uses_module_mapper_ = true;
-        ++module_mapper_use_count_;
-        if (module_mapper_ != nullptr) {
-            // We want only a single module_mapper_t instance to be
-            // initialized that is shared among all instances of
-            // decode_cache_base_t.
-            return "";
-        }
-        // Legacy trace support where binaries are needed.
-        // We do not support non-module code for such traces.
-        file_t modfile;
-        std::string error = read_module_file(module_file_path, modfile, modfile_bytes_);
-        if (!error.empty()) {
-            return "Failed to read module file: " + error;
-        }
-        dr_close_file(modfile);
-        module_mapper_ =
-            module_mapper_t::create(modfile_bytes_, nullptr, nullptr, nullptr, nullptr,
-                                    /*verbose=*/0, alt_module_dir);
-        module_mapper_->get_loaded_modules();
-        error = module_mapper_->get_last_error();
-        if (!error.empty())
-            return "Failed to load binaries: " + error;
-        return "";
-    }
+                       const std::string &alt_module_dir);
 
     static std::string
-    find_mapped_trace_address(app_pc trace_pc, app_pc &decode_pc)
-    {
-        std::lock_guard<std::mutex> guard(module_mapper_mutex_);
-        decode_pc = module_mapper_->find_mapped_trace_address(trace_pc);
-        if (!module_mapper_->get_last_error().empty()) {
-            return "Failed to find mapped address for " + to_hex_string(trace_pc) + ": " +
-                module_mapper_->get_last_error();
-        }
-        return "";
-    }
+    find_mapped_trace_address(app_pc trace_pc, app_pc &decode_pc);
 };
 
 /**
