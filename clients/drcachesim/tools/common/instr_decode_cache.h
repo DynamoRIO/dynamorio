@@ -38,6 +38,7 @@
 #ifndef _DECODE_CACHE_H_
 #define _DECODE_CACHE_H_ 1
 
+#include "dr_api.h"
 #include "memref.h"
 #include "tracer/raw2trace_shared.h"
 
@@ -140,30 +141,22 @@ protected:
      * a derived class.
      */
     decode_cache_base_t() = default;
-    virtual ~decode_cache_base_t()
-    {
-        std::lock_guard<std::mutex> guard(module_mapper_mutex_);
-        if (uses_module_mapper_) {
-            --module_mapper_use_count_;
-            if (module_mapper_use_count_ == 0) {
-                // We cannot wait for the static module_mapper_ to be destroyed
-                // automatically because we want to do it before DR's global resource
-                // accounting is done at the end.
-                module_mapper_.reset(nullptr);
-                delete[] modfile_bytes_;
-                modfile_bytes_ = nullptr;
+
+    // XXX: Maybe the ownership and destruction responsibility for the modfile bytes
+    // should be given to module_mapper_t instead.
+    struct modfile_bytes_t {
+        char *bytes = nullptr;
+        ~modfile_bytes_t()
+        {
+            if (bytes != nullptr) {
+                delete[] bytes;
             }
         }
-    }
+    };
 
     static std::mutex module_mapper_mutex_;
     static std::unique_ptr<module_mapper_t> module_mapper_;
-    // XXX: Maybe the ownership and destruction responsibility for the modfile bytes
-    // should be given to module_mapper_t instead.
-    static char *modfile_bytes_;
-    static int module_mapper_use_count_;
-
-    bool uses_module_mapper_ = 0;
+    static modfile_bytes_t modfile_bytes_;
 
 public:
     // Non-static to allow test sub-classes to override.
@@ -172,8 +165,6 @@ public:
                        const std::string &alt_module_dir)
     {
         std::lock_guard<std::mutex> guard(module_mapper_mutex_);
-        uses_module_mapper_ = true;
-        ++module_mapper_use_count_;
         if (module_mapper_ != nullptr) {
             // We want only a single module_mapper_t instance to be
             // initialized that is shared among all instances of
@@ -183,14 +174,15 @@ public:
         // Legacy trace support where binaries are needed.
         // We do not support non-module code for such traces.
         file_t modfile;
-        std::string error = read_module_file(module_file_path, modfile, modfile_bytes_);
+        std::string error =
+            read_module_file(module_file_path, modfile, modfile_bytes_.bytes);
         if (!error.empty()) {
             return "Failed to read module file: " + error;
         }
         dr_close_file(modfile);
         module_mapper_ =
-            module_mapper_t::create(modfile_bytes_, nullptr, nullptr, nullptr, nullptr,
-                                    /*verbose=*/0, alt_module_dir);
+            module_mapper_t::create(modfile_bytes_.bytes, nullptr, nullptr, nullptr,
+                                    nullptr, /*verbose=*/0, alt_module_dir);
         module_mapper_->get_loaded_modules();
         error = module_mapper_->get_last_error();
         if (!error.empty())
@@ -224,7 +216,8 @@ public:
  * in their \p TRACE_MARKER_TYPE_FILETYPE marker, as only those traces have instr
  * encodings embedded in them.
  */
-template <class DecodeInfo> class decode_cache_t : public decode_cache_base_t {
+template <class DecodeInfo>
+class decode_cache_t : public decode_cache_base_t {
     static_assert(std::is_base_of<decode_info_base_t, DecodeInfo>::value,
                   "DecodeInfo not derived from decode_info_base_t");
 
@@ -241,9 +234,6 @@ public:
      * Returns nullptr if no instruction is known at that \p pc. Returns the
      * default-constructed DecodeInfo if there was a decoding error for the
      * instruction.
-     *
-     * Guaranteed to be non-nullptr if the prior add_decode_info for that pc
-     * returned no error.
      */
     DecodeInfo *
     get_decode_info(app_pc pc)
@@ -256,42 +246,22 @@ public:
     }
     /**
      * Adds decode info for the given \p memref_instr if it is not yet recorded.
-     *
-     * Uses the embedded encodings in the trace or, if use_module_mapper() was
-     * called before, the encodings from the instantiated module_mapper_t.
-     *
-     * If there is a decoding failure, the default-constructed DecodeInfo that
-     * returns is_valid() = false will be added to the cache.
-     *
-     * Returns the error string, or an empty string if there was no error.
      */
     std::string
-    add_decode_info(const dynamorio::drmemtrace::_memref_instr_t &memref_instr)
+    add_decode_info(const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
+                    DecodeInfo *&decode_info)
     {
         const app_pc trace_pc = reinterpret_cast<app_pc>(memref_instr.addr);
-        if (!use_module_mapper_ && memref_instr.encoding_is_new) {
-            // If the user asked to use the module mapper despite having
-            // embedded encodings in the trace, we don't invalidate the
-            // cached encoding.
+        if (memref_instr.encoding_is_new) {
             decode_cache_.erase(trace_pc);
         }
         auto it = decode_cache_.find(trace_pc);
-        if (it != decode_cache_.end() && it->second.is_valid()) {
+        if (it != decode_cache_.end()) {
+            decode_info = &it->second;
             return "";
         }
-        if (!use_module_mapper_ && !memref_instr.encoding_is_new) {
-            // If we're looking at embedded encodings, we must either have
-            // a cached encoding already, or this encoding must be new.
-            // If neither is true, it is likely that this trace actually
-            // doesn't have embedded encodings, and the user forgot to
-            // call use_module_mapper(). This may also be a reader_t issue
-            // which caused a missing encoding on the first instance of
-            // the instruction.
-            return "First instance of an instruction was found without an "
-                   "encoding. Remember to use_module_mapper() if trace does not "
-                   "have embedded encodings.";
-        }
         decode_cache_[trace_pc] = DecodeInfo();
+        decode_info = &decode_cache_[trace_pc];
         instr_t *instr = nullptr;
         instr_noalloc_t noalloc;
         if (persist_decoded_instrs_) {
@@ -320,30 +290,8 @@ public:
         decode_cache_[trace_pc].set_decode_info(dcontext_, memref_instr, instr);
         return "";
     }
-    /**
-     * Instructs the \p decode_cache_t object that it should look for the instr
-     * encodings in the application binaries using a \p module_mapper_t. A
-     * \p module_mapper_t is instantiated only one time and reused for all objects
-     * of \p decode_cache_t (of any template type).
-     *
-     * The user must call this API if decoding instructions from a trace that does
-     * not have embedded instruction encodings in it, as indicated by absence of
-     * the \p OFFLINE_FILE_TYPE_ENCODINGS bit in the \p TRACE_MARKER_TYPE_FILETYPE
-     * marker. The user may call this API also if they deliberately need to use
-     * the module mapper instead of the embedded encodings.
-     *
-     * It is left up to the user to determine if and when this API is needed.
-     * It is important to note that the trace filetype may be obtained using the
-     * get_filetype() API on a \p memtrace_stream_t. However, not all instances of
-     * \p memtrace_stream_t have the filetype available at init time (before the
-     * \p TRACE_MARKER_TYPE_FILETYPE is actually returned by the stream).
-     * Particularly, the \p stream_t provided by the \p scheduler_t to analysis
-     * tools provides the file type at init time when #dynamorio::drmemtrace::
-     * scheduler_tmpl_t::scheduler_options_t.read_inputs_in_init is set. In other
-     * cases, the user may call this API after init time when the
-     * \p TRACE_MARKER_TYPE_FILETYPE marker is seen (still before any instr
-     * record).
-     */
+    // TODO: maybe a good idea to get filetype here. Or alternatively the
+    // encoding_is_new check.
     std::string
     use_module_mapper(const std::string &module_file_path,
                       const std::string &alt_module_dir)
@@ -382,10 +330,10 @@ public:
     // The ilist arg is required only for testing the module_mapper_t
     // decoding strategy.
     test_decode_cache_t(void *dcontext, bool persist_decoded_instrs,
-                        instrlist_t *ilist_for_test_module_mapper = nullptr)
+                              instrlist_t *ilist = nullptr)
         : decode_cache_t<DecodeInfo>(dcontext, persist_decoded_instrs)
         , dcontext_(dcontext)
-        , ilist_for_test_module_mapper_(ilist_for_test_module_mapper)
+        , ilist_(ilist)
     {
     }
 
@@ -393,10 +341,10 @@ public:
     init_module_mapper(const std::string &unused_module_file_path,
                        const std::string &unused_alt_module_dir) override
     {
-        if (ilist_for_test_module_mapper_ == nullptr)
+        if (ilist_ == nullptr)
             return "No ilist to init test_module_mapper_t";
-        module_mapper_ = std::unique_ptr<module_mapper_t>(
-            new test_module_mapper_t(ilist_for_test_module_mapper_, dcontext_));
+        module_mapper_ =
+            std::unique_ptr<module_mapper_t>(new test_module_mapper_t(ilist_, dcontext_));
         module_mapper_->get_loaded_modules();
         std::string error = module_mapper_->get_last_error();
         if (!error.empty())
@@ -406,7 +354,7 @@ public:
 
 private:
     void *dcontext_;
-    instrlist_t *ilist_for_test_module_mapper_;
+    instrlist_t *ilist_;
 };
 
 } // namespace drmemtrace

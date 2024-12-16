@@ -61,7 +61,8 @@ instr_decode_info_t::get_decoded_instr()
 // definitions.
 std::mutex decode_cache_base_t::module_mapper_mutex_;
 std::unique_ptr<module_mapper_t> decode_cache_base_t::module_mapper_;
-decode_cache_base_t::modfile_bytes_t decode_cache_base_t::modfile_bytes_;
+char *decode_cache_base_t::modfile_bytes_ = nullptr;
+int decode_cache_base_t::module_mapper_use_count_ = 0;
 
 } // namespace drmemtrace
 } // namespace dynamorio
