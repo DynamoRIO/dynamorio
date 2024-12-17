@@ -51,6 +51,7 @@
 #    error Unsupported architecture
 #endif
 
+#define MAX_OS_PAGE_SIZE 4096
 #define MAX_SECTION_HEADERS 300
 #define MAX_SECTION_NAME_BUFFER_SIZE 8192
 #define SECTION_HEADER_TABLE ".shstrtab"
@@ -484,17 +485,23 @@ os_dump_core_internal(dcontext_t *dcontext)
     // of LOAD program header (number of sections minus one since shstrtab does not
     // require a LOAD header).
     const ELF_OFF program_header_count = section_count;
-    ELF_OFF file_offset = sizeof(ELF_HEADER_TYPE) +
+    // core_file_offset stores the location (offset) of the content in the core
+    // file.
+    ELF_OFF core_file_offset = sizeof(ELF_HEADER_TYPE) +
         sizeof(ELF_PROGRAM_HEADER_TYPE) * program_header_count +
         PROGRAM_HEADER_NOTE_LENGTH;
-    const size_t padding = ALIGN_FORWARD(file_offset, os_page_size()) - file_offset;
-    file_offset = ALIGN_FORWARD(file_offset, os_page_size());
+    // We add padding to the core file so that loadable segments in the
+    // core file are page size aligned. The p_align field in the program header
+    // is applied to both memory and the offset to the core file.
+    const size_t loadable_segment_padding =
+        ALIGN_FORWARD(core_file_offset, os_page_size()) - core_file_offset;
+    core_file_offset = ALIGN_FORWARD(core_file_offset, os_page_size());
 
     if (!write_elf_header(elf_file, /*entry_point=*/(uint64_t)mc.pc,
-                          /*section_header_table_offset*/ sizeof(ELF_HEADER_TYPE) +
+                          /*section_header_table_offset=*/sizeof(ELF_HEADER_TYPE) +
                               PROGRAM_HEADER_NOTE_LENGTH +
                               sizeof(ELF_PROGRAM_HEADER_TYPE) * program_header_count +
-                              padding + section_data_size,
+                              loadable_segment_padding + section_data_size,
                           /*flags=*/0,
                           /*program_header_count=*/program_header_count,
                           /*section_header_count=*/section_count,
@@ -533,7 +540,7 @@ os_dump_core_internal(dcontext_t *dcontext)
             section_header_info[section_index].vm_start;
         if (!write_program_header(
                 elf_file, PT_LOAD, flags,
-                /*offset=*/file_offset,
+                /*offset=*/core_file_offset,
                 /*virtual_address=*/(ELF_ADDR)section_header_info[section_index].vm_start,
                 /*physical_address=*/
                 (ELF_ADDR)section_header_info[section_index].vm_start,
@@ -543,7 +550,7 @@ os_dump_core_internal(dcontext_t *dcontext)
             os_close(elf_file);
             return false;
         }
-        file_offset += section_header_info[section_index].vm_end -
+        core_file_offset += section_header_info[section_index].vm_end -
             section_header_info[section_index].vm_start;
     }
     if (!write_prstatus_note(&mc, elf_file)) {
@@ -554,9 +561,16 @@ os_dump_core_internal(dcontext_t *dcontext)
         os_close(elf_file);
         return false;
     }
-    const char zero = 0;
-    for (int count = 0; count < padding; ++count) {
-        os_write(elf_file, &zero, sizeof(zero));
+    // Add padding to the core file such that loadable segments are aligned to
+    // the page size in the core file.
+    ASSERT(MAX_OS_PAGE_SIZE >= os_page_size());
+    char buffer[MAX_OS_PAGE_SIZE];
+    memset(buffer, 0, loadable_segment_padding);
+    if (os_write(elf_file, buffer, loadable_segment_padding) !=
+        loadable_segment_padding) {
+        SYSLOG_INTERNAL_ERROR("Failed to add padding to the core dump file.");
+        os_close(elf_file);
+        return false;
     }
     // Write memory content to the core dump file.
     for (int section_index = 0; section_index < section_count - 1; ++section_index) {
@@ -584,9 +598,9 @@ os_dump_core_internal(dcontext_t *dcontext)
         return false;
     }
     // Write section headers to the core dump file.
-    file_offset = sizeof(ELF_HEADER_TYPE) +
+    core_file_offset = sizeof(ELF_HEADER_TYPE) +
         sizeof(ELF_PROGRAM_HEADER_TYPE) * program_header_count +
-        PROGRAM_HEADER_NOTE_LENGTH + padding;
+        PROGRAM_HEADER_NOTE_LENGTH + loadable_segment_padding;
 
     // The section_count includes the section name section, so we need to skip
     // it in the loop. The section name section is handled differently after
@@ -601,7 +615,8 @@ os_dump_core_internal(dcontext_t *dcontext)
         }
         if (!write_section_header(
                 elf_file, section_header_info[section_index].name_offset, SHT_PROGBITS,
-                flags, (ELF_ADDR)section_header_info[section_index].vm_start, file_offset,
+                flags, (ELF_ADDR)section_header_info[section_index].vm_start,
+                core_file_offset,
                 section_header_info[section_index].vm_end -
                     section_header_info[section_index].vm_start,
                 /*link=*/0,
@@ -610,13 +625,13 @@ os_dump_core_internal(dcontext_t *dcontext)
             os_close(elf_file);
             return false;
         }
-        file_offset += section_header_info[section_index].vm_end -
+        core_file_offset += section_header_info[section_index].vm_end -
             section_header_info[section_index].vm_start;
     }
     // Write the section name section.
     if (!write_section_header(
             elf_file, string_table_offset - strlen(SECTION_HEADER_TABLE), SHT_STRTAB,
-            /*flags=*/0, /*virtual_address=*/0, file_offset,
+            /*flags=*/0, /*virtual_address=*/0, core_file_offset,
             /*section_size=*/string_table_offset, /*link=*/0,
             /*info=*/0, /*alignment=*/1,
             /*entry_size=*/0)) {
