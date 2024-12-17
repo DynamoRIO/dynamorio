@@ -2730,7 +2730,15 @@
     instr_create_1dst_2src((dc), OP_vpopcntb, (d), (k), (s))
 #define INSTR_CREATE_vpopcntw_mask(dc, d, k, s) \
     instr_create_1dst_2src((dc), OP_vpopcntw, (d), (k), (s))
-
+/* AVX512 VBMI2 */
+#define INSTR_CREATE_vpcompressb_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpcompressb, (d), (k), (s))
+#define INSTR_CREATE_vpcompressw_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpcompressw, (d), (k), (s))
+#define INSTR_CREATE_vpexpandb_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpexpandb, (d), (k), (s))
+#define INSTR_CREATE_vpexpandw_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpexpandw, (d), (k), (s))
 /** @} */ /* end doxygen group */
 
 /* 1 destination, 2 sources: 1 explicit, 1 implicit */
@@ -3846,6 +3854,9 @@
 /* GFNI */
 #define INSTR_CREATE_vgf2p8mulb_mask(dc, d, k, s1, s2) \
     instr_create_1dst_3src((dc), OP_vgf2p8mulb, (d), (k), (s1), (s2))
+/* AVX512 VBMI2 */
+#define INSTR_CREATE_vpmultishiftqb_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vpmultishiftqb, (d), (k), (s1), (s2))
 /** @} */ /* end doxygen group */
 
 /** @name 1 destination, 3 sources including one immediate */
@@ -4264,6 +4275,19 @@
     instr_create_1dst_3src((dc), OP_vcvtne2ps2bf16, (d), (k), (s1), (s2))
 #define INSTR_CREATE_vdpbf16ps_mask(dc, d, k, s1, s2) \
     instr_create_1dst_3src((dc), OP_vdpbf16ps, (d), (k), (s1), (s2))
+/* AVX512 VBMI2 */
+#define INSTR_CREATE_vpshldvw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vpshldvw, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vpshldvd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vpshldvd, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vpshldvq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vpshldvq, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vpshrdvw_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vpshrdvw, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vpshrdvd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vpshrdvd, (d), (k), (s1), (s2), (d))
+#define INSTR_CREATE_vpshrdvq_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vpshrdvq, (d), (k), (s1), (s2), (d))
 /** @} */ /* end doxygen group */
 
 /** @name 1 explicit destination, 3 explicit sources */
@@ -4498,6 +4522,19 @@
     instr_create_1dst_4src((dc), OP_vgf2p8affineqb, (d), (k), (i), (s1), (s2))
 #define INSTR_CREATE_vgf2p8affineinvqb_mask(dc, d, k, i, s1, s2) \
     instr_create_1dst_4src((dc), OP_vgf2p8affineinvqb, (d), (k), (i), (s1), (s2))
+/* AVX512 VBMI2 */
+#define INSTR_CREATE_vpshldw_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vpshldw, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vpshldd_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vpshldd, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vpshldq_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vpshldq, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vpshrdw_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vpshrdw, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vpshrdd_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vpshrdd, (d), (k), (i), (s1), (s2))
+#define INSTR_CREATE_vpshrdq_mask(dc, d, k, i, s1, s2) \
+    instr_create_1dst_4src((dc), OP_vpshrdq, (d), (k), (i), (s1), (s2))
 /** @} */ /* end doxygen group */
 
 /** @name 1 destination, 3 sources where 2 are implicit */

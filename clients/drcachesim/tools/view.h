@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2024 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -47,7 +47,6 @@
 #include "memref.h"
 #include "memtrace_stream.h"
 #include "raw2trace.h"
-#include "raw2trace_directory.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -61,6 +60,7 @@ public:
     view_t(const std::string &module_file_path, uint64_t skip_refs, uint64_t sim_refs,
            const std::string &syntax, unsigned int verbose,
            const std::string &alt_module_dir = "");
+    virtual ~view_t();
     std::string
     initialize_stream(memtrace_stream_t *serial_stream) override;
     bool
@@ -136,7 +136,9 @@ protected:
     // std::optional here.
     std::string module_file_path_;
     std::unique_ptr<module_mapper_t> module_mapper_;
-    raw2trace_directory_t directory_;
+    // XXX: Perhaps module_mapper_t should be made to own the cleanup of
+    // modfile_bytes_.
+    char *modfile_bytes_ = nullptr;
 
     unsigned int knob_verbose_;
     int trace_version_;

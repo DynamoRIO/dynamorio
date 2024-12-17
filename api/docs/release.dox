@@ -134,6 +134,10 @@ changes:
    is the encoding of the removed instruction up to a pointer's length. Added
    #OFFLINE_FILE_VERSION_RETIRED_INSTRUCTIONS_ONLY to increase the trace version
    for drmemtraces with uncompleted instructions removed.
+ - Moved module file read logic into read_module_file() in raw2trace_shared, and
+   removed raw2trace_directory_t::initialize_module_file() since the
+   read_module_file() can be directly used without having to pull in the whole
+   raw2trace_directory_t.
 
 Further non-compatibility-affecting changes include:
  - Added X64 Linux support to dr_create_memory_dump(). This API has the same
@@ -143,6 +147,10 @@ Further non-compatibility-affecting changes include:
  - Added the AArch64 FPMR register as DR_REG_FPMR.
  - Added OPSZ_addr which chooses the appropriate operand size on X86 from 2/4/8 based
    on the 32/64 bit mode and the presence or absence of the address size prefix.
+ - Fixed the order of operands for the vpexpandd/vpexpandq opcodes (previously the
+   source and destination operands were reversed).
+ - Fixed the VEX-encoded forms of vaesdec/vaesdeclast/vaesenc/vaesenclast/vpclmulqdq
+   to obey VEX.L, which they previously ignored.
 
 **************************************************
 <hr>

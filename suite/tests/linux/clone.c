@@ -340,10 +340,32 @@ make_clone3_syscall(void *clone_args, ulong clone_args_size, void (*fcn)(void))
                    [clone_args_size] "m"(clone_args_size), [fcn] "m"(fcn)
                  : "x0", "x1", "x2", "x8", "memory");
 #elif defined(ARM)
-    /* XXX: Add asm wrapper for ARM.
-     * Currently we do not run this test on ARM, so this missing support doesn't
-     * cause any test failure.
+    /* The system call number has to go in R7, but R7 is also the frame
+     * pointer, which means that we are not allowed to include R7 in the
+     * list of clobbered registers. So we clobber R8 and R9, instead,
+     * with R7 being saved and restored.
+     * We use a local variable for sys_clone3 as the intermediate value
+     * is out of range for ARMv5.
      */
+    long sys_clone3 = CLONE3_SYSCALL_NUM;
+    asm volatile(".arch armv7-a\n\t"
+                 ".syntax unified\n\t"
+                 "ldr r8, %[sys_clone3]\n\t"
+                 "ldr r0, %[clone_args]\n\t"
+                 "ldr r1, %[clone_args_size]\n\t"
+                 "ldr r2, %[fcn]\n\t"
+                 "mov r9, r7\n\t"
+                 "mov r7, r8\n\t"
+                 "svc #0\n\t"
+                 "mov r7, r9\n\t"
+                 "cbnz r0, 1f\n\t"
+                 "blx r2\n\t"
+                 "1:\n\t"
+                 "str r0, %[result]\n\t"
+                 : [result] "=m"(result)
+                 : [sys_clone3] "m"(sys_clone3), [clone_args] "m"(clone_args),
+                   [clone_args_size] "m"(clone_args_size), [fcn] "m"(fcn)
+                 : "r0", "r1", "r2", "r8", "r9", "memory");
 #else
 #    error Unsupported architecture
 #endif
