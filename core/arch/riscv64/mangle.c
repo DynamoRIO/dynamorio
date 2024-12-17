@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2022 Rivos, Inc.  All rights reserved.
+ * Copyright (c) 2024 Foundation of Research and Technology, Hellas.
  * **********************************************************/
 
 /*
@@ -194,13 +195,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
 
     dstack_offs += XSP_SZ;
 
-    /*
-     * The code below is contributed and copyrighted by FORTH
-     * Copyright (c) 2024 Foundation of Research and Technology, Hellas.
-     * All other rights reserved.
-     */
     if (proc_has_feature(FEATURE_VECTOR)) {
-        /* csrr a0, vl */
         PRE(ilist, instr,
             INSTR_CREATE_csrrs(dcontext, opnd_create_reg(DR_REG_A0),
                                opnd_create_reg(DR_REG_ZERO),
@@ -213,13 +208,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
 
     dstack_offs += XSP_SZ;
 
-    /*
-     * The code below is contributed and copyrighted by FORTH
-     * Copyright (c) 2024 Foundation of Research and Technology, Hellas.
-     * All other rights reserved.
-     */
     if (proc_has_feature(FEATURE_VECTOR)) {
-        /* csrr a0, vtype */
         PRE(ilist, instr,
             INSTR_CREATE_csrrs(dcontext, opnd_create_reg(DR_REG_A0),
                                opnd_create_reg(DR_REG_ZERO),
@@ -231,9 +220,6 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     }
 
     dstack_offs += 2 * XSP_SZ;
-    /*
-     * End of FORTH copyrighted section
-     */
 
     /* Push vector registers. */
     if (proc_has_feature(FEATURE_VECTOR)) {

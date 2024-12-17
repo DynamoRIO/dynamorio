@@ -566,8 +566,8 @@
     reg_t fcsr; /**< Floating-Point Control Register. */
     reg_t vstart; /**< Vector Start Index CSR. */
     reg_t vcsr; /**< Vector Control and Status Register. */
-    reg_t vl;
-    reg_t vtype;
+    reg_t vl; /**< Vector Length Register. */
+    reg_t vtype; /**< Vector Type Register. */
     /** The Vector registers. */
     dr_simd_t simd[MCXT_NUM_SIMD_SLOTS];
 #else /* RISCV64 */

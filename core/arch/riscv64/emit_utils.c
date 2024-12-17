@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2022 Rivos, Inc.  All rights reserved.
+ * Copyright (c) 2024 Foundation of Research and Technology, Hellas.
  * **********************************************************/
 
 /*
@@ -664,19 +665,11 @@ append_restore_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
                                opnd_create_reg(DR_REG_A0),
                                opnd_create_immed_int(VCSR, OPSZ_12b)));
 
-        /*
-         * The code below is contributed and copyrighted by FORTH
-         * Copyright (c) 2024 Foundation of Research and Technology, Hellas.
-         * All other rights reserved.
-         */
         APP(ilist, RESTORE_FROM_DC(dcontext, DR_REG_A0, VL_OFFSET));
         APP(ilist, RESTORE_FROM_DC(dcontext, DR_REG_A1, VTYPE_OFFSET));
         APP(ilist,
             INSTR_CREATE_vsetvl(dcontext, opnd_create_reg(DR_REG_A0),
                                 opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1)));
-        /*
-         * End of FORTH copyrighted section
-         */
     }
 }
 
@@ -894,11 +887,6 @@ append_save_clear_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute
                                opnd_create_immed_int(VCSR, OPSZ_12b)));
         APP(ilist, SAVE_TO_DC(dcontext, DR_REG_A1, VCSR_OFFSET));
 
-        /*
-         * The code below is contributed and copyrighted by FORTH
-         * Copyright (c) 2024 Foundation of Research and Technology, Hellas.
-         * All other rights reserved.
-         */
         APP(ilist,
             INSTR_CREATE_csrrs(dcontext, opnd_create_reg(DR_REG_A1),
                                opnd_create_reg(DR_REG_ZERO),
@@ -909,9 +897,6 @@ append_save_clear_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute
                                opnd_create_reg(DR_REG_ZERO),
                                opnd_create_immed_int(VTYPE, OPSZ_12b)));
         APP(ilist, SAVE_TO_DC(dcontext, DR_REG_A1, VTYPE_OFFSET));
-        /*
-         * End of FORTH copyrighted section
-         */
     }
 }
 
