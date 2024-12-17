@@ -321,6 +321,10 @@ public:
     init(offline_file_type_t filetype, const std::string &module_file_path = "",
          const std::string &alt_module_dir = "")
     {
+        // TODO i#7113: Should we perhaps also do dr_set_isa_mode for DR_ISA_REGDEPS
+        // that cannot be figured out automatically using the build but needs the
+        // trace filetype? Or does that belong in the analyzer framework which is more
+        // central than this decode_cache_t.
         init_done_ = true;
         if (!TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, filetype) && module_file_path.empty()) {
             return "Trace does not have embedded encodings, and no module_file_path "

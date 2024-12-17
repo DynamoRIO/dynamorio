@@ -140,7 +140,7 @@ test_main(int argc, const char *argv[])
         exit(1);
     }
 #ifndef WINDOWS
-    // TODO i#5960: Enable these tests after the Windows issue is
+    // TODO i#5960: Enable these tests after the test-only Windows issue is
     // fixed.
     err = check_opcode_mix(drcontext, /*use_module_mapper=*/true);
     if (err != "") {
