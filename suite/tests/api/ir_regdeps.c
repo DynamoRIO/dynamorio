@@ -108,10 +108,24 @@ test_instr_encode_decode_disassemble_synthetic(void *dc, instr_t *instr,
     byte *next_pc_decode = decode(dc, bytes, instr_synthetic_decoded);
     ASSERT(next_pc_decode != NULL);
     ASSERT(next_pc_encode == next_pc_decode);
+
+    /* Check instruction length.
+     */
+    ASSERT((next_pc_encode - bytes) == instr_length(dc, instr_synthetic_decoded));
+    ASSERT((next_pc_encode - bytes) == instr_length(dc, instr_synthetic_converted));
+    ASSERT(instr_length(dc, instr_synthetic_decoded) != 0);
+    ASSERT(instr_length(dc, instr_synthetic_converted) != 0);
+
     /* Check for overflow.
      */
     ASSERT((next_pc_encode - bytes) <= sizeof(bytes));
     ASSERT((next_pc_decode - bytes) <= sizeof(bytes));
+
+    /* Check operation size.
+     */
+    ASSERT(instr_get_operation_size(instr_synthetic_decoded) != OPSZ_NA);
+    ASSERT(instr_get_operation_size(instr_synthetic_decoded) ==
+           instr_get_operation_size(instr_synthetic_converted));
 
     /* Disassemble regdeps synthetic encodings to buffer.
      */
