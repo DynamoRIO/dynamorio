@@ -665,6 +665,9 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     dstack_offs += 15 * XSP_SZ;
 
     /* Make dstack_offs 8-byte algined, as we only accounted for 17 4-byte slots. */
+    PRE(ilist, instr,
+        XINST_CREATE_sub(dcontext, opnd_create_reg(DR_REG_SP),
+                         OPND_CREATE_INT(XSP_SZ)));
     dstack_offs += XSP_SZ;
 #endif
     ASSERT(cci->skip_save_flags || cci->num_simd_skip != 0 || cci->num_regs_skip != 0 ||
@@ -769,6 +772,9 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
     }
 
 #else
+    PRE(ilist, instr,
+        XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_SP),
+                         OPND_CREATE_INT(XSP_SZ)));
     /* We rely on dr_set_mcontext_priv() to set the app's stolen reg value,
      * and the stack swap to set the sp value: we assume the stolen reg on
      * the stack still has our TLS base in it.
