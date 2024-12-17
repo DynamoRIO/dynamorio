@@ -198,10 +198,11 @@ appear.  Do not simply reply at the top level, as such comments are more
 difficult to follow as a conversation thread with context.
 
 After making changes in response to review comments, commit those changes
-locally as a new commit on top of your original commit.  If the reviewer
-requested changes to the commit message, use a new proposed final commit
-message as the message for this change commit so that the reviewer can
-review the new message.
+locally as a new commit on top of your original commit (do not squash the
+new changes into the original commit; use separate commits).  If the reviewer
+requested changes to the commit message or title, edit those directly in
+the pull request text boxes as those are what become the final commit
+message.
 
 Project members should then push the new commit to the pull request via:
 
@@ -215,7 +216,10 @@ separate commit (these separate commits will all be squashed together upon mergi
 When the requested changes have been pushed, request a re-review from the reviewer so they know that the pull request is ready for another round of reviewing.
 This can be done by clicking the re-review button next to the reviewer's name at the top of the right sidebar on the pull request page.
 
-The final squash-and-merge step will squash these additional commits with the original to make a single commit that will be fast-forward-merged into master (see below for more details).
+The final squash-and-merge step will squash these additional commits with the
+original to make a single commit that will be fast-forward-merged into master (see
+below for more details).  The final merge commit's title and description come
+directly from the pull request title and description.
 
 # Updating from Master
 
