@@ -159,7 +159,6 @@ protected:
      */
     bool use_module_mapper_ = 0;
 
-public:
     /**
      * Initializes the module_mapper_ object using make_module_mapper() and performs
      * other bookkeeping and prerequisites.
@@ -169,6 +168,14 @@ public:
                        const std::string &alt_module_dir);
 
     /**
+     * Returns the address where the encoding for the instruction at trace_pc can
+     * be found.
+     */
+    static std::string
+    find_mapped_trace_address(app_pc trace_pc, app_pc &decode_pc);
+
+private:
+    /**
      * Creates a module_mapper_t. This does not need to worry about races as the
      * module_mapper_mutex_ will be acquired before calling.
      * Non-static to allow test sub-classes to override.
@@ -176,13 +183,6 @@ public:
     virtual std::string
     make_module_mapper(const std::string &module_file_path,
                        const std::string &alt_module_dir);
-
-    /**
-     * Returns the address where the encoding for the instruction at trace_pc can
-     * be found.
-     */
-    static std::string
-    find_mapped_trace_address(app_pc trace_pc, app_pc &decode_pc);
 };
 
 /**
@@ -364,6 +364,10 @@ public:
     {
     }
 
+private:
+    void *dcontext_;
+    instrlist_t *ilist_for_test_module_mapper_;
+
     std::string
     make_module_mapper(const std::string &unused_module_file_path,
                        const std::string &unused_alt_module_dir) override
@@ -378,10 +382,6 @@ public:
             return "Failed to load binaries: " + error;
         return "";
     }
-
-private:
-    void *dcontext_;
-    instrlist_t *ilist_for_test_module_mapper_;
 };
 
 } // namespace drmemtrace
