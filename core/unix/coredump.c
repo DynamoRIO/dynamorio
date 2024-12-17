@@ -484,11 +484,17 @@ os_dump_core_internal(dcontext_t *dcontext)
     // of LOAD program header (number of sections minus one since shstrtab does not
     // require a LOAD header).
     const ELF_OFF program_header_count = section_count;
+    ELF_OFF file_offset = sizeof(ELF_HEADER_TYPE) +
+        sizeof(ELF_PROGRAM_HEADER_TYPE) * program_header_count +
+        PROGRAM_HEADER_NOTE_LENGTH;
+    const size_t padding = ALIGN_FORWARD(file_offset, os_page_size()) - file_offset;
+    file_offset = ALIGN_FORWARD(file_offset, os_page_size());
+
     if (!write_elf_header(elf_file, /*entry_point=*/(uint64_t)mc.pc,
                           /*section_header_table_offset*/ sizeof(ELF_HEADER_TYPE) +
                               PROGRAM_HEADER_NOTE_LENGTH +
                               sizeof(ELF_PROGRAM_HEADER_TYPE) * program_header_count +
-                              section_data_size,
+                              padding + section_data_size,
                           /*flags=*/0,
                           /*program_header_count=*/program_header_count,
                           /*section_header_count=*/section_count,
@@ -509,9 +515,6 @@ os_dump_core_internal(dcontext_t *dcontext)
         return false;
     }
     // Write loadable program segment program headers.
-    ELF_OFF file_offset = sizeof(ELF_HEADER_TYPE) +
-        sizeof(ELF_PROGRAM_HEADER_TYPE) * program_header_count +
-        PROGRAM_HEADER_NOTE_LENGTH;
     // TODO i#7046: Merge adjacent sections with the same prot values.
     // The last section is shstrtab which stores the section names and it does
     // not require a LOAD program header.
@@ -551,6 +554,10 @@ os_dump_core_internal(dcontext_t *dcontext)
         os_close(elf_file);
         return false;
     }
+    const char zero = 0;
+    for (int count = 0; count < padding; ++count) {
+        os_write(elf_file, &zero, sizeof(zero));
+    }
     // Write memory content to the core dump file.
     for (int section_index = 0; section_index < section_count - 1; ++section_index) {
         const size_t length = section_header_info[section_index].vm_end -
@@ -579,7 +586,7 @@ os_dump_core_internal(dcontext_t *dcontext)
     // Write section headers to the core dump file.
     file_offset = sizeof(ELF_HEADER_TYPE) +
         sizeof(ELF_PROGRAM_HEADER_TYPE) * program_header_count +
-        PROGRAM_HEADER_NOTE_LENGTH;
+        PROGRAM_HEADER_NOTE_LENGTH + padding;
 
     // The section_count includes the section name section, so we need to skip
     // it in the loop. The section name section is handled differently after
