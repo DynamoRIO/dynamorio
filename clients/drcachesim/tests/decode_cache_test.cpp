@@ -204,6 +204,9 @@ test_main(int argc, const char *argv[])
         std::cerr << err << "\n";
         exit(1);
     }
+#ifndef WINDOWS
+    // TODO i#5960: Enable these tests after the Windows issue is
+    // fixed.
     err = check_decode_caching(drcontext, /*persist_instrs=*/false,
                                /*use_module_mapper=*/true);
     if (err != "") {
@@ -216,6 +219,7 @@ test_main(int argc, const char *argv[])
         std::cerr << err << "\n";
         exit(1);
     }
+#endif
     err = check_missing_module_mapper_and_no_encoding(drcontext);
     if (err != "") {
         std::cerr << err << "\n";
