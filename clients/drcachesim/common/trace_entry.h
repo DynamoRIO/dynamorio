@@ -978,8 +978,7 @@ typedef enum {
 #define OFFLINE_FILE_VERSION_ENCODINGS 6
 #define OFFLINE_FILE_VERSION_XFER_ABS_PC \
     7 /**< Use the absolute PC for kernel interruption PC for 64-bit mode.*/
-#define OFFLINE_FILE_VERSION_NO_OP \
-    8 /**< There are no changes in this version.*/
+#define OFFLINE_FILE_VERSION_NO_OP 8 /**< There are no changes in this version.*/
 #define OFFLINE_FILE_VERSION OFFLINE_FILE_VERSION_NO_OP
 
 /**
