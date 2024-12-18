@@ -668,12 +668,14 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                                   DR_REG_LIST_LENGTH_ARM, DR_REG_LIST_ARM));
         dstack_offs += DR_REG_LIST_LENGTH_ARM * XSP_SZ;
     }
-
-    /* Make dstack_offs 8-byte aligned, as we only accounted for 17 4-byte slots. */
+    /* Make dstack_offs 8-byte aligned as we have just pushed an odd
+     * number of 4-byte registers.
+     */
     PRE(ilist, instr,
         XINST_CREATE_sub(dcontext, opnd_create_reg(DR_REG_SP), OPND_CREATE_INT(XSP_SZ)));
     dstack_offs += XSP_SZ;
     ASSERT(ALIGNED(dstack_offs, get_ABI_stack_alignment()));
+
 #endif
     ASSERT(cci->skip_save_flags || cci->num_simd_skip != 0 || cci->num_regs_skip != 0 ||
            dstack_offs == (uint)get_clean_call_switch_stack_size());
