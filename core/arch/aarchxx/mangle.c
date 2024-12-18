@@ -596,18 +596,18 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     PRE(ilist, instr,
         INSTR_CREATE_vstmdb(dcontext, OPND_CREATE_MEMLIST(DR_REG_SP), SIMD_REG_LIST_LEN,
                             SIMD_REG_LIST_0_15));
-
     dstack_offs += proc_num_simd_registers() * sizeof(dr_simd_t);
     ASSERT(proc_num_simd_registers() == MCXT_NUM_SIMD_SLOTS);
+    ASSERT(ALIGNED(dstack_offs, get_ABI_stack_alignment()));
 
     /* pc and aflags */
     if (cci->skip_save_flags) {
         /* even if we skip flag saves we want to keep mcontext shape */
         int offs_beyond_xmm = 2 * XSP_SZ;
-        dstack_offs += offs_beyond_xmm;
         PRE(ilist, instr,
             XINST_CREATE_sub(dcontext, opnd_create_reg(DR_REG_SP),
                              OPND_CREATE_INT(offs_beyond_xmm)));
+        dstack_offs += offs_beyond_xmm;
     } else {
         uint slot = TLS_REG0_SLOT;
         bool spill = scratch == REG_NULL;
@@ -633,14 +633,16 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
             PRE(ilist, instr,
                 XINST_CREATE_load_int(dcontext, opnd_create_reg(scratch), push_pc));
             PRE(ilist, instr, INSTR_CREATE_push(dcontext, opnd_create_reg(scratch)));
+            dstack_offs += XSP_SZ;
         } else {
             ASSERT(opnd_is_reg(push_pc));
             PRE(ilist, instr, INSTR_CREATE_push(dcontext, push_pc));
+            dstack_offs += XSP_SZ;
         }
         if (spill)
             PRE(ilist, instr, instr_create_restore_from_tls(dcontext, scratch, slot));
-        dstack_offs += XSP_SZ;
     }
+    ASSERT(ALIGNED(dstack_offs, get_ABI_stack_alignment()));
 
     /* We rely on dr_get_mcontext_priv() to fill in the app's stolen reg value
      * and sp value.
@@ -648,26 +650,30 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     if (dr_get_isa_mode(dcontext) == DR_ISA_ARM_THUMB) {
         /* We can't use sp with stm */
         PRE(ilist, instr, INSTR_CREATE_push(dcontext, opnd_create_reg(DR_REG_LR)));
+        dstack_offs += XSP_SZ;
         /* We can't push sp w/ writeback, and in fact dr_get_mcontext() gets
          * sp from the stack swap so we can leave this empty.
          */
         PRE(ilist, instr,
             XINST_CREATE_sub(dcontext, opnd_create_reg(DR_REG_SP),
                              OPND_CREATE_INT(XSP_SZ)));
+        dstack_offs += XSP_SZ;
         PRE(ilist, instr,
             INSTR_CREATE_stmdb_wb(dcontext, OPND_CREATE_MEMLIST(DR_REG_SP),
                                   DR_REG_LIST_LENGTH_T32, DR_REG_LIST_T32));
+        dstack_offs += DR_REG_LIST_LENGTH_T32 * XSP_SZ;
     } else {
         PRE(ilist, instr,
             INSTR_CREATE_stmdb_wb(dcontext, OPND_CREATE_MEMLIST(DR_REG_SP),
                                   DR_REG_LIST_LENGTH_ARM, DR_REG_LIST_ARM));
+        dstack_offs += DR_REG_LIST_LENGTH_ARM * XSP_SZ;
     }
-    dstack_offs += 15 * XSP_SZ;
 
-    /* Make dstack_offs 8-byte algined, as we only accounted for 17 4-byte slots. */
+    /* Make dstack_offs 8-byte aligned, as we only accounted for 17 4-byte slots. */
     PRE(ilist, instr,
         XINST_CREATE_sub(dcontext, opnd_create_reg(DR_REG_SP), OPND_CREATE_INT(XSP_SZ)));
     dstack_offs += XSP_SZ;
+    ASSERT(ALIGNED(dstack_offs, get_ABI_stack_alignment()));
 #endif
     ASSERT(cci->skip_save_flags || cci->num_simd_skip != 0 || cci->num_regs_skip != 0 ||
            dstack_offs == (uint)get_clean_call_switch_stack_size());
@@ -771,6 +777,7 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
     }
 
 #else
+    /* This undoes the XINST_CREATE_sub done for alignment in XINST_CREATE_sub. */
     PRE(ilist, instr,
         XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_SP), OPND_CREATE_INT(XSP_SZ)));
     /* We rely on dr_set_mcontext_priv() to set the app's stolen reg value,
