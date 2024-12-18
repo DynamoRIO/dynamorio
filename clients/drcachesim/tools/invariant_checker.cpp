@@ -1712,6 +1712,7 @@ invariant_checker_t::check_regdeps_invariants(per_shard_t *shard, const memref_t
                             "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot have "
                             "TRACE_MARKER_TYPE_SIGNAL_NUMBER markers");
             break;
+        // XXX i#7155: Allow these markers once we update their values in record_filter.
         case TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION:
             report_if_false(shard, false,
                             "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot have "

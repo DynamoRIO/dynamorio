@@ -3603,6 +3603,7 @@ check_regdeps(void)
     }
 
     // Incorrect: TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION not allowed.
+    // XXX i#7155: Allow these markers once we update their values in record_filter.
     {
         std::vector<memref_t> memrefs = {
             gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ARCH_REGDEPS),
