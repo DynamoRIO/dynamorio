@@ -115,10 +115,10 @@ void
 print_opcode_name(instr_t *instr, const char *name, char *buf, size_t bufsz,
                   size_t *sofar DR_PARAM_OUT);
 
+#ifdef X86
 bool
 optype_is_evex_mask_arch(byte optype);
-
-#ifndef X86
+#else
 static bool
 optype_is_evex_mask_arch(byte optype)
 {
