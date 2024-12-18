@@ -458,8 +458,9 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::check_for_input_switch(
         // boundaries so we live with those being before the switch.
         // XXX: Once we insert kernel traces, we may have to try harder
         // to stop before the post-syscall records.
-        if (!outputs_[output].in_syscall_code &&
-            this->record_type_is_instr_boundary(record, outputs_[output].last_record)) {
+        if (this->record_type_is_instr_boundary(record, outputs_[output].last_record) &&
+            // We want to delay the context switch until after the injected syscall trace.
+            !outputs_[output].in_syscall_code) {
             if (input->switch_to_input != sched_type_t::INVALID_INPUT_ORDINAL) {
                 // The switch request overrides any latency threshold.
                 need_new_input = true;
@@ -513,7 +514,7 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::check_for_input_switch(
             if (outputs_[output].in_syscall_code) {
                 VPRINT(this, 4,
                        "next_record[%d]: input %d delaying context switch "
-                       "after end of instr quantum due to syscall code\n",
+                       "after end of instr quantum due to syscall trace\n",
                        output, input->index);
 
             } else {
@@ -547,7 +548,7 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::check_for_input_switch(
             if (outputs_[output].in_syscall_code) {
                 VPRINT(this, 4,
                        "next_record[%d]: input %d delaying context switch after end of "
-                       "time quantum after %" PRIu64 " due to syscall code\n",
+                       "time quantum after %" PRIu64 " due to syscall trace\n",
                        output, input->index, input->time_spent_in_quantum);
             } else {
                 VPRINT(this, 4,
