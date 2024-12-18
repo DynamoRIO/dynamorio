@@ -119,7 +119,7 @@ bool
 optype_is_evex_mask_arch(byte optype);
 
 #ifndef X86
-bool
+static bool
 optype_is_evex_mask_arch(byte optype)
 {
     return false;
