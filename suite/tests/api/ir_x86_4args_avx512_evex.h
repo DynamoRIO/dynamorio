@@ -67,3 +67,17 @@ OPCODE(vpinsrq_xhixhir, vpinsrq, vpinsrq, X64_ONLY, REGARG(XMM16),
        REGARG_PARTIAL(XMM31, OPSZ_8), REGARG(RAX), IMMARG(OPSZ_1))
 OPCODE(vpinsrq_xhixhim, vpinsrq, vpinsrq, X64_ONLY, REGARG(XMM16),
        REGARG_PARTIAL(XMM31, OPSZ_8), MEMARG(OPSZ_8), IMMARG(OPSZ_1))
+OPCODE(vpclmulqdq_evex_xhixhixhi, vpclmulqdq, vpclmulqdq, X64_ONLY, REGARG(XMM16),
+       REGARG(XMM17), REGARG(XMM18), IMMARG(OPSZ_1))
+OPCODE(vpclmulqdq_evex_xhixhild, vpclmulqdq, vpclmulqdq, X64_ONLY, REGARG(XMM16),
+       REGARG(XMM17), MEMARG(OPSZ_16), IMMARG(OPSZ_1))
+OPCODE(vpclmulqdq_evex_yhiyhiyhi, vpclmulqdq, vpclmulqdq, X64_ONLY, REGARG(YMM16),
+       REGARG(YMM17), REGARG(YMM18), IMMARG(OPSZ_1))
+OPCODE(vpclmulqdq_evex_yhiyhild, vpclmulqdq, vpclmulqdq, X64_ONLY, REGARG(YMM16),
+       REGARG(YMM17), MEMARG(OPSZ_32), IMMARG(OPSZ_1))
+OPCODE(vpclmulqdq_zlozlozlo, vpclmulqdq, vpclmulqdq, 0, REGARG(ZMM0), REGARG(ZMM1),
+       REGARG(ZMM2), IMMARG(OPSZ_1))
+OPCODE(vpclmulqdq_zlozlold, vpclmulqdq, vpclmulqdq, 0, REGARG(ZMM0), REGARG(ZMM1),
+       MEMARG(OPSZ_64), IMMARG(OPSZ_1))
+OPCODE(vpclmulqdq_zhizhizhi, vpclmulqdq, vpclmulqdq, X64_ONLY, REGARG(ZMM16),
+       REGARG(ZMM17), REGARG(ZMM18), IMMARG(OPSZ_1))
