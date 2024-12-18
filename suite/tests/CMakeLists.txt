@@ -4849,10 +4849,11 @@ if (BUILD_CLIENTS)
           # -filter_marker_types 19,25,27,28,30 (which correspond to
           # TRACE_MARKER_TYPE_SYSCALL_IDX, TRACE_MARKER_TYPE_SYSCALL,
           # TRACE_MARKER_TYPE_SYSCALL_TRACE_START, TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
-          # TRACE_MARKER_TYPE_SYSCALL_FAILED), and -filter_modify_marker_value 3,-1
-          # (which changes the value of TRACE_MARKER_TYPE_CPU_ID == 3 to
-          # INVALID_CPU_MARKER_VALUE == (uintptr_t)-1).
-          "${drcachesim_path}@-simulator_type@record_filter@-filter_encodings2regdeps@-indir@${testname}.${ci_shared_app}.*.dir/trace@-outdir@${testname}.filtered.dir@-filter_marker_types@19,25,27,28,30@-filter_keep_func_ids@4294967498@-filter_modify_marker_value@3,-1"
+          # TRACE_MARKER_TYPE_SYSCALL_FAILED,  TRACE_MARKER_TYPE_SIGNAL_NUMBER,
+          # TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION), and
+          # -filter_modify_marker_value 3,-1 (which changes the value of
+          # TRACE_MARKER_TYPE_CPU_ID == 3 to INVALID_CPU_MARKER_VALUE == (uintptr_t)-1).
+          "${drcachesim_path}@-simulator_type@record_filter@-filter_encodings2regdeps@-indir@${testname}.${ci_shared_app}.*.dir/trace@-outdir@${testname}.filtered.dir@-filter_marker_types@19,25,27,28,30,40,41@-filter_keep_func_ids@4294967498@-filter_modify_marker_value@3,-1"
           # We run the invariant_checker analyzer on the REGDEPS filtered trace.
           # We expect no invariant errors.
           "invariant_checker")
@@ -4866,13 +4867,14 @@ if (BUILD_CLIENTS)
           # with -filter_encodings2regdeps to change instruction encodings,
           # -filter_keep_func_ids 4294967498 (which is SYS_futex, associated to the only
           # TRACE_MARKER_TYPE_FUNC_ markers we want to keep),
-          # -filter_marker_types 19,25,27,28,30 (which correspond to
+          # -filter_marker_types 19,25,27,28,30,40,41 (which correspond to
           # TRACE_MARKER_TYPE_SYSCALL_IDX, TRACE_MARKER_TYPE_SYSCALL,
           # TRACE_MARKER_TYPE_SYSCALL_TRACE_START, TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
-          # TRACE_MARKER_TYPE_SYSCALL_FAILED), and -filter_modify_marker_value 3,-1
-          # (which changes the value of TRACE_MARKER_TYPE_CPU_ID == 3 to
-          # INVALID_CPU_MARKER_VALUE == (uintptr_t)-1).
-          "${drcachesim_path}@-simulator_type@record_filter@-filter_encodings2regdeps@-indir@${testname}.${kernel_xfer_app}.*.dir/trace@-outdir@${testname}.filtered.dir@-filter_marker_types@19,25,27,28,30@-filter_keep_func_ids@4294967498@-filter_modify_marker_value@3,-1"
+          # TRACE_MARKER_TYPE_SYSCALL_FAILED, TRACE_MARKER_TYPE_SIGNAL_NUMBER,
+          # TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION), and
+          # -filter_modify_marker_value 3,-1 (which changes the value of
+          # TRACE_MARKER_TYPE_CPU_ID == 3 to INVALID_CPU_MARKER_VALUE == (uintptr_t)-1).
+          "${drcachesim_path}@-simulator_type@record_filter@-filter_encodings2regdeps@-indir@${testname}.${kernel_xfer_app}.*.dir/trace@-outdir@${testname}.filtered.dir@-filter_marker_types@19,25,27,28,30,40,41@-filter_keep_func_ids@4294967498@-filter_modify_marker_value@3,-1"
           # We run the invariant_checker analyzer on the REGDEPS filtered trace.
           # We expect no invariant errors.
           "invariant_checker")
