@@ -51,7 +51,7 @@
 #    error Unsupported architecture
 #endif
 
-#define MAX_OS_PAGE_SIZE 16384
+#define MAX_BUFFER_SIZE 4096
 #define MAX_SECTION_HEADERS 300
 #define MAX_SECTION_NAME_BUFFER_SIZE 8192
 #define SECTION_HEADER_TABLE ".shstrtab"
@@ -563,14 +563,17 @@ os_dump_core_internal(dcontext_t *dcontext)
     }
     // Add padding to the core file such that loadable segments are aligned to
     // the page size in the core file.
-    ASSERT(MAX_OS_PAGE_SIZE >= os_page_size());
-    char buffer[MAX_OS_PAGE_SIZE];
-    memset(buffer, 0, loadable_segment_padding);
-    if (os_write(elf_file, buffer, loadable_segment_padding) !=
-        loadable_segment_padding) {
-        SYSLOG_INTERNAL_ERROR("Failed to add padding to the core dump file.");
-        os_close(elf_file);
-        return false;
+    char buffer[MAX_BUFFER_SIZE];
+    size_t remaining_bytes = loadable_segment_padding;
+    memset(buffer, 0, MIN(MAX_BUFFER_SIZE, loadable_segment_padding));
+    while (remaining_bytes > 0) {
+        const size_t bytes = MIN(remaining_bytes, MAX_BUFFER_SIZE);
+        if (os_write(elf_file, buffer, bytes) != bytes) {
+            SYSLOG_INTERNAL_ERROR("Failed to add padding to the core dump file.");
+            os_close(elf_file);
+            return false;
+        }
+        remaining_bytes -= bytes;
     }
     // Write memory content to the core dump file.
     for (int section_index = 0; section_index < section_count - 1; ++section_index) {
