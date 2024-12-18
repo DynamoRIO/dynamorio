@@ -480,7 +480,7 @@ protected:
         // This is accessed by other outputs for stealing and rebalancing.
         // Indirected so we can store it in our vector.
         std::unique_ptr<std::atomic<bool>> active;
-        bool in_kernel_code = false;
+        bool in_syscall_code = false;
         bool in_context_switch_code = false;
         bool hit_switch_code_end = false;
         // Used for time-based quanta.
