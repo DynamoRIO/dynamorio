@@ -129,7 +129,8 @@ changes:
  - No compatibility changes yet.
 
 Further non-compatibility-affecting changes include:
- - No changes yet.
+ - Added instr_get_operation_size() and instr_set_operation_size() APIs for
+   #DR_ISA_REGDEPS #instr_t.
 
 **************************************************
 <hr>
@@ -161,8 +162,6 @@ Further non-compatibility-affecting changes include:
    source and destination operands were reversed).
  - Fixed the VEX-encoded forms of vaesdec/vaesdeclast/vaesenc/vaesenclast/vpclmulqdq
    to obey VEX.L, which they previously ignored.
- - Added instr_get_operation_size() and instr_set_operation_size() APIs for
-   #DR_ISA_REGDEPS #instr_t.
 
 **************************************************
 <hr>

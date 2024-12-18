@@ -244,7 +244,7 @@ struct _instr_t {
 
     /* Used to hold the relative offset within an instruction list when encoding. */
     size_t offset;
-};     /* instr_t */
+}; /* instr_t */
 #endif /* DR_FAST_IR */
 
 /**
@@ -1997,7 +1997,7 @@ instr_convert_short_meta_jmp_to_long(void *drcontext, instrlist_t *ilist, instr_
 
 DR_API
 /**
- * Returns the operation size of \p instr if it's a DR_ISA_REGDEPS instruction, OPSZ_NA
+ * Returns the operation size of \p instr if it's a #DR_ISA_REGDEPS instruction, #OPSZ_NA
  * otherwise.
  */
 opnd_size_t
@@ -2006,7 +2006,7 @@ instr_get_operation_size(instr_t *instr);
 DR_API
 /**
  * Sets the operation size of \p instr to \p operation_size only if instr is a
- * DR_ISA_REGDEPS instruction.
+ * #DR_ISA_REGDEPS instruction.
  */
 void
 instr_set_operation_size(instr_t *instr, opnd_size_t operation_size);
