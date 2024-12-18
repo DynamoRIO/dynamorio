@@ -99,6 +99,7 @@ test_dr_insert_it_instrs_cbr(void *dcontext)
     DR_ASSERT(instr_get_opcode(instr_it3) == OP_it);
     DR_ASSERT(instr_it_block_get_count(instr_it3) == 3);
     instrlist_encode(dcontext, ilist, buffer, true);
+    instrlist_clear_and_destroy(dcontext, ilist);
 }
 
 void
@@ -168,6 +169,7 @@ test_dr_insert_it_instrs_cti(void *dcontext)
     DR_ASSERT(instr_get_opcode(instr_it3) == OP_it);
     DR_ASSERT(instr_it_block_get_count(instr_it3) == 4);
     instrlist_encode(dcontext, ilist, buffer, true);
+    instrlist_clear_and_destroy(dcontext, ilist);
 }
 
 int
