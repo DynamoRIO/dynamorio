@@ -46,8 +46,8 @@
 #define FCSR 0x003
 #define VSTART 0x008
 #define VCSR 0x00F
-#define VL 0xC20
-#define VTYPE 0xC21
+#define CSR_VL 0xC20
+#define CSR_VTYPE 0xC21
 
 /* TODO i#3544: Think of a better way to represent these fields in the IR. */
 /* Volume I: RISC-V Unprivileged ISA V20191213.
@@ -199,7 +199,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         PRE(ilist, instr,
             INSTR_CREATE_csrrs(dcontext, opnd_create_reg(DR_REG_A0),
                                opnd_create_reg(DR_REG_ZERO),
-                               opnd_create_immed_int(VL, OPSZ_12b)));
+                               opnd_create_immed_int(CSR_VL, OPSZ_12b)));
 
         PRE(ilist, instr,
             INSTR_CREATE_c_sdsp(dcontext, OPND_CREATE_MEM64(DR_REG_SP, dstack_offs),
@@ -212,7 +212,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         PRE(ilist, instr,
             INSTR_CREATE_csrrs(dcontext, opnd_create_reg(DR_REG_A0),
                                opnd_create_reg(DR_REG_ZERO),
-                               opnd_create_immed_int(VTYPE, OPSZ_12b)));
+                               opnd_create_immed_int(CSR_VTYPE, OPSZ_12b)));
 
         PRE(ilist, instr,
             INSTR_CREATE_c_sdsp(dcontext, OPND_CREATE_MEM64(DR_REG_SP, dstack_offs),

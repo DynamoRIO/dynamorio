@@ -55,8 +55,8 @@
 #define FCSR 0x003
 #define VSTART 0x008
 #define VCSR 0x00F
-#define VL 0xC20
-#define VTYPE 0xC21
+#define CSR_VL 0xC20
+#define CSR_VTYPE 0xC21
 
 /* Instruction fixed bits constants. */
 
@@ -890,12 +890,12 @@ append_save_clear_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute
         APP(ilist,
             INSTR_CREATE_csrrs(dcontext, opnd_create_reg(DR_REG_A1),
                                opnd_create_reg(DR_REG_ZERO),
-                               opnd_create_immed_int(VL, OPSZ_12b)));
+                               opnd_create_immed_int(CSR_VL, OPSZ_12b)));
         APP(ilist, SAVE_TO_DC(dcontext, DR_REG_A1, VL_OFFSET));
         APP(ilist,
             INSTR_CREATE_csrrs(dcontext, opnd_create_reg(DR_REG_A1),
                                opnd_create_reg(DR_REG_ZERO),
-                               opnd_create_immed_int(VTYPE, OPSZ_12b)));
+                               opnd_create_immed_int(CSR_VTYPE, OPSZ_12b)));
         APP(ilist, SAVE_TO_DC(dcontext, DR_REG_A1, VTYPE_OFFSET));
     }
 }
