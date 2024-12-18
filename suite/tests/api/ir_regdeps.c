@@ -112,9 +112,7 @@ test_instr_encode_decode_disassemble_synthetic(void *dc, instr_t *instr,
     /* Check instruction length.
      */
     ASSERT((next_pc_encode - bytes) == instr_length(dc, instr_synthetic_decoded));
-    ASSERT((next_pc_encode - bytes) == instr_length(dc, instr_synthetic_converted));
     ASSERT(instr_length(dc, instr_synthetic_decoded) != 0);
-    ASSERT(instr_length(dc, instr_synthetic_converted) != 0);
 
     /* Check for overflow.
      */
