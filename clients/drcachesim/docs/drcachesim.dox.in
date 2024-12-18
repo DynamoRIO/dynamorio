@@ -1066,8 +1066,9 @@ A #DR_ISA_REGDEPS #instr_t contains the following information:
   decode() or decode_from_copy()).  This information can be obtained using instr_length().
   Be aware that in Google Workload Traces the instruction fetch size of a
   #dynamorio::drmemtrace::memref_t and the instr_length() of the corresponding fetched
-  instruction do not match! For convenience reasons we kept the instruction fetch size to
-  be the same as the size of the original ISA instruction.
+  instruction do not match! To allow analyses and simulations of front-end behavior to
+  have a realistic size of fetched instructions, we kept the instruction fetch size to
+  be the same as in the original ISA instruction.
 
 Note that all routines that operate on #instr_t and #opnd_t are also supported for
 #DR_ISA_REGDEPS instructions and their operands.  However, querying information outside
