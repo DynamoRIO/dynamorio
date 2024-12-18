@@ -51,7 +51,7 @@
 #    error Unsupported architecture
 #endif
 
-#define MAX_OS_PAGE_SIZE 4096
+#define MAX_OS_PAGE_SIZE 16384
 #define MAX_SECTION_HEADERS 300
 #define MAX_SECTION_NAME_BUFFER_SIZE 8192
 #define SECTION_HEADER_TABLE ".shstrtab"
@@ -485,8 +485,8 @@ os_dump_core_internal(dcontext_t *dcontext)
     // of LOAD program header (number of sections minus one since shstrtab does not
     // require a LOAD header).
     const ELF_OFF program_header_count = section_count;
-    // core_file_offset stores the location (offset) of the content in the core
-    // file.
+    // core_file_offset is the current offset of the core file to write the next
+    // section data.
     ELF_OFF core_file_offset = sizeof(ELF_HEADER_TYPE) +
         sizeof(ELF_PROGRAM_HEADER_TYPE) * program_header_count +
         PROGRAM_HEADER_NOTE_LENGTH;
