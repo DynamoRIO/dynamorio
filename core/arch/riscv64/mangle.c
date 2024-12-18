@@ -342,12 +342,10 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
 
     /* Uses c.[f]ldsp for some reason beyond my comprehension, same below. */
     if (proc_has_feature(FEATURE_VECTOR)) {
-        /* a0 = vl*/
         PRE(ilist, instr,
             INSTR_CREATE_c_ldsp(
                 dcontext, opnd_create_reg(DR_REG_A0),
                 OPND_CREATE_MEM64(DR_REG_SP, current_offs - DR_NUM_FPR_REGS * XSP_SZ)));
-        /* a1 = vtype*/
         PRE(ilist, instr,
             INSTR_CREATE_c_ldsp(
                 dcontext, opnd_create_reg(DR_REG_A1),
