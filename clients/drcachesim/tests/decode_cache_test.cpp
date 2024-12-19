@@ -161,6 +161,14 @@ check_decode_caching(void *drcontext, bool persist_instrs, bool use_module_mappe
         if (decode_info_nop_2 != decode_info_nop) {
             return "Did not see same decode info instance for second instance of nop";
         }
+        decode_cache.clear_cache();
+        decode_info_nop =
+            decode_cache.get_decode_info(reinterpret_cast<app_pc>(memrefs[0].instr.addr));
+        decode_info_ret =
+            decode_cache.get_decode_info(reinterpret_cast<app_pc>(memrefs[1].instr.addr));
+        if (decode_info_nop != nullptr || decode_info_ret != nullptr) {
+            return "Cached decode info not cleared after clear_cache()";
+        }
     }
     instrlist_clear_and_destroy(drcontext, ilist);
     std::cerr << "check_decode_caching with persist_instrs: " << persist_instrs

@@ -350,6 +350,24 @@ public:
         return init_module_mapper(module_file_path, alt_module_dir);
     }
 
+    /**
+     * Clears all cached decode info entries.
+     *
+     * Typically analysis tools like to keep their per-shard data around till all shards
+     * are done processing (so they can combine the shards and use the results), but
+     * this API allows tools to keep memory consumption in check by clearing the decode
+     * cache entries in parallel_shard_exit(), since it's very likely that the decode
+     * cache is not needed for result computation.
+     *
+     * This does not affect the state of any initialized module mapper, which is still
+     * cleaned up during destruction.
+     */
+    void
+    clear_cache()
+    {
+        decode_cache_.clear();
+    }
+
 private:
     std::unordered_map<app_pc, DecodeInfo> decode_cache_;
     void *dcontext_ = nullptr;

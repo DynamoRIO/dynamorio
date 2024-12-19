@@ -143,7 +143,10 @@ opcode_mix_t::parallel_shard_init_stream(
 bool
 opcode_mix_t::parallel_shard_exit(void *shard_data)
 {
-    // Nothing (we read the shard data in print_results).
+    shard_data_t *shard = reinterpret_cast<shard_data_t *>(shard_data);
+    if (shard->decode_cache != nullptr)
+        shard->decode_cache->clear_cache();
+    // We still need the remaining shard data in print_results.
     return true;
 }
 
@@ -434,8 +437,8 @@ opcode_mix_t::opcode_data_t::set_decode_info_derived(
     void *dcontext, const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
     instr_t *instr)
 {
-    opcode = instr_get_opcode(instr);
-    category = instr_get_category(instr);
+    opcode_ = instr_get_opcode(instr);
+    category_ = instr_get_category(instr);
 }
 
 } // namespace drmemtrace

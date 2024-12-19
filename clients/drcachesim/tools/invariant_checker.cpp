@@ -174,6 +174,8 @@ bool
 invariant_checker_t::parallel_shard_exit(void *shard_data)
 {
     per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
+    if (shard->decode_cache_ != nullptr)
+        shard->decode_cache_->clear_cache();
     report_if_false(shard,
                     shard->saw_thread_exit_
                         // XXX i#6733: For online we sometimes see threads
