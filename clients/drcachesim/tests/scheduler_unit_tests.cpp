@@ -1427,12 +1427,15 @@ test_synthetic_with_syscall_seq()
     // threshold, but not before its 2nd instr which is from the syscall trace
     // and must be shown before the switch happens. Despite there being room for
     // 1 more instr left in the quantum, the voluntary switch still happens.
+    // When scheduled next, A has room to execute only one instr left in its
+    // quantum limit (which was carried over after the voluntary switch).
     //
     // B has a voluntary switch after its first 5 letters, prompted by its 2nd
     // instr which is a blocking system call with latency that exceeds switch
-    // threshold, but not before its next three instrs which is from the
+    // threshold, but not before its next three instrs which are from the
     // syscall trace and must be shown before the switch happens. B ends up
-    // executing more instrs than its quantum because of the syscall trace.
+    // executing more instrs than its quantum limit because of the syscall
+    // trace.
     //
     // C has a syscall at its third letter (but it doesn't cause a switch
     // because it doesn't have sufficiently high latency), followed by the
@@ -1509,11 +1512,18 @@ test_synthetic_with_syscall_seq()
         // precise output for this test on Windows.
         if (sched_as_string[0] != CORE0_SCHED_STRING ||
             sched_as_string[1] != CORE1_SCHED_STRING) {
+            // XXX: These bools could potentially be made into ints, but then
+            // maybe our check will become too strict, defeating the purpose of
+            // this relaxation.
             bool found_single_A = false, found_single_B = false, found_single_D = false;
             for (int cpu = 0; cpu < NUM_OUTPUTS; ++cpu) {
                 for (size_t i = 1; i < sched_as_string[cpu].size() - 1; ++i) {
                     // We expect a single 'A' for the first instr executed by 'A',
-                    // which will be followed by a marker ('.') for the syscall.
+                    // which will be followed by a marker ('.') for the syscall,
+                    // and the third instr executed by it which will be the only
+                    // instruction executed by it during that scheduling because
+                    // prior bookkeeping for that quantum exhaused all-but-one
+                    // instruction.
                     if (sched_as_string[cpu][i] == 'A' &&
                         sched_as_string[cpu][i - 1] != 'A' &&
                         sched_as_string[cpu][i + 1] != 'A')
@@ -1525,8 +1535,10 @@ test_synthetic_with_syscall_seq()
                         sched_as_string[cpu][i + 1] != 'B')
                         found_single_B = true;
                     // We expect a single 'D' for the one quantum where the
-                    // 1st and 3rd instr executed by D was regular, and the
-                    // 2nd one was from a syscall (which is 'd').
+                    // 1st and 3rd instrs executed by D were regular, and the
+                    // 2nd one was from a syscall (which is 'd'). Also, the
+                    // last (10th) instr executed by D will have to be in its
+                    // own separate 3-instr quantum.
                     if (sched_as_string[cpu][i] == 'D' &&
                         sched_as_string[cpu][i - 1] != 'D' &&
                         sched_as_string[cpu][i + 1] != 'D')
