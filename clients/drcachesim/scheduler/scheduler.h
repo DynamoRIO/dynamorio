@@ -758,6 +758,9 @@ public:
          * The scheduling quantum duration for preemption, in instruction count,
          * for #QUANTUM_INSTRUCTIONS.  The time passed to next_record() is ignored
          * for purposes of quantum preempts.
+         *
+         * Instructions executed in a quantum may end up higher than the specified
+         * value to avoid interruption of the kernel system call sequence.
          */
         // We pick 10 million to match 2 instructions per nanosecond with a 5ms quantum.
         uint64_t quantum_duration_instrs = 10 * 1000 * 1000;
