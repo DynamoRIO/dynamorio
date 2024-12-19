@@ -1505,9 +1505,7 @@ test_synthetic_with_syscall_seq()
         // XXX: Windows microseconds on test VMs are very coarse and stay the same
         // for long periods.  Instruction quanta use wall-clock idle times, so
         // the result is extreme variations here.  We try to adjust by handling
-        // any schedule with singleton 'A' and 'B', but in some cases on Windows
-        // we see the A and B delayed all the way to the very end where they
-        // are adjacent to their own letters.  We just give up on checking the
+        // any schedule with below specific patterns.  We just give up on checking the
         // precise output for this test on Windows.
         if (sched_as_string[0] != CORE0_SCHED_STRING ||
             sched_as_string[1] != CORE1_SCHED_STRING) {
