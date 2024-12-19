@@ -458,7 +458,9 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::check_for_input_switch(
         // boundaries so we live with those being before the switch.
         // XXX: Once we insert kernel traces, we may have to try harder
         // to stop before the post-syscall records.
-        if (this->record_type_is_instr_boundary(record, outputs_[output].last_record)) {
+        if (this->record_type_is_instr_boundary(record, outputs_[output].last_record) &&
+            // We want to delay the context switch until after the injected syscall trace.
+            !outputs_[output].in_syscall_code) {
             if (input->switch_to_input != sched_type_t::INVALID_INPUT_ORDINAL) {
                 // The switch request overrides any latency threshold.
                 need_new_input = true;
@@ -506,18 +508,28 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::check_for_input_switch(
     }
     if (options_.quantum_unit == sched_type_t::QUANTUM_INSTRUCTIONS &&
         this->record_type_is_instr_boundary(record, outputs_[output].last_record) &&
-        !outputs_[output].in_kernel_code) {
+        !outputs_[output].in_context_switch_code) {
         ++input->instrs_in_quantum;
         if (input->instrs_in_quantum > options_.quantum_duration_instrs) {
-            // We again prefer to switch to another input even if the current
-            // input has the oldest timestamp, prioritizing context switches
-            // over timestamp ordering.
-            VPRINT(this, 4, "next_record[%d]: input %d hit end of instr quantum\n",
-                   output, input->index);
-            preempt = true;
-            need_new_input = true;
-            input->instrs_in_quantum = 0;
-            ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_QUANTUM_PREEMPTS];
+            if (outputs_[output].in_syscall_code) {
+                // XXX: Maybe this should be printed only once per-syscall-instance to
+                // reduce log spam.
+                VPRINT(this, 5,
+                       "next_record[%d]: input %d delaying context switch "
+                       "after end of instr quantum due to syscall trace\n",
+                       output, input->index);
+
+            } else {
+                // We again prefer to switch to another input even if the current
+                // input has the oldest timestamp, prioritizing context switches
+                // over timestamp ordering.
+                VPRINT(this, 4, "next_record[%d]: input %d hit end of instr quantum\n",
+                       output, input->index);
+                preempt = true;
+                need_new_input = true;
+                input->instrs_in_quantum = 0;
+                ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_QUANTUM_PREEMPTS];
+            }
         }
     } else if (options_.quantum_unit == sched_type_t::QUANTUM_TIME) {
         if (cur_time == 0 || cur_time < input->prev_time_in_quantum) {
@@ -535,14 +547,23 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::check_for_input_switch(
             // in between (e.g., scatter/gather long sequence of reads/writes) by
             // setting input->switching_pre_instruction.
             this->record_type_is_instr_boundary(record, outputs_[output].last_record)) {
-            VPRINT(this, 4,
-                   "next_record[%d]: input %d hit end of time quantum after %" PRIu64
-                   "\n",
-                   output, input->index, input->time_spent_in_quantum);
-            preempt = true;
-            need_new_input = true;
-            input->time_spent_in_quantum = 0;
-            ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_QUANTUM_PREEMPTS];
+            if (outputs_[output].in_syscall_code) {
+                // XXX: Maybe this should be printed only once per-syscall-instance to
+                // reduce log spam.
+                VPRINT(this, 5,
+                       "next_record[%d]: input %d delaying context switch after end of "
+                       "time quantum after %" PRIu64 " due to syscall trace\n",
+                       output, input->index, input->time_spent_in_quantum);
+            } else {
+                VPRINT(this, 4,
+                       "next_record[%d]: input %d hit end of time quantum after %" PRIu64
+                       "\n",
+                       output, input->index, input->time_spent_in_quantum);
+                preempt = true;
+                need_new_input = true;
+                input->time_spent_in_quantum = 0;
+                ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_QUANTUM_PREEMPTS];
+            }
         }
     }
     // For sched_type_t::DEPENDENCY_TIMESTAMPS: enforcing asked-for
@@ -574,16 +595,20 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::process_marker(
         break;
     case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START:
         outputs_[output].in_context_switch_code = true;
-        ANNOTATE_FALLTHROUGH;
+        break;
     case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
-        outputs_[output].in_kernel_code = true;
+        outputs_[output].in_syscall_code = true;
         break;
     case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END:
         // We have to delay until the next record.
         outputs_[output].hit_switch_code_end = true;
-        ANNOTATE_FALLTHROUGH;
+        break;
     case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
-        outputs_[output].in_kernel_code = false;
+        outputs_[output].in_syscall_code = false;
+        break;
+    case TRACE_MARKER_TYPE_TIMESTAMP:
+        // Syscall sequences are not expected to have a timestamp.
+        assert(!outputs_[output].in_syscall_code);
         break;
     case TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH: {
         if (!options_.honor_direct_switches)
