@@ -190,7 +190,8 @@ run_lockstep_simulation(scheduler_t &scheduler, int num_outputs, memref_tid_t ti
     int64_t meta_records = 0;
     // Record the threads, one char each.
     std::vector<std::string> sched_as_string(num_outputs);
-    static constexpr char THREAD_LETTER_START = 'A';
+    static constexpr char THREAD_LETTER_START_USER = 'A';
+    static constexpr char THREAD_LETTER_START_KERNEL = 'a';
     static constexpr char WAIT_SYMBOL = '-';
     static constexpr char IDLE_SYMBOL = '_';
     static constexpr char NON_INSTR_SYMBOL = '.';
@@ -229,8 +230,10 @@ run_lockstep_simulation(scheduler_t &scheduler, int num_outputs, memref_tid_t ti
             }
             assert(status == scheduler_t::STATUS_OK);
             if (type_is_instr(memref.instr.type)) {
+                bool is_kernel = outputs[i]->is_record_kernel();
                 sched_as_string[i] +=
-                    THREAD_LETTER_START + static_cast<char>(memref.instr.tid - tid_base);
+                    (is_kernel ? THREAD_LETTER_START_KERNEL : THREAD_LETTER_START_USER) +
+                    static_cast<char>(memref.instr.tid - tid_base);
             } else {
                 // While this makes the string longer, it is just too confusing
                 // with the same letter seemingly on 2 cores at once without these
@@ -1367,6 +1370,7 @@ test_synthetic_with_syscall_seq()
     static constexpr uint64_t BLOCK_THRESHOLD = 100;
     static constexpr memref_tid_t TID_BASE = 100;
     static constexpr uint64_t KERNEL_CODE_OFFSET = 123456;
+    static constexpr uint64_t SYSTRACE_NUM = 84;
     std::vector<trace_entry_t> inputs[NUM_INPUTS];
     for (int i = 0; i < NUM_INPUTS; i++) {
         memref_tid_t tid = TID_BASE + i;
@@ -1376,49 +1380,78 @@ test_synthetic_with_syscall_seq()
         inputs[i].push_back(make_timestamp(10)); // All the same time priority.
         for (int j = 0; j < NUM_INSTRS; j++) {
             inputs[i].push_back(make_instr(42 + j * 4));
-            // Test accumulation of usage across voluntary switches.
-            if ((i == 0 || i == 1) && j == 1) {
-                inputs[i].push_back(make_timestamp(20));
-                inputs[i].push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, 42));
-                inputs[i].push_back(
-                    make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0));
-                inputs[i].push_back(make_timestamp(120));
-            }
             // Test a syscall sequence starting at each offset within a quantum
             // of instrs.
             if (i <= QUANTUM_DURATION && i == j) {
-                inputs[i].push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, 84));
+                inputs[i].push_back(make_timestamp(20));
+                inputs[i].push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, SYSTRACE_NUM));
+                if (i < 2) {
+                    // Thresholds for only blocking syscalls are low enough to
+                    // cause a context switch. So only A and B will try a voluntary
+                    // switch (which may be delayed due to the syscall trace) after
+                    // 1 or 2 instrs respectively.
+                    inputs[i].push_back(
+                        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0));
+                }
+                inputs[i].push_back(make_timestamp(120));
                 inputs[i].push_back(
-                    make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 84));
-                for (int k = 0; k <= QUANTUM_DURATION; ++k)
+                    make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSTRACE_NUM));
+                // A has just one syscall seq instr to show that it still does the
+                // voluntary switch after the syscall trace is done, even though there
+                // is still room for one more instr in its quantum.
+                // D has just one syscall seq instr to show that it will continue
+                // on without a switch after the syscall trace is done because more
+                // instrs were left in the same quantum.
+                // B and C have longer syscall seq to show that they will not be
+                // preempted by voluntary or quantum switches respectively.
+                int count_syscall_instrs = (i == 0 || i == 3) ? 1 : QUANTUM_DURATION;
+                for (int k = 1; k <= count_syscall_instrs; ++k)
                     inputs[i].push_back(make_instr(KERNEL_CODE_OFFSET + k));
-                inputs[i].push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 84));
+                inputs[i].push_back(
+                    make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSTRACE_NUM));
             }
         }
         inputs[i].push_back(make_exit(tid));
     }
-    // A has a syscall sequence at [2,5], B has it at [3,6], C has it at [4,7],
-    // D has it at [5,8].
-    // The syscall sequence consists of 4 instrs which is greater than the
-    // #instr quanta.
-    // Total instrs in A, B, C, and D are 9 + 4 == 13, others have just 9.
+    // A has a syscall sequence at [2,2], B has it at [3,5], C has it at [4,6],
+    // D has it at [5,5].
 
     // Hardcoding here for the 2 outputs and 7 inputs.
     // We make assumptions on the scheduler's initial runqueue assignment
     // being round-robin, resulting in 4 on core0 (odd parity letters) and 3 on
     // core1 (even parity letters).
     // The dots are markers and thread exits.
-    // A has a voluntary switch at its 6th instr (1st in that scheduling). Its
-    // CPU usage persists to its next scheduling which has only 2 letters.
-    // B has a voluntary switch at its 2nd instr, but it doesn't take because a
-    // syscall sequence starts just then.
+    //
+    // A has a voluntary switch after its first two letters, prompted by its
+    // first instr which is a blocking syscall with latency that exceeds switch
+    // threshold, but not before its 2nd instr which is from the syscall trace
+    // and must be shown before the switch happens. Despite there being room for
+    // 1 more instr left in the quantum, the voluntary switch still happens.
+    //
+    // B has a voluntary switch after its first 5 letters, prompted by its 2nd
+    // instr which is a blocking system call with latency that exceeds switch
+    // threshold, but not before its next three instrs which is from the
+    // syscall trace and must be shown before the switch happens. B ends up
+    // executing more instrs than its quantum because of the syscall trace.
+    //
+    // C has a syscall at its third letter (but it doesn't cause a switch
+    // because it doesn't have sufficiently high latency), followed by the
+    // syscall trace of three additional letters. C ends up
+    // executing more instrs than the quantum limit because of the syscall
+    // trace.
+    //
+    // D has a syscall at its 4th letter, followed by a 1-instr syscall
+    // trace. D continues with its regular instrs without a context switch
+    // at its 6th letter because there is still room for more instrs left in
+    // the quantum.
+    //
     // Since core0 has an extra input, core1 finishes
     // its runqueue first and then steals G from core0 (migration threshold is 0)
     // and finishes it off.
     static const char *const CORE0_SCHED_STRING =
-        "..A..AAAA...CCC..CCCC...EEE..GGGA....CCCEEEGGGAACCC.EEE.AAAAA.";
+        "..A.....a...CCC....ccc...EEE..GGGACCCEEEGGGAAACCC.EEE.AAAA.";
     static const char *const CORE1_SCHED_STRING =
-        "..BB......BBBB...DDD..FFFBBBD..DDDD.FFFBBBDDDFFF.B.DD.GGG.____";
+        "..BB.....bbb...DDD..FFFBBBD....d.DFFFBBBDDDFFF.B.D.GGG.____";
     {
         // Test instruction quanta.
         std::vector<scheduler_t::input_workload_t> sched_inputs;

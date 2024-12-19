@@ -512,7 +512,9 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::check_for_input_switch(
         ++input->instrs_in_quantum;
         if (input->instrs_in_quantum > options_.quantum_duration_instrs) {
             if (outputs_[output].in_syscall_code) {
-                VPRINT(this, 4,
+                // XXX: Maybe this should be printed only once per-syscall-instance to
+                // reduce log spam.
+                VPRINT(this, 5,
                        "next_record[%d]: input %d delaying context switch "
                        "after end of instr quantum due to syscall trace\n",
                        output, input->index);
@@ -546,7 +548,9 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::check_for_input_switch(
             // setting input->switching_pre_instruction.
             this->record_type_is_instr_boundary(record, outputs_[output].last_record)) {
             if (outputs_[output].in_syscall_code) {
-                VPRINT(this, 4,
+                // XXX: Maybe this should be printed only once per-syscall-instance to
+                // reduce log spam.
+                VPRINT(this, 5,
                        "next_record[%d]: input %d delaying context switch after end of "
                        "time quantum after %" PRIu64 " due to syscall trace\n",
                        output, input->index, input->time_spent_in_quantum);
@@ -601,6 +605,10 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::process_marker(
         break;
     case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
         outputs_[output].in_syscall_code = false;
+        break;
+    case TRACE_MARKER_TYPE_TIMESTAMP:
+        // Syscall sequences are not expected to have a timestamp.
+        assert(!outputs_[output].in_syscall_code);
         break;
     case TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH: {
         if (!options_.honor_direct_switches)
