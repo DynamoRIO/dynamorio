@@ -2,7 +2,7 @@ Output 288 entries from 329 entries.
 Output format:
 <--record#-> <--instr#->: <---tid---> <record details>
 ------------------------------------------------------------
-           1           0:     1992554 <marker: version 7>
+           1           0:     1992554 <marker: version 6>
            2           0:     1992554 <marker: filetype 0xe40>
            3           0:     1992554 <marker: cache line size 64>
            4           0:     1992554 <marker: chunk instruction count 20>
