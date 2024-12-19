@@ -107,23 +107,23 @@ protected:
     class opcode_data_t : public decode_info_base_t {
     public:
         opcode_data_t()
-            : opcode(OP_INVALID)
-            , category(DR_INSTR_CATEGORY_UNCATEGORIZED)
+            : opcode_(OP_INVALID)
+            , category_(DR_INSTR_CATEGORY_UNCATEGORIZED)
         {
         }
         opcode_data_t(int opcode, uint category)
-            : opcode(opcode)
-            , category(category)
+            : opcode_(opcode)
+            , category_(category)
         {
         }
-        int opcode;
+        int opcode_;
         /*
          * The category field is a uint instead of a dr_instr_category_t because
          * multiple category bits can be set when an instruction belongs to more
          * than one category.  We assume 32 bits (i.e., 32 categories) is enough
          * to be future-proof.
          */
-        uint category;
+        uint category_;
 
     private:
         void

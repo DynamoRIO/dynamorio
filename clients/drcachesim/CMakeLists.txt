@@ -170,6 +170,8 @@ add_exported_library(drmemtrace_invariant_checker STATIC tools/invariant_checker
 add_exported_library(drmemtrace_schedule_stats STATIC tools/schedule_stats.cpp)
 add_exported_library(drmemtrace_decode_cache STATIC
                      tools/common/decode_cache.cpp
+                     # XXX: Possibly create a library for raw2trace_shared, to avoid
+                     # multiple build overhead.
                      tracer/raw2trace_shared.cpp)
 add_exported_library(drmemtrace_schedule_file STATIC common/schedule_file.cpp)
 add_exported_library(drmemtrace_mutex_dbg_owned STATIC common/mutex_dbg_owned.cpp)

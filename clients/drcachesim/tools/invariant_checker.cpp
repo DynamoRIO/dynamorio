@@ -159,15 +159,6 @@ invariant_checker_t::parallel_shard_init_stream(int shard_index, void *worker_da
     std::lock_guard<std::mutex> guard(init_mutex_);
     per_shard->tid_ = shard_stream->get_tid();
     shard_map_[shard_index] = std::move(per_shard);
-    // If we are dealing with an OFFLINE_FILE_TYPE_ARCH_REGDEPS trace, we need to set the
-    // dcontext ISA mode to the correct synthetic ISA (i.e., DR_ISA_REGDEPS).
-    uint64_t filetype = shard_stream->get_filetype();
-    if (TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, filetype)) {
-        dr_isa_mode_t isa_mode = dr_get_isa_mode(drcontext_);
-        if (isa_mode != DR_ISA_REGDEPS) {
-            dr_set_isa_mode(drcontext_, DR_ISA_REGDEPS, nullptr);
-        }
-    }
     return res;
 }
 
@@ -789,15 +780,19 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 if (shard->error_ != "")
                     return false;
             }
-            shard->error_ = shard->decode_cache_->add_decode_info(memref.instr);
-            if (shard->error_ != "") {
-                return false;
-            }
             per_shard_t::decoding_info_t *decode_info =
                 shard->decode_cache_->get_decode_info(
                     reinterpret_cast<app_pc>(memref.instr.addr));
-            // The decode_info returned from get_decode_info will never be nullptr
-            // since we return if the prior add_decode_info returned an error.
+            if (decode_info == nullptr) {
+                shard->error_ = shard->decode_cache_->add_decode_info(memref.instr);
+                if (shard->error_ != "") {
+                    return false;
+                }
+                // The decode_info returned here will never be nullptr since we
+                // return early if the prior add_decode_info returned an error.
+                decode_info = shard->decode_cache_->get_decode_info(
+                    reinterpret_cast<app_pc>(memref.instr.addr));
+            }
             cur_instr_info.decoding = *decode_info;
 
 #ifdef X86

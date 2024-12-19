@@ -48,8 +48,8 @@ static constexpr offline_file_type_t ENCODING_FILE_TYPE =
 
 class test_decode_info_t : public decode_info_base_t {
 public:
-    bool is_nop = false;
-    bool is_ret = false;
+    bool is_nop_ = false;
+    bool is_ret_ = false;
 
 private:
     void
@@ -57,8 +57,8 @@ private:
                             const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
                             instr_t *instr) override
     {
-        is_nop = instr_is_nop(instr);
-        is_ret = instr_is_return(instr);
+        is_nop_ = instr_is_nop(instr);
+        is_ret_ = instr_is_return(instr);
     }
 };
 
@@ -89,9 +89,9 @@ check_decode_caching(void *drcontext, bool persist_instrs, bool use_module_mappe
         module_file_for_test_decode_cache = "some_mod_file";
     } else {
         memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        // Set up the second nop memref to reuse the same encoding as the first nop.
+        memrefs[2].instr.encoding_is_new = false;
     }
-    // Set up the second nop memref to reuse the same encoding as the first nop.
-    memrefs[2].instr.encoding_is_new = false;
 
     test_decode_info_t test_decode_info;
     if (test_decode_info.is_valid()) {
@@ -141,7 +141,7 @@ check_decode_caching(void *drcontext, bool persist_instrs, bool use_module_mappe
         test_decode_info_t *decode_info_nop =
             decode_cache.get_decode_info(reinterpret_cast<app_pc>(memrefs[0].instr.addr));
         if (decode_info_nop == nullptr || !decode_info_nop->is_valid() ||
-            !decode_info_nop->is_nop) {
+            !decode_info_nop->is_nop_) {
             return "Unexpected test_decode_info_t for nop instr";
         }
         err = decode_cache.add_decode_info(memrefs[1].instr);
@@ -150,7 +150,7 @@ check_decode_caching(void *drcontext, bool persist_instrs, bool use_module_mappe
         test_decode_info_t *decode_info_ret =
             decode_cache.get_decode_info(reinterpret_cast<app_pc>(memrefs[1].instr.addr));
         if (decode_info_ret == nullptr || !decode_info_ret->is_valid() ||
-            !decode_info_ret->is_ret) {
+            !decode_info_ret->is_ret_) {
             return "Unexpected test_decode_info_t for ret instr";
         }
         err = decode_cache.add_decode_info(memrefs[2].instr);

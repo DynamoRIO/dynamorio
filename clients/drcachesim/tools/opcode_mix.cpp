@@ -166,19 +166,6 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
                 " but tool built for " + trace_arch_string(build_target_arch_type());
             return false;
         }
-        /* If we are dealing with a regdeps trace, we need to set the dcontext ISA mode
-         * to the correct synthetic ISA (i.e., DR_ISA_REGDEPS).
-         */
-        if (TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, memref.marker.marker_value)) {
-            /* Because isa_mode in dcontext is a global resource, we guard its access to
-             * avoid data races (even though this is a benign data race, as all threads
-             * are writing the same isa_mode value).
-             */
-            std::lock_guard<std::mutex> guard(dcontext_mutex_);
-            dr_isa_mode_t isa_mode = dr_get_isa_mode(dcontext_.dcontext);
-            if (isa_mode != DR_ISA_REGDEPS)
-                dr_set_isa_mode(dcontext_.dcontext, DR_ISA_REGDEPS, nullptr);
-        }
     } else if (memref.marker.type == TRACE_TYPE_MARKER &&
                memref.marker.marker_type == TRACE_MARKER_TYPE_VECTOR_LENGTH) {
 #ifdef AARCH64
@@ -223,17 +210,19 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 
     ++shard->instr_count;
 
-    shard->error = shard->decode_cache->add_decode_info(memref.instr);
-    if (shard->error != "") {
-        return false;
+    app_pc trace_pc = reinterpret_cast<app_pc>(memref.instr.addr);
+    opcode_data_t *opcode_data = shard->decode_cache->get_decode_info(trace_pc);
+    if (opcode_data == nullptr) {
+        shard->error = shard->decode_cache->add_decode_info(memref.instr);
+        if (shard->error != "") {
+            return false;
+        }
+        // The opcode_data returned here will never be nullptr since we
+        // return early if the prior add_decode_info returned an error.
+        opcode_data = shard->decode_cache->get_decode_info(trace_pc);
     }
-    opcode_data_t *opcode_data =
-        shard->decode_cache->get_decode_info(reinterpret_cast<app_pc>(memref.instr.addr));
-    // Since we already return if the prior add_decode_info returned
-    // an error, the opcode_data returned by get_decode_info will not be
-    // a nullptr.
-    ++shard->opcode_counts[opcode_data->opcode];
-    ++shard->category_counts[opcode_data->category];
+    ++shard->opcode_counts[opcode_data->opcode_];
+    ++shard->category_counts[opcode_data->category_];
     return true;
 }
 
@@ -296,6 +285,8 @@ opcode_mix_t::print_results()
     shard_data_t aggregated;
     shard_data_t *total = &aggregated;
     if (shard_map_.empty()) {
+        // No default copy constructor for shard_data_t because of the
+        // std::unique_ptr, so we resort to keeping a pointer to it.
         total = &serial_shard_;
     } else {
         for (const auto &shard : shard_map_) {
