@@ -114,12 +114,23 @@ decode_cache_base_t::make_module_mapper(const std::string &module_file_path,
 std::string
 decode_cache_base_t::find_mapped_trace_address(app_pc trace_pc, app_pc &decode_pc)
 {
+    if (trace_pc >= last_trace_module_start_ &&
+        static_cast<size_t>(trace_pc - last_trace_module_start_) <
+            last_mapped_module_size_) {
+        decode_pc = last_mapped_module_start_ + (trace_pc - last_trace_module_start_);
+        return "";
+    }
     std::lock_guard<std::mutex> guard(module_mapper_mutex_);
-    decode_pc = module_mapper_->find_mapped_trace_address(trace_pc);
+    decode_pc = module_mapper_->find_mapped_trace_bounds(
+        trace_pc, &last_mapped_module_start_, &last_mapped_module_size_);
     if (!module_mapper_->get_last_error().empty()) {
+        last_mapped_module_start_ = nullptr;
+        last_mapped_module_size_ = 0;
+        last_trace_module_start_ = nullptr;
         return "Failed to find mapped address for " + to_hex_string(trace_pc) + ": " +
             module_mapper_->get_last_error();
     }
+    last_trace_module_start_ = trace_pc - (decode_pc - last_mapped_module_start_);
     return "";
 }
 

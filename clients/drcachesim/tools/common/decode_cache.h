@@ -179,7 +179,7 @@ protected:
      *
      * Returns the empty string on success, or an error message.
      */
-    static std::string
+    std::string
     find_mapped_trace_address(app_pc trace_pc, app_pc &decode_pc);
 
 private:
@@ -193,6 +193,23 @@ private:
     virtual std::string
     make_module_mapper(const std::string &module_file_path,
                        const std::string &alt_module_dir);
+
+    // Cached values for the last lookup to the module_mapper_t. These help
+    // avoid redundant lookups and lock acquisition for consecutive queries
+    // corresponding to the same application module in the trace.
+    // Any trace_pc that lies in the range [last_trace_module_start_,
+    // last_trace_module_start_ + last_mapped_module_size_) can be assumed
+    // to be mapped to last_mapped_module_start_ + (trace_pc -
+    // last_trace_module_start_).
+
+    // Address where the last-queried module was mapped to in the traced
+    // application's address space.
+    app_pc last_trace_module_start_;
+    // Address where the last-queried module is mapped to in our current
+    // address space.
+    app_pc last_mapped_module_start_;
+    // Size of the mapping for the last-queried module.
+    size_t last_mapped_module_size_;
 };
 
 /**
@@ -355,9 +372,9 @@ public:
      *
      * Typically analysis tools like to keep their per-shard data around till all shards
      * are done processing (so they can combine the shards and use the results), but
-     * this API allows tools to keep memory consumption in check by clearing the decode
-     * cache entries in parallel_shard_exit(), since it's very likely that the decode
-     * cache is not needed for result computation.
+     * this API optionally allows tools to keep memory consumption in check by clearing
+     * the decode cache entries in parallel_shard_exit(), since it's very likely that the
+     * decode cache is not needed for result computation.
      *
      * This does not affect the state of any initialized module mapper, which is still
      * cleaned up during destruction.
