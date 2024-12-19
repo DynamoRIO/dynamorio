@@ -782,15 +782,14 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 if (shard->error_ != "")
                     return false;
             }
-            shard->error_ = shard->decode_cache_->add_decode_info(memref.instr);
+            per_shard_t::decoding_info_t *decode_info;
+            shard->error_ =
+                shard->decode_cache_->add_decode_info(memref.instr, decode_info);
             if (shard->error_ != "") {
                 return false;
             }
-            // The decode_info returned here will never be nullptr since we
-            // return early if the prior add_decode_info returned an error.
-            per_shard_t::decoding_info_t *decode_info =
-                shard->decode_cache_->get_decode_info(
-                    reinterpret_cast<app_pc>(memref.instr.addr));
+            // The decode_info here will never be nullptr since we return
+            // early if the prior add_decode_info returned an error.
             cur_instr_info.decoding = *decode_info;
 #ifdef X86
             if (cur_instr_info.decoding.opcode_ == OP_sti)

@@ -50,6 +50,8 @@ class test_decode_info_t : public decode_info_base_t {
 public:
     bool is_nop_ = false;
     bool is_ret_ = false;
+    bool is_ipt_ = false;
+    bool decode_info_set_ = false;
 
 private:
     void
@@ -57,8 +59,12 @@ private:
                             const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
                             instr_t *instr) override
     {
+        // decode_cache_t should call set_decode_info only one time per object.
+        assert(!decode_info_set_);
         is_nop_ = instr_is_nop(instr);
         is_ret_ = instr_is_return(instr);
+        is_ipt_ = instr_is_interrupt(instr);
+        decode_info_set_ = true;
     }
 };
 
@@ -68,13 +74,16 @@ check_decode_caching(void *drcontext, bool persist_instrs, bool use_module_mappe
     static constexpr addr_t BASE_ADDR = 0x123450;
     instr_t *nop = XINST_CREATE_nop(drcontext);
     instr_t *ret = XINST_CREATE_return(drcontext);
+    instr_t *ipt = XINST_CREATE_interrupt(drcontext, OPND_CREATE_INT8(10));
     instrlist_t *ilist = instrlist_create(drcontext);
     instrlist_append(ilist, nop);
     instrlist_append(ilist, ret);
+    instrlist_append(ilist, ipt);
     std::vector<memref_with_IR_t> memref_setup = {
         { gen_instr(TID_A), nop },
         { gen_instr(TID_A), ret },
         { gen_instr(TID_A), nop },
+        { gen_instr(TID_A), ipt },
     };
     std::vector<memref_t> memrefs;
     instrlist_t *ilist_for_test_decode_cache = nullptr;
@@ -89,8 +98,6 @@ check_decode_caching(void *drcontext, bool persist_instrs, bool use_module_mappe
         module_file_for_test_decode_cache = "some_mod_file";
     } else {
         memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
-        // Set up the second nop memref to reuse the same encoding as the first nop.
-        memrefs[2].instr.encoding_is_new = false;
     }
 
     test_decode_info_t test_decode_info;
@@ -108,7 +115,9 @@ check_decode_caching(void *drcontext, bool persist_instrs, bool use_module_mappe
             /*persist_decoded_instr=*/true, ilist_for_test_decode_cache);
         decode_cache.init(ENCODING_FILE_TYPE, module_file_for_test_decode_cache, "");
         for (const memref_t &memref : memrefs) {
-            std::string err = decode_cache.add_decode_info(memref.instr);
+            instr_decode_info_t *unused_cached_decode_info;
+            std::string err =
+                decode_cache.add_decode_info(memref.instr, unused_cached_decode_info);
             if (err != "")
                 return err;
         }
@@ -131,36 +140,75 @@ check_decode_caching(void *drcontext, bool persist_instrs, bool use_module_mappe
             drcontext,
             /*persist_decoded_instrs=*/false, ilist_for_test_decode_cache);
         decode_cache.init(ENCODING_FILE_TYPE, module_file_for_test_decode_cache, "");
+
+        // Test: Lookup non-existing pc.
         if (decode_cache.get_decode_info(
                 reinterpret_cast<app_pc>(memrefs[0].instr.addr)) != nullptr) {
             return "Unexpected test_decode_info_t for never-seen pc";
         }
-        std::string err = decode_cache.add_decode_info(memrefs[0].instr);
+
+        test_decode_info_t *cached_decode_info;
+
+        // Test: Lookup existing pc.
+        std::string err =
+            decode_cache.add_decode_info(memrefs[0].instr, cached_decode_info);
         if (err != "")
             return err;
         test_decode_info_t *decode_info_nop =
             decode_cache.get_decode_info(reinterpret_cast<app_pc>(memrefs[0].instr.addr));
-        if (decode_info_nop == nullptr || !decode_info_nop->is_valid() ||
-            !decode_info_nop->is_nop_) {
+        if (decode_info_nop == nullptr || decode_info_nop != cached_decode_info ||
+            !decode_info_nop->is_valid() || !decode_info_nop->is_nop_) {
             return "Unexpected test_decode_info_t for nop instr";
         }
-        err = decode_cache.add_decode_info(memrefs[1].instr);
+
+        // Test: Lookup another existing pc.
+        err = decode_cache.add_decode_info(memrefs[1].instr, cached_decode_info);
         if (err != "")
             return err;
         test_decode_info_t *decode_info_ret =
             decode_cache.get_decode_info(reinterpret_cast<app_pc>(memrefs[1].instr.addr));
-        if (decode_info_ret == nullptr || !decode_info_ret->is_valid() ||
-            !decode_info_ret->is_ret_) {
+        if (decode_info_ret == nullptr || decode_info_ret != cached_decode_info ||
+            !decode_info_ret->is_valid() || !decode_info_ret->is_ret_) {
             return "Unexpected test_decode_info_t for ret instr";
         }
-        err = decode_cache.add_decode_info(memrefs[2].instr);
+
+        // Test: Lookup existing pc but from a different memref.
+        // Set up the second nop memref to reuse the same encoding as the first nop.
+        memrefs[2].instr.encoding_is_new = false;
+        err = decode_cache.add_decode_info(memrefs[2].instr, cached_decode_info);
         if (err != "")
             return err;
         test_decode_info_t *decode_info_nop_2 =
             decode_cache.get_decode_info(reinterpret_cast<app_pc>(memrefs[2].instr.addr));
-        if (decode_info_nop_2 != decode_info_nop) {
-            return "Did not see same decode info instance for second instance of nop";
+        if (decode_info_nop_2 != decode_info_nop ||
+            decode_info_nop_2 != cached_decode_info) {
+            return "Unexpected decode info instance for second instance of nop";
         }
+
+        if (!use_module_mapper) {
+            // Test: Overwrite existing decode info for a pc. Works only with embedded
+            // encodings.
+            // Pretend the interrupt is at the same trace pc as the ret.
+            // Encodings have been added to the memref already so this still remains
+            // an interrupt instruction even though we've modified addr.
+            memrefs[3].instr.addr = memrefs[1].instr.addr;
+            err = decode_cache.add_decode_info(memrefs[3].instr, cached_decode_info);
+            if (err != "")
+                return err;
+            test_decode_info_t *decode_info_ipt = decode_cache.get_decode_info(
+                reinterpret_cast<app_pc>(memrefs[3].instr.addr));
+            if (decode_info_ipt == nullptr || decode_info_ipt != cached_decode_info ||
+                !decode_info_ipt->is_valid() || !decode_info_ipt->is_ipt_) {
+                return "Unexpected test_decode_info_t for ipt instr";
+            }
+            decode_info_ret = decode_cache.get_decode_info(
+                reinterpret_cast<app_pc>(memrefs[1].instr.addr));
+            if (decode_info_ret != decode_info_ipt) {
+                return "Expected ret and ipt memref pcs to return the same decode info";
+            }
+        }
+
+        // Test: Verify all cached decode info gets cleared.
         decode_cache.clear_cache();
         decode_info_nop =
             decode_cache.get_decode_info(reinterpret_cast<app_pc>(memrefs[0].instr.addr));
@@ -183,9 +231,15 @@ check_missing_module_mapper_and_no_encoding(void *drcontext)
     test_decode_cache_t<instr_decode_info_t> decode_cache(
         drcontext,
         /*persist_decoded_instr=*/true, /*ilist_for_test_module_mapper=*/nullptr);
-    std::string err = decode_cache.add_decode_info(instr.instr);
+    instr_decode_info_t dummy;
+    // Initialize to non-nullptr for the test.
+    instr_decode_info_t *cached_decode_info = &dummy;
+    std::string err = decode_cache.add_decode_info(instr.instr, cached_decode_info);
     if (err == "") {
         return "Expected error at add_decode_info but did not get any";
+    }
+    if (cached_decode_info != nullptr) {
+        return "Expected returned reference cached_decode_info to be nullptr";
     }
     err = decode_cache.init(
         static_cast<offline_file_type_t>(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS), "", "");

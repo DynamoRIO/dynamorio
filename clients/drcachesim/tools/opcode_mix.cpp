@@ -212,14 +212,13 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     }
 
     ++shard->instr_count;
-    shard->error = shard->decode_cache->add_decode_info(memref.instr);
+    opcode_data_t *opcode_data;
+    shard->error = shard->decode_cache->add_decode_info(memref.instr, opcode_data);
     if (shard->error != "") {
         return false;
     }
-    // The opcode_data returned here will never be nullptr since we
-    // return early if the prior add_decode_info returned an error.
-    opcode_data_t *opcode_data =
-        shard->decode_cache->get_decode_info(reinterpret_cast<app_pc>(memref.instr.addr));
+    // The opcode_data here will never be nullptr since we return
+    // early if the prior add_decode_info returned an error.
     ++shard->opcode_counts[opcode_data->opcode_];
     ++shard->category_counts[opcode_data->category_];
     return true;

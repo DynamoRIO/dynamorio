@@ -243,6 +243,10 @@ public:
      *
      * Guaranteed to be non-nullptr if the prior add_decode_info for that pc
      * returned no error.
+     *
+     * When analyzing memref_t from a trace, it may be better to use
+     * add_decode_info() instead if it's possible that the instr at \p pc
+     * may have changed (e.g., JIT code).
      */
     DecodeInfo *
     get_decode_info(app_pc pc)
@@ -263,27 +267,48 @@ public:
      * If there is a decoding failure, the default-constructed DecodeInfo that
      * returns is_valid() = false will be added to the cache.
      *
-     * Returns the error string, or an empty string if there was no error.
+     * Returns a pointer to whatever DecodeInfo is present in the cache in the
+     * \p cached_decode_info reference pointer parameter, or a nullptr if none
+     * is cached. This helps avoid a repeated lookup in a subsequent
+     * get_decode_info() call.
+     *
+     * Returns the error string, or an empty string if there was no error. A
+     * valid DecodeInfo is guaranteed to be added to the cache if there was no
+     * error.
      */
     std::string
-    add_decode_info(const dynamorio::drmemtrace::_memref_instr_t &memref_instr)
+    add_decode_info(const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
+                    DecodeInfo *&cached_decode_info)
     {
+        cached_decode_info = nullptr;
         if (!init_done_) {
             return "init() must be called first";
         }
         const app_pc trace_pc = reinterpret_cast<app_pc>(memref_instr.addr);
-        if (!use_module_mapper_ && memref_instr.encoding_is_new) {
-            // If the user asked to use the module mapper despite having
-            // embedded encodings in the trace, we don't invalidate the
-            // cached encoding.
-            decode_cache_.erase(trace_pc);
-        }
-        auto it = decode_cache_.find(trace_pc);
-        // If the prior cached info was invalid, we try again.
-        if (it != decode_cache_.end() && it->second.is_valid()) {
+        auto it_inserted = decode_cache_.emplace(trace_pc, DecodeInfo());
+        typename std::unordered_map<app_pc, DecodeInfo>::iterator info =
+            it_inserted.first;
+        bool exists = !it_inserted.second;
+        if (exists &&
+            // If the prior cached info was invalid, we try decoding it again.
+            info->second.is_valid() &&
+            // We can return the cached decode info if:
+            // - we're using the module mapper, where we don't support JIT
+            //   encodings that may change; or
+            // - we're using embedded encodings from the trace, and the
+            //   current instr explicitly says the encoding isn't new.
+            (use_module_mapper_ || !memref_instr.encoding_is_new)) {
+            cached_decode_info = &info->second;
             return "";
+        } else if (exists) {
+            // We may end up here if the existing DecodeInfo in the cache:
+            // - is invalid; or
+            // - is valid but now we have an instr with encoding_is_new set,
+            //   and we're using the embedded encodings from the trace.
+            // In both these cases we create a new DecodeInfo.
+            info->second = DecodeInfo();
         }
-        decode_cache_[trace_pc] = DecodeInfo();
+        cached_decode_info = &info->second;
         instr_t *instr = nullptr;
         instr_noalloc_t noalloc;
         if (persist_decoded_instrs_) {
@@ -309,7 +334,7 @@ public:
             }
             return "decode_from_copy failed";
         }
-        decode_cache_[trace_pc].set_decode_info(dcontext_, memref_instr, instr);
+        info->second.set_decode_info(dcontext_, memref_instr, instr);
         return "";
     }
 
