@@ -1511,7 +1511,7 @@ test_synthetic_with_syscall_seq()
         // precise output for this test on Windows.
         if (sched_as_string[0] != CORE0_SCHED_STRING ||
             sched_as_string[1] != CORE1_SCHED_STRING) {
-            bool found_single_A = false, found_single_B = false;
+            bool found_single_A = false, found_single_B = false, found_single_C = false;
             for (int cpu = 0; cpu < NUM_OUTPUTS; ++cpu) {
                 for (size_t i = 1; i < sched_as_string[cpu].size() - 1; ++i) {
                     if (sched_as_string[cpu][i] == 'A' &&
@@ -1522,9 +1522,31 @@ test_synthetic_with_syscall_seq()
                         sched_as_string[cpu][i - 1] != 'B' &&
                         sched_as_string[cpu][i + 1] != 'B')
                         found_single_B = true;
+                    if (sched_as_string[cpu][i] == 'C' &&
+                        sched_as_string[cpu][i - 1] != 'C' &&
+                        sched_as_string[cpu][i + 1] != 'C')
+                        found_single_C = true;
                 }
             }
-            assert(found_single_A && found_single_B);
+            bool found_syscall_a = false, found_syscall_b = false,
+                 found_syscall_c = false, found_syscall_d = false;
+            for (int cpu = 0; cpu < NUM_OUTPUTS; ++cpu) {
+                if (sched_as_string[cpu].find(".a.") != std::string::npos) {
+                    found_syscall_a = true;
+                }
+                if (sched_as_string[cpu].find(".bbb.") != std::string::npos) {
+                    found_syscall_b = true;
+                }
+                if (sched_as_string[cpu].find(".ccc.") != std::string::npos) {
+                    found_syscall_c = true;
+                }
+                if (sched_as_string[cpu].find(".d.") != std::string::npos) {
+                    found_syscall_d = true;
+                }
+            }
+            assert(found_single_A && found_single_B && found_single_C);
+            assert(found_syscall_a && found_syscall_b && found_syscall_c &&
+                   found_syscall_d);
         }
 #endif
     }
