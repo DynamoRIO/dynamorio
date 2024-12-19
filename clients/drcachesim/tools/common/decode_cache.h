@@ -290,22 +290,21 @@ public:
             it_inserted.first;
         bool exists = !it_inserted.second;
         if (exists &&
-            // If the prior cached info was invalid, we try decoding it again.
-            info->second.is_valid() &&
-            // We can return the cached decode info if:
-            // - we're using the module mapper, where we don't support JIT
-            //   encodings that may change; or
+            // We can return the cached DecodeInfo if:
+            // - we're using the module mapper, where we don't support the
+            //   change-prone JIT encodings; or
             // - we're using embedded encodings from the trace, and the
-            //   current instr explicitly says the encoding isn't new.
+            //   current instr explicitly says the encoding in the current
+            //   memref_instr isn't new.
             (use_module_mapper_ || !memref_instr.encoding_is_new)) {
+            // We return the cached DecodeInfo even if it is !is_valid();
+            // attempting decoding again is not useful because the encoding
+            // hasn't changed.
             cached_decode_info = &info->second;
             return "";
         } else if (exists) {
-            // We may end up here if the existing DecodeInfo in the cache:
-            // - is invalid; or
-            // - is valid but now we have an instr with encoding_is_new set,
-            //   and we're using the embedded encodings from the trace.
-            // In both these cases we create a new DecodeInfo.
+            // We may end up here if we're using the embedded encodings from
+            // the trace and now we have a new instr at trace_pc.
             info->second = DecodeInfo();
         }
         cached_decode_info = &info->second;
@@ -334,6 +333,7 @@ public:
             }
             return "decode_from_copy failed";
         }
+        // Also sets is_valid_.
         info->second.set_decode_info(dcontext_, memref_instr, instr);
         return "";
     }
