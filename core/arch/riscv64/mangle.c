@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2022 Rivos, Inc.  All rights reserved.
+ * Copyright (c) 2024 Foundation of Research and Technology, Hellas.
  * **********************************************************/
 
 /*
@@ -45,6 +46,8 @@
 #define FCSR 0x003
 #define VSTART 0x008
 #define VCSR 0x00F
+#define CSR_VL 0xC20
+#define CSR_VTYPE 0xC21
 
 /* TODO i#3544: Think of a better way to represent these fields in the IR. */
 /* Volume I: RISC-V Unprivileged ISA V20191213.
@@ -192,6 +195,32 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
 
     dstack_offs += XSP_SZ;
 
+    if (proc_has_feature(FEATURE_VECTOR)) {
+        PRE(ilist, instr,
+            INSTR_CREATE_csrrs(dcontext, opnd_create_reg(DR_REG_A0),
+                               opnd_create_reg(DR_REG_ZERO),
+                               opnd_create_immed_int(CSR_VL, OPSZ_12b)));
+
+        PRE(ilist, instr,
+            INSTR_CREATE_c_sdsp(dcontext, OPND_CREATE_MEM64(DR_REG_SP, dstack_offs),
+                                opnd_create_reg(DR_REG_A0)));
+    }
+
+    dstack_offs += XSP_SZ;
+
+    if (proc_has_feature(FEATURE_VECTOR)) {
+        PRE(ilist, instr,
+            INSTR_CREATE_csrrs(dcontext, opnd_create_reg(DR_REG_A0),
+                               opnd_create_reg(DR_REG_ZERO),
+                               opnd_create_immed_int(CSR_VTYPE, OPSZ_12b)));
+
+        PRE(ilist, instr,
+            INSTR_CREATE_c_sdsp(dcontext, OPND_CREATE_MEM64(DR_REG_SP, dstack_offs),
+                                opnd_create_reg(DR_REG_A0)));
+    }
+
+    dstack_offs += 2 * XSP_SZ;
+
     /* Push vector registers. */
     if (proc_has_feature(FEATURE_VECTOR)) {
         /* ma:   mask agnostic
@@ -308,6 +337,25 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
         INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_SP),
                           opnd_create_reg(DR_REG_SP),
                           opnd_create_immed_int(DR_NUM_FPR_REGS * XSP_SZ, OPSZ_12b)));
+
+    current_offs -= 2 * XSP_SZ;
+
+    /* Uses c.[f]ldsp for some reason beyond my comprehension, same below. */
+    if (proc_has_feature(FEATURE_VECTOR)) {
+        PRE(ilist, instr,
+            INSTR_CREATE_c_ldsp(
+                dcontext, opnd_create_reg(DR_REG_A0),
+                OPND_CREATE_MEM64(DR_REG_SP, current_offs - DR_NUM_FPR_REGS * XSP_SZ)));
+        PRE(ilist, instr,
+            INSTR_CREATE_c_ldsp(
+                dcontext, opnd_create_reg(DR_REG_A1),
+                OPND_CREATE_MEM64(DR_REG_SP,
+                                  current_offs + XSP_SZ - DR_NUM_FPR_REGS * XSP_SZ)));
+        /* vsetvl a0, a0, a1 */
+        PRE(ilist, instr,
+            INSTR_CREATE_vsetvl(dcontext, opnd_create_reg(DR_REG_A0),
+                                opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1)));
+    }
 
     /* Uses c.[f]ldsp to save space, same below. */
     current_offs -= XSP_SZ;
