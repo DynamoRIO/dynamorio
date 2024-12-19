@@ -1512,14 +1512,21 @@ test_synthetic_with_syscall_seq()
             bool found_single_A = false, found_single_B = false, found_single_D = false;
             for (int cpu = 0; cpu < NUM_OUTPUTS; ++cpu) {
                 for (size_t i = 1; i < sched_as_string[cpu].size() - 1; ++i) {
+                    // We expect a single 'A' for the first instr executed by 'A',
+                    // which will be followed by a marker ('.') for the syscall.
                     if (sched_as_string[cpu][i] == 'A' &&
                         sched_as_string[cpu][i - 1] != 'A' &&
                         sched_as_string[cpu][i + 1] != 'A')
                         found_single_A = true;
+                    // We expect a single 'B' for the last instr executed by B
+                    // which will have to be in its own separate 3-instr quantum.
                     if (sched_as_string[cpu][i] == 'B' &&
                         sched_as_string[cpu][i - 1] != 'B' &&
                         sched_as_string[cpu][i + 1] != 'B')
                         found_single_B = true;
+                    // We expect a single 'D' for the one quantum where the
+                    // 1st and 3rd instr executed by D was regular, and the
+                    // 2nd one was from a syscall (which is 'd').
                     if (sched_as_string[cpu][i] == 'D' &&
                         sched_as_string[cpu][i - 1] != 'D' &&
                         sched_as_string[cpu][i + 1] != 'D')
@@ -1529,6 +1536,8 @@ test_synthetic_with_syscall_seq()
             bool found_syscall_a = false, found_syscall_b = false,
                  found_syscall_c = false, found_syscall_d = false;
             for (int cpu = 0; cpu < NUM_OUTPUTS; ++cpu) {
+                // The '.' at beginning and end of each of the searched sequences
+                // below is for the syscall trace start and end markers.
                 if (sched_as_string[cpu].find(".a.") != std::string::npos) {
                     found_syscall_a = true;
                 }
