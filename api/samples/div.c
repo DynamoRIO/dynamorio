@@ -138,7 +138,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     opnd_t opnd;
     if (instr_is_div(instr, &opnd)) {
         opnd_t div_opnd;
-        if (opnd_is_reg(div_opnd))
+        if (opnd_is_reg(opnd))
             div_opnd = opnd_create_reg(reg_to_pointer_sized(opnd_get_reg(opnd)));
         else
             div_opnd = opnd;
