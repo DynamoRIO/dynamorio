@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2024 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -137,8 +137,13 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     /* if find div, insert a clean call to our instrumentation routine */
     opnd_t opnd;
     if (instr_is_div(instr, &opnd)) {
+        opnd_t div_opnd;
+        if (opnd_is_reg(div_opnd))
+            div_opnd = opnd_create_reg(reg_to_pointer_sized(opnd_get_reg(opnd)));
+        else
+            div_opnd = opnd;
         dr_insert_clean_call(drcontext, bb, instr, (void *)callback, false /*no fp save*/,
-                             2, OPND_CREATE_INTPTR(instr_get_app_pc(instr)), opnd);
+                             2, OPND_CREATE_INTPTR(instr_get_app_pc(instr)), div_opnd);
     }
     return DR_EMIT_DEFAULT;
 }
