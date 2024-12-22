@@ -44,7 +44,7 @@ namespace drmemtrace {
 
 static constexpr addr_t TID_A = 1;
 static constexpr offline_file_type_t ENCODING_FILE_TYPE =
-    static_cast<offline_file_type_t>(OFFLINE_FILE_VERSION_ENCODINGS);
+    static_cast<offline_file_type_t>(OFFLINE_FILE_TYPE_ENCODINGS);
 
 class test_decode_info_t : public decode_info_base_t {
 public:
@@ -113,11 +113,13 @@ check_decode_caching(void *drcontext, bool persist_instrs, bool use_module_mappe
         test_decode_cache_t<instr_decode_info_t> decode_cache(
             drcontext,
             /*persist_decoded_instr=*/true, ilist_for_test_decode_cache);
-        decode_cache.init(ENCODING_FILE_TYPE, module_file_for_test_decode_cache, "");
+        std::string err =
+            decode_cache.init(ENCODING_FILE_TYPE, module_file_for_test_decode_cache, "");
+        if (err != "")
+            return err;
         for (const memref_t &memref : memrefs) {
             instr_decode_info_t *unused_cached_decode_info;
-            std::string err =
-                decode_cache.add_decode_info(memref.instr, unused_cached_decode_info);
+            err = decode_cache.add_decode_info(memref.instr, unused_cached_decode_info);
             if (err != "")
                 return err;
         }
@@ -139,8 +141,10 @@ check_decode_caching(void *drcontext, bool persist_instrs, bool use_module_mappe
         test_decode_cache_t<test_decode_info_t> decode_cache(
             drcontext,
             /*persist_decoded_instrs=*/false, ilist_for_test_decode_cache);
-        decode_cache.init(ENCODING_FILE_TYPE, module_file_for_test_decode_cache, "");
-
+        std::string err =
+            decode_cache.init(ENCODING_FILE_TYPE, module_file_for_test_decode_cache, "");
+        if (err != "")
+            return err;
         // Test: Lookup non-existing pc.
         if (decode_cache.get_decode_info(
                 reinterpret_cast<app_pc>(memrefs[0].instr.addr)) != nullptr) {
@@ -150,8 +154,7 @@ check_decode_caching(void *drcontext, bool persist_instrs, bool use_module_mappe
         test_decode_info_t *cached_decode_info;
 
         // Test: Lookup existing pc.
-        std::string err =
-            decode_cache.add_decode_info(memrefs[0].instr, cached_decode_info);
+        err = decode_cache.add_decode_info(memrefs[0].instr, cached_decode_info);
         if (err != "")
             return err;
         test_decode_info_t *decode_info_nop =
@@ -198,7 +201,8 @@ check_decode_caching(void *drcontext, bool persist_instrs, bool use_module_mappe
             test_decode_info_t *decode_info_ipt = decode_cache.get_decode_info(
                 reinterpret_cast<app_pc>(memrefs[3].instr.addr));
             if (decode_info_ipt == nullptr || decode_info_ipt != cached_decode_info ||
-                !decode_info_ipt->is_valid() || !decode_info_ipt->is_ipt_) {
+                !decode_info_ipt->is_valid() || !decode_info_ipt->is_ipt_ ||
+                decode_info_ipt->is_ret_) {
                 return "Unexpected test_decode_info_t for ipt instr";
             }
             decode_info_ret = decode_cache.get_decode_info(
@@ -234,6 +238,8 @@ check_missing_module_mapper_and_no_encoding(void *drcontext)
     instr_decode_info_t dummy;
     // Initialize to non-nullptr for the test.
     instr_decode_info_t *cached_decode_info = &dummy;
+
+    // Missing init before add_decode_info.
     std::string err = decode_cache.add_decode_info(instr.instr, cached_decode_info);
     if (err == "") {
         return "Expected error at add_decode_info but did not get any";
@@ -241,6 +247,8 @@ check_missing_module_mapper_and_no_encoding(void *drcontext)
     if (cached_decode_info != nullptr) {
         return "Expected returned reference cached_decode_info to be nullptr";
     }
+
+    // init for a filetype without encodings, with no module file path either.
     err = decode_cache.init(
         static_cast<offline_file_type_t>(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS), "", "");
     if (err == "") {

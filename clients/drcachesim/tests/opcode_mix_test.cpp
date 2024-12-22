@@ -47,7 +47,8 @@ class test_opcode_mix_t : public opcode_mix_t {
 public:
     // Pass a non-nullptr instrlist_t if the module mapper must be used.
     test_opcode_mix_t(instrlist_t *instrs)
-        : opcode_mix_t(/*module_file_path=*/"some_file", /*verbose=*/0,
+        : opcode_mix_t(/*module_file_path=*/(instrs == nullptr ? "" : "some_file"),
+                       /*verbose=*/0,
                        /*alt_module_dir=*/"")
         , instrs_(instrs)
     {
@@ -102,9 +103,9 @@ check_opcode_mix(void *drcontext, bool use_module_mapper)
         ilist_for_test = ilist;
     } else {
         memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        // Set up the second nop memref to reuse the same encoding as the first nop.
+        memrefs[3].instr.encoding_is_new = false;
     }
-    // Set up the second nop memref to reuse the same encoding as the first nop.
-    memrefs[3].instr.encoding_is_new = false;
     test_opcode_mix_t opcode_mix(ilist_for_test);
     opcode_mix.initialize();
     void *shard_data = opcode_mix.parallel_shard_init_stream(0, nullptr, nullptr);

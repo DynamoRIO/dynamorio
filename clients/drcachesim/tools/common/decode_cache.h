@@ -69,10 +69,11 @@ public:
                     instr_t *instr);
 
     /**
-     * Indicates whether the decode info stored in this object is valid. It won't be
-     * valid if the object is default-constructed without a subsequent
-     * set_decode_info() call. When used with #decode_cache_t, this indicates
-     * whether an invalid instruction was observed at the processed instr record.
+     * Indicates whether set_decode_info() was invoked on the object with a valid
+     * decoded #instr_t, typically by #decode_cache_t. It won't be valid if the
+     * object is default-constructed without a subsequent set_decode_info() call.
+     * When used with #decode_cache_t, this indicates whether an invalid
+     * instruction was observed at the processed instr record.
      */
     bool
     is_valid() const;
@@ -102,7 +103,7 @@ private:
 };
 
 /**
- * Decode info including the full decoded instr_t. This should be used with a
+ * Decode info including the full decoded #instr_t. This should be used with a
  * #decode_cache_t constructed with \p persist_decoded_instrs_ set to
  * true.
  */
@@ -238,15 +239,15 @@ public:
     /**
      * Returns a pointer to the DecodeInfo available for the instruction at \p pc.
      * Returns nullptr if no instruction is known at that \p pc. Returns the
-     * default-constructed DecodeInfo if there was a decoding error for the
-     * instruction.
+     * default-constructed DecodeInfo if an instr was seen at that \p pc but there
+     * was a decoding error for the instruction.
      *
-     * Guaranteed to be non-nullptr if the prior add_decode_info for that pc
-     * returned no error.
+     * Guaranteed to be non-nullptr and valid if the prior add_decode_info() for
+     * that \p pc returned no error.
      *
-     * When analyzing memref_t from a trace, it may be better to use
-     * add_decode_info() instead if it's possible that the instr at \p pc
-     * may have changed (e.g., JIT code).
+     * When analyzing #memref_t from a trace, it may be better to just use
+     * add_decode_info() instead (as it also returns the added DecodeInfo) if
+     * it's possible that the instr at \p pc may have changed (e.g., JIT code).
      */
     DecodeInfo *
     get_decode_info(app_pc pc)
@@ -259,6 +260,7 @@ public:
     }
     /**
      * Adds decode info for the given \p memref_instr if it is not yet recorded.
+     * or if it contains a new encoding.
      *
      * Uses the embedded encodings in the trace or, if init() was invoked with
      * a module file path, the encodings from the instantiated
@@ -288,9 +290,9 @@ public:
         auto it_inserted = decode_cache_.emplace(trace_pc, DecodeInfo());
         typename std::unordered_map<app_pc, DecodeInfo>::iterator info =
             it_inserted.first;
-        bool exists = !it_inserted.second;
-        if (exists &&
-            // We can return the cached DecodeInfo if:
+        bool already_exists = !it_inserted.second;
+        if (already_exists &&
+            // We can return the existing cached DecodeInfo if:
             // - we're using the module mapper, where we don't support the
             //   change-prone JIT encodings; or
             // - we're using embedded encodings from the trace, and the
@@ -302,7 +304,7 @@ public:
             // hasn't changed.
             cached_decode_info = &info->second;
             return "";
-        } else if (exists) {
+        } else if (already_exists) {
             // We may end up here if we're using the embedded encodings from
             // the trace and now we have a new instr at trace_pc.
             info->second = DecodeInfo();
@@ -382,11 +384,11 @@ public:
                 dr_set_isa_mode(dcontext_, DR_ISA_REGDEPS, nullptr);
         }
 
-        init_done_ = true;
         if (!TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, filetype) && module_file_path.empty()) {
             return "Trace does not have embedded encodings, and no module_file_path "
                    "provided";
         }
+        init_done_ = true;
         if (module_file_path.empty())
             return "";
         return init_module_mapper(module_file_path, alt_module_dir);
