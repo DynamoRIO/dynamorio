@@ -1085,7 +1085,6 @@ All markers of the original trace are present, except for:
 - #dynamorio::drmemtrace::TRACE_MARKER_TYPE_SYSCALL_TRACE_END
 - #dynamorio::drmemtrace::TRACE_MARKER_TYPE_SYSCALL_FAILED
 - #dynamorio::drmemtrace::TRACE_MARKER_TYPE_SIGNAL_NUMBER
-- #dynamorio::drmemtrace::TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION
 Which have been removed.
 Because tracing overhead results into inflated context switches, the
 #dynamorio::drmemtrace::TRACE_MARKER_TYPE_CPU_ID values have been modified to
