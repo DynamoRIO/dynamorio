@@ -287,7 +287,8 @@ public:
             return "init() must be called first";
         }
         const app_pc trace_pc = reinterpret_cast<app_pc>(memref_instr.addr);
-        auto it_inserted = decode_cache_.emplace(trace_pc, DecodeInfo());
+        auto it_inserted = decode_cache_.emplace(
+            std::piecewise_construct, std::forward_as_tuple(trace_pc), std::tuple<> {});
         typename std::unordered_map<app_pc, DecodeInfo>::iterator info =
             it_inserted.first;
         bool already_exists = !it_inserted.second;
