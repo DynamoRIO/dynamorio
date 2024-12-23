@@ -77,6 +77,11 @@ static sigjmp_buf env;
 #    define ITERS 500000
 #endif
 
+/* i#1973: __SIGRTMAX isn't available on musl libc */
+#ifdef MUSL
+#    define __SIGRTMAX SIGRTMAX
+#endif
+
 #ifdef AARCHXX
 /* i#4719: Work around QEMU bugs where QEMU can't handle signals 63 or 64. */
 #    undef SIGRTMAX
@@ -151,25 +156,6 @@ static void
         break;
     }
 
-#ifdef LINUX
-    case __SIGRTMAX: {
-        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
-        void *pc = (void *)sc->SC_XIP;
-        /* SIGRTMAX has been 64 on Linux since kernel 2.1, from looking at glibc
-         * sources. */
-#    ifndef AARCHXX /* i#4719: Work around QEMU bugs handling signals 63,64. */
-        assert(__SIGRTMAX == 64);
-#    endif
-        assert(__SIGRTMAX == SIGRTMAX);
-#    if VERBOSE
-        print("Got SIGRTMAX @ 0x%08x\n", pc);
-#    else
-        print("Got SIGRTMAX\n");
-#    endif
-        break;
-    }
-#endif
-
 #if USE_TIMER
     case SIGVTALRM: {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
@@ -182,7 +168,28 @@ static void
     }
 #endif
 
-    default: assert(0);
+    default:
+        /* i#1973: SIGRTMAX is a macro over function call, rather a constant on
+           musl libc. We use an if branch in default block to handle this */
+#ifdef LINUX
+        if (sig == __SIGRTMAX) {
+            sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+            void *pc = (void *)sc->SC_XIP;
+            /* SIGRTMAX has been 64 on Linux since kernel 2.1, from looking at glibc
+             * sources. */
+#    ifndef AARCHXX /* i#4719: Work around QEMU bugs handling signals 63,64. */
+            assert(__SIGRTMAX == 64);
+#    endif
+            assert(__SIGRTMAX == SIGRTMAX);
+#    if VERBOSE
+            print("Got SIGRTMAX @ 0x%08x\n", pc);
+#    else
+            print("Got SIGRTMAX\n");
+#    endif
+            break;
+        }
+#endif
+        assert(0);
     }
 }
 
@@ -319,9 +326,9 @@ int
         print("Got some timer hits!\n");
 #endif
 
-        /* We leave the sigstack in place for the timer so any racy alarm arriving
-         * after we disabled the itimer will be on the alt stack.
-         */
+    /* We leave the sigstack in place for the timer so any racy alarm arriving
+     * after we disabled the itimer will be on the alt stack.
+     */
 #if USE_SIGSTACK && !USE_TIMER
     stack_t check_stack;
     rc = sigaltstack(NULL, &check_stack);
