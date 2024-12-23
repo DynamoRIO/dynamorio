@@ -381,6 +381,9 @@ nolibc_print(const char *str)
         3,
 #        if defined(MACOS) || defined(ANDROID)
         stderr->_file,
+         /* TODO i#1973: handle opaque FILE * on musl libc */
+#        elif defined(MUSL)
+        STDERR_FILENO,
 #        else
         stderr->_fileno,
 #        endif
