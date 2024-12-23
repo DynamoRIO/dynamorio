@@ -326,9 +326,9 @@ int
         print("Got some timer hits!\n");
 #endif
 
-    /* We leave the sigstack in place for the timer so any racy alarm arriving
-     * after we disabled the itimer will be on the alt stack.
-     */
+        /* We leave the sigstack in place for the timer so any racy alarm arriving
+         * after we disabled the itimer will be on the alt stack.
+         */
 #if USE_SIGSTACK && !USE_TIMER
     stack_t check_stack;
     rc = sigaltstack(NULL, &check_stack);
