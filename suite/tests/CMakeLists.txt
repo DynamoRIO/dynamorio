@@ -425,6 +425,11 @@ function (set_cflags source)
   else ()
     set(cflags "${ORIG_CMAKE_C_FLAGS}")
   endif ()
+  # Alpine Linux enables "-Wtrampolines" by default, breaking
+  # security-linux/trampoline.c
+  if (MUSL)
+    set(cflags "${cflags} -Wno-trampolines")
+  endif ()
   if ("${source}" MATCHES ".cpp$")
     # Our C files need -std=gnu99, but that's an invalid flag for C++.
     # configure_DynamoRIO_global removes unfavorable options for clients,
