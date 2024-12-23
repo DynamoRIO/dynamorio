@@ -35,10 +35,10 @@ typedef clock_t __clock_t;
 #            define __WORDSIZE 32
 #        endif
 #    elif !defined(__GLIBC__)
-#	 define __WORDSIZE LONG_BIT
-	 typedef uid_t __uid_t;
-	 typedef pid_t __pid_t;
-	 typedef clock_t __clock_t;
+#        define __WORDSIZE LONG_BIT
+        typedef uid_t __uid_t;
+        typedef pid_t __pid_t;
+        typedef clock_t __clock_t;
 #    else
 #        include <bits/wordsize.h>
 #    endif
