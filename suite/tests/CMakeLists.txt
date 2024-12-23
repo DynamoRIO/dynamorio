@@ -2742,7 +2742,9 @@ else (UNIX)
 
   tobuild_ci(client.winxfer client-interface/winxfer.c "" "" "")
 endif (UNIX)
-if (NOT APPLE OR NOT AARCH64) # TODO i#5383: Port to Mac M1.
+# TODO i#5383: Port to Mac M1.
+# TODO i#1973: Port to musl libc
+if (NOT APPLE OR NOT AARCH64 AND NOT MUSL)
   tobuild_ci(client.file_io client-interface/file_io.c
     "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/file_io_data.txt" "" "")
 endif ()
