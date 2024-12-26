@@ -71,7 +71,7 @@
 #    define IF_WINDOWS_ELSE(x, y) (y)
 #endif
 
-#if (defined(X86) || defined(AARCH64)) && !defined(MACOS)
+#if (defined(X86) || defined(AARCH64)) && !(defined(MACOS) && defined(AARCH64))
 #    define PLATFORM_SUPPORTS_SCATTER_GATHER
 #endif
 
