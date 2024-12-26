@@ -46,6 +46,35 @@ static int num_svep_registers;
 static int num_ffr_registers;
 static int num_opmask_registers;
 
+#    define GET_FEAT_REG(FEATURE) (feature_reg_idx_t)((((ushort)FEATURE) & 0x3F00) >> 8)
+#    define GET_FEAT_NIBPOS(FEATURE) ((((ushort)FEATURE) & 0x00F0) >> 4)
+#    define GET_FEAT_VAL(FEATURE) (((ushort)FEATURE) & 0x000F)
+#    define GET_FEAT_NSFLAG(FEATURE) ((((ushort)FEATURE) & 0x8000) >> 15)
+#    define GET_FEAT_EXACT_MATCH(FEATURE) ((((ushort)FEATURE) & 0x4000) >> 14)
+
+void
+proc_set_feature(feature_bit_t feature_bit, bool enable)
+{
+    uint64 *freg_val = cpu_info.features.isa_features;
+    ushort feat_nibble = GET_FEAT_NIBPOS(feature_bit);
+    bool feat_nsflag = GET_FEAT_NSFLAG(feature_bit);
+    uint64 feat_val = GET_FEAT_VAL(feature_bit);
+
+    feature_reg_idx_t feat_reg = GET_FEAT_REG(feature_bit);
+    freg_val += feat_reg;
+
+    /* Clear the current feature state. */
+    *freg_val &= ~(0xFULL << (feat_nibble * 4));
+    if (enable) {
+        /* Write the feature value into the feature nibble. */
+        *freg_val |= feat_val << (feat_nibble * 4);
+    } else if (feat_nsflag) {
+        /* If the not-set flag is 0xF, then that needs manually setting. */
+        *freg_val |= 0xF << (feat_nibble * 4);
+    }
+}
+
+
 #ifndef DR_HOST_NOT_TARGET
 
 #    define NUM_FEATURE_REGISTERS (sizeof(features_t) / sizeof(uint64))
@@ -88,34 +117,6 @@ read_feature_regs(uint64 isa_features[])
         : "=r"(isa_features[AA64MMFR2])
         :
         : "x0");
-}
-
-#    define GET_FEAT_REG(FEATURE) (feature_reg_idx_t)((((ushort)FEATURE) & 0x3F00) >> 8)
-#    define GET_FEAT_NIBPOS(FEATURE) ((((ushort)FEATURE) & 0x00F0) >> 4)
-#    define GET_FEAT_VAL(FEATURE) (((ushort)FEATURE) & 0x000F)
-#    define GET_FEAT_NSFLAG(FEATURE) ((((ushort)FEATURE) & 0x8000) >> 15)
-#    define GET_FEAT_EXACT_MATCH(FEATURE) ((((ushort)FEATURE) & 0x4000) >> 14)
-
-void
-proc_set_feature(feature_bit_t feature_bit, bool enable)
-{
-    uint64 *freg_val = cpu_info.features.isa_features;
-    ushort feat_nibble = GET_FEAT_NIBPOS(feature_bit);
-    bool feat_nsflag = GET_FEAT_NSFLAG(feature_bit);
-    uint64 feat_val = GET_FEAT_VAL(feature_bit);
-
-    feature_reg_idx_t feat_reg = GET_FEAT_REG(feature_bit);
-    freg_val += feat_reg;
-
-    /* Clear the current feature state. */
-    *freg_val &= ~(0xFULL << (feat_nibble * 4));
-    if (enable) {
-        /* Write the feature value into the feature nibble. */
-        *freg_val |= feat_val << (feat_nibble * 4);
-    } else if (feat_nsflag) {
-        /* If the not-set flag is 0xF, then that needs manually setting. */
-        *freg_val |= 0xF << (feat_nibble * 4);
-    }
 }
 
 #    if !defined(MACOS) // TODO i#5383: Get this working on Mac. */
