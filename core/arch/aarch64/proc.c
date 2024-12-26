@@ -46,11 +46,11 @@ static int num_svep_registers;
 static int num_ffr_registers;
 static int num_opmask_registers;
 
-#    define GET_FEAT_REG(FEATURE) (feature_reg_idx_t)((((ushort)FEATURE) & 0x3F00) >> 8)
-#    define GET_FEAT_NIBPOS(FEATURE) ((((ushort)FEATURE) & 0x00F0) >> 4)
-#    define GET_FEAT_VAL(FEATURE) (((ushort)FEATURE) & 0x000F)
-#    define GET_FEAT_NSFLAG(FEATURE) ((((ushort)FEATURE) & 0x8000) >> 15)
-#    define GET_FEAT_EXACT_MATCH(FEATURE) ((((ushort)FEATURE) & 0x4000) >> 14)
+#define GET_FEAT_REG(FEATURE) (feature_reg_idx_t)((((ushort)FEATURE) & 0x3F00) >> 8)
+#define GET_FEAT_NIBPOS(FEATURE) ((((ushort)FEATURE) & 0x00F0) >> 4)
+#define GET_FEAT_VAL(FEATURE) (((ushort)FEATURE) & 0x000F)
+#define GET_FEAT_NSFLAG(FEATURE) ((((ushort)FEATURE) & 0x8000) >> 15)
+#define GET_FEAT_EXACT_MATCH(FEATURE) ((((ushort)FEATURE) & 0x4000) >> 14)
 
 void
 proc_set_feature(feature_bit_t feature_bit, bool enable)
@@ -73,7 +73,6 @@ proc_set_feature(feature_bit_t feature_bit, bool enable)
         *freg_val |= 0xF << (feat_nibble * 4);
     }
 }
-
 
 #ifndef DR_HOST_NOT_TARGET
 
