@@ -178,7 +178,7 @@ dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *
 bool
 dr_modload_hook_exists(void);
 
-void
+DR_API void
 instrument_client_lib_loaded(byte *start, byte *end);
 void
 instrument_client_lib_unloaded(byte *start, byte *end);
