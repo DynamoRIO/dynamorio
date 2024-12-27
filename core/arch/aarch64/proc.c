@@ -231,8 +231,6 @@ proc_init_arch(void)
     }
 
 #ifndef DR_HOST_NOT_TARGET
-#    if !defined(MACOS) || \
-        (defined(MACOS) && defined(AARCH64)) // TODO i#5383: Get this working on Mac. */
     get_processor_specific_info();
 
     DOLOG(1, LOG_TOP, {
@@ -307,7 +305,6 @@ proc_init_arch(void)
             cpu_info.features.isa_features[AA64MMFR2]);
         LOG_FEATURE(FEATURE_LSE2);
     });
-#    endif
 #endif
 }
 
