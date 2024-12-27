@@ -167,17 +167,15 @@ _init(int argc, char **argv, char **envp)
 
 #if START_DYNAMO
     pf("ready to start dynamo\n");
-
-    /* i#46: Get env from loader directly. */
-    dynamorio_set_envp(envp);
-
     name = get_application_short_name();
     pf("preload _init: running %s\n", name);
     if (!take_over(name))
         return 0;
-        /* FIXME i#287/PR 546544: now load DYNAMORIO_AUTOINJECT DR .so
-         * and only LD_PRELOAD the preload lib itself
-         */
+    /* i#46: Get env from loader directly. */
+    dynamorio_set_envp(envp);
+    /* FIXME i#287/PR 546544: now load DYNAMORIO_AUTOINJECT DR .so
+     * and only LD_PRELOAD the preload lib itself
+     */
 #    if VERBOSE
     int init =
 #    endif
