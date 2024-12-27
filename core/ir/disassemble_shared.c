@@ -115,6 +115,17 @@ void
 print_opcode_name(instr_t *instr, const char *name, char *buf, size_t bufsz,
                   size_t *sofar DR_PARAM_OUT);
 
+#ifdef X86
+bool
+optype_is_evex_mask_arch(byte optype);
+#else
+static bool
+optype_is_evex_mask_arch(byte optype)
+{
+    return false;
+}
+#endif
+
 /****************************************************************************
  * Printing of instructions
  */
@@ -1024,8 +1035,7 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PAR
                          */
                         optype = 0;
                     });
-        bool is_evex_mask = !instr_is_opmask(instr) && opnd_is_reg(opnd) &&
-            reg_is_opmask(opnd_get_reg(opnd)) && opmask_with_dsts();
+        bool is_evex_mask = optype_is_evex_mask_arch(optype) && opmask_with_dsts();
         if (!is_evex_mask) {
             print_to_buffer(buf, bufsz, sofar, "");
             printing = opnd_disassemble_noimplicit(buf, bufsz, sofar, dcontext, instr,
@@ -1067,8 +1077,7 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PAR
                      (i == 0 && opnd_is_reg(opnd) && reg_is_fp(opnd_get_reg(opnd))));
         });
         if (print) {
-            bool is_evex_mask = !instr_is_opmask(instr) && opnd_is_reg(opnd) &&
-                reg_is_opmask(opnd_get_reg(opnd)) && opmask_with_dsts();
+            bool is_evex_mask = optype_is_evex_mask_arch(optype) && opmask_with_dsts();
             print_to_buffer(buf, bufsz, sofar, is_evex_mask ? " {" : "");
             prev = opnd_disassemble_noimplicit(buf, bufsz, sofar, dcontext, instr, optype,
                                                opnd, prev && !is_evex_mask,

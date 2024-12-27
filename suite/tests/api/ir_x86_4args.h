@@ -90,8 +90,22 @@ OPCODE(vdppd, vdppd, vdppd, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_16),
        IMMARG(OPSZ_1))
 OPCODE(vmpsadbw, vmpsadbw, vmpsadbw, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_16),
        IMMARG(OPSZ_1))
-OPCODE(vpclmulqdq, vpclmulqdq, vpclmulqdq, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_16),
-       IMMARG(OPSZ_1))
+OPCODE(vpclmulqdq_xloxloxlo, vpclmulqdq, vpclmulqdq, 0, REGARG(XMM0), REGARG(XMM1),
+       REGARG(XMM2), IMMARG(OPSZ_1))
+OPCODE(vpclmulqdq_xloxlold, vpclmulqdq, vpclmulqdq, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), IMMARG(OPSZ_1))
+OPCODE(vpclmulqdq_xhixhixhi, vpclmulqdq, vpclmulqdq, X64_ONLY, REGARG(XMM8), REGARG(XMM9),
+       REGARG(XMM15), IMMARG(OPSZ_1))
+OPCODE(vpclmulqdq_xhixhild, vpclmulqdq, vpclmulqdq, X64_ONLY, REGARG(XMM8), REGARG(XMM9),
+       MEMARG(OPSZ_16), IMMARG(OPSZ_1))
+OPCODE(vpclmulqdq_yloyloylo, vpclmulqdq, vpclmulqdq, 0, REGARG(YMM0), REGARG(YMM1),
+       REGARG(YMM2), IMMARG(OPSZ_1))
+OPCODE(vpclmulqdq_yloylold, vpclmulqdq, vpclmulqdq, 0, REGARG(YMM0), REGARG(YMM1),
+       MEMARG(OPSZ_32), IMMARG(OPSZ_1))
+OPCODE(vpclmulqdq_yhiyhiyhi, vpclmulqdq, vpclmulqdq, X64_ONLY, REGARG(YMM8), REGARG(YMM9),
+       REGARG(YMM15), IMMARG(OPSZ_1))
+OPCODE(vpclmulqdq_yhiyhild, vpclmulqdq, vpclmulqdq, X64_ONLY, REGARG(YMM8), REGARG(YMM9),
+       MEMARG(OPSZ_32), IMMARG(OPSZ_1))
 OPCODE(vroundss, vroundss, vroundss, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_12),
        MEMARG(OPSZ_4), IMMARG(OPSZ_1))
 OPCODE(vroundsd, vroundsd, vroundsd, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_8),
@@ -329,3 +343,47 @@ OPCODE(vpblendd_256, vpblendd, vpblendd, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(O
 /* AVX2 */
 OPCODE(vperm2i128, vperm2i128, vperm2i128, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32),
        IMMARG(OPSZ_1))
+
+/****************************************************************************/
+/* GFNI */
+OPCODE(vgf2p8affineqb_xloxloxlo, vgf2p8affineqb, vgf2p8affineqb, 0, REGARG(XMM0),
+       REGARG(XMM1), REGARG(XMM2), IMMARG(OPSZ_1))
+OPCODE(vgf2p8affineqb_xloxlom, vgf2p8affineqb, vgf2p8affineqb, 0, REGARG(XMM0),
+       REGARG(XMM1), MEMARG(OPSZ_16), IMMARG(OPSZ_1))
+OPCODE(vgf2p8affineqb_xloxloxhi, vgf2p8affineqb, vgf2p8affineqb, X64_ONLY, REGARG(XMM0),
+       REGARG(XMM1), REGARG(XMM8), IMMARG(OPSZ_1))
+OPCODE(vgf2p8affineqb_xloxhixlo, vgf2p8affineqb, vgf2p8affineqb, X64_ONLY, REGARG(XMM0),
+       REGARG(XMM8), REGARG(XMM2), IMMARG(OPSZ_1))
+OPCODE(vgf2p8affineqb_xhixloxlo, vgf2p8affineqb, vgf2p8affineqb, X64_ONLY, REGARG(XMM8),
+       REGARG(XMM1), REGARG(XMM2), IMMARG(OPSZ_1))
+OPCODE(vgf2p8affineqb_yloyloylo, vgf2p8affineqb, vgf2p8affineqb, 0, REGARG(YMM0),
+       REGARG(YMM1), REGARG(YMM2), IMMARG(OPSZ_1))
+OPCODE(vgf2p8affineqb_yloylom, vgf2p8affineqb, vgf2p8affineqb, 0, REGARG(YMM0),
+       REGARG(YMM1), MEMARG(OPSZ_32), IMMARG(OPSZ_1))
+OPCODE(vgf2p8affineqb_yloyloyhi, vgf2p8affineqb, vgf2p8affineqb, X64_ONLY, REGARG(YMM0),
+       REGARG(YMM1), REGARG(YMM8), IMMARG(OPSZ_1))
+OPCODE(vgf2p8affineqb_yloyhiylo, vgf2p8affineqb, vgf2p8affineqb, X64_ONLY, REGARG(YMM0),
+       REGARG(YMM8), REGARG(YMM2), IMMARG(OPSZ_1))
+OPCODE(vgf2p8affineqb_yhiyloylo, vgf2p8affineqb, vgf2p8affineqb, X64_ONLY, REGARG(YMM8),
+       REGARG(YMM1), REGARG(YMM2), IMMARG(OPSZ_1))
+
+OPCODE(vgf2p8affineinvqb_xloxloxlo, vgf2p8affineinvqb, vgf2p8affineinvqb, 0, REGARG(XMM0),
+       REGARG(XMM1), REGARG(XMM2), IMMARG(OPSZ_1))
+OPCODE(vgf2p8affineinvqb_xloxlom, vgf2p8affineinvqb, vgf2p8affineinvqb, 0, REGARG(XMM0),
+       REGARG(XMM1), MEMARG(OPSZ_16), IMMARG(OPSZ_1))
+OPCODE(vgf2p8affineinvqb_xloxloxhi, vgf2p8affineinvqb, vgf2p8affineinvqb, X64_ONLY,
+       REGARG(XMM0), REGARG(XMM1), REGARG(XMM8), IMMARG(OPSZ_1))
+OPCODE(vgf2p8affineinvqb_xloxhixlo, vgf2p8affineinvqb, vgf2p8affineinvqb, X64_ONLY,
+       REGARG(XMM0), REGARG(XMM8), REGARG(XMM2), IMMARG(OPSZ_1))
+OPCODE(vgf2p8affineinvqb_xhixloxlo, vgf2p8affineinvqb, vgf2p8affineinvqb, X64_ONLY,
+       REGARG(XMM8), REGARG(XMM1), REGARG(XMM2), IMMARG(OPSZ_1))
+OPCODE(vgf2p8affineinvqb_yloyloylo, vgf2p8affineinvqb, vgf2p8affineinvqb, 0, REGARG(YMM0),
+       REGARG(YMM1), REGARG(YMM2), IMMARG(OPSZ_1))
+OPCODE(vgf2p8affineinvqb_yloylom, vgf2p8affineinvqb, vgf2p8affineinvqb, 0, REGARG(YMM0),
+       REGARG(YMM1), MEMARG(OPSZ_32), IMMARG(OPSZ_1))
+OPCODE(vgf2p8affineinvqb_yloyloyhi, vgf2p8affineinvqb, vgf2p8affineinvqb, X64_ONLY,
+       REGARG(YMM0), REGARG(YMM1), REGARG(YMM8), IMMARG(OPSZ_1))
+OPCODE(vgf2p8affineinvqb_yloyhiylo, vgf2p8affineinvqb, vgf2p8affineinvqb, X64_ONLY,
+       REGARG(YMM0), REGARG(YMM8), REGARG(YMM2), IMMARG(OPSZ_1))
+OPCODE(vgf2p8affineinvqb_yhiyloylo, vgf2p8affineinvqb, vgf2p8affineinvqb, X64_ONLY,
+       REGARG(YMM8), REGARG(YMM1), REGARG(YMM2), IMMARG(OPSZ_1))

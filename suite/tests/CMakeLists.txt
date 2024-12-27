@@ -2054,6 +2054,10 @@ if (NOT ANDROID)
 
   if (RISCV64)
     tobuild_api(api.ir_rvv api/ir_rvv.c  "" "" ON OFF OFF)
+    tobuild_api(api.ir_rv64_addr api/ir_rv64_addr.c  "" "" OFF OFF OFF)
+
+    target_sources(api.ir PRIVATE api/ir_riscv64_common.c)
+    target_sources(api.ir_rv64_addr PRIVATE api/ir_riscv64_common.c)
   endif(RISCV64)
 endif ()
 
@@ -2067,6 +2071,8 @@ if (AARCH64)
   set(api.ir-static_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake")
   set(api.ir-static_runcmp_capture "stderr")
 elseif (RISCV64)
+  target_sources(api.ir-static PRIVATE api/ir_riscv64_common.c)
+
   # The ir_riscv64.expect file is too large for CMake's regexes.
   set(api.ir-static_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake")
   set(api.ir-static_runcmp_capture "stderr")
@@ -4832,43 +4838,29 @@ if (BUILD_CLIENTS)
 
     if (X86 AND X64 AND UNIX AND NOT APPLE)
         # Run the invariant_checker on an OFFLINE_FILE_TYPE_ARCH_REGDEPS trace of
-        # ci_shared_app.
+        # ci_shared_app and kernel_xfer_app. We expect no invariant errors.
+        # Generate an OFFLINE_FILE_TYPE_ARCH_REGDEPS trace by running record_filter
+        # with: 1) -filter_encodings2regdeps to change instruction encodings; 2)
+        # -filter_keep_func_ids 4294967498 (which is SYS_futex, associated to the only
+        # TRACE_MARKER_TYPE_FUNC_* markers we want to keep),
+        # -filter_marker_types 19,25,27,28,30,40,41 (which correspond to
+        # TRACE_MARKER_TYPE_SYSCALL_IDX, TRACE_MARKER_TYPE_SYSCALL,
+        # TRACE_MARKER_TYPE_SYSCALL_TRACE_START, TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
+        # TRACE_MARKER_TYPE_SYSCALL_FAILED, TRACE_MARKER_TYPE_SIGNAL_NUMBER,
+        # TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION), note that the removal of
+        # TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION is only temporary (xref i#7155);
+        # 3) -filter_modify_marker_value 3,-1 (which changes the value of
+        # TRACE_MARKER_TYPE_CPU_ID == 3 to INVALID_CPU_MARKER_VALUE == (uintptr_t)-1).
         set(testname "tool.invariant_checker_on_regdeps_trace_ci_shared_app")
         torun_record_filter("${testname}" ${ci_shared_app}
           "invariant_checker_on_regdeps_trace_ci_shared_app"
-          # Generate an OFFLINE_FILE_TYPE_ARCH_REGDEPS trace by running record_filter
-          # with -filter_encodings2regdeps to change instruction encodings,
-          # -filter_keep_func_ids 4294967498 (which is SYS_futex, associated to the only
-          # TRACE_MARKER_TYPE_FUNC_ markers we want to keep),
-          # -filter_marker_types 19,25,27,28,30 (which correspond to
-          # TRACE_MARKER_TYPE_SYSCALL_IDX, TRACE_MARKER_TYPE_SYSCALL,
-          # TRACE_MARKER_TYPE_SYSCALL_TRACE_START, TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
-          # TRACE_MARKER_TYPE_SYSCALL_FAILED), and -filter_modify_marker_value 3,-1
-          # (which changes the value of TRACE_MARKER_TYPE_CPU_ID == 3 to
-          # INVALID_CPU_MARKER_VALUE == (uintptr_t)-1).
-          "${drcachesim_path}@-simulator_type@record_filter@-filter_encodings2regdeps@-indir@${testname}.${ci_shared_app}.*.dir/trace@-outdir@${testname}.filtered.dir@-filter_marker_types@19,25,27,28,30@-filter_keep_func_ids@4294967498@-filter_modify_marker_value@3,-1"
-          # We run the invariant_checker analyzer on the REGDEPS filtered trace.
-          # We expect no invariant errors.
+          "${drcachesim_path}@-simulator_type@record_filter@-filter_encodings2regdeps@-indir@${testname}.${ci_shared_app}.*.dir/trace@-outdir@${testname}.filtered.dir@-filter_marker_types@19,25,27,28,30,40,41@-filter_keep_func_ids@4294967498@-filter_modify_marker_value@3,-1"
           "invariant_checker")
 
-        # Run the invariant_checker on an OFFLINE_FILE_TYPE_ARCH_REGDEPS trace of
-        # kernel_xfer_app.
         set(testname "tool.invariant_checker_on_regdeps_trace_kernel_xfer_app")
         torun_record_filter("${testname}" ${kernel_xfer_app}
           "invariant_checker_on_regdeps_trace_kernel_xfer_app"
-          # Generate an OFFLINE_FILE_TYPE_ARCH_REGDEPS trace by running record_filter
-          # with -filter_encodings2regdeps to change instruction encodings,
-          # -filter_keep_func_ids 4294967498 (which is SYS_futex, associated to the only
-          # TRACE_MARKER_TYPE_FUNC_ markers we want to keep),
-          # -filter_marker_types 19,25,27,28,30 (which correspond to
-          # TRACE_MARKER_TYPE_SYSCALL_IDX, TRACE_MARKER_TYPE_SYSCALL,
-          # TRACE_MARKER_TYPE_SYSCALL_TRACE_START, TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
-          # TRACE_MARKER_TYPE_SYSCALL_FAILED), and -filter_modify_marker_value 3,-1
-          # (which changes the value of TRACE_MARKER_TYPE_CPU_ID == 3 to
-          # INVALID_CPU_MARKER_VALUE == (uintptr_t)-1).
-          "${drcachesim_path}@-simulator_type@record_filter@-filter_encodings2regdeps@-indir@${testname}.${kernel_xfer_app}.*.dir/trace@-outdir@${testname}.filtered.dir@-filter_marker_types@19,25,27,28,30@-filter_keep_func_ids@4294967498@-filter_modify_marker_value@3,-1"
-          # We run the invariant_checker analyzer on the REGDEPS filtered trace.
-          # We expect no invariant errors.
+          "${drcachesim_path}@-simulator_type@record_filter@-filter_encodings2regdeps@-indir@${testname}.${kernel_xfer_app}.*.dir/trace@-outdir@${testname}.filtered.dir@-filter_marker_types@19,25,27,28,30,40,41@-filter_keep_func_ids@4294967498@-filter_modify_marker_value@3,-1"
           "invariant_checker")
     endif ()
 
@@ -6419,6 +6411,7 @@ if (RISCV64)
     code_api|api.ir-static
     code_api|api.ir_regdeps
     code_api|api.ir_rvv
+    code_api|api.ir_rv64_addr
     code_api|client.app_args
     code_api|client.blackbox
     code_api|client.crashmsg

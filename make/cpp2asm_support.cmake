@@ -234,7 +234,9 @@ elseif (UNIX)
         set(ASM_FLAGS "${ASM_FLAGS} ${ASMFLAGS_SVE}")
     endif ()
   endif ()
-  set(ASM_FLAGS "${ASM_FLAGS} --noexecstack")
+  if (NOT ANDROID64)
+    set(ASM_FLAGS "${ASM_FLAGS} --noexecstack")
+  endif ()
   if (DEBUG)
     set(ASM_FLAGS "${ASM_FLAGS} -g")
   endif (DEBUG)
@@ -342,6 +344,12 @@ if (APPLE AND NOT AARCH64)
      "${CMAKE_CPP} ${CMAKE_CPP_FLAGS} ${rule_flags} ${rule_defs} -E <SOURCE> > <OBJECT>.s"
     "<CMAKE_COMMAND> -Dfile=<OBJECT>.s -P \"${cpp2asm_newline_script_path}\""
     "<NASM> ${ASM_FLAGS} -o <OBJECT> <OBJECT>.s"
+    )
+elseif (ANDROID64)
+  set(CMAKE_ASM_COMPILE_OBJECT
+    "${CMAKE_CPP} ${CMAKE_CPP_FLAGS} ${rule_flags} ${rule_defs} -E <SOURCE> -o <OBJECT>.s"
+    "<CMAKE_COMMAND> -Dfile=<OBJECT>.s -P \"${cpp2asm_newline_script_path}\""
+    "<CMAKE_ASM_COMPILER> ${ASM_FLAGS} -xassembler -c -o <OBJECT> <OBJECT>.s"
     )
 elseif (UNIX OR (APPLE AND AARCH64))
   set(CMAKE_ASM_COMPILE_OBJECT

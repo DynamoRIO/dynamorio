@@ -176,6 +176,8 @@ mixed_mode_enabled(void)
 #    define XFLAGS_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, fcsr)))
 #    define VSTART_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, vstart)))
 #    define VCSR_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, vcsr)))
+#    define VL_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, vl)))
+#    define VTYPE_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, vtype)))
 #    define SCRATCH_REG0 DR_REG_A0
 #    define SCRATCH_REG1 DR_REG_A1
 #    define SCRATCH_REG2 DR_REG_A2

@@ -2825,8 +2825,11 @@ check_read_write_records_match_operands()
     {
         instr_t *clflush = INSTR_CREATE_clflush(
             GLOBAL_DCONTEXT, OPND_CREATE_MEM_clflush(REG1, REG_NULL, 0, 0));
+        instr_t *clflushopt = INSTR_CREATE_clflushopt(
+            GLOBAL_DCONTEXT, OPND_CREATE_MEM_clflush(REG1, REG_NULL, 0, 0));
         instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
         instrlist_append(ilist, clflush);
+        instrlist_append(ilist, clflushopt);
         static constexpr addr_t BASE_ADDR = 0xeba4ad4;
         std::vector<memref_with_IR_t> memref_setup = {
             { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
@@ -2834,6 +2837,9 @@ check_read_write_records_match_operands()
             { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
             { gen_instr(TID_A), clflush },
+            { gen_addr(TID_A, /*type=*/TRACE_TYPE_DATA_FLUSH, /*addr=*/0, /*size=*/0),
+              nullptr },
+            { gen_instr(TID_A), clflushopt },
             { gen_addr(TID_A, /*type=*/TRACE_TYPE_DATA_FLUSH, /*addr=*/0, /*size=*/0),
               nullptr },
             { gen_exit(TID_A), nullptr },
@@ -3574,6 +3580,49 @@ bool
 check_regdeps(void)
 {
     std::cerr << "Testing regdeps traces\n";
+
+    // Incorrect: TRACE_MARKER_TYPE_SIGNAL_NUMBER not allowed.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ARCH_REGDEPS),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SIGNAL_NUMBER, 42),
+            gen_instr(TID_A),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(
+                memrefs, true,
+                { "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot have "
+                  "TRACE_MARKER_TYPE_SIGNAL_NUMBER markers",
+                  /*tid=*/TID_A,
+                  /*ref_ordinal=*/4, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/0 },
+                "Failed to catch non-allowed TRACE_MARKER_TYPE_SIGNAL_NUMBER marker"))
+            return false;
+    }
+
+    // Incorrect: TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION not allowed.
+    // XXX i#7155: Allow these markers once we update their values in record_filter.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ARCH_REGDEPS),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION, 42),
+            gen_instr(TID_A),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, true,
+                         { "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot have "
+                           "TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION markers",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/4, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/0 },
+                         "Failed to catch non-allowed "
+                         "TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION marker"))
+            return false;
+    }
 
     // Incorrect: OFFLINE_FILE_TYPE_ARCH_AARCH64 not allowed.
     {

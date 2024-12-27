@@ -48,116 +48,7 @@
 #include "dr_ir_utils.h"
 #include "dr_defines.h"
 
-static byte buf[8192];
-
-#ifdef STANDALONE_DECODER
-#    define ASSERT(x)                                                                 \
-        ((void)((!(x)) ? (fprintf(stderr, "ASSERT FAILURE (standalone): %s:%d: %s\n", \
-                                  __FILE__, __LINE__, #x),                            \
-                          abort(), 0)                                                 \
-                       : 0))
-#else
-#    define ASSERT(x)                                                                \
-        ((void)((!(x)) ? (dr_fprintf(STDERR, "ASSERT FAILURE (client): %s:%d: %s\n", \
-                                     __FILE__, __LINE__, #x),                        \
-                          dr_abort(), 0)                                             \
-                       : 0))
-#endif
-
-static byte *
-test_instr_encoding(void *dc, uint opcode, instr_t *instr)
-{
-    instr_t *decin;
-    byte *pc, *next_pc;
-
-    ASSERT(instr_get_opcode(instr) == opcode);
-    instr_disassemble(dc, instr, STDERR);
-    print("\n");
-    ASSERT(instr_is_encoding_possible(instr));
-    pc = instr_encode(dc, instr, buf);
-    ASSERT(pc != NULL);
-    decin = instr_create(dc);
-    next_pc = decode(dc, buf, decin);
-    ASSERT(next_pc != NULL);
-    if (!instr_same(instr, decin)) {
-        print("Disassembled as:\n");
-        instr_disassemble(dc, decin, STDERR);
-        print("\n");
-        ASSERT(instr_same(instr, decin));
-    }
-
-    instr_destroy(dc, instr);
-    instr_destroy(dc, decin);
-    return pc;
-}
-
-static void
-test_instr_encoding_failure(void *dc, uint opcode, app_pc instr_pc, instr_t *instr)
-{
-    byte *pc;
-
-    pc = instr_encode_to_copy(dc, instr, buf, instr_pc);
-    ASSERT(pc == NULL);
-    instr_destroy(dc, instr);
-}
-
-static byte *
-test_instr_decoding_failure(void *dc, uint raw_instr)
-{
-    instr_t *decin;
-    byte *pc;
-
-    *(uint *)buf = raw_instr;
-    decin = instr_create(dc);
-    pc = decode(dc, buf, decin);
-    /* Returns NULL on failure. */
-    ASSERT(pc == NULL);
-    instr_destroy(dc, decin);
-    return pc;
-}
-
-static void
-test_instr_encoding_jal_or_branch(void *dc, uint opcode, instr_t *instr)
-{
-    /* XXX i#3544: For jal and branch instructions, current disassembler will print
-     * the complete jump address, that is, an address relative to `buf`. But the
-     * value of `buf` is indeterminate at runtime, so we skip checking the disassembled
-     * format for these instructions. Same for test_instr_encoding_auipc().
-     *
-     * FIXME i#3544: For branch instructions, we should use relative offsets instead.
-     */
-    instr_t *decin;
-    byte *pc, *next_pc;
-
-    ASSERT(instr_get_opcode(instr) == opcode);
-    ASSERT(instr_is_encoding_possible(instr));
-    pc = instr_encode(dc, instr, buf);
-    ASSERT(pc != NULL);
-    decin = instr_create(dc);
-    next_pc = decode(dc, buf, decin);
-    ASSERT(next_pc != NULL);
-    ASSERT(instr_same(instr, decin));
-    instr_destroy(dc, instr);
-    instr_destroy(dc, decin);
-}
-
-static void
-test_instr_encoding_auipc(void *dc, uint opcode, app_pc instr_pc, instr_t *instr)
-{
-    instr_t *decin;
-    byte *pc, *next_pc;
-
-    ASSERT(instr_get_opcode(instr) == opcode);
-    ASSERT(instr_is_encoding_possible(instr));
-    pc = instr_encode_to_copy(dc, instr, buf, instr_pc);
-    ASSERT(pc != NULL);
-    decin = instr_create(dc);
-    next_pc = decode_from_copy(dc, buf, instr_pc, decin);
-    ASSERT(next_pc != NULL);
-    ASSERT(instr_same(instr, decin));
-    instr_destroy(dc, instr);
-    instr_destroy(dc, decin);
-}
+#include "ir_riscv64.h"
 
 static void
 test_integer_load_store(void *dc)
@@ -1068,59 +959,17 @@ test_jump_and_branch(void *dc)
                              opnd_create_immed_int(42, OPSZ_20b));
     pc = test_instr_encoding(dc, OP_lui, instr);
 
-    /* Not printing disassembly for jal and branch instructions below, see comment of
-     * test_instr_encoding_jal_or_branch(). */
-    instr = INSTR_CREATE_auipc(dc, opnd_create_reg(DR_REG_A0),
-                               OPND_CREATE_ABSMEM(pc + (3 << 12), OPSZ_0));
-    test_instr_encoding_auipc(dc, OP_auipc, pc, instr);
-
-    instr = INSTR_CREATE_auipc(dc, opnd_create_reg(DR_REG_A0),
-                               OPND_CREATE_ABSMEM(pc + (3 << 12), OPSZ_0));
-    test_instr_encoding_auipc(dc, OP_auipc, pc, instr);
-
-    instr = INSTR_CREATE_auipc(dc, opnd_create_reg(DR_REG_A0),
-                               OPND_CREATE_ABSMEM(pc + (3 << 12), OPSZ_0));
-    /* This is expected to fail since we are using an unaligned PC (i.e. target_pc -
-     * instr_encode_pc has non-zero lower 12 bits). */
-    test_instr_encoding_failure(dc, OP_auipc, pc + 4, instr);
-
-    instr = INSTR_CREATE_jal(dc, opnd_create_reg(DR_REG_A0), opnd_create_pc(pc));
-    test_instr_encoding_jal_or_branch(dc, OP_jal, instr);
     instr = INSTR_CREATE_jalr(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
                               opnd_create_immed_int(42, OPSZ_12b));
     test_instr_encoding(dc, OP_jalr, instr);
 
-    instr = INSTR_CREATE_beq(dc, opnd_create_pc(pc), opnd_create_reg(DR_REG_A0),
-                             opnd_create_reg(DR_REG_A1));
-    test_instr_encoding_jal_or_branch(dc, OP_beq, instr);
-    instr = INSTR_CREATE_bne(dc, opnd_create_pc(pc), opnd_create_reg(DR_REG_A0),
-                             opnd_create_reg(DR_REG_A1));
-    test_instr_encoding_jal_or_branch(dc, OP_bne, instr);
-    instr = INSTR_CREATE_blt(dc, opnd_create_pc(pc), opnd_create_reg(DR_REG_A0),
-                             opnd_create_reg(DR_REG_A1));
-    test_instr_encoding_jal_or_branch(dc, OP_blt, instr);
-    instr = INSTR_CREATE_bge(dc, opnd_create_pc(pc), opnd_create_reg(DR_REG_A0),
-                             opnd_create_reg(DR_REG_A1));
-    test_instr_encoding_jal_or_branch(dc, OP_bge, instr);
-    instr = INSTR_CREATE_bltu(dc, opnd_create_pc(pc), opnd_create_reg(DR_REG_A0),
-                              opnd_create_reg(DR_REG_A1));
-    test_instr_encoding_jal_or_branch(dc, OP_bltu, instr);
-    instr = INSTR_CREATE_bgeu(dc, opnd_create_pc(pc), opnd_create_reg(DR_REG_A0),
-                              opnd_create_reg(DR_REG_A1));
-    test_instr_encoding_jal_or_branch(dc, OP_bgeu, instr);
-
     /* Compressed */
-    instr = INSTR_CREATE_c_j(dc, opnd_create_pc(pc));
-    test_instr_encoding_jal_or_branch(dc, OP_c_j, instr);
     instr = INSTR_CREATE_c_jr(dc, opnd_create_reg(DR_REG_A0));
-    test_instr_encoding_jal_or_branch(dc, OP_c_jr, instr);
-    /* There is no c.jal in RV64. */
+    test_instr_encoding(dc, OP_c_jr, instr);
+
     instr = INSTR_CREATE_c_jalr(dc, opnd_create_reg(DR_REG_A0));
     test_instr_encoding(dc, OP_c_jalr, instr);
-    instr = INSTR_CREATE_c_beqz(dc, opnd_create_pc(pc), opnd_create_reg(DR_REG_X8));
-    test_instr_encoding_jal_or_branch(dc, OP_c_beqz, instr);
-    instr = INSTR_CREATE_c_bnez(dc, opnd_create_pc(pc), opnd_create_reg(DR_REG_X8));
-    test_instr_encoding_jal_or_branch(dc, OP_c_bnez, instr);
+
     instr = INSTR_CREATE_c_li(dc, opnd_create_reg(DR_REG_A1),
                               opnd_create_immed_int((1 << 5) - 1, OPSZ_5b));
     test_instr_encoding(dc, OP_c_li, instr);
@@ -1441,23 +1290,6 @@ test_xinst(void *dc)
     ASSERT(opnd_is_immed_int(instr_get_src(instr, 1)) &&
            opnd_get_immed_int(instr_get_src(instr, 1)) == 0);
     test_instr_encoding(dc, OP_jalr, instr);
-
-    /* Not printing disassembly for jal and branch instructions below, see comment of
-     * test_instr_encoding_jal_or_branch(). */
-    instr = XINST_CREATE_jump(dc, opnd_create_pc(pc));
-    ASSERT(opnd_is_reg(instr_get_dst(instr, 0)) &&
-           opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_ZERO);
-    test_instr_encoding_jal_or_branch(dc, OP_jal, instr);
-
-    instr = XINST_CREATE_jump_short(dc, opnd_create_pc(pc));
-    ASSERT(opnd_is_reg(instr_get_dst(instr, 0)) &&
-           opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_ZERO);
-    test_instr_encoding_jal_or_branch(dc, OP_jal, instr);
-
-    instr = XINST_CREATE_call(dc, opnd_create_pc(pc));
-    ASSERT(opnd_is_reg(instr_get_dst(instr, 0)) &&
-           opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_RA);
-    test_instr_encoding_jal_or_branch(dc, OP_jal, instr);
 
     instr = XINST_CREATE_add(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1));
     ASSERT(opnd_is_reg(instr_get_dst(instr, 0)) &&
