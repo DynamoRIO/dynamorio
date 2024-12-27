@@ -506,7 +506,10 @@ intercept_signal(int sig, handler_3_t handler, bool sigstack)
 void
 dump_ucontext(ucontext_t *ucxt, bool is_sve, int vl_bytes)
 {
-    struct _aarch64_ctx *head = (struct _aarch64_ctx *)(ucxt->uc_mcontext.RESERVED);
+#ifdef MACOS
+    assert(false); /* NYI */
+#else
+    struct _aarch64_ctx *head = (struct _aarch64_ctx *)(ucxt->uc_mcontext64.__reserved);
     assert(head->magic == FPSIMD_MAGIC);
     assert(head->size == sizeof(struct fpsimd_context));
 
@@ -602,6 +605,7 @@ dump_ucontext(ucontext_t *ucxt, bool is_sve, int vl_bytes)
         }
     }
 #            endif
+#endif
 }
 #        endif
 

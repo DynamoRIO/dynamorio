@@ -1242,6 +1242,10 @@ if (CMAKE_CROSSCOMPILING AND DEFINED CMAKE_FIND_ROOT_PATH)
   set(dr_test_ops -xarch_root ${CMAKE_FIND_ROOT_PATH} ${dr_test_ops})
 endif ()
 
+if (APPLE AND AARCH64)
+  set(dr_test_ops -vm_size 500M ${dr_test_ops})
+endif ()
+
 function(runtest_cmd outcmd outops key native standalone_dr dr_ops_aux separate_script)
   # assumes tools have been built: enforced at top level
   set(dr_ops ${dr_test_ops} ${dr_ops_aux} ${TEST_OPTIONS})
@@ -6040,7 +6044,7 @@ if (NOT ARM) # FIXME i#1551: fix bugs on ARM
   endif ()
 endif (NOT ARM)
 
-if (X86 OR AARCH64) # FIXME i#1551: port asm to ARM
+if (X86 OR AARCH64 AND NOT (APPLE AND AARCH64)) # FIXME i#1551: port asm to ARM
   tobuild(security-common.selfmod2 security-common/selfmod2.c)
   tochcon(security-common.selfmod2 textrel_shlib_t)
 
@@ -6059,7 +6063,7 @@ if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   endif ()
 endif (X86)
 
-if (X64 AND NOT AARCH64 AND NOT RISCV64) # FIXME i#1569: get working on AArch64
+if (X64 AND NOT AARCH64 AND NOT RISCV64 AND NOT (APPLE AND AARCH64)) # FIXME i#1569: get working on AArch64
   # Reachability tests
 
   # Floating DR lib.  We'd have to build a 2nd dynamorio.dll on Windows so
