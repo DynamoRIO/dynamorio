@@ -242,4 +242,10 @@ typedef kernel_sigcontext_t sigcontext_t;
 #    define SC_RETURN_REG SC_A0
 #endif /* X86/ARM */
 
+#if defined(MACOS) && defined(AARCH64)
+    #define INITIALIZER_ATTRIBUTES __attribute__((constructor))
+#else
+    #define INITIALIZER_ATTRIBUTES
+#endif
+
 #endif /* _OS_PUBLIC_H_ 1 */
