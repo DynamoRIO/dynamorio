@@ -243,9 +243,9 @@ typedef kernel_sigcontext_t sigcontext_t;
 #endif /* X86/ARM */
 
 #if defined(MACOS) && defined(AARCH64)
-    #define INITIALIZER_ATTRIBUTES __attribute__((constructor))
+#    define INITIALIZER_ATTRIBUTES __attribute__((constructor))
 #else
-    #define INITIALIZER_ATTRIBUTES
+#    define INITIALIZER_ATTRIBUTES
 #endif
 
 #endif /* _OS_PUBLIC_H_ 1 */
