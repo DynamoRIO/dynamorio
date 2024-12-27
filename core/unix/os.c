@@ -784,7 +784,7 @@ static init_fn_t
 #else
 /* If we're a normal shared object, then we override _init.
  */
-IF_MACOS(__attribute__((constructor))) int _init(int argc, char **argv, char **envp)
+int _init(int argc, char **argv, char **envp)
 {
 #    ifdef ANDROID
     /* i#1862: the Android loader passes *nothing* to lib init routines.  We

@@ -137,14 +137,13 @@ take_over(const char *pname)
     return true;
 }
 
-IF_MACOS(__attribute__((constructor)))
 int
 #if INIT_BEFORE_LIBC
-    _init(int argc, char *arg0, ...)
+_init(int argc, char *arg0, ...)
 {
     char **argv = &arg0, **envp = &argv[argc + 1];
 #else
-    _init(int argc, char **argv, char **envp)
+_init(int argc, char **argv, char **envp)
 {
 #endif
     const char *name;
