@@ -137,7 +137,7 @@ take_over(const char *pname)
     return true;
 }
 
-__attribute__((constructor)) int
+IF_MACOS(__attribute__((constructor))) int
 #if INIT_BEFORE_LIBC
 _init(int argc, char *arg0, ...)
 {
