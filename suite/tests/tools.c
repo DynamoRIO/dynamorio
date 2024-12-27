@@ -509,7 +509,7 @@ dump_ucontext(ucontext_t *ucxt, bool is_sve, int vl_bytes)
 #            ifdef MACOS
     assert(false); /* NYI */
 #            else
-    struct _aarch64_ctx *head = (struct _aarch64_ctx *)(ucxt->uc_mcontext64.__reserved);
+    struct _aarch64_ctx *head = (struct _aarch64_ctx *)(ucxt->uc_mcontext.RESERVED);
     assert(head->magic == FPSIMD_MAGIC);
     assert(head->size == sizeof(struct fpsimd_context));
 
