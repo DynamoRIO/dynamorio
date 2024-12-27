@@ -7711,6 +7711,9 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
 
     kernel_ucontext_t *uc = get_ucontext_from_rt_frame(frame);
 #if defined(MACOS)
+    /* Since SIGCXT_FROM_UCXT just accesses the uc->uc_mcontext ptr field on
+     * macOS, sc will be NULL below if we do not initialize uc_mcontext first
+     */
     uc->IF_X64_ELSE(uc_mcontext64, uc_mcontext) = (void *)&frame->mc;
 #endif
     sigcontext_t *sc = SIGCXT_FROM_UCXT(uc);

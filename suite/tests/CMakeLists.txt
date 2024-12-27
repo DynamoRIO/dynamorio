@@ -1243,6 +1243,9 @@ if (CMAKE_CROSSCOMPILING AND DEFINED CMAKE_FIND_ROOT_PATH)
 endif ()
 
 if (APPLE AND AARCH64)
+  # On macOS + arm64 tests will randomly fail depending on
+  # whether mmap returns a region satisfying 32-bit reachability constraints.
+  # Reducing the vm_size appears to eliminate this issue.
   set(dr_test_ops -vm_size 500M ${dr_test_ops})
 endif ()
 
@@ -6044,7 +6047,9 @@ if (NOT ARM) # FIXME i#1551: fix bugs on ARM
   endif ()
 endif (NOT ARM)
 
-if (X86 OR AARCH64 AND NOT (APPLE AND AARCH64)) # FIXME i#1551: port asm to ARM
+# FIXME i#1551: port asm to ARM
+# FIXME i#xxx: selfmod tests fail to build on macOS + ARM64
+if (X86 OR AARCH64 AND NOT (APPLE AND AARCH64))
   tobuild(security-common.selfmod2 security-common/selfmod2.c)
   tochcon(security-common.selfmod2 textrel_shlib_t)
 
@@ -6063,7 +6068,7 @@ if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   endif ()
 endif (X86)
 
-if (X64 AND NOT AARCH64 AND NOT RISCV64 AND NOT (APPLE AND AARCH64)) # FIXME i#1569: get working on AArch64
+if (X64 AND NOT AARCH64 AND NOT RISCV64) # FIXME i#1569: get working on AArch64
   # Reachability tests
 
   # Floating DR lib.  We'd have to build a 2nd dynamorio.dll on Windows so
