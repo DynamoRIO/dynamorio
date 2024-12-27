@@ -784,8 +784,7 @@ static init_fn_t
 #else
 /* If we're a normal shared object, then we override _init.
  */
-IF_MACOS(__attribute__((constructor))) int
-_init(int argc, char **argv, char **envp)
+IF_MACOS(__attribute__((constructor))) int _init(int argc, char **argv, char **envp)
 {
 #    ifdef ANDROID
     /* i#1862: the Android loader passes *nothing* to lib init routines.  We
@@ -1143,7 +1142,8 @@ get_application_name_helper(bool ignore_cache, bool full_path)
 #else
             /* OSX kernel puts full app exec path above envp */
             char *c, **env = our_environ;
-            ASSERT(our_environ != NULL && "our_environ is not set in get_application_name_helper");
+            ASSERT(our_environ != NULL &&
+                   "our_environ is not set in get_application_name_helper");
             do {
                 env++;
             } while (*env != NULL);
