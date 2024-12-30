@@ -805,9 +805,9 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      x0, x30             /* Replace first argument with return address. */
         br       x9                  /* Tailcall to function pointer. */
 #elif defined(RISCV64)
-        mv       t0, a0
-        mv       a0, ra
-        jr       t0
+        mv       t0, a0              /* Move function pointer to scratch register. */
+        mv       a0, ra              /* Replace first argument with return address. */
+        jr       t0                  /* Tailcall to function pointer. */
 #else
 # error NYI
 #endif
