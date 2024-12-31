@@ -215,3 +215,67 @@ OPCODE(vpsadbw_zhizhizhi, vpsadbw, vpsadbw, X64_ONLY, REGARG(ZMM16), REGARG(ZMM1
        REGARG(ZMM31))
 OPCODE(vpsadbw_zhizhild, vpsadbw, vpsadbw, X64_ONLY, REGARG(ZMM16), REGARG(ZMM31),
        MEMARG(OPSZ_64))
+OPCODE(vaesenc_evex_xhixhixhi, vaesenc, vaesenc, X64_ONLY, REGARG(XMM16), REGARG(XMM17),
+       REGARG(XMM18))
+OPCODE(vaesenc_evex_xhixhild, vaesenc, vaesenc, X64_ONLY, REGARG(XMM16), REGARG(XMM17),
+       MEMARG(OPSZ_16))
+OPCODE(vaesenc_evex_yhiyhiyhi, vaesenc, vaesenc, X64_ONLY, REGARG(YMM16), REGARG(YMM17),
+       REGARG(YMM18))
+OPCODE(vaesenc_evex_yhiyhild, vaesenc, vaesenc, X64_ONLY, REGARG(YMM16), REGARG(YMM17),
+       MEMARG(OPSZ_32))
+OPCODE(vaesenc_evex_zlozlozlo, vaesenc, vaesenc, 0, REGARG(ZMM0), REGARG(ZMM1),
+       REGARG(ZMM2))
+OPCODE(vaesenc_evex_zlozlold, vaesenc, vaesenc, 0, REGARG(ZMM0), REGARG(ZMM1),
+       MEMARG(OPSZ_64))
+OPCODE(vaesenc_evex_zhizhizhi, vaesenc, vaesenc, X64_ONLY, REGARG(ZMM16), REGARG(ZMM17),
+       REGARG(ZMM18))
+OPCODE(vaesenc_evex_zhizhild, vaesenc, vaesenc, X64_ONLY, REGARG(ZMM16), REGARG(ZMM17),
+       MEMARG(OPSZ_64))
+OPCODE(vaesenclast_evex_xhixhixhi, vaesenclast, vaesenclast, X64_ONLY, REGARG(XMM16),
+       REGARG(XMM17), REGARG(XMM18))
+OPCODE(vaesenclast_evex_xhixhild, vaesenclast, vaesenclast, X64_ONLY, REGARG(XMM16),
+       REGARG(XMM17), MEMARG(OPSZ_16))
+OPCODE(vaesenclast_evex_yhiyhiyhi, vaesenclast, vaesenclast, X64_ONLY, REGARG(YMM16),
+       REGARG(YMM17), REGARG(YMM15))
+OPCODE(vaesenclast_evex_yhiyhild, vaesenclast, vaesenclast, X64_ONLY, REGARG(YMM16),
+       REGARG(YMM17), MEMARG(OPSZ_32))
+OPCODE(vaesenclast_evex_zlozlozlo, vaesenclast, vaesenclast, 0, REGARG(ZMM0),
+       REGARG(ZMM1), REGARG(ZMM2))
+OPCODE(vaesenclast_evex_zlozlold, vaesenclast, vaesenclast, 0, REGARG(ZMM0), REGARG(ZMM1),
+       MEMARG(OPSZ_64))
+OPCODE(vaesenclast_evex_zhizhizhi, vaesenclast, vaesenclast, X64_ONLY, REGARG(ZMM16),
+       REGARG(ZMM17), REGARG(ZMM15))
+OPCODE(vaesenclast_evex_zhizhild, vaesenclast, vaesenclast, X64_ONLY, REGARG(ZMM16),
+       REGARG(ZMM17), MEMARG(OPSZ_64))
+OPCODE(vaesdec_evex_xhixhixlo, vaesdec, vaesdec, X64_ONLY, REGARG(XMM16), REGARG(XMM17),
+       REGARG(XMM0))
+OPCODE(vaesdec_evex_xhixhild, vaesdec, vaesdec, X64_ONLY, REGARG(XMM16), REGARG(XMM17),
+       MEMARG(OPSZ_16))
+OPCODE(vaesdec_evex_yhiyhiylo, vaesdec, vaesdec, X64_ONLY, REGARG(YMM16), REGARG(YMM17),
+       REGARG(YMM0))
+OPCODE(vaesdec_evex_yhiyhild, vaesdec, vaesdec, X64_ONLY, REGARG(YMM16), REGARG(YMM17),
+       MEMARG(OPSZ_32))
+OPCODE(vaesdec_evex_zlozlozlo, vaesdec, vaesdec, 0, REGARG(ZMM0), REGARG(ZMM1),
+       REGARG(ZMM2))
+OPCODE(vaesdec_evex_zlozlold, vaesdec, vaesdec, 0, REGARG(ZMM0), REGARG(ZMM1),
+       MEMARG(OPSZ_64))
+OPCODE(vaesdec_evex_zhizhizlo, vaesdec, vaesdec, X64_ONLY, REGARG(ZMM16), REGARG(ZMM17),
+       REGARG(ZMM15))
+OPCODE(vaesdec_evex_zhizhild, vaesdec, vaesdec, X64_ONLY, REGARG(ZMM8), REGARG(ZMM9),
+       MEMARG(OPSZ_64))
+OPCODE(vaesdeclast_evex_xhixhixhi, vaesdeclast, vaesdeclast, X64_ONLY, REGARG(XMM16),
+       REGARG(XMM17), REGARG(XMM18))
+OPCODE(vaesdeclast_evex_xhixhild, vaesdeclast, vaesdeclast, X64_ONLY, REGARG(XMM16),
+       REGARG(XMM17), MEMARG(OPSZ_16))
+OPCODE(vaesdeclast_evex_yhiyhiyhi, vaesdeclast, vaesdeclast, X64_ONLY, REGARG(YMM16),
+       REGARG(YMM17), REGARG(YMM31))
+OPCODE(vaesdeclast_evex_yhiyhild, vaesdeclast, vaesdeclast, X64_ONLY, REGARG(YMM16),
+       REGARG(YMM17), MEMARG(OPSZ_32))
+OPCODE(vaesdeclast_evex_zlozlozlo, vaesdeclast, vaesdeclast, 0, REGARG(ZMM0),
+       REGARG(ZMM1), REGARG(ZMM2))
+OPCODE(vaesdeclast_evex_zlozlold, vaesdeclast, vaesdeclast, 0, REGARG(ZMM0), REGARG(ZMM1),
+       MEMARG(OPSZ_64))
+OPCODE(vaesdeclast_evex_zhizhizhi, vaesdeclast, vaesdeclast, X64_ONLY, REGARG(ZMM16),
+       REGARG(ZMM17), REGARG(ZMM31))
+OPCODE(vaesdeclast_evex_zhizhild, vaesdeclast, vaesdeclast, X64_ONLY, REGARG(ZMM16),
+       REGARG(ZMM17), MEMARG(OPSZ_64))

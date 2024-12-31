@@ -2999,6 +2999,27 @@ instr_uses_fp_reg(instr_t *instr)
     return false;
 }
 
+opnd_size_t
+instr_get_operation_size(instr_t *instr)
+{
+    /* Only DR_ISA_REGDEPS instructions can have an operation_size.
+     */
+    if (instr_get_isa_mode(instr) == DR_ISA_REGDEPS)
+        return instr->operation_size;
+
+    return OPSZ_NA;
+}
+
+void
+instr_set_operation_size(instr_t *instr, opnd_size_t operation_size)
+{
+    CLIENT_ASSERT(instr_get_isa_mode(instr) != DR_ISA_REGDEPS,
+                  "instr_set_operation_size: only DR_ISA_REGDEPS instructions can have "
+                  "an operation_size");
+    instr->operation_size = operation_size;
+    return;
+}
+
 void
 instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
                              instr_t *instr_regdeps_isa)
@@ -3097,10 +3118,14 @@ instr_convert_to_isa_regdeps(void *drcontext, instr_t *instr_real_isa,
     instr_set_category(instr_regdeps_isa, instr_get_category(instr_real_isa));
 
     /* Convert max_src_opnd_size_bytes from number of bytes to opnd_size_t (which holds
-     * OPSZ_ enum values).
+     * OPSZ_ enum values). If we have no operands, operation_size is OPSZ_0, same as a
+     * decoded DR_ISA_REGDEPS instruction.
      */
     opnd_size_t max_opnd_size = opnd_size_from_bytes(max_src_opnd_size_bytes);
-    instr_regdeps_isa->operation_size = max_opnd_size;
+    if (num_dsts + num_srcs > 0)
+        instr_regdeps_isa->operation_size = max_opnd_size;
+    else
+        instr_regdeps_isa->operation_size = OPSZ_0;
 
     /* Set the source and destination register operands for the converted instruction.
      */

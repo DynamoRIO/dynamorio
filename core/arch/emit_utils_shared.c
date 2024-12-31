@@ -4980,8 +4980,8 @@ emit_fcache_enter_gonative(dcontext_t *dcontext, generated_code_t *code, byte *p
     append_call_exit_dr_hook(dcontext, &ilist, absolute, shared);
 
     /* restore the original register state */
-    append_restore_xflags(dcontext, &ilist, absolute);
     append_restore_simd_reg(dcontext, &ilist, absolute);
+    append_restore_xflags(dcontext, &ilist, absolute);
     append_restore_gpr(dcontext, &ilist, absolute);
 
     /* We need to restore the stolen reg, but we have no scratch registers.
