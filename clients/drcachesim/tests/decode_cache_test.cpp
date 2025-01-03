@@ -50,7 +50,7 @@ class test_decode_info_t : public decode_info_base_t {
 public:
     bool is_nop_ = false;
     bool is_ret_ = false;
-    bool is_ipt_ = false;
+    bool is_interrupt_ = false;
     bool decode_info_set_ = false;
 
 private:
@@ -63,7 +63,7 @@ private:
         assert(!decode_info_set_);
         is_nop_ = instr_is_nop(instr);
         is_ret_ = instr_is_return(instr);
-        is_ipt_ = instr_is_interrupt(instr);
+        is_interrupt_ = instr_is_interrupt(instr);
         decode_info_set_ = true;
     }
 };
@@ -74,16 +74,16 @@ check_decode_caching(void *drcontext, bool persist_instrs, bool use_module_mappe
     static constexpr addr_t BASE_ADDR = 0x123450;
     instr_t *nop = XINST_CREATE_nop(drcontext);
     instr_t *ret = XINST_CREATE_return(drcontext);
-    instr_t *ipt = XINST_CREATE_interrupt(drcontext, OPND_CREATE_INT8(10));
+    instr_t *interrupt = XINST_CREATE_interrupt(drcontext, OPND_CREATE_INT8(10));
     instrlist_t *ilist = instrlist_create(drcontext);
     instrlist_append(ilist, nop);
     instrlist_append(ilist, ret);
-    instrlist_append(ilist, ipt);
+    instrlist_append(ilist, interrupt);
     std::vector<memref_with_IR_t> memref_setup = {
         { gen_instr(TID_A), nop },
         { gen_instr(TID_A), ret },
         { gen_instr(TID_A), nop },
-        { gen_instr(TID_A), ipt },
+        { gen_instr(TID_A), interrupt },
     };
     std::vector<memref_t> memrefs;
     instrlist_t *ilist_for_test_decode_cache = nullptr;
@@ -198,17 +198,19 @@ check_decode_caching(void *drcontext, bool persist_instrs, bool use_module_mappe
             err = decode_cache.add_decode_info(memrefs[3].instr, cached_decode_info);
             if (err != "")
                 return err;
-            test_decode_info_t *decode_info_ipt = decode_cache.get_decode_info(
+            test_decode_info_t *decode_info_interrupt = decode_cache.get_decode_info(
                 reinterpret_cast<app_pc>(memrefs[3].instr.addr));
-            if (decode_info_ipt == nullptr || decode_info_ipt != cached_decode_info ||
-                !decode_info_ipt->is_valid() || !decode_info_ipt->is_ipt_ ||
-                decode_info_ipt->is_ret_) {
-                return "Unexpected test_decode_info_t for ipt instr";
+            if (decode_info_interrupt == nullptr ||
+                decode_info_interrupt != cached_decode_info ||
+                !decode_info_interrupt->is_valid() ||
+                !decode_info_interrupt->is_interrupt_ || decode_info_interrupt->is_ret_) {
+                return "Unexpected test_decode_info_t for interrupt instr";
             }
             decode_info_ret = decode_cache.get_decode_info(
                 reinterpret_cast<app_pc>(memrefs[1].instr.addr));
-            if (decode_info_ret != decode_info_ipt) {
-                return "Expected ret and ipt memref pcs to return the same decode info";
+            if (decode_info_ret != decode_info_interrupt) {
+                return "Expected ret and interrupt memref pcs to return the same decode "
+                       "info";
             }
         }
 

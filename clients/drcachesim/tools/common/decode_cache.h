@@ -59,9 +59,10 @@ public:
      * Sets the decode info for the provided \p instr which was allocated using the
      * provided \p dcontext for the provided \p memref_instr. This is done using
      * the set_decode_info_derived() provided by the derived class, which also takes
-     * ownership of the provided #instr_t if used with a #decode_cache_t object
-     * constructed with \p persist_decoded_instrs_ set to true. Additionally,
-     * this does other required bookkeeping.
+     * ownership of the provided #instr_t if used with a
+     * #dynamorio::drmemtrace::decode_cache_t object constructed with
+     * \p persist_decoded_instrs_ set to true. Additionally, this does other required
+     * bookkeeping.
      */
     void
     set_decode_info(void *dcontext,
@@ -70,10 +71,11 @@ public:
 
     /**
      * Indicates whether set_decode_info() was invoked on the object with a valid
-     * decoded #instr_t, typically by #decode_cache_t. It won't be valid if the
-     * object is default-constructed without a subsequent set_decode_info() call.
-     * When used with #decode_cache_t, this indicates whether an invalid
-     * instruction was observed at the processed instr record.
+     * decoded #instr_t, typically by #dynamorio::drmemtrace::decode_cache_t. It won't
+     * be valid if the object is default-constructed without a subsequent
+     * set_decode_info() call. When used with #dynamorio::drmemtrace::decode_cache_t,
+     * this indicates whether an invalid instruction was observed at the processed
+     * instr record.
      */
     bool
     is_valid() const;
@@ -81,18 +83,19 @@ public:
 private:
     /**
      * Sets the decoding info fields as required by the derived class, based on the
-     * provided instr_t which was allocated using the provided opaque \p dcontext
+     * provided #instr_t which was allocated using the provided opaque \p dcontext
      * for the provided \p memref_instr. Derived classes must implement this virtual
      * function. Note that this cannot be invoked directly as it is private, but
      * only through set_decode_info() which does other required bookkeeping.
      *
-     * This is meant for use with #decode_cache_t, which will invoke
-     * set_decode_info() for each new decoded instruction.
+     * This is meant for use with #dynamorio::drmemtrace::decode_cache_t, which will
+     * invoke set_decode_info() for each new decoded instruction.
      *
      * The responsibility for invoking instr_destroy() on the provided \p instr
      * lies with this #decode_info_base_t object, unless
-     * #decode_cache_t was constructed with \p persist_decoded_instrs_
-     * set to false, in which case no heap allocation takes place.
+     * #dynamorio::drmemtrace::decode_cache_t was constructed with
+     * \p persist_decoded_instrs_ set to false, in which case no heap allocation
+     * takes place.
      */
     virtual void
     set_decode_info_derived(void *dcontext,
@@ -104,8 +107,8 @@ private:
 
 /**
  * Decode info including the full decoded #instr_t. This should be used with a
- * #decode_cache_t constructed with \p persist_decoded_instrs_ set to
- * true.
+ * #dynamorio::drmemtrace::decode_cache_t constructed with
+ * \p persist_decoded_instrs_ set to true.
  */
 class instr_decode_info_t : public decode_info_base_t {
 public:
@@ -126,10 +129,10 @@ private:
 };
 
 /**
- * Base class for #decode_cache_t.
+ * Base class for #dynamorio::drmemtrace::decode_cache_t.
  *
  * This is used to allow sharing the static data members among all template instances
- * of #decode_cache_t.
+ * of #dynamorio::drmemtrace::decode_cache_t.
  */
 class decode_cache_base_t {
 protected:
@@ -215,12 +218,13 @@ private:
 
 /**
  * A cache to store decode info for instructions per observed app pc. The template arg
- * DecodeInfo is a class derived from #decode_info_base_t which implements the
- * set_decode_info_derived() function that derives the required decode info from an
- * #instr_t object when invoked by #decode_cache_t. This class handles the
- * heavy lifting of actually producing the decoded #instr_t. The decoded #instr_t
- * may be made to persist beyond the set_decode_info() calls by constructing the
- * #decode_cache_t object with \p persist_decoded_instrs_ set to true.
+ * DecodeInfo is a class derived from #dynamorio::drmemtrace::decode_info_base_t which
+ * implements the set_decode_info_derived() function that derives the required decode
+ * info from an #instr_t object when invoked by #dynamorio::drmemtrace::decode_cache_t.
+ * This class handles the heavy lifting of actually producing the decoded #instr_t. The
+ * decoded #instr_t may be made to persist beyond the set_decode_info() calls by
+ * constructing the #dynamorio::drmemtrace::decode_cache_t object with
+ * \p persist_decoded_instrs_ set to true.
  *
  * Usage note: after constructing an object, init() must be called.
  */
@@ -264,10 +268,10 @@ public:
      *
      * Uses the embedded encodings in the trace or, if init() was invoked with
      * a module file path, the encodings from the instantiated
-     * #module_mapper_t.
+     * #dynamorio::drmemtrace::module_mapper_t.
      *
      * If there is a decoding failure, the default-constructed DecodeInfo that
-     * returns is_valid() = false will be added to the cache.
+     * returns is_valid() == false will be added to the cache.
      *
      * Returns a pointer to whatever DecodeInfo is present in the cache in the
      * \p cached_decode_info reference pointer parameter, or a nullptr if none
@@ -344,27 +348,30 @@ public:
     /**
      * Performs initialization tasks such as verifying whether the given trace
      * indeed has embedded encodings or not, and initializing the
-     * #module_mapper_t if the module path is provided.
+     * #dynamorio::drmemtrace::module_mapper_t if the module path is provided.
      *
      * It is important to note that the trace filetype may be obtained using the
-     * get_filetype() API on a #memtrace_stream_t. However, instances of
-     * #memtrace_stream_t have the filetype available at init time (before the
-     * #TRACE_MARKER_TYPE_FILETYPE is actually returned by the stream) only
-     * for offline analysis. In the online analysis case, the user would need to
-     * call this API after init time when the #TRACE_MARKER_TYPE_FILETYPE marker
-     * is seen (which is fine as it occurs before any instr record).
+     * get_filetype() API on a #dynamorio::drmemtrace::memtrace_stream_t. However,
+     * instances of #dynamorio::drmemtrace::memtrace_stream_t have the filetype
+     * available at init time (before the #TRACE_MARKER_TYPE_FILETYPE is actually
+     * returned by the stream) only for offline analysis. In the online analysis
+     * case, the user would need to call this API after init time when the
+     * #TRACE_MARKER_TYPE_FILETYPE marker is seen (which is fine as it occurs
+     * before any instr record). For tools intended for both offline and online
+     * analysis, following just the latter strategy would work fine.
      *
      * If the \p module_file_path parameter is not empty, it instructs the
-     * #decode_cache_t object that it should look for the instr encodings in the
-     * application binaries using a #module_mapper_t. A #module_mapper_t is
-     * instantiated only one time and reused for all objects
-     * of #decode_cache_t (of any template type). The user must provide a valid
-     * \p module_file_path if decoding instructions from a trace that does not
-     * have embedded instruction encodings in it, as indicated by absence of
-     * the #OFFLINE_FILE_TYPE_ENCODINGS bit in the #TRACE_MARKER_TYPE_FILETYPE
-     * marker. The user may provide a \p module_file_path also if they
-     * deliberately need to use the module mapper instead of the embedded
-     * encodings.
+     * #dynamorio::drmemtrace::decode_cache_t object that it should look for the
+     * instr encodings in the application binaries using a
+     * #dynamorio::drmemtrace::module_mapper_t. A
+     * #dynamorio::drmemtrace::module_mapper_t is instantiated only one time and
+     * reused for all objects of #dynamorio::drmemtrace::decode_cache_t (of any
+     * template type). The user must provide a valid \p module_file_path if decoding
+     * instructions from a trace that does not have embedded instruction encodings
+     * in it, as indicated by absence of the #OFFLINE_FILE_TYPE_ENCODINGS bit in the
+     * #TRACE_MARKER_TYPE_FILETYPE marker. The user may provide a
+     * \p module_file_path also if they deliberately need to use the module mapper
+     * instead of the embedded encodings.
      *
      * If the provided \p module_file_path is empty, the cache object uses
      * the encodings embedded in the trace records.
@@ -376,9 +383,10 @@ public:
         // If we are dealing with a regdeps trace, we need to set the dcontext
         // ISA mode to the correct synthetic ISA (i.e., DR_ISA_REGDEPS).
         if (TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, filetype)) {
-            // Because isa_mode in dcontext is a global resource, we guard its access to
-            // avoid data races (even though this is a benign data race, as all threads
-            // are writing the same isa_mode value).
+            // Because the dcontext used in analysis tools is a shared global resource,
+            // we guard its access to avoid data races. Though note that writing to the
+            // isa_mode is a benign data race, as all threads are writing the same
+            // isa_mode value.
             std::lock_guard<std::mutex> guard(dcontext_mutex_);
             dr_isa_mode_t isa_mode = dr_get_isa_mode(dcontext_);
             if (isa_mode != DR_ISA_REGDEPS)
@@ -426,7 +434,8 @@ private:
 };
 
 /**
- *  A #decode_cache_t for testing which uses a #test_module_mapper_t.
+ * A #dynamorio::drmemtrace::decode_cache_t for testing which uses a
+ * #dynamorio::drmemtrace::test_module_mapper_t.
  */
 template <class DecodeInfo>
 class test_decode_cache_t : public decode_cache_t<DecodeInfo> {

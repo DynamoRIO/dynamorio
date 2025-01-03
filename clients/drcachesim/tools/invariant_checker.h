@@ -273,6 +273,9 @@ protected:
     void
     check_regdeps_invariants(per_shard_t *shard, const memref_t &memref);
 
+    // Creates and initializes a decode cache object in the given shard.
+    bool
+    make_and_init_decode_cache(per_shard_t *shard);
 #ifdef X86
     // Whether the expected write entry count check should be relaxed for the kernel
     // part of the trace.

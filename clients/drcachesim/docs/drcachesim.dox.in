@@ -142,6 +142,13 @@ copies of the binaries and reading the raw bytes for each instruction
 in order to obtain the opcode and full operand information.
 See also \ref sec_drcachesim_core.
 
+drmemtrace analysis tools may use the
+#dynamorio::drmemtrace::decode_cache_t library, which handles the
+heavy-lifting of decoding the trace instructions using either the embedded
+encodings in the trace or the encodings from the app binaries, and managing
+their cache (including invalidating stale encodings based on the
+`encoding_is_new` field for embedded encodings).
+
 Whether conditional branches are taken or untaken is indicated by the
 instruction types #dynamorio::drmemtrace::TRACE_TYPE_INSTR_TAKEN_JUMP
 and #dynamorio::drmemtrace::TRACE_TYPE_INSTR_UNTAKEN_JUMP.  The target
