@@ -124,9 +124,20 @@ Dr. Memory Framework (DRMF) in the same package as DynamoRIO.  DRMF
 provides the umbra, drsyscall, and drsymcache Extensions for use by
 clients.
 
-The changes between version \DR_VERSION and 11.1.0 include the following compatibility
+The changes between version \DR_VERSION and 11.2.0 include the following compatibility
 changes:
  - No compatibility changes yet.
+
+Further non-compatibility-affecting changes include:
+ - No changes yet.
+
+**************************************************
+<hr>
+
+The changes between version 11.2.0 and 11.1.0 include the following compatibility
+changes:
+ - Added #dynamorio::drmemtrace::TRACE_ENTRY_VERSION_RETIRED_INSTRUCTIONS_ONLY to increase the
+   trace version for drmemtraces with uncompleted instructions removed.
 
 Further non-compatibility-affecting changes include:
  - Added instr_get_operation_size() and instr_set_operation_size() APIs for
@@ -142,9 +153,10 @@ changes:
    fault are removed. A new marker
    #dynamorio::drmemtrace::TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION was added
    to indicate an uncompleted instruction was removed. The value of the marker
-   is the encoding of the removed instruction up to a pointer's length. Added
-   #OFFLINE_FILE_VERSION_RETIRED_INSTRUCTIONS_ONLY to increase the trace version
-   for drmemtraces with uncompleted instructions removed.
+   is the encoding of the removed instruction up to a pointer's length.
+   OFFLINE_FILE_VERSION_RETIRED_INSTRUCTIONS_ONLY was added by mistake and it was changed to
+   #OFFLINE_FILE_VERSION_NO_OP.
+
  - Moved module file read logic into read_module_file() in raw2trace_shared, and
    removed raw2trace_directory_t::initialize_module_file() since the
    read_module_file() can be directly used without having to pull in the whole
