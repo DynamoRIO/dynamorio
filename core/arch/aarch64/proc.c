@@ -188,16 +188,17 @@ get_processor_specific_info(void)
 {
     memset(&cpu_info.features, 0, sizeof(cpu_info.features));
 
-#        define SET_FEAT_IF_SYSCTL_EQ(FEATURE, SYSCTL, TY, VAL)                        \
-            TY FEATURE##_tmp;                                                  \
-            size_t FEATURE##_tmp_buflen = sizeof(FEATURE##_tmp);                    \
-            if (sysctlbyname(SYSCTL, &FEATURE##_tmp, &FEATURE##_tmp_buflen, NULL, 0) == -1) {  \
-                ASSERT_CURIOSITY(false && SYSCTL " sysctl failed");          \
-                SYSLOG_INTERNAL_WARNING("Failed to read " SYSCTL " sysctl"); \
-            } else if (FEATURE##_tmp_buflen == sizeof(FEATURE##_tmp)) {                                        \
-                if (FEATURE##_tmp == VAL) {                                              \
-                    proc_set_feature(FEATURE, true);                         \
-                }                                                            \
+#        define SET_FEAT_IF_SYSCTL_EQ(FEATURE, SYSCTL, TY, VAL)                         \
+            TY FEATURE##_tmp;                                                           \
+            size_t FEATURE##_tmp_buflen = sizeof(FEATURE##_tmp);                        \
+            if (sysctlbyname(SYSCTL, &FEATURE##_tmp, &FEATURE##_tmp_buflen, NULL, 0) == \
+                -1) {                                                                   \
+                ASSERT_CURIOSITY(false && SYSCTL " sysctl failed");                     \
+                SYSLOG_INTERNAL_WARNING("Failed to read " SYSCTL " sysctl");            \
+            } else if (FEATURE##_tmp_buflen == sizeof(FEATURE##_tmp)) {                 \
+                if (FEATURE##_tmp == VAL) {                                             \
+                    proc_set_feature(FEATURE, true);                                    \
+                }                                                                       \
             }
 
     SET_FEAT_IF_SYSCTL_EQ(FEATURE_PAUTH, "hw.optional.arm.FEAT_PAuth", uint32_t, 1);
