@@ -118,7 +118,7 @@ read_feature_regs(uint64 isa_features[])
         : "x0");
 }
 
-#    if !defined(MACOS) // TODO i#5383: Get this working on Mac. */
+#    if !defined(MACOS)
 static void
 get_processor_specific_info(void)
 {
@@ -178,32 +178,30 @@ get_processor_specific_info(void)
     dr_set_vector_length(256);
 #        endif
 }
-#    else /* !defined(MACOS) */
+#    else /* defined(MACOS) */
 
-/* On macOS, MRS appears to be restricted. We'll use sysctl's instead. */
+/* On macOS, MRS appears to be restricted. We'll use sysctl's instead.
+ * XXX i#5383: Add remaining features from other sysctls
+ */
 static void
 get_processor_specific_info(void)
 {
     memset(&cpu_info.features, 0, sizeof(cpu_info.features));
 
-    /* get FEATURE_PTRAUTH from sysctl hw.optional.arm.FEAT_PAuth */
-
-    char buf[32];
-    size_t buflen = 32;
-
-#        define SET_FEAT_FROM_SYSCTL(FEATURE, SYSCTL)                        \
-            if (sysctlbyname(SYSCTL, &buf, &buflen, NULL, 0) == -1) {        \
+#        define SET_FEAT_IF_SYSCTL_EQ(FEATURE, SYSCTL, TY, VAL)                        \
+            TY FEATURE##_tmp;                                                  \
+            size_t FEATURE##_tmp_buflen = sizeof(FEATURE##_tmp);                    \
+            if (sysctlbyname(SYSCTL, &FEATURE##_tmp, &FEATURE##_tmp_buflen, NULL, 0) == -1) {  \
                 ASSERT_CURIOSITY(false && SYSCTL " sysctl failed");          \
                 SYSLOG_INTERNAL_WARNING("Failed to read " SYSCTL " sysctl"); \
-            } else if (buflen == 4) {                                        \
-                uint32_t val = *(uint32_t *)buf;                             \
-                if (val == 1) {                                              \
+            } else if (FEATURE##_tmp_buflen == sizeof(FEATURE##_tmp)) {                                        \
+                if (FEATURE##_tmp == VAL) {                                              \
                     proc_set_feature(FEATURE, true);                         \
                 }                                                            \
             }
 
-    SET_FEAT_FROM_SYSCTL(FEATURE_PAUTH, "hw.optional.arm.FEAT_PAuth");
-    SET_FEAT_FROM_SYSCTL(FEATURE_FPAC, "hw.optional.arm.FEAT_FPAC");
+    SET_FEAT_IF_SYSCTL_EQ(FEATURE_PAUTH, "hw.optional.arm.FEAT_PAuth", uint32_t, 1);
+    SET_FEAT_IF_SYSCTL_EQ(FEATURE_FPAC, "hw.optional.arm.FEAT_FPAC", uint32_t, 1);
 }
 #    endif
 
