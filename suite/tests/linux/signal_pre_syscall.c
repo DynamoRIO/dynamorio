@@ -48,8 +48,8 @@
 void
 syscall_wrapper(volatile int *);
 
-static volatile int flag1;
-static volatile int flag2;
+static volatile int flag_src;
+static volatile int flag_dst;
 
 void
 fail(const char *s)
@@ -64,33 +64,34 @@ fail(const char *s)
 void
 handler(int signum, siginfo_t *info, void *ucontext)
 {
-    flag2 = flag1;
+    flag_dst = flag_src;
 }
 
 /* Return -1 if the signal happened before the critical block, 0 if it
  * happened during the critical block, or 1 if it happened after the
  * critical block or the timer was cancelled. Under DynamoRIO the
- * signal will never appear to have happened during the critical block.
+ * signal will never appear to have happened during the critical block
+ * because we delay the delivery of async signals to the end of the block.
  */
 int
-try(timer_t timer, unsigned long long ns)
+try(timer_t timer, unsigned long long timer_duration_ns)
 {
-    flag2 = 1;
-    flag1 = -1;
+    flag_dst = 1;
+    flag_src = -1;
 
     /* Set timer. */
-    struct itimerspec spec = { { 0, 0 }, { ns / 1000000000, ns % 1000000000 } };
+    struct itimerspec spec = { { 0, 0 }, { timer_duration_ns / 1000000000, timer_duration_ns % 1000000000 } };
     if (timer_settime(timer, 0, &spec, 0))
         fail("timer_settime");
 
-    syscall_wrapper(&flag1);
+    syscall_wrapper(&flag_src);
 
     /* Cancel timer. */
     struct itimerspec spec0 = { { 0, 0 }, { 0, 0 } };
     if (timer_settime(timer, 0, &spec0, 0))
         fail("timer_settime");
 
-    return flag2;
+    return flag_dst;
 }
 
 int
@@ -123,14 +124,14 @@ main(int argc, char *argv[])
     if (timer_create(CLOCK_MONOTONIC, &sevp, &timer))
         fail("timer_create");
 
-    /* Repeatedly call try(), changing ns each time. Typically we halve
-     * the step each time, which results in a binary search, but if we
-     * have had the same result several times in succession then we
-     * suspect that something has changed so we start doubling the
-     * step instead.
+    /* Repeatedly call try(), changing timer_duration_ns each time.
+     * Typically we halve the step each time, which results in a
+     * binary search, but if we have had the same result several times
+     * in succession then we suspect that something has changed so we
+     * start doubling the step instead.
      */
-    unsigned long long ns = 1024;   /* arbitrary initial value */
-    unsigned long long step = 1024; /* power of two */
+    unsigned long long timer_duration_ns = 1024; /* arbitrary initial value */
+    unsigned long long step = 1024;              /* power of two */
     int result = -1;
     unsigned long long unchanged_results = 0;
     /* A thousand tries took a few seconds and gave a few hundred hits
@@ -138,7 +139,7 @@ main(int argc, char *argv[])
      */
     for (int i = 0; i < 1000; i++) {
         int previous_result = result;
-        result = try(timer, ns);
+        result = try(timer, timer_duration_ns);
 
         /* Stop trying if the signal arrived during the critical block.
          * This never happens (or seems never to happen) under DynamoRIO.
@@ -158,14 +159,14 @@ main(int argc, char *argv[])
         else
             step = step * 2 > 0 ? step * 2 : step;
 
-        /* Adjust ns for next try. */
+        /* Adjust timer_duration_ns for next try. */
         if (result < 0)
-            ns = ns + step > ns ? ns + step : (unsigned long long)-1;
+            timer_duration_ns = timer_duration_ns + step > timer_duration_ns ? timer_duration_ns + step : (unsigned long long)-1;
         else {
-            if (ns > step)
-                ns = ns - step;
+            if (timer_duration_ns > step)
+                timer_duration_ns -= step;
             else {
-                ns = 1;
+                timer_duration_ns = 1;
                 step = 1;
             }
         }
