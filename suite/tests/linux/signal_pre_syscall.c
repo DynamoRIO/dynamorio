@@ -80,7 +80,9 @@ try(timer_t timer, unsigned long long timer_duration_ns)
     flag_src = -1;
 
     /* Set timer. */
-    struct itimerspec spec = { { 0, 0 }, { timer_duration_ns / 1000000000, timer_duration_ns % 1000000000 } };
+    struct itimerspec spec = {
+        { 0, 0 }, { timer_duration_ns / 1000000000, timer_duration_ns % 1000000000 }
+    };
     if (timer_settime(timer, 0, &spec, 0))
         fail("timer_settime");
 
@@ -161,7 +163,9 @@ main(int argc, char *argv[])
 
         /* Adjust timer_duration_ns for next try. */
         if (result < 0)
-            timer_duration_ns = timer_duration_ns + step > timer_duration_ns ? timer_duration_ns + step : (unsigned long long)-1;
+            timer_duration_ns = timer_duration_ns + step > timer_duration_ns
+                ? timer_duration_ns + step
+                : (unsigned long long)-1;
         else {
             if (timer_duration_ns > step)
                 timer_duration_ns -= step;
