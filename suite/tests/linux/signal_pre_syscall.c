@@ -99,16 +99,6 @@ try(timer_t timer, unsigned long long timer_duration_ns)
 int
 main(int argc, char *argv[])
 {
-    long seconds = 30;
-
-    /* Parse optional "seconds" argument. */
-    if (argc == 2 && argv[1][0] != '\0') {
-        char *endp;
-        long x = strtol(argv[1], &endp, 0);
-        if (*endp == '\0')
-            seconds = x;
-    }
-
     /* Set up signal handler. */
     struct sigaction act;
     memset(&act, 0, sizeof(act));
