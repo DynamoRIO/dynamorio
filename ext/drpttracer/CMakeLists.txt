@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2022 Google, Inc.    All rights reserved.
+# Copyright (c) 2022-2025 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -48,10 +48,13 @@ set(srcs
 set(srcs_static ${srcs})
 
 add_library(drpttracer SHARED ${srcs})
-configure_extension(drpttracer OFF)
+configure_extension(drpttracer OFF OFF)
 
 add_library(drpttracer_static STATIC ${srcs_static})
-configure_extension(drpttracer_static ON)
+configure_extension(drpttracer_static ON OFF)
+
+add_library(drpttracer_drstatic STATIC ${srcs_static})
+configure_extension(drpttracer_drstatic ON ON)
 
 install_ext_header(drpttracer.h)
 install_ext_header(drpttracer_shared.h)

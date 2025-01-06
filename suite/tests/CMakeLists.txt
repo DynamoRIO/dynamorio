@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2024 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2025 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2016-2023 ARM Limited.    All rights reserved.
 # **********************************************************
@@ -4638,6 +4638,10 @@ if (BUILD_CLIENTS)
         # FIXME i#2099: the weak symbol is not supported not work on Windows
         set(tool.drcacheoff.burst_client_nodr ON)
         torunonly_drcacheoff(burst_client tool.drcacheoff.burst_client "" "" "")
+
+        set(tool.drcacheoff.purestatic_nodr ON)
+        torunonly_drcacheoff(purestatic tool.drcacheoff.purestatic "" "" "")
+        set(tool.drcacheoff.purestatic_expectbase "offline-burst_client")
       endif ()
     endif ()
 
@@ -6510,6 +6514,7 @@ if (UNIX AND X86 AND CPU_AMD AND NOT DR_HOST_X64)
     code_api|tool.basic_counts
     code_api|tool.drcacheoff.altbindir
     code_api|tool.drcacheoff.burst_client
+    code_api|tool.drcacheoff.purestatic
     code_api|tool.drcacheoff.basic_counts
     code_api|tool.drcacheoff.burst_futex
     code_api|tool.drcacheoff.burst_malloc

@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2015-2024 Google, Inc.    All rights reserved.
+# Copyright (c) 2015-2025 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -98,6 +98,7 @@ if (ZLIB_FOUND)
       "until then, disabling zip output and fast seeking")
     set(zip_reader "")
     set(zlib_libs ${ZLIB_LIBRARIES})
+    set(zlib_static_libs ${ZLIB_STATIC_LIBRARIES})
     set(ZIP_FOUND OFF)
   else ()
     file(GLOB minizip_srcs "${minizip_dir}/*.c")
@@ -117,6 +118,7 @@ if (ZLIB_FOUND)
     install_exported_target(minizip ${INSTALL_CLIENTS_LIB})
     set(zip_reader reader/zipfile_file_reader.cpp)
     set(zlib_libs ${ZLIB_LIBRARIES} minizip)
+    set(zlib_static_libs ${ZLIB_STATIC_LIBRARIES} minizip)
   endif ()
 else ()
   # XXX: We could ship with a zlib for Windows, or build the third_party/zlib.
@@ -473,9 +475,13 @@ if (NOT AARCH64 AND NOT APPLE)
 endif ()
 target_link_libraries(scheduler_launcher ${zlib_libs})
 
-macro(add_drmemtrace name type)
+macro(add_drmemtrace name type static_DR)
   if (${type} STREQUAL "STATIC")
-    set(ext_sfx "_static")
+    if (${static_DR})
+      set(ext_sfx "_drstatic")
+    else ()
+      set(ext_sfx "_static")
+    endif ()
   else ()
     set(ext_sfx "")
   endif ()
@@ -519,7 +525,11 @@ macro(add_drmemtrace name type)
   endif()
 
   add_library(${name} ${type} ${drmemtrace_srcs})
-  configure_DynamoRIO_client(${name})
+  if (${static_DR})
+    configure_DynamoRIO_static_client(${name})
+  else ()
+    configure_DynamoRIO_client(${name})
+  endif()
   use_DynamoRIO_extension(${name} drmgr${ext_sfx})
   use_DynamoRIO_extension(${name} drsyms${ext_sfx})
   use_DynamoRIO_extension(${name} drwrap${ext_sfx})
@@ -536,7 +546,11 @@ macro(add_drmemtrace name type)
   if (libsnappy)
     target_link_libraries(${name} snappy)
   endif ()
-  target_link_libraries(${name} ${zlib_libs})
+  if (${static_DR})
+    target_link_libraries(${name} ${zlib_static_libs})
+  else ()
+    target_link_libraries(${name} ${zlib_libs})
+  endif ()
   if (liblz4)
     target_link_libraries(${name} lz4)
   endif ()
@@ -547,8 +561,9 @@ macro(add_drmemtrace name type)
   install_target(${name} ${INSTALL_CLIENTS_LIB})
 endmacro()
 
-add_drmemtrace(drmemtrace SHARED)
-add_drmemtrace(drmemtrace_static STATIC)
+add_drmemtrace(drmemtrace SHARED OFF)
+add_drmemtrace(drmemtrace_static STATIC OFF)
+add_drmemtrace(drmemtrace_drstatic STATIC ON)
 append_property_list(TARGET drmemtrace_static COMPILE_DEFINITIONS "DRMEMTRACE_STATIC")
 # We export drmemtrace.h to the same place as the analysis tool headers
 # for simplicity, rather than sticking it into ext/include or sthg.
@@ -1134,6 +1149,18 @@ if (BUILD_TESTS)
       target_link_libraries(tool.drcacheoff.burst_client test_helpers)
       # A nop, keep it for the future Windows support.
       add_win32_flags(tool.drcacheoff.burst_client)
+
+      # Test a pure-static-link app.
+      # We ignore "warning: Using 'dlopen' in statically linked applications requires
+      # at runtime the shared libraries from the glibc version used for linking".
+      add_executable(tool.drcacheoff.purestatic tests/burst_static.cpp)
+      append_property_list(TARGET tool.drcacheoff.purestatic
+        COMPILE_DEFINITIONS "TEST_APP_DR_CLIENT_MAIN")
+      append_property_list(TARGET tool.drcacheoff.purestatic
+        LINK_FLAGS "-static -Wl,--no-export-dynamic")
+      configure_DynamoRIO_static(tool.drcacheoff.purestatic)
+      use_DynamoRIO_static_client(tool.drcacheoff.purestatic drmemtrace_drstatic)
+      target_link_libraries(tool.drcacheoff.purestatic test_helpers)
     endif ()
 
     if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
