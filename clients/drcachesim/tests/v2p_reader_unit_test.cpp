@@ -47,7 +47,7 @@ check_v2p_info(const v2p_info_t &v2p_info)
 {
     // Change the number of entries if v2p_map_example.textproto is updated.
     // Must be equal to the number of "address_mapping {...}" blocks in the textproto.
-    constexpr size_t NUM_ENTRIES = 3;
+    constexpr size_t NUM_ENTRIES = 4;
     if (v2p_info.v2p_map.size() != NUM_ENTRIES) {
         std::cerr << "v2p_map incorrect number of entries. Expected " << NUM_ENTRIES
                   << " got " << v2p_info.v2p_map.size() << ".\n";
@@ -55,8 +55,8 @@ check_v2p_info(const v2p_info_t &v2p_info)
     }
 
     // Virtual and physical addresses must be aligned with v2p_example.textproto.
-    const std::vector<addr_t> virtual_addresses = { 0x123, 0x456, 0x789 };
-    const std::vector<addr_t> physical_addresses = { 0x3, 0x4, 0x5 };
+    const std::vector<addr_t> virtual_addresses = { 0x123, 0x456, 0x0, 0x789 };
+    const std::vector<addr_t> physical_addresses = { 0x3, 0x4, 0x6, 0x5 };
     for (int i = 0; i < virtual_addresses.size(); ++i) {
         auto key_val = v2p_info.v2p_map.find(virtual_addresses[i]);
         if (key_val != v2p_info.v2p_map.end()) {
