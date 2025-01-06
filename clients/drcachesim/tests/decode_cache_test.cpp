@@ -53,23 +53,55 @@ public:
     bool is_interrupt_ = false;
     bool decode_info_set_ = false;
 
+    static bool expect_decoded_instr_;
+
 private:
     void
     set_decode_info_derived(void *dcontext,
                             const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
-                            instr_t *instr) override
+                            instr_t *instr, app_pc decode_pc) override
     {
-        // decode_cache_t should call set_decode_info only one time per object.
-        assert(!decode_info_set_);
-        is_nop_ = instr_is_nop(instr);
-        is_ret_ = instr_is_return(instr);
-        is_interrupt_ = instr_is_interrupt(instr);
+        if (decode_info_set_) {
+            std::cerr << "decode_cache_t should call set_decode_info only one time per "
+                         "object\n";
+            assert(false);
+        }
+        instr_t my_decoded_instr;
+        instr_init(dcontext, &my_decoded_instr);
+        app_pc next_pc = decode_from_copy(dcontext, decode_pc,
+                                          reinterpret_cast<app_pc>(memref_instr.addr),
+                                          &my_decoded_instr);
+        assert(next_pc != nullptr && instr_valid(&my_decoded_instr));
+        if (expect_decoded_instr_) {
+            if (instr == nullptr) {
+                std::cerr << "Expected to see a decoded instr_t\n";
+                assert(false);
+            }
+            if (!instr_same(instr, &my_decoded_instr)) {
+                std::cerr << "Expected provided decoded instr_t and self decoded instr_t "
+                             "to be the same\n";
+                assert(false);
+            }
+        } else {
+            if (instr != nullptr) {
+                std::cerr << "Expected to see a null decoded instr\n";
+                assert(false);
+            }
+        }
+
+        is_nop_ = instr_is_nop(&my_decoded_instr);
+        is_ret_ = instr_is_return(&my_decoded_instr);
+        is_interrupt_ = instr_is_interrupt(&my_decoded_instr);
         decode_info_set_ = true;
+
+        instr_free(dcontext, &my_decoded_instr);
     }
 };
+bool test_decode_info_t::expect_decoded_instr_ = true;
 
 std::string
-check_decode_caching(void *drcontext, bool persist_instrs, bool use_module_mapper)
+check_decode_caching(void *drcontext, bool use_module_mapper, bool include_decoded_instr,
+                     bool persist_decoded_instr)
 {
     static constexpr addr_t BASE_ADDR = 0x123450;
     instr_t *nop = XINST_CREATE_nop(drcontext);
@@ -105,13 +137,15 @@ check_decode_caching(void *drcontext, bool persist_instrs, bool use_module_mappe
         return "Unexpected valid default-constructed decode info";
     }
 
-    if (persist_instrs) {
+    if (persist_decoded_instr) {
+        // This test mode needs the decoded instr_t.
+        assert(include_decoded_instr);
         // These are tests to verify the operation of instr_decode_info_t: that it stores
         // the instr_t correctly.
-        // Tests for instr_decode_cache_t are done when persist_instrs = false (see
+        // Tests for instr_decode_cache_t are done when persist_decoded_instr = false (see
         // the else part below).
         test_decode_cache_t<instr_decode_info_t> decode_cache(
-            drcontext,
+            drcontext, include_decoded_instr,
             /*persist_decoded_instr=*/true, ilist_for_test_decode_cache);
         std::string err =
             decode_cache.init(ENCODING_FILE_TYPE, module_file_for_test_decode_cache, "");
@@ -136,11 +170,12 @@ check_decode_caching(void *drcontext, bool persist_instrs, bool use_module_mappe
             return "Unexpected instr_decode_info_t for ret instr";
         }
     } else {
+        test_decode_info_t::expect_decoded_instr_ = include_decoded_instr;
         // These are tests to verify the operation of instr_decode_cache_t: that it caches
         // decode info correctly.
         test_decode_cache_t<test_decode_info_t> decode_cache(
-            drcontext,
-            /*persist_decoded_instrs=*/false, ilist_for_test_decode_cache);
+            drcontext, include_decoded_instr,
+            /*persist_decoded_instr=*/false, ilist_for_test_decode_cache);
         std::string err =
             decode_cache.init(ENCODING_FILE_TYPE, module_file_for_test_decode_cache, "");
         if (err != "")
@@ -225,8 +260,9 @@ check_decode_caching(void *drcontext, bool persist_instrs, bool use_module_mappe
         }
     }
     instrlist_clear_and_destroy(drcontext, ilist);
-    std::cerr << "check_decode_caching with persist_instrs: " << persist_instrs
-              << ", use_module_mapper: " << use_module_mapper << " passed\n";
+    std::cerr << "check_decode_caching with use_module_mapper: " << use_module_mapper
+              << ", include_decoded_instr: " << include_decoded_instr
+              << ", persist_decoded_instr: " << persist_decoded_instr << " passed\n";
     return "";
 }
 
@@ -235,8 +271,9 @@ check_missing_module_mapper_and_no_encoding(void *drcontext)
 {
     memref_t instr = gen_instr(TID_A);
     test_decode_cache_t<instr_decode_info_t> decode_cache(
-        drcontext,
-        /*persist_decoded_instr=*/true, /*ilist_for_test_module_mapper=*/nullptr);
+        drcontext, /*include_decoded_instr=*/true,
+        /*persist_decoded_instr=*/true,
+        /*ilist_for_test_module_mapper=*/nullptr);
     instr_decode_info_t dummy;
     // Initialize to non-nullptr for the test.
     instr_decode_info_t *cached_decode_info = &dummy;
@@ -264,14 +301,23 @@ int
 test_main(int argc, const char *argv[])
 {
     void *drcontext = dr_standalone_init();
-    std::string err = check_decode_caching(drcontext, /*persist_instrs=*/false,
-                                           /*use_module_mapper=*/false);
+    std::string err = check_decode_caching(drcontext, /*use_module_mapper=*/false,
+                                           /*include_decoded_instr=*/false,
+                                           /*persist_decoded_instr=*/false);
     if (err != "") {
         std::cerr << err << "\n";
         exit(1);
     }
-    err = check_decode_caching(drcontext, /*persist_instrs=*/true,
-                               /*use_module_mapper=*/false);
+    err = check_decode_caching(drcontext, /*use_module_mapper=*/false,
+                               /*include_decoded_instr=*/true,
+                               /*persist_decoded_instr=*/false);
+    if (err != "") {
+        std::cerr << err << "\n";
+        exit(1);
+    }
+    err = check_decode_caching(drcontext, /*use_module_mapper=*/false,
+                               /*include_decoded_instr=*/true,
+                               /*persist_decoded_instr=*/true);
     if (err != "") {
         std::cerr << err << "\n";
         exit(1);
@@ -279,14 +325,23 @@ test_main(int argc, const char *argv[])
 #ifndef WINDOWS
     // TODO i#5960: Enable these tests after the test-only Windows issue is
     // fixed.
-    err = check_decode_caching(drcontext, /*persist_instrs=*/false,
-                               /*use_module_mapper=*/true);
+    err = check_decode_caching(drcontext, /*use_module_mapper=*/true,
+                               /*include_decoded_instr=*/false,
+                               /*persist_decoded_instr=*/false);
     if (err != "") {
         std::cerr << err << "\n";
         exit(1);
     }
-    err = check_decode_caching(drcontext, /*persist_instrs=*/true,
-                               /*use_module_mapper=*/true);
+    err = check_decode_caching(drcontext, /*use_module_mapper=*/true,
+                               /*include_decoded_instr=*/true,
+                               /*persist_decoded_instr=*/false);
+    if (err != "") {
+        std::cerr << err << "\n";
+        exit(1);
+    }
+    err = check_decode_caching(drcontext, /*use_module_mapper=*/true,
+                               /*include_decoded_instr=*/true,
+                               /*persist_decoded_instr=*/true);
     if (err != "") {
         std::cerr << err << "\n";
         exit(1);

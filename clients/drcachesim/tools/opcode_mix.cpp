@@ -86,6 +86,7 @@ opcode_mix_t::make_decode_cache(shard_data_t *shard, void *dcontext)
 {
     shard->decode_cache = std::unique_ptr<decode_cache_t<opcode_data_t>>(
         new decode_cache_t<opcode_data_t>(dcontext,
+                                          /*include_decoded_instr=*/true,
                                           /*persist_decoded_instrs=*/false));
 }
 
@@ -430,7 +431,7 @@ opcode_mix_t::release_interval_snapshot(interval_state_snapshot_t *interval_snap
 void
 opcode_mix_t::opcode_data_t::set_decode_info_derived(
     void *dcontext, const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
-    instr_t *instr)
+    instr_t *instr, app_pc decode_pc)
 {
     opcode_ = instr_get_opcode(instr);
     category_ = instr_get_category(instr);

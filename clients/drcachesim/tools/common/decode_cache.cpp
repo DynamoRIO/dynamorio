@@ -38,9 +38,9 @@ namespace drmemtrace {
 void
 decode_info_base_t::set_decode_info(
     void *dcontext, const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
-    instr_t *instr)
+    instr_t *instr, app_pc decode_pc)
 {
-    set_decode_info_derived(dcontext, memref_instr, instr);
+    set_decode_info_derived(dcontext, memref_instr, instr, decode_pc);
     is_valid_ = true;
 }
 
@@ -137,7 +137,7 @@ decode_cache_base_t::find_mapped_trace_address(app_pc trace_pc, app_pc &decode_p
 void
 instr_decode_info_t::set_decode_info_derived(
     void *dcontext, const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
-    instr_t *instr)
+    instr_t *instr, app_pc decode_pc)
 {
     dcontext_ = dcontext;
     instr_ = instr;

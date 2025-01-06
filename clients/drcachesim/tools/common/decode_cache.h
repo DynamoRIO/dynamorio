@@ -57,17 +57,25 @@ class decode_info_base_t {
 public:
     /**
      * Sets the decode info for the provided \p instr which was allocated using the
-     * provided \p dcontext for the provided \p memref_instr. This is done using
-     * the set_decode_info_derived() provided by the derived class, which also takes
-     * ownership of the provided #instr_t if used with a
-     * #dynamorio::drmemtrace::decode_cache_t object constructed with
-     * \p persist_decoded_instrs_ set to true. Additionally, this does other required
-     * bookkeeping.
+     * provided \p dcontext for the provided \p memref_instr, decoded from raw bytes
+     * at the provided address in \p decode_pc which are valid only for this call.
+     *
+     * This invokes the set_decode_info_derived() provided by the derived class, and
+     * additionally does other required bookkeeping.
+     *
+     * set_decode_info_derived() is expected to take ownership of the provided \p instr
+     * if used with a #dynamorio::drmemtrace::decode_cache_t object constructed with
+     * \p persist_decoded_instr_ set to true.
+     *
+     * The provided \p instr will be nullptr if the
+     * #dynamorio::drmemtrace::decode_cache_t was constructed with
+     * \p include_decoded_instr_ set to false, which is useful when the user needs only
+     * the \p decode_pc to perform the actual decoding themselves.
      */
     void
     set_decode_info(void *dcontext,
                     const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
-                    instr_t *instr);
+                    instr_t *instr, app_pc decode_pc);
 
     /**
      * Indicates whether set_decode_info() was invoked on the object with a valid
@@ -84,23 +92,29 @@ private:
     /**
      * Sets the decoding info fields as required by the derived class, based on the
      * provided #instr_t which was allocated using the provided opaque \p dcontext
-     * for the provided \p memref_instr. Derived classes must implement this virtual
-     * function. Note that this cannot be invoked directly as it is private, but
-     * only through set_decode_info() which does other required bookkeeping.
+     * for the provided \p memref_instr, decoded from raw bytes at the provided
+     * address in \p decode_pc which are valid only for this call. Derived classes
+     * must implement this virtual function. Note that this cannot be invoked
+     * directly as it is private, but only through set_decode_info() which does
+     * other required bookkeeping.
      *
      * This is meant for use with #dynamorio::drmemtrace::decode_cache_t, which will
      * invoke set_decode_info() for each new decoded instruction.
      *
      * The responsibility for invoking instr_destroy() on the provided \p instr
-     * lies with this #decode_info_base_t object, unless
+     * lies with this #decode_info_base_t object, unless the
      * #dynamorio::drmemtrace::decode_cache_t was constructed with
-     * \p persist_decoded_instrs_ set to false, in which case no heap allocation
+     * \p persist_decoded_instr_ set to false, in which case no heap allocation
      * takes place.
+     *
+     * The provided \p instr will be nullptr if the
+     * #dynamorio::drmemtrace::decode_cache_t was constructed with
+     * \p include_decoded_instr_ set to false.
      */
     virtual void
     set_decode_info_derived(void *dcontext,
                             const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
-                            instr_t *instr) = 0;
+                            instr_t *instr, app_pc decode_pc) = 0;
 
     bool is_valid_ = false;
 };
@@ -108,7 +122,7 @@ private:
 /**
  * Decode info including the full decoded #instr_t. This should be used with a
  * #dynamorio::drmemtrace::decode_cache_t constructed with
- * \p persist_decoded_instrs_ set to true.
+ * \p persist_decoded_instr_ set to true.
  */
 class instr_decode_info_t : public decode_info_base_t {
 public:
@@ -120,7 +134,7 @@ private:
     void
     set_decode_info_derived(void *dcontext,
                             const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
-                            instr_t *instr) override;
+                            instr_t *instr, app_pc decode_pc) override;
 
     // This is owned by the enclosing instr_decode_info_t object and will be
     // instr_destroy()-ed in the destructor.
@@ -224,7 +238,7 @@ private:
  * This class handles the heavy lifting of actually producing the decoded #instr_t. The
  * decoded #instr_t may be made to persist beyond the set_decode_info() calls by
  * constructing the #dynamorio::drmemtrace::decode_cache_t object with
- * \p persist_decoded_instrs_ set to true.
+ * \p persist_decoded_instr_ set to true.
  *
  * Usage note: after constructing an object, init() must be called.
  */
@@ -233,9 +247,14 @@ template <class DecodeInfo> class decode_cache_t : public decode_cache_base_t {
                   "DecodeInfo not derived from decode_info_base_t");
 
 public:
-    decode_cache_t(void *dcontext, bool persist_decoded_instrs)
+    decode_cache_t(void *dcontext, bool include_decoded_instr, bool persist_decoded_instr)
         : dcontext_(dcontext)
-        , persist_decoded_instrs_(persist_decoded_instrs) {};
+        , include_decoded_instr_(include_decoded_instr)
+        , persist_decoded_instr_(persist_decoded_instr)
+    {
+        // Cannot persist the decoded instr if it is not requested.
+        assert(!persist_decoded_instr_ || include_decoded_instr_);
+    };
     virtual ~decode_cache_t()
     {
     }
@@ -322,15 +341,8 @@ public:
             info->second = DecodeInfo();
         }
         cached_decode_info = &info->second;
-        instr_t *instr = nullptr;
-        instr_noalloc_t noalloc;
-        if (persist_decoded_instrs_) {
-            instr = instr_create(dcontext_);
-        } else {
-            instr_noalloc_init(dcontext_, &noalloc);
-            instr = instr_from_noalloc(&noalloc);
-        }
 
+        // Get address for the instr encoding.
         app_pc decode_pc;
         if (!use_module_mapper_) {
             decode_pc = const_cast<app_pc>(memref_instr.encoding);
@@ -340,15 +352,28 @@ public:
             if (err != "")
                 return err;
         }
-        app_pc next_pc = decode_from_copy(dcontext_, decode_pc, trace_pc, instr);
-        if (next_pc == nullptr || !instr_valid(instr)) {
-            if (persist_decoded_instrs_) {
-                instr_destroy(dcontext_, instr);
+
+        // Optionally decode the instruction.
+        instr_t *instr = nullptr;
+        instr_noalloc_t noalloc;
+        if (include_decoded_instr_) {
+            if (persist_decoded_instr_) {
+                instr = instr_create(dcontext_);
+            } else {
+                instr_noalloc_init(dcontext_, &noalloc);
+                instr = instr_from_noalloc(&noalloc);
             }
-            return "decode_from_copy failed";
+
+            app_pc next_pc = decode_from_copy(dcontext_, decode_pc, trace_pc, instr);
+            if (next_pc == nullptr || !instr_valid(instr)) {
+                if (persist_decoded_instr_) {
+                    instr_destroy(dcontext_, instr);
+                }
+                return "decode_from_copy failed";
+            }
         }
         // Also sets is_valid_.
-        info->second.set_decode_info(dcontext_, memref_instr, instr);
+        info->second.set_decode_info(dcontext_, memref_instr, instr, decode_pc);
         return "";
     }
 
@@ -432,7 +457,8 @@ private:
     std::unordered_map<app_pc, DecodeInfo> decode_cache_;
     void *dcontext_ = nullptr;
     std::mutex dcontext_mutex_;
-    bool persist_decoded_instrs_ = false;
+    bool include_decoded_instr_ = false;
+    bool persist_decoded_instr_ = false;
 
     // Describes whether init() was invoked.
     // This helps in detecting cases where a module mapper was not specified
@@ -449,9 +475,11 @@ class test_decode_cache_t : public decode_cache_t<DecodeInfo> {
 public:
     // The ilist arg is required only for testing the module_mapper_t
     // decoding strategy.
-    test_decode_cache_t(void *dcontext, bool persist_decoded_instrs,
+    test_decode_cache_t(void *dcontext, bool include_decoded_instr,
+                        bool persist_decoded_instr,
                         instrlist_t *ilist_for_test_module_mapper = nullptr)
-        : decode_cache_t<DecodeInfo>(dcontext, persist_decoded_instrs)
+        : decode_cache_t<DecodeInfo>(dcontext, include_decoded_instr,
+                                     persist_decoded_instr)
         , dcontext_(dcontext)
         , ilist_for_test_module_mapper_(ilist_for_test_module_mapper)
     {

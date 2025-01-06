@@ -129,7 +129,7 @@ protected:
         void
         set_decode_info_derived(
             void *dcontext, const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
-            instr_t *instr) override;
+            instr_t *instr, app_pc decode_pc) override;
     };
 
     class snapshot_t : public interval_state_snapshot_t {

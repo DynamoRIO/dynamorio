@@ -1670,7 +1670,7 @@ invariant_checker_t::check_regdeps_invariants(per_shard_t *shard, const memref_t
 void
 invariant_checker_t::per_shard_t::decoding_info_t::set_decode_info_derived(
     void *dcontext, const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
-    instr_t *instr)
+    instr_t *instr, app_pc decode_pc)
 {
     is_prefetch_ = instr_is_prefetch(instr);
     opcode_ = instr_get_opcode(instr);
@@ -1711,6 +1711,7 @@ invariant_checker_t::make_and_init_decode_cache(per_shard_t *shard)
     shard->decode_cache_ = std::unique_ptr<decode_cache_t<per_shard_t::decoding_info_t>>(
         new decode_cache_t<per_shard_t::decoding_info_t>(
             drcontext_,
+            /*include_decoded_instr=*/true,
             /*persist_decoded_instrs=*/false));
     shard->error_ = shard->decode_cache_->init(shard->file_type_);
     if (shard->error_ != "")
