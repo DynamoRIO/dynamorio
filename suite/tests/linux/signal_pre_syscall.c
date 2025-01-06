@@ -83,14 +83,14 @@ try(timer_t timer, unsigned long long timer_duration_ns)
     struct itimerspec spec = {
         { 0, 0 }, { timer_duration_ns / 1000000000, timer_duration_ns % 1000000000 }
     };
-    if (timer_settime(timer, 0, &spec, 0))
+    if (timer_settime(timer, 0, &spec, NULL))
         fail("timer_settime");
 
     syscall_wrapper(&flag_src);
 
     /* Cancel timer. */
     struct itimerspec spec0 = { { 0, 0 }, { 0, 0 } };
-    if (timer_settime(timer, 0, &spec0, 0))
+    if (timer_settime(timer, 0, &spec0, NULL))
         fail("timer_settime");
 
     return flag_dst;
