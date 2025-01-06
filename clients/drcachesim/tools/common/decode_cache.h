@@ -291,11 +291,18 @@ public:
             return "init() must be called first";
         }
         const app_pc trace_pc = reinterpret_cast<app_pc>(memref_instr.addr);
-        auto it_inserted = decode_cache_.emplace(
-            std::piecewise_construct, std::forward_as_tuple(trace_pc), std::tuple<> {});
-        typename std::unordered_map<app_pc, DecodeInfo>::iterator info =
-            it_inserted.first;
-        bool already_exists = !it_inserted.second;
+
+        // XXX: Simplify using try_emplace when we upgrade to C++17.
+        auto info = decode_cache_.find(trace_pc);
+        bool already_exists = info != decode_cache_.end();
+        if (!already_exists) {
+            auto it_inserted =
+                decode_cache_.emplace(std::piecewise_construct,
+                                      std::forward_as_tuple(trace_pc), std::tuple<> {});
+            info = it_inserted.first;
+            assert(it_inserted.second);
+        }
+
         if (already_exists &&
             // We can return the existing cached DecodeInfo if:
             // - we're using the module mapper, where we don't support the
