@@ -206,9 +206,9 @@ check_decode_caching(void *drcontext, bool persist_instrs, bool use_module_mappe
                 !decode_info_interrupt->is_interrupt_ || decode_info_interrupt->is_ret_) {
                 return "Unexpected test_decode_info_t for interrupt instr";
             }
-            decode_info_ret = decode_cache.get_decode_info(
+            test_decode_info_t *decode_info_old_ret_pc = decode_cache.get_decode_info(
                 reinterpret_cast<app_pc>(memrefs[1].instr.addr));
-            if (decode_info_ret != decode_info_interrupt) {
+            if (decode_info_old_ret_pc != decode_info_interrupt) {
                 return "Expected ret and interrupt memref pcs to return the same decode "
                        "info";
             }
