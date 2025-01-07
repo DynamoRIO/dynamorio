@@ -170,8 +170,8 @@ DECLARE_NEVERPROT_VAR(static bool out_of_vmheap_once, false);
 #define MEMSET_HEADER(p, value)                                             \
     do {                                                                    \
         ASSERT(HEADER_SIZE % sizeof(VARIABLE_SIZE(p)) == 0);                \
-        for (size_t i = 0; i < HEADER_SIZE / sizeof(VARIABLE_SIZE(p)); i++) \
-            (&VARIABLE_SIZE(p))[i] = HEAP_TO_PTR_UINT(value);               \
+        for (size_t k = 0; k < HEADER_SIZE / sizeof(VARIABLE_SIZE(p)); k++) \
+            (&VARIABLE_SIZE(p))[k] = HEAP_TO_PTR_UINT(value);               \
     } while (0)
 #define GET_VARIABLE_ALLOCATION_SIZE(p) (VARIABLE_SIZE(p) + HEADER_SIZE)
 
