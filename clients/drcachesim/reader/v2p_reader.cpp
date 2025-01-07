@@ -81,7 +81,6 @@ v2p_reader_t::create_v2p_info_from_file(std::istream &v2p_file, v2p_info_t &v2p_
     const std::string bytes_mapped_key = "bytes_mapped";
     const std::string virtual_address_key = "virtual_address";
     const std::string physical_address_key = "physical_address";
-    // Assumes virtual_address 0 is not in the v2p file.
     addr_t virtual_address = 0;
     uint64_t value = 0;
     std::string error_str;
@@ -103,20 +102,19 @@ v2p_reader_t::create_v2p_info_from_file(std::istream &v2p_file, v2p_info_t &v2p_
 
         found = line.find(physical_address_key);
         if (found != std::string::npos) {
-            error_str = get_value_from_line(line, value);
-            if (!error_str.empty())
-                return error_str;
-            addr_t physical_address = static_cast<addr_t>(value);
-            if (virtual_address == 0) {
-                error_ss << "ERROR: no corresponding " << virtual_address_key << " for "
-                         << physical_address_key << " " << physical_address << ".";
-                return error_ss.str();
-            }
+            // Two missing virtual_address fields in the textproto will hit this
+            // condition, as virtual_address will be 0 for both.
+            // We do allow one missing virtual_address in case the trace uses
+            // virtual_address 0.
             if (v2p_info.v2p_map.count(virtual_address) > 0) {
                 error_ss << "ERROR: " << virtual_address_key << " " << virtual_address
                          << " is already present in v2p_map.";
                 return error_ss.str();
             }
+            error_str = get_value_from_line(line, value);
+            if (!error_str.empty())
+                return error_str;
+            addr_t physical_address = static_cast<addr_t>(value);
             v2p_info.v2p_map[virtual_address] = physical_address;
         }
         virtual_address = 0;

@@ -40,6 +40,9 @@
  * }
  * In create_v2p_info_from_file() we rely on the fact that virtual_address and
  * physical_address are one after the other on two different lines.
+ * The only exception is a single missing virtual_address field, which indicates
+ * virtual_address = 0x0 ("no presence" == "0" in a textproto). This can happen if the
+ * trace makes use of that virtual address.
  * The virtual-to-physical mapping along with the page size, page count, and number of
  * bytes mapped is stored in memory in a v2p_info_t object.
  */
