@@ -121,7 +121,7 @@ static const uint BLOCK_SIZES[] = {
 #    endif
 #else
     ALIGN_FORWARD(sizeof(fragment_t) + sizeof(direct_linkstub_t) +
-                  sizeof(cbr_fallthrough_linkstub_t), /* 60 dbg / 56 rel */
+                      sizeof(cbr_fallthrough_linkstub_t), /* 60 dbg / 56 rel */
                   HEAP_ALIGNMENT),
 #    ifndef DEBUG
     sizeof(instr_t), /* 72 */
