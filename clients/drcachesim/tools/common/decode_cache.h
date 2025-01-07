@@ -58,7 +58,8 @@ public:
     /**
      * Sets the decode info for the provided \p instr which was allocated using the
      * provided \p dcontext for the provided \p memref_instr, decoded from raw bytes
-     * at the provided address in \p decode_pc which are valid only for this call.
+     * at the provided address in \p decode_pc (raw bytes address is valid only for
+     * this call).
      *
      * This invokes the set_decode_info_derived() provided by the derived class, and
      * additionally does other required bookkeeping.
@@ -93,10 +94,10 @@ private:
      * Sets the decoding info fields as required by the derived class, based on the
      * provided #instr_t which was allocated using the provided opaque \p dcontext
      * for the provided \p memref_instr, decoded from raw bytes at the provided
-     * address in \p decode_pc which are valid only for this call. Derived classes
-     * must implement this virtual function. Note that this cannot be invoked
-     * directly as it is private, but only through set_decode_info() which does
-     * other required bookkeeping.
+     * address in \p decode_pc (raw bytes address is valid only for this call).
+     * Derived classes must implement this virtual function. Note that this cannot be
+     * invoked directly as it is private, but only through set_decode_info() which
+     * does other required bookkeeping.
      *
      * This is meant for use with #dynamorio::drmemtrace::decode_cache_t, which will
      * invoke set_decode_info() for each new decoded instruction.
@@ -122,7 +123,7 @@ private:
 /**
  * Decode info including the full decoded #instr_t. This should be used with a
  * #dynamorio::drmemtrace::decode_cache_t constructed with
- * \p persist_decoded_instr_ set to true.
+ * \p include_decoded_instr_ and \p persist_decoded_instr_ set to true.
  */
 class instr_decode_info_t : public decode_info_base_t {
 public:
@@ -234,11 +235,22 @@ private:
  * A cache to store decode info for instructions per observed app pc. The template arg
  * DecodeInfo is a class derived from #dynamorio::drmemtrace::decode_info_base_t which
  * implements the set_decode_info_derived() function that derives the required decode
- * info from an #instr_t object when invoked by #dynamorio::drmemtrace::decode_cache_t.
- * This class handles the heavy lifting of actually producing the decoded #instr_t. The
- * decoded #instr_t may be made to persist beyond the set_decode_info() calls by
+ * info from an #instr_t object and raw encoding bytes when invoked by
+ * #dynamorio::drmemtrace::decode_cache_t. This class handles the heavy lifting of
+ * actually producing the decoded #instr_t and managing the DecodeInfo cache (which
+ * includes invalidating stale DecodeInfo based on the encoding_is_new field in
+ * traces with embedded encodings).
+ *
+ * In general use, \p include_decoded_instr_ should be set to true, but may be set to
+ * false if the user wants to perform decoding themselves. In this case, the #instr_t
+ * provided to set_decode_info_derived() will be nullptr, and the #decode_cache_t
+ * merely acts as a cache and provider of the raw bytes.
+ *
+ * The decoded #instr_t may be made to persist beyond the set_decode_info() calls by
  * constructing the #dynamorio::drmemtrace::decode_cache_t object with
  * \p persist_decoded_instr_ set to true.
+ *
+ * \p include_decoded_instr_ cannot be false if \p persist_decoded_instr_ is true.
  *
  * Usage note: after constructing an object, init() must be called.
  */
@@ -342,7 +354,7 @@ public:
         }
         cached_decode_info = &info->second;
 
-        // Get address for the instr encoding.
+        // Get address for the instr encoding raw bytes.
         app_pc decode_pc;
         if (!use_module_mapper_) {
             decode_pc = const_cast<app_pc>(memref_instr.encoding);

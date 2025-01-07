@@ -42,6 +42,14 @@
 namespace dynamorio {
 namespace drmemtrace {
 
+#define CHECK(cond, msg, ...)             \
+    do {                                  \
+        if (!(cond)) {                    \
+            fprintf(stderr, "%s\n", msg); \
+            exit(1);                      \
+        }                                 \
+    } while (0)
+
 static constexpr addr_t TID_A = 1;
 static constexpr offline_file_type_t ENCODING_FILE_TYPE =
     static_cast<offline_file_type_t>(OFFLINE_FILE_TYPE_ENCODINGS);
@@ -61,32 +69,22 @@ private:
                             const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
                             instr_t *instr, app_pc decode_pc) override
     {
-        if (decode_info_set_) {
-            std::cerr << "decode_cache_t should call set_decode_info only one time per "
-                         "object\n";
-            assert(false);
-        }
+        CHECK(!decode_info_set_,
+              "decode_cache_t should call set_decode_info only one time per object");
         instr_t my_decoded_instr;
         instr_init(dcontext, &my_decoded_instr);
         app_pc next_pc = decode_from_copy(dcontext, decode_pc,
                                           reinterpret_cast<app_pc>(memref_instr.addr),
                                           &my_decoded_instr);
-        assert(next_pc != nullptr && instr_valid(&my_decoded_instr));
+        CHECK(next_pc != nullptr && instr_valid(&my_decoded_instr),
+              "Expected to see a valid instr decoded from provided decode_pc");
         if (expect_decoded_instr_) {
-            if (instr == nullptr) {
-                std::cerr << "Expected to see a decoded instr_t\n";
-                assert(false);
-            }
-            if (!instr_same(instr, &my_decoded_instr)) {
-                std::cerr << "Expected provided decoded instr_t and self decoded instr_t "
-                             "to be the same\n";
-                assert(false);
-            }
+            CHECK(instr != nullptr, "Expected to see a decoded instr_t");
+            CHECK(instr_same(instr, &my_decoded_instr),
+                  "Expected provided decoded instr_t and self decoded instr_t to be the "
+                  "same");
         } else {
-            if (instr != nullptr) {
-                std::cerr << "Expected to see a null decoded instr\n";
-                assert(false);
-            }
+            CHECK(instr == nullptr, "Expected to see a null decoded instr");
         }
 
         is_nop_ = instr_is_nop(&my_decoded_instr);
@@ -138,8 +136,7 @@ check_decode_caching(void *drcontext, bool use_module_mapper, bool include_decod
     }
 
     if (persist_decoded_instr) {
-        // This test mode needs the decoded instr_t.
-        assert(include_decoded_instr);
+        CHECK(include_decoded_instr, "persist_decoded_instr needs the decoded instr_t");
         // These are tests to verify the operation of instr_decode_info_t: that it stores
         // the instr_t correctly.
         // Tests for instr_decode_cache_t are done when persist_decoded_instr = false (see

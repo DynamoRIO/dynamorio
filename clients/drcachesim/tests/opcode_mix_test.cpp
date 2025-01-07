@@ -65,7 +65,10 @@ protected:
     make_decode_cache(shard_data_t *shard, void *dcontext) override
     {
         shard->decode_cache = std::unique_ptr<decode_cache_t<opcode_data_t>>(
-            new test_decode_cache_t<opcode_data_t>(dcontext, false, instrs_));
+            new test_decode_cache_t<opcode_data_t>(dcontext,
+                                                   /*include_decoded_instr=*/true,
+                                                   /*persist_decoded_instrs=*/false,
+                                                   instrs_));
     }
 
 private:
