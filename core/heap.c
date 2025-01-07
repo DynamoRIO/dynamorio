@@ -158,11 +158,21 @@ DECLARE_NEVERPROT_VAR(static int block_peak_align_pad[BLOCK_TYPES], { 0 });
 DECLARE_NEVERPROT_VAR(static bool out_of_vmheap_once, false);
 #endif
 
-/* variable-length: we steal one int for the size */
+/* The size of a variable-size allocation is stored as a size_t in the header.
+ * On 32-bit ARM, HEAP_ALIGNMENT is twice the size of a size_t but the wasted
+ * space for DR's own use is not expected to be significant as only allocs
+ * that do not fit in the buckets use headers. Client heap allocations
+ * probably bear the biggest hit.
+ */
 #define HEADER_SIZE HEAP_ALIGNMENT
 /* VARIABLE_SIZE is assignable */
 #define VARIABLE_SIZE(p) (*(size_t *)((p)-HEADER_SIZE))
-#define MEMSET_HEADER(p, value) VARIABLE_SIZE(p) = HEAP_TO_PTR_UINT(value)
+#define MEMSET_HEADER(p, value)                                             \
+    do {                                                                    \
+        ASSERT(HEADER_SIZE % sizeof(VARIABLE_SIZE(p)) == 0);                \
+        for (size_t i = 0; i < HEADER_SIZE / sizeof(VARIABLE_SIZE(p)); i++) \
+            (&VARIABLE_SIZE(p))[i] = HEAP_TO_PTR_UINT(value);               \
+    } while(0)
 #define GET_VARIABLE_ALLOCATION_SIZE(p) (VARIABLE_SIZE(p) + HEADER_SIZE)
 
 /* The heap is allocated in units.
