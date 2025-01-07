@@ -86,7 +86,14 @@ decode_cache_base_t::init_module_mapper(const std::string &module_file_path,
         // decode_cache_base_t.
         return "";
     }
-    return make_module_mapper(module_file_path, alt_module_dir);
+    std::string err = make_module_mapper(module_file_path, alt_module_dir);
+    if (!err.empty())
+        return "Failed to make module mapper: " + err;
+    module_mapper_->get_loaded_modules();
+    err = module_mapper_->get_last_error();
+    if (!err.empty())
+        return "Failed to load binaries: " + err;
+    return "";
 }
 
 std::string
@@ -96,18 +103,14 @@ decode_cache_base_t::make_module_mapper(const std::string &module_file_path,
     // Legacy trace support where binaries are needed.
     // We do not support non-module code for such traces.
     file_t modfile;
-    std::string error = read_module_file(module_file_path, modfile, modfile_bytes_);
-    if (!error.empty()) {
-        return "Failed to read module file: " + error;
+    std::string err = read_module_file(module_file_path, modfile, modfile_bytes_);
+    if (!err.empty()) {
+        return "Failed to read module file: " + err;
     }
     dr_close_file(modfile);
     module_mapper_ =
         module_mapper_t::create(modfile_bytes_, nullptr, nullptr, nullptr, nullptr,
                                 /*verbose=*/0, alt_module_dir);
-    module_mapper_->get_loaded_modules();
-    error = module_mapper_->get_last_error();
-    if (!error.empty())
-        return "Failed to load binaries: " + error;
     return "";
 }
 

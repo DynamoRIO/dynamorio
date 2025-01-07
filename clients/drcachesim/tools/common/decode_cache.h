@@ -512,10 +512,6 @@ private:
             return "No ilist to init test_module_mapper_t";
         module_mapper_ = std::unique_ptr<module_mapper_t>(
             new test_module_mapper_t(ilist_for_test_module_mapper_, dcontext_));
-        module_mapper_->get_loaded_modules();
-        std::string error = module_mapper_->get_last_error();
-        if (!error.empty())
-            return "Failed to load binaries: " + error;
         return "";
     }
 };
