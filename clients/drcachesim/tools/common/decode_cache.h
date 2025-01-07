@@ -243,8 +243,9 @@ private:
  *
  * In general use, \p include_decoded_instr_ should be set to true, but may be set to
  * false if the user wants to perform decoding themselves. In this case, the #instr_t
- * provided to set_decode_info_derived() will be nullptr, and the #decode_cache_t
- * merely acts as a cache and provider of the raw bytes.
+ * provided to set_decode_info_derived() will be nullptr, and the
+ * #dynamorio::drmemtrace::decode_cache_t object merely acts as a cache and provider of
+ * the raw bytes.
  *
  * The decoded #instr_t may be made to persist beyond the set_decode_info() calls by
  * constructing the #dynamorio::drmemtrace::decode_cache_t object with
