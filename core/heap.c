@@ -172,7 +172,7 @@ DECLARE_NEVERPROT_VAR(static bool out_of_vmheap_once, false);
         ASSERT(HEADER_SIZE % sizeof(VARIABLE_SIZE(p)) == 0);                \
         for (size_t i = 0; i < HEADER_SIZE / sizeof(VARIABLE_SIZE(p)); i++) \
             (&VARIABLE_SIZE(p))[i] = HEAP_TO_PTR_UINT(value);               \
-    } while(0)
+    } while (0)
 #define GET_VARIABLE_ALLOCATION_SIZE(p) (VARIABLE_SIZE(p) + HEADER_SIZE)
 
 /* The heap is allocated in units.
