@@ -772,7 +772,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         const bool expect_encoding =
             TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_);
         if (expect_encoding) {
-            if (shard->decode_cache_ == nullptr && !make_and_init_decode_cache(shard)) {
+            if (shard->decode_cache_ == nullptr &&
+                !init_decode_cache(shard, drcontext_)) {
                 return false;
             }
             per_shard_t::decoding_info_t *decode_info;
@@ -1704,19 +1705,23 @@ invariant_checker_t::per_shard_t::decoding_info_t::set_decode_info_derived(
     }
 }
 
-bool
-invariant_checker_t::make_and_init_decode_cache(per_shard_t *shard)
+void
+invariant_checker_t::make_decode_cache(per_shard_t *shard, void *dcontext)
 {
     assert(shard->decode_cache_ == nullptr);
     shard->decode_cache_ = std::unique_ptr<decode_cache_t<per_shard_t::decoding_info_t>>(
         new decode_cache_t<per_shard_t::decoding_info_t>(
-            drcontext_,
+            dcontext,
             /*include_decoded_instr=*/true,
             /*persist_decoded_instrs=*/false));
+}
+
+bool
+invariant_checker_t::init_decode_cache(per_shard_t *shard, void *dcontext)
+{
+    make_decode_cache(shard, dcontext);
     shard->error_ = shard->decode_cache_->init(shard->file_type_);
-    if (shard->error_ != "")
-        return false;
-    return true;
+    return shard->error_ == "";
 }
 
 } // namespace drmemtrace

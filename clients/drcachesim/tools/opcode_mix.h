@@ -170,9 +170,13 @@ protected:
         void *dcontext = nullptr;
     };
 
+    // Creates a decode cache object in the given shard. Made virtual to allow
+    // subclasses to customize.
     virtual void
     make_decode_cache(shard_data_t *shard, void *dcontext);
 
+    // Creates and initializes a decode cache object in the given shard, using
+    // make_decode_cache.
     std::string
     init_decode_cache(shard_data_t *shard, void *dcontext, offline_file_type_t filetype);
 

@@ -273,9 +273,15 @@ protected:
     void
     check_regdeps_invariants(per_shard_t *shard, const memref_t &memref);
 
-    // Creates and initializes a decode cache object in the given shard.
+    // Creates a decode cache object in the given shard. Made virtual to allow
+    // subclasses to customize.
+    virtual void
+    make_decode_cache(per_shard_t *shard, void *dcontext);
+
+    // Creates and initializes a decode cache object in the given shard, using
+    // make_decode_cache.
     bool
-    make_and_init_decode_cache(per_shard_t *shard);
+    init_decode_cache(per_shard_t *shard, void *dcontext);
 #ifdef X86
     // Whether the expected write entry count check should be relaxed for the kernel
     // part of the trace.
