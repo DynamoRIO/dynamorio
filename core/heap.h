@@ -93,7 +93,11 @@ typedef enum {
 } map_flags_t;
 
 typedef byte *heap_pc;
-#define HEAP_ALIGNMENT sizeof(heap_pc *)
+#ifdef ARM
+#    define HEAP_ALIGNMENT 8 /* Some C++ functions require 8-byte alignment on ARM. */
+#else
+#    define HEAP_ALIGNMENT sizeof(heap_pc *)
+#endif
 extern vm_area_vector_t *landing_pad_areas;
 
 #ifdef X64
