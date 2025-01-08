@@ -378,7 +378,7 @@ DECLARE_CXTSWPROT_VAR(static mutex_t client_aux_lib64_lock,
 WEAK void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    // Empty.
+    CLIENT_ASSERT(false, "should never call dummy weak dr_client_main()");
 }
 #endif
 

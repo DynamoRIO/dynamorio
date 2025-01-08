@@ -475,7 +475,7 @@ if (NOT AARCH64 AND NOT APPLE)
 endif ()
 target_link_libraries(scheduler_launcher ${zlib_libs})
 
-macro(add_drmemtrace name type static_DR)
+macro(add_drmemtrace name type static_DR weak_main)
   if (${type} STREQUAL "STATIC")
     if (${static_DR})
       set(ext_sfx "_drstatic")
@@ -525,6 +525,9 @@ macro(add_drmemtrace name type static_DR)
   endif()
 
   add_library(${name} ${type} ${drmemtrace_srcs})
+  if (${weak_main})
+    append_property_list(TARGET ${name} COMPILE_DEFINITIONS "DRMEMTRACE_WEAK_MAIN")
+  endif ()
   if (${static_DR})
     configure_DynamoRIO_static_client(${name})
   else ()
@@ -561,9 +564,10 @@ macro(add_drmemtrace name type static_DR)
   install_target(${name} ${INSTALL_CLIENTS_LIB})
 endmacro()
 
-add_drmemtrace(drmemtrace SHARED OFF)
-add_drmemtrace(drmemtrace_static STATIC OFF)
-add_drmemtrace(drmemtrace_drstatic STATIC ON)
+add_drmemtrace(drmemtrace SHARED OFF OFF)
+add_drmemtrace(drmemtrace_static STATIC OFF OFF)
+add_drmemtrace(drmemtrace_weakmain STATIC OFF ON)
+add_drmemtrace(drmemtrace_drstatic STATIC ON OFF)
 append_property_list(TARGET drmemtrace_static COMPILE_DEFINITIONS "DRMEMTRACE_STATIC")
 # We export drmemtrace.h to the same place as the analysis tool headers
 # for simplicity, rather than sticking it into ext/include or sthg.
@@ -1053,7 +1057,7 @@ if (BUILD_TESTS)
 
     add_executable(tool.drcacheoff.burst_malloc tests/burst_malloc.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_malloc)
-    use_DynamoRIO_static_client(tool.drcacheoff.burst_malloc drmemtrace_static)
+    use_DynamoRIO_static_client(tool.drcacheoff.burst_malloc drmemtrace_weakmain)
     target_link_libraries(tool.drcacheoff.burst_malloc drmemtrace_raw2trace
         drmemtrace_analyzer test_helpers)
     if (WIN32)
@@ -1070,7 +1074,7 @@ if (BUILD_TESTS)
 
     add_executable(tool.drcacheoff.burst_reattach tests/burst_reattach.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_reattach)
-    use_DynamoRIO_static_client(tool.drcacheoff.burst_reattach drmemtrace_static)
+    use_DynamoRIO_static_client(tool.drcacheoff.burst_reattach drmemtrace_weakmain)
     target_link_libraries(tool.drcacheoff.burst_reattach test_helpers)
     add_win32_flags(tool.drcacheoff.burst_reattach)
 
@@ -1098,7 +1102,7 @@ if (BUILD_TESTS)
     if (LINUX) # Uses mremap.
       add_executable(tool.drcacheoff.burst_maps tests/burst_maps.cpp)
       configure_DynamoRIO_static(tool.drcacheoff.burst_maps)
-      use_DynamoRIO_static_client(tool.drcacheoff.burst_maps drmemtrace_static)
+      use_DynamoRIO_static_client(tool.drcacheoff.burst_maps drmemtrace_weakmain)
       target_link_libraries(tool.drcacheoff.burst_maps test_helpers)
       add_win32_flags(tool.drcacheoff.burst_maps)
     endif ()
@@ -1145,7 +1149,7 @@ if (BUILD_TESTS)
       append_property_list(TARGET tool.drcacheoff.burst_client
         COMPILE_DEFINITIONS "TEST_APP_DR_CLIENT_MAIN")
       configure_DynamoRIO_static(tool.drcacheoff.burst_client)
-      use_DynamoRIO_static_client(tool.drcacheoff.burst_client drmemtrace_static)
+      use_DynamoRIO_static_client(tool.drcacheoff.burst_client drmemtrace_weakmain)
       target_link_libraries(tool.drcacheoff.burst_client test_helpers)
       # A nop, keep it for the future Windows support.
       add_win32_flags(tool.drcacheoff.burst_client)
@@ -1158,8 +1162,6 @@ if (BUILD_TESTS)
       # pain building on 32-bit on a 64-bit machine.
       if (X64 AND "${libpthread}" MATCHES ".a$")
         add_executable(tool.drcacheoff.purestatic tests/burst_static.cpp)
-        append_property_list(TARGET tool.drcacheoff.purestatic
-          COMPILE_DEFINITIONS "TEST_APP_DR_CLIENT_MAIN")
         append_property_list(TARGET tool.drcacheoff.purestatic
           LINK_FLAGS "-static -Wl,--no-export-dynamic")
         configure_DynamoRIO_static(tool.drcacheoff.purestatic)

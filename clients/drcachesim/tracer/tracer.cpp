@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -2543,9 +2543,16 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
  * A simple call won't add too much overhead, and works both in Windows and Linux.
  * To automate the process and minimize the code change, we should investigate the
  * approach that uses command-line link option to alias two symbols.
+ * We only do this when the user is linking a strong dr_client_main symbol:
+ * otherwise the new DR weak dr_client_main for pure-static support may be picked
+ * over this weak symbol.  The user must define DRMEMTRACE_WEAK_MAIN to make this weak.
  */
-DR_EXPORT WEAK void
-dr_client_main(client_id_t id, int argc, const char *argv[])
+DR_EXPORT
+#ifdef DRMEMTRACE_WEAK_MAIN
+WEAK
+#endif
+    void
+    dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     dynamorio::drmemtrace::drmemtrace_client_main(id, argc, argv);
 }
