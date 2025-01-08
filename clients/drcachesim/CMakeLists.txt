@@ -1153,6 +1153,8 @@ if (BUILD_TESTS)
       # Test a pure-static-link app.
       # We ignore "warning: Using 'dlopen' in statically linked applications requires
       # at runtime the shared libraries from the glibc version used for linking".
+      # XXX: We may need to only try to build this if static libpthread is
+      # available on the system.
       add_executable(tool.drcacheoff.purestatic tests/burst_static.cpp)
       append_property_list(TARGET tool.drcacheoff.purestatic
         COMPILE_DEFINITIONS "TEST_APP_DR_CLIENT_MAIN")

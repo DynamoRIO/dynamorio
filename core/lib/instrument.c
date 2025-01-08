@@ -371,9 +371,10 @@ DECLARE_CXTSWPROT_VAR(static mutex_t client_aux_lib64_lock,
                       INIT_LOCK_FREE(client_aux_lib64_lock));
 #endif
 
-#ifdef STATIC_LIBRARY
+#if defined(STATIC_LIBRARY) && !defined(WINDOWS)
 // To support static DR used for both standalone and clients we need to provide
-// some copy of client main.
+// some copy of client main. There is no WEAK on Windows so we do not support
+// this usage there.
 WEAK void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
@@ -792,9 +793,11 @@ instrument_init(void)
             (*init)(client_libs[i].id, client_libs[i].argc, client_libs[i].argv);
         else if (legacy != NULL)
             (*legacy)(client_libs[i].id);
-#ifdef STATIC_LIBRARY
+#if defined(STATIC_LIBRARY) && !defined(WINDOWS)
         else {
             // For pure-static apps we support only INSTRUMENT_INIT_NAME.
+            // There is no WEAK support on Windows so we do not support this there
+            // (plus pure-static is not really practical either).
             extern void dr_client_main(uint id, int argc, const char *argv[]);
             dr_client_main(client_libs[i].id, client_libs[i].argc, client_libs[i].argv);
         }
