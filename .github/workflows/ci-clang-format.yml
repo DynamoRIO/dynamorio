@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2020-2025 Google, Inc.  All rights reserved.
+# Copyright (c) 2020-2023 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -76,7 +76,7 @@ jobs:
         sudo add-apt-repository 'deb http://apt.llvm.org/focal/ llvm-toolchain-focal-14 main'
         sudo apt update
         sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
-          liblz4-dev clang-format-14 libunwind-dev libc6-dev
+          liblz4-dev clang-format-14 libunwind-dev
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}

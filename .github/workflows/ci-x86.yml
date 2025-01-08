@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2020-2025 Google, Inc.  All rights reserved.
+# Copyright (c) 2020-2024 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -87,7 +87,7 @@ jobs:
       run: |
         sudo apt update
         sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
-          liblz4-dev g++-multilib libunwind-dev libc6-dev
+          liblz4-dev g++-multilib libunwind-dev
         sudo add-apt-repository 'deb [arch=i386] http://us.archive.ubuntu.com/ubuntu focal main'
         apt download libunwind8:i386 libunwind-dev:i386 liblzma5:i386 \
           zlib1g:i386 zlib1g-dev:i386
@@ -157,7 +157,7 @@ jobs:
       run: |
         sudo apt update
         sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
-          liblz4-dev g++-multilib libunwind-dev libc6-dev
+          liblz4-dev g++-multilib libunwind-dev
         echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
 
     # Use a newer cmake to avoid 32-bit toolchain problems (i#4830).
@@ -221,7 +221,7 @@ jobs:
       run: |
         sudo apt update
         sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
-          liblz4-dev g++-multilib libunwind-dev libc6-dev
+          liblz4-dev g++-multilib libunwind-dev
         echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
 
     # Use a newer cmake to avoid 32-bit toolchain problems (i#4830).
@@ -285,7 +285,7 @@ jobs:
       run: |
         sudo apt update
         sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
-          liblz4-dev g++-multilib libunwind-dev libc6-dev
+          liblz4-dev g++-multilib libunwind-dev
         sudo add-apt-repository 'deb [arch=i386] http://us.archive.ubuntu.com/ubuntu focal main'
         apt download libunwind8:i386 libunwind-dev:i386 liblzma5:i386 \
           zlib1g:i386 zlib1g-dev:i386

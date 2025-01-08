@@ -4639,9 +4639,11 @@ if (BUILD_CLIENTS)
         set(tool.drcacheoff.burst_client_nodr ON)
         torunonly_drcacheoff(burst_client tool.drcacheoff.burst_client "" "" "")
 
-        set(tool.drcacheoff.purestatic_nodr ON)
-        torunonly_drcacheoff(purestatic tool.drcacheoff.purestatic "" "" "")
-        set(tool.drcacheoff.purestatic_expectbase "offline-burst_client")
+        if (TARGET tool.drcacheoff.purestatic)
+          set(tool.drcacheoff.purestatic_nodr ON)
+          torunonly_drcacheoff(purestatic tool.drcacheoff.purestatic "" "" "")
+          set(tool.drcacheoff.purestatic_expectbase "offline-burst_client")
+        endif ()
       endif ()
     endif ()
 
@@ -6406,6 +6408,12 @@ if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64) # TODO i#3544: Port tests to RI
     code_api|tool.drcacheoff.rseq
     PROPERTIES LABELS UBUNTU_22)
 endif ()
+if (TARGET tool.drcacheoff.purestatic)
+  # This target only easily builds on Ubuntu22+ so make sure we run it there.
+  set_tests_properties(
+    code_api|tool.drcacheoff.purestatic
+    PROPERTIES LABELS UBUNTU_22)
+endif()
 
 # XXX i#3544: Support for running RISC-V Linux tests under QEMU.
 # Currently about 1/6 of the compiled tests pass.
