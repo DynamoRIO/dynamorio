@@ -1976,11 +1976,10 @@ is_aflags_spill(instr_t *inst)
 #if defined(X86)
     return instr_get_opcode(inst) == OP_lahf;
 #elif defined(AARCHXX)
-    return (instr_get_opcode(inst) == OP_mrs &&
-            instr_num_srcs(inst) == 1 &&
+    return (instr_get_opcode(inst) == OP_mrs && instr_num_srcs(inst) == 1 &&
             opnd_is_reg(instr_get_src(inst, 0)) &&
             opnd_get_reg(instr_get_src(inst, 0)) ==
-            IF_ARM_ELSE(DR_REG_CPSR, DR_REG_NZCV));
+                IF_ARM_ELSE(DR_REG_CPSR, DR_REG_NZCV));
 #elif defined(RISCV64)
     /* RISC-V does not have any integer arithmetic or compare flag registers. */
     return false;
@@ -2004,19 +2003,15 @@ is_aflags_restore(instr_t *inst)
 #if defined(X86)
     return instr_get_opcode(inst) == OP_sahf;
 #elif defined(ARM)
-    return (instr_get_opcode(inst) == OP_msr &&
-            instr_num_dsts(inst) == 1 &&
+    return (instr_get_opcode(inst) == OP_msr && instr_num_dsts(inst) == 1 &&
             opnd_is_reg(instr_get_dst(inst, 0)) &&
             opnd_get_reg(instr_get_dst(inst, 0)) == DR_REG_CPSR &&
-            instr_num_srcs(inst) == 2 &&
-            opnd_is_reg(instr_get_src(inst, 1)));
+            instr_num_srcs(inst) == 2 && opnd_is_reg(instr_get_src(inst, 1)));
 #elif defined(AARCH64)
-    return (instr_get_opcode(inst) == OP_msr &&
-            instr_num_dsts(inst) == 1 &&
+    return (instr_get_opcode(inst) == OP_msr && instr_num_dsts(inst) == 1 &&
             opnd_is_reg(instr_get_dst(inst, 0)) &&
             opnd_get_reg(instr_get_dst(inst, 0)) == DR_REG_NZCV &&
-            instr_num_srcs(inst) == 1 &&
-            opnd_is_reg(instr_get_src(inst, 0)));
+            instr_num_srcs(inst) == 1 && opnd_is_reg(instr_get_src(inst, 0)));
 #elif defined(RISCV64)
     /* RISC-V does not have any integer arithmetic or condition flag registers. */
     return false;
