@@ -2007,7 +2007,11 @@ is_aflags_restore(instr_t *inst)
     return (instr_get_opcode(inst) == OP_msr && instr_num_dsts(inst) == 1 &&
             opnd_is_reg(instr_get_dst(inst, 0)) &&
             opnd_get_reg(instr_get_dst(inst, 0)) == DR_REG_CPSR &&
-            instr_num_srcs(inst) == 2 && opnd_is_reg(instr_get_src(inst, 1)));
+            instr_num_srcs(inst) == 2 &&
+            opnd_is_immed_int(instr_get_src(inst, 0)) &&
+            /* Check we are writing to NZCV and Q. */
+            (opnd_get_immed_int(instr_get_src(inst, 0)) & 0x8) != 0 &&
+            opnd_is_reg(instr_get_src(inst, 1)));
 #elif defined(AARCH64)
     return (instr_get_opcode(inst) == OP_msr && instr_num_dsts(inst) == 1 &&
             opnd_is_reg(instr_get_dst(inst, 0)) &&
