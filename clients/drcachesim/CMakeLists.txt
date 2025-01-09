@@ -1057,7 +1057,7 @@ if (BUILD_TESTS)
 
     add_executable(tool.drcacheoff.burst_malloc tests/burst_malloc.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_malloc)
-    use_DynamoRIO_static_client(tool.drcacheoff.burst_malloc drmemtrace_weakmain)
+    use_DynamoRIO_static_client(tool.drcacheoff.burst_malloc drmemtrace_static)
     target_link_libraries(tool.drcacheoff.burst_malloc drmemtrace_raw2trace
         drmemtrace_analyzer test_helpers)
     if (WIN32)
@@ -1074,7 +1074,7 @@ if (BUILD_TESTS)
 
     add_executable(tool.drcacheoff.burst_reattach tests/burst_reattach.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_reattach)
-    use_DynamoRIO_static_client(tool.drcacheoff.burst_reattach drmemtrace_weakmain)
+    use_DynamoRIO_static_client(tool.drcacheoff.burst_reattach drmemtrace_static)
     target_link_libraries(tool.drcacheoff.burst_reattach test_helpers)
     add_win32_flags(tool.drcacheoff.burst_reattach)
 

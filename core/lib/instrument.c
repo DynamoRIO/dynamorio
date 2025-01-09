@@ -378,7 +378,9 @@ DECLARE_CXTSWPROT_VAR(static mutex_t client_aux_lib64_lock,
 WEAK void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    CLIENT_ASSERT(false, "should never call dummy weak dr_client_main()");
+    // This will be called when using static DR but no client, so we can't
+    // assert even though this should not be reached when there is a real
+    // client whose non-weak dr_client_main overrides this.
 }
 #endif
 
