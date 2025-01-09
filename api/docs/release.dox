@@ -136,12 +136,12 @@ Further non-compatibility-affecting changes include:
 
 The changes between version 11.3.0 and 11.2.0 include the following compatibility
 changes:
+ - No compatibility changes yet.
+
+Further non-compatibility-affecting changes include:
  - Allow v2p.textproto file in a trace directory. This file is present in public traces.
  - Allow v2p.textproto file to have one missing virtual_address field, which indicates
    virtual_address == 0x0. Necessary in case a trace accesses virtual address 0x0.
-
-Further non-compatibility-affecting changes include:
- - No changes yet.
 
 **************************************************
 <hr>
