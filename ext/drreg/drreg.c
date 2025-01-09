@@ -1988,6 +1988,7 @@ is_aflags_spill(instr_t *inst)
 #endif
 }
 
+/* Call this function only if is_aflags_spill has returned true. */
 static reg_id_t
 aflags_spill_get_reg(instr_t *inst)
 {
@@ -2020,6 +2021,7 @@ is_aflags_restore(instr_t *inst)
 #endif
 }
 
+/* Call this function only if is_aflags_restore has returned true. */
 static reg_id_t
 aflags_restore_get_reg(instr_t *inst)
 {
