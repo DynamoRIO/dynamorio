@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -52,7 +52,13 @@ namespace drmemtrace {
 bool
 open_single_file_common(const std::string &path, gzFile &out)
 {
-    out = gzopen(path.c_str(), "rb");
+    if (path == "-") {
+        // We assume stdin is 0.
+        // We do not use "stdin->_fileno" as that is not portable.
+        constexpr int STDIN_FD = 0;
+        out = gzdopen(STDIN_FD, "rb");
+    } else
+        out = gzopen(path.c_str(), "rb");
     return out != nullptr;
 }
 

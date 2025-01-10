@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -97,7 +97,9 @@ droption_t<std::string> op_indir(
 droption_t<std::string> op_infile(
     DROPTION_SCOPE_ALL, "infile", "", "Offline legacy file for input to the simulator",
     "Directs the simulator to use a single all-threads-interleaved-into-one trace file. "
-    "This is a legacy file format that is no longer produced.");
+    "This is a legacy file format that is no longer produced as it does not support "
+    "mixing multiple inputs nor using auxiliary metadata files.  Passing '-' will read "
+    "from stdin as plain or gzip-compressed data.");
 
 droption_t<int> op_jobs(
     DROPTION_SCOPE_ALL, "jobs", -1, "Number of parallel jobs",

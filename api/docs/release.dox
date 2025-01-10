@@ -133,6 +133,8 @@ Further non-compatibility-affecting changes include:
    a pure-static application via a new configure_DynamoRIO_static_client() CMake
    function and new "_drstatic" static library CMake targets for the provided
    extension libraries.
+ - Added support for reading a single drmemtrace trace file from stdin
+   via "-infile -".
 
 **************************************************
 <hr>
