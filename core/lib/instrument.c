@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2010-2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -371,6 +371,19 @@ DECLARE_CXTSWPROT_VAR(static mutex_t client_aux_lib64_lock,
                       INIT_LOCK_FREE(client_aux_lib64_lock));
 #endif
 
+#if defined(STATIC_LIBRARY) && !defined(WINDOWS)
+// To support static DR used for both standalone and clients we need to provide
+// some copy of client main. There is no WEAK on Windows so we do not support
+// this usage there.
+WEAK void
+dr_client_main(client_id_t id, int argc, const char *argv[])
+{
+    // This will be called when using static DR but no client, so we can't
+    // assert even though this should not be reached when there is a real
+    // client whose non-weak dr_client_main overrides this.
+}
+#endif
+
 /****************************************************************************/
 /* INTERNAL ROUTINES */
 
@@ -577,8 +590,16 @@ add_client_lib(const char *path, const char *id_str, const char *options)
         /* PR 250952: version check */
         int *uses_dr_version =
             (int *)lookup_library_routine(client_lib, USES_DR_VERSION_NAME);
-        if (uses_dr_version == NULL || *uses_dr_version < OLDEST_COMPATIBLE_VERSION ||
-            *uses_dr_version > NEWEST_COMPATIBLE_VERSION) {
+        bool pure_static = false;
+#ifdef STATIC_LIBRARY
+        if (uses_dr_version == NULL) {
+            // We assume we're in a pure-static app where dlsym fails.
+            pure_static = true;
+        }
+#endif
+        if (!pure_static &&
+            (uses_dr_version == NULL || *uses_dr_version < OLDEST_COMPATIBLE_VERSION ||
+             *uses_dr_version > NEWEST_COMPATIBLE_VERSION)) {
             /* not a fatal usage error since we want release build to continue */
             CLIENT_ASSERT(false,
                           "client library is incompatible with this version of DR");
@@ -596,8 +617,9 @@ add_client_lib(const char *path, const char *id_str, const char *options)
             // to the dll bounds functions. xref i#3387.
             client_start = get_dynamorio_dll_start();
             client_end = get_dynamorio_dll_end();
-            ASSERT(client_start <= (app_pc)uses_dr_version &&
-                   (app_pc)uses_dr_version < client_end);
+            ASSERT(pure_static ||
+                   (client_start <= (app_pc)uses_dr_version &&
+                    (app_pc)uses_dr_version < client_end));
 #else
             DEBUG_DECLARE(bool ok =)
             shared_library_bounds(client_lib, (byte *)uses_dr_version, NULL,
@@ -773,6 +795,15 @@ instrument_init(void)
             (*init)(client_libs[i].id, client_libs[i].argc, client_libs[i].argv);
         else if (legacy != NULL)
             (*legacy)(client_libs[i].id);
+#if defined(STATIC_LIBRARY) && !defined(WINDOWS)
+        else {
+            // For pure-static apps we support only INSTRUMENT_INIT_NAME.
+            // There is no WEAK support on Windows so we do not support this there
+            // (plus pure-static is not really practical either).
+            extern void dr_client_main(uint id, int argc, const char *argv[]);
+            dr_client_main(client_libs[i].id, client_libs[i].argc, client_libs[i].argv);
+        }
+#endif
     }
 
     /* We now initialize the 1st thread before coming here, so we can

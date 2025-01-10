@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2016 Google, Inc.    All rights reserved.
+# Copyright (c) 2016-2025 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -48,15 +48,21 @@ endif ()
 
 add_library(drcovlib SHARED ${srcs})
 set(PREFERRED_BASE 0x73800000)
-configure_extension(drcovlib OFF)
+configure_extension(drcovlib OFF OFF)
 use_DynamoRIO_extension(drcovlib drcontainers)
 use_DynamoRIO_extension(drcovlib drmgr)
 use_DynamoRIO_extension(drcovlib drx)
 
 add_library(drcovlib_static STATIC ${srcs_static})
-configure_extension(drcovlib_static ON)
+configure_extension(drcovlib_static ON OFF)
 use_DynamoRIO_extension(drcovlib_static drcontainers)
 use_DynamoRIO_extension(drcovlib_static drmgr_static)
 use_DynamoRIO_extension(drcovlib_static drx_static)
+
+add_library(drcovlib_drstatic STATIC ${srcs_static})
+configure_extension(drcovlib_drstatic ON ON)
+use_DynamoRIO_extension(drcovlib_drstatic drcontainers_drstatic)
+use_DynamoRIO_extension(drcovlib_drstatic drmgr_drstatic)
+use_DynamoRIO_extension(drcovlib_drstatic drx_drstatic)
 
 install_ext_header(drcovlib.h)

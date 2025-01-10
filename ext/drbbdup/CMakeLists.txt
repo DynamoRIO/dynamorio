@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2013-2020 Google, Inc.    All rights reserved.
+# Copyright (c) 2013-2025 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -47,15 +47,21 @@ set(srcs
 set(srcs_static ${srcs})
 
 add_library(drbbdup SHARED ${srcs})
-configure_extension(drbbdup OFF)
+configure_extension(drbbdup OFF OFF)
 use_DynamoRIO_extension(drbbdup drcontainers)
 use_DynamoRIO_extension(drbbdup drmgr)
 use_DynamoRIO_extension(drbbdup drreg)
 
 add_library(drbbdup_static STATIC ${srcs_static})
-configure_extension(drbbdup_static ON)
+configure_extension(drbbdup_static ON OFF)
 use_DynamoRIO_extension(drbbdup_static drcontainers)
 use_DynamoRIO_extension(drbbdup_static drmgr_static)
 use_DynamoRIO_extension(drbbdup_static drreg_static)
+
+add_library(drbbdup_drstatic STATIC ${srcs_static})
+configure_extension(drbbdup_drstatic ON ON)
+use_DynamoRIO_extension(drbbdup_drstatic drcontainers_drstatic)
+use_DynamoRIO_extension(drbbdup_drstatic drmgr_drstatic)
+use_DynamoRIO_extension(drbbdup_drstatic drreg_drstatic)
 
 install_ext_header(drbbdup.h)

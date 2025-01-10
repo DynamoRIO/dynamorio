@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2024 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2025 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2018 Arm Limited          All rights reserved.
 # **********************************************************
@@ -1868,6 +1868,13 @@ if (WIN32 AND NOT DISABLE_ZLIB)
   set(ZLIB_FOUND OFF)
 else ()
   find_package(ZLIB)
+  # FindZLIB doesn't give us any library split so we manually
+  # convert to static.
+  set(ZLIB_STATIC_LIBRARIES "")
+  foreach (lib ${ZLIB_LIBRARIES})
+    string(REGEX REPLACE "\\.so$" ".a" newlib "${lib}")
+    list(APPEND ZLIB_STATIC_LIBRARIES ${newlib})
+  endforeach ()
 endif ()
 # On Ubuntu 14.10, 32-bit builds fail to link with -lsnappy, just ignore.
 if (UNIX AND X64)
