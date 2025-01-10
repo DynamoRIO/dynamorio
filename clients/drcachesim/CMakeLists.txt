@@ -565,8 +565,11 @@ macro(add_drmemtrace name type static_DR no_main)
 endmacro()
 
 add_drmemtrace(drmemtrace SHARED OFF OFF)
+# This static library links with the DR shared library and has dr_client_main:
 add_drmemtrace(drmemtrace_static STATIC OFF OFF)
+# This static library links with the DR shared library and has no dr_client_main:
 add_drmemtrace(drmemtrace_nomain STATIC OFF ON)
+# This static library links with the DR static library and has dr_client_main:
 add_drmemtrace(drmemtrace_drstatic STATIC ON OFF)
 append_property_list(TARGET drmemtrace_static COMPILE_DEFINITIONS "DRMEMTRACE_STATIC")
 # We export drmemtrace.h to the same place as the analysis tool headers
@@ -1158,8 +1161,8 @@ if (BUILD_TESTS)
       # We ignore "warning: Using 'dlopen' in statically linked applications requires
       # at runtime the shared libraries from the glibc version used for linking".
       # XXX: We can only successfully build this if static libpthread is available,
-      # which is only recent glibc such as Ubuntu22+. We also limit to 64-bit due to
-      # pain building on 32-bit on a 64-bit machine.
+      # which is only recent glibc 2.34+ such as Ubuntu22+. We also limit to 64-bit
+      # due to pain building 32-bit on a 64-bit machine.
       if (X64 AND "${libpthread}" MATCHES ".a$")
         add_executable(tool.drcacheoff.purestatic tests/burst_static.cpp)
         append_property_list(TARGET tool.drcacheoff.purestatic
