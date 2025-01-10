@@ -3581,6 +3581,49 @@ check_regdeps(void)
 {
     std::cerr << "Testing regdeps traces\n";
 
+    // Incorrect: TRACE_MARKER_TYPE_SIGNAL_NUMBER not allowed.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ARCH_REGDEPS),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SIGNAL_NUMBER, 42),
+            gen_instr(TID_A),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(
+                memrefs, true,
+                { "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot have "
+                  "TRACE_MARKER_TYPE_SIGNAL_NUMBER markers",
+                  /*tid=*/TID_A,
+                  /*ref_ordinal=*/4, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/0 },
+                "Failed to catch non-allowed TRACE_MARKER_TYPE_SIGNAL_NUMBER marker"))
+            return false;
+    }
+
+    // Incorrect: TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION not allowed.
+    // XXX i#7155: Allow these markers once we update their values in record_filter.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ARCH_REGDEPS),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION, 42),
+            gen_instr(TID_A),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, true,
+                         { "OFFLINE_FILE_TYPE_ARCH_REGDEPS traces cannot have "
+                           "TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION markers",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/4, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/0 },
+                         "Failed to catch non-allowed "
+                         "TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION marker"))
+            return false;
+    }
+
     // Incorrect: OFFLINE_FILE_TYPE_ARCH_AARCH64 not allowed.
     {
         std::vector<memref_t> memrefs = {

@@ -12,6 +12,10 @@ address_mapping_group    {
     physical_address: 0x4
   }
   address_mapping {
+    # Missing virtual_address field on purpose (== virtual_address: 0x0)
+    physical_address: 0x6
+  }
+  address_mapping {
     virtual_address: 0x789
     physical_address: 0x5
   }

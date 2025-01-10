@@ -428,3 +428,9 @@ print_opcode_suffix(instr_t *instr, char *buf, size_t bufsz, size_t *sofar DR_PA
     }
     return 0;
 }
+
+bool
+optype_is_evex_mask_arch(byte optype)
+{
+    return optype == TYPE_K_EVEX;
+}
