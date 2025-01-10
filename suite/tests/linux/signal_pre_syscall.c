@@ -1,6 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
- * Copyright (c) 2016 ARM Limited. All rights reserved.
+ * Copyright (c) 2016-2024 Arm Limited. All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,22 +38,18 @@
 
 #ifndef ASM_CODE_ONLY /* C code */
 
-#    include "configure.h"
-#    include <setjmp.h>
 #    include <signal.h>
-#    include <stdint.h>
 #    include <stdio.h>
 #    include <stdlib.h>
 #    include <string.h>
 #    include <time.h>
-#    include <unistd.h>
-#    include "tools.h"
-
-timer_t timer;
 
 /* asm routines */
 void
-syscall_wrapper();
+syscall_wrapper(volatile int *);
+
+static volatile int flag_src;
+static volatile int flag_dst;
 
 void
 fail(const char *s)
@@ -62,59 +58,115 @@ fail(const char *s)
     exit(1);
 }
 
+/* The signal handler copies one global to the other so that we can
+ * discover when the signal happened.
+ */
 void
-handler(int signum, siginfo_t *info, void *ucontext_)
+handler(int signum, siginfo_t *info, void *ucontext)
 {
-    /* We just need the handler to exist; it needn't do anything but sigreturn. */
+    flag_dst = flag_src;
 }
 
-void
-setup(void)
+/* Return -1 if the signal happened before the critical block, 0 if it
+ * happened during the critical block, or 1 if it happened after the
+ * critical block or the timer was cancelled. Under DynamoRIO the
+ * signal will never appear to have happened during the critical block
+ * because we delay the delivery of async signals to the end of the block.
+ */
+int
+try(timer_t timer, unsigned long long timer_duration_ns)
 {
-    struct sigaction act;
-    struct sigevent sevp;
+    flag_dst = 1;
+    flag_src = -1;
 
+    /* Set timer. */
+    struct itimerspec spec = {
+        { 0, 0 }, { timer_duration_ns / 1000000000, timer_duration_ns % 1000000000 }
+    };
+    if (timer_settime(timer, 0, &spec, NULL))
+        fail("timer_settime");
+
+    syscall_wrapper(&flag_src);
+
+    /* Cancel timer. */
+    struct itimerspec spec0 = { { 0, 0 }, { 0, 0 } };
+    if (timer_settime(timer, 0, &spec0, NULL))
+        fail("timer_settime");
+
+    return flag_dst;
+}
+
+int
+main(int argc, char *argv[])
+{
+    /* Set up signal handler. */
+    struct sigaction act;
     memset(&act, 0, sizeof(act));
     act.sa_flags = SA_SIGINFO;
     act.sa_sigaction = handler;
     if (sigaction(SIGUSR1, &act, 0) != 0)
         fail("sigaction");
 
+    /* Create timer. */
+    struct sigevent sevp;
     memset(&sevp, 0, sizeof(sevp));
     sevp.sigev_notify = SIGEV_SIGNAL;
     sevp.sigev_signo = SIGUSR1;
-    if (timer_create(CLOCK_REALTIME, &sevp, &timer) != 0)
+    timer_t timer;
+    if (timer_create(CLOCK_MONOTONIC, &sevp, &timer))
         fail("timer_create");
-}
 
-void
-run_under_timer(uint64_t time)
-{
-    struct itimerspec spec = { { (size_t)time / 1000000000, time % 1000000000 },
-                               /* overflows for 32-bit so cast to pointer-sized */
-                               { (size_t)time / 1000000000, time % 1000000000 } };
-    if (timer_settime(timer, 0, &spec, 0) != 0)
-        fail("timer_settime");
-    /* Our 1K * 100 outer loop iters does make the drcacheoff.sysnums test a little
-     * slow, but is required to hit the interrupted block case in my tests on my
-     * x86 and a64 machines.
+    /* Repeatedly call try(), changing timer_duration_ns each time.
+     * Typically we halve the step each time, which results in a
+     * binary search, but if we have had the same result several times
+     * in succession then we suspect that something has changed so we
+     * start doubling the step instead.
      */
-    for (int i = 0; i < 1000; ++i)
-        syscall_wrapper();
-}
+    unsigned long long timer_duration_ns = 1024; /* arbitrary initial value */
+    unsigned long long step = 1024;              /* power of two */
+    int result = -1;
+    unsigned long long unchanged_results = 0;
+    /* A thousand tries took a few seconds and gave a few hundred hits
+     * when tested on current hardware.
+     */
+    for (int i = 0; i < 1000; i++) {
+        int previous_result = result;
+        result = try(timer, timer_duration_ns);
 
-int
-main(int argc, const char *argv[])
-{
-    uint64_t time = 10000000;
+        /* Stop trying if the signal arrived during the critical block.
+         * This never happens (or seems never to happen) under DynamoRIO.
+         */
+        if (result == 0)
+            break;
 
-    setup();
-    for (int i = 0; i < 100; i++) {
-        run_under_timer(time);
-        /* Vary the time a little to hit different timing scenarios. */
-        time -= i * 100000;
+        /* Update unchanged_results. */
+        if (result == previous_result)
+            ++unchanged_results;
+        else
+            unchanged_results = 0;
+
+        /* Update step. */
+        if (unchanged_results < 5)
+            step = step / 2 > 0 ? step / 2 : step;
+        else
+            step = step * 2 > 0 ? step * 2 : step;
+
+        /* Adjust timer_duration_ns for next try. */
+        if (result < 0)
+            timer_duration_ns = timer_duration_ns + step > timer_duration_ns
+                ? timer_duration_ns + step
+                : (unsigned long long)-1;
+        else {
+            if (timer_duration_ns > step)
+                timer_duration_ns -= step;
+            else {
+                timer_duration_ns = 1;
+                step = 1;
+            }
+        }
     }
-    print("all done\n");
+
+    printf("all done\n");
     return 0;
 }
 
@@ -129,220 +181,231 @@ START_FILE
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef AARCH64
+        str      wzr, [x0]
         /* We want a long-latency block to increase the chance our timer signal
          * arrives while we're inside it: FDIV is fairly slow.
          */
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
-        fdiv     v10.2d, v11.2d, v12.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        fdiv     v0.2d, v0.2d, v1.2d
+        mov      w1, #1
+        str      w1, [x0]
         mov      w8, # SYS_getpid
         svc      #0
         ret
 #elif defined(ARM)
-        /* XXX i#5438: Add some long-latency instructions. */
-        push     {r7}
+        mov      r2, r7
+        mov      r1, #0
+        str      r1, [r0]
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        vdiv.f64 d0, d0, d1
+        mov      r1, #1
+        str      r1, [r0]
         mov      r7, # SYS_getpid
         svc      #0
-        pop      {r7}
+        mov      r7, r2
         bx       lr
 #elif defined(X86)
+#    ifdef X64
+        mov      dword ptr [%rdi], 0
+#    else
+        mov      dword ptr [%eax], 0
+#    endif
         /* We want a long-latency block to increase the chance our timer signal
          * arrives while we're inside it.  FPATAN is very slow.
          */
@@ -390,6 +453,11 @@ GLOBAL_LABEL(FUNCNAME:)
         fpatan
         fpatan
         fpatan
+#    ifdef X64
+        mov      dword ptr [%rdi], 1
+#    else
+        mov      dword ptr [%eax], 1
+#    endif
         /* End the block with a very fast syscall. */
         mov      eax, SYS_getpid
 #    ifdef X64

@@ -6718,7 +6718,7 @@ const instr_info_t mod_extensions[][2] = {
   },
   { /* mod extension 12 */
     {PREFIX_EXT, 0x0fc736, catUncategorized, "(prefix ext 137)", xx, xx, xx, xx, xx, no, x, 137},
-    {OP_rdrand,  0x0fc736, catUncategorized, "rdrand", Rv, xx, xx, xx, xx, mrm, fW6, END_LIST},
+    {OP_rdrand,  0x0fc736, catOther, "rdrand", Rv, xx, xx, xx, xx, mrm, fW6, END_LIST},
   },
   { /* mod extension 13 */
     /* The latest Intel table implies 0x66 prefix makes invalid instr but not worth

@@ -6426,6 +6426,7 @@ if (RISCV64)
     code_api|client.unregister
     code_api|common.broadfun
     code_api|common.hello
+    code_api|common.getretaddr
     code_api|libutil.drconfig_test
     code_api|libutil.frontend_test
     # TODO i#3544: code_api|linux.eintr failed under QEMU
