@@ -1,0 +1,46 @@
+pre-DR init
+pre-DR start
+pre-DR detach
+DynamoRIO statistics:
+ *Peak threads under DynamoRIO control : *1
+.*
+all done
+pre-DR init
+pre-DR start
+pre-DR detach
+DynamoRIO statistics:
+ *Peak threads under DynamoRIO control : *1
+.*
+all done
+pre-DR init
+pre-DR start
+pre-DR detach
+DynamoRIO statistics:
+ *Peak threads under DynamoRIO control : *1
+.*
+all done
+Cache simulation results:
+Core #0 \(traced CPU\(s\): #0\)
+  L1I0 .* stats:
+    Hits:                         *[0-9,\.]*
+    Misses:                       *[0-9,\.]*
+    Compulsory misses:            *[0-9,\.]*
+    Invalidations:                *0
+.*    Miss rate:                        [0-3][,\.]..%
+  L1D0 .* stats:
+    Hits:                         *[0-9,\.]*
+    Misses:                       *[0-9,\.]*
+    Compulsory misses:            *[0-9,\.]*
+    Invalidations:                *0
+.*   Miss rate:                        [0-3][,\.]..%
+Core #1 \(traced CPU\(s\): \)
+Core #2 \(traced CPU\(s\): \)
+Core #3 \(traced CPU\(s\): \)
+LL .* stats:
+    Hits:                         *[0-9,\.]*
+    Misses:                       *[0-9,\.]*
+    Compulsory misses:            *[0-9,\.]*
+    Invalidations:                *0
+.*   Local miss rate:        *[0-9,.]*%
+    Child hits:                   *[0-9,\.]*
+    Total miss rate:                  [0-1][,\.]..%

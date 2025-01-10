@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2013-2016 Google, Inc.    All rights reserved.
+# Copyright (c) 2013-2025 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -53,13 +53,18 @@ endif ()
 
 add_library(drreg SHARED ${srcs})
 set(PREFERRED_BASE 0x78000000)
-configure_extension(drreg OFF)
+configure_extension(drreg OFF OFF)
 use_DynamoRIO_extension(drreg drcontainers)
 use_DynamoRIO_extension(drreg drmgr)
 
 add_library(drreg_static STATIC ${srcs_static})
-configure_extension(drreg_static ON)
+configure_extension(drreg_static ON OFF)
 use_DynamoRIO_extension(drreg_static drcontainers)
 use_DynamoRIO_extension(drreg_static drmgr_static)
+
+add_library(drreg_drstatic STATIC ${srcs_static})
+configure_extension(drreg_drstatic ON ON)
+use_DynamoRIO_extension(drreg_drstatic drcontainers_drstatic)
+use_DynamoRIO_extension(drreg_drstatic drmgr_drstatic)
 
 install_ext_header(drreg.h)

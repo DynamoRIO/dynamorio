@@ -94,6 +94,10 @@
 #
 #  use_DynamoRIO_static_client(myapp myclient)
 #
+# To create a pure-static binary, every client must be configured with
+# configure_DynamoRIO_static_client() instead of configure_DynamoRIO_client()
+# to avoid the DynamoRIO shared library from thwarting the link.
+#
 ###########
 #
 # Frontendlib usage:
@@ -655,7 +659,7 @@ function (DynamoRIO_extra_cflags flags_out extra_cflags tgt_cxx)
 endfunction (DynamoRIO_extra_cflags)
 
 
-function (_DR_set_compile_flags target is_client extra_flags)
+function (_DR_set_compile_flags target is_client extra_flags static_DR)
   # i#850: we do not want the C flags being used for asm objects so we only set
   # on C/C++ files and not on the target.
   # We do want the defines and include dirs to be global (or at least on the
@@ -848,7 +852,11 @@ function (_DR_set_compile_flags target is_client extra_flags)
   endif (UNIX)
 
   # DynamoRIOTarget.cmake added the "dynamorio" imported target
-  target_link_libraries(${target} dynamorio)
+  if (static_DR)
+    target_link_libraries(${target} dynamorio_static)
+  else ()
+    target_link_libraries(${target} dynamorio)
+  endif ()
 
   if (DEFINED DynamoRIO_RPATH)
     set(use_rpath ${DynamoRIO_RPATH})
@@ -952,14 +960,15 @@ function (_DR_set_compile_flags target is_client extra_flags)
     COMPILE_DEFINITIONS "${extra_defines};${tgt_defines}")
 endfunction(_DR_set_compile_flags)
 
-
-function (configure_DynamoRIO_client target)
+# This is a macro so that the PARENT_SCOPE changes reach the
+# caller of this macro's caller.
+macro (configure_DynamoRIO_client_helper target static_DR)
   _DR_get_x64(${target} tgt_x64)
 
   # We clear LINK_FLAGS and let the helper routines append to them:
   set_target_properties(${target} PROPERTIES LINK_FLAGS "")
 
-  _DR_set_compile_flags(${target} ON "")
+  _DR_set_compile_flags(${target} ON "" ${static_DR})
   if (just_configured)
     # get around lack of GLOBAL_SCOPE
     # do NOT set just_configured in global scope
@@ -1049,8 +1058,15 @@ function (configure_DynamoRIO_client target)
   # TODO: a nice feature would be to check the client for libc imports or
   # other not-recommended properties
 
-endfunction (configure_DynamoRIO_client)
+endmacro (configure_DynamoRIO_client_helper)
 
+function (configure_DynamoRIO_client target)
+  configure_DynamoRIO_client_helper(${target} OFF)
+endfunction ()
+
+function (configure_DynamoRIO_static_client target)
+  configure_DynamoRIO_client_helper(${target} ON)
+endfunction ()
 
 function (configure_DynamoRIO_standalone target)
   # We don't clear LINK_FLAGS b/c we assume standalone doesn't need to have
@@ -1064,7 +1080,7 @@ function (configure_DynamoRIO_standalone target)
       set(extra_flags "${extra_flags} -pie")
     endif(ANDROID32)
   endif (ANDROID)
-  _DR_set_compile_flags(${target} OFF "${extra_flags}")
+  _DR_set_compile_flags(${target} OFF "${extra_flags}" OFF)
 
   # get around lack of GLOBAL_SCOPE
   foreach (config "" ${CMAKE_BUILD_TYPE} ${CMAKE_CONFIGURATION_TYPES})

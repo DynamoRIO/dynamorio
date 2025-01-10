@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -129,15 +129,18 @@ changes:
  - No compatibility changes yet.
 
 Further non-compatibility-affecting changes include:
- - No changes yet.
+ - Added support for statically linking clients and the DynamoRIO library into
+   a pure-static application via a new configure_DynamoRIO_static_client() CMake
+   function and new "_drstatic" static library CMake targets for the provided
+   extension libraries.
 
 **************************************************
 <hr>
 
 The changes between version 11.2.0 and 11.1.0 include the following compatibility
 changes:
- - Added #dynamorio::drmemtrace::TRACE_ENTRY_VERSION_RETIRED_INSTRUCTIONS_ONLY to increase the
-   trace version for drmemtraces with uncompleted instructions removed.
+ - Added #dynamorio::drmemtrace::TRACE_ENTRY_VERSION_RETIRED_INSTRUCTIONS_ONLY to
+   increase the trace version for drmemtraces with uncompleted instructions removed.
 
 Further non-compatibility-affecting changes include:
  - Added instr_get_operation_size() and instr_set_operation_size() APIs for
