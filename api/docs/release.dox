@@ -129,10 +129,7 @@ changes:
  - No compatibility changes yet.
 
 Further non-compatibility-affecting changes include:
- - Added support for statically linking clients and the DynamoRIO library into
-   a pure-static application via a new configure_DynamoRIO_static_client() CMake
-   function and new "_drstatic" static library CMake targets for the provided
-   extension libraries.
+ - Nothing yet.
 
 **************************************************
 <hr>
@@ -142,6 +139,10 @@ changes:
  - No compatibility changes yet.
 
 Further non-compatibility-affecting changes include:
+ - Added support for statically linking clients and the DynamoRIO library into
+   a pure-static application via a new configure_DynamoRIO_static_client() CMake
+   function and new "_drstatic" static library CMake targets for the provided
+   extension libraries.
  - Allow v2p.textproto file in a trace directory. This file is present in public traces.
  - Allow v2p.textproto file to have one missing virtual_address field, which indicates
    virtual_address == 0x0. Necessary in case a trace accesses virtual address 0x0.
