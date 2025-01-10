@@ -71,7 +71,7 @@
 #    define IF_WINDOWS_ELSE(x, y) (y)
 #endif
 
-/* XXX i#5383: PLATFORM_SUPPORTS_SCATTER_GATHER is broken on aarch64 macOS */
+/* XXX i#5383: PLATFORM_SUPPORTS_SCATTER_GATHER is broken on aarch64 macOS. */
 #if (defined(X86) || defined(AARCH64)) && !(defined(MACOS) && defined(AARCH64))
 #    define PLATFORM_SUPPORTS_SCATTER_GATHER
 #endif

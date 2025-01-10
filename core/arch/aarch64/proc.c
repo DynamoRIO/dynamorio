@@ -181,7 +181,7 @@ get_processor_specific_info(void)
 #    else /* defined(MACOS) */
 
 /* On macOS, MRS appears to be restricted. We'll use sysctl's instead.
- * XXX i#5383: Add remaining features from other sysctls
+ * XXX i#5383: Add remaining features from other sysctls.
  */
 static void
 get_processor_specific_info(void)
