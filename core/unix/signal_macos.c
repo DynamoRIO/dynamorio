@@ -203,11 +203,11 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
     fpc->__fpcr = mc->fpcr;
     if (proc_has_feature(FEATURE_SVE)) {
         /* XXX i#5383: SVE and SVE2 support for MACOS still missing.
-        */
+         */
         ASSERT_NOT_IMPLEMENTED(false);
     } else {
         /* ARM_NEON64 case.
-        */
+         */
         ASSERT((sizeof(mc->simd->q) * proc_num_simd_registers()) == sizeof(fpc->__v));
         for (int i = 0; i < proc_num_simd_registers(); i++)
             memcpy(&fpc->__v[i], &mc->simd[i].q, sizeof(fpc->__v[i]));
