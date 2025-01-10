@@ -1002,15 +1002,15 @@ $ bin64/drrun -t drmemtrace -indir newdir -tool basic_counts
 
 With the rapid growth of internet services and cloud computing,
 workloads on warehouse-scale computers (WSCs) have become an important
-segment of today’s computing market. These workloads differ from
+segment of today’s computing market.  These workloads differ from
 others in their requirements of on-demand scalability, elasticity and
-availability. They have fundamentally different characteristics from
+availability.  They have fundamentally different characteristics from
 traditional benchmarks and require changes to modern computer
 architecture to achieve optimal efficiency.  Google is sharing
 instruction and memory address traces from workloads running in Google
 data centers so that computer architecture researchers can study and
 develop new architecture ideas to improve the performance and
-efficiency of this important class of workloads. To protect Google's
+efficiency of this important class of workloads.  To protect Google's
 intellectual property, these traces have had their original ISA replaced
 with a synthetic ISA that we call #DR_ISA_REGDEPS.  This synthetic ISA
 removes architecture specific details (e.g., the opcode of instructions),
@@ -1046,10 +1046,10 @@ A #DR_ISA_REGDEPS #instr_t contains the following information:
 - Number of source and destination operands: we only consider register operands.
   This information can be obtained using instr_num_srcs() and instr_num_dsts().
   Memory operands can be deduced by subsequent read and write records in the trace.
-- Source operation size: is the largest source operand the instruction operates on.
-  This information can be obtained using instr_get_operation_size().
+- Source operation size: is the largest source operand the original ISA instruction
+  operated on.  This information can be obtained using instr_get_operation_size().
 - List of register operand identifiers: they are contained in #opnd_t lists,
-  separated in source and destination. Note that these #reg_id_t identifiers are
+  separated in source and destination.  Note that these #reg_id_t identifiers are
   virtual and it should not be assumed that they belong to any DR_REG_ enum value
   of any specific architecture. These identifiers are meant for tracking register
   dependencies with respect to other #DR_ISA_REGDEPS instructions only.  These
@@ -1072,9 +1072,8 @@ A #DR_ISA_REGDEPS #instr_t contains the following information:
 
 Note that all routines that operate on #instr_t and #opnd_t are also supported for
 #DR_ISA_REGDEPS instructions and their operands.  However, querying information outside
-of those described above (e.g., the instruction opcode with instr_get_opcode()) will
-return the zeroed value set by instr_create() or instr_init() when the #instr_t was
-created.
+of those described above will return the zeroed value set by instr_create() or
+instr_init() when the #instr_t was created.
 
 On top of instructions and memory acceses, traces also have
 #dynamorio::drmemtrace::trace_marker_type_t markers.
@@ -1099,10 +1098,12 @@ But only for SYS_futex functions.
 
 Finally, every trace has a v2p.textproto file associated to it, which provides a
 plausible virtual to physical mapping of the virtual addresses present in a trace
-for more realistic TLB simulations. This is a static virtual to physical mapping
+for more realistic TLB simulations.  This is a static virtual to physical mapping
 with 2 MB pages. Users can generate different mappings (e.g., smaller page size)
 by modifying this file, or create their own mapping following the same
 v2p.textproto format.
+
+These traces are supported starting from DynamoRIO 11.3.
 
 \section sec_google_get Getting the Traces
 
@@ -1132,7 +1133,7 @@ For general questions, or if you are not sure whether the problem you
 hit is a bug in your own code or in provided code, use the
 [DynamoRIO users group mailing list/discussion forum]
 (http://groups.google.com/group/dynamorio-users) rather than
-opening an issue in the tracker. The users list will reach a wider
+opening an issue in the tracker.  The users list will reach a wider
 audience of people who might have an answer, and it will reach other
 users who may find the information beneficial.
 
@@ -1148,7 +1149,19 @@ You can contribute to the project in many ways:
 
 - Providing suggestions for improving trace formats.
 - Sharing and collaborating on architecture research.
-- Reporting issues: see \ref sec_google_help
+- Reporting issues: see \ref sec_google_help .
+
+\section sec_google_cite Cite Google Workload Traces
+
+If you would like to cite this work, you can use the following BibTeX entry:
+
+\verbatim
+@misc{ Google_Workload_Traces_Version_2,
+  title = {{Google Workload Traces Version 2}},
+  howpublished = {\url{https://console.cloud.google.com/storage/browser/external-traces-v2}},
+  note = {Accessed: yyyy-mm-dd}
+}
+\endverbatim
 
 \section sec_public_v1_deprecated Deprecated Google Workload Traces (Version 1)
 
