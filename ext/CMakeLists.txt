@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2022 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2025 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -61,8 +61,12 @@ add_dr_defines()
 
 # This lets us share common code among all extensions.  We use a macro to
 # avoid scope issues and avoid having to call configure_DynamoRIO_global().
-macro(configure_extension target is_static)
-  configure_DynamoRIO_client(${target})
+macro(configure_extension target is_static static_DR)
+  if (${static_DR})
+    configure_DynamoRIO_static_client(${target})
+  else ()
+    configure_DynamoRIO_client(${target})
+  endif ()
 
   # ensure we rebuild if includes change
   add_dependencies(${target} api_headers)

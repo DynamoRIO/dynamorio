@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2025 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -40,14 +40,17 @@ set(DynamoRIO_USE_LIBC OFF)
 
 # library of container utilities in C that use DR API for memory allocation
 # and synchronization
-add_library(drcontainers STATIC
+set(srcs
   hashtable.c
   drvector.c
   drtable.c
   # add more here
   )
-configure_DynamoRIO_client(drcontainers)
-configure_extension(drcontainers ON)
+add_library(drcontainers STATIC ${srcs})
+configure_extension(drcontainers ON OFF)
+
+add_library(drcontainers_drstatic STATIC ${srcs})
+configure_extension(drcontainers_drstatic ON ON)
 
 # documentation is put into main DR docs/ dir
 
