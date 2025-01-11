@@ -157,8 +157,16 @@ sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
         return;
     mc->fpsr = fpc->__fpsr;
     mc->fpcr = fpc->__fpcr;
-    for (int i = 0; i < proc_num_simd_registers(); i++) {
-        memcpy(&mc->simd[i].q, &fpc->__v[i], sizeof(mc->simd->q));
+    if (proc_has_feature(FEATURE_SVE)) {
+        /* XXX i#5383: SVE and SVE2 support for MACOS still missing.
+         */
+        ASSERT_NOT_IMPLEMENTED(false);
+    } else {
+        /* ARM_NEON64 case.
+         */
+        for (int i = 0; i < proc_num_simd_registers(); i++) {
+            memcpy(&mc->simd[i].q, &fpc->__v[i], sizeof(mc->simd->q));
+        }
     }
 #elif defined(X86)
     /* We assume that _STRUCT_X86_FLOAT_STATE* matches exactly the first
