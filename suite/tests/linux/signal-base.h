@@ -78,7 +78,7 @@ static sigjmp_buf env;
 #endif
 
 /* i#1973: __SIGRTMAX isn't available on musl libc. */
-#ifdef MUSL
+#ifndef __SIGRTMAX
 #    define __SIGRTMAX SIGRTMAX
 #endif
 
