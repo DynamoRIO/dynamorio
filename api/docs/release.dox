@@ -124,7 +124,18 @@ Dr. Memory Framework (DRMF) in the same package as DynamoRIO.  DRMF
 provides the umbra, drsyscall, and drsymcache Extensions for use by
 clients.
 
-The changes between version \DR_VERSION and 11.2.0 include the following compatibility
+The changes between version \DR_VERSION and 11.3.0 include the following compatibility
+changes:
+ - No compatibility changes yet.
+
+Further non-compatibility-affecting changes include:
+ - Added support for reading a single drmemtrace trace file from stdin
+   via "-infile -".
+
+**************************************************
+<hr>
+
+The changes between version 11.3.0 and 11.2.0 include the following compatibility
 changes:
  - No compatibility changes yet.
 
@@ -133,8 +144,9 @@ Further non-compatibility-affecting changes include:
    a pure-static application via a new configure_DynamoRIO_static_client() CMake
    function and new "_drstatic" static library CMake targets for the provided
    extension libraries.
- - Added support for reading a single drmemtrace trace file from stdin
-   via "-infile -".
+ - Allow v2p.textproto file in a trace directory. This file is present in public traces.
+ - Allow v2p.textproto file to have one missing virtual_address field, which indicates
+   virtual_address == 0x0. Necessary in case a trace accesses virtual address 0x0.
 
 **************************************************
 <hr>
