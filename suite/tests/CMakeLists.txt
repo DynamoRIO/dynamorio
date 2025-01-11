@@ -426,7 +426,7 @@ function (set_cflags source)
     set(cflags "${ORIG_CMAKE_C_FLAGS}")
   endif ()
   # Alpine Linux enables "-Wtrampolines" by default, breaking
-  # security-linux/trampoline.c
+  # security-linux/trampoline.c.
   if (MUSL)
     set(cflags "${cflags} -Wno-trampolines")
   endif ()
@@ -2743,7 +2743,7 @@ else (UNIX)
   tobuild_ci(client.winxfer client-interface/winxfer.c "" "" "")
 endif (UNIX)
 # TODO i#5383: Port to Mac M1.
-# TODO i#1973: Port to musl libc
+# TODO i#1973: Port to musl libc.
 if (NOT APPLE OR NOT AARCH64 AND NOT MUSL)
   tobuild_ci(client.file_io client-interface/file_io.c
     "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/file_io_data.txt" "" "")

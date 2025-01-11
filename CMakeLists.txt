@@ -187,6 +187,7 @@ if (APPLE)
   set(OLDEST_OSX_SUPPPORTED "11.7")
 elseif (UNIX)
   set(LINUX 1)
+  # Identify whether building with (and targeting) musl libc
   find_program(LDD ldd DOC "util for examing shared object dependency")
   if (NOT LDD)
     message(STATUS "Unable to find ldd: assume glibc")

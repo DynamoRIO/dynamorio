@@ -77,7 +77,7 @@ static sigjmp_buf env;
 #    define ITERS 500000
 #endif
 
-/* i#1973: __SIGRTMAX isn't available on musl libc */
+/* i#1973: __SIGRTMAX isn't available on musl libc. */
 #ifdef MUSL
 #    define __SIGRTMAX SIGRTMAX
 #endif
@@ -169,8 +169,8 @@ static void
 #endif
 
     default:
-        /* i#1973: SIGRTMAX is a macro over function call, rather a constant on
-           musl libc. We use an if branch in default block to handle this */
+        /* i#1973: SIGRTMAX is a macro over function call, rather than a constant on
+         * musl libc. We use an if branch in default block to handle this. */
 #ifdef LINUX
         if (sig == __SIGRTMAX) {
             sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
