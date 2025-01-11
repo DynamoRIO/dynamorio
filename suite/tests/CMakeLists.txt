@@ -4006,6 +4006,28 @@ if (BUILD_CLIENTS)
           # Avoid the default core-sharded from re-scheduling the trace.
           "-indir ${core_sharded_dir} -tool schedule_stats -only_shards 2,3 -no_core_sharded" "")
         set(tool.core_on_disk_rawtemp ON) # no preprocessor
+
+        # Test reading a file over stdin.
+        # We rely on there being just one subfile in this zip file: gunzip only
+        # extracts the first one (bsdtar can extract all but is not likely installed).
+        # This is UNIX only so we rely on cat and gunzip being available.
+        find_program(CAT_EXE cat DOC "path to cat")
+        find_program(GUNZIP_EXE gunzip DOC "path to gunzip")
+        find_program(BASH_EXE bash DOC "path to bash")
+        if (CAT_EXE AND GUNZIP_EXE AND BASH_EXE)
+          # Easiest to make our pipeline in bash with a direct add_test()
+          # (although this bypasses the torun() features used by all other tests).
+          set(infile "${core_sharded_dir}/drmemtrace.core.0.trace.zip")
+          add_test(tool.drcacheoff.stdin
+            ${BASH_EXE} -c
+            "${CAT_EXE} ${infile} | ${GUNZIP_EXE} | ${drrun_path} -t drmemtrace -tool view -sim_refs 10 -infile -")
+          file(READ "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/offline-stdin.expect"
+            stdin_expect)
+          set_tests_properties(tool.drcacheoff.stdin PROPERTIES
+            PASS_REGULAR_EXPRESSION "${stdin_expect}")
+        else ()
+          message("Failed to find cat, gunzip, and bash: not running stdin test")
+        endif ()
       endif ()
     endif ()
 

@@ -129,7 +129,8 @@ changes:
  - No compatibility changes yet.
 
 Further non-compatibility-affecting changes include:
- - Nothing yet.
+ - Added support for reading a single drmemtrace trace file from stdin
+   via "-infile -".
 
 **************************************************
 <hr>
