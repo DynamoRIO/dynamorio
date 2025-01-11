@@ -54,7 +54,8 @@ open_single_file_common(const std::string &path, gzFile &out)
 {
     if (path == "-") {
         // We assume stdin is 0.
-        // We do not use "stdin->_fileno" as that is not portable.
+        // We do not use the glibc-specific "stdin->_fileno" method of finding the
+        // stdin descriptor number as that is not portable to musl or other libc.
         constexpr int STDIN_FD = 0;
         out = gzdopen(STDIN_FD, "rb");
     } else
