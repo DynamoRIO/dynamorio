@@ -379,8 +379,10 @@ nolibc_print(const char *str)
         SYS_write,
 #        endif
         3,
-#        if defined(MACOS) || defined(ANDROID)
+#        if defined(MACOS)
         stderr->_file,
+#        elif defined(ANDROID)
+        STDERR_FILENO,
 #        else
         stderr->_fileno,
 #        endif
