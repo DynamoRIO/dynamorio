@@ -187,7 +187,10 @@ if (APPLE)
   set(OLDEST_OSX_SUPPPORTED "11.7")
 elseif (UNIX)
   set(LINUX 1)
-  # Identify whether building with (and targeting) musl libc
+
+  # Identify whether building with (and targeting) musl libc with ldd. This
+  # assumes a native build. For cross compiling, a musl build could be forced
+  # by DR_TARGET_MUSL.
   find_program(LDD ldd DOC "util for examing shared object dependency")
   if (NOT LDD)
     message(STATUS "Unable to find ldd: assume glibc")
@@ -199,6 +202,11 @@ elseif (UNIX)
       if (ldd_err MATCHES "^musl libc")
         set(MUSL 1)
       endif ()
+  endif ()
+
+  option(DR_TARGET_MUSL "Target musl libc" OFF)
+  if (DR_TARGET_MUSL)
+    set(MUSL 1)
   endif ()
 endif (APPLE)
 if (WIN32)
