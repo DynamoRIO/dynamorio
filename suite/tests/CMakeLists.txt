@@ -1420,7 +1420,9 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
     file(READ "${testpath}/${srcbase}.runall" runall)
     if (UNIX)
       # We always run infloop.
-      get_target_path_for_execution(app_path linux.infloop "${location_suffix}")
+      if (NOT ANDROID)
+        get_target_path_for_execution(app_path linux.infloop "${location_suffix}")
+      endif()
       if ("${runall}" MATCHES "<attach>")
         # Add a starting message with -v, and avoid mprotect for now (i#38: mprotect
         # is failing).
@@ -2129,7 +2131,7 @@ if (BUILD_CLIENTS)
   endif ()
 endif ()
 
-if (AARCH64 AND UNIX AND ZLIB_FOUND)
+if (AARCH64 AND UNIX AND ZLIB_FOUND AND NOT ANDROID)
     # Test TLB simulator with a virtual to physical v2p.textproto mapping.
     set(srcdir
       ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.aarch64.raw)
@@ -5712,7 +5714,7 @@ if (UNIX)
   # when running tests in parallel: have to generate pcaches first
   set(linux.persist-use_FLAKY_depends linux.persist_FLAKY)
 
-  if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64)
+  if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64 AND NOT ANDROID)
     # The rseq kernel feature is Linux-only.
     # TODO i#2350: Port the assembly in the test to 32-bit x86 and to ARM.
     # TODO i#3544: Port tests to RISC-V 64
@@ -6426,7 +6428,7 @@ if (BUILD_CLIENTS AND NOT ANDROID)
     code_api|tool.drcacheoff.simple
     PROPERTIES LABELS UBUNTU_22)
 endif ()
-if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64 AND NOT ANDROID) # TODO i#3544: Port tests to RISC-V 64
   set_tests_properties(
     code_api|api.rseq
     code_api|linux.rseq_disable
