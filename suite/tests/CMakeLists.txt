@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2024 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2025 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2016-2023 ARM Limited.    All rights reserved.
 # **********************************************************
@@ -4006,6 +4006,28 @@ if (BUILD_CLIENTS)
           # Avoid the default core-sharded from re-scheduling the trace.
           "-indir ${core_sharded_dir} -tool schedule_stats -only_shards 2,3 -no_core_sharded" "")
         set(tool.core_on_disk_rawtemp ON) # no preprocessor
+
+        # Test reading a file over stdin.
+        # We rely on there being just one subfile in this zip file: gunzip only
+        # extracts the first one (bsdtar can extract all but is not likely installed).
+        # This is UNIX only so we rely on cat and gunzip being available.
+        find_program(CAT_EXE cat DOC "path to cat")
+        find_program(GUNZIP_EXE gunzip DOC "path to gunzip")
+        find_program(BASH_EXE bash DOC "path to bash")
+        if (CAT_EXE AND GUNZIP_EXE AND BASH_EXE)
+          # Easiest to make our pipeline in bash with a direct add_test()
+          # (although this bypasses the torun() features used by all other tests).
+          set(infile "${core_sharded_dir}/drmemtrace.core.0.trace.zip")
+          add_test(tool.drcacheoff.stdin
+            ${BASH_EXE} -c
+            "${CAT_EXE} ${infile} | ${GUNZIP_EXE} | ${drrun_path} -t drmemtrace -tool view -sim_refs 10 -infile -")
+          file(READ "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/offline-stdin.expect"
+            stdin_expect)
+          set_tests_properties(tool.drcacheoff.stdin PROPERTIES
+            PASS_REGULAR_EXPRESSION "${stdin_expect}")
+        else ()
+          message("Failed to find cat, gunzip, and bash: not running stdin test")
+        endif ()
       endif ()
     endif ()
 
@@ -4638,6 +4660,11 @@ if (BUILD_CLIENTS)
         # FIXME i#2099: the weak symbol is not supported not work on Windows
         set(tool.drcacheoff.burst_client_nodr ON)
         torunonly_drcacheoff(burst_client tool.drcacheoff.burst_client "" "" "")
+
+        if (TARGET tool.drcacheoff.purestatic)
+          set(tool.drcacheoff.purestatic_nodr ON)
+          torunonly_drcacheoff(purestatic tool.drcacheoff.purestatic "" "" "")
+        endif ()
       endif ()
     endif ()
 
@@ -5696,7 +5723,7 @@ if (UNIX)
     tobuild_api(api.rseq linux/rseq.cpp "" "" OFF ON OFF)
     link_with_pthread(api.rseq)
     append_property_list(TARGET api.rseq COMPILE_DEFINITIONS "RSEQ_TEST_ATTACH")
-    use_DynamoRIO_static_client(api.rseq drmemtrace_static)
+    use_DynamoRIO_static_client(api.rseq drmemtrace_nomain)
     use_DynamoRIO_drmemtrace_tracer(api.rseq)
     set(api.rseq_expectbase rseq_client)
     # Test non-compliant code with our workaround flag.
@@ -6402,6 +6429,12 @@ if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64) # TODO i#3544: Port tests to RI
     code_api|tool.drcacheoff.rseq
     PROPERTIES LABELS UBUNTU_22)
 endif ()
+if (TARGET tool.drcacheoff.purestatic)
+  # This target only easily builds on Ubuntu22+ so make sure we run it there.
+  set_tests_properties(
+    code_api|tool.drcacheoff.purestatic
+    PROPERTIES LABELS UBUNTU_22)
+endif()
 
 # XXX i#3544: Support for running RISC-V Linux tests under QEMU.
 # Currently about 1/6 of the compiled tests pass.
@@ -6510,6 +6543,7 @@ if (UNIX AND X86 AND CPU_AMD AND NOT DR_HOST_X64)
     code_api|tool.basic_counts
     code_api|tool.drcacheoff.altbindir
     code_api|tool.drcacheoff.burst_client
+    code_api|tool.drcacheoff.purestatic
     code_api|tool.drcacheoff.basic_counts
     code_api|tool.drcacheoff.burst_futex
     code_api|tool.drcacheoff.burst_malloc

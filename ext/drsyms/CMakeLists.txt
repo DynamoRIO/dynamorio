@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2024 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2025 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -253,9 +253,9 @@ endif (WIN32)
 set(PREFERRED_BASE 0x76000000)
 
 add_library(drsyms SHARED ${srcs})
-configure_extension(drsyms OFF)
+configure_extension(drsyms OFF OFF)
 
-macro(configure_drsyms_target target)
+macro(configure_drsyms_target target static_DR)
   if (WIN32)
     target_link_libraries(${target} dbghelp ${dbghelp_flags})
     if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
@@ -271,11 +271,16 @@ macro(configure_drsyms_target target)
     if (LINUX)
       target_link_libraries(${target} dwelf_pic elf_pic)
     endif ()
-    target_link_libraries(${target} ebl_pic ${ZLIB_LIBRARIES})
+    target_link_libraries(${target} ebl_pic)
+    if (${static_DR})
+      target_link_libraries(${target} ${ZLIB_STATIC_LIBRARIES})
+    else ()
+      target_link_libraries(${target} ${ZLIB_LIBRARIES})
+    endif ()
   endif ()
 endmacro(configure_drsyms_target)
 
-configure_drsyms_target(drsyms)
+configure_drsyms_target(drsyms OFF)
 
 use_DynamoRIO_extension(drsyms drcontainers)
 
@@ -293,9 +298,14 @@ include_directories("${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc/include")
 # with exported separate libs to match Linux (alternative would be a custom
 # command to combine via lib.exe).
 add_library(drsyms_static STATIC ${srcs_static})
-configure_extension(drsyms_static ON)
-configure_drsyms_target(drsyms_static)
+configure_extension(drsyms_static ON OFF)
+configure_drsyms_target(drsyms_static OFF)
 use_DynamoRIO_extension(drsyms_static drcontainers)
+
+add_library(drsyms_drstatic STATIC ${srcs_static})
+configure_extension(drsyms_drstatic ON ON)
+configure_drsyms_target(drsyms_drstatic ON)
+use_DynamoRIO_extension(drsyms_drstatic drcontainers_drstatic)
 
 if (NOT USE_ELFUTILS)
   target_link_libraries(drsyms dwarf)
@@ -317,20 +327,24 @@ if (NOT USE_ELFUTILS)
   add_library(dwarf STATIC IMPORTED)
   set_property(TARGET dwarf PROPERTY IMPORTED_LOCATION "${dwarf_libpath}")
   target_link_libraries(drsyms_static dwarf)
+  target_link_libraries(drsyms_drstatic dwarf)
   if (LINUX)
     add_library(elf STATIC IMPORTED)
     set_property(TARGET elf PROPERTY IMPORTED_LOCATION "${elf_libpath}")
     target_link_libraries(drsyms_static elf)
+    target_link_libraries(drsyms_drstatic elf)
   endif (LINUX)
 endif ()
 add_library(elftc STATIC IMPORTED)
 set_property(TARGET elftc PROPERTY IMPORTED_LOCATION "${elftc_libpath}")
 target_link_libraries(drsyms_static elftc)
+target_link_libraries(drsyms_drstatic elftc)
 if (UNIX)
   # Avoid missing symbols in static library build from g++ libs when
   # drsyms_bench is linked with gcc instead of g++ (i#715, happens w/ cmake
   # < 2.8.0 where demangle.cc is not propagated through libdrsyms.a)
   append_property_string(TARGET drsyms_static COMPILE_FLAGS "-fno-exceptions")
+  append_property_string(TARGET drsyms_drstatic COMPILE_FLAGS "-fno-exceptions")
   # On ARM cross-compilation I'm seeing the same __gxx_personality_v0 and
   # __cxa_end_cleanup errors, so we pass this for the .so as well:
   append_property_string(TARGET drsyms COMPILE_FLAGS "-fno-exceptions")
@@ -338,6 +352,7 @@ endif (UNIX)
 
 if (WIN32)
   append_property_string(TARGET drsyms_static COMPILE_FLAGS "/DSTATIC_LIB")
+  append_property_string(TARGET drsyms_drstatic COMPILE_FLAGS "/DSTATIC_LIB")
 endif (WIN32)
 DR_install(FILES "${dwarf_libpath}" "${elf_libpath}" "${elftc_libpath}"
   DESTINATION ${INSTALL_EXT_LIB})
