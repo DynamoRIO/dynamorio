@@ -6408,6 +6408,8 @@ cleanup_after_vfork_execve(dcontext_t *dcontext)
                      num_threads * sizeof(thread_record_t *) HEAPACCT(ACCT_THREAD_MGT));
 }
 
+/* XXX: Discover libc type at runtime and use appropriate stdfile_t variant
+ * instead of depending on build-time preprocessor defines */
 static void
 set_stdfile_fileno(stdfile_t **stdfile, file_t old_fd, file_t file_no)
 {
