@@ -1084,17 +1084,19 @@ All markers of the original trace are present, except for:
 - #dynamorio::drmemtrace::TRACE_MARKER_TYPE_SYSCALL_TRACE_END
 - #dynamorio::drmemtrace::TRACE_MARKER_TYPE_SYSCALL_FAILED
 - #dynamorio::drmemtrace::TRACE_MARKER_TYPE_SIGNAL_NUMBER
+
 Which have been removed.
+
 Because tracing overhead results into inflated context switches, the
 #dynamorio::drmemtrace::TRACE_MARKER_TYPE_CPU_ID values have been modified to
 "unknown CPU" to avoid confusion. We recommend users to use our scheduler
 (see \ref sec_drcachesim_sched) for a realistic schedule of a trace's threads.
-Also, we preserved the following markers:
+
+Also, we preserved the following markers, but only for SYS_futex functions:
 - #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_ID
 - #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_ARG
 - #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_RETVAL
 - #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_RETADDR
-But only for SYS_futex functions.
 
 Finally, every trace has a v2p.textproto file associated to it, which provides a
 plausible virtual to physical mapping of the virtual addresses present in a trace
@@ -1109,14 +1111,14 @@ These traces are supported starting from DynamoRIO 11.3.
 
 The Google Workload Traces can be downloaded from:
 
- - [Google workload trace folder](https://console.cloud.google.com/storage/browser/external-traces-v2)
+- [Google workload trace folder](https://console.cloud.google.com/storage/browser/external-traces-v2)
 
 Directory structure:
-- \verbatim
-  workload_name/
-    <uuid>.<tid>.memtrace.zip
-    v2p.textproto
-  \endverbatim
+\verbatim
+workload_name/
+  <uuid>.<tid>.memtrace.zip
+  v2p.textproto
+\endverbatim
 
 \section sec_google_help Getting Help and Reporting Bugs
 
@@ -1156,8 +1158,8 @@ You can contribute to the project in many ways:
 If you would like to cite this work, you can use the following BibTeX entry:
 
 \verbatim
-@misc{ Google_Workload_Traces_Version_2,
-  title = {{Google Workload Traces Version 2}},
+@misc{Google_Workload_Traces_Version_2,
+  title = {Google Workload Traces Version 2},
   howpublished = {\url{https://console.cloud.google.com/storage/browser/external-traces-v2}},
   note = {Accessed: yyyy-mm-dd}
 }
