@@ -266,8 +266,8 @@ if (UNIX)
   # XXX: this is duplicated in DynamoRIOConfig.cmake
 
   function (set_preferred_base_start_and_end target base set_bounds)
-    if (ANDROID)
-      # i#1863: Android's loader doesn't support a non-zero base.
+    if (ANDROID32)
+      # i#1863: 32-bit Android's loader doesn't support a non-zero base.
       # Turning off SET_PREFERRED_BASE is not sufficient as we get
       # a 0x10000 base.
       set(base 0)
