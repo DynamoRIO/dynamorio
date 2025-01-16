@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -1784,7 +1784,7 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
     injectee_dr_fd = dr_fd;
     injected_base = elf_loader_map_phdrs(
         &loader, true /*fixed*/, injectee_map_file, injectee_unmap, injectee_prot, NULL,
-        injectee_memset, MODLOAD_SEPARATE_PROCESS /*!reachable*/);
+        injectee_memset, MODLOAD_SEPARATE_PROCESS /*!reachable*/, NULL /*remap_func*/);
     if (injected_base == NULL) {
         if (verbose)
             fprintf(stderr, "Unable to mmap libdynamorio.so in injectee\n");

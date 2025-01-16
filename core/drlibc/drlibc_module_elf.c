@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -380,7 +380,7 @@ app_pc
 elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
                      unmap_fn_t unmap_func, prot_fn_t prot_func,
                      check_bounds_fn_t check_bounds_func, memset_fn_t memset_func,
-                     modload_flags_t flags)
+                     modload_flags_t flags, remap_fn_t remap_func)
 {
     app_pc lib_base, lib_end, last_end;
     ELF_HEADER_TYPE *elf_hdr = elf->ehdr;
@@ -480,26 +480,36 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
                 do_mmap = false;
                 elf->image_size = last_end - lib_base;
             }
-            /* XXX:
-             * This function can be called after dynamo_heap_initialized,
-             * and we will use map_file instead of os_map_file.
-             * However, map_file does not allow mmap with overlapped memory,
-             * so we have to unmap the old memory first.
-             * This might be a problem, e.g.
-             * one thread unmaps the memory and before mapping the actual file,
-             * another thread requests memory via mmap takes the memory here,
-             * a racy condition.
-             */
             if (seg_size > 0) { /* i#1872: handle empty segments */
                 if (do_mmap) {
-                    (*unmap_func)(seg_base, seg_size);
-                    map = (*map_func)(
-                        elf->fd, &seg_size, pg_offs, seg_base /* base */,
-                        seg_prot | MEMPROT_WRITE /* prot */,
-                        MAP_FILE_COPY_ON_WRITE /*writes should not change file*/ |
-                            MAP_FILE_IMAGE |
-                            /* we don't need MAP_FILE_REACHABLE b/c we're fixed */
-                            MAP_FILE_FIXED);
+                    if (remap_func != NULL) {
+                        map = (*remap_func)(
+                            elf->fd, &seg_size, pg_offs, seg_base /* base */,
+                            seg_prot | MEMPROT_WRITE /* prot */,
+                            MAP_FILE_COPY_ON_WRITE /*writes should not change file*/ |
+                                MAP_FILE_IMAGE |
+                                /* we don't need MAP_FILE_REACHABLE b/c we're fixed */
+                                MAP_FILE_FIXED);
+                    } else {
+                        /* i#7192:
+                         * This function can be called after dynamo_heap_initialized,
+                         * and we will use map_file instead of os_map_file.
+                         * However, map_file does not allow mmap with overlapped memory,
+                         * so we have to unmap the old memory first.
+                         * This might be a problem, e.g.
+                         * one thread unmaps the memory and before mapping the actual
+                         * file, another thread requests memory via mmap takes the memory
+                         * here, a racy condition.
+                         */
+                        (*unmap_func)(seg_base, seg_size);
+                        map = (*map_func)(
+                            elf->fd, &seg_size, pg_offs, seg_base /* base */,
+                            seg_prot | MEMPROT_WRITE /* prot */,
+                            MAP_FILE_COPY_ON_WRITE /*writes should not change file*/ |
+                                MAP_FILE_IMAGE |
+                                /* we don't need MAP_FILE_REACHABLE b/c we're fixed */
+                                MAP_FILE_FIXED);
+                    }
                     ASSERT(map != NULL);
                     /* fill zeros at extend size */
                     file_end = (app_pc)prog_hdr->p_vaddr + prog_hdr->p_filesz;
