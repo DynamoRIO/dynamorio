@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2025 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # drwrap: DynamoRIO Function Wrapping and Replacing Extension
@@ -84,7 +84,7 @@ add_library(drwrap SHARED ${srcs})
 # while private loader means preferred base is not required, more efficient
 # to avoid rebase so we avoid conflict w/ client and other exts
 set(PREFERRED_BASE 0x74000000)
-configure_extension(drwrap OFF)
+configure_extension(drwrap OFF OFF)
 use_DynamoRIO_extension(drwrap drmgr)
 use_DynamoRIO_extension(drwrap drcontainers)
 
@@ -110,9 +110,15 @@ configure_drwrap_target(drwrap)
 # We do provide the static library for those who are ok w/ the license and who
 # are building an end tool.
 add_library(drwrap_static STATIC ${srcs_static})
-configure_extension(drwrap_static ON)
+configure_extension(drwrap_static ON OFF)
 use_DynamoRIO_extension(drwrap_static drmgr_static)
 use_DynamoRIO_extension(drwrap_static drcontainers)
 configure_drwrap_target(drwrap_static)
+
+add_library(drwrap_drstatic STATIC ${srcs_static})
+configure_extension(drwrap_drstatic ON ON)
+use_DynamoRIO_extension(drwrap_drstatic drmgr_drstatic)
+use_DynamoRIO_extension(drwrap_drstatic drcontainers_drstatic)
+configure_drwrap_target(drwrap_drstatic)
 
 install_ext_header(drwrap.h)

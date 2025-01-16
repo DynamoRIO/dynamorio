@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -2538,14 +2538,17 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
  */
 
 /* To support statically linked multiple clients, we add drmemtrace_client_main
- * as the real client init function and make dr_client_main a weak symbol.
- * We could also use alias to link dr_client_main to drmemtrace_client_main.
- * A simple call won't add too much overhead, and works both in Windows and Linux.
- * To automate the process and minimize the code change, we should investigate the
- * approach that uses command-line link option to alias two symbols.
+ * as the real client init function and let a separate dr_client_main call
+ * drmemtrace_client_main. Since dynamorio_static now provides its own weak
+ * dr_client_main symbol, we can't simply always provide a weak dr_client_main here:
+ * it must either be present and strong or not present, controlled by the
+ * DRMEMTRACE_NO_MAIN define.
  */
-DR_EXPORT WEAK void
+#ifndef DRMEMTRACE_NO_MAIN
+DR_EXPORT
+void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     dynamorio::drmemtrace::drmemtrace_client_main(id, argc, argv);
 }
+#endif

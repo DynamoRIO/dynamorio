@@ -283,6 +283,10 @@ decode_sysreg(uint imm15)
 {
     reg_t sysreg;
     switch (imm15) {
+    case 0x4681: sysreg = DR_REG_CONTEXTIDR_EL1; break;
+    case 0x4201: sysreg = DR_REG_ELR_EL1; break;
+    case 0x4200: sysreg = DR_REG_SPSR_EL1; break;
+    case 0x4684: sysreg = DR_REG_TPIDR_EL1; break;
     case 0x4000: sysreg = DR_REG_MIDR_EL1; break;
     case 0x4005: sysreg = DR_REG_MPIDR_EL1; break;
     case 0x4006: sysreg = DR_REG_REVIDR_EL1; break;
@@ -419,6 +423,10 @@ encode_sysreg(OUT uint *imm15, opnd_t opnd)
 {
     if (opnd_is_reg(opnd)) {
         switch (opnd_get_reg(opnd)) {
+        case DR_REG_CONTEXTIDR_EL1: *imm15 = 0x4681; break;
+        case DR_REG_ELR_EL1: *imm15 = 0x4201; break;
+        case DR_REG_SPSR_EL1: *imm15 = 0x4200; break;
+        case DR_REG_TPIDR_EL1: *imm15 = 0x4684; break;
         case DR_REG_MIDR_EL1: *imm15 = 0x4000; break;
         case DR_REG_MPIDR_EL1: *imm15 = 0x4005; break;
         case DR_REG_REVIDR_EL1: *imm15 = 0x4006; break;

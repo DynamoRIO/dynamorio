@@ -706,9 +706,7 @@ TNAME(d_r_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
             c++;
         } else {
             const TCHAR *cstart = c;
-            int nbytes = 0;
             while (*c && *c != _T('%')) {
-                nbytes++;
                 c++;
             }
             while (cstart < c) {

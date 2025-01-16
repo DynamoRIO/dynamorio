@@ -1,0 +1,16 @@
+Output format:
+<--record#-> <--instr#->: <---tid---> <record details>
+------------------------------------------------------------
+           1           0:     1257596 <marker: version 4>
+           2           0:     1257596 <marker: filetype 0x10e40>
+           3           0:     1257596 <marker: cache line size 64>
+           4           0:     1257596 <marker: chunk instruction count 10000000>
+           5           0:     1257596 <marker: page size 4096>
+           6           0:     1257596 <marker: timestamp 13331862027607247>
+           7           0:     1257596 <marker: tid 1257596 on core 8>
+           8           1:     1257596 ifetch       4 byte\(s\) @ 0x00007f3e429fce35 48 8b 45 f8          mov    -0x08\(%rbp\), %rax
+           9           1:     1257596 read         8 byte\(s\) @ 0x00007ffefb03e128 by PC 0x00007f3e429fce35
+          10           2:     1257596 ifetch       8 byte\(s\) @ 0x00007f3e429fce39 48 8d 14 c5 00 00 00 lea    0x00\(,%rax,8\), %rdx
+          10           2:     1257596                                             00
+View tool results:
+              2 : total instructions

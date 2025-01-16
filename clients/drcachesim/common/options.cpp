@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -95,9 +95,14 @@ droption_t<std::string> op_indir(
     "delete files here.");
 
 droption_t<std::string> op_infile(
-    DROPTION_SCOPE_ALL, "infile", "", "Offline legacy file for input to the simulator",
-    "Directs the simulator to use a single all-threads-interleaved-into-one trace file. "
-    "This is a legacy file format that is no longer produced.");
+    DROPTION_SCOPE_ALL, "infile", "", "Single offline trace input file",
+    "Directs the framework to use a single trace file.  This could be a legacy "
+    "all-software-threads-interleaved-into-one trace file, a core-sharded single "
+    "hardware thread file mixing multiple software threads, or a single software "
+    "thread selected from a directory (though in that case it is better to use "
+    "-only_thread, -only_threads, or -only_shards).  This method of input does "
+    "not support any features that require auxiliary metadata files. "
+    "Passing '-' will read from stdin as plain or gzip-compressed data.");
 
 droption_t<int> op_jobs(
     DROPTION_SCOPE_ALL, "jobs", -1, "Number of parallel jobs",

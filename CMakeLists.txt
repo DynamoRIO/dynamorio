@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2024 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2025 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2018 Arm Limited          All rights reserved.
 # **********************************************************
@@ -447,6 +447,10 @@ if (WIN32 AND DEBUG)
 elseif (APPLE AND X64)
   # Set to higher than _PAGEZERO which is [0..0x1'00000000).
   set(preferred_base "0x171000000" CACHE STRING "Preferred library base address")
+elseif (ANDROID64)
+  # 64-bit Android needs a base of 0x1000 so that libdynamorio.so
+  # does not get overwritten by the vDSO.
+  set(preferred_base "0x1000" CACHE STRING "Preferred library base address")
 else ()
   set(preferred_base "0x71000000" CACHE STRING "Preferred library base address")
 endif ()
@@ -602,7 +606,7 @@ endif (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
 
 # N.B.: When updating this, update all the default versions in ci-package.yml
 # and ci-docs.yml.  We should find a way to share (xref i#1565).
-set(VERSION_NUMBER_DEFAULT "11.2.${VERSION_NUMBER_PATCHLEVEL}")
+set(VERSION_NUMBER_DEFAULT "11.3.${VERSION_NUMBER_PATCHLEVEL}")
 # do not store the default VERSION_NUMBER in the cache to prevent a stale one
 # from preventing future version updates in a pre-existing build dir
 set(VERSION_NUMBER "" CACHE STRING "Version number: leave empty for default")
@@ -1889,6 +1893,13 @@ if (WIN32 AND NOT DISABLE_ZLIB)
   set(ZLIB_FOUND OFF)
 else ()
   find_package(ZLIB)
+  # FindZLIB doesn't give us any library split so we manually
+  # convert to static.
+  set(ZLIB_STATIC_LIBRARIES "")
+  foreach (lib ${ZLIB_LIBRARIES})
+    string(REGEX REPLACE "\\.so$" ".a" newlib "${lib}")
+    list(APPEND ZLIB_STATIC_LIBRARIES ${newlib})
+  endforeach ()
 endif ()
 # On Ubuntu 14.10, 32-bit builds fail to link with -lsnappy, just ignore.
 if (UNIX AND X64)
