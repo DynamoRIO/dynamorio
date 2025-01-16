@@ -50,6 +50,7 @@
 #include "configure.h"
 #include "globals_shared.h"
 #include "../config.h"
+#include "os_public.h"
 #include <stdio.h>
 /* for getpid */
 #include <unistd.h>
@@ -137,7 +138,7 @@ take_over(const char *pname)
     return true;
 }
 
-int
+INITIALIZER_ATTRIBUTES int
 #if INIT_BEFORE_LIBC
 _init(int argc, char *arg0, ...)
 {

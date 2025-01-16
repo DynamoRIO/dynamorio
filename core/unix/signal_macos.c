@@ -157,8 +157,17 @@ sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
         return;
     mc->fpsr = fpc->__fpsr;
     mc->fpcr = fpc->__fpcr;
-    ASSERT(sizeof(mc->simd) == sizeof(fpc->__v));
-    memcpy(&mc->simd, &fpc->__v, sizeof(mc->simd));
+    if (proc_has_feature(FEATURE_SVE)) {
+        /* XXX i#5383: SVE and SVE2 support for MACOS still missing.
+         */
+        ASSERT_NOT_IMPLEMENTED(false);
+    } else {
+        /* ARM_NEON64 case.
+         */
+        for (int i = 0; i < proc_num_simd_registers(); i++) {
+            memcpy(&mc->simd[i].q, &fpc->__v[i], sizeof(mc->simd->q));
+        }
+    }
 #elif defined(X86)
     /* We assume that _STRUCT_X86_FLOAT_STATE* matches exactly the first
      * half of _STRUCT_X86_AVX_STATE*, and similarly for AVX and AVX512.
@@ -200,8 +209,17 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
         return;
     fpc->__fpsr = mc->fpsr;
     fpc->__fpcr = mc->fpcr;
-    ASSERT(sizeof(mc->simd) == sizeof(fpc->__v));
-    memcpy(&fpc->__v, &mc->simd, sizeof(mc->simd));
+    if (proc_has_feature(FEATURE_SVE)) {
+        /* XXX i#5383: SVE and SVE2 support for MACOS still missing.
+         */
+        ASSERT_NOT_IMPLEMENTED(false);
+    } else {
+        /* ARM_NEON64 case.
+         */
+        ASSERT((sizeof(mc->simd->q) * proc_num_simd_registers()) == sizeof(fpc->__v));
+        for (int i = 0; i < proc_num_simd_registers(); i++)
+            memcpy(&fpc->__v[i], &mc->simd[i].q, sizeof(fpc->__v[i]));
+    }
 #elif defined(X86)
     sigcontext_t *sc = sc_full->sc;
     int i;
