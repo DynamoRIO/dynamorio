@@ -148,8 +148,11 @@ elf_loader_map_file(elf_loader_t *elf, bool reachable);
  * provided function pointers.  If a remap_func is specified, it is used when
  * we must unmap a certain part of a prior reserved anonymous map and use it
  * for another mapping; unlike unmap_func followed by map_func, remap_func
- * does it atomically without risk of that region getting mmaped by another
- * thread (i#7192).
+ * is expected to do this atomically to mitigate risk of that region getting
+ * mmaped by another thread between the unmap and map events (i#7192). On
+ * Linux, this may be achieved if the map call uses MAP_FIXED which
+ * atomically unmaps the overlapping address range. Prefer to provide the
+ * remap_func implementation when possible.
  *
  * check_bounds_func is only called if fixed=true.
  *
