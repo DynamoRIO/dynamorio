@@ -6410,6 +6410,8 @@ cleanup_after_vfork_execve(dcontext_t *dcontext)
                      num_threads * sizeof(thread_record_t *) HEAPACCT(ACCT_THREAD_MGT));
 }
 
+/* XXX: Discover libc type at runtime and use appropriate stdfile_t variant
+ * instead of depending on build-time preprocessor defines. */
 static void
 set_stdfile_fileno(stdfile_t **stdfile, file_t old_fd, file_t file_no)
 {
@@ -6420,7 +6422,6 @@ set_stdfile_fileno(stdfile_t **stdfile, file_t old_fd, file_t file_no)
     (*stdfile)->STDFILE_FILENO = file_no;
 #    endif
 #else
-#    warning stdfile_t is opaque; DynamoRIO will not set fds of libc FILEs.
     /* i#1973: musl libc support (and potentially other non-glibcs) */
     /* only called by handle_close_pre(), so warning is specific to that. */
     SYSLOG_INTERNAL_WARNING_ONCE(
