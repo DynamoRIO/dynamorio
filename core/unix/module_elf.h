@@ -148,7 +148,8 @@ elf_loader_map_file(elf_loader_t *elf, bool reachable);
  * provided function pointers.  If a remap_func is specified, it is used when
  * we must unmap a certain part of a prior reserved anonymous map and use it
  * for another mapping; unlike unmap_func followed by map_func, remap_func
- * is atomic.
+ * does it atomically without risk of that region getting mmaped by another
+ * thread (i#7192).
  *
  * check_bounds_func is only called if fixed=true.
  *
