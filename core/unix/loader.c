@@ -2262,17 +2262,16 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
         ASSERT_NOT_REACHED();
     }
 
-    exe_map =
-        elf_loader_map_phdrs(&exe_ld,
-                             /* fixed at preferred address,
-                              * will be overridden if preferred base is 0
-                              */
-                             true,
-                             /* ensure there's space for the brk */
-                             map_exe_file_and_brk, os_unmap_file, os_set_protection,
-                             privload_check_new_map_bounds, memset,
-                             privload_map_flags(MODLOAD_IS_APP /*!reachable*/),
-                             NULL /*remap_func*/);
+    exe_map = elf_loader_map_phdrs(&exe_ld,
+                                   /* fixed at preferred address,
+                                    * will be overridden if preferred base is 0
+                                    */
+                                   true,
+                                   /* ensure there's space for the brk */
+                                   map_exe_file_and_brk, os_unmap_file, os_set_protection,
+                                   privload_check_new_map_bounds, memset,
+                                   privload_map_flags(MODLOAD_IS_APP /*!reachable*/),
+                                   NULL /*remap_func*/);
     apicheck(exe_map != NULL,
              "Failed to load application.  "
              "Check path and architecture.");
