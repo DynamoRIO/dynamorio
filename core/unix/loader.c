@@ -493,6 +493,9 @@ remap_file_func(file_t f, size_t *size DR_PARAM_INOUT, uint64 offs, app_pc addr,
      * and it is acceptable to unmap any mapping already existing there.
      */
     ASSERT(TEST(MAP_FILE_FIXED, map_flags));
+    /* MAP_FILE_FIXED (which is MAP_FIXED in the mmap syscall) will cause the
+     * overlapping region to automatically and atomically get unmapped.
+     */
     return os_map_file(f, size, offs, addr, prot, map_flags);
 }
 #endif

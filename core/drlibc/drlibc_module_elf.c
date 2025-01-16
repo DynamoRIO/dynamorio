@@ -483,6 +483,10 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
             if (seg_size > 0) { /* i#1872: handle empty segments */
                 if (do_mmap) {
                     if (remap_func != NULL) {
+                        /* The relevant part of the anonymous map obtained above is
+                         * expected to automatically and atomically get unmapped because
+                         * we use remap_func (which requires MAP_FILE_FIXED).
+                         */
                         map = (*remap_func)(
                             elf->fd, &seg_size, pg_offs, seg_base /* base */,
                             seg_prot | MEMPROT_WRITE /* prot */,
