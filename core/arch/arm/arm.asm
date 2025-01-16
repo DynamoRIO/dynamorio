@@ -167,10 +167,11 @@ GLOBAL_LABEL(dr_call_on_clean_stack:)
 #ifdef DR_APP_EXPORTS
         DECLARE_EXPORTED_FUNC(dr_app_start)
 GLOBAL_LABEL(dr_app_start:)
-#if (PRIV_MCXT_SIZE + 8) % 8 != 0
-#    error Stack should be 8-byte aligned.
+#if PRIV_MCXT_SIZE % 8 != 0
+#    error Size of priv_mcontext_t should be 8-byte aligned.
 #endif
-        sub      sp, sp, #(PRIV_MCXT_SIZE + 8) /* space for mcontext + LR */
+        /* space for mcontext + padding + LR (stack must be 8-byte aligned */
+        sub      sp, sp, #(PRIV_MCXT_SIZE + 8)
         str      lr, [sp, #(PRIV_MCXT_SIZE + 4)]
 #if PRIV_MCXT_R0_OFFSET != 0
 #    error
@@ -222,10 +223,11 @@ GLOBAL_LABEL(dr_app_running_under_dynamorio:)
  */
         DECLARE_EXPORTED_FUNC(dynamorio_app_take_over)
 GLOBAL_LABEL(dynamorio_app_take_over:)
-#if (PRIV_MCXT_SIZE + 8) % 8 != 0
-#    error Stack should be 8-byte aligned.
+#if PRIV_MCXT_SIZE % 8 != 0
+#    error Size of priv_mcontext_t should be 8-byte aligned.
 #endif
-        sub      sp, sp, #(PRIV_MCXT_SIZE + 8) /* space for mcontext + LR */
+        /* space for mcontext + padding + LR (stack must be 8-byte aligned */
+        sub      sp, sp, #(PRIV_MCXT_SIZE + 8)
         str      lr, [sp, #(PRIV_MCXT_SIZE + 4)]
 #if PRIV_MCXT_R0_OFFSET != 0
 #    error
