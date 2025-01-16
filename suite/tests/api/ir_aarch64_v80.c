@@ -139,6 +139,10 @@ static const reg_id_t systemreg[] = {
     DR_REG_MIDR_EL1,
     DR_REG_MPIDR_EL1,
     DR_REG_REVIDR_EL1,
+    DR_REG_CONTEXTIDR_EL1,
+    DR_REG_ELR_EL1,
+    DR_REG_SPSR_EL1,
+    DR_REG_TPIDR_EL1,
 };
 static const size_t sysreg_count = sizeof(systemreg) / sizeof(systemreg[0]);
 
@@ -197,7 +201,9 @@ TEST_INSTR(mrs)
                 "mrs    %id_aa64dfr0_el1 -> %x22", "mrs    %id_aa64zfr0_el1 -> %x23",
                 "mrs    %id_aa64pfr1_el1 -> %x24", "mrs    %id_aa64mmfr2_el1 -> %x25",
                 "mrs    %midr_el1 -> %x26",        "mrs    %mpidr_el1 -> %x27",
-                "mrs    %revidr_el1 -> %x28"
+                "mrs    %revidr_el1 -> %x28",      "mrs    %contextidr_el1 -> %x29",
+                "mrs    %elr_el1 -> %x30",         "mrs    %spsr_el1 -> %x0",
+                "mrs    %tpidr_el1 -> %x1"
                 /* clang-format on */
             );
             switch (systemreg[i]) {
@@ -278,7 +284,9 @@ TEST_INSTR(msr)
                 "msr    %x22 -> %id_aa64dfr0_el1", "msr    %x23 -> %id_aa64zfr0_el1",
                 "msr    %x24 -> %id_aa64pfr1_el1", "msr    %x25 -> %id_aa64mmfr2_el1",
                 "msr    %x26 -> %midr_el1",        "msr    %x27 -> %mpidr_el1",
-                "msr    %x28 -> %revidr_el1"
+                "msr    %x28 -> %revidr_el1",      "msr    %x29 -> %contextidr_el1",
+                "msr    %x30 -> %elr_el1",         "msr    %x0 -> %spsr_el1",
+                "msr    %x1 -> %tpidr_el1"
                 /* clang-format on */
             );
             switch (systemreg[i]) {

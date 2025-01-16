@@ -122,7 +122,7 @@ const char *const reg_names[] = {
     "id_aa64pfr0_el1", "id_aa64mmfr1_el1", "id_aa64dfr0_el1", "id_aa64zfr0_el1",
     "id_aa64pfr1_el1", "id_aa64mmfr2_el1", "midr_el1", "mpidr_el1", "revidr_el1",
 
-    "fpmr",
+    "fpmr", "contextidr_el1", "elr_el1", "spsr_el1", "tpidr_el1"
 };
 
 
@@ -203,7 +203,8 @@ const reg_id_t dr_reg_fixer[] = { REG_NULL,
     DR_REG_ID_AA64DFR0_EL1, DR_REG_ID_AA64ZFR0_EL1, DR_REG_ID_AA64PFR1_EL1,
     DR_REG_ID_AA64MMFR2_EL1, DR_REG_MIDR_EL1, DR_REG_MPIDR_EL1, DR_REG_REVIDR_EL1,
 
-    DR_REG_FPMR,
+    DR_REG_FPMR, DR_REG_CONTEXTIDR_EL1, DR_REG_ELR_EL1, DR_REG_SPSR_EL1,
+    DR_REG_TPIDR_EL1
 };
 
 /* Maps real ISA registers to their corresponding virtual DR_ISA_REGDEPS register.
@@ -392,6 +393,10 @@ const reg_id_t d_r_reg_id_to_virtual[] = {
     DR_REG_VIRT208, /* DR_REG_REVIDR_EL1 */
 
     DR_REG_VIRT209, /* DR_REG_FPMR */
+    DR_REG_VIRT210, /* DR_REG_CONTEXTIDR_EL1 */
+    DR_REG_VIRT211, /* DR_REG_ELR_EL1 */
+    DR_REG_VIRT212, /* DR_REG_SPSR_EL1 */
+    DR_REG_VIRT213, /* DR_REG_TPIDR_EL1 */
 };
 /* clang-format on */
 

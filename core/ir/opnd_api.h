@@ -1061,6 +1061,10 @@ enum {
     DR_REG_MPIDR_EL1,        /**< The "mpidr_el1" register. */
     DR_REG_REVIDR_EL1,       /**< The "revidr_el1" register. */
     DR_REG_FPMR,             /**< The "fpmr" register. */
+    DR_REG_CONTEXTIDR_EL1,   /**< The "contextidr_el1" register. */
+    DR_REG_ELR_EL1,          /**< The "elr_el1" register. */
+    DR_REG_SPSR_EL1,         /**< The "spsr_el1" register. */
+    DR_REG_TPIDR_EL1,        /**< The "tpidr_el1" register. */
 #    endif
 
 /* Aliases below here: */
@@ -1117,12 +1121,12 @@ enum {
     /** Thread Pointer/ID Register, Read-Only, EL0. */
     DR_REG_TPIDRRO_EL0 = DR_REG_TPIDRURO,
     /* ARMv7 Thread Registers */
-    DR_REG_CP15_C13_2 = DR_REG_TPIDRURW,  /**< User Read/Write Thread ID Register */
-    DR_REG_CP15_C13_3 = DR_REG_TPIDRURO,  /**< User Read-Only Thread ID Register */
+    DR_REG_CP15_C13_2 = DR_REG_TPIDRURW,       /**< User Read/Write Thread ID Register */
+    DR_REG_CP15_C13_3 = DR_REG_TPIDRURO,       /**< User Read-Only Thread ID Register */
 
 #    ifdef AARCH64
-    DR_REG_LAST_VALID_ENUM = DR_REG_FPMR, /**< Last valid register enum */
-    DR_REG_LAST_ENUM = DR_REG_FPMR,       /**< Last value of register enums */
+    DR_REG_LAST_VALID_ENUM = DR_REG_TPIDR_EL1, /**< Last valid register enum */
+    DR_REG_LAST_ENUM = DR_REG_TPIDR_EL1,       /**< Last value of register enums */
 #    else
     DR_REG_LAST_VALID_ENUM = DR_REG_TPIDRURO, /**< Last valid register enum */
     DR_REG_LAST_ENUM = DR_REG_TPIDRURO,       /**< Last value of register enums */
