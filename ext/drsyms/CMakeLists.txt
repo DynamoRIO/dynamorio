@@ -232,6 +232,10 @@ elseif (UNIX)
     # libdw uses pthread_rwlock_* routines.
     link_with_pthread(dw_pic)
 
+    if (MUSL)
+      target_sources(elf_pic PRIVATE "${elfutils_dir}/lib/error.c")
+    endif ()
+
     include_directories("${elfutils_dir}/libelf")
     include_directories("${elfutils_dir}/libdw")
     set(srcs ${srcs} drsyms_dw.c drsyms_elf.c)

@@ -425,6 +425,11 @@ function (set_cflags source)
   else ()
     set(cflags "${ORIG_CMAKE_C_FLAGS}")
   endif ()
+  # Alpine Linux enables "-Wtrampolines" by default, breaking
+  # security-linux/trampoline.c.
+  if (MUSL)
+    set(cflags "${cflags} -Wno-trampolines")
+  endif ()
   if ("${source}" MATCHES ".cpp$")
     # Our C files need -std=gnu99, but that's an invalid flag for C++.
     # configure_DynamoRIO_global removes unfavorable options for clients,
@@ -2737,7 +2742,9 @@ else (UNIX)
 
   tobuild_ci(client.winxfer client-interface/winxfer.c "" "" "")
 endif (UNIX)
-if (NOT APPLE OR NOT AARCH64) # TODO i#5383: Port to Mac M1.
+# TODO i#5383: Port to Mac M1.
+# TODO i#1973: Port to musl libc.
+if (NOT APPLE OR NOT AARCH64 AND NOT MUSL)
   tobuild_ci(client.file_io client-interface/file_io.c
     "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/file_io_data.txt" "" "")
 endif ()
