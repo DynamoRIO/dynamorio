@@ -378,16 +378,7 @@ nolibc_print(const char *str)
 #        else
         SYS_write,
 #        endif
-        3,
-#        if defined(MACOS) || defined(ANDROID)
-        stderr->_file,
-    /* TODO i#1973: handle opaque FILE * on musl libc */
-#        elif defined(MUSL)
-        STDERR_FILENO,
-#        else
-        stderr->_fileno,
-#        endif
-        str, nolibc_strlen(str));
+        3, STDERR_FILENO, str, nolibc_strlen(str));
 }
 
 /* Safe print int syscall.
