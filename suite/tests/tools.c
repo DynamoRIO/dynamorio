@@ -378,15 +378,7 @@ nolibc_print(const char *str)
 #        else
         SYS_write,
 #        endif
-        3,
-#        if defined(MACOS)
-        stderr->_file,
-#        elif defined(ANDROID)
-        STDERR_FILENO,
-#        else
-        stderr->_fileno,
-#        endif
-        str, nolibc_strlen(str));
+        3, STDERR_FILENO, str, nolibc_strlen(str));
 }
 
 /* Safe print int syscall.
