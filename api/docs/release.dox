@@ -126,8 +126,8 @@ clients.
 
 The changes between version \DR_VERSION and 11.3.0 include the following compatibility
 changes:
- - The size of #dr_mcontext_t on 32-bit Arm has been increased by 4 to
-   make it 8-byte aligned.
+ - The size of #dr_mcontext_t on 32-bit Arm has been increased by 4 so that
+   the struct is 8-byte aligned. The offset of the field "simd" has changed.
 
 Further non-compatibility-affecting changes include:
  - Added support for reading a single drmemtrace trace file from stdin
