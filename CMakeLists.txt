@@ -187,6 +187,27 @@ if (APPLE)
   set(OLDEST_OSX_SUPPPORTED "11.7")
 elseif (UNIX)
   set(LINUX 1)
+
+  # Identify whether building with (and targeting) musl libc with ldd. This
+  # assumes a native build. For cross compiling, a musl build could be forced
+  # by DR_TARGET_MUSL.
+  find_program(LDD ldd DOC "util for examing shared object dependency")
+  if (NOT LDD)
+    message(STATUS "Unable to find ldd: assume glibc")
+  else ()
+    execute_process(COMMAND ${LDD}
+      RESULT_VARIABLE ldd_result
+      ERROR_VARIABLE ldd_err
+      OUTPUT_VARIABLE ldd_out)
+      if (ldd_err MATCHES "^musl libc")
+        set(MUSL 1)
+      endif ()
+  endif ()
+
+  option(DR_TARGET_MUSL "Target musl libc" OFF)
+  if (DR_TARGET_MUSL)
+    set(MUSL 1)
+  endif ()
 endif (APPLE)
 if (WIN32)
   set(WINDOWS 1)
@@ -426,6 +447,10 @@ if (WIN32 AND DEBUG)
 elseif (APPLE AND X64)
   # Set to higher than _PAGEZERO which is [0..0x1'00000000).
   set(preferred_base "0x171000000" CACHE STRING "Preferred library base address")
+elseif (ANDROID64)
+  # 64-bit Android needs a base of 0x1000 so that libdynamorio.so
+  # does not get overwritten by the vDSO.
+  set(preferred_base "0x1000" CACHE STRING "Preferred library base address")
 else ()
   set(preferred_base "0x71000000" CACHE STRING "Preferred library base address")
 endif ()
