@@ -158,10 +158,7 @@
     /**
      * The Arm AArch32 SIMD registers.
      */
-    union {
-        uint64 _unused; /* to ensure 8-byte alignment of simd */
-        dr_simd_t simd[MCXT_NUM_SIMD_SLOTS];
-    };
+    dr_simd_t simd[MCXT_NUM_SIMD_SLOTS];
 #   endif
 #elif defined(X86)
     /* Our inlined ibl uses eax-edx, so we place them together to fit
