@@ -493,6 +493,14 @@ remap_file_func(file_t f, size_t *size DR_PARAM_INOUT, uint64 offs, app_pc addr,
      * and it is acceptable to unmap any mapping already existing there.
      */
     ASSERT(TEST(MAP_FILE_FIXED, map_flags));
+    if (DYNAMO_OPTION(vm_reserve) && is_vmm_reserved_address(addr, *size, NULL, NULL)) {
+        /* If the initially reserved address was from our vmm range, we need to
+         * use os_unmap_file to make sure we perform our heap bookkeeping.
+         * In this case os_unmap_file does not do any munmap syscall, so there
+         * is not really any unmap-to-map race with other threads.
+         */
+        os_unmap_file(addr, *size);
+    }
     /* MAP_FILE_FIXED (which is MAP_FIXED in the mmap syscall) will cause the
      * overlapping region to automatically and atomically get unmapped.
      */
