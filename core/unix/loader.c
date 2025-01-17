@@ -485,6 +485,9 @@ privload_check_new_map_bounds(elf_loader_t *elf, byte *map_base, byte *map_end)
 #endif
 
 #ifdef LINUX
+/* XXX i#7192: Consider making this an os.h API, like the related os_map_file and
+ * os_unmap_file.
+ */
 static byte *
 remap_file_func(file_t f, size_t *size DR_PARAM_INOUT, uint64 offs, app_pc addr,
                 uint prot, map_flags_t map_flags)
