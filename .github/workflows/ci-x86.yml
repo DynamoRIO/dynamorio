@@ -333,3 +333,80 @@ jobs:
           See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
         to: dynamorio-devs@googlegroups.com
         from: Github Action CI
+
+  # 64-bit Linux build with gcc and musl.
+  # TODO i#1973: Fix failing cases and enable tests in CI.
+  x86-64-alpine-3_21:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+        path: ${{ github.workspace }}/DynamoRIO
+
+    # Cancel any prior runs for a PR (but do not cancel master branch runs).
+    - uses: n1hility/cancel-previous-runs@v2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+      if: ${{ github.event_name == 'pull_request' }}
+
+    - run: git fetch --no-tags --depth=1 origin master
+      working-directory: ${{ github.workspace }}/DynamoRIO
+
+    # Create an Alpine Linux 3.21.2 chroot environment for building
+    - name: Create Build Environment
+      run: |
+        curl -L https://dl-cdn.alpinelinux.org/v3.21/main/x86_64/apk-tools-static-2.14.6-r2.apk | \
+        tar xzv sbin/apk.static
+
+        sudo mkdir -p alpine-root/etc/apk
+        echo "https://dl-cdn.alpinelinux.org/v3.21/main/" | \
+        sudo tee alpine-root/etc/apk/repositories
+        # Meta-package build-base simplifies dependencies, but it pulls in
+        # fortify-headers, which isn't compatible with DynamoRIO source.
+        # TODO i#1973: simplify after fixing compatibility problem.
+        sudo sbin/apk.static -p alpine-root -U --initdb --allow-untrusted add \
+          alpine-base binutils bash cmake doxygen file g++ git libunwind-dev \
+          lz4-dev lz4-static linux-headers make musl-dev musl-libintl perl \
+          patch xz-dev zlib-dev zlib-static
+
+        cd alpine-root
+        sudo mount -o bind /dev/ dev
+        sudo mount -t proc proc proc
+        sudo mount -t sysfs sys sys
+        sudo mount -o bind ${{ github.workspace }}/DynamoRIO root
+
+    - name: Run Suite
+      working-directory: ${{ github.workspace }}
+      run: |
+        sudo --preserve-env=CI_TRIGGER,CI_BRANCH,DYNAMORIO_MUSL \
+          chroot alpine-root sh -c 'cd &&
+                                    ./suite/runsuite_wrapper.pl automated_ci 64_only'
+      env:
+        DYNAMORIO_MUSL: yes
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
+
+    - name: Send failure mail to dynamorio-devs
+      if: failure() && github.ref == 'refs/heads/master'
+      uses: dawidd6/action-send-mail@v2
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
+        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
+        subject: |
+          [${{github.repository}}] ${{github.workflow}} FAILED
+          on ${{github.event_name}} at ${{github.ref}}
+        body: |
+          Github Actions CI workflow run FAILED!
+          Workflow: ${{github.workflow}}/x86-32-ubuntu22
+          Repository: ${{github.repository}}
+          Branch ref: ${{github.ref}}
+          SHA: ${{github.sha}}
+          Triggering actor: ${{github.actor}}
+          Triggering event: ${{github.event_name}}
+          Run Id: ${{github.run_id}}
+          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
+        to: dynamorio-devs@googlegroups.com
+        from: Github Action CI

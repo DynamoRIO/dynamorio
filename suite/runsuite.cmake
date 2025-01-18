@@ -107,9 +107,16 @@ set(build_tests "BUILD_TESTS:BOOL=ON")
 if (arg_automated_ci)
   # XXX i#1801, i#1962: under clang we have several failing tests.  Until those are
   # fixed, our CI clang suite only builds and does not run tests.
-  if (UNIX AND NOT APPLE AND "$ENV{DYNAMORIO_CLANG}" MATCHES "yes")
-    set(run_tests OFF)
-    message("Detected a CI clang suite: disabling running of tests")
+  # XXX i#1973: our musl port passes only half of the tests. Enable tests in CI
+  # when it's ready.
+  if (UNIX AND NOT APPLE)
+    if ("$ENV{DYNAMORIO_CLANG}" MATCHES "yes")
+        set(run_tests OFF)
+        message("Detected a CI clang suite: disabling running of tests")
+    elseif ("$ENV{DYNAMORIO_MUSL}" MATCHES "yes")
+        set(run_tests OFF)
+        message("Detected a CI musl suite: disabling running of tests")
+    endif ()
   endif ()
   if ("$ENV{CI_TARGET}" STREQUAL "package")
     # We don't want flaky tests to derail package deployment.  We've already run
