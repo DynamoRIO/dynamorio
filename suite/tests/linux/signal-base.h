@@ -124,7 +124,7 @@ static void
     stack_t sigstack;
     sigstack.ss_sp = siginfo; /* will fail: just need sthg */
     sigstack.ss_size = ALT_STACK_SIZE;
-    sigstack.ss_flags = SS_ONSTACK;
+    sigstack.ss_flags = 0;
     int rc = sigaltstack(&sigstack, NULL);
     assert(rc == -1 && errno == EPERM);
 #endif
