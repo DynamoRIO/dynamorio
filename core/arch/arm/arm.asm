@@ -55,7 +55,7 @@ DECL_EXTERN(initstack_mutex)
 #define SAVE_TO_DCONTEXT_VIA_REG(reg,offs,src) str src, PTRSZ [reg, POUND (offs)]
 
 /* offsetof(dcontext_t, dstack) */
-#define dstack_OFFSET     0x170
+#define dstack_OFFSET     0x174
 /* offsetof(dcontext_t, is_exiting) */
 #define is_exiting_OFFSET (dstack_OFFSET+1*ARG_SZ)
 
