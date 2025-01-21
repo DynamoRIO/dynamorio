@@ -68,11 +68,13 @@ fib(int n)
     return fib(n - 1) + fib(n - 2);
 }
 
+#ifndef WINDOWS
 /* A no-op signal_handler to handle SIGTERM for attach memory dump test. */
 static void
 signal_handler(int sig)
 {
 }
+#endif
 
 int
 main(int argc, char **argv)
@@ -83,7 +85,12 @@ main(int argc, char **argv)
     INIT();
     USE_USER32();
 
-    intercept_signal(SIGTERM, (handler_3_t)signal_handler, /*sigstack=*/false);
+    if (argc > 1 && strcmp(argv[1], "attach") == 0) {
+      attach = true;
+#ifndef WINDOWS
+      intercept_signal(SIGTERM, (handler_3_t)signal_handler, /*sigstack=*/false);
+    }
+#endif
 
     print("fib(%d)=%d\n", 5, fib(5));
     /* Enable use as a shorter test for tool.drcacheof.func_view. */

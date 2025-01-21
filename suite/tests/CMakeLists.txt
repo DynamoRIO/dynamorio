@@ -2670,8 +2670,10 @@ if (NOT ANDROID) # TODO i#38: Port test to Android.
       set(client.memory_dump_test_expectbase "memory_dump_test")
     endif ()
     tobuild_ci(client.memory_dump_test client-interface/memory_dump_test.c "" "" "")
-    torunonly_ci(client.attach_memory_dump_test common.fib client.memory_dump_test.dll
-      client-interface/attach_memory_dump_test.runall "" "" "attach")
+    if (LINUX)
+      torunonly_ci(client.attach_memory_dump_test common.fib client.memory_dump_test.dll
+        client-interface/attach_memory_dump_test.runall "" "" "attach")
+    endif ()
   endif ()
 endif ()
 
