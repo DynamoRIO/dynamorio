@@ -5710,7 +5710,7 @@ if (UNIX)
   # XXX: should all these infloop tests be made cross-platform?
   # or rely on runall tests that run calc covering this on Windows?
   add_exe(linux.infloop linux/infloop.c)
-  torunonly(linux.reset linux/infloop linux/reset.runall "-enable_reset" "-v")
+  torunonly(linux.reset linux.infloop linux/reset.runall "-enable_reset" "-v")
   if (NOT X64 AND NOT ARM) # FIXME i#1551: add coarse-grain ARM support
     # XXX: 64-bit support not quite there yet
     torunonly(linux.freeze_FLAKY linux.infloop linux/freeze.runall
