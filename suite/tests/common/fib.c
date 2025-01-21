@@ -86,9 +86,9 @@ main(int argc, char **argv)
     USE_USER32();
 
     if (argc > 1 && strcmp(argv[1], "attach") == 0) {
-      attach = true;
+        attach = true;
 #ifndef WINDOWS
-      intercept_signal(SIGTERM, (handler_3_t)signal_handler, /*sigstack=*/false);
+        intercept_signal(SIGTERM, (handler_3_t)signal_handler, /*sigstack=*/false);
     }
 #endif
 
