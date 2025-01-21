@@ -1419,8 +1419,13 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
     # To run the test we use a series of commands in runall.cmake.
     file(READ "${testpath}/${srcbase}.runall" runall)
     if (UNIX)
-      # We always run infloop.
-      get_target_path_for_execution(app_path linux.infloop "${location_suffix}")
+      # Execute a test specified by the user. If no specific test is provided, execute
+      # the default 'linux.infloop' test.
+      if (DEFINED ${key}_realtest)
+        get_target_path_for_execution(app_path "${exe}" "${location_suffix}")
+      else ()
+        get_target_path_for_execution(app_path linux.infloop "${location_suffix}")
+      endif ()
       if ("${runall}" MATCHES "<attach>")
         # Add a starting message with -v, and avoid mprotect for now (i#38: mprotect
         # is failing).
@@ -2665,6 +2670,8 @@ if (NOT ANDROID) # TODO i#38: Port test to Android.
       set(client.memory_dump_test_expectbase "memory_dump_test")
     endif ()
     tobuild_ci(client.memory_dump_test client-interface/memory_dump_test.c "" "" "")
+    torunonly_ci(client.attach_memory_dump_test common.fib client.memory_dump_test.dll
+      client-interface/attach_memory_dump_test.runall "" "" "attach")
   endif ()
 endif ()
 
@@ -5691,7 +5698,7 @@ if (UNIX)
   # or rely on runall tests that run calc covering this on Windows?
   if (NOT ANDROID) # XXX i#1874: add support for running this on Android
     add_exe(linux.infloop linux/infloop.c)
-    torunonly(linux.reset linux/infloop linux/reset.runall "-enable_reset" "-v")
+    torunonly(linux.reset linux.infloop linux/reset.runall "-enable_reset" "-v")
   endif ()
   if (NOT X64 AND NOT ARM) # FIXME i#1551: add coarse-grain ARM support
     # XXX: 64-bit support not quite there yet
