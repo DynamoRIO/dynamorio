@@ -559,6 +559,8 @@ enum {
     DR_REG_BND2, /**< The "bnd2" register. */
     DR_REG_BND3, /**< The "bnd3" register. */
 
+    DR_REG_AFTER_LAST_VALID_ENUM,
+
 /****************************************************************************/
 #elif defined(AARCHXX)
     DR_REG_INVALID, /**< Sentinel value indicating an invalid register. */
