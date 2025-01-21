@@ -35,6 +35,7 @@
  * ARM-specific assembly and trampoline code
  */
 
+#include "offsets.h"
 #include "../asm_defines.asm"
 START_FILE
 #include "include/syscall.h"
@@ -54,10 +55,8 @@ DECL_EXTERN(initstack_mutex)
 #define RESTORE_FROM_DCONTEXT_VIA_REG(reg,offs,dest) ldr dest, PTRSZ [reg, POUND (offs)]
 #define SAVE_TO_DCONTEXT_VIA_REG(reg,offs,src) str src, PTRSZ [reg, POUND (offs)]
 
-/* offsetof(dcontext_t, dstack) */
-#define dstack_OFFSET     0x170
 /* offsetof(dcontext_t, is_exiting) */
-#define is_exiting_OFFSET (dstack_OFFSET+1*ARG_SZ)
+#define is_exiting_OFFSET (dcontext_t_OFFSET_dstack+1*ARG_SZ)
 
 /* The struct priv_mcontext_t is defined in mcxtx_api.h. */
 #define PRIV_MCXT_SIZE        0x148 /* sizeof(priv_mcontext_t) */
@@ -139,7 +138,7 @@ GLOBAL_LABEL(dr_call_on_clean_stack:)
         mov      REG_R4, REG_SP /* save sp across the call */
         mov      REG_R5, ARG2 /* save function in non-param reg */
         /* Swap stacks */
-        RESTORE_FROM_DCONTEXT_VIA_REG(REG_R0, dstack_OFFSET, REG_SP)
+        RESTORE_FROM_DCONTEXT_VIA_REG(REG_R0, dcontext_t_OFFSET_dstack, REG_SP)
         /* Set up args */
         sub      REG_SP, #(4*ARG_SZ)
         ldr      REG_R0, [REG_R4, #(11*ARG_SZ)]
@@ -286,7 +285,7 @@ GLOBAL_LABEL(cleanup_and_terminate:)
         mov      REG_R4, #0 /* save 0 for dstack to avoid double-free */
         b        cat_done_saving_dstack
 cat_save_dstack:
-        RESTORE_FROM_DCONTEXT_VIA_REG(REG_R4, dstack_OFFSET, REG_R4)
+        RESTORE_FROM_DCONTEXT_VIA_REG(REG_R4, dcontext_t_OFFSET_dstack, REG_R4)
 cat_done_saving_dstack:
         CALLC0(GLOBAL_REF(get_cleanup_and_terminate_global_do_syscall_entry))
         mov      REG_R5, REG_R0

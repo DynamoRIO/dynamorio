@@ -1,6 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2019-2024 Google, Inc. All rights reserved.
- * Copyright (c) 2016 ARM Limited. All rights reserved.
+ * Copyright (c) 2016-2025 ARM Limited. All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,6 +35,7 @@
  * AArch64-specific assembly and trampoline code
  */
 
+#include "offsets.h"
 #include "../asm_defines.asm"
 START_FILE
 
@@ -68,10 +69,8 @@ START_FILE
 
 /* offsetof(priv_mcontext_t, simd) */
 #define simd_OFFSET (16 * ARG_SZ*2 + 32)
-/* offsetof(dcontext_t, dstack) */
-#define dstack_OFFSET     0x9f8
 /* offsetof(dcontext_t, is_exiting) */
-#define is_exiting_OFFSET (dstack_OFFSET+1*ARG_SZ)
+#define is_exiting_OFFSET (dcontext_t_OFFSET_dstack+1*ARG_SZ)
 /* offsetof(struct tlsdesc_t, arg) */
 #define tlsdesc_arg_OFFSET 8
 
@@ -178,7 +177,7 @@ GLOBAL_LABEL(dr_call_on_clean_stack:)
         stp      x29, x30, [sp, #-16]! /* Save frame pointer and link register. */
         mov      x29, sp /* Save sp across the call. */
         /* Swap stacks. */
-        ldr      x30, [x0, #dstack_OFFSET]
+        ldr      x30, [x0, #dcontext_t_OFFSET_dstack]
         mov      sp, x30
         /* Set up args. */
         mov      x30, x1 /* void *(*func)(arg1...arg8) */
@@ -354,7 +353,7 @@ GLOBAL_LABEL(cleanup_and_terminate:)
         mov      x24, #0
         b        cat_done_saving_dstack
 cat_save_dstack:
-        mov      x2, #(dstack_OFFSET)
+        mov      x2, #(dcontext_t_OFFSET_dstack)
         ldr      x24, [x19, x2]
 cat_done_saving_dstack:
         CALLC0(GLOBAL_REF(get_cleanup_and_terminate_global_do_syscall_entry))

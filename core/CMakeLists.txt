@@ -336,6 +336,10 @@ if (X86 AND X64)
   set(ARCH_SRCS ${ARCH_SRCS} arch/${ARCH_NAME}/x86_to_x64.c)
 endif (X86 AND X64)
 
+if (AARCHXX)
+  set(ARCH_SRCS ${ARCH_SRCS} arch/${ARCH_NAME}/offsets.c)
+endif (AARCHXX)
+
 if (WIN32)
   # i#894: Win8 WDK ntdll.lib does not list Ki routines so we make our own .lib.
   # Because the Ki are stdcall we can't just use a .def file: we need
