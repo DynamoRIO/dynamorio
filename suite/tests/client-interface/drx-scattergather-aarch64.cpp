@@ -831,8 +831,10 @@ template <typename TEST_PTRS_T> struct test_case_base_t {
             // Byte values         ||         AA||         BB||         CC||         DD||
             // Half values         ||      AA|AA||      BB|BB||      CC|CC||      DD|DD||
             // Word values         ||AA|AA|AA|AA||BB|BB|BB|BB||CC|CC|CC|CC||DD|DD|DD|DD||
-            assert(value_size != element_size_t::DOUBLE);
             switch (value_size) {
+            case element_size_t::DOUBLE:
+                assert(false); // Not reachable.
+                break;
 #define CASE(size, member, val0, val1, val2, val3)                          \
     case element_size_t::size:                                              \
         member = { { { static_cast<std::ptrdiff_t>(offsets[0]), val0 },     \
