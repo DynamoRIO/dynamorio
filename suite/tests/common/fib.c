@@ -68,7 +68,7 @@ fib(int n)
     return fib(n - 1) + fib(n - 2);
 }
 
-#ifndef WINDOWS
+#ifdef LINUX
 /* A no-op signal_handler to handle SIGTERM for attach memory dump test. */
 static void
 signal_handler(int sig)
@@ -80,14 +80,14 @@ int
 main(int argc, char **argv)
 {
     int i, t;
-    bool attach = false;
 
     INIT();
     USE_USER32();
 
+#ifdef LINUX
+    bool attach = false;
     if (argc > 1 && strcmp(argv[1], "attach") == 0) {
         attach = true;
-#ifndef WINDOWS
         intercept_signal(SIGTERM, (handler_3_t)signal_handler, /*sigstack=*/false);
     }
 #endif
@@ -97,14 +97,15 @@ main(int argc, char **argv)
     if (argc > 1 && strcmp(argv[1], "only_5") == 0)
         return 0;
 
+#ifdef LINUX
     /* Add a sleep here for attach to take place for attach memory dump test. */
-    if (argc > 1 && strcmp(argv[1], "attach") == 0) {
-        attach = true;
+    if (attach) {
         struct timespec sleeptime;
         sleeptime.tv_sec = 0;
         sleeptime.tv_nsec = 500 * 1000 * 1000; /* 50ms */
         nolibc_nanosleep(&sleeptime);
     }
+#endif
 
     print("fib(%d)=%d\n", 15, fib(15));
     /* deep recursion */
@@ -122,10 +123,12 @@ main(int argc, char **argv)
 
     print("fib(%d)=%d\n", DEPTH, t);
 
+#ifdef LINUX
     /* runall.cmake for attach test requires "done" as last line once done. */
     if (attach) {
         print("done\n");
     }
+#endif
 }
 
 /*
