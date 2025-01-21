@@ -68,18 +68,37 @@ fib(int n)
     return fib(n - 1) + fib(n - 2);
 }
 
+/* A no-op signal_handler to handle SIGTERM for attach memory dump test. */
+static void
+signal_handler(int sig)
+{
+}
+
 int
 main(int argc, char **argv)
 {
     int i, t;
+    bool attach = false;
 
     INIT();
     USE_USER32();
+
+    intercept_signal(SIGTERM, (handler_3_t)signal_handler, /*sigstack=*/false);
 
     print("fib(%d)=%d\n", 5, fib(5));
     /* Enable use as a shorter test for tool.drcacheof.func_view. */
     if (argc > 1 && strcmp(argv[1], "only_5") == 0)
         return 0;
+
+    /* Add a sleep here for attach to take place for attach memory dump test. */
+    if (argc > 1 && strcmp(argv[1], "attach") == 0) {
+        attach = true;
+        struct timespec sleeptime;
+        sleeptime.tv_sec = 0;
+        sleeptime.tv_nsec = 500 * 1000 * 1000; /* 50ms */
+        nolibc_nanosleep(&sleeptime);
+    }
+
     print("fib(%d)=%d\n", 15, fib(15));
     /* deep recursion */
     print("fib(%d)=%d\n", 25, fib(25));
@@ -95,6 +114,11 @@ main(int argc, char **argv)
     }
 
     print("fib(%d)=%d\n", DEPTH, t);
+
+    /* runall.cmake for attach test requires "done" as last line once done. */
+    if (attach) {
+        print("done\n");
+    }
 }
 
 /*
