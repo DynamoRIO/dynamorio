@@ -1420,9 +1420,7 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
     file(READ "${testpath}/${srcbase}.runall" runall)
     if (UNIX)
       # We always run infloop.
-      if (NOT ANDROID)
-        get_target_path_for_execution(app_path linux.infloop "${location_suffix}")
-      endif()
+      get_target_path_for_execution(app_path linux.infloop "${location_suffix}")
       if ("${runall}" MATCHES "<attach>")
         # Add a starting message with -v, and avoid mprotect for now (i#38: mprotect
         # is failing).
@@ -5691,10 +5689,8 @@ if (UNIX)
   # this app is used in nudge tests
   # XXX: should all these infloop tests be made cross-platform?
   # or rely on runall tests that run calc covering this on Windows?
-  if (NOT ANDROID) # XXX i#1874: add support for running this on Android
-    add_exe(linux.infloop linux/infloop.c)
-    torunonly(linux.reset linux/infloop linux/reset.runall "-enable_reset" "-v")
-  endif ()
+  add_exe(linux.infloop linux/infloop.c)
+  torunonly(linux.reset linux/infloop linux/reset.runall "-enable_reset" "-v")
   if (NOT X64 AND NOT ARM) # FIXME i#1551: add coarse-grain ARM support
     # XXX: 64-bit support not quite there yet
     torunonly(linux.freeze_FLAKY linux/infloop linux/freeze.runall
