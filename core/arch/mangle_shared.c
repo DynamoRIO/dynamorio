@@ -1070,19 +1070,25 @@ mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip)
     /* jmps are right before syscall, but there can be nops to pad exit cti on x86 */
     ASSERT(cti_pc == prev_pc - JMP_LONG_LENGTH);
     ASSERT(skip_pc < cti_pc);
+#    ifdef ARM
+    ASSERT(cti_pc - skip_pc ==
+           (dr_get_isa_mode(dcontext) == DR_ISA_ARM_A32 ? JMP_LONG_LENGTH
+                                                        : JMP_SHORT_LENGTH));
+#    else
     ASSERT(
         skip_pc ==
         cti_pc -
             JMP_SHORT_LENGTH IF_X86(|| *(cti_pc - JMP_SHORT_LENGTH) == RAW_OPCODE_nop));
+#    endif
     instr_reset(dcontext, &instr);
     pc = decode(dcontext, skip_pc, &instr);
     ASSERT(pc != NULL); /* our own code! */
+#    ifdef ARM
     ASSERT(instr_get_opcode(&instr) ==
-           OP_jmp_short
-               /* For A32 it's not OP_b_short */
-               IF_ARM(||
-                      (instr_get_opcode(&instr) == OP_jmp &&
-                       opnd_get_pc(instr_get_target(&instr)) == pc + ARM_INSTR_SIZE)));
+           (dr_get_isa_mode(dcontext) == DR_ISA_ARM_A32 ? OP_b : OP_b_short));
+#    else
+    ASSERT(instr_get_opcode(&instr) == OP_jmp_short);
+#    endif
     ASSERT(pc <= cti_pc); /* could be nops */
     DOCHECK(1, {
         pc = decode(dcontext, cti_pc, &cti);
