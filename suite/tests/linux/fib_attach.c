@@ -1,6 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020 Google, Inc.  All rights reserved.
- * Copyright (c) 2005-2008 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,25 +30,11 @@
  * DAMAGE.
  */
 
-/* undefine this for a performance test */
-#ifndef NIGHTLY_REGRESSION
-#    define NIGHTLY_REGRESSION
-#endif
-
 #include "tools.h"
 
 #include <stdio.h>
 
-#ifdef WINDOWS
-/* and compile with user32.lib */
-#    include <windows.h>
-#endif
-
-#ifdef NIGHTLY_REGRESSION
-#    define ITER 10 * 1000
-#else
-#    define ITER 10 * 200 * 1000 // *100
-#endif
+#define ITER 10 * 1000
 
 #define GOAL 32 /* recursive fib of course is exponential here */
 
@@ -62,10 +47,13 @@ fib(int n)
 {
     if (n <= 1)
         return 1;
-    /* for drcov test, we add a line that won't be executed */
-    if (n > 100)
-        return 0;
     return fib(n - 1) + fib(n - 2);
+}
+
+/* A no-op signal_handler to handle SIGTERM for attach memory dump test. */
+static void
+signal_handler(int sig)
+{
 }
 
 int
@@ -76,10 +64,16 @@ main(int argc, char **argv)
     INIT();
     USE_USER32();
 
+    intercept_signal(SIGTERM, (handler_3_t)signal_handler, /*sigstack=*/false);
+
     print("fib(%d)=%d\n", 5, fib(5));
-    /* Enable use as a shorter test for tool.drcacheof.func_view. */
-    if (argc > 1 && strcmp(argv[1], "only_5") == 0)
-        return 0;
+
+    /* Add a sleep here for attach to take place for attach memory dump test. */
+    struct timespec sleeptime;
+    sleeptime.tv_sec = 0;
+    sleeptime.tv_nsec = 500 * 1000 * 1000; /* 50ms */
+    nolibc_nanosleep(&sleeptime);
+
     print("fib(%d)=%d\n", 15, fib(15));
     /* deep recursion */
     print("fib(%d)=%d\n", 25, fib(25));
@@ -95,14 +89,7 @@ main(int argc, char **argv)
     }
 
     print("fib(%d)=%d\n", DEPTH, t);
+
+    /* runall.cmake for attach test requires "done" as last line once done. */
+    print("done\n");
 }
-
-/*
-It is amazing that with default options native=13s dr=12s
-
-only when optimized differences show up in the other direction
-$ cl /O2 -I.. fib.c
-native=8s dr=11s   ITER=? DEPTH=?
-
-$ cl /O2  /Zi fib.c -I.. /link /incremental:no user32.lib
-*/

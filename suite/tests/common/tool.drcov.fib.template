@@ -5,47 +5,27 @@ DA:66,1
 DA:67,0
 DA:68,1
 DA:69,1
-#if defined(LINUX)
-DA:75,0
-DA:76,0
-#endif
-DA:81,1
-DA:84,1
+DA:73,1
+DA:76,1
 #if defined(WINDOWS)
-DA:85,1
+DA:77,1
 #endif
-#if defined(LINUX)
+DA:79,1
+DA:81,1
+DA:82,0
+DA:83,1
+DA:85,1
 DA:88,1
 DA:89,1
-DA:90,0
-DA:91,0
+DA:90,1
+#if defined(WINDOWS)
+DA:91,1
 #endif
+DA:93,1
+DA:94,1
+#if defined(WINDOWS)
 DA:95,1
+#endif
 DA:97,1
-DA:98,0
-#if defined(LINUX)
-DA:102,1
-DA:104,0
-DA:105,0
-DA:106,0
-#endif
-DA:110,1
-DA:112,1
-DA:115,1
-DA:116,1
-DA:117,1
-#if defined(WINDOWS)
-DA:118,1
-#endif
-DA:120,1
-DA:121,1
-#if defined(WINDOWS)
-DA:122,1
-#endif
-DA:124,1
-#if defined(LINUX)
-DA:128,1
-DA:129,0
-#endif
-DA:132,1
+DA:98,1
 end_of_record

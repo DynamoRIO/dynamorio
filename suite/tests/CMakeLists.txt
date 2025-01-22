@@ -1419,8 +1419,8 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
     # To run the test we use a series of commands in runall.cmake.
     file(READ "${testpath}/${srcbase}.runall" runall)
     if (UNIX)
-      # Execute a test specified by the user. If no specific test is provided, execute
-      # the default 'linux.infloop' test.
+      # Execute an app specified by the user. If no specific app is provided, execute
+      # the default 'linux.infloop' app.
       if (DEFINED ${key}_realtest)
         get_target_path_for_execution(app_path "${exe}" "${location_suffix}")
       else ()
@@ -2671,8 +2671,9 @@ if (NOT ANDROID) # TODO i#38: Port test to Android.
     endif ()
     tobuild_ci(client.memory_dump_test client-interface/memory_dump_test.c "" "" "")
     if (LINUX)
-      torunonly_ci(client.attach_memory_dump_test common.fib client.memory_dump_test.dll
-        client-interface/attach_memory_dump_test.runall "" "" "attach")
+      tobuild(linux.fib_attach linux/fib_attach.c)
+      torunonly_ci(client.attach_memory_dump_test linux.fib_attach client.memory_dump_test.dll
+        client-interface/attach_memory_dump_test.runall "" "" "")
     endif ()
   endif ()
 endif ()
