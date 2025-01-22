@@ -98,6 +98,7 @@ if (ZLIB_FOUND)
       "until then, disabling zip output and fast seeking")
     set(zip_reader "")
     set(zlib_libs ${ZLIB_LIBRARIES})
+    set(zlib_static_libs ${ZLIB_STATIC_LIBRARIES})
     set(ZIP_FOUND OFF)
   else ()
     file(GLOB minizip_srcs "${minizip_dir}/*.c")
@@ -117,6 +118,7 @@ if (ZLIB_FOUND)
     install_exported_target(minizip ${INSTALL_CLIENTS_LIB})
     set(zip_reader reader/zipfile_file_reader.cpp)
     set(zlib_libs ${ZLIB_LIBRARIES} minizip)
+    set(zlib_static_libs ${ZLIB_STATIC_LIBRARIES} minizip)
   endif ()
 else ()
   # XXX: We could ship with a zlib for Windows, or build the third_party/zlib.
@@ -483,9 +485,13 @@ if (NOT AARCH64 AND NOT APPLE)
 endif ()
 target_link_libraries(scheduler_launcher ${zlib_libs})
 
-macro(add_drmemtrace name type)
+macro(add_drmemtrace name type static_DR no_main)
   if (${type} STREQUAL "STATIC")
-    set(ext_sfx "_static")
+    if (${static_DR})
+      set(ext_sfx "_drstatic")
+    else ()
+      set(ext_sfx "_static")
+    endif ()
   else ()
     set(ext_sfx "")
   endif ()
@@ -529,7 +535,14 @@ macro(add_drmemtrace name type)
   endif()
 
   add_library(${name} ${type} ${drmemtrace_srcs})
-  configure_DynamoRIO_client(${name})
+  if (${no_main})
+    append_property_list(TARGET ${name} COMPILE_DEFINITIONS "DRMEMTRACE_NO_MAIN")
+  endif ()
+  if (${static_DR})
+    configure_DynamoRIO_static_client(${name})
+  else ()
+    configure_DynamoRIO_client(${name})
+  endif()
   use_DynamoRIO_extension(${name} drmgr${ext_sfx})
   use_DynamoRIO_extension(${name} drsyms${ext_sfx})
   use_DynamoRIO_extension(${name} drwrap${ext_sfx})
@@ -546,7 +559,11 @@ macro(add_drmemtrace name type)
   if (libsnappy)
     target_link_libraries(${name} snappy)
   endif ()
-  target_link_libraries(${name} ${zlib_libs})
+  if (${static_DR})
+    target_link_libraries(${name} ${zlib_static_libs})
+  else ()
+    target_link_libraries(${name} ${zlib_libs})
+  endif ()
   if (liblz4)
     target_link_libraries(${name} lz4)
   endif ()
@@ -557,8 +574,13 @@ macro(add_drmemtrace name type)
   install_target(${name} ${INSTALL_CLIENTS_LIB})
 endmacro()
 
-add_drmemtrace(drmemtrace SHARED)
-add_drmemtrace(drmemtrace_static STATIC)
+add_drmemtrace(drmemtrace SHARED OFF OFF)
+# This static library links with the DR shared library and has dr_client_main:
+add_drmemtrace(drmemtrace_static STATIC OFF OFF)
+# This static library links with the DR shared library and has no dr_client_main:
+add_drmemtrace(drmemtrace_nomain STATIC OFF ON)
+# This static library links with the DR static library and has dr_client_main:
+add_drmemtrace(drmemtrace_drstatic STATIC ON OFF)
 append_property_list(TARGET drmemtrace_static COMPILE_DEFINITIONS "DRMEMTRACE_STATIC")
 # We export drmemtrace.h to the same place as the analysis tool headers
 # for simplicity, rather than sticking it into ext/include or sthg.
@@ -1115,7 +1137,7 @@ if (BUILD_TESTS)
     if (LINUX) # Uses mremap.
       add_executable(tool.drcacheoff.burst_maps tests/burst_maps.cpp)
       configure_DynamoRIO_static(tool.drcacheoff.burst_maps)
-      use_DynamoRIO_static_client(tool.drcacheoff.burst_maps drmemtrace_static)
+      use_DynamoRIO_static_client(tool.drcacheoff.burst_maps drmemtrace_nomain)
       target_link_libraries(tool.drcacheoff.burst_maps test_helpers)
       add_win32_flags(tool.drcacheoff.burst_maps)
     endif ()
@@ -1162,10 +1184,25 @@ if (BUILD_TESTS)
       append_property_list(TARGET tool.drcacheoff.burst_client
         COMPILE_DEFINITIONS "TEST_APP_DR_CLIENT_MAIN")
       configure_DynamoRIO_static(tool.drcacheoff.burst_client)
-      use_DynamoRIO_static_client(tool.drcacheoff.burst_client drmemtrace_static)
+      use_DynamoRIO_static_client(tool.drcacheoff.burst_client drmemtrace_nomain)
       target_link_libraries(tool.drcacheoff.burst_client test_helpers)
       # A nop, keep it for the future Windows support.
       add_win32_flags(tool.drcacheoff.burst_client)
+
+      # Test a pure-static-link app.
+      # We ignore "warning: Using 'dlopen' in statically linked applications requires
+      # at runtime the shared libraries from the glibc version used for linking".
+      # XXX: We can only successfully build this if static libpthread is available,
+      # which is only recent glibc 2.34+ such as Ubuntu22+. We also limit to 64-bit
+      # due to pain building 32-bit on a 64-bit machine.
+      if (X64 AND "${libpthread}" MATCHES ".a$")
+        add_executable(tool.drcacheoff.purestatic tests/burst_static.cpp)
+        append_property_list(TARGET tool.drcacheoff.purestatic
+          LINK_FLAGS "-static -Wl,--no-export-dynamic")
+        configure_DynamoRIO_static(tool.drcacheoff.purestatic)
+        use_DynamoRIO_static_client(tool.drcacheoff.purestatic drmemtrace_drstatic)
+        target_link_libraries(tool.drcacheoff.purestatic test_helpers)
+      endif ()
     endif ()
 
     if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64

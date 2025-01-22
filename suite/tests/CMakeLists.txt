@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2024 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2025 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2016-2023 ARM Limited.    All rights reserved.
 # **********************************************************
@@ -424,6 +424,11 @@ function (set_cflags source)
     set(cflags "${ORIG_C_FLAGS_NODBG}")
   else ()
     set(cflags "${ORIG_CMAKE_C_FLAGS}")
+  endif ()
+  # Alpine Linux enables "-Wtrampolines" by default, breaking
+  # security-linux/trampoline.c.
+  if (MUSL)
+    set(cflags "${cflags} -Wno-trampolines")
   endif ()
   if ("${source}" MATCHES ".cpp$")
     # Our C files need -std=gnu99, but that's an invalid flag for C++.
@@ -2124,7 +2129,7 @@ if (BUILD_CLIENTS)
   endif ()
 endif ()
 
-if (AARCH64 AND UNIX AND ZLIB_FOUND)
+if (AARCH64 AND UNIX AND ZLIB_FOUND AND NOT ANDROID) # TODO i#1874: Add drcachesim support on Android
     # Test TLB simulator with a virtual to physical v2p.textproto mapping.
     set(srcdir
       ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.aarch64.raw)
@@ -2737,7 +2742,9 @@ else (UNIX)
 
   tobuild_ci(client.winxfer client-interface/winxfer.c "" "" "")
 endif (UNIX)
-if (NOT APPLE OR NOT AARCH64) # TODO i#5383: Port to Mac M1.
+# TODO i#5383: Port to Mac M1.
+# TODO i#1973: Port to musl libc.
+if (NOT APPLE OR NOT AARCH64 AND NOT MUSL)
   tobuild_ci(client.file_io client-interface/file_io.c
     "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/file_io_data.txt" "" "")
 endif ()
@@ -4006,6 +4013,28 @@ if (BUILD_CLIENTS)
           # Avoid the default core-sharded from re-scheduling the trace.
           "-indir ${core_sharded_dir} -tool schedule_stats -only_shards 2,3 -no_core_sharded" "")
         set(tool.core_on_disk_rawtemp ON) # no preprocessor
+
+        # Test reading a file over stdin.
+        # We rely on there being just one subfile in this zip file: gunzip only
+        # extracts the first one (bsdtar can extract all but is not likely installed).
+        # This is UNIX only so we rely on cat and gunzip being available.
+        find_program(CAT_EXE cat DOC "path to cat")
+        find_program(GUNZIP_EXE gunzip DOC "path to gunzip")
+        find_program(BASH_EXE bash DOC "path to bash")
+        if (CAT_EXE AND GUNZIP_EXE AND BASH_EXE)
+          # Easiest to make our pipeline in bash with a direct add_test()
+          # (although this bypasses the torun() features used by all other tests).
+          set(infile "${core_sharded_dir}/drmemtrace.core.0.trace.zip")
+          add_test(tool.drcacheoff.stdin
+            ${BASH_EXE} -c
+            "${CAT_EXE} ${infile} | ${GUNZIP_EXE} | ${drrun_path} -t drmemtrace -tool view -sim_refs 10 -infile -")
+          file(READ "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/offline-stdin.expect"
+            stdin_expect)
+          set_tests_properties(tool.drcacheoff.stdin PROPERTIES
+            PASS_REGULAR_EXPRESSION "${stdin_expect}")
+        else ()
+          message("Failed to find cat, gunzip, and bash: not running stdin test")
+        endif ()
       endif ()
     endif ()
 
@@ -4638,6 +4667,11 @@ if (BUILD_CLIENTS)
         # FIXME i#2099: the weak symbol is not supported not work on Windows
         set(tool.drcacheoff.burst_client_nodr ON)
         torunonly_drcacheoff(burst_client tool.drcacheoff.burst_client "" "" "")
+
+        if (TARGET tool.drcacheoff.purestatic)
+          set(tool.drcacheoff.purestatic_nodr ON)
+          torunonly_drcacheoff(purestatic tool.drcacheoff.purestatic "" "" "")
+        endif ()
       endif ()
     endif ()
 
@@ -5655,10 +5689,8 @@ if (UNIX)
   # this app is used in nudge tests
   # XXX: should all these infloop tests be made cross-platform?
   # or rely on runall tests that run calc covering this on Windows?
-  if (NOT ANDROID) # XXX i#1874: add support for running this on Android
-    add_exe(linux.infloop linux/infloop.c)
-    torunonly(linux.reset linux/infloop linux/reset.runall "-enable_reset" "-v")
-  endif ()
+  add_exe(linux.infloop linux/infloop.c)
+  torunonly(linux.reset linux/infloop linux/reset.runall "-enable_reset" "-v")
   if (NOT X64 AND NOT ARM) # FIXME i#1551: add coarse-grain ARM support
     # XXX: 64-bit support not quite there yet
     torunonly(linux.freeze_FLAKY linux/infloop linux/freeze.runall
@@ -5678,10 +5710,11 @@ if (UNIX)
   # when running tests in parallel: have to generate pcaches first
   set(linux.persist-use_FLAKY_depends linux.persist_FLAKY)
 
-  if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64)
+  if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64 AND NOT ANDROID)
     # The rseq kernel feature is Linux-only.
     # TODO i#2350: Port the assembly in the test to 32-bit x86 and to ARM.
     # TODO i#3544: Port tests to RISC-V 64
+    # TODO i#1874: Build drmemtrace on Android (RSEQ_TEST_ATTACH depends on drmemtrace).
     set(linux.rseq_no_reg_compat)
     tobuild(linux.rseq linux/rseq.cpp)
     # Test the other sections.  Unfortunately we need a separate binary for each.
@@ -5696,7 +5729,7 @@ if (UNIX)
     tobuild_api(api.rseq linux/rseq.cpp "" "" OFF ON OFF)
     link_with_pthread(api.rseq)
     append_property_list(TARGET api.rseq COMPILE_DEFINITIONS "RSEQ_TEST_ATTACH")
-    use_DynamoRIO_static_client(api.rseq drmemtrace_static)
+    use_DynamoRIO_static_client(api.rseq drmemtrace_nomain)
     use_DynamoRIO_drmemtrace_tracer(api.rseq)
     set(api.rseq_expectbase rseq_client)
     # Test non-compliant code with our workaround flag.
@@ -6392,7 +6425,8 @@ if (BUILD_CLIENTS AND NOT ANDROID)
     code_api|tool.drcacheoff.simple
     PROPERTIES LABELS UBUNTU_22)
 endif ()
-if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64 AND NOT ANDROID) # TODO i#3544: Port tests to RISC-V 64
+  # TODO i#1874: Build drmemtrace on Android (rseq tests depend on drmemtrace).
   set_tests_properties(
     code_api|api.rseq
     code_api|linux.rseq_disable
@@ -6402,6 +6436,12 @@ if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64) # TODO i#3544: Port tests to RI
     code_api|tool.drcacheoff.rseq
     PROPERTIES LABELS UBUNTU_22)
 endif ()
+if (TARGET tool.drcacheoff.purestatic)
+  # This target only easily builds on Ubuntu22+ so make sure we run it there.
+  set_tests_properties(
+    code_api|tool.drcacheoff.purestatic
+    PROPERTIES LABELS UBUNTU_22)
+endif()
 
 # XXX i#3544: Support for running RISC-V Linux tests under QEMU.
 # Currently about 1/6 of the compiled tests pass.
@@ -6510,6 +6550,7 @@ if (UNIX AND X86 AND CPU_AMD AND NOT DR_HOST_X64)
     code_api|tool.basic_counts
     code_api|tool.drcacheoff.altbindir
     code_api|tool.drcacheoff.burst_client
+    code_api|tool.drcacheoff.purestatic
     code_api|tool.drcacheoff.basic_counts
     code_api|tool.drcacheoff.burst_futex
     code_api|tool.drcacheoff.burst_malloc

@@ -940,7 +940,13 @@ redirect_malloc(size_t size)
     /* We need extra space to store the size and alignment bit and ensure the returned
      * pointer is aligned.
      */
+#ifdef ARM
+    size_t alloc_size = size + STANDARD_HEAP_ALIGNMENT;
+    ASSERT(HEAP_ALIGNMENT == STANDARD_HEAP_ALIGNMENT);
+#else
     size_t alloc_size = size + sizeof(size_t) + STANDARD_HEAP_ALIGNMENT - HEAP_ALIGNMENT;
+    ASSERT(HEAP_ALIGNMENT * 2 == STANDARD_HEAP_ALIGNMENT);
+#endif
     /* Our header is the size itself, with the top bit stolen to indicate alignment. */
     if (TEST(REDIRECT_HEADER_SHIFTED, alloc_size)) {
         /* We do not support the top bit being set as that conflicts with the bit in
@@ -958,7 +964,6 @@ redirect_malloc(size_t size)
     ptr_uint_t res =
         ALIGN_FORWARD((ptr_uint_t)mem + sizeof(size_t), STANDARD_HEAP_ALIGNMENT);
     size_t header = alloc_size;
-    ASSERT(HEAP_ALIGNMENT * 2 == STANDARD_HEAP_ALIGNMENT);
     ASSERT(!TEST(REDIRECT_HEADER_SHIFTED, header));
     if (res == (ptr_uint_t)mem + sizeof(size_t)) {
         /* Already aligned. */

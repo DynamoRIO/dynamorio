@@ -124,11 +124,31 @@ Dr. Memory Framework (DRMF) in the same package as DynamoRIO.  DRMF
 provides the umbra, drsyscall, and drsymcache Extensions for use by
 clients.
 
-The changes between version \DR_VERSION and 11.2.0 include the following compatibility
+The changes between version \DR_VERSION and 11.3.0 include the following compatibility
+changes:
+ - The size of #dr_mcontext_t on 32-bit Arm has been increased by 4 so that
+   the struct can be pushed onto the 8-byte aligned stack without additional
+   padding. The offset of the field "simd" has changed.
+
+Further non-compatibility-affecting changes include:
+ - Added support for reading a single drmemtrace trace file from stdin
+   via "-infile -".
+
+**************************************************
+<hr>
+
+The changes between version 11.3.0 and 11.2.0 include the following compatibility
 changes:
  - No compatibility changes yet.
 
 Further non-compatibility-affecting changes include:
+ - Added support for statically linking clients and the DynamoRIO library into
+   a pure-static application via a new configure_DynamoRIO_static_client() CMake
+   function and new "_drstatic" static library CMake targets for the provided
+   extension libraries.
+ - Allow v2p.textproto file in a trace directory. This file is present in public traces.
+ - Allow v2p.textproto file to have one missing virtual_address field, which indicates
+   virtual_address == 0x0. Necessary in case a trace accesses virtual address 0x0.
  - Added the #dynamorio::drmemtrace::decode_cache_t library to make it easier and more
    efficient for drmemtrace analysis tools to obtain decoded information about
    instructions in the trace. This works for traces that have embedded instruction
@@ -140,8 +160,8 @@ Further non-compatibility-affecting changes include:
 
 The changes between version 11.2.0 and 11.1.0 include the following compatibility
 changes:
- - Added #dynamorio::drmemtrace::TRACE_ENTRY_VERSION_RETIRED_INSTRUCTIONS_ONLY to increase the
-   trace version for drmemtraces with uncompleted instructions removed.
+ - Added #dynamorio::drmemtrace::TRACE_ENTRY_VERSION_RETIRED_INSTRUCTIONS_ONLY to
+   increase the trace version for drmemtraces with uncompleted instructions removed.
 
 Further non-compatibility-affecting changes include:
  - Added instr_get_operation_size() and instr_set_operation_size() APIs for

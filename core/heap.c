@@ -105,7 +105,8 @@ static const uint BLOCK_SIZES[] = {
     8, /* for instr bits */
 #ifndef X64
     /* for x64 future_fragment_t is 24 bytes (could be 20 if we could put flags last) */
-    sizeof(future_fragment_t), /* 12 (24 x64) */
+    ALIGN_FORWARD(sizeof(future_fragment_t), /* 12 (24 x64) */
+                  HEAP_ALIGNMENT),
 #endif
     /* we have a lot of size 16 requests for IR but they are transient */
     24, /* fcache empties and vm_area_t are now 20, vm area extras still 24 */
@@ -119,8 +120,9 @@ static const uint BLOCK_SIZES[] = {
     sizeof(instr_t), /* 112 x64 */
 #    endif
 #else
-    sizeof(fragment_t) + sizeof(direct_linkstub_t) +
-        sizeof(cbr_fallthrough_linkstub_t), /* 60 dbg / 56 rel */
+    ALIGN_FORWARD(sizeof(fragment_t) + sizeof(direct_linkstub_t) +
+                      sizeof(cbr_fallthrough_linkstub_t), /* 60 dbg / 56 rel */
+                  HEAP_ALIGNMENT),
 #    ifndef DEBUG
     sizeof(instr_t), /* 72 */
 #    endif
@@ -156,11 +158,21 @@ DECLARE_NEVERPROT_VAR(static int block_peak_align_pad[BLOCK_TYPES], { 0 });
 DECLARE_NEVERPROT_VAR(static bool out_of_vmheap_once, false);
 #endif
 
-/* variable-length: we steal one int for the size */
-#define HEADER_SIZE (sizeof(size_t))
+/* The size of a variable-size allocation is stored as a size_t in the header.
+ * On 32-bit ARM, HEAP_ALIGNMENT is twice the size of a size_t but the wasted
+ * space for DR's own use is not expected to be significant as only allocs
+ * that do not fit in the buckets use headers. Client heap allocations
+ * probably bear the biggest hit.
+ */
+#define HEADER_SIZE HEAP_ALIGNMENT
 /* VARIABLE_SIZE is assignable */
 #define VARIABLE_SIZE(p) (*(size_t *)((p)-HEADER_SIZE))
-#define MEMSET_HEADER(p, value) VARIABLE_SIZE(p) = HEAP_TO_PTR_UINT(value)
+#define MEMSET_HEADER(p, value)                                             \
+    do {                                                                    \
+        ASSERT(HEADER_SIZE % sizeof(VARIABLE_SIZE(p)) == 0);                \
+        for (size_t k = 0; k < HEADER_SIZE / sizeof(VARIABLE_SIZE(p)); k++) \
+            (&VARIABLE_SIZE(p))[k] = HEAP_TO_PTR_UINT(value);               \
+    } while (0)
 #define GET_VARIABLE_ALLOCATION_SIZE(p) (VARIABLE_SIZE(p) + HEADER_SIZE)
 
 /* The heap is allocated in units.

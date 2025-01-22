@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2014-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2025 Arm Limited. All rights reserved.
  * ********************************************************** */
 
 /*
@@ -54,31 +55,17 @@ DECL_EXTERN(initstack_mutex)
 #define SAVE_TO_DCONTEXT_VIA_REG(reg,offs,src) str src, PTRSZ [reg, POUND (offs)]
 
 /* offsetof(dcontext_t, dstack) */
-#define dstack_OFFSET     0x16c
+#define dstack_OFFSET     0x170
 /* offsetof(dcontext_t, is_exiting) */
 #define is_exiting_OFFSET (dstack_OFFSET+1*ARG_SZ)
 
-#ifdef X64
-# define MCXT_NUM_SIMD_SLOTS 32
-# define SIMD_REG_SIZE       64
-# define MCXT_NUM_PRED_SLOTS 17 /* P regs + FFR */
-# define PRED_REG_SIZE        8
-# define NUM_GPR_SLOTS       33 /* incl flags */
-# define GPR_REG_SIZE         8
-#else
-# define MCXT_NUM_SIMD_SLOTS 16
-# define SIMD_REG_SIZE       16
-# define MCXT_NUM_PRED_SLOTS  0
-# define PRED_REG_SIZE        0
-# define NUM_GPR_SLOTS       17 /* incl flags */
-# define GPR_REG_SIZE         4
-#endif
-#define PRE_SIMD_PADDING     0
-#define PRIV_MCXT_SIMD_SIZE (PRE_SIMD_PADDING + MCXT_NUM_SIMD_SLOTS*SIMD_REG_SIZE \
-                             + MCXT_NUM_PRED_SLOTS*PRED_REG_SIZE)
-#define PRIV_MCXT_SIZE (NUM_GPR_SLOTS*GPR_REG_SIZE + PRIV_MCXT_SIMD_SIZE)
-#define PRIV_MCXT_SP_FROM_SIMD (-(4*GPR_REG_SIZE)) /* flags, pc, lr, then sp */
-#define PRIV_MCXT_PC_FROM_SIMD (-(2*GPR_REG_SIZE)) /* flags, then pc */
+/* The struct priv_mcontext_t is defined in mcxtx_api.h. */
+#define PRIV_MCXT_SIZE        0x148 /* sizeof(priv_mcontext_t) */
+#define PRIV_MCXT_SP_OFFSET   0x34  /* offsetof(priv_mcontext_t, sp) */
+#define PRIV_MCXT_LR_OFFSET   0x38  /* offsetof(priv_mcontext_t, lr) */
+#define PRIV_MCXT_PC_OFFSET   0x3c  /* offsetof(priv_mcontext_t, pc) */
+#define PRIV_MCXT_CPSR_OFFSET 0x40  /* offsetof(priv_mcontext_t, cpsr) */
+#define PRIV_MCXT_SIMD_OFFSET 0x48  /* offsetof(priv_mcontext_t, simd) */
 
 #ifndef UNIX
 # error Non-Unix is not supported
@@ -181,24 +168,31 @@ GLOBAL_LABEL(dr_call_on_clean_stack:)
 #ifdef DR_APP_EXPORTS
         DECLARE_EXPORTED_FUNC(dr_app_start)
 GLOBAL_LABEL(dr_app_start:)
-        push     {lr}
-        vstmdb   sp!, {d16-d31}
-        vstmdb   sp!, {d0-d15}
-        mrs      REG_R0, cpsr /* r0 is scratch */
-        push     {REG_R0}
-        /* We can't push all regs w/ writeback */
-        stmdb    sp, {REG_R0-r15}
-        str      lr, [sp, #(PRIV_MCXT_PC_FROM_SIMD+4)] /* +4 b/c we pushed cpsr */
-        /* we need the sp at function entry */
-        mov      REG_R0, sp
-        add      REG_R0, REG_R0, #(PRIV_MCXT_SIMD_SIZE + 8) /* offset simd,cpsr,lr */
-        str      REG_R0, [sp, #(PRIV_MCXT_SP_FROM_SIMD+4)] /* +4 b/c we pushed cpsr */
-        sub      sp, sp, #(PRIV_MCXT_SIZE-PRIV_MCXT_SIMD_SIZE-4) /* simd,cpsr */
-        mov      REG_R0, sp
+#if PRIV_MCXT_SIZE % 8 != 0
+#    error Size of priv_mcontext_t should be 8-byte aligned.
+#endif
+        /* space for mcontext + padding + LR (stack must be 8-byte aligned */
+        sub      sp, sp, #(PRIV_MCXT_SIZE + 8)
+        str      lr, [sp, #(PRIV_MCXT_SIZE + 4)]
+#if PRIV_MCXT_R0_OFFSET != 0
+#    error
+#endif
+        stmia    sp, {r0-r12}
+        add      r0, sp, #(PRIV_MCXT_SIZE + 8) /* get SP at function entry */
+        str      r0, [sp, #PRIV_MCXT_SP_OFFSET]
+        str      lr, [sp, #PRIV_MCXT_LR_OFFSET]
+        str      lr, [sp, #PRIV_MCXT_PC_OFFSET] /* save LR as PC */
+        mrs      r0, cpsr
+        str      r0, [sp, #PRIV_MCXT_CPSR_OFFSET]
+        add      r0, sp, #PRIV_MCXT_SIMD_OFFSET
+        vstmia   r0!, {d0-d15}
+        vstmia   r0!, {d16-d31}
+        mov      r0, sp
         CALLC1(GLOBAL_REF(dr_app_start_helper), REG_R0)
         /* if we get here, DR is not taking over */
+        ldr      lr, [sp, #(PRIV_MCXT_SIZE + 4)]
         add      sp, sp, #PRIV_MCXT_SIZE
-        pop      {pc}
+        bx       lr
         END_FUNC(dr_app_start)
 
 /*
@@ -230,25 +224,32 @@ GLOBAL_LABEL(dr_app_running_under_dynamorio:)
  */
         DECLARE_EXPORTED_FUNC(dynamorio_app_take_over)
 GLOBAL_LABEL(dynamorio_app_take_over:)
-        push     {lr}
-        vstmdb   sp!, {d16-d31}
-        vstmdb   sp!, {d0-d15}
-        mrs      REG_R0, cpsr /* r0 is scratch */
-        push     {REG_R0}
-        /* We can't push all regs w/ writeback */
-        stmdb    sp, {REG_R0-r15}
-        str      lr, [sp, #(PRIV_MCXT_PC_FROM_SIMD+4)] /* +4 b/c we pushed cpsr */
-        /* we need the sp at function entry */
-        mov      REG_R0, sp
-        add      REG_R0, REG_R0, #(PRIV_MCXT_SIMD_SIZE + 8) /* offset simd,cpsr,lr */
-        str      REG_R0, [sp, #(PRIV_MCXT_SP_FROM_SIMD+4)] /* +4 b/c we pushed cpsr */
-        sub      sp, sp, #(PRIV_MCXT_SIZE-PRIV_MCXT_SIMD_SIZE-4) /* simd,cpsr */
-        mov      REG_R0, sp
+#if PRIV_MCXT_SIZE % 8 != 0
+#    error Size of priv_mcontext_t should be 8-byte aligned.
+#endif
+        /* space for mcontext + padding + LR (stack must be 8-byte aligned */
+        sub      sp, sp, #(PRIV_MCXT_SIZE + 8)
+        str      lr, [sp, #(PRIV_MCXT_SIZE + 4)]
+#if PRIV_MCXT_R0_OFFSET != 0
+#    error
+#endif
+        stmia    sp, {r0-r12}
+        add      r0, sp, #(PRIV_MCXT_SIZE + 8) /* get SP at function entry */
+        str      r0, [sp, #PRIV_MCXT_SP_OFFSET]
+        str      lr, [sp, #PRIV_MCXT_LR_OFFSET]
+        str      lr, [sp, #PRIV_MCXT_PC_OFFSET] /* save LR as PC */
+        mrs      r0, cpsr
+        str      r0, [sp, #PRIV_MCXT_CPSR_OFFSET]
+        add      r0, sp, #PRIV_MCXT_SIMD_OFFSET
+        vstmia   r0!, {d0-d15}
+        vstmia   r0!, {d16-d31}
+        mov      r0, sp
         CALLC1(GLOBAL_REF(dynamorio_app_take_over_helper), REG_R0)
         /* if we get here, DR is not taking over */
+        ldr      lr, [sp, #(PRIV_MCXT_SIZE + 4)]
         add      sp, sp, #PRIV_MCXT_SIZE
-        pop      {pc}
-        END_FUNC(dynamorio_app_take_over)
+        bx       lr
+        END_FUNC(dr_app_start)
 
 
 /*
