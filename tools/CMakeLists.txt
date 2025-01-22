@@ -32,6 +32,7 @@
 include(../make/policies.cmake NO_POLICY_SCOPE)
 
 add_executable(run_in_bg run_in_bg.c)
+copy_target_to_device(run_in_bg "${location_suffix}")
 
 if (UNIX)
   add_executable(runstats runstats.c)
