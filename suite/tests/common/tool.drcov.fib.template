@@ -12,7 +12,6 @@ DA:77,1
 #endif
 DA:79,1
 DA:81,1
-<<<<<<< HEAD
 DA:82,0
 DA:83,1
 DA:85,1
@@ -25,34 +24,8 @@ DA:91,1
 DA:93,1
 DA:94,1
 #if defined(WINDOWS)
-=======
-DA:84,1
-DA:88,1
-DA:89,1
-DA:90,0
-DA:91,0
->>>>>>> d1492dca8 (Change linux/infloop to linux.infloop when it is used as the name of an executable.)
 DA:95,1
 #endif
 DA:97,1
-<<<<<<< HEAD
 DA:98,1
-=======
-DA:98,0
-DA:102,1
-DA:104,0
-DA:105,0
-DA:106,0
-DA:110,1
-DA:112,1
-DA:115,1
-DA:116,1
-DA:117,1
-DA:120,1
-DA:121,1
-DA:124,1
-DA:128,1
-DA:129,0
-DA:132,1
->>>>>>> d1492dca8 (Change linux/infloop to linux.infloop when it is used as the name of an executable.)
 end_of_record
