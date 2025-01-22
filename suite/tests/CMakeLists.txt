@@ -425,6 +425,11 @@ function (set_cflags source)
   else ()
     set(cflags "${ORIG_CMAKE_C_FLAGS}")
   endif ()
+  # Alpine Linux enables "-Wtrampolines" by default, breaking
+  # security-linux/trampoline.c.
+  if (MUSL)
+    set(cflags "${cflags} -Wno-trampolines")
+  endif ()
   if ("${source}" MATCHES ".cpp$")
     # Our C files need -std=gnu99, but that's an invalid flag for C++.
     # configure_DynamoRIO_global removes unfavorable options for clients,
@@ -2124,7 +2129,7 @@ if (BUILD_CLIENTS)
   endif ()
 endif ()
 
-if (AARCH64 AND UNIX AND ZLIB_FOUND)
+if (AARCH64 AND UNIX AND ZLIB_FOUND AND NOT ANDROID) # TODO i#1874: Add drcachesim support on Android
     # Test TLB simulator with a virtual to physical v2p.textproto mapping.
     set(srcdir
       ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.aarch64.raw)
@@ -2737,7 +2742,9 @@ else (UNIX)
 
   tobuild_ci(client.winxfer client-interface/winxfer.c "" "" "")
 endif (UNIX)
-if (NOT APPLE OR NOT AARCH64) # TODO i#5383: Port to Mac M1.
+# TODO i#5383: Port to Mac M1.
+# TODO i#1973: Port to musl libc.
+if (NOT APPLE OR NOT AARCH64 AND NOT MUSL)
   tobuild_ci(client.file_io client-interface/file_io.c
     "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/file_io_data.txt" "" "")
 endif ()
@@ -5682,10 +5689,8 @@ if (UNIX)
   # this app is used in nudge tests
   # XXX: should all these infloop tests be made cross-platform?
   # or rely on runall tests that run calc covering this on Windows?
-  if (NOT ANDROID) # XXX i#1874: add support for running this on Android
-    add_exe(linux.infloop linux/infloop.c)
-    torunonly(linux.reset linux/infloop linux/reset.runall "-enable_reset" "-v")
-  endif ()
+  add_exe(linux.infloop linux/infloop.c)
+  torunonly(linux.reset linux/infloop linux/reset.runall "-enable_reset" "-v")
   if (NOT X64 AND NOT ARM) # FIXME i#1551: add coarse-grain ARM support
     # XXX: 64-bit support not quite there yet
     torunonly(linux.freeze_FLAKY linux/infloop linux/freeze.runall
@@ -5705,10 +5710,11 @@ if (UNIX)
   # when running tests in parallel: have to generate pcaches first
   set(linux.persist-use_FLAKY_depends linux.persist_FLAKY)
 
-  if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64)
+  if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64 AND NOT ANDROID)
     # The rseq kernel feature is Linux-only.
     # TODO i#2350: Port the assembly in the test to 32-bit x86 and to ARM.
     # TODO i#3544: Port tests to RISC-V 64
+    # TODO i#1874: Build drmemtrace on Android (RSEQ_TEST_ATTACH depends on drmemtrace).
     set(linux.rseq_no_reg_compat)
     tobuild(linux.rseq linux/rseq.cpp)
     # Test the other sections.  Unfortunately we need a separate binary for each.
@@ -6419,7 +6425,8 @@ if (BUILD_CLIENTS AND NOT ANDROID)
     code_api|tool.drcacheoff.simple
     PROPERTIES LABELS UBUNTU_22)
 endif ()
-if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64 AND NOT ANDROID) # TODO i#3544: Port tests to RISC-V 64
+  # TODO i#1874: Build drmemtrace on Android (rseq tests depend on drmemtrace).
   set_tests_properties(
     code_api|api.rseq
     code_api|linux.rseq_disable

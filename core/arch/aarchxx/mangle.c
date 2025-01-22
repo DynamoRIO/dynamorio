@@ -600,6 +600,11 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     ASSERT(proc_num_simd_registers() == MCXT_NUM_SIMD_SLOTS);
     ASSERT(ALIGNED(dstack_offs, get_ABI_stack_alignment()));
 
+    /* padding */
+    PRE(ilist, instr,
+        XINST_CREATE_sub(dcontext, opnd_create_reg(DR_REG_SP), OPND_CREATE_INT(XSP_SZ)));
+    dstack_offs += XSP_SZ;
+
     /* pc and aflags */
     if (cci->skip_save_flags) {
         /* even if we skip flag saves we want to keep mcontext shape */
@@ -642,7 +647,6 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         if (spill)
             PRE(ilist, instr, instr_create_restore_from_tls(dcontext, scratch, slot));
     }
-    ASSERT(ALIGNED(dstack_offs, get_ABI_stack_alignment()));
 
     /* We rely on dr_get_mcontext_priv() to fill in the app's stolen reg value
      * and sp value.
@@ -668,12 +672,6 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                                   DR_REG_LIST_LENGTH_ARM, DR_REG_LIST_ARM));
         dstack_offs += DR_REG_LIST_LENGTH_ARM * XSP_SZ;
     }
-    /* Make dstack_offs 8-byte aligned as we have just pushed an odd
-     * number of 4-byte registers.
-     */
-    PRE(ilist, instr,
-        XINST_CREATE_sub(dcontext, opnd_create_reg(DR_REG_SP), OPND_CREATE_INT(XSP_SZ)));
-    dstack_offs += XSP_SZ;
     ASSERT(ALIGNED(dstack_offs, get_ABI_stack_alignment()));
 
 #endif
@@ -779,9 +777,6 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
     }
 
 #else
-    /* This undoes the XINST_CREATE_sub done for alignment in XINST_CREATE_sub. */
-    PRE(ilist, instr,
-        XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_SP), OPND_CREATE_INT(XSP_SZ)));
     /* We rely on dr_set_mcontext_priv() to set the app's stolen reg value,
      * and the stack swap to set the sp value: we assume the stolen reg on
      * the stack still has our TLS base in it.
@@ -816,6 +811,11 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
                              OPND_CREATE_INT_MSR_NZCVQG(), opnd_create_reg(scratch)));
         PRE(ilist, instr, instr_create_restore_from_tls(dcontext, scratch, slot));
     }
+
+    /* padding */
+    PRE(ilist, instr,
+        XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_SP), OPND_CREATE_INT(XSP_SZ)));
+
     /* FIXME i#1551: once we have cci->num_simd_skip, skip this if possible */
     PRE(ilist, instr,
         INSTR_CREATE_vldm_wb(dcontext, OPND_CREATE_MEMLIST(DR_REG_SP), SIMD_REG_LIST_LEN,
