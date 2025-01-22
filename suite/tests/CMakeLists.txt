@@ -2129,7 +2129,7 @@ if (BUILD_CLIENTS)
   endif ()
 endif ()
 
-if (AARCH64 AND UNIX AND ZLIB_FOUND AND NOT ANDROID)
+if (AARCH64 AND UNIX AND ZLIB_FOUND AND NOT ANDROID) # TODO i#1874: Add drcachesim support on Android
     # Test TLB simulator with a virtual to physical v2p.textproto mapping.
     set(srcdir
       ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.aarch64.raw)
@@ -5714,6 +5714,7 @@ if (UNIX)
     # The rseq kernel feature is Linux-only.
     # TODO i#2350: Port the assembly in the test to 32-bit x86 and to ARM.
     # TODO i#3544: Port tests to RISC-V 64
+    # TODO i#1874: Build drmemtrace on Android (RSEQ_TEST_ATTACH depends on drmemtrace).
     set(linux.rseq_no_reg_compat)
     tobuild(linux.rseq linux/rseq.cpp)
     # Test the other sections.  Unfortunately we need a separate binary for each.
@@ -6425,6 +6426,7 @@ if (BUILD_CLIENTS AND NOT ANDROID)
     PROPERTIES LABELS UBUNTU_22)
 endif ()
 if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64 AND NOT ANDROID) # TODO i#3544: Port tests to RISC-V 64
+  # TODO i#1874: Build drmemtrace on Android (rseq tests depend on drmemtrace).
   set_tests_properties(
     code_api|api.rseq
     code_api|linux.rseq_disable
