@@ -67,6 +67,7 @@ decode_cache_base_t::~decode_cache_base_t()
             // automatically because we want to do it before DR's global resource
             // accounting is done at the end.
             module_mapper_.reset(nullptr);
+            module_file_path_used_for_init_ = "";
             delete[] modfile_bytes_;
             modfile_bytes_ = nullptr;
         }
@@ -81,6 +82,10 @@ decode_cache_base_t::init_module_mapper(const std::string &module_file_path,
     use_module_mapper_ = true;
     ++module_mapper_use_count_;
     if (module_mapper_ != nullptr) {
+        if (module_file_path_used_for_init_ != module_file_path) {
+            return "Prior module_file_path (" + module_file_path_used_for_init_ +
+                ") does not match provided (" + module_file_path + ")";
+        }
         // We want only a single module_mapper_t instance to be
         // initialized that is shared among all instances of
         // decode_cache_base_t.
@@ -93,6 +98,7 @@ decode_cache_base_t::init_module_mapper(const std::string &module_file_path,
     err = module_mapper_->get_last_error();
     if (!err.empty())
         return "Failed to load binaries: " + err;
+    module_file_path_used_for_init_ = module_file_path;
     return "";
 }
 
@@ -156,6 +162,7 @@ instr_decode_info_t::get_decoded_instr()
 // definitions.
 std::mutex decode_cache_base_t::module_mapper_mutex_;
 std::unique_ptr<module_mapper_t> decode_cache_base_t::module_mapper_;
+std::string decode_cache_base_t::module_file_path_used_for_init_;
 char *decode_cache_base_t::modfile_bytes_ = nullptr;
 int decode_cache_base_t::module_mapper_use_count_ = 0;
 

@@ -264,13 +264,13 @@ check_decode_caching(void *drcontext, bool use_module_mapper, bool include_decod
 }
 
 std::string
-check_missing_module_mapper_and_no_encoding(void *drcontext)
+check_init_error_cases(void *drcontext)
 {
+    instrlist_t *ilist = instrlist_create(drcontext);
     memref_t instr = gen_instr(TID_A);
     test_decode_cache_t<instr_decode_info_t> decode_cache(
         drcontext, /*include_decoded_instr=*/true,
-        /*persist_decoded_instr=*/true,
-        /*ilist_for_test_module_mapper=*/nullptr);
+        /*persist_decoded_instr=*/true, ilist);
     instr_decode_info_t dummy;
     // Initialize to non-nullptr for the test.
     instr_decode_info_t *cached_decode_info = &dummy;
@@ -290,6 +290,40 @@ check_missing_module_mapper_and_no_encoding(void *drcontext)
     if (err == "") {
         return "Expected error at init but did not get any";
     }
+
+    // Multiple init calls on the same decode cache instance.
+    err = decode_cache.init(
+        static_cast<offline_file_type_t>(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS),
+        "some_module_file_path", "");
+    if (err != "") {
+        return "Expected successful init, got error: " + err;
+    }
+    err = decode_cache.init(
+        static_cast<offline_file_type_t>(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS),
+        "some_module_file_path", "");
+    if (err == "") {
+        return "Expected error at re-init";
+    }
+
+    // Different module_file_path provided to a different decode cache instance.
+    test_decode_cache_t<instr_decode_info_t> another_decode_cache(
+        drcontext, /*include_decoded_instr=*/true,
+        /*persist_decoded_instr=*/true, ilist);
+    err = another_decode_cache.init(
+        static_cast<offline_file_type_t>(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS),
+        "some_other_module_file_path", "");
+    if (err == "") {
+        return "Expected error at init with different module file path";
+    }
+    err = another_decode_cache.init(
+        static_cast<offline_file_type_t>(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS),
+        "some_module_file_path", "");
+    if (err != "") {
+        return "Expected successful init on another decode cache instance, got error: " +
+            err;
+    }
+
+    instrlist_clear_and_destroy(drcontext, ilist);
     std::cerr << "check_missing_module_mapper passed\n";
     return "";
 }
@@ -344,7 +378,7 @@ test_main(int argc, const char *argv[])
         exit(1);
     }
 #endif
-    err = check_missing_module_mapper_and_no_encoding(drcontext);
+    err = check_init_error_cases(drcontext);
     if (err != "") {
         std::cerr << err << "\n";
         exit(1);

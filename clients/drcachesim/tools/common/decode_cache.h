@@ -165,6 +165,7 @@ protected:
 
     static std::mutex module_mapper_mutex_;
     static std::unique_ptr<module_mapper_t> module_mapper_;
+    static std::string module_file_path_used_for_init_;
     // XXX: Maybe the ownership and destruction responsibility for the modfile bytes
     // should be given to module_mapper_t instead.
     static char *modfile_bytes_;
@@ -433,6 +434,9 @@ public:
     init(offline_file_type_t filetype, const std::string &module_file_path = "",
          const std::string &alt_module_dir = "")
     {
+        if (init_done_) {
+            return "init already done";
+        }
         // If we are dealing with a regdeps trace, we need to set the dcontext
         // ISA mode to the correct synthetic ISA (i.e., DR_ISA_REGDEPS).
         if (TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, filetype)) {
@@ -450,10 +454,16 @@ public:
             return "Trace does not have embedded encodings, and no module_file_path "
                    "provided";
         }
-        init_done_ = true;
-        if (module_file_path.empty())
+        if (module_file_path.empty()) {
+            init_done_ = true;
             return "";
-        return init_module_mapper(module_file_path, alt_module_dir);
+        }
+        std::string err = init_module_mapper(module_file_path, alt_module_dir);
+        if (err != "") {
+            return err;
+        }
+        init_done_ = true;
+        return "";
     }
 
     /**
