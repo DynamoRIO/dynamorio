@@ -117,7 +117,7 @@ typedef bool (*unmap_fn_t)(byte *map, size_t size);
  * by using MAP_FIXED (which is MAP_FILE_FIXED in map_flags_t). Note that MAP_FIXED
  * documents that the only safe way to use it is with a range that was previously
  * reserved using another mapping, otherwise it may end up forcibly removing
- * existing mappings.
+ * someone else's existing mappings.
  */
 typedef byte *(*overlap_map_fn_t)(file_t f, size_t *size DR_PARAM_INOUT, uint64 offs,
                                   app_pc addr, uint prot /*MEMPROT_*/,
