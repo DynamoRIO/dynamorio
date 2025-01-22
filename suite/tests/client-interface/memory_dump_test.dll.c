@@ -37,10 +37,12 @@
 #endif
 
 #define NUDGE_ARG_DUMP_MEMORY 1
+#define MAX_PATH_SIZE 200
 
 static bool saw_thread_init_event = false;
 static client_id_t client_id = 0;
 static thread_id_t thread_id = 0;
+static char path[MAX_PATH_SIZE];
 
 static void
 event_nudge(void *drcontext, uint64 arg)
@@ -53,9 +55,33 @@ event_nudge(void *drcontext, uint64 arg)
         spec.flags = DR_MEMORY_DUMP_LDMP;
 #else
         spec.flags = DR_MEMORY_DUMP_ELF;
+        spec.elf_path = (char *)&path;
+        spec.elf_path_size = MAX_PATH_SIZE;
 #endif
-        if (!dr_create_memory_dump(&spec))
+        if (!dr_create_memory_dump(&spec)) {
             dr_fprintf(STDERR, "Error: failed to create memory dump.\n");
+            return;
+        }
+
+        file_t memory_dump_file = dr_open_file(path, DR_FILE_READ);
+        if (memory_dump_file < 0) {
+            dr_fprintf(STDERR, "Error: failed to read memory dump file: %s.\n", path);
+            return;
+        }
+
+        uint64 file_size;
+        if (!dr_file_size(memory_dump_file, &file_size)) {
+            dr_fprintf(STDERR,
+                       "Error: failed to read the size of the memory dump file: %s.\n",
+                       path);
+            dr_close_file(memory_dump_file);
+            return;
+        }
+
+        if (file_size == 0)
+            dr_fprintf(STDERR, "Error: memory dump file %s is empty.\n", path);
+
+        dr_close_file(memory_dump_file);
         return;
     }
     dr_fprintf(STDERR, "Error: unexpected nudge event!\n");
