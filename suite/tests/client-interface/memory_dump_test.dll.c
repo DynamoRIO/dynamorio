@@ -53,6 +53,8 @@ event_nudge(void *drcontext, uint64 arg)
         spec.size = sizeof(dr_memory_dump_spec_t);
 #ifdef WINDOWS
         spec.flags = DR_MEMORY_DUMP_LDMP;
+        spec.ldmp_path = (char *)&path;
+        spec.ldmp_path_size = MAX_PATH_SIZE;
 #else
         spec.flags = DR_MEMORY_DUMP_ELF;
         spec.elf_path = (char *)&path;
