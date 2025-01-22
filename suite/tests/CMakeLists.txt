@@ -4032,6 +4032,12 @@ if (BUILD_CLIENTS)
           "")
         set(tool.switch_file_invariants_rawtemp ON) # no preprocessor
 
+        # Test -multi_indir with 3 copies of our sample dir.
+        torunonly_simtool(multi_indir ${ci_shared_app}
+          "-multi_indir ${thread_trace_dir}:${thread_trace_dir}:${thread_trace_dir} -tool schedule_stats -cores 3"
+          "")
+        set(tool.multi_indir_rawtemp ON) # no preprocessor
+
         # Sanity test that core-sharded at least runs without errors on our other tools.
         torunonly_simtool(core_sharded ${ci_shared_app}
           "-indir ${thread_trace_dir} -tool reuse_time:reuse_distance:histogram:opcode_mix:syscall_mix -core_sharded"

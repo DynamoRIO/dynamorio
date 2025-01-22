@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -229,13 +229,13 @@ analyzer_tmpl_t<RecordType, ReaderType>::analyzer_tmpl_t()
 template <typename RecordType, typename ReaderType>
 bool
 analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(
-    const std::string &trace_path, const std::set<memref_tid_t> &only_threads,
-    const std::set<int> &only_shards, int output_limit, int verbosity,
-    typename sched_type_t::scheduler_options_t options)
+    const std::vector<std::string> &trace_paths,
+    const std::set<memref_tid_t> &only_threads, const std::set<int> &only_shards,
+    int output_limit, int verbosity, typename sched_type_t::scheduler_options_t options)
 {
     verbosity_ = verbosity;
-    if (trace_path.empty()) {
-        ERRMSG("Trace file name is empty\n");
+    if (trace_paths.empty()) {
+        ERRMSG("Missing trace path(s)\n");
         return false;
     }
     std::vector<typename sched_type_t::range_t> regions;
@@ -246,14 +246,22 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(
         // capability in the scheduler we should switch to that.
         regions.emplace_back(skip_instrs_ + 1, 0);
     }
-    typename sched_type_t::input_workload_t workload(trace_path, regions);
-    workload.only_threads = only_threads;
-    workload.only_shards = only_shards;
-    workload.output_limit = output_limit;
-    if (regions.empty() && skip_to_timestamp_ > 0) {
-        workload.times_of_interest.emplace_back(skip_to_timestamp_, 0);
+    std::vector<typename sched_type_t::input_workload_t> workloads;
+    for (const std::string &path : trace_paths) {
+        if (path.empty()) {
+            ERRMSG("Trace path is empty\n");
+            return false;
+        }
+        workloads.emplace_back(path, regions);
+        // Currently these modifiers apply to every workload.
+        workloads.back().only_threads = only_threads;
+        workloads.back().only_shards = only_shards;
+        workloads.back().output_limit = output_limit;
+        if (regions.empty() && skip_to_timestamp_ > 0) {
+            workloads.back().times_of_interest.emplace_back(skip_to_timestamp_, 0);
+        }
     }
-    return init_scheduler_common(workload, std::move(options));
+    return init_scheduler_common(workloads, std::move(options));
 }
 
 template <typename RecordType, typename ReaderType>
@@ -274,14 +282,15 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(
     std::vector<typename sched_type_t::range_t> regions;
     if (skip_instrs_ > 0)
         regions.emplace_back(skip_instrs_ + 1, 0);
-    typename sched_type_t::input_workload_t workload(std::move(readers), regions);
-    return init_scheduler_common(workload, std::move(options));
+    std::vector<typename sched_type_t::input_workload_t> workloads;
+    workloads.emplace_back(std::move(readers), regions);
+    return init_scheduler_common(workloads, std::move(options));
 }
 
 template <typename RecordType, typename ReaderType>
 bool
 analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
-    typename sched_type_t::input_workload_t &workload,
+    std::vector<typename sched_type_t::input_workload_t> &workloads,
     typename sched_type_t::scheduler_options_t options)
 {
     for (int i = 0; i < num_tools_; ++i) {
@@ -290,8 +299,6 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
             break;
         }
     }
-    std::vector<typename sched_type_t::input_workload_t> sched_inputs(1);
-    sched_inputs[0] = std::move(workload);
 
     typename sched_type_t::scheduler_options_t sched_ops;
     int output_count = worker_count_;
@@ -326,7 +333,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
         output_count = 1;
     }
     sched_mapping_ = options.mapping;
-    if (scheduler_.init(sched_inputs, output_count, std::move(sched_ops)) !=
+    if (scheduler_.init(workloads, output_count, std::move(sched_ops)) !=
         sched_type_t::STATUS_SUCCESS) {
         ERRMSG("Failed to initialize scheduler: %s\n",
                scheduler_.get_error_string().c_str());
@@ -384,7 +391,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::analyzer_tmpl_t(
     // The scheduler will call reader_t::init() for each input file.  We assume
     // that won't block (analyzer_multi_t separates out IPC readers).
     typename sched_type_t::scheduler_options_t sched_ops;
-    if (!init_scheduler(trace_path, {}, {}, /*output_limit=*/0, verbosity,
+    if (!init_scheduler({ trace_path }, {}, {}, /*output_limit=*/0, verbosity,
                         std::move(sched_ops))) {
         success_ = false;
         error_string_ = "Failed to create scheduler";
