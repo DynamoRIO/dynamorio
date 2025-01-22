@@ -39,9 +39,11 @@
 #define _DECODE_CACHE_H_ 1
 
 #include "memref.h"
-#include "tracer/raw2trace_shared.h"
+#include "raw2trace_shared.h"
 
+#include <cstddef>
 #include <cstring>
+#include <memory>
 #include <mutex>
 #include <unordered_map>
 
@@ -55,6 +57,8 @@ namespace drmemtrace {
  */
 class decode_info_base_t {
 public:
+    virtual ~decode_info_base_t() = default;
+
     /**
      * Sets the decode info for the provided \p instr which was allocated using the
      * provided \p dcontext for the provided \p memref_instr, decoded from raw bytes
@@ -127,7 +131,7 @@ private:
  */
 class instr_decode_info_t : public decode_info_base_t {
 public:
-    ~instr_decode_info_t();
+    virtual ~instr_decode_info_t();
     instr_t *
     get_decoded_instr();
 
@@ -205,7 +209,10 @@ private:
     /**
      * Creates a module_mapper_t. This does not need to worry about races as the
      * module_mapper_mutex_ will be acquired before calling.
-     * Non-static to allow test sub-classes to override.
+     *
+     * Non-static to allow test sub-classes to override. This is guaranteed to
+     * be invoked only when the count of existing decode_cache_t instances that
+     * are initialized with a non-empty module_file_path is zero.
      *
      * Returns the empty string on success, or an error message.
      */
@@ -223,12 +230,12 @@ private:
 
     // Address where the last-queried module was mapped to in the traced
     // application's address space.
-    app_pc last_trace_module_start_;
+    app_pc last_trace_module_start_ = nullptr;
     // Address where the last-queried module is mapped to in our current
     // address space.
-    app_pc last_mapped_module_start_;
+    app_pc last_mapped_module_start_ = nullptr;
     // Size of the mapping for the last-queried module.
-    size_t last_mapped_module_size_;
+    size_t last_mapped_module_size_ = 0;
 };
 
 /**
@@ -306,9 +313,10 @@ public:
      * returns is_valid() == false will be added to the cache.
      *
      * Returns a pointer to whatever DecodeInfo is present in the cache in the
-     * \p cached_decode_info reference pointer parameter, or a nullptr if none
-     * is cached. This helps avoid a repeated lookup in a subsequent
-     * get_decode_info() call.
+     * \p cached_decode_info reference pointer parameter (guaranteed to be valid
+     * if the prior add_decode_info() for that \p pc returned no error), or a
+     * nullptr if none is cached. This helps avoid a repeated lookup in a
+     * subsequent get_decode_info() call.
      *
      * Returns the error string, or an empty string if there was no error. A
      * valid DecodeInfo is guaranteed to be added to the cache if there was no

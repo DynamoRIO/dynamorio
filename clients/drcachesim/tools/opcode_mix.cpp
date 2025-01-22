@@ -119,9 +119,6 @@ opcode_mix_t::~opcode_mix_t()
     for (auto &iter : shard_map_) {
         delete iter.second;
     }
-    if (modfile_bytes_ != nullptr) {
-        delete[] modfile_bytes_;
-    }
 }
 
 bool

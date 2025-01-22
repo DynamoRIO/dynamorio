@@ -189,11 +189,6 @@ protected:
     // XXX: Once we update our toolchains to guarantee C++17 support we could use
     // std::optional here.
     std::string module_file_path_;
-    std::unique_ptr<module_mapper_t> module_mapper_;
-    std::mutex mapper_mutex_;
-    // XXX: Perhaps module_mapper_t should be made to own the cleanup of
-    // modfile_bytes_.
-    char *modfile_bytes_ = nullptr;
 
     std::unordered_map<int, shard_data_t *> shard_map_;
     // This mutex is only needed in parallel_shard_init.  In all other accesses to
