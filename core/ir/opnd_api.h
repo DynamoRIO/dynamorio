@@ -1766,6 +1766,13 @@ typedef enum {
 
 #endif /* X86 */
 
+/**
+ * Last valid register enum value.  Note: DR_REG_INVALID is now smaller
+ * than this value.
+ */
+#define DR_REG_LAST_VALID_ENUM (DR_REG_AFTER_LAST_VALID_ENUM - 1)
+#define DR_REG_LAST_ENUM (DR_REG_AFTER_LAST_VALID_ENUM - 1)
+
 #define REG_NULL DR_REG_NULL
 #define REG_INVALID DR_REG_INVALID
 #ifndef ARM
