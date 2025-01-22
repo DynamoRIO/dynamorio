@@ -448,8 +448,11 @@ elseif (APPLE AND X64)
   # Set to higher than _PAGEZERO which is [0..0x1'00000000).
   set(preferred_base "0x171000000" CACHE STRING "Preferred library base address")
 elseif (ANDROID64)
-  # 64-bit Android needs a base of 0x1000 so that libdynamorio.so
-  # does not get overwritten by the vDSO.
+  # i#7195: 64-bit Android needs a base of 0x1000 so that the ELF header is
+  # positioned immediately before the .text portion of the file.
+  # It seems that for Android, this value is an offset from the start of the
+  # .text portion rather than a proper address, so the ELF header will be
+  # placed 0x1000 bytes before the start of the .text portion.
   set(preferred_base "0x1000" CACHE STRING "Preferred library base address")
 else ()
   set(preferred_base "0x71000000" CACHE STRING "Preferred library base address")

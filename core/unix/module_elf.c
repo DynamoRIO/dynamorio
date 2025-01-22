@@ -406,10 +406,15 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
                         LOG(GLOBAL, LOG_INTERP | LOG_VMAREAS, 2,
                             "%s " PFX ": %s dynamic info\n", __FUNCTION__, base,
                             out_data->have_dynamic_info ? "have" : "no");
-                        /* i#1860: on Android a later os_module_update_dynamic_info() will
-                         * fill in info once .dynamic is mapped in.
+                        /* i#1860: on 32-bit Android a later
+                         * os_module_update_dynamic_info() will fill in info
+                         * once .dynamic is mapped in.
+                         * i#XXX: This is not needed on newer versions of 64-bit
+                         * Android, however we are not able to test with newer
+                         * versions of 32-bit Android, so this may still be
+                         * required.
                          */
-                        IF_NOT_ANDROID(ASSERT(out_data->have_dynamic_info));
+                        IF_NOT_ANDROID32(ASSERT(out_data->have_dynamic_info));
                     }
                 });
             }
