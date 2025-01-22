@@ -489,8 +489,8 @@ privload_check_new_map_bounds(elf_loader_t *elf, byte *map_base, byte *map_end)
  * os_unmap_file.
  */
 static byte *
-remap_file_func(file_t f, size_t *size DR_PARAM_INOUT, uint64 offs, app_pc addr,
-                uint prot, map_flags_t map_flags)
+overlap_map_file_func(file_t f, size_t *size DR_PARAM_INOUT, uint64 offs, app_pc addr,
+                      uint prot, map_flags_t map_flags)
 {
     /* This works only if the user wants the new mapping only at the given addr,
      * and it is acceptable to unmap any mapping already existing there.
@@ -521,7 +521,7 @@ privload_map_and_relocate(const char *filename, size_t *size DR_PARAM_OUT,
 #ifdef LINUX
     map_fn_t map_func;
     unmap_fn_t unmap_func;
-    remap_fn_t remap_func;
+    overlap_map_fn_t overlap_map_func;
     prot_fn_t prot_func;
     app_pc base = NULL;
     elf_loader_t loader;
@@ -534,16 +534,17 @@ privload_map_and_relocate(const char *filename, size_t *size DR_PARAM_OUT,
     if (dynamo_heap_initialized && !standalone_library) {
         map_func = d_r_map_file;
         unmap_func = d_r_unmap_file;
-        /* TODO i#7192: Implement a new d_r_remap_file that performs remapping
-         * similar to remap_file_func (using just a map call with MAP_FIXED,
-         * but without any explicit unmap) but also does the required bookeeping.
+        /* TODO i#7192: Implement a new d_r_overlap_map_file that performs
+         * remapping similar to overlap_map_file_func (using just a map call with
+         * MAP_FIXED, but without any explicit unmap) but also does the required
+         * bookeeping.
          */
-        remap_func = NULL;
+        overlap_map_func = NULL;
         prot_func = set_protection;
     } else {
         map_func = os_map_file;
         unmap_func = os_unmap_file;
-        remap_func = remap_file_func;
+        overlap_map_func = overlap_map_file_func;
         prot_func = os_set_protection;
     }
 
@@ -569,7 +570,7 @@ privload_map_and_relocate(const char *filename, size_t *size DR_PARAM_OUT,
     }
     base = elf_loader_map_phdrs(&loader, false /* fixed */, map_func, unmap_func,
                                 prot_func, privload_check_new_map_bounds, memset,
-                                privload_map_flags(flags), remap_func);
+                                privload_map_flags(flags), overlap_map_func);
     if (base != NULL) {
         if (size != NULL)
             *size = loader.image_size;
@@ -2128,7 +2129,7 @@ reload_dynamorio(void **init_sp, app_pc conflict_start, app_pc conflict_end)
     dr_map =
         elf_loader_map_phdrs(&dr_ld, false /*!fixed*/, os_map_file, os_unmap_file,
                              os_set_protection, privload_check_new_map_bounds, memset,
-                             privload_map_flags(0 /*!reachable*/), NULL /*remap_func*/);
+                             privload_map_flags(0 /*!reachable*/), overlap_map_file_func);
     ASSERT(dr_map != NULL);
     ASSERT(is_elf_so_header(dr_map, 0));
 
@@ -2287,7 +2288,7 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
                                    map_exe_file_and_brk, os_unmap_file, os_set_protection,
                                    privload_check_new_map_bounds, memset,
                                    privload_map_flags(MODLOAD_IS_APP /*!reachable*/),
-                                   NULL /*remap_func*/);
+                                   NULL /*overlap_map_func*/);
     apicheck(exe_map != NULL,
              "Failed to load application.  "
              "Check path and architecture.");
@@ -2347,7 +2348,7 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
         interp_map = elf_loader_map_phdrs(
             &interp_ld, false /* fixed */, os_map_file, os_unmap_file, os_set_protection,
             privload_check_new_map_bounds, memset,
-            privload_map_flags(MODLOAD_IS_APP /*!reachable*/), NULL /*remap_func*/);
+            privload_map_flags(MODLOAD_IS_APP /*!reachable*/), overlap_map_file_func);
         apicheck(interp_map != NULL && is_elf_so_header(interp_map, 0),
                  "Failed to map ELF interpreter.");
         /* On Android, the system loader /system/bin/linker sets itself

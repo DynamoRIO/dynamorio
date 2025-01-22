@@ -380,7 +380,7 @@ app_pc
 elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
                      unmap_fn_t unmap_func, prot_fn_t prot_func,
                      check_bounds_fn_t check_bounds_func, memset_fn_t memset_func,
-                     modload_flags_t flags, remap_fn_t remap_func)
+                     modload_flags_t flags, overlap_map_fn_t overlap_map_func)
 {
     app_pc lib_base, lib_end, last_end;
     ELF_HEADER_TYPE *elf_hdr = elf->ehdr;
@@ -482,12 +482,12 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
             }
             if (seg_size > 0) { /* i#1872: handle empty segments */
                 if (do_mmap) {
-                    if (remap_func != NULL) {
+                    if (overlap_map_func != NULL) {
                         /* The relevant part of the anonymous map obtained above is
                          * expected to automatically and atomically get unmapped because
-                         * we use remap_func (which requires MAP_FILE_FIXED).
+                         * we use overlap_map_func (which requires MAP_FILE_FIXED).
                          */
-                        map = (*remap_func)(
+                        map = (*overlap_map_func)(
                             elf->fd, &seg_size, pg_offs, seg_base /* base */,
                             seg_prot | MEMPROT_WRITE /* prot */,
                             MAP_FILE_COPY_ON_WRITE /*writes should not change file*/ |
@@ -495,15 +495,21 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
                                 /* we don't need MAP_FILE_REACHABLE b/c we're fixed */
                                 MAP_FILE_FIXED);
                     } else {
-                        /* i#7192:
+                        /* TODO i#7192:
                          * This function can be called after dynamo_heap_initialized,
-                         * and we will use map_file instead of os_map_file.
-                         * However, map_file does not allow mmap with overlapped memory,
-                         * so we have to unmap the old memory first.
-                         * This might be a problem, e.g.
-                         * one thread unmaps the memory and before mapping the actual
-                         * file, another thread requests memory via mmap takes the memory
-                         * here, a racy condition.
+                         * and we will use d_r_map_file instead of os_map_file.
+                         * However, d_r_map_file performs memory bookkeeping which needs
+                         * to be first updated using an explicit d_r_unmap_file operation.
+                         *
+                         * This might be a problem, e.g. one thread unmaps the memory and
+                         * before mapping the actual file, another thread requests memory
+                         * via mmap takes the memory here, a racy condition. This can be
+                         * solved by adding a new d_r_overlap_map_file that avoids
+                         * actually unmapping the range and atomically replaces it with
+                         * the new mapping using MAP_FIXED, and additionally performs the
+                         * required bookkeeping. When available, specify
+                         * d_r_overlap_map_file as the overlap_map_func in callers of this
+                         * function that use d_r_map_file and d_r_unmap_file.
                          */
                         (*unmap_func)(seg_base, seg_size);
                         map = (*map_func)(

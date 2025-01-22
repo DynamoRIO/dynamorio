@@ -1453,6 +1453,17 @@ injectee_unmap(byte *addr, size_t size)
     return true;
 }
 
+static byte *
+injectee_overlap_map_file(file_t f, size_t *size DR_PARAM_INOUT, uint64 offs, app_pc addr,
+                          uint prot, map_flags_t map_flags)
+{
+    /* This works only if the user wants the new mapping only at the given addr,
+     * and it is acceptable to unmap any mapping already existing there.
+     */
+    ASSERT(TEST(MAP_FILE_FIXED, map_flags));
+    return injectee_map_file(f, size, offs, addr, prot, map_flags);
+}
+
 /* Do an mprotect syscall in the injectee. */
 static bool
 injectee_prot(byte *addr, size_t size, uint prot /*MEMPROT_*/)
@@ -1784,7 +1795,8 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
     injectee_dr_fd = dr_fd;
     injected_base = elf_loader_map_phdrs(
         &loader, true /*fixed*/, injectee_map_file, injectee_unmap, injectee_prot, NULL,
-        injectee_memset, MODLOAD_SEPARATE_PROCESS /*!reachable*/, NULL /*remap_func*/);
+        injectee_memset, MODLOAD_SEPARATE_PROCESS /*!reachable*/,
+        injectee_overlap_map_file);
     if (injected_base == NULL) {
         if (verbose)
             fprintf(stderr, "Unable to mmap libdynamorio.so in injectee\n");

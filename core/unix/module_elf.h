@@ -110,8 +110,18 @@ typedef struct elf_loader_t {
 typedef byte *(*map_fn_t)(file_t f, size_t *size DR_PARAM_INOUT, uint64 offs, app_pc addr,
                           uint prot /*MEMPROT_*/, map_flags_t map_flags);
 typedef bool (*unmap_fn_t)(byte *map, size_t size);
-typedef byte *(*remap_fn_t)(file_t f, size_t *size DR_PARAM_INOUT, uint64 offs,
-                            app_pc addr, uint prot /*MEMPROT_*/, map_flags_t map_flags);
+/* Similar to map_fn_t, except that it expects the requested addr range to
+ * already be reserved by an existing mapping. In addition to mapping the provided
+ * file, it also updates bookkeeping if needed for the old and new maps.
+ * On Linux, the atomic replacement of the old map with the new one may be achieved
+ * by using MAP_FIXED (which is MAP_FILE_FIXED in map_flags_t). Note that MAP_FIXED
+ * documents that the only safe way to use it is with a range that was previously
+ * reserved using another mapping, otherwise it may end up forcibly removing
+ * existing mappings.
+ */
+typedef byte *(*overlap_map_fn_t)(file_t f, size_t *size DR_PARAM_INOUT, uint64 offs,
+                                  app_pc addr, uint prot /*MEMPROT_*/,
+                                  map_flags_t map_flags);
 typedef bool (*prot_fn_t)(byte *map, size_t size, uint prot /*MEMPROT_*/);
 typedef void (*check_bounds_fn_t)(elf_loader_t *elf, byte *start, byte *end);
 typedef void *(*memset_fn_t)(void *dst, int val, size_t size);
@@ -145,14 +155,14 @@ elf_loader_map_file(elf_loader_t *elf, bool reachable);
 /* Maps in the PT_LOAD segments of an ELF file, returning the base.  Must be
  * called after reading program headers with elf_loader_read_phdrs() or the
  * elf_loader_read_headers() shortcut.  All image mappings are done via the
- * provided function pointers.  If a remap_func is specified, it is used when
- * we must unmap a certain part of a prior reserved address range and use it
- * for another mapping; unlike unmap_func followed by map_func, remap_func
+ * provided function pointers.  If an overlap_map_func is specified, it is used
+ * when we must unmap a certain part of a prior reserved address range and use it
+ * for another mapping; unlike unmap_func followed by map_func, overlap_map_func
  * is expected to do this atomically to mitigate risk of that region getting
  * mmaped by another thread between the unmap and map events (i#7192). On
  * Linux, this may be achieved if the map call uses MAP_FIXED which
  * atomically unmaps the overlapping address range. Prefer to provide the
- * remap_func implementation when possible.
+ * overlap_map_func implementation when possible.
  *
  * check_bounds_func is only called if fixed=true.
  *
@@ -163,7 +173,7 @@ app_pc
 elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
                      unmap_fn_t unmap_func, prot_fn_t prot_func,
                      check_bounds_fn_t check_bounds_func, memset_fn_t memset_func,
-                     modload_flags_t flags, remap_fn_t remap_func);
+                     modload_flags_t flags, overlap_map_fn_t overlap_map_func);
 
 /* Iterate program headers of a mapped ELF image and find the string that
  * PT_INTERP points to.  Typically this comes early in the file and is always
