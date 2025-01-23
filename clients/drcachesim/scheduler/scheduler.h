@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -1163,7 +1163,8 @@ public:
          * #SCHEDULER_USE_SINGLE_INPUT_ORDINALS, returns the input stream ordinal, except
          * for the case of a single combined-stream input with the passed-in thread id
          * set to INVALID_THREAD_ID (the serial analysis mode for analyzer tools) in
-         * which case the last trace record's tid is returned; otherwise returns the
+         * which case the last trace record's tid as an ordinal (in the order observed
+         * in the output stream) is returned; otherwise returns the
          * output stream ordinal.
          */
         int
