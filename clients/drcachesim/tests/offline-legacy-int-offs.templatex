@@ -1,4 +1,4 @@
-#if defined(X86_64)
+#if defined(X86) && defined(X64)
 Basic counts tool results:
 Total counts:
       109201 total \(fetched\) instructions
