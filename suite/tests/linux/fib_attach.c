@@ -34,12 +34,9 @@
 
 #include <stdio.h>
 
-#define ITER 10 * 1000
+#define MAX_ITER 10 * 1000
 
 #define GOAL 32 /* recursive fib of course is exponential here */
-
-/* now stay a little more realistic depths that fit in the RSB */
-#define DEPTH 12
 
 /* ignore overflow errors */
 int
@@ -50,46 +47,34 @@ fib(int n)
     return fib(n - 1) + fib(n - 2);
 }
 
-/* A no-op signal_handler to handle SIGTERM for attach memory dump test. */
 static void
 signal_handler(int sig)
 {
+    if (sig == SIGTERM) {
+        /* runall.cmake for attach test requires "done" as last line once done. */
+        print("done\n");
+    }
+    exit(1);
 }
 
 int
 main(int argc, char **argv)
 {
-    int i, t;
-
-    INIT();
-    USE_USER32();
+    int counter = 0;
 
     intercept_signal(SIGTERM, (handler_3_t)signal_handler, /*sigstack=*/false);
 
-    print("fib(%d)=%d\n", 5, fib(5));
-
-    /* Add a sleep here for attach to take place for attach memory dump test. */
-    struct timespec sleeptime;
-    sleeptime.tv_sec = 0;
-    sleeptime.tv_nsec = 500 * 1000 * 1000; /* 50ms */
-    nolibc_nanosleep(&sleeptime);
-
-    print("fib(%d)=%d\n", 15, fib(15));
-    /* deep recursion */
-    print("fib(%d)=%d\n", 25, fib(25));
-
-    /* show recursion */
-    for (i = 0; i <= GOAL; i++) {
-        t = fib(i);
-        print("fib(%d)=%d\n", i, t);
+    while (1) {
+        /* Don't spin forever to avoid hosing machines if test harness somehow
+         * fails to kill.
+         */
+        counter++;
+        if (counter > MAX_ITER) {
+            print("hit max iters\n");
+            break;
+        }
+        /* deep recursion */
+        print("fib(%d)=%d\n", GOAL, fib(GOAL));
     }
-
-    for (i = 0; i <= ITER; i++) {
-        t = fib(DEPTH);
-    }
-
-    print("fib(%d)=%d\n", DEPTH, t);
-
-    /* runall.cmake for attach test requires "done" as last line once done. */
-    print("done\n");
+    return 0;
 }

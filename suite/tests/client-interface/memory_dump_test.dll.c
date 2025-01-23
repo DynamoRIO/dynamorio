@@ -37,12 +37,11 @@
 #endif
 
 #define NUDGE_ARG_DUMP_MEMORY 1
-#define MAX_PATH_SIZE 200
 
 static bool saw_thread_init_event = false;
 static client_id_t client_id = 0;
 static thread_id_t thread_id = 0;
-static char path[MAX_PATH_SIZE];
+static char path[MAXIMUM_PATH];
 
 static void
 event_nudge(void *drcontext, uint64 arg)
@@ -54,11 +53,11 @@ event_nudge(void *drcontext, uint64 arg)
 #ifdef WINDOWS
         spec.flags = DR_MEMORY_DUMP_LDMP;
         spec.ldmp_path = (char *)&path;
-        spec.ldmp_path_size = MAX_PATH_SIZE;
+        spec.ldmp_path_size = MAXIMUM_PATH;
 #else
         spec.flags = DR_MEMORY_DUMP_ELF;
         spec.elf_path = (char *)&path;
-        spec.elf_path_size = MAX_PATH_SIZE;
+        spec.elf_path_size = MAXIMUM_PATH;
 #endif
         if (!dr_create_memory_dump(&spec)) {
             dr_fprintf(STDERR, "Error: failed to create memory dump.\n");
