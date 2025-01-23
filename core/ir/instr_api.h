@@ -2638,11 +2638,11 @@ enum {
      * looking at machine state from the kernel, such as in a signal handler.
      */
     EFLAGS_IT_SIZE = 0x06001c00,
-/**
- * The bits in the CPSR register that are RES1: they are either
- * hardwired to 1 or their value should be preserved.
- */
 #    ifdef ARM
+    /**
+     * The bits in the CPSR register that are RES1: they are either
+     * hardwired to 1 or their value should be preserved.
+     */
     EFLAGS_RES1 = 0x00000010,
 #    endif
 };
