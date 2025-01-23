@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -484,6 +484,33 @@ privload_check_new_map_bounds(elf_loader_t *elf, byte *map_base, byte *map_end)
 }
 #endif
 
+#ifdef LINUX
+/* XXX i#7192: Consider making this an os.h API, like the related os_map_file and
+ * os_unmap_file.
+ */
+static byte *
+overlap_map_file_func(file_t f, size_t *size DR_PARAM_INOUT, uint64 offs, app_pc addr,
+                      uint prot, map_flags_t map_flags)
+{
+    /* This works only if the user wants the new mapping only at the given addr,
+     * and it is acceptable to unmap any mapping already existing there.
+     */
+    ASSERT(TEST(MAP_FILE_FIXED, map_flags));
+    if (DYNAMO_OPTION(vm_reserve) && is_vmm_reserved_address(addr, *size, NULL, NULL)) {
+        /* If the initially reserved address was from our vmm range, we need to
+         * use os_unmap_file to make sure we perform our heap bookkeeping.
+         * In this case os_unmap_file does not do any munmap syscall, so there
+         * is not really any unmap-to-map race with other threads.
+         */
+        os_unmap_file(addr, *size);
+    }
+    /* MAP_FILE_FIXED (which is MAP_FIXED in the mmap syscall) will cause the
+     * overlapping region to automatically and atomically get unmapped.
+     */
+    return os_map_file(f, size, offs, addr, prot, map_flags);
+}
+#endif
+
 /* This only maps, as relocation for ELF requires processing imports first,
  * which we have to delay at init time at least.
  */
@@ -494,6 +521,7 @@ privload_map_and_relocate(const char *filename, size_t *size DR_PARAM_OUT,
 #ifdef LINUX
     map_fn_t map_func;
     unmap_fn_t unmap_func;
+    overlap_map_fn_t overlap_map_func;
     prot_fn_t prot_func;
     app_pc base = NULL;
     elf_loader_t loader;
@@ -506,10 +534,17 @@ privload_map_and_relocate(const char *filename, size_t *size DR_PARAM_OUT,
     if (dynamo_heap_initialized && !standalone_library) {
         map_func = d_r_map_file;
         unmap_func = d_r_unmap_file;
+        /* TODO i#7192: Implement a new d_r_overlap_map_file that performs
+         * remapping similar to overlap_map_file_func (using just a map call with
+         * MAP_FIXED, but without any explicit unmap) but also does the required
+         * bookeeping.
+         */
+        overlap_map_func = NULL;
         prot_func = set_protection;
     } else {
         map_func = os_map_file;
         unmap_func = os_unmap_file;
+        overlap_map_func = overlap_map_file_func;
         prot_func = os_set_protection;
     }
 
@@ -535,7 +570,7 @@ privload_map_and_relocate(const char *filename, size_t *size DR_PARAM_OUT,
     }
     base = elf_loader_map_phdrs(&loader, false /* fixed */, map_func, unmap_func,
                                 prot_func, privload_check_new_map_bounds, memset,
-                                privload_map_flags(flags));
+                                privload_map_flags(flags), overlap_map_func);
     if (base != NULL) {
         if (size != NULL)
             *size = loader.image_size;
@@ -2091,9 +2126,10 @@ reload_dynamorio(void **init_sp, app_pc conflict_start, app_pc conflict_end)
     }
 
     /* Now load the 2nd libdynamorio.so */
-    dr_map = elf_loader_map_phdrs(&dr_ld, false /*!fixed*/, os_map_file, os_unmap_file,
-                                  os_set_protection, privload_check_new_map_bounds,
-                                  memset, privload_map_flags(0 /*!reachable*/));
+    dr_map =
+        elf_loader_map_phdrs(&dr_ld, false /*!fixed*/, os_map_file, os_unmap_file,
+                             os_set_protection, privload_check_new_map_bounds, memset,
+                             privload_map_flags(0 /*!reachable*/), overlap_map_file_func);
     ASSERT(dr_map != NULL);
     ASSERT(is_elf_so_header(dr_map, 0));
 
@@ -2251,7 +2287,8 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
                                    /* ensure there's space for the brk */
                                    map_exe_file_and_brk, os_unmap_file, os_set_protection,
                                    privload_check_new_map_bounds, memset,
-                                   privload_map_flags(MODLOAD_IS_APP /*!reachable*/));
+                                   privload_map_flags(MODLOAD_IS_APP /*!reachable*/),
+                                   NULL /*overlap_map_func*/);
     apicheck(exe_map != NULL,
              "Failed to load application.  "
              "Check path and architecture.");
@@ -2311,7 +2348,7 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
         interp_map = elf_loader_map_phdrs(
             &interp_ld, false /* fixed */, os_map_file, os_unmap_file, os_set_protection,
             privload_check_new_map_bounds, memset,
-            privload_map_flags(MODLOAD_IS_APP /*!reachable*/));
+            privload_map_flags(MODLOAD_IS_APP /*!reachable*/), overlap_map_file_func);
         apicheck(interp_map != NULL && is_elf_so_header(interp_map, 0),
                  "Failed to map ELF interpreter.");
         /* On Android, the system loader /system/bin/linker sets itself
