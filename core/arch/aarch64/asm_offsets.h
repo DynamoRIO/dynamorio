@@ -30,14 +30,14 @@
  * DAMAGE.
  */
 
-#ifndef _offsets_h
-#define _offsets_h
+#ifndef _asm_offsets_h
+#define _asm_offsets_h
 
 /* The following macros are used in .asm files to refer to C structs.
- * The file offsets.cpp checks at compile time that they have the correct
- * values.
+ * The file asm_offsets.cpp checks at compile time that they have the
+ * correct values.
  */
 
 #define dcontext_t_OFFSET_dstack 0x9f8
 
-#endif /* _offsets_h */
+#endif /* _asm_offsets_h */

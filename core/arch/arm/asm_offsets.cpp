@@ -30,14 +30,11 @@
  * DAMAGE.
  */
 
-#ifndef _offsets_h
-#define _offsets_h
+#include <stddef.h>
 
-/* The following macros are used in .asm files to refer to C structs.
- * The file offsets.cpp checks at compile time that they have the correct
- * values.
- */
+#include "../globals.h"
+#include "asm_offsets.h"
 
-#define dcontext_t_OFFSET_dstack 0x170
+/* Check that macros defined in asm_offsets.h are correct. */
 
-#endif /* _offsets_h */
+static_assert(dcontext_t_OFFSET_dstack == offsetof(dcontext_t, dstack));

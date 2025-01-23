@@ -35,7 +35,7 @@
  * ARM-specific assembly and trampoline code
  */
 
-#include "offsets.h"
+#include "asm_offsets.h"
 #include "../asm_defines.asm"
 START_FILE
 #include "include/syscall.h"

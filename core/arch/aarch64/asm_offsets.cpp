@@ -33,8 +33,8 @@
 #include <stddef.h>
 
 #include "../globals.h"
-#include "offsets.h"
+#include "asm_offsets.h"
 
-/* Check that macros defined in offsets.h are correct. */
+/* Check that macros defined in asm_offsets.h are correct. */
 
 static_assert(dcontext_t_OFFSET_dstack == offsetof(dcontext_t, dstack));
