@@ -436,7 +436,7 @@ public:
      * If the provided \p module_file_path is empty, the cache object uses
      * the encodings embedded in the trace records.
      */
-    std::string
+    virtual std::string
     init(offline_file_type_t filetype, const std::string &module_file_path = "",
          const std::string &alt_module_dir = "")
     {
