@@ -35,6 +35,10 @@
 #include "../globals.h"
 #include "asm_offsets.h"
 
+namespace dynamorio {
+
 /* Check that macros defined in asm_offsets.h are correct. */
 
 static_assert(dcontext_t_OFFSET_dstack == offsetof(dcontext_t, dstack));
+
+} // namespace dynamorio
