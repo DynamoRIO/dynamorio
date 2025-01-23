@@ -1419,8 +1419,13 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
     # To run the test we use a series of commands in runall.cmake.
     file(READ "${testpath}/${srcbase}.runall" runall)
     if (UNIX)
-      # We always run infloop.
-      get_target_path_for_execution(app_path linux.infloop "${location_suffix}")
+      # Execute an app specified by the user. If no specific app is provided, execute
+      # the default 'linux.infloop' app.
+      if (DEFINED ${key}_realtest)
+        get_target_path_for_execution(app_path "${exe}" "${location_suffix}")
+      else ()
+        get_target_path_for_execution(app_path linux.infloop "${location_suffix}")
+      endif ()
       if ("${runall}" MATCHES "<attach>")
         # Add a starting message with -v, and avoid mprotect for now (i#38: mprotect
         # is failing).
@@ -2665,6 +2670,11 @@ if (NOT ANDROID) # TODO i#38: Port test to Android.
       set(client.memory_dump_test_expectbase "memory_dump_test")
     endif ()
     tobuild_ci(client.memory_dump_test client-interface/memory_dump_test.c "" "" "")
+    if (LINUX)
+      add_exe(linux.fib_attach linux/fib_attach.c)
+      torunonly_ci(client.attach_memory_dump_test linux.fib_attach client.memory_dump_test.dll
+        client-interface/attach_memory_dump_test.runall "" "" "")
+    endif ()
   endif ()
 endif ()
 
@@ -5690,10 +5700,10 @@ if (UNIX)
   # XXX: should all these infloop tests be made cross-platform?
   # or rely on runall tests that run calc covering this on Windows?
   add_exe(linux.infloop linux/infloop.c)
-  torunonly(linux.reset linux/infloop linux/reset.runall "-enable_reset" "-v")
+  torunonly(linux.reset linux.infloop linux/reset.runall "-enable_reset" "-v")
   if (NOT X64 AND NOT ARM) # FIXME i#1551: add coarse-grain ARM support
     # XXX: 64-bit support not quite there yet
-    torunonly(linux.freeze_FLAKY linux/infloop linux/freeze.runall
+    torunonly(linux.freeze_FLAKY linux.infloop linux/freeze.runall
       "-coarse_units -coarse_enable_freeze" "-v")
   endif (NOT X64 AND NOT ARM)
 
@@ -5702,9 +5712,9 @@ if (UNIX)
   file(MAKE_DIRECTORY "${PCACHE_SHARED_DIR}")
   if (NOT X64 AND NOT ARM) # FIXME i#1551: add coarse-grain ARM support
     # XXX: 64-bit support not quite there yet
-    torunonly(linux.persist_FLAKY linux/infloop linux/persist.runall
+    torunonly(linux.persist_FLAKY linux.infloop linux/persist.runall
       "-coarse_units -coarse_split_calls -coarse_enable_freeze -coarse_freeze_min_size 0 -no_persist_per_user -no_validate_owner_dir" "-v")
-    torunonly(linux.persist-use_FLAKY linux/infloop linux/persist-use.runall
+    torunonly(linux.persist-use_FLAKY linux.infloop linux/persist-use.runall
       "-use_persisted -coarse_units -coarse_split_calls -no_persist_per_user -no_validate_owner_dir" "-v")
   endif (NOT X64 AND NOT ARM)
   # when running tests in parallel: have to generate pcaches first
