@@ -1,5 +1,6 @@
 /* **********************************************************
- * Copyright (c) 2025 ARM Limited. All rights reserved.
+ * Copyright (c) 2014-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2024 ARM Limited. All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,35 +31,35 @@
  * DAMAGE.
  */
 
-#ifndef _asm_offsets_h
-#define _asm_offsets_h
+#ifndef _mangle_h
+#define _mangle_h
 
-/* The following macros are used in .asm files to refer to C structs.
- * The file asm_offsets.cpp checks at compile time that they have the
- * correct values.
- */
+/* Defined in aarch64.asm. */
+void
+icache_op_ic_ivau_asm(void);
+void
+icache_op_isb_asm(void);
 
-#define dcontext_t_OFFSET_dstack 0x9f8
-#define dcontext_t_OFFSET_is_exiting 0xa00
+typedef struct ALIGN_VAR(16) _icache_op_struct_t {
+    /* This flag is set if any icache lines have been invalidated. */
+    unsigned int flag;
+    /* The lower half of the address of "lock" must be non-zero as we want to
+     * acquire the lock using only two free registers and STXR Ws, Wt, [Xn]
+     * requires s != t and s != n, so we use t == n. With this ordering of the
+     * members alignment guarantees that bit 2 of the address of "lock" is set.
+     */
+    unsigned int lock;
+    /* The icache line size. This is discovered using the system register
+     * ctr_el0 and will be (1 << (2 + n)) with 0 <= n < 16.
+     */
+    size_t linesize;
+    /* If these are equal then no icache lines have been invalidated. Otherwise
+     * they are both aligned to the icache line size and describe a set of
+     * consecutive icache lines (which could wrap around the top of memory).
+     */
+    void *begin, *end;
+    /* Some space to spill registers. */
+    ptr_uint_t spill[2];
+} icache_op_struct_t;
 
-#define icache_op_struct_t_OFFSET_flag 0
-#define icache_op_struct_t_OFFSET_lock 4
-#define icache_op_struct_t_OFFSET_linesize 8
-#define icache_op_struct_t_OFFSET_begin 16
-#define icache_op_struct_t_OFFSET_end 24
-#define icache_op_struct_t_OFFSET_spill 32
-
-#define priv_mcontext_t_SIZE 2480
-#define priv_mcontext_t_OFFSET_simd 288
-
-#define spill_state_t_OFFSET_r0 0
-#define spill_state_t_OFFSET_r1 8
-#define spill_state_t_OFFSET_r2 16
-#define spill_state_t_OFFSET_r3 24
-#define spill_state_t_OFFSET_r4 32
-#define spill_state_t_OFFSET_r5 40
-#define spill_state_t_OFFSET_fcache_return 64
-
-#define struct_tlsdesc_t_OFFSET_arg 8
-
-#endif /* _asm_offsets_h */
+#endif /*  _mangle_h */

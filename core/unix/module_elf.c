@@ -41,13 +41,6 @@
 #include <stddef.h> /* offsetof */
 #include <link.h>   /* Elf_Symndx */
 
-#ifndef ANDROID
-struct tlsdesc_t {
-    ptr_int_t (*entry)(struct tlsdesc_t *);
-    void *arg;
-};
-#endif
-
 #ifdef ANDROID
 /* The entries in the .hash table always have a size of 32 bits.  */
 typedef uint32_t Elf_Symndx;
