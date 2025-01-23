@@ -34,7 +34,7 @@
 #define _offsets_h
 
 /* The following macros are used in .asm files to refer to C structs.
- * The file offsets.c checks at compile time that they have the correct
+ * The file offsets.cpp checks at compile time that they have the correct
  * values.
  */
 

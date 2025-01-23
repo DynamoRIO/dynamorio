@@ -337,7 +337,7 @@ if (X86 AND X64)
 endif (X86 AND X64)
 
 if (AARCHXX)
-  set(ARCH_SRCS ${ARCH_SRCS} arch/${ARCH_NAME}/offsets.c)
+  set(ARCH_SRCS ${ARCH_SRCS} arch/${ARCH_NAME}/offsets.cpp)
 endif (AARCHXX)
 
 if (WIN32)
