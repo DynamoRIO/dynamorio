@@ -39,6 +39,8 @@ namespace dynamorio {
 
 /* Check that macros defined in asm_offsets.h are correct. */
 
-static_assert(dcontext_t_OFFSET_dstack == offsetof(dcontext_t, dstack));
+#define CHECK(x) static_assert(x, "macro in asm_offsets.h defined incorrectly")
+
+CHECK(dcontext_t_OFFSET_dstack == offsetof(dcontext_t, dstack));
 
 } // namespace dynamorio
