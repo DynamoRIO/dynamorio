@@ -1,0 +1,6 @@
+#!/usr/bin/sh
+
+# Used to run a command on an Android device when building for Android
+# while preserving the argument quoting used on the host.
+
+@ADB@ shell $(printf "'%s' "  "$@")
