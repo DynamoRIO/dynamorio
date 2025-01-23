@@ -297,7 +297,7 @@ print(const char *fmt, ...)
 #    ifdef UNIX
 
 /***************************************************************************/
-/* a hopefully portable /proc/@self/maps reader */
+/* A hopefully portable /proc/@self/maps reader. */
 
 /* these are defined in /usr/src/linux/fs/proc/array.c */
 #        define MAPS_LINE_LENGTH 4096
