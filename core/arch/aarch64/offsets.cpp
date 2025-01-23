@@ -35,10 +35,6 @@
 #include "../globals.h"
 #include "offsets.h"
 
-/* This is an alternative to using static_assert that will work with
- * any C compiler. If a macro is incorrectly defined there will be a
- * compile-time error that clearly shows which macro is wrong.
- */
-struct _unused {
-    int x1[dcontext_t_OFFSET_dstack == offsetof(dcontext_t, dstack) ? 1 : -1];
-};
+/* Check that macros defined in offsets.h are correct. */
+
+static_assert(dcontext_t_OFFSET_dstack == offsetof(dcontext_t, dstack));
