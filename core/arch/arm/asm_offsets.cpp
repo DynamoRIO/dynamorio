@@ -41,5 +41,14 @@ namespace dynamorio {
 #define CHECK(x) static_assert(x, "macro in asm_offsets.h defined incorrectly")
 
 CHECK(dcontext_t_OFFSET_dstack == offsetof(dcontext_t, dstack));
+CHECK(dcontext_t_OFFSET_is_exiting == offsetof(dcontext_t, is_exiting));
+
+CHECK(priv_mcontext_t_OFFSET_r0 == offsetof(priv_mcontext_t, r0));
+CHECK(priv_mcontext_t_OFFSET_sp == offsetof(priv_mcontext_t, sp));
+CHECK(priv_mcontext_t_OFFSET_lr == offsetof(priv_mcontext_t, lr));
+CHECK(priv_mcontext_t_OFFSET_pc == offsetof(priv_mcontext_t, pc));
+CHECK(priv_mcontext_t_OFFSET_cpsr == offsetof(priv_mcontext_t, cpsr));
+CHECK(priv_mcontext_t_OFFSET_simd == offsetof(priv_mcontext_t, simd));
+CHECK(priv_mcontext_t_SIZE == sizeof(priv_mcontext_t));
 
 } // namespace dynamorio
