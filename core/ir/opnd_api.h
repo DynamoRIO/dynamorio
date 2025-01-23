@@ -42,11 +42,6 @@
  * @brief Functions and defines to create and manipulate instruction operands.
  */
 
-/* Catch conflicts if ucontext.h is included before us */
-#if defined(DR_REG_ENUM_COMPATIBILITY) && (defined(REG_EAX) || defined(REG_RAX))
-#    error REG_ enum conflict between DR and ucontext.h!  Use DR_REG_ constants instead.
-#endif
-
 #ifndef INSTR_INLINE
 #    ifdef DR_FAST_IR
 #        define INSTR_INLINE inline
