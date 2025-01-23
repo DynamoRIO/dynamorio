@@ -41,12 +41,12 @@
 #define dcontext_t_OFFSET_dstack 0x170
 #define dcontext_t_OFFSET_is_exiting 0x174
 
-#define priv_mcontext_t_OFFSET_r0   0x0
-#define priv_mcontext_t_OFFSET_sp   0x34
-#define priv_mcontext_t_OFFSET_lr   0x38
-#define priv_mcontext_t_OFFSET_pc   0x3c
+#define priv_mcontext_t_OFFSET_r0 0x0
+#define priv_mcontext_t_OFFSET_sp 0x34
+#define priv_mcontext_t_OFFSET_lr 0x38
+#define priv_mcontext_t_OFFSET_pc 0x3c
 #define priv_mcontext_t_OFFSET_cpsr 0x40
 #define priv_mcontext_t_OFFSET_simd 0x48
-#define priv_mcontext_t_SIZE        0x148
+#define priv_mcontext_t_SIZE 0x148
 
 #endif /* _asm_offsets_h */
