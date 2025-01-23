@@ -57,6 +57,11 @@ instr_decode_info_t::~instr_decode_info_t()
     }
 }
 
+decode_cache_base_t::decode_cache_base_t(unsigned int verbosity)
+    : verbosity_(verbosity)
+{
+}
+
 decode_cache_base_t::~decode_cache_base_t()
 {
     std::lock_guard<std::mutex> guard(module_mapper_mutex_);
@@ -114,9 +119,8 @@ decode_cache_base_t::make_module_mapper(const std::string &module_file_path,
         return "Failed to read module file: " + err;
     }
     dr_close_file(modfile);
-    module_mapper_ =
-        module_mapper_t::create(modfile_bytes_, nullptr, nullptr, nullptr, nullptr,
-                                /*verbose=*/0, alt_module_dir);
+    module_mapper_ = module_mapper_t::create(modfile_bytes_, nullptr, nullptr, nullptr,
+                                             nullptr, verbosity_, alt_module_dir);
     return "";
 }
 

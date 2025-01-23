@@ -160,7 +160,7 @@ protected:
      * #decode_cache_base_t cannot be instantiated directly but only via
      * a derived class.
      */
-    decode_cache_base_t() = default;
+    decode_cache_base_t(unsigned int verbosity);
     virtual ~decode_cache_base_t();
 
     static std::mutex module_mapper_mutex_;
@@ -186,6 +186,10 @@ protected:
      * be able to see encodings for JIT code.
      */
     bool use_module_mapper_ = false;
+    /**
+     * Verbosity level for logs.
+     */
+    unsigned int verbosity_ = 0;
 
     /**
      * Initializes the module_mapper_ object using make_module_mapper() and performs
@@ -268,8 +272,10 @@ template <class DecodeInfo> class decode_cache_t : public decode_cache_base_t {
                   "DecodeInfo not derived from decode_info_base_t");
 
 public:
-    decode_cache_t(void *dcontext, bool include_decoded_instr, bool persist_decoded_instr)
-        : dcontext_(dcontext)
+    decode_cache_t(void *dcontext, bool include_decoded_instr, bool persist_decoded_instr,
+                   unsigned int verbosity = 0)
+        : decode_cache_base_t(verbosity)
+        , dcontext_(dcontext)
         , include_decoded_instr_(include_decoded_instr)
         , persist_decoded_instr_(persist_decoded_instr)
     {

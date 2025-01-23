@@ -84,10 +84,11 @@ opcode_mix_t::opcode_mix_t(const std::string &module_file_path, unsigned int ver
 void
 opcode_mix_t::make_decode_cache(shard_data_t *shard, void *dcontext)
 {
-    shard->decode_cache = std::unique_ptr<decode_cache_t<opcode_data_t>>(
-        new decode_cache_t<opcode_data_t>(dcontext,
-                                          /*include_decoded_instr=*/true,
-                                          /*persist_decoded_instrs=*/false));
+    shard->decode_cache =
+        std::unique_ptr<decode_cache_t<opcode_data_t>>(new decode_cache_t<opcode_data_t>(
+            dcontext,
+            /*include_decoded_instr=*/true,
+            /*persist_decoded_instrs=*/false, knob_verbose_));
 }
 
 std::string
