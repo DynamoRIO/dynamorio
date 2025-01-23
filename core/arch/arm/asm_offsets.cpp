@@ -30,9 +30,8 @@
  * DAMAGE.
  */
 
-#include <stddef.h>
-
 #include "../globals.h"
+#include <stddef.h> /* for offsetof */
 #include "asm_offsets.h"
 
 namespace dynamorio {
