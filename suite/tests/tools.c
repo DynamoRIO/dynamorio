@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -74,7 +74,7 @@ get_windows_version(void)
     res = RtlGetVersion(&version);
     assert(NT_SUCCESS(res));
     if (version.dwPlatformId == VER_PLATFORM_WIN32_NT) {
-        /* WinNT or descendents */
+        /* WinNT or descendants */
         if (version.dwMajorVersion == 10 && version.dwMinorVersion == 0) {
             if (GetProcAddress((HMODULE)ntdll_handle, "NtAllocateVirtualMemoryEx") !=
                 NULL)
@@ -297,7 +297,7 @@ print(const char *fmt, ...)
 #    ifdef UNIX
 
 /***************************************************************************/
-/* a hopefuly portable /proc/@self/maps reader */
+/* A hopefully portable /proc/@self/maps reader. */
 
 /* these are defined in /usr/src/linux/fs/proc/array.c */
 #        define MAPS_LINE_LENGTH 4096
