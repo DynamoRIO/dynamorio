@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -1162,9 +1162,10 @@ public:
          * For #SCHEDULER_USE_INPUT_ORDINALS or
          * #SCHEDULER_USE_SINGLE_INPUT_ORDINALS, returns the input stream ordinal, except
          * for the case of a single combined-stream input with the passed-in thread id
-         * set to INVALID_THREAD_ID (the serial analysis mode for analyzer tools) in
-         * which case the last trace record's tid is returned; otherwise returns the
-         * output stream ordinal.
+         * set to INVALID_THREAD_ID (the online analysis mode for analyzer tools where the
+         * inputs for multiple threads are all combined in one process-wide pipe) in which
+         * case the last trace record's tid as an ordinal (in the order observed in the
+         * output stream) is returned; otherwise returns the output stream ordinal.
          */
         int
         get_shard_index() const override;
