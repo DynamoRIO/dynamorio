@@ -409,7 +409,7 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
                         /* i#1860: on 32-bit Android a later
                          * os_module_update_dynamic_info() will fill in info
                          * once .dynamic is mapped in.
-                         * i#XXX: This is not needed on newer versions of 64-bit
+                         * i#7215: This is not needed on newer versions of 64-bit
                          * Android, however we are not able to test with newer
                          * versions of 32-bit Android, so this may still be
                          * required.
