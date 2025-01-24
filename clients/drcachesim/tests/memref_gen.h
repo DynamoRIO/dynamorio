@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021-2024 Google, LLC  All rights reserved.
+ * Copyright (c) 2021-2025 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -188,7 +188,7 @@ gen_exit(memref_tid_t tid)
 std::vector<memref_t>
 add_encodings_to_memrefs(instrlist_t *ilist,
                          std::vector<memref_with_IR_t> &memref_instr_vec,
-                         addr_t base_addr)
+                         addr_t base_addr, bool set_only_instr_addr = false)
 {
     static const int MAX_DECODE_SIZE = 2048;
     byte decode_buf[MAX_DECODE_SIZE];
@@ -207,8 +207,10 @@ add_encodings_to_memrefs(instrlist_t *ilist,
             const int instr_size = instr_length(GLOBAL_DCONTEXT, pair.instr);
             pair.memref.instr.addr = offset + base_addr;
             pair.memref.instr.size = instr_size;
-            memcpy(pair.memref.instr.encoding, &decode_buf[offset], instr_size);
-            pair.memref.instr.encoding_is_new = true;
+            if (!set_only_instr_addr) {
+                memcpy(pair.memref.instr.encoding, &decode_buf[offset], instr_size);
+                pair.memref.instr.encoding_is_new = true;
+            }
         } else if (pair.memref.marker.type == TRACE_TYPE_MARKER &&
                    pair.instr != nullptr) {
             pair.memref.marker.marker_value = instr_get_offset(pair.instr) + base_addr;
