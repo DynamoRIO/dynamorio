@@ -140,7 +140,8 @@ decode_cache_base_t::find_mapped_trace_address(app_pc trace_pc, app_pc &decode_p
         last_mapped_module_start_ = nullptr;
         last_mapped_module_size_ = 0;
         last_trace_module_start_ = nullptr;
-        return "Failed to find mapped address for " + to_hex_string(trace_pc) + ": " +
+        return "Failed to find mapped address for " +
+            to_hex_string(reinterpret_cast<uint64_t>(trace_pc)) + ": " +
             module_mapper_->get_last_error();
     }
     last_trace_module_start_ = trace_pc - (decode_pc - last_mapped_module_start_);
