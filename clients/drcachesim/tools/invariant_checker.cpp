@@ -777,13 +777,17 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 return false;
             }
             per_shard_t::decoding_info_t *decode_info;
-            shard->error_ =
+            std::string err =
                 shard->decode_cache_->add_decode_info(memref.instr, decode_info);
-            if (shard->error_ != "") {
+            if (!err.empty() && decode_info == nullptr) {
+                shard->error_ = err;
                 return false;
             }
-            // The decode_info here will never be nullptr since we return
-            // early if the prior add_decode_info returned an error.
+            // There may have been an error in decoding, in which case decode_info will
+            // be the default-constructed object (with decode_info->is_valid() == false).
+            // Regardless, we use the returned object, as the defaults allow simplifying
+            // some logic later.
+            // XXX: Perhaps we should record an invariant error if the decoding failed.
             cur_instr_info.decoding = *decode_info;
 #ifdef X86
             if (cur_instr_info.decoding.opcode_ == OP_sti)
