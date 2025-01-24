@@ -133,6 +133,11 @@ changes:
 Further non-compatibility-affecting changes include:
  - Added support for reading a single drmemtrace trace file from stdin
    via "-infile -".
+ - Added the #dynamorio::drmemtrace::decode_cache_t library to make it easier and more
+   efficient for drmemtrace analysis tools to obtain decoded information about
+   instructions in the trace. This works for traces that have embedded instruction
+   encodings in them, and also for legacy traces without embedded encodings where the
+   encodings are obtained from the application binaries instead.
 
 **************************************************
 <hr>
@@ -149,11 +154,6 @@ Further non-compatibility-affecting changes include:
  - Allow v2p.textproto file in a trace directory. This file is present in public traces.
  - Allow v2p.textproto file to have one missing virtual_address field, which indicates
    virtual_address == 0x0. Necessary in case a trace accesses virtual address 0x0.
- - Added the #dynamorio::drmemtrace::decode_cache_t library to make it easier and more
-   efficient for drmemtrace analysis tools to obtain decoded information about
-   instructions in the trace. This works for traces that have embedded instruction
-   encodings in them, and also for legacy traces without embedded encodings where the
-   encodings are obtained from the application binaries instead.
 
 **************************************************
 <hr>

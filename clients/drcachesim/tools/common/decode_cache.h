@@ -131,7 +131,7 @@ private:
  */
 class instr_decode_info_t : public decode_info_base_t {
 public:
-    virtual ~instr_decode_info_t();
+    virtual ~instr_decode_info_t() override;
     instr_t *
     get_decoded_instr();
 
@@ -178,9 +178,9 @@ protected:
      *
      * Note that we store our instr encoding lookup strategy as a non-static
      * data member, unlike module_mapper_t which is static and shared between
-     * all decode_cache_t instances (even of different template types).
-     * Some analysis tools may deliberately want to look at instr encodings
-     * from the module mappings, but that strategy does not provide JIT
+     * all #dynamorio::drmemtrace::decode_cache_t instances (even of different
+     * template types). Some analysis tools may deliberately want to look at instr
+     * encodings from the module mappings, but that strategy does not provide JIT
      * encodings which are present only as embedded-encodings in the trace.
      * In such a case, other concurrently running analysis tools should still
      * be able to see encodings for JIT code.
@@ -216,8 +216,9 @@ private:
      * module_mapper_mutex_ will be acquired before calling.
      *
      * Non-static to allow test sub-classes to override. This is guaranteed to
-     * be invoked only when the count of existing decode_cache_t instances that
-     * are initialized with a non-empty module_file_path is zero.
+     * be invoked only when the count of existing
+     * #dynamorio::drmemtrace::decode_cache_t instances that are initialized with
+     * a non-empty module_file_path is zero.
      *
      * Returns the empty string on success, or an error message.
      */
@@ -282,7 +283,7 @@ public:
         // Cannot persist the decoded instr if it is not requested.
         assert(!persist_decoded_instr_ || include_decoded_instr_);
     };
-    virtual ~decode_cache_t()
+    virtual ~decode_cache_t() override
     {
     }
 
