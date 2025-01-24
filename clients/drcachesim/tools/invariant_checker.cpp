@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -1685,7 +1685,7 @@ invariant_checker_t::check_regdeps_invariants(per_shard_t *shard, const memref_t
             break;
         // This case also covers TRACE_MARKER_TYPE_FUNC_RETADDR,
         // TRACE_MARKER_TYPE_FUNC_RETVAL, and TRACE_MARKER_TYPE_FUNC_ARG, since these
-        // markers are always preceed by TRACE_MARKER_TYPE_FUNC_ID.
+        // markers are always preceded by TRACE_MARKER_TYPE_FUNC_ID.
         case TRACE_MARKER_TYPE_FUNC_ID: {
             // In OFFLINE_FILE_TYPE_ARCH_REGDEPS traces the only TRACE_MARKER_TYPE_FUNC_
             // markers allowed are those related to SYS_futex. We can only check that
