@@ -592,7 +592,7 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     }
 
     // XXX: We could potentially use decode_cache_t here (i#7113) and avoid the
-    // repeated caching logic.
+    // duplicated caching logic.
     app_pc decode_pc;
     const app_pc orig_pc = (app_pc)memref.instr.addr;
     if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, filetype_)) {

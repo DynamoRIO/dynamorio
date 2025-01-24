@@ -34,7 +34,7 @@
  * decode_cache.h: Library that supports operations related to decoding trace
  * instructions that are common to various trace analysis tools, including:
  * - providing the address where the instr encodings are present, which can
- *   either be from the instr #memref_t for traces with embedded encodings, or
+ *   either be from the instr memref_t for traces with embedded encodings, or
  *   from the mapped app binaries otherwise;
  * - decoding the instr raw bytes to create the #instr_t;
  * - caching of data derived from the decoded #instr_t, and updating the cache
@@ -446,8 +446,8 @@ public:
      * \p module_file_path also if they deliberately need to use the module mapper
      * instead of the embedded encodings. Each instance of
      * #dynamorio::drmemtrace::decode_cache_t must be initialized with either an
-     * empty \p module_file_path or the same one as all other instances (even the
-     * ones in other analysis tools).
+     * empty \p module_file_path, or the same one as other instances that also
+     * specified a non-empty path (even the ones in other analysis tools).
      *
      * If the provided \p module_file_path is empty, the cache object uses
      * the encodings embedded in the trace records.

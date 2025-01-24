@@ -102,7 +102,7 @@ opcode_mix_t::init_decode_cache(shard_data_t *shard, void *dcontext,
     } else {
         shard->error = shard->decode_cache->init(filetype);
     }
-    return err.empty().
+    return shard->error.empty();
 }
 
 std::string
