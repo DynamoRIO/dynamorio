@@ -384,7 +384,7 @@ public:
         } else {
             // Legacy trace support where we need the binaries.
             std::string err = find_mapped_trace_address(trace_pc, decode_pc);
-            if (err != "")
+            if (!err.empty())
                 return err;
         }
 
@@ -472,7 +472,7 @@ public:
             return "";
         }
         std::string err = init_module_mapper(module_file_path, alt_module_dir);
-        if (err != "") {
+        if (!err.empty()) {
             return err;
         }
         init_done_ = true;

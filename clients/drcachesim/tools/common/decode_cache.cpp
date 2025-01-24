@@ -30,7 +30,16 @@
  * DAMAGE.
  */
 
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <mutex>
+
 #include "decode_cache.h"
+#include "dr_defines.h"
+#include "memref.h"
+#include "raw2trace_shared.h"
+#include "utils.h"
 
 namespace dynamorio {
 namespace drmemtrace {
