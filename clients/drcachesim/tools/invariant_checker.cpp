@@ -1721,7 +1721,7 @@ invariant_checker_t::init_decode_cache(per_shard_t *shard, void *dcontext)
 {
     make_decode_cache(shard, dcontext);
     shard->error_ = shard->decode_cache_->init(shard->file_type_);
-    return shard->error_ == "";
+    return shard->error_.empty();
 }
 
 } // namespace drmemtrace

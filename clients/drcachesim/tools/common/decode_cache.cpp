@@ -108,11 +108,11 @@ decode_cache_base_t::init_module_mapper(const std::string &module_file_path,
     std::string err = make_module_mapper(module_file_path, alt_module_dir);
     if (!err.empty())
         return "Failed to make module mapper: " + err;
+    module_file_path_used_for_init_ = module_file_path;
     module_mapper_->get_loaded_modules();
     err = module_mapper_->get_last_error();
     if (!err.empty())
         return "Failed to load binaries: " + err;
-    module_file_path_used_for_init_ = module_file_path;
     return "";
 }
 

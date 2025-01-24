@@ -591,11 +591,8 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         return true;
     }
 
-    // XXX: We could potentially use instr_decode_cache_t here (i#7113) and avoid the
-    // repeated instr decoding logic. However, we want to preserve the legacy view
-    // tool output format which uses disassemble_to_buffer, and disassemble_to_buffer
-    // does the decoding on its own internally, while adding a bunch of non-trival
-    // stuff to the output string.
+    // XXX: We could potentially use decode_cache_t here (i#7113) and avoid the
+    // repeated caching logic.
     app_pc decode_pc;
     const app_pc orig_pc = (app_pc)memref.instr.addr;
     if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, filetype_)) {

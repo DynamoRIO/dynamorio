@@ -31,8 +31,14 @@
  */
 
 /**
- * decode_cache.h: Library that supports caching of instruction decode
- * information.
+ * decode_cache.h: Library that supports operations related to decoding trace
+ * instructions that are common to various trace analysis tools, including:
+ * - providing the address where the instr encodings are present, which can
+ *   either be from the instr #memref_t for traces with embedded encodings, or
+ *   from the mapped app binaries otherwise;
+ * - decoding the instr raw bytes to create the #instr_t;
+ * - caching of data derived from the decoded #instr_t, and updating the cache
+ *   appropriately based on the encoding_is_new field for embedded encodings.
  */
 
 #ifndef _DECODE_CACHE_H_
@@ -203,7 +209,7 @@ protected:
 
     /**
      * Returns in the \p decode_pc reference parameter the address where the encoding
-     * for the instruction at trace_pc can be found.
+     * for the instruction at \p trace_pc can be found.
      *
      * Returns the empty string on success, or an error message.
      */
@@ -215,7 +221,7 @@ private:
      * Creates a module_mapper_t. This does not need to worry about races as the
      * module_mapper_mutex_ will be acquired before calling.
      *
-     * Non-static to allow test sub-classes to override. This is guaranteed to
+     * Non-static to allow sub-classes to override. This is guaranteed to
      * be invoked only when the count of existing
      * #dynamorio::drmemtrace::decode_cache_t instances that are initialized with
      * a non-empty module_file_path is zero.
@@ -250,7 +256,9 @@ private:
  * implements the set_decode_info_derived() function that derives the required decode
  * info from an #instr_t object and raw encoding bytes when invoked by
  * #dynamorio::drmemtrace::decode_cache_t. This class handles the heavy lifting of
- * actually producing the decoded #instr_t and managing the DecodeInfo cache (which
+ * determining the address where the instruction raw bytes can be found (which can be
+ * inside the instr #memref_t, or in the mapped application binaries for legacy traces),
+ * actually producing the decoded #instr_t, and managing the DecodeInfo cache (which
  * includes invalidating stale DecodeInfo based on the encoding_is_new field in
  * traces with embedded encodings).
  *
@@ -258,7 +266,7 @@ private:
  * false if the user wants to perform decoding themselves. In this case, the #instr_t
  * provided to set_decode_info_derived() will be nullptr, and the
  * #dynamorio::drmemtrace::decode_cache_t object merely acts as a cache and provider of
- * the raw bytes.
+ * the instruction raw bytes.
  *
  * The decoded #instr_t may be made to persist beyond the set_decode_info() calls by
  * constructing the #dynamorio::drmemtrace::decode_cache_t object with
@@ -298,7 +306,8 @@ public:
      *
      * When analyzing #memref_t from a trace, it may be better to just use
      * add_decode_info() instead (as it also returns the added DecodeInfo) if
-     * it's possible that the instr at \p pc may have changed (e.g., JIT code).
+     * it's possible that the instr at \p pc may have changed (e.g., JIT code)
+     * in which case the cache will need to be updated.
      */
     DecodeInfo *
     get_decode_info(app_pc pc)
@@ -321,13 +330,12 @@ public:
      * returns is_valid() == false will be added to the cache.
      *
      * Returns a pointer to whatever DecodeInfo is present in the cache in the
-     * \p cached_decode_info reference pointer parameter (guaranteed to be valid
-     * if the prior add_decode_info() for that \p pc returned no error), or a
-     * nullptr if none is cached. This helps avoid a repeated lookup in a
-     * subsequent get_decode_info() call.
+     * \p cached_decode_info reference pointer parameter, or a nullptr if none
+     * is cached. This helps avoid a repeated lookup in a subsequent
+     * get_decode_info() call.
      *
      * Returns the error string, or an empty string if there was no error. A
-     * valid DecodeInfo is guaranteed to be added to the cache if there was no
+     * valid DecodeInfo is guaranteed to be in the cache if there was no
      * error.
      */
     std::string
@@ -363,6 +371,10 @@ public:
             // attempting decoding again is not useful because the encoding
             // hasn't changed.
             cached_decode_info = &info->second;
+            if (!cached_decode_info->is_valid()) {
+                return "Prior add_decode_info for the given pc failed to decode the "
+                       "instruction";
+            }
             return "";
         } else if (already_exists) {
             // We may end up here if we're using the embedded encodings from
@@ -432,7 +444,10 @@ public:
      * in it, as indicated by absence of the #OFFLINE_FILE_TYPE_ENCODINGS bit in the
      * #TRACE_MARKER_TYPE_FILETYPE marker. The user may provide a
      * \p module_file_path also if they deliberately need to use the module mapper
-     * instead of the embedded encodings.
+     * instead of the embedded encodings. Each instance of
+     * #dynamorio::drmemtrace::decode_cache_t must be initialized with either an
+     * empty \p module_file_path or the same one as all other instances (even the
+     * ones in other analysis tools).
      *
      * If the provided \p module_file_path is empty, the cache object uses
      * the encodings embedded in the trace records.
@@ -478,7 +493,7 @@ public:
      *
      * Typically analysis tools like to keep their per-shard data around till all shards
      * are done processing (so they can combine the shards and use the results), but
-     * this API optionally allows tools to keep memory consumption in check by clearing
+     * this API optionally allows tools to keep memory consumption in check by discarding
      * the decode cache entries in parallel_shard_exit(), since it's very likely that the
      * decode cache is not needed for result computation.
      *

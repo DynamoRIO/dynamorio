@@ -91,21 +91,18 @@ opcode_mix_t::make_decode_cache(shard_data_t *shard, void *dcontext)
             /*persist_decoded_instrs=*/false, knob_verbose_));
 }
 
-std::string
+bool
 opcode_mix_t::init_decode_cache(shard_data_t *shard, void *dcontext,
                                 offline_file_type_t filetype)
 {
     make_decode_cache(shard, dcontext);
-    std::string err;
     if (!TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, filetype)) {
-        err =
+        shard->error =
             shard->decode_cache->init(filetype, module_file_path_, knob_alt_module_dir_);
     } else {
-        err = shard->decode_cache->init(filetype);
+        shard->error = shard->decode_cache->init(filetype);
     }
-    if (err != "")
-        return err;
-    return "";
+    return err.empty().
 }
 
 std::string
@@ -202,18 +199,15 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     if (shard->filetype == OFFLINE_FILE_TYPE_DEFAULT) {
         shard->error = "No file type found in this shard";
         return false;
-    } else if (shard->decode_cache == nullptr) {
-        std::string err = init_decode_cache(shard, dcontext_.dcontext, shard->filetype);
-        if (err != "") {
-            shard->error = err;
-            return false;
-        }
+    } else if (shard->decode_cache == nullptr &&
+               !init_decode_cache(shard, dcontext_.dcontext, shard->filetype)) {
+        return false;
     }
 
     ++shard->instr_count;
     opcode_data_t *opcode_data;
     shard->error = shard->decode_cache->add_decode_info(memref.instr, opcode_data);
-    if (shard->error != "") {
+    if (!shard->error.empty()) {
         return false;
     }
     // The opcode_data here will never be nullptr since we return

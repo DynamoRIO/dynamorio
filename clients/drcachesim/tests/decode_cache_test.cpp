@@ -139,19 +139,19 @@ check_decode_caching(void *drcontext, bool use_module_mapper, bool include_decod
         CHECK(include_decoded_instr, "persist_decoded_instr needs the decoded instr_t");
         // These are tests to verify the operation of instr_decode_info_t: that it stores
         // the instr_t correctly.
-        // Tests for instr_decode_cache_t are done when persist_decoded_instr = false (see
+        // Tests for decode_cache_t are done when persist_decoded_instr = false (see
         // the else part below).
         test_decode_cache_t<instr_decode_info_t> decode_cache(
             drcontext, include_decoded_instr,
             /*persist_decoded_instr=*/true, ilist_for_test_decode_cache);
         std::string err =
             decode_cache.init(ENCODING_FILE_TYPE, module_file_for_test_decode_cache, "");
-        if (err != "")
+        if (!err.empty())
             return err;
         for (const memref_t &memref : memrefs) {
             instr_decode_info_t *unused_cached_decode_info;
             err = decode_cache.add_decode_info(memref.instr, unused_cached_decode_info);
-            if (err != "")
+            if (!err.empty())
                 return err;
         }
         instr_decode_info_t *decode_info_nop =
@@ -168,14 +168,14 @@ check_decode_caching(void *drcontext, bool use_module_mapper, bool include_decod
         }
     } else {
         test_decode_info_t::expect_decoded_instr_ = include_decoded_instr;
-        // These are tests to verify the operation of instr_decode_cache_t: that it caches
-        // decode info correctly.
+        // These are tests to verify the operation of instr_decode_cache_t, including
+        // whether it caches decode info correctly.
         test_decode_cache_t<test_decode_info_t> decode_cache(
             drcontext, include_decoded_instr,
             /*persist_decoded_instr=*/false, ilist_for_test_decode_cache);
         std::string err =
             decode_cache.init(ENCODING_FILE_TYPE, module_file_for_test_decode_cache, "");
-        if (err != "")
+        if (!err.empty())
             return err;
         // Test: Lookup non-existing pc.
         if (decode_cache.get_decode_info(
@@ -187,7 +187,7 @@ check_decode_caching(void *drcontext, bool use_module_mapper, bool include_decod
 
         // Test: Lookup existing pc.
         err = decode_cache.add_decode_info(memrefs[0].instr, cached_decode_info);
-        if (err != "")
+        if (!err.empty())
             return err;
         test_decode_info_t *decode_info_nop =
             decode_cache.get_decode_info(reinterpret_cast<app_pc>(memrefs[0].instr.addr));
@@ -198,7 +198,7 @@ check_decode_caching(void *drcontext, bool use_module_mapper, bool include_decod
 
         // Test: Lookup another existing pc.
         err = decode_cache.add_decode_info(memrefs[1].instr, cached_decode_info);
-        if (err != "")
+        if (!err.empty())
             return err;
         test_decode_info_t *decode_info_ret =
             decode_cache.get_decode_info(reinterpret_cast<app_pc>(memrefs[1].instr.addr));
@@ -211,7 +211,7 @@ check_decode_caching(void *drcontext, bool use_module_mapper, bool include_decod
         // Set up the second nop memref to reuse the same encoding as the first nop.
         memrefs[2].instr.encoding_is_new = false;
         err = decode_cache.add_decode_info(memrefs[2].instr, cached_decode_info);
-        if (err != "")
+        if (!err.empty())
             return err;
         test_decode_info_t *decode_info_nop_2 =
             decode_cache.get_decode_info(reinterpret_cast<app_pc>(memrefs[2].instr.addr));
@@ -228,7 +228,7 @@ check_decode_caching(void *drcontext, bool use_module_mapper, bool include_decod
             // an interrupt instruction even though we've modified addr.
             memrefs[3].instr.addr = memrefs[1].instr.addr;
             err = decode_cache.add_decode_info(memrefs[3].instr, cached_decode_info);
-            if (err != "")
+            if (!err.empty())
                 return err;
             test_decode_info_t *decode_info_interrupt = decode_cache.get_decode_info(
                 reinterpret_cast<app_pc>(memrefs[3].instr.addr));
@@ -277,7 +277,7 @@ check_init_error_cases(void *drcontext)
 
     // Missing init before add_decode_info.
     std::string err = decode_cache.add_decode_info(instr.instr, cached_decode_info);
-    if (err == "") {
+    if (err.empty()) {
         return "Expected error at add_decode_info but did not get any";
     }
     if (cached_decode_info != nullptr) {
@@ -287,7 +287,7 @@ check_init_error_cases(void *drcontext)
     // init for a filetype without encodings, with no module file path either.
     err = decode_cache.init(
         static_cast<offline_file_type_t>(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS), "", "");
-    if (err == "") {
+    if (err.empty()) {
         return "Expected error at init but did not get any";
     }
 
@@ -295,13 +295,13 @@ check_init_error_cases(void *drcontext)
     err = decode_cache.init(
         static_cast<offline_file_type_t>(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS),
         "some_module_file_path", "");
-    if (err != "") {
+    if (!err.empty()) {
         return "Expected successful init, got error: " + err;
     }
     err = decode_cache.init(
         static_cast<offline_file_type_t>(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS),
         "some_module_file_path", "");
-    if (err == "") {
+    if (err.empty()) {
         return "Expected error at re-init";
     }
 
@@ -312,13 +312,13 @@ check_init_error_cases(void *drcontext)
     err = another_decode_cache.init(
         static_cast<offline_file_type_t>(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS),
         "some_other_module_file_path", "");
-    if (err == "") {
+    if (err.empty()) {
         return "Expected error at init with different module file path";
     }
     err = another_decode_cache.init(
         static_cast<offline_file_type_t>(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS),
         "some_module_file_path", "");
-    if (err != "") {
+    if (!err.empty()) {
         return "Expected successful init on another decode cache instance, got error: " +
             err;
     }
@@ -335,21 +335,21 @@ test_main(int argc, const char *argv[])
     std::string err = check_decode_caching(drcontext, /*use_module_mapper=*/false,
                                            /*include_decoded_instr=*/false,
                                            /*persist_decoded_instr=*/false);
-    if (err != "") {
+    if (!err.empty()) {
         std::cerr << err << "\n";
         exit(1);
     }
     err = check_decode_caching(drcontext, /*use_module_mapper=*/false,
                                /*include_decoded_instr=*/true,
                                /*persist_decoded_instr=*/false);
-    if (err != "") {
+    if (!err.empty()) {
         std::cerr << err << "\n";
         exit(1);
     }
     err = check_decode_caching(drcontext, /*use_module_mapper=*/false,
                                /*include_decoded_instr=*/true,
                                /*persist_decoded_instr=*/true);
-    if (err != "") {
+    if (!err.empty()) {
         std::cerr << err << "\n";
         exit(1);
     }
@@ -359,27 +359,27 @@ test_main(int argc, const char *argv[])
     err = check_decode_caching(drcontext, /*use_module_mapper=*/true,
                                /*include_decoded_instr=*/false,
                                /*persist_decoded_instr=*/false);
-    if (err != "") {
+    if (!err.empty()) {
         std::cerr << err << "\n";
         exit(1);
     }
     err = check_decode_caching(drcontext, /*use_module_mapper=*/true,
                                /*include_decoded_instr=*/true,
                                /*persist_decoded_instr=*/false);
-    if (err != "") {
+    if (!err.empty()) {
         std::cerr << err << "\n";
         exit(1);
     }
     err = check_decode_caching(drcontext, /*use_module_mapper=*/true,
                                /*include_decoded_instr=*/true,
                                /*persist_decoded_instr=*/true);
-    if (err != "") {
+    if (!err.empty()) {
         std::cerr << err << "\n";
         exit(1);
     }
 #endif
     err = check_init_error_cases(drcontext);
-    if (err != "") {
+    if (!err.empty()) {
         std::cerr << err << "\n";
         exit(1);
     }
