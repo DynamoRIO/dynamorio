@@ -8482,9 +8482,12 @@ mmap_check_for_module_overlap(app_pc base, size_t size, bool readable, uint64 in
         });
     }
     os_get_module_info_unlock();
-#ifdef ANDROID
+#ifdef ANDROID32
     /* i#1860: we need to keep looking for the segment with .dynamic as Android's
      * loader does not map the whole file up front.
+     * i#7215: This is not needed on newer versions of 64-bit Android, however we
+     * are not able to test with newer versions of 32-bit Android, so this may
+     * still be required.
      */
     if (ma != NULL && at_map && readable)
         os_module_update_dynamic_info(base, size, at_map);
