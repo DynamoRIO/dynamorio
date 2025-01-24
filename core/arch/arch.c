@@ -742,7 +742,7 @@ d_r_arch_init(void)
     /* Try to catch errors in x86.asm offsets for dcontext_t */
     ASSERT(sizeof(unprotected_context_t) ==
            ALIGN_FORWARD(sizeof(priv_mcontext_t) + IF_WINDOWS_ELSE(IF_X64_ELSE(8, 4), 8) +
-                         5 * sizeof(reg_t),
+                             5 * sizeof(reg_t),
                          __alignof(unprotected_context_t)));
 
     interp_init();
