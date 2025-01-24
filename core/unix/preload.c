@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -69,7 +69,7 @@
 #    ifdef VMX86_SERVER
 /* This function is not statically linked so as avoid duplicating or compiling
  * DR code into libdrpreload.so, which is messy.  As libdynamorio.so is
- * already loaded into the process and avaiable, it is cleaner to just use
+ * already loaded into the process and available, it is cleaner to just use
  * functions from it, i.e., dynamic linking.  See PR 212034.
  */
 void
