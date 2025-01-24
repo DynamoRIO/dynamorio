@@ -1139,13 +1139,6 @@ function (configure_DynamoRIO_static target)
   endif ()
   _DR_append_property_list(TARGET ${target} COMPILE_DEFINITIONS "${extra_defs}")
 
-  if (ANDROID)
-    # The Android linker is not exporting the weak symbol _USES_DR_VERSION_.
-    # We use --dynamic-list-data to do so.
-    # Actually the Linux linker is exporting the entire DR API symbol set:
-    # should we pass -Wl,--export-dynamic here to match it?
-    _DR_append_property_string(TARGET ${target} LINK_FLAGS "-Wl,--dynamic-list-data")
-  endif ()
   # We need libc before the ntdll_imports pulled in for DR.
   _DR_get_static_libc_list(static_libc)
   target_link_libraries(${target} ${static_libc})
