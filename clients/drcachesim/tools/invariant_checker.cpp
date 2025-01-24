@@ -1709,8 +1709,8 @@ invariant_checker_t::per_shard_t::decoding_info_t::set_decode_info_derived(
     }
 }
 
-void
-invariant_checker_t::make_decode_cache(per_shard_t *shard, void *dcontext)
+bool
+invariant_checker_t::init_decode_cache(per_shard_t *shard, void *dcontext)
 {
     assert(shard->decode_cache_ == nullptr);
     shard->decode_cache_ = std::unique_ptr<decode_cache_t<per_shard_t::decoding_info_t>>(
@@ -1718,12 +1718,6 @@ invariant_checker_t::make_decode_cache(per_shard_t *shard, void *dcontext)
             dcontext,
             /*include_decoded_instr=*/true,
             /*persist_decoded_instrs=*/false));
-}
-
-bool
-invariant_checker_t::init_decode_cache(per_shard_t *shard, void *dcontext)
-{
-    make_decode_cache(shard, dcontext);
     shard->error_ = shard->decode_cache_->init(shard->file_type_);
     return shard->error_.empty();
 }

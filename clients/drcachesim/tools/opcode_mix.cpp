@@ -81,21 +81,15 @@ opcode_mix_t::opcode_mix_t(const std::string &module_file_path, unsigned int ver
 {
 }
 
-void
-opcode_mix_t::make_decode_cache(shard_data_t *shard, void *dcontext)
+bool
+opcode_mix_t::init_decode_cache(shard_data_t *shard, void *dcontext,
+                                offline_file_type_t filetype)
 {
     shard->decode_cache =
         std::unique_ptr<decode_cache_t<opcode_data_t>>(new decode_cache_t<opcode_data_t>(
             dcontext,
             /*include_decoded_instr=*/true,
             /*persist_decoded_instrs=*/false, knob_verbose_));
-}
-
-bool
-opcode_mix_t::init_decode_cache(shard_data_t *shard, void *dcontext,
-                                offline_file_type_t filetype)
-{
-    make_decode_cache(shard, dcontext);
     if (!TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, filetype)) {
         shard->error =
             shard->decode_cache->init(filetype, module_file_path_, knob_alt_module_dir_);

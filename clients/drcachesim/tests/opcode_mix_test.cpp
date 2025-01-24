@@ -47,7 +47,7 @@ class test_opcode_mix_t : public opcode_mix_t {
 public:
     // Pass a non-nullptr instrlist_t if the module mapper must be used.
     test_opcode_mix_t(instrlist_t *instrs)
-        : opcode_mix_t(/*module_file_path=*/(instrs == nullptr ? "" : "some_file"),
+        : opcode_mix_t(/*module_file_path=*/"",
                        /*verbose=*/0,
                        /*alt_module_dir=*/"")
         , instrs_(instrs)
@@ -61,14 +61,21 @@ public:
     }
 
 protected:
-    void
-    make_decode_cache(shard_data_t *shard, void *dcontext) override
+    bool
+    init_decode_cache(shard_data_t *shard, void *dcontext,
+                      offline_file_type_t filetype) override
     {
         shard->decode_cache = std::unique_ptr<decode_cache_t<opcode_data_t>>(
             new test_decode_cache_t<opcode_data_t>(dcontext,
                                                    /*include_decoded_instr=*/true,
                                                    /*persist_decoded_instrs=*/false,
                                                    instrs_));
+        if (!TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, filetype)) {
+            shard->error = shard->decode_cache->init(filetype, "some_module_file", "");
+        } else {
+            shard->error = shard->decode_cache->init(filetype);
+        }
+        return shard->error.empty();
     }
 
 private:
