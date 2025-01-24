@@ -303,10 +303,8 @@ public:
     DecodeInfo *
     get_decode_info(app_pc pc)
     {
-        if (decode_cache_ == nullptr)
-            return nullptr;
-        auto it = decode_cache_->find(pc);
-        if (it == decode_cache_->end()) {
+        auto it = decode_cache_.find(pc);
+        if (it == decode_cache_.end()) {
             return nullptr;
         }
         return &it->second;
@@ -342,17 +340,13 @@ public:
         }
         const app_pc trace_pc = reinterpret_cast<app_pc>(memref_instr.addr);
 
-        if (decode_cache_ == nullptr) {
-            decode_cache_ = std::unique_ptr<std::unordered_map<app_pc, DecodeInfo>>(
-                new std::unordered_map<app_pc, DecodeInfo>());
-        }
         // XXX: Simplify using try_emplace when we upgrade to C++17.
-        auto info = decode_cache_->find(trace_pc);
-        bool already_exists = info != decode_cache_->end();
+        auto info = decode_cache_.find(trace_pc);
+        bool already_exists = info != decode_cache_.end();
         if (!already_exists) {
-            auto it_inserted = decode_cache_->emplace(std::piecewise_construct,
-                                                      std::forward_as_tuple(trace_pc),
-                                                      std::forward_as_tuple());
+            auto it_inserted =
+                decode_cache_.emplace(std::piecewise_construct,
+                                      std::forward_as_tuple(trace_pc), std::tuple<> {});
             info = it_inserted.first;
             assert(it_inserted.second);
         }
@@ -494,14 +488,11 @@ public:
     void
     clear_cache()
     {
-        decode_cache_.reset(nullptr);
+        decode_cache_.clear();
     }
 
 private:
-    // This needs to be an std::unique_ptr so that we can actually force the
-    // std::unordered_map to deallocate its internal memory when
-    // decode_cache_t::clear_cache() is used.
-    std::unique_ptr<std::unordered_map<app_pc, DecodeInfo>> decode_cache_;
+    std::unordered_map<app_pc, DecodeInfo> decode_cache_;
     void *dcontext_ = nullptr;
     std::mutex dcontext_mutex_;
     bool include_decoded_instr_ = false;
