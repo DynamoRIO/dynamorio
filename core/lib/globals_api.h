@@ -523,6 +523,12 @@ typedef struct _instr_t instr_t;
 #    define IF_NOT_ANDROID(x) x
 #endif
 
+#ifdef ANDROID32
+#    define IF_NOT_ANDROID32(x)
+#else
+#    define IF_NOT_ANDROID32(x) x
+#endif
+
 #ifdef X64
 #    define IF_X64(x) x
 #    define IF_X64_ELSE(x, y) x
