@@ -488,7 +488,9 @@ public:
     void
     clear_cache()
     {
-        decode_cache_.clear();
+        // Just a clear() does not release all memory held by the unordered_map. So we
+        // need to fully replace it with a new one.
+        decode_cache_ = std::unordered_map<app_pc, DecodeInfo>();
     }
 
 private:
