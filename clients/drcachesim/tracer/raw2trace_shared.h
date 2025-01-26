@@ -286,7 +286,10 @@ public:
                 reinterpret_cast<app_pc>(entry->start_pc);
         } else {
             size_t idx = static_cast<size_t>(modidx); // Avoid win32 warnings.
-            app_pc res = map_pc - modvec_[idx].map_seg_base + modvec_[idx].orig_seg_base;
+            app_pc res = reinterpret_cast<app_pc>(
+                reinterpret_cast<ptr_uint_t>(map_pc) -
+                reinterpret_cast<ptr_uint_t>(modvec_[idx].map_seg_base) +
+                reinterpret_cast<ptr_uint_t>(modvec_[idx].orig_seg_base));
 #ifdef ARM
             // Match Thumb vs Arm mode by setting LSB.
             if (TESTANY(1, modoffs))
@@ -312,8 +315,8 @@ public:
             size_t idx = static_cast<size_t>(modidx); // Avoid win32 warnings.
             // Cast to unsigned pointer-sized int first to avoid sign-extending.
             return reinterpret_cast<app_pc>(
-                       reinterpret_cast<ptr_uint_t>(modvec_[idx].orig_seg_base)) +
-                (modoffs - modvec_[idx].seg_offs);
+                reinterpret_cast<ptr_uint_t>(modvec_[idx].orig_seg_base) +
+                (modoffs - modvec_[idx].seg_offs));
         }
     }
 

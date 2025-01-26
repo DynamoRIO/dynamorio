@@ -572,7 +572,7 @@ instrlist_encode_to_copy(void *drcontext, instrlist_t *ilist, byte *copy_pc,
         byte *pc = instr_encode_to_copy(dcontext, inst, copy_pc, final_pc);
         if (pc == NULL)
             return NULL;
-        final_pc += pc - copy_pc;
+        final_pc = (byte *)((ptr_uint_t)final_pc + (ptr_uint_t)pc - (ptr_uint_t)copy_pc);
         copy_pc = pc;
     }
     return copy_pc;

@@ -3021,7 +3021,8 @@ encode_cti(instr_t *instr, byte *copy_pc, byte *final_pc,
     } else {
         /* 32-bit offset */
         /* offset is from start of next instr */
-        ptr_int_t offset = target - ((ptr_int_t)(pc + 4 - copy_pc + final_pc));
+        ptr_int_t offset =
+            target - ((ptr_int_t)(pc + 4 - copy_pc + (ptr_uint_t)final_pc));
 #ifdef X64
         if (check_reachable && !REL32_REACHABLE_OFFS(offset)) {
             CLIENT_ASSERT(!assert_reachable,
