@@ -44,6 +44,7 @@
 
 #include "dr_api.h" // Must be before trace_entry.h from analysis_tool.h.
 #include "analysis_tool.h"
+#include "decode_cache.h"
 #include "memref.h"
 #include "memtrace_stream.h"
 #include "raw2trace.h"
@@ -60,7 +61,7 @@ public:
     view_t(const std::string &module_file_path, uint64_t skip_refs, uint64_t sim_refs,
            const std::string &syntax, unsigned int verbose,
            const std::string &alt_module_dir = "");
-    virtual ~view_t();
+    virtual ~view_t() = default;
     std::string
     initialize_stream(memtrace_stream_t *serial_stream) override;
     bool
@@ -95,9 +96,27 @@ protected:
         }
         void *dcontext = nullptr;
     };
+    class disasm_info_t : public decode_info_base_t {
+    public:
+        std::string disasm_;
+
+    private:
+        std::string
+        set_decode_info_derived(
+            void *dcontext, const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
+            instr_t *instr, app_pc decode_pc) override;
+    };
 
     bool
     should_skip(memtrace_stream_t *memstream, const memref_t &memref);
+
+    // Creates and initializes a decode_cache_t instance to decode instructions in the
+    // trace. Made virtual to allow subclasses to customize.
+    virtual bool
+    init_decode_cache();
+
+    bool
+    set_disassemble_syntax();
 
     inline void
     print_header()
@@ -131,15 +150,7 @@ protected:
      */
     dcontext_cleanup_last_t dcontext_;
 
-    // These are all optional and unused for OFFLINE_FILE_TYPE_ENCODINGS.
-    // XXX: Once we update our toolchains to guarantee C++17 support we could use
-    // std::optional here.
     std::string module_file_path_;
-    std::unique_ptr<module_mapper_t> module_mapper_;
-    // XXX: Perhaps module_mapper_t should be made to own the cleanup of
-    // modfile_bytes_.
-    char *modfile_bytes_ = nullptr;
-
     unsigned int knob_verbose_;
     int trace_version_;
     static const std::string TOOL_NAME;
@@ -151,7 +162,6 @@ protected:
     std::string knob_syntax_;
     std::string knob_alt_module_dir_;
     uint64_t num_disasm_instrs_;
-    std::unordered_map<app_pc, std::string> disasm_cache_;
     memref_tid_t prev_tid_;
     uint64_t prev_record_ = 0;
     intptr_t filetype_;
@@ -161,7 +171,7 @@ protected:
     int64_t timestamp_record_ord_ = -1;
     int64_t version_record_ord_ = -1;
     int64_t filetype_record_ord_ = -1;
-    bool has_modules_;
+    std::unique_ptr<decode_cache_t<disasm_info_t>> decode_cache_ = nullptr;
     memtrace_stream_t *serial_stream_ = nullptr;
 
 private:

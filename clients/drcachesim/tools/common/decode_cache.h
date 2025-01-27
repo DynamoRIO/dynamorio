@@ -56,12 +56,16 @@
 namespace dynamorio {
 namespace drmemtrace {
 
+class decode_cache_base_t;
+
 /**
  * Base class for storing instruction decode info. Users should sub-class this
  * base class and implement set_decode_info_derived() to derive and store the decode
  * info they need.
  */
 class decode_info_base_t {
+    friend class decode_cache_base_t;
+
 public:
     virtual ~decode_info_base_t() = default;
 
@@ -89,15 +93,19 @@ public:
                     instr_t *instr, app_pc decode_pc);
 
     /**
-     * Indicates whether set_decode_info() was invoked on the object with a valid
-     * decoded #instr_t, typically by #dynamorio::drmemtrace::decode_cache_t. It won't
-     * be valid if the object is default-constructed without a subsequent
-     * set_decode_info() call. When used with #dynamorio::drmemtrace::decode_cache_t,
-     * this indicates whether an invalid instruction was observed at the processed
-     * instr record.
+     * Indicates whether set_decode_info() was successfully invoked on the object by
+     * a #dynamorio::drmemtrace::decode_cache_t using a successfully decoded
+     * instruction. is_valid() will be false if the object is default-constructed.
      */
     bool
     is_valid() const;
+
+    /**
+     * Returns the details of the error encountered when decoding the instruction or
+     * during the custom logic in set_decode_info_derived.
+     */
+    std::string
+    get_error_string() const;
 
 private:
     /**
@@ -121,13 +129,16 @@ private:
      * The provided \p instr will be nullptr if the
      * #dynamorio::drmemtrace::decode_cache_t was constructed with
      * \p include_decoded_instr_ set to false.
+     *
+     * Returns an empty string if successful, or the error description.
      */
-    virtual void
+    virtual std::string
     set_decode_info_derived(void *dcontext,
                             const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
                             instr_t *instr, app_pc decode_pc) = 0;
 
     bool is_valid_ = false;
+    std::string error_string_;
 };
 
 /**
@@ -142,7 +153,7 @@ public:
     get_decoded_instr();
 
 private:
-    void
+    std::string
     set_decode_info_derived(void *dcontext,
                             const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
                             instr_t *instr, app_pc decode_pc) override;
@@ -215,6 +226,19 @@ protected:
      */
     std::string
     find_mapped_trace_address(app_pc trace_pc, app_pc &decode_pc);
+
+    /**
+     * Sets the given \p error_string in the given \p decode_info object.
+     *
+     * Note that #dynamorio::drmemtrace::decode_cache_base_t is marked as a
+     * friend of #dynamorio::drmemtrace::decode_info_base_t. However,
+     * since friend associations are not inherited, this function allows
+     * derived classes of #dynamorio::drmemtrace::decode_cache_base_t to
+     * set the error.
+     */
+    void
+    set_decode_info_error(decode_info_base_t *decode_info,
+                          const std::string &error_string);
 
 private:
     /**
@@ -326,8 +350,9 @@ public:
      * a module file path, the encodings from the instantiated
      * #dynamorio::drmemtrace::module_mapper_t.
      *
-     * If there is a decoding failure, the default-constructed DecodeInfo that
-     * returns is_valid() == false will be added to the cache.
+     * If there is a failure either during decoding or creation of the DecodeInfo
+     * object, a DecodeInfo that returns is_valid() == false and the relevant
+     * erorr info in get_error_string() will be added to the cache.
      *
      * Returns a pointer to whatever DecodeInfo is present in the cache in the
      * \p cached_decode_info reference pointer parameter, or a nullptr if none
@@ -371,11 +396,8 @@ public:
             // attempting decoding again is not useful because the encoding
             // hasn't changed.
             cached_decode_info = &info->second;
-            if (!cached_decode_info->is_valid()) {
-                return "Prior add_decode_info for the given pc failed to decode the "
-                       "instruction";
-            }
-            return "";
+            // Return the original error string if any.
+            return cached_decode_info->get_error_string();
         } else if (already_exists) {
             // We may end up here if we're using the embedded encodings from
             // the trace and now we have a new instr at trace_pc.
@@ -390,8 +412,10 @@ public:
         } else {
             // Legacy trace support where we need the binaries.
             std::string err = find_mapped_trace_address(trace_pc, decode_pc);
-            if (!err.empty())
+            if (!err.empty()) {
+                set_decode_info_error(cached_decode_info, err);
                 return err;
+            }
         }
 
         // Optionally decode the instruction.
@@ -410,12 +434,12 @@ public:
                 if (persist_decoded_instr_) {
                     instr_destroy(dcontext_, instr);
                 }
-                return "decode_from_copy failed";
+                set_decode_info_error(cached_decode_info, "decode_from_copy failed");
+                return cached_decode_info->get_error_string();
             }
         }
-        // Also sets is_valid_.
         info->second.set_decode_info(dcontext_, memref_instr, instr, decode_pc);
-        return "";
+        return info->second.get_error_string();
     }
 
     /**
