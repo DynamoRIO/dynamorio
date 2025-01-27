@@ -267,6 +267,10 @@ public:
          * with no timeout but do not include a corresponding
          * #TRACE_MARKER_TYPE_SYSCALL_SCHEDULE for wakeup, an input could remain
          * unscheduled.
+         *
+         * Also beware that this can skip over trace header entries (like
+         * #TRACE_MARKER_TYPE_FILETYPE), which should be ideally be obtained from the
+         * #dynamorio::drmemtrace::memtrace_stream_t API instead.
          */
         std::vector<range_t> regions_of_interest;
     };
