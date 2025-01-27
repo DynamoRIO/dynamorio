@@ -269,7 +269,7 @@ public:
          * unscheduled.
          *
          * Also beware that this can skip over trace header entries (like
-         * #TRACE_MARKER_TYPE_FILETYPE), which should be ideally be obtained from the
+         * #TRACE_MARKER_TYPE_FILETYPE), which should ideally be obtained from the
          * #dynamorio::drmemtrace::memtrace_stream_t API instead.
          */
         std::vector<range_t> regions_of_interest;

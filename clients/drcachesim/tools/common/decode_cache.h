@@ -423,15 +423,22 @@ public:
      * indeed has embedded encodings or not, and initializing the
      * #dynamorio::drmemtrace::module_mapper_t if the module path is provided.
      *
-     * It is important to note that the trace filetype may be obtained using the
-     * get_filetype() API on a #dynamorio::drmemtrace::memtrace_stream_t. However,
-     * instances of #dynamorio::drmemtrace::memtrace_stream_t have the filetype
-     * available at init time (before the #TRACE_MARKER_TYPE_FILETYPE is actually
-     * returned by the stream) only for offline analysis. In the online analysis
-     * case, the user would need to call this API after init time when the
-     * #TRACE_MARKER_TYPE_FILETYPE marker is seen (which is fine as it occurs
-     * before any instr record). For tools intended for both offline and online
-     * analysis, following just the latter strategy would work fine.
+     * It is important to note some nuances in how the filetype can be obtained:
+     * - the trace filetype may be obtained using the get_filetype() API on the
+     *   #dynamorio::drmemtrace::memtrace_stream_t. However, instances of
+     *   #dynamorio::drmemtrace::memtrace_stream_t have the filetype available at
+     *   init time (before the #TRACE_MARKER_TYPE_FILETYPE is actually returned
+     *   by the stream) only for offline analysis, not for online analysis.
+     * - when some scheduler region of interest is specified, e.g. using the
+     *   -skip_instrs analyzer option, it would skip all initial header entries.
+     *   Therefore, the analysis tool may not see a #TRACE_MARKER_TYPE_FILETYPE
+     *   at all.
+     *
+     * The most reliable way to obtain the filetype (and call this init() API),
+     * would be to use #dynamorio::drmemtrace::memtrace_stream_t::get_filetype()
+     * just before processing the first instruction memref in the
+     * #dynamorio::drmemtrace::analysis_tool_t::process_memref() or
+     * #dynamorio::drmemtrace::analysis_tool_t::parallel_shard_memref() APIs.
      *
      * If the \p module_file_path parameter is not empty, it instructs the
      * #dynamorio::drmemtrace::decode_cache_t object that it should look for the
