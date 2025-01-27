@@ -447,10 +447,6 @@ if (WIN32 AND DEBUG)
 elseif (APPLE AND X64)
   # Set to higher than _PAGEZERO which is [0..0x1'00000000).
   set(preferred_base "0x171000000" CACHE STRING "Preferred library base address")
-elseif (ANDROID64)
-  # 64-bit Android needs a base of 0x1000 so that libdynamorio.so
-  # does not get overwritten by the vDSO.
-  set(preferred_base "0x1000" CACHE STRING "Preferred library base address")
 else ()
   set(preferred_base "0x71000000" CACHE STRING "Preferred library base address")
 endif ()

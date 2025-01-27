@@ -136,6 +136,11 @@ changes:
 Further non-compatibility-affecting changes include:
  - Added support for reading a single drmemtrace trace file from stdin
    via "-infile -".
+ - Added the #dynamorio::drmemtrace::decode_cache_t library to make it easier and more
+   efficient for drmemtrace analysis tools to obtain decoded information about
+   instructions in the trace. This works for traces that have embedded instruction
+   encodings in them, and also for legacy traces without embedded encodings where the
+   encodings are obtained from the application binaries instead.
 
 **************************************************
 <hr>
