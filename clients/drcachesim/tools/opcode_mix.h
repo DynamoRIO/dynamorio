@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -44,6 +44,7 @@
 
 #include "dr_api.h" // Must be before trace_entry.h from analysis_tool.h.
 #include "analysis_tool.h"
+#include "decode_cache.h"
 #include "memref.h"
 #include "raw2trace.h"
 #include "trace_entry.h"
@@ -69,11 +70,9 @@ public:
     bool
     parallel_shard_supported() override;
     void *
-    parallel_worker_init(int worker_index) override;
-    std::string
-    parallel_worker_exit(void *worker_data) override;
-    void *
-    parallel_shard_init(int shard_index, void *worker_data) override;
+    parallel_shard_init_stream(
+        int shard_index, void *worker_data,
+        dynamorio::drmemtrace::memtrace_stream_t *shard_stream) override;
     bool
     parallel_shard_exit(void *shard_data) override;
     bool
@@ -105,25 +104,32 @@ protected:
     std::string
     get_category_names(uint category);
 
-    struct opcode_data_t {
+    class opcode_data_t : public decode_info_base_t {
+    public:
         opcode_data_t()
-            : opcode(OP_INVALID)
-            , category(DR_INSTR_CATEGORY_UNCATEGORIZED)
+            : opcode_(OP_INVALID)
+            , category_(DR_INSTR_CATEGORY_UNCATEGORIZED)
         {
         }
         opcode_data_t(int opcode, uint category)
-            : opcode(opcode)
-            , category(category)
+            : opcode_(opcode)
+            , category_(category)
         {
         }
-        int opcode;
+        int opcode_;
         /*
          * The category field is a uint instead of a dr_instr_category_t because
          * multiple category bits can be set when an instruction belongs to more
          * than one category.  We assume 32 bits (i.e., 32 categories) is enough
          * to be future-proof.
          */
-        uint category;
+        uint category_;
+
+    private:
+        void
+        set_decode_info_derived(
+            void *dcontext, const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
+            instr_t *instr, app_pc decode_pc) override;
     };
 
     class snapshot_t : public interval_state_snapshot_t {
@@ -134,25 +140,15 @@ protected:
         std::unordered_map<uint, int64_t> category_counts_;
     };
 
-    struct worker_data_t {
-        std::unordered_map<app_pc, opcode_data_t> opcode_data_cache;
-    };
-
     struct shard_data_t {
         shard_data_t()
-            : worker(nullptr)
-            , instr_count(0)
-        {
-        }
-        shard_data_t(worker_data_t *worker)
-            : worker(worker)
-            , instr_count(0)
+            : instr_count(0)
             , last_trace_module_start(nullptr)
             , last_trace_module_size(0)
             , last_mapped_module_start(nullptr)
         {
         }
-        worker_data_t *worker;
+
         int64_t instr_count;
         std::unordered_map<int, int64_t> opcode_counts;
         std::unordered_map<uint, int64_t> category_counts;
@@ -160,6 +156,7 @@ protected:
         app_pc last_trace_module_start;
         size_t last_trace_module_size;
         app_pc last_mapped_module_start;
+        std::unique_ptr<decode_cache_t<opcode_data_t>> decode_cache;
         offline_file_type_t filetype = OFFLINE_FILE_TYPE_DEFAULT;
     };
 
@@ -173,6 +170,11 @@ protected:
         void *dcontext = nullptr;
     };
 
+    // Creates and initializes a decode cache object in the given shard. Made virtual to
+    // allow subclasses to customize.
+    virtual bool
+    init_decode_cache(shard_data_t *shard, void *dcontext, offline_file_type_t filetype);
+
     /* We make this the first field so that dr_standalone_exit() is called after
      * destroying the other fields which may use DR heap.
      */
@@ -182,11 +184,6 @@ protected:
     // XXX: Once we update our toolchains to guarantee C++17 support we could use
     // std::optional here.
     std::string module_file_path_;
-    std::unique_ptr<module_mapper_t> module_mapper_;
-    std::mutex mapper_mutex_;
-    // XXX: Perhaps module_mapper_t should be made to own the cleanup of
-    // modfile_bytes_.
-    char *modfile_bytes_ = nullptr;
 
     std::unordered_map<int, shard_data_t *> shard_map_;
     // This mutex is only needed in parallel_shard_init.  In all other accesses to
@@ -196,7 +193,6 @@ protected:
     std::string knob_alt_module_dir_;
     static const std::string TOOL_NAME;
     // For serial operation.
-    worker_data_t serial_worker_;
     shard_data_t serial_shard_;
     // To guard the setting of isa_mode in dcontext.
     std::mutex dcontext_mutex_;

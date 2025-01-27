@@ -357,20 +357,30 @@ typedef struct _dr_memory_dump_spec_t {
     /** The type of memory dump requested. */
     dr_memory_dump_flags_t flags;
     /**
-     * This field only applies to DR_MEMORY_DUMP_LDMP.  This string is
+     * This field only applies to #DR_MEMORY_DUMP_LDMP.  This string is
      * stored inside the ldmp as the reason for the dump.
      */
     const char *label;
     /**
-     * This field only applies to DR_MEMORY_DUMP_LDMP.  This is an optional output
+     * This field only applies to #DR_MEMORY_DUMP_LDMP.  This is an optional output
      * field that, if non-NULL, will be written with the path to the created file.
      */
     char *ldmp_path;
     /**
-     * This field only applies to DR_MEMORY_DUMP_LDMP.  This is the maximum size,
+     * This field only applies to #DR_MEMORY_DUMP_LDMP.  This is the maximum size,
      * in bytes, of ldmp_path.
      */
     size_t ldmp_path_size;
+    /**
+     * This field only applies to #DR_MEMORY_DUMP_ELF.  This is an optional output
+     * field that, if non-NULL, will be written with the path to the created file.
+     */
+    char *elf_path;
+    /**
+     * This field only applies to #DR_MEMORY_DUMP_ELF.  This is the maximum size,
+     * in bytes, of elf_path.
+     */
+    size_t elf_path_size;
 } dr_memory_dump_spec_t;
 
 DR_API
