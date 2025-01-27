@@ -38,7 +38,7 @@
 #include "../clean_call_opt.h"
 #include "disassemble.h"
 #ifdef AARCH64
-#    include "../aarch64/mangle.h"
+#    include "../aarch64/mangle_aarch64.h"
 #endif
 
 /* Make code more readable by shortening long lines.

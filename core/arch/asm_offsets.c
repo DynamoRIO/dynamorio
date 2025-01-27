@@ -39,7 +39,7 @@
 #endif
 #ifdef AARCH64
 #    include "../../unix/module_private.h"
-#    include "mangle.h"
+#    include "mangle_aarch64.h"
 #endif
 #include <stddef.h> /* for offsetof */
 

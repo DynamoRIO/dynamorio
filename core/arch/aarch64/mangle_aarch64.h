@@ -31,8 +31,8 @@
  * DAMAGE.
  */
 
-#ifndef _MANGLE_H_
-#define _MANGLE_H_
+#ifndef _MANGLE_AARCH64_H_
+#define _MANGLE_AARCH64_H_
 
 /* Defined in aarch64.asm. */
 void
@@ -62,4 +62,4 @@ typedef struct ALIGN_VAR(16) _icache_op_struct_t {
     ptr_uint_t spill[2];
 } icache_op_struct_t;
 
-#endif /* _MANGLE_H_ */
+#endif /* _MANGLE_AARCH64_H_ */
