@@ -111,7 +111,8 @@ check_opcode_mix(void *drcontext, bool use_module_mapper)
     uint64_t filetype = OFFLINE_FILE_TYPE_SYSCALL_NUMBERS |
         (use_module_mapper ? 0 : OFFLINE_FILE_TYPE_ENCODINGS);
     std::vector<memref_with_IR_t> memref_setup = {
-        { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, filetype), nullptr },
+        { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, static_cast<uintptr_t>(filetype)),
+          nullptr },
         { gen_instr(TID_A), nop },
         { gen_instr(TID_A), ret },
         { gen_instr(TID_A), nop },
