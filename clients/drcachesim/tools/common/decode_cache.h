@@ -427,8 +427,9 @@ public:
      * - the trace filetype may be obtained using the get_filetype() API on the
      *   #dynamorio::drmemtrace::memtrace_stream_t. However, instances of
      *   #dynamorio::drmemtrace::memtrace_stream_t have the filetype available at
-     *   init time (before the #TRACE_MARKER_TYPE_FILETYPE is actually returned
-     *   by the stream) only for offline analysis, not for online analysis.
+     *   init time (in the #dynamorio::drmemtrace::analysis_tool_t::initialize()
+     *   or #dynamorio::drmemtrace::analysis_tool_t::initialize_stream()
+     *   functions) only for offline analysis, not for online analysis.
      * - when some scheduler region of interest is specified, e.g. using the
      *   -skip_instrs analyzer option, it would skip all initial header entries.
      *   Therefore, the analysis tool may not see a #TRACE_MARKER_TYPE_FILETYPE
