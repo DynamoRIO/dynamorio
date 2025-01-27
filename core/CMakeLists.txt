@@ -336,6 +336,7 @@ if (X86 AND X64)
   set(ARCH_SRCS ${ARCH_SRCS} arch/${ARCH_NAME}/x86_to_x64.c)
 endif (X86 AND X64)
 
+# XXX i#7226: Move x86 asm constants into here too.
 if (AARCHXX)
   set(ARCH_SRCS ${ARCH_SRCS} arch/asm_offsets.c)
 endif (AARCHXX)

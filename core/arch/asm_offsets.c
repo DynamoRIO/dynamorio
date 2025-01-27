@@ -33,6 +33,7 @@
 /* Check that macros defined in asm_offsetsx.h are correct. */
 
 #include "../globals.h"
+/* XXX i#7226: Move x86 asm constants into here too. */
 #ifndef AARCHXX
 #    error This is only implemented for AArch64 and ARM.
 #endif
