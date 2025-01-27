@@ -417,6 +417,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                                    'code_api|tool.drcachesim.threads' => 1,  # i#3320
                                    'code_api|tool.drcachesim.threads-with-config-file' => 1,  # i#3320
                                    'code_api|tool.drcachesim.coherence' => 1, # i#3320
+                                   'code_api|tool.drcachesim.TLB-threads' => 1, # i#3320
                                    'code_api|tool.drcachesim.miss_analyzer' => 1, # i#3320
                                    'code_api|tool.drcachesim.multiproc' => 1, # i#3320
                                    'code_api|tool.drcacheoff.burst_threads' => 1,
