@@ -30,8 +30,8 @@
  * DAMAGE.
  */
 
-#ifndef _asm_offsets_h
-#define _asm_offsets_h
+#ifndef _ASM_OFFSETS_H_
+#define _ASM_OFFSETS_H_
 
 #define OFFSET(struct, field, offset)
 #define SIZE(struct, size)
@@ -39,4 +39,4 @@
 #undef OFFSET
 #undef SIZE
 
-#endif /* _asm_offsets_h */
+#endif /* _ASM_OFFSETS_H_ */
