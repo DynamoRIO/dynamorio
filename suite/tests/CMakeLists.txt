@@ -257,6 +257,12 @@ endif (WIN32)
 # put libs in same dir for tests that need to load them
 set(MAIN_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 set(MAIN_LIBRARY_OUTPUT_DIRECTORY "${DR_LIBRARY_OUTPUT_DIRECTORY}")
+if (ANDROID AND DR_COPY_TO_DEVICE)
+    # Replace MAIN_LIBRARY_OUTPUT_DIRECTORY with the device path.
+    file(RELATIVE_PATH relpath ${PROJECT_BINARY_DIR} ${MAIN_LIBRARY_OUTPUT_DIRECTORY})
+    get_filename_component(builddir ${PROJECT_BINARY_DIR} NAME)
+    set(MAIN_LIBRARY_OUTPUT_DIRECTORY "${DR_DEVICE_BASEDIR}/${builddir}/${relpath}")
+endif ()
 string(REGEX REPLACE "/lib([36])" "/ext/lib\\1"
   EXT_LIBRARY_OUTPUT_DIRECTORY "${MAIN_LIBRARY_OUTPUT_DIRECTORY}")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin")
@@ -545,6 +551,28 @@ function(add_sve_flags target)
     endif()
   endif()
 endfunction(add_sve_flags)
+
+if (ANDROID)
+  # Copy a file from the source tree to the test device.
+  # Use this to copy test dependency file. To copy a target use copy_target_to_device()
+  # This is done automatically for test executable targets.
+  function(copy_file_to_device remote_filename_out test_target local_path)
+    if (DR_COPY_TO_DEVICE)
+      file(RELATIVE_PATH relpath ${PROJECT_SOURCE_DIR} ${local_path})
+      get_filename_component(builddir ${PROJECT_BINARY_DIR} NAME)
+      set(device_path "${DR_DEVICE_BASEDIR}/${builddir}/${relpath}")
+      add_custom_command(
+        TARGET ${test_target}
+        POST_BUILD
+        COMMAND ${ADB} push ${local_path} ${device_path}
+        VERBATIM)
+      set(${remote_filename_out} ${device_path} PARENT_SCOPE)
+    else ()
+      set(${remote_filename_out} ${local_path} PARENT_SCOPE)
+    endif ()
+  endfunction(copy_file_to_device)
+endif ()
+
 
 function(add_exe test source)
   get_filename_component(srcbase ${source} NAME_WE)
@@ -1243,7 +1271,7 @@ else ()
   set(dr_os_ops -msgbox_mask 0 -dumpcore_mask 0x7d -staged)
 endif ()
 set(dr_test_ops -stderr_mask 0xC ${dr_os_ops})
-if (CMAKE_CROSSCOMPILING AND DEFINED CMAKE_FIND_ROOT_PATH)
+if (CMAKE_CROSSCOMPILING AND DEFINED CMAKE_FIND_ROOT_PATH AND NOT DR_COPY_TO_DEVICE)
   set(dr_test_ops -xarch_root ${CMAKE_FIND_ROOT_PATH} ${dr_test_ops})
 endif ()
 
@@ -2015,7 +2043,7 @@ elseif (RISCV64)
 else ()
   set(sfx "x86")
 endif ()
-if (NOT ANDROID)
+if (NOT ANDROID32)
   # XXX i#1874: get working on Android
   tobuild_api(api.ir api/ir_${sfx}.c "" "" OFF OFF OFF)
   if (AARCH64 OR RISCV64)
@@ -3316,22 +3344,26 @@ if (ARM)
   endif ()
 elseif (AARCH64)
   add_api_exe(api.dis-a64 api/dis-a64.c OFF OFF)
-  torunonly_api(api.dis-a64 api.dis-a64 api/dis-a64.c ""
-    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64.txt" OFF OFF)
-  torunonly_api(api.dis-a64-v82 api.dis-a64 api/dis-a64.c ""
-    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v82.txt" OFF OFF)
-  torunonly_api(api.dis-a64-v83 api.dis-a64 api/dis-a64.c ""
-    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v83.txt" OFF OFF)
-  torunonly_api(api.dis-a64-v84 api.dis-a64 api/dis-a64.c ""
-    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v84.txt" OFF OFF)
-  torunonly_api(api.dis-a64-v85 api.dis-a64 api/dis-a64.c ""
-    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v85.txt" OFF OFF)
-  torunonly_api(api.dis-a64-v87 api.dis-a64 api/dis-a64.c ""
-    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v87.txt" OFF OFF)
-  torunonly_api(api.dis-a64-sve api.dis-a64 api/dis-a64.c ""
-    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-sve.txt" OFF OFF)
-  torunonly_api(api.dis-a64-sve2 api.dis-a64 api/dis-a64.c ""
-    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-sve2.txt" OFF OFF)
+
+  set(dis_tests
+    dis-a64
+    dis-a64-v82
+    dis-a64-v83
+    dis-a64-v84
+    dis-a64-v85
+    dis-a64-v87
+    dis-a64-sve
+    dis-a64-sve2
+  )
+  foreach (dis_test ${dis_tests})
+    set(dis_fname "${CMAKE_CURRENT_SOURCE_DIR}/api/${dis_test}.txt")
+    if (ANDROID)
+      copy_file_to_device(dis_fname api.dis-a64 ${dis_fname})
+    endif ()
+
+    torunonly_api(api.${dis_test} api.dis-a64 api/dis-a64.c "" "-q;${dis_fname}" OFF OFF)
+  endforeach ()
+
   add_api_exe(api.reenc-a64 api/reenc-a64.c OFF OFF)
   tobuild_api(api.opnd api/opnd-a64.c "" "" OFF OFF OFF)
 elseif (X86)
