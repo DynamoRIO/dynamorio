@@ -337,7 +337,7 @@ if (X86 AND X64)
 endif (X86 AND X64)
 
 if (AARCHXX)
-  set(ARCH_SRCS ${ARCH_SRCS} arch/${ARCH_NAME}/asm_offsets.c)
+  set(ARCH_SRCS ${ARCH_SRCS} arch/asm_offsets.c)
 endif (AARCHXX)
 
 if (WIN32)

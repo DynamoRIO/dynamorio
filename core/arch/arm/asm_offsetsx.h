@@ -30,35 +30,31 @@
  * DAMAGE.
  */
 
-#ifndef _asm_offsets_h
-#define _asm_offsets_h
-
-/* The following macros are used in .asm files to refer to C structs.
- * The file asm_offsets.cpp checks at compile time that they have the
- * correct values.
+/* This file is included in two places:
+ * - by asm_offsets.c, which checks at compile time that values are correct;
+ * - by asm_offsets.h, which defines the values for use in .asm files.
  */
 
-#define dcontext_t_OFFSET_dstack 0x9f8
-#define dcontext_t_OFFSET_is_exiting 0xa00
+#if !defined(OFFSET) || !defined(SIZE)
+#    error Define OFFSET and SIZE before including asm_offsetsx.h!
+#endif
 
-#define icache_op_struct_t_OFFSET_flag 0
-#define icache_op_struct_t_OFFSET_lock 4
-#define icache_op_struct_t_OFFSET_linesize 8
-#define icache_op_struct_t_OFFSET_begin 16
-#define icache_op_struct_t_OFFSET_end 24
-#define icache_op_struct_t_OFFSET_spill 32
+OFFSET(dcontext_t, dstack, 0x170)
+#define dcontext_t_OFFSET_dstack 0x170
+OFFSET(dcontext_t, is_exiting, 0x174)
+#define dcontext_t_OFFSET_is_exiting 0x174
 
-#define priv_mcontext_t_SIZE 2480
-#define priv_mcontext_t_OFFSET_simd 288
-
-#define spill_state_t_OFFSET_r0 0
-#define spill_state_t_OFFSET_r1 8
-#define spill_state_t_OFFSET_r2 16
-#define spill_state_t_OFFSET_r3 24
-#define spill_state_t_OFFSET_r4 32
-#define spill_state_t_OFFSET_r5 40
-#define spill_state_t_OFFSET_fcache_return 64
-
-#define struct_tlsdesc_t_OFFSET_arg 8
-
-#endif /* _asm_offsets_h */
+OFFSET(priv_mcontext_t, r0, 0x0)
+#define priv_mcontext_t_OFFSET_r0 0x0
+OFFSET(priv_mcontext_t, sp, 0x34)
+#define priv_mcontext_t_OFFSET_sp 0x34
+OFFSET(priv_mcontext_t, lr, 0x38)
+#define priv_mcontext_t_OFFSET_lr 0x38
+OFFSET(priv_mcontext_t, pc, 0x3c)
+#define priv_mcontext_t_OFFSET_pc 0x3c
+OFFSET(priv_mcontext_t, cpsr, 0x40)
+#define priv_mcontext_t_OFFSET_cpsr 0x40
+OFFSET(priv_mcontext_t, simd, 0x48)
+#define priv_mcontext_t_OFFSET_simd 0x48
+SIZE(priv_mcontext_t, 0x148)
+#define priv_mcontext_t_SIZE 0x148

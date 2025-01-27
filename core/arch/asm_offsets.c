@@ -31,34 +31,21 @@
  */
 
 #include "../globals.h"
-#include "../../unix/module_private.h"
-#include "mangle.h"
+#ifndef AARCHXX
+#    error This is only implemented for AArch64 and ARM.
+#endif
+#ifdef AARCH64
+#    include "../../unix/module_private.h"
+#    include "mangle.h"
+#endif
 #include <stddef.h> /* for offsetof */
+
+/* Check that macros defined in asm_offsetsx.h are correct. */
+
 #include "asm_offsets.h"
 
-/* Check that macros defined in asm_offsets.h are correct. */
+#define CHECK(x) _Static_assert(x, "macro in asm_offsetsx.h defined incorrectly");
 
-#define CHECK(x) _Static_assert(x, "macro in asm_offsets.h defined incorrectly")
-
-CHECK(dcontext_t_OFFSET_dstack == offsetof(dcontext_t, dstack));
-CHECK(dcontext_t_OFFSET_is_exiting == offsetof(dcontext_t, is_exiting));
-
-CHECK(icache_op_struct_t_OFFSET_flag == offsetof(icache_op_struct_t, flag));
-CHECK(icache_op_struct_t_OFFSET_lock == offsetof(icache_op_struct_t, lock));
-CHECK(icache_op_struct_t_OFFSET_linesize == offsetof(icache_op_struct_t, linesize));
-CHECK(icache_op_struct_t_OFFSET_begin == offsetof(icache_op_struct_t, begin));
-CHECK(icache_op_struct_t_OFFSET_end == offsetof(icache_op_struct_t, end));
-CHECK(icache_op_struct_t_OFFSET_spill == offsetof(icache_op_struct_t, spill));
-
-CHECK(priv_mcontext_t_OFFSET_simd == offsetof(priv_mcontext_t, simd));
-CHECK(priv_mcontext_t_SIZE == sizeof(priv_mcontext_t));
-
-CHECK(spill_state_t_OFFSET_r0 == offsetof(spill_state_t, r0));
-CHECK(spill_state_t_OFFSET_r1 == offsetof(spill_state_t, r1));
-CHECK(spill_state_t_OFFSET_r2 == offsetof(spill_state_t, r2));
-CHECK(spill_state_t_OFFSET_r3 == offsetof(spill_state_t, r3));
-CHECK(spill_state_t_OFFSET_r4 == offsetof(spill_state_t, r4));
-CHECK(spill_state_t_OFFSET_r5 == offsetof(spill_state_t, r5));
-CHECK(spill_state_t_OFFSET_fcache_return == offsetof(spill_state_t, fcache_return));
-
-CHECK(struct_tlsdesc_t_OFFSET_arg == offsetof(struct tlsdesc_t, arg));
+#define OFFSET(struct, field, offset) CHECK(offsetof(struct, field) == offset)
+#define SIZE(struct, size) CHECK(sizeof(struct) == size)
+#include "asm_offsetsx.h"
