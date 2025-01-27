@@ -351,25 +351,6 @@ endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
 _DR_check_if_linker_is_gnu_gold(LINKER_IS_GNU_GOLD)
 _DR_check_if_linker_is_llvm_lld(LINKER_IS_LLVM_LLD)
 
-# helper function
-function (_DR_get_lang target lang_var)
-  # Note that HAS_CXX and LINKER_LANGUAGE are only defined it
-  # explicitly set: can't be used to distinguish CXX vs C.
-  get_target_property(sources ${target} SOURCES)
-  foreach (src ${sources})
-    # LANGUAGE, however, is set for us
-    get_source_file_property(src_lang ${src} LANGUAGE)
-    if (NOT DEFINED tgt_lang)
-      set(tgt_lang ${src_lang})
-    elseif (${src_lang} MATCHES CXX)
-      # If any source file is cxx, mark as cxx
-      set(tgt_lang ${src_lang})
-    endif (NOT DEFINED tgt_lang)
-  endforeach (src)
-
-  set(${lang_var} ${tgt_lang} PARENT_SCOPE)
-endfunction (_DR_get_lang)
-
 
 # helper function
 function (_DR_get_size is_cxx x64_var)

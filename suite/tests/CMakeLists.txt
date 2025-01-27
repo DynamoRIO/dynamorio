@@ -1296,16 +1296,33 @@ function(runtest_cmd outcmd outops key native standalone_dr dr_ops_aux separate_
     math(EXPR timeout "${timeout}*4")
   endif ()
 
+  if (ANDROID AND DR_COPY_TO_DEVICE)
+    # Find the device path to the test bin dir so we can add it to LD_LIBRARY_PATH below.
+    # On Android the C++ STL runtime library is not a system library so we have to copy it
+    # to the device ourselves and point LD_LIBRARY_PATH at it so the test can find it.
+    file(RELATIVE_PATH relpath ${PROJECT_BINARY_DIR} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+    get_filename_component(builddir ${PROJECT_BINARY_DIR} NAME)
+    set(libc++_shared_dir "${DR_DEVICE_BASEDIR}/${builddir}/${relpath}")
+  endif ()
+
   if (WIN32 OR NOT native)
     # Both Windows and non-native Unix tests now use the native drrun frontend.
     # Since the creation of CTestTestfile.cmake ends up replacing \ with / we
     # can't escape quotes, so we have to use a list variable
+    if (ANDROID)
+      # Make sure C++ executables can find libc++_shared.so.
+      get_target_path_for_execution(runstats_path runstats "${location_suffix}")
+      set(cmd ${runstats_path} -silent
+              -env LD_LIBRARY_PATH "${libc++_shared_dir}:$ENV{${libvar}}")
+    else ()
+      set(cmd "")
+    endif ()
     if (standalone_dr OR NOT native)
       get_target_path_for_execution(drrun_path drrun "${location_suffix}")
     endif (standalone_dr OR NOT native)
     # CMake 3.x seems to put double slashes in there (xref i#1559)
     string(REGEX REPLACE "//" "/" drrun_path "${drrun_path}")
-    set(cmd "${drrun_path}" -s ${timeout} -quiet)
+    set(cmd ${cmd} "${drrun_path}" -s ${timeout} -quiet)
     prefix_cmd_if_necessary(cmd OFF ${cmd})
     if (DEBUG)
       set(cmd ${cmd} -debug)
@@ -1347,8 +1364,12 @@ function(runtest_cmd outcmd outops key native standalone_dr dr_ops_aux separate_
     else ()
       set(libvar "LD_LIBRARY_PATH")
     endif ()
-    set(cmd ${cmd} -env ${libvar}
-      "${MAIN_LIBRARY_OUTPUT_DIRECTORY}:${EXT_LIBRARY_OUTPUT_DIRECTORY}:$ENV{${libvar}}")
+    set(library_path
+        "${MAIN_LIBRARY_OUTPUT_DIRECTORY}:${EXT_LIBRARY_OUTPUT_DIRECTORY}:$ENV{${libvar}}")
+    if (ANDROID AND DR_COPY_TO_DEVICE)
+        set(library_path "${libc++_shared_dir}:${library_path}")
+    endif ()
+    set(cmd ${cmd} -env ${libvar} "${library_path}")
     # add dr_ops last to avoid needing extra \ on ;
     string(REPLACE ";" " " dr_ops_string "${dr_ops}")
     set(${outcmd} ${cmd} -env DYNAMORIO_OPTIONS "${dr_ops_string}" PARENT_SCOPE)

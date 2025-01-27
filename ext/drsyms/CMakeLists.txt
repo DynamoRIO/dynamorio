@@ -366,6 +366,9 @@ if (WIN32)
     PERMISSIONS ${owner_access} OWNER_EXECUTE GROUP_READ GROUP_EXECUTE
     WORLD_READ WORLD_EXECUTE)
 endif (WIN32)
+if (ANDROID)
+  DR_install(FILES "${libc++_shared}" DESTINATION ${INSTALL_EXT_LIB})
+endif ()
 
 add_executable(drsyms_bench drsyms_bench.c)
 configure_DynamoRIO_standalone(drsyms_bench)

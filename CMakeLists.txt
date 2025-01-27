@@ -1833,6 +1833,7 @@ if (UNIX)
     set(libmath m)
     set(libdl dl)
     set(libpthread "")
+    find_library(libc++_shared "c++_shared" REQUIRED)
   else ()
     # i#720: cmake fails to find 32-bit libraries in Ubuntu 11.10.
     # This is because cmake uses CMAKE_LIBRARY_ARCHITECTURE to handle
