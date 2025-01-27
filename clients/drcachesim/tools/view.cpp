@@ -86,7 +86,7 @@ view_t::view_t(const std::string &module_file_path, uint64_t skip_refs, uint64_t
     , knob_alt_module_dir_(alt_module_dir)
     , num_disasm_instrs_(0)
     , prev_tid_(-1)
-    , filetype_(-1)
+    , filetype_(OFFLINE_FILE_TYPE_DEFAULT)
     , timestamp_(0)
 {
 }
@@ -160,7 +160,6 @@ view_t::process_memref(const memref_t &memref)
 bool
 view_t::init_decode_cache()
 {
-    assert(filetype_ != -1);
     assert(decode_cache_ == nullptr);
     decode_cache_ =
         std::unique_ptr<decode_cache_t<disasm_info_t>>(new decode_cache_t<disasm_info_t>(
@@ -182,13 +181,21 @@ view_t::init_decode_cache()
 }
 
 bool
-view_t::set_disassemble_syntax()
+view_t::init_from_filetype()
 {
-    assert(filetype_ != -1);
-    /* We remove OFFLINE_FILE_TYPE_ARCH_REGDEPS from this check since
-     * DR_ISA_REGDEPS is not a real ISA and can coexist with any real
-     * architecture.
-     */
+    if (init_from_filetype_done_) {
+        return true;
+    }
+    if (filetype_ == OFFLINE_FILE_TYPE_DEFAULT) {
+        filetype_ = static_cast<offline_file_type_t>(serial_stream_->get_filetype());
+    }
+    assert(filetype_ != OFFLINE_FILE_TYPE_DEFAULT);
+    if (!init_decode_cache()) {
+        return false;
+    }
+    // We remove OFFLINE_FILE_TYPE_ARCH_REGDEPS from this check since
+    // DR_ISA_REGDEPS is not a real ISA and can coexist with any real
+    // architecture.
     if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL & ~OFFLINE_FILE_TYPE_ARCH_REGDEPS,
                 filetype_) &&
         !TESTANY(build_target_arch_type(), filetype_)) {
@@ -198,6 +205,8 @@ view_t::set_disassemble_syntax()
         return false;
     }
 
+    // isa_mode is already set by the decode_cache_t. We only need to set
+    // the disassemble syntax here.
     dr_disasm_flags_t flags = IF_X86_ELSE(
         DR_DISASM_ATT,
         IF_AARCH64_ELSE(DR_DISASM_DR, IF_RISCV64_ELSE(DR_DISASM_RISCV, DR_DISASM_ARM)));
@@ -216,6 +225,7 @@ view_t::set_disassemble_syntax()
         flags = DR_DISASM_RISCV;
     }
     disassemble_set_syntax(flags);
+    init_from_filetype_done_ = true;
     return true;
 }
 
@@ -238,14 +248,13 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             return true; // Do not count toward -sim_refs yet b/c we don't have tid.
         case TRACE_MARKER_TYPE_FILETYPE:
             // We delay printing until we know the tid.
-            if (filetype_ == -1) {
-                filetype_ = static_cast<intptr_t>(memref.marker.marker_value);
-                // isa_mode is already set by the decode_cache_t. We only need to set
-                // the disassemble syntax here.
-                if (!init_decode_cache() || !set_disassemble_syntax()) {
+            if (filetype_ == OFFLINE_FILE_TYPE_DEFAULT) {
+                filetype_ = static_cast<offline_file_type_t>(memref.marker.marker_value);
+                if (!init_from_filetype()) {
                     return false;
                 }
-            } else if (filetype_ != static_cast<intptr_t>(memref.marker.marker_value)) {
+            } else if (filetype_ !=
+                       static_cast<offline_file_type_t>(memref.marker.marker_value)) {
                 error_string_ = std::string("Filetype mismatch across files");
                 return false;
             }
@@ -277,7 +286,7 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
                 std::cerr << "<marker: version " << trace_version_ << ">\n";
             }
         }
-        if (filetype_ != -1) { // Handle old/malformed versions.
+        if (filetype_ != OFFLINE_FILE_TYPE_DEFAULT) { // Handle old/malformed versions.
             if (!should_skip(memstream, memref)) {
                 print_prefix(memstream, memref, filetype_record_ord_);
                 std::cerr << "<marker: filetype 0x" << std::hex << filetype_ << std::dec
@@ -554,6 +563,12 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         return true;
     }
 
+    // In some configurations (e.g., when using -skip_instrs), we may not see the
+    // TRACE_MARKER_TYPE_FILETYPE marker at all, so we get it from the
+    // memtrace_stream_t when we get to the instrs.
+    if (!init_from_filetype()) {
+        return false;
+    }
     std::cerr << std::left << std::setw(name_width) << "ifetch" << std::right
               << std::setw(2) << memref.instr.size << " byte(s) @ 0x" << std::hex
               << std::setfill('0') << std::setw(sizeof(void *) * 2) << memref.instr.addr

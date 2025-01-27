@@ -116,7 +116,7 @@ protected:
     init_decode_cache();
 
     bool
-    set_disassemble_syntax();
+    init_from_filetype();
 
     inline void
     print_header()
@@ -164,13 +164,14 @@ protected:
     uint64_t num_disasm_instrs_;
     memref_tid_t prev_tid_;
     uint64_t prev_record_ = 0;
-    intptr_t filetype_;
+    offline_file_type_t filetype_;
     std::unordered_set<memref_tid_t> printed_header_;
     std::unordered_map<memref_tid_t, uintptr_t> last_window_;
     uintptr_t timestamp_;
     int64_t timestamp_record_ord_ = -1;
     int64_t version_record_ord_ = -1;
     int64_t filetype_record_ord_ = -1;
+    bool init_from_filetype_done_ = false;
     std::unique_ptr<decode_cache_t<disasm_info_t>> decode_cache_ = nullptr;
     memtrace_stream_t *serial_stream_ = nullptr;
 
