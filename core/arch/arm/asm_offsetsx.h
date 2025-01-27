@@ -33,6 +33,11 @@
 /* This file is included in two places:
  * - by asm_offsets.c, which checks at compile time that values are correct;
  * - by asm_offsets.h, which defines the values for use in .asm files.
+ *
+ * XXX: The repetition of each offset/size value in this file is not ideal
+ * but the alternatives seem worse:
+ * - generate the header file with a C program at build time;
+ * - require a developer to update two files when adding a value.
  */
 
 #if !defined(OFFSET) || !defined(SIZE)

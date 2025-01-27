@@ -30,6 +30,8 @@
  * DAMAGE.
  */
 
+/* Check that macros defined in asm_offsetsx.h are correct. */
+
 #include "../globals.h"
 #ifndef AARCHXX
 #    error This is only implemented for AArch64 and ARM.
@@ -39,8 +41,6 @@
 #    include "mangle.h"
 #endif
 #include <stddef.h> /* for offsetof */
-
-/* Check that macros defined in asm_offsetsx.h are correct. */
 
 #include "asm_offsets.h"
 
