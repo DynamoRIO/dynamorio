@@ -79,12 +79,16 @@ typedef struct ALIGN_VAR(16) _icache_op_struct_t {
      * consecutive icache lines (which could wrap around the top of memory).
      */
     void *begin, *end;
+    /* Cache the ctr_el0 value at init time. */
+    ptr_uint_t cached_ctr_el0;
     /* Some space to spill registers. */
     ptr_uint_t spill[2];
 } icache_op_struct_t;
 
 /* Used in aarch64.asm. */
 icache_op_struct_t icache_op_struct;
+
+#    define CTR_DIC_SHIFT 29
 #endif
 
 void
@@ -93,6 +97,15 @@ mangle_arch_init(void)
 #ifdef AARCH64
     /* Check address of "lock" is unaligned. See comment in icache_op_struct_t. */
     ASSERT(!ALIGNED(&icache_op_struct.lock, 16));
+#    ifdef DR_HOST_NOT_TARGET
+    icache_op_struct.cached_ctr_el0 = 0;
+#    else
+    /* Cache the ctr_el0 value. */
+    ptr_uint_t cache_info;
+    asm volatile("mrs\t%0, ctr_el0" : "=r"(cache_info));
+    LOG(GLOBAL, LOG_INTERP, 2, "cpu cache info: %x\n", cache_info);
+    icache_op_struct.cached_ctr_el0 = cache_info;
+#    endif
 #endif
 }
 
@@ -3110,6 +3123,58 @@ mangle_icache_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         PRE(ilist, instr, /* ldr x0, [x28] */
             instr_create_restore_from_tls(dcontext, DR_REG_X0, TLS_REG0_SLOT));
         /* Leave original instruction. */
+    } else if (opc == OP_mrs) {
+        DEBUG_DECLARE(reg_id_t src_reg = opnd_get_reg(instr_get_src(instr, 0)));
+        ASSERT(src_reg == DR_REG_CTR_EL0);
+        ptr_uint_t mangle_ctr_el0 = icache_op_struct.cached_ctr_el0;
+        switch (INTERNAL_OPTION(unsafe_fake_el0_dic)) {
+        case 0:
+            /* Force set as zero. */
+            mangle_ctr_el0 &= ~(0x1l << CTR_DIC_SHIFT);
+            break;
+        case 1:
+            /* Force set as one. */
+            mangle_ctr_el0 |= 0x1l << CTR_DIC_SHIFT;
+            break;
+        default: break;
+        }
+        if (mangle_ctr_el0 != icache_op_struct.cached_ctr_el0) {
+            LOG(THREAD, LOG_INTERP, 2, "mangle ctr_el0 as " PIFX " -> " PIFX "\n",
+                icache_op_struct.cached_ctr_el0, mangle_ctr_el0);
+            reg_id_t reg = opnd_get_reg(instr_get_dst(instr, 0));
+            if (reg != dr_reg_stolen) {
+#    ifdef DR_HOST_NOT_TARGET
+                /* We built all our asm code for the host, but here we need it for the
+                 * target. We have to ifdef it out to separate.  Xref i#1684.
+                 */
+                ASSERT_NOT_REACHED();
+#    else
+                insert_mov_immed_arch(dcontext, NULL, NULL, mangle_ctr_el0,
+                                      opnd_create_reg(reg), ilist, instr, NULL, NULL);
+#    endif
+            } else {
+                PRE(ilist, instr,
+                    instr_create_save_to_tls(dcontext, DR_REG_X0, TLS_REG0_SLOT));
+#    ifdef DR_HOST_NOT_TARGET
+                /* We built all our asm code for the host, but here we need it for the
+                 * target. We have to ifdef it out to separate.  Xref i#1684.
+                 */
+                ASSERT_NOT_REACHED();
+#    else
+                insert_mov_immed_arch(dcontext, NULL, NULL, mangle_ctr_el0,
+                                      opnd_create_reg(DR_REG_X0), ilist, instr, NULL,
+                                      NULL);
+#    endif
+                PRE(ilist, instr,
+                    instr_create_save_to_tls(dcontext, DR_REG_X0, TLS_REG_STOLEN_SLOT));
+                PRE(ilist, instr,
+                    instr_create_restore_from_tls(dcontext, DR_REG_X0, TLS_REG0_SLOT));
+            }
+            /* Remove the original instr. */
+            instrlist_remove(ilist, instr);
+            instr_destroy(dcontext, instr);
+            return NULL;
+        }
     } else
         ASSERT_NOT_REACHED();
     return next_instr;
