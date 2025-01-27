@@ -266,12 +266,6 @@ if (UNIX)
   # XXX: this is duplicated in DynamoRIOConfig.cmake
 
   function (set_preferred_base_start_and_end target base set_bounds)
-    if (ANDROID32)
-      # i#1863: 32-bit Android's loader doesn't support a non-zero base.
-      # Turning off SET_PREFERRED_BASE is not sufficient as we get
-      # a 0x10000 base.
-      set(base 0)
-    endif ()
     if (APPLE)
       set(ldflags "-image_base ${base}")
     elseif (NOT LINKER_IS_GNU_GOLD AND NOT LINKER_IS_LLVM_LLD)
@@ -298,9 +292,13 @@ if (UNIX)
     else ()
       set(ldflags "")
       if (SET_PREFERRED_BASE)
-        # FIXME: This should be -Ttext-segment for bfd, but most golds want -Ttext.
-        # See http://sourceware.org/ml/binutils/2013-02/msg00194.html
-        set(ldflags "-Wl,-Ttext=${base}")
+        if (LINKER_IS_LLVM_LLD)
+          set(ldflags "-Wl,--image-base=${base}")
+        else ()
+          # FIXME: This should be -Ttext-segment for bfd, but most golds want -Ttext.
+          # See http://sourceware.org/ml/binutils/2013-02/msg00194.html
+          set(ldflags "-Wl,-Ttext=${base}")
+        endif ()
       endif ()
       if (set_bounds)
         # Add our start and end symbols for library bounds.
