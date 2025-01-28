@@ -287,9 +287,9 @@ module_mapper_t::read_and_map_modules()
             modvec_.push_back(module_t(info.path, info.start, NULL, 0, 0, 0));
         } else if (info.containing_index != info.index) {
             // For split segments, we assume our mapped layout matches the original.
-            byte *seg_map_base =
-                (byte *)((ptr_uint_t)modvec_[info.containing_index].map_seg_base +
-                         (info.start - modvec_[info.containing_index].orig_seg_base));
+            byte *seg_map_base = modvec_[info.containing_index].map_seg_base -
+                                 modvec_[info.containing_index].orig_seg_base +
+                                 info.start;
             VPRINT(1, "Secondary segment: module %d seg %p-%p = %s\n",
                    (int)modvec_.size(), seg_map_base, seg_map_base + info.size,
                    info.path);

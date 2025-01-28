@@ -465,11 +465,11 @@ module_read_entry_print(module_read_entry_t *entry, uint idx, char *buf, size_t 
 {
     int len, total_len = 0;
     len = dr_snprintf(buf, size,
-                      "%3u, %3u, " PFX ", " PFX ", " PFX ", " ZHEX64_FORMAT_STRING
-                      ", " PFX ", ",
+                      "%3u, %3u, " PFX ", " PFX ", " PFX
+                      ", " ZHEX64_FORMAT_STRING ", " PFX ", ",
                       idx, entry->containing_id, entry->base,
-                      (app_pc)((ptr_uint_t)entry->base + entry->size), entry->entry,
-                      entry->offset, entry->preferred_base);
+                      (app_pc)((ptr_uint_t)entry->base + entry->size),
+                      entry->entry, entry->offset, entry->preferred_base);
     if (len == -1)
         return -1;
     buf += len;

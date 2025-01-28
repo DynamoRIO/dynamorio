@@ -198,7 +198,7 @@ module_vaddr_from_prog_header(app_pc prog_header, uint num_segments,
             min_vaddr =
                 MIN(min_vaddr, (app_pc)ALIGN_BACKWARD(prog_hdr->p_vaddr, PAGE_SIZE));
             if (min_vaddr == (app_pc)prog_hdr->p_vaddr)
-                first_end = (app_pc)((ptr_uint_t)prog_hdr->p_vaddr + prog_hdr->p_memsz);
+                first_end = (app_pc)(prog_hdr->p_vaddr + prog_hdr->p_memsz);
             max_end = MAX(
                 max_end,
                 (app_pc)ALIGN_FORWARD(prog_hdr->p_vaddr + prog_hdr->p_memsz, PAGE_SIZE));
@@ -456,8 +456,7 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
              * (notably some kernels) seem to ignore it.  These corner cases are left
              * as unsolved for now.
              */
-            seg_base = (app_pc)((ptr_uint_t)ALIGN_BACKWARD(prog_hdr->p_vaddr, PAGE_SIZE) +
-                                delta);
+            seg_base = (app_pc)(ALIGN_BACKWARD(prog_hdr->p_vaddr, PAGE_SIZE) + delta);
             seg_end =
                 (app_pc)ALIGN_FORWARD(prog_hdr->p_vaddr + prog_hdr->p_filesz, PAGE_SIZE) +
                 delta;
@@ -523,8 +522,7 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
                     }
                     ASSERT(map != NULL);
                     /* fill zeros at extend size */
-                    file_end =
-                        (app_pc)((ptr_uint_t)prog_hdr->p_vaddr + prog_hdr->p_filesz);
+                    file_end = (app_pc)(prog_hdr->p_vaddr + prog_hdr->p_filesz);
                     if (seg_end > file_end + delta) {
                         /* There is typically one RW PT_LOAD segment for .data and
                          * .bss.  If .data ends and .bss starts before filesz bytes,
