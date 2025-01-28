@@ -82,6 +82,22 @@ private:
     instrlist_t *instrs_;
 };
 
+class test_stream_t : public default_memtrace_stream_t {
+public:
+    test_stream_t(uint64_t filetype)
+        : filetype_(filetype)
+    {
+    }
+    uint64_t
+    get_filetype() const override
+    {
+        return filetype_;
+    }
+
+private:
+    uint64_t filetype_;
+};
+
 std::string
 check_opcode_mix(void *drcontext, bool use_module_mapper)
 {
@@ -92,10 +108,10 @@ check_opcode_mix(void *drcontext, bool use_module_mapper)
     instrlist_t *ilist = instrlist_create(drcontext);
     instrlist_append(ilist, nop);
     instrlist_append(ilist, ret);
+    uint64_t filetype = OFFLINE_FILE_TYPE_SYSCALL_NUMBERS |
+        (use_module_mapper ? 0 : OFFLINE_FILE_TYPE_ENCODINGS);
     std::vector<memref_with_IR_t> memref_setup = {
-        { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE,
-                     OFFLINE_FILE_TYPE_SYSCALL_NUMBERS |
-                         (use_module_mapper ? 0 : OFFLINE_FILE_TYPE_ENCODINGS)),
+        { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, static_cast<uintptr_t>(filetype)),
           nullptr },
         { gen_instr(TID_A), nop },
         { gen_instr(TID_A), ret },
@@ -116,9 +132,10 @@ check_opcode_mix(void *drcontext, bool use_module_mapper)
         // Set up the second nop memref to reuse the same encoding as the first nop.
         memrefs[3].instr.encoding_is_new = false;
     }
+    test_stream_t stream(filetype);
     test_opcode_mix_t opcode_mix(ilist_for_test);
-    opcode_mix.initialize();
-    void *shard_data = opcode_mix.parallel_shard_init_stream(0, nullptr, nullptr);
+    opcode_mix.initialize_stream(/*serial_stream=*/nullptr);
+    void *shard_data = opcode_mix.parallel_shard_init_stream(0, nullptr, &stream);
     for (const memref_t &memref : memrefs) {
         if (!opcode_mix.parallel_shard_memref(shard_data, memref)) {
             return opcode_mix.parallel_shard_error(shard_data);
