@@ -602,8 +602,10 @@ droption_t<bytesize_t> op_skip_instrs(
     "an alternative which does align all threads).  When built with zipfile "
     "support, this skipping is optimized and large instruction counts can be quickly "
     "skipped; this is not the case for -skip_refs.  This will skip over top-level "
-    "metadata records (such as #TRACE_MARKER_TYPE_VERSION, #TRACE_MARKER_TYPE_FILETYPE, "
-    "#TRACE_MARKER_TYPE_PAGE_SIZE, and #TRACE_MARKER_TYPE_CACHE_LINE_SIZE) and so those "
+    "metadata records (such as #dynamorio::drmemtrace::TRACE_MARKER_TYPE_VERSION, "
+    "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_FILETYPE, "
+    "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_PAGE_SIZE, and "
+    "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_CACHE_LINE_SIZE) and so those "
     "records will not appear to analysis tools; however, their contents can be obtained "
     "from #dynamorio::drmemtrace::memtrace_stream_t API accessors.");
 
@@ -626,8 +628,10 @@ droption_t<uint64_t> op_skip_to_timestamp(
     "is required to translate the timestamp into per-thread instruction ordinals."
     "When built with zipfile support, this skipping is optimized and large "
     "instruction counts can be quickly skipped.  This will skip over top-level "
-    "metadata records (such as #TRACE_MARKER_TYPE_VERSION, #TRACE_MARKER_TYPE_FILETYPE, "
-    "#TRACE_MARKER_TYPE_PAGE_SIZE, and #TRACE_MARKER_TYPE_CACHE_LINE_SIZE) and so those "
+    "metadata records (such as #dynamorio::drmemtrace::TRACE_MARKER_TYPE_VERSION, "
+    "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_FILETYPE, "
+    "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_PAGE_SIZE, and "
+    "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_CACHE_LINE_SIZE) and so those "
     "records will not appear to analysis tools; however, their contants can be obtained "
     "from #dynamorio::drmemtrace::memtrace_stream_t API accessors.");
 
