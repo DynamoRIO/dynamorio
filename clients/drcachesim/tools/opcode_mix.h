@@ -149,9 +149,6 @@ protected:
         std::unordered_map<int, int64_t> opcode_counts;
         std::unordered_map<uint, int64_t> category_counts;
         std::string error;
-        app_pc last_trace_module_start = nullptr;
-        size_t last_trace_module_size = 0;
-        app_pc last_mapped_module_start = nullptr;
         dynamorio::drmemtrace::memtrace_stream_t *stream = nullptr;
         std::unique_ptr<decode_cache_t<opcode_data_t>> decode_cache;
         offline_file_type_t filetype = OFFLINE_FILE_TYPE_DEFAULT;

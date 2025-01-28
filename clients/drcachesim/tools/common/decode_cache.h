@@ -430,10 +430,9 @@ public:
      *   init time (in the #dynamorio::drmemtrace::analysis_tool_t::initialize()
      *   or #dynamorio::drmemtrace::analysis_tool_t::initialize_stream()
      *   functions) only for offline analysis, not for online analysis.
-     * - when some scheduler region of interest is specified, e.g. using the
-     *   -skip_instrs analyzer option, it would skip all initial header entries.
-     *   Therefore, the analysis tool may not see a #TRACE_MARKER_TYPE_FILETYPE
-     *   at all.
+     * - when using the -skip_instrs or -skip_timestamp analyzer options, all
+     *   initial header entries are skipped over. Therefore, the analysis tool
+     *   may not see a #TRACE_MARKER_TYPE_FILETYPE at all.
      *
      * The most reliable way to obtain the filetype (and call this init() API),
      * would be to use #dynamorio::drmemtrace::memtrace_stream_t::get_filetype()
