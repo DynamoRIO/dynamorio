@@ -37,6 +37,9 @@
 #include "instrument.h" /* instrlist_meta_preinsert */
 #include "../clean_call_opt.h"
 #include "disassemble.h"
+#ifdef AARCH64
+#    include "../aarch64/mangle_aarch64.h"
+#endif
 
 /* Make code more readable by shortening long lines.
  * We mark everything we add as non-app instr.
@@ -55,34 +58,6 @@ pick_scratch_reg(dcontext_t *dcontext, instr_t *instr, reg_id_t do_not_pick_a,
  */
 
 #ifdef AARCH64
-/* Defined in aarch64.asm. */
-void
-icache_op_ic_ivau_asm(void);
-void
-icache_op_isb_asm(void);
-
-typedef struct ALIGN_VAR(16) _icache_op_struct_t {
-    /* This flag is set if any icache lines have been invalidated. */
-    unsigned int flag;
-    /* The lower half of the address of "lock" must be non-zero as we want to
-     * acquire the lock using only two free registers and STXR Ws, Wt, [Xn]
-     * requires s != t and s != n, so we use t == n. With this ordering of the
-     * members alignment guarantees that bit 2 of the address of "lock" is set.
-     */
-    unsigned int lock;
-    /* The icache line size. This is discovered using the system register
-     * ctr_el0 and will be (1 << (2 + n)) with 0 <= n < 16.
-     */
-    size_t linesize;
-    /* If these are equal then no icache lines have been invalidated. Otherwise
-     * they are both aligned to the icache line size and describe a set of
-     * consecutive icache lines (which could wrap around the top of memory).
-     */
-    void *begin, *end;
-    /* Some space to spill registers. */
-    ptr_uint_t spill[2];
-} icache_op_struct_t;
-
 /* Used in aarch64.asm. */
 icache_op_struct_t icache_op_struct;
 #endif

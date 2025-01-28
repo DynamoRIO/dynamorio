@@ -36,6 +36,13 @@
 
 #include "configure.h"
 
+#ifndef ANDROID
+struct tlsdesc_t {
+    ptr_int_t (*entry)(struct tlsdesc_t *);
+    void *arg;
+};
+#endif
+
 struct _os_privmod_data_t;
 typedef struct _os_privmod_data_t os_privmod_data_t;
 

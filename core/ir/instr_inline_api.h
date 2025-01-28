@@ -265,7 +265,7 @@ opnd_t
 opnd_create_reg(reg_id_t r)
 {
     opnd_t opnd DR_IF_DEBUG(= { 0 }); /* FIXME: Needed until i#417 is fixed. */
-    CLIENT_ASSERT(r <= DR_REG_LAST_ENUM && r != DR_REG_INVALID,
+    CLIENT_ASSERT(r < DR_REG_AFTER_LAST_VALID_ENUM && r != DR_REG_INVALID,
                   "opnd_create_reg: invalid register");
     opnd.kind = REG_kind;
     opnd.value.reg_and_element_size.reg = r;
@@ -299,7 +299,7 @@ opnd_create_reg_element_vector(reg_id_t r, opnd_size_t element_size)
 {
     opnd_t opnd DR_IF_DEBUG(= { 0 }); /* FIXME: Needed until i#417 is fixed. */
     CLIENT_ASSERT(element_size != OPSZ_NA &&
-                      (r <= DR_REG_LAST_ENUM && r != DR_REG_INVALID),
+                      (r < DR_REG_AFTER_LAST_VALID_ENUM && r != DR_REG_INVALID),
                   "opnd_create_reg_element_vector: invalid register or no size");
     opnd.kind = REG_kind;
     opnd.size = 0; /* indicates full size of reg */

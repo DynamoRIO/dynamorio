@@ -48,6 +48,8 @@
 # Visual Studio 2017 requires 3.7.
 cmake_minimum_required(VERSION 3.7)
 
+message(STATUS "CMake version ${CMAKE_VERSION}")
+
 include(make/policies.cmake NO_POLICY_SCOPE)
 
 # for non-makefile-based generators (i.e., Visual Studio) there is no
@@ -447,10 +449,6 @@ if (WIN32 AND DEBUG)
 elseif (APPLE AND X64)
   # Set to higher than _PAGEZERO which is [0..0x1'00000000).
   set(preferred_base "0x171000000" CACHE STRING "Preferred library base address")
-elseif (ANDROID64)
-  # 64-bit Android needs a base of 0x1000 so that libdynamorio.so
-  # does not get overwritten by the vDSO.
-  set(preferred_base "0x1000" CACHE STRING "Preferred library base address")
 else ()
   set(preferred_base "0x71000000" CACHE STRING "Preferred library base address")
 endif ()
