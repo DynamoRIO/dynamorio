@@ -164,7 +164,7 @@ protected:
     uint64_t num_disasm_instrs_;
     memref_tid_t prev_tid_;
     uint64_t prev_record_ = 0;
-    offline_file_type_t filetype_;
+    int filetype_;
     std::unordered_set<memref_tid_t> printed_header_;
     std::unordered_map<memref_tid_t, uintptr_t> last_window_;
     uintptr_t timestamp_;

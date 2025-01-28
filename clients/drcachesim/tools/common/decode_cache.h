@@ -64,6 +64,8 @@ class decode_cache_base_t;
  * info they need.
  */
 class decode_info_base_t {
+    // We need decode_cache_base_t to be able to set the error_string_ with details
+    // if there is a decoding error for an instruction.
     friend class decode_cache_base_t;
 
 public:
@@ -102,7 +104,7 @@ public:
 
     /**
      * Returns the details of the error encountered when decoding the instruction or
-     * during the custom logic in set_decode_info_derived.
+     * during the custom logic in set_decode_info_derived().
      */
     std::string
     get_error_string() const;
@@ -232,7 +234,7 @@ protected:
      *
      * Note that #dynamorio::drmemtrace::decode_cache_base_t is marked as a
      * friend of #dynamorio::drmemtrace::decode_info_base_t. However,
-     * since friend associations are not inherited, this function allows
+     * since friend associations are not inherited, this function is to allow
      * derived classes of #dynamorio::drmemtrace::decode_cache_base_t to
      * set the error.
      */
@@ -475,6 +477,11 @@ public:
      *
      * If the provided \p module_file_path is empty, the cache object uses
      * the encodings embedded in the trace records.
+     *
+     * This also sets the isa_mode in dcontext based on the arch bits in the
+     * provided \p filetype, unless the instance was not asked to include
+     * decoded instructions via the \p include_decoded_instr_ param to the
+     * constructor.
      */
     virtual std::string
     init(offline_file_type_t filetype, const std::string &module_file_path = "",
@@ -483,17 +490,22 @@ public:
         if (init_done_) {
             return "init already done";
         }
-        // If we are dealing with a regdeps trace, we need to set the dcontext
-        // ISA mode to the correct synthetic ISA (i.e., DR_ISA_REGDEPS).
-        if (TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, filetype)) {
-            // Because the dcontext used in analysis tools is a shared global resource,
-            // we guard its access to avoid data races. Though note that writing to the
-            // isa_mode is a benign data race, as all threads are writing the same
-            // isa_mode value.
-            std::lock_guard<std::mutex> guard(dcontext_mutex_);
-            dr_isa_mode_t isa_mode = dr_get_isa_mode(dcontext_);
-            if (isa_mode != DR_ISA_REGDEPS)
-                dr_set_isa_mode(dcontext_, DR_ISA_REGDEPS, nullptr);
+        if (include_decoded_instr_) {
+            // We do not make any changes to decoding related state in dcontext if we
+            // are not asked to decode.
+            //
+            // If we are dealing with a regdeps trace, we need to set the dcontext
+            // ISA mode to the correct synthetic ISA (i.e., DR_ISA_REGDEPS).
+            if (TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, filetype)) {
+                // Because the dcontext used in analysis tools is a shared global
+                // resource, we guard its access to avoid data races. Though note that
+                // writing to the isa_mode is a benign data race, as all threads are
+                // writing the same isa_mode value.
+                std::lock_guard<std::mutex> guard(dcontext_mutex_);
+                dr_isa_mode_t isa_mode = dr_get_isa_mode(dcontext_);
+                if (isa_mode != DR_ISA_REGDEPS)
+                    dr_set_isa_mode(dcontext_, DR_ISA_REGDEPS, nullptr);
+            }
         }
 
         if (!TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, filetype) && module_file_path.empty()) {

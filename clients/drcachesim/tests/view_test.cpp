@@ -67,10 +67,6 @@ namespace drmemtrace {
         }                             \
     } while (0)
 
-// Since OFFLINE_FILE_TYPE_DEFAULT never actually occurs is a real trace,
-// we want a different default. The following is a good arch-agnostic one.
-#define FILETYPE_DEFAULT OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS
-
 // These are for our mock serial reader and must be in the same namespace
 // as file_reader_t's declaration.
 template <> file_reader_t<std::vector<trace_entry_t>>::file_reader_t()
@@ -317,7 +313,7 @@ run_limit_tests(void *drcontext)
     const memref_tid_t t1 = 3;
     std::vector<memref_t> memrefs = {
         gen_marker(t1, TRACE_MARKER_TYPE_VERSION, 3),
-        gen_marker(t1, TRACE_MARKER_TYPE_FILETYPE, FILETYPE_DEFAULT),
+        gen_marker(t1, TRACE_MARKER_TYPE_FILETYPE, 0),
         gen_marker(t1, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
         gen_marker(t1, TRACE_MARKER_TYPE_TIMESTAMP, 1001),
         gen_marker(t1, TRACE_MARKER_TYPE_CPU_ID, 2),
@@ -473,7 +469,7 @@ run_single_thread_chunk_test(void *drcontext)
     std::vector<std::vector<trace_entry_t>> entries = { {
         { TRACE_TYPE_HEADER, 0, { 0x1 } },
         { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 3 } },
-        { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE, { FILETYPE_DEFAULT } },
+        { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE, { 0 } },
         { TRACE_TYPE_THREAD, 0, { t1 } },
         { TRACE_TYPE_PID, 0, { t1 } },
         { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 64 } },
@@ -490,7 +486,7 @@ run_single_thread_chunk_test(void *drcontext)
         { TRACE_TYPE_INSTR, 4, { 42 } },
     } };
     const char *expect = R"DELIM(           1           0:           3 <marker: version 3>
-           2           0:           3 <marker: filetype 0x800>
+           2           0:           3 <marker: filetype 0x0>
            3           0:           3 <marker: cache line size 64>
            4           0:           3 <marker: chunk instruction count 2>
            5           0:           3 <marker: timestamp 1002>
@@ -525,7 +521,7 @@ run_serial_chunk_test(void *drcontext)
         {
             { TRACE_TYPE_HEADER, 0, { 0x1 } },
             { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 3 } },
-            { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE, { FILETYPE_DEFAULT } },
+            { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE, { 0 } },
             { TRACE_TYPE_THREAD, 0, { t1 } },
             { TRACE_TYPE_PID, 0, { t1 } },
             { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 64 } },
@@ -541,7 +537,7 @@ run_serial_chunk_test(void *drcontext)
         {
             { TRACE_TYPE_HEADER, 0, { 0x1 } },
             { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 3 } },
-            { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE, { FILETYPE_DEFAULT } },
+            { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE, { 0 } },
             { TRACE_TYPE_THREAD, 0, { t2 } },
             { TRACE_TYPE_PID, 0, { t2 } },
             { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 64 } },
@@ -557,7 +553,7 @@ run_serial_chunk_test(void *drcontext)
     };
     const char *expect =
         R"DELIM(           1           0:           3 <marker: version 3>
-           2           0:           3 <marker: filetype 0x800>
+           2           0:           3 <marker: filetype 0x0>
            3           0:           3 <marker: cache line size 64>
            4           0:           3 <marker: chunk instruction count 20>
            5           0:           3 <marker: timestamp 1001>
@@ -566,7 +562,7 @@ run_serial_chunk_test(void *drcontext)
            8           2:           3 ifetch       4 byte(s) @ 0x0000002a non-branch
 ------------------------------------------------------------
            9           2:           7 <marker: version 3>
-          10           2:           7 <marker: filetype 0x800>
+          10           2:           7 <marker: filetype 0x0>
           11           2:           7 <marker: cache line size 64>
           12           2:           7 <marker: chunk instruction count 2>
           13           2:           7 <marker: timestamp 1002>

@@ -53,6 +53,7 @@ namespace drmemtrace {
 static constexpr addr_t TID_A = 1;
 static constexpr offline_file_type_t ENCODING_FILE_TYPE =
     static_cast<offline_file_type_t>(OFFLINE_FILE_TYPE_ENCODINGS);
+static constexpr char FAKE_ERROR[] = "fake_error";
 
 class test_decode_info_t : public decode_info_base_t {
 public:
@@ -101,7 +102,7 @@ private:
         // always return an error for ubr instrs.
         if (instr_is_ubr(&my_decoded_instr)) {
             instr_free(dcontext, &my_decoded_instr);
-            return "fake_error";
+            return FAKE_ERROR;
         }
 
         is_nop_ = instr_is_nop(&my_decoded_instr);
@@ -279,7 +280,7 @@ check_decode_caching(void *drcontext, bool use_module_mapper, bool include_decod
             decode_cache.get_decode_info(reinterpret_cast<app_pc>(memrefs[4].instr.addr));
         if (decode_info_jump == nullptr || decode_info_jump != cached_decode_info ||
             decode_info_jump->is_valid() ||
-            decode_info_jump->get_error_string() != "fake_error") {
+            decode_info_jump->get_error_string() != FAKE_ERROR) {
             return "Unexpected test_decode_info_t for jump instr";
         }
 
@@ -295,8 +296,8 @@ check_decode_caching(void *drcontext, bool use_module_mapper, bool include_decod
         test_decode_info_t *decode_info_jump_2 =
             decode_cache.get_decode_info(reinterpret_cast<app_pc>(memrefs[4].instr.addr));
         if (decode_info_jump_2 != cached_decode_info ||
-            decode_info_jump_2->get_error_string() != "fake_error") {
-            return "Unexpected decode info instance for second instance of nop";
+            decode_info_jump_2->get_error_string() != FAKE_ERROR) {
+            return "Unexpected decode info instance for second instance of jump";
         }
         // decode_cache_t should not have reattempted decoding by creating a
         // new test_decode_info_t object.

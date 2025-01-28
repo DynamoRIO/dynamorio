@@ -86,7 +86,7 @@ view_t::view_t(const std::string &module_file_path, uint64_t skip_refs, uint64_t
     , knob_alt_module_dir_(alt_module_dir)
     , num_disasm_instrs_(0)
     , prev_tid_(-1)
-    , filetype_(OFFLINE_FILE_TYPE_DEFAULT)
+    , filetype_(-1)
     , timestamp_(0)
 {
 }
@@ -186,10 +186,12 @@ view_t::init_from_filetype()
     if (init_from_filetype_done_) {
         return true;
     }
-    if (filetype_ == OFFLINE_FILE_TYPE_DEFAULT) {
+    // We will not see a TRACE_MARKER_TYPE_FILETYPE if -skip_instrs was used.
+    // In that case, filetype_ will be left uninitialized and we need to
+    // use the one from the stream instead.
+    if (filetype_ == -1) {
         filetype_ = static_cast<offline_file_type_t>(serial_stream_->get_filetype());
     }
-    assert(filetype_ != OFFLINE_FILE_TYPE_DEFAULT);
     if (!init_decode_cache()) {
         return false;
     }
@@ -205,8 +207,17 @@ view_t::init_from_filetype()
         return false;
     }
 
-    // isa_mode is already set by the decode_cache_t. We only need to set
-    // the disassemble syntax here.
+    // Set dcontext ISA mode to DR_ISA_REGDEPS if trace file type has
+    // OFFLINE_FILE_TYPE_ARCH_REGDEPS set. We need this to correctly
+    // disassemble DR_ISA_REGDEPS instructions.
+    if (TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, filetype_)) {
+        dr_set_isa_mode(dcontext_.dcontext, DR_ISA_REGDEPS, nullptr);
+        // Ignore the requested syntax: we only support DR style.
+        // XXX i#6942: Should we return an error if the users asks for
+        // another syntax?  Should DR's libraries return an error?
+        disassemble_set_syntax(DR_DISASM_DR);
+    }
+
     dr_disasm_flags_t flags = IF_X86_ELSE(
         DR_DISASM_ATT,
         IF_AARCH64_ELSE(DR_DISASM_DR, IF_RISCV64_ELSE(DR_DISASM_RISCV, DR_DISASM_ARM)));
@@ -225,6 +236,7 @@ view_t::init_from_filetype()
         flags = DR_DISASM_RISCV;
     }
     disassemble_set_syntax(flags);
+
     init_from_filetype_done_ = true;
     return true;
 }
@@ -248,7 +260,7 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             return true; // Do not count toward -sim_refs yet b/c we don't have tid.
         case TRACE_MARKER_TYPE_FILETYPE:
             // We delay printing until we know the tid.
-            if (filetype_ == OFFLINE_FILE_TYPE_DEFAULT) {
+            if (filetype_ == -1) {
                 filetype_ = static_cast<offline_file_type_t>(memref.marker.marker_value);
                 if (!init_from_filetype()) {
                     return false;
@@ -286,7 +298,7 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
                 std::cerr << "<marker: version " << trace_version_ << ">\n";
             }
         }
-        if (filetype_ != OFFLINE_FILE_TYPE_DEFAULT) { // Handle old/malformed versions.
+        if (filetype_ != -1) { // Handle old/malformed versions.
             if (!should_skip(memstream, memref)) {
                 print_prefix(memstream, memref, filetype_record_ord_);
                 std::cerr << "<marker: filetype 0x" << std::hex << filetype_ << std::dec
