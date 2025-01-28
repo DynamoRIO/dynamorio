@@ -115,6 +115,9 @@ protected:
     virtual bool
     init_decode_cache();
 
+    // Initializes various other state based on the filetype. If the
+    // TRACE_MARKER_TYPE_FILETYPE was not seen, the filetype is acquired from the
+    // memtrace_stream_t object instead.
     bool
     init_from_filetype();
 
@@ -164,7 +167,7 @@ protected:
     uint64_t num_disasm_instrs_;
     memref_tid_t prev_tid_;
     uint64_t prev_record_ = 0;
-    int filetype_;
+    intptr_t filetype_;
     std::unordered_set<memref_tid_t> printed_header_;
     std::unordered_map<memref_tid_t, uintptr_t> last_window_;
     uintptr_t timestamp_;

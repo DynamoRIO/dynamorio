@@ -212,10 +212,6 @@ view_t::init_from_filetype()
     // disassemble DR_ISA_REGDEPS instructions.
     if (TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, filetype_)) {
         dr_set_isa_mode(dcontext_.dcontext, DR_ISA_REGDEPS, nullptr);
-        // Ignore the requested syntax: we only support DR style.
-        // XXX i#6942: Should we return an error if the users asks for
-        // another syntax?  Should DR's libraries return an error?
-        disassemble_set_syntax(DR_DISASM_DR);
     }
 
     dr_disasm_flags_t flags = IF_X86_ELSE(
