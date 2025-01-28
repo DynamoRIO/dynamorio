@@ -62,7 +62,7 @@ public:
                  const std::string &alt_module_dir = "");
     virtual ~opcode_mix_t();
     std::string
-    initialize() override;
+    initialize_stream(dynamorio::drmemtrace::memtrace_stream_t *serial_stream) override;
     bool
     process_memref(const memref_t &memref) override;
     bool
@@ -142,20 +142,14 @@ protected:
 
     struct shard_data_t {
         shard_data_t()
-            : instr_count(0)
-            , last_trace_module_start(nullptr)
-            , last_trace_module_size(0)
-            , last_mapped_module_start(nullptr)
         {
         }
 
-        int64_t instr_count;
+        int64_t instr_count = 0;
         std::unordered_map<int, int64_t> opcode_counts;
         std::unordered_map<uint, int64_t> category_counts;
         std::string error;
-        app_pc last_trace_module_start;
-        size_t last_trace_module_size;
-        app_pc last_mapped_module_start;
+        dynamorio::drmemtrace::memtrace_stream_t *stream = nullptr;
         std::unique_ptr<decode_cache_t<opcode_data_t>> decode_cache;
         offline_file_type_t filetype = OFFLINE_FILE_TYPE_DEFAULT;
     };

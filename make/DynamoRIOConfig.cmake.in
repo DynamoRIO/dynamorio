@@ -998,7 +998,7 @@ macro (configure_DynamoRIO_client_helper target static_DR)
     if (APPLE)
       set(LD_FLAGS "-arch x86_64 -image_base ${PREFERRED_BASE}")
     elseif (UNIX)
-      if (LINKER_IS_GNU_GOLD OR LINKER_IS_LLVM_LLD)
+      if (LINKER_IS_GNU_GOLD)
         # Gold doesn't have a default version script for us to edit.  However,
         # it has a handy command line flag that does exactly what we want.  Note
         # that gnu ld has -Ttext as well, but it is very different.
@@ -1006,7 +1006,9 @@ macro (configure_DynamoRIO_client_helper target static_DR)
         # 2009.  We could switch to that if we ever drop support for old
         # linkers.
         set(PREFERRED_BASE_FLAGS "-Wl,-Ttext=${PREFERRED_BASE}")
-      else (LINKER_IS_GNU_GOLD OR LINKER_IS_LLVM_LLD)
+      elseif (LINKER_IS_LLVM_LLD)
+        set(PREFERRED_BASE_FLAGS "-Wl,--image-base=${PREFERRED_BASE}")
+      else ()
         # We use a linker script to set the preferred base
         set(LD_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/${target}.ldscript)
         # We do NOT add ${LD_SCRIPT} as an ADDITIONAL_MAKE_CLEAN_FILES since it's
@@ -1048,7 +1050,7 @@ macro (configure_DynamoRIO_client_helper target static_DR)
         # -dT is preferred, available on ld 2.18+: we could check for it
         set(LD_SCRIPT_OPTION "-T")
         set(PREFERRED_BASE_FLAGS "-Xlinker ${LD_SCRIPT_OPTION} -Xlinker \"${LD_SCRIPT}\"")
-      endif (LINKER_IS_GNU_GOLD OR LINKER_IS_LLVM_LLD)
+      endif ()
     else (APPLE)
       set(PREFERRED_BASE_FLAGS "/base:${PREFERRED_BASE} /dynamicbase:no")
     endif (APPLE)
