@@ -4461,7 +4461,7 @@ if (BUILD_CLIENTS)
       set(tool.drcacheoff.opcode_mix_postcmd3
         "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir@-tool@opcode_mix")
 
-      torunonly_drcacheoff(opcode_mix.skip ${ci_shared_app} ""
+      torunonly_drcacheoff(skip_instrs_opcode_mix ${ci_shared_app} ""
         "@-tool@opcode_mix@-skip_instrs@1" "")
 
       torunonly_drcacheoff(view ${ci_shared_app} ""
