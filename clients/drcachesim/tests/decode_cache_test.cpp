@@ -1,4 +1,4 @@
-/* **********************************************************
+a/* **********************************************************
  * Copyright (c) 2025 Google, LLC  All rights reserved.
  * **********************************************************/
 
@@ -295,7 +295,8 @@ check_decode_caching(void *drcontext, bool use_module_mapper, bool include_decod
             return "Expected error for second attempt to add jump";
         test_decode_info_t *decode_info_jump_2 =
             decode_cache.get_decode_info(reinterpret_cast<app_pc>(memrefs[4].instr.addr));
-        if (decode_info_jump_2 != cached_decode_info ||
+        if (decode_info_jump_2 == nullptr || decode_info_jump_2 != cached_decode_info ||
+            decode_info_jump_2->is_valid() ||
             decode_info_jump_2->get_error_string() != FAKE_ERROR) {
             return "Unexpected decode info instance for second instance of jump";
         }
