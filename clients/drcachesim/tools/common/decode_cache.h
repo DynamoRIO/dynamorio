@@ -56,17 +56,15 @@
 namespace dynamorio {
 namespace drmemtrace {
 
-class decode_cache_base_t;
-
 /**
  * Base class for storing instruction decode info. Users should sub-class this
  * base class and implement set_decode_info_derived() to derive and store the decode
  * info they need.
  */
 class decode_info_base_t {
-    // We need decode_cache_base_t to be able to set the error_string_ with details
-    // if there is a decoding error for an instruction.
-    friend class decode_cache_base_t;
+    // We need all specializations of decode_cache_t to be able to set the
+    // error_string_ with details of the instruction decoding error.
+    template <typename T> friend class decode_cache_t;
 
 public:
     virtual ~decode_info_base_t() = default;
@@ -228,19 +226,6 @@ protected:
      */
     std::string
     find_mapped_trace_address(app_pc trace_pc, app_pc &decode_pc);
-
-    /**
-     * Sets the given \p error_string in the given \p decode_info object.
-     *
-     * Note that #dynamorio::drmemtrace::decode_cache_base_t is marked as a
-     * friend of #dynamorio::drmemtrace::decode_info_base_t. However,
-     * since friend associations are not inherited, this function is to allow
-     * derived classes of #dynamorio::drmemtrace::decode_cache_base_t to
-     * set the error.
-     */
-    void
-    set_decode_info_error(decode_info_base_t *decode_info,
-                          const std::string &error_string);
 
 private:
     /**
@@ -415,7 +400,7 @@ public:
             // Legacy trace support where we need the binaries.
             std::string err = find_mapped_trace_address(trace_pc, decode_pc);
             if (!err.empty()) {
-                set_decode_info_error(cached_decode_info, err);
+                cached_decode_info->error_string_ = err;
                 return err;
             }
         }
@@ -436,7 +421,7 @@ public:
                 if (persist_decoded_instr_) {
                     instr_destroy(dcontext_, instr);
                 }
-                set_decode_info_error(cached_decode_info, "decode_from_copy failed");
+                cached_decode_info->error_string_ = "decode_from_copy failed";
                 return cached_decode_info->get_error_string();
             }
         }

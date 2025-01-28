@@ -163,13 +163,6 @@ decode_cache_base_t::find_mapped_trace_address(app_pc trace_pc, app_pc &decode_p
     return "";
 }
 
-void
-decode_cache_base_t::set_decode_info_error(decode_info_base_t *decode_info,
-                                           const std::string &error_string)
-{
-    decode_info->error_string_ = error_string;
-}
-
 std::string
 instr_decode_info_t::set_decode_info_derived(
     void *dcontext, const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
