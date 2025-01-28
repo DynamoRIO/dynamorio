@@ -3010,7 +3010,7 @@ encode_cti(instr_t *instr, byte *copy_pc, byte *final_pc,
         CLIENT_ASSERT(!instr_is_cti_short_rewrite(instr, NULL),
                       "encode_cti error: jecxz/loop already mangled");
         /* offset is from start of next instr */
-        offset = target - ((ptr_int_t)(pc + 1 - copy_pc + final_pc));
+        offset = target - (pc + 1 - copy_pc + (ptr_uint_t)final_pc);
         if (check_reachable && !(offset >= INT8_MIN && offset <= INT8_MAX)) {
             CLIENT_ASSERT(!assert_reachable,
                           "encode_cti error: target beyond 8-bit reach");
