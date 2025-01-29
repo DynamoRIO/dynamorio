@@ -144,6 +144,24 @@ main(int argc, char *argv[])
     sigaddset(&mask, SIGALRM);
     rc = sigprocmask(SIG_SETMASK, &mask, NULL);
     ASSERT_NOERR(rc);
+    sigset_t returned_mask = {
+        0, /* Set padding to 0 so we can use memcmp */
+    };
+    rc = sigprocmask(SIG_BLOCK, NULL, &returned_mask);
+    ASSERT_NOERR(rc);
+#ifdef ANDROID64
+    /* 64-bit Android always sets the 32nd bit of the signal mask, defined as
+     * __SIGRTMIN in the NDK. This occurs whether running under DR or not.
+     * If this bit is not also set for our mask then the assert will fail.
+     * i#7215: This may also be needed for newer versions of 32-bit Android,
+     * however we are not able to test newer versions of 32-bit Android, so
+     * cannot be sure.
+     */
+    sigaddset(&mask, __SIGRTMIN);
+#endif
+    /* Check that the mask we just set is the same as the one currently in use.
+     */
+    assert(memcmp(&mask, &returned_mask, sizeof(mask)) == 0);
 
 #if USE_SIGSTACK
     sigstack.ss_sp = (char *)malloc(ALT_STACK_SIZE);
@@ -195,18 +213,7 @@ main(int argc, char *argv[])
     };
     rc = sigprocmask(SIG_BLOCK, NULL, &check_mask);
     ASSERT_NOERR(rc);
-#ifdef ANDROID64
-    /* 64-bit Android always sets the 32nd bit of the signal mask, defined as
-     * __SIGRTMIN in the NDK. This occurs whether running under DR or not, and
-     * can be easily reproduced outside of these tests.
-     * If this bit is not also set for our mask then the assert will fail.
-     * i#7215: This may also be needed for newer versions of 32-bit Android,
-     * however we are not able to test newer versions of 32-bit Android, so
-     * cannot be sure.
-     */
-    sigaddset(&mask, __SIGRTMIN);
-#endif
-    assert(memcmp(&mask, &check_mask, sizeof(mask)) == 0);
+    assert(memcmp(&returned_mask, &check_mask, sizeof(returned_mask)) == 0);
 
 #if USE_TIMER
     memset(&t, 0, sizeof(t));
