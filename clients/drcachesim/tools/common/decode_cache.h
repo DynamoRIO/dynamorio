@@ -216,6 +216,13 @@ protected:
     std::string
     find_mapped_trace_address(app_pc trace_pc, app_pc &decode_pc);
 
+    /**
+     * Returns the #dynamorio::drmemtrace::offline_file_type_t arch bit that
+     * corresponds to the current build environment.
+     */
+    offline_file_type_t
+    build_arch_file_type();
+
 private:
     /**
      * Creates a module_mapper_t. This does not need to worry about races as the
@@ -465,6 +472,18 @@ public:
     {
         if (init_done_) {
             return "init already done";
+        }
+        if (include_decoded_instr_) {
+            // We remove OFFLINE_FILE_TYPE_ARCH_REGDEPS from this check since
+            // DR_ISA_REGDEPS is not a real ISA and can coexist with any real
+            // architecture.
+            if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL & ~OFFLINE_FILE_TYPE_ARCH_REGDEPS,
+                        filetype) &&
+                !TESTANY(build_arch_file_type(), filetype)) {
+                return std::string("Architecture mismatch: trace recorded on ") +
+                    trace_arch_string(static_cast<offline_file_type_t>(filetype)) +
+                    " but tool built for " + trace_arch_string(build_arch_file_type());
+            }
         }
         // If we are dealing with a regdeps trace, we need to set the dcontext
         // ISA mode to the correct synthetic ISA (i.e., DR_ISA_REGDEPS).
