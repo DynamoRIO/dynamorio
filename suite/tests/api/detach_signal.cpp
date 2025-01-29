@@ -227,7 +227,8 @@ sideline_spinner(void *arg)
             0, /* Set padding to 0 so we can use memcmp */
         };
         res = sigprocmask(SIG_BLOCK, NULL, &check_mask);
-        assert(res == 0 && memcmp(&returned_mask, &check_mask, sizeof(returned_mask)) == 0);
+        assert(res == 0 &&
+               memcmp(&returned_mask, &check_mask, sizeof(returned_mask)) == 0);
     }
 
     stack_t check_stack;
