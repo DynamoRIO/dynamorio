@@ -156,7 +156,7 @@ protected:
             bool is_xrstor_ = false;
 #endif
         private:
-            void
+            std::string
             set_decode_info_derived(
                 void *dcontext,
                 const dynamorio::drmemtrace::_memref_instr_t &memref_instr,

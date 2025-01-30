@@ -53,14 +53,20 @@ decode_info_base_t::set_decode_info(
     void *dcontext, const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
     instr_t *instr, app_pc decode_pc)
 {
-    set_decode_info_derived(dcontext, memref_instr, instr, decode_pc);
-    is_valid_ = true;
+    error_string_ = set_decode_info_derived(dcontext, memref_instr, instr, decode_pc);
+    is_valid_ = error_string_.empty();
 }
 
 bool
 decode_info_base_t::is_valid() const
 {
     return is_valid_;
+}
+
+std::string
+decode_info_base_t::get_error_string() const
+{
+    return error_string_;
 }
 
 instr_decode_info_t::~instr_decode_info_t()
@@ -161,13 +167,14 @@ decode_cache_base_t::find_mapped_trace_address(app_pc trace_pc, app_pc &decode_p
     return "";
 }
 
-void
+std::string
 instr_decode_info_t::set_decode_info_derived(
     void *dcontext, const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
     instr_t *instr, app_pc decode_pc)
 {
     dcontext_ = dcontext;
     instr_ = instr;
+    return "";
 }
 
 instr_t *
