@@ -37,7 +37,7 @@
 
 // Needs to be included before trace_entry.h or build_target_arch_type will not
 // be defined by trace_entry.h.
-#include "dr_defines.h"
+#include "dr_api.h"
 
 #include "decode_cache.h"
 #include "memref.h"
@@ -180,8 +180,8 @@ offline_file_type_t
 decode_cache_base_t::build_arch_file_type()
 {
     // build_target_arch_type() is defined in trace_entry.h, but it is built
-    // conditionally only if certain symbols that are defined by dr_defines.h
-    // are already defined. It is hard to control the order in which headers
+    // conditionally only the IF_X64_ELSE symbol that is defined by dr_api.h
+    // is already defined. It is hard to control the order in which headers
     // are included, so to make it easier we provide this build_arch_file_type()
     // implementation in this separate source file which is part of the
     // drmemtrace_decode_cache build library unit.

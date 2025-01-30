@@ -37,7 +37,7 @@
 
 // Needs to be included before memref.h or build_target_arch_type() will not
 // be defined by trace_entry.h.
-#include "dr_defines.h"
+#include "dr_api.h"
 
 #include "decode_cache.h"
 #include "../common/memref.h"
