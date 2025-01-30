@@ -1,6 +1,7 @@
 /* **********************************************************
  * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2025 Foundation of Research and Technology, Hellas.
  * **********************************************************/
 
 /*
@@ -1817,6 +1818,17 @@ encode_instr_freed_event(dcontext_t *dcontext, instr_t *instr);
 typedef struct _rseq_entry_state_t {
     reg_t gpr[DR_NUM_GPR_REGS];
 } rseq_entry_state_t;
+#endif
+
+/*
+ * In riscv we cannot address the entire dcontext by using base + immediate.
+ * for the reason we add 0x800 to the saved pointer and access it by
+ * substracting 0x800 from the offset in the struct.
+ */
+#ifdef RISCV64
+#define CONTEXT_REBASE_OFFT 0x800
+#else
+#define CONTEXT_REBASE_OFFT 0
 #endif
 
 #endif /* _ARCH_EXPORTS_H_ */
