@@ -584,11 +584,13 @@ const reg_id_t d_r_reg_id_to_virtual[] = {
 void
 encode_debug_checks(void)
 {
-    CLIENT_ASSERT(sizeof(dr_reg_fixer) / sizeof(dr_reg_fixer[0]) == DR_REG_LAST_ENUM + 1,
+    CLIENT_ASSERT(sizeof(dr_reg_fixer) / sizeof(dr_reg_fixer[0]) ==
+                      DR_REG_AFTER_LAST_VALID_ENUM,
                   "internal register enum error");
     CLIENT_ASSERT(sizeof(d_r_reg_id_to_virtual) == sizeof(dr_reg_fixer),
                   "register to virtual register map size error");
-    CLIENT_ASSERT(sizeof(reg_names) / sizeof(reg_names[0]) == DR_REG_LAST_ENUM + 1,
+    CLIENT_ASSERT(sizeof(reg_names) / sizeof(reg_names[0]) ==
+                      DR_REG_AFTER_LAST_VALID_ENUM,
                   "reg_names missing an entry");
     CLIENT_ASSERT(sizeof(type_names) / sizeof(type_names[0]) == TYPE_BEYOND_LAST_ENUM,
                   "type_names missing an entry");
@@ -3010,7 +3012,7 @@ encode_cti(instr_t *instr, byte *copy_pc, byte *final_pc,
         CLIENT_ASSERT(!instr_is_cti_short_rewrite(instr, NULL),
                       "encode_cti error: jecxz/loop already mangled");
         /* offset is from start of next instr */
-        offset = target - ((ptr_int_t)(pc + 1 - copy_pc + final_pc));
+        offset = target - (pc + 1 - copy_pc + (ptr_uint_t)final_pc);
         if (check_reachable && !(offset >= INT8_MIN && offset <= INT8_MAX)) {
             CLIENT_ASSERT(!assert_reachable,
                           "encode_cti error: target beyond 8-bit reach");
@@ -3021,7 +3023,7 @@ encode_cti(instr_t *instr, byte *copy_pc, byte *final_pc,
     } else {
         /* 32-bit offset */
         /* offset is from start of next instr */
-        ptr_int_t offset = target - ((ptr_int_t)(pc + 4 - copy_pc + final_pc));
+        ptr_int_t offset = target - (pc + 4 - copy_pc + (ptr_uint_t)final_pc);
 #ifdef X64
         if (check_reachable && !REL32_REACHABLE_OFFS(offset)) {
             CLIENT_ASSERT(!assert_reachable,

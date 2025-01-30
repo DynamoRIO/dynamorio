@@ -1672,7 +1672,7 @@ invariant_checker_t::check_regdeps_invariants(per_shard_t *shard, const memref_t
     }
 }
 
-void
+std::string
 invariant_checker_t::per_shard_t::decoding_info_t::set_decode_info_derived(
     void *dcontext, const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
     instr_t *instr, app_pc decode_pc)
@@ -1707,6 +1707,7 @@ invariant_checker_t::per_shard_t::decoding_info_t::set_decode_info_derived(
             }
         }
     }
+    return "";
 }
 
 bool

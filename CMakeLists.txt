@@ -48,6 +48,8 @@
 # Visual Studio 2017 requires 3.7.
 cmake_minimum_required(VERSION 3.7)
 
+message(STATUS "CMake version ${CMAKE_VERSION}")
+
 include(make/policies.cmake NO_POLICY_SCOPE)
 
 # for non-makefile-based generators (i.e., Visual Studio) there is no
