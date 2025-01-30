@@ -357,6 +357,9 @@ typedef void (*handler_3_t)(int, siginfo_t *, ucontext_t *);
 void
 intercept_signal(int sig, handler_3_t handler, bool sigstack);
 
+void
+set_check_signal_mask(sigset_t *mask, sigset_t *returned_mask);
+
 #    ifdef AARCH64
 void
 dump_ucontext(ucontext_t *ucxt, bool is_sve, int vl);
