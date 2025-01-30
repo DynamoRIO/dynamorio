@@ -89,7 +89,6 @@ jobs:
       uses: lukka/get-cmake@latest
       with:
         cmakeVersion: '3.26.4'
-        architecture: 'arm64'
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
@@ -163,7 +162,6 @@ jobs:
       uses: lukka/get-cmake@latest
       with:
         cmakeVersion: '3.26.4'
-        architecture: 'arm64'
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
@@ -235,7 +233,6 @@ jobs:
       uses: lukka/get-cmake@latest
       with:
         cmakeVersion: '3.26.4'
-        architecture: 'arm64'
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
@@ -297,7 +294,6 @@ jobs:
       uses: lukka/get-cmake@latest
       with:
         cmakeVersion: '3.26.4'
-        architecture: 'arm64'
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
