@@ -230,7 +230,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
          *
          *           ma            ta         sew=8       lmul=8 */
         vtypei = (0b1 << 7) | (0b1 << 6) | (0b000 << 3) | 0b011;
-        memopnd = opnd_create_base_disp(DR_REG_A1, REG_NULL, 0, 0,
+        memopnd = opnd_create_base_disp(DR_REG_A0, REG_NULL, 0, 0,
                                         reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_8));
         PRE(ilist, instr,
             INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_A0),
@@ -301,7 +301,7 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
          *
          *           ma            ta         sew=8       lmul=8 */
         vtypei = (0b1 << 7) | (0b1 << 6) | (0b000 << 3) | 0b011;
-        memopnd = opnd_create_base_disp(DR_REG_A1, REG_NULL, 0, 0,
+        memopnd = opnd_create_base_disp(DR_REG_A0, REG_NULL, 0, 0,
                                         reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_8));
         PRE(ilist, instr,
             INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_A0),
