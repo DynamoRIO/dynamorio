@@ -2906,7 +2906,8 @@ dcontext_opnd_common(dcontext_t *dcontext, bool absolute, reg_id_t basereg, int 
             offs -= sizeof(unprotected_context_t);
         return opnd_create_base_disp(
             absolute ? REG_NULL : (basereg == REG_NULL ? REG_DCXT : basereg), REG_NULL, 0,
-            ((int)(ptr_int_t)(absolute ? dcontext : 0)) + offs - CONTEXT_REBASE_OFFT, size);
+            ((int)(ptr_int_t)(absolute ? dcontext : 0)) + offs - CONTEXT_REBASE_OFFT,
+            size);
     }
 }
 

@@ -1826,9 +1826,9 @@ typedef struct _rseq_entry_state_t {
  * substracting 0x800 from the offset in the struct.
  */
 #ifdef RISCV64
-#define CONTEXT_REBASE_OFFT 0x800
+#    define CONTEXT_REBASE_OFFT 0x800
 #else
-#define CONTEXT_REBASE_OFFT 0
+#    define CONTEXT_REBASE_OFFT 0
 #endif
 
 #endif /* _ARCH_EXPORTS_H_ */
