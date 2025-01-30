@@ -339,7 +339,7 @@ public:
      *
      * If there is a failure either during decoding or creation of the DecodeInfo
      * object, a DecodeInfo that returns is_valid() == false and the relevant
-     * erorr info in get_error_string() will be added to the cache.
+     * error info in get_error_string() will be added to the cache.
      *
      * Returns a pointer to whatever DecodeInfo is present in the cache in the
      * \p cached_decode_info reference pointer parameter, or a nullptr if none

@@ -174,7 +174,7 @@ view_t::init_decode_cache()
                                             module_file_path_, knob_alt_module_dir_);
     } else {
         // Continue but omit disassembly to support cases where binaries are
-        // not available and OFFLINE_FILE_TYPE_ENCODINGS is not present.
+        // not available and OFFLINE_FILE_TYPE_ENCODINGS is also not present.
         decode_cache_.reset(nullptr);
     }
     return error_string_.empty();

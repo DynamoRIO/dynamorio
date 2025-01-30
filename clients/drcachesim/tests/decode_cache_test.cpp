@@ -237,12 +237,17 @@ check_decode_caching(void *drcontext, bool use_module_mapper, bool include_decod
             return err;
         test_decode_info_t *decode_info_nop_2 =
             decode_cache.get_decode_info(reinterpret_cast<app_pc>(memrefs[2].instr.addr));
-        if (decode_info_nop_2 != cached_decode_info) {
+        if (decode_info_nop_2 == nullptr || decode_info_nop_2 != cached_decode_info ||
+            !decode_info_nop_2->is_valid() || !decode_info_nop_2->is_nop_) {
             return "Unexpected decode info instance for second instance of nop";
         }
+        // decode_cache_t should not have added a new test_decode_info_t object.
+        // We need to compare object_idx_ because sometimes the same address is
+        // reassigned by the heap.
         if (decode_info_nop_2 != decode_info_nop ||
             decode_info_nop_2->object_idx_ != decode_info_nop_idx) {
-            return "Did not expect a new test_decode_info_t to be created on re-add.";
+            return "Did not expect a new test_decode_info_t to be created on re-add "
+                   "for nop";
         }
 
         if (!use_module_mapper) {
@@ -307,7 +312,7 @@ check_decode_caching(void *drcontext, bool use_module_mapper, bool include_decod
         if (decode_info_jump != decode_info_jump_2 ||
             decode_info_jump_2->object_idx_ != decode_info_jump_idx) {
             return "Did not expect a new test_decode_info_t to be created on "
-                   " retry after prior failure.";
+                   " retry after prior failure for jump.";
         }
 
         // Test: Verify all cached decode info gets cleared.
