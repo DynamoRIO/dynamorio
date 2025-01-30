@@ -174,26 +174,10 @@ sideline_spinner(void *arg)
     sigemptyset(&mask);
     sigaddset(&mask, SIGUSR1);
     sigaddset(&mask, SIGURG);
-    res = sigprocmask(SIG_SETMASK, &mask, NULL);
-    assert(res == 0);
     sigset_t returned_mask = {
         0, /* Set padding to 0 so we can use memcmp */
     };
-    res = sigprocmask(SIG_BLOCK, NULL, &returned_mask);
-    assert(res == 0);
-#ifdef ANDROID64
-    /* 64-bit Android always sets the 32nd bit of the signal mask, defined as
-     * __SIGRTMIN in the NDK. This occurs whether running under DR or not.
-     * If this bit is not also set for our mask then the assert will fail.
-     * i#7215: This may also be needed for newer versions of 32-bit Android,
-     * however we are not able to test newer versions of 32-bit Android, so
-     * cannot be sure.
-     */
-    sigaddset(&mask, __SIGRTMIN);
-#endif
-    /* Check that the mask we just set is the same as the one currently in use.
-     */
-    assert(memcmp(&mask, &returned_mask, sizeof(mask)) == 0);
+    set_check_signal_mask(&mask, &returned_mask);
 
     /* Now sit in a signal-generating loop. */
     while (!sideline_exit) {
@@ -265,30 +249,15 @@ main(void)
     thread_t thread[NUM_THREADS]; /* On Linux, the tid. */
 
     sigset_t prior_mask;
+    int res = sigprocmask(SIG_SETMASK, NULL, &prior_mask);
+    assert(res == 0);
     sigemptyset(&handler_mask);
     sigaddset(&handler_mask, DR_SUSPEND_SIGNAL);
-    int res = sigprocmask(SIG_SETMASK, &handler_mask, &prior_mask);
-    assert(res == 0);
 
-    sigset_t handler_mask_cpy;
-    memcpy(&handler_mask_cpy, &handler_mask, sizeof(handler_mask_cpy));
     sigset_t returned_mask = {
         0, /* Set padding to 0 so we can use memcmp */
     };
-    res = sigprocmask(SIG_BLOCK, NULL, &returned_mask);
-    assert(res == 0);
-#ifdef ANDROID64
-    /* 64-bit Android always sets the 32nd bit of the signal mask, defined as
-     * __SIGRTMIN in the NDK. This occurs whether running under DR or not.
-     * If this bit is not also set for our mask then the assert will fail.
-     * i#7215: This may also be needed for newer versions of 32-bit Android,
-     * however we are not able to test newer versions of 32-bit Android, so
-     * cannot be sure.
-     */
-    sigaddset(&handler_mask_cpy, __SIGRTMIN);
-#endif
-    assert(memcmp(&handler_mask_cpy, &returned_mask, sizeof(handler_mask_cpy)) == 0);
-    handler_mask = returned_mask;
+    set_check_signal_mask(&handler_mask, &returned_mask);
 
     res = sigprocmask(SIG_SETMASK, &prior_mask, NULL);
     assert(res == 0);
