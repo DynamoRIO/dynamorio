@@ -179,7 +179,7 @@ instr_decode_info_t::get_decoded_instr()
 offline_file_type_t
 decode_cache_base_t::build_arch_file_type()
 {
-    // build_target_arch_type() is defined in trace_entry.h, but it is built
+    // i#7236: build_target_arch_type() is defined in trace_entry.h, but it is built
     // conditionally only the IF_X64_ELSE symbol that is defined by dr_api.h
     // is already defined. It is hard to control the order in which headers
     // are included, so to make it easier we provide this build_arch_file_type()
