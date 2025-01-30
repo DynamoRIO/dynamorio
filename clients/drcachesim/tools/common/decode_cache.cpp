@@ -35,10 +35,14 @@
 #include <memory>
 #include <mutex>
 
+// Needs to be included before trace_entry.h or build_target_arch_type will not
+// be defined by trace_entry.h.
+#include "dr_api.h"
+
 #include "decode_cache.h"
-#include "dr_defines.h"
 #include "memref.h"
 #include "raw2trace_shared.h"
+#include "trace_entry.h"
 #include "utils.h"
 
 namespace dynamorio {
@@ -49,14 +53,20 @@ decode_info_base_t::set_decode_info(
     void *dcontext, const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
     instr_t *instr, app_pc decode_pc)
 {
-    set_decode_info_derived(dcontext, memref_instr, instr, decode_pc);
-    is_valid_ = true;
+    error_string_ = set_decode_info_derived(dcontext, memref_instr, instr, decode_pc);
+    is_valid_ = error_string_.empty();
 }
 
 bool
 decode_info_base_t::is_valid() const
 {
     return is_valid_;
+}
+
+std::string
+decode_info_base_t::get_error_string() const
+{
+    return error_string_;
 }
 
 instr_decode_info_t::~instr_decode_info_t()
@@ -157,19 +167,36 @@ decode_cache_base_t::find_mapped_trace_address(app_pc trace_pc, app_pc &decode_p
     return "";
 }
 
-void
+std::string
 instr_decode_info_t::set_decode_info_derived(
     void *dcontext, const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
     instr_t *instr, app_pc decode_pc)
 {
     dcontext_ = dcontext;
     instr_ = instr;
+    return "";
 }
 
 instr_t *
 instr_decode_info_t::get_decoded_instr()
 {
     return instr_;
+}
+
+offline_file_type_t
+decode_cache_base_t::build_arch_file_type()
+{
+    // i#7236: build_target_arch_type() is defined in trace_entry.h, but it is built
+    // conditionally only the IF_X64_ELSE symbol that is defined by dr_api.h
+    // is already defined. It is hard to control the order in which headers
+    // are included, so to make it easier we provide this build_arch_file_type()
+    // implementation in this separate source file which is part of the
+    // drmemtrace_decode_cache build library unit.
+    //
+    // Also, this had to be an API on decode_cache_base_t instead of
+    // decode_cache_t because since decode_cache_t is a template class its
+    // implementation must be in the header.
+    return static_cast<offline_file_type_t>(build_target_arch_type());
 }
 
 // Must be in cpp and not the header, else the linker will complain about multiple

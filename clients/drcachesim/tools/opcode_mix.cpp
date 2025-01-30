@@ -85,17 +85,6 @@ bool
 opcode_mix_t::init_decode_cache(shard_data_t *shard, void *dcontext,
                                 offline_file_type_t filetype)
 {
-    // XXX: Perhaps this should be moved into decode_cache_t::init().
-    // We remove OFFLINE_FILE_TYPE_ARCH_REGDEPS from this check since DR_ISA_REGDEPS
-    // is not a real ISA and can coexist with any real architecture.
-    if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL & ~OFFLINE_FILE_TYPE_ARCH_REGDEPS, filetype) &&
-        !TESTANY(build_target_arch_type(), filetype)) {
-        shard->error = std::string("Architecture mismatch: trace recorded on ") +
-            trace_arch_string(static_cast<offline_file_type_t>(filetype)) +
-            " but tool built for " + trace_arch_string(build_target_arch_type());
-        return false;
-    }
-
     shard->decode_cache =
         std::unique_ptr<decode_cache_t<opcode_data_t>>(new decode_cache_t<opcode_data_t>(
             dcontext,
@@ -415,13 +404,14 @@ opcode_mix_t::release_interval_snapshot(interval_state_snapshot_t *interval_snap
     return true;
 }
 
-void
+std::string
 opcode_mix_t::opcode_data_t::set_decode_info_derived(
     void *dcontext, const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
     instr_t *instr, app_pc decode_pc)
 {
     opcode_ = instr_get_opcode(instr);
     category_ = instr_get_category(instr);
+    return "";
 }
 
 } // namespace drmemtrace
