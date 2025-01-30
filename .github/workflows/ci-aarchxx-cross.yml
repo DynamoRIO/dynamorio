@@ -86,9 +86,10 @@ jobs:
         sudo rsync -av ../extract/lib/aarch64-linux-gnu/ /usr/aarch64-linux-gnu/lib/
 
     - name: Setup cmake
-      uses: jwlawson/actions-setup-cmake@v2
+      uses: lukka/get-cmake@latest
       with:
-        cmake-version: '3.26.4'
+        cmakeVersion: '3.26.4'
+        architecture: 'arm64'
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
@@ -159,9 +160,10 @@ jobs:
         sudo rsync -av ../extract/lib/arm-linux-gnueabihf/ /usr/arm-linux-gnueabihf/lib/
 
     - name: Setup cmake
-      uses: jwlawson/actions-setup-cmake@v2
+      uses: lukka/get-cmake@latest
       with:
-        cmake-version: '3.26.4'
+        cmakeVersion: '3.26.4'
+        architecture: 'arm64'
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
@@ -230,9 +232,10 @@ jobs:
           /tmp/android-gcc-arm-ndk-10e/bin/arm-linux-androideabi-ld
 
     - name: Setup cmake
-      uses: jwlawson/actions-setup-cmake@v2
+      uses: lukka/get-cmake@latest
       with:
-        cmake-version: '3.26.4'
+        cmakeVersion: '3.26.4'
+        architecture: 'arm64'
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
@@ -291,9 +294,10 @@ jobs:
           liblz4-dev
 
     - name: Setup cmake
-      uses: jwlawson/actions-setup-cmake@v2
+      uses: lukka/get-cmake@latest
       with:
-        cmake-version: '3.26.4'
+        cmakeVersion: '3.26.4'
+        architecture: 'arm64'
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}

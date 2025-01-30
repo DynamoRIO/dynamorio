@@ -86,9 +86,10 @@ jobs:
         run: mkdir build
 
       - name: Setup cmake
-        uses: jwlawson/actions-setup-cmake@v2
+        uses: lukka/get-cmake@latest
         with:
-          cmake-version: '3.26.4'
+          cmakeVersion: '3.26.4'
+          architecture: 'arm64'
 
       - name: Run Suite
         working-directory: build
