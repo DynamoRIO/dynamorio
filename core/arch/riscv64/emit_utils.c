@@ -698,11 +698,13 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
          *
          *           ma            ta         sew=8       lmul=8 */
         vtypei = (0b1 << 7) | (0b1 << 6) | (0b000 << 3) | 0b011;
-        memopnd = opnd_create_base_disp(DR_REG_A1, REG_NULL, 0, 0, reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_8));
+        memopnd = opnd_create_base_disp(DR_REG_A1, REG_NULL, 0, 0,
+                                        reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_8));
         APP(ilist,
             INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_A1),
                               opnd_create_reg(REG_DCXT),
-                              opnd_create_immed_int(VREG_OFFSET(DR_REG_VR0) - CONTEXT_REBASE_OFFT, OPSZ_12b)));
+                              opnd_create_immed_int(VREG_OFFSET(DR_REG_VR0)
+                              - CONTEXT_REBASE_OFFT, OPSZ_12b)));
         /* For the following vector instructions, set the element width to 8b, and use 8
          * registers as a group (lmul=8).
          */
@@ -834,11 +836,13 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
          *
          *           ma            ta         sew=8       lmul=8 */
         vtypei = (0b1 << 7) | (0b1 << 6) | (0b000 << 3) | 0b011;
-        memopnd = opnd_create_base_disp(DR_REG_A1, REG_NULL, 0, 0, reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_8));
+        memopnd = opnd_create_base_disp(DR_REG_A1, REG_NULL, 0, 0,
+                                        reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_8));
         APP(ilist,
             INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_A1),
                               opnd_create_reg(REG_DCXT),
-                              opnd_create_immed_int(VREG_OFFSET(DR_REG_VR0) - CONTEXT_REBASE_OFFT, OPSZ_12b)));
+                              opnd_create_immed_int(VREG_OFFSET(DR_REG_VR0)
+                              - CONTEXT_REBASE_OFFT, OPSZ_12b)));
         /* For the following vector instructions, set the element width to 8b, and use 8
          * registers as a group (lmul=8).
          */

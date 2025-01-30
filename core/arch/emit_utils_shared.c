@@ -2182,11 +2182,13 @@ emit_fcache_enter_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
     APP(&ilist,
         INSTR_CREATE_ld(dcontext, opnd_create_reg(DR_REG_A0),
                         opnd_create_base_disp(REG_DCXT, DR_REG_NULL, 0,
-                                              (int)REG_OFFSET(DR_REG_A0) - CONTEXT_REBASE_OFFT, OPSZ_8)));
+                                              (int)REG_OFFSET(DR_REG_A0)
+                                              - CONTEXT_REBASE_OFFT, OPSZ_8)));
     APP(&ilist,
         INSTR_CREATE_ld(dcontext, opnd_create_reg(DR_REG_A1),
                         opnd_create_base_disp(REG_DCXT, DR_REG_NULL, 0,
-                                              (int)REG_OFFSET(DR_REG_A1) - CONTEXT_REBASE_OFFT, OPSZ_8)));
+                                              (int)REG_OFFSET(DR_REG_A1)
+                                              - CONTEXT_REBASE_OFFT, OPSZ_8)));
 
     APP(&ilist,
         INSTR_CREATE_sd(
@@ -2383,21 +2385,21 @@ append_call_dispatch(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
     /* for ARM we use _noreturn to avoid storing to %lr */
 
     /*
-    * REG_DCTXT holds the rebased dcontext
-    * d_r_dispatch expect the normal one
-    * so we should restore it
+    * REG_DCTXT holds the rebased dcontext d_r_dispatch expect the normal one
+    * so we should restore it.
     *
     * Currently only affects RISCV64
     */
 #if (CONTEXT_REBASE_OFFT != 0)
-    if(absolute){
+    if (absolute) {
         dr_insert_call_noreturn(
             (void *)dcontext, ilist, NULL /*append*/, (void *)d_r_dispatch, 1,
             OPND_CREATE_INTPTR((ptr_int_t)dcontext));
     }else{
         APP(ilist,
             XINST_CREATE_add_2src(dcontext, opnd_create_reg(DR_REG_A0),
-                              opnd_create_reg(REG_DCTXT), OPND_CREATE_INT32(-CONTEXT_REBASE_OFFT)));
+                                  opnd_create_reg(REG_DCTXT),
+                                  OPND_CREATE_INT32(-CONTEXT_REBASE_OFFT)));
         dr_insert_call_noreturn(
             (void *)dcontext, ilist, NULL /*append*/, (void *)d_r_dispatch, 1,
             opnd_create_reg(DR_REG_A0));
