@@ -739,7 +739,9 @@ d_r_arch_init(void)
                   offsetof(priv_mcontext_t, simd)));
     ASSERT(offsetof(app_state_at_intercept_t, mc) ==
            offsetof(app_state_at_intercept_t, start_pc) + sizeof(void *));
-    /* Try to catch errors in x86.asm offsets for dcontext_t */
+    /* Try to catch errors in x86.asm offsets for dcontext_t.
+     * XXX i#7226: Use asm_offsetsx.h for systematic offset checks like on aarchxx.
+     */
     ASSERT(sizeof(unprotected_context_t) ==
            ALIGN_FORWARD(sizeof(priv_mcontext_t) + IF_WINDOWS_ELSE(IF_X64_ELSE(8, 4), 8) +
                              5 * sizeof(reg_t),
