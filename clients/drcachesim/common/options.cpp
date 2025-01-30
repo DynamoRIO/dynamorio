@@ -652,8 +652,10 @@ droption_t<bytesize_t> op_L0_filter_until_instrs(
     "full trace. Therefore TRACE_MARKER_TYPE_WINDOW_ID markers indicate start of "
     "filtered records.");
 
-// XXX i#7230: Currently the simulators count non-marker records here: we should
+// XXX i#7230: Currently the simulators count only non-marker records here: we should
 // either change that to all records to match -skip_refs, or update these docs.
+// If we update to match -skip_refs, we should make it clear that marker records
+// are not actually warming up the cache but are still being counted.
 droption_t<bytesize_t> op_warmup_refs(
     DROPTION_SCOPE_FRONTEND, "warmup_refs", 0, "Number of records to warm caches up",
     "This option is honored by certain tools such as the cache and TLB simulators. "
@@ -669,7 +671,7 @@ droption_t<double> op_warmup_fraction(
     "is computed after the skipped references and before simulated references. "
     "This flag is incompatible with warmup_refs.");
 
-// XXX i#7230: Currently the simulators count non-marker records here: we should
+// XXX i#7230: Currently the simulators count only non-marker records here: we should
 // either change that to all records to match -skip_refs, or update these docs.
 droption_t<bytesize_t> op_sim_refs(
     DROPTION_SCOPE_FRONTEND, "sim_refs", bytesize_t(1ULL << 63),
@@ -678,7 +680,9 @@ droption_t<bytesize_t> op_sim_refs(
     "the view tool.  It causes them to only analyze this many records and ignore all "
     "subsequent records.  If -skip_refs is specified, the analyzed records start after "
     "the skipped ones end; similarly, if -warmup_refs is specified, the warmup records "
-    "come prior to the -sim_refs records.");
+    "come prior to the -sim_refs records.  Since the framework is still iterating over "
+    "all the records and it is the tool who is ignoring those outside of this range, a "
+    "large trace may still take time even with a small value for this option.");
 
 droption_t<std::string>
     op_view_syntax(DROPTION_SCOPE_FRONTEND, "view_syntax", "att/arm/dr/riscv",
