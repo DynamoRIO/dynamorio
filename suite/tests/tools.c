@@ -502,7 +502,7 @@ set_check_signal_mask(sigset_t *mask, sigset_t *returned_mask)
     ASSERT_NOERR(rc);
     rc = sigprocmask(SIG_BLOCK, NULL, returned_mask);
     ASSERT_NOERR(rc);
-#ifdef ANDROID64
+#        ifdef ANDROID64
     /* 64-bit Android always sets the 32nd bit of the signal mask, defined as
      * __SIGRTMIN in the NDK. This occurs whether running under DR or not.
      * If this bit is not also set for our mask then the assert will fail.
@@ -511,7 +511,7 @@ set_check_signal_mask(sigset_t *mask, sigset_t *returned_mask)
      * cannot be sure.
      */
     sigaddset(mask, __SIGRTMIN);
-#endif
+#        endif
     /* Check that the mask we just set is the same as the one currently in use.
      */
     assert(memcmp(mask, returned_mask, sizeof(*mask)) == 0);
@@ -624,6 +624,7 @@ dump_ucontext(ucontext_t *ucxt, bool is_sve, int vl_bytes)
 #            endif
 }
 #        endif
+
 #    endif /* UNIX */
 
 #else /* asm code *************************************************************/
