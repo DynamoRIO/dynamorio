@@ -3146,7 +3146,8 @@ get_thread_private_dcontext(void)
     if (tls_table != NULL) {
         for (i = 0; i < MAX_THREADS; i++) {
             if (tls_table[i].tid == tid) {
-                return (dcontext_t *)(((void *)tls_table[i].dcontext - CONTEXT_REBASE_OFFT);
+                return (dcontext_t *)(((void *)tls_table[i].dcontext -
+                CONTEXT_REBASE_OFFT);
             }
         }
     }
