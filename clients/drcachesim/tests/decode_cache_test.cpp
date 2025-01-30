@@ -35,6 +35,10 @@
 #include <iostream>
 #include <vector>
 
+// Needs to be included before memref.h or build_target_arch_type() will not
+// be defined by trace_entry.h.
+#include "dr_api.h"
+
 #include "decode_cache.h"
 #include "../common/memref.h"
 #include "memref_gen.h"
@@ -389,6 +393,46 @@ check_init_error_cases(void *drcontext)
         "some_module_file_path", "");
     if (!err.empty()) {
         return "Expected successful init on another decode cache instance, got error: " +
+            err;
+    }
+
+    // Decode cache that specifies a different module_file_path but it works since
+    // it's empty.
+    test_decode_cache_t<instr_decode_info_t> decode_cache_no_mod(
+        drcontext, /*include_decoded_instr=*/true,
+        /*persist_decoded_instr=*/true, nullptr);
+    err = decode_cache_no_mod.init(
+        static_cast<offline_file_type_t>(OFFLINE_FILE_TYPE_ENCODINGS), "", "");
+    if (!err.empty()) {
+        return "Expected no error for empty module file path, got: " + err;
+    }
+
+    // Decode cache init with wrong arch.
+    offline_file_type_t file_type_with_arch = build_target_arch_type();
+    offline_file_type_t file_type_with_wrong_arch = file_type_with_arch;
+    if (file_type_with_arch == OFFLINE_FILE_TYPE_ARCH_AARCH64) {
+        file_type_with_wrong_arch = OFFLINE_FILE_TYPE_ARCH_X86_64;
+    } else {
+        file_type_with_wrong_arch = OFFLINE_FILE_TYPE_ARCH_AARCH64;
+    }
+    test_decode_cache_t<instr_decode_info_t> decode_cache_wrong_arch(
+        drcontext, /*include_decoded_instr=*/true,
+        /*persist_decoded_instr=*/true, nullptr);
+    err = decode_cache_wrong_arch.init(file_type_with_wrong_arch, "some_module_file_path",
+                                       "");
+    if (err.empty()) {
+        return "Expected error on file type with wrong arch";
+    }
+
+    // Decode cache init with wrong arch but with include_decoded_instr_
+    // set to false;
+    test_decode_cache_t<instr_decode_info_t> decode_cache_wrong_arch_no_decode(
+        drcontext, /*include_decoded_instr=*/false,
+        /*persist_decoded_instr=*/false, nullptr);
+    err = decode_cache_wrong_arch_no_decode.init(file_type_with_wrong_arch,
+                                                 "some_module_file_path", "");
+    if (!err.empty()) {
+        return "Expected no error on file type with wrong arch when not decoding, got: " +
             err;
     }
 
