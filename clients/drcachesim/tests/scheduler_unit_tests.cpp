@@ -6668,6 +6668,26 @@ test_marker_updates()
     assert(instrs_seen == NUM_INPUTS * NUM_INSTRS);
 }
 
+class test_options_t : public scheduler_fixed_tmpl_t<memref_t, reader_t> {
+public:
+    void
+    check_options()
+    {
+        // Ensure scheduler_options_t.time_units_per_us ==
+        // scheduler_impl_tmpl_t::INSTRS_PER_US.
+        scheduler_t::scheduler_options_t default_options;
+        assert(default_options.time_units_per_us == INSTRS_PER_US);
+    }
+};
+
+static void
+test_options_match()
+{
+    std::cerr << "\n----------------\nTesting option matching\n";
+    test_options_t test;
+    test.check_options();
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -6714,6 +6734,7 @@ test_main(int argc, const char *argv[])
     test_initial_migrate();
     test_exit_early();
     test_marker_updates();
+    test_options_match();
 
     dr_standalone_exit();
     return 0;
