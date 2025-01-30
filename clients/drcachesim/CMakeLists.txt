@@ -182,6 +182,7 @@ target_link_libraries(drmemtrace_invariant_checker drdecode drmemtrace_schedule_
                       drmemtrace_decode_cache)
 target_link_libraries(drmemtrace_decode_cache drcovlib_static)
 target_link_libraries(drmemtrace_opcode_mix drmemtrace_decode_cache)
+target_link_libraries(drmemtrace_view drmemtrace_decode_cache)
 
 configure_DynamoRIO_standalone(drmemtrace_decode_cache)
 configure_DynamoRIO_standalone(drmemtrace_opcode_mix)
@@ -1043,7 +1044,7 @@ if (BUILD_TESTS)
     configure_DynamoRIO_standalone(tool.drcacheoff.view_test)
     add_win32_flags(tool.drcacheoff.view_test)
     target_link_libraries(tool.drcacheoff.view_test drmemtrace_view drmemtrace_raw2trace
-      drmemtrace_analyzer test_helpers)
+      drmemtrace_analyzer drmemtrace_decode_cache test_helpers)
     use_DynamoRIO_extension(tool.drcacheoff.view_test drreg_static)
     use_DynamoRIO_extension(tool.drcacheoff.view_test drcovlib_static)
     use_DynamoRIO_extension(tool.drcacheoff.view_test drdecode)
