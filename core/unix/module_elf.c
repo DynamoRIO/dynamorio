@@ -384,7 +384,7 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
                     last_seg_align = prog_hdr->p_align;
                     module_add_segment_data(
                         out_data, elf_hdr->e_phnum,
-                        (app_pc)prog_hdr->p_vaddr + load_delta, prog_hdr->p_memsz,
+                        (app_pc)(prog_hdr->p_vaddr + load_delta), prog_hdr->p_memsz,
                         module_segment_prot_to_osprot(prog_hdr), prog_hdr->p_align,
                         false /*!shared*/, prog_hdr->p_offset);
                 }
@@ -570,7 +570,7 @@ module_entry_point(app_pc base, ptr_int_t load_delta)
 {
     ELF_HEADER_TYPE *elf_hdr = (ELF_HEADER_TYPE *)base;
     ASSERT(is_elf_so_header(base, 0));
-    return (app_pc)elf_hdr->e_entry + load_delta;
+    return (app_pc)(elf_hdr->e_entry + load_delta);
 }
 
 bool
