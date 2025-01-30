@@ -1081,8 +1081,8 @@ static bool
 decode_opnd_adr_page(int scale, uint enc, byte *pc, OUT opnd_t *opnd)
 {
     uint bits = (enc >> 3 & 0x1ffffc) | (enc >> 29 & 3);
-    byte *addr = ((byte *)((ptr_uint_t)pc >> scale << scale) +
-                  extract_int(bits, 0, 21) * ((ptr_int_t)1 << scale));
+    byte *addr = (byte *)(((ptr_uint_t)pc >> scale << scale) +
+                          extract_int(bits, 0, 21) * ((ptr_int_t)1 << scale));
     *opnd = opnd_create_rel_addr(addr, OPSZ_0);
     return true;
 }
