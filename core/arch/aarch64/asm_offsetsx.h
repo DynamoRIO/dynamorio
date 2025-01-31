@@ -82,5 +82,7 @@ OFFSET(spill_state_t, r5, 40)
 OFFSET(spill_state_t, fcache_return, 64)
 #define spill_state_t_OFFSET_fcache_return 64
 
+#if !defined(ANDROID)
 OFFSET(struct tlsdesc_t, arg, 8)
-#define struct_tlsdesc_t_OFFSET_arg 8
+#    define struct_tlsdesc_t_OFFSET_arg 8
+#endif
