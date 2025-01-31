@@ -468,6 +468,9 @@ privload_tls_init(void *app_tp);
 void
 privload_tls_exit(void *dr_tp);
 #ifdef ANDROID
+bool
+get_kernel_args(int *argc DR_PARAM_OUT, char ***argv DR_PARAM_OUT,
+                char ***envp DR_PARAM_OUT);
 void
 init_android_version(void);
 #endif

@@ -227,3 +227,25 @@ privload_tls_exit(void *dr_tp)
     heap_munmap(alloc, ALIGN_FORWARD(size_of_pthread_internal(), PAGE_SIZE),
                 VMM_SPECIAL_MMAP);
 }
+
+/* For standalone lib usage (i#1862: the Android loader passes
+ * *nothing* to lib init routines).  This will only succeed prior to
+ * Bionic's initializer, which clears the tls slot.
+ */
+bool
+get_kernel_args(int *argc DR_PARAM_OUT, char ***argv DR_PARAM_OUT,
+                char ***envp DR_PARAM_OUT)
+{
+    android_kernel_args_t *kargs;
+    void **tls = (void **)get_segment_base(TLS_REG_LIB);
+    if (tls != NULL) {
+        kargs = (android_kernel_args_t *)tls[ANDROID_TLS_SLOT_BIONIC_PREINIT];
+        if (kargs != NULL) {
+            *argc = kargs->argc;
+            *argv = kargs->argv;
+            *envp = kargs->envp;
+            return true;
+        }
+    }
+    return false;
+}
