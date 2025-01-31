@@ -44,10 +44,10 @@
 #    error Define OFFSET and SIZE before including asm_offsetsx.h!
 #endif
 
-OFFSET(dcontext_t, dstack, 0x170)
-#define dcontext_t_OFFSET_dstack 0x170
-OFFSET(dcontext_t, is_exiting, 0x174)
-#define dcontext_t_OFFSET_is_exiting 0x174
+OFFSET(dcontext_t, dstack, 0x174)
+#define dcontext_t_OFFSET_dstack 0x174
+OFFSET(dcontext_t, is_exiting, 0x178)
+#define dcontext_t_OFFSET_is_exiting 0x178
 
 OFFSET(priv_mcontext_t, r0, 0x0)
 #define priv_mcontext_t_OFFSET_r0 0x0

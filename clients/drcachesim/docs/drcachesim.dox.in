@@ -699,7 +699,8 @@ disassembly for online traces, pass the `-instr_encodings` option). The
 -skip_refs and -sim_refs flags can be used to
 set a start point and end point for the disassembled view. Note that these
 flags compute the number of trace entry records which are skipped or displayed which
-is distinct from the number of instruction records.
+is distinct from the number of instruction records; to skip instruction records
+use -skip_instrs or -skip_to_timestamp (this is faster than -skip_refs).
 
 The tool displays loads and stores, as well as metadata marker entries for
 timestamps, on which core and thread the subsequent instruction sequence was

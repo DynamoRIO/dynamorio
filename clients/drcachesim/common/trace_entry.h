@@ -1112,6 +1112,12 @@ trace_arch_string(offline_file_type_t type)
 /* We have non-client targets including this header that do not include API
  * headers defining IF_X86_ELSE, etc.  Those don't need this function so we
  * simply exclude them.
+ *
+ * TODO i#7236: If trace_entry.h is included before IF_X86_ELSE is defined by
+ * dr_defines.h, it shows up as a build failure without an obvious cause because
+ * the order between the two headers is not always immediately clear (since they
+ * may be transitively included). i#7236 notes a workaround, but this should be
+ * cleaned up.
  */
 #ifdef IF_X86_ELSE
 static inline offline_file_type_t

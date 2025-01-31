@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -191,6 +191,10 @@ tlb_simulator_t::process_memref(const memref_t &memref)
     if (memref.marker.type == TRACE_TYPE_MARKER) {
         // We ignore markers before we ask core_for_thread, to avoid asking
         // too early on a timestamp marker.
+        // TODO i#7230: This causes -warmup_refs and -sim_refs to count non-marker
+        // records while -skip_refs counts all records.  We should either say
+        // that in the docs or change the behavior here.
+        // Plus, this skips the TRACE_MARKER_TYPE_CPU_ID handling below.
         return true;
     }
 

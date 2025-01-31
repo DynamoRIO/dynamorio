@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -6572,10 +6572,16 @@ static void
 test_marker_updates()
 {
     std::cerr << "\n----------------\nTesting marker updates\n";
+    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                               scheduler_t::DEPENDENCY_IGNORE,
+                                               scheduler_t::SCHEDULER_DEFAULTS,
+                                               /*verbosity=*/2);
     static constexpr int NUM_INPUTS = 5;
     static constexpr int NUM_OUTPUTS = 3;
-    // We need at least enough instrs to cover INSTRS_PER_US==2000.
-    static constexpr int NUM_INSTRS = 10000;
+    // We need at least enough instrs to cover INSTRS_PER_US==time_units_per_us.
+    static constexpr int TIMESTAMP_GAP_US = 10;
+    const int NUM_INSTRS =
+        static_cast<int>(sched_ops.time_units_per_us) * TIMESTAMP_GAP_US;
     static constexpr memref_tid_t TID_BASE = 100;
     static constexpr uint64_t TIMESTAMP_BASE = 12340000;
 
@@ -6613,15 +6619,12 @@ test_marker_updates()
                              TID_BASE + i);
         sched_inputs.emplace_back(std::move(readers));
     }
-    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
-                                               scheduler_t::DEPENDENCY_IGNORE,
-                                               scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/2);
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
         scheduler_t::STATUS_SUCCESS)
         assert(false);
     std::vector<scheduler_t::stream_t *> outputs(NUM_OUTPUTS, nullptr);
+    std::vector<uintptr_t> first_timestamp(NUM_OUTPUTS, 0);
     std::vector<uintptr_t> last_timestamp(NUM_OUTPUTS, 0);
     std::vector<bool> eof(NUM_OUTPUTS, false);
     for (int i = 0; i < NUM_OUTPUTS; i++)
@@ -6647,6 +6650,8 @@ test_marker_updates()
             if (memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
                 assert(memref.marker.marker_value >= last_timestamp[i]);
                 last_timestamp[i] = memref.marker.marker_value;
+                if (first_timestamp[i] == 0)
+                    first_timestamp[i] = memref.marker.marker_value;
             } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID) {
                 assert(memref.marker.marker_value ==
                        static_cast<uintptr_t>(outputs[i]->get_shard_index()));
@@ -6654,10 +6659,33 @@ test_marker_updates()
         }
     }
     // Ensure we didn't short-circuit or exit early.
-    uint64_t instrs_seen = 0;
-    for (int i = 0; i < NUM_OUTPUTS; i++)
+    int64_t instrs_seen = 0;
+    for (int i = 0; i < NUM_OUTPUTS; i++) {
         instrs_seen += outputs[i]->get_instruction_ordinal();
+        // Check that the timestamps increased enough.
+        assert(last_timestamp[i] - first_timestamp[i] >= TIMESTAMP_GAP_US);
+    }
     assert(instrs_seen == NUM_INPUTS * NUM_INSTRS);
+}
+
+class test_options_t : public scheduler_fixed_tmpl_t<memref_t, reader_t> {
+public:
+    void
+    check_options()
+    {
+        // Ensure scheduler_options_t.time_units_per_us ==
+        // scheduler_impl_tmpl_t::INSTRS_PER_US.
+        scheduler_t::scheduler_options_t default_options;
+        assert(default_options.time_units_per_us == INSTRS_PER_US);
+    }
+};
+
+static void
+test_options_match()
+{
+    std::cerr << "\n----------------\nTesting option matching\n";
+    test_options_t test;
+    test.check_options();
 }
 
 int
@@ -6706,6 +6734,7 @@ test_main(int argc, const char *argv[])
     test_initial_migrate();
     test_exit_early();
     test_marker_updates();
+    test_options_match();
 
     dr_standalone_exit();
     return 0;
