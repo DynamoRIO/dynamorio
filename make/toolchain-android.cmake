@@ -82,8 +82,7 @@ SET(CMAKE_CPP          ${toolchain_bin_path}${TARGET_ABI}-cpp
 # specify sysroot
 if (NOT DEFINED ANDROID_SYSROOT)
   # assuming default android standalone toolchain directory layout
-  find_path(compiler_path ${CMAKE_C_COMPILER})
-  set(ANDROID_SYSROOT "${compiler_path}/../sysroot")
+  set(ANDROID_SYSROOT "${toolchain_bin_path}/../sysroot")
 endif ()
 
 SET(CMAKE_FIND_ROOT_PATH ${ANDROID_SYSROOT})

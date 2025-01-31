@@ -1296,7 +1296,8 @@ function(runtest_cmd outcmd outops key native standalone_dr dr_ops_aux separate_
     math(EXPR timeout "${timeout}*4")
   endif ()
 
-  if (ANDROID AND DR_COPY_TO_DEVICE)
+  if (ANDROID64 AND DR_COPY_TO_DEVICE)
+    # TODO i#7215: Update ANDROID32 build to latest toolchain.
     # Find the device path to the test bin dir so we can add it to LD_LIBRARY_PATH below.
     # On Android the C++ STL runtime library is not a system library so we have to copy it
     # to the device ourselves and point LD_LIBRARY_PATH at it so the test can find it.
@@ -1309,7 +1310,8 @@ function(runtest_cmd outcmd outops key native standalone_dr dr_ops_aux separate_
     # Both Windows and non-native Unix tests now use the native drrun frontend.
     # Since the creation of CTestTestfile.cmake ends up replacing \ with / we
     # can't escape quotes, so we have to use a list variable
-    if (ANDROID)
+    if (ANDROID64)
+      # TODO i#7215: Update ANDROID32 build to latest toolchain.
       # Make sure C++ executables can find libc++_shared.so.
       get_target_path_for_execution(runstats_path runstats "${location_suffix}")
       set(cmd ${runstats_path} -silent
@@ -1366,7 +1368,7 @@ function(runtest_cmd outcmd outops key native standalone_dr dr_ops_aux separate_
     endif ()
     set(library_path
         "${MAIN_LIBRARY_OUTPUT_DIRECTORY}:${EXT_LIBRARY_OUTPUT_DIRECTORY}:$ENV{${libvar}}")
-    if (ANDROID AND DR_COPY_TO_DEVICE)
+    if (ANDROID64) # TODO i#7215: Update ANDROID32 build to latest toolchain.
         set(library_path "${libc++_shared_dir}:${library_path}")
     endif ()
     set(cmd ${cmd} -env ${libvar} "${library_path}")

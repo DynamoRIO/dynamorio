@@ -366,7 +366,7 @@ if (WIN32)
     PERMISSIONS ${owner_access} OWNER_EXECUTE GROUP_READ GROUP_EXECUTE
     WORLD_READ WORLD_EXECUTE)
 endif (WIN32)
-if (ANDROID)
+if (ANDROID64) # TODO i#7215: Update ANDROID32 build to latest toolchain.
   DR_install(FILES "${libc++_shared}" DESTINATION ${INSTALL_EXT_LIB})
 endif ()
 

@@ -297,7 +297,8 @@ function (DynamoRIO_copy_target_to_device target device_base_dir loc_suffix)
   get_target_property(stl_type ${target} ANDROID_STL_TYPE)
   _DR_get_lang(${target} language)
 
-  if (${stl_type} STREQUAL "c++_shared" AND ${language} STREQUAL "CXX")
+  # TODO i#7215: Update ANDROID32 build to latest toolchain.
+  if (ANDROID64 AND ${stl_type} STREQUAL "c++_shared" AND ${language} STREQUAL "CXX")
     get_filename_component(target_dir ${abspath} DIRECTORY)
     # Create a target name that is specific to the directory.
     set(deploy_target ${target_dir}_c++_shared)
