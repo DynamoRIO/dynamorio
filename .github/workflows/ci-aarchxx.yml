@@ -49,14 +49,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # This job will run in parallel.
+        # This job will run in parallel. The OS names are Runner labels taken
+        # from https://gitlab.arm.com/tooling/gha-runner-docs
         include:
-          - os: ubuntu-20-arm64-pre-sve
+          - os: ah-ubuntu_22_04-c6g_4x-50 # Graviton 2, 16 cores, 32G RAM
             sve: false
-          - os: ubuntu-20-arm64-sve
+          - os: ah-ubuntu_22_04-c7g_4x-50 # Graviton 3, 16 cores, 32G RAM
             sve: true
             sve_length: 256
-          - os: ubuntu-20-arm64-sve
+          - os: ah-ubuntu_22_04-c7g_4x-50
             sve: true
             sve_length: 128
     runs-on: ${{ matrix.os }}
