@@ -93,8 +93,11 @@ jobs:
             doxygen \
             git \
             libunwind-dev \
+            libc6-dev \
             openssh-client \
+            openssl \
             python3 \
+            vera++ \
             zlib1g-dev
 
       - name: Set ptrace_scope to 0
