@@ -380,7 +380,7 @@ write_fpregset_note(DR_PARAM_IN dcontext_t *dcontext, DR_PARAM_IN priv_mcontext_
  * false otherwise.
  */
 static bool
-os_dump_core_internal(dcontext_t *dcontext)
+os_dump_core_internal(dcontext_t *dcontext, char *path DR_PARAM_OUT, size_t path_sz)
 {
     priv_mcontext_t mc;
     if (!dr_get_mcontext_priv(dcontext, NULL, &mc))
@@ -476,6 +476,9 @@ os_dump_core_internal(dcontext_t *dcontext)
         elf_file == INVALID_FILE) {
         SYSLOG_INTERNAL_ERROR("Unable to open the core dump file.");
         return false;
+    }
+    if (path != NULL) {
+        d_r_strncpy(path, dump_core_file_name, path_sz);
     }
     // We use two types of program headers. NOTE is used to store prstatus
     // structure and floating point registers. LOAD is used to specify loadable
@@ -650,7 +653,7 @@ os_dump_core_internal(dcontext_t *dcontext)
  * Returns true if a core dump file is written, false otherwise.
  */
 bool
-os_dump_core_live(dcontext_t *dcontext)
+os_dump_core_live(dcontext_t *dcontext, char *path DR_PARAM_OUT, size_t path_sz)
 {
 #ifdef DR_HOST_NOT_TARGET
     // Memory dump is supported only when the host and the target are the same.
@@ -671,7 +674,7 @@ os_dump_core_live(dcontext_t *dcontext)
     }
 
     // TODO i#7046: Add support to save register values for all threads.
-    const bool ret = os_dump_core_internal(dcontext);
+    const bool ret = os_dump_core_internal(dcontext, path, path_sz);
 
     end_synch_with_all_threads(threads, num_threads,
                                /*resume=*/true);

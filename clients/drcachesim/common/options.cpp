@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -95,9 +95,14 @@ droption_t<std::string> op_indir(
     "delete files here.");
 
 droption_t<std::string> op_infile(
-    DROPTION_SCOPE_ALL, "infile", "", "Offline legacy file for input to the simulator",
-    "Directs the simulator to use a single all-threads-interleaved-into-one trace file. "
-    "This is a legacy file format that is no longer produced.");
+    DROPTION_SCOPE_ALL, "infile", "", "Single offline trace input file",
+    "Directs the framework to use a single trace file.  This could be a legacy "
+    "all-software-threads-interleaved-into-one trace file, a core-sharded single "
+    "hardware thread file mixing multiple software threads, or a single software "
+    "thread selected from a directory (though in that case it is better to use "
+    "-only_thread, -only_threads, or -only_shards).  This method of input does "
+    "not support any features that require auxiliary metadata files. "
+    "Passing '-' will read from stdin as plain or gzip-compressed data.");
 
 droption_t<int> op_jobs(
     DROPTION_SCOPE_ALL, "jobs", -1, "Number of parallel jobs",
@@ -596,15 +601,22 @@ droption_t<bytesize_t> op_skip_instrs(
     "iteration, each thread skips this many instructions (see -skip_to_timestamp for "
     "an alternative which does align all threads).  When built with zipfile "
     "support, this skipping is optimized and large instruction counts can be quickly "
-    "skipped; this is not the case for -skip_refs.");
+    "skipped; this is not the case for -skip_refs.  This will skip over top-level "
+    "metadata records (such as #dynamorio::drmemtrace::TRACE_MARKER_TYPE_VERSION, "
+    "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_FILETYPE, "
+    "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_PAGE_SIZE, and "
+    "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_CACHE_LINE_SIZE) and so those "
+    "records will not appear to analysis tools; however, their contents can be obtained "
+    "from #dynamorio::drmemtrace::memtrace_stream_t API accessors.");
 
-droption_t<bytesize_t>
-    op_skip_refs(DROPTION_SCOPE_FRONTEND, "skip_refs", 0,
-                 "Number of memory references to skip",
-                 "Specifies the number of references to skip in the beginning of the "
-                 "application execution. These memory references are dropped instead "
-                 "of being simulated.  This skipping may be slow for large skip values; "
-                 "consider -skip_instrs for a faster method of skipping.");
+droption_t<bytesize_t> op_skip_refs(
+    DROPTION_SCOPE_FRONTEND, "skip_refs", 0, "Number of records to skip in certain tools",
+    "This option is honored by certain tools such as the cache and TLB simulators and "
+    "the view tool.  It causes them to ignore the specified count of records at the "
+    "start of the trace and only start processing after that count is reached.  Since "
+    "the framework is still iterating over those records and it is the tool who is "
+    "ignoring them, this skipping may be slow for large skip values; consider "
+    "-skip_instrs for a faster method of skipping inside the framework itself.");
 
 droption_t<uint64_t> op_skip_to_timestamp(
     DROPTION_SCOPE_FRONTEND, "skip_to_timestamp", 0, "Timestamp to start at",
@@ -615,7 +627,13 @@ droption_t<uint64_t> op_skip_to_timestamp(
     "specified.  Requires -cpu_schedule_file to also be specified as a schedule file "
     "is required to translate the timestamp into per-thread instruction ordinals."
     "When built with zipfile support, this skipping is optimized and large "
-    "instruction counts can be quickly skipped.");
+    "instruction counts can be quickly skipped.  This will skip over top-level "
+    "metadata records (such as #dynamorio::drmemtrace::TRACE_MARKER_TYPE_VERSION, "
+    "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_FILETYPE, "
+    "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_PAGE_SIZE, and "
+    "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_CACHE_LINE_SIZE) and so those "
+    "records will not appear to analysis tools; however, their contants can be obtained "
+    "from #dynamorio::drmemtrace::memtrace_stream_t API accessors.");
 
 droption_t<bytesize_t> op_L0_filter_until_instrs(
     DROPTION_SCOPE_CLIENT, "L0_filter_until_instrs", 0,
@@ -634,12 +652,16 @@ droption_t<bytesize_t> op_L0_filter_until_instrs(
     "full trace. Therefore TRACE_MARKER_TYPE_WINDOW_ID markers indicate start of "
     "filtered records.");
 
+// XXX i#7230: Currently the simulators count only non-marker records here: we should
+// either change that to all records to match -skip_refs, or update these docs.
+// If we update to match -skip_refs, we should make it clear that marker records
+// are not actually warming up the cache but are still being counted.
 droption_t<bytesize_t> op_warmup_refs(
-    DROPTION_SCOPE_FRONTEND, "warmup_refs", 0,
-    "Number of memory references to warm caches up",
-    "Specifies the number of memory references to warm up caches before simulation. "
-    "The warmup references come after the skipped references and before the "
-    "simulated references. This flag is incompatible with warmup_fraction.");
+    DROPTION_SCOPE_FRONTEND, "warmup_refs", 0, "Number of records to warm caches up",
+    "This option is honored by certain tools such as the cache and TLB simulators. "
+    "It causes them to not start analysis/simulation until this many records are seen."
+    "If -skip_refs is specified, the warmup records start after "
+    "the skipped ones end. This flag is incompatible with warmup_fraction.");
 
 droption_t<double> op_warmup_fraction(
     DROPTION_SCOPE_FRONTEND, "warmup_fraction", 0.0, 0.0, 1.0,
@@ -649,12 +671,18 @@ droption_t<double> op_warmup_fraction(
     "is computed after the skipped references and before simulated references. "
     "This flag is incompatible with warmup_refs.");
 
-droption_t<bytesize_t>
-    op_sim_refs(DROPTION_SCOPE_FRONTEND, "sim_refs", bytesize_t(1ULL << 63),
-                "Number of memory references to simulate",
-                "Specifies the number of memory references to simulate. "
-                "The simulated references come after the skipped and warmup references, "
-                "and the references following the simulated ones are dropped.");
+// XXX i#7230: Currently the simulators count only non-marker records here: we should
+// either change that to all records to match -skip_refs, or update these docs.
+droption_t<bytesize_t> op_sim_refs(
+    DROPTION_SCOPE_FRONTEND, "sim_refs", bytesize_t(1ULL << 63),
+    "Number of records to analyze",
+    "This option is honored by certain tools such as the cache and TLB simulators and "
+    "the view tool.  It causes them to only analyze this many records and ignore all "
+    "subsequent records.  If -skip_refs is specified, the analyzed records start after "
+    "the skipped ones end; similarly, if -warmup_refs is specified, the warmup records "
+    "come prior to the -sim_refs records.  Since the framework is still iterating over "
+    "all the records and it is the tool who is ignoring those outside of this range, a "
+    "large trace may still take time even with a small value for this option.");
 
 droption_t<std::string>
     op_view_syntax(DROPTION_SCOPE_FRONTEND, "view_syntax", "att/arm/dr/riscv",

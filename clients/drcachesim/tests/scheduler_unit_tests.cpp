@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -190,7 +190,8 @@ run_lockstep_simulation(scheduler_t &scheduler, int num_outputs, memref_tid_t ti
     int64_t meta_records = 0;
     // Record the threads, one char each.
     std::vector<std::string> sched_as_string(num_outputs);
-    static constexpr char THREAD_LETTER_START = 'A';
+    static constexpr char THREAD_LETTER_START_USER = 'A';
+    static constexpr char THREAD_LETTER_START_KERNEL = 'a';
     static constexpr char WAIT_SYMBOL = '-';
     static constexpr char IDLE_SYMBOL = '_';
     static constexpr char NON_INSTR_SYMBOL = '.';
@@ -229,8 +230,10 @@ run_lockstep_simulation(scheduler_t &scheduler, int num_outputs, memref_tid_t ti
             }
             assert(status == scheduler_t::STATUS_OK);
             if (type_is_instr(memref.instr.type)) {
+                bool is_kernel = outputs[i]->is_record_kernel();
                 sched_as_string[i] +=
-                    THREAD_LETTER_START + static_cast<char>(memref.instr.tid - tid_base);
+                    (is_kernel ? THREAD_LETTER_START_KERNEL : THREAD_LETTER_START_USER) +
+                    static_cast<char>(memref.instr.tid - tid_base);
             } else {
                 // While this makes the string longer, it is just too confusing
                 // with the same letter seemingly on 2 cores at once without these
@@ -1332,6 +1335,254 @@ test_synthetic()
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
                                                    /*verbosity=*/3);
+        sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
+        sched_ops.time_units_per_us = 1.;
+        // This was tuned with a 100us threshold: so avoid scheduler.h defaults
+        // changes from affecting our output.
+        sched_ops.blocking_switch_threshold = BLOCK_THRESHOLD;
+        sched_ops.quantum_duration_us = QUANTUM_DURATION;
+        sched_ops.block_time_multiplier = BLOCK_SCALE;
+        sched_ops.migration_threshold_us = 0;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<std::string> sched_as_string =
+            run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE, /*send_time=*/true);
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        }
+        assert(sched_as_string[0] == CORE0_SCHED_STRING);
+        assert(sched_as_string[1] == CORE1_SCHED_STRING);
+    }
+}
+
+static void
+test_synthetic_with_syscall_seq()
+{
+    std::cerr << "\n----------------\nTesting synthetic with syscall sequences\n";
+    static constexpr int NUM_INPUTS = 7;
+    static constexpr int NUM_OUTPUTS = 2;
+    static constexpr int NUM_INSTRS = 9;
+    static constexpr int QUANTUM_DURATION = 3;
+    // We do not want to block for very long.
+    static constexpr double BLOCK_SCALE = 0.01;
+    static constexpr uint64_t BLOCK_THRESHOLD = 100;
+    static constexpr memref_tid_t TID_BASE = 100;
+    static constexpr uint64_t KERNEL_CODE_OFFSET = 123456;
+    static constexpr uint64_t SYSTRACE_NUM = 84;
+    std::vector<trace_entry_t> inputs[NUM_INPUTS];
+    for (int i = 0; i < NUM_INPUTS; i++) {
+        memref_tid_t tid = TID_BASE + i;
+        inputs[i].push_back(make_thread(tid));
+        inputs[i].push_back(make_pid(1));
+        inputs[i].push_back(make_version(TRACE_ENTRY_VERSION));
+        inputs[i].push_back(make_timestamp(10)); // All the same time priority.
+        for (int j = 0; j < NUM_INSTRS; j++) {
+            inputs[i].push_back(make_instr(42 + j * 4));
+            // Test a syscall sequence starting at each offset within a quantum
+            // of instrs.
+            if (i <= QUANTUM_DURATION && i == j) {
+                inputs[i].push_back(make_timestamp(20));
+                inputs[i].push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, SYSTRACE_NUM));
+                if (i < 2) {
+                    // Thresholds for only blocking syscalls are low enough to
+                    // cause a context switch. So only A and B will try a voluntary
+                    // switch (which may be delayed due to the syscall trace) after
+                    // 1 or 2 instrs respectively.
+                    inputs[i].push_back(
+                        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0));
+                }
+                inputs[i].push_back(make_timestamp(120));
+                inputs[i].push_back(
+                    make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSTRACE_NUM));
+                // A has just one syscall seq instr to show that it still does the
+                // voluntary switch after the syscall trace is done, even though there
+                // is still room for one more instr in its quantum.
+                // D has just one syscall seq instr to show that it will continue
+                // on without a switch after the syscall trace is done because more
+                // instrs were left in the same quantum.
+                // B and C have longer syscall seq to show that they will not be
+                // preempted by voluntary or quantum switches respectively.
+                int count_syscall_instrs = (i == 0 || i == 3) ? 1 : QUANTUM_DURATION;
+                for (int k = 1; k <= count_syscall_instrs; ++k)
+                    inputs[i].push_back(make_instr(KERNEL_CODE_OFFSET + k));
+                inputs[i].push_back(
+                    make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSTRACE_NUM));
+            }
+        }
+        inputs[i].push_back(make_exit(tid));
+    }
+    // A has a syscall sequence at [2,2], B has it at [3,5], C has it at [4,6],
+    // D has it at [5,5].
+
+    // Hardcoding here for the 2 outputs and 7 inputs.
+    // We make assumptions on the scheduler's initial runqueue assignment
+    // being round-robin, resulting in 4 on core0 (odd parity letters) and 3 on
+    // core1 (even parity letters).
+    // The dots are markers and thread exits.
+    //
+    // A has a voluntary switch after its first two letters, prompted by its
+    // first instr which is a blocking syscall with latency that exceeds switch
+    // threshold, but not before its 2nd instr which is from the syscall trace
+    // and must be shown before the switch happens. Despite there being room for
+    // 1 more instr left in the quantum, the voluntary switch still happens.
+    // When scheduled next, A has room to execute only one instr left in its
+    // quantum limit (which was carried over after the voluntary switch).
+    //
+    // B has a voluntary switch after its first 5 letters, prompted by its 2nd
+    // instr which is a blocking system call with latency that exceeds switch
+    // threshold, but not before its next three instrs which are from the
+    // syscall trace and must be shown before the switch happens. B ends up
+    // executing more instrs than its quantum limit because of the syscall
+    // trace.
+    //
+    // C has a syscall at its third letter (but it doesn't cause a switch
+    // because it doesn't have sufficiently high latency), followed by the
+    // syscall trace of three additional letters. C ends up
+    // executing more instrs than the quantum limit because of the syscall
+    // trace.
+    //
+    // D has a syscall at its 4th letter, followed by a 1-instr syscall
+    // trace. D continues with its regular instrs without a context switch
+    // at its 6th letter because there is still room for more instrs left in
+    // the quantum.
+    //
+    // Since core0 has an extra input, core1 finishes
+    // its runqueue first and then steals G from core0 (migration threshold is 0)
+    // and finishes it off.
+    static const char *const CORE0_SCHED_STRING =
+        "..A.....a...CCC....ccc...EEE..GGGACCCEEEGGGAAACCC.EEE.AAAA.";
+    static const char *const CORE1_SCHED_STRING =
+        "..BB.....bbb...DDD..FFFBBBD....d.DFFFBBBDDDFFF.B.D.GGG.____";
+    {
+        // Test instruction quanta.
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        for (int i = 0; i < NUM_INPUTS; i++) {
+            std::vector<scheduler_t::input_reader_t> readers;
+            readers.emplace_back(
+                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
+                std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_BASE + i);
+            sched_inputs.emplace_back(std::move(readers));
+        }
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_IGNORE,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/4);
+        sched_ops.quantum_duration_instrs = QUANTUM_DURATION;
+        // This was tuned with a 100us threshold: so avoid scheduler.h defaults
+        // changes from affecting our output.
+        sched_ops.blocking_switch_threshold = BLOCK_THRESHOLD;
+        sched_ops.block_time_multiplier = BLOCK_SCALE;
+        sched_ops.time_units_per_us = 1.;
+        // Migration is measured in wall-clock-time for instr quanta
+        // so avoid non-determinism by having no threshold.
+        sched_ops.migration_threshold_us = 0;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<std::string> sched_as_string =
+            run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE);
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        }
+        // Check scheduler stats.  # switches is the # of letter transitions; # preempts
+        // is the instances where the same letter appears 3 times without another letter
+        // appearing in between (and ignoring the last letter for an input: EOF doesn't
+        // count as a preempt). # nops are the instances where the same input is picked
+        // to run because nothing else is waiting.
+        verify_scheduler_stats(scheduler.get_stream(0), /*switch_input_to_input=*/11,
+                               /*switch_input_to_idle=*/0, /*switch_idle_to_input=*/0,
+                               /*switch_nop=*/1, /*preempts=*/9, /*direct_attempts=*/0,
+                               /*direct_successes=*/0, /*migrations=*/1);
+        verify_scheduler_stats(scheduler.get_stream(1), /*switch_input_to_input=*/11,
+                               /*switch_input_to_idle=*/1, /*switch_idle_to_input=*/0,
+                               /*switch_nop=*/0, /*preempts=*/8, /*direct_attempts=*/0,
+                               /*direct_successes=*/0, /*migrations=*/0);
+        assert(scheduler.get_stream(0)->get_schedule_statistic(
+                   memtrace_stream_t::SCHED_STAT_RUNQUEUE_STEALS) == 0);
+        assert(scheduler.get_stream(1)->get_schedule_statistic(
+                   memtrace_stream_t::SCHED_STAT_RUNQUEUE_STEALS) == 1);
+#ifndef WIN32
+        // XXX: Windows microseconds on test VMs are very coarse and stay the same
+        // for long periods.  Instruction quanta use wall-clock idle times, so
+        // the result is extreme variations here.  We try to adjust by handling
+        // any schedule with below specific patterns.  We just give up on checking the
+        // precise output for this test on Windows.
+        if (sched_as_string[0] != CORE0_SCHED_STRING ||
+            sched_as_string[1] != CORE1_SCHED_STRING) {
+            // XXX: These bools could potentially be made into ints, but then
+            // maybe our check will become too strict, defeating the purpose of
+            // this relaxation.
+            bool found_single_A = false, found_single_B = false, found_single_D = false;
+            for (int cpu = 0; cpu < NUM_OUTPUTS; ++cpu) {
+                for (size_t i = 1; i < sched_as_string[cpu].size() - 1; ++i) {
+                    // We expect a single 'A' for the first instr executed by 'A',
+                    // which will be followed by a marker ('.') for the syscall,
+                    // and the third instr executed by it which will be the only
+                    // instruction executed by it during that scheduling because
+                    // prior bookkeeping for that quantum exhaused all-but-one
+                    // instruction.
+                    if (sched_as_string[cpu][i] == 'A' &&
+                        sched_as_string[cpu][i - 1] != 'A' &&
+                        sched_as_string[cpu][i + 1] != 'A')
+                        found_single_A = true;
+                    // We expect a single 'B' for the last instr executed by B
+                    // which will have to be in its own separate 3-instr quantum.
+                    if (sched_as_string[cpu][i] == 'B' &&
+                        sched_as_string[cpu][i - 1] != 'B' &&
+                        sched_as_string[cpu][i + 1] != 'B')
+                        found_single_B = true;
+                    // We expect a single 'D' for the one quantum where the
+                    // 1st and 3rd instrs executed by D were regular, and the
+                    // 2nd one was from a syscall (which is 'd'). Also, the
+                    // last (10th) instr executed by D will have to be in its
+                    // own separate 3-instr quantum.
+                    if (sched_as_string[cpu][i] == 'D' &&
+                        sched_as_string[cpu][i - 1] != 'D' &&
+                        sched_as_string[cpu][i + 1] != 'D')
+                        found_single_D = true;
+                }
+            }
+            bool found_syscall_a = false, found_syscall_b = false,
+                 found_syscall_c = false, found_syscall_d = false;
+            for (int cpu = 0; cpu < NUM_OUTPUTS; ++cpu) {
+                // The '.' at beginning and end of each of the searched sequences
+                // below is for the syscall trace start and end markers.
+                if (sched_as_string[cpu].find(".a.") != std::string::npos) {
+                    found_syscall_a = true;
+                }
+                if (sched_as_string[cpu].find(".bbb.") != std::string::npos) {
+                    found_syscall_b = true;
+                }
+                if (sched_as_string[cpu].find(".ccc.") != std::string::npos) {
+                    found_syscall_c = true;
+                }
+                if (sched_as_string[cpu].find(".d.") != std::string::npos) {
+                    found_syscall_d = true;
+                }
+            }
+            assert(found_single_A && found_single_B && found_single_D);
+            assert(found_syscall_a && found_syscall_b && found_syscall_c &&
+                   found_syscall_d);
+        }
+#endif
+    }
+    {
+        // Test time quanta.
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        for (int i = 0; i < NUM_INPUTS; i++) {
+            std::vector<scheduler_t::input_reader_t> readers;
+            readers.emplace_back(
+                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
+                std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_BASE + i);
+            sched_inputs.emplace_back(std::move(readers));
+        }
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_IGNORE,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/4);
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
         sched_ops.time_units_per_us = 1.;
         // This was tuned with a 100us threshold: so avoid scheduler.h defaults
@@ -6321,10 +6572,16 @@ static void
 test_marker_updates()
 {
     std::cerr << "\n----------------\nTesting marker updates\n";
+    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                               scheduler_t::DEPENDENCY_IGNORE,
+                                               scheduler_t::SCHEDULER_DEFAULTS,
+                                               /*verbosity=*/2);
     static constexpr int NUM_INPUTS = 5;
     static constexpr int NUM_OUTPUTS = 3;
-    // We need at least enough instrs to cover INSTRS_PER_US==2000.
-    static constexpr int NUM_INSTRS = 10000;
+    // We need at least enough instrs to cover INSTRS_PER_US==time_units_per_us.
+    static constexpr int TIMESTAMP_GAP_US = 10;
+    const int NUM_INSTRS =
+        static_cast<int>(sched_ops.time_units_per_us) * TIMESTAMP_GAP_US;
     static constexpr memref_tid_t TID_BASE = 100;
     static constexpr uint64_t TIMESTAMP_BASE = 12340000;
 
@@ -6362,15 +6619,12 @@ test_marker_updates()
                              TID_BASE + i);
         sched_inputs.emplace_back(std::move(readers));
     }
-    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
-                                               scheduler_t::DEPENDENCY_IGNORE,
-                                               scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/2);
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
         scheduler_t::STATUS_SUCCESS)
         assert(false);
     std::vector<scheduler_t::stream_t *> outputs(NUM_OUTPUTS, nullptr);
+    std::vector<uintptr_t> first_timestamp(NUM_OUTPUTS, 0);
     std::vector<uintptr_t> last_timestamp(NUM_OUTPUTS, 0);
     std::vector<bool> eof(NUM_OUTPUTS, false);
     for (int i = 0; i < NUM_OUTPUTS; i++)
@@ -6396,6 +6650,8 @@ test_marker_updates()
             if (memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
                 assert(memref.marker.marker_value >= last_timestamp[i]);
                 last_timestamp[i] = memref.marker.marker_value;
+                if (first_timestamp[i] == 0)
+                    first_timestamp[i] = memref.marker.marker_value;
             } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID) {
                 assert(memref.marker.marker_value ==
                        static_cast<uintptr_t>(outputs[i]->get_shard_index()));
@@ -6403,10 +6659,33 @@ test_marker_updates()
         }
     }
     // Ensure we didn't short-circuit or exit early.
-    uint64_t instrs_seen = 0;
-    for (int i = 0; i < NUM_OUTPUTS; i++)
+    int64_t instrs_seen = 0;
+    for (int i = 0; i < NUM_OUTPUTS; i++) {
         instrs_seen += outputs[i]->get_instruction_ordinal();
+        // Check that the timestamps increased enough.
+        assert(last_timestamp[i] - first_timestamp[i] >= TIMESTAMP_GAP_US);
+    }
     assert(instrs_seen == NUM_INPUTS * NUM_INSTRS);
+}
+
+class test_options_t : public scheduler_fixed_tmpl_t<memref_t, reader_t> {
+public:
+    void
+    check_options()
+    {
+        // Ensure scheduler_options_t.time_units_per_us ==
+        // scheduler_impl_tmpl_t::INSTRS_PER_US.
+        scheduler_t::scheduler_options_t default_options;
+        assert(default_options.time_units_per_us == INSTRS_PER_US);
+    }
+};
+
+static void
+test_options_match()
+{
+    std::cerr << "\n----------------\nTesting option matching\n";
+    test_options_t test;
+    test.check_options();
 }
 
 int
@@ -6424,6 +6703,7 @@ test_main(int argc, const char *argv[])
     test_only_threads();
     test_real_file_queries_and_filters(argv[1]);
     test_synthetic();
+    test_synthetic_with_syscall_seq();
     test_synthetic_time_quanta();
     test_synthetic_with_timestamps();
     test_synthetic_with_priorities();
@@ -6454,6 +6734,7 @@ test_main(int argc, const char *argv[])
     test_initial_migrate();
     test_exit_early();
     test_marker_updates();
+    test_options_match();
 
     dr_standalone_exit();
     return 0;

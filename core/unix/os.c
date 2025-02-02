@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -469,7 +469,7 @@ __errno_location(void)
  * 0xf721e42e <__errno_location+27>:    pop    %ebp
  * 0xf721e42f <__errno_location+28>:    ret
  *
- * __errno_location calcuates the errno location by adding
+ * __errno_location calculates the errno location by adding
  * TLS's base with errno's offset in TLS.
  * However, because the TLS has been switched in os_tls_init,
  * the calculated address is wrong.
@@ -784,7 +784,7 @@ static init_fn_t
 #else
 /* If we're a normal shared object, then we override _init.
  */
-int
+INITIALIZER_ATTRIBUTES int
 _init(int argc, char **argv, char **envp)
 {
 #    ifdef ANDROID
@@ -1143,6 +1143,8 @@ get_application_name_helper(bool ignore_cache, bool full_path)
 #else
             /* OSX kernel puts full app exec path above envp */
             char *c, **env = our_environ;
+            ASSERT(our_environ != NULL &&
+                   "our_environ is not set in get_application_name_helper");
             do {
                 env++;
             } while (*env != NULL);
@@ -1211,7 +1213,7 @@ set_executable_path(const char *exe_path)
  * get process names to do selective process following (PR 212034).  The
  * alternative is to duplicate or compile in this code into libdrpreload.so,
  * which is messy.  Besides, libdynamorio.so is already loaded into the process
- * and avaiable, so cleaner to just use functions from it.
+ * and available, so cleaner to just use functions from it.
  */
 DYNAMORIO_EXPORT const char *
 get_application_short_name(void)
@@ -2705,7 +2707,7 @@ os_fork_pre(dcontext_t *dcontext)
                                  * retrying on failure.
                                  */
                                 THREAD_SYNCH_SUSPEND_FAILURE_RETRY)) {
-        /* If we failed to synch with all threads, we live with the possiblity
+        /* If we failed to synch with all threads, we live with the possibility
          * of deadlock and continue as normal.
          */
         LOG(GLOBAL, 1, LOG_SYSCALLS | LOG_THREADS,
@@ -3078,7 +3080,7 @@ get_tls_thread_id(void)
     /* it reads 8-bytes into the memory, which includes app_gs and app_fs.
      * 0x000000007127357b <get_tls_thread_id+37>:      mov    %gs:(%rax),%rax
      * 0x000000007127357f <get_tls_thread_id+41>:      mov    %rax,-0x8(%rbp)
-     * so we remove the TRUNCATE check and trucate it on return.
+     * so we remove the TRUNCATE check and truncate it on return.
      */
     return (thread_id_t)tid;
 }
@@ -6408,6 +6410,8 @@ cleanup_after_vfork_execve(dcontext_t *dcontext)
                      num_threads * sizeof(thread_record_t *) HEAPACCT(ACCT_THREAD_MGT));
 }
 
+/* XXX: Discover libc type at runtime and use appropriate stdfile_t variant
+ * instead of depending on build-time preprocessor defines. */
 static void
 set_stdfile_fileno(stdfile_t **stdfile, file_t old_fd, file_t file_no)
 {
@@ -6418,7 +6422,6 @@ set_stdfile_fileno(stdfile_t **stdfile, file_t old_fd, file_t file_no)
     (*stdfile)->STDFILE_FILENO = file_no;
 #    endif
 #else
-#    warning stdfile_t is opaque; DynamoRIO will not set fds of libc FILEs.
     /* i#1973: musl libc support (and potentially other non-glibcs) */
     /* only called by handle_close_pre(), so warning is specific to that. */
     SYSLOG_INTERNAL_WARNING_ONCE(
@@ -8456,7 +8459,7 @@ mmap_check_for_module_overlap(app_pc base, size_t size, bool readable, uint64 in
                  * these segments are mapped from a single disk page they will all have an
                  * elf_header satisfying the check above. So, if the new mmap overlaps an
                  * elf_area and it is also a header, then make sure the offsets (from the
-                 * beginning of the backing file) of all the segments up to the currect
+                 * beginning of the backing file) of all the segments up to the current
                  * one are within the page size. Note, if it is a header of a different
                  * module, then we'll not have an overlap, so we will not hit this case.
                  */
@@ -8479,9 +8482,12 @@ mmap_check_for_module_overlap(app_pc base, size_t size, bool readable, uint64 in
         });
     }
     os_get_module_info_unlock();
-#ifdef ANDROID
+#ifdef ANDROID32
     /* i#1860: we need to keep looking for the segment with .dynamic as Android's
      * loader does not map the whole file up front.
+     * i#7215: This is not needed on newer versions of 64-bit Android, however we
+     * are not able to test with newer versions of 32-bit Android, so this may
+     * still be required.
      */
     if (ma != NULL && at_map && readable)
         os_module_update_dynamic_info(base, size, at_map);
@@ -8523,7 +8529,7 @@ os_add_new_app_module(dcontext_t *dcontext, bool at_map, app_pc base, size_t siz
      * in the elf header and then walking through all the program headers to
      * get the largest virtual offset).  This is necessary to reserve all the
      * space that will be needed.  It then walks through the program headers
-     * mapping over the the previously mapped space with the appropriate
+     * mapping over the previously mapped space with the appropriate
      * permissions and offsets.  Note that the .bss portion is mapped over
      * as anonymous.  It may also, depending on the program headers, make some
      * areas read-only after fixing up their relocations etc. NOTE - at

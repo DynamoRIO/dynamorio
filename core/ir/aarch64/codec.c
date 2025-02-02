@@ -283,6 +283,10 @@ decode_sysreg(uint imm15)
 {
     reg_t sysreg;
     switch (imm15) {
+    case 0x4681: sysreg = DR_REG_CONTEXTIDR_EL1; break;
+    case 0x4201: sysreg = DR_REG_ELR_EL1; break;
+    case 0x4200: sysreg = DR_REG_SPSR_EL1; break;
+    case 0x4684: sysreg = DR_REG_TPIDR_EL1; break;
     case 0x4000: sysreg = DR_REG_MIDR_EL1; break;
     case 0x4005: sysreg = DR_REG_MPIDR_EL1; break;
     case 0x4006: sysreg = DR_REG_REVIDR_EL1; break;
@@ -419,6 +423,10 @@ encode_sysreg(OUT uint *imm15, opnd_t opnd)
 {
     if (opnd_is_reg(opnd)) {
         switch (opnd_get_reg(opnd)) {
+        case DR_REG_CONTEXTIDR_EL1: *imm15 = 0x4681; break;
+        case DR_REG_ELR_EL1: *imm15 = 0x4201; break;
+        case DR_REG_SPSR_EL1: *imm15 = 0x4200; break;
+        case DR_REG_TPIDR_EL1: *imm15 = 0x4684; break;
         case DR_REG_MIDR_EL1: *imm15 = 0x4000; break;
         case DR_REG_MPIDR_EL1: *imm15 = 0x4005; break;
         case DR_REG_REVIDR_EL1: *imm15 = 0x4006; break;
@@ -1073,8 +1081,8 @@ static bool
 decode_opnd_adr_page(int scale, uint enc, byte *pc, OUT opnd_t *opnd)
 {
     uint bits = (enc >> 3 & 0x1ffffc) | (enc >> 29 & 3);
-    byte *addr = ((byte *)((ptr_uint_t)pc >> scale << scale) +
-                  extract_int(bits, 0, 21) * ((ptr_int_t)1 << scale));
+    byte *addr = (byte *)(((ptr_uint_t)pc >> scale << scale) +
+                          extract_int(bits, 0, 21) * ((ptr_int_t)1 << scale));
     *opnd = opnd_create_rel_addr(addr, OPSZ_0);
     return true;
 }

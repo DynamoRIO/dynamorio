@@ -85,6 +85,11 @@ jobs:
       - name: Create build directory
         run: mkdir build
 
+      - name: Setup cmake
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: '3.26.4'
+
       - name: Run Suite
         working-directory: build
         run: ../suite/runsuite_wrapper.pl travis

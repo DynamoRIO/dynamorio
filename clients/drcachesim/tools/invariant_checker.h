@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -49,6 +49,7 @@
 
 #include "analysis_tool.h"
 #include "dr_api.h"
+#include "decode_cache.h"
 #include "memref.h"
 #include "memtrace_stream.h"
 #include "schedule_file.h"
@@ -140,26 +141,35 @@ protected:
 #ifdef X86
         uint64_t instrs_since_sti = 0;
 #endif
-        struct decoding_info_t {
-            bool has_valid_decoding = false;
-            bool is_syscall = false;
-            bool writes_memory = false;
-            bool is_predicated = false;
-            uint num_memory_read_access = 0;
-            uint num_memory_write_access = 0;
-            addr_t branch_target = 0;
-            bool is_prefetch = false;
-            int opcode = 0;
+        class decoding_info_t : public decode_info_base_t {
+        public:
+            bool is_syscall_ = false;
+            bool writes_memory_ = false;
+            bool is_predicated_ = false;
+            uint num_memory_read_access_ = 0;
+            uint num_memory_write_access_ = 0;
+            addr_t branch_target_ = 0;
+            bool is_prefetch_ = false;
+            int opcode_ = 0;
 #ifdef X86
-            bool is_xsave = false;
-            bool is_xrstor = false;
+            bool is_xsave_ = false;
+            bool is_xrstor_ = false;
 #endif
+        private:
+            std::string
+            set_decode_info_derived(
+                void *dcontext,
+                const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
+                instr_t *instr, app_pc decode_pc) override;
         };
         struct instr_info_t {
             memref_t memref = {};
+            // We let this stay the default if we are unable to get decoding info for
+            // the instruction. The data member defaults and is_valid() allow
+            // simplifying various conditional checks.
             decoding_info_t decoding;
         };
-        std::unordered_map<app_pc, decoding_info_t> decode_cache_;
+        std::unique_ptr<decode_cache_t<decoding_info_t>> decode_cache_;
         // On UNIX generally last_instr_in_cur_context_ should be used instead.
         instr_info_t prev_instr_;
 #ifdef UNIX
@@ -263,6 +273,10 @@ protected:
     void
     check_regdeps_invariants(per_shard_t *shard, const memref_t &memref);
 
+    // Creates and initializes a decode cache object in the given shard. Made virtual
+    // to allow subclasses to customize.
+    virtual bool
+    init_decode_cache(per_shard_t *shard, void *dcontext);
 #ifdef X86
     // Whether the expected write entry count check should be relaxed for the kernel
     // part of the trace.

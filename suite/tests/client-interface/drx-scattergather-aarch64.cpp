@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2023-2024 Arm Limited. All rights reserved.
  * **********************************************************/
 
@@ -831,8 +832,10 @@ template <typename TEST_PTRS_T> struct test_case_base_t {
             // Byte values         ||         AA||         BB||         CC||         DD||
             // Half values         ||      AA|AA||      BB|BB||      CC|CC||      DD|DD||
             // Word values         ||AA|AA|AA|AA||BB|BB|BB|BB||CC|CC|CC|CC||DD|DD|DD|DD||
-            assert(value_size != element_size_t::DOUBLE);
             switch (value_size) {
+            case element_size_t::DOUBLE:
+                assert(false); // Not reachable.
+                break;
 #define CASE(size, member, val0, val1, val2, val3)                          \
     case element_size_t::size:                                              \
         member = { { { static_cast<std::ptrdiff_t>(offsets[0]), val0 },     \
@@ -1190,13 +1193,13 @@ run_tests(std::vector<TEST_CASE_T> tests)
         "ldr p15, [%[" #base "], #16 , mul vl]\n" \
         "wrffr p15.b\n"
 
-// Handy short hand to list all Z registers in an asm {} statment clobber list.
+// Handy short hand to list all Z registers in an asm {} statement clobber list.
 #    define ALL_Z_REGS                                                                   \
         "z0", "z1", "z2", "z3", "z4", "z5", "z6", "z7", "z8", "z9", "z10", "z11", "z12", \
             "z13", "z14", "z15", "z16", "z17", "z18", "z19", "z20", "z21", "z22", "z23", \
             "z24", "z25", "z26", "z27", "z28", "z29", "z30", "z31"
 
-// Handy short hand to list all P registers in an asm {} statment clobber list.
+// Handy short hand to list all P registers in an asm {} statement clobber list.
 #    define ALL_P_REGS                                                                   \
         "p0", "p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9", "p10", "p11", "p12", \
             "p13", "p14", "p15"

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -480,7 +480,7 @@ protected:
         // This is accessed by other outputs for stealing and rebalancing.
         // Indirected so we can store it in our vector.
         std::unique_ptr<std::atomic<bool>> active;
-        bool in_kernel_code = false;
+        bool in_syscall_code = false;
         bool in_context_switch_code = false;
         bool hit_switch_code_end = false;
         // Used for time-based quanta.
@@ -555,8 +555,9 @@ protected:
         uint64_t input_count = 0;
     };
 
-    // We assume a 2GHz clock and IPC=1.
-    static constexpr uint64_t INSTRS_PER_US = 2000;
+    // We assume a 2GHz clock and IPC=0.5 to match
+    // scheduler_options_t.time_units_per_us.
+    static constexpr uint64_t INSTRS_PER_US = 1000;
 
     ///////////////////////////////////////////////////////////////////////////
     /// Protected virtual methods.

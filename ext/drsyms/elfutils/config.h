@@ -33,7 +33,9 @@
 
 /* Define if the GNU dcgettext() function is already present or preinstalled.
  */
-#define HAVE_DCGETTEXT 1
+#if !defined(__linux__) || defined(__GLIBC__)
+#    define HAVE_DCGETTEXT 1
+#endif
 
 /* Define to 1 if you have the declaration of `mempcpy', and to 0 if you
    don't. */
@@ -49,7 +51,9 @@
 
 /* Define to 1 if you have the declaration of `rawmemchr', and to 0 if you
    don't. */
-#define HAVE_DECL_RAWMEMCHR 1
+#if !defined(__linux__) || defined(__GLIBC__)
+#    define HAVE_DECL_RAWMEMCHR 1
+#endif
 
 /* Define to 1 if you have the declaration of `reallocarray', and to 0 if you
    don't. */
@@ -60,7 +64,9 @@
 #define HAVE_DECL_STRERROR_R 1
 
 /* Define to 1 if you have the <error.h> header file. */
-#define HAVE_ERROR_H 1
+#if !defined(__linux__) || defined(__GLIBC__)
+#    define HAVE_ERROR_H 1
+#endif
 
 /* Define to 1 if you have the <err.h> header file. */
 #define HAVE_ERR_H 1

@@ -102,8 +102,23 @@ typedef enum {
      * post-syscall timestamp actually containing the pre-syscall time.
      */
     TRACE_ENTRY_VERSION_FREQUENT_TIMESTAMPS = 6,
+    /*
+     * The trace supports #TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION. The marker is used
+     * to indicate an instruction started to execute but didn't retire. The instruction
+     * was either preempted by an asynchronous signal or caused a fault. The instruction
+     * and corresponding memrefs are removed from the trace.
+     *
+     * The marker value is the raw encoding bytes of the instruction up to the
+     * length of a pointer. The encoding will be incomplete for instructions
+     * with long encodings. It is best-effort to help understand the sequence of
+     * generated code where encodings are not available offline. The PC of this
+     * instruction is available in a subsequent
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_EVENT marker.
+     */
+    TRACE_ENTRY_VERSION_RETIRED_INSTRUCTIONS_ONLY =
+        7, /**< Trace version which has only retired instructions in drmemtraces.*/
     /** The latest version of the trace format. */
-    TRACE_ENTRY_VERSION = TRACE_ENTRY_VERSION_FREQUENT_TIMESTAMPS,
+    TRACE_ENTRY_VERSION = TRACE_ENTRY_VERSION_RETIRED_INSTRUCTIONS_ONLY,
 } trace_version_t;
 
 /** The type of a trace entry in a #memref_t structure. */
@@ -963,9 +978,8 @@ typedef enum {
 #define OFFLINE_FILE_VERSION_ENCODINGS 6
 #define OFFLINE_FILE_VERSION_XFER_ABS_PC \
     7 /**< Use the absolute PC for kernel interruption PC for 64-bit mode.*/
-#define OFFLINE_FILE_VERSION_RETIRED_INSTRUCTIONS_ONLY \
-    8 /**< Trace version which has only retired instructions in drmemtraces.*/
-#define OFFLINE_FILE_VERSION OFFLINE_FILE_VERSION_RETIRED_INSTRUCTIONS_ONLY
+#define OFFLINE_FILE_VERSION_NO_OP 8 /**< There are no changes in this version.*/
+#define OFFLINE_FILE_VERSION OFFLINE_FILE_VERSION_NO_OP
 
 /**
  * Bitfields used to describe the high-level characteristics of both an
@@ -1098,6 +1112,12 @@ trace_arch_string(offline_file_type_t type)
 /* We have non-client targets including this header that do not include API
  * headers defining IF_X86_ELSE, etc.  Those don't need this function so we
  * simply exclude them.
+ *
+ * TODO i#7236: If trace_entry.h is included before IF_X86_ELSE is defined by
+ * dr_defines.h, it shows up as a build failure without an obvious cause because
+ * the order between the two headers is not always immediately clear (since they
+ * may be transitively included). i#7236 notes a workaround, but this should be
+ * cleaned up.
  */
 #ifdef IF_X86_ELSE
 static inline offline_file_type_t

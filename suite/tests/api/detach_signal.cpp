@@ -174,8 +174,10 @@ sideline_spinner(void *arg)
     sigemptyset(&mask);
     sigaddset(&mask, SIGUSR1);
     sigaddset(&mask, SIGURG);
-    res = sigprocmask(SIG_SETMASK, &mask, NULL);
-    assert(res == 0);
+    sigset_t returned_mask = {
+        0, /* Set padding to 0 so we can use memcmp */
+    };
+    set_check_signal_mask(&mask, &returned_mask);
 
     /* Now sit in a signal-generating loop. */
     while (!sideline_exit) {
@@ -209,7 +211,8 @@ sideline_spinner(void *arg)
             0, /* Set padding to 0 so we can use memcmp */
         };
         res = sigprocmask(SIG_BLOCK, NULL, &check_mask);
-        assert(res == 0 && memcmp(&mask, &check_mask, sizeof(mask)) == 0);
+        assert(res == 0 &&
+               memcmp(&returned_mask, &check_mask, sizeof(returned_mask)) == 0);
     }
 
     stack_t check_stack;
@@ -246,10 +249,16 @@ main(void)
     thread_t thread[NUM_THREADS]; /* On Linux, the tid. */
 
     sigset_t prior_mask;
+    int res = sigprocmask(SIG_SETMASK, NULL, &prior_mask);
+    assert(res == 0);
     sigemptyset(&handler_mask);
     sigaddset(&handler_mask, DR_SUSPEND_SIGNAL);
-    int res = sigprocmask(SIG_SETMASK, &handler_mask, &prior_mask);
-    assert(res == 0);
+
+    sigset_t returned_mask = {
+        0, /* Set padding to 0 so we can use memcmp */
+    };
+    set_check_signal_mask(&handler_mask, &returned_mask);
+
     res = sigprocmask(SIG_SETMASK, &prior_mask, NULL);
     assert(res == 0);
 

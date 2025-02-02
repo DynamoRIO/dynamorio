@@ -53,7 +53,62 @@
 #    include <sys/mman.h>
 #    include <stdlib.h> /* abort */
 #    include <errno.h>
+#    ifdef MUSL
+#        pragma push_macro("REG_R8")
+#        pragma push_macro("REG_R9")
+#        pragma push_macro("REG_R10")
+#        pragma push_macro("REG_R11")
+#        pragma push_macro("REG_R12")
+#        pragma push_macro("REG_R13")
+#        pragma push_macro("REG_R14")
+#        pragma push_macro("REG_R15")
+#        pragma push_macro("REG_RDI")
+#        pragma push_macro("REG_RSI")
+#        pragma push_macro("REG_RBP")
+#        pragma push_macro("REG_RBX")
+#        pragma push_macro("REG_RDX")
+#        pragma push_macro("REG_RAX")
+#        pragma push_macro("REG_RCX")
+#        pragma push_macro("REG_RSP")
+#        pragma push_macro("REG_CR2")
+#        undef REG_R8
+#        undef REG_R9
+#        undef REG_R10
+#        undef REG_R11
+#        undef REG_R12
+#        undef REG_R13
+#        undef REG_R14
+#        undef REG_R15
+#        undef REG_RDI
+#        undef REG_RSI
+#        undef REG_RBP
+#        undef REG_RBX
+#        undef REG_RDX
+#        undef REG_RAX
+#        undef REG_RCX
+#        undef REG_RSP
+#        undef REG_CR2
+#    endif
 #    include <signal.h>
+#    ifdef MUSL
+#        pragma pop_macro("REG_R8")
+#        pragma pop_macro("REG_R9")
+#        pragma pop_macro("REG_R10")
+#        pragma pop_macro("REG_R11")
+#        pragma pop_macro("REG_R12")
+#        pragma pop_macro("REG_R13")
+#        pragma pop_macro("REG_R14")
+#        pragma pop_macro("REG_R15")
+#        pragma pop_macro("REG_RDI")
+#        pragma pop_macro("REG_RSI")
+#        pragma pop_macro("REG_RBP")
+#        pragma pop_macro("REG_RBX")
+#        pragma pop_macro("REG_RDX")
+#        pragma pop_macro("REG_RAX")
+#        pragma pop_macro("REG_RCX")
+#        pragma pop_macro("REG_RSP")
+#        pragma pop_macro("REG_CR2")
+#    endif
 #    ifdef MACOS
 #        define _XOPEN_SOURCE \
             700 /* required to get POSIX, etc. defines out of ucontext.h */
@@ -301,6 +356,9 @@ typedef void (*handler_3_t)(int, siginfo_t *, ucontext_t *);
 /* set up signal_handler as the handler for signal "sig" */
 void
 intercept_signal(int sig, handler_3_t handler, bool sigstack);
+
+void
+set_check_signal_mask(sigset_t *mask, sigset_t *returned_mask);
 
 #    ifdef AARCH64
 void

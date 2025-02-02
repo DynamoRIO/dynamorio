@@ -242,4 +242,14 @@ typedef kernel_sigcontext_t sigcontext_t;
 #    define SC_RETURN_REG SC_A0
 #endif /* X86/ARM */
 
+/* XXX i#5383: macOS 14.4 on ARM64 _init does not seem to get called
+ * without __attribute__((constructor)) but it inexplicably breaks tests if
+ * we add this flag on X86. So we add it only on ARM64 for now.
+ */
+#if defined(MACOS) && defined(AARCH64)
+#    define INITIALIZER_ATTRIBUTES __attribute__((constructor))
+#else
+#    define INITIALIZER_ATTRIBUTES
+#endif
+
 #endif /* _OS_PUBLIC_H_ 1 */

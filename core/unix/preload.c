@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -50,6 +50,7 @@
 #include "configure.h"
 #include "globals_shared.h"
 #include "../config.h"
+#include "os_public.h"
 #include <stdio.h>
 /* for getpid */
 #include <unistd.h>
@@ -68,7 +69,7 @@
 #    ifdef VMX86_SERVER
 /* This function is not statically linked so as avoid duplicating or compiling
  * DR code into libdrpreload.so, which is messy.  As libdynamorio.so is
- * already loaded into the process and avaiable, it is cleaner to just use
+ * already loaded into the process and available, it is cleaner to just use
  * functions from it, i.e., dynamic linking.  See PR 212034.
  */
 void
@@ -137,7 +138,7 @@ take_over(const char *pname)
     return true;
 }
 
-int
+INITIALIZER_ATTRIBUTES int
 #if INIT_BEFORE_LIBC
 _init(int argc, char *arg0, ...)
 {

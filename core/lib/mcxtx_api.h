@@ -128,6 +128,7 @@
         uint apsr; /**< The application program status registers in AArch32. */
         uint cpsr; /**< The current program status registers in AArch32. */
     }; /**< The anonymous union of alternative names for apsr/cpsr register. */
+    byte padding[4]; /**< The padding to get simd field 8-byte aligned. */
 #    endif /* 64/32-bit */
 
 #    ifdef X64 /* 64-bit */
@@ -566,6 +567,8 @@
     reg_t fcsr; /**< Floating-Point Control Register. */
     reg_t vstart; /**< Vector Start Index CSR. */
     reg_t vcsr; /**< Vector Control and Status Register. */
+    reg_t vl; /**< Vector Length Register. */
+    reg_t vtype; /**< Vector Type Register. */
     /** The Vector registers. */
     dr_simd_t simd[MCXT_NUM_SIMD_SLOTS];
 #else /* RISCV64 */

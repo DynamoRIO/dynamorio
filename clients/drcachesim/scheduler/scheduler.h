@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -267,6 +267,10 @@ public:
          * with no timeout but do not include a corresponding
          * #TRACE_MARKER_TYPE_SYSCALL_SCHEDULE for wakeup, an input could remain
          * unscheduled.
+         *
+         * Also beware that this can skip over trace header entries (like
+         * #TRACE_MARKER_TYPE_FILETYPE), which should ideally be obtained from the
+         * #dynamorio::drmemtrace::memtrace_stream_t API instead.
          */
         std::vector<range_t> regions_of_interest;
     };
@@ -758,6 +762,9 @@ public:
          * The scheduling quantum duration for preemption, in instruction count,
          * for #QUANTUM_INSTRUCTIONS.  The time passed to next_record() is ignored
          * for purposes of quantum preempts.
+         *
+         * Instructions executed in a quantum may end up higher than the specified
+         * value to avoid interruption of the kernel system call sequence.
          */
         // We pick 10 million to match 2 instructions per nanosecond with a 5ms quantum.
         uint64_t quantum_duration_instrs = 10 * 1000 * 1000;
@@ -1038,7 +1045,8 @@ public:
          * #TRACE_MARKER_TYPE_VERSION record in the trace header.
          * This can be queried prior to explicitly retrieving any records from
          * output streams, unless #dynamorio::drmemtrace::scheduler_tmpl_t::
-         * scheduler_options_t.read_inputs_in_init is false.
+         * scheduler_options_t.read_inputs_in_init is false (which is the
+         * case for online drmemtrace analysis).
          */
         uint64_t
         get_version() const override
@@ -1052,7 +1060,8 @@ public:
          * #TRACE_MARKER_TYPE_FILETYPE record in the trace header.
          * This can be queried prior to explicitly retrieving any records from
          * output streams, unless #dynamorio::drmemtrace::scheduler_tmpl_t::
-         * scheduler_options_t.read_inputs_in_init is false.
+         * scheduler_options_t.read_inputs_in_init is false (which is the
+         * case for online drmemtrace analysis).
          */
         uint64_t
         get_filetype() const override
@@ -1159,9 +1168,10 @@ public:
          * For #SCHEDULER_USE_INPUT_ORDINALS or
          * #SCHEDULER_USE_SINGLE_INPUT_ORDINALS, returns the input stream ordinal, except
          * for the case of a single combined-stream input with the passed-in thread id
-         * set to INVALID_THREAD_ID (the serial analysis mode for analyzer tools) in
-         * which case the last trace record's tid is returned; otherwise returns the
-         * output stream ordinal.
+         * set to INVALID_THREAD_ID (the online analysis mode for analyzer tools where the
+         * inputs for multiple threads are all combined in one process-wide pipe) in which
+         * case the last trace record's tid as an ordinal (in the order observed in the
+         * output stream) is returned; otherwise returns the output stream ordinal.
          */
         int
         get_shard_index() const override;
