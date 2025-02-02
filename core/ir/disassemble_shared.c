@@ -177,11 +177,13 @@ dsts_first(void)
                    DYNAMO_OPTION(disasm_mask));
 }
 
+#ifdef DEBUG
 static inline bool
 opmask_with_dsts(void)
 {
     return TESTANY(DR_DISASM_INTEL | DR_DISASM_ATT, DYNAMO_OPTION(disasm_mask));
 }
+#endif
 
 static void
 internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
