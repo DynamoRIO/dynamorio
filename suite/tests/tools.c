@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -74,7 +74,7 @@ get_windows_version(void)
     res = RtlGetVersion(&version);
     assert(NT_SUCCESS(res));
     if (version.dwPlatformId == VER_PLATFORM_WIN32_NT) {
-        /* WinNT or descendents */
+        /* WinNT or descendants */
         if (version.dwMajorVersion == 10 && version.dwMinorVersion == 0) {
             if (GetProcAddress((HMODULE)ntdll_handle, "NtAllocateVirtualMemoryEx") !=
                 NULL)
@@ -297,7 +297,7 @@ print(const char *fmt, ...)
 #    ifdef UNIX
 
 /***************************************************************************/
-/* a hopefuly portable /proc/@self/maps reader */
+/* A hopefully portable /proc/@self/maps reader. */
 
 /* these are defined in /usr/src/linux/fs/proc/array.c */
 #        define MAPS_LINE_LENGTH 4096
@@ -489,6 +489,32 @@ intercept_signal(int sig, handler_3_t handler, bool sigstack)
     /* arm the signal */
     rc = sigaction(sig, &act, NULL);
     ASSERT_NOERR(rc);
+}
+
+/* Set a signal mask and then immediately check that the current signal mask
+ * matches what we set, with considerations for special cases e.g. Android.
+ */
+void
+set_check_signal_mask(sigset_t *mask, sigset_t *returned_mask)
+{
+    int rc;
+    rc = sigprocmask(SIG_SETMASK, mask, NULL);
+    ASSERT_NOERR(rc);
+    rc = sigprocmask(SIG_BLOCK, NULL, returned_mask);
+    ASSERT_NOERR(rc);
+#        ifdef ANDROID64
+    /* 64-bit Android always sets the 32nd bit of the signal mask, defined as
+     * __SIGRTMIN in the NDK. This occurs whether running under DR or not.
+     * If this bit is not also set for our mask then the assert will fail.
+     * i#7215: This may also be needed for newer versions of 32-bit Android,
+     * however we are not able to test newer versions of 32-bit Android, so
+     * cannot be sure.
+     */
+    sigaddset(mask, __SIGRTMIN);
+#        endif
+    /* Check that the mask we just set is the same as the one currently in use.
+     */
+    assert(memcmp(mask, returned_mask, sizeof(*mask)) == 0);
 }
 
 #        ifdef AARCH64
