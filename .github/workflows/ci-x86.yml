@@ -363,8 +363,10 @@ jobs:
         echo "https://dl-cdn.alpinelinux.org/v3.21/main/" | \
         sudo tee alpine-root/etc/apk/repositories
         # Meta-package build-base simplifies dependencies, but it pulls in
-        # fortify-headers, which isn't compatible with DynamoRIO source.
-        # TODO i#1973: simplify after fixing compatibility problem.
+        # fortify-headers. Alpine ships an out-of-date version whose headers
+        # contain unnecessary includes, causing naming conflicts.
+        # TODO i#1973: simplify dependency with build-base after fixing
+        # the compatibility problem.
         # Supply --allow-untrusted since we're creating a rootfs from scratch
         # thus don't have any public key available.
         sudo sbin/apk.static -p alpine-root -U --initdb --allow-untrusted add \
