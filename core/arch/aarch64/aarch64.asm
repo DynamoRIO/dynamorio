@@ -1,6 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2019-2024 Google, Inc. All rights reserved.
- * Copyright (c) 2016 ARM Limited. All rights reserved.
+ * Copyright (c) 2016-2025 ARM Limited. All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,6 +35,7 @@
  * AArch64-specific assembly and trampoline code
  */
 
+#include "asm_offsets.h"
 #include "../asm_defines.asm"
 START_FILE
 
@@ -46,50 +47,16 @@ START_FILE
 # error Non-Unix is not supported
 #endif
 
-/* sizeof(priv_mcontext_t) rounded up to a multiple of 16 */
-#define PRIV_MCONTEXT_SIZE 2480
-
-/* offsetof(spill_state_t, r0) */
-#define spill_state_r0_OFFSET 0
-/* offsetof(spill_state_t, r1) */
-#define spill_state_r1_OFFSET 8
-/* offsetof(spill_state_t, r2) */
-#define spill_state_r2_OFFSET 16
-/* offsetof(spill_state_t, r3) */
-#define spill_state_r3_OFFSET 24
-/* offsetof(spill_state_t, r4) */
-#define spill_state_r4_OFFSET 32
-/* offsetof(spill_state_t, r5) */
-#define spill_state_r5_OFFSET 40
-/* offsetof(spill_state_t, dcontext) */
-#define spill_state_dcontext_OFFSET 56
-/* offsetof(spill_state_t, fcache_return) */
-#define spill_state_fcache_return_OFFSET 64
-
-/* offsetof(priv_mcontext_t, simd) */
-#define simd_OFFSET (16 * ARG_SZ*2 + 32)
-/* offsetof(dcontext_t, dstack) */
-#define dstack_OFFSET     0x9f8
-/* offsetof(dcontext_t, is_exiting) */
-#define is_exiting_OFFSET (dstack_OFFSET+1*ARG_SZ)
-/* offsetof(struct tlsdesc_t, arg) */
-#define tlsdesc_arg_OFFSET 8
-
-/* offsetof(icache_op_struct_t, flag) */
-#define icache_op_struct_flag_OFFSET 0
-/* offsetof(icache_op_struct_t, lock) */
-#define icache_op_struct_lock_OFFSET 4
-/* offsetof(icache_op_struct_t, linesize) */
-#define icache_op_struct_linesize_OFFSET 8
-/* offsetof(icache_op_struct_t, begin) */
-#define icache_op_struct_begin_OFFSET 16
-/* offsetof(icache_op_struct_t, end) */
-#define icache_op_struct_end_OFFSET 24
-/* offsetof(icache_op_struct_t, spill) */
-#define icache_op_struct_spill_OFFSET 32
-
 #ifndef X64
 # error X64 must be defined
+#endif
+
+#if (spill_state_t_OFFSET_r1 != spill_state_t_OFFSET_r0 + 1 * 8 || \
+     spill_state_t_OFFSET_r2 != spill_state_t_OFFSET_r0 + 2 * 8 || \
+     spill_state_t_OFFSET_r3 != spill_state_t_OFFSET_r0 + 3 * 8 || \
+     spill_state_t_OFFSET_r4 != spill_state_t_OFFSET_r0 + 4 * 8 || \
+     spill_state_t_OFFSET_r5 != spill_state_t_OFFSET_r0 + 5 * 8)
+#    error Code in this file assumes r0, r1, r2, r3, r4, r5 consecutive.
 #endif
 
 #if defined(UNIX)
@@ -178,7 +145,7 @@ GLOBAL_LABEL(dr_call_on_clean_stack:)
         stp      x29, x30, [sp, #-16]! /* Save frame pointer and link register. */
         mov      x29, sp /* Save sp across the call. */
         /* Swap stacks. */
-        ldr      x30, [x0, #dstack_OFFSET]
+        ldr      x30, [x0, #dcontext_t_OFFSET_dstack]
         mov      sp, x30
         /* Set up args. */
         mov      x30, x1 /* void *(*func)(arg1...arg8) */
@@ -225,7 +192,7 @@ save_priv_mcontext_helper:
         str      w1, [x0, #(16 * ARG_SZ*2 + 8)]
         str      w2, [x0, #(16 * ARG_SZ*2 + 12)]
         str      w3, [x0, #(16 * ARG_SZ*2 + 16)]
-        add      x4, x0, #simd_OFFSET
+        add      x4, x0, #priv_mcontext_t_OFFSET_simd
 
         /* Registers Q0-Q31 map directly to registers V0-V31. */
         str      q0, [x4], #64
@@ -270,15 +237,15 @@ GLOBAL_LABEL(dr_app_start:)
         /* Save FP and LR for the case that DR is not taking over. */
         stp      x29, x30, [sp, #-16]!
         /* Build a priv_mcontext_t on the stack. */
-        sub      sp, sp, #PRIV_MCONTEXT_SIZE
+        sub      sp, sp, #priv_mcontext_t_SIZE
         stp      x0, x1, [sp, #(0 * ARG_SZ*2)]
-        add      x0, sp, #(PRIV_MCONTEXT_SIZE + 16) /* compute original SP */
+        add      x0, sp, #(priv_mcontext_t_SIZE + 16) /* compute original SP */
         stp      x30, x0, [sp, #(15 * ARG_SZ*2)]
         str      x30, [sp, #(16 * ARG_SZ*2)] /* save LR as PC */
         CALLC1(save_priv_mcontext_helper, sp)
         CALLC1(GLOBAL_REF(dr_app_start_helper), sp)
         /* If we get here, DR is not taking over. */
-        add      sp, sp, #PRIV_MCONTEXT_SIZE
+        add      sp, sp, #priv_mcontext_t_SIZE
         ldp      x29, x30, [sp], #16
         ret
         END_FUNC(dr_app_start)
@@ -301,15 +268,15 @@ GLOBAL_LABEL(dynamorio_app_take_over:)
         /* Save FP and LR for the case that DR is not taking over. */
         stp      x29, x30, [sp, #-16]!
         /* Build a priv_mcontext_t on the stack. */
-        sub      sp, sp, #PRIV_MCONTEXT_SIZE
+        sub      sp, sp, #priv_mcontext_t_SIZE
         stp      x0, x1, [sp, #(0 * ARG_SZ*2)]
-        add      x0, sp, #(PRIV_MCONTEXT_SIZE + 16) /* compute original SP */
+        add      x0, sp, #(priv_mcontext_t_SIZE + 16) /* compute original SP */
         stp      x30, x0, [sp, #(15 * ARG_SZ*2)]
         str      x30, [sp, #(16 * ARG_SZ*2)] /* save LR as PC */
         CALLC1(save_priv_mcontext_helper, sp)
         CALLC1(GLOBAL_REF(dynamorio_app_take_over_helper), sp)
         /* If we get here, DR is not taking over. */
-        add      sp, sp, #PRIV_MCONTEXT_SIZE
+        add      sp, sp, #priv_mcontext_t_SIZE
         ldp      x29, x30, [sp], #16
         ret
         END_FUNC(dynamorio_app_take_over)
@@ -347,14 +314,14 @@ GLOBAL_LABEL(cleanup_and_terminate:)
 
         /* save dcontext->dstack for freeing later and set dcontext->is_exiting */
         mov      w1, #1
-        mov      x2, #(is_exiting_OFFSET)
+        mov      x2, #dcontext_t_OFFSET_is_exiting
         str      w1, [x19, x2] /* dcontext->is_exiting = 1 */
         CALLC1(GLOBAL_REF(is_currently_on_dstack), x19)
         cbnz     w0, cat_save_dstack
         mov      x24, #0
         b        cat_done_saving_dstack
 cat_save_dstack:
-        mov      x2, #(dstack_OFFSET)
+        mov      x2, #(dcontext_t_OFFSET_dstack)
         ldr      x24, [x19, x2]
 cat_done_saving_dstack:
         CALLC0(GLOBAL_REF(get_cleanup_and_terminate_global_do_syscall_entry))
@@ -643,7 +610,7 @@ GLOBAL_LABEL(back_from_native:)
  */
         DECLARE_FUNC(tlsdesc_resolver)
 GLOBAL_LABEL(tlsdesc_resolver:)
-        ldr      x0, [x0, #tlsdesc_arg_OFFSET]
+        ldr      x0, [x0, #struct_tlsdesc_t_OFFSET_arg]
         ret
 
 /* This function is called from the fragment cache when the original code had
@@ -670,9 +637,9 @@ GLOBAL_LABEL(tlsdesc_resolver:)
         DECLARE_FUNC(icache_op_ic_ivau_asm)
 GLOBAL_LABEL(icache_op_ic_ivau_asm:)
         /* Spill X1 and X2 to TLS_REG4_SLOT and TLS_REG5_SLOT. */
-        stp      x1, x2, [x0, #spill_state_r4_OFFSET]
+        stp      x1, x2, [x0, #spill_state_t_OFFSET_r4]
         /* Point X1 at icache_op_struct.lock. */
-        AARCH64_ADRP_GOT((GLOBAL_REF(icache_op_struct) + icache_op_struct_lock_OFFSET), x1)
+        AARCH64_ADRP_GOT((GLOBAL_REF(icache_op_struct) + icache_op_struct_t_OFFSET_lock), x1)
         /* Acquire lock. */
         prfm     pstl1keep, [x1]
 1:
@@ -681,51 +648,51 @@ GLOBAL_LABEL(icache_op_ic_ivau_asm:)
         stxr     w2, w1, [x1] /* w1 is non-zero! */
         cbnz     w2, 1b
         /* Point X1 at iccache_op_struct. */
-        sub      x1, x1, #icache_op_struct_lock_OFFSET
+        sub      x1, x1, #icache_op_struct_t_OFFSET_lock
         /* Spill X3 and X4 to icache_op_struct.spill. */
-        stp      x3, x4, [x1, #icache_op_struct_spill_OFFSET]
+        stp      x3, x4, [x1, #icache_op_struct_t_OFFSET_spill]
         /* Load size of icache line to X2. */
-        ldr      x2, [x1, #icache_op_struct_linesize_OFFSET]
+        ldr      x2, [x1, #icache_op_struct_t_OFFSET_linesize]
         cbz      x2, set_linesize
 linesize_set:
         /* Align argument to cache line. */
-        ldr      x3, [x0, #spill_state_r2_OFFSET]
+        ldr      x3, [x0, #spill_state_t_OFFSET_r2]
         sub      x4, x2, #1
         bic      x3, x3, x4
-        str      x3, [x0, #spill_state_r2_OFFSET]
+        str      x3, [x0, #spill_state_t_OFFSET_r2]
         /* Is (begin == end)? */
-        ldp      x3, x4, [x1, #icache_op_struct_begin_OFFSET]
+        ldp      x3, x4, [x1, #icache_op_struct_t_OFFSET_begin]
         eor      x3, x3, x4
         cbnz     x3, 2f
         /* Yes, so set begin, end, flag, and return. */
-        ldr      x3, [x0, #spill_state_r2_OFFSET]
+        ldr      x3, [x0, #spill_state_t_OFFSET_r2]
         add      x4, x3, x2
-        stp      x3, x4, [x1, #icache_op_struct_begin_OFFSET]
+        stp      x3, x4, [x1, #icache_op_struct_t_OFFSET_begin]
         mov      w3, #1
-        str      w3, [x1, #icache_op_struct_flag_OFFSET]
+        str      w3, [x1, #icache_op_struct_t_OFFSET_flag]
         b        ic_ivau_return
 2:
         /* Is (argument == end)? */
-        ldr      x3, [x0, #spill_state_r2_OFFSET]
-        ldr      x4, [x1, #(icache_op_struct_begin_OFFSET + 8)]
+        ldr      x3, [x0, #spill_state_t_OFFSET_r2]
+        ldr      x4, [x1, #(icache_op_struct_t_OFFSET_begin + 8)]
         eor      x4, x3, x4
         cbnz     x4, 3f
         /* Yes, so increment end by linesize, and return. */
         add      x3, x3, x2
-        str      x3, [x1, #(icache_op_struct_begin_OFFSET + 8)]
+        str      x3, [x1, #(icache_op_struct_t_OFFSET_begin + 8)]
         b        ic_ivau_return
 3:
         /* Is (argument == begin - linesize)? */
-        ldr      x4, [x1, #icache_op_struct_begin_OFFSET]
+        ldr      x4, [x1, #icache_op_struct_t_OFFSET_begin]
         sub      x4, x4, x2
         eor      x4, x3, x4
         cbnz     x4, 4f
         /* Yes, so decrement begin by linesize, and return. */
-        str      x3, [x1, #icache_op_struct_begin_OFFSET]
+        str      x3, [x1, #icache_op_struct_t_OFFSET_begin]
         b        ic_ivau_return
 4:
         /* Is argument in the range from begin to end? */
-        ldp      x2, x4, [x1, #icache_op_struct_begin_OFFSET]
+        ldp      x2, x4, [x1, #icache_op_struct_t_OFFSET_begin]
         sub      x3, x3, x2 /* (argument - begin) */
         sub      x4, x4, x2 /* (end - begin) */
         lsr      x3, x3, #1
@@ -734,41 +701,41 @@ linesize_set:
         /* Yes, so just return. */
 ic_ivau_return:
         /* Restore X3 and X4 from icache_op_struct.spill. */
-        ldp      x3, x4, [x1, #icache_op_struct_spill_OFFSET]
+        ldp      x3, x4, [x1, #icache_op_struct_t_OFFSET_spill]
         /* Point X1 at icache_op_struct_lock. */
-        add      x1, x1, #icache_op_struct_lock_OFFSET
+        add      x1, x1, #icache_op_struct_t_OFFSET_lock
         /* Release lock. */
         stlr     wzr, [x1]
         /* Restore X1 and X2 from TLS_REG4_SLOT and TLS_REG5_SLOT. */
-        ldp      x1, x2, [x0, #spill_state_r4_OFFSET]
+        ldp      x1, x2, [x0, #spill_state_t_OFFSET_r4]
         /* Return to fragment cache. */
         ret
 5:
         /* The new cache line is not contiguous with the previous set. */
         /* Restore X30 from TLS_REG1_SLOT. */
-        ldr      x30, [x0, #spill_state_r1_OFFSET]
+        ldr      x30, [x0, #spill_state_t_OFFSET_r1]
         /* Move PC and X1 from slots 3 and 4 to slots 4 and 1. */
-        ldp      x3, x4, [x0, #spill_state_r3_OFFSET]
-        str      x3, [x0, #spill_state_r4_OFFSET]
-        str      x4, [x0, #spill_state_r1_OFFSET]
+        ldp      x3, x4, [x0, #spill_state_t_OFFSET_r3]
+        str      x3, [x0, #spill_state_t_OFFSET_r4]
+        str      x4, [x0, #spill_state_t_OFFSET_r1]
         /* Load argument from TLS_REG2_SLOT to X2. */
-        ldr      x2, [x0, #spill_state_r2_OFFSET]
+        ldr      x2, [x0, #spill_state_t_OFFSET_r2]
         /* Save (begin, end) to TLS_REG_SLOT2 and TLS_REG_SLOT3. */
-        ldp      x3, x4, [x1, #icache_op_struct_begin_OFFSET]
-        stp      x3, x4, [x0, #spill_state_r2_OFFSET]
+        ldp      x3, x4, [x1, #icache_op_struct_t_OFFSET_begin]
+        stp      x3, x4, [x0, #spill_state_t_OFFSET_r2]
         /* Set icache_op_struct. */
-        ldr      x4, [x1, #icache_op_struct_linesize_OFFSET]
+        ldr      x4, [x1, #icache_op_struct_t_OFFSET_linesize]
         add      x3, x2, x4
-        stp      x2, x3, [x1, #icache_op_struct_begin_OFFSET]
+        stp      x2, x3, [x1, #icache_op_struct_t_OFFSET_begin]
         /* Restore X2 from TLS_REG5_SLOT. */
-        ldr      x2, [x0, #spill_state_r5_OFFSET]
+        ldr      x2, [x0, #spill_state_t_OFFSET_r5]
         /* Restore X3 and X4 from icache_op_struct.spill. */
-        ldp      x3, x4, [x1, #icache_op_struct_spill_OFFSET]
+        ldp      x3, x4, [x1, #icache_op_struct_t_OFFSET_spill]
         /* Release lock. */
-        add      x1, x1, #icache_op_struct_lock_OFFSET
+        add      x1, x1, #icache_op_struct_t_OFFSET_lock
         stlr     wzr, [x1]
         /* Load fcache_return into X1. */
-        ldr      x1, [x0, #spill_state_fcache_return_OFFSET]
+        ldr      x1, [x0, #spill_state_t_OFFSET_fcache_return]
         /* Point X0 at fake linkstub. */
         AARCH64_ADRP_GOT(GLOBAL_REF(linkstub_selfmod), x0)
         /* Branch to fcache_return. */
@@ -779,7 +746,7 @@ set_linesize:
         and      w3, w3, #15
         mov      x2, #4
         lsl      x2, x2, x3
-        str      x2, [x1, #icache_op_struct_linesize_OFFSET]
+        str      x2, [x1, #icache_op_struct_t_OFFSET_linesize]
         b        linesize_set
 
         END_FUNC(icache_op_ic_ivau_asm)
@@ -799,10 +766,10 @@ set_linesize:
         DECLARE_FUNC(icache_op_isb_asm)
 GLOBAL_LABEL(icache_op_isb_asm:)
         /* Save PC to TLS_REG4_SLOT, and move X2 to TLS_REG5_SLOT. */
-        ldr      x2, [x0, #spill_state_r2_OFFSET]
-        stp      x1, x2, [x0, #spill_state_r4_OFFSET]
+        ldr      x2, [x0, #spill_state_t_OFFSET_r2]
+        stp      x1, x2, [x0, #spill_state_t_OFFSET_r4]
         /* Point X1 at icache_op_struct.lock. */
-        AARCH64_ADRP_GOT((GLOBAL_REF(icache_op_struct) + icache_op_struct_lock_OFFSET), x1)
+        AARCH64_ADRP_GOT((GLOBAL_REF(icache_op_struct) + icache_op_struct_t_OFFSET_lock), x1)
         /* Acquire lock. */
         prfm     pstl1keep, [x1]
 1:
@@ -811,23 +778,23 @@ GLOBAL_LABEL(icache_op_isb_asm:)
         stxr     w2, w1, [x1] /* w2 is non-zero! */
         cbnz     w2, 1b
         /* Point X1 at icache_op_struct. */
-        sub      x1, x1, #icache_op_struct_lock_OFFSET
+        sub      x1, x1, #icache_op_struct_t_OFFSET_lock
         /* Save (begin, end) to TLS_REG_SLOT2 and TLS_REG_SLOT3. */
-        ldr      x2, [x1, #icache_op_struct_begin_OFFSET]
-        str      x2, [x0, #spill_state_r2_OFFSET]
-        ldr      x2, [x1, #icache_op_struct_end_OFFSET]
-        str      x2, [x0, #spill_state_r3_OFFSET]
+        ldr      x2, [x1, #icache_op_struct_t_OFFSET_begin]
+        str      x2, [x0, #spill_state_t_OFFSET_r2]
+        ldr      x2, [x1, #icache_op_struct_t_OFFSET_end]
+        str      x2, [x0, #spill_state_t_OFFSET_r3]
         /* Reset icache_op_struct. */
-        str      wzr, [x1, #icache_op_struct_flag_OFFSET]
-        stp      xzr, xzr, [x1, #icache_op_struct_begin_OFFSET]
+        str      wzr, [x1, #icache_op_struct_t_OFFSET_flag]
+        stp      xzr, xzr, [x1, #icache_op_struct_t_OFFSET_begin]
         /* Point X1 at icache_op_struct.lock. */
         add      x1, x1, #4
         /* Release lock. */
         stlr     wzr, [x1]
         /* Restore X2 from TLS_REG5_SLOT. */
-        ldr      x2, [x0, #spill_state_r5_OFFSET]
+        ldr      x2, [x0, #spill_state_t_OFFSET_r5]
         /* Load fcache_return into X1. */
-        ldr      x1, [x0, #spill_state_fcache_return_OFFSET]
+        ldr      x1, [x0, #spill_state_t_OFFSET_fcache_return]
         /* Point X0 at fake linkstub. */
         AARCH64_ADRP_GOT(GLOBAL_REF(linkstub_selfmod), x0)
         /* Branch to fcache_return. */

@@ -257,6 +257,12 @@ endif (WIN32)
 # put libs in same dir for tests that need to load them
 set(MAIN_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 set(MAIN_LIBRARY_OUTPUT_DIRECTORY "${DR_LIBRARY_OUTPUT_DIRECTORY}")
+if (ANDROID AND DR_COPY_TO_DEVICE)
+    # Replace MAIN_LIBRARY_OUTPUT_DIRECTORY with the device path.
+    file(RELATIVE_PATH relpath ${PROJECT_BINARY_DIR} ${MAIN_LIBRARY_OUTPUT_DIRECTORY})
+    get_filename_component(builddir ${PROJECT_BINARY_DIR} NAME)
+    set(MAIN_LIBRARY_OUTPUT_DIRECTORY "${DR_DEVICE_BASEDIR}/${builddir}/${relpath}")
+endif ()
 string(REGEX REPLACE "/lib([36])" "/ext/lib\\1"
   EXT_LIBRARY_OUTPUT_DIRECTORY "${MAIN_LIBRARY_OUTPUT_DIRECTORY}")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin")
@@ -545,6 +551,28 @@ function(add_sve_flags target)
     endif()
   endif()
 endfunction(add_sve_flags)
+
+if (ANDROID)
+  # Copy a file from the source tree to the test device.
+  # Use this to copy test dependency file. To copy a target use copy_target_to_device()
+  # This is done automatically for test executable targets.
+  function(copy_file_to_device remote_filename_out test_target local_path)
+    if (DR_COPY_TO_DEVICE)
+      file(RELATIVE_PATH relpath ${PROJECT_SOURCE_DIR} ${local_path})
+      get_filename_component(builddir ${PROJECT_BINARY_DIR} NAME)
+      set(device_path "${DR_DEVICE_BASEDIR}/${builddir}/${relpath}")
+      add_custom_command(
+        TARGET ${test_target}
+        POST_BUILD
+        COMMAND ${ADB} push ${local_path} ${device_path}
+        VERBATIM)
+      set(${remote_filename_out} ${device_path} PARENT_SCOPE)
+    else ()
+      set(${remote_filename_out} ${local_path} PARENT_SCOPE)
+    endif ()
+  endfunction(copy_file_to_device)
+endif ()
+
 
 function(add_exe test source)
   get_filename_component(srcbase ${source} NAME_WE)
@@ -1243,7 +1271,7 @@ else ()
   set(dr_os_ops -msgbox_mask 0 -dumpcore_mask 0x7d -staged)
 endif ()
 set(dr_test_ops -stderr_mask 0xC ${dr_os_ops})
-if (CMAKE_CROSSCOMPILING AND DEFINED CMAKE_FIND_ROOT_PATH)
+if (CMAKE_CROSSCOMPILING AND DEFINED CMAKE_FIND_ROOT_PATH AND NOT DR_COPY_TO_DEVICE)
   set(dr_test_ops -xarch_root ${CMAKE_FIND_ROOT_PATH} ${dr_test_ops})
 endif ()
 
@@ -1419,8 +1447,13 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
     # To run the test we use a series of commands in runall.cmake.
     file(READ "${testpath}/${srcbase}.runall" runall)
     if (UNIX)
-      # We always run infloop.
-      get_target_path_for_execution(app_path linux.infloop "${location_suffix}")
+      # Execute an app specified by the user. If no specific app is provided, execute
+      # the default 'linux.infloop' app.
+      if (DEFINED ${key}_realtest)
+        get_target_path_for_execution(app_path "${exe}" "${location_suffix}")
+      else ()
+        get_target_path_for_execution(app_path linux.infloop "${location_suffix}")
+      endif ()
       if ("${runall}" MATCHES "<attach>")
         # Add a starting message with -v, and avoid mprotect for now (i#38: mprotect
         # is failing).
@@ -2010,7 +2043,7 @@ elseif (RISCV64)
 else ()
   set(sfx "x86")
 endif ()
-if (NOT ANDROID)
+if (NOT ANDROID32)
   # XXX i#1874: get working on Android
   tobuild_api(api.ir api/ir_${sfx}.c "" "" OFF OFF OFF)
   if (AARCH64 OR RISCV64)
@@ -2129,7 +2162,7 @@ if (BUILD_CLIENTS)
   endif ()
 endif ()
 
-if (AARCH64 AND UNIX AND ZLIB_FOUND)
+if (AARCH64 AND UNIX AND ZLIB_FOUND AND NOT ANDROID) # TODO i#1874: Add drcachesim support on Android
     # Test TLB simulator with a virtual to physical v2p.textproto mapping.
     set(srcdir
       ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.aarch64.raw)
@@ -2665,6 +2698,11 @@ if (NOT ANDROID) # TODO i#38: Port test to Android.
       set(client.memory_dump_test_expectbase "memory_dump_test")
     endif ()
     tobuild_ci(client.memory_dump_test client-interface/memory_dump_test.c "" "" "")
+    if (LINUX)
+      add_exe(linux.fib_attach linux/fib_attach.c)
+      torunonly_ci(client.attach_memory_dump_test linux.fib_attach client.memory_dump_test.dll
+        client-interface/attach_memory_dump_test.runall "" "" "")
+    endif ()
   endif ()
 endif ()
 
@@ -3306,22 +3344,26 @@ if (ARM)
   endif ()
 elseif (AARCH64)
   add_api_exe(api.dis-a64 api/dis-a64.c OFF OFF)
-  torunonly_api(api.dis-a64 api.dis-a64 api/dis-a64.c ""
-    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64.txt" OFF OFF)
-  torunonly_api(api.dis-a64-v82 api.dis-a64 api/dis-a64.c ""
-    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v82.txt" OFF OFF)
-  torunonly_api(api.dis-a64-v83 api.dis-a64 api/dis-a64.c ""
-    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v83.txt" OFF OFF)
-  torunonly_api(api.dis-a64-v84 api.dis-a64 api/dis-a64.c ""
-    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v84.txt" OFF OFF)
-  torunonly_api(api.dis-a64-v85 api.dis-a64 api/dis-a64.c ""
-    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v85.txt" OFF OFF)
-  torunonly_api(api.dis-a64-v87 api.dis-a64 api/dis-a64.c ""
-    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v87.txt" OFF OFF)
-  torunonly_api(api.dis-a64-sve api.dis-a64 api/dis-a64.c ""
-    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-sve.txt" OFF OFF)
-  torunonly_api(api.dis-a64-sve2 api.dis-a64 api/dis-a64.c ""
-    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-sve2.txt" OFF OFF)
+
+  set(dis_tests
+    dis-a64
+    dis-a64-v82
+    dis-a64-v83
+    dis-a64-v84
+    dis-a64-v85
+    dis-a64-v87
+    dis-a64-sve
+    dis-a64-sve2
+  )
+  foreach (dis_test ${dis_tests})
+    set(dis_fname "${CMAKE_CURRENT_SOURCE_DIR}/api/${dis_test}.txt")
+    if (ANDROID)
+      copy_file_to_device(dis_fname api.dis-a64 ${dis_fname})
+    endif ()
+
+    torunonly_api(api.${dis_test} api.dis-a64 api/dis-a64.c "" "-q;${dis_fname}" OFF OFF)
+  endforeach ()
+
   add_api_exe(api.reenc-a64 api/reenc-a64.c OFF OFF)
   tobuild_api(api.opnd api/opnd-a64.c "" "" OFF OFF OFF)
 elseif (X86)
@@ -4410,6 +4452,7 @@ if (BUILD_CLIENTS)
       # TODO i#3544: Port tests to RISC-V 64
       torunonly_drcacheoff(opcode_mix ${ci_shared_app} ""
         "@-tool@opcode_mix" "")
+
       # Ensure the tool works without the raw/ subdir.
       set(tool.drcacheoff.opcode_mix_postcmd
         "firstglob@${drraw2trace_path}@-indir@${dir_prefix}.*.dir")
@@ -4417,6 +4460,9 @@ if (BUILD_CLIENTS)
         "foreach@${CMAKE_COMMAND}@-E@remove_directory@${dir_prefix}.*.dir/raw")
       set(tool.drcacheoff.opcode_mix_postcmd3
         "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir@-tool@opcode_mix")
+
+      torunonly_drcacheoff(skip_instrs_opcode_mix ${ci_shared_app} ""
+        "@-tool@opcode_mix@-skip_instrs@1" "")
 
       torunonly_drcacheoff(view ${ci_shared_app} ""
         "@-tool@view@-sim_refs@16384" "")
@@ -5689,13 +5735,11 @@ if (UNIX)
   # this app is used in nudge tests
   # XXX: should all these infloop tests be made cross-platform?
   # or rely on runall tests that run calc covering this on Windows?
-  if (NOT ANDROID) # XXX i#1874: add support for running this on Android
-    add_exe(linux.infloop linux/infloop.c)
-    torunonly(linux.reset linux/infloop linux/reset.runall "-enable_reset" "-v")
-  endif ()
+  add_exe(linux.infloop linux/infloop.c)
+  torunonly(linux.reset linux.infloop linux/reset.runall "-enable_reset" "-v")
   if (NOT X64 AND NOT ARM) # FIXME i#1551: add coarse-grain ARM support
     # XXX: 64-bit support not quite there yet
-    torunonly(linux.freeze_FLAKY linux/infloop linux/freeze.runall
+    torunonly(linux.freeze_FLAKY linux.infloop linux/freeze.runall
       "-coarse_units -coarse_enable_freeze" "-v")
   endif (NOT X64 AND NOT ARM)
 
@@ -5704,18 +5748,19 @@ if (UNIX)
   file(MAKE_DIRECTORY "${PCACHE_SHARED_DIR}")
   if (NOT X64 AND NOT ARM) # FIXME i#1551: add coarse-grain ARM support
     # XXX: 64-bit support not quite there yet
-    torunonly(linux.persist_FLAKY linux/infloop linux/persist.runall
+    torunonly(linux.persist_FLAKY linux.infloop linux/persist.runall
       "-coarse_units -coarse_split_calls -coarse_enable_freeze -coarse_freeze_min_size 0 -no_persist_per_user -no_validate_owner_dir" "-v")
-    torunonly(linux.persist-use_FLAKY linux/infloop linux/persist-use.runall
+    torunonly(linux.persist-use_FLAKY linux.infloop linux/persist-use.runall
       "-use_persisted -coarse_units -coarse_split_calls -no_persist_per_user -no_validate_owner_dir" "-v")
   endif (NOT X64 AND NOT ARM)
   # when running tests in parallel: have to generate pcaches first
   set(linux.persist-use_FLAKY_depends linux.persist_FLAKY)
 
-  if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64)
+  if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64 AND NOT ANDROID)
     # The rseq kernel feature is Linux-only.
     # TODO i#2350: Port the assembly in the test to 32-bit x86 and to ARM.
     # TODO i#3544: Port tests to RISC-V 64
+    # TODO i#1874: Build drmemtrace on Android (RSEQ_TEST_ATTACH depends on drmemtrace).
     set(linux.rseq_no_reg_compat)
     tobuild(linux.rseq linux/rseq.cpp)
     # Test the other sections.  Unfortunately we need a separate binary for each.
@@ -6426,7 +6471,8 @@ if (BUILD_CLIENTS AND NOT ANDROID)
     code_api|tool.drcacheoff.simple
     PROPERTIES LABELS UBUNTU_22)
 endif ()
-if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64 AND NOT ANDROID) # TODO i#3544: Port tests to RISC-V 64
+  # TODO i#1874: Build drmemtrace on Android (rseq tests depend on drmemtrace).
   set_tests_properties(
     code_api|api.rseq
     code_api|linux.rseq_disable

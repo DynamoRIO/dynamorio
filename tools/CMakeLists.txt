@@ -32,6 +32,7 @@
 include(../make/policies.cmake NO_POLICY_SCOPE)
 
 add_executable(run_in_bg run_in_bg.c)
+copy_target_to_device(run_in_bg "${location_suffix}")
 
 if (UNIX)
   add_executable(runstats runstats.c)
@@ -227,3 +228,7 @@ DR_install(FILES
   "${CMAKE_CURRENT_SOURCE_DIR}/windbg-scripts/load_syms${SYMSFX}"
   DESTINATION "${INSTALL_BIN}"
   RENAME "load_syms${SYMSFX}.txt")
+
+if (ANDROID)
+  configure_file(run_on_android_device.sh.in run_on_android_device.sh @ONLY)
+endif ()
