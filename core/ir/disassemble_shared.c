@@ -177,11 +177,13 @@ dsts_first(void)
                    DYNAMO_OPTION(disasm_mask));
 }
 
+#ifdef DEBUG
 static inline bool
 opmask_with_dsts(void)
 {
     return TESTANY(DR_DISASM_INTEL | DR_DISASM_ATT, DYNAMO_OPTION(disasm_mask));
 }
+#endif
 
 static void
 internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
@@ -1035,7 +1037,9 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PAR
                          */
                         optype = 0;
                     });
-        bool is_evex_mask = optype_is_evex_mask_arch(optype) && opmask_with_dsts();
+        bool is_evex_mask = optype_is_evex_mask_arch(optype);
+        CLIENT_ASSERT(!is_evex_mask || opmask_with_dsts(),
+                      "Anything here with evex mask should be opmask_with_dsts()");
         if (!is_evex_mask) {
             print_to_buffer(buf, bufsz, sofar, "");
             printing = opnd_disassemble_noimplicit(buf, bufsz, sofar, dcontext, instr,
@@ -1077,7 +1081,9 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PAR
                      (i == 0 && opnd_is_reg(opnd) && reg_is_fp(opnd_get_reg(opnd))));
         });
         if (print) {
-            bool is_evex_mask = optype_is_evex_mask_arch(optype) && opmask_with_dsts();
+            bool is_evex_mask = optype_is_evex_mask_arch(optype);
+            CLIENT_ASSERT(!is_evex_mask || opmask_with_dsts(),
+                          "Anything here with evex mask should be opmask_with_dsts()");
             print_to_buffer(buf, bufsz, sofar, is_evex_mask ? " {" : "");
             prev = opnd_disassemble_noimplicit(buf, bufsz, sofar, dcontext, instr, optype,
                                                opnd, prev && !is_evex_mask,
@@ -1088,12 +1094,14 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PAR
     }
     if (is_evex_mask_pending) {
         int mask_index = 0;
-        opnd = instr_get_src(instr, mask_index);
         CLIENT_ASSERT(IF_X86_ELSE(true, false), "evex mask can only exist for x86.");
-        optype = instr_info_opnd_type(info, !dsts_first(), mask_index);
+        CLIENT_ASSERT(opmask_with_dsts(),
+                      "Anything here with evex mask should be opmask_with_dsts()");
+        opnd = instr_get_src(instr, mask_index);
         CLIENT_ASSERT(!instr_is_opmask(instr) && opnd_is_reg(opnd) &&
-                          reg_is_opmask(opnd_get_reg(opnd)) && opmask_with_dsts(),
+                          reg_is_opmask(opnd_get_reg(opnd)),
                       "evex mask must always be the first source.");
+        optype = instr_info_opnd_type(info, !dsts_first(), mask_index);
         print_to_buffer(buf, bufsz, sofar, " {");
         opnd_disassemble_noimplicit(buf, bufsz, sofar, dcontext, instr, optype, opnd,
                                     false, multiple_encodings, dsts_first(), &mask_index);
