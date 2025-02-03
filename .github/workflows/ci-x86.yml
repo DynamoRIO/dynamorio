@@ -365,6 +365,8 @@ jobs:
         # Meta-package build-base simplifies dependencies, but it pulls in
         # fortify-headers, which isn't compatible with DynamoRIO source.
         # TODO i#1973: simplify after fixing compatibility problem.
+        # Supply --allow-untrusted since we're creating a rootfs from scratch
+        # thus don't have any public key available.
         sudo sbin/apk.static -p alpine-root -U --initdb --allow-untrusted add \
           alpine-base binutils bash cmake doxygen file g++ git libunwind-dev \
           lz4-dev lz4-static linux-headers make musl-dev musl-libintl perl \
