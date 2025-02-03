@@ -126,9 +126,9 @@ clients.
 
 The changes between version \DR_VERSION and 11.3.0 include the following compatibility
 changes:
- - The size of #dr_mcontext_t on 32-bit Arm has been increased by 4 so that
-   the struct can be pushed onto the 8-byte aligned stack without additional
-   padding. The offset of the field "simd" has changed.
+ - On 32-bit Arm the size of #dr_mcontext_t has been increased by 4 and the
+   struct is now required to be 8-byte aligned. The offset of the field "simd"
+   has changed.
  - Added new fields elf_path and elf_path_size to dr_memory_dump_spec_t. When
    dr_create_memory_dump() returns true and elf_path is not NULL, elf_path will be
    written with the path to the memory dump file.

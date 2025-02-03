@@ -85,17 +85,6 @@ bool
 opcode_mix_t::init_decode_cache(shard_data_t *shard, void *dcontext,
                                 offline_file_type_t filetype)
 {
-    // XXX: Perhaps this should be moved into decode_cache_t::init().
-    // We remove OFFLINE_FILE_TYPE_ARCH_REGDEPS from this check since DR_ISA_REGDEPS
-    // is not a real ISA and can coexist with any real architecture.
-    if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL & ~OFFLINE_FILE_TYPE_ARCH_REGDEPS, filetype) &&
-        !TESTANY(build_target_arch_type(), filetype)) {
-        shard->error = std::string("Architecture mismatch: trace recorded on ") +
-            trace_arch_string(static_cast<offline_file_type_t>(filetype)) +
-            " but tool built for " + trace_arch_string(build_target_arch_type());
-        return false;
-    }
-
     shard->decode_cache =
         std::unique_ptr<decode_cache_t<opcode_data_t>>(new decode_cache_t<opcode_data_t>(
             dcontext,
