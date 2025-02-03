@@ -107,7 +107,7 @@ void *
 #    define ALT_STACK_SIZE (SIGSTKSZ * 2)
     sigstack.ss_sp = (char *)malloc(ALT_STACK_SIZE);
     sigstack.ss_size = ALT_STACK_SIZE;
-    sigstack.ss_flags = SS_ONSTACK;
+    sigstack.ss_flags = 0;
     int res = sigaltstack(&sigstack, NULL);
     assert(res == 0);
 #endif
