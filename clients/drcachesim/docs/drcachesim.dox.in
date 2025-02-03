@@ -1327,6 +1327,10 @@ $ gzip drmemtrace.app.pid.xxxx.dir/drmemtrace.trace
 $ bin64/drrun -t drmemtrace -infile drmemtrace.app.pid.xxxx.dir/drmemtrace.trace.gz
 \endcode
 
+Multiple offline trace workload directories can be combined in
+core-sharded mode using the -multi_indir option.  The threads from
+every workload will all be interleaved together.
+
 The same analysis tools used online are available for offline: the trace
 format is identical.
 
@@ -1759,6 +1763,14 @@ The scheduler supports running a subset of each input.  A list of start and stop
 endpoints delimiting the regions of interest can be supplied with each input.  The end
 result is as though the inputs had been edited to remove all content not inside the
 target regions.
+
+********************
+\section sec_drcachesim_sched_multi Multiple Inputs
+
+The scheduler API supports multiple inputs from multiple workloads.  This can be
+achieved in the drmemtrace analyzer framework in core-sharded mode with the
+-multi_indir option.  The threads from every workload will all be interleaved
+together.
 
 ********************
 \section sec_drcachesim_sched_speculation Speculation Support

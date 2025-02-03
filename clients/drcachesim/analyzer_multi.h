@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -79,6 +79,9 @@ protected:
 
     analysis_tool_tmpl_t<RecordType> *
     create_invariant_checker();
+
+    std::string
+    get_input_dir();
 
     std::string
     get_aux_file_path(std::string option_val, std::string default_filename);

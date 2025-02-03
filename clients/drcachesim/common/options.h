@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -95,6 +95,7 @@ extern dynamorio::droption::droption_t<std::string> op_outdir;
 extern dynamorio::droption::droption_t<std::string> op_subdir_prefix;
 extern dynamorio::droption::droption_t<std::string> op_infile;
 extern dynamorio::droption::droption_t<std::string> op_indir;
+extern dynamorio::droption::droption_t<std::string> op_multi_indir;
 extern dynamorio::droption::droption_t<std::string> op_module_file;
 extern dynamorio::droption::droption_t<std::string> op_alt_module_dir;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t>
