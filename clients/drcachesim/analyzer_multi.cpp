@@ -534,6 +534,8 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
                 op_core_serial.set_value(true);
             }
         } else if (!all_prefer_thread_sharded) {
+            // XXX: It would be better for this type of error to be raised prior
+            // to raw2trace: consider moving all this mode code up above that.
             this->success_ = false;
             this->error_string_ = "Selected tools differ in preferred sharding: please "
                                   "re-run with -[no_]core_sharded or -[no_]core_serial";
@@ -759,22 +761,25 @@ template <typename RecordType, typename ReaderType>
 std::string
 analyzer_multi_tmpl_t<RecordType, ReaderType>::get_input_dir()
 {
-    std::string trace_dir;
+    // We support a post-processed trace being copied somewhere else from
+    // its initial trace/ subdir and so do not check for any particular
+    // structure here, unlike tracedir_from_rawdir.
     if (!op_indir.get_value().empty())
-        trace_dir = op_indir.get_value();
-    else if (!op_multi_indir.get_value().empty()) {
+        return op_indir.get_value();
+    if (!op_multi_indir.get_value().empty()) {
         // As documented, we only look in the first dir.
         std::stringstream stream(op_multi_indir.get_value());
+        std::string trace_dir;
         std::getline(stream, trace_dir, ':');
-    } else {
-        if (op_infile.get_value().empty()) {
-            return "";
-        }
-        size_t sep_index = op_infile.get_value().find_last_of(DIRSEP ALT_DIRSEP);
-        if (sep_index != std::string::npos)
-            trace_dir = std::string(op_infile.get_value(), 0, sep_index);
+        return trace_dir;
     }
-    return trace_dir;
+    if (op_infile.get_value().empty()) {
+        return "";
+    }
+    size_t sep_index = op_infile.get_value().find_last_of(DIRSEP ALT_DIRSEP);
+    if (sep_index != std::string::npos)
+        return std::string(op_infile.get_value(), 0, sep_index);
+    return "";
 }
 
 /* Get the path to an auxiliary file by examining
