@@ -6531,6 +6531,7 @@ if (RISCV64)
     # TODO i#3544: code_api|linux.eintr failed under QEMU
     # but passed on real hardware.
     # code_api|linux.eintr
+    code_api|linux.execve-null
     code_api|linux.exit
     code_api|linux.infinite
     code_api|linux.longjmp
