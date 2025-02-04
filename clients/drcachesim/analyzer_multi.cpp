@@ -139,7 +139,8 @@ analyzer_multi_t::create_invariant_checker()
         // reader(s) for seeking. For now we only read them for this test.
         // TODO i#5843: Share this code with scheduler_t or pass in for all
         // tools from here for fast skipping in serial and per-cpu modes.
-        std::string tracedir = get_input_dir();
+        std::string tracedir =
+            raw2trace_directory_t::tracedir_from_rawdir(get_input_dir());
         if (directory_iterator_t::is_directory(tracedir)) {
             directory_iterator_t end;
             directory_iterator_t iter(tracedir);
