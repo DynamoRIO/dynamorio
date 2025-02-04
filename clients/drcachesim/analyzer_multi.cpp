@@ -388,6 +388,7 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::set_input_limit(
 template <typename RecordType, typename ReaderType>
 analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
 {
+    this->verbosity_ = op_verbose.get_value();
     this->worker_count_ = op_jobs.get_value();
     this->skip_instrs_ = op_skip_instrs.get_value();
     this->skip_to_timestamp_ = op_skip_to_timestamp.get_value();
@@ -420,9 +421,7 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
     }
     if (offline_requests > 0)
         op_offline.set_value(true); // Some tools check this on post-proc runs.
-    // XXX: add a "required" flag to droption to avoid needing this here
-    if (op_indir.get_value().empty() && op_multi_indir.get_value().empty() &&
-        op_infile.get_value().empty() && op_ipc_name.get_value().empty()) {
+    else if (op_ipc_name.get_value().empty()) {
         this->error_string_ = "Usage error: -ipc_name or -indir or -multi_indir or "
                               "-infile is required\nUsage:\n" +
             droption_parser_t::usage_short(DROPTION_SCOPE_ALL);
@@ -468,6 +467,7 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
                 }
             }
             if (needs_processing) {
+                VPRINT(this, 1, "Post-processing raw trace %s\n", indir.c_str());
                 raw2trace_directory_t dir(op_verbose.get_value());
                 std::string dir_err =
                     dir.initialize(indir, "", op_trace_compress.get_value(),
