@@ -358,6 +358,11 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::set_input_limit(
     std::set<memref_tid_t> &only_threads, std::set<int> &only_shards)
 {
     bool valid_limit = true;
+    if (!op_multi_indir.get_value().empty() &&
+        (op_only_thread.get_value() != 0 || !op_only_threads.get_value().empty() ||
+         !op_only_shards.get_value().empty())) {
+        return "Input limits are not currently supported with -multi_indir";
+    }
     if (op_only_thread.get_value() != 0) {
         if (!op_only_threads.get_value().empty() || !op_only_shards.get_value().empty())
             valid_limit = false;

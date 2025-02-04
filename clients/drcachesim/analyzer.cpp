@@ -253,7 +253,9 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(
             return false;
         }
         workloads.emplace_back(path, regions);
-        // Currently these modifiers apply to every workload.
+        // As documented and checked in analyzer_multi.cpp, only_threads and only_shards
+        // limits are not supported with -multi_indir.  That's already been checked, so
+        // we do not perform additional checks here.
         workloads.back().only_threads = only_threads;
         workloads.back().only_shards = only_shards;
         workloads.back().output_limit = output_limit;
