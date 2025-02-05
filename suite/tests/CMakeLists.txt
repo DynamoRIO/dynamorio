@@ -2166,7 +2166,11 @@ if (AARCH64 AND UNIX AND ZLIB_FOUND AND NOT ANDROID) # TODO i#1874: Add drcaches
     # Test TLB simulator with a virtual to physical v2p.textproto mapping.
     set(srcdir
       ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.aarch64.raw)
-    set(locdir ${PROJECT_BINARY_DIR}/drmemtrace.threadsig.aarch64)
+    set(locdir ${CMAKE_CURRENT_BINARY_DIR}/drmemtrace.tlb_simulator_v2p.aarch64)
+    # We are fine with a static config-time creation of the directory and the
+    # first test run creating the trace/ files with subsequent test runs re-using
+    # those files, as this test targets the tlb simulator.  If our srcdir had
+    # trace/ file we would just use those.
     file(REMOVE_RECURSE ${locdir})
     file(MAKE_DIRECTORY ${locdir})
     file(COPY ${srcdir}/raw DESTINATION ${locdir}/)
@@ -2189,10 +2193,11 @@ if (DR_HOST_NOT_TARGET)
   # Limited to ZLIB_FOUND because we test gzipped .raw files here as well.
   if (BUILD_CLIENTS AND UNIX AND ZLIB_FOUND)
     # We make a writable copy so we can both write the final trace there and run our
-    # analyzer in a single command line.
+    # analyzer in a single command line.  Since we're testing postprocessing we
+    # need to dynamically clobber the directory.
     set(srcdir
       ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.aarch64.raw)
-    set(locdir ${PROJECT_BINARY_DIR}/drmemtrace.threadsig.aarch64)
+    set(locdir ${CMAKE_CURRENT_BINARY_DIR}/drmemtrace.altbindir.aarch64)
     file(MAKE_DIRECTORY ${locdir})
     file(COPY ${srcdir}/raw DESTINATION ${locdir}/)
     get_target_path_for_execution(drcachesim_path drmemtrace_launcher
@@ -2204,6 +2209,10 @@ if (DR_HOST_NOT_TARGET)
       OFF OFF)
     set(tool.drcacheoff.altbindir_basedir
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+    set(tool.drcacheoff.altbindir_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+    set(tool.drcacheoff.altbindir_precmd
+        "${CMAKE_COMMAND}@-E@remove_directory@${locdir}/trace")
+    set(tool.drcacheoff.altbindir_failok ON)
   endif ()
 
   # The tests are not ported to build with host!=target.  Most will never work there,
@@ -4032,6 +4041,12 @@ if (BUILD_CLIENTS)
           "")
         set(tool.switch_file_invariants_rawtemp ON) # no preprocessor
 
+        # Test -multi_indir with 3 copies of our sample dir.
+        torunonly_simtool(multi_indir ${ci_shared_app}
+          "-multi_indir ${thread_trace_dir}:${thread_trace_dir}:${thread_trace_dir} -tool schedule_stats -cores 3"
+          "")
+        set(tool.multi_indir_rawtemp ON) # no preprocessor
+
         # Sanity test that core-sharded at least runs without errors on our other tools.
         torunonly_simtool(core_sharded ${ci_shared_app}
           "-indir ${thread_trace_dir} -tool reuse_time:reuse_distance:histogram:opcode_mix:syscall_mix -core_sharded"
@@ -5075,11 +5090,11 @@ if (BUILD_CLIENTS)
   # Limited to ZLIB_FOUND because we test gzipped .raw files here as well.
   if (UNIX AND ZLIB_FOUND)
     # We make a writable copy so we can both write the final trace there and run our
-    # analyzer in a single command line.
+    # analyzer in a single command line  Since we're testing postprocessing we
+    # need to dynamically clobber the directory.
     set(srcdir
       ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.aarch64.raw)
-    set(locdir ${PROJECT_BINARY_DIR}/drmemtrace.threadsig.aarch64)
-    file(REMOVE_RECURSE ${locdir})
+    set(locdir ${CMAKE_CURRENT_BINARY_DIR}/drmemtrace.altbindir.aarch64)
     file(MAKE_DIRECTORY ${locdir})
     file(COPY ${srcdir}/raw DESTINATION ${locdir}/)
     torunonly_api(tool.drcacheoff.altbindir "${drcachesim_path}"
@@ -5088,6 +5103,10 @@ if (BUILD_CLIENTS)
       OFF OFF)
     set(tool.drcacheoff.altbindir_basedir
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+    set(tool.drcacheoff.altbindir_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+    set(tool.drcacheoff.altbindir_precmd
+        "${CMAKE_COMMAND}@-E@remove_directory@${locdir}/trace")
+    set(tool.drcacheoff.altbindir_failok ON)
 
     # Test the legacy trace versions OFFLINE_FILE_VERSION_KERNEL_INT_PC-1 and
     # TRACE_ENTRY_VERSION_NO_KERNEL_PC.  This requires a checked-in trace and thus
