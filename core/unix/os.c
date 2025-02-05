@@ -92,6 +92,10 @@
 #    include <mach/sync_policy.h>
 #endif
 
+#if defined(ANDROID)
+#    include <android/api-level.h>
+#endif
+
 #include <dirent.h>
 
 /* for getrlimit */
@@ -787,8 +791,8 @@ static init_fn_t
 INITIALIZER_ATTRIBUTES int
 _init(int argc, char **argv, char **envp)
 {
-#    ifdef ANDROID
-    /* i#1862: the Android loader passes *nothing* to lib init routines.  We
+#    if defined(ANDROID) && __ANDROID_API__ < 26
+    /* i#1862: Prior to Android 8.0 the loader passes *nothing* to lib init routines. We
      * rely on DR being listed before libc so we can read the TLS slot the
      * kernel set up.
      */

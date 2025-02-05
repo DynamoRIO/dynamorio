@@ -40,6 +40,7 @@
 #include "tls.h"
 #include "include/android_linker.h"
 #include <stddef.h>
+#include <android/api-level.h>
 
 /****************************************************************************
  * Thread Local Storage
@@ -228,9 +229,10 @@ privload_tls_exit(void *dr_tp)
                 VMM_SPECIAL_MMAP);
 }
 
-/* For standalone lib usage (i#1862: the Android loader passes
- * *nothing* to lib init routines).  This will only succeed prior to
- * Bionic's initializer, which clears the tls slot.
+#if __ANDROID_API__ < 26
+/* For standalone lib usage (i#1862: Prior to Android 8.0 the Android loader passes
+ * *nothing* to lib init routines).  This will only succeed prior to Bionic's
+ * initializer, which clears the tls slot.
  */
 bool
 get_kernel_args(int *argc DR_PARAM_OUT, char ***argv DR_PARAM_OUT,
@@ -249,3 +251,4 @@ get_kernel_args(int *argc DR_PARAM_OUT, char ***argv DR_PARAM_OUT,
     }
     return false;
 }
+#endif

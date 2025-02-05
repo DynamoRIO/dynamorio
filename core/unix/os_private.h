@@ -50,6 +50,10 @@
 #include "memquery.h"
 #include "../drlibc/drlibc_unix.h"
 
+#if defined(ANDROID)
+#    include <android/api-level.h>
+#endif
+
 /* for inline asm */
 #ifdef DR_HOST_X86
 #    ifdef DR_HOST_X64
@@ -468,9 +472,11 @@ privload_tls_init(void *app_tp);
 void
 privload_tls_exit(void *dr_tp);
 #ifdef ANDROID
+#    if __ANDROID_API__ < 26
 bool
 get_kernel_args(int *argc DR_PARAM_OUT, char ***argv DR_PARAM_OUT,
                 char ***envp DR_PARAM_OUT);
+#    endif
 void
 init_android_version(void);
 #endif
