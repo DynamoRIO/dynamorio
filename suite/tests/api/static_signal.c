@@ -85,7 +85,7 @@ thread_func(void *arg)
     int rc;
     sigstack.ss_sp = (char *)malloc(ALT_STACK_SIZE);
     sigstack.ss_size = ALT_STACK_SIZE;
-    sigstack.ss_flags = SS_ONSTACK;
+    sigstack.ss_flags = 0;
     rc = sigaltstack(&sigstack, NULL);
     ASSERT_NOERR(rc);
     signal_cond_var(thread_ready);
