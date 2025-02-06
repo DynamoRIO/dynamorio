@@ -229,7 +229,6 @@ module_get_platform(file_t f, dr_platform_t *platform, dr_platform_t *alt_platfo
 #endif
         *platform = DR_PLATFORM_64BIT;
         break;
-#ifdef EM_RISCV
     case EM_RISCV:
         switch (elf_header.elf64.e_ident[EI_CLASS]) {
         case ELFCLASS32: *platform = DR_PLATFORM_32BIT; break;
@@ -237,7 +236,6 @@ module_get_platform(file_t f, dr_platform_t *platform, dr_platform_t *alt_platfo
         default: return false;
         }
         break;
-#endif
     case EM_386:
     case EM_ARM: *platform = DR_PLATFORM_32BIT; break;
     default: return false;
