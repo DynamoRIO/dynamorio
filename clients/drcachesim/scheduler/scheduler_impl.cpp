@@ -629,6 +629,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::print_configuration()
            options_.honor_infinite_timeouts);
     VPRINT(this, 1, "  %-25s : %f\n", "exit_if_fraction_inputs_left",
            options_.exit_if_fraction_inputs_left);
+    VPRINT(this, 1, "  %-25s : %d\n", "enable_noise_generator",
+           options_.enable_noise_generator);
 }
 
 template <typename RecordType, typename ReaderType>

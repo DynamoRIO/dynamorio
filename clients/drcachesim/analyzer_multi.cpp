@@ -571,10 +571,14 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
 #endif
     }
 
+    // Add noise generator before init_scheduler().
+    sched_ops.enable_noise_generator = op_enable_noise_generator.get_value();
+
     if (!indirs.empty()) {
         std::vector<std::string> tracedirs;
         for (const std::string &indir : indirs)
             tracedirs.push_back(raw2trace_directory_t::tracedir_from_rawdir(indir));
+
         std::set<memref_tid_t> only_threads;
         std::set<int> only_shards;
         std::string res = set_input_limit(only_threads, only_shards);

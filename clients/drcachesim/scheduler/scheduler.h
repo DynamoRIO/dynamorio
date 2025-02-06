@@ -829,6 +829,10 @@ public:
          * when raising this value on uneven inputs.
          */
         double exit_if_fraction_inputs_left = 0.1;
+        /**
+         * Enable noise generator.
+         */
+        bool enable_noise_generator = false;
         // When adding new options, also add to print_configuration().
     };
 
