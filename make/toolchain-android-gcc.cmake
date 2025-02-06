@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2014-2024 Google, Inc.    All rights reserved.
+# Copyright (c) 2014-2016 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -28,70 +28,67 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-# For cross compiling for 64-bit arm Android using the Android LLVM toolchain:
-# - Download toolchain, and install the standalone toolchain:
-#   https://developer.android.com/ndk/downloads/revision_history
-#   $ /PATH/TO/ANDROID_NDK/toolchains/llvm/prebuilt/<build>/bin
-# - Build ZLIB with the Android toolchain (included in third_party/zlib):
-#   $ AR=/TOOLCHAIN/INSTALL/PATH/llvm-ar \
-#   CC=/TOOLCHAIN/INSTALL/PATH/aarch64-linux-android<chosen-version>-clang \
-#   CFLAGS="-fPIC -O" ./configure --static && make install prefix=$HOME/zlib
-# - Cross-compiling config with ANDROID_TOOLCHAIN:
-#   $ cmake -DCMAKE_TOOLCHAIN_FILE=../dynamorio/make/toolchain-android-aarch64.cmake \
-#     -DANDROID_TOOLCHAIN=/TOOLCHAIN/INSTALL/PATH -DTOOLCHAIN_VERSION=<chosen-version> \
-#     -DZLIB_LIBRARY=$HOME/zlib/lib/libz.a -DZLIB_INCLUDE_DIR=$HOME/zlib/include \
-#     ../dynamorio
+# For cross compiling for 32-bit arm Android using Android standalone toolchain:
+# - Download toolchain, and install the standalone toolchain
+#   https://developer.android.com/tools/sdk/ndk/index.html
+#   https://developer.android.com/ndk/guides/standalone_toolchain.html
+#   $/PATH/TO/ANDROID_NDK/build/tools/make-standalone-toolchain.sh --arch=arm \
+#     --toolchain=arm-linux-androideabi-4.9 --platform=android-21 \
+#     --install-dir=/TOOLCHAIN/INSTALL/PATH
+# - cross-compiling config with ANDROID_TOOLCHAIN
+#   $cmake -DCMAKE_TOOLCHAIN_FILE=../dynamorio/make/toolchain-android-gcc.cmake \
+#     -DANDROID_TOOLCHAIN=/TOOLCHAIN/INSTALL/PATH ../dynamorio
 
-# Target system.
+# Target system
 set(CMAKE_SYSTEM_NAME Android)
 set(CMAKE_SYSTEM_VERSION 1)
 
 # If using a different target, set -DTARGET_ABI=<abi> on the command line.
 if (NOT DEFINED TARGET_ABI)
-  set(TARGET_ABI "aarch64-linux-android")
+  set(TARGET_ABI "arm-linux-androideabi")
 endif ()
-if (TARGET_ABI MATCHES "^aarch64")
-  set(CMAKE_SYSTEM_PROCESSOR aarch64)
+if (TARGET_ABI MATCHES "^arm")
+  set(CMAKE_SYSTEM_PROCESSOR arm)
 endif ()
 
-# Specify the cross compiler.
+# specify the cross compiler
 if (NOT DEFINED ANDROID_TOOLCHAIN)
-  set(toolchain_bin_path "")
+  # Support the bin dir being on the PATH
+  find_program(gcc ${TARGET_ABI}-gcc)
+  if (gcc)
+    get_filename_component(gcc_path ${gcc} PATH)
+    set(toolchain_bin_path "${gcc_path}/")
+  else ()
+    set(toolchain_bin_path "")
+  endif ()
 else ()
-  set(toolchain_bin_path "${ANDROID_TOOLCHAIN}/")
+  set(toolchain_bin_path "${ANDROID_TOOLCHAIN}/bin/")
 endif ()
-
-if (NOT DEFINED TOOLCHAIN_VERSION)
-  set(toolchain_version "30")
-else ()
-  set(toolchain_version "${TOOLCHAIN_VERSION}")
-endif ()
-
-SET(CMAKE_C_COMPILER   ${toolchain_bin_path}${TARGET_ABI}${TOOLCHAIN_VERSION}-clang
+SET(CMAKE_C_COMPILER   ${toolchain_bin_path}${TARGET_ABI}-gcc
   CACHE FILEPATH "cmake_c_compiler")
-SET(CMAKE_CXX_COMPILER ${toolchain_bin_path}${TARGET_ABI}${TOOLCHAIN_VERSION}-clang++
+SET(CMAKE_CXX_COMPILER ${toolchain_bin_path}${TARGET_ABI}-g++
   CACHE FILEPATH "cmake_cxx_compiler")
-SET(CMAKE_LINKER       ${toolchain_bin_path}ld.lld
+SET(CMAKE_LINKER       ${toolchain_bin_path}${TARGET_ABI}-ld.bfd
   CACHE FILEPATH "cmake_linker")
-SET(CMAKE_ASM_COMPILER ${toolchain_bin_path}${TARGET_ABI}${TOOLCHAIN_VERSION}-clang
+SET(CMAKE_ASM_COMPILER ${toolchain_bin_path}${TARGET_ABI}-as
   CACHE FILEPATH "cmake_asm_compiler")
-SET(CMAKE_OBJCOPY      ${toolchain_bin_path}llvm-objcopy
+SET(CMAKE_OBJCOPY      ${toolchain_bin_path}${TARGET_ABI}-objcopy
   CACHE FILEPATH "cmake_objcopy")
-SET(CMAKE_STRIP        ${toolchain_bin_path}llvm-strip
+SET(CMAKE_STRIP        ${toolchain_bin_path}${TARGET_ABI}-strip
   CACHE FILEPATH "cmake_strip")
-SET(CMAKE_CPP          ${toolchain_bin_path}${TARGET_ABI}${TOOLCHAIN_VERSION}-clang
+SET(CMAKE_CPP          ${toolchain_bin_path}${TARGET_ABI}-cpp
   CACHE FILEPATH "cmake_cpp")
 
-# Specify sysroot.
+# specify sysroot
 if (NOT DEFINED ANDROID_SYSROOT)
-  # Assuming default android standalone toolchain directory layout.
+  # assuming default android standalone toolchain directory layout
   find_path(compiler_path ${CMAKE_C_COMPILER})
   set(ANDROID_SYSROOT "${compiler_path}/../sysroot")
 endif ()
 
 SET(CMAKE_FIND_ROOT_PATH ${ANDROID_SYSROOT})
-# Search for programs in the build host directories.
+# search for programs in the build host directories
 SET(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
-# For libraries and headers in the target directories.
+# for libraries and headers in the target directories
 SET(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 SET(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)

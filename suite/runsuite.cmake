@@ -533,6 +533,18 @@ if (UNIX AND ARCH_IS_X86)
     set(android_extra_rel "${android_extra_dbg}
                            ANDROID_TOOLCHAIN:PATH=$ENV{DYNAMORIO_ANDROID_TOOLCHAIN}")
   endif()
+  if (DEFINED ENV{DYNAMORIO_ANDROID_NDK})
+    set(android_extra_dbg "${android_extra_dbg}
+                           ANDROID_NDK:PATH=$ENV{DYNAMORIO_ANDROID_NDK}")
+    set(android_extra_rel "${android_extra_dbg}
+                           ANDROID_NDK:PATH=$ENV{DYNAMORIO_ANDROID_NDK}")
+  endif()
+  if (DEFINED ENV{DYNAMORIO_ANDROID_API_LEVEL})
+    set(android_extra_dbg "${android_extra_dbg}
+                           ANDROID_API_LEVEL:STRING=$ENV{DYNAMORIO_ANDROID_API_LEVEL}")
+    set(android_extra_rel "${android_extra_dbg}
+                           ANDROID_API_LEVEL:STRING=$ENV{DYNAMORIO_ANDROID_API_LEVEL}")
+  endif()
 
   # For CI cross_android_only builds, we want to fail on config failures.
   # For user suite runs, we want to just skip if there's no cross setup.
@@ -540,21 +552,35 @@ if (UNIX AND ARCH_IS_X86)
     set(optional_cross_compile ON)
   endif ()
 
-  testbuild_ex("android-debug-internal-32" OFF "
+  testbuild_ex("arm-android-debug-internal" OFF "
     DEBUG:BOOL=ON
     INTERNAL:BOOL=ON
-    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-android.cmake
+    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-android-gcc.cmake
     ${build_tests}
     ${android_extra_dbg}
     " OFF ${arg_package} "")
-  testbuild_ex("android-release-external-32" OFF "
+  testbuild_ex("arm-android-release-external" OFF "
     DEBUG:BOOL=OFF
     INTERNAL:BOOL=OFF
-    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-android.cmake
+    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-android-gcc.cmake
     ${android_extra_rel}
     " OFF ${arg_package} "")
-  set(run_tests ${prev_run_tests})
 
+  testbuild_ex("aarch64-android-debug-internal" ON "
+    DEBUG:BOOL=ON
+    INTERNAL:BOOL=ON
+    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-android-llvm.cmake
+    ${build_tests}
+    ${android_extra_dbg}
+    " OFF ${arg_package} "")
+  testbuild_ex("aarch64-android-release-external" ON "
+    DEBUG:BOOL=OFF
+    INTERNAL:BOOL=OFF
+    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-android-llvm.cmake
+    ${android_extra_rel}
+    " OFF ${arg_package} "")
+
+  set(run_tests ${prev_run_tests})
   set(optional_cross_compile ${prev_optional_cross_compile})
   set(ARCH_IS_X86 ON)
 endif (UNIX AND ARCH_IS_X86)
