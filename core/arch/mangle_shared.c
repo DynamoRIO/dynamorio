@@ -824,7 +824,8 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
              * We save it to dcontext.mcontext.x0.
              */
             PRE(ilist, instr,
-                XINST_CREATE_store(dcontext, OPND_CREATE_MEMPTR(SCRATCH_REG0, 0),
+                XINST_CREATE_store(dcontext,
+                                   OPND_CREATE_MEMPTR(SCRATCH_REG0, -CONTEXT_REBASE_OFFT),
                                    opnd_create_reg(SCRATCH_REG1)));
             instrlist_insert_mov_immed_ptrsz(dcontext, (ptr_int_t)whereami,
                                              opnd_create_reg(SCRATCH_REG1), ilist, instr,
@@ -837,7 +838,8 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             /* Restore scratch_reg from dcontext.mcontext.x0. */
             PRE(ilist, instr,
                 XINST_CREATE_load(dcontext, opnd_create_reg(SCRATCH_REG1),
-                                  OPND_CREATE_MEMPTR(SCRATCH_REG0, 0)));
+                                  OPND_CREATE_MEMPTR(SCRATCH_REG0,
+                                                     -CONTEXT_REBASE_OFFT)));
 #else
             PRE(ilist, instr,
                 instr_create_save_immed_to_dc_via_reg(dcontext, SCRATCH_REG0,
