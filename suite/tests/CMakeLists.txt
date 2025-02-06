@@ -175,19 +175,30 @@ else ()
   endif (TEST_SUITE)
 endif (CALLPROF AND TEST_SUITE)
 
-# i#4059: Reduce Appveyor time by reducing the # of tests run for 32-bit.
-# This assumes that 32-bit Windows is not as important these days.
-# We remove some of the less differentiated tests.
-# We still run the full set for merges to master.
-if (WIN32 AND NOT X64 AND "$ENV{CI_TRIGGER}" STREQUAL "pull_request")
-  set(SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST ON)
+if (WIN32 AND NOT X64)
+  # i#4059: Reduce testing time by reducing the # of tests run for 32-bit.
+  # This assumes that 32-bit Windows is not as important these days.
+  # We remove some of the less differentiated tests.
+  if ("$ENV{CI_TRIGGER}" STREQUAL "pull_request")
+    set(SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST ON)
+  else ()
+    # i#4800,i#5873: We'd like to run the full set for merges to master but we
+    # need pre-and-post-commmit test parity.
+    set(SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST ON)
+  endif ()
 else ()
   set(SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST OFF)
 endif ()
 
-# i#4800: Run long test suite on push-to-master events.
-if (RUN_LONG_SUITE OR ("$ENV{CI_TRIGGER}" STREQUAL "push" AND
-                       "$ENV{CI_BRANCH}" STREQUAL "refs/heads/master"))
+if ("$ENV{CI_TRIGGER}" STREQUAL "push" AND
+    "$ENV{CI_BRANCH}" STREQUAL "refs/heads/master")
+  # i#4800,i#5873: We'd like to run the long test suite on push-to-master events
+  # but we need parity with the pre-commit Pull Request (PR) suite for our
+  # workflow of not requiring pre-commit PR updates and re-runs.
+  # We just don't have the resources to keep the long suite green.
+endif ()
+
+if (RUN_LONG_SUITE)
   set(TEST_LONG ON)
 endif ()
 
@@ -4041,6 +4052,12 @@ if (BUILD_CLIENTS)
           "")
         set(tool.switch_file_invariants_rawtemp ON) # no preprocessor
 
+        # Test -multi_indir with 3 copies of our sample dir.
+        torunonly_simtool(multi_indir ${ci_shared_app}
+          "-multi_indir ${thread_trace_dir}:${thread_trace_dir}:${thread_trace_dir} -tool schedule_stats -cores 3"
+          "")
+        set(tool.multi_indir_rawtemp ON) # no preprocessor
+
         # Sanity test that core-sharded at least runs without errors on our other tools.
         torunonly_simtool(core_sharded ${ci_shared_app}
           "-indir ${thread_trace_dir} -tool reuse_time:reuse_distance:histogram:opcode_mix:syscall_mix -core_sharded"
@@ -6537,6 +6554,7 @@ if (RISCV64)
     code_api|linux.exit
     code_api|linux.infinite
     code_api|linux.longjmp
+    code_api|linux.mmap
     code_api|linux.prctl
     code_api|linux.signalfd
     code_api|pthreads.pthreads

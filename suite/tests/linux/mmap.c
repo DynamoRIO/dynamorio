@@ -46,7 +46,7 @@ main()
                                     * kernel
                                     */
     void *p;
-    print("Calling mmap(0, " PFX ", " PFX ", " PFX ", " PFX ", 0)\n", size,
+    print("Calling mmap(0, " PFX ", 0x%08x, 0x%08x, 0x%08x, 0)\n", size,
           PROT_EXEC | PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1);
     p = mmap(0, size, PROT_EXEC | PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
     if (p == MAP_FAILED) {
