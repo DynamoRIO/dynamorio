@@ -139,13 +139,26 @@ take_over(const char *pname)
 }
 
 INITIALIZER_ATTRIBUTES int
-#if INIT_BEFORE_LIBC
+/* i#3544: Unlike glibc, musl calls constructors without any arguments, thus
+ * it's hard to retrieve envp without depending on any libc symbols.
+ * Retrieve it from stable ABI envrion, which is a simple bare pointer on musl.
+ * XXX: find a more portable way to retrieve environment variables, or detect
+ * libc type and choose the proper method at runtime.
+ */
+#ifdef MUSL
+_init(void)
+{
+    extern char **environ;
+    char **envp = environ;
+#else
+#    if INIT_BEFORE_LIBC
 _init(int argc, char *arg0, ...)
 {
     char **argv = &arg0, **envp = &argv[argc + 1];
-#else
+#    else
 _init(int argc, char **argv, char **envp)
 {
+#    endif
 #endif
     const char *name;
 #if VERBOSE_INIT_FINI
@@ -157,9 +170,11 @@ _init(int argc, char **argv, char **envp)
 
 #if VERBOSE
     {
+#    ifndef MUSL
         int i;
         for (i = 0; i < argc; i++)
             fprintf(stderr, "\targ %d = %s\n", i, argv[i]);
+#    endif
         fprintf(stderr, "env 0 is %s\n", envp[0]);
         fprintf(stderr, "env 1 is %s\n", envp[1]);
         fprintf(stderr, "env 2 is %s\n", envp[2]);
