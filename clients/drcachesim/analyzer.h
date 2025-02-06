@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -218,7 +218,7 @@ protected:
     };
 
     bool
-    init_scheduler(const std::string &trace_path,
+    init_scheduler(const std::vector<std::string> &trace_paths,
                    // To include all threads/shards, use empty sets.
                    const std::set<memref_tid_t> &only_threads,
                    const std::set<int> &only_shards, int output_limit, int verbosity,
@@ -234,7 +234,7 @@ protected:
                    typename sched_type_t::scheduler_options_t options);
 
     bool
-    init_scheduler_common(typename sched_type_t::input_workload_t &workload,
+    init_scheduler_common(std::vector<typename sched_type_t::input_workload_t> &workloads,
                           typename sched_type_t::scheduler_options_t options);
 
     // Used for std::thread so we need an rvalue (so no &worker).

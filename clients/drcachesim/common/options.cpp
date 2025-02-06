@@ -94,6 +94,19 @@ droption_t<std::string> op_indir(
     "The contents of this directory are internal to the tool.  Do not alter, add, or "
     "delete files here.");
 
+droption_t<std::string> op_multi_indir(
+    DROPTION_SCOPE_ALL, "multi_indir", "", "Colon-separated list of input directories",
+    "Identical to -indir except this takes a colon-separated list of directories "
+    "for offline analysis in core-sharded mode.  Multiple inputs are not supported in "
+    "any other mode; they are not supported currently with thread or shard limits; they "
+    "are not supported for interval analysis, for replaying as-traced, or for "
+    "core-sharded-on-disk inputs. Skipping is applied to every input thread. Auxiliary "
+    "files such as the traced function list (see -funclist_file), the v2p file (see "
+    "-v2p_file), schedule files for the invariant checker, and the module file (for "
+    "legacy traces without encodings) are only auto-located in the first directory "
+    "listed.  Additional support may be added in the future. See -indir for further "
+    "information on each input directory.");
+
 droption_t<std::string> op_infile(
     DROPTION_SCOPE_ALL, "infile", "", "Single offline trace input file",
     "Directs the framework to use a single trace file.  This could be a legacy "
