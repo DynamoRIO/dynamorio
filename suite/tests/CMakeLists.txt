@@ -6551,6 +6551,7 @@ if (RISCV64)
     code_api|linux.exit
     code_api|linux.infinite
     code_api|linux.longjmp
+    code_api|linux.mmap
     code_api|linux.prctl
     code_api|linux.signalfd
     code_api|pthreads.pthreads
