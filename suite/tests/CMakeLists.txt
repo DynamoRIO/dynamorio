@@ -3803,12 +3803,22 @@ if (BUILD_CLIENTS)
       torunonly_ci(tool.drcachesim.${testname} ${exetgt} drmemtrace_launcher
         "${testname}.c" # for templatex basename
         "-ipc_name ${IPC_PREFIX}drtestpipe_${testname} ${sim_ops}"
-        "" "${app_args}")
+        "-unsafe_crash_process" "${app_args}")
       set(tool.drcachesim.${testname}_toolname "drmemtrace")
       set(tool.drcachesim.${testname}_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcachesim.${testname}_rawtemp ON) # no preprocessor
       set(tool.drcachesim.${testname}_self_serial ON)
+      if (UNIX)
+        # Avoid stale pipe files on failure causing retries to time out.
+        # We delete the file before and after just to be safe.
+        set(tool.drcachesim.${testname}_runcmp
+          "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+        set(tool.drcachesim.${testname}_precmd
+          "${CMAKE_COMMAND}@-E@remove@${IPC_PREFIX}drtestpipe_${testname}")
+        set(tool.drcachesim.${testname}_postcmd
+          "${CMAKE_COMMAND}@-E@remove@${IPC_PREFIX}drtestpipe_${testname}")
+      endif ()
     endmacro (torunonly_drcachesim)
 
     set(config_files_dir ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests)
@@ -3974,6 +3984,16 @@ if (BUILD_CLIENTS)
         "-ipc_name ${IPC_PREFIX}drtestpipe_${testname} ${sim_ops}" "" "${app_args}")
       set(tool.${testname}_toolname "drmemtrace")
       set(tool.${testname}_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      if (UNIX)
+        # Avoid stale pipe files on failure causing retries to time out.
+        # We delete the file before and after just to be safe.
+        set(tool.${testname}_runcmp
+          "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+        set(tool.${testname}_precmd
+          "${CMAKE_COMMAND}@-E@remove@${IPC_PREFIX}drtestpipe_${testname}")
+        set(tool.${testname}_postcmd
+          "${CMAKE_COMMAND}@-E@remove@${IPC_PREFIX}drtestpipe_${testname}")
+      endif ()
     endmacro (torunonly_simtool)
 
     torunonly_simtool(histogram ${ci_shared_app}
