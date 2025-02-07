@@ -285,7 +285,6 @@ mcontext_to_user_regs(DR_PARAM_IN priv_mcontext_t *mcontext,
     regs->regs[30] = mcontext->r30;
     regs->sp = mcontext->sp;
     regs->pc = (uint64_t)mcontext->pc;
-    regs->pstate = mcontext->nzcv;
 #else
 #    error Unsupported architecture
 #endif
@@ -607,6 +606,8 @@ os_dump_core_internal(dcontext_t *dcontext, char *path DR_PARAM_OUT, size_t path
         os_close(elf_file);
         return false;
     }
+    // XXX: We need to add support for model specific registers like FS and GS for
+    // x86_64.
 #if defined(AARCH64)
     if (!write_arm_tls_note(elf_file)) {
         os_close(elf_file);
