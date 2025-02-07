@@ -45,7 +45,9 @@
 #include "dr_tools.h"
 #include "elf_defines.h"
 #include "memquery.h"
+#if defined(AARCH64)
 #include "tls.h"
+#endif
 
 /* Only X64 is supported. */
 #ifndef X64
