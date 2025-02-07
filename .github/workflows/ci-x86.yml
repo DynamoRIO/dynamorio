@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2020-2024 Google, Inc.  All rights reserved.
+# Copyright (c) 2020-2025 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -58,11 +58,11 @@ jobs:
   x86-32:
     runs-on: ubuntu-20.04
 
-    # When checking out the repository that triggered a workflow, actions/checkout@v2
+    # When checking out the repository that triggered a workflow, actions/checkout
     # defaults to the reference or SHA for that event. See documentation for ref at
     # https://github.com/actions/checkout
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         submodules: true
 
@@ -140,7 +140,7 @@ jobs:
   x86-64:
     runs-on: ubuntu-20.04
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         submodules: true
 
@@ -204,7 +204,7 @@ jobs:
   x86-64-ubuntu22:
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         submodules: true
 
@@ -268,7 +268,7 @@ jobs:
   x86-32-ubuntu22:
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         submodules: true
 
@@ -339,7 +339,7 @@ jobs:
   x86-64-alpine-3_21:
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         submodules: true
         path: ${{ github.workspace }}/DynamoRIO
