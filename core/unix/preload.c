@@ -139,7 +139,7 @@ take_over(const char *pname)
 }
 
 INITIALIZER_ATTRIBUTES int
-/* i#3544: Unlike glibc, musl calls constructors without any arguments, thus
+/* i#1973: Unlike glibc, musl calls constructors without any arguments, thus
  * it's hard to retrieve envp without depending on any libc symbols.
  * Retrieve it from stable ABI envrion, which is a simple bare pointer on musl.
  * XXX: find a more portable way to retrieve environment variables, or detect
