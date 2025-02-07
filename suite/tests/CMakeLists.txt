@@ -3803,7 +3803,7 @@ if (BUILD_CLIENTS)
       torunonly_ci(tool.drcachesim.${testname} ${exetgt} drmemtrace_launcher
         "${testname}.c" # for templatex basename
         "-ipc_name ${IPC_PREFIX}drtestpipe_${testname} ${sim_ops}"
-        "-unsafe_crash_process" "${app_args}")
+        "" "${app_args}")
       set(tool.drcachesim.${testname}_toolname "drmemtrace")
       set(tool.drcachesim.${testname}_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
