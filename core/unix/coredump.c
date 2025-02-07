@@ -72,18 +72,20 @@
  * Three notes, NT_PRSTATUS (prstatus structure), NT_FPREGSET (floating point registers)
  * and NT_ARM_TLS (tpidr_el0) are written to the output file.
  */
-#define PROGRAM_HEADER_NOTE_LENGTH                                                    \
-    (sizeof(ELF_NOTE_HEADER_TYPE) + NOTE_OWNER_LENGTH + sizeof(struct elf_prstatus) + \
-     sizeof(ELF_NOTE_HEADER_TYPE) + NOTE_OWNER_LENGTH + sizeof(elf_fpregset_t) +      \
-     sizeof(ELF_NOTE_HEADER_TYPE) + NOTE_OWNER_LENGTH + sizeof(reg_t))
+#    define PROGRAM_HEADER_NOTE_LENGTH                                               \
+        (sizeof(ELF_NOTE_HEADER_TYPE) + NOTE_OWNER_LENGTH +                          \
+         sizeof(struct elf_prstatus) + sizeof(ELF_NOTE_HEADER_TYPE) +                \
+         NOTE_OWNER_LENGTH + sizeof(elf_fpregset_t) + sizeof(ELF_NOTE_HEADER_TYPE) + \
+         NOTE_OWNER_LENGTH + sizeof(reg_t))
 #else
 /*
  * Two notes, NT_PRSTATUS (prstatus structure) and NT_FPREGSET (floating point registers),
  * are written to the output file.
  */
-#define PROGRAM_HEADER_NOTE_LENGTH                                                    \
-    (sizeof(ELF_NOTE_HEADER_TYPE) + NOTE_OWNER_LENGTH + sizeof(struct elf_prstatus) + \
-     sizeof(ELF_NOTE_HEADER_TYPE) + NOTE_OWNER_LENGTH + sizeof(elf_fpregset_t))
+#    define PROGRAM_HEADER_NOTE_LENGTH                                \
+        (sizeof(ELF_NOTE_HEADER_TYPE) + NOTE_OWNER_LENGTH +           \
+         sizeof(struct elf_prstatus) + sizeof(ELF_NOTE_HEADER_TYPE) + \
+         NOTE_OWNER_LENGTH + sizeof(elf_fpregset_t))
 #endif
 
 typedef struct _section_header_info_t {
