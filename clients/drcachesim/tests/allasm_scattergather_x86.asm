@@ -229,12 +229,12 @@ incorrect_scratch:
         lea      rsi, incorrect_scratch_str
         mov      rdx, 18
 done_cmp:
-        mov      rdi, 1           // stdout
+        mov      rdi, 2           // stderr
         mov      eax, 1           // SYS_write
         syscall
 
         // Print end message.
-        mov      rdi, 1           // stdout
+        mov      rdi, 2           // stderr
         lea      rsi, hello_str
         mov      rdx, 13          // sizeof(hello_str)
         mov      eax, 1           // SYS_write
