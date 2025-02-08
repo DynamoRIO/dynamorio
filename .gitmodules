@@ -6,4 +6,6 @@
     url = https://github.com/madler/zlib.git
 [submodule "third_party/elfutils"]
     path = third_party/elfutils
-    url = https://sourceware.org/git/elfutils.git
+# Source is https://sourceware.org/git/elfutils.git but we have had
+# many pull failures (i#7253) so we use a local fork:
+    url = https://github.com/DynamoRIO/elfutils.git
