@@ -5072,7 +5072,8 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
                 }
             }
         }
-    } else if (get_at_syscall(dcontext) && pc == vsyscall_sysenter_return_pc - syslen &&
+    } else if (get_at_syscall(dcontext) &&
+               (ptr_uint_t)pc == ((ptr_uint_t)vsyscall_sysenter_return_pc - syslen) &&
                /* See i#2995 comment above: rule out sigreturn */
                !is_sigreturn_syscall_number(sc->SC_SYSNUM_REG)) {
         LOG(THREAD, LOG_ASYNCH, 2,

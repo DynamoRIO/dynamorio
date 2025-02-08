@@ -213,8 +213,8 @@ event_module_load(void *drcontext, const module_data_t *data, bool loaded)
             if (module_load_cb != NULL)
                 sub_entry->custom = module_load_cb(sub_entry->data, j);
             sub_entry->offset = data->segments[j].offset;
-            sub_entry->preferred_base =
-                (sub_entry->start - entry->start) + entry->preferred_base;
+            sub_entry->preferred_base = (app_pc)((sub_entry->start - entry->start) +
+                                                 (ptr_uint_t)entry->preferred_base);
             drvector_append(&module_table.vector, sub_entry);
             global_module_cache_add(module_table.cache, sub_entry);
         }
