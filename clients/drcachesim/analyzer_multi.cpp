@@ -578,7 +578,6 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
         std::vector<std::string> tracedirs;
         for (const std::string &indir : indirs)
             tracedirs.push_back(raw2trace_directory_t::tracedir_from_rawdir(indir));
-
         std::set<memref_tid_t> only_threads;
         std::set<int> only_shards;
         std::string res = set_input_limit(only_threads, only_shards);

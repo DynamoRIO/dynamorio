@@ -716,6 +716,7 @@ droption_t<std::string>
 
 droption_t<bool>
     op_enable_noise_generator(DROPTION_SCOPE_FRONTEND, "enable_noise_generator", false,
+                              "Enables noise generator.",
                               "Enables the scheduler to interleave trace records "
                               "with synthetic records.");
 
