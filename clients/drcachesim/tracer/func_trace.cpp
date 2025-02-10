@@ -101,7 +101,13 @@ static func_metadata_t *
 create_func_metadata(const char *name, int id, int arg_num, bool noret)
 {
     func_metadata_t *f = (func_metadata_t *)dr_global_alloc(sizeof(func_metadata_t));
-    strncpy(f->name, name, BUFFER_SIZE_ELEMENTS(f->name));
+    size_t name_len = strlen(name);
+    // Ensure there is room for the string and a null terminator (+ 1).
+    // Other code assumes that this is a null terminated string.
+    DR_ASSERT(name_len + 1 && name_len + 1 <= BUFFER_SIZE_ELEMENTS(f->name) &&
+              "Func metadata name is too large and would be truncated");
+    memcpy(f->name, name, name_len);
+    f->name[name_len] = '\0';
     f->id = id;
     f->arg_num = arg_num;
     f->noret = noret;
