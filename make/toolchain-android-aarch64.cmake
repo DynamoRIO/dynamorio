@@ -85,7 +85,8 @@ SET(CMAKE_CPP          ${toolchain_bin_path}${TARGET_ABI}${TOOLCHAIN_VERSION}-cl
 # Specify sysroot.
 if (NOT DEFINED ANDROID_SYSROOT)
   # Assuming default android standalone toolchain directory layout.
-  set(ANDROID_SYSROOT "${toolchain_bin_path}/../sysroot")
+  find_path(compiler_path ${CMAKE_C_COMPILER})
+  set(ANDROID_SYSROOT "${compiler_path}/../sysroot")
 endif ()
 
 SET(CMAKE_FIND_ROOT_PATH ${ANDROID_SYSROOT})
@@ -94,9 +95,3 @@ SET(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 # For libraries and headers in the target directories.
 SET(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 SET(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
-
-if (NOT DEFINED CMAKE_ANDROID_STL_TYPE)
-  # Use shared c++ runtime library by default.
-  set(CMAKE_ANDROID_STL_TYPE "c++_shared")
-endif ()
-set(CMAKE_LIBRARY_ARCHITECTURE aarch64-linux-android)

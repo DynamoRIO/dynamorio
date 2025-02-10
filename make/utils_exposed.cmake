@@ -72,24 +72,6 @@ function (_DR_dirname path_out path)
   set(${path_out} "${path}" PARENT_SCOPE)
 endfunction (_DR_dirname)
 
-function (_DR_get_lang target lang_var)
-  # Note that HAS_CXX and LINKER_LANGUAGE are only defined if
-  # explicitly set: can't be used to distinguish CXX vs C.
-  get_target_property(sources ${target} SOURCES)
-  foreach (src ${sources})
-    # LANGUAGE, however, is set for us
-    get_source_file_property(src_lang ${src} LANGUAGE)
-    if (NOT DEFINED tgt_lang)
-      set(tgt_lang ${src_lang})
-    elseif (${src_lang} MATCHES CXX)
-      # If any source file is cxx, mark as cxx
-      set(tgt_lang ${src_lang})
-    endif (NOT DEFINED tgt_lang)
-  endforeach (src)
-
-  set(${lang_var} ${tgt_lang} PARENT_SCOPE)
-endfunction (_DR_get_lang)
-
 # Takes in a target and a list of libraries and adds relative rpaths
 # pointing to the directories of the libraries.
 #
@@ -288,36 +270,6 @@ function (DynamoRIO_copy_target_to_device target device_base_dir loc_suffix)
   add_custom_command(TARGET ${target} POST_BUILD
     COMMAND ${ADB} push ${abspath} ${device_base_dir}/${builddir}/${relpath}
     VERBATIM)
-
-  # Android splits the C++ STL runtime into a separate library which is not provided as
-  # a standard system library. Applications either need to statically link the STL
-  # library or bundle their own copy of the shared runtime library.
-  # If we are copying a C++ target to the device we need to detect whether it is
-  # dynamically linked and if it is, copy the STL library to the device as well.
-  get_target_property(stl_type ${target} ANDROID_STL_TYPE)
-  _DR_get_lang(${target} language)
-
-  # TODO i#7215: Update ANDROID32 build to latest toolchain.
-  if (ANDROID64 AND ${stl_type} STREQUAL "c++_shared" AND ${language} STREQUAL "CXX")
-    get_filename_component(target_dir ${abspath} DIRECTORY)
-    # Create a target name that is specific to the directory.
-    set(deploy_target ${target_dir}_c++_shared)
-    # Target names cannot contain "/" so we replace them with "_".
-    string(REPLACE "/" "_" deploy_target "${deploy_target}")
-    if (NOT TARGET ${deploy_target})
-      get_filename_component(lib_name ${libc++_shared} NAME)
-      set(deployed_lib_path "${target_dir}/${lib_name}")
-      file(RELATIVE_PATH lib_relpath "${PROJECT_BINARY_DIR}" "${deployed_lib_path}")
-      set(stamp "${CMAKE_CURRENT_BINARY_DIR}/copy_libc++_shared.stamp")
-      add_custom_command(OUTPUT "${stamp}"
-        COMMENT "Copying C++ runtime library to device"
-        COMMAND ${CMAKE_COMMAND} -E touch ${stamp}
-        COMMAND ${ADB} push "${libc++_shared}"
-                            "${device_base_dir}/${builddir}/${lib_relpath}")
-      add_custom_target(${deploy_target} DEPENDS "${stamp}")
-    endif ()
-    add_dependencies(${target} ${deploy_target})
-  endif()
 endfunction (DynamoRIO_copy_target_to_device)
 
 # On Linux, the individual object files contained by an archive are
