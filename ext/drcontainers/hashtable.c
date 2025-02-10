@@ -344,8 +344,9 @@ hashtable_add(hashtable_t *table, void *key, void *payload)
     e = (hash_entry_t *)hash_alloc(sizeof(*e));
     if (table->str_dup) {
         const char *s = (const char *)key;
-        e->key = hash_alloc(strlen(s) + 1);
-        strncpy((char *)e->key, s, strlen(s) + 1);
+        size_t key_char_len = strlen(s) + 1;
+        e->key = hash_alloc(key_char_len);
+        strncpy((char *)e->key, s, key_char_len);
     } else
         e->key = key;
     e->payload = payload;
@@ -372,8 +373,9 @@ hashtable_add_replace(hashtable_t *table, void *key, void *payload)
     new_e = (hash_entry_t *)hash_alloc(sizeof(*new_e));
     if (table->str_dup) {
         const char *s = (const char *)key;
-        new_e->key = hash_alloc(strlen(s) + 1);
-        strncpy((char *)new_e->key, s, strlen(s) + 1);
+        size_t key_char_len = strlen(s) + 1;
+        new_e->key = hash_alloc(key_char_len);
+        strncpy((char *)new_e->key, s, key_char_len);
     } else
         new_e->key = key;
     new_e->payload = payload;
