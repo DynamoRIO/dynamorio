@@ -788,6 +788,82 @@ static init_fn_t
 #else
 /* If we're a normal shared object, then we override _init.
  */
+
+#    if defined(MUSL)
+#        define EFAULT 14
+#        define AT_EXECFN 31
+static int
+check_address_readable(void *addr)
+{
+    return dynamorio_syscall(SYS_rt_sigprocmask, ~0L, addr, NULL,
+                             sizeof(kernel_sigset_t)) != EFAULT;
+}
+
+/* When entering the entry point, the stack layout looks like
+ *   sp => argc
+ *         argv
+ *         NULL (end of argv)
+ *         envp
+ *         NULL (end of envp)
+ *         auxv
+ * search_auxvector() walks towards the higher address and locate one of the
+ * auxvector entry, then walk backwards and find the beginning of auxvector. */
+static void *
+search_auxvector(void *sp)
+{
+    /* XXX: Check whether 64 * PAGE_SIZE is an appropriate limit */
+    for (size_t offset = 0; offset < PAGE_SIZE * 64; offset += sizeof(ulong)) {
+        ELF_AUXV_TYPE *p = sp + offset;
+
+        if (((uintptr_t)(&p->a_un) & (PAGE_SIZE - 1)) == 0 &&
+            !check_address_readable(&p->a_un))
+            return NULL;
+
+        /* Check for AT_EXECFN entry in the auxvector, which contains pathname
+         * of the program and should be a readable address. */
+        if (p->a_type == AT_EXECFN && check_address_readable((void *)p->a_un.a_val)) {
+            for (; (void *)p > sp; p--) {
+                /* The maximum key in auxvector is much smaller than 0x400.
+                 * This assumes envp contains much higher addresses. An auxvector
+                 * entry with zero as key indicates the end, thus the only case
+                 * that it's encountered when searching towards auxvector's
+                 * start is an empty envp. */
+                if ((p->a_type == 0 || p->a_type >= 0x400) && p->a_un.a_val == 0)
+                    return p + 1;
+            }
+            return NULL; /* shouldn't reach here */
+        }
+    }
+
+    return NULL;
+}
+
+static void
+search_kernel_args_on_stack(int *argc, char ***argv, char ***envp)
+{
+    ulong *sp;
+    GET_STACK_PTR(sp);
+
+    ulong *auxv = search_auxvector(sp);
+
+    ASSERT_MESSAGE(CHKLVL_ASSERTS, "failed to find auxv", auxv != NULL);
+
+    ulong *p = &auxv[-2];
+    for (; p[-1] && &p[-1] > sp; p--)
+        ;
+
+    ASSERT_MESSAGE(CHKLVL_ASSERTS, "failed to find envp", p != sp);
+
+    *envp = (char **)p;
+
+    /* XXX: It's hard to determine the start of argv b/c argc locates immediately
+     * before it. Luckily, our_init only makes use of envp. argc and argv are
+     * zeroed. */
+    *argc = 0;
+    *argv = NULL;
+}
+#    endif
+
 INITIALIZER_ATTRIBUTES int
 _init(int argc, char **argv, char **envp)
 {
@@ -803,6 +879,11 @@ _init(int argc, char **argv, char **envp)
         envp = NULL;
     }
     ASSERT_MESSAGE(CHKLVL_ASSERTS, "failed to find envp", envp != NULL);
+#    endif
+#    ifdef MUSL
+    /* i#1973: musl passes nothing to library init routines. We scan the stack
+     * to find the arguments passed by kernel. */
+    search_kernel_args_on_stack(&argc, &argv, &envp);
 #    endif
     return our_init(argc, argv, envp);
 }
