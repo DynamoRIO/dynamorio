@@ -970,15 +970,19 @@ function(add_api_exe test source use_decoder use_static_DR)
         COMMAND ${CMAKE_COMMAND} ARGS
           -E touch "${drcopy_stamp}"
         COMMAND ${CMAKE_COMMAND} ARGS
-          -E copy "${MAIN_LIBRARY_OUTPUT_DIRECTORY}/dynamorio.dll"
+          -E copy_if_different "${MAIN_LIBRARY_OUTPUT_DIRECTORY}/dynamorio.dll"
           "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/dynamorio.dll"
         # libutil.drconfig_test needs drconfiglib.
         COMMAND ${CMAKE_COMMAND} ARGS
-          -E copy "${MAIN_LIBRARY_OUTPUT_DIRECTORY}/../drconfiglib.dll"
+          # XXX i#5888: There is a race somewhere causing this copy to sometimes
+          # fail, presumably because another target already copied it.  We use
+          # copy_if_different to avoid failure if it exists, here and in the other
+          # copy commands above and below.
+          -E copy_if_different "${MAIN_LIBRARY_OUTPUT_DIRECTORY}/../drconfiglib.dll"
           "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/drconfiglib.dll"
         # We copy drsyms.dll too, for api.symtest
         COMMAND ${CMAKE_COMMAND} ARGS
-          -E copy "${PROJECT_BINARY_DIR}/ext/${INSTALL_LIB}/drsyms.dll"
+          -E copy_if_different "${PROJECT_BINARY_DIR}/ext/${INSTALL_LIB}/drsyms.dll"
           "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/drsyms.dll"
         VERBATIM)
       add_custom_target(drcopy DEPENDS "${drcopy_stamp}")
