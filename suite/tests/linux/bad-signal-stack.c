@@ -89,7 +89,7 @@ main(int argc, char *argv[])
     /* Make an alternate stack that's not writable. */
     sigstack.ss_sp = alloc;
     sigstack.ss_size = ALT_STACK_SIZE;
-    sigstack.ss_flags = SS_ONSTACK;
+    sigstack.ss_flags = 0;
     rc = sigaltstack(&sigstack, NULL);
     ASSERT_NOERR(rc);
     protect_mem((void *)sigstack.ss_sp, ALT_STACK_SIZE, ALLOW_READ);

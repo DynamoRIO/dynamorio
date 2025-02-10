@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2020-2023 Google, Inc.  All rights reserved.
+# Copyright (c) 2020-2025 Google, Inc.  All rights reserved.
 # Copyright (c) 2023 Arm Limited        All rights reserved.
 # **********************************************************
 
@@ -51,19 +51,19 @@ jobs:
       matrix:
         # This job will run in parallel.
         include:
-          - os: ubuntu-20-arm64-pre-sve
+          - os: ah-ubuntu_20_04-c6g_4x-50
             sve: false
-          - os: ubuntu-20-arm64-sve
+          - os: ah-ubuntu_20_04-c7g_4x-50
             sve: true
             sve_length: 256
-          - os: ubuntu-20-arm64-sve
+          - os: ah-ubuntu_20_04-c7g_4x-50
             sve: true
             sve_length: 128
     runs-on: ${{ matrix.os }}
     name: aarch64-${{matrix.sve && 'sve-' || ''}}precommit${{matrix.sve_length && '-' || ''}}${{matrix.sve_length}}
     steps:
       - name: Check out repository code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: true
 
@@ -84,6 +84,30 @@ jobs:
 
       - name: Create build directory
         run: mkdir build
+
+      - name: Create build environment
+        run: |
+          sudo apt-get update && \
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            build-essential \
+            doxygen \
+            git \
+            libunwind-dev \
+            libc6-dev \
+            openssh-client \
+            openssl \
+            python3 \
+            vera++ \
+            zlib1g-dev
+
+      - name: Set ptrace_scope to 0
+        run: |
+          echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
+
+      - name: Check current ptrace_scope
+        run: |
+          cat /proc/sys/kernel/yama/ptrace_scope
+          if [[ `cat /proc/sys/kernel/yama/ptrace_scope` != "0" ]]; then echo "WARNING: ptrace_scope NOT SET TO 0"; fi
 
       - name: Setup cmake
         uses: lukka/get-cmake@latest

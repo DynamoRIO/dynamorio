@@ -175,19 +175,30 @@ else ()
   endif (TEST_SUITE)
 endif (CALLPROF AND TEST_SUITE)
 
-# i#4059: Reduce Appveyor time by reducing the # of tests run for 32-bit.
-# This assumes that 32-bit Windows is not as important these days.
-# We remove some of the less differentiated tests.
-# We still run the full set for merges to master.
-if (WIN32 AND NOT X64 AND "$ENV{CI_TRIGGER}" STREQUAL "pull_request")
-  set(SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST ON)
+if (WIN32 AND NOT X64)
+  # i#4059: Reduce testing time by reducing the # of tests run for 32-bit.
+  # This assumes that 32-bit Windows is not as important these days.
+  # We remove some of the less differentiated tests.
+  if ("$ENV{CI_TRIGGER}" STREQUAL "pull_request")
+    set(SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST ON)
+  else ()
+    # i#4800,i#5873: We'd like to run the full set for merges to master but we
+    # need pre-and-post-commmit test parity.
+    set(SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST ON)
+  endif ()
 else ()
   set(SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST OFF)
 endif ()
 
-# i#4800: Run long test suite on push-to-master events.
-if (RUN_LONG_SUITE OR ("$ENV{CI_TRIGGER}" STREQUAL "push" AND
-                       "$ENV{CI_BRANCH}" STREQUAL "refs/heads/master"))
+if ("$ENV{CI_TRIGGER}" STREQUAL "push" AND
+    "$ENV{CI_BRANCH}" STREQUAL "refs/heads/master")
+  # i#4800,i#5873: We'd like to run the long test suite on push-to-master events
+  # but we need parity with the pre-commit Pull Request (PR) suite for our
+  # workflow of not requiring pre-commit PR updates and re-runs.
+  # We just don't have the resources to keep the long suite green.
+endif ()
+
+if (RUN_LONG_SUITE)
   set(TEST_LONG ON)
 endif ()
 
@@ -959,15 +970,19 @@ function(add_api_exe test source use_decoder use_static_DR)
         COMMAND ${CMAKE_COMMAND} ARGS
           -E touch "${drcopy_stamp}"
         COMMAND ${CMAKE_COMMAND} ARGS
-          -E copy "${MAIN_LIBRARY_OUTPUT_DIRECTORY}/dynamorio.dll"
+          -E copy_if_different "${MAIN_LIBRARY_OUTPUT_DIRECTORY}/dynamorio.dll"
           "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/dynamorio.dll"
         # libutil.drconfig_test needs drconfiglib.
         COMMAND ${CMAKE_COMMAND} ARGS
-          -E copy "${MAIN_LIBRARY_OUTPUT_DIRECTORY}/../drconfiglib.dll"
+          # XXX i#5888: There is a race somewhere causing this copy to sometimes
+          # fail, presumably because another target already copied it.  We use
+          # copy_if_different to avoid failure if it exists, here and in the other
+          # copy commands above and below.
+          -E copy_if_different "${MAIN_LIBRARY_OUTPUT_DIRECTORY}/../drconfiglib.dll"
           "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/drconfiglib.dll"
         # We copy drsyms.dll too, for api.symtest
         COMMAND ${CMAKE_COMMAND} ARGS
-          -E copy "${PROJECT_BINARY_DIR}/ext/${INSTALL_LIB}/drsyms.dll"
+          -E copy_if_different "${PROJECT_BINARY_DIR}/ext/${INSTALL_LIB}/drsyms.dll"
           "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/drsyms.dll"
         VERBATIM)
       add_custom_target(drcopy DEPENDS "${drcopy_stamp}")
@@ -2166,7 +2181,11 @@ if (AARCH64 AND UNIX AND ZLIB_FOUND AND NOT ANDROID) # TODO i#1874: Add drcaches
     # Test TLB simulator with a virtual to physical v2p.textproto mapping.
     set(srcdir
       ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.aarch64.raw)
-    set(locdir ${PROJECT_BINARY_DIR}/drmemtrace.threadsig.aarch64)
+    set(locdir ${CMAKE_CURRENT_BINARY_DIR}/drmemtrace.tlb_simulator_v2p.aarch64)
+    # We are fine with a static config-time creation of the directory and the
+    # first test run creating the trace/ files with subsequent test runs re-using
+    # those files, as this test targets the tlb simulator.  If our srcdir had
+    # trace/ file we would just use those.
     file(REMOVE_RECURSE ${locdir})
     file(MAKE_DIRECTORY ${locdir})
     file(COPY ${srcdir}/raw DESTINATION ${locdir}/)
@@ -2189,10 +2208,11 @@ if (DR_HOST_NOT_TARGET)
   # Limited to ZLIB_FOUND because we test gzipped .raw files here as well.
   if (BUILD_CLIENTS AND UNIX AND ZLIB_FOUND)
     # We make a writable copy so we can both write the final trace there and run our
-    # analyzer in a single command line.
+    # analyzer in a single command line.  Since we're testing postprocessing we
+    # need to dynamically clobber the directory.
     set(srcdir
       ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.aarch64.raw)
-    set(locdir ${PROJECT_BINARY_DIR}/drmemtrace.threadsig.aarch64)
+    set(locdir ${CMAKE_CURRENT_BINARY_DIR}/drmemtrace.altbindir.aarch64)
     file(MAKE_DIRECTORY ${locdir})
     file(COPY ${srcdir}/raw DESTINATION ${locdir}/)
     get_target_path_for_execution(drcachesim_path drmemtrace_launcher
@@ -2204,6 +2224,10 @@ if (DR_HOST_NOT_TARGET)
       OFF OFF)
     set(tool.drcacheoff.altbindir_basedir
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+    set(tool.drcacheoff.altbindir_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+    set(tool.drcacheoff.altbindir_precmd
+        "${CMAKE_COMMAND}@-E@remove_directory@${locdir}/trace")
+    set(tool.drcacheoff.altbindir_failok ON)
   endif ()
 
   # The tests are not ported to build with host!=target.  Most will never work there,
@@ -3789,6 +3813,16 @@ if (BUILD_CLIENTS)
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcachesim.${testname}_rawtemp ON) # no preprocessor
       set(tool.drcachesim.${testname}_self_serial ON)
+      if (UNIX)
+        # Avoid stale pipe files on failure causing retries to time out.
+        # We delete the file before and after just to be safe.
+        set(tool.drcachesim.${testname}_runcmp
+          "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+        set(tool.drcachesim.${testname}_precmd
+          "${CMAKE_COMMAND}@-E@remove@${IPC_PREFIX}drtestpipe_${testname}")
+        set(tool.drcachesim.${testname}_postcmd
+          "${CMAKE_COMMAND}@-E@remove@${IPC_PREFIX}drtestpipe_${testname}")
+      endif ()
     endmacro (torunonly_drcachesim)
 
     set(config_files_dir ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests)
@@ -3954,6 +3988,16 @@ if (BUILD_CLIENTS)
         "-ipc_name ${IPC_PREFIX}drtestpipe_${testname} ${sim_ops}" "" "${app_args}")
       set(tool.${testname}_toolname "drmemtrace")
       set(tool.${testname}_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      if (UNIX)
+        # Avoid stale pipe files on failure causing retries to time out.
+        # We delete the file before and after just to be safe.
+        set(tool.${testname}_runcmp
+          "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+        set(tool.${testname}_precmd
+          "${CMAKE_COMMAND}@-E@remove@${IPC_PREFIX}drtestpipe_${testname}")
+        set(tool.${testname}_postcmd
+          "${CMAKE_COMMAND}@-E@remove@${IPC_PREFIX}drtestpipe_${testname}")
+      endif ()
     endmacro (torunonly_simtool)
 
     torunonly_simtool(histogram ${ci_shared_app}
@@ -4031,6 +4075,12 @@ if (BUILD_CLIENTS)
           "-infile ${switch_file} -tool invariant_checker"
           "")
         set(tool.switch_file_invariants_rawtemp ON) # no preprocessor
+
+        # Test -multi_indir with 3 copies of our sample dir.
+        torunonly_simtool(multi_indir ${ci_shared_app}
+          "-multi_indir ${thread_trace_dir}:${thread_trace_dir}:${thread_trace_dir} -tool schedule_stats -cores 3"
+          "")
+        set(tool.multi_indir_rawtemp ON) # no preprocessor
 
         # Sanity test that core-sharded at least runs without errors on our other tools.
         torunonly_simtool(core_sharded ${ci_shared_app}
@@ -5075,11 +5125,11 @@ if (BUILD_CLIENTS)
   # Limited to ZLIB_FOUND because we test gzipped .raw files here as well.
   if (UNIX AND ZLIB_FOUND)
     # We make a writable copy so we can both write the final trace there and run our
-    # analyzer in a single command line.
+    # analyzer in a single command line  Since we're testing postprocessing we
+    # need to dynamically clobber the directory.
     set(srcdir
       ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.aarch64.raw)
-    set(locdir ${PROJECT_BINARY_DIR}/drmemtrace.threadsig.aarch64)
-    file(REMOVE_RECURSE ${locdir})
+    set(locdir ${CMAKE_CURRENT_BINARY_DIR}/drmemtrace.altbindir.aarch64)
     file(MAKE_DIRECTORY ${locdir})
     file(COPY ${srcdir}/raw DESTINATION ${locdir}/)
     torunonly_api(tool.drcacheoff.altbindir "${drcachesim_path}"
@@ -5088,6 +5138,10 @@ if (BUILD_CLIENTS)
       OFF OFF)
     set(tool.drcacheoff.altbindir_basedir
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+    set(tool.drcacheoff.altbindir_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+    set(tool.drcacheoff.altbindir_precmd
+        "${CMAKE_COMMAND}@-E@remove_directory@${locdir}/trace")
+    set(tool.drcacheoff.altbindir_failok ON)
 
     # Test the legacy trace versions OFFLINE_FILE_VERSION_KERNEL_INT_PC-1 and
     # TRACE_ENTRY_VERSION_NO_KERNEL_PC.  This requires a checked-in trace and thus
@@ -6518,9 +6572,13 @@ if (RISCV64)
     # TODO i#3544: code_api|linux.eintr failed under QEMU
     # but passed on real hardware.
     # code_api|linux.eintr
+    # TODO i#3544: code_api|linux.execve-null fails under QEMU but passes on
+    # real hardware.
+    # code_api|linux.execve-null
     code_api|linux.exit
     code_api|linux.infinite
     code_api|linux.longjmp
+    code_api|linux.mmap
     code_api|linux.prctl
     code_api|linux.signalfd
     code_api|pthreads.pthreads
