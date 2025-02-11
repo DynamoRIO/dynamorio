@@ -1832,8 +1832,8 @@ typedef struct _rseq_entry_state_t {
 #endif
 
 #if (CONTEXT_REBASE_OFFT != 0)
-#    define CONTEXT_PTR_TO_HEAD(x) ((void *)(((intptr_t)x) - CONTEXT_REBASE_OFFT))
-#    define CONTEXT_HEAD_TO_PTR(x) ((void *)(((intptr_t)x) + CONTEXT_REBASE_OFFT))
+#    define CONTEXT_PTR_TO_HEAD(x) ((void *)(((uintptr_t)x) - CONTEXT_REBASE_OFFT))
+#    define CONTEXT_HEAD_TO_PTR(x) ((void *)(((uintptr_t)x) + CONTEXT_REBASE_OFFT))
 #else
 #    define CONTEXT_PTR_TO_HEAD(x) x
 #    define CONTEXT_HEAD_TO_PTR(x) x
