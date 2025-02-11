@@ -571,16 +571,7 @@ enter_fcache(dcontext_t *dcontext, fcache_enter_func_t entry, cache_pc pc)
      */
     PTHREAD_JIT_READ();
 
-    /*
-     * XXX arithmetic with void pointers does not work on windows.
-     * Since RISCV is the only architecture that has CONTEXT_REBASE_OFFT != 0
-     * and it does not run windows, we can work around that with conditional compilation.
-     */
-#if (CONTEXT_REBASE_OFFT != 0)
-    (*entry)(((void *)dcontext) + CONTEXT_REBASE_OFFT);
-#else
-    (*entry)(dcontext);
-#endif
+    (*entry)(CONTEXT_HEAD_TO_PTR(dcontext));
     IF_WINDOWS(ASSERT_NOT_REACHED()); /* returns for signals on unix */
 }
 

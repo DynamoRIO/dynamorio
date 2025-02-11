@@ -2382,7 +2382,7 @@ os_tls_init(void)
 
     /* We need to make sure that get_thread_private_dcontext() returns NULL until
      * set it to something else. If CONTEXT_REBASE_OFFT is non-zero we have to
-     * call set_thread_private_dcontext(NULL) expilcitely, or otherwise
+     * call set_thread_private_dcontext(NULL) expilcitly, or otherwise
      * get_thread_private_dcontext() will return NULL - CONTEXT_REBASE_OFFT.
      */
 #if (CONTEXT_REBASE_OFFT != 0)
@@ -3144,7 +3144,7 @@ get_thread_private_dcontext(void)
                pid_cached != get_process_id());
     });
     READ_TLS_SLOT_IMM(TLS_DCONTEXT_OFFSET, dcontext);
-    return (dcontext_t *)(((void *)dcontext) - CONTEXT_REBASE_OFFT);
+    return CONTEXT_PTR_TO_HEAD(dcontext);
 #else
     /* Assumption: no lock needed on a read => no race conditions between
      * reading and writing same tid!  Since both get and set are only for
@@ -3156,8 +3156,7 @@ get_thread_private_dcontext(void)
     if (tls_table != NULL) {
         for (i = 0; i < MAX_THREADS; i++) {
             if (tls_table[i].tid == tid) {
-                return (dcontext_t *)(((void *)tls_table[i].dcontext -
-                CONTEXT_REBASE_OFFT);
+                return CONTEXT_PTR_TO_HEAD(tls_table[i].dcontext);
             }
         }
     }
@@ -3169,7 +3168,7 @@ get_thread_private_dcontext(void)
 void
 set_thread_private_dcontext(dcontext_t *dcontext)
 {
-    dcontext = (dcontext_t *)(((void *)dcontext) + CONTEXT_REBASE_OFFT);
+    dcontext = CONTEXT_HEAD_TO_PTR(dcontext);
 #ifdef HAVE_TLS
     ASSERT(is_thread_tls_allocated());
     WRITE_TLS_SLOT_IMM(TLS_DCONTEXT_OFFSET, dcontext);
