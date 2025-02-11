@@ -2379,6 +2379,12 @@ os_tls_init(void)
         if (last_thread_tls_exited) /* re-attach */
             last_thread_tls_exited = false;
     }
+
+    /* We need to make sure that get_thread_private_dcontext() returns NULL until
+     * set it to something else. If CONTEXT_REBASE_OFFT is non-zero we have to
+     * call set_thread_private_dcontext(NULL) expilcitely, or otherwise
+     * get_thread_private_dcontext() will return NULL - CONTEXT_REBASE_OFFT.
+     */
 #if (CONTEXT_REBASE_OFFT != 0)
     set_thread_private_dcontext(NULL);
 #endif
