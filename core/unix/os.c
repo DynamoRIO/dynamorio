@@ -2380,7 +2380,7 @@ os_tls_init(void)
             last_thread_tls_exited = false;
     }
 
-    /* We need to make sure that get_thread_private_dcontext() returns NULL until
+    /* We need to make sure that get_thread_private_dcontext() returns NULL until we
      * set it to something else. If DCONTEXT_TLS_MIDPTR_OFFSET is non-zero we have to
      * call set_thread_private_dcontext(NULL) expilcitly, or otherwise
      * get_thread_private_dcontext() will return NULL - DCONTEXT_TLS_MIDPTR_OFFSET.

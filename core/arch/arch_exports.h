@@ -166,6 +166,10 @@ typedef struct _spill_state_t {
     reg_t reg_stolen;
 #endif
     /* XXX: move this below the tables to fit more on cache line */
+    /* In RISCV64 dcontext does not poiont to the actual dcontext. It points somewhere
+     * in the middle of that. This value is the actual pointer offseted by
+     * DCONTEXT_TLS_MIDPTR_OFFSET.
+     */
     dcontext_t *dcontext;
 #if defined(RISCV64) || defined(AARCHXX)
     /* We store addresses here so we can load pointer-sized addresses into
@@ -1833,9 +1837,9 @@ typedef struct _rseq_entry_state_t {
 
 #if (DCONTEXT_TLS_MIDPTR_OFFSET != 0)
 #    define CONTEXT_PTR_TO_HEAD(x) \
-        ((void *)(((ptr_uint_t)x) - DCONTEXT_TLS_MIDPTR_OFFSET))
+        ((dcontext_t *)(((ptr_uint_t)x) - DCONTEXT_TLS_MIDPTR_OFFSET))
 #    define CONTEXT_HEAD_TO_PTR(x) \
-        ((void *)(((ptr_uint_t)x) + DCONTEXT_TLS_MIDPTR_OFFSET))
+        ((dcontext_t *)(((ptr_uint_t)x) + DCONTEXT_TLS_MIDPTR_OFFSET))
 #else
 #    define CONTEXT_PTR_TO_HEAD(x) x
 #    define CONTEXT_HEAD_TO_PTR(x) x

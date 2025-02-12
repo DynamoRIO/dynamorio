@@ -2387,7 +2387,7 @@ append_call_dispatch(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
     /* for ARM we use _noreturn to avoid storing to %lr */
 
     /*
-     * REG_DCTXT holds the rebased dcontext d_r_dispatch expect the normal one
+     * REG_DCTXT holds the rebased dcontext d_r_dispatch expects the normal one
      * so we should restore it.
      *
      * Currently only affects RISCV64

@@ -82,9 +82,12 @@ get_clean_call_temp_stack_size(void)
 /* utility routines for inserting clean calls to an instrumentation routine
  * strategy is very similar to fcache_enter/return
  * FIXME: try to share code with fcache_enter/return?
- * FIXME: Return the correct mcontext base when DCONTEXT_TLS_MIDPTR_OFFSET is used
+ * TODO i#3544: Return the correct mcontext base when DCONTEXT_TLS_MIDPTR_OFFSET is used.
  * This will need calls like opnd_create_dcontext_field_via_reg_sz to be replaced
- * with something else. Currently we work around that by other means.
+ * with something else. Currently we work around that by asuming that we have the dcontext
+ * pointer (offseted) instead of the mcontext when DCONTEXT_TLS_MIDPTR_OFFSET is not zero.
+ * For that reason we substract DCONTEXT_TLS_MIDPTR_OFFSET in the offsets created at
+ * emit_fcache_enter_common().
  *
  * first swap stacks to DynamoRIO stack:
  *      SAVE_TO_UPCONTEXT %xsp,xsp_OFFSET
