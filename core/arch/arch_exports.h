@@ -1832,10 +1832,10 @@ typedef struct _rseq_entry_state_t {
 #endif
 
 #if (DCONTEXT_TLS_MIDPTR_OFFSET != 0)
-#    define CONTEXT_PTR_TO_HEAD(x) ((void *)(((ptr_uint_t)x) -\
-                                    DCONTEXT_TLS_MIDPTR_OFFSET))
-#    define CONTEXT_HEAD_TO_PTR(x) ((void *)(((ptr_uint_t)x) +\
-                                    DCONTEXT_TLS_MIDPTR_OFFSET))
+#    define CONTEXT_PTR_TO_HEAD(x)\
+        ((void *)(((ptr_uint_t)x) - DCONTEXT_TLS_MIDPTR_OFFSET))
+#    define CONTEXT_HEAD_TO_PTR(x)
+        ((void *)(((ptr_uint_t)x) + DCONTEXT_TLS_MIDPTR_OFFSET))
 #else
 #    define CONTEXT_PTR_TO_HEAD(x) x
 #    define CONTEXT_HEAD_TO_PTR(x) x

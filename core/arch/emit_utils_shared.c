@@ -2180,17 +2180,17 @@ emit_fcache_enter_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
             opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_X1)));
 #elif defined(RISCV64)
     APP(&ilist,
-        INSTR_CREATE_ld(dcontext, opnd_create_reg(DR_REG_A0),
-                        opnd_create_base_disp(
-                            REG_DCXT, DR_REG_NULL, 0,
-                            (int)REG_OFFSET(DR_REG_A0) - DCONTEXT_TLS_MIDPTR_OFFSET,
-                            OPSZ_8)));
+        INSTR_CREATE_ld(
+            dcontext,opnd_create_reg(DR_REG_A0),
+            opnd_create_base_disp(REG_DCXT, DR_REG_NULL, 0,
+                                  (int)REG_OFFSET(DR_REG_A0) - DCONTEXT_TLS_MIDPTR_OFFSET,
+                                  OPSZ_8)));
     APP(&ilist,
-        INSTR_CREATE_ld(dcontext, opnd_create_reg(DR_REG_A1),
-                        opnd_create_base_disp(
-                            REG_DCXT, DR_REG_NULL, 0,
-                            (int)REG_OFFSET(DR_REG_A1) - DCONTEXT_TLS_MIDPTR_OFFSET,
-                            OPSZ_8)));
+        INSTR_CREATE_ld(
+            dcontext, opnd_create_reg(DR_REG_A1),
+            opnd_create_base_disp(REG_DCXT, DR_REG_NULL, 0,
+                                  (int)REG_OFFSET(DR_REG_A1) - DCONTEXT_TLS_MIDPTR_OFFSET,
+                                  OPSZ_8)));
 
     APP(&ilist,
         INSTR_CREATE_sd(
