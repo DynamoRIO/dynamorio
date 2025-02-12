@@ -1822,19 +1822,18 @@ typedef struct _rseq_entry_state_t {
 
 /*
  * In riscv we cannot address the entire dcontext by using base + immediate.
- * for the reason we add 0x800 to the saved pointer and access it by
+ * For the reason we add 0x800 to the saved pointer and access it by
  * substracting 0x800 from the offset in the struct.
  */
 #ifdef RISCV64
-#    define CONTEXT_REBASE_OFFT 0x800
+#    define DCONTEXT_TLS_MIDPTR_OFFSET 0x800
 #else
-#    define CONTEXT_REBASE_OFFT 0
+#    define DCONTEXT_TLS_MIDPTR_OFFSET 0
 #endif
 
-#if (CONTEXT_REBASE_OFFT != 0)
-#    include <stdint.h> //uintptr_t
-#    define CONTEXT_PTR_TO_HEAD(x) ((void *)(((uintptr_t)x) - CONTEXT_REBASE_OFFT))
-#    define CONTEXT_HEAD_TO_PTR(x) ((void *)(((uintptr_t)x) + CONTEXT_REBASE_OFFT))
+#if (DCONTEXT_TLS_MIDPTR_OFFSET != 0)
+#    define CONTEXT_PTR_TO_HEAD(x) ((void *)(((ptr_uint_t)x) - DCONTEXT_TLS_MIDPTR_OFFSET))
+#    define CONTEXT_HEAD_TO_PTR(x) ((void *)(((ptr_uint_t)x) + DCONTEXT_TLS_MIDPTR_OFFSET))
 #else
 #    define CONTEXT_PTR_TO_HEAD(x) x
 #    define CONTEXT_HEAD_TO_PTR(x) x

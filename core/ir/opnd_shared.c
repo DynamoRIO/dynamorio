@@ -2906,7 +2906,7 @@ dcontext_opnd_common(dcontext_t *dcontext, bool absolute, reg_id_t basereg, int 
             offs -= sizeof(unprotected_context_t);
         return opnd_create_base_disp(
             absolute ? REG_NULL : (basereg == REG_NULL ? REG_DCXT : basereg), REG_NULL, 0,
-            ((int)(ptr_int_t)(absolute ? dcontext : 0)) + offs - CONTEXT_REBASE_OFFT,
+            ((int)(ptr_int_t)(absolute ? dcontext : 0)) + offs - DCONTEXT_TLS_MIDPTR_OFFSET,
             size);
     }
 }
@@ -2952,7 +2952,7 @@ update_dcontext_address(opnd_t op, dcontext_t *old_dcontext, dcontext_t *new_dco
                       opnd_get_index(op) == REG_NULL,
                   "update_dcontext_address: invalid opnd");
     IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-    offs = opnd_get_disp(op) - (uint)(ptr_uint_t)old_dcontext + CONTEXT_REBASE_OFFT;
+    offs = opnd_get_disp(op) - (uint)(ptr_uint_t)old_dcontext + DCONTEXT_TLS_MIDPTR_OFFSET;
     if (offs >= 0 && offs < sizeof(dcontext_t)) {
         /* don't pass raw offset, add in upcontext size */
         offs += sizeof(unprotected_context_t);

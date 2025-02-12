@@ -2381,11 +2381,11 @@ os_tls_init(void)
     }
 
     /* We need to make sure that get_thread_private_dcontext() returns NULL until
-     * set it to something else. If CONTEXT_REBASE_OFFT is non-zero we have to
+     * set it to something else. If DCONTEXT_TLS_MIDPTR_OFFSET is non-zero we have to
      * call set_thread_private_dcontext(NULL) expilcitly, or otherwise
-     * get_thread_private_dcontext() will return NULL - CONTEXT_REBASE_OFFT.
+     * get_thread_private_dcontext() will return NULL - DCONTEXT_TLS_MIDPTR_OFFSET.
      */
-#if (CONTEXT_REBASE_OFFT != 0)
+#if (DCONTEXT_TLS_MIDPTR_OFFSET != 0)
     set_thread_private_dcontext(NULL);
 #endif
     ASSERT(is_thread_tls_initialized());

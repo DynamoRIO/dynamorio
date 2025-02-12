@@ -2183,12 +2183,12 @@ emit_fcache_enter_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
         INSTR_CREATE_ld(dcontext, opnd_create_reg(DR_REG_A0),
                         opnd_create_base_disp(
                             REG_DCXT, DR_REG_NULL, 0,
-                            (int)REG_OFFSET(DR_REG_A0) - CONTEXT_REBASE_OFFT, OPSZ_8)));
+                            (int)REG_OFFSET(DR_REG_A0) - DCONTEXT_TLS_MIDPTR_OFFSET, OPSZ_8)));
     APP(&ilist,
         INSTR_CREATE_ld(dcontext, opnd_create_reg(DR_REG_A1),
                         opnd_create_base_disp(
                             REG_DCXT, DR_REG_NULL, 0,
-                            (int)REG_OFFSET(DR_REG_A1) - CONTEXT_REBASE_OFFT, OPSZ_8)));
+                            (int)REG_OFFSET(DR_REG_A1) - DCONTEXT_TLS_MIDPTR_OFFSET, OPSZ_8)));
 
     APP(&ilist,
         INSTR_CREATE_sd(
@@ -2390,7 +2390,7 @@ append_call_dispatch(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
      *
      * Currently only affects RISCV64
      */
-#if (CONTEXT_REBASE_OFFT != 0)
+#if (DCONTEXT_TLS_MIDPTR_OFFSET != 0)
     if (absolute) {
         dr_insert_call_noreturn((void *)dcontext, ilist, NULL /*append*/,
                                 (void *)d_r_dispatch, 1,
@@ -2399,7 +2399,7 @@ append_call_dispatch(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
         APP(ilist,
             XINST_CREATE_add_2src(dcontext, opnd_create_reg(DR_REG_A0),
                                   opnd_create_reg(REG_DCTXT),
-                                  OPND_CREATE_INT32(-CONTEXT_REBASE_OFFT)));
+                                  OPND_CREATE_INT32(-DCONTEXT_TLS_MIDPTR_OFFSET)));
         dr_insert_call_noreturn((void *)dcontext, ilist, NULL /*append*/,
                                 (void *)d_r_dispatch, 1, opnd_create_reg(DR_REG_A0));
     }

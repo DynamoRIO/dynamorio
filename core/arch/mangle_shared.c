@@ -82,7 +82,7 @@ get_clean_call_temp_stack_size(void)
 /* utility routines for inserting clean calls to an instrumentation routine
  * strategy is very similar to fcache_enter/return
  * FIXME: try to share code with fcache_enter/return?
- * FIXME: Return the correct mcontext base when CONTEXT_REBASE_OFFT is used
+ * FIXME: Return the correct mcontext base when DCONTEXT_TLS_MIDPTR_OFFSET is used
  * This will need calls like opnd_create_dcontext_field_via_reg_sz to be replaced
  * with something else. Currently we work around that by other means.
  *
@@ -762,7 +762,7 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
              */
             PRE(ilist, instr,
                 XINST_CREATE_store(dcontext,
-                                   OPND_CREATE_MEMPTR(link_reg, -CONTEXT_REBASE_OFFT),
+                                   OPND_CREATE_MEMPTR(link_reg, -DCONTEXT_TLS_MIDPTR_OFFSET),
                                    opnd_create_reg(SCRATCH_REG0)));
             instrlist_insert_mov_immed_ptrsz(dcontext, (ptr_int_t)DR_WHERE_CLEAN_CALLEE,
                                              opnd_create_reg(SCRATCH_REG0), ilist, instr,
@@ -775,7 +775,7 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             /* Restore scratch_reg from dcontext.mcontext.x0. */
             PRE(ilist, instr,
                 XINST_CREATE_load(dcontext, opnd_create_reg(SCRATCH_REG0),
-                                  OPND_CREATE_MEMPTR(link_reg, -CONTEXT_REBASE_OFFT)));
+                                  OPND_CREATE_MEMPTR(link_reg, -DCONTEXT_TLS_MIDPTR_OFFSET)));
 #else
             /* SCRATCH_REG0 is dead here, because clean calls only support "cdecl",
              * which specifies that the caller must save xax (and xcx and xdx).
@@ -829,7 +829,7 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
              */
             PRE(ilist, instr,
                 XINST_CREATE_store(dcontext,
-                                   OPND_CREATE_MEMPTR(SCRATCH_REG0, -CONTEXT_REBASE_OFFT),
+                                   OPND_CREATE_MEMPTR(SCRATCH_REG0, -DCONTEXT_TLS_MIDPTR_OFFSET),
                                    opnd_create_reg(SCRATCH_REG1)));
             instrlist_insert_mov_immed_ptrsz(dcontext, (ptr_int_t)whereami,
                                              opnd_create_reg(SCRATCH_REG1), ilist, instr,
@@ -843,7 +843,7 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             PRE(ilist, instr,
                 XINST_CREATE_load(
                     dcontext, opnd_create_reg(SCRATCH_REG1),
-                    OPND_CREATE_MEMPTR(SCRATCH_REG0, -CONTEXT_REBASE_OFFT)));
+                    OPND_CREATE_MEMPTR(SCRATCH_REG0, -DCONTEXT_TLS_MIDPTR_OFFSET)));
 #else
             PRE(ilist, instr,
                 instr_create_save_immed_to_dc_via_reg(dcontext, SCRATCH_REG0,
