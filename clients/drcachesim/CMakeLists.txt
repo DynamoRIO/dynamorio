@@ -287,7 +287,7 @@ set(drcachesim_srcs
   reader/v2p_reader.cpp
   reader/file_reader.cpp
   reader/record_file_reader.cpp
-  reader/record_generator.cpp
+  reader/noise_generator.cpp
   ${zlib_reader}
   ${zip_reader}
   ${snappy_reader}
@@ -353,7 +353,7 @@ add_exported_library(drmemtrace_analyzer STATIC
   reader/v2p_reader.cpp
   reader/file_reader.cpp
   reader/record_file_reader.cpp
-  reader/record_generator.cpp
+  reader/noise_generator.cpp
   ${zlib_reader}
   ${zip_reader}
   ${snappy_reader}

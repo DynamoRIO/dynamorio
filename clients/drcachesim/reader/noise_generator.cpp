@@ -30,24 +30,40 @@
  * DAMAGE.
  */
 
-#ifndef _RECORD_GENERATOR_H_
-#define _RECORD_GENERATOR_H_ 1
-
-#include "reader.h"
+#include <assert.h>
+#include <map>
+#include "noise_generator.h"
 #include "../common/memref.h"
-#include "../common/named_pipe.h"
-#include "../common/trace_entry.h"
+#include "../common/utils.h"
 
 namespace dynamorio {
 namespace drmemtrace {
 
-class record_generator_t : public reader_t {
-protected:
-    trace_entry_t *
-    read_next_entry() override;
-};
+noise_generator_t::noise_generator_t()
+{
+}
+
+noise_generator_t::~noise_generator_t()
+{
+}
+
+bool
+noise_generator_t::init()
+{
+    return true;
+}
+
+std::string
+noise_generator_t::get_stream_name() const
+{
+    return "noise_generator";
+}
+
+trace_entry_t *
+noise_generator_t::read_next_entry()
+{
+    return nullptr;
+}
 
 } // namespace drmemtrace
 } // namespace dynamorio
-
-#endif /* _RECORD_GENERATOR_H_ */
