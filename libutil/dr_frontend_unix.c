@@ -282,6 +282,7 @@ drfront_get_env_var(const char *name, DR_PARAM_OUT char *buf,
         return DRFRONT_ERROR_INVALID_SIZE;
     }
     strncpy(buf, tmp_buf, buflen);
+    buf[buflen] = '\0';
     return DRFRONT_SUCCESS;
 }
 
