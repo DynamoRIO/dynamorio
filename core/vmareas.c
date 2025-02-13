@@ -1569,7 +1569,8 @@ static bool
 lookup_addr(vm_area_vector_t *v, app_pc addr, vm_area_t **area)
 {
     /* binary search asserts v is protected */
-    return binary_search(v, addr, addr + 1 /*open end*/, area, NULL, false);
+    return binary_search(v, addr, (app_pc)((ptr_uint_t)addr + 1) /*open end*/, area, NULL,
+                         false);
 }
 
 /* returns true if the passed in area overlaps any known executable areas
