@@ -704,7 +704,7 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
             INSTR_CREATE_addi(
                 dcontext, opnd_create_reg(DR_REG_A1), opnd_create_reg(REG_DCXT),
                 opnd_create_immed_int(
-                    VREG_OFFSET(DR_REG_VR0) - DCONTEXT_TLS_MIDPTR_OFFSET, OPSZ_12b)));
+                    DCONTEXT_ACTUAL_TO_TLS_OFFSET(VREG_OFFSET(DR_REG_VR0)), OPSZ_12b)));
         /* For the following vector instructions, set the element width to 8b, and use 8
          * registers as a group (lmul=8).
          */
@@ -842,7 +842,7 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
             INSTR_CREATE_addi(
                 dcontext, opnd_create_reg(DR_REG_A1), opnd_create_reg(REG_DCXT),
                 opnd_create_immed_int(
-                    VREG_OFFSET(DR_REG_VR0) - DCONTEXT_TLS_MIDPTR_OFFSET, OPSZ_12b)));
+                    DCONTEXT_ACTUAL_TO_TLS_OFFSET(VREG_OFFSET(DR_REG_VR0)), OPSZ_12b)));
         /* For the following vector instructions, set the element width to 8b, and use 8
          * registers as a group (lmul=8).
          */

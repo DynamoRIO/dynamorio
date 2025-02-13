@@ -1836,13 +1836,17 @@ typedef struct _rseq_entry_state_t {
 #endif
 
 #if (DCONTEXT_TLS_MIDPTR_OFFSET != 0)
-#    define CONTEXT_PTR_TO_HEAD(x) \
-        ((dcontext_t *)(((ptr_uint_t)x) - DCONTEXT_TLS_MIDPTR_OFFSET))
-#    define CONTEXT_HEAD_TO_PTR(x) \
+#    define DCONTEXT_ACTUAL_TO_TLS_PTR(x) \
         ((dcontext_t *)(((ptr_uint_t)x) + DCONTEXT_TLS_MIDPTR_OFFSET))
+#    define DCONTEXT_TLS_TO_ACTUAL_PTR(x) \
+        ((dcontext_t *)(((ptr_uint_t)x) - DCONTEXT_TLS_MIDPTR_OFFSET))
+#    define DCONTEXT_ACTUAL_TO_TLS_OFFSET(x) (x - DCONTEXT_TLS_MIDPTR_OFFSET)
+#    define DCONTEXT_TLS_TO_ACTUAL_OFFSET(x) (x + DCONTEXT_TLS_MIDPTR_OFFSET)
 #else
-#    define CONTEXT_PTR_TO_HEAD(x) x
-#    define CONTEXT_HEAD_TO_PTR(x) x
+#    define DCONTEXT_ACTUAL_TO_TLS_PTR(x) x
+#    define DCONTEXT_TLS_TO_ACTUAL_PTR(x) x
+#    define DCONTEXT_ACTUAL_TO_TLS_OFFSET(x) x
+#    define DCONTEXT_TLS_TO_ACTUAL_OFFSET(x) x
 #endif
 
 #endif /* _ARCH_EXPORTS_H_ */

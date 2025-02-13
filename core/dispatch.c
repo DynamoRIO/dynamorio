@@ -571,7 +571,7 @@ enter_fcache(dcontext_t *dcontext, fcache_enter_func_t entry, cache_pc pc)
      */
     PTHREAD_JIT_READ();
 
-    (*entry)(CONTEXT_HEAD_TO_PTR(dcontext));
+    (*entry)(DCONTEXT_ACTUAL_TO_TLS_PTR(dcontext));
     IF_WINDOWS(ASSERT_NOT_REACHED()); /* returns for signals on unix */
 }
 
