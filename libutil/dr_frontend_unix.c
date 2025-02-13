@@ -281,8 +281,8 @@ drfront_get_env_var(const char *name, DR_PARAM_OUT char *buf,
     if (len_var + 1 > buflen) {
         return DRFRONT_ERROR_INVALID_SIZE;
     }
-    strncpy(buf, tmp_buf, buflen);
-    buf[buflen] = '\0';
+    strncpy(buf, tmp_buf, len_var + 1);
+    buf[buflen - 1] = '\0';
     return DRFRONT_SUCCESS;
 }
 
