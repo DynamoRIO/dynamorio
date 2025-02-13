@@ -1,6 +1,7 @@
 /* **********************************************************
  * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2025 Foundation of Research and Technology, Hellas.
  * **********************************************************/
 
 /*
@@ -165,6 +166,10 @@ typedef struct _spill_state_t {
     reg_t reg_stolen;
 #endif
     /* XXX: move this below the tables to fit more on cache line */
+    /* In RISCV64 dcontext does not poiont to the actual dcontext. It points somewhere
+     * in the middle of that. This value is the actual pointer offseted by
+     * DCONTEXT_TLS_MIDPTR_OFFSET.
+     */
     dcontext_t *dcontext;
 #if defined(RISCV64) || defined(AARCHXX)
     /* We store addresses here so we can load pointer-sized addresses into
@@ -1817,6 +1822,31 @@ encode_instr_freed_event(dcontext_t *dcontext, instr_t *instr);
 typedef struct _rseq_entry_state_t {
     reg_t gpr[DR_NUM_GPR_REGS];
 } rseq_entry_state_t;
+#endif
+
+/*
+ * In riscv we cannot address the entire dcontext by using base + immediate.
+ * For the reason we add 0x800 to the saved pointer and access it by
+ * substracting 0x800 from the offset in the struct.
+ */
+#ifdef RISCV64
+#    define DCONTEXT_TLS_MIDPTR_OFFSET 0x800
+#else
+#    define DCONTEXT_TLS_MIDPTR_OFFSET 0
+#endif
+
+#if (DCONTEXT_TLS_MIDPTR_OFFSET != 0)
+#    define DCONTEXT_ACTUAL_TO_TLS_PTR(x) \
+        ((dcontext_t *)(((ptr_uint_t)x) + DCONTEXT_TLS_MIDPTR_OFFSET))
+#    define DCONTEXT_TLS_TO_ACTUAL_PTR(x) \
+        ((dcontext_t *)(((ptr_uint_t)x) - DCONTEXT_TLS_MIDPTR_OFFSET))
+#    define DCONTEXT_ACTUAL_TO_TLS_OFFSET(x) (x - DCONTEXT_TLS_MIDPTR_OFFSET)
+#    define DCONTEXT_TLS_TO_ACTUAL_OFFSET(x) (x + DCONTEXT_TLS_MIDPTR_OFFSET)
+#else
+#    define DCONTEXT_ACTUAL_TO_TLS_PTR(x) x
+#    define DCONTEXT_TLS_TO_ACTUAL_PTR(x) x
+#    define DCONTEXT_ACTUAL_TO_TLS_OFFSET(x) x
+#    define DCONTEXT_TLS_TO_ACTUAL_OFFSET(x) x
 #endif
 
 #endif /* _ARCH_EXPORTS_H_ */

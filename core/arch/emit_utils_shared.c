@@ -1,6 +1,7 @@
 /* **********************************************************
  * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2025 Foundation of Research and Technology, Hellas.
  * **********************************************************/
 
 /*
@@ -2180,12 +2181,16 @@ emit_fcache_enter_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
 #elif defined(RISCV64)
     APP(&ilist,
         INSTR_CREATE_ld(dcontext, opnd_create_reg(DR_REG_A0),
-                        opnd_create_base_disp(REG_DCXT, DR_REG_NULL, 0,
-                                              REG_OFFSET(DR_REG_A0), OPSZ_8)));
+                        opnd_create_base_disp(
+                            REG_DCXT, DR_REG_NULL, 0,
+                            DCONTEXT_ACTUAL_TO_TLS_OFFSET((int)REG_OFFSET(DR_REG_A0)),
+                            OPSZ_8)));
     APP(&ilist,
         INSTR_CREATE_ld(dcontext, opnd_create_reg(DR_REG_A1),
-                        opnd_create_base_disp(REG_DCXT, DR_REG_NULL, 0,
-                                              REG_OFFSET(DR_REG_A1), OPSZ_8)));
+                        opnd_create_base_disp(
+                            REG_DCXT, DR_REG_NULL, 0,
+                            DCONTEXT_ACTUAL_TO_TLS_OFFSET((int)REG_OFFSET(DR_REG_A1)),
+                            OPSZ_8)));
 
     APP(&ilist,
         INSTR_CREATE_sd(
@@ -2380,9 +2385,31 @@ append_call_dispatch(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
     /* call central d_r_dispatch routine */
     /* for x64 linux we could optimize and avoid the "mov rdi, rdi" */
     /* for ARM we use _noreturn to avoid storing to %lr */
+
+    /*
+     * REG_DCTXT holds the rebased dcontext d_r_dispatch expects the normal one
+     * so we should restore it.
+     *
+     * Currently only affects RISCV64
+     */
+#if (DCONTEXT_TLS_MIDPTR_OFFSET != 0)
+    if (absolute) {
+        dr_insert_call_noreturn((void *)dcontext, ilist, NULL /*append*/,
+                                (void *)d_r_dispatch, 1,
+                                OPND_CREATE_INTPTR((ptr_int_t)dcontext));
+    } else {
+        APP(ilist,
+            XINST_CREATE_add_2src(dcontext, opnd_create_reg(DR_REG_A0),
+                                  opnd_create_reg(REG_DCTXT),
+                                  OPND_CREATE_INT32(-DCONTEXT_TLS_MIDPTR_OFFSET)));
+        dr_insert_call_noreturn((void *)dcontext, ilist, NULL /*append*/,
+                                (void *)d_r_dispatch, 1, opnd_create_reg(DR_REG_A0));
+    }
+#else
     dr_insert_call_noreturn(
         (void *)dcontext, ilist, NULL /*append*/, (void *)d_r_dispatch, 1,
         absolute ? OPND_CREATE_INTPTR((ptr_int_t)dcontext) : opnd_create_reg(REG_DCTXT));
+#endif
 
     /* d_r_dispatch() shouldn't return! */
     insert_reachable_cti(dcontext, ilist, NULL, vmcode_get_start(),
