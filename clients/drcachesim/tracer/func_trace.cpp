@@ -101,9 +101,11 @@ static func_metadata_t *
 create_func_metadata(const char *name, int id, int arg_num, bool noret)
 {
     func_metadata_t *f = (func_metadata_t *)dr_global_alloc(sizeof(func_metadata_t));
-    int potentially_written = dr_snprintf(f->name, BUFFER_SIZE_ELEMENTS(f->name), "%s", name);
+    int potentially_written =
+        dr_snprintf(f->name, BUFFER_SIZE_ELEMENTS(f->name), "%s", name);
     NULL_TERMINATE_BUFFER(f->name);
-    if (potentially_written < 0 || (size_t)potentially_written >= BUFFER_SIZE_ELEMENTS(f->name)) {
+    if (potentially_written < 0 ||
+        (size_t)potentially_written >= BUFFER_SIZE_ELEMENTS(f->name)) {
         NOTIFY(0, "Func metadata name is too long and was truncated: %s!\n", name);
     }
     f->id = id;
