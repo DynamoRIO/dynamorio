@@ -1041,17 +1041,19 @@ droption_t<std::string> op_sched_switch_file(
     DROPTION_SCOPE_FRONTEND, "sched_switch_file", "",
     "Path to file holding kernel context switch sequences",
     "Applies to -core_sharded and -core_serial.  Path to file holding context switch "
-    "sequences.  The file can contain multiple sequences each with regular trace headers "
-    "and the sequence proper bracketed by TRACE_MARKER_TYPE_CONTEXT_SWITCH_START and "
-    "TRACE_MARKER_TYPE_CONTEXT_SWITCH_END markers.");
+    "sequences.  The file can contain multiple sequences each with regular trace "
+    "headers and the sequence proper bracketed by "
+    "TRACE_MARKER_TYPE_CONTEXT_SWITCH_START and TRACE_MARKER_TYPE_CONTEXT_SWITCH_END "
+    "markers.");
 
 droption_t<std::string> op_sched_syscall_file(
     DROPTION_SCOPE_FRONTEND, "sched_syscall_file", "",
     "Path to file holding kernel system call sequences",
     "Applies to -core_sharded and -core_serial.  Path to file holding system call "
-    "sequences.  The file can contain multiple sequences each with regular trace headers "
-    "and the sequence proper bracketed by TRACE_MARKER_TYPE_SYSCALL_TRACE_START and "
-    "TRACE_MARKER_TYPE_SYSCALL_TRACE_END markers.");
+    "sequences.  The file can contain multiple sequences each with regular trace "
+    "headers and the sequence proper bracketed by "
+    "TRACE_MARKER_TYPE_SYSCALL_TRACE_START and TRACE_MARKER_TYPE_SYSCALL_TRACE_END "
+    "markers.");
 
 droption_t<bool> op_sched_randomize(
     DROPTION_SCOPE_FRONTEND, "sched_randomize", false,

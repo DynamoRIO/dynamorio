@@ -1457,8 +1457,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::read_kernel_sequences(
         // Only remember the records between the markers.
         trace_marker_type_t marker_type = TRACE_MARKER_TYPE_RESERVED_END;
         uintptr_t marker_value = 0;
-        if (record_type_is_marker(record, marker_type, marker_value) &&
-            marker_type == start_marker) {
+        bool is_marker = record_type_is_marker(record, marker_type, marker_value);
+        if (is_marker && marker_type == start_marker) {
             sequence_key = static_cast<SequenceKey>(marker_value);
             in_sequence = true;
             if (!sequence[sequence_key].empty()) {
@@ -1468,18 +1468,17 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::read_kernel_sequences(
         }
         if (in_sequence) {
             sequence[sequence_key].push_back(record);
-            if (record_type_is_marker(record, marker_type, marker_value) &&
-                marker_type == end_marker) {
-                if (static_cast<SequenceKey>(marker_value) != sequence_key) {
-                    error_string_ += sequence_type + " marker values mismatched";
-                    return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
-                }
-                VPRINT(this, 1, "Read %zu kernel %s records for key %d\n",
-                       sequence[sequence_key].size(), sequence_type.c_str(),
-                       sequence_key);
-                in_sequence = false;
-            }
         }
+        if (is_marker && marker_type == end_marker) {
+            if (!in_sequence || static_cast<SequenceKey>(marker_value) != sequence_key) {
+                error_string_ += sequence_type + " marker values mismatched";
+                return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
+            }
+            VPRINT(this, 1, "Read %zu kernel %s records for key %d\n",
+                   sequence[sequence_key].size(), sequence_type.c_str(), sequence_key);
+            in_sequence = false;
+        }
+
         ++(*reader);
     }
     return sched_type_t::STATUS_SUCCESS;
@@ -2759,7 +2758,9 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
     record_type_has_pid(record, input->pid);
 
     trace_marker_type_t marker_type;
-    uintptr_t marker_value = 0;
+    uintptr_t marker_value;
+    // Good to queue the injected records at this point, because we now surely will
+    // be done with TRACE_MARKER_TYPE_SYSCALL.
     if (record_type_is_marker(record, marker_type, marker_value) &&
         marker_type == TRACE_MARKER_TYPE_SYSCALL &&
         syscall_sequence_.find(static_cast<int>(marker_value)) !=

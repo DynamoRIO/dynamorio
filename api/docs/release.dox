@@ -143,9 +143,9 @@ Further non-compatibility-affecting changes include:
    encodings are obtained from the application binaries instead.
  - Added a new drmemtrace analyzer flag -sched_syscall_file to allow specifying the
    system call trace template file to be used for dynamic injection of system call trace
-   templates. Added similar options for the drmemtrace scheduler
-   #dynamorio::drmemtrace::scheduler_tmpl_t::scheduler_options_t::kernel_syscall_trace_path,
-   and #dynamorio::drmemtrace::scheduler_tmpl_t::scheduler_options_t::kernel_syscall_reader.
+   templates. Added similar options for the drmemtrace scheduler: #dynamorio::drmemtrace::
+   scheduler_tmpl_t::scheduler_options_t::kernel_syscall_trace_path, and #dynamorio::
+   drmemtrace::scheduler_tmpl_t::scheduler_options_t::kernel_syscall_reader.
 
 **************************************************
 <hr>

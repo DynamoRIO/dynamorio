@@ -546,6 +546,7 @@ protected:
         uint64_t timestamp;
     };
 
+    // Custom hash function used for switch_type_t and syscall num (int).
     template <typename IntCastable> struct custom_hash_t {
         std::size_t
         operator()(const IntCastable &st) const
@@ -1007,7 +1008,7 @@ protected:
     std::unordered_map<switch_type_t, std::vector<RecordType>,
                        custom_hash_t<switch_type_t>>
         switch_sequence_;
-    // We specify a custom hash function only to make it generalize with
+    // We specify a custom hash function only to make it easier to generalize with
     // switch_sequence_ defined above.
     std::unordered_map<int, std::vector<RecordType>, custom_hash_t<int>>
         syscall_sequence_;
