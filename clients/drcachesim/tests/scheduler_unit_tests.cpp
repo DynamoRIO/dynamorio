@@ -6045,206 +6045,209 @@ test_kernel_syscall_sequences()
     static constexpr int SYSCALL_NUM_2 = 43;
     static constexpr addr_t SYSCALL_NUM_1_PC_START = 0xfeed101;
     static constexpr addr_t SYSCALL_NUM_2_PC_START = 0xcafe101;
-    std::vector<trace_entry_t> syscall_sequence = {
-        /* clang-format off */
-        make_header(TRACE_ENTRY_VERSION),
-        make_thread(TID_IN_SYSCALLS),
-        make_pid(TID_IN_SYSCALLS),
-        make_version(TRACE_ENTRY_VERSION),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_NUM_1),
-        make_instr(SYSCALL_NUM_1_PC_START),
-        make_instr(SYSCALL_NUM_1_PC_START + 1),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_NUM_1),
-        // XXX: Currently all syscall traces are concatenated. We may change
-        // this to use an archive file instead.
-        make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_NUM_2),
-        make_instr(SYSCALL_NUM_2_PC_START),
-        make_instr(SYSCALL_NUM_2_PC_START + 1),
-        make_instr(SYSCALL_NUM_2_PC_START + 2),
-        make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_NUM_2),
-        make_exit(TID_IN_SYSCALLS),
-        make_footer(),
-        /* clang-format on */
-    };
-    auto syscall_reader =
-        std::unique_ptr<mock_reader_t>(new mock_reader_t(syscall_sequence));
-    auto syscall_reader_end = std::unique_ptr<mock_reader_t>(new mock_reader_t());
-    static constexpr int NUM_INPUTS = 3;
     static constexpr int NUM_OUTPUTS = 2;
-    static constexpr int NUM_INSTRS = 9;
-    static constexpr int INSTR_QUANTUM = 3;
-    static constexpr uint64_t TIMESTAMP = 44226688;
     static constexpr memref_tid_t TID_BASE = 100;
-    std::vector<scheduler_t::input_workload_t> sched_inputs;
-    std::vector<scheduler_t::input_reader_t> readers;
-    for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
-        std::vector<trace_entry_t> inputs;
-        inputs.push_back(make_header(TRACE_ENTRY_VERSION));
-        memref_tid_t tid = TID_BASE + input_idx;
-        inputs.push_back(make_thread(tid));
-        inputs.push_back(make_pid(1));
-        inputs.push_back(make_version(TRACE_ENTRY_VERSION));
-        inputs.push_back(make_timestamp(TIMESTAMP));
-        for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
-            inputs.push_back(make_instr(42 + instr_idx * 4));
-            if (instr_idx % 2 == 0) {
-                inputs.push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL,
-                                             (instr_idx / 2) % 2 == 0 ? SYSCALL_NUM_1
-                                                                      : SYSCALL_NUM_2));
-            }
-        }
-        inputs.push_back(make_exit(tid));
-        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
-                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
-    }
-    sched_inputs.emplace_back(std::move(readers));
-    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
-                                               scheduler_t::DEPENDENCY_TIMESTAMPS,
-                                               scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/3);
-    sched_ops.quantum_duration_instrs = INSTR_QUANTUM;
-    sched_ops.kernel_syscall_reader = std::move(syscall_reader);
-    sched_ops.kernel_syscall_reader_end = std::move(syscall_reader_end);
-    scheduler_t scheduler;
-    if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
-        scheduler_t::STATUS_SUCCESS)
-        assert(false);
-
-    // We have a custom version of run_lockstep_simulation here for more precise
-    // testing of the markers and instructions and interfaces.
-    // We record the entire sequence for a detailed check of some records, along with
-    // a character representation for a higher-level view of the whole sequence.
-    std::vector<scheduler_t::stream_t *> outputs(NUM_OUTPUTS, nullptr);
-    std::vector<bool> eof(NUM_OUTPUTS, false);
-    for (int i = 0; i < NUM_OUTPUTS; i++)
-        outputs[i] = scheduler.get_stream(i);
-    int num_eof = 0;
-    std::vector<std::vector<memref_t>> refs(NUM_OUTPUTS);
-    std::vector<std::string> sched_as_string(NUM_OUTPUTS);
-    std::vector<memref_tid_t> prev_tid(NUM_OUTPUTS, INVALID_THREAD_ID);
-    std::vector<bool> in_syscall(NUM_OUTPUTS, false);
-    std::vector<uint64> prev_in_ord(NUM_OUTPUTS, 0);
-    std::vector<uint64> prev_out_ord(NUM_OUTPUTS, 0);
-    while (num_eof < NUM_OUTPUTS) {
-        for (int i = 0; i < NUM_OUTPUTS; i++) {
-            if (eof[i])
-                continue;
-            memref_t memref;
-            scheduler_t::stream_status_t status = outputs[i]->next_record(memref);
-            if (status == scheduler_t::STATUS_EOF) {
-                ++num_eof;
-                eof[i] = true;
-                continue;
-            }
-            if (status == scheduler_t::STATUS_IDLE) {
-                sched_as_string[i] += '_';
-                continue;
-            }
-            assert(status == scheduler_t::STATUS_OK);
-            refs[i].push_back(memref);
-            if (memref.instr.tid != prev_tid[i]) {
-                if (!sched_as_string[i].empty())
-                    sched_as_string[i] += ',';
-                sched_as_string[i] +=
-                    'A' + static_cast<char>(memref.instr.tid - TID_BASE);
-            }
-            if (memref.marker.type == TRACE_TYPE_MARKER &&
-                memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_START)
-                in_syscall[i] = true;
-            if (in_syscall[i]) {
-                // Test that syscall code is marked synthetic.
-                assert(outputs[i]->is_record_synthetic());
-                // Test that dynamically injected syscall code doesn't count toward
-                // input ordinals, but does toward output ordinals.
-                assert(outputs[i]->get_input_interface()->get_record_ordinal() ==
-                       prev_in_ord[i]);
-                assert(outputs[i]->get_record_ordinal() > prev_out_ord[i]);
-            } else
-                assert(!outputs[i]->is_record_synthetic());
-            if (type_is_instr(memref.instr.type))
-                sched_as_string[i] += 'i';
-            else if (memref.marker.type == TRACE_TYPE_MARKER) {
-                switch (memref.marker.marker_type) {
-                case TRACE_MARKER_TYPE_VERSION: sched_as_string[i] += 'v'; break;
-                case TRACE_MARKER_TYPE_TIMESTAMP: sched_as_string[i] += '0'; break;
-                case TRACE_MARKER_TYPE_SYSCALL: sched_as_string[i] += 's'; break;
-                case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
-                    in_syscall[i] = false;
-                    ANNOTATE_FALLTHROUGH;
-                case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
-                    if (memref.marker.marker_value == SYSCALL_NUM_1)
-                        sched_as_string[i] += '1';
-                    else if (memref.marker.marker_value == SYSCALL_NUM_2)
-                        sched_as_string[i] += '2';
-                    else
-                        assert(false && "unknown system call num");
-                    break;
-                default: sched_as_string[i] += '?'; break;
+    {
+        std::vector<trace_entry_t> syscall_sequence = {
+            /* clang-format off */
+            make_header(TRACE_ENTRY_VERSION),
+            make_thread(TID_IN_SYSCALLS),
+            make_pid(TID_IN_SYSCALLS),
+            make_version(TRACE_ENTRY_VERSION),
+            make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_NUM_1),
+            make_instr(SYSCALL_NUM_1_PC_START),
+            make_instr(SYSCALL_NUM_1_PC_START + 1),
+            make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_NUM_1),
+            // XXX: Currently all syscall traces are concatenated. We may change
+            // this to use an archive file instead.
+            make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_NUM_2),
+            make_instr(SYSCALL_NUM_2_PC_START),
+            make_instr(SYSCALL_NUM_2_PC_START + 1),
+            make_instr(SYSCALL_NUM_2_PC_START + 2),
+            make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_NUM_2),
+            make_exit(TID_IN_SYSCALLS),
+            make_footer(),
+            /* clang-format on */
+        };
+        auto syscall_reader =
+            std::unique_ptr<mock_reader_t>(new mock_reader_t(syscall_sequence));
+        auto syscall_reader_end = std::unique_ptr<mock_reader_t>(new mock_reader_t());
+        static constexpr int NUM_INPUTS = 3;
+        static constexpr int NUM_INSTRS = 9;
+        static constexpr int INSTR_QUANTUM = 3;
+        static constexpr uint64_t TIMESTAMP = 44226688;
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        std::vector<scheduler_t::input_reader_t> readers;
+        for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
+            std::vector<trace_entry_t> inputs;
+            inputs.push_back(make_header(TRACE_ENTRY_VERSION));
+            memref_tid_t tid = TID_BASE + input_idx;
+            inputs.push_back(make_thread(tid));
+            inputs.push_back(make_pid(1));
+            inputs.push_back(make_version(TRACE_ENTRY_VERSION));
+            inputs.push_back(make_timestamp(TIMESTAMP));
+            for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
+                inputs.push_back(make_instr(42 + instr_idx * 4));
+                if (instr_idx % 2 == 0) {
+                    inputs.push_back(make_marker(
+                        TRACE_MARKER_TYPE_SYSCALL,
+                        (instr_idx / 2) % 2 == 0 ? SYSCALL_NUM_1 : SYSCALL_NUM_2));
                 }
             }
-            prev_tid[i] = memref.instr.tid;
-            prev_in_ord[i] = outputs[i]->get_input_interface()->get_record_ordinal();
-            prev_out_ord[i] = outputs[i]->get_record_ordinal();
+            inputs.push_back(make_exit(tid));
+            readers.emplace_back(
+                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
+                std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
         }
+        sched_inputs.emplace_back(std::move(readers));
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/3);
+        sched_ops.quantum_duration_instrs = INSTR_QUANTUM;
+        sched_ops.kernel_syscall_reader = std::move(syscall_reader);
+        sched_ops.kernel_syscall_reader_end = std::move(syscall_reader_end);
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+
+        // We have a custom version of run_lockstep_simulation here for more precise
+        // testing of the markers and instructions and interfaces.
+        // We record the entire sequence for a detailed check of some records, along with
+        // a character representation for a higher-level view of the whole sequence.
+        std::vector<scheduler_t::stream_t *> outputs(NUM_OUTPUTS, nullptr);
+        std::vector<bool> eof(NUM_OUTPUTS, false);
+        for (int i = 0; i < NUM_OUTPUTS; i++)
+            outputs[i] = scheduler.get_stream(i);
+        int num_eof = 0;
+        std::vector<std::vector<memref_t>> refs(NUM_OUTPUTS);
+        std::vector<std::string> sched_as_string(NUM_OUTPUTS);
+        std::vector<memref_tid_t> prev_tid(NUM_OUTPUTS, INVALID_THREAD_ID);
+        std::vector<bool> in_syscall(NUM_OUTPUTS, false);
+        std::vector<uint64> prev_in_ord(NUM_OUTPUTS, 0);
+        std::vector<uint64> prev_out_ord(NUM_OUTPUTS, 0);
+        while (num_eof < NUM_OUTPUTS) {
+            for (int i = 0; i < NUM_OUTPUTS; i++) {
+                if (eof[i])
+                    continue;
+                memref_t memref;
+                scheduler_t::stream_status_t status = outputs[i]->next_record(memref);
+                if (status == scheduler_t::STATUS_EOF) {
+                    ++num_eof;
+                    eof[i] = true;
+                    continue;
+                }
+                if (status == scheduler_t::STATUS_IDLE) {
+                    sched_as_string[i] += '_';
+                    continue;
+                }
+                assert(status == scheduler_t::STATUS_OK);
+                refs[i].push_back(memref);
+                if (memref.instr.tid != prev_tid[i]) {
+                    if (!sched_as_string[i].empty())
+                        sched_as_string[i] += ',';
+                    sched_as_string[i] +=
+                        'A' + static_cast<char>(memref.instr.tid - TID_BASE);
+                }
+                if (memref.marker.type == TRACE_TYPE_MARKER &&
+                    memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_START)
+                    in_syscall[i] = true;
+                if (in_syscall[i]) {
+                    // Test that syscall code is marked synthetic.
+                    assert(outputs[i]->is_record_synthetic());
+                    // Test that dynamically injected syscall code doesn't count toward
+                    // input ordinals, but does toward output ordinals.
+                    assert(outputs[i]->get_input_interface()->get_record_ordinal() ==
+                           prev_in_ord[i]);
+                    assert(outputs[i]->get_record_ordinal() > prev_out_ord[i]);
+                } else
+                    assert(!outputs[i]->is_record_synthetic());
+                if (type_is_instr(memref.instr.type))
+                    sched_as_string[i] += 'i';
+                else if (memref.marker.type == TRACE_TYPE_MARKER) {
+                    switch (memref.marker.marker_type) {
+                    case TRACE_MARKER_TYPE_VERSION: sched_as_string[i] += 'v'; break;
+                    case TRACE_MARKER_TYPE_TIMESTAMP: sched_as_string[i] += '0'; break;
+                    case TRACE_MARKER_TYPE_SYSCALL: sched_as_string[i] += 's'; break;
+                    case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
+                        in_syscall[i] = false;
+                        ANNOTATE_FALLTHROUGH;
+                    case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
+                        if (memref.marker.marker_value == SYSCALL_NUM_1)
+                            sched_as_string[i] += '1';
+                        else if (memref.marker.marker_value == SYSCALL_NUM_2)
+                            sched_as_string[i] += '2';
+                        else
+                            assert(false && "unknown system call num");
+                        break;
+                    default: sched_as_string[i] += '?'; break;
+                    }
+                }
+                prev_tid[i] = memref.instr.tid;
+                prev_in_ord[i] = outputs[i]->get_input_interface()->get_record_ordinal();
+                prev_out_ord[i] = outputs[i]->get_record_ordinal();
+            }
+        }
+        // Check the high-level strings.
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        }
+        assert(sched_as_string[0] ==
+               "Av0is1ii1,Cv0is1ii1,Aiis2iii2,Ciis2iii2,Aiis1ii1,Ciis1ii1,Aiis2iii2,"
+               "Ciis2iii2,Aiis1ii1,Ciis1ii1");
+        assert(sched_as_string[1] ==
+               "Bv0is1ii1iis2iii2iis1ii1iis2iii2iis1ii1____________________________"
+               "___________");
+
+        // Zoom in and check the first few syscall sequences on the first output record
+        // by record with value checks.
+        int idx = 0;
+        bool res = true;
+        res = res &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_VERSION) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_SYSCALL, SYSCALL_NUM_1) &&
+            // Syscall_1 trace on first thread.
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_NUM_1) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_NUM_1) &&
+
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_VERSION) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_SYSCALL, SYSCALL_NUM_1) &&
+            // Syscall_1 trace on second thread.
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_NUM_1) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_NUM_1) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_SYSCALL, SYSCALL_NUM_2) &&
+            // Syscall_2 trace on first thread.
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_NUM_2) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_NUM_2);
+        assert(res);
     }
-    // Check the high-level strings.
-    for (int i = 0; i < NUM_OUTPUTS; i++) {
-        std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
-    }
-    assert(sched_as_string[0] ==
-           "Av0is1ii1,Cv0is1ii1,Aiis2iii2,Ciis2iii2,Aiis1ii1,Ciis1ii1,Aiis2iii2,"
-           "Ciis2iii2,Aiis1ii1,Ciis1ii1");
-    assert(sched_as_string[1] ==
-           "Bv0is1ii1iis2iii2iis1ii1iis2iii2iis1ii1____________________________"
-           "___________");
-
-    // Zoom in and check the first few syscall sequences on the first output record
-    // by record with value checks.
-    int idx = 0;
-    bool res = true;
-    res = res &&
-        check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
-        check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
-                  TIMESTAMP) &&
-        check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL,
-                  SYSCALL_NUM_1) &&
-        // Syscall_1 trace on first thread.
-        check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
-                  TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_NUM_1) &&
-        check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
-                  TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_NUM_1) &&
-
-        check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
-                  TRACE_MARKER_TYPE_VERSION) &&
-        check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
-                  TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
-        check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
-                  TRACE_MARKER_TYPE_SYSCALL, SYSCALL_NUM_1) &&
-        // Syscall_1 trace on second thread.
-        check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
-                  TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_NUM_1) &&
-        check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
-                  TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_NUM_1) &&
-        check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL,
-                  SYSCALL_NUM_2) &&
-        // Syscall_2 trace on first thread.
-        check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
-                  TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_NUM_2) &&
-        check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
-                  TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_NUM_2);
-    assert(res);
-
     {
         // Test a bad input sequence.
         std::vector<trace_entry_t> bad_syscall_sequence = {
