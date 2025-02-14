@@ -107,10 +107,14 @@ jobs:
         username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
         password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
         subject: |
-          [${{github.repository}}] ${{github.workflow}} FAILED
+          [Author Action Required] [${{github.repository}}] ${{github.workflow}} FAILED
           on ${{github.event_name}} at ${{github.ref}}
         body: |
           Github Actions CI workflow run FAILED!
+          Commit author must triage and fix the possible regression.
+          Ensure the failure is not due to commits merged from out-of-date branches (i#5873).
+          For flaky tests, file new issue or update existing one with details.
+          Please note the action taken in a response on this dynamorio-devs email thread.
           Workflow: ${{github.workflow}}/aarchxx-cross-compile
           Repository: ${{github.repository}}
           Branch ref: ${{github.ref}}
@@ -180,10 +184,14 @@ jobs:
         username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
         password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
         subject: |
-          [${{github.repository}}] ${{github.workflow}} FAILED
+          [Author Action Required] [${{github.repository}}] ${{github.workflow}} FAILED
           on ${{github.event_name}} at ${{github.ref}}
         body: |
           Github Actions CI workflow run FAILED!
+          Commit author must triage and fix the possible regression.
+          Ensure the failure is not due to commits merged from out-of-date branches (i#5873).
+          For flaky tests, file new issue or update existing one with details.
+          Please note the action taken in a response on this dynamorio-devs email thread.
           Workflow: ${{github.workflow}}/aarchxx-cross-compile
           Repository: ${{github.repository}}
           Branch ref: ${{github.ref}}
@@ -252,10 +260,14 @@ jobs:
         username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
         password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
         subject: |
-          [${{github.repository}}] ${{github.workflow}} FAILED
+          [Author Action Required] [${{github.repository}}] ${{github.workflow}} FAILED
           on ${{github.event_name}} at ${{github.ref}}
         body: |
           Github Actions CI workflow run FAILED!
+          Commit author must triage and fix the possible regression.
+          Ensure the failure is not due to commits merged from out-of-date branches (i#5873).
+          For flaky tests, file new issue or update existing one with details.
+          Please note the action taken in a response on this dynamorio-devs email thread.
           Workflow: ${{github.workflow}}/android-arm-cross-compile
           Repository: ${{github.repository}}
           Branch ref: ${{github.ref}}
@@ -318,10 +330,14 @@ jobs:
         username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
         password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
         subject: |
-          [${{github.repository}}] ${{github.workflow}} FAILED
+          [Author Action Required] [${{github.repository}}] ${{github.workflow}} FAILED
           on ${{github.event_name}} at ${{github.ref}}
         body: |
           Github Actions CI workflow run FAILED!
+          Commit author must triage and fix the possible regression.
+          Ensure the failure is not due to commits merged from out-of-date branches (i#5873).
+          For flaky tests, file new issue or update existing one with details.
+          Please note the action taken in a response on this dynamorio-devs email thread.
           Workflow: ${{github.workflow}}/android-aarch64-cross-compile
           Repository: ${{github.repository}}
           Branch ref: ${{github.ref}}
@@ -378,10 +394,14 @@ jobs:
         username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
         password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
         subject: |
-          [${{github.repository}}] ${{github.workflow}} FAILED
+          [Author Action Required] [${{github.repository}}] ${{github.workflow}} FAILED
           on ${{github.event_name}} at ${{github.ref}}
         body: |
           Github Actions CI workflow run FAILED!
+          Commit author must triage and fix the possible regression.
+          Ensure the failure is not due to commits merged from out-of-date branches (i#5873).
+          For flaky tests, file new issue or update existing one with details.
+          Please note the action taken in a response on this dynamorio-devs email thread.
           Workflow: ${{github.workflow}}/a64-on-x86
           Repository: ${{github.repository}}
           Branch ref: ${{github.ref}}
