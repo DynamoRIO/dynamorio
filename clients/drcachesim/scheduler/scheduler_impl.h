@@ -409,6 +409,9 @@ protected:
     update_switch_stats(output_ordinal_t output, input_ordinal_t prev_input,
                         input_ordinal_t new_input);
 
+    void
+    process_marker(RecordType record, output_ordinal_t output);
+
     ///
     ///////////////////////////////////////////////////////////////////////////
 
@@ -481,6 +484,7 @@ protected:
         // Indirected so we can store it in our vector.
         std::unique_ptr<std::atomic<bool>> active;
         bool in_syscall_code = false;
+        bool hit_syscall_code_end = false;
         bool in_context_switch_code = false;
         bool hit_switch_code_end = false;
         // Used for time-based quanta.
@@ -540,6 +544,14 @@ protected:
         uint64_t output_array_idx;
         uint64_t start_instruction;
         uint64_t timestamp;
+    };
+
+    template <typename IntCastable> struct custom_hash_t {
+        std::size_t
+        operator()(const IntCastable &st) const
+        {
+            return std::hash<int>()(static_cast<int>(st));
+        }
     };
 
     // Tracks data used while opening inputs.
@@ -736,8 +748,23 @@ protected:
         std::vector<std::set<uint64_t>> &start2stop,
         std::vector<std::vector<schedule_output_tracker_t>> &all_sched);
 
+    template <typename SequenceKey>
+    scheduler_status_t
+    read_kernel_sequences(std::unordered_map<SequenceKey, std::vector<RecordType>,
+                                             custom_hash_t<SequenceKey>> &sequence,
+                          std::string trace_path, std::unique_ptr<ReaderType> reader,
+                          std::unique_ptr<ReaderType> reader_end,
+                          trace_marker_type_t start_marker,
+                          trace_marker_type_t end_marker, std::string sequence_type);
+
     scheduler_status_t
     read_switch_sequences();
+
+    scheduler_status_t
+    read_syscall_sequences();
+
+    stream_status_t
+    inject_kernel_sequence(std::vector<RecordType> &sequence, input_info_t *input);
 
     uint64_t
     get_time_micros();
@@ -976,15 +1003,14 @@ protected:
         }
     };
     std::unordered_map<workload_tid_t, input_ordinal_t, workload_tid_hash_t> tid2input_;
-    struct switch_type_hash_t {
-        std::size_t
-        operator()(const switch_type_t &st) const
-        {
-            return std::hash<int>()(static_cast<int>(st));
-        }
-    };
-    std::unordered_map<switch_type_t, std::vector<RecordType>, switch_type_hash_t>
+
+    std::unordered_map<switch_type_t, std::vector<RecordType>,
+                       custom_hash_t<switch_type_t>>
         switch_sequence_;
+    // We specify a custom hash function only to make it generalize with
+    // switch_sequence_ defined above.
+    std::unordered_map<int, std::vector<RecordType>, custom_hash_t<int>>
+        syscall_sequence_;
     // For single_lockstep_output.
     std::unique_ptr<stream_t> global_stream_;
     // For online where we currently have to map dynamically observed thread ids
