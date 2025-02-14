@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2020-2025 Google, Inc.  All rights reserved.
+# Copyright (c) 2025 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -28,66 +28,42 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-# Github Actions workflow for Mac OSX Continuous Integration testing.
+# Github Actions workflow to send out failure notification emails.
+# This is a reusable workflow that is called by various ci workflows.
 
-name: ci-osx
+name: send-failure-notification
 on:
-  # Run on pushes to master and on pull request changes, including from a
-  # forked repo with no "push" trigger, while avoiding duplicate triggers.
-  push:
-    branches:
-      - master
-  pull_request:
-    types: [opened, reopened, synchronize]
-  merge_group:
-
-  # Manual trigger using the Actions page. May remove when integration complete.
-  workflow_dispatch:
-
-defaults:
-  run:
-    shell: bash
+  workflow_call:
+    inputs:
+      test_suite:
+        required: true
+        type: string
+    secrets:
+      DYNAMORIO_NOTIFICATION_EMAIL_USERNAME:
+        required: true
+      DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD:
+        required: true
+    github:
+      repository:
+        required: true
+      event_name:
+        required: true
+      workflow:
+        required: true
+      ref:
+        required: true
+      sha:
+        required: true
+      actor:
+        required: true
+      run_id:
+        required: true
 
 jobs:
-  # 64-bit OSX build with clang and run tests:
-  osx-x86-64:
-    runs-on: macos-13
-
+  send-failure-notification-job:
     steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: true
-
-    # Cancel any prior runs for a PR (but do not cancel master branch runs).
-    - uses: n1hility/cancel-previous-runs@v2
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-      if: ${{ github.event_name == 'pull_request' }}
-
-    - run: git fetch --no-tags --depth=1 origin master
-
-    - name: Create Build Environment
-      # XXX: We should install doxygen too but it's a different version and
-      # hits issues about incompatible options in the Doxyfile.
-      run: |
-        brew install nasm zlib snappy lz4
-
-    - name: Run Suite
-      working-directory: ${{ github.workspace }}
-      run: ./suite/runsuite_wrapper.pl automated_ci 64_only
-      env:
-        DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
-        # Change xcode version for current session:
-        # https://www.unix.com/man-page/osx/1/xcode-select/
-        # https://github.community/t/selecting-an-xcode-version/16204/3
-        # To find available versions, add the following as a step above:
-        #  - run: ls -l /Applications
-        DEVELOPER_DIR: /Applications/Xcode_14.1.app/Contents/Developer
-        CI_TRIGGER: ${{ github.event_name }}
-        CI_BRANCH: ${{ github.ref }}
-
     - name: Send failure mail to dynamorio-devs
-      if: failure() && github.ref == 'refs/heads/master'
+      # if: failure() && github.ref == 'refs/heads/master'
       uses: dawidd6/action-send-mail@v2
       with:
         server_address: smtp.gmail.com
@@ -99,7 +75,7 @@ jobs:
           on ${{github.event_name}} at ${{github.ref}}
         body: |
           Github Actions CI workflow run FAILED!
-          Workflow: ${{github.workflow}}/osx-x86-64
+          Workflow: ${{github.workflow}}/${{inputs.test_suite}}
           Repository: ${{github.repository}}
           Branch ref: ${{github.ref}}
           SHA: ${{github.sha}}
@@ -107,5 +83,6 @@ jobs:
           Triggering event: ${{github.event_name}}
           Run Id: ${{github.run_id}}
           See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
-        to: dynamorio-devs@googlegroups.com
+        to: sharmaabhinav@google.com
+        # to: dynamorio-devs@googlegroups.com
         from: Github Action CI
