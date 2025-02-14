@@ -1466,17 +1466,19 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::read_kernel_sequences(
                 return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
             }
         }
-        if (in_sequence)
+        if (in_sequence) {
             sequence[sequence_key].push_back(record);
-        if (record_type_is_marker(record, marker_type, marker_value) &&
-            marker_type == end_marker) {
-            if (static_cast<SequenceKey>(marker_value) != sequence_key) {
-                error_string_ += sequence_type + " marker values mismatched";
-                return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
+            if (record_type_is_marker(record, marker_type, marker_value) &&
+                marker_type == end_marker) {
+                if (static_cast<SequenceKey>(marker_value) != sequence_key) {
+                    error_string_ += sequence_type + " marker values mismatched";
+                    return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
+                }
+                VPRINT(this, 1, "Read %zu kernel %s records for key %d\n",
+                       sequence[sequence_key].size(), sequence_type.c_str(),
+                       sequence_key);
+                in_sequence = false;
             }
-            VPRINT(this, 1, "Read %zu kernel %s records for key %d\n",
-                   sequence[sequence_key].size(), sequence_type.c_str(), sequence_key);
-            in_sequence = false;
         }
         ++(*reader);
     }
