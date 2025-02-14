@@ -1470,15 +1470,19 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::read_kernel_sequences(
             sequence[sequence_key].push_back(record);
         }
         if (is_marker && marker_type == end_marker) {
-            if (in_sequence && static_cast<SequenceKey>(marker_value) != sequence_key) {
-                error_string_ += sequence_type + " marker values mismatched";
-                return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
-            } else if (!in_sequence) {
+            if (in_sequence) {
+                if (static_cast<SequenceKey>(marker_value) != sequence_key) {
+                    error_string_ += sequence_type + " marker values mismatched";
+                    return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
+                } else {
+                    VPRINT(this, 1, "Read %zu kernel %s records for key %d\n",
+                           sequence[sequence_key].size(), sequence_type.c_str(),
+                           sequence_key);
+                }
+            } else {
                 error_string_ += sequence_type + " end marker found without start";
                 return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
             }
-            VPRINT(this, 1, "Read %zu kernel %s records for key %d\n",
-                   sequence[sequence_key].size(), sequence_type.c_str(), sequence_key);
             in_sequence = false;
         }
 
