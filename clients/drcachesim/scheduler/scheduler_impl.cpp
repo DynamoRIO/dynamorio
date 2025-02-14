@@ -2764,7 +2764,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
         stream_status_t res =
             inject_kernel_sequence(syscall_sequence_[marker_value], input);
         if (res == stream_status_t::STATUS_OK) {
-            VPRINT(this, 3, "Inserted %zu syscall records for syscall %lu to %d.%d\n",
+            VPRINT(this, 3, "Inserted %zu syscall records for syscall %u to %d.%d\n",
                    syscall_sequence_[marker_value].size(), marker_value, input->workload,
                    input->index);
         } else if (res != stream_status_t::STATUS_EOF) {
