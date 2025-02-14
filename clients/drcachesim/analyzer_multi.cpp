@@ -571,6 +571,8 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
 #endif
     }
 
+    sched_ops.kernel_syscall_trace_path = op_sched_syscall_file.get_value();
+
     if (!indirs.empty()) {
         std::vector<std::string> tracedirs;
         for (const std::string &indir : indirs)
@@ -689,7 +691,6 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::init_dynamic_schedule()
     }
 #endif
     sched_ops.kernel_switch_trace_path = op_sched_switch_file.get_value();
-    sched_ops.kernel_syscall_trace_path = op_sched_syscall_file.get_value();
     return sched_ops;
 }
 

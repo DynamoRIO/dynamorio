@@ -324,6 +324,10 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
         sched_ops = sched_type_t::make_scheduler_parallel_options(verbosity_);
         sched_ops.replay_as_traced_istream = options.replay_as_traced_istream;
         sched_ops.read_inputs_in_init = options.read_inputs_in_init;
+        sched_ops.kernel_syscall_trace_path = options.kernel_syscall_trace_path;
+        sched_ops.kernel_syscall_reader = std::move(options.kernel_syscall_reader);
+        sched_ops.kernel_syscall_reader_end =
+            std::move(options.kernel_syscall_reader_end);
         if (worker_count_ <= 0)
             worker_count_ = std::thread::hardware_concurrency();
         output_count = worker_count_;
@@ -331,6 +335,10 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
         sched_ops = sched_type_t::make_scheduler_serial_options(verbosity_);
         sched_ops.replay_as_traced_istream = options.replay_as_traced_istream;
         sched_ops.read_inputs_in_init = options.read_inputs_in_init;
+        sched_ops.kernel_syscall_trace_path = options.kernel_syscall_trace_path;
+        sched_ops.kernel_syscall_reader = std::move(options.kernel_syscall_reader);
+        sched_ops.kernel_syscall_reader_end =
+            std::move(options.kernel_syscall_reader_end);
         worker_count_ = 1;
         output_count = 1;
     }

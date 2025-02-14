@@ -1049,9 +1049,8 @@ droption_t<std::string> op_sched_switch_file(
 droption_t<std::string> op_sched_syscall_file(
     DROPTION_SCOPE_FRONTEND, "sched_syscall_file", "",
     "Path to file holding kernel system call sequences",
-    "Applies to -core_sharded and -core_serial.  Path to file holding system call "
-    "sequences.  The file can contain multiple sequences each with regular trace "
-    "headers and the sequence proper bracketed by "
+    "Path to file holding system call sequences.  The file can contain multiple "
+    "sequences each with regular trace headers and the sequence proper bracketed by "
     "TRACE_MARKER_TYPE_SYSCALL_TRACE_START and TRACE_MARKER_TYPE_SYSCALL_TRACE_END "
     "markers.");
 

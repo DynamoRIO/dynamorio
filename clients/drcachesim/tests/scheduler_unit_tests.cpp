@@ -6054,6 +6054,7 @@ test_kernel_syscall_sequences()
             make_thread(TID_IN_SYSCALLS),
             make_pid(TID_IN_SYSCALLS),
             make_version(TRACE_ENTRY_VERSION),
+            make_timestamp(0),
             make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_NUM_1),
             make_instr(SYSCALL_NUM_1_PC_START),
             make_instr(SYSCALL_NUM_1_PC_START + 1),
