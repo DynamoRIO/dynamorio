@@ -1469,7 +1469,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::read_kernel_sequences(
         if (in_sequence) {
             // We avoid uninitialized-use warnings by placing sequence_key uses
             // inside this if-block (otherwise we'd need to add separate template
-            // specialized functions to get the default uninitialized value based
+            // specialized functions to get the default-initialized value based
             // on SequenceKey). Seems that the Windows compiler is able to
             // determine this as okay.
             sequence[sequence_key].push_back(record);
