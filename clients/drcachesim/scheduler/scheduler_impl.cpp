@@ -1467,25 +1467,23 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::read_kernel_sequences(
             }
         }
         if (in_sequence) {
+            // We avoid uninitialized-use warnings by placing sequence_key uses
+            // inside this if-block (otherwise we'd need to add separate template
+            // specialized functions to get the default uninitialized value based
+            // on SequenceKey). Seems that the Windows compiler is able to
+            // determine this as okay.
             sequence[sequence_key].push_back(record);
-        }
-        if (is_marker && marker_type == end_marker) {
-            if (in_sequence) {
+            if (is_marker && marker_type == end_marker) {
                 if (static_cast<SequenceKey>(marker_value) != sequence_key) {
                     error_string_ += sequence_type + " marker values mismatched";
                     return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
-                } else {
-                    VPRINT(this, 1, "Read %zu kernel %s records for key %d\n",
-                           sequence[sequence_key].size(), sequence_type.c_str(),
-                           sequence_key);
                 }
-            } else {
-                error_string_ += sequence_type + " end marker found without start";
-                return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
+                VPRINT(this, 1, "Read %zu kernel %s records for key %d\n",
+                       sequence[sequence_key].size(), sequence_type.c_str(),
+                       sequence_key);
             }
             in_sequence = false;
         }
-
         ++(*reader);
     }
     return sched_type_t::STATUS_SUCCESS;
