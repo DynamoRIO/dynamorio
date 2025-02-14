@@ -2762,12 +2762,14 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
     uintptr_t marker_value = 0;
     if (record_type_is_marker(record, marker_type, marker_value) &&
         marker_type == TRACE_MARKER_TYPE_SYSCALL &&
-        syscall_sequence_.find(marker_value) != syscall_sequence_.end()) {
+        syscall_sequence_.find(static_cast<int>(marker_value)) !=
+            syscall_sequence_.end()) {
+        int syscall_num = static_cast<int>(marker_value);
         stream_status_t res =
-            inject_kernel_sequence(syscall_sequence_[marker_value], input);
+            inject_kernel_sequence(syscall_sequence_[syscall_num], input);
         if (res == stream_status_t::STATUS_OK) {
-            VPRINT(this, 3, "Inserted %zu syscall records for syscall %zu to %d.%d\n",
-                   syscall_sequence_[marker_value].size(), marker_value, input->workload,
+            VPRINT(this, 3, "Inserted %zu syscall records for syscall %d to %d.%d\n",
+                   syscall_sequence_[syscall_num].size(), syscall_num, input->workload,
                    input->index);
         } else if (res != stream_status_t::STATUS_EOF) {
             return res;
