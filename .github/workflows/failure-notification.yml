@@ -63,7 +63,6 @@ jobs:
   send-failure-notification-job:
     steps:
     - name: Send failure mail to dynamorio-devs
-      # if: failure() && github.ref == 'refs/heads/master'
       uses: dawidd6/action-send-mail@v2
       with:
         server_address: smtp.gmail.com
