@@ -211,8 +211,6 @@ jobs:
     # Install multilib for non-cross-compiling Linux build.
     - name: Create Build Environment
       run: |
-        # TODO: For testing. Remove before master merge
-        exit 1
         sudo apt update
         sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
           liblz4-dev g++-multilib libunwind-dev

@@ -52,8 +52,9 @@ on:
 jobs:
   send-failure-notification-job:
     runs-on: ubuntu-latest
-    # Add && github.ref == 'refs/heads/master'
-    if: ${{ contains(inputs.test_suite_results_only, 'failure') }}
+    # We run this job only on master merge failures, which are expected
+    # to be rare.
+    if: ${{ contains(inputs.test_suite_results_only, 'failure') && github.ref == 'refs/heads/master' }}
     steps:
     - name: Send failure mail to dynamorio-devs
       uses: dawidd6/action-send-mail@v2
@@ -68,7 +69,7 @@ jobs:
         body: |
           Github Actions CI workflow run FAILED!
           Workflow: ${{github.workflow}}
-          All test status: ${{ inputs.test_suite_status }}
+          All test suite status: ${{ inputs.test_suite_status }}
           Repository: ${{github.repository}}
           Branch ref: ${{github.ref}}
           SHA: ${{github.sha}}
