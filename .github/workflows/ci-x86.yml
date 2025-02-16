@@ -118,6 +118,7 @@ jobs:
       needs: x86-32
       # if: needs.x86-32.result == 'failure' && github.ref == 'refs/heads/master'
       # if: needs.x86-32.result == 'failure'
+      if: always()
       with:
         test_suite: 'x86-32'
         test_suite_result: needs.x86-32.result
