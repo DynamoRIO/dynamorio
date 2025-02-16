@@ -85,6 +85,7 @@ jobs:
     # so we manually install the i386 packages we need.
     - name: Create Build Environment
       run: |
+        exit 1
         sudo apt update
         sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
           liblz4-dev g++-multilib libunwind-dev
