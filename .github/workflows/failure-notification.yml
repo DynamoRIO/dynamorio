@@ -43,21 +43,6 @@ on:
         required: true
       DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD:
         required: true
-    github:
-      repository:
-        required: true
-      event_name:
-        required: true
-      workflow:
-        required: true
-      ref:
-        required: true
-      sha:
-        required: true
-      actor:
-        required: true
-      run_id:
-        required: true
 
 jobs:
   send-failure-notification-job:

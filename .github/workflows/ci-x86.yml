@@ -119,4 +119,3 @@ jobs:
       with:
         test_suite: 'x86-32'
       secrets: inherit
-      github: inherit
