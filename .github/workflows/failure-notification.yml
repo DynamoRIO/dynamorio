@@ -64,7 +64,7 @@ jobs:
         body: |
           Github Actions CI workflow run FAILED!
           Workflow: ${{github.workflow}}/${{inputs.test_suite}}
-          Result status: #{{inputs.test_suite_result}}
+          Result status: ${{inputs.test_suite_result}}
           Repository: ${{github.repository}}
           Branch ref: ${{github.ref}}
           SHA: ${{github.sha}}
