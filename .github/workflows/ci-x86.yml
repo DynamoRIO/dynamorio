@@ -157,7 +157,7 @@ jobs:
       needs: [x86-32, x86-64]
       # We need this to ensure this job runs even if there is failure in
       # any of the workflows marked as needed.
-      # if: ${{ always() }}
+      if: ${{ always() }}
       with:
         test_suite_status: ${{ format('{0} {1} | {2} {3}',
                                       'x86-32', needs.x86-32.result,
