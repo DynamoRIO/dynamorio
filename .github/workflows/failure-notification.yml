@@ -35,16 +35,7 @@ name: send-failure-notification
 on:
   workflow_call:
     inputs:
-      test_suite:
-        required: true
-        type: string
       test_suite_status:
-        required: true
-        type: string
-      test_suite_names:
-        required: true
-        type: string
-      test_suite_names_1:
         required: true
         type: string
       test_suite_results:
@@ -59,6 +50,7 @@ on:
 jobs:
   send-failure-notification-job:
     runs-on: ubuntu-latest
+    if: ${{ contains(inputs.test_suite_results, 'failure' }}
     steps:
     - name: Send failure mail to dynamorio-devs
       uses: dawidd6/action-send-mail@v2
@@ -72,12 +64,8 @@ jobs:
           on ${{github.event_name}} at ${{github.ref}}
         body: |
           Github Actions CI workflow run FAILED!
-          Workflow: ${{github.workflow}}/${{inputs.test_suite}}
-          Needs workflows status: ${{ inputs.test_suite_status }}
-          Needs workflows names: ${{ inputs.test_suite_names }}
-          Needs workflows names 1: ${{ inputs.test_suite_names_1 }}
-          Needs workflows results: ${{ join(needs.*.result, ',') }}
-          Needs workflows results 2: ${{ inputs.test_suite_results }}
+          Workflow: ${{github.workflow}}
+          All test status: ${{ inputs.test_suite_status }}
           Repository: ${{github.repository}}
           Branch ref: ${{github.ref}}
           SHA: ${{github.sha}}
