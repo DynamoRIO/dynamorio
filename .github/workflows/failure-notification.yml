@@ -38,6 +38,9 @@ on:
       test_suite:
         required: true
         type: string
+      test_suite_result:
+        required: true
+        type: string
     secrets:
       DYNAMORIO_NOTIFICATION_EMAIL_USERNAME:
         required: true
