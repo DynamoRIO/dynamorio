@@ -837,8 +837,8 @@ public:
          * indicating the system call it corresponds to. Sequences for
          * multiple system calls are concatenated into a single file.
          * Each sequence should be in the regular offline drmemtrace format.
-         * The sequence is inserted into the output stream after the
-         * #TRACE_MARKER_TYPE_SYSCALL markers with the indicated value.
+         * Each sequence is inserted into the output stream after all
+         * #TRACE_MARKER_TYPE_SYSCALL markers with the same value.
          * The same file (or reader) must be passed when replaying as this kernel
          * code is not stored when recording.
          * An alternative to passing the file path is to pass #kernel_syscall_reader

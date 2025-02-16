@@ -348,6 +348,23 @@ scheduler_impl_tmpl_t<memref_t, reader_t>::insert_switch_tid_pid(input_info_t &i
     // We do nothing, as every record has a tid from the separate inputs.
 }
 
+template <>
+template <>
+typename scheduler_tmpl_t<memref_t, reader_t>::switch_type_t
+scheduler_impl_tmpl_t<memref_t, reader_t>::default_kernel_sequence_key()
+{
+    return switch_type_t::SWITCH_INVALID;
+}
+
+template <>
+template <>
+int
+scheduler_impl_tmpl_t<memref_t, reader_t>::default_kernel_sequence_key()
+{
+    // System numbers are small non-negative integers.
+    return -1;
+}
+
 /******************************************************************************
  * Specializations for scheduler_impl_tmpl_t<record_reader_t>, aka
  * record_scheduler_impl_t.
@@ -566,6 +583,23 @@ scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::insert_switch_tid_pid(
 
     input.queue.push_front(pid);
     input.queue.push_front(tid);
+}
+
+template <>
+template <>
+typename scheduler_tmpl_t<trace_entry_t, record_reader_t>::switch_type_t
+scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::default_kernel_sequence_key()
+{
+    return switch_type_t::SWITCH_INVALID;
+}
+
+template <>
+template <>
+int
+scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::default_kernel_sequence_key()
+{
+    // System numbers are small non-negative integers.
+    return -1;
 }
 
 /***************************************************************************
@@ -1433,7 +1467,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::read_kernel_sequences(
         }
         reader_end = get_default_reader();
     } else if (!reader) {
-        // No switch data provided.
+        // No kernel data provided.
         return sched_type_t::STATUS_SUCCESS;
     } else {
         if (!reader_end) {
@@ -1450,7 +1484,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::read_kernel_sequences(
     // memory and don't need to stream them on every use.
     // We read a single stream, even if underneath these are split into subfiles
     // in an archive.
-    SequenceKey sequence_key;
+    SequenceKey sequence_key = default_kernel_sequence_key<SequenceKey>();
+    const SequenceKey DEFAULT_SEQ_KEY = default_kernel_sequence_key<SequenceKey>();
     bool in_sequence = false;
     while (*reader != *reader_end) {
         RecordType record = **reader;
@@ -1459,30 +1494,39 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::read_kernel_sequences(
         uintptr_t marker_value = 0;
         bool is_marker = record_type_is_marker(record, marker_type, marker_value);
         if (is_marker && marker_type == start_marker) {
+            if (in_sequence) {
+                error_string_ += "Found another " + sequence_type +
+                    " sequence start without prior ending";
+                return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
+            }
             sequence_key = static_cast<SequenceKey>(marker_value);
             in_sequence = true;
+            if (sequence_key == DEFAULT_SEQ_KEY) {
+                error_string_ +=
+                    "Invalid " + sequence_type + " sequence found with default key";
+                return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
+            }
             if (!sequence[sequence_key].empty()) {
                 error_string_ += "Duplicate " + sequence_type + " sequence found";
                 return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
             }
         }
-        if (in_sequence) {
-            // We avoid uninitialized-use warnings by placing sequence_key uses
-            // inside this if-block (otherwise we'd need to add separate template
-            // specialized functions to get the default-initialized value based
-            // on SequenceKey). Seems that the Windows compiler is able to
-            // determine this as okay.
+        if (in_sequence)
             sequence[sequence_key].push_back(record);
-            if (is_marker && marker_type == end_marker) {
-                if (static_cast<SequenceKey>(marker_value) != sequence_key) {
-                    error_string_ += sequence_type + " marker values mismatched";
-                    return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
-                }
-                in_sequence = false;
-                VPRINT(this, 1, "Read %zu kernel %s records for key %d\n",
-                       sequence[sequence_key].size(), sequence_type.c_str(),
-                       sequence_key);
+        if (is_marker && marker_type == end_marker) {
+            if (!in_sequence) {
+                error_string_ += "Found " + sequence_type +
+                    " sequence end marker without start marker";
+                return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
             }
+            if (static_cast<SequenceKey>(marker_value) != sequence_key) {
+                error_string_ += sequence_type + " marker values mismatched";
+                return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
+            }
+            sequence_key = DEFAULT_SEQ_KEY;
+            in_sequence = false;
+            VPRINT(this, 1, "Read %zu kernel %s records for key %d\n",
+                   sequence[sequence_key].size(), sequence_type.c_str(), sequence_key);
         }
         ++(*reader);
     }
@@ -2762,7 +2806,14 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
     outputs_[output].last_record = record;
     record_type_has_tid(record, input->last_record_tid);
     record_type_has_pid(record, input->pid);
+    return finalize_next_record(record, input);
+}
 
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
+scheduler_impl_tmpl_t<RecordType, ReaderType>::finalize_next_record(
+    const RecordType &record, input_info_t *input)
+{
     trace_marker_type_t marker_type;
     uintptr_t marker_value;
     // Good to queue the injected records at this point, because we now surely will

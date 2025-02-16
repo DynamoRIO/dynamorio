@@ -750,6 +750,10 @@ protected:
         std::vector<std::vector<schedule_output_tracker_t>> &all_sched);
 
     template <typename SequenceKey>
+    SequenceKey
+    default_kernel_sequence_key();
+
+    template <typename SequenceKey>
     scheduler_status_t
     read_kernel_sequences(std::unordered_map<SequenceKey, std::vector<RecordType>,
                                              custom_hash_t<SequenceKey>> &sequence,
@@ -763,9 +767,6 @@ protected:
 
     scheduler_status_t
     read_syscall_sequences();
-
-    stream_status_t
-    inject_kernel_sequence(std::vector<RecordType> &sequence, input_info_t *input);
 
     uint64_t
     get_time_micros();
@@ -869,6 +870,14 @@ protected:
 
     void
     update_next_record(output_ordinal_t output, RecordType &record);
+
+    stream_status_t
+    inject_kernel_sequence(std::vector<RecordType> &sequence, input_info_t *input);
+
+    // Actions that must be taken only when we know for sure that the given record
+    // is going to be the next record for some output stream.
+    stream_status_t
+    finalize_next_record(const RecordType &record, input_info_t *input);
 
     // Used for diagnostics: prints record fields to stderr.
     void
