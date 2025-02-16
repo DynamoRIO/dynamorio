@@ -38,6 +38,9 @@ on:
       test_suite:
         required: true
         type: string
+      test_suite_status:
+        required: true
+        type: string
       test_suite_names:
         required: true
         type: string
@@ -70,6 +73,7 @@ jobs:
         body: |
           Github Actions CI workflow run FAILED!
           Workflow: ${{github.workflow}}/${{inputs.test_suite}}
+          Needs workflows status: ${{ inputs.test_suite_status }}
           Needs workflows names: ${{ inputs.test_suite_names }}
           Needs workflows names 1: ${{ inputs.test_suite_names_1 }}
           Needs workflows results: ${{ join(needs.*.result, ',') }}
