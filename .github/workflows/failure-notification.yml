@@ -46,9 +46,9 @@ on:
 
 jobs:
   send-failure-notification-job:
+    runs-on: ubuntu-latest
     steps:
     - name: Send failure mail to dynamorio-devs
-      runs-on: ubuntu-latest
       uses: dawidd6/action-send-mail@v2
       with:
         server_address: smtp.gmail.com
