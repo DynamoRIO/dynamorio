@@ -38,9 +38,6 @@ on:
       test_suite:
         required: true
         type: string
-      test_suite_result:
-        required: true
-        type: string
     secrets:
       DYNAMORIO_NOTIFICATION_EMAIL_USERNAME:
         required: true
@@ -64,7 +61,6 @@ jobs:
         body: |
           Github Actions CI workflow run FAILED!
           Workflow: ${{github.workflow}}/${{inputs.test_suite}}
-          Result status: ${{inputs.test_suite_result}}
           Repository: ${{github.repository}}
           Branch ref: ${{github.ref}}
           SHA: ${{github.sha}}
