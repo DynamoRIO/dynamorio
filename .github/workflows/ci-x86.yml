@@ -113,7 +113,7 @@ jobs:
         CI_BRANCH: ${{ github.ref }}
 
   x86-32-failure-notification:
-    - uses: DynamoRIO/dynamorio/.github/workflows/failure-notification.yml@main
+      uses: DynamoRIO/dynamorio/.github/workflows/failure-notification.yml@main
       needs: x86-32
       if: needs.*.result == 'failure' && github.ref == 'refs/heads/master'
       with:
