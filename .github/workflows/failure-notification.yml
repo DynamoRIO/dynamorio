@@ -38,6 +38,12 @@ on:
       test_suite:
         required: true
         type: string
+      test_suite_names:
+        required: true
+        type: string
+      test_suite_names_1:
+        required: true
+        type: string
       test_suite_results:
         required: true
         type: string
@@ -64,6 +70,8 @@ jobs:
         body: |
           Github Actions CI workflow run FAILED!
           Workflow: ${{github.workflow}}/${{inputs.test_suite}}
+          Needs workflows names: ${{ inputs.test_suite_names }}
+          Needs workflows names 1: ${{ inputs.test_suite_names_1 }}
           Needs workflows results: ${{ join(needs.*.result, ',') }}
           Needs workflows results 2: ${{ inputs.test_suite_results }}
           Repository: ${{github.repository}}
