@@ -52,8 +52,15 @@ on:
 jobs:
   send-failure-notification-job:
     runs-on: ubuntu-latest
-    # We run this job only on master merge failures, which are expected
-    # to be rare.
+    # Reusable workflows are invoked as a separate job, which requires
+    # a new runner. But since this job is run only on master merge
+    # failures, which are expected to be rare, it is fine.
+    #
+    # We keep this condition in this reusable workflow to avoid its
+    # duplication across all callers. Callers may want to specify an
+    # always() condition to ensure this reusable workflow is not
+    # prematurely skipped. Note that the following condition still
+    # ensures that a new runner or job is not launched when not needed.
     if: ${{ contains(inputs.test_suite_results_only, 'failure') && github.ref == 'refs/heads/master' }}
     steps:
     - name: Send failure mail to dynamorio-devs
