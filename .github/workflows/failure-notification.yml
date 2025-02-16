@@ -38,7 +38,9 @@ on:
       test_suite_status:
         required: true
         type: string
-      test_suite_results:
+      # We ask for the results only string separately so we can do a
+      # substring match to check for failure.
+      test_suite_results_only:
         required: true
         type: string
     secrets:
@@ -50,7 +52,8 @@ on:
 jobs:
   send-failure-notification-job:
     runs-on: ubuntu-latest
-    if: ${{ contains(inputs.test_suite_results, 'failure') }}
+    # Add && github.ref == 'refs/heads/master'
+    if: ${{ contains(inputs.test_suite_results_only, 'failure') }}
     steps:
     - name: Send failure mail to dynamorio-devs
       uses: dawidd6/action-send-mail@v2

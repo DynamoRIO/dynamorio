@@ -152,14 +152,15 @@ jobs:
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
 
-  x86-32-failure-notification:
+  send-failure-notification:
       uses: ./.github/workflows/failure-notification.yml
       needs: [x86-32, x86-64]
-      # if: needs.x86-32.result == 'failure' && github.ref == 'refs/heads/master'
+      # We need this to ensure this job runs even if there is failure in
+      # any of the workflows marked as needed.
       if: ${{ always() }}
       with:
         test_suite_status: ${{ format('{0} {1} | {2} {3}',
                                       'x86-32', needs.x86-32.result,
                                       'x86-64', needs.x86-64.result) }}
-        test_suite_results: ${{ join(needs.*.result, ',') }}
+        test_suite_results_only: ${{ join(needs.*.result, ',') }}
       secrets: inherit
