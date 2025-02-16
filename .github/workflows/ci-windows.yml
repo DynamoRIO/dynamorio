@@ -94,30 +94,6 @@ jobs:
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
 
-    - name: Send failure mail to dynamorio-devs
-      if: failure() && github.ref == 'refs/heads/master'
-      uses: dawidd6/action-send-mail@v2
-      with:
-        server_address: smtp.gmail.com
-        server_port: 465
-        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
-        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
-        subject: |
-          [${{github.repository}}] ${{github.workflow}} FAILED
-          on ${{github.event_name}} at ${{github.ref}}
-        body: |
-          Github Actions CI workflow run FAILED!
-          Workflow: ${{github.workflow}}/vs2019-32
-          Repository: ${{github.repository}}
-          Branch ref: ${{github.ref}}
-          SHA: ${{github.sha}}
-          Triggering actor: ${{github.actor}}
-          Triggering event: ${{github.event_name}}
-          Run Id: ${{github.run_id}}
-          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
-        to: dynamorio-devs@googlegroups.com
-        from: Github Action CI
-
   ###########################################################################
   # 64-bit VS2019 and tests:
   vs2019-64:
@@ -160,30 +136,6 @@ jobs:
       env:
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
-
-    - name: Send failure mail to dynamorio-devs
-      if: failure() && github.ref == 'refs/heads/master'
-      uses: dawidd6/action-send-mail@v2
-      with:
-        server_address: smtp.gmail.com
-        server_port: 465
-        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
-        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
-        subject: |
-          [${{github.repository}}] ${{github.workflow}} FAILED
-          on ${{github.event_name}} at ${{github.ref}}
-        body: |
-          Github Actions CI workflow run FAILED!
-          Workflow: ${{github.workflow}}/vs2019-64
-          Repository: ${{github.repository}}
-          Branch ref: ${{github.ref}}
-          SHA: ${{github.sha}}
-          Triggering actor: ${{github.actor}}
-          Triggering event: ${{github.event_name}}
-          Run Id: ${{github.run_id}}
-          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
-        to: dynamorio-devs@googlegroups.com
-        from: Github Action CI
 
   ###########################################################################
   # 32-bit and 64-bit VS2019 release builds:
@@ -228,26 +180,16 @@ jobs:
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
 
-    - name: Send failure mail to dynamorio-devs
-      if: failure() && github.ref == 'refs/heads/master'
-      uses: dawidd6/action-send-mail@v2
+  send-failure-notification:
+      uses: ./.github/workflows/failure-notification.yml
+      needs: [vs2019-builds, vs2019-64, vs2019-32]
+      # We need this to ensure this job runs even if there is failure in
+      # any of the workflows marked as needed.
+      if: ${{ always() }}
       with:
-        server_address: smtp.gmail.com
-        server_port: 465
-        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
-        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
-        subject: |
-          [${{github.repository}}] ${{github.workflow}} FAILED
-          on ${{github.event_name}} at ${{github.ref}}
-        body: |
-          Github Actions CI workflow run FAILED!
-          Workflow: ${{github.workflow}}/vs2019-builds
-          Repository: ${{github.repository}}
-          Branch ref: ${{github.ref}}
-          SHA: ${{github.sha}}
-          Triggering actor: ${{github.actor}}
-          Triggering event: ${{github.event_name}}
-          Run Id: ${{github.run_id}}
-          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
-        to: dynamorio-devs@googlegroups.com
-        from: Github Action CI
+        test_suite_status: ${{ format('{0} {1} | {2} {3} | {4} {5}',
+                                      'vs2019-builds', needs.vs2019-builds.result,
+                                      'vs2019-64', needs.vs2019-64.result,
+                                      'vs2019-32', needs.vs2019-32.result) }}
+        test_suite_results_only: ${{ join(needs.*.result, ',') }}
+      secrets: inherit
