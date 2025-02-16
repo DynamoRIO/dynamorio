@@ -121,5 +121,5 @@ jobs:
       if: always()
       with:
         test_suite: 'x86-32'
-        test_suite_result: needs.x86-32.result
+        test_suite_result: ${{ needs.x86-32.result }}
       secrets: inherit
