@@ -120,4 +120,5 @@ jobs:
       if: ${{ always() }}
       with:
         test_suite: 'x86-32'
+        test_suite_results: ${{ join(needs.*.result, ',') }}
       secrets: inherit
