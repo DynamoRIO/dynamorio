@@ -159,7 +159,7 @@ jobs:
       if: ${{ always() }}
       with:
         test_suite: 'x86-32'
-        test_suite_status: format('one {0} two {1}', 'one', 'two')
+        test_suite_status: ${{ format('one {0} two {1}', 'one', 'two') }}
         test_suite_results: ${{ join(needs.*.result, ',') }}
         test_suite_names: ${{ join(needs.*.name, ',') }}
         test_suite_names_1: ${{ join(needs.*, ',') }}
