@@ -113,7 +113,7 @@ jobs:
         CI_BRANCH: ${{ github.ref }}
 
   x86-32-failure-notification:
-      uses: .github/workflows/failure-notification.yml@i5873-common-workflow
+      uses: ./.github/workflows/failure-notification.yml@i5873-common-workflow
       needs: x86-32
       if: needs.*.result == 'failure' && github.ref == 'refs/heads/master'
       with:
