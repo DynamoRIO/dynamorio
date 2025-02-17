@@ -2542,8 +2542,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::update_switch_stats(
 
 template <typename RecordType, typename ReaderType>
 void
-scheduler_impl_tmpl_t<RecordType, ReaderType>::process_marker(RecordType record,
-                                                              output_ordinal_t output)
+scheduler_impl_tmpl_t<RecordType, ReaderType>::update_syscall_state(
+    RecordType record, output_ordinal_t output)
 {
     if (outputs_[output].hit_syscall_code_end) {
         // We have to delay so the end marker is still in_syscall_code.
@@ -2702,7 +2702,9 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
             --input->instrs_pre_read;
         VDO(this, 5, print_record(record););
 
-        process_marker(record, output);
+        // We want check_for_input_switch() to have the updated state, so we process
+        // syscall trace related markers now.
+        update_syscall_state(record, output);
 
         bool need_new_input = false;
         bool preempt = false;

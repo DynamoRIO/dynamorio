@@ -410,7 +410,7 @@ protected:
                         input_ordinal_t new_input);
 
     void
-    process_marker(RecordType record, output_ordinal_t output);
+    update_syscall_state(RecordType record, output_ordinal_t output);
 
     ///
     ///////////////////////////////////////////////////////////////////////////
