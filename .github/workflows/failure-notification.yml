@@ -59,7 +59,8 @@ jobs:
     # We keep this condition in this reusable workflow to avoid its
     # duplication across all callers. Callers should specify an
     # always() condition to ensure this reusable workflow is not
-    # prematurely skipped. Note that the following condition still
+    # prematurely skipped (since, by default, a failing job skips all
+    # jobs that need it). Note that the following condition still
     # ensures that a new runner or job is not launched when not needed.
     if: ${{ contains(inputs.test_suite_results_only, 'failure') && github.ref == 'refs/heads/master' }}
     steps:
