@@ -33,6 +33,7 @@
 #include <assert.h>
 #include "noise_generator.h"
 #include "trace_entry.h"
+#include "utils.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -58,11 +59,19 @@ noise_generator_t::get_stream_name() const
 trace_entry_t *
 noise_generator_t::read_next_entry()
 {
-    --num_records_to_generate_;
+    if (num_records_to_generate_ == 0) {
+        at_eof_ = true;
+        return nullptr;
+    }
+
+    entry_ = { TRACE_TYPE_READ, 4, { 0xdeadbeef } };
+
     // Do not change the order for generating TRACE_TYPE_THREAD and TRACE_TYPE_PID.
     // The scheduler expects a tid first and then a pid.
     if (!marker_tid_generated_) {
-        entry_ = { TRACE_TYPE_THREAD, sizeof(int), { static_cast<addr_t>(1) } };
+        entry_ = { TRACE_TYPE_THREAD,
+                   sizeof(int),
+                   { static_cast<addr_t>(IDLE_THREAD_ID) } };
         marker_tid_generated_ = true;
         return &entry_;
     }
@@ -73,10 +82,12 @@ noise_generator_t::read_next_entry()
         marker_pid_generated_ = true;
         return &entry_;
     }
-    if (num_records_to_generate_ == 0) {
-        at_eof_ = true;
+    if (num_records_to_generate_ == 1) {
+        entry_ = { TRACE_TYPE_THREAD_EXIT,
+                   sizeof(int),
+                   { static_cast<addr_t>(IDLE_THREAD_ID) } };
     }
-    entry_ = { TRACE_TYPE_READ, 4, { 0xdeadbeef } };
+    --num_records_to_generate_;
     return &entry_;
 }
 

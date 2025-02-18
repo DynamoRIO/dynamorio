@@ -724,13 +724,13 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
     options_ = std::move(options);
     verbosity_ = options_.verbosity;
 
-    // Add noise generator readers to workload_inputs.
+    // Add noise generator reader to workload_inputs.
     if (options_.enable_noise_generator) {
         auto noise_generator = get_noise_generator();
         auto noise_generator_end = get_noise_generator();
         std::vector<typename sched_type_t::input_reader_t> readers;
         std::vector<typename sched_type_t::range_t> regions;
-        // Use a sentinel for the tid so the scheduler will use the memref record
+        // Use a sentinel for the tid so the scheduler will use the memref record tid.
         readers.emplace_back(std::move(noise_generator), std::move(noise_generator_end),
                              /* tid = */ INVALID_THREAD_ID);
         workload_inputs.emplace_back(std::move(readers), regions);
