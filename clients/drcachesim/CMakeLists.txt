@@ -279,6 +279,7 @@ set(drcachesim_srcs
   scheduler/scheduler_replay.cpp
   scheduler/scheduler_fixed.cpp
   scheduler/speculator.cpp
+  scheduler/noise_generator.cpp
   analyzer.cpp
   analyzer_multi.cpp
   ${client_and_sim_srcs}
@@ -287,7 +288,6 @@ set(drcachesim_srcs
   reader/v2p_reader.cpp
   reader/file_reader.cpp
   reader/record_file_reader.cpp
-  reader/noise_generator.cpp
   ${zlib_reader}
   ${zip_reader}
   ${snappy_reader}
@@ -347,13 +347,13 @@ add_exported_library(drmemtrace_analyzer STATIC
   scheduler/scheduler_replay.cpp
   scheduler/scheduler_fixed.cpp
   scheduler/speculator.cpp
+  scheduler/noise_generator.cpp
   common/trace_entry.cpp
   reader/reader.cpp
   reader/config_reader.cpp
   reader/v2p_reader.cpp
   reader/file_reader.cpp
   reader/record_file_reader.cpp
-  reader/noise_generator.cpp
   ${zlib_reader}
   ${zip_reader}
   ${snappy_reader}
