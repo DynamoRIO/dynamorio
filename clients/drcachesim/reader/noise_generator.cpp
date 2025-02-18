@@ -31,18 +31,11 @@
  */
 
 #include <assert.h>
-#include <map>
 #include "noise_generator.h"
-#include "../common/memref.h"
-#include "../common/utils.h"
 #include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {
-
-noise_generator_t::noise_generator_t()
-{
-}
 
 noise_generator_t::~noise_generator_t()
 {

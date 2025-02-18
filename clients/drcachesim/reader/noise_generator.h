@@ -34,8 +34,6 @@
 #define _NOISE_GENERATOR_H_ 1
 
 #include "reader.h"
-#include "../common/memref.h"
-#include "../common/named_pipe.h"
 #include "../common/trace_entry.h"
 
 namespace dynamorio {
@@ -43,8 +41,6 @@ namespace drmemtrace {
 
 class noise_generator_t : public reader_t {
 public:
-    noise_generator_t();
-
     virtual ~noise_generator_t();
 
     bool
@@ -59,8 +55,8 @@ protected:
 
 private:
     trace_entry_t entry_ = {};
-    bool marker_tid_generated_ = false;
     bool marker_pid_generated_ = false;
+    bool marker_tid_generated_ = false;
     uint64_t num_records_to_generate_ = 10000;
 };
 

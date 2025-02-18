@@ -365,7 +365,7 @@ template <>
 std::unique_ptr<dynamorio::drmemtrace::record_reader_t>
 scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::get_noise_generator()
 {
-    error_string_ = "Noise generator is not suppported for record_filter";
+    error_string_ = "Noise generator is not suppported for record_reader_t";
     return std::unique_ptr<dynamorio::drmemtrace::record_reader_t>();
 }
 
@@ -724,13 +724,12 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
     options_ = std::move(options);
     verbosity_ = options_.verbosity;
 
-    std::vector<typename sched_type_t::input_reader_t> readers;
-    std::vector<typename sched_type_t::range_t> regions;
     // Add noise generator readers to workload_inputs.
     if (options_.enable_noise_generator) {
         auto noise_generator = get_noise_generator();
         auto noise_generator_end = get_noise_generator();
-
+        std::vector<typename sched_type_t::input_reader_t> readers;
+        std::vector<typename sched_type_t::range_t> regions;
         // Use a sentinel for the tid so the scheduler will use the memref record
         readers.emplace_back(std::move(noise_generator), std::move(noise_generator_end),
                              /* tid = */ INVALID_THREAD_ID);
@@ -1546,7 +1545,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::get_initial_input_content(
     // output stream(s).
     for (size_t i = 0; i < inputs_.size(); ++i) {
         input_info_t &input = inputs_[i];
-        // Check if input is a noise generator.
+        // If the input is a noise generator, we don't want to read ahead to find
+        // timestamp records, since we don't have any.
         if (dynamic_cast<noise_generator_t *>(input.reader.get()) != nullptr)
             continue;
 

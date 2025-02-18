@@ -667,7 +667,7 @@ protected:
     std::unique_ptr<ReaderType>
     get_default_reader();
 
-    // Creates a noise generator reader.
+    // Creates a noise generator as a reader.
     std::unique_ptr<ReaderType>
     get_noise_generator();
 

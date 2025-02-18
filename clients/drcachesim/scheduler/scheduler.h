@@ -831,7 +831,7 @@ public:
         double exit_if_fraction_inputs_left = 0.1;
         /**
          * Enables the noise generator to create synthetic trace records that will be
-         * scheduled along the records of one or more real traces.
+         * scheduled alongside records of one or more real traces.
          */
         bool enable_noise_generator = false;
         // When adding new options, also add to print_configuration().
