@@ -1546,6 +1546,10 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::get_initial_input_content(
     // output stream(s).
     for (size_t i = 0; i < inputs_.size(); ++i) {
         input_info_t &input = inputs_[i];
+        // Check if input is a noise generator.
+        if (dynamic_cast<noise_generator_t *>(input.reader.get()) != nullptr)
+            continue;
+
         std::lock_guard<mutex_dbg_owned> lock(*input.lock);
 
         // If the input jumps to the middle immediately, do that now so we'll have

@@ -35,6 +35,7 @@
 #include "noise_generator.h"
 #include "../common/memref.h"
 #include "../common/utils.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -50,6 +51,7 @@ noise_generator_t::~noise_generator_t()
 bool
 noise_generator_t::init()
 {
+    at_eof_ = false;
     return true;
 }
 
@@ -62,7 +64,24 @@ noise_generator_t::get_stream_name() const
 trace_entry_t *
 noise_generator_t::read_next_entry()
 {
-    return nullptr;
+    --num_records_to_generate_;
+    if (!marker_tid_generated_) {
+        entry_ = { TRACE_TYPE_THREAD, sizeof(int), { static_cast<addr_t>(1) } };
+        marker_tid_generated_ = true;
+        return &entry_;
+    }
+    if (!marker_pid_generated_) {
+        entry_ = { TRACE_TYPE_PID,
+                   sizeof(int),
+                   { static_cast<addr_t>(INVALID_CPU_MARKER_VALUE) } };
+        marker_pid_generated_ = true;
+        return &entry_;
+    }
+    if (num_records_to_generate_ == 0) {
+        at_eof_ = true;
+    }
+    entry_ = { TRACE_TYPE_READ, 4, { 0xaaa0 } };
+    return &entry_;
 }
 
 } // namespace drmemtrace
