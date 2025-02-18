@@ -29,6 +29,10 @@
 # DAMAGE.
 
 # Github Actions workflow for x86 Continuous Integration testing.
+#
+# Each test suite is a separate job. When adding a new test suite job,
+# remember to add it to the send-failure-notification job to ensure failure
+# notifications are set up properly.
 
 name: ci-x86
 on:
@@ -298,8 +302,9 @@ jobs:
   send-failure-notification:
       uses: ./.github/workflows/failure-notification.yml
       needs: [x86-32, x86-64, x86-64-ubuntu22, x86-32-ubuntu22, x86-64-alpine-3_21]
-      # We need this to ensure this job runs even if there is failure in
-      # any of the workflows marked as needed.
+      # By default, a failure in a job skips the jobs that need it. The
+      # following expression ensures that failure-notification.yml is
+      # always invoked.
       if: ${{ always() }}
       with:
         test_suite_status: ${{ format('{0} {1} | {2} {3} | {4} {5} | {6} {7} | {8} {9}',

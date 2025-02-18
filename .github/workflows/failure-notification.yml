@@ -57,7 +57,7 @@ jobs:
     # failures, which are expected to be rare, it is fine.
     #
     # We keep this condition in this reusable workflow to avoid its
-    # duplication across all callers. Callers may want to specify an
+    # duplication across all callers. Callers should specify an
     # always() condition to ensure this reusable workflow is not
     # prematurely skipped. Note that the following condition still
     # ensures that a new runner or job is not launched when not needed.

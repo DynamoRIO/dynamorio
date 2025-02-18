@@ -30,6 +30,10 @@
 # DAMAGE.
 
 # Github Actions workflow for aarch64 Continuous Integration testing.
+#
+# Each test suite is a separate job. When adding a new test suite job,
+# remember to add it to the send-failure-notification job to ensure failure
+# notifications are set up properly.
 
 name: ci-aarchxx
 on:
@@ -131,8 +135,9 @@ jobs:
   send-failure-notification:
       uses: ./.github/workflows/failure-notification.yml
       needs: [aarch64-precommit]
-      # We need this to ensure this job runs even if there is failure in
-      # any of the workflows marked as needed.
+      # By default, a failure in a job skips the jobs that need it. The
+      # following expression ensures that failure-notification.yml is
+      # always invoked.
       if: ${{ always() }}
       with:
         test_suite_status: ${{ format('{0} {1}',
