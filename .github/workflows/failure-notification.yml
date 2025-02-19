@@ -78,7 +78,8 @@ jobs:
           Github Actions CI workflow run FAILED!
           Commit author must triage and fix the possible regression.
           Ensure the failure is not due to commits merged from out-of-date branches (i#5873).
-          For flaky tests, file new issue or update existing one with details.
+          For flaky tests, file a new issue or update existing one with details, and rerun
+          the flaky test suite to get the post-merge commit status green on the commits page.
           Please note the action taken in a response on this dynamorio-devs email thread.
           Workflow: ${{github.workflow}}
           All test suite status: ${{ inputs.test_suite_status }}
