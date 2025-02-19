@@ -48,10 +48,7 @@ multiple processes each with multiple threads.  The analysis tool framework
 is extensible, supporting the creation of new tools which can operate both
 online and offline.
 
-\b News: There are some new features in drmemtrace traces: conditional
-branches are now marked as taken or untaken, and indirect branch
-targets are provided up front.  These join the recent features of
-[embedded instruction encodings and fast seeking](docs/new-features-encodings-seek.pdf).
+\b News: A new suite of \ref google_workload_traces has been released!
 
  - \subpage sec_drcachesim
  - \subpage sec_drcachesim_format

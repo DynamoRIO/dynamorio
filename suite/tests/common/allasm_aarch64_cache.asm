@@ -56,7 +56,7 @@ loop2:  // The inner loop steps through the region writing zeroes.
         b.cc     loop1
 
         // Exit.
-        mov      w0, #1            // stdout
+        mov      w0, #2            // stderr
         // XXX: Use asm_defines.asm AARCH64_ADR_GOT()?
 #ifdef __APPLE__
         adrp     x1, alldone@PAGE

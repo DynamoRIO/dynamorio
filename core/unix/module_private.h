@@ -35,6 +35,7 @@
 #define MODULE_PRIVATE_H
 
 #include "configure.h"
+#include "module.h"
 
 #ifndef ANDROID
 struct tlsdesc_t {

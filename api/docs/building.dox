@@ -45,7 +45,7 @@ To build DynamoRIO on Linux, use the following commands as a guide.  This builds
   ```
   # Install dependencies for Ubuntu 15+.  Adjust this command as appropriate for
   # other distributions (in particular, use "cmake3" for Ubuntu Trusty).
-  $ sudo apt-get install cmake g++ g++-multilib doxygen git zlib1g-dev libunwind-dev libsnappy-dev liblz4-dev
+  $ sudo apt-get install cmake g++ g++-multilib doxygen git zlib1g-dev libunwind-dev libsnappy-dev liblz4-dev libxxhash-dev
   # Get sources and initialize the submodules.
   $ git clone --recurse-submodules -j4 https://github.com/DynamoRIO/dynamorio.git
   # Make a separate build directory.  Building in the source directory is not
@@ -170,7 +170,7 @@ In order to build both 32-bit and 64-bit on the same platform you'll need
 compiler support for targeting both architectures.  Then install these packages:
 
 ```
-sudo apt-get install cmake g++ g++-multilib doxygen zlib1g-dev libunwind-dev libunwind-dev:i386 libsnappy-dev liblz4-dev
+sudo apt-get install cmake g++ g++-multilib doxygen zlib1g-dev libunwind-dev libunwind-dev:i386 libsnappy-dev liblz4-dev libxxhash-dev
 ```
 
 For older distributions, the `ia32-libs` package is needed.
@@ -286,7 +286,7 @@ To build a client, again use the toolchain file, as well as pointing at a Dynamo
 
 ## Cross-Compiling for ARM Android
 
-Install the Android NDK (Note: currently only version r10e can be used to build DynamoRIO, later versions do not work, see #1927, #2556)and configure it for the androideabi standalone toolchain. Something like this:
+Install the Android NDK (Note: currently only version r10e can be used to build DynamoRIO, later versions do not work, see #1927, #2556) and configure it for the androideabi standalone toolchain. Something like this:
 
 ```
 wget https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.zip
@@ -308,7 +308,7 @@ Now check out the sources as normal, and point at our toolchain CMake file.  If 
 $ git clone --recurse-submodules -j4 https://github.com/DynamoRIO/dynamorio.git
 $ mkdir build_android
 $ cd build_android
-$ cmake -DCMAKE_TOOLCHAIN_FILE=../dynamorio/make/toolchain-android.cmake -DANDROID_TOOLCHAIN=/mytooldir/android-ndk-21 -DDR_COPY_TO_DEVICE=ON ../dynamorio
+$ cmake -DCMAKE_TOOLCHAIN_FILE=../dynamorio/make/toolchain-android-gcc.cmake -DANDROID_TOOLCHAIN=/mytooldir/android-ndk-21 -DDR_COPY_TO_DEVICE=ON ../dynamorio
 $ make -j
 ```
 

@@ -5957,7 +5957,8 @@ test_kernel_switch_sequences()
         check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
                   TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, scheduler_t::SWITCH_THREAD) &&
         check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
-                  TRACE_MARKER_TYPE_TIMESTAMP, THREAD_SWITCH_TIMESTAMP) &&
+                  // Verify that the timestamp is updated.
+                  TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
         check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
         check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
         check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
@@ -5975,7 +5976,8 @@ test_kernel_switch_sequences()
         check_ref(refs[0], idx, TID_BASE + 4, TRACE_TYPE_MARKER,
                   TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, scheduler_t::SWITCH_PROCESS) &&
         check_ref(refs[0], idx, TID_BASE + 4, TRACE_TYPE_MARKER,
-                  TRACE_MARKER_TYPE_TIMESTAMP, PROCESS_SWITCH_TIMESTAMP) &&
+                  // Verify that the timestamp is updated.
+                  TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
         check_ref(refs[0], idx, TID_BASE + 4, TRACE_TYPE_INSTR) &&
         check_ref(refs[0], idx, TID_BASE + 4, TRACE_TYPE_INSTR) &&
         check_ref(refs[0], idx, TID_BASE + 4, TRACE_TYPE_MARKER,
@@ -5989,6 +5991,7 @@ test_kernel_switch_sequences()
         check_ref(refs[0], idx, TID_BASE + 4, TRACE_TYPE_INSTR) &&
         check_ref(refs[0], idx, TID_BASE + 4, TRACE_TYPE_INSTR) &&
         check_ref(refs[0], idx, TID_BASE + 4, TRACE_TYPE_INSTR);
+    assert(res);
 
     {
         // Test a bad input sequence.

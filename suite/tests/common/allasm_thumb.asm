@@ -49,7 +49,7 @@ _start:
 
         mov      r3, #4
 1:
-        mov      r0, #1            // stdout
+        mov      r0, #2            // stderr
         ldr      r1, =hello
         mov      r2, #13           // sizeof(hello)
         mov      r7, #4            // SYS_write
@@ -284,7 +284,7 @@ addpc_bb:
 
 // exit
 _exit:
-        mov      r0, #1            // stdout
+        mov      r0, #2            // stderr
         ldr      r1, =alldone
         mov      r2, #9            // sizeof(alldone)
         mov      r7, #4            // SYS_write
@@ -297,7 +297,7 @@ _exit:
 _print:
         mov      r2, r1            // size of string
         mov      r1, r0            // string to print
-        mov      r0, #1            // stdout
+        mov      r0, #2            // stderr
         mov      r7, #4            // SYS_write
         svc      0
         bx       lr
@@ -306,7 +306,7 @@ _print_pop_pc:
         push     {r4-r8,lr}
         mov      r2, r1            // size of string
         mov      r1, r0            // string to print
-        mov      r0, #1            // stdout
+        mov      r0, #2            // stderr
         mov      r7, #4            // SYS_write
         svc      0
         pop      {r4-r8,pc}
