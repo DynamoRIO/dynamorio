@@ -29,7 +29,7 @@
 # DAMAGE.
 
 # Github Actions workflow to send out failure notification emails.
-# This is a reusable workflow that is called by various ci workflows.
+# This is a reusable workflow that is called by various CI workflows.
 
 name: send-failure-notification
 on:
@@ -52,8 +52,17 @@ on:
 jobs:
   send-failure-notification-job:
     runs-on: ubuntu-latest
-    # Add && github.ref == 'refs/heads/master'
-    if: ${{ contains(inputs.test_suite_results_only, 'failure') }}
+    # Reusable workflows are invoked as a separate job, which requires
+    # a new runner. But since this job is run only on master merge
+    # failures, which are expected to be rare, it is fine.
+    #
+    # We keep this condition in this reusable workflow to avoid its
+    # duplication across all callers. Callers should specify an
+    # always() condition to ensure this reusable workflow is not
+    # prematurely skipped (since, by default, a failing job skips all
+    # jobs that need it). Note that the following condition still
+    # ensures that a new runner or job is not launched when not needed.
+    if: ${{ contains(inputs.test_suite_results_only, 'failure') && github.ref == 'refs/heads/master' }}
     steps:
     - name: Send failure mail to dynamorio-devs
       uses: dawidd6/action-send-mail@v2
@@ -72,7 +81,7 @@ jobs:
           For flaky tests, file new issue or update existing one with details.
           Please note the action taken in a response on this dynamorio-devs email thread.
           Workflow: ${{github.workflow}}
-          All test status: ${{ inputs.test_suite_status }}
+          All test suite status: ${{ inputs.test_suite_status }}
           Repository: ${{github.repository}}
           Branch ref: ${{github.ref}}
           SHA: ${{github.sha}}
@@ -80,6 +89,5 @@ jobs:
           Triggering event: ${{github.event_name}}
           Run Id: ${{github.run_id}}
           See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
-        to: sharmaabhinav@google.com
-        # to: dynamorio-devs@googlegroups.com
+        to: dynamorio-devs@googlegroups.com
         from: Github Action CI
