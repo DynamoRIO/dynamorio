@@ -73,7 +73,7 @@ jobs:
         password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
         subject: |
           [Author Action Required] [${{github.repository}}] ${{github.workflow}} FAILED
-          on ${{github.event_name}} at ${{github.ref}}
+          on ${{github.event_name}} to ${{github.ref}} at ${{github.sha}}
         body: |
           Github Actions CI workflow run FAILED!
           Commit author must triage and fix the possible regression.
