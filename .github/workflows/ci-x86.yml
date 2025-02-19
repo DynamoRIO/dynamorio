@@ -29,6 +29,10 @@
 # DAMAGE.
 
 # Github Actions workflow for x86 Continuous Integration testing.
+#
+# Each test suite is a separate job. When adding a new test suite job,
+# remember to add it to the send-failure-notification job to ensure failure
+# notifications are set up properly.
 
 name: ci-x86
 on:
@@ -112,30 +116,6 @@ jobs:
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
 
-    - name: Send failure mail to dynamorio-devs
-      if: failure() && github.ref == 'refs/heads/master'
-      uses: dawidd6/action-send-mail@v2
-      with:
-        server_address: smtp.gmail.com
-        server_port: 465
-        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
-        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
-        subject: |
-          [${{github.repository}}] ${{github.workflow}} FAILED
-          on ${{github.event_name}} at ${{github.ref}}
-        body: |
-          Github Actions CI workflow run FAILED!
-          Workflow: ${{github.workflow}}/x86-32
-          Repository: ${{github.repository}}
-          Branch ref: ${{github.ref}}
-          SHA: ${{github.sha}}
-          Triggering actor: ${{github.actor}}
-          Triggering event: ${{github.event_name}}
-          Run Id: ${{github.run_id}}
-          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
-        to: dynamorio-devs@googlegroups.com
-        from: Github Action CI
-
   # 64-bit Linux build with gcc and run tests.
   x86-64:
     runs-on: ubuntu-20.04
@@ -173,30 +153,6 @@ jobs:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
-
-    - name: Send failure mail to dynamorio-devs
-      if: failure() && github.ref == 'refs/heads/master'
-      uses: dawidd6/action-send-mail@v2
-      with:
-        server_address: smtp.gmail.com
-        server_port: 465
-        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
-        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
-        subject: |
-          [${{github.repository}}] ${{github.workflow}} FAILED
-          on ${{github.event_name}} at ${{github.ref}}
-        body: |
-          Github Actions CI workflow run FAILED!
-          Workflow: ${{github.workflow}}/x86-64
-          Repository: ${{github.repository}}
-          Branch ref: ${{github.ref}}
-          SHA: ${{github.sha}}
-          Triggering actor: ${{github.actor}}
-          Triggering event: ${{github.event_name}}
-          Run Id: ${{github.run_id}}
-          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
-        to: dynamorio-devs@googlegroups.com
-        from: Github Action CI
 
   # Ubuntu22 64-bit Linux build with gcc and run tests.
   # XXX: A matrix could combine this with the 20.04 but our auto-cancel
@@ -237,30 +193,6 @@ jobs:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
-
-    - name: Send failure mail to dynamorio-devs
-      if: failure() && github.ref == 'refs/heads/master'
-      uses: dawidd6/action-send-mail@v2
-      with:
-        server_address: smtp.gmail.com
-        server_port: 465
-        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
-        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
-        subject: |
-          [${{github.repository}}] ${{github.workflow}} FAILED
-          on ${{github.event_name}} at ${{github.ref}}
-        body: |
-          Github Actions CI workflow run FAILED!
-          Workflow: ${{github.workflow}}/x86-64-ubuntu22
-          Repository: ${{github.repository}}
-          Branch ref: ${{github.ref}}
-          SHA: ${{github.sha}}
-          Triggering actor: ${{github.actor}}
-          Triggering event: ${{github.event_name}}
-          Run Id: ${{github.run_id}}
-          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
-        to: dynamorio-devs@googlegroups.com
-        from: Github Action CI
 
   # Ubuntu22 64-bit Linux build with gcc and run tests.
   # XXX: A matrix could combine this with the 20.04 but our auto-cancel
@@ -309,30 +241,6 @@ jobs:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
-
-    - name: Send failure mail to dynamorio-devs
-      if: failure() && github.ref == 'refs/heads/master'
-      uses: dawidd6/action-send-mail@v2
-      with:
-        server_address: smtp.gmail.com
-        server_port: 465
-        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
-        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
-        subject: |
-          [${{github.repository}}] ${{github.workflow}} FAILED
-          on ${{github.event_name}} at ${{github.ref}}
-        body: |
-          Github Actions CI workflow run FAILED!
-          Workflow: ${{github.workflow}}/x86-32-ubuntu22
-          Repository: ${{github.repository}}
-          Branch ref: ${{github.ref}}
-          SHA: ${{github.sha}}
-          Triggering actor: ${{github.actor}}
-          Triggering event: ${{github.event_name}}
-          Run Id: ${{github.run_id}}
-          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
-        to: dynamorio-devs@googlegroups.com
-        from: Github Action CI
 
   # 64-bit Linux build with gcc and musl.
   # TODO i#1973: Fix failing cases and enable tests in CI.
@@ -391,26 +299,19 @@ jobs:
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
 
-    - name: Send failure mail to dynamorio-devs
-      if: failure() && github.ref == 'refs/heads/master'
-      uses: dawidd6/action-send-mail@v2
+  send-failure-notification:
+      uses: ./.github/workflows/failure-notification.yml
+      needs: [x86-32, x86-64, x86-64-ubuntu22, x86-32-ubuntu22, x86-64-alpine-3_21]
+      # By default, a failure in a job skips the jobs that need it. The
+      # following expression ensures that failure-notification.yml is
+      # always invoked.
+      if: ${{ always() }}
       with:
-        server_address: smtp.gmail.com
-        server_port: 465
-        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
-        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
-        subject: |
-          [${{github.repository}}] ${{github.workflow}} FAILED
-          on ${{github.event_name}} at ${{github.ref}}
-        body: |
-          Github Actions CI workflow run FAILED!
-          Workflow: ${{github.workflow}}/x86-32-ubuntu22
-          Repository: ${{github.repository}}
-          Branch ref: ${{github.ref}}
-          SHA: ${{github.sha}}
-          Triggering actor: ${{github.actor}}
-          Triggering event: ${{github.event_name}}
-          Run Id: ${{github.run_id}}
-          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
-        to: dynamorio-devs@googlegroups.com
-        from: Github Action CI
+        test_suite_status: ${{ format('{0} {1} | {2} {3} | {4} {5} | {6} {7} | {8} {9}',
+                                      'x86-32', needs.x86-32.result,
+                                      'x86-64', needs.x86-64.result,
+                                      'x86-64-ubuntu22', needs.x86-64-ubuntu22.result,
+                                      'x86-32-ubuntu22', needs.x86-32-ubuntu22.result,
+                                      'x86-64-alpine-3_21', needs.x86-64-alpine-3_21.result) }}
+        test_suite_results_only: ${{ join(needs.*.result, ',') }}
+      secrets: inherit
