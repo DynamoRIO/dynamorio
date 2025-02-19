@@ -3710,7 +3710,7 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist, bool s2ro, uint flag
 #endif
         PRE(ilist, instr,
             INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_XCX),
-                                 OPND_CREATE_INTPTR(end_pc - start_pc + 1)));
+                                 OPND_CREATE_INTPTR(end_pc - start_pc - 1)));
         /* i#2155: In the case where the direction flag is set, xsi will be lesser
          * than start_pc after cmps, and the jump branch will not be taken.
          */
