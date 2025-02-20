@@ -35,9 +35,15 @@
 #include <assert.h>
 #include <stddef.h>
 
-#include "memref.h"
+#include <optional>
+#include <random>
+#include <string>
+#include <vector>
+
 #include "caching_device.h"
 #include "caching_device_block.h"
+#include "memref.h"
+#include "options.h"
 #include "tlb_entry.h"
 #include "trace_entry.h"
 
@@ -52,6 +58,11 @@ tlb_t::init_blocks()
     }
 }
 
+tlb_t::tlb_t(const std::string &name)
+    : caching_device_t(name)
+{
+}
+
 void
 tlb_t::request(const memref_t &memref_in)
 {
@@ -60,8 +71,8 @@ tlb_t::request(const memref_t &memref_in)
     // it might also not be a good way to write a lot of helper functions
     // to isolate them.
     // TODO i#4816: This tag,pid pair lookup needs to be imposed on the parent
-    // methods invalidate(), contains_tag(), and propagate_eviction() by overriding
-    // them.
+    // methods invalidate(), contains_tag(), and propagate_eviction() by
+    // overriding them.
 
     // Unfortunately we need to make a copy for our loop so we can pass
     // the right data struct to the parent and stats collectors.
@@ -130,6 +141,64 @@ tlb_t::request(const memref_t &memref_in)
         last_block_idx_ = block_idx;
         last_pid_ = pid;
     }
+}
+
+tlb_lfu_t::tlb_lfu_t(const std::string &name)
+    : tlb_t(name)
+{
+}
+
+std::string
+tlb_lfu_t::get_replace_policy() const
+{
+    return REPLACE_POLICY_LFU;
+}
+
+tlb_bit_plru_t::tlb_bit_plru_t(const std::string &name, int seed)
+    : tlb_t(name)
+    , gen_(seed == -1 ? std::random_device()() : seed)
+{
+}
+
+void
+tlb_bit_plru_t::access_update(int block_idx, int way)
+{
+    get_caching_device_block(block_idx, way).counter_ = 1;
+    for (int curr_way = 0; curr_way < associativity_; ++curr_way) {
+        if (get_caching_device_block(block_idx, curr_way).counter_ == 0) {
+            return;
+        }
+    }
+    for (int curr_way = 0; curr_way < associativity_; ++curr_way) {
+        get_caching_device_block(block_idx, curr_way).counter_ = 0;
+    }
+    get_caching_device_block(block_idx, way).counter_ = 1;
+}
+
+int
+tlb_bit_plru_t::get_next_way_to_replace(int block_idx) const
+{
+    std::vector<int> zero_counter_ways;
+    for (int way = 0; way < associativity_; ++way) {
+        caching_device_block_t &curr_block = get_caching_device_block(block_idx, way);
+        if (curr_block.tag_ == TAG_INVALID) {
+            return way;
+        }
+        if (curr_block.counter_ == 0) {
+            zero_counter_ways.push_back(way);
+        }
+    }
+    if (!zero_counter_ways.empty()) {
+        std::uniform_int_distribution<> distrib(0, zero_counter_ways.size() - 1);
+        return zero_counter_ways[distrib(gen_)];
+    }
+    return -1;
+}
+
+std::string
+tlb_bit_plru_t::get_replace_policy() const
+{
+    return REPLACE_POLICY_BIT_PLRU;
 }
 
 } // namespace drmemtrace
