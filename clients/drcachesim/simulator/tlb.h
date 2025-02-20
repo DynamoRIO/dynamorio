@@ -36,6 +36,9 @@
 #ifndef _TLB_H_
 #define _TLB_H_ 1
 
+#include <optional>
+#include <random>
+
 #include "caching_device.h"
 #include "memref.h"
 #include "tlb_entry.h"
@@ -46,19 +49,65 @@ namespace drmemtrace {
 
 class tlb_t : public caching_device_t {
 public:
+    tlb_t(const std::string &name = "tlb");
+
     void
     request(const memref_t &memref) override;
 
-    // TODO i#4816: The addition of the pid as a lookup parameter beyond just the tag
-    // needs to be imposed on the parent methods invalidate(), contains_tag(), and
-    // propagate_eviction() by overriding them.
+    // TODO i#4816: The addition of the pid as a lookup parameter beyond just the
+    // tag needs to be imposed on the parent methods invalidate(), contains_tag(),
+    // and propagate_eviction() by overriding them.
+
+    // Returns the replacement policy used by this TLB.
+    virtual std::string
+    get_replace_policy() const override = 0;
 
 protected:
     void
     init_blocks() override;
-
     // Optimization: remember last pid in addition to last tag
     memref_pid_t last_pid_;
+};
+
+/**
+ * TLB with least frequently used replacement policy.
+ *
+ * LFU has us hold a counter per way in the TLB entry.
+ * The counter is incremented when the way is accessed.
+ * When evicting, we choose the way with the least frequent access count.
+ */
+class tlb_lfu_t : public tlb_t {
+public:
+    tlb_lfu_t(const std::string &name = "tlb_lfu");
+
+    std::string
+    get_replace_policy() const override;
+};
+
+/**
+ * TLB with a bit-based PLRU replacement policy.
+ *
+ * Bit pseudo-LRU has us hold one bit per way in the TLB entry.
+ * The bit is set when the way is accessed.
+ * Once all bits for a block are set, we reset them all to 0.
+ * When evicting, we choose a random way with a zero bit to evict.
+ *
+ * When seed is -1, a seed if chosen with std::random_device().
+ * XXX: Once we update our toolchains to guarantee C++17 support we
+ * could use std::optional here.
+ */
+class tlb_bit_plru_t : public tlb_t {
+public:
+    tlb_bit_plru_t(const std::string &name = "tlb_bit_plru", int seed = -1);
+
+protected:
+    void
+    access_update(int block_idx, int way) override;
+    int
+    get_next_way_to_replace(int block_idx) const override;
+    std::string
+    get_replace_policy() const override;
+    mutable std::mt19937 gen_;
 };
 
 } // namespace drmemtrace
