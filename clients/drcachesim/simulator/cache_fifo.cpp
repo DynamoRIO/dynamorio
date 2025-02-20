@@ -53,7 +53,7 @@ namespace drmemtrace {
 // be cleared. The counter of the next block will be set to 1.
 
 bool
-cache_fifo_t::init(int associativity, int block_size, int total_size,
+cache_fifo_t::init(int associativity, long int block_size, int total_size,
                    caching_device_t *parent, caching_device_stats_t *stats,
                    prefetcher_t *prefetcher, cache_inclusion_policy_t inclusion_policy,
                    bool coherent_cache, int id, snoop_filter_t *snoop_filter,

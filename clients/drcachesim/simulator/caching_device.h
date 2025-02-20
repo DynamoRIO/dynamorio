@@ -63,12 +63,11 @@ class prefetcher_t;
 
 // NON_INC_NON_EXC = Non-Inclusive Non-Exclusive, aka NINE.
 enum class cache_inclusion_policy_t { NON_INC_NON_EXC, INCLUSIVE, EXCLUSIVE };
-
 class caching_device_t {
 public:
     explicit caching_device_t(const std::string &name = "caching_device");
     virtual bool
-    init(int associativity, int block_size, int num_blocks, caching_device_t *parent,
+    init(int associativity, long int block_size, int num_blocks, caching_device_t *parent,
          caching_device_stats_t *stats, prefetcher_t *prefetcher = nullptr,
          cache_inclusion_policy_t inclusion_policy =
              cache_inclusion_policy_t::NON_INC_NON_EXC,
@@ -110,6 +109,11 @@ public:
     {
         return parent_;
     }
+    void
+    set_parent(caching_device_t *parent)
+    {
+        parent_ = parent;
+    }
     inline double
     get_loaded_fraction() const
     {
@@ -143,7 +147,7 @@ public:
     {
         return associativity_;
     }
-    virtual int
+    virtual long int
     get_block_size() const
     {
         return block_size_;
@@ -245,8 +249,8 @@ protected:
     init_blocks() = 0;
 
     int associativity_;
-    int block_size_; // Also known as line length.
-    int num_blocks_; // Total number of lines in cache = size / block_size.
+    long int block_size_; // Also known as line length.
+    int num_blocks_;      // Total number of lines in cache = size / block_size.
     bool coherent_cache_;
     // This is an index into snoop filter's array of caches.
     int id_;
