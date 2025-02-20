@@ -189,7 +189,7 @@ tlb_bit_plru_t::get_next_way_to_replace(int block_idx) const
         }
     }
     if (!zero_counter_ways.empty()) {
-        std::uniform_int_distribution<> distrib(0, zero_counter_ways.size() - 1);
+        std::uniform_int_distribution<size_t> distrib(0, zero_counter_ways.size() - 1);
         return zero_counter_ways[distrib(gen_)];
     }
     return -1;
