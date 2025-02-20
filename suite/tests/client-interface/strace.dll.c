@@ -349,7 +349,9 @@ event_post_syscall(void *drcontext, int sysnum)
 static int
 get_write_sysnum(void)
 {
-#ifdef UNIX
+#if defined(MACOS)
+    return SYS_write_nocancel;
+#elif defined(UNIX)
     return SYS_write;
 #else
     byte *entry;
