@@ -265,7 +265,7 @@ jobs:
     - name: Create Build Environment
       run: |
         sudo mkdir alpine-root
-        curl -L https://dl-cdn.alpinelinux.org/v3.21/releases/x86_64/alpine-minirootfs-3.21.3-x86_64.tar.gz |
+        curl -L https://dl-cdn.alpinelinux.org/v3.21/releases/x86_64/alpine-minirootfs-3.21.3-x86_64.tar.gz | \
         sudo tar xzv -C alpine-root
 
         cd alpine-root
