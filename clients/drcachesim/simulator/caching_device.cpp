@@ -41,9 +41,9 @@
 #include <utility>
 #include <vector>
 
-#include "memref.h"
 #include "caching_device_block.h"
 #include "caching_device_stats.h"
+#include "memref.h"
 #include "prefetcher.h"
 #include "snoop_filter.h"
 #include "trace_entry.h"
@@ -74,7 +74,7 @@ caching_device_t::~caching_device_t()
 }
 
 bool
-caching_device_t::init(int associativity, int block_size, int num_blocks,
+caching_device_t::init(int associativity, long int block_size, int num_blocks,
                        caching_device_t *parent, caching_device_stats_t *stats,
                        prefetcher_t *prefetcher,
                        cache_inclusion_policy_t inclusion_policy, bool coherent_cache,
