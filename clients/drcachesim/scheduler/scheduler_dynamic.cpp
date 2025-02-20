@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -596,15 +596,9 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::process_marker(
     case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START:
         outputs_[output].in_context_switch_code = true;
         break;
-    case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
-        outputs_[output].in_syscall_code = true;
-        break;
     case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END:
         // We have to delay until the next record.
         outputs_[output].hit_switch_code_end = true;
-        break;
-    case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
-        outputs_[output].in_syscall_code = false;
         break;
     case TRACE_MARKER_TYPE_TIMESTAMP:
         // Syscall sequences are not expected to have a timestamp.
