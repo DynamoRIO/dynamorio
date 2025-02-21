@@ -3710,7 +3710,7 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist, bool s2ro, uint flag
 #endif
         PRE(ilist, instr,
             INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_XCX),
-                                 OPND_CREATE_INTPTR(end_pc - (start_pc + 1))));
+                                 OPND_CREATE_INTPTR(end_pc - start_pc - 1)));
         /* i#2155: In the case where the direction flag is set, xsi will be lesser
          * than start_pc after cmps, and the jump branch will not be taken.
          */
@@ -3933,8 +3933,8 @@ set_selfmod_sandbox_offsets(dcontext_t *dcontext)
                 sandbox_top_of_bb(dcontext, &ilist, selfmod_s2ro[i], selfmod_eflags[j],
                                   /* we must have a >1-byte region to get
                                    * both patch points */
-                                  app_start, app_start + 2, false, &patch, &start_pc,
-                                  &end_pc);
+                                  app_start, (app_pc)((ptr_uint_t)app_start + 2), false,
+                                  &patch, &start_pc, &end_pc);
                 /* The exit cti's may not reachably encode (normally
                  * they'd be mangled away) so we munge them first
                  */
