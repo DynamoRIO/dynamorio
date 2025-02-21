@@ -4020,7 +4020,7 @@ if (BUILD_CLIENTS)
         "-infile ${small_trace_file} -tool reuse_distance -reuse_distance_histogram" "")
 
       # The schedule_stats tool triggers the scheduler, to which we add the
-      # noise_generator. We test with a single-thread trace, plus the noise_generator
+      # noise_generator. We test with a single-thread trace plus the noise_generator
       # for a total of 2 threads, which we check for in the tool's output.
       torunonly_simtool(schedule_stats_noise_generator ${ci_shared_app}
           "-infile ${small_trace_file} -tool schedule_stats -enable_noise_generator -noise_generator_num_records 10000" "")

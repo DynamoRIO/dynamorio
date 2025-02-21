@@ -157,6 +157,10 @@ Further non-compatibility-affecting changes include:
  - Allow v2p.textproto file in a trace directory. This file is present in public traces.
  - Allow v2p.textproto file to have one missing virtual_address field, which indicates
    virtual_address == 0x0. Necessary in case a trace accesses virtual address 0x0.
+ - Added #dynamorio::drmemtrace::noise_generator_t scaffolding as a
+   #dynamorio::drmemtrace::reader_t to produce synthetic trace records.
+ - Added -enable_noise_generator and -noise_generator_num_records as flags and scheduler
+   options.
 
 **************************************************
 <hr>

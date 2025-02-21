@@ -648,6 +648,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::print_configuration()
            options_.exit_if_fraction_inputs_left);
     VPRINT(this, 1, "  %-25s : %d\n", "enable_noise_generator",
            options_.enable_noise_generator);
+    VPRINT(this, 1, "  %-25s : %" PRIu64 "\n", "noise_generator_num_records",
+           options_.noise_generator_num_records);
 }
 
 template <typename RecordType, typename ReaderType>
