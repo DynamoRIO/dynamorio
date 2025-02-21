@@ -62,6 +62,7 @@
 #include "mutex_dbg_owned.h"
 #include "reader.h"
 #include "record_file_reader.h"
+#include "noise_generator.h"
 #include "trace_entry.h"
 #ifdef HAS_LZ4
 #    include "lz4_file_reader.h"
@@ -116,6 +117,13 @@ replay_file_checker_t::check(archive_istream_t *infile)
 /****************************************************************
  * Specializations for scheduler_tmpl_impl_t<reader_t>, aka scheduler_impl_t.
  */
+
+template <>
+std::unique_ptr<reader_t>
+scheduler_impl_tmpl_t<memref_t, reader_t>::get_noise_generator(uint64_t num_records)
+{
+    return std::unique_ptr<noise_generator_t>(new noise_generator_t(num_records));
+}
 
 template <>
 std::unique_ptr<reader_t>
@@ -352,6 +360,15 @@ scheduler_impl_tmpl_t<memref_t, reader_t>::insert_switch_tid_pid(input_info_t &i
  * Specializations for scheduler_impl_tmpl_t<record_reader_t>, aka
  * record_scheduler_impl_t.
  */
+
+template <>
+std::unique_ptr<dynamorio::drmemtrace::record_reader_t>
+scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::get_noise_generator(
+    uint64_t num_records)
+{
+    error_string_ = "Noise generator is not suppported for record_reader_t";
+    return std::unique_ptr<dynamorio::drmemtrace::record_reader_t>();
+}
 
 template <>
 std::unique_ptr<dynamorio::drmemtrace::record_reader_t>
@@ -629,6 +646,10 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::print_configuration()
            options_.honor_infinite_timeouts);
     VPRINT(this, 1, "  %-25s : %f\n", "exit_if_fraction_inputs_left",
            options_.exit_if_fraction_inputs_left);
+    VPRINT(this, 1, "  %-25s : %d\n", "enable_noise_generator",
+           options_.enable_noise_generator);
+    VPRINT(this, 1, "  %-25s : %" PRIu64 "\n", "noise_generator_num_records",
+           options_.noise_generator_num_records);
 }
 
 template <typename RecordType, typename ReaderType>
@@ -705,6 +726,18 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
 {
     options_ = std::move(options);
     verbosity_ = options_.verbosity;
+
+    // Add noise generator reader to workload_inputs.
+    if (options_.enable_noise_generator) {
+        auto noise_generator = get_noise_generator(options_.noise_generator_num_records);
+        auto noise_generator_end = get_noise_generator(0);
+        std::vector<typename sched_type_t::input_reader_t> readers;
+        //  Use a sentinel for the tid so the scheduler will use the memref record tid.
+        readers.emplace_back(std::move(noise_generator), std::move(noise_generator_end),
+                             /* tid = */ INVALID_THREAD_ID);
+        workload_inputs.emplace_back(std::move(readers));
+    }
+
     // workload_inputs is not const so we can std::move readers out of it.
     for (int workload_idx = 0; workload_idx < static_cast<int>(workload_inputs.size());
          ++workload_idx) {
@@ -1514,6 +1547,11 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::get_initial_input_content(
     // output stream(s).
     for (size_t i = 0; i < inputs_.size(); ++i) {
         input_info_t &input = inputs_[i];
+        // If the input is a noise generator, we don't want to read ahead to find
+        // timestamp records, since we don't have any.
+        if (dynamic_cast<noise_generator_t *>(input.reader.get()) != nullptr)
+            continue;
+
         std::lock_guard<mutex_dbg_owned> lock(*input.lock);
 
         // If the input jumps to the middle immediately, do that now so we'll have

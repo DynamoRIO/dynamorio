@@ -279,6 +279,7 @@ set(drcachesim_srcs
   scheduler/scheduler_replay.cpp
   scheduler/scheduler_fixed.cpp
   scheduler/speculator.cpp
+  scheduler/noise_generator.cpp
   analyzer.cpp
   analyzer_multi.cpp
   ${client_and_sim_srcs}
@@ -346,6 +347,7 @@ add_exported_library(drmemtrace_analyzer STATIC
   scheduler/scheduler_replay.cpp
   scheduler/scheduler_fixed.cpp
   scheduler/speculator.cpp
+  scheduler/noise_generator.cpp
   common/trace_entry.cpp
   reader/reader.cpp
   reader/config_reader.cpp
