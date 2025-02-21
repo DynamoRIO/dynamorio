@@ -90,6 +90,8 @@ noise_generator_t::read_next_entry()
         return &entry_;
     }
 
+    // XXX i#7216: this is a temporary trace record that we use as a placeholder until the
+    // logic to generate noise records is in place.
     entry_ = { TRACE_TYPE_READ, 4, { 0xdeadbeef } };
     if (num_records_to_generate_ == 1) {
         entry_ = { TRACE_TYPE_THREAD_EXIT,

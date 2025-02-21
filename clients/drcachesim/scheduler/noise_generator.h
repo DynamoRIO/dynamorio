@@ -61,6 +61,9 @@ private:
     trace_entry_t entry_ = {};
     bool marker_pid_generated_ = false;
     bool marker_tid_generated_ = false;
+    // This counter does not count TRACE_TYPE_THREAD or TRACE_TYPE_PID.
+    // The idea is that when we want to generate at least 1 record, tid and pid have to be
+    // there as well, otherwise the scheduler will report an error.
     uint64_t num_records_to_generate_ = 0;
 };
 

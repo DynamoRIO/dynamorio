@@ -6692,11 +6692,15 @@ test_options_match()
     test.check_options();
 }
 
-// A mock noise generator that only generates TRACE_TYPE_READ records of address
-// 0xdeadbeef.
+// A mock noise generator that only generates TRACE_TYPE_READ records with
+// address 0xdeadbeef.
 class mock_noise_generator_t : public noise_generator_t {
 public:
     mock_noise_generator_t() {};
+
+    mock_noise_generator_t(uint64_t num_records_to_generate, addr_t addr_to_generate)
+        : num_records_to_generate_(num_records_to_generate)
+        , addr_to_generate_(addr_to_generate) {};
 
 protected:
     trace_entry_t *
@@ -6724,7 +6728,7 @@ protected:
             return &entry_;
         }
 
-        entry_ = { TRACE_TYPE_READ, 4, { 0xdeadbeef } };
+        entry_ = { TRACE_TYPE_READ, 4, { addr_to_generate_ } };
         if (num_records_to_generate_ == 1) {
             entry_ = { TRACE_TYPE_THREAD_EXIT,
                        sizeof(int),
@@ -6739,13 +6743,15 @@ private:
     trace_entry_t entry_ = {};
     bool marker_pid_generated_ = false;
     bool marker_tid_generated_ = false;
-    uint64_t num_records_to_generate_ = 10;
+    uint64_t num_records_to_generate_ = 0;
+    addr_t addr_to_generate_ = 0;
 };
 
 static void
 test_noise_generator()
 {
     std::cerr << "\n----------------\nTesting noise generator\n";
+    static constexpr addr_t noise_generator_addr_to_generate = 0xdeadbeef;
     static constexpr memref_tid_t TID_A = 42;
     static constexpr memref_tid_t TID_B = 99;
     std::vector<trace_entry_t> refs_A = {
@@ -6782,7 +6788,8 @@ test_noise_generator()
     readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
                          std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
     readers.emplace_back(
-        std::unique_ptr<mock_noise_generator_t>(new mock_noise_generator_t()),
+        std::unique_ptr<mock_noise_generator_t>(
+            new mock_noise_generator_t(10, noise_generator_addr_to_generate)),
         std::unique_ptr<mock_noise_generator_t>(new mock_noise_generator_t()),
         INVALID_THREAD_ID);
     scheduler_t scheduler;
@@ -6800,8 +6807,8 @@ test_noise_generator()
         // There is just one output so we expect to always see 0 as the ordinal.
         assert(stream->get_input_workload_ordinal() == 0);
         if (memref.data.type == TRACE_TYPE_READ) {
-            std::cerr << std::hex << memref.data.addr << std::dec << "\n";
-            assert(memref.data.addr == static_cast<addr_t>(0xdeadbeef));
+            assert(memref.data.addr ==
+                   static_cast<addr_t>(noise_generator_addr_to_generate));
         }
     }
 }
