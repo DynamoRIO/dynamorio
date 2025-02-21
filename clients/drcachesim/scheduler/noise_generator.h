@@ -39,6 +39,10 @@
 namespace dynamorio {
 namespace drmemtrace {
 
+/**
+ * Generates synthetic #dynamorio::drmemtrace::memref_t trace entries in a single thread
+ * and presents them via an iterator interface to the scheduler.
+ */
 class noise_generator_t : public reader_t {
 public:
     noise_generator_t();
