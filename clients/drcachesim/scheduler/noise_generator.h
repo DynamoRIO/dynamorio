@@ -41,6 +41,10 @@ namespace drmemtrace {
 
 class noise_generator_t : public reader_t {
 public:
+    noise_generator_t();
+
+    noise_generator_t(uint64_t num_records_to_generate);
+
     virtual ~noise_generator_t();
 
     bool
@@ -50,14 +54,14 @@ public:
     get_stream_name() const override;
 
 protected:
-    trace_entry_t *
+    virtual trace_entry_t *
     read_next_entry() override;
 
 private:
     trace_entry_t entry_ = {};
     bool marker_pid_generated_ = false;
     bool marker_tid_generated_ = false;
-    uint64_t num_records_to_generate_ = 10000;
+    uint64_t num_records_to_generate_ = 0;
 };
 
 } // namespace drmemtrace

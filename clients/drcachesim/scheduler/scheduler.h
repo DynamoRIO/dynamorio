@@ -834,6 +834,10 @@ public:
          * scheduled alongside records of one or more real traces.
          */
         bool enable_noise_generator = false;
+        /**
+         * Number of synthetic trace records produced by the noise generator.
+         */
+        uint64_t noise_generator_num_records = 0;
         // When adding new options, also add to print_configuration().
     };
 

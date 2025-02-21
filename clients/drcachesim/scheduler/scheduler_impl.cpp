@@ -120,9 +120,9 @@ replay_file_checker_t::check(archive_istream_t *infile)
 
 template <>
 std::unique_ptr<reader_t>
-scheduler_impl_tmpl_t<memref_t, reader_t>::get_noise_generator()
+scheduler_impl_tmpl_t<memref_t, reader_t>::get_noise_generator(uint64_t num_records)
 {
-    return std::unique_ptr<noise_generator_t>(new noise_generator_t());
+    return std::unique_ptr<noise_generator_t>(new noise_generator_t(num_records));
 }
 
 template <>
@@ -363,7 +363,8 @@ scheduler_impl_tmpl_t<memref_t, reader_t>::insert_switch_tid_pid(input_info_t &i
 
 template <>
 std::unique_ptr<dynamorio::drmemtrace::record_reader_t>
-scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::get_noise_generator()
+scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::get_noise_generator(
+    uint64_t num_records)
 {
     error_string_ = "Noise generator is not suppported for record_reader_t";
     return std::unique_ptr<dynamorio::drmemtrace::record_reader_t>();
@@ -726,14 +727,13 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
 
     // Add noise generator reader to workload_inputs.
     if (options_.enable_noise_generator) {
-        auto noise_generator = get_noise_generator();
-        auto noise_generator_end = get_noise_generator();
+        auto noise_generator = get_noise_generator(options_.noise_generator_num_records);
+        auto noise_generator_end = get_noise_generator(0);
         std::vector<typename sched_type_t::input_reader_t> readers;
-        std::vector<typename sched_type_t::range_t> regions;
-        // Use a sentinel for the tid so the scheduler will use the memref record tid.
+        //  Use a sentinel for the tid so the scheduler will use the memref record tid.
         readers.emplace_back(std::move(noise_generator), std::move(noise_generator_end),
                              /* tid = */ INVALID_THREAD_ID);
-        workload_inputs.emplace_back(std::move(readers), regions);
+        workload_inputs.emplace_back(std::move(readers));
     }
 
     // workload_inputs is not const so we can std::move readers out of it.

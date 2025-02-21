@@ -52,6 +52,7 @@
 #include "mock_reader.h"
 #include "memref.h"
 #include "trace_entry.h"
+#include "noise_generator.h"
 #ifdef HAS_ZIP
 #    include "zipfile_istream.h"
 #    include "zipfile_ostream.h"
@@ -6691,6 +6692,120 @@ test_options_match()
     test.check_options();
 }
 
+// A mock noise generator that only generates TRACE_TYPE_READ records of address
+// 0xdeadbeef.
+class mock_noise_generator_t : public noise_generator_t {
+public:
+    mock_noise_generator_t() {};
+
+protected:
+    trace_entry_t *
+    read_next_entry() override
+    {
+        if (num_records_to_generate_ == 0) {
+            at_eof_ = true;
+            return nullptr;
+        }
+
+        // Do not change the order for generating TRACE_TYPE_THREAD and TRACE_TYPE_PID.
+        // The scheduler expects a tid first and then a pid.
+        if (!marker_tid_generated_) {
+            entry_ = { TRACE_TYPE_THREAD,
+                       sizeof(int),
+                       { static_cast<addr_t>(IDLE_THREAD_ID) } };
+            marker_tid_generated_ = true;
+            return &entry_;
+        }
+        if (!marker_pid_generated_) {
+            entry_ = { TRACE_TYPE_PID,
+                       sizeof(int),
+                       { static_cast<addr_t>(INVALID_CPU_MARKER_VALUE) } };
+            marker_pid_generated_ = true;
+            return &entry_;
+        }
+
+        entry_ = { TRACE_TYPE_READ, 4, { 0xdeadbeef } };
+        if (num_records_to_generate_ == 1) {
+            entry_ = { TRACE_TYPE_THREAD_EXIT,
+                       sizeof(int),
+                       { static_cast<addr_t>(IDLE_THREAD_ID) } };
+        }
+        --num_records_to_generate_;
+
+        return &entry_;
+    }
+
+private:
+    trace_entry_t entry_ = {};
+    bool marker_pid_generated_ = false;
+    bool marker_tid_generated_ = false;
+    uint64_t num_records_to_generate_ = 10;
+};
+
+static void
+test_noise_generator()
+{
+    std::cerr << "\n----------------\nTesting noise generator\n";
+    static constexpr memref_tid_t TID_A = 42;
+    static constexpr memref_tid_t TID_B = 99;
+    std::vector<trace_entry_t> refs_A = {
+        /* clang-format off */
+        make_thread(TID_A),
+        make_pid(1),
+        make_version(4),
+        make_timestamp(10),
+        make_instr(10),
+        make_timestamp(30),
+        make_instr(30),
+        make_timestamp(50),
+        make_instr(50),
+        make_exit(TID_A),
+        /* clang-format on */
+    };
+    std::vector<trace_entry_t> refs_B = {
+        /* clang-format off */
+        make_thread(TID_B),
+        make_pid(1),
+        make_version(4),
+        make_timestamp(20),
+        make_instr(20),
+        make_timestamp(40),
+        make_instr(40),
+        make_timestamp(60),
+        make_instr(60),
+        make_exit(TID_B),
+        /* clang-format on */
+    };
+    std::vector<scheduler_t::input_reader_t> readers;
+    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
+                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
+    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
+                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
+    readers.emplace_back(
+        std::unique_ptr<mock_noise_generator_t>(new mock_noise_generator_t()),
+        std::unique_ptr<mock_noise_generator_t>(new mock_noise_generator_t()),
+        INVALID_THREAD_ID);
+    scheduler_t scheduler;
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    sched_inputs.emplace_back(std::move(readers));
+    if (scheduler.init(sched_inputs, 1,
+                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/4)) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    auto *stream = scheduler.get_stream(0);
+    memref_t memref;
+    for (scheduler_t::stream_status_t status = stream->next_record(memref);
+         status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
+        assert(status == scheduler_t::STATUS_OK);
+        // There is just one output so we expect to always see 0 as the ordinal.
+        assert(stream->get_input_workload_ordinal() == 0);
+        if (memref.data.type == TRACE_TYPE_READ) {
+            std::cerr << std::hex << memref.data.addr << std::dec << "\n";
+            assert(memref.data.addr == static_cast<addr_t>(0xdeadbeef));
+        }
+    }
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -6738,6 +6853,7 @@ test_main(int argc, const char *argv[])
     test_exit_early();
     test_marker_updates();
     test_options_match();
+    test_noise_generator();
 
     dr_standalone_exit();
     return 0;

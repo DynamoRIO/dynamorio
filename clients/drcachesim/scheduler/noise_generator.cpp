@@ -38,6 +38,15 @@
 namespace dynamorio {
 namespace drmemtrace {
 
+noise_generator_t::noise_generator_t()
+{
+}
+
+noise_generator_t::noise_generator_t(uint64_t num_records_to_generate)
+    : num_records_to_generate_(num_records_to_generate)
+{
+}
+
 noise_generator_t::~noise_generator_t()
 {
 }
@@ -64,8 +73,6 @@ noise_generator_t::read_next_entry()
         return nullptr;
     }
 
-    entry_ = { TRACE_TYPE_READ, 4, { 0xdeadbeef } };
-
     // Do not change the order for generating TRACE_TYPE_THREAD and TRACE_TYPE_PID.
     // The scheduler expects a tid first and then a pid.
     if (!marker_tid_generated_) {
@@ -82,12 +89,15 @@ noise_generator_t::read_next_entry()
         marker_pid_generated_ = true;
         return &entry_;
     }
+
+    entry_ = { TRACE_TYPE_READ, 4, { 0xdeadbeef } };
     if (num_records_to_generate_ == 1) {
         entry_ = { TRACE_TYPE_THREAD_EXIT,
                    sizeof(int),
                    { static_cast<addr_t>(IDLE_THREAD_ID) } };
     }
     --num_records_to_generate_;
+
     return &entry_;
 }
 
