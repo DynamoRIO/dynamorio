@@ -65,6 +65,15 @@ noise_generator_t::get_stream_name() const
     return "noise_generator";
 }
 
+trace_entry_t
+noise_generator_t::generate_trace_entry()
+{
+    // TODO i#7216: this is a temporary trace record that we use as a placeholder until
+    // the logic to generate noise records is in place.
+    trace_entry_t generated_entry = { TRACE_TYPE_READ, 4, { 0xdeadbeef } };
+    return generated_entry;
+}
+
 trace_entry_t *
 noise_generator_t::read_next_entry()
 {
@@ -90,9 +99,8 @@ noise_generator_t::read_next_entry()
         return &entry_;
     }
 
-    // XXX i#7216: this is a temporary trace record that we use as a placeholder until the
-    // logic to generate noise records is in place.
-    entry_ = { TRACE_TYPE_READ, 4, { 0xdeadbeef } };
+    entry_ = generate_trace_entry();
+
     if (num_records_to_generate_ == 1) {
         entry_ = { TRACE_TYPE_THREAD_EXIT,
                    sizeof(int),
