@@ -667,9 +667,13 @@ protected:
     std::unique_ptr<ReaderType>
     get_default_reader();
 
-    // Creates a noise generator as a reader.
+    // Creates a noise generator as a reader_t iterator.
     std::unique_ptr<ReaderType>
     get_noise_generator(uint64_t num_records);
+
+    // Creates a noise generator end-iterator.
+    std::unique_ptr<ReaderType>
+    get_noise_generator_end();
 
     // Creates a reader for the specific file type at (non-directory) 'path'.
     std::unique_ptr<ReaderType>

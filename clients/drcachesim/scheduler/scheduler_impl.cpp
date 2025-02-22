@@ -127,6 +127,13 @@ scheduler_impl_tmpl_t<memref_t, reader_t>::get_noise_generator(uint64_t num_reco
 
 template <>
 std::unique_ptr<reader_t>
+scheduler_impl_tmpl_t<memref_t, reader_t>::get_noise_generator_end()
+{
+    return std::unique_ptr<noise_generator_t>(new noise_generator_t());
+}
+
+template <>
+std::unique_ptr<reader_t>
 scheduler_impl_tmpl_t<memref_t, reader_t>::get_default_reader()
 {
     return std::unique_ptr<default_file_reader_t>(new default_file_reader_t());
@@ -365,6 +372,14 @@ template <>
 std::unique_ptr<dynamorio::drmemtrace::record_reader_t>
 scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::get_noise_generator(
     uint64_t num_records)
+{
+    error_string_ = "Noise generator is not suppported for record_reader_t";
+    return std::unique_ptr<dynamorio::drmemtrace::record_reader_t>();
+}
+
+template <>
+std::unique_ptr<dynamorio::drmemtrace::record_reader_t>
+scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::get_noise_generator_end()
 {
     error_string_ = "Noise generator is not suppported for record_reader_t";
     return std::unique_ptr<dynamorio::drmemtrace::record_reader_t>();
@@ -730,7 +745,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
     // Add noise generator reader to workload_inputs.
     if (options_.enable_noise_generator) {
         auto noise_generator = get_noise_generator(options_.noise_generator_num_records);
-        auto noise_generator_end = get_noise_generator(0);
+        auto noise_generator_end = get_noise_generator_end();
         std::vector<typename sched_type_t::input_reader_t> readers;
         //  Use a sentinel for the tid so the scheduler will use the memref record tid.
         readers.emplace_back(std::move(noise_generator), std::move(noise_generator_end),
