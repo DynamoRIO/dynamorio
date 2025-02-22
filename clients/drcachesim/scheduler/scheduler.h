@@ -829,6 +829,15 @@ public:
          * when raising this value on uneven inputs.
          */
         double exit_if_fraction_inputs_left = 0.1;
+        /**
+         * Enables the noise generator to create synthetic trace records that will be
+         * scheduled alongside records of one or more real traces.
+         */
+        bool enable_noise_generator = false;
+        /**
+         * Number of synthetic trace records produced by the noise generator.
+         */
+        uint64_t noise_generator_num_records = 0;
         // When adding new options, also add to print_configuration().
     };
 
