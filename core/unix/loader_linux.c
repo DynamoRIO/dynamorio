@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -133,9 +133,11 @@ static size_t client_tls_size = 2 * 4096;
  * The "lea -0x900(%rax,%rbx,1),%rbx" instruction computes the thread pointer to
  * install.  The allocator used by the loader has no headers, so we don't have a
  * good way to guess how big this allocation was.  Instead we use this estimate.
+ * For Ubuntu22 glibc 2.38, the size is 0x9c0; we use 0x1000 to cover future
+ * expansion.
  */
 /* On A32, the pthread is put before tcbhead instead tcbhead being part of pthread */
-static size_t tcb_size = IF_X64_ELSE(0x900, 0x490);
+static size_t tcb_size = IF_X64_ELSE(0x1000, 0x490);
 
 /* thread contol block header type from
  * - sysdeps/x86_64/nptl/tls.h
