@@ -74,7 +74,7 @@ caching_device_t::~caching_device_t()
 }
 
 bool
-caching_device_t::init(int associativity, long int block_size, int num_blocks,
+caching_device_t::init(int associativity, int64_t block_size, int num_blocks,
                        caching_device_t *parent, caching_device_stats_t *stats,
                        prefetcher_t *prefetcher,
                        cache_inclusion_policy_t inclusion_policy, bool coherent_cache,

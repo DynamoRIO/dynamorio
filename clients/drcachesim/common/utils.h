@@ -147,7 +147,7 @@ namespace drmemtrace {
 #endif
 
 static inline int
-compute_log2(long int value)
+compute_log2(int64_t value)
 {
     int i;
     for (i = 0; i < 63; i++) {

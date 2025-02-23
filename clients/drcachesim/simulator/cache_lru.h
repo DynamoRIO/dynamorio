@@ -53,7 +53,7 @@ public:
     {
     }
     bool
-    init(int associativity, long int block_size, int total_size, caching_device_t *parent,
+    init(int associativity, int64_t block_size, int total_size, caching_device_t *parent,
          caching_device_stats_t *stats, prefetcher_t *prefetcher = nullptr,
          cache_inclusion_policy_t inclusion_policy =
              cache_inclusion_policy_t::NON_INC_NON_EXC,

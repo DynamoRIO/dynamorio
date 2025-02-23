@@ -52,7 +52,7 @@ namespace drmemtrace {
 class snoop_filter_t;
 
 bool
-cache_t::init(int associativity, long int line_size, int total_size,
+cache_t::init(int associativity, int64_t line_size, int total_size,
               caching_device_t *parent, caching_device_stats_t *stats,
               prefetcher_t *prefetcher, cache_inclusion_policy_t inclusion_policy,
               bool coherent_cache, int id, snoop_filter_t *snoop_filter,

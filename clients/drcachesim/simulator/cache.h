@@ -61,7 +61,7 @@ public:
     // The id is an index into the snoop filter's array of caches for coherent caches.
     // If this is a coherent cache, id should be in the range [0,num_snooped_caches).
     bool
-    init(int associativity, long int line_size, int total_size, caching_device_t *parent,
+    init(int associativity, int64_t line_size, int total_size, caching_device_t *parent,
          caching_device_stats_t *stats, prefetcher_t *prefetcher = nullptr,
          cache_inclusion_policy_t inclusion_policy =
              cache_inclusion_policy_t::NON_INC_NON_EXC,
